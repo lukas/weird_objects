@@ -39,6 +39,8 @@ from all_polyhedra import (
     EDGE_RADIUS,
     PANEL_SLOT_DEPTH,
     NODE_DIAMETER_MM,
+    PLATONIC_ORDER,
+    ARCHIMEDEAN_ORDER,
 )
 
 # Final chandelier scale factor: matches the value reported by
@@ -53,6 +55,27 @@ SCALE_FACTOR = 3.598
 # plus a small perimeter slack for thermal expansion.
 _PANEL_INSET_PRE = (EDGE_RADIUS - PANEL_SLOT_DEPTH) + 0.14   # ≈ 0.55 + 0.14 mm pre
 PANEL_INSET_POST = _PANEL_INSET_PRE * SCALE_FACTOR           # ≈ 2.43 mm post
+
+
+def _safe_filename(name: str) -> str:
+    return (name.lower()
+                .replace(" ", "_")
+                .replace("/", "_")
+                .replace("(", "")
+                .replace(")", ""))
+
+
+def _split_index_for_filename(solid) -> int:
+    if solid.category == "platonic":
+        return PLATONIC_ORDER.index(solid.name) + 1
+    if solid.category == "archimedean":
+        return ARCHIMEDEAN_ORDER.index(solid.name) + 1
+    if solid.category == "catalan":
+        for i, arch_name in enumerate(ARCHIMEDEAN_ORDER):
+            cat = next((s for s in P.CATALAN if s.parent == arch_name), None)
+            if cat is not None and cat.name == solid.name:
+                return i + 1
+    return 0
 
 
 def _orient_world_verts(mesh):
@@ -207,34 +230,117 @@ def _polygon_inset(coords_2d, inset):
     return np.asarray(out)
 
 
+def _panel_pack_variants(panel):
+    """Return normalized 0° and 90° coordinate variants for one panel."""
+    coords = np.asarray(panel["coords_2d"], dtype=float)
+    variants = []
+    for candidate in (coords, np.column_stack([-coords[:, 1], coords[:, 0]])):
+        min_xy = candidate.min(axis=0)
+        normalized = candidate - min_xy
+        max_xy = normalized.max(axis=0)
+        variants.append((normalized, float(max_xy[0]), float(max_xy[1])))
+    return variants
+
+
+def _pack_shelf(items, max_width, spacing):
+    """Pack normalized panel variants into shelves for one candidate width."""
+    placed = []
+    x_cursor = 0.0
+    y_cursor = 0.0
+    row_height = 0.0
+    used_width = 0.0
+
+    for panel, variants in items:
+        fitting = []
+        for coords, width, height in variants:
+            if x_cursor == 0.0 or x_cursor + width <= max_width:
+                fitting.append((max(row_height, height), width, height, coords))
+
+        if not fitting:
+            x_cursor = 0.0
+            y_cursor -= row_height + spacing
+            row_height = 0.0
+            fitting = [(height, width, height, coords)
+                       for coords, width, height in variants
+                       if width <= max_width]
+
+        if not fitting:
+            return None
+
+        _, width, height, coords = min(fitting, key=lambda v: (v[0], v[1]))
+        packed_coords = coords + np.array([x_cursor, y_cursor])
+        placed.append((panel, packed_coords))
+
+        used_width = max(used_width, x_cursor + width)
+        x_cursor += width + spacing
+        row_height = max(row_height, height)
+
+    all_coords = np.vstack([coords for _, coords in placed])
+    min_xy = all_coords.min(axis=0)
+    max_xy = all_coords.max(axis=0)
+    used_width, used_height = max_xy - min_xy
+    return placed, used_width, used_height
+
+
+def _packed_panel_positions(panels, *, spacing=3.0):
+    """Return ``(panel, packed_coords)`` using the best compact shelf layout.
+
+    The panel coordinates are local to each face, so first normalize every
+    polygon to its bounding box, then try several sheet widths and 90-degree
+    rotations.  This is not full nesting, but it keeps quote bounding boxes
+    realistic for sheet-cutting services.
+    """
+    items = [(panel, _panel_pack_variants(panel)) for panel in panels]
+    items.sort(key=lambda item: max(v[1] * v[2] for v in item[1]),
+               reverse=True)
+
+    largest_width = max(max(v[1] for v in variants) for _, variants in items)
+    total_area = sum(max(v[1] * v[2] for v in variants) for _, variants in items)
+    target = max(largest_width, np.sqrt(total_area) * 1.35)
+    max_candidate_width = max(600.0, target * 1.6, largest_width)
+    candidate_widths = np.arange(largest_width, max_candidate_width + 10.0, 10.0)
+
+    best = None
+    for width in candidate_widths:
+        result = _pack_shelf(items, width, spacing)
+        if result is None:
+            continue
+        placed, used_width, used_height = result
+        aspect = max(used_width / max(used_height, 1e-9),
+                     used_height / max(used_width, 1e-9))
+        aspect_penalty = 1.0 + max(0.0, aspect - 2.0) * 0.35
+        score = used_width * used_height * aspect_penalty
+        if best is None or score < best[0]:
+            best = (score, placed)
+
+    return best[1]
+
+
 def _write_dxf(path, panels):
     """Write a minimal DXF with one LWPOLYLINE per panel.  Coordinates
-    are post-scale millimetres.  Panels are tiled in a loose grid so a
-    laser-cut shop can pick them up directly."""
-    # Tile panels into a rough grid: 200 mm pitch
-    pitch = 200.0
-    cols = 8
-
-    lines = ["0", "SECTION", "2", "ENTITIES"]
-    for idx, panel in enumerate(panels):
-        col = idx % cols
-        row = idx // cols
-        dx = col * pitch
-        dy = -row * pitch  # negative so panels go downward in DXF
-        coords = panel["coords_2d"]
+    are post-scale millimetres.  Panels are tightly shelf-packed so a
+    laser-cut shop sees a realistic sheet-cutting envelope."""
+    lines = [
+        "0", "SECTION", "2", "HEADER",
+        "9", "$INSUNITS", "70", "4",       # 4 = millimetres
+        "9", "$MEASUREMENT", "70", "1",    # 1 = metric
+        "0", "ENDSEC",
+        "0", "SECTION", "2", "ENTITIES",
+    ]
+    for panel, coords in _packed_panel_positions(panels):
         lines += ["0", "LWPOLYLINE",
                   "8", f"PANEL_{panel['solid']}_{panel['face_idx']}",
                   "90", str(len(coords)),
                   "70", "1"]  # 1 = closed polyline
         for x, y in coords:
-            lines += ["10", f"{x + dx:.4f}", "20", f"{y + dy:.4f}"]
+            lines += ["10", f"{x:.4f}", "20", f"{y:.4f}"]
         # Add a panel ID text at the polygon centroid
         cx = float(np.mean([c[0] for c in coords]))
         cy = float(np.mean([c[1] for c in coords]))
         lines += ["0", "TEXT",
                   "8", f"PANEL_LABEL",
-                  "10", f"{cx + dx:.4f}",
-                  "20", f"{cy + dy:.4f}",
+                  "10", f"{cx:.4f}",
+                  "20", f"{cy:.4f}",
                   "40", "5",
                   "1", panel["label"]]
     lines += ["0", "ENDSEC", "0", "EOF"]
@@ -247,13 +353,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", default=".",
                         help="Directory to write panels.dxf and panels.json into.")
+    parser.add_argument("--per-solid", action="store_true",
+                        help="also write one tightly packed DXF per polyhedron")
     args = parser.parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
 
     panels = []
+    panels_by_solid = []
     for solid in P.ALL_SOLIDS:
         mesh = P.generate_mesh(solid)
         world_verts = _orient_world_verts(mesh)
+        solid_panels = []
 
         # Enumerate faces and find the lowest-centroid one (open access)
         all_face_data = list(_enumerate_faces(mesh, world_verts))
@@ -273,13 +383,16 @@ def main():
             inset_2d_post = inset_2d * SCALE_FACTOR
 
             label = f"{solid.name[:4].upper()}-{fi:02d}"
-            panels.append({
+            panel = {
                 "solid": solid.name.replace(" ", "_"),
                 "face_idx": fi,
                 "label": label,
                 "n_sides": int(len(inset_2d_post)),
                 "coords_2d": inset_2d_post.tolist(),
-            })
+            }
+            panels.append(panel)
+            solid_panels.append(panel)
+        panels_by_solid.append((solid, solid_panels))
 
     json_path = os.path.join(args.out_dir, "panels.json")
     dxf_path = os.path.join(args.out_dir, "panels.dxf")
@@ -292,6 +405,12 @@ def main():
         }, f, indent=2)
     _write_dxf(dxf_path, panels)
 
+    if args.per_solid:
+        for solid, solid_panels in panels_by_solid:
+            idx = _split_index_for_filename(solid)
+            fname = f"{solid.category}_{idx:02d}_{_safe_filename(solid.name)}.dxf"
+            _write_dxf(os.path.join(args.out_dir, fname), solid_panels)
+
     sides_hist = {}
     for p in panels:
         sides_hist[p["n_sides"]] = sides_hist.get(p["n_sides"], 0) + 1
@@ -299,6 +418,8 @@ def main():
     for n in sorted(sides_hist):
         print(f"  {sides_hist[n]:5d} × {n}-gon")
     print(f"Output: {dxf_path}, {json_path}")
+    if args.per_solid:
+        print(f"Per-polyhedron DXFs: {args.out_dir}/*.dxf")
 
 
 if __name__ == "__main__":
