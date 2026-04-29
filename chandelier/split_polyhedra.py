@@ -19,6 +19,7 @@ Usage
     python split_polyhedra.py --out-dir parts/    # alternative output dir
     python split_polyhedra.py --skip-pocket       # skip the heat-set pocket
                                                   # (drill it post-print instead)
+    python split_polyhedra.py --skip-fiber-hole   # skip the fiber pass-through
 
 Output filenames are prefixed by category so the 31 STLs sort cleanly
 in a slicer file browser:
@@ -44,6 +45,7 @@ import trimesh
 import polyhedra as P
 from all_polyhedra import (
     NODE_DIAMETER_MM,
+    NODE_RADIUS,
     TARGET_OUTER_DIAMETER_MM,
     ARCHIMEDEAN_RING_R,
     make_wire_solid,
@@ -64,6 +66,13 @@ from all_polyhedra import (
 # with --pocket-radius / --pocket-depth if you have different inserts.
 INSERT_HOLE_DIAMETER_MM = 4.2     # post-cast mm; for 5 mm OD inserts
 INSERT_HOLE_DEPTH_MM    = 5.5     # post-cast mm; goes through the node
+
+# Single loose fiber pass-through next to the suspension insert.  A 2.0 mm
+# printed hole is intentionally generous for common 1.0-1.5 mm PMMA end-glow
+# fiber without consuming too much of the ~10 mm top node.
+FIBER_HOLE_DIAMETER_MM = 2.0
+FIBER_HOLE_DEPTH_MM = 10.5
+FIBER_HOLE_OFFSET_MM = 3.25
 
 
 # ---------------------------------------------------------------------------
@@ -92,22 +101,25 @@ def _safe_filename(name: str) -> str:
                 .replace(")", ""))
 
 
-def _build_pocket(top_vertex_post, hole_diameter_mm, hole_depth_mm):
-    """Return a cylindrical cutter aligned along +Y, top end at the top
-    vertex, body extending down into the polyhedron node by
-    ``hole_depth_mm``.  Coordinates are post-cast mm."""
+def _build_top_node_hole(top_vertex_post, hole_diameter_mm, hole_depth_mm,
+                         radial_offset_mm=0.0):
+    """Return a cylindrical cutter aligned along +Y, entering through the
+    top surface of the top vertex node and extending down into the part.
+    Coordinates are post-cast mm."""
     overshoot = 1.0  # mm, ensures clean boolean past the node surface
     height = hole_depth_mm + overshoot
+    node_radius_post = NODE_RADIUS * SCALE_FACTOR
+    top_surface_y = top_vertex_post[1] + node_radius_post
     cyl = trimesh.creation.cylinder(
         radius=hole_diameter_mm / 2.0,
         height=height,
-        sections=24,
+        sections=48,
     )
     cyl.apply_transform(trimesh.transformations.rotation_matrix(
         np.pi / 2.0, [1.0, 0.0, 0.0]))
     cyl.apply_translation([
-        top_vertex_post[0],
-        top_vertex_post[1] - height / 2.0 + overshoot,
+        top_vertex_post[0] + radial_offset_mm,
+        top_surface_y + overshoot / 2.0 - hole_depth_mm / 2.0,
         top_vertex_post[2],
     ])
     return cyl
@@ -129,8 +141,10 @@ def _split_index_for_filename(category: str, name: str) -> int:
     return 0
 
 
-def split_one(solid, *, with_pocket: bool, hole_diameter_mm: float,
-              hole_depth_mm: float):
+def split_one(solid, *, with_pocket: bool, with_fiber_hole: bool,
+              hole_diameter_mm: float, hole_depth_mm: float,
+              fiber_hole_diameter_mm: float, fiber_hole_depth_mm: float,
+              fiber_hole_offset_mm: float):
     """Build one print-ready per-polyhedron mesh."""
     mesh, world_verts = make_wire_solid(solid, center=(0.0, 0.0, 0.0))
 
@@ -140,12 +154,27 @@ def split_one(solid, *, with_pocket: bool, hole_diameter_mm: float,
 
     if with_pocket:
         top_v = world_verts_post[int(np.argmax(world_verts_post[:, 1]))]
-        pocket = _build_pocket(top_v, hole_diameter_mm, hole_depth_mm)
+        pocket = _build_top_node_hole(top_v, hole_diameter_mm, hole_depth_mm)
         try:
             mesh = trimesh.boolean.difference([mesh, pocket], engine="manifold")
         except Exception as e:  # pragma: no cover — defensive fallback
             print(f"    pocket subtraction failed for {solid.name}: {e};"
                   " skipping pocket on this part")
+
+    if with_fiber_hole:
+        top_v = world_verts_post[int(np.argmax(world_verts_post[:, 1]))]
+        fiber_hole = _build_top_node_hole(
+            top_v,
+            fiber_hole_diameter_mm,
+            fiber_hole_depth_mm,
+            radial_offset_mm=fiber_hole_offset_mm,
+        )
+        try:
+            mesh = trimesh.boolean.difference([mesh, fiber_hole],
+                                              engine="manifold")
+        except Exception as e:  # pragma: no cover — defensive fallback
+            print(f"    fiber hole subtraction failed for {solid.name}: {e};"
+                  " skipping fiber hole on this part")
 
     # Rotate from chandelier (+Y up) to printer (+Z up).
     mesh.apply_transform(trimesh.transformations.rotation_matrix(
@@ -157,8 +186,10 @@ def split_one(solid, *, with_pocket: bool, hole_diameter_mm: float,
     return mesh
 
 
-def split_all(out_dir: str, *, with_pocket: bool,
-              hole_diameter_mm: float, hole_depth_mm: float):
+def split_all(out_dir: str, *, with_pocket: bool, with_fiber_hole: bool,
+              hole_diameter_mm: float, hole_depth_mm: float,
+              fiber_hole_diameter_mm: float, fiber_hole_depth_mm: float,
+              fiber_hole_offset_mm: float):
     os.makedirs(out_dir, exist_ok=True)
 
     print(f"Per-polyhedron STL split (scale {SCALE_FACTOR:.3f}x)")
@@ -168,6 +199,12 @@ def split_all(out_dir: str, *, with_pocket: bool,
               f"{hole_depth_mm:.1f} mm deep at top vertex")
     else:
         print("  Heat-set insert pocket: SKIPPED (drill post-print)")
+    if with_fiber_hole:
+        print(f"  Fiber pass-through: {fiber_hole_diameter_mm:.1f} mm Ø × "
+              f"{fiber_hole_depth_mm:.1f} mm deep, "
+              f"{fiber_hole_offset_mm:.1f} mm beside insert")
+    else:
+        print("  Fiber pass-through: SKIPPED")
     print(f"  Output dir: {out_dir}")
     print()
 
@@ -179,8 +216,12 @@ def split_all(out_dir: str, *, with_pocket: bool,
         out_path = os.path.join(out_dir, fname)
 
         mesh = split_one(solid, with_pocket=with_pocket,
+                         with_fiber_hole=with_fiber_hole,
                          hole_diameter_mm=hole_diameter_mm,
-                         hole_depth_mm=hole_depth_mm)
+                         hole_depth_mm=hole_depth_mm,
+                         fiber_hole_diameter_mm=fiber_hole_diameter_mm,
+                         fiber_hole_depth_mm=fiber_hole_depth_mm,
+                         fiber_hole_offset_mm=fiber_hole_offset_mm)
         mesh.export(out_path)
 
         ext = mesh.bounds[1] - mesh.bounds[0]
@@ -204,16 +245,34 @@ def main():
     ap.add_argument("--skip-pocket", action="store_true",
                     help="don't subtract the heat-set insert pocket "
                          "(drill it post-print instead)")
+    ap.add_argument("--skip-fiber-hole", action="store_true",
+                    help="don't subtract the top-node fiber pass-through")
     ap.add_argument("--pocket-diameter", type=float, default=INSERT_HOLE_DIAMETER_MM,
                     help=f"insert pocket Ø in mm (default: {INSERT_HOLE_DIAMETER_MM})")
     ap.add_argument("--pocket-depth", type=float, default=INSERT_HOLE_DEPTH_MM,
                     help=f"insert pocket depth in mm (default: {INSERT_HOLE_DEPTH_MM})")
+    ap.add_argument("--fiber-hole-diameter", type=float,
+                    default=FIBER_HOLE_DIAMETER_MM,
+                    help=f"fiber pass-through Ø in mm "
+                         f"(default: {FIBER_HOLE_DIAMETER_MM})")
+    ap.add_argument("--fiber-hole-depth", type=float,
+                    default=FIBER_HOLE_DEPTH_MM,
+                    help=f"fiber pass-through depth in mm "
+                         f"(default: {FIBER_HOLE_DEPTH_MM})")
+    ap.add_argument("--fiber-hole-offset", type=float,
+                    default=FIBER_HOLE_OFFSET_MM,
+                    help=f"fiber pass-through offset from insert centre in mm "
+                         f"(default: {FIBER_HOLE_OFFSET_MM})")
     args = ap.parse_args()
 
     split_all(args.out_dir,
               with_pocket=not args.skip_pocket,
+              with_fiber_hole=not args.skip_fiber_hole,
               hole_diameter_mm=args.pocket_diameter,
-              hole_depth_mm=args.pocket_depth)
+              hole_depth_mm=args.pocket_depth,
+              fiber_hole_diameter_mm=args.fiber_hole_diameter,
+              fiber_hole_depth_mm=args.fiber_hole_depth,
+              fiber_hole_offset_mm=args.fiber_hole_offset)
 
 
 if __name__ == "__main__":

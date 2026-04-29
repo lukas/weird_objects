@@ -59,10 +59,33 @@ else
     echo "[render_blender] reusing cached $ASSETS/{panels.ply,led_positions.json}"
 fi
 
-# ---- step 2: ensure STL exists ---------------------------------------------
-if [[ ! -f "all_polyhedra_31.stl" ]]; then
-    echo "[render_blender] STL missing; building it ..."
-    "$ROOT_DIR/run.sh" chandelier/all_polyhedra.py
+# ---- step 2: ensure STL(s) exist -------------------------------------------
+# Detect whether the caller wants the minimalist build so we can ensure
+# the right STL set is on disk before launching Blender.
+WANT_MINIMALIST=0
+for arg in "$@"; do
+    if [[ "$arg" == "--minimalist" ]]; then
+        WANT_MINIMALIST=1
+        break
+    fi
+done
+
+if [[ $WANT_MINIMALIST -eq 1 ]]; then
+    if [[ ! -f "chandelier_metal_minimal.stl" ]]; then
+        echo "[render_blender] minimalist metal STL missing; rebuilding chandelier ..."
+        "$ROOT_DIR/run.sh" chandelier/all_polyhedra.py
+    fi
+    if [[ ! -f "chandelier_minimalist_polyhedra.stl" \
+          || ! -f "chandelier_minimalist_cables.stl" \
+          || "all_polyhedra.py" -nt "chandelier_minimalist_polyhedra.stl" ]]; then
+        echo "[render_blender] building minimalist visualization STLs ..."
+        "$ROOT_DIR/run.sh" chandelier/build_minimalist_render.py
+    fi
+else
+    if [[ ! -f "all_polyhedra_31.stl" ]]; then
+        echo "[render_blender] STL missing; building it ..."
+        "$ROOT_DIR/run.sh" chandelier/all_polyhedra.py
+    fi
 fi
 
 # ---- step 3: render --------------------------------------------------------

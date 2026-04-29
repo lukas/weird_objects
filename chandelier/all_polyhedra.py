@@ -31,6 +31,8 @@ import polyhedra as P
 EDGE_RADIUS = 1.10         # mm — wireframe rod thickness  (post-scale OD ≈ 7.9 mm)
 NODE_RADIUS = 1.40         # mm — vertex sphere radius     (post-scale OD ≈ 10.1 mm)
 NODE_DIAMETER_MM = 36.0    # target outer diameter for each polyhedron
+ROD_CYLINDER_SECTIONS = 32 # smoother exported STL rods
+NODE_SPHERE_SUBDIVISIONS = 2 # smoother exported STL vertex nodes
 
 # Acrylic panel slots — every face except the lowest gets a captured
 # panel.  The lowest face is left open as the assembly access path.
@@ -179,7 +181,7 @@ def _unit(v):
     return v if n == 0 else v / n
 
 
-def _cylinder_between(p1, p2, radius, sections=14):
+def _cylinder_between(p1, p2, radius, sections=ROD_CYLINDER_SECTIONS):
     p1, p2 = np.asarray(p1), np.asarray(p2)
     direction = p2 - p1
     length = np.linalg.norm(direction)
@@ -477,8 +479,8 @@ def make_wire_solid(solid, center, target_diameter=NODE_DIAMETER_MM,
 
     The solid is rotated so that one of its vertices points along +Y (the
     scene's "up" axis), giving every wireframe a clean vertex-on-top pose.
-    A 4-rod internal "spider" runs from 4 farthest-spread vertices to a
-    central LED-mount boss.
+    The printable polyhedra are open inside: fiber/light routing is handled
+    loosely through the centre rather than by cast-in internal rods.
 
     Returns ``(mesh, world_verts)`` where ``world_verts`` is the (N, 3)
     array of vertex positions of this solid in world coordinates — used
@@ -505,73 +507,14 @@ def make_wire_solid(solid, center, target_diameter=NODE_DIAMETER_MM,
         if cyl is not None:
             parts.append(cyl)
     for v in world_verts:
-        s = trimesh.creation.icosphere(subdivisions=1, radius=node_radius)
+        s = trimesh.creation.icosphere(
+            subdivisions=NODE_SPHERE_SUBDIVISIONS,
+            radius=node_radius,
+        )
         s.apply_translation(v)
         parts.append(s)
 
-    # Internal spider — start at the suspension top vertex so the LED's
-    # load path runs through it, then add 3 more spread-out anchors that
-    # avoid the LED pocket cone.  Each rod terminates just inside the
-    # boss surface (at 0.9 × LED_MOUNT_RADIUS from the centre) so it
-    # welds to the boss via boolean union but cannot reach the pocket.
-    top_world_idx = int(np.argmax(world_verts[:, 1]))
-    spider_idx = _spider_indices(world_verts, center_world,
-                                 INTERNAL_VERTEX_COUNT,
-                                 start_idx=top_world_idx)
-    for i in spider_idx:
-        direction = _unit(world_verts[i] - center_world)
-        rod_end = center_world + 0.9 * LED_MOUNT_RADIUS * direction
-        rod = _cylinder_between(world_verts[i], rod_end, INTERNAL_ROD_RADIUS)
-        if rod is not None:
-            parts.append(rod)
-
-    parts.append(_make_led_mount(center_world))
-
-    # Each Archimedean carries an external wire trunk on its radially
-    # outward side so the Catalan dangling beneath it can route its
-    # wires up to the star tier without crossing the wireframe.
-    if solid.category == "archimedean":
-        parts.extend(_archimedean_trunk_parts(world_verts, center_world,
-                                              target_diameter))
-
     mesh = _watertight_union(parts, label=solid.name)
-
-    # Drill a small wire-routing channel along +Y from the back of the LED
-    # pocket all the way out the top of the suspension vertex node, so
-    # LED wires can run inside the boss + top spider arm + top vertex
-    # node.  After this, the wire enters the U-groove on the hanger above.
-    top_world_vertex = world_verts[top_world_idx]
-    pocket_back = center_world + np.array(
-        [0.0, -LED_MOUNT_RADIUS + LED_POCKET_DEPTH, 0.0]
-    )
-    channel_exit = top_world_vertex + np.array([0.0, NODE_RADIUS * 1.2, 0.0])
-    cutter = _cylinder_between(pocket_back, channel_exit,
-                               WIRE_CHANNEL_RADIUS, sections=24)
-    if cutter is not None:
-        mesh = trimesh.boolean.difference([mesh, cutter], engine="manifold")
-
-    # For Archimedeans: drill the internal wire trunk's channels.
-    # Wire path:
-    #   below the bottom vertex (incoming from Catalan-to-Archi hanger)
-    #     → straight up into the bottom vertex node (vertical entry)
-    #     → angled stub through the trunk's bottom rod
-    #     → vertical trunk rod (parallel to +Y, just outside the boss)
-    #     → angled stub through the trunk's top rod
-    #     → into the top vertex node, where it joins the LED's own
-    #       wire and exits up through `channel_exit`.
-    if solid.category == "archimedean":
-        bv, bb, bt, tv = _archimedean_trunk_endpoints(world_verts, center_world)
-        bottom_entry = bv + np.array([0.0, -NODE_RADIUS * 1.2, 0.0])
-        trunk_cutters = [
-            _cylinder_between(bottom_entry, bv, WIRE_CHANNEL_RADIUS, sections=24),
-            _cylinder_between(bv, bb, WIRE_CHANNEL_RADIUS, sections=24),
-            _cylinder_between(bb, bt, WIRE_CHANNEL_RADIUS, sections=24),
-            _cylinder_between(bt, tv, WIRE_CHANNEL_RADIUS, sections=24),
-        ]
-        trunk_cutters = [c for c in trunk_cutters if c is not None]
-        if trunk_cutters:
-            mesh = trimesh.boolean.difference([mesh] + trunk_cutters,
-                                              engine="manifold")
 
     # Carve panel-retention slots into every edge rod so each face
     # (except the lowest one, kept open as the assembly access path)

@@ -81,6 +81,15 @@ def parse_args():
                         "clear-ish panels, sharp shadows, and bright LEDs so "
                         "the polyhedra project crisp lattice patterns onto "
                         "the walls.  Override individual flags to fine-tune.")
+    p.add_argument("--minimalist", action="store_true",
+                   help="Render the *minimalist* build (cast metal star + "
+                        "cable suspension + plastic polyhedra) instead of "
+                        "the full-cast chandelier.  Loads three STLs:"
+                        " chandelier_metal_minimal.stl (cast aluminum),"
+                        " chandelier_minimalist_polyhedra.stl (painted plastic),"
+                        " and chandelier_minimalist_cables.stl (stainless wire)."
+                        " Run build_minimalist_render.py first to produce"
+                        " the polyhedra + cables STLs.")
     p.add_argument("--led-color", default="#ffd9a3",
                    help="Hex color for LED emission (default warm white).")
     p.add_argument("--metal-color", default="#a07a45",
@@ -398,6 +407,37 @@ def main():
     mat_ceiling = make_diffuse_material("Ceiling", "#d8d2c4", roughness=0.85)  # cream
     mat_wall    = make_diffuse_material("Wall",    "#c2b59b", roughness=0.85)  # warm beige
 
+    # Minimalist-build materials: painted-plastic polyhedra and bare
+    # stainless cable suspension.  The polyhedra are PETG sprayed with
+    # Rust-Oleum Specialty Metallic + clear coat, so they read as metal
+    # but with slightly less crisp specular than the cast aluminum
+    # canopy / star above them.  Cables are 0.8 mm 7×7 stainless aircraft
+    # cable — high-roughness on the per-strand surface but reads silver
+    # at a distance.
+    mat_painted_plastic = bpy.data.materials.new(name="PaintedPlastic")
+    mat_painted_plastic.use_nodes = True
+    _ppn = mat_painted_plastic.node_tree.nodes
+    _ppn.clear()
+    _ppo = _ppn.new("ShaderNodeOutputMaterial")
+    _ppb = _ppn.new("ShaderNodeBsdfPrincipled")
+    _ppb.inputs["Base Color"].default_value = hex_to_rgb(args.metal_color)
+    _ppb.inputs["Metallic"].default_value = 0.85   # painted, not pure metal
+    _ppb.inputs["Roughness"].default_value = 0.55  # softer specular than cast
+    if "Specular IOR Level" in _ppb.inputs:
+        _ppb.inputs["Specular IOR Level"].default_value = 0.4
+    elif "Specular" in _ppb.inputs:
+        _ppb.inputs["Specular"].default_value = 0.4
+    mat_painted_plastic.node_tree.links.new(
+        _ppb.outputs["BSDF"], _ppo.inputs["Surface"])
+
+    mat_cable = make_metal_material("StainlessCable", "#bfc1c4")
+    # Override roughness — cables are 7x7 strand stainless, read slightly
+    # brushed at viewing distance (lower than 0.4 of cast metal).
+    _ck = mat_cable.node_tree.nodes
+    for n in _ck:
+        if n.bl_idname == "ShaderNodeBsdfPrincipled":
+            n.inputs["Roughness"].default_value = 0.25
+
     # ----- import meshes ----------------------------------------------------
     # The chandelier authoring code uses +Y as "up" (gravity).  Blender's
     # convention is +Z up.  Rotate every imported asset by +90° around X so
@@ -413,12 +453,43 @@ def main():
         x, y, z = p_mm
         return (x * 0.001, -z * 0.001, y * 0.001)
 
-    print("[render_blender] importing chandelier metal STL ...")
-    metal_obj = import_stl(args.stl)
-    metal_obj.name = "Chandelier_Metal"
-    metal_obj.data.materials.append(mat_metal)
-    bpy.ops.object.shade_smooth()
-    yup_mm_to_zup_m(metal_obj)
+    if args.minimalist:
+        # Three STLs, three materials: cast metal star + canopy, painted
+        # plastic polyhedra, stainless cable suspension.
+        for path in ("chandelier_metal_minimal.stl",
+                     "chandelier_minimalist_polyhedra.stl",
+                     "chandelier_minimalist_cables.stl"):
+            if not Path(path).exists():
+                raise SystemExit(
+                    f"Missing {path} — run "
+                    f"`./run.sh build_minimalist_render.py` first."
+                )
+
+        print("[render_blender] minimalist mode: importing 3 STLs ...")
+        metal_obj = import_stl("chandelier_metal_minimal.stl")
+        metal_obj.name = "Chandelier_CastMetal"
+        metal_obj.data.materials.append(mat_metal)
+        bpy.ops.object.shade_smooth()
+        yup_mm_to_zup_m(metal_obj)
+
+        plastic_obj = import_stl("chandelier_minimalist_polyhedra.stl")
+        plastic_obj.name = "Chandelier_PlasticPolyhedra"
+        plastic_obj.data.materials.append(mat_painted_plastic)
+        bpy.ops.object.shade_smooth()
+        yup_mm_to_zup_m(plastic_obj)
+
+        cable_obj = import_stl("chandelier_minimalist_cables.stl")
+        cable_obj.name = "Chandelier_Cables"
+        cable_obj.data.materials.append(mat_cable)
+        bpy.ops.object.shade_smooth()
+        yup_mm_to_zup_m(cable_obj)
+    else:
+        print("[render_blender] importing chandelier metal STL ...")
+        metal_obj = import_stl(args.stl)
+        metal_obj.name = "Chandelier_Metal"
+        metal_obj.data.materials.append(mat_metal)
+        bpy.ops.object.shade_smooth()
+        yup_mm_to_zup_m(metal_obj)
 
     print("[render_blender] importing acrylic panels PLY ...")
     panels_obj = import_ply(str(assets / "panels.ply"))
@@ -427,8 +498,16 @@ def main():
     bpy.ops.object.shade_smooth()
     yup_mm_to_zup_m(panels_obj)
 
-    # Bounds in Blender Z-up metres
-    bbox = [(metal_obj.matrix_world @ v.co) for v in metal_obj.data.vertices]
+    # Bounds in Blender Z-up metres — gather vertices from all chandelier
+    # objects so the room sizes correctly even in minimalist mode (where
+    # ``metal_obj`` is just the small canopy + 2 stars and the wider
+    # polyhedra ring is in a separate object).
+    bbox_objs = [metal_obj]
+    if args.minimalist:
+        bbox_objs += [plastic_obj, cable_obj]
+    bbox = []
+    for o in bbox_objs:
+        bbox.extend(o.matrix_world @ v.co for v in o.data.vertices)
     xs = [v.x for v in bbox]; ys = [v.y for v in bbox]; zs = [v.z for v in bbox]
     xmin, xmax = min(xs), max(xs)
     ymin, ymax = min(ys), max(ys)
