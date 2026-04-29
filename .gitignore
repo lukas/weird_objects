@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Generated 3D / build artifacts (rebuild via `./run.sh <project>/<script>.py`)
+*.stl
+*.ply
+*.dxf
+**/panels.json
+**/blender_assets/
+**/polyhedra_stl/
+**/jigs/
+
+# Cursor / editor / OS
+.DS_Store
+.vscode/
+.idea/
+.mcp.json
+
+# Render scratch / WIP outputs (the canonical renders in chandelier/renders/
+# are explicitly committed; everything else is treated as scratch)
+test_*.png
+*.bak

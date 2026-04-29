@@ -1,0 +1,12 @@
+numpy
+scikit-image
+scipy
+trimesh
+manifold3d
+matplotlib
+rtree
+shapely
+mapbox_earcut
+embreex; sys_platform != "darwin" or platform_machine != "arm64"
+pyvista
+pytest
