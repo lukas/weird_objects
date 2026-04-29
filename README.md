@@ -20,6 +20,7 @@ designed for cast aluminium + frosted acrylic + LED COB modules.
 | [`gyroid_sphere/`](gyroid_sphere/) | Graded-density gyroid spheres extracted via marching cubes |
 | [`ice_tray/`](ice_tray/) | Parametric icosahedron-cell ice tray |
 | [`constellation/`](constellation/) | 14-node polyhedral constellation (Platonic + Archimedean + Catalan icosahedral family) |
+| [`hexapod_walker/`](hexapod_walker/) | Parametric STL generator for a human-carrying six-legged walking vehicle (18 servos, ~ 4 m foot-to-foot envelope) |
 
 Each project's folder has its own `README.md` with usage details and
 images. Top-level shared infrastructure:
