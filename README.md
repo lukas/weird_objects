@@ -8,7 +8,7 @@ the repo root.
 The headline project is the [**31-polyhedron chandelier**](chandelier/)
 designed for cast aluminium + frosted acrylic + LED COB modules.
 
-![Cycles render of the chandelier in a room](chandelier/renders/chandelier_blender.png)
+![Cycles render of the chandelier in a warm evening room](chandelier/renders/chandelier_minimalist_evening.png)
 
 ## Projects
 
