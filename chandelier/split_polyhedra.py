@@ -3,10 +3,11 @@ oriented for FDM printing.
 
 Each output STL contains exactly one polyhedron, sized to its post-cast
 diameter (~130 mm for the reference 42" chandelier), rotated so the
-top vertex points along +Z, translated so the lowest point sits at
-Z = 0 (printer build-plate convention), and with an M3 heat-set insert
-pocket subtracted from the top vertex node so a brass insert can be
-melted in for the cable + eye-bolt attachment per ASSEMBLY.md §7.
+largest face points down toward the build plate, translated so the
+lowest point sits at Z = 0 (printer build-plate convention), and with an
+M3 heat-set insert pocket subtracted from the top vertex node so a brass
+insert can be melted in for the cable + eye-bolt attachment per
+ASSEMBLY.md §7.
 
 This is the "minimalist build" workflow: print these 31 plastic
 polyhedra in PETG, paint them metallic, and bolt them onto the cast
@@ -141,6 +142,74 @@ def _split_index_for_filename(category: str, name: str) -> int:
     return 0
 
 
+def _unit(v):
+    v = np.asarray(v, dtype=float)
+    n = np.linalg.norm(v)
+    return v if n < 1e-12 else v / n
+
+
+def _oriented_solid_vertices(solid):
+    """Return the source polyhedron vertices in the same +Y-up orientation
+    used by ``all_polyhedra.make_wire_solid``."""
+    verts, _edges = P.generate_wireframe_data(solid)
+    verts = np.asarray(verts, dtype=float)
+    verts = verts - verts.mean(axis=0)
+    top_idx = int(np.argmax(verts[:, 1]))
+    R = trimesh.geometry.align_vectors(
+        _unit(verts[top_idx]),
+        np.array([0.0, 1.0, 0.0]),
+    )[:3, :3]
+    return verts @ R.T
+
+
+def _polygon_faces(mesh):
+    """Yield vertex-index arrays for real polygon faces of a triangulated
+    convex mesh, with coplanar triangle facets grouped."""
+    faceted_tris = set()
+    for facet in mesh.facets:
+        idx = np.asarray(facet, dtype=int)
+        faceted_tris.update(int(i) for i in idx)
+        yield np.unique(mesh.faces[idx].reshape(-1))
+
+    for tri_idx, tri in enumerate(mesh.faces):
+        if int(tri_idx) not in faceted_tris:
+            yield np.asarray(tri, dtype=int)
+
+
+def _face_area(face_verts):
+    """Area of a convex polygon face in 3-D."""
+    centre = face_verts.mean(axis=0)
+    area = 0.0
+    for i in range(len(face_verts)):
+        a = face_verts[i] - centre
+        b = face_verts[(i + 1) % len(face_verts)] - centre
+        area += 0.5 * np.linalg.norm(np.cross(a, b))
+    return area
+
+
+def _print_face_down_transform(solid):
+    """Return a transform that points the largest face toward -Z.
+
+    The hanging/open face is not always the best print base: for example,
+    the rhombicuboctahedron's lowest hanging face is a small triangle.  Use
+    the largest polygon face instead so the slicer gets the broadest, most
+    stable face-down orientation available for that solid.
+    """
+    source_mesh = P.generate_mesh(solid)
+    verts = _oriented_solid_vertices(solid)
+
+    print_face = max(
+        _polygon_faces(source_mesh),
+        key=lambda face: _face_area(verts[face]),
+    )
+    face_centroid = verts[print_face].mean(axis=0)
+    outward_normal = _unit(face_centroid - verts.mean(axis=0))
+    return trimesh.geometry.align_vectors(
+        outward_normal,
+        np.array([0.0, 0.0, -1.0]),
+    )
+
+
 def split_one(solid, *, with_pocket: bool, with_fiber_hole: bool,
               hole_diameter_mm: float, hole_depth_mm: float,
               fiber_hole_diameter_mm: float, fiber_hole_depth_mm: float,
@@ -176,9 +245,9 @@ def split_one(solid, *, with_pocket: bool, with_fiber_hole: bool,
             print(f"    fiber hole subtraction failed for {solid.name}: {e};"
                   " skipping fiber hole on this part")
 
-    # Rotate from chandelier (+Y up) to printer (+Z up).
-    mesh.apply_transform(trimesh.transformations.rotation_matrix(
-        -np.pi / 2.0, [1.0, 0.0, 0.0]))
+    # Rotate for printing: put the largest face down toward the build plate,
+    # rather than leaving the hanging top vertex pointed upward.
+    mesh.apply_transform(_print_face_down_transform(solid))
 
     # Translate so the lowest point sits at Z = 0 (build-plate datum).
     mesh.apply_translation([0.0, 0.0, -mesh.bounds[0][2]])

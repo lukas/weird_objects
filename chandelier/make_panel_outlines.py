@@ -316,33 +316,44 @@ def _packed_panel_positions(panels, *, spacing=3.0):
     return best[1]
 
 
-def _write_dxf(path, panels):
+def _write_dxf(path, panels, *, dxf_units="mm", include_labels=True):
     """Write a minimal DXF with one LWPOLYLINE per panel.  Coordinates
     are post-scale millimetres.  Panels are tightly shelf-packed so a
     laser-cut shop sees a realistic sheet-cutting envelope."""
+    if dxf_units == "in":
+        coord_scale = 1.0 / 25.4
+        insunits = "1"      # inches
+        measurement = "0"   # English
+    else:
+        coord_scale = 1.0
+        insunits = "4"      # millimetres
+        measurement = "1"   # metric
+
     lines = [
         "0", "SECTION", "2", "HEADER",
-        "9", "$INSUNITS", "70", "4",       # 4 = millimetres
-        "9", "$MEASUREMENT", "70", "1",    # 1 = metric
+        "9", "$INSUNITS", "70", insunits,
+        "9", "$MEASUREMENT", "70", measurement,
         "0", "ENDSEC",
         "0", "SECTION", "2", "ENTITIES",
     ]
     for panel, coords in _packed_panel_positions(panels):
+        coords = coords * coord_scale
         lines += ["0", "LWPOLYLINE",
                   "8", f"PANEL_{panel['solid']}_{panel['face_idx']}",
                   "90", str(len(coords)),
                   "70", "1"]  # 1 = closed polyline
         for x, y in coords:
             lines += ["10", f"{x:.4f}", "20", f"{y:.4f}"]
-        # Add a panel ID text at the polygon centroid
-        cx = float(np.mean([c[0] for c in coords]))
-        cy = float(np.mean([c[1] for c in coords]))
-        lines += ["0", "TEXT",
-                  "8", f"PANEL_LABEL",
-                  "10", f"{cx:.4f}",
-                  "20", f"{cy:.4f}",
-                  "40", "5",
-                  "1", panel["label"]]
+        if include_labels:
+            # Add a panel ID text at the polygon centroid
+            cx = float(np.mean([c[0] for c in coords]))
+            cy = float(np.mean([c[1] for c in coords]))
+            lines += ["0", "TEXT",
+                      "8", f"PANEL_LABEL",
+                      "10", f"{cx:.4f}",
+                      "20", f"{cy:.4f}",
+                      "40", f"{5.0 * coord_scale:.4f}",
+                      "1", panel["label"]]
     lines += ["0", "ENDSEC", "0", "EOF"]
 
     with open(path, "w", encoding="utf-8") as f:
@@ -355,6 +366,10 @@ def main():
                         help="Directory to write panels.dxf and panels.json into.")
     parser.add_argument("--per-solid", action="store_true",
                         help="also write one tightly packed DXF per polyhedron")
+    parser.add_argument("--dxf-units", choices=("mm", "in"), default="mm",
+                        help="coordinate units to write in the DXF (default: mm)")
+    parser.add_argument("--no-labels", action="store_true",
+                        help="omit TEXT labels for stricter CAM importers")
     args = parser.parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
 
@@ -403,13 +418,17 @@ def main():
             "panel_count": len(panels),
             "panels": panels,
         }, f, indent=2)
-    _write_dxf(dxf_path, panels)
+    _write_dxf(dxf_path, panels,
+               dxf_units=args.dxf_units,
+               include_labels=not args.no_labels)
 
     if args.per_solid:
         for solid, solid_panels in panels_by_solid:
             idx = _split_index_for_filename(solid)
             fname = f"{solid.category}_{idx:02d}_{_safe_filename(solid.name)}.dxf"
-            _write_dxf(os.path.join(args.out_dir, fname), solid_panels)
+            _write_dxf(os.path.join(args.out_dir, fname), solid_panels,
+                       dxf_units=args.dxf_units,
+                       include_labels=not args.no_labels)
 
     sides_hist = {}
     for p in panels:

@@ -78,6 +78,11 @@ def parse_args():
                    help="Camera azimuth in degrees from +X.")
     p.add_argument("--camera-pitch-deg",   type=float, default=-2.0,
                    help="Camera pitch (negative = looking slightly down).")
+    p.add_argument("--camera-target-elev", type=float, default=None,
+                   help="Camera look-at point elevation above floor (m). "
+                        "Default = 0.6 + 25%% of walker height (good for the "
+                        "full-size 1.3 m walker; pass ~0.06 for the "
+                        "tabletop prototype).")
     p.add_argument("--lens", type=float, default=42.0,
                    help="Camera focal length (mm).")
     p.add_argument("--ground", default="#7a7872",
@@ -167,14 +172,17 @@ def main():
     print(f"[render] out: {out}")
 
     assets = Path(args.assets)
-    required = ["frame.stl", "motors.stl", "battery.stl", "soft.stl",
-                "rider.stl"]
+    required = ["frame.stl", "motors.stl", "battery.stl", "soft.stl"]
+    optional = ["rider.stl"]
     for r in required:
         if not (assets / r).exists():
             raise SystemExit(
                 f"Missing {assets/r} -- run "
                 f"`./run.sh hexapod_walker/build_full_assembly.py` first."
             )
+    has_rider = (assets / "rider.stl").exists()
+    if not has_rider:
+        print(f"[render] no rider.stl in {assets}/ -- skipping rider")
 
     clear_scene()
     scene = bpy.context.scene
@@ -289,11 +297,14 @@ def main():
     motor_obj   = add_stl("motors",  mat_motor)
     battery_obj = add_stl("battery", mat_battery, sharp=True)
     soft_obj    = add_stl("soft",    mat_soft)
-    rider_obj   = add_stl("rider",   mat_rider)
+    rider_obj   = add_stl("rider", mat_rider) if has_rider else None
 
     # ---- Compute scene bounds (Z-up metres) ----
     bbox = []
-    for o in (frame_obj, motor_obj, battery_obj, soft_obj, rider_obj):
+    visible_objs = [frame_obj, motor_obj, battery_obj, soft_obj]
+    if rider_obj is not None:
+        visible_objs.append(rider_obj)
+    for o in visible_objs:
         bbox.extend(o.matrix_world @ v.co for v in o.data.vertices)
     xs = [v.x for v in bbox]; ys = [v.y for v in bbox]; zs = [v.z for v in bbox]
     xmin, xmax = min(xs), max(xs)
@@ -356,7 +367,11 @@ def main():
     bpy.ops.object.camera_add(location=(cam_x, cam_y, cam_z))
     cam = bpy.context.object
     cam.name = "Camera"
-    target = (cx, cy, zmin + 0.6 + (zmax - zmin) * 0.25)
+    if args.camera_target_elev is not None:
+        target_z = zmin + args.camera_target_elev
+    else:
+        target_z = zmin + 0.6 + (zmax - zmin) * 0.25
+    target = (cx, cy, target_z)
     direction = mathutils.Vector((target[0] - cam_x,
                                    target[1] - cam_y,
                                    target[2] - cam_z))

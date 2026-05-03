@@ -10,3 +10,9 @@ mapbox_earcut
 embreex; sys_platform != "darwin" or platform_machine != "arm64"
 pyvista
 pytest
+
+# MuJoCo physics simulation + RL stack used by hexapod_walker/
+mujoco==2.3.7
+gymnasium>=1.0
+stable-baselines3>=2.4,<3
+torch>=2.0,<3

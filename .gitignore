@@ -28,3 +28,7 @@ venv/
 # are explicitly committed; everything else is treated as scratch)
 test_*.png
 *.bak
+
+# RL training artefacts (large, regeneratable)
+hexapod_walker/policies/
+MUJOCO_LOG.TXT

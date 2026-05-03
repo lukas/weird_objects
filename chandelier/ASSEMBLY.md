@@ -320,7 +320,7 @@ python split_polyhedra.py --out-dir polyhedra_stl
 This writes 31 print-ready STLs into `polyhedra_stl/`, each:
 
 - Sized to its post-cast diameter (~ 130 mm OD)
-- Rotated so the top vertex points along +Z (printer "up")
+- Rotated so the largest face points down toward the build plate
 - Translated so the lowest point sits at Z = 0 (build-plate datum)
 - Pre-drilled with an **M3 heat-set insert pocket** (4.2 mm Ø × 5.5 mm
   deep) at the top vertex node so a brass insert can be melted in for

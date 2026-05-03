@@ -1,0 +1,424 @@
+<mujoco model="hexapod_walker">
+  <compiler angle="radian" coordinate="local" autolimits="true" meshdir="/Users/lukas/weird_objects/hexapod_walker/stl"/>
+  <option gravity="0 0 -9.81" timestep="0.002" iterations="50" solver="Newton" cone="elliptic"/>
+
+  <default>
+    <joint armature="0.5" damping="2" limited="true"/>
+    <geom solref="0.005 1" solimp="0.95 0.99 0.001"/>
+    <default class="visual">
+      <geom contype="0" conaffinity="0" group="2" density="0"/>
+    </default>
+    <default class="collision">
+      <geom group="3" rgba="1 0 0 0.25" condim="4" friction="1.5 0.05 0.0001"/>
+    </default>
+    <default class="foot">
+      <geom group="3" rgba="0.15 0.15 0.15 1" condim="6" friction="2.0 0.1 0.001"
+            solref="0.01 1" solimp="0.95 0.99 0.001"/>
+    </default>
+  </default>
+
+  <asset>
+    <texture name="skybox" type="skybox" builtin="gradient" rgb1="0.7 0.85 1.0" rgb2="0.4 0.5 0.7" width="256" height="256"/>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.25 0.3 0.35"
+             rgb2="0.18 0.22 0.27" width="300" height="300"/>
+    <material name="grid" texture="grid" texrepeat="6 6" reflectance="0.15"/>
+    <material name="alu"   rgba="0.78 0.80 0.83 1" specular="0.5" shininess="0.4"/>
+    <material name="motor" rgba="0.2  0.2  0.22 1" specular="0.6" shininess="0.6"/>
+    <material name="frame" rgba="0.55 0.58 0.62 1" specular="0.4" shininess="0.4"/>
+    <material name="rubber" rgba="0.12 0.12 0.12 1"/>
+
+    <mesh name="chassis_hex"      file="chassis_hex.stl"      scale="0.001 0.001 0.001"/>
+    <mesh name="chassis_top_deck" file="chassis_top_deck.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="saddle_mount"     file="saddle_mount.stl"     scale="0.001 0.001 0.001"/>
+    <mesh name="battery_box"      file="battery_box.stl"      scale="0.001 0.001 0.001"/>
+    <mesh name="electronics_bay"  file="electronics_bay.stl"  scale="0.001 0.001 0.001"/>
+    <mesh name="coxa_bracket"     file="coxa_bracket.stl"     scale="0.001 0.001 0.001"/>
+    <mesh name="coxa_link"        file="coxa_link.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="femur_link"       file="femur_link.stl"       scale="0.001 0.001 0.001"/>
+    <mesh name="tibia_link"       file="tibia_link.stl"       scale="0.001 0.001 0.001"/>
+    <mesh name="foot_pad"         file="foot_pad.stl"         scale="0.001 0.001 0.001"/>
+  </asset>
+
+  <worldbody>
+    <light name="sun" pos="6 -4 8" dir="-0.6 0.4 -1" castshadow="true"
+           diffuse="0.7 0.7 0.7" specular="0.3 0.3 0.3"/>
+    <light name="fill" pos="-4 4 6" dir="0.5 -0.5 -1" diffuse="0.3 0.3 0.35"/>
+    <geom name="floor" type="plane" size="20 20 0.05" material="grid"
+          friction="1.5 0.05 0.0001"/>
+
+    <body name="chassis" pos="0 0 0.19029">
+      <freejoint name="root"/>
+      <site name="chassis_imu" pos="0 0 0.06" size="0.02"/>
+      <inertial pos="0 0 0.05" mass="195.0"
+                diaginertia="32 32 60"/>
+
+      <!-- visual chassis tubes + deck + saddle/battery/elec stack -->
+      <geom class="visual" type="mesh" mesh="chassis_hex"      material="frame"/>
+      <geom class="visual" type="mesh" mesh="chassis_top_deck" material="alu"
+            pos="0 0 0.072"/>
+      <geom class="visual" type="mesh" mesh="saddle_mount"     material="alu"
+            pos="0 0 0.078"/>
+      <geom class="visual" type="mesh" mesh="battery_box"      material="frame"
+            pos="-0.26 0 0.078"/>
+      <geom class="visual" type="mesh" mesh="electronics_bay"  material="frame"
+            pos="0.26 0 0.078"/>
+
+      <!-- collision: a hex-prism approximated by a single oriented box -->
+      <geom class="collision" name="chassis_box" type="box"
+            pos="0 0 0.05" size="0.7 0.65 0.07"/>
+
+      <body name="L0_yaw" pos="0.65385 0.37750 0.07500" quat="0.965926 0 0 0.258819">
+        <inertial pos="0.05 0 0" mass="7.0"
+                  diaginertia="0.05 0.05 0.05"/>
+        <joint name="L0_yaw" type="hinge" axis="0 0 1"
+               range="-0.7854 0.7854"/>
+        <geom class="visual" type="mesh" mesh="coxa_link"  material="alu"/>
+        <!-- yaw motor housing (decorative) -->
+        <geom class="visual" type="cylinder" material="motor"
+              pos="0 0 -0.07" size="0.0850 0.05"/>
+
+        <body name="L0_femur" pos="0.15000 0 0">
+          <inertial pos="0.3000 0 0" mass="14.0"
+                    diaginertia="0.05 0.45 0.45"/>
+          <joint name="L0_pitch" type="hinge" axis="0 1 0"
+                 range="-1.4 0.7"/>
+          <geom class="visual" type="mesh" mesh="femur_link" material="alu"/>
+          <!-- femur capsule kept for inertia approximation only (no
+               collision: ground contact happens at the foot sphere) -->
+          <geom class="visual" type="capsule" rgba="0 0 0 0"
+                fromto="0 0 0 0.60000 0 0" size="0.06"/>
+
+          <body name="L0_tibia" pos="0.60000 0 0">
+            <inertial pos="0.4000 0 0" mass="12.0"
+                      diaginertia="0.04 0.65 0.65"/>
+            <joint name="L0_knee" type="hinge" axis="0 1 0"
+                   range="-0.3 1.7"/>
+            <geom class="visual" type="mesh" mesh="tibia_link" material="alu"/>
+            <geom class="visual" type="capsule" rgba="0 0 0 0"
+                  fromto="0 0 0 0.75000 0 0" size="0.05"/>
+            <!-- foot pad (visual) -->
+            <geom class="visual" type="mesh" mesh="foot_pad" material="rubber"
+                  pos="0.80000 0 -0.072" euler="0 0 0"/>
+            <!-- foot collision sphere centred at the tibia tip; the
+                 sphere bottom is what makes ground contact -->
+            <geom class="foot" name="L0_foot" type="sphere"
+                  pos="0.80000 0 0" size="0.05"/>
+            <site name="L0_foot_site" pos="0.80000 0 0"
+                  size="0.01"/>
+          </body>
+        </body>
+      </body>
+      <body name="L1_yaw" pos="0.00000 0.75500 0.07500" quat="0.707107 0 0 0.707107">
+        <inertial pos="0.05 0 0" mass="7.0"
+                  diaginertia="0.05 0.05 0.05"/>
+        <joint name="L1_yaw" type="hinge" axis="0 0 1"
+               range="-0.7854 0.7854"/>
+        <geom class="visual" type="mesh" mesh="coxa_link"  material="alu"/>
+        <!-- yaw motor housing (decorative) -->
+        <geom class="visual" type="cylinder" material="motor"
+              pos="0 0 -0.07" size="0.0850 0.05"/>
+
+        <body name="L1_femur" pos="0.15000 0 0">
+          <inertial pos="0.3000 0 0" mass="14.0"
+                    diaginertia="0.05 0.45 0.45"/>
+          <joint name="L1_pitch" type="hinge" axis="0 1 0"
+                 range="-1.4 0.7"/>
+          <geom class="visual" type="mesh" mesh="femur_link" material="alu"/>
+          <!-- femur capsule kept for inertia approximation only (no
+               collision: ground contact happens at the foot sphere) -->
+          <geom class="visual" type="capsule" rgba="0 0 0 0"
+                fromto="0 0 0 0.60000 0 0" size="0.06"/>
+
+          <body name="L1_tibia" pos="0.60000 0 0">
+            <inertial pos="0.4000 0 0" mass="12.0"
+                      diaginertia="0.04 0.65 0.65"/>
+            <joint name="L1_knee" type="hinge" axis="0 1 0"
+                   range="-0.3 1.7"/>
+            <geom class="visual" type="mesh" mesh="tibia_link" material="alu"/>
+            <geom class="visual" type="capsule" rgba="0 0 0 0"
+                  fromto="0 0 0 0.75000 0 0" size="0.05"/>
+            <!-- foot pad (visual) -->
+            <geom class="visual" type="mesh" mesh="foot_pad" material="rubber"
+                  pos="0.80000 0 -0.072" euler="0 0 0"/>
+            <!-- foot collision sphere centred at the tibia tip; the
+                 sphere bottom is what makes ground contact -->
+            <geom class="foot" name="L1_foot" type="sphere"
+                  pos="0.80000 0 0" size="0.05"/>
+            <site name="L1_foot_site" pos="0.80000 0 0"
+                  size="0.01"/>
+          </body>
+        </body>
+      </body>
+      <body name="L2_yaw" pos="-0.65385 0.37750 0.07500" quat="0.258819 0 0 0.965926">
+        <inertial pos="0.05 0 0" mass="7.0"
+                  diaginertia="0.05 0.05 0.05"/>
+        <joint name="L2_yaw" type="hinge" axis="0 0 1"
+               range="-0.7854 0.7854"/>
+        <geom class="visual" type="mesh" mesh="coxa_link"  material="alu"/>
+        <!-- yaw motor housing (decorative) -->
+        <geom class="visual" type="cylinder" material="motor"
+              pos="0 0 -0.07" size="0.0850 0.05"/>
+
+        <body name="L2_femur" pos="0.15000 0 0">
+          <inertial pos="0.3000 0 0" mass="14.0"
+                    diaginertia="0.05 0.45 0.45"/>
+          <joint name="L2_pitch" type="hinge" axis="0 1 0"
+                 range="-1.4 0.7"/>
+          <geom class="visual" type="mesh" mesh="femur_link" material="alu"/>
+          <!-- femur capsule kept for inertia approximation only (no
+               collision: ground contact happens at the foot sphere) -->
+          <geom class="visual" type="capsule" rgba="0 0 0 0"
+                fromto="0 0 0 0.60000 0 0" size="0.06"/>
+
+          <body name="L2_tibia" pos="0.60000 0 0">
+            <inertial pos="0.4000 0 0" mass="12.0"
+                      diaginertia="0.04 0.65 0.65"/>
+            <joint name="L2_knee" type="hinge" axis="0 1 0"
+                   range="-0.3 1.7"/>
+            <geom class="visual" type="mesh" mesh="tibia_link" material="alu"/>
+            <geom class="visual" type="capsule" rgba="0 0 0 0"
+                  fromto="0 0 0 0.75000 0 0" size="0.05"/>
+            <!-- foot pad (visual) -->
+            <geom class="visual" type="mesh" mesh="foot_pad" material="rubber"
+                  pos="0.80000 0 -0.072" euler="0 0 0"/>
+            <!-- foot collision sphere centred at the tibia tip; the
+                 sphere bottom is what makes ground contact -->
+            <geom class="foot" name="L2_foot" type="sphere"
+                  pos="0.80000 0 0" size="0.05"/>
+            <site name="L2_foot_site" pos="0.80000 0 0"
+                  size="0.01"/>
+          </body>
+        </body>
+      </body>
+      <body name="L3_yaw" pos="-0.65385 -0.37750 0.07500" quat="-0.258819 0 0 0.965926">
+        <inertial pos="0.05 0 0" mass="7.0"
+                  diaginertia="0.05 0.05 0.05"/>
+        <joint name="L3_yaw" type="hinge" axis="0 0 1"
+               range="-0.7854 0.7854"/>
+        <geom class="visual" type="mesh" mesh="coxa_link"  material="alu"/>
+        <!-- yaw motor housing (decorative) -->
+        <geom class="visual" type="cylinder" material="motor"
+              pos="0 0 -0.07" size="0.0850 0.05"/>
+
+        <body name="L3_femur" pos="0.15000 0 0">
+          <inertial pos="0.3000 0 0" mass="14.0"
+                    diaginertia="0.05 0.45 0.45"/>
+          <joint name="L3_pitch" type="hinge" axis="0 1 0"
+                 range="-1.4 0.7"/>
+          <geom class="visual" type="mesh" mesh="femur_link" material="alu"/>
+          <!-- femur capsule kept for inertia approximation only (no
+               collision: ground contact happens at the foot sphere) -->
+          <geom class="visual" type="capsule" rgba="0 0 0 0"
+                fromto="0 0 0 0.60000 0 0" size="0.06"/>
+
+          <body name="L3_tibia" pos="0.60000 0 0">
+            <inertial pos="0.4000 0 0" mass="12.0"
+                      diaginertia="0.04 0.65 0.65"/>
+            <joint name="L3_knee" type="hinge" axis="0 1 0"
+                   range="-0.3 1.7"/>
+            <geom class="visual" type="mesh" mesh="tibia_link" material="alu"/>
+            <geom class="visual" type="capsule" rgba="0 0 0 0"
+                  fromto="0 0 0 0.75000 0 0" size="0.05"/>
+            <!-- foot pad (visual) -->
+            <geom class="visual" type="mesh" mesh="foot_pad" material="rubber"
+                  pos="0.80000 0 -0.072" euler="0 0 0"/>
+            <!-- foot collision sphere centred at the tibia tip; the
+                 sphere bottom is what makes ground contact -->
+            <geom class="foot" name="L3_foot" type="sphere"
+                  pos="0.80000 0 0" size="0.05"/>
+            <site name="L3_foot_site" pos="0.80000 0 0"
+                  size="0.01"/>
+          </body>
+        </body>
+      </body>
+      <body name="L4_yaw" pos="-0.00000 -0.75500 0.07500" quat="-0.707107 0 0 0.707107">
+        <inertial pos="0.05 0 0" mass="7.0"
+                  diaginertia="0.05 0.05 0.05"/>
+        <joint name="L4_yaw" type="hinge" axis="0 0 1"
+               range="-0.7854 0.7854"/>
+        <geom class="visual" type="mesh" mesh="coxa_link"  material="alu"/>
+        <!-- yaw motor housing (decorative) -->
+        <geom class="visual" type="cylinder" material="motor"
+              pos="0 0 -0.07" size="0.0850 0.05"/>
+
+        <body name="L4_femur" pos="0.15000 0 0">
+          <inertial pos="0.3000 0 0" mass="14.0"
+                    diaginertia="0.05 0.45 0.45"/>
+          <joint name="L4_pitch" type="hinge" axis="0 1 0"
+                 range="-1.4 0.7"/>
+          <geom class="visual" type="mesh" mesh="femur_link" material="alu"/>
+          <!-- femur capsule kept for inertia approximation only (no
+               collision: ground contact happens at the foot sphere) -->
+          <geom class="visual" type="capsule" rgba="0 0 0 0"
+                fromto="0 0 0 0.60000 0 0" size="0.06"/>
+
+          <body name="L4_tibia" pos="0.60000 0 0">
+            <inertial pos="0.4000 0 0" mass="12.0"
+                      diaginertia="0.04 0.65 0.65"/>
+            <joint name="L4_knee" type="hinge" axis="0 1 0"
+                   range="-0.3 1.7"/>
+            <geom class="visual" type="mesh" mesh="tibia_link" material="alu"/>
+            <geom class="visual" type="capsule" rgba="0 0 0 0"
+                  fromto="0 0 0 0.75000 0 0" size="0.05"/>
+            <!-- foot pad (visual) -->
+            <geom class="visual" type="mesh" mesh="foot_pad" material="rubber"
+                  pos="0.80000 0 -0.072" euler="0 0 0"/>
+            <!-- foot collision sphere centred at the tibia tip; the
+                 sphere bottom is what makes ground contact -->
+            <geom class="foot" name="L4_foot" type="sphere"
+                  pos="0.80000 0 0" size="0.05"/>
+            <site name="L4_foot_site" pos="0.80000 0 0"
+                  size="0.01"/>
+          </body>
+        </body>
+      </body>
+      <body name="L5_yaw" pos="0.65385 -0.37750 0.07500" quat="-0.965926 0 0 0.258819">
+        <inertial pos="0.05 0 0" mass="7.0"
+                  diaginertia="0.05 0.05 0.05"/>
+        <joint name="L5_yaw" type="hinge" axis="0 0 1"
+               range="-0.7854 0.7854"/>
+        <geom class="visual" type="mesh" mesh="coxa_link"  material="alu"/>
+        <!-- yaw motor housing (decorative) -->
+        <geom class="visual" type="cylinder" material="motor"
+              pos="0 0 -0.07" size="0.0850 0.05"/>
+
+        <body name="L5_femur" pos="0.15000 0 0">
+          <inertial pos="0.3000 0 0" mass="14.0"
+                    diaginertia="0.05 0.45 0.45"/>
+          <joint name="L5_pitch" type="hinge" axis="0 1 0"
+                 range="-1.4 0.7"/>
+          <geom class="visual" type="mesh" mesh="femur_link" material="alu"/>
+          <!-- femur capsule kept for inertia approximation only (no
+               collision: ground contact happens at the foot sphere) -->
+          <geom class="visual" type="capsule" rgba="0 0 0 0"
+                fromto="0 0 0 0.60000 0 0" size="0.06"/>
+
+          <body name="L5_tibia" pos="0.60000 0 0">
+            <inertial pos="0.4000 0 0" mass="12.0"
+                      diaginertia="0.04 0.65 0.65"/>
+            <joint name="L5_knee" type="hinge" axis="0 1 0"
+                   range="-0.3 1.7"/>
+            <geom class="visual" type="mesh" mesh="tibia_link" material="alu"/>
+            <geom class="visual" type="capsule" rgba="0 0 0 0"
+                  fromto="0 0 0 0.75000 0 0" size="0.05"/>
+            <!-- foot pad (visual) -->
+            <geom class="visual" type="mesh" mesh="foot_pad" material="rubber"
+                  pos="0.80000 0 -0.072" euler="0 0 0"/>
+            <!-- foot collision sphere centred at the tibia tip; the
+                 sphere bottom is what makes ground contact -->
+            <geom class="foot" name="L5_foot" type="sphere"
+                  pos="0.80000 0 0" size="0.05"/>
+            <site name="L5_foot_site" pos="0.80000 0 0"
+                  size="0.01"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="L0_yaw"   joint="L0_yaw"   kp="6000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L0_pitch" joint="L0_pitch" kp="35000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L0_knee"  joint="L0_knee"  kp="25000.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L0_yaw_d"   joint="L0_yaw"   kv="400.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L0_pitch_d" joint="L0_pitch" kv="1500.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L0_knee_d"  joint="L0_knee"  kv="1000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L1_yaw"   joint="L1_yaw"   kp="6000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L1_pitch" joint="L1_pitch" kp="35000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L1_knee"  joint="L1_knee"  kp="25000.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L1_yaw_d"   joint="L1_yaw"   kv="400.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L1_pitch_d" joint="L1_pitch" kv="1500.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L1_knee_d"  joint="L1_knee"  kv="1000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L2_yaw"   joint="L2_yaw"   kp="6000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L2_pitch" joint="L2_pitch" kp="35000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L2_knee"  joint="L2_knee"  kp="25000.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L2_yaw_d"   joint="L2_yaw"   kv="400.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L2_pitch_d" joint="L2_pitch" kv="1500.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L2_knee_d"  joint="L2_knee"  kv="1000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L3_yaw"   joint="L3_yaw"   kp="6000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L3_pitch" joint="L3_pitch" kp="35000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L3_knee"  joint="L3_knee"  kp="25000.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L3_yaw_d"   joint="L3_yaw"   kv="400.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L3_pitch_d" joint="L3_pitch" kv="1500.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L3_knee_d"  joint="L3_knee"  kv="1000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L4_yaw"   joint="L4_yaw"   kp="6000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L4_pitch" joint="L4_pitch" kp="35000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L4_knee"  joint="L4_knee"  kp="25000.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L4_yaw_d"   joint="L4_yaw"   kv="400.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L4_pitch_d" joint="L4_pitch" kv="1500.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L4_knee_d"  joint="L4_knee"  kv="1000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L5_yaw"   joint="L5_yaw"   kp="6000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L5_pitch" joint="L5_pitch" kp="35000.0"
+              forcerange="-1700.0 1700.0"/>
+    <position name="L5_knee"  joint="L5_knee"  kp="25000.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L5_yaw_d"   joint="L5_yaw"   kv="400.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L5_pitch_d" joint="L5_pitch" kv="1500.0"
+              forcerange="-1700.0 1700.0"/>
+    <velocity name="L5_knee_d"  joint="L5_knee"  kv="1000.0"
+              forcerange="-1700.0 1700.0"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="L0_yaw_p"    joint="L0_yaw"/>
+    <jointpos name="L0_pitch_p"  joint="L0_pitch"/>
+    <jointpos name="L0_knee_p"   joint="L0_knee"/>
+    <touch    name="L0_foot_t"   site="L0_foot_site"/>
+    <jointpos name="L1_yaw_p"    joint="L1_yaw"/>
+    <jointpos name="L1_pitch_p"  joint="L1_pitch"/>
+    <jointpos name="L1_knee_p"   joint="L1_knee"/>
+    <touch    name="L1_foot_t"   site="L1_foot_site"/>
+    <jointpos name="L2_yaw_p"    joint="L2_yaw"/>
+    <jointpos name="L2_pitch_p"  joint="L2_pitch"/>
+    <jointpos name="L2_knee_p"   joint="L2_knee"/>
+    <touch    name="L2_foot_t"   site="L2_foot_site"/>
+    <jointpos name="L3_yaw_p"    joint="L3_yaw"/>
+    <jointpos name="L3_pitch_p"  joint="L3_pitch"/>
+    <jointpos name="L3_knee_p"   joint="L3_knee"/>
+    <touch    name="L3_foot_t"   site="L3_foot_site"/>
+    <jointpos name="L4_yaw_p"    joint="L4_yaw"/>
+    <jointpos name="L4_pitch_p"  joint="L4_pitch"/>
+    <jointpos name="L4_knee_p"   joint="L4_knee"/>
+    <touch    name="L4_foot_t"   site="L4_foot_site"/>
+    <jointpos name="L5_yaw_p"    joint="L5_yaw"/>
+    <jointpos name="L5_pitch_p"  joint="L5_pitch"/>
+    <jointpos name="L5_knee_p"   joint="L5_knee"/>
+    <touch    name="L5_foot_t"   site="L5_foot_site"/>
+    <accelerometer name="chassis_acc" site="chassis_imu"/>
+    <gyro          name="chassis_gyro" site="chassis_imu"/>
+    <framepos      name="chassis_pos"  objtype="body" objname="chassis"/>
+    <framezaxis    name="chassis_up"   objtype="body" objname="chassis"/>
+  </sensor>
+</mujoco>
