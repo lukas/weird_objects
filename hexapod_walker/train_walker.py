@@ -60,7 +60,11 @@ def make_env(rank: int, *, base_seed: int, episode_seconds: float,
              dr_motor_latency_ms: float, dr_joint_bias_rad: float,
              dr_action_noise: float, dr_velocity_kick: float,
              terrain_level_max: float, terrain_level_min: float,
-             curriculum_episodes: int):
+             curriculum_episodes: int,
+             gait_action: bool,
+             period_scale_range: tuple, lift_scale_range: tuple,
+             stride_scale_range: tuple,
+             gait_action_filter_tau: float):
     def _thunk():
         env = he.HexapodWalkerEnv(
             episode_seconds=episode_seconds,
@@ -88,9 +92,26 @@ def make_env(rank: int, *, base_seed: int, episode_seconds: float,
             terrain_level_max=terrain_level_max,
             terrain_level_min=terrain_level_min,
             curriculum_episodes=curriculum_episodes,
+            gait_action=gait_action,
+            period_scale_range=period_scale_range,
+            lift_scale_range=lift_scale_range,
+            stride_scale_range=stride_scale_range,
+            gait_action_filter_tau=gait_action_filter_tau,
         )
         return env
     return _thunk
+
+
+def _parse_pair(s: str, *, default: tuple) -> tuple:
+    """Parse 'lo,hi' into (lo, hi) floats; returns ``default`` if empty."""
+    if not s:
+        return default
+    parts = [p.strip() for p in s.split(",") if p.strip()]
+    if len(parts) != 2:
+        raise argparse.ArgumentTypeError(
+            f"expected 'lo,hi' pair, got {s!r}"
+        )
+    return (float(parts[0]), float(parts[1]))
 
 
 def main():
@@ -154,9 +175,25 @@ def main():
     ap.add_argument("--curriculum-episodes", type=int,   default=0,
                     help="Episodes over which terrain level ramps min->max "
                          "(0 = no curriculum, sample [0, max] uniform)")
+    # Parameterised gait (opt-in: adds 3 trailing action dims)
+    ap.add_argument("--gait-action", action="store_true",
+                    help="Expand the action space to 21 dims; trailing 3 dims "
+                         "drive (period, lift, stride) gait-shape multipliers.")
+    ap.add_argument("--period-scale-range", type=str, default="0.7,1.3",
+                    help="'lo,hi' bounds on the gait period multiplier")
+    ap.add_argument("--lift-scale-range",   type=str, default="0.6,1.6",
+                    help="'lo,hi' bounds on the foot-lift multiplier")
+    ap.add_argument("--stride-scale-range", type=str, default="0.5,1.4",
+                    help="'lo,hi' bounds on the stride-length multiplier")
+    ap.add_argument("--gait-action-filter-tau", type=float, default=0.25,
+                    help="LPF time constant for gait-shape multipliers (s)")
     ap.add_argument("--resume", type=str, default=None,
                     help="Path to a saved .zip to continue training")
     args = ap.parse_args()
+
+    period_range = _parse_pair(args.period_scale_range, default=(0.7, 1.3))
+    lift_range   = _parse_pair(args.lift_scale_range,   default=(0.6, 1.6))
+    stride_range = _parse_pair(args.stride_scale_range, default=(0.5, 1.4))
 
     out_dir = os.path.join(args.out_dir, args.tag)
     os.makedirs(out_dir, exist_ok=True)
@@ -183,7 +220,12 @@ def main():
                         dr_velocity_kick=args.dr_velocity_kick,
                         terrain_level_max=args.terrain_level_max,
                         terrain_level_min=args.terrain_level_min,
-                        curriculum_episodes=args.curriculum_episodes)
+                        curriculum_episodes=args.curriculum_episodes,
+                        gait_action=args.gait_action,
+                        period_scale_range=period_range,
+                        lift_scale_range=lift_range,
+                        stride_scale_range=stride_range,
+                        gait_action_filter_tau=args.gait_action_filter_tau)
                for i in range(args.n_envs)]
     if args.n_envs > 1:
         # SubprocVecEnv on macOS needs spawn; SB3 handles that.
@@ -197,6 +239,27 @@ def main():
     if args.resume and os.path.exists(args.resume):
         print(f"Resuming from {args.resume}")
         model = PPO.load(args.resume, env=venv, device=args.device)
+        # PPO.load() restores the schedule that was in effect when the
+        # checkpoint was saved.  When the user passes --learning-rate /
+        # --ent-coef / --clip-range on resume, honour those overrides so
+        # they actually take effect.
+        from stable_baselines3.common.utils import get_schedule_fn
+        model.learning_rate = args.learning_rate
+        model.lr_schedule = get_schedule_fn(args.learning_rate)
+        model.ent_coef = args.ent_coef
+        model.n_epochs = args.n_epochs
+        # n_steps is set at construction; we rebuild the rollout buffer if
+        # the new value differs.
+        if model.n_steps != args.n_steps:
+            from stable_baselines3.common.buffers import RolloutBuffer
+            model.n_steps = args.n_steps
+            model.rollout_buffer = RolloutBuffer(
+                args.n_steps,
+                model.observation_space, model.action_space,
+                device=model.device,
+                gae_lambda=model.gae_lambda, gamma=model.gamma,
+                n_envs=model.n_envs,
+            )
     else:
         model = PPO(
             policy="MlpPolicy",
@@ -269,6 +332,11 @@ def main():
         "terrain_level_max":   args.terrain_level_max,
         "terrain_level_min":   args.terrain_level_min,
         "curriculum_episodes": args.curriculum_episodes,
+        "gait_action":         args.gait_action,
+        "period_scale_range":  list(period_range),
+        "lift_scale_range":    list(lift_range),
+        "stride_scale_range":  list(stride_range),
+        "gait_action_filter_tau": args.gait_action_filter_tau,
     }
     with open(os.path.join(out_dir, "env_cfg.json"), "w") as f:
         json.dump(env_cfg, f, indent=2)

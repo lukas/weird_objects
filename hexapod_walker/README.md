@@ -202,20 +202,35 @@ twist internally.  See the headless test recipes in
 The MuJoCo simulation is wrapped in a Gymnasium-compatible environment
 ([`hexapod_env.py`](hexapod_env.py)) so you can use any RL library
 (Stable Baselines3, CleanRL, rl_games, RLlib, …) to **improve the gait
-on top of the analytic IK controller**.  The training problem is set up
-as *residual learning*:
+on top of the analytic IK controller**.  Two action spaces are exposed,
+selected by the `gait_action` flag:
 
-* **Action (18-dim, ±1 → ±0.20 rad)** — small per-joint correction added
-  to the IK gait's nominal targets.  Bounded so the policy can never
-  destabilise the walker by itself.
-* **Observation (57-dim)** — joint pos/vel, chassis pose & body-frame
-  twist, six foot-touch sensors, commanded `(vx, vy, ω)`, and a `(sin,
-  cos)` of the gait phase.
+| `gait_action` | action dim | what the policy outputs |
+|---|---|---|
+| `False` *(default — used by `walker_v6`)* | **18** | per-joint position residual added to the IK gait, scaled to ±0.05 rad |
+| `True`  *(used by `walker_v7` and `walker_v8`)*  | **21** | the same 18 residuals plus 3 trailing dims that modulate **(period, lift, stride)** scales of the underlying tripod gait |
+
+* **Observation (57- or 60-dim)** — joint pos/vel, chassis pose &
+  body-frame twist, six foot-touch sensors, commanded `(vx, vy, ω)`,
+  `(sin, cos)` of the *stateful* gait phase, and (when
+  `gait_action=True`) the three currently-applied gait scales.
 * **Reward (per 50 Hz step)** — exponential twist-tracking + uprightness
   bonus − tilt − action norm − action delta − (small) joint-acceleration
-  − fall penalty + alive bonus.
+  − fall penalty + alive bonus.  All terms are weighted by env knobs
+  (`track_w_v`, `delta_w`, `progress_w`, …) so the same code reproduces
+  every policy listed below from a single `env_cfg.json`.
+* **Domain randomisation** — chassis mass ±25 %, ground friction ±50 %,
+  motor latency 0–60 ms, per-joint position bias ±0.015 rad, action
+  noise std 0.05, and an optional starting velocity kick.  All gated on
+  individual `dr_*` env knobs (set to 0 to disable).
+* **Terrain curriculum** — the heightfield intensity ramps from
+  `terrain_level_min` to `terrain_level_max` over `curriculum_episodes`
+  resets, so early training is on flat ground and later episodes add
+  bumps gradually.
 * **Randomisation** — terrain seed, obstacle seed, and the commanded
-  twist are re-rolled every episode, so the policy generalises.
+  twist are also re-rolled every episode.
+
+### Live viewer + headless rollout
 
 ```bash
 # install the RL stack once (mujoco / gymnasium / stable-baselines3 / torch)
@@ -224,33 +239,112 @@ as *residual learning*:
 # smoke test the env (40 steps with zero residuals)
 ./.venv/bin/python hexapod_walker/hexapod_env.py
 
-# 60 k-step demo training (4 parallel envs, ~ 25 s on CPU)
-./.venv/bin/python hexapod_walker/train_walker.py \
-    --steps 60000 --n-envs 4 --tag walker_demo
+# live MuJoCo viewer driven by the best trained policy
+./hexapod_walker/run_policy.sh v8 0.4 4
+#                              ^   ^   ^
+#                              tag vx  obstacles
 
-# 200 k-step real training (~ 4 min on CPU, 8 parallel envs)
-./.venv/bin/python hexapod_walker/train_walker.py \
-    --steps 200000 --n-envs 8 --tag walker_v1
-
-# headless evaluation: returns + distance travelled over 5 episodes
+# headless evaluation: per-episode tracking score + distance
 ./.venv/bin/python hexapod_walker/rollout_walker.py \
-    --policy hexapod_walker/policies/walker_v1/walker_v1.zip \
+    --policy hexapod_walker/policies/walker_v8/walker_v8.zip \
     --headless --episodes 5 --vx 0.4
 
-# live MuJoCo viewer driven by a trained policy (use mjpython on macOS)
-./.venv/bin/mjpython hexapod_walker/rollout_walker.py \
-    --policy hexapod_walker/policies/walker_v1/walker_v1.zip --vx 0.4
+# fixed 10-command benchmark (matches the table below)
+./.venv/bin/python hexapod_walker/eval_walker.py \
+    --policy hexapod_walker/policies/walker_v8/walker_v8.zip --quiet
+
+# robustness sweep under mass / friction / latency / bias / vel-kick
+./.venv/bin/python hexapod_walker/eval_perturbed.py \
+    --policies baseline \
+        hexapod_walker/policies/walker_v6/walker_v6.zip \
+        hexapod_walker/policies/walker_v8/walker_v8.zip
 ```
 
-Training writes `policies/<tag>/` with the saved `.zip` policy,
-`vec_normalize.pkl` for the observation normaliser, and a `progress.csv`
-you can plot.  A short demo run (60 k steps × 4 envs) typically moves
-`ep_rew_mean` from ≈ -1.0 to ≈ +3.5 and grows mean episode length from
-~ 18 to ~ 35 control-steps as the walker learns to stop falling.  After
-~ 200 k steps a deterministic rollout typically tracks `vx = 0.4 m/s`
-within 25-30 % error on randomised terrain — substantially better than
-the bare gait, which only reaches ~ 60 % efficiency before the IK
-envelope clips it.
+`rollout_walker.py` and the two eval scripts auto-load `env_cfg.json`
+next to the policy, so they always rebuild the environment with the
+exact action space, gait period, residual scale, and gait-scale ranges
+the policy was trained against — no manual flag-juggling.
+
+### Reproducing each policy
+
+`train_walker.py` exposes every relevant knob on the CLI and writes the
+full configuration to `policies/<tag>/env_cfg.json` for later eval/rollout.
+The four policies that ship in `policies/` were trained with:
+
+```bash
+# walker_v6 — residual-only (18-dim action), DR + curriculum
+./.venv/bin/python hexapod_walker/train_walker.py \
+    --steps 5000000 --n-envs 8 --tag walker_v6 \
+    --residual-scale 0.05 --gait-period 1.0 --action-filter-tau 0.10 \
+    --delta-w 3.0 --cmd-speed-bias 0.4 \
+    --vx-max 0.55 --vy-max 0.35 --omega-max 0.20 \
+    --net-arch 256,256 --log-std-init -1.7 \
+    --dr-mass-pct 0.25 --dr-friction-pct 0.5 \
+    --dr-motor-latency-ms 60 --dr-joint-bias-rad 0.015 \
+    --dr-action-noise 0.05 --dr-velocity-kick 0.05 \
+    --terrain-level-max 1.0 --curriculum-episodes 800
+
+# walker_v8 — parameterised gait (21-dim action), tightened ranges,
+#             lower LR so PPO actually converges
+./.venv/bin/python hexapod_walker/train_walker.py \
+    --steps 5000000 --n-envs 8 --tag walker_v8 \
+    --gait-action \
+    --period-scale-range 0.85,1.15 \
+    --lift-scale-range   0.8,1.4 \
+    --stride-scale-range 0.85,1.15 \
+    --gait-action-filter-tau 0.30 \
+    --residual-scale 0.05 --gait-period 1.0 --action-filter-tau 0.10 \
+    --delta-w 3.0 --cmd-speed-bias 0.4 \
+    --vx-max 0.55 --vy-max 0.35 --omega-max 0.20 \
+    --net-arch 256,256 --log-std-init -1.7 \
+    --learning-rate 1.5e-4 --n-epochs 6 --n-steps 4096 \
+    --dr-mass-pct 0.25 --dr-friction-pct 0.5 \
+    --dr-motor-latency-ms 60 --dr-joint-bias-rad 0.015 \
+    --dr-action-noise 0.05 --dr-velocity-kick 0.05 \
+    --terrain-level-max 1.0 --curriculum-episodes 800
+```
+
+Each run takes ≈ 16 minutes on an 8-core CPU (~5 k env-steps/s).  When
+resuming from a checkpoint with `--resume`, the LR / `ent_coef` /
+`n_epochs` / `n_steps` flags now override whatever was saved in the
+`.zip`, so you can refine a converged policy at a smaller learning rate
+without recreating it from scratch.
+
+### Measured results
+
+Tracking score on a fixed 10-command suite (3 terrain × 6 s episodes
+each, max ≈ 1.5):
+
+| perturbation         | baseline | v6     | v7     | **v8** |
+|----------------------|---------:|-------:|-------:|-------:|
+| nominal              | 1.246    | 1.256  | 1.252  | **1.277** |
+| +25 % chassis mass   | 1.239    | 1.255  | 1.252  | **1.275** |
+| −40 % friction       | 1.246    | 1.256  | 1.252  | **1.277** |
+| 60 ms motor latency  | 1.247    | 1.259  | 1.254  | **1.281** |
+| 1.5° joint bias      | 1.212    | 1.240  | 1.236  | **1.245** |
+| 0.15 m/s vel kick    | 1.246    | 1.256  | 1.253  | **1.278** |
+| **all combined**     | 1.185    | 1.238  | 1.239  | **1.250** |
+
+Free-walk gait quality at commanded `vx = 0.4 m/s` over 10 s on
+randomised terrain:
+
+| metric                          | v6    | v7    | **v8** |
+|---------------------------------|------:|------:|------:|
+| realised forward speed (m/s)    | 0.317 | 0.255 | **0.311** |
+| chassis vertical std (mm)       |  20.8 |  16.9 |  23.5 |
+| joint Δaction step-to-step      | 0.067 | 0.057 | **0.025** |
+| stride / period / lift scale    |  —    | 0.75 / 0.96 / 1.23 | **0.98 / 1.00 / 1.12** |
+| fall rate (any perturbation)    |   0 % |   0 % |   0 % |
+
+`walker_v7` was a cautionary tale: with overly generous gait-scale
+ranges (`stride 0.5–1.4`, `period 0.7–1.3`) and the default PPO
+learning rate, the policy converged on a *shuffling* gait — short
+strides (≈ 0.8×) at a slightly faster cycle, slipping the feet
+through stance.  Numerically smoother than v6 but visually frantic.
+`walker_v8` clamps every gait scale to ±15 % of nominal and trains at
+a smaller learning rate; the policy now uses the new dims gently
+(stride 0.98, period 1.00, lift 1.12), gets back v6's forward speed,
+and produces **2.7× smoother joint commands** than either v6 or v7.
 
 ### Why Gymnasium and not ROS?
 

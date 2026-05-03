@@ -61,9 +61,17 @@ def _make_env(*, episode_seconds, obstacle_count, terrain_enabled,
               terrain_seed, obstacle_seed, env_cfg=None):
     extra = {}
     if env_cfg:
-        for key in ("residual_scale", "gait_period", "action_filter_tau"):
+        scalar_keys = (
+            "residual_scale", "gait_period", "action_filter_tau",
+            "gait_action", "gait_action_filter_tau",
+        )
+        for key in scalar_keys:
             if key in env_cfg:
                 extra[key] = env_cfg[key]
+        for key in ("period_scale_range", "lift_scale_range",
+                    "stride_scale_range"):
+            if key in env_cfg:
+                extra[key] = tuple(env_cfg[key])
     return he.HexapodWalkerEnv(
         episode_seconds=episode_seconds,
         obstacle_count=obstacle_count,

@@ -20,8 +20,14 @@ This works much better than learning the gait from scratch because:
   commanded twist accurately under terrain disturbances and obstacles.
 
 Action space  : Box([-1, 1]^18)  (per-joint residual; scaled to ±0.20 rad)
+                With ``gait_action=True`` the action becomes
+                Box([-1, 1]^21): the trailing 3 dims modulate the
+                gait-shape scales (period, lift, stride) within the
+                configured ranges so the policy can dynamically tune the
+                gait, not just the joint targets.
 Observation   : Box(R^57) -- joint pos/vel + chassis pose / twist +
                 foot contacts + commanded twist + gait phase
+                (+3 dims of current gait scales when ``gait_action=True``)
 Reward        : tracking - stability_penalty - effort_penalty + alive
 
 The walker runs at 500 Hz inside MuJoCo; the policy is queried at
@@ -109,8 +115,15 @@ class HexapodWalkerEnv(gym.Env):
 
     metadata = {"render_modes": ["human"], "render_fps": 50}
 
-    OBS_DIM = 18 + 18 + 4 + 3 + 3 + 6 + 3 + 2  # = 57
-    ACT_DIM = 18
+    BASE_OBS_DIM = 18 + 18 + 4 + 3 + 3 + 6 + 3 + 2  # = 57
+    BASE_ACT_DIM = 18
+    GAIT_PARAM_NAMES = ("period", "lift", "stride")
+
+    # Class-level fallbacks; instance copies in __init__ may shrink these
+    # when ``gait_action=False`` -- old eval scripts read env.ACT_DIM /
+    # env.OBS_DIM directly so those names must keep working.
+    OBS_DIM = BASE_OBS_DIM
+    ACT_DIM = BASE_ACT_DIM
 
     def __init__(
         self,
@@ -122,6 +135,16 @@ class HexapodWalkerEnv(gym.Env):
                                                 # in seconds (0 disables it)
         gait_period: float = 1.0,               # gait cycle in seconds
         gait_lift:   float = 0.07,
+        # ---- parameterised-gait action (opt-in) ----
+        gait_action: bool = False,              # adds 3 trailing action dims
+                                                # for (period, lift, stride)
+                                                # multipliers, plus 3 obs dims
+        period_scale_range: tuple = (0.70, 1.30),
+        lift_scale_range:   tuple = (0.60, 1.60),
+        stride_scale_range: tuple = (0.50, 1.40),
+        gait_action_filter_tau: float = 0.25,   # heavier LPF for gait params
+                                                # so the agent can't oscillate
+                                                # the cycle freq each step
         terrain_seed: int | None = None,        # None = randomise per reset
         obstacle_seed: int | None = None,
         obstacle_count: int = 8,
@@ -197,6 +220,18 @@ class HexapodWalkerEnv(gym.Env):
         self.curriculum_episodes = int(curriculum_episodes)
         self._episode_count      = 0
 
+        # ---- parameterised gait setup -----------------------------------
+        self.gait_action = bool(gait_action)
+        self.period_scale_range = tuple(period_scale_range)
+        self.lift_scale_range   = tuple(lift_scale_range)
+        self.stride_scale_range = tuple(stride_scale_range)
+        self.gait_action_filter_tau = float(gait_action_filter_tau)
+
+        n_gait = len(self.GAIT_PARAM_NAMES) if self.gait_action else 0
+        self.ACT_DIM = self.BASE_ACT_DIM + n_gait
+        self.OBS_DIM = self.BASE_OBS_DIM + n_gait
+        self._n_gait = n_gait
+
         # Build the world once; reset() will reuse the same model unless the
         # caller asks for a per-episode terrain reroll.  Per-step rebuild
         # would be wasteful (re-parsing XML each time).
@@ -223,11 +258,16 @@ class HexapodWalkerEnv(gym.Env):
         self._cmd = np.zeros(3, dtype=np.float32)
         self._last_action = np.zeros(self.ACT_DIM, dtype=np.float32)
         self._filtered_action = np.zeros(self.ACT_DIM, dtype=np.float32)
+        # Filtered gait-scale outputs in their physical units, so the policy's
+        # observation can include the actual scales currently applied to the
+        # gait (rather than the raw [-1, 1] action that would still need
+        # mapping to the configured ranges).
+        self._filtered_gait_scales = np.ones(max(1, n_gait), dtype=np.float32)
         self._last_chassis_xy = np.zeros(2, dtype=np.float64)
         self._viewer = None
 
         # Domain-randomisation state (resampled every reset).
-        self._joint_bias = np.zeros(self.ACT_DIM, dtype=np.float64)
+        self._joint_bias = np.zeros(self.BASE_ACT_DIM, dtype=np.float64)
         self._latency_buf: list = []
         self._latency_steps = 0
 
@@ -236,6 +276,23 @@ class HexapodWalkerEnv(gym.Env):
         self._orig_body_mass = self.model.body_mass.copy()
         self._orig_geom_friction = self.model.geom_friction.copy()
         self._orig_hfield_data = self.heights.copy()
+
+    # ---- gait-action helpers --------------------------------------------
+
+    def _gait_range(self, name: str) -> tuple:
+        if name == "period": return self.period_scale_range
+        if name == "lift":   return self.lift_scale_range
+        if name == "stride": return self.stride_scale_range
+        raise KeyError(name)
+
+    def _map_gait_action(self, raw: np.ndarray) -> np.ndarray:
+        """Map a raw [-1, 1]^3 action vector to physical scale values."""
+        out = np.empty(len(self.GAIT_PARAM_NAMES), dtype=np.float32)
+        for k, name in enumerate(self.GAIT_PARAM_NAMES):
+            lo, hi = self._gait_range(name)
+            u = 0.5 * (float(raw[k]) + 1.0)
+            out[k] = float(lo + (hi - lo) * np.clip(u, 0.0, 1.0))
+        return out
 
     # ---- world setup -----------------------------------------------------
 
@@ -300,6 +357,18 @@ class HexapodWalkerEnv(gym.Env):
                                    vx=float(self._cmd[0]),
                                    vy=float(self._cmd[1]),
                                    omega=float(self._cmd[2]))
+        self._gait.reset_phase()
+        # Initialise the filtered gait scales to their range midpoints so
+        # the very first control step uses a neutral gait.
+        if self.gait_action:
+            for k, name in enumerate(self.GAIT_PARAM_NAMES):
+                lo, hi = self._gait_range(name)
+                self._filtered_gait_scales[k] = 0.5 * (lo + hi)
+            self._gait.set_scales(
+                period_scale=float(self._filtered_gait_scales[0]),
+                lift_scale=float(self._filtered_gait_scales[1]),
+                stride_scale=float(self._filtered_gait_scales[2]),
+            )
 
         # Stand the walker on the spawn pad.
         MW._set_stance_qpos(self.model, self.data)
@@ -367,7 +436,7 @@ class HexapodWalkerEnv(gym.Env):
         if self.dr_joint_bias_rad > 0:
             self._joint_bias = r.uniform(-self.dr_joint_bias_rad,
                                           self.dr_joint_bias_rad,
-                                          size=self.ACT_DIM)
+                                          size=self.BASE_ACT_DIM)
         else:
             self._joint_bias[:] = 0.0
 
@@ -394,22 +463,61 @@ class HexapodWalkerEnv(gym.Env):
         action = np.asarray(action, dtype=np.float32).reshape(self.ACT_DIM)
         action = np.clip(action, -1.0, 1.0)
 
+        # ---- split joint-residual dims from gait-shape dims --------------
+        joint_action = action[: self.BASE_ACT_DIM]
+        if self.gait_action:
+            gait_action_raw = action[self.BASE_ACT_DIM:
+                                     self.BASE_ACT_DIM + self._n_gait]
+        else:
+            gait_action_raw = None
+
         # First-order low-pass filter on the residual action.  This forces
         # the joint targets to evolve smoothly between control steps no
-        # matter how jittery the policy output is.
+        # matter how jittery the policy output is.  We only filter / store
+        # the leading 18 dims here; the gait-shape dims (if any) get a
+        # separate, heavier filter below since their effect compounds over
+        # the whole gait cycle.
         ctrl_dt = 1.0 / self.control_hz
         if self.action_filter_tau > 0:
             alpha = ctrl_dt / (self.action_filter_tau + ctrl_dt)
-            self._filtered_action += alpha * (action - self._filtered_action)
+            self._filtered_action[: self.BASE_ACT_DIM] += alpha * (
+                joint_action - self._filtered_action[: self.BASE_ACT_DIM]
+            )
         else:
-            self._filtered_action[:] = action
-        residual = self._filtered_action * self.residual_scale
+            self._filtered_action[: self.BASE_ACT_DIM] = joint_action
+
+        # Apply the (optionally filtered) gait-shape multipliers to the gait.
+        if self.gait_action:
+            target_scales = self._map_gait_action(gait_action_raw)
+            if self.gait_action_filter_tau > 0:
+                a_g = ctrl_dt / (self.gait_action_filter_tau + ctrl_dt)
+                self._filtered_gait_scales += a_g * (
+                    target_scales - self._filtered_gait_scales
+                )
+            else:
+                self._filtered_gait_scales[:] = target_scales
+            self._gait.set_scales(
+                period_scale=float(self._filtered_gait_scales[0]),
+                lift_scale=float(self._filtered_gait_scales[1]),
+                stride_scale=float(self._filtered_gait_scales[2]),
+            )
+            # Mirror the filtered raw action back into ``_filtered_action``
+            # so observation / smoothness penalty see a consistent value.
+            for k in range(self._n_gait):
+                lo, hi = self._gait_range(self.GAIT_PARAM_NAMES[k])
+                u = (self._filtered_gait_scales[k] - lo) / max(hi - lo, 1e-6)
+                self._filtered_action[self.BASE_ACT_DIM + k] = (
+                    np.clip(2.0 * u - 1.0, -1.0, 1.0)
+                )
+
+        residual = (self._filtered_action[: self.BASE_ACT_DIM]
+                    * self.residual_scale)
 
         # Action noise: simulates motor servo error / unmodelled dynamics.
         if self.dr_action_noise > 0:
             residual = residual + self.np_random.normal(
                 0.0, self.dr_action_noise * self.residual_scale,
-                size=self.ACT_DIM
+                size=self.BASE_ACT_DIM
             )
 
         # Motor latency: residual command applied to the actuators is the
@@ -427,7 +535,7 @@ class HexapodWalkerEnv(gym.Env):
         for _ in range(self._steps_per_ctrl):
             t = float(self.data.time) - self._t_offset
             yaws, pitches, knees = self._gait.desired(max(0.0, t))
-            base_targets = np.empty(self.ACT_DIM, dtype=np.float64)
+            base_targets = np.empty(self.BASE_ACT_DIM, dtype=np.float64)
             for i in range(6):
                 base_targets[3 * i + 0] = yaws[i]
                 base_targets[3 * i + 1] = pitches[i]
@@ -493,16 +601,23 @@ class HexapodWalkerEnv(gym.Env):
             dtype=np.float32,
         )
         cmd = self._cmd.astype(np.float32)
-        # gait phase (sin, cos) -- helps the policy know the swing/stance state
-        t = float(self.data.time) - self._t_offset
-        phase = 2 * math.pi * t / self._gait.period
+        # gait phase (sin, cos) -- helps the policy know the swing/stance state.
+        # We read the gait's stateful phase directly so the answer stays
+        # correct when ``period_scale`` is being modulated mid-episode.
+        phase = float(self._gait._phase)
         phase_sin = math.sin(phase)
         phase_cos = math.cos(phase)
-        return np.concatenate([
+        parts = [
             qpos, qvel, quat,
             v_body.astype(np.float32), w_body.astype(np.float32),
             contacts, cmd, np.array([phase_sin, phase_cos], dtype=np.float32),
-        ])
+        ]
+        if self.gait_action:
+            # Expose the currently-applied gait scales to the policy so it
+            # can build a state-aware closed loop on top of its own choices.
+            parts.append(self._filtered_gait_scales[:self._n_gait]
+                         .astype(np.float32))
+        return np.concatenate(parts)
 
     def _reward(self, action, terminated, fell, progress: float = 0.0):
         idx = self.idx
@@ -595,6 +710,7 @@ def make_env(**kwargs) -> HexapodWalkerEnv:
 # ---------------------------------------------------------------------------
 
 def _smoke_test():
+    print("=== Backward-compat (gait_action=False) ===")
     env = HexapodWalkerEnv(obstacle_count=4, randomize_command=True,
                            terrain_seed=0, obstacle_seed=0)
     print(f"observation_space = {env.observation_space.shape}")
@@ -612,6 +728,30 @@ def _smoke_test():
     print(f"40-step zero-action total reward = {total_reward:.3f}")
     print(f"final chassis pos = {info['chassis_xy']}, z={info['chassis_z']:.3f}")
     print(f"command was = {info['command']}")
+    env.close()
+
+    print("\n=== Parameterised gait (gait_action=True) ===")
+    env = HexapodWalkerEnv(obstacle_count=4, randomize_command=True,
+                           terrain_seed=0, obstacle_seed=0,
+                           gait_action=True)
+    print(f"observation_space = {env.observation_space.shape}")
+    print(f"action_space      = {env.action_space.shape}")
+    obs, info = env.reset(seed=0)
+    print(f"obs shape = {obs.shape}")
+    total_reward = 0.0
+    for k in range(40):
+        # Drive gait knobs to the upper end of their ranges so we can
+        # confirm the scales propagate into the gait.
+        action = np.zeros(env.ACT_DIM, dtype=np.float32)
+        action[18:21] = +0.6   # bias toward longer/faster/higher gait
+        obs, reward, term, trunc, info = env.step(action)
+        total_reward += reward
+        if term or trunc:
+            print(f"  episode ended at step {k} (term={term}, trunc={trunc})")
+            break
+    print(f"40-step total reward = {total_reward:.3f}")
+    print(f"final chassis pos = {info['chassis_xy']}, z={info['chassis_z']:.3f}")
+    print(f"final gait scales = {env._filtered_gait_scales}")
     env.close()
 
 

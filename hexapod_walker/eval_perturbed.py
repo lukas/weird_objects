@@ -48,7 +48,27 @@ PERTURBATIONS = {
 }
 
 
-def _make_env(extra, terrain_seed, obstacle_seed, episode_seconds=6.0):
+def _env_cfg_kwargs(env_cfg):
+    """Pluck environment-shape kwargs out of an env_cfg.json dict."""
+    if not env_cfg:
+        return {}
+    extra = {}
+    scalar_keys = (
+        "residual_scale", "gait_period", "action_filter_tau",
+        "gait_action", "gait_action_filter_tau",
+    )
+    for k in scalar_keys:
+        if k in env_cfg:
+            extra[k] = env_cfg[k]
+    for k in ("period_scale_range", "lift_scale_range",
+              "stride_scale_range"):
+        if k in env_cfg:
+            extra[k] = tuple(env_cfg[k])
+    return extra
+
+
+def _make_env(extra, terrain_seed, obstacle_seed, episode_seconds=6.0,
+              env_cfg=None):
     return he.HexapodWalkerEnv(
         episode_seconds=episode_seconds,
         obstacle_count=4,
@@ -57,7 +77,11 @@ def _make_env(extra, terrain_seed, obstacle_seed, episode_seconds=6.0):
         obstacle_seed=obstacle_seed,
         randomize_command=False,
         terminate_on_fall=False,
-        # Eval defaults: gait_period=1.0, residual_scale=0.06, filter=0.08
+        # ``extra`` is the per-perturbation DR override; ``env_cfg`` is the
+        # policy's training-time environment shape (action space, gait
+        # ranges, etc.).  Apply the policy shape first so DR overrides win
+        # if there's a key collision.
+        **_env_cfg_kwargs(env_cfg),
         **extra,
     )
 
@@ -75,15 +99,9 @@ def _load_policy(policy_path, device="auto"):
         with open(cfg_path) as f:
             env_cfg = json.load(f)
 
-    extra = {}
-    if env_cfg:
-        for k in ("residual_scale", "gait_period", "action_filter_tau"):
-            if k in env_cfg:
-                extra[k] = env_cfg[k]
-
     def _dummy():
-        return _make_env({**extra}, terrain_seed=0, obstacle_seed=0,
-                         episode_seconds=1.0)
+        return _make_env({}, terrain_seed=0, obstacle_seed=0,
+                         episode_seconds=1.0, env_cfg=env_cfg)
     venv = DummyVecEnv([_dummy])
     model = PPO.load(policy_path, env=venv, device=device)
     vn_path = os.path.join(os.path.dirname(policy_path), "vec_normalize.pkl")
@@ -141,19 +159,20 @@ def main():
     policies = []
     for p in args.policies:
         if p == "baseline":
-            policies.append(("baseline (IK)", None, None, None))
+            policies.append(("baseline (IK)", None, None, None, None))
         else:
             label = os.path.basename(p).replace(".zip", "")
-            model, norm, _ = _load_policy(p)
-            policies.append((label, model, norm, p))
+            model, norm, env_cfg = _load_policy(p)
+            policies.append((label, model, norm, p, env_cfg))
 
-    rows = {label: {} for label, _, _, _ in policies}
+    rows = {label: {} for label, _, _, _, _ in policies}
     for pert_name, pert_cfg in PERTURBATIONS.items():
-        for label, model, norm, _ in policies:
+        for label, model, norm, _, env_cfg in policies:
             v_errs, w_errs, dists, falls = [], [], [], []
             for cmd in TEST_COMMANDS:
                 for ts, os_ in zip(TERRAIN_SEEDS, OBSTACLE_SEEDS):
-                    env = _make_env(pert_cfg, ts, os_, episode_seconds=6.0)
+                    env = _make_env(pert_cfg, ts, os_, episode_seconds=6.0,
+                                    env_cfg=env_cfg)
                     max_steps = int(round(6.0 * env.control_hz))
                     r = _evaluate_one(env, model, norm, cmd, max_steps)
                     v_errs.append(r["v_err"])
@@ -172,7 +191,7 @@ def main():
             )
 
     # Print a wide table: rows = perturbations, cols = policies (track score).
-    pol_labels = [label for label, _, _, _ in policies]
+    pol_labels = [label for label, _, _, _, _ in policies]
     print()
     print("Tracking score (higher is better, max ≈ 1.5):")
     header = f"{'perturbation':<28}" + "".join(

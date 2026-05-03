@@ -748,9 +748,23 @@ class TripodGait:
     MAX_VY = 1.5
     MAX_OMEGA = 0.6
 
+    # Hard-clamp ranges on the gait-shape multipliers below.  These caps are
+    # what the IK envelope can plausibly absorb without falling over -- the
+    # RL policy or any external controller can request scales in this range
+    # without us having to second-guess them.
+    SCALE_PERIOD_MIN = 0.40
+    SCALE_PERIOD_MAX = 2.00
+    SCALE_LIFT_MIN   = 0.30
+    SCALE_LIFT_MAX   = 2.50
+    SCALE_STRIDE_MIN = 0.30
+    SCALE_STRIDE_MAX = 1.80
+
     def __init__(self, *, period: float = 1.0, lift: float = 0.07,
                  ramp: float = 0.4, vx: float = 0.0, vy: float = 0.0,
-                 omega: float = 0.0):
+                 omega: float = 0.0,
+                 period_scale: float = 1.0,
+                 lift_scale:   float = 1.0,
+                 stride_scale: float = 1.0):
         self.period = period
         self.lift = lift
         self.ramp = max(ramp, 1e-3)
@@ -758,6 +772,12 @@ class TripodGait:
         self.vx = vx
         self.vy = vy
         self.omega = omega
+
+        # Time-varying gait-shape multipliers.  Default (1, 1, 1) reproduces
+        # the original fixed gait byte-for-byte (modulo phase representation).
+        self.period_scale = period_scale
+        self.lift_scale   = lift_scale
+        self.stride_scale = stride_scale
 
         self.leg_angles = [(i + 0.5) * math.pi / 3.0 for i in range(6)]
         p, pt = STANCE_FEMUR, STANCE_FEMUR + STANCE_TIBIA
@@ -772,6 +792,11 @@ class TripodGait:
         self._vy_smooth = vy
         self._om_smooth = omega
         self._last_t = None
+        # Stateful cycle phase (radians, [0, 2π)).  Stored explicitly so the
+        # gait stays continuous even when ``period_scale`` is changed mid-run
+        # -- otherwise a step change in the scale would jump the phase.
+        self._phase = 0.0
+        self._elapsed = 0.0  # time since last reset_phase() (drives ramp_amp)
 
     def set_velocity(self, *, vx=None, vy=None, omega=None):
         if vx is not None:
@@ -781,16 +806,56 @@ class TripodGait:
         if omega is not None:
             self.omega = max(-self.MAX_OMEGA, min(self.MAX_OMEGA, float(omega)))
 
+    def set_scales(self, *, period_scale=None, lift_scale=None,
+                   stride_scale=None):
+        """Update gait-shape multipliers for the next ``desired()`` call."""
+        if period_scale is not None:
+            self.period_scale = float(np.clip(period_scale,
+                                              self.SCALE_PERIOD_MIN,
+                                              self.SCALE_PERIOD_MAX))
+        if lift_scale is not None:
+            self.lift_scale = float(np.clip(lift_scale,
+                                            self.SCALE_LIFT_MIN,
+                                            self.SCALE_LIFT_MAX))
+        if stride_scale is not None:
+            self.stride_scale = float(np.clip(stride_scale,
+                                              self.SCALE_STRIDE_MIN,
+                                              self.SCALE_STRIDE_MAX))
+
+    def reset_phase(self, *, phase: float = 0.0, t: float = 0.0):
+        """Snap the gait back to a known phase / elapsed time.
+
+        Call this after the env resets so the swing/stance state and ramp
+        amplitude both restart from zero.  Default ``phase=0`` leaves the
+        even tripod in mid-stance (matching the old time-based behaviour at
+        t=0 with ``_phase_offset = π/2``).
+        """
+        self._phase = phase % (2 * math.pi)
+        self._elapsed = 0.0
+        self._last_t = t
+        self._vx_smooth = self.vx
+        self._vy_smooth = self.vy
+        self._om_smooth = self.omega
+
     def stop(self):
         self.set_velocity(vx=0.0, vy=0.0, omega=0.0)
 
-    def _smoothed_command(self, t: float):
-        """Critically-damped 1st-order low-pass toward (vx, vy, omega)."""
+    def _advance(self, t: float):
+        """Advance internal phase / elapsed counters; returns the wallclock dt."""
         if self._last_t is None:
             self._last_t = t
-            return self.vx, self.vy, self.omega
-        dt = max(1e-4, t - self._last_t)
+            return 0.0
+        dt = max(0.0, t - self._last_t)
         self._last_t = t
+        self._elapsed += dt
+        T_eff = max(self.period * self.period_scale, 0.05)
+        self._phase = (self._phase + 2 * math.pi * dt / T_eff) % (2 * math.pi)
+        return dt
+
+    def _smoothed_command(self, dt: float):
+        """Critically-damped 1st-order low-pass toward (vx, vy, omega)."""
+        if dt <= 0.0:
+            return self._vx_smooth, self._vy_smooth, self._om_smooth
         tau = 0.20  # 200 ms time constant
         a = 1.0 - math.exp(-dt / tau)
         self._vx_smooth += a * (self.vx - self._vx_smooth)
@@ -798,18 +863,19 @@ class TripodGait:
         self._om_smooth += a * (self.omega - self._om_smooth)
         return self._vx_smooth, self._vy_smooth, self._om_smooth
 
-    def _foot_target_in_body(self, i: int, t: float, vx, vy, omega):
-        """Return (Δx_body, Δy_body, Δz_lift) for leg ``i`` at time ``t``."""
-        T = self.period
-        phase = (2 * math.pi * t / T + self._phase_offset) % (2 * math.pi)
-        ramp_amp = min(t / self.ramp, 1.0)
+    def _foot_target_in_body(self, i: int, vx, vy, omega):
+        """Return (Δx_body, Δy_body, Δz_lift) for leg ``i`` at the current
+        internal phase.  Caller must have already called ``_advance(t)``."""
+        T_eff = max(self.period * self.period_scale, 0.05)
+        ramp_amp = min(self._elapsed / self.ramp, 1.0)
 
         tripod = 0 if i % 2 == 0 else 1
-        phi = (phase + tripod * math.pi) % (2 * math.pi)
+        phi = (self._phase + self._phase_offset
+               + tripod * math.pi) % (2 * math.pi)
         if phi < math.pi:                          # swing (foot in air)
             s = phi / math.pi
             prog = -0.5 + s                        # -0.5 -> +0.5
-            dz = self.lift * ramp_amp * math.sin(math.pi * s)
+            dz = self.lift * self.lift_scale * ramp_amp * math.sin(math.pi * s)
         else:                                      # stance (foot planted)
             s = (phi - math.pi) / math.pi
             prog = 0.5 - s                         # +0.5 -> -0.5
@@ -820,21 +886,25 @@ class TripodGait:
         # Foot's neutral body-frame velocity due to body twist:
         v_x_at = vx - omega * self._foot_radius * sa
         v_y_at = vy + omega * self._foot_radius * ca
-        # Symmetric body-frame displacement during stance/swing:
-        dx = prog * v_x_at * T / 2.0 * ramp_amp
-        dy = prog * v_y_at * T / 2.0 * ramp_amp
+        # Symmetric body-frame displacement during stance/swing.  ``stride_scale``
+        # uniformly scales how far each foot sweeps around its neutral; values
+        # < 1 produce hover-like steps that slip slightly during stance, > 1
+        # produce longer strides that overshoot.
+        dx = prog * v_x_at * T_eff / 2.0 * ramp_amp * self.stride_scale
+        dy = prog * v_y_at * T_eff / 2.0 * ramp_amp * self.stride_scale
         return dx, dy, dz
 
     def desired(self, t: float):
         """Return (yaws, pitches, knees) target arrays of length 6 at time t."""
-        vx, vy, omega = self._smoothed_command(t)
+        dt = self._advance(t)
+        vx, vy, omega = self._smoothed_command(dt)
 
         yaws = np.zeros(6)
         pitches = np.full(6, STANCE_FEMUR)
         knees = np.full(6, STANCE_TIBIA)
 
         for i, a in enumerate(self.leg_angles):
-            dx_b, dy_b, dz_b = self._foot_target_in_body(i, t, vx, vy, omega)
+            dx_b, dy_b, dz_b = self._foot_target_in_body(i, vx, vy, omega)
             fx_b_neutral = self._foot_radius * math.cos(a)
             fy_b_neutral = self._foot_radius * math.sin(a)
             fx_b = fx_b_neutral + dx_b
