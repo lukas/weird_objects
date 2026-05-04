@@ -64,7 +64,9 @@ def make_env(rank: int, *, base_seed: int, episode_seconds: float,
              gait_action: bool,
              period_scale_range: tuple, lift_scale_range: tuple,
              stride_scale_range: tuple,
-             gait_action_filter_tau: float):
+             gait_action_filter_tau: float,
+             cmd_resample_seconds: float,
+             terminate_on_stuck_seconds: float):
     def _thunk():
         env = he.HexapodWalkerEnv(
             episode_seconds=episode_seconds,
@@ -83,6 +85,8 @@ def make_env(rank: int, *, base_seed: int, episode_seconds: float,
             cmd_vx_range=(-vx_max * 0.6, vx_max),
             cmd_vy_range=(-vy_max, vy_max),
             cmd_omega_range=(-omega_max, omega_max),
+            cmd_resample_seconds=cmd_resample_seconds,
+            terminate_on_stuck_seconds=terminate_on_stuck_seconds,
             dr_mass_pct=dr_mass_pct,
             dr_friction_pct=dr_friction_pct,
             dr_motor_latency_ms=dr_motor_latency_ms,
@@ -187,6 +191,12 @@ def main():
                     help="'lo,hi' bounds on the stride-length multiplier")
     ap.add_argument("--gait-action-filter-tau", type=float, default=0.25,
                     help="LPF time constant for gait-shape multipliers (s)")
+    ap.add_argument("--cmd-resample-seconds", type=float, default=0.0,
+                    help="If >0, re-roll the commanded twist every N seconds "
+                         "during each episode (forces direction-change recovery)")
+    ap.add_argument("--terminate-on-stuck-seconds", type=float, default=0.0,
+                    help="If >0, end the episode early when the chassis hasn't "
+                         "moved >5 cm in this many seconds (no fall penalty)")
     ap.add_argument("--resume", type=str, default=None,
                     help="Path to a saved .zip to continue training")
     args = ap.parse_args()
@@ -225,7 +235,9 @@ def main():
                         period_scale_range=period_range,
                         lift_scale_range=lift_range,
                         stride_scale_range=stride_range,
-                        gait_action_filter_tau=args.gait_action_filter_tau)
+                        gait_action_filter_tau=args.gait_action_filter_tau,
+                        cmd_resample_seconds=args.cmd_resample_seconds,
+                        terminate_on_stuck_seconds=args.terminate_on_stuck_seconds)
                for i in range(args.n_envs)]
     if args.n_envs > 1:
         # SubprocVecEnv on macOS needs spawn; SB3 handles that.
@@ -337,6 +349,8 @@ def main():
         "lift_scale_range":    list(lift_range),
         "stride_scale_range":  list(stride_range),
         "gait_action_filter_tau": args.gait_action_filter_tau,
+        "cmd_resample_seconds": args.cmd_resample_seconds,
+        "terminate_on_stuck_seconds": args.terminate_on_stuck_seconds,
     }
     with open(os.path.join(out_dir, "env_cfg.json"), "w") as f:
         json.dump(env_cfg, f, indent=2)

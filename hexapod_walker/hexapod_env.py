@@ -154,7 +154,18 @@ class HexapodWalkerEnv(gym.Env):
         cmd_omega_range: tuple = (-0.2, 0.2),
         randomize_command: bool = True,
         cmd_speed_bias: float = 0.0,            # 0 = uniform; 1 = biased to ends
+        cmd_resample_seconds: float = 0.0,      # >0 = re-roll the commanded
+                                                # twist every N seconds during
+                                                # the episode (forces the policy
+                                                # to handle direction changes /
+                                                # back out of stuck states)
         terminate_on_fall: bool = True,
+        terminate_on_stuck_seconds: float = 0.0,  # >0 = end episode if the
+                                                # chassis hasn't moved >5 cm
+                                                # in this many seconds (the
+                                                # policy gets the standard
+                                                # truncation reward, no fall
+                                                # penalty)
         # reward shaping (kept on the env so train + eval see the same thing)
         track_w_v: float = 1.5,
         track_w_w: float = 0.6,
@@ -197,8 +208,10 @@ class HexapodWalkerEnv(gym.Env):
         self.cmd_vy_range = tuple(cmd_vy_range)
         self.cmd_omega_range = tuple(cmd_omega_range)
         self.randomize_command = bool(randomize_command)
+        self.cmd_resample_seconds = float(cmd_resample_seconds)
 
         self.terminate_on_fall = bool(terminate_on_fall)
+        self.terminate_on_stuck_seconds = float(terminate_on_stuck_seconds)
         self.render_mode = render_mode
 
         self.track_w_v = float(track_w_v)
@@ -264,6 +277,9 @@ class HexapodWalkerEnv(gym.Env):
         # mapping to the configured ranges).
         self._filtered_gait_scales = np.ones(max(1, n_gait), dtype=np.float32)
         self._last_chassis_xy = np.zeros(2, dtype=np.float64)
+        self._stuck_check_xy = np.zeros(2, dtype=np.float64)
+        self._stuck_check_step = 0
+        self._next_cmd_resample_step = 10**9  # disabled by default
         self._viewer = None
 
         # Domain-randomisation state (resampled every reset).
@@ -293,6 +309,23 @@ class HexapodWalkerEnv(gym.Env):
             u = 0.5 * (float(raw[k]) + 1.0)
             out[k] = float(lo + (hi - lo) * np.clip(u, 0.0, 1.0))
         return out
+
+    def _sample_command_into(self, out: np.ndarray) -> None:
+        """Sample a (vx, vy, omega) command and write it into ``out``."""
+        r = self.np_random
+
+        def _bias_sample(lo, hi):
+            u = r.uniform(0.0, 1.0)
+            if self.cmd_speed_bias > 0.0:
+                # Pull samples toward the endpoints so the policy sees
+                # high-speed commands often.  Mix uniform with a U-shape.
+                u_edge = 0.5 + 0.5 * np.sign(u - 0.5) * (abs(2*u - 1) ** 0.4)
+                u = (1.0 - self.cmd_speed_bias) * u + self.cmd_speed_bias * u_edge
+            return float(lo + (hi - lo) * u)
+
+        out[0] = _bias_sample(*self.cmd_vx_range)
+        out[1] = _bias_sample(*self.cmd_vy_range)
+        out[2] = _bias_sample(*self.cmd_omega_range)
 
     # ---- world setup -----------------------------------------------------
 
@@ -334,22 +367,18 @@ class HexapodWalkerEnv(gym.Env):
 
         # Sample the commanded twist for this episode.
         if self.randomize_command:
-            r = self.np_random
-            def _bias_sample(lo, hi):
-                u = r.uniform(0.0, 1.0)
-                if self.cmd_speed_bias > 0.0:
-                    # Pull samples toward the endpoints so the policy sees
-                    # high-speed commands often.  Mix uniform with a U-shape.
-                    u_edge = 0.5 + 0.5 * np.sign(u - 0.5) * (abs(2*u - 1) ** 0.4)
-                    u = (1.0 - self.cmd_speed_bias) * u + self.cmd_speed_bias * u_edge
-                return float(lo + (hi - lo) * u)
-            self._cmd[0] = _bias_sample(*self.cmd_vx_range)
-            self._cmd[1] = _bias_sample(*self.cmd_vy_range)
-            self._cmd[2] = _bias_sample(*self.cmd_omega_range)
+            self._sample_command_into(self._cmd)
             if "command" in opts:
                 self._cmd[:] = opts["command"]
         else:
             self._cmd[:] = opts.get("command", (0.3, 0.0, 0.0))
+
+        # Schedule the first mid-episode command re-roll, if enabled.
+        if self.cmd_resample_seconds > 0.0 and self.randomize_command:
+            steps = max(1, int(round(self.cmd_resample_seconds * self.control_hz)))
+            self._next_cmd_resample_step = steps
+        else:
+            self._next_cmd_resample_step = 10**9
 
         # Reset the gait -- new TripodGait so the smoothing state resets.
         self._gait = MW.TripodGait(period=self.gait_period,
@@ -383,6 +412,11 @@ class HexapodWalkerEnv(gym.Env):
         self._filtered_action[:] = 0.0
         self._latency_buf = []
         self._last_chassis_xy[:] = self.data.body(self.idx.chassis_body).xpos[:2]
+        # Anchor for stuck-detection: every ``terminate_on_stuck_seconds`` we
+        # check how far the chassis has moved from this anchor and either
+        # reset it (still moving) or terminate (stuck).
+        self._stuck_check_xy[:] = self._last_chassis_xy
+        self._stuck_check_step = 0
 
         # Optional starting velocity kick for robustness (real robots wobble).
         if self.dr_velocity_kick > 0:
@@ -556,6 +590,20 @@ class HexapodWalkerEnv(gym.Env):
                 self._viewer.sync()
 
         self._step_count += 1
+
+        # Mid-episode command resampling: every ``cmd_resample_seconds`` we
+        # roll a new commanded twist so the policy must actually handle
+        # direction changes (rather than memorising a fixed-direction
+        # behaviour for the full episode length).  Updates the gait's
+        # commanded velocity at the same time so the IK targets follow.
+        if self._step_count >= self._next_cmd_resample_step:
+            self._sample_command_into(self._cmd)
+            self._gait.set_velocity(vx=float(self._cmd[0]),
+                                    vy=float(self._cmd[1]),
+                                    omega=float(self._cmd[2]))
+            steps = max(1, int(round(self.cmd_resample_seconds * self.control_hz)))
+            self._next_cmd_resample_step = self._step_count + steps
+
         terminated, truncated, fall_term = self._check_done()
 
         obs = self._obs()
@@ -671,6 +719,27 @@ class HexapodWalkerEnv(gym.Env):
         fell = (z < 0.05) or (up_z < 0.5)  # tilted >60° or chassis on ground
         if fell and self.terminate_on_fall:
             return True, False, True
+
+        # Stuck detection: every ``terminate_on_stuck_seconds`` of wallclock
+        # time, check whether the chassis has moved >5 cm from its anchor.
+        # If not, terminate (with truncation, no fall penalty) so the policy
+        # gets a clear training signal to break out of stuck states rather
+        # than oscillating in place forever.
+        if self.terminate_on_stuck_seconds > 0.0:
+            window = max(1, int(round(self.terminate_on_stuck_seconds
+                                       * self.control_hz)))
+            if self._step_count - self._stuck_check_step >= window:
+                cur_xy = self.data.body(self.idx.chassis_body).xpos[:2]
+                disp = float(np.linalg.norm(cur_xy - self._stuck_check_xy))
+                if disp < 0.05:
+                    # Treat as truncation rather than failure: the policy
+                    # didn't fall, just got pinned, so give it the alive
+                    # reward without the fall penalty.
+                    return False, True, False
+                # Re-anchor for the next window.
+                self._stuck_check_xy[:] = cur_xy
+                self._stuck_check_step = self._step_count
+
         if self._step_count >= self._max_steps:
             return False, True, False
         return False, False, False

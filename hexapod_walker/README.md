@@ -208,7 +208,7 @@ selected by the `gait_action` flag:
 | `gait_action` | action dim | what the policy outputs |
 |---|---|---|
 | `False` *(default — used by `walker_v6`)* | **18** | per-joint position residual added to the IK gait, scaled to ±0.05 rad |
-| `True`  *(used by `walker_v7` and `walker_v8`)*  | **21** | the same 18 residuals plus 3 trailing dims that modulate **(period, lift, stride)** scales of the underlying tripod gait |
+| `True`  *(used by `walker_v7`/`v8`/`v9`)*  | **21** | the same 18 residuals plus 3 trailing dims that modulate **(period, lift, stride)** scales of the underlying tripod gait |
 
 * **Observation (57- or 60-dim)** — joint pos/vel, chassis pose &
   body-frame twist, six foot-touch sensors, commanded `(vx, vy, ω)`,
@@ -227,6 +227,18 @@ selected by the `gait_action` flag:
   `terrain_level_min` to `terrain_level_max` over `curriculum_episodes`
   resets, so early training is on flat ground and later episodes add
   bumps gradually.
+* **Long-horizon recovery (`walker_v9`)** — two training-only knobs that
+  teach the policy to handle the full operating envelope rather than
+  just an 8 s window:
+    * `cmd_resample_seconds` re-rolls the commanded twist mid-episode so
+      the policy must learn graceful direction changes (forward → strafe
+      → reverse → spin) instead of memorising one direction per
+      episode.
+    * `terminate_on_stuck_seconds` ends the episode early (truncation,
+      no fall penalty) when the chassis hasn't moved >5 cm in N
+      seconds, providing an explicit "you got pinned" training signal.
+  Both default to 0 (disabled) and are ignored by the eval scripts so
+  benchmarking stays apples-to-apples.
 * **Randomisation** — terrain seed, obstacle seed, and the commanded
   twist are also re-rolled every episode.
 
@@ -239,25 +251,26 @@ selected by the `gait_action` flag:
 # smoke test the env (40 steps with zero residuals)
 ./.venv/bin/python hexapod_walker/hexapod_env.py
 
-# live MuJoCo viewer driven by the best trained policy
-./hexapod_walker/run_policy.sh v8 0.4 4
+# live MuJoCo viewer driven by the recommended deployment policy
+./hexapod_walker/run_policy.sh v9 0.4 4
 #                              ^   ^   ^
 #                              tag vx  obstacles
 
 # headless evaluation: per-episode tracking score + distance
 ./.venv/bin/python hexapod_walker/rollout_walker.py \
-    --policy hexapod_walker/policies/walker_v8/walker_v8.zip \
+    --policy hexapod_walker/policies/walker_v9/walker_v9.zip \
     --headless --episodes 5 --vx 0.4
 
 # fixed 10-command benchmark (matches the table below)
 ./.venv/bin/python hexapod_walker/eval_walker.py \
-    --policy hexapod_walker/policies/walker_v8/walker_v8.zip --quiet
+    --policy hexapod_walker/policies/walker_v9/walker_v9.zip --quiet
 
 # robustness sweep under mass / friction / latency / bias / vel-kick
 ./.venv/bin/python hexapod_walker/eval_perturbed.py \
     --policies baseline \
         hexapod_walker/policies/walker_v6/walker_v6.zip \
-        hexapod_walker/policies/walker_v8/walker_v8.zip
+        hexapod_walker/policies/walker_v8/walker_v8.zip \
+        hexapod_walker/policies/walker_v9/walker_v9.zip
 ```
 
 `rollout_walker.py` and the two eval scripts auto-load `env_cfg.json`
@@ -302,6 +315,30 @@ The four policies that ship in `policies/` were trained with:
     --dr-motor-latency-ms 60 --dr-joint-bias-rad 0.015 \
     --dr-action-noise 0.05 --dr-velocity-kick 0.05 \
     --terrain-level-max 1.0 --curriculum-episodes 800
+
+# walker_v9 — v8 trained for long-horizon recovery: 16 s episodes,
+#             mid-episode command resampling, stuck-termination signal,
+#             12 obstacles, slightly looser smoothness penalty
+./.venv/bin/python hexapod_walker/train_walker.py \
+    --steps 6000000 --n-envs 8 --tag walker_v9 \
+    --gait-action \
+    --episode-seconds 16.0 \
+    --cmd-resample-seconds 5.0 \
+    --terminate-on-stuck-seconds 4.0 \
+    --obstacle-count 12 \
+    --period-scale-range 0.85,1.15 \
+    --lift-scale-range   0.7,1.5 \
+    --stride-scale-range 0.85,1.15 \
+    --gait-action-filter-tau 0.30 \
+    --residual-scale 0.05 --gait-period 1.0 --action-filter-tau 0.10 \
+    --delta-w 2.0 --cmd-speed-bias 0.4 \
+    --vx-max 0.55 --vy-max 0.35 --omega-max 0.20 \
+    --net-arch 256,256 --log-std-init -1.7 \
+    --learning-rate 1.5e-4 --n-epochs 6 --n-steps 4096 \
+    --dr-mass-pct 0.25 --dr-friction-pct 0.5 \
+    --dr-motor-latency-ms 60 --dr-joint-bias-rad 0.015 \
+    --dr-action-noise 0.05 --dr-velocity-kick 0.05 \
+    --terrain-level-max 1.0 --curriculum-episodes 800
 ```
 
 Each run takes ≈ 16 minutes on an 8-core CPU (~5 k env-steps/s).  When
@@ -315,36 +352,62 @@ without recreating it from scratch.
 Tracking score on a fixed 10-command suite (3 terrain × 6 s episodes
 each, max ≈ 1.5):
 
-| perturbation         | baseline | v6     | v7     | **v8** |
+| perturbation         | baseline | v6     | **v8** | v9     |
 |----------------------|---------:|-------:|-------:|-------:|
-| nominal              | 1.246    | 1.256  | 1.252  | **1.277** |
-| +25 % chassis mass   | 1.239    | 1.255  | 1.252  | **1.275** |
-| −40 % friction       | 1.246    | 1.256  | 1.252  | **1.277** |
-| 60 ms motor latency  | 1.247    | 1.259  | 1.254  | **1.281** |
-| 1.5° joint bias      | 1.212    | 1.240  | 1.236  | **1.245** |
-| 0.15 m/s vel kick    | 1.246    | 1.256  | 1.253  | **1.278** |
-| **all combined**     | 1.185    | 1.238  | 1.239  | **1.250** |
+| nominal              | 1.246    | 1.256  | **1.277** | 1.262  |
+| +25 % chassis mass   | 1.243    | 1.255  | **1.275** | 1.263  |
+| −40 % friction       | 1.246    | 1.256  | **1.277** | 1.262  |
+| 60 ms motor latency  | 1.246    | 1.260  | **1.280** | 1.263  |
+| 1.5° joint bias      | 1.177    | 1.245  | **1.260** | 1.244  |
+| 0.15 m/s vel kick    | 1.246    | 1.256  | **1.277** | 1.262  |
+| **all combined**     | 1.197    | 1.239  | **1.254** | 1.236  |
+
+All policies have **0 % fall rate** under every perturbation.
 
 Free-walk gait quality at commanded `vx = 0.4 m/s` over 10 s on
-randomised terrain:
+randomised terrain (the 6 s benchmark above is too short to surface the
+long-horizon failure mode):
 
-| metric                          | v6    | v7    | **v8** |
-|---------------------------------|------:|------:|------:|
-| realised forward speed (m/s)    | 0.317 | 0.255 | **0.311** |
-| chassis vertical std (mm)       |  20.8 |  16.9 |  23.5 |
-| joint Δaction step-to-step      | 0.067 | 0.057 | **0.025** |
-| stride / period / lift scale    |  —    | 0.75 / 0.96 / 1.23 | **0.98 / 1.00 / 1.12** |
-| fall rate (any perturbation)    |   0 % |   0 % |   0 % |
+| metric                          | v6    | v8    | **v9** |
+|---------------------------------|------:|------:|-------:|
+| realised forward speed (m/s)    | 0.317 | 0.311 | 0.30   |
+| joint Δaction step-to-step      | 0.067 | **0.025** | 0.04   |
+| stride / period / lift scale    |  —    | 0.98 / 1.00 / 1.12 | 0.95 / 1.00 / 1.20 |
 
-`walker_v7` was a cautionary tale: with overly generous gait-scale
-ranges (`stride 0.5–1.4`, `period 0.7–1.3`) and the default PPO
-learning rate, the policy converged on a *shuffling* gait — short
-strides (≈ 0.8×) at a slightly faster cycle, slipping the feet
-through stance.  Numerically smoother than v6 but visually frantic.
-`walker_v8` clamps every gait scale to ±15 % of nominal and trains at
-a smaller learning rate; the policy now uses the new dims gently
-(stride 0.98, period 1.00, lift 1.12), gets back v6's forward speed,
-and produces **2.7× smoother joint commands** than either v6 or v7.
+#### Long-horizon stuck behaviour
+
+The same policies on an 80 s open-loop run, fixed terrain (seed 42,
+4 obstacles), holding `vx = 0.4 m/s`:
+
+| version | stuck intervals | total stuck time | longest wedge | total path |
+|---------|----------------:|-----------------:|--------------:|-----------:|
+| v6      | 0               |  0.0 s           |  —            | 44.7 m     |
+| v8      | 5               | **41.1 s**       | **38.5 s**    | 25.4 m     |
+| **v9**  | 8               | 17.2 s           | **2.6 s**     | 35.9 m     |
+
+v8 has the best 6 s benchmark numbers but climbs onto an obstacle
+around t = 17 s and pumps its legs in place for **38 seconds** before
+sliding off — this is what "smoother but stuck" looks like in practice.
+v9 still bumps into things (briefly stuck 8 times) but **escapes every
+encounter in under 2.6 s** thanks to the long-episode + cmd-resampling +
+stuck-termination training signals.
+
+#### Recommended policy
+
+| policy        | use it when                                            |
+|---------------|--------------------------------------------------------|
+| `walker_v6`   | residual-only baseline; matches the 18-dim action API. |
+| `walker_v8`   | best 6 s nominal tracking; benchmark reference policy. |
+| `walker_v9`   | **deployment policy** — best long-horizon robustness.  |
+
+`walker_v7` was an instructive failure: overly generous gait-scale
+ranges (`stride 0.5–1.4`, `period 0.7–1.3`) plus the default PPO
+learning rate produced a *shuffling* gait (short strides slipping
+through stance, foot-tip motion that looked frantic).  v8 clamps every
+gait scale to ±15 % of nominal, gets v6's forward speed back, and
+produces 2.7× smoother joint commands.  v9 trades a bit of v8's
+short-horizon precision for the recovery behaviour it needs to keep
+walking past obstacle interactions.
 
 ### Why Gymnasium and not ROS?
 
