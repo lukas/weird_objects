@@ -510,29 +510,42 @@ def make_servo_horn_adapter() -> trimesh.Trimesh:
 
 def _hex_plate(flat_to_flat: float, thickness: float,
                with_centre_holes: bool = False) -> trimesh.Trimesh:
-    """Return a flat hexagonal plate, centred on origin, axis = +Z."""
+    """Return a flat hexagonal plate, centred on origin, axis = +Z.
+
+    Hole pattern (per leg, 6 legs total):
+        4 vertical M3 clearance holes (Φ BRACKET_BOLT_HOLE) drilled all
+        the way through.  Pattern matches `make_coxa_bracket()`'s flange:
+        2 holes on the OUTBOARD edge of the bolt rectangle (just inboard
+        of the chassis perimeter) and 2 on the INBOARD edge.  All four
+        holes are inboard of the apothem line so the bolt heads have
+        chassis material under them.
+    """
     apothem = flat_to_flat / 2.0
     circum = apothem / np.cos(np.pi / 6)
     plate = _cyl(circum, thickness, sections=6)
     plate.apply_transform(rotation_matrix(np.pi / 6, [0, 0, 1]))
 
-    # 6 x coxa-bracket bolt patterns: 4 holes per bracket on a 30 x 16 mm
-    # rectangle, drilled vertically through the plate.
+    # The bracket's flange occupies bracket-local x in [-FLANGE_X, 0]
+    # = [-30, 0] (origin = yaw axis = chassis edge).  Bolts at:
+    #   outboard pair: x = -BRACKET_FLANGE_INSET (8 mm inboard of edge)
+    #   inboard pair:  x = -BRACKET_FLANGE_INSET - BRACKET_BOLT_PCD_X
+    #                       (8 + 20 = 28 mm inboard of edge)
+    bolt_x_outboard = -BRACKET_FLANGE_INSET
+    bolt_x_inboard  = -BRACKET_FLANGE_INSET - BRACKET_BOLT_PCD_X
+    bolt_ys         = (-BRACKET_BOLT_PCD_Y / 2.0,
+                       +BRACKET_BOLT_PCD_Y / 2.0)
+
     holes = []
     for i in range(6):
         a = (i + 0.5) * np.pi / 3
-        # The coxa bracket sits with its centre near the apothem line
-        # (just inboard of the perimeter).  Bolt pattern centred on
-        # (apothem - 12, 0) in the bracket's local frame; rotate that
-        # into world.
-        cx = (apothem - 14.0) * np.cos(a)
-        cy = (apothem - 14.0) * np.sin(a)
+        edge_mid = np.array([apothem * np.cos(a),
+                              apothem * np.sin(a),
+                              0.0])
         R = rotation_matrix(a, [0, 0, 1])[:3, :3]
-        for sx in (-1, 1):
-            for sy in (-1, 1):
-                local = np.array([sx * 14.0, sy * 8.0, 0.0])
-                world = np.array([cx, cy, 0.0]) + R @ local
-                h = _cyl(SERVO_TAB_HOLE / 2.0, thickness * 4)
+        for bx in (bolt_x_outboard, bolt_x_inboard):
+            for by in bolt_ys:
+                world = edge_mid + R @ np.array([bx, by, 0.0])
+                h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
                 h.apply_translation([world[0], world[1], 0])
                 holes.append(h)
 
@@ -540,7 +553,7 @@ def _hex_plate(flat_to_flat: float, thickness: float,
         # 4 holes for the electronics tray + battery holder mounting
         for i in range(4):
             a = np.pi / 4 + i * np.pi / 2
-            h = _cyl(SERVO_TAB_HOLE / 2.0, thickness * 4)
+            h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
             h.apply_translation([35.0 * np.cos(a), 35.0 * np.sin(a), 0])
             holes.append(h)
 
