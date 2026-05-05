@@ -66,7 +66,8 @@ def make_env(rank: int, *, base_seed: int, episode_seconds: float,
              stride_scale_range: tuple,
              gait_action_filter_tau: float,
              cmd_resample_seconds: float,
-             terminate_on_stuck_seconds: float):
+             terminate_on_stuck_seconds: float,
+             per_leg_lift: bool, stub_w: float):
     def _thunk():
         env = he.HexapodWalkerEnv(
             episode_seconds=episode_seconds,
@@ -101,6 +102,8 @@ def make_env(rank: int, *, base_seed: int, episode_seconds: float,
             lift_scale_range=lift_scale_range,
             stride_scale_range=stride_scale_range,
             gait_action_filter_tau=gait_action_filter_tau,
+            per_leg_lift=per_leg_lift,
+            stub_w=stub_w,
         )
         return env
     return _thunk
@@ -191,6 +194,18 @@ def main():
                     help="'lo,hi' bounds on the stride-length multiplier")
     ap.add_argument("--gait-action-filter-tau", type=float, default=0.25,
                     help="LPF time constant for gait-shape multipliers (s)")
+    ap.add_argument("--per-leg-lift", action="store_true",
+                    help="Replace the single lift-scale dim with 6 per-leg "
+                         "dims so the policy can lift a stubbing leg "
+                         "without raising the whole gait. Requires "
+                         "--gait-action.  Action grows from 21 to 26 dims, "
+                         "obs from 60 to 71 (adds 6 per-leg lifts + 6 "
+                         "swing-mask flags).")
+    ap.add_argument("--stub-w", type=float, default=0.0,
+                    help="Penalty weight on swing-foot contact impulse "
+                         "(N·s).  Set >0 to teach the policy to stop "
+                         "stubbing its swing legs into obstacles.  Pairs "
+                         "naturally with --per-leg-lift.")
     ap.add_argument("--cmd-resample-seconds", type=float, default=0.0,
                     help="If >0, re-roll the commanded twist every N seconds "
                          "during each episode (forces direction-change recovery)")
@@ -237,7 +252,9 @@ def main():
                         stride_scale_range=stride_range,
                         gait_action_filter_tau=args.gait_action_filter_tau,
                         cmd_resample_seconds=args.cmd_resample_seconds,
-                        terminate_on_stuck_seconds=args.terminate_on_stuck_seconds)
+                        terminate_on_stuck_seconds=args.terminate_on_stuck_seconds,
+                        per_leg_lift=args.per_leg_lift,
+                        stub_w=args.stub_w)
                for i in range(args.n_envs)]
     if args.n_envs > 1:
         # SubprocVecEnv on macOS needs spawn; SB3 handles that.
@@ -304,7 +321,7 @@ def main():
     logger = configure(out_dir, log_formats)
     model.set_logger(logger)
 
-    ckpt = CheckpointCallback(save_freq=max(1, args.steps // (args.n_envs * 4)),
+    ckpt = CheckpointCallback(save_freq=max(1, args.steps // (args.n_envs * 12)),
                               save_path=out_dir, name_prefix="ckpt",
                               save_vecnormalize=True)
     callbacks = CallbackList([ckpt])
@@ -351,6 +368,8 @@ def main():
         "gait_action_filter_tau": args.gait_action_filter_tau,
         "cmd_resample_seconds": args.cmd_resample_seconds,
         "terminate_on_stuck_seconds": args.terminate_on_stuck_seconds,
+        "per_leg_lift":         args.per_leg_lift,
+        "stub_w":               args.stub_w,
     }
     with open(os.path.join(out_dir, "env_cfg.json"), "w") as f:
         json.dump(env_cfg, f, indent=2)

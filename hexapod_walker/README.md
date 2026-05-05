@@ -239,6 +239,21 @@ selected by the `gait_action` flag:
       seconds, providing an explicit "you got pinned" training signal.
   Both default to 0 (disabled) and are ignored by the eval scripts so
   benchmarking stays apples-to-apples.
+* **Proprioceptive stub-avoider (`walker_v10`)** — teaches the walker
+  to high-step over obstacles without any forward-looking sensors.
+  Three changes on top of v9:
+    * `per_leg_lift=True` splits the gait's lift-scale dim into 6 per-leg
+      dims, so the policy can lift just the leg that's in trouble instead
+      of raising the whole gait (action grows from 21 to 26 dims, obs
+      from 60 to 71).
+    * The 6 obs additions are 6 binary swing-mask flags fused with the
+      existing 6 foot-touch sensors, giving the policy a direct
+      "this swing leg is in contact with something" signal.
+    * `stub_w * Σ swing[i] · touch[i] · dt` is subtracted from the reward
+      every control step.  The integral runs *inside* the inner sim loop
+      so brief mid-step stubs aren't missed.  Net effect: the policy
+      learns "if I bang my swing foot, I should pause/lift it higher"
+      purely from proprioception, no exteroception needed.
 * **Randomisation** — terrain seed, obstacle seed, and the commanded
   twist are also re-rolled every episode.
 
@@ -339,6 +354,31 @@ The four policies that ship in `policies/` were trained with:
     --dr-motor-latency-ms 60 --dr-joint-bias-rad 0.015 \
     --dr-action-noise 0.05 --dr-velocity-kick 0.05 \
     --terrain-level-max 1.0 --curriculum-episodes 800
+
+# walker_v10 — v9 + proprioceptive stub-avoider: per-leg lift action,
+#              swing-mask obs, swing-foot contact penalty, dense
+#              obstacle field, wider lift / period ranges so the
+#              policy can pause and high-step over a stub.
+./.venv/bin/python hexapod_walker/train_walker.py \
+    --steps 6000000 --n-envs 8 --tag walker_v10 \
+    --gait-action --per-leg-lift --stub-w 0.5 \
+    --episode-seconds 16.0 \
+    --cmd-resample-seconds 5.0 \
+    --terminate-on-stuck-seconds 4.0 \
+    --obstacle-count 20 \
+    --period-scale-range 0.60,1.60 \
+    --lift-scale-range   0.40,2.50 \
+    --stride-scale-range 0.85,1.15 \
+    --gait-action-filter-tau 0.30 \
+    --residual-scale 0.05 --gait-period 1.0 --action-filter-tau 0.10 \
+    --delta-w 1.5 --cmd-speed-bias 0.4 \
+    --vx-max 0.55 --vy-max 0.35 --omega-max 0.20 \
+    --net-arch 256,256 --log-std-init -1.7 \
+    --learning-rate 1.5e-4 --n-epochs 6 --n-steps 4096 \
+    --dr-mass-pct 0.25 --dr-friction-pct 0.5 \
+    --dr-motor-latency-ms 60 --dr-joint-bias-rad 0.015 \
+    --dr-action-noise 0.05 --dr-velocity-kick 0.05 \
+    --terrain-level-max 1.0 --curriculum-episodes 800
 ```
 
 Each run takes ≈ 16 minutes on an 8-core CPU (~5 k env-steps/s).  When
@@ -399,6 +439,7 @@ stuck-termination training signals.
 | `walker_v6`   | residual-only baseline; matches the 18-dim action API. |
 | `walker_v8`   | best 6 s nominal tracking; benchmark reference policy. |
 | `walker_v9`   | **deployment policy** — best long-horizon robustness.  |
+| `walker_v10`  | proprioceptive stub-avoider; per-leg lift + swing-foot contact penalty for high-stepping over obstacles. |
 
 `walker_v7` was an instructive failure: overly generous gait-scale
 ranges (`stride 0.5–1.4`, `period 0.7–1.3`) plus the default PPO

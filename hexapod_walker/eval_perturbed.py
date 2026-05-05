@@ -56,6 +56,7 @@ def _env_cfg_kwargs(env_cfg):
     scalar_keys = (
         "residual_scale", "gait_period", "action_filter_tau",
         "gait_action", "gait_action_filter_tau",
+        "per_leg_lift", "stub_w",
     )
     for k in scalar_keys:
         if k in env_cfg:

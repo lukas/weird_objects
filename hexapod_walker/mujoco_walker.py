@@ -103,12 +103,13 @@ STL_DIR = os.path.join(THIS_DIR, "stl")
 # normalized hfield value of 1.0; ``HFIELD_BASE`` is the slab thickness
 # beneath the data plane that prevents the walker from falling through if
 # the data ever goes to 0 at the boundary.
-HFIELD_NROW = 96
-HFIELD_NCOL = 96
+HFIELD_NROW = 192
+HFIELD_NCOL = 192
 HFIELD_SIZE = 18.0      # half-extent in metres (hfield spans 36 m × 36 m)
-HFIELD_MAX_Z = 0.20
+HFIELD_MAX_Z = 0.12     # peak elevation (m); enough rumble for the leg
+                         # IK envelope without launching the walker.
 HFIELD_BASE = 0.5
-HFIELD_SPAWN_FLAT_R = 2.5  # radius (m) of flat spawn pad at origin
+HFIELD_SPAWN_FLAT_R = 1.2  # radius (m) of flat spawn pad at origin
 
 # A stylized 1.75 m seated rider (~85 kg) for visual scale.  The mass is
 # already lumped into CHASSIS_MASS, so the rider rides as a fixed visual
@@ -117,45 +118,67 @@ RIDER_STL = os.path.join(STL_DIR, "rider_seated.stl")
 
 
 def make_terrain_heightmap(seed: int = 0) -> np.ndarray:
-    """Procedural rolling-hill heightmap normalized to [0, 1].
+    """Procedural realistic-outdoor-ish heightmap normalized to [0, 1].
 
-    Produces a smooth blend of low-frequency sinusoids plus a few isolated
-    larger bumps, then fades the elevation to zero inside a circular flat
-    pad of radius ``HFIELD_SPAWN_FLAT_R`` around the origin so the walker
-    can settle on level ground before venturing onto the terrain.
+    Three layers, summed:
+      * **gentle rolling hills** — low-frequency sinusoids, peak ~ 70 % of
+        the elevation budget.  Slow undulation the walker barely notices.
+      * **medium clumps** — a handful of meter-scale Gaussian bumps to
+        give some directional bias (hummocks, uneven yard).
+      * **fine rumble** — high-frequency Perlin-ish noise built from
+        several phase-shifted sinusoids, ~ 30 % of the budget, to give
+        every metre of ground a few-cm of unevenness.
+
+    A small (radius ``HFIELD_SPAWN_FLAT_R``) flat pad is preserved at the
+    origin so the walker can spawn cleanly on level ground.  The fade
+    is gentle so the rumble starts re-emerging by ~ 2 m out.
     """
     rng = np.random.default_rng(seed)
     xs = np.linspace(-HFIELD_SIZE, HFIELD_SIZE, HFIELD_NCOL)
     ys = np.linspace(-HFIELD_SIZE, HFIELD_SIZE, HFIELD_NROW)
     X, Y = np.meshgrid(xs, ys, indexing="xy")
 
-    # Three octaves of smooth sinusoidal hills.
-    h = (
+    # ---- low-frequency rolling hills (lambda ~ 30-50 m wavelengths) ----
+    hills = (
         0.55 * np.sin(0.18 * X + 0.13 * Y + 0.7)
         + 0.40 * np.cos(0.12 * X - 0.21 * Y + 1.6)
         + 0.20 * np.sin(0.45 * X) * np.cos(0.42 * Y)
-        + 0.15 * np.cos(0.31 * (X - 4.0)) * np.sin(0.27 * (Y + 3.0))
     )
-    # A few isolated taller bumps to walk over.
-    for _ in range(8):
+
+    # ---- medium clumps (a few hummocks scattered across the field) ----
+    clumps = np.zeros_like(X)
+    for _ in range(6):
         cx, cy = rng.uniform(-HFIELD_SIZE * 0.7, HFIELD_SIZE * 0.7, size=2)
         sigma = rng.uniform(1.5, 3.5)
-        amp = rng.uniform(0.4, 0.85)
-        h += amp * np.exp(-((X - cx) ** 2 + (Y - cy) ** 2) / (2 * sigma ** 2))
+        amp = rng.uniform(0.20, 0.45)
+        clumps += amp * np.exp(-((X - cx) ** 2
+                                 + (Y - cy) ** 2) / (2 * sigma ** 2))
+
+    # ---- fine rumble (a few-cm of unevenness everywhere) ----
+    # Sum 6 high-frequency sinusoids with random phases / orientations.
+    # Wavelengths 0.5–1.5 m so each footstep crosses 1–2 ripples.
+    rumble = np.zeros_like(X)
+    for _ in range(6):
+        kx = rng.uniform(2.0, 6.0) * (1 if rng.random() > 0.5 else -1)
+        ky = rng.uniform(2.0, 6.0) * (1 if rng.random() > 0.5 else -1)
+        ph = rng.uniform(0, 2 * np.pi)
+        rumble += np.sin(kx * X + ky * Y + ph)
+    rumble /= 6.0
+
+    h = 1.00 * hills + 0.65 * clumps + 0.45 * rumble
 
     h -= h.min()
     if h.max() > 0:
         h /= h.max()
 
-    # Fade to zero in a smooth ramp around the origin so the spawn area is
-    # flat regardless of what the noise produced there.
+    # Smooth flat-pad fade at the origin (gentle, not abrupt — by 2 m
+    # past the pad the rumble is already ~ 80 % of full amplitude).
     R = np.hypot(X, Y)
     fade = np.clip((R - HFIELD_SPAWN_FLAT_R) /
-                   max(1e-3, HFIELD_SPAWN_FLAT_R), 0.0, 1.0)
-    fade = fade ** 1.5
+                   max(1e-3, HFIELD_SPAWN_FLAT_R * 0.8), 0.0, 1.0)
+    fade = fade ** 1.2
     h = h * fade
 
-    # Renormalize so peaks reach 1.0 (max elevation = HFIELD_MAX_Z metres).
     if h.max() > 0:
         h = h / h.max()
     return h.astype(np.float32)
@@ -198,13 +221,16 @@ def make_obstacles_xml(heights: np.ndarray, *, count: int = 14,
     placed = []   # list of (x, y, exclusion_radius)
     snippets = []
 
+    # Obstacles are sized for "stuff you'd actually step over outdoors":
+    # small rocks, low curbs, fallen branches, short posts.  Nothing is
+    # taller than ~ 30 cm, comparable to one stride lift.
     PALETTES = {
-        "crate":    "0.55 0.40 0.22 1",
-        "pillar":   "0.55 0.55 0.58 1",
-        "curb":     "0.85 0.55 0.18 1",
-        "block":    "0.70 0.25 0.22 1",
-        "ramp":     "0.55 0.55 0.58 1",
-        "bollard":  "0.95 0.85 0.10 1",
+        "crate":    "0.45 0.36 0.24 1",   # small wooden block / planter
+        "pillar":   "0.50 0.50 0.55 1",   # short concrete post
+        "curb":     "0.62 0.55 0.45 1",   # weathered curb / edging
+        "block":    "0.45 0.40 0.35 1",   # rock / boulder
+        "ramp":     "0.55 0.55 0.58 1",   # wedge / threshold ramp
+        "bollard":  "0.75 0.65 0.18 1",   # short bollard
     }
 
     def _nonoverlap(x, y, r):
@@ -234,9 +260,9 @@ def make_obstacles_xml(heights: np.ndarray, *, count: int = 14,
         kind = types[n % len(types)]
 
         if kind == "crate":
-            sx = rng.uniform(0.25, 0.45)
-            sy = rng.uniform(0.25, 0.45)
-            sz = rng.uniform(0.20, 0.45)
+            sx = rng.uniform(0.10, 0.20)
+            sy = rng.uniform(0.10, 0.20)
+            sz = rng.uniform(0.05, 0.12)
             yaw = rng.uniform(0, 2 * math.pi)
             r_excl = math.hypot(sx, sy) + 0.1
             xy = _pick_xy(r_excl)
@@ -253,8 +279,8 @@ def make_obstacles_xml(heights: np.ndarray, *, count: int = 14,
             placed.append((x, y, r_excl))
 
         elif kind == "pillar":
-            r = rng.uniform(0.18, 0.35)
-            h = rng.uniform(0.8, 2.4)
+            r = rng.uniform(0.05, 0.10)
+            h = rng.uniform(0.20, 0.40)
             r_excl = r + 0.2
             xy = _pick_xy(r_excl)
             if xy is None: continue
@@ -268,9 +294,9 @@ def make_obstacles_xml(heights: np.ndarray, *, count: int = 14,
             placed.append((x, y, r_excl))
 
         elif kind == "curb":
-            sx = rng.uniform(0.8, 2.2)   # length
-            sy = rng.uniform(0.10, 0.20)  # width (thin)
-            sz = rng.uniform(0.06, 0.13)  # low so walker can step on it
+            sx = rng.uniform(0.60, 1.20)   # length
+            sy = rng.uniform(0.06, 0.10)   # width (thin)
+            sz = rng.uniform(0.03, 0.06)   # very low — like a paver edge
             yaw = rng.uniform(0, 2 * math.pi)
             r_excl = math.hypot(sx, sy) + 0.1
             xy = _pick_xy(r_excl)
@@ -287,9 +313,10 @@ def make_obstacles_xml(heights: np.ndarray, *, count: int = 14,
             placed.append((x, y, r_excl))
 
         elif kind == "block":
-            sx = rng.uniform(0.6, 1.2)
-            sy = rng.uniform(0.6, 1.2)
-            sz = rng.uniform(0.5, 1.0)
+            # "rock" — a knee-height angular boulder, lying tilted.
+            sx = rng.uniform(0.18, 0.32)
+            sy = rng.uniform(0.18, 0.32)
+            sz = rng.uniform(0.10, 0.20)
             yaw = rng.uniform(0, 2 * math.pi)
             r_excl = math.hypot(sx, sy) + 0.2
             xy = _pick_xy(r_excl)
@@ -306,9 +333,9 @@ def make_obstacles_xml(heights: np.ndarray, *, count: int = 14,
             placed.append((x, y, r_excl))
 
         elif kind == "ramp":
-            length = rng.uniform(2.0, 3.5)
-            width = rng.uniform(1.0, 1.5)
-            slope = rng.uniform(math.radians(8), math.radians(20))
+            length = rng.uniform(0.8, 1.6)
+            width = rng.uniform(0.5, 0.8)
+            slope = rng.uniform(math.radians(6), math.radians(15))
             half_h = (length / 2.0) * math.sin(slope)
             half_x = (length / 2.0) * math.cos(slope)
             yaw = rng.uniform(0, 2 * math.pi)
@@ -343,8 +370,8 @@ def make_obstacles_xml(heights: np.ndarray, *, count: int = 14,
             placed.append((x, y, r_excl))
 
         elif kind == "bollard":
-            r = rng.uniform(0.10, 0.20)
-            h = rng.uniform(0.4, 0.9)
+            r = rng.uniform(0.04, 0.08)
+            h = rng.uniform(0.20, 0.40)
             r_excl = r + 0.15
             xy = _pick_xy(r_excl)
             if xy is None: continue
@@ -763,7 +790,7 @@ class TripodGait:
                  ramp: float = 0.4, vx: float = 0.0, vy: float = 0.0,
                  omega: float = 0.0,
                  period_scale: float = 1.0,
-                 lift_scale:   float = 1.0,
+                 lift_scale = 1.0,
                  stride_scale: float = 1.0):
         self.period = period
         self.lift = lift
@@ -775,8 +802,11 @@ class TripodGait:
 
         # Time-varying gait-shape multipliers.  Default (1, 1, 1) reproduces
         # the original fixed gait byte-for-byte (modulo phase representation).
+        # ``lift_scale`` is stored as a length-6 array so that a controller
+        # (e.g. the RL policy) can request a different lift per leg -- the
+        # whole foot-target math is otherwise scale-uniform.
         self.period_scale = period_scale
-        self.lift_scale   = lift_scale
+        self.lift_scale   = self._broadcast_lift(lift_scale)
         self.stride_scale = stride_scale
 
         self.leg_angles = [(i + 0.5) * math.pi / 3.0 for i in range(6)]
@@ -806,21 +836,53 @@ class TripodGait:
         if omega is not None:
             self.omega = max(-self.MAX_OMEGA, min(self.MAX_OMEGA, float(omega)))
 
+    def _broadcast_lift(self, lift_scale) -> np.ndarray:
+        """Return a length-6 array of clipped lift scales.
+
+        Accepts a scalar (broadcast to all legs) or any length-6 iterable.
+        """
+        arr = np.asarray(lift_scale, dtype=np.float64)
+        if arr.ndim == 0:
+            arr = np.full(6, float(arr))
+        elif arr.shape != (6,):
+            raise ValueError(
+                f"lift_scale must be scalar or length-6, got shape {arr.shape}"
+            )
+        return np.clip(arr, self.SCALE_LIFT_MIN, self.SCALE_LIFT_MAX)
+
     def set_scales(self, *, period_scale=None, lift_scale=None,
                    stride_scale=None):
-        """Update gait-shape multipliers for the next ``desired()`` call."""
+        """Update gait-shape multipliers for the next ``desired()`` call.
+
+        ``lift_scale`` may be a scalar (applied to all legs) or a length-6
+        iterable for per-leg control.
+        """
         if period_scale is not None:
             self.period_scale = float(np.clip(period_scale,
                                               self.SCALE_PERIOD_MIN,
                                               self.SCALE_PERIOD_MAX))
         if lift_scale is not None:
-            self.lift_scale = float(np.clip(lift_scale,
-                                            self.SCALE_LIFT_MIN,
-                                            self.SCALE_LIFT_MAX))
+            self.lift_scale = self._broadcast_lift(lift_scale)
         if stride_scale is not None:
             self.stride_scale = float(np.clip(stride_scale,
                                               self.SCALE_STRIDE_MIN,
                                               self.SCALE_STRIDE_MAX))
+
+    def swing_mask(self) -> np.ndarray:
+        """Return a length-6 array of 1.0 (swing) / 0.0 (stance) per leg
+        based on the current internal phase.  Useful for stub detection
+        and as a policy observation -- correlating ``touch[i]`` with
+        ``swing_mask[i]`` lets a proprioceptive policy infer that a foot
+        has banged into something.
+        """
+        out = np.zeros(6, dtype=np.float64)
+        for i in range(6):
+            tripod = 0 if i % 2 == 0 else 1
+            phi = (self._phase + self._phase_offset
+                   + tripod * math.pi) % (2 * math.pi)
+            if phi < math.pi:
+                out[i] = 1.0
+        return out
 
     def reset_phase(self, *, phase: float = 0.0, t: float = 0.0):
         """Snap the gait back to a known phase / elapsed time.
@@ -875,7 +937,8 @@ class TripodGait:
         if phi < math.pi:                          # swing (foot in air)
             s = phi / math.pi
             prog = -0.5 + s                        # -0.5 -> +0.5
-            dz = self.lift * self.lift_scale * ramp_amp * math.sin(math.pi * s)
+            dz = (self.lift * float(self.lift_scale[i])
+                  * ramp_amp * math.sin(math.pi * s))
         else:                                      # stance (foot planted)
             s = (phi - math.pi) / math.pi
             prog = 0.5 - s                         # +0.5 -> -0.5

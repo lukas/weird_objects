@@ -25,10 +25,22 @@ Action space  : Box([-1, 1]^18)  (per-joint residual; scaled to ±0.20 rad)
                 gait-shape scales (period, lift, stride) within the
                 configured ranges so the policy can dynamically tune the
                 gait, not just the joint targets.
+                With ``per_leg_lift=True`` (which requires
+                ``gait_action=True``) the lift-scale dim becomes 6
+                independent per-leg dims, growing the action to
+                Box([-1, 1]^26).  This lets the policy lift just the
+                leg that's stubbing instead of raising the whole gait.
 Observation   : Box(R^57) -- joint pos/vel + chassis pose / twist +
                 foot contacts + commanded twist + gait phase
-                (+3 dims of current gait scales when ``gait_action=True``)
+                (+3 dims of current gait scales when ``gait_action=True``;
+                with ``per_leg_lift=True`` that becomes +8 gait scales
+                and +6 per-leg swing-mask dims so the policy can
+                correlate ``touch[i] ∧ swing[i] = stub``).
 Reward        : tracking - stability_penalty - effort_penalty + alive
+                (with ``stub_w > 0``, also subtracts a swing-foot
+                contact penalty, integrated across each control step --
+                this is the "if it bangs its foot, it should lift it
+                higher" learning signal.)
 
 The walker runs at 500 Hz inside MuJoCo; the policy is queried at
 ``control_hz`` (default 50 Hz), and the residual is held for the 10
@@ -145,6 +157,9 @@ class HexapodWalkerEnv(gym.Env):
         gait_action_filter_tau: float = 0.25,   # heavier LPF for gait params
                                                 # so the agent can't oscillate
                                                 # the cycle freq each step
+        per_leg_lift: bool = False,             # split the lift-scale dim
+                                                # into 6 per-leg dims (only
+                                                # valid with gait_action=True)
         terrain_seed: int | None = None,        # None = randomise per reset
         obstacle_seed: int | None = None,
         obstacle_count: int = 8,
@@ -175,6 +190,8 @@ class HexapodWalkerEnv(gym.Env):
         delta_w:   float = 1.50,    # penalty on |action - prev_action|^2 (smoothness)
         alive_w:   float = 0.02,
         fall_w:    float = 2.5,
+        stub_w:    float = 0.0,     # penalty per N·s of swing-foot contact
+                                    # force (proprioceptive stub-detector)
         # ---- domain randomisation (all default to 0 = OFF for parity) ----
         dr_mass_pct: float = 0.0,         # chassis mass scale ±pct
         dr_friction_pct: float = 0.0,     # ground friction scale ±pct
@@ -221,6 +238,7 @@ class HexapodWalkerEnv(gym.Env):
         self.delta_w   = float(delta_w)
         self.alive_w   = float(alive_w)
         self.fall_w    = float(fall_w)
+        self.stub_w    = float(stub_w)
 
         self.dr_mass_pct        = float(dr_mass_pct)
         self.dr_friction_pct    = float(dr_friction_pct)
@@ -235,14 +253,34 @@ class HexapodWalkerEnv(gym.Env):
 
         # ---- parameterised gait setup -----------------------------------
         self.gait_action = bool(gait_action)
+        self.per_leg_lift = bool(per_leg_lift)
+        if self.per_leg_lift and not self.gait_action:
+            raise ValueError("per_leg_lift=True requires gait_action=True")
         self.period_scale_range = tuple(period_scale_range)
         self.lift_scale_range   = tuple(lift_scale_range)
         self.stride_scale_range = tuple(stride_scale_range)
         self.gait_action_filter_tau = float(gait_action_filter_tau)
 
-        n_gait = len(self.GAIT_PARAM_NAMES) if self.gait_action else 0
+        # Build the per-instance gait-param-name layout.  This determines
+        # how the trailing action dims map onto gait-shape scales.
+        if self.per_leg_lift:
+            self._gait_param_names = (
+                "period",
+                *(f"lift{i}" for i in range(6)),
+                "stride",
+            )
+        elif self.gait_action:
+            self._gait_param_names = self.GAIT_PARAM_NAMES
+        else:
+            self._gait_param_names = ()
+        n_gait = len(self._gait_param_names)
+        # Per-leg-lift mode also exposes a length-6 binary swing-mask in
+        # the observation.  The policy could reconstruct it from the gait
+        # phase + leg index, but giving it directly accelerates learning
+        # of the touch×swing → stub correlation.
+        self._n_swing = 6 if self.per_leg_lift else 0
         self.ACT_DIM = self.BASE_ACT_DIM + n_gait
-        self.OBS_DIM = self.BASE_OBS_DIM + n_gait
+        self.OBS_DIM = self.BASE_OBS_DIM + n_gait + self._n_swing
         self._n_gait = n_gait
 
         # Build the world once; reset() will reuse the same model unless the
@@ -297,18 +335,37 @@ class HexapodWalkerEnv(gym.Env):
 
     def _gait_range(self, name: str) -> tuple:
         if name == "period": return self.period_scale_range
-        if name == "lift":   return self.lift_scale_range
         if name == "stride": return self.stride_scale_range
+        if name == "lift" or name.startswith("lift"):
+            return self.lift_scale_range
         raise KeyError(name)
 
     def _map_gait_action(self, raw: np.ndarray) -> np.ndarray:
-        """Map a raw [-1, 1]^3 action vector to physical scale values."""
-        out = np.empty(len(self.GAIT_PARAM_NAMES), dtype=np.float32)
-        for k, name in enumerate(self.GAIT_PARAM_NAMES):
+        """Map a raw [-1, 1]^_n_gait action vector to physical scale values."""
+        out = np.empty(self._n_gait, dtype=np.float32)
+        for k, name in enumerate(self._gait_param_names):
             lo, hi = self._gait_range(name)
             u = 0.5 * (float(raw[k]) + 1.0)
             out[k] = float(lo + (hi - lo) * np.clip(u, 0.0, 1.0))
         return out
+
+    def _apply_filtered_scales_to_gait(self):
+        """Push the current ``self._filtered_gait_scales`` array into the
+        underlying TripodGait, handling both the 3-dim and per-leg layouts.
+        """
+        scales = self._filtered_gait_scales
+        if self.per_leg_lift:
+            self._gait.set_scales(
+                period_scale=float(scales[0]),
+                lift_scale=np.asarray(scales[1:7], dtype=np.float64),
+                stride_scale=float(scales[7]),
+            )
+        else:
+            self._gait.set_scales(
+                period_scale=float(scales[0]),
+                lift_scale=float(scales[1]),
+                stride_scale=float(scales[2]),
+            )
 
     def _sample_command_into(self, out: np.ndarray) -> None:
         """Sample a (vx, vy, omega) command and write it into ``out``."""
@@ -390,14 +447,10 @@ class HexapodWalkerEnv(gym.Env):
         # Initialise the filtered gait scales to their range midpoints so
         # the very first control step uses a neutral gait.
         if self.gait_action:
-            for k, name in enumerate(self.GAIT_PARAM_NAMES):
+            for k, name in enumerate(self._gait_param_names):
                 lo, hi = self._gait_range(name)
                 self._filtered_gait_scales[k] = 0.5 * (lo + hi)
-            self._gait.set_scales(
-                period_scale=float(self._filtered_gait_scales[0]),
-                lift_scale=float(self._filtered_gait_scales[1]),
-                stride_scale=float(self._filtered_gait_scales[2]),
-            )
+            self._apply_filtered_scales_to_gait()
 
         # Stand the walker on the spawn pad.
         MW._set_stance_qpos(self.model, self.data)
@@ -530,15 +583,11 @@ class HexapodWalkerEnv(gym.Env):
                 )
             else:
                 self._filtered_gait_scales[:] = target_scales
-            self._gait.set_scales(
-                period_scale=float(self._filtered_gait_scales[0]),
-                lift_scale=float(self._filtered_gait_scales[1]),
-                stride_scale=float(self._filtered_gait_scales[2]),
-            )
+            self._apply_filtered_scales_to_gait()
             # Mirror the filtered raw action back into ``_filtered_action``
             # so observation / smoothness penalty see a consistent value.
             for k in range(self._n_gait):
-                lo, hi = self._gait_range(self.GAIT_PARAM_NAMES[k])
+                lo, hi = self._gait_range(self._gait_param_names[k])
                 u = (self._filtered_gait_scales[k] - lo) / max(hi - lo, 1e-6)
                 self._filtered_action[self.BASE_ACT_DIM + k] = (
                     np.clip(2.0 * u - 1.0, -1.0, 1.0)
@@ -565,6 +614,12 @@ class HexapodWalkerEnv(gym.Env):
         # Per-joint position bias: simulates motor calibration error.
         residual = residual + self._joint_bias
 
+        # Reset the stub-event accumulator -- we integrate swing-foot contact
+        # force across the inner sim loop so we don't miss brief stubs that
+        # happen between control steps.
+        self._step_stub_acc = 0.0
+        idx = self.idx
+
         # Always re-pull base targets from the gait (it advances with time).
         for _ in range(self._steps_per_ctrl):
             t = float(self.data.time) - self._t_offset
@@ -585,6 +640,19 @@ class HexapodWalkerEnv(gym.Env):
                 self.data.ctrl[base + 1] = target[3 * i + 1]
                 self.data.ctrl[base + 2] = target[3 * i + 2]
             mujoco.mj_step(self.model, self.data)
+
+            # Integrate swing-foot contact across the control step.  Touch
+            # sensors return contact-normal force (N); multiplying by sim_dt
+            # gives an N·s impulse-equivalent.  swing_mask=1 only when the
+            # leg is in the swing phase, so this exactly counts "I tried to
+            # lift my foot but it was still pressing on something".
+            if self.stub_w > 0.0:
+                sw = self._gait.swing_mask()
+                touch = np.fromiter(
+                    (self.data.sensordata[a] for a in idx.foot_touch),
+                    dtype=np.float64, count=6,
+                )
+                self._step_stub_acc += float(np.sum(sw * touch)) * self._sim_dt
 
             if self._viewer is not None:
                 self._viewer.sync()
@@ -665,6 +733,11 @@ class HexapodWalkerEnv(gym.Env):
             # can build a state-aware closed loop on top of its own choices.
             parts.append(self._filtered_gait_scales[:self._n_gait]
                          .astype(np.float32))
+        if self.per_leg_lift:
+            # Per-leg swing flag.  When fused with ``contacts`` (above) the
+            # policy gets a direct "this foot is currently stubbing"
+            # signal: touch[i] > 0 ∧ swing_mask[i] == 1.
+            parts.append(self._gait.swing_mask().astype(np.float32))
         return np.concatenate(parts)
 
     def _reward(self, action, terminated, fell, progress: float = 0.0):
@@ -698,6 +771,12 @@ class HexapodWalkerEnv(gym.Env):
 
         fall_pen = self.fall_w if fell else 0.0
 
+        # Stub penalty: integrated swing-foot contact force across this
+        # control step.  Set in step() -- defaults to 0 when stub_w == 0,
+        # so this term has no effect on legacy training runs.
+        stub_pen = (self.stub_w * getattr(self, "_step_stub_acc", 0.0)
+                    if self.stub_w > 0.0 else 0.0)
+
         reward = (
             self.track_w_v * math.exp(-2.0 * v_err)
             + self.track_w_w * math.exp(-3.0 * w_err)
@@ -708,6 +787,7 @@ class HexapodWalkerEnv(gym.Env):
             - self.delta_w * action_delta
             - accel_pen
             - fall_pen
+            - stub_pen
             + self.alive_w
         )
         return reward
@@ -821,6 +901,38 @@ def _smoke_test():
     print(f"40-step total reward = {total_reward:.3f}")
     print(f"final chassis pos = {info['chassis_xy']}, z={info['chassis_z']:.3f}")
     print(f"final gait scales = {env._filtered_gait_scales}")
+    env.close()
+
+    print("\n=== Per-leg lift + stub penalty (per_leg_lift=True) ===")
+    env = HexapodWalkerEnv(obstacle_count=8, randomize_command=False,
+                           terrain_seed=0, obstacle_seed=0,
+                           gait_action=True, per_leg_lift=True,
+                           stub_w=0.50,
+                           lift_scale_range=(0.50, 2.50),
+                           period_scale_range=(0.60, 1.80))
+    print(f"observation_space = {env.observation_space.shape}")
+    print(f"action_space      = {env.action_space.shape}")
+    obs, info = env.reset(seed=0, options={"command": (0.30, 0.0, 0.0)})
+    print(f"obs shape = {obs.shape}")
+    total_reward = 0.0
+    stub_total = 0.0
+    for k in range(60):
+        # Zero residual + zero gait deltas so we just feel the bare gait
+        # walk into the obstacle field; stub_acc tells us how often it
+        # lands its swing feet on something it shouldn't.
+        action = np.zeros(env.ACT_DIM, dtype=np.float32)
+        obs, reward, term, trunc, info = env.step(action)
+        total_reward += reward
+        stub_total += getattr(env, "_step_stub_acc", 0.0)
+        if term or trunc:
+            print(f"  episode ended at step {k} (term={term}, trunc={trunc})")
+            break
+    print(f"60-step total reward      = {total_reward:.3f}")
+    print(f"60-step total stub impulse = {stub_total:.3f} N·s "
+          f"(higher = more stubs)")
+    print(f"final chassis pos = {info['chassis_xy']}, z={info['chassis_z']:.3f}")
+    print(f"final gait scales (period, lift0..5, stride) = "
+          f"{env._filtered_gait_scales}")
     env.close()
 
 
