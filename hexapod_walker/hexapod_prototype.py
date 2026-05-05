@@ -117,11 +117,62 @@ SERVO_SPLINE_OD   =  6.0   # mm -- 25T spline diameter (M3 horn screw lives in t
 SERVO_OUTPUT_X    = 10.0   # mm -- output shaft offset from centre, toward +X
 SERVO_TAB_W       = 54.0   # mm -- tip-to-tip across the two mounting tabs
 SERVO_TAB_T       =  2.5   # mm -- thickness of the mounting tabs
-SERVO_TAB_HOLE    =  3.2   # mm -- M3 clearance hole in each tab
+SERVO_TAB_HOLE    =  3.2   # mm -- M3 clearance hole in each tab (clearance for the
+                            #      M3 screw to pass through the tab itself, drilled
+                            #      from above by the user; not modelled in our STL)
 SERVO_TAB_HOLE_PCD = 49.5  # mm -- centre-to-centre distance between tab holes
                             #      (along the X axis; 2 holes per tab x 2 tabs = 4 holes)
+SERVO_TAB_HOLE_PCD_Y = 10.0   # mm -- centre-to-centre between the 2 holes on the
+                            #      same tab (Y / depth direction)
 SERVO_TAB_Z       = 27.0   # mm -- height of the tab plane above the body bottom
                             #      (DS3225/MG996R: tabs are ~10 mm down from the top face)
+SERVO_PILOT_OD    =  2.5   # mm -- M3 self-tapper PILOT hole drilled into the well
+                            #      wall.  The standard servo M3 self-tapper threads
+                            #      directly into a 2.5 mm pilot in PA12 / PLA.
+
+# ---- Servo well (open-topped bucket holding ONE servo) -------------------
+# The well is the structural pocket that the servo drops into during
+# assembly:
+#
+#     1.  The servo body slides DOWN through the well's wide-open top.
+#     2.  Its mounting tabs land on the well's rim at z = WELL_RIM_Z.
+#     3.  The user drives 4 standard M3 self-tapping screws DOWN through
+#         the tab clearance holes into 4 pilot holes drilled vertically
+#         through the well's side walls (positioned at x=+/-SERVO_TAB_
+#         HOLE_PCD/2, y=+/-SERVO_TAB_HOLE_PCD_Y/2).
+#     4.  Above the rim the body extends another (BODY_H - TAB_Z) mm into
+#         open air; the gear stack and horn adapter sit on top of that.
+#
+# The +X / -X walls (where the M3 pilots live) MUST be thick enough to
+# hold the pilot hole AT a comfortable distance inside the wall material.
+# With WELL_WALL_X = 9 mm: pilot at x = +/-24.75, wall outer at x =
+# +/-29, so 4.25 mm of material sits between the pilot and the outer
+# face -- plenty for FDM in PLA / MJF in PA12.
+WELL_WALL_X  = 9.0   # mm thick on +X / -X faces (must hold the M3 pilot)
+WELL_WALL_Y  = 2.5   # mm thick on +Y / -Y faces
+WELL_FLOOR_T = 2.5   # mm bottom-plate thickness (the servo body rests on this)
+WELL_W       = SERVO_BODY_W + 2 * WELL_WALL_X     # 58 mm
+WELL_D       = SERVO_BODY_D + 2 * WELL_WALL_Y     # 25 mm
+WELL_RIM_Z   = SERVO_TAB_Z - SERVO_TAB_T / 2.0    # 25.75 mm: rim sits at the
+                                                   #          bottom face of the tab
+WELL_H       = WELL_RIM_Z + WELL_FLOOR_T          # 28.25 mm: outer height
+WELL_BODY_CL = 0.4   # mm clearance on every body face inside the well
+
+# ---- Coxa bracket (yaw-motor housing) -----------------------------------
+# A horizontal flange that bolts to the chassis edge plus a servo well
+# that hangs from it.  The yaw axis (the output spline of the servo)
+# coincides with the chassis hexagon's apothem line, so the whole bracket
+# is rotationally symmetric about the chassis perimeter.
+BRACKET_FLANGE_T   =  4.0   # mm thick mounting flange
+BRACKET_FLANGE_X   = 30.0   # mm long (radial -- inboard from chassis edge)
+BRACKET_FLANGE_Y   = 32.0   # mm wide (tangential)
+BRACKET_BOLT_PCD_X = 16.0   # mm centre-to-centre, inboard pair vs. outboard pair
+BRACKET_BOLT_PCD_Y = 16.0   # mm centre-to-centre, +Y vs. -Y bolt lines
+BRACKET_BOLT_HOLE  =  3.4   # mm clearance for M3 chassis bolts
+BRACKET_FLANGE_INSET = 8.0  # mm gap between the chassis edge and the OUTBOARD
+                            # bolt line, so the OUTBOARD bolts are squarely on
+                            # the chassis plate (not in mid-air outside the
+                            # hexagon).
 
 # ---- Servo horn adapter --------------------------------------------------
 # A short 4-arm star that screws onto the servo's plastic horn (M3
@@ -262,6 +313,65 @@ def _save(mesh: trimesh.Trimesh, name: str) -> str:
 # ---------------------------------------------------------------------------
 # Servo-mounting primitives
 # ---------------------------------------------------------------------------
+
+def _servo_well_solid() -> trimesh.Trimesh:
+    """Open-topped servo bucket, returned as one watertight mesh in the
+    well's local frame.
+
+    Local frame (matches `_servo_envelope` *body* axes):
+        Origin: centre of the body's bottom face (= TOP face of the well's
+                floor plate).
+        +X = body long axis (= mounting-tab span direction).
+        +Y = body short axis (= depth).
+        +Z = output-shaft direction.
+
+    The well is a rectangular bucket:
+
+        - Outer:    WELL_W x WELL_D x WELL_H, centred on (0, 0, WELL_H/2 -
+                     WELL_FLOOR_T) so its floor outer face is at z =
+                     -WELL_FLOOR_T and its rim is at z = WELL_RIM_Z.
+        - Body cavity: open at +Z, closed at -Z by the floor.  Spans
+                     (SERVO_BODY_W + 2*CL) x (SERVO_BODY_D + 2*CL) x
+                     (WELL_RIM_Z + extra).  Cuts straight through the rim
+                     so the body can be DROPPED in from above.
+        - 4 M3 pilot holes drilled vertically through the +X / -X walls
+                     at the standard tab-hole positions (Φ SERVO_PILOT_OD).
+                     The walls are WELL_WALL_X = 9 mm thick on each side,
+                     so the pilot has a comfortable amount of material on
+                     either side of it.
+
+    The *body* sits inside the cavity with its bottom resting on the floor
+    (well-z = 0).  The mounting *tabs* land on the rim at well-z =
+    WELL_RIM_Z.  The user drives 4 standard M3 self-tappers through the
+    tab clearance holes and into these pilot holes."""
+    outer = _box((WELL_W, WELL_D, WELL_H),
+                 center=(0, 0, WELL_H / 2.0 - WELL_FLOOR_T))
+
+    # Body cavity: spans z = [-CL, WELL_RIM_Z + over] so the body slides
+    # in from above and rests on the floor (the cut stops just below the
+    # body's bottom face so a thin floor remains).
+    cav_h = WELL_RIM_Z + 4.0
+    cavity = _box((SERVO_BODY_W + 2 * WELL_BODY_CL,
+                   SERVO_BODY_D + 2 * WELL_BODY_CL,
+                   cav_h),
+                  center=(0, 0, cav_h / 2.0))
+
+    # 4 vertical M3 pilot holes through the side wall material, each one
+    # going from above the rim down through the floor for cleanliness
+    # (the screw only engages the top ~6 mm; the lower length is harmless
+    # void).
+    pilot_h = WELL_RIM_Z + WELL_FLOOR_T + 2.0
+    pilots = []
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            p = _cyl(SERVO_PILOT_OD / 2.0, pilot_h)
+            p.apply_translation([sx * SERVO_TAB_HOLE_PCD / 2.0,
+                                  sy * SERVO_TAB_HOLE_PCD_Y / 2.0,
+                                  pilot_h / 2.0 - WELL_FLOOR_T - 1.0])
+            pilots.append(p)
+
+    return _diff(outer, cavity, *pilots)
+
 
 def _servo_envelope() -> trimesh.Trimesh:
     """Return the bounding-volume of a hobby servo, with mounting tabs.

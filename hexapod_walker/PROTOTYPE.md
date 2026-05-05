@@ -98,6 +98,21 @@ fit a 220 × 220 mm 3D-printer bed (Ender 3 / Bambu A1 mini class).
 |---|---|
 | `assembly_preview.stl` | All parts placed in standing pose. Open in MeshLab or Cursor's STL viewer to sanity-check before printing. |
 
+### 3.5 Don't have a 3D printer? Order from a print service
+
+Run `./run.sh hexapod_walker/prepare_xometry_upload.py` to build a
+self-contained order package in `xometry_upload/`. The script
+re-orients each part for printing (hollow servo pockets opening
+toward +Z, broadest flat face on the build plate), consolidates the
+two identical chassis plates into a single file with `qty=2`, and
+emits a `manifest.csv` listing the recommended material, color, and
+finish for every part. See `xometry_upload/README.md` for the full
+upload-and-checkout flow on Xometry, Shapeways, JLCPCB, etc.
+
+A complete bundle runs **~ $500 in MJF PA12** (Xometry, mid-2026)
+versus **~ $15 in PLA filament** if you have access to an FDM
+printer.
+
 ---
 
 ## 4. Bill of materials
