@@ -618,7 +618,7 @@ def _leg_xml(i: int, x: float, y: float, z: float,
           <inertial pos="{FEMUR/2:.4f} 0 0" mass="{FEMUR_MASS}"
                     diaginertia="0.05 0.45 0.45"/>
           <joint name="L{i}_pitch" type="hinge" axis="0 1 0"
-                 range="-1.4 0.7"/>
+                 range="-1.6 0.7"/>
           <geom class="visual" type="mesh" mesh="femur_link" material="alu"/>
           <!-- femur capsule kept for inertia approximation only (no
                collision: ground contact happens at the foot sphere) -->
@@ -629,7 +629,7 @@ def _leg_xml(i: int, x: float, y: float, z: float,
             <inertial pos="{TIBIA/2:.4f} 0 0" mass="{TIBIA_MASS}"
                       diaginertia="0.04 0.65 0.65"/>
             <joint name="L{i}_knee" type="hinge" axis="0 1 0"
-                   range="-0.3 1.7"/>
+                   range="-0.3 2.7"/>
             <geom class="visual" type="mesh" mesh="tibia_link" material="alu"/>
             <geom class="visual" type="capsule" rgba="0 0 0 0"
                   fromto="0 0 0 {TIBIA - FOOT_R:.5f} 0 0" size="0.05"/>
@@ -786,12 +786,22 @@ class TripodGait:
     SCALE_STRIDE_MIN = 0.30
     SCALE_STRIDE_MAX = 1.80
 
+    # Allowable shrink factor on the foot's body-frame radial distance.
+    # 1.0 = the original wide spider stance.  0.6 = legs tucked tight under
+    # the chassis, ~ 60 % of the original lateral footprint.  The IK
+    # absorbs the change as deeper knee bend; the chassis stays at the
+    # same height because the foot's z relative to the hip stays at
+    # ``foot_neutral_z`` (a constant of the leg geometry, not the radius).
+    STANCE_RADIUS_SCALE_MIN = 0.55
+    STANCE_RADIUS_SCALE_MAX = 1.05
+
     def __init__(self, *, period: float = 1.0, lift: float = 0.07,
                  ramp: float = 0.4, vx: float = 0.0, vy: float = 0.0,
                  omega: float = 0.0,
                  period_scale: float = 1.0,
                  lift_scale = 1.0,
-                 stride_scale: float = 1.0):
+                 stride_scale: float = 1.0,
+                 stance_radius_scale: float = 1.0):
         self.period = period
         self.lift = lift
         self.ramp = max(ramp, 1e-3)
@@ -813,7 +823,17 @@ class TripodGait:
         p, pt = STANCE_FEMUR, STANCE_FEMUR + STANCE_TIBIA
         self.foot_neutral_x = COXA + FEMUR * math.cos(p) + TIBIA * math.cos(pt)
         self.foot_neutral_z = -FEMUR * math.sin(p) - TIBIA * math.sin(pt)
+        # Wide-stance radius (yaw axis -> foot tip) -- preserved as a static
+        # constant of the leg geometry.  ``self._foot_radius_eff`` is what
+        # the gait actually uses for body-frame foot placement / velocity
+        # math, and is shrunk by ``stance_radius_scale``.
         self._foot_radius = LEG_RADIAL + self.foot_neutral_x
+        self.stance_radius_scale = float(np.clip(
+            stance_radius_scale,
+            self.STANCE_RADIUS_SCALE_MIN,
+            self.STANCE_RADIUS_SCALE_MAX,
+        ))
+        self._foot_radius_eff = self._foot_radius * self.stance_radius_scale
         self._phase_offset = math.pi / 2.0
         self._fallback = (0.0, STANCE_FEMUR, STANCE_TIBIA)
         # First-order low-pass on the velocity command so keyboard step
@@ -867,6 +887,48 @@ class TripodGait:
             self.stride_scale = float(np.clip(stride_scale,
                                               self.SCALE_STRIDE_MIN,
                                               self.SCALE_STRIDE_MAX))
+
+    def set_stance_radius_scale(self, scale: float) -> None:
+        """Set the lateral-footprint shrink factor.  See class docstring."""
+        self.stance_radius_scale = float(np.clip(
+            scale, self.STANCE_RADIUS_SCALE_MIN, self.STANCE_RADIUS_SCALE_MAX,
+        ))
+        self._foot_radius_eff = self._foot_radius * self.stance_radius_scale
+
+    def neutral_pose(self) -> tuple:
+        """Return (yaws, pitches, knees) length-6 arrays for the gait's
+        zero-velocity neutral foot positions at the current
+        ``stance_radius_scale``.  Useful for HexapodWalkerEnv to spawn the
+        walker in a pose that already matches what the gait will be
+        commanding -- otherwise the legs jerk inward over the first cycle.
+        """
+        yaws = np.zeros(6)
+        pitches = np.full(6, STANCE_FEMUR)
+        knees = np.full(6, STANCE_TIBIA)
+        for i, a in enumerate(self.leg_angles):
+            fx_b = self._foot_radius_eff * math.cos(a)
+            fy_b = self._foot_radius_eff * math.sin(a)
+            yaw_origin_x = LEG_RADIAL * math.cos(a)
+            yaw_origin_y = LEG_RADIAL * math.sin(a)
+            rx = fx_b - yaw_origin_x
+            ry = fy_b - yaw_origin_y
+            ca, sa = math.cos(a), math.sin(a)
+            x_yaw =  ca * rx + sa * ry
+            y_yaw = -sa * rx + ca * ry
+            yaw_angle = math.atan2(y_yaw, x_yaw)
+            r_planar = math.hypot(x_yaw, y_yaw)
+            ik = _leg_ik((r_planar, 0.0, self.foot_neutral_z))
+            if ik is None:
+                # Stance scale chosen outside the IK envelope -- fall back
+                # to the wide-stance defaults so the spawn pose is still
+                # well-defined.  This shouldn't trip in normal use because
+                # STANCE_RADIUS_SCALE_MIN is set inside the envelope.
+                continue
+            p, pt = ik
+            yaws[i] = yaw_angle
+            pitches[i] = p
+            knees[i] = pt
+        return yaws, pitches, knees
 
     def swing_mask(self) -> np.ndarray:
         """Return a length-6 array of 1.0 (swing) / 0.0 (stance) per leg
@@ -946,9 +1008,11 @@ class TripodGait:
 
         a_i = self.leg_angles[i]
         sa, ca = math.sin(a_i), math.cos(a_i)
-        # Foot's neutral body-frame velocity due to body twist:
-        v_x_at = vx - omega * self._foot_radius * sa
-        v_y_at = vy + omega * self._foot_radius * ca
+        # Foot's neutral body-frame velocity due to body twist (uses the
+        # *effective* foot radius so the body twist matches where the foot
+        # actually is when stance_radius_scale != 1.0).
+        v_x_at = vx - omega * self._foot_radius_eff * sa
+        v_y_at = vy + omega * self._foot_radius_eff * ca
         # Symmetric body-frame displacement during stance/swing.  ``stride_scale``
         # uniformly scales how far each foot sweeps around its neutral; values
         # < 1 produce hover-like steps that slip slightly during stance, > 1
@@ -968,8 +1032,8 @@ class TripodGait:
 
         for i, a in enumerate(self.leg_angles):
             dx_b, dy_b, dz_b = self._foot_target_in_body(i, vx, vy, omega)
-            fx_b_neutral = self._foot_radius * math.cos(a)
-            fy_b_neutral = self._foot_radius * math.sin(a)
+            fx_b_neutral = self._foot_radius_eff * math.cos(a)
+            fy_b_neutral = self._foot_radius_eff * math.sin(a)
             fx_b = fx_b_neutral + dx_b
             fy_b = fy_b_neutral + dy_b
             yaw_origin_x = LEG_RADIAL * math.cos(a)
@@ -1062,12 +1126,17 @@ def _set_stance_qpos(model: mujoco.MjModel, data: mujoco.MjData):
 _HELP_TEXT = """
 hexapod walker controls (focus the MuJoCo window first)
 -------------------------------------------------------
-  Arrow Up / Down     forward / back   (body-frame +X / -X), ±0.15 m/s per tap
-  Arrow Left / Right  strafe L / R     (body-frame +Y / -Y), ±0.15 m/s per tap
-  Page Up / Page Down turn left / right (CCW / CW),         ±0.10 rad/s per tap
-  Home                full stop (zero vx, vy, omega)
-  End                 reset chassis to spawn pad + zero twist
-  Insert / Delete     +/- 50% to all current twist components (slow / boost)
+                            full keyboard       Mac compact (no Pg/Home/etc)
+  forward / back          : Arrow Up / Down     Arrow Up / Down
+  strafe left / right     : Arrow Left / Right  Arrow Left / Right
+  turn left / right       : PageUp / PageDown   ',' / '.'
+  full stop               : Home                '/'
+  reset to spawn pad      : End                 Enter (Return)
+  slow down (×0.5)        : Delete              '['
+  speed up  (×1.5)        : Insert              ']'
+  show this help          : '`' (backtick)      '`' (backtick)
+
+  Steps: arrows ±0.15 m/s per tap, turn ±0.10 rad/s per tap.
 
   These keys are deliberately chosen to NOT collide with MuJoCo's built-in
   viewer keys (Space=pause, W=wireframe, C=contacts, F=forces, T=transparent,
@@ -1085,7 +1154,16 @@ hexapod walker controls (focus the MuJoCo window first)
 
 # GLFW key constants used by MuJoCo's viewer (mirrors glfw.* constants).
 _GK_SPACE = 32
+_GK_APOSTROPHE = 39
+_GK_COMMA = 44
+_GK_PERIOD = 46
+_GK_SLASH = 47
+_GK_LEFT_BRACKET = 91
+_GK_RIGHT_BRACKET = 93
 _GK_BACKTICK = 96
+_GK_ENTER = 257
+_GK_INSERT = 260
+_GK_DELETE = 261
 _GK_RIGHT = 262
 _GK_LEFT = 263
 _GK_DOWN = 264
@@ -1094,13 +1172,17 @@ _GK_PAGE_UP = 266
 _GK_PAGE_DOWN = 267
 _GK_HOME = 268
 _GK_END = 269
-_GK_INSERT = 260
-_GK_DELETE = 261
 
 
 def _make_key_callback(gait, on_reset):
     """Build a key_callback fn for mujoco.viewer.launch_passive that uses
-    only keys MuJoCo doesn't bind to anything else."""
+    only keys MuJoCo doesn't bind to anything else.
+
+    Two parallel keymaps are accepted: the original Pg/Home/End/Ins/Del set
+    for full keyboards, and a Mac-compact set (',' '.' '/' Enter '[' ']')
+    that doesn't require any of those keys.  Both work simultaneously --
+    use whichever your keyboard has.
+    """
     DV = 0.15
     DOM = 0.10
 
@@ -1110,20 +1192,29 @@ def _make_key_callback(gait, on_reset):
 
     def cb(keycode):
         kc = int(keycode)
+        # vx / vy
         if   kc == _GK_UP:        gait.set_velocity(vx=gait.vx + DV)
         elif kc == _GK_DOWN:      gait.set_velocity(vx=gait.vx - DV)
         elif kc == _GK_LEFT:      gait.set_velocity(vy=gait.vy + DV)
         elif kc == _GK_RIGHT:     gait.set_velocity(vy=gait.vy - DV)
-        elif kc == _GK_PAGE_UP:   gait.set_velocity(omega=gait.omega + DOM)
-        elif kc == _GK_PAGE_DOWN: gait.set_velocity(omega=gait.omega - DOM)
-        elif kc == _GK_HOME:      gait.stop()
-        elif kc == _GK_END:
+        # omega: PgUp/PgDn (full kbd) or ','/'.' (Mac compact)
+        elif kc in (_GK_PAGE_UP, _GK_COMMA):
+            gait.set_velocity(omega=gait.omega + DOM)
+        elif kc in (_GK_PAGE_DOWN, _GK_PERIOD):
+            gait.set_velocity(omega=gait.omega - DOM)
+        # full stop: Home (full kbd) or '/' (Mac compact)
+        elif kc in (_GK_HOME, _GK_SLASH):
+            gait.stop()
+        # reset spawn: End (full kbd) or Enter (Mac compact)
+        elif kc in (_GK_END, _GK_ENTER):
             on_reset()
             gait.stop()
-        elif kc == _GK_INSERT:
+        # speed up: Insert (full kbd) or ']' (Mac compact)
+        elif kc in (_GK_INSERT, _GK_RIGHT_BRACKET):
             gait.set_velocity(vx=gait.vx * 1.5, vy=gait.vy * 1.5,
                                omega=gait.omega * 1.5)
-        elif kc == _GK_DELETE:
+        # slow down: Delete (full kbd) or '[' (Mac compact)
+        elif kc in (_GK_DELETE, _GK_LEFT_BRACKET):
             gait.set_velocity(vx=gait.vx * 0.5, vy=gait.vy * 0.5,
                                omega=gait.omega * 0.5)
         elif kc == _GK_BACKTICK:

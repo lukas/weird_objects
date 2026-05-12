@@ -1,0 +1,40 @@
+{
+  "residual_scale": 0.05,
+  "gait_period": 1.0,
+  "action_filter_tau": 0.1,
+  "delta_w": 2.0,
+  "progress_w": 0.0,
+  "cmd_speed_bias": 0.4,
+  "vx_max": 0.55,
+  "vy_max": 0.35,
+  "omega_max": 0.2,
+  "net_arch": "256,256",
+  "log_std_init": -1.7,
+  "ent_coef": 0.0,
+  "total_steps": 6000000,
+  "dr_mass_pct": 0.25,
+  "dr_friction_pct": 0.5,
+  "dr_motor_latency_ms": 60.0,
+  "dr_joint_bias_rad": 0.015,
+  "dr_action_noise": 0.05,
+  "dr_velocity_kick": 0.05,
+  "terrain_level_max": 1.0,
+  "terrain_level_min": 0.0,
+  "curriculum_episodes": 800,
+  "gait_action": true,
+  "period_scale_range": [
+    0.85,
+    1.15
+  ],
+  "lift_scale_range": [
+    0.7,
+    1.5
+  ],
+  "stride_scale_range": [
+    0.85,
+    1.15
+  ],
+  "gait_action_filter_tau": 0.3,
+  "cmd_resample_seconds": 5.0,
+  "terminate_on_stuck_seconds": 4.0
+}

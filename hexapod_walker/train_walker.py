@@ -67,7 +67,8 @@ def make_env(rank: int, *, base_seed: int, episode_seconds: float,
              gait_action_filter_tau: float,
              cmd_resample_seconds: float,
              terminate_on_stuck_seconds: float,
-             per_leg_lift: bool, stub_w: float):
+             per_leg_lift: bool, stub_w: float,
+             stance_radius_scale: float):
     def _thunk():
         env = he.HexapodWalkerEnv(
             episode_seconds=episode_seconds,
@@ -104,6 +105,7 @@ def make_env(rank: int, *, base_seed: int, episode_seconds: float,
             gait_action_filter_tau=gait_action_filter_tau,
             per_leg_lift=per_leg_lift,
             stub_w=stub_w,
+            stance_radius_scale=stance_radius_scale,
         )
         return env
     return _thunk
@@ -206,6 +208,12 @@ def main():
                          "(N·s).  Set >0 to teach the policy to stop "
                          "stubbing its swing legs into obstacles.  Pairs "
                          "naturally with --per-leg-lift.")
+    ap.add_argument("--stance-radius-scale", type=float, default=1.0,
+                    help="Shrink factor on the foot's body-frame radial "
+                         "distance.  1.0 = wide spider stance (default), "
+                         "0.7 = narrow tucked stance, 0.55 = minimum "
+                         "supported.  Bakes the value into env_cfg.json so "
+                         "rollout / eval rebuild the same stance.")
     ap.add_argument("--cmd-resample-seconds", type=float, default=0.0,
                     help="If >0, re-roll the commanded twist every N seconds "
                          "during each episode (forces direction-change recovery)")
@@ -254,7 +262,8 @@ def main():
                         cmd_resample_seconds=args.cmd_resample_seconds,
                         terminate_on_stuck_seconds=args.terminate_on_stuck_seconds,
                         per_leg_lift=args.per_leg_lift,
-                        stub_w=args.stub_w)
+                        stub_w=args.stub_w,
+                        stance_radius_scale=args.stance_radius_scale)
                for i in range(args.n_envs)]
     if args.n_envs > 1:
         # SubprocVecEnv on macOS needs spawn; SB3 handles that.
@@ -370,6 +379,7 @@ def main():
         "terminate_on_stuck_seconds": args.terminate_on_stuck_seconds,
         "per_leg_lift":         args.per_leg_lift,
         "stub_w":               args.stub_w,
+        "stance_radius_scale":  args.stance_radius_scale,
     }
     with open(os.path.join(out_dir, "env_cfg.json"), "w") as f:
         json.dump(env_cfg, f, indent=2)

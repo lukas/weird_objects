@@ -160,6 +160,11 @@ class HexapodWalkerEnv(gym.Env):
         per_leg_lift: bool = False,             # split the lift-scale dim
                                                 # into 6 per-leg dims (only
                                                 # valid with gait_action=True)
+        stance_radius_scale: float = 1.0,       # shrink factor on the foot's
+                                                # body-frame radial distance.
+                                                # 1.0 = wide spider stance,
+                                                # 0.7 = narrow tucked stance
+                                                # (see TripodGait for limits)
         terrain_seed: int | None = None,        # None = randomise per reset
         obstacle_seed: int | None = None,
         obstacle_count: int = 8,
@@ -260,6 +265,7 @@ class HexapodWalkerEnv(gym.Env):
         self.lift_scale_range   = tuple(lift_scale_range)
         self.stride_scale_range = tuple(stride_scale_range)
         self.gait_action_filter_tau = float(gait_action_filter_tau)
+        self.stance_radius_scale = float(stance_radius_scale)
 
         # Build the per-instance gait-param-name layout.  This determines
         # how the trailing action dims map onto gait-shape scales.
@@ -303,7 +309,8 @@ class HexapodWalkerEnv(gym.Env):
                                             dtype=np.float32)
 
         self._gait = MW.TripodGait(period=self.gait_period,
-                                    lift=self.gait_lift, ramp=0.4)
+                                    lift=self.gait_lift, ramp=0.4,
+                                    stance_radius_scale=self.stance_radius_scale)
         self._t_offset = 0.0
         self._step_count = 0
         self._cmd = np.zeros(3, dtype=np.float32)
@@ -442,7 +449,8 @@ class HexapodWalkerEnv(gym.Env):
                                    lift=self.gait_lift, ramp=0.4,
                                    vx=float(self._cmd[0]),
                                    vy=float(self._cmd[1]),
-                                   omega=float(self._cmd[2]))
+                                   omega=float(self._cmd[2]),
+                                   stance_radius_scale=self.stance_radius_scale)
         self._gait.reset_phase()
         # Initialise the filtered gait scales to their range midpoints so
         # the very first control step uses a neutral gait.
@@ -454,6 +462,18 @@ class HexapodWalkerEnv(gym.Env):
 
         # Stand the walker on the spawn pad.
         MW._set_stance_qpos(self.model, self.data)
+        # If we're running a non-default stance, the joint values written by
+        # _set_stance_qpos correspond to the *wide* stance.  Overwrite them
+        # with the gait's actual neutral pose (yaws / pitches / knees that
+        # IK to the narrow foot positions) so the legs spawn already
+        # tucked-in -- otherwise they'd jerk inward over the first cycle
+        # and the chassis would dip.
+        if abs(self.stance_radius_scale - 1.0) > 1e-3:
+            yaws_n, pitches_n, knees_n = self._gait.neutral_pose()
+            for i in range(6):
+                self.data.qpos[self.idx.joint_qpos[3 * i + 0]] = float(yaws_n[i])
+                self.data.qpos[self.idx.joint_qpos[3 * i + 1]] = float(pitches_n[i])
+                self.data.qpos[self.idx.joint_qpos[3 * i + 2]] = float(knees_n[i])
         # Add a small per-episode jitter to the spawn height so the policy
         # can't memorise a single starting condition.
         self.data.qpos[2] += self.np_random.uniform(-0.005, 0.005)

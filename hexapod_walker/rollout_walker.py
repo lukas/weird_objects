@@ -62,6 +62,7 @@ def _make_eval_env(args, env_cfg=None):
             "residual_scale", "gait_period", "action_filter_tau",
             "gait_action", "gait_action_filter_tau",
             "per_leg_lift", "stub_w",
+            "stance_radius_scale",
         )
         for key in scalar_keys:
             if key in env_cfg:
@@ -181,6 +182,8 @@ def main():
     _GK_PG_UP = 266;  _GK_PG_DN = 267
     _GK_HOME = 268;   _GK_END = 269
     _GK_BACKTICK = 96
+    # Mac-compact alternates (no Pg/Home/End/Ins/Del):
+    _GK_COMMA = 44; _GK_PERIOD = 46; _GK_SLASH = 47; _GK_ENTER = 257
 
     def cb(keycode):
         c = target_env._cmd
@@ -193,21 +196,23 @@ def main():
             target_env.set_command(vy=c[1] + DV)
         elif kc == _GK_RIGHT:
             target_env.set_command(vy=c[1] - DV)
-        elif kc == _GK_PG_UP:
+        elif kc in (_GK_PG_UP, _GK_COMMA):     # turn left  (CCW)
             target_env.set_command(omega=c[2] + DOM)
-        elif kc == _GK_PG_DN:
+        elif kc in (_GK_PG_DN, _GK_PERIOD):    # turn right (CW)
             target_env.set_command(omega=c[2] - DOM)
-        elif kc == _GK_HOME:
+        elif kc in (_GK_HOME, _GK_SLASH):      # full stop
             target_env.set_command(vx=0.0, vy=0.0, omega=0.0)
-        elif kc == _GK_END:
+        elif kc in (_GK_END, _GK_ENTER):       # reset spawn + initial twist
             target_env.reset(options={"command": (args.vx, args.vy, args.omega)})
         elif kc == _GK_BACKTICK:
-            print("Arrow keys: vx/vy.  PgUp/Dn: omega.  Home: stop.  End: reset.")
+            print("Arrows: vx/vy.  PgUp/PgDn or ','/'.': omega.  "
+                  "Home or '/': stop.  End or Enter: reset.")
         else:
             return
         status()
 
-    print("Trained-policy rollout.  Arrow keys / PgUp/PgDn drive the command.")
+    print("Trained-policy rollout.  Arrow keys + ','/'.' (or PgUp/PgDn) "
+          "drive the command.")
     status()
     with viewer.launch_passive(target_env.model, target_env.data,
                                key_callback=cb) as v:

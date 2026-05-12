@@ -165,14 +165,16 @@ WELL_BODY_CL = 0.4   # mm clearance on every body face inside the well
 # is rotationally symmetric about the chassis perimeter.
 BRACKET_FLANGE_T   =  4.0   # mm thick mounting flange
 BRACKET_FLANGE_X   = 30.0   # mm long (radial -- inboard from chassis edge)
-BRACKET_FLANGE_Y   = 32.0   # mm wide (tangential)
-BRACKET_BOLT_PCD_X = 16.0   # mm centre-to-centre, inboard pair vs. outboard pair
-BRACKET_BOLT_PCD_Y = 16.0   # mm centre-to-centre, +Y vs. -Y bolt lines
+BRACKET_FLANGE_Y   = 48.0   # mm wide (tangential).  Sized so the slot and
+                            # the four chassis bolt holes each have >= 4 mm
+                            # of material around them.
+BRACKET_BOLT_PCD_X = 16.0   # mm centre-to-centre, inboard vs. outboard bolt pair
+BRACKET_BOLT_PCD_Y = 36.0   # mm centre-to-centre, +Y vs. -Y bolt line
 BRACKET_BOLT_HOLE  =  3.4   # mm clearance for M3 chassis bolts
-BRACKET_FLANGE_INSET = 8.0  # mm gap between the chassis edge and the OUTBOARD
-                            # bolt line, so the OUTBOARD bolts are squarely on
-                            # the chassis plate (not in mid-air outside the
-                            # hexagon).
+BRACKET_FLANGE_INSET = 8.0  # mm distance from the chassis edge (= bracket
+                            # origin's outboard face) to the OUTBOARD bolt
+                            # line.  >= BRACKET_BOLT_HOLE so the bolt is on
+                            # solid chassis material, not in mid-air.
 
 # ---- Servo horn adapter --------------------------------------------------
 # A short 4-arm star that screws onto the servo's plastic horn (M3
@@ -201,7 +203,11 @@ HORN_RECESS_DEPTH   =  1.6   # mm
 # the horn, so the bolt-circle centre MUST coincide with the joint
 # axis or the bolts can't physically stay attached.
 LINK_THICKNESS   =  6.0   # mm -- Y-direction thickness of every link
-FEMUR_SPAR_H     = 22.0   # mm -- Z-direction height of the femur spar
+FEMUR_SPAR_H     = 30.0   # mm -- Z-direction height of the femur spar
+                          # (must be > SERVO_BODY_D + 8 so the spar's top
+                          # and bottom flanges remain after we cut a slot
+                          # through it for the knee servo's body to slide
+                          # through during assembly).
 TIBIA_SPAR_H     = 18.0   # mm -- Z-direction height of the tibia spar
 HIP_PAD_R        = HORN_BOLT_PCD / 2.0 + 5.0   # 17 mm -- pad radius to
                                                 # comfortably contain
@@ -347,10 +353,12 @@ def _servo_well_solid() -> trimesh.Trimesh:
     outer = _box((WELL_W, WELL_D, WELL_H),
                  center=(0, 0, WELL_H / 2.0 - WELL_FLOOR_T))
 
-    # Body cavity: spans z = [-CL, WELL_RIM_Z + over] so the body slides
-    # in from above and rests on the floor (the cut stops just below the
-    # body's bottom face so a thin floor remains).
-    cav_h = WELL_RIM_Z + 4.0
+    # Body cavity: spans z = [0.0, WELL_RIM_Z] EXACTLY so it cleanly
+    # cuts through the outer box's top face -- giving a true open-top
+    # bucket.  Don't overshoot the outer box: that creates a degenerate
+    # boundary that confuses trimesh.boolean.difference.  The body
+    # rests on the FLOOR (which spans z = [-WELL_FLOOR_T, 0]).
+    cav_h = WELL_RIM_Z
     cavity = _box((SERVO_BODY_W + 2 * WELL_BODY_CL,
                    SERVO_BODY_D + 2 * WELL_BODY_CL,
                    cav_h),
@@ -672,105 +680,110 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     hip-yaw servo with its output shaft pointing UP.
 
     Local frame:
-        +Z = yaw axis (output shaft)
-        +X = outboard (away from chassis centre)
-        +Y = tangential
+        Origin: at the YAW AXIS (centre of the servo output spline)
+                in the chassis-plate's TOP plane (z = 0 of the bracket
+                = top face of the chassis plate).
+        +Z = yaw axis (output points UP).
+        +X = outboard (away from chassis centre).
+        +Y = tangential (along the chassis edge).
 
-    Construction:
-        - Mounting flange (in the YZ plane, bolted to the chassis pad)
-        - U-shaped servo cradle — the servo body slides into the
-          U-slot from the +Z side; the tab plane bolts to the bracket
-          on both +/-X faces
+    Layout:
+        - HORIZONTAL flange at z in [0, BRACKET_FLANGE_T] = [0, 4],
+          spanning x in [-BRACKET_FLANGE_X, 0] = [-30, 0] and
+          y in [-BRACKET_FLANGE_Y/2, +BRACKET_FLANGE_Y/2] = [-20, 20].
+          Bolts vertically to the chassis plate (4 M3 bolts go DOWN
+          through the flange and the chassis plate together).
+        - SERVO WELL hangs below the flange.  The servo's output spline
+          is at bracket-local (0, 0, GEAR_TOP_Z).  The well's body
+          cavity is offset by -SERVO_OUTPUT_X = -10 in X so the gear
+          lands on the yaw axis.  Cradle is OPEN at the top so the
+          servo can be inserted from above.
+
+    Assembly order:
+        1.  Drop the yaw servo straight down through the flange's body
+            cutout into the well.  Tabs land on the well rim.
+        2.  Drive 4 M3 self-tappers through the tab holes into the
+            well's pilot holes.
+        3.  Bolt the bracket flange to the chassis plate (4 M3 cap
+            screws + nylock nuts under the chassis plate).
+        4.  Add the horn adapter and the coxa link on top of the
+            output spline.
     """
-    # Mounting pads (4 holes on a 28 x 16 rectangle, matching the
-    # chassis-side bolt pattern).  Pad is a flat plate flush with the
-    # bracket's inboard face.
-    PAD_T = 4.0
-    PAD_W = 36.0   # along Y
-    PAD_H = 22.0   # along Z
+    body_centre_x = -SERVO_OUTPUT_X        # body offset so output is at x = 0
+    well_dz = -WELL_RIM_Z                  # well rim coincides with chassis plate top
 
-    pad = _box((PAD_T, PAD_W, PAD_H),
-               center=(-PAD_T / 2.0, 0, 0))
+    # ---- Servo well (hangs below z=0) -------------------------------
+    well = _servo_well_solid()
+    well.apply_translation([body_centre_x, 0.0, well_dz])
 
-    # 4 chassis-side mounting holes (axis = X)
+    # ---- Mounting flange --------------------------------------------
+    flange_centre_x = -BRACKET_FLANGE_X / 2.0          # flange spans x in [-FLANGE_X, 0]
+    flange = _box((BRACKET_FLANGE_X, BRACKET_FLANGE_Y, BRACKET_FLANGE_T),
+                  center=(flange_centre_x, 0.0,
+                           BRACKET_FLANGE_T / 2.0))
+
+    # Cut a body+tab passage through the flange (and through the rib
+    # below it) so the user can drop the servo straight down through
+    # the flange into the well.  Slot is 2 mm wider than the tab tip
+    # span (X) so the tabs have clearance going through, and 1 mm
+    # wider than the body (Y) on each side so the body slips through.
+    # Slot z range covers from the WELL RIM (z = 0) all the way up
+    # past the flange's top so it cuts through both the flange and
+    # the rib.
+    slot_w = SERVO_TAB_W + 2.0
+    slot_d = SERVO_BODY_D + 1.0
+    slot_h = BRACKET_FLANGE_T + 8.0   # 12 mm tall: spans z=[-4, 8]
+    slot = _box((slot_w, slot_d, slot_h),
+                center=(body_centre_x, 0.0, BRACKET_FLANGE_T / 2.0 - 2.0))
+
+    # ---- Chassis bolt holes -----------------------------------------
+    bolt_x_outboard = -BRACKET_FLANGE_INSET
+    bolt_x_inboard  = -BRACKET_FLANGE_INSET - BRACKET_BOLT_PCD_X
+    bolt_ys = (-BRACKET_BOLT_PCD_Y / 2.0, +BRACKET_BOLT_PCD_Y / 2.0)
     chassis_holes = []
-    for sy in (-1, 1):
-        for sz in (-1, 1):
-            h = _cyl(SERVO_TAB_HOLE / 2.0, PAD_T * 6)
-            h.apply_transform(rotation_matrix(np.pi / 2, [0, 1, 0]))
-            h.apply_translation([-PAD_T / 2.0, sy * 14.0, sz * 8.0])
+    for bx in (bolt_x_outboard, bolt_x_inboard):
+        for by in bolt_ys:
+            h = _cyl(BRACKET_BOLT_HOLE / 2.0, BRACKET_FLANGE_T * 4)
+            h.apply_translation([bx, by, BRACKET_FLANGE_T / 2.0])
             chassis_holes.append(h)
 
-    # Servo cradle.  The yaw servo sits with its output shaft pointing
-    # +Z, body extending downward in -Z.  Servo's local +X (output offset
-    # direction) aligns with the leg's +X (outboard).
-    # Cradle envelope: a box big enough to contain the servo body +
-    # mounting tabs + a 2 mm wall.
-    WALL = 2.5
-    cradle_w = SERVO_BODY_W + 2 * WALL
-    cradle_d = SERVO_BODY_D + 2 * WALL
-    cradle_h = SERVO_BODY_H + 2 * WALL  # capped on the bottom
+    # ---- Stiffening rib bridging the flange to the well -------------
+    # The flange's outboard edge at x = 0 sits on top of the well's
+    # inboard wall; the well's inboard wall is at x in [body_x - WELL_W/2,
+    # body_x - WELL_W/2 + WELL_WALL_X] = [-39, -30].  Rib spans y over
+    # the flange's width and z from the well rim (z = 0) up to the
+    # flange's top (z = FLANGE_T) on the +X edge of the flange so it
+    # provides a continuous load path.  We achieve this naturally by
+    # making the flange's outboard edge slightly DEEPER than just z=0:
+    # extend the flange material DOWN to z = -2 over its outboard
+    # 8 mm, so it overlaps with the well's inboard wall material.
+    rib = _box((10.0, BRACKET_FLANGE_Y, 6.0),
+               center=(-5.0, 0.0, 0.0))   # spans z in [-3, 3], x in [-10, 0]
 
-    # Position the cradle so the servo's output shaft lands at
-    # (COXA_LENGTH, 0, OUTPUT_PLANE_Z).  We place the servo body's
-    # output face (= top of body) in the chassis's mid-plane (Z = 0),
-    # so the servo's centre is below the chassis.
-    # Servo bottom is at z = -SERVO_BODY_H, top at z = 0.
-    # Servo's output shaft is offset by SERVO_OUTPUT_X in +X from the
-    # body centre; place body centre at x = -SERVO_OUTPUT_X so the
-    # output shaft lands at x = 0 in the bracket's local frame.
-    servo_centre = np.array([-SERVO_OUTPUT_X, 0.0, -SERVO_BODY_H / 2.0])
-    cradle_centre = servo_centre.copy()
-
-    cradle = _box((cradle_w, cradle_d, cradle_h),
-                  center=(cradle_centre[0], cradle_centre[1],
-                           cradle_centre[2]))
-    # Open the top so the output gear pokes through.
-    top_open = _box((cradle_w + 1, cradle_d + 1, WALL * 1.6),
-                    center=(cradle_centre[0], cradle_centre[1],
-                             cradle_centre[2] + cradle_h / 2.0
-                                 - WALL * 0.7))
-
-    # Web from the pad to the cradle for stiffness
-    web = _box((PAD_T + cradle_centre[0] - (-cradle_w / 2.0
-                                              + PAD_T / 2.0)
-                  + 0.1,
-                cradle_d * 0.7, PAD_H),
-               center=((-PAD_T / 2.0
-                          + (cradle_centre[0] + (-cradle_w / 2.0))) / 2.0
-                          + PAD_T,
-                        0, 0))
-
-    body = _union(pad, cradle, web)
-
-    # Cut the servo pocket out of the cradle.  The pocket function
-    # assumes the servo's body bottom is at z=0 in its local frame, so
-    # translate accordingly: servo bottom is at z = -SERVO_BODY_H, and
-    # the servo's local origin is its body centre at servo_centre.
-    pocket = _servo_pocket()
-    # Translate so the servo's local frame matches: pocket's local
-    # origin is body bottom centre.  Move it to the servo's bottom
-    # centre in bracket coords.
-    pocket.apply_translation([servo_centre[0],
-                                servo_centre[1],
-                                servo_centre[2] - SERVO_BODY_H / 2.0])
-
-    return _diff(body, *chassis_holes, pocket, top_open)
+    body = _union(flange, well, rib)
+    return _diff(body, slot, *chassis_holes)
 
 
 def make_coxa_link() -> trimesh.Trimesh:
-    """Coxa link: a horizontal U-bracket, driven by the yaw servo's
-    horn, that carries the hip-pitch servo at its outboard end.
+    """Coxa link: a flat plate, driven by the yaw servo's horn, that
+    carries the hip-pitch servo at its outboard end.
 
     Local frame:
-        +Z = yaw axis (downward at the hub centre)
-        +X = arm direction (outboard at neutral pose)
-        +Y = hip-pitch joint axis
+        Origin: bolt-circle centre of the hub (= yaw axis, sitting
+                on top of the horn adapter).
+        +Z = yaw axis (UP, away from the yaw servo).
+        +X = arm direction (outboard at neutral pose).
+        +Y = hip-pitch joint axis (= the hip-pitch servo's output
+              shaft direction).
 
-    Bottom face of the link (z = 0) sits on the yaw servo horn (via
-    `servo_horn_adapter.stl`).  The hip-pitch servo hangs in -Z below
-    the link's outboard end, with its output shaft pointing along
-    -Y_local (so the femur swings in the X-Z plane).
+    Layout:
+        - Hub: square pad at the origin, centred on the yaw axis,
+          with a 4-bolt hole pattern matching the horn adapter.
+        - Arm: flat plate extending in +X from the hub.
+        - Hip-pitch servo well: hangs in -Z below the arm at the +X
+          end.  Open-topped (well +Z) is mapped to link +Y so the
+          servo can be DROPPED in from the +Y direction during
+          assembly.
     """
     arm_w = 22.0   # mm, along Y
     arm_t =  4.0   # mm, along Z (printed flat against the build plate)
@@ -778,154 +791,69 @@ def make_coxa_link() -> trimesh.Trimesh:
     # Hub region (above the yaw servo horn) -- a thicker square
     hub = _box((34.0, 34.0, arm_t + 2.0),
                center=(0, 0, (arm_t + 2.0) / 2.0))
-    # Bolt pattern matching the horn adapter
+    # 4-bolt pattern matching the horn adapter
     hub_holes = []
     for i in range(4):
         a = np.pi / 4 + i * np.pi / 2
-        h = _cyl(SERVO_TAB_HOLE / 2.0, (arm_t + 2.0) * 4)
+        h = _cyl(HORN_BOLT_OD / 2.0, (arm_t + 2.0) * 4)
         h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
                               HORN_BOLT_PCD / 2.0 * np.sin(a),
                               (arm_t + 2.0) / 2.0])
         hub_holes.append(h)
+    centre_hole = _cyl(HORN_CENTRE_OD / 2.0, (arm_t + 2.0) * 4)
+    centre_hole.apply_translation([0, 0, (arm_t + 2.0) / 2.0])
 
-    # Arm reaching out to the hip-pitch motor mount
+    # Arm reaching out to the hip-pitch motor mount.  Spans local x in
+    # [-12, COXA_LENGTH + 16].
     arm = _box((COXA_LENGTH + 28.0, arm_w, arm_t),
                center=((COXA_LENGTH + 28.0) / 2.0 - 12.0, 0,
                         arm_t / 2.0))
 
-    # Servo cradle at the outboard end.  The hip-pitch servo's output
-    # shaft points in -Y_local; the servo body hangs below the arm in
-    # -Z.  Servo's local axes mapped to leg-local:
-    #     servo +Z -> leg -Y
-    #     servo +X -> leg +X (output offset toward outboard)
-    #     servo +Y -> leg -Z (body extends downward)
-    # We model the cradle in the servo's local frame, then transform.
-    WALL = 2.5
-    cradle_w = SERVO_BODY_W + 2 * WALL
-    cradle_d = SERVO_BODY_D + 2 * WALL
-    cradle_h = SERVO_BODY_H + 2 * WALL
-
-    cradle = _box((cradle_w, cradle_d, cradle_h),
-                  center=(0, 0, cradle_h / 2.0 - WALL))
-    pocket = _servo_pocket()  # servo's local frame: +Z = output
-    # Align: rotate cradle so servo's +Z (the output direction) becomes
-    # the bracket's -Y_local.  That's a -90 deg rotation about +X.
-    R_servo_to_bracket = rotation_matrix(np.pi / 2.0, [1, 0, 0])
-    cradle.apply_transform(R_servo_to_bracket)
-    pocket.apply_transform(R_servo_to_bracket)
-
-    # Place the cradle so the servo output shaft is at:
-    # (COXA_LENGTH, 0, 0) + (-SERVO_OUTPUT_X) along the servo's +X dir.
-    # In bracket coords the servo's +X is still +X (rotation was about
-    # X only).  So translate so that the servo's output point (in its
-    # local frame: x=SERVO_OUTPUT_X, y=0, z=SERVO_BODY_H) maps to
-    # (COXA_LENGTH, 0, 0).  After rotation about +X by +90 deg:
-    #   servo (X, Y, Z) -> bracket (X, -Z, Y)
-    # So servo output local (SERVO_OUTPUT_X, 0, SERVO_BODY_H) maps to
-    # bracket (SERVO_OUTPUT_X, -SERVO_BODY_H, 0).  We want that at
-    # (COXA_LENGTH, 0, 0), so translate by:
+    # Hip-pitch servo well at the outboard end.  Open-topped well, with
+    # well +Z -> link +Y so the user can drop the servo in from the +Y
+    # direction (= along the hip-pitch joint axis) during assembly.
+    well = _servo_well_solid()
+    R = rotation_matrix(-np.pi / 2.0, [1, 0, 0])  # well +Z -> link +Y
+    well.apply_transform(R)
+    # Output spline tip in well-local: (SERVO_OUTPUT_X, 0,
+    #   SERVO_BODY_H + SERVO_OUTPUT_H) = (10, 0, 44).
+    # After R: (10, 44, 0).  We want it at (COXA_LENGTH, 0, 0) (the
+    # joint axis position in the link frame, on the arm centreline).
     delta = np.array([COXA_LENGTH - SERVO_OUTPUT_X,
-                       0 - (-SERVO_BODY_H),
-                       0 - 0])
-    cradle.apply_translation(delta)
-    pocket.apply_translation(delta)
+                       -(SERVO_BODY_H + SERVO_OUTPUT_H),
+                       0.0])
+    well.apply_translation(delta)
+    # Drop the well in -Z so it hangs below the arm rather than
+    # interpenetrating it.
+    well_z_drop = -(WELL_D / 2.0 + arm_t / 2.0)
+    well.apply_translation([0.0, 0.0, well_z_drop])
 
-    # Drop the cradle a bit so its top sits on the arm's bottom face
-    # (no -- already aligned: the top of the cradle in bracket coords
-    # is the y_max face which is at y = SERVO_BODY_H + delta_y =
-    # SERVO_BODY_H - SERVO_BODY_H = 0, perfect; output centerline is
-    # at y = 0).
-    # Actually we want the servo body to hang BELOW the arm (in -Z),
-    # not be coplanar.  Re-think: the U-bracket arm is at z=0 to
-    # arm_t.  The servo cradle should be at -Z from there.  Currently
-    # the cradle's top face is at y_bracket = ?  Let me trace:
-    # After rotation+translate: cradle box is centred at (0, cradle_h/2 - WALL, 0)
-    # in pre-translation coords, then translated by delta = (COXA_L -
-    # OFFX, +BODY_H, 0).  Original cradle in servo coords spans:
-    # x in [-cradle_w/2, cradle_w/2], y in [-cradle_d/2, cradle_d/2],
-    # z in [-WALL, cradle_h - WALL].  After R_servo_to_bracket
-    # (rotation +90 about X): (x,y,z) -> (x, -z, y).  So bracket-space
-    # bounds are:
-    #   x in [-cradle_w/2, cradle_w/2]
-    #   y_bracket in [-(cradle_h - WALL), -(-WALL)] = [-(cradle_h-WALL), WALL]
-    #   z_bracket in [-cradle_d/2, cradle_d/2]
-    # Then add delta = (COXA_L - OFFX, +BODY_H, 0):
-    #   y_bracket in [BODY_H - (cradle_h-WALL), BODY_H + WALL]
-    #             = [BODY_H - BODY_H - 2*WALL + WALL, BODY_H + WALL]
-    #             = [-WALL, BODY_H + WALL]
-    # Hmm that's wrong -- the cradle ends up on the +Y side, not -Y.
-    # Let me redo.
-
-    # Actually we want the hip-pitch servo's output shaft to lie along
-    # -Y_local (so a positive servo rotation lifts the femur).  Then
-    # the body extends in +Y_local from the output.  That places the
-    # servo on the "+Y side" of the leg.  Hmm but the hexapod_walker
-    # convention puts everything on the -Y side...
-    #
-    # Let's actually look at what hexapod_walker does for the same
-    # joint.  Refer to make_coxa_link in HW: the hip-pitch plate sits
-    # on the -Y side of the arm at x=COXA_LENGTH, the motor extends
-    # in -Y from that plate.  So the motor body is on -Y.  To match
-    # that here, the hobby servo's output should point along +Y_local
-    # (output face at y_local = plate_y), with the body extending in
-    # -Y_local.
-    #
-    # Need to rotate the servo so its +Z (output) -> bracket +Y, body
-    # extends to -Y in bracket frame.  That's a -90 about +X (rather
-    # than +90).  Let me redo:
-
-    # Reset
-    cradle = _box((cradle_w, cradle_d, cradle_h),
-                  center=(0, 0, cradle_h / 2.0 - WALL))
-    pocket = _servo_pocket()
-    R = rotation_matrix(-np.pi / 2.0, [1, 0, 0])
-    cradle.apply_transform(R)
-    pocket.apply_transform(R)
-    # After R: servo (X, Y, Z) -> bracket (X, +Z, -Y).  So servo's +Z
-    # output direction maps to bracket's +Y, perfect.
-    # Servo output local (SERVO_OUTPUT_X, 0, SERVO_BODY_H) ->
-    # bracket (SERVO_OUTPUT_X, SERVO_BODY_H, 0).
-    # We want output at (COXA_LENGTH, 0, 0)?  Wait -- looking at the
-    # full-size walker the hip-pitch joint plane is at y =
-    # plate_y_coxa, NOT at y = 0.  The plate sits below the arm
-    # (negative Y).  But for our hobby setup, the servo cradle BECOMES
-    # the "plate" -- the femur clamps to the servo's output via the
-    # horn adapter.  Let me just place the joint at y = 0 (the arm's
-    # centreline) with the servo body extending in -Y from there.
-    #
-    # So servo output point at (COXA_LENGTH, 0, 0).  Translate by
-    # (COXA_LENGTH - SERVO_OUTPUT_X, -SERVO_BODY_H, 0):
-    delta = np.array([COXA_LENGTH - SERVO_OUTPUT_X,
-                       -SERVO_BODY_H, 0])
-    cradle.apply_translation(delta)
-    pocket.apply_translation(delta)
-    # Now the cradle's bracket-y span is:
-    #   y_bracket (pre-translation) in [-cradle_h+WALL, WALL]
-    #   plus delta_y = -SERVO_BODY_H = -(cradle_h - 2*WALL):
-    #   y in [-(cradle_h - WALL) - (cradle_h - 2*WALL),
-    #         WALL - (cradle_h - 2*WALL)]
-    #     = [-2*cradle_h + 3*WALL, 3*WALL - cradle_h]
-    # For SERVO_BODY_H = 38, cradle_h = 43, WALL = 2.5:
-    #   y in [-86+7.5, 7.5-43] = [-78.5, -35.5].  All on -Y side, good.
-
-    # Lower the cradle by half the arm thickness so its top isn't
-    # poking up through the arm (cradle's top face at y = ~ -35.5 is
-    # safely below z=arm_t/2 = 2 so this is fine; also the cradle
-    # needs to sit BELOW the arm in Z so it's drooping).  Actually we
-    # need to also drop the cradle in Z since the arm is at z=[0,
-    # arm_t] and the cradle is centred at z=0 right now.  Drop by
-    # cradle_d/2 + arm_t/2 to put the cradle's top face flush with
-    # the arm's bottom face:
-    drop = -(cradle_d / 2.0 + arm_t / 2.0)
-    cradle.apply_translation([0, 0, drop])
-    pocket.apply_translation([0, 0, drop])
-
-    # Triangular gusset bridging the arm to the cradle (visual stiffener)
+    # Stiffening gusset over the +X end of the arm, on top of the well.
     gusset = _box((30.0, arm_w, arm_t),
                   center=(COXA_LENGTH - 14.0, 0, arm_t / 2.0))
 
-    body = _union(hub, arm, cradle, gusset)
-    return _diff(body, *hub_holes, pocket)
+    # Bridge from the arm's -Y edge (y = -arm_w/2) down to the well's
+    # near +Y face (y = WELL_RIM_Z + delta_y) and from the arm's bottom
+    # face (z = 0) down to the well's top face (z = well_z_drop +
+    # WELL_D/2).  Without this the well dangles >5 mm away from the
+    # arm in both Y and Z.
+    arm_minus_y_edge = -arm_w / 2.0
+    well_near_y      = WELL_RIM_Z + delta[1]                    # ~ -18.25
+    well_top_z       = well_z_drop + WELL_D / 2.0               # ~ -2.0
+    bridge_y_min = well_near_y - 0.5                            # 0.5 mm overlap into well
+    bridge_y_max = arm_minus_y_edge + 0.5                       # 0.5 mm overlap into arm
+    bridge_y_extent = bridge_y_max - bridge_y_min
+    bridge_y_centre = (bridge_y_min + bridge_y_max) / 2.0
+    bridge_z_min = well_top_z - 0.5                             # overlap into well wall
+    bridge_z_max = arm_t                                        # up to arm top
+    bridge_z_extent = bridge_z_max - bridge_z_min
+    bridge_z_centre = (bridge_z_min + bridge_z_max) / 2.0
+    bridge = _box((30.0, bridge_y_extent, bridge_z_extent),
+                  center=(COXA_LENGTH - SERVO_OUTPUT_X,
+                           bridge_y_centre, bridge_z_centre))
+
+    body = _union(hub, arm, well, gusset, bridge)
+    return _diff(body, *hub_holes, centre_hole)
 
 
 def make_femur_link() -> trimesh.Trimesh:
@@ -941,26 +869,49 @@ def make_femur_link() -> trimesh.Trimesh:
     horn-adapter face.  This pad is perpendicular to Y (i.e. it lies
     in the X-Z plane), at y = 0.
 
-    Knee end: a U-shaped servo cradle that holds the knee servo body,
-    output shaft pointing +Y (parallel to the hip-pitch axis), so the
-    tibia can be horn-driven and rotates in the same plane the femur
-    does.
+    Knee end: an open-topped servo cradle that holds the knee servo,
+    output shaft pointing +Y (parallel to the hip-pitch axis), so
+    the tibia can be horn-driven and rotates in the same plane the
+    femur does.
 
-    The femur is a flat plate -- LINK_THICKNESS thick in Y -- that
-    lies in the leg's X-Z motion plane.  Both the hip pad and the
-    knee servo cradle live in the spar's Y-extent so the whole part
-    prints flat on the build plate.
+    Crucially the spar must NOT block the knee servo body's
+    insertion path.  The body is 40 x 20 mm in cross-section and
+    must be slid in along the +Y direction past the spar to reach
+    the well; if the spar's z-extent overlaps the body's z-extent
+    in the body's x-range, the body cannot be inserted at all.
+    We solve this with two design tricks:
+
+        1. The spar is taller than the body's short dimension
+           (FEMUR_SPAR_H = 30 mm, SERVO_BODY_D = 20 mm), so cutting a
+           20-mm-tall slot through it leaves 5-mm-thick top/bottom
+           flanges that still tie the hip end to the knee end.
+        2. We cut an insertion slot through the spar at the knee
+           servo's x-range, and use two bridge flanges (above and
+           below the body's z-extent) to connect the spar's flanges
+           to the well's top and bottom walls.
+
+    The femur prints with the spar's spar-Y axis vertical -- a flat
+    plate 130 mm long, 30 mm tall, 6 mm thick -- so it lies on the
+    build plate with no overhangs.
     """
-    # Spar -- flat plate, X long-axis, Y is plate thickness, Z is
-    # plate height (the bending-stiffness axis).
+    # ---- Spar (with insertion slot at the knee end) ------------------
     spar = _box((FEMUR_LENGTH, LINK_THICKNESS, FEMUR_SPAR_H),
                 center=(FEMUR_LENGTH / 2.0, 0, 0))
 
-    # Hip-end pad: a square plate centred ON THE JOINT AXIS (x=0,
-    # z=0).  Same Y thickness as the spar.  The bolt-circle CENTRE
-    # must sit on the joint axis so the femur rotates rigidly with
-    # the horn -- otherwise the bolts would trace a circle around
-    # the spline as the femur swings, and they'd shear off.
+    # Insertion slot for the knee servo's body.  The body's footprint
+    # at the well's location is x in [knee_x - 20, knee_x + 20],
+    # z in [-10, +10].  We cut a slot through the spar that is wider
+    # than that footprint so the body slides in cleanly.
+    body_x_centre = FEMUR_LENGTH - SERVO_OUTPUT_X
+    body_x_min = body_x_centre - SERVO_BODY_W / 2.0 - 1.0   # 1 mm clearance
+    body_x_max = body_x_centre + SERVO_BODY_W / 2.0 + 1.0
+    slot_x = body_x_max - body_x_min                         # 42 mm
+    slot_z = SERVO_BODY_D + 2.0                              # 22 mm
+    insertion_slot = _box((slot_x, LINK_THICKNESS + 2.0, slot_z),
+                           center=((body_x_min + body_x_max) / 2.0,
+                                    0, 0))
+
+    # ---- Hip-end pad -------------------------------------------------
     hip_pad = _box((2 * HIP_PAD_R, LINK_THICKNESS, 2 * HIP_PAD_R),
                    center=(0, 0, 0))
 
@@ -974,44 +925,63 @@ def make_femur_link() -> trimesh.Trimesh:
                               HORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_holes.append(h)
 
-    # Knee-end servo cradle.  Knee servo's output shaft points +Y so
-    # the tibia clamped to the horn swings in the X-Z plane.  The
-    # cradle sits OFF the spar in -Y so the servo body hangs to one
-    # side of the link plate (away from the +Y face where the horn
-    # lives -- so the tibia, when bolted on, doesn't collide with
-    # the body).
-    WALL = 2.5
-    cradle_w = SERVO_BODY_W + 2 * WALL
-    cradle_d = SERVO_BODY_D + 2 * WALL
-    cradle_h = SERVO_BODY_H + 2 * WALL
-
-    cradle = _box((cradle_w, cradle_d, cradle_h),
-                  center=(0, 0, cradle_h / 2.0 - WALL))
-    pocket = _servo_pocket()
-    R = rotation_matrix(-np.pi / 2.0, [1, 0, 0])  # servo +Z -> +Y
-    cradle.apply_transform(R)
-    pocket.apply_transform(R)
-    # Translate so the servo output point (post-R, at
-    # (SERVO_OUTPUT_X, SERVO_BODY_H, 0)) lands on the knee joint axis
-    # at (FEMUR_LENGTH, 0, 0) -- i.e. on the spar centreline at the
-    # spar's far end.
+    # ---- Knee-end servo well -----------------------------------------
+    well = _servo_well_solid()
+    R = rotation_matrix(-np.pi / 2.0, [1, 0, 0])    # well +Z -> femur +Y
+    well.apply_transform(R)
     delta = np.array([FEMUR_LENGTH - SERVO_OUTPUT_X,
-                       -SERVO_BODY_H, 0])
-    cradle.apply_translation(delta)
-    pocket.apply_translation(delta)
+                       -(SERVO_BODY_H + SERVO_OUTPUT_H),
+                       0.0])
+    well.apply_translation(delta)
 
-    # Lightening holes through the spar (drilled along Y)
+    # ---- Two bridge flanges (top + bottom) ---------------------------
+    # The body's z range is +/-(SERVO_BODY_D/2) = +/-10.  The spar's z
+    # range after slot cut is [SERVO_BODY_D/2+1, FEMUR_SPAR_H/2] =
+    # [+11, +15] (top flange) and [-15, -11] (bottom flange).  The well
+    # wraps z in [-WELL_D/2, +WELL_D/2] = [-12.5, +12.5].  Each bridge
+    # connects a spar flange to the well's wall at the same z.
+    spar_far_y      =  LINK_THICKNESS / 2.0           # +3 (spar's +Y face)
+    spar_near_y     = -LINK_THICKNESS / 2.0           # -3 (spar's -Y face)
+    well_near_y     = WELL_RIM_Z + delta[1]           # well's +Y face = -18.25
+    bridge_y_min    = well_near_y - 0.5
+    bridge_y_max    = spar_far_y + 0.5
+    bridge_y_extent = bridge_y_max - bridge_y_min     # 22 mm
+    bridge_y_centre = (bridge_y_min + bridge_y_max) / 2.0
+    bridge_x_extent = slot_x                          # span the body's x range
+    bridge_x_centre = (body_x_min + body_x_max) / 2.0
+
+    # Top flange bridge: z spans [body_top, spar_top] so it overlaps
+    # the well's top wall and the spar's top flange.
+    body_z_max  = +SERVO_BODY_D / 2.0                 # +10
+    spar_z_max  = +FEMUR_SPAR_H / 2.0                 # +15
+    bridge_top_z_extent = (spar_z_max - body_z_max)   # 5 mm
+    bridge_top_z_centre = (body_z_max + spar_z_max) / 2.0   # +12.5
+    bridge_top = _box((bridge_x_extent, bridge_y_extent,
+                       bridge_top_z_extent),
+                      center=(bridge_x_centre, bridge_y_centre,
+                               bridge_top_z_centre))
+
+    bridge_bot_z_extent = bridge_top_z_extent
+    bridge_bot_z_centre = -bridge_top_z_centre
+    bridge_bot = _box((bridge_x_extent, bridge_y_extent,
+                       bridge_bot_z_extent),
+                      center=(bridge_x_centre, bridge_y_centre,
+                               bridge_bot_z_centre))
+
+    # ---- Lightening holes through the spar ---------------------------
+    # Only at x < body_x_min so they don't accidentally cut the slot
+    # walls or the bridges.
     lightening = []
-    n_holes = 3
+    n_holes = 2
     for i in range(n_holes):
-        x = (i + 1) * FEMUR_LENGTH / (n_holes + 1)
+        x = (i + 1) * body_x_min / (n_holes + 1)
         h = _cyl(5.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
         h.apply_translation([x, 0, 0])
         lightening.append(h)
 
-    body = _union(hip_pad, spar, cradle)
-    return _diff(body, *hip_holes, pocket, *lightening)
+    body = _union(hip_pad, spar, well, bridge_top, bridge_bot)
+    return _diff(body, insertion_slot, *hip_holes, *lightening)
 
 
 def make_tibia_link() -> trimesh.Trimesh:
@@ -1127,26 +1097,32 @@ def _leg_in_body_frame(leg_index: int) -> trimesh.Trimesh:
     parts.append(cb)
 
     # ------------------- Coxa link (rotates with yaw) ------------------
-    # The coxa link's bottom face (z = 0 in its local frame) sits on
-    # top of the yaw servo's output gear, which is at z =
-    # SERVO_OUTPUT_H above the coxa bracket's reference (which itself
-    # is at z = 0 = chassis edge plane).  Add a small horn-adapter
-    # height too.
-    yaw_output_z = SERVO_OUTPUT_H + HORN_ADAPTER_T
+    # The coxa link's hub bottom (z = 0 in its local frame) sits on top
+    # of the yaw servo's horn adapter.  Vertical stack from the chassis
+    # plate's TOP face up to the bottom of the coxa link:
+    #   well rim (= bracket origin)          z = 0
+    #   body top (= rim + 12.25)             z = 12.25
+    #   gear stack top (+ 6)                 z = 18.25
+    #   plastic horn top (+ ~ 5)             z = 23.25
+    #   horn adapter top (+ HORN_ADAPTER_T)  z = 27.25 = coxa-link z=0
+    PLASTIC_HORN_H = 5.0   # mm, hobby-servo plastic horn height
+    yaw_output_z = ((SERVO_BODY_H - WELL_RIM_Z)
+                     + SERVO_OUTPUT_H
+                     + PLASTIC_HORN_H
+                     + HORN_ADAPTER_T)
+
     cl = make_coxa_link()
     cl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     cl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts.append(cl)
 
     # ------------------- Femur (pitched about leg-Y) ------------------
-    # In coxa-link local coords, the hip-pitch servo's output is at
-    # (COXA_LENGTH, 0, hip_drop) where hip_drop = -(cradle_d/2 + arm_t/2)
-    # (the coxa link's cradle was dropped below the arm in Z so the
-    # servo body hangs cleanly under the link plate).
+    # In coxa-link local coords, the hip-pitch servo's output spline
+    # tip is at (COXA_LENGTH, 0, hip_drop) where hip_drop =
+    # -(WELL_D/2 + arm_t/2) (the coxa link's well was dropped below
+    # the arm in Z so the servo body hangs cleanly under the link plate).
     arm_t = 4.0
-    WALL = 2.5
-    cradle_d = SERVO_BODY_D + 2 * WALL
-    hip_drop = -(cradle_d / 2.0 + arm_t / 2.0)
+    hip_drop = -(WELL_D / 2.0 + arm_t / 2.0)
 
     hip_joint_local = np.array([COXA_LENGTH, 0.0, hip_drop])
 

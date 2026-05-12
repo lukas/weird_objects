@@ -1,0 +1,15 @@
+{
+  "residual_scale": 0.06,
+  "gait_period": 1.0,
+  "action_filter_tau": 0.0,
+  "delta_w": 0.10,
+  "progress_w": 0.0,
+  "cmd_speed_bias": 0.0,
+  "vx_max": 0.5,
+  "vy_max": 0.3,
+  "omega_max": 0.20,
+  "net_arch": "128,128",
+  "log_std_init": -1.5,
+  "ent_coef": 0.0,
+  "total_steps": 1000000
+}

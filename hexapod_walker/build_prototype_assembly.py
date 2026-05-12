@@ -165,15 +165,22 @@ def _build_leg(leg_index: int):
     R_a = rotation_matrix(a, [0, 0, 1])
     R_a_3 = R_a[:3, :3]
 
-    # Yaw output reference height (above the chassis edge plane).  Same
-    # constant used in HP._leg_in_body_frame.
-    yaw_output_z = HP.SERVO_OUTPUT_H + HP.HORN_ADAPTER_T
+    # Yaw output reference height (above the chassis edge plane).  Must
+    # match HP._leg_in_body_frame's vertical stack:
+    #   chassis-plate top   -> well rim                z = 0
+    #   well rim            -> body top                + (BODY_H - RIM_Z)
+    #   body top            -> gear-stack top          + SERVO_OUTPUT_H
+    #   gear-stack top      -> plastic-horn top        + PLASTIC_HORN_H
+    #   plastic-horn top    -> printed-adapter top     + HORN_ADAPTER_T
+    PLASTIC_HORN_H = 5.0
+    yaw_output_z = ((HP.SERVO_BODY_H - HP.WELL_RIM_Z)
+                     + HP.SERVO_OUTPUT_H
+                     + PLASTIC_HORN_H
+                     + HP.HORN_ADAPTER_T)
     yaw_output_world = edge_mid + yaw_output_z * z_hat
 
     arm_t = 4.0
-    WALL = 2.5
-    cradle_d = HP.SERVO_BODY_D + 2 * WALL
-    hip_drop = -(cradle_d / 2.0 + arm_t / 2.0)
+    hip_drop = -(HP.WELL_D / 2.0 + arm_t / 2.0)
     hip_joint_local = np.array([HP.COXA_LENGTH, 0.0, hip_drop])
     Ry_p_3 = rotation_matrix(p, [0, 1, 0])[:3, :3]
     # Femur's knee-end joint axis is on the spar centreline at z=0
@@ -197,20 +204,28 @@ def _build_leg(leg_index: int):
     # In bracket-local: body bottom at z = -SERVO_BODY_H, output at z=0.
     # The bracket itself is in leg-local coords with edge_mid at z=0.
     yaw_servo = _hobby_servo_visual()
-    # Shift so its body bottom is at z = -SERVO_BODY_H in bracket coords
-    # and its output offset (along bracket +X = leg +X) lines up with
-    # x=0 (the yaw axis):
-    # _hobby_servo_visual has body centre at (0, 0, BODY_H/2) and
-    # output gear at (SERVO_OUTPUT_X, 0, ...).  We want output gear at
-    # (0, 0, 0) -> translate by (-SERVO_OUTPUT_X, 0, -SERVO_BODY_H).
-    yaw_servo.apply_translation([-HP.SERVO_OUTPUT_X, 0, -HP.SERVO_BODY_H])
+    # The yaw servo body hangs in the coxa-bracket well.  In the
+    # bracket's local frame (yaw axis at x=0, chassis-plate top at
+    # z=0), the body's bottom face is at z = -WELL_RIM_Z (its tabs
+    # land on the well rim at z = 0) and the body's long axis is
+    # along +X with output offset toward +X.  We want the output
+    # gear's centre to lie on the yaw axis (x=0) at z = 0 (above the
+    # chassis plate by SERVO_OUTPUT_H/2).  _hobby_servo_visual has
+    # body bottom at z=0 and output at (SERVO_OUTPUT_X, 0, ...), so
+    # we translate by (-SERVO_OUTPUT_X, 0, -WELL_RIM_Z) to drop the
+    # body into the well.
+    yaw_servo.apply_translation([-HP.SERVO_OUTPUT_X, 0,
+                                  -HP.WELL_RIM_Z])
     yaw_servo.apply_transform(R_a)
     yaw_servo.apply_translation(edge_mid)
     motor_parts.append(yaw_servo)
 
-    # Yaw horn (sits on top of the output gear, drives the coxa link)
+    # Yaw horn -- sits on top of the gear stack (above the body's
+    # exposed top by SERVO_OUTPUT_H), drives the coxa link via the
+    # printed horn adapter.
     yaw_horn = _horn_visual()
-    yaw_horn.apply_translation([0, 0, HP.SERVO_OUTPUT_H + 4.0])
+    yaw_horn.apply_translation([0, 0, (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
+                                       + HP.SERVO_OUTPUT_H])
     yaw_horn.apply_transform(R_a)
     yaw_horn.apply_translation(edge_mid)
     motor_parts.append(yaw_horn)
@@ -231,12 +246,13 @@ def _build_leg(leg_index: int):
     hip_servo = _hobby_servo_visual()
     R_hip = rotation_matrix(-np.pi / 2.0, [1, 0, 0])
     hip_servo.apply_transform(R_hip)
-    # After R_hip: servo (X, Y, Z) -> leg (X, Z, -Y).  Servo's output
-    # point (SERVO_OUTPUT_X, 0, SERVO_BODY_H) -> leg-local
-    # (SERVO_OUTPUT_X, SERVO_BODY_H, 0).
-    # Translate so that point lands at (COXA_LENGTH, 0, hip_drop):
+    # After R_hip the servo's body bottom (z=0) maps to post-y=0
+    # and the spline tip (z=SERVO_BODY_H+SERVO_OUTPUT_H) maps to
+    # post-y=SERVO_BODY_H+SERVO_OUTPUT_H.  We want the spline tip to
+    # land on the joint axis at (COXA_LENGTH, 0, hip_drop):
     delta = np.array([HP.COXA_LENGTH - HP.SERVO_OUTPUT_X,
-                       -HP.SERVO_BODY_H, hip_drop])
+                       -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H),
+                       hip_drop])
     hip_servo.apply_translation(delta)
     to_world(hip_servo)
     motor_parts.append(hip_servo)
@@ -246,7 +262,7 @@ def _build_leg(leg_index: int):
     hip_horn = _horn_visual()
     R_hip_horn = rotation_matrix(-np.pi / 2.0, [1, 0, 0])
     hip_horn.apply_transform(R_hip_horn)
-    hip_horn.apply_translation([HP.COXA_LENGTH, 0.5, hip_drop])
+    hip_horn.apply_translation([HP.COXA_LENGTH, 0.0, hip_drop])
     to_world(hip_horn)
     motor_parts.append(hip_horn)
 
@@ -264,7 +280,8 @@ def _build_leg(leg_index: int):
     knee_servo = _hobby_servo_visual()
     knee_servo.apply_transform(R_hip)
     delta = np.array([HP.FEMUR_LENGTH - HP.SERVO_OUTPUT_X,
-                       -HP.SERVO_BODY_H, 0])
+                       -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H),
+                       0])
     knee_servo.apply_translation(delta)
     knee_servo.apply_transform(rotation_matrix(p, [0, 1, 0]))
     knee_servo.apply_translation(hip_joint_local)
@@ -273,7 +290,7 @@ def _build_leg(leg_index: int):
 
     knee_horn = _horn_visual()
     knee_horn.apply_transform(R_hip_horn)
-    knee_horn.apply_translation([HP.FEMUR_LENGTH, 0.5, 0])
+    knee_horn.apply_translation([HP.FEMUR_LENGTH, 0.0, 0])
     knee_horn.apply_transform(rotation_matrix(p, [0, 1, 0]))
     knee_horn.apply_translation(hip_joint_local)
     to_world(knee_horn)

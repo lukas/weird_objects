@@ -1,10 +1,10 @@
 filename,qty,material,color,finish,envelope_x_mm,envelope_y_mm,envelope_z_mm,volume_cm3_per_part,volume_cm3_total,notes
-chassis_plate.stl,2,MJF PA12,white,as-printed,200.0,230.9,4.0,137.67,275.33,Identical top + bottom hex plate. Order qty 2.
+chassis_plate.stl,2,MJF PA12,white,as-printed,200.0,230.9,4.0,137.55,275.10,Identical top + bottom hex plate. Order qty 2.
 battery_holder.stl,1,MJF PA12,white,as-printed,110.0,60.0,28.0,13.56,13.56,Open-top LiPo tray; velcro slots through the long walls.
 electronics_tray.stl,1,MJF PA12,white,as-printed,100.0,70.0,3.0,20.76,20.76,Mounts Arduino + 2x PCA9685; standoffs are part of the geometry.
-coxa_bracket.stl,6,MJF PA12,white,as-printed,45.0,36.0,51.5,16.05,96.29,Holds the yaw servo. Cradle pocket prints opening +Z.
-coxa_link.stl,6,MJF PA12,white,as-printed,58.0,33.0,57.5,24.07,144.44,Yaw-driven arm; oriented so the hip-pitch cradle opens +Z.
-femur_link.stl,6,MJF PA12,white,as-printed,119.5,34.0,43.5,26.52,159.12,Thigh; oriented so the knee servo cradle opens +Z.
+coxa_bracket.stl,6,MJF PA12,white,as-printed,58.0,48.0,32.2,20.44,122.65,Holds the yaw servo. Cradle pocket prints opening +Z.
+coxa_link.stl,6,MJF PA12,white,as-printed,61.0,33.0,63.5,28.49,170.95,Yaw-driven arm; oriented so the hip-pitch cradle opens +Z.
+femur_link.stl,6,MJF PA12,white,as-printed,126.0,34.0,50.0,40.55,243.28,Thigh; oriented so the knee servo cradle opens +Z.
 tibia_link.stl,6,MJF PA12,white,as-printed,150.5,34.0,15.0,17.52,105.14,"Shin link, ends in foot socket. Lay flat for FDM."
 foot_pad.stl,6,FDM TPU 95A,black,as-printed,28.0,28.0,16.0,5.73,34.39,"*** SEPARATE QUOTE *** -- needs flexible TPU for grip. If TPU isn't available, FDM PLA works but the foot will slip."
 servo_horn_adapter.stl,18,MJF PA12,white,as-printed,28.0,28.0,4.0,0.51,9.16,Tiny part -- consider FDM PLA at home if you have a printer.

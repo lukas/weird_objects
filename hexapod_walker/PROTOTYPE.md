@@ -5,7 +5,7 @@
 > you commit to industrial servomotors. Same architecture: regular hex
 > chassis, six identical 3-DOF legs, alternating-tripod gait — but
 > everything is shrunk roughly 6× and every joint is driven by a
-> generic 25 kg·cm hobby servo (DS3225 / MG996R class) instead of a
+> generic 25 kg·cm hobby servo (DS3225 case/geometry) instead of a
 > $5000 harmonic-drive servomotor.
 >
 > Total parts cost: **~$150 – $300** in 2026 USD. A motivated builder
@@ -54,10 +54,10 @@ when you graduate to the big version — just re-tune the gains.
 | Continuous draw (cruise) | ~ 1.5 A @ 5 V |
 | Run time, level ground | ~ 30 min |
 
-**Knee torque margin:** the DS3225 servo provides ~ 25 kg·cm at 6.8 V,
-giving a ~ 4× safety factor over the worst-case knee torque. The
-weaker MG996R (10 kg·cm) gives ~ 1.6×, which is fine for tabletop
-walking but leaves no margin for shock loads.
+**Knee torque margin:** the design target is a DS3225 25 kg·cm metal-gear
+digital servo.  At 6.8 V it gives a ~ 4× safety factor over the
+worst-case knee torque.  The printed wells, tab pilots, horn adapters
+and RL servo torque limits are all tuned around this DS3225-class case.
 
 ---
 
@@ -80,10 +80,10 @@ fit a 220 × 220 mm 3D-printer bed (Ender 3 / Bambu A1 mini class).
 
 | File | Function | Print orientation |
 |---|---|---|
-| `coxa_bracket.stl` | Bolts to chassis edge, holds yaw servo | Flat on bed, mounting pad down |
-| `coxa_link.stl` | U-bracket driven by yaw servo, holds hip-pitch servo | Flat on bed, hub face down |
-| `femur_link.stl` | Thigh link with cradle for the knee servo | Flat on bed, spar face down |
-| `tibia_link.stl` | Shin link, ends in foot socket | Flat on bed |
+| `coxa_bracket.stl` | Horizontal flange + servo well (yaw motor hangs below). 4 vertical M3 bolts clamp the flange between the two chassis plates. | Flange on bed, well opening up |
+| `coxa_link.stl` | U-arm driven by the yaw servo's horn; carries the hip-pitch servo in a side-loaded well. | Hub face down, well opening up |
+| `femur_link.stl` | I-beam thigh with a slot through the spar so the knee servo body can slide past it during assembly. Top + bottom flange bridges connect the spar to the well. | Spar's flat face on bed, well opening up |
+| `tibia_link.stl` | Shin link with knee pad and foot socket at the far end. | Flat on bed |
 | `foot_pad.stl` | Compliant foot — print in TPU for grip | Hub up, no supports |
 
 ### 3.3 Generic hardware (print 18 + spares)
@@ -109,8 +109,8 @@ emits a `manifest.csv` listing the recommended material, color, and
 finish for every part. See `xometry_upload/README.md` for the full
 upload-and-checkout flow on Xometry, Shapeways, JLCPCB, etc.
 
-A complete bundle runs **~ $500 in MJF PA12** (Xometry, mid-2026)
-versus **~ $15 in PLA filament** if you have access to an FDM
+A complete bundle runs **~ $580 in MJF PA12** (Xometry, mid-2026)
+versus **~ $20 in PLA filament** if you have access to an FDM
 printer.
 
 ---
@@ -121,9 +121,7 @@ printer.
 
 | Item | Spec | Qty | Approx. cost |
 |---|---|---|---|
-| Hobby servo | DS3225 (25 kg·cm, metal gear, 6.8 V) — recommended | 18 + 2 spare | $13 each on AliExpress, $18 on Amazon ($240 – $360 total) |
-| (Alternative) | MG996R (10 kg·cm, metal gear, 6 V) — works but no margin | 18 + 2 spare | $4 each ($80 total) |
-| (Alternative — premium) | Dynamixel XL-330-M288-T (smart serial, daisy-chain) | 18 + 2 spare | $30 each ($600 total) |
+| Hobby servo | **DS3225 25 kg·cm metal-gear digital servo**, standard 40 × 20 × 38 mm case, 54 mm tab span, ~49.5 mm tab-hole spacing, output offset ~10 mm from case centre. Buy all 20 from the same listing/batch. | 18 + 2 spare | ~$13 each on AliExpress, ~$18 each on Amazon ($260 – $360 total) |
 
 ### 4.2 Power
 
@@ -164,13 +162,13 @@ printer.
 
 ### 4.6 Total
 
-| Bucket | Cheap (MG996R) | Recommended (DS3225) | Premium (XL-330) |
-|---|---|---|---|
-| Actuators | $80 | $300 | $600 |
-| Power | $70 | $70 | $70 |
-| Electronics | $50 | $50 | $50 |
-| Fasteners + filament | $20 | $20 | $20 |
-| **Total** | **~ $220** | **~ $440** | **~ $740** |
+| Bucket | DS3225 build |
+|---|---:|
+| Actuators | ~$300 |
+| Power | ~$70 |
+| Electronics | ~$50 |
+| Fasteners + filament | ~$20 |
+| **Total** | **~ $440** |
 
 ---
 
@@ -200,10 +198,13 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
-1. **Coxa bracket + yaw servo:** drop the yaw servo into the bracket
-   from the +Z (top) side, so the output gear pokes UP through the
-   open top of the cradle. Bolt through the four M3 tab holes. The
-   servo body now hangs below the chassis edge plane.
+1. **Coxa bracket + yaw servo:** drop the yaw servo straight DOWN
+   through the body cutout in the bracket flange and into the well
+   below. The servo's mounting tabs land flush on the well rim, with
+   the gear stack and output spline poking UP above the flange.
+   Drive 4 × M3 self-tapping screws through the tab clearance holes
+   into the four pilot holes drilled vertically through the well's
+   side walls. The servo body now hangs below the chassis edge plane.
 2. **Horn adapter on the yaw servo:** centre the servo, push a stock
    plastic 4-arm horn onto the spline at 0°, then bolt
    `servo_horn_adapter.stl` to the horn with 4 × M2.5 self-tappers
@@ -229,8 +230,14 @@ times.
 
 ### 6.2 Final assembly
 
-9. **Bottom chassis plate:** lay flat. Bolt the 6 leg sub-assemblies
-   to the 6 outer-edge bolt patterns (4 × M3 × 16 mm + nylocs each).
+9. **Bottom chassis plate:** lay flat. Each coxa bracket's flange
+   bolts to the chassis edge with **4 × M3 × 16 mm** caps — drive
+   them straight down through the flange and through the matching
+   bolt pattern in the chassis plate, capture with a nyloc on the
+   underside. The two outboard bolts sit just inside the chassis
+   perimeter; the two inboard bolts sit 16 mm further in. The flange
+   sandwiches between the bottom plate and the standoff ring later
+   in step 13.
 10. **Stand-off posts:** screw 4 × M3 × 25 mm M-F standoffs into the
     inner bolt pattern.
 11. **Battery holder + electronics tray:** bolt to the bottom plate
@@ -242,6 +249,56 @@ times.
 ---
 
 ## 7. Wiring
+
+### 7.1 One-servo bench test first
+
+Before assembling the robot, test **one DS3225 + one PCA9685 + Arduino**
+on the bench. This proves the exact servo listing you bought fits the
+electrical and software assumptions before you print/bolt all 18 joints.
+
+Bench wiring:
+
+```text
+Raspberry Pi / laptop  --USB serial-->  Arduino Mega
+Arduino Mega SDA/SCL  ------------->  PCA9685 SDA/SCL
+Arduino Mega 5V/GND   ------------->  PCA9685 VCC/GND  (logic only)
+5-6 V BEC + / -       ------------->  PCA9685 V+ / GND (servo power)
+DS3225 signal/+/-     ------------->  PCA9685 channel 0
+```
+
+Important: **all grounds must be common**: Pi USB ground, Arduino ground,
+PCA9685 ground, and BEC/servo ground. Do **not** power the DS3225 from
+the Arduino 5 V pin.
+
+Upload the Arduino bridge sketch:
+
+```bash
+hexapod_walker/firmware/prototype_servo_bridge/prototype_servo_bridge.ino
+```
+
+Then from the Raspberry Pi or laptop:
+
+```bash
+python -m pip install pyserial
+python hexapod_walker/pi_control/servo_bridge_client.py --port /dev/ttyACM0 centre
+python hexapod_walker/pi_control/servo_bridge_client.py --port /dev/ttyACM0 wiggle --joint 0
+python hexapod_walker/pi_control/servo_bridge_client.py --port /dev/ttyACM0 joint 0 20 --sweep
+```
+
+On macOS the port will look like `/dev/cu.usbmodem...`; on Raspberry Pi /
+Linux it is usually `/dev/ttyACM0` or `/dev/ttyUSB0`.
+
+Once one servo works, plug the same servo into channels 1 and 2 and run:
+
+```bash
+python hexapod_walker/pi_control/servo_bridge_client.py --port /dev/ttyACM0 wiggle --joint 1
+python hexapod_walker/pi_control/servo_bridge_client.py --port /dev/ttyACM0 wiggle --joint 2
+```
+
+That validates the yaw / hip / knee channel order for one leg before
+you connect all 18 servos.
+
+### 7.2 Full robot wiring
 
 ```
                     +--------------+

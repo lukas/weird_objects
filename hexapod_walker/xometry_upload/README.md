@@ -81,19 +81,19 @@ Cursor's STL preview.
 | 2 × chassis_plate (138 cm³ each) | 275 cm³ | $35 / part | $70 |
 | 1 × battery_holder | 14 cm³ | $9 | $9 |
 | 1 × electronics_tray | 21 cm³ | $11 | $11 |
-| 6 × coxa_bracket (16 cm³) | 96 cm³ | $10 | $60 |
-| 6 × coxa_link (24 cm³) | 145 cm³ | $13 | $78 |
-| 6 × femur_link (27 cm³) | 159 cm³ | $14 | $84 |
+| 6 × coxa_bracket (20 cm³) | 123 cm³ | $11 | $66 |
+| 6 × coxa_link (28 cm³) | 171 cm³ | $14 | $84 |
+| 6 × femur_link (41 cm³) | 243 cm³ | $19 | $114 |
 | 6 × tibia_link (18 cm³) | 105 cm³ | $11 | $66 |
 | 18 × servo_horn_adapter (0.5 cm³) | 9 cm³ | $4 (min part) | $72 |
-| **MJF subtotal** | **820 cm³** | — | **~ $450** |
+| **MJF subtotal** | **959 cm³** | — | **~ $490** |
 | 6 × foot_pad (TPU 95A, 6 cm³) | 36 cm³ | $8 | $48 |
 | **TPU subtotal** | | | **~ $48** |
 | Standard shipping (US, 7-day) | | | $20 – $40 |
-| **Total** | **~ 860 cm³** | | **~ $520 – $540** |
+| **Total** | **~ 995 cm³** | | **~ $560 – $580** |
 
-Compare with: **self-printing on a $200 Bambu A1 / Ender 3 = ~ $15 in
-filament, 22 hours of printer time.** If you have access to a printer
+Compare with: **self-printing on a $200 Bambu A1 / Ender 3 = ~ $20 in
+filament, 28 hours of printer time.** If you have access to a printer
 this is the dominant cheaper option by a factor of ~ 30. Xometry pays
 for itself only if (a) you don't have a printer, (b) you want better
 dimensional tolerance and surface finish than FDM gives you, or (c)

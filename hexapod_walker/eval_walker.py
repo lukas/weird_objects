@@ -65,6 +65,7 @@ def _make_env(*, episode_seconds, obstacle_count, terrain_enabled,
             "residual_scale", "gait_period", "action_filter_tau",
             "gait_action", "gait_action_filter_tau",
             "per_leg_lift", "stub_w",
+            "stance_radius_scale",
         )
         for key in scalar_keys:
             if key in env_cfg:
