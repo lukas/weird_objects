@@ -998,19 +998,19 @@ def make_coxa_bracket() -> trimesh.Trimesh:
                   center=(flange_centre_x, 0.0,
                            BRACKET_FLANGE_T / 2.0))
 
-    # Cut a body+tab passage through the flange (and through the rib
-    # below it) so the user can drop the servo straight down through
-    # the flange into the well.  Slot is 2 mm wider than the tab tip
-    # span (X) so the tabs have clearance going through, and 1 mm
-    # wider than the body (Y) on each side so the body slips through.
-    # Slot z range covers from the WELL RIM (z = 0) all the way up
-    # past the flange's top so it cuts through both the flange and
-    # the rib.
+    # Cut a body+tab passage through the rib below the flange so the
+    # servo body can slide in from below into the well.  The flange
+    # itself is NOT cut -- it stays a continuous slab on top with all
+    # four chassis bolt holes in one piece, rather than two raised
+    # half-flange pads with a slot-shaped gap between them.
+    # Slot z range covers from below the well rim up to the underside
+    # of the flange (z = 0), so the rib (which lives at z = [-3, +3])
+    # gets a clean body+tab clearance opening cut into its top half.
     slot_w = SERVO_TAB_W + 2.0
     slot_d = SERVO_BODY_D + 1.0
-    slot_h = BRACKET_FLANGE_T + 8.0   # 12 mm tall: spans z=[-4, 8]
+    slot_h = 6.0                       # cuts z = [-6, 0]
     slot = _box((slot_w, slot_d, slot_h),
-                center=(body_centre_x, 0.0, BRACKET_FLANGE_T / 2.0 - 2.0))
+                center=(body_centre_x, 0.0, -slot_h / 2.0))
 
     # ---- Chassis bolt holes -----------------------------------------
     bolt_x_outboard = -BRACKET_FLANGE_INSET
