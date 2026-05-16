@@ -1221,7 +1221,38 @@ def make_coxa_link() -> trimesh.Trimesh:
         ),
     )
 
-    body = _union(hub, arm, well, gusset, bridge, gusset_under)
+    # Top-spine gusset: a triangular rib stacked ON TOP of the arm in
+    # raw +Z.  Cross-section in raw X-Z is a right triangle that is
+    # zero-thick at the hub edge and grows to COXA_TOP_RIB_H mm at the
+    # well end -- a classic shark-fin gusset shape, with material
+    # concentrated where the cantilever bending moment from the hip-
+    # pitch reaction is highest.  Spans the arm's FULL Y width so the
+    # rib's section modulus about link +Y is huge: the rib alone adds
+    # roughly arm_w * h^2 * (h + 3 * arm_t) / 12 to the second moment
+    # about the arm centroid -- ~ 5 - 7x the bare arm's I about +Y.
+    #
+    # After the `_reorient_coxa_link` +90 deg X rotation for printing,
+    # raw +Z maps to print -Y, so this rib protrudes visibly in print
+    # -Y -- a clearly recognisable gusset on the printed part rather
+    # than something hidden inside the in-plane gussets above.
+    COXA_TOP_RIB_HUB_X  = HIP_PAD_R + 1.0        # 17 -- clears hub footprint
+    COXA_TOP_RIB_WELL_X = COXA_LENGTH - 1.0      # 44 -- stops 1 mm short of well joint axis
+    COXA_TOP_RIB_H      = 6.0                    # raw +Z height above arm top face
+    _top_rib_xz = [
+        (COXA_TOP_RIB_HUB_X,  arm_t),                       # hub side, low
+        (COXA_TOP_RIB_WELL_X, arm_t),                       # well side, low
+        (COXA_TOP_RIB_WELL_X, arm_t + COXA_TOP_RIB_H),      # well side, high
+    ]
+    _top_rib_verts = []
+    for (vx, vz) in _top_rib_xz:
+        _top_rib_verts.append([vx, -arm_w / 2.0, vz])
+        _top_rib_verts.append([vx, +arm_w / 2.0, vz])
+    gusset_top_rib = trimesh.Trimesh(
+        vertices=np.array(_top_rib_verts)
+    ).convex_hull
+
+    body = _union(hub, arm, well, gusset, bridge, gusset_under,
+                  gusset_top_rib)
     return _diff(body, wire_slot, *hub_holes, centre_hole)
 
 
