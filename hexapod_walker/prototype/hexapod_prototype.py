@@ -1317,46 +1317,76 @@ def make_femur_link() -> trimesh.Trimesh:
     # ---- Two bridge flanges (top + bottom) ---------------------------
     # The body's z range is +/-(SERVO_BODY_D/2) = +/-10.  The spar's z
     # range after slot cut is [SERVO_BODY_D/2+1, FEMUR_SPAR_H/2] =
-    # [+11, +15] (top flange) and [-15, -11] (bottom flange).  The well
+    # [+11, +17] (top flange) and [-17, -11] (bottom flange).  The well
     # wraps z in [-WELL_D/2, +WELL_D/2] = [-12.5, +12.5].  Each bridge
     # connects a spar flange to the well's wall at the same z.
     spar_far_y      =  LINK_THICKNESS / 2.0           # +3 (spar's +Y face)
     spar_near_y     = -LINK_THICKNESS / 2.0           # -3 (spar's -Y face)
-    well_near_y     = WELL_RIM_Z + delta[1]           # well's +Y face = -18.25
-    bridge_y_min    = well_near_y - 0.5
+    well_near_y     = WELL_RIM_Z + delta[1]           # well's +Y face
+
+    # Embed the bridge 2.5 mm INTO the well's +Y wall (instead of the
+    # previous 0.5 mm kiss).  The well's +Y wall material around the
+    # cavity opening is at z in roughly [+10.7, +12.5] / [-12.5, -10.7]
+    # (cavity z half-extent = SERVO_BODY_D/2 + WELL_BODY_CL).  Deeper
+    # embedment turns the bridge-to-well joint from a 0.5 mm boolean
+    # kiss into a real ~ 4.5 mm-thick fused section per side, which is
+    # by far the weakest joint in the part.
+    BRIDGE_WELL_EMBED = 2.5                           # mm into well +Y wall
+    bridge_y_min    = well_near_y - BRIDGE_WELL_EMBED
     # Embed the bridge's +Y end 0.5 mm INTO the spar (rather than letting
-    # it overshoot 0.5 mm past the spar's +Y face).  Either choice gives
-    # the same 5.5 mm of spar-thickness overlap that the boolean union
-    # needs, but embedding keeps the spar's +Y face as the part's
-    # outermost surface in -Y -- which, after the -90 deg X reorient for
-    # printing in ``prepare_xometry_upload.py``, becomes the broad face
-    # that sits on the build plate.  Overshooting put a pair of 5 mm
-    # bridge-flange ridges 0.5 mm below the spar so the spar floated
-    # half a mm above the bed; this version makes the full spar+hip-pad
-    # broad face the print's bottom layer.
+    # it overshoot 0.5 mm past the spar's +Y face) so the spar's +Y face
+    # stays the part's outermost surface in -Y -- which, after the
+    # -90 deg X reorient for printing, becomes the broad face that sits
+    # on the build plate (no half-millimetre bed gap).
     bridge_y_max    = spar_far_y - 0.5
-    bridge_y_extent = bridge_y_max - bridge_y_min     # 21 mm
+    bridge_y_extent = bridge_y_max - bridge_y_min
     bridge_y_centre = (bridge_y_min + bridge_y_max) / 2.0
     bridge_x_extent = slot_x                          # span the body's x range
     bridge_x_centre = (body_x_min + body_x_max) / 2.0
 
-    # Top flange bridge: z spans [body_top, spar_top] so it overlaps
-    # the well's top wall and the spar's top flange.
+    # Top flange bridge: z spans [body_top, spar_top + BRIDGE_CAP_H] so
+    # it overlaps the well's top wall, the spar's top flange, AND
+    # extends BRIDGE_CAP_H mm PAST the spar's top edge as an integral
+    # cap rib.  Without the cap, the bridge cross-section is just
+    # (spar_z_max - body_z_max) = 7 mm tall by 18 mm wide; with a 4 mm
+    # cap the cross-section grows to 11 mm tall, about (11/7)^3 ~ 3.9x
+    # stiffer in out-of-plane bending.  After the -90 deg X reorient
+    # the cap sits as a small rib protruding in print +/-Y direction
+    # past the spar, so it's clearly visible as a gusset.
+    BRIDGE_CAP_H = 4.0
     body_z_max  = +SERVO_BODY_D / 2.0                 # +10
-    spar_z_max  = +FEMUR_SPAR_H / 2.0                 # +15
-    bridge_top_z_extent = (spar_z_max - body_z_max)   # 5 mm
-    bridge_top_z_centre = (body_z_max + spar_z_max) / 2.0   # +12.5
+    spar_z_max  = +FEMUR_SPAR_H / 2.0                 # +17
+    bridge_top_z_min = body_z_max                     # +10
+    bridge_top_z_max = spar_z_max + BRIDGE_CAP_H      # +21
+    bridge_top_z_extent = bridge_top_z_max - bridge_top_z_min
+    bridge_top_z_centre = (bridge_top_z_min + bridge_top_z_max) / 2.0
     bridge_top = _box((bridge_x_extent, bridge_y_extent,
                        bridge_top_z_extent),
                       center=(bridge_x_centre, bridge_y_centre,
                                bridge_top_z_centre))
 
+    bridge_bot_z_min = -bridge_top_z_max              # -21
+    bridge_bot_z_max = -bridge_top_z_min              # -10
     bridge_bot_z_extent = bridge_top_z_extent
     bridge_bot_z_centre = -bridge_top_z_centre
     bridge_bot = _box((bridge_x_extent, bridge_y_extent,
                        bridge_bot_z_extent),
                       center=(bridge_x_centre, bridge_y_centre,
                                bridge_bot_z_centre))
+
+    # Re-cut the well's body cavity from the bridges so the deeper
+    # well embedment (BRIDGE_WELL_EMBED above) doesn't refill the
+    # cavity and block servo insertion.  The cavity volume here mirrors
+    # the box that ``_servo_well_solid`` subtracts internally, then is
+    # transformed into femur-frame.
+    cav_z_bot  = -WELL_FLOOR_T - 1.0
+    cav_z_top  = WELL_RIM_Z
+    cavity_trim = _box((SERVO_BODY_W + 2 * WELL_BODY_CL,
+                        SERVO_BODY_D + 2 * WELL_BODY_CL,
+                        cav_z_top - cav_z_bot),
+                       center=(0, 0, 0.5 * (cav_z_top + cav_z_bot)))
+    cavity_trim.apply_transform(R)
+    cavity_trim.apply_translation(delta)
 
     # ---- Lightening holes through the spar ---------------------------
     # Also used to pass jacketed servo harnesses through the spar
@@ -1373,7 +1403,8 @@ def make_femur_link() -> trimesh.Trimesh:
         lightening.append(h)
 
     body = _union(hip_pad, spar, well, bridge_top, bridge_bot)
-    return _diff(body, insertion_slot, wire_slot, *hip_holes, *lightening)
+    return _diff(body, insertion_slot, wire_slot, cavity_trim,
+                 *hip_holes, *lightening)
 
 
 def make_tibia_link() -> trimesh.Trimesh:
