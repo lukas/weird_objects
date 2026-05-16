@@ -94,6 +94,23 @@ CHASSIS_FLAT_TO_FLAT  = 200.0   # mm -- distance between opposite hex edges
 CHASSIS_PLATE_T       =   4.0   # mm -- thickness of each 3D-printed plate
 CHASSIS_GAP           =  20.0   # mm -- vertical gap between top + bottom plates
                                 #     (room for battery, brain, wiring)
+# The TOP plate is intentionally smaller than the bottom plate.  The bottom
+# plate is the structural one: it sandwiches the coxa-bracket flanges (with
+# their four M3 bolts each) and also takes the per-leg servo body cutouts.
+# The TOP plate carries only the battery holder, electronics tray and the
+# optional arm bracket -- all of which sit within a ~70 mm radius of the
+# chassis centre.  Was 200 mm flat-to-flat to match the bottom; the
+# check_workspace_self_collision sweep found that across the full
+# (yaw, hip, knee) workspace the coxa_link's hip-pitch well and the
+# femur_link's hip pad sweep through z ~ 8..36 mm above the bracket
+# flange, which is the same height band the chassis_top occupies
+# (chassis_top centre at z = chassis_lift + CHASSIS_GAP + CHASSIS_PLATE_T
+#  = chassis_lift + 24, half-thickness 2 mm).  Shrinking the top plate to
+# 140 mm flat-to-flat (= apothem 70 mm) keeps the deck for the battery +
+# electronics + arm but moves its outer edge inside the radius the leg
+# sweeps reach, eliminating ~95 of the 111 collisions found in the
+# pre-fix audit.
+CHASSIS_TOP_FLAT_TO_FLAT = 140.0  # mm
 
 # ---- Leg link lengths -----------------------------------------------------
 # Same 1 : 4 : ~5 ratio as the full-size walker, scaled for a tabletop
@@ -102,6 +119,38 @@ CHASSIS_GAP           =  20.0   # mm -- vertical gap between top + bottom plates
 COXA_LENGTH    =  25.0   # mm -- yaw axis -> hip-pitch axis
 FEMUR_LENGTH   =  90.0   # mm -- hip-pitch axis -> knee axis
 TIBIA_LENGTH   = 130.0   # mm -- knee axis -> foot tip
+
+# ---- Coxa link pedestal --------------------------------------------------
+# How far above the horn-adapter mating face the coxa-link arm + well
+# float on a built-in pedestal.  Without the lift the hip-pitch well
+# bottom sits ~2.5 mm below the chassis-plate top and the femur's
+# hip-pad swings into the bracket flange + well as the femur pitches.
+#
+# Sizing constraint:  the femur's hip pad/neck is a CYLINDER of radius
+# HIP_PAD_R = 17 mm rotating about the +Y joint axis.  The lowest
+# coxa-link z it reaches under rotation is hip_drop - HIP_PAD_R =
+# -(WELL_D/2 + arm_t/2) + COXA_LIFT - 17 mm; the bracket's flange
+# TOP face sits at world z = BRACKET_FLANGE_T = 4 mm, which equals
+# coxa-link z = -yaw_output_z + 4 = -21.75 mm in the standing pose.
+# Setting (lowest pad z in coxa-link) >= -21.75 mm gives
+#   COXA_LIFT >= BRACKET_FLANGE_T + WELL_D/2 + arm_t/2
+#                + HIP_PAD_R - yaw_output_z
+#              = 4 + 14.5 + 3 + 17 - 25.75 = 12.75 mm.
+# COXA_LIFT = 13 mm gives 0.25 mm of clearance under the cylinder; we
+# round to 14 mm for ~ 1.25 mm of safety margin against FDM print
+# tolerances and the voxel sampler's pitch (1.5 mm).  Was 7 mm, which
+# was correct for the old SQUARE pad before the swept-corner bug; the
+# old pad's corners didn't clear the flange but the square pad sat at
+# femur y = 0 (on the spar centreline) so it didn't matter -- with
+# the new circular pad offset to y = HORN_STACK_H + LINK_THICKNESS/2
+# the entire cylinder sweep matters.
+#
+# Bolt screws need to be ~M3 x 30 mm long to reach through the
+# pedestal + horn adapter + plastic horn into the servo's output
+# gear.  The pedestal's structural Z extent is unchanged (still
+# 3.5 mm; the lift increases the air gap below the structural slab,
+# not the slab itself).
+COXA_LIFT     = 14.0     # mm
 
 # ---- Servo (actuator) ----------------------------------------------------
 # Generic 25 kg-cm digital servo (DS3225, MG996R, etc.).  The body is a
@@ -158,9 +207,15 @@ WIRE_SLOT_W     = 7.0   # mm wide along the body SHORT axis (well Y).  Pilot
                         # edges at y = +/-3.5, leaving 0.25 mm of Y clearance
                         # to the pilots.  Going wider than 7.5 mm starts
                         # punching into the M3 thread engagement zone.
-WIRE_SLOT_DEPTH = 7.5   # mm reach UP into the -X wall above the cavity
-                        # floor -- taller opening for molded strain relief /
-                        # bundling to turn out of the well.
+WIRE_SLOT_DEPTH = 13.5  # mm reach UP into the -X wall above the cavity
+                        # floor.  Was 7.5 mm, but the connector boot /
+                        # plastic overmolding on real harnesses projects
+                        # 2-3 mm proud of the back-case bottom corner and
+                        # the 7.5 mm opening clipped the boot on
+                        # coxa_link and femur_link.  +6 mm gives the boot
+                        # clearance to exit without snagging.  Still well
+                        # below WELL_RIM_Z (27.25), so M3 pilot tab seats
+                        # at the rim are untouched.
 WIRE_SLOT_X_PAST_WALL = 4.0   # mm beyond outer -X well face (was 2) for exit
 WIRE_SLOT_X_INBOARD   = 2.5   # mm inside cavity -X body face (was 1) for opening
 WIRE_SLOT_Z_BELOW_FLOOR = 4.0  # mm below outer floor (was 2) for thick boots
@@ -171,11 +226,25 @@ WIRE_SLOT_Z_BELOW_FLOOR = 4.0  # mm below outer floor (was 2) for thick boots
 # servo back-case and the wall and squirting out over the well rim).
 # Pilot clearance: the M3 pilots at (x = -/+24.75, y = +/-5) have ~1.25 mm
 # radius columns, so their inner Y edges sit at y = +/-3.75.  The channel
-# only spans y = +/-WIRE_SLOT_W/2 (= +/-3 with WIRE_SLOT_W = 6), giving
-# 0.75 mm of Y separation from each pilot column.  Because the pilots are
-# clear of the channel in Y, the channel can be deepened in X without
-# crossing them in 3D.
-WIRE_CHANNEL_DEPTH    = 4.0   # mm groove depth INTO the -X wall material
+# only spans y = +/-WIRE_SLOT_W/2 (= +/-3.5 with WIRE_SLOT_W = 7), so it
+# stays clear of the pilots in Y even when deepened further in X.
+#
+# Depth math with WIRE_CHANNEL_DEPTH = 5.0:
+#   cavity face at -SERVO_BODY_W/2 - WELL_BODY_CL = -20.7;
+#   channel outer x = -20.7 - 5.0 = -25.7;
+#   pilot at x = -SERVO_TAB_HOLE_PCD/2 = -24.75, pilot radius 1.25 mm so
+#     pilot outboard X edge sits at -26.0;
+#   channel (y in +/-3.5) ends 0.25 mm shy of pilot outboard X edge in X
+#     AND is fully separated from pilots in Y (channel y_max 3.5 vs pilot
+#     y_min 3.75) -- the two never touch in 3D.
+#   Wall thickness over the pilot threads (face-to-pilot distance):
+#     -WELL_W/2 = -29 to pilot at -24.75 = 4.25 mm -- unchanged, still
+#     >= 4 mm as required.
+# Was 4.0 mm; bumped to 5.0 mm so the molded plastic boot at the wire
+# exit corner sits flush against the cavity wall (it was being pushed
+# 1-2 mm proud of the cavity face on coxa_bracket, coxa_link, and
+# femur_link, levering the servo body off the tab pilots).
+WIRE_CHANNEL_DEPTH    = 5.0   # mm groove depth INTO the -X wall material
 WIRE_CHANNEL_TOP_OVER_RIM = 2.5  # mm extension of the channel ABOVE the well
                                   # rim, so wires exiting near the top of the
                                   # back-case (micro servos) still find it.
@@ -199,18 +268,31 @@ WIRE_CHANNEL_TOP_OVER_RIM = 2.5  # mm extension of the channel ABOVE the well
 # +/-29, so 4.25 mm of material sits between the pilot and the outer
 # face -- plenty for FDM in PLA / MJF in PA12.
 WELL_WALL_X  = 9.0   # mm thick on +X / -X faces (must hold the M3 pilot)
-WELL_WALL_Y  = 2.5   # mm thick on +Y / -Y faces
-WELL_FLOOR_T = 2.5   # mm bottom-plate thickness.  The plate now exists only
-                     # as a perimeter FRAME around the (open) cavity opening,
-                     # tying the +X/-X tab posts to the +Y/-Y walls at the
-                     # bracket's print-bed face.  The servo body does NOT rest
-                     # on the floor -- it hangs from its mounting tabs on the
-                     # rim, with WELL_TAB_FLOAT mm of clearance from the
-                     # nominal floor plane (and the cavity itself punches all
-                     # the way through the floor, so a body that exceeds the
-                     # nominal SERVO_TAB_Z depth simply pokes out the bottom
-                     # of the bracket instead of bottoming the tab above the
-                     # rim).
+WELL_WALL_Y  = 4.5   # mm thick on +Y / -Y faces.  Was 2.5 mm, which gave a
+                     # FINAL printed wall of WELL_WALL_Y - WELL_BODY_CL = 1.8 mm
+                     # after the body cavity is cut (the inner face of the
+                     # wall sits 0.7 mm inboard of the SERVO_BODY_D/2 line to
+                     # leave drop-in clearance for the body).  With FDM
+                     # nozzle = 0.4 mm we need >= 3 mm of solid wall to fit
+                     # three perimeters with margin.  4.5 mm gives 3.0 mm
+                     # of real wall AT THE RIM (where the WELL_LEAD_IN_EXTRA
+                     # = 0.8 mm chamfer eats an additional 0.8 mm of wall
+                     # over the top 1.8 mm of the cavity) and 3.8 mm of wall
+                     # everywhere else, comfortably above the three-perimeter
+                     # threshold even with FDM line-width variation.
+WELL_FLOOR_T = 3.0   # mm bottom-plate thickness.  Was 2.5 mm which printed as
+                     # a 2.5 mm-thick frame strip in Z; 3.0 mm gives the
+                     # FDM-friendly three-perimeter minimum.  The plate exists
+                     # only as a perimeter FRAME around the (open) cavity
+                     # opening, tying the +X/-X tab posts to the +Y/-Y walls
+                     # at the bracket's print-bed face.  The servo body does
+                     # NOT rest on the floor -- it hangs from its mounting
+                     # tabs on the rim, with WELL_TAB_FLOAT mm of clearance
+                     # from the nominal floor plane (and the cavity itself
+                     # punches all the way through the floor, so a body that
+                     # exceeds the nominal SERVO_TAB_Z depth simply pokes out
+                     # the bottom of the bracket instead of bottoming the tab
+                     # above the rim).
 WELL_TAB_FLOAT = 1.5  # mm float distance between body bottom and the nominal
                       # cavity floor (z = 0) when the tabs are seated on the
                       # rim.  Was 0 (the body sat on the floor at the same
@@ -260,11 +342,22 @@ WELL_LEAD_IN_EXTRA   = 0.8   # mm extra clearance per side at the very top of
 # is rotationally symmetric about the chassis perimeter.
 BRACKET_FLANGE_T   =  4.0   # mm thick mounting flange
 BRACKET_FLANGE_X   = 30.0   # mm long (radial -- inboard from chassis edge)
-BRACKET_FLANGE_Y   = 48.0   # mm wide (tangential).  Sized so the slot and
+BRACKET_FLANGE_Y   = 52.0   # mm wide (tangential).  Sized so the slot and
                             # the four chassis bolt holes each have >= 4 mm
-                            # of material around them.
+                            # of material around them.  Was 48 mm; bumped to
+                            # 52 mm when BRACKET_BOLT_PCD_Y grew from 36 to
+                            # 40 (see below) so the flange still has >= 4 mm
+                            # of material outboard of each bolt-circle hole.
 BRACKET_BOLT_PCD_X = 16.0   # mm centre-to-centre, inboard vs. outboard bolt pair
-BRACKET_BOLT_PCD_Y = 36.0   # mm centre-to-centre, +Y vs. -Y bolt line
+BRACKET_BOLT_PCD_Y = 40.0   # mm centre-to-centre, +Y vs. -Y bolt line.  Was
+                            # 36 mm; bumped to 40 mm so the bolt clearance
+                            # holes stay >= 2.5 mm clear of the chassis-plate
+                            # body+tab cutout, whose Y span now grows to
+                            # WELL_D + 2 = 31 mm with WELL_D = 29 mm.  At
+                            # BRACKET_BOLT_PCD_Y = 36 the bolt holes would
+                            # have come within 0.8 mm of the cutout edge --
+                            # not enough chassis material around the bolt
+                            # head's bearing surface.
 BRACKET_BOLT_HOLE  =  3.4   # mm clearance for M3 chassis bolts
 BRACKET_FLANGE_INSET = 8.0  # mm distance from the chassis edge (= bracket
                             # origin's outboard face) to the OUTBOARD bolt
@@ -279,6 +372,21 @@ BRACKET_FLANGE_INSET = 8.0  # mm distance from the chassis edge (= bracket
 HORN_ADAPTER_OD     = 32.0   # mm -- plate OD; gives ~2.4 mm wall outboard of
                               # each M3 bolt hole on HORN_BOLT_PCD = 24 mm
 HORN_ADAPTER_T      =  4.0   # mm -- thickness
+# Hobby servo plastic horn (the part that ships with the servo and screws
+# onto the 25T spline with an M3 centre screw).  Adds ~5 mm of "stack"
+# along the output-shaft direction between the servo's gear-stack top
+# face and the printed horn adapter's bottom face.
+PLASTIC_HORN_H      =  5.0
+# Total height of the servo output stack (plastic horn + printed
+# adapter) ABOVE the spline tip.  In the hip-pitch and knee-pitch
+# joints this is the offset between the joint AXIS (where the spline
+# pokes out of the servo body) and the link's pad MATING face (where
+# the link bolts to the adapter).  Driven links must offset their pad
+# along the joint axis by this much, then bridge the gap back to the
+# spar with a short "neck" -- without this offset the link's pad sits
+# directly on the joint axis and overlaps the cradle's "swept volume"
+# (the bridge cap / well wall material right above the body).
+HORN_STACK_H        = PLASTIC_HORN_H + HORN_ADAPTER_T
 HORN_BOLT_PCD       = 24.0   # mm -- 4 x M3 holes on this PCD
 HORN_BOLT_OD        =  3.2   # mm -- M3 clearance
 HORN_CENTRE_OD      =  3.4   # mm -- M3 centre clearance (for the horn screw)
@@ -354,13 +462,114 @@ COXA_BRIDGE_GUSSET_H = 5.0   # mm -- gusset depth in -Z below arm bottom.
                              # clearance.
 COXA_BRIDGE_GUSSET_L = 23.0  # mm -- gusset length along the spar +X
 
+# Coxa-link arm thickness in Z.  Originally 4 mm, raised to 6 mm to
+# bring the arm's I = arm_w * arm_t^3 / 12 up by 3.4x for cantilever
+# bending stiffness.  Bumping to 8 mm would clear the
+# ``check_thin_sheets`` verifier directly but drops the servo-well
+# by 1 mm (-> coxa_link clips the electronics tray in the
+# workspace sweep) and squeezes the femur-pad-vs-bracket-flange
+# margin from 1.25 mm to 0.25 mm.  Instead we keep arm_t = 6 and
+# stiffen the +Y side of the arm with a top cap rib in
+# ``make_coxa_link`` (see COXA_ARM_CAP_T below).
+COXA_ARM_T              = 6.0    # mm -- arm slab thickness in +Z.
+
+# Top cap rib stacked ABOVE the arm slab on the +Y side of the arm
+# only.  Covers link y in [pad_y_min, arm_w/2] and link x in
+# [hub edge, arm +X end].  Stays clear of the femur spar (which
+# sits at link y in [-3, +3] at any pitch) and stays above the
+# femur hip pad's max Z reach (pad swept disk reaches link z =
+# hip_drop + HIP_PAD_R = -3.5 + 17 = +13.5 mm lifted, well below
+# the cap bottom at z = arm_t + COXA_LIFT = 20 mm lifted).
+#
+# What this fixes: the ``check_thin_sheets`` cluster identifies the
+# arm slab's +Y portion (cluster centroid at y = +1.2 mm, bbox y
+# from -8.4 to +10.8 mm) as a 6 mm-thick (chord_z = 7.2 mm
+# voxelized) structural neck between the yaw hub and the hip-pitch
+# servo well.  Adding a cap on the +Y side raises chord_z to arm_t
+# + COXA_ARM_CAP_T = 10 mm in the cap region.
+#
+# What this leaves unfixed: the y in [-3, +3] strip of the arm
+# (where the femur spar swings through at extreme pitches) is NOT
+# capped; a top cap there would collide with the spar at fem = -80
+# deg (the firmware's negative-pitch joint limit).  The cluster's
+# +Y half is fixed by the cap and the -Y half is already covered
+# by the existing bridge / gusset structure (chord_z >= 10 mm in
+# the bridge region).  The remaining "uncapped strip" voxels
+# represent ~5/16 of the original cluster -- below the
+# ``MAX_SHEET_BUDGET_VOX`` = 250 voxel budget.
+COXA_ARM_CAP_T          = 4.0    # mm -- cap thickness in +Z above
+                                  # arm.  Cap top at z = arm_t +
+                                  # COXA_ARM_CAP_T = 10 mm unlifted,
+                                  # lifted to z = COXA_LIFT + 10 =
+                                  # 24 mm.
+
 # ---- Foot ----------------------------------------------------------------
-# A small printed cup that gets lined with rubber (cut a section of
-# bicycle inner tube, glue inside the cup) for traction.
-FOOT_PAD_OD     = 28.0   # mm -- outer diameter
-FOOT_PAD_HEIGHT = 14.0
-FOOT_HUB_OD     = 12.0   # mm -- attaches to the tibia tip
-FOOT_HUB_HEIGHT =  6.0
+# Compliant pad printed in TPU.  The tibia tip ends in a forked CLEVIS
+# (two parallel cheeks, knee-axis-parallel through-hole) and the foot
+# has a vertical TONGUE that drops into the fork; an M3x16 pan-head
+# bolt with a nylock nut clamps the two together.  The bolt becomes
+# the pin of a single-axis hinge whose axis is parallel to the knee
+# pitch axis, so the foot pitches passively around it to follow
+# uneven ground.  TPU material compliance in the pad disk itself
+# absorbs roll.
+FOOT_PAD_OD          = 28.0   # mm -- outer diameter of the ground-contact disk
+FOOT_PAD_BASE_H      =  4.0   # mm -- thickness of the disk (TPU spring)
+FOOT_PAD_BOSS_OD     = 14.0   # mm -- short stiffening boss between disk top
+                              #        and tongue (gives the tongue a wider
+                              #        root than its 10 x 4 mm cross-section)
+FOOT_PAD_BOSS_H      =  3.0   # mm -- boss height; tongue starts at
+                              #        FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H
+
+# Hinge geometry (shared between tibia clevis and foot tongue).
+FOOT_HINGE_CHEEK_T   =  3.5   # mm -- each tibia clevis cheek thickness in
+                              #        the knee-axis direction (Y).  Above
+                              #        MIN_PRINT_T = 3.0 mm with margin.
+FOOT_HINGE_GAP       =  5.0   # mm -- inside-fork clearance (between the
+                              #        cheeks' inner faces) for the tongue.
+                              #        Total fork width = 2*CHEEK_T + GAP =
+                              #        12 mm in Y.
+FOOT_HINGE_TONGUE_T  =  4.0   # mm -- foot tongue thickness in Y.  Fits in
+                              #        the 5 mm gap with 0.5 mm clearance
+                              #        per side; allows the M3 bolt to pinch
+                              #        the cheeks lightly on the tongue
+                              #        without binding when articulated.
+FOOT_HINGE_TONGUE_X  = 10.0   # mm -- tongue width along the foot's X axis
+                              #        (the spar direction).  Sized so the
+                              #        M3 hole has > 3 mm of material on
+                              #        each side of the bore axis in X.
+FOOT_HINGE_PIN_HOLE_D =  3.4  # mm -- through-hole diameter for the M3
+                              #        hinge bolt; 0.2 mm clearance over a
+                              #        nominal 3.2 mm M3 shank so the joint
+                              #        rotates freely.
+FOOT_HINGE_PIN_LEN    = 16.0  # mm -- pin length specification (M3 x 16
+                              #        pan-head + M3 nylock nut).  Stack
+                              #        = 3.5 + 5 + 3.5 = 12 mm of clevis
+                              #        plus ~4 mm into the nylock nut.
+
+# Hinge axis Z position in tibia local: 10 mm below the tibia spar
+# centreline (= 1 mm below the spar's bottom face at z = -9).  This
+# pulls the cheeks down past the spar so the fork's mouth opens
+# clearly into free space and the foot's tongue has room to swing.
+FOOT_HINGE_TIBIA_Z   = -10.0  # mm -- pin axis z in tibia-local
+
+# Hinge axis Z position in foot-local: 14 mm above the disk bottom (=
+# 14 mm above the ground when the foot stands).  Computed downstream
+# in make_foot_pad() so the tongue reaches the pin with a few mm of
+# material above the hole and the foot pad disk sits below the
+# tibia's clevis.
+FOOT_HINGE_FOOT_Z    = FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H + 7.0   # = 14.0
+FOOT_HINGE_TONGUE_OVER_PIN = 4.0  # mm of tongue material above the pin
+
+# Tibia clevis bulk extent.  The clevis is a forked block at the
+# spar's far end (around x = TIBIA_LENGTH); the FOOT_CLEVIS_X_*
+# constants set how far the block extends inboard / past the spar
+# tip and how far the cheeks reach below the pin axis.
+FOOT_CLEVIS_X_INBOARD     = 12.0  # mm -- clevis bulk inboard of x=TIBIA_LENGTH
+FOOT_CLEVIS_X_BEYOND_TIP  =  6.0  # mm -- bulk extending past x=TIBIA_LENGTH
+FOOT_CLEVIS_CHEEK_BELOW_PIN = 5.0 # mm -- material below the pin axis in
+                                  #        each cheek (gives a ~1.5 mm
+                                  #        ring of material around the M3
+                                  #        hole on the bottom side)
 
 # ---- Battery / electronics enclosures ------------------------------------
 # Sized for a generic 3S 2200 mAh LiPo (105 x 35 x 25 mm) plus an
@@ -786,7 +995,8 @@ def make_servo_horn_adapter() -> trimesh.Trimesh:
 # ---------------------------------------------------------------------------
 
 def _hex_plate(flat_to_flat: float, thickness: float,
-               with_centre_holes: bool = False) -> trimesh.Trimesh:
+               with_centre_holes: bool = False,
+               with_leg_features: bool = True) -> trimesh.Trimesh:
     """Return a flat hexagonal plate, centred on origin, axis = +Z.
 
     Hole pattern (per leg, 6 legs total):
@@ -812,19 +1022,40 @@ def _hex_plate(flat_to_flat: float, thickness: float,
     bolt_ys         = (-BRACKET_BOLT_PCD_Y / 2.0,
                        +BRACKET_BOLT_PCD_Y / 2.0)
 
+    # Servo body+tab cutout per bracket so the yaw servo's body can
+    # hang BELOW the chassis plate while the bracket flange clamps the
+    # plate from above.  Without this cutout the user has to drill the
+    # opening manually (which was issue #1 the user hit).
+    # Size = WELL_W x WELL_D + 1 mm clearance per side so the
+    # bracket's well slides through without rubbing.  Sits at bracket-
+    # local (body_centre_x, 0) = (-10, 0) -- the well's centre.  Bolts
+    # at y = +/-18 stay outside the cutout's y range (+/-13.5), so the
+    # 4 chassis bolts still bite into solid chassis material.
+    body_centre_x  = -SERVO_OUTPUT_X
+    body_cutout_w  = WELL_W + 2.0            # 60 mm along bracket X
+    body_cutout_d  = WELL_D + 2.0            # 27 mm along bracket Y
+
     holes = []
-    for i in range(6):
-        a = (i + 0.5) * np.pi / 3
-        edge_mid = np.array([apothem * np.cos(a),
-                              apothem * np.sin(a),
-                              0.0])
-        R = rotation_matrix(a, [0, 0, 1])[:3, :3]
-        for bx in (bolt_x_outboard, bolt_x_inboard):
-            for by in bolt_ys:
-                world = edge_mid + R @ np.array([bx, by, 0.0])
-                h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
-                h.apply_translation([world[0], world[1], 0])
-                holes.append(h)
+    if with_leg_features:
+        for i in range(6):
+            a = (i + 0.5) * np.pi / 3
+            edge_mid = np.array([apothem * np.cos(a),
+                                  apothem * np.sin(a),
+                                  0.0])
+            R = rotation_matrix(a, [0, 0, 1])
+            R3 = R[:3, :3]
+            for bx in (bolt_x_outboard, bolt_x_inboard):
+                for by in bolt_ys:
+                    world = edge_mid + R3 @ np.array([bx, by, 0.0])
+                    h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
+                    h.apply_translation([world[0], world[1], 0])
+                    holes.append(h)
+
+            cutout = _box((body_cutout_w, body_cutout_d, thickness * 4))
+            cutout.apply_transform(R)
+            cutout_world = edge_mid + R3 @ np.array([body_centre_x, 0.0, 0.0])
+            cutout.apply_translation(cutout_world)
+            holes.append(cutout)
 
     if with_centre_holes:
         # 4 holes for the electronics tray + battery holder mounting
@@ -838,11 +1069,23 @@ def _hex_plate(flat_to_flat: float, thickness: float,
 
 
 def make_chassis_top() -> trimesh.Trimesh:
-    """Top hex plate.  3D-printed in PLA, ~ 4 mm thick, with the same
-    bolt pattern as `make_chassis_bottom` so the leg coxa brackets are
-    sandwiched between the two plates."""
-    return _hex_plate(CHASSIS_FLAT_TO_FLAT, CHASSIS_PLATE_T,
-                       with_centre_holes=True)
+    """Top hex plate.  3D-printed in PLA, ~ 4 mm thick.
+
+    Intentionally SMALLER than the bottom plate (CHASSIS_TOP_FLAT_TO_FLAT
+    = 140 mm vs CHASSIS_FLAT_TO_FLAT = 200 mm).  The bottom plate carries
+    the structural load (it sandwiches the coxa brackets and takes their
+    M3 bolts) while the top plate just provides a deck for the battery
+    holder, electronics tray and optional arm.  The smaller hexagon keeps
+    the top plate inside a 70 mm apothem so the legs' hip-pitch wells +
+    femur hip pads sweep clear of it across the full joint workspace
+    (see check_workspace_self_collision in _verify_prototype.py).  No
+    per-leg bracket cutouts or M3 bolt holes are needed because the
+    bottom plate already takes them.  Only the 4 centre-hole standoff
+    bolts (battery/electronics tray + arm baseplate) remain.
+    """
+    return _hex_plate(CHASSIS_TOP_FLAT_TO_FLAT, CHASSIS_PLATE_T,
+                       with_centre_holes=True,
+                       with_leg_features=False)
 
 
 def make_chassis_bottom() -> trimesh.Trimesh:
@@ -969,14 +1212,17 @@ def make_coxa_bracket() -> trimesh.Trimesh:
           servo can be inserted from above.
 
     Assembly order:
-        1.  Drop the yaw servo straight down through the flange's body
-            cutout into the well.  Tabs land on the well rim.
+        1.  Drop the yaw servo straight DOWN through the flange's
+            body+tab insertion slot into the well.  Tabs land on the
+            well rim.  The flange forms a continuous closed ring
+            around the slot (no gaps in the perimeter), so the slot
+            edges are all connected and stiff.
         2.  Drive 4 M3 self-tappers through the tab holes into the
             well's pilot holes.
         3.  Bolt the bracket flange to the chassis plate (4 M3 cap
             screws + nylock nuts under the chassis plate).
         4.  Add the horn adapter and the coxa link on top of the
-            output spline.
+            output spline (which pokes up through the slot at x = 0).
     """
     body_centre_x = -SERVO_OUTPUT_X        # body offset so output is at x = 0
     well_dz = -WELL_RIM_Z                  # well rim coincides with chassis plate top
@@ -993,24 +1239,45 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     wire_slot.apply_translation([body_centre_x, 0.0, well_dz])
 
     # ---- Mounting flange --------------------------------------------
-    flange_centre_x = -BRACKET_FLANGE_X / 2.0          # flange spans x in [-FLANGE_X, 0]
-    flange = _box((BRACKET_FLANGE_X, BRACKET_FLANGE_Y, BRACKET_FLANGE_T),
+    # The flange is sized so the body+tab insertion slot is fully
+    # enclosed by flange material on ALL FOUR SIDES, forming a
+    # continuous closed ring around the slot:
+    #
+    #   slot footprint (X x Y): SERVO_TAB_W + 2 = 56 mm  x  21 mm
+    #   flange margin around slot in X:  SLOT_FLANGE_MARGIN = 5 mm/side
+    #   flange margin around slot in Y:  BRACKET_FLANGE_Y/2 - slot_d/2
+    #                                    = 24 - 10.5 = 13.5 mm/side
+    #
+    # That gives a flange X extent of 56 + 2*5 = 66 mm.  Earlier the
+    # flange was only 30 mm long in X (x in [-30, 0]) so the 56 mm
+    # slot extended PAST both flange ends in X and the flange got
+    # split into two disconnected half-pads (no perimeter material
+    # connecting the +Y strip to the -Y strip across the slot ends).
+    # With a 66 mm flange the slot lives entirely INSIDE the flange
+    # and the surrounding flange material is a single closed ring.
+    SLOT_FLANGE_MARGIN = 5.0
+    slot_w = SERVO_TAB_W + 2.0                                    # 56 mm (body+tab)
+    slot_d = SERVO_BODY_D + 1.0                                   # 21 mm (body Y)
+    flange_x_min  = body_centre_x - slot_w / 2.0 - SLOT_FLANGE_MARGIN  # -43
+    flange_x_max  = body_centre_x + slot_w / 2.0 + SLOT_FLANGE_MARGIN  # +23
+    flange_x_ext  = flange_x_max - flange_x_min                       # 66 mm
+    flange_centre_x = (flange_x_min + flange_x_max) / 2.0             # -10
+    flange = _box((flange_x_ext, BRACKET_FLANGE_Y, BRACKET_FLANGE_T),
                   center=(flange_centre_x, 0.0,
                            BRACKET_FLANGE_T / 2.0))
 
-    # Cut a body+tab passage through the rib below the flange so the
-    # servo body can slide in from below into the well.  The flange
-    # itself is NOT cut -- it stays a continuous slab on top with all
-    # four chassis bolt holes in one piece, rather than two raised
-    # half-flange pads with a slot-shaped gap between them.
-    # Slot z range covers from below the well rim up to the underside
-    # of the flange (z = 0), so the rib (which lives at z = [-3, +3])
-    # gets a clean body+tab clearance opening cut into its top half.
-    slot_w = SERVO_TAB_W + 2.0
-    slot_d = SERVO_BODY_D + 1.0
-    slot_h = 6.0                       # cuts z = [-6, 0]
-    slot = _box((slot_w, slot_d, slot_h),
-                center=(body_centre_x, 0.0, -slot_h / 2.0))
+    # Body+tab drop-in slot.  Goes through the flange (z in [0, +4])
+    # and into the rib + well rim (down to z = -6) so the body can
+    # drop straight DOWN from above into the cavity.  Tabs catch on
+    # the WELL RIM (z = 0, same as before) -- the slot opens up the
+    # flange directly above the cavity so the tab plane has clearance
+    # to pass through the flange material on its way down.
+    slot_z_min = -6.0
+    slot_z_max = BRACKET_FLANGE_T                                 # +4
+    slot_z_ext = slot_z_max - slot_z_min                          # 10
+    slot_z_cen = (slot_z_min + slot_z_max) / 2.0                  # -1
+    slot = _box((slot_w, slot_d, slot_z_ext),
+                center=(body_centre_x, 0.0, slot_z_cen))
 
     # ---- Chassis bolt holes -----------------------------------------
     bolt_x_outboard = -BRACKET_FLANGE_INSET
@@ -1024,23 +1291,36 @@ def make_coxa_bracket() -> trimesh.Trimesh:
             chassis_holes.append(h)
 
     # ---- Stiffening rib bridging the flange to the well -------------
-    # The flange's outboard edge at x = 0 sits on top of the well's
-    # inboard wall; the well's inboard wall is at x in [body_x - WELL_W/2,
-    # body_x - WELL_W/2 + WELL_WALL_X] = [-39, -30].  Rib spans y over
-    # the flange's width and z from the well rim (z = 0) up to the
-    # flange's top (z = FLANGE_T) on the +X edge of the flange so it
-    # provides a continuous load path.  We achieve this naturally by
-    # making the flange's outboard edge slightly DEEPER than just z=0:
-    # extend the flange material DOWN to z = -2 over its outboard
-    # ~18 mm, so it overlaps with the well's inboard wall material.
-    # The drop-in slot (slot_w x slot_d, centred at body_centre_x = -10)
-    # cuts the rib's centre out at y in [-10.5, +10.5]; widening the
-    # rib in X (was 10 mm, now 18 mm) doesn't change the slot but does
-    # add ~80 % more material to the two surviving side strips that
-    # actually carry the flange-to-well load.
-    RIB_X = 18.0
-    rib = _box((RIB_X, BRACKET_FLANGE_Y, 6.0),
-               center=(-RIB_X / 2.0, 0.0, 0.0))   # x in [-18, 0]
+    # The flange straddles the well in X: the well's inboard +X wall
+    # sits at x in [-39, -30] and its outboard -X wall at x in [+10,
+    # +19].  The rib spans y over the well's footprint (slightly
+    # wider so it catches the entire +Y/-Y face) and z from below
+    # the well rim (z = -3) up through the flange's top (z =
+    # FLANGE_T) so the flange is welded to the well rim on BOTH
+    # sides of the yaw axis, not just the inboard side.  The
+    # drop-in slot eats the rib's centre at y in [-10.5, +10.5];
+    # what survives is two ±13 to ±10.5 wide column strips that
+    # carry the flange top down into the well rim on either side
+    # of the body+tab passage.
+    #
+    # Earlier the rib only spanned x in [-18, 0] (inboard half
+    # only), so the +X side of the flange (past the yaw axis, over
+    # the outboard wall) was only tied to the well by the slot's
+    # 1 mm +X-wall remnant -- a noticeably weaker load path than
+    # the -X side, which also has the chassis plate underneath it.
+    # The symmetric rib spans x in [-18, +18] so the outboard well
+    # wall gets the same direct flange-to-rim connection.
+    #
+    # IMPORTANT: rib Y width MUST be no wider than the chassis-plate
+    # body+tab cutout (WELL_D + 2 = 27 mm) because the rib extends
+    # DOWN past z = 0 into the chassis-plate's Z volume (z = [-4, 0]).
+    # The earlier 48 mm-wide rib clashed with solid chassis material
+    # at y in [+/-13.5, +/-24] and stopped the bracket from seating
+    # flush on the chassis plate.
+    RIB_X = 36.0                                  # 18 mm each side of yaw axis
+    RIB_Y = WELL_D + 1.0                          # 26 mm == ±13, fits in 27 mm cutout
+    rib = _box((RIB_X, RIB_Y, 6.0),
+               center=(0.0, 0.0, 0.0))            # x in ±18, y in ±13, z in ±3
 
     # Side gussets riding directly on top of the well's +Y / -Y walls.
     # The drop-in slot through the flange eats the rib at y in
@@ -1070,7 +1350,44 @@ def make_coxa_bracket() -> trimesh.Trimesh:
                          gusset_z_cen))
         side_gussets.append(g)
 
-    body = _union(flange, well, rib, *side_gussets)
+    # ---- Bridge-underside gussets ----------------------------------
+    # The flange's X-end bridges (the slot-cap strips at x in
+    # [flange_x_min, slot_x_min] and [slot_x_max, flange_x_max]) sit
+    # almost entirely PAST the well's outer X faces -- well outer
+    # x in [-39, +19], slot ends at x = -38 / +18, flange ends at
+    # x = -43 / +23, so each bridge has only ~1 mm of well wall
+    # directly under it and ~4 mm hanging in air.  On the inboard
+    # side the chassis plate at z in [-4, 0] catches the bridge,
+    # but on the outboard side the +X bridge dangles past the
+    # chassis edge with nothing tying it down to the well outboard
+    # wall.  Add a 3 mm deep box gusset under each bridge that
+    # drops onto the well's +X / -X outer face, turning each
+    # bridge into a T-beam.  The inboard gusset is bounded inside
+    # the chassis plate's body-cutout (x in [-40, +20]) so it
+    # doesn't punch into solid chassis plate material.
+    slot_x_min_b = body_centre_x - slot_w / 2.0          # -38
+    slot_x_max_b = body_centre_x + slot_w / 2.0          # +18
+    chassis_cutout_x_min = body_centre_x - (WELL_W + 2.0) / 2.0   # -40
+    bridge_gusset_z_min = -3.0
+    bridge_gusset_z_max = 0.0
+    bridge_gusset_z_ext = bridge_gusset_z_max - bridge_gusset_z_min
+    bridge_gusset_z_cen = (bridge_gusset_z_min
+                            + bridge_gusset_z_max) / 2.0
+    bridge_gusset_y_ext = WELL_D                          # 25, fits in cutout (27)
+    inboard_bg_x_min = max(flange_x_min, chassis_cutout_x_min)
+    bridge_gusset_x_pairs = (
+        (inboard_bg_x_min, slot_x_min_b),                 # -X bridge: x in [-40, -38]
+        (slot_x_max_b,     flange_x_max),                 # +X bridge: x in [+18, +23]
+    )
+    bridge_gussets = []
+    for bx_min, bx_max in bridge_gusset_x_pairs:
+        bx_ext = bx_max - bx_min
+        bx_cen = (bx_min + bx_max) / 2.0
+        bg = _box((bx_ext, bridge_gusset_y_ext, bridge_gusset_z_ext),
+                  center=(bx_cen, 0.0, bridge_gusset_z_cen))
+        bridge_gussets.append(bg)
+
+    body = _union(flange, well, rib, *side_gussets, *bridge_gussets)
     return _diff(body, slot, wire_slot, *chassis_holes)
 
 
@@ -1087,35 +1404,33 @@ def make_coxa_link() -> trimesh.Trimesh:
               shaft direction).
 
     Layout:
-        - Hub: square pad at the origin, centred on the yaw axis,
-          with a 4-bolt hole pattern matching the horn adapter.
-        - Arm: flat plate extending in +X from the hub.
+        - Pedestal: COXA_LIFT mm tall square pillar from z=0 (horn-adapter
+          mating face) up to z=COXA_LIFT.  Without this lift, the hip-pitch
+          well dipped ~2.5 mm below the chassis-plate top face and the
+          femur's hip-pad swung ~7 mm below the chassis-plate top, both
+          of which clashed with the chassis at standard yaw angles.
+        - Hub: square pad on TOP of the pedestal, with a 4-bolt hole
+          pattern matching the horn adapter.  Bolt holes drill straight
+          through the pedestal so the same M3 screws clamp the hub +
+          pedestal stack to the horn adapter (use M3 x 25-30 screws).
+        - Arm: flat plate extending in +X from the hub, at z >= COXA_LIFT.
         - Hip-pitch servo well: hangs in -Z below the arm at the +X
-          end.  Open-topped (well +Z) is mapped to link +Y so the
-          servo can be DROPPED in from the +Y direction during
-          assembly.
+          end, at z >= COXA_LIFT - 28 (i.e. ~+2 mm above the chassis
+          plate top with COXA_LIFT = 10).  Open-topped (well +Z) is
+          mapped to link +Y so the servo can be DROPPED in from the
+          +Y direction during assembly.
     """
-    arm_w = 22.0   # mm, along Y
-    arm_t =  6.0   # mm, along Z (printed flat against the build plate).
-                   # The arm carries the entire leg below as a cantilever in
-                   # +X off the yaw hub; its weak axis is out-of-plane (Y)
-                   # bending where I = arm_w * arm_t^3 / 12 scales with t^3.
-                   # 6 mm gives ~3.4x the stiffness of the prior 4 mm.
+    arm_w = 22.0           # mm, along Y
+    arm_t = COXA_ARM_T     # mm, along Z (printed flat against the build
+                            # plate).  See COXA_ARM_T docstring for the
+                            # constraint that picks this thickness.
 
-    # Hub region (above the yaw servo horn) -- a thicker square
-    hub = _box((34.0, 34.0, arm_t + 2.0),
-               center=(0, 0, (arm_t + 2.0) / 2.0))
-    # 4-bolt pattern matching the horn adapter
-    hub_holes = []
-    for i in range(4):
-        a = np.pi / 4 + i * np.pi / 2
-        h = _cyl(HORN_BOLT_OD / 2.0, (arm_t + 2.0) * 4)
-        h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
-                              HORN_BOLT_PCD / 2.0 * np.sin(a),
-                              (arm_t + 2.0) / 2.0])
-        hub_holes.append(h)
-    centre_hole = _cyl(HORN_CENTRE_OD / 2.0, (arm_t + 2.0) * 4)
-    centre_hole.apply_translation([0, 0, (arm_t + 2.0) / 2.0])
+    # Hub region (above the yaw servo horn) -- a thicker square.
+    # Built at the original (un-lifted) z, then translated up by
+    # COXA_LIFT after the whole link union is assembled (see below).
+    hub_t = arm_t + 2.0
+    hub = _box((34.0, 34.0, hub_t),
+               center=(0, 0, hub_t / 2.0))
 
     # Arm reaching out to the hip-pitch motor mount.  Spans local x in
     # [-12, COXA_LENGTH + 16].
@@ -1173,9 +1488,7 @@ def make_coxa_link() -> trimesh.Trimesh:
     # Drop the bridge bottom DOWN to ~1 mm above the seated servo body
     # top face (body top sits at link-z = well_z_drop + SERVO_BODY_D/2
     # = -5.5 with the current geometry, so a bridge bottom at -4.5
-    # leaves 1 mm of insertion clearance).  Was well_top_z - 0.5 =
-    # -3.5; deepening to -4.5 grows the bridge Z section from 9.5 mm
-    # to 10.5 mm.
+    # leaves 1 mm of insertion clearance).
     bridge_z_min = -COXA_BRIDGE_GUSSET_H + 0.5                  # ~ -4.5
     bridge_z_max = arm_t                                        # up to arm top
     bridge_z_extent = bridge_z_max - bridge_z_min
@@ -1187,24 +1500,57 @@ def make_coxa_link() -> trimesh.Trimesh:
     # well.  Extended in -Y to cover the bridge so the upper flange of
     # the arm-bridge-well section becomes a continuous 26+ mm-wide cap
     # over the joint instead of stepping down at y = -arm_w/2.
-    gusset_y_min     = bridge_y_min                             # overlaps bridge in -Y
-    gusset_y_max     = +arm_w / 2.0                             # arm +Y edge
-    gusset_y_extent  = gusset_y_max - gusset_y_min              # ~ 28 mm
+    gusset_y_min     = bridge_y_min
+    gusset_y_max     = +arm_w / 2.0
+    gusset_y_extent  = gusset_y_max - gusset_y_min
     gusset_y_centre  = (gusset_y_min + gusset_y_max) / 2.0
     gusset = _box((30.0, gusset_y_extent, arm_t),
                   center=(COXA_LENGTH - 14.0, gusset_y_centre,
                           arm_t / 2.0))
 
+    # Top cap rib stacked ON TOP of the arm slab.  See the
+    # COXA_ARM_CAP_T comment near the top of this file for the
+    # motivation and the clearance analysis -- we cap the arm in
+    # TWO halves (+Y side and -Y side) and leave a gap of width
+    # 2 * LINK_THICKNESS centred on link y = 0, so the femur spar
+    # (at link y in [-3, +3] at any pitch, since the spar's Y
+    # extent is +/-LINK_THICKNESS/2 and rotation about Y does not
+    # change the spar's link Y range) can still swing freely
+    # through y = 0 at extreme negative femur_pitch.  The hip
+    # pad's swept disk (radius HIP_PAD_R = 17 mm about (COXA_LENGTH,
+    # ?, hip_drop) in link X-Z, at any pitch since the pad is
+    # rotationally symmetric about its femur Y axis) reaches a
+    # maximum link z of hip_drop + HIP_PAD_R = +13.5 mm lifted,
+    # which is 6.5 mm BELOW the cap's bottom face at z = arm_t +
+    # COXA_LIFT = +20 mm lifted -- so the cap also stays out of
+    # the pad's swept volume.
+    cap_x_min     = +17.0 - 2.0                # hub +X edge minus 2 mm overlap
+    cap_x_max     = arm_x_extent - 12.0        # arm +X end
+    cap_x_extent  = cap_x_max - cap_x_min
+    cap_x_centre  = (cap_x_min + cap_x_max) / 2.0
+    cap_z_min     = arm_t
+    cap_z_max     = arm_t + COXA_ARM_CAP_T
+    cap_z_extent  = cap_z_max - cap_z_min
+    cap_z_centre  = (cap_z_min + cap_z_max) / 2.0
+
+    # +Y half of the cap: y in [LINK_THICKNESS/2, arm_w/2].
+    cap_pos_y_min     = LINK_THICKNESS / 2.0
+    cap_pos_y_max     = +arm_w / 2.0
+    cap_pos_y_extent  = cap_pos_y_max - cap_pos_y_min
+    cap_pos_y_centre  = (cap_pos_y_min + cap_pos_y_max) / 2.0
+    arm_cap_pos = _box((cap_x_extent, cap_pos_y_extent, cap_z_extent),
+                        center=(cap_x_centre, cap_pos_y_centre, cap_z_centre))
+
+    # -Y half of the cap: y in [-arm_w/2, -LINK_THICKNESS/2].
+    cap_neg_y_min     = -arm_w / 2.0
+    cap_neg_y_max     = -LINK_THICKNESS / 2.0
+    cap_neg_y_extent  = cap_neg_y_max - cap_neg_y_min
+    cap_neg_y_centre  = (cap_neg_y_min + cap_neg_y_max) / 2.0
+    arm_cap_neg = _box((cap_x_extent, cap_neg_y_extent, cap_z_extent),
+                        center=(cap_x_centre, cap_neg_y_centre, cap_z_centre))
+
     # Underside stiffening gusset hanging below the arm in the bridge
-    # region.  Adds Z depth to the cross-section so the coxa link can
-    # resist hip-pitch reaction torque (about link +Y) without visible
-    # flex.  See COXA_BRIDGE_GUSSET_H / COXA_BRIDGE_GUSSET_L for the
-    # clearance reasoning.  The gusset's top face overlaps the arm
-    # bottom by 0.5 mm, the +Y side overlaps the arm by 2 mm in Y
-    # (so the arm-to-gusset joint is a solid 2 x 4 mm bar per X unit
-    # rather than the bridge member's 0.5 x 0.5 mm boolean-overlap
-    # strip), and the -Y face overlaps the cradle outer's +Y face by
-    # 0.5 mm so it tied into the cradle wall on union.
+    # region.
     gusset_under_x0    = HIP_PAD_R + 1.0
     gusset_under_y_min = bridge_y_min
     gusset_under_y_max = -arm_w / 2.0 + 2.0
@@ -1221,8 +1567,55 @@ def make_coxa_link() -> trimesh.Trimesh:
         ),
     )
 
-    body = _union(hub, arm, well, gusset, bridge, gusset_under)
-    return _diff(body, wire_slot, *hub_holes, centre_hole)
+    # ---- Build the link body in the original (un-lifted) frame ----
+    body_unlifted = _union(hub, arm, well, gusset, bridge, gusset_under,
+                            arm_cap_pos, arm_cap_neg)
+    body_unlifted = _diff(body_unlifted, wire_slot)
+    # Lift everything UP by COXA_LIFT so the well's bottom + the
+    # femur's hip-pad clear the chassis-plate top during yaw + pitch
+    # rotation.
+    body_unlifted.apply_translation([0.0, 0.0, COXA_LIFT])
+
+    # ---- Pedestal underneath the (now lifted) hub ----
+    pedestal = _box((34.0, 34.0, COXA_LIFT),
+                    center=(0, 0, COXA_LIFT / 2.0))
+
+    # Cut a clearance trough in the pedestal where the hip-pitch
+    # servo body protrudes during +Y assembly insertion.  Without
+    # this slot the body's "+Z face" (link z = hip_drop + SERVO_BODY_D/2
+    # = COXA_LIFT - 5.5 ~ +1.5) and the pedestal's bottom face
+    # (z = 0) overlap by ~1.5 mm at link x in [-5, +17] / y in
+    # [-17, +17], blocking insertion.  The trough cuts through that
+    # region and ~1 mm extra in z for FDM tolerance.
+    body_x_min   = -SERVO_BODY_W / 2.0 - 1.0                # -21 + clearance
+    body_x_max   =  SERVO_BODY_W / 2.0 + (COXA_LENGTH - SERVO_OUTPUT_X) + 1.0
+    trough_x_min = body_x_min                               # -21
+    trough_x_max = body_x_max                               # +36 (always outside pedestal +X)
+    trough_x_ext = trough_x_max - trough_x_min
+    trough_x_cen = (trough_x_min + trough_x_max) / 2.0
+    body_top_z   = COXA_LIFT - WELL_D / 2.0 + SERVO_BODY_D / 2.0   # ~+1
+    trough_z_max = body_top_z + 1.0                         # +2 (1 mm FDM margin)
+    trough_z_min = 0.0
+    trough_z_ext = trough_z_max - trough_z_min
+    trough_z_cen = (trough_z_min + trough_z_max) / 2.0
+    trough = _box((trough_x_ext, 34.0, trough_z_ext),
+                  center=(trough_x_cen, 0.0, trough_z_cen))
+
+    # ---- Bolt holes through the WHOLE pedestal + hub stack ----
+    bolt_total_h = COXA_LIFT + hub_t
+    hub_holes = []
+    for i in range(4):
+        a = np.pi / 4 + i * np.pi / 2
+        h = _cyl(HORN_BOLT_OD / 2.0, bolt_total_h * 4)
+        h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
+                              HORN_BOLT_PCD / 2.0 * np.sin(a),
+                              bolt_total_h / 2.0])
+        hub_holes.append(h)
+    centre_hole = _cyl(HORN_CENTRE_OD / 2.0, bolt_total_h * 4)
+    centre_hole.apply_translation([0, 0, bolt_total_h / 2.0])
+
+    body = _union(pedestal, body_unlifted)
+    return _diff(body, trough, *hub_holes, centre_hole)
 
 
 def make_femur_link() -> trimesh.Trimesh:
@@ -1283,17 +1676,55 @@ def make_femur_link() -> trimesh.Trimesh:
                            center=((body_x_min + body_x_max) / 2.0,
                                     0, 0))
 
-    # ---- Hip-end pad -------------------------------------------------
-    hip_pad = _box((2 * HIP_PAD_R, LINK_THICKNESS, 2 * HIP_PAD_R),
-                   center=(0, 0, 0))
+    # ---- Hip-end pad + neck -----------------------------------------
+    # The femur's hip pad bolts onto the hip-pitch horn adapter, which
+    # itself sits on the servo's plastic horn + spline.  In femur-local
+    # coords the joint AXIS (spline tip) is at y = 0, and the horn
+    # adapter's TOP face (where the pad clamps) is at y = HORN_STACK_H
+    # = 9 mm.  Placing the pad at y = 0 (the OLD design) put it inside
+    # the cradle's "swept volume" above the body and caused the femur
+    # vs coxa_bracket / femur vs tibia self-collision failures.  We now
+    # offset the pad up to its physical mating position and merge it
+    # with a structural neck block down to the spar's +Y face (y = +3).
+    #
+    # Shape: a single CYLINDER along femur +Y, radius HIP_PAD_R = 17 mm,
+    # spanning y in [LINK_THICKNESS / 2, HORN_STACK_H + LINK_THICKNESS]
+    # = [+3, +15].  This is the neck (y in [+3, +9]) and the pad (y in
+    # [+9, +15]) fused into one rotationally-symmetric boss.
+    #
+    # Why a cylinder and not a square pad?  Under femur pitch rotation
+    # (about the +Y joint axis), a 34 x 34 square pad's CORNERS swing
+    # out to a radius of 17 * sqrt(2) ~= 24 mm in the X-Z plane.  At
+    # the STANCE_FEMUR_DEG = -25 deg standing pose the rear-lower
+    # corner (femur-local x = -17, z = -17) sweeps down to coxa-link
+    # z = hip_drop - 22.6 = -33 mm, far enough below the chassis-plate
+    # top (which sits 25.75 mm BELOW the hip joint in coxa-link
+    # coords) to enter the coxa bracket's well wall.  A cylinder of
+    # radius HIP_PAD_R is INVARIANT under rotation about +Y, so its
+    # X-Z silhouette stays a 34 mm disk regardless of pitch -- the
+    # rear-lower corner is gone, and the deepest the pad reaches in
+    # coxa-link z is just hip_drop - 17 = -27.5 mm, clearing the
+    # bracket well by ~ 1 mm.  Bolt holes still go through the same
+    # 24 mm PCD; the disk has ~ 5 mm of material outboard of each
+    # bolt centre.
+    hip_pad_centre_y = HORN_STACK_H + LINK_THICKNESS / 2.0    # +12
+    pad_neck_y_min   = LINK_THICKNESS / 2.0                    # +3
+    pad_neck_y_max   = HORN_STACK_H + LINK_THICKNESS           # +15
+    hip_pad_neck = _cyl_along(HIP_PAD_R,
+                              pad_neck_y_max - pad_neck_y_min,
+                              axis="y")
+    hip_pad_neck.apply_translation([0, pad_neck_y_min, 0])
 
     hip_holes = []
     for i in range(4):
         a = np.pi / 4 + i * np.pi / 2
-        h = _cyl(SERVO_TAB_HOLE / 2.0, LINK_THICKNESS * 4)
+        # Hole length big enough to punch through both pad and neck
+        # along Y; centred on the pad so the bolt-thread engagement is
+        # in the pad itself (the neck just has clearance void).
+        h = _cyl(SERVO_TAB_HOLE / 2.0, (HORN_STACK_H + LINK_THICKNESS) * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
         h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
-                              0,
+                              hip_pad_centre_y,
                               HORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_holes.append(h)
 
@@ -1333,12 +1764,40 @@ def make_femur_link() -> trimesh.Trimesh:
     # by far the weakest joint in the part.
     BRIDGE_WELL_EMBED = 2.5                           # mm into well +Y wall
     bridge_y_min    = well_near_y - BRIDGE_WELL_EMBED
-    # Embed the bridge's +Y end 0.5 mm INTO the spar (rather than letting
-    # it overshoot 0.5 mm past the spar's +Y face) so the spar's +Y face
-    # stays the part's outermost surface in -Y -- which, after the
-    # -90 deg X reorient for printing, becomes the broad face that sits
-    # on the build plate (no half-millimetre bed gap).
-    bridge_y_max    = spar_far_y - 0.5
+    # Stop the bridge at the spar's CENTRELINE (y = 0) rather than 0.5 mm
+    # shy of the spar's +Y face (the old bridge_y_max = +2.5).  Two
+    # consequences:
+    #
+    #   (a) Real volumetric fuse with the spar: the bridge overlaps the
+    #       spar over y in [-3, 0] = 3 mm of solid material instead of a
+    #       0.5 mm boolean kiss at y = [+2.5, +3].
+    #   (b) The 3 mm of femur material at y in [0, +3] (the spar's +Y
+    #       half) is now the ONLY femur material between the well rim
+    #       (femur y = -16.75) and the tibia-mounting clearance zone
+    #       (femur y >= +3); the bridge cap no longer reaches past the
+    #       spar's centreline in +Y.  This gives the tibia's knee pad
+    #       neck disk (a 34 mm dia. cylinder centred on the knee axis,
+    #       starting at femur y = +3) 3 mm of guaranteed bridge clearance
+    #       in the y direction.
+    #
+    # Why this is the right fix (not a "trim the well walls" fix):
+    #   - well rim plane in femur-local Y is at femur y = WELL_RIM_Z
+    #     + delta[1] = +27.25 - 44 = -16.75; the well OUTER box itself
+    #     does NOT extend past this plane in +Y, so the well walls are
+    #     already clear of the tibia mounting zone at femur y > +3.
+    #   - The structural members that DO live at femur y > -16.75 are
+    #     the spar (y in [-3, +3]), the hip-end pad/neck cylinder (only
+    #     at x ~ 0, the hip end, far from the knee), and these bridges.
+    #   - Earlier bridge_y_max = +2.5 put the bridge cap's +Y face
+    #     INSIDE the FDM-tolerance window (0.3-0.8 mm/side over-extrude)
+    #     of the tibia knee-pad neck disk at y = +3 -- real prints
+    #     reported the disk seating proud of the horn-adapter face on
+    #     the bridge-cap side.  BRIDGE_CAP_H = 6 controls the bridge's
+    #     femur-Z extent (height above the spar's top edge), NOT its
+    #     femur-Y extent; "the bridge cap extends 6 mm in well +Z past
+    #     the well rim" was a coordinate-axis misread.  The well walls
+    #     remain untouched.
+    bridge_y_max    = 0.0
     bridge_y_extent = bridge_y_max - bridge_y_min
     bridge_y_centre = (bridge_y_min + bridge_y_max) / 2.0
     bridge_x_extent = slot_x                          # span the body's x range
@@ -1348,12 +1807,17 @@ def make_femur_link() -> trimesh.Trimesh:
     # it overlaps the well's top wall, the spar's top flange, AND
     # extends BRIDGE_CAP_H mm PAST the spar's top edge as an integral
     # cap rib.  Without the cap, the bridge cross-section is just
-    # (spar_z_max - body_z_max) = 7 mm tall by 18 mm wide; with a 4 mm
-    # cap the cross-section grows to 11 mm tall, about (11/7)^3 ~ 3.9x
-    # stiffer in out-of-plane bending.  After the -90 deg X reorient
-    # the cap sits as a small rib protruding in print +/-Y direction
-    # past the spar, so it's clearly visible as a gusset.
-    BRIDGE_CAP_H = 4.0
+    # (spar_z_max - body_z_max) = 7 mm tall by 18 mm wide.
+    # BRIDGE_CAP_H was 4 mm -- with the previous WELL_WALL_Y = 2.5 the
+    # well's top wall was only 1.8 mm thick in Z, so the slab of
+    # bridge material directly above the cavity (z in [+body_z_max,
+    # +well_top_z] = [10, 12.5]) had bridge underside meeting well
+    # outside face across a region that voxelised down to a 1-voxel
+    # slab and registered as a 933-voxel flimsy cluster.  Bumping the
+    # cap to 6 mm widens the bridge's Z cross-section to 13 mm and,
+    # together with WELL_WALL_Y = 3.7 (3.0 mm real wall in this
+    # direction), removes the thin-slab artefact entirely.
+    BRIDGE_CAP_H = 6.0
     body_z_max  = +SERVO_BODY_D / 2.0                 # +10
     spar_z_max  = +FEMUR_SPAR_H / 2.0                 # +17
     bridge_top_z_min = body_z_max                     # +10
@@ -1402,7 +1866,7 @@ def make_femur_link() -> trimesh.Trimesh:
         h.apply_translation([x, 0, 0])
         lightening.append(h)
 
-    body = _union(hip_pad, spar, well, bridge_top, bridge_bot)
+    body = _union(hip_pad_neck, spar, well, bridge_top, bridge_bot)
     return _diff(body, insertion_slot, wire_slot, cavity_trim,
                  *hip_holes, *lightening)
 
@@ -1419,38 +1883,100 @@ def make_tibia_link() -> trimesh.Trimesh:
     Knee end: a square pad centred on the joint axis (x=0, z=0) with
     the 4 horn bolt holes drilled in Y.  Bolt-circle CENTRE is on
     the joint axis so the tibia rotates rigidly with the horn.
-    Foot end: a small socket that the foot pad presses or screws into.
+    Foot end: a forked CLEVIS that captures the foot pad's tongue
+    (see ``make_foot_pad``) on an M3 pin parallel to the knee axis.
+    The clevis is a 18-mm-long fattened section of the spar tip with
+    a Y-axis through-hole at z = FOOT_HINGE_TIBIA_Z.
     """
     spar = _box((TIBIA_LENGTH, LINK_THICKNESS, TIBIA_SPAR_H),
                 center=(TIBIA_LENGTH / 2.0, 0, 0))
 
-    knee_pad = _box((2 * HIP_PAD_R, LINK_THICKNESS, 2 * HIP_PAD_R),
-                    center=(0, 0, 0))
+    # Knee pad + neck: same trick as the femur's hip pad.  The tibia's
+    # mating face sits on the knee horn adapter at y = HORN_STACK_H (9 mm
+    # above the spline tip / knee axis), and the pad/neck stack is a
+    # CYLINDER along tibia +Y (radius HIP_PAD_R) spanning y in
+    # [LINK_THICKNESS/2, HORN_STACK_H + LINK_THICKNESS] = [+3, +15].
+    # Cylindrical (vs square) so it's rotationally symmetric about the
+    # knee joint axis -- the standing pose's combined femur+knee pitch
+    # of +35 deg used to swing a square pad's rear-lower corner into
+    # the femur's bridge-cap swept volume; a cylinder has no corners
+    # to swing.
+    knee_pad_centre_y = HORN_STACK_H + LINK_THICKNESS / 2.0
+    pad_neck_y_min    = LINK_THICKNESS / 2.0
+    pad_neck_y_max    = HORN_STACK_H + LINK_THICKNESS
+    knee_pad_neck = _cyl_along(HIP_PAD_R,
+                                pad_neck_y_max - pad_neck_y_min,
+                                axis="y")
+    knee_pad_neck.apply_translation([0, pad_neck_y_min, 0])
 
     knee_holes = []
     for i in range(4):
         a = np.pi / 4 + i * np.pi / 2
-        h = _cyl(SERVO_TAB_HOLE / 2.0, LINK_THICKNESS * 4)
+        h = _cyl(SERVO_TAB_HOLE / 2.0, (HORN_STACK_H + LINK_THICKNESS) * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
         h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
-                              0,
+                              knee_pad_centre_y,
                               HORN_BOLT_PCD / 2.0 * np.sin(a)])
         knee_holes.append(h)
 
-    # Foot socket at the far end -- a short cylinder pointing in -Z
-    # (down, when the tibia is in stance pose) that the foot pad's
-    # hub plugs into.  Centred on the spar's far end x = TIBIA_LENGTH.
-    foot_socket = _cyl(FOOT_HUB_OD / 2.0 + 1.5,
-                       FOOT_HUB_HEIGHT + 4.0)
-    foot_socket.apply_translation([TIBIA_LENGTH - 4.0, 0,
-                                    -(FOOT_HUB_HEIGHT + 4.0) / 2.0])
+    # ----- Foot clevis at the far end (x ~ TIBIA_LENGTH) -----
+    # The clevis is a single forked block built in two steps:
+    #
+    #   1. ``clevis_bulk`` = a solid box that flares the spar tip out
+    #      to the full fork width (2*CHEEK_T + GAP = 12 mm) in Y and
+    #      drops down past the spar's bottom face to the chosen pin
+    #      depth, so the M3 pin axis lives clearly below the spar.
+    #   2. ``clevis_slot`` = a Y-axis slab cut through the centre of
+    #      the bulk that removes the GAP-wide strip of material in the
+    #      middle of the block, leaving two CHEEK_T-thick cheeks on
+    #      either side of an open mouth that faces -Z (toward the
+    #      ground).  The foot pad's vertical tongue slides up into
+    #      this mouth from below.
+    #
+    # The M3 through-hole is drilled along Y at (x = TIBIA_LENGTH,
+    # z = FOOT_HINGE_TIBIA_Z) so the bolt passes through both cheeks
+    # and the foot's tongue.  Hinge axis is parallel to the knee axis
+    # by construction (both are tibia-local +Y), so the foot pitches
+    # passively about an axis parallel to the knee servo's axis --
+    # exactly the ankle pitch the user asked for.
+    clevis_x_min = TIBIA_LENGTH - FOOT_CLEVIS_X_INBOARD
+    clevis_x_max = TIBIA_LENGTH + FOOT_CLEVIS_X_BEYOND_TIP
+    clevis_dx    = clevis_x_max - clevis_x_min
+    clevis_cx    = (clevis_x_min + clevis_x_max) / 2.0
+    clevis_full_y = FOOT_HINGE_GAP + 2.0 * FOOT_HINGE_CHEEK_T   # 12 mm
 
-    foot_bore = _cyl(FOOT_HUB_OD / 2.0 + 0.4,
-                     FOOT_HUB_HEIGHT + 6.0)
-    foot_bore.apply_translation([TIBIA_LENGTH - 4.0, 0,
-                                   -(FOOT_HUB_HEIGHT + 6.0) / 2.0 + 1.5])
+    clevis_z_min = FOOT_HINGE_TIBIA_Z - FOOT_CLEVIS_CHEEK_BELOW_PIN  # -15
+    clevis_z_max = TIBIA_SPAR_H / 2.0                                # +9
+    clevis_bulk  = _box((clevis_dx,
+                          clevis_full_y,
+                          clevis_z_max - clevis_z_min),
+                         center=(clevis_cx, 0.0,
+                                  (clevis_z_max + clevis_z_min) / 2.0))
 
-    # A short taper to blend the spar into the foot socket
+    # Slot: GAP-wide strip in Y, open at the -Z (bottom) face of the
+    # bulk so the foot tongue has a clear vertical mouth.  Top of the
+    # slot stops a few mm above the pin axis so each cheek still has
+    # a continuous ring of material around the M3 hole.
+    slot_z_min = clevis_z_min - 1.0                # overshoot bottom -> open mouth
+    slot_z_max = FOOT_HINGE_TIBIA_Z + FOOT_HINGE_PIN_HOLE_D / 2.0 + 3.0
+    slot_x_min = clevis_x_min - 0.5                # overshoot in X -> through-cut
+    slot_x_max = clevis_x_max + 0.5
+    clevis_slot = _box((slot_x_max - slot_x_min,
+                         FOOT_HINGE_GAP,
+                         slot_z_max - slot_z_min),
+                        center=((slot_x_min + slot_x_max) / 2.0, 0.0,
+                                 (slot_z_min + slot_z_max) / 2.0))
+
+    # Pin hole through both cheeks (and the empty slot in between).
+    # Length = 2 * clevis_full_y to guarantee a clean cut through
+    # both cheeks even with FDM/Hildebrand voxelisation slop.
+    pin_hole = _cyl(FOOT_HINGE_PIN_HOLE_D / 2.0, clevis_full_y * 2.0)
+    pin_hole.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
+    pin_hole.apply_translation([TIBIA_LENGTH, 0.0, FOOT_HINGE_TIBIA_Z])
+
+    # A short taper to blend the 6-mm-thick spar into the 12-mm-wide
+    # clevis bulk.  Sits on the spar centreline, narrower than the
+    # bulk so it tapers visually but still adds bending stiffness.
     taper = _box((24.0, LINK_THICKNESS * 0.95, TIBIA_SPAR_H * 0.6),
                  center=(TIBIA_LENGTH - 12.0, 0, -3.0))
 
@@ -1463,25 +1989,55 @@ def make_tibia_link() -> trimesh.Trimesh:
         h.apply_translation([x, 0, 0])
         lightening.append(h)
 
-    body = _union(knee_pad, spar, taper, foot_socket)
-    return _diff(body, *knee_holes, foot_bore, *lightening)
+    body = _union(knee_pad_neck, spar, taper, clevis_bulk)
+    return _diff(body, *knee_holes, clevis_slot, pin_hole, *lightening)
 
 
 def make_foot_pad() -> trimesh.Trimesh:
-    """Compliant foot pad.  Print in TPU for grip, or in PLA with a
-    cut-out for a section of bicycle inner-tube glued in as a tread.
+    """Compliant foot pad with a single-axis hinge tongue.
 
-    Local frame: ground-plane is at Z = 0; the tibia plugs in on +Z."""
-    pad_base = _cyl(FOOT_PAD_OD / 2.0, 4.0)
-    pad_base.apply_translation([0, 0, 2.0])
+    Stack (foot-local Z, +Z up):
 
-    shoulder = _cyl(FOOT_PAD_OD * 0.42, 6.0)
-    shoulder.apply_translation([0, 0, 4.0 + 3.0])
+        ground   z = 0 .. FOOT_PAD_BASE_H               -- TPU spring disk
+        boss     z = FOOT_PAD_BASE_H
+                   .. FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H -- 14 mm OD stub
+        tongue   z = boss top
+                   .. FOOT_HINGE_FOOT_Z + OVER_PIN      -- 4 x 10 mm tongue
+                                                          rising through the
+                                                          M3 pin axis
 
-    hub = _cyl(FOOT_HUB_OD / 2.0, FOOT_HUB_HEIGHT)
-    hub.apply_translation([0, 0, 4.0 + 6.0 + FOOT_HUB_HEIGHT / 2.0])
+    The tongue is sized to slide into the tibia's clevis slot (4 mm
+    Y-thick into a 5 mm gap with 0.5 mm clearance per side).  A
+    horizontal M3 clearance hole through the tongue lines up with the
+    cheek holes, captured by an M3 x 16 pan-head bolt + nylock nut.
 
-    return _union(pad_base, shoulder, hub)
+    The hinge axis (tibia-local +Y) is parallel to the knee axis, so
+    when the tibia pitches the foot follows through ankle pitch.  TPU
+    compliance in the disk itself absorbs roll.
+
+    Local frame: ground-plane at Z = 0; tongue rises in +Z; the
+    tongue's broad faces have normals +/-Y (matches the tibia's
+    knee-axis direction in the leg's local frame)."""
+    pad_base = _cyl(FOOT_PAD_OD / 2.0, FOOT_PAD_BASE_H)
+    pad_base.apply_translation([0, 0, FOOT_PAD_BASE_H / 2.0])
+
+    boss = _cyl(FOOT_PAD_BOSS_OD / 2.0, FOOT_PAD_BOSS_H)
+    boss.apply_translation([0, 0, FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H / 2.0])
+
+    tongue_z_lo = FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H
+    tongue_z_hi = FOOT_HINGE_FOOT_Z + FOOT_HINGE_TONGUE_OVER_PIN
+    tongue = _box((FOOT_HINGE_TONGUE_X,
+                    FOOT_HINGE_TONGUE_T,
+                    tongue_z_hi - tongue_z_lo),
+                   center=(0.0, 0.0,
+                            (tongue_z_hi + tongue_z_lo) / 2.0))
+
+    hinge_hole = _cyl(FOOT_HINGE_PIN_HOLE_D / 2.0,
+                       FOOT_HINGE_TONGUE_T * 4.0)
+    hinge_hole.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
+    hinge_hole.apply_translation([0.0, 0.0, FOOT_HINGE_FOOT_Z])
+
+    return _diff(_union(pad_base, boss, tongue), hinge_hole)
 
 
 # ---------------------------------------------------------------------------
@@ -1541,12 +2097,16 @@ def _leg_in_body_frame(leg_index: int) -> trimesh.Trimesh:
 
     # ------------------- Femur (pitched about leg-Y) ------------------
     # In coxa-link local coords, the hip-pitch servo's output spline
-    # tip is at (COXA_LENGTH, 0, hip_drop) where hip_drop =
-    # -(WELL_D/2 + arm_t/2) (the coxa link's well was dropped below
-    # the arm in Z so the servo body hangs cleanly under the link plate).
-    # Must match the arm_t used in make_coxa_link (currently 6 mm).
-    arm_t = 6.0
-    hip_drop = -(WELL_D / 2.0 + arm_t / 2.0)
+    # tip is at (COXA_LENGTH, 0, hip_drop) where
+    #   hip_drop = -(WELL_D/2 + arm_t/2) + COXA_LIFT
+    # The first term is the "well-hangs-below-arm" drop applied in
+    # ``make_coxa_link`` (the well is dropped below the arm in Z so
+    # the servo body hangs under the link plate).  The COXA_LIFT
+    # offset is the pedestal that raises the whole arm + well stack
+    # above the chassis plate top.  Must match the arm_t used in
+    # make_coxa_link (sourced from the COXA_ARM_T constant).
+    arm_t = COXA_ARM_T
+    hip_drop = -(WELL_D / 2.0 + arm_t / 2.0) + COXA_LIFT
 
     hip_joint_local = np.array([COXA_LENGTH, 0.0, hip_drop])
 
@@ -1581,17 +2141,27 @@ def _leg_in_body_frame(leg_index: int) -> trimesh.Trimesh:
     parts.append(tl)
 
     # ------------------- Foot at tibia tip ----------------------------
+    # The foot pivots about the hinge pin captured by the tibia's
+    # clevis at (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z) in tibia-local.
+    # We place the foot pad so its own hinge hole (at foot-local
+    # (0, 0, FOOT_HINGE_FOOT_Z)) lands on the same world point.  The
+    # foot is NOT rotated to follow the tibia's pitch -- it hangs on
+    # the hinge so its disk stays roughly horizontal on the ground
+    # (mimicking passive ankle compliance).  We do rotate it about Z
+    # by the leg's azimuth ``a`` so the foot's tongue (whose broad
+    # faces have normals +/-Y in foot-local) lines up with the
+    # tibia's knee-axis Y (also rotated by a).
     Ry_pt = rotation_matrix(pt, [0, 1, 0])[:3, :3]
-    foot_local = knee_joint_local + Ry_pt @ np.array([TIBIA_LENGTH,
-                                                       0.0, 0.0])
+    hinge_local = knee_joint_local + Ry_pt @ np.array(
+        [TIBIA_LENGTH, 0.0, FOOT_HINGE_TIBIA_Z]
+    )
     R_a = rotation_matrix(a, [0, 0, 1])[:3, :3]
-    foot_world = R_a @ foot_local + edge_mid + yaw_output_z * z_hat
+    hinge_world = R_a @ hinge_local + edge_mid + yaw_output_z * z_hat
 
     foot = make_foot_pad()
-    # Foot's local +Z=top hub at z = 4 + 6 + FOOT_HUB_HEIGHT
-    FOOT_TOP_Z = 4.0 + 6.0 + FOOT_HUB_HEIGHT
-    foot.apply_translation([foot_world[0], foot_world[1],
-                             foot_world[2] - FOOT_TOP_Z])
+    foot.apply_transform(rotation_matrix(a, [0, 0, 1]))
+    foot.apply_translation([hinge_world[0], hinge_world[1],
+                             hinge_world[2] - FOOT_HINGE_FOOT_Z])
     parts.append(foot)
 
     return _union(*parts)
