@@ -1221,55 +1221,7 @@ def make_coxa_link() -> trimesh.Trimesh:
         ),
     )
 
-    # Bridge-side gusset rib: a triangular wing protruding off the
-    # bridge's -Y face (away from the arm, on the well-mouth side),
-    # at the well end of the arm where the thin arm-to-well bridge
-    # is the visibly weak joint in the printed part.  This actually
-    # reinforces the bridge -- which is the structural choke point --
-    # rather than just adding a fin somewhere above the arm.
-    #
-    # Cross-section in raw Y-Z is a triangle: full bridge height
-    # (z = [bridge_z_min, arm_t]) at the bridge's -Y face, tapering
-    # to a tip BRIDGE_RIB_OUT mm further in -Y direction at mid Z.
-    # The tip lives at z = arm_t / 2 so the rib sits squarely on the
-    # bridge's centroid in z.  Extruded in X over the well/joint half
-    # of the arm so the rib straddles the actual load path from the
-    # hip-pitch axis back through the bridge to the hub.
-    #
-    # The -Y tip extends INTO the well's solid +Y wall material at z
-    # values below the well's top face (well outer in -z is at
-    # z = well_z_drop + WELL_D/2), so the rib physically grabs the
-    # well structure rather than just kissing it.  After the +90 deg
-    # X reorient for printing, raw -Y maps to print -Z (i.e., toward
-    # the build plate), so this rib shows up as a clearly visible
-    # diagonal fin spanning the bridge -- a textbook gusset shape on
-    # the slicer side view.
-    BRIDGE_RIB_X_MIN = max(arm_minus_y_edge + bridge_y_max,
-                            HIP_PAD_R + 2.0)             # ~ start of bridge load
-    BRIDGE_RIB_X_MIN = HIP_PAD_R + 2.0                   # 18 mm -- just clear of hub
-    BRIDGE_RIB_X_MAX = COXA_LENGTH + 4.0                 # 49 mm -- past the joint axis
-    BRIDGE_RIB_OUT   = 5.0                               # mm tip protrusion in -Y past bridge
-    bridge_rib_y_face = bridge_y_min                     # the bridge's -Y face
-    bridge_rib_y_tip  = bridge_y_min - BRIDGE_RIB_OUT
-    bridge_rib_z_top  = arm_t                            # bridge top = arm top face
-    bridge_rib_z_bot  = bridge_z_min                     # bridge bottom
-    bridge_rib_z_tip  = (bridge_rib_z_top + bridge_rib_z_bot) / 2.0
-    _bridge_rib_xz_yz = [
-        # (y, z) cross-section triangle at every X in the rib's X range
-        (bridge_rib_y_face, bridge_rib_z_top),    # bridge -Y face, top
-        (bridge_rib_y_face, bridge_rib_z_bot),    # bridge -Y face, bottom
-        (bridge_rib_y_tip,  bridge_rib_z_tip),    # tip in -Y direction
-    ]
-    _bridge_rib_verts = []
-    for (vy, vz) in _bridge_rib_xz_yz:
-        _bridge_rib_verts.append([BRIDGE_RIB_X_MIN, vy, vz])
-        _bridge_rib_verts.append([BRIDGE_RIB_X_MAX, vy, vz])
-    gusset_bridge_rib = trimesh.Trimesh(
-        vertices=np.array(_bridge_rib_verts)
-    ).convex_hull
-
-    body = _union(hub, arm, well, gusset, bridge, gusset_under,
-                  gusset_bridge_rib)
+    body = _union(hub, arm, well, gusset, bridge, gusset_under)
     return _diff(body, wire_slot, *hub_holes, centre_hole)
 
 
