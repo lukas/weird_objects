@@ -454,6 +454,25 @@ HORN_ADAPTER_T      =  4.0   # mm -- thickness
 # along the output-shaft direction between the servo's gear-stack top
 # face and the printed horn adapter's bottom face.
 PLASTIC_HORN_H      =  5.0
+# Plastic 4-arm X-shaped horn (DS3225 / MG996R / DS3218 -class hardware):
+# the arms extend ~19 mm from the spline centre, so the horn sweeps a
+# Phi 38 mm cylinder as the servo rotates.  This is BIGGER than the
+# HORN_BOLT_PCD = 20.8 mm bolt circle (radius 10.4 mm): each arm runs
+# past the bolt position to give the user a thumb-purchase for hand-
+# tightening + spare hole positions.  Drives:
+#   * ``make_servo_horn`` arm length (the visual mesh's bounding
+#     cylinder reflects the real-hardware sweep, so any verifier that
+#     reads the mesh extents picks up the correct horn radius).
+#   * ``check_horn_sweep_clearance`` in _verify_prototype.py (the
+#     cylinder void that the bracket's flange / walls must respect
+#     above the seated servo, so the horn can rotate freely without
+#     clashing with printed material).
+# History: an earlier draft used a 20 mm-long arm (tip at radius
+# 10 mm = INSIDE the bolt circle) which silently understated the
+# sweep radius by ~9 mm.  The horn-sweep clearance test would have
+# missed the recurring "the servo motor doesn't stick out high
+# enough" failure if it had read that mesh's bounding cylinder.
+PLASTIC_HORN_X_TIP_R = 19.0
 # Total height of the servo output stack (plastic horn + printed
 # adapter) ABOVE the spline tip.  In the hip-pitch and knee-pitch
 # joints this is the offset between the joint AXIS (where the spline
@@ -613,6 +632,57 @@ COXA_ARM_CAP_T          = 4.0    # mm -- cap thickness in +Z above
                                   # COXA_ARM_CAP_T = 10 mm unlifted,
                                   # lifted to z = COXA_LIFT + 10 =
                                   # 24 mm.
+
+# ----- Well-top-wall thickening pad (coxa_link only) ---------------------
+# Why this exists.  In the BASELINE ``make_coxa_link`` geometry the
+# bridge slab that ties the horn yoke (top hub) to the hip-pitch servo
+# well box overlaps the well's outer body by only 0.5 mm in Y (the
+# 0.5 mm of bridge that punches past the well's outer +Y face) and
+# 1.5 mm in Z (the 1.5 mm of bridge below the well's outer top face),
+# giving a 53 x 0.5 x 1.5 = 40 mm^3 bonded interface holding the
+# entire leg load.  ``pad_sweep_clear`` -- the cylindrical void that
+# lets the femur hip pad swing through the link's interior -- then
+# eats a circular hole through the bridge across most of its X span,
+# leaving 19 mm^2 of bridge cross-section at the worst Z slice (just
+# above the well top face, where the cylinder cut is widest).  The
+# user has complained about this exact failure mode multiple times
+# ("the top of coxa_link is not attached strongly to the part housing
+# the servo, theres an obvious fix of thickening the wall on the
+# motor housing so a bigger surface area attaches to the top piece").
+#
+# This pad is the user's preferred fix.  It's a rectangular block of
+# plastic that sits ON TOP of the well's outer top face and rises up
+# into the bridge gap, fusing both with the well's outer body (below)
+# and the existing bridge / arm (above).  It widens the bridge's Y
+# extent from 6.75 mm to 11.75 mm at the bridge-to-well joint and
+# extends a 4 mm-wide spine of plastic INTO -Y BEYOND the
+# ``pad_sweep_clear`` cylinder's y range of [-18, +18] -- i.e. into
+# y in [-22.25, -18] -- so that even after the cylinder eats away the
+# middle of the pad there's still a 4 mm x 8.5 mm x 53 mm = 1800 mm^3
+# of pad material the cylinder can't reach holding the bridge to the
+# well.
+#
+# Verified by ``_check_coxa_link_bridge_joint`` in _verify_prototype.py
+# (called as part of ``check_flimsy_joints``).  Without this pad the
+# bridge slice cross-section drops to 19 mm^2 at z = 25.5 mm (just
+# above the well top); with this pad it stays above 100 mm^2 across
+# every slice in the gap.
+#
+# Sizing notes.  The pad's -Y extent ``WELL_TOP_PAD_Y_EXT`` (5 mm
+# past the bridge's existing -Y face = ``well_near_y - 0.5``) is
+# chosen so the pad's far-Y edge lands at y = -22.25, which is 4.25 mm
+# OUTSIDE the ``pad_sweep_clear`` cylinder's y range of [-18, +18].
+# Any value >= 1.5 mm would keep the pad inside the cylinder range
+# (pad gets fully cut where it crosses the cylinder swept volume);
+# 5 mm keeps a meaningful safe spine that the cylinder cannot touch.
+# Going much wider than 5 mm would push the pad's -Y face past the
+# well's outer -Y face at y = -47 -- silly because there's nothing
+# for the pad to bond to past the well, and would also pollute the
+# coxa_link's bounding box.
+WELL_TOP_PAD_Y_EXT = 5.0   # mm -- distance the pad extends PAST the
+                            # bridge's existing -Y face into -Y
+                            # direction (= INTO the well's outer body
+                            # footprint).  See big docstring above.
 
 # ---- Derived hip-pitch geometry ----------------------------------------
 # Hip-pitch axis Z position in coxa-link local frame, AFTER lift.  Equal
@@ -1099,8 +1169,17 @@ def make_servo_horn() -> trimesh.Trimesh:
     hub = _cyl(8.0, 2.0)
     hub.apply_translation([0, 0, 1.0])
     parts.append(hub)
+    # Arm length 2 * PLASTIC_HORN_X_TIP_R so each arm's tip sits at the
+    # real-hardware sweep radius (= 19 mm from the spline centre on a
+    # standard DS3225 / MG996R / DS3218 horn).  Previously hard-coded
+    # to 20 mm (tip at radius 10 mm), which was INSIDE the
+    # HORN_BOLT_PCD = 20.8 mm bolt circle -- nonsensical, and made the
+    # mesh's bounding cylinder understate the horn's swept volume.
+    # check_horn_sweep_clearance reads the bounding cylinder of this
+    # mesh; keep it in sync with real hardware so the verifier
+    # measures the right sweep radius.
     for a in HORN_BOLT_ANGLES_RAD:
-        arm = _box((20.0, 4.0, 1.6))
+        arm = _box((2.0 * PLASTIC_HORN_X_TIP_R, 4.0, 1.6))
         arm.apply_transform(rotation_matrix(a, [0, 0, 1]))
         arm.apply_translation([0, 0, 0.8])
         parts.append(arm)
@@ -1582,8 +1661,53 @@ def make_coxa_bracket() -> trimesh.Trimesh:
                   center=(bx_cen, 0.0, bridge_gusset_z_cen))
         bridge_gussets.append(bg)
 
+    # ---- Horn-sweep clearance void above the seated servo --------------
+    # The plastic 4-arm X-shaped horn that ships with DS3225 / MG996R
+    # class servos reaches PLASTIC_HORN_X_TIP_R = 19 mm to each arm
+    # tip, so when the servo rotates the horn sweeps a Phi 38 mm
+    # cylinder centred on the yaw axis (bracket-x = 0, bracket-y = 0)
+    # in the Z range BETWEEN the body's top face (= +10.75 mm in
+    # bracket-local at worst-case body float) and the top of the
+    # printed horn adapter (= +25.75 mm).  The drop-in body+tab slot
+    # is only +/-10.5 mm wide in Y, so the flange material at y in
+    # [+/-10.5, +/-(WELL_D/2 + extra)] above the body's top face
+    # SITS IN THE HORN'S SWEEP and physically blocks the horn from
+    # rotating (or from being installed on the spline above the
+    # bracket at all).
+    #
+    # This carves a Phi (2 * (HORN_SWEEP_R)) cylindrical pocket
+    # centred on the yaw axis that goes from just above the body's
+    # nominal top (z = +10.0, ~0.75 mm below worst-case body top
+    # so the cut comfortably starts in air) up through the flange's
+    # top face plus a 2 mm overshoot so the cut exits the part
+    # cleanly above the flange.  Below z = +10.0 the flange remains
+    # solid except for the rectangular drop-in slot -- the well-rim
+    # / chassis-bolt structural ring is untouched.  The chassis-bolt
+    # corners at (x = -8 / -28, y = +/-20) sit at radius >= 21.5 mm
+    # from the yaw axis, so they stay outside the cylinder.
+    #
+    # See _verify_prototype.check_horn_sweep_clearance for the
+    # regression test that catches this class of failure: it probes
+    # the SAME cylinder against the bracket and requires the bracket
+    # to be entirely VOID inside it.  PRIOR TO THIS CUT the flange
+    # had ~ 2 cm^3 of material lobing into the cylinder at y in
+    # [+/-10.5, +/-19.5] / z in [+10.75, +15] -- the recurring
+    # "the servo motor doesn't stick out high enough in the coxa
+    # bracket" failure the user has reported multiple times.  Edit
+    # any of HORN_SWEEP_*, PLASTIC_HORN_X_TIP_R, HORN_ADAPTER_OD,
+    # SERVO_BODY_H, WELL_RIM_Z, BRACKET_FLANGE_T, SERVO_OUTPUT_X --
+    # and the verifier will catch any regression here.
+    horn_sweep_r = (max(HORN_ADAPTER_OD / 2.0, PLASTIC_HORN_X_TIP_R)
+                    + 0.75)                              # 19.75 mm
+    sweep_z_lo = SERVO_BODY_H - WELL_RIM_Z - 0.75        # +10.0 mm
+    sweep_z_hi = BRACKET_FLANGE_T + 2.0                  # +17.0 mm
+    sweep_z_ext = sweep_z_hi - sweep_z_lo
+    horn_sweep_void = _cyl(horn_sweep_r, sweep_z_ext)
+    horn_sweep_void.apply_translation([0.0, 0.0,
+                                        0.5 * (sweep_z_lo + sweep_z_hi)])
+
     body = _union(flange, well, rib, *side_gussets, *bridge_gussets)
-    return _diff(body, slot, wire_slot, *chassis_holes)
+    return _diff(body, slot, wire_slot, horn_sweep_void, *chassis_holes)
 
 
 def make_coxa_link() -> trimesh.Trimesh:
@@ -1699,6 +1823,40 @@ def make_coxa_link() -> trimesh.Trimesh:
     bridge = _box((arm_x_extent, bridge_y_extent, bridge_z_extent),
                   center=(arm_x_centre, bridge_y_centre, bridge_z_centre))
 
+    # Well-top-wall thickening pad.  See WELL_TOP_PAD_Y_EXT's big
+    # docstring near the top of this file for full motivation; in
+    # short: this is the user's "thicken the motor-housing wall so a
+    # bigger surface area attaches to the top piece" fix for the
+    # recurring top-of-coxa_link <-> servo-well joint weakness.  The
+    # pad spans the well's full outer X range (so its X footprint
+    # matches the well perfectly and the bonded interface covers the
+    # whole 58 mm well width), extends WELL_TOP_PAD_Y_EXT mm BEYOND
+    # the bridge's -Y face into -Y (i.e. INTO the well's outer
+    # footprint, so its bottom face fuses with the well's outer top
+    # wall above the cavity) AND all the way to the bridge's +Y face
+    # (so it merges with the existing bridge + arm), and fills the
+    # entire Z gap between the well's outer top face and the arm's
+    # bottom face.  Bridge_y_min is the bridge's existing -Y face
+    # (= well_near_y - 0.5 = well's +Y face minus 0.5 mm of overlap
+    # into the well).
+    pad_x_min = -WELL_W / 2.0 + delta[0]                        # = -14
+    pad_x_max = +WELL_W / 2.0 + delta[0]                        # = +44
+    pad_y_min = bridge_y_min - WELL_TOP_PAD_Y_EXT               # = -22.25
+    pad_y_max = bridge_y_max                                    # = -10.5
+    pad_z_min = bridge_z_min                                    # = -8.5
+    pad_z_max = 0.0                                              # arm bottom
+    pad_x_extent = pad_x_max - pad_x_min                        # = 58
+    pad_y_extent = pad_y_max - pad_y_min                        # = 11.75
+    pad_z_extent = pad_z_max - pad_z_min                        # = 8.5
+    well_top_pad = _box(
+        (pad_x_extent, pad_y_extent, pad_z_extent),
+        center=(
+            0.5 * (pad_x_min + pad_x_max),
+            0.5 * (pad_y_min + pad_y_max),
+            0.5 * (pad_z_min + pad_z_max),
+        ),
+    )
+
     # Stiffening gusset stacked on the +X end of the arm on TOP of the
     # well.  Extended in -Y to cover the bridge so the upper flange of
     # the arm-bridge-well section becomes a continuous 26+ mm-wide cap
@@ -1772,7 +1930,7 @@ def make_coxa_link() -> trimesh.Trimesh:
 
     # ---- Build the link body in the original (un-lifted) frame ----
     body_unlifted = _union(hub, arm, well, gusset, bridge, gusset_under,
-                            arm_cap_pos, arm_cap_neg)
+                            arm_cap_pos, arm_cap_neg, well_top_pad)
     body_unlifted = _diff(body_unlifted, wire_slot)
     # Lift everything UP by COXA_LIFT so the well's bottom + the
     # femur's hip-pad clear the chassis-plate top during yaw + pitch

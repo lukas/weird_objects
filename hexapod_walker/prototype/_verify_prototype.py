@@ -47,6 +47,7 @@ import numpy as np
 import trimesh
 from trimesh.transformations import rotation_matrix
 from scipy.ndimage import distance_transform_edt, label
+import shapely.geometry as _sg
 
 import hexapod_prototype as hp
 
@@ -1089,6 +1090,204 @@ def check_horn_stack_clearance():
 
 
 # ---------------------------------------------------------------------------
+# 5c.  Horn-SWEEP clearance in the YAW joint (coxa_bracket side)
+# ---------------------------------------------------------------------------
+#
+# WHAT THIS CATCHES that 5b above does NOT
+# ----------------------------------------
+# check_horn_stack_clearance (5b) probes the DRIVEN side of each joint:
+# the femur_link's hub at the hip-pitch joint, and the tibia_link's hub
+# at the knee-pitch joint.  At the YAW joint the driven part is the
+# coxa_link, whose printed volume sits ABOVE the horn-stack -- not in
+# its way -- so 5b correctly skips the yaw joint.
+#
+# But the YAW joint also has a NON-DRIVEN side -- the coxa_bracket --
+# which holds the servo body and whose flange / walls / gussets sit
+# RIGHT NEXT TO the rotating gear stack + plastic horn + printed
+# adapter.  Nothing in the existing checks ever probed the cylindrical
+# sweep volume above the seated yaw servo.  The recurring "the servo
+# motor doesn't stick out high enough in the coxa bracket" failure
+# lives here: a flange / gusset / boss that intrudes into the horn-
+# sweep cylinder physically prevents the plastic X-horn from rotating
+# (or worse, prevents the horn + horn-adapter stack from seating
+# above the bracket in the first place).
+#
+# WHY 5b's CYLINDER WAS THE WRONG SIZE
+# ------------------------------------
+# 5b uses radius (HORN_ADAPTER_OD/2 + 0.5) = 16.5 mm, sized for the
+# PRINTED adapter only.  But the PLASTIC X-horn (the part that ships
+# with the servo) sweeps a BIGGER cylinder: real-hardware DS3225 /
+# MG996R-class horns reach ~ 19 mm to each arm tip.  And 5b's height
+# is HORN_STACK_H = 9 mm, which covers only the plastic-horn + printed-
+# adapter stack, NOT the SERVO_OUTPUT_H = 6 mm gear-stack region
+# between the body's top face and the plastic horn's bottom face.  A
+# bracket wall that wraps over the top of the well to z = +13 mm in
+# bracket-local clears the printed adapter (which lives above z = +18)
+# but clobbers the gear stack and the plastic horn underneath.
+#
+# WHAT THIS CHECK DOES
+# --------------------
+# Build a vertical cylinder centred on the BRACKET-LOCAL YAW AXIS at
+# (x = -SERVO_OUTPUT_X = 0 in bracket coords after the servo offset
+# is applied, y = 0).  Its radius is the larger of the printed
+# adapter's half-OD and the plastic horn's tip radius (read from the
+# bounding cylinder of ``make_servo_horn`` so the test stays in sync
+# with the modelled hardware geometry), plus a small clearance.  Its
+# Z range covers the ENTIRE rotating stack:
+#
+#     z_lo = bracket-local Z of the seated body's TOP face
+#            (= SERVO_BODY_H - WELL_RIM_Z, taking WELL_TAB_FLOAT=0 as
+#            the worst-case body-seats-lower scenario so the cylinder
+#            covers the full gear-stack region even if the tabs sit
+#            slightly below their nominal float height)
+#     z_hi = z of the printed adapter's TOP face + 1 mm extra margin
+#
+# Any sample voxel inside both the bracket mesh AND this cylinder is
+# a FAIL.  The cylinder MUST be entirely VOID inside the printed
+# coxa_bracket -- this is not a "soft budget", it's a hard pass /
+# fail.
+HORN_SWEEP_CLEARANCE = 0.5   # mm -- radial clearance around the horn sweep
+HORN_SWEEP_OVERLAP_TOL = 30.0  # mm^3 -- voxel artefact budget (tighter
+                               # than 5b: the bracket's flange material is
+                               # axis-aligned slabs so any real intrusion
+                               # is hundreds of mm^3, well above the
+                               # voxel-grid step-noise floor)
+
+
+def _horn_tip_radius_from_mesh() -> float:
+    """Return the plastic horn's tip radius, read from the bounding
+    cylinder of ``hp.make_servo_horn()`` projected onto the spline-
+    perpendicular plane.  Keeping this read off the actual mesh means
+    a future change to ``make_servo_horn`` (longer arms, an extra
+    feature, a different horn style) is automatically picked up by
+    the verifier -- a recurring failure mode in this project has been
+    "constant drift between the rendered visual and what the test
+    measures".
+    """
+    horn = hp.make_servo_horn()
+    xy = horn.vertices[:, :2]
+    return float(np.sqrt((xy ** 2).sum(axis=1)).max())
+
+
+def check_horn_sweep_clearance():
+    """Verify the coxa_bracket has a clean cylindrical VOID above the
+    seated yaw servo so the gear stack + plastic X-horn + printed horn
+    adapter can rotate freely without colliding with any bracket-local
+    geometry (flange material around the body slot, side gussets,
+    bridge gussets, wire-channel flanges, M3 pilot bosses, ...).
+
+    This is the missing check that caused the recurring
+    'the servo motor doesn't stick out high enough in the coxa
+    bracket' failure to keep slipping through verification.
+    """
+    plastic_tip_r = _horn_tip_radius_from_mesh()
+    plate_r       = hp.HORN_ADAPTER_OD / 2.0
+    R = max(plate_r, plastic_tip_r) + HORN_SWEEP_CLEARANCE
+
+    # Bracket-local Z of the seated servo's top face.  See
+    # ``make_coxa_bracket`` -- the well is translated by ``-WELL_RIM_Z``
+    # so its rim lands at bracket-z = 0; the body's tabs seat on the
+    # rim, so its bottom face sits ``WELL_TAB_FLOAT`` mm above the
+    # well's nominal floor (well-z = WELL_TAB_FLOAT).  In bracket
+    # coords: body bottom at z = WELL_TAB_FLOAT - WELL_RIM_Z, body top
+    # at z = body_bottom + SERVO_BODY_H.  We DROP the WELL_TAB_FLOAT
+    # term here so the cylinder also covers the case where the tabs
+    # don't quite reach the rim and the body floats lower than
+    # nominal -- conservative.
+    body_top_z = hp.SERVO_BODY_H - hp.WELL_RIM_Z
+    gear_top_z = (body_top_z + hp.WELL_TAB_FLOAT
+                  + hp.SERVO_OUTPUT_H)
+    adapter_top_z = gear_top_z + hp.HORN_STACK_H
+    z_lo = body_top_z                  # = +10.75 mm (worst-case body float)
+    z_hi = adapter_top_z + 1.0         # +1 mm margin above adapter top
+    H    = z_hi - z_lo
+
+    # Bracket-local yaw axis.  ``make_coxa_bracket`` places the servo BODY
+    # at bracket-x = -SERVO_OUTPUT_X so the output gear (= the SPLINE = the
+    # YAW AXIS, which sits at +SERVO_OUTPUT_X from the body centre in
+    # servo-local coords) lands at bracket-x = 0.  See the docstring of
+    # ``make_coxa_bracket``: "Origin: at the YAW AXIS ... +X = outboard".
+    yaw_x = 0.0
+    yaw_y = 0.0
+
+    print(f"\n[5c] Horn-sweep clearance in coxa_bracket "
+          f"(Phi {2*R:.1f} mm x {H:.1f} mm tall):")
+    print(f"     bracket-local axis at (x={yaw_x:+.1f}, y={yaw_y:+.1f}); "
+          f"z in [{z_lo:+.2f}, {z_hi:+.2f}]")
+    print(f"     plastic horn tip radius (from mesh) = "
+          f"{plastic_tip_r:.2f} mm; printed adapter radius = "
+          f"{plate_r:.2f} mm; clearance = {HORN_SWEEP_CLEARANCE:.1f} mm")
+
+    cyl = hp._cyl(R, H, sections=hp.CYL_SECTIONS)
+    cyl.apply_translation([yaw_x, yaw_y, 0.5 * (z_lo + z_hi)])
+
+    bracket = hp.make_coxa_bracket()
+    pitch = 0.6
+    vol = _pair_overlap_volume(bracket, cyl, pitch=pitch)
+    ok = vol <= HORN_SWEEP_OVERLAP_TOL
+
+    _label("coxa_bracket horn-sweep void", ok,
+           f"bracket-inside-cylinder vol = {vol:7.1f} mm^3 "
+           f"(tol {HORN_SWEEP_OVERLAP_TOL:.0f})")
+
+    # Diagnostic: when the check fails, report WHERE the intrusion
+    # lives in bracket-local coordinates so the geometry fix is
+    # obvious from the verifier output.  Resample at the same pitch.
+    if not ok:
+        a_min, a_max = bracket.bounds
+        b_min, b_max = cyl.bounds
+        lo = np.maximum(a_min, b_min)
+        hi = np.minimum(a_max, b_max)
+        n  = np.maximum(2, np.ceil((hi - lo) / pitch).astype(int))
+        gx = np.linspace(lo[0], hi[0], int(n[0]))
+        gy = np.linspace(lo[1], hi[1], int(n[1]))
+        gz = np.linspace(lo[2], hi[2], int(n[2]))
+        XX, YY, ZZ = np.meshgrid(gx, gy, gz, indexing="ij")
+        pts = np.stack([XX.ravel(), YY.ravel(), ZZ.ravel()], axis=1)
+        in_a = points_inside(bracket, pts)
+        bad = np.empty((0, 3))
+        if in_a.sum() > 0:
+            pts_a = pts[in_a]
+            in_b = points_inside(cyl, pts_a)
+            bad = pts_a[in_b]
+        if len(bad) > 0:
+            b_lo = bad.min(axis=0)
+            b_hi = bad.max(axis=0)
+            cen  = bad.mean(axis=0)
+            print(f"     FAIL: {len(bad)} sample voxel(s) inside both bracket "
+                  f"AND horn-sweep cylinder.")
+            print(f"        bracket-local intrusion bbox:")
+            print(f"          x in [{b_lo[0]:+.2f}, {b_hi[0]:+.2f}] mm")
+            print(f"          y in [{b_lo[1]:+.2f}, {b_hi[1]:+.2f}] mm")
+            print(f"          z in [{b_lo[2]:+.2f}, {b_hi[2]:+.2f}] mm")
+            print(f"        centroid = ({cen[0]:+.2f}, {cen[1]:+.2f}, "
+                  f"{cen[2]:+.2f}) mm")
+
+    # Rotational-sweep diagnostic: probe the SAME cylinder against the
+    # bracket through the runtime yaw range +/- 60 deg (about z) and
+    # report whether the overlap differs across rotation.  A round
+    # cylinder is rotationally invariant, so this should give the
+    # SAME overlap volume at every angle -- if it doesn't, the
+    # voxel-sampling itself has an asymmetric bias and the user
+    # should be told.  Cheap (3 angles) and only printed in the
+    # output for visibility.
+    yaw_angles_deg = [-60.0, 0.0, +60.0]
+    sweep_vols = []
+    for ang in yaw_angles_deg:
+        cyl_r = cyl.copy()
+        cyl_r.apply_transform(
+            rotation_matrix(np.deg2rad(ang), [0, 0, 1],
+                            point=[yaw_x, yaw_y, 0.0]))
+        sweep_vols.append(_pair_overlap_volume(bracket, cyl_r, pitch=pitch))
+    sweep_str = ", ".join(
+        f"yaw={ang:+.0f} deg -> {v:6.1f} mm^3"
+        for ang, v in zip(yaw_angles_deg, sweep_vols))
+    print(f"     rotational sweep diagnostic: {sweep_str}")
+
+    return ok
+
+
+# ---------------------------------------------------------------------------
 # 6.  Flimsy joints (local thickness from a 3D distance transform)
 # ---------------------------------------------------------------------------
 #
@@ -1217,6 +1416,215 @@ def _flimsy_clusters_for_part(mesh, pitch, min_t, min_cluster_vox):
     return clusters, biggest, max_thickness
 
 
+# ---------------------------------------------------------------------------
+# Targeted bridge-joint check: coxa_link's top-piece <-> servo-well joint
+# ---------------------------------------------------------------------------
+#
+# Why this exists -- and why ``check_flimsy_joints`` alone cannot see this
+# failure mode:
+#
+# In ``make_coxa_link`` the HORN YOKE (the top hub bolted to the yaw
+# servo's horn adapter) is tied to the SERVO WELL BOX (the cradle that
+# holds the hip-pitch servo) by an X-long, Y-thin BRIDGE slab that lives
+# in the Z-gap between the well's outer top face and the hub/arm bottom
+# face.  The bridge's cross-section (with the baseline geometry) is
+# 53 mm long in X, 6.75 mm thick in Y, ~14.5 mm tall in Z; the bridge
+# overlaps the well's outer body by just 0.5 mm in Y and 1.5 mm in Z,
+# giving a 53 x 0.5 x 1.5 = ~40 mm^3 bonded interface holding the entire
+# leg load.  ``pad_sweep_clear`` -- the cylindrical void that lets the
+# femur hip pad swing through the link's interior -- then EATS a circular
+# hole through this already-thin bridge across most of its X span,
+# leaving only thin slivers at the inboard / outboard X extremes.
+#
+# Why ``check_flimsy_joints`` doesn't catch it: the Hildebrand
+# max-inscribed-ball check (``_flimsy_clusters_for_part`` above) measures
+# isotropic LOCAL thickness via a distance transform; an inscribed sphere
+# of radius MIN_PRINT_T/2 = 1.5 mm fits inside the bridge slab (6.75 mm
+# Y) without a problem, so the test happily reports the bridge as healthy.
+# ``check_thin_sheets`` (the anisotropic chord variant) ALSO misses this
+# because the pedestal sits directly above the inboard half of the bridge
+# (link y in [-17, +17] for the pedestal vs. y in [-17.25, -10.5] for the
+# bridge), and its Y-chord through the bridge merges with the pedestal's
+# Y-chord into a ~34 mm-long combined chord that's outside the
+# 5-7.2 mm "structural-neck" band.  The bridge's Y-thinness is only
+# visible at link x > +17 (outboard of the pedestal), where ``gusset``
+# and ``gusset_under`` add a few extra mm of Y material -- pushing the
+# combined chord out of the band again.
+#
+# So we need an explicit slice-based check whose window EXCLUDES the
+# pedestal and targets the bridge alone.  The check below slices the
+# coxa_link mesh horizontally at multiple Z heights in the gap between
+# the well's outer top and the hub bottom, intersects each slice with an
+# outboard-of-pedestal X-Y window, and computes (a) the area of the
+# resulting cross-section and (b) the bending section modulus Sx about
+# the slice's local X axis (the bridge's weakest bending direction --
+# flexure in YZ caused by the well's leg-load Y reaction torque).
+#
+# Thresholds are tuned to FAIL on the baseline ``make_coxa_link()`` (so
+# the recurring "top of coxa_link is not attached strongly to the part
+# housing the servo" complaint is caught the first time it appears) and
+# PASS comfortably on a wall-widening / pad fix that adds the user's
+# requested "rectangular block at the top of the well":
+#
+#   * Area >= 80 mm^2 minimum slice  -- matches the user's "~ 8 x 10 mm
+#     of plastic" intuition (parent agent's spec).
+#   * Sx_bend >= 100 mm^3            -- bending modulus of the OUTBOARD
+#     bridge slice about its local X axis.  Baseline geometry has
+#     Sx_bend ~ 6 mm^3 at the worst slice (essentially zero); a 5 mm
+#     well-top wall extension lifts it well past 100 mm^3 because the
+#     extra plastic is offset from the centroid in Y and shows up
+#     quadratically in Ixx.
+
+COXA_LINK_BRIDGE_AREA_MIN_MM2 = 80.0   # parent's recommendation
+COXA_LINK_BRIDGE_SX_MIN_MM3   = 100.0  # ~ half-modulus of a 10x20 bar in
+                                        # its weak axis (20x10^2/6/2 ~ 167);
+                                        # rounded down so a "rectangular
+                                        # block at top of well" pad clears
+                                        # the threshold without needing to
+                                        # rebuild the entire link.
+
+COXA_LINK_BRIDGE_SLICE_DZ     = 0.5    # mm -- slice spacing in Z
+
+
+def _slice_polygons(mesh, z):
+    """Horizontal cross-section of ``mesh`` at world Z = ``z`` as a
+    shapely MultiPolygon in link (X, Y) coordinates.  Empty if the mesh
+    does not cross the plane.
+    """
+    section = mesh.section(plane_origin=[0.0, 0.0, float(z)],
+                           plane_normal=[0.0, 0.0, 1.0])
+    if section is None:
+        return _sg.MultiPolygon()
+    planar, _T = section.to_planar()
+    polys = list(planar.polygons_full)
+    if not polys:
+        return _sg.MultiPolygon()
+    if len(polys) == 1:
+        return _sg.MultiPolygon([polys[0]])
+    return _sg.MultiPolygon(polys)
+
+
+def _ixx_about_centroid_x(geom, *, pitch=0.25):
+    """Rasterise ``geom`` (shapely Polygon / MultiPolygon in (X, Y)) at
+    ``pitch`` mm resolution and return ``(area, centroid_y, ixx, y_min,
+    y_max)`` where Ixx is the second moment of area about an axis
+    parallel to the X axis passing through the centroid (units: mm^4).
+
+    Bending the bridge column (axis along link +Z) about this X axis
+    bends the slab in the (Y, Z) plane -- the bridge's weakest bending
+    direction in its current Y-thin geometry.
+    """
+    if geom.is_empty:
+        return 0.0, 0.0, 0.0, 0.0, 0.0
+    minx, miny, maxx, maxy = geom.bounds
+    # Sample on a regular grid.
+    nx = max(int(np.ceil((maxx - minx) / pitch)), 1)
+    ny = max(int(np.ceil((maxy - miny) / pitch)), 1)
+    xs = minx + (np.arange(nx) + 0.5) * (maxx - minx) / nx
+    ys = miny + (np.arange(ny) + 0.5) * (maxy - miny) / ny
+    XX, YY = np.meshgrid(xs, ys, indexing="xy")
+    pts_x = XX.ravel()
+    pts_y = YY.ravel()
+    # Vectorised "inside" via shapely.contains with prepared geometry.
+    from shapely import contains_xy
+    mask = contains_xy(geom, pts_x, pts_y)
+    if not mask.any():
+        return 0.0, 0.0, 0.0, 0.0, 0.0
+    da = (maxx - minx) / nx * (maxy - miny) / ny
+    area = float(mask.sum() * da)
+    yy = pts_y[mask]
+    y_c = float(yy.mean())
+    ixx = float(((yy - y_c) ** 2).sum() * da)
+    return area, y_c, ixx, float(yy.min()), float(yy.max())
+
+
+def _check_coxa_link_bridge_joint(coxa_link_mesh):
+    """Slice-based check for the bridge that ties coxa_link's horn yoke
+    (top hub) to the hip-pitch servo well box.  See the big comment
+    above for motivation and threshold rationale.
+    """
+    # All Z coordinates are in the final LIFTED coxa_link frame (i.e.
+    # what ``hp.make_coxa_link()`` returns).
+    #
+    # Well outer top face Z (= COXA_LIFT + well_z_drop + WELL_D/2)
+    well_z_drop = -(hp.WELL_D / 2.0
+                    + hp.COXA_ARM_T / 2.0
+                    + hp.WELL_Z_DROP_EXTRA)
+    well_top_z  = hp.COXA_LIFT + well_z_drop + hp.WELL_D / 2.0
+    yoke_bot_z  = hp.COXA_LIFT                       # = hub / arm bottom
+
+    # Outboard-of-pedestal slice window.  Pedestal is the 34 x 34 mm
+    # square pillar centred on (0, 0) (link x, y in [-17, +17]) so an X
+    # window x in [+17, +50] excludes the pedestal entirely.  Y window
+    # covers the bridge's existing y range [-17.25, -10.5] with generous
+    # margin on BOTH sides so a wall-widening / pad fix that grows the
+    # bridge in -Y (toward the well's outer body) or +Y (toward the arm
+    # face) still lands inside the window.
+    x_win = (+17.0, +50.0)
+    y_win = (-25.0,  -5.0)
+    window = _sg.box(x_win[0], y_win[0], x_win[1], y_win[1])
+
+    # Slice every COXA_LINK_BRIDGE_SLICE_DZ mm in the gap, with a
+    # COXA_LINK_BRIDGE_SLICE_DZ mm margin off each end so we never hit
+    # the exact well-top or arm-bottom plane (where the cross-section
+    # discontinuously jumps to the full well or arm footprint and
+    # masks the bridge's weakness).
+    z_lo = well_top_z + COXA_LINK_BRIDGE_SLICE_DZ
+    z_hi = yoke_bot_z - COXA_LINK_BRIDGE_SLICE_DZ
+    n_slices = max(int(round((z_hi - z_lo) / COXA_LINK_BRIDGE_SLICE_DZ)) + 1, 2)
+    z_values = np.linspace(z_lo, z_hi, n_slices)
+
+    rows = []   # (z, area, sx)
+    for z in z_values:
+        polys = _slice_polygons(coxa_link_mesh, float(z))
+        if polys.is_empty:
+            rows.append((float(z), 0.0, 0.0))
+            continue
+        inter = polys.intersection(window)
+        if inter.is_empty:
+            rows.append((float(z), 0.0, 0.0))
+            continue
+        area, y_c, ixx, y_min, y_max = _ixx_about_centroid_x(inter)
+        if area <= 0.0:
+            rows.append((float(z), 0.0, 0.0))
+            continue
+        c = max(y_max - y_c, y_c - y_min)
+        sx = ixx / c if c > 1e-6 else 0.0
+        rows.append((float(z), area, sx))
+
+    areas = [r[1] for r in rows]
+    sxs   = [r[2] for r in rows]
+    min_area = min(areas) if areas else 0.0
+    min_sx   = min(sxs)   if sxs   else 0.0
+    min_area_z = rows[int(np.argmin(areas))][0] if rows else 0.0
+    min_sx_z   = rows[int(np.argmin(sxs))][0]   if rows else 0.0
+
+    ok_area = min_area >= COXA_LINK_BRIDGE_AREA_MIN_MM2
+    ok_sx   = min_sx   >= COXA_LINK_BRIDGE_SX_MIN_MM3
+    ok = ok_area and ok_sx
+
+    head = (f"min slice area = {min_area:6.1f} mm^2 "
+            f"({'>=' if ok_area else '<'}{COXA_LINK_BRIDGE_AREA_MIN_MM2:.0f}), "
+            f"Sx_bend = {min_sx:7.1f} mm^3 "
+            f"({'>=' if ok_sx else '<'}{COXA_LINK_BRIDGE_SX_MIN_MM3:.0f}); "
+            f"slice band z in [{z_lo:.1f}, {z_hi:.1f}] mm "
+            f"(window x in {x_win}, y in {y_win})")
+    _label("coxa_link top<->well bridge", ok, head)
+
+    if not ok:
+        # Dump every slice (the band is only ~13 slices) so the user
+        # can see exactly where the cross-section is too thin.
+        for z, a, s in rows:
+            tag_a = " " if a >= COXA_LINK_BRIDGE_AREA_MIN_MM2 else "A"
+            tag_s = " " if s >= COXA_LINK_BRIDGE_SX_MIN_MM3   else "S"
+            print(f"           [{tag_a}{tag_s}]  z = {z:6.2f}  "
+                  f"area = {a:6.1f} mm^2  Sx = {s:7.1f} mm^3")
+        print(f"           worst area at z = {min_area_z:.2f}, "
+              f"worst Sx at z = {min_sx_z:.2f}")
+
+    return ok
+
+
 def check_flimsy_joints():
     """Flag every printed part that has a thin / under-strength region.
 
@@ -1230,6 +1638,13 @@ def check_flimsy_joints():
     thickness (three 0.4 mm perimeters with margin), and a 200-voxel
     cluster at the 1.2 mm pitch as the largest acceptable thin
     region (~ 350 mm^3 of < 3 mm material per part).
+
+    Additionally runs the targeted ``_check_coxa_link_bridge_joint``
+    slice test that catches the recurring "top of coxa_link is not
+    attached strongly to the part housing the servo" failure -- a
+    bridge / wall-thickness defect the isotropic Hildebrand check
+    cannot see.  See the big comment block above
+    ``_check_coxa_link_bridge_joint`` for full motivation.
     """
     print(f"\n[6] Flimsy joints (local thickness < {MIN_PRINT_T:.1f} mm; "
           f"pitch={FLIMSY_VOXEL_PITCH:.1f} mm, "
@@ -1270,6 +1685,11 @@ def check_flimsy_joints():
                   f"centroid=({cx:+7.2f},{cy:+7.2f},{cz:+7.2f}) mm  "
                   f"bbox={extent[0]:5.1f} x {extent[1]:5.1f} "
                   f"x {extent[2]:5.1f} mm")
+
+    # Targeted bridge-joint check (see big comment block above
+    # ``_check_coxa_link_bridge_joint``).  Reuses the already-built
+    # coxa_link mesh from the items dict above.
+    all_ok &= _check_coxa_link_bridge_joint(items["coxa_link"])
 
     return all_ok
 
@@ -2040,6 +2460,7 @@ def main():
     results.append(("Self-collision",         check_self_collision()))
     results.append(("Servo clearance",        check_servo_clearance()))
     results.append(("Horn-stack clearance",   check_horn_stack_clearance()))
+    results.append(("Horn-sweep clearance",   check_horn_sweep_clearance()))
     results.append(("Flimsy joints",          check_flimsy_joints()))
     results.append(("Thin sheets",            check_thin_sheets()))
     results.append(("Workspace self-collision",
