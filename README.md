@@ -21,6 +21,7 @@ designed for cast aluminium + frosted acrylic + LED COB modules.
 | [`ice_tray/`](ice_tray/) | Parametric icosahedron-cell ice tray |
 | [`constellation/`](constellation/) | 14-node polyhedral constellation (Platonic + Archimedean + Catalan icosahedral family) |
 | [`hexapod_walker/`](hexapod_walker/) | Parametric STL generator for a human-carrying six-legged walking vehicle (18 servos, ~ 4 m foot-to-foot envelope) |
+| [`infill_lattices/`](infill_lattices/) | 16 cube specimens of mathematically interesting infill: six TPMS (gyroid, Schwarz P/D, Neovius, I-WP, Lidinoid), four strut lattices (BCC/FCC/octet/diamond cubic), three atomic crystals (NaCl rock salt, CaF₂ fluorite, C diamond ball-and-stick), two icosahedral quasicrystals (density-wave + cut-and-project ball-and-stick), and a Menger sponge — plus a free-standing rhombic-triacontahedron of the cut-and-project quasicrystal (icosahedral envelope, no chopped struts) |
 
 Each project's folder has its own `README.md` with usage details and
 images. Top-level shared infrastructure:

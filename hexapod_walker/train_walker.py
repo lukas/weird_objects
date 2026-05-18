@@ -53,7 +53,7 @@ from stable_baselines3.common.vec_env import (  # noqa: E402
 def make_env(rank: int, *, base_seed: int, episode_seconds: float,
              obstacle_count: int, terrain_enabled: bool,
              residual_scale: float, gait_period: float,
-             action_filter_tau: float, delta_w: float,
+             action_filter_tau: float, action_w: float, delta_w: float,
              progress_w: float, cmd_speed_bias: float,
              vx_max: float, vy_max: float, omega_max: float,
              dr_mass_pct: float, dr_friction_pct: float,
@@ -81,6 +81,7 @@ def make_env(rank: int, *, base_seed: int, episode_seconds: float,
             residual_scale=residual_scale,
             gait_period=gait_period,
             action_filter_tau=action_filter_tau,
+            action_w=action_w,
             delta_w=delta_w,
             progress_w=progress_w,
             cmd_speed_bias=cmd_speed_bias,
@@ -154,6 +155,8 @@ def main():
                     help="Gait cycle period in seconds (faster = quicker walk)")
     ap.add_argument("--action-filter-tau", type=float, default=0.08,
                     help="Time constant of the per-step LPF on the residual")
+    ap.add_argument("--action-w", type=float, default=0.40,
+                    help="Penalty weight on mean(action^2) (damping / smaller residuals)")
     ap.add_argument("--delta-w", type=float, default=1.5,
                     help="Penalty weight on |action - prev_action|^2 (smoothness)")
     ap.add_argument("--progress-w", type=float, default=15.0,
@@ -239,6 +242,7 @@ def main():
                         residual_scale=args.residual_scale,
                         gait_period=args.gait_period,
                         action_filter_tau=args.action_filter_tau,
+                        action_w=args.action_w,
                         delta_w=args.delta_w,
                         progress_w=args.progress_w,
                         cmd_speed_bias=args.cmd_speed_bias,
@@ -351,6 +355,7 @@ def main():
         "residual_scale":      args.residual_scale,
         "gait_period":         args.gait_period,
         "action_filter_tau":   args.action_filter_tau,
+        "action_w":            args.action_w,
         "delta_w":             args.delta_w,
         "progress_w":          args.progress_w,
         "cmd_speed_bias":      args.cmd_speed_bias,

@@ -1,15 +1,18 @@
-"""Build a single Bambu print plate with the three "well" parts to test-print.
+"""Build a single Bambu print plate with one copy of every printed leg
+part to test-print before committing to six full sets.
 
 Plate contents (one copy of each, oriented for print as defined in
 ``prepare_xometry_upload.PART_REGISTRY``):
 
-    - coxa_bracket.stl
-    - coxa_link.stl
-    - femur_link.stl
+    - coxa_bracket.stl   (yaw servo cradle, drops onto chassis edge)
+    - coxa_link.stl      (rotates on yaw axis, carries the hip servo)
+    - femur_link.stl     (rotates on hip-pitch axis, carries the knee servo)
+    - tibia_link.stl     (rotates on knee axis, ends in the foot socket)
 
-The three are the parts that contain the servo well (the one we've been
-iterating on for fit / wire routing / depth).  Print one of each, drop the
-servo in, and confirm everything seats before committing to six full sets.
+These are the four printed parts that define a single LEG -- once a
+plate prints clean and a real servo seats correctly in each of the three
+cradles AND the femur + tibia hinge together, you've validated the whole
+leg subassembly and can commit to printing all 6 copies.
 
 Output: ``hexapod_walker/prototype/test_print_plate/test_print_plate.stl``
 plus a tiny layout manifest.
@@ -62,18 +65,29 @@ _REQUESTS = [
     ("coxa_bracket.stl", 1),
     ("coxa_link.stl", 1),
     ("femur_link.stl", 1),
+    ("tibia_link.stl", 1),
 ]
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--bed", choices=("x1", "h2d"), default="x1",
-                    help="Which Bambu bed size to lay out for.")
-    ap.add_argument("--out-dir", default=OUT_DIR,
-                    help="Output directory (default: test_print_plate/)")
-    args = ap.parse_args()
+def _bed_config(slug: str) -> btc.TrayPrinterConfig:
+    if slug == "x1":
+        return _X1
+    if slug == "h2d":
+        return _H2D
+    raise ValueError(f"unknown bed slug: {slug!r}")
 
-    cfg = _X1 if args.bed == "x1" else _H2D
+
+def build_plate(bed: str, out_dir: str = OUT_DIR) -> str:
+    """Programmatic entry-point used by ``build_all.py``.
+
+    Builds (or rebuilds) the test print plate STL + layout manifest for
+    the requested Bambu bed (``"x1"`` or ``"h2d"``).  Returns the path
+    to the written STL.  Always loads the CURRENT printed-part geometry
+    from ``hexapod_prototype.py`` -- there is no caching across calls
+    (``btc.clear_layout_caches()`` is invoked to make sure we don't
+    re-use a stale ``_part_specs()`` set from a previous module run).
+    """
+    cfg = _bed_config(bed)
     btc.clear_layout_caches()
     parts = btc._part_specs()
     items = tuple(btc._pack_hardware(cfg, parts, requests=_REQUESTS))
@@ -83,9 +97,9 @@ def main() -> None:
         items=items,
     )
 
-    os.makedirs(args.out_dir, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
     mesh = btc._make_plate_mesh(cfg, plan)
-    stl_path = os.path.join(args.out_dir, f"{plan.name}.stl")
+    stl_path = os.path.join(out_dir, f"{plan.name}.stl")
     mesh.export(stl_path)
 
     counts: dict[str, int] = {}
@@ -100,7 +114,7 @@ def main() -> None:
     for name, qty in sorted(counts.items()):
         print(f"  {qty} x {name}")
 
-    manifest_path = os.path.join(args.out_dir, "layout_manifest.csv")
+    manifest_path = os.path.join(out_dir, "layout_manifest.csv")
     with open(manifest_path, "w", newline="") as f:
         writer = csv.DictWriter(
             f,
@@ -116,6 +130,24 @@ def main() -> None:
                 "rotate_z_deg": item.rotate_z_deg,
             })
     print(f"Wrote {manifest_path}")
+    return stl_path
+
+
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--bed", choices=("x1", "h2d"), default="x1",
+                    help="Which Bambu bed size to lay out for.")
+    ap.add_argument("--out-dir", default=OUT_DIR,
+                    help="Output directory (default: test_print_plate/)")
+    # Match build_prototype_assembly: when invoked via importlib from
+    # build_all.py we want argv defaulted to [] (don't read sys.argv,
+    # which holds build_all.py's flags).  Passing argv=None preserves
+    # the "real CLI" behaviour for direct script invocation.
+    if argv is None:
+        import sys
+        argv = sys.argv[1:]
+    args = ap.parse_args(argv)
+    build_plate(args.bed, out_dir=args.out_dir)
 
 
 if __name__ == "__main__":

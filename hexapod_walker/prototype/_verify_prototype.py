@@ -322,27 +322,60 @@ def _cradle_open(part_mesh, body_centre, body_long_axis, body_short_axis,
     return n_blocked == 0, n_blocked, n_total
 
 
+def _body_fits_in_part(part_mesh, body_centre, body_long_axis,
+                        body_short_axis, body_normal_axis,
+                        long_extent, short_extent, normal_extent):
+    """Probe whether the servo body's FINAL resting volume is free of
+    bracket material.  Used for cradles whose top is intentionally
+    closed (i.e. the body does NOT drop in along a single straight
+    insertion axis).  Samples a 3D grid filling the body's final
+    bounding box and reports how many sample points are inside the
+    part mesh.
+    """
+    body_centre = np.asarray(body_centre, dtype=float)
+    u = np.asarray(body_long_axis,   dtype=float); u = u / np.linalg.norm(u)
+    v = np.asarray(body_short_axis,  dtype=float); v = v / np.linalg.norm(v)
+    w = np.asarray(body_normal_axis, dtype=float); w = w / np.linalg.norm(w)
+
+    Nu, Nv, Nw = 5, 5, 9
+    samples = []
+    for i in np.linspace(-long_extent  / 2.0 + 0.5, long_extent  / 2.0 - 0.5, Nu):
+        for j in np.linspace(-short_extent / 2.0 + 0.5, short_extent / 2.0 - 0.5, Nv):
+            for k in np.linspace(-normal_extent / 2.0 + 0.5,
+                                  normal_extent / 2.0 - 0.5, Nw):
+                p = body_centre + i * u + j * v + k * w
+                samples.append(p)
+    samples = np.asarray(samples)
+    inside = points_inside(part_mesh, samples)
+    n_blocked = int(inside.sum())
+    n_total = len(samples)
+    return n_blocked == 0, n_blocked, n_total
+
+
 def check_cradle_openness():
     print("\n[2] Cradle insertion-path openness:")
     all_ok = True
 
+    # ---- coxa_bracket: drop-in from above through the flange slot ------
+    # The bracket's flange has a 56 x 21 mm rectangular through-slot
+    # so the servo (gear pointing UP) can drop straight DOWN into the
+    # well.  Verify that the body's vertical drop-in column above the
+    # final body volume is fully clear of bracket material.
     cb = hp.make_coxa_bracket()
     body_centre_cb = np.array([-hp.SERVO_OUTPUT_X, 0.0,
                                  -hp.WELL_RIM_Z + hp.SERVO_BODY_H / 2.0])
     ok, blocked, total = _cradle_open(cb, body_centre_cb,
-                                       body_long_axis=[1, 0, 0],
-                                       body_short_axis=[0, 1, 0],
-                                       open_dir=[0, 0, 1])
+                                        body_long_axis=[1, 0, 0],
+                                        body_short_axis=[0, 1, 0],
+                                        open_dir=[0, 0, 1])
     all_ok &= _label("coxa_bracket  (servo drops in +Z)",
                        ok, f"{blocked}/{total} samples blocked")
 
     cl = hp.make_coxa_link()
-    arm_t = hp.COXA_ARM_T  # MUST match make_coxa_link()'s arm_t
-    well_z_drop = -(hp.WELL_D / 2.0 + arm_t / 2.0) + hp.COXA_LIFT
     body_centre_cl = np.array([
         hp.COXA_LENGTH - hp.SERVO_OUTPUT_X,
         -(hp.SERVO_BODY_H / 2.0 + hp.SERVO_OUTPUT_H),
-        well_z_drop,
+        hp.COXA_HIP_DROP,
     ])
     ok, blocked, total = _cradle_open(cl, body_centre_cl,
                                        body_long_axis=[1, 0, 0],
@@ -440,16 +473,16 @@ def check_bolt_holes():
     # along the +Z bore.  After R(-pi/2, X): (x, y, z) -> (x, z, -y),
     # so pilot_after_R = (sx*PCD/2, +WELL_RIM_Z*0.5, -sy*PCD_Y/2) and
     # the bore axis is +Y in the link frame.  drop_z_cl is the well's
-    # Z OFFSET in the LIFTED link frame -- must include COXA_LIFT, and
-    # arm_t MUST match make_coxa_link()'s arm_t (6.0 mm; was 4.0 mm
-    # before the spar stiffening).  Without these two corrections the
-    # probes land below the well's actual Z extent and report all
-    # four pilots as missing wall material.
+    # Z OFFSET in the LIFTED link frame -- always use the canonical
+    # ``COXA_HIP_DROP`` constant exported by hexapod_prototype.py so this
+    # check tracks any future tweak to COXA_LIFT / WELL_Z_DROP_EXTRA /
+    # COXA_ARM_T.  Earlier versions duplicated the formula here and
+    # missed WELL_Z_DROP_EXTRA, putting the pilot probes 4 mm above
+    # the actual pilot Z.
     cl = hp.make_coxa_link()
     delta_x_cl = hp.COXA_LENGTH - hp.SERVO_OUTPUT_X
     delta_y_cl = -(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H)
-    arm_t_cl = 6.0
-    drop_z_cl = -(hp.WELL_D / 2.0 + arm_t_cl / 2.0) + hp.COXA_LIFT
+    drop_z_cl = hp.COXA_HIP_DROP
     cl_pilots = []
     for sx in (-1, 1):
         for sy in (-1, 1):
@@ -548,8 +581,9 @@ def _well_to_cradle(p_well, R, t):
 
 
 def _wire_corridor_points():
-    """Return ``(lateral_pts, downward_pts)`` -- the two L-leg corridors
-    expressed as N x 3 arrays of well-local sample points.
+    """Return ``(lateral_pts, downward_pts, boot_pts)`` -- the two L-leg
+    corridors plus the wire-exit boot footprint, expressed as N x 3
+    arrays of well-local sample points.
 
     The corridors are built from ``WIRE_SLOT_*`` constants in
     ``hexapod_prototype`` and are common across all three cradles
@@ -557,6 +591,12 @@ def _wire_corridor_points():
     inside the slot's outer faces -- far enough past the part's outer
     wall that "all corridor points are void" means "the wire has
     reached free space".
+
+    The boot footprint is the rectangular volume the servo's molded
+    +X wire-exit boot will occupy when the body is fully seated; if
+    any part-mesh material intersects this volume the body cannot
+    seat without crushing or bending the boot.  See
+    WIRE_BOOT_* constants in hexapod_prototype.py for the dimensions.
     """
     Y_HALF = hp.WIRE_SLOT_W / 2.0 - _WIRE_PROBE_Y_MARGIN
     H_HALF = _WIRE_PROBE_BUNDLE_T / 2.0
@@ -566,13 +606,13 @@ def _wire_corridor_points():
     bundle_y = np.linspace(-Y_HALF, +Y_HALF, 3)
 
     # ---- LATERAL leg ---------------------------------------------------
-    # x runs from just outside the slot's inboard face (the body-corner
-    # cavity opening) to 0.5 mm shy of the slot's outboard face (just
-    # past the part's outer -X wall by design).
-    lat_x_start = (-hp.SERVO_BODY_W / 2.0
-                   + hp.WIRE_SLOT_X_INBOARD - 0.5)
-    lat_x_end   = (-hp.WELL_W / 2.0
-                   - hp.WIRE_SLOT_X_PAST_WALL + 0.5)
+    # x runs from just inside the slot's inboard face (= cavity-side
+    # opening, just past the body's +X face) to 0.5 mm shy of the
+    # slot's outboard face (just past the part's outer +X wall).
+    lat_x_start = (+hp.SERVO_BODY_W / 2.0
+                   - hp.WIRE_SLOT_X_INBOARD + 0.5)
+    lat_x_end   = (+hp.WELL_W / 2.0
+                   + hp.WIRE_SLOT_X_PAST_WALL - 0.5)
     lat_x = np.linspace(lat_x_start, lat_x_end, 9)
     # Bundle Z span sits at floor level (z = 0 is the cavity floor top
     # / body bottom face); the wire lies flat against the floor on
@@ -589,43 +629,72 @@ def _wire_corridor_points():
                     - hp.WIRE_SLOT_Z_BELOW_FLOOR + 0.5)
     down_z = np.linspace(down_z_start, down_z_end, 9)
     # Bundle X span sits at the body-corner / slot-inboard edge; the
-    # wire drops straight down out of the corner.
-    down_x_centre = -hp.SERVO_BODY_W / 2.0 + hp.WIRE_SLOT_X_INBOARD - 0.5
+    # wire drops straight down out of the +X corner.
+    down_x_centre = +hp.SERVO_BODY_W / 2.0 - hp.WIRE_SLOT_X_INBOARD + 0.5
     down_x = np.linspace(down_x_centre - H_HALF,
                          down_x_centre + H_HALF, 2)
     Xx, Yy, Zz = np.meshgrid(down_x, bundle_y, down_z, indexing="ij")
     downward_pts = np.stack([Xx.ravel(), Yy.ravel(), Zz.ravel()], axis=1)
 
-    return lateral_pts, downward_pts
+    # ---- BOOT footprint ------------------------------------------------
+    # The servo's molded +X wire-exit boot occupies the rectangular
+    # volume just outside the body's +X face, between the body and
+    # the well's +X cavity wall (and slightly into the wall thanks to
+    # the WIRE_CHANNEL).  Sample a tight grid inside that volume and
+    # require every sample to be CLEAR of part material so the boot
+    # can sit there when the body is fully seated.
+    boot_x_min = +hp.SERVO_BODY_W / 2.0 + 0.3
+    boot_x_max = (+hp.SERVO_BODY_W / 2.0
+                  + hp.WIRE_BOOT_PROTRUSION - 0.3)
+    boot_y_half = hp.WIRE_BOOT_W / 2.0 - 0.3
+    boot_z_min = hp.WIRE_BOOT_Z_BASE + 0.3
+    boot_z_max = (hp.WIRE_BOOT_Z_BASE
+                  + hp.WIRE_BOOT_H - 0.3)
+    bx = np.linspace(boot_x_min, boot_x_max, 4)
+    by = np.linspace(-boot_y_half, +boot_y_half, 3)
+    bz = np.linspace(boot_z_min, boot_z_max, 3)
+    Xx, Yy, Zz = np.meshgrid(bx, by, bz, indexing="ij")
+    boot_pts = np.stack([Xx.ravel(), Yy.ravel(), Zz.ravel()], axis=1)
+
+    return lateral_pts, downward_pts, boot_pts
 
 
-def _probe_wire_corridor(part, name, R, t, lateral_well, downward_well):
-    """Sweep the LATERAL and DOWNWARD wire-bundle corridors through one
-    cradle and report PASS iff at least one corridor is fully clear of
-    part material."""
+def _probe_wire_corridor(part, name, R, t,
+                          lateral_well, downward_well, boot_well):
+    """Sweep the LATERAL and DOWNWARD wire-bundle corridors AND the
+    +X wire-exit boot footprint through one cradle and report PASS iff:
+
+      * the boot footprint is FULLY clear of part material (the body
+        cannot seat unless the boot has a pocket to live in), AND
+      * at least ONE of the lateral / downward corridors is fully
+        clear so the harness can exit the cradle.
+    """
 
     def _to_cradle(pts_well):
         if R is None:
             return pts_well + t
-        # pts_well is (N, 3); R @ x_col for each row x.
         return pts_well @ R[:3, :3].T + t
 
     lat_cradle  = _to_cradle(lateral_well)
     down_cradle = _to_cradle(downward_well)
+    boot_cradle = _to_cradle(boot_well)
 
     lat_inside  = points_inside(part, lat_cradle)
     down_inside = points_inside(part, down_cradle)
+    boot_inside = points_inside(part, boot_cradle)
     n_lat_blocked,  n_lat_total  = int(lat_inside.sum()),  len(lat_cradle)
     n_down_blocked, n_down_total = int(down_inside.sum()), len(down_cradle)
+    n_boot_blocked, n_boot_total = int(boot_inside.sum()), len(boot_cradle)
 
     lat_ok  = n_lat_blocked  == 0
     down_ok = n_down_blocked == 0
-    # The wire only needs ONE escape route, so PASS if either leg is
-    # fully clear.  Report both so the user can see at a glance which
-    # routing the slot currently supports.
-    ok = lat_ok or down_ok
+    boot_ok = n_boot_blocked == 0
+    # The boot MUST fit (no choice).  The wire needs ONE escape route.
+    ok = boot_ok and (lat_ok or down_ok)
 
     detail = (
+        f"boot {n_boot_total - n_boot_blocked}/{n_boot_total} clear "
+        f"({'OK' if boot_ok else 'BLOCKED'}); "
         f"lateral {n_lat_total - n_lat_blocked}/{n_lat_total} clear "
         f"({'OK' if lat_ok else 'BLOCKED'}), "
         f"downward {n_down_total - n_down_blocked}/{n_down_total} clear "
@@ -649,14 +718,16 @@ def check_wire_slot():
     the body-passage slot at the top of the bracket without affecting
     this check.
     """
-    print("\n[3b] Wire-exit L-corridor (body's bottom-outboard corner):")
+    print("\n[3b] Wire-exit L-corridor + boot fitment "
+          "(body's bottom +X corner):")
     all_ok = True
 
-    lateral_well, downward_well = _wire_corridor_points()
+    lateral_well, downward_well, boot_well = _wire_corridor_points()
 
     R_link    = rotation_matrix(-np.pi / 2.0, [1, 0, 0])
-    arm_t_cl  = 6.0   # MUST match make_coxa_link()'s arm_t
-    drop_z_cl = -(hp.WELL_D / 2.0 + arm_t_cl / 2.0) + hp.COXA_LIFT
+    # Use the canonical post-lift well origin; do NOT re-derive in case
+    # COXA_LIFT / WELL_Z_DROP_EXTRA / COXA_ARM_T change later.
+    drop_z_cl = hp.COXA_HIP_DROP
 
     cradles = [
         ("coxa_bracket wire-exit L-corridor",
@@ -679,7 +750,8 @@ def check_wire_slot():
 
     for name, part, R, t in cradles:
         all_ok &= _probe_wire_corridor(part, name, R, t,
-                                        lateral_well, downward_well)
+                                        lateral_well, downward_well,
+                                        boot_well)
 
     return all_ok
 
@@ -703,8 +775,7 @@ def _build_standing_leg():
                      + hp.SERVO_OUTPUT_H
                      + PLASTIC_HORN_H
                      + hp.HORN_ADAPTER_T)
-    arm_t = hp.COXA_ARM_T  # MUST match make_coxa_link()'s arm_t
-    hip_drop = -(hp.WELL_D / 2.0 + arm_t / 2.0) + hp.COXA_LIFT
+    hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
 
     p = np.deg2rad(hp.STANCE_FEMUR_DEG)
@@ -780,7 +851,16 @@ def check_self_collision():
         ("coxa_link",    "femur_link"),
         ("femur_link",   "tibia_link"),
     }
-    JOINT_TOLERANCE = 1500.0   # mm^3 (servo gear stack + horn adapter)
+    # Adjacent printed parts at a rotary joint share NO printed
+    # material -- the actual physical interface (plastic horn + horn
+    # adapter + servo gear stack) lives in dedicated horn-stack volume
+    # which is checked separately by check_horn_stack_clearance.  So
+    # we expect ZERO printed-vs-printed overlap here, modulo the
+    # voxel-stair-step artefact along sharp mesh boundaries.  This
+    # used to be 1500 mm^3 ("swallow the gear stack") which masked a
+    # real ~ 800 mm^3 femur-spar-vs-coxa-link-arm clash that the user
+    # reported as 'femur link cant rotate'.
+    JOINT_TOLERANCE = 100.0
     NONADJ_TOLERANCE = 100.0
 
     all_ok = True
@@ -824,8 +904,7 @@ def _place_servo_bodies():
                      + hp.HORN_ADAPTER_T)
     yaw_output_world = edge_mid + yaw_output_z * z_hat
 
-    arm_t = hp.COXA_ARM_T  # MUST match make_coxa_link()'s arm_t
-    hip_drop = -(hp.WELL_D / 2.0 + arm_t / 2.0) + hp.COXA_LIFT
+    hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
 
     p = np.deg2rad(hp.STANCE_FEMUR_DEG)
@@ -920,6 +999,92 @@ def check_servo_clearance():
                 ok,
                 f"overlap = {vol:7.1f} mm^3 (tol {tol:.0f})",
             )
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
+# 5b.  Horn-stack clearance inside output-side mating cylinders
+# ---------------------------------------------------------------------------
+#
+# Why this check exists
+# ---------------------
+# Every rotary joint (yaw, hip-pitch, knee-pitch) connects the servo's
+# spline to the next printed link via this physical stack, laid out
+# along the joint axis (+Y in each driven part's local frame):
+#
+#     servo body  |  output gear  |  plastic horn  |  printed horn adapter
+#     y < 0       |  y in [-6, 0] |  y in [0, +5]  |  y in [+5, +9]
+#                                  ^                                 ^
+#                                spline tip = joint axis            HORN_STACK_H
+#
+# The driven printed part (coxa_link for yaw, femur_link for hip-pitch,
+# tibia_link for knee-pitch) sits ABOVE the horn adapter at femur/tibia
+# y >= HORN_STACK_H = +9, with a 4-bolt clamp pad on HORN_BOLT_PCD =
+# 24 mm.  The part's "neck" -- the material between the pad's mating
+# face (y = HORN_STACK_H) and the spar's near face (y = LINK_THICKNESS/2
+# = +3) -- MUST be free of plastic anywhere inside the horn-adapter
+# cylinder (diameter HORN_ADAPTER_OD = 32 mm) plus a small clearance
+# margin.  Otherwise the plastic horn + printed horn adapter physically
+# have nowhere to live: the printed part will sit proud of the adapter
+# by however many millimetres of plastic overlap, the 4 M3 clamp bolts
+# won't engage their threads, and the joint cannot be assembled.
+#
+# This is exactly the failure mode the user reported as "the femur link
+# doesn't let the end of the servo stick out high enough to connect to
+# the tibia link" -- the tibia knee-pad's neck cylinder was a solid
+# Phi HIP_PAD_R*2 = 34 mm column that punched straight through the
+# Phi 32 mm horn-adapter footprint.
+#
+# Test geometry
+# -------------
+# We build a single horn-stack cylinder of radius
+# (HORN_ADAPTER_OD/2 + HORN_STACK_CLEARANCE) and height HORN_STACK_H,
+# centred on the joint axis at y in [0, HORN_STACK_H], and probe each
+# driven printed part for material inside that volume.  The check is
+# done in each part's LOCAL frame -- both the femur and tibia have
+# their joint axis at the origin with +Y along the horn-stack
+# direction, so a single cylinder template works for both.
+#
+# Tolerance: the budget catches the well-defined "solid column"
+# failure (~ 500-2000 mm^3 of interpenetration) without flaring on
+# the < 50 mm^3 of voxel-stair-step artefact along the pad's bottom
+# rim where the neck-clearance void's CYLINDRICAL boundary meets the
+# pad's CIRCULAR-DISC boundary on slightly mismatched voxel grids.
+
+HORN_STACK_CLEARANCE = 0.5   # mm -- radial clearance around the adapter OD
+HORN_STACK_OVERLAP_TOL = 50.0  # mm^3 -- voxel-grid artefact budget
+
+
+def check_horn_stack_clearance():
+    """Verify each driven printed part has a clear cylindrical void
+    for the plastic horn + printed horn adapter stack at its joint."""
+    R = hp.HORN_ADAPTER_OD / 2.0 + HORN_STACK_CLEARANCE
+    H = hp.HORN_STACK_H
+
+    print(f"\n[5b] Horn-stack clearance (Phi {2*R:.1f} mm x {H:.1f} mm tall, "
+          f"centred on joint axis, y in [0, {H:.1f}]):")
+
+    # The horn-stack cylinder template is along +Y in part-local frame,
+    # which is exactly the joint axis direction in both make_femur_link
+    # and make_tibia_link.  The yaw joint's "driven" side is the
+    # coxa_link, whose horn stack lives BELOW its z=0 origin (outside
+    # the link's printed volume) and so doesn't need this test.
+    # _cyl_along already places the cylinder with one end at y=0 and
+    # the other end at +length, so no extra translation is needed.
+    stack = hp._cyl_along(R, H, axis="y")
+
+    cases = [
+        ("femur_link  (hip-pitch joint)", hp.make_femur_link()),
+        ("tibia_link  (knee-pitch joint)", hp.make_tibia_link()),
+    ]
+
+    all_ok = True
+    for name, mesh in cases:
+        vol = _pair_overlap_volume(mesh, stack, pitch=0.8)
+        ok = vol <= HORN_STACK_OVERLAP_TOL
+        all_ok &= _label(name, ok,
+                         f"part vs horn-stack overlap = {vol:7.1f} mm^3 "
+                         f"(tol {HORN_STACK_OVERLAP_TOL:.0f})")
     return all_ok
 
 
@@ -1418,7 +1583,20 @@ WORKSPACE_VOXEL_PITCH    = 2.5
 #     2.5 mm pitch one voxel = 15.6 mm^3, so 200 mm^3 ~= 13 voxels --
 #     a couple voxels of stair-step rounding error per face, well
 #     below any real mechanical intrusion.
-WORKSPACE_JOINT_TOL      = 1500.0    # mm^3 -- adjacent rotary joint
+WORKSPACE_JOINT_TOL      =  200.0    # mm^3 -- adjacent rotary joint.
+                                      # PRINTED parts at a rotary joint
+                                      # share no printed material; the gear
+                                      # stack + horn adapter live in
+                                      # dedicated horn-stack volume (see
+                                      # check_horn_stack_clearance).  So
+                                      # we require ~zero printed-vs-
+                                      # printed overlap here too, with
+                                      # the same 200 mm^3 voxel-stair-step
+                                      # artefact budget as non-adjacent
+                                      # pairs.  Used to be 1500 mm^3 which
+                                      # masked a ~ 800 mm^3 femur-vs-
+                                      # coxa-link clash across the
+                                      # entire negative-hip-pitch range.
 WORKSPACE_ARTEFACT_TOL   =  200.0    # mm^3 -- non-adjacent pairs
 
 
@@ -1549,8 +1727,7 @@ def _build_workspace_leg(yaw_deg, femur_pitch_deg, knee_pitch_deg,
                      + hp.SERVO_OUTPUT_H
                      + PLASTIC_HORN_H
                      + hp.HORN_ADAPTER_T)
-    arm_t = hp.COXA_ARM_T
-    hip_drop = -(hp.WELL_D / 2.0 + arm_t / 2.0) + hp.COXA_LIFT
+    hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
 
     yaw_rad = np.deg2rad(yaw_deg)
@@ -1862,6 +2039,7 @@ def main():
     results.append(("Wire-exit slot",         check_wire_slot()))
     results.append(("Self-collision",         check_self_collision()))
     results.append(("Servo clearance",        check_servo_clearance()))
+    results.append(("Horn-stack clearance",   check_horn_stack_clearance()))
     results.append(("Flimsy joints",          check_flimsy_joints()))
     results.append(("Thin sheets",            check_thin_sheets()))
     results.append(("Workspace self-collision",

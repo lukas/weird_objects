@@ -1,0 +1,5 @@
+part,copy,x_mm,y_mm,rotate_z_deg
+tibia_link.stl,1,-38.2,-96.5,0
+femur_link.stl,1,68.0,-51.8,90
+coxa_bracket.stl,1,-83.0,-46.0,0
+coxa_link.stl,1,-14.5,-49.0,0

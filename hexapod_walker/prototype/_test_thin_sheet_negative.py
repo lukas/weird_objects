@@ -51,7 +51,7 @@ def make_unreinforced_coxa_link():
                        0.0])
     well.apply_translation(delta)
     wire_slot.apply_translation(delta)
-    well_z_drop = -(hp.WELL_D / 2.0 + arm_t / 2.0)
+    well_z_drop = -(hp.WELL_D / 2.0 + arm_t / 2.0 + hp.WELL_Z_DROP_EXTRA)
     well.apply_translation([0.0, 0.0, well_z_drop])
     wire_slot.apply_translation([0.0, 0.0, well_z_drop])
 
@@ -64,7 +64,7 @@ def make_unreinforced_coxa_link():
     bridge_y_max = arm_minus_y_edge + 0.5
     bridge_y_extent = bridge_y_max - bridge_y_min
     bridge_y_centre = (bridge_y_min + bridge_y_max) / 2.0
-    bridge_z_min = -hp.COXA_BRIDGE_GUSSET_H + 0.5
+    bridge_z_min = well_top_z - 1.5
     bridge_z_max = arm_t
     bridge_z_extent = bridge_z_max - bridge_z_min
     bridge_z_centre = (bridge_z_min + bridge_z_max) / 2.0

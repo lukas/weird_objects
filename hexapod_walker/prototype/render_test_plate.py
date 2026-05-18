@@ -34,7 +34,7 @@ def main() -> None:
                    i_size=bed_w, j_size=bed_w)
     plotter.add_mesh(bed, color=(0.30, 0.32, 0.36), opacity=1.0)
     plotter.add_mesh(pv.wrap(mesh), color=(0.78, 0.85, 0.92),
-                     smooth_shading=True, specular=0.2)
+                     smooth_shading=False, specular=0.2)
 
     span = max(extents[0], extents[1], extents[2])
     dist = max(span * 1.4, 220.0)

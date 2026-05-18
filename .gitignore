@@ -11,6 +11,7 @@ venv/
 
 # Generated 3D / build artifacts (rebuild via `./run.sh <project>/<script>.py`)
 *.stl
+*.step
 *.ply
 *.dxf
 **/panels.json

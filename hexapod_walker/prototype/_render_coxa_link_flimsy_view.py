@@ -38,7 +38,7 @@ def main():
     plotter.add_mesh(
         pv_mesh,
         color=(0.0, 0.55, 0.55),
-        smooth_shading=True,
+        smooth_shading=False,
         specular=0.25,
         specular_power=20.0,
     )

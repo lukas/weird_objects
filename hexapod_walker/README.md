@@ -21,7 +21,7 @@ STLs that the Blender render script materials separately.
 > See the [tabletop prototype](#tabletop-prototype) section below for a
 > ~ 60 cm, ~ 1.3 kg sibling design that runs on $13 hobby servos and
 > 3D-printed PLA — same architecture, same gait, ~ $200 BOM, walks in
-> a weekend. Full guide: [`PROTOTYPE.md`](PROTOTYPE.md).
+> a weekend. Full guide: [`prototype/PROTOTYPE.md`](prototype/PROTOTYPE.md).
 
 ## Quick start
 
@@ -533,19 +533,19 @@ prototype port unchanged to the full-size walker.
 * Build time: ~ 4 hours
 
 ```bash
-./run.sh hexapod_walker/hexapod_prototype.py        # 11 prototype STLs
-./run.sh hexapod_walker/build_prototype_assembly.py # full-assembly STLs
-./hexapod_walker/render_prototype.sh \              # Cycles render
+./run.sh hexapod_walker/prototype/build_all.py      # all prototype STL bundles
+./hexapod_walker/prototype/render_prototype.sh \    # Cycles render
     --device METAL --samples 256 \
-    --out hexapod_walker/renders/prototype.png
+    --out renders/prototype.png
 ```
 
-This writes prototype-specific STL sets to `stl_prototype/` and
-`prototype_assembly/`, plus a render to `renders/prototype.png`.
+This writes prototype-specific STL sets under `prototype/`, including
+`stl_prototype/`, `prototype_assembly/`, `xometry_upload/`, and the
+`bambu_h2d_trays/` Bambu H2D Carbon build plates.
 
-![Cycles render of the prototype hexapod walker](renders/prototype.png)
+![Cycles render of the prototype hexapod walker](prototype/renders/prototype.png)
 
-See [`PROTOTYPE.md`](PROTOTYPE.md) for the full BOM (specific servo
+See [`prototype/PROTOTYPE.md`](prototype/PROTOTYPE.md) for the full BOM (specific servo
 recommendations, power-distribution wiring, fastener counts), print
 plan, assembly sequence, starter Arduino sketch, and tuning notes.
 

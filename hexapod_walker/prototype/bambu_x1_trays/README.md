@@ -6,7 +6,8 @@ Generated for a **256 x 256 x 256 mm** build volume.
 
 - `plate_01_chassis_top.stl` (PLA/PETG rigid): 1 x `chassis_top.stl`
 - `plate_02_chassis_bottom.stl` (PLA/PETG rigid): 1 x `chassis_bottom.stl`
-- `plate_03_rigid_tibia_links.stl` (PLA/PETG rigid): 6 x `tibia_link.stl`
+- `plate_03a_rigid_tibia_links_1of2.stl` (PLA/PETG rigid): 3 x `tibia_link.stl`
+- `plate_03b_rigid_tibia_links_2of2.stl` (PLA/PETG rigid): 3 x `tibia_link.stl`
 - `plate_04a_rigid_femur_links_1of2.stl` (PLA/PETG rigid): 3 x `femur_link.stl`
 - `plate_04b_rigid_femur_links_2of2.stl` (PLA/PETG rigid): 3 x `femur_link.stl`
 - `plate_05_rigid_battery_electronics.stl` (PLA/PETG rigid): 1 x `battery_holder.stl`, 1 x `electronics_tray.stl`

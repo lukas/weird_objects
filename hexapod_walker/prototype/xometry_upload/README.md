@@ -152,6 +152,8 @@ Cursor's built-in STL viewer) and confirm:
 *   No part has a dimension greater than **220 mm** in any axis (so
     each part fits a hobbyist 220 × 220 mm printer if you decide to
     self-print).
-*   The bolt-hole pattern on each link's hub face is a **24 mm PCD,
-    4 × Φ 3.2 mm** (M3 clearance) — match this against the
-    `servo_horn_adapter.stl` to confirm interface compatibility.
+*   The bolt-hole pattern on each link's hub face is a **20.8 mm PCD,
+    4 × Φ 3.2 mm** (M3 clearance), with the 4 holes at
+    **0 / 90 / 180 / 270°** so they line up with the X-shaped plastic
+    servo horn's arms — match this against the `servo_horn_adapter.stl`
+    to confirm interface compatibility.

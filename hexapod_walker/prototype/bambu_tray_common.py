@@ -296,8 +296,11 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
         # X-on-plate; six in a row at the 5 mm part_clearance on an X1
         # is 6*46 + 5*5 = 301 mm and overflows the 256 mm bed.  Auto-
         # split the femur row into two plates of three when a single
-        # six-femur row no longer fits the bed.  Tibias still fit six
-        # in a row on a 256 mm bed (6*34 + 5*5 = 229 mm).
+        # six-femur row no longer fits the bed.  Tibias historically
+        # fit six in a row on the 256 mm X1 bed (6*34 + 5*5 = 229 mm),
+        # but with HIP_PAD_R bumped to 19.5 mm the tibia knee neck is
+        # 39 mm tall (6*39 + 5*5 = 259 mm > 256), so apply the same
+        # auto-split logic to the tibia row.
         femur_fits_six = _row_fits_x(cfg, femur, 6, rotate_z_deg=90)
         femur_plates: list[PlatePlan]
         if femur_fits_six:
@@ -325,13 +328,36 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
                 ),
             ]
 
-        if cfg.split_hardware_plate:
-            plans.extend([
+        tibia_fits_six = _row_fits_x(cfg, tibia, 6, rotate_z_deg=90)
+        tibia_plates: list[PlatePlan]
+        if tibia_fits_six:
+            tibia_plates = [
                 PlatePlan(
                     "plate_03_rigid_tibia_links",
                     "PLA/PETG rigid",
-                    tuple(_grid_row(cfg, tibia, 6, y_mm=0.0, rotate_z_deg=90)),
+                    tuple(_grid_row(cfg, tibia, 6, y_mm=0.0,
+                                     rotate_z_deg=90)),
                 ),
+            ]
+        else:
+            tibia_plates = [
+                PlatePlan(
+                    "plate_03a_rigid_tibia_links_1of2",
+                    "PLA/PETG rigid",
+                    tuple(_grid_row(cfg, tibia, 3, y_mm=0.0,
+                                     rotate_z_deg=90, start_index=1)),
+                ),
+                PlatePlan(
+                    "plate_03b_rigid_tibia_links_2of2",
+                    "PLA/PETG rigid",
+                    tuple(_grid_row(cfg, tibia, 3, y_mm=0.0,
+                                     rotate_z_deg=90, start_index=4)),
+                ),
+            ]
+
+        if cfg.split_hardware_plate:
+            plans.extend([
+                *tibia_plates,
                 *femur_plates,
                 PlatePlan(
                     "plate_05_rigid_battery_electronics",
@@ -359,11 +385,7 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
             ])
         else:
             plans.extend([
-                PlatePlan(
-                    "plate_03_rigid_tibia_links",
-                    "PLA/PETG rigid",
-                    tuple(_grid_row(cfg, tibia, 6, y_mm=0.0, rotate_z_deg=90)),
-                ),
+                *tibia_plates,
                 *femur_plates,
                 PlatePlan(
                     "plate_05_rigid_hardware",
