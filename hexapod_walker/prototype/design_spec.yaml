@@ -1,0 +1,339 @@
+# Hexapod prototype — human-readable design contract.
+#
+# This file is the parametric SPEC for the printed parts in `stl_prototype/`.
+# It is intentionally a SUPERSET of the constants block at the top of
+# `hexapod_prototype.py`: it adds local-frame documentation, expected STL
+# bounds, named holes / channels, and keep-out volumes that the validator
+# (scripts/validate_geometry.py) cross-checks against the actual STLs.
+#
+# RULES OF USE
+# ------------
+# 1. Constants in `hexapod_prototype.py` are the SOURCE OF TRUTH for any
+#    numeric value that the parametric CAD reads.  Values in this file
+#    that have a `# = hexapod_prototype.<NAME>` comment are MIRRORS of
+#    that constant.  If the constant changes, update the mirror here too
+#    (the validator warns you if it drifts).
+# 2. `bounds_mm` are taken from the STL's bounding box on disk.  The
+#    validator allows a +/- BOUNDS_TOL_MM (= 2 mm) tolerance to absorb
+#    voxelisation / chamfer drift.
+# 3. `holes` checks are pragmatic: the validator samples 3 points along
+#    each hole's axis at +/- 1 mm of `position_mm` and requires every
+#    sample to lie OUTSIDE the STL (centreline open).  This is a
+#    regression detector, NOT a metrology pass; the deep bolt-hole-
+#    engagement check still lives in `_verify_prototype.check_bolt_holes`.
+# 4. `wire_channels` are just named references; the actual corridor
+#    sweep is delegated to `_verify_prototype.check_wire_slot`, which
+#    already accounts for both the lateral and downward L-corridors
+#    and the wire-exit boot footprint.
+# 5. `keep_out_volumes` are referenced by NAME and resolved against
+#    `keepout_volumes.KEEP_OUT_VOLUMES` (a code-generated registry whose
+#    geometry tracks the constants in `hexapod_prototype.py`).  The
+#    validator samples the interior of each named volume and requires
+#    every sample to be OUTSIDE the printed part (= no part material
+#    intrudes into the keep-out).
+# 6. Anything written as `TODO` is a value the user still needs to
+#    measure or look up.  The validator surfaces these in cad_report.md
+#    so they are easy to spot.
+
+units: mm
+
+# ---------------------------------------------------------------------
+# Coordinate systems
+# ---------------------------------------------------------------------
+# One entry per printable part.  Copy/paste-faithful from the docstrings
+# of the matching `make_*` function in hexapod_prototype.py.
+coordinate_systems:
+  chassis_top:
+    origin: "Chassis centre, mid-plane of the 4 mm hex plate."
+    x_axis: "Hex apothem direction toward leg 0 (chassis +X)."
+    y_axis: "In-plane, perpendicular to +X (right-hand-rule with +Z up)."
+    z_axis: "Up (out of the build plate)."
+  chassis_bottom:
+    origin: "Chassis centre, mid-plane of the 4 mm hex plate."
+    x_axis: "Same as chassis_top — apothem toward leg 0."
+    y_axis: "In-plane perpendicular."
+    z_axis: "Up."
+  coxa_bracket:
+    origin: "Yaw axis (centre of yaw-servo output spline) in the chassis-plate's TOP plane."
+    x_axis: "Outboard (away from chassis centre)."
+    y_axis: "Tangential along the chassis edge."
+    z_axis: "Yaw axis (output points UP)."
+  coxa_link:
+    origin: "Bolt-circle centre of the hub (= yaw axis, sitting on top of the horn adapter)."
+    x_axis: "Arm direction (outboard at neutral pose)."
+    y_axis: "Hip-pitch joint axis (= hip-pitch servo's output-shaft direction)."
+    z_axis: "Yaw axis (UP, away from the yaw servo)."
+  femur_link:
+    origin: "Hip-pitch joint axis (centre of hip-pitch servo's horn-adapter top face)."
+    x_axis: "Spar long-axis; hip end at x=0, knee end at x=FEMUR_LENGTH."
+    y_axis: "Pitch joint axis (parallel to the hip-pitch axis; +Y points away from body)."
+    z_axis: "Perpendicular to spar, in the leg's plane of motion."
+  tibia_link:
+    origin: "Knee joint axis (centre of knee servo's output spline)."
+    x_axis: "Spar long-axis; foot socket at x=TIBIA_LENGTH."
+    y_axis: "Knee joint axis (parallel to the hip-pitch axis)."
+    z_axis: "Perpendicular to spar, in the leg's plane of motion."
+  foot_pad:
+    origin: "Ground-plane centre of the TPU disk."
+    x_axis: "Foot spar direction (matches the tibia's +X after assembly)."
+    y_axis: "Hinge-pin axis (matches the tibia's +Y / knee axis)."
+    z_axis: "Up; tongue rises in +Z."
+  servo_horn_adapter:
+    origin: "Bottom face of the disc (mating to the plastic horn)."
+    x_axis: "Aligned with the plastic horn's first arm (HORN_BOLT_ANGLES_RAD[0] = 0)."
+    y_axis: "Aligned with HORN_BOLT_ANGLES_RAD[1] = pi/2."
+    z_axis: "Servo output axis."
+  battery_holder:
+    origin: "Centre of the bottom face of the open-top tray."
+    x_axis: "Long axis of the LiPo (length direction)."
+    y_axis: "Short axis (depth direction)."
+    z_axis: "Up (tray opens +Z)."
+  electronics_tray:
+    origin: "Centre of the bottom face of the flat plate."
+    x_axis: "Long axis (Arduino + PCA9685 row)."
+    y_axis: "Short axis."
+    z_axis: "Up (boards mount on +Z face)."
+
+# ---------------------------------------------------------------------
+# Printability rules
+# ---------------------------------------------------------------------
+# Mirrored from _verify_prototype.py.  These drive Hildebrand-thickness
+# and thin-sheet checks.
+printability:
+  min_wall_thickness_mm: 3.0       # = _verify_prototype.MIN_PRINT_T
+  min_feature_mm: 1.2              # voxel pitch in flimsy-joint check
+  max_unsupported_overhang_mm: TODO    # FDM slicer profile -- depends on filament + cooling
+  recommended_brim_mm: TODO            # depends on bed adhesion / part footprint
+
+# ---------------------------------------------------------------------
+# Print orientation hints
+# ---------------------------------------------------------------------
+# Mirrored from prepare_xometry_upload.py `_reorient_*` functions.
+print_orientations:
+  chassis_top:        {rotation_deg: [0, 0, 0],   note: "Flat plate, already correct."}
+  chassis_bottom:     {rotation_deg: [0, 0, 0],   note: "Flat plate, already correct."}
+  battery_holder:     {rotation_deg: [0, 0, 0],   note: "Open top is +Z; drop to bed."}
+  electronics_tray:   {rotation_deg: [0, 0, 0],   note: "Flat plate, already correct."}
+  coxa_bracket:       {rotation_deg: [0, 0, 0],   note: "Cradle opens +Z; drop to bed."}
+  coxa_link:          {rotation_deg: [90, 0, 0],  note: "Rotate +90 about X so hip-pitch cradle opens +Z."}
+  femur_link:         {rotation_deg: [-90, 0, 0], note: "Rotate -90 about X so spar +Y face is on the bed; minimises supports."}
+  tibia_link:         {rotation_deg: [90, 0, 0],  note: "Rotate +90 about X to lay spar's broad face on the bed."}
+  foot_pad:           {rotation_deg: [0, 0, 0],   note: "TPU disk on bed, tongue up."}
+  servo_horn_adapter: {rotation_deg: [0, 0, 0],   note: "Recess on -Z side rests on bed."}
+
+# ---------------------------------------------------------------------
+# Parts registry
+# ---------------------------------------------------------------------
+bounds_tol_mm: 2.0
+
+# Holes are checked PRAGMATICALLY: centreline open at +/- 1 mm of
+# position_mm along the declared axis.  The deep bolt-hole engagement
+# check still lives in `_verify_prototype.check_bolt_holes` and is run
+# as part of `_verify_prototype.main()`.
+#
+# Keep-out volumes reference NAMED meshes from `keepout_volumes.py`.
+# `kind` is always implicitly "void" (the part must not intrude).
+parts:
+
+  chassis_bottom:
+    description: "Structural 200 mm flat-to-flat hex plate; takes 6 x (4 M3 bolts + body cutout) per leg."
+    qty: 1
+    bounds_mm: [200.0, 213.0, 4.0]      # = CHASSIS_FLAT_TO_FLAT, 2*circumradius, CHASSIS_PLATE_T
+    holes:
+      - name: centre_mount_NE
+        diameter_mm: 3.4                # = BRACKET_BOLT_HOLE
+        position_mm: [24.75, 24.75, 0.0]
+        axis: z
+        note: "Battery / electronics tray + arm-baseplate M3 standoffs (4 holes on a 35-mm-radius square)."
+    wire_channels: []
+    keep_out_volumes: []
+
+  chassis_top:
+    description: "Smaller 140 mm hex deck for battery + electronics + optional arm; legs sweep clear of it."
+    qty: 1
+    bounds_mm: [140.0, 161.7, 4.0]      # = CHASSIS_TOP_FLAT_TO_FLAT, 2*circumradius, CHASSIS_PLATE_T
+    holes:
+      - name: centre_mount_NE
+        diameter_mm: 3.4
+        position_mm: [24.75, 24.75, 0.0]
+        axis: z
+    wire_channels: []
+    keep_out_volumes: []
+
+  battery_holder:
+    description: "Open-top tray for one 3S 2200 mAh LiPo (110 x 38 x 28 mm)."
+    qty: 1
+    bounds_mm: [110.0, 60.0, 28.0]      # outer envelope including foot tabs
+    holes: []                            # foot M3 holes are tangential to the outer envelope; skip
+    wire_channels: []
+    keep_out_volumes: []
+
+  electronics_tray:
+    description: "Flat 3 mm plate; Arduino Nano + 2x PCA9685 mount via M3 standoffs."
+    qty: 1
+    bounds_mm: [100.0, 70.0, 3.0]       # = ELEC_TRAY_W, ELEC_TRAY_D, ELEC_TRAY_T
+    holes: []                            # standoff holes verified by `_verify_prototype` battery-holder check
+    wire_channels: []
+    keep_out_volumes: []
+
+  coxa_bracket:
+    description: "Bolts to chassis edge, holds the yaw servo with output pointing up."
+    qty: 6
+    bounds_mm: [66.0, 52.0, 45.25]      # = flange_x_extent, BRACKET_FLANGE_Y, BRACKET_FLANGE_T + WELL_H
+    holes:
+      - name: chassis_bolt_outboard_NE
+        diameter_mm: 3.4
+        position_mm: [-8.0, 20.0, 7.5]   # = (-BRACKET_FLANGE_INSET, +BRACKET_BOLT_PCD_Y/2, BRACKET_FLANGE_T/2)
+        axis: z
+      - name: chassis_bolt_outboard_SE
+        diameter_mm: 3.4
+        position_mm: [-8.0, -20.0, 7.5]
+        axis: z
+      - name: chassis_bolt_inboard_NW
+        diameter_mm: 3.4
+        position_mm: [-24.0, 20.0, 7.5]  # = (-BRACKET_FLANGE_INSET - BRACKET_BOLT_PCD_X, ...)
+        axis: z
+      - name: chassis_bolt_inboard_SW
+        diameter_mm: 3.4
+        position_mm: [-24.0, -20.0, 7.5]
+        axis: z
+    wire_channels:
+      - name: yaw_wire_exit_L
+        note: "L-corridor at the well's +X bottom-outboard corner; delegated to _verify_prototype.check_wire_slot."
+    keep_out_volumes:
+      - name: yaw_horn_sweep
+        note: "Horn + adapter sweep above the flange; from keepout_volumes.KEEP_OUT_VOLUMES."
+      - name: yaw_servo_body
+        note: "Yaw-servo body cavity that hangs below the flange."
+
+  coxa_link:
+    description: "Yaw-driven flat arm; hub bolts to yaw horn-adapter, hip-pitch servo well at outboard end."
+    qty: 6
+    bounds_mm: [61.0, 64.0, 46.0]
+    # The hub sits ON TOP of a COXA_LIFT (= 32 mm) pedestal, so the
+    # yaw-horn bolt holes live at z in [0, COXA_LIFT + hub_t] (drilled
+    # all the way through the pedestal + hub stack).  We probe at the
+    # hub mid-thickness (z = COXA_LIFT + hub_t / 2 = 36 mm).
+    holes:
+      - name: yaw_horn_bolt_+X
+        diameter_mm: 3.2                # = HORN_BOLT_OD
+        position_mm: [10.4, 0.0, 36.0]
+        axis: z
+      - name: yaw_horn_bolt_+Y
+        diameter_mm: 3.2
+        position_mm: [0.0, 10.4, 36.0]
+        axis: z
+      - name: yaw_horn_bolt_-X
+        diameter_mm: 3.2
+        position_mm: [-10.4, 0.0, 36.0]
+        axis: z
+      - name: yaw_horn_bolt_-Y
+        diameter_mm: 3.2
+        position_mm: [0.0, -10.4, 36.0]
+        axis: z
+      - name: yaw_horn_centre
+        diameter_mm: 3.4                # = HORN_CENTRE_OD
+        position_mm: [0.0, 0.0, 36.0]
+        axis: z
+    wire_channels:
+      - name: hip_pitch_wire_exit_L
+        note: "L-corridor at the hip-pitch well's +X bottom-outboard corner."
+    keep_out_volumes:
+      - name: hip_pad_sweep
+      - name: hip_pitch_servo_body
+      - name: link_hub_horn_sweep
+
+  femur_link:
+    description: "Thigh; hip pad bolts onto hip-pitch horn adapter at x=0, knee well at x=FEMUR_LENGTH."
+    qty: 6
+    bounds_mm: [128.5, 62.0, 46.0]
+    # Hip pad spans y in [+9, +15] (the femur clamp ring).  Bolt holes
+    # are drilled along Y through the pad's mid-Y (y = 12).
+    holes:
+      - name: hip_pad_bolt_+X
+        diameter_mm: 3.2                # = SERVO_TAB_HOLE (M3 clearance)
+        position_mm: [10.4, 12.0, 0.0]
+        axis: y
+      - name: hip_pad_bolt_+Z
+        diameter_mm: 3.2
+        position_mm: [0.0, 12.0, 10.4]
+        axis: y
+      - name: hip_pad_bolt_-X
+        diameter_mm: 3.2
+        position_mm: [-10.4, 12.0, 0.0]
+        axis: y
+      - name: hip_pad_bolt_-Z
+        diameter_mm: 3.2
+        position_mm: [0.0, 12.0, -10.4]
+        axis: y
+    wire_channels:
+      - name: knee_wire_exit_L
+        note: "L-corridor at the knee well's +X bottom-outboard corner."
+    keep_out_volumes:
+      - name: femur_horn_stack_void
+      - name: knee_servo_body
+
+  tibia_link:
+    description: "Shin; knee pad bolts onto knee horn-adapter at x=0, foot clevis at x=TIBIA_LENGTH."
+    qty: 6
+    bounds_mm: [155.5, 21.0, 39.0]
+    holes:
+      - name: knee_pad_bolt_+X
+        diameter_mm: 3.2
+        position_mm: [10.4, 12.0, 0.0]
+        axis: y
+      - name: knee_pad_bolt_+Z
+        diameter_mm: 3.2
+        position_mm: [0.0, 12.0, 10.4]
+        axis: y
+      - name: knee_pad_bolt_-X
+        diameter_mm: 3.2
+        position_mm: [-10.4, 12.0, 0.0]
+        axis: y
+      - name: knee_pad_bolt_-Z
+        diameter_mm: 3.2
+        position_mm: [0.0, 12.0, -10.4]
+        axis: y
+    wire_channels: []                    # the tibia has no servo, hence no wire-exit
+    keep_out_volumes:
+      - name: tibia_horn_stack_void
+
+  foot_pad:
+    description: "Compliant TPU foot with hinge tongue captured by the tibia clevis."
+    qty: 6
+    bounds_mm: [28.0, 28.0, 18.0]
+    holes:
+      - name: hinge_pin
+        diameter_mm: 3.4
+        position_mm: [0.0, 0.0, 14.0]    # = FOOT_HINGE_FOOT_Z
+        axis: y
+    wire_channels: []
+    keep_out_volumes: []
+
+  servo_horn_adapter:
+    description: "Round 4 x M3 disc that clamps onto a 25T plastic horn (M3 centre)."
+    qty: 18
+    bounds_mm: [32.0, 32.0, 4.0]
+    holes:
+      - name: centre
+        diameter_mm: 3.4
+        position_mm: [0.0, 0.0, 2.0]
+        axis: z
+      - name: bolt_0
+        diameter_mm: 3.2
+        position_mm: [10.4, 0.0, 2.0]
+        axis: z
+      - name: bolt_90
+        diameter_mm: 3.2
+        position_mm: [0.0, 10.4, 2.0]
+        axis: z
+      - name: bolt_180
+        diameter_mm: 3.2
+        position_mm: [-10.4, 0.0, 2.0]
+        axis: z
+      - name: bolt_270
+        diameter_mm: 3.2
+        position_mm: [0.0, -10.4, 2.0]
+        axis: z
+    wire_channels: []
+    keep_out_volumes: []
