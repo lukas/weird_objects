@@ -543,6 +543,21 @@ This writes prototype-specific STL sets under `prototype/`, including
 `stl_prototype/`, `prototype_assembly/`, `xometry_upload/`, and the
 `bambu_h2d_trays/` Bambu H2D Carbon build plates.
 
+**Validating CAD changes before printing.** The prototype ships with a
+parametric validate → render → report pipeline so you can catch
+geometry regressions without opening a slicer:
+
+```bash
+make -C hexapod_walker/prototype check-cad        # full validate + render + report
+make -C hexapod_walker/prototype check-cad-fast   # inner-loop variant (skips workspace sweep)
+```
+
+See [`prototype/CAD_WORKFLOW.md`](prototype/CAD_WORKFLOW.md) for the
+pipeline overview, [`prototype/design_spec.yaml`](prototype/design_spec.yaml)
+for the human-readable geometry contract, and
+[`prototype/CAD_AGENT_INSTRUCTIONS.md`](prototype/CAD_AGENT_INSTRUCTIONS.md)
+for the rules an LLM coding agent should follow when editing CAD.
+
 ![Cycles render of the prototype hexapod walker](prototype/renders/prototype.png)
 
 See [`prototype/PROTOTYPE.md`](prototype/PROTOTYPE.md) for the full BOM (specific servo

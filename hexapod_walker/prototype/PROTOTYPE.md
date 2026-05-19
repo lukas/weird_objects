@@ -61,6 +61,26 @@ and RL servo torque limits are all tuned around this DS3225-class case.
 
 ---
 
+## How to validate / regenerate
+
+The STLs under `stl_prototype/` are derived artifacts — the source of
+truth is `hexapod_prototype.py` (geometry) plus `design_spec.yaml`
+(human-readable contract). After any parametric edit, run the
+validate → render → report pipeline from the repo root:
+
+```bash
+make -C hexapod_walker/prototype check-cad        # full validate + render + report
+make -C hexapod_walker/prototype check-cad-fast   # inner-loop variant
+```
+
+Both targets rebuild `stl_prototype/`, run the validators, render
+4-view PNGs per part under `artifacts/views/`, and write
+`artifacts/cad_report.md`. See [`CAD_WORKFLOW.md`](CAD_WORKFLOW.md) for
+the full pipeline and [`CAD_AGENT_INSTRUCTIONS.md`](CAD_AGENT_INSTRUCTIONS.md)
+for the rules LLM coding agents should follow when editing CAD.
+
+---
+
 ## 3. STL files in `stl_prototype/`
 
 Run the one-command prototype builder to generate every print/export bundle:
