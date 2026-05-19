@@ -56,6 +56,21 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "servo_body":          (0.180, 0.180, 0.200),
     # Servo horn (plastic, ships with the servo) - muted mid gray
     "servo_horn":          (0.500, 0.500, 0.520),
+    # ---- Fasteners (May 2026 -- see fastener_registry.py) -------------
+    # M3 cap screws: dark steel (black-oxide finish).
+    "M3x14 SHCS":          (0.30, 0.32, 0.36),
+    "M3x8 SHCS":           (0.30, 0.32, 0.36),
+    "M3x32 SHCS":          (0.30, 0.32, 0.36),
+    # M3 pan-head hinge pin: same dark steel family but a hint lighter
+    # so the foot hinge bolt visually distinguishes from the cap screws.
+    "M3x16 pan-head":      (0.36, 0.38, 0.40),
+    # M2.5 spline screws: bluer steel so they stand out from the M3
+    # family (and from the matte nuts).
+    "M2.5x8 spline screw": (0.28, 0.32, 0.40),
+    # M3 nyloc nuts: matte mid-gray.  The nylon insert ring is
+    # conveyed by the mesh geometry itself (slightly inset cylinder
+    # extruded above the steel hex body), not by per-vertex colors.
+    "M3 nyloc nut":        (0.55, 0.55, 0.55),
 }
 
 
@@ -87,10 +102,31 @@ _JOINT_ROLE = {
 }
 
 
+_FASTENER_PART_TYPES = frozenset({
+    "M3x14 SHCS",
+    "M3x8 SHCS",
+    "M3x32 SHCS",
+    "M3x16 pan-head",
+    "M2.5x8 spline screw",
+    "M3 nyloc nut",
+})
+
+
+def is_fastener(part_type: str) -> bool:
+    """True if this part type is a fastener (SHCS, nyloc nut, etc.).
+
+    Used by the build inspector's "fasteners" master toggle to flip
+    visibility on every fastener actor in one pass.
+    """
+    return part_type in _FASTENER_PART_TYPES
+
+
 def instance_role(
     part_type: str,
     leg_index: int | None,
     joint: str | None,
+    *,
+    fastener_role: str | None = None,
 ) -> str:
     """Human-readable role label for one *instance* of a part type.
 
@@ -105,6 +141,16 @@ def instance_role(
     ``leg_index`` and ``joint`` are both optional so chassis-level
     parts can just pass ``None`` for both.
     """
+    # Fasteners carry their own role string (built in the registry); it
+    # is far more informative than a leg-index-stamped joint label.
+    if part_type in _FASTENER_PART_TYPES:
+        if fastener_role:
+            return fastener_role
+        # Fall back to a generic per-leg / per-joint label so the role
+        # never goes empty if a caller forgot to forward the role.
+        if joint:
+            return f"{_JOINT_ROLE.get(joint, joint)} fastener"
+        return "fastener"
     del leg_index  # the role string does not embed the leg index
     if part_type in _CHASSIS_LEVEL:
         return "chassis"
@@ -134,6 +180,8 @@ def instance_label(
     part_type: str,
     leg_index: int | None,
     joint: str | None = None,
+    *,
+    fastener_role: str | None = None,
 ) -> str:
     """Compose the full floating-label string used by the build inspector.
 
@@ -141,7 +189,9 @@ def instance_label(
         ``<part_type> L<idx>  <role>``     for per-leg parts
         ``<part_type>  <role>``            for chassis-level parts (no L<idx>)
     """
-    role = instance_role(part_type, leg_index, joint)
+    role = instance_role(part_type, leg_index, joint, fastener_role=fastener_role)
+    if part_type in _FASTENER_PART_TYPES:
+        return f"{part_type}  {role}".rstrip()
     if is_chassis_level(part_type) or leg_index is None:
         return f"{part_type}  {role}".rstrip()
     return f"{part_type} L{leg_index}  {role}".rstrip()

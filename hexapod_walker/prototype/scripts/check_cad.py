@@ -210,6 +210,22 @@ def _write_report(validation_report, render_results,
             lines.append("")
     lines.append("")
 
+    # ----- Auto-derived fastener table (mirrors PROTOTYPE_BOM.md
+    # "Fasteners" section; kept in sync via scripts/render_fastener_bom.py).
+    try:
+        import render_fastener_bom  # type: ignore  # noqa: WPS433
+        lines.append("## Fasteners (auto-derived)")
+        lines.append("")
+        lines.append(render_fastener_bom.render_table())
+        lines.append("")
+    except Exception as exc:  # noqa: BLE001
+        # Reporting the fastener BOM is a nice-to-have; never let it
+        # break the report write.
+        lines.append("## Fasteners")
+        lines.append("")
+        lines.append(f"_render_fastener_bom unavailable: {exc!r}_")
+        lines.append("")
+
     # ----- Helpful tail
     lines.append("## What to do next")
     lines.append("")

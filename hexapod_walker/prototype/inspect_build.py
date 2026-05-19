@@ -68,9 +68,11 @@ if THIS_DIR not in sys.path:
 
 import hexapod_prototype as HP  # noqa: E402
 import part_palette as palette  # noqa: E402
+import fastener_registry  # noqa: E402
 
 
 STL_DIR = HP.STL_DIR
+FASTENERS_DIR = os.path.join(THIS_DIR, "fasteners")
 ARTIFACTS_DIR = os.path.join(THIS_DIR, "artifacts", "views")
 
 
@@ -136,10 +138,17 @@ def _rot_z(theta: float) -> np.ndarray:
 class Instance:
     """One placed copy of one STL inside the assembled hexapod."""
     part_type: str
-    stl_name: str       # filename inside stl_prototype/
+    stl_name: str       # filename inside stl_prototype/ (or fasteners/ if
+                        # ``stl_dir`` is set).
     leg_index: int | None
     joint: str | None   # 'yaw' / 'hip' / 'knee' for joint hardware, else None
     transform: np.ndarray  # 4x4 world transform (pre-chassis-lift)
+    # Fasteners use ``fasteners/`` instead of ``stl_prototype/``, and
+    # carry their own role string built by the registry (e.g.
+    # ``"coxa_link L0 hip cradle -X top SHCS"``).  Empty / None for
+    # printed + servo parts so nothing changes for them.
+    stl_dir: str | None = None
+    fastener_role: str | None = None
 
 
 def _build_assembly_instances() -> list[Instance]:
@@ -300,7 +309,61 @@ def _build_assembly_instances() -> list[Instance]:
             "foot_pad", "foot_pad.stl", i, None, T_foot,
         ))
 
+    instances.extend(_build_fastener_instances())
     return instances
+
+
+def _axis_to_transform(axis: np.ndarray, origin: np.ndarray) -> np.ndarray:
+    """Build a 4x4 that maps mesh-local +Z to ``axis`` and puts the
+    mesh origin at ``origin``.  Used to place parametric fastener
+    meshes (whose +Z is along the screw shaft) into the world.
+    """
+    z_new = np.asarray(axis, dtype=float)
+    n = float(np.linalg.norm(z_new))
+    if n < 1e-12:
+        z_new = np.array([0.0, 0.0, 1.0])
+    else:
+        z_new = z_new / n
+    # Pick the world axis least parallel to z_new as a seed for the new X.
+    seed = (
+        np.array([1.0, 0.0, 0.0])
+        if abs(z_new[0]) < 0.9
+        else np.array([0.0, 1.0, 0.0])
+    )
+    x_new = seed - z_new * float(np.dot(seed, z_new))
+    x_new /= float(np.linalg.norm(x_new))
+    y_new = np.cross(z_new, x_new)
+    T = np.eye(4)
+    T[:3, 0] = x_new
+    T[:3, 1] = y_new
+    T[:3, 2] = z_new
+    T[:3, 3] = np.asarray(origin, dtype=float)
+    return T
+
+
+def _build_fastener_instances() -> list[Instance]:
+    """Convert every entry in ``fastener_registry.build_all_fastener_instances()``
+    into an inspector ``Instance``.
+
+    The parametric fastener meshes in ``fasteners/`` use the convention:
+        origin = head mating face, +Z = body axis (into material).
+    So the world transform that places mesh-local +Z along
+    ``fi.axis_world`` and the mesh origin at ``fi.head_world_xyz``
+    correctly drops the head onto the printed part.
+    """
+    out: list[Instance] = []
+    for fi in fastener_registry.build_all_fastener_instances():
+        T = _axis_to_transform(fi.axis_world, fi.head_world_xyz)
+        out.append(Instance(
+            part_type=fi.spec,
+            stl_name=fi.cache_stl,
+            leg_index=fi.leg_index,
+            joint=fi.joint,
+            transform=T,
+            stl_dir=FASTENERS_DIR,
+            fastener_role=fi.role,
+        ))
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -318,26 +381,30 @@ def _missing_stl_message(missing: list[str]) -> str:
     )
 
 
-def _load_stl_cache(stl_names: set[str]) -> dict[str, pv.PolyData]:
-    """Load each unique STL once.  Returns part-local PolyData meshes."""
-    cache: dict[str, pv.PolyData] = {}
+def _load_stl_cache(stl_keys: set[tuple[str, str]]) -> dict[tuple[str, str], pv.PolyData]:
+    """Load each unique STL once.  Returns a (stl_dir, stl_name) -> PolyData
+    cache, so fasteners (loaded out of ``fasteners/``) and printed parts
+    (loaded out of ``stl_prototype/``) share the same lookup path.
+    """
+    cache: dict[tuple[str, str], pv.PolyData] = {}
     missing: list[str] = []
-    for name in sorted(stl_names):
-        path = os.path.join(STL_DIR, name)
+    for stl_dir, name in sorted(stl_keys):
+        path = os.path.join(stl_dir, name)
         if not os.path.isfile(path):
-            missing.append(name)
+            missing.append(os.path.join(os.path.basename(stl_dir.rstrip("/")), name))
             continue
-        # trimesh handles the STL parse robustly; convert to pyvista
-        # PolyData by feeding the verts + faces in pv's flat triangle
-        # connectivity layout.
         tm = trimesh.load_mesh(path, process=False)
         if isinstance(tm, trimesh.Scene):
             tm = trimesh.util.concatenate(list(tm.geometry.values()))
-        cache[name] = _trimesh_to_pv(tm)
+        cache[(stl_dir, name)] = _trimesh_to_pv(tm)
     if missing:
         print(_missing_stl_message(missing), file=sys.stderr)
         sys.exit(2)
     return cache
+
+
+def _instance_stl_key(inst: Instance) -> tuple[str, str]:
+    return (inst.stl_dir or STL_DIR, inst.stl_name)
 
 
 def _trimesh_to_pv(tm: trimesh.Trimesh) -> pv.PolyData:
@@ -382,7 +449,13 @@ def _compute_chassis_lift(
     for inst in instances:
         if inst.leg_index != 0:
             continue
-        mesh = _apply_transform(stl_cache[inst.stl_name], inst.transform)
+        # Skip fasteners when computing chassis lift -- their cache
+        # mesh has the head at (0,0,0) and the shank at (0,0,+L), so
+        # they never extend the floor; counting them would lift the
+        # foot from the ground.
+        if palette.is_fastener(inst.part_type):
+            continue
+        mesh = _apply_transform(stl_cache[_instance_stl_key(inst)], inst.transform)
         zlow = float(mesh.bounds[4])  # bounds = (xmin,xmax,ymin,ymax,zmin,zmax)
         if zlow < z_min:
             z_min = zlow
@@ -437,28 +510,36 @@ def _add_instances_to_plotter(
 
     lift = _trans(0, 0, chassis_lift)
 
+    fastener_counter = 0
     for inst in instances:
         world_T = lift @ inst.transform
-        mesh = _apply_transform(stl_cache[inst.stl_name], world_T)
+        mesh = _apply_transform(stl_cache[_instance_stl_key(inst)], world_T)
         r, g, b = palette.PART_COLORS.get(
             inst.part_type, (0.7, 0.7, 0.7),
         )
-        # Servo proxies stay muted to keep the printed parts visually
-        # dominant.  Slightly thinner edges + lower opacity.
         is_servo = inst.part_type in ("servo_body", "servo_horn")
+        is_fastener = palette.is_fastener(inst.part_type)
+        # Fasteners are small + numerous; turn off edge rendering so
+        # the inspector stays responsive at full count (~300 actors
+        # added by fastener_registry).
+        if is_fastener:
+            fastener_counter += 1
+            actor_name = f"fastener_{inst.part_type}_{fastener_counter}"
+        else:
+            actor_name = f"{inst.part_type}_L{inst.leg_index}_{inst.joint}"
         actor = plotter.add_mesh(
             mesh,
             color=(r, g, b),
-            show_edges=True,
+            show_edges=False if is_fastener else True,
             edge_color=(0.10, 0.10, 0.10),
             line_width=0.5 if is_servo else 0.7,
             opacity=0.85 if is_servo else 1.0,
-            ambient=0.18,
+            ambient=0.22 if is_fastener else 0.18,
             diffuse=0.85,
-            specular=0.15,
-            specular_power=18.0,
+            specular=0.35 if is_fastener else 0.15,
+            specular_power=24.0 if is_fastener else 18.0,
             smooth_shading=True,
-            name=f"{inst.part_type}_L{inst.leg_index}_{inst.joint}",
+            name=actor_name,
         )
         cen = np.asarray(mesh.center, dtype=np.float64)
         # For long, narrow parts like the femur and tibia, anchoring
@@ -495,8 +576,8 @@ def run(
     window_size: tuple[int, int] = (1600, 1000),
 ) -> None:
     instances = _build_assembly_instances()
-    stl_names = {inst.stl_name for inst in instances}
-    stl_cache = _load_stl_cache(stl_names)
+    stl_keys = {_instance_stl_key(inst) for inst in instances}
+    stl_cache = _load_stl_cache(stl_keys)
     chassis_lift = _compute_chassis_lift(instances, stl_cache)
 
     headless = screenshot is not None
@@ -548,8 +629,12 @@ def _decorate_plotter(
 
     legend_entries = [
         (pt, palette.PART_COLORS[pt]) for pt in present_types
-        if pt in palette.PART_COLORS
+        if pt in palette.PART_COLORS and not palette.is_fastener(pt)
     ]
+    if any(palette.is_fastener(pt) for pt in present_types):
+        legend_entries.append(
+            ("fasteners (M3/M2.5)", palette.PART_COLORS["M3x14 SHCS"]),
+        )
     if legend_entries:
         plotter.add_legend(
             labels=legend_entries,
@@ -574,6 +659,7 @@ def _decorate_plotter(
             p.instance.part_type,
             p.instance.leg_index,
             p.instance.joint,
+            fastener_role=p.instance.fastener_role,
         )
         for p in placed
     ]
@@ -667,8 +753,11 @@ def _decorate_plotter(
 
     # checkbox column
     actors_by_type: dict[str, list[pv.Actor]] = {}
+    fastener_actors: list[pv.Actor] = []
     for p in placed:
         actors_by_type.setdefault(p.instance.part_type, []).append(p.actor)
+        if palette.is_fastener(p.instance.part_type):
+            fastener_actors.append(p.actor)
 
     def _make_toggle(part_type: str):
         def _cb(value: bool) -> None:
@@ -680,8 +769,46 @@ def _decorate_plotter(
     cb_size = 18
     cb_x = 12
     cb_y0 = 12
-    for idx, part_type in enumerate(present_types):
+
+    # Filter the per-part-type column to NON-fastener types -- the
+    # fasteners share a single master toggle (below) so we don't end
+    # up with six near-identical SHCS rows competing for column space.
+    non_fastener_types = [pt for pt in present_types if not palette.is_fastener(pt)]
+    has_fasteners = bool(fastener_actors)
+
+    column_rows = list(non_fastener_types)
+    if has_fasteners:
+        # Master "fasteners" toggle sits at the TOP of the column (idx
+        # 0) so the user always finds it in the same spot.  Render it
+        # black to make it visually distinct from the per-printed-part
+        # color swatches below.
+        column_rows = ["__fasteners__"] + column_rows
+
+    for idx, row_key in enumerate(column_rows):
         pos_y = cb_y0 + idx * (cb_size + 6)
+        if row_key == "__fasteners__":
+            def _toggle_fasteners(value: bool) -> None:
+                for actor in fastener_actors:
+                    actor.SetVisibility(bool(value))
+                plotter.render()
+            plotter.add_checkbox_button_widget(
+                _toggle_fasteners,
+                value=True,
+                position=(cb_x, pos_y),
+                size=cb_size,
+                border_size=1,
+                color_on=(0.10, 0.10, 0.10),       # black, per spec
+                color_off=(0.85, 0.85, 0.85),
+                background_color="white",
+            )
+            plotter.add_text(
+                "fasteners",
+                position=(cb_x + cb_size + 4, pos_y + 2),
+                font_size=8,
+                color="black",
+            )
+            continue
+        part_type = row_key
         r, g, b = palette.PART_COLORS.get(part_type, (0.5, 0.5, 0.5))
         plotter.add_checkbox_button_widget(
             _make_toggle(part_type),
@@ -786,6 +913,7 @@ def _decorate_plotter(
             p.instance.part_type,
             p.instance.leg_index,
             p.instance.joint,
+            fastener_role=p.instance.fastener_role,
         )
 
     def _on_mouse_move(_obj, _evt) -> None:

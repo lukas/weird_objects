@@ -18,7 +18,7 @@ else
 MJ_PY  := $(REPO_ROOT)/.venv/bin/python
 endif
 
-.PHONY: check-cad check-cad-fast validate render build verify-prototype clean-artifacts view view-static view-build help
+.PHONY: check-cad check-cad-fast validate render build verify-prototype clean-artifacts view view-static view-build regen-fasteners bom-fasteners help
 
 help:
 	@echo "Hexapod prototype CAD targets:"
@@ -31,6 +31,8 @@ help:
 	@echo "  view              Open the interactive MuJoCo viewer with the prototype walking in tripod gait."
 	@echo "  view-static       Same viewer, but freeze the legs in the standing-pose keyframe (--no-gait)."
 	@echo "  view-build        Open a PyVista build inspector with colored, labeled parts and an exploded-view slider."
+	@echo "  regen-fasteners   Regenerate fasteners/<P/N>.cache.stl from real STEPs or parametric fallback."
+	@echo "  bom-fasteners     Inject the auto-derived fastener BOM into PROTOTYPE_BOM.md and SHOPPING_LIST.md."
 	@echo "  clean-artifacts   Delete artifacts/ (renders + cad_report.md)."
 
 check-cad:
@@ -74,6 +76,27 @@ view-static:
 #   make view-build ARGS="--screenshot /tmp/build.png --explode 0.8"
 view-build:
 	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(REPO_ROOT)/.venv/bin/python hexapod_walker/prototype/inspect_build.py $(ARGS)
+
+# ---------------------------------------------------------------------------
+# Fastener pipeline (May 2026 -- see fastener_registry.py + fasteners/README.md)
+# ---------------------------------------------------------------------------
+
+# Regenerate fasteners/<P/N>.cache.stl for every unique part number in
+# fastener_registry.build_all_fastener_instances().  Source priority:
+# real McMaster STEP -> user STL -> parametric fallback.  Both
+# inspect_build.py and _verify_prototype.check_screwdriver_access
+# consume the cache STLs.  Run this whenever you drop a real STEP
+# into fasteners/.
+regen-fasteners:
+	$(RUN) hexapod_walker/prototype/make_fastener_meshes.py
+
+# Auto-derive the fastener BOM table from fastener_registry and inject
+# it (between the BEGIN FASTENERS / END FASTENERS markers) into the
+# user-facing BOM docs.  Run after editing fastener_registry.py.
+bom-fasteners:
+	$(RUN) hexapod_walker/prototype/scripts/render_fastener_bom.py \
+		--inject hexapod_walker/prototype/PROTOTYPE_BOM.md \
+		--inject hexapod_walker/prototype/SHOPPING_LIST.md
 
 clean-artifacts:
 	rm -rf $(CURDIR)/artifacts

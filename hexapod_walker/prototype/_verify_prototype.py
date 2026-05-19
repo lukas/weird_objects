@@ -313,6 +313,67 @@ THIN_SHEET_PARTS = (
 # ---------------------------------------------------------------------------
 # Robust inside-test (majority vote over 6 axis-aligned rays)
 # ---------------------------------------------------------------------------
+#
+# ``points_inside`` has TWO interchangeable implementations:
+#
+#   * ``_points_inside_rays``  -- the historical 6-axis ray-vote.  Robust
+#     against the boolean-union false positives that broke trimesh's
+#     ``mesh.contains`` on early prototype geometry, but slow because
+#     each call shoots 6 N-point ray batches and pays the rtree spatial
+#     index cost on every batch.  This is what the original
+#     ``points_inside`` was.
+#
+#   * ``_points_inside_contains`` -- a direct ``mesh.contains(pts)``
+#     call.  Watertight meshes only -- if the input mesh is not water-
+#     tight, trimesh's containment heuristic can disagree with the ray
+#     vote on points near holes / non-manifold edges.  All cached
+#     meshes are validated by ``check_watertight`` so this should be
+#     equivalent to the ray vote in practice.  Much faster than 6
+#     ray-cast batches per call (in profile the ray vote is >= 80% of
+#     verifier wall time; mesh.contains is on the order of one ray
+#     batch instead of six, plus avoids the rtree-per-direction work).
+#
+# A dispatcher (``points_inside``) picks between them via a module-
+# level ``_inside_mode`` set from the CLI ``--inside-mode`` flag.  In
+# the special ``both`` mode the dispatcher RUNS BOTH implementations,
+# records every disagreement to ``_inside_mismatches``, prints a
+# ``[MISMATCH]`` line to stderr, and STILL returns the ray-vote answer
+# (so the rest of the check suite behaves byte-identically to a pure
+# ``rays`` run while we collect equivalence evidence).  ``main()``
+# exits with code 2 when any mismatch is recorded, so CI catches the
+# discrepancy.
+
+INSIDE_MODE_RAYS = "rays"
+INSIDE_MODE_CONTAINS = "contains"
+INSIDE_MODE_BOTH = "both"
+INSIDE_MODES = (INSIDE_MODE_RAYS, INSIDE_MODE_CONTAINS, INSIDE_MODE_BOTH)
+
+# Module-level default; ``main()`` overrides this from --inside-mode and
+# the process-pool worker initializer propagates it to spawn-mode
+# workers (see ``_worker_initializer``).
+_inside_mode = INSIDE_MODE_RAYS
+
+# Collected mismatch records when running in ``both`` mode.  In a
+# spawn-mode worker, only mismatches accumulated by THIS worker's
+# checks live here; the parent process aggregates them via
+# ``_check_runner`` / ``_ws_pose_failures_kwargs`` return values.
+_inside_mismatches: list = []
+
+# Thread-local context naming the currently-running check.  Set by
+# ``_check_runner`` (worker process) / ``_run_checks_serial`` (parent)
+# / ``_ws_pose_failures_kwargs`` (worker process) so mismatch records
+# can be attributed back to a specific check / pose without threading
+# the name through every ``points_inside`` call site.
+_inside_check_ctx = threading.local()
+
+
+def _set_inside_check_context(name: str) -> None:
+    _inside_check_ctx.name = name
+
+
+def _get_inside_check_context() -> str:
+    return getattr(_inside_check_ctx, "name", None) or "<unknown check>"
+
 
 _RAY_DIRS = np.array([
     [+1.0, 0.0, 0.0],
@@ -324,7 +385,7 @@ _RAY_DIRS = np.array([
 ])
 
 
-def points_inside(mesh, pts):
+def _points_inside_rays(mesh, pts):
     """Return a boolean array indicating whether each point lies inside
     ``mesh``.  Uses 6 axis-aligned rays per point and majority vote on
     intersection-count parity (odd = inside)."""
@@ -350,6 +411,125 @@ def points_inside(mesh, pts):
         votes += (counts % 2 == 1).astype(int)
     # Majority of 6 rays says odd-parity -> inside.
     return votes >= 4
+
+
+def _points_inside_contains(mesh, pts):
+    """Return ``mesh.contains(pts)`` as a numpy bool array.  Requires
+    a watertight mesh -- callers must have validated this via
+    ``check_watertight``."""
+    pts = np.asarray(pts, dtype=float)
+    if pts.ndim == 1:
+        pts = pts[None, :]
+    if len(pts) == 0:
+        return np.zeros(0, dtype=bool)
+    result = mesh.contains(pts)
+    return np.asarray(result, dtype=bool)
+
+
+def _mesh_identity(mesh) -> dict:
+    """Return a small, picklable fingerprint of ``mesh`` for use in a
+    mismatch record.  ``id(mesh)`` is useless across processes / when
+    the caller is a transformed copy of a cached mesh, so we record
+    volume + face/vertex counts + extents instead -- enough to
+    distinguish the cached parts from each other in the post-hoc
+    summary."""
+    try:
+        bounds = mesh.bounds
+        extents = tuple(float(x) for x in (bounds[1] - bounds[0]))
+    except Exception:
+        extents = None
+    try:
+        vol = float(mesh.volume)
+    except Exception:
+        vol = None
+    try:
+        nv = int(len(mesh.vertices))
+        nf = int(len(mesh.faces))
+    except Exception:
+        nv, nf = None, None
+    try:
+        watertight = bool(mesh.is_watertight)
+    except Exception:
+        watertight = None
+    return {
+        "volume":     vol,
+        "n_vertices": nv,
+        "n_faces":    nf,
+        "extents":    extents,
+        "watertight": watertight,
+    }
+
+
+def _record_inside_mismatch(mesh, pts, rays_result, contains_result) -> None:
+    """Record a single ``points_inside`` disagreement between the ray
+    vote and ``mesh.contains``.  Caller MUST have established that the
+    two boolean arrays differ.  Caps coords/indices at the first 20
+    per call to keep the record bounded.  Also prints a single
+    ``[MISMATCH]`` line to stderr for live visibility."""
+    diff = rays_result != contains_result
+    n_diff = int(diff.sum())
+    n_total = int(diff.size)
+    if n_diff == 0:
+        return
+    idx_all = np.flatnonzero(diff)
+    capped = idx_all[:20]
+    coords_capped = pts[capped]
+    rays_capped = rays_result[capped].astype(bool).tolist()
+    contains_capped = contains_result[capped].astype(bool).tolist()
+    mesh_id = _mesh_identity(mesh)
+    record = {
+        "check":         _get_inside_check_context(),
+        "mesh":          mesh_id,
+        "n_points":      n_total,
+        "n_mismatch":    n_diff,
+        "mismatch_idx":  [int(i) for i in capped.tolist()],
+        "coords":        [tuple(float(c) for c in row)
+                            for row in coords_capped],
+        "rays_says":     rays_capped,
+        "contains_says": contains_capped,
+    }
+    _inside_mismatches.append(record)
+    # Keep the stderr line compact -- the full record is summarised at
+    # main() exit.  Use stderr so it doesn't interleave with the
+    # check's captured stdout (which the parent prints in declaration
+    # order).
+    vol_str = (f"vol={mesh_id['volume']:.1f}"
+                if mesh_id["volume"] is not None
+                else "vol=?")
+    print(f"[MISMATCH] check={record['check']!r} mesh({vol_str} "
+          f"nf={mesh_id['n_faces']} wt={mesh_id['watertight']}) "
+          f"n_pts={n_total} n_diff={n_diff} "
+          f"first_idx={record['mismatch_idx'][:5]}",
+          file=sys.stderr, flush=True)
+
+
+def points_inside(mesh, pts):
+    """Dispatcher: return a boolean array indicating whether each point
+    lies inside ``mesh``, picking between the historical 6-ray vote
+    and ``mesh.contains`` according to the module-level
+    ``_inside_mode``.  In ``both`` mode runs BOTH implementations and
+    records any disagreement -- see the module-top docstring."""
+    mode = _inside_mode
+    if mode == INSIDE_MODE_RAYS:
+        return _points_inside_rays(mesh, pts)
+    if mode == INSIDE_MODE_CONTAINS:
+        return _points_inside_contains(mesh, pts)
+    if mode == INSIDE_MODE_BOTH:
+        pts_arr = np.asarray(pts, dtype=float)
+        if pts_arr.ndim == 1:
+            pts_arr = pts_arr[None, :]
+        rays_result = _points_inside_rays(mesh, pts_arr)
+        contains_result = _points_inside_contains(mesh, pts_arr)
+        if rays_result.shape == contains_result.shape:
+            if np.any(rays_result != contains_result):
+                _record_inside_mismatch(mesh, pts_arr,
+                                          rays_result, contains_result)
+        # Return the ray-vote answer so the rest of the suite is byte-
+        # identical to a pure ``rays`` run while we collect mismatch
+        # evidence.  The goal of ``both`` is observation, not a
+        # correctness-via-majority-vote across implementations.
+        return rays_result
+    raise ValueError(f"unknown inside mode: {mode!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -2540,10 +2720,23 @@ def _workspace_pose_failures(pose, leg_az):
 
 def _ws_pose_failures_kwargs(args):
     """Picklable star-helper for ProcessPoolExecutor.map(): unpacks
-    ``(pose, leg_az)`` into the keyword call.  Returns the failures
-    list -- callers carry the pose order separately so we don't need
-    completion-order keys."""
-    return _workspace_pose_failures(args[0], args[1])
+    ``(pose, leg_az)`` into the keyword call.  Returns
+    ``(failures, mismatches)`` -- callers carry the pose order
+    separately so we don't need completion-order keys.  The
+    ``mismatches`` half captures points_inside disagreements
+    accumulated under --inside-mode=both so the parent can aggregate
+    them in the final summary."""
+    global _inside_mismatches
+    pose, leg_az = args
+    _set_inside_check_context(
+        f"Workspace self-collision pose={pose}")
+    _inside_mismatches = []
+    try:
+        failures = _workspace_pose_failures(pose, leg_az)
+    finally:
+        my_mismatches = list(_inside_mismatches)
+        _inside_mismatches = []
+    return (failures, my_mismatches)
 
 
 def check_workspace_self_collision(*, n_yaw=None, n_femur=None, n_knee=None,
@@ -2607,6 +2800,9 @@ def check_workspace_self_collision(*, n_yaw=None, n_femur=None, n_knee=None,
     pose_args = [(pose, leg_az) for pose in pose_iter]
 
     if pool is None:
+        # Parent-process / --serial path: mismatch records accumulate
+        # directly in the parent's ``_inside_mismatches`` global.
+        _set_inside_check_context(WORKSPACE_CHECK_NAME)
         results = [_workspace_pose_failures(pose, leg_az)
                     for pose in pose_iter]
     else:
@@ -2615,8 +2811,13 @@ def check_workspace_self_collision(*, n_yaw=None, n_femur=None, n_knee=None,
         # straggler poses (extreme-angle leg builds can take 2x longer
         # than nominal) don't pin the slowest worker.  ~6 keeps the
         # worker queue well-fed without ballooning per-task overhead.
-        results = list(pool.map(_ws_pose_failures_kwargs, pose_args,
-                                  chunksize=6))
+        raw_results = list(pool.map(_ws_pose_failures_kwargs, pose_args,
+                                      chunksize=6))
+        results = []
+        for pose_failures, pose_mismatches in raw_results:
+            results.append(pose_failures)
+            if pose_mismatches:
+                _inside_mismatches.extend(pose_mismatches)
 
     failures = []
     standing_failed = False
@@ -3100,6 +3301,274 @@ def check_cradle_nut_traps():
 
 
 # ---------------------------------------------------------------------------
+# Screwdriver-access clearance check
+# ---------------------------------------------------------------------------
+#
+# Probe a 12 mm-diameter, 80 mm-long cylinder pointing OUTWARD from
+# each fastener's head along the driver-approach direction
+# (= -axis_world).  Fail if any printed part intrudes into that
+# cylinder by more than DRIVER_INTRUSION_TOLERANCE_MM3 mm^3.
+#
+# The 12 mm diameter is sized for a hex key socket + the assembler's
+# fingers gripping the short leg, and equally accommodates a small
+# Phillips screwdriver shaft.  80 mm is the typical exposed shaft of
+# a 4 mm or 3 mm metric hex key (about 90-100 mm total length minus
+# the socketed end), with a margin for the user's knuckles.
+#
+# Mirrors the OTHER_TOLERANCE = 30 mm^3 used by check_servo_clearance:
+# at the verifier's 1.5 mm voxel pitch a single voxel = 3.4 mm^3, so
+# 30 mm^3 ~= 9 voxels = the noise floor for the axis-aligned-ray
+# parity vote on a curved mesh boundary.  Anything below it is voxel
+# stair-step artefact, not real material in the cone.
+
+DRIVER_CLEARANCE_DIA_MM      = 12.0
+DRIVER_CLEARANCE_LEN_MM      = 80.0
+DRIVER_INTRUSION_TOLERANCE_MM3 = 30.0
+# Probe slightly forward of the head so the cylinder NEVER overlaps
+# the head's own seating face (which would otherwise also overlap the
+# part the head bolts to, and falsely report it as an intrusion).
+DRIVER_HEAD_STANDOFF_MM      = 0.5
+
+# Names of every printed part that COULD possibly intrude into a
+# driver-access cone.  Chassis-level + leg-0 only -- the 6-fold
+# symmetric chassis layout means the leg 0 fastener vs leg 0 parts
+# intrusion pattern is identical to all 6 legs.
+_DRIVER_PRINTED_PART_NAMES = (
+    "chassis_bottom", "chassis_top", "battery_holder", "electronics_tray",
+    "coxa_bracket", "coxa_link", "femur_link", "tibia_link", "foot_pad",
+)
+
+
+def _build_world_leg0_printed_parts() -> dict:
+    """Return ``{part_name: world-frame trimesh}`` for every printed
+    part that could obstruct a driver-access cone on leg 0.  Mirrors
+    ``_build_standing_leg`` for the legged parts, and uses the same
+    chassis-fixed transforms for the central parts (chassis plates,
+    battery, electronics).
+    """
+    apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
+    a = 0.5 * np.pi / 3
+    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
+    z_hat = np.array([0.0, 0.0, 1.0])
+
+    yaw_output_z = ((hp.SERVO_BODY_H - hp.WELL_RIM_Z)
+                     + hp.SERVO_OUTPUT_H
+                     + hp.HORN_STACK_H)
+    hip_drop = hp.COXA_HIP_DROP
+    hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
+
+    p = np.deg2rad(hp.STANCE_FEMUR_DEG)
+    pt = np.deg2rad(hp.STANCE_FEMUR_DEG + hp.STANCE_TIBIA_DEG)
+    Ry_p = rotation_matrix(p, [0, 1, 0])[:3, :3]
+    knee_joint_local = (hip_joint_local
+                        + Ry_p @ np.array([hp.FEMUR_LENGTH, 0, 0]))
+
+    parts: dict = {}
+
+    # Chassis-level parts (transforms match inspect_build's frame).
+    plate_t = hp.CHASSIS_PLATE_T
+    gap = hp.CHASSIS_GAP
+    cb_bottom = _load_mesh("chassis_bottom")
+    parts["chassis_bottom"] = cb_bottom
+
+    cb_top = _load_mesh("chassis_top")
+    cb_top.apply_translation([0.0, 0.0, gap + plate_t])
+    parts["chassis_top"] = cb_top
+
+    bat = _load_mesh("battery_holder")
+    bat.apply_translation([-25.0, 0.0, plate_t])
+    parts["battery_holder"] = bat
+
+    et = _load_mesh("electronics_tray")
+    et.apply_translation([35.0, 0.0, plate_t + 1.0])
+    parts["electronics_tray"] = et
+
+    # Leg-0 printed parts -- mirrors ``_build_standing_leg`` so the
+    # legged-part transforms exactly match the registry's leg_index=0
+    # fastener positions.
+    cbrk = _load_mesh("coxa_bracket")
+    cbrk.apply_transform(rotation_matrix(a, [0, 0, 1]))
+    cbrk.apply_translation(edge_mid)
+    parts["coxa_bracket"] = cbrk
+
+    cl = _load_mesh("coxa_link")
+    cl.apply_transform(rotation_matrix(a, [0, 0, 1]))
+    cl.apply_translation(edge_mid + yaw_output_z * z_hat)
+    parts["coxa_link"] = cl
+
+    fl = _load_mesh("femur_link")
+    fl.apply_transform(rotation_matrix(p, [0, 1, 0]))
+    fl.apply_translation(hip_joint_local)
+    fl.apply_transform(rotation_matrix(a, [0, 0, 1]))
+    fl.apply_translation(edge_mid + yaw_output_z * z_hat)
+    parts["femur_link"] = fl
+
+    tl = _load_mesh("tibia_link")
+    tl.apply_transform(rotation_matrix(pt, [0, 1, 0]))
+    tl.apply_translation(knee_joint_local)
+    tl.apply_transform(rotation_matrix(a, [0, 0, 1]))
+    tl.apply_translation(edge_mid + yaw_output_z * z_hat)
+    parts["tibia_link"] = tl
+
+    # Foot pad world location (mirrors inspect_build._build_assembly_instances).
+    Ry_pt = rotation_matrix(pt, [0, 1, 0])[:3, :3]
+    hinge_local = (knee_joint_local
+                   + Ry_pt @ np.array([hp.TIBIA_LENGTH, 0.0,
+                                       hp.FOOT_HINGE_TIBIA_Z]))
+    R_a = rotation_matrix(a, [0, 0, 1])[:3, :3]
+    hinge_world = R_a @ hinge_local + edge_mid + yaw_output_z * z_hat
+    foot = _load_mesh("foot_pad")
+    foot.apply_transform(rotation_matrix(a, [0, 0, 1]))
+    foot.apply_translation([
+        hinge_world[0], hinge_world[1],
+        hinge_world[2] - hp.FOOT_HINGE_FOOT_Z,
+    ])
+    parts["foot_pad"] = foot
+
+    return parts
+
+
+def _make_driver_probe(head_xyz: np.ndarray,
+                       axis_world: np.ndarray) -> trimesh.Trimesh:
+    """Build the 12 mm dia x 80 mm long clearance probe oriented along
+    the DRIVER APPROACH direction (= -axis_world, since axis_world
+    points FROM head INTO material and the driver approaches FROM
+    OUTSIDE the head).
+    """
+    cyl = trimesh.creation.cylinder(
+        radius=DRIVER_CLEARANCE_DIA_MM / 2.0,
+        height=DRIVER_CLEARANCE_LEN_MM,
+        sections=24,
+    )
+    # cylinder() is centred at the origin along +Z.  Shift it so the
+    # BASE sits at z=0 (the head plane) and the tip at z=+LEN.  We
+    # then rotate so +Z lands on the driver direction (-axis_world)
+    # and translate to head_xyz.
+    cyl.apply_translation([0.0, 0.0, DRIVER_CLEARANCE_LEN_MM / 2.0
+                                       + DRIVER_HEAD_STANDOFF_MM])
+    driver_dir = -np.asarray(axis_world, dtype=float)
+    n = float(np.linalg.norm(driver_dir))
+    if n < 1e-12:
+        driver_dir = np.array([0.0, 0.0, 1.0])
+    else:
+        driver_dir = driver_dir / n
+    # Rotation: map mesh +Z onto driver_dir.  Build via cross product.
+    z_hat = np.array([0.0, 0.0, 1.0])
+    cos_t = float(np.clip(np.dot(z_hat, driver_dir), -1.0, 1.0))
+    if cos_t > 1.0 - 1e-9:
+        R = np.eye(4)
+    elif cos_t < -1.0 + 1e-9:
+        # 180-degree flip about any perpendicular axis -- use +X.
+        R = rotation_matrix(np.pi, [1.0, 0.0, 0.0])
+    else:
+        axis = np.cross(z_hat, driver_dir)
+        axis = axis / float(np.linalg.norm(axis))
+        angle = float(np.arccos(cos_t))
+        R = rotation_matrix(angle, axis)
+    cyl.apply_transform(R)
+    cyl.apply_translation(np.asarray(head_xyz, dtype=float))
+    return cyl
+
+
+def check_screwdriver_access():
+    """For each fastener instance, probe a 12 mm dia x 80 mm long
+    cylindrical clearance cone above the head along the driver-
+    approach axis.  Fail if any PRINTED part intrudes by more than
+    DRIVER_INTRUSION_TOLERANCE_MM3.
+
+    Fasteners with an explicit ``skip_screwdriver_reason`` -- the
+    servo's M2.5 spline center screw (captive under the X-horn after
+    assembly) and the cradle captive nyloc nuts (held in the Design C
+    hex pocket; the bolt is driven from the head side) -- are SKIPped
+    with the reason printed alongside.
+    """
+    print("\n[14] Screwdriver-access clearance "
+          f"(Phi {DRIVER_CLEARANCE_DIA_MM:.0f} mm x "
+          f"{DRIVER_CLEARANCE_LEN_MM:.0f} mm cone, "
+          f"tol {DRIVER_INTRUSION_TOLERANCE_MM3:.0f} mm^3):")
+
+    # Import here so the verifier never tries to load the registry at
+    # module import time (avoids circular import surprises if the
+    # registry grows a dependency on this module).
+    import fastener_registry  # noqa: WPS433
+
+    fasteners = fastener_registry.build_all_fastener_instances()
+    # 6-fold symmetric chassis layout -> testing leg 0 suffices for
+    # every per-leg fastener.  We DO need every chassis-level entry
+    # (leg_index None) and leg-0 entries.
+    sample = [fi for fi in fasteners
+              if fi.leg_index is None or fi.leg_index == 0]
+
+    print(f"  Probing {len(sample)} fastener(s) on leg 0 + chassis-level "
+          f"(of {len(fasteners)} total; the other 5 legs are 6-fold "
+          f"rotationally symmetric).")
+
+    world_parts = _build_world_leg0_printed_parts()
+
+    # Pre-compute every part's AABB so we can skip the volumetric
+    # voxel test for the 95 %+ of (part, probe) pairs that don't even
+    # overlap loosely.
+    part_aabbs = {name: m.bounds for name, m in world_parts.items()}
+
+    all_ok = True
+    n_skip = 0
+    n_check = 0
+    n_fail = 0
+    grouped: dict[str, list[str]] = {}
+
+    for fi in sample:
+        if fi.skip_screwdriver_reason is not None:
+            n_skip += 1
+            grouped.setdefault("SKIP", []).append(
+                f"{fi.role}: {fi.skip_screwdriver_reason}"
+            )
+            continue
+        n_check += 1
+        probe = _make_driver_probe(fi.head_world_xyz, fi.axis_world)
+        p_lo, p_hi = probe.bounds
+        total_intrusion = 0.0
+        per_part: list[str] = []
+        for part_name, part_mesh in world_parts.items():
+            a_lo, a_hi = part_aabbs[part_name]
+            if np.any(p_hi <= a_lo) or np.any(a_hi <= p_lo):
+                continue
+            vol = _pair_overlap_volume(probe, part_mesh, pitch=1.5)
+            if vol > 0.0:
+                total_intrusion += vol
+                per_part.append(f"{part_name}={vol:.1f}")
+        ok = total_intrusion <= DRIVER_INTRUSION_TOLERANCE_MM3
+        if not ok:
+            n_fail += 1
+            detail = (
+                f"intrusion {total_intrusion:6.1f} mm^3 "
+                f"(tol {DRIVER_INTRUSION_TOLERANCE_MM3:.0f})  "
+                f"[{', '.join(per_part)}]"
+            )
+            _label(fi.role, False, detail)
+            all_ok = False
+
+    # Always report the SKIP block (even when every probed fastener
+    # passes) so a casual reader can see the explicit allow-list
+    # without rerunning with --serial.
+    if "SKIP" in grouped:
+        print(f"  ---- SKIPped ({n_skip}) ----")
+        for line in grouped["SKIP"][:8]:
+            print(f"     SKIP  {line}")
+        if len(grouped["SKIP"]) > 8:
+            print(f"     SKIP  ... and {len(grouped['SKIP']) - 8} more "
+                  f"(rotationally symmetric copies on other legs)")
+    if all_ok:
+        _label(
+            f"{n_check} probed (+{n_skip} explicit SKIPs)",
+            True,
+            "every driver cone is clear",
+        )
+    else:
+        print(f"  ---- FAIL ({n_fail} of {n_check} probed) ----")
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
 # Process-pool dispatch
 # ---------------------------------------------------------------------------
 #
@@ -3130,47 +3599,62 @@ CHECKS = (
     ("Cradle nut traps",          "check_cradle_nut_traps"),
     ("Flimsy joints",             "check_flimsy_joints"),
     ("Thin sheets",               "check_thin_sheets"),
+    ("Screwdriver access",        "check_screwdriver_access"),
 )
 
 WORKSPACE_CHECK_NAME = "Workspace self-collision"
 
 
-def _worker_initializer(mesh_cache):
+def _worker_initializer(mesh_cache, inside_mode):
     """ProcessPoolExecutor initializer: install the parent's pre-built
     mesh cache so workers do NOT pay any constructive-solid rebuild
-    cost.  ``mesh_cache`` is pickled by spawn-mode workers as part of
-    initargs; trimesh.Trimesh round-trips through pickle cleanly."""
-    global _MESH_CACHE, _WS_WORKER_STATE
+    cost, and propagate the parent's --inside-mode so spawn-mode
+    workers use the same dispatcher branch.  ``mesh_cache`` is pickled
+    by spawn-mode workers as part of initargs; trimesh.Trimesh
+    round-trips through pickle cleanly."""
+    global _MESH_CACHE, _WS_WORKER_STATE, _inside_mode, _inside_mismatches
     _MESH_CACHE.clear()
     _MESH_CACHE.update(mesh_cache)
     _WS_WORKER_STATE.clear()
+    _inside_mode = inside_mode
+    _inside_mismatches = []
 
 
 def _check_runner(display_name: str, fn_name: str):
     """Worker entry point: resolve ``fn_name`` in this module's globals,
     run it under ``redirect_stdout`` to capture every print, and return
-    ``(display_name, ok, captured_output_str)``.  Exceptions are caught
-    and serialised into the output string so a worker traceback never
-    silently disappears."""
+    ``(display_name, ok, captured_output_str, mismatch_records)``.
+    Exceptions are caught and serialised into the output string so a
+    worker traceback never silently disappears.  ``mismatch_records``
+    is the list of points_inside disagreements accumulated by this
+    check (empty unless --inside-mode is ``both``); the parent
+    aggregates them across all workers."""
+    global _inside_mismatches
     buf = io.StringIO()
     fn = globals()[fn_name]
+    _set_inside_check_context(display_name)
+    _inside_mismatches = []
     try:
         with redirect_stdout(buf):
             ok = bool(fn())
     except Exception:
         import traceback
         traceback.print_exc(file=buf)
-        return display_name, False, buf.getvalue()
-    return display_name, bool(ok), buf.getvalue()
+        return (display_name, False, buf.getvalue(),
+                list(_inside_mismatches))
+    return (display_name, bool(ok), buf.getvalue(),
+            list(_inside_mismatches))
 
 
 def _run_checks_serial(check_subset):
     """Run the ``check_subset`` (subset of CHECKS) in the current
     process, printing as we go.  Returns a list of ``(name, ok)``
-    in declaration order.
+    in declaration order.  In serial mode mismatch records accumulate
+    directly in the parent's ``_inside_mismatches`` global.
     """
     out = []
     for name, fn_name in check_subset:
+        _set_inside_check_context(name)
         ok = bool(globals()[fn_name]())
         out.append((name, ok))
     return out
@@ -3179,7 +3663,9 @@ def _run_checks_serial(check_subset):
 def _run_checks_pool(check_subset, pool):
     """Submit each check in ``check_subset`` to ``pool`` and print
     each worker's captured stdout in DECLARATION ORDER (not completion
-    order).  Returns a list of ``(name, ok)``.
+    order).  Returns a list of ``(name, ok)``.  Any mismatch records
+    a worker accumulated under --inside-mode=both are appended to the
+    parent's ``_inside_mismatches`` list for the final summary.
     """
     futures = []
     for name, fn_name in check_subset:
@@ -3188,10 +3674,12 @@ def _run_checks_pool(check_subset, pool):
 
     out = []
     for name, fut in futures:
-        _name, ok, output = fut.result()
+        _name, ok, output, worker_mismatches = fut.result()
         if output:
             sys.stdout.write(output)
             sys.stdout.flush()
+        if worker_mismatches:
+            _inside_mismatches.extend(worker_mismatches)
         out.append((name, ok))
     return out
 
@@ -3247,7 +3735,25 @@ def main(argv=None):
               "'Servo clearance', 'Workspace self-collision').  "
               "Repeatable: '--only A --only B' runs both."),
     )
+    parser.add_argument(
+        "--inside-mode",
+        choices=INSIDE_MODES,
+        default=INSIDE_MODE_RAYS,
+        help=("Select the implementation used by points_inside(): "
+              "'rays' = 6-axis ray vote (historical default; robust "
+              "against early-prototype boolean-union false positives), "
+              "'contains' = trimesh.Trimesh.contains() (much faster; "
+              "valid because every cached part passes check_watertight), "
+              "'both' = run both, record every disagreement to a "
+              "module-level list, and exit with code 2 if any "
+              "disagreement is found.  Use 'both' to re-validate "
+              "equivalence whenever the geometry or trimesh stack "
+              "changes."),
+    )
     args = parser.parse_args(argv)
+
+    global _inside_mode
+    _inside_mode = args.inside_mode
 
     profiler = None
     if args.profile:
@@ -3302,7 +3808,7 @@ def main(argv=None):
             max_workers=n_workers,
             mp_context=ctx,
             initializer=_worker_initializer,
-            initargs=(_MESH_CACHE,),
+            initargs=(_MESH_CACHE, _inside_mode),
         ) as pool:
             # Phase 1: the 12 "small" checks fan out across the pool.
             # Output is printed in declaration order as each future
@@ -3341,12 +3847,74 @@ def main(argv=None):
         profiler.dump_stats(args.profile)
         print(f"cProfile snapshot written to {args.profile}")
 
+    mismatch_exit = (_inside_mode == INSIDE_MODE_BOTH
+                      and len(_inside_mismatches) > 0)
+    if _inside_mode == INSIDE_MODE_BOTH:
+        _print_inside_mismatch_summary()
+
+    if mismatch_exit:
+        print("EXIT 2: --inside-mode=both found disagreements between "
+              "the 6-ray vote and mesh.contains; do NOT flip the "
+              "default without inspecting them.")
+        return 2
+
     if all_ok:
         print("All checks passed. The prototype is ready to print.")
         return 0
     else:
         print("FAIL.  Fix the failing checks before ordering parts.")
         return 1
+
+
+def _print_inside_mismatch_summary() -> None:
+    """Print a compact summary of points_inside disagreements
+    accumulated during a --inside-mode=both run.  Caps the
+    per-coordinate listing at the first 20 globally so the output
+    stays bounded even when many mismatches occur."""
+    print()
+    print("=" * 72)
+    if not _inside_mismatches:
+        print("[MISMATCH SUMMARY] --inside-mode=both: ZERO disagreements "
+              "between rays and mesh.contains across the full check "
+              "suite.")
+        print("=" * 72)
+        return
+
+    total = sum(int(r["n_mismatch"]) for r in _inside_mismatches)
+    total_points = sum(int(r["n_points"]) for r in _inside_mismatches)
+    by_check: dict = {}
+    for r in _inside_mismatches:
+        k = r["check"]
+        by_check[k] = by_check.get(k, 0) + int(r["n_mismatch"])
+    print(f"[MISMATCH SUMMARY] --inside-mode=both: "
+          f"{len(_inside_mismatches)} record(s), "
+          f"{total} mismatching point(s) across "
+          f"{total_points} probed point(s) "
+          f"({(total / max(total_points, 1)) * 100.0:6.4f} %).")
+    print("  Per-check distribution (mismatching points):")
+    for check_name, n in sorted(by_check.items(), key=lambda kv: -kv[1]):
+        print(f"   {n:6d}  {check_name}")
+    print()
+    print(f"  First (up to) 20 mismatch coordinates "
+          f"(check / mesh vol / xyz / rays -> contains):")
+    shown = 0
+    for r in _inside_mismatches:
+        if shown >= 20:
+            break
+        vol = r["mesh"]["volume"]
+        vol_str = f"{vol:8.1f}" if vol is not None else "      ? "
+        wt = r["mesh"].get("watertight")
+        for c, rs, cs in zip(r["coords"],
+                              r["rays_says"], r["contains_says"]):
+            if shown >= 20:
+                break
+            x, y, z = c
+            print(f"   [{r['check']:36s}] mesh_vol={vol_str} wt={wt}  "
+                  f"xyz=({x:+8.2f},{y:+8.2f},{z:+8.2f})  "
+                  f"rays={'INSIDE' if rs else 'OUTSIDE'} -> "
+                  f"contains={'INSIDE' if cs else 'OUTSIDE'}")
+            shown += 1
+    print("=" * 72)
 
 
 if __name__ == "__main__":
