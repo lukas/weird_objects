@@ -360,7 +360,18 @@ WELL_TAB_FLOAT = 1.5  # mm float distance between body bottom and the nominal
                       # this means the rim, not the floor, defines seating
                       # depth.
 WELL_W       = SERVO_BODY_W + 2 * WELL_WALL_X     # 58 mm
-WELL_D       = SERVO_BODY_D + 2 * WELL_WALL_Y     # 25 mm
+WELL_D       = SERVO_BODY_D + 2 * WELL_WALL_Y     # 29 mm (was 25 mm
+                                                  # when WELL_WALL_Y = 2.5;
+                                                  # the chassis_bottom body
+                                                  # cutout below is WELL_D + 2
+                                                  # = 31 mm and grew with it,
+                                                  # so older chassis_bottom
+                                                  # prints made before the
+                                                  # wall bump have a 27 mm
+                                                  # cutout that the current
+                                                  # bracket no longer fits
+                                                  # through -- reprint the
+                                                  # bottom plate.)
 WELL_RIM_Z   = SERVO_TAB_Z - SERVO_TAB_T / 2.0 + WELL_TAB_FLOAT  # mm: rim
                                                    # sits at the tab bottom
                                                    # face when the body is
@@ -1286,7 +1297,7 @@ def _hex_plate(flat_to_flat: float, thickness: float,
     # 4 chassis bolts still bite into solid chassis material.
     body_centre_x  = -SERVO_OUTPUT_X
     body_cutout_w  = WELL_W + 2.0            # 60 mm along bracket X
-    body_cutout_d  = WELL_D + 2.0            # 27 mm along bracket Y
+    body_cutout_d  = WELL_D + 2.0            # 31 mm along bracket Y
 
     holes = []
     if with_leg_features:
@@ -1588,13 +1599,13 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     # wall gets the same direct flange-to-rim connection.
     #
     # IMPORTANT: rib Y width MUST be no wider than the chassis-plate
-    # body+tab cutout (WELL_D + 2 = 27 mm) because the rib extends
+    # body+tab cutout (WELL_D + 2 = 31 mm) because the rib extends
     # DOWN past z = 0 into the chassis-plate's Z volume (z = [-4, 0]).
     # The earlier 48 mm-wide rib clashed with solid chassis material
-    # at y in [+/-13.5, +/-24] and stopped the bracket from seating
+    # at y in [+/-15.5, +/-24] and stopped the bracket from seating
     # flush on the chassis plate.
     RIB_X = 36.0                                  # 18 mm each side of yaw axis
-    RIB_Y = WELL_D + 1.0                          # 26 mm == ±13, fits in 27 mm cutout
+    RIB_Y = WELL_D + 1.0                          # 30 mm == ±15, fits in 31 mm cutout
     rib = _box((RIB_X, RIB_Y, 6.0),
                center=(0.0, 0.0, 0.0))            # x in ±18, y in ±13, z in ±3
 
@@ -1653,7 +1664,7 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     bridge_gusset_z_ext = bridge_gusset_z_max - bridge_gusset_z_min
     bridge_gusset_z_cen = (bridge_gusset_z_min
                             + bridge_gusset_z_max) / 2.0
-    bridge_gusset_y_ext = WELL_D                          # 25, fits in cutout (27)
+    bridge_gusset_y_ext = WELL_D                          # 29, fits in cutout (31)
     inboard_bg_x_min = max(flange_x_min, chassis_cutout_x_min)
     bridge_gusset_x_pairs = (
         (inboard_bg_x_min, slot_x_min_b),                 # -X bridge: x in [-40, -38]
