@@ -61,6 +61,49 @@ and RL servo torque limits are all tuned around this DS3225-class case.
 
 ---
 
+## Visual inspection
+
+Three viewers share the same `part_palette.PART_COLORS` table, so a
+given part type (e.g. `coxa_link` = green, `coxa_bracket` = orange,
+`servo_body` = dark gray) is rendered with the *same* color in each:
+
+- `make view-static`  — MuJoCo viewer, prototype frozen in stance pose
+  (now colored by part type, body labels on by default).
+- `make view`         — MuJoCo viewer, full physics + tripod gait.
+- `make view-build`   — PyVista build inspector, colored + labeled
+  parts, exploded-view slider, per-part-type hide toggle.
+
+Forward extra flags through `ARGS=`, e.g.
+`make view-build ARGS="--explode 1.0"` opens the inspector half-way
+exploded, or
+`make view-build ARGS="--screenshot artifacts/views/build_inspect.png"`
+renders a single headless PNG and exits.
+
+### PyVista build inspector shortcuts
+
+The `view-build` window prints these to stdout on launch:
+
+| Key | Action |
+|---|---|
+| `L` | Toggle floating per-instance role labels |
+| `E` | Toggle exploded view between 0.0 and 1.5 |
+| `R` | Reset the camera view |
+| `S` | Save a screenshot to `artifacts/views/build_inspect.png` |
+| `Q` | Quit |
+
+The bottom slider (0.0 – 2.0) scales each part's distance from the
+chassis centroid for finer exploded-view control than the `E` toggle,
+and the row of color-coded checkboxes along the left edge hides or
+shows all instances of a given part type so you can isolate, say,
+just the coxa brackets or just the servo bodies. The MuJoCo
+viewers' body-name labels default to ON (toggle with `B` once inside
+the viewer).
+
+If `view-build` errors out saying STLs are missing, run
+`make build` first to regenerate `stl_prototype/`.
+
+---
+
 ## How to validate / regenerate
 
 The STLs under `stl_prototype/` are derived artifacts — the source of

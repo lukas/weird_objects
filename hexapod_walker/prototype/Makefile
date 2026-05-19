@@ -18,7 +18,7 @@ else
 MJ_PY  := $(REPO_ROOT)/.venv/bin/python
 endif
 
-.PHONY: check-cad check-cad-fast validate render build verify-prototype clean-artifacts view view-static help
+.PHONY: check-cad check-cad-fast validate render build verify-prototype clean-artifacts view view-static view-build help
 
 help:
 	@echo "Hexapod prototype CAD targets:"
@@ -30,6 +30,7 @@ help:
 	@echo "  verify-prototype  Run the legacy _verify_prototype.main() directly."
 	@echo "  view              Open the interactive MuJoCo viewer with the prototype walking in tripod gait."
 	@echo "  view-static       Same viewer, but freeze the legs in the standing-pose keyframe (--no-gait)."
+	@echo "  view-build        Open a PyVista build inspector with colored, labeled parts and an exploded-view slider."
 	@echo "  clean-artifacts   Delete artifacts/ (renders + cad_report.md)."
 
 check-cad:
@@ -64,6 +65,15 @@ view:
 # the legs cycling underneath you.
 view-static:
 	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(MJ_PY) hexapod_walker/prototype/mujoco_prototype.py --no-gait --no-terrain --obstacles 0 $(ARGS)
+
+# PyVista build inspector: every printable part placed at the assembled
+# pose, colored by part type (matching the MuJoCo viewer's palette),
+# with floating role labels, an exploded-view slider, and per-part-type
+# hide/show checkboxes.  Plain python is fine -- pyvista does not need
+# mjpython.  Forward ARGS=... for things like
+#   make view-build ARGS="--screenshot /tmp/build.png --explode 0.8"
+view-build:
+	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(REPO_ROOT)/.venv/bin/python hexapod_walker/prototype/inspect_build.py $(ARGS)
 
 clean-artifacts:
 	rm -rf $(CURDIR)/artifacts

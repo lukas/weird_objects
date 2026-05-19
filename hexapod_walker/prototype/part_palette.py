@@ -1,0 +1,147 @@
+"""Shared color + role registry for the hexapod-walker prototype.
+
+Both the PyVista build inspector (``inspect_build.py``) and the MuJoCo
+viewer (``mujoco_prototype.py``) import from this module so a part type
+is rendered with the *same* color in either tool.  One color per part
+*type*, NOT per leg -- e.g. all six ``coxa_link`` instances share the
+same green, regardless of which leg they live on.
+
+Design choices
+--------------
+* The palette is a hand-tuned variant of matplotlib's ``tab10`` /
+  ``tab20`` ordering.  Each printable part type gets one of the
+  visually distinct hues; the two chassis plates use two related blues
+  so they're obviously a pair but still individually identifiable.
+* Servo proxies (``servo_body``, ``servo_horn``) are deliberately muted
+  near-grays.  The printed parts are the "interesting" geometry an
+  assembler looks at; the servos are hardware-store commodities and
+  shouldn't compete for attention.
+* The palette is fixed.  We do NOT randomize per run -- a part-type
+  hue is meant to become muscle memory.
+
+This module imports *only* the standard library so it can be imported
+without pulling in trimesh / pyvista / mujoco / numpy.  That keeps the
+import graph cheap for both visualization tools and any future CLI
+that just wants the color table.
+"""
+
+from __future__ import annotations
+
+# Hand-tuned palette (mostly matplotlib tab10 in RGB[0..1] form).
+# Keep these ordered roughly chassis -> per-leg printed parts -> servo
+# proxies so a quick visual scan of the legend matches the assembly
+# order.
+PART_COLORS: dict[str, tuple[float, float, float]] = {
+    # Chassis "A" (top plate) - tab:blue
+    "chassis_top":         (0.122, 0.467, 0.706),
+    # Chassis "B" (bottom plate) - lighter sibling of chassis_top
+    "chassis_bottom":      (0.475, 0.690, 0.882),
+    # Battery holder - tab:purple
+    "battery_holder":      (0.580, 0.404, 0.741),
+    # Electronics tray - tab:olive
+    "electronics_tray":    (0.737, 0.741, 0.133),
+    # Coxa bracket - tab:orange (the chassis<->hip-yaw bridge "pops")
+    "coxa_bracket":        (1.000, 0.498, 0.055),
+    # Coxa link - tab:green
+    "coxa_link":           (0.173, 0.627, 0.173),
+    # Femur link - tab:red
+    "femur_link":          (0.839, 0.153, 0.157),
+    # Tibia link - tab:pink
+    "tibia_link":          (0.890, 0.467, 0.761),
+    # Foot pad - tab:brown (TPU pad)
+    "foot_pad":            (0.549, 0.337, 0.294),
+    # Servo horn adapter - tab:cyan
+    "servo_horn_adapter":  (0.090, 0.745, 0.812),
+    # Servo body - muted dark gray (commodity hardware)
+    "servo_body":          (0.180, 0.180, 0.200),
+    # Servo horn (plastic, ships with the servo) - muted mid gray
+    "servo_horn":          (0.500, 0.500, 0.520),
+}
+
+
+# Aliases so callers (and the spec) can refer to the two chassis plates
+# as "chassis_plate_a" / "chassis_plate_b" interchangeably with the
+# concrete ``chassis_top`` / ``chassis_bottom`` STL names.
+PART_COLORS["chassis_plate_a"] = PART_COLORS["chassis_top"]
+PART_COLORS["chassis_plate_b"] = PART_COLORS["chassis_bottom"]
+
+
+# Part types that don't carry a per-leg index in their label (they
+# exist once per robot).
+_CHASSIS_LEVEL = frozenset({
+    "chassis_top", "chassis_bottom",
+    "chassis_plate_a", "chassis_plate_b",
+    "battery_holder", "electronics_tray",
+})
+
+
+def is_chassis_level(part_type: str) -> bool:
+    """True if this part type exists once per robot (no leg index)."""
+    return part_type in _CHASSIS_LEVEL
+
+
+_JOINT_ROLE = {
+    "yaw":  "hip-yaw",
+    "hip":  "hip-pitch",
+    "knee": "knee",
+}
+
+
+def instance_role(
+    part_type: str,
+    leg_index: int | None,
+    joint: str | None,
+) -> str:
+    """Human-readable role label for one *instance* of a part type.
+
+    Examples (matching the spec)::
+
+        instance_role("coxa_link",    0,    None)  -> "hip-yaw -> hip-pitch"
+        instance_role("femur_link",   3,    None)  -> "hip-pitch -> knee"
+        instance_role("coxa_bracket", 2,    None)  -> "chassis -> hip-yaw"
+        instance_role("servo_body",   1,    "yaw") -> "hip-yaw servo"
+        instance_role("chassis_top",  None, None)  -> "chassis"
+
+    ``leg_index`` and ``joint`` are both optional so chassis-level
+    parts can just pass ``None`` for both.
+    """
+    del leg_index  # the role string does not embed the leg index
+    if part_type in _CHASSIS_LEVEL:
+        return "chassis"
+    if part_type == "coxa_bracket":
+        return "chassis -> hip-yaw"
+    if part_type == "coxa_link":
+        return "hip-yaw -> hip-pitch"
+    if part_type == "femur_link":
+        return "hip-pitch -> knee"
+    if part_type == "tibia_link":
+        return "knee -> foot"
+    if part_type == "foot_pad":
+        return "foot"
+    if part_type == "servo_horn_adapter":
+        suffix = _JOINT_ROLE.get(joint or "", "joint")
+        return f"{suffix} output"
+    if part_type == "servo_body":
+        suffix = _JOINT_ROLE.get(joint or "", "joint")
+        return f"{suffix} servo"
+    if part_type == "servo_horn":
+        suffix = _JOINT_ROLE.get(joint or "", "joint")
+        return f"{suffix} horn"
+    return ""
+
+
+def instance_label(
+    part_type: str,
+    leg_index: int | None,
+    joint: str | None = None,
+) -> str:
+    """Compose the full floating-label string used by the build inspector.
+
+    Format:
+        ``<part_type> L<idx>  <role>``     for per-leg parts
+        ``<part_type>  <role>``            for chassis-level parts (no L<idx>)
+    """
+    role = instance_role(part_type, leg_index, joint)
+    if is_chassis_level(part_type) or leg_index is None:
+        return f"{part_type}  {role}".rstrip()
+    return f"{part_type} L{leg_index}  {role}".rstrip()

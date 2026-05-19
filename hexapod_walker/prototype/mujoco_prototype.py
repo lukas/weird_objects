@@ -25,6 +25,7 @@ import numpy as np
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, THIS_DIR)
 import hexapod_prototype as HP  # noqa: E402
+from part_palette import PART_COLORS  # noqa: E402
 
 
 M = 0.001  # mm -> m
@@ -136,9 +137,29 @@ HIP_BODY_DZ = HIP_DROP
 _PITCH_QUAT = (math.cos(-math.pi / 4.0), math.sin(-math.pi / 4.0), 0.0, 0.0)
 
 
+def _palette_materials_xml() -> str:
+    """Emit one ``<material>`` per entry in PART_COLORS.
+
+    Each printable / proxy part type maps to ``palette_<part_type>`` so
+    every visual ``<geom>`` can pick its color by name and stay in
+    lockstep with the PyVista build inspector.  Aliases like
+    ``chassis_plate_a`` are emitted too (same RGBA as their canonical
+    sibling) so future XML can reference either spelling.
+    """
+    lines = []
+    for part_type, (r, g, b) in PART_COLORS.items():
+        lines.append(
+            f'<material name="palette_{part_type}" '
+            f'rgba="{r:.4f} {g:.4f} {b:.4f} 1" '
+            f'specular="0.25" shininess="0.25"/>'
+        )
+    return "\n    ".join(lines)
+
+
 def _servo_body_geom_xml(local_class: str, body_offset: tuple[float, float, float],
                           quat: tuple[float, float, float, float] | None = None,
-                          name: str | None = None) -> str:
+                          name: str | None = None,
+                          material: str = "palette_servo_body") -> str:
     """Single visual mesh geom for one servo body in some parent body frame."""
     name_attr = f' name="{name}"' if name else ""
     if quat is None:
@@ -149,13 +170,14 @@ def _servo_body_geom_xml(local_class: str, body_offset: tuple[float, float, floa
     bx, by, bz = body_offset
     return (
         f'<geom class="{local_class}"{name_attr} type="mesh" mesh="servo_body" '
-        f'pos="{bx:.5f} {by:.5f} {bz:.5f}"{quat_attr} material="motor"/>'
+        f'pos="{bx:.5f} {by:.5f} {bz:.5f}"{quat_attr} material="{material}"/>'
     )
 
 
 def _servo_horn_geom_xml(local_class: str, body_offset: tuple[float, float, float],
                           quat: tuple[float, float, float, float] | None = None,
-                          name: str | None = None) -> str:
+                          name: str | None = None,
+                          material: str = "palette_servo_horn") -> str:
     name_attr = f' name="{name}"' if name else ""
     if quat is None:
         quat_attr = ""
@@ -165,7 +187,7 @@ def _servo_horn_geom_xml(local_class: str, body_offset: tuple[float, float, floa
     bx, by, bz = body_offset
     return (
         f'<geom class="{local_class}"{name_attr} type="mesh" mesh="servo_horn" '
-        f'pos="{bx:.5f} {by:.5f} {bz:.5f}"{quat_attr} material="motor"/>'
+        f'pos="{bx:.5f} {by:.5f} {bz:.5f}"{quat_attr} material="{material}"/>'
     )
 
 HFIELD_NROW = 128
@@ -370,6 +392,7 @@ def build_xml(obstacles_xml: str = "") -> str:
     <material name="motor" rgba="0.05 0.05 0.06 1" specular="0.2" shininess="0.2"/>
     <material name="battery" rgba="0.16 0.16 0.24 1"/>
     <material name="rubber" rgba="0.02 0.02 0.02 1"/>
+    {_palette_materials_xml()}
     <texture name="terrain_tex" type="2d" builtin="checker" rgb1="0.34 0.45 0.30" rgb2="0.26 0.36 0.22" width="320" height="320"/>
     <material name="terrain_mat" texture="terrain_tex" texrepeat="12 12" reflectance="0.05" shininess="0.0"/>
     <hfield name="terrain" nrow="{HFIELD_NROW}" ncol="{HFIELD_NCOL}" size="{HFIELD_SIZE} {HFIELD_SIZE} {HFIELD_MAX_Z} {HFIELD_BASE}"/>
@@ -426,11 +449,11 @@ def _chassis_visuals_xml() -> str:
         return (
             '<geom class="visual" type="cylinder" '
             f'size="{flat_to_flat / math.cos(math.pi / 6):.5f} 0.004" '
-            f'euler="0 0 {math.pi / 6:.5f}" material="frame"/>\n'
+            f'euler="0 0 {math.pi / 6:.5f}" material="palette_chassis_top"/>\n'
             '      <geom class="visual" type="box" size="0.055 0.019 0.014" '
-            'pos="-0.025 0 0.018" material="battery"/>\n'
+            'pos="-0.025 0 0.018" material="palette_battery_holder"/>\n'
             '      <geom class="visual" type="box" size="0.050 0.035 0.003" '
-            'pos="0.035 0 0.021" material="frame"/>'
+            'pos="0.035 0 0.021" material="palette_electronics_tray"/>'
         )
 
     plate_t = HP.CHASSIS_PLATE_T * M
@@ -447,13 +470,17 @@ def _chassis_visuals_xml() -> str:
     #     plate with 1 mm clearance.
     return (
         f'<geom class="visual" name="chassis_bottom_mesh" type="mesh" '
-        f'mesh="chassis_bottom" pos="0 0 {-plate_t:.5f}" material="frame"/>\n'
+        f'mesh="chassis_bottom" pos="0 0 {-plate_t:.5f}" '
+        f'material="palette_chassis_bottom"/>\n'
         '      <geom class="visual" name="chassis_top_mesh" type="mesh" '
-        f'mesh="chassis_top" pos="0 0 {gap:.5f}" material="frame"/>\n'
+        f'mesh="chassis_top" pos="0 0 {gap:.5f}" '
+        f'material="palette_chassis_top"/>\n'
         '      <geom class="visual" name="battery_holder_mesh" type="mesh" '
-        'mesh="battery_holder" pos="-0.025 0 0" material="battery"/>\n'
+        'mesh="battery_holder" pos="-0.025 0 0" '
+        'material="palette_battery_holder"/>\n'
         '      <geom class="visual" name="electronics_tray_mesh" type="mesh" '
-        'mesh="electronics_tray" pos="0.035 0 0.001" material="frame"/>'
+        'mesh="electronics_tray" pos="0.035 0 0.001" '
+        'material="palette_electronics_tray"/>'
     )
 
 
@@ -477,7 +504,7 @@ def _coxa_bracket_chassis_xml(i: int, a: float, qw: float, qz: float) -> str:
     return (
         f'<geom class="visual" name="L{i}_coxa_bracket_mesh" type="mesh" '
         f'mesh="coxa_bracket" pos="{px:.5f} {py:.5f} 0" '
-        f'quat="{qw:.6f} 0 0 {qz:.6f}" material="frame"/>'
+        f'quat="{qw:.6f} 0 0 {qz:.6f}" material="palette_coxa_bracket"/>'
     )
 
 
@@ -518,7 +545,8 @@ def _hip_servo_visual_xml(i: int) -> str:
     if not USE_SERVO_MESHES:
         # Old placeholder box.
         return ('        <geom class="visual" type="box" '
-                'pos="0 -0.026 -0.017" size="0.020 0.010 0.019" material="motor"/>')
+                'pos="0 -0.026 -0.017" size="0.020 0.010 0.019" '
+                'material="palette_servo_body"/>')
     body_offset = (COXA + HIP_BODY_DX, HIP_BODY_DY, HIP_BODY_DZ)
     horn_offset = (COXA, 0.0, HIP_DROP)
     body = _servo_body_geom_xml(
@@ -534,7 +562,8 @@ def _knee_servo_visual_xml(i: int) -> str:
     """Mesh knee servo body + horn in L{i}_femur local frame."""
     if not USE_SERVO_MESHES:
         return ('          <geom class="visual" type="box" '
-                f'pos="{FEMUR - 0.010:.5f} -0.026 0" size="0.020 0.010 0.019" material="motor"/>')
+                f'pos="{FEMUR - 0.010:.5f} -0.026 0" size="0.020 0.010 0.019" '
+                'material="palette_servo_body"/>')
     body_offset = (FEMUR + HIP_BODY_DX, HIP_BODY_DY, 0.0)
     horn_offset = (FEMUR, 0.0, 0.0)
     body = _servo_body_geom_xml(
@@ -559,10 +588,10 @@ def _coxa_link_visual_xml(i: int) -> str:
     """
     if USE_PART_MESHES:
         return (f'        <geom class="visual" name="L{i}_coxa_link_mesh" '
-                f'type="mesh" mesh="coxa_link" material="frame"/>')
+                f'type="mesh" mesh="coxa_link" material="palette_coxa_link"/>')
     return (f'        <geom class="visual" type="box" '
             f'pos="{COXA / 2:.5f} 0 0" '
-            f'size="{COXA / 2:.5f} 0.010 0.004" material="frame"/>')
+            f'size="{COXA / 2:.5f} 0.010 0.004" material="palette_coxa_link"/>')
 
 
 def _femur_link_visual_xml(i: int) -> str:
@@ -582,9 +611,10 @@ def _femur_link_visual_xml(i: int) -> str:
     """
     if USE_PART_MESHES:
         return (f'          <geom class="visual" name="L{i}_femur_link_mesh" '
-                f'type="mesh" mesh="femur_link" material="frame"/>')
+                f'type="mesh" mesh="femur_link" material="palette_femur_link"/>')
     return (f'          <geom class="visual" type="capsule" '
-            f'fromto="0 0 0 {FEMUR:.5f} 0 0" size="0.009" material="frame"/>')
+            f'fromto="0 0 0 {FEMUR:.5f} 0 0" size="0.009" '
+            f'material="palette_femur_link"/>')
 
 
 def _tibia_link_visual_xml(i: int) -> str:
@@ -606,16 +636,18 @@ def _tibia_link_visual_xml(i: int) -> str:
         foot_z = (HP.FOOT_HINGE_TIBIA_Z - HP.FOOT_HINGE_FOOT_Z) * M
         return (
             f'            <geom class="visual" name="L{i}_tibia_link_mesh" '
-            f'type="mesh" mesh="tibia_link" material="frame"/>\n'
+            f'type="mesh" mesh="tibia_link" material="palette_tibia_link"/>\n'
             f'            <geom class="visual" name="L{i}_foot_pad_mesh" '
             f'type="mesh" mesh="foot_pad" '
-            f'pos="{TIBIA:.5f} 0 {foot_z:.5f}" material="rubber"/>'
+            f'pos="{TIBIA:.5f} 0 {foot_z:.5f}" material="palette_foot_pad"/>'
         )
     return (
         f'            <geom class="visual" type="capsule" '
-        f'fromto="0 0 0 {TIBIA - FOOT_R:.5f} 0 0" size="0.007" material="frame"/>\n'
+        f'fromto="0 0 0 {TIBIA - FOOT_R:.5f} 0 0" size="0.007" '
+        f'material="palette_tibia_link"/>\n'
         f'            <geom class="visual" type="cylinder" '
-        f'pos="{TIBIA:.5f} 0 -0.006" size="{FOOT_R:.5f} 0.006" material="rubber"/>'
+        f'pos="{TIBIA:.5f} 0 -0.006" size="{FOOT_R:.5f} 0.006" '
+        f'material="palette_foot_pad"/>'
     )
 
 
@@ -985,6 +1017,13 @@ def run_viewer(model, data, gait: TripodGait, *, run_gait: bool = True, settle: 
 
     reset()
     with viewer.launch_passive(model, data) as v:
+        # Force body-name labels on by default so the per-part-type
+        # palette is searchable at a glance.  Users can still toggle
+        # them off at runtime with the viewer's ``B`` shortcut.
+        try:
+            v.opt.label = mujoco.mjtLabel.mjLABEL_BODY
+        except Exception:
+            pass
         t0 = data.time
         while v.is_running():
             t = data.time - t0
