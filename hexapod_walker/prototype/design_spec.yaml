@@ -98,12 +98,45 @@ coordinate_systems:
 # Printability rules
 # ---------------------------------------------------------------------
 # Mirrored from _verify_prototype.py.  These drive Hildebrand-thickness
-# and thin-sheet checks.
+# and thin-sheet checks.  ``max_unsupported_overhang_deg`` and
+# ``recommended_brim_mm`` mirror the design rule in
+# ``hexapod_prototype.py`` ("no overhangs steeper than 45 deg without
+# supports") and the brim guidance in the Bambu tray READMEs / arm
+# common module / SHOPPING_LIST.md (3-5 mm brim, 5 mm specifically for
+# small-footprint parts).  Tuned for the project's default setup:
+# Bambu Studio + Bambu H2D / X1 Carbon + PLA -- see ``target_setup``
+# below.
 printability:
   min_wall_thickness_mm: 3.0       # = _verify_prototype.MIN_PRINT_T
   min_feature_mm: 1.2              # voxel pitch in flimsy-joint check
-  max_unsupported_overhang_mm: TODO    # FDM slicer profile -- depends on filament + cooling
-  recommended_brim_mm: TODO            # depends on bed adhesion / part footprint
+  max_unsupported_overhang_deg: 45 # = hexapod_prototype.py line 1439
+                                   # design rule ("no overhangs steeper
+                                   # than 45 deg without supports").
+                                   # Measured from VERTICAL: a 45 deg
+                                   # overhang is a wall tilted 45 deg
+                                   # from straight up.  Anything
+                                   # steeper needs slicer-generated
+                                   # supports.
+  recommended_brim_mm: 5           # matches the brim guidance in the
+                                   # Bambu tray READMEs / arm common
+                                   # module / SHOPPING_LIST.md.  Apply
+                                   # to all parts; especially critical
+                                   # for the small-footprint parts
+                                   # (foot_pad, servo_horn_adapter).
+
+# ---------------------------------------------------------------------
+# Target printer / slicer / material
+# ---------------------------------------------------------------------
+# What the printability rules above were tuned against.  Change this
+# only if you migrate the whole prototype off Bambu PLA -- otherwise
+# leave it alone; downstream Bambu tray READMEs assume these values.
+target_setup:
+  slicer: "Bambu Studio"
+  printer_family: "Bambu H2D Carbon / X1 / X1 Carbon"
+  material: "PLA"
+  layer_height_mm: 0.2             # matches SHOPPING_LIST.md print rows
+  default_infill_pct: 30           # matches SHOPPING_LIST.md print rows
+  default_walls: 4                 # matches SHOPPING_LIST.md print rows
 
 # ---------------------------------------------------------------------
 # Print orientation hints
