@@ -149,7 +149,7 @@ the full pipeline and [`CAD_AGENT_INSTRUCTIONS.md`](CAD_AGENT_INSTRUCTIONS.md)
 for the rules LLM coding agents should follow when editing CAD.
 
 The legacy verifier `_verify_prototype.py` is parallelised via a
-process pool and exposes four extra CLI flags for faster inner-loop
+process pool and exposes five extra CLI flags for faster inner-loop
 iteration:
 
 | Flag | What it does |
@@ -158,10 +158,29 @@ iteration:
 | `--workers N` | Override the default worker count (default `min(8, os.cpu_count())`). |
 | `--profile PATH` | Dump a cProfile snapshot of the parent process to `PATH` when the run finishes (combine with `--serial` to profile the entire suite in one process). |
 | `--only CHECK_NAME` | Run only the named check(s). Repeatable: `--only "Servo clearance" --only "Workspace self-collision"`. Names match the declaration list (see top of `_verify_prototype.py` `CHECKS`). |
+| `--inside-mode {rays,contains,both}` | Select the implementation used by `points_inside()`. Default is `rays` — the historical 6-axis ray vote that is robust against the boolean-union false positives we saw on early prototype geometry. `contains` swaps in `trimesh.Trimesh.contains()` (much faster, valid only on watertight meshes). `both` runs BOTH implementations on every probe, records each disagreement, and exits with code `2` if any are found — use this whenever you change the geometry, the trimesh stack, or any of the post-transform mesh hygiene assumptions to re-validate that the two implementations still agree. |
 
-All four flags compose with the existing `--with-arm` flag. Parallel
+All five flags compose with the existing `--with-arm` flag. Parallel
 output is printed in declaration order so a `diff` against the serial
 baseline is byte-for-byte clean for every `[PASS]/[FAIL]` line.
+
+### Why `--inside-mode rays` stays the default
+
+A one-time `--inside-mode both` sweep across the full check suite
+(May 2026) probed 1,819,776 points and found that the 6-axis ray vote
+and `trimesh.Trimesh.contains()` DISAGREE on roughly 1.8 % of them
+(32,685 mismatching points) even though every cached mesh passes
+`check_watertight`. The mismatches concentrate in the standing-pose
+self-collision and the workspace sweep where leg parts are probed
+AFTER ``apply_transform``: at fine voxel pitches a non-trivial number
+of probe points sit on or just inside surfaces, and the two
+implementations classify those borderline points differently. The
+ray vote is the more conservative answer for clearance checks (it
+labels more points as INSIDE → flags more potential interference),
+which is what we want for a print-once / order-once verifier, so we
+leave it as the default. Re-run `--inside-mode both` whenever the
+geometry pipeline changes and treat any rise in the mismatch count
+as a signal that the two implementations have drifted.
 
 ---
 
