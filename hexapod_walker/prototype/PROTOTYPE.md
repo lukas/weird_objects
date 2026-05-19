@@ -148,6 +148,21 @@ Both targets rebuild `stl_prototype/`, run the validators, render
 the full pipeline and [`CAD_AGENT_INSTRUCTIONS.md`](CAD_AGENT_INSTRUCTIONS.md)
 for the rules LLM coding agents should follow when editing CAD.
 
+The legacy verifier `_verify_prototype.py` is parallelised via a
+process pool and exposes four extra CLI flags for faster inner-loop
+iteration:
+
+| Flag | What it does |
+|---|---|
+| `--serial` | Skip the process pool entirely; run every check in the main process in declaration order. Use this when a worker traceback is mangled through pickle and you need a clean stack. |
+| `--workers N` | Override the default worker count (default `min(8, os.cpu_count())`). |
+| `--profile PATH` | Dump a cProfile snapshot of the parent process to `PATH` when the run finishes (combine with `--serial` to profile the entire suite in one process). |
+| `--only CHECK_NAME` | Run only the named check(s). Repeatable: `--only "Servo clearance" --only "Workspace self-collision"`. Names match the declaration list (see top of `_verify_prototype.py` `CHECKS`). |
+
+All four flags compose with the existing `--with-arm` flag. Parallel
+output is printed in declaration order so a `diff` against the serial
+baseline is byte-for-byte clean for every `[PASS]/[FAIL]` line.
+
 ---
 
 ## 3. STL files in `stl_prototype/`

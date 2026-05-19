@@ -34,12 +34,51 @@ ray-casting heuristic).  Instead we shoot 6 axis-aligned rays from
 each test point and call the point INSIDE iff a majority of rays
 report an odd number of intersections with the mesh.  This majority
 vote is much more robust on borderline / non-manifold input.
+
+Speed: mesh cache + process-pool dispatch
+-----------------------------------------
+
+Every printable part is built ONCE via ``_load_mesh(name)`` and
+re-used (copied where mutated) across every check that needs it.
+The check suite then runs in a ``concurrent.futures.ProcessPoolExecutor``
+pool: parent process builds the master cache, pickles it via the
+pool ``initializer=`` so each worker boots with every mesh
+already preloaded, then submits the independent ``check_*`` checks
+plus the per-pose chunks of ``check_workspace_self_collision``.
+Results stream back as ``(name, ok, captured_stdout)`` tuples and
+the parent prints them in DECLARATION ORDER -- the on-screen output
+stays byte-for-byte identical to a serial run.
+
+CLI flags
+---------
+
+* ``--serial`` -- skip the process pool and run every check in the main
+  process in declaration order.  Use this when a worker traceback is
+  mangled through pickle and you need a clean stack.
+* ``--workers N`` -- override the default worker count (default is
+  ``min(8, os.cpu_count())``).
+* ``--profile PATH`` -- dump a cProfile snapshot of the PARENT process
+  to ``PATH`` so you don't need the ``python -m cProfile`` wrapper.
+  Workers are NOT profiled; combine with ``--serial`` if you want a
+  full-suite profile.
+* ``--only CHECK_NAME`` (repeatable) -- run only the named check(s);
+  any check whose declaration-list name matches at least one ``--only``
+  value is included.  Useful for iterating on a single check.
+* ``--with-arm`` -- also run the OPTIONAL arm verification.
 """
 
 from __future__ import annotations
 import argparse
 import sys
 import os
+import io
+import functools
+import time
+import multiprocessing
+import concurrent.futures
+import cProfile
+import threading
+from contextlib import redirect_stdout
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -50,6 +89,75 @@ from scipy.ndimage import distance_transform_edt, label
 import shapely.geometry as _sg
 
 import hexapod_prototype as hp
+
+
+# ---------------------------------------------------------------------------
+# Module-level mesh cache
+# ---------------------------------------------------------------------------
+#
+# Every check used to call ``hp.make_<part>()`` directly, which triggers a
+# fresh boolean-union / mesh-difference rebuild costing 0.2-2 s per part
+# per call.  With 13+ checks and the workspace sweep, the same parts were
+# being rebuilt 5-10 times each.  Routing every build through
+# ``_load_mesh(name)`` makes each part hit the constructive-solid path
+# EXACTLY ONCE per process; subsequent callers get the cached master
+# (and an optional ``.copy()`` if they're going to ``apply_*`` mutate it).
+#
+# When ``main()`` dispatches checks to a ``ProcessPoolExecutor``, the
+# parent process pre-fills the cache and pickles it via the worker
+# initializer so each spawn-mode worker boots with every mesh already
+# loaded -- no make-from-scratch cost in the worker.
+
+_MESH_BUILDERS = {
+    "chassis_top":      hp.make_chassis_top,
+    "chassis_bottom":   hp.make_chassis_bottom,
+    "battery_holder":   hp.make_battery_holder,
+    "electronics_tray": hp.make_electronics_tray,
+    "coxa_bracket":     hp.make_coxa_bracket,
+    "coxa_link":        hp.make_coxa_link,
+    "femur_link":       hp.make_femur_link,
+    "tibia_link":       hp.make_tibia_link,
+    "foot_pad":         hp.make_foot_pad,
+    "servo_body":       hp.make_servo_body,
+    "servo_horn":       hp.make_servo_horn,
+}
+
+ALL_CACHED_PART_NAMES = tuple(_MESH_BUILDERS.keys())
+
+_MESH_CACHE: dict = {}
+_MESH_CACHE_LOCK = threading.Lock()
+
+
+def _load_mesh(name: str, *, copy: bool = True) -> trimesh.Trimesh:
+    """Return the cached master mesh for ``name``.
+
+    Default returns a ``mesh.copy()`` so callers that go on to
+    ``apply_transform`` / ``apply_translation`` / ``apply_scale`` see
+    the same semantics they used to get from a fresh ``hp.make_X()``
+    call.  Pass ``copy=False`` only when the caller will NOT mutate
+    the returned mesh (e.g. ``check_watertight`` reads ``mesh.volume``
+    and ``mesh.is_watertight``; ``_flimsy_clusters_for_part`` calls
+    ``mesh.voxelized(...)`` which is itself non-mutating).
+    """
+    cached = _MESH_CACHE.get(name)
+    if cached is None:
+        with _MESH_CACHE_LOCK:
+            cached = _MESH_CACHE.get(name)
+            if cached is None:
+                cached = _MESH_BUILDERS[name]()
+                _MESH_CACHE[name] = cached
+    return cached.copy() if copy else cached
+
+
+def prebuild_mesh_cache(names=ALL_CACHED_PART_NAMES) -> dict:
+    """Build every cacheable mesh now and return the cache dict.
+
+    Used by the parent process before dispatching to a process pool so
+    the worker initializer can ship the full cache to every worker.
+    """
+    for name in names:
+        _load_mesh(name, copy=False)
+    return _MESH_CACHE
 
 
 # ---------------------------------------------------------------------------
@@ -270,19 +378,14 @@ def check_watertight():
     # retired (each link now bolts directly onto the plastic 4-arm
     # X-horn).  ``make_servo_horn_adapter`` is preserved for
     # backwards-compat but is no longer in the printable-output set.
-    items = {
-        "chassis_top":         hp.make_chassis_top(),
-        "chassis_bottom":      hp.make_chassis_bottom(),
-        "battery_holder":      hp.make_battery_holder(),
-        "electronics_tray":    hp.make_electronics_tray(),
-        "coxa_bracket":        hp.make_coxa_bracket(),
-        "coxa_link":           hp.make_coxa_link(),
-        "femur_link":          hp.make_femur_link(),
-        "tibia_link":          hp.make_tibia_link(),
-        "foot_pad":            hp.make_foot_pad(),
-    }
+    items_names = (
+        "chassis_top", "chassis_bottom", "battery_holder",
+        "electronics_tray", "coxa_bracket", "coxa_link",
+        "femur_link", "tibia_link", "foot_pad",
+    )
     all_ok = True
-    for name, m in items.items():
+    for name in items_names:
+        m = _load_mesh(name, copy=False)
         ok = m.is_watertight and m.is_winding_consistent and m.volume > 0
         all_ok &= _label(name, ok, _describe(m))
     return all_ok
@@ -365,7 +468,7 @@ def check_cradle_openness():
     # so the servo (gear pointing UP) can drop straight DOWN into the
     # well.  Verify that the body's vertical drop-in column above the
     # final body volume is fully clear of bracket material.
-    cb = hp.make_coxa_bracket()
+    cb = _load_mesh("coxa_bracket", copy=False)
     body_centre_cb = np.array([-hp.SERVO_OUTPUT_X, 0.0,
                                  -hp.WELL_RIM_Z + hp.SERVO_BODY_H / 2.0])
     ok, blocked, total = _cradle_open(cb, body_centre_cb,
@@ -375,7 +478,7 @@ def check_cradle_openness():
     all_ok &= _label("coxa_bracket  (servo drops in +Z)",
                        ok, f"{blocked}/{total} samples blocked")
 
-    cl = hp.make_coxa_link()
+    cl = _load_mesh("coxa_link", copy=False)
     body_centre_cl = np.array([
         hp.COXA_LENGTH - hp.SERVO_OUTPUT_X,
         -(hp.SERVO_BODY_H / 2.0 + hp.SERVO_OUTPUT_H),
@@ -388,7 +491,7 @@ def check_cradle_openness():
     all_ok &= _label("coxa_link     (servo drops in +Y)",
                        ok, f"{blocked}/{total} samples blocked")
 
-    fl = hp.make_femur_link()
+    fl = _load_mesh("femur_link", copy=False)
     body_centre_fl = np.array([
         hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X,
         -(hp.SERVO_BODY_H / 2.0 + hp.SERVO_OUTPUT_H),
@@ -413,28 +516,30 @@ def check_bolt_holes():
     all_ok = True
 
     # ---- Coxa bracket flange chassis bolts -----------------------------
-    cb = hp.make_coxa_bracket()
+    cb = _load_mesh("coxa_bracket", copy=False)
     bolt_x_outboard = -hp.BRACKET_FLANGE_INSET
     bolt_x_inboard  = -hp.BRACKET_FLANGE_INSET - hp.BRACKET_BOLT_PCD_X
     bolt_ys = (-hp.BRACKET_BOLT_PCD_Y / 2.0,
                 +hp.BRACKET_BOLT_PCD_Y / 2.0)
-    n_pass, n_total = 0, 0
+    bolt_centres = []
     for bx in (bolt_x_outboard, bolt_x_inboard):
         for by in bolt_ys:
-            n_total += 1
-            covered = False
-            for off_x, off_y in [(2.0, 0.0), (-2.0, 0.0),
-                                  (0.0, 2.0), (0.0, -2.0)]:
-                # Sample a point in the middle of the flange thickness,
-                # 2 mm to one side of the bolt centerline.  If this sits
-                # in flange material, the bolt has a wall around it.
-                probe = np.array([bx + off_x, by + off_y,
-                                   hp.BRACKET_FLANGE_T / 2.0])
-                if bool(points_inside(cb, [probe])[0]):
-                    covered = True
-                    break
-            if covered:
-                n_pass += 1
+            bolt_centres.append((bx, by))
+    offsets = np.array([(2.0, 0.0), (-2.0, 0.0),
+                        (0.0, 2.0), (0.0, -2.0)])
+    n_offsets = len(offsets)
+    # Build (n_bolts * n_offsets, 3) probe array; classify
+    # "covered" per bolt as "ANY of its 4 probes inside the mesh".
+    probes = np.zeros((len(bolt_centres) * n_offsets, 3))
+    for bi, (bx, by) in enumerate(bolt_centres):
+        for oi, (ox, oy) in enumerate(offsets):
+            probes[bi * n_offsets + oi] = (
+                bx + ox, by + oy, hp.BRACKET_FLANGE_T / 2.0,
+            )
+    inside_flat = points_inside(cb, probes).reshape(
+        len(bolt_centres), n_offsets)
+    n_pass = int(inside_flat.any(axis=1).sum())
+    n_total = len(bolt_centres)
     ok = n_pass == n_total
     all_ok &= _label("coxa_bracket chassis bolts",
                        ok, f"{n_pass}/{n_total} bolt holes have flange material")
@@ -448,17 +553,15 @@ def check_bolt_holes():
             ortho1 = np.cross(axis, [0, 1, 0])
         ortho1 = ortho1 / np.linalg.norm(ortho1)
         ortho2 = np.cross(axis, ortho1)
-        n_pass = 0
-        for p in pilot_positions:
-            covered = False
-            for off in (ortho1, -ortho1, ortho2, -ortho2):
-                probe_pt = p + 1.6 * off
-                if bool(points_inside(part, [probe_pt])[0]):
-                    covered = True
-                    break
-            if covered:
-                n_pass += 1
-        return n_pass
+        offs = np.stack([ortho1, -ortho1, ortho2, -ortho2], axis=0)  # (4, 3)
+        positions = np.asarray(pilot_positions)                      # (P, 3)
+        # Build (P * 4, 3) probes, then reshape -> (P, 4) inside-flags
+        # and pass per-pilot iff ANY of its 4 probes hits material.
+        probes_3d = (positions[:, None, :] + 1.6 * offs[None, :, :])
+        probes_3d = probes_3d.reshape(-1, 3)
+        flags = points_inside(part, probes_3d).reshape(len(positions),
+                                                       len(offs))
+        return int(flags.any(axis=1).sum())
 
     pilot_axis_z = np.array([0.0, 0.0, 1.0])
     cb_pilots = []
@@ -483,7 +586,7 @@ def check_bolt_holes():
     # COXA_ARM_T.  Earlier versions duplicated the formula here and
     # missed WELL_Z_DROP_EXTRA, putting the pilot probes 4 mm above
     # the actual pilot Z.
-    cl = hp.make_coxa_link()
+    cl = _load_mesh("coxa_link", copy=False)
     delta_x_cl = hp.COXA_LENGTH - hp.SERVO_OUTPUT_X
     delta_y_cl = -(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H)
     drop_z_cl = hp.COXA_HIP_DROP
@@ -499,7 +602,7 @@ def check_bolt_holes():
     all_ok &= _label("coxa_link M3 pilots in well wall",
                        n_cl == 4, f"{n_cl}/4 pilots have wall material around them")
 
-    fl = hp.make_femur_link()
+    fl = _load_mesh("femur_link", copy=False)
     delta_x_fl = hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X
     delta_y_fl = -(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H)
     fl_pilots = []
@@ -735,17 +838,17 @@ def check_wire_slot():
 
     cradles = [
         ("coxa_bracket wire-exit L-corridor",
-         hp.make_coxa_bracket(),
+         _load_mesh("coxa_bracket", copy=False),
          None,
          np.array([-hp.SERVO_OUTPUT_X, 0.0, -hp.WELL_RIM_Z])),
         ("coxa_link    wire-exit L-corridor",
-         hp.make_coxa_link(),
+         _load_mesh("coxa_link", copy=False),
          R_link,
          np.array([hp.COXA_LENGTH - hp.SERVO_OUTPUT_X,
                    -(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
                    drop_z_cl])),
         ("femur_link   wire-exit L-corridor",
-         hp.make_femur_link(),
+         _load_mesh("femur_link", copy=False),
          R_link,
          np.array([hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X,
                    -(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
@@ -792,24 +895,24 @@ def _build_standing_leg():
 
     parts = {}
 
-    cb = hp.make_coxa_bracket()
+    cb = _load_mesh("coxa_bracket")
     cb.apply_transform(rotation_matrix(a, [0, 0, 1]))
     cb.apply_translation(edge_mid)
     parts["coxa_bracket"] = cb
 
-    cl = hp.make_coxa_link()
+    cl = _load_mesh("coxa_link")
     cl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     cl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts["coxa_link"] = cl
 
-    fl = hp.make_femur_link()
+    fl = _load_mesh("femur_link")
     fl.apply_transform(rotation_matrix(p, [0, 1, 0]))
     fl.apply_translation(hip_joint_local)
     fl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     fl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts["femur_link"] = fl
 
-    tl = hp.make_tibia_link()
+    tl = _load_mesh("tibia_link")
     tl.apply_transform(rotation_matrix(pt, [0, 1, 0]))
     tl.apply_translation(knee_joint_local)
     tl.apply_transform(rotation_matrix(a, [0, 0, 1]))
@@ -924,14 +1027,14 @@ def _place_servo_bodies():
     # ----- Yaw servo: body hangs in the coxa-bracket well. -----
     # In bracket-local: body-bottom-centre at (-SERVO_OUTPUT_X, 0,
     # -WELL_RIM_Z), mesh +X aligned with bracket +X (radial outward).
-    yaw = hp.make_servo_body()
+    yaw = _load_mesh("servo_body")
     yaw.apply_translation([-hp.SERVO_OUTPUT_X, 0.0, -hp.WELL_RIM_Z])
     yaw.apply_transform(R_a)
     yaw.apply_translation(edge_mid)
 
     # ----- Hip-pitch servo: sits in the coxa-link cradle. -----
     R_hip = rotation_matrix(-np.pi / 2.0, [1, 0, 0])
-    hip = hp.make_servo_body()
+    hip = _load_mesh("servo_body")
     hip.apply_transform(R_hip)
     hip.apply_translation([
         hp.COXA_LENGTH - hp.SERVO_OUTPUT_X,
@@ -943,7 +1046,7 @@ def _place_servo_bodies():
 
     # ----- Knee servo: sits in the femur-link cradle.  Pre-rotate by femur
     # pitch like the link itself. -----
-    knee = hp.make_servo_body()
+    knee = _load_mesh("servo_body")
     knee.apply_transform(R_hip)
     knee.apply_translation([
         hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X,
@@ -1098,8 +1201,10 @@ def check_horn_stack_clearance():
     stack = hp._cyl_along(R, H, axis="y")
 
     cases = [
-        ("femur_link  (hip-pitch joint)", hp.make_femur_link()),
-        ("tibia_link  (knee-pitch joint)", hp.make_tibia_link()),
+        ("femur_link  (hip-pitch joint)", _load_mesh("femur_link",
+                                                       copy=False)),
+        ("tibia_link  (knee-pitch joint)", _load_mesh("tibia_link",
+                                                        copy=False)),
     ]
 
     all_ok = True
@@ -1187,7 +1292,7 @@ def _horn_tip_radius_from_mesh() -> float:
     "constant drift between the rendered visual and what the test
     measures".
     """
-    horn = hp.make_servo_horn()
+    horn = _load_mesh("servo_horn", copy=False)
     xy = horn.vertices[:, :2]
     return float(np.sqrt((xy ** 2).sum(axis=1)).max())
 
@@ -1244,7 +1349,7 @@ def check_horn_sweep_clearance():
     cyl = hp._cyl(R, H, sections=hp.CYL_SECTIONS)
     cyl.apply_translation([yaw_x, yaw_y, 0.5 * (z_lo + z_hi)])
 
-    bracket = hp.make_coxa_bracket()
+    bracket = _load_mesh("coxa_bracket", copy=False)
     pitch = 0.6
     vol = _pair_overlap_volume(bracket, cyl, pitch=pitch)
     ok = vol <= HORN_SWEEP_OVERLAP_TOL
@@ -1788,19 +1893,14 @@ def check_flimsy_joints():
           f"min cluster={MIN_CLUSTER_VOX} vox, "
           f"budget={MAX_FLIMSY_BUDGET_VOX} vox):")
 
-    items = {
-        "chassis_top":         hp.make_chassis_top(),
-        "chassis_bottom":      hp.make_chassis_bottom(),
-        "battery_holder":      hp.make_battery_holder(),
-        "electronics_tray":    hp.make_electronics_tray(),
-        "coxa_bracket":        hp.make_coxa_bracket(),
-        "coxa_link":           hp.make_coxa_link(),
-        "femur_link":          hp.make_femur_link(),
-        "tibia_link":          hp.make_tibia_link(),
-        "foot_pad":            hp.make_foot_pad(),
+    items_names = (
+        "chassis_top", "chassis_bottom", "battery_holder",
+        "electronics_tray", "coxa_bracket", "coxa_link",
+        "femur_link", "tibia_link", "foot_pad",
         # Design B (May 2026): servo_horn_adapter dropped from the
         # flimsy-cluster sweep -- no longer in the printable-output set.
-    }
+    )
+    items = {name: _load_mesh(name, copy=False) for name in items_names}
 
     all_ok = True
     for name, mesh in items.items():
@@ -2024,9 +2124,9 @@ def check_thin_sheets(extra_items=None):
           f"budget={MAX_SHEET_BUDGET_VOX} vox):")
 
     items = {
-        "coxa_link":   hp.make_coxa_link,
-        "femur_link":  hp.make_femur_link,
-        "tibia_link":  hp.make_tibia_link,
+        "coxa_link":   lambda: _load_mesh("coxa_link", copy=False),
+        "femur_link":  lambda: _load_mesh("femur_link", copy=False),
+        "tibia_link":  lambda: _load_mesh("tibia_link", copy=False),
     }
     if extra_items:
         items.update(extra_items)
@@ -2223,18 +2323,18 @@ def _build_chassis_world(reference_leg_az_rad):
     """
     parts = {}
 
-    bot = hp.make_chassis_bottom()
+    bot = _load_mesh("chassis_bottom")
     parts["chassis_bottom"] = bot
 
-    top = hp.make_chassis_top()
+    top = _load_mesh("chassis_top")
     top.apply_translation([0.0, 0.0, hp.CHASSIS_GAP + hp.CHASSIS_PLATE_T])
     parts["chassis_top"] = top
 
-    bh = hp.make_battery_holder()
+    bh = _load_mesh("battery_holder")
     bh.apply_translation([-25.0, 0.0, hp.CHASSIS_PLATE_T])
     parts["battery_holder"] = bh
 
-    et = hp.make_electronics_tray()
+    et = _load_mesh("electronics_tray")
     et.apply_translation([35.0, 0.0, hp.CHASSIS_PLATE_T + 1.0])
     parts["electronics_tray"] = et
 
@@ -2243,7 +2343,7 @@ def _build_chassis_world(reference_leg_az_rad):
     edge_mid_n = np.array([apothem * np.cos(a_n),
                             apothem * np.sin(a_n),
                             0.0])
-    cbn = hp.make_coxa_bracket()
+    cbn = _load_mesh("coxa_bracket")
     cbn.apply_transform(rotation_matrix(a_n, [0, 0, 1]))
     cbn.apply_translation(edge_mid_n)
     parts["neighbour_coxa_bracket"] = cbn
@@ -2368,8 +2468,86 @@ def _ws_pair_kind(dynamic_name, static_name):
     return "non-adj"
 
 
+# Worker-side cache for the workspace sweep's chassis + leg templates.
+# Each worker re-derives these from the cached master meshes on first
+# use so the (yaw, femur_pitch, knee_pitch) pose function does not pay
+# the chassis-build cost more than ONCE per worker.
+_WS_WORKER_STATE: dict = {}
+
+
+def _ws_get_chassis_and_templates(leg_az: float):
+    key = float(leg_az)
+    cached = _WS_WORKER_STATE.get(key)
+    if cached is not None:
+        return cached
+    chassis = _build_chassis_world(key)
+    templates = {
+        "coxa_bracket": _load_mesh("coxa_bracket", copy=False),
+        "coxa_link":    _load_mesh("coxa_link",    copy=False),
+        "femur_link":   _load_mesh("femur_link",   copy=False),
+        "tibia_link":   _load_mesh("tibia_link",   copy=False),
+    }
+    _WS_WORKER_STATE[key] = (chassis, templates)
+    return chassis, templates
+
+
+def _workspace_pose_failures(pose, leg_az):
+    """Return the list of pair-failure dicts for one (yaw, femur, knee)
+    pose.  Pure function: side-effects are limited to populating the
+    per-worker ``_WS_WORKER_STATE`` cache on first call.  Used both
+    serially in the main process and in process-pool workers."""
+    yaw_deg, f_deg, k_deg = pose
+    chassis, templates = _ws_get_chassis_and_templates(leg_az)
+    leg = _build_workspace_leg(yaw_deg, f_deg, k_deg,
+                                 leg_azimuth_rad=leg_az,
+                                 templates=templates)
+
+    pose_failures = []
+
+    leg_names = list(leg.keys())
+    for i, na in enumerate(leg_names):
+        for nb in leg_names[i + 1:]:
+            vol, centroid = _pair_overlap_volume_and_centroid(
+                leg[na], leg[nb], WORKSPACE_VOXEL_PITCH)
+            pair_kind = _ws_pair_kind(na, nb)
+            tol = (WORKSPACE_JOINT_TOL if pair_kind == "joint"
+                    else WORKSPACE_ARTEFACT_TOL)
+            if vol > tol:
+                pose_failures.append({
+                    "pose":     (yaw_deg, f_deg, k_deg),
+                    "pair":     (na, nb),
+                    "kind":     pair_kind,
+                    "vol":      vol,
+                    "centroid": centroid,
+                })
+
+    for dyn_name in _WS_DYNAMIC_NAMES:
+        dyn_mesh = leg[dyn_name]
+        for stat_name, stat_mesh in chassis.items():
+            vol, centroid = _pair_overlap_volume_and_centroid(
+                dyn_mesh, stat_mesh, WORKSPACE_VOXEL_PITCH)
+            if vol > WORKSPACE_ARTEFACT_TOL:
+                pose_failures.append({
+                    "pose":     (yaw_deg, f_deg, k_deg),
+                    "pair":     (dyn_name, stat_name),
+                    "kind":     "chassis",
+                    "vol":      vol,
+                    "centroid": centroid,
+                })
+
+    return pose_failures
+
+
+def _ws_pose_failures_kwargs(args):
+    """Picklable star-helper for ProcessPoolExecutor.map(): unpacks
+    ``(pose, leg_az)`` into the keyword call.  Returns the failures
+    list -- callers carry the pose order separately so we don't need
+    completion-order keys."""
+    return _workspace_pose_failures(args[0], args[1])
+
+
 def check_workspace_self_collision(*, n_yaw=None, n_femur=None, n_knee=None,
-                                     verbose=False):
+                                     verbose=False, pool=None):
     """Sweep (yaw, femur_pitch, knee_pitch) on a coarse grid through the
     runtime joint workspace, build the leg + chassis at each pose, and
     flag every pose where any leg part overlaps any static part beyond
@@ -2379,6 +2557,12 @@ def check_workspace_self_collision(*, n_yaw=None, n_femur=None, n_knee=None,
     All failing poses are reported (not just the first one) so the
     next geometry / limit iteration can see the full failure
     envelope.
+
+    ``pool`` is an optional ``concurrent.futures.Executor``.  When
+    given, per-pose work is dispatched to it in submission order; the
+    failures list is aggregated in pose-declaration order so the
+    printed output is identical to the serial run.  When ``None`` the
+    poses run in the calling process.
     """
     n_yaw   = n_yaw   if n_yaw   is not None else WORKSPACE_N_YAW
     n_femur = n_femur if n_femur is not None else WORKSPACE_N_FEMUR
@@ -2400,13 +2584,9 @@ def check_workspace_self_collision(*, n_yaw=None, n_femur=None, n_knee=None,
     leg_az = 0.5 * np.pi / 3.0   # same a = pi/6 as _build_standing_leg
 
     print("  Building chassis + leg-part templates (once) ...")
-    chassis = _build_chassis_world(leg_az)
-    templates = {
-        "coxa_bracket": hp.make_coxa_bracket(),
-        "coxa_link":    hp.make_coxa_link(),
-        "femur_link":   hp.make_femur_link(),
-        "tibia_link":   hp.make_tibia_link(),
-    }
+    # Warm the parent's own per-leg_az cache so a --serial run pays
+    # the chassis-build cost up front (mirrors the worker behaviour).
+    _ws_get_chassis_and_templates(leg_az)
 
     # Always include the canonical standing pose so we can confirm the
     # known-good pose stays clean even with the chassis in the scene.
@@ -2424,60 +2604,30 @@ def check_workspace_self_collision(*, n_yaw=None, n_femur=None, n_knee=None,
                 seen_poses.add(key)
                 pose_iter.append(key)
 
+    pose_args = [(pose, leg_az) for pose in pose_iter]
+
+    if pool is None:
+        results = [_workspace_pose_failures(pose, leg_az)
+                    for pose in pose_iter]
+    else:
+        # chunksize hand-tuned: a chunk should be large enough to
+        # amortise the pickle / dispatch cost but small enough that
+        # straggler poses (extreme-angle leg builds can take 2x longer
+        # than nominal) don't pin the slowest worker.  ~6 keeps the
+        # worker queue well-fed without ballooning per-task overhead.
+        results = list(pool.map(_ws_pose_failures_kwargs, pose_args,
+                                  chunksize=6))
+
     failures = []
     standing_failed = False
 
-    for idx, (yaw_deg, f_deg, k_deg) in enumerate(pose_iter):
-        leg = _build_workspace_leg(yaw_deg, f_deg, k_deg,
-                                     leg_azimuth_rad=leg_az,
-                                     templates=templates)
+    for idx, (pose, pose_failures) in enumerate(zip(pose_iter, results)):
+        yaw_deg, f_deg, k_deg = pose
         pose_label = (f"yaw={yaw_deg:+6.1f} femur={f_deg:+6.1f} "
                        f"knee={k_deg:+6.1f}")
-
-        pose_failures = []
-
-        # Dynamic-leg-part vs same-leg STATIC bracket + dynamic-vs-
-        # dynamic among the leg's own parts (excluding the bracket's
-        # adjacency with coxa_link, which is the yaw joint pair).
-        leg_names = list(leg.keys())
-        for i, na in enumerate(leg_names):
-            for nb in leg_names[i + 1:]:
-                # Skip adjacent-joint pairs at standing-pose-ish angles
-                # to keep noise low BUT still check them in case
-                # extreme yaw / pitch pulls the gear stack INTO the
-                # neighbouring printed body.  Use WORKSPACE_JOINT_TOL.
-                vol, centroid = _pair_overlap_volume_and_centroid(
-                    leg[na], leg[nb], WORKSPACE_VOXEL_PITCH)
-                pair_kind = _ws_pair_kind(na, nb)
-                tol = (WORKSPACE_JOINT_TOL if pair_kind == "joint"
-                        else WORKSPACE_ARTEFACT_TOL)
-                if vol > tol:
-                    pose_failures.append({
-                        "pose":     (yaw_deg, f_deg, k_deg),
-                        "pair":     (na, nb),
-                        "kind":     pair_kind,
-                        "vol":      vol,
-                        "centroid": centroid,
-                    })
-
-        # Each dynamic leg part vs every chassis-fixed static part.
-        for dyn_name in _WS_DYNAMIC_NAMES:
-            dyn_mesh = leg[dyn_name]
-            for stat_name, stat_mesh in chassis.items():
-                vol, centroid = _pair_overlap_volume_and_centroid(
-                    dyn_mesh, stat_mesh, WORKSPACE_VOXEL_PITCH)
-                if vol > WORKSPACE_ARTEFACT_TOL:
-                    pose_failures.append({
-                        "pose":     (yaw_deg, f_deg, k_deg),
-                        "pair":     (dyn_name, stat_name),
-                        "kind":     "chassis",
-                        "vol":      vol,
-                        "centroid": centroid,
-                    })
-
         if pose_failures:
             failures.extend(pose_failures)
-            if (yaw_deg, f_deg, k_deg) == standing_pose:
+            if pose == standing_pose:
                 standing_failed = True
             if verbose:
                 print(f"  POSE {idx:3d}  FAIL  {pose_label}  "
@@ -2680,11 +2830,14 @@ def check_horn_pattern_in_pad():
         #   opens DOWNWARD in -Z, removing material at z in [0,
         #   +RECESS_DEPTH].  In both cases the recess probe centre
         #   sits +RECESS_DEPTH/2 INTO the pad along +pad_axis.
-        ("coxa_link  (yaw joint)",        hp.make_coxa_link(),
+        ("coxa_link  (yaw joint)",        _load_mesh("coxa_link",
+                                                       copy=False),
          "z", 0.0,                          +1.0),
-        ("femur_link (hip-pitch joint)",  hp.make_femur_link(),
+        ("femur_link (hip-pitch joint)",  _load_mesh("femur_link",
+                                                       copy=False),
          "y", hp.HORN_STACK_H,              +1.0),
-        ("tibia_link (knee-pitch joint)", hp.make_tibia_link(),
+        ("tibia_link (knee-pitch joint)", _load_mesh("tibia_link",
+                                                       copy=False),
          "y", hp.HORN_STACK_H,              +1.0),
     ]
 
@@ -2866,12 +3019,14 @@ def check_cradle_nut_traps():
         return m
 
     cases = [
+        # ``_*_to_well_local`` helpers copy + mutate, so pass the
+        # cached master directly (no extra copy in the caller).
         ("coxa_bracket (yaw cradle)",
-         _bracket_to_well_local(hp.make_coxa_bracket())),
+         _bracket_to_well_local(_load_mesh("coxa_bracket", copy=False))),
         ("coxa_link    (hip-pitch cradle)",
-         _coxa_link_to_well_local(hp.make_coxa_link())),
+         _coxa_link_to_well_local(_load_mesh("coxa_link", copy=False))),
         ("femur_link   (knee cradle)",
-         _femur_link_to_well_local(hp.make_femur_link())),
+         _femur_link_to_well_local(_load_mesh("femur_link", copy=False))),
     ]
 
     # Probe radii (slightly tighter than the nominal cut so voxel
@@ -2944,8 +3099,109 @@ def check_cradle_nut_traps():
     return all_ok
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+# ---------------------------------------------------------------------------
+# Process-pool dispatch
+# ---------------------------------------------------------------------------
+#
+# Each entry in CHECKS is ``(display_name, callable_name)``: the parent
+# process pre-builds the mesh cache, the worker initializer ships it to
+# every spawn-mode worker, and each worker runs the named check with
+# ``redirect_stdout`` capturing every print.  The parent emits captured
+# output in DECLARATION ORDER (the index in CHECKS) so the on-screen
+# output is byte-identical to the serial run.
+#
+# What's missing from CHECKS: ``check_workspace_self_collision``.  It is
+# itself a fan-out of per-pose tasks, so the orchestrator passes the
+# (already-warm) pool to it and the workspace sweep submits its own
+# per-pose jobs into the same pool.  Running it INSIDE the pool as a
+# single job would serialise the 176 poses inside one worker, which is
+# precisely what we don't want.
+
+CHECKS = (
+    ("Mesh watertightness",       "check_watertight"),
+    ("Cradle openness",           "check_cradle_openness"),
+    ("Bolt-hole engagement",      "check_bolt_holes"),
+    ("Wire-exit slot",            "check_wire_slot"),
+    ("Self-collision",            "check_self_collision"),
+    ("Servo clearance",           "check_servo_clearance"),
+    ("Horn-stack clearance",      "check_horn_stack_clearance"),
+    ("Horn-sweep clearance",      "check_horn_sweep_clearance"),
+    ("Horn pattern in pads",      "check_horn_pattern_in_pad"),
+    ("Cradle nut traps",          "check_cradle_nut_traps"),
+    ("Flimsy joints",             "check_flimsy_joints"),
+    ("Thin sheets",               "check_thin_sheets"),
+)
+
+WORKSPACE_CHECK_NAME = "Workspace self-collision"
+
+
+def _worker_initializer(mesh_cache):
+    """ProcessPoolExecutor initializer: install the parent's pre-built
+    mesh cache so workers do NOT pay any constructive-solid rebuild
+    cost.  ``mesh_cache`` is pickled by spawn-mode workers as part of
+    initargs; trimesh.Trimesh round-trips through pickle cleanly."""
+    global _MESH_CACHE, _WS_WORKER_STATE
+    _MESH_CACHE.clear()
+    _MESH_CACHE.update(mesh_cache)
+    _WS_WORKER_STATE.clear()
+
+
+def _check_runner(display_name: str, fn_name: str):
+    """Worker entry point: resolve ``fn_name`` in this module's globals,
+    run it under ``redirect_stdout`` to capture every print, and return
+    ``(display_name, ok, captured_output_str)``.  Exceptions are caught
+    and serialised into the output string so a worker traceback never
+    silently disappears."""
+    buf = io.StringIO()
+    fn = globals()[fn_name]
+    try:
+        with redirect_stdout(buf):
+            ok = bool(fn())
+    except Exception:
+        import traceback
+        traceback.print_exc(file=buf)
+        return display_name, False, buf.getvalue()
+    return display_name, bool(ok), buf.getvalue()
+
+
+def _run_checks_serial(check_subset):
+    """Run the ``check_subset`` (subset of CHECKS) in the current
+    process, printing as we go.  Returns a list of ``(name, ok)``
+    in declaration order.
+    """
+    out = []
+    for name, fn_name in check_subset:
+        ok = bool(globals()[fn_name]())
+        out.append((name, ok))
+    return out
+
+
+def _run_checks_pool(check_subset, pool):
+    """Submit each check in ``check_subset`` to ``pool`` and print
+    each worker's captured stdout in DECLARATION ORDER (not completion
+    order).  Returns a list of ``(name, ok)``.
+    """
+    futures = []
+    for name, fn_name in check_subset:
+        fut = pool.submit(_check_runner, name, fn_name)
+        futures.append((name, fut))
+
+    out = []
+    for name, fut in futures:
+        _name, ok, output = fut.result()
+        if output:
+            sys.stdout.write(output)
+            sys.stdout.flush()
+        out.append((name, ok))
+    return out
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Run all post-redesign correctness checks on the "
+                    "prototype hexapod (mesh cache + process-pool "
+                    "fan-out).",
+    )
     parser.add_argument(
         "--with-arm",
         action="store_true",
@@ -2955,30 +3211,116 @@ def main():
             "Off by default; the prototype's base checks are unchanged."
         ),
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--serial",
+        action="store_true",
+        help=("Skip the process pool entirely; run every check in the "
+              "main process in declaration order.  Use this when a "
+              "worker traceback is mangled through pickle and you need "
+              "a clean stack to debug.  ~3-6x slower than --workers N."),
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help=("Override the default worker count.  Default is "
+              "min(8, os.cpu_count()); pass --workers 1 for a single-"
+              "process-but-still-spawning pool (mostly useful for "
+              "stress-testing the dispatch path)."),
+    )
+    parser.add_argument(
+        "--profile",
+        default=None,
+        metavar="PATH",
+        help=("Dump a cProfile snapshot of the PARENT process to PATH "
+              "when the run finishes.  Workers are NOT profiled "
+              "individually (combine with --serial if you want the "
+              "full suite profiled in one process)."),
+    )
+    parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="CHECK_NAME",
+        help=("Run only the named check(s); the value must match a "
+              "name in the declaration order list (e.g. "
+              "'Servo clearance', 'Workspace self-collision').  "
+              "Repeatable: '--only A --only B' runs both."),
+    )
+    args = parser.parse_args(argv)
+
+    profiler = None
+    if args.profile:
+        profiler = cProfile.Profile()
+        profiler.enable()
 
     print("=" * 72)
     print("PROTOTYPE design verification")
     if args.with_arm:
         print("  (with --with-arm: optional arm checks ENABLED)")
     print("=" * 72)
-    results = []
-    results.append(("Mesh watertightness",   check_watertight()))
-    results.append(("Cradle openness",        check_cradle_openness()))
-    results.append(("Bolt-hole engagement",   check_bolt_holes()))
-    results.append(("Wire-exit slot",         check_wire_slot()))
-    results.append(("Self-collision",         check_self_collision()))
-    results.append(("Servo clearance",        check_servo_clearance()))
-    results.append(("Horn-stack clearance",   check_horn_stack_clearance()))
-    results.append(("Horn-sweep clearance",   check_horn_sweep_clearance()))
-    results.append(("Horn pattern in pads",   check_horn_pattern_in_pad()))
-    results.append(("Cradle nut traps",       check_cradle_nut_traps()))
-    results.append(("Flimsy joints",          check_flimsy_joints()))
-    results.append(("Thin sheets",            check_thin_sheets()))
-    results.append(("Workspace self-collision",
-                    check_workspace_self_collision()))
+
+    only_set = set(args.only) if args.only else None
+
+    def _is_selected(name):
+        return only_set is None or name in only_set
+
+    check_subset = [(n, f) for (n, f) in CHECKS if _is_selected(n)]
+    run_workspace = _is_selected(WORKSPACE_CHECK_NAME)
+
+    if only_set is not None:
+        missing = only_set - {n for n, _ in CHECKS} - {WORKSPACE_CHECK_NAME}
+        if missing:
+            print(f"  WARN: --only entries not matched against any known "
+                  f"check: {sorted(missing)}", file=sys.stderr)
+
+    t_start = time.monotonic()
+
+    print("  Pre-building mesh cache in parent process ...")
+    prebuild_mesh_cache()
+
+    results: list[tuple[str, bool]] = []
+    n_workers = 1  # only meaningful for the non-serial branch summary line
+
+    if args.serial:
+        # Run every check inline.  Workspace sweep also runs in this
+        # process, with no pool, so its 176 poses execute serially --
+        # this is the SAME code path as the historical implementation
+        # and is the "ground truth" we diff the parallel output against.
+        results.extend(_run_checks_serial(check_subset))
+        if run_workspace:
+            ok = bool(check_workspace_self_collision())
+            results.append((WORKSPACE_CHECK_NAME, ok))
+    else:
+        n_workers = (args.workers
+                       if args.workers is not None
+                       else min(8, (os.cpu_count() or 1)))
+        # spawn context for stability on macOS (fork + trimesh's
+        # rtree-backed mesh.contains has been observed to deadlock).
+        ctx = multiprocessing.get_context("spawn")
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=n_workers,
+            mp_context=ctx,
+            initializer=_worker_initializer,
+            initargs=(_MESH_CACHE,),
+        ) as pool:
+            # Phase 1: the 12 "small" checks fan out across the pool.
+            # Output is printed in declaration order as each future
+            # resolves.
+            results.extend(_run_checks_pool(check_subset, pool))
+
+            # Phase 2: the workspace sweep dispatches its own 176
+            # per-pose jobs into the same pool.  We run it in the
+            # PARENT so its print statements stream to the real
+            # stdout (and any redirect_stdout captures it correctly).
+            if run_workspace:
+                ok = bool(check_workspace_self_collision(pool=pool))
+                results.append((WORKSPACE_CHECK_NAME, ok))
 
     if args.with_arm:
+        # Arm checks reach into the optional arm module which has its
+        # own internal prints; we run them serially in the parent for
+        # the same reasons as the workspace sweep.
         results.extend(_optional_arm_checks())
 
     print()
@@ -2990,6 +3332,15 @@ def main():
         print(f"   [{flag}]  {name}")
         all_ok &= ok
     print("=" * 72)
+    elapsed = time.monotonic() - t_start
+    print(f"Total verifier wall time: {elapsed:6.1f} s "
+          f"({'serial' if args.serial else f'pool max_workers={n_workers}'})")
+
+    if profiler is not None:
+        profiler.disable()
+        profiler.dump_stats(args.profile)
+        print(f"cProfile snapshot written to {args.profile}")
+
     if all_ok:
         print("All checks passed. The prototype is ready to print.")
         return 0
