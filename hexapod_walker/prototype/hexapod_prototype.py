@@ -653,33 +653,39 @@ COXA_ARM_CAP_T          = 4.0    # mm -- cap thickness in +Z above
 # This pad is the user's preferred fix.  It's a rectangular block of
 # plastic that sits ON TOP of the well's outer top face and rises up
 # into the bridge gap, fusing both with the well's outer body (below)
-# and the existing bridge / arm (above).  It widens the bridge's Y
-# extent from 6.75 mm to 11.75 mm at the bridge-to-well joint and
-# extends a 4 mm-wide spine of plastic INTO -Y BEYOND the
-# ``pad_sweep_clear`` cylinder's y range of [-18, +18] -- i.e. into
-# y in [-22.25, -18] -- so that even after the cylinder eats away the
-# middle of the pad there's still a 4 mm x 8.5 mm x 53 mm = 1800 mm^3
-# of pad material the cylinder can't reach holding the bridge to the
-# well.
+# and the existing bridge / arm (above).
 #
-# Verified by ``_check_coxa_link_bridge_joint`` in _verify_prototype.py
-# (called as part of ``check_flimsy_joints``).  Without this pad the
-# bridge slice cross-section drops to 19 mm^2 at z = 25.5 mm (just
-# above the well top); with this pad it stays above 100 mm^2 across
-# every slice in the gap.
+# Sizing notes (May 18 2026 revision).  An earlier 5 mm version of the
+# pad left a 4.25 mm-wide safe spine outside the ``pad_sweep_clear``
+# cylinder's y range of [-18, +18] -- BUT the bridge + pad at x ~
+# COXA_LENGTH = +25 mm (where the cylinder cuts the deepest into the
+# bridge gap) collapsed to a ~4 mm-thin vertical strip that the user
+# flagged as visually + structurally "wrong wall thickened".  See the
+# user-pointed screenshot at hexapod_walker/prototype/renders/
+# _user_pointed_thin_neck.png and the ASCII diagnostic in
+# _find_thin_neck.py (YZ slice at x = +22, x = +25): the surviving
+# spine in the middle X range was only 4 mm wide in Y for a 6 mm-tall
+# vertical column, which neither the original XY-slice bridge check
+# nor casual inspection picked up.
 #
-# Sizing notes.  The pad's -Y extent ``WELL_TOP_PAD_Y_EXT`` (5 mm
-# past the bridge's existing -Y face = ``well_near_y - 0.5``) is
-# chosen so the pad's far-Y edge lands at y = -22.25, which is 4.25 mm
-# OUTSIDE the ``pad_sweep_clear`` cylinder's y range of [-18, +18].
-# Any value >= 1.5 mm would keep the pad inside the cylinder range
-# (pad gets fully cut where it crosses the cylinder swept volume);
-# 5 mm keeps a meaningful safe spine that the cylinder cannot touch.
-# Going much wider than 5 mm would push the pad's -Y face past the
-# well's outer -Y face at y = -47 -- silly because there's nothing
-# for the pad to bond to past the well, and would also pollute the
-# coxa_link's bounding box.
-WELL_TOP_PAD_Y_EXT = 5.0   # mm -- distance the pad extends PAST the
+# The fix is to extend ``WELL_TOP_PAD_Y_EXT`` to 13.25 mm so the pad's
+# far-Y edge lands at y = -32 (= bridge_y_min - 13.25, = well_near_y -
+# 13.75).  The pad's far-Y edge stays comfortably INSIDE the well's
+# outer footprint (well's far-Y face is at y = -46.5) and OUTSIDE the
+# cavity (the cavity sits at y in [-44, -6], BUT at z in [+2.5,
+# +22.5] -- well below the pad's z range of [+23.5, +32], so the pad
+# does not intrude into the cavity).  The new pad supplies ~14 mm of
+# surviving safe spine in Y at every x in the bridge x range, holding
+# the well to the bridge / arm / hub through ~14 x 8.5 = 119 mm^2 of
+# cross-section at the cylinder-cut middle (vs. ~24 mm^2 with the
+# 5 mm pad).
+#
+# Verified by ``_check_coxa_link_bridge_joint`` AND
+# ``_check_coxa_link_bridge_yz_thickness`` in _verify_prototype.py
+# (called as part of ``check_flimsy_joints``).  The YZ-thickness
+# check FAILS on the 5 mm pad geometry (min YZ-area = 40 mm^2 at x =
+# +22) and PASSES on the 13.25 mm pad.
+WELL_TOP_PAD_Y_EXT = 13.25 # mm -- distance the pad extends PAST the
                             # bridge's existing -Y face into -Y
                             # direction (= INTO the well's outer body
                             # footprint).  See big docstring above.

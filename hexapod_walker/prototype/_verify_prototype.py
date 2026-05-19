@@ -1485,6 +1485,34 @@ COXA_LINK_BRIDGE_SX_MIN_MM3   = 100.0  # ~ half-modulus of a 10x20 bar in
 
 COXA_LINK_BRIDGE_SLICE_DZ     = 0.5    # mm -- slice spacing in Z
 
+# Second bridge sub-check: per-X YZ cross-section probe.
+#
+# The XY-slice check above averages cross-section over the full bridge X
+# range (-12 .. +41) -- so a 53 mm-long bridge with FAT plastic at the X
+# extremes (where pad_sweep_clear does not reach) and THIN plastic in
+# the middle (at x ~ COXA_LENGTH = +25, where pad_sweep_clear eats most
+# of the bridge + pad) reports a healthy 157 mm^2 slice area even when
+# the middle is a 4 mm-thin vertical strip.  That's exactly the failure
+# mode the user pointed at in the May 18 screenshot ("you made the wrong
+# wall thicker -- the joint in the middle left is whats thin").
+#
+# This second sub-check takes a YZ cross-section at EVERY 1 mm in X
+# across the bridge X range, intersects with a bridge-only YZ window,
+# and reports the minimum cross-section area + minimum Y-thickness at
+# each x. The "Y-thickness" is the maximum y-extent of any horizontal
+# slab inside the slice (i.e. the widest section the bridge maintains
+# at some z): the bridge ties the well in Y direction, so Y-thickness
+# is the structural metric in bending and shear.
+#
+# Threshold: 6 mm minimum Y-thickness AND 50 mm^2 minimum slice area at
+# ANY x in the bridge x range catches the cylinder-cut middle.
+
+COXA_LINK_BRIDGE_X_STEP_MM    = 1.0    # mm -- spacing of YZ probes in X
+COXA_LINK_BRIDGE_MIN_AREA_MM2 = 50.0   # mm^2 -- min YZ cross-section area
+                                       # at any x in the bridge x range
+COXA_LINK_BRIDGE_MIN_Y_THK_MM = 6.0    # mm -- min Y thickness (max y extent
+                                       # at any single z in the bridge slice)
+
 
 def _slice_polygons(mesh, z):
     """Horizontal cross-section of ``mesh`` at world Z = ``z`` as a
@@ -1536,6 +1564,92 @@ def _ixx_about_centroid_x(geom, *, pitch=0.25):
     y_c = float(yy.mean())
     ixx = float(((yy - y_c) ** 2).sum() * da)
     return area, y_c, ixx, float(yy.min()), float(yy.max())
+
+
+def _check_coxa_link_bridge_yz_thickness(coxa_link_mesh):
+    """Per-X YZ cross-section probe of coxa_link's bridge region.
+
+    Catches the user-pointed "thin neck in the middle" failure mode
+    where ``pad_sweep_clear`` eats most of the bridge + well-top pad
+    at x ~ COXA_LENGTH = +25 mm, leaving only a thin vertical strip
+    where the bridge ties the well to the arm/hub.
+
+    Probes every COXA_LINK_BRIDGE_X_STEP_MM mm in X across the bridge
+    x range. At each x, point-samples a YZ grid inside a bridge-only
+    window (y between the well rim and the arm -Y face, z between the
+    well top and the arm bottom) and measures the cross-section area
+    + the maximum Y extent at any single z (= the widest local slab).
+    """
+    well_z_drop = -(hp.WELL_D / 2.0
+                    + hp.COXA_ARM_T / 2.0
+                    + hp.WELL_Z_DROP_EXTRA)
+    well_top_z  = hp.COXA_LIFT + well_z_drop + hp.WELL_D / 2.0
+    yoke_bot_z  = hp.COXA_LIFT
+
+    # Bridge x range: full arm extent (the bridge spans the arm's
+    # full length).
+    arm_x_extent = hp.COXA_LENGTH + 28.0
+    x_lo = -12.0 + 1.0                               # +1 mm margin
+    x_hi = arm_x_extent - 12.0 - 1.0                 # arm +X end - 1 mm
+    n_x = max(int(np.ceil((x_hi - x_lo) /
+                          COXA_LINK_BRIDGE_X_STEP_MM)) + 1, 2)
+    x_values = np.linspace(x_lo, x_hi, n_x)
+
+    # YZ window: y from a margin below the well rim to just above the
+    # arm's -Y face (so a fix that widens the pad in -Y still lands in
+    # the window). z from just above the well top to just below the
+    # arm bottom (so we measure the BRIDGE alone, not the well's outer
+    # slab or the arm slab).
+    y_lo, y_hi = -34.0, -10.0
+    z_lo, z_hi = well_top_z + 0.25, yoke_bot_z - 0.25
+    dy = 0.25                                        # mm grid pitch in y
+    dz = 0.5                                         # mm grid pitch in z
+    ys = np.arange(y_lo, y_hi + 1e-9, dy)
+    zs = np.arange(z_lo, z_hi + 1e-9, dz)
+    dA = dy * dz
+
+    rows = []   # (x, area, max_y_extent_at_any_z)
+    YY, ZZ = np.meshgrid(ys, zs, indexing="ij")
+    for x in x_values:
+        pts = np.stack([np.full(YY.size, float(x)),
+                        YY.ravel(), ZZ.ravel()], axis=1)
+        inside = coxa_link_mesh.contains(pts).reshape(YY.shape)
+        area = float(inside.sum()) * dA
+        # Max Y-extent at any single z (column in `inside`): count
+        # interior cells per z row and multiply by dy.
+        per_z = inside.sum(axis=0)
+        max_y_extent = float(per_z.max()) * dy
+        rows.append((float(x), area, max_y_extent))
+
+    areas = [r[1] for r in rows]
+    yt = [r[2] for r in rows]
+    min_area = min(areas) if areas else 0.0
+    min_yt   = min(yt)    if yt    else 0.0
+    min_area_x = rows[int(np.argmin(areas))][0] if rows else 0.0
+    min_yt_x   = rows[int(np.argmin(yt))][0]    if rows else 0.0
+
+    ok_area = min_area >= COXA_LINK_BRIDGE_MIN_AREA_MM2
+    ok_yt   = min_yt   >= COXA_LINK_BRIDGE_MIN_Y_THK_MM
+    ok = ok_area and ok_yt
+
+    head = (f"min YZ-slice area = {min_area:5.1f} mm^2 at x = {min_area_x:+.1f} "
+            f"({'>=' if ok_area else '<'}{COXA_LINK_BRIDGE_MIN_AREA_MM2:.0f}), "
+            f"min Y-thickness = {min_yt:4.2f} mm at x = {min_yt_x:+.1f} "
+            f"({'>=' if ok_yt else '<'}{COXA_LINK_BRIDGE_MIN_Y_THK_MM:.0f}); "
+            f"YZ window y in ({y_lo:.1f}, {y_hi:.1f}), z in ({z_lo:.1f}, {z_hi:.1f})")
+    _label("coxa_link bridge YZ thickness", ok, head)
+
+    if not ok:
+        # Dump worst 8 x values so the user can see where the bridge
+        # is thinnest.
+        ranked = sorted(rows, key=lambda r: r[2])[:8]
+        print(f"           thinnest 8 x slices (sorted by Y-thickness):")
+        for x, a, yt_val in ranked:
+            tag_a = " " if a    >= COXA_LINK_BRIDGE_MIN_AREA_MM2 else "A"
+            tag_y = " " if yt_val >= COXA_LINK_BRIDGE_MIN_Y_THK_MM else "Y"
+            print(f"           [{tag_a}{tag_y}]  x = {x:+6.2f}  "
+                  f"area = {a:5.1f} mm^2  max Y-thickness = {yt_val:5.2f} mm")
+    return ok
 
 
 def _check_coxa_link_bridge_joint(coxa_link_mesh):
@@ -1690,6 +1804,7 @@ def check_flimsy_joints():
     # ``_check_coxa_link_bridge_joint``).  Reuses the already-built
     # coxa_link mesh from the items dict above.
     all_ok &= _check_coxa_link_bridge_joint(items["coxa_link"])
+    all_ok &= _check_coxa_link_bridge_yz_thickness(items["coxa_link"])
 
     return all_ok
 
