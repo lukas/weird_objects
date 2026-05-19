@@ -89,14 +89,21 @@ def _box(extents, centre=(0.0, 0.0, 0.0)) -> trimesh.Trimesh:
 
 
 def _yaw_horn_sweep() -> trimesh.Trimesh:
-    """Cylinder swept by the plastic horn + horn adapter above the
-    coxa_bracket flange (bracket-local frame).
+    """Cylinder swept by the plastic horn above the coxa_bracket flange
+    (bracket-local frame).
 
-    Centred on the yaw axis at z = above the flange top.  Anything solid
-    inside this cylinder collides with the rotating horn assembly.
+    Design B (May 2026): the printed servo_horn_adapter has been
+    retired; the link's pad now bolts directly onto the plastic horn,
+    so the swept stack collapses from
+        SERVO_OUTPUT_H + PLASTIC_HORN_H + HORN_ADAPTER_T = 14 mm
+    down to
+        SERVO_OUTPUT_H + HORN_STACK_H = 10 mm
+    where ``HORN_STACK_H == PLASTIC_HORN_H == 5 mm``.  Centred on the
+    yaw axis above the flange top; anything solid inside this cylinder
+    collides with the rotating horn assembly.
     """
     radius = hp.PLASTIC_HORN_X_TIP_R + 0.6
-    height = hp.SERVO_OUTPUT_H + hp.PLASTIC_HORN_H + hp.HORN_ADAPTER_T
+    height = hp.SERVO_OUTPUT_H + hp.HORN_STACK_H
     return _cyl_axis(
         radius=radius,
         height=height,
@@ -192,8 +199,17 @@ def _knee_servo_body_pocket() -> trimesh.Trimesh:
 def _femur_horn_stack_void() -> trimesh.Trimesh:
     """Cylindrical clearance void inside the femur's hip-end neck torus.
 
-    Holds the plastic horn + printed horn adapter when the femur is
-    bolted to the hip-pitch servo (femur-local frame).
+    Holds the plastic horn when the femur is bolted directly to the
+    hip-pitch servo's plastic 4-arm X-horn (femur-local frame).  Design
+    B (May 2026): height has collapsed from ``HORN_STACK_H +
+    LINK_THICKNESS`` = 15 mm down to ``HORN_STACK_H + LINK_THICKNESS``
+    = 11 mm now that ``HORN_STACK_H == PLASTIC_HORN_H == 5 mm``.  The
+    void radius is still ``HORN_ADAPTER_OD/2 + 0.5`` = 16.5 mm because
+    the neck-torus inner wall in the link geometry continues to use
+    that radius (the plastic horn's wider 19 mm arm sweep is covered
+    separately by check_horn_sweep_clearance on the YAW joint; on the
+    hip/knee joints the horn rotates rigidly with the link so the
+    arms never sweep through the neck wall in operation).
     """
     return _cyl_axis(
         radius=hp.HORN_ADAPTER_OD / 2.0 + 0.5,

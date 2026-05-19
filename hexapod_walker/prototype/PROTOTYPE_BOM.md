@@ -30,7 +30,8 @@ spec exactly.
 | 1 | USB cable, Pi to Arduino | USB-A to USB-B if using Arduino Mega with full-size USB-B. If your clone uses USB-C or micro-USB, buy that cable instead. | [Amazon: USB A to B cable Arduino](https://www.amazon.com/s?k=USB+A+to+B+cable+Arduino) |
 | 1 | M3 screw assortment | M3 socket-head screws, nuts, washers, lengths 6/8/10/12/16/20 mm. | [Amazon: M3 stainless screw kit assortment](https://www.amazon.com/s?k=M3+stainless+screw+kit+assortment) |
 | 6 | M3 x 16 pan-head bolts | Foot/tibia clevis hinge pin -- one per leg. Pan-head (low profile), threaded full length. Stainless. Reuse from the M3 assortment if it includes 16 mm. | [Amazon: M3 x 16 pan head stainless](https://www.amazon.com/s?k=M3+x+16+pan+head+stainless) |
-| 1 | M3 nyloc nuts | 100-pack nylon-insert lock nuts. Use on vibration-prone joints (6 reserved for the foot hinges). | [Amazon: M3 nyloc lock nut 100 pack](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
+| 72 | M3 x 14 SHCS | **Design C servo-mount bolts** -- four per servo (18 servos = 72 bolts) plus a few spares.  These go horizontally through the cradle's +/- X walls and the servo's mounting tabs, and bite into the printed-in nyloc nut traps on the outer face of the cradle.  Use socket-head cap screws (M3 x 14 mm, full-thread, stainless).  Reuse from the M3 assortment if it includes that length. | [Amazon: M3 x 14 socket head cap screw stainless](https://www.amazon.com/s?k=M3+x+14+socket+head+cap+screw+stainless) |
+| 1 | M3 nyloc nuts | 100-pack nylon-insert lock nuts.  **Need >= 78 captive nuts**: 6 foot hinges + 72 servo-mount nuts (4 per servo x 18 servos).  Plus a few spares.  Use these in the printed-in hex pockets on the outer face of every coxa-bracket / coxa-link / femur-link cradle. | [Amazon: M3 nyloc lock nut 100 pack](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
 | 1 | M3 standoffs | M3 x 25 mm male-female brass standoffs, pack of 20. | [Amazon: M3 25mm standoffs male female brass](https://www.amazon.com/s?k=M3+25mm+standoffs+male+female+brass) |
 | 1 | M2.5 screw pack | M2.5 x 8 mm screws, useful for horn/adapter work if the servo-included screws are bad. | [Amazon: M2.5 8mm screw 50 pack](https://www.amazon.com/s?k=M2.5+8mm+screw+50+pack) |
 | 1 kg | PLA or PETG filament | 1.75 mm. Structural printed parts. PLA is easiest; PETG is tougher. | [Amazon: PLA filament 1.75mm 1kg](https://www.amazon.com/s?k=PLA+filament+1.75mm+1kg) |
@@ -62,7 +63,12 @@ Files are in `hexapod_walker/prototype/stl_prototype/`.
 | 6 | `femur_link.stl` |
 | 6 | `tibia_link.stl` |
 | 6 | `foot_pad.stl` |
-| 18 | `servo_horn_adapter.stl` |
+
+> **Design B (May 2026):** the `servo_horn_adapter.stl` disc has been
+> retired -- the 4 x M3 bolt-circle and central 16 mm horn-hub
+> recess now live directly in each link's pad face, so the link
+> bolts straight onto the plastic 4-arm X-horn that ships with the
+> servo.  No extra adapter to print.
 
 For a one-leg test, print only:
 
@@ -73,20 +79,21 @@ For a one-leg test, print only:
 | 1 | `femur_link.stl` |
 | 1 | `tibia_link.stl` |
 | 1 | `foot_pad.stl` |
-| 3 | `servo_horn_adapter.stl` |
 
 ## Bench Test Order
 
 1. Buy **one DS3225** first if you want to de-risk fit.
-2. Print `coxa_bracket.stl`, `coxa_link.stl`, `femur_link.stl`, and one `servo_horn_adapter.stl`.
-3. Confirm the DS3225 slides into all three wells and the tab holes line up.
-4. Wire one DS3225 to PCA9685 channel 0 and run:
+2. Print `coxa_bracket.stl`, `coxa_link.stl`, and `femur_link.stl`.
+3. Press 4 x M3 nyloc nuts into the hex pockets on the outer face of the cradle's +/- X walls (Design C captive-nut mount).
+4. Drop a DS3225 into each well; confirm it slides in and the four servo-tab holes line up with the cradle's horizontal clearance holes.  Bolt it down with 4 x M3 x 14 SHCS into the nyloc nuts.
+5. Snap the plastic 4-arm X-horn onto the servo output spline, then bolt the matching link (coxa_link / femur_link / tibia_link) onto the horn through the 4 x Phi 3.2 mm holes on the link's pad face -- the link's 16 mm hub recess seats the horn's central hub.
+6. Wire one DS3225 to PCA9685 channel 0 and run:
 
 ```bash
 python hexapod_walker/prototype/pi_control/servo_bridge_client.py --port /dev/ttyACM0 wiggle --joint 0
 ```
 
-5. Once fit and motion are good, buy/print the rest.
+7. Once fit and motion are good, buy/print the rest.
 
 ## Rough Cost
 

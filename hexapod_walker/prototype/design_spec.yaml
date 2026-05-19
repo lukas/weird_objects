@@ -78,11 +78,9 @@ coordinate_systems:
     x_axis: "Foot spar direction (matches the tibia's +X after assembly)."
     y_axis: "Hinge-pin axis (matches the tibia's +Y / knee axis)."
     z_axis: "Up; tongue rises in +Z."
-  servo_horn_adapter:
-    origin: "Bottom face of the disc (mating to the plastic horn)."
-    x_axis: "Aligned with the plastic horn's first arm (HORN_BOLT_ANGLES_RAD[0] = 0)."
-    y_axis: "Aligned with HORN_BOLT_ANGLES_RAD[1] = pi/2."
-    z_axis: "Servo output axis."
+  # Design B (May 2026): servo_horn_adapter retired -- the 4 x M3
+  # bolt pattern and central 16 mm horn-hub recess now live directly
+  # in each link's pad face.
   battery_holder:
     origin: "Centre of the bottom face of the open-top tray."
     x_axis: "Long axis of the LiPo (length direction)."
@@ -122,7 +120,7 @@ printability:
                                    # module / SHOPPING_LIST.md.  Apply
                                    # to all parts; especially critical
                                    # for the small-footprint parts
-                                   # (foot_pad, servo_horn_adapter).
+                                   # (foot_pad).
 
 # ---------------------------------------------------------------------
 # Target printer / slicer / material
@@ -152,7 +150,8 @@ print_orientations:
   femur_link:         {rotation_deg: [-90, 0, 0], note: "Rotate -90 about X so spar +Y face is on the bed; minimises supports."}
   tibia_link:         {rotation_deg: [90, 0, 0],  note: "Rotate +90 about X to lay spar's broad face on the bed."}
   foot_pad:           {rotation_deg: [0, 0, 0],   note: "TPU disk on bed, tongue up."}
-  servo_horn_adapter: {rotation_deg: [0, 0, 0],   note: "Recess on -Z side rests on bed."}
+  # Design B (May 2026): servo_horn_adapter retired -- no separate
+  # part to orient.
 
 # ---------------------------------------------------------------------
 # Parts registry
@@ -279,25 +278,32 @@ parts:
   femur_link:
     description: "Thigh; hip pad bolts onto hip-pitch horn adapter at x=0, knee well at x=FEMUR_LENGTH."
     qty: 6
-    bounds_mm: [128.5, 62.0, 46.0]
-    # Hip pad spans y in [+9, +15] (the femur clamp ring).  Bolt holes
-    # are drilled along Y through the pad's mid-Y (y = 12).
+    # Design B (May 2026): Y-extent shrank from 62 -> 58 mm because
+    # the hip pad / neck moved from y in [-3, +15] (extent 18 mm
+    # including 2 x HIP_PAD_R = 39 mm in the rotation plane) to
+    # y in [-3, +11] (extent 14 mm); HORN_STACK_H went 9 -> 5 mm
+    # with the printed servo_horn_adapter retired.
+    bounds_mm: [128.5, 58.0, 46.0]
+    # Design B (May 2026): hip pad now spans y in [+5, +11] (HORN_STACK_H
+    # shrank from 9.0 mm to 5.0 mm with the printed servo_horn_adapter
+    # retired).  Bolt holes are still drilled along Y through the pad's
+    # mid-Y (now y = 8).
     holes:
       - name: hip_pad_bolt_+X
         diameter_mm: 3.2                # = SERVO_TAB_HOLE (M3 clearance)
-        position_mm: [10.4, 12.0, 0.0]
+        position_mm: [10.4, 8.0, 0.0]
         axis: y
       - name: hip_pad_bolt_+Z
         diameter_mm: 3.2
-        position_mm: [0.0, 12.0, 10.4]
+        position_mm: [0.0, 8.0, 10.4]
         axis: y
       - name: hip_pad_bolt_-X
         diameter_mm: 3.2
-        position_mm: [-10.4, 12.0, 0.0]
+        position_mm: [-10.4, 8.0, 0.0]
         axis: y
       - name: hip_pad_bolt_-Z
         diameter_mm: 3.2
-        position_mm: [0.0, 12.0, -10.4]
+        position_mm: [0.0, 8.0, -10.4]
         axis: y
     wire_channels:
       - name: knee_wire_exit_L
@@ -309,23 +315,29 @@ parts:
   tibia_link:
     description: "Shin; knee pad bolts onto knee horn-adapter at x=0, foot clevis at x=TIBIA_LENGTH."
     qty: 6
-    bounds_mm: [155.5, 21.0, 39.0]
+    # Design B (May 2026): Y-extent shrank from 21 -> 17 mm with the
+    # knee pad mating face at y = HORN_STACK_H = 5 mm (was 9 mm).
+    bounds_mm: [155.5, 17.0, 39.0]
+    # Design B (May 2026): knee pad now spans y in [+5, +11] (HORN_STACK_H
+    # shrank from 9.0 mm to 5.0 mm with the printed servo_horn_adapter
+    # retired).  Bolt holes are still drilled along Y through the pad's
+    # mid-Y (now y = 8).
     holes:
       - name: knee_pad_bolt_+X
         diameter_mm: 3.2
-        position_mm: [10.4, 12.0, 0.0]
+        position_mm: [10.4, 8.0, 0.0]
         axis: y
       - name: knee_pad_bolt_+Z
         diameter_mm: 3.2
-        position_mm: [0.0, 12.0, 10.4]
+        position_mm: [0.0, 8.0, 10.4]
         axis: y
       - name: knee_pad_bolt_-X
         diameter_mm: 3.2
-        position_mm: [-10.4, 12.0, 0.0]
+        position_mm: [-10.4, 8.0, 0.0]
         axis: y
       - name: knee_pad_bolt_-Z
         diameter_mm: 3.2
-        position_mm: [0.0, 12.0, -10.4]
+        position_mm: [0.0, 8.0, -10.4]
         axis: y
     wire_channels: []                    # the tibia has no servo, hence no wire-exit
     keep_out_volumes:
@@ -343,30 +355,10 @@ parts:
     wire_channels: []
     keep_out_volumes: []
 
-  servo_horn_adapter:
-    description: "Round 4 x M3 disc that clamps onto a 25T plastic horn (M3 centre)."
-    qty: 18
-    bounds_mm: [32.0, 32.0, 4.0]
-    holes:
-      - name: centre
-        diameter_mm: 3.4
-        position_mm: [0.0, 0.0, 2.0]
-        axis: z
-      - name: bolt_0
-        diameter_mm: 3.2
-        position_mm: [10.4, 0.0, 2.0]
-        axis: z
-      - name: bolt_90
-        diameter_mm: 3.2
-        position_mm: [0.0, 10.4, 2.0]
-        axis: z
-      - name: bolt_180
-        diameter_mm: 3.2
-        position_mm: [-10.4, 0.0, 2.0]
-        axis: z
-      - name: bolt_270
-        diameter_mm: 3.2
-        position_mm: [0.0, -10.4, 2.0]
-        axis: z
-    wire_channels: []
-    keep_out_volumes: []
+  # Design B (May 2026): the printed servo_horn_adapter has been
+  # retired.  The 4 x M3 bolt-circle (Phi 3.2 mm on a 20.8 mm PCD)
+  # and the 16 mm x 1.6 mm central hub recess now live directly in
+  # each link's pad face (coxa_link / femur_link / tibia_link); the
+  # link bolts straight onto the plastic 4-arm X-horn that ships
+  # with the servo.  Validated by
+  # ``_verify_prototype.check_horn_pattern_in_pad``.

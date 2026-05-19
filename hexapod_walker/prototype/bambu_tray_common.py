@@ -146,12 +146,15 @@ def _pack_hardware(
 ) -> list[LayoutItem]:
     """Simple deterministic bottom-left pack for rigid hardware pieces."""
     if requests is None:
+        # Design B (May 2026): servo_horn_adapter.stl has been retired
+        # (each link bolts directly onto the plastic 4-arm X-horn that
+        # ships with the servo).  No more 18 x adapter discs on the
+        # hardware plates.
         requests = [
             ("battery_holder.stl", 1),
             ("electronics_tray.stl", 1),
             ("coxa_bracket.stl", 6),
             ("coxa_link.stl", 6),
-            ("servo_horn_adapter.stl", 18),
         ]
 
     expanded: list[tuple[PartSpec, int]] = []
@@ -222,20 +225,11 @@ def _battery_and_electronics_row(cfg: TrayPrinterConfig,
     ]
 
 
-def _horn_adapter_grid(cfg: TrayPrinterConfig,
-                       parts: dict[str, PartSpec]) -> list[LayoutItem]:
-    """Three centred rows of six adapters (18 total)."""
-    part = parts["servo_horn_adapter.stl"]
-    mesh = _oriented_mesh(part, 0)
-    pitch_y = float(mesh.extents[1]) + cfg.part_clearance_mm
-    y_centres = (pitch_y, 0.0, -pitch_y)
-    items: list[LayoutItem] = []
-    copy = 1
-    for y_mm in y_centres:
-        items.extend(_grid_row(cfg, part, 6, y_mm=y_mm, rotate_z_deg=0,
-                               start_index=copy))
-        copy += 6
-    return items
+# Design B (May 2026): the printed servo_horn_adapter has been retired.
+# ``_horn_adapter_grid`` and the matching ``plate_07_*`` / ``plate_05_*``
+# servo-horn-adapter plates were dropped from the Bambu tray layouts;
+# only the comment block below survives so a grepping reader sees the
+# decision.
 
 
 def _frange(start: float, stop: float, step: float):
@@ -372,13 +366,12 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
                         ("coxa_link.stl", 6),
                     ])),
                 ),
+                # Design B (May 2026): plate_07_rigid_servo_horn_adapters
+                # removed -- the printed servo_horn_adapter has been
+                # retired (links bolt directly onto the plastic 4-arm
+                # X-horn).
                 PlatePlan(
-                    "plate_07_rigid_servo_horn_adapters",
-                    "PLA/PETG rigid",
-                    tuple(_horn_adapter_grid(cfg, parts)),
-                ),
-                PlatePlan(
-                    "plate_08_tpu_foot_pads",
+                    "plate_07_tpu_foot_pads",
                     "TPU 95A",
                     tuple(_grid_row(cfg, foot, 6, y_mm=0.0, rotate_z_deg=0)),
                 ),
@@ -403,9 +396,9 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
             *_grid_row(cfg, tibia, 6, y_mm=-70.0, rotate_z_deg=90),
             *_grid_row(cfg, femur, 6, y_mm=78.0, rotate_z_deg=90),
         ]
-        # Horn adapters get their own plate even on the large H2D bed -- the
-        # 32 mm OD pucks don't pack efficiently next to the bigger hardware
-        # and a dedicated grid is more reliable to print.
+        # Design B (May 2026): the dedicated horn-adapter grid plate has
+        # been removed; the printed servo_horn_adapter is no longer in
+        # the printable-output set.
         hardware_requests = [
             ("battery_holder.stl", 1),
             ("electronics_tray.stl", 1),
@@ -424,12 +417,7 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
                 tuple(_pack_hardware(cfg, parts, requests=hardware_requests)),
             ),
             PlatePlan(
-                "plate_05_rigid_servo_horn_adapters",
-                "PLA/PETG rigid",
-                tuple(_horn_adapter_grid(cfg, parts)),
-            ),
-            PlatePlan(
-                "plate_06_tpu_foot_pads",
+                "plate_05_tpu_foot_pads",
                 "TPU 95A",
                 tuple(_grid_row(cfg, foot, 6, y_mm=0.0, rotate_z_deg=0)),
             ),
@@ -490,7 +478,7 @@ def write_readme(cfg: TrayPrinterConfig, out_dir: str, plans: list[PlatePlan]) -
         "",
         "Large tray STLs are many separate shells on one plate. Reliability is mostly **slicer and environment**, not the STL:",
         "",
-        "- **Brim (recommended)** — not stored in the STL; turn it on in Bambu Studio. Start with **auto brim** or **outer brim**, **3–5 mm** width, especially on **`foot_pad.stl`** (round bases) and **`servo_horn_adapter.stl`** (small footprint). Per-object: select the part → **Others** → brim.",
+        "- **Brim (recommended)** — not stored in the STL; turn it on in Bambu Studio. Start with **auto brim** or **outer brim**, **3–5 mm** width, especially on **`foot_pad.stl`** (round bases). Per-object: select the part → **Others** → brim.",
         "- **First layer** — slightly lower **initial layer speed** (e.g. 80–120 mm/s effective vs printing max) and confirm **Z offset / bed mesh** so nothing grazes loose mid-print.",
         "- **Draft / cooling** — avoid fans blasting the bed corner on tall skinny features; keep enclosure closed when using one.",
         "- **Filament / moisture** — wet PETG/TPU strings badly; dry filament if you see random blobs or snapped threads.",

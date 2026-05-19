@@ -37,12 +37,18 @@ TIBIA = HP.TIBIA_LENGTH * M
 STANCE_FEMUR = math.radians(HP.STANCE_FEMUR_DEG)
 STANCE_TIBIA = math.radians(HP.STANCE_TIBIA_DEG)
 
-PLASTIC_HORN_H = 5.0
+# Output-shaft stack above the chassis-plate top (= bracket flange top
+# face).  Design B (May 2026): collapsed from
+#   (BODY_H - RIM_Z) + SERVO_OUTPUT_H + PLASTIC_HORN_H + HORN_ADAPTER_T
+# down to
+#   (BODY_H - RIM_Z) + SERVO_OUTPUT_H + HORN_STACK_H
+# now that ``HORN_STACK_H == PLASTIC_HORN_H == 5 mm`` and the printed
+# servo_horn_adapter has been retired (the link bolts directly to the
+# plastic 4-arm X-horn).
 YAW_OUTPUT_HEIGHT = (
     (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
     + HP.SERVO_OUTPUT_H
-    + PLASTIC_HORN_H
-    + HP.HORN_ADAPTER_T
+    + HP.HORN_STACK_H
 ) * M
 LEG_RADIAL = APOTHEM
 

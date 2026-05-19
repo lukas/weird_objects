@@ -74,11 +74,13 @@ STL_DIR = HP.STL_DIR
 ARTIFACTS_DIR = os.path.join(THIS_DIR, "artifacts", "views")
 
 
-# Plastic-horn height stack (matches build_prototype_assembly.py).  The
-# value is repeated locally instead of imported because it lives as a
-# bare ``PLASTIC_HORN_H = 5.0`` inside ``_build_leg`` rather than as a
-# module-level constant.
-PLASTIC_HORN_H = 5.0
+# Plastic-horn height stack (matches build_prototype_assembly.py and
+# mujoco_prototype.py via HP.HORN_STACK_H).  Design B (May 2026): with
+# the printed servo_horn_adapter retired, the link's mating face sits
+# directly on top of the plastic horn, so the stack collapses to
+# HP.HORN_STACK_H = PLASTIC_HORN_H = 5 mm above the spline tip (was
+# PLASTIC_HORN_H + HORN_ADAPTER_T = 9 mm).
+PLASTIC_HORN_H = HP.HORN_STACK_H   # 5 mm
 
 
 # ---------------------------------------------------------------------------
@@ -176,8 +178,7 @@ def _build_assembly_instances() -> list[Instance]:
     yaw_output_z = (
         (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
         + HP.SERVO_OUTPUT_H
-        + PLASTIC_HORN_H
-        + HP.HORN_ADAPTER_T
+        + PLASTIC_HORN_H   # = HP.HORN_STACK_H (5 mm); see PLASTIC_HORN_H above
     )
     p_femur = np.deg2rad(HP.STANCE_FEMUR_DEG)
     pt = np.deg2rad(HP.STANCE_FEMUR_DEG + HP.STANCE_TIBIA_DEG)
@@ -209,19 +210,18 @@ def _build_assembly_instances() -> list[Instance]:
             "servo_body", "servo_body.stl", i, "yaw", T_yaw_body,
         ))
 
-        # ----- yaw plastic horn (above the bracket flange)
+        # ----- yaw plastic horn (above the bracket flange).  Design B
+        # (May 2026): the link's pad now bolts DIRECTLY onto this
+        # plastic horn -- no printed servo_horn_adapter disc in the
+        # stack any more.  The coxa_link's pedestal bottom mating face
+        # therefore lands at z = yaw_horn_z + PLASTIC_HORN_H (= the
+        # plastic horn's top face) rather than yaw_horn_z +
+        # PLASTIC_HORN_H + HORN_ADAPTER_T.  yaw_output_z above already
+        # reflects this.
         yaw_horn_z = (HP.SERVO_BODY_H - HP.WELL_RIM_Z) + HP.SERVO_OUTPUT_H
         T_yaw_horn = T_edge @ _trans(0, 0, yaw_horn_z)
         instances.append(Instance(
             "servo_horn", "servo_horn.stl", i, "yaw", T_yaw_horn,
-        ))
-
-        # ----- yaw printed adapter (on top of plastic horn)
-        yaw_adapter_z = yaw_horn_z + PLASTIC_HORN_H
-        T_yaw_adapter = T_edge @ _trans(0, 0, yaw_adapter_z)
-        instances.append(Instance(
-            "servo_horn_adapter", "servo_horn_adapter.stl", i, "yaw",
-            T_yaw_adapter,
         ))
 
         # ----- coxa link (rotates with yaw output -- in standing pose, yaw=0)
@@ -240,26 +240,12 @@ def _build_assembly_instances() -> list[Instance]:
             "servo_body", "servo_body.stl", i, "hip", T_hip_body,
         ))
 
-        # ----- hip plastic horn (on the hip-pitch output axis)
+        # ----- hip plastic horn (on the hip-pitch output axis).
+        # Design B (May 2026): femur's hip pad bolts DIRECTLY onto this
+        # plastic horn; the printed servo_horn_adapter is gone.
         T_hip_horn = T_yaw_out @ _trans(HP.COXA_LENGTH, 0, hip_drop) @ R_hip
         instances.append(Instance(
             "servo_horn", "servo_horn.stl", i, "hip", T_hip_horn,
-        ))
-
-        # ----- hip printed adapter (stacked above the plastic horn)
-        # The adapter sits PLASTIC_HORN_H above the horn base along the
-        # horn's local +Z; R_hip then aligns that to the leg-local +Y
-        # output direction.  Order matters: rotate the adapter's local
-        # frame first, then add the offset, then move to the joint.
-        T_hip_adapter = (
-            T_yaw_out
-            @ _trans(HP.COXA_LENGTH, 0, hip_drop)
-            @ R_hip
-            @ _trans(0, 0, PLASTIC_HORN_H)
-        )
-        instances.append(Instance(
-            "servo_horn_adapter", "servo_horn_adapter.stl", i, "hip",
-            T_hip_adapter,
         ))
 
         # ----- femur link (rotated by hip-pitch stance angle)
@@ -280,22 +266,12 @@ def _build_assembly_instances() -> list[Instance]:
             "servo_body", "servo_body.stl", i, "knee", T_knee_body,
         ))
 
-        # ----- knee plastic horn
+        # ----- knee plastic horn.  Design B (May 2026): tibia's knee
+        # pad bolts DIRECTLY onto this plastic horn; the printed
+        # servo_horn_adapter is gone.
         T_knee_horn = T_femur @ _trans(HP.FEMUR_LENGTH, 0, 0) @ R_hip
         instances.append(Instance(
             "servo_horn", "servo_horn.stl", i, "knee", T_knee_horn,
-        ))
-
-        # ----- knee printed adapter
-        T_knee_adapter = (
-            T_femur
-            @ _trans(HP.FEMUR_LENGTH, 0, 0)
-            @ R_hip
-            @ _trans(0, 0, PLASTIC_HORN_H)
-        )
-        instances.append(Instance(
-            "servo_horn_adapter", "servo_horn_adapter.stl", i, "knee",
-            T_knee_adapter,
         ))
 
         # ----- tibia link
@@ -421,13 +397,22 @@ def _compute_chassis_lift(
 
 
 SHORTCUTS_TEXT = (
+    "Hover -> label.  Left-click -> isolate part.\n"
     "Keyboard shortcuts:\n"
-    "  L  toggle labels\n"
-    "  E  toggle exploded view (0 / 1.5)\n"
-    "  R  reset camera\n"
-    "  S  save screenshot\n"
-    "  Q  quit"
+    "  L     toggle ALL labels on at once\n"
+    "  E     toggle exploded view (0 / 1.5)\n"
+    "  I/Esc clear isolation\n"
+    "  R     reset camera\n"
+    "  S     save screenshot\n"
+    "  Q     quit"
 )
+
+# Opacity applied to every non-isolated actor while one part is
+# isolated.  The isolated part stays at full opacity in its original
+# assembled-pose position -- we do NOT translate it on click, because
+# the whole point of isolation is seeing how the part sits relative to
+# its neighbours.  Pulling it outward defeats that.
+ISOLATE_DIM_OPACITY = 0.15
 
 
 def _print_shortcuts() -> None:
@@ -606,7 +591,11 @@ def _decorate_plotter(
         text_color="black",
         name="instance_labels",
     )}
-    labels_state = {"visible": True}
+    # Persistent all-labels-at-once is OFF by default now -- hover gives
+    # you the same info one part at a time without the clutter.  Press
+    # `L` to bring the full cloud back when you want overview context.
+    labels_state = {"visible": False}
+    label_actor_holder["actor"].SetVisibility(False)
 
     def _toggle_labels() -> None:
         labels_state["visible"] = not labels_state["visible"]
@@ -614,6 +603,16 @@ def _decorate_plotter(
         plotter.render()
 
     state = {"explode": float(initial_explode)}
+
+    # --- isolation state ----------------------------------------------
+    # When the user left-clicks on a part, every OTHER actor's opacity
+    # drops to ISOLATE_DIM_OPACITY so the picked part stands out.  We
+    # deliberately do not move the picked part -- it stays where it
+    # belongs in the assembly so the user can see how it fits.
+    iso_state: dict[str, object | None] = {"placed": None}
+    saved_opacity: dict[int, float] = {
+        id(p.actor): float(p.actor.prop.opacity) for p in placed
+    }
 
     def _apply_explode(factor: float) -> None:
         for p in placed:
@@ -724,6 +723,141 @@ def _decorate_plotter(
         plotter.screenshot(out)
         print(f"inspect_build: saved screenshot -> {out}")
 
+    # ------------------------------------------------------------------
+    # Hover label + click-to-isolate (mouse interaction)
+    # ------------------------------------------------------------------
+    # 2D overlay text that shows whichever part is under the cursor (or
+    # the currently isolated part if any).  Sits near the top center so
+    # it's visible regardless of camera angle without crowding the
+    # bottom slider or the upper-left shortcuts.
+    ww, wh = plotter.window_size
+    hover_text_actor = plotter.add_text(
+        "(hover a part)",
+        position=(int(ww * 0.30), wh - 36),
+        font_size=14,
+        color="black",
+        shadow=False,
+        name="hover_label",
+    )
+
+    def _set_hover_text(s: str) -> None:
+        try:
+            hover_text_actor.SetInput(s)
+        except Exception:
+            # vtkTextActor in some PyVista builds uses SetText(0, s).
+            try:
+                hover_text_actor.SetText(0, s)
+            except Exception:
+                pass
+
+    # Map actor identity -> placed instance for picker lookups.  Using
+    # id() lets us key without paying for repeated isinstance checks.
+    actor_to_placed: dict[int, PlacedInstance] = {
+        id(p.actor): p for p in placed
+    }
+
+    # vtk cell picker: cheap, ray-casts against renderer actors and
+    # returns the closest hit.  We reuse a single picker instance.
+    try:
+        import vtk  # type: ignore
+        picker = vtk.vtkCellPicker()
+        picker.SetTolerance(0.001)
+    except Exception:
+        picker = None  # type: ignore
+
+    def _placed_under_cursor() -> "PlacedInstance | None":
+        if picker is None:
+            return None
+        try:
+            x, y = plotter.iren.interactor.GetEventPosition()
+        except Exception:
+            return None
+        try:
+            picker.Pick(x, y, 0, plotter.renderer)
+        except Exception:
+            return None
+        actor = picker.GetActor()
+        if actor is None:
+            return None
+        return actor_to_placed.get(id(actor))
+
+    def _label_for(p: PlacedInstance) -> str:
+        return palette.instance_label(
+            p.instance.part_type,
+            p.instance.leg_index,
+            p.instance.joint,
+        )
+
+    def _on_mouse_move(_obj, _evt) -> None:
+        # Don't overwrite the isolation banner with hover noise.
+        if iso_state["placed"] is not None:
+            return
+        p = _placed_under_cursor()
+        _set_hover_text(_label_for(p) if p is not None else "(hover a part)")
+        plotter.render()
+
+    def _apply_isolation_visuals() -> None:
+        """Reflect the current iso_state on every actor's opacity."""
+        iso = iso_state["placed"]
+        for p in placed:
+            if iso is None:
+                p.actor.prop.opacity = saved_opacity[id(p.actor)]
+            elif p is iso:
+                # Keep isolated part at full opacity so it pops.
+                p.actor.prop.opacity = max(
+                    saved_opacity[id(p.actor)], 0.95,
+                )
+            else:
+                p.actor.prop.opacity = ISOLATE_DIM_OPACITY
+
+    def _set_isolation(p: "PlacedInstance | None") -> None:
+        iso_state["placed"] = p
+        _apply_isolation_visuals()
+        if p is None:
+            _set_hover_text("(hover a part)")
+        else:
+            _set_hover_text(f"Isolated: {_label_for(p)}  [press I / Esc to clear]")
+        plotter.render()
+
+    def _on_left_click(point) -> None:
+        # ``point`` is (x_pixel, y_pixel).
+        if picker is None:
+            return
+        try:
+            picker.Pick(point[0], point[1], 0, plotter.renderer)
+        except Exception:
+            return
+        actor = picker.GetActor()
+        placed_hit = actor_to_placed.get(id(actor)) if actor is not None else None
+        if placed_hit is None:
+            # Empty space -> drop isolation.
+            if iso_state["placed"] is not None:
+                _set_isolation(None)
+        else:
+            _set_isolation(placed_hit)
+
+    def _clear_isolation() -> None:
+        if iso_state["placed"] is not None:
+            _set_isolation(None)
+
+    try:
+        plotter.iren.add_observer("MouseMoveEvent", _on_mouse_move)
+    except Exception:
+        # Older PyVistas expose this via plotter.iren.interactor.
+        try:
+            plotter.iren.interactor.AddObserver(
+                "MouseMoveEvent", _on_mouse_move,
+            )
+        except Exception:
+            pass
+
+    try:
+        plotter.track_click_position(
+            callback=_on_left_click, side="left", viewport=True,
+        )
+    except Exception:
+        pass
+
     for k in ("l", "L"):
         plotter.add_key_event(k, _toggle_labels)
     for k in ("e", "E"):
@@ -732,6 +866,8 @@ def _decorate_plotter(
         plotter.add_key_event(k, _reset_camera)
     for k in ("s", "S"):
         plotter.add_key_event(k, _save_screenshot)
+    for k in ("i", "I", "Escape"):
+        plotter.add_key_event(k, _clear_isolation)
     for k in ("q", "Q"):
         plotter.add_key_event(k, plotter.close)
 

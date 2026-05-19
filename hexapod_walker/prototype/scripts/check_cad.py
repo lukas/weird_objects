@@ -71,7 +71,7 @@ def _build(verbose: bool) -> bool:
         "battery_holder", "electronics_tray",
         "coxa_bracket", "coxa_link",
         "femur_link", "tibia_link",
-        "foot_pad", "servo_horn_adapter",
+        "foot_pad",
     ]
     _heading("[1/4] Ensure per-part STLs are present")
     _ensure_stls_built(needed)

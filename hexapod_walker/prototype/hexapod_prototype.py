@@ -182,7 +182,19 @@ TIBIA_LENGTH   = 130.0   # mm -- knee axis -> foot tip
 #     pad +Z edge = +30.5 mm < +32 mm    (1.50 mm clearance to arm)
 #   Both clearances are sized for FDM print tolerance + voxel sampler
 #   pitch (1.5 mm) so check_workspace_self_collision stays clean.
-COXA_LIFT     = 32.0     # mm
+#
+#   Design B (May 2026): the printed servo_horn_adapter has been
+#   retired, dropping HORN_STACK_H from 9 mm to 5 mm and therefore
+#   dropping the world Z of the coxa_link's frame (and the hip-pitch
+#   joint axis) by HORN_ADAPTER_T = 4 mm.  Without compensation, the
+#   bracket's flange top in coxa-link Z moves from -10.75 mm to
+#   -6.75 mm and the femur's swept pad (lowest coxa-link z = -9.5 mm)
+#   now collides with it by ~ 2.75 mm.  COXA_LIFT is therefore bumped
+#   by the same 4 mm (32 -> 36) so the hip-pitch joint axis stays at
+#   the same WORLD Z as before, the kinematic chain is unchanged for
+#   RL / gait / MuJoCo, and the documented +1.25 mm bracket and
+#   +1.5 mm arm clearances are restored.
+COXA_LIFT     = 36.0     # mm  (was 32.0 before Design B)
 
 # Extra drop of the hip-pitch well centre BELOW the natural "arm-bottom =
 # well-top" plane.  When 0, the well's +Z face (= the hip-pitch axis +
@@ -246,6 +258,68 @@ SERVO_TAB_Z       = 27.0   # mm -- height of the tab plane above the body bottom
 SERVO_PILOT_OD    =  2.5   # mm -- M3 self-tapper PILOT hole drilled into the well
                             #      wall.  The standard servo M3 self-tapper threads
                             #      directly into a 2.5 mm pilot in PA12 / PLA.
+
+# ---- Servo mounting tab holes (for cradle nut-trap bolts) ----------------
+# On a DS3225 / MG996R / DS3218 class hobby servo the 4 M3 mounting holes
+# live in the ~2.5 mm-thick TABS that extend along the body's long axis
+# (+/- X in servo-local frame).  Tab holes are spaced SERVO_TAB_HOLE_PCD
+# along X (= 49.5 mm) and SERVO_TAB_HOLE_PCD_Y along Y (= 10 mm).  The
+# tabs sit SERVO_TAB_Z above the body bottom, so the mounting bolt's
+# axis crosses the servo at z = SERVO_TAB_Z in body-local coords.
+#
+# Design C (May 2026): we now bolt the servo into its cradle via M3 SHCS
+# that pass HORIZONTALLY through the cradle's +/-X walls into the
+# corresponding servo tab holes, with an M3 nyloc nut captured in a hex
+# pocket on the OUTER face of each wall.  In well-local coords:
+#     bolt axis along +/- X
+#     bolt enters at (sx * (WELL_W/2 + 0.01), sy * SERVO_MOUNT_HOLE_Y_OFFSET,
+#                     SERVO_MOUNT_HOLE_Z_OFFSET)
+#     where SERVO_MOUNT_HOLE_Y_OFFSET = SERVO_TAB_HOLE_PCD_Y / 2,
+#           SERVO_MOUNT_HOLE_Z_OFFSET = SERVO_TAB_Z.
+# Named constants below mirror the SERVO_TAB_HOLE_* values so the cradle
+# code can refer to a clear "mount-hole position" instead of arithmetic
+# on tab-pitch constants.
+SERVO_MOUNT_HOLE_X_OFFSET = SERVO_TAB_HOLE_PCD / 2.0     # 24.75 mm from
+                                                          # body centre
+                                                          # along the
+                                                          # body's long
+                                                          # axis (= the
+                                                          # well's +/- X
+                                                          # walls).
+SERVO_MOUNT_HOLE_Y_OFFSET = SERVO_TAB_HOLE_PCD_Y / 2.0    # 5 mm from
+                                                          # body centre
+                                                          # along the
+                                                          # body's short
+                                                          # axis.
+SERVO_MOUNT_HOLE_Z_OFFSET = SERVO_TAB_Z                   # 27 mm above
+                                                          # the body's
+                                                          # bottom face
+                                                          # (matches the
+                                                          # tab's z
+                                                          # height).
+SERVO_MOUNT_BOLT_OD       = 3.2    # mm -- M3 clearance through the cradle
+                                    # wall; matches the servo tab hole.
+
+# ---- M3 nyloc nut traps in the cradle's +/-X walls -----------------------
+# Each cradle bolt (M3 SHCS through the cradle wall into a servo tab
+# hole) is secured with an M3 nyloc nut captured in a hex pocket on the
+# OUTER face of the wall.  The hex pocket is oriented with two opposing
+# flats parallel to the local +Z axis so an open-end wrench (or a
+# nut-driver bit) engages cleanly.
+#
+# Dimensions: M3 nyloc nuts are nominally 5.5 mm AF x 4.0 mm thick; we
+# add a small printing clearance so the nut drops in without filing.
+M3_NYLOC_NUT_AF      = 5.6   # mm -- across-flats (nominal 5.5 + 0.1 mm
+                              # FDM print clearance).
+M3_NYLOC_NUT_DEPTH   = 4.2   # mm -- hex pocket depth (nominal 4.0 + 0.2
+                              # mm so the nylon ring is fully swallowed
+                              # below the wall's outer face).
+# 1.5 mm of plastic between the pocket FLOOR and the bolt-side clearance
+# hole keeps the bolt from breaking through if it's over-torqued.  So
+# the cradle wall must be AT LEAST this thick where each nut trap lives.
+M3_NYLOC_MIN_WALL_T  = M3_NYLOC_NUT_DEPTH + 1.5   # = 5.7 mm
+# Recommended bolt: M3 x 14 SHCS.  Stack: 4 mm wall + 2 mm servo tab
+# + 4 mm nut = 10 mm of thread engagement past the head's bearing face.
 
 # ---- Servo wire-exit slot ------------------------------------------------
 # On DS3225 / MG996R / DS3218-class hobby servos the 3-wire harness is
@@ -451,19 +525,28 @@ BRACKET_FLANGE_INSET = 8.0  # mm distance from the chassis edge (= bracket
                             # line.  >= BRACKET_BOLT_HOLE so the bolt is on
                             # solid chassis material, not in mid-air.
 
-# ---- Servo horn adapter --------------------------------------------------
-# A short 4-arm star that screws onto the servo's plastic horn (M3
-# centre screw) and presents a 4 x M3 bolt pattern (20.8 mm PCD) on its
-# top face.  The flat printed links bolt to this top face, so the link
-# itself never touches the servo spline.
+# ---- Servo horn adapter (DEPRECATED -- retained for backward compat) -----
+# Design B (May 2026): the printed servo_horn_adapter has been RETIRED.
+# Each driven link (coxa_link, femur_link, tibia_link) now bolts DIRECTLY
+# onto the plastic 4-arm X-horn that ships with the servo: 4 x M3
+# clearance holes are carved straight into the link's mating pad on the
+# HORN_BOLT_PCD = 20.8 mm pattern, and a HORN_RECESS_OD x HORN_RECESS_DEPTH
+# counter-bore swallows the horn's central hub.  The adapter geometry
+# below is left in place so old STL references / Xometry quotes / spare-
+# stock screenshots keep resolving, but ``make_servo_horn_adapter`` is
+# no longer called from any printable output path and no
+# ``servo_horn_adapter.stl`` is written by ``main()``.
 HORN_ADAPTER_OD     = 32.0   # mm -- plate OD; gives (32 - 20.8) / 2 - 1.6
                               # = 4.0 mm wall outboard of each M3 bolt
                               # hole on HORN_BOLT_PCD = 20.8 mm
-HORN_ADAPTER_T      =  4.0   # mm -- thickness
+HORN_ADAPTER_T      =  4.0   # mm -- thickness (LEGACY).  No longer added
+                              # to any joint output Z stack.
 # Hobby servo plastic horn (the part that ships with the servo and screws
-# onto the 25T spline with an M3 centre screw).  Adds ~5 mm of "stack"
+# onto the 25T spline with an M3 centre screw).  Adds 5 mm of "stack"
 # along the output-shaft direction between the servo's gear-stack top
-# face and the printed horn adapter's bottom face.
+# face and the link's pad MATING face.  With the adapter retired, this
+# IS the entire horn stack (it used to be PLASTIC_HORN_H + HORN_ADAPTER_T
+# = 9 mm).
 PLASTIC_HORN_H      =  5.0
 # Plastic 4-arm X-shaped horn (DS3225 / MG996R / DS3218 -class hardware):
 # the arms extend ~19 mm from the spline centre, so the horn sweeps a
@@ -484,16 +567,21 @@ PLASTIC_HORN_H      =  5.0
 # missed the recurring "the servo motor doesn't stick out high
 # enough" failure if it had read that mesh's bounding cylinder.
 PLASTIC_HORN_X_TIP_R = 19.0
-# Total height of the servo output stack (plastic horn + printed
-# adapter) ABOVE the spline tip.  In the hip-pitch and knee-pitch
-# joints this is the offset between the joint AXIS (where the spline
-# pokes out of the servo body) and the link's pad MATING face (where
-# the link bolts to the adapter).  Driven links must offset their pad
-# along the joint axis by this much, then bridge the gap back to the
-# spar with a short "neck" -- without this offset the link's pad sits
-# directly on the joint axis and overlaps the cradle's "swept volume"
-# (the bridge cap / well wall material right above the body).
-HORN_STACK_H        = PLASTIC_HORN_H + HORN_ADAPTER_T
+# Total height of the servo output stack ABOVE the spline tip.  In the
+# hip-pitch and knee-pitch joints this is the offset between the joint
+# AXIS (where the spline pokes out of the servo body) and the link's
+# pad MATING face (where the link bolts directly onto the plastic X-horn).
+# Driven links must offset their pad along the joint axis by this much,
+# then bridge the gap back to the spar with a short "neck" -- without
+# this offset the link's pad sits directly on the joint axis and
+# overlaps the cradle's "swept volume" (the bridge cap / well wall
+# material right above the body).
+#
+# May 2026: HORN_STACK_H collapses to PLASTIC_HORN_H = 5 mm (was
+# PLASTIC_HORN_H + HORN_ADAPTER_T = 9 mm) now that the printed
+# horn-adapter disc has been removed.  The link's pad bolts directly
+# to the plastic X-horn's top face.
+HORN_STACK_H        = PLASTIC_HORN_H
 # Bolt circle for the plastic horn's 4-arm X-shaped output disc.  20.8 mm
 # is the PCD of the SECOND hole position out from the spline on each arm
 # of a standard DS3225 / MG996R / DS3218 plastic horn.  The bolt angles
@@ -878,6 +966,112 @@ def _save(mesh: trimesh.Trimesh, name: str) -> str:
 # Servo-mounting primitives
 # ---------------------------------------------------------------------------
 
+def _servo_cradle_nut_traps() -> list[trimesh.Trimesh]:
+    """Return the list of cutting volumes that turn the cradle's +/-X
+    walls into a 4 x M3 captive-nyloc-nut joint.
+
+    Local frame: matches ``_servo_well_solid`` (origin at the body's
+    bottom face centre; +X = body long axis = tab-span direction;
+    +Y = body short axis; +Z = output shaft direction).
+
+    For each ``(sx, sy)`` in ``{-1, +1} x {-1, +1}`` the helper emits:
+
+      1. A Phi SERVO_MOUNT_BOLT_OD = 3.2 mm horizontal clearance hole
+         along +/- X, drilled from the wall's OUTER face inward.  The
+         hole punches through the WELL_WALL_X-thick wall and exits into
+         the body cavity at (y = sy * SERVO_MOUNT_HOLE_Y_OFFSET, z =
+         SERVO_MOUNT_HOLE_Z_OFFSET).
+      2. An M3_NYLOC_NUT_AF (= 5.6 mm) x M3_NYLOC_NUT_DEPTH (= 4.2 mm)
+         hexagonal pocket on the wall's outer face, centred on the same
+         (y, z) as the clearance hole.  The hex is oriented with 2 of
+         its 6 flats parallel to +Z so a 5.5 mm wrench / nut driver
+         can grip it from above or below.  Pocket depth is sized to
+         leave M3_NYLOC_MIN_WALL_T - M3_NYLOC_NUT_DEPTH = 1.5 mm of
+         plastic between the pocket floor and the bolt-side clearance
+         hole, so the bolt can't accidentally pop the nut out under
+         over-torque.
+
+    Use as cutting volumes:
+        cuts = _servo_cradle_nut_traps()
+        body = _diff(body, *cuts)
+    """
+    cuts: list[trimesh.Trimesh] = []
+
+    # Hex pocket circumradius for the requested across-flats.
+    # AF = sqrt(3) * R, so R = AF / sqrt(3).
+    af = M3_NYLOC_NUT_AF
+    apothem = af / 2.0
+    circumradius = apothem / np.cos(np.pi / 6.0)            # = af / sqrt(3)
+
+    # Outer face X position of each side wall.
+    wall_outer_x = WELL_W / 2.0
+
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            y = sy * SERVO_MOUNT_HOLE_Y_OFFSET
+            z = SERVO_MOUNT_HOLE_Z_OFFSET
+
+            # ---- 1) Horizontal Phi 3.2 mm clearance hole along sx*X ----
+            # Spans from a hair OUTSIDE the wall's outer face (so the
+            # boolean cleanly exits the outer surface) all the way
+            # through the wall and across the body cavity, finishing
+            # past the OPPOSITE inner cavity face.  This guarantees that
+            # the bolt's shank has a clear path through the wall AND
+            # the bolt tip can reach the servo's tab-hole footprint on
+            # both +Y and -Y faces of the body.
+            clear_len = WELL_W + 4.0    # >> wall thickness; punches across
+            clear = _cyl_along(SERVO_MOUNT_BOLT_OD / 2.0,
+                               clear_len, axis="x")
+            # _cyl_along places one end at origin and the other at
+            # (clear_len, 0, 0).  Slide it so the cylinder is centred
+            # on x = 0 (covers x in [-WELL_W/2 - 2, +WELL_W/2 + 2]) and
+            # then translate to (0, y, z).
+            clear.apply_translation([-clear_len / 2.0, y, z])
+            cuts.append(clear)
+
+            # ---- 2) Hex pocket on the OUTER face of the side wall ----
+            # ``_cyl(R, h, sections=6)`` extrudes a hex along +Z with
+            # one vertex at angle 0 around +Z (i.e. on +X, in the hex
+            # cross-section).  After we rotate the whole prism so its
+            # axis lies along +X (rotation_matrix(pi/2, [0,1,0])), the
+            # 2 vertices that were on +/-X land on z = -/+R, and the 2
+            # flats whose pre-rotation endpoints sat at angles
+            # {60, 120} and {240, 300} land at y = +/- R*sqrt(3)/2 =
+            # +/- apothem, with their faces spanning +X (prism axis)
+            # and +Z directions.  Those 2 flats are therefore PARALLEL
+            # TO +Z -- exactly the required orientation for a wrench
+            # access from above/below.
+            pocket = _cyl(circumradius, M3_NYLOC_NUT_DEPTH, sections=6)
+            # Currently the prism is along +Z with one face at z=0 and
+            # the other at z=h.  We want it along +X with the OPEN face
+            # (towards the cradle outer surface) at x = sx*wall_outer_x
+            # and the CLOSED face (the pocket floor inside the wall)
+            # AT x = sx*wall_outer_x - sx*M3_NYLOC_NUT_DEPTH (= shifted
+            # towards x = 0 by ``M3_NYLOC_NUT_DEPTH`` regardless of
+            # which side wall).
+            #
+            # Step (i): centre the prism on z = 0 so it spans
+            #   z in [-h/2, +h/2].
+            # Step (ii): rotate +Z -> +X.
+            # Step (iii): translate by (sx*(wall_outer_x - h/2), y, z)
+            #   so the prism's centre lands at the wall's CENTRELINE
+            #   in x (between the outer face and the pocket floor).
+            #   That places the open face exactly at x = sx*wall_outer_x
+            #   and the closed face at x = sx*(wall_outer_x - h).
+            pocket.apply_transform(rotation_matrix(np.pi / 2.0,
+                                                    [0, 1, 0]))
+            # After this rotation the prism extends along +X from
+            # x = -h/2 to x = +h/2.  Slide it to the correct side wall.
+            half_depth = M3_NYLOC_NUT_DEPTH / 2.0
+            pocket.apply_translation(
+                [sx * (wall_outer_x - half_depth) + sx * 0.05,
+                 y, z]
+            )
+            cuts.append(pocket)
+
+    return cuts
+
+
 def _servo_well_solid() -> trimesh.Trimesh:
     """Open-topped servo bucket, returned as one watertight mesh in the
     well's local frame.
@@ -898,16 +1092,30 @@ def _servo_well_solid() -> trimesh.Trimesh:
                      (SERVO_BODY_W + 2*CL) x (SERVO_BODY_D + 2*CL) x
                      (WELL_RIM_Z + extra).  Cuts straight through the rim
                      so the body can be DROPPED in from above.
-        - 4 M3 pilot holes drilled vertically through the +X / -X walls
-                     at the standard tab-hole positions (Φ SERVO_PILOT_OD).
-                     The walls are WELL_WALL_X = 9 mm thick on each side,
-                     so the pilot has a comfortable amount of material on
-                     either side of it.
+        - 4 M3 horizontal clearance holes drilled through the +X and -X
+                     walls (2 per wall) at the standard tab-hole positions
+                     in Y/Z.  Each hole is a Phi SERVO_MOUNT_BOLT_OD =
+                     3.2 mm clearance for an M3 SHCS.  The walls are
+                     WELL_WALL_X = 9 mm thick on each side, plenty of room.
+        - 4 M3 nyloc nut hex pockets on the OUTER face of the same two
+                     side walls, one per clearance hole.  Each pocket is
+                     a hexagonal prism of M3_NYLOC_NUT_AF (= 5.6 mm) across
+                     flats and M3_NYLOC_NUT_DEPTH (= 4.2 mm) deep, oriented
+                     so 2 of the 6 flats sit parallel to +Z (vertical) so
+                     the nut is easy to drop in / wrench against.  The
+                     pocket stops M3_NYLOC_MIN_WALL_T - M3_NYLOC_NUT_DEPTH
+                     = 1.5 mm short of punching through the wall.
 
-    The *body* sits inside the cavity with its bottom resting on the floor
-    (well-z = 0).  The mounting *tabs* land on the rim at well-z =
-    WELL_RIM_Z.  The user drives 4 standard M3 self-tappers through the
-    tab clearance holes and into these pilot holes."""
+    Design C (May 2026): the OLD vertical-pilot scheme (4 x SERVO_PILOT_OD
+    cylinders running through the tab-post material from above-rim down
+    through the floor, for M3 self-tappers) has been RETIRED.  Each servo
+    is now bolted into its cradle by 4 M3 x 14 SHCS that pass horizontally
+    through the +/-X walls into the nyloc nut traps, which gives a real
+    captive-nut joint instead of relying on the self-tapper biting fresh
+    threads into FDM plastic.  The 4 servo tab holes ride at z =
+    SERVO_MOUNT_HOLE_Z_OFFSET = SERVO_TAB_Z = 27 mm, y = +/-
+    SERVO_MOUNT_HOLE_Y_OFFSET = +/-5 mm in well-local coords, which is
+    exactly where the new clearance holes are drilled."""
     outer = _box((WELL_W, WELL_D, WELL_H),
                  center=(0, 0, WELL_H / 2.0 - WELL_FLOOR_T))
 
@@ -926,19 +1134,13 @@ def _servo_well_solid() -> trimesh.Trimesh:
                    cav_z_ext),
                   center=(0, 0, 0.5 * (cav_z_top + cav_z_bot)))
 
-    # 4 vertical M3 pilot holes through the side wall material, each one
-    # going from above the rim down through the floor for cleanliness
-    # (the screw only engages the top ~6 mm; the lower length is harmless
-    # void).
-    pilot_h = WELL_RIM_Z + WELL_FLOOR_T + 2.0
-    pilots = []
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            p = _cyl(SERVO_PILOT_OD / 2.0, pilot_h)
-            p.apply_translation([sx * SERVO_TAB_HOLE_PCD / 2.0,
-                                  sy * SERVO_TAB_HOLE_PCD_Y / 2.0,
-                                  pilot_h / 2.0 - WELL_FLOOR_T - 1.0])
-            pilots.append(p)
+    # 4 horizontal M3 clearance holes + 4 nyloc nut hex pockets in the
+    # +X / -X side walls.  Each (sx, sy) pair drills ONE cradle wall
+    # (the wall at x = sx * WELL_W/2) and captures a nyloc nut on that
+    # wall's outer face.  The clearance hole punches all the way through
+    # the wall and into the body cavity so the bolt's shank can engage
+    # the servo's tab-hole footprint at z = SERVO_MOUNT_HOLE_Z_OFFSET.
+    nut_traps = _servo_cradle_nut_traps()
 
     # Finger-access notches in the +Y / -Y walls (above the bottom
     # pocket).  The cut spans Y past both wall faces so it punches
@@ -964,7 +1166,7 @@ def _servo_well_solid() -> trimesh.Trimesh:
                             WELL_RIM_Z - (WELL_LEAD_IN_H + 0.5) / 2.0
                             + 0.25))
 
-    return _diff(outer, cavity, finger_notch, lead_in, *pilots)
+    return _diff(outer, cavity, finger_notch, lead_in, *nut_traps)
 
 
 def _wire_exit_slot() -> trimesh.Trimesh:
@@ -1682,26 +1884,29 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     # The plastic 4-arm X-shaped horn that ships with DS3225 / MG996R
     # class servos reaches PLASTIC_HORN_X_TIP_R = 19 mm to each arm
     # tip, so when the servo rotates the horn sweeps a Phi 38 mm
-    # cylinder centred on the yaw axis (bracket-x = 0, bracket-y = 0)
-    # in the Z range BETWEEN the body's top face (= +10.75 mm in
-    # bracket-local at worst-case body float) and the top of the
-    # printed horn adapter (= +25.75 mm).  The drop-in body+tab slot
-    # is only +/-10.5 mm wide in Y, so the flange material at y in
-    # [+/-10.5, +/-(WELL_D/2 + extra)] above the body's top face
-    # SITS IN THE HORN'S SWEEP and physically blocks the horn from
-    # rotating (or from being installed on the spline above the
-    # bracket at all).
+    # cylinder centred on the yaw axis (bracket-x = 0, bracket-y = 0).
+    # The drop-in body+tab slot is only +/-10.5 mm wide in Y, so any
+    # flange material at y in [+/-10.5, +/-(WELL_D/2 + extra)] above
+    # the body's top face sits IN the horn's sweep and physically
+    # blocks the horn from rotating (or from being installed on the
+    # spline above the bracket at all).
     #
-    # This carves a Phi (2 * (HORN_SWEEP_R)) cylindrical pocket
-    # centred on the yaw axis that goes from just above the body's
-    # nominal top (z = +10.0, ~0.75 mm below worst-case body top
-    # so the cut comfortably starts in air) up through the flange's
-    # top face plus a 2 mm overshoot so the cut exits the part
-    # cleanly above the flange.  Below z = +10.0 the flange remains
-    # solid except for the rectangular drop-in slot -- the well-rim
-    # / chassis-bolt structural ring is untouched.  The chassis-bolt
-    # corners at (x = -8 / -28, y = +/-20) sit at radius >= 21.5 mm
-    # from the yaw axis, so they stay outside the cylinder.
+    # Design B (May 2026): with the printed servo_horn_adapter retired,
+    # the horn stack above the body now ENDS at the top of the plastic
+    # horn (z = SERVO_BODY_H + SERVO_OUTPUT_H + PLASTIC_HORN_H -
+    # WELL_RIM_Z = +20.75 mm) rather than the top of the printed
+    # adapter (was +25.75 mm).  The coxa_link's pedestal bottom mating
+    # face now sits at THAT plane (+20.75 mm) instead of +25.75 mm,
+    # 4 mm closer to the bracket flange.  We still need the flange to
+    # be CLEAR of the horn's swept silhouette across that whole Z
+    # range, so the sweep void extends from just above the body's top
+    # face (z = +10.0) UP through the flange's top face plus a 2 mm
+    # overshoot.  The flange top face is at z = BRACKET_FLANGE_T =
+    # +15 mm, comfortably below +20.75 mm where the horn arm plane
+    # actually lives -- so the existing sweep_z_hi = BRACKET_FLANGE_T
+    # + 2 = +17 mm continues to be the right top of the void (we just
+    # need to clear the flange volume; the horn arms above the flange
+    # are in free air).
     #
     # See _verify_prototype.check_horn_sweep_clearance for the
     # regression test that catches this class of failure: it probes
@@ -1723,8 +1928,24 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     horn_sweep_void.apply_translation([0.0, 0.0,
                                         0.5 * (sweep_z_lo + sweep_z_hi)])
 
+    # Design C (May 2026): re-apply the cradle nut traps at the
+    # BRACKET level too, because the flange's +/- X end bridge strips
+    # (at bracket-x in [+/-(18..23)], bracket-z in [0, BRACKET_FLANGE_T])
+    # partially overlap the well's +/-X nut-pocket footprint in (y,z).
+    # ``_servo_well_solid`` cut the pockets out of the WELL only, but
+    # the boolean union with the flange would otherwise re-fill the
+    # overlap region (flange OR well-with-hole = flange).  Subtracting
+    # the nut traps AGAIN from the unioned bracket body removes any
+    # flange material that strayed into the pocket envelope.
+    bracket_nut_traps = []
+    for cut in _servo_cradle_nut_traps():
+        c = cut.copy()
+        c.apply_translation([body_centre_x, 0.0, well_dz])
+        bracket_nut_traps.append(c)
+
     body = _union(flange, well, rib, *side_gussets, *bridge_gussets)
-    return _diff(body, slot, wire_slot, horn_sweep_void, *chassis_holes)
+    return _diff(body, slot, wire_slot, horn_sweep_void,
+                 *chassis_holes, *bracket_nut_traps)
 
 
 def make_coxa_link() -> trimesh.Trimesh:
@@ -2004,6 +2225,21 @@ def make_coxa_link() -> trimesh.Trimesh:
     centre_hole = _cyl(HORN_CENTRE_OD / 2.0, bolt_total_h * 4)
     centre_hole.apply_translation([0, 0, bolt_total_h / 2.0])
 
+    # ---- Central horn-hub recess in the pedestal's BOTTOM face --------
+    # Design B (May 2026): the link now bolts DIRECTLY to the plastic
+    # 4-arm X-horn (no printed servo_horn_adapter in the stack).  The
+    # plastic horn's central hub protrudes ~1.5 mm above the horn arm
+    # plane (the spline collar where the M3 centre screw threads in),
+    # so we cut a Phi HORN_RECESS_OD = 16 mm cylindrical pocket
+    # HORN_RECESS_DEPTH = 1.6 mm deep into the pedestal's BOTTOM mating
+    # face (z = 0).  Recess opens DOWN (in -Z, toward the seated horn)
+    # and removes pedestal material at z in [0, +HORN_RECESS_DEPTH].
+    # Without this recess the link's flat bottom face hits the horn's
+    # hub before the 4 M3 clamp bolts can pull the link onto the horn.
+    horn_hub_recess = _cyl(HORN_RECESS_OD / 2.0, HORN_RECESS_DEPTH)
+    horn_hub_recess.apply_translation([0.0, 0.0,
+                                        HORN_RECESS_DEPTH / 2.0])
+
     # ---- Femur-spar pass-through slot through arm + hub + pedestal roof
     # The femur spar at the hip end is FEMUR_SPAR_H = 34 mm tall in
     # femur z, on the spar centreline (femur y in [-LINK_THICKNESS/2,
@@ -2094,7 +2330,7 @@ def make_coxa_link() -> trimesh.Trimesh:
 
     body = _union(pedestal, body_unlifted)
     return _diff(body, trough, spar_slot, pad_sweep_clear,
-                 *hub_holes, centre_hole)
+                 horn_hub_recess, *hub_holes, centre_hole)
 
 
 def make_femur_link() -> trimesh.Trimesh:
@@ -2226,23 +2462,39 @@ def make_femur_link() -> trimesh.Trimesh:
     hip_holes = []
     for a in HORN_BOLT_ANGLES_RAD:
         # Drill the 4 M3 clamp holes ONLY through the pad's 6 mm-thick
-        # clamp ring (y in [+9, +15]).  The hole is a short Phi
-        # SERVO_TAB_HOLE = 3.2 mm cylinder centred on the pad's mid-Y
-        # plane (y = +12); the cylinder length = LINK_THICKNESS * 4 =
-        # 24 mm guarantees a clean punch-through of the 6 mm pad even
-        # with voxel/CSG tolerance, but does NOT reach back into the
-        # neck torus body (the torus's +Y face is at y = +9; the hole
-        # extends from y = 0 to y = +24 so it overlaps the torus's
-        # cylindrical wall at radius HORN_BOLT_PCD/2 = 12 mm).  That
-        # radial position is INSIDE the torus's void (radius < 16.5),
-        # so the bolt hole punches through air inside the torus and
-        # doesn't actually remove any neck material.
+        # clamp ring (y in [+5, +11] post-2026 May refactor; was
+        # [+9, +15] when the printed servo_horn_adapter was still in
+        # the stack).  The hole is a short Phi SERVO_TAB_HOLE = 3.2 mm
+        # cylinder centred on the pad's mid-Y plane (y = hip_pad_
+        # centre_y); the cylinder length = LINK_THICKNESS * 4 = 24 mm
+        # guarantees a clean punch-through of the 6 mm pad even with
+        # voxel/CSG tolerance, but does NOT reach back into the neck
+        # torus body (the torus's +Y face is at y = HORN_STACK_H; the
+        # hole overlaps the torus's cylindrical wall at radius
+        # HORN_BOLT_PCD/2 = 10.4 mm).  That radial position is INSIDE
+        # the torus's void (radius < 16.5), so the bolt hole punches
+        # through air inside the torus and doesn't actually remove any
+        # neck material.
         h = _cyl(SERVO_TAB_HOLE / 2.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
         h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
                               hip_pad_centre_y,
                               HORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_holes.append(h)
+
+    # ---- Central horn-hub recess in the pad's mating face -----------
+    # Design B (May 2026): the femur's hip pad bolts DIRECTLY onto the
+    # plastic 4-arm X-horn (no printed servo_horn_adapter in the
+    # stack).  Cut a Phi HORN_RECESS_OD = 16 mm cylindrical pocket
+    # HORN_RECESS_DEPTH = 1.6 mm deep into the pad's -Y mating face
+    # (at y = hip_pad_y_min = HORN_STACK_H) so the plastic horn's
+    # central hub (spline collar + M3 centre-screw head) is fully
+    # swallowed by the pad.  Recess opens in -Y (toward the horn) and
+    # removes pad material at y in [hip_pad_y_min, hip_pad_y_min +
+    # HORN_RECESS_DEPTH].
+    hip_horn_recess = _cyl_along(HORN_RECESS_OD / 2.0,
+                                  HORN_RECESS_DEPTH, axis="y")
+    hip_horn_recess.apply_translation([0.0, hip_pad_y_min, 0.0])
 
     # ---- Knee-end servo well -----------------------------------------
     # NB: the 4 M3 mounting pilots in the wall (drilled by
@@ -2421,7 +2673,8 @@ def make_femur_link() -> trimesh.Trimesh:
     body = _union(hip_pad, hip_neck_outer, spar, well,
                    bridge_top, bridge_bot)
     return _diff(body, hip_neck_void, insertion_slot, wire_slot,
-                 cavity_trim, knee_clear, *hip_holes, *lightening)
+                 cavity_trim, knee_clear, hip_horn_recess,
+                 *hip_holes, *lightening)
 
 
 def make_tibia_link() -> trimesh.Trimesh:
@@ -2482,16 +2735,26 @@ def make_tibia_link() -> trimesh.Trimesh:
 
     knee_holes = []
     for a in HORN_BOLT_ANGLES_RAD:
-        # Bolt holes drilled through the PAD ONLY (y in [+9, +15]);
-        # the neck torus's bolt-PCD radius (12 mm) is INSIDE the
-        # horn-stack void (16.5 mm), so any over-long hole punches
-        # through air inside the torus and doesn't remove material.
+        # Bolt holes drilled through the PAD ONLY (y in [+5, +11]
+        # post-2026 May refactor; was [+9, +15] when the printed
+        # servo_horn_adapter was still in the stack).  The neck
+        # torus's bolt-PCD radius (10.4 mm) is INSIDE the horn-stack
+        # void (16.5 mm), so any over-long hole punches through air
+        # inside the torus and doesn't remove material.
         h = _cyl(SERVO_TAB_HOLE / 2.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
         h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
                               knee_pad_centre_y,
                               HORN_BOLT_PCD / 2.0 * np.sin(a)])
         knee_holes.append(h)
+
+    # ---- Central horn-hub recess in the knee pad's mating face ------
+    # Design B (May 2026): see make_femur_link for the full
+    # docstring.  Identical geometry, just on the tibia's knee pad
+    # at y = knee_pad_y_min = HORN_STACK_H.
+    knee_horn_recess = _cyl_along(HORN_RECESS_OD / 2.0,
+                                   HORN_RECESS_DEPTH, axis="y")
+    knee_horn_recess.apply_translation([0.0, knee_pad_y_min, 0.0])
 
     # ----- Foot clevis at the far end (x ~ TIBIA_LENGTH) -----
     # The clevis is a single forked block built in two steps:
@@ -2564,8 +2827,8 @@ def make_tibia_link() -> trimesh.Trimesh:
         lightening.append(h)
 
     body = _union(knee_pad, knee_neck_outer, spar, taper, clevis_bulk)
-    return _diff(body, knee_neck_void, *knee_holes, clevis_slot, pin_hole,
-                 *lightening)
+    return _diff(body, knee_neck_void, knee_horn_recess, *knee_holes,
+                 clevis_slot, pin_hole, *lightening)
 
 
 def make_foot_pad() -> trimesh.Trimesh:
@@ -2801,8 +3064,15 @@ def main() -> None:
     parts.append(("tibia_link.stl",       make_tibia_link()))
     parts.append(("foot_pad.stl",         make_foot_pad()))
 
-    print("Generic horn adapter (print 18 + spares):")
-    parts.append(("servo_horn_adapter.stl", make_servo_horn_adapter()))
+    # Design B (May 2026): the printed servo_horn_adapter has been
+    # RETIRED.  Each link now bolts directly to the plastic 4-arm
+    # X-horn that ships with the servo (see HORN_RECESS_OD /
+    # HORN_RECESS_DEPTH cuts in make_coxa_link / make_femur_link /
+    # make_tibia_link, and the Design B notes near the top of this
+    # file).  The ``make_servo_horn_adapter()`` factory itself is
+    # preserved for backwards compatibility with downstream tooling
+    # that still imports it, but is no longer called from any
+    # printable-output path.
 
     print("Servo visuals (not for printing -- MuJoCo / fit-check meshes):")
     parts.append(("servo_body.stl", make_servo_body()))

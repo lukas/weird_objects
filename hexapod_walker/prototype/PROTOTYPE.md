@@ -56,8 +56,24 @@ when you graduate to the big version — just re-tune the gains.
 
 **Knee torque margin:** the design target is a DS3225 25 kg·cm metal-gear
 digital servo.  At 6.8 V it gives a ~ 4× safety factor over the
-worst-case knee torque.  The printed wells, tab pilots, horn adapters
-and RL servo torque limits are all tuned around this DS3225-class case.
+worst-case knee torque.  The printed wells, tab pilots and RL servo
+torque limits are all tuned around this DS3225-class case.
+
+> **Design B (May 2026):** the printed `servo_horn_adapter` disc has
+> been retired.  Each link now bolts directly onto the plastic 4-arm
+> X-horn that ships with the servo, via 4 x Phi 3.2 mm holes on a
+> 20.8 mm PCD plus a 16 mm x 1.6 mm central hub recess cut into the
+> link's pad face.  Drops the printed-leg-bolt-up Z stack by
+> ``HORN_ADAPTER_T`` (4 mm) per joint.
+>
+> **Design C (May 2026):** the servo is now bolted into its cradle
+> via 4 x M3 x 14 SHCS that go horizontally through the cradle's
+> +/-X walls and the servo's mounting tabs, and bite into a captive
+> M3 nyloc nut sat in a printed-in hex pocket on the outer face of
+> the cradle wall (5.6 mm AF x 4.2 mm deep, flats parallel to +Z).
+> Replaces the old vertical M3 self-tap pilots, which are gone.
+> Counts: **72 x M3 x 14 SHCS** and **>= 72 x M3 nyloc nuts** per
+> robot.
 
 ---
 
@@ -79,14 +95,24 @@ exploded, or
 `make view-build ARGS="--screenshot artifacts/views/build_inspect.png"`
 renders a single headless PNG and exits.
 
-### PyVista build inspector shortcuts
+### PyVista build inspector controls
 
 The `view-build` window prints these to stdout on launch:
 
+**Mouse**
+
+- **Hover** a part → its `part_type Lx  role` is shown in the top-of-window banner. No clutter from other parts.
+- **Left-click** a part → every other part dims to 15% opacity while the picked part stays in place at full opacity. The clicked part does not move, so you can see exactly how it sits in the assembly without its neighbours obscuring it.
+- **Left-click in empty space** (or press `I` / `Esc`) → restores every part's opacity to its full value.
+- Left-drag still rotates the camera. Right-drag pans. Scroll zooms.
+
+**Keyboard**
+
 | Key | Action |
 |---|---|
-| `L` | Toggle floating per-instance role labels |
+| `L` | Toggle the persistent all-labels-at-once cloud (off by default — hover is usually less noisy) |
 | `E` | Toggle exploded view between 0.0 and 1.5 |
+| `I` / `Esc` | Clear isolation |
 | `R` | Reset the camera view |
 | `S` | Save a screenshot to `artifacts/views/build_inspect.png` |
 | `Q` | Quit |
@@ -156,19 +182,13 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 | `tibia_link.stl` | Shin link with knee pad and foot socket at the far end. | Flat on bed |
 | `foot_pad.stl` | Compliant foot — print in TPU for grip | Hub up, no supports |
 
-### 3.3 Generic hardware (print 18 + spares)
-
-| File | Function | Print orientation |
-|---|---|---|
-| `servo_horn_adapter.stl` | Bolts to a stock plastic horn, presents a 4 × M3 bolt pattern that the link plate clamps to | Flat |
-
-### 3.4 Visualization (do not print)
+### 3.3 Visualization (do not print)
 
 | File | Function |
 |---|---|
 | `assembly_preview.stl` | All parts placed in standing pose. Open in MeshLab or Cursor's STL viewer to sanity-check before printing. |
 
-### 3.5 Don't have a 3D printer? Order from a print service
+### 3.4 Don't have a 3D printer? Order from a print service
 
 Run `./run.sh hexapod_walker/prototype/prepare_xometry_upload.py` to build a
 self-contained order package in `xometry_upload/`. The script
@@ -216,12 +236,13 @@ printer.
 
 | Item | Qty | Notes |
 |---|---|---|
-| M3 × 8 mm socket-head cap screws | ~ 100 | Servo tab mounting, link bolts, chassis tie-rods |
+| M3 × 8 mm socket-head cap screws | ~ 50 | Link → horn bolts (4 per servo x 18 servos = 72; can also use 6 mm or 10 mm), chassis tie-rods. |
 | M3 × 12 mm | 24 | Standoffs between top + bottom chassis plates |
+| M3 × 14 mm SHCS | 72 + spares | **Design C servo-mount bolts**: horizontal, through the +/-X cradle walls and the servo tabs, into captive M3 nyloc nuts on the outer face. |
 | M3 × 16 mm | 24 | Coxa bracket → chassis (4 × 6 = 24) |
-| M3 nuts | ~ 100 | Self-locking nyloc preferred at high-vibration joints |
+| M3 nyloc nuts | >= 78 + spares | **Design C captive nuts**: 4 per servo x 18 servos = 72, plus 6 for the foot hinges. |
 | M3 × 25 mm round standoffs (M-F) | 8 | Top-to-bottom chassis spacers |
-| Self-tapping screws (servo horn → M3 nut) | 18 | Ships with the servos |
+| M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the plastic 4-arm X-horn onto the servo output spline. |
 
 ### 4.5 3D-printed material
 
@@ -244,7 +265,7 @@ printer.
 
 ## 5. Print plan
 
-A single Ender 3-class printer runs the whole BOM in roughly **22 hours**:
+A single Ender 3-class printer runs the whole BOM in roughly **21 hours**:
 
 | Pass | Parts | Bed | Time |
 |---|---|---|---|
@@ -253,8 +274,7 @@ A single Ender 3-class printer runs the whole BOM in roughly **22 hours**:
 | 3 | 6 × femur_link | Same | ~ 5 h |
 | 4 | 6 × tibia_link | Same | ~ 4 h |
 | 5 | chassis_top + chassis_bottom + battery_holder + electronics_tray | ~ 4 h |
-| 6 | 18 × servo_horn_adapter (PLA) | Single bed | ~ 1 h |
-| 7 | 6 × foot_pad (TPU) | Single bed | ~ 1 h |
+| 6 | 6 × foot_pad (TPU) | Single bed | ~ 1 h |
 
 Tip: use 4 walls and 25 % gyroid infill for the bracket and link
 parts — the servo cradles see the most load and the extra walls add
@@ -268,31 +288,47 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
-1. **Coxa bracket + yaw servo:** drop the yaw servo straight DOWN
+> Both the **coxa bracket**, the **coxa link** (hip-pitch cradle), and
+> the **femur link** (knee cradle) now use the same **Design C**
+> captive-nut servo-mount: 4 x M3 nyloc nuts press into the hex
+> pockets on the outer face of the cradle's +/-X walls, and 4 x M3
+> x 14 SHCS bolt the servo's mounting tabs to the cradle horizontally
+> through the +/-X clearance holes.  The old vertical M3 self-tap
+> pilot holes are gone.
+
+1. **Press the captive nuts:** before installing any servo, push 4 x
+   M3 nyloc nut into the hex pockets on the outer face of every
+   cradle's +/-X walls (12 cradles total: 6 yaw + 6 hip-pitch + 6
+   knee).  A little CA glue prevents them dropping out; the pocket
+   geometry holds them rotationally.
+2. **Yaw servo into coxa bracket:** drop the yaw servo straight DOWN
    through the body cutout in the bracket flange and into the well
-   below. The servo's mounting tabs land flush on the well rim, with
-   the gear stack and output spline poking UP above the flange.
-   Drive 4 × M3 self-tapping screws through the tab clearance holes
-   into the four pilot holes drilled vertically through the well's
-   side walls. The servo body now hangs below the chassis edge plane.
-2. **Horn adapter on the yaw servo:** centre the servo, push a stock
-   plastic 4-arm horn onto the spline at 0°, then bolt
-   `servo_horn_adapter.stl` to the horn with 4 × M2.5 self-tappers
-   (the screws that ship with the servo) plus the M3 horn-attach
-   screw.
-3. **Coxa link:** bolt the link's hub flange to the horn adapter with
-   4 × M3 × 8 mm + nuts.
-4. **Hip-pitch servo:** drop into the cradle in the coxa link. Bolt
-   through the four M3 tab holes. Fit a stock horn + adapter on the
-   output, perpendicular to the leg arm so the femur swings up and
-   down (not fore-and-aft).
-5. **Femur:** bolt the femur's hip-end flange to the hip horn adapter
-   (4 × M3).
-6. **Knee servo:** drop into the cradle in the femur. Tab-bolt + horn
-   + adapter as before, pointing perpendicular to the femur spar.
-7. **Tibia:** bolt the tibia's knee-end flange to the knee horn
-   adapter (4 × M3).
-8. **Foot pad:** push-fit into the tibia's foot socket, glue with CA
+   below.  The servo's tabs land flush on the well rim, with the gear
+   stack and output spline poking UP above the flange.  Drive 4 x M3
+   x 14 SHCS horizontally through the +X / -X clearance holes in the
+   cradle walls, through the servo's tab holes, into the captive
+   nyloc nuts on the far side.
+3. **Plastic horn on the yaw servo:** centre the servo, push a stock
+   plastic 4-arm X-horn onto the spline at 0 deg, then secure it with
+   the M3 horn-attach screw that ships in the servo bag.
+4. **Coxa link:** drop the link's hub pad onto the X-horn -- the 16 mm
+   recess on the underside of the pad seats the horn's central hub --
+   and bolt the link to the horn with 4 x M3 SHCS (6 / 8 / 10 mm all
+   work) into the brass inserts on the horn's underside.
+5. **Hip-pitch servo:** drop into the cradle in the coxa link; bolt
+   it down with the same Design C captive-nut scheme (4 x M3 x 14
+   SHCS).  Fit a plastic 4-arm X-horn perpendicular to the leg arm
+   so the femur swings up and down.
+6. **Femur:** seat the femur's hip-end pad on the hip horn (16 mm
+   recess engaging the horn hub) and bolt to the horn with 4 x M3
+   SHCS.
+7. **Knee servo:** drop into the cradle in the femur and bolt with 4
+   x M3 x 14 SHCS into the captive nyloc nuts on the outer face of
+   the femur's knee cradle.  Plastic X-horn perpendicular to the
+   femur spar.
+8. **Tibia:** seat the tibia's knee-end pad on the knee horn and
+   bolt to the horn with 4 x M3 SHCS.
+9. **Foot pad:** push-fit into the tibia's foot socket, glue with CA
    if it's loose.
 
 You now have a complete leg dangling from a coxa bracket. Repeat 6

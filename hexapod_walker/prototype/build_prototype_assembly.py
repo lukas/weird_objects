@@ -9,7 +9,9 @@ Imports the part builders from `hexapod_prototype.py`, then places:
     - 6 leg sub-assemblies, each with:
         coxa bracket, coxa link, femur, tibia, foot
         + 3 hobby servo bodies (yaw, hip-pitch, knee-pitch)
-        + 3 servo horn adapters
+        + 3 plastic servo horns (the stock 4-arm X-horns -- the links
+          now bolt DIRECTLY onto these; the printed servo_horn_adapter
+          disc has been retired, see Design B in hexapod_prototype.py)
 
 Outputs (in ./prototype_assembly/):
     frame.stl       printed PLA / PETG structural parts
@@ -172,13 +174,17 @@ def _build_leg(leg_index: int):
     #   chassis-plate top   -> well rim                z = 0
     #   well rim            -> body top                + (BODY_H - RIM_Z)
     #   body top            -> gear-stack top          + SERVO_OUTPUT_H
-    #   gear-stack top      -> plastic-horn top        + PLASTIC_HORN_H
-    #   plastic-horn top    -> printed-adapter top     + HORN_ADAPTER_T
-    PLASTIC_HORN_H = 5.0
+    #   gear-stack top      -> plastic-horn top        + HORN_STACK_H
+    #                                                  (= PLASTIC_HORN_H
+    #                                                  = 5 mm, May 2026:
+    #                                                   was PLASTIC_HORN_H
+    #                                                   + HORN_ADAPTER_T
+    #                                                   = 9 mm; printed
+    #                                                   servo_horn_adapter
+    #                                                   has been retired)
     yaw_output_z = ((HP.SERVO_BODY_H - HP.WELL_RIM_Z)
                      + HP.SERVO_OUTPUT_H
-                     + PLASTIC_HORN_H
-                     + HP.HORN_ADAPTER_T)
+                     + HP.HORN_STACK_H)
     yaw_output_world = edge_mid + yaw_output_z * z_hat
 
     arm_t = 6.0       # MUST match make_coxa_link()'s arm_t

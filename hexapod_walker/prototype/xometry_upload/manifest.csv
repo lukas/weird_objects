@@ -8,4 +8,3 @@ coxa_link.stl,6,MJF PA12,white,as-printed,61.0,46.0,64.0,47.63,285.77,Yaw-driven
 femur_link.stl,6,MJF PA12,white,as-printed,128.5,46.0,62.0,59.27,355.65,Thigh; printed with the spar's broad face on the bed and the knee cradle sticking up (opens -Z) -- minimizes FDM supports.
 tibia_link.stl,6,MJF PA12,white,as-printed,155.5,39.0,21.0,22.69,136.12,"Shin link, ends in foot socket. Lay flat for FDM."
 foot_pad.stl,6,FDM TPU 95A,black,as-printed,28.0,28.0,18.0,3.32,19.92,"*** SEPARATE QUOTE *** -- needs flexible TPU for grip. If TPU isn't available, FDM PLA works but the foot will slip."
-servo_horn_adapter.stl,18,MJF PA12,white,as-printed,32.0,32.0,4.0,2.74,49.27,Tiny part -- consider FDM PLA at home if you have a printer.

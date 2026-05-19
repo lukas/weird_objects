@@ -20,7 +20,9 @@ Output:
         femur_link.stl             -- qty 6
         tibia_link.stl             -- qty 6
         foot_pad.stl               -- qty 6  (TPU 95A, separate quote)
-        servo_horn_adapter.stl     -- qty 18
+        # Design B (May 2026): servo_horn_adapter.stl retired -- the
+        # links now bolt directly onto the plastic horn that ships
+        # with the servo.
 
 For Multi-Jet Fusion (Xometry's PA12 process) the orientation does not
 affect part quality — it only affects nesting and cost — so the
@@ -47,7 +49,6 @@ from hexapod_prototype import (
     make_electronics_tray,
     make_femur_link,
     make_foot_pad,
-    make_servo_horn_adapter,
     make_tibia_link,
 )
 
@@ -169,11 +170,9 @@ def _reorient_foot_pad(mesh):
     return _drop_to_bed(mesh)
 
 
-def _reorient_servo_horn_adapter(mesh):
-    """Flat 4 mm star, recess on -Z side. The recess (counter-bore for
-    the plastic horn body) sits on the build plate; the bolt-pattern
-    face is up. Already correct."""
-    return _drop_to_bed(mesh)
+# Design B (May 2026): _reorient_servo_horn_adapter removed along
+# with make_servo_horn_adapter (printed adapter retired -- links bolt
+# straight onto the plastic 4-arm horn).
 
 
 # ---------------------------------------------------------------------------
@@ -227,9 +226,11 @@ PART_REGISTRY: list[tuple[str,
      "*** SEPARATE QUOTE *** -- needs flexible TPU for grip. "
      "If TPU isn't available, FDM PLA works but the foot will slip."),
 
-    ("servo_horn_adapter.stl",   make_servo_horn_adapter,  _reorient_servo_horn_adapter,
-     18, "MJF PA12",     "white", "as-printed",
-     "Tiny part -- consider FDM PLA at home if you have a printer."),
+    # Design B (May 2026): servo_horn_adapter.stl removed -- each link
+    # now bolts directly onto the plastic 4-arm X-horn that ships with
+    # the servo (HORN_RECESS_OD + 4 x HORN_BOLT_PCD pattern cut into
+    # the link's pad in make_coxa_link / make_femur_link / make_tibia_
+    # link).  No 18 x adapter discs to quote.
 ]
 
 

@@ -26,10 +26,15 @@ exactly as the generator writes them.
 | 7 | `femur_link.stl` | **6** | PLA / PETG | 0.2 mm | 30% gyroid | 4 | ~ 5 h total | Spar's broad face on the bed (hip-pad flat). Knee cradle sticks UP with its open mouth facing DOWN — the closed cradle floor becomes a ~40×20 mm bridged ceiling, the spar prints with almost no overhangs. |
 | 8 | `tibia_link.stl` | **6** | PLA / PETG | 0.2 mm | 25% gyroid | 4 | ~ 4 h total | Flat on bed |
 | 9 | `foot_pad.stl` | **6** | TPU 95A (PLA OK) | 0.25 mm | 100% (TPU) | 3 | ~ 1 h | TPU = grip; PLA = slips |
-| 10 | `servo_horn_adapter.stl` | **18** | PLA / PETG | 0.16 mm | 100% | 4 | ~ 1 h | Tiny, print 6 per bed × 3 batches |
 
-**Total print time (single Ender 3 / Bambu A1):** ~ 22 hours of
-machine time, spread across 6 – 7 print sessions.
+> **Design B (May 2026):** the `servo_horn_adapter.stl` puck has
+> been retired.  Each link now bolts directly onto the plastic
+> 4-arm X-horn that ships with the servo, via 4 x M3 holes and a
+> 16 mm hub recess cut straight into the link's pad face.  No
+> 18 x adapter print.
+
+**Total print time (single Ender 3 / Bambu A1):** ~ 21 hours of
+machine time, spread across 6 print sessions.
 
 > **Don't have a printer?** The same files (re-oriented for MJF) live
 > in `hexapod_walker/prototype/xometry_upload/` with a `manifest.csv` and a
@@ -94,7 +99,8 @@ link is gear stripping during tuning).
 |---:|---|---|---|
 | 1 | **M3 socket-head cap screw + nut + washer assortment kit (~ 500 pieces, 6 / 8 / 10 / 12 / 16 / 20 mm lengths, A2 stainless)** | Simpler than buying lengths separately. Use 8 mm for servo tabs, 12 mm for chassis-spacer bolts, 16 mm for coxa-bracket → chassis and **for the 6 foot/tibia clevis hinge pins**, 20 mm for the rare longer reach. | [Amazon search: "M3 stainless screw kit assortment"](https://www.amazon.com/s?k=M3+stainless+screw+kit+assortment) |
 | 6 | **M3 × 16 mm pan-head bolts (foot hinge pins)** | One per leg: passes through the tibia clevis (3.5 mm cheek) + foot tongue (4 mm) + 5 mm gap and engages an M3 nylock nut on the far side (~ 4 mm of thread in the nut). Pan-head sits flatter against the cheek than a socket head. The M3 assortment above usually covers this if it has 16 mm + pan-head; otherwise buy this row separately. | [Amazon search: "M3 x 16 pan head stainless"](https://www.amazon.com/s?k=M3+x+16+pan+head+stainless) |
-| 1 | **M3 nylon-insert (nyloc) lock nut, ~ 100 pieces** | Use these on every joint that sees vibration, especially the coxa-bracket → chassis bolts, the 6 foot-hinge pins, and any joint inside the leg. | [Amazon search: "M3 nyloc lock nut 100 pack"](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
+| 72 | **M3 × 14 mm socket-head cap screws (Design C servo-mount bolts)** | **Four per servo, 18 servos = 72 bolts.**  Buy a 100-pack to leave spares.  Goes horizontally through the printed cradle wall + servo mounting tab + far cradle wall, biting into the captive M3 nyloc nut sat in the printed-in hex pocket on the outer face.  Full-thread, stainless. | [Amazon search: "M3 x 14 socket head cap screw stainless 100"](https://www.amazon.com/s?k=M3+x+14+socket+head+cap+screw+stainless+100) |
+| 1 | **M3 nylon-insert (nyloc) lock nut, ~ 100 pieces** | **Need >= 78 captive nuts**: 6 foot-hinge pins + 72 servo-mount nuts (4 per servo, 18 servos).  Sit in the printed-in hex pockets on the outer face of every coxa-bracket / coxa-link / femur-link cradle, oriented with flats parallel to +/-Z so a wrench can access them from above. | [Amazon search: "M3 nyloc lock nut 100 pack"](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
 | 1 | **M3 × 25 mm hex round standoffs, M-F brass, set of 20** | Sandwich the chassis plates 25 mm apart with 4 of these on the inner bolt circle. | [Amazon search: "M3 25mm standoffs male female brass"](https://www.amazon.com/s?k=M3+25mm+standoffs+male+female+brass) |
 | 1 | **M2.5 × 8 mm screws (servo horn screws — also pre-fit)** | Comes free with the servos as self-tappers, but a 50-pack of M2.5 × 8 + M2.5 nuts is $5 and saves a trip if you strip one. | [Amazon search: "M2.5 8mm screw 50 pack"](https://www.amazon.com/s?k=M2.5+8mm+screw+50+pack) |
 
@@ -123,10 +129,10 @@ link is gear stripping during tuning).
 | 20 × DS3225 servos | $260 |
 | Battery + 2 × BEC + charger + bag + cables | $80 |
 | Arduino Mega + 2 × PCA9685 + IMU + servo cables + jumpers | $50 |
-| Fasteners (M3 kit + nylocs + standoffs) | $25 |
+| Fasteners (M3 kit + nylocs + M3 x 14 SHCS pack + standoffs) | $35 |
 | Filament (PLA 1 kg + TPU 250 g) | $25 |
 | Soldering iron / hex keys / glue (if you don't have them) | $30 |
-| **Total** | **~ $470** |
+| **Total** | **~ $480** |
 
 The cost assumes DS3225 servos. Cheaper servos are intentionally not
 listed here because they change the risk profile and may not fit the
@@ -146,9 +152,8 @@ leg on the servo before committing the chassis plates.
    it should slide straight in through the slot from the +Y side
    with finger pressure. If it binds, sand the slot lightly.
 4. **6 × `tibia_link.stl`** — 4 hours.
-5. **18 × `servo_horn_adapter.stl`** — 1 hour (single bed).
-6. **`chassis_top.stl` + `chassis_bottom.stl` + `battery_holder.stl` + `electronics_tray.stl`** — 6 hours (single bed for the small parts, separate bed for each chassis plate).
-7. **6 × `foot_pad.stl`** in TPU — 1 hour.
+5. **`chassis_top.stl` + `chassis_bottom.stl` + `battery_holder.stl` + `electronics_tray.stl`** — 6 hours (single bed for the small parts, separate bed for each chassis plate).
+6. **6 × `foot_pad.stl`** in TPU — 1 hour.
 
 After step 3 you can start mounting the yaw servos in the coxa
 brackets and verifying the bolt patterns line up — that gives you a

@@ -2,9 +2,9 @@
 
 This directory is a self-contained order package for the **tabletop
 hobby-servo hexapod prototype** (see `../PROTOTYPE.md` for the full
-build guide). All 10 unique STL parts here are 3D-printable; ordered at
+build guide). All 9 unique STL parts here are 3D-printable; ordered at
 the quantities listed in `manifest.csv` they make exactly **one
-walking robot** (52 parts total).
+walking robot** (34 parts total).
 
 > Don't have a Xometry account? You can also upload these STLs to
 > Shapeways, JLCPCB 3D-printing, PCBWay, Hubs, Sculpteo, Treatstock —
@@ -30,9 +30,15 @@ xometry_upload/
 ├── coxa_link.stl              -- qty 6
 ├── femur_link.stl             -- qty 6
 ├── tibia_link.stl             -- qty 6
-├── foot_pad.stl               -- qty 6   (TPU 95A — different process!)
-└── servo_horn_adapter.stl     -- qty 18
+└── foot_pad.stl               -- qty 6   (TPU 95A — different process!)
 ```
+
+> **Design B (May 2026)** retired the printed `servo_horn_adapter`
+> disc. Each link is now machined with the 4 × Φ 3.2 mm M3 bolt
+> circle and a 16 mm × 1.6 mm central hub recess directly into its
+> pad face, so the link bolts straight onto the plastic 4-arm
+> X-horn that ships with the servo. No adapter STL ships in this
+> bundle.
 
 Every STL is **watertight, manifold, and pre-oriented for FDM** with
 flat faces on the build plate and any hollow servo pocket opening
@@ -45,17 +51,17 @@ Cursor's STL preview.
 ## Recommended order (Xometry MJF PA12)
 
 1.  Go to <https://www.xometry.com/instant-quoting-engine/>.
-2.  Drag-and-drop **all 9 STLs except `foot_pad.stl`** into the quoter.
+2.  Drag-and-drop **all 8 STLs except `foot_pad.stl`** into the quoter.
     (The foot pad needs a flexible TPU process, so put it on a
     *separate* quote — see below.)
-3.  For the 9 rigid parts, select:
+3.  For the 8 rigid parts, select:
     *   **Process:** 3D Printing → Multi-Jet Fusion (MJF)
     *   **Material:** PA12 Nylon
     *   **Finish:** As-printed (or "Black dye" if you want black parts —
         adds ~$0.50 / cm³)
     *   **Tolerance:** Standard (±0.3 mm)
 4.  Set the per-file quantities from `manifest.csv` (scroll down on each
-    part card and edit the qty box). Total: 46 rigid parts.
+    part card and edit the qty box). Total: 28 rigid parts.
 5.  Choose lead time — 7-day economy is fine; 3-day rush ~ 1.5 ×
     cheaper per cm³ but ships sooner.
 6.  Submit. Typical shipping is 7 – 14 days for the economy tier.
@@ -89,12 +95,11 @@ Cursor's STL preview.
 | 6 × coxa_link (28 cm³) | 171 cm³ | $14 | $84 |
 | 6 × femur_link (41 cm³) | 243 cm³ | $19 | $114 |
 | 6 × tibia_link (18 cm³) | 105 cm³ | $11 | $66 |
-| 18 × servo_horn_adapter (0.5 cm³) | 9 cm³ | $4 (min part) | $72 |
-| **MJF subtotal** | **959 cm³** | — | **~ $490** |
+| **MJF subtotal** | **~ 950 cm³** | — | **~ $420** |
 | 6 × foot_pad (TPU 95A, 6 cm³) | 36 cm³ | $8 | $48 |
 | **TPU subtotal** | | | **~ $48** |
 | Standard shipping (US, 7-day) | | | $20 – $40 |
-| **Total** | **~ 995 cm³** | | **~ $560 – $580** |
+| **Total** | **~ 985 cm³** | | **~ $490 – $510** |
 
 Compare with: **self-printing on a $200 Bambu A1 / Ender 3 = ~ $20 in
 filament, 28 hours of printer time.** If you have access to a printer
@@ -114,7 +119,7 @@ fabrication.
 | **MJF** | PA12 GB (glass-bead-filled) | Higher stiffness for the load-bearing tibia and femur links if you load the prototype with > 2 kg. | 1.3 × |
 | **SLS** | PA12 nylon | Functionally identical to MJF, slightly grainier surface. | 1.05 × |
 | **FDM** | PLA / PETG / ABS | Cheapest commercial option, but layer-line surface and visible support marks. | 0.4 × |
-| **SLA** | Tough resin | Great for the `servo_horn_adapter` only — high resolution on small features. The big parts will warp if printed in resin. | 0.8 × for small parts |
+| **SLA** | Tough resin | High resolution; useful only if you need cosmetic finish on the small link pads -- the big parts will warp if printed in resin. | 0.8 × for small parts |
 | **MJF** | TPU 90A | Alternative for the foot pad if FDM TPU isn't available. Softer than 95A, more grip, slightly lower abrasion life. | 1.2 × the FDM TPU price |
 
 ---
@@ -155,5 +160,6 @@ Cursor's built-in STL viewer) and confirm:
 *   The bolt-hole pattern on each link's hub face is a **20.8 mm PCD,
     4 × Φ 3.2 mm** (M3 clearance), with the 4 holes at
     **0 / 90 / 180 / 270°** so they line up with the X-shaped plastic
-    servo horn's arms — match this against the `servo_horn_adapter.stl`
-    to confirm interface compatibility.
+    servo horn's arms.  A **16 mm × 1.6 mm** circular recess is cut
+    into the same face to seat the horn's central hub.  No extra
+    printed adapter is required.

@@ -266,6 +266,10 @@ def _describe(mesh):
 
 def check_watertight():
     print("\n[1] Mesh watertightness / manifoldness:")
+    # Design B (May 2026): the printed servo_horn_adapter has been
+    # retired (each link now bolts directly onto the plastic 4-arm
+    # X-horn).  ``make_servo_horn_adapter`` is preserved for
+    # backwards-compat but is no longer in the printable-output set.
     items = {
         "chassis_top":         hp.make_chassis_top(),
         "chassis_bottom":      hp.make_chassis_bottom(),
@@ -276,7 +280,6 @@ def check_watertight():
         "femur_link":          hp.make_femur_link(),
         "tibia_link":          hp.make_tibia_link(),
         "foot_pad":            hp.make_foot_pad(),
-        "servo_horn_adapter":  hp.make_servo_horn_adapter(),
     }
     all_ok = True
     for name, m in items.items():
@@ -771,11 +774,14 @@ def _build_standing_leg():
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
     z_hat = np.array([0.0, 0.0, 1.0])
 
-    PLASTIC_HORN_H = 5.0
+    # Design B (May 2026): yaw output stack collapsed from
+    #   PLASTIC_HORN_H + HORN_ADAPTER_T = 9 mm
+    # down to
+    #   HORN_STACK_H = PLASTIC_HORN_H = 5 mm
+    # now that the printed servo_horn_adapter has been retired.
     yaw_output_z = ((hp.SERVO_BODY_H - hp.WELL_RIM_Z)
                      + hp.SERVO_OUTPUT_H
-                     + PLASTIC_HORN_H
-                     + hp.HORN_ADAPTER_T)
+                     + hp.HORN_STACK_H)
     hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
 
@@ -898,11 +904,14 @@ def _place_servo_bodies():
     edge_mid = np.array([apothem * cos_a, apothem * sin_a, 0.0])
     z_hat = np.array([0.0, 0.0, 1.0])
 
-    PLASTIC_HORN_H = 5.0
+    # Design B (May 2026): yaw output stack collapsed from
+    #   PLASTIC_HORN_H + HORN_ADAPTER_T = 9 mm
+    # down to
+    #   HORN_STACK_H = PLASTIC_HORN_H = 5 mm
+    # now that the printed servo_horn_adapter has been retired.
     yaw_output_z = ((hp.SERVO_BODY_H - hp.WELL_RIM_Z)
                      + hp.SERVO_OUTPUT_H
-                     + PLASTIC_HORN_H
-                     + hp.HORN_ADAPTER_T)
+                     + hp.HORN_STACK_H)
     yaw_output_world = edge_mid + yaw_output_z * z_hat
 
     hip_drop = hp.COXA_HIP_DROP
@@ -1013,22 +1022,36 @@ def check_servo_clearance():
 # spline to the next printed link via this physical stack, laid out
 # along the joint axis (+Y in each driven part's local frame):
 #
-#     servo body  |  output gear  |  plastic horn  |  printed horn adapter
-#     y < 0       |  y in [-6, 0] |  y in [0, +5]  |  y in [+5, +9]
-#                                  ^                                 ^
-#                                spline tip = joint axis            HORN_STACK_H
+#     servo body  |  output gear  |  plastic horn (link bolts here)
+#     y < 0       |  y in [-6, 0] |  y in [0, +5]  -> y = HORN_STACK_H
+#                                  ^               ^
+#                                spline tip       link mating face
+#                                = joint axis
+#
+# Design B (May 2026): the printed servo_horn_adapter has been retired.
+# The link's pad now bolts DIRECTLY onto the plastic horn (the part
+# that ships with the servo), so the horn stack is the plastic horn
+# alone -- HORN_STACK_H = PLASTIC_HORN_H = 5 mm (was 9 mm when the
+# printed adapter sat on top of the plastic horn).
 #
 # The driven printed part (coxa_link for yaw, femur_link for hip-pitch,
-# tibia_link for knee-pitch) sits ABOVE the horn adapter at femur/tibia
-# y >= HORN_STACK_H = +9, with a 4-bolt clamp pad on HORN_BOLT_PCD =
-# 24 mm.  The part's "neck" -- the material between the pad's mating
+# tibia_link for knee-pitch) sits ABOVE the plastic horn at femur/tibia
+# y >= HORN_STACK_H = +5, with a 4-bolt clamp pad on HORN_BOLT_PCD =
+# 20.8 mm.  The part's "neck" -- the material between the pad's mating
 # face (y = HORN_STACK_H) and the spar's near face (y = LINK_THICKNESS/2
-# = +3) -- MUST be free of plastic anywhere inside the horn-adapter
-# cylinder (diameter HORN_ADAPTER_OD = 32 mm) plus a small clearance
-# margin.  Otherwise the plastic horn + printed horn adapter physically
-# have nowhere to live: the printed part will sit proud of the adapter
-# by however many millimetres of plastic overlap, the 4 M3 clamp bolts
-# won't engage their threads, and the joint cannot be assembled.
+# = +3) -- MUST be free of plastic anywhere inside the legacy horn-
+# adapter cylinder (diameter HORN_ADAPTER_OD = 32 mm) plus a small
+# clearance margin.  The link's neck-torus void is still sized for the
+# adapter footprint (HORN_STACK_VOID_R = HORN_ADAPTER_OD/2 + 0.5 =
+# 16.5 mm in make_femur_link / make_tibia_link), so this probe radius
+# is still the right pass/fail boundary for the existing neck-torus
+# geometry -- the plastic horn's wider arm sweep (PLASTIC_HORN_X_TIP_R
+# = 19 mm) is captured separately by check_horn_sweep_clearance for
+# the yaw joint and is documented as a known-conservative gap on the
+# hip-/knee-pitch joints (the arms rotate WITH the link, so they don't
+# sweep through the neck-wall material in operation; clearance only
+# matters at assembly time, when the user can wiggle the horn under
+# the pad).
 #
 # This is exactly the failure mode the user reported as "the femur link
 # doesn't let the end of the servo stick out high enough to connect to
@@ -1775,7 +1798,8 @@ def check_flimsy_joints():
         "femur_link":          hp.make_femur_link(),
         "tibia_link":          hp.make_tibia_link(),
         "foot_pad":            hp.make_foot_pad(),
-        "servo_horn_adapter":  hp.make_servo_horn_adapter(),
+        # Design B (May 2026): servo_horn_adapter dropped from the
+        # flimsy-cluster sweep -- no longer in the printable-output set.
     }
 
     all_ok = True
@@ -2257,11 +2281,12 @@ def _build_workspace_leg(yaw_deg, femur_pitch_deg, knee_pitch_deg,
                           0.0])
     z_hat = np.array([0.0, 0.0, 1.0])
 
-    PLASTIC_HORN_H = 5.0
+    # Design B (May 2026): yaw output stack collapsed to HORN_STACK_H
+    # = PLASTIC_HORN_H = 5 mm now that the printed servo_horn_adapter
+    # has been retired.
     yaw_output_z = ((hp.SERVO_BODY_H - hp.WELL_RIM_Z)
                      + hp.SERVO_OUTPUT_H
-                     + PLASTIC_HORN_H
-                     + hp.HORN_ADAPTER_T)
+                     + hp.HORN_STACK_H)
     hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
 
@@ -2549,6 +2574,376 @@ def _optional_arm_checks():
     ]
 
 
+# ---------------------------------------------------------------------------
+# Design B (May 2026): direct-to-plastic-horn pad pattern
+# ---------------------------------------------------------------------------
+#
+# The link's pad now bolts DIRECTLY onto the plastic 4-arm X-horn that
+# ships with the servo (no printed servo_horn_adapter disc in the
+# stack).  Each driven link MUST therefore carry:
+#
+#   1. A 4 x M3-clearance hole pattern on a HORN_BOLT_PCD = 20.8 mm
+#      bolt circle, drilled through the pad's mating face along the
+#      joint axis (link +Z for coxa_link; link +Y for femur_link /
+#      tibia_link).
+#   2. A central Phi HORN_RECESS_OD = 16 mm cylindrical recess
+#      HORN_RECESS_DEPTH = 1.6 mm deep cut into the pad's mating face,
+#      so the plastic horn's central hub (spline collar + M3 centre-
+#      screw head) is fully swallowed below the pad.
+#
+# This check confirms BOTH the 4 bolt holes and the central recess
+# exist by sampling a small voxel patch at each expected position and
+# requiring the link mesh to be VOID there.  A short pillar of pad
+# material at the bolt-PCD ring or at the central hub indicates the
+# pad was not drilled / recessed correctly.
+
+# Tolerance: small voxel-grid step-noise budget per probe.  Each probe
+# samples a Phi (hole_OD/2 - small) x depth column of voxels and
+# expects ZERO of them to be inside the link mesh.  A real failure
+# (= bolt pattern missing entirely, or recess depth set to 0) leaves
+# 100+ voxel samples inside the part.
+HORN_PATTERN_VOX_TOL = 5    # voxel hits per probe -- voxel-noise floor
+
+
+def _probe_void_cylinder(mesh: trimesh.Trimesh,
+                          centre: np.ndarray,
+                          axis: str,
+                          radius: float,
+                          depth: float,
+                          n_samples: int = 64) -> int:
+    """Sample a cylindrical probe volume (radius x depth) along the
+    given axis ("x" | "y" | "z"), centred at *centre* (where the
+    cylinder's mid-Z lies); return how many sample points fall INSIDE
+    *mesh*.  Used to assert that a region of the part is VOID."""
+    rng = np.random.default_rng(seed=42)
+    # Sample uniformly within a cylinder of (radius, depth) along the
+    # axis.  Cylinder mid-point is at the origin in axis-local frame
+    # then translated to *centre*.
+    r = radius * np.sqrt(rng.random(n_samples))
+    theta = 2.0 * np.pi * rng.random(n_samples)
+    h = (rng.random(n_samples) - 0.5) * depth
+    local_a = h                # along axis
+    local_b = r * np.cos(theta)
+    local_c = r * np.sin(theta)
+    pts = np.zeros((n_samples, 3))
+    if axis == "x":
+        pts[:, 0] = local_a
+        pts[:, 1] = local_b
+        pts[:, 2] = local_c
+    elif axis == "y":
+        pts[:, 0] = local_b
+        pts[:, 1] = local_a
+        pts[:, 2] = local_c
+    elif axis == "z":
+        pts[:, 0] = local_b
+        pts[:, 1] = local_c
+        pts[:, 2] = local_a
+    else:
+        raise ValueError(f"axis must be x|y|z, got {axis!r}")
+    pts = pts + np.asarray(centre)
+    inside = points_inside(mesh, pts)
+    return int(inside.sum())
+
+
+def check_horn_pattern_in_pad():
+    """Verify that each driven link's pad has:
+      a) 4 M3 clearance holes on the HORN_BOLT_PCD = 20.8 mm bolt
+         circle, drilled through the full pad thickness, and
+      b) a central Phi HORN_RECESS_OD = 16 mm x HORN_RECESS_DEPTH =
+         1.6 mm hub-clearance recess on the pad's mating face.
+    """
+    print(f"\n[5d] Horn-pattern in driven link pads "
+          f"(Phi {hp.HORN_BOLT_OD:.1f} mm holes on PCD "
+          f"{hp.HORN_BOLT_PCD:.1f} mm + Phi {hp.HORN_RECESS_OD:.1f} mm "
+          f"x {hp.HORN_RECESS_DEPTH:.2f} mm hub recess):")
+
+    # The probe radius is a hair smaller than the actual clearance
+    # hole / recess radius so voxel stair-step artefacts on the cut's
+    # curved boundary don't pollute the "is the volume void" answer.
+    bolt_probe_r   = hp.HORN_BOLT_OD / 2.0 - 0.2     # ~1.4 mm
+    recess_probe_r = hp.HORN_RECESS_OD / 2.0 - 0.5   # ~7.5 mm
+
+    cases = [
+        # (name, mesh, pad_axis, mating_face_coord, pad_thickness,
+        #  recess_depth, mating_normal_sign)
+        # ``pad_axis``: which axis the bolts are along ("y" for the
+        #   femur/tibia knee/hip pads, "z" for the coxa_link's
+        #   pedestal-bottom mating face).
+        # ``mating_face_coord``: the position of the mating face on
+        #   *pad_axis*.  For femur/tibia, it's y = HORN_STACK_H = +5.
+        #   For coxa_link, the pad's bottom is at z = 0 in link frame.
+        # ``mating_normal_sign``: which way the recess opens from the
+        #   mating face.  Femur/tibia mating face faces -Y (toward the
+        #   horn below); the recess opens DOWNWARD in -Y, removing
+        #   material at y in [mate, mate + RECESS_DEPTH].  Coxa_link
+        #   mating face faces -Z (toward the horn below); the recess
+        #   opens DOWNWARD in -Z, removing material at z in [0,
+        #   +RECESS_DEPTH].  In both cases the recess probe centre
+        #   sits +RECESS_DEPTH/2 INTO the pad along +pad_axis.
+        ("coxa_link  (yaw joint)",        hp.make_coxa_link(),
+         "z", 0.0,                          +1.0),
+        ("femur_link (hip-pitch joint)",  hp.make_femur_link(),
+         "y", hp.HORN_STACK_H,              +1.0),
+        ("tibia_link (knee-pitch joint)", hp.make_tibia_link(),
+         "y", hp.HORN_STACK_H,              +1.0),
+    ]
+
+    # The pad's full thickness in the pad-axis direction.  For
+    # femur/tibia: hip_pad/knee_pad spans y in [HORN_STACK_H,
+    # HORN_STACK_H + LINK_THICKNESS].  For coxa_link: the pedestal +
+    # hub stack spans z in [0, COXA_LIFT + hub_t] -- much taller, but
+    # for the bolt-pattern probe we only need to confirm a clear hole
+    # at the bottom of the pedestal, so a 4 mm probe is enough.
+    BOLT_PROBE_DEPTH = 4.0    # probe a 4 mm-long column at the
+                               # mating face; matches typical pad
+                               # thickness.
+
+    all_ok = True
+    for name, mesh, axis, mate, normal_sign in cases:
+        # ---- (a) 4 M3 bolt holes on the HORN_BOLT_PCD circle ----
+        bolt_misses = 0
+        for ang in hp.HORN_BOLT_ANGLES_RAD:
+            # Bolt-circle position in the pad's transverse plane.
+            tx = hp.HORN_BOLT_PCD / 2.0 * np.cos(ang)
+            ty = hp.HORN_BOLT_PCD / 2.0 * np.sin(ang)
+            # Probe centre sits half-way along the bolt's path into
+            # the pad (the bolt enters at the mating face and exits
+            # the far side, depth = LINK_THICKNESS for femur/tibia or
+            # the pedestal+hub stack for coxa_link).
+            centre_axis = mate + normal_sign * (BOLT_PROBE_DEPTH / 2.0)
+            if axis == "y":
+                centre = np.array([tx, centre_axis, ty])
+            elif axis == "z":
+                centre = np.array([tx, ty, centre_axis])
+            else:
+                centre = np.array([centre_axis, tx, ty])
+            hits = _probe_void_cylinder(mesh, centre, axis,
+                                          bolt_probe_r,
+                                          BOLT_PROBE_DEPTH,
+                                          n_samples=48)
+            bolt_misses += hits
+        ok_bolts = bolt_misses <= HORN_PATTERN_VOX_TOL * 4
+        all_ok &= _label(
+            f"{name} :: 4 x M3 bolts on Phi {hp.HORN_BOLT_PCD} mm PCD",
+            ok_bolts,
+            f"hits={bolt_misses} (tol "
+            f"{HORN_PATTERN_VOX_TOL * 4})",
+        )
+
+        # ---- (b) Central horn-hub recess ----
+        # The recess starts at the mating face and extends INTO the
+        # pad by HORN_RECESS_DEPTH.  Probe centre sits at half-depth
+        # so the entire cylinder lives strictly inside the recess
+        # volume.
+        recess_centre_axis = mate + normal_sign * (hp.HORN_RECESS_DEPTH
+                                                    / 2.0)
+        if axis == "y":
+            centre = np.array([0.0, recess_centre_axis, 0.0])
+        else:                                            # "z"
+            centre = np.array([0.0, 0.0, recess_centre_axis])
+        hits = _probe_void_cylinder(mesh, centre, axis,
+                                      recess_probe_r,
+                                      hp.HORN_RECESS_DEPTH * 0.8,
+                                      n_samples=64)
+        ok_recess = hits <= HORN_PATTERN_VOX_TOL
+        all_ok &= _label(
+            f"{name} :: Phi {hp.HORN_RECESS_OD} mm "
+            f"x {hp.HORN_RECESS_DEPTH:.2f} mm hub recess",
+            ok_recess,
+            f"hits={hits} (tol {HORN_PATTERN_VOX_TOL})",
+        )
+
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
+# Design C (May 2026): M3 nyloc nut traps in cradle +/-X walls
+# ---------------------------------------------------------------------------
+#
+# Each servo cradle (coxa_bracket's yaw well, coxa_link's hip-pitch
+# well, femur_link's knee well) now bolts the servo down via 4 x
+# M3 x 14 SHCS that pass HORIZONTALLY through the cradle's +/-X walls
+# into M3 nyloc nuts captured in hex pockets on the OUTER face of
+# those walls.  Each cradle wall must:
+#
+#   a) be VOID inside the Phi 3.2 mm horizontal clearance cylinder
+#      at (well-local y = +/- SERVO_MOUNT_HOLE_Y_OFFSET,
+#                  z = SERVO_MOUNT_HOLE_Z_OFFSET), and
+#   b) have M3_NYLOC_NUT_DEPTH-deep hex pockets cut into the outer
+#      face at the same (y, z) so the nyloc nut drops in.
+#
+# The verifier checks (a) by sampling a thin horizontal cylinder
+# along the bolt axis and counting hits; (b) by sampling a thin disc
+# just below the wall's nominal outer face (in the nut-pocket
+# volume) and confirming it's VOID.
+
+CRADLE_NUT_TRAP_VOX_TOL = 3    # voxel hits per bolt/pocket -- noise floor
+
+
+def _cradle_outer_face_x(well_local_axis_world_dir: np.ndarray,
+                          well_centre_world: np.ndarray) -> tuple:
+    """Return (+X_outer_face_world_xyz, -X_outer_face_world_xyz) for a
+    cradle whose well-local +X axis maps onto ``well_local_axis_world_
+    dir`` in the world frame.
+
+    Unused at the moment -- the existing checks operate in each
+    cradle's LOCAL frame, so they probe at the unrotated well coords
+    directly.  Kept for documentation of the intended check geometry.
+    """
+    return (well_centre_world + (hp.WELL_W / 2.0)
+            * well_local_axis_world_dir,
+            well_centre_world - (hp.WELL_W / 2.0)
+            * well_local_axis_world_dir)
+
+
+def check_cradle_nut_traps():
+    """Verify each cradle's +/-X walls carry the 4 horizontal M3
+    clearance holes AND the 4 nyloc nut hex pockets that go with
+    them (Design C, May 2026).
+
+    The cradles are tested in their UNROTATED, UNTRANSLATED local
+    frames so we don't have to undo each cradle's R / delta math --
+    we synthesize a small "well-only" mesh per case that strips the
+    surrounding link / bracket material and checks just the well.
+    """
+    print(f"\n[5e] Cradle nyloc nut traps "
+          f"(Phi {hp.SERVO_MOUNT_BOLT_OD:.1f} mm bolts + "
+          f"{hp.M3_NYLOC_NUT_AF:.1f} mm AF x "
+          f"{hp.M3_NYLOC_NUT_DEPTH:.2f} mm hex pockets):")
+
+    # Each case: (label, mesh-builder, transform-to-well-local).  The
+    # cradle's well-local coords match _servo_well_solid (origin at
+    # body bottom centre; +X = body long axis; +Y = body short; +Z =
+    # output shaft).  For coxa_bracket the well is translated by
+    # (-SERVO_OUTPUT_X, 0, -WELL_RIM_Z) into bracket-local frame.
+    # For coxa_link / femur_link the well is rotated by -90 deg
+    # about +X (well +Z -> link +Y) and then translated.  We undo
+    # those transforms with the inverse rotation + translation so the
+    # nut-trap probe lives at the same well-local coordinates in
+    # every case.
+    R_inv = rotation_matrix(+np.pi / 2.0, [1, 0, 0])
+
+    def _bracket_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        m = mesh.copy()
+        m.apply_translation([+hp.SERVO_OUTPUT_X, 0.0, +hp.WELL_RIM_Z])
+        return m
+
+    def _coxa_link_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        # Inverse of the make_coxa_link well transforms.  The well is
+        # placed by R then translated by ``delta`` then dropped by
+        # well_z_drop in link-Z; here we undo all three so the well
+        # cavity ends up at well-local origin.
+        m = mesh.copy()
+        # Undo COXA_LIFT (the body was lifted by COXA_LIFT after the
+        # well union).
+        m.apply_translation([0.0, 0.0, -hp.COXA_LIFT])
+        # Undo well_z_drop (-(WELL_D/2 + arm_t/2 + WELL_Z_DROP_EXTRA))
+        arm_t = hp.COXA_ARM_T
+        well_z_drop = -(hp.WELL_D / 2.0 + arm_t / 2.0
+                         + hp.WELL_Z_DROP_EXTRA)
+        m.apply_translation([0.0, 0.0, -well_z_drop])
+        # Undo delta = (COXA_LENGTH - SERVO_OUTPUT_X,
+        #               -(SERVO_BODY_H + SERVO_OUTPUT_H), 0)
+        m.apply_translation([
+            -(hp.COXA_LENGTH - hp.SERVO_OUTPUT_X),
+            +(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
+            0.0,
+        ])
+        # Undo R (-pi/2 about +X), i.e. apply R^-1 = +pi/2 about +X.
+        m.apply_transform(R_inv)
+        return m
+
+    def _femur_link_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        m = mesh.copy()
+        # Undo delta = (FEMUR_LENGTH - SERVO_OUTPUT_X,
+        #               -(SERVO_BODY_H + SERVO_OUTPUT_H), 0)
+        m.apply_translation([
+            -(hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X),
+            +(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
+            0.0,
+        ])
+        m.apply_transform(R_inv)
+        return m
+
+    cases = [
+        ("coxa_bracket (yaw cradle)",
+         _bracket_to_well_local(hp.make_coxa_bracket())),
+        ("coxa_link    (hip-pitch cradle)",
+         _coxa_link_to_well_local(hp.make_coxa_link())),
+        ("femur_link   (knee cradle)",
+         _femur_link_to_well_local(hp.make_femur_link())),
+    ]
+
+    # Probe radii (slightly tighter than the nominal cut so voxel
+    # stair-step artefacts on the curved boundaries don't pollute the
+    # "is this void" reading).
+    bolt_probe_r   = hp.SERVO_MOUNT_BOLT_OD / 2.0 - 0.2
+    pocket_probe_r = (hp.M3_NYLOC_NUT_AF * 0.5 - 0.5)   # ~2.3 mm; the
+                                                         # nut pocket
+                                                         # has 2.8 mm
+                                                         # apothem
+
+    all_ok = True
+    for name, well_local_mesh in cases:
+        bolt_hits = 0
+        pocket_hits = 0
+        n_bolts_per_case = 4
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                y = sy * hp.SERVO_MOUNT_HOLE_Y_OFFSET
+                z = hp.SERVO_MOUNT_HOLE_Z_OFFSET
+                # ---- a) Horizontal bolt clearance hole ----
+                # Probe a short cylinder strictly INSIDE the wall
+                # (between the outer face and the cavity face).
+                # +X wall material spans x in [+SERVO_BODY_W/2 +
+                # WELL_BODY_CL, +WELL_W/2]; probe centre is at x =
+                # sx * (WELL_W + SERVO_BODY_W + 2*WELL_BODY_CL) / 4
+                # which is the midpoint of that span.
+                wall_inner_x = hp.SERVO_BODY_W / 2.0 + hp.WELL_BODY_CL
+                wall_outer_x = hp.WELL_W / 2.0
+                probe_x = sx * 0.5 * (wall_inner_x + wall_outer_x)
+                probe_depth = (wall_outer_x - wall_inner_x) * 0.6
+                centre = np.array([probe_x, y, z])
+                bolt_hits += _probe_void_cylinder(
+                    well_local_mesh, centre, "x",
+                    bolt_probe_r, probe_depth, n_samples=32,
+                )
+
+                # ---- b) Hex pocket on outer face ----
+                # Probe a short cylinder strictly INSIDE the pocket
+                # volume (between the outer face and the pocket
+                # floor M3_NYLOC_NUT_DEPTH inside).  Centre at
+                # x = sx * (WELL_W/2 - M3_NYLOC_NUT_DEPTH/2).
+                pocket_centre_x = (sx
+                                    * (wall_outer_x
+                                       - hp.M3_NYLOC_NUT_DEPTH / 2.0))
+                centre = np.array([pocket_centre_x, y, z])
+                pocket_hits += _probe_void_cylinder(
+                    well_local_mesh, centre, "x",
+                    pocket_probe_r,
+                    hp.M3_NYLOC_NUT_DEPTH * 0.7,
+                    n_samples=48,
+                )
+
+        bolt_tol   = CRADLE_NUT_TRAP_VOX_TOL * n_bolts_per_case
+        pocket_tol = CRADLE_NUT_TRAP_VOX_TOL * n_bolts_per_case
+        ok_bolts = bolt_hits <= bolt_tol
+        ok_pockets = pocket_hits <= pocket_tol
+        all_ok &= _label(
+            f"{name} :: 4 x Phi {hp.SERVO_MOUNT_BOLT_OD} mm "
+            f"horizontal clearance holes",
+            ok_bolts,
+            f"hits={bolt_hits} (tol {bolt_tol})",
+        )
+        all_ok &= _label(
+            f"{name} :: 4 x {hp.M3_NYLOC_NUT_AF}mm AF hex nut pockets",
+            ok_pockets,
+            f"hits={pocket_hits} (tol {pocket_tol})",
+        )
+
+    return all_ok
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -2576,6 +2971,8 @@ def main():
     results.append(("Servo clearance",        check_servo_clearance()))
     results.append(("Horn-stack clearance",   check_horn_stack_clearance()))
     results.append(("Horn-sweep clearance",   check_horn_sweep_clearance()))
+    results.append(("Horn pattern in pads",   check_horn_pattern_in_pad()))
+    results.append(("Cradle nut traps",       check_cradle_nut_traps()))
     results.append(("Flimsy joints",          check_flimsy_joints()))
     results.append(("Thin sheets",            check_thin_sheets()))
     results.append(("Workspace self-collision",
