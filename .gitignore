@@ -19,6 +19,13 @@ venv/
 **/polyhedra_stl/
 **/jigs/
 
+# Fastener-cache provenance breadcrumbs written by
+# hexapod_walker/prototype/make_fastener_meshes.py (one line per
+# cached STL recording which source -- STEP / user STL / openscad /
+# parametric -- produced the mesh).  Regenerated on every
+# `make regen-fasteners`; not source.
+**/fasteners/*.cache.source.txt
+
 # CAD validation-workflow outputs (rebuild via
 # `make -C hexapod_walker/prototype check-cad`).  Contains cad_report.md
 # plus per-part PNG renders under views/.

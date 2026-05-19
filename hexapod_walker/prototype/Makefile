@@ -83,10 +83,12 @@ view-build:
 
 # Regenerate fasteners/<P/N>.cache.stl for every unique part number in
 # fastener_registry.build_all_fastener_instances().  Source priority:
-# real McMaster STEP -> user STL -> parametric fallback.  Both
-# inspect_build.py and _verify_prototype.check_screwdriver_access
-# consume the cache STLs.  Run this whenever you drop a real STEP
-# into fasteners/.
+# real McMaster STEP -> user STL -> NopSCADlib via OpenSCAD CLI ->
+# parametric fallback.  Both inspect_build.py and the verifier's
+# check_screwdriver_access consume the cache STLs.  Run this whenever
+# you drop a real STEP into fasteners/, edit a fasteners/scad/*.scad
+# file, or upgrade NopSCADlib.  See fasteners/README.md for the
+# install commands (openscad CLI + NopSCADlib clone).
 regen-fasteners:
 	$(RUN) hexapod_walker/prototype/make_fastener_meshes.py
 
