@@ -19,6 +19,11 @@ venv/
 **/polyhedra_stl/
 **/jigs/
 
+# CAD validation-workflow outputs (rebuild via
+# `make -C hexapod_walker/prototype check-cad`).  Contains cad_report.md
+# plus per-part PNG renders under views/.
+hexapod_walker/prototype/artifacts/
+
 # Cursor / editor / OS
 .DS_Store
 .vscode/
