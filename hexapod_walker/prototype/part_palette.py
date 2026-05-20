@@ -58,8 +58,18 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "servo_horn":          (0.500, 0.500, 0.520),
     # ---- Fasteners (May 2026 -- see fastener_registry.py) -------------
     # M3 cap screws: dark steel (black-oxide finish).
+    "M3x14 SHCS":          (0.30, 0.32, 0.36),
     "M3x8 SHCS":           (0.30, 0.32, 0.36),
     "M3x32 SHCS":          (0.30, 0.32, 0.36),
+    # Cradle M3 x 8 SHCS that thread into a heat-set insert (same
+    # physical bolt as ``M3x8 SHCS`` -- same P/N 91290A113 -- with a
+    # distinct spec string so the inspector / BOM can tell cradle
+    # bolts apart from any future "M3 x 8 into plastic" use).  Same
+    # dark-steel hue.
+    "M3x8 SHCS into heat-set insert": (0.30, 0.32, 0.36),
+    # M2 cap screws: bluer steel, slightly lighter than the M3 family
+    # (May 2026 X-horn fix -- see XHORN_BOLT_PCD docstring).
+    "M2x8 SHCS":           (0.28, 0.34, 0.42),
     # M3 pan-head hinge pin: same dark steel family but a hint lighter
     # so the foot hinge bolt visually distinguishes from the cap screws.
     "M3x16 pan-head":      (0.36, 0.38, 0.40),
@@ -70,6 +80,11 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     # conveyed by the mesh geometry itself (slightly inset cylinder
     # extruded above the steel hex body), not by per-vertex colors.
     "M3 nyloc nut":        (0.55, 0.55, 0.55),
+    # M3 heat-set insert (McMaster 94459A130): brass / bronze hue so
+    # the insert reads visually distinct from every steel fastener
+    # when the build is exploded.  Matches the "brass-bolt" palette
+    # family the spec calls for.
+    "M3 heat-set insert":  (0.72, 0.45, 0.20),
 }
 
 
@@ -102,11 +117,15 @@ _JOINT_ROLE = {
 
 
 _FASTENER_PART_TYPES = frozenset({
+    "M3x14 SHCS",
     "M3x8 SHCS",
+    "M3x8 SHCS into heat-set insert",
     "M3x32 SHCS",
     "M3x16 pan-head",
+    "M2x8 SHCS",
     "M2.5x8 spline screw",
     "M3 nyloc nut",
+    "M3 heat-set insert",
 })
 
 

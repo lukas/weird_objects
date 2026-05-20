@@ -114,6 +114,7 @@ import hexapod_prototype as HP  # noqa: E402
 # README stay in sync.  If McMaster renumbers a SKU, edit here only.
 
 PN_M3X8_SHCS     = "91290A113"   # M3 x 8  socket-head cap screw, black-oxide steel
+PN_M3_HEATSET_INSERT = "94459A130"   # M3 brass heat-set insert, knurled (McMaster)
 PN_M3X32_SHCS    = "91290A123"   # M3 x 30 socket-head cap screw (closest stock to 32 mm)
 PN_M3_NYLOC      = "90576A102"   # M3 nylon-insert lock nut, A2 stainless
 PN_M3X16_PAN     = "92010A130"   # M3 x 16 pan-head Phillips, A2 stainless (foot hinge)
@@ -136,6 +137,20 @@ PN_M2X8_SHCS     = "91290A005"   # M2 x 8 socket-head cap screw, black-oxide ste
 
 # Human-readable spec labels (used by the inspector and the BOM script).
 SPEC_M3X8_SHCS   = "M3x8 SHCS"
+# Cradle bolt spec post-heat-set switch (May 2026): same M3 x 8
+# SHCS stock as ``SPEC_M3X8_SHCS`` (same P/N -- they are the same
+# fastener), but with a distinct spec string so the verifier's
+# ``check_screwdriver_access`` and BOM reports can identify cradle
+# bolts that thread into a heat-set insert instead of a plastic
+# pilot without needing to read the role / location strings.  The
+# "SHCS" substring is preserved so the screwdriver-envelope
+# dispatcher (which dispatches HEX_KEY off the "SHCS" substring)
+# still picks the right driver envelope.
+SPEC_M3X8_SHCS_INTO_INSERT = "M3x8 SHCS into heat-set insert"
+# Heat-set insert spec: McMaster 94459A130 M3 brass knurled insert,
+# Phi 4.0 mm pilot, Phi 5.7 mm OD, 5.0 mm length.  Installed with a
+# soldering iron at ~220 deg C; the bolt threads into it from above.
+SPEC_M3_HEATSET_INSERT = "M3 heat-set insert"
 SPEC_M3X32_SHCS  = "M3x32 SHCS"
 SPEC_M3_NYLOC    = "M3 nyloc nut"
 SPEC_M3X16_PAN   = "M3x16 pan-head"
@@ -398,7 +413,21 @@ def _emit_cradle_fasteners(
     location: str,
     shelf_top_z: float = None,
 ) -> list[FastenerInstance]:
-    """Emit the 4 vertical M3 self-tap SHCS for one cradle.
+    """Emit the cradle servo-mount fasteners for one cradle (heat-set
+    switch, May 2026).
+
+    Each (sx, sy) site emits TWO ``FastenerInstance`` entries:
+
+      * an ``M3 x 8 SHCS into heat-set insert`` bolt (P/N
+        ``PN_M3X8_SHCS`` = 91290A113, spec
+        ``SPEC_M3X8_SHCS_INTO_INSERT``) with its head sitting on the
+        servo ear's top face; and
+      * an ``M3 heat-set insert`` (P/N ``PN_M3_HEATSET_INSERT`` =
+        94459A130, spec ``SPEC_M3_HEATSET_INSERT``) pressed into the
+        printed Phi 4 mm pocket below the ear.  The insert's TOP
+        face sits 0.5 mm below the shelf top so the bolt head clamps
+        the servo ear down onto the printed boss top instead of the
+        brass insert face (standard heat-set practice).
 
     ``shelf_top_z`` is the well-local z of the shelf surface the servo
     ear rests on -- ``WELL_RIM_Z`` for the femur / coxa_link cradles
@@ -410,6 +439,12 @@ def _emit_cradle_fasteners(
 
     positions, axes, signs = _well_bolt_local_pos_axis(shelf_top_z)
 
+    # Insert head sits 0.5 mm below the shelf top so the bolt head
+    # clamps the servo ear down onto the printed boss top (standard
+    # heat-set practice; the bolt should not seat directly on the
+    # brass insert face).
+    insert_head_local_z = shelf_top_z - 0.5
+
     out: list[FastenerInstance] = []
     for (sx, sy), p_local, ax_local in zip(signs, positions, axes):
         head = _apply_point(T_well_to_world, p_local)
@@ -417,10 +452,10 @@ def _emit_cradle_fasteners(
         role_suffix = _wall_corner_label(sx, sy)
         out.append(FastenerInstance(
             part_number=PN_M3X8_SHCS,
-            spec=SPEC_M3X8_SHCS,
+            spec=SPEC_M3X8_SHCS_INTO_INSERT,
             head_world_xyz=head,
             axis_world=axis,
-            role=f"{location} {role_suffix} self-tap SHCS",
+            role=f"{location} {role_suffix} M3 x 8 SHCS into insert",
             leg_index=leg_index,
             joint=joint,
             length_mm=8.0,
@@ -443,13 +478,49 @@ def _emit_cradle_fasteners(
             # robot so we SKIP these cradle bolts with the standard
             # sub-assembly-order rationale.
             skip_screwdriver_reason=(
-                "captive sub-assembly fastener: the vertical M3 self-"
-                "tap is torqued from above BEFORE the next stage's "
-                "link / plate is bolted onto the cradle's servo horn "
-                "(yaw cradle -> coxa_link, hip cradle -> femur, knee "
-                "cradle -> tibia; bracket yaw cradle also requires "
-                "the chassis-top stack to be added LAST).  See "
+                "captive sub-assembly fastener: the M3 x 8 SHCS "
+                "threads into a heat-set insert and is torqued from "
+                "above BEFORE the next stage's link / plate is "
+                "bolted onto the cradle's servo horn (yaw cradle "
+                "-> coxa_link, hip cradle -> femur, knee cradle "
+                "-> tibia; bracket yaw cradle also requires the "
+                "chassis-top stack to be added LAST).  See "
                 "PROTOTYPE.md for the explicit sub-assembly order"
+            ),
+        ))
+
+        # Heat-set insert entry coaxial with the bolt.  Insert head
+        # at well-local z = shelf_top_z - 0.5 mm so the bolt head
+        # clamps the ear onto the printed boss top, not the brass.
+        insert_head_local = np.array([
+            sx * HP.SERVO_MOUNT_HOLE_X_OFFSET,
+            sy * HP.SERVO_MOUNT_HOLE_Y_OFFSET,
+            insert_head_local_z,
+        ])
+        insert_head_world = _apply_point(T_well_to_world, insert_head_local)
+        out.append(FastenerInstance(
+            part_number=PN_M3_HEATSET_INSERT,
+            spec=SPEC_M3_HEATSET_INSERT,
+            head_world_xyz=insert_head_world,
+            axis_world=axis,
+            role=f"{location} {role_suffix} M3 heat-set insert",
+            leg_index=leg_index,
+            joint=joint,
+            length_mm=HP.INSERT_M3_INSERT_LENGTH,
+            cache_stl=f"{PN_M3_HEATSET_INSERT}.cache.stl",
+            # The insert is PRESSED IN with a soldering iron BEFORE
+            # any link / plate is bolted to the cradle's servo horn,
+            # so it lives behind every screwdriver cone the assembler
+            # would ever swing.  No driver clearance is required for
+            # the insert itself (it has no head to drive), just for
+            # the soldering-iron tip that installs it -- the same
+            # axial clearance the M3 x 8 SHCS bolt needs, which is
+            # captive for the same reason.
+            skip_screwdriver_reason=(
+                "heat-set insert installed with a soldering iron "
+                "BEFORE the next stage's link / plate is added (see "
+                "PROTOTYPE.md for the assembly order); no driver "
+                "cone applies to the insert itself"
             ),
         ))
     return out
@@ -947,12 +1018,14 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
         rows.append((spec, pn, qty, used))
     # Stable, human-friendly order: SHCS by length, then nuts.
     spec_order = {
-        SPEC_M2X8_SHCS:  0,
-        SPEC_M25X8_SHCS: 1,
-        SPEC_M3X8_SHCS:  2,
-        SPEC_M3X32_SHCS: 3,
-        SPEC_M3X16_PAN:  4,
-        SPEC_M3_NYLOC:   5,
+        SPEC_M2X8_SHCS:             0,
+        SPEC_M25X8_SHCS:            1,
+        SPEC_M3X8_SHCS:             2,
+        SPEC_M3X8_SHCS_INTO_INSERT: 3,
+        SPEC_M3_HEATSET_INSERT:     4,
+        SPEC_M3X32_SHCS:            5,
+        SPEC_M3X16_PAN:             6,
+        SPEC_M3_NYLOC:              7,
     }
     rows.sort(key=lambda r: (spec_order.get(r[0], 9), r[0]))
     return rows
@@ -960,11 +1033,16 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
 
 def _usage_bucket(fi: FastenerInstance) -> str:
     role = fi.role
+    if "heat-set insert" in role:
+        # The 72 brass heat-set inserts (McMaster 94459A130) pressed
+        # into the cradle bosses BEFORE the cradle servo is mounted.
+        return "cradle heat-set inserts"
     if "cradle" in role:
-        # The 72 vertical SHCS that thread DOWN through each servo ear
-        # into a Phi 2.5 mm printed self-tap pilot in the cradle shelf
-        # (Design C revert -- see hexapod_prototype.SHCS_PILOT_OD).\n
-        return "cradle servo self-tap mounts"
+        # The 72 vertical M3 x 8 SHCS that thread DOWN through each
+        # servo ear into the brass heat-set insert in the cradle
+        # boss below (May 2026 heat-set switch -- see hexapod_
+        # prototype.INSERT_M3_* / CRADLE_BOSS_*).
+        return "cradle servo mounts (M3 SHCS into heat-set insert)"
     if "X-horn" in role:
         return "link-to-X-horn bolts"
     if "spline screw" in role:

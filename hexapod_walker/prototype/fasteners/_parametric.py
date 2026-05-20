@@ -45,16 +45,6 @@ M3_CAP_H        = 3.0         # cap head height
 M3_HEX_SOCKET_AF = 2.5        # 2.5 mm hex key across-flats
 M3_HEX_SOCKET_DEPTH = 1.5     # depth of the hex pocket inside the cap
 
-# M2 socket-head cap screw (DIN 912):
-# Used for the 72 link-to-X-horn self-tap bolts (May 2026 fastener-
-# spec fix: the plastic X-horn's arm holes are Phi ~ 2.0 mm M2-sized,
-# NOT Phi 3.2 mm M3 clearance).  Stock dimensions per ISO 4762.
-M2_THREAD_D     = 2.0
-M2_CAP_D        = 3.8         # cap head outer diameter
-M2_CAP_H        = 2.0         # cap head height
-M2_HEX_SOCKET_AF = 1.5        # 1.5 mm hex key across-flats
-M2_HEX_SOCKET_DEPTH = 1.0
-
 # M2.5 socket-head cap screw (DIN 912):
 M25_THREAD_D    = 2.5
 M25_CAP_D       = 4.5
@@ -69,10 +59,26 @@ M3_PAN_PHILLIPS_W = 0.9       # Phillips cross slot width
 M3_PAN_PHILLIPS_DEPTH = 1.0
 
 # M3 nylon-insert lock nut (DIN 985):
-M3_NUT_AF       = 5.5         # hex across-flats
+M3_NUT_AF       = 5.5         # hex across-flats (matches the hex pocket
+                              #   in _servo_cradle_nut_traps)
 M3_NUT_H        = 4.0         # overall body height (steel + nylon ring)
 M3_NUT_STEEL_H  = 2.4         # steel portion (bottom)
 M3_NUT_NYLON_H  = M3_NUT_H - M3_NUT_STEEL_H  # nylon ring on top
+
+# M3 heat-set insert (McMaster 94459A130): brass body, knurled OD.
+# Pilot Phi 4.0 mm, knurled OD 5.7 mm, body length 5.0 mm.  We render
+# it as a Phi M3_HEATSET_OD cylinder with M3_HEATSET_FLUTES axial
+# flutes ground in so it reads as KNURLED rather than smooth at the
+# inspector zoom level, plus a Phi M3_THREAD_D through-bore so the
+# bolt can pass through it visually.  Brass colour comes from
+# ``part_palette.py``.
+M3_HEATSET_OD       = 5.7
+M3_HEATSET_PILOT_D  = 4.0     # outer Phi of the central bore (the bolt
+                              #   thread engagement region)
+M3_HEATSET_LENGTH   = 5.0
+M3_HEATSET_FLUTES   = 16      # axial flutes -- visual cue that the OD
+                              #   is knurled rather than smooth
+M3_HEATSET_FLUTE_D  = 0.2     # depth of each flute (radial, mm)
 
 
 # ---------------------------------------------------------------------------
@@ -115,19 +121,6 @@ def _box(extents, center=(0.0, 0.0, 0.0)) -> trimesh.Trimesh:
 # ---------------------------------------------------------------------------
 # Public fastener builders
 # ---------------------------------------------------------------------------
-
-
-def make_m2_shcs(length_mm: float) -> trimesh.Trimesh:
-    """M2 socket-head cap screw, ``length_mm`` shank length, head at
-    z=[-CAP_H, 0], shank at z=[0, length_mm]."""
-    cap = _cyl(M2_CAP_D / 2.0, M2_CAP_H)
-    cap.apply_translation([0.0, 0.0, -M2_CAP_H / 2.0])
-    socket = _hex_prism(M2_HEX_SOCKET_AF, M2_HEX_SOCKET_DEPTH + 0.4)
-    socket.apply_translation([0.0, 0.0, -M2_HEX_SOCKET_DEPTH / 2.0 + 0.2])
-    cap = cap.difference(socket)
-    shank = _cyl(M2_THREAD_D / 2.0, length_mm)
-    shank.apply_translation([0.0, 0.0, length_mm / 2.0])
-    return trimesh.util.concatenate([cap, shank])
 
 
 def make_m3_shcs(length_mm: float) -> trimesh.Trimesh:
@@ -193,6 +186,83 @@ def make_m3_pan_head(length_mm: float) -> trimesh.Trimesh:
     return trimesh.util.concatenate([head, shank])
 
 
+def make_m3_heatset_insert() -> trimesh.Trimesh:
+    """M3 brass heat-set insert (McMaster 94459A130).
+
+    Rendered as a Phi ``M3_HEATSET_OD`` x ``M3_HEATSET_LENGTH`` brass
+    cylinder with ``M3_HEATSET_FLUTES`` axial flutes carved into the
+    outer wall (so the OD visibly reads as knurled at the inspector
+    zoom level), plus a Phi ``M3_THREAD_D`` central bore so the M3
+    SHCS bolt visibly passes through it.  Brass / bronze colour is
+    applied by ``part_palette.py`` keyed off the P/N ``94459A130``.
+
+    Coordinate frame (matches ``_parametric`` convention):
+
+      * Origin at the insert's TOP face (the face that is flush with
+        the boss top minus 0.5 mm in the printed part).
+      * +Z = body axis.  The body sits in z in [0, +M3_HEATSET_LENGTH]
+        so the insert extends INTO the boss material when the
+        ``inspect_build`` transform maps the mesh's +Z to
+        ``-axis_world``.  This matches the SHCS / nut convention --
+        the head's mating face is at z=0 and the body lives in +Z.
+      * Flutes: 16 narrow rectangular cutouts spaced uniformly around
+        the OD, each removed to a radial depth of
+        ``M3_HEATSET_FLUTE_D`` so the OD silhouette has 16 visible
+        ridges.
+    """
+    body_r = M3_HEATSET_OD / 2.0
+    body = _cyl(body_r, M3_HEATSET_LENGTH)
+    # Center the body so its TOP face is at z=0 and body extends
+    # DOWNWARD into -Z.  But our convention puts the body in +Z, so we
+    # flip: top face at z=0, body in [+0, +LENGTH].
+    body.apply_translation([0.0, 0.0, M3_HEATSET_LENGTH / 2.0])
+
+    # Central pilot bore -- Phi M3_THREAD_D so the bolt shank shows
+    # through.  Cut through the full length plus a small extension so
+    # we see a clean hole.
+    bore = _cyl(M3_THREAD_D / 2.0, M3_HEATSET_LENGTH + 1.0)
+    bore.apply_translation([0.0, 0.0, M3_HEATSET_LENGTH / 2.0])
+    try:
+        body = body.difference(bore)
+    except Exception:
+        # If trimesh's boolean backend chokes, fall back to the un-
+        # bored body -- the visual still reads as a brass plug and the
+        # verifier doesn't care.
+        pass
+
+    # Axial flutes around the OD.  Each flute is a thin axial box that
+    # punches into the OD by FLUTE_D.  We arrange 16 of them at
+    # uniform azimuth and union them into a single subtraction mesh
+    # (faster than 16 separate booleans).
+    flutes = []
+    flute_w = 2.0 * body_r * math.sin(math.pi / M3_HEATSET_FLUTES) * 0.6
+    for k in range(M3_HEATSET_FLUTES):
+        ang = 2.0 * math.pi * k / M3_HEATSET_FLUTES
+        flute = _box(
+            (flute_w, M3_HEATSET_FLUTE_D * 2.0, M3_HEATSET_LENGTH + 0.4),
+            center=(0.0, 0.0, M3_HEATSET_LENGTH / 2.0),
+        )
+        # Translate the flute outward to sit at radius body_r along
+        # +X, then rotate it about Z by ``ang`` so all 16 land on the
+        # OD's 16 azimuths.
+        Tx = trimesh.transformations.translation_matrix(
+            (body_r, 0.0, 0.0)
+        )
+        Rz = trimesh.transformations.rotation_matrix(ang, (0, 0, 1))
+        flute.apply_transform(Rz @ Tx)
+        flutes.append(flute)
+    if flutes:
+        try:
+            union = trimesh.util.concatenate(flutes)
+            body = body.difference(union)
+        except Exception:
+            # Fall back to the un-fluted body -- the brass cylinder
+            # still reads visually distinct from the steel SHCS.
+            pass
+
+    return body
+
+
 def make_m3_nyloc_nut() -> trimesh.Trimesh:
     """M3 nylon-insert lock nut (DIN 985).
 
@@ -231,17 +301,22 @@ def build_for_spec(spec: str) -> trimesh.Trimesh:
     """Return the parametric mesh for a given fastener spec label.
 
     Spec labels match the ``spec`` field on ``FastenerInstance``:
-        "M2x8 SHCS"
+        "M3x14 SHCS"
         "M3x8  SHCS"
+        "M3x8  SHCS into heat-set insert" -- same physical bolt as
+            ``M3x8 SHCS`` (P/N 91290A113), distinct spec string so
+            the verifier and the BOM can tell cradle bolts apart
+            from any future "M3x8 SHCS into plastic" use.
         "M3x32 SHCS"
         "M3x16 pan-head"
         "M2.5x8 spline screw"
         "M3 nyloc nut"
+        "M3 heat-set insert"  -- McMaster 94459A130 brass insert.
     """
     s = spec.replace(" ", "").lower()
-    if s == "m2x8shcs":
-        return make_m2_shcs(8.0)
-    if s == "m3x8shcs":
+    if s == "m3x14shcs":
+        return make_m3_shcs(14.0)
+    if s == "m3x8shcs" or s == "m3x8shcsintoheat-setinsert":
         return make_m3_shcs(8.0)
     if s == "m3x32shcs":
         return make_m3_shcs(32.0)
@@ -251,4 +326,6 @@ def build_for_spec(spec: str) -> trimesh.Trimesh:
         return make_m25_shcs(8.0)
     if s == "m3nylocnut":
         return make_m3_nyloc_nut()
+    if s == "m3heat-setinsert":
+        return make_m3_heatset_insert()
     raise ValueError(f"unknown fastener spec: {spec!r}")

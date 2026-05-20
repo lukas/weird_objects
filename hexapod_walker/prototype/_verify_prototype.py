@@ -3127,55 +3127,82 @@ def check_horn_pattern_in_pad():
 
 
 # ---------------------------------------------------------------------------
-# Design C (May 2026 revert): vertical M3 self-tap pilot holes
+# Design D (May 2026 heat-set switch): cradle servo insert pockets
 # ---------------------------------------------------------------------------
 #
 # Each servo cradle (coxa_bracket's yaw well, coxa_link's hip-pitch
 # well, femur_link's knee well) bolts the servo down via 4 VERTICAL
-# M3 SHCS that thread DOWN through each servo ear into a Phi
-# SHCS_PILOT_OD = 2.5 mm self-tap pilot hole drilled vertically into
-# the shelf material below each ear.  Each cradle shelf must:
+# M3 x 8 SHCS that thread DOWN through each servo ear into an M3 brass
+# heat-set insert (McMaster 94459A130) seated in a printed Phi
+# INSERT_M3_PILOT_OD = 4.0 mm pocket of depth INSERT_M3_PILOT_DEPTH =
+# 6.0 mm.  Each pocket is surrounded by a Phi CRADLE_BOSS_OD = 8.0 mm
+# printed boss (see ``_servo_cradle_insert_pockets`` in
+# ``hexapod_prototype.py``).
 #
-#   * be VOID along the 4 vertical Phi 2.5 mm pilot cylinders centred
-#     on well-local (sx * SERVO_MOUNT_HOLE_X_OFFSET,
-#                    sy * SERVO_MOUNT_HOLE_Y_OFFSET) and extending
-#     downward from the shelf top by SHCS_THREAD_ENGAGEMENT_MM.
+# Each cradle shelf must satisfy THREE structural conditions per bolt
+# site:
 #
-# The verifier checks this by sampling a thin vertical cylinder along
-# the bolt axis (well-local -Z) and counting hits.  The bracket's
-# pilots ride a few mm below WELL_RIM_Z because the drop-in slot eats
-# the well's rim down to bracket-z = -3 (see ``BRACKET_SHELF_DROP_MM``
-# in ``make_coxa_bracket``); the bracket case adjusts the probe's z
-# midpoint accordingly so its 4 pilots are sampled where the bracket
-# actually cut them.
+#   (1) The pocket is VOID along the Phi 4 mm x 6 mm cylinder so the
+#       bolt + insert fit.  This is the renamed legacy "pilot-cyl"
+#       probe with the new diameter / depth.
+#   (2) The annular ring of plastic at radius
+#       INSERT_M3_PILOT_OD/2 + CRADLE_BOSS_MIN_WALL_MM = 3.5 mm
+#       around the pocket axis is SOLID at every azimuth.  This is
+#       the radial-material check whose absence let the original
+#       Phi 2.5 mm self-tap pilots ship with 0.00-1.50 mm of plastic
+#       on one side of the bolt -- the verifier's vertical pilot
+#       probe (commit b447f88) only confirmed the pilot cylinder
+#       existed, not that it was surrounded by enough material
+#       radially.  We probe 8 azimuths at two z planes
+#       (pocket_bottom + 1 mm and pocket_top - 1 mm) and require
+#       every sample to hit printed material.
+#   (3) The annular ring between the pocket OD and the heat-set
+#       insert OD must be SOLID before installation so the knurl has
+#       plastic to displace.  We probe 8 azimuths at the midpoint of
+#       the insert body (z = shelf_top - INSERT_M3_INSERT_LENGTH/2).
+#
+# The bracket's pockets ride a few mm below WELL_RIM_Z because the
+# drop-in slot eats the well's rim down to bracket-z = -3 (see
+# ``BRACKET_SHELF_DROP_MM`` in ``make_coxa_bracket``); the bracket
+# case adjusts the probe's shelf_top_z accordingly so its 4 pockets
+# are sampled where the bracket actually cut them.
 
-CRADLE_PILOT_HOLE_VOX_TOL = 3   # voxel hits per pilot -- noise floor
+# Legacy alias kept so external diagnostic dumps that reference the
+# old constant name continue to work.  Same numeric value -- the new
+# check uses the same noise-floor accounting.
+CRADLE_PILOT_HOLE_VOX_TOL    = 3
+CRADLE_INSERT_POCKET_VOX_TOL = 3   # voxel hits per pocket cylinder
 
 
-def check_cradle_pilot_holes():
-    """Verify each cradle has 4 vertical Phi SHCS_PILOT_OD self-tap
-    pilot holes drilled into the shelf below the 4 servo ear
-    positions (Design C, May 2026 revert).
+def check_cradle_insert_pockets():
+    """Verify each cradle has 4 heat-set insert sites (Design D,
+    May 2026 heat-set switch).
+
+    For each of the 12 (cradle, x, y) sites we probe THREE conditions:
+
+      (1) the Phi INSERT_M3_PILOT_OD x INSERT_M3_PILOT_DEPTH POCKET
+          is VOID along the bolt axis (the renamed legacy pilot-cyl
+          probe);
+      (2) the annular ring at radius
+          INSERT_M3_PILOT_OD/2 + CRADLE_BOSS_MIN_WALL_MM around the
+          pocket axis is SOLID at 8 azimuths x 2 z-planes -- the
+          radial-material check that the original Phi 2.5 mm self-
+          tap verifier was missing;
+      (3) the annular ring between the pocket OD and the heat-set
+          insert OD is SOLID at 8 azimuths so the knurl has plastic
+          to displace at install time.
 
     The cradles are tested in their UNROTATED, UNTRANSLATED local
-    frames so we don't have to undo each cradle's R / delta math --
-    we synthesize a small "well-only" mesh per case that strips the
-    surrounding link / bracket material and checks just the well.
+    (well-local) frames so we don't have to undo each cradle's
+    R / delta math.
     """
-    print(f"\n[5e] Cradle vertical self-tap pilots "
-          f"(4 x Phi {hp.SHCS_PILOT_OD:.1f} mm pilots "
-          f"x {hp.SHCS_THREAD_ENGAGEMENT_MM:.0f} mm deep):")
+    print(f"\n[5e] Cradle heat-set insert pockets "
+          f"(4 x Phi {hp.INSERT_M3_PILOT_OD:.1f} mm x "
+          f"{hp.INSERT_M3_PILOT_DEPTH:.0f} mm pockets per cradle; "
+          f"radial wall >= {hp.CRADLE_BOSS_MIN_WALL_MM:.1f} mm; "
+          f"insert Phi {hp.INSERT_M3_INSERT_OD:.1f} mm x "
+          f"{hp.INSERT_M3_INSERT_LENGTH:.0f} mm):")
 
-    # Each case: (label, mesh-builder, transform-to-well-local).  The
-    # cradle's well-local coords match _servo_well_solid (origin at
-    # body bottom centre; +X = body long axis; +Y = body short; +Z =
-    # output shaft).  For coxa_bracket the well is translated by
-    # (-SERVO_OUTPUT_X, 0, -WELL_RIM_Z) into bracket-local frame.
-    # For coxa_link / femur_link the well is rotated by -90 deg
-    # about +X (well +Z -> link +Y) and then translated.  We undo
-    # those transforms with the inverse rotation + translation so
-    # the pilot probe lives at the same well-local coordinates in
-    # every case.
     R_inv = rotation_matrix(+np.pi / 2.0, [1, 0, 0])
 
     def _bracket_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
@@ -3184,10 +3211,6 @@ def check_cradle_pilot_holes():
         return m
 
     def _coxa_link_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
-        # Inverse of the make_coxa_link well transforms.  The well is
-        # placed by R then translated by ``delta`` then dropped by
-        # well_z_drop in link-Z; here we undo all three so the well
-        # cavity ends up at well-local origin.
         m = mesh.copy()
         m.apply_translation([0.0, 0.0, -hp.COXA_LIFT])
         arm_t = hp.COXA_ARM_T
@@ -3212,12 +3235,6 @@ def check_cradle_pilot_holes():
         m.apply_transform(R_inv)
         return m
 
-    # Each case: (label, well-local mesh, shelf_top_z).  The bracket's
-    # effective shelf top sits a few mm below WELL_RIM_Z because the
-    # drop-in slot eats wall material above bracket-z = -3; the bracket
-    # case sets shelf_top_z = WELL_RIM_Z - 3.0 to match where the
-    # bracket-level pilot helper drilled (see ``BRACKET_SHELF_DROP_MM``
-    # in ``hexapod_prototype.make_coxa_bracket``).
     bracket_shelf_drop = 3.0
     cases = [
         ("coxa_bracket (yaw cradle)",
@@ -3231,45 +3248,140 @@ def check_cradle_pilot_holes():
          hp.WELL_RIM_Z),
     ]
 
-    # Probe radius slightly tighter than the nominal cut so voxel
-    # stair-step artefacts on the curved boundary don't pollute the
-    # "is this void" reading.
-    pilot_probe_r = hp.SHCS_PILOT_OD / 2.0 - 0.2   # ~1.05 mm
+    pocket_probe_r = hp.INSERT_M3_PILOT_OD / 2.0 - 0.2
+
+    r_outer_wall = (hp.INSERT_M3_PILOT_OD / 2.0
+                    + hp.CRADLE_BOSS_MIN_WALL_MM)
+    r_insert_ring = 0.5 * (hp.INSERT_M3_PILOT_OD / 2.0
+                            + hp.INSERT_M3_INSERT_OD / 2.0)
+    azimuths_deg = list(range(0, 360, 45))
 
     all_ok = True
     for name, well_local_mesh, shelf_top_z in cases:
-        pilot_hits = 0
-        n_pilots = 4
-        # Probe a vertical cylinder strictly INSIDE the pilot bore.
-        # Pilot extends from z = shelf_top_z + 2 down to shelf_top_z -
-        # SHCS_THREAD_ENGAGEMENT_MM; the probe sits strictly inside
-        # the printed material (between the shelf top at z = shelf_top
-        # and the pilot floor at z = shelf_top - SHCS_THREAD_ENG_MM)
-        # so we don't accidentally sample the air above the shelf.
-        # 60% of the in-material depth is the probe length; mid-point
-        # is shelf_top - 0.5 * SHCS_THREAD_ENGAGEMENT_MM.
-        probe_depth = hp.SHCS_THREAD_ENGAGEMENT_MM * 0.6
-        probe_z_cen = shelf_top_z - hp.SHCS_THREAD_ENGAGEMENT_MM / 2.0
+        # ---- (1) Pocket cylinder void probe -----------------------------
+        pocket_hits = 0
+        n_pockets = 4
+        probe_depth = hp.INSERT_M3_PILOT_DEPTH * 0.6
+        probe_z_cen = shelf_top_z - hp.INSERT_M3_PILOT_DEPTH / 2.0
         for sx in (-1, 1):
             for sy in (-1, 1):
                 x = sx * hp.SERVO_MOUNT_HOLE_X_OFFSET
                 y = sy * hp.SERVO_MOUNT_HOLE_Y_OFFSET
                 centre = np.array([x, y, probe_z_cen])
-                pilot_hits += _probe_void_cylinder(
+                pocket_hits += _probe_void_cylinder(
                     well_local_mesh, centre, "z",
-                    pilot_probe_r, probe_depth, n_samples=48,
+                    pocket_probe_r, probe_depth, n_samples=48,
                 )
-
-        pilot_tol = CRADLE_PILOT_HOLE_VOX_TOL * n_pilots
-        ok_pilots = pilot_hits <= pilot_tol
+        pocket_tol = CRADLE_INSERT_POCKET_VOX_TOL * n_pockets
+        ok_pockets = pocket_hits <= pocket_tol
         all_ok &= _label(
-            f"{name} :: 4 x Phi {hp.SHCS_PILOT_OD:.1f} mm "
-            f"vertical self-tap pilots",
-            ok_pilots,
-            f"hits={pilot_hits} (tol {pilot_tol})",
+            f"{name} :: 4 x Phi {hp.INSERT_M3_PILOT_OD:.1f} mm x "
+            f"{hp.INSERT_M3_PILOT_DEPTH:.0f} mm insert pockets",
+            ok_pockets,
+            f"hits={pocket_hits} (tol {pocket_tol})",
+        )
+
+        # ---- (2) Radial-material check ----------------------------------
+        # 8 azimuths x 2 z-planes (pocket_bot + 1, pocket_top - 1) at
+        # radius r_outer_wall around each pocket axis must hit material.
+        pocket_z_bot = shelf_top_z - hp.INSERT_M3_PILOT_DEPTH
+        pocket_z_top = shelf_top_z
+        z_planes = (pocket_z_bot + 1.0, pocket_z_top - 1.0)
+        n_radial = 4 * len(azimuths_deg) * len(z_planes)
+        radial_misses: list[str] = []
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                cx = sx * hp.SERVO_MOUNT_HOLE_X_OFFSET
+                cy = sy * hp.SERVO_MOUNT_HOLE_Y_OFFSET
+                pts = []
+                metas = []
+                for az in azimuths_deg:
+                    rad = np.deg2rad(az)
+                    px = cx + r_outer_wall * np.cos(rad)
+                    py = cy + r_outer_wall * np.sin(rad)
+                    for pz in z_planes:
+                        pts.append((px, py, pz))
+                        metas.append((sx, sy, az, pz))
+                inside = points_inside(well_local_mesh,
+                                       np.array(pts, dtype=float))
+                for hit, meta in zip(inside, metas):
+                    if not hit:
+                        radial_misses.append(
+                            f"(x={meta[0]:+d}*X, y={meta[1]:+d}*Y, "
+                            f"az={meta[2]:3d}deg, z={meta[3]:5.2f})"
+                        )
+        n_radial_misses = len(radial_misses)
+        ok_radial = n_radial_misses == 0
+        if ok_radial:
+            radial_detail = f"{n_radial}/{n_radial} azimuths hit material"
+        else:
+            sample = ", ".join(radial_misses[:6])
+            more = (f"; +{n_radial_misses - 6} more"
+                    if n_radial_misses > 6 else "")
+            radial_detail = (
+                f"{n_radial_misses}/{n_radial} azimuths punched AIR at "
+                f"r = {r_outer_wall:.2f} mm: {sample}{more}"
+            )
+        all_ok &= _label(
+            f"{name} :: 8-azimuth radial-material around each pocket "
+            f"(r = {r_outer_wall:.2f} mm)",
+            ok_radial,
+            radial_detail,
+        )
+
+        # ---- (3) Heat-set insert displacement-ring check ----------------
+        z_insert_mid = shelf_top_z - hp.INSERT_M3_INSERT_LENGTH / 2.0
+        n_ring = 4 * len(azimuths_deg)
+        ring_misses: list[str] = []
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                cx = sx * hp.SERVO_MOUNT_HOLE_X_OFFSET
+                cy = sy * hp.SERVO_MOUNT_HOLE_Y_OFFSET
+                pts = []
+                metas = []
+                for az in azimuths_deg:
+                    rad = np.deg2rad(az)
+                    px = cx + r_insert_ring * np.cos(rad)
+                    py = cy + r_insert_ring * np.sin(rad)
+                    pts.append((px, py, z_insert_mid))
+                    metas.append((sx, sy, az))
+                inside = points_inside(well_local_mesh,
+                                       np.array(pts, dtype=float))
+                for hit, meta in zip(inside, metas):
+                    if not hit:
+                        ring_misses.append(
+                            f"(x={meta[0]:+d}*X, y={meta[1]:+d}*Y, "
+                            f"az={meta[2]:3d}deg)"
+                        )
+        n_ring_misses = len(ring_misses)
+        ok_ring = n_ring_misses == 0
+        if ok_ring:
+            ring_detail = (
+                f"{n_ring}/{n_ring} azimuths hit material at r = "
+                f"{r_insert_ring:.2f} mm"
+            )
+        else:
+            sample = ", ".join(ring_misses[:6])
+            more = (f"; +{n_ring_misses - 6} more"
+                    if n_ring_misses > 6 else "")
+            ring_detail = (
+                f"{n_ring_misses}/{n_ring} azimuths punched AIR at r = "
+                f"{r_insert_ring:.2f} mm (knurl ring): {sample}{more}"
+            )
+        all_ok &= _label(
+            f"{name} :: heat-set insert displacement ring "
+            f"(r = {r_insert_ring:.2f} mm)",
+            ok_ring,
+            ring_detail,
         )
 
     return all_ok
+
+
+# Backwards-compatible alias: external callers that still reference the
+# old name (and the verifier's CHECKS registry's previous entry) get
+# the new behaviour transparently.
+check_cradle_pilot_holes = check_cradle_insert_pockets
 
 
 # ---------------------------------------------------------------------------
@@ -3658,7 +3770,7 @@ CHECKS = (
     ("Horn-stack clearance",      "check_horn_stack_clearance"),
     ("Horn-sweep clearance",      "check_horn_sweep_clearance"),
     ("Horn pattern in pads",      "check_horn_pattern_in_pad"),
-    ("Cradle pilot holes",        "check_cradle_pilot_holes"),
+    ("Cradle insert pockets",     "check_cradle_insert_pockets"),
     ("Flimsy joints",             "check_flimsy_joints"),
     ("Thin sheets",               "check_thin_sheets"),
     ("Screwdriver access",        "check_screwdriver_access"),

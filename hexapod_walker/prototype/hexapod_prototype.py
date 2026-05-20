@@ -271,25 +271,27 @@ SERVO_PILOT_OD    =  2.5   # mm -- M3 self-tapper PILOT hole drilled into the we
 # tabs sit SERVO_TAB_Z above the body bottom, so the mounting bolt's
 # axis crosses the servo at z = SERVO_TAB_Z in body-local coords.
 #
-# Design C (May 2026 revert): each servo is now bolted into its cradle
-# by 4 VERTICAL M3 SHCS that thread DOWN through each servo ear into a
-# Phi SHCS_PILOT_OD = 2.5 mm self-tap pilot hole in the printed shelf
-# below the ear.  This is the standard hobby-servo mounting style for
-# DS3225 / MG996R / SG90-class servos -- the same scheme used by the
-# pre-2026 versions of this prototype.  The brief May 2026 horizontal-
-# nyloc iteration was retired after the audit surfaced a wire-channel
-# collision and a >MIN_PRINT_T outer-wall violation that made the hex-
-# pocket geometry unprintable in PA12 / PLA at the existing wall
-# thickness.  Bolt geometry in well-local coords:
+# Design D (May 2026 heat-set switch): each servo is bolted into its
+# cradle by 4 VERTICAL M3 x 8 SHCS that thread DOWN through each servo
+# ear into an M3 brass heat-set insert (McMaster 94459A130) seated in
+# a Phi INSERT_M3_PILOT_OD = 4.0 mm pocket in the cradle shelf below.
+# Each pocket is surrounded by a Phi CRADLE_BOSS_OD = 8.0 mm printed
+# boss (see ``_servo_cradle_insert_pockets`` and the INSERT_M3_* /
+# CRADLE_BOSS_* constant block below).  This replaces the prior
+# "M3 self-tap into Phi 2.5 mm plastic pilot" scheme, which the user's
+# audit found had 0.00-1.50 mm of radial material on 7 of 12 sites --
+# the cradle outer walls did not extend far enough in Y beyond the
+# servo footprint, and on the +X column the wire channel cut into the
+# wall right where the bolt lived.  Bolt geometry in well-local coords:
 #
 #     bolt enters at  (sx * SERVO_MOUNT_HOLE_X_OFFSET,    -- ear position
 #                      sy * SERVO_MOUNT_HOLE_Y_OFFSET,    -- ear position
 #                      SERVO_MOUNT_HOLE_Z_OFFSET + SERVO_TAB_T/2) -- ear top
-#     bolt axis  = -Z (downward into the shelf)
+#     bolt axis  = -Z (downward into the heat-set insert)
 #     bolt clears the Phi SERVO_MOUNT_BOLT_OD = 3.2 mm ear hole in the
 #         servo's tab (factory-drilled, NOT printed) and engages the
-#         Phi SHCS_PILOT_OD = 2.5 mm vertical pilot in the printed
-#         shelf material below.
+#         M3 thread inside the heat-set brass insert seated in the
+#         printed Phi 4.0 mm pocket below.
 #
 # Named constants below mirror the SERVO_TAB_HOLE_* values so the cradle
 # code can refer to a clear "mount-hole position" instead of arithmetic
@@ -314,32 +316,85 @@ SERVO_MOUNT_HOLE_Z_OFFSET = SERVO_TAB_Z                   # 27 mm above
 SERVO_MOUNT_BOLT_OD       = 3.2    # mm -- M3 clearance through the servo
                                     # ear (factory-drilled, NOT printed).
 
-# ---- Vertical M3 self-tap pilot holes in the cradle shelf ----------------
-# Each cradle bolt (M3 SHCS driven downward from above each servo ear)
-# self-taps into a Phi SHCS_PILOT_OD vertical pilot in the cradle shelf
-# below the ear.  The bolt's tip enters at the ear's underside (= well
-# rim plane), threads through the printed shelf material, and bottoms
-# inside the pilot well below.  SHCS_THREAD_ENGAGEMENT_MM controls how
-# deep the pilot extends into the shelf -- the bolt's effective thread
-# engagement is bolt_shaft_below_ear_underside (= bolt length - tab
-# thickness - WELL_TAB_FLOAT in coxa_link/femur; bolt length - tab
-# thickness in coxa_bracket where the tab seats directly on the cut
-# wall, no float gap).  An 8 mm pilot leaves the bolt tip inside the
-# pre-drilled bore with ~1-2 mm of clearance for M3 x 8 SHCS, with the
-# bolt's ~5 mm of in-material shaft self-tapping fresh threads in the
-# Phi 2.5 mm pilot wall.  This is borderline below MIN_PRINT_T = 3 mm
-# on the well wall's outer face -- with pilot OD 2.5 and well outer
-# face at well-local x = +/-29 / pilot centre at +/-24.75 the
-# remaining wall thickness is (29 - 24.75) - 2.5/2 = 3.0 mm exactly,
-# which is acceptable for FDM PA12 / PLA at 0.4 mm nozzle, 0.2 mm
-# layer with 3+ perimeters but should be reviewed if the slicer or
-# nozzle changes.  Above MIN_PRINT_T on the inner cavity face:
-# (24.75 - 12.5) - 1.25 = 11 mm, well clear.
-SHCS_PILOT_OD              = 2.5   # mm -- M3 self-tap pilot diameter in
-                                    # PLA / PA12 (yields ~Phi 3 thread
-                                    # crest after first insertion).
-SHCS_THREAD_ENGAGEMENT_MM  = 8.0   # mm -- pilot bore depth into the
-                                    # shelf below each ear.
+# ---- Heat-set brass insert for cradle servo mounts (May 2026) -----------
+# McMaster 94459A130: M3 brass heat-set insert, knurled.  Pilot Phi 4.0 mm,
+# insert OD 5.7 mm (knurled max), insert length 5.0 mm, recommended pilot
+# depth 6.0 mm.  Installed with a soldering iron at ~220 deg C, light
+# pressure, ~10-15 s per insert.  After install the M3 x 8 SHCS threads
+# into the insert from above; the bolt clamps the servo ear down onto
+# the boss top surface.
+#
+# This replaces the earlier "M3 self-tap into Phi 2.5 mm plastic pilot"
+# scheme.  The user's audit (May 2026) found that 7 of 12 cradle bolt
+# sites had 0.00-1.50 mm of plastic on one side of the Phi 2.5 mm pilot
+# in the Y direction -- the cradle outer walls did not extend in Y
+# beyond the body footprint, and on the +X column the wire channel ate
+# into the wall right where the bolt lived.  The verifier's vertical
+# self-tap check (commit b447f88) only confirmed that the pilot
+# CYLINDER existed; it never confirmed that the pilot was SURROUNDED
+# by enough material radially, so the structural bug shipped.
+#
+# Switching to a heat-set insert (a) gives real metal threads (replacing
+# the borderline thread engagement that the Phi 2.5 mm plastic pilot
+# provided in PLA / PA12), (b) requires a Phi 4 mm pilot which is
+# physically wider than the previous Phi 2.5 mm pilot's column anyway,
+# and (c) gives us license to add a fat Phi ~8 mm boss around each
+# pilot so the radial-engagement bug automatically vanishes.  The
+# verifier was also extended with an 8-azimuth radial-material probe
+# (see ``check_cradle_insert_pockets`` in ``_verify_prototype.py``) so
+# the previously missing structural check is now part of the build.
+INSERT_M3_PILOT_OD            =  4.0   # mm -- printed pilot Phi (matches
+                                        # McMaster 94459A130's
+                                        # recommended pilot diameter).
+INSERT_M3_PILOT_DEPTH         =  6.0   # mm -- printed pilot depth (insert
+                                        # length 5 mm + 1 mm overdrill so
+                                        # debris from heat-set insertion
+                                        # has somewhere to go).
+INSERT_M3_INSERT_OD           =  5.7   # mm -- knurled OD of the installed
+                                        # brass body.  The knurl
+                                        # displaces / melts the Phi 4 mm
+                                        # pilot wall during installation
+                                        # to form a press-fit -- standard
+                                        # heat-set behaviour.
+INSERT_M3_INSERT_LENGTH       =  5.0   # mm -- physical insert length.
+INSERT_M3_BOLT_LENGTH         =  8.0   # mm -- M3 x 8 SHCS (unchanged
+                                        # stock); threads into the
+                                        # insert from above.
+INSERT_M3_BOLT_HEAD_OD        =  5.5   # mm -- M3 SHCS head Phi.
+INSERT_M3_BOLT_HEAD_H         =  3.0   # mm -- M3 SHCS head height.
+
+# Boss surrounding each insert pilot.  Pilot Phi 4.0 mm + 2 x 1.5 mm wall
+# = Phi 7.0 mm minimum.  Round up to Phi 8.0 mm to leave margin for the
+# wire-channel reroute on the +X side AND to absorb FDM line-width
+# variation around the curved boundary.
+#
+# Geometry sketch (well-local, one boss at sx*SERVO_MOUNT_HOLE_X_OFFSET,
+# sy*SERVO_MOUNT_HOLE_Y_OFFSET):
+#
+#       boss top at z = SERVO_TAB_Z = 27 mm (servo ear bottom seats on
+#                                            this face)
+#       +----+--+   ear (factory part of the servo)
+#       |    |  |   bolt (M3 x 8 SHCS, head on top)
+#       |    |##|<--- heat-set insert (Phi 5.7 mm x 5 mm)
+#       |    |##|   pocket (Phi 4 mm x 6 mm, printed)
+#       |    |  |
+#       +----+--+
+#       boss bottom at z = SERVO_TAB_Z - CRADLE_BOSS_HEIGHT_MM = 17 mm
+#       boss OD = CRADLE_BOSS_OD = 8 mm
+#
+# The boss fuses into the existing well outer rim and / or shelf
+# material wherever they intersect, so the boss "grows out" of the
+# nearest cradle surface rather than dangling in free air.
+CRADLE_BOSS_OD                =  8.0   # mm -- boss outer diameter.
+CRADLE_BOSS_MIN_WALL_MM       =  1.5   # mm of plastic required radially
+                                        # around the pilot (read by the
+                                        # verifier's radial-material
+                                        # probe in
+                                        # ``check_cradle_insert_pockets``).
+CRADLE_BOSS_HEIGHT_MM         = 10.0   # mm; boss extends from
+                                        # SERVO_TAB_Z DOWN by this much.
+                                        # Boss top face = SERVO_TAB_Z so
+                                        # the ear bottom rests on top.
 
 # ---- Servo wire-exit slot ------------------------------------------------
 # On DS3225 / MG996R / DS3218-class hobby servos the 3-wire harness is
@@ -1041,67 +1096,96 @@ def _save(mesh: trimesh.Trimesh, name: str) -> str:
 # Servo-mounting primitives
 # ---------------------------------------------------------------------------
 
-def _servo_cradle_pilot_holes(
+def _servo_cradle_insert_pockets(
     shelf_top_z: float = None,
-) -> list[trimesh.Trimesh]:
-    """Return 4 vertical Phi SHCS_PILOT_OD cylindrical cutters that form
-    the self-tap pilot holes in the cradle shelf below each servo ear.
+) -> tuple[trimesh.Trimesh, trimesh.Trimesh]:
+    """Return ``(bosses_union, pockets_union)`` for the 4 heat-set
+    insert sites in a cradle shelf.
 
     Local frame: matches ``_servo_well_solid`` (origin at the body's
     bottom face centre; +X = body long axis = tab-span direction;
     +Y = body short axis; +Z = output shaft direction).
 
-    For each ``(sx, sy)`` in ``{-1, +1} x {-1, +1}`` the helper emits one
-    vertical Phi SHCS_PILOT_OD cylinder centred on
-    ``(sx * SERVO_MOUNT_HOLE_X_OFFSET, sy * SERVO_MOUNT_HOLE_Y_OFFSET)``.
-    The cylinder's z range is
-    ``[shelf_top_z - SHCS_THREAD_ENGAGEMENT_MM, shelf_top_z + 2.0]`` --
-    the lower endpoint is the pilot's blind floor inside the shelf
-    material, the upper endpoint pokes 2 mm above the shelf top to
-    guarantee a clean boolean exit through the rim surface.
+    Each ``(sx, sy)`` site emits:
+
+      * A boss: a vertical Phi ``CRADLE_BOSS_OD`` cylinder centred on
+        ``(sx * SERVO_MOUNT_HOLE_X_OFFSET, sy * SERVO_MOUNT_HOLE_Y_OFFSET)``,
+        spanning well-z in ``[shelf_top_z - CRADLE_BOSS_HEIGHT_MM,
+        shelf_top_z]``.  The boss is added to the cradle via union so
+        the printed material around each insert pocket is at least
+        ``CRADLE_BOSS_MIN_WALL_MM`` thick radially, regardless of where
+        the bolt sits relative to the cradle outer walls / wire channel.
+      * A pocket: a vertical Phi ``INSERT_M3_PILOT_OD`` cylinder
+        centred on the same (x, y) axis, spanning well-z in
+        ``[shelf_top_z - INSERT_M3_PILOT_DEPTH, shelf_top_z + 2.0]``.
+        The pocket extends 2 mm ABOVE the shelf top so the boolean cut
+        leaves a clean rim and 1 mm BELOW the insert length
+        ``INSERT_M3_INSERT_LENGTH`` so debris from the heat-set
+        installation has somewhere to go.  The pocket is subtracted
+        from the cradle.
 
     ``shelf_top_z`` defaults to ``WELL_RIM_Z`` (the nominal cradle rim
     height in well-local).  ``make_coxa_bracket`` passes a lower value
     when the bracket's drop-in slot has eaten the rim down by a known
-    amount so its bolt-site pilots stay correctly aligned with the
-    bracket's effective shelf top.
+    amount so its bolt-site bosses + pockets stay correctly aligned
+    with the bracket's effective shelf top.
 
-    Use as cutting volumes:
-        cuts = _servo_cradle_pilot_holes()
-        body = _diff(body, *cuts)
+    Use as::
+
+        bosses, pockets = _servo_cradle_insert_pockets()
+        body = _union(body, bosses)
+        body = _diff(body, pockets)
+
+    Caller responsibility: apply the same well-to-cradle ``R`` /
+    translation chain to BOTH meshes so the boss/pocket pair lands on
+    the bolt PCD in the cradle's local frame.
+
+    This helper replaces the earlier ``_servo_cradle_pilot_holes`` which
+    returned only the 4 Phi 2.5 mm self-tap pilot cylinders.  The
+    self-tap scheme was retired (May 2026 audit) because the printed
+    walls around the Phi 2.5 mm pilot were only 0.00-1.50 mm thick on
+    7 of 12 sites -- see the ``INSERT_M3_*`` / ``CRADLE_BOSS_*``
+    constant block near the top of this file for the failure history
+    and the heat-set design.
     """
     if shelf_top_z is None:
         # Default: the well's nominal rim height (used by coxa_link's
         # hip-pitch cradle, femur_link's knee cradle, and the well's
-        # own internal cradle pilots).  ``make_coxa_bracket`` passes
-        # the bracket's *effective* shelf top (lowered by the drop-in
-        # slot's wall bite -- see ``BRACKET_SHELF_DROP_MM``).
+        # own internal cradle insert pockets).  ``make_coxa_bracket``
+        # passes the bracket's *effective* shelf top (lowered by the
+        # drop-in slot's wall bite -- see ``BRACKET_SHELF_DROP_MM``).
         shelf_top_z = WELL_RIM_Z
 
-    cuts: list[trimesh.Trimesh] = []
+    # Boss geometry: extends from the shelf top DOWN by CRADLE_BOSS_HEIGHT_MM.
+    boss_radius = CRADLE_BOSS_OD / 2.0
+    boss_z_top = shelf_top_z
+    boss_z_bot = shelf_top_z - CRADLE_BOSS_HEIGHT_MM
+    boss_h = boss_z_top - boss_z_bot
+    boss_z_cen = 0.5 * (boss_z_top + boss_z_bot)
 
-    pilot_radius = SHCS_PILOT_OD / 2.0
-    # 2 mm of overshoot ABOVE the shelf top so the boolean cuts cleanly
-    # through the rim surface (otherwise the cut's upper end coincides
-    # with the rim plane and produces zero-thickness facets that the
-    # mesher can drop or duplicate).
-    pilot_z_top = shelf_top_z + 2.0
-    pilot_z_bot = shelf_top_z - SHCS_THREAD_ENGAGEMENT_MM
-    pilot_h = pilot_z_top - pilot_z_bot
-    pilot_z_cen = 0.5 * (pilot_z_top + pilot_z_bot)
+    # Pocket geometry: extends from 2 mm ABOVE the shelf top down to
+    # shelf_top_z - INSERT_M3_PILOT_DEPTH (i.e. 1 mm below the
+    # 5.0 mm insert body so debris from heat-set insertion clears).
+    pocket_radius = INSERT_M3_PILOT_OD / 2.0
+    pocket_z_top = shelf_top_z + 2.0
+    pocket_z_bot = shelf_top_z - INSERT_M3_PILOT_DEPTH
+    pocket_h = pocket_z_top - pocket_z_bot
+    pocket_z_cen = 0.5 * (pocket_z_top + pocket_z_bot)
 
+    boss_parts: list[trimesh.Trimesh] = []
+    pocket_parts: list[trimesh.Trimesh] = []
     for sx in (-1, 1):
         for sy in (-1, 1):
             x = sx * SERVO_MOUNT_HOLE_X_OFFSET
             y = sy * SERVO_MOUNT_HOLE_Y_OFFSET
-            pilot = _cyl(pilot_radius, pilot_h)
-            # _cyl centres on z = 0; translate so the cylinder spans
-            # the requested [pilot_z_bot, pilot_z_top] interval and
-            # sits at (x, y).
-            pilot.apply_translation([x, y, pilot_z_cen])
-            cuts.append(pilot)
+            boss = _cyl(boss_radius, boss_h)
+            boss.apply_translation([x, y, boss_z_cen])
+            boss_parts.append(boss)
+            pocket = _cyl(pocket_radius, pocket_h)
+            pocket.apply_translation([x, y, pocket_z_cen])
+            pocket_parts.append(pocket)
 
-    return cuts
+    return _union(*boss_parts), _union(*pocket_parts)
 
 
 def _servo_well_solid() -> trimesh.Trimesh:
@@ -1124,27 +1208,32 @@ def _servo_well_solid() -> trimesh.Trimesh:
                      (SERVO_BODY_W + 2*CL) x (SERVO_BODY_D + 2*CL) x
                      (WELL_RIM_Z + extra).  Cuts straight through the rim
                      so the body can be DROPPED in from above.
-        - 4 VERTICAL Phi SHCS_PILOT_OD = 2.5 mm self-tap pilot holes in
-                     the shelf material below each servo ear.  Each
-                     pilot lives at well-local
-                     ``(sx * SERVO_MOUNT_HOLE_X_OFFSET,
-                        sy * SERVO_MOUNT_HOLE_Y_OFFSET, ...)`` and
-                     extends from 2 mm above the well rim down to
-                     ``WELL_RIM_Z - SHCS_THREAD_ENGAGEMENT_MM`` (= 8 mm
-                     deep in the shelf).  The bolt enters from above
-                     through the servo's factory-drilled ear hole and
-                     self-taps into the printed Phi 2.5 mm pilot.
+        - 4 VERTICAL heat-set insert sites in the shelf material below
+                     each servo ear (see ``_servo_cradle_insert_pockets``).
+                     Each site adds a Phi CRADLE_BOSS_OD = 8 mm x
+                     CRADLE_BOSS_HEIGHT_MM = 10 mm boss and subtracts a
+                     Phi INSERT_M3_PILOT_OD = 4 mm x
+                     INSERT_M3_PILOT_DEPTH = 6 mm pocket from the boss.
+                     The boss's top face sits at the shelf top
+                     (``WELL_RIM_Z`` by default); the bolt enters from
+                     above through the servo's factory-drilled ear hole
+                     and threads into the M3 brass heat-set insert
+                     (McMaster 94459A130) pressed into the pocket.
 
-    Design C (May 2026 revert): the brief horizontal-nyloc iteration is
-    retired.  Each servo is bolted into its cradle by 4 VERTICAL M3 SHCS
-    that thread DOWN through each servo ear into a printed Phi 2.5 mm
-    pilot in the shelf below.  This restores the standard hobby-servo
-    mounting style (matches DS3225 / MG996R / SG90 documentation) and
-    avoids the wire-channel collision the horizontal-nyloc geometry
-    would have introduced in the +X cradle wall.  The 4 servo tab holes
-    ride at z = SERVO_MOUNT_HOLE_Z_OFFSET = SERVO_TAB_Z = 27 mm, y = +/-
-    SERVO_MOUNT_HOLE_Y_OFFSET = +/-5 mm in well-local coords, which is
-    exactly where the 4 vertical pilot holes are cut into the shelf."""
+    Design D (May 2026 heat-set switch): each servo is bolted into its
+    cradle by 4 VERTICAL M3 x 8 SHCS that thread DOWN through each servo
+    ear into an M3 brass heat-set insert seated in a printed Phi 4.0 mm
+    pocket below.  Each pocket sits at the centre of a Phi 8 mm boss
+    that fuses into the shelf material, ensuring the printed wall
+    around the insert is >= CRADLE_BOSS_MIN_WALL_MM = 1.5 mm thick
+    radially regardless of where the bolt sits relative to the well's
+    outer walls / wire channel.  This replaces the prior Phi 2.5 mm
+    self-tap pilot scheme; see the INSERT_M3_* / CRADLE_BOSS_* block
+    at the top of this file for the failure history and the heat-set
+    install instructions.  The 4 servo tab holes ride at
+    z = SERVO_MOUNT_HOLE_Z_OFFSET = SERVO_TAB_Z = 27 mm,
+    y = +/- SERVO_MOUNT_HOLE_Y_OFFSET = +/-5 mm in well-local coords,
+    which is exactly where the 4 bosses / insert pockets are placed."""
     outer = _box((WELL_W, WELL_D, WELL_H),
                  center=(0, 0, WELL_H / 2.0 - WELL_FLOOR_T))
 
@@ -1163,14 +1252,17 @@ def _servo_well_solid() -> trimesh.Trimesh:
                    cav_z_ext),
                   center=(0, 0, 0.5 * (cav_z_top + cav_z_bot)))
 
-    # 4 vertical Phi SHCS_PILOT_OD self-tap pilot holes in the shelf
-    # material below each servo ear.  Each (sx, sy) pair drills one
-    # vertical pilot at well-local (sx * SERVO_MOUNT_HOLE_X_OFFSET,
-    # sy * SERVO_MOUNT_HOLE_Y_OFFSET), extending from 2 mm above the
-    # well rim down to (WELL_RIM_Z - SHCS_THREAD_ENGAGEMENT_MM).  The
-    # bolt enters from above through the servo's factory-drilled ear
-    # hole and self-taps into the printed Phi 2.5 mm pilot below.
-    pilot_holes = _servo_cradle_pilot_holes()
+    # 4 heat-set insert sites in the shelf material below each servo
+    # ear.  Each (sx, sy) pair UNIONS a Phi CRADLE_BOSS_OD = 8 mm boss
+    # (height CRADLE_BOSS_HEIGHT_MM = 10 mm, top face at WELL_RIM_Z)
+    # into the cradle and SUBTRACTS a Phi INSERT_M3_PILOT_OD = 4 mm
+    # pocket (depth INSERT_M3_PILOT_DEPTH = 6 mm) from the boss for
+    # the McMaster 94459A130 M3 brass heat-set insert.  The bolt
+    # enters from above through the servo's factory-drilled ear hole
+    # and threads into the brass insert -- see the INSERT_M3_* /
+    # CRADLE_BOSS_* block at the top of this file for the design
+    # rationale.
+    insert_bosses, insert_pockets = _servo_cradle_insert_pockets()
 
     # Finger-access notches in the +Y / -Y walls (above the bottom
     # pocket).  The cut spans Y past both wall faces so it punches
@@ -1189,14 +1281,33 @@ def _servo_well_solid() -> trimesh.Trimesh:
     # sitting just below the rim that opens the cavity mouth outward by
     # WELL_LEAD_IN_EXTRA on every side so the body self-aligns into the
     # narrower cavity below as it drops in.
+    #
+    # The lead-in box's outer X edge sits at
+    # +SERVO_BODY_W/2 + WELL_BODY_CL + WELL_LEAD_IN_EXTRA = +21.5 mm,
+    # which reaches 0.75 mm INTO each +/-X heat-set boss (boss inner
+    # edge at +SERVO_MOUNT_HOLE_X_OFFSET - CRADLE_BOSS_OD/2 = +20.75
+    # mm).  Without protection the chamfer carves a 0.75 mm-wide
+    # azimuthal air gap on the boss's inner face at the very top of
+    # the rim, defeating the radial-material protection the boss is
+    # supposed to provide there.  We subtract the heat-set bosses
+    # from the lead-in box BEFORE applying it, so the chamfer cleanly
+    # steps around each boss rather than slicing through it.
     lead_in = _box((SERVO_BODY_W + 2 * (WELL_BODY_CL + WELL_LEAD_IN_EXTRA),
                     SERVO_BODY_D + 2 * (WELL_BODY_CL + WELL_LEAD_IN_EXTRA),
                     WELL_LEAD_IN_H + 0.5),
                    center=(0.0, 0.0,
                             WELL_RIM_Z - (WELL_LEAD_IN_H + 0.5) / 2.0
                             + 0.25))
+    lead_in = _diff(lead_in, insert_bosses)
 
-    return _diff(outer, cavity, finger_notch, lead_in, *pilot_holes)
+    # Union the heat-set bosses INTO the well's outer body BEFORE the
+    # boolean subtractions, so the boss material wraps each insert
+    # pocket even when the underlying well wall would otherwise leave
+    # the pocket half-open in Y (the audit's smoking gun).  Then
+    # subtract the cavity, finger notch, lead-in chamfer (already
+    # boss-protected above) and the insert pockets themselves.
+    solid = _union(outer, insert_bosses)
+    return _diff(solid, cavity, finger_notch, lead_in, insert_pockets)
 
 
 def _wire_exit_slot() -> trimesh.Trimesh:
@@ -1271,18 +1382,43 @@ def _wire_exit_slot() -> trimesh.Trimesh:
     # Lets a harness that exits the BOOT laterally lie flat against the
     # inside of the +X wall on its way down to the L-shaped exit.
     # Spans from inside the cavity (so it merges seamlessly with the
-    # cavity face) out to WIRE_CHANNEL_DEPTH into the +X wall.  Pilot
-    # clearance: cavity face at +SERVO_BODY_W/2 + WELL_BODY_CL = +20.7;
-    # channel outer x = +20.7 + WIRE_CHANNEL_DEPTH = +25.7 (default),
-    # leaving ~0.3 mm of wall between the channel and the pilot at
-    # x = +24.75 (pilot radius 1.25 mm so pilot outer X edge at +26.0).
+    # cavity face) out to WIRE_CHANNEL_DEPTH into the +X wall.
+    #
+    # +X cradle-boss reroute (May 2026 heat-set switch, option (a) --
+    # shortened-channel variant): the new heat-set bosses at
+    # (+SERVO_TAB_HOLE_PCD/2, +/-SERVO_TAB_HOLE_PCD_Y/2) =
+    # (+24.75, +/-5) grow Phi CRADLE_BOSS_OD = 8 mm around each +X
+    # bolt site, spanning well-z in
+    # [WELL_RIM_Z - CRADLE_BOSS_HEIGHT_MM, WELL_RIM_Z] = [17, 27].
+    # The channel's Y span [-WIRE_SLOT_W/2, +WIRE_SLOT_W/2] = [-3.5,
+    # +3.5] mm overlaps each boss's circular footprint over
+    # y in [+/-1, +/-3.5] by up to 2.5 mm, and the X span
+    # [+15.7, +25.7] overlaps the boss X extent [+20.75, +28.75] over
+    # the full 5 mm of WIRE_CHANNEL_DEPTH.  Letting the channel keep
+    # its old ``ch_z_top = WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM =
+    # +29.5`` value would carve away the inboard half of each +X boss
+    # right where the heat-set insert lives, defeating the boss
+    # enlargement.  The wire bundle only needs a vertical path from
+    # the boot top (z ~= WIRE_BOOT_Z_BASE + WIRE_BOOT_H = 8 mm) down
+    # to the L-exit at the floor (z = 0), so we cap the channel's top
+    # face 0.5 mm below the boss bottom plane.  This is the option
+    # (a) ("inboard direction") reroute called out in the heat-set
+    # switch design note: the wire still exits via the existing +X
+    # bottom-outboard L (lateral + downward legs) and
+    # ``check_wire_slot`` continues to probe those legs without any
+    # change to the probe topology.
     ch_x_min = +SERVO_BODY_W / 2.0 - WIRE_SLOT_X_INBOARD
     ch_x_max = +SERVO_BODY_W / 2.0 + WELL_BODY_CL + WIRE_CHANNEL_DEPTH
     ch_x_extent = ch_x_max - ch_x_min
     ch_x_centre = 0.5 * (ch_x_max + ch_x_min)
 
     ch_z_bottom = 0.0
-    ch_z_top    = WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM
+    # Channel top sits 0.5 mm below the insert-boss bottom plane
+    # (= WELL_RIM_Z - CRADLE_BOSS_HEIGHT_MM) so the channel cut never
+    # grazes boss material.  The boot top at WIRE_BOOT_Z_BASE +
+    # WIRE_BOOT_H = 8 mm still has > 8 mm of headroom up to the
+    # channel cap (= 16.5 mm), which is plenty for a bent harness.
+    ch_z_top = (WELL_RIM_Z - CRADLE_BOSS_HEIGHT_MM) - 0.5
     ch_z_extent = ch_z_top - ch_z_bottom
     ch_z_centre = 0.5 * (ch_z_bottom + ch_z_top)
 
@@ -1807,9 +1943,9 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     # Raising slot_z_min to -3 reclaims 3 of those 6 mm; the residual
     # 3 mm deficit (well-local +24.25 vs +27.25) is absorbed by
     # passing ``shelf_top_z = WELL_RIM_Z - BRACKET_SHELF_DROP_MM`` to
-    # ``_servo_cradle_pilot_holes`` at the bracket level so the
-    # bracket's pilots stay aligned with the bracket's own effective
-    # shelf top.
+    # ``_servo_cradle_insert_pockets`` at the bracket level so the
+    # bracket's heat-set bosses + pockets stay aligned with the
+    # bracket's own effective shelf top.
     BRACKET_SLOT_Z_MIN_RIB_CLEAR = -3.0
     slot_z_min = BRACKET_SLOT_Z_MIN_RIB_CLEAR
     slot_z_max = BRACKET_FLANGE_T + 0.5
@@ -1979,32 +2115,40 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     horn_sweep_void.apply_translation([0.0, 0.0,
                                         0.5 * (sweep_z_lo + sweep_z_hi)])
 
-    # Design C (May 2026 revert): re-apply the cradle pilot holes at the
-    # BRACKET level too, because (a) the bracket's drop-in slot eats
-    # the well's rim down to bracket-z = -3 (= well-local +24.25), so
-    # the effective shelf top at the bolt sites is 3 mm LOWER than the
-    # well's nominal WELL_RIM_Z, and (b) the bracket's pilot bottoms
-    # need to follow that lowered shelf top so the bolt tip lands
-    # cleanly inside the pre-drilled bore.  We DEEPEN the bracket-
-    # level pilots by passing
-    # ``shelf_top_z = WELL_RIM_Z - BRACKET_SHELF_DROP_MM`` so each
-    # pilot extends from the bracket's shelf top down a full
-    # SHCS_THREAD_ENGAGEMENT_MM into the printed material.  These
-    # extra cuts UNION with the well's default pilots (at the
-    # nominal WELL_RIM_Z) so the combined cut covers the full
-    # required pilot depth in both nominal and depressed-shelf cases.
+    # Design D (May 2026 heat-set switch): re-apply the cradle's insert
+    # bosses + pockets at the BRACKET level too.  Two reasons:
+    #
+    #   (a) The bracket's drop-in slot eats the well's rim down to
+    #       bracket-z = -3 (= well-local +24.25), so the effective
+    #       shelf top at the bolt sites is 3 mm LOWER than the well's
+    #       nominal WELL_RIM_Z.  The bracket-level bosses + pockets
+    #       use ``shelf_top_z = WELL_RIM_Z - BRACKET_SHELF_DROP_MM``
+    #       so they land on the bracket's effective shelf top instead
+    #       of the (cut-away) well rim plane.
+    #   (b) ``_servo_well_solid`` already emits bosses + pockets at the
+    #       NOMINAL WELL_RIM_Z; the bracket needs an extra pair at the
+    #       depressed-shelf plane so the boss extends DOWN to the
+    #       bracket's effective rim and the pocket lines up with the
+    #       lowered shelf.
+    #
+    # The bracket-level boss is UNIONED into the bracket body BEFORE
+    # the boolean subtractions so the boss material wraps the pocket
+    # at the bracket's effective rim.  The well-level boss (added in
+    # ``_servo_well_solid``) is already part of ``well`` and merges
+    # naturally with this extra boss in the union below.
     BRACKET_SHELF_DROP_MM = -BRACKET_SLOT_Z_MIN_RIB_CLEAR   # = 3.0
-    bracket_pilot_holes = []
-    for cut in _servo_cradle_pilot_holes(
+    bracket_insert_bosses, bracket_insert_pockets = _servo_cradle_insert_pockets(
         shelf_top_z=WELL_RIM_Z - BRACKET_SHELF_DROP_MM,
-    ):
-        c = cut.copy()
-        c.apply_translation([body_centre_x, 0.0, well_dz])
-        bracket_pilot_holes.append(c)
+    )
+    bracket_insert_bosses = bracket_insert_bosses.copy()
+    bracket_insert_pockets = bracket_insert_pockets.copy()
+    bracket_insert_bosses.apply_translation([body_centre_x, 0.0, well_dz])
+    bracket_insert_pockets.apply_translation([body_centre_x, 0.0, well_dz])
 
-    body = _union(flange, well, rib, *side_gussets, *bridge_gussets)
+    body = _union(flange, well, rib, *side_gussets, *bridge_gussets,
+                   bracket_insert_bosses)
     return _diff(body, slot, wire_slot, horn_sweep_void,
-                 *chassis_holes, *bracket_pilot_holes)
+                 *chassis_holes, bracket_insert_pockets)
 
 
 def make_coxa_link() -> trimesh.Trimesh:
@@ -2369,13 +2513,32 @@ def make_coxa_link() -> trimesh.Trimesh:
     # The cut is a SHORT cylinder along the +Y axis, centred on the
     # hip axis at (COXA_LENGTH, 0, hip_drop) (the well_z_drop +
     # COXA_LIFT plane), with radius HIP_PAD_R + 0.5 (0.5 mm FDM
-    # clearance).  Y extent spans the entire pedestal + hub stack
-    # (link y in [-17, +17]) so the cut punches cleanly through both.
-    pad_sweep_y_extent = 36.0
+    # clearance).  Y extent originally spanned the entire pedestal +
+    # hub stack (link y in [-17, +17]) so the cut punches cleanly
+    # through both.
+    #
+    # Heat-set boss carve-out (May 2026): the cut's -Y end at link
+    # y = -18 used to reach 1.25 mm past the well rim plane (which
+    # sits at link y = WELL_RIM_Z + delta_y = -16.75), and would
+    # therefore eat the top 1.25 mm of each +X heat-set boss (boss
+    # top at link y = -16.75, boss bottom at link y =
+    # -16.75 - CRADLE_BOSS_HEIGHT_MM = -26.75).  Since the femur's
+    # actual hip pad only sweeps at coxa-link y in [+9, +15] (the
+    # pad sits at the OUTPUT side of the hip-pitch joint), the cut's
+    # -Y reach can be safely trimmed back to the well rim plane plus
+    # a 0.5 mm clearance margin.  This leaves the boss tops fully
+    # intact while preserving every mm of pad-sweep clearance the
+    # original cut provided.
+    pad_sweep_y_min = (WELL_RIM_Z + delta[1]) + 0.5            # = -16.25
+    pad_sweep_y_max = +18.0                                    # unchanged
+    pad_sweep_y_extent = pad_sweep_y_max - pad_sweep_y_min     # = 34.25
+    pad_sweep_y_centre = 0.5 * (pad_sweep_y_min + pad_sweep_y_max)
     pad_sweep_clear = _cyl(HIP_PAD_R + 0.5, pad_sweep_y_extent)
     pad_sweep_clear.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))
     hip_axis_z_in_link = well_z_drop + COXA_LIFT
-    pad_sweep_clear.apply_translation([COXA_LENGTH, 0.0, hip_axis_z_in_link])
+    pad_sweep_clear.apply_translation([COXA_LENGTH,
+                                        pad_sweep_y_centre,
+                                        hip_axis_z_in_link])
 
     spar_slot_y_half = LINK_THICKNESS / 2.0 + 0.5             # +/- 3.5
     spar_slot_x_min  = +8.0

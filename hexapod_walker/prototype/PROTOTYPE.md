@@ -78,9 +78,9 @@ torque limits are all tuned around this DS3225-class case.
 > the bolt self-taps into the X-horn's Phi ~ 2.0 mm pilot for
 > `XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3 mm` of engagement against the
 > plastic arm.  Mechanically symmetric to the cradle bolt fix in
-> `b447f88`: the cradle bolts stay M3 x 8 SHCS (they self-tap into a
-> Phi 2.5 mm printed shelf pilot); only the **X-horn bolts** split
-> off into their own SKU.  Net SKU count unchanged at 6.  See
+> `b447f88` (and the May 2026 heat-set follow-up; see Design D
+> below): the cradle bolts stay M3 x 8 SHCS, only the **X-horn
+> bolts** split off into their own SKU here.  See
 > `fasteners/README.md` ("X-horn bolts are also self-tappers") for
 > the optional M2 thread-forming upgrade (`99461A340`).
 >
@@ -112,6 +112,68 @@ torque limits are all tuned around this DS3225-class case.
 > into the well wall.  The yaw cradle's effective shelf top moved
 > UP by ~3 mm (closer to the nominal `WELL_RIM_Z` shared with the
 > hip and knee cradles).
+>
+> **Design D (May 2026, current):** the brief Design C self-tap
+> pilots (Phi `INSERT_M3_PILOT_OD` = 2.5 mm pilot through the printed
+> shelf) were audited and found to be **structurally inadequate**.
+> The audit measured the plastic remaining between the pilot wall
+> and the nearest air gap in the +/-Y direction at all 12 cradle
+> sites (4 bolts x 3 cradles); 7 of 12 sites had between **0.00
+> and 1.50 mm of plastic** on at least one side (femur and
+> coxa-link knee/hip cradles' outer walls don't extend past the
+> servo body footprint, and the +X column collides with the
+> existing wire channel).  The original `check_cradle_pilot_holes`
+> only verified that the pilot cylinder existed; it never probed
+> radially for surrounding material.
+>
+> The fix is to switch from "M3 self-tap into Phi 2.5 mm plastic
+> pilot" to "**M3 SHCS into a heat-set brass insert** in a Phi
+> `INSERT_M3_PILOT_OD` = 4.0 mm pocket, surrounded by a Phi
+> `CRADLE_BOSS_OD` = 8.0 mm printed boss" (parameters in
+> `hexapod_prototype.py` -- see the `INSERT_M3_*` / `CRADLE_BOSS_*`
+> constant block).  The heat-set part is **McMaster 94459A130** (M3
+> knurled brass, Phi 4 mm pilot, Phi 5.7 mm knurled OD, 5 mm length,
+> ~ $0.10 ea).  This (a) gives real metal threads instead of
+> stripping into PLA / PA12 after one cycle, and (b) the boss
+> enlargement automatically solves the radial-engagement bug --
+> every pilot now has at least `CRADLE_BOSS_MIN_WALL_MM` = 1.5 mm
+> of plastic in every direction.
+>
+> **Cradle servo mount install order:**
+> 1. Print the cradle (`coxa_bracket`, `coxa_link`, or `femur_link`).
+> 2. Heat a soldering iron to ~ 220 deg C.
+> 3. Drop a 94459A130 insert (knurled end down) into one of the four
+>    Phi 4 mm pockets in the cradle boss top.
+> 4. Touch the iron tip to the insert's flat (top) face and apply
+>    **light downward pressure** for ~10-15 s, until the insert's
+>    top face sits ~0.5 mm below the printed boss top (so the
+>    eventual bolt head clamps the servo ear onto the printed
+>    plastic, not onto the brass).
+> 5. Let the insert cool for ~30 s.  Repeat for the other 3 pockets
+>    in this cradle.
+> 6. Drop the DS3225 servo into the cradle.
+> 7. Thread an M3 x 8 SHCS through each servo ear into the brass
+>    insert below and torque to ~ 0.5 Nm.
+>
+> Counts (per robot): **72 x M3 x 8 SHCS** (same SKU
+> `91290A113` as before; spec string now
+> `M3x8 SHCS into heat-set insert`) and **72 x M3 heat-set inserts**
+> (new SKU `94459A130`).  Net SKU count grows from 6 -> 7.
+> Verifier additions: `check_cradle_insert_pockets` now probes the
+> Phi 4 mm pocket, an 8-azimuth **radial-material ring** at
+> r = `INSERT_M3_PILOT_OD/2 + CRADLE_BOSS_MIN_WALL_MM` = 3.5 mm (the
+> check that would have caught the original bug), and an 8-azimuth
+> **heat-set knurl displacement ring** at r = 2.42 mm to confirm
+> the boss has enough plastic for the brass knurl to displace.  See
+> `_verify_prototype.py`'s `check_cradle_insert_pockets` body for
+> the probe coordinates.
+>
+> **General rule for future printed-feature threaded joints:** any
+> printed feature that takes a threaded fastener for **repeated
+> assembly** (i.e. anything the user expects to disassemble and
+> reassemble) MUST use a heat-set insert, not a self-tap pilot,
+> unless the joint is one-time-use (e.g. the foot pad, chassis
+> hardware).  Documented in `CAD_AGENT_INSTRUCTIONS.md`.
 
 ---
 
@@ -354,10 +416,11 @@ printer.
 | Item | Qty | Notes |
 |---|---|---|
 | **M2 × 8 mm socket-head cap screws** (McMaster `91290A005`) | 72 + spares | **Link → X-horn bolts.** 4 per joint x 18 joints = 72.  Used as **self-tappers** into the plastic 4-arm X-horn's existing Phi ~ 2.0 mm M2-sized untapped arm holes -- the link's pad clearance bore is Phi 2.2 mm.  An earlier draft listed these as M3 x 8 but the X-horn's arms physically won't take an M3 shank -- see the Design B blurb in §2 for the May 2026 user-caught fastener-spec fix.  Optional thread-forming upgrade: `99461A340` (M2 x 8 thread-form for plastic). |
-| M3 × 8 mm socket-head cap screws (McMaster `91290A113`) | 72 + spares | **Cradle servo-mount self-tap bolts** (Design C revert).  4 per servo x 18 servos = 72, driven vertically through each servo ear into a Phi 2.5 mm printed self-tap pilot in the cradle shelf. |
+| M3 × 8 mm socket-head cap screws (McMaster `91290A113`) | 72 + spares | **Cradle servo-mount bolts into heat-set inserts** (Design D, May 2026).  4 per servo x 18 servos = 72, driven vertically through each servo ear into an M3 brass heat-set insert (McMaster `94459A130`) installed in a Phi 4 mm pocket in the cradle boss below.  Same physical SKU as the link-to-X-horn bolts pre-Design B; the spec string in the registry is `M3x8 SHCS into heat-set insert` so the verifier and BOM can tell cradle bolts apart from any future M3 x 8 use. |
+| M3 brass heat-set inserts (McMaster `94459A130`) | 72 + spares | **Cradle servo-mount thread carriers** (Design D, May 2026).  M3 knurled brass insert, Phi 4 mm pilot, Phi 5.7 mm OD, 5 mm length.  Installed BEFORE the servo with a soldering iron at ~220 deg C, light downward pressure, ~10-15 s per insert.  See PROTOTYPE.md Design D blurb for the audit table that motivated the switch from self-tap pilots. |
 | M3 × 12 mm | 24 | Standoffs between top + bottom chassis plates |
 | M3 × 16 mm | 24 | Coxa bracket → chassis (4 × 6 = 24) |
-| M3 nyloc nuts | 30 + spares | 24 on the coxa-bracket-to-chassis through-bolts plus 6 on the foot-pad hinge pins. The cradle servo mounts are **not** captive-nut joints anymore (Design C revert -- they self-tap into the printed shelf instead). |
+| M3 nyloc nuts | 30 + spares | 24 on the coxa-bracket-to-chassis through-bolts plus 6 on the foot-pad hinge pins. The cradle servo mounts thread into brass heat-set inserts (Design D, May 2026) and do **not** use a nut. |
 | M3 × 25 mm round standoffs (M-F) | 8 | Top-to-bottom chassis spacers |
 | M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the plastic 4-arm X-horn onto the servo output spline. |
 
@@ -406,26 +469,38 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
 > Both the **coxa bracket**, the **coxa link** (hip-pitch cradle), and
-> the **femur link** (knee cradle) now use the same **Design C
-> (May 2026 revert)** servo-mount: 4 x M3 x 8 SHCS thread vertically
-> DOWN through each servo ear into a Phi 2.5 mm self-tap pilot hole
-> in the cradle shelf below.  This matches the standard hobby-servo
-> mounting style for DS3225 / MG996R-class servos.  There are **no
-> printed-in nut traps**, no horizontal +/-X clearance holes, and no
-> captive nuts in the cradle.  An earlier May 2026 horizontal-bolt +
-> captive-nyloc iteration was retired -- see the Design C blurb in §2
-> for the audit detail.
+> the **femur link** (knee cradle) now use the same **Design D
+> (May 2026)** servo-mount: 4 x M3 x 8 SHCS thread vertically DOWN
+> through each servo ear into an M3 brass heat-set insert (McMaster
+> `94459A130`) installed in a Phi 4 mm pocket in the cradle boss
+> below.  The boss is Phi 8 mm in OD and 10 mm tall -- big enough
+> that the audit's radial-material check (8 azimuths x 3.5 mm) is
+> satisfied at every bolt site.  There are **no printed-in nut
+> traps**, no horizontal +/-X clearance holes, and no captive nuts in
+> the cradle.  Earlier May 2026 horizontal-nyloc (Design C, retired)
+> and vertical self-tap (Design C revert, retired) iterations were
+> both audited and replaced -- see the Design D blurb in §2 for the
+> audit detail.
+>
+> **Press the heat-set inserts in BEFORE you drop the servo into the
+> cradle**: heat a soldering iron to ~ 220 deg C, set a 94459A130
+> insert (knurled end down) into one of the four Phi 4 mm pockets in
+> the cradle boss top, and press the iron tip lightly DOWN onto the
+> insert's flat face for ~ 10-15 s until the top face sits ~ 0.5 mm
+> below the boss top.  Cool ~ 30 s.  Repeat for all 4 pockets.
 
-1. **Yaw servo into coxa bracket:** drop the yaw servo straight DOWN
-   through the body cutout in the bracket flange and into the well
-   below.  The servo's tabs land flush on the well rim, with the gear
-   stack and output spline poking UP above the flange.  Drive 4 x M3
-   x 8 SHCS straight down through the ear's Phi 3.2 mm clearance hole
-   into the Phi 2.5 mm pilot hole in the shelf below.  The screw
-   self-taps fresh threads into the PLA / PA12 shelf material.
-   **Torque finger-tight + ~ 1/4 turn**: do NOT power-drive these.
-   The shelf material is the structural thread; over-torque strips
-   the pilot.
+1. **Yaw servo into coxa bracket:** press 4 x M3 heat-set inserts
+   (`94459A130`) into the four Phi 4 mm pockets in the bracket's
+   yaw-cradle boss top (see the heat-set install note above).  Drop
+   the yaw servo straight DOWN through the body cutout in the
+   bracket flange and into the well below; the servo's tabs land
+   flush on the well rim, with the gear stack and output spline
+   poking UP above the flange.  Drive 4 x M3 x 8 SHCS straight down
+   through the ear's Phi 3.2 mm clearance hole into the brass
+   insert in the boss below.  **Torque finger-tight + ~ 1/4 turn**:
+   the brass thread is real metal but the cradle boss material that
+   surrounds it is PLA / PA12 -- over-torque can still pull the
+   insert out of the boss.
 2. **Plastic horn on the yaw servo:** centre the servo, push a stock
    plastic 4-arm X-horn onto the spline at 0 deg, then secure it with
    the M3 horn-attach screw that ships in the servo bag.
@@ -436,19 +511,21 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    20.8 mm PCD.  The bolts self-tap into the X-horn's existing
    Phi ~ 2.0 mm M2-sized arm holes; finger-tight + ~ 1/4 turn (the
    plastic arm is the structural thread -- over-torque strips it).
-4. **Hip-pitch servo:** drop into the cradle in the coxa link; bolt
-   it down with the same vertical M3 x 8 self-tap pattern as the yaw
-   servo (4 x M3 x 8 SHCS straight DOWN through each servo ear into
-   the Phi 2.5 mm pilot in the coxa-link's hip-cradle shelf).  Fit a
-   plastic 4-arm X-horn perpendicular to the leg arm so the femur
-   swings up and down.
+4. **Hip-pitch servo:** press 4 x M3 heat-set inserts (`94459A130`)
+   into the coxa link's hip-cradle boss pockets, drop the hip servo
+   into the cradle, and bolt it down with the same vertical M3 x 8
+   into-insert pattern as the yaw servo (4 x M3 x 8 SHCS straight
+   DOWN through each servo ear into the brass insert in the boss
+   below).  Fit a plastic 4-arm X-horn perpendicular to the leg arm
+   so the femur swings up and down.
 5. **Femur:** seat the femur's hip-end pad on the hip horn (16 mm
    recess engaging the horn hub) and bolt to the horn with **4 x M2
    x 8 SHCS** (same `91290A005` stock as step 3; self-tap into the
    plastic horn arm).
-6. **Knee servo:** drop into the cradle in the femur and bolt with 4
-   x M3 x 8 SHCS (vertical self-tap into the femur's knee-cradle
-   shelf pilots).  Plastic X-horn perpendicular to the femur spar.
+6. **Knee servo:** press 4 x M3 heat-set inserts (`94459A130`) into
+   the femur's knee-cradle boss pockets, drop the knee servo into
+   the cradle, and bolt with 4 x M3 x 8 SHCS (vertical into the
+   brass inserts).  Plastic X-horn perpendicular to the femur spar.
 7. **Tibia:** seat the tibia's knee-end pad on the knee horn and
    bolt to the horn with **4 x M2 x 8 SHCS** (same `91290A005` stock).
 8. **Foot pad:** push-fit into the tibia's foot socket, glue with CA

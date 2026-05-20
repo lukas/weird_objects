@@ -82,35 +82,58 @@ later just requires re-running `make regen-fasteners`.
 | Part number | Spec | Used for |
 |-------------|------|----------|
 | 91290A005   | M2 x 8  SHCS, black-oxide steel | **link-to-X-horn bolts (72)** -- used as self-tappers into the plastic 4-arm X-horn's existing Phi ~ 2.0 mm M2-sized arm holes.  May 2026 fastener-spec fix: an earlier draft listed these as M3 x 8 SHCS but a real DS3225 / MG996R / DS3218 X-horn won't accept an M3 shank -- the arm holes are Phi ~ 2.0 mm untapped through holes intended for M2 self-tap.  See the "M2 thread-former upgrade" note below for the optional McMaster 99461A340 swap. |
-| 91290A113   | M3 x 8  SHCS, black-oxide steel | **cradle servo self-tap mounts (72)** -- driven vertically through each servo ear into a Phi 2.5 mm printed self-tap pilot in the cradle shelf below.  Same SKU works for both single-leg sub-assemblies and full-build kits. |
+| 91290A113   | M3 x 8  SHCS, black-oxide steel | **cradle servo-mount bolts into heat-set inserts (72)** -- driven vertically through each servo ear into the brass heat-set insert (`94459A130`) in the cradle boss below.  Same SKU works for both single-leg sub-assemblies and full-build kits.  The registry spec string is `M3x8 SHCS into heat-set insert` so the verifier / BOM can tell cradle bolts apart from any future M3 x 8 use. |
+| 94459A130   | M3 brass knurled heat-set insert, Phi 4 mm pilot, Phi 5.7 mm OD, 5 mm length | **cradle servo-mount thread carriers (72)** -- one per cradle bolt.  Installed BEFORE the servo is dropped into the cradle with a soldering iron at ~ 220 deg C, light downward pressure, ~ 10-15 s per insert.  May 2026 fix for the cradle pilot's radial-engagement bug; see the Design D blurb in PROTOTYPE.md. |
 | 91290A123   | M3 x 30 SHCS, black-oxide steel (treated as M3 x 32 in the BOM -- swap to 91290A126 if you want exactly 35 mm) | coxa-bracket-to-chassis bolts |
 | 92010A130   | M3 x 16 pan-head Phillips, A2 stainless | foot hinge pins |
 | 91290A104   | M2.5 x 8 SHCS, black-oxide steel | servo spline center screws |
-| 90576A102   | M3 nylon-insert lock nut (DIN 985), A2 stainless | coxa-bracket-to-chassis through-bolts (24) + foot hinge pins (6).  No longer used in the cradle (Design C revert: cradle bolts self-tap into the printed shelf). |
+| 90576A102   | M3 nylon-insert lock nut (DIN 985), A2 stainless | coxa-bracket-to-chassis through-bolts (24) + foot hinge pins (6).  Not used in the cradle (Design D: cradle bolts thread into brass heat-set inserts). |
 
-## Cradle bolts are self-tappers, not separate part numbers
+## Cradle bolts thread into M3 brass heat-set inserts (Design D, May 2026)
 
-The 72 vertical SHCS that thread DOWN through each servo ear into the
-Phi 2.5 mm pilot hole in the cradle shelf below are M3 x 8 stock
-(`91290A113`); we do NOT list a separate "self-tap" SKU.  This is
-deliberate:
+The 72 vertical M3 x 8 SHCS (`91290A113`) that thread DOWN through
+each servo ear now engage an **M3 brass heat-set insert** (McMaster
+`94459A130`) pressed into the cradle boss below, instead of
+self-tapping into a Phi 2.5 mm printed pilot in the shelf material.
+This is **Design D** in the PROTOTYPE.md design-history blurb and
+fixes the May 2026 cradle radial-engagement bug.
 
-* M3 SHCS shanks are nominally Phi 3.0 mm; the printed Phi 2.5 mm
-  pilot is undersized by ~0.5 mm so the SHCS's first revolution
-  cuts (technically forms) a clean thread in PLA / PA12.  This is
-  the same trick that DS3225 / MG996R-class servos already ship
-  with (the manufacturer's M3 mounting hardware is a plain SHCS,
-  too -- they assume the user is mounting into a printed or
-  injection-moulded plastic part with a slightly undersized hole).
-* Visual rendering already matches: at inspector zoom an SHCS and
-  a thread-forming screw look identical from the head end.
+* The audit (see PROTOTYPE.md Design D) measured the plastic
+  remaining between the OLD Phi 2.5 mm self-tap pilot wall and the
+  nearest air gap in the +/-Y direction at all 12 cradle sites; 7
+  of 12 sites had **0.00-1.50 mm of plastic** on at least one side
+  (femur and coxa-link knee/hip outer walls don't extend past the
+  servo body footprint, and all three +X columns collided with the
+  existing wire channel).  The original `check_cradle_pilot_holes`
+  only verified the pilot cylinder existed; it never probed
+  radially.
+* Switching to a heat-set insert (a) gives real metal threads
+  (brass, M3 x 0.5 standard pitch) so the joint survives repeated
+  dis-assembly without stripping the PLA / PA12 pilot, and (b)
+  forces a Phi `CRADLE_BOSS_OD` = 8 mm printed boss around every
+  pilot, which automatically supplies the missing radial material.
+* The Phi 4 mm pocket is `INSERT_M3_PILOT_OD` x
+  `INSERT_M3_PILOT_DEPTH` = 4 mm x 6 mm (1 mm overdrill on the
+  insert's 5 mm body length).  The insert top sits ~ 0.5 mm below
+  the boss top so the bolt head clamps the servo ear onto the
+  printed plastic, not the brass face (standard heat-set practice).
 
-If you DO want to swap in real thread-forming screws (e.g. McMaster
-97525A540 for M3 x 12 self-tap), the registry change is local:
-edit `_emit_cradle_fasteners` in `fastener_registry.py` to point at
-a new `PN_M3_SELFTAP` + `SPEC_M3_SELFTAP` pair and add a
-`fasteners/scad/m3_selftap.scad` (pan-head NopSCADlib placeholder is
-fine -- see `_orient_for_registry` in `make_fastener_meshes.py`).
+**Install:** heat a soldering iron to ~ 220 deg C, drop a 94459A130
+insert (knurled end down) into the Phi 4 mm pocket, apply light
+downward pressure with the iron tip for ~ 10-15 s until the insert
+top is ~ 0.5 mm below the boss top, then cool ~ 30 s before
+threading the M3 x 8 SHCS in.  McMaster ships a one-page install
+guide with every insert order (see
+<https://www.mcmaster.com/94459A130/>).
+
+**Verifier checks:** `_verify_prototype.check_cradle_insert_pockets`
+probes (a) the Phi 4 mm x 6 mm pocket void, (b) an 8-azimuth radial-
+material ring at r = `INSERT_M3_PILOT_OD/2 + CRADLE_BOSS_MIN_WALL_MM`
+= 3.5 mm at the pocket top and bottom (this is the check that would
+have caught the original bug), and (c) an 8-azimuth knurl-
+displacement ring at r = 2.42 mm so the boss has enough plastic for
+the brass knurl to displace when the iron is applied.  All three
+sub-checks must pass at every 12 (cradle, site) combination.
 
 ## X-horn bolts are also self-tappers (May 2026 M3 -> M2 fastener-spec fix)
 

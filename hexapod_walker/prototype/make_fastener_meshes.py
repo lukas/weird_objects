@@ -69,12 +69,25 @@ from fasteners import _parametric  # noqa: E402
 # files actually present under fasteners/scad/.
 
 SPEC_TO_SCAD: dict[str, str] = {
-    "M2x8 SHCS":           "m2x8_shcs",   # link-to-X-horn self-tap (M2 fix May 2026)
-    "M3x8 SHCS":           "m3x8_shcs",
-    "M3x32 SHCS":          "m3x32_shcs",  # rendered at 30 mm (BOM stock)
-    "M3x16 pan-head":      "m3x16_pan",
-    "M2.5x8 spline screw": "m2p5x8_shcs",
-    "M3 nyloc nut":        "m3_nyloc_nut",
+    "M2x8 SHCS":                      "m2x8_shcs",   # link-to-X-horn self-tap (M2 fix May 2026)
+    "M3x8 SHCS":                      "m3x8_shcs",
+    # May 2026 heat-set switch: cradle M3 x 8 SHCS now thread into
+    # a brass insert instead of a plastic pilot.  Same physical
+    # bolt (same P/N 91290A113), distinct spec string -- both
+    # share the ``m3x8_shcs`` scad rendering so the inspector
+    # mesh is identical.
+    "M3x8 SHCS into heat-set insert": "m3x8_shcs",
+    "M3x32 SHCS":                     "m3x32_shcs",  # rendered at 30 mm (BOM stock)
+    "M3x16 pan-head":                 "m3x16_pan",
+    "M2.5x8 spline screw":            "m2p5x8_shcs",
+    "M3 nyloc nut":                   "m3_nyloc_nut",
+    # The heat-set insert intentionally has NO scad mapping:
+    # NopSCADlib doesn't ship insert vitamins, and the parametric
+    # fallback in ``fasteners/_parametric.make_m3_heatset_insert``
+    # is sufficient for the inspector (Phi 5.7 mm brass cylinder
+    # with 16 axial flutes).  Falling through to parametric is
+    # the *expected* path for the heat-set P/N -- see the
+    # WARN-when-missing print in regenerate().
 }
 
 

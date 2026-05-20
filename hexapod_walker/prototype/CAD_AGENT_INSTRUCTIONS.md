@@ -72,6 +72,27 @@ The pipeline they refer to is documented in `CAD_WORKFLOW.md`.
    not survive a refactor; a `design_spec.yaml` entry does, and it
    shows up in the report's "Discovered dimensions" table.
 
+8. **Any printed feature that takes a threaded fastener for repeated
+   assembly MUST use a heat-set insert, not a self-tap pilot.**  The
+   May 2026 cradle audit (commit history under "Design D") showed
+   that self-tap pilots into Phi 2.5 mm printed holes are
+   structurally inadequate when the surrounding wall material isn't
+   explicitly verified (7 of 12 cradle sites had <= 1.5 mm of plastic
+   radially -- see PROTOTYPE.md "Design D" for the audit table).
+   The fix is to switch from "M3 SHCS into Phi 2.5 mm self-tap pilot"
+   to "M3 SHCS into M3 brass heat-set insert (McMaster `94459A130`)
+   in a Phi 4 mm pocket, surrounded by a Phi 8 mm boss".  Real metal
+   threads instead of plastic + the boss enlargement supplies the
+   missing radial material.  The exception is one-time-use joints
+   (e.g. the foot pad, chassis hardware nyloc through-bolts) where
+   no dis-assembly is expected; those can stay plain SHCS into
+   self-tap or SHCS + captive nut.  Any new code that introduces a
+   bolt-into-plastic pilot must add an analogous **radial-material
+   check** to `_verify_prototype.py` -- probing 8 azimuths at
+   `pilot_radius + min_wall` from the bolt axis at the top and
+   bottom of the pilot.  See `check_cradle_insert_pockets` for the
+   reference implementation.
+
 ## Workflow at a glance
 
 ```

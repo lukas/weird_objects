@@ -30,7 +30,8 @@ spec exactly.
 | 1 | USB cable, Pi to Arduino | USB-A to USB-B if using Arduino Mega with full-size USB-B. If your clone uses USB-C or micro-USB, buy that cable instead. | [Amazon: USB A to B cable Arduino](https://www.amazon.com/s?k=USB+A+to+B+cable+Arduino) |
 | 1 | M3 screw assortment | M3 socket-head screws, nuts, washers, lengths 6/8/10/12/16/20 mm. | [Amazon: M3 stainless screw kit assortment](https://www.amazon.com/s?k=M3+stainless+screw+kit+assortment) |
 | 6 | M3 x 16 pan-head bolts | Foot/tibia clevis hinge pin -- one per leg. Pan-head (low profile), threaded full length. Stainless. Reuse from the M3 assortment if it includes 16 mm. | [Amazon: M3 x 16 pan head stainless](https://www.amazon.com/s?k=M3+x+16+pan+head+stainless) |
-| 1 | M3 nyloc nuts | 100-pack nylon-insert lock nuts. 30 used: 6 reserved for the foot-pad hinge pins, 24 for the coxa-bracket-to-chassis through-bolts. The cradle servo mounts are vertical M3 self-tappers and do NOT use a nut. | [Amazon: M3 nyloc lock nut 100 pack](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
+| 1 | M3 nyloc nuts | 100-pack nylon-insert lock nuts. 30 used: 6 reserved for the foot-pad hinge pins, 24 for the coxa-bracket-to-chassis through-bolts. The cradle servo mounts thread into brass heat-set inserts (see below) and do NOT use a nut. | [Amazon: M3 nyloc lock nut 100 pack](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
+| 1 | M3 heat-set inserts (`94459A130`) | McMaster knurled brass M3 heat-set insert, Phi 4.0 mm pilot, Phi 5.7 mm OD, 5.0 mm length. **72 used** -- one per cradle bolt (4 per cradle x 3 cradles per leg x 6 legs). Installed with a soldering iron at ~220 deg C, light downward pressure, ~10-15 s per insert, then cool ~30 s; the M3 x 8 SHCS threads into the brass instead of self-tapping into plastic. May 2026 fix: the previous self-tap pilots were grazing the edge of the cradle wall material at 7 of 12 sites (audit showed 0.00-1.50 mm of plastic radially); the heat-set switch forces Phi 8 mm bosses around every pilot and gives real metal threads. | [McMaster 94459A130](https://www.mcmaster.com/94459A130/) |
 | 1 | M3 standoffs | M3 x 25 mm male-female brass standoffs, pack of 20. | [Amazon: M3 25mm standoffs male female brass](https://www.amazon.com/s?k=M3+25mm+standoffs+male+female+brass) |
 | 1 | M2.5 screw pack | M2.5 x 8 mm screws, useful for horn/adapter work if the servo-included screws are bad. | [Amazon: M2.5 8mm screw 50 pack](https://www.amazon.com/s?k=M2.5+8mm+screw+50+pack) |
 
@@ -45,18 +46,27 @@ Edit the registry (not this table) and re-run `make bom-fasteners`.
 |------|--------------|-----|---------|
 | M2x8 SHCS | 91290A005 | 72 | link-to-X-horn bolts |
 | M2.5x8 spline screw | 91290A104 | 18 | servo spline center screws |
-| M3x8 SHCS | 91290A113 | 72 | cradle servo self-tap mounts |
+| M3x8 SHCS into heat-set insert | 91290A113 | 72 | cradle servo mounts (M3 SHCS into heat-set insert) |
+| M3 heat-set insert | 94459A130 | 72 | cradle heat-set inserts |
 | M3x32 SHCS | 91290A123 | 24 | coxa-bracket-to-chassis bolts |
 | M3x16 pan-head | 92010A130 | 6 | foot hinge pins |
 | M3 nyloc nut | 90576A102 | 30 | coxa-bracket-to-chassis bolts, foot hinge pins |
-|  |  | **222** | **total fasteners** |
+|  |  | **294** | **total fasteners** |
 
 Notes:
-- Cradle servo mounts (72 x M3x8 SHCS / `91290A113`) are driven
-  VERTICALLY from above each servo ear and self-tap into a printed
-  Phi 2.5 mm pilot hole in the cradle shelf below.  Plain M3 SHCS
-  stock doubles as the self-tapper -- the standard hobby-servo
-  mounting style; no separate self-tap SKU.
+- Cradle servo mounts (72 x `M3x8 SHCS into heat-set insert` /
+  `91290A113`) are driven VERTICALLY from above each servo ear and
+  thread into an M3 brass heat-set insert (`94459A130`) installed
+  flush with the boss top.  May 2026 fix: the previous self-tap
+  pilots grazed the cradle wall material at 7 of 12 sites (audit:
+  0.00-1.50 mm of plastic radially); the heat-set switch forces
+  Phi 8 mm bosses around every pilot and gives real metal threads.
+- Heat-set inserts (72 x `94459A130`) are installed BEFORE the
+  servo cradle is mated to its neighbour: heat the insert with a
+  soldering iron at ~220 deg C, drop it into the printed Phi 4 mm
+  x 6 mm pocket, apply light downward pressure for ~10-15 s until
+  the knurl displaces plastic into the boss wall, then cool ~30 s
+  before threading the M3 x 8 SHCS in.
 - Link-to-X-horn bolts (72 x M2x8 SHCS / `91290A005`) self-tap into
   the plastic 4-arm X-horn's existing Phi ~ 2.0 mm M2-sized untapped
   arm holes (May 2026 fastener-spec fix: the X-horn arms are NOT
