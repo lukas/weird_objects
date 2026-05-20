@@ -62,7 +62,7 @@ torque limits are all tuned around this DS3225-class case.
 > **Design B (May 2026):** the printed `servo_horn_adapter` disc has
 > been retired.  Each link now bolts directly onto the plastic 4-arm
 > X-horn that ships with the servo, via 4 x Phi 3.2 mm holes on a
-> 20.8 mm PCD plus a 16 mm x 1.6 mm central hub recess cut into the
+> 20.8 mm PCD plus a 16 mm x 1.2 mm central hub recess cut into the
 > link's pad face.  Drops the printed-leg-bolt-up Z stack by
 > ``HORN_ADAPTER_T`` (4 mm) per joint.
 >

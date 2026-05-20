@@ -35,7 +35,7 @@ xometry_upload/
 
 > **Design B (May 2026)** retired the printed `servo_horn_adapter`
 > disc. Each link is now machined with the 4 × Φ 3.2 mm M3 bolt
-> circle and a 16 mm × 1.6 mm central hub recess directly into its
+> circle and a 16 mm × 1.2 mm central hub recess directly into its
 > pad face, so the link bolts straight onto the plastic 4-arm
 > X-horn that ships with the servo. No adapter STL ships in this
 > bundle.
@@ -160,6 +160,6 @@ Cursor's built-in STL viewer) and confirm:
 *   The bolt-hole pattern on each link's hub face is a **20.8 mm PCD,
     4 × Φ 3.2 mm** (M3 clearance), with the 4 holes at
     **0 / 90 / 180 / 270°** so they line up with the X-shaped plastic
-    servo horn's arms.  A **16 mm × 1.6 mm** circular recess is cut
+    servo horn's arms.  A **16 mm × 1.2 mm** circular recess is cut
     into the same face to seat the horn's central hub.  No extra
     printed adapter is required.

@@ -357,7 +357,7 @@ parts:
 
   # Design B (May 2026): the printed servo_horn_adapter has been
   # retired.  The 4 x M3 bolt-circle (Phi 3.2 mm on a 20.8 mm PCD)
-  # and the 16 mm x 1.6 mm central hub recess now live directly in
+  # and the 16 mm x 1.2 mm central hub recess now live directly in
   # each link's pad face (coxa_link / femur_link / tibia_link); the
   # link bolts straight onto the plastic 4-arm X-horn that ships
   # with the servo.  Validated by

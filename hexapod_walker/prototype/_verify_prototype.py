@@ -1329,7 +1329,7 @@ def check_servo_clearance():
 # 16.5 mm in make_femur_link / make_tibia_link), so this probe radius
 # is still the right pass/fail boundary for the existing neck-torus
 # geometry -- the plastic horn's wider arm sweep (PLASTIC_HORN_X_TIP_R
-# = 19 mm) is captured separately by check_horn_sweep_clearance for
+# = 18 mm) is captured separately by check_horn_sweep_clearance for
 # the yaw joint and is documented as a known-conservative gap on the
 # hip-/knee-pitch joints (the arms rotate WITH the link, so they don't
 # sweep through the neck-wall material in operation; clearance only
@@ -2942,10 +2942,12 @@ def _optional_arm_checks():
 #      clearance to match the X-horn's Phi ~ 2.0 mm M2-self-tap arm
 #      holes.  See hexapod_prototype.py XHORN_BOLT_* docstring.
 #   2. A central Phi HORN_RECESS_OD = 16 mm cylindrical recess
-#      HORN_RECESS_DEPTH = 1.6 mm deep cut into the pad's mating face,
+#      HORN_RECESS_DEPTH = 1.2 mm deep cut into the pad's mating face,
 #      so the plastic horn's central hub (spline collar + M3 centre-
 #      screw head) is fully swallowed below the pad.  The centre
 #      screw stays M3; only the 4 outer arm bolts switched to M2.
+#      Depth user-measured May 2026 (1.0 mm screw head protrusion +
+#      0.2 mm FDM tolerance; was 1.6 mm).
 #
 # This check confirms BOTH the 4 bolt holes and the central recess
 # exist by sampling a small voxel patch at each expected position and
@@ -3006,7 +3008,7 @@ def check_horn_pattern_in_pad():
       a) 4 M2 clearance holes on the XHORN_BOLT_PCD = 20.8 mm bolt
          circle, drilled through the full pad thickness, and
       b) a central Phi HORN_RECESS_OD = 16 mm x HORN_RECESS_DEPTH =
-         1.6 mm hub-clearance recess on the pad's mating face.
+         1.2 mm hub-clearance recess on the pad's mating face.
 
     May 2026 fastener-spec fix: the bolts are M2 (Phi 2.2 mm
     clearance), not M3 (Phi 3.2 mm) -- see ``XHORN_BOLT_OD`` in
@@ -4430,7 +4432,7 @@ def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
     #   (b) the femur/tibia pads have a Phi HORN_RECESS_OD = 16 mm
     #       counter-bore for the horn's central hub, so a scan
     #       through the joint axis lands in the recess and the
-    #       "pad bottom" registers HORN_RECESS_DEPTH ~ 1.6 mm too
+    #       "pad bottom" registers HORN_RECESS_DEPTH ~ 1.2 mm too
     #       far from the horn top.
     # At radial r = 12 mm in HORN-LOCAL (-x) we sit OUTSIDE the recess
     # (Phi 16 -> radius 8 mm) AND OUTSIDE the bolt holes (PCD 20.8 / 2
