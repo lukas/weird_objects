@@ -733,6 +733,27 @@ HORN_CENTRE_OD      =  3.4   # mm -- M3 centre clearance (for the horn screw)
 HORN_RECESS_OD      = 16.0   # mm
 HORN_RECESS_DEPTH   =  1.2   # mm
 
+# Radius of the cylindrical CLEARANCE VOID inside the hip/knee link's
+# flange ring.  The void is the air gap that holds the plastic X-horn
+# during assembly: the link slides down over the horn, and the horn's
+# arm tips (PLASTIC_HORN_X_TIP_R = 18 mm) must clear the ring's inner
+# wall by a small FDM-tolerance margin.
+#
+# May 2026 (post-shorten-neck refactor): the void switched from
+# HORN_ADAPTER_OD/2 + 0.5 = 16.5 mm (sized for the now-retired
+# printed servo_horn_adapter disc) to PLASTIC_HORN_X_TIP_R + 0.5 =
+# 18.5 mm (sized for the plastic X-horn's actual Phi 36 mm sweep).
+# The user found that the previous Phi 33 mm cup physically blocked
+# the Phi 36 mm plastic X-horn from fitting -- the horn arm tips
+# slammed into the cup's inner wall.  Bumping to Phi 37 mm ID gives
+# the horn 0.5 mm radial clearance per side at the arm tips.
+#
+# Consumers: ``make_femur_link`` + ``make_tibia_link`` (flange-ring
+# inner radius), ``keepout_volumes.py`` (femur/tibia horn-stack
+# void registry entries), and ``_verify_prototype.py``
+# (``check_horn_stack_clearance`` probe radius).
+HORN_STACK_VOID_R   = PLASTIC_HORN_X_TIP_R + 0.5
+
 # ---- M2 self-tap into the X-horn (Design B, May 2026 fastener fix) -------
 # The X-horn bolt is an M2 SHCS used as a thread-FORMING self-tapper
 # into the plastic 4-arm X-horn's existing Phi ~ 2.0 mm untapped arm
@@ -2897,92 +2918,110 @@ def make_femur_link() -> trimesh.Trimesh:
                            center=((body_x_min + body_x_max) / 2.0,
                                     0, 0))
 
-    # ---- Hip-end pad + neck -----------------------------------------
-    # The femur's hip pad bolts onto the hip-pitch horn adapter, which
-    # itself sits on the servo's plastic horn + spline.  In femur-local
-    # coords the joint AXIS (spline tip) is at y = 0, and the horn
-    # adapter's TOP face (where the pad clamps) is at y = HORN_STACK_H
-    # = 9 mm.  Placing the pad at y = 0 (the OLDEST design) put it
-    # inside the cradle's "swept volume" above the body and caused the
-    # femur vs coxa_bracket / femur vs tibia self-collision failures.
+    # ---- Hip-end pad + flange ring ----------------------------------
+    # The femur's hip pad bolts directly onto the plastic 4-arm X-horn
+    # that sits on the hip-pitch servo's spline.  In femur-local coords
+    # the joint AXIS (spline tip) is at y = 0 and the X-horn's top arm
+    # plane (where the pad clamps) is at y = HORN_STACK_H = 5 mm.
+    # Placing the pad at y = 0 would put it inside the cradle's "swept
+    # volume" above the body and caused the femur vs coxa_bracket /
+    # femur vs tibia self-collision failures historically.
     #
-    # Current design (rotationally-symmetric hollow-annulus neck):
+    # Current design (May 2026 "shorten-neck" refactor: SHALLOW FLANGE
+    # RING around the bolt heads + horn footprint, no deep cup):
     #
-    #   1. HIP PAD: a solid disc at y in [+9, +15], radius HIP_PAD_R =
-    #      19.5 mm.  The bolt-clamp ring; sits flat on the horn adapter
-    #      top face at y = +9 and carries the 4 M2 SHCS clamp bolts on
-    #      XHORN_BOLT_PCD = 20.8 mm.  HIP_PAD_R was bumped from 17 mm to
-    #      19.5 mm so the neck (item 2) has a 3 mm-thick printable wall
-    #      around the horn-stack clearance void.
-    #   2. NECK TORUS: a hollow cylinder at y in [-LINK_THICKNESS/2,
-    #      +HORN_STACK_H] = [-3, +9], with outer radius HIP_PAD_R and
-    #      inner radius (HORN_ADAPTER_OD/2 + HORN_STACK_CLEARANCE) =
-    #      16.5 mm.  The OUTER wall is a 3 mm-thick rotationally-
-    #      symmetric ring.  Inside that ring, the cylindrical inner void
-    #      is EXACTLY the horn-stack clearance volume that the plastic
-    #      horn (Phi ~20 mm, y in [0, +5]) and the printed horn adapter
-    #      (Phi HORN_ADAPTER_OD = 32 mm, y in [+5, +9]) need to occupy
-    #      at assembly time -- the void is checked by
-    #      ``check_horn_stack_clearance`` in _verify_prototype.py.
+    #   1. HIP PAD: a solid disc at y in [+5, +11], radius HIP_PAD_R =
+    #      19.5 mm.  The bolt-clamp ring; sits flat on the X-horn arm
+    #      tops at y = +5 and carries the 4 M2 SHCS clamp bolts on
+    #      XHORN_BOLT_PCD = 20.8 mm.
+    #   2. FLANGE RING: a 2 mm-tall annulus at y in [HORN_STACK_H - 2,
+    #      HORN_STACK_H] = [+3, +5], with outer radius HIP_PAD_R =
+    #      19.5 mm and inner radius HORN_STACK_VOID_R =
+    #      PLASTIC_HORN_X_TIP_R + 0.5 = 18.5 mm (Phi 37 mm ID).  Ring
+    #      wall thickness: 1 mm (single perimeter at 0.4 mm nozzle --
+    #      requires >= 2 perimeters AND brim AND PLA / PETG to print
+    #      reliably).
     #
-    #      The torus extends DOWN past y = +3 (the spar's +Y face) into
-    #      y in [-3, +3], so the union with the spar is a real 6-mm-
-    #      tall fused section spanning the spar's full y range rather
-    #      than a 0 mm boolean kiss at y = +3.  At the +X side the
-    #      torus's +X-facing material (sqrt(x^2 + z^2) in [16.5, 19.5]
-    #      with x > 0) intersects the spar's hip-end region (femur x in
-    #      [13.83, 19.5], z in [-FEMUR_SPAR_H/2, +FEMUR_SPAR_H/2]) over
-    #      a contiguous "C"-shape on the spar's +X side, giving a
-    #      ~36 mm^2 contact patch on the spar's +Y face plus an equal
-    #      patch on the -Y face -- well above the hip-pitch reaction
-    #      torque shear demand (< 10 N over the patch).
+    #      The previous design's 8 mm-tall neck torus (y in [-3, +5],
+    #      inner radius 16.5 mm) physically blocked the Phi 36 mm
+    #      plastic X-horn from fitting in the assembly -- the horn arm
+    #      tips slammed into the cup's Phi 33 mm inner wall.  Shrinking
+    #      the cup to a 2 mm-tall ring with Phi 37 mm ID lets the
+    #      Phi 36 mm horn slide up into the ring with 0.5 mm radial
+    #      clearance, and drops the total puck length from 14 mm to
+    #      8 mm (y in [+3, +11]).
     #
-    #      The earlier "neck strip" design (a 6 mm-wide slab on the
-    #      spar centreline) put SOLID material at radius 0...
-    #      LINK_THICKNESS/2 along the +Y direction, which clipped the
-    #      horn-stack volume by ~ 2700 mm^3 (femur) / 2000 mm^3 (tibia)
-    #      and made the adapter physically un-installable.
-    #      check_horn_stack_clearance catches this exact failure.
-    HORN_STACK_VOID_R = HORN_ADAPTER_OD / 2.0 + 0.5      # 16.5 mm
-    hip_pad_centre_y = HORN_STACK_H + LINK_THICKNESS / 2.0    # +12
-    hip_pad_y_min    = HORN_STACK_H                            # +9
-    hip_pad_y_max    = HORN_STACK_H + LINK_THICKNESS           # +15
+    #   3. The ring's outer cylinder EXTENDS 0.5 mm DOWN into the spar
+    #      (y in [+2.5, +5] rather than [+3, +5]) so the spar-ring
+    #      union is a real volumetric fuse (~21 mm^3 of overlapping
+    #      material in the +X half of the annulus where the spar's z
+    #      range [-17, +17] crosses the ring's radius [18.5, 19.5])
+    #      rather than a 0 mm boolean kiss at y = +3.  User-visible
+    #      ring depth (the unhollowed portion above the spar) stays at
+    #      2 mm; the 0.5 mm extension is purely an internal CSG fuse.
+    #
+    #   4. HORN_STACK_VOID (radius HORN_STACK_VOID_R = 18.5 mm,
+    #      y in [-LINK_THICKNESS/2 - 1, HORN_STACK_H + 1] = [-4, +6]):
+    #      a unified clearance void cut as the LAST step in the part's
+    #      CSG difference.  Hollows
+    #          (a) the ring's interior (y in [+3, +5] at radius < 18.5),
+    #          (b) the spar's hip-end material (y in [-3, +3] at
+    #              radius < 18.5) so the X-horn (Phi 36 mm) can rotate
+    #              freely below the ring at any hip-pitch angle, and
+    #          (c) the pad's mating face (y in [+5, +6] at radius
+    #              < 18.5).  The 1 mm +Y overshoot guarantees no FDM
+    #              sliver of plastic sits in the void at the pad
+    #              boundary -- carries the same 1 mm bolt-clamp gap
+    #              the previous deep-cup design had (within the
+    #              ``check_mating_face_contact`` 1.5 mm tolerance).
+    #
+    #      The void volume is checked by ``check_horn_stack_clearance``
+    #      in _verify_prototype.py with probe radius HORN_STACK_VOID_R
+    #      (kept in sync via the module-level constant).
+    hip_pad_centre_y = HORN_STACK_H + LINK_THICKNESS / 2.0    # +8
+    hip_pad_y_min    = HORN_STACK_H                            # +5
+    hip_pad_y_max    = HORN_STACK_H + LINK_THICKNESS           # +11
     hip_pad = _cyl_along(HIP_PAD_R,
                           hip_pad_y_max - hip_pad_y_min,
                           axis="y")
     hip_pad.apply_translation([0, hip_pad_y_min, 0])
 
-    # Neck torus: outer cylinder + inner cylindrical void.  Spans y in
-    # [-LINK_THICKNESS/2, +HORN_STACK_H] = [-3, +9] so it overlaps the
-    # spar's full y range AND the horn-stack y range simultaneously.
-    neck_y_min = -LINK_THICKNESS / 2.0                          # -3
-    neck_y_max = HORN_STACK_H                                   # +9
-    neck_y_extent = neck_y_max - neck_y_min                     # 12
-    neck_y_centre = (neck_y_min + neck_y_max) / 2.0             # +3
-    hip_neck_outer = _cyl_along(HIP_PAD_R, neck_y_extent, axis="y")
-    hip_neck_outer.apply_translation([0, neck_y_min, 0])
-    hip_neck_void = _cyl_along(HORN_STACK_VOID_R, neck_y_extent + 2.0,
-                                axis="y")
-    hip_neck_void.apply_translation([0, neck_y_min - 1.0, 0])
+    # 2 mm-tall flange ring + 0.5 mm CSG fuse extension down into the
+    # spar.  User-visible ring spans y in [+3, +5]; the 0.5 mm
+    # extension (y in [+2.5, +3]) is interior fuse material.
+    ring_y_min = HORN_STACK_H - 2.0                             # +3
+    ring_y_max = HORN_STACK_H                                   # +5
+    spar_fuse_overlap = 0.5
+    hip_neck_outer = _cyl_along(HIP_PAD_R,
+                                 (ring_y_max - ring_y_min)
+                                 + spar_fuse_overlap,
+                                 axis="y")
+    hip_neck_outer.apply_translation([0, ring_y_min - spar_fuse_overlap,
+                                       0])
+    # Unified horn-stack clearance void.  Spans y in
+    # [-LINK_THICKNESS/2 - 1, HORN_STACK_H + 1] = [-4, +6], the same
+    # 1 mm overshoots at both ends as the previous deep-cup design.
+    void_y_lo = -LINK_THICKNESS / 2.0 - 1.0                     # -4
+    void_y_hi = HORN_STACK_H + 1.0                              # +6
+    hip_neck_void = _cyl_along(HORN_STACK_VOID_R,
+                                void_y_hi - void_y_lo, axis="y")
+    hip_neck_void.apply_translation([0, void_y_lo, 0])
 
     hip_holes = []
     hip_counterbores = []
     for a in XHORN_BOLT_ANGLES_RAD:
-        # Drill the 4 M2 clamp holes ONLY through the pad's 6 mm-thick
-        # clamp ring (y in [+5, +11] post-2026 May refactor; was
-        # [+9, +15] when the printed servo_horn_adapter was still in
-        # the stack).  Phi XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm
-        # clearance through the pad (M2 self-tap into the X-horn's
-        # Phi ~ 2.0 mm arm hole below; the X-horn provides the actual
-        # thread engagement).  The cylinder length = LINK_THICKNESS *
-        # 4 = 24 mm guarantees a clean punch-through of the 6 mm pad
-        # even with voxel/CSG tolerance, but does NOT reach back into
-        # the neck torus body (the torus's +Y face is at y =
-        # HORN_STACK_H; the hole overlaps the torus's cylindrical wall
-        # at radius XHORN_BOLT_PCD/2 = 10.4 mm).  That radial position
-        # is INSIDE the torus's void (radius < 16.5), so the bolt hole
-        # punches through air inside the torus and doesn't actually
-        # remove any neck material.
+        # Drill the 4 M2 clamp holes through the pad's 6 mm-thick
+        # clamp ring (y in [+5, +11]).  Phi
+        # XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm clearance through the
+        # pad (M2 self-tap into the X-horn's Phi ~ 2.0 mm arm hole
+        # below; the X-horn provides the actual thread engagement).
+        # The cylinder length = LINK_THICKNESS * 4 = 24 mm guarantees
+        # a clean punch-through of the 6 mm pad even with voxel/CSG
+        # tolerance; any over-length extends past the pad's -Y face
+        # into the flange ring's void (the ring's PCD = 10.4 mm radius
+        # sits well inside the void's HORN_STACK_VOID_R = 18.5 mm
+        # boundary), so the bolt hole punches through air there and
+        # doesn't actually remove any ring material.
         # (May 2026 fastener-spec fix: previously this used
         # SERVO_TAB_HOLE = 3.2 mm because Phi 3.2 also happened to be
         # the (incorrect) M3 X-horn clearance; with M2 X-horn bolts
@@ -3228,55 +3267,59 @@ def make_tibia_link() -> trimesh.Trimesh:
     spar = _box((TIBIA_LENGTH, LINK_THICKNESS, TIBIA_SPAR_H),
                 center=(TIBIA_LENGTH / 2.0, 0, 0))
 
-    # Knee pad + neck: same HOLLOW-ANNULUS-NECK design as the femur's
-    # hip-end.  See make_femur_link for the design rationale; the only
+    # Knee pad + flange ring: same SHALLOW FLANGE RING design as the
+    # femur's hip-end (May 2026 shorten-neck refactor).  See
+    # make_femur_link for the full design rationale; the only
     # difference here is the spar height (TIBIA_SPAR_H = 18 vs
-    # FEMUR_SPAR_H = 34).  With HIP_PAD_R = 19.5 mm and the void radius
-    # = HORN_ADAPTER_OD/2 + 0.5 = 16.5 mm, the neck torus has a 3 mm
-    # printable wall around the horn-stack clearance volume.
-    HORN_STACK_VOID_R = HORN_ADAPTER_OD / 2.0 + 0.5      # 16.5 mm
-    knee_pad_centre_y = HORN_STACK_H + LINK_THICKNESS / 2.0    # +12
-    knee_pad_y_min    = HORN_STACK_H                            # +9
-    knee_pad_y_max    = HORN_STACK_H + LINK_THICKNESS           # +15
+    # FEMUR_SPAR_H = 34), which means the tibia spar's z range
+    # [-9, +9] sits ENTIRELY INSIDE the horn-stack void's
+    # HORN_STACK_VOID_R = 18.5 mm radius -- so after the void cut the
+    # tibia spar's knee-end material at sqrt(x^2 + z^2) < 18.5 mm
+    # (i.e. tibia x in [0, ~18.5] on the spar centreline, tapering to
+    # x in [0, ~16.16] at the z = +/-9 spar edges) is hollowed away.
+    # The flange ring + ring-spar 0.5 mm fuse overlap are identical
+    # to the femur's; this gives the small contact-patch (~18 mm^2
+    # per +/-Y face) that the previous deep-cup design used to
+    # achieve via the neck-torus's full 12 mm Y extent.
+    knee_pad_centre_y = HORN_STACK_H + LINK_THICKNESS / 2.0    # +8
+    knee_pad_y_min    = HORN_STACK_H                            # +5
+    knee_pad_y_max    = HORN_STACK_H + LINK_THICKNESS           # +11
     knee_pad = _cyl_along(HIP_PAD_R,
                            knee_pad_y_max - knee_pad_y_min,
                            axis="y")
     knee_pad.apply_translation([0, knee_pad_y_min, 0])
 
-    # Neck torus: outer solid annulus + inner cylindrical void.  Y
-    # span [-LINK_THICKNESS/2, +HORN_STACK_H] = [-3, +9] so the torus
-    # overlaps the spar's full +/- LINK_THICKNESS/2 y range AND the
-    # horn-stack y range.  For the tibia the spar is only TIBIA_SPAR_H
-    # = 18 mm tall in z, so the spar's z range = [-9, +9] sits fully
-    # INSIDE the horn-stack cylinder (radius 16.5).  The neck-spar
-    # union therefore only fuses where the spar's +X tip enters the
-    # annulus's outer wall -- tibia x in [13.83, 19.5] crosses
-    # sqrt(x^2 + z^2) >= 16.5 for some z in [-9, +9].  That contact
-    # patch is small (~ 18 mm^2 per +/- Y face) but the neck's full
-    # +/- 19.5 mm-radius annulus and its 12 mm Y extent give the joint
-    # plenty of stiffness in shear.
-    neck_y_min = -LINK_THICKNESS / 2.0                          # -3
-    neck_y_max = HORN_STACK_H                                   # +9
-    neck_y_extent = neck_y_max - neck_y_min                     # 12
-    knee_neck_outer = _cyl_along(HIP_PAD_R, neck_y_extent, axis="y")
-    knee_neck_outer.apply_translation([0, neck_y_min, 0])
-    knee_neck_void = _cyl_along(HORN_STACK_VOID_R, neck_y_extent + 2.0,
-                                 axis="y")
-    knee_neck_void.apply_translation([0, neck_y_min - 1.0, 0])
+    # 2 mm-tall flange ring + 0.5 mm CSG fuse extension down into the
+    # spar.  User-visible ring spans y in [+3, +5]; the 0.5 mm
+    # extension (y in [+2.5, +3]) is interior fuse material.
+    ring_y_min = HORN_STACK_H - 2.0                             # +3
+    ring_y_max = HORN_STACK_H                                   # +5
+    spar_fuse_overlap = 0.5
+    knee_neck_outer = _cyl_along(HIP_PAD_R,
+                                  (ring_y_max - ring_y_min)
+                                  + spar_fuse_overlap,
+                                  axis="y")
+    knee_neck_outer.apply_translation([0, ring_y_min - spar_fuse_overlap,
+                                        0])
+    # Unified horn-stack clearance void.  Spans y in
+    # [-LINK_THICKNESS/2 - 1, HORN_STACK_H + 1] = [-4, +6].
+    void_y_lo = -LINK_THICKNESS / 2.0 - 1.0                     # -4
+    void_y_hi = HORN_STACK_H + 1.0                              # +6
+    knee_neck_void = _cyl_along(HORN_STACK_VOID_R,
+                                 void_y_hi - void_y_lo, axis="y")
+    knee_neck_void.apply_translation([0, void_y_lo, 0])
 
     knee_holes = []
     knee_counterbores = []
     for a in XHORN_BOLT_ANGLES_RAD:
-        # Bolt holes drilled through the PAD ONLY (y in [+5, +11]
-        # post-2026 May refactor; was [+9, +15] when the printed
-        # servo_horn_adapter was still in the stack).  Phi
-        # XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm M2 clearance through
-        # the pad (M2 self-tap into the X-horn's Phi ~ 2.0 mm arm
-        # hole below).  The neck torus's bolt-PCD radius (10.4 mm) is
-        # INSIDE the horn-stack void (16.5 mm), so any over-long hole
-        # punches through air inside the torus and doesn't remove
-        # material.  See make_femur_link for the May 2026 M3 -> M2
-        # X-horn fastener-spec fix history.
+        # Bolt holes drilled through the PAD ONLY (y in [+5, +11]).
+        # Phi XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm M2 clearance
+        # through the pad (M2 self-tap into the X-horn's Phi ~ 2.0 mm
+        # arm hole below).  The bolt-PCD radius (10.4 mm) is INSIDE
+        # the horn-stack void (HORN_STACK_VOID_R = 18.5 mm), so any
+        # over-long hole punches through air inside the ring/void and
+        # doesn't remove material.  See make_femur_link for the May
+        # 2026 M3 -> M2 X-horn fastener-spec fix history.
         h = _cyl(XHORN_BOLT_M2_SELFTAP_HOLE_OD / 2.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
         h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),

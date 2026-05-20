@@ -1320,21 +1320,20 @@ def check_servo_clearance():
 # The driven printed part (coxa_link for yaw, femur_link for hip-pitch,
 # tibia_link for knee-pitch) sits ABOVE the plastic horn at femur/tibia
 # y >= HORN_STACK_H = +5, with a 4-bolt clamp pad on XHORN_BOLT_PCD =
-# 20.8 mm.  The part's "neck" -- the material between the pad's mating
-# face (y = HORN_STACK_H) and the spar's near face (y = LINK_THICKNESS/2
-# = +3) -- MUST be free of plastic anywhere inside the legacy horn-
-# adapter cylinder (diameter HORN_ADAPTER_OD = 32 mm) plus a small
-# clearance margin.  The link's neck-torus void is still sized for the
-# adapter footprint (HORN_STACK_VOID_R = HORN_ADAPTER_OD/2 + 0.5 =
-# 16.5 mm in make_femur_link / make_tibia_link), so this probe radius
-# is still the right pass/fail boundary for the existing neck-torus
-# geometry -- the plastic horn's wider arm sweep (PLASTIC_HORN_X_TIP_R
-# = 18 mm) is captured separately by check_horn_sweep_clearance for
-# the yaw joint and is documented as a known-conservative gap on the
-# hip-/knee-pitch joints (the arms rotate WITH the link, so they don't
-# sweep through the neck-wall material in operation; clearance only
-# matters at assembly time, when the user can wiggle the horn under
-# the pad).
+# 20.8 mm.  The part's "neck" / flange ring -- the material between the
+# pad's mating face (y = HORN_STACK_H) and the spar's +Y face
+# (y = LINK_THICKNESS/2 = +3) -- MUST be free of plastic anywhere
+# inside the plastic X-horn's swept envelope plus a small clearance
+# margin.
+#
+# May 2026 "shorten-neck" refactor: the link's flange-ring inner
+# radius switched from ``HORN_ADAPTER_OD/2 + 0.5`` = 16.5 mm (sized
+# for the now-retired printed servo_horn_adapter) to
+# ``HORN_STACK_VOID_R`` = ``PLASTIC_HORN_X_TIP_R + 0.5`` = 18.5 mm
+# (sized for the plastic X-horn's actual Phi 36 mm sweep -- the user
+# found that the previous Phi 33 mm cup physically blocked the
+# Phi 36 mm horn from fitting).  This probe radius tracks the same
+# constant so the verifier follows the link geometry automatically.
 #
 # This is exactly the failure mode the user reported as "the femur link
 # doesn't let the end of the servo stick out high enough to connect to
@@ -1345,12 +1344,13 @@ def check_servo_clearance():
 # Test geometry
 # -------------
 # We build a single horn-stack cylinder of radius
-# (HORN_ADAPTER_OD/2 + HORN_STACK_CLEARANCE) and height HORN_STACK_H,
-# centred on the joint axis at y in [0, HORN_STACK_H], and probe each
-# driven printed part for material inside that volume.  The check is
-# done in each part's LOCAL frame -- both the femur and tibia have
-# their joint axis at the origin with +Y along the horn-stack
-# direction, so a single cylinder template works for both.
+# HORN_STACK_VOID_R (= PLASTIC_HORN_X_TIP_R + HORN_STACK_CLEARANCE =
+# 18.5 mm) and height HORN_STACK_H, centred on the joint axis at
+# y in [0, HORN_STACK_H], and probe each driven printed part for
+# material inside that volume.  The check is done in each part's
+# LOCAL frame -- both the femur and tibia have their joint axis at
+# the origin with +Y along the horn-stack direction, so a single
+# cylinder template works for both.
 #
 # Tolerance: the budget catches the well-defined "solid column"
 # failure (~ 500-2000 mm^3 of interpenetration) without flaring on
@@ -1358,14 +1358,18 @@ def check_servo_clearance():
 # rim where the neck-clearance void's CYLINDRICAL boundary meets the
 # pad's CIRCULAR-DISC boundary on slightly mismatched voxel grids.
 
-HORN_STACK_CLEARANCE = 0.5   # mm -- radial clearance around the adapter OD
+HORN_STACK_CLEARANCE = 0.5   # mm -- radial clearance around the X-horn tips
 HORN_STACK_OVERLAP_TOL = 50.0  # mm^3 -- voxel-grid artefact budget
 
 
 def check_horn_stack_clearance():
     """Verify each driven printed part has a clear cylindrical void
-    for the plastic horn + printed horn adapter stack at its joint."""
-    R = hp.HORN_ADAPTER_OD / 2.0 + HORN_STACK_CLEARANCE
+    for the plastic X-horn at its joint."""
+    # Probe radius matches the link's flange-ring inner radius
+    # (HORN_STACK_VOID_R) so the verifier follows the geometry
+    # automatically.  Equal to PLASTIC_HORN_X_TIP_R + 0.5 = 18.5 mm
+    # as of the May 2026 shorten-neck refactor.
+    R = hp.HORN_STACK_VOID_R
     H = hp.HORN_STACK_H
 
     print(f"\n[5b] Horn-stack clearance (Phi {2*R:.1f} mm x {H:.1f} mm tall, "
@@ -1420,18 +1424,17 @@ def check_horn_stack_clearance():
 # (or worse, prevents the horn + horn-adapter stack from seating
 # above the bracket in the first place).
 #
-# WHY 5b's CYLINDER WAS THE WRONG SIZE
-# ------------------------------------
-# 5b uses radius (HORN_ADAPTER_OD/2 + 0.5) = 16.5 mm, sized for the
-# PRINTED adapter only.  But the PLASTIC X-horn (the part that ships
-# with the servo) sweeps a BIGGER cylinder: real-hardware DS3225 /
-# MG996R-class horns reach ~ 19 mm to each arm tip.  And 5b's height
-# is HORN_STACK_H = 9 mm, which covers only the plastic-horn + printed-
-# adapter stack, NOT the SERVO_OUTPUT_H = 6 mm gear-stack region
-# between the body's top face and the plastic horn's bottom face.  A
-# bracket wall that wraps over the top of the well to z = +13 mm in
-# bracket-local clears the printed adapter (which lives above z = +18)
-# but clobbers the gear stack and the plastic horn underneath.
+# WHY 5b's CYLINDER WAS THE WRONG SIZE (for the YAW joint)
+# --------------------------------------------------------
+# 5b uses radius HORN_STACK_VOID_R = PLASTIC_HORN_X_TIP_R + 0.5 =
+# 18.5 mm, sized for the plastic X-horn's actual sweep.  But 5b's
+# height is HORN_STACK_H = 5 mm, which covers only the plastic-horn
+# stack, NOT the SERVO_OUTPUT_H = 6 mm gear-stack region between the
+# body's top face and the plastic horn's bottom face.  A bracket wall
+# that wraps over the top of the well to z = +13 mm in bracket-local
+# clears the printed adapter (which lives above z = +18 in legacy
+# coords) but clobbers the gear stack and the plastic horn
+# underneath.
 #
 # WHAT THIS CHECK DOES
 # --------------------

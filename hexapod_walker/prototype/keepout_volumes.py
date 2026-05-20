@@ -197,35 +197,39 @@ def _knee_servo_body_pocket() -> trimesh.Trimesh:
 
 
 def _femur_horn_stack_void() -> trimesh.Trimesh:
-    """Cylindrical clearance void inside the femur's hip-end neck torus.
+    """Cylindrical clearance void inside the femur's hip-end flange ring.
 
-    Holds the plastic horn when the femur is bolted directly to the
-    hip-pitch servo's plastic 4-arm X-horn (femur-local frame).  Design
-    B (May 2026): height has collapsed from ``HORN_STACK_H +
-    LINK_THICKNESS`` = 15 mm down to ``HORN_STACK_H + LINK_THICKNESS``
-    = 11 mm now that ``HORN_STACK_H == PLASTIC_HORN_H == 5 mm``.  The
-    void radius is still ``HORN_ADAPTER_OD/2 + 0.5`` = 16.5 mm because
-    the neck-torus inner wall in the link geometry continues to use
-    that radius (the plastic horn's wider 19 mm arm sweep is covered
-    separately by check_horn_sweep_clearance on the YAW joint; on the
-    hip/knee joints the horn rotates rigidly with the link so the
-    arms never sweep through the neck wall in operation).
+    Holds the plastic 4-arm X-horn when the femur is bolted directly
+    to the hip-pitch servo (femur-local frame).  May 2026
+    shorten-neck refactor: the void radius switched from
+    ``HORN_ADAPTER_OD/2 + 0.5`` = 16.5 mm (sized for the now-retired
+    printed servo_horn_adapter disc) to ``HORN_STACK_VOID_R`` =
+    ``PLASTIC_HORN_X_TIP_R + 0.5`` = 18.5 mm so the Phi 36 mm plastic
+    X-horn physically fits inside the ring.  Y extent matches the
+    unified void cut in ``make_femur_link`` -- y in
+    [-LINK_THICKNESS/2 - 1, HORN_STACK_H + 1] = [-4, +6], 1 mm
+    overshoot at each end for clean CSG cut through the spar bottom
+    and pad mating face.
     """
+    void_y_lo = -hp.LINK_THICKNESS / 2.0 - 1.0
+    void_y_hi = hp.HORN_STACK_H + 1.0
     return _cyl_axis(
-        radius=hp.HORN_ADAPTER_OD / 2.0 + 0.5,
-        height=hp.HORN_STACK_H + hp.LINK_THICKNESS,
+        radius=hp.HORN_STACK_VOID_R,
+        height=void_y_hi - void_y_lo,
         axis="y",
-        centre=(0.0, (hp.HORN_STACK_H - hp.LINK_THICKNESS / 2.0) / 2.0, 0.0),
+        centre=(0.0, (void_y_lo + void_y_hi) / 2.0, 0.0),
     )
 
 
 def _tibia_horn_stack_void() -> trimesh.Trimesh:
     """Same shape as the femur's, but in tibia-local coords."""
+    void_y_lo = -hp.LINK_THICKNESS / 2.0 - 1.0
+    void_y_hi = hp.HORN_STACK_H + 1.0
     return _cyl_axis(
-        radius=hp.HORN_ADAPTER_OD / 2.0 + 0.5,
-        height=hp.HORN_STACK_H + hp.LINK_THICKNESS,
+        radius=hp.HORN_STACK_VOID_R,
+        height=void_y_hi - void_y_lo,
         axis="y",
-        centre=(0.0, (hp.HORN_STACK_H - hp.LINK_THICKNESS / 2.0) / 2.0, 0.0),
+        centre=(0.0, (void_y_lo + void_y_hi) / 2.0, 0.0),
     )
 
 
