@@ -756,7 +756,9 @@ def _decorate_plotter(
         shadow=False,
     )
 
-    label_positions = np.array([p.label_pos for p in placed])
+    label_positions = np.array(
+        [p.label_pos for p in placed], dtype=np.float64,
+    )
     label_texts = [
         palette.instance_label(
             p.instance.part_type,
@@ -767,9 +769,29 @@ def _decorate_plotter(
         for p in placed
     ]
 
+    # Build the label anchors as a real pv.PolyData with a named
+    # ``labels`` string array on point_data, then hand it to
+    # add_point_labels via the ``labels="labels"`` string path.  That
+    # path makes add_point_labels feed the polydata DIRECTLY into the
+    # vtkPointSetToLabelHierarchy (instead of cloning it via the
+    # list-of-strings code path), so we can mutate
+    # ``label_polydata.points`` in place on explode and just call
+    # Modified() -- no more remove_actor / add_point_labels rebuild
+    # cycle.  The remove+re-add cycle was segfaulting VTK on the
+    # first explode toggle: it tore down the label-hierarchy actor
+    # while VTK still held internal references through the pipeline,
+    # taking the whole window down with it.
+    import vtk as _vtk_for_labels  # local: keep top-level import set lean
+    label_polydata = pv.PolyData(label_positions)
+    _labels_vtk_arr = _vtk_for_labels.vtkStringArray()
+    _labels_vtk_arr.SetName("labels")
+    for _s in label_texts:
+        _labels_vtk_arr.InsertNextValue(_s)
+    label_polydata.GetPointData().AddArray(_labels_vtk_arr)
+
     label_actor_holder = {"actor": plotter.add_point_labels(
-        label_positions,
-        label_texts,
+        label_polydata,
+        "labels",
         point_size=0,
         show_points=False,
         font_size=14,
@@ -830,26 +852,21 @@ def _decorate_plotter(
             m[1, 3] = shift[1]
             m[2, 3] = shift[2]
             p.actor.user_matrix = m
-        new_pos = np.array([
-            p.label_pos + factor * (p.centroid - chassis_centroid)
-            for p in placed
-        ])
-        plotter.remove_actor("instance_labels")
-        new_actor = plotter.add_point_labels(
-            new_pos,
-            label_texts,
-            point_size=0,
-            show_points=False,
-            font_size=14,
-            bold=True,
-            always_visible=True,
-            shape_color="white",
-            shape_opacity=0.7,
-            text_color="black",
-            name="instance_labels",
+        # Update label anchor positions in place on the cached
+        # polydata.  ``add_point_labels`` was given this polydata as
+        # its hierarchy input at setup time, so calling Modified() is
+        # enough to make VTK re-read the new positions on the next
+        # render -- no actor rebuild, no risk of tearing down a live
+        # vtkPointSetToLabelHierarchy mid-frame.
+        new_pos = np.asarray(
+            [
+                p.label_pos + factor * (p.centroid - chassis_centroid)
+                for p in placed
+            ],
+            dtype=np.float64,
         )
-        new_actor.SetVisibility(labels_state["visible"])
-        label_actor_holder["actor"] = new_actor
+        label_polydata.points = new_pos
+        label_polydata.Modified()
 
     def _slider_callback(value: float) -> None:
         state["explode"] = float(value)
@@ -979,12 +996,31 @@ def _decorate_plotter(
     def _toggle_explode() -> None:
         explode_toggle_state["on"] = not explode_toggle_state["on"]
         state["explode"] = 1.5 if explode_toggle_state["on"] else 0.0
+        # PyVista 0.45+ moved slider_widgets onto Plotter.widgets; access
+        # the new path first and fall back to the deprecated top-level
+        # attribute on older PyVista versions.  Touching the old path
+        # under PyVista >= 0.48 emits a PyVistaDeprecationWarning that, if
+        # the user has warnings-as-error configured, escapes the explode
+        # toggle entirely.
         try:
-            for sw in plotter.slider_widgets:
+            widget_group = getattr(plotter, "widgets", None)
+            sliders = (
+                getattr(widget_group, "slider_widgets", None)
+                if widget_group is not None
+                else None
+            )
+            if sliders is None:
+                sliders = plotter.slider_widgets  # legacy fallback
+            for sw in sliders:
                 sw.GetSliderRepresentation().SetValue(state["explode"])
         except Exception:
             pass
-        _apply_explode(state["explode"])
+        try:
+            _apply_explode(state["explode"])
+        except Exception as exc:
+            # Don't let a stale label actor or an add_point_labels API
+            # change take down the whole viewer -- log it and continue.
+            print(f"inspect_build: explode apply failed: {exc!r}")
         plotter.render()
 
     def _reset_camera() -> None:
