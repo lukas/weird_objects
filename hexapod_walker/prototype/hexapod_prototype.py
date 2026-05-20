@@ -710,6 +710,31 @@ HORN_RECESS_DEPTH   =  1.6   # mm
 # into the plastic 4-arm X-horn's existing Phi ~ 2.0 mm untapped arm
 # hole.  The link's pad just needs a clean clearance through-hole for
 # the M2 shank; the X-horn provides the actual thread engagement.
+# Bottom-cap geometry on driven link pads.  Each printed link pad has
+# to:
+#   (a) be solid in the central region where the 4 M2 X-horn clamp
+#       bolts seat (PCD = 20.8 mm, well within the pad's 34 x 34 mm
+#       footprint),
+#   (b) recess each M2 SHCS head into a counter-bore so the head
+#       doesn't protrude into the assembly trough above and block
+#       the hip-pitch / knee servo body's insertion path.
+# These two requirements drive the cap thickness PEDESTAL_CAP_T and
+# the counter-bore depth COUNTERBORE_DEPTH below.  See the
+# make_coxa_link / make_femur_link / make_tibia_link docstrings for
+# the full geometry.
+PEDESTAL_CAP_T          = 4.0   # mm -- thickness of the solid bottom
+                                #       cap that carries the 4 M2
+                                #       X-horn clamp bolts.  4 mm gives
+                                #       a 1.5 mm shaft-clearance run
+                                #       + 2.5 mm counter-bore.
+COUNTERBORE_DEPTH       = 2.5   # mm -- counter-bore depth (M2 SHCS
+                                #       head height = 2 mm + 0.5 mm
+                                #       safety margin).  Bolt head TOP
+                                #       sits flush with the cap top
+                                #       face (= PEDESTAL_CAP_T).
+M2_HEAD_OD_CLEARANCE    = 4.0   # mm -- Phi 4 mm clearance pocket for
+                                #       the M2 SHCS head (head OD =
+                                #       3.8 mm + 0.2 mm FDM tolerance).
 XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2   # mm -- M2 self-tap clearance
                                        #       through the link's pad
                                        #       (the plastic X-horn's
@@ -1551,8 +1576,19 @@ def make_servo_horn() -> trimesh.Trimesh:
     bolts on top of this.
     """
     parts: list[trimesh.Trimesh] = []
-    hub = _cyl(8.0, 2.0)
-    hub.apply_translation([0, 0, 1.0])
+    # Hub spans z=[0, PLASTIC_HORN_H] so the mesh's bounding cylinder
+    # matches the placement math (HORN_STACK_H = PLASTIC_HORN_H = 5 mm).
+    # The pre-2026 mesh had the hub at z=[0, 2] and the arms ALSO at
+    # z=[0, 1.6], so the visual stack was 3 mm SHORTER than the math
+    # said (HORN_STACK_H = 5).  Inspectors saw a 3 mm air gap between
+    # the horn top and the link bottom even when the placement math
+    # was correct.  Now the hub fills the full 5 mm and the arms sit
+    # on the hub TOP at z=[3.4, 5.0] so the link's bottom face mates
+    # to the arms at z = PLASTIC_HORN_H = 5 (= link-local z = 0).
+    hub_h = PLASTIC_HORN_H
+    arm_t = 1.6
+    hub = _cyl(8.0, hub_h)
+    hub.apply_translation([0, 0, hub_h / 2.0])
     parts.append(hub)
     # Arm length 2 * PLASTIC_HORN_X_TIP_R so each arm's tip sits at the
     # real-hardware sweep radius (= 19 mm from the spline centre on a
@@ -1563,19 +1599,25 @@ def make_servo_horn() -> trimesh.Trimesh:
     # check_horn_sweep_clearance reads the bounding cylinder of this
     # mesh; keep it in sync with real hardware so the verifier
     # measures the right sweep radius.
+    arm_z_centre = hub_h - arm_t / 2.0
     for a in XHORN_BOLT_ANGLES_RAD:
-        arm = _box((2.0 * PLASTIC_HORN_X_TIP_R, 4.0, 1.6))
+        arm = _box((2.0 * PLASTIC_HORN_X_TIP_R, 4.0, arm_t))
         arm.apply_transform(rotation_matrix(a, [0, 0, 1]))
-        arm.apply_translation([0, 0, 0.8])
+        arm.apply_translation([0, 0, arm_z_centre])
         parts.append(arm)
     horn = _union(*parts)
 
+    # Bolt holes drilled down through the arms, slightly into the hub
+    # top (z range = [hub_h - arm_t - 0.4, hub_h]) so the CSG cut
+    # cleanly punches through the arm even with FDM/voxel tolerance.
     bolt_holes = []
+    hole_h = arm_t + 0.4
+    hole_z = hub_h - hole_h / 2.0
     for a in XHORN_BOLT_ANGLES_RAD:
-        h = _cyl(XHORN_BOLT_OD / 2.0, 4.0)
+        h = _cyl(XHORN_BOLT_OD / 2.0, hole_h)
         h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
                               XHORN_BOLT_PCD / 2.0 * np.sin(a),
-                              0.8])
+                              hole_z])
         bolt_holes.append(h)
     return _diff(horn, *bolt_holes)
 
@@ -2410,28 +2452,68 @@ def make_coxa_link() -> trimesh.Trimesh:
     # above the trough than intended.
     body_top_z   = well_z_drop + COXA_LIFT + SERVO_BODY_D / 2.0
     trough_z_max = body_top_z + 1.0                         # +1 mm FDM margin
-    trough_z_min = 0.0
+    # Raise the trough floor to PEDESTAL_CAP_T (= 4 mm) so a solid
+    # bottom cap covers the full 34 x 34 mm pedestal footprint at
+    # z in [0, PEDESTAL_CAP_T].  Pre-2026-05 the trough was rooted at
+    # z = 0 -- that sliced the ENTIRE bottom 25.5 mm out of the
+    # pedestal and left only a thin "cap" at z in [25.5, 36], with NO
+    # material in the central region where the 4 M2 X-horn bolts at
+    # PCD 20.8 mm have to seat.  body_bot_z (= well_z_drop +
+    # COXA_LIFT - SERVO_BODY_D/2 = 4.5) is the bottom of the hip-pitch
+    # servo body's +Y face; we need trough_z_min <= body_bot_z - 0.5
+    # for the body to still drop in cleanly, so the new floor at 4 mm
+    # leaves 0.5 mm of clearance below the body and preserves a 4 mm
+    # thick cap above the X-horn.
+    trough_z_min = PEDESTAL_CAP_T
     trough_z_ext = trough_z_max - trough_z_min
     trough_z_cen = (trough_z_min + trough_z_max) / 2.0
     trough = _box((trough_x_ext, 34.0, trough_z_ext),
                   center=(trough_x_cen, 0.0, trough_z_cen))
 
-    # ---- Bolt holes through the WHOLE pedestal + hub stack ----
+    # ---- M2 X-horn bolt clearance through the bottom cap -------------
     # 4 x M2 self-tap clearance holes (XHORN_BOLT_OD = 2.2 mm) drilled
-    # all the way through the pedestal + hub stack so the M2 SHCS shank
-    # passes through the printed material and engages the plastic
-    # X-horn's Phi ~ 2.0 mm arm hole at the bottom of the stack.  See
-    # the XHORN_BOLT_* constants block (May 2026 fastener-spec fix:
-    # was M3, the real X-horn arm holes are M2-sized so the original
-    # Phi 3.2 mm clearance was a physical mis-fit).
-    bolt_total_h = COXA_LIFT + hub_t
-    hub_holes = []
+    # through the 4 mm bottom cap so the M2 SHCS shank can pass
+    # through the printed cap material into the plastic X-horn's
+    # Phi ~ 2.0 mm arm hole below.
+    #
+    # Each bolt gets a STEPPED cut:
+    #
+    #    z in [0, PEDESTAL_CAP_T - COUNTERBORE_DEPTH]  Phi 2.2 mm shaft
+    #         = [0, 1.5]                                clearance
+    #
+    #    z in [PEDESTAL_CAP_T - COUNTERBORE_DEPTH,     Phi 4 mm head
+    #          PEDESTAL_CAP_T] = [1.5, 4.0]            counter-bore
+    #
+    # so the M2 SHCS head (Phi ~3.8 mm + 0.2 mm tolerance, 2 mm tall)
+    # recesses fully into the cap with its TOP face flush at z = 4 mm
+    # (just below the trough floor).  A hex key reaches the head from
+    # +Y through the existing body-insertion trough above the cap.
+    # The shaft hole is intentionally restricted to the cap region:
+    # above z = PEDESTAL_CAP_T the trough already supplies a clear
+    # vertical path so drilling further is unnecessary.
+    cap_holes = []
+    counterbore_holes = []
+    shaft_h_extent = PEDESTAL_CAP_T + 0.2  # 0.1 mm overshoot top + bottom
+    counterbore_h_extent = COUNTERBORE_DEPTH + 0.05
+    counterbore_z_centre = PEDESTAL_CAP_T - counterbore_h_extent / 2.0
     for a in XHORN_BOLT_ANGLES_RAD:
-        h = _cyl(XHORN_BOLT_OD / 2.0, bolt_total_h * 4)
+        h = _cyl(XHORN_BOLT_OD / 2.0, shaft_h_extent)
         h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
                               XHORN_BOLT_PCD / 2.0 * np.sin(a),
-                              bolt_total_h / 2.0])
-        hub_holes.append(h)
+                              shaft_h_extent / 2.0 - 0.1])
+        cap_holes.append(h)
+
+        cb = _cyl(M2_HEAD_OD_CLEARANCE / 2.0, counterbore_h_extent)
+        cb.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
+                              XHORN_BOLT_PCD / 2.0 * np.sin(a),
+                              counterbore_z_centre])
+        counterbore_holes.append(cb)
+
+    # Central M3 horn-screw clearance.  Stays as a through-cut all the
+    # way up the stack so the M2.5 spline screw head (captive under
+    # the link's bottom recess) is fully accommodated and assembly
+    # tooling has visual line-of-sight along the joint axis.
+    bolt_total_h = COXA_LIFT + hub_t
     centre_hole = _cyl(HORN_CENTRE_OD / 2.0, bolt_total_h * 4)
     centre_hole.apply_translation([0, 0, bolt_total_h / 2.0])
 
@@ -2561,7 +2643,8 @@ def make_coxa_link() -> trimesh.Trimesh:
 
     body = _union(pedestal, body_unlifted)
     return _diff(body, trough, spar_slot, pad_sweep_clear,
-                 horn_hub_recess, *hub_holes, centre_hole)
+                 horn_hub_recess, *cap_holes, *counterbore_holes,
+                 centre_hole)
 
 
 def make_femur_link() -> trimesh.Trimesh:
@@ -2691,6 +2774,7 @@ def make_femur_link() -> trimesh.Trimesh:
     hip_neck_void.apply_translation([0, neck_y_min - 1.0, 0])
 
     hip_holes = []
+    hip_counterbores = []
     for a in XHORN_BOLT_ANGLES_RAD:
         # Drill the 4 M2 clamp holes ONLY through the pad's 6 mm-thick
         # clamp ring (y in [+5, +11] post-2026 May refactor; was
@@ -2717,6 +2801,25 @@ def make_femur_link() -> trimesh.Trimesh:
                               hip_pad_centre_y,
                               XHORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_holes.append(h)
+
+        # Counter-bore for the M2 SHCS head, opening AWAY from the
+        # X-horn (i.e. at the pad's +Y outer face).  The pad's outer
+        # face is at y = hip_pad_y_max = HORN_STACK_H + LINK_THICKNESS;
+        # the counter-bore cylinder extends from y = pad_y_max -
+        # COUNTERBORE_DEPTH back through the outer face by 0.05 mm of
+        # overshoot to guarantee a clean CSG cut.  Head TOP sits flush
+        # with the pad's outer +Y face, head BOTTOM at y =
+        # pad_y_max - 2 mm (M2 SHCS head height).  The remaining
+        # pad material (y in [hip_pad_y_min, hip_pad_y_max -
+        # COUNTERBORE_DEPTH] = [5, 8.5]) is the actual clamp face
+        # that bears against the X-horn arm at y = HORN_STACK_H = 5.
+        cb_len = COUNTERBORE_DEPTH + 0.1
+        cb = _cyl(M2_HEAD_OD_CLEARANCE / 2.0, cb_len)
+        cb.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
+        cb.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
+                              hip_pad_y_max - cb_len / 2.0 + 0.05,
+                              XHORN_BOLT_PCD / 2.0 * np.sin(a)])
+        hip_counterbores.append(cb)
 
     # ---- Central horn-hub recess in the pad's mating face -----------
     # Design B (May 2026): the femur's hip pad bolts DIRECTLY onto the
@@ -2910,7 +3013,7 @@ def make_femur_link() -> trimesh.Trimesh:
                    bridge_top, bridge_bot)
     return _diff(body, hip_neck_void, insertion_slot, wire_slot,
                  cavity_trim, knee_clear, hip_horn_recess,
-                 *hip_holes, *lightening)
+                 *hip_holes, *hip_counterbores, *lightening)
 
 
 def make_tibia_link() -> trimesh.Trimesh:
@@ -2970,6 +3073,7 @@ def make_tibia_link() -> trimesh.Trimesh:
     knee_neck_void.apply_translation([0, neck_y_min - 1.0, 0])
 
     knee_holes = []
+    knee_counterbores = []
     for a in XHORN_BOLT_ANGLES_RAD:
         # Bolt holes drilled through the PAD ONLY (y in [+5, +11]
         # post-2026 May refactor; was [+9, +15] when the printed
@@ -2987,6 +3091,21 @@ def make_tibia_link() -> trimesh.Trimesh:
                               knee_pad_centre_y,
                               XHORN_BOLT_PCD / 2.0 * np.sin(a)])
         knee_holes.append(h)
+
+        # Counter-bore for the M2 SHCS head, opening AWAY from the
+        # X-horn (at the knee pad's +Y outer face).  Same geometry as
+        # make_femur_link's hip_counterbores: Phi 4 mm pocket 2.5 mm
+        # deep, with the head TOP flush at the pad's outer face.  The
+        # head BOTTOM is at y = knee_pad_y_max - 2 mm; the remaining
+        # 3.5 mm of pad material below the counter-bore clamps the
+        # X-horn arm at y = HORN_STACK_H.
+        cb_len = COUNTERBORE_DEPTH + 0.1
+        cb = _cyl(M2_HEAD_OD_CLEARANCE / 2.0, cb_len)
+        cb.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
+        cb.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
+                              knee_pad_y_max - cb_len / 2.0 + 0.05,
+                              XHORN_BOLT_PCD / 2.0 * np.sin(a)])
+        knee_counterbores.append(cb)
 
     # ---- Central horn-hub recess in the knee pad's mating face ------
     # Design B (May 2026): see make_femur_link for the full
@@ -3068,7 +3187,7 @@ def make_tibia_link() -> trimesh.Trimesh:
 
     body = _union(knee_pad, knee_neck_outer, spar, taper, clevis_bulk)
     return _diff(body, knee_neck_void, knee_horn_recess, *knee_holes,
-                 clevis_slot, pin_hole, *lightening)
+                 *knee_counterbores, clevis_slot, pin_hole, *lightening)
 
 
 def make_foot_pad() -> trimesh.Trimesh:
