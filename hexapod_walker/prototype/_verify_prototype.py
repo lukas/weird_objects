@@ -2511,11 +2511,11 @@ def _build_chassis_world(reference_leg_az_rad):
     parts["chassis_top"] = top
 
     bh = _load_mesh("battery_holder")
-    bh.apply_translation([-25.0, 0.0, hp.CHASSIS_PLATE_T])
+    bh.apply_translation([hp.BATTERY_HOLDER_CENTRE_X, 0.0, hp.CHASSIS_PLATE_T / 2.0])
     parts["battery_holder"] = bh
 
     et = _load_mesh("electronics_tray")
-    et.apply_translation([35.0, 0.0, hp.CHASSIS_PLATE_T + 1.0])
+    et.apply_translation([35.0, 0.0, hp.CHASSIS_PLATE_T / 2.0 + 1.0])
     parts["electronics_tray"] = et
 
     apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
@@ -3505,7 +3505,7 @@ def _build_world_leg0_printed_parts() -> dict:
     parts["chassis_top"] = cb_top
 
     bat = _load_mesh("battery_holder")
-    bat.apply_translation([-25.0, 0.0, plate_t])
+    bat.apply_translation([hp.BATTERY_HOLDER_CENTRE_X, 0.0, plate_t / 2.0])
     parts["battery_holder"] = bat
 
     et = _load_mesh("electronics_tray")
@@ -3824,6 +3824,11 @@ FASTENER_ENGAGEMENT_SPEC = {
     "M2x8 SHCS":                       dict(head_od=3.8, shaft_od=2.2, engagement_mm=3.0),
     "M3x8 SHCS":                       dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x8 SHCS into heat-set insert":  dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
+    # ``M3x10 SHCS`` -- battery_holder foot bolts (4) into M3 heat-set
+    # inserts.  Same engagement target as M3 x 8 into insert (= the
+    # 5 mm insert body length) since both rely on the brass thread,
+    # not the printed plastic.
+    "M3x10 SHCS":                      dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x32 SHCS":                      dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x16 pan-head":                  dict(head_od=6.0, shaft_od=3.2, engagement_mm=5.0),
     "M2.5x8 spline screw":             dict(head_od=4.5, shaft_od=2.7, engagement_mm=3.0),

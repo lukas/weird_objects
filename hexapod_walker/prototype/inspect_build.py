@@ -192,11 +192,11 @@ def _build_assembly_instances() -> list[Instance]:
     ))
     instances.append(Instance(
         "battery_holder", "battery_holder.stl", None, None,
-        _trans(-25.0, 0, plate_t),
+        _trans(HP.BATTERY_HOLDER_CENTRE_X, 0, plate_t / 2.0),
     ))
     instances.append(Instance(
         "electronics_tray", "electronics_tray.stl", None, None,
-        _trans(35.0, 0, plate_t + 1.0),
+        _trans(35.0, 0, plate_t / 2.0 + 1.0),
     ))
 
     yaw_output_z = (

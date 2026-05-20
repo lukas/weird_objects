@@ -363,19 +363,35 @@ def _body_frame_parts(chassis_lift):
 
 
 def _body_battery_parts(chassis_lift):
-    """Battery holder, LiPo pack, electronics tray, Arduino, PCA9685."""
-    parts = []
-    bh_z0 = chassis_lift + HP.CHASSIS_PLATE_T
+    """Battery holder, LiPo pack, electronics tray, Arduino, PCA9685.
 
-    # Holder shell
+    ``bh_z0`` is the world z of the battery_holder's bottom face,
+    which mates with the chassis_bottom mesh's TOP face.  The
+    chassis_bottom mesh is centred on its own z = 0 (it's a hex
+    extrusion of CHASSIS_PLATE_T = 4 mm so its top face is at
+    chassis_lift + CHASSIS_PLATE_T / 2 = chassis_lift + 2 in world
+    coordinates), so the holder's bottom face must also sit there.
+    Pre-May-2026 the holder was translated by full CHASSIS_PLATE_T
+    (= 4 mm) which left it floating 2 mm above the chassis_bottom
+    mesh; the verifier's check_fastener_engagement caught this
+    when battery_holder bolts started being enumerated.
+    """
+    parts = []
+    bh_z0 = chassis_lift + HP.CHASSIS_PLATE_T / 2.0
+
+    # Holder shell.  ``HP.BATTERY_HOLDER_CENTRE_X`` (= -25 mm) is the
+    # single source of truth for the holder's chassis-frame X
+    # position; the fastener_registry, _hex_plate, the verifier and
+    # inspect_build all read the same constant so the chassis_bottom
+    # bolt-pass holes line up with the holder's feet.
     bh = HP.make_battery_holder()
-    bh.apply_translation([-25.0, 0, bh_z0])
+    bh.apply_translation([HP.BATTERY_HOLDER_CENTRE_X, 0, bh_z0])
     parts.append(bh)
 
     # The LiPo pack itself (visible inside the holder).  Standard 3S
     # 2200 mAh pack: ~ 105 x 35 x 25 mm with shrink-wrap label.
     lipo = _box((105.0, 35.0, 25.0),
-                center=(-25.0, 0,
+                center=(HP.BATTERY_HOLDER_CENTRE_X, 0,
                          bh_z0 + HP.BATTERY_WALL + 25.0 / 2.0))
     parts.append(lipo)
 

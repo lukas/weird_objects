@@ -98,8 +98,24 @@ from trimesh.transformations import rotation_matrix
 # ~ 350 mm, so the vehicle's outer diameter is ~ 700 mm.
 CHASSIS_FLAT_TO_FLAT  = 200.0   # mm -- distance between opposite hex edges
 CHASSIS_PLATE_T       =   4.0   # mm -- thickness of each 3D-printed plate
-CHASSIS_GAP           =  20.0   # mm -- vertical gap between top + bottom plates
-                                #     (room for battery, brain, wiring)
+CHASSIS_GAP           =  32.0   # mm -- vertical gap between top + bottom plates
+                                #     (room for battery, brain, wiring).
+                                #     Was 20 mm before the May 2026 audit:
+                                #     the BATTERY_H = 28 mm holder was
+                                #     visibly ramming through the 4 mm
+                                #     chassis_top deck (no clearance
+                                #     cutout existed).  32 mm leaves
+                                #     32 - 28 = 4 mm of headroom above
+                                #     the battery inside the plate-to-
+                                #     plate void; the brass standoffs in
+                                #     SHOPPING_LIST.md / PROTOTYPE_BOM.md
+                                #     bump to 32 mm to match.  IMPORTANT:
+                                #     any future change to CHASSIS_GAP
+                                #     MUST re-check the battery_holder
+                                #     and electronics_tray clearance + the
+                                #     standoff length (the
+                                #     CAD_AGENT_INSTRUCTIONS.md rule
+                                #     #9 enforces this).
 # The TOP plate is intentionally smaller than the bottom plate.  The bottom
 # plate is the structural one: it sandwiches the coxa-bracket flanges (with
 # their four M3 bolts each) and also takes the per-leg servo body cutouts.
@@ -1031,6 +1047,86 @@ BATTERY_H =  28.0
 BATTERY_WALL = 1.6
 BATTERY_STRAP_W = 10.0   # velcro slot width
 
+# ---- Battery holder foot geometry ----------------------------------------
+# May 2026 fix (landed alongside the CHASSIS_GAP 20 -> 32 mm bump): the
+# battery_holder is now bolted to chassis_bottom from BELOW via 4 x M3
+# brass heat-set inserts in the foot bosses; the previous design left
+# the holder unbolted (4 Phi 3.2 mm clearance holes through the feet
+# that were never enumerated in fastener_registry, never matched by
+# holes in chassis_bottom, and never even called out in PROTOTYPE.md
+# beyond a single "bolt to the bottom plate" sentence).  Mirrors the
+# f03d59b cradle insert pattern: each foot is a small printed boss
+# that takes a Phi INSERT_M3_PILOT_OD = 4.0 mm x INSERT_M3_PILOT_DEPTH
+# = 6.0 mm-deep pocket cut from the foot's BOTTOM face; the bolt
+# enters from below (M3 x 10 SHCS through chassis_bottom), threads up
+# into the brass insert.  Foot geometry in battery-holder-local
+# (origin = centre of the holder's bottom face, +X = long axis,
+# +Z = up):
+#
+#     foot centre (X, Y) = (sx * BATTERY_FOOT_DX, sy * BATTERY_FOOT_DY)
+#     foot extents (X x Y x Z) = (BATTERY_FOOT_W x BATTERY_FOOT_D x
+#                                  BATTERY_FOOT_T)
+#     bottom face at z = 0; top face at z = BATTERY_FOOT_T
+#     heat-set insert pocket: Phi INSERT_M3_PILOT_OD = 4 mm,
+#         z in [0, INSERT_M3_PILOT_DEPTH] = [0, 6]
+#     pocket leaves 2 mm of plastic above the insert (z in [6, 8]).
+#
+# Foot Y dimension (BATTERY_FOOT_D) is 2 mm larger than the X
+# dimension so the foot's -Y face is COINCIDENT with the body's
+# +/- Y wall at y = +/- BATTERY_D/2 = +/- 19 mm.  Without this the
+# foot floats 1 mm clear of the body (sy * BATTERY_FOOT_DY = +/- 25
+# minus BATTERY_FOOT_D/2 = +/- 19 + 1 mm gap) -- the old layout
+# bonded the foot to the body via a 0 mm face which produced two
+# disconnected manifold components.  The new layout shares a
+# BATTERY_FOOT_W x BATTERY_FOOT_T = 10 x 8 mm face with the body
+# wall and unions cleanly into a single mesh.
+BATTERY_FOOT_W  = 10.0   # mm -- foot X dimension (footprint X)
+BATTERY_FOOT_D  = 12.0   # mm -- foot Y dimension (footprint Y; 2 mm
+                          #       larger than _W so the foot's -Y
+                          #       face bonds onto the BATTERY_D/2 =
+                          #       19 mm body wall in a 10 x 8 mm
+                          #       face).
+BATTERY_FOOT_T  =  8.0   # mm -- foot Z thickness (was BATTERY_WALL =
+                          #       1.6 mm; bumped to fit a
+                          #       Phi 4.0 mm x 6.0 mm-deep heat-set
+                          #       insert pocket from the foot's
+                          #       BOTTOM face with 2 mm of plastic
+                          #       above the insert and 3 mm of
+                          #       plastic radially around it).
+BATTERY_FOOT_DX = BATTERY_W / 2.0 - BATTERY_FOOT_W / 2.0  # 50.0 mm
+                          # foot centre X position; the foot's +X
+                          # face is flush with the holder body's +X
+                          # face at x = +BATTERY_W/2 = +55 mm.
+BATTERY_FOOT_DY = BATTERY_D / 2.0 + BATTERY_FOOT_D / 2.0 - 1.0
+                          # 24.0 mm; foot centre Y -- with
+                          # BATTERY_FOOT_D = 12 mm this puts the
+                          # foot's -Y face at y = sy * 18 mm, 1 mm
+                          # INSIDE the BATTERY_D/2 = 19 mm body
+                          # wall (the foot OVERLAPS the body wall
+                          # by 1 mm so the boolean union produces
+                          # a single connected mesh).
+BATTERY_FOOT_INSERT_RECESS = 0.5  # mm -- insert top face is
+                          # recessed this far INTO the foot from
+                          # the foot's BOTTOM face so the bolt
+                          # head's bearing ring clamps the
+                          # chassis_bottom plate onto plastic, not
+                          # brass (same convention as the cradle
+                          # heat-set inserts -- 0.5 mm of plastic
+                          # between bolt head and brass insert
+                          # face).
+
+# The battery_holder is NOT centred on the chassis -- it sits at
+# X = BATTERY_HOLDER_CENTRE_X = -25 mm so the +X half of the
+# chassis stays clear for the electronics_tray (at X = +35).  This
+# constant is referenced from build_prototype_assembly.py,
+# inspect_build.py, _verify_prototype.py's chassis-frame builders,
+# fastener_registry's battery-holder bolt emitter, AND _hex_plate's
+# battery-holder hole pattern -- they all have to use the same X
+# offset or the chassis_bottom holes won't line up with the
+# holder's feet and check_fastener_engagement reports the bolts
+# "join only 1 part".
+BATTERY_HOLDER_CENTRE_X = -25.0   # mm
+
 ELEC_TRAY_W = 100.0
 ELEC_TRAY_D =  70.0
 ELEC_TRAY_T =   3.0
@@ -1670,7 +1766,8 @@ def make_servo_horn_adapter() -> trimesh.Trimesh:
 
 def _hex_plate(flat_to_flat: float, thickness: float,
                with_centre_holes: bool = False,
-               with_leg_features: bool = True) -> trimesh.Trimesh:
+               with_leg_features: bool = True,
+               with_battery_holder_holes: bool = False) -> trimesh.Trimesh:
     """Return a flat hexagonal plate, centred on origin, axis = +Z.
 
     Hole pattern (per leg, 6 legs total):
@@ -1680,6 +1777,25 @@ def _hex_plate(flat_to_flat: float, thickness: float,
         of the chassis perimeter) and 2 on the INBOARD edge.  All four
         holes are inboard of the apothem line so the bolt heads have
         chassis material under them.
+
+    Optional inboard hole patterns:
+        ``with_centre_holes``: 4 vertical M3 clearance holes on a
+            35-mm-radius / 45-deg square, shared between the
+            electronics tray's standoff bolts and any arm baseplate.
+            chassis_top + chassis_bottom both carry this pattern.
+        ``with_battery_holder_holes``: 4 vertical M3 clearance holes
+            at (+/- BATTERY_FOOT_DX, +/- BATTERY_FOOT_DY) =
+            (+/- 50, +/- 24) mm.  Matches the 4 mounting feet on
+            battery_holder so the holder bolts to chassis_bottom
+            FROM BELOW (M3 x 10 SHCS through this hole, threads up
+            into the foot's heat-set insert).  ONLY chassis_bottom
+            carries this pattern -- chassis_top sits ABOVE the
+            battery and is not bolted to it.  The pattern is
+            INTENTIONALLY separate from ``with_centre_holes``: the
+            35-mm-radius square is far inboard (24.75 mm from
+            origin) of the holder's 110 mm x 38 mm footprint, so
+            moving the holder's feet onto the existing pattern
+            would put them INSIDE the holder body.
     """
     apothem = flat_to_flat / 2.0
     circum = apothem / np.cos(np.pi / 6)
@@ -1732,12 +1848,37 @@ def _hex_plate(flat_to_flat: float, thickness: float,
             holes.append(cutout)
 
     if with_centre_holes:
-        # 4 holes for the electronics tray + battery holder mounting
+        # 4 holes for the electronics tray standoffs + optional arm
+        # baseplate (35 mm radius, 45 deg square).  IMPORTANT: this
+        # is NOT the battery-holder bolt pattern -- see
+        # ``with_battery_holder_holes`` below for that.  The battery-
+        # holder feet sit at (+/- 50, +/- 24) mm, far outside the
+        # 35 mm radius these standoff holes live on.
         for i in range(4):
             a = np.pi / 4 + i * np.pi / 2
             h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
             h.apply_translation([35.0 * np.cos(a), 35.0 * np.sin(a), 0])
             holes.append(h)
+
+    if with_battery_holder_holes:
+        # 4 holes aligned with battery_holder's mounting feet at
+        # (BATTERY_HOLDER_CENTRE_X +/- BATTERY_FOOT_DX,
+        #  +/- BATTERY_FOOT_DY).  Each takes an M3 x 10 SHCS driven
+        # from BELOW that threads up into the heat-set insert in
+        # the foot above.  Phi BRACKET_BOLT_HOLE = 3.4 mm clearance
+        # for an M3 shank.  The holder is OFFSET in X relative to
+        # the chassis centre (BATTERY_HOLDER_CENTRE_X = -25 mm)
+        # because the +X half of the chassis carries the
+        # electronics_tray; the chassis_bottom hole pattern has
+        # to apply the same offset or the bolts miss the feet.
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
+                h.apply_translation([BATTERY_HOLDER_CENTRE_X
+                                       + sx * BATTERY_FOOT_DX,
+                                      sy * BATTERY_FOOT_DY,
+                                      0])
+                holes.append(h)
 
     return _diff(plate, *holes)
 
@@ -1763,15 +1904,38 @@ def make_chassis_top() -> trimesh.Trimesh:
 
 
 def make_chassis_bottom() -> trimesh.Trimesh:
-    """Bottom hex plate.  Identical to the top."""
+    """Bottom hex plate.  Structural carrier for the coxa-bracket
+    flanges, the electronics tray + arm baseplate standoffs (35 mm
+    radius / 45 deg pattern via ``with_centre_holes``), and the
+    battery_holder feet (BATTERY_FOOT_DX / DY pattern via
+    ``with_battery_holder_holes``).  May 2026 fix: the holder used to
+    be unbolted (no chassis-side hole pattern; the holder's feet
+    drilled clearance holes that mated to nothing); now 4 x M3 x 10
+    SHCS pass UP through this plate into heat-set inserts in the
+    battery_holder feet."""
     return _hex_plate(CHASSIS_FLAT_TO_FLAT, CHASSIS_PLATE_T,
-                       with_centre_holes=True)
+                       with_centre_holes=True,
+                       with_battery_holder_holes=True)
 
 
 def make_battery_holder() -> trimesh.Trimesh:
     """Open-top tray for one 3S 2200 mAh LiPo (105 x 38 x 28 mm).
+
     Two velcro slots cut through the long walls let the user strap the
-    pack down."""
+    pack down.  Four mounting feet at (+/- BATTERY_FOOT_DX,
+    +/- BATTERY_FOOT_DY) each carry an M3 brass heat-set insert
+    (McMaster ``94459A130``) pressed into a
+    Phi INSERT_M3_PILOT_OD = 4.0 mm x INSERT_M3_PILOT_DEPTH = 6.0 mm
+    pocket cut from the foot's BOTTOM face; the holder bolts to
+    chassis_bottom FROM BELOW via 4 x M3 x 10 SHCS that pass through
+    the chassis_bottom plate and thread UP into the inserts.
+
+    See the BATTERY_FOOT_* constants block above for the geometry
+    rationale (Y-overlap with the body wall for boolean-union
+    bonding; recessed insert top so the bolt head clamps the
+    chassis plate against plastic, not brass; ditto the f03d59b
+    cradle insert pattern this fix mirrors).
+    """
     outer = _box((BATTERY_W, BATTERY_D, BATTERY_H),
                  center=(0, 0, BATTERY_H / 2.0))
     inner = _box((BATTERY_W - 2 * BATTERY_WALL,
@@ -1787,24 +1951,39 @@ def make_battery_holder() -> trimesh.Trimesh:
                     center=(s * (BATTERY_W * 0.25), 0, BATTERY_H * 0.55))
         velcro.append(slot)
 
-    # 4 mounting feet with M3 holes (sit on the bottom plate)
+    # 4 mounting feet, each with a Phi 4 mm x 6 mm heat-set insert
+    # pocket cut from the bottom face.  Foot footprint is
+    # BATTERY_FOOT_W x BATTERY_FOOT_D x BATTERY_FOOT_T mm; pocket is
+    # centred on the foot, opens at z = 0 (foot bottom = holder
+    # bottom face = chassis_bottom top face mating plane).
     feet = []
-    foot_holes = []
+    insert_pockets = []
+    pocket_radius = INSERT_M3_PILOT_OD / 2.0
+    pocket_overdrill_h = INSERT_M3_PILOT_DEPTH + 0.4   # 0.4 mm slop so
+                                                       # the cut clears
+                                                       # the foot's
+                                                       # bottom face
     for sx in (-1, 1):
         for sy in (-1, 1):
-            ft = _box((10.0, 10.0, BATTERY_WALL),
-                      center=(sx * (BATTERY_W / 2.0 - 5.0),
-                               sy * (BATTERY_D / 2.0 + 6.0),
-                               BATTERY_WALL / 2.0))
+            fx = sx * BATTERY_FOOT_DX
+            fy = sy * BATTERY_FOOT_DY
+            ft = _box((BATTERY_FOOT_W, BATTERY_FOOT_D, BATTERY_FOOT_T),
+                      center=(fx, fy, BATTERY_FOOT_T / 2.0))
             feet.append(ft)
-            h = _cyl(SERVO_TAB_HOLE / 2.0, BATTERY_WALL * 6)
-            h.apply_translation([sx * (BATTERY_W / 2.0 - 5.0),
-                                  sy * (BATTERY_D / 2.0 + 6.0),
-                                  BATTERY_WALL])
-            foot_holes.append(h)
+            pocket = _cyl(pocket_radius, pocket_overdrill_h)
+            # Pocket extends from z = -0.2 (slightly below the foot's
+            # bottom face so the boolean diff cuts cleanly through it)
+            # up to z = INSERT_M3_PILOT_DEPTH + 0.2; the resulting
+            # void inside the foot is z in [0, INSERT_M3_PILOT_DEPTH]
+            # = [0, 6], leaving BATTERY_FOOT_T - INSERT_M3_PILOT_DEPTH
+            # = 2 mm of plastic above the insert and ~ 3 mm of
+            # plastic radially around it.
+            pocket.apply_translation([fx, fy,
+                                       pocket_overdrill_h / 2.0 - 0.2])
+            insert_pockets.append(pocket)
 
     body = _union(outer, *feet)
-    return _diff(body, inner, *velcro, *foot_holes)
+    return _diff(body, inner, *velcro, *insert_pockets)
 
 
 def make_electronics_tray() -> trimesh.Trimesh:
@@ -3378,14 +3557,19 @@ def make_assembly_preview() -> trimesh.Trimesh:
                                 + CHASSIS_PLATE_T])
     parts.append(top)
 
-    # Battery holder (sits between the plates, slightly aft of centre)
+    # Battery holder (sits between the plates, slightly aft of centre).
+    # ``BATTERY_HOLDER_CENTRE_X`` is the single source of truth for
+    # this offset; the fastener_registry / _hex_plate / inspect_build
+    # all read the same constant.
     bh = make_battery_holder()
-    bh.apply_translation([-25.0, 0, chassis_lift + CHASSIS_PLATE_T])
+    bh.apply_translation([BATTERY_HOLDER_CENTRE_X, 0,
+                           chassis_lift + CHASSIS_PLATE_T / 2.0])
     parts.append(bh)
 
     # Electronics tray (sits between the plates, forward of centre)
     et = make_electronics_tray()
-    et.apply_translation([35.0, 0, chassis_lift + CHASSIS_PLATE_T + 1.0])
+    et.apply_translation([35.0, 0,
+                           chassis_lift + CHASSIS_PLATE_T / 2.0 + 1.0])
     parts.append(et)
 
     # Six legs

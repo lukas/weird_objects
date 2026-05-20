@@ -318,6 +318,8 @@ def build_for_spec(spec: str) -> trimesh.Trimesh:
         return make_m3_shcs(14.0)
     if s == "m3x8shcs" or s == "m3x8shcsintoheat-setinsert":
         return make_m3_shcs(8.0)
+    if s == "m3x10shcs":
+        return make_m3_shcs(10.0)
     if s == "m3x32shcs":
         return make_m3_shcs(32.0)
     if s == "m3x16pan-head":

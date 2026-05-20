@@ -77,6 +77,10 @@ SPEC_TO_SCAD: dict[str, str] = {
     # share the ``m3x8_shcs`` scad rendering so the inspector
     # mesh is identical.
     "M3x8 SHCS into heat-set insert": "m3x8_shcs",
+    # M3 x 10 SHCS -- battery_holder foot bolts (4) into heat-set
+    # inserts.  Same M3 SHCS family as M3 x 8 / M3 x 32, just at the
+    # 10 mm length stock.
+    "M3x10 SHCS":                     "m3x10_shcs",
     "M3x32 SHCS":                     "m3x32_shcs",  # rendered at 30 mm (BOM stock)
     "M3x16 pan-head":                 "m3x16_pan",
     "M2.5x8 spline screw":            "m2p5x8_shcs",

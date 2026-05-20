@@ -78,14 +78,27 @@ Enumerated categories (Design B + Design C, May 2026 revert)
 
 7. ``6 x M3 nyloc nuts`` -- one per foot hinge bolt.
 
+8. ``4 x M3 x 10 SHCS`` -- battery_holder foot bolts.  Driven UP
+   through chassis_bottom (one per foot, on the BATTERY_FOOT_DX /
+   DY square pattern) into the brass heat-set insert that lives in
+   each holder foot.  May 2026 fix: the holder used to be enumerated
+   under "not yet enumerated" with 4 M3 clearance holes in the feet
+   that never matched anything in chassis_bottom; the registry now
+   places both the bolts and their captive heat-set inserts so the
+   verifier's check_fastener_engagement probes them on every run.
+
+9. ``4 x M3 heat-set inserts`` -- one per battery_holder foot (see 8.).
+   Mirrors the f03d59b cradle insert pattern: Phi 4.0 mm pocket cut
+   from the foot's BOTTOM face with the brass insert recessed 0.5 mm
+   so the bolt head clamps the chassis_bottom plate against plastic,
+   not brass.
+
 Categories NOT enumerated yet (acknowledged future work; see
 PROTOTYPE_BOM.md "Fasteners" auto-derived section):
 
 * Electronics-tray board-mount screws (4 Arduino-Nano + 4 PCA9685
   standoffs through the printed tray).  These are small commodity
   M2 / M3 nylon hardware that ships with the boards.
-* Battery-holder foot bolts (4 M3 through the printed holder's feet
-  into the chassis_bottom plate).
 * Chassis-stack standoff bolts (4 M3 through the chassis_top + chassis_bottom
   plates + the brass standoff column).  Hidden inside the chassis
   bay and not user-serviceable.
@@ -114,6 +127,11 @@ import hexapod_prototype as HP  # noqa: E402
 # README stay in sync.  If McMaster renumbers a SKU, edit here only.
 
 PN_M3X8_SHCS     = "91290A113"   # M3 x 8  socket-head cap screw, black-oxide steel
+PN_M3X10_SHCS    = "91290A114"   # M3 x 10 socket-head cap screw, black-oxide steel
+                                  # (battery_holder foot bolts: head bears on
+                                  # the UNDER face of chassis_bottom, threads
+                                  # UP through the plate into a heat-set
+                                  # insert in the holder foot above)
 PN_M3_HEATSET_INSERT = "94459A130"   # M3 brass heat-set insert, knurled (McMaster)
 PN_M3X32_SHCS    = "91290A123"   # M3 x 30 socket-head cap screw (closest stock to 32 mm)
 PN_M3_NYLOC      = "90576A102"   # M3 nylon-insert lock nut, A2 stainless
@@ -137,6 +155,9 @@ PN_M2X8_SHCS     = "91290A005"   # M2 x 8 socket-head cap screw, black-oxide ste
 
 # Human-readable spec labels (used by the inspector and the BOM script).
 SPEC_M3X8_SHCS   = "M3x8 SHCS"
+SPEC_M3X10_SHCS  = "M3x10 SHCS"   # battery_holder foot bolts (4); threads
+                                   # into M3 brass heat-set insert in the
+                                   # holder foot above chassis_bottom.
 # Cradle bolt spec post-heat-set switch (May 2026): same M3 x 8
 # SHCS stock as ``SPEC_M3X8_SHCS`` (same P/N -- they are the same
 # fastener), but with a distinct spec string so the verifier's
@@ -1015,6 +1036,127 @@ def _emit_foot_hinge_fastener(leg_index: int) -> list[FastenerInstance]:
 
 
 # ---------------------------------------------------------------------------
+# Battery-holder foot bolts (M3 x 10 SHCS + M3 heat-set insert pair)
+# ---------------------------------------------------------------------------
+
+
+def _emit_battery_holder_fasteners() -> list[FastenerInstance]:
+    """The 4 battery-holder foot bolts + their captive heat-set inserts.
+
+    Mirrors the f03d59b cradle insert pattern: each foot has a
+    Phi INSERT_M3_PILOT_OD = 4.0 mm x INSERT_M3_PILOT_DEPTH = 6.0 mm
+    pocket cut from its BOTTOM face that holds an M3 brass heat-set
+    insert (McMaster 94459A130).  The 4 M3 x 10 SHCS enter from
+    BELOW: head face bears on the UNDER side of chassis_bottom
+    (z = -CHASSIS_PLATE_T in the design frame), axis = +Z (UP), and
+    threads engage the brass insert in the foot above.
+
+    Length budget (design frame, z = 0 = chassis_bottom top face =
+    battery_holder bottom face):
+
+        head face         : z = -CHASSIS_PLATE_T = -4 mm
+        chassis-plate run : z in [-4, 0]                (4 mm)
+        recess gap        : z in [0, BATTERY_FOOT_INSERT_RECESS]
+                            = [0, 0.5] mm  (plastic between bolt
+                            head ring and insert face -- standard
+                            heat-set practice so the head clamps the
+                            chassis plate against plastic, not brass)
+        insert engagement : z in [0.5, 5.5]              (5 mm)
+        tip overshoot     : z in [5.5, 6.0]              (0.5 mm
+                            free space inside the pocket's overdrill
+                            before the closed top at z = 6).
+
+    Total bolt run: 4 + 0.5 + 5 + 0.5 = 10 mm.  M3 x 10 SHCS
+    (PN 91290A114) is the smallest stock length that meets the
+    5 mm-insert-engagement target with the 4 mm chassis_bottom plate
+    in the stack.
+
+    The fastener is also a CAPTIVE SUB-ASSEMBLY: PROTOTYPE.md
+    section 6.1 step 11 installs the battery_holder onto chassis_
+    bottom AFTER the 4 heat-set inserts have been pressed into the
+    feet but BEFORE the chassis_top + standoff stack is added.  The
+    driver cone for the SHCS therefore swings clear in -Z (under
+    the assembled robot) at the time of installation, not blocked
+    by chassis_top from above.
+    """
+    out: list[FastenerInstance] = []
+    # chassis_bottom is generated centred on z = 0 (its centre plane
+    # at z = 0; bounds z in [-CHASSIS_PLATE_T/2, +CHASSIS_PLATE_T/2] =
+    # [-2, +2]) and the verifier / build_prototype_assembly place it
+    # at world (0, 0, chassis_lift) without flipping that convention.
+    # The bolt head bearing face therefore sits at world z =
+    # -CHASSIS_PLATE_T / 2 = -2 mm (chassis_bottom UNDER face) in the
+    # pre-chassis-lift world frame the registry returns.
+    chassis_bottom_face_z = -HP.CHASSIS_PLATE_T / 2.0
+    # The battery_holder mesh is generated with its bottom face at
+    # local z = 0 and is placed at world z = +CHASSIS_PLATE_T / 2 = +2
+    # so its bottom face sits flush on chassis_bottom top face.  The
+    # heat-set insert top face is BATTERY_FOOT_INSERT_RECESS = 0.5 mm
+    # ABOVE the foot bottom (recessed INTO the foot from below so the
+    # bolt head clamps chassis plastic, not brass).
+    insert_top_z = HP.CHASSIS_PLATE_T / 2.0 + HP.BATTERY_FOOT_INSERT_RECESS
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            # The battery_holder is OFFSET in X relative to the
+            # chassis centre (HP.BATTERY_HOLDER_CENTRE_X = -25 mm);
+            # the foot world X position is therefore
+            # ``BATTERY_HOLDER_CENTRE_X + sx * BATTERY_FOOT_DX``.
+            # build_prototype_assembly and the verifier's
+            # _build_world_leg0_printed_parts apply the same offset
+            # to the holder mesh, and _hex_plate's
+            # ``with_battery_holder_holes`` pattern offsets the
+            # chassis_bottom holes by the same amount.
+            fx = HP.BATTERY_HOLDER_CENTRE_X + sx * HP.BATTERY_FOOT_DX
+            fy = sy * HP.BATTERY_FOOT_DY
+            x_label = "+X" if sx > 0 else "-X"
+            y_label = "+Y" if sy > 0 else "-Y"
+
+            head_world = np.array([fx, fy, chassis_bottom_face_z])
+            axis_world = np.array([0.0, 0.0, 1.0])  # +Z (UP into material)
+            out.append(FastenerInstance(
+                part_number=PN_M3X10_SHCS,
+                spec=SPEC_M3X10_SHCS,
+                head_world_xyz=head_world,
+                axis_world=axis_world,
+                role=(
+                    f"battery_holder foot bolt {x_label}{y_label} "
+                    f"M3 x 10 SHCS into heat-set insert"
+                ),
+                leg_index=None,
+                joint=None,
+                length_mm=10.0,
+                cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
+            ))
+
+            insert_head_world = np.array([fx, fy, insert_top_z])
+            out.append(FastenerInstance(
+                part_number=PN_M3_HEATSET_INSERT,
+                spec=SPEC_M3_HEATSET_INSERT,
+                head_world_xyz=insert_head_world,
+                axis_world=axis_world,
+                role=(
+                    f"battery_holder foot {x_label}{y_label} "
+                    f"M3 heat-set insert"
+                ),
+                leg_index=None,
+                joint=None,
+                length_mm=HP.INSERT_M3_INSERT_LENGTH,
+                cache_stl=f"{PN_M3_HEATSET_INSERT}.cache.stl",
+                # The insert is pressed in with a soldering iron from
+                # BELOW (foot inverted on the bench) BEFORE the
+                # battery_holder is bolted onto chassis_bottom; no
+                # driver cone applies to the brass insert itself.
+                skip_screwdriver_reason=(
+                    "heat-set insert installed with a soldering iron "
+                    "BEFORE the battery_holder is bolted to "
+                    "chassis_bottom (PROTOTYPE.md section 6.1 step "
+                    "11); no driver cone applies to the brass insert"
+                ),
+            ))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Top-level builder
 # ---------------------------------------------------------------------------
 
@@ -1069,6 +1211,12 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         # Foot hinge pin (M3 x 16 pan-head + nyloc nut).
         out.extend(_emit_foot_hinge_fastener(leg_index))
 
+    # Chassis-level fasteners (no leg index).  Battery_holder feet
+    # are bolted to chassis_bottom from BELOW via 4 x M3 x 10 SHCS
+    # into M3 heat-set inserts (May 2026 fix; previously the holder
+    # was un-enumerated and physically un-bolted).
+    out.extend(_emit_battery_holder_fasteners())
+
     return out
 
 
@@ -1096,10 +1244,11 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
         SPEC_M25X8_SHCS:            1,
         SPEC_M3X8_SHCS:             2,
         SPEC_M3X8_SHCS_INTO_INSERT: 3,
-        SPEC_M3_HEATSET_INSERT:     4,
-        SPEC_M3X32_SHCS:            5,
-        SPEC_M3X16_PAN:             6,
-        SPEC_M3_NYLOC:              7,
+        SPEC_M3X10_SHCS:            4,
+        SPEC_M3_HEATSET_INSERT:     5,
+        SPEC_M3X32_SHCS:            6,
+        SPEC_M3X16_PAN:             7,
+        SPEC_M3_NYLOC:              8,
     }
     rows.sort(key=lambda r: (spec_order.get(r[0], 9), r[0]))
     return rows
@@ -1107,6 +1256,10 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
 
 def _usage_bucket(fi: FastenerInstance) -> str:
     role = fi.role
+    if "battery_holder" in role:
+        if "heat-set insert" in role:
+            return "battery_holder heat-set inserts"
+        return "battery_holder foot bolts (M3x10 SHCS into heat-set insert)"
     if "heat-set insert" in role:
         # The 72 brass heat-set inserts (McMaster 94459A130) pressed
         # into the cradle bosses BEFORE the cradle servo is mounted.

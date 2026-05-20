@@ -72,7 +72,19 @@ The pipeline they refer to is documented in `CAD_WORKFLOW.md`.
    not survive a refactor; a `design_spec.yaml` entry does, and it
    shows up in the report's "Discovered dimensions" table.
 
-8. **Any printed feature that takes a threaded fastener for repeated
+8. **Whenever you change `CHASSIS_GAP` in `hexapod_prototype.py`,
+   re-check every part that lives between the two chassis plates.**
+   At minimum: `battery_holder` (currently 28 mm tall -- needs >=
+   28 mm gap with headroom), `electronics_tray` (~ 3 mm thick),
+   and the brass standoffs in `SHOPPING_LIST.md` / `PROTOTYPE_BOM.md`
+   (their physical length MUST equal `CHASSIS_GAP`).  The May 2026
+   audit caught the 28 mm holder ramming through a 4 mm
+   `chassis_top` deck with CHASSIS_GAP = 20 mm; the fix bumped
+   CHASSIS_GAP to 32 mm and the standoffs from 25 to 32 mm to
+   match.  If you bump CHASSIS_GAP without updating the standoff
+   length the chassis will not actually assemble.
+
+9. **Any printed feature that takes a threaded fastener for repeated
    assembly MUST use a heat-set insert, not a self-tap pilot.**  The
    May 2026 cradle audit (commit history under "Design D") showed
    that self-tap pilots into Phi 2.5 mm printed holes are
