@@ -448,6 +448,12 @@ class PlacedInstance:
     actor: pv.Actor
     centroid: np.ndarray   # world-space centroid of the placed mesh
     label_pos: np.ndarray  # where to anchor the floating label
+    # Companion actor that draws ONLY the part's feature edges (dihedral
+    # angle >= 30 deg) on top of the smooth surface, so the part reads
+    # crisp without the "fan-triangulation cracks" that ``show_edges=True``
+    # would otherwise paint across every flat face cut by a boolean
+    # hole.  None for fasteners (we already turn show_edges off on them).
+    edges_actor: pv.Actor | None = None
 
 
 def _compute_chassis_lift(
@@ -487,7 +493,16 @@ def _compute_chassis_lift(
 SHORTCUTS_TEXT = (
     "Hover -> label.  Left-click -> isolate part.  "
     "Double-click -> focus sub-assembly.\n"
+    "Trackpad / mouse:\n"
+    "  drag                 orbit (rotate the view)\n"
+    "  shift + drag         pan\n"
+    "  cmd  + drag          roll (rotate around view axis)\n"
+    "  cmd  + shift + drag  zoom\n"
+    "  two-finger swipe     zoom in / out\n"
     "Keyboard:\n"
+    "  arrows        pan camera (l/r/u/d in screen plane)\n"
+    "  , / .         roll left / right\n"
+    "  + / -         zoom in / out\n"
     "  L     toggle ALL labels on at once\n"
     "  E     toggle exploded view (0 / 1.5)\n"
     "  F     focus the hovered part's sub-assembly (toggle)\n"
@@ -547,8 +562,7 @@ def _add_instances_to_plotter(
         actor = plotter.add_mesh(
             mesh,
             color=(r, g, b),
-            show_edges=False if is_fastener else True,
-            edge_color=(0.10, 0.10, 0.10),
+            show_edges=False,
             line_width=0.5 if is_servo else 0.7,
             opacity=0.85 if is_servo else 1.0,
             ambient=0.22 if is_fastener else 0.18,
@@ -558,6 +572,66 @@ def _add_instances_to_plotter(
             smooth_shading=True,
             name=actor_name,
         )
+
+        # Feature-edge overlay on printed + servo parts.  Trimesh
+        # booleans triangulate flat faces around drilled holes as a
+        # fan of long thin triangles whose interior edges aren't
+        # actual geometry features -- ``show_edges=True`` would paint
+        # those triangulation edges as black "cracks" radiating
+        # across the surface (see Lukas' bug report 2026-05).
+        # extract_feature_edges with the default 30 deg dihedral
+        # threshold keeps only the edges that bound a real crease
+        # (hole rims, part silhouettes, pocket walls) and drops the
+        # coplanar triangulation noise.  Fasteners are tiny + many
+        # so skip the overlay for them; they already render without
+        # edges via show_edges=False above.
+        #
+        # IMPORTANT: the STLs are loaded via trimesh with
+        # ``process=False`` (see _load_stl_cache), so duplicate
+        # vertices are NOT merged -- every triangle ships its own
+        # three independent points.  vtkFeatureEdges decides "is this
+        # edge shared with a neighbour?" by point-id equality, so on
+        # an unmerged mesh it sees NO shared edges and emits every
+        # triangle edge as a "boundary edge".  We feed the edge
+        # filter a cleaned (point-merged) copy so the dihedral test
+        # has actual neighbour relationships to evaluate.  The
+        # surface actor still consumes the unmerged mesh -- nothing
+        # else cares about adjacency and avoiding the clean keeps the
+        # surface render bit-exact w.r.t. the on-disk STL.
+        edges_actor: pv.Actor | None = None
+        if not is_fastener:
+            try:
+                # Absolute 1 um merge tolerance: STL coords are in mm,
+                # so 1e-6 mm welds duplicates from the STL "every
+                # triangle has its own 3 verts" representation
+                # without bridging genuinely-distinct hole-rim
+                # vertices that sit ~10s of microns apart at worst.
+                cleaned = mesh.clean(
+                    point_merging=True,
+                    tolerance=1e-6,
+                    absolute=True,
+                )
+                feat = cleaned.extract_feature_edges(
+                    feature_angle=30.0,
+                    boundary_edges=True,
+                    non_manifold_edges=False,
+                    feature_edges=True,
+                    manifold_edges=False,
+                )
+            except Exception:
+                feat = None
+            if feat is not None and feat.n_points > 0:
+                edges_actor = plotter.add_mesh(
+                    feat,
+                    color=(0.08, 0.08, 0.08),
+                    line_width=0.5 if is_servo else 0.7,
+                    opacity=0.85 if is_servo else 1.0,
+                    lighting=False,
+                    pickable=False,
+                    render_lines_as_tubes=False,
+                    name=f"{actor_name}__edges",
+                )
+
         cen = np.asarray(mesh.center, dtype=np.float64)
         # For long, narrow parts like the femur and tibia, anchoring
         # the label at the centroid drops it into the middle of the
@@ -570,6 +644,7 @@ def _add_instances_to_plotter(
             actor=actor,
             centroid=cen,
             label_pos=label_anchor,
+            edges_actor=edges_actor,
         ))
         if inst.part_type in ("chassis_top", "chassis_bottom",
                               "chassis_plate_a", "chassis_plate_b"):
@@ -821,9 +896,14 @@ def _decorate_plotter(
     # deliberately do not move the picked part -- it stays where it
     # belongs in the assembly so the user can see how it fits.
     iso_state: dict[str, object | None] = {"placed": None}
-    saved_opacity: dict[int, float] = {
-        id(p.actor): float(p.actor.prop.opacity) for p in placed
-    }
+    # Save opacities for both the main mesh and (if any) its feature-edge
+    # overlay, so the isolation/focus paths can restore the exact paired
+    # look on exit.
+    saved_opacity: dict[int, float] = {}
+    for p in placed:
+        saved_opacity[id(p.actor)] = float(p.actor.prop.opacity)
+        if p.edges_actor is not None:
+            saved_opacity[id(p.edges_actor)] = float(p.edges_actor.prop.opacity)
 
     # --- focus state --------------------------------------------------
     # Focus-on-sub-assembly is orthogonal to isolation: when active,
@@ -852,6 +932,8 @@ def _decorate_plotter(
             m[1, 3] = shift[1]
             m[2, 3] = shift[2]
             p.actor.user_matrix = m
+            if p.edges_actor is not None:
+                p.edges_actor.user_matrix = m
         # Update label anchor positions in place on the cached
         # polydata.  ``add_point_labels`` was given this polydata as
         # its hierarchy input at setup time, so calling Modified() is
@@ -889,13 +971,21 @@ def _decorate_plotter(
     if state["explode"] != 0.0:
         _apply_explode(state["explode"])
 
-    # checkbox column
+    # checkbox column.  Bundle the feature-edge overlay actor (when
+    # present) into the same list as its main mesh actor so a single
+    # checkbox toggle hides/shows both, and the focus / isolation /
+    # explode paths below don't have to special-case the overlay.
     actors_by_type: dict[str, list[pv.Actor]] = {}
     fastener_actors: list[pv.Actor] = []
     for p in placed:
-        actors_by_type.setdefault(p.instance.part_type, []).append(p.actor)
+        bucket = actors_by_type.setdefault(p.instance.part_type, [])
+        bucket.append(p.actor)
+        if p.edges_actor is not None:
+            bucket.append(p.edges_actor)
         if palette.is_fastener(p.instance.part_type):
             fastener_actors.append(p.actor)
+            if p.edges_actor is not None:
+                fastener_actors.append(p.edges_actor)
 
     # The per-part-type checkboxes drive a "desired visibility" map
     # rather than mutating actor visibility directly.  When NOT in
@@ -1062,9 +1152,15 @@ def _decorate_plotter(
 
     # Map actor identity -> placed instance for picker lookups.  Using
     # id() lets us key without paying for repeated isinstance checks.
-    actor_to_placed: dict[int, PlacedInstance] = {
-        id(p.actor): p for p in placed
-    }
+    # The feature-edge overlay actor is registered as ``pickable=False``
+    # so the picker shouldn't return it, but include it here too as a
+    # safety net so a hit on the line actor still resolves to the right
+    # PlacedInstance.
+    actor_to_placed: dict[int, PlacedInstance] = {}
+    for p in placed:
+        actor_to_placed[id(p.actor)] = p
+        if p.edges_actor is not None:
+            actor_to_placed[id(p.edges_actor)] = p
 
     # vtk cell picker: cheap, ray-casts against renderer actors and
     # returns the closest hit.  We reuse a single picker instance.
@@ -1108,18 +1204,24 @@ def _decorate_plotter(
         plotter.render()
 
     def _apply_isolation_visuals() -> None:
-        """Reflect the current iso_state on every actor's opacity."""
+        """Reflect the current iso_state on every actor's opacity.
+
+        Drives both the surface actor and (when present) its feature-
+        edge overlay so the dim/highlight effect reads as a single part.
+        """
         iso = iso_state["placed"]
         for p in placed:
-            if iso is None:
-                p.actor.prop.opacity = saved_opacity[id(p.actor)]
-            elif p is iso:
-                # Keep isolated part at full opacity so it pops.
-                p.actor.prop.opacity = max(
-                    saved_opacity[id(p.actor)], 0.95,
-                )
-            else:
-                p.actor.prop.opacity = ISOLATE_DIM_OPACITY
+            companions = [p.actor]
+            if p.edges_actor is not None:
+                companions.append(p.edges_actor)
+            for a in companions:
+                if iso is None:
+                    a.prop.opacity = saved_opacity[id(a)]
+                elif p is iso:
+                    # Keep isolated part at full opacity so it pops.
+                    a.prop.opacity = max(saved_opacity[id(a)], 0.95)
+                else:
+                    a.prop.opacity = ISOLATE_DIM_OPACITY
 
     def _set_isolation(p: "PlacedInstance | None") -> None:
         iso_state["placed"] = p
@@ -1258,12 +1360,21 @@ def _decorate_plotter(
         # Hide every non-member; show every member.  Members keep
         # their saved opacity (we explicitly don't dim them like the
         # isolation path does -- the whole point of focus is that the
-        # surviving members read full-brightness).
+        # surviving members read full-brightness).  The feature-edge
+        # overlay actor tracks the surface actor's visibility 1:1 so
+        # the hidden parts disappear cleanly (otherwise you'd see a
+        # floating wire-frame skeleton of every hidden hole rim).
         for pp in placed:
             is_member = id(pp.actor) in member_ids
             pp.actor.SetVisibility(bool(is_member))
+            if pp.edges_actor is not None:
+                pp.edges_actor.SetVisibility(bool(is_member))
             if is_member:
                 pp.actor.prop.opacity = saved_opacity[id(pp.actor)]
+                if pp.edges_actor is not None:
+                    pp.edges_actor.prop.opacity = saved_opacity[
+                        id(pp.edges_actor)
+                    ]
 
         # Drop any pending isolation -- focus supersedes it.
         iso_state["placed"] = None
@@ -1411,6 +1522,207 @@ def _decorate_plotter(
     except Exception:
         pass
 
+    # ------------------------------------------------------------------
+    # Camera pan / roll / zoom: trackpad gestures + keyboard fallback.
+    # ------------------------------------------------------------------
+    # Mouse-wheel / two-finger-swipe handling is left to VTK's default
+    # trackball-style dolly, which matches the user's expectation that
+    # "two fingers should zoom" (and matches the rest of the macOS CAD
+    # ecosystem).  We DO still:
+    #   1. Register Pan/Pinch/Rotate gesture observers, even though
+    #      they currently never fire on macOS Cocoa.  On Cocoa the
+    #      pinch gesture isn't forwarded to VTK today; on Linux/Qt
+    #      builds (and on a hypothetical future VTK with Cocoa
+    #      magnifyWithEvent: support) the pinch handler below maps
+    #      pinch -> dolly, which keeps "two-finger pinch = zoom"
+    #      consistent with the wheel default.
+    #   2. Add a keyboard fallback (arrow keys to pan, ``,``/``.`` to
+    #      roll, ``+``/``-`` to zoom) sized as a fraction of the
+    #      current window so the user can frame the scene precisely
+    #      even without modifier-drag gymnastics.
+    #
+    # The default vtkInteractorStyleTrackballCamera already supports
+    # shift+drag = pan and cmd+drag = roll (on macOS Cmd folds into
+    # the ControlKey state); those bindings are documented in
+    # SHORTCUTS_TEXT but not redefined here.
+    import math as _gesture_math
+
+    def _world_per_pixel() -> float:
+        """Length in world units of one screen pixel at the focal plane."""
+        try:
+            _, wh_px = plotter.window_size
+            wh_px = max(1, int(wh_px))
+        except Exception:
+            wh_px = 1000
+        cam = plotter.camera
+        if cam.GetParallelProjection():
+            world_h = 2.0 * cam.GetParallelScale()
+        else:
+            fp = np.asarray(cam.GetFocalPoint(), dtype=np.float64)
+            pos = np.asarray(cam.GetPosition(), dtype=np.float64)
+            distance = float(np.linalg.norm(fp - pos))
+            va = _gesture_math.radians(cam.GetViewAngle())
+            world_h = 2.0 * distance * _gesture_math.tan(va / 2.0)
+        return float(world_h) / float(wh_px)
+
+    def _pan_camera_pixels(dx_px: float, dy_px: float) -> None:
+        """Pan the camera by ``(dx_px, dy_px)`` screen-space pixels.
+
+        Sign convention: positive ``dx_px`` shifts the SCENE right
+        (camera moves left), positive ``dy_px`` shifts the SCENE up
+        (camera moves down).  That matches the macOS "natural
+        scrolling" feel where the content moves with the fingers.
+        """
+        try:
+            cam = plotter.camera
+            fp = np.asarray(cam.GetFocalPoint(), dtype=np.float64)
+            pos = np.asarray(cam.GetPosition(), dtype=np.float64)
+            view_up = np.asarray(cam.GetViewUp(), dtype=np.float64)
+            view_dir = fp - pos
+            n = float(np.linalg.norm(view_dir))
+            if n < 1e-9:
+                return
+            view_dir /= n
+            right = np.cross(view_dir, view_up)
+            rn = float(np.linalg.norm(right))
+            if rn < 1e-9:
+                return
+            right /= rn
+            up_ortho = np.cross(right, view_dir)
+            wpp = _world_per_pixel()
+            shift = (float(dx_px) * right + float(dy_px) * up_ortho) * wpp
+            cam.SetFocalPoint(*(fp - shift))
+            cam.SetPosition(*(pos - shift))
+            try:
+                plotter.renderer.ResetCameraClippingRange()
+            except Exception:
+                pass
+            plotter.render()
+        except Exception as exc:
+            print(f"inspect_build: pan failed: {exc!r}")
+
+    def _roll_camera(degrees: float) -> None:
+        try:
+            plotter.camera.Roll(float(degrees))
+            plotter.render()
+        except Exception as exc:
+            print(f"inspect_build: roll failed: {exc!r}")
+
+    def _dolly_camera(factor: float) -> None:
+        """Multiplicative zoom: ``factor > 1`` zooms in, ``< 1`` zooms out."""
+        try:
+            cam = plotter.camera
+            f = float(factor)
+            if not np.isfinite(f) or f <= 0.0:
+                return
+            if cam.GetParallelProjection():
+                cam.SetParallelScale(cam.GetParallelScale() / f)
+            else:
+                cam.Dolly(f)
+            try:
+                plotter.renderer.ResetCameraClippingRange()
+            except Exception:
+                pass
+            plotter.render()
+        except Exception as exc:
+            print(f"inspect_build: zoom failed: {exc!r}")
+
+    def _keyboard_pan_step_px() -> float:
+        """Keyboard nudge size in screen pixels.
+
+        ~6% of the smaller window dim feels right empirically: large
+        enough to be useful, small enough for fine framing.  Since
+        ``_pan_camera_pixels`` converts pixels -> world units via the
+        current focal-plane scale on every call, the same pixel step
+        produces the same on-screen motion at any zoom level.
+        """
+        try:
+            ww, wh = plotter.window_size
+            return 0.06 * float(min(ww, wh))
+        except Exception:
+            return 40.0
+
+    # ---- Forward-compatible VTK gesture observers ----
+    # vtkRenderWindowInteractor emits {Start,,End}{Pinch,Rotate,Pan}Event
+    # when the platform view forwards multitouch gestures.  Today this
+    # only happens on Qt + Win32; macOS Cocoa doesn't (see comment
+    # block above).  Wiring the observers anyway costs nothing and
+    # means the right thing happens on Linux/Qt builds and on a
+    # future VTK that adds Cocoa gesture support.
+    def _on_pinch_gesture(caller, _event) -> None:
+        try:
+            scale = float(caller.GetScale())
+        except Exception:
+            return
+        if not np.isfinite(scale) or scale <= 0.0:
+            return
+        _dolly_camera(scale)
+
+    def _on_pan_gesture(caller, _event) -> None:
+        try:
+            tx, ty = caller.GetTranslation()
+        except Exception:
+            return
+        _pan_camera_pixels(float(tx), float(ty))
+
+    def _on_rotate_gesture(caller, _event) -> None:
+        try:
+            rot = float(caller.GetRotation())
+        except Exception:
+            return
+        if not np.isfinite(rot):
+            return
+        _roll_camera(rot)
+
+    try:
+        iren_raw = plotter.iren.interactor
+        # RecognizeGestures defaults to True on VTK 9.x; set it
+        # explicitly for robustness against older builds.
+        try:
+            iren_raw.SetRecognizeGestures(True)
+        except Exception:
+            pass
+        iren_raw.AddObserver("PinchEvent", _on_pinch_gesture)
+        iren_raw.AddObserver("PanEvent", _on_pan_gesture)
+        iren_raw.AddObserver("RotateEvent", _on_rotate_gesture)
+        # Start/End placeholders kept here for symmetry -- we don't
+        # need them today (no per-gesture accumulator state), but
+        # observing them ensures VTK's gesture-recognizer machinery
+        # actually fires the middle events.
+        for _ev_name in (
+            "StartPinchEvent", "EndPinchEvent",
+            "StartPanEvent", "EndPanEvent",
+            "StartRotateEvent", "EndRotateEvent",
+        ):
+            iren_raw.AddObserver(_ev_name, lambda *_a: None)
+    except Exception as exc:
+        print(f"inspect_build: gesture observer setup failed: {exc!r}")
+
+    # ---- Keyboard fallback ----
+    def _kbd_pan_left() -> None:
+        _pan_camera_pixels(-_keyboard_pan_step_px(), 0.0)
+
+    def _kbd_pan_right() -> None:
+        _pan_camera_pixels(+_keyboard_pan_step_px(), 0.0)
+
+    def _kbd_pan_up() -> None:
+        _pan_camera_pixels(0.0, +_keyboard_pan_step_px())
+
+    def _kbd_pan_down() -> None:
+        _pan_camera_pixels(0.0, -_keyboard_pan_step_px())
+
+    def _kbd_roll_ccw() -> None:
+        _roll_camera(-5.0)
+
+    def _kbd_roll_cw() -> None:
+        _roll_camera(+5.0)
+
+    def _kbd_zoom_in() -> None:
+        _dolly_camera(1.15)
+
+    def _kbd_zoom_out() -> None:
+        _dolly_camera(1.0 / 1.15)
+
     for k in ("l", "L"):
         plotter.add_key_event(k, _toggle_labels)
     for k in ("e", "E"):
@@ -1425,6 +1737,30 @@ def _decorate_plotter(
         plotter.add_key_event(k, _clear_focus_or_isolation)
     for k in ("q", "Q"):
         plotter.add_key_event(k, plotter.close)
+
+    # Pan / roll / zoom keys.  We bind both X11 keysym names (the
+    # canonical thing GetKeySym() returns for arrow / punctuation
+    # keys on most VTK builds) AND the literal character forms, so
+    # the bindings survive any keysym-table inconsistency between
+    # Cocoa / X11 / Qt.  PyVista's add_key_event stores callbacks
+    # in a defaultdict keyed by the exact GetKeySym() string, so
+    # double-registering on synonyms is cheap and side-effect-free.
+    for k in ("Left",):
+        plotter.add_key_event(k, _kbd_pan_left)
+    for k in ("Right",):
+        plotter.add_key_event(k, _kbd_pan_right)
+    for k in ("Up",):
+        plotter.add_key_event(k, _kbd_pan_up)
+    for k in ("Down",):
+        plotter.add_key_event(k, _kbd_pan_down)
+    for k in ("comma", ","):
+        plotter.add_key_event(k, _kbd_roll_ccw)
+    for k in ("period", "."):
+        plotter.add_key_event(k, _kbd_roll_cw)
+    for k in ("plus", "equal", "+", "="):
+        plotter.add_key_event(k, _kbd_zoom_in)
+    for k in ("minus", "underscore", "-", "_"):
+        plotter.add_key_event(k, _kbd_zoom_out)
 
     try:
         plotter.show_axes()
