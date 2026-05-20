@@ -196,7 +196,7 @@ def _build_assembly_instances() -> list[Instance]:
     ))
     instances.append(Instance(
         "electronics_tray", "electronics_tray.stl", None, None,
-        _trans(35.0, 0, plate_t / 2.0 + 1.0),
+        _trans(35.0, 0, plate_t / 2.0 + 3.0),
     ))
 
     yaw_output_z = (

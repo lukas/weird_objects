@@ -395,21 +395,25 @@ def _body_battery_parts(chassis_lift):
                          bh_z0 + HP.BATTERY_WALL + 25.0 / 2.0))
     parts.append(lipo)
 
-    # Electronics tray + Arduino Nano + PCA9685
+    # Electronics tray + Arduino Nano + PCA9685.
+    # Tray base sits 3 mm above the chassis_bottom top face (i.e.
+    # bh_z0 + 3.0 = CHASSIS_PLATE_T / 2.0 + 3.0) so wire bundles and
+    # connector strain-relief loops still fit between the bottom
+    # plate and the tray, preserving the pre-frame-fix 5 mm clearance.
     et = HP.make_electronics_tray()
-    et.apply_translation([35.0, 0, bh_z0 + 1.0])
+    et.apply_translation([35.0, 0, bh_z0 + 3.0])
     parts.append(et)
 
     # Arduino Nano (43 x 18 x 4 mm)
     arduino = _box((43.0, 18.0, 6.0),
                    center=(35.0 - 30.0, 0,
-                            bh_z0 + 1.0 + HP.ELEC_TRAY_T + 5.0))
+                            bh_z0 + 3.0 + HP.ELEC_TRAY_T + 5.0))
     parts.append(arduino)
 
     # PCA9685 PWM driver (62 x 25 x 8 mm)
     pca = _box((62.0, 25.0, 8.0),
                center=(35.0 + 25.0, 0,
-                        bh_z0 + 1.0 + HP.ELEC_TRAY_T + 6.0))
+                        bh_z0 + 3.0 + HP.ELEC_TRAY_T + 6.0))
     parts.append(pca)
 
     return parts

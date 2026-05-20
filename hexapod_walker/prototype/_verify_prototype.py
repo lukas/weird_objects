@@ -2493,9 +2493,9 @@ def _build_chassis_world(reference_leg_az_rad):
     Z stack mirrors ``build_prototype_assembly._body_frame_parts`` and
     ``_body_battery_parts``:
         chassis_bottom centre   z = 0
-        chassis_top centre      z = CHASSIS_GAP + CHASSIS_PLATE_T = 24
-        battery_holder base     z = CHASSIS_PLATE_T = 4
-        electronics_tray base   z = CHASSIS_PLATE_T + 1 = 5
+        chassis_top centre      z = CHASSIS_GAP + CHASSIS_PLATE_T = 36
+        battery_holder base     z = CHASSIS_PLATE_T / 2 = 2
+        electronics_tray base   z = CHASSIS_PLATE_T / 2 + 3 = 5
 
     Also includes a NEIGHBOUR coxa_bracket at azimuth a + pi/3 so the
     sweep can detect tibia / femur swing into the next leg's bracket
@@ -2515,7 +2515,7 @@ def _build_chassis_world(reference_leg_az_rad):
     parts["battery_holder"] = bh
 
     et = _load_mesh("electronics_tray")
-    et.apply_translation([35.0, 0.0, hp.CHASSIS_PLATE_T / 2.0 + 1.0])
+    et.apply_translation([35.0, 0.0, hp.CHASSIS_PLATE_T / 2.0 + 3.0])
     parts["electronics_tray"] = et
 
     apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
