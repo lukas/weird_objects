@@ -66,14 +66,34 @@ torque limits are all tuned around this DS3225-class case.
 > link's pad face.  Drops the printed-leg-bolt-up Z stack by
 > ``HORN_ADAPTER_T`` (4 mm) per joint.
 >
-> **Design C (May 2026):** the servo is now bolted into its cradle
-> via 4 x M3 x 14 SHCS that go horizontally through the cradle's
-> +/-X walls and the servo's mounting tabs, and bite into a captive
-> M3 nyloc nut sat in a printed-in hex pocket on the outer face of
-> the cradle wall (5.6 mm AF x 4.2 mm deep, flats parallel to +Z).
-> Replaces the old vertical M3 self-tap pilots, which are gone.
-> Counts: **72 x M3 x 14 SHCS** and **>= 72 x M3 nyloc nuts** per
-> robot.
+> **Design C (May 2026, reverted):** the servo is bolted into its
+> cradle via 4 x **M3 x 8 SHCS driven vertically downward** through
+> each servo ear and self-tapped into a **Phi 2.5 mm pilot hole** in
+> the cradle shelf below.  This matches the **standard hobby-servo
+> mounting style** for DS3225 / MG996R / SG90-class servos (the same
+> scheme the pre-2026 prototype already used).  Pilot depth into the
+> shelf = `SHCS_THREAD_ENGAGEMENT_MM` (= 8 mm), which yields ~4
+> cycles of M3 thread engagement in PA12 / PLA.  Counts: **72 x M3
+> x 8 SHCS** (reusing the existing link-to-X-horn SHCS stock --
+> McMaster 91290A113 -- so there is **no new fastener SKU**).
+>
+> The brief horizontal-bolt + captive-nyloc-nut iteration that
+> initially shipped under the "Design C" banner was retired after an
+> audit found (a) the mounting axis on a real DS3225 is vertical
+> (the ears mount with ear bolts going through the tab _along the
+> motor's height axis_), (b) the +X hex pocket geometry collided with
+> the wire channel routed along the cradle's outer +X wall, and (c)
+> the remaining outer-wall thickness at the hex pocket's flats fell
+> below `MIN_PRINT_T` (3 mm) on FDM PA12 / PLA at the existing wall
+> thickness.  See the May 2026 commit history for the full audit.
+>
+> The matching **`coxa_bracket` drop-in slot Z fix** landed in the
+> same change: `slot_z_min` was raised from `-6.0` to
+> `BRACKET_SLOT_Z_MIN_RIB_CLEAR = -3.0`, so the slot now just clears
+> the cradle's internal structural rib instead of biting 6 mm deep
+> into the well wall.  The yaw cradle's effective shelf top moved
+> UP by ~3 mm (closer to the nominal `WELL_RIM_Z` shared with the
+> hip and knee cradles).
 
 ---
 
@@ -216,7 +236,7 @@ envelopes are dispatched off `FastenerInstance.spec`:
 
 | Envelope | Dia × length | Used for |
 |---|---|---|
-| `HEX_KEY`  | 8 mm × 30 mm  | SHCS (M3x8 / M3x14 / M3x32) + the M2.5 spline center screw — anything driven with an L-shaped hex key short arm |
+| `HEX_KEY`  | 8 mm × 30 mm  | SHCS (M3x8 / M3x32) + the M2.5 spline center screw — anything driven with an L-shaped hex key short arm |
 | `PHILLIPS` | 12 mm × 80 mm | `pan-head` / `Phillips` / `slotted` — currently just the M3x16 foot hinge bolt |
 | `SOCKET`   | 12 mm × 50 mm | `nyloc nut` / generic `nut` — M3 nyloc driven with a 5.5 mm nut socket |
 
@@ -315,11 +335,10 @@ printer.
 
 | Item | Qty | Notes |
 |---|---|---|
-| M3 × 8 mm socket-head cap screws | ~ 50 | Link → horn bolts (4 per servo x 18 servos = 72; can also use 6 mm or 10 mm), chassis tie-rods. |
+| M3 × 8 mm socket-head cap screws | ~ 150 + spares | **Doubles as both servo-cradle self-tap screws and link → X-horn bolts.** Cradle: 4 per servo x 18 servos = 72 (vertical, self-tap into Phi 2.5 mm pilots in the cradle shelf). X-horn: 4 per joint x 18 joints = 72 (into the X-horn's printed threaded holes). |
 | M3 × 12 mm | 24 | Standoffs between top + bottom chassis plates |
-| M3 × 14 mm SHCS | 72 + spares | **Design C servo-mount bolts**: horizontal, through the +/-X cradle walls and the servo tabs, into captive M3 nyloc nuts on the outer face. |
 | M3 × 16 mm | 24 | Coxa bracket → chassis (4 × 6 = 24) |
-| M3 nyloc nuts | >= 78 + spares | **Design C captive nuts**: 4 per servo x 18 servos = 72, plus 6 for the foot hinges. |
+| M3 nyloc nuts | 30 + spares | 24 on the coxa-bracket-to-chassis through-bolts plus 6 on the foot-pad hinge pins. The cradle servo mounts are **not** captive-nut joints anymore (Design C revert -- they self-tap into the printed shelf instead). |
 | M3 × 25 mm round standoffs (M-F) | 8 | Top-to-bottom chassis spacers |
 | M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the plastic 4-arm X-horn onto the servo output spline. |
 
@@ -368,46 +387,48 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
 > Both the **coxa bracket**, the **coxa link** (hip-pitch cradle), and
-> the **femur link** (knee cradle) now use the same **Design C**
-> captive-nut servo-mount: 4 x M3 nyloc nuts press into the hex
-> pockets on the outer face of the cradle's +/-X walls, and 4 x M3
-> x 14 SHCS bolt the servo's mounting tabs to the cradle horizontally
-> through the +/-X clearance holes.  The old vertical M3 self-tap
-> pilot holes are gone.
+> the **femur link** (knee cradle) now use the same **Design C
+> (May 2026 revert)** servo-mount: 4 x M3 x 8 SHCS thread vertically
+> DOWN through each servo ear into a Phi 2.5 mm self-tap pilot hole
+> in the cradle shelf below.  This matches the standard hobby-servo
+> mounting style for DS3225 / MG996R-class servos.  There are **no
+> printed-in nut traps**, no horizontal +/-X clearance holes, and no
+> captive nuts in the cradle.  An earlier May 2026 horizontal-bolt +
+> captive-nyloc iteration was retired -- see the Design C blurb in §2
+> for the audit detail.
 
-1. **Press the captive nuts:** before installing any servo, push 4 x
-   M3 nyloc nut into the hex pockets on the outer face of every
-   cradle's +/-X walls (12 cradles total: 6 yaw + 6 hip-pitch + 6
-   knee).  A little CA glue prevents them dropping out; the pocket
-   geometry holds them rotationally.
-2. **Yaw servo into coxa bracket:** drop the yaw servo straight DOWN
+1. **Yaw servo into coxa bracket:** drop the yaw servo straight DOWN
    through the body cutout in the bracket flange and into the well
    below.  The servo's tabs land flush on the well rim, with the gear
    stack and output spline poking UP above the flange.  Drive 4 x M3
-   x 14 SHCS horizontally through the +X / -X clearance holes in the
-   cradle walls, through the servo's tab holes, into the captive
-   nyloc nuts on the far side.
-3. **Plastic horn on the yaw servo:** centre the servo, push a stock
+   x 8 SHCS straight down through the ear's Phi 3.2 mm clearance hole
+   into the Phi 2.5 mm pilot hole in the shelf below.  The screw
+   self-taps fresh threads into the PLA / PA12 shelf material.
+   **Torque finger-tight + ~ 1/4 turn**: do NOT power-drive these.
+   The shelf material is the structural thread; over-torque strips
+   the pilot.
+2. **Plastic horn on the yaw servo:** centre the servo, push a stock
    plastic 4-arm X-horn onto the spline at 0 deg, then secure it with
    the M3 horn-attach screw that ships in the servo bag.
-4. **Coxa link:** drop the link's hub pad onto the X-horn -- the 16 mm
+3. **Coxa link:** drop the link's hub pad onto the X-horn -- the 16 mm
    recess on the underside of the pad seats the horn's central hub --
    and bolt the link to the horn with 4 x M3 SHCS (6 / 8 / 10 mm all
    work) into the brass inserts on the horn's underside.
-5. **Hip-pitch servo:** drop into the cradle in the coxa link; bolt
-   it down with the same Design C captive-nut scheme (4 x M3 x 14
-   SHCS).  Fit a plastic 4-arm X-horn perpendicular to the leg arm
-   so the femur swings up and down.
-6. **Femur:** seat the femur's hip-end pad on the hip horn (16 mm
+4. **Hip-pitch servo:** drop into the cradle in the coxa link; bolt
+   it down with the same vertical M3 x 8 self-tap pattern as the yaw
+   servo (4 x M3 x 8 SHCS straight DOWN through each servo ear into
+   the Phi 2.5 mm pilot in the coxa-link's hip-cradle shelf).  Fit a
+   plastic 4-arm X-horn perpendicular to the leg arm so the femur
+   swings up and down.
+5. **Femur:** seat the femur's hip-end pad on the hip horn (16 mm
    recess engaging the horn hub) and bolt to the horn with 4 x M3
    SHCS.
-7. **Knee servo:** drop into the cradle in the femur and bolt with 4
-   x M3 x 14 SHCS into the captive nyloc nuts on the outer face of
-   the femur's knee cradle.  Plastic X-horn perpendicular to the
-   femur spar.
-8. **Tibia:** seat the tibia's knee-end pad on the knee horn and
+6. **Knee servo:** drop into the cradle in the femur and bolt with 4
+   x M3 x 8 SHCS (vertical self-tap into the femur's knee-cradle
+   shelf pilots).  Plastic X-horn perpendicular to the femur spar.
+7. **Tibia:** seat the tibia's knee-end pad on the knee horn and
    bolt to the horn with 4 x M3 SHCS.
-9. **Foot pad:** push-fit into the tibia's foot socket, glue with CA
+8. **Foot pad:** push-fit into the tibia's foot socket, glue with CA
    if it's loose.
 
 You now have a complete leg dangling from a coxa bracket. Repeat 6

@@ -3111,59 +3111,44 @@ def check_horn_pattern_in_pad():
 
 
 # ---------------------------------------------------------------------------
-# Design C (May 2026): M3 nyloc nut traps in cradle +/-X walls
+# Design C (May 2026 revert): vertical M3 self-tap pilot holes
 # ---------------------------------------------------------------------------
 #
 # Each servo cradle (coxa_bracket's yaw well, coxa_link's hip-pitch
-# well, femur_link's knee well) now bolts the servo down via 4 x
-# M3 x 14 SHCS that pass HORIZONTALLY through the cradle's +/-X walls
-# into M3 nyloc nuts captured in hex pockets on the OUTER face of
-# those walls.  Each cradle wall must:
+# well, femur_link's knee well) bolts the servo down via 4 VERTICAL
+# M3 SHCS that thread DOWN through each servo ear into a Phi
+# SHCS_PILOT_OD = 2.5 mm self-tap pilot hole drilled vertically into
+# the shelf material below each ear.  Each cradle shelf must:
 #
-#   a) be VOID inside the Phi 3.2 mm horizontal clearance cylinder
-#      at (well-local y = +/- SERVO_MOUNT_HOLE_Y_OFFSET,
-#                  z = SERVO_MOUNT_HOLE_Z_OFFSET), and
-#   b) have M3_NYLOC_NUT_DEPTH-deep hex pockets cut into the outer
-#      face at the same (y, z) so the nyloc nut drops in.
+#   * be VOID along the 4 vertical Phi 2.5 mm pilot cylinders centred
+#     on well-local (sx * SERVO_MOUNT_HOLE_X_OFFSET,
+#                    sy * SERVO_MOUNT_HOLE_Y_OFFSET) and extending
+#     downward from the shelf top by SHCS_THREAD_ENGAGEMENT_MM.
 #
-# The verifier checks (a) by sampling a thin horizontal cylinder
-# along the bolt axis and counting hits; (b) by sampling a thin disc
-# just below the wall's nominal outer face (in the nut-pocket
-# volume) and confirming it's VOID.
+# The verifier checks this by sampling a thin vertical cylinder along
+# the bolt axis (well-local -Z) and counting hits.  The bracket's
+# pilots ride a few mm below WELL_RIM_Z because the drop-in slot eats
+# the well's rim down to bracket-z = -3 (see ``BRACKET_SHELF_DROP_MM``
+# in ``make_coxa_bracket``); the bracket case adjusts the probe's z
+# midpoint accordingly so its 4 pilots are sampled where the bracket
+# actually cut them.
 
-CRADLE_NUT_TRAP_VOX_TOL = 3    # voxel hits per bolt/pocket -- noise floor
-
-
-def _cradle_outer_face_x(well_local_axis_world_dir: np.ndarray,
-                          well_centre_world: np.ndarray) -> tuple:
-    """Return (+X_outer_face_world_xyz, -X_outer_face_world_xyz) for a
-    cradle whose well-local +X axis maps onto ``well_local_axis_world_
-    dir`` in the world frame.
-
-    Unused at the moment -- the existing checks operate in each
-    cradle's LOCAL frame, so they probe at the unrotated well coords
-    directly.  Kept for documentation of the intended check geometry.
-    """
-    return (well_centre_world + (hp.WELL_W / 2.0)
-            * well_local_axis_world_dir,
-            well_centre_world - (hp.WELL_W / 2.0)
-            * well_local_axis_world_dir)
+CRADLE_PILOT_HOLE_VOX_TOL = 3   # voxel hits per pilot -- noise floor
 
 
-def check_cradle_nut_traps():
-    """Verify each cradle's +/-X walls carry the 4 horizontal M3
-    clearance holes AND the 4 nyloc nut hex pockets that go with
-    them (Design C, May 2026).
+def check_cradle_pilot_holes():
+    """Verify each cradle has 4 vertical Phi SHCS_PILOT_OD self-tap
+    pilot holes drilled into the shelf below the 4 servo ear
+    positions (Design C, May 2026 revert).
 
     The cradles are tested in their UNROTATED, UNTRANSLATED local
     frames so we don't have to undo each cradle's R / delta math --
     we synthesize a small "well-only" mesh per case that strips the
     surrounding link / bracket material and checks just the well.
     """
-    print(f"\n[5e] Cradle nyloc nut traps "
-          f"(Phi {hp.SERVO_MOUNT_BOLT_OD:.1f} mm bolts + "
-          f"{hp.M3_NYLOC_NUT_AF:.1f} mm AF x "
-          f"{hp.M3_NYLOC_NUT_DEPTH:.2f} mm hex pockets):")
+    print(f"\n[5e] Cradle vertical self-tap pilots "
+          f"(4 x Phi {hp.SHCS_PILOT_OD:.1f} mm pilots "
+          f"x {hp.SHCS_THREAD_ENGAGEMENT_MM:.0f} mm deep):")
 
     # Each case: (label, mesh-builder, transform-to-well-local).  The
     # cradle's well-local coords match _servo_well_solid (origin at
@@ -3172,8 +3157,8 @@ def check_cradle_nut_traps():
     # (-SERVO_OUTPUT_X, 0, -WELL_RIM_Z) into bracket-local frame.
     # For coxa_link / femur_link the well is rotated by -90 deg
     # about +X (well +Z -> link +Y) and then translated.  We undo
-    # those transforms with the inverse rotation + translation so the
-    # nut-trap probe lives at the same well-local coordinates in
+    # those transforms with the inverse rotation + translation so
+    # the pilot probe lives at the same well-local coordinates in
     # every case.
     R_inv = rotation_matrix(+np.pi / 2.0, [1, 0, 0])
 
@@ -3188,29 +3173,21 @@ def check_cradle_nut_traps():
         # well_z_drop in link-Z; here we undo all three so the well
         # cavity ends up at well-local origin.
         m = mesh.copy()
-        # Undo COXA_LIFT (the body was lifted by COXA_LIFT after the
-        # well union).
         m.apply_translation([0.0, 0.0, -hp.COXA_LIFT])
-        # Undo well_z_drop (-(WELL_D/2 + arm_t/2 + WELL_Z_DROP_EXTRA))
         arm_t = hp.COXA_ARM_T
         well_z_drop = -(hp.WELL_D / 2.0 + arm_t / 2.0
                          + hp.WELL_Z_DROP_EXTRA)
         m.apply_translation([0.0, 0.0, -well_z_drop])
-        # Undo delta = (COXA_LENGTH - SERVO_OUTPUT_X,
-        #               -(SERVO_BODY_H + SERVO_OUTPUT_H), 0)
         m.apply_translation([
             -(hp.COXA_LENGTH - hp.SERVO_OUTPUT_X),
             +(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
             0.0,
         ])
-        # Undo R (-pi/2 about +X), i.e. apply R^-1 = +pi/2 about +X.
         m.apply_transform(R_inv)
         return m
 
     def _femur_link_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
         m = mesh.copy()
-        # Undo delta = (FEMUR_LENGTH - SERVO_OUTPUT_X,
-        #               -(SERVO_BODY_H + SERVO_OUTPUT_H), 0)
         m.apply_translation([
             -(hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X),
             +(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
@@ -3219,82 +3196,61 @@ def check_cradle_nut_traps():
         m.apply_transform(R_inv)
         return m
 
+    # Each case: (label, well-local mesh, shelf_top_z).  The bracket's
+    # effective shelf top sits a few mm below WELL_RIM_Z because the
+    # drop-in slot eats wall material above bracket-z = -3; the bracket
+    # case sets shelf_top_z = WELL_RIM_Z - 3.0 to match where the
+    # bracket-level pilot helper drilled (see ``BRACKET_SHELF_DROP_MM``
+    # in ``hexapod_prototype.make_coxa_bracket``).
+    bracket_shelf_drop = 3.0
     cases = [
-        # ``_*_to_well_local`` helpers copy + mutate, so pass the
-        # cached master directly (no extra copy in the caller).
         ("coxa_bracket (yaw cradle)",
-         _bracket_to_well_local(_load_mesh("coxa_bracket", copy=False))),
+         _bracket_to_well_local(_load_mesh("coxa_bracket", copy=False)),
+         hp.WELL_RIM_Z - bracket_shelf_drop),
         ("coxa_link    (hip-pitch cradle)",
-         _coxa_link_to_well_local(_load_mesh("coxa_link", copy=False))),
+         _coxa_link_to_well_local(_load_mesh("coxa_link", copy=False)),
+         hp.WELL_RIM_Z),
         ("femur_link   (knee cradle)",
-         _femur_link_to_well_local(_load_mesh("femur_link", copy=False))),
+         _femur_link_to_well_local(_load_mesh("femur_link", copy=False)),
+         hp.WELL_RIM_Z),
     ]
 
-    # Probe radii (slightly tighter than the nominal cut so voxel
-    # stair-step artefacts on the curved boundaries don't pollute the
-    # "is this void" reading).
-    bolt_probe_r   = hp.SERVO_MOUNT_BOLT_OD / 2.0 - 0.2
-    pocket_probe_r = (hp.M3_NYLOC_NUT_AF * 0.5 - 0.5)   # ~2.3 mm; the
-                                                         # nut pocket
-                                                         # has 2.8 mm
-                                                         # apothem
+    # Probe radius slightly tighter than the nominal cut so voxel
+    # stair-step artefacts on the curved boundary don't pollute the
+    # "is this void" reading.
+    pilot_probe_r = hp.SHCS_PILOT_OD / 2.0 - 0.2   # ~1.05 mm
 
     all_ok = True
-    for name, well_local_mesh in cases:
-        bolt_hits = 0
-        pocket_hits = 0
-        n_bolts_per_case = 4
+    for name, well_local_mesh, shelf_top_z in cases:
+        pilot_hits = 0
+        n_pilots = 4
+        # Probe a vertical cylinder strictly INSIDE the pilot bore.
+        # Pilot extends from z = shelf_top_z + 2 down to shelf_top_z -
+        # SHCS_THREAD_ENGAGEMENT_MM; the probe sits strictly inside
+        # the printed material (between the shelf top at z = shelf_top
+        # and the pilot floor at z = shelf_top - SHCS_THREAD_ENG_MM)
+        # so we don't accidentally sample the air above the shelf.
+        # 60% of the in-material depth is the probe length; mid-point
+        # is shelf_top - 0.5 * SHCS_THREAD_ENGAGEMENT_MM.
+        probe_depth = hp.SHCS_THREAD_ENGAGEMENT_MM * 0.6
+        probe_z_cen = shelf_top_z - hp.SHCS_THREAD_ENGAGEMENT_MM / 2.0
         for sx in (-1, 1):
             for sy in (-1, 1):
+                x = sx * hp.SERVO_MOUNT_HOLE_X_OFFSET
                 y = sy * hp.SERVO_MOUNT_HOLE_Y_OFFSET
-                z = hp.SERVO_MOUNT_HOLE_Z_OFFSET
-                # ---- a) Horizontal bolt clearance hole ----
-                # Probe a short cylinder strictly INSIDE the wall
-                # (between the outer face and the cavity face).
-                # +X wall material spans x in [+SERVO_BODY_W/2 +
-                # WELL_BODY_CL, +WELL_W/2]; probe centre is at x =
-                # sx * (WELL_W + SERVO_BODY_W + 2*WELL_BODY_CL) / 4
-                # which is the midpoint of that span.
-                wall_inner_x = hp.SERVO_BODY_W / 2.0 + hp.WELL_BODY_CL
-                wall_outer_x = hp.WELL_W / 2.0
-                probe_x = sx * 0.5 * (wall_inner_x + wall_outer_x)
-                probe_depth = (wall_outer_x - wall_inner_x) * 0.6
-                centre = np.array([probe_x, y, z])
-                bolt_hits += _probe_void_cylinder(
-                    well_local_mesh, centre, "x",
-                    bolt_probe_r, probe_depth, n_samples=32,
+                centre = np.array([x, y, probe_z_cen])
+                pilot_hits += _probe_void_cylinder(
+                    well_local_mesh, centre, "z",
+                    pilot_probe_r, probe_depth, n_samples=48,
                 )
 
-                # ---- b) Hex pocket on outer face ----
-                # Probe a short cylinder strictly INSIDE the pocket
-                # volume (between the outer face and the pocket
-                # floor M3_NYLOC_NUT_DEPTH inside).  Centre at
-                # x = sx * (WELL_W/2 - M3_NYLOC_NUT_DEPTH/2).
-                pocket_centre_x = (sx
-                                    * (wall_outer_x
-                                       - hp.M3_NYLOC_NUT_DEPTH / 2.0))
-                centre = np.array([pocket_centre_x, y, z])
-                pocket_hits += _probe_void_cylinder(
-                    well_local_mesh, centre, "x",
-                    pocket_probe_r,
-                    hp.M3_NYLOC_NUT_DEPTH * 0.7,
-                    n_samples=48,
-                )
-
-        bolt_tol   = CRADLE_NUT_TRAP_VOX_TOL * n_bolts_per_case
-        pocket_tol = CRADLE_NUT_TRAP_VOX_TOL * n_bolts_per_case
-        ok_bolts = bolt_hits <= bolt_tol
-        ok_pockets = pocket_hits <= pocket_tol
+        pilot_tol = CRADLE_PILOT_HOLE_VOX_TOL * n_pilots
+        ok_pilots = pilot_hits <= pilot_tol
         all_ok &= _label(
-            f"{name} :: 4 x Phi {hp.SERVO_MOUNT_BOLT_OD} mm "
-            f"horizontal clearance holes",
-            ok_bolts,
-            f"hits={bolt_hits} (tol {bolt_tol})",
-        )
-        all_ok &= _label(
-            f"{name} :: 4 x {hp.M3_NYLOC_NUT_AF}mm AF hex nut pockets",
-            ok_pockets,
-            f"hits={pocket_hits} (tol {pocket_tol})",
+            f"{name} :: 4 x Phi {hp.SHCS_PILOT_OD:.1f} mm "
+            f"vertical self-tap pilots",
+            ok_pilots,
+            f"hits={pilot_hits} (tol {pilot_tol})",
         )
 
     return all_ok
@@ -3463,7 +3419,7 @@ def _build_world_leg0_printed_parts() -> dict:
 def _driver_envelope_for_spec(spec: str) -> tuple:
     """Return ``(diameter_mm, length_mm)`` of the driver clearance
     cone appropriate for ``spec`` -- one of the fastener-registry
-    ``SPEC_*`` strings (e.g. ``"M3x14 SHCS"`` or ``"M3 nyloc nut"``).
+    ``SPEC_*`` strings (e.g. ``"M3x8 SHCS"`` or ``"M3 nyloc nut"``).
 
     Dispatch (case-sensitive, ordered by precedence -- first match
     wins because some specs contain more than one of the marker
@@ -3686,7 +3642,7 @@ CHECKS = (
     ("Horn-stack clearance",      "check_horn_stack_clearance"),
     ("Horn-sweep clearance",      "check_horn_sweep_clearance"),
     ("Horn pattern in pads",      "check_horn_pattern_in_pad"),
-    ("Cradle nut traps",          "check_cradle_nut_traps"),
+    ("Cradle pilot holes",        "check_cradle_pilot_holes"),
     ("Flimsy joints",             "check_flimsy_joints"),
     ("Thin sheets",               "check_thin_sheets"),
     ("Screwdriver access",        "check_screwdriver_access"),

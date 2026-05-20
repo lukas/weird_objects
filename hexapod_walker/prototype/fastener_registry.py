@@ -34,40 +34,46 @@ Convention
   For a nut sat outboard of a wall, ``axis_world`` points from the
   outer (visible) nut face INTO the wall.
 
-Enumerated categories (Design B + Design C, May 2026)
------------------------------------------------------
+Enumerated categories (Design B + Design C, May 2026 revert)
+------------------------------------------------------------
 
-1. ``72 x M3 x 14 SHCS`` -- cradle servo-mount bolts.  4 per cradle x
-   3 cradles (yaw / hip-pitch / knee) per leg x 6 legs = 72.  Drilled
-   horizontally through each cradle's +/-X walls and through the
-   servo's mounting tabs; captured by an M3 nyloc nut sat in a hex
-   pocket on the SAME wall's outer face.
+1. ``72 x M3 x 8 SHCS`` -- cradle servo-mount bolts (Design C revert).
+   4 per cradle x 3 cradles (yaw / hip-pitch / knee) per leg x 6 legs
+   = 72.  Driven VERTICALLY from above through each servo ear into a
+   Phi SHCS_PILOT_OD = 2.5 mm self-tap pilot in the printed shelf
+   below.  Shares the SAME stock (PN_M3X8_SHCS / 91290A113) as the
+   link-to-X-horn bolts below, so the prototype now uses a SINGLE
+   M3 SHCS length (M3 x 8) for both cradle and horn-clamp bolts.
+   The brief May 2026 horizontal-nyloc iteration was retired after
+   the audit surfaced (a) a wire-channel collision in the +X wall
+   and (b) a >MIN_PRINT_T outer-wall violation around the Phi 5.6 mm
+   hex pocket; see ``PROTOTYPE.md`` (Design C section) for the audit
+   table and the revert rationale.
 
-2. ``72 x M3 nyloc nuts`` -- one per cradle bolt (see 1.).
-
-3. ``72 x M3 x 8 SHCS`` -- link-to-X-horn bolts.  4 per joint
+2. ``72 x M3 x 8 SHCS`` -- link-to-X-horn bolts.  4 per joint
    (HORN_BOLT_PCD = 20.8 mm circle) x (yaw + hip + knee) = 3 joints
    per leg x 6 legs.  Threads downward from the printed link's pad
    face into the plastic 4-arm X-horn that ships with the servo
    (Design B retired the printed adapter disc; the link clamps the
-   X-horn directly).
+   X-horn directly).  Combined with the cradle bolts above this gives
+   144 x M3 x 8 SHCS total.
 
-4. ``18 x M2.5 x 8 spline center screw`` -- ships with the servo; sits
+3. ``18 x M2.5 x 8 spline center screw`` -- ships with the servo; sits
    captive between the servo spline and the plastic horn.  18 servos
    x 1 screw each = 18.  Special-cased in ``check_screwdriver_access``
    with a SKIP because the screw is hidden under the X-horn during
    normal assembly -- install before fitting the horn.
 
-5. ``24 x M3 x 32 SHCS`` -- coxa-bracket-to-chassis bolts.  4 chassis
+4. ``24 x M3 x 32 SHCS`` -- coxa-bracket-to-chassis bolts.  4 chassis
    bolts per coxa_bracket x 6 brackets = 24.  Threads down through the
    chassis_bottom plate, the bracket flange, into an M3 nyloc nut
    captured below the chassis plate.
 
-6. ``24 x M3 nyloc nuts`` -- one per chassis-bracket bolt (see 5.).
+5. ``24 x M3 nyloc nuts`` -- one per chassis-bracket bolt (see 4.).
 
-7. ``6 x M3 x 16 pan-head bolts`` -- foot hinge pins.  1 per leg.
+6. ``6 x M3 x 16 pan-head bolts`` -- foot hinge pins.  1 per leg.
 
-8. ``6 x M3 nyloc nuts`` -- one per foot hinge bolt.
+7. ``6 x M3 nyloc nuts`` -- one per foot hinge bolt.
 
 Categories NOT enumerated yet (acknowledged future work; see
 PROTOTYPE_BOM.md "Fasteners" auto-derived section):
@@ -104,15 +110,17 @@ import hexapod_prototype as HP  # noqa: E402
 # Centralised so the BOM, the inspector legend, and the fasteners/
 # README stay in sync.  If McMaster renumbers a SKU, edit here only.
 
-PN_M3X14_SHCS    = "91290A115"   # M3 x 14 socket-head cap screw, black-oxide steel
 PN_M3X8_SHCS     = "91290A113"   # M3 x 8  socket-head cap screw, black-oxide steel
 PN_M3X32_SHCS    = "91290A123"   # M3 x 30 socket-head cap screw (closest stock to 32 mm)
 PN_M3_NYLOC      = "90576A102"   # M3 nylon-insert lock nut, A2 stainless
 PN_M3X16_PAN     = "92010A130"   # M3 x 16 pan-head Phillips, A2 stainless (foot hinge)
 PN_M25X8_SHCS    = "91290A104"   # M2.5 x 8 socket-head cap screw (servo spline)
+# May 2026 revert: the brief Design C horizontal-nyloc cradle bolt
+# (PN_M3X14_SHCS = 91290A115) was retired in favour of vertical M3 x 8
+# self-tap SHCS into Phi 2.5 mm printed pilots, reusing the existing
+# M3 x 8 stock used for the link-to-X-horn bolts.
 
 # Human-readable spec labels (used by the inspector and the BOM script).
-SPEC_M3X14_SHCS  = "M3x14 SHCS"
 SPEC_M3X8_SHCS   = "M3x8 SHCS"
 SPEC_M3X32_SHCS  = "M3x32 SHCS"
 SPEC_M3_NYLOC    = "M3 nyloc nut"
@@ -216,54 +224,71 @@ def _apply_dir(T: np.ndarray, v_local) -> np.ndarray:
 #
 # Each cradle uses a ``_servo_well_solid``-frame bolt pattern: 4 bolts at
 # well-local
-#     (sx * WELL_W/2, sy * SERVO_MOUNT_HOLE_Y_OFFSET, SERVO_MOUNT_HOLE_Z_OFFSET)
-# with ``sx, sy in {-1, +1}``.  Bolt head sits on the OUTER face of the
-# sx wall; axis = -sx_hat (pointing INTO the wall material).  Nut sits in
-# the hex pocket on the SAME wall's outer face -- the user's recently-
-# introduced captive-nyloc Design C (commit be06741).
+#     (sx * SERVO_MOUNT_HOLE_X_OFFSET,
+#      sy * SERVO_MOUNT_HOLE_Y_OFFSET,
+#      shelf_top_z + SERVO_TAB_T/2)         -- = ear top
+# with ``sx, sy in {-1, +1}``.  The bolt head sits ON TOP of the servo
+# ear; the bolt axis is straight DOWN (-Z in well-local), threading into
+# a Phi SHCS_PILOT_OD = 2.5 mm vertical self-tap pilot in the printed
+# shelf below the ear.
+#
+# ``shelf_top_z`` is normally ``WELL_RIM_Z`` (coxa_link / femur cradles
+# whose rim is intact).  The coxa_bracket's drop-in slot eats wall
+# material above ``bracket-z = BRACKET_SLOT_Z_MIN_RIB_CLEAR`` so the
+# bracket's effective shelf top sits ``BRACKET_SHELF_DROP_MM`` (= 3 mm)
+# BELOW WELL_RIM_Z; the yaw cradle case uses that lower value so the
+# bolt heads sit on the actual cut wall rather than 3 mm of empty air.
 #
 # To enumerate world-frame positions we compose the cradle's well-to-
 # world 4x4 transform once, then map the 4 well-local positions through
 # it.
 
 
-_WELL_BOLT_LOCAL_POS = [
-    np.array([
-        sx * HP.WELL_W / 2.0,
-        sy * HP.SERVO_MOUNT_HOLE_Y_OFFSET,
-        HP.SERVO_MOUNT_HOLE_Z_OFFSET,
-    ])
-    for sx in (-1, +1)
-    for sy in (-1, +1)
-]
-# Companion axis (well-local) for each bolt.  Axis points FROM head INTO
-# the material, so for the +X wall it's -X, for the -X wall it's +X.
-_WELL_BOLT_LOCAL_AXIS = [
-    np.array([-sx, 0.0, 0.0])
-    for sx in (-1, +1)
-    for sy in (-1, +1)
-]
-# Tagging the four well-local positions with their (sx, sy) sign so we
-# can give the role string a human-readable corner label.
-_WELL_BOLT_SIGNS = [
-    (sx, sy)
-    for sx in (-1, +1)
-    for sy in (-1, +1)
-]
+# Bracket shelf drop -- duplicates ``BRACKET_SHELF_DROP_MM`` defined
+# locally inside ``hexapod_prototype.make_coxa_bracket``.  Both values
+# come from the same root cause: the bracket's drop-in slot cuts wall
+# material from bracket-z = -3 down to the flange top, eating 3 mm
+# off the bolt-site rim.  Keep them in sync.
+_BRACKET_SHELF_DROP_MM = 3.0
+
+
+def _well_bolt_local_pos_axis(shelf_top_z: float):
+    """Return ``(positions, axes, signs)`` for the 4 cradle bolts at
+    the given shelf top z (in well-local coords).
+
+    Bolt head sits on the servo ear's TOP face, which is at
+    ``shelf_top_z + SERVO_TAB_T`` (the tab thickness is SERVO_TAB_T and
+    the tab BOTTOM rests on the shelf top; ear top = shelf_top +
+    tab_t).
+    """
+    ear_top_z = shelf_top_z + HP.SERVO_TAB_T
+    positions = [
+        np.array([
+            sx * HP.SERVO_MOUNT_HOLE_X_OFFSET,
+            sy * HP.SERVO_MOUNT_HOLE_Y_OFFSET,
+            ear_top_z,
+        ])
+        for sx in (-1, +1)
+        for sy in (-1, +1)
+    ]
+    # Axis points FROM head INTO the material (downward into the
+    # printed shelf), so well-local -Z.
+    axes = [
+        np.array([0.0, 0.0, -1.0])
+        for _ in positions
+    ]
+    signs = [
+        (sx, sy)
+        for sx in (-1, +1)
+        for sy in (-1, +1)
+    ]
+    return positions, axes, signs
 
 
 def _wall_corner_label(sx: int, sy: int) -> str:
     x_face = "+X" if sx > 0 else "-X"
     y_corner = "top" if sy > 0 else "bot"
     return f"{x_face} {y_corner}"
-
-
-# A small outward offset for the nut so its visualization mesh doesn't
-# overlap with the bolt head's: the nut sits ALMOST flush with the wall
-# outer face, the head ALMOST flush with the nut's outer face.  This
-# offset only matters for the inspector mesh placement; the verifier
-# uses the head_world_xyz directly.
-_NUT_OUTBOARD_NUDGE_MM = 0.0   # nut outer face = wall outer face
 
 
 def _yaw_cradle_T(leg_index: int) -> np.ndarray:
@@ -356,72 +381,60 @@ def _emit_cradle_fasteners(
     leg_index: int,
     joint: str,
     location: str,
+    shelf_top_z: float = None,
 ) -> list[FastenerInstance]:
-    """Emit the 4 SHCS + 4 nyloc nuts for one cradle."""
+    """Emit the 4 vertical M3 self-tap SHCS for one cradle.
+
+    ``shelf_top_z`` is the well-local z of the shelf surface the servo
+    ear rests on -- ``WELL_RIM_Z`` for the femur / coxa_link cradles
+    and ``WELL_RIM_Z - BRACKET_SHELF_DROP_MM`` for the coxa_bracket
+    yaw cradle whose rim was eaten by the drop-in slot.
+    """
+    if shelf_top_z is None:
+        shelf_top_z = HP.WELL_RIM_Z
+
+    positions, axes, signs = _well_bolt_local_pos_axis(shelf_top_z)
+
     out: list[FastenerInstance] = []
-    for (sx, sy), p_local, ax_local in zip(
-        _WELL_BOLT_SIGNS, _WELL_BOLT_LOCAL_POS, _WELL_BOLT_LOCAL_AXIS,
-    ):
+    for (sx, sy), p_local, ax_local in zip(signs, positions, axes):
         head = _apply_point(T_well_to_world, p_local)
         axis = _apply_dir(T_well_to_world, ax_local)
         role_suffix = _wall_corner_label(sx, sy)
         out.append(FastenerInstance(
-            part_number=PN_M3X14_SHCS,
-            spec=SPEC_M3X14_SHCS,
+            part_number=PN_M3X8_SHCS,
+            spec=SPEC_M3X8_SHCS,
             head_world_xyz=head,
             axis_world=axis,
-            role=f"{location} {role_suffix} SHCS",
+            role=f"{location} {role_suffix} self-tap SHCS",
             leg_index=leg_index,
             joint=joint,
-            length_mm=14.0,
-            cache_stl=f"{PN_M3X14_SHCS}.cache.stl",
-            # The cradle bolts are CAPTIVE SUB-ASSEMBLY fasteners: the
-            # servo is dropped into the cradle and the 4 SHCS are torqued
-            # BEFORE the cradle's parent printed part is mated to its
-            # neighbour (the coxa_bracket to the chassis, the coxa_link
-            # to the yaw servo horn, the femur_link to the hip horn).
-            # In Design C (commit be06741) the cradle's +/-X wall
-            # thickness was tuned to capture an M3 nyloc nut, NOT to
-            # expose the bolt head for post-assembly driver access --
-            # which the task spec explicitly anticipated ("the cradle
-            # bolts likely have clearance issues since the wall
-            # thickness was tuned to fit the nut, not to expose the
-            # bolt head").  Reported to parent for design review;
-            # SKIPped here so the verifier does not regress on this
-            # known issue.
+            length_mm=8.0,
+            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
+            # The new vertical bolt head sits ON TOP of the servo ear
+            # at well-local z = shelf_top + SERVO_TAB_T with the +Z
+            # hemisphere open to clear air at the SERVO LEVEL.  But
+            # the cradle bolts are still CAPTIVE SUB-ASSEMBLY
+            # fasteners -- they are tightened BEFORE the joint above
+            # the cradle is closed (the coxa_link onto the yaw servo
+            # horn, the femur onto the hip servo horn, the tibia onto
+            # the knee servo horn, and the chassis_top stack onto the
+            # bracket's chassis_bottom plate).  Once that next-stage
+            # link / plate is in place, the driver cone going +Z from
+            # a yaw cradle bolt hits chassis_top / electronics_tray
+            # above the bracket, and a hip / knee cradle bolt's cone
+            # is masked by the femur / tibia pad that bolts onto the
+            # servo horn directly above the ear.  The verifier's
+            # screwdriver-access check probes the FULLY-ASSEMBLED
+            # robot so we SKIP these cradle bolts with the standard
+            # sub-assembly-order rationale.
             skip_screwdriver_reason=(
-                "captive sub-assembly fastener: torqued BEFORE the "
-                "cradle's parent printed part mates to its neighbour. "
-                "Design C cradle wall thickness is tuned for the nyloc "
-                "nut pocket, not for post-assembly driver access -- "
-                "see PROTOTYPE_BOM.md for the sub-assembly order"
-            ),
-        ))
-        # Nut: outboard face at the same well-local position (it sits
-        # in the hex pocket open at the wall's outer face).  Same axis.
-        nut_head = _apply_point(
-            T_well_to_world,
-            p_local + (-ax_local) * _NUT_OUTBOARD_NUDGE_MM,
-        )
-        out.append(FastenerInstance(
-            part_number=PN_M3_NYLOC,
-            spec=SPEC_M3_NYLOC,
-            head_world_xyz=nut_head,
-            axis_world=axis,
-            role=f"{location} {role_suffix} nyloc nut",
-            leg_index=leg_index,
-            joint=joint,
-            length_mm=None,
-            cache_stl=f"{PN_M3_NYLOC}.cache.stl",
-            # Cradle nyloc nuts sit captive in the printed hex pocket
-            # (Design C, May 2026 -- commit be06741).  The hex flats
-            # of the pocket hold the nut against rotation, so the
-            # assembler turns the BOLT HEAD with a hex key and never
-            # needs to put a wrench on the nut.  We probe the bolt
-            # head's driver clearance instead.
-            skip_screwdriver_reason=(
-                "captive in printed hex nut trap (Design C); bolt is "
-                "driven from the head side, no wrench needed on the nut"
+                "captive sub-assembly fastener: the vertical M3 self-"
+                "tap is torqued from above BEFORE the next stage's "
+                "link / plate is bolted onto the cradle's servo horn "
+                "(yaw cradle -> coxa_link, hip cradle -> femur, knee "
+                "cradle -> tibia; bracket yaw cradle also requires "
+                "the chassis-top stack to be added LAST).  See "
+                "PROTOTYPE.md for the explicit sub-assembly order"
             ),
         ))
     return out
@@ -854,12 +867,17 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     """
     out: list[FastenerInstance] = []
     for leg_index in range(6):
-        # Cradle bolts (Design C nut traps).
+        # Cradle bolts (Design C, May 2026 revert: vertical M3 self-tap
+        # SHCS into Phi 2.5 mm printed pilots).  The coxa_bracket's
+        # shelf top sits BRACKET_SHELF_DROP_MM = 3 mm below WELL_RIM_Z
+        # because its drop-in slot eats the rim above bracket-z = -3;
+        # the coxa_link and femur cradles keep WELL_RIM_Z intact.
         out.extend(_emit_cradle_fasteners(
             T_well_to_world=_yaw_cradle_T(leg_index),
             leg_index=leg_index,
             joint="yaw",
             location=f"coxa_bracket L{leg_index} yaw cradle",
+            shelf_top_z=HP.WELL_RIM_Z - _BRACKET_SHELF_DROP_MM,
         ))
         out.extend(_emit_cradle_fasteners(
             T_well_to_world=_hip_cradle_T(leg_index),
@@ -913,12 +931,11 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
         rows.append((spec, pn, qty, used))
     # Stable, human-friendly order: SHCS by length, then nuts.
     spec_order = {
-        SPEC_M3X14_SHCS: 0,
-        SPEC_M3X8_SHCS:  1,
-        SPEC_M3X32_SHCS: 2,
-        SPEC_M3X16_PAN:  3,
-        SPEC_M25X8_SHCS: 4,
-        SPEC_M3_NYLOC:   5,
+        SPEC_M3X8_SHCS:  0,
+        SPEC_M3X32_SHCS: 1,
+        SPEC_M3X16_PAN:  2,
+        SPEC_M25X8_SHCS: 3,
+        SPEC_M3_NYLOC:   4,
     }
     rows.sort(key=lambda r: (spec_order.get(r[0], 9), r[0]))
     return rows
@@ -927,7 +944,10 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
 def _usage_bucket(fi: FastenerInstance) -> str:
     role = fi.role
     if "cradle" in role:
-        return "cradle servo mounts"
+        # The 72 vertical SHCS that thread DOWN through each servo ear
+        # into a Phi 2.5 mm printed self-tap pilot in the cradle shelf
+        # (Design C revert -- see hexapod_prototype.SHCS_PILOT_OD).\n
+        return "cradle servo self-tap mounts"
     if "X-horn" in role:
         return "link-to-X-horn bolts"
     if "spline screw" in role:

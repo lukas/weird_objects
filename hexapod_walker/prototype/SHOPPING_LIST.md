@@ -99,7 +99,7 @@ link is gear stripping during tuning).
 |---:|---|---|---|
 | 1 | **M3 socket-head cap screw + nut + washer assortment kit (~ 500 pieces, 6 / 8 / 10 / 12 / 16 / 20 mm lengths, A2 stainless)** | Simpler than buying lengths separately. Use 8 mm for servo tabs, 12 mm for chassis-spacer bolts, 16 mm for coxa-bracket → chassis and **for the 6 foot/tibia clevis hinge pins**, 20 mm for the rare longer reach. | [Amazon search: "M3 stainless screw kit assortment"](https://www.amazon.com/s?k=M3+stainless+screw+kit+assortment) |
 | 6 | **M3 × 16 mm pan-head bolts (foot hinge pins)** | One per leg: passes through the tibia clevis (3.5 mm cheek) + foot tongue (4 mm) + 5 mm gap and engages an M3 nylock nut on the far side (~ 4 mm of thread in the nut). Pan-head sits flatter against the cheek than a socket head. The M3 assortment above usually covers this if it has 16 mm + pan-head; otherwise buy this row separately. | [Amazon search: "M3 x 16 pan head stainless"](https://www.amazon.com/s?k=M3+x+16+pan+head+stainless) |
-| 1 | **M3 nylon-insert (nyloc) lock nut, ~ 100 pieces** | Use these on every joint that sees vibration, especially the coxa-bracket → chassis bolts, the 6 foot-hinge pins, and any joint inside the leg. | [Amazon search: "M3 nyloc lock nut 100 pack"](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
+| 1 | **M3 nylon-insert (nyloc) lock nut, ~ 100 pieces** | 30 used: 24 on the coxa-bracket → chassis through-bolts and 6 on the foot-pad hinge pins. The cradle servo mounts are vertical M3 self-tappers (Design C revert, May 2026) and do **not** use a nut. | [Amazon search: "M3 nyloc lock nut 100 pack"](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
 | 1 | **M3 × 25 mm hex round standoffs, M-F brass, set of 20** | Sandwich the chassis plates 25 mm apart with 4 of these on the inner bolt circle. | [Amazon search: "M3 25mm standoffs male female brass"](https://www.amazon.com/s?k=M3+25mm+standoffs+male+female+brass) |
 | 1 | **M2.5 × 8 mm screws (servo horn screws — also pre-fit)** | Comes free with the servos as self-tappers, but a 50-pack of M2.5 × 8 + M2.5 nuts is $5 and saves a trip if you strip one. | [Amazon search: "M2.5 8mm screw 50 pack"](https://www.amazon.com/s?k=M2.5+8mm+screw+50+pack) |
 
@@ -112,18 +112,22 @@ Edit the registry (not this table) and re-run `make bom-fasteners`.
 
 | Spec | McMaster P/N | Qty | Used in |
 |------|--------------|-----|---------|
-| M3x14 SHCS | 91290A115 | 72 | cradle servo mounts |
-| M3x8 SHCS | 91290A113 | 72 | link-to-X-horn bolts |
+| M3x8 SHCS | 91290A113 | 144 | cradle servo self-tap mounts, link-to-X-horn bolts |
 | M3x32 SHCS | 91290A123 | 24 | coxa-bracket-to-chassis bolts |
 | M3x16 pan-head | 92010A130 | 6 | foot hinge pins |
 | M2.5x8 spline screw | 91290A104 | 18 | servo spline center screws |
-| M3 nyloc nut | 90576A102 | 102 | coxa-bracket-to-chassis bolts, cradle servo mounts, foot hinge pins |
-|  |  | **294** | **total fasteners** |
+| M3 nyloc nut | 90576A102 | 30 | coxa-bracket-to-chassis bolts, foot hinge pins |
+|  |  | **222** | **total fasteners** |
 
 Notes:
-- Captive nyloc nuts in the cradles (Design C) are held by the printed
-  hex nut trap; the bolt is driven from the head side, no wrench is
-  needed on the nut.
+- Cradle servo mounts (72 of the M3x8 SHCS) are driven VERTICALLY
+  from above each servo ear and self-tap into a printed Phi 2.5 mm
+  pilot hole in the cradle shelf below.  Existing M3 SHCS stock
+  (P/N 91290A113) doubles as the self-tapper -- the standard hobby-
+  servo mounting style; no separate self-tap SKU.
+- Captive nyloc nuts are still used at the foot-pad hinge pins (6)
+  and at the coxa-bracket-to-chassis bolts (24); both joints have
+  through-hole bolts with the nut on the opposite side.
 - The M2.5 spline center screw ships with each DS3225-class servo --
   it's listed here so the screwdriver-access verifier check knows the
   fastener exists, but you do NOT order it separately.

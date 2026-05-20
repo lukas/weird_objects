@@ -59,8 +59,7 @@ M3_PAN_PHILLIPS_W = 0.9       # Phillips cross slot width
 M3_PAN_PHILLIPS_DEPTH = 1.0
 
 # M3 nylon-insert lock nut (DIN 985):
-M3_NUT_AF       = 5.5         # hex across-flats (matches the hex pocket
-                              #   in _servo_cradle_nut_traps)
+M3_NUT_AF       = 5.5         # hex across-flats
 M3_NUT_H        = 4.0         # overall body height (steel + nylon ring)
 M3_NUT_STEEL_H  = 2.4         # steel portion (bottom)
 M3_NUT_NYLON_H  = M3_NUT_H - M3_NUT_STEEL_H  # nylon ring on top
@@ -209,7 +208,6 @@ def build_for_spec(spec: str) -> trimesh.Trimesh:
     """Return the parametric mesh for a given fastener spec label.
 
     Spec labels match the ``spec`` field on ``FastenerInstance``:
-        "M3x14 SHCS"
         "M3x8  SHCS"
         "M3x32 SHCS"
         "M3x16 pan-head"
@@ -217,8 +215,6 @@ def build_for_spec(spec: str) -> trimesh.Trimesh:
         "M3 nyloc nut"
     """
     s = spec.replace(" ", "").lower()
-    if s == "m3x14shcs":
-        return make_m3_shcs(14.0)
     if s == "m3x8shcs":
         return make_m3_shcs(8.0)
     if s == "m3x32shcs":

@@ -58,7 +58,6 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "servo_horn":          (0.500, 0.500, 0.520),
     # ---- Fasteners (May 2026 -- see fastener_registry.py) -------------
     # M3 cap screws: dark steel (black-oxide finish).
-    "M3x14 SHCS":          (0.30, 0.32, 0.36),
     "M3x8 SHCS":           (0.30, 0.32, 0.36),
     "M3x32 SHCS":          (0.30, 0.32, 0.36),
     # M3 pan-head hinge pin: same dark steel family but a hint lighter
@@ -103,7 +102,6 @@ _JOINT_ROLE = {
 
 
 _FASTENER_PART_TYPES = frozenset({
-    "M3x14 SHCS",
     "M3x8 SHCS",
     "M3x32 SHCS",
     "M3x16 pan-head",

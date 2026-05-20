@@ -63,13 +63,12 @@ from fasteners import _parametric  # noqa: E402
 # Spec-string -> .scad filename mapping
 # ---------------------------------------------------------------------------
 #
-# Each registry spec string ("M3x14 SHCS", "M3 nyloc nut", ...) maps
+# Each registry spec string ("M3x8 SHCS", "M3 nyloc nut", ...) maps
 # to a single .scad file under fasteners/scad/.  Keep this dict in
 # sync with the entries in fastener_registry.SPEC_* and with the
 # files actually present under fasteners/scad/.
 
 SPEC_TO_SCAD: dict[str, str] = {
-    "M3x14 SHCS":          "m3x14_shcs",
     "M3x8 SHCS":           "m3x8_shcs",
     "M3x32 SHCS":          "m3x32_shcs",   # rendered at 30 mm (BOM stock)
     "M3x16 pan-head":      "m3x16_pan",

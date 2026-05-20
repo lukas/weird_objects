@@ -736,7 +736,7 @@ def _decorate_plotter(
     ]
     if any(palette.is_fastener(pt) for pt in present_types):
         legend_entries.append(
-            ("fasteners (M3/M2.5)", palette.PART_COLORS["M3x14 SHCS"]),
+            ("fasteners (M3/M2.5)", palette.PART_COLORS["M3x8 SHCS"]),
         )
     if legend_entries:
         plotter.add_legend(

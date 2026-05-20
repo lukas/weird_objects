@@ -40,14 +40,13 @@ The on-disk layout `make regen-fasteners` produces:
 ```
 fasteners/
   scad/
-    m3x14_shcs.scad       # one .scad per registry SPEC_*
-    m3x8_shcs.scad
+    m3x8_shcs.scad        # one .scad per registry SPEC_*
     m3x32_shcs.scad
     m3x16_pan.scad
     m2p5x8_shcs.scad
     m3_nyloc_nut.scad
-  91290A115.cache.stl     # one per registry part number
-  91290A115.cache.source.txt  # breadcrumb: "openscad NopSCADlib c9baa0e"
+  91290A113.cache.stl     # one per registry part number
+  91290A113.cache.source.txt  # breadcrumb: "openscad NopSCADlib c9baa0e"
   ...
 ```
 
@@ -81,12 +80,40 @@ later just requires re-running `make regen-fasteners`.
 
 | Part number | Spec | Used for |
 |-------------|------|----------|
-| 91290A115   | M3 x 14 SHCS, black-oxide steel | cradle servo-mount bolts |
-| 91290A113   | M3 x 8  SHCS, black-oxide steel | link-to-X-horn bolts |
+| 91290A113   | M3 x 8  SHCS, black-oxide steel | **cradle servo self-tap mounts (72)** + link-to-X-horn bolts (72) -- the same SKU drives both jobs; the cradle bolts are driven into Phi 2.5 mm printed pilots, the X-horn bolts engage the horn's brass inserts |
 | 91290A123   | M3 x 30 SHCS, black-oxide steel (treated as M3 x 32 in the BOM -- swap to 91290A126 if you want exactly 35 mm) | coxa-bracket-to-chassis bolts |
 | 92010A130   | M3 x 16 pan-head Phillips, A2 stainless | foot hinge pins |
 | 91290A104   | M2.5 x 8 SHCS, black-oxide steel | servo spline center screws |
-| 90576A102   | M3 nylon-insert lock nut (DIN 985), A2 stainless | every captive nut (cradle, chassis, foot hinge) |
+| 90576A102   | M3 nylon-insert lock nut (DIN 985), A2 stainless | coxa-bracket-to-chassis through-bolts (24) + foot hinge pins (6).  No longer used in the cradle (Design C revert: cradle bolts self-tap into the printed shelf). |
+
+## Cradle bolts are self-tappers, not separate part numbers
+
+The 72 vertical SHCS that thread DOWN through each servo ear into the
+Phi 2.5 mm pilot hole in the cradle shelf below are drawn from the
+**same M3 x 8 SHCS stock** that bolts each link to its X-horn (= 144
+total, 72 + 72).  We do NOT list a separate "self-tap" SKU.  This is
+deliberate:
+
+* M3 SHCS shanks are nominally Phi 3.0 mm; the printed Phi 2.5 mm
+  pilot is undersized by ~0.5 mm so the SHCS's first revolution
+  cuts (technically forms) a clean thread in PLA / PA12.  This is
+  the same trick that DS3225 / MG996R-class servos already ship
+  with (the manufacturer's M3 mounting hardware is a plain SHCS,
+  too -- they assume the user is mounting into a printed or
+  injection-moulded plastic part with a slightly undersized hole).
+* Keeping a single SKU shrinks the BOM and means a stripped pilot
+  can be re-drilled with the same screw (whereas thread-forming
+  screws like McMaster 97525A540 have a slightly different tip
+  geometry that fights re-driving).
+* Visual rendering already matches: at inspector zoom an SHCS and
+  a thread-forming screw look identical from the head end.
+
+If you DO want to swap in real thread-forming screws (e.g. McMaster
+97525A540 for M3 x 12 self-tap), the registry change is local:
+edit `_emit_cradle_fasteners` in `fastener_registry.py` to point at
+a new `PN_M3_SELFTAP` + `SPEC_M3_SELFTAP` pair and add a
+`fasteners/scad/m3_selftap.scad` (pan-head NopSCADlib placeholder is
+fine -- see `_orient_for_registry` in `make_fastener_meshes.py`).
 
 ## Axis convention
 
@@ -94,7 +121,7 @@ later just requires re-running `make regen-fasteners`.
 
 * `head_world_xyz` -- the centre of the head's outboard face (the
   underside of an SHCS cap that bears on the printed part, or the
-  visible outer face of a captive nyloc nut sat in its hex pocket).
+  outboard face of a nyloc nut where one is used).
 * `axis_world` -- a unit vector pointing FROM the head INTO the
   material (the direction the bolt is driven in; for a nut, INTO
   the wall that holds the nut pocket).
@@ -118,8 +145,7 @@ matches the parametric convention exactly.  After this fix:
 
 | Spec | Cached STL bounds (Z) |
 |------|----------------------|
-| M3 x 14 SHCS    | z in [-3.0, +14.0] mm  (cap at z<0, shank at z>0) |
-| M3 x 8  SHCS    | z in [-3.0,  +8.0] mm |
+| M3 x 8  SHCS    | z in [-3.0,  +8.0] mm  (cap at z<0, shank at z>0) |
 | M3 x 30 SHCS    | z in [-3.0, +30.0] mm |
 | M3 x 16 pan     | z in [-2.0, +16.0] mm |
 | M2.5 x 8 SHCS   | z in [-2.5,  +8.0] mm |
@@ -139,14 +165,14 @@ top-level catalog chrome, not the CAD link.  The reliable path is
 the manual download:
 
 > 1. In a normal browser, visit `https://www.mcmaster.com/<PART_NUMBER>/`,
->    e.g. <https://www.mcmaster.com/91290A115/>.
+>    e.g. <https://www.mcmaster.com/91290A113/>.
 > 2. Click **Product Detail**, scroll to the **Drawings and 3D Models**
 >    panel.
 > 3. Click **3-D STEP**.  (If you want STL instead, pick **3-D STL**.)
-> 4. Save the file as `fasteners/91290A115.step` (or `.stl`).
+> 4. Save the file as `fasteners/91290A113.step` (or `.stl`).
 > 5. Run `make -C hexapod_walker/prototype regen-fasteners` to
 >    refresh the cache.  `make_fastener_meshes.py` will pick up the
->    STEP at priority 1 and the breadcrumb will read `step:91290A115.step`.
+>    STEP at priority 1 and the breadcrumb will read `step:91290A113.step`.
 > 6. Run `make -C hexapod_walker/prototype check-cad-fast` to
 >    revalidate.
 

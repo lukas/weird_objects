@@ -259,7 +259,7 @@ SERVO_PILOT_OD    =  2.5   # mm -- M3 self-tapper PILOT hole drilled into the we
                             #      wall.  The standard servo M3 self-tapper threads
                             #      directly into a 2.5 mm pilot in PA12 / PLA.
 
-# ---- Servo mounting tab holes (for cradle nut-trap bolts) ----------------
+# ---- Servo mounting tab holes (for cradle pilot-hole bolts) --------------
 # On a DS3225 / MG996R / DS3218 class hobby servo the 4 M3 mounting holes
 # live in the ~2.5 mm-thick TABS that extend along the body's long axis
 # (+/- X in servo-local frame).  Tab holes are spaced SERVO_TAB_HOLE_PCD
@@ -267,15 +267,26 @@ SERVO_PILOT_OD    =  2.5   # mm -- M3 self-tapper PILOT hole drilled into the we
 # tabs sit SERVO_TAB_Z above the body bottom, so the mounting bolt's
 # axis crosses the servo at z = SERVO_TAB_Z in body-local coords.
 #
-# Design C (May 2026): we now bolt the servo into its cradle via M3 SHCS
-# that pass HORIZONTALLY through the cradle's +/-X walls into the
-# corresponding servo tab holes, with an M3 nyloc nut captured in a hex
-# pocket on the OUTER face of each wall.  In well-local coords:
-#     bolt axis along +/- X
-#     bolt enters at (sx * (WELL_W/2 + 0.01), sy * SERVO_MOUNT_HOLE_Y_OFFSET,
-#                     SERVO_MOUNT_HOLE_Z_OFFSET)
-#     where SERVO_MOUNT_HOLE_Y_OFFSET = SERVO_TAB_HOLE_PCD_Y / 2,
-#           SERVO_MOUNT_HOLE_Z_OFFSET = SERVO_TAB_Z.
+# Design C (May 2026 revert): each servo is now bolted into its cradle
+# by 4 VERTICAL M3 SHCS that thread DOWN through each servo ear into a
+# Phi SHCS_PILOT_OD = 2.5 mm self-tap pilot hole in the printed shelf
+# below the ear.  This is the standard hobby-servo mounting style for
+# DS3225 / MG996R / SG90-class servos -- the same scheme used by the
+# pre-2026 versions of this prototype.  The brief May 2026 horizontal-
+# nyloc iteration was retired after the audit surfaced a wire-channel
+# collision and a >MIN_PRINT_T outer-wall violation that made the hex-
+# pocket geometry unprintable in PA12 / PLA at the existing wall
+# thickness.  Bolt geometry in well-local coords:
+#
+#     bolt enters at  (sx * SERVO_MOUNT_HOLE_X_OFFSET,    -- ear position
+#                      sy * SERVO_MOUNT_HOLE_Y_OFFSET,    -- ear position
+#                      SERVO_MOUNT_HOLE_Z_OFFSET + SERVO_TAB_T/2) -- ear top
+#     bolt axis  = -Z (downward into the shelf)
+#     bolt clears the Phi SERVO_MOUNT_BOLT_OD = 3.2 mm ear hole in the
+#         servo's tab (factory-drilled, NOT printed) and engages the
+#         Phi SHCS_PILOT_OD = 2.5 mm vertical pilot in the printed
+#         shelf material below.
+#
 # Named constants below mirror the SERVO_TAB_HOLE_* values so the cradle
 # code can refer to a clear "mount-hole position" instead of arithmetic
 # on tab-pitch constants.
@@ -283,9 +294,8 @@ SERVO_MOUNT_HOLE_X_OFFSET = SERVO_TAB_HOLE_PCD / 2.0     # 24.75 mm from
                                                           # body centre
                                                           # along the
                                                           # body's long
-                                                          # axis (= the
-                                                          # well's +/- X
-                                                          # walls).
+                                                          # axis (= ear
+                                                          # tip in +/-X).
 SERVO_MOUNT_HOLE_Y_OFFSET = SERVO_TAB_HOLE_PCD_Y / 2.0    # 5 mm from
                                                           # body centre
                                                           # along the
@@ -297,29 +307,35 @@ SERVO_MOUNT_HOLE_Z_OFFSET = SERVO_TAB_Z                   # 27 mm above
                                                           # (matches the
                                                           # tab's z
                                                           # height).
-SERVO_MOUNT_BOLT_OD       = 3.2    # mm -- M3 clearance through the cradle
-                                    # wall; matches the servo tab hole.
+SERVO_MOUNT_BOLT_OD       = 3.2    # mm -- M3 clearance through the servo
+                                    # ear (factory-drilled, NOT printed).
 
-# ---- M3 nyloc nut traps in the cradle's +/-X walls -----------------------
-# Each cradle bolt (M3 SHCS through the cradle wall into a servo tab
-# hole) is secured with an M3 nyloc nut captured in a hex pocket on the
-# OUTER face of the wall.  The hex pocket is oriented with two opposing
-# flats parallel to the local +Z axis so an open-end wrench (or a
-# nut-driver bit) engages cleanly.
-#
-# Dimensions: M3 nyloc nuts are nominally 5.5 mm AF x 4.0 mm thick; we
-# add a small printing clearance so the nut drops in without filing.
-M3_NYLOC_NUT_AF      = 5.6   # mm -- across-flats (nominal 5.5 + 0.1 mm
-                              # FDM print clearance).
-M3_NYLOC_NUT_DEPTH   = 4.2   # mm -- hex pocket depth (nominal 4.0 + 0.2
-                              # mm so the nylon ring is fully swallowed
-                              # below the wall's outer face).
-# 1.5 mm of plastic between the pocket FLOOR and the bolt-side clearance
-# hole keeps the bolt from breaking through if it's over-torqued.  So
-# the cradle wall must be AT LEAST this thick where each nut trap lives.
-M3_NYLOC_MIN_WALL_T  = M3_NYLOC_NUT_DEPTH + 1.5   # = 5.7 mm
-# Recommended bolt: M3 x 14 SHCS.  Stack: 4 mm wall + 2 mm servo tab
-# + 4 mm nut = 10 mm of thread engagement past the head's bearing face.
+# ---- Vertical M3 self-tap pilot holes in the cradle shelf ----------------
+# Each cradle bolt (M3 SHCS driven downward from above each servo ear)
+# self-taps into a Phi SHCS_PILOT_OD vertical pilot in the cradle shelf
+# below the ear.  The bolt's tip enters at the ear's underside (= well
+# rim plane), threads through the printed shelf material, and bottoms
+# inside the pilot well below.  SHCS_THREAD_ENGAGEMENT_MM controls how
+# deep the pilot extends into the shelf -- the bolt's effective thread
+# engagement is bolt_shaft_below_ear_underside (= bolt length - tab
+# thickness - WELL_TAB_FLOAT in coxa_link/femur; bolt length - tab
+# thickness in coxa_bracket where the tab seats directly on the cut
+# wall, no float gap).  An 8 mm pilot leaves the bolt tip inside the
+# pre-drilled bore with ~1-2 mm of clearance for M3 x 8 SHCS, with the
+# bolt's ~5 mm of in-material shaft self-tapping fresh threads in the
+# Phi 2.5 mm pilot wall.  This is borderline below MIN_PRINT_T = 3 mm
+# on the well wall's outer face -- with pilot OD 2.5 and well outer
+# face at well-local x = +/-29 / pilot centre at +/-24.75 the
+# remaining wall thickness is (29 - 24.75) - 2.5/2 = 3.0 mm exactly,
+# which is acceptable for FDM PA12 / PLA at 0.4 mm nozzle, 0.2 mm
+# layer with 3+ perimeters but should be reviewed if the slicer or
+# nozzle changes.  Above MIN_PRINT_T on the inner cavity face:
+# (24.75 - 12.5) - 1.25 = 11 mm, well clear.
+SHCS_PILOT_OD              = 2.5   # mm -- M3 self-tap pilot diameter in
+                                    # PLA / PA12 (yields ~Phi 3 thread
+                                    # crest after first insertion).
+SHCS_THREAD_ENGAGEMENT_MM  = 8.0   # mm -- pilot bore depth into the
+                                    # shelf below each ear.
 
 # ---- Servo wire-exit slot ------------------------------------------------
 # On DS3225 / MG996R / DS3218-class hobby servos the 3-wire harness is
@@ -966,108 +982,65 @@ def _save(mesh: trimesh.Trimesh, name: str) -> str:
 # Servo-mounting primitives
 # ---------------------------------------------------------------------------
 
-def _servo_cradle_nut_traps() -> list[trimesh.Trimesh]:
-    """Return the list of cutting volumes that turn the cradle's +/-X
-    walls into a 4 x M3 captive-nyloc-nut joint.
+def _servo_cradle_pilot_holes(
+    shelf_top_z: float = None,
+) -> list[trimesh.Trimesh]:
+    """Return 4 vertical Phi SHCS_PILOT_OD cylindrical cutters that form
+    the self-tap pilot holes in the cradle shelf below each servo ear.
 
     Local frame: matches ``_servo_well_solid`` (origin at the body's
     bottom face centre; +X = body long axis = tab-span direction;
     +Y = body short axis; +Z = output shaft direction).
 
-    For each ``(sx, sy)`` in ``{-1, +1} x {-1, +1}`` the helper emits:
+    For each ``(sx, sy)`` in ``{-1, +1} x {-1, +1}`` the helper emits one
+    vertical Phi SHCS_PILOT_OD cylinder centred on
+    ``(sx * SERVO_MOUNT_HOLE_X_OFFSET, sy * SERVO_MOUNT_HOLE_Y_OFFSET)``.
+    The cylinder's z range is
+    ``[shelf_top_z - SHCS_THREAD_ENGAGEMENT_MM, shelf_top_z + 2.0]`` --
+    the lower endpoint is the pilot's blind floor inside the shelf
+    material, the upper endpoint pokes 2 mm above the shelf top to
+    guarantee a clean boolean exit through the rim surface.
 
-      1. A Phi SERVO_MOUNT_BOLT_OD = 3.2 mm horizontal clearance hole
-         along +/- X, drilled from the wall's OUTER face inward.  The
-         hole punches through the WELL_WALL_X-thick wall and exits into
-         the body cavity at (y = sy * SERVO_MOUNT_HOLE_Y_OFFSET, z =
-         SERVO_MOUNT_HOLE_Z_OFFSET).
-      2. An M3_NYLOC_NUT_AF (= 5.6 mm) x M3_NYLOC_NUT_DEPTH (= 4.2 mm)
-         hexagonal pocket on the wall's outer face, centred on the same
-         (y, z) as the clearance hole.  The hex is oriented with 2 of
-         its 6 flats parallel to +Z so a 5.5 mm wrench / nut driver
-         can grip it from above or below.  Pocket depth is sized to
-         leave M3_NYLOC_MIN_WALL_T - M3_NYLOC_NUT_DEPTH = 1.5 mm of
-         plastic between the pocket floor and the bolt-side clearance
-         hole, so the bolt can't accidentally pop the nut out under
-         over-torque.
+    ``shelf_top_z`` defaults to ``WELL_RIM_Z`` (the nominal cradle rim
+    height in well-local).  ``make_coxa_bracket`` passes a lower value
+    when the bracket's drop-in slot has eaten the rim down by a known
+    amount so its bolt-site pilots stay correctly aligned with the
+    bracket's effective shelf top.
 
     Use as cutting volumes:
-        cuts = _servo_cradle_nut_traps()
+        cuts = _servo_cradle_pilot_holes()
         body = _diff(body, *cuts)
     """
+    if shelf_top_z is None:
+        # Default: the well's nominal rim height (used by coxa_link's
+        # hip-pitch cradle, femur_link's knee cradle, and the well's
+        # own internal cradle pilots).  ``make_coxa_bracket`` passes
+        # the bracket's *effective* shelf top (lowered by the drop-in
+        # slot's wall bite -- see ``BRACKET_SHELF_DROP_MM``).
+        shelf_top_z = WELL_RIM_Z
+
     cuts: list[trimesh.Trimesh] = []
 
-    # Hex pocket circumradius for the requested across-flats.
-    # AF = sqrt(3) * R, so R = AF / sqrt(3).
-    af = M3_NYLOC_NUT_AF
-    apothem = af / 2.0
-    circumradius = apothem / np.cos(np.pi / 6.0)            # = af / sqrt(3)
-
-    # Outer face X position of each side wall.
-    wall_outer_x = WELL_W / 2.0
+    pilot_radius = SHCS_PILOT_OD / 2.0
+    # 2 mm of overshoot ABOVE the shelf top so the boolean cuts cleanly
+    # through the rim surface (otherwise the cut's upper end coincides
+    # with the rim plane and produces zero-thickness facets that the
+    # mesher can drop or duplicate).
+    pilot_z_top = shelf_top_z + 2.0
+    pilot_z_bot = shelf_top_z - SHCS_THREAD_ENGAGEMENT_MM
+    pilot_h = pilot_z_top - pilot_z_bot
+    pilot_z_cen = 0.5 * (pilot_z_top + pilot_z_bot)
 
     for sx in (-1, 1):
         for sy in (-1, 1):
+            x = sx * SERVO_MOUNT_HOLE_X_OFFSET
             y = sy * SERVO_MOUNT_HOLE_Y_OFFSET
-            z = SERVO_MOUNT_HOLE_Z_OFFSET
-
-            # ---- 1) Horizontal Phi 3.2 mm clearance hole along sx*X ----
-            # Spans from a hair OUTSIDE the wall's outer face (so the
-            # boolean cleanly exits the outer surface) all the way
-            # through the wall and across the body cavity, finishing
-            # past the OPPOSITE inner cavity face.  This guarantees that
-            # the bolt's shank has a clear path through the wall AND
-            # the bolt tip can reach the servo's tab-hole footprint on
-            # both +Y and -Y faces of the body.
-            clear_len = WELL_W + 4.0    # >> wall thickness; punches across
-            clear = _cyl_along(SERVO_MOUNT_BOLT_OD / 2.0,
-                               clear_len, axis="x")
-            # _cyl_along places one end at origin and the other at
-            # (clear_len, 0, 0).  Slide it so the cylinder is centred
-            # on x = 0 (covers x in [-WELL_W/2 - 2, +WELL_W/2 + 2]) and
-            # then translate to (0, y, z).
-            clear.apply_translation([-clear_len / 2.0, y, z])
-            cuts.append(clear)
-
-            # ---- 2) Hex pocket on the OUTER face of the side wall ----
-            # ``_cyl(R, h, sections=6)`` extrudes a hex along +Z with
-            # one vertex at angle 0 around +Z (i.e. on +X, in the hex
-            # cross-section).  After we rotate the whole prism so its
-            # axis lies along +X (rotation_matrix(pi/2, [0,1,0])), the
-            # 2 vertices that were on +/-X land on z = -/+R, and the 2
-            # flats whose pre-rotation endpoints sat at angles
-            # {60, 120} and {240, 300} land at y = +/- R*sqrt(3)/2 =
-            # +/- apothem, with their faces spanning +X (prism axis)
-            # and +Z directions.  Those 2 flats are therefore PARALLEL
-            # TO +Z -- exactly the required orientation for a wrench
-            # access from above/below.
-            pocket = _cyl(circumradius, M3_NYLOC_NUT_DEPTH, sections=6)
-            # Currently the prism is along +Z with one face at z=0 and
-            # the other at z=h.  We want it along +X with the OPEN face
-            # (towards the cradle outer surface) at x = sx*wall_outer_x
-            # and the CLOSED face (the pocket floor inside the wall)
-            # AT x = sx*wall_outer_x - sx*M3_NYLOC_NUT_DEPTH (= shifted
-            # towards x = 0 by ``M3_NYLOC_NUT_DEPTH`` regardless of
-            # which side wall).
-            #
-            # Step (i): centre the prism on z = 0 so it spans
-            #   z in [-h/2, +h/2].
-            # Step (ii): rotate +Z -> +X.
-            # Step (iii): translate by (sx*(wall_outer_x - h/2), y, z)
-            #   so the prism's centre lands at the wall's CENTRELINE
-            #   in x (between the outer face and the pocket floor).
-            #   That places the open face exactly at x = sx*wall_outer_x
-            #   and the closed face at x = sx*(wall_outer_x - h).
-            pocket.apply_transform(rotation_matrix(np.pi / 2.0,
-                                                    [0, 1, 0]))
-            # After this rotation the prism extends along +X from
-            # x = -h/2 to x = +h/2.  Slide it to the correct side wall.
-            half_depth = M3_NYLOC_NUT_DEPTH / 2.0
-            pocket.apply_translation(
-                [sx * (wall_outer_x - half_depth) + sx * 0.05,
-                 y, z]
-            )
-            cuts.append(pocket)
+            pilot = _cyl(pilot_radius, pilot_h)
+            # _cyl centres on z = 0; translate so the cylinder spans
+            # the requested [pilot_z_bot, pilot_z_top] interval and
+            # sits at (x, y).
+            pilot.apply_translation([x, y, pilot_z_cen])
+            cuts.append(pilot)
 
     return cuts
 
@@ -1092,30 +1065,27 @@ def _servo_well_solid() -> trimesh.Trimesh:
                      (SERVO_BODY_W + 2*CL) x (SERVO_BODY_D + 2*CL) x
                      (WELL_RIM_Z + extra).  Cuts straight through the rim
                      so the body can be DROPPED in from above.
-        - 4 M3 horizontal clearance holes drilled through the +X and -X
-                     walls (2 per wall) at the standard tab-hole positions
-                     in Y/Z.  Each hole is a Phi SERVO_MOUNT_BOLT_OD =
-                     3.2 mm clearance for an M3 SHCS.  The walls are
-                     WELL_WALL_X = 9 mm thick on each side, plenty of room.
-        - 4 M3 nyloc nut hex pockets on the OUTER face of the same two
-                     side walls, one per clearance hole.  Each pocket is
-                     a hexagonal prism of M3_NYLOC_NUT_AF (= 5.6 mm) across
-                     flats and M3_NYLOC_NUT_DEPTH (= 4.2 mm) deep, oriented
-                     so 2 of the 6 flats sit parallel to +Z (vertical) so
-                     the nut is easy to drop in / wrench against.  The
-                     pocket stops M3_NYLOC_MIN_WALL_T - M3_NYLOC_NUT_DEPTH
-                     = 1.5 mm short of punching through the wall.
+        - 4 VERTICAL Phi SHCS_PILOT_OD = 2.5 mm self-tap pilot holes in
+                     the shelf material below each servo ear.  Each
+                     pilot lives at well-local
+                     ``(sx * SERVO_MOUNT_HOLE_X_OFFSET,
+                        sy * SERVO_MOUNT_HOLE_Y_OFFSET, ...)`` and
+                     extends from 2 mm above the well rim down to
+                     ``WELL_RIM_Z - SHCS_THREAD_ENGAGEMENT_MM`` (= 8 mm
+                     deep in the shelf).  The bolt enters from above
+                     through the servo's factory-drilled ear hole and
+                     self-taps into the printed Phi 2.5 mm pilot.
 
-    Design C (May 2026): the OLD vertical-pilot scheme (4 x SERVO_PILOT_OD
-    cylinders running through the tab-post material from above-rim down
-    through the floor, for M3 self-tappers) has been RETIRED.  Each servo
-    is now bolted into its cradle by 4 M3 x 14 SHCS that pass horizontally
-    through the +/-X walls into the nyloc nut traps, which gives a real
-    captive-nut joint instead of relying on the self-tapper biting fresh
-    threads into FDM plastic.  The 4 servo tab holes ride at z =
-    SERVO_MOUNT_HOLE_Z_OFFSET = SERVO_TAB_Z = 27 mm, y = +/-
+    Design C (May 2026 revert): the brief horizontal-nyloc iteration is
+    retired.  Each servo is bolted into its cradle by 4 VERTICAL M3 SHCS
+    that thread DOWN through each servo ear into a printed Phi 2.5 mm
+    pilot in the shelf below.  This restores the standard hobby-servo
+    mounting style (matches DS3225 / MG996R / SG90 documentation) and
+    avoids the wire-channel collision the horizontal-nyloc geometry
+    would have introduced in the +X cradle wall.  The 4 servo tab holes
+    ride at z = SERVO_MOUNT_HOLE_Z_OFFSET = SERVO_TAB_Z = 27 mm, y = +/-
     SERVO_MOUNT_HOLE_Y_OFFSET = +/-5 mm in well-local coords, which is
-    exactly where the new clearance holes are drilled."""
+    exactly where the 4 vertical pilot holes are cut into the shelf."""
     outer = _box((WELL_W, WELL_D, WELL_H),
                  center=(0, 0, WELL_H / 2.0 - WELL_FLOOR_T))
 
@@ -1134,13 +1104,14 @@ def _servo_well_solid() -> trimesh.Trimesh:
                    cav_z_ext),
                   center=(0, 0, 0.5 * (cav_z_top + cav_z_bot)))
 
-    # 4 horizontal M3 clearance holes + 4 nyloc nut hex pockets in the
-    # +X / -X side walls.  Each (sx, sy) pair drills ONE cradle wall
-    # (the wall at x = sx * WELL_W/2) and captures a nyloc nut on that
-    # wall's outer face.  The clearance hole punches all the way through
-    # the wall and into the body cavity so the bolt's shank can engage
-    # the servo's tab-hole footprint at z = SERVO_MOUNT_HOLE_Z_OFFSET.
-    nut_traps = _servo_cradle_nut_traps()
+    # 4 vertical Phi SHCS_PILOT_OD self-tap pilot holes in the shelf
+    # material below each servo ear.  Each (sx, sy) pair drills one
+    # vertical pilot at well-local (sx * SERVO_MOUNT_HOLE_X_OFFSET,
+    # sy * SERVO_MOUNT_HOLE_Y_OFFSET), extending from 2 mm above the
+    # well rim down to (WELL_RIM_Z - SHCS_THREAD_ENGAGEMENT_MM).  The
+    # bolt enters from above through the servo's factory-drilled ear
+    # hole and self-taps into the printed Phi 2.5 mm pilot below.
+    pilot_holes = _servo_cradle_pilot_holes()
 
     # Finger-access notches in the +Y / -Y walls (above the bottom
     # pocket).  The cut spans Y past both wall faces so it punches
@@ -1166,7 +1137,7 @@ def _servo_well_solid() -> trimesh.Trimesh:
                             WELL_RIM_Z - (WELL_LEAD_IN_H + 0.5) / 2.0
                             + 0.25))
 
-    return _diff(outer, cavity, finger_notch, lead_in, *nut_traps)
+    return _diff(outer, cavity, finger_notch, lead_in, *pilot_holes)
 
 
 def _wire_exit_slot() -> trimesh.Trimesh:
@@ -1752,16 +1723,36 @@ def make_coxa_bracket() -> trimesh.Trimesh:
                   center=(flange_centre_x, 0.0,
                            BRACKET_FLANGE_T / 2.0))
 
-    # Body+tab DROP-IN slot.  Through-hole spanning the FULL HEIGHT of
-    # the flange (z = -6 at the rib bottom up to z = BRACKET_FLANGE_T
-    # + 0.5 so the cut comfortably exits the top face), letting the
-    # user drop the servo straight DOWN through the slot during
-    # assembly.  The flange becomes a closed RING around the slot:
-    # a 5 mm perimeter strip at each X-end (slot 56 mm wide vs flange
-    # 66 mm), and a 15.5 mm perimeter strip at each Y-end (slot
-    # 21 mm wide vs flange 52 mm).  All four chassis-bolt corners
-    # are tied together through that ring.
-    slot_z_min = -6.0
+    # Body+tab DROP-IN slot.  Through-hole spanning the flange's full
+    # height PLUS just enough material below the flange to clear the
+    # stiffening rib (the rib's top sits at bracket-z = +3 and its
+    # bottom at bracket-z = -3; if the slot doesn't cut at least to
+    # bracket-z = -3 then rib material at z in [-3, 0] survives in
+    # the centre of the body+tab drop-in path and physically blocks
+    # the servo from descending into the cradle).  Slot Z range:
+    # z = BRACKET_SLOT_Z_MIN_RIB_CLEAR (= rib bottom at z = -3) up to
+    # z = BRACKET_FLANGE_T + 0.5 (so the cut comfortably exits the top
+    # face).  The flange becomes a closed RING around the slot: a 5 mm
+    # perimeter strip at each X-end (slot 56 mm wide vs flange 66 mm),
+    # and a 15.5 mm perimeter strip at each Y-end (slot 21 mm wide vs
+    # flange 52 mm).  All four chassis-bolt corners are tied together
+    # through that ring.
+    #
+    # May 2026 Option 5 fix: the previous slot_z_min = -6 was an excess
+    # 3 mm of wall-material bite below the rib's bottom (the slot only
+    # NEEDS to reach the rib bottom at z = -3 to clear the drop-in
+    # path).  That excess lowered the EFFECTIVE shelf top at the
+    # bracket's bolt sites from well-local +27.25 to +21.25 -- a 6 mm
+    # deficit relative to the coxa_link / femur cradles, where the
+    # vertical self-tap pilots assume the full WELL_RIM_Z shelf.
+    # Raising slot_z_min to -3 reclaims 3 of those 6 mm; the residual
+    # 3 mm deficit (well-local +24.25 vs +27.25) is absorbed by
+    # passing ``shelf_top_z = WELL_RIM_Z - BRACKET_SHELF_DROP_MM`` to
+    # ``_servo_cradle_pilot_holes`` at the bracket level so the
+    # bracket's pilots stay aligned with the bracket's own effective
+    # shelf top.
+    BRACKET_SLOT_Z_MIN_RIB_CLEAR = -3.0
+    slot_z_min = BRACKET_SLOT_Z_MIN_RIB_CLEAR
     slot_z_max = BRACKET_FLANGE_T + 0.5
     slot_z_ext = slot_z_max - slot_z_min
     slot_z_cen = (slot_z_min + slot_z_max) / 2.0
@@ -1812,17 +1803,18 @@ def make_coxa_bracket() -> trimesh.Trimesh:
                center=(0.0, 0.0, 0.0))            # x in ±18, y in ±13, z in ±3
 
     # Side gussets riding directly on top of the well's +Y / -Y walls.
-    # The body+tab pocket eats the rib at y in [-10.5, +10.5] and
-    # reaches DOWN to z = -6, so the only flange-to-well load paths
-    # at the well's +Y / -Y wall tops are these two narrow column
-    # strips above the well wall (which lives at y in [10.5, 12.5]
-    # and y in [-12.5, -10.5]).  Each gusset is bounded in Y to the
-    # well's wall footprint so nothing dangles in mid-air past the
-    # well's outer Y faces.  Z range = [-6, BRACKET_FLANGE_T], so the
-    # gussets merge with the (now 15 mm tall) flange material above
-    # z = 0 into one solid slab; the structurally important
-    # contribution is the 6 mm of material BELOW z = 0 that ties the
-    # flange into the well rim.
+    # The body+tab pocket eats the rib at y in [-10.5, +10.5] and now
+    # reaches DOWN to z = -3 (the rib's bottom; see the May 2026
+    # Option 5 fix above) -- below that the well wall is uncut.  The
+    # only flange-to-well load paths at the well's +Y / -Y wall tops
+    # are these two narrow column strips above the well wall (which
+    # lives at y in [10.5, 12.5] and y in [-12.5, -10.5]).  Each
+    # gusset is bounded in Y to the well's wall footprint so nothing
+    # dangles in mid-air past the well's outer Y faces.  Z range =
+    # [-6, BRACKET_FLANGE_T], so the gussets merge with the (15 mm
+    # tall) flange material above z = 0 into one solid slab; the
+    # structurally important contribution is the 6 mm of material
+    # BELOW z = 0 that ties the flange into the well rim.
     slot_d = SERVO_BODY_D + 1.0
     gusset_z_min = -6.0                                       # 6 mm down into well rim
     gusset_z_max = BRACKET_FLANGE_T                           # merges with flange above z=0
@@ -1928,24 +1920,32 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     horn_sweep_void.apply_translation([0.0, 0.0,
                                         0.5 * (sweep_z_lo + sweep_z_hi)])
 
-    # Design C (May 2026): re-apply the cradle nut traps at the
-    # BRACKET level too, because the flange's +/- X end bridge strips
-    # (at bracket-x in [+/-(18..23)], bracket-z in [0, BRACKET_FLANGE_T])
-    # partially overlap the well's +/-X nut-pocket footprint in (y,z).
-    # ``_servo_well_solid`` cut the pockets out of the WELL only, but
-    # the boolean union with the flange would otherwise re-fill the
-    # overlap region (flange OR well-with-hole = flange).  Subtracting
-    # the nut traps AGAIN from the unioned bracket body removes any
-    # flange material that strayed into the pocket envelope.
-    bracket_nut_traps = []
-    for cut in _servo_cradle_nut_traps():
+    # Design C (May 2026 revert): re-apply the cradle pilot holes at the
+    # BRACKET level too, because (a) the bracket's drop-in slot eats
+    # the well's rim down to bracket-z = -3 (= well-local +24.25), so
+    # the effective shelf top at the bolt sites is 3 mm LOWER than the
+    # well's nominal WELL_RIM_Z, and (b) the bracket's pilot bottoms
+    # need to follow that lowered shelf top so the bolt tip lands
+    # cleanly inside the pre-drilled bore.  We DEEPEN the bracket-
+    # level pilots by passing
+    # ``shelf_top_z = WELL_RIM_Z - BRACKET_SHELF_DROP_MM`` so each
+    # pilot extends from the bracket's shelf top down a full
+    # SHCS_THREAD_ENGAGEMENT_MM into the printed material.  These
+    # extra cuts UNION with the well's default pilots (at the
+    # nominal WELL_RIM_Z) so the combined cut covers the full
+    # required pilot depth in both nominal and depressed-shelf cases.
+    BRACKET_SHELF_DROP_MM = -BRACKET_SLOT_Z_MIN_RIB_CLEAR   # = 3.0
+    bracket_pilot_holes = []
+    for cut in _servo_cradle_pilot_holes(
+        shelf_top_z=WELL_RIM_Z - BRACKET_SHELF_DROP_MM,
+    ):
         c = cut.copy()
         c.apply_translation([body_centre_x, 0.0, well_dz])
-        bracket_nut_traps.append(c)
+        bracket_pilot_holes.append(c)
 
     body = _union(flange, well, rib, *side_gussets, *bridge_gussets)
     return _diff(body, slot, wire_slot, horn_sweep_void,
-                 *chassis_holes, *bracket_nut_traps)
+                 *chassis_holes, *bracket_pilot_holes)
 
 
 def make_coxa_link() -> trimesh.Trimesh:

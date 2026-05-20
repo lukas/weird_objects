@@ -30,7 +30,7 @@ spec exactly.
 | 1 | USB cable, Pi to Arduino | USB-A to USB-B if using Arduino Mega with full-size USB-B. If your clone uses USB-C or micro-USB, buy that cable instead. | [Amazon: USB A to B cable Arduino](https://www.amazon.com/s?k=USB+A+to+B+cable+Arduino) |
 | 1 | M3 screw assortment | M3 socket-head screws, nuts, washers, lengths 6/8/10/12/16/20 mm. | [Amazon: M3 stainless screw kit assortment](https://www.amazon.com/s?k=M3+stainless+screw+kit+assortment) |
 | 6 | M3 x 16 pan-head bolts | Foot/tibia clevis hinge pin -- one per leg. Pan-head (low profile), threaded full length. Stainless. Reuse from the M3 assortment if it includes 16 mm. | [Amazon: M3 x 16 pan head stainless](https://www.amazon.com/s?k=M3+x+16+pan+head+stainless) |
-| 1 | M3 nyloc nuts | 100-pack nylon-insert lock nuts. Use on vibration-prone joints (6 reserved for the foot hinges). | [Amazon: M3 nyloc lock nut 100 pack](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
+| 1 | M3 nyloc nuts | 100-pack nylon-insert lock nuts. 30 used: 6 reserved for the foot-pad hinge pins, 24 for the coxa-bracket-to-chassis through-bolts. The cradle servo mounts are vertical M3 self-tappers and do NOT use a nut. | [Amazon: M3 nyloc lock nut 100 pack](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
 | 1 | M3 standoffs | M3 x 25 mm male-female brass standoffs, pack of 20. | [Amazon: M3 25mm standoffs male female brass](https://www.amazon.com/s?k=M3+25mm+standoffs+male+female+brass) |
 | 1 | M2.5 screw pack | M2.5 x 8 mm screws, useful for horn/adapter work if the servo-included screws are bad. | [Amazon: M2.5 8mm screw 50 pack](https://www.amazon.com/s?k=M2.5+8mm+screw+50+pack) |
 
@@ -43,18 +43,22 @@ Edit the registry (not this table) and re-run `make bom-fasteners`.
 
 | Spec | McMaster P/N | Qty | Used in |
 |------|--------------|-----|---------|
-| M3x14 SHCS | 91290A115 | 72 | cradle servo mounts |
-| M3x8 SHCS | 91290A113 | 72 | link-to-X-horn bolts |
+| M3x8 SHCS | 91290A113 | 144 | cradle servo self-tap mounts, link-to-X-horn bolts |
 | M3x32 SHCS | 91290A123 | 24 | coxa-bracket-to-chassis bolts |
 | M3x16 pan-head | 92010A130 | 6 | foot hinge pins |
 | M2.5x8 spline screw | 91290A104 | 18 | servo spline center screws |
-| M3 nyloc nut | 90576A102 | 102 | coxa-bracket-to-chassis bolts, cradle servo mounts, foot hinge pins |
-|  |  | **294** | **total fasteners** |
+| M3 nyloc nut | 90576A102 | 30 | coxa-bracket-to-chassis bolts, foot hinge pins |
+|  |  | **222** | **total fasteners** |
 
 Notes:
-- Captive nyloc nuts in the cradles (Design C) are held by the printed
-  hex nut trap; the bolt is driven from the head side, no wrench is
-  needed on the nut.
+- Cradle servo mounts (72 of the M3x8 SHCS) are driven VERTICALLY
+  from above each servo ear and self-tap into a printed Phi 2.5 mm
+  pilot hole in the cradle shelf below.  Existing M3 SHCS stock
+  (P/N 91290A113) doubles as the self-tapper -- the standard hobby-
+  servo mounting style; no separate self-tap SKU.
+- Captive nyloc nuts are still used at the foot-pad hinge pins (6)
+  and at the coxa-bracket-to-chassis bolts (24); both joints have
+  through-hole bolts with the nut on the opposite side.
 - The M2.5 spline center screw ships with each DS3225-class servo --
   it's listed here so the screwdriver-access verifier check knows the
   fastener exists, but you do NOT order it separately.
