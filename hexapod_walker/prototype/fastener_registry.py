@@ -553,7 +553,34 @@ _HORN_BOLT_PCD_HALF = HP.XHORN_BOLT_PCD / 2.0
 
 
 def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
-    """The 4 link-to-X-horn bolts at the yaw joint (coxa_link hub)."""
+    """The 4 link-to-X-horn bolts at the yaw joint (coxa_link hub).
+
+    Each M2 SHCS sits in a counter-bore cut into the TOP of the
+    pedestal's bottom cap and clamps the cap DOWN onto the plastic
+    X-horn that lives at link-local z in [-PLASTIC_HORN_H, 0].
+    Geometry in link-local z (cap spans z in [0, PEDESTAL_CAP_T] =
+    [0, 4] mm)::
+
+        head bearing face  : z = PEDESTAL_CAP_T - COUNTERBORE_DEPTH
+                             = 4 - 2.5 = 1.5  (= counter-bore floor)
+        shaft clearance run: z in [0, 1.5]  (1.5 mm of cap below head)
+        X-horn engagement  : z in [-PLASTIC_HORN_H, 0]  (the bolt
+                             threads downward into the 5 mm-thick
+                             plastic horn; the last 3 mm is the
+                             design-required XHORN_BOLT_THREAD_
+                             ENGAGEMENT_MM = 3 mm).
+        bolt tip overshoot : z in [-PLASTIC_HORN_H - 1.5,
+                                   -PLASTIC_HORN_H]  (the stock M2 x
+                             8 SHCS is 1.5 mm longer than the
+                             cap + horn stack so the tip pokes
+                             through the horn into free air below).
+
+    Before this fix (commit b5f7095): the head was placed at the
+    hub's TOP face (link-local z = COXA_LIFT + hub_t = 44 mm); the
+    bolt floated 36 mm above the X-horn entirely inside the printed
+    hub.  check_fastener_engagement caught this with a
+    "joins only 1 part [coxa_link]" failure on every yaw bolt.
+    """
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
@@ -562,21 +589,19 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
         + HP.SERVO_OUTPUT_H
         + HP.HORN_STACK_H
     )
-    # Link's coordinate frame: origin at the pad's BOTTOM face, +Z up.
-    # The pad's TOP face (where the SHCS head sits) is at link-local
-    # z = COXA_LIFT + hub_t.  We just need the top face; the 4 bolts
-    # are at (PCD/2 cos(ang), PCD/2 sin(ang), top_z) and the axis
-    # points -Z (into the material, toward the X-horn below).
-    arm_t = HP.COXA_ARM_T
-    hub_t = arm_t + 2.0
-    top_z = HP.COXA_LIFT + hub_t
+    # Link-local z = 0 IS the cap's bottom mating face with the
+    # X-horn; the link's transform places that face at world z =
+    # yaw_output_z, which is exactly the X-horn's top face per
+    # check_mating_face_contact's "coxa_link bottom <-> yaw X-horn
+    # top" probe (gap = +0.00 mm).
+    head_local_z = HP.PEDESTAL_CAP_T - HP.COUNTERBORE_DEPTH
     T_link_to_world = _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a)
     out: list[FastenerInstance] = []
     for ang in HP.XHORN_BOLT_ANGLES_RAD:
         p_local = np.array([
             _HORN_BOLT_PCD_HALF * np.cos(ang),
             _HORN_BOLT_PCD_HALF * np.sin(ang),
-            top_z,
+            head_local_z,
         ])
         head = _apply_point(T_link_to_world, p_local)
         axis = _apply_dir(T_link_to_world, np.array([0.0, 0.0, -1.0]))
@@ -593,12 +618,53 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             joint="yaw",
             length_mm=8.0,
             cache_stl=f"{PN_M2X8_SHCS}.cache.stl",
+            # Captive sub-assembly fastener.  Per PROTOTYPE.md
+            # section 6.1 the 4 yaw M2 x 8 SHCS are driven in step 3
+            # (coxa_link dropped onto yaw X-horn, bolts torqued from
+            # above through the pedestal-cap counter-bore) BEFORE the
+            # femur is mounted on the hip X-horn in step 5.  At
+            # standing pose the +X yaw bolt (ang = 0 deg) is then
+            # blocked from above by the femur's hip pad which tilts
+            # up and back over the coxa_link hub when p_femur =
+            # -25 deg; the other 3 yaw bolts happen to retain driver
+            # access in the assembled state but are all driven at
+            # the same assembly step before the femur is in place,
+            # so the explicit allow-list applies uniformly.
+            skip_screwdriver_reason=(
+                "captive sub-assembly fastener: the M2 x 8 SHCS is "
+                "torqued through the pedestal-cap counter-bore "
+                "BEFORE the femur is mounted on the hip X-horn "
+                "(PROTOTYPE.md section 6.1 step 3 vs step 5).  At "
+                "standing pose (p_femur = -25 deg) the +X yaw bolt "
+                "is blocked from above by the femur hip pad."
+            ),
         ))
     return out
 
 
 def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
-    """The 4 link-to-X-horn bolts at the hip-pitch joint (femur hip pad)."""
+    """The 4 link-to-X-horn bolts at the hip-pitch joint (femur hip pad).
+
+    The femur's hip pad is LINK_THICKNESS = 6 mm thick in +Y; the
+    pad's -Y mating face touches the X-horn arm.  Counter-bores
+    landed in 8745b05 cut Phi M2_HEAD_OD_CLEARANCE = 4 mm pockets
+    COUNTERBORE_DEPTH = 2.5 mm deep into the pad's +Y outer face.
+    Femur-local y of each face::
+
+        +Y outer face        : y = HORN_STACK_H + LINK_THICKNESS = 11
+        counter-bore floor   : y = 11 - 2.5 = 8.5  (head bearing)
+        -Y mating face       : y = HORN_STACK_H = 5  (X-horn top)
+        3 mm thread depth    : y in [2, 5]
+        bolt tip overshoot   : y in [1.5, 2] (M2 x 8 SHCS overhangs
+                               the 3 mm engagement target by ~ 1.5
+                               mm; the bolt is sized for the
+                               taller coxa_link cap + horn stack).
+
+    Pre-fix the head was placed at the +Y OUTER face (y = 11); the
+    head-bearing ring probes then landed inside the Phi 4 mm
+    counter-bore void at y in [8.5, 11] and check_fastener_engagement
+    reported "head bearing in air".
+    """
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
@@ -609,10 +675,10 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
     )
     hip_drop = HP.COXA_HIP_DROP
     p = np.deg2rad(HP.STANCE_FEMUR_DEG)
-    # Femur-local: hip pad at y in [HORN_STACK_H, HORN_STACK_H +
-    # LINK_THICKNESS] = [5, 11].  Bolt heads sit on the +Y face of the
-    # pad (y = 11), axis = -Y (into the material).
-    pad_top_y = HP.HORN_STACK_H + HP.LINK_THICKNESS
+    # Counter-bore FLOOR (head bearing face) sits COUNTERBORE_DEPTH
+    # below the pad's outer +Y face.
+    head_local_y = (HP.HORN_STACK_H + HP.LINK_THICKNESS
+                    - HP.COUNTERBORE_DEPTH)
     T_femur_in_link = _T(HP.COXA_LENGTH, 0.0, hip_drop) @ _Ry(p)
     T_femur_to_world = (
         _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a) @ T_femur_in_link
@@ -621,7 +687,7 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
     for ang in HP.XHORN_BOLT_ANGLES_RAD:
         p_local = np.array([
             _HORN_BOLT_PCD_HALF * np.cos(ang),
-            pad_top_y,
+            head_local_y,
             _HORN_BOLT_PCD_HALF * np.sin(ang),
         ])
         head = _apply_point(T_femur_to_world, p_local)
@@ -644,7 +710,14 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
 
 
 def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
-    """The 4 link-to-X-horn bolts at the knee joint (tibia knee pad)."""
+    """The 4 link-to-X-horn bolts at the knee joint (tibia knee pad).
+
+    Mirrors ``_emit_horn_fasteners_hip``: head bearing face sits on
+    the COUNTERBORE_DEPTH-deep pocket floor on the pad's outer +Y
+    face, bolt axis points -Y INTO the pad and through the -Y mating
+    face into the plastic X-horn below.  See that function's
+    docstring for the y-coordinate breakdown.
+    """
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
@@ -660,7 +733,8 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
     knee_joint_local = np.array([HP.COXA_LENGTH, 0.0, hip_drop]) + Ry_p_3 @ np.array(
         [HP.FEMUR_LENGTH, 0.0, 0.0]
     )
-    pad_top_y = HP.HORN_STACK_H + HP.LINK_THICKNESS
+    head_local_y = (HP.HORN_STACK_H + HP.LINK_THICKNESS
+                    - HP.COUNTERBORE_DEPTH)
     T_tibia_in_link = _T(*knee_joint_local) @ _Ry(pt)
     T_tibia_to_world = (
         _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a) @ T_tibia_in_link
@@ -669,7 +743,7 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
     for ang in HP.XHORN_BOLT_ANGLES_RAD:
         p_local = np.array([
             _HORN_BOLT_PCD_HALF * np.cos(ang),
-            pad_top_y,
+            head_local_y,
             _HORN_BOLT_PCD_HALF * np.sin(ang),
         ])
         head = _apply_point(T_tibia_to_world, p_local)

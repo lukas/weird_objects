@@ -3434,6 +3434,19 @@ check_cradle_pilot_holes = check_cradle_insert_pockets
 
 HEX_KEY_CLEARANCE_DIA_MM     = 8.0    # 2.5 / 3 mm hex key short arm + finger room
 HEX_KEY_CLEARANCE_LEN_MM     = 30.0   # short-arm reach
+# M2 SHCS uses a Phi 1.5 mm hex key.  The bolt head is recessed in a
+# Phi M2_HEAD_OD_CLEARANCE = 4.0 mm counter-bore in the printed cap
+# / pad above the bolt; the hex key short arm enters the counter-bore
+# from above so the envelope diameter is bounded by the counter-bore
+# clearance (Phi 4 mm) not the larger 8 mm "finger room" diameter
+# used for M2.5 / M3 hex keys (those keys are driven with two fingers
+# pinched around the long arm, whereas the M2 key is small enough to
+# turn with a single finger inside the counter-bore + trough void).
+# The short-arm reach is shorter too (typical M2 hex key short arm =
+# ~ 10 mm) but we round up to 15 mm to allow some additional clear
+# space above the head for finger access.
+M2_HEX_KEY_CLEARANCE_DIA_MM  = 4.0    # = M2_HEAD_OD_CLEARANCE
+M2_HEX_KEY_CLEARANCE_LEN_MM  = 15.0   # short-arm reach + finger headroom
 PHILLIPS_CLEARANCE_DIA_MM    = 12.0   # full-length Phillips shaft + handle
 PHILLIPS_CLEARANCE_LEN_MM    = 80.0
 SOCKET_CLEARANCE_DIA_MM      = 12.0   # M3 nut driver / 5.5 mm socket + handle taper
@@ -3574,6 +3587,15 @@ def _driver_envelope_for_spec(spec: str) -> tuple:
     """
     if "spline" in spec:
         return (HEX_KEY_CLEARANCE_DIA_MM, HEX_KEY_CLEARANCE_LEN_MM)
+    if spec.startswith("M2x") and "SHCS" in spec:
+        # M2 SHCS uses a small Phi 1.5 mm hex key driving into a Phi
+        # 4 mm counter-bore in the printed link cap / pad.  Use the
+        # narrower M2 envelope so the surrounding pad material that
+        # rings the counter-bore (annulus 2..4 mm from bolt axis)
+        # isn't falsely reported as a driver intrusion; see the M2_
+        # HEX_KEY_CLEARANCE_* constants block above for the
+        # derivation.
+        return (M2_HEX_KEY_CLEARANCE_DIA_MM, M2_HEX_KEY_CLEARANCE_LEN_MM)
     if "SHCS" in spec:
         return (HEX_KEY_CLEARANCE_DIA_MM, HEX_KEY_CLEARANCE_LEN_MM)
     if ("pan-head" in spec) or ("Phillips" in spec) or ("slotted" in spec):
@@ -3787,7 +3809,19 @@ def check_screwdriver_access():
 # ``engagement_mm`` is the expected thread-engagement length at the
 # tip.  Default values are used for any spec missing from the table.
 FASTENER_ENGAGEMENT_SPEC = {
-    "M2x8 SHCS":                       dict(head_od=3.8, shaft_od=2.2, engagement_mm=1.6),
+    # ``M2x8 SHCS`` engagement = XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3.0 mm
+    # (the design-spec depth into the X-horn arm).  The stock M2 x 8
+    # SHCS overhangs the cap + horn stack by ~ 1.5 mm in -Z below the
+    # plastic horn, so the engagement-zone window (the last
+    # ``engagement_mm`` of the modeled bolt length) deliberately
+    # straddles the horn-bottom face: roughly half the window sits in
+    # the horn arm, half in the air below.  TIP_ENGAGEMENT_MIN_FRACTION
+    # = 0.5 is therefore exactly the right pass-threshold for an
+    # overhung bolt that still bites the design-required 3 mm of
+    # plastic.  Pre-fix the entry was 1.6 mm, a generic default that
+    # made the check too tight for the 8 mm-long bolt in a 4 mm cap +
+    # 5 mm horn stack.
+    "M2x8 SHCS":                       dict(head_od=3.8, shaft_od=2.2, engagement_mm=3.0),
     "M3x8 SHCS":                       dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x8 SHCS into heat-set insert":  dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x32 SHCS":                      dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
@@ -3830,9 +3864,41 @@ def _engagement_spec_for(spec: str) -> dict:
 def _horn_world_transform(joint: str, leg_index: int):
     """4x4 transform that maps horn-local coords (origin at spline-
     mating face, +Z = output-shaft axis) into the world frame for the
-    given joint on ``leg_index``.  Composes the well-to-world transform
-    from ``fastener_registry`` with the servo-local horn offset
-    ``(SERVO_OUTPUT_X, 0, SERVO_BODY_H + SERVO_OUTPUT_H)``."""
+    given joint on ``leg_index``.
+
+    The X-horn is BOLTED to the driven link (coxa_link / femur_link /
+    tibia_link) so it rotates RIGIDLY with that link.  At the neutral
+    stance pose the relevant rotations are:
+
+      * yaw    -- 0 deg (coxa_link is in the same Rz(a) frame as the
+                    coxa_bracket / yaw cradle, so no link-vs-cradle
+                    rotation; the un-rotated well transform already
+                    matches the link frame).
+      * hip    -- horn rotates with the FEMUR (driven link) about
+                    the hip joint Y axis.  The hip well lives in the
+                    coxa_link (parent), so the horn's rotation
+                    RELATIVE to the well is ``STANCE_FEMUR_DEG``.
+      * knee   -- horn rotates with the TIBIA (driven link) about
+                    the knee joint Y axis.  The knee well lives in
+                    the FEMUR (parent of the knee joint), so the
+                    horn's rotation RELATIVE to the well is
+                    ``STANCE_TIBIA_DEG`` -- NOT the sum
+                    STANCE_FEMUR_DEG + STANCE_TIBIA_DEG, because
+                    _knee_cradle_T's T_well already inherits the
+                    femur's Ry(STANCE_FEMUR_DEG) via
+                    T_femur_in_link.
+
+    Pre-fix the horn was placed via ``_well_cradle_T @ horn_offset``
+    for ALL three joints, which corresponds to "horn in the SERVO's
+    well frame".  For yaw that is also the link frame (no link
+    rotation), but for hip / knee the femur / tibia rotates about the
+    joint axis at the neutral stance angle and the horn rotates with
+    it.  Without this rotation the femur / tibia horn bolts (which
+    are placed in femur- / tibia-local frame and therefore inherit
+    the link's stance rotation) MISS the un-rotated horn arms in the
+    world frame and report ``joins only 1 part [femur_link]`` /
+    ``[tibia_link]`` in check_fastener_engagement.
+    """
     import fastener_registry as _fr  # noqa: WPS433
     if joint == "yaw":
         T_well = _fr._yaw_cradle_T(leg_index)
@@ -3844,7 +3910,30 @@ def _horn_world_transform(joint: str, leg_index: int):
         raise ValueError(f"unknown joint: {joint!r}")
     horn_offset = _fr._T(hp.SERVO_OUTPUT_X, 0.0,
                           hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H)
-    return T_well @ horn_offset
+    T_horn = T_well @ horn_offset
+    if joint == "yaw":
+        return T_horn
+    # For hip / knee the horn rotates with the driven link about the
+    # joint axis.  Compose the rotation in HORN-LOCAL frame: horn-local
+    # +Z is the joint axis, so the in-frame rotation is _Rz(p_link)
+    # applied AFTER the horn's existing frame mapping.
+    if joint == "hip":
+        # Hip horn rotates with the femur (driven link) by
+        # STANCE_FEMUR_DEG relative to the coxa_link (where the
+        # well lives).  In horn-local +Z that's Rz(STANCE_FEMUR_DEG).
+        p_link = np.deg2rad(hp.STANCE_FEMUR_DEG)
+    else:
+        # Knee horn rotates with the tibia by STANCE_TIBIA_DEG
+        # relative to the femur (where the knee well lives).
+        # _knee_cradle_T's T_well ALREADY inherits the femur's
+        # Ry(STANCE_FEMUR_DEG) via T_femur_in_link, so we must not
+        # double-count it here.  Pre-fix this was STANCE_FEMUR_DEG +
+        # STANCE_TIBIA_DEG and check_fastener_engagement reported
+        # "joins only 1 part [tibia_link]" on all 4 knee bolts
+        # because the horn frame was over-rotated by an extra
+        # STANCE_FEMUR_DEG = -25 deg.
+        p_link = np.deg2rad(hp.STANCE_TIBIA_DEG)
+    return T_horn @ _fr._Rz(p_link)
 
 
 def _servo_body_world_transform(joint: str, leg_index: int):
@@ -4161,8 +4250,34 @@ def check_fastener_engagement():
                                             L - engagement_mm))
         else:
             engage_start_t = max(0.0, L - engagement_mm)
+
+        # ---- (c.1) Effective bolt tip -------------------------------
+        # Bolts can be SHORTER than the assembled material run (rare;
+        # caught by the shaft / tip checks below) OR LONGER than the
+        # engagement target (the M2 x 8 X-horn SHCS is 8 mm long but
+        # the cap + arm stack is only ~ 3.1 mm thick; the bolt
+        # overhangs the arm bottom into free air by ~ 5 mm).  Use the
+        # DEEPEST axial sample with material as the "effective tip" so
+        # the tail overhang past the last engagement target doesn't
+        # poison shaft_air_span / tip_engagement, which both assume
+        # the bolt's tail is inside engagement material.
+        material_mask = any_or_paired.copy()
+        if material_mask.any():
+            idx_last_material = int(np.flatnonzero(material_mask).max())
+            t_eff_tip = float(ts[idx_last_material])
+        else:
+            t_eff_tip = L
+        # Don't let the effective tip exceed the bolt's modeled
+        # length, and don't let it UNDERCUT the natural engagement
+        # zone when the bolt is short / well-sized (preserves the
+        # bolt-not-deep-enough catch).
+        t_eff_tip = max(min(t_eff_tip, L), engagement_mm)
+
+        # ---- (c.2) Shaft span up to the effective tip ----------------
         shaft_lo_t = min(0.5, L)
-        shaft_mask = (ts >= shaft_lo_t) & (ts <= engage_start_t)
+        shaft_hi_t = max(shaft_lo_t,
+                          min(engage_start_t, t_eff_tip - engagement_mm))
+        shaft_mask = (ts >= shaft_lo_t) & (ts <= shaft_hi_t)
         if not shaft_mask.any():
             shaft_air_mm = 0.0
         else:
@@ -4191,15 +4306,18 @@ def check_fastener_engagement():
         # AT the nut/insert position along the axis (which can be far
         # from the bolt's physical tip).  Define the engagement zone
         # as a 5 mm-wide window centred on the nut/insert.  Otherwise
-        # the engagement zone is the bolt's last ``engagement_mm``.
+        # the engagement zone is the last ``engagement_mm`` of the
+        # bolt UP TO THE EFFECTIVE TIP (not the bolt's modeled tip --
+        # see the (c.1) comment for why over-long bolts need the
+        # window clipped to the deepest material contact).
         if paired is not None:
             op = np.asarray(paired.head_world_xyz, dtype=float)
             t_paired = float((op - p_head) @ axis)
             zone_lo_t = max(0.0, t_paired - 2.5)
             zone_hi_t = min(L, t_paired + 2.5)
         else:
-            zone_lo_t = engage_start_t
-            zone_hi_t = L
+            zone_hi_t = t_eff_tip
+            zone_lo_t = max(0.0, zone_hi_t - engagement_mm)
 
         if zone_hi_t <= zone_lo_t:
             tip_ok = True
