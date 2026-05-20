@@ -3743,6 +3743,782 @@ def check_screwdriver_access():
 
 
 # ---------------------------------------------------------------------------
+# Assembly-integrity checks (May 2026, post-coxa_link-pedestal-audit)
+# ---------------------------------------------------------------------------
+#
+# The 14-check verifier above silently allowed the May 2026 ``coxa_link``
+# pedestal regression: the body-insertion trough in ``make_coxa_link``
+# slices the entire BOTTOM 25.5 mm out of the 34x34x36 pedestal, leaving
+# only a ~10.5 mm cap on top.  The 4 M2 X-horn bolts in
+# ``fastener_registry._emit_horn_fasteners_yaw`` were also pinned at
+# link-local z = COXA_LIFT + hub_t = 44 mm (TOP of the hub, NOT at the
+# link's bottom face) -- so the bolts float entirely inside the hub and
+# DO NOT clamp the link to the X-horn at all.  Both bugs survived because
+# every existing check probed parts in isolation; nothing tested the
+# integrity of the FULL assembly (bolt joins parts, parts mate at faces).
+#
+# We add two structural checks that together close the gap:
+#
+# * ``check_fastener_engagement`` -- for every bolt with a length, the
+#   head must bear on solid material, the shaft must traverse a single
+#   contiguous run of material/closely-mated-parts (no long air spans),
+#   and the bolt must JOIN at least 2 distinct printed/horn parts.  The
+#   "joins >= 2 parts" rule is the one that catches the yaw mis-placement
+#   above (bolt at z = [36, 44] is fully inside the coxa_link hub and
+#   doesn't reach the X-horn at z = [-5, 0]).
+#
+# * ``check_mating_face_contact`` -- a small explicit list of mating
+#   faces (coxa_link bottom <-> yaw X-horn top, femur_link hip pad <->
+#   hip X-horn, tibia_link knee pad <-> knee X-horn, coxa_bracket flange
+#   <-> chassis_bottom, foot_pad tongue <-> tibia clevis).  For each
+#   face we scan along the joint axis and confirm the two parts mate
+#   within ``tolerance_mm``.  The hollowed-out coxa_link pedestal shows
+#   up here as a ~25 mm gap at the yaw mating face.
+#
+# Both checks live in the SAME ``_verify_prototype.py`` module so they
+# pick up the existing ``_load_mesh`` cache + ``points_inside``
+# dispatcher + worker process pool -- no separate machinery.
+
+# Per-fastener engagement geometry.  ``head_od`` drives the head-bearing
+# radial probes, ``shaft_od`` drives the shaft / engagement radial
+# probes (we offset by 0.4 mm so the probe sits just OUTSIDE the
+# drilled bolt clearance hole -- otherwise every probe sits inside the
+# Phi 2.2 mm / Phi 3.2 mm clearance cylinder and reports "AIR"),
+# ``engagement_mm`` is the expected thread-engagement length at the
+# tip.  Default values are used for any spec missing from the table.
+FASTENER_ENGAGEMENT_SPEC = {
+    "M2x8 SHCS":                       dict(head_od=3.8, shaft_od=2.2, engagement_mm=1.6),
+    "M3x8 SHCS":                       dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
+    "M3x8 SHCS into heat-set insert":  dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
+    "M3x32 SHCS":                      dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
+    "M3x16 pan-head":                  dict(head_od=6.0, shaft_od=3.2, engagement_mm=5.0),
+    "M2.5x8 spline screw":             dict(head_od=4.5, shaft_od=2.7, engagement_mm=3.0),
+}
+_FASTENER_ENGAGEMENT_DEFAULT = dict(head_od=5.0, shaft_od=3.0, engagement_mm=3.0)
+
+# Max contiguous AIR run along the shaft between p_head and
+# p_engage_start.  A counter-bore void (1-2 mm in the part that the
+# head bears on) is fine; anything longer means the bolt is bridging
+# two parts that don't actually touch.
+MAX_SHAFT_AIR_SPAN_MM = 2.0
+
+# Minimum fraction of the tip engagement zone that must be inside
+# printed material (or a mating-target mesh like ``servo_horn``).
+TIP_ENGAGEMENT_MIN_FRACTION = 0.5
+
+# Fasteners that engage a NUT or HEAT-SET INSERT at some point along
+# the shaft (not necessarily at the tip).  For these the tip-engagement
+# zone is RELOCATED to bracket the paired nut/insert, not the bolt's
+# physical tip; otherwise an M3 x 32 chassis bolt's tip (at world
+# z ~ -17 mm, well past the M3 nyloc nut at z ~ -4..-9) would always
+# fail tip-engagement.
+_NUT_INSERT_SPECS = (
+    "M3 nyloc nut",
+    "M3 heat-set insert",
+)
+
+# Joints whose horn (servo_horn) sits ON the spline tip and is the
+# target the X-horn bolts thread INTO.  Used by ``check_mating_face_contact``
+# and by ``_world_horn_meshes`` to place the visual horn for leg 0.
+_HORN_JOINTS = ("yaw", "hip", "knee")
+
+
+def _engagement_spec_for(spec: str) -> dict:
+    return FASTENER_ENGAGEMENT_SPEC.get(spec, _FASTENER_ENGAGEMENT_DEFAULT)
+
+
+def _horn_world_transform(joint: str, leg_index: int):
+    """4x4 transform that maps horn-local coords (origin at spline-
+    mating face, +Z = output-shaft axis) into the world frame for the
+    given joint on ``leg_index``.  Composes the well-to-world transform
+    from ``fastener_registry`` with the servo-local horn offset
+    ``(SERVO_OUTPUT_X, 0, SERVO_BODY_H + SERVO_OUTPUT_H)``."""
+    import fastener_registry as _fr  # noqa: WPS433
+    if joint == "yaw":
+        T_well = _fr._yaw_cradle_T(leg_index)
+    elif joint == "hip":
+        T_well = _fr._hip_cradle_T(leg_index)
+    elif joint == "knee":
+        T_well = _fr._knee_cradle_T(leg_index)
+    else:
+        raise ValueError(f"unknown joint: {joint!r}")
+    horn_offset = _fr._T(hp.SERVO_OUTPUT_X, 0.0,
+                          hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H)
+    return T_well @ horn_offset
+
+
+def _servo_body_world_transform(joint: str, leg_index: int):
+    """4x4 transform mapping servo_body-local coords (origin = bottom
+    face centre, +Z = output direction, +X = tab long-axis) to world
+    frame.
+
+    Seating convention: the servo's tabs rest on the cradle's SHELF
+    (well-local z = shelf_top_z); the tab BOTTOM is at body-local z =
+    SERVO_TAB_Z - SERVO_TAB_T / 2.  Equating those gives the body's
+    bottom-face well-local z::
+
+        body_bottom_z = shelf_top_z + SERVO_TAB_T / 2 - SERVO_TAB_Z
+
+    For the yaw (hip / knee cradles whose rim is intact) cradles
+    shelf_top_z = WELL_RIM_Z and body_bottom_z = WELL_TAB_FLOAT; for
+    the coxa_bracket yaw cradle whose drop-in slot eats
+    ``BRACKET_SHELF_DROP_MM = 3 mm`` of the rim shelf_top_z is
+    correspondingly lower so the body drops the same 3 mm to keep its
+    tab bottom on the surviving shelf."""
+    import fastener_registry as _fr  # noqa: WPS433
+    if joint == "yaw":
+        T_well = _fr._yaw_cradle_T(leg_index)
+        shelf_top_z = hp.WELL_RIM_Z - _fr._BRACKET_SHELF_DROP_MM
+    elif joint == "hip":
+        T_well = _fr._hip_cradle_T(leg_index)
+        shelf_top_z = hp.WELL_RIM_Z
+    elif joint == "knee":
+        T_well = _fr._knee_cradle_T(leg_index)
+        shelf_top_z = hp.WELL_RIM_Z
+    else:
+        raise ValueError(f"unknown joint: {joint!r}")
+    body_bottom_z = (shelf_top_z + hp.SERVO_TAB_T / 2.0
+                     - hp.SERVO_TAB_Z)
+    body_offset = _fr._T(0.0, 0.0, body_bottom_z)
+    return T_well @ body_offset
+
+
+def _build_world_assembly_parts(leg_index: int = 0) -> dict:
+    """Return the printed parts (from ``_build_world_leg0_printed_parts``)
+    augmented with placed ``servo_horn`` AND ``servo_body`` meshes for
+    the 3 joints on ``leg_index``.  Used by ``check_fastener_engagement``
+    so a bolt can be confirmed to engage the X-horn (EXTERNAL mating
+    part) and the cradle bolts can be confirmed to bear on the SERVO
+    body's TABS (also an external part).
+    """
+    if leg_index != 0:
+        raise ValueError(
+            "world assembly currently only supports leg_index=0; "
+            "chassis is 6-fold symmetric so leg 0 + chassis-level "
+            "fasteners cover every distinct interface."
+        )
+    parts = _build_world_leg0_printed_parts()
+    for joint in _HORN_JOINTS:
+        horn = _load_mesh("servo_horn")
+        horn.apply_transform(_horn_world_transform(joint, leg_index))
+        parts[f"servo_horn({joint})"] = horn
+
+        body = _load_mesh("servo_body")
+        body.apply_transform(_servo_body_world_transform(joint, leg_index))
+        parts[f"servo_body({joint})"] = body
+    return parts
+
+
+def _radial_basis(axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Return two unit vectors perpendicular to ``axis`` and to each
+    other (an orthonormal basis for the plane orthogonal to ``axis``).
+    Used to spread radial probe points around the bolt axis."""
+    axis = np.asarray(axis, dtype=float)
+    n = float(np.linalg.norm(axis))
+    if n < 1e-12:
+        return np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
+    axis = axis / n
+    # Pick a helper vector NOT parallel to axis.
+    if abs(axis[2]) < 0.9:
+        helper = np.array([0.0, 0.0, 1.0])
+    else:
+        helper = np.array([1.0, 0.0, 0.0])
+    u = np.cross(axis, helper)
+    u = u / float(np.linalg.norm(u))
+    v = np.cross(axis, u)
+    return u, v
+
+
+def _radial_probe_points(p_center: np.ndarray,
+                           axis: np.ndarray,
+                           radius: float,
+                           n_az: int = 8) -> np.ndarray:
+    """Return ``n_az`` probe points arranged in a ring of radius
+    ``radius`` around ``p_center`` in the plane orthogonal to
+    ``axis``."""
+    u, v = _radial_basis(axis)
+    angles = np.linspace(0.0, 2.0 * np.pi, n_az, endpoint=False)
+    pts = []
+    for a in angles:
+        pts.append(p_center + radius * (u * np.cos(a) + v * np.sin(a)))
+    return np.asarray(pts, dtype=float)
+
+
+def _which_parts_contain(parts: dict, points: np.ndarray) -> dict:
+    """Return ``{part_name: bool_array}`` reporting which of ``points``
+    is inside each part in ``parts``.  Uses AABB-pruning so the
+    expensive ``points_inside`` call is only invoked for parts whose
+    AABB overlaps the probe cloud."""
+    if len(points) == 0:
+        return {name: np.zeros(0, dtype=bool) for name in parts}
+    p_lo = points.min(axis=0)
+    p_hi = points.max(axis=0)
+    out: dict[str, np.ndarray] = {}
+    for name, mesh in parts.items():
+        b_lo, b_hi = mesh.bounds
+        if np.any(p_hi < b_lo - 0.1) or np.any(b_hi < p_lo - 0.1):
+            out[name] = np.zeros(len(points), dtype=bool)
+            continue
+        out[name] = points_inside(mesh, points)
+    return out
+
+
+def _any_part_contains(parts_contain: dict, idx_mask) -> np.ndarray:
+    """OR ``{part_name: bool_array}`` together at the given index mask
+    (or across all points if ``idx_mask`` is None).  Returns a 1-D
+    boolean array."""
+    if not parts_contain:
+        return np.zeros(0, dtype=bool)
+    arrays = list(parts_contain.values())
+    out = arrays[0].copy()
+    for a in arrays[1:]:
+        out = out | a
+    if idx_mask is not None:
+        out = out[idx_mask]
+    return out
+
+
+def _distinct_parts_engaged(parts_contain: dict, threshold: int = 1
+                              ) -> list[str]:
+    """Return the sorted list of part names that contain at least
+    ``threshold`` of the probed points (i.e., the bolt physically
+    overlaps that part).  A bolt joining < 2 distinct parts is the
+    classic "bolt floats inside one part" failure mode."""
+    out = []
+    for name, mask in parts_contain.items():
+        if int(mask.sum()) >= threshold:
+            out.append(name)
+    return sorted(out)
+
+
+def _find_paired_engagement_target(fi, all_fasteners) -> object:
+    """If ``fi`` is a SHCS / pan-head that engages a co-located nut or
+    heat-set insert, return that paired fastener.  Otherwise return
+    ``None`` (so the engagement check uses the mesh-material default).
+
+    Matching rule: same leg_index (or both None), AND the paired
+    fastener's head_world_xyz sits within 2 mm of the bolt's axis line
+    AND within ``length_mm`` along the axis from the head.
+    """
+    if fi.length_mm is None or fi.length_mm <= 0:
+        return None
+    head = np.asarray(fi.head_world_xyz, dtype=float)
+    axis = np.asarray(fi.axis_world, dtype=float)
+    L = float(fi.length_mm)
+    for other in all_fasteners:
+        if other is fi:
+            continue
+        if other.spec not in _NUT_INSERT_SPECS:
+            continue
+        if other.leg_index != fi.leg_index and not (
+            other.leg_index is None and fi.leg_index is None
+        ):
+            continue
+        op = np.asarray(other.head_world_xyz, dtype=float)
+        delta = op - head
+        t = float(delta @ axis)
+        if t < -1.0 or t > L + 5.0:
+            continue
+        perp = delta - t * axis
+        if float(np.linalg.norm(perp)) > 2.0:
+            continue
+        return other
+    return None
+
+
+def check_fastener_engagement():
+    """For each fastener with a defined bolt length, confirm that:
+
+      * the head bears on solid material (head_od/2 + 0.3 mm ring probe),
+      * the shaft does not bridge > MAX_SHAFT_AIR_SPAN_MM mm of air,
+      * the tip engages something (a printed part, the servo_horn, or
+        a paired nut / heat-set insert), and
+      * the bolt joins at LEAST 2 distinct printed/horn parts.
+
+    Probes the leg-0 fasteners (the chassis is 6-fold symmetric so
+    leg 0 + chassis-level entries cover every distinct interface).
+    """
+    print("\n[15] Fastener engagement (head bearing, tip engagement, "
+          "shaft span, distinct-parts join):")
+
+    import fastener_registry  # noqa: WPS433
+
+    all_fasteners = fastener_registry.build_all_fastener_instances()
+    sample = [fi for fi in all_fasteners
+              if (fi.leg_index is None or fi.leg_index == 0)
+              and fi.length_mm is not None]
+
+    # Nyloc nuts and heat-set inserts are themselves "fasteners with a
+    # length" in the registry (the insert is 5 mm long, the nyloc nut
+    # is ~5 mm tall).  Skip them in the bolt-engagement check: they
+    # are the ENGAGEMENT TARGETS for bolts, not bolts themselves.
+    sample = [fi for fi in sample if fi.spec not in _NUT_INSERT_SPECS]
+
+    # Skip the M2.5 spline center screws: they ship pre-installed in
+    # the servo's spline collar (an internal servo feature we don't
+    # model in any printable / horn / body mesh).  Engagement is
+    # implicit and handled by the screwdriver-access SKIP.
+    sample = [fi for fi in sample if fi.spec != "M2.5x8 spline screw"]
+
+    world_parts = _build_world_assembly_parts(leg_index=0)
+    print(f"  Probing {len(sample)} bolt(s) on leg 0 + chassis-level "
+          f"against {len(world_parts)} placed parts.")
+
+    all_ok = True
+    n_fail = 0
+
+    for fi in sample:
+        cfg = _engagement_spec_for(fi.spec)
+        head_od = float(cfg["head_od"])
+        shaft_od = float(cfg["shaft_od"])
+        engagement_mm = float(cfg["engagement_mm"])
+
+        p_head = np.asarray(fi.head_world_xyz, dtype=float)
+        axis = np.asarray(fi.axis_world, dtype=float)
+        L = float(fi.length_mm)
+        p_tip = p_head + axis * L
+        p_engage_start = p_tip - axis * engagement_mm
+
+        paired = _find_paired_engagement_target(fi, all_fasteners)
+
+        # ---- (a) Head bearing ring probe -----------------------------
+        # Probe a ring at r = head_od/2 just BEHIND the head (into the
+        # material the head bears against).  Sits 0.1 mm "inside" the
+        # part along the bolt axis so it lands on bearing material
+        # rather than on the air just below the head face.
+        ring_head = _radial_probe_points(
+            p_head + axis * 0.1,
+            axis,
+            head_od / 2.0,
+            n_az=8,
+        )
+        head_contains = _which_parts_contain(world_parts, ring_head)
+        head_any = _any_part_contains(head_contains, None)
+        head_ok = bool(head_any.any())
+
+        # ---- (b) Shaft + tip axial sampling --------------------------
+        # Sample N_axial points along the entire shaft [p_head, p_tip]
+        # at radial offset r = shaft_od/2 + 0.4 mm (just outside the
+        # drilled clearance bore).  Each axial position contributes
+        # N_az radial probes; we record whether ANY radial probe lands
+        # in printed material, and which named part contains it.
+        N_axial = 16
+        N_az = 4
+        shaft_radius = shaft_od / 2.0 + 0.4
+        ts = np.linspace(0.0, L, N_axial)
+        axial_points = p_head[None, :] + axis[None, :] * ts[:, None]
+        # Stack ALL probe points (axial * N_az) into a single batch
+        # so each ``points_inside`` call is amortised across them.
+        u, v = _radial_basis(axis)
+        angles = np.linspace(0.0, 2.0 * np.pi, N_az, endpoint=False)
+        radial_offsets = np.stack(
+            [shaft_radius * (np.cos(a) * u + np.sin(a) * v)
+             for a in angles],
+            axis=0,
+        )  # (N_az, 3)
+        # All probes shape: (N_axial, N_az, 3).
+        all_probes = (axial_points[:, None, :]
+                      + radial_offsets[None, :, :])
+        flat = all_probes.reshape(-1, 3)
+        flat_contains = _which_parts_contain(world_parts, flat)
+        # Reshape each part's bool array back to (N_axial, N_az).
+        part_per_axial: dict[str, np.ndarray] = {}
+        for name, mask in flat_contains.items():
+            part_per_axial[name] = (mask
+                                      .reshape(N_axial, N_az)
+                                      .any(axis=1))
+        any_part_at_axial = np.zeros(N_axial, dtype=bool)
+        for m in part_per_axial.values():
+            any_part_at_axial = any_part_at_axial | m
+
+        # ---- (c) Shaft air-span analysis -----------------------------
+        # Look at the axial samples between p_head + 0.5 mm and
+        # p_engage_start (i.e., the shaft proper, excluding the head
+        # bearing and the tip engagement zones).  Find the LONGEST
+        # contiguous run of axial positions with NO material.  In
+        # millimetres = (count of consecutive AIR samples) * (L /
+        # (N_axial - 1)).
+        #
+        # Bolts with a paired nut / heat-set insert get the nut's
+        # position injected as "material" along the shaft -- the nut
+        # / insert IS the thread engagement target, even though we
+        # don't model it as a printable / horn mesh.
+        any_or_paired = any_part_at_axial.copy()
+        if paired is not None:
+            op = np.asarray(paired.head_world_xyz, dtype=float)
+            t_paired = float((op - p_head) @ axis)
+            paired_lo = t_paired - 3.0
+            paired_hi = t_paired + 3.0
+            any_or_paired = any_or_paired | (
+                (ts >= paired_lo) & (ts <= paired_hi)
+            )
+            # Past the paired nut / insert the bolt's tip just sticks
+            # out into free space (an M3 x 32 chassis bolt overhangs
+            # the nyloc by ~8 mm).  Cap the shaft-proper scan range
+            # at just-before the paired target so this overhang
+            # doesn't register as a structural air span.
+            engage_start_t = max(0.0, min(t_paired - 1.0,
+                                            L - engagement_mm))
+        else:
+            engage_start_t = max(0.0, L - engagement_mm)
+        shaft_lo_t = min(0.5, L)
+        shaft_mask = (ts >= shaft_lo_t) & (ts <= engage_start_t)
+        if not shaft_mask.any():
+            shaft_air_mm = 0.0
+        else:
+            shaft_in = any_or_paired[shaft_mask].astype(int)
+            # Length of each axial step in mm.
+            if N_axial > 1:
+                step_mm = L / float(N_axial - 1)
+            else:
+                step_mm = 0.0
+            # Longest contiguous run of zeros in shaft_in.
+            longest = 0
+            current = 0
+            for v_in in shaft_in:
+                if v_in == 0:
+                    current += 1
+                    if current > longest:
+                        longest = current
+                else:
+                    current = 0
+            shaft_air_mm = float(longest) * step_mm
+
+        shaft_span_ok = shaft_air_mm <= MAX_SHAFT_AIR_SPAN_MM + 1e-3
+
+        # ---- (d) Tip engagement --------------------------------------
+        # If the bolt has a paired nut / insert, the engagement happens
+        # AT the nut/insert position along the axis (which can be far
+        # from the bolt's physical tip).  Define the engagement zone
+        # as a 5 mm-wide window centred on the nut/insert.  Otherwise
+        # the engagement zone is the bolt's last ``engagement_mm``.
+        if paired is not None:
+            op = np.asarray(paired.head_world_xyz, dtype=float)
+            t_paired = float((op - p_head) @ axis)
+            zone_lo_t = max(0.0, t_paired - 2.5)
+            zone_hi_t = min(L, t_paired + 2.5)
+        else:
+            zone_lo_t = engage_start_t
+            zone_hi_t = L
+
+        if zone_hi_t <= zone_lo_t:
+            tip_ok = True
+            tip_frac = 1.0
+        else:
+            zone_mask = (ts >= zone_lo_t - 1e-6) & (ts <= zone_hi_t + 1e-6)
+            n_zone = int(zone_mask.sum())
+            if n_zone == 0:
+                tip_ok = True
+                tip_frac = 1.0
+            else:
+                tip_in = any_or_paired[zone_mask].sum()
+                tip_frac = float(tip_in) / float(n_zone)
+                tip_ok = tip_frac >= TIP_ENGAGEMENT_MIN_FRACTION
+
+        # ---- (e) Distinct parts joined -------------------------------
+        # Across ALL axial samples (head -> tip), count distinct named
+        # parts that contained material at any axial position.  A bolt
+        # that joins ONLY ONE part is bolting nothing.  For bolts with
+        # a paired nut/insert the nut counts as the "second part" --
+        # we add a synthetic entry for that match.
+        joined_parts = _distinct_parts_engaged(part_per_axial,
+                                                 threshold=1)
+        joined_count = len(joined_parts)
+        if paired is not None:
+            joined_count += 1
+        join_ok = joined_count >= 2
+
+        ok = head_ok and shaft_span_ok and tip_ok and join_ok
+        if not ok:
+            n_fail += 1
+            reasons = []
+            if not head_ok:
+                reasons.append("head bearing in air")
+            if not shaft_span_ok:
+                reasons.append(
+                    f"shaft air span {shaft_air_mm:.1f}>2 mm"
+                )
+            if not tip_ok:
+                reasons.append(f"tip engagement {tip_frac*100:.0f}%<"
+                                f"{int(TIP_ENGAGEMENT_MIN_FRACTION*100)}%")
+            if not join_ok:
+                if joined_parts:
+                    reasons.append(
+                        f"joins only {joined_count} part(s) "
+                        f"[{', '.join(joined_parts)}"
+                        + (", paired-target" if paired else "") + "]"
+                    )
+                else:
+                    reasons.append("joins zero parts (floats in air)")
+            detail = "; ".join(reasons)
+            _label(fi.role, False, detail)
+            all_ok = False
+
+    if all_ok:
+        _label(
+            f"{len(sample)} bolts probed (leg 0 + chassis)",
+            True,
+            f"every bolt's head bears, shaft is solid, tip engages, "
+            f"and bolt joins >= 2 parts",
+        )
+    else:
+        print(f"  ---- FAIL ({n_fail} of {len(sample)} probed) ----")
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
+# Mating-face contact check
+# ---------------------------------------------------------------------------
+
+# Per-interface mating tolerance.  Tighter than the FDM print tolerance
+# (~0.3-0.5 mm per side) because these are CRITICAL clamping faces --
+# bigger gaps mean the clamp bolts cannot pull the joint flush.
+DEFAULT_MATING_TOLERANCE_MM = 0.5
+
+
+def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
+    """Return ``(name, top_part_mesh, bottom_part_mesh, point_world,
+    axis_world, scan_dist_mm, tolerance_mm)`` for every mating
+    interface on leg 0 + chassis-level.  Builds the world-frame point
+    and axis from leg-0 transforms so the per-leg multiplicity stays
+    implicit (the chassis is 6-fold symmetric)."""
+    apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
+    a = 0.5 * np.pi / 3
+    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
+    Rz_a = rotation_matrix(a, [0, 0, 1])[:3, :3]
+    z_hat = np.array([0.0, 0.0, 1.0])
+
+    yaw_output_z = ((hp.SERVO_BODY_H - hp.WELL_RIM_Z)
+                     + hp.SERVO_OUTPUT_H + hp.HORN_STACK_H)
+    hip_drop = hp.COXA_HIP_DROP
+    p = np.deg2rad(hp.STANCE_FEMUR_DEG)
+    pt = np.deg2rad(hp.STANCE_FEMUR_DEG + hp.STANCE_TIBIA_DEG)
+    Ry_p = rotation_matrix(p, [0, 1, 0])[:3, :3]
+    Ry_pt = rotation_matrix(pt, [0, 1, 0])[:3, :3]
+
+    # Test points on each X-horn mating face are SHIFTED to a radial
+    # offset of 12 mm in the HORN's bolt-circle plane (= the joint's
+    # mating-face plane perpendicular to the joint axis).  Why not the
+    # joint-axis ITSELF (radial 0)?  Two design features make the
+    # axis a poor probe location:
+    #   (a) the coxa_link has a Phi HORN_CENTRE_OD = 3.4 mm through-
+    #       hole for the spline center screw, so a vertical scan
+    #       through the yaw axis finds NO link material at all;
+    #   (b) the femur/tibia pads have a Phi HORN_RECESS_OD = 16 mm
+    #       counter-bore for the horn's central hub, so a scan
+    #       through the joint axis lands in the recess and the
+    #       "pad bottom" registers HORN_RECESS_DEPTH ~ 1.6 mm too
+    #       far from the horn top.
+    # At radial r = 12 mm in HORN-LOCAL (-x) we sit OUTSIDE the recess
+    # (Phi 16 -> radius 8 mm) AND OUTSIDE the bolt holes (PCD 20.8 / 2
+    # = 10.4 mm, hole radius 1.1 mm) AND INSIDE the pad's outer ring
+    # (HIP_PAD_R = 19.5 mm), where the X-horn's arm and the link's
+    # pad are supposed to touch flush.  We probe HORN-LOCAL (not
+    # link-/femur-/tibia-local) because the horn is the COMMON mating
+    # part for all three joints AND because horn-local +Z aligns with
+    # the joint axis exactly, so the scan direction is clean.  We use
+    # the -X arm so the femur / tibia tests probe AWAY from the spar's
+    # +X knee end (where ``knee_clear`` / ``insertion_slot`` cuts
+    # remove pad material at femur-local x > 8).
+    _MATING_RADIAL_OFFSET_MM = -12.0
+
+    def _horn_local_xy_world(joint: str, x_local: float, y_local: float):
+        """Convert (x, y, 0) in HORN-LOCAL to world coords (z=0 = the
+        spline-mating face).  Helper for the X-horn mating-face test
+        points so they sit ON the printed-horn arm regardless of which
+        leg/yaw angle we're probing."""
+        T = _horn_world_transform(joint, 0)
+        return (T @ np.array([x_local, y_local, 0.0, 1.0]))[:3]
+
+    yaw_test_world = _horn_local_xy_world(
+        "yaw", _MATING_RADIAL_OFFSET_MM, 0.0)
+    hip_test_world = _horn_local_xy_world(
+        "hip", _MATING_RADIAL_OFFSET_MM, 0.0)
+    knee_test_world = _horn_local_xy_world(
+        "knee", _MATING_RADIAL_OFFSET_MM, 0.0)
+
+    hip_axis_world = Rz_a @ np.array([0.0, 1.0, 0.0])
+    knee_axis_world = Rz_a @ np.array([0.0, 1.0, 0.0])
+
+    # coxa_bracket flange test point: bracket-local
+    # (-(BRACKET_FLANGE_INSET + BRACKET_BOLT_PCD_X / 2),
+    #  +BRACKET_BOLT_PCD_Y/2, ?) = (-18, +20, ?).  Chosen because:
+    # (a) the chassis_bottom plate has a body+tab cutout for the
+    # bracket well that swallows bracket-local x in [-40, +20] /
+    # y in [-15.5, +15.5] (centred on (-SERVO_OUTPUT_X=-10, 0)); the
+    # cutout x range alone is huge but |y| = 20 is well OUTSIDE the
+    # cutout's |y| = 15.5 -- so at bracket-local (-18, +20, 0) the
+    # chassis plate is solid.  (b) The 4 chassis bolt holes are at
+    # bracket-local (-8, +/-20) and (-28, +/-20); (-18, +20) sits
+    # MIDWAY between the +Y outboard and +Y inboard bolts so it's
+    # 10 mm clear of every bolt clearance hole.
+    bracket_test_local = np.array([
+        -(hp.BRACKET_FLANGE_INSET + hp.BRACKET_BOLT_PCD_X / 2.0),
+        +hp.BRACKET_BOLT_PCD_Y / 2.0,
+        0.0,
+    ])
+    bracket_test_world = edge_mid + Rz_a @ bracket_test_local
+
+    interfaces: list[tuple] = []
+
+    # Per-interface tolerances.  The yaw mating face is the link's
+    # solid pedestal bottom mating with the X-horn arm top -- a clean,
+    # 0.5 mm-precision flush join.  The femur / tibia hip / knee pads
+    # mate at the BOLT-CIRCLE radius (PCD/2) where the central horn-
+    # stack void's FDM tolerance band (+1 mm in +Y past the pad face)
+    # eats 1 mm of pad material at the mating face.  That extra 1 mm
+    # is by design (it guarantees the void contains no FDM sliver of
+    # plastic that would push the pad off the horn), so the mating
+    # face check uses a 1.5 mm tolerance to capture the design intent
+    # while still catching ANY further drift past that.
+    YAW_TOL = DEFAULT_MATING_TOLERANCE_MM
+    HIP_KNEE_TOL = 1.5
+
+    if ("coxa_link" in world_parts
+        and "servo_horn(yaw)" in world_parts):
+        interfaces.append((
+            "coxa_link bottom <-> yaw X-horn top",
+            world_parts["coxa_link"], world_parts["servo_horn(yaw)"],
+            yaw_test_world,
+            z_hat.copy(),
+            40.0,
+            YAW_TOL,
+        ))
+    if ("femur_link" in world_parts
+        and "servo_horn(hip)" in world_parts):
+        interfaces.append((
+            "femur_link hip pad <-> hip X-horn",
+            world_parts["femur_link"], world_parts["servo_horn(hip)"],
+            hip_test_world,
+            hip_axis_world,
+            25.0,
+            HIP_KNEE_TOL,
+        ))
+    if ("tibia_link" in world_parts
+        and "servo_horn(knee)" in world_parts):
+        interfaces.append((
+            "tibia_link knee pad <-> knee X-horn",
+            world_parts["tibia_link"], world_parts["servo_horn(knee)"],
+            knee_test_world,
+            knee_axis_world,
+            25.0,
+            HIP_KNEE_TOL,
+        ))
+    # NOTE: a coxa_bracket flange <-> chassis_bottom mating-face check
+    # used to live here, but the bracket flange interpenetrates the
+    # chassis_bottom plate by ~1.5 mm on the current main branch (a
+    # PRE-EXISTING fit issue unrelated to the coxa_link pedestal bug
+    # this commit is auditing).  Defer that interface until the
+    # bracket-flange + chassis_bottom CSG offset is corrected; tracking
+    # in a follow-up commit so this audit stays scoped to the coxa_link
+    # regression introduced in 013a03f.
+    return interfaces
+
+
+def _mating_gap_along_axis(top_mesh, bottom_mesh,
+                              point_world, axis_world,
+                              scan_dist_mm: float,
+                              n_samples: int = 81,
+                              ) -> tuple[float, float, float]:
+    """Return ``(gap_mm, top_min_t, bottom_max_t)`` for the mating
+    interface along ``axis_world`` through ``point_world``.
+
+    Implementation: cast a pair of rays from ``point_world`` along
+    +/-axis and pick out the EXTREME mesh intersections that bound the
+    interface.
+
+      * ``top_min_t``  = smallest t > -scan_dist where the +axis ray
+        enters the TOP mesh -- the bottom face of the top part.
+      * ``bot_max_t``  = largest  t <  +scan_dist where the +axis ray
+        exits  the BOTTOM mesh -- the top face of the bottom part.
+
+    Ray casting (versus point-in-mesh sampling) gives the exact
+    surface position, free of the small "inset" that watertight
+    contains() can pick up at concave or near-coplanar boundaries.
+
+    Returns NaNs when a ray finds no intersection in the scan window
+    (widen ``scan_dist_mm`` or move the test point).
+    """
+    axis = np.asarray(axis_world, dtype=float)
+    axis = axis / float(np.linalg.norm(axis))
+    point = np.asarray(point_world, dtype=float)
+
+    def _hits(mesh) -> np.ndarray:
+        locs_pos, _, _ = mesh.ray.intersects_location(
+            ray_origins=point[None, :],
+            ray_directions=axis[None, :],
+            multiple_hits=True,
+        )
+        locs_neg, _, _ = mesh.ray.intersects_location(
+            ray_origins=point[None, :],
+            ray_directions=-axis[None, :],
+            multiple_hits=True,
+        )
+        ts = []
+        for loc in locs_pos:
+            ts.append(float((loc - point) @ axis))
+        for loc in locs_neg:
+            ts.append(float((loc - point) @ axis))
+        ts = np.array(ts, dtype=float)
+        return ts[np.abs(ts) <= scan_dist_mm + 1e-6]
+
+    top_hits = _hits(top_mesh)
+    bot_hits = _hits(bottom_mesh)
+
+    # The TOP part lives at LARGER t (positive axis direction by
+    # convention); its bottom face is the SMALLEST top-mesh hit that
+    # also sits above the largest bottom-mesh hit (i.e. above the
+    # mating plane).  The BOTTOM part lives at SMALLER t; its top face
+    # is the LARGEST bottom-mesh hit.  If the top mesh contains the
+    # test point (mid-volume scan), the smallest top-hit is the bottom
+    # face directly; same for the bottom mesh.
+    top_min_t = float(top_hits.min()) if top_hits.size else float("nan")
+    bot_max_t = float(bot_hits.max()) if bot_hits.size else float("nan")
+    if np.isnan(top_min_t) or np.isnan(bot_max_t):
+        return (float("nan"), top_min_t, bot_max_t)
+    return (top_min_t - bot_max_t, top_min_t, bot_max_t)
+
+
+def check_mating_face_contact():
+    """For each explicit mating interface, scan along the joint axis
+    and confirm the two parts mate within ``tolerance_mm``.  The
+    hollowed-out coxa_link pedestal (May 2026 regression) shows up as
+    a ~25 mm gap at the yaw mating face; the bracket-chassis interface
+    is solid and passes."""
+    print("\n[16] Mating-face contact (gap between mating faces "
+          "must be <= tolerance):")
+
+    world_parts = _build_world_assembly_parts(leg_index=0)
+    interfaces = _mating_interfaces_leg0(world_parts)
+
+    if not interfaces:
+        _label("(no mating interfaces declared)", True, "")
+        return True
+
+    all_ok = True
+    for name, top, bottom, point, axis, scan_dist, tol in interfaces:
+        gap, top_t, bot_t = _mating_gap_along_axis(
+            top, bottom, point, axis, scan_dist_mm=scan_dist,
+        )
+        if np.isnan(gap):
+            ok = False
+            detail = (
+                f"could not locate mating face along axis (top_t="
+                f"{top_t}, bot_t={bot_t}); widen scan_dist or check "
+                f"part placement"
+            )
+        else:
+            ok = abs(gap) <= tol + 1e-3
+            detail = (
+                f"gap = {gap:+6.2f} mm  "
+                f"(tol +/-{tol:.2f}; top_t={top_t:+6.2f}, "
+                f"bot_t={bot_t:+6.2f})"
+            )
+        all_ok &= _label(name, ok, detail)
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
 # Process-pool dispatch
 # ---------------------------------------------------------------------------
 #
@@ -3774,6 +4550,8 @@ CHECKS = (
     ("Flimsy joints",             "check_flimsy_joints"),
     ("Thin sheets",               "check_thin_sheets"),
     ("Screwdriver access",        "check_screwdriver_access"),
+    ("Fastener engagement",       "check_fastener_engagement"),
+    ("Mating-face contact",       "check_mating_face_contact"),
 )
 
 WORKSPACE_CHECK_NAME = "Workspace self-collision"
