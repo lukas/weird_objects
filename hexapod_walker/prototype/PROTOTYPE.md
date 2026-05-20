@@ -103,7 +103,8 @@ The `view-build` window prints these to stdout on launch:
 
 - **Hover** a part → its `part_type Lx  role` is shown in the top-of-window banner. No clutter from other parts.
 - **Left-click** a part → every other part dims to 15% opacity while the picked part stays in place at full opacity. The clicked part does not move, so you can see exactly how it sits in the assembly without its neighbours obscuring it.
-- **Left-click in empty space** (or press `I` / `Esc`) → restores every part's opacity to its full value.
+- **Double-click** a printable part → enter *focus-on-sub-assembly* mode: hide everything except the picked part, the servo that sits in its cradle (if any), the X-horn it bolts onto (if any), and every fastener whose role passes through it. The camera auto-fits the union bounds of the surviving group so the sub-assembly is unobstructed. Double-click the same part (or any empty space) to clear focus.
+- **Left-click in empty space** (or press `I` / `Esc`) → restores every part's opacity to its full value (and clears focus if it was set).
 - Left-drag still rotates the camera. Right-drag pans. Scroll zooms.
 
 **Keyboard**
@@ -112,7 +113,8 @@ The `view-build` window prints these to stdout on launch:
 |---|---|
 | `L` | Toggle the persistent all-labels-at-once cloud (off by default — hover is usually less noisy) |
 | `E` | Toggle exploded view between 0.0 and 1.5 |
-| `I` / `Esc` | Clear isolation |
+| `F` | Focus the **hovered** part's sub-assembly (same effect as double-click). Press `F` again on the same part (or on empty space) to clear focus. |
+| `I` / `Esc` | Clear focus first, then isolation |
 | `R` | Reset the camera view |
 | `S` | Save a screenshot to `artifacts/views/build_inspect.png` |
 | `Q` | Quit |
@@ -121,9 +123,25 @@ The bottom slider (0.0 – 2.0) scales each part's distance from the
 chassis centroid for finer exploded-view control than the `E` toggle,
 and the row of color-coded checkboxes along the left edge hides or
 shows all instances of a given part type so you can isolate, say,
-just the coxa brackets or just the servo bodies. The MuJoCo
-viewers' body-name labels default to ON (toggle with `B` once inside
-the viewer).
+just the coxa brackets or just the servo bodies. While focus mode
+is active the per-part-type checkboxes are suspended (focus mode
+wins); their last setting is restored when focus clears. The
+"fasteners" master toggle while focused hides only the fastener
+members of the current sub-assembly, leaving the focus state
+otherwise unchanged. The MuJoCo viewers' body-name labels default
+to ON (toggle with `B` once inside the viewer).
+
+For headless captures of one sub-assembly, pass `--focus
+PART_TYPE/L<n>` (or just `PART_TYPE` for chassis-level parts), e.g.
+
+```bash
+make view-build ARGS="--focus coxa_link/L0 --screenshot /tmp/focus.png"
+make view-build ARGS="--focus femur_link/L3 --screenshot /tmp/femur.png"
+make view-build ARGS="--focus chassis_top    --screenshot /tmp/chassis.png"
+```
+
+`--focus` composes with `--explode` so you can render the focused
+sub-assembly half-exploded too.
 
 If `view-build` errors out saying STLs are missing, run
 `make build` first to regenerate `stl_prototype/`.
@@ -188,6 +206,26 @@ which is what we want for a print-once / order-once verifier, so we
 leave it as the default. Re-run `--inside-mode both` whenever the
 geometry pipeline changes and treat any rise in the mismatch count
 as a signal that the two implementations have drifted.
+
+### `check_screwdriver_access` envelopes
+
+The screwdriver-access check probes a per-fastener cylindrical
+clearance cone above each head along the driver-approach axis and
+fails if any printed part intrudes by more than 30 mm³. Three
+envelopes are dispatched off `FastenerInstance.spec`:
+
+| Envelope | Dia × length | Used for |
+|---|---|---|
+| `HEX_KEY`  | 8 mm × 30 mm  | SHCS (M3x8 / M3x14 / M3x32) + the M2.5 spline center screw — anything driven with an L-shaped hex key short arm |
+| `PHILLIPS` | 12 mm × 80 mm | `pan-head` / `Phillips` / `slotted` — currently just the M3x16 foot hinge bolt |
+| `SOCKET`   | 12 mm × 50 mm | `nyloc nut` / generic `nut` — M3 nyloc driven with a 5.5 mm nut socket |
+
+Spline center screws are technically a small Phillips on hobby
+servos, but every such fastener is also explicitly SKIPped (captive
+under the X-horn after assembly), so they're mapped to `HEX_KEY`
+purely so the per-spec envelope table reads consistently. See the
+top of `check_screwdriver_access` in `_verify_prototype.py` for the
+exact dispatch logic.
 
 ---
 

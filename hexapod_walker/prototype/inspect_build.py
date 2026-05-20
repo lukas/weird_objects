@@ -29,15 +29,29 @@ Keyboard shortcuts (also printed at launch)
 -------------------------------------------
 * ``L`` -- toggle the floating per-instance labels
 * ``E`` -- toggle exploded view between 0.0 and 1.5
+* ``F`` -- focus the hovered part's sub-assembly (toggle)
+* ``I`` / ``Esc`` -- clear focus / isolation
 * ``R`` -- reset the camera view
 * ``S`` -- save a screenshot to ``artifacts/views/build_inspect.png``
 * ``Q`` -- quit (also bound by PyVista's default)
+
+Mouse
+-----
+* Hover -> show the part role under the cursor in the top banner.
+* Left-click a part -> isolate it (dim every other part to 15%).
+* Double-click a part -> focus its **sub-assembly** (the servo in its
+  cradle if any, the X-horn it rotates with if any, and every
+  fastener through it).  Everything else is hidden and the camera
+  auto-fits the focused group.  Same effect as ``F`` while hovering.
 
 CLI flags
 ---------
 * ``--screenshot PATH`` -- render once headless and save a PNG, then exit.
 * ``--explode FLOAT``   -- initial explode amount in ``[0, 2]``
                           (default 0.0 = exact assembled pose).
+* ``--focus PART/Lx``   -- start in focus mode on the named printable
+                          part, e.g. ``coxa_link/L0`` or just
+                          ``chassis_top`` for chassis-level parts.
 
 Extending
 ---------
@@ -69,6 +83,7 @@ if THIS_DIR not in sys.path:
 import hexapod_prototype as HP  # noqa: E402
 import part_palette as palette  # noqa: E402
 import fastener_registry  # noqa: E402
+import inspect_build_relations as relations  # noqa: E402
 
 
 STL_DIR = HP.STL_DIR
@@ -470,11 +485,13 @@ def _compute_chassis_lift(
 
 
 SHORTCUTS_TEXT = (
-    "Hover -> label.  Left-click -> isolate part.\n"
-    "Keyboard shortcuts:\n"
+    "Hover -> label.  Left-click -> isolate part.  "
+    "Double-click -> focus sub-assembly.\n"
+    "Keyboard:\n"
     "  L     toggle ALL labels on at once\n"
     "  E     toggle exploded view (0 / 1.5)\n"
-    "  I/Esc clear isolation\n"
+    "  F     focus the hovered part's sub-assembly (toggle)\n"
+    "  I/Esc clear focus / isolation\n"
     "  R     reset camera\n"
     "  S     save screenshot\n"
     "  Q     quit"
@@ -569,13 +586,69 @@ def _add_instances_to_plotter(
     return plotter, placed, chassis_centroid
 
 
+def _resolve_focus_arg(
+    focus_spec: str | None,
+    placed: list[PlacedInstance],
+) -> PlacedInstance | None:
+    """Parse a ``--focus PART/Lx`` CLI string into a ``PlacedInstance``.
+
+    Format:
+        * ``"coxa_link/L0"``  -> printable part on leg 0
+        * ``"chassis_top"``   -> chassis-level part (no leg index)
+
+    Raises ``SystemExit`` with a helpful diagnostic if the spec does
+    not name a real placed instance.
+    """
+    if focus_spec is None:
+        return None
+    if "/" in focus_spec:
+        pt, leg = focus_spec.split("/", 1)
+        if not (leg.startswith("L") and leg[1:].isdigit()):
+            print(
+                f"inspect_build: --focus leg part must be 'L<n>', "
+                f"got {leg!r}",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        leg_index: int | None = int(leg[1:])
+    else:
+        pt = focus_spec
+        leg_index = None
+    candidates = [
+        p for p in placed
+        if p.instance.part_type == pt and p.instance.leg_index == leg_index
+        and not palette.is_fastener(p.instance.part_type)
+        and p.instance.part_type not in ("servo_body", "servo_horn")
+    ]
+    if not candidates:
+        available = sorted({
+            f"{p.instance.part_type}"
+            + (f"/L{p.instance.leg_index}" if p.instance.leg_index is not None else "")
+            for p in placed
+            if not palette.is_fastener(p.instance.part_type)
+            and p.instance.part_type not in ("servo_body", "servo_horn")
+        })
+        print(
+            f"inspect_build: --focus {focus_spec!r} did not match any printable "
+            f"part.  Try one of:\n  " + "\n  ".join(available),
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    # Printable parts are unique on (part_type, leg_index); the filter
+    # above excludes the servo bodies/horns where multiple joints share
+    # the same leg.  Pick the first deterministically.
+    return candidates[0]
+
+
 def run(
     *,
     screenshot: str | None,
     explode: float,
+    focus: str | None = None,
     window_size: tuple[int, int] = (1600, 1000),
 ) -> None:
     instances = _build_assembly_instances()
+    all_fasteners = fastener_registry.build_all_fastener_instances()
     stl_keys = {_instance_stl_key(inst) for inst in instances}
     stl_cache = _load_stl_cache(stl_keys)
     chassis_lift = _compute_chassis_lift(instances, stl_cache)
@@ -590,14 +663,29 @@ def run(
         plotter_kwargs, instances, stl_cache, chassis_lift,
     )
 
+    initial_focus = _resolve_focus_arg(focus, placed)
+
     # Re-decorate this plotter with the legend, labels, slider, and
     # widgets.  We pass a constructor function so _build_plotter can
     # use a single plotter (we already have one populated with actors).
     # Re-implement the "decoration" inline here to avoid double-creation:
-    _decorate_plotter(plotter, placed, chassis_centroid, explode)
+    _decorate_plotter(
+        plotter, placed, chassis_centroid, explode,
+        instances=instances,
+        all_fasteners=all_fasteners,
+        initial_focus=initial_focus,
+    )
 
     plotter.camera_position = "iso"
     plotter.reset_camera()
+
+    # Activate --focus AFTER the default camera reset so the focused
+    # sub-assembly's bounds-based reset_camera is the final word on
+    # framing.  _decorate_plotter stashed the helper + the resolved
+    # PlacedInstance on the plotter for this purpose.
+    init_focus = getattr(plotter, "_inspect_build_initial_focus", None)
+    if init_focus is not None:
+        plotter._inspect_build_set_focus(init_focus)  # type: ignore[attr-defined]
 
     if headless:
         _print_shortcuts()
@@ -620,8 +708,23 @@ def _decorate_plotter(
     placed: list[PlacedInstance],
     chassis_centroid: np.ndarray,
     initial_explode: float,
+    *,
+    instances: list[Instance] | None = None,
+    all_fasteners: list[fastener_registry.FastenerInstance] | None = None,
+    initial_focus: PlacedInstance | None = None,
 ) -> None:
-    """Attach legend, labels, slider, checkboxes, key events to plotter."""
+    """Attach legend, labels, slider, checkboxes, key events to plotter.
+
+    The optional ``instances`` / ``all_fasteners`` / ``initial_focus``
+    arguments power the focus-on-sub-assembly mode (``F`` keybinding
+    and double-click).  When omitted the focus mode is still wired up
+    on the keyboard / mouse but resolves to a no-op because the
+    sub-assembly query needs both lists.
+    """
+    if instances is None:
+        instances = [p.instance for p in placed]
+    if all_fasteners is None:
+        all_fasteners = []
     present_types: list[str] = []
     for p in placed:
         if p.instance.part_type not in present_types:
@@ -700,6 +803,24 @@ def _decorate_plotter(
         id(p.actor): float(p.actor.prop.opacity) for p in placed
     }
 
+    # --- focus state --------------------------------------------------
+    # Focus-on-sub-assembly is orthogonal to isolation: when active,
+    # every actor that does NOT belong to the focused sub-assembly is
+    # hidden (visibility=False).  Members keep their saved opacity and
+    # full visibility so the focused group reads as a clean exploded
+    # detail view of the picked part.
+    #
+    # ``placed``      -- the PlacedInstance currently focused (or None)
+    # ``members``     -- ids of the actors that should remain visible
+    # ``saved_vis``   -- the actor visibility map at the moment focus
+    #                    was entered, so we can restore the per-part-
+    #                    type checkbox effect on exit
+    focus_state: dict[str, object] = {
+        "placed": None,
+        "members": set(),
+        "saved_vis": {},
+    }
+
     def _apply_explode(factor: float) -> None:
         for p in placed:
             offset = p.centroid - chassis_centroid
@@ -759,11 +880,28 @@ def _decorate_plotter(
         if palette.is_fastener(p.instance.part_type):
             fastener_actors.append(p.actor)
 
+    # The per-part-type checkboxes drive a "desired visibility" map
+    # rather than mutating actor visibility directly.  When NOT in
+    # focus mode, the desired-visibility is mirrored straight onto
+    # actor.SetVisibility() on every click.  When IN focus mode, the
+    # checkboxes only update the desired-visibility map; the focused
+    # sub-assembly's hidden actors stay hidden until focus is cleared,
+    # at which point we apply the (possibly-updated) desired-vis map
+    # back onto the actors.  The fasteners master toggle has a
+    # special-case while focused: it hides ONLY the sub-assembly's
+    # fastener members, leaving the rest unchanged.
+    checkbox_desired: dict[str, bool] = {
+        pt: True for pt in actors_by_type.keys()
+    }
+    checkbox_desired["__fasteners__"] = True
+
     def _make_toggle(part_type: str):
         def _cb(value: bool) -> None:
-            for actor in actors_by_type[part_type]:
-                actor.SetVisibility(bool(value))
-            plotter.render()
+            checkbox_desired[part_type] = bool(value)
+            if focus_state["placed"] is None:
+                for actor in actors_by_type[part_type]:
+                    actor.SetVisibility(bool(value))
+                plotter.render()
         return _cb
 
     cb_size = 18
@@ -788,8 +926,17 @@ def _decorate_plotter(
         pos_y = cb_y0 + idx * (cb_size + 6)
         if row_key == "__fasteners__":
             def _toggle_fasteners(value: bool) -> None:
-                for actor in fastener_actors:
-                    actor.SetVisibility(bool(value))
+                checkbox_desired["__fasteners__"] = bool(value)
+                if focus_state["placed"] is None:
+                    for actor in fastener_actors:
+                        actor.SetVisibility(bool(value))
+                else:
+                    # Special-case while focused: the master toggle
+                    # only flips the sub-assembly's fastener members.
+                    members = focus_state["members"]
+                    for actor in fastener_actors:
+                        if id(actor) in members:
+                            actor.SetVisibility(bool(value))
                 plotter.render()
             plotter.add_checkbox_button_widget(
                 _toggle_fasteners,
@@ -947,26 +1094,268 @@ def _decorate_plotter(
             _set_hover_text(f"Isolated: {_label_for(p)}  [press I / Esc to clear]")
         plotter.render()
 
+    # ------------------------------------------------------------------
+    # Focus-on-sub-assembly
+    # ------------------------------------------------------------------
+    # Look-ups for resolving the SubAssembly's Instance / FastenerInstance
+    # members back to their PlacedInstance + actor.  These are stable
+    # for the lifetime of the plotter; nothing rebuilds them.
+    placed_by_instance_id: dict[int, PlacedInstance] = {
+        id(p.instance): p for p in placed
+    }
+    placed_by_fastener_role: dict[str, PlacedInstance] = {
+        p.instance.fastener_role: p
+        for p in placed
+        if p.instance.fastener_role
+    }
+
+    def _sub_member_actors(
+        sub: relations.SubAssembly,
+    ) -> list[pv.Actor]:
+        """Resolve a SubAssembly's members to their pyvista actors.
+
+        Instances (focus, servos_inside, horns_below) are looked up by
+        ``id()``; fasteners are looked up by their role string (the
+        stable key that bridges FastenerInstance <-> Instance wrapper).
+        Members that fail to resolve are silently dropped -- the
+        consequence is just that one extra hardware item stays hidden
+        in focus mode, which is the safe direction.
+        """
+        out: list[pv.Actor] = []
+        for inst in (sub.focus, *sub.servos_inside, *sub.horns_below):
+            p = placed_by_instance_id.get(id(inst))
+            if p is not None:
+                out.append(p.actor)
+        for fi in sub.fasteners:
+            p = placed_by_fastener_role.get(fi.role)
+            if p is not None:
+                out.append(p.actor)
+        return out
+
+    def _union_bounds(actors: list[pv.Actor]) -> tuple[float, ...] | None:
+        """Union the world-space bounding boxes of every actor.
+
+        ``vtkActor.GetBounds`` returns ``(xmin, xmax, ymin, ymax,
+        zmin, zmax)`` AFTER applying any ``user_matrix`` (i.e. the
+        explode shift is already baked in), so this works correctly
+        regardless of explode-slider state.
+        """
+        xs: list[float] = []
+        ys: list[float] = []
+        zs: list[float] = []
+        for a in actors:
+            try:
+                b = a.GetBounds()
+            except Exception:
+                continue
+            if any((v is None or not np.isfinite(v)) for v in b):
+                continue
+            xs.extend((b[0], b[1]))
+            ys.extend((b[2], b[3]))
+            zs.extend((b[4], b[5]))
+        if not xs:
+            return None
+        return (min(xs), max(xs), min(ys), max(ys), min(zs), max(zs))
+
+    def _apply_desired_visibility() -> None:
+        """Drive every actor's visibility from the checkbox map.
+
+        Called on focus exit so the user's per-part-type checkbox
+        choices snap back into effect.  The fasteners master toggle
+        wins over the per-fastener-type loop (the per-fastener-type
+        row was removed from the column on construction, so the only
+        toggle that flips fastener actors is ``__fasteners__``).
+        """
+        for pt, vis in checkbox_desired.items():
+            if pt == "__fasteners__":
+                continue
+            for actor in actors_by_type.get(pt, []):
+                actor.SetVisibility(bool(vis))
+        for actor in fastener_actors:
+            actor.SetVisibility(bool(checkbox_desired["__fasteners__"]))
+
+    def _format_focus_banner(
+        sub: relations.SubAssembly, p: PlacedInstance,
+    ) -> str:
+        bits: list[str] = []
+        if sub.servos_inside:
+            bits.append(f"{len(sub.servos_inside)} servo(s)")
+        if sub.horns_below:
+            bits.append(f"{len(sub.horns_below)} horn(s)")
+        if sub.fasteners:
+            bits.append(f"{len(sub.fasteners)} fastener(s)")
+        n_total = 1 + len(sub.servos_inside) + len(sub.horns_below) + len(sub.fasteners)
+        members_str = ", ".join(bits) if bits else "just the part itself"
+        return (
+            f"Focused: {_label_for(p)}  "
+            f"({n_total} members: {members_str})  "
+            f"[press F again or I / Esc to clear]"
+        )
+
+    def _set_focus(p: PlacedInstance | None) -> None:
+        if p is None:
+            if focus_state["placed"] is None:
+                return
+            focus_state["placed"] = None
+            focus_state["members"] = set()
+            focus_state["saved_vis"] = {}
+            # Restore visibility from the per-part-type checkbox map,
+            # so any changes the user made via the checkbox column
+            # WHILE focused take effect on exit.
+            _apply_desired_visibility()
+            _set_hover_text("(hover a part)")
+            plotter.render()
+            return
+
+        sub = relations.build_subassembly_for(
+            p.instance, instances, all_fasteners,
+        )
+        member_actors = _sub_member_actors(sub)
+        member_ids = {id(a) for a in member_actors}
+        # Snapshot current visibility so we can restore on exit even
+        # if the user enters focus mode via --focus at startup.
+        saved_vis = {id(pp.actor): bool(pp.actor.GetVisibility()) for pp in placed}
+        focus_state["placed"] = p
+        focus_state["members"] = member_ids
+        focus_state["saved_vis"] = saved_vis
+
+        # Hide every non-member; show every member.  Members keep
+        # their saved opacity (we explicitly don't dim them like the
+        # isolation path does -- the whole point of focus is that the
+        # surviving members read full-brightness).
+        for pp in placed:
+            is_member = id(pp.actor) in member_ids
+            pp.actor.SetVisibility(bool(is_member))
+            if is_member:
+                pp.actor.prop.opacity = saved_opacity[id(pp.actor)]
+
+        # Drop any pending isolation -- focus supersedes it.
+        iso_state["placed"] = None
+        _apply_isolation_visuals()
+
+        _set_hover_text(_format_focus_banner(sub, p))
+
+        # Auto-fit camera to the sub-assembly bounds.
+        bounds = _union_bounds(member_actors)
+        if bounds is not None:
+            plotter.reset_camera(bounds=bounds)
+        else:
+            plotter.reset_camera()
+        plotter.render()
+
+    def _clear_focus() -> None:
+        _set_focus(None)
+
+    # Double-click detection (timing heuristic).  PyVista's
+    # ``track_click_position`` fires once per LeftButtonReleaseEvent,
+    # which means the second click of a real double-click would
+    # normally just bounce through ``_set_isolation`` again.  We
+    # instead remember the time + screen position of the previous
+    # left-click; if the current click lands within DOUBLE_CLICK_MS
+    # of it AND within DOUBLE_CLICK_PX, we treat it as a double-click
+    # and route to ``_set_focus`` instead.  This is the documented
+    # fallback path in the focus-mode spec; observing
+    # ``LeftButtonDoubleClickEvent`` directly would race the
+    # trackball's own double-click binding, and the timing path is
+    # robust against that.
+    DOUBLE_CLICK_MS = 350.0
+    DOUBLE_CLICK_PX = 5
+    last_click_state: dict[str, float] = {"t_ms": -1.0e9, "x": -9999.0, "y": -9999.0}
+
+    def _now_ms() -> float:
+        import time
+        return time.monotonic() * 1000.0
+
     def _on_left_click(point) -> None:
         # ``point`` is (x_pixel, y_pixel).
         if picker is None:
             return
+        x, y = float(point[0]), float(point[1])
+        now = _now_ms()
+        dt = now - last_click_state["t_ms"]
+        dx = abs(x - last_click_state["x"])
+        dy = abs(y - last_click_state["y"])
+        is_double = (
+            dt < DOUBLE_CLICK_MS and dx < DOUBLE_CLICK_PX and dy < DOUBLE_CLICK_PX
+        )
+        last_click_state["t_ms"] = now
+        last_click_state["x"] = x
+        last_click_state["y"] = y
+
         try:
-            picker.Pick(point[0], point[1], 0, plotter.renderer)
+            picker.Pick(x, y, 0, plotter.renderer)
         except Exception:
             return
         actor = picker.GetActor()
         placed_hit = actor_to_placed.get(id(actor)) if actor is not None else None
+        # Reject hits on fastener / servo actors as focus targets --
+        # focusing on a fastener gives the user a sub-assembly of just
+        # the fastener itself, which is rarely what they want.  The
+        # ``--focus`` CLI flag is already gated on printable parts;
+        # mirror that for the mouse here.
+        if placed_hit is not None and (
+            palette.is_fastener(placed_hit.instance.part_type)
+            or placed_hit.instance.part_type in ("servo_body", "servo_horn")
+        ):
+            focus_target = None
+        else:
+            focus_target = placed_hit
+
+        if is_double:
+            if focus_target is None:
+                # Double-click empty space (or on hardware) -> clear focus.
+                _clear_focus()
+                return
+            # Same part double-clicked again -> toggle focus off.
+            if focus_state["placed"] is focus_target:
+                _clear_focus()
+                return
+            _set_focus(focus_target)
+            return
+
+        # Single click: route to isolation, but only when NOT focused.
+        # While focused the single-click is a documented no-op (focus
+        # already hides everything that would have been dimmed).
+        if focus_state["placed"] is not None:
+            return
         if placed_hit is None:
-            # Empty space -> drop isolation.
             if iso_state["placed"] is not None:
                 _set_isolation(None)
         else:
             _set_isolation(placed_hit)
 
-    def _clear_isolation() -> None:
+    def _on_f_key() -> None:
+        """Toggle focus on whatever printable part is under the cursor."""
+        p = _placed_under_cursor()
+        if p is not None and (
+            palette.is_fastener(p.instance.part_type)
+            or p.instance.part_type in ("servo_body", "servo_horn")
+        ):
+            p = None
+        if p is None:
+            # Hovering empty space (or hardware) + F -> toggle off.
+            if focus_state["placed"] is not None:
+                _clear_focus()
+            return
+        if focus_state["placed"] is p:
+            _clear_focus()
+            return
         if iso_state["placed"] is not None:
             _set_isolation(None)
+        _set_focus(p)
+
+    def _clear_focus_or_isolation() -> None:
+        """``I`` / ``Esc`` handler.  Focus takes priority on press."""
+        cleared = False
+        if focus_state["placed"] is not None:
+            _clear_focus()
+            cleared = True
+        if iso_state["placed"] is not None:
+            _set_isolation(None)
+            cleared = True
+        if not cleared:
+            # Nothing to clear -- still rerender to refresh hover text.
+            plotter.render()
 
     try:
         plotter.iren.add_observer("MouseMoveEvent", _on_mouse_move)
@@ -990,12 +1379,14 @@ def _decorate_plotter(
         plotter.add_key_event(k, _toggle_labels)
     for k in ("e", "E"):
         plotter.add_key_event(k, _toggle_explode)
+    for k in ("f", "F"):
+        plotter.add_key_event(k, _on_f_key)
     for k in ("r", "R"):
         plotter.add_key_event(k, _reset_camera)
     for k in ("s", "S"):
         plotter.add_key_event(k, _save_screenshot)
     for k in ("i", "I", "Escape"):
-        plotter.add_key_event(k, _clear_isolation)
+        plotter.add_key_event(k, _clear_focus_or_isolation)
     for k in ("q", "Q"):
         plotter.add_key_event(k, plotter.close)
 
@@ -1007,6 +1398,14 @@ def _decorate_plotter(
         plotter.enable_anti_aliasing("msaa")
     except Exception:
         pass
+
+    # Expose _set_focus on the plotter so run() can activate --focus
+    # AFTER its own ``camera_position = "iso"`` / ``reset_camera()``
+    # (which would otherwise clobber the sub-assembly bounds set by
+    # _set_focus).  Stashing on the plotter object avoids changing
+    # the function's return type.
+    plotter._inspect_build_set_focus = _set_focus  # type: ignore[attr-defined]
+    plotter._inspect_build_initial_focus = initial_focus  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------
@@ -1042,6 +1441,19 @@ def main(argv: list[str] | None = None) -> None:
         ),
     )
     parser.add_argument(
+        "--focus",
+        type=str,
+        default=None,
+        help=(
+            "Open the inspector with focus-on-sub-assembly mode "
+            "already active on the named printable part.  Format: "
+            "'PART_TYPE/L<n>' for per-leg parts (e.g. 'coxa_link/L0', "
+            "'femur_link/L3') or just 'PART_TYPE' for chassis-level "
+            "parts (e.g. 'chassis_top').  Composes with --screenshot "
+            "for headless captures of one sub-assembly."
+        ),
+    )
+    parser.add_argument(
         "--window-w", type=int, default=1600, help="Window width (pixels).",
     )
     parser.add_argument(
@@ -1059,6 +1471,7 @@ def main(argv: list[str] | None = None) -> None:
     run(
         screenshot=args.screenshot,
         explode=args.explode,
+        focus=args.focus,
         window_size=(args.window_w, args.window_h),
     )
 
