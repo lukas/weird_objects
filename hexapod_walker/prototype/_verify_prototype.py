@@ -3304,25 +3304,57 @@ def check_cradle_nut_traps():
 # Screwdriver-access clearance check
 # ---------------------------------------------------------------------------
 #
-# Probe a 12 mm-diameter, 80 mm-long cylinder pointing OUTWARD from
-# each fastener's head along the driver-approach direction
-# (= -axis_world).  Fail if any printed part intrudes into that
-# cylinder by more than DRIVER_INTRUSION_TOLERANCE_MM3 mm^3.
+# For each fastener, probe a cylinder pointing OUTWARD from the head
+# along the driver-approach direction (= -axis_world).  Fail if any
+# printed part intrudes into that cylinder by more than
+# DRIVER_INTRUSION_TOLERANCE_MM3 mm^3.
 #
-# The 12 mm diameter is sized for a hex key socket + the assembler's
-# fingers gripping the short leg, and equally accommodates a small
-# Phillips screwdriver shaft.  80 mm is the typical exposed shaft of
-# a 4 mm or 3 mm metric hex key (about 90-100 mm total length minus
-# the socketed end), with a margin for the user's knuckles.
+# The probe cylinder size is picked per-fastener based on the kind of
+# tool the assembler actually needs to drive that fastener.  Probing
+# every SHCS with the worst-case Phillips envelope (12 mm dia x 80 mm
+# long) overstates the required clearance by a large margin and
+# produces FAILs at fasteners that a real assembler can drive with
+# their fingers and a 25 mm-long L-shaped hex key with no trouble.
 #
-# Mirrors the OTHER_TOLERANCE = 30 mm^3 used by check_servo_clearance:
-# at the verifier's 1.5 mm voxel pitch a single voxel = 3.4 mm^3, so
-# 30 mm^3 ~= 9 voxels = the noise floor for the axis-aligned-ray
-# parity vote on a curved mesh boundary.  Anything below it is voxel
-# stair-step artefact, not real material in the cone.
+# The three envelopes:
+#
+# * HEX_KEY  --  L-shaped hex key short-arm (M2.5 / M3 wrench).  The
+#                short arm is ~25 mm long and ~3 mm AF; the assembler
+#                needs maybe 8 mm of clearance around it for fingers
+#                and the long-arm sticking out to the side.  Anything
+#                tagged SHCS (or the M2.5 spline center screw, which
+#                IS a tiny Phillips on hobby servos but is always
+#                SKIPped because it sits captive under the X-horn
+#                after assembly -- mapping it here is documentation
+#                only, the cone never lands on actual geometry).
+#
+# * PHILLIPS  -- Full-length Phillips / slotted screwdriver: 12 mm
+#                shaft + handle, 80 mm reach.  Used for the foot
+#                hinge M3x16 pan-head and any other pan-head or
+#                slotted-head fastener.
+#
+# * SOCKET    -- Small M3-nut driver / 5.5 mm socket on a stub
+#                handle.  12 mm OD at the head, ~50 mm of reach
+#                (shorter than Phillips because nut drivers don't
+#                need to land on a recessed cross-shape).  Used for
+#                the M3 nyloc nuts that aren't captive in a hex
+#                pocket (e.g. the chassis bolt nuts under the
+#                chassis_bottom, the foot hinge nut).
+#
+# DRIVER_INTRUSION_TOLERANCE_MM3 mirrors the OTHER_TOLERANCE = 30 mm^3
+# used by check_servo_clearance: at the verifier's 1.5 mm voxel pitch
+# a single voxel = 3.4 mm^3, so 30 mm^3 ~= 9 voxels = the noise floor
+# for the axis-aligned-ray parity vote on a curved mesh boundary.
+# Anything below it is voxel stair-step artefact, not real material
+# in the cone.
 
-DRIVER_CLEARANCE_DIA_MM      = 12.0
-DRIVER_CLEARANCE_LEN_MM      = 80.0
+HEX_KEY_CLEARANCE_DIA_MM     = 8.0    # 2.5 / 3 mm hex key short arm + finger room
+HEX_KEY_CLEARANCE_LEN_MM     = 30.0   # short-arm reach
+PHILLIPS_CLEARANCE_DIA_MM    = 12.0   # full-length Phillips shaft + handle
+PHILLIPS_CLEARANCE_LEN_MM    = 80.0
+SOCKET_CLEARANCE_DIA_MM      = 12.0   # M3 nut driver / 5.5 mm socket + handle taper
+SOCKET_CLEARANCE_LEN_MM      = 50.0
+
 DRIVER_INTRUSION_TOLERANCE_MM3 = 30.0
 # Probe slightly forward of the head so the cylinder NEVER overlaps
 # the head's own seating face (which would otherwise also overlap the
@@ -3428,23 +3460,70 @@ def _build_world_leg0_printed_parts() -> dict:
     return parts
 
 
+def _driver_envelope_for_spec(spec: str) -> tuple:
+    """Return ``(diameter_mm, length_mm)`` of the driver clearance
+    cone appropriate for ``spec`` -- one of the fastener-registry
+    ``SPEC_*`` strings (e.g. ``"M3x14 SHCS"`` or ``"M3 nyloc nut"``).
+
+    Dispatch (case-sensitive, ordered by precedence -- first match
+    wins because some specs contain more than one of the marker
+    words):
+
+    * Anything containing ``"spline"`` -> HEX_KEY envelope.  The
+      hobby servo's M2.5 spline center screw IS a small Phillips in
+      reality, but it is also explicitly SKIPped in every fastener
+      registry instance (captive under the X-horn after assembly),
+      so its cone never lands on actual geometry.  Mapping it to
+      HEX_KEY here is purely so an analyst dumping the per-spec
+      envelope table sees the SMALLEST plausible envelope and isn't
+      misled into thinking we modelled an 80 mm Phillips reach
+      through the X-horn.
+    * Anything containing ``"SHCS"`` -> HEX_KEY envelope.
+    * Anything containing ``"pan-head"``, ``"Phillips"``, or
+      ``"slotted"`` -> PHILLIPS envelope.
+    * Anything containing ``"nyloc nut"`` or just ``"nut"`` ->
+      SOCKET envelope.
+
+    An unknown spec falls through to the conservative PHILLIPS
+    envelope.  Future fastener-spec drift will show up as a probe
+    that's larger than expected, not as a silently-permissive one.
+    """
+    if "spline" in spec:
+        return (HEX_KEY_CLEARANCE_DIA_MM, HEX_KEY_CLEARANCE_LEN_MM)
+    if "SHCS" in spec:
+        return (HEX_KEY_CLEARANCE_DIA_MM, HEX_KEY_CLEARANCE_LEN_MM)
+    if ("pan-head" in spec) or ("Phillips" in spec) or ("slotted" in spec):
+        return (PHILLIPS_CLEARANCE_DIA_MM, PHILLIPS_CLEARANCE_LEN_MM)
+    if "nut" in spec:
+        return (SOCKET_CLEARANCE_DIA_MM, SOCKET_CLEARANCE_LEN_MM)
+    return (PHILLIPS_CLEARANCE_DIA_MM, PHILLIPS_CLEARANCE_LEN_MM)
+
+
 def _make_driver_probe(head_xyz: np.ndarray,
-                       axis_world: np.ndarray) -> trimesh.Trimesh:
-    """Build the 12 mm dia x 80 mm long clearance probe oriented along
-    the DRIVER APPROACH direction (= -axis_world, since axis_world
-    points FROM head INTO material and the driver approaches FROM
-    OUTSIDE the head).
+                       axis_world: np.ndarray,
+                       dia_mm: float = PHILLIPS_CLEARANCE_DIA_MM,
+                       length_mm: float = PHILLIPS_CLEARANCE_LEN_MM,
+                       ) -> trimesh.Trimesh:
+    """Build a ``dia_mm`` x ``length_mm`` clearance probe oriented
+    along the DRIVER APPROACH direction (= -axis_world, since
+    axis_world points FROM head INTO material and the driver
+    approaches FROM OUTSIDE the head).
+
+    The default envelope is PHILLIPS (12 x 80 mm) so callers that
+    don't pass a per-fastener size get the conservative cone.
+    ``_driver_envelope_for_spec`` is the helper that picks the right
+    envelope for a real ``FastenerInstance.spec`` string.
     """
     cyl = trimesh.creation.cylinder(
-        radius=DRIVER_CLEARANCE_DIA_MM / 2.0,
-        height=DRIVER_CLEARANCE_LEN_MM,
+        radius=dia_mm / 2.0,
+        height=length_mm,
         sections=24,
     )
     # cylinder() is centred at the origin along +Z.  Shift it so the
     # BASE sits at z=0 (the head plane) and the tip at z=+LEN.  We
     # then rotate so +Z lands on the driver direction (-axis_world)
     # and translate to head_xyz.
-    cyl.apply_translation([0.0, 0.0, DRIVER_CLEARANCE_LEN_MM / 2.0
+    cyl.apply_translation([0.0, 0.0, length_mm / 2.0
                                        + DRIVER_HEAD_STANDOFF_MM])
     driver_dir = -np.asarray(axis_world, dtype=float)
     n = float(np.linalg.norm(driver_dir))
@@ -3471,10 +3550,17 @@ def _make_driver_probe(head_xyz: np.ndarray,
 
 
 def check_screwdriver_access():
-    """For each fastener instance, probe a 12 mm dia x 80 mm long
-    cylindrical clearance cone above the head along the driver-
-    approach axis.  Fail if any PRINTED part intrudes by more than
+    """For each fastener instance, probe a per-fastener cylindrical
+    clearance cone above the head along the driver-approach axis.
+    Fail if any PRINTED part intrudes by more than
     DRIVER_INTRUSION_TOLERANCE_MM3.
+
+    Three envelopes are dispatched by ``FastenerInstance.spec`` (see
+    ``_driver_envelope_for_spec``):
+
+    * HEX_KEY  (Phi  8 mm x 30 mm) -- SHCS + spline-screw entries
+    * PHILLIPS (Phi 12 mm x 80 mm) -- pan-head / Phillips / slotted
+    * SOCKET   (Phi 12 mm x 50 mm) -- nyloc nut / generic nut
 
     Fasteners with an explicit ``skip_screwdriver_reason`` -- the
     servo's M2.5 spline center screw (captive under the X-horn after
@@ -3483,8 +3569,10 @@ def check_screwdriver_access():
     with the reason printed alongside.
     """
     print("\n[14] Screwdriver-access clearance "
-          f"(Phi {DRIVER_CLEARANCE_DIA_MM:.0f} mm x "
-          f"{DRIVER_CLEARANCE_LEN_MM:.0f} mm cone, "
+          f"(per-spec envelopes: "
+          f"HEX_KEY {HEX_KEY_CLEARANCE_DIA_MM:.0f}x{HEX_KEY_CLEARANCE_LEN_MM:.0f} mm, "
+          f"PHILLIPS {PHILLIPS_CLEARANCE_DIA_MM:.0f}x{PHILLIPS_CLEARANCE_LEN_MM:.0f} mm, "
+          f"SOCKET {SOCKET_CLEARANCE_DIA_MM:.0f}x{SOCKET_CLEARANCE_LEN_MM:.0f} mm; "
           f"tol {DRIVER_INTRUSION_TOLERANCE_MM3:.0f} mm^3):")
 
     # Import here so the verifier never tries to load the registry at
@@ -3524,7 +3612,9 @@ def check_screwdriver_access():
             )
             continue
         n_check += 1
-        probe = _make_driver_probe(fi.head_world_xyz, fi.axis_world)
+        dia, length = _driver_envelope_for_spec(fi.spec)
+        probe = _make_driver_probe(fi.head_world_xyz, fi.axis_world,
+                                    dia_mm=dia, length_mm=length)
         p_lo, p_hi = probe.bounds
         total_intrusion = 0.0
         per_part: list[str] = []
