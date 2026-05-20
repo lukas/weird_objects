@@ -1319,7 +1319,7 @@ def check_servo_clearance():
 #
 # The driven printed part (coxa_link for yaw, femur_link for hip-pitch,
 # tibia_link for knee-pitch) sits ABOVE the plastic horn at femur/tibia
-# y >= HORN_STACK_H = +5, with a 4-bolt clamp pad on HORN_BOLT_PCD =
+# y >= HORN_STACK_H = +5, with a 4-bolt clamp pad on XHORN_BOLT_PCD =
 # 20.8 mm.  The part's "neck" -- the material between the pad's mating
 # face (y = HORN_STACK_H) and the spar's near face (y = LINK_THICKNESS/2
 # = +3) -- MUST be free of plastic anywhere inside the legacy horn-
@@ -2933,14 +2933,19 @@ def _optional_arm_checks():
 # ships with the servo (no printed servo_horn_adapter disc in the
 # stack).  Each driven link MUST therefore carry:
 #
-#   1. A 4 x M3-clearance hole pattern on a HORN_BOLT_PCD = 20.8 mm
+#   1. A 4 x M2-clearance hole pattern on an XHORN_BOLT_PCD = 20.8 mm
 #      bolt circle, drilled through the pad's mating face along the
 #      joint axis (link +Z for coxa_link; link +Y for femur_link /
-#      tibia_link).
+#      tibia_link).  Phi XHORN_BOLT_OD = 2.2 mm (M2 clearance with
+#      0.2 mm FDM print tolerance) -- the May 2026 fastener-spec fix
+#      shrank this from the original (incorrect) Phi 3.2 mm M3
+#      clearance to match the X-horn's Phi ~ 2.0 mm M2-self-tap arm
+#      holes.  See hexapod_prototype.py XHORN_BOLT_* docstring.
 #   2. A central Phi HORN_RECESS_OD = 16 mm cylindrical recess
 #      HORN_RECESS_DEPTH = 1.6 mm deep cut into the pad's mating face,
 #      so the plastic horn's central hub (spline collar + M3 centre-
-#      screw head) is fully swallowed below the pad.
+#      screw head) is fully swallowed below the pad.  The centre
+#      screw stays M3; only the 4 outer arm bolts switched to M2.
 #
 # This check confirms BOTH the 4 bolt holes and the central recess
 # exist by sampling a small voxel patch at each expected position and
@@ -2998,21 +3003,32 @@ def _probe_void_cylinder(mesh: trimesh.Trimesh,
 
 def check_horn_pattern_in_pad():
     """Verify that each driven link's pad has:
-      a) 4 M3 clearance holes on the HORN_BOLT_PCD = 20.8 mm bolt
+      a) 4 M2 clearance holes on the XHORN_BOLT_PCD = 20.8 mm bolt
          circle, drilled through the full pad thickness, and
       b) a central Phi HORN_RECESS_OD = 16 mm x HORN_RECESS_DEPTH =
          1.6 mm hub-clearance recess on the pad's mating face.
+
+    May 2026 fastener-spec fix: the bolts are M2 (Phi 2.2 mm
+    clearance), not M3 (Phi 3.2 mm) -- see ``XHORN_BOLT_OD`` in
+    ``hexapod_prototype.py``.  The probe radius below is sized off
+    ``XHORN_BOLT_OD`` so the verifier will track any future change to
+    the X-horn arm-hole standard without a code edit.
     """
     print(f"\n[5d] Horn-pattern in driven link pads "
-          f"(Phi {hp.HORN_BOLT_OD:.1f} mm holes on PCD "
-          f"{hp.HORN_BOLT_PCD:.1f} mm + Phi {hp.HORN_RECESS_OD:.1f} mm "
+          f"(Phi {hp.XHORN_BOLT_OD:.1f} mm holes on PCD "
+          f"{hp.XHORN_BOLT_PCD:.1f} mm + Phi {hp.HORN_RECESS_OD:.1f} mm "
           f"x {hp.HORN_RECESS_DEPTH:.2f} mm hub recess):")
 
     # The probe radius is a hair smaller than the actual clearance
     # hole / recess radius so voxel stair-step artefacts on the cut's
     # curved boundary don't pollute the "is the volume void" answer.
-    bolt_probe_r   = hp.HORN_BOLT_OD / 2.0 - 0.2     # ~1.4 mm
-    recess_probe_r = hp.HORN_RECESS_OD / 2.0 - 0.5   # ~7.5 mm
+    # With XHORN_BOLT_OD = 2.2 mm the bolt probe shrinks to ~ 0.9 mm
+    # radius (Phi 1.8 mm probe) which still resolves cleanly against
+    # the verifier's 1.5 mm voxel pitch -- a missing hole produces a
+    # solid pillar of pad material at the probe position and registers
+    # as ~ 40-100 hits (well above HORN_PATTERN_VOX_TOL * 4 = 20).
+    bolt_probe_r   = hp.XHORN_BOLT_OD / 2.0 - 0.2     # ~0.9 mm at M2
+    recess_probe_r = hp.HORN_RECESS_OD / 2.0 - 0.5    # ~7.5 mm
 
     cases = [
         # (name, mesh, pad_axis, mating_face_coord, pad_thickness,
@@ -3054,12 +3070,12 @@ def check_horn_pattern_in_pad():
 
     all_ok = True
     for name, mesh, axis, mate, normal_sign in cases:
-        # ---- (a) 4 M3 bolt holes on the HORN_BOLT_PCD circle ----
+        # ---- (a) 4 M2 bolt holes on the XHORN_BOLT_PCD circle ----
         bolt_misses = 0
-        for ang in hp.HORN_BOLT_ANGLES_RAD:
+        for ang in hp.XHORN_BOLT_ANGLES_RAD:
             # Bolt-circle position in the pad's transverse plane.
-            tx = hp.HORN_BOLT_PCD / 2.0 * np.cos(ang)
-            ty = hp.HORN_BOLT_PCD / 2.0 * np.sin(ang)
+            tx = hp.XHORN_BOLT_PCD / 2.0 * np.cos(ang)
+            ty = hp.XHORN_BOLT_PCD / 2.0 * np.sin(ang)
             # Probe centre sits half-way along the bolt's path into
             # the pad (the bolt enters at the mating face and exits
             # the far side, depth = LINK_THICKNESS for femur/tibia or
@@ -3078,7 +3094,7 @@ def check_horn_pattern_in_pad():
             bolt_misses += hits
         ok_bolts = bolt_misses <= HORN_PATTERN_VOX_TOL * 4
         all_ok &= _label(
-            f"{name} :: 4 x M3 bolts on Phi {hp.HORN_BOLT_PCD} mm PCD",
+            f"{name} :: 4 x M2 bolts on Phi {hp.XHORN_BOLT_PCD} mm PCD",
             ok_bolts,
             f"hits={bolt_misses} (tol "
             f"{HORN_PATTERN_VOX_TOL * 4})",

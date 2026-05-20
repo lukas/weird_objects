@@ -248,23 +248,23 @@ parts:
     # hub mid-thickness (z = COXA_LIFT + hub_t / 2 = 36 mm).
     holes:
       - name: yaw_horn_bolt_+X
-        diameter_mm: 3.2                # = HORN_BOLT_OD
+        diameter_mm: 2.2                # = XHORN_BOLT_OD (M2 self-tap, May 2026)
         position_mm: [10.4, 0.0, 36.0]
         axis: z
       - name: yaw_horn_bolt_+Y
-        diameter_mm: 3.2
+        diameter_mm: 2.2
         position_mm: [0.0, 10.4, 36.0]
         axis: z
       - name: yaw_horn_bolt_-X
-        diameter_mm: 3.2
+        diameter_mm: 2.2
         position_mm: [-10.4, 0.0, 36.0]
         axis: z
       - name: yaw_horn_bolt_-Y
-        diameter_mm: 3.2
+        diameter_mm: 2.2
         position_mm: [0.0, -10.4, 36.0]
         axis: z
       - name: yaw_horn_centre
-        diameter_mm: 3.4                # = HORN_CENTRE_OD
+        diameter_mm: 3.4                # = HORN_CENTRE_OD (M3 spline centre screw)
         position_mm: [0.0, 0.0, 36.0]
         axis: z
     wire_channels:
@@ -290,19 +290,19 @@ parts:
     # mid-Y (now y = 8).
     holes:
       - name: hip_pad_bolt_+X
-        diameter_mm: 3.2                # = SERVO_TAB_HOLE (M3 clearance)
+        diameter_mm: 2.2                # = XHORN_BOLT_M2_SELFTAP_HOLE_OD (M2, May 2026 fix)
         position_mm: [10.4, 8.0, 0.0]
         axis: y
       - name: hip_pad_bolt_+Z
-        diameter_mm: 3.2
+        diameter_mm: 2.2
         position_mm: [0.0, 8.0, 10.4]
         axis: y
       - name: hip_pad_bolt_-X
-        diameter_mm: 3.2
+        diameter_mm: 2.2
         position_mm: [-10.4, 8.0, 0.0]
         axis: y
       - name: hip_pad_bolt_-Z
-        diameter_mm: 3.2
+        diameter_mm: 2.2
         position_mm: [0.0, 8.0, -10.4]
         axis: y
     wire_channels:
@@ -324,19 +324,19 @@ parts:
     # mid-Y (now y = 8).
     holes:
       - name: knee_pad_bolt_+X
-        diameter_mm: 3.2
+        diameter_mm: 2.2                # = XHORN_BOLT_M2_SELFTAP_HOLE_OD (M2, May 2026 fix)
         position_mm: [10.4, 8.0, 0.0]
         axis: y
       - name: knee_pad_bolt_+Z
-        diameter_mm: 3.2
+        diameter_mm: 2.2
         position_mm: [0.0, 8.0, 10.4]
         axis: y
       - name: knee_pad_bolt_-X
-        diameter_mm: 3.2
+        diameter_mm: 2.2
         position_mm: [-10.4, 8.0, 0.0]
         axis: y
       - name: knee_pad_bolt_-Z
-        diameter_mm: 3.2
+        diameter_mm: 2.2
         position_mm: [0.0, 8.0, -10.4]
         axis: y
     wire_channels: []                    # the tibia has no servo, hence no wire-exit

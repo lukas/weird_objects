@@ -45,6 +45,16 @@ M3_CAP_H        = 3.0         # cap head height
 M3_HEX_SOCKET_AF = 2.5        # 2.5 mm hex key across-flats
 M3_HEX_SOCKET_DEPTH = 1.5     # depth of the hex pocket inside the cap
 
+# M2 socket-head cap screw (DIN 912):
+# Used for the 72 link-to-X-horn self-tap bolts (May 2026 fastener-
+# spec fix: the plastic X-horn's arm holes are Phi ~ 2.0 mm M2-sized,
+# NOT Phi 3.2 mm M3 clearance).  Stock dimensions per ISO 4762.
+M2_THREAD_D     = 2.0
+M2_CAP_D        = 3.8         # cap head outer diameter
+M2_CAP_H        = 2.0         # cap head height
+M2_HEX_SOCKET_AF = 1.5        # 1.5 mm hex key across-flats
+M2_HEX_SOCKET_DEPTH = 1.0
+
 # M2.5 socket-head cap screw (DIN 912):
 M25_THREAD_D    = 2.5
 M25_CAP_D       = 4.5
@@ -105,6 +115,19 @@ def _box(extents, center=(0.0, 0.0, 0.0)) -> trimesh.Trimesh:
 # ---------------------------------------------------------------------------
 # Public fastener builders
 # ---------------------------------------------------------------------------
+
+
+def make_m2_shcs(length_mm: float) -> trimesh.Trimesh:
+    """M2 socket-head cap screw, ``length_mm`` shank length, head at
+    z=[-CAP_H, 0], shank at z=[0, length_mm]."""
+    cap = _cyl(M2_CAP_D / 2.0, M2_CAP_H)
+    cap.apply_translation([0.0, 0.0, -M2_CAP_H / 2.0])
+    socket = _hex_prism(M2_HEX_SOCKET_AF, M2_HEX_SOCKET_DEPTH + 0.4)
+    socket.apply_translation([0.0, 0.0, -M2_HEX_SOCKET_DEPTH / 2.0 + 0.2])
+    cap = cap.difference(socket)
+    shank = _cyl(M2_THREAD_D / 2.0, length_mm)
+    shank.apply_translation([0.0, 0.0, length_mm / 2.0])
+    return trimesh.util.concatenate([cap, shank])
 
 
 def make_m3_shcs(length_mm: float) -> trimesh.Trimesh:
@@ -208,6 +231,7 @@ def build_for_spec(spec: str) -> trimesh.Trimesh:
     """Return the parametric mesh for a given fastener spec label.
 
     Spec labels match the ``spec`` field on ``FastenerInstance``:
+        "M2x8 SHCS"
         "M3x8  SHCS"
         "M3x32 SHCS"
         "M3x16 pan-head"
@@ -215,6 +239,8 @@ def build_for_spec(spec: str) -> trimesh.Trimesh:
         "M3 nyloc nut"
     """
     s = spec.replace(" ", "").lower()
+    if s == "m2x8shcs":
+        return make_m2_shcs(8.0)
     if s == "m3x8shcs":
         return make_m3_shcs(8.0)
     if s == "m3x32shcs":

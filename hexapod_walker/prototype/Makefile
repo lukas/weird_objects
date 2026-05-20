@@ -95,10 +95,16 @@ regen-fasteners:
 # Auto-derive the fastener BOM table from fastener_registry and inject
 # it (between the BEGIN FASTENERS / END FASTENERS markers) into the
 # user-facing BOM docs.  Run after editing fastener_registry.py.
+#
+# Paths must be absolute because run.sh cd's into the script's own
+# directory before executing -- a path relative to the repo root
+# (e.g. ``hexapod_walker/prototype/PROTOTYPE_BOM.md``) would then
+# resolve against ``prototype/scripts/``, where the BOM file does
+# not live.
 bom-fasteners:
 	$(RUN) hexapod_walker/prototype/scripts/render_fastener_bom.py \
-		--inject hexapod_walker/prototype/PROTOTYPE_BOM.md \
-		--inject hexapod_walker/prototype/SHOPPING_LIST.md
+		--inject $(CURDIR)/PROTOTYPE_BOM.md \
+		--inject $(CURDIR)/SHOPPING_LIST.md
 
 clean-artifacts:
 	rm -rf $(CURDIR)/artifacts

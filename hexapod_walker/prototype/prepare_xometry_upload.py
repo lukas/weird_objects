@@ -228,7 +228,7 @@ PART_REGISTRY: list[tuple[str,
 
     # Design B (May 2026): servo_horn_adapter.stl removed -- each link
     # now bolts directly onto the plastic 4-arm X-horn that ships with
-    # the servo (HORN_RECESS_OD + 4 x HORN_BOLT_PCD pattern cut into
+    # the servo (HORN_RECESS_OD + 4 x XHORN_BOLT_PCD pattern cut into
     # the link's pad in make_coxa_link / make_femur_link / make_tibia_
     # link).  No 18 x adapter discs to quote.
 ]

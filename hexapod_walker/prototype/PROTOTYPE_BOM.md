@@ -43,19 +43,26 @@ Edit the registry (not this table) and re-run `make bom-fasteners`.
 
 | Spec | McMaster P/N | Qty | Used in |
 |------|--------------|-----|---------|
-| M3x8 SHCS | 91290A113 | 144 | cradle servo self-tap mounts, link-to-X-horn bolts |
+| M2x8 SHCS | 91290A005 | 72 | link-to-X-horn bolts |
+| M2.5x8 spline screw | 91290A104 | 18 | servo spline center screws |
+| M3x8 SHCS | 91290A113 | 72 | cradle servo self-tap mounts |
 | M3x32 SHCS | 91290A123 | 24 | coxa-bracket-to-chassis bolts |
 | M3x16 pan-head | 92010A130 | 6 | foot hinge pins |
-| M2.5x8 spline screw | 91290A104 | 18 | servo spline center screws |
 | M3 nyloc nut | 90576A102 | 30 | coxa-bracket-to-chassis bolts, foot hinge pins |
 |  |  | **222** | **total fasteners** |
 
 Notes:
-- Cradle servo mounts (72 of the M3x8 SHCS) are driven VERTICALLY
-  from above each servo ear and self-tap into a printed Phi 2.5 mm
-  pilot hole in the cradle shelf below.  Existing M3 SHCS stock
-  (P/N 91290A113) doubles as the self-tapper -- the standard hobby-
-  servo mounting style; no separate self-tap SKU.
+- Cradle servo mounts (72 x M3x8 SHCS / `91290A113`) are driven
+  VERTICALLY from above each servo ear and self-tap into a printed
+  Phi 2.5 mm pilot hole in the cradle shelf below.  Plain M3 SHCS
+  stock doubles as the self-tapper -- the standard hobby-servo
+  mounting style; no separate self-tap SKU.
+- Link-to-X-horn bolts (72 x M2x8 SHCS / `91290A005`) self-tap into
+  the plastic 4-arm X-horn's existing Phi ~ 2.0 mm M2-sized untapped
+  arm holes (May 2026 fastener-spec fix: the X-horn arms are NOT
+  M3-sized -- an M3 SHCS won't fit through them).  Optional thread-
+  forming upgrade: McMaster `99461A340` (M2x8 thread-form for
+  plastic).  See `fasteners/README.md` for the full rationale.
 - Captive nyloc nuts are still used at the foot-pad hinge pins (6)
   and at the coxa-bracket-to-chassis bolts (24); both joints have
   through-hole bolts with the nut on the opposite side.

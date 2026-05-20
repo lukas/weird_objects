@@ -61,10 +61,28 @@ torque limits are all tuned around this DS3225-class case.
 
 > **Design B (May 2026):** the printed `servo_horn_adapter` disc has
 > been retired.  Each link now bolts directly onto the plastic 4-arm
-> X-horn that ships with the servo, via 4 x Phi 3.2 mm holes on a
-> 20.8 mm PCD plus a 16 mm x 1.6 mm central hub recess cut into the
-> link's pad face.  Drops the printed-leg-bolt-up Z stack by
-> ``HORN_ADAPTER_T`` (4 mm) per joint.
+> X-horn that ships with the servo, via **4 x M2 x 8 SHCS** (McMaster
+> `91290A005`) through Phi `XHORN_BOLT_OD = 2.2 mm` holes on a
+> `XHORN_BOLT_PCD = 20.8 mm` PCD plus a 16 mm x 1.6 mm central hub
+> recess cut into the link's pad face.  Drops the printed-leg-bolt-up
+> Z stack by ``HORN_ADAPTER_T`` (4 mm) per joint.
+>
+> **Why M2, not M3 (May 2026 fastener-spec fix):** a previous iteration
+> drew these as M3 SHCS through Phi 3.2 mm clearance holes, which is
+> physically WRONG -- the plastic 4-arm X-horn that ships with
+> DS3225 / MG996R / DS3218-class servos has Phi ~ 2.0 mm UNTAPPED
+> through-holes in its arms (intended for M2 self-tap per the
+> manufacturer's mounting style), NOT M3 clearance.  An M3 SHCS
+> literally will not fit through the X-horn's plastic arm.  The link
+> pad's clearance bore is now Phi 2.2 mm (M2 + 0.2 mm FDM tolerance);
+> the bolt self-taps into the X-horn's Phi ~ 2.0 mm pilot for
+> `XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3 mm` of engagement against the
+> plastic arm.  Mechanically symmetric to the cradle bolt fix in
+> `b447f88`: the cradle bolts stay M3 x 8 SHCS (they self-tap into a
+> Phi 2.5 mm printed shelf pilot); only the **X-horn bolts** split
+> off into their own SKU.  Net SKU count unchanged at 6.  See
+> `fasteners/README.md` ("X-horn bolts are also self-tappers") for
+> the optional M2 thread-forming upgrade (`99461A340`).
 >
 > **Design C (May 2026, reverted):** the servo is bolted into its
 > cradle via 4 x **M3 x 8 SHCS driven vertically downward** through
@@ -236,7 +254,7 @@ envelopes are dispatched off `FastenerInstance.spec`:
 
 | Envelope | Dia × length | Used for |
 |---|---|---|
-| `HEX_KEY`  | 8 mm × 30 mm  | SHCS (M3x8 / M3x32) + the M2.5 spline center screw — anything driven with an L-shaped hex key short arm |
+| `HEX_KEY`  | 8 mm × 30 mm  | SHCS (M2x8 / M3x8 / M3x32) + the M2.5 spline center screw — anything driven with an L-shaped hex key short arm |
 | `PHILLIPS` | 12 mm × 80 mm | `pan-head` / `Phillips` / `slotted` — currently just the M3x16 foot hinge bolt |
 | `SOCKET`   | 12 mm × 50 mm | `nyloc nut` / generic `nut` — M3 nyloc driven with a 5.5 mm nut socket |
 
@@ -335,7 +353,8 @@ printer.
 
 | Item | Qty | Notes |
 |---|---|---|
-| M3 × 8 mm socket-head cap screws | ~ 150 + spares | **Doubles as both servo-cradle self-tap screws and link → X-horn bolts.** Cradle: 4 per servo x 18 servos = 72 (vertical, self-tap into Phi 2.5 mm pilots in the cradle shelf). X-horn: 4 per joint x 18 joints = 72 (into the X-horn's printed threaded holes). |
+| **M2 × 8 mm socket-head cap screws** (McMaster `91290A005`) | 72 + spares | **Link → X-horn bolts.** 4 per joint x 18 joints = 72.  Used as **self-tappers** into the plastic 4-arm X-horn's existing Phi ~ 2.0 mm M2-sized untapped arm holes -- the link's pad clearance bore is Phi 2.2 mm.  An earlier draft listed these as M3 x 8 but the X-horn's arms physically won't take an M3 shank -- see the Design B blurb in §2 for the May 2026 user-caught fastener-spec fix.  Optional thread-forming upgrade: `99461A340` (M2 x 8 thread-form for plastic). |
+| M3 × 8 mm socket-head cap screws (McMaster `91290A113`) | 72 + spares | **Cradle servo-mount self-tap bolts** (Design C revert).  4 per servo x 18 servos = 72, driven vertically through each servo ear into a Phi 2.5 mm printed self-tap pilot in the cradle shelf. |
 | M3 × 12 mm | 24 | Standoffs between top + bottom chassis plates |
 | M3 × 16 mm | 24 | Coxa bracket → chassis (4 × 6 = 24) |
 | M3 nyloc nuts | 30 + spares | 24 on the coxa-bracket-to-chassis through-bolts plus 6 on the foot-pad hinge pins. The cradle servo mounts are **not** captive-nut joints anymore (Design C revert -- they self-tap into the printed shelf instead). |
@@ -412,8 +431,11 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    the M3 horn-attach screw that ships in the servo bag.
 3. **Coxa link:** drop the link's hub pad onto the X-horn -- the 16 mm
    recess on the underside of the pad seats the horn's central hub --
-   and bolt the link to the horn with 4 x M3 SHCS (6 / 8 / 10 mm all
-   work) into the brass inserts on the horn's underside.
+   and bolt the link to the horn with **4 x M2 x 8 SHCS** (McMaster
+   `91290A005`) through the Phi 2.2 mm clearance holes on the
+   20.8 mm PCD.  The bolts self-tap into the X-horn's existing
+   Phi ~ 2.0 mm M2-sized arm holes; finger-tight + ~ 1/4 turn (the
+   plastic arm is the structural thread -- over-torque strips it).
 4. **Hip-pitch servo:** drop into the cradle in the coxa link; bolt
    it down with the same vertical M3 x 8 self-tap pattern as the yaw
    servo (4 x M3 x 8 SHCS straight DOWN through each servo ear into
@@ -421,13 +443,14 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    plastic 4-arm X-horn perpendicular to the leg arm so the femur
    swings up and down.
 5. **Femur:** seat the femur's hip-end pad on the hip horn (16 mm
-   recess engaging the horn hub) and bolt to the horn with 4 x M3
-   SHCS.
+   recess engaging the horn hub) and bolt to the horn with **4 x M2
+   x 8 SHCS** (same `91290A005` stock as step 3; self-tap into the
+   plastic horn arm).
 6. **Knee servo:** drop into the cradle in the femur and bolt with 4
    x M3 x 8 SHCS (vertical self-tap into the femur's knee-cradle
    shelf pilots).  Plastic X-horn perpendicular to the femur spar.
 7. **Tibia:** seat the tibia's knee-end pad on the knee horn and
-   bolt to the horn with 4 x M3 SHCS.
+   bolt to the horn with **4 x M2 x 8 SHCS** (same `91290A005` stock).
 8. **Foot pad:** push-fit into the tibia's foot socket, glue with CA
    if it's loose.
 

@@ -29,12 +29,16 @@ Outputs (in ./stl_prototype/):
         tibia_link.stl          -- shin; horn-driven by knee, ends in the foot socket
         foot_pad.stl            -- compliant foot pad (TPU or printed PLA + rubber tip)
 
-    Generic (one — print 18 + spares)
-        servo_horn_adapter.stl  -- round disc that bolts to a standard 25T spline
-                                   horn and provides 4 x M3 holes on a 20.8 mm PCD
+    Generic (DEPRECATED -- Design B retired the printed adapter; see
+    HORN_ADAPTER_OD / make_servo_horn_adapter below.  Kept only for
+    backward-compatible STL references in old quotes.)
+        servo_horn_adapter.stl  -- round disc that bolted to a standard 25T spline
+                                   horn and provided 4 x M3 holes on a 20.8 mm PCD
                                    at 0 / 90 / 180 / 270 deg (aligned with the
-                                   X-horn arms) so a flat printed link can mate
-                                   to a servo horn
+                                   X-horn arms) so a flat printed link could mate
+                                   to a servo horn.  Replaced by direct
+                                   link-pad-to-X-horn bolting via 4 x M2 SHCS
+                                   self-tap into the X-horn's plastic arms.
 
     Assembly preview (everything in standing pose — visualization only)
         assembly_preview.stl
@@ -544,17 +548,27 @@ BRACKET_FLANGE_INSET = 8.0  # mm distance from the chassis edge (= bracket
 # ---- Servo horn adapter (DEPRECATED -- retained for backward compat) -----
 # Design B (May 2026): the printed servo_horn_adapter has been RETIRED.
 # Each driven link (coxa_link, femur_link, tibia_link) now bolts DIRECTLY
-# onto the plastic 4-arm X-horn that ships with the servo: 4 x M3
+# onto the plastic 4-arm X-horn that ships with the servo: 4 x M2
 # clearance holes are carved straight into the link's mating pad on the
-# HORN_BOLT_PCD = 20.8 mm pattern, and a HORN_RECESS_OD x HORN_RECESS_DEPTH
-# counter-bore swallows the horn's central hub.  The adapter geometry
+# XHORN_BOLT_PCD = 20.8 mm pattern, and a HORN_RECESS_OD x HORN_RECESS_DEPTH
+# counter-bore swallows the horn's central hub.
+#
+# May 2026 fastener-spec fix: the X-horn bolts were originally drawn as
+# M3 SHCS (Phi 3.2 mm clearance through the pad), which is WRONG -- the
+# X-horn that ships with DS3225 / MG996R / DS3218-class servos has
+# Phi ~ 2.0 mm untapped through-holes in its arms (M2 self-tap-sized),
+# not Phi 3.2 mm clearance.  M3 literally won't fit.  The link pad
+# clearance bore is now Phi XHORN_BOLT_OD = 2.2 mm and the fastener is
+# M2 x 8 SHCS used as a self-tapper into the X-horn plastic.  The
+# cradle bolts (4 per servo into a Phi 2.5 mm printed shelf pilot) are
+# orthogonal to this fix and stay M3 x 8 (b447f88).  The adapter geometry
 # below is left in place so old STL references / Xometry quotes / spare-
 # stock screenshots keep resolving, but ``make_servo_horn_adapter`` is
 # no longer called from any printable output path and no
 # ``servo_horn_adapter.stl`` is written by ``main()``.
-HORN_ADAPTER_OD     = 32.0   # mm -- plate OD; gives (32 - 20.8) / 2 - 1.6
-                              # = 4.0 mm wall outboard of each M3 bolt
-                              # hole on HORN_BOLT_PCD = 20.8 mm
+HORN_ADAPTER_OD     = 32.0   # mm -- plate OD; gives (32 - 20.8) / 2 - 1.1
+                              # = 4.5 mm wall outboard of each M2 bolt
+                              # hole on XHORN_BOLT_PCD = 20.8 mm
 HORN_ADAPTER_T      =  4.0   # mm -- thickness (LEGACY).  No longer added
                               # to any joint output Z stack.
 # Hobby servo plastic horn (the part that ships with the servo and screws
@@ -567,7 +581,7 @@ PLASTIC_HORN_H      =  5.0
 # Plastic 4-arm X-shaped horn (DS3225 / MG996R / DS3218 -class hardware):
 # the arms extend ~19 mm from the spline centre, so the horn sweeps a
 # Phi 38 mm cylinder as the servo rotates.  This is BIGGER than the
-# HORN_BOLT_PCD = 20.8 mm bolt circle (radius 10.4 mm): each arm runs
+# XHORN_BOLT_PCD = 20.8 mm bolt circle (radius 10.4 mm): each arm runs
 # past the bolt position to give the user a thumb-purchase for hand-
 # tightening + spare hole positions.  Drives:
 #   * ``make_servo_horn`` arm length (the visual mesh's bounding
@@ -602,20 +616,65 @@ HORN_STACK_H        = PLASTIC_HORN_H
 # is the PCD of the SECOND hole position out from the spline on each arm
 # of a standard DS3225 / MG996R / DS3218 plastic horn.  The bolt angles
 # match the horn arms (0 / 90 / 180 / 270 deg in horn-local coords) so a
-# bolt drilled through HORN_BOLT_ANGLES_RAD[i] on the printed adapter
+# bolt drilled through XHORN_BOLT_ANGLES_RAD[i] on the link's pad
 # passes straight through the matching hole in the X arm.
-HORN_BOLT_PCD       = 20.8   # mm -- 4 x M3 holes on this PCD
-HORN_BOLT_ANGLES_RAD = (0.0, np.pi / 2.0, np.pi, 3.0 * np.pi / 2.0)
-HORN_BOLT_OD        =  3.2   # mm -- M3 clearance
+#
+# May 2026 fastener-spec fix (XHORN_BOLT_OD: 3.2 -> 2.2 mm):
+#     The plastic X-horn that ships with DS3225 / MG996R / DS3218-class
+#     hobby servos has Phi ~ 2.0 mm UNTAPPED through-holes in its arms
+#     (intended for M2 self-tap), NOT Phi 3.2 mm clearance for M3.  An
+#     M3 SHCS literally won't fit through those holes.  The link pad's
+#     clearance bore therefore shrinks to Phi 2.2 mm (M2 clearance with
+#     0.2 mm FDM print tolerance) and the link bolts onto the X-horn
+#     with 4 x M2 SHCS used as self-tappers into the X-horn's plastic
+#     arm.  Mechanically symmetric to the cradle bolt fix that landed
+#     in b447f88 -- the cradle bolts stay M3 x 8 (they self-tap into a
+#     Phi 2.5 mm printed shelf pilot); the X-horn bolts split off into
+#     their own row.  See fastener_registry.py (SPEC_M2X8_SHCS) and
+#     fasteners/README.md for the McMaster SKU.
+XHORN_BOLT_PCD       = 20.8   # mm -- 4 x M2 holes on this PCD
+XHORN_BOLT_ANGLES_RAD = (0.0, np.pi / 2.0, np.pi, 3.0 * np.pi / 2.0)
+XHORN_BOLT_OD        =  2.2   # mm -- M2 clearance (0.2 mm FDM tolerance)
+                              # for the M2 SHCS shank passing through the
+                              # link pad into the X-horn's Phi ~ 2.0 mm
+                              # self-tap arm hole below.
 HORN_CENTRE_OD      =  3.4   # mm -- M3 centre clearance (for the horn screw)
-# Counter-bore for the plastic horn body that sits below the printed
-# adapter's bottom face.  Sized so the recess wall ends INSIDE the bolt
-# circle (recess radius < HORN_BOLT_PCD/2 - HORN_BOLT_OD/2 - margin =
-# 10.4 - 1.6 - 0.4 = 8.4 mm), so the recess never punches into the
-# adapter's bolt threads.  Big enough to swallow a typical hobby-horn
-# central disc (Phi 12 mm OD on DS3225-class hardware).
+# Counter-bore for the plastic horn body that sits below the link's
+# pad mating face.  Sized so the recess wall ends INSIDE the bolt
+# circle (recess radius < XHORN_BOLT_PCD/2 - XHORN_BOLT_OD/2 - margin =
+# 10.4 - 1.1 - 0.4 = 8.9 mm), so the recess never punches into the
+# X-horn's bolt threads.  Big enough to swallow a typical hobby-horn
+# central disc (Phi 12 mm OD on DS3225-class hardware).  Unchanged by
+# the May 2026 M3 -> M2 fix: the central hub geometry is identical
+# regardless of arm-hole spec.
 HORN_RECESS_OD      = 16.0   # mm
 HORN_RECESS_DEPTH   =  1.6   # mm
+
+# ---- M2 self-tap into the X-horn (Design B, May 2026 fastener fix) -------
+# The X-horn bolt is an M2 SHCS used as a thread-FORMING self-tapper
+# into the plastic 4-arm X-horn's existing Phi ~ 2.0 mm untapped arm
+# hole.  The link's pad just needs a clean clearance through-hole for
+# the M2 shank; the X-horn provides the actual thread engagement.
+XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2   # mm -- M2 self-tap clearance
+                                       #       through the link's pad
+                                       #       (the plastic X-horn's
+                                       #       existing Phi 2.0 mm hole
+                                       #       is the actual self-tap
+                                       #       engagement; the link just
+                                       #       needs the bolt shank to
+                                       #       pass through).  Numeric
+                                       #       duplicate of XHORN_BOLT_OD
+                                       #       above; kept under a more
+                                       #       explicit name so callers
+                                       #       can grep for either.
+XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3.0  # mm -- depth of M2 thread
+                                       #       engagement INTO the
+                                       #       plastic X-horn arm (arm
+                                       #       thickness ~ 3 mm on a
+                                       #       DS3225-class horn).
+                                       #       Drives the M2 x 8 SHCS
+                                       #       length pick in
+                                       #       fastener_registry.py.
 
 # ---- Link cross-sections -------------------------------------------------
 # All printed in PLA / PETG.  The femur and tibia are flat plates that
@@ -660,7 +719,7 @@ TIBIA_SPAR_H     = 18.0   # mm -- Z-direction height of the tibia spar
 #   - cannot be FDM-printed reliably at 0.4 mm nozzle (< 2 perimeters), AND
 #   - forces the "neck" to be a SOLID cylinder occupying the same volume
 #     as the plastic horn + horn adapter, so the femur sits 4 mm proud of
-#     the adapter and the 4 M3 clamp bolts can't engage their threads --
+#     the adapter and the 4 M2 clamp bolts can't engage their threads --
 #     the failure the user described as "the femur doesn't let the end of
 #     the servo stick out high enough to connect to the tibia link".
 #     check_horn_stack_clearance now FAILS the build if this happens.
@@ -1346,9 +1405,9 @@ def make_servo_horn() -> trimesh.Trimesh:
         +Z = output shaft axis (mates to the servo spline at z = 0)
         Origin at the bottom face of the horn hub.
 
-    The 4 arms point along +X, +Y, -X, -Y (HORN_BOLT_ANGLES_RAD).  Each
+    The 4 arms point along +X, +Y, -X, -Y (XHORN_BOLT_ANGLES_RAD).  Each
     arm carries a row of mounting holes; the SECOND hole out from the
-    spline on each arm sits on HORN_BOLT_PCD (= 20.8 mm) -- that's the
+    spline on each arm sits on XHORN_BOLT_PCD (= 20.8 mm) -- that's the
     pattern the printed ``servo_horn_adapter`` clamps onto.  This visual
     mesh drills those 4 bolt holes so any render that includes both the
     horn and the adapter shows the bolts lining up.
@@ -1363,12 +1422,12 @@ def make_servo_horn() -> trimesh.Trimesh:
     # real-hardware sweep radius (= 19 mm from the spline centre on a
     # standard DS3225 / MG996R / DS3218 horn).  Previously hard-coded
     # to 20 mm (tip at radius 10 mm), which was INSIDE the
-    # HORN_BOLT_PCD = 20.8 mm bolt circle -- nonsensical, and made the
+    # XHORN_BOLT_PCD = 20.8 mm bolt circle -- nonsensical, and made the
     # mesh's bounding cylinder understate the horn's swept volume.
     # check_horn_sweep_clearance reads the bounding cylinder of this
     # mesh; keep it in sync with real hardware so the verifier
     # measures the right sweep radius.
-    for a in HORN_BOLT_ANGLES_RAD:
+    for a in XHORN_BOLT_ANGLES_RAD:
         arm = _box((2.0 * PLASTIC_HORN_X_TIP_R, 4.0, 1.6))
         arm.apply_transform(rotation_matrix(a, [0, 0, 1]))
         arm.apply_translation([0, 0, 0.8])
@@ -1376,10 +1435,10 @@ def make_servo_horn() -> trimesh.Trimesh:
     horn = _union(*parts)
 
     bolt_holes = []
-    for a in HORN_BOLT_ANGLES_RAD:
-        h = _cyl(HORN_BOLT_OD / 2.0, 4.0)
-        h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
-                              HORN_BOLT_PCD / 2.0 * np.sin(a),
+    for a in XHORN_BOLT_ANGLES_RAD:
+        h = _cyl(XHORN_BOLT_OD / 2.0, 4.0)
+        h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
+                              XHORN_BOLT_PCD / 2.0 * np.sin(a),
                               0.8])
         bolt_holes.append(h)
     return _diff(horn, *bolt_holes)
@@ -1396,7 +1455,7 @@ def make_servo_horn_adapter() -> trimesh.Trimesh:
     Local frame:
         +Z = servo output axis
         Origin at the bottom face (mating to the plastic horn)
-        Bolt holes on HORN_BOLT_PCD (= 20.8 mm) at HORN_BOLT_ANGLES_RAD
+        Bolt holes on XHORN_BOLT_PCD (= 20.8 mm) at XHORN_BOLT_ANGLES_RAD
         (= 0 / 90 / 180 / 270 deg), aligned with the plastic horn's
         4 X-shaped arms so each bolt drops straight into the second
         hole-position out from the spline on each arm.
@@ -1417,10 +1476,10 @@ def make_servo_horn_adapter() -> trimesh.Trimesh:
     centre = _cyl(HORN_CENTRE_OD / 2.0, HORN_ADAPTER_T * 4)
 
     bolts = []
-    for a in HORN_BOLT_ANGLES_RAD:
-        h = _cyl(HORN_BOLT_OD / 2.0, HORN_ADAPTER_T * 4)
-        h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
-                              HORN_BOLT_PCD / 2.0 * np.sin(a),
+    for a in XHORN_BOLT_ANGLES_RAD:
+        h = _cyl(XHORN_BOLT_OD / 2.0, HORN_ADAPTER_T * 4)
+        h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
+                              XHORN_BOLT_PCD / 2.0 * np.sin(a),
                               0])
         bolts.append(h)
 
@@ -2214,12 +2273,19 @@ def make_coxa_link() -> trimesh.Trimesh:
                   center=(trough_x_cen, 0.0, trough_z_cen))
 
     # ---- Bolt holes through the WHOLE pedestal + hub stack ----
+    # 4 x M2 self-tap clearance holes (XHORN_BOLT_OD = 2.2 mm) drilled
+    # all the way through the pedestal + hub stack so the M2 SHCS shank
+    # passes through the printed material and engages the plastic
+    # X-horn's Phi ~ 2.0 mm arm hole at the bottom of the stack.  See
+    # the XHORN_BOLT_* constants block (May 2026 fastener-spec fix:
+    # was M3, the real X-horn arm holes are M2-sized so the original
+    # Phi 3.2 mm clearance was a physical mis-fit).
     bolt_total_h = COXA_LIFT + hub_t
     hub_holes = []
-    for a in HORN_BOLT_ANGLES_RAD:
-        h = _cyl(HORN_BOLT_OD / 2.0, bolt_total_h * 4)
-        h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
-                              HORN_BOLT_PCD / 2.0 * np.sin(a),
+    for a in XHORN_BOLT_ANGLES_RAD:
+        h = _cyl(XHORN_BOLT_OD / 2.0, bolt_total_h * 4)
+        h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
+                              XHORN_BOLT_PCD / 2.0 * np.sin(a),
                               bolt_total_h / 2.0])
         hub_holes.append(h)
     centre_hole = _cyl(HORN_CENTRE_OD / 2.0, bolt_total_h * 4)
@@ -2229,13 +2295,15 @@ def make_coxa_link() -> trimesh.Trimesh:
     # Design B (May 2026): the link now bolts DIRECTLY to the plastic
     # 4-arm X-horn (no printed servo_horn_adapter in the stack).  The
     # plastic horn's central hub protrudes ~1.5 mm above the horn arm
-    # plane (the spline collar where the M3 centre screw threads in),
-    # so we cut a Phi HORN_RECESS_OD = 16 mm cylindrical pocket
-    # HORN_RECESS_DEPTH = 1.6 mm deep into the pedestal's BOTTOM mating
-    # face (z = 0).  Recess opens DOWN (in -Z, toward the seated horn)
-    # and removes pedestal material at z in [0, +HORN_RECESS_DEPTH].
-    # Without this recess the link's flat bottom face hits the horn's
-    # hub before the 4 M3 clamp bolts can pull the link onto the horn.
+    # plane (the spline collar where the M3 centre screw threads in --
+    # the centre screw itself remains M3, see HORN_CENTRE_OD; only the
+    # 4 outer arm bolts on XHORN_BOLT_PCD are M2 self-tap), so we cut a
+    # Phi HORN_RECESS_OD = 16 mm cylindrical pocket HORN_RECESS_DEPTH =
+    # 1.6 mm deep into the pedestal's BOTTOM mating face (z = 0).
+    # Recess opens DOWN (in -Z, toward the seated horn) and removes
+    # pedestal material at z in [0, +HORN_RECESS_DEPTH].  Without this
+    # recess the link's flat bottom face hits the horn's hub before the
+    # 4 M2 clamp bolts can pull the link onto the horn.
     horn_hub_recess = _cyl(HORN_RECESS_OD / 2.0, HORN_RECESS_DEPTH)
     horn_hub_recess.apply_translation([0.0, 0.0,
                                         HORN_RECESS_DEPTH / 2.0])
@@ -2404,8 +2472,8 @@ def make_femur_link() -> trimesh.Trimesh:
     #
     #   1. HIP PAD: a solid disc at y in [+9, +15], radius HIP_PAD_R =
     #      19.5 mm.  The bolt-clamp ring; sits flat on the horn adapter
-    #      top face at y = +9 and carries the 4 M3 clamp bolts on
-    #      HORN_BOLT_PCD = 20.8 mm.  HIP_PAD_R was bumped from 17 mm to
+    #      top face at y = +9 and carries the 4 M2 SHCS clamp bolts on
+    #      XHORN_BOLT_PCD = 20.8 mm.  HIP_PAD_R was bumped from 17 mm to
     #      19.5 mm so the neck (item 2) has a 3 mm-thick printable wall
     #      around the horn-stack clearance void.
     #   2. NECK TORUS: a hollow cylinder at y in [-LINK_THICKNESS/2,
@@ -2460,26 +2528,31 @@ def make_femur_link() -> trimesh.Trimesh:
     hip_neck_void.apply_translation([0, neck_y_min - 1.0, 0])
 
     hip_holes = []
-    for a in HORN_BOLT_ANGLES_RAD:
-        # Drill the 4 M3 clamp holes ONLY through the pad's 6 mm-thick
+    for a in XHORN_BOLT_ANGLES_RAD:
+        # Drill the 4 M2 clamp holes ONLY through the pad's 6 mm-thick
         # clamp ring (y in [+5, +11] post-2026 May refactor; was
         # [+9, +15] when the printed servo_horn_adapter was still in
-        # the stack).  The hole is a short Phi SERVO_TAB_HOLE = 3.2 mm
-        # cylinder centred on the pad's mid-Y plane (y = hip_pad_
-        # centre_y); the cylinder length = LINK_THICKNESS * 4 = 24 mm
-        # guarantees a clean punch-through of the 6 mm pad even with
-        # voxel/CSG tolerance, but does NOT reach back into the neck
-        # torus body (the torus's +Y face is at y = HORN_STACK_H; the
-        # hole overlaps the torus's cylindrical wall at radius
-        # HORN_BOLT_PCD/2 = 10.4 mm).  That radial position is INSIDE
-        # the torus's void (radius < 16.5), so the bolt hole punches
-        # through air inside the torus and doesn't actually remove any
-        # neck material.
-        h = _cyl(SERVO_TAB_HOLE / 2.0, LINK_THICKNESS * 4)
+        # the stack).  Phi XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm
+        # clearance through the pad (M2 self-tap into the X-horn's
+        # Phi ~ 2.0 mm arm hole below; the X-horn provides the actual
+        # thread engagement).  The cylinder length = LINK_THICKNESS *
+        # 4 = 24 mm guarantees a clean punch-through of the 6 mm pad
+        # even with voxel/CSG tolerance, but does NOT reach back into
+        # the neck torus body (the torus's +Y face is at y =
+        # HORN_STACK_H; the hole overlaps the torus's cylindrical wall
+        # at radius XHORN_BOLT_PCD/2 = 10.4 mm).  That radial position
+        # is INSIDE the torus's void (radius < 16.5), so the bolt hole
+        # punches through air inside the torus and doesn't actually
+        # remove any neck material.
+        # (May 2026 fastener-spec fix: previously this used
+        # SERVO_TAB_HOLE = 3.2 mm because Phi 3.2 also happened to be
+        # the (incorrect) M3 X-horn clearance; with M2 X-horn bolts
+        # the link-pad clearance is unique to the X-horn pattern.)
+        h = _cyl(XHORN_BOLT_M2_SELFTAP_HOLE_OD / 2.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-        h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
+        h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
                               hip_pad_centre_y,
-                              HORN_BOLT_PCD / 2.0 * np.sin(a)])
+                              XHORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_holes.append(h)
 
     # ---- Central horn-hub recess in the pad's mating face -----------
@@ -2500,7 +2573,7 @@ def make_femur_link() -> trimesh.Trimesh:
     # NB: the 4 M3 mounting pilots in the wall (drilled by
     # ``_servo_well_solid``) sit on the standard SERVO_TAB_HOLE_PCD x
     # SERVO_TAB_HOLE_PCD_Y (49.5 x 10 mm) pattern -- NOT the 24 mm
-    # HORN_BOLT_PCD pattern.  HORN_BOLT_PCD is the bolt circle for the
+    # XHORN_BOLT_PCD pattern.  XHORN_BOLT_PCD is the bolt circle for the
     # hip-pad horn adapter at the OTHER end of the femur.
     well = _servo_well_solid()
     wire_slot = _wire_exit_slot()
@@ -2734,18 +2807,22 @@ def make_tibia_link() -> trimesh.Trimesh:
     knee_neck_void.apply_translation([0, neck_y_min - 1.0, 0])
 
     knee_holes = []
-    for a in HORN_BOLT_ANGLES_RAD:
+    for a in XHORN_BOLT_ANGLES_RAD:
         # Bolt holes drilled through the PAD ONLY (y in [+5, +11]
         # post-2026 May refactor; was [+9, +15] when the printed
-        # servo_horn_adapter was still in the stack).  The neck
-        # torus's bolt-PCD radius (10.4 mm) is INSIDE the horn-stack
-        # void (16.5 mm), so any over-long hole punches through air
-        # inside the torus and doesn't remove material.
-        h = _cyl(SERVO_TAB_HOLE / 2.0, LINK_THICKNESS * 4)
+        # servo_horn_adapter was still in the stack).  Phi
+        # XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm M2 clearance through
+        # the pad (M2 self-tap into the X-horn's Phi ~ 2.0 mm arm
+        # hole below).  The neck torus's bolt-PCD radius (10.4 mm) is
+        # INSIDE the horn-stack void (16.5 mm), so any over-long hole
+        # punches through air inside the torus and doesn't remove
+        # material.  See make_femur_link for the May 2026 M3 -> M2
+        # X-horn fastener-spec fix history.
+        h = _cyl(XHORN_BOLT_M2_SELFTAP_HOLE_OD / 2.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-        h.apply_translation([HORN_BOLT_PCD / 2.0 * np.cos(a),
+        h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
                               knee_pad_centre_y,
-                              HORN_BOLT_PCD / 2.0 * np.sin(a)])
+                              XHORN_BOLT_PCD / 2.0 * np.sin(a)])
         knee_holes.append(h)
 
     # ---- Central horn-hub recess in the knee pad's mating face ------

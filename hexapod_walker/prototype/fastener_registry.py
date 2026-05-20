@@ -41,22 +41,25 @@ Enumerated categories (Design B + Design C, May 2026 revert)
    4 per cradle x 3 cradles (yaw / hip-pitch / knee) per leg x 6 legs
    = 72.  Driven VERTICALLY from above through each servo ear into a
    Phi SHCS_PILOT_OD = 2.5 mm self-tap pilot in the printed shelf
-   below.  Shares the SAME stock (PN_M3X8_SHCS / 91290A113) as the
-   link-to-X-horn bolts below, so the prototype now uses a SINGLE
-   M3 SHCS length (M3 x 8) for both cradle and horn-clamp bolts.
-   The brief May 2026 horizontal-nyloc iteration was retired after
-   the audit surfaced (a) a wire-channel collision in the +X wall
-   and (b) a >MIN_PRINT_T outer-wall violation around the Phi 5.6 mm
-   hex pocket; see ``PROTOTYPE.md`` (Design C section) for the audit
-   table and the revert rationale.
+   below.  PN_M3X8_SHCS / 91290A113.  The brief May 2026 horizontal-
+   nyloc iteration was retired after the audit surfaced (a) a wire-
+   channel collision in the +X wall and (b) a >MIN_PRINT_T outer-wall
+   violation around the Phi 5.6 mm hex pocket; see ``PROTOTYPE.md``
+   (Design C section) for the audit table and the revert rationale.
 
-2. ``72 x M3 x 8 SHCS`` -- link-to-X-horn bolts.  4 per joint
-   (HORN_BOLT_PCD = 20.8 mm circle) x (yaw + hip + knee) = 3 joints
+2. ``72 x M2 x 8 SHCS`` -- link-to-X-horn bolts.  4 per joint
+   (XHORN_BOLT_PCD = 20.8 mm circle) x (yaw + hip + knee) = 3 joints
    per leg x 6 legs.  Threads downward from the printed link's pad
    face into the plastic 4-arm X-horn that ships with the servo
    (Design B retired the printed adapter disc; the link clamps the
-   X-horn directly).  Combined with the cradle bolts above this gives
-   144 x M3 x 8 SHCS total.
+   X-horn directly).  PN_M2X8_SHCS / 91290A005 -- a plain M2 SHCS
+   used as a self-tapper into the X-horn's existing Phi ~ 2.0 mm
+   M2-sized arm hole (the plastic arm provides the actual thread
+   engagement).  May 2026 fastener-spec fix: the X-horn arm holes
+   are Phi ~ 2.0 mm, NOT Phi 3.2 mm M3 clearance -- an M3 SHCS
+   literally would not fit through the plastic horn's arm.  See
+   ``hexapod_prototype.py`` XHORN_BOLT_* docstring + ``fasteners/
+   README.md`` for the McMaster thread-former upgrade path.
 
 3. ``18 x M2.5 x 8 spline center screw`` -- ships with the servo; sits
    captive between the servo spline and the plastic horn.  18 servos
@@ -115,10 +118,21 @@ PN_M3X32_SHCS    = "91290A123"   # M3 x 30 socket-head cap screw (closest stock 
 PN_M3_NYLOC      = "90576A102"   # M3 nylon-insert lock nut, A2 stainless
 PN_M3X16_PAN     = "92010A130"   # M3 x 16 pan-head Phillips, A2 stainless (foot hinge)
 PN_M25X8_SHCS    = "91290A104"   # M2.5 x 8 socket-head cap screw (servo spline)
+# Link-to-X-horn bolts (May 2026 M3 -> M2 fastener-spec fix; see the
+# XHORN_BOLT_* docstring in hexapod_prototype.py).  Plain M2 SHCS used
+# as a self-tapper into the X-horn's existing Phi ~ 2.0 mm arm hole;
+# the X-horn plastic provides the actual thread engagement.  An
+# optional thread-forming upgrade exists for in-plastic use --
+# McMaster ``99461A340`` (M2 x 8 thread-forming) -- documented in
+# fasteners/README.md.  We keep the plain SHCS as the default because
+# the McMaster stock is reliable, the visual mesh is identical at
+# inspector zoom, and self-tap behaviour is supplied by the X-horn's
+# pre-drilled hole.
+PN_M2X8_SHCS     = "91290A005"   # M2 x 8 socket-head cap screw, black-oxide steel
 # May 2026 revert: the brief Design C horizontal-nyloc cradle bolt
 # (PN_M3X14_SHCS = 91290A115) was retired in favour of vertical M3 x 8
 # self-tap SHCS into Phi 2.5 mm printed pilots, reusing the existing
-# M3 x 8 stock used for the link-to-X-horn bolts.
+# M3 x 8 stock used as servo cradle mount bolts.
 
 # Human-readable spec labels (used by the inspector and the BOM script).
 SPEC_M3X8_SHCS   = "M3x8 SHCS"
@@ -126,6 +140,7 @@ SPEC_M3X32_SHCS  = "M3x32 SHCS"
 SPEC_M3_NYLOC    = "M3 nyloc nut"
 SPEC_M3X16_PAN   = "M3x16 pan-head"
 SPEC_M25X8_SHCS  = "M2.5x8 spline screw"
+SPEC_M2X8_SHCS   = "M2x8 SHCS"   # link-to-X-horn self-tap bolts
 
 
 # ---------------------------------------------------------------------------
@@ -445,24 +460,25 @@ def _emit_cradle_fasteners(
 # ---------------------------------------------------------------------------
 #
 # Each rotary joint (yaw, hip-pitch, knee-pitch) clamps the printed link's
-# pad onto the plastic 4-arm X-horn via 4 x M3 SHCS on HORN_BOLT_PCD =
+# pad onto the plastic 4-arm X-horn via 4 x M2 SHCS on XHORN_BOLT_PCD =
 # 20.8 mm.  Design B (May 2026) retired the printed adapter disc, so the
 # bolts thread DIRECTLY from the link's pad into the X-horn that ships
-# with the servo.  Bolt length = pad thickness + ~3 mm into the horn arm.
-# Pad thicknesses:
+# with the servo.  The X-horn arm has a Phi ~ 2.0 mm untapped through
+# hole (M2 self-tap-sized); the plain M2 SHCS self-taps a clean thread
+# into the plastic on first install.  Bolt length budget:
 #   * coxa_link hub:    COXA_LIFT + hub_t = 36 + 8 mm of pad/pedestal
 #   * femur hip pad:    LINK_THICKNESS = 6 mm
 #   * tibia knee pad:   LINK_THICKNESS = 6 mm
-# The coxa_link hub is much taller; spec'd M3 x ~20-25 on a SHOPPING_LIST
-# update.  For the link pads (femur/tibia) M3 x 8 is the right length.
-# The user spec'd "M3 x 8 SHCS" total for all link-to-horn bolts, which
-# implies the coxa_link's pedestal pass-through bolt is a SEPARATE bolt
-# from the spec's 72 count.  We honour the user's enumeration and
-# treat all 72 link-to-horn bolts as M3 x 8 (acknowledging the
-# coxa_link hub bolt would in reality be M3 x 20-ish; document this
-# in fasteners/README.md).
+# All three pad thicknesses share a single M2 x 8 SHCS stock (the
+# coxa_link's pedestal-bolt run is taller, but the bolt only needs to
+# engage the X-horn's Phi 2.0 mm self-tap thread for
+# XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3 mm; the rest of the pedestal is
+# a clearance pass-through).  M2 x 8 is the safe round-up for
+# pad (3-4 mm) + X-horn thread (3 mm) + bolt-head clearance (1 mm)
+# = 7-8 mm.  See the user's catch in the May 2026 audit and
+# ``fasteners/README.md`` (PN 91290A005 entry).
 
-_HORN_BOLT_PCD_HALF = HP.HORN_BOLT_PCD / 2.0
+_HORN_BOLT_PCD_HALF = HP.XHORN_BOLT_PCD / 2.0
 
 
 def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
@@ -485,7 +501,7 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
     top_z = HP.COXA_LIFT + hub_t
     T_link_to_world = _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a)
     out: list[FastenerInstance] = []
-    for ang in HP.HORN_BOLT_ANGLES_RAD:
+    for ang in HP.XHORN_BOLT_ANGLES_RAD:
         p_local = np.array([
             _HORN_BOLT_PCD_HALF * np.cos(ang),
             _HORN_BOLT_PCD_HALF * np.sin(ang),
@@ -494,8 +510,8 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
         head = _apply_point(T_link_to_world, p_local)
         axis = _apply_dir(T_link_to_world, np.array([0.0, 0.0, -1.0]))
         out.append(FastenerInstance(
-            part_number=PN_M3X8_SHCS,
-            spec=SPEC_M3X8_SHCS,
+            part_number=PN_M2X8_SHCS,
+            spec=SPEC_M2X8_SHCS,
             head_world_xyz=head,
             axis_world=axis,
             role=(
@@ -505,7 +521,7 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             leg_index=leg_index,
             joint="yaw",
             length_mm=8.0,
-            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
+            cache_stl=f"{PN_M2X8_SHCS}.cache.stl",
         ))
     return out
 
@@ -531,7 +547,7 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
         _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a) @ T_femur_in_link
     )
     out: list[FastenerInstance] = []
-    for ang in HP.HORN_BOLT_ANGLES_RAD:
+    for ang in HP.XHORN_BOLT_ANGLES_RAD:
         p_local = np.array([
             _HORN_BOLT_PCD_HALF * np.cos(ang),
             pad_top_y,
@@ -540,8 +556,8 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
         head = _apply_point(T_femur_to_world, p_local)
         axis = _apply_dir(T_femur_to_world, np.array([0.0, -1.0, 0.0]))
         out.append(FastenerInstance(
-            part_number=PN_M3X8_SHCS,
-            spec=SPEC_M3X8_SHCS,
+            part_number=PN_M2X8_SHCS,
+            spec=SPEC_M2X8_SHCS,
             head_world_xyz=head,
             axis_world=axis,
             role=(
@@ -551,7 +567,7 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
             leg_index=leg_index,
             joint="hip",
             length_mm=8.0,
-            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
+            cache_stl=f"{PN_M2X8_SHCS}.cache.stl",
         ))
     return out
 
@@ -579,7 +595,7 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
         _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a) @ T_tibia_in_link
     )
     out: list[FastenerInstance] = []
-    for ang in HP.HORN_BOLT_ANGLES_RAD:
+    for ang in HP.XHORN_BOLT_ANGLES_RAD:
         p_local = np.array([
             _HORN_BOLT_PCD_HALF * np.cos(ang),
             pad_top_y,
@@ -588,8 +604,8 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
         head = _apply_point(T_tibia_to_world, p_local)
         axis = _apply_dir(T_tibia_to_world, np.array([0.0, -1.0, 0.0]))
         out.append(FastenerInstance(
-            part_number=PN_M3X8_SHCS,
-            spec=SPEC_M3X8_SHCS,
+            part_number=PN_M2X8_SHCS,
+            spec=SPEC_M2X8_SHCS,
             head_world_xyz=head,
             axis_world=axis,
             role=(
@@ -599,7 +615,7 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
             leg_index=leg_index,
             joint="knee",
             length_mm=8.0,
-            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
+            cache_stl=f"{PN_M2X8_SHCS}.cache.stl",
         ))
     return out
 
@@ -931,11 +947,12 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
         rows.append((spec, pn, qty, used))
     # Stable, human-friendly order: SHCS by length, then nuts.
     spec_order = {
-        SPEC_M3X8_SHCS:  0,
-        SPEC_M3X32_SHCS: 1,
-        SPEC_M3X16_PAN:  2,
-        SPEC_M25X8_SHCS: 3,
-        SPEC_M3_NYLOC:   4,
+        SPEC_M2X8_SHCS:  0,
+        SPEC_M25X8_SHCS: 1,
+        SPEC_M3X8_SHCS:  2,
+        SPEC_M3X32_SHCS: 3,
+        SPEC_M3X16_PAN:  4,
+        SPEC_M3_NYLOC:   5,
     }
     rows.sort(key=lambda r: (spec_order.get(r[0], 9), r[0]))
     return rows

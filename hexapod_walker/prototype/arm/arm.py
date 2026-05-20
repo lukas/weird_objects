@@ -299,10 +299,14 @@ def make_wrist_adapter() -> trimesh.Trimesh:
     Bridges the forearm's foot socket to the J4 horn adapter:
 
         forearm.foot_socket  <- FOOT_HUB plug ON TOP face
-        gripper_base side    <- 4 x M3 horn-bolt pattern ON BOTTOM face
-                                (matching HORN_BOLT_PCD = 20.8 mm so the
-                                 SAME printed servo_horn_adapter that
-                                 the legs use mates here too)
+        gripper_base side    <- 4 x M2 horn-bolt pattern ON BOTTOM face
+                                (matching XHORN_BOLT_PCD = 20.8 mm so the
+                                 SAME plastic 4-arm X-horn that the legs
+                                 use mates here too; the May 2026
+                                 fastener-spec fix renamed HORN_BOLT_*
+                                 to XHORN_BOLT_* and dropped the bolt
+                                 from M3 to M2 SHCS -- see
+                                 hexapod_prototype.py XHORN_BOLT_*)
 
     Local frame:
         Origin = wrist-adapter centre, on the plate's TOP face.
@@ -328,15 +332,17 @@ def make_wrist_adapter() -> trimesh.Trimesh:
     plug = _cyl(WRIST_PLUG_OD / 2.0 - 0.2, WRIST_PLUG_H + 1.0)
     plug.apply_translation([0, 0, WRIST_PLATE_T + (WRIST_PLUG_H + 1.0) / 2.0])
 
-    # 4 horn-bolt-pattern holes through the plate so the printed
-    # servo_horn_adapter from the leg's parts list bolts directly to
-    # the bottom face.  M3 clearance.
+    # 4 horn-bolt-pattern holes through the plate so the plastic 4-arm
+    # X-horn from the leg's parts list bolts directly to the bottom
+    # face.  Phi XHORN_BOLT_OD = 2.2 mm M2 clearance (May 2026
+    # fastener-spec fix: was M3 clearance, but the X-horn's arm holes
+    # are M2-sized -- see hexapod_prototype.py XHORN_BOLT_*).
     bolt_holes = []
     for i in range(4):
         a = np.pi / 4 + i * np.pi / 2
-        h = _cyl(HP.HORN_BOLT_OD / 2.0, WRIST_PLATE_T * 4)
-        h.apply_translation([HP.HORN_BOLT_PCD / 2.0 * np.cos(a),
-                             HP.HORN_BOLT_PCD / 2.0 * np.sin(a),
+        h = _cyl(HP.XHORN_BOLT_OD / 2.0, WRIST_PLATE_T * 4)
+        h.apply_translation([HP.XHORN_BOLT_PCD / 2.0 * np.cos(a),
+                             HP.XHORN_BOLT_PCD / 2.0 * np.sin(a),
                              WRIST_PLATE_T / 2.0])
         bolt_holes.append(h)
 
@@ -456,9 +462,9 @@ def make_gripper_base() -> trimesh.Trimesh:
     wrist_screw_slots = []
     for i in range(4):
         a = np.pi / 4 + i * np.pi / 2
-        h = _cyl(HP.HORN_BOLT_OD / 2.0 + 0.3, 12.0)
-        h.apply_translation([HP.HORN_BOLT_PCD / 2.0 * np.cos(a),
-                             HP.HORN_BOLT_PCD / 2.0 * np.sin(a),
+        h = _cyl(HP.XHORN_BOLT_OD / 2.0 + 0.3, 12.0)
+        h.apply_translation([HP.XHORN_BOLT_PCD / 2.0 * np.cos(a),
+                             HP.XHORN_BOLT_PCD / 2.0 * np.sin(a),
                              GBASE_H - 6.0])
         wrist_screw_slots.append(h)
 

@@ -40,13 +40,14 @@ The on-disk layout `make regen-fasteners` produces:
 ```
 fasteners/
   scad/
-    m3x8_shcs.scad        # one .scad per registry SPEC_*
+    m2x8_shcs.scad        # one .scad per registry SPEC_*
+    m3x8_shcs.scad
     m3x32_shcs.scad
     m3x16_pan.scad
     m2p5x8_shcs.scad
     m3_nyloc_nut.scad
-  91290A113.cache.stl     # one per registry part number
-  91290A113.cache.source.txt  # breadcrumb: "openscad NopSCADlib c9baa0e"
+  91290A005.cache.stl     # one per registry part number
+  91290A005.cache.source.txt  # breadcrumb: "openscad NopSCADlib c9baa0e"
   ...
 ```
 
@@ -80,7 +81,8 @@ later just requires re-running `make regen-fasteners`.
 
 | Part number | Spec | Used for |
 |-------------|------|----------|
-| 91290A113   | M3 x 8  SHCS, black-oxide steel | **cradle servo self-tap mounts (72)** + link-to-X-horn bolts (72) -- the same SKU drives both jobs; the cradle bolts are driven into Phi 2.5 mm printed pilots, the X-horn bolts engage the horn's brass inserts |
+| 91290A005   | M2 x 8  SHCS, black-oxide steel | **link-to-X-horn bolts (72)** -- used as self-tappers into the plastic 4-arm X-horn's existing Phi ~ 2.0 mm M2-sized arm holes.  May 2026 fastener-spec fix: an earlier draft listed these as M3 x 8 SHCS but a real DS3225 / MG996R / DS3218 X-horn won't accept an M3 shank -- the arm holes are Phi ~ 2.0 mm untapped through holes intended for M2 self-tap.  See the "M2 thread-former upgrade" note below for the optional McMaster 99461A340 swap. |
+| 91290A113   | M3 x 8  SHCS, black-oxide steel | **cradle servo self-tap mounts (72)** -- driven vertically through each servo ear into a Phi 2.5 mm printed self-tap pilot in the cradle shelf below.  Same SKU works for both single-leg sub-assemblies and full-build kits. |
 | 91290A123   | M3 x 30 SHCS, black-oxide steel (treated as M3 x 32 in the BOM -- swap to 91290A126 if you want exactly 35 mm) | coxa-bracket-to-chassis bolts |
 | 92010A130   | M3 x 16 pan-head Phillips, A2 stainless | foot hinge pins |
 | 91290A104   | M2.5 x 8 SHCS, black-oxide steel | servo spline center screws |
@@ -89,9 +91,8 @@ later just requires re-running `make regen-fasteners`.
 ## Cradle bolts are self-tappers, not separate part numbers
 
 The 72 vertical SHCS that thread DOWN through each servo ear into the
-Phi 2.5 mm pilot hole in the cradle shelf below are drawn from the
-**same M3 x 8 SHCS stock** that bolts each link to its X-horn (= 144
-total, 72 + 72).  We do NOT list a separate "self-tap" SKU.  This is
+Phi 2.5 mm pilot hole in the cradle shelf below are M3 x 8 stock
+(`91290A113`); we do NOT list a separate "self-tap" SKU.  This is
 deliberate:
 
 * M3 SHCS shanks are nominally Phi 3.0 mm; the printed Phi 2.5 mm
@@ -101,10 +102,6 @@ deliberate:
   with (the manufacturer's M3 mounting hardware is a plain SHCS,
   too -- they assume the user is mounting into a printed or
   injection-moulded plastic part with a slightly undersized hole).
-* Keeping a single SKU shrinks the BOM and means a stripped pilot
-  can be re-drilled with the same screw (whereas thread-forming
-  screws like McMaster 97525A540 have a slightly different tip
-  geometry that fights re-driving).
 * Visual rendering already matches: at inspector zoom an SHCS and
   a thread-forming screw look identical from the head end.
 
@@ -114,6 +111,48 @@ edit `_emit_cradle_fasteners` in `fastener_registry.py` to point at
 a new `PN_M3_SELFTAP` + `SPEC_M3_SELFTAP` pair and add a
 `fasteners/scad/m3_selftap.scad` (pan-head NopSCADlib placeholder is
 fine -- see `_orient_for_registry` in `make_fastener_meshes.py`).
+
+## X-horn bolts are also self-tappers (May 2026 M3 -> M2 fastener-spec fix)
+
+The 72 link-to-X-horn bolts use the same self-tap-into-existing-pilot
+trick as the cradle bolts, except the pilot is **already drilled by
+the X-horn's injection moulder**: every plastic 4-arm X-horn that
+ships with a DS3225 / MG996R / DS3218-class hobby servo has 4 x
+Phi ~ 2.0 mm UNTAPPED through-holes in its arms (intended for M2
+self-tap, per the manufacturer's mounting style).  An M3 SHCS does
+NOT fit through those holes -- this fix swaps the link-to-X-horn
+bolt from M3 SHCS (`91290A113`) to M2 SHCS (`91290A005`) and shrinks
+the link pad's clearance bore from Phi 3.2 mm to
+`XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm`.  Self-tap behaviour comes
+from the X-horn's pre-drilled hole; the plain M2 SHCS forms a clean
+thread in the plastic arm on first install
+(`XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3 mm` of engagement, matching
+the X-horn arm's ~ 3 mm thickness).  Bolt length is M2 x 8: pad
+(3-4 mm) + arm thread (3 mm) + head clearance (~ 1 mm) = 7-8 mm.
+
+The cradle bolts (M3 x 8, `91290A113`) are mechanically symmetric
+but ORTHOGONAL to this fix -- they live in printed shelf material,
+not in the plastic X-horn.  Both rows stay in the BOM.
+
+### Optional M2 thread-forming upgrade
+
+If you'd rather not rely on the X-horn's Phi ~ 2.0 mm hole producing
+a clean thread on first install (e.g. you're building 6+ legs and
+worry about stripping out a stock M2 SHCS thread on the second or
+third dis-assembly), McMaster sells dedicated thread-forming
+screws for plastic:
+
+* `99461A340` -- **M2 x 8 thread-forming for plastic**, recommended
+  pick.  Hex socket, similar head geometry to the plain M2 SHCS so
+  the inspector's HEX_KEY (8 mm x 30 mm) driver envelope is
+  unchanged.
+* `99461A330` -- M2 x 6 thread-forming, drop in if you prefer to
+  bottom out the bolt in the X-horn arm without poking through.
+
+To swap, edit `PN_M2X8_SHCS` in `fastener_registry.py` to
+`"99461A340"` and re-run `make regen-fasteners`.  No SCAD edit
+needed: NopSCADlib's `M2_cap_screw` head model is dimensionally
+identical to a thread-former at inspector zoom.
 
 ## Axis convention
 
@@ -145,7 +184,8 @@ matches the parametric convention exactly.  After this fix:
 
 | Spec | Cached STL bounds (Z) |
 |------|----------------------|
-| M3 x 8  SHCS    | z in [-3.0,  +8.0] mm  (cap at z<0, shank at z>0) |
+| M2 x 8  SHCS    | z in [-2.0,  +8.0] mm  (cap at z<0, shank at z>0) |
+| M3 x 8  SHCS    | z in [-3.0,  +8.0] mm |
 | M3 x 30 SHCS    | z in [-3.0, +30.0] mm |
 | M3 x 16 pan     | z in [-2.0, +16.0] mm |
 | M2.5 x 8 SHCS   | z in [-2.5,  +8.0] mm |
@@ -185,6 +225,9 @@ are the final safety net.
 
 `_parametric.py` builds each spec from `trimesh.creation` primitives:
 
+* `make_m2_shcs(length)` -- M2 cap head (Phi 3.8, h 2.0) with a 1.5 mm
+  hex socket carved into the top, plus a Phi 2 shank of the requested
+  length.
 * `make_m3_shcs(length)` -- M3 cap head (Phi 5.5, h 3.0) with a 2.5 mm
   hex socket carved into the top, plus a Phi 3 shank of the requested
   length.
