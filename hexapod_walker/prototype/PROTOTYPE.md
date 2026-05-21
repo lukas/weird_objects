@@ -66,14 +66,25 @@ torque limits are all tuned around this DS3225-class case.
 > link's pad face.  Drops the printed-leg-bolt-up Z stack by
 > ``HORN_ADAPTER_T`` (4 mm) per joint.
 >
-> **Design C (May 2026):** the servo is now bolted into its cradle
-> via 4 x M3 x 14 SHCS that go horizontally through the cradle's
-> +/-X walls and the servo's mounting tabs, and bite into a captive
-> M3 nyloc nut sat in a printed-in hex pocket on the outer face of
-> the cradle wall (5.6 mm AF x 4.2 mm deep, flats parallel to +Z).
-> Replaces the old vertical M3 self-tap pilots, which are gone.
-> Counts: **72 x M3 x 14 SHCS** and **>= 72 x M3 nyloc nuts** per
-> robot.
+> **Design E (May 2026) mixed-mode cradle bolts:** each cradle has
+> 4 vertical M3 x 8 SHCS driven DOWN through the servo's mounting
+> tabs.  Sites split by X sign:
+>   * The 2 -X bolts thread into M3 brass heat-set inserts (McMaster
+>     `94459A130`) pressed into Phi 4 mm pockets inside Phi 8 mm
+>     printed bosses -- real metal threads, full pull-out durability.
+>   * The 2 +X bolts self-tap into bare Phi 2.5 mm pilots in the
+>     existing well-wall material (no boss enlargement, no insert).
+>     The Phi 8 mm heat-set boss footprint physically cannot coexist
+>     with the +X wire-exit channel that the servo's molded wire
+>     boot must pass through during insertion; see
+>     `INSERT_M3_SELFTAP_*` in `hexapod_prototype.py` for the
+>     design-decision rationale and `check_servo_insertion_path`
+>     in `_verify_prototype.py` for the regression probe.
+> Counts per robot: **72 x M3 x 8 SHCS** (36 -X into-insert + 36 +X
+> self-tap, same physical stock for both engagement modes) plus
+> **36 x M3 brass heat-set inserts** (-X column only).  Replaces
+> the brief Design C captive-nyloc and Design D all-heat-set
+> iterations.
 
 ---
 
@@ -335,45 +346,63 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
 > Both the **coxa bracket**, the **coxa link** (hip-pitch cradle), and
-> the **femur link** (knee cradle) now use the same **Design C**
-> captive-nut servo-mount: 4 x M3 nyloc nuts press into the hex
-> pockets on the outer face of the cradle's +/-X walls, and 4 x M3
-> x 14 SHCS bolt the servo's mounting tabs to the cradle horizontally
-> through the +/-X clearance holes.  The old vertical M3 self-tap
-> pilot holes are gone.
+> the **femur link** (knee cradle) use the **Design E mixed-mode**
+> vertical servo-mount (May 2026): each cradle has 4 vertical M3 x 8
+> SHCS that thread DOWN through the servo's mounting tabs.  The 2 -X
+> bolts thread into M3 brass heat-set inserts (McMaster `94459A130`)
+> pressed into Phi 4 mm pockets inside Phi 8 mm printed bosses; the
+> 2 +X bolts self-tap into bare Phi 2.5 mm pilots in the existing
+> well-wall material (NO heat-set insert on this column).  The +X
+> column reverted to self-tap because the Phi 8 mm heat-set boss
+> footprint could not coexist with the +X wire-exit channel that the
+> servo's molded wire boot must pass through during insertion -- see
+> the `INSERT_M3_SELFTAP_*` constant block in `hexapod_prototype.py`
+> and `check_servo_insertion_path` in `_verify_prototype.py` for the
+> regression probe.
 
-1. **Press the captive nuts:** before installing any servo, push 4 x
-   M3 nyloc nut into the hex pockets on the outer face of every
-   cradle's +/-X walls (12 cradles total: 6 yaw + 6 hip-pitch + 6
-   knee).  A little CA glue prevents them dropping out; the pocket
-   geometry holds them rotationally.
+1. **Press the heat-set inserts BEFORE seating any servo:** for each
+   cradle (12 total: 6 yaw + 6 hip-pitch + 6 knee), heat 2 x M3
+   brass heat-set inserts (McMaster `94459A130`) with a soldering
+   iron at ~ 220 °C and press them into the 2 -X-column Phi 4 mm
+   pockets.  Hold light downward pressure for ~ 10-15 s per insert
+   until the knurl displaces plastic into the boss wall; the insert
+   top should land ~ 0.5 mm below the boss top so the bolt head
+   clamps the servo ear against plastic, not brass.  Do NOT press
+   inserts on the +X column -- those 2 sites are bare Phi 2.5 mm
+   self-tap pilots and any heat-set insert there would block the
+   wire boot during insertion.
 2. **Yaw servo into coxa bracket:** drop the yaw servo straight DOWN
    through the body cutout in the bracket flange and into the well
-   below.  The servo's tabs land flush on the well rim, with the gear
-   stack and output spline poking UP above the flange.  Drive 4 x M3
-   x 14 SHCS horizontally through the +X / -X clearance holes in the
-   cradle walls, through the servo's tab holes, into the captive
-   nyloc nuts on the far side.
+   below.  The servo's tabs land flush on the well rim, with the
+   gear stack + output spline poking UP above the flange and the
+   wire boot sliding down through the +X wire channel.  Drive 4 x
+   M3 x 8 SHCS straight DOWN through the servo's tab holes: the 2
+   -X bolts thread into the brass heat-set inserts; the 2 +X bolts
+   self-tap into the Phi 2.5 mm pilots in the cradle's +X wall
+   material.  Use a 2.5 mm hex key; finger-tight + 1/4 turn is
+   enough for self-tap (over-tightening will strip the plastic).
 3. **Plastic horn on the yaw servo:** centre the servo, push a stock
    plastic 4-arm X-horn onto the spline at 0 deg, then secure it with
    the M3 horn-attach screw that ships in the servo bag.
-4. **Coxa link:** drop the link's hub pad onto the X-horn -- the 16 mm
-   recess on the underside of the pad seats the horn's central hub --
-   and bolt the link to the horn with 4 x M3 SHCS (6 / 8 / 10 mm all
-   work) into the brass inserts on the horn's underside.
-5. **Hip-pitch servo:** drop into the cradle in the coxa link; bolt
-   it down with the same Design C captive-nut scheme (4 x M3 x 14
-   SHCS).  Fit a plastic 4-arm X-horn perpendicular to the leg arm
-   so the femur swings up and down.
+4. **Coxa link:** drop the link's hub pad onto the X-horn -- the
+   16 mm recess on the underside of the pad seats the horn's central
+   hub -- and bolt the link to the horn with 4 x M2 x 8 SHCS through
+   the pad's M2 clearance holes into the X-horn's pre-drilled arm
+   holes.
+5. **Hip-pitch servo:** repeat the heat-set / self-tap install on the
+   coxa link's hip-pitch cradle (2 inserts on the -X column FIRST,
+   then drop the servo, then drive the 4 M3 x 8 SHCS as in step 2).
+   Fit a plastic 4-arm X-horn perpendicular to the leg arm so the
+   femur swings up and down.
 6. **Femur:** seat the femur's hip-end pad on the hip horn (16 mm
-   recess engaging the horn hub) and bolt to the horn with 4 x M3
-   SHCS.
-7. **Knee servo:** drop into the cradle in the femur and bolt with 4
-   x M3 x 14 SHCS into the captive nyloc nuts on the outer face of
-   the femur's knee cradle.  Plastic X-horn perpendicular to the
-   femur spar.
+   recess engaging the horn hub) and bolt to the horn with 4 x M2 x
+   8 SHCS into the X-horn arms.
+7. **Knee servo:** repeat the heat-set / self-tap install on the
+   femur's knee cradle (2 -X heat-set inserts pressed BEFORE the
+   servo goes in, then 4 M3 x 8 SHCS down through the tab holes).
+   Plastic X-horn perpendicular to the femur spar.
 8. **Tibia:** seat the tibia's knee-end pad on the knee horn and
-   bolt to the horn with 4 x M3 SHCS.
+   bolt to the horn with 4 x M2 x 8 SHCS into the X-horn arms.
 9. **Foot pad:** push-fit into the tibia's foot socket, glue with CA
    if it's loose.
 

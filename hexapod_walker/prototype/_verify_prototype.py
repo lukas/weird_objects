@@ -3184,10 +3184,11 @@ CRADLE_INSERT_POCKET_VOX_TOL = 3   # voxel hits per pocket cylinder
 
 
 def check_cradle_insert_pockets():
-    """Verify each cradle has 4 heat-set insert sites (Design D,
-    May 2026 heat-set switch).
+    """Verify each cradle has 2 heat-set insert sites on the -X column
+    (Design E mixed-mode, May 2026).
 
-    For each of the 12 (cradle, x, y) sites we probe THREE conditions:
+    For each of the 6 (cradle, x = -X, y = +/- Y) HEAT-SET sites we
+    probe THREE conditions:
 
       (1) the Phi INSERT_M3_PILOT_OD x INSERT_M3_PILOT_DEPTH POCKET
           is VOID along the bolt axis (the renamed legacy pilot-cyl
@@ -3201,16 +3202,30 @@ def check_cradle_insert_pockets():
           insert OD is SOLID at 8 azimuths so the knurl has plastic
           to displace at install time.
 
+    The 2 +X sites per cradle are NOT probed by this check.  Under
+    Design E they no longer have heat-set inserts -- they have bare
+    Phi 2.5 mm self-tap pilots in the existing well-wall material
+    (the Phi 8 mm heat-set boss could not coexist with the restored
+    +X wire channel).  Those +X sites are documented as
+    "known-thin" on the channel-facing side (~ 0.25 mm of plastic
+    between the pilot and the channel), which is acceptable for an
+    M3 self-tap into PLA / PETG and is enforced by
+    ``check_servo_insertion_path`` rather than by a radial-material
+    check.  See the INSERT_M3_SELFTAP_* block in
+    ``hexapod_prototype.py`` for the full rationale.
+
     The cradles are tested in their UNROTATED, UNTRANSLATED local
     (well-local) frames so we don't have to undo each cradle's
     R / delta math.
     """
     print(f"\n[5e] Cradle heat-set insert pockets "
-          f"(4 x Phi {hp.INSERT_M3_PILOT_OD:.1f} mm x "
+          f"(2 -X x Phi {hp.INSERT_M3_PILOT_OD:.1f} mm x "
           f"{hp.INSERT_M3_PILOT_DEPTH:.0f} mm pockets per cradle; "
           f"radial wall >= {hp.CRADLE_BOSS_MIN_WALL_MM:.1f} mm; "
           f"insert Phi {hp.INSERT_M3_INSERT_OD:.1f} mm x "
-          f"{hp.INSERT_M3_INSERT_LENGTH:.0f} mm):")
+          f"{hp.INSERT_M3_INSERT_LENGTH:.0f} mm; "
+          f"+X sites use self-tap pilots and are probed by "
+          f"check_servo_insertion_path instead):")
 
     R_inv = rotation_matrix(+np.pi / 2.0, [1, 0, 0])
 
@@ -3265,14 +3280,22 @@ def check_cradle_insert_pockets():
                             + hp.INSERT_M3_INSERT_OD / 2.0)
     azimuths_deg = list(range(0, 360, 45))
 
+    # Design E mixed-mode: only the -X column carries heat-set inserts;
+    # the +X sites are bare Phi 2.5 mm self-tap pilots and intentionally
+    # skip the radial-material / knurl-ring probes (the channel-facing
+    # side has only ~ 0.25 mm of plastic, which is acceptable for an
+    # M3 self-tap but would fail the heat-set CRADLE_BOSS_MIN_WALL_MM
+    # check by design).
+    HEATSET_SX_SIGNS = (-1,)
+
     all_ok = True
     for name, well_local_mesh, shelf_top_z in cases:
         # ---- (1) Pocket cylinder void probe -----------------------------
         pocket_hits = 0
-        n_pockets = 4
+        n_pockets = len(HEATSET_SX_SIGNS) * 2  # 2 (sx) * 2 (sy) = 2
         probe_depth = hp.INSERT_M3_PILOT_DEPTH * 0.6
         probe_z_cen = shelf_top_z - hp.INSERT_M3_PILOT_DEPTH / 2.0
-        for sx in (-1, 1):
+        for sx in HEATSET_SX_SIGNS:
             for sy in (-1, 1):
                 x = sx * hp.SERVO_MOUNT_HOLE_X_OFFSET
                 y = sy * hp.SERVO_MOUNT_HOLE_Y_OFFSET
@@ -3284,8 +3307,9 @@ def check_cradle_insert_pockets():
         pocket_tol = CRADLE_INSERT_POCKET_VOX_TOL * n_pockets
         ok_pockets = pocket_hits <= pocket_tol
         all_ok &= _label(
-            f"{name} :: 4 x Phi {hp.INSERT_M3_PILOT_OD:.1f} mm x "
-            f"{hp.INSERT_M3_PILOT_DEPTH:.0f} mm insert pockets",
+            f"{name} :: {n_pockets} x Phi {hp.INSERT_M3_PILOT_OD:.1f} "
+            f"mm x {hp.INSERT_M3_PILOT_DEPTH:.0f} mm insert pockets "
+            f"(-X column)",
             ok_pockets,
             f"hits={pocket_hits} (tol {pocket_tol})",
         )
@@ -3296,9 +3320,10 @@ def check_cradle_insert_pockets():
         pocket_z_bot = shelf_top_z - hp.INSERT_M3_PILOT_DEPTH
         pocket_z_top = shelf_top_z
         z_planes = (pocket_z_bot + 1.0, pocket_z_top - 1.0)
-        n_radial = 4 * len(azimuths_deg) * len(z_planes)
+        n_radial = (len(HEATSET_SX_SIGNS) * 2 * len(azimuths_deg)
+                    * len(z_planes))
         radial_misses: list[str] = []
-        for sx in (-1, 1):
+        for sx in HEATSET_SX_SIGNS:
             for sy in (-1, 1):
                 cx = sx * hp.SERVO_MOUNT_HOLE_X_OFFSET
                 cy = sy * hp.SERVO_MOUNT_HOLE_Y_OFFSET
@@ -3332,7 +3357,7 @@ def check_cradle_insert_pockets():
                 f"r = {r_outer_wall:.2f} mm: {sample}{more}"
             )
         all_ok &= _label(
-            f"{name} :: 8-azimuth radial-material around each pocket "
+            f"{name} :: 8-azimuth radial-material around each -X pocket "
             f"(r = {r_outer_wall:.2f} mm)",
             ok_radial,
             radial_detail,
@@ -3340,9 +3365,9 @@ def check_cradle_insert_pockets():
 
         # ---- (3) Heat-set insert displacement-ring check ----------------
         z_insert_mid = shelf_top_z - hp.INSERT_M3_INSERT_LENGTH / 2.0
-        n_ring = 4 * len(azimuths_deg)
+        n_ring = len(HEATSET_SX_SIGNS) * 2 * len(azimuths_deg)
         ring_misses: list[str] = []
-        for sx in (-1, 1):
+        for sx in HEATSET_SX_SIGNS:
             for sy in (-1, 1):
                 cx = sx * hp.SERVO_MOUNT_HOLE_X_OFFSET
                 cy = sy * hp.SERVO_MOUNT_HOLE_Y_OFFSET
@@ -3378,8 +3403,8 @@ def check_cradle_insert_pockets():
                 f"{r_insert_ring:.2f} mm (knurl ring): {sample}{more}"
             )
         all_ok &= _label(
-            f"{name} :: heat-set insert displacement ring "
-            f"(r = {r_insert_ring:.2f} mm)",
+            f"{name} :: heat-set insert displacement ring (-X column, "
+            f"r = {r_insert_ring:.2f} mm)",
             ok_ring,
             ring_detail,
         )
@@ -3391,6 +3416,222 @@ def check_cradle_insert_pockets():
 # old name (and the verifier's CHECKS registry's previous entry) get
 # the new behaviour transparently.
 check_cradle_pilot_holes = check_cradle_insert_pockets
+
+
+# ---------------------------------------------------------------------------
+# Servo insertion-path probe (Design E, May 2026)
+# ---------------------------------------------------------------------------
+#
+# Simulates seating a DS3225 / MG996R / DS3218-class servo into its
+# cradle by sliding the molded wire-exit BOOT envelope DOWN through
+# the +X wall in 1 mm Z steps and checking that no printed-part
+# material intrudes into the boot's swept volume by more than the
+# tolerance below at any intermediate Z.
+#
+# This is the regression probe for the May 2026 user report: commit
+# f03d59b (heat-set switch) shortened the +X wire channel from
+# z = WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM (= 29.5) down to
+# z = (WELL_RIM_Z - CRADLE_BOSS_HEIGHT_MM) - 0.5 (= 16.5) to clear
+# the new Phi 8 mm heat-set bosses, which left 10.5 mm of solid +X
+# wall blocking the boot's insertion path.  Real DS3225 servos
+# could not be seated in their printed cradles.  Design E restored
+# the channel cap and reverted the +X bolts to Phi 2.5 mm self-tap;
+# this check enforces the channel-must-be-clear invariant so the
+# regression cannot recur.
+
+# Allowed boot-vs-part overlap volume at any single insertion-step.
+# 1 mm^3 covers numerical / mesh-stair-step noise at our voxel pitch.
+SERVO_INSERTION_PATH_TOL_MM3 = 1.0
+# Z step size for the insertion sweep (mm).
+SERVO_INSERTION_PATH_Z_STEP_MM = 1.0
+# Sampling pitch inside the boot envelope (mm).  0.4 mm pitch on the
+# 6.5 x 7.0 x 3.9 mm boot envelope is ~ 4400 sample points; at our
+# 1 mm^3 tolerance any single sample voxel contributes 0.064 mm^3 so
+# > 15 sample hits are needed to register as a failure.
+SERVO_INSERTION_PATH_PITCH_MM = 0.4
+
+
+def _boot_envelope_sample_points(z_offset: float) -> np.ndarray:
+    """Return a dense grid of sample points covering the molded
+    wire-exit boot envelope, translated in +Z by ``z_offset`` from
+    the seated position.
+
+    Seated boot envelope (well-local frame, matches ``_servo_envelope``):
+        x in [+SERVO_BODY_W/2,
+              +SERVO_BODY_W/2 + WIRE_BOOT_PROTRUSION]
+        y in [-WIRE_BOOT_W/2, +WIRE_BOOT_W/2]
+        z in [WIRE_BOOT_Z_BASE,
+              WIRE_BOOT_Z_BASE + WIRE_BOOT_H]
+
+    During insertion the servo body sits a bit higher in the cradle
+    so the boot's z bounds shift UP by ``z_offset``; the x / y bounds
+    are unchanged because the body is constrained in those axes by
+    the well cavity walls.
+    """
+    pitch = SERVO_INSERTION_PATH_PITCH_MM
+    x_min = +hp.SERVO_BODY_W / 2.0
+    x_max = x_min + hp.WIRE_BOOT_PROTRUSION
+    y_min = -hp.WIRE_BOOT_W / 2.0
+    y_max = +hp.WIRE_BOOT_W / 2.0
+    z_min = hp.WIRE_BOOT_Z_BASE + z_offset
+    z_max = z_min + hp.WIRE_BOOT_H
+
+    # Inset by half a voxel so sample centres tile the envelope cleanly.
+    eps = pitch / 2.0
+    nx = max(2, int(np.ceil(((x_max - eps) - (x_min + eps)) / pitch)))
+    ny = max(2, int(np.ceil(((y_max - eps) - (y_min + eps)) / pitch)))
+    nz = max(2, int(np.ceil(((z_max - eps) - (z_min + eps)) / pitch)))
+    xs = np.linspace(x_min + eps, x_max - eps, nx)
+    ys = np.linspace(y_min + eps, y_max - eps, ny)
+    zs = np.linspace(z_min + eps, z_max - eps, nz)
+    XX, YY, ZZ = np.meshgrid(xs, ys, zs, indexing="ij")
+    return np.stack([XX.ravel(), YY.ravel(), ZZ.ravel()], axis=1)
+
+
+def check_servo_insertion_path():
+    """Verify that the servo's molded +X wire-exit boot has a clear
+    insertion path through the +X wall of every cradle (Design E,
+    May 2026 regression probe).
+
+    For each cradle (coxa_bracket yaw, coxa_link hip, femur_link knee)
+    we slide the boot's swept volume DOWN through the +X wall in
+    ``SERVO_INSERTION_PATH_Z_STEP_MM`` (= 1 mm) Z steps from
+    ``z = WELL_RIM_Z + WIRE_BOOT_H`` (boot bottom face above the rim,
+    boot entirely outside the cradle) down to the seated position
+    (boot bottom at ``WIRE_BOOT_Z_BASE``).  At each step we count the
+    sample points inside the printed cradle mesh and reject the
+    cradle if any step's overlap volume exceeds
+    ``SERVO_INSERTION_PATH_TOL_MM3`` (= 1.0 mm^3).
+
+    The boot's swept volume is the canonical proxy for "can the user
+    seat the servo?" -- the boot is a rigid molded feature on the
+    servo case; any printed material in its swept volume means the
+    servo cannot be pushed down past that Z without bending or
+    shearing the boot.
+
+    Regression history (May 2026):
+      * commit f03d59b shortened the +X wire channel from
+        z = WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM (= 29.5) down to
+        z = (WELL_RIM_Z - CRADLE_BOSS_HEIGHT_MM) - 0.5 (= 16.5) to
+        clear the new heat-set bosses.  Real DS3225 servos could
+        not be seated in their printed cradles; the user reported
+        the regression on receipt of physical hardware.
+      * Design E (May 2026) restored the channel cap to
+        WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM and reverted the +X
+        cradle bolts to Phi 2.5 mm self-tap so the channel + bolts
+        could coexist; this check was added at the same time so
+        the regression cannot ship again.
+    """
+    print(f"\n[5f] Servo insertion-path probe "
+          f"(boot {hp.WIRE_BOOT_PROTRUSION:.1f} x {hp.WIRE_BOOT_W:.1f} "
+          f"x {hp.WIRE_BOOT_H:.1f} mm slides down +X wall in "
+          f"{SERVO_INSERTION_PATH_Z_STEP_MM:.0f} mm Z steps; "
+          f"max overlap {SERVO_INSERTION_PATH_TOL_MM3:.1f} mm^3 per step):")
+
+    R_inv = rotation_matrix(+np.pi / 2.0, [1, 0, 0])
+
+    def _bracket_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        m = mesh.copy()
+        m.apply_translation([+hp.SERVO_OUTPUT_X, 0.0, +hp.WELL_RIM_Z])
+        return m
+
+    def _coxa_link_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        m = mesh.copy()
+        m.apply_translation([0.0, 0.0, -hp.COXA_LIFT])
+        arm_t = hp.COXA_ARM_T
+        well_z_drop = -(hp.WELL_D / 2.0 + arm_t / 2.0
+                         + hp.WELL_Z_DROP_EXTRA)
+        m.apply_translation([0.0, 0.0, -well_z_drop])
+        m.apply_translation([
+            -(hp.COXA_LENGTH - hp.SERVO_OUTPUT_X),
+            +(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
+            0.0,
+        ])
+        m.apply_transform(R_inv)
+        return m
+
+    def _femur_link_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        m = mesh.copy()
+        m.apply_translation([
+            -(hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X),
+            +(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
+            0.0,
+        ])
+        m.apply_transform(R_inv)
+        return m
+
+    cradles = [
+        ("coxa_bracket (yaw cradle)",
+         _bracket_to_well_local(_load_mesh("coxa_bracket", copy=False))),
+        ("coxa_link    (hip-pitch cradle)",
+         _coxa_link_to_well_local(_load_mesh("coxa_link", copy=False))),
+        ("femur_link   (knee cradle)",
+         _femur_link_to_well_local(_load_mesh("femur_link", copy=False))),
+    ]
+
+    # Z sweep: boot bottom slides from WELL_RIM_Z + WIRE_BOOT_H (boot
+    # entirely above the rim) DOWN to WIRE_BOOT_Z_BASE (seated).
+    # Express as offsets RELATIVE to the seated position; offset 0
+    # means seated, offset > 0 means the body is lifted ``offset`` mm
+    # above seated.
+    z_offset_max = (hp.WELL_RIM_Z + hp.WIRE_BOOT_H) - hp.WIRE_BOOT_Z_BASE
+    n_steps = int(np.ceil(z_offset_max
+                          / SERVO_INSERTION_PATH_Z_STEP_MM)) + 1
+    z_offsets = np.linspace(0.0, z_offset_max, n_steps)
+
+    pitch = SERVO_INSERTION_PATH_PITCH_MM
+    voxel_vol = pitch ** 3
+
+    all_ok = True
+    for name, mesh in cradles:
+        # Pre-compute the AABB of the entire boot sweep so we can
+        # skip mesh-inside calls when the sweep box is well clear of
+        # the cradle's bounds (a no-op for the standard cradles
+        # where the boot sweep does intersect the +X wall, but
+        # gives a clean fail fast if a future cradle is repositioned).
+        mesh_min, mesh_max = mesh.bounds
+        worst_overlap_mm3 = 0.0
+        worst_offset = float(z_offsets[0])
+        n_steps_blocked = 0
+        for z_off in z_offsets:
+            pts = _boot_envelope_sample_points(float(z_off))
+            # Quick AABB rejection.
+            if (pts[:, 0].max() < mesh_min[0]
+                    or pts[:, 0].min() > mesh_max[0]
+                    or pts[:, 1].max() < mesh_min[1]
+                    or pts[:, 1].min() > mesh_max[1]
+                    or pts[:, 2].max() < mesh_min[2]
+                    or pts[:, 2].min() > mesh_max[2]):
+                continue
+            inside = points_inside(mesh, pts)
+            n_in = int(inside.sum())
+            overlap_mm3 = n_in * voxel_vol
+            if overlap_mm3 > worst_overlap_mm3:
+                worst_overlap_mm3 = overlap_mm3
+                worst_offset = float(z_off)
+            if overlap_mm3 > SERVO_INSERTION_PATH_TOL_MM3:
+                n_steps_blocked += 1
+
+        ok = n_steps_blocked == 0
+        if ok:
+            detail = (
+                f"{n_steps} Z steps probed (boot bottom z = "
+                f"{hp.WIRE_BOOT_Z_BASE:.1f}-> "
+                f"{hp.WIRE_BOOT_Z_BASE + z_offset_max:.1f} mm); worst "
+                f"step overlap {worst_overlap_mm3:.2f} mm^3 <= "
+                f"{SERVO_INSERTION_PATH_TOL_MM3:.1f} mm^3 tol"
+            )
+        else:
+            detail = (
+                f"{n_steps_blocked}/{n_steps} Z steps blocked; worst "
+                f"step overlap {worst_overlap_mm3:.2f} mm^3 at boot "
+                f"bottom z = {hp.WIRE_BOOT_Z_BASE + worst_offset:.1f} "
+                f"mm (offset {worst_offset:+.1f} above seated); "
+                f"tol {SERVO_INSERTION_PATH_TOL_MM3:.1f} mm^3"
+            )
+        all_ok &= _label(name, ok, detail)
+
+    return all_ok
 
 
 # ---------------------------------------------------------------------------
@@ -3872,6 +4113,20 @@ FASTENER_ENGAGEMENT_SPEC = {
     "M2x8 SHCS":                       dict(head_od=3.8, shaft_od=2.2, engagement_mm=3.0),
     "M3x8 SHCS":                       dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x8 SHCS into heat-set insert":  dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
+    # ``M3x8 SHCS self-tap`` -- Design E mixed-mode, May 2026.  The 2 +X
+    # cradle bolts per cradle self-tap into a Phi 2.5 mm pilot drilled
+    # into the existing well-wall material (no brass insert, no Phi 8
+    # mm boss).  Engagement target is the plastic shelf material below
+    # the servo's 2.5 mm-thick tab: the M3 x 8 SHCS head sits on the
+    # ear top, descends through 2.5 mm of (factory) tab, and bites
+    # into ~ 5.5 mm of printed plastic in the well wall.  The shelf
+    # has INSERT_M3_SELFTAP_PILOT_DEPTH = 10 mm of available depth so
+    # the bolt does not bottom out; the engagement-zone window probes
+    # the deepest 5 mm of the bolt for material contact (same target
+    # as the M3 x 8 SHCS into heat-set entry above -- the bolt length
+    # is identical and the shelf material at this depth is the
+    # engagement medium in either case).
+    "M3x8 SHCS self-tap":              dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     # ``M3x10 SHCS`` -- battery_holder foot bolts (4) into M3 heat-set
     # inserts.  Same engagement target as M3 x 8 into insert (= the
     # 5 mm insert body length) since both rely on the brass thread,
@@ -4943,6 +5198,7 @@ CHECKS = (
     ("Horn-sweep clearance",      "check_horn_sweep_clearance"),
     ("Horn pattern in pads",      "check_horn_pattern_in_pad"),
     ("Cradle insert pockets",     "check_cradle_insert_pockets"),
+    ("Servo insertion path",      "check_servo_insertion_path"),
     ("Flimsy joints",             "check_flimsy_joints"),
     ("Thin sheets",               "check_thin_sheets"),
     ("Screwdriver access",        "check_screwdriver_access"),
