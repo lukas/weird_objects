@@ -18,7 +18,7 @@ else
 MJ_PY  := $(REPO_ROOT)/.venv/bin/python
 endif
 
-.PHONY: check-cad check-cad-fast validate render build verify-prototype clean-artifacts view view-static view-build view-buildviz regen-fasteners bom-fasteners help
+.PHONY: check-cad check-cad-fast validate render build verify-prototype verify-fast clean-artifacts view view-static view-build view-buildviz regen-fasteners bom-fasteners help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -31,7 +31,8 @@ help:
 	@echo "  validate          Run scripts/validate_geometry.py only (no renders, no report)."
 	@echo "  render            Run scripts/render_views.py only."
 	@echo "  build             Re-run build_all.py to regenerate stl_prototype/*.stl."
-	@echo "  verify-prototype  Run the legacy _verify_prototype.main() directly."
+	@echo "  verify-prototype  Run the legacy _verify_prototype.main() directly (full suite, ~95-270 s)."
+	@echo "  verify-fast       Run _verify_prototype.py --fast (5 essential checks, ~5-15 s)."
 	@echo "  view              Open the interactive MuJoCo viewer with the prototype walking in tripod gait."
 	@echo "  view-static       Same viewer, but freeze the legs in the standing-pose keyframe (--no-gait)."
 	@echo "  view-build        Open a PyVista build inspector with colored, labeled parts and an exploded-view slider."
@@ -57,6 +58,14 @@ build:
 
 verify-prototype:
 	$(RUN) hexapod_walker/prototype/_verify_prototype.py
+
+# Inner-loop verifier: skip the 12 slow checks (workspace sweep,
+# screwdriver-access ray cones, voxelised thin-sheet / flimsy-joint
+# passes, ...) and run only the 5 ESSENTIAL invariants that catch
+# ~80% of regressions in ~15% of the wall time.  Use this between
+# every edit; gate commits on the full verify-prototype.
+verify-fast:
+	$(RUN) hexapod_walker/prototype/_verify_prototype.py --fast
 
 # Open the interactive MuJoCo viewer (passive mode) with the prototype
 # walker in the procedurally generated terrain + obstacle world.  Mouse

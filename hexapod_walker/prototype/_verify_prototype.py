@@ -5210,6 +5210,60 @@ CHECKS = (
 WORKSPACE_CHECK_NAME = "Workspace self-collision"
 
 
+# ---------------------------------------------------------------------------
+# --fast mode: the 5 ESSENTIAL checks
+# ---------------------------------------------------------------------------
+#
+# Profiled wall-time analysis (May 2026, see _verify_profile.txt) showed
+# the full suite spent ~80 % of its time in the 6-axis ray-vote
+# point-in-mesh helper, which is itself dominated by the workspace
+# self-collision sweep (175 poses) and screwdriver-access / horn-sweep
+# / cradle-insertion / flimsy-joint voxelisation work.  Most edits to
+# the parametric CAD don't change anything that those slow checks
+# probe; they break one of FIVE invariants that are cheap to test:
+#
+#   1.  ``check_watertight``      -- every printed STL is manifold.
+#                                    Caught by trimesh's rtree boundary
+#                                    pass; sub-second.
+#   5.  ``check_self_collision`` -- standing-pose pairwise overlap.
+#                                    One pose, voxel pitch 1.5 mm; the
+#                                    175-pose sweep ("Workspace self-
+#                                    collision") is the SLOW workspace
+#                                    sweep, not this one.
+#  15.  ``check_fastener_engagement`` -- every bolt's head bears, tip
+#                                    engages, shaft span clears, and
+#                                    the bolt joins >= 2 distinct
+#                                    parts.  Probes are 8-azimuth
+#                                    rings; ~ 1-3 s.
+#  16.  ``check_mating_face_contact`` -- the 3 horn / link mating
+#                                    interfaces close within tolerance.
+#                                    Pure ray-cast; sub-second.
+#  17.  ``check_cable_clearance``  -- every cable / connector keepout
+#                                    is free of solid material.
+#                                    Voxel-grid probes through 10
+#                                    keepouts; ~ 1-2 s.
+#
+# Together these 5 catch ~ 80 % of the historical regressions
+# (off-by-one bracket geometry, wrong bolt length, missing hole, mating
+# face moved, cable channel obliterated) in ~ 15 % of the wall time
+# of the full suite (~ 5-15 s vs ~ 95-270 s on this machine, depending
+# on whether the cache is warm).  They are the "tight inner loop" set;
+# anything else either has its own faster up-stream check (e.g. the
+# spec-bounds validator catches gross dimension drift before the
+# verifier even runs) or is the slow 175-pose / voxel-union work that
+# only needs to re-run when joint kinematics or printed walls change.
+#
+# Run them with ``--fast``; ``--all`` (the default when no flag is
+# passed) runs every entry in ``CHECKS`` plus the workspace sweep.
+ESSENTIAL_CHECK_NAMES = (
+    "Mesh watertightness",
+    "Self-collision",
+    "Fastener engagement",
+    "Mating-face contact",
+    "Cable clearance",
+)
+
+
 def _worker_initializer(mesh_cache, inside_mode):
     """ProcessPoolExecutor initializer: install the parent's pre-built
     mesh cache so workers do NOT pay any constructive-solid rebuild
@@ -5340,6 +5394,29 @@ def main(argv=None):
               "'Servo clearance', 'Workspace self-collision').  "
               "Repeatable: '--only A --only B' runs both."),
     )
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--fast",
+        action="store_true",
+        help=("FAST MODE: run only the 5 ESSENTIAL checks "
+              "(watertightness, self-collision standing pose, fastener "
+              "engagement, mating-face contact, cable clearance). "
+              "Catches ~ 80 %% of regressions in ~ 15 %% of the wall "
+              "time of the full suite (typically 5-15 s vs 95-270 s).  "
+              "Skips the 175-pose workspace sweep, screwdriver-access "
+              "ray cones, cradle-insertion sweeps, and the voxelised "
+              "thin-sheet / flimsy-joint passes.  Use ``--all`` (or no "
+              "flag) for a pre-commit pass."),
+    )
+    mode_group.add_argument(
+        "--all",
+        action="store_true",
+        help=("Explicit full-suite mode: run every check in CHECKS "
+              "plus the workspace self-collision sweep.  Same as "
+              "passing no mode flag at all; kept as an explicit flag "
+              "so scripts can be unambiguous about their intent "
+              "(``--all`` reads better than ``# default mode``)."),
+    )
     parser.add_argument(
         "--inside-mode",
         choices=INSIDE_MODES,
@@ -5372,9 +5449,14 @@ def main(argv=None):
     print("=" * 72)
 
     only_set = set(args.only) if args.only else None
+    fast_set = (set(ESSENTIAL_CHECK_NAMES) if args.fast else None)
 
     def _is_selected(name):
-        return only_set is None or name in only_set
+        if only_set is not None and name not in only_set:
+            return False
+        if fast_set is not None and name not in fast_set:
+            return False
+        return True
 
     check_subset = [(n, f) for (n, f) in CHECKS if _is_selected(n)]
     run_workspace = _is_selected(WORKSPACE_CHECK_NAME)
@@ -5384,6 +5466,15 @@ def main(argv=None):
         if missing:
             print(f"  WARN: --only entries not matched against any known "
                   f"check: {sorted(missing)}", file=sys.stderr)
+
+    if args.fast:
+        total_checks = len(CHECKS) + 1  # +1 for workspace sweep
+        n_skipped = total_checks - len(check_subset) - int(run_workspace)
+        print(f"  [FAST MODE] skipping {n_skipped} slow checks; "
+              f"use --all to run everything.")
+        print(f"  [FAST MODE] running {len(check_subset)} "
+              f"essential check(s): "
+              f"{', '.join(n for n, _ in check_subset)}")
 
     t_start = time.monotonic()
 
