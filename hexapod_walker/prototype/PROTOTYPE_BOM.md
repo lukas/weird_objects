@@ -52,13 +52,13 @@ Edit the registry (not this table) and re-run `make bom-fasteners`.
 | M2.5x8 spline screw | 91290A104 | 18 | servo spline center screws |
 | M2.5x8 SHCS into heat-set insert | 91290A102 | 4 | electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685) |
 | M2.5 heat-set insert | 94459A106 | 4 | electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685) |
-| M3x8 SHCS into heat-set insert | 91290A113 | 84 | cradle servo mounts (M3 SHCS into heat-set insert), electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685) |
+| M3x8 SHCS into heat-set insert | 91290A113 | 88 | cradle servo mounts (M3 SHCS into heat-set insert), electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685), imu_pad heat-set inserts (MPU-6050 mount) |
 | M3x10 SHCS | 91290A114 | 6 | battery_holder heat-set inserts, switch_holster heat-set inserts |
-| M3 heat-set insert | 94459A130 | 90 | battery_holder heat-set inserts, cradle heat-set inserts, electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685), switch_holster heat-set inserts |
+| M3 heat-set insert | 94459A130 | 94 | battery_holder heat-set inserts, cradle heat-set inserts, electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685), imu_pad heat-set inserts (MPU-6050 mount), switch_holster heat-set inserts |
 | M3x32 SHCS | 91290A123 | 24 | coxa-bracket-to-chassis bolts |
 | M3x16 pan-head | 92010A130 | 6 | foot hinge pins |
 | M3 nyloc nut | 90576A102 | 30 | coxa-bracket-to-chassis bolts, foot hinge pins |
-|  |  | **338** | **total fasteners** |
+|  |  | **346** | **total fasteners** |
 
 Notes:
 - Cradle servo mounts (72 x `M3x8 SHCS into heat-set insert` /

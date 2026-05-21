@@ -471,6 +471,34 @@ def _body_battery_parts(chassis_lift):
                                 holster_z])
     parts.append(holster)
 
+    # IMU pad: vibration-isolated mounting plate for the MPU-6050 /
+    # GY-521 breakout (May 2026: IMU promoted from optional to
+    # standard kit, now that the Pi 4 / Pi 5 expects orientation
+    # feedback for closed-loop body-attitude control on uneven
+    # terrain).  Sits at chassis (0, 0) -- the centre of mass of
+    # the chassis -- on a 3 mm-thick strip of double-sided foam tape
+    # that doubles as the mount AND the vibration damper.  No
+    # fasteners between the pad and chassis_top; the foam tape is
+    # the entire interface.  Cable corridor exits +X toward the I2C
+    # cluster on the electronics_tray below (PCA9685s).
+    imu_z = chassis_top_top_z + HP.IMU_PAD_TAPE_T
+    imu_pad = HP.make_imu_pad()
+    imu_pad.apply_translation([HP.IMU_PAD_CENTRE_X,
+                                HP.IMU_PAD_CENTRE_Y,
+                                imu_z])
+    parts.append(imu_pad)
+
+    # MPU-6050 / GY-521 breakout PCB visual mesh (simple slab; the
+    # 8-pin header along the +X long edge is omitted for triangle-
+    # count reasons).  Sits on TOP of the IMU pad's 4 bosses at z =
+    # pad_bottom + IMU_PAD_T + IMU_PAD_BOSS_H.
+    imu_top_z = imu_z + HP.IMU_PAD_T + HP.IMU_PAD_BOSS_H
+    imu_pcb = _box((HP.IMU_PCB_W, HP.IMU_PCB_D, HP.IMU_PCB_T),
+                    center=(HP.IMU_PAD_CENTRE_X,
+                             HP.IMU_PAD_CENTRE_Y,
+                             imu_top_z + HP.IMU_PCB_T / 2.0))
+    parts.append(imu_pcb)
+
     return parts
 
 

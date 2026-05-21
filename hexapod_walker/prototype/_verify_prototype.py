@@ -115,6 +115,7 @@ _MESH_BUILDERS = {
     "electronics_tray": hp.make_electronics_tray,
     "bec_cradle":       hp.make_bec_cradle,
     "switch_holster":   hp.make_switch_holster,
+    "imu_pad":          hp.make_imu_pad,
     "coxa_bracket":     hp.make_coxa_bracket,
     "coxa_link":        hp.make_coxa_link,
     "femur_link":       hp.make_femur_link,
@@ -3472,7 +3473,7 @@ DRIVER_HEAD_STANDOFF_MM      = 0.5
 # intrusion pattern is identical to all 6 legs.
 _DRIVER_PRINTED_PART_NAMES = (
     "chassis_bottom", "chassis_top", "battery_holder", "electronics_tray",
-    "bec_cradle", "switch_holster",
+    "bec_cradle", "switch_holster", "imu_pad",
     "coxa_bracket", "coxa_link", "femur_link", "tibia_link", "foot_pad",
 )
 
@@ -3546,6 +3547,18 @@ def _build_world_leg0_printed_parts() -> dict:
         chassis_top_top_z + hp.SWITCH_HOLSTER_BOSS_H,
     ])
     parts["switch_holster"] = sh
+
+    # imu_pad: vibration-isolated MPU-6050 mounting plate, glued to
+    # chassis_top with a 3 mm strip of double-sided foam tape (no
+    # fasteners between the pad and chassis_top).  Pad bottom face
+    # at z = chassis_top_top + IMU_PAD_TAPE_T = 38 + 3 = 41.
+    ip = _load_mesh("imu_pad")
+    ip.apply_translation([
+        hp.IMU_PAD_CENTRE_X,
+        hp.IMU_PAD_CENTRE_Y,
+        chassis_top_top_z + hp.IMU_PAD_TAPE_T,
+    ])
+    parts["imu_pad"] = ip
 
     # Leg-0 printed parts -- mirrors ``_build_standing_leg`` so the
     # legged-part transforms exactly match the registry's leg_index=0
@@ -4695,6 +4708,28 @@ def _build_electronics_body_meshes() -> dict:
         hp.ELEC_TRAY_CENTRE_Y + hp.PCA2_CENTRE[1],
         8.0,
     )
+    # MPU-6050 / GY-521 PCB visual on top of the IMU pad's 4 bosses
+    # (chassis CG; pad bottom at chassis_top_top + IMU_PAD_TAPE_T).
+    chassis_top_top_z = hp.CHASSIS_GAP + 1.5 * hp.CHASSIS_PLATE_T
+    mpu_z_base = (chassis_top_top_z + hp.IMU_PAD_TAPE_T
+                  + hp.IMU_PAD_T + hp.IMU_PAD_BOSS_H)
+    out["MPU-6050"] = _board(
+        (hp.IMU_PCB_W, hp.IMU_PCB_D),
+        hp.IMU_PAD_CENTRE_X,
+        hp.IMU_PAD_CENTRE_Y,
+        hp.IMU_PCB_T,
+    )
+    # Override the z placement: _board() uses board_base_z = tray_top +
+    # ELEC_STANDOFF_H which is the electronics_tray standoff height,
+    # not the IMU pad boss height.  Re-translate to the IMU's actual
+    # world z.
+    actual_centre = out["MPU-6050"].bounds.mean(axis=0)
+    expected_centre = np.array([
+        hp.IMU_PAD_CENTRE_X,
+        hp.IMU_PAD_CENTRE_Y,
+        mpu_z_base + hp.IMU_PCB_T / 2.0,
+    ])
+    out["MPU-6050"].apply_translation(expected_centre - actual_centre)
     return out
 
 

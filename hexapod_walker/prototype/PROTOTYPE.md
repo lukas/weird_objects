@@ -208,6 +208,7 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 | `electronics_tray.stl` | 160 x 130 mm mount deck for Arduino Mega 2560 + Raspberry Pi 4/5 + 2 x PCA9685.  Both PCA9685s are now bolted (8 x M3 inserts total) instead of cable-tied. | 0.2 mm, 20% infill, 2 walls |
 | `bec_cradle.stl` | Snap-fit clip for 2 x 5V 5A switching BECs.  Sits on top of the electronics_tray near the -Y edge in the corridor between the Mega's +X edge and PCA2's -X edge.  No fasteners (interference fit on long sides + retention lip).  Phi 5 mm wire-exit channels at +/- X ends route the XT60 input pigtail and the 3-pin servo-header output pigtail. | 0.2 mm, 25% infill, 3 walls |
 | `switch_holster.stl` | Snap-in holster for one ~ 32 x 17 x 17 mm anti-spark on/off switch.  Bolted to chassis_top's +X edge via 2 x M3 x 10 SHCS that thread DOWN into M3 brass heat-set inserts captive in chassis_top's 2 printed bosses.  Toggle protrudes +X past the chassis edge for user access; XT60 pigtails exit the +/- Y end faces. | 0.2 mm, 25% infill, 3 walls |
+| `imu_pad.stl` | 25 x 20 x 2 mm pad with 4 x Phi 8 mm bosses (3 mm tall) carrying M3 brass heat-set inserts on the GY-521 15 x 11 mm pattern (4 x Phi 3.0 mm clearance holes).  Bolts the MPU-6050 IMU breakout via 4 x M3 x 8 SHCS.  **No fasteners between the pad and chassis_top** -- the pad's flat smooth underside is bonded to chassis_top's centre with 3 mm double-sided foam tape, which serves AS the mount AND the vibration damper.  Sits at chassis (0, 0, chassis_top_top_z + 3 mm) -- the chassis centre of gravity, so gyro rates are not contaminated by linear-acceleration cross-coupling from body swing. | 0.2 mm, 25% infill, 3 walls |
 
 ### 3.2 Per-leg parts (print 6 sets)
 
@@ -282,9 +283,10 @@ printer.
 | M3 nyloc nuts | >= 78 + spares | **Design C captive nuts**: 4 per servo x 18 servos = 72, plus 6 for the foot hinges. |
 | M3 × 25 mm round standoffs (M-F) | 8 | Top-to-bottom chassis spacers |
 | M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the plastic 4-arm X-horn onto the servo output spline. |
-| M3 brass heat-set inserts (McMaster 94459A130) | 14 | Electronics-tray board mounts: 4 for the Mega 2560 + 4 for the primary PCA9685 + 4 for the secondary PCA9685.  Plus 2 more in `chassis_top`'s 2 printed bosses for the `switch_holster` mount bolts.  Soldering-iron installed into the printed Phi 4 mm pilot pockets BEFORE the electronics / holster go on. |
+| M3 brass heat-set inserts (McMaster 94459A130) | 18 | Electronics-tray board mounts: 4 for the Mega 2560 + 4 for the primary PCA9685 + 4 for the secondary PCA9685.  Plus 2 more in `chassis_top`'s 2 printed bosses for the `switch_holster` mount bolts.  Plus 4 more in the `imu_pad`'s 4 boss tops for the MPU-6050 mount.  Soldering-iron installed into the printed Phi 4 mm pilot pockets BEFORE the electronics / holster / IMU go on. |
 | M2.5 brass heat-set inserts (McMaster 94459A106) | 4 | Electronics-tray board mounts for the Raspberry Pi 4 / Pi 5.  Same soldering-iron install workflow as the M3 inserts. |
-| M3 × 8 SHCS (board mounts) | 12 | 4 x Mega 2560 + 4 x primary PCA9685 + 4 x secondary PCA9685 onto the M3 inserts. |
+| M3 × 8 SHCS (board mounts + IMU) | 16 | 4 x Mega 2560 + 4 x primary PCA9685 + 4 x secondary PCA9685 onto the M3 electronics-tray inserts, plus 4 x MPU-6050 (GY-521) onto the M3 imu_pad inserts. |
+| 3M VHB / 3 mm foam tape | ~25 × 20 mm | Bonds `imu_pad.stl` to chassis_top centre.  Doubles as vibration damper that decouples the MPU-6050's gyro from the servo-driven chassis frame.  See §B.6 of `SHOPPING_LIST.md`. |
 | M3 × 10 SHCS (switch_holster mount) | 2 | Drop the printed `switch_holster.stl` onto chassis_top's 2 bosses and thread these 2 bolts DOWN through the holster ear's Phi 3.4 mm clearance holes into the heat-set inserts captive in the bosses.  Same stock as the battery_holder foot bolts. |
 | M2.5 × 8 SHCS (board mounts) | 4 | 4 x Raspberry Pi 4 / Pi 5 onto the M2.5 inserts. |
 
@@ -317,7 +319,7 @@ A single Ender 3-class printer runs the whole BOM in roughly **21 hours**:
 | 2 | 6 × coxa_link | Same | ~ 4 h |
 | 3 | 6 × femur_link | Same | ~ 5 h |
 | 4 | 6 × tibia_link | Same | ~ 4 h |
-| 5 | chassis_top + chassis_bottom + battery_holder + electronics_tray | ~ 4 h |
+| 5 | chassis_top + chassis_bottom + battery_holder + electronics_tray + switch_holster + bec_cradle + imu_pad | ~ 4 h |
 | 6 | 6 × foot_pad (TPU) | Single bed | ~ 1 h |
 
 Tip: use 4 walls and 25 % gyroid infill for the bracket and link
@@ -427,6 +429,24 @@ times.
        plate; the tray's Phi 5.5 mm × 3 mm counterbores recess the
        SHCS heads flush with the tray's top face so the boards on
        their 5 mm standoffs clear the chassis bolts entirely.
+    e. **IMU sub-assembly:** soldering-iron-install **4 × M3 brass
+       heat-set inserts** (McMaster `94459A130`, same SKU as the
+       cradle / battery / electronics-tray inserts) into the
+       `imu_pad.stl`'s 4 boss-top pilots (Phi 4 mm × 6 mm pockets,
+       same ~ 220 °C technique).  Bolt the MPU-6050 (GY-521) PCB down
+       through its 4 × Phi 3.0 mm holes (15 × 11 mm GY-521 pattern)
+       with **4 × M3 × 8 mm SHCS** into the inserts.  Peel a ~ 25 ×
+       20 mm rectangle of 3 mm double-sided foam tape (3M VHB or
+       generic mounting foam, §B.6 of `SHOPPING_LIST.md`) and stick
+       it to the pad's flat smooth underside.  Press the loaded pad
+       down onto chassis_top centred at (0, 0) -- this places the
+       IMU at the chassis centre of gravity so gyro rates aren't
+       contaminated by linear-acceleration cross-coupling from the
+       body swing, and the foam tape acts as both adhesive AND
+       vibration damper (decouples the gyro from servo HF noise).
+       Route 5 Dupont jumpers (VCC, GND, SDA, SCL, INT) toward the
+       electronics_tray's I2C cluster (a Phi 8 mm corridor is left
+       clear above chassis_top for the harness).
 13. **Wire it up:** see §7.
 14. **Top chassis plate:** screw down onto the M3 × 32 mm standoff
     tops.

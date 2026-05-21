@@ -47,6 +47,15 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     # edge; sibling of the chassis color family is too easy to lose,
     # so a contrasting hue is used).
     "switch_holster":      (0.890, 0.467, 0.137),
+    # IMU pad - bright cyan (sits at the chassis centre on chassis_top;
+    # cyan stands out against the chassis-blue / olive electronics
+    # neighbours so the small 25 x 20 mm pad is visually findable in
+    # the inspector).
+    "imu_pad":             (0.000, 0.800, 0.800),
+    # MPU-6050 / GY-521 visual PCB - bright magenta (commodity board,
+    # but distinctive against everything else on chassis_top so a
+    # quick visual scan picks it out).
+    "mpu6050":             (0.900, 0.100, 0.700),
     # Coxa bracket - tab:orange (the chassis<->hip-yaw bridge "pops")
     "coxa_bracket":        (1.000, 0.498, 0.055),
     # Coxa link - tab:green
@@ -115,6 +124,7 @@ _CHASSIS_LEVEL = frozenset({
     "chassis_plate_a", "chassis_plate_b",
     "battery_holder", "electronics_tray",
     "bec_cradle", "switch_holster",
+    "imu_pad", "mpu6050",
 })
 
 
@@ -198,6 +208,10 @@ def instance_role(
         return "knee -> foot"
     if part_type == "foot_pad":
         return "foot"
+    if part_type == "imu_pad":
+        return "IMU mounting pad"
+    if part_type == "mpu6050":
+        return "MPU-6050 IMU"
     if part_type == "servo_horn_adapter":
         suffix = _JOINT_ROLE.get(joint or "", "joint")
         return f"{suffix} output"

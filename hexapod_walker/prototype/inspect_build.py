@@ -221,6 +221,29 @@ def _build_assembly_instances() -> list[Instance]:
         _trans(HP.SWITCH_HOLSTER_CENTRE_X, HP.SWITCH_HOLSTER_CENTRE_Y,
                 sw_z),
     ))
+    # IMU pad sits on TOP of chassis_top at the chassis centre of mass
+    # (chassis (0, 0)).  Pad's BOTTOM face is HP.IMU_PAD_TAPE_T above
+    # chassis_top's TOP face (the gap holds the double-sided foam tape
+    # that doubles as the mount AND the vibration damper).  No
+    # fasteners between the pad and chassis_top.
+    chassis_top_top_z = gap + 1.5 * plate_t
+    imu_z = chassis_top_top_z + HP.IMU_PAD_TAPE_T
+    instances.append(Instance(
+        "imu_pad", "imu_pad.stl", None, None,
+        _trans(HP.IMU_PAD_CENTRE_X, HP.IMU_PAD_CENTRE_Y, imu_z),
+    ))
+    # MPU-6050 / GY-521 visual mesh sits on the 4 boss tops of the
+    # IMU pad.  Synthesised as a flat IMU_PCB slab written to
+    # stl_prototype/mpu6050.stl alongside the other visual-only
+    # meshes (servo_body.stl, servo_horn.stl).
+    instances.append(Instance(
+        "mpu6050", "mpu6050.stl", None, None,
+        _trans(
+            HP.IMU_PAD_CENTRE_X,
+            HP.IMU_PAD_CENTRE_Y,
+            imu_z + HP.IMU_PAD_T + HP.IMU_PAD_BOSS_H + HP.IMU_PCB_T / 2.0,
+        ),
+    ))
 
     yaw_output_z = (
         (HP.SERVO_BODY_H - HP.WELL_RIM_Z)

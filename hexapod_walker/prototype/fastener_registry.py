@@ -1475,6 +1475,137 @@ def _emit_switch_holster_fasteners() -> list[FastenerInstance]:
 
 
 # ---------------------------------------------------------------------------
+# IMU pad mount fasteners (M3 x 8 SHCS + M3 heat-set insert pair)
+# ---------------------------------------------------------------------------
+
+
+def _emit_imu_pad_fasteners() -> list[FastenerInstance]:
+    """The 4 IMU-pad mount bolts + their captive heat-set inserts.
+
+    The MPU-6050 / GY-521 IMU breakout is bolted to the printed
+    ``imu_pad`` via 4 x M3 x 8 SHCS threading DOWN through the IMU's
+    Phi 3.0 mm clearance holes into 4 x M3 brass heat-set inserts
+    (McMaster ``94459A130``) captive in the pad's 4 printed bosses.
+    The pad ITSELF is glued to chassis_top with double-sided foam
+    tape (3 mm) so the IMU is mechanically decoupled from the
+    chassis-side servo vibration -- NO fasteners between the pad
+    and chassis_top.
+
+    Length budget (design frame, z = 0 = chassis_bottom centre plane):
+
+        chassis_top_top z    = CHASSIS_GAP + 1.5 * CHASSIS_PLATE_T = +38
+        pad bottom z         = chassis_top_top + IMU_PAD_TAPE_T   = +41
+        pad floor top z      = pad_bottom + IMU_PAD_T             = +43
+        boss top z           = pad_floor_top + IMU_PAD_BOSS_H     = +48
+        PCB bottom z         = boss_top                            = +48
+        PCB top z            = boss_top + IMU_PCB_T               = +49.6
+        insert top z         = boss_top - (pilot_depth - insert_len)
+                             = +48 - 1                            = +47
+        insert bottom z      = insert_top - INSERT_M3_INSERT_LENGTH
+                             = +47 - 5                            = +42
+        bolt tip min z       = head - L = +48 - 8                  = +40
+
+    The PHYSICAL bolt head bears on the IMU PCB's top face at
+    z = +49.6, but to match the convention used for the
+    electronics_tray board-mount bolts (see
+    ``_emit_electronics_tray_fasteners``: "conservative: place head
+    face at the boss top (matches inspect_build's bolt rendering and
+    avoids leaking a per-board PCB-thickness constant)") we put the
+    REGISTRY head_world_xyz at the BOSS top instead of the PCB top.
+    The 8 mm bolt length still reaches deep into the insert
+    (z=40-48) and the engagement check probes material at the
+    boss-top ring rather than at the PCB-top ring -- which only
+    works if the world frame contains a printed part with material
+    just below the head, exactly what the boss provides.  M3 x 8
+    SHCS (PN 91290A113), same stock as the cradle / electronics_
+    tray board-mount bolts.
+
+    Why ``skip_screwdriver_reason``: although the IMU PCB's bolt
+    heads ARE physically reachable from above (the pad sits at the
+    chassis CG, not under the holster or arm), in practice the
+    PROTOTYPE.md sequence has the user torque these BEFORE the
+    chassis_top + (optional) arm baseplate close the chassis stack.
+    Once those upper layers are on, a 2.5 mm hex key can swing down
+    onto the bolt heads, but the operator would have to remove the
+    arm baseplate first if it's installed.  Mark SKIP with the same
+    rationale as the other tray fasteners so the verifier doesn't
+    flag them as access-blocked.
+    """
+    out: list[FastenerInstance] = []
+
+    # chassis_top top face z in the design frame.
+    chassis_top_top_z = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T
+    pad_bottom_z = chassis_top_top_z + HP.IMU_PAD_TAPE_T
+    boss_top_z = pad_bottom_z + HP.IMU_PAD_T + HP.IMU_PAD_BOSS_H
+    # Bolt head placement: see docstring for why we use boss_top_z
+    # (= the boss top, NOT the PCB top) -- mirrors the convention
+    # used by ``_emit_electronics_tray_fasteners`` so the head ring
+    # probe lands inside the boss material rather than in the air
+    # above the (un-modelled-as-printed) MPU-6050 PCB.
+    head_z = boss_top_z
+    # Insert top face sits ``pilot_depth - insert_len`` mm below the
+    # boss top (same debris-overdrill convention as the
+    # electronics_tray / switch_holster inserts).
+    debris_overdrill = HP.INSERT_M3_PILOT_DEPTH - HP.INSERT_M3_INSERT_LENGTH
+    insert_top_z = boss_top_z - debris_overdrill
+
+    skip_reason = (
+        "captive sub-assembly fastener: torqued during electronics "
+        "install before chassis_top stack closes.  The IMU pad sits "
+        "on the chassis CG on chassis_top; once chassis_top + "
+        "(optional) arm baseplate close the chassis stack from "
+        "above, the IMU bolt heads are reachable in principle but "
+        "the sequence has them torqued first (same convention as "
+        "the electronics_tray + switch_holster fasteners)"
+    )
+
+    for (bx, by), corner in zip(
+        HP.IMU_PAD_BOLT_CHASSIS_XY,
+        ("-X-Y", "-X+Y", "+X-Y", "+X+Y"),
+    ):
+        head_world = np.array([bx, by, head_z])
+        axis_world = np.array([0.0, 0.0, -1.0])  # DOWN into the pad
+        out.append(FastenerInstance(
+            part_number=PN_M3X8_SHCS,
+            spec=SPEC_M3X8_SHCS_INTO_INSERT,
+            head_world_xyz=head_world,
+            axis_world=axis_world,
+            role=(
+                f"imu_pad mount bolt {corner} "
+                f"M3 x 8 SHCS into heat-set insert"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=8.0,
+            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
+            skip_screwdriver_reason=skip_reason,
+        ))
+
+        insert_head_world = np.array([bx, by, insert_top_z])
+        out.append(FastenerInstance(
+            part_number=PN_M3_HEATSET_INSERT,
+            spec=SPEC_M3_HEATSET_INSERT,
+            head_world_xyz=insert_head_world,
+            axis_world=np.array([0.0, 0.0, -1.0]),
+            role=(
+                f"imu_pad {corner} "
+                f"M3 heat-set insert"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=HP.INSERT_M3_INSERT_LENGTH,
+            cache_stl=f"{PN_M3_HEATSET_INSERT}.cache.stl",
+            skip_screwdriver_reason=(
+                "heat-set insert installed with a soldering iron "
+                "BEFORE the MPU-6050 IMU is bolted to the imu_pad "
+                "(PROTOTYPE.md section 6.1 step 12); no driver "
+                "cone applies to the brass insert"
+            ),
+        ))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Top-level builder
 # ---------------------------------------------------------------------------
 
@@ -1550,6 +1681,14 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     # the battery is dropped into the holder).
     out.extend(_emit_switch_holster_fasteners())
 
+    # IMU pad mount bolts (May 2026: MPU-6050 promoted from optional
+    # to standard kit).  4 x M3 x 8 SHCS thread DOWN through the IMU
+    # PCB into 4 x M3 heat-set inserts captive in the printed pad's
+    # 4 corner bosses.  The pad itself is glued to chassis_top with
+    # double-sided foam tape -- no fasteners between the pad and
+    # chassis_top.
+    out.extend(_emit_imu_pad_fasteners())
+
     return out
 
 
@@ -1605,6 +1744,10 @@ def _usage_bucket(fi: FastenerInstance) -> str:
         if "heat-set insert" in role:
             return "battery_holder heat-set inserts"
         return "battery_holder foot bolts (M3x10 SHCS into heat-set insert)"
+    if "imu_pad" in role:
+        if "heat-set insert" in role:
+            return "imu_pad heat-set inserts (MPU-6050 mount)"
+        return "imu_pad mount bolts (MPU-6050 M3x8 SHCS into insert)"
     if "heat-set insert" in role:
         # The 72 brass heat-set inserts (McMaster 94459A130) pressed
         # into the cradle bosses BEFORE the cradle servo is mounted.

@@ -1643,6 +1643,120 @@ SWITCH_HOLSTER_BOLT_CHASSIS_XY = tuple(
     for ox, oy in SWITCH_HOLSTER_BOLT_OFFSETS
 )
 
+# ---- IMU pad (MPU-6050 vibration-isolated mount) ------------------------
+#
+# May 2026: the MPU-6050 / GY-521 was the last "optional" item in the
+# SHOPPING_LIST without a fixed mounting location.  Promoted to standard
+# kit now that the Pi 4 / Pi 5 is on the robot (ROS 2 / Python brain
+# expects orientation feedback for closed-loop body-attitude control on
+# uneven terrain).
+#
+# Vibration isolation: the MPU-6050's HF gyro noise floor is very
+# sensitive to high-frequency mechanical vibration, and brushed /
+# digital hobby servos generate plenty of it.  The IMU must be
+# MECHANICALLY DECOUPLED from the chassis -- bolting the breakout
+# rigidly to chassis_top would feed every PWM-update jitter and tooth-
+# slop pulse straight into the gyro.
+#
+# Damping strategy: a small printed pad (``imu_pad.stl``) carries the
+# IMU on 4 x M3 brass heat-set inserts, and the pad ITSELF is glued
+# to chassis_top via a 3 mm-thick strip of 3M VHB / generic double-
+# sided mounting foam tape.  The foam tape doubles as the mount AND
+# the vibration damper.  No fasteners between the pad and chassis_top.
+#
+# (Alternative considered: a 4-corner printed standoff with TPU 95A
+# sleeves.  Mechanically nicer but complicates the build -- needs a
+# second filament + a separate slicer profile for the TPU sleeves --
+# and the foam-tape variant gets you 80 % of the damping with zero
+# extra print effort.  See PROTOTYPE.md step 12 for the assembly
+# rationale.)
+#
+# Standard GY-521 breakout PCB dimensions:
+#
+#     PCB:       21.2 x 16.4 x 1.6 mm
+#     Holes:     4 holes in a 15.0 x 11.0 mm pattern, Phi 3.0 mm
+#                clearance (most boards; a minority use Phi 2.5 mm --
+#                we treat as Phi 3.0 for compatibility).
+#     Header:    1 x 8-pin male header along one long edge (VCC, GND,
+#                SCL, SDA, XDA, XCL, AD0, INT).
+#
+# Pad geometry (printed):
+#
+#     Floor:       IMU_PAD_W x IMU_PAD_D x IMU_PAD_T mm, flat smooth
+#                  bottom for foam-tape adhesion.  Slightly LARGER
+#                  than the IMU PCB so the foam-tape footprint
+#                  extends past the board edges.
+#     Bosses:      4 x Phi IMU_PAD_BOSS_OD mm cylinders at the IMU's
+#                  15 x 11 mm hole pattern, rising IMU_PAD_BOSS_H mm
+#                  above the floor's top face.  Each boss carries
+#                  an M3 brass heat-set insert (McMaster 94459A130)
+#                  in a Phi INSERT_M3_PILOT_OD x INSERT_M3_PILOT_DEPTH
+#                  pocket opening DOWNWARD from the boss top.  The
+#                  IMU PCB rides on the 4 boss tops; M3 x 8 SHCS
+#                  thread DOWN through the PCB into the inserts.
+#
+# IMU_PAD_BOSS_H is deliberately TALLER than the SWITCH_HOLSTER_BOSS_H
+# pattern (5 mm vs 3 mm) so a full 6 mm-deep insert pocket fits
+# ENTIRELY above the pad's bottom face.  With the standard 2 mm pad
+# floor + 5 mm bosses = 7 mm total, the 6.4 mm pocket overdrill ends
+# at z = 0.6 mm above the pad bottom, leaving the bottom face FLAT
+# for foam-tape adhesion.  A nominal "3 mm boss" would leave the
+# pocket overhanging the foam-tape face by 1.4 mm -- which is why
+# the convention diverges from the cradle / switch_holster boss
+# heights here.
+IMU_PCB_W = 21.2   # mm -- IMU breakout PCB long axis (X in pad frame)
+IMU_PCB_D = 16.4   # mm -- IMU breakout PCB short axis (Y in pad frame)
+IMU_PCB_T =  1.6   # mm -- IMU breakout PCB thickness (visual mesh only)
+IMU_HOLE_PCD_X = 15.0   # mm -- IMU mounting-hole pattern X spacing
+IMU_HOLE_PCD_Y = 11.0   # mm -- IMU mounting-hole pattern Y spacing
+
+IMU_PAD_W       = 25.0   # mm -- pad X extent (slightly > IMU_PCB_W)
+IMU_PAD_D       = 20.0   # mm -- pad Y extent (slightly > IMU_PCB_D)
+IMU_PAD_T       =  2.0   # mm -- pad floor thickness (thin so foam tape
+                          #      dominates the bond compliance)
+IMU_PAD_BOSS_OD =  8.0   # mm -- boss OD around each insert pocket
+IMU_PAD_BOSS_H  =  5.0   # mm -- boss height above the pad's top face
+                          #      (= IMU PCB-to-pad standoff).  See the
+                          #      block comment above for why we use
+                          #      5 mm here instead of the nominal 3 mm
+                          #      that the switch_holster / cradle
+                          #      bosses use.
+IMU_BOLT_CL     =  3.0   # mm -- Phi 3.0 mm clearance hole through each
+                          #      boss for the IMU's M3 SHCS (M3 = Phi
+                          #      3.0 mm body, +0 mm slop).  The IMU
+                          #      PCB itself has the matching Phi 3.0
+                          #      clearance hole.
+
+# IMU pad chassis-frame placement.  Sit the pad on top of chassis_top
+# at chassis (0, 0) so the gyro sits at the chassis CENTRE OF MASS --
+# putting it at the chassis centre means the rotation rates are NOT
+# contaminated by linear acceleration from the body swing.
+# IMU_PAD_TAPE_T mm of double-sided mounting foam tape sits between
+# the pad bottom and chassis_top top.  The pad's MESH ORIGIN is at
+# the pad floor's BOTTOM face (z = 0 in pad-local), so
+# build_prototype_assembly / inspect_build / verifier translate the
+# pad to world z = chassis_top_top + IMU_PAD_TAPE_T.
+IMU_PAD_CENTRE_X = 0.0    # mm -- chassis centre, no horizontal offset
+IMU_PAD_CENTRE_Y = 0.0    # mm
+IMU_PAD_TAPE_T   = 3.0    # mm -- nominal foam-tape thickness (3M VHB
+                          #      / generic double-sided mounting foam).
+
+# IMU hole positions in pad-local frame (mesh origin = pad floor centre).
+IMU_PAD_HOLE_OFFSETS = (
+    (-IMU_HOLE_PCD_X / 2.0, -IMU_HOLE_PCD_Y / 2.0),
+    (-IMU_HOLE_PCD_X / 2.0, +IMU_HOLE_PCD_Y / 2.0),
+    (+IMU_HOLE_PCD_X / 2.0, -IMU_HOLE_PCD_Y / 2.0),
+    (+IMU_HOLE_PCD_X / 2.0, +IMU_HOLE_PCD_Y / 2.0),
+)
+
+# CHASSIS-frame XY of the 4 IMU bolt sites.  ``fastener_registry``
+# enumerates the 4 bolts + 4 inserts at these positions.
+IMU_PAD_BOLT_CHASSIS_XY = tuple(
+    (IMU_PAD_CENTRE_X + ox, IMU_PAD_CENTRE_Y + oy)
+    for ox, oy in IMU_PAD_HOLE_OFFSETS
+)
+
+
 # ---- Resolutions ---------------------------------------------------------
 CYL_SECTIONS = 48     # cylinder facet count -- smooth STL, fast booleans
 
@@ -2938,6 +3052,116 @@ def make_switch_holster() -> trimesh.Trimesh:
         clearance_holes.append(hole)
 
     return _diff(block, cavity, toggle, *pigtails, *clearance_holes)
+
+
+def make_imu_pad() -> trimesh.Trimesh:
+    """Printed vibration-isolated mounting pad for the MPU-6050 / GY-521
+    breakout (May 2026 "essentials" pass: IMU promoted from optional to
+    standard kit).
+
+    The pad is a thin IMU_PAD_W x IMU_PAD_D x IMU_PAD_T plate with 4
+    short Phi IMU_PAD_BOSS_OD bosses at the IMU's 15.0 x 11.0 mm hole
+    pattern.  Each boss carries an M3 brass heat-set insert (McMaster
+    94459A130) in a Phi INSERT_M3_PILOT_OD x INSERT_M3_PILOT_DEPTH
+    pocket opening DOWNWARD from the boss top.  The IMU PCB sits on
+    the 4 boss tops; 4 x M3 x 8 SHCS thread DOWN through the PCB
+    into the inserts.
+
+    There are NO fasteners between the pad and chassis_top.  The pad
+    is glued to chassis_top with a 3 mm-thick strip of 3M VHB /
+    generic double-sided mounting foam tape; the foam tape doubles
+    as the mount AND the vibration damper that the MPU-6050's HF gyro
+    noise floor requires in a servo-driven robot.  The pad's BOTTOM
+    face is therefore deliberately FLAT and free of features so the
+    foam tape adheres cleanly across its full IMU_PAD_W x IMU_PAD_D
+    footprint.
+
+    Local frame (mesh origin = pad floor centre on its BOTTOM face):
+        +X = IMU long axis (PCB long edge, = the 8-pin header edge
+              after the orientation in build_prototype_assembly)
+        +Y = IMU short axis
+        +Z = UP (pad floor at z in [0, IMU_PAD_T]; boss tops at
+              z = IMU_PAD_T + IMU_PAD_BOSS_H)
+
+    CHASSIS-frame placement (see IMU_PAD_CENTRE_X / Y / IMU_PAD_TAPE_T
+    constants): ``(0, 0, chassis_top_top_z + IMU_PAD_TAPE_T)`` -- the
+    chassis-frame centre of mass, so rotation rates from the gyro
+    are not contaminated by linear-acceleration cross-coupling from
+    the body swing.
+    """
+    # Pad floor.
+    floor = _box((IMU_PAD_W, IMU_PAD_D, IMU_PAD_T),
+                 center=(0.0, 0.0, IMU_PAD_T / 2.0))
+
+    # 4 bosses + insert pockets at the IMU hole pattern.  Each boss is
+    # a Phi IMU_PAD_BOSS_OD cylinder rising IMU_PAD_BOSS_H above the
+    # pad's top face (= z = IMU_PAD_T).  The 6 mm insert pocket digs
+    # DOWN from the boss top into the boss + pad floor, leaving 0.6
+    # mm of plastic above the pad bottom face so the foam-tape side
+    # of the pad stays FLAT.
+    bosses = []
+    pockets = []
+    clearance_holes = []
+    pocket_overdrill_h = INSERT_M3_PILOT_DEPTH + 0.4   # 0.4 mm slop
+                                                       # at the OPEN
+                                                       # end of the
+                                                       # pocket so the
+                                                       # CSG diff
+                                                       # clears the
+                                                       # boss top rim
+    boss_top_z = IMU_PAD_T + IMU_PAD_BOSS_H            # = 7 mm
+    pocket_centre_z = boss_top_z - INSERT_M3_PILOT_DEPTH / 2.0 + 0.2
+    # ^ pocket centre = (boss_top - depth/2) + small overdrill shift
+    #   so the pocket extends from
+    #   z = boss_top_z + 0.2 (just above boss top, for clean diff)
+    #   down to
+    #   z = boss_top_z + 0.2 - pocket_overdrill_h
+    #     = boss_top_z + 0.2 - (INSERT_M3_PILOT_DEPTH + 0.4)
+    #     = boss_top_z - INSERT_M3_PILOT_DEPTH - 0.2
+    # With boss_top_z = 7 and INSERT_M3_PILOT_DEPTH = 6 the pocket
+    # bottom is at z = +0.8 mm -- 0.8 mm of pad floor remains below
+    # the pocket so the bottom face stays flat for foam-tape adhesion.
+    for (bx, by) in IMU_PAD_HOLE_OFFSETS:
+        # Boss extends from z = 0 (= pad floor BOTTOM face, so it
+        # stays UNIONED with the floor without dropping below it --
+        # keeps the pad's BOTTOM face flat for foam-tape adhesion)
+        # up to z = boss_top_z + 0.2 (0.2 mm above boss top for
+        # clean diff with the insert pocket).
+        boss_h_total = boss_top_z + 0.2
+        boss = _cyl(IMU_PAD_BOSS_OD / 2.0, boss_h_total)
+        boss.apply_translation([bx, by, boss_h_total / 2.0])
+        bosses.append(boss)
+
+        pocket = _cyl(INSERT_M3_PILOT_OD / 2.0, pocket_overdrill_h)
+        pocket.apply_translation([bx, by, pocket_centre_z])
+        pockets.append(pocket)
+
+    # NOTE: the M3 clearance holes for the IMU's bolts are in the
+    # IMU PCB itself, not in the pad.  The pad's bosses are SOLID
+    # (apart from the insert pocket) -- the bolt threads into the
+    # brass insert, not through the boss.  So no additional Phi 3.0
+    # clearance cuts are made through the boss material.
+    del clearance_holes  # placeholder; left intentionally unused
+
+    body = _union(floor, *bosses)
+    return _diff(body, *pockets)
+
+
+def make_mpu6050_visual() -> trimesh.Trimesh:
+    """Visual mesh for the MPU-6050 / GY-521 IMU breakout PCB.
+
+    NOT FOR PRINTING -- this is the commodity blue/red breakout board
+    that ships from Amazon; the visual is a simple IMU_PCB_W x
+    IMU_PCB_D x IMU_PCB_T flat slab so the build inspector / render
+    can show the IMU on top of the printed ``imu_pad``.  Same role
+    as ``make_servo_body`` / ``make_servo_horn`` (visual-only meshes
+    written to stl_prototype/ alongside the real printables).
+
+    Mesh frame: origin at the PCB centre, +X along the long axis
+    (along the 8-pin header edge), +Y along the short axis, +Z UP.
+    """
+    return _box((IMU_PCB_W, IMU_PCB_D, IMU_PCB_T),
+                center=(0.0, 0.0, 0.0))
 
 
 # ---------------------------------------------------------------------------
@@ -4547,6 +4771,7 @@ def main() -> None:
     parts.append(("electronics_tray.stl", make_electronics_tray()))
     parts.append(("bec_cradle.stl",       make_bec_cradle()))
     parts.append(("switch_holster.stl",   make_switch_holster()))
+    parts.append(("imu_pad.stl",          make_imu_pad()))
 
     print("Leg parts (one of each -- print 6 sets):")
     parts.append(("coxa_bracket.stl",     make_coxa_bracket()))
@@ -4568,6 +4793,7 @@ def main() -> None:
     print("Servo visuals (not for printing -- MuJoCo / fit-check meshes):")
     parts.append(("servo_body.stl", make_servo_body()))
     parts.append(("servo_horn.stl", make_servo_horn()))
+    parts.append(("mpu6050.stl",    make_mpu6050_visual()))
 
     for name, mesh in parts:
         _save(mesh, name)
