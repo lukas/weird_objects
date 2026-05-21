@@ -160,19 +160,56 @@ the full pipeline and [`CAD_AGENT_INSTRUCTIONS.md`](CAD_AGENT_INSTRUCTIONS.md)
 for the rules LLM coding agents should follow when editing CAD.
 
 The legacy verifier `_verify_prototype.py` is parallelised via a
-process pool and exposes four extra CLI flags for faster inner-loop
+process pool and exposes several CLI flags for faster inner-loop
 iteration:
 
 | Flag | What it does |
 |---|---|
+| `--fast` | Run only the 5 ESSENTIAL checks (watertightness, self-collision standing, fastener engagement, mating-face contact, cable clearance). ~5-15 s vs ~95-270 s for the full suite. Use between every edit. |
+| `--all` | Explicit full-suite mode (same as no mode flag). |
+| `--changed` | SMART SELECT: only run checks whose static input deps intersect what `git diff origin/main` changed. Rebuilds STLs in-memory to detect which printed parts actually changed bytes; consults the `CHECK_INPUTS` map. Compose with `--fast` to intersect with the essential set. Pass `--base-ref REF` to diff against a different ref. |
+| `--no-cache` | Bypass the persistent per-check cache (`hexapod_walker/prototype/.verify_cache.sqlite`). Lookups are skipped; writes still happen. Use when you've edited a verifier helper that the cache key intentionally doesn't track. |
 | `--serial` | Skip the process pool entirely; run every check in the main process in declaration order. Use this when a worker traceback is mangled through pickle and you need a clean stack. |
 | `--workers N` | Override the default worker count (default `min(8, os.cpu_count())`). |
 | `--profile PATH` | Dump a cProfile snapshot of the parent process to `PATH` when the run finishes (combine with `--serial` to profile the entire suite in one process). |
 | `--only CHECK_NAME` | Run only the named check(s). Repeatable: `--only "Servo clearance" --only "Workspace self-collision"`. Names match the declaration list (see top of `_verify_prototype.py` `CHECKS`). |
 
-All four flags compose with the existing `--with-arm` flag. Parallel
-output is printed in declaration order so a `diff` against the serial
-baseline is byte-for-byte clean for every `[PASS]/[FAIL]` line.
+Make targets wrap the common flag combinations:
+
+| Target | Underlying command | Typical use |
+|---|---|---|
+| `make verify-prototype` | `_verify_prototype.py` (full suite, cache-aware) | Pre-commit / pre-print gate. |
+| `make verify-fast` | `_verify_prototype.py --fast` | Inner-loop between every edit. |
+| `make verify-changed` | `_verify_prototype.py --changed` | After a small CAD edit; selects only checks affected by the diff. |
+
+All flags compose with the existing `--with-arm` flag. Parallel output
+is printed in declaration order so a `diff` against the serial baseline
+is byte-for-byte clean for every `[PASS]/[FAIL]` line.
+
+The persistent per-check cache stores `(check_name, input_hash) ->
+(result, runtime_s, message, timestamp)` rows in
+`.verify_cache.sqlite` (gitignored). The hash mixes the check
+function's own source, every STL file in `stl_prototype/`, and the
+`hexapod_prototype` + `fastener_registry` module sources. A second
+run with no inputs changed hits the cache for every check and lands
+in ~1-2 s end-to-end. Rows older than 30 days are pruned on every
+invocation. Bust with `--no-cache` or by deleting the sqlite file.
+
+`--changed` walks `git diff origin/main` and rebuilds every STL
+in-memory to detect which printed parts ACTUALLY changed bytes (so a
+cosmetic comment-only edit to `hexapod_prototype.py` selects zero
+checks). It consults two maps near the top of `_verify_prototype.py`:
+
+* `CHECK_INPUTS` -- per-check set of printed-part STL names the check
+  consults. Future checks MUST add an entry; missing entries default
+  to `ALL_PRINTED_PARTS` (safe but defeats selection).
+* `CHECK_SOURCE_DEPS` -- per-check set of registry-source tags
+  (`fastener_registry`, `cable_keepouts`, ...) that should also
+  trigger the check.
+
+If `_verify_prototype.py` itself is in the diff, `--changed` falls
+back to "select all"; the cache then dedups unchanged check sources
+at exec time.
 
 ### `check_screwdriver_access` envelopes
 

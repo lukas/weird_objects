@@ -5268,6 +5268,115 @@ ESSENTIAL_CHECK_NAMES = (
 
 
 # ---------------------------------------------------------------------------
+# Static dependency map (drives --changed mode)
+# ---------------------------------------------------------------------------
+#
+# Each check reads a known subset of the printed-STL inventory plus
+# (optionally) the registry-level source modules.  The map below
+# encodes which printed parts each check would consult; the static
+# scope is hand-curated by inspecting every ``_load_mesh(name)`` call
+# inside the check (plus its private helpers like
+# ``_build_standing_leg`` / ``_build_world_leg0_printed_parts`` /
+# ``_place_servo_bodies``).  ``--changed`` walks git diff vs
+# ``origin/main``, rebuilds STLs in-memory, and selects only the
+# checks whose CHECK_INPUTS intersects the changed-STL set.
+#
+# Future checks MUST add an entry here, otherwise the
+# ``ALL_PRINTED_PARTS`` default applies and the check ALWAYS runs --
+# safe but defeats the point of selection.
+
+# Master list of every printed-STL name the verifier knows about.
+# Keep this in sync with ``_MESH_BUILDERS`` -- the assertion at the
+# bottom of this module enforces that.
+ALL_PRINTED_PARTS = frozenset({
+    "chassis_top", "chassis_bottom",
+    "battery_holder", "electronics_tray",
+    "bec_cradle", "switch_holster", "imu_pad",
+    "coxa_bracket", "coxa_link",
+    "femur_link", "tibia_link", "foot_pad",
+    # Visual-only meshes that some checks place to test interfaces:
+    "servo_body", "servo_horn",
+})
+
+# Subsets used by the per-check map below.
+_LEG_PARTS = frozenset({
+    "coxa_bracket", "coxa_link", "femur_link", "tibia_link",
+})
+_CRADLE_PARTS = frozenset({"coxa_bracket", "coxa_link", "femur_link"})
+_PAD_PARTS = frozenset({"coxa_link", "femur_link", "tibia_link"})
+_CHASSIS_PARTS = frozenset({
+    "chassis_top", "chassis_bottom",
+    "battery_holder", "electronics_tray",
+})
+_PRINTED_WATERTIGHT_SET = frozenset({
+    "chassis_top", "chassis_bottom",
+    "battery_holder", "electronics_tray",
+    "coxa_bracket", "coxa_link",
+    "femur_link", "tibia_link", "foot_pad",
+})
+
+# Per-check dependency map.  Keys MUST match the display-name strings
+# used in CHECKS / WORKSPACE_CHECK_NAME above.
+CHECK_INPUTS: dict[str, frozenset[str]] = {
+    "Mesh watertightness":       _PRINTED_WATERTIGHT_SET,
+    "Cradle openness":           _CRADLE_PARTS,
+    "Bolt-hole engagement":      _CRADLE_PARTS,
+    "Wire-exit slot":            _CRADLE_PARTS,
+    "Self-collision":            _LEG_PARTS,
+    "Servo clearance":           _LEG_PARTS | {"servo_body"},
+    "Horn-stack clearance":      frozenset({"femur_link", "tibia_link"}),
+    "Horn-sweep clearance":      frozenset({"coxa_bracket", "servo_horn"}),
+    "Horn pattern in pads":      _PAD_PARTS,
+    "Cradle insert pockets":     _CRADLE_PARTS,
+    "Servo insertion path":      _CRADLE_PARTS,
+    "Flimsy joints":             _PRINTED_WATERTIGHT_SET,
+    "Thin sheets":               _PAD_PARTS,
+    # check_screwdriver_access + check_fastener_engagement +
+    # check_cable_clearance all build the full world assembly via
+    # ``_build_world_leg0_printed_parts`` + (engagement & mating
+    # only) ``_build_world_assembly_parts``, so every printed part
+    # in the build can move them.  servo_horn / servo_body are
+    # consulted by the fastener / mating tests.
+    "Screwdriver access":        (
+        _LEG_PARTS | _CHASSIS_PARTS
+        | frozenset({"bec_cradle", "switch_holster",
+                     "imu_pad", "foot_pad"})
+    ),
+    "Fastener engagement":       (
+        _LEG_PARTS | _CHASSIS_PARTS
+        | frozenset({"bec_cradle", "switch_holster",
+                     "imu_pad", "foot_pad",
+                     "servo_horn", "servo_body"})
+    ),
+    "Mating-face contact":       (
+        _LEG_PARTS | _CHASSIS_PARTS
+        | frozenset({"bec_cradle", "switch_holster",
+                     "imu_pad", "foot_pad",
+                     "servo_horn", "servo_body"})
+    ),
+    "Cable clearance":           (
+        _LEG_PARTS | _CHASSIS_PARTS
+        | frozenset({"bec_cradle", "switch_holster",
+                     "imu_pad", "foot_pad"})
+    ),
+    # Workspace sweep places the legs + chassis + neighbour bracket.
+    "Workspace self-collision":  (_LEG_PARTS | _CHASSIS_PARTS),
+}
+
+# Source-file tags besides STL bytes that gate check selection.
+# Maps a check name to the set of registry-level source files it
+# transitively depends on.  When ``--changed`` sees one of these
+# files modified, the check is selected even if no STL bytes
+# changed.
+CHECK_SOURCE_DEPS: dict[str, frozenset[str]] = {
+    "Fastener engagement":  frozenset({"fastener_registry"}),
+    "Screwdriver access":   frozenset({"fastener_registry"}),
+    "Cable clearance":      frozenset({"fastener_registry",
+                                          "cable_keepouts"}),
+}
+
+
+# ---------------------------------------------------------------------------
 # Persistent per-check cache (sqlite at .verify_cache.sqlite)
 # ---------------------------------------------------------------------------
 #
@@ -5472,6 +5581,200 @@ def _cache_format_ago(timestamp_unix: float) -> str:
     if delta < 86400.0:
         return f"{int(delta / 3600.0)} h ago"
     return f"{int(delta / 86400.0)} d ago"
+
+
+# ---------------------------------------------------------------------------
+# Smart selection from ``git diff origin/main`` (drives --changed)
+# ---------------------------------------------------------------------------
+
+# Source files that may influence STL output (we rebuild + byte-diff
+# to find which printed parts actually changed) versus those that
+# only affect a few checks (we propagate via CHECK_SOURCE_DEPS).
+_STL_PRODUCING_SOURCES = frozenset({
+    "hexapod_walker/prototype/hexapod_prototype.py",
+})
+_REGISTRY_SOURCES = {
+    "hexapod_walker/prototype/fastener_registry.py":   "fastener_registry",
+    "hexapod_walker/prototype/cable_keepouts.py":      "cable_keepouts",
+    "hexapod_walker/prototype/build_prototype_assembly.py":
+        "build_prototype_assembly",
+}
+_VERIFIER_SOURCE = "hexapod_walker/prototype/_verify_prototype.py"
+
+
+def _git_changed_files(base_ref: str = "origin/main") -> list[str]:
+    """Return the list of files modified between ``base_ref`` and the
+    working tree (staged + unstaged + untracked changes).  Falls back
+    to ``HEAD`` if ``base_ref`` is unknown to git.
+    """
+    import subprocess  # noqa: WPS433
+
+    repo_root = os.path.dirname(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))))
+
+    def _run(args, cwd=repo_root):
+        proc = subprocess.run(
+            args, cwd=cwd, check=False,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        return proc.returncode, proc.stdout, proc.stderr
+
+    # Verify the ref exists; if not, fall back to HEAD.
+    rc, _, _ = _run(["git", "rev-parse", "--verify", base_ref])
+    if rc != 0:
+        base_ref = "HEAD"
+
+    changed: set[str] = set()
+    # Tracked file changes (committed + staged + unstaged) since base_ref.
+    rc, out, _ = _run(["git", "diff", "--name-only", base_ref])
+    if rc == 0:
+        for line in out.splitlines():
+            if line.strip():
+                changed.add(line.strip())
+    # Untracked files (e.g. brand-new STLs not committed yet).
+    rc, out, _ = _run(["git", "ls-files", "--others", "--exclude-standard"])
+    if rc == 0:
+        for line in out.splitlines():
+            if line.strip():
+                changed.add(line.strip())
+    return sorted(changed)
+
+
+def _changed_stl_set(changed_files: list[str]) -> set[str]:
+    """Compute the set of changed STL-part NAMES (just the bare
+    'coxa_bracket' name -- not the path / filename), from the list
+    of repo-relative changed paths.  Detects three sources:
+
+      1. Direct ``stl_prototype/<name>.stl`` paths in the diff.
+      2. Any of ``_STL_PRODUCING_SOURCES`` modified -> we rebuild every
+         STL in-memory (via ``_MESH_BUILDERS``) and compare its
+         serialised bytes to whatever is on disk under
+         ``stl_prototype/``; mismatches go into the changed set.
+      3. Files that are new but not yet in git (untracked STLs).
+
+    ``stl_prototype/`` files use the ``"<name>.stl"`` convention so
+    the part name is the basename without the extension.
+    """
+    changed: set[str] = set()
+
+    # (1) Direct STL diffs.
+    for path in changed_files:
+        if path.startswith("hexapod_walker/prototype/stl_prototype/") \
+                and path.endswith(".stl"):
+            name = os.path.basename(path)[:-len(".stl")]
+            if name in ALL_PRINTED_PARTS:
+                changed.add(name)
+
+    # (2) Rebuild + byte-compare when an STL-producing source is in
+    # the diff.  Skip the rebuild if neither file is touched -- saves
+    # ~3-4 s of trimesh CSG.
+    stl_sources_changed = any(p in _STL_PRODUCING_SOURCES
+                                 for p in changed_files)
+    if stl_sources_changed:
+        for name in sorted(ALL_PRINTED_PARTS):
+            if name in changed:
+                continue   # already in the set
+            disk_path = os.path.join(STL_DIR, f"{name}.stl")
+            if not os.path.isfile(disk_path):
+                # No disk reference; treat as changed so a fresh
+                # rebuild gets verified.
+                changed.add(name)
+                continue
+            try:
+                mesh = _load_mesh(name, copy=False)
+                fresh_bytes = mesh.export(file_type="stl")
+                if isinstance(fresh_bytes, str):
+                    fresh_bytes = fresh_bytes.encode("ascii")
+                with open(disk_path, "rb") as f:
+                    disk_bytes = f.read()
+                if fresh_bytes != disk_bytes:
+                    changed.add(name)
+            except Exception:
+                # If the rebuild fails, assume changed so we run the
+                # affected checks rather than silently skipping them.
+                changed.add(name)
+
+    return changed
+
+
+def _changed_source_tags(changed_files: list[str]) -> set[str]:
+    """Map changed source files (other than STL producers) to the
+    tag names used in CHECK_SOURCE_DEPS."""
+    tags: set[str] = set()
+    for path in changed_files:
+        tag = _REGISTRY_SOURCES.get(path)
+        if tag is not None:
+            tags.add(tag)
+    return tags
+
+
+def _select_changed_checks(check_subset, *,
+                              run_workspace_in: bool,
+                              base_ref: str = "origin/main"
+                              ) -> tuple:
+    """Filter ``check_subset`` (+ optionally the workspace check)
+    down to the entries whose static input deps intersect the changed
+    set vs ``base_ref``.  Returns ``(filtered_subset,
+    filtered_run_workspace, summary_line)``.
+
+    The summary_line is a single human-readable string; the caller
+    prints it after the standard banner so users see what got
+    selected and why.
+    """
+    changed_files = _git_changed_files(base_ref=base_ref)
+    changed_stls = _changed_stl_set(changed_files)
+    changed_tags = _changed_source_tags(changed_files)
+    verifier_changed = _VERIFIER_SOURCE in changed_files
+
+    def _is_changed_check(name: str) -> bool:
+        inputs = CHECK_INPUTS.get(name, ALL_PRINTED_PARTS)
+        if inputs & changed_stls:
+            return True
+        if CHECK_SOURCE_DEPS.get(name, frozenset()) & changed_tags:
+            return True
+        # If the verifier source itself changed, fall back to the
+        # cache to dedup: include the check so the cache hash decides
+        # whether the work needs to actually run.  See the big
+        # comment block above CACHE_DB_PATH for why this is safe.
+        if verifier_changed:
+            return True
+        return False
+
+    filtered_subset = [(n, f) for (n, f) in check_subset
+                          if _is_changed_check(n)]
+    filtered_run_workspace = (run_workspace_in
+                                  and _is_changed_check(WORKSPACE_CHECK_NAME))
+
+    total_in = len(check_subset) + int(run_workspace_in)
+    total_sel = len(filtered_subset) + int(filtered_run_workspace)
+    selected_names = (
+        [n for n, _ in filtered_subset]
+        + ([WORKSPACE_CHECK_NAME] if filtered_run_workspace else [])
+    )
+    if changed_stls:
+        change_summary = (
+            f"STLs={sorted(changed_stls)}"
+            + (f", sources={sorted(changed_tags)}"
+                if changed_tags else "")
+            + (f", verifier={_VERIFIER_SOURCE!r}"
+                if verifier_changed else "")
+        )
+    elif changed_tags or verifier_changed:
+        change_summary = (
+            f"sources={sorted(changed_tags)}"
+            + (f", verifier={_VERIFIER_SOURCE!r}"
+                if verifier_changed else "")
+        )
+    else:
+        change_summary = "no STL / source / verifier changes vs base"
+
+    summary = (
+        f"  [SMART SELECT] {total_sel} of {total_in} checks selected "
+        f"based on git diff ({base_ref}): {change_summary}\n"
+        f"  [SMART SELECT] running: "
+        + (", ".join(selected_names) if selected_names else "(none)")
+    )
+    return filtered_subset, filtered_run_workspace, summary
 
 
 def _worker_initializer(mesh_cache, inside_mode):
@@ -5725,6 +6028,27 @@ def main(argv=None):
               "doesn't track) or upgraded trimesh / numpy."),
     )
     parser.add_argument(
+        "--changed",
+        action="store_true",
+        help=("SMART SELECT: run only the checks whose static input "
+              "dependency set intersects what changed since the base "
+              "branch.  Walks ``git diff origin/main``, rebuilds "
+              "STLs in-memory to detect which printed parts actually "
+              "changed bytes, and consults the CHECK_INPUTS / "
+              "CHECK_SOURCE_DEPS maps in this module.  Combine with "
+              "``--fast`` to intersect with the essential set "
+              "(``--fast`` AND ``--changed`` runs essential checks "
+              "that are also affected by the diff)."),
+    )
+    parser.add_argument(
+        "--base-ref",
+        default="origin/main",
+        metavar="REF",
+        help=("Git ref to diff against for ``--changed``.  Default "
+              "``origin/main``.  Pass ``HEAD~1`` to inspect just the "
+              "last commit, or any other ref the local git knows."),
+    )
+    parser.add_argument(
         "--inside-mode",
         choices=INSIDE_MODES,
         default=INSIDE_MODE_RAYS,
@@ -5782,6 +6106,18 @@ def main(argv=None):
         print(f"  [FAST MODE] running {len(check_subset)} "
               f"essential check(s): "
               f"{', '.join(n for n, _ in check_subset)}")
+
+    if args.changed:
+        # Build the mesh cache lazily INSIDE _select_changed_checks --
+        # rebuilding STLs in memory requires the cache to be primed
+        # for the parts we test, and we only pay the cost when an
+        # STL-producing source actually changed.
+        check_subset, run_workspace, smart_summary = _select_changed_checks(
+            check_subset,
+            run_workspace_in=run_workspace,
+            base_ref=args.base_ref,
+        )
+        print(smart_summary)
 
     t_start = time.monotonic()
 
