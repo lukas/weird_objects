@@ -245,6 +245,112 @@ def _build_assembly_instances() -> list[Instance]:
         ),
     ))
 
+    # ----------------------------------------------------------------
+    # Non-printed electronics visuals (May 2026 follow-up: BuildViz
+    # pass).  Same placement convention as the MPU-6050 above: each
+    # visual STL has its origin at the body's geometric centre (or
+    # PCB midplane for the boards), and the inspector translates by
+    # the chassis-frame coordinates of that centre.  See the
+    # ``make_*_visual()`` docstrings in hexapod_prototype.py for the
+    # per-mesh axis conventions.
+    #
+    # The boards sit on the electronics_tray's 5 mm-tall printed
+    # standoff bosses; PCB midplane = tray_top + ELEC_STANDOFF_H +
+    # COMMODITY_PCB_T/2.  Connector lumps stick UP above the PCB top
+    # face -- the verifier's cable-clearance check already covers
+    # those volumes via the keepouts in cable_keepouts.py, so the
+    # visuals participate in NO design verification.
+    tray_top_z_local = plate_t / 2.0 + 3.0 + HP.ELEC_TRAY_T
+    board_pcb_mid_z = (tray_top_z_local
+                       + HP.ELEC_STANDOFF_H
+                       + HP.COMMODITY_PCB_T / 2.0)
+
+    instances.append(Instance(
+        "arduino_mega", "arduino_mega.stl", None, None,
+        _trans(HP.ELEC_TRAY_CENTRE_X + HP.MEGA_CENTRE[0],
+               HP.ELEC_TRAY_CENTRE_Y + HP.MEGA_CENTRE[1],
+               board_pcb_mid_z),
+    ))
+    instances.append(Instance(
+        "raspberry_pi", "raspberry_pi.stl", None, None,
+        _trans(HP.ELEC_TRAY_CENTRE_X + HP.PI_CENTRE[0],
+               HP.ELEC_TRAY_CENTRE_Y + HP.PI_CENTRE[1],
+               board_pcb_mid_z),
+    ))
+    instances.append(Instance(
+        "pca9685_primary", "pca9685.stl", None, None,
+        _trans(HP.ELEC_TRAY_CENTRE_X + HP.PCA_CENTRE[0],
+               HP.ELEC_TRAY_CENTRE_Y + HP.PCA_CENTRE[1],
+               board_pcb_mid_z),
+    ))
+    instances.append(Instance(
+        "pca9685_secondary", "pca9685.stl", None, None,
+        _trans(HP.ELEC_TRAY_CENTRE_X + HP.PCA2_CENTRE[0],
+               HP.ELEC_TRAY_CENTRE_Y + HP.PCA2_CENTRE[1],
+               board_pcb_mid_z),
+    ))
+
+    # BECs sit INSIDE the bec_cradle.  Cradle local frame: +X =
+    # pigtail axis, +Y = wider (2 BECs span this); BEC centres at
+    # cradle (0, +/- cavity_w/4, BEC_CRADLE_FLOOR + BEC_BODY_H/2).
+    # cavity_w = 2 * BEC_BODY_W - BEC_CRADLE_INTERFERENCE so each
+    # BEC centre is at cavity_w/4 mm off the cradle Y centreline.
+    bec_cavity_w = 2.0 * HP.BEC_BODY_W - HP.BEC_CRADLE_INTERFERENCE
+    bec_body_z = bec_z + HP.BEC_CRADLE_FLOOR + HP.BEC_BODY_H / 2.0
+    instances.append(Instance(
+        "bec_a", "bec_visual.stl", None, None,
+        _trans(bec_x, bec_y + bec_cavity_w / 4.0, bec_body_z),
+    ))
+    instances.append(Instance(
+        "bec_b", "bec_visual.stl", None, None,
+        _trans(bec_x, bec_y - bec_cavity_w / 4.0, bec_body_z),
+    ))
+
+    # Anti-spark switch BODY sits in the switch_holster's socket
+    # cavity.  Holster local frame: +X = toggle face; socket cavity
+    # centred at (socket_centre_x, 0, FLOOR + BODY_H/2) where
+    # socket_centre_x = outer_l/2 - socket_l/2.  In chassis frame:
+    # (HOLSTER_CENTRE_X + socket_centre_x, HOLSTER_CENTRE_Y,
+    #  sw_z + FLOOR + BODY_H/2).
+    socket_centre_x_local = (HP.SWITCH_HOLSTER_OUTER_L / 2.0
+                              - HP.SWITCH_SOCKET_OUTER_L / 2.0)
+    switch_body_z = (sw_z + HP.SWITCH_HOLSTER_FLOOR
+                      + HP.SWITCH_BODY_H / 2.0)
+    switch_body_x = HP.SWITCH_HOLSTER_CENTRE_X + socket_centre_x_local
+    instances.append(Instance(
+        "antispark_switch", "antispark_switch_body.stl", None, None,
+        _trans(switch_body_x, HP.SWITCH_HOLSTER_CENTRE_Y, switch_body_z),
+    ))
+    # Toggle: centred 4 mm past the switch body's +X face (Phi 4 x 8
+    # mm cylinder, half outside the body so it protrudes through the
+    # toggle cutout in the holster's +X end wall).
+    toggle_x = switch_body_x + HP.SWITCH_BODY_L / 2.0 + 8.0 / 2.0
+    instances.append(Instance(
+        "antispark_switch_toggle", "antispark_switch_toggle.stl",
+        None, None,
+        _trans(toggle_x, HP.SWITCH_HOLSTER_CENTRE_Y, switch_body_z),
+    ))
+
+    # LiPo battery BODY sits inside the battery_holder.  The
+    # holder's local origin is at the battery cradle floor (= z = 0
+    # in holder-local frame) so the LiPo's BOTTOM face is at
+    # bh_z0 + BATTERY_WALL = (plate_t/2) + BATTERY_WALL.  Body
+    # centre therefore sits at plate_t/2 + BATTERY_WALL + 25/2.
+    # Mirrors the lipo box already placed in build_prototype_assembly.
+    lipo_z = plate_t / 2.0 + HP.BATTERY_WALL + 25.0 / 2.0
+    instances.append(Instance(
+        "lipo_battery", "lipo_battery_body.stl", None, None,
+        _trans(HP.BATTERY_HOLDER_CENTRE_X, 0.0, lipo_z),
+    ))
+    # XT60 + balance plug at the LiPo's +X short face (toward chassis
+    # centre, so the lead routes to the anti-spark switch / BEC
+    # cluster).  XT60 centre 7 mm past the LiPo's +X face.
+    xt60_x = HP.BATTERY_HOLDER_CENTRE_X + 105.0 / 2.0 + 14.0 / 2.0
+    instances.append(Instance(
+        "lipo_xt60", "lipo_xt60.stl", None, None,
+        _trans(xt60_x, 0.0, lipo_z),
+    ))
+
     yaw_output_z = (
         (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
         + HP.SERVO_OUTPUT_H

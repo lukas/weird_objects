@@ -3165,6 +3165,270 @@ def make_mpu6050_visual() -> trimesh.Trimesh:
 
 
 # ---------------------------------------------------------------------------
+# Non-printed electronics visuals (May 2026 follow-up: BuildViz pass)
+# ---------------------------------------------------------------------------
+#
+# These ``make_*_visual()`` functions follow the same convention as
+# ``make_servo_body`` / ``make_servo_horn`` / ``make_mpu6050_visual``:
+# visual-only meshes written to ``stl_prototype/`` alongside the real
+# printables, but NOT added to the Xometry / Bambu-tray printable-
+# parts pipelines (``prepare_xometry_upload.PART_REGISTRY``) -- there
+# is nothing to print here, the user buys the actual hardware from
+# Amazon / McMaster.
+#
+# Each function returns a mesh whose LOCAL ORIGIN is chosen so the
+# inspector's ``_build_assembly_instances`` can translate by a single
+# ``_trans(world_x, world_y, world_z)`` without having to apply
+# additional local offsets:
+#
+#   * Bare PCB boards (Mega, Pi, PCA9685) -- origin = PCB midplane,
+#     +X = long axis (chassis +X after placement), +Y = short axis,
+#     +Z = up.  Connector lumps stick up above the PCB top face.
+#   * Free-standing bodies (BEC, anti-spark switch, LiPo) -- origin
+#     = body geometric centre.
+#
+# Triangle counts are kept small: each connector / pigtail is a
+# single primitive (box or short cylinder).  These meshes never
+# participate in the design verifier -- they are not in
+# ``_MESH_BUILDERS`` (see _verify_prototype.py) and the inspector
+# marks them as decoration.
+
+# Standard PCB thickness used by the Mega, Pi, and PCA9685 commodity
+# breakouts.  IMU_PCB_T (above) already documents the same value for
+# the MPU-6050; redefining here so the visual makers don't reach into
+# an "imu-only" constant for their generic PCB slab.
+COMMODITY_PCB_T = 1.6   # mm
+
+
+def make_arduino_mega_visual() -> trimesh.Trimesh:
+    """Visual mesh for the Arduino Mega 2560 R3 (NOT FOR PRINTING).
+
+    Models the bare PCB (MEGA_PCB_D x MEGA_PCB_W x COMMODITY_PCB_T)
+    plus the two -X end connectors that the user wires into: a USB-B
+    socket (~ 14 x 13 x 16 mm) and a DC barrel jack (~ Phi 9 x 14 mm,
+    axis along the same edge as the USB-B).  The ATmega chip, headers,
+    and pin sockets are omitted -- they read as part of the PCB slab
+    once colored.
+
+    Mesh frame: origin = PCB midplane.  +X = long axis (chassis +X
+    after placement, matching MEGA_PCB_D being the chassis-X extent
+    in ``_body_battery_parts``).  +Y = short axis.  +Z = up.
+    """
+    pcb = _box((MEGA_PCB_D, MEGA_PCB_W, COMMODITY_PCB_T),
+               center=(0.0, 0.0, 0.0))
+
+    pcb_top_z = COMMODITY_PCB_T / 2.0
+    usb_b_h = 16.0
+    usb_b_centre_x = -MEGA_PCB_D / 2.0 + 14.0 / 2.0 + 0.5
+    usb_b = _box((14.0, 13.0, usb_b_h),
+                 center=(usb_b_centre_x, -10.0,
+                          pcb_top_z + usb_b_h / 2.0))
+
+    barrel_d = 9.0
+    barrel = _cyl_along(barrel_d / 2.0, 14.0, axis="x")
+    barrel.apply_translation([-MEGA_PCB_D / 2.0 - 0.5,
+                               +12.0,
+                               pcb_top_z + barrel_d / 2.0])
+
+    return _union(pcb, usb_b, barrel)
+
+
+def make_raspberry_pi_visual() -> trimesh.Trimesh:
+    """Visual mesh for the Raspberry Pi 4 / Pi 5 SBC (NOT FOR PRINTING).
+
+    Models the bare PCB (PI_PCB_W x PI_PCB_D x COMMODITY_PCB_T) plus
+    the two perpendicular connector edges the user wires into:
+
+      * One LONG edge (chassis +Y after placement):
+          - 2 x micro-HDMI (~ 8 x 4 x 12 mm)
+          - 1 x USB-C  (~ 12 x 7 x 8 mm)
+      * Adjacent SHORT edge (chassis +X after placement):
+          - 2 x USB-A (~ 16 x 8 x 20 mm)
+          - 1 x Ethernet (~ 16 x 14 x 25 mm)
+
+    Mesh frame: origin = PCB midplane.  +X = long axis (PI_PCB_W,
+    chassis +X after placement).  +Y = short axis.  +Z = up.
+    """
+    pcb = _box((PI_PCB_W, PI_PCB_D, COMMODITY_PCB_T),
+               center=(0.0, 0.0, 0.0))
+
+    pcb_top_z = COMMODITY_PCB_T / 2.0
+    half_x = PI_PCB_W / 2.0
+    half_y = PI_PCB_D / 2.0
+
+    usb_c_h = 8.0
+    usb_c = _box((12.0, 7.0, usb_c_h),
+                 center=(-half_x + 15.0,
+                          half_y + 3.5,
+                          pcb_top_z + usb_c_h / 2.0))
+    hdmi_h = 12.0
+    hdmi_a = _box((8.0, 4.0, hdmi_h),
+                   center=(-half_x + 35.0,
+                            half_y + 2.0,
+                            pcb_top_z + hdmi_h / 2.0))
+    hdmi_b = _box((8.0, 4.0, hdmi_h),
+                   center=(-half_x + 50.0,
+                            half_y + 2.0,
+                            pcb_top_z + hdmi_h / 2.0))
+
+    usb_a_h = 20.0
+    usb_a1 = _box((16.0, 8.0, usb_a_h),
+                   center=(half_x + 8.0,
+                            -half_y + 25.0,
+                            pcb_top_z + usb_a_h / 2.0))
+    usb_a2 = _box((16.0, 8.0, usb_a_h),
+                   center=(half_x + 8.0,
+                            -half_y + 8.0,
+                            pcb_top_z + usb_a_h / 2.0))
+    eth_h = 25.0
+    eth = _box((16.0, 14.0, eth_h),
+                center=(half_x + 8.0,
+                         -half_y + 45.0,
+                         pcb_top_z + eth_h / 2.0))
+
+    return _union(pcb, usb_c, hdmi_a, hdmi_b, usb_a1, usb_a2, eth)
+
+
+def make_pca9685_visual() -> trimesh.Trimesh:
+    """Visual mesh for an Adafruit PCA9685 16-channel PWM driver
+    (NOT FOR PRINTING).
+
+    Models the bare PCB (PCA_PCB_D x PCA_PCB_W x COMMODITY_PCB_T --
+    short axis along chassis X, long axis along chassis Y to match
+    ``_body_battery_parts``'s placement rotation) plus the 3-pin
+    servo header row along the +X long edge (modelled as one
+    8 x 60 x 8 mm bar so the user sees where the servo jumpers plug
+    in).  The I2C terminal block and STEMMA QT connector are omitted.
+
+    Mesh frame: origin = PCB midplane.  +X = chassis short axis.
+    +Y = chassis long axis.  +Z = up.
+
+    Same STL is used for both PCA9685(0x40) and PCA9685(0x41) -- the
+    address jumper is not visually distinguishable.
+    """
+    pcb = _box((PCA_PCB_D, PCA_PCB_W, COMMODITY_PCB_T),
+               center=(0.0, 0.0, 0.0))
+
+    pcb_top_z = COMMODITY_PCB_T / 2.0
+    header_h = 8.0
+    header = _box((8.0, 60.0, header_h),
+                   center=(PCA_PCB_D / 2.0 + 4.0,
+                            0.0,
+                            pcb_top_z + header_h / 2.0))
+
+    return _union(pcb, header)
+
+
+def make_bec_visual() -> trimesh.Trimesh:
+    """Visual mesh for one 5V switching BEC body (NOT FOR PRINTING).
+
+    Shrink-wrapped BEC_BODY_L x BEC_BODY_W x BEC_BODY_H body plus 2
+    short Phi 3 mm pigtail stubs exiting the +/-X ends (the input
+    XT60 lead at one end, the 3-pin servo-header output at the other;
+    both modelled as plain cylinders, no connectors).
+
+    Mesh frame: origin = body geometric centre.  +X = pigtail axis
+    (matches the bec_cradle's local +X = pigtail axis).  +Y = wider
+    axis.  +Z = up.
+
+    Same STL is used for both ``bec_a`` and ``bec_b`` -- the cradle
+    holds 2 BECs side-by-side along the cradle's +Y axis.
+    """
+    body = _box((BEC_BODY_L, BEC_BODY_W, BEC_BODY_H),
+                center=(0.0, 0.0, 0.0))
+
+    pigtail_r = 1.5
+    pigtail_len = 8.0
+    p_plus = _cyl_along(pigtail_r, pigtail_len, axis="x")
+    p_plus.apply_translation([+BEC_BODY_L / 2.0, 0.0, 0.0])
+    p_minus = _cyl_along(pigtail_r, pigtail_len, axis="x")
+    p_minus.apply_translation([-BEC_BODY_L / 2.0 - pigtail_len, 0.0, 0.0])
+
+    return _union(body, p_plus, p_minus)
+
+
+def make_antispark_switch_body_visual() -> trimesh.Trimesh:
+    """Visual mesh for the anti-spark XT60 switch BODY (NOT FOR PRINTING).
+
+    SWITCH_BODY_L x _W x _H switch body (~ 32 x 17 x 17 mm) plus two
+    short Phi 4 mm XT60 pigtail stubs exiting the +/-Y end faces.
+    The toggle lever is a SEPARATE mesh
+    (``make_antispark_switch_toggle_visual``) so the inspector can
+    paint it a distinct safety-orange against the body's anodized
+    grey.
+
+    Mesh frame: origin = body geometric centre, with +X = toggle
+    axis (chassis +X after placement, matching the switch_holster's
+    local +X = toggle face), +Y = pigtail axis, +Z = up.
+    """
+    body = _box((SWITCH_BODY_L, SWITCH_BODY_W, SWITCH_BODY_H),
+                center=(0.0, 0.0, 0.0))
+
+    pigtail_r = 2.0
+    pigtail_len = 10.0
+    p_plus_y = _cyl_along(pigtail_r, pigtail_len, axis="y")
+    p_plus_y.apply_translation([0.0, +SWITCH_BODY_W / 2.0, 0.0])
+    p_minus_y = _cyl_along(pigtail_r, pigtail_len, axis="y")
+    p_minus_y.apply_translation([0.0,
+                                  -SWITCH_BODY_W / 2.0 - pigtail_len,
+                                  0.0])
+
+    return _union(body, p_plus_y, p_minus_y)
+
+
+def make_antispark_switch_toggle_visual() -> trimesh.Trimesh:
+    """Visual mesh for the anti-spark switch TOGGLE lever (NOT FOR
+    PRINTING).
+
+    Phi 4 x 8 mm cylinder protruding from the switch body's +X face.
+    Mesh frame: origin at the TOGGLE's centre (the cylinder spans -4
+    to +4 in its long axis).  +X is the protrusion direction.
+
+    Drawn as a separate mesh so the inspector can color it safety-
+    orange against the body's anodized grey.
+    """
+    toggle = _cyl_along(2.0, 8.0, axis="x")
+    toggle.apply_translation([-4.0, 0.0, 0.0])
+    return toggle
+
+
+def make_lipo_battery_body_visual() -> trimesh.Trimesh:
+    """Visual mesh for the 3S 2200 mAh LiPo pack BODY (NOT FOR PRINTING).
+
+    Shrink-wrap slab (~ 105 x 35 x 25 mm).  The XT60 connector +
+    balance plug are a SEPARATE mesh (``make_lipo_xt60_visual``) so
+    the inspector can paint the XT60 housing safety-yellow against
+    the body's "lipo red".
+
+    Mesh frame: origin = body geometric centre.  +X = long axis
+    (chassis +X after placement -- BATTERY_HOLDER_CENTRE_X = -25
+    centres the pack near the chassis -X half).  +Y = short axis.
+    +Z = up.
+    """
+    return _box((105.0, 35.0, 25.0),
+                center=(0.0, 0.0, 0.0))
+
+
+def make_lipo_xt60_visual() -> trimesh.Trimesh:
+    """Visual mesh for the LiPo's XT60 connector + balance plug
+    (NOT FOR PRINTING).
+
+    XT60 housing (~ 14 x 17 x 10 mm) plus the smaller balance-plug
+    ribbon header (~ 12 x 8 x 4 mm) sitting adjacent.  Both rendered
+    safety-yellow.
+
+    Mesh frame: origin at the XT60 housing centre.  +X is the
+    direction the connector points (out of the battery body's +X
+    short face after placement).
+    """
+    xt60 = _box((14.0, 17.0, 10.0),
+                 center=(0.0, 0.0, 0.0))
+    balance = _box((12.0, 8.0, 4.0),
+                    center=(0.0, 17.0 / 2.0 + 8.0 / 2.0 + 0.5, -3.0))
+    return _union(xt60, balance)
+
+
+# ---------------------------------------------------------------------------
 # Leg parts
 # ---------------------------------------------------------------------------
 
@@ -4794,6 +5058,20 @@ def main() -> None:
     parts.append(("servo_body.stl", make_servo_body()))
     parts.append(("servo_horn.stl", make_servo_horn()))
     parts.append(("mpu6050.stl",    make_mpu6050_visual()))
+
+    print("Electronics visuals (NOT FOR PRINTING -- BuildViz / inspector\n"
+          "only; user buys these from Amazon / McMaster):")
+    parts.append(("arduino_mega.stl",   make_arduino_mega_visual()))
+    parts.append(("raspberry_pi.stl",   make_raspberry_pi_visual()))
+    parts.append(("pca9685.stl",        make_pca9685_visual()))
+    parts.append(("bec_visual.stl",     make_bec_visual()))
+    parts.append(("antispark_switch_body.stl",
+                  make_antispark_switch_body_visual()))
+    parts.append(("antispark_switch_toggle.stl",
+                  make_antispark_switch_toggle_visual()))
+    parts.append(("lipo_battery_body.stl",
+                  make_lipo_battery_body_visual()))
+    parts.append(("lipo_xt60.stl",      make_lipo_xt60_visual()))
 
     for name, mesh in parts:
         _save(mesh, name)
