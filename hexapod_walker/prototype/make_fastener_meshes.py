@@ -84,6 +84,14 @@ SPEC_TO_SCAD: dict[str, str] = {
     "M3x32 SHCS":                     "m3x32_shcs",  # rendered at 30 mm (BOM stock)
     "M3x16 pan-head":                 "m3x16_pan",
     "M2.5x8 spline screw":            "m2p5x8_shcs",
+    # May 2026 (electronics-tray expansion): the Raspberry Pi 4 / Pi 5
+    # board-mount bolts thread into M2.5 brass heat-set inserts in the
+    # electronics_tray.  Same physical bolt shape as the servo spline
+    # screw (M2.5 x 8 SHCS, P/N 91290A102 vs the spline's 91290A104),
+    # so re-use the existing m2p5x8_shcs scad render for the cache
+    # mesh.  Distinct spec string lets the BOM call out the Pi-mount
+    # role separately.
+    "M2.5x8 SHCS into heat-set insert": "m2p5x8_shcs",
     "M3 nyloc nut":                   "m3_nyloc_nut",
     # The heat-set insert intentionally has NO scad mapping:
     # NopSCADlib doesn't ship insert vitamins, and the parametric

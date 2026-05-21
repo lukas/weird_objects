@@ -350,13 +350,26 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
             ]
 
         if cfg.split_hardware_plate:
+            # May 2026 (electronics-tray expansion): the tray grew to
+            # 160x130 mm to carry Mega + Pi + PCA9685, so the old
+            # battery_holder + electronics_tray side-by-side row no
+            # longer fits on the X1's 256 mm-wide bed (118 + 5 + 160 =
+            # 283 mm).  The two body trays now get one plate each on
+            # the split-hardware path.
+            bat = parts["battery_holder.stl"]
+            et = parts["electronics_tray.stl"]
             plans.extend([
                 *tibia_plates,
                 *femur_plates,
                 PlatePlan(
-                    "plate_05_rigid_battery_electronics",
+                    "plate_05a_rigid_battery_holder",
                     "PLA/PETG rigid",
-                    tuple(_battery_and_electronics_row(cfg, parts)),
+                    (_instance(bat, 1, 0.0, 0.0, 0),),
+                ),
+                PlatePlan(
+                    "plate_05b_rigid_electronics_tray",
+                    "PLA/PETG rigid",
+                    (_instance(et, 1, 0.0, 0.0, 0),),
                 ),
                 PlatePlan(
                     "plate_06_rigid_coxa_brackets_links",
@@ -399,12 +412,14 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
         # Design B (May 2026): the dedicated horn-adapter grid plate has
         # been removed; the printed servo_horn_adapter is no longer in
         # the printable-output set.
-        hardware_requests = [
-            ("battery_holder.stl", 1),
-            ("electronics_tray.stl", 1),
-            ("coxa_bracket.stl", 6),
-            ("coxa_link.stl", 6),
-        ]
+        # May 2026 (electronics-tray expansion): the tray grew from 100x70
+        # mm to 160x130 mm to carry Mega 2560 + Pi 4 + PCA9685.  At the
+        # new footprint the simple shelf packer can no longer cram
+        # battery_holder + electronics_tray + 6x coxa_bracket + 6x
+        # coxa_link onto one 325x320 H2D plate, so the H2D path now
+        # mirrors the X1 ``split_hardware_plate`` layout: one plate for
+        # the two body trays and a separate plate for the 12 leg-segment
+        # pieces.
         plans.extend([
             PlatePlan(
                 "plate_03_rigid_long_links",
@@ -412,12 +427,20 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
                 tuple(long_links),
             ),
             PlatePlan(
-                "plate_04_rigid_hardware",
+                "plate_04_rigid_battery_electronics",
                 "PLA/PETG rigid",
-                tuple(_pack_hardware(cfg, parts, requests=hardware_requests)),
+                tuple(_battery_and_electronics_row(cfg, parts)),
             ),
             PlatePlan(
-                "plate_05_tpu_foot_pads",
+                "plate_05_rigid_coxa_brackets_links",
+                "PLA/PETG rigid",
+                tuple(_pack_hardware(cfg, parts, requests=[
+                    ("coxa_bracket.stl", 6),
+                    ("coxa_link.stl", 6),
+                ])),
+            ),
+            PlatePlan(
+                "plate_06_tpu_foot_pads",
                 "TPU 95A",
                 tuple(_grid_row(cfg, foot, 6, y_mm=0.0, rotate_z_deg=0)),
             ),

@@ -7,8 +7,9 @@ Generated for a **325 x 320 x 325 mm** build volume.
 - `plate_01_chassis_top.stl` (PLA/PETG rigid): 1 x `chassis_top.stl`
 - `plate_02_chassis_bottom.stl` (PLA/PETG rigid): 1 x `chassis_bottom.stl`
 - `plate_03_rigid_long_links.stl` (PLA/PETG rigid): 6 x `femur_link.stl`, 6 x `tibia_link.stl`
-- `plate_04_rigid_hardware.stl` (PLA/PETG rigid): 1 x `battery_holder.stl`, 6 x `coxa_bracket.stl`, 6 x `coxa_link.stl`, 1 x `electronics_tray.stl`
-- `plate_05_tpu_foot_pads.stl` (TPU 95A): 6 x `foot_pad.stl`
+- `plate_04_rigid_battery_electronics.stl` (PLA/PETG rigid): 1 x `battery_holder.stl`, 1 x `electronics_tray.stl`
+- `plate_05_rigid_coxa_brackets_links.stl` (PLA/PETG rigid): 6 x `coxa_bracket.stl`, 6 x `coxa_link.stl`
+- `plate_06_tpu_foot_pads.stl` (TPU 95A): 6 x `foot_pad.stl`
 
 Import one plate STL at a time into Bambu Studio. Parts are oriented for FDM.
 Edge margin: 12 mm; nominal part spacing: 8 mm.

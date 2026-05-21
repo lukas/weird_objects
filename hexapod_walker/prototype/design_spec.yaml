@@ -87,10 +87,10 @@ coordinate_systems:
     y_axis: "Short axis (depth direction)."
     z_axis: "Up (tray opens +Z)."
   electronics_tray:
-    origin: "Centre of the bottom face of the flat plate."
-    x_axis: "Long axis (Arduino + PCA9685 row)."
-    y_axis: "Short axis."
-    z_axis: "Up (boards mount on +Z face)."
+    origin: "Centre of the bottom face of the flat plate (= chassis origin after assembly)."
+    x_axis: "Long axis (chassis +X; Mega 2560 + Pi 4 long axes lie along this)."
+    y_axis: "Short axis (chassis +Y)."
+    z_axis: "Up (boards mount on +Z face via 5 mm standoff bosses)."
 
 # ---------------------------------------------------------------------
 # Printability rules
@@ -201,10 +201,10 @@ parts:
     keep_out_volumes: []
 
   electronics_tray:
-    description: "Flat 3 mm plate; Arduino Nano + 2x PCA9685 mount via M3 standoffs."
+    description: "Flat 3 mm deck (160 x 130 mm) carrying Arduino Mega 2560 + Raspberry Pi 4 / 5 + PCA9685.  4 x M3 + 4 x M2.5 + 4 x M3 board-mount sites use printed Phi 8 mm (M3) / Phi 6 mm (M2.5) bosses with brass heat-set insert pockets; 5 mm standoff between board bottoms and tray top.  4 chassis-mount holes on the 35 mm-radius / 45 deg square pattern with Phi 5.5 x 3 mm counterbores so the chassis bolt heads sit flush with the tray top."
     qty: 1
-    bounds_mm: [100.0, 70.0, 3.0]       # = ELEC_TRAY_W, ELEC_TRAY_D, ELEC_TRAY_T
-    holes: []                            # standoff holes verified by `_verify_prototype` battery-holder check
+    bounds_mm: [160.0, 130.0, 8.0]      # = ELEC_TRAY_W, ELEC_TRAY_D, ELEC_TRAY_T + ELEC_STANDOFF_H
+    holes: []                            # board-mount + chassis-mount holes verified by `_verify_prototype.check_fastener_engagement`
     wire_channels: []
     keep_out_volumes: []
 

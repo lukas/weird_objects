@@ -363,7 +363,8 @@ def _body_frame_parts(chassis_lift):
 
 
 def _body_battery_parts(chassis_lift):
-    """Battery holder, LiPo pack, electronics tray, Arduino, PCA9685.
+    """Battery holder, LiPo pack, electronics tray + the three control
+    boards mounted on it (Arduino Mega 2560, Raspberry Pi 4, PCA9685).
 
     ``bh_z0`` is the world z of the battery_holder's bottom face,
     which mates with the chassis_bottom mesh's TOP face.  The
@@ -395,25 +396,50 @@ def _body_battery_parts(chassis_lift):
                          bh_z0 + HP.BATTERY_WALL + 25.0 / 2.0))
     parts.append(lipo)
 
-    # Electronics tray + Arduino Nano + PCA9685.
-    # Tray base sits 3 mm above the chassis_bottom top face (i.e.
-    # bh_z0 + 3.0 = CHASSIS_PLATE_T / 2.0 + 3.0) so wire bundles and
-    # connector strain-relief loops still fit between the bottom
-    # plate and the tray, preserving the pre-frame-fix 5 mm clearance.
+    # Electronics tray + Mega 2560 + Pi 4 + PCA9685.  Tray base sits
+    # 3 mm above the chassis_bottom top face (= bh_z0 + 3) so the
+    # tray-local origin lands at chassis frame
+    # (ELEC_TRAY_CENTRE_X, ELEC_TRAY_CENTRE_Y, bh_z0 + 3).  May 2026
+    # tray-expansion pass moved the tray centre from the previous
+    # (+35, 0) to (0, 0) so the tray's 4 chassis-mount holes
+    # actually align with the chassis-side 35-mm-radius pattern at
+    # chassis (+/-24.75, +/-24.75); the old offset put them at
+    # (+10.25, +/-24.75) and (+59.75, +/-24.75) instead -- a
+    # longstanding bug masked by the assembly preview being purely
+    # visual.
+    tray_top_z = bh_z0 + 3.0 + HP.ELEC_TRAY_T
+    board_top_z = tray_top_z + HP.ELEC_STANDOFF_H
     et = HP.make_electronics_tray()
-    et.apply_translation([35.0, 0, bh_z0 + 3.0])
+    et.apply_translation([HP.ELEC_TRAY_CENTRE_X, HP.ELEC_TRAY_CENTRE_Y,
+                           bh_z0 + 3.0])
     parts.append(et)
 
-    # Arduino Nano (43 x 18 x 4 mm)
-    arduino = _box((43.0, 18.0, 6.0),
-                   center=(35.0 - 30.0, 0,
-                            bh_z0 + 3.0 + HP.ELEC_TRAY_T + 5.0))
-    parts.append(arduino)
+    # Arduino Mega 2560 R3 (53.3 x 101.5 x 1.6 mm bare PCB; ~ 8 mm
+    # overall including the ATmega2560 chip + headers + USB-B
+    # connector underside).  Long axis along chassis +X (90 deg CW
+    # from "as designed", which is how MEGA_HOLES is built).
+    mega = _box((HP.MEGA_PCB_D, HP.MEGA_PCB_W, 8.0),
+                center=(HP.ELEC_TRAY_CENTRE_X + HP.MEGA_CENTRE[0],
+                         HP.ELEC_TRAY_CENTRE_Y + HP.MEGA_CENTRE[1],
+                         board_top_z + 8.0 / 2.0))
+    parts.append(mega)
 
-    # PCA9685 PWM driver (62 x 25 x 8 mm)
-    pca = _box((62.0, 25.0, 8.0),
-               center=(35.0 + 25.0, 0,
-                        bh_z0 + 3.0 + HP.ELEC_TRAY_T + 6.0))
+    # Raspberry Pi 4 Model B / Pi 5 (85 x 56 x 1.5 mm bare PCB; ~ 18
+    # mm overall with the Ethernet jack + dual USB-A 3.0 stack +
+    # ATSoC + heat-sink).  Long axis along chassis +X (PI_HOLES is
+    # the un-rotated board-centre offset set).
+    pi = _box((HP.PI_PCB_W, HP.PI_PCB_D, 18.0),
+              center=(HP.ELEC_TRAY_CENTRE_X + HP.PI_CENTRE[0],
+                       HP.ELEC_TRAY_CENTRE_Y + HP.PI_CENTRE[1],
+                       board_top_z + 18.0 / 2.0))
+    parts.append(pi)
+
+    # Adafruit PCA9685 PWM driver (62 x 25 x 8 mm).  Long axis along
+    # chassis +Y (rotated 90 deg).
+    pca = _box((HP.PCA_PCB_D, HP.PCA_PCB_W, 8.0),
+               center=(HP.ELEC_TRAY_CENTRE_X + HP.PCA_CENTRE[0],
+                        HP.ELEC_TRAY_CENTRE_Y + HP.PCA_CENTRE[1],
+                        board_top_z + 8.0 / 2.0))
     parts.append(pca)
 
     return parts

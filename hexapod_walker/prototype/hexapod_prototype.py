@@ -1177,9 +1177,210 @@ BATTERY_FOOT_INSERT_RECESS = 0.5  # mm -- insert top face is
 # "join only 1 part".
 BATTERY_HOLDER_CENTRE_X = -25.0   # mm
 
-ELEC_TRAY_W = 100.0
-ELEC_TRAY_D =  70.0
-ELEC_TRAY_T =   3.0
+# ---- M2.5 brass heat-set insert (Raspberry Pi mount) ---------------------
+# McMaster 94459A106: M2.5 brass knurled heat-set insert.  Specs:
+#   pilot Phi 3.0 mm, recommended pilot depth 4.5 mm,
+#   insert OD (knurled max) 3.6 mm, insert length 4.0 mm.
+# Installed with a soldering iron (same technique as the M3 inserts that
+# carry the cradle servo bolts and the battery_holder foot bolts).  The
+# Pi 4 / Pi 5 mounts on the electronics_tray via 4 of these inserts +
+# M2.5 x 8 SHCS (PN_M25X8_SHCS).  Same fastener stock as the servo
+# spline center screw -- a plain M2.5 x 8 SHCS with the role label
+# distinguishing it from the captive spline screw.
+INSERT_M25_PILOT_OD       = 3.0   # mm -- printed pilot Phi
+INSERT_M25_PILOT_DEPTH    = 4.5   # mm -- printed pilot depth
+INSERT_M25_INSERT_OD      = 3.6   # mm -- installed brass body knurled OD
+INSERT_M25_INSERT_LENGTH  = 4.0   # mm -- physical insert length
+INSERT_M25_BOLT_LENGTH    = 8.0   # mm -- M2.5 x 8 SHCS clamps the Pi
+INSERT_M25_BOLT_HEAD_OD   = 4.5   # mm -- M2.5 SHCS head Phi
+INSERT_M25_BOLT_HEAD_H    = 2.5   # mm -- M2.5 SHCS head height
+
+# ---- Electronics tray ----------------------------------------------------
+#
+# Carries the THREE control boards used in the prototype (May 2026
+# upgrade -- replaces the Arduino-Nano-only layout):
+#
+#   * Arduino Mega 2560 R3 (ELEGOO clone) -- 101.5 x 53.3 mm PCB with
+#     the standard 4-hole Mega 2560 R3 footprint at offsets
+#     MEGA_HOLES below (asymmetric pattern; see Arduino's reference
+#     drawing).  4 x M3 SHCS into 4 x M3 brass heat-set inserts
+#     (McMaster 94459A130) embedded in printed tray bosses.  Replaces
+#     the old Arduino Nano hole pattern; the firmware moved to the
+#     Mega so the Nano is no longer on the BOM.
+#
+#   * Raspberry Pi 4 Model B (or Pi 5; same 85 x 56 mm footprint with
+#     the same 49 x 58 mm 4-hole pattern at offsets PI_HOLES below).
+#     4 x M2.5 SHCS into 4 x M2.5 heat-set inserts (McMaster
+#     94459A106) embedded in printed tray bosses.  NEW -- no Pi
+#     mounting existed before the May 2026 hardware-arrival pass.
+#
+#   * Adafruit PCA9685 16-channel PWM driver -- 62 x 25 mm PCB with
+#     the standard 54 x 16 mm 4-hole pattern (PCA_HOLES below).  4 x
+#     M3 SHCS into 4 x M3 heat-set inserts.  Two PCA9685 boards
+#     would carry the full 18 servos; the second one daisy-chains
+#     over I2C and gets soldered/cable-tied; only the primary one is
+#     bolted to the tray.
+#
+# Board placement (tray-local coords; tray origin at chassis (0, 0);
+# tray-local +X = chassis +X):
+#
+#                    +Y (tray, chassis)
+#                       ^
+#       Mega2560        |     PCA9685 (long
+#       (long axis      |      axis along Y;
+#       along X; USB-B  |      servo-pin headers
+#       + barrel jack   |      ride on +Z face)
+#       on +X edge)     |
+#                       |
+#   ---------------------(0,0)------------------ +X
+#                       |
+#       Pi 4            |
+#       (long axis      |
+#       along X;        |
+#       USB-A +         |
+#       Ethernet on -Y  |
+#       edge)           |
+#
+# Tray-local board centres come from MEGA_CENTRE / PI_CENTRE /
+# PCA_CENTRE; the per-board mount holes come from MEGA_HOLES /
+# PI_HOLES / PCA_HOLES (offsets from each board's centre).
+#
+# Tray sits in the same middle-bay z slot as the original 100 x 70 mm
+# tray (z = CHASSIS_PLATE_T / 2 + 3 = 5 mm above chassis_bottom top
+# face); the boards sit on ELEC_STANDOFF_H = 5 mm tall bosses.  Each
+# boss is Phi CRADLE_BOSS_OD = 8 mm (M3 sites) or Phi 6 mm (M2.5
+# sites) so the heat-set insert pocket has >= 1.5 mm of radial
+# plastic.  The chassis-side mount holes still match the
+# 35-mm-radius / 45-deg square pattern shared with chassis_bottom +
+# chassis_top (and the arm baseplate, if present), with a Phi 5.5 mm
+# x 3 mm-deep counterbore from the tray's TOP face so the chassis
+# bolt heads sit FLUSH with the tray top -- the board standoff bosses
+# on top of the tray then have an unobstructed 5 mm of clear air
+# above the tray face for the M3 / M2.5 SHCS heads that clamp the
+# boards onto the heat-set inserts.
+#
+# The tray's footprint OVERLAPS the battery_holder body and the two
+# +X-side coxa_bracket flanges at the z = 5..8 slab the way the prior
+# 100 x 70 mm tray did (the verifier does not flag chassis-fixed
+# parts against each other, only against dynamic leg parts via
+# ``check_workspace_self_collision``).  Cable-clearance keep-out
+# volumes for the Mega's USB-B + barrel jack and the Pi's USB-C /
+# HDMI / USB-A / Ethernet stack are NOT modelled -- the boards are
+# placed so the user can plug cables in by hand from the +X / +/-Y
+# direction with chassis_top providing a 5-6 mm ceiling overhead.
+# This is a known TODO; verifying physical cable accessibility on the
+# first build will tell us whether dedicated keep-out probes are
+# worth adding.
+ELEC_TRAY_W = 160.0  # mm -- X dimension (long axis; spans chassis +/-80 mm)
+ELEC_TRAY_D = 130.0  # mm -- Y dimension (spans chassis +/-65 mm)
+ELEC_TRAY_T =   3.0  # mm -- thickness (unchanged from the original tray)
+
+ELEC_STANDOFF_H       = 5.0   # mm -- printed boss height above the tray top
+                                # (boards sit ELEC_STANDOFF_H mm above the
+                                # tray face so solder joints + headers
+                                # underneath the PCB clear the tray).
+ELEC_BOSS_OD_M3       = CRADLE_BOSS_OD   # 8 mm -- reuse the cradle constant
+ELEC_BOSS_OD_M25      = 6.0    # mm -- smaller M2.5 boss (Phi 3 mm pilot +
+                                # 1.5 mm wall = Phi 6 mm minimum).
+ELEC_CHASSIS_COUNTERBORE_OD   = 5.5    # mm -- M3 SHCS head clearance Phi
+ELEC_CHASSIS_COUNTERBORE_DEPTH = 3.0   # mm -- counterbore depth from tray top
+                                        # (= ELEC_TRAY_T so the head sits
+                                        # flush with the tray's bottom face;
+                                        # the chassis bolt comes UP through
+                                        # chassis_bottom + standoff + tray).
+
+# Mega 2560 R3 mounting holes (Arduino reference drawing).  Listed in
+# the BOARD'S OWN coordinate frame with origin at the PCB's bottom-left
+# corner, +Y = USB-B end, +X = right edge as drawn.  All four are
+# Phi 3.2 mm M3 clearance.
+MEGA_PCB_W = 53.3   # mm -- PCB width  (board X dimension in board frame)
+MEGA_PCB_D = 101.5  # mm -- PCB depth  (board Y dimension; USB-B at +Y end)
+_MEGA_HOLES_BOARD_FRAME = (
+    ( 2.54, 15.24),     # bottom-left
+    (50.80, 15.24),     # bottom-right
+    ( 7.62, 66.04),     # mid-left
+    (50.80, 90.17),     # top-right (near USB-B)
+)
+# Hole offsets relative to BOARD CENTRE in the board's frame:
+_MEGA_HOLES_BOARD_CENTRE = tuple(
+    (bx - MEGA_PCB_W / 2.0, by - MEGA_PCB_D / 2.0)
+    for bx, by in _MEGA_HOLES_BOARD_FRAME
+)
+# 90 deg CW rotation maps board +Y (USB-B end) to tray +X so the USB-B
+# + barrel jack faces the +X chassis edge: (bx, by) -> (by, -bx).
+MEGA_HOLES = tuple(
+    (by, -bx) for (bx, by) in _MEGA_HOLES_BOARD_CENTRE
+)
+# Mega centre in tray-local coords.  Placed on the -X +Y quadrant so
+# the bolt heads at the 35-mm-radius chassis mount pattern don't poke
+# up through the Mega PCB (the tray-top counterbore recess takes
+# care of the head clearance regardless; the offset just keeps the
+# layout tidy).
+MEGA_CENTRE = (-25.0, +28.0)
+
+# Raspberry Pi 4 / Pi 5 mounting holes.  Pi PCB is 85 x 56 mm with
+# 4 x M2.5 holes on a 58 x 49 mm rectangle (asymmetric -- the long-
+# axis hole pair is offset toward one end).  Listed in board frame
+# with +X = PCB long axis (85 mm), +Y = short axis (56 mm), origin
+# at the bottom-left corner.
+PI_PCB_W = 85.0     # mm -- long axis
+PI_PCB_D = 56.0     # mm -- short axis
+_PI_HOLES_BOARD_FRAME = (
+    ( 3.5,  3.5),
+    (61.5,  3.5),
+    ( 3.5, 52.5),
+    (61.5, 52.5),
+)
+_PI_HOLES_BOARD_CENTRE = tuple(
+    (bx - PI_PCB_W / 2.0, by - PI_PCB_D / 2.0)
+    for bx, by in _PI_HOLES_BOARD_FRAME
+)
+# Pi long axis stays along tray +X so the USB-A + Ethernet bank (on
+# the long edge) faces tray -Y / chassis -Y, where the user can
+# plug cables in from outside the chassis past chassis_top apothem
+# in the -Y direction.
+PI_HOLES = _PI_HOLES_BOARD_CENTRE
+# Pi centre in tray-local coords.  -X -Y quadrant so the Pi's
+# connector bank sits opposite the Mega's USB-B + barrel jack.
+PI_CENTRE = (-20.0, -33.0)
+
+# Adafruit PCA9685 PWM driver -- 62 x 25 mm PCB with 4 x M3 holes
+# on a 54 x 16 mm rectangle centred on the board.  Long axis = 62.
+PCA_PCB_W = 62.0
+PCA_PCB_D = 25.0
+PCA_HOLES_BOARD_CENTRE = (
+    (-27.0, -7.5),
+    (+27.0, -7.5),
+    (-27.0, +7.5),
+    (+27.0, +7.5),
+)
+# Rotate PCA 90 deg so its long axis lies along tray +Y -- tucks
+# into the +X strip of the tray between the Mega's +X edge and the
+# tray's +X edge without touching either board.
+PCA_HOLES = tuple((by, -bx) for (bx, by) in PCA_HOLES_BOARD_CENTRE)
+PCA_CENTRE = (+55.0, +20.0)
+
+# 35-mm-radius / 45-deg-square chassis-mount hole pattern (matches
+# ``_hex_plate(with_centre_holes=True)`` on chassis_top + chassis_
+# bottom and the 4 brass standoff columns between the plates).
+ELEC_CHASSIS_MOUNT_R       = 35.0
+ELEC_CHASSIS_MOUNT_HOLES_XY = tuple(
+    (ELEC_CHASSIS_MOUNT_R * np.cos(np.pi / 4 + i * np.pi / 2),
+     ELEC_CHASSIS_MOUNT_R * np.sin(np.pi / 4 + i * np.pi / 2))
+    for i in range(4)
+)
+
+# Chassis-frame translation applied to the tray mesh by
+# ``build_prototype_assembly._body_battery_parts`` and the verifier's
+# ``_build_chassis_world`` / ``_build_world_leg0_printed_parts``.
+# Moved from the original (+35, 0) to (0, 0) so the tray's chassis-
+# mount holes line up CORRECTLY with the chassis-side
+# 35-mm-radius / 45-deg-square pattern at chassis (+/-24.75, +/-24.75).
+# The old +35 mm offset had the tray's bolt holes mapping to
+# (+10.25, +/-24.75) and (+59.75, +/-24.75) instead -- a longstanding
+# bug masked because the assembly preview is purely visual.
+ELEC_TRAY_CENTRE_X = 0.0
+ELEC_TRAY_CENTRE_Y = 0.0
 
 # ---- Resolutions ---------------------------------------------------------
 CYL_SECTIONS = 48     # cylinder facet count -- smooth STL, fast booleans
@@ -2036,39 +2237,159 @@ def make_battery_holder() -> trimesh.Trimesh:
     return _diff(body, inner, *velcro, *insert_pockets)
 
 
+def _board_standoff_boss_and_pocket(
+    x: float, y: float, *,
+    pilot_od: float,
+    pilot_depth: float,
+    boss_od: float,
+    boss_height: float,
+    tray_top_z: float,
+) -> tuple[trimesh.Trimesh, trimesh.Trimesh]:
+    """Return ``(boss, pocket)`` for one printed board-standoff site.
+
+    The boss is a vertical Phi ``boss_od`` cylinder spanning
+    ``[tray_top_z, tray_top_z + boss_height]``.  The pocket is a Phi
+    ``pilot_od`` cylinder spanning ``[tray_top_z + boss_height -
+    pilot_depth - 0.5, tray_top_z + boss_height + 0.5]``.  The boss
+    is to be UNIONed onto the tray and the pocket SUBTRACTed.  The
+    pocket extends 0.5 mm above the boss top so the boolean diff
+    clears the rim and 0.5 mm below the insert (room for debris).
+
+    Mirrors the cradle-bolt boss/pocket pair (``_servo_cradle_
+    insert_pockets``) but lives on top of the electronics tray
+    instead of inside a servo cradle.  Used by ``make_electronics_
+    tray`` for all 12 board-mount sites (4 x Mega, 4 x Pi, 4 x
+    PCA9685).
+    """
+    boss = _cyl(boss_od / 2.0, boss_height)
+    boss.apply_translation([x, y, tray_top_z + boss_height / 2.0])
+
+    pocket_h = pilot_depth + 1.0
+    pocket = _cyl(pilot_od / 2.0, pocket_h)
+    pocket_z_centre = tray_top_z + boss_height - pilot_depth / 2.0
+    pocket.apply_translation([x, y, pocket_z_centre])
+    return boss, pocket
+
+
+def _absolute_xy(centre: tuple[float, float],
+                  offsets: tuple[tuple[float, float], ...]):
+    """Helper: translate per-board hole offsets into tray-local
+    absolute (x, y) tuples."""
+    cx, cy = centre
+    return tuple((cx + ox, cy + oy) for ox, oy in offsets)
+
+
 def make_electronics_tray() -> trimesh.Trimesh:
-    """A flat 3D-printed plate with mounting holes for an Arduino Nano
-    + a PCA9685 16-channel PWM driver (or two PCA9685s for the full 18
-    servos).  Stand-offs are 3 mm tall printed bosses with M3 holes."""
+    """Flat 3D-printed deck that carries the Arduino Mega 2560 + the
+    Raspberry Pi 4 (or Pi 5) + the PCA9685 PWM driver.
+
+    Replaces the May-2026-earlier "Arduino Nano + PCA9685" layout --
+    the user upgraded the firmware host to an ELEGOO Mega 2560 R3 and
+    added a Pi 4 for higher-level control.  The Nano hole pattern is
+    retired; the Mega + Pi + PCA9685 use the parametric MEGA_HOLES /
+    PI_HOLES / PCA_HOLES board patterns + MEGA_CENTRE / PI_CENTRE /
+    PCA_CENTRE placements declared in the constants block above.
+
+    Geometry summary:
+
+        * Plate: ELEC_TRAY_W x ELEC_TRAY_D x ELEC_TRAY_T centred on
+          tray-local (0, 0).  Tray-local origin = chassis (0, 0)
+          after ``build_prototype_assembly`` places the tray.
+        * 4 chassis-mount holes on the 35-mm-radius / 45-deg square
+          pattern (shared with chassis_top + chassis_bottom + the 4
+          brass standoff columns between the plates).  Each hole is
+          Phi BRACKET_BOLT_HOLE = 3.4 mm with a Phi ELEC_CHASSIS_
+          COUNTERBORE_OD = 5.5 mm x ELEC_CHASSIS_COUNTERBORE_DEPTH =
+          3.0 mm counterbore from the tray's TOP face so the M3
+          SHCS head sits flush with the tray top -- boards on the
+          ELEC_STANDOFF_H = 5 mm standoff bosses then clear the
+          chassis bolts entirely.
+        * 4 printed bosses + heat-set insert pockets for the Mega
+          (Phi 8 mm boss, Phi 4 mm pocket, McMaster 94459A130
+          insert) -- 4 x M3 SHCS clamps the Mega onto the boss tops.
+        * 4 printed bosses + heat-set insert pockets for the Pi 4
+          (Phi 6 mm boss, Phi 3 mm pocket, McMaster 94459A106
+          insert) -- 4 x M2.5 SHCS clamps the Pi onto the boss tops.
+        * 4 printed bosses + heat-set insert pockets for the
+          PCA9685 (same Phi 8 / 4 mm M3 geometry as the Mega).
+
+    All 12 board-mount fasteners are CAPTIVE SUB-ASSEMBLY fasteners:
+    they are torqued during the electronics install BEFORE the
+    chassis_top + arm stack closes over the tray; once the top plate
+    is on, a hex key cannot reach the heads.  ``_emit_electronics_
+    tray_fasteners`` in fastener_registry.py flags them with
+    ``skip_screwdriver_reason`` accordingly.
+    """
     plate = _box((ELEC_TRAY_W, ELEC_TRAY_D, ELEC_TRAY_T),
                  center=(0, 0, ELEC_TRAY_T / 2.0))
 
-    # Arduino Nano standoffs (43 x 18 mm 4-hole pattern)
-    nano_holes = []
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            h = _cyl(SERVO_TAB_HOLE / 2.0, ELEC_TRAY_T * 4)
-            h.apply_translation([-30.0 + sx * 15.5, sy * 8.0, ELEC_TRAY_T])
-            nano_holes.append(h)
+    tray_top_z = ELEC_TRAY_T
 
-    # PCA9685 standoffs (54 x 16 mm 4-hole pattern, on the +X side)
-    pca_holes = []
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            h = _cyl(SERVO_TAB_HOLE / 2.0, ELEC_TRAY_T * 4)
-            h.apply_translation([+25.0 + sx * 27.0, sy * 7.5, ELEC_TRAY_T])
-            pca_holes.append(h)
+    bosses: list[trimesh.Trimesh] = []
+    pockets: list[trimesh.Trimesh] = []
 
-    # Mounting holes to the chassis (4 holes on the same 35 mm radius
-    # pattern as `_hex_plate(with_centre_holes=True)`)
-    mount_holes = []
-    for i in range(4):
-        a = np.pi / 4 + i * np.pi / 2
-        h = _cyl(SERVO_TAB_HOLE / 2.0, ELEC_TRAY_T * 4)
-        h.apply_translation([35.0 * np.cos(a), 35.0 * np.sin(a), 0])
-        mount_holes.append(h)
+    # --- Mega 2560 board-mount sites (M3 inserts) ---
+    for (hx, hy) in _absolute_xy(MEGA_CENTRE, MEGA_HOLES):
+        boss, pocket = _board_standoff_boss_and_pocket(
+            hx, hy,
+            pilot_od=INSERT_M3_PILOT_OD,
+            pilot_depth=INSERT_M3_PILOT_DEPTH,
+            boss_od=ELEC_BOSS_OD_M3,
+            boss_height=ELEC_STANDOFF_H,
+            tray_top_z=tray_top_z,
+        )
+        bosses.append(boss)
+        pockets.append(pocket)
 
-    return _diff(plate, *nano_holes, *pca_holes, *mount_holes)
+    # --- Pi 4 board-mount sites (M2.5 inserts) ---
+    for (hx, hy) in _absolute_xy(PI_CENTRE, PI_HOLES):
+        boss, pocket = _board_standoff_boss_and_pocket(
+            hx, hy,
+            pilot_od=INSERT_M25_PILOT_OD,
+            pilot_depth=INSERT_M25_PILOT_DEPTH,
+            boss_od=ELEC_BOSS_OD_M25,
+            boss_height=ELEC_STANDOFF_H,
+            tray_top_z=tray_top_z,
+        )
+        bosses.append(boss)
+        pockets.append(pocket)
+
+    # --- PCA9685 board-mount sites (M3 inserts) ---
+    for (hx, hy) in _absolute_xy(PCA_CENTRE, PCA_HOLES):
+        boss, pocket = _board_standoff_boss_and_pocket(
+            hx, hy,
+            pilot_od=INSERT_M3_PILOT_OD,
+            pilot_depth=INSERT_M3_PILOT_DEPTH,
+            boss_od=ELEC_BOSS_OD_M3,
+            boss_height=ELEC_STANDOFF_H,
+            tray_top_z=tray_top_z,
+        )
+        bosses.append(boss)
+        pockets.append(pocket)
+
+    # --- 4 chassis-mount holes (35 mm radius / 45 deg square) ---
+    # Phi BRACKET_BOLT_HOLE = 3.4 mm M3 clearance through the full
+    # ELEC_TRAY_T thickness, with a Phi ELEC_CHASSIS_COUNTERBORE_OD =
+    # 5.5 mm x ELEC_CHASSIS_COUNTERBORE_DEPTH = 3.0 mm counterbore
+    # from the tray's TOP face so the chassis-side M3 SHCS head sits
+    # flush with the tray top (the head face ends up coincident with
+    # tray-local z = 0).  Boards on the 5 mm standoffs above the
+    # tray then have an unobstructed 5 mm of clear air above the
+    # tray face -- no PCB-vs-bolt-head conflict.
+    mount_holes: list[trimesh.Trimesh] = []
+    for (mx, my) in ELEC_CHASSIS_MOUNT_HOLES_XY:
+        through = _cyl(BRACKET_BOLT_HOLE / 2.0, ELEC_TRAY_T * 4.0)
+        through.apply_translation([mx, my, ELEC_TRAY_T / 2.0])
+        mount_holes.append(through)
+
+        cbore = _cyl(ELEC_CHASSIS_COUNTERBORE_OD / 2.0,
+                     ELEC_CHASSIS_COUNTERBORE_DEPTH + 0.4)
+        cbore_z_centre = ELEC_TRAY_T - ELEC_CHASSIS_COUNTERBORE_DEPTH / 2.0
+        cbore.apply_translation([mx, my, cbore_z_centre + 0.2])
+        mount_holes.append(cbore)
+
+    body = _union(plate, *bosses)
+    return _diff(body, *pockets, *mount_holes)
 
 
 # ---------------------------------------------------------------------------

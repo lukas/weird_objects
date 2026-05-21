@@ -52,6 +52,13 @@ YAW_OUTPUT_HEIGHT = (
 ) * M
 LEG_RADIAL = APOTHEM
 
+# Electronics-tray chassis-frame placement (May 2026 expansion: tray
+# centre moved from (+35, 0) to (0, 0) so the tray's 4 chassis-mount
+# holes line up with the chassis-side 35-mm-radius pattern).  Mirrors
+# ``HP.ELEC_TRAY_CENTRE_X / Y`` in metres.
+HP_ELEC_TRAY_CX_M = HP.ELEC_TRAY_CENTRE_X * M
+HP_ELEC_TRAY_CY_M = HP.ELEC_TRAY_CENTRE_Y * M
+
 CHASSIS_MASS = 0.55
 COXA_MASS = 0.055
 FEMUR_MASS = 0.075
@@ -485,7 +492,8 @@ def _chassis_visuals_xml() -> str:
         'mesh="battery_holder" pos="-0.025 0 0" '
         'material="palette_battery_holder"/>\n'
         '      <geom class="visual" name="electronics_tray_mesh" type="mesh" '
-        'mesh="electronics_tray" pos="0.035 0 0.001" '
+        f'mesh="electronics_tray" pos="{HP_ELEC_TRAY_CX_M:.5f} '
+        f'{HP_ELEC_TRAY_CY_M:.5f} 0.001" '
         'material="palette_electronics_tray"/>'
     )
 

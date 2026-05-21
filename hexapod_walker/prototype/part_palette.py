@@ -85,6 +85,12 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     # when the build is exploded.  Matches the "brass-bolt" palette
     # family the spec calls for.
     "M3 heat-set insert":  (0.72, 0.45, 0.20),
+    # M2.5 heat-set insert (McMaster 94459A106): same brass / bronze
+    # hue as the M3 sibling (May 2026 electronics-tray expansion).
+    "M2.5 heat-set insert": (0.72, 0.45, 0.20),
+    # M2.5 x 8 SHCS into the Pi 4 / Pi 5 heat-set insert -- same
+    # bluer-steel hue as the M2.5 spline screw it shares stock with.
+    "M2.5x8 SHCS into heat-set insert": (0.28, 0.32, 0.40),
 }
 
 
@@ -120,12 +126,15 @@ _FASTENER_PART_TYPES = frozenset({
     "M3x14 SHCS",
     "M3x8 SHCS",
     "M3x8 SHCS into heat-set insert",
+    "M3x10 SHCS",
     "M3x32 SHCS",
     "M3x16 pan-head",
     "M2x8 SHCS",
     "M2.5x8 spline screw",
+    "M2.5x8 SHCS into heat-set insert",
     "M3 nyloc nut",
     "M3 heat-set insert",
+    "M2.5 heat-set insert",
 })
 
 

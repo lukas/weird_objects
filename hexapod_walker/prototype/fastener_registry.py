@@ -93,12 +93,29 @@ Enumerated categories (Design B + Design C, May 2026 revert)
    so the bolt head clamps the chassis_bottom plate against plastic,
    not brass.
 
+10. ``8 x M3 x 8 SHCS`` -- electronics_tray board-mount bolts for the
+    Arduino Mega 2560 (4) and the PCA9685 PWM driver (4).  Threads
+    DOWN through each board's M3 mounting hole into an M3 brass
+    heat-set insert (McMaster 94459A130) embedded in a printed
+    Phi 4 mm boss on top of the tray.  May 2026 single-tray
+    Mega + Pi + PCA9685 layout.
+
+11. ``8 x M3 heat-set inserts`` -- 4 captive in the Mega's bosses,
+    4 in the PCA9685's bosses (see 10.).  Same McMaster
+    ``94459A130`` part as the cradle + battery_holder inserts.
+
+12. ``4 x M2.5 x 8 SHCS`` -- electronics_tray board-mount bolts for
+    the Raspberry Pi 4 / Pi 5.  Threads DOWN through each Pi
+    mounting hole into an M2.5 brass heat-set insert (McMaster
+    94459A106).  PN_M25X8_BOARD_SHCS (same physical stock as the
+    M2.5 spline screw, distinct role label).
+
+13. ``4 x M2.5 heat-set inserts`` -- captive in the Pi's bosses (see
+    12.).  McMaster ``94459A106``.
+
 Categories NOT enumerated yet (acknowledged future work; see
 PROTOTYPE_BOM.md "Fasteners" auto-derived section):
 
-* Electronics-tray board-mount screws (4 Arduino-Nano + 4 PCA9685
-  standoffs through the printed tray).  These are small commodity
-  M2 / M3 nylon hardware that ships with the boards.
 * Chassis-stack standoff bolts (4 M3 through the chassis_top + chassis_bottom
   plates + the brass standoff column).  Hidden inside the chassis
   bay and not user-serviceable.
@@ -127,6 +144,19 @@ import hexapod_prototype as HP  # noqa: E402
 # README stay in sync.  If McMaster renumbers a SKU, edit here only.
 
 PN_M3X8_SHCS     = "91290A113"   # M3 x 8  socket-head cap screw, black-oxide steel
+PN_M25X8_BOARD_SHCS = "91290A102"  # M2.5 x 8 SHCS used as a board-mount bolt
+                                   # threaded into a Phi 3.0 mm M2.5 brass
+                                   # heat-set insert in the electronics_tray.
+                                   # Same stock as PN_M25X8_SHCS (the servo
+                                   # spline screw); the distinct PN here
+                                   # surfaces the role in the BOM so the
+                                   # user buys both sets together.
+PN_M25_HEATSET_INSERT = "94459A106"  # M2.5 brass heat-set insert, knurled
+                                      # (McMaster).  Pilot Phi 3.0 mm,
+                                      # length 4.0 mm, recommended pilot
+                                      # depth 4.5 mm.  4 of these mount the
+                                      # Raspberry Pi 4 / Pi 5 onto the
+                                      # electronics_tray (May 2026).
 PN_M3X10_SHCS    = "91290A114"   # M3 x 10 socket-head cap screw, black-oxide steel
                                   # (battery_holder foot bolts: head bears on
                                   # the UNDER face of chassis_bottom, threads
@@ -176,6 +206,15 @@ SPEC_M3X32_SHCS  = "M3x32 SHCS"
 SPEC_M3_NYLOC    = "M3 nyloc nut"
 SPEC_M3X16_PAN   = "M3x16 pan-head"
 SPEC_M25X8_SHCS  = "M2.5x8 spline screw"
+# Pi-mount bolt + insert specs (May 2026, electronics-tray expansion).
+# Plain M2.5 x 8 SHCS used as a board-mount bolt; threads into an
+# M2.5 brass heat-set insert (McMaster 94459A106) embedded in a
+# Phi 3.0 mm pocket in the electronics_tray boss.  The "SHCS"
+# substring is preserved so the screwdriver-envelope dispatcher
+# (HEX_KEY) picks the right driver envelope; "M2.5" disambiguates
+# the spline-screw entries above.
+SPEC_M25X8_SHCS_INTO_INSERT = "M2.5x8 SHCS into heat-set insert"
+SPEC_M25_HEATSET_INSERT     = "M2.5 heat-set insert"
 SPEC_M2X8_SHCS   = "M2x8 SHCS"   # link-to-X-horn self-tap bolts
 
 
@@ -1157,6 +1196,143 @@ def _emit_battery_holder_fasteners() -> list[FastenerInstance]:
 
 
 # ---------------------------------------------------------------------------
+# Electronics-tray board-mount fasteners (M3/M2.5 SHCS + heat-set inserts)
+# ---------------------------------------------------------------------------
+
+
+def _emit_electronics_tray_fasteners() -> list[FastenerInstance]:
+    """The 12 electronics-tray board-mount fasteners + their captive
+    heat-set inserts (May 2026, single-tray Mega + Pi + PCA9685
+    layout).
+
+    The tray's chassis-frame placement is
+    ``(HP.ELEC_TRAY_CENTRE_X, HP.ELEC_TRAY_CENTRE_Y,
+       HP.CHASSIS_PLATE_T / 2 + 3)``; the tray's TOP face sits at
+    ``z = HP.CHASSIS_PLATE_T / 2 + 3 + HP.ELEC_TRAY_T`` and the
+    standoff bosses extend ``HP.ELEC_STANDOFF_H`` mm above that.
+    Each insert top face is recessed ``HP.INSERT_M3_PILOT_DEPTH``
+    (or ``HP.INSERT_M25_PILOT_DEPTH``) below the boss top so the
+    bolt head clamps the board onto the boss top, not directly
+    onto the brass insert.
+
+    All 12 board-mount sites are CAPTIVE SUB-ASSEMBLY fasteners:
+    they are torqued during the electronics install BEFORE
+    chassis_top is bolted onto the standoffs from above.  Once the
+    top plate + (optional) arm bracket close over the tray a hex
+    key cannot reach the heads, so ``skip_screwdriver_reason``
+    marks them all SKIPped (same convention as the cradle bolts +
+    the battery_holder foot bolts).
+    """
+    out: list[FastenerInstance] = []
+
+    tray_top_z = HP.CHASSIS_PLATE_T / 2.0 + 3.0 + HP.ELEC_TRAY_T
+    boss_top_z = tray_top_z + HP.ELEC_STANDOFF_H
+
+    def _absolute_xy(centre, offsets):
+        cx, cy = centre
+        return [(cx + ox, cy + oy) for ox, oy in offsets]
+
+    board_specs = (
+        # (label, centre_xy, hole_offsets, pilot_depth, bolt_pn, bolt_spec,
+        #  bolt_length, insert_pn, insert_spec, insert_length)
+        (
+            "Mega2560",
+            HP.MEGA_CENTRE, HP.MEGA_HOLES,
+            HP.INSERT_M3_PILOT_DEPTH,
+            PN_M3X8_SHCS, SPEC_M3X8_SHCS_INTO_INSERT,
+            8.0,
+            PN_M3_HEATSET_INSERT, SPEC_M3_HEATSET_INSERT,
+            HP.INSERT_M3_INSERT_LENGTH,
+        ),
+        (
+            "Pi4",
+            HP.PI_CENTRE, HP.PI_HOLES,
+            HP.INSERT_M25_PILOT_DEPTH,
+            PN_M25X8_BOARD_SHCS, SPEC_M25X8_SHCS_INTO_INSERT,
+            8.0,
+            PN_M25_HEATSET_INSERT, SPEC_M25_HEATSET_INSERT,
+            HP.INSERT_M25_INSERT_LENGTH,
+        ),
+        (
+            "PCA9685",
+            HP.PCA_CENTRE, HP.PCA_HOLES,
+            HP.INSERT_M3_PILOT_DEPTH,
+            PN_M3X8_SHCS, SPEC_M3X8_SHCS_INTO_INSERT,
+            8.0,
+            PN_M3_HEATSET_INSERT, SPEC_M3_HEATSET_INSERT,
+            HP.INSERT_M3_INSERT_LENGTH,
+        ),
+    )
+
+    skip_reason = (
+        "captive sub-assembly fastener: torqued during electronics "
+        "install before chassis_top + (optional) arm baseplate "
+        "close the chassis stack from above.  Once the top plate "
+        "is on, a hex key cannot reach the board-mount heads"
+    )
+
+    for (label, centre, offsets, pilot_depth, bolt_pn, bolt_spec,
+         bolt_len, insert_pn, insert_spec, insert_len) in board_specs:
+        for (hx_tray, hy_tray) in _absolute_xy(centre, offsets):
+            hx = HP.ELEC_TRAY_CENTRE_X + hx_tray
+            hy = HP.ELEC_TRAY_CENTRE_Y + hy_tray
+
+            # SHCS head bears on the BOARD's top face = boss top +
+            # board thickness; conservative: place head face at the
+            # boss top (matches inspect_build's bolt rendering and
+            # avoids leaking a per-board PCB-thickness constant).
+            # axis_world points DOWN into the insert.
+            head_world = np.array([hx, hy, boss_top_z])
+            axis_world = np.array([0.0, 0.0, -1.0])
+            out.append(FastenerInstance(
+                part_number=bolt_pn,
+                spec=bolt_spec,
+                head_world_xyz=head_world,
+                axis_world=axis_world,
+                role=(
+                    f"electronics_tray {label} board-mount "
+                    f"({bolt_spec})"
+                ),
+                leg_index=None,
+                joint=None,
+                length_mm=bolt_len,
+                cache_stl=f"{bolt_pn}.cache.stl",
+                skip_screwdriver_reason=skip_reason,
+            ))
+
+            # Insert top face sits ``pilot_depth - insert_len`` mm
+            # below the boss top (debris-clearance overdrill).  Axis
+            # = +Z (the bolt comes DOWN from above; the insert was
+            # pressed in with a soldering iron BEFORE the bolt was
+            # threaded in, so the insert is captive in the boss).
+            insert_top_z = boss_top_z - (pilot_depth - insert_len)
+            insert_head_world = np.array([hx, hy, insert_top_z])
+            out.append(FastenerInstance(
+                part_number=insert_pn,
+                spec=insert_spec,
+                head_world_xyz=insert_head_world,
+                axis_world=np.array([0.0, 0.0, -1.0]),
+                role=(
+                    f"electronics_tray {label} board-mount "
+                    f"{insert_spec}"
+                ),
+                leg_index=None,
+                joint=None,
+                length_mm=insert_len,
+                cache_stl=f"{insert_pn}.cache.stl",
+                skip_screwdriver_reason=(
+                    "heat-set insert installed with a soldering "
+                    "iron BEFORE the board is bolted to the "
+                    "electronics_tray (PROTOTYPE.md section 6.1 "
+                    "step 12); no driver cone applies to the "
+                    "brass insert"
+                ),
+            ))
+
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Top-level builder
 # ---------------------------------------------------------------------------
 
@@ -1217,6 +1393,13 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     # was un-enumerated and physically un-bolted).
     out.extend(_emit_battery_holder_fasteners())
 
+    # Electronics-tray board-mount fasteners (May 2026, single-tray
+    # Mega 2560 + Pi 4 + PCA9685 layout).  4 M3 + 4 M2.5 + 4 M3
+    # SHCS into matching heat-set inserts.  All SKIPped from the
+    # screwdriver-access probe because they're captive sub-assembly
+    # fasteners (driven before chassis_top closes the stack).
+    out.extend(_emit_electronics_tray_fasteners())
+
     return out
 
 
@@ -1242,20 +1425,27 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
     spec_order = {
         SPEC_M2X8_SHCS:             0,
         SPEC_M25X8_SHCS:            1,
-        SPEC_M3X8_SHCS:             2,
-        SPEC_M3X8_SHCS_INTO_INSERT: 3,
-        SPEC_M3X10_SHCS:            4,
-        SPEC_M3_HEATSET_INSERT:     5,
-        SPEC_M3X32_SHCS:            6,
-        SPEC_M3X16_PAN:             7,
-        SPEC_M3_NYLOC:              8,
+        SPEC_M25X8_SHCS_INTO_INSERT: 2,
+        SPEC_M25_HEATSET_INSERT:    3,
+        SPEC_M3X8_SHCS:             4,
+        SPEC_M3X8_SHCS_INTO_INSERT: 5,
+        SPEC_M3X10_SHCS:            6,
+        SPEC_M3_HEATSET_INSERT:     7,
+        SPEC_M3X32_SHCS:            8,
+        SPEC_M3X16_PAN:             9,
+        SPEC_M3_NYLOC:             10,
     }
-    rows.sort(key=lambda r: (spec_order.get(r[0], 9), r[0]))
+    rows.sort(key=lambda r: (spec_order.get(r[0], 99), r[0]))
     return rows
 
 
 def _usage_bucket(fi: FastenerInstance) -> str:
     role = fi.role
+    if "electronics_tray" in role:
+        if "heat-set insert" in role:
+            return "electronics_tray heat-set inserts (Mega + Pi + PCA9685)"
+        return ("electronics_tray board-mount bolts "
+                "(Mega M3 + Pi M2.5 + PCA9685 M3 SHCS into inserts)")
     if "battery_holder" in role:
         if "heat-set insert" in role:
             return "battery_holder heat-set inserts"

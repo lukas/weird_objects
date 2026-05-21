@@ -2,7 +2,7 @@ filename,qty,material,color,finish,envelope_x_mm,envelope_y_mm,envelope_z_mm,vol
 chassis_top.stl,1,MJF PA12,white,as-printed,140.0,161.7,4.0,67.75,67.75,Top deck (140 mm flat-to-flat hex). Carries battery + electronics + optional arm; smaller than bottom so the legs sweep clear.
 chassis_bottom.stl,1,MJF PA12,white,as-printed,200.0,213.0,4.0,99.52,99.52,Bottom structural plate (200 mm flat-to-flat hex). Takes the six coxa-bracket M3 bolts and per-leg yaw-servo body cutouts.
 battery_holder.stl,1,MJF PA12,white,as-printed,110.0,60.0,28.0,16.18,16.18,Open-top LiPo tray; velcro slots through the long walls.
-electronics_tray.stl,1,MJF PA12,white,as-printed,100.0,70.0,3.0,20.76,20.76,Mounts Arduino + 2x PCA9685; standoffs are part of the geometry.
+electronics_tray.stl,1,MJF PA12,white,as-printed,160.0,130.0,8.0,63.89,63.89,Mounts Arduino + 2x PCA9685; standoffs are part of the geometry.
 coxa_bracket.stl,6,MJF PA12,white,as-printed,66.0,52.0,45.2,50.96,305.73,Holds the yaw servo. Cradle pocket prints opening +Z.
 coxa_link.stl,6,MJF PA12,white,as-printed,61.0,46.0,64.0,52.14,312.86,Yaw-driven arm; oriented so the hip-pitch cradle opens +Z.
 femur_link.stl,6,MJF PA12,white,as-printed,129.0,46.0,58.0,57.21,343.29,Thigh; printed with the spar's broad face on the bed and the knee cradle sticking up (opens -Z) -- minimizes FDM supports.

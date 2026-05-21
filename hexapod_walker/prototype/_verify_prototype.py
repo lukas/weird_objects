@@ -2518,7 +2518,8 @@ def _build_chassis_world(reference_leg_az_rad):
     parts["battery_holder"] = bh
 
     et = _load_mesh("electronics_tray")
-    et.apply_translation([35.0, 0.0, hp.CHASSIS_PLATE_T / 2.0 + 3.0])
+    et.apply_translation([hp.ELEC_TRAY_CENTRE_X, hp.ELEC_TRAY_CENTRE_Y,
+                          hp.CHASSIS_PLATE_T / 2.0 + 3.0])
     parts["electronics_tray"] = et
 
     apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
@@ -3514,7 +3515,8 @@ def _build_world_leg0_printed_parts() -> dict:
     parts["battery_holder"] = bat
 
     et = _load_mesh("electronics_tray")
-    et.apply_translation([35.0, 0.0, plate_t + 1.0])
+    et.apply_translation([hp.ELEC_TRAY_CENTRE_X, hp.ELEC_TRAY_CENTRE_Y,
+                          plate_t + 1.0])
     parts["electronics_tray"] = et
 
     # Leg-0 printed parts -- mirrors ``_build_standing_leg`` so the
@@ -3837,6 +3839,11 @@ FASTENER_ENGAGEMENT_SPEC = {
     "M3x32 SHCS":                      dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x16 pan-head":                  dict(head_od=6.0, shaft_od=3.2, engagement_mm=5.0),
     "M2.5x8 spline screw":             dict(head_od=4.5, shaft_od=2.7, engagement_mm=3.0),
+    # ``M2.5x8 SHCS into heat-set insert`` -- Pi 4 board-mount bolts (4)
+    # into M2.5 brass heat-set inserts (McMaster 94459A106).  Insert
+    # body is INSERT_M25_INSERT_LENGTH = 4 mm long; engagement target
+    # is the brass thread, not the surrounding plastic.
+    "M2.5x8 SHCS into heat-set insert": dict(head_od=4.5, shaft_od=2.7, engagement_mm=4.0),
 }
 _FASTENER_ENGAGEMENT_DEFAULT = dict(head_od=5.0, shaft_od=3.0, engagement_mm=3.0)
 
@@ -3859,6 +3866,7 @@ TIP_ENGAGEMENT_MIN_FRACTION = 0.5
 _NUT_INSERT_SPECS = (
     "M3 nyloc nut",
     "M3 heat-set insert",
+    "M2.5 heat-set insert",
 )
 
 # Joints whose horn (servo_horn) sits ON the spline tip and is the

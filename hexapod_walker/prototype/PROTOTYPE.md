@@ -205,7 +205,7 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 | `chassis_top.stl` | Top hex deck (4 mm PLA, 200 mm flat-to-flat) | 0.2 mm layer, 25% gyroid infill, 4 walls |
 | `chassis_bottom.stl` | Identical bottom plate | same as top |
 | `battery_holder.stl` | Open-top tray for one 3S 2200 mAh LiPo | 0.2 mm layer, 20% infill |
-| `electronics_tray.stl` | Mount plate for Arduino + PCA9685 | 0.2 mm, 20% infill, 2 walls |
+| `electronics_tray.stl` | 160 x 130 mm mount deck for Arduino Mega 2560 + Raspberry Pi 4/5 + PCA9685 | 0.2 mm, 20% infill, 2 walls |
 
 ### 3.2 Per-leg parts (print 6 sets)
 
@@ -261,8 +261,9 @@ printer.
 
 | Item | Spec | Qty | Cost |
 |---|---|---|---|
-| Arduino Mega 2560 (clone) | ATmega 2560, 5 V | 1 | $15 |
-| PCA9685 16-channel PWM driver | I²C, 12-bit | 2 | $4 each |
+| Arduino Mega 2560 (ELEGOO R3 clone) | ATmega 2560, 5 V; mounts to electronics_tray via 4 x M3x8 SHCS + 4 x M3 brass heat-set inserts (McMaster 94459A130) | 1 | $15 |
+| Raspberry Pi 4 Model B / Pi 5 | High-level brain (ROS 2, vision, gait planning); mounts to electronics_tray via 4 x M2.5x8 SHCS + 4 x M2.5 brass heat-set inserts (McMaster 94459A106) | 1 | $45 |
+| PCA9685 16-channel PWM driver | I²C, 12-bit; primary one bolts to the tray (4 x M3x8 + 4 x M3 heat-set inserts); secondary one daisy-chains over I²C and is held in place with cable ties | 2 | $4 each |
 | MPU-6050 IMU | 6-DOF gyro + accel, I²C (optional but useful) | 1 | $4 |
 | Jumper wires | F-F, 20 cm × 50 + servo extensions × 18 | — | $15 |
 | Logic-level wiring + heat-shrink | — | — | $5 |
@@ -278,6 +279,10 @@ printer.
 | M3 nyloc nuts | >= 78 + spares | **Design C captive nuts**: 4 per servo x 18 servos = 72, plus 6 for the foot hinges. |
 | M3 × 25 mm round standoffs (M-F) | 8 | Top-to-bottom chassis spacers |
 | M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the plastic 4-arm X-horn onto the servo output spline. |
+| M3 brass heat-set inserts (McMaster 94459A130) | 8 | Electronics-tray board mounts: 4 for the Mega 2560 + 4 for the primary PCA9685.  Soldering-iron installed into the printed Phi 4 mm pilot pockets BEFORE the electronics go on. |
+| M2.5 brass heat-set inserts (McMaster 94459A106) | 4 | Electronics-tray board mounts for the Raspberry Pi 4 / Pi 5.  Same soldering-iron install workflow as the M3 inserts. |
+| M3 × 8 SHCS (board mounts) | 8 | 4 x Mega 2560 + 4 x PCA9685 onto the M3 inserts. |
+| M2.5 × 8 SHCS (board mounts) | 4 | 4 x Raspberry Pi 4 / Pi 5 onto the M2.5 inserts. |
 
 ### 4.5 3D-printed material
 
@@ -292,9 +297,9 @@ printer.
 |---|---:|
 | Actuators | ~$300 |
 | Power | ~$70 |
-| Electronics | ~$50 |
+| Electronics (incl. Raspberry Pi 4) | ~$100 |
 | Fasteners + filament | ~$20 |
-| **Total** | **~ $440** |
+| **Total** | **~ $490** |
 
 ---
 
@@ -396,10 +401,30 @@ times.
     is wider than the 35 mm standoff radius); see
     `hexapod_prototype.make_chassis_bottom` and
     `fastener_registry._emit_battery_holder_fasteners` for the
-    geometry.  Place the **electronics tray** adjacent to the
-    battery; it doesn't share the holder's bolt pattern.
-12. **Wire it up:** see §7.
-13. **Top chassis plate:** screw down onto the M3 × 32 mm standoff
+    geometry.
+12. **Electronics tray + boards (May 2026 hardware-arrival pass):**
+    install all 12 board-mount fasteners NOW, before the top chassis
+    plate goes on -- once chassis_top is bolted down the M3 SHCS
+    heads on the Mega + PCA9685 and the M2.5 heads on the Pi are no
+    longer driver-accessible.  Workflow:
+    a. Soldering-iron-install **8 × M3 brass heat-set inserts**
+       (McMaster `94459A130`) into the tray's Mega + PCA9685 bosses
+       and **4 × M2.5 brass heat-set inserts** (McMaster `94459A106`)
+       into the Pi bosses; same ~ 220 °C technique as the cradle /
+       battery_holder inserts.
+    c. Bolt the Mega 2560 onto its 4 M3 inserts with **4 × M3 × 8 mm
+       SHCS**, the Pi onto its 4 M2.5 inserts with **4 × M2.5 × 8 mm
+       SHCS**, and the primary PCA9685 onto its 4 M3 inserts with
+       **4 × M3 × 8 mm SHCS**.  Boards sit 5 mm above the tray top
+       on the printed standoff bosses; cables plug in from the ±X /
+       -Y chassis edges.
+    d. Drop the populated tray onto the 4 × M3 × 32 mm standoffs and
+       drive **4 × M3 × 8 mm SHCS** UP from under the chassis_bottom
+       plate; the tray's Phi 5.5 mm × 3 mm counterbores recess the
+       SHCS heads flush with the tray's top face so the boards on
+       their 5 mm standoffs clear the chassis bolts entirely.
+13. **Wire it up:** see §7.
+14. **Top chassis plate:** screw down onto the M3 × 32 mm standoff
     tops.
 
 ---

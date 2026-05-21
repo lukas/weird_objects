@@ -80,6 +80,17 @@ M3_HEATSET_FLUTES   = 16      # axial flutes -- visual cue that the OD
                               #   is knurled rather than smooth
 M3_HEATSET_FLUTE_D  = 0.2     # depth of each flute (radial, mm)
 
+# M2.5 heat-set insert (McMaster 94459A106): brass body, knurled OD.
+# Pilot Phi 3.0 mm, knurled OD 3.6 mm, body length 4.0 mm.  Added May
+# 2026 to mount the Raspberry Pi 4 / Pi 5 onto the electronics_tray.
+# Same parametric story as M3 (knurled brass cylinder + bolt-through
+# bore + axial flutes); just at the smaller M2.5 stock dimensions.
+M25_HEATSET_OD      = 3.6
+M25_HEATSET_PILOT_D = 3.0
+M25_HEATSET_LENGTH  = 4.0
+M25_HEATSET_FLUTES  = 12
+M25_HEATSET_FLUTE_D = 0.15
+
 
 # ---------------------------------------------------------------------------
 # Low-level primitive builders
@@ -263,6 +274,53 @@ def make_m3_heatset_insert() -> trimesh.Trimesh:
     return body
 
 
+def make_m25_heatset_insert() -> trimesh.Trimesh:
+    """M2.5 brass heat-set insert (McMaster 94459A106).
+
+    Mirrors ``make_m3_heatset_insert`` at the smaller M2.5 stock
+    dimensions: Phi ``M25_HEATSET_OD`` x ``M25_HEATSET_LENGTH`` brass
+    cylinder with ``M25_HEATSET_FLUTES`` axial flutes carved into the
+    outer wall + a Phi ``M25_THREAD_D`` central bore.  Coordinate
+    frame: insert TOP face at z=0, body extends INTO +Z, matching the
+    SHCS / nut / M3-insert convention.  Used to mount the Raspberry
+    Pi 4 / Pi 5 onto the electronics_tray (May 2026 hardware-arrival
+    pass).
+    """
+    body_r = M25_HEATSET_OD / 2.0
+    body = _cyl(body_r, M25_HEATSET_LENGTH)
+    body.apply_translation([0.0, 0.0, M25_HEATSET_LENGTH / 2.0])
+
+    bore = _cyl(M25_THREAD_D / 2.0, M25_HEATSET_LENGTH + 1.0)
+    bore.apply_translation([0.0, 0.0, M25_HEATSET_LENGTH / 2.0])
+    try:
+        body = body.difference(bore)
+    except Exception:
+        pass
+
+    flutes = []
+    flute_w = 2.0 * body_r * math.sin(math.pi / M25_HEATSET_FLUTES) * 0.6
+    for k in range(M25_HEATSET_FLUTES):
+        ang = 2.0 * math.pi * k / M25_HEATSET_FLUTES
+        flute = _box(
+            (flute_w, M25_HEATSET_FLUTE_D * 2.0, M25_HEATSET_LENGTH + 0.4),
+            center=(0.0, 0.0, M25_HEATSET_LENGTH / 2.0),
+        )
+        Tx = trimesh.transformations.translation_matrix(
+            (body_r, 0.0, 0.0)
+        )
+        Rz = trimesh.transformations.rotation_matrix(ang, (0, 0, 1))
+        flute.apply_transform(Rz @ Tx)
+        flutes.append(flute)
+    if flutes:
+        try:
+            union = trimesh.util.concatenate(flutes)
+            body = body.difference(union)
+        except Exception:
+            pass
+
+    return body
+
+
 def make_m3_nyloc_nut() -> trimesh.Trimesh:
     """M3 nylon-insert lock nut (DIN 985).
 
@@ -324,10 +382,12 @@ def build_for_spec(spec: str) -> trimesh.Trimesh:
         return make_m3_shcs(32.0)
     if s == "m3x16pan-head":
         return make_m3_pan_head(16.0)
-    if s == "m2.5x8splinescrew":
+    if s == "m2.5x8splinescrew" or s == "m2.5x8shcsintoheat-setinsert":
         return make_m25_shcs(8.0)
     if s == "m3nylocnut":
         return make_m3_nyloc_nut()
     if s == "m3heat-setinsert":
         return make_m3_heatset_insert()
+    if s == "m2.5heat-setinsert":
+        return make_m25_heatset_insert()
     raise ValueError(f"unknown fastener spec: {spec!r}")
