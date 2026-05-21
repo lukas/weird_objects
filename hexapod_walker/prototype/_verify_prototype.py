@@ -73,6 +73,9 @@ import sys
 import os
 import io
 import functools
+import hashlib
+import inspect
+import sqlite3
 import time
 import multiprocessing
 import concurrent.futures
@@ -5264,6 +5267,213 @@ ESSENTIAL_CHECK_NAMES = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Persistent per-check cache (sqlite at .verify_cache.sqlite)
+# ---------------------------------------------------------------------------
+#
+# The wall-time profile (see _verify_profile.txt) makes the cache an
+# obvious win: 18 checks x 1-200 s each, the vast majority of which
+# read the SAME mesh + constants inputs every run.  If nothing's
+# changed since last time, we don't need to re-run anything.  We
+# segregate cache entries per check (so a single edit only
+# invalidates the affected ones) under a content-hash key:
+#
+#     input_hash = sha1(
+#         check_name
+#         + inspect.getsource(check_fn)        -- the check's own body
+#         + inspect.getsource(hexapod_prototype) -- all constants +
+#                                                 builder code; covers
+#                                                 hp.SERVO_BODY_W etc.
+#         + inspect.getsource(fastener_registry) -- catches bolt
+#                                                   placement / spec
+#                                                   changes
+#         + concatenated sha1(STL bytes) over every stl_prototype/*.stl
+#     )
+#
+# Stored in ``.verify_cache.sqlite`` next to this file (gitignored).
+# Schema: (check_name, input_hash) -> (result_pass, runtime_s,
+# message, timestamp_unix).  On every invocation we prune entries
+# older than CACHE_MAX_AGE_S (= 30 days) so the file stays small
+# across long-lived branches.
+#
+# Workflow:
+#   * Cache HIT -> print "  [CACHED Xm ago] [PASS] check_name ..." and
+#     skip the real run.  result_pass drives the summary table.
+#   * Cache MISS -> run the check, INSERT (or REPLACE) the result.
+#   * ``--no-cache`` -> bypass lookups (writes still happen, so the
+#     cache stays current; useful to validate the cache against a
+#     fresh cold run without flushing all entries).
+#
+# Limits intentionally NOT covered by the hash (would create false
+# invalidations without improving correctness much):
+#   * helper functions in _verify_prototype.py outside the check
+#     function itself.  If you change ``_pair_overlap_volume`` you
+#     must bust the cache with ``--no-cache`` (or delete the sqlite
+#     file).  Refactors of helpers are rare compared to constants /
+#     check edits, so this is an acceptable trade-off.
+#   * Trimesh / numpy versions.  If you upgrade those, ``--no-cache``
+#     once.
+
+CACHE_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              ".verify_cache.sqlite")
+STL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "stl_prototype")
+CACHE_MAX_AGE_S = 30 * 24 * 3600  # 30 days
+
+
+# Lazy: most of the inputs (hp source + fr source + STL bytes) are
+# IDENTICAL across every check in one run.  Compute the partial hash
+# ONCE per process and reuse it; only the per-check piece
+# (check_fn source) is mixed in afterwards.
+_CACHE_INPUT_HASH_GLOBAL: str | None = None
+_CACHE_INPUT_HASH_GLOBAL_LOCK = threading.Lock()
+
+
+def _cache_global_input_hash() -> str:
+    """Return the cached sha1 of every input that's identical across
+    every check in a single run: the hp + fastener_registry module
+    source, plus every file under stl_prototype/.  Computed once per
+    process via a memo + lock."""
+    global _CACHE_INPUT_HASH_GLOBAL
+    if _CACHE_INPUT_HASH_GLOBAL is not None:
+        return _CACHE_INPUT_HASH_GLOBAL
+    with _CACHE_INPUT_HASH_GLOBAL_LOCK:
+        if _CACHE_INPUT_HASH_GLOBAL is not None:
+            return _CACHE_INPUT_HASH_GLOBAL
+        h = hashlib.sha1()
+        try:
+            h.update(inspect.getsource(hp).encode("utf-8"))
+        except OSError:
+            # inspect.getsource raises OSError if it can't find the
+            # source file (e.g. running from a frozen zipapp).  Skip
+            # this component rather than crash; the cache key
+            # degrades to "STLs + check source" which is still useful.
+            pass
+        h.update(b"\0")
+        try:
+            import fastener_registry as _fr  # noqa: WPS433
+            h.update(inspect.getsource(_fr).encode("utf-8"))
+        except (OSError, ImportError):
+            pass
+        h.update(b"\0")
+        if os.path.isdir(STL_DIR):
+            for entry in sorted(os.listdir(STL_DIR)):
+                if not entry.endswith(".stl"):
+                    continue
+                path = os.path.join(STL_DIR, entry)
+                try:
+                    with open(path, "rb") as f:
+                        h.update(entry.encode("utf-8"))
+                        h.update(b":")
+                        h.update(hashlib.sha1(f.read()).digest())
+                        h.update(b"\n")
+                except OSError:
+                    continue
+        _CACHE_INPUT_HASH_GLOBAL = h.hexdigest()
+        return _CACHE_INPUT_HASH_GLOBAL
+
+
+def _cache_check_input_hash(check_name: str, fn_name: str) -> str:
+    """Compute the full input hash for one (check_name, check_fn)
+    pair.  Pure function: callers can compute it before deciding
+    whether to dispatch the check.
+    """
+    h = hashlib.sha1()
+    h.update(check_name.encode("utf-8"))
+    h.update(b"\0")
+    fn = globals().get(fn_name)
+    if fn is not None:
+        try:
+            h.update(inspect.getsource(fn).encode("utf-8"))
+        except (OSError, TypeError):
+            pass
+    h.update(b"\0")
+    h.update(_cache_global_input_hash().encode("ascii"))
+    return h.hexdigest()
+
+
+def _cache_open() -> sqlite3.Connection:
+    """Open (creating if necessary) the per-check cache DB."""
+    conn = sqlite3.connect(CACHE_DB_PATH)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS check_cache ("
+        "  check_name      TEXT NOT NULL,"
+        "  input_hash      TEXT NOT NULL,"
+        "  result          INTEGER NOT NULL,"
+        "  runtime_s       REAL NOT NULL,"
+        "  message         TEXT NOT NULL,"
+        "  timestamp_unix  REAL NOT NULL,"
+        "  PRIMARY KEY (check_name, input_hash))"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS check_cache_ts_idx "
+        "ON check_cache(timestamp_unix)"
+    )
+    conn.commit()
+    return conn
+
+
+def _cache_lookup(conn: sqlite3.Connection,
+                    check_name: str,
+                    input_hash: str):
+    """Return ``(result_bool, runtime_s, message, timestamp_unix)`` or
+    ``None`` on cache miss."""
+    cur = conn.execute(
+        "SELECT result, runtime_s, message, timestamp_unix "
+        "FROM check_cache WHERE check_name = ? AND input_hash = ?",
+        (check_name, input_hash),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return None
+    return (bool(row[0]), float(row[1]), str(row[2]), float(row[3]))
+
+
+def _cache_insert(conn: sqlite3.Connection,
+                    check_name: str,
+                    input_hash: str,
+                    result: bool,
+                    runtime_s: float,
+                    message: str) -> None:
+    """Insert (or replace) a cache row for one (check_name,
+    input_hash) pair.  ``message`` is the captured stdout from the
+    check, truncated to 64 KiB to keep the DB compact."""
+    if len(message) > 65536:
+        message = message[:65536] + "\n... (truncated to 64 KiB)\n"
+    conn.execute(
+        "INSERT OR REPLACE INTO check_cache "
+        "(check_name, input_hash, result, runtime_s, "
+        " message, timestamp_unix) VALUES (?, ?, ?, ?, ?, ?)",
+        (check_name, input_hash,
+         int(bool(result)), float(runtime_s),
+         message, time.time()),
+    )
+    conn.commit()
+
+
+def _cache_prune(conn: sqlite3.Connection) -> int:
+    """Drop rows older than CACHE_MAX_AGE_S seconds.  Returns the
+    number of rows deleted."""
+    cutoff = time.time() - CACHE_MAX_AGE_S
+    cur = conn.execute(
+        "DELETE FROM check_cache WHERE timestamp_unix < ?", (cutoff,))
+    n = cur.rowcount
+    conn.commit()
+    return int(n) if n is not None else 0
+
+
+def _cache_format_ago(timestamp_unix: float) -> str:
+    """Human-readable "Xs / Xm / Xh / Xd ago" string."""
+    delta = max(0.0, time.time() - float(timestamp_unix))
+    if delta < 60.0:
+        return f"{int(delta)} s ago"
+    if delta < 3600.0:
+        return f"{int(delta / 60.0)} m ago"
+    if delta < 86400.0:
+        return f"{int(delta / 3600.0)} h ago"
+    return f"{int(delta / 86400.0)} d ago"
+
+
 def _worker_initializer(mesh_cache, inside_mode):
     """ProcessPoolExecutor initializer: install the parent's pre-built
     mesh cache so workers do NOT pay any constructive-solid rebuild
@@ -5305,41 +5515,128 @@ def _check_runner(display_name: str, fn_name: str):
             list(_inside_mismatches))
 
 
-def _run_checks_serial(check_subset):
+def _print_cache_hit(name: str,
+                       result: bool,
+                       runtime_s: float,
+                       timestamp_unix: float) -> None:
+    """Format and print a single cache-hit line in the same style as
+    a freshly-run check (matches ``_label``'s tabular layout)."""
+    flag = "PASS" if result else "FAIL"
+    ago = _cache_format_ago(timestamp_unix)
+    detail = f"was {runtime_s:5.1f} s when last run"
+    print(f"  [CACHED {ago}] [{flag}]  {name:36s}  {detail}")
+
+
+def _try_cache_hit(cache_conn,
+                    name: str,
+                    fn_name: str,
+                    use_cache: bool):
+    """If ``use_cache`` and a row exists for (name, hash), return
+    ``(input_hash, hit_tuple)`` and print the cache-hit line as a
+    side effect.  Otherwise return ``(input_hash, None)`` so the
+    caller knows it must run the check."""
+    input_hash = _cache_check_input_hash(name, fn_name)
+    if not use_cache or cache_conn is None:
+        return input_hash, None
+    hit = _cache_lookup(cache_conn, name, input_hash)
+    if hit is None:
+        return input_hash, None
+    result, runtime_s, _message, ts = hit
+    _print_cache_hit(name, result, runtime_s, ts)
+    return input_hash, hit
+
+
+def _run_checks_serial(check_subset, *, cache_conn=None, use_cache=True):
     """Run the ``check_subset`` (subset of CHECKS) in the current
     process, printing as we go.  Returns a list of ``(name, ok)``
     in declaration order.  In serial mode mismatch records accumulate
     directly in the parent's ``_inside_mismatches`` global.
+
+    If ``cache_conn`` is provided we look up each (name, input_hash)
+    first; on cache HIT we print "[CACHED ...]" and skip the real
+    run.  On MISS we run and INSERT the result.  Pass ``use_cache=
+    False`` to bypass lookups while still writing fresh results.
     """
     out = []
     for name, fn_name in check_subset:
+        input_hash, hit = _try_cache_hit(cache_conn, name, fn_name, use_cache)
+        if hit is not None:
+            out.append((name, hit[0]))
+            continue
         _set_inside_check_context(name)
-        ok = bool(globals()[fn_name]())
+        buf = io.StringIO()
+        t0 = time.monotonic()
+        try:
+            with redirect_stdout(buf):
+                ok = bool(globals()[fn_name]())
+        except Exception:
+            import traceback
+            traceback.print_exc(file=buf)
+            ok = False
+        runtime_s = time.monotonic() - t0
+        output = buf.getvalue()
+        if output:
+            sys.stdout.write(output)
+            sys.stdout.flush()
+        if cache_conn is not None:
+            _cache_insert(cache_conn, name, input_hash,
+                          ok, runtime_s, output)
         out.append((name, ok))
     return out
 
 
-def _run_checks_pool(check_subset, pool):
+def _run_checks_pool(check_subset, pool, *, cache_conn=None, use_cache=True):
     """Submit each check in ``check_subset`` to ``pool`` and print
     each worker's captured stdout in DECLARATION ORDER (not completion
     order).  Returns a list of ``(name, ok)``.  Any mismatch records
     a worker accumulated under --inside-mode=both are appended to the
     parent's ``_inside_mismatches`` list for the final summary.
+
+    Cache integration: the PARENT looks up each (name, input_hash)
+    BEFORE submitting.  Cache hits are printed inline and never get
+    submitted to the pool; cache misses are submitted as usual and
+    INSERTed into the cache when the future resolves.
     """
-    futures = []
+    # Resolve cache hits + queue misses.  Slots track each entry's
+    # position in the original check_subset so we can print results
+    # in declaration order even when the pool resolves them out of
+    # order.
+    slots: list[dict] = []
     for name, fn_name in check_subset:
+        input_hash, hit = _try_cache_hit(cache_conn, name, fn_name, use_cache)
+        if hit is not None:
+            slots.append({
+                "name":   name,
+                "kind":   "hit",
+                "ok":     hit[0],
+            })
+            continue
         fut = pool.submit(_check_runner, name, fn_name)
-        futures.append((name, fut))
+        slots.append({
+            "name":       name,
+            "fn_name":    fn_name,
+            "kind":       "future",
+            "future":     fut,
+            "input_hash": input_hash,
+            "t_submit":   time.monotonic(),
+        })
 
     out = []
-    for name, fut in futures:
-        _name, ok, output, worker_mismatches = fut.result()
+    for s in slots:
+        if s["kind"] == "hit":
+            out.append((s["name"], s["ok"]))
+            continue
+        _name, ok, output, worker_mismatches = s["future"].result()
+        runtime_s = time.monotonic() - s["t_submit"]
         if output:
             sys.stdout.write(output)
             sys.stdout.flush()
         if worker_mismatches:
             _inside_mismatches.extend(worker_mismatches)
-        out.append((name, ok))
+        if cache_conn is not None:
+            _cache_insert(cache_conn, s["name"], s["input_hash"],
+                          ok, runtime_s, output)
+        out.append((s["name"], ok))
     return out
 
 
@@ -5418,6 +5715,16 @@ def main(argv=None):
               "(``--all`` reads better than ``# default mode``)."),
     )
     parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help=("Bypass the persistent per-check cache for LOOKUPS; "
+              "every selected check re-runs even if a cache hit is "
+              "available.  Writes still happen so the cache stays "
+              "current.  Use this when you've edited a verifier "
+              "helper function (which the cache key intentionally "
+              "doesn't track) or upgraded trimesh / numpy."),
+    )
+    parser.add_argument(
         "--inside-mode",
         choices=INSIDE_MODES,
         default=INSIDE_MODE_RAYS,
@@ -5478,21 +5785,94 @@ def main(argv=None):
 
     t_start = time.monotonic()
 
-    print("  Pre-building mesh cache in parent process ...")
-    prebuild_mesh_cache()
+    cache_conn = _cache_open()
+    n_pruned = _cache_prune(cache_conn)
+    if n_pruned:
+        print(f"  Cache: pruned {n_pruned} entries older than "
+              f"{CACHE_MAX_AGE_S // 86400} days.")
+
+    use_cache = not args.no_cache
+    if not use_cache:
+        print("  Cache: --no-cache set; ignoring previous results "
+              "but still writing new ones.")
+
+    # Mesh cache is only needed when we have at least ONE cache miss
+    # to dispatch.  Pre-check each selected check (and the workspace
+    # sweep) against the cache and only prebuild the meshes if any
+    # of them miss.  Saves ~ 3-4 s on warm-cache runs.
+    will_miss = False
+    if use_cache:
+        for name, fn_name in check_subset:
+            ih = _cache_check_input_hash(name, fn_name)
+            if _cache_lookup(cache_conn, name, ih) is None:
+                will_miss = True
+                break
+        if not will_miss and run_workspace:
+            wih = _cache_check_input_hash(WORKSPACE_CHECK_NAME,
+                                            "check_workspace_self_collision")
+            if _cache_lookup(cache_conn, WORKSPACE_CHECK_NAME, wih) is None:
+                will_miss = True
+    else:
+        will_miss = True
+
+    if will_miss:
+        print("  Pre-building mesh cache in parent process ...")
+        prebuild_mesh_cache()
+    else:
+        print("  Cache: every selected check has a hit; "
+              "skipping mesh prebuild.")
 
     results: list[tuple[str, bool]] = []
     n_workers = 1  # only meaningful for the non-serial branch summary line
+
+    def _run_workspace_with_cache(pool=None):
+        """Cache-aware wrapper for check_workspace_self_collision.
+        On HIT we print the cache-hit line and skip the real run;
+        on MISS we capture the check's stdout, run it, INSERT the
+        cached row, and replay the output."""
+        ws_input_hash = _cache_check_input_hash(
+            WORKSPACE_CHECK_NAME, "check_workspace_self_collision")
+        if use_cache:
+            hit = _cache_lookup(cache_conn, WORKSPACE_CHECK_NAME,
+                                  ws_input_hash)
+            if hit is not None:
+                result, runtime_s, _msg, ts = hit
+                _print_cache_hit(WORKSPACE_CHECK_NAME, result,
+                                   runtime_s, ts)
+                return result
+
+        buf = io.StringIO()
+        t0 = time.monotonic()
+        try:
+            with redirect_stdout(buf):
+                if pool is None:
+                    ws_ok = bool(check_workspace_self_collision())
+                else:
+                    ws_ok = bool(check_workspace_self_collision(pool=pool))
+        except Exception:
+            import traceback
+            traceback.print_exc(file=buf)
+            ws_ok = False
+        runtime_s = time.monotonic() - t0
+        output = buf.getvalue()
+        if output:
+            sys.stdout.write(output)
+            sys.stdout.flush()
+        _cache_insert(cache_conn, WORKSPACE_CHECK_NAME, ws_input_hash,
+                       ws_ok, runtime_s, output)
+        return ws_ok
 
     if args.serial:
         # Run every check inline.  Workspace sweep also runs in this
         # process, with no pool, so its 176 poses execute serially --
         # this is the SAME code path as the historical implementation
         # and is the "ground truth" we diff the parallel output against.
-        results.extend(_run_checks_serial(check_subset))
+        results.extend(_run_checks_serial(
+            check_subset,
+            cache_conn=cache_conn, use_cache=use_cache))
         if run_workspace:
-            ok = bool(check_workspace_self_collision())
-            results.append((WORKSPACE_CHECK_NAME, ok))
+            ws_ok = _run_workspace_with_cache()
+            results.append((WORKSPACE_CHECK_NAME, ws_ok))
     else:
         n_workers = (args.workers
                        if args.workers is not None
@@ -5506,24 +5886,30 @@ def main(argv=None):
             initializer=_worker_initializer,
             initargs=(_MESH_CACHE, _inside_mode),
         ) as pool:
-            # Phase 1: the 12 "small" checks fan out across the pool.
-            # Output is printed in declaration order as each future
-            # resolves.
-            results.extend(_run_checks_pool(check_subset, pool))
+            # Phase 1: the small checks fan out across the pool.  Each
+            # cache hit is resolved synchronously in the parent and
+            # never submitted; cache misses go to the pool and get
+            # INSERTed when the future resolves.
+            results.extend(_run_checks_pool(
+                check_subset, pool,
+                cache_conn=cache_conn, use_cache=use_cache))
 
             # Phase 2: the workspace sweep dispatches its own 176
             # per-pose jobs into the same pool.  We run it in the
             # PARENT so its print statements stream to the real
             # stdout (and any redirect_stdout captures it correctly).
             if run_workspace:
-                ok = bool(check_workspace_self_collision(pool=pool))
-                results.append((WORKSPACE_CHECK_NAME, ok))
+                ws_ok = _run_workspace_with_cache(pool=pool)
+                results.append((WORKSPACE_CHECK_NAME, ws_ok))
 
     if args.with_arm:
         # Arm checks reach into the optional arm module which has its
         # own internal prints; we run them serially in the parent for
         # the same reasons as the workspace sweep.
         results.extend(_optional_arm_checks())
+
+    if cache_conn is not None:
+        cache_conn.close()
 
     print()
     print("=" * 72)

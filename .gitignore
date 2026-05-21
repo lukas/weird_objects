@@ -31,6 +31,15 @@ venv/
 # plus per-part PNG renders under views/.
 hexapod_walker/prototype/artifacts/
 
+# Per-check sqlite cache populated by _verify_prototype.py; key is
+# sha1(check source + hp / fr module source + STL bytes), evicted
+# after 30 days.  Safe to delete by hand (forces a cold run).  Bust
+# via --no-cache.
+hexapod_walker/prototype/.verify_cache.sqlite
+hexapod_walker/prototype/.verify_cache.sqlite-journal
+hexapod_walker/prototype/.verify_cache.sqlite-wal
+hexapod_walker/prototype/.verify_cache.sqlite-shm
+
 # Cursor / editor / OS
 .DS_Store
 .vscode/
