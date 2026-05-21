@@ -113,6 +113,8 @@ _MESH_BUILDERS = {
     "chassis_bottom":   hp.make_chassis_bottom,
     "battery_holder":   hp.make_battery_holder,
     "electronics_tray": hp.make_electronics_tray,
+    "bec_cradle":       hp.make_bec_cradle,
+    "switch_holster":   hp.make_switch_holster,
     "coxa_bracket":     hp.make_coxa_bracket,
     "coxa_link":        hp.make_coxa_link,
     "femur_link":       hp.make_femur_link,
@@ -3470,6 +3472,7 @@ DRIVER_HEAD_STANDOFF_MM      = 0.5
 # intrusion pattern is identical to all 6 legs.
 _DRIVER_PRINTED_PART_NAMES = (
     "chassis_bottom", "chassis_top", "battery_holder", "electronics_tray",
+    "bec_cradle", "switch_holster",
     "coxa_bracket", "coxa_link", "femur_link", "tibia_link", "foot_pad",
 )
 
@@ -3518,6 +3521,31 @@ def _build_world_leg0_printed_parts() -> dict:
     et.apply_translation([hp.ELEC_TRAY_CENTRE_X, hp.ELEC_TRAY_CENTRE_Y,
                           plate_t + 1.0])
     parts["electronics_tray"] = et
+
+    # bec_cradle: friction-fit on top of the electronics_tray (tray top
+    # face at z = plate_t + 1 + ELEC_TRAY_T = 4 + 1 + 3 = 8).  Cradle
+    # mesh has its origin centred on its X-Y extents with bottom face
+    # at local z = 0.
+    bec = _load_mesh("bec_cradle")
+    bec.apply_translation([
+        hp.ELEC_TRAY_CENTRE_X + hp.BEC_CRADLE_CENTRE[0],
+        hp.ELEC_TRAY_CENTRE_Y + hp.BEC_CRADLE_CENTRE[1],
+        plate_t + 1.0 + hp.ELEC_TRAY_T,
+    ])
+    parts["bec_cradle"] = bec
+
+    # switch_holster: sits ON TOP of 2 printed bosses on chassis_top's
+    # TOP face.  Ear bottom rests on the boss tops at z = chassis_top_top
+    # + SWITCH_HOLSTER_BOSS_H = gap + plate_t + plate_t/2 + BOSS_H =
+    # 32 + 4 + 2 + 3 = 41 in the chassis design frame.
+    chassis_top_top_z = gap + plate_t + plate_t / 2.0  # = 38 (design)
+    sh = _load_mesh("switch_holster")
+    sh.apply_translation([
+        hp.SWITCH_HOLSTER_CENTRE_X,
+        hp.SWITCH_HOLSTER_CENTRE_Y,
+        chassis_top_top_z + hp.SWITCH_HOLSTER_BOSS_H,
+    ])
+    parts["switch_holster"] = sh
 
     # Leg-0 printed parts -- mirrors ``_build_standing_leg`` so the
     # legged-part transforms exactly match the registry's leg_index=0
@@ -4615,6 +4643,203 @@ def _mating_gap_along_axis(top_mesh, bottom_mesh,
     return (top_min_t - bot_max_t, top_min_t, bot_max_t)
 
 
+# ---------------------------------------------------------------------------
+# Cable-clearance check
+# ---------------------------------------------------------------------------
+#
+# Per-keepout volume tolerance.  50 mm^3 budgets the unavoidable few-
+# mm of slop in the connector positions on the board PCB drawings.
+CABLE_CLEARANCE_TOLERANCE_MM3 = 50.0
+
+
+def _build_electronics_body_meshes() -> dict:
+    """Return ``{board_name: solid_box_mesh}`` for every modelled
+    electronics board in the assembly (Mega, Pi, both PCA9685s).
+
+    The meshes are simple AABB boxes matching
+    ``build_prototype_assembly._body_battery_parts`` so the cable
+    clearance check can probe overlap with the actual board solids
+    that obstruct the cable plug airspaces.
+    """
+    from trimesh.creation import box as _box_mesh
+    tray_top_z = hp.CHASSIS_PLATE_T / 2.0 + 3.0 + hp.ELEC_TRAY_T
+    board_base_z = tray_top_z + hp.ELEC_STANDOFF_H
+
+    def _board(extents, cx, cy, board_h):
+        m = _box_mesh(extents=(extents[0], extents[1], board_h))
+        m.apply_translation([cx, cy, board_base_z + board_h / 2.0])
+        return m
+
+    out = {}
+    out["Mega2560"] = _board(
+        (hp.MEGA_PCB_D, hp.MEGA_PCB_W),
+        hp.ELEC_TRAY_CENTRE_X + hp.MEGA_CENTRE[0],
+        hp.ELEC_TRAY_CENTRE_Y + hp.MEGA_CENTRE[1],
+        8.0,
+    )
+    out["Pi4"] = _board(
+        (hp.PI_PCB_W, hp.PI_PCB_D),
+        hp.ELEC_TRAY_CENTRE_X + hp.PI_CENTRE[0],
+        hp.ELEC_TRAY_CENTRE_Y + hp.PI_CENTRE[1],
+        18.0,
+    )
+    out["PCA9685(0x40)"] = _board(
+        (hp.PCA_PCB_D, hp.PCA_PCB_W),
+        hp.ELEC_TRAY_CENTRE_X + hp.PCA_CENTRE[0],
+        hp.ELEC_TRAY_CENTRE_Y + hp.PCA_CENTRE[1],
+        8.0,
+    )
+    out["PCA9685(0x41)"] = _board(
+        (hp.PCA_PCB_D, hp.PCA_PCB_W),
+        hp.ELEC_TRAY_CENTRE_X + hp.PCA2_CENTRE[0],
+        hp.ELEC_TRAY_CENTRE_Y + hp.PCA2_CENTRE[1],
+        8.0,
+    )
+    return out
+
+
+def _build_fastener_envelope_meshes() -> list:
+    """Return ``[(label, mesh)]`` for every chassis-level fastener
+    instance (bolts + heat-set inserts).  Each mesh is a simple
+    cylinder of bolt-OD x length oriented along the registry's
+    ``axis_world``.
+
+    Leg-0 fasteners are deliberately EXCLUDED because the cable
+    keepouts only live above the electronics tray (chassis-only
+    airspace) and per-leg bolts are far enough away that the AABB
+    overlap pre-filter rejects them anyway -- including them just
+    inflates the keepout build time.
+    """
+    from trimesh.creation import cylinder as _cyl_mesh
+    from trimesh.transformations import rotation_matrix as _rotmat
+    import fastener_registry  # noqa: WPS433
+    out = []
+    for fi in fastener_registry.build_all_fastener_instances():
+        if fi.leg_index is not None:
+            continue
+        if fi.length_mm is None:
+            continue
+        # Use the engagement spec for head + shaft size.
+        cfg = _engagement_spec_for(fi.spec)
+        shaft_od = float(cfg["shaft_od"])
+        L = float(fi.length_mm)
+        cyl = _cyl_mesh(radius=shaft_od / 2.0, height=L, sections=16)
+        # Cylinder is along +Z by default; reorient along fi.axis_world.
+        axis = np.asarray(fi.axis_world, dtype=float)
+        if axis[2] < 0.99 or axis[2] > 1.01 or abs(axis[0]) > 1e-6 or abs(axis[1]) > 1e-6:
+            if axis[2] > 0.99:
+                pass  # already +Z
+            elif axis[2] < -0.99:
+                cyl.apply_transform(_rotmat(np.pi, [1, 0, 0]))
+            else:
+                # General reorientation: rotate +Z to axis.
+                z = np.array([0.0, 0.0, 1.0])
+                v = np.cross(z, axis)
+                s = float(np.linalg.norm(v))
+                c = float(np.dot(z, axis))
+                if s > 1e-9:
+                    angle = float(np.arctan2(s, c))
+                    cyl.apply_transform(_rotmat(angle, v / s))
+        # Place cylinder centre at p_head + axis * L/2.
+        p_head = np.asarray(fi.head_world_xyz, dtype=float)
+        centre = p_head + axis * (L / 2.0)
+        cyl.apply_translation(centre)
+        out.append((f"{fi.spec}@{fi.role[:32]}", cyl))
+    return out
+
+
+def check_cable_clearance():
+    """For each board-connector cable-keepout volume, assert it has
+    less than CABLE_CLEARANCE_TOLERANCE_MM3 mm^3 of overlap with any
+    printed part, modelled electronics body, or chassis-level
+    fastener mesh.
+
+    The keepouts cover the airspace a cable plug + strain relief
+    occupies once the cable is plugged in -- a future CAD edit that
+    grew material into a cable's plug-in airspace will FAIL this
+    check instead of being discovered the first time the cables are
+    routed.
+
+    A connector keepout is allowed to overlap its OWN board's
+    modelled body envelope (the keepout's ``part_name`` matches the
+    board solid's key) -- a USB-B keepout that extends 1-2 mm into
+    its host Mega PCB is fine; the cable physically MATES with the
+    board there.
+    """
+    print("\n[17] Cable-clearance airspace "
+          f"(per-connector plug + cable envelopes; tol "
+          f"{CABLE_CLEARANCE_TOLERANCE_MM3:.0f} mm^3):")
+
+    import cable_keepouts as ck  # noqa: WPS433
+    keepouts = ck.build_cable_keepouts()
+
+    printed_parts = _build_world_leg0_printed_parts()
+    electronics_bodies = _build_electronics_body_meshes()
+    fastener_meshes = _build_fastener_envelope_meshes()
+
+    all_ok = True
+    n_check = 0
+    n_fail = 0
+    for ko in keepouts:
+        kp_lo, kp_hi = ko.mesh.bounds
+        intrusions: list[str] = []
+        total = 0.0
+
+        for name, mesh in printed_parts.items():
+            a_lo, a_hi = mesh.bounds
+            if np.any(kp_hi <= a_lo) or np.any(a_hi <= kp_lo):
+                continue
+            vol = _pair_overlap_volume(ko.mesh, mesh, pitch=1.5)
+            if vol > 0.0:
+                intrusions.append(f"{name}={vol:.1f}")
+                total += vol
+
+        for name, mesh in electronics_bodies.items():
+            # A connector keepout legitimately overlaps with its OWN
+            # board's solid envelope at the connector seating face --
+            # the cable PLUGS INTO that board.  Skip self-overlap.
+            if name == ko.part_name:
+                continue
+            a_lo, a_hi = mesh.bounds
+            if np.any(kp_hi <= a_lo) or np.any(a_hi <= kp_lo):
+                continue
+            vol = _pair_overlap_volume(ko.mesh, mesh, pitch=1.5)
+            if vol > 0.0:
+                intrusions.append(f"board:{name}={vol:.1f}")
+                total += vol
+
+        for label, mesh in fastener_meshes:
+            a_lo, a_hi = mesh.bounds
+            if np.any(kp_hi <= a_lo) or np.any(a_hi <= kp_lo):
+                continue
+            vol = _pair_overlap_volume(ko.mesh, mesh, pitch=1.0)
+            if vol > 0.0:
+                intrusions.append(f"fastener:{label}={vol:.1f}")
+                total += vol
+
+        n_check += 1
+        ok = total <= CABLE_CLEARANCE_TOLERANCE_MM3 + 1e-3
+        if not ok:
+            n_fail += 1
+            detail = (
+                f"intrusion {total:6.1f} mm^3 "
+                f"(tol {CABLE_CLEARANCE_TOLERANCE_MM3:.0f})  "
+                f"[{', '.join(intrusions)}]"
+            )
+            _label(f"{ko.part_name} {ko.connector_name}", False, detail)
+            all_ok = False
+
+    if all_ok:
+        _label(
+            f"{n_check} keepout(s) probed",
+            True,
+            "every cable airspace clear",
+        )
+    else:
+        print(f"  ---- FAIL ({n_fail} of {n_check} probed) ----")
+    return all_ok
+
+
 def check_mating_face_contact():
     """For each explicit mating interface, scan along the joint axis
     and confirm the two parts mate within ``tolerance_mm``.  The
@@ -4688,6 +4913,7 @@ CHECKS = (
     ("Screwdriver access",        "check_screwdriver_access"),
     ("Fastener engagement",       "check_fastener_engagement"),
     ("Mating-face contact",       "check_mating_face_contact"),
+    ("Cable clearance",           "check_cable_clearance"),
 )
 
 WORKSPACE_CHECK_NAME = "Workspace self-collision"

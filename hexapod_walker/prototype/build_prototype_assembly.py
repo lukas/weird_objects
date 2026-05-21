@@ -434,13 +434,42 @@ def _body_battery_parts(chassis_lift):
                        board_top_z + 18.0 / 2.0))
     parts.append(pi)
 
-    # Adafruit PCA9685 PWM driver (62 x 25 x 8 mm).  Long axis along
-    # chassis +Y (rotated 90 deg).
-    pca = _box((HP.PCA_PCB_D, HP.PCA_PCB_W, 8.0),
-               center=(HP.ELEC_TRAY_CENTRE_X + HP.PCA_CENTRE[0],
-                        HP.ELEC_TRAY_CENTRE_Y + HP.PCA_CENTRE[1],
-                        board_top_z + 8.0 / 2.0))
-    parts.append(pca)
+    # Adafruit PCA9685 PWM drivers (62 x 25 x 8 mm each).  Long axis
+    # along chassis +Y (rotated 90 deg).  May 2026 "essentials"
+    # pass: BOTH PCA9685s are now properly bolted to the tray (PCA1
+    # at I2C 0x40, PCA2 at I2C 0x41).  Symmetric about the tray X
+    # axis.
+    for label, centre in (("PCA9685(0x40)", HP.PCA_CENTRE),
+                          ("PCA9685(0x41)", HP.PCA2_CENTRE)):
+        pca = _box((HP.PCA_PCB_D, HP.PCA_PCB_W, 8.0),
+                   center=(HP.ELEC_TRAY_CENTRE_X + centre[0],
+                            HP.ELEC_TRAY_CENTRE_Y + centre[1],
+                            board_top_z + 8.0 / 2.0))
+        parts.append(pca)
+
+    # BEC cradle: snap-fit clip for 2 x switching BECs.  Sits on the
+    # tray's TOP face in the corridor between Mega's +X edge and
+    # PCA1's -X edge (BEC_CRADLE_CENTRE in tray-local coords).  May
+    # 2026 "essentials" pass.
+    bec = HP.make_bec_cradle()
+    bec.apply_translation([HP.ELEC_TRAY_CENTRE_X + HP.BEC_CRADLE_CENTRE[0],
+                            HP.ELEC_TRAY_CENTRE_Y + HP.BEC_CRADLE_CENTRE[1],
+                            tray_top_z])
+    parts.append(bec)
+
+    # Switch holster: anti-spark on/off switch.  Sits on 2 printed
+    # bosses on chassis_top's top face.  Bolted DOWN from above
+    # with 2 x M3 x 10 SHCS into 2 x M3 heat-set inserts captive in
+    # those chassis_top bosses.  Toggle protrudes past the chassis
+    # +X flat for user access.  May 2026 "essentials" pass.
+    chassis_top_top_z = (chassis_lift + HP.CHASSIS_PLATE_T
+                          + HP.CHASSIS_GAP + HP.CHASSIS_PLATE_T / 2.0)
+    holster_z = chassis_top_top_z + HP.SWITCH_HOLSTER_BOSS_H
+    holster = HP.make_switch_holster()
+    holster.apply_translation([HP.SWITCH_HOLSTER_CENTRE_X,
+                                HP.SWITCH_HOLSTER_CENTRE_Y,
+                                holster_z])
+    parts.append(holster)
 
     return parts
 

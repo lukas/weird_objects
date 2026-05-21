@@ -93,25 +93,41 @@ Enumerated categories (Design B + Design C, May 2026 revert)
    so the bolt head clamps the chassis_bottom plate against plastic,
    not brass.
 
-10. ``8 x M3 x 8 SHCS`` -- electronics_tray board-mount bolts for the
-    Arduino Mega 2560 (4) and the PCA9685 PWM driver (4).  Threads
-    DOWN through each board's M3 mounting hole into an M3 brass
+10. ``12 x M3 x 8 SHCS`` -- electronics_tray board-mount bolts for
+    the Arduino Mega 2560 (4) and both PCA9685 PWM drivers (4
+    primary at I2C 0x40 + 4 secondary at I2C 0x41).  Threads DOWN
+    through each board's M3 mounting hole into an M3 brass
     heat-set insert (McMaster 94459A130) embedded in a printed
-    Phi 4 mm boss on top of the tray.  May 2026 single-tray
-    Mega + Pi + PCA9685 layout.
+    Phi 4 mm boss on top of the tray.  May 2026 "essentials" pass:
+    the secondary PCA9685 (was cable-tied) now gets the same
+    bolted mount as the primary, bumping qty 8 -> 12.
 
-11. ``8 x M3 heat-set inserts`` -- 4 captive in the Mega's bosses,
-    4 in the PCA9685's bosses (see 10.).  Same McMaster
-    ``94459A130`` part as the cradle + battery_holder inserts.
+11. ``12 x M3 heat-set inserts`` -- 4 captive in the Mega's bosses,
+    4 in PCA1's bosses, 4 in PCA2's bosses (see 10.).  Same
+    McMaster ``94459A130`` part as the cradle + battery_holder
+    inserts.  Bumps qty 8 -> 12 vs the pre-"essentials" layout.
 
-12. ``4 x M2.5 x 8 SHCS`` -- electronics_tray board-mount bolts for
+12. ``2 x M3 x 8 SHCS`` -- switch_holster mount bolts.  Threads
+    DOWN through 2 printed clearance holes in chassis_top into an
+    M3 brass heat-set insert (McMaster 94459A130) embedded in
+    each of the holster's 2 printed bosses.  Holds the anti-spark
+    on/off switch holster captive on the +X edge of chassis_top
+    between the L0 and L5 coxa brackets; the toggle protrudes
+    past the chassis vertex so the user can flip it without
+    opening the chassis.  May 2026 "essentials" pass.
+
+13. ``2 x M3 heat-set inserts`` -- captive in the switch_holster's
+    2 bosses (see 12.).  Same McMaster ``94459A130`` part as the
+    other M3 inserts on this build.
+
+14. ``4 x M2.5 x 8 SHCS`` -- electronics_tray board-mount bolts for
     the Raspberry Pi 4 / Pi 5.  Threads DOWN through each Pi
     mounting hole into an M2.5 brass heat-set insert (McMaster
     94459A106).  PN_M25X8_BOARD_SHCS (same physical stock as the
     M2.5 spline screw, distinct role label).
 
-13. ``4 x M2.5 heat-set inserts`` -- captive in the Pi's bosses (see
-    12.).  McMaster ``94459A106``.
+15. ``4 x M2.5 heat-set inserts`` -- captive in the Pi's bosses (see
+    14.).  McMaster ``94459A106``.
 
 Categories NOT enumerated yet (acknowledged future work; see
 PROTOTYPE_BOM.md "Fasteners" auto-derived section):
@@ -1254,8 +1270,24 @@ def _emit_electronics_tray_fasteners() -> list[FastenerInstance]:
             HP.INSERT_M25_INSERT_LENGTH,
         ),
         (
-            "PCA9685",
+            "PCA9685(0x40)",
             HP.PCA_CENTRE, HP.PCA_HOLES,
+            HP.INSERT_M3_PILOT_DEPTH,
+            PN_M3X8_SHCS, SPEC_M3X8_SHCS_INTO_INSERT,
+            8.0,
+            PN_M3_HEATSET_INSERT, SPEC_M3_HEATSET_INSERT,
+            HP.INSERT_M3_INSERT_LENGTH,
+        ),
+        # Secondary PCA9685 (I2C 0x41).  May 2026 "essentials" pass:
+        # the second PCA9685 used to be cable-tied to the chassis_top
+        # deck with no printed mount; the tray now has a 4-hole
+        # PCA_HOLES pattern at PCA2_CENTRE so the secondary board
+        # bolts down through 4 x M3 SHCS into 4 x M3 heat-set inserts
+        # exactly like the primary.  Bumps the 94459A130 BOM from
+        # 84 -> 88 and the 91290A113 BOM from 80 -> 84.
+        (
+            "PCA9685(0x41)",
+            HP.PCA2_CENTRE, HP.PCA_HOLES,
             HP.INSERT_M3_PILOT_DEPTH,
             PN_M3X8_SHCS, SPEC_M3X8_SHCS_INTO_INSERT,
             8.0,
@@ -1333,6 +1365,116 @@ def _emit_electronics_tray_fasteners() -> list[FastenerInstance]:
 
 
 # ---------------------------------------------------------------------------
+# Switch-holster mount fasteners (M3 x 8 SHCS + M3 heat-set insert pair)
+# ---------------------------------------------------------------------------
+
+
+def _emit_switch_holster_fasteners() -> list[FastenerInstance]:
+    """The 2 switch_holster mount bolts + their captive heat-set inserts.
+
+    Bolts come DOWN from ABOVE the holster ear: head bears on the
+    holster ear's TOP face, M3 SHCS shaft passes DOWN through the
+    Phi BRACKET_BOLT_HOLE = 3.4 mm clearance hole in the ear, and
+    threads INTO an M3 brass heat-set insert (McMaster 94459A130)
+    that lives in a printed Phi SWITCH_HOLSTER_BOSS_OD = 8 mm boss
+    on chassis_top's TOP face.  See ``make_chassis_top`` for the
+    boss + pocket geometry.
+
+    Bolt-DOWN-from-above (rather than UP-from-below) keeps the
+    HEX_KEY 8 x 30 mm driver envelope in OPEN AIR above the
+    chassis -- a bolt-up-from-below variant collides with the
+    electronics_tray's base slab at z in [+5, +8] of the chassis-
+    cavity (see check_screwdriver_access).  The trade-off is 2
+    captive heat-set inserts on chassis_top (in a printed boss),
+    not in the holster.
+
+    Length budget (design frame, z = top of chassis_top):
+
+        ear top z            = chassis_top_top + BOSS_H + FLOOR
+                             = +38 + 3 + 4 = +45 mm (bolt head face)
+        ear (clearance hole) = 4 mm (SWITCH_HOLSTER_FLOOR = 4)
+        boss top z           = chassis_top_top + BOSS_H = +41 mm
+        insert top face z    = boss_top - debris_overdrill = +40
+                               (1 mm overdrill at the OPEN end of
+                                the pocket, same convention as
+                                the electronics_tray inserts)
+        insert engagement    = 5 mm (INSERT_M3_INSERT_LENGTH)
+        insert bottom z      = +35 mm
+        bolt tip min z       = +35 mm
+
+    Total bolt run from head to tip: 45 - 35 = 10 mm.  M3 x 10
+    SHCS (PN 91290A114) -- same stock as the battery_holder feet
+    bolts so the BOM stays compact.
+
+    Both fasteners are user-serviceable from ABOVE chassis_top
+    AFTER the holster is dropped onto the bosses -- no skip
+    reason needed (driver envelope is unobstructed open air
+    above the ear).
+    """
+    out: list[FastenerInstance] = []
+    # ``inspect_build._build_assembly_instances`` and the verifier's
+    # ``_build_world_leg0_printed_parts`` BOTH translate chassis_top
+    # by [0, 0, gap + plate_t] (with the mesh's local z = 0 at the
+    # plate's mid-thickness), so chassis_top's top face in the design
+    # frame is at z = gap + plate_t + plate_t / 2 = 38 (not gap +
+    # 1.5 * plate_t = 38 -- those are the same number anyway, but
+    # be explicit so the math matches the verifier exactly).
+    chassis_top_centre_z = HP.CHASSIS_GAP + HP.CHASSIS_PLATE_T
+    chassis_top_top_z    = chassis_top_centre_z + HP.CHASSIS_PLATE_T / 2.0
+    # Bolt head bears on the holster ear's TOP face.
+    boss_top_z = chassis_top_top_z + HP.SWITCH_HOLSTER_BOSS_H
+    ear_top_z  = boss_top_z + HP.SWITCH_HOLSTER_FLOOR
+    # Insert top face is 1 mm BELOW boss top (debris-clearance
+    # overdrill at the OPEN end of the pocket; same convention as
+    # _emit_electronics_tray_fasteners).
+    debris_overdrill = HP.INSERT_M3_PILOT_DEPTH - HP.INSERT_M3_INSERT_LENGTH
+    insert_top_z = boss_top_z - debris_overdrill
+    for (bx, by), corner in zip(
+        HP.SWITCH_HOLSTER_BOLT_CHASSIS_XY,
+        ("+Y", "-Y"),
+    ):
+        head_world = np.array([bx, by, ear_top_z])
+        axis_world = np.array([0.0, 0.0, -1.0])  # -Z (DOWN into material)
+        out.append(FastenerInstance(
+            part_number=PN_M3X10_SHCS,
+            spec=SPEC_M3X10_SHCS,
+            head_world_xyz=head_world,
+            axis_world=axis_world,
+            role=(
+                f"switch_holster mount bolt {corner} "
+                f"M3 x 10 SHCS into heat-set insert"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=10.0,
+            cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
+        ))
+
+        insert_head_world = np.array([bx, by, insert_top_z])
+        out.append(FastenerInstance(
+            part_number=PN_M3_HEATSET_INSERT,
+            spec=SPEC_M3_HEATSET_INSERT,
+            head_world_xyz=insert_head_world,
+            axis_world=np.array([0.0, 0.0, -1.0]),
+            role=(
+                f"switch_holster chassis_top {corner} "
+                f"M3 heat-set insert"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=HP.INSERT_M3_INSERT_LENGTH,
+            cache_stl=f"{PN_M3_HEATSET_INSERT}.cache.stl",
+            skip_screwdriver_reason=(
+                "heat-set insert installed with a soldering iron "
+                "BEFORE the switch_holster is dropped onto the "
+                "chassis_top bosses; no driver cone applies to "
+                "the brass insert"
+            ),
+        ))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Top-level builder
 # ---------------------------------------------------------------------------
 
@@ -1400,6 +1542,14 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     # fasteners (driven before chassis_top closes the stack).
     out.extend(_emit_electronics_tray_fasteners())
 
+    # Switch-holster mount bolts (May 2026 "essentials" pass).  2 x
+    # M3 x 10 SHCS thread UP from BELOW chassis_top into 2 x M3
+    # heat-set inserts captive in the holster's mounting ear --
+    # same captive-insert pattern as the battery_holder feet.  Bolts
+    # are user-serviceable from inside the chassis cavity (before
+    # the battery is dropped into the holder).
+    out.extend(_emit_switch_holster_fasteners())
+
     return out
 
 
@@ -1443,9 +1593,14 @@ def _usage_bucket(fi: FastenerInstance) -> str:
     role = fi.role
     if "electronics_tray" in role:
         if "heat-set insert" in role:
-            return "electronics_tray heat-set inserts (Mega + Pi + PCA9685)"
+            return ("electronics_tray heat-set inserts "
+                    "(Mega + Pi + 2 x PCA9685)")
         return ("electronics_tray board-mount bolts "
-                "(Mega M3 + Pi M2.5 + PCA9685 M3 SHCS into inserts)")
+                "(Mega M3 + Pi M2.5 + 2 x PCA9685 M3 SHCS into inserts)")
+    if "switch_holster" in role:
+        if "heat-set insert" in role:
+            return "switch_holster heat-set inserts"
+        return "switch_holster mount bolts (M3 SHCS into heat-set insert)"
     if "battery_holder" in role:
         if "heat-set insert" in role:
             return "battery_holder heat-set inserts"

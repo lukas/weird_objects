@@ -202,10 +202,12 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 
 | File | Function | Suggested print settings |
 |---|---|---|
-| `chassis_top.stl` | Top hex deck (4 mm PLA, 200 mm flat-to-flat) | 0.2 mm layer, 25% gyroid infill, 4 walls |
+| `chassis_top.stl` | Top hex deck (4 mm PLA, 200 mm flat-to-flat).  Carries 2 x Phi 8 mm printed bosses near the +X edge for the `switch_holster` heat-set inserts. | 0.2 mm layer, 25% gyroid infill, 4 walls |
 | `chassis_bottom.stl` | Identical bottom plate | same as top |
-| `battery_holder.stl` | Open-top tray for one 3S 2200 mAh LiPo | 0.2 mm layer, 20% infill |
-| `electronics_tray.stl` | 160 x 130 mm mount deck for Arduino Mega 2560 + Raspberry Pi 4/5 + PCA9685 | 0.2 mm, 20% infill, 2 walls |
+| `battery_holder.stl` | Open-top tray for one 3S 2200 mAh LiPo.  Has a 14 x 12 x 10 mm cable-clearance notch at the +X -Y corner of the cradle so the Pi 4 / Pi 5's USB-A 3.0 plug can be inserted without colliding with the cradle wall (see `cable_keepouts.py`). | 0.2 mm layer, 20% infill |
+| `electronics_tray.stl` | 160 x 130 mm mount deck for Arduino Mega 2560 + Raspberry Pi 4/5 + 2 x PCA9685.  Both PCA9685s are now bolted (8 x M3 inserts total) instead of cable-tied. | 0.2 mm, 20% infill, 2 walls |
+| `bec_cradle.stl` | Snap-fit clip for 2 x 5V 5A switching BECs.  Sits on top of the electronics_tray near the -Y edge in the corridor between the Mega's +X edge and PCA2's -X edge.  No fasteners (interference fit on long sides + retention lip).  Phi 5 mm wire-exit channels at +/- X ends route the XT60 input pigtail and the 3-pin servo-header output pigtail. | 0.2 mm, 25% infill, 3 walls |
+| `switch_holster.stl` | Snap-in holster for one ~ 32 x 17 x 17 mm anti-spark on/off switch.  Bolted to chassis_top's +X edge via 2 x M3 x 10 SHCS that thread DOWN into M3 brass heat-set inserts captive in chassis_top's 2 printed bosses.  Toggle protrudes +X past the chassis edge for user access; XT60 pigtails exit the +/- Y end faces. | 0.2 mm, 25% infill, 3 walls |
 
 ### 3.2 Per-leg parts (print 6 sets)
 
@@ -253,7 +255,8 @@ printer.
 | Item | Spec | Qty | Cost |
 |---|---|---|---|
 | LiPo battery | 3S 2200 mAh 25C, XT60 connector | 1 | $20 |
-| BEC (5–6 V regulator) | 5 V 5 A switching, 3S input | 1 | $8 |
+| BEC (5–6 V regulator) | 5 V 5 A switching, 3S input, Hobbywing UBEC form factor (~ 24 x 15 x 8 mm body).  One per PCA9685 (see `bec_cradle.stl`). | 2 | $8 each |
+| Anti-spark on/off switch | XT60 in/out pigtails, ~ 30 x 15 x 15 mm body (e.g. "LowPro RC" or "HRB").  Snaps into `switch_holster.stl` on chassis_top's +X edge; toggle protrudes outside the chassis for user access. | 1 | $10 |
 | LiPo charger | iSDT D2, B6AC, or any decent 3S balance charger | 1 | $30 |
 | LiPo bag | Fire-safe charging | 1 | $10 |
 
@@ -263,7 +266,7 @@ printer.
 |---|---|---|---|
 | Arduino Mega 2560 (ELEGOO R3 clone) | ATmega 2560, 5 V; mounts to electronics_tray via 4 x M3x8 SHCS + 4 x M3 brass heat-set inserts (McMaster 94459A130) | 1 | $15 |
 | Raspberry Pi 4 Model B / Pi 5 | High-level brain (ROS 2, vision, gait planning); mounts to electronics_tray via 4 x M2.5x8 SHCS + 4 x M2.5 brass heat-set inserts (McMaster 94459A106) | 1 | $45 |
-| PCA9685 16-channel PWM driver | I²C, 12-bit; primary one bolts to the tray (4 x M3x8 + 4 x M3 heat-set inserts); secondary one daisy-chains over I²C and is held in place with cable ties | 2 | $4 each |
+| PCA9685 16-channel PWM driver | I²C, 12-bit; **both** bolt to the tray now (4 x M3x8 SHCS + 4 x M3 heat-set inserts each, 8 x of each total).  Secondary daisy-chains over I²C at address 0x41 (jumper). | 2 | $4 each |
 | MPU-6050 IMU | 6-DOF gyro + accel, I²C (optional but useful) | 1 | $4 |
 | Jumper wires | F-F, 20 cm × 50 + servo extensions × 18 | — | $15 |
 | Logic-level wiring + heat-shrink | — | — | $5 |
@@ -279,9 +282,10 @@ printer.
 | M3 nyloc nuts | >= 78 + spares | **Design C captive nuts**: 4 per servo x 18 servos = 72, plus 6 for the foot hinges. |
 | M3 × 25 mm round standoffs (M-F) | 8 | Top-to-bottom chassis spacers |
 | M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the plastic 4-arm X-horn onto the servo output spline. |
-| M3 brass heat-set inserts (McMaster 94459A130) | 8 | Electronics-tray board mounts: 4 for the Mega 2560 + 4 for the primary PCA9685.  Soldering-iron installed into the printed Phi 4 mm pilot pockets BEFORE the electronics go on. |
+| M3 brass heat-set inserts (McMaster 94459A130) | 14 | Electronics-tray board mounts: 4 for the Mega 2560 + 4 for the primary PCA9685 + 4 for the secondary PCA9685.  Plus 2 more in `chassis_top`'s 2 printed bosses for the `switch_holster` mount bolts.  Soldering-iron installed into the printed Phi 4 mm pilot pockets BEFORE the electronics / holster go on. |
 | M2.5 brass heat-set inserts (McMaster 94459A106) | 4 | Electronics-tray board mounts for the Raspberry Pi 4 / Pi 5.  Same soldering-iron install workflow as the M3 inserts. |
-| M3 × 8 SHCS (board mounts) | 8 | 4 x Mega 2560 + 4 x PCA9685 onto the M3 inserts. |
+| M3 × 8 SHCS (board mounts) | 12 | 4 x Mega 2560 + 4 x primary PCA9685 + 4 x secondary PCA9685 onto the M3 inserts. |
+| M3 × 10 SHCS (switch_holster mount) | 2 | Drop the printed `switch_holster.stl` onto chassis_top's 2 bosses and thread these 2 bolts DOWN through the holster ear's Phi 3.4 mm clearance holes into the heat-set inserts captive in the bosses.  Same stock as the battery_holder foot bolts. |
 | M2.5 × 8 SHCS (board mounts) | 4 | 4 x Raspberry Pi 4 / Pi 5 onto the M2.5 inserts. |
 
 ### 4.5 3D-printed material

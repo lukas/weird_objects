@@ -1214,12 +1214,14 @@ INSERT_M25_BOLT_HEAD_H    = 2.5   # mm -- M2.5 SHCS head height
 #     94459A106) embedded in printed tray bosses.  NEW -- no Pi
 #     mounting existed before the May 2026 hardware-arrival pass.
 #
-#   * Adafruit PCA9685 16-channel PWM driver -- 62 x 25 mm PCB with
-#     the standard 54 x 16 mm 4-hole pattern (PCA_HOLES below).  4 x
-#     M3 SHCS into 4 x M3 heat-set inserts.  Two PCA9685 boards
-#     would carry the full 18 servos; the second one daisy-chains
-#     over I2C and gets soldered/cable-tied; only the primary one is
-#     bolted to the tray.
+#   * 2 x Adafruit PCA9685 16-channel PWM driver -- 62 x 25 mm PCB
+#     with the standard 54 x 16 mm 4-hole pattern (PCA_HOLES below).
+#     4 x M3 SHCS into 4 x M3 heat-set inserts per board.  May 2026
+#     "essentials" pass: the second PCA9685 (was previously cable-
+#     tied / unbolted) now gets its own bolted hole pattern at
+#     PCA2_CENTRE.  Two PCA9685 boards together carry the full 18
+#     servos (9 per driver, daisy-chained over I2C: primary at
+#     ``0x40`` and secondary at ``0x41``).
 #
 # Board placement (tray-local coords; tray origin at chassis (0, 0);
 # tray-local +X = chassis +X):
@@ -1265,12 +1267,14 @@ INSERT_M25_BOLT_HEAD_H    = 2.5   # mm -- M2.5 SHCS head height
 # parts against each other, only against dynamic leg parts via
 # ``check_workspace_self_collision``).  Cable-clearance keep-out
 # volumes for the Mega's USB-B + barrel jack and the Pi's USB-C /
-# HDMI / USB-A / Ethernet stack are NOT modelled -- the boards are
-# placed so the user can plug cables in by hand from the +X / +/-Y
-# direction with chassis_top providing a 5-6 mm ceiling overhead.
-# This is a known TODO; verifying physical cable accessibility on the
-# first build will tell us whether dedicated keep-out probes are
-# worth adding.
+# HDMI / USB-A / Ethernet stack ARE modelled (May 2026
+# "essentials" pass) -- see ``cable_keepouts.py`` for the
+# registry and ``_verify_prototype.check_cable_clearance`` for
+# the verifier.  Each keep-out is a simple box extending from the
+# connector face along the cable's natural exit direction; the
+# verifier asserts each keep-out has < 50 mm^3 of overlap with
+# every printed STL, every modelled-electronics STL and every
+# fastener mesh.
 ELEC_TRAY_W = 160.0  # mm -- X dimension (long axis; spans chassis +/-80 mm)
 ELEC_TRAY_D = 130.0  # mm -- Y dimension (spans chassis +/-65 mm)
 ELEC_TRAY_T =   3.0  # mm -- thickness (unchanged from the original tray)
@@ -1315,8 +1319,16 @@ MEGA_HOLES = tuple(
 # the bolt heads at the 35-mm-radius chassis mount pattern don't poke
 # up through the Mega PCB (the tray-top counterbore recess takes
 # care of the head clearance regardless; the offset just keeps the
-# layout tidy).
-MEGA_CENTRE = (-25.0, +28.0)
+# layout tidy).  May 2026 "essentials" pass: nudged 3 mm in -X (from
+# -25 to -28) so the corridor between Mega's +X edge and PCA1's
+# new -X edge widens to ~ 28 mm -- enough to drop in a snap-fit
+# BEC cradle for the 2 x switching BEC bodies (24 x 15 x 8 mm each).
+# Mega's -X edge at MEGA_CENTRE_X - MEGA_PCB_D/2 = -78.75 mm sits
+# 1.25 mm inside the tray's -X edge at -80, with the Mega's own
+# -X-most chassis-mount hole at -63.51 mm (well inboard of the
+# tray edge), so the shift doesn't cantilever any board feature
+# past the printed plate.
+MEGA_CENTRE = (-28.0, +28.0)
 
 # Raspberry Pi 4 / Pi 5 mounting holes.  Pi PCB is 85 x 56 mm with
 # 4 x M2.5 holes on a 58 x 49 mm rectangle (asymmetric -- the long-
@@ -1358,7 +1370,29 @@ PCA_HOLES_BOARD_CENTRE = (
 # into the +X strip of the tray between the Mega's +X edge and the
 # tray's +X edge without touching either board.
 PCA_HOLES = tuple((by, -bx) for (bx, by) in PCA_HOLES_BOARD_CENTRE)
-PCA_CENTRE = (+55.0, +20.0)
+# Primary PCA9685 (I2C 0x40) centre in tray-local coords.  May 2026
+# "essentials" pass: shifted from (+55, +20) to (+64, +20) so the
+# corridor between the Mega's +X edge and PCA1's -X edge widens
+# enough to drop in the snap-fit BEC cradle (see BEC_CRADLE_*
+# constants) AND so PCA2 (I2C 0x41) can fit a symmetric hole
+# pattern on the -Y half of the tray at PCA2_CENTRE.  PCA1 -X
+# edge at PCA_CENTRE_X - PCA_PCB_D/2 = +51.5 mm, +X edge at
+# +76.5 mm (3.5 mm inside the tray's +X edge at +80).  +X-most
+# mount-boss outer face at +71.5 + CRADLE_BOSS_OD/2 = +75.5 mm,
+# 4.5 mm inside the tray's +X edge.
+PCA_CENTRE = (+64.0, +20.0)
+# Secondary PCA9685 (I2C 0x41) centre in tray-local coords.  May
+# 2026 "essentials" pass: previously this PCA9685 was on the BOM
+# but was just cable-tied to the chassis_top deck with no printed
+# hole pattern; the "essentials" pass adds a proper bolted mount.
+# Placed symmetrically opposite the primary PCA9685 across the
+# tray's X axis (PCA1 at +Y, PCA2 at -Y, both in the +X strip
+# beyond x = +51.5 mm).  PCA2 servo headers (along its long edge,
+# i.e. tray +/-X faces of the rotated PCA9685 PCB) fan out into
+# the -Y leg cable routing direction; PCA1's headers do the same
+# in +Y.  Together the two boards drive all 18 servos (9 per
+# board) without any header crossing the tray midline.
+PCA2_CENTRE = (+64.0, -20.0)
 
 # 35-mm-radius / 45-deg-square chassis-mount hole pattern (matches
 # ``_hex_plate(with_centre_holes=True)`` on chassis_top + chassis_
@@ -1381,6 +1415,233 @@ ELEC_CHASSIS_MOUNT_HOLES_XY = tuple(
 # bug masked because the assembly preview is purely visual.
 ELEC_TRAY_CENTRE_X = 0.0
 ELEC_TRAY_CENTRE_Y = 0.0
+
+
+# ---- BEC cradle ----------------------------------------------------------
+#
+# May 2026 "essentials" pass: 2 x 5V 5A switching BECs (Hobbywing
+# UBEC form factor: ~ 24 x 15 x 8 mm body, ~ 5 cm input pigtail to
+# the anti-spark switch's XT60 output and ~ 10 cm output pigtail to
+# the nearest PCA9685's V+ / GND rail).  The BECs used to be cable-
+# tied wherever; now they snap into a printed cradle that sits on
+# top of the electronics_tray in the corridor between the Mega's
+# +X edge and PCA1's -X edge.
+#
+# Cradle geometry summary:
+#
+#   * 2 BECs laid flat side-by-side along Y, BEC long axis (24 mm)
+#     along tray X so the input and output pigtails exit naturally
+#     out the cradle's +/- X end faces.
+#   * Inner cavity:
+#         X: BEC_BODY_L (24 mm) -- one BEC body's long axis
+#         Y: 2 * BEC_BODY_W - BEC_CRADLE_INTERFERENCE (= 29.6 mm) so
+#            the 2 BEC bodies share a 0.4 mm friction interference
+#            fit across the inner span (no divider wall; the BECs
+#            wedge against each other).
+#         Z: BEC_BODY_H (8 mm) -- BEC body height
+#   * Walls:
+#         +/- X end walls: BEC_CRADLE_WALL (1.5 mm) thick, pierced
+#                          by a Phi BEC_PIGTAIL_OD = 5 mm wire-
+#                          exit channel centred on the cavity.
+#         +/- Y side walls: BEC_CRADLE_WALL (1.5 mm) thick, full
+#                           cavity height + lip.
+#         Floor:           BEC_CRADLE_FLOOR (2 mm) thick.
+#         +Z top lip:      BEC_CRADLE_LIP_H (2 mm) of inward
+#                          overhang on each +/- Y side wall so the
+#                          BEC body snaps in under the lip and
+#                          stays captive.  The lip's inner edge
+#                          is BEC_CRADLE_LIP_INSET (1.0 mm) inboard
+#                          of the cavity wall, giving the BEC body
+#                          a 1.0 mm-wide x 2 mm-tall retention tab
+#                          to flex past on insertion.
+#   * No bolts -- friction fit only.  The cradle sits free on the
+#     tray's top face; gravity + the lip tabs hold the BECs and the
+#     cradle itself stays in place because the corridor is bounded
+#     by the Mega's +X edge to one side and PCA1's -X edge to the
+#     other (the cradle floor's X extent is 1 mm shy of each
+#     adjacent board's footprint for clearance).
+BEC_BODY_L            = 24.0   # mm -- BEC PCB long axis (along cradle X)
+BEC_BODY_W            = 15.0   # mm -- BEC PCB short axis (along cradle Y)
+BEC_BODY_H            =  8.0   # mm -- BEC body height (along cradle Z)
+BEC_PIGTAIL_OD        =  5.0   # mm -- Phi 5 mm wire-exit channel diameter
+BEC_CRADLE_WALL       =  1.5   # mm -- side/end wall thickness
+BEC_CRADLE_FLOOR      =  2.0   # mm -- floor thickness
+BEC_CRADLE_LIP_H      =  2.0   # mm -- retention-lip overhang height
+BEC_CRADLE_LIP_INSET  =  1.0   # mm -- lip inboard offset from cavity wall
+BEC_CRADLE_INTERFERENCE = 0.4  # mm -- 2 BECs share this much overlap so
+                                #     they wedge against each other for a
+                                #     friction fit (positive = squeeze).
+# Cradle centre in tray-local coords.  Placed in the corridor between
+# the Mega's +X edge (at +22.75 mm = MEGA_CENTRE_X + MEGA_PCB_D/2)
+# and PCA1's -X edge (at +51.5 mm = PCA_CENTRE_X - PCA_PCB_D/2).  The
+# corridor is 28.75 mm wide; the cradle's outer X extent is
+# BEC_BODY_L + 2 * BEC_CRADLE_WALL = 27 mm so there's ~ 0.9 mm of
+# clearance on each side.  Y position is +20 so the cradle's
+# pigtail exits land within easy cable-routing distance of the
+# nearest PCA9685's V+ / GND rail (PCA1's -X servo header row at
+# tray (+51.5, +47 .. +51.5, -7)).
+BEC_CRADLE_CENTRE     = (+37.0, +20.0)
+
+
+# ---- Anti-spark switch holster -------------------------------------------
+#
+# May 2026 "essentials" pass: the anti-spark XT60 on/off switch
+# ("LowPro RC", "HRB", typical body ~ 30 x 15 x 15 mm with 2 short
+# XT60 pigtails) used to be cable-tied wherever the user could fit
+# it.  Now it bolts to a printed holster on chassis_top's +X edge
+# between the L0 and L5 coxa_brackets, with the toggle protruding
+# past the chassis vertex so the user can flip it from outside the
+# chassis without opening the stack.
+#
+# Holster geometry summary:
+#
+#   * SOCKET HALF (+X half): a SWITCH_BODY_L x _W x _H box-with-
+#     5-walls (open top so the switch body drops in from above)
+#     that holds the switch body snugly (SWITCH_BODY_CL mm
+#     clearance per axis).  The +X end wall has a SWITCH_TOGGLE_W
+#     x SWITCH_TOGGLE_H rectangular cutout so the toggle protrudes
+#     for user access.  The -X end wall has 2 x Phi
+#     SWITCH_PIGTAIL_OD = 6 mm holes for the XT60 pigtails.
+#   * MOUNTING EAR (-X half): a flat SWITCH_EAR_L x _W x
+#     SWITCH_HOLSTER_FLOOR plate extending in -X from the socket
+#     half's -X wall.  Each ear holds one M3 brass heat-set
+#     insert (Phi INSERT_M3_PILOT_OD = 4 mm pocket inside a Phi
+#     CRADLE_BOSS_OD = 8 mm boss that extends both UP (into the
+#     ear's top face for the insert) and DOWN through chassis_top
+#     (via a matching clearance hole in chassis_top).  Bolt enters
+#     from ABOVE chassis_top, threads DOWN through chassis_top
+#     into the insert -- bolt head bears on chassis_top's TOP
+#     face from above; the boss extension DOWN through chassis_top
+#     keeps the insert pocket fully captive in plastic.
+#
+# Wait -- a simpler arrangement that avoids the "boss pokes through
+# chassis_top" complication: put the ear's floor flush with
+# chassis_top's TOP face and have the insert pocket open at the
+# ear's TOP face.  Then the bolt enters from above the holster, the
+# bolt head bears on the EAR's top face (not chassis_top's), the
+# bolt threads DOWN through the insert -- and a SHORTER bolt that
+# DOESN'T pass through chassis_top is needed.  That doesn't bolt
+# the holster to chassis_top though; it just bolts a switch into
+# the holster.
+#
+# Final design (matches the battery_holder feet pattern, just
+# rotated): the ear's heat-set insert pocket opens DOWNWARD at the
+# ear's BOTTOM face (= chassis_top's top face).  Bolt enters from
+# BELOW chassis_top (from inside the chassis cavity), threads UP
+# through chassis_top into the insert.  Bolt head bears on
+# chassis_top's BOTTOM face.  chassis_top carries a Phi
+# BRACKET_BOLT_HOLE = 3.4 mm M3 clearance hole at each bolt
+# position.  Insert is recessed 0.5 mm above the ear's bottom face
+# so the bolt head clamps chassis_top against PLASTIC, not brass
+# (same convention as the battery_holder feet inserts).  Bolts are
+# captive sub-assembly fasteners -- torqued before chassis_top is
+# clamped down with its 4 chassis-centre standoff bolts.
+SWITCH_BODY_L         = 32.0   # mm -- switch body length (along X)
+SWITCH_BODY_W         = 17.0   # mm -- switch body width (along Y)
+SWITCH_BODY_H         = 17.0   # mm -- switch body height (along Z)
+SWITCH_BODY_CL        =  0.5   # mm clearance per axis between body and cavity
+SWITCH_HOLSTER_WALL   =  2.0   # mm -- holster outer wall thickness
+SWITCH_HOLSTER_FLOOR  =  4.0   # mm -- ear thickness.  Just enough
+                                #     plastic for the M3 SHCS to drive
+                                #     into without dishing the head into
+                                #     the printed face.  The insert
+                                #     LIVES IN CHASSIS_TOP (in a
+                                #     SWITCH_HOLSTER_BOSS_H-tall boss),
+                                #     NOT in the ear, so the ear only
+                                #     has a Phi BRACKET_BOLT_HOLE
+                                #     clearance hole.
+SWITCH_EAR_L          = 14.0   # mm -- mounting ear length (X) past
+                                #     socket -X face
+SWITCH_TOGGLE_W       = 14.0   # mm -- toggle cutout width (Y) in +X face
+SWITCH_TOGGLE_H       = 10.0   # mm -- toggle cutout height (Z) in +X face
+SWITCH_PIGTAIL_OD     =  6.0   # mm -- Phi 6 mm pigtail exit (clears a
+                                #     12 AWG XT60 silicone-wire pigtail)
+SWITCH_PIGTAIL_DY     =  5.0   # mm -- spacing between the 2 pigtail
+                                #     channels on the -X face (centres
+                                #     at +/- DY)
+
+# Derived outer envelope.
+SWITCH_SOCKET_OUTER_L = (SWITCH_BODY_L + 2.0 * SWITCH_BODY_CL
+                          + 2.0 * SWITCH_HOLSTER_WALL)          # 39 mm
+SWITCH_HOLSTER_OUTER_L = SWITCH_SOCKET_OUTER_L + SWITCH_EAR_L   # 53 mm
+SWITCH_HOLSTER_OUTER_W = (SWITCH_BODY_W + 2.0 * SWITCH_BODY_CL
+                          + 2.0 * SWITCH_HOLSTER_WALL)          # 22 mm
+SWITCH_HOLSTER_OUTER_H = (SWITCH_BODY_H + SWITCH_BODY_CL
+                          + SWITCH_HOLSTER_FLOOR)               # 23.5 mm
+
+# Holster placement in CHASSIS frame (chassis_top's TOP face sits
+# at world z = CHASSIS_GAP + CHASSIS_PLATE_T + CHASSIS_PLATE_T / 2
+# = 38 mm; the holster's FLOOR bottom mates with chassis_top's TOP
+# face at z = 38 mm).  Placed so the SOCKET +X face is flush with
+# the chassis_top vertex at x = CHASSIS_TOP_FLAT_TO_FLAT / 2 /
+# cos(30 deg) = 80.83 mm in +X; the toggle protrudes past the
+# vertex for user access.  L0 and L5 coxa_bracket flanges are at
+# (+86.6, +/- 50) -- well away from y = 0 so the holster's full
+# 22 mm Y extent stays clear of them.
+# chassis_top has FLATS on the +/-X side (at x = +/- apothem =
+# CHASSIS_TOP_FLAT_TO_FLAT / 2 = +/- 70 mm; the flat spans
+# y in [-40.41, +40.41] at x = +/- 70).  VERTICES at angles
+# +/- 30, +/- 90, +/- 150 deg at distance circum = 80.83 mm.
+# The "+X edge between L0 and L1 coxa_brackets" the user refers
+# to is the +X flat (L5 is at angle 330 deg = (86.6, -50), L0 at
+# angle 30 deg = (86.6, +50); the +X flat spans the gap between
+# them along chassis_top's +X face).
+SWITCH_CHASSIS_EDGE_X = CHASSIS_TOP_FLAT_TO_FLAT / 2.0  # = 70 mm
+# Toggle must be reachable from outside the chassis: cantilever
+# the holster so its +X face protrudes past chassis_top's +X
+# flat by SWITCH_TOGGLE_REACH mm.  Toggle cutout itself adds
+# another few mm of protrusion for the toggle stem.
+SWITCH_TOGGLE_REACH    = 15.0  # mm -- holster +X face past chassis edge
+# Holster MESH origin = holster X centre (midway between the
+# socket's +X face and the ear's -X face).  Place that origin so
+# the holster's +X face is at SWITCH_CHASSIS_EDGE_X + TOGGLE_REACH.
+SWITCH_HOLSTER_CENTRE_X = (SWITCH_CHASSIS_EDGE_X
+                           + SWITCH_TOGGLE_REACH
+                           - SWITCH_HOLSTER_OUTER_L / 2.0)
+SWITCH_HOLSTER_CENTRE_Y = 0.0
+
+# 2 bolts through chassis_top into the holster's bottom-of-ear
+# heat-set inserts.  Placed on the ear (the -X half of the
+# holster) so the bolts thread through chassis_top material at
+# safe distance from the +X vertex.  Each bolt's HOLSTER-LOCAL
+# (x, y) is reported in SWITCH_HOLSTER_BOLT_OFFSETS; the absolute
+# chassis-frame positions land at SWITCH_HOLSTER_CENTRE +
+# offset.  chassis_top carries a matching Phi BRACKET_BOLT_HOLE =
+# 3.4 mm clearance hole at each bolt site (see
+# ``make_chassis_top`` -- it picks up SWITCH_HOLSTER_BOLT_OFFSETS
+# from this module).
+# Bolt at ear's CENTRE (X): 19.5 mm inboard from holster +X face
+# (= SWITCH_HOLSTER_OUTER_L / 2 - SWITCH_EAR_L / 2 = 26.5 - 7 = 19.5).
+SWITCH_HOLSTER_BOLT_DX = SWITCH_HOLSTER_OUTER_L / 2.0 - SWITCH_EAR_L / 2.0
+SWITCH_HOLSTER_BOLT_DY = 5.0      # mm -- bolts at +/- 5 mm in Y
+SWITCH_HOLSTER_BOLT_OFFSETS = (
+    (-SWITCH_HOLSTER_BOLT_DX, +SWITCH_HOLSTER_BOLT_DY),
+    (-SWITCH_HOLSTER_BOLT_DX, -SWITCH_HOLSTER_BOLT_DY),
+)
+
+# Chassis-top boss height under each switch_holster bolt position.
+# The boss raises the chassis_top top face by SWITCH_HOLSTER_BOSS_H
+# locally so the M3 heat-set insert (INSERT_M3_PILOT_DEPTH = 6 mm)
+# fits ENTIRELY above the chassis_top BOTTOM face without punching
+# through into the chassis cavity:
+#   boss top z          = chassis_top top + 3 mm = 41 (design frame)
+#   insert pocket depth = INSERT_M3_PILOT_DEPTH = 6 mm
+#   insert pocket bottom z = 41 - 6 = 35 (= chassis_top centre - 1)
+# Boss OD = SWITCH_HOLSTER_BOSS_OD (= 8 mm) leaves >= 2 mm of wall
+# material around the Phi 4 mm pocket on every azimuth -- same
+# captive-insert geometry as the electronics_tray standoff bosses.
+# The holster ear sits ON TOP of the 2 bosses (the rest of the ear
+# floats SWITCH_HOLSTER_BOSS_H above chassis_top's flat top face);
+# the bolt threads DOWN from above the ear into the insert.
+SWITCH_HOLSTER_BOSS_H  = 3.0   # mm above chassis_top top face
+SWITCH_HOLSTER_BOSS_OD = 8.0   # mm boss OD on chassis_top
+# CHASSIS-frame XY of the 2 bolt sites.  ``make_chassis_top`` calls
+# this to add 2 clearance holes; ``fastener_registry`` calls this
+# to enumerate the bolts + inserts.
+SWITCH_HOLSTER_BOLT_CHASSIS_XY = tuple(
+    (SWITCH_HOLSTER_CENTRE_X + ox, SWITCH_HOLSTER_CENTRE_Y + oy)
+    for ox, oy in SWITCH_HOLSTER_BOLT_OFFSETS
+)
 
 # ---- Resolutions ---------------------------------------------------------
 CYL_SECTIONS = 48     # cylinder facet count -- smooth STL, fast booleans
@@ -2147,11 +2408,58 @@ def make_chassis_top() -> trimesh.Trimesh:
     (see check_workspace_self_collision in _verify_prototype.py).  No
     per-leg bracket cutouts or M3 bolt holes are needed because the
     bottom plate already takes them.  Only the 4 centre-hole standoff
-    bolts (battery/electronics tray + arm baseplate) remain.
+    bolts (battery/electronics tray + arm baseplate) remain -- PLUS,
+    May 2026 "essentials" pass, 2 x switch_holster mount bosses on
+    the +X half of the plate at SWITCH_HOLSTER_BOLT_CHASSIS_XY.
+    Each boss is a Phi SWITCH_HOLSTER_BOSS_OD = 8 mm cylinder rising
+    SWITCH_HOLSTER_BOSS_H = 3 mm above the chassis_top top face, with
+    a Phi INSERT_M3_PILOT_OD = 4 mm x INSERT_M3_PILOT_DEPTH = 6 mm
+    heat-set insert pocket opening UPWARD from the boss top.  The
+    switch_holster ear sits ON TOP of these 2 bosses; an M3 x 10 SHCS
+    threads DOWN from above the ear into the insert.
     """
-    return _hex_plate(CHASSIS_TOP_FLAT_TO_FLAT, CHASSIS_PLATE_T,
+    plate = _hex_plate(CHASSIS_TOP_FLAT_TO_FLAT, CHASSIS_PLATE_T,
                        with_centre_holes=True,
                        with_leg_features=False)
+
+    # 2 switch_holster mounting bosses on the +X half of the plate.
+    # Each boss is a Phi SWITCH_HOLSTER_BOSS_OD cylinder centred on
+    # chassis (SWITCH_HOLSTER_BOLT_CHASSIS_XY[i]) that extends
+    # SWITCH_HOLSTER_BOSS_H above the plate's TOP face (= z =
+    # +CHASSIS_PLATE_T/2 = +2 in plate-local coords, since
+    # ``_hex_plate`` extrudes symmetrically about z = 0).  Then the
+    # Phi INSERT_M3_PILOT_OD insert pocket opens UPWARD from the
+    # boss top, depth INSERT_M3_PILOT_DEPTH (+0.4 mm overdrill for
+    # debris clearance, same convention as the cradle / battery_
+    # holder / electronics_tray insert pockets).
+    bosses = []
+    pockets = []
+    boss_h = SWITCH_HOLSTER_BOSS_H
+    boss_top_z = CHASSIS_PLATE_T / 2.0 + boss_h
+    pocket_overdrill_h = INSERT_M3_PILOT_DEPTH + 0.4
+    for (cx, cy) in SWITCH_HOLSTER_BOLT_CHASSIS_XY:
+        # Boss: a Phi BOSS_OD cylinder centred at the bolt position,
+        # extending from a tiny bit BELOW plate-top (z = -0.2 mm,
+        # for clean CSG-union with the plate) UP to boss_top_z.
+        boss_bot_z = -0.2  # 0.2 mm below plate top for clean union
+        boss_height = boss_top_z - boss_bot_z
+        boss = _cyl(SWITCH_HOLSTER_BOSS_OD / 2.0, boss_height)
+        boss_centre_z = (boss_top_z + boss_bot_z) / 2.0
+        boss.apply_translation([cx, cy, boss_centre_z])
+        bosses.append(boss)
+
+        # Insert pocket: opens UPWARD from boss top, extends DOWN by
+        # INSERT_M3_PILOT_DEPTH + 0.4 (overdrill).  Pocket top at
+        # z = boss_top_z + 0.2 (cut a bit above for clean CSG),
+        # bottom at z = boss_top_z - INSERT_M3_PILOT_DEPTH - 0.2 =
+        # +5.0 - 6.2 = -1.2 (INSIDE the plate's z range [-2, +2];
+        # leaves 0.8 mm of plate plastic below the pocket bottom).
+        pocket = _cyl(INSERT_M3_PILOT_OD / 2.0, pocket_overdrill_h)
+        pocket_centre_z = boss_top_z - INSERT_M3_PILOT_DEPTH / 2.0
+        pocket.apply_translation([cx, cy, pocket_centre_z])
+        pockets.append(pocket)
+
+    return _diff(_union(plate, *bosses), *pockets)
 
 
 def make_chassis_bottom() -> trimesh.Trimesh:
@@ -2233,8 +2541,36 @@ def make_battery_holder() -> trimesh.Trimesh:
                                        pocket_overdrill_h / 2.0 - 0.2])
             insert_pockets.append(pocket)
 
+    # +X-end cable-clearance notch.  The Pi 4 / Pi 5's USB-A 3.0
+    # PAIR (blue) plug envelope at chassis (x in [+22.5, +44.5],
+    # y in [-20, -8], z in [+22, +30]) overlaps the
+    # battery_holder's -Y cradle wall AND its +X end wall at the
+    # holder's +X corner -- a known geometry conflict introduced
+    # in the May 2026 "essentials" pass when the secondary PCA9685
+    # forced the Pi's +X edge to butt up against the battery_holder
+    # extent.  We carve a single 14 x 12 x 10 mm notch out of the
+    # holder's +X -Y corner (local x in [+43, +57], y in [-20, -8],
+    # z in [+18, +28]) so the plug-airspace check passes and a
+    # standard USB-A cable can be plugged into the Pi.  The lower
+    # 18 mm of the cradle wall + the entire +Y cradle wall + 75 %
+    # of the +X end wall remain intact, so the BATTERY_FOOT and
+    # velcro-strap retention are unaffected (notch volume ~ 1700
+    # mm^3 vs. the holder's ~ 6.5 cm^3 wall mass).
+    notch_x_lo = BATTERY_W / 2.0 - 12.0      # local +43
+    notch_x_hi = BATTERY_W / 2.0 + 2.0       # local +57
+    notch_y_lo = -BATTERY_D / 2.0 - 1.0      # local -20
+    notch_y_hi = -BATTERY_D / 2.0 + 11.0     # local  -8
+    notch_z_lo = 18.0                         # local +18
+    notch_z_hi = BATTERY_H + 2.0              # local +30
+    cable_notch = _box((notch_x_hi - notch_x_lo,
+                         notch_y_hi - notch_y_lo,
+                         notch_z_hi - notch_z_lo),
+                        center=((notch_x_lo + notch_x_hi) / 2.0,
+                                (notch_y_lo + notch_y_hi) / 2.0,
+                                (notch_z_lo + notch_z_hi) / 2.0))
+
     body = _union(outer, *feet)
-    return _diff(body, inner, *velcro, *insert_pockets)
+    return _diff(body, inner, *velcro, *insert_pockets, cable_notch)
 
 
 def _board_standoff_boss_and_pocket(
@@ -2281,14 +2617,16 @@ def _absolute_xy(centre: tuple[float, float],
 
 def make_electronics_tray() -> trimesh.Trimesh:
     """Flat 3D-printed deck that carries the Arduino Mega 2560 + the
-    Raspberry Pi 4 (or Pi 5) + the PCA9685 PWM driver.
+    Raspberry Pi 4 (or Pi 5) + TWO PCA9685 PWM drivers.
 
     Replaces the May-2026-earlier "Arduino Nano + PCA9685" layout --
-    the user upgraded the firmware host to an ELEGOO Mega 2560 R3 and
-    added a Pi 4 for higher-level control.  The Nano hole pattern is
-    retired; the Mega + Pi + PCA9685 use the parametric MEGA_HOLES /
-    PI_HOLES / PCA_HOLES board patterns + MEGA_CENTRE / PI_CENTRE /
-    PCA_CENTRE placements declared in the constants block above.
+    the user upgraded the firmware host to an ELEGOO Mega 2560 R3,
+    added a Pi 4 for higher-level control, and (May 2026
+    "essentials" pass) bolted BOTH PCA9685s instead of letting the
+    secondary one float on cable ties.  The Mega + Pi + PCA1 + PCA2
+    use the parametric MEGA_HOLES / PI_HOLES / PCA_HOLES board
+    patterns + MEGA_CENTRE / PI_CENTRE / PCA_CENTRE / PCA2_CENTRE
+    placements declared in the constants block above.
 
     Geometry summary:
 
@@ -2311,9 +2649,13 @@ def make_electronics_tray() -> trimesh.Trimesh:
           (Phi 6 mm boss, Phi 3 mm pocket, McMaster 94459A106
           insert) -- 4 x M2.5 SHCS clamps the Pi onto the boss tops.
         * 4 printed bosses + heat-set insert pockets for the
-          PCA9685 (same Phi 8 / 4 mm M3 geometry as the Mega).
+          PRIMARY PCA9685 at PCA_CENTRE (same Phi 8 / 4 mm M3
+          geometry as the Mega).
+        * 4 printed bosses + heat-set insert pockets for the
+          SECONDARY PCA9685 at PCA2_CENTRE (same geometry as the
+          primary).  May 2026 "essentials" pass.
 
-    All 12 board-mount fasteners are CAPTIVE SUB-ASSEMBLY fasteners:
+    All 16 board-mount fasteners are CAPTIVE SUB-ASSEMBLY fasteners:
     they are torqued during the electronics install BEFORE the
     chassis_top + arm stack closes over the tray; once the top plate
     is on, a hex key cannot reach the heads.  ``_emit_electronics_
@@ -2354,8 +2696,24 @@ def make_electronics_tray() -> trimesh.Trimesh:
         bosses.append(boss)
         pockets.append(pocket)
 
-    # --- PCA9685 board-mount sites (M3 inserts) ---
+    # --- Primary PCA9685 board-mount sites (M3 inserts) ---
     for (hx, hy) in _absolute_xy(PCA_CENTRE, PCA_HOLES):
+        boss, pocket = _board_standoff_boss_and_pocket(
+            hx, hy,
+            pilot_od=INSERT_M3_PILOT_OD,
+            pilot_depth=INSERT_M3_PILOT_DEPTH,
+            boss_od=ELEC_BOSS_OD_M3,
+            boss_height=ELEC_STANDOFF_H,
+            tray_top_z=tray_top_z,
+        )
+        bosses.append(boss)
+        pockets.append(pocket)
+
+    # --- Secondary PCA9685 board-mount sites (M3 inserts) ---
+    # May 2026 "essentials" pass: PCA2 (I2C 0x41) was previously
+    # cable-tied to the chassis_top deck; now bolted properly via
+    # 4 x M3 SHCS into M3 heat-set inserts on the tray.
+    for (hx, hy) in _absolute_xy(PCA2_CENTRE, PCA_HOLES):
         boss, pocket = _board_standoff_boss_and_pocket(
             hx, hy,
             pilot_od=INSERT_M3_PILOT_OD,
@@ -2390,6 +2748,196 @@ def make_electronics_tray() -> trimesh.Trimesh:
 
     body = _union(plate, *bosses)
     return _diff(body, *pockets, *mount_holes)
+
+
+def make_bec_cradle() -> trimesh.Trimesh:
+    """Snap-fit cradle for the 2 x 5V 5A switching BECs (Hobbywing
+    UBEC form factor, ~ 24 x 15 x 8 mm body).
+
+    Sits on top of the electronics_tray in the corridor between the
+    Mega's +X edge and PCA1's -X edge.  No bolts -- the 2 BEC bodies
+    wedge in side-by-side along Y with a BEC_CRADLE_INTERFERENCE-mm
+    interference fit and a 2 mm-tall retention lip on each +/- Y
+    side wall snaps over the BEC's top edge so it stays captive
+    against vibration.  Both XT60 input pigtails exit out the +X end
+    wall and both 3-pin servo-header output pigtails exit out the
+    -X end wall via Phi BEC_PIGTAIL_OD = 5 mm wire channels.
+
+    Local frame (mesh origin = cradle centre on the tray's top face):
+        +X = pigtail axis (input on +X end, output on -X end)
+        +Y = wider axis -- 2 BECs span this dimension
+        +Z = UP (cradle floor at z = 0, cavity extends to z =
+              BEC_CRADLE_FLOOR + BEC_BODY_H)
+
+    The cradle's CHASSIS-frame placement is
+    ``(ELEC_TRAY_CENTRE_X + BEC_CRADLE_CENTRE[0],
+       ELEC_TRAY_CENTRE_Y + BEC_CRADLE_CENTRE[1],
+       CHASSIS_PLATE_T / 2 + 3 + ELEC_TRAY_T)`` -- i.e. on the
+    electronics_tray's top face, in the corridor between Mega +X
+    edge (+22.75 mm) and PCA1 -X edge (+51.5 mm).
+    """
+    cavity_l = BEC_BODY_L
+    cavity_w = 2.0 * BEC_BODY_W - BEC_CRADLE_INTERFERENCE
+    cavity_h = BEC_BODY_H
+
+    outer_l = cavity_l + 2.0 * BEC_CRADLE_WALL
+    outer_w = cavity_w + 2.0 * BEC_CRADLE_WALL
+    outer_h = BEC_CRADLE_FLOOR + cavity_h + BEC_CRADLE_LIP_H
+
+    # Solid outer block.
+    block = _box((outer_l, outer_w, outer_h),
+                  center=(0.0, 0.0, outer_h / 2.0))
+
+    # Subtract the main cavity (BEC body space).  The cavity opens
+    # UP to z = floor + body_h; the retention lip lives ABOVE that
+    # at z in [floor + body_h, floor + body_h + lip_h] but tapers
+    # inboard by BEC_CRADLE_LIP_INSET on each +/- Y side.
+    cavity = _box((cavity_l, cavity_w, cavity_h + 0.5),
+                   center=(0.0, 0.0,
+                            BEC_CRADLE_FLOOR + cavity_h / 2.0 + 0.25))
+
+    # Upper insertion slot (above the lip): narrower in Y so the
+    # BEC body has to flex past the retention lip to drop in.
+    insert_slot = _box(
+        (cavity_l,
+         cavity_w - 2.0 * BEC_CRADLE_LIP_INSET,
+         BEC_CRADLE_LIP_H + 0.5),
+        center=(0.0, 0.0,
+                 BEC_CRADLE_FLOOR + cavity_h
+                 + BEC_CRADLE_LIP_H / 2.0 + 0.25),
+    )
+
+    # Wire-exit channels on +/- X end walls.  Centred vertically on
+    # the BEC body (at z = floor + body_h/2).  One channel per BEC
+    # would be ideal but a single wider opening that spans both
+    # BECs' Y range is mechanically simpler and the user will fish
+    # both pigtails through the same end.  Channel height = Phi 5
+    # round; widened in Y to cover both BEC pigtail positions
+    # (centres at y = +/- (cavity_w/4)).
+    channels = []
+    for sx in (-1, 1):
+        # Single round Phi 5 channel per BEC -- 2 channels per end,
+        # 4 total.
+        for sy in (-1, 1):
+            ch = _cyl_along(BEC_PIGTAIL_OD / 2.0,
+                             BEC_CRADLE_WALL + 0.4,
+                             axis="x")
+            cx = sx * (cavity_l / 2.0 - 0.2)
+            cy = sy * (cavity_w / 4.0)
+            cz = BEC_CRADLE_FLOOR + cavity_h / 2.0
+            ch.apply_translation([cx, cy, cz])
+            channels.append(ch)
+
+    return _diff(block, cavity, insert_slot, *channels)
+
+
+def make_switch_holster() -> trimesh.Trimesh:
+    """Printed holster for the anti-spark XT60 on/off switch.
+
+    Mounts to chassis_top's +X edge between the L0 and L5
+    coxa_brackets.  Two-part body:
+
+      * SOCKET (+X half): a 5-walled open-top box that snugs the
+        switch body in with SWITCH_BODY_CL mm clearance per axis.
+        Toggle pokes out a SWITCH_TOGGLE_W x SWITCH_TOGGLE_H
+        cutout in the +X end wall (= the chassis +X vertex); the
+        2 XT60 pigtails exit out 2 x Phi SWITCH_PIGTAIL_OD = 6 mm
+        holes in the -X end wall.
+      * MOUNTING EAR (-X half): a flat SWITCH_EAR_L x outer_w x
+        SWITCH_HOLSTER_FLOOR plate that sits on chassis_top's TOP
+        face.  Two M3 brass heat-set inserts (McMaster 94459A130)
+        are pressed into Phi INSERT_M3_PILOT_DEPTH = 6 mm pockets
+        opening DOWNWARD at the ear's BOTTOM face -- 2 x M3 x 12
+        SHCS thread UP from below chassis_top into them.  Bolt
+        head bears on chassis_top's BOTTOM face; the ear's
+        plastic clamps chassis_top from above.
+
+    Local frame (mesh origin = MIDPOINT of the holster's X extent
+    on chassis_top's TOP face):
+        +X = toggle-exit direction (toggle pokes out +X face)
+        +Y = tangential (along the chassis +X edge)
+        +Z = UP (ear bottom at z = 0, socket cavity opens UP at z
+              = SWITCH_HOLSTER_FLOOR)
+
+    CHASSIS-frame placement: ``(SWITCH_HOLSTER_CENTRE_X,
+    SWITCH_HOLSTER_CENTRE_Y, CHASSIS_GAP + CHASSIS_PLATE_T +
+    CHASSIS_PLATE_T/2)``.  ``make_chassis_top`` adds matching 2 x
+    Phi BRACKET_BOLT_HOLE = 3.4 mm clearance holes at
+    SWITCH_HOLSTER_BOLT_CHASSIS_XY.
+    """
+    outer_l = SWITCH_HOLSTER_OUTER_L
+    outer_w = SWITCH_HOLSTER_OUTER_W
+    socket_l = SWITCH_SOCKET_OUTER_L
+
+    # SOCKET solid block on the +X half.
+    socket_centre_x = outer_l / 2.0 - socket_l / 2.0
+    socket_outer_h = SWITCH_BODY_H + SWITCH_BODY_CL + SWITCH_HOLSTER_FLOOR
+    socket_block = _box(
+        (socket_l, outer_w, socket_outer_h),
+        center=(socket_centre_x, 0.0, socket_outer_h / 2.0),
+    )
+
+    # EAR solid block on the -X half (flat).
+    ear_centre_x = -outer_l / 2.0 + SWITCH_EAR_L / 2.0
+    ear_block = _box(
+        (SWITCH_EAR_L, outer_w, SWITCH_HOLSTER_FLOOR),
+        center=(ear_centre_x, 0.0, SWITCH_HOLSTER_FLOOR / 2.0),
+    )
+
+    block = _union(socket_block, ear_block)
+
+    # Switch body cavity (open top, inside socket block).
+    cavity_l = SWITCH_BODY_L + 2.0 * SWITCH_BODY_CL
+    cavity_w = SWITCH_BODY_W + 2.0 * SWITCH_BODY_CL
+    cavity_h = SWITCH_BODY_H + SWITCH_BODY_CL
+    cavity = _box(
+        (cavity_l, cavity_w, cavity_h + 0.5),
+        center=(socket_centre_x, 0.0,
+                 SWITCH_HOLSTER_FLOOR + cavity_h / 2.0 + 0.25),
+    )
+
+    # Toggle cutout in +X end wall of the socket.
+    toggle = _box(
+        (SWITCH_HOLSTER_WALL + 0.4,
+         SWITCH_TOGGLE_W,
+         SWITCH_TOGGLE_H),
+        center=(outer_l / 2.0 - (SWITCH_HOLSTER_WALL + 0.4) / 2.0 + 0.2,
+                 0.0,
+                 SWITCH_HOLSTER_FLOOR + SWITCH_BODY_H / 2.0),
+    )
+
+    # 2 XT60 pigtail exit channels through -X end wall of the
+    # socket.  Phi 6 mm cylinders along X, centred vertically on the
+    # body cavity (at z = floor + body_h/2 = 2.5 + 8.5 = 11 mm).
+    pigtails = []
+    socket_minus_x_face = socket_centre_x - socket_l / 2.0
+    for sy in (-1, 1):
+        ch = _cyl_along(SWITCH_PIGTAIL_OD / 2.0,
+                         SWITCH_HOLSTER_WALL + 0.4,
+                         axis="x")
+        cx = socket_minus_x_face - 0.2
+        cy = sy * SWITCH_PIGTAIL_DY
+        cz = SWITCH_HOLSTER_FLOOR + SWITCH_BODY_H / 2.0
+        ch.apply_translation([cx, cy, cz])
+        pigtails.append(ch)
+
+    # 2 M3 bolt clearance holes through the ear, top to bottom.
+    # The bolt enters from ABOVE (head bears on the ear's top face),
+    # passes DOWN through the Phi BRACKET_BOLT_HOLE = 3.4 mm
+    # clearance hole, and threads into the brass heat-set insert
+    # that lives in the matching chassis_top boss (see
+    # ``make_chassis_top``).  Insert is in chassis_top so the
+    # driver clearance probed by ``check_screwdriver_access``
+    # extends UPWARD into open air, not down into the chassis
+    # interior where the electronics_tray + battery_holder live.
+    clearance_holes = []
+    for (bx, by) in SWITCH_HOLSTER_BOLT_OFFSETS:
+        hole = _cyl(BRACKET_BOLT_HOLE / 2.0, SWITCH_HOLSTER_FLOOR * 4.0)
+        # Centre the cut vertically on the ear (ear z in [0, FLOOR]).
+        hole.apply_translation([bx, by, SWITCH_HOLSTER_FLOOR / 2.0])
+        clearance_holes.append(hole)
+
+    return _diff(block, cavity, toggle, *pigtails, *clearance_holes)
 
 
 # ---------------------------------------------------------------------------
@@ -3997,6 +4545,8 @@ def main() -> None:
     parts.append(("chassis_bottom.stl",   make_chassis_bottom()))
     parts.append(("battery_holder.stl",   make_battery_holder()))
     parts.append(("electronics_tray.stl", make_electronics_tray()))
+    parts.append(("bec_cradle.stl",       make_bec_cradle()))
+    parts.append(("switch_holster.stl",   make_switch_holster()))
 
     print("Leg parts (one of each -- print 6 sets):")
     parts.append(("coxa_bracket.stl",     make_coxa_bracket()))

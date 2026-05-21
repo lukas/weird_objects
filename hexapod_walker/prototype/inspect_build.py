@@ -199,6 +199,28 @@ def _build_assembly_instances() -> list[Instance]:
         _trans(HP.ELEC_TRAY_CENTRE_X, HP.ELEC_TRAY_CENTRE_Y,
                 plate_t / 2.0 + 3.0),
     ))
+    # BEC cradle sits ON TOP of the electronics_tray near +Y edge
+    # (snap-fit friction hold; no fasteners).  Cradle bottom face
+    # rests at tray top face = plate_t/2 + 3 + ELEC_TRAY_T.
+    bec_x = HP.ELEC_TRAY_CENTRE_X + HP.BEC_CRADLE_CENTRE[0]
+    bec_y = HP.ELEC_TRAY_CENTRE_Y + HP.BEC_CRADLE_CENTRE[1]
+    bec_z = plate_t / 2.0 + 3.0 + HP.ELEC_TRAY_T
+    instances.append(Instance(
+        "bec_cradle", "bec_cradle.stl", None, None,
+        _trans(bec_x, bec_y, bec_z),
+    ))
+    # Switch holster sits on TWO printed BOSSES on chassis_top's TOP
+    # face (one boss under each SWITCH_HOLSTER_BOLT_CHASSIS_XY
+    # position).  Ear bottom rests on the boss tops at
+    # z = chassis_top_top + SWITCH_HOLSTER_BOSS_H = gap + 1.5 *
+    # plate_t + BOSS_H.  Bolts thread DOWN from above the ear into
+    # the brass heat-set insert in each boss.
+    sw_z = gap + 1.5 * plate_t + HP.SWITCH_HOLSTER_BOSS_H
+    instances.append(Instance(
+        "switch_holster", "switch_holster.stl", None, None,
+        _trans(HP.SWITCH_HOLSTER_CENTRE_X, HP.SWITCH_HOLSTER_CENTRE_Y,
+                sw_z),
+    ))
 
     yaw_output_z = (
         (HP.SERVO_BODY_H - HP.WELL_RIM_Z)

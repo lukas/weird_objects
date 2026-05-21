@@ -40,6 +40,13 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "battery_holder":      (0.580, 0.404, 0.741),
     # Electronics tray - tab:olive
     "electronics_tray":    (0.737, 0.741, 0.133),
+    # BEC cradle - lighter olive sibling (sits on the electronics_tray
+    # so visually grouping with the tray makes sense).
+    "bec_cradle":          (0.871, 0.871, 0.318),
+    # Switch holster - tab:pink-ish (sits on chassis_top at the +X
+    # edge; sibling of the chassis color family is too easy to lose,
+    # so a contrasting hue is used).
+    "switch_holster":      (0.890, 0.467, 0.137),
     # Coxa bracket - tab:orange (the chassis<->hip-yaw bridge "pops")
     "coxa_bracket":        (1.000, 0.498, 0.055),
     # Coxa link - tab:green
@@ -107,6 +114,7 @@ _CHASSIS_LEVEL = frozenset({
     "chassis_top", "chassis_bottom",
     "chassis_plate_a", "chassis_plate_b",
     "battery_holder", "electronics_tray",
+    "bec_cradle", "switch_holster",
 })
 
 

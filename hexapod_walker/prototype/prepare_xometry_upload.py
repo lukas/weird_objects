@@ -42,6 +42,7 @@ from trimesh.transformations import rotation_matrix
 
 from hexapod_prototype import (
     make_battery_holder,
+    make_bec_cradle,
     make_chassis_bottom,
     make_chassis_top,
     make_coxa_bracket,
@@ -49,6 +50,7 @@ from hexapod_prototype import (
     make_electronics_tray,
     make_femur_link,
     make_foot_pad,
+    make_switch_holster,
     make_tibia_link,
 )
 
@@ -97,6 +99,20 @@ def _reorient_battery_holder(mesh):
 
 def _reorient_electronics_tray(mesh):
     """Flat 3 mm plate."""
+    return _drop_to_bed(mesh)
+
+
+def _reorient_bec_cradle(mesh):
+    """Snap-fit cradle for 2 x BECs.  Open top is +Z (cavity opens
+    UP); drop to bed."""
+    return _drop_to_bed(mesh)
+
+
+def _reorient_switch_holster(mesh):
+    """Switch holster.  Mesh-local +Z is UP (ear bottom face on the
+    bed when dropped); drop to bed.  The mounting ear is a thin
+    plate and the socket cantilevers up from it -- printable as-is
+    without supports."""
     return _drop_to_bed(mesh)
 
 
@@ -203,6 +219,16 @@ PART_REGISTRY: list[tuple[str,
     ("electronics_tray.stl",     make_electronics_tray,    _reorient_electronics_tray,
      1, "MJF PA12",      "white", "as-printed",
      "Mounts Arduino + 2x PCA9685; standoffs are part of the geometry."),
+
+    ("bec_cradle.stl",           make_bec_cradle,          _reorient_bec_cradle,
+     1, "MJF PA12",      "white", "as-printed",
+     "Snap-fit clip for 2 x switching BECs (Hobbywing UBEC form "
+     "factor); sits on top of the electronics_tray, friction fit."),
+
+    ("switch_holster.stl",       make_switch_holster,      _reorient_switch_holster,
+     1, "MJF PA12",      "white", "as-printed",
+     "Anti-spark on/off switch body holster; bolts to chassis_top's "
+     "+X edge with 2 x M3 SHCS, toggle protrudes for user access."),
 
     ("coxa_bracket.stl",         make_coxa_bracket,        _reorient_coxa_bracket,
      6, "MJF PA12",      "white", "as-printed",
