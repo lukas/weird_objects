@@ -264,9 +264,9 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 |---|---|---|
 | `coxa_bracket.stl` | Horizontal flange + servo well (yaw motor hangs below). 4 vertical M3 bolts clamp the flange between the two chassis plates. | Flange on bed, well opening up |
 | `coxa_link.stl` | U-arm driven by the yaw servo's horn; carries the hip-pitch servo in a side-loaded well. | Hub face down, well opening up |
-| `femur_link.stl` | I-beam thigh with a slot through the spar so the knee servo body can slide past it during assembly. Top + bottom flange bridges connect the spar to the well. | Spar's broad face flat on bed; knee cradle sticks up with its opening pointing DOWN (closed cradle floor at the top of the print). |
-| `tibia_link.stl` | Shin link with knee pad and foot socket at the far end. | Flat on bed |
-| `foot_pad.stl` | Compliant foot — print in TPU for grip | Hub up, no supports |
+| `femur_link.stl` | I-beam thigh with a slot through the spar so the knee servo body can slide past it during assembly. Top + bottom flange bridges connect the spar to the well. **Knee cradle floor is OPEN** (May 2026 supports-free refactor) so the part prints flat with no bridged ceiling. | Spar's broad face flat on bed; knee cradle opens downward through the bed and upward through the print's top -- no closed floor, no supports needed. |
+| `tibia_link.stl` | Shin link with knee pad at one end and a single 6 mm-wide TANG at the other (foot-hinge end). **Tibia is `LINK_THICKNESS` = 6 mm wide in Y everywhere** (May 2026 supports-free refactor), so the entire part prints flat as a 6 mm-tall slab. | Spar's broad face flat on bed, no supports. |
+| `foot_pad.stl` | Compliant foot with a 2-cheek FORK at +Z (May 2026 inversion: foot now carries the fork, tibia carries the tang). M3 x 16 pan-head pin + M3 nylock captures the joint just as before. Print in TPU 95A for grip and ankle compliance. | Disk on bed, fork up. Fork cheeks are 3.5 mm thick TPU walls and the 6.4 mm slot between them prints in air -- no supports needed (vertical features only). |
 
 ### 3.3 Visualization (do not print)
 
@@ -440,8 +440,15 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    Plastic X-horn perpendicular to the femur spar.
 8. **Tibia:** seat the tibia's knee-end pad on the knee horn and
    bolt to the horn with 4 x M2 x 8 SHCS into the X-horn arms.
-9. **Foot pad:** push-fit into the tibia's foot socket, glue with CA
-   if it's loose.
+9. **Foot pad:** slide the foot pad's FORK over the tibia's tang
+   from below (May 2026 hinge inversion -- the foot now carries
+   the fork, the tibia carries the single tang), align the M3
+   holes in both cheeks with the M3 hole in the tang, and drive
+   one M3 x 16 pan-head bolt (92010A130) THROUGH the fork +
+   tang into an M3 nylock nut on the far cheek.  Tighten just
+   until the joint is snug but still rotates freely.  The hinge
+   axis is parallel to the knee pitch axis so the foot pitches
+   passively about it as the leg walks.
 
 You now have a complete leg dangling from a coxa bracket. Repeat 6
 times.

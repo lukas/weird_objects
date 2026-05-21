@@ -1090,72 +1090,114 @@ COXA_HIP_DROP = (-(WELL_D / 2.0 + COXA_ARM_T / 2.0 + WELL_Z_DROP_EXTRA)
                  + COXA_LIFT)
 
 # ---- Foot ----------------------------------------------------------------
-# Compliant pad printed in TPU.  The tibia tip ends in a forked CLEVIS
-# (two parallel cheeks, knee-axis-parallel through-hole) and the foot
-# has a vertical TONGUE that drops into the fork; an M3x16 pan-head
-# bolt with a nylock nut clamps the two together.  The bolt becomes
-# the pin of a single-axis hinge whose axis is parallel to the knee
-# pitch axis, so the foot pitches passively around it to follow
-# uneven ground.  TPU material compliance in the pad disk itself
-# absorbs roll.
+# Compliant pad printed in TPU.
+#
+# May 2026 inversion: the tibia tip now ends in a single TANG (a
+# LINK_THICKNESS-wide vertical tongue centred on tibia y=0) and the
+# foot_pad has a 2-cheek FORK with a SLOT that captures the tang;
+# pre-2026 it was the other way round (tibia = fork, foot = tongue).
+# An M3x16 pan-head bolt with a nylock nut still clamps the two
+# together and still serves as the single-axis hinge pin whose axis
+# is parallel to the knee pitch axis -- the foot pitches passively
+# around it to follow uneven ground.  TPU material compliance in
+# the pad disk itself absorbs roll.  See the FOOT_HINGE_* block
+# below for the dimensional rationale.
 FOOT_PAD_OD          = 28.0   # mm -- outer diameter of the ground-contact disk
 FOOT_PAD_BASE_H      =  4.0   # mm -- thickness of the disk (TPU spring)
 FOOT_PAD_BOSS_OD     = 14.0   # mm -- short stiffening boss between disk top
-                              #        and tongue (gives the tongue a wider
-                              #        root than its 10 x 4 mm cross-section)
-FOOT_PAD_BOSS_H      =  3.0   # mm -- boss height; tongue starts at
+                              #        and fork (gives the fork a wider
+                              #        root than its 10 x 13.4 mm
+                              #        cross-section; circular 14 mm OD
+                              #        easily contains the rectangular
+                              #        fork footprint)
+FOOT_PAD_BOSS_H      =  3.0   # mm -- boss height; fork cheeks start at
                               #        FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H
 
-# Hinge geometry (shared between tibia clevis and foot tongue).
-FOOT_HINGE_CHEEK_T   =  3.5   # mm -- each tibia clevis cheek thickness in
+# Hinge geometry.
+#
+# May 2026 inversion: the foot/tibia hinge used to be "TIBIA = fork,
+# FOOT = tongue" -- the tibia ended in a 2-cheek + 4 mm tongue-slot
+# clevis (12 mm wide in tibia Y) and the foot_pad had a 4 mm-thick
+# vertical tongue that slid up into the slot.  That made the tibia
+# 12 mm wide in Y at the foot end but only LINK_THICKNESS = 6 mm
+# wide everywhere else, so the clevis protruded 6 mm above the
+# spar's broad face in the "spar broad face on bed" print orientation
+# and forced supports under the clevis.
+#
+# After the inversion the geometry is "TIBIA = single tang, FOOT =
+# fork": the tibia spar terminates in a single LINK_THICKNESS-wide
+# tang centred on tibia y=0 (so the tibia is now 6 mm wide in Y
+# EVERYWHERE and prints fully flat), and the foot_pad gains a 2-cheek
+# fork with a LINK_THICKNESS + clearance slot that captures the tang.
+# Same M3 x 16 pan-head pin + M3 nylock, same hinge axis -- just
+# inverted geometry; no BOM change for fasteners.  The foot_pad's
+# Y extent across the fork is 2 * FOOT_HINGE_CHEEK_T + SLOT_W =
+# 2 * 3.5 + 6.4 = 13.4 mm, which fits comfortably within the disk's
+# 28 mm OD (the fork lives above the disk in foot-local +Z anyway).
+FOOT_HINGE_CHEEK_T   =  3.5   # mm -- each foot-pad fork cheek thickness in
                               #        the knee-axis direction (Y).  Above
                               #        MIN_PRINT_T = 3.0 mm with margin.
-FOOT_HINGE_GAP       =  5.0   # mm -- inside-fork clearance (between the
-                              #        cheeks' inner faces) for the tongue.
-                              #        Total fork width = 2*CHEEK_T + GAP =
-                              #        12 mm in Y.
-FOOT_HINGE_TONGUE_T  =  4.0   # mm -- foot tongue thickness in Y.  Fits in
-                              #        the 5 mm gap with 0.5 mm clearance
-                              #        per side; allows the M3 bolt to pinch
-                              #        the cheeks lightly on the tongue
-                              #        without binding when articulated.
-FOOT_HINGE_TONGUE_X  = 10.0   # mm -- tongue width along the foot's X axis
-                              #        (the spar direction).  Sized so the
-                              #        M3 hole has > 3 mm of material on
-                              #        each side of the bore axis in X.
+                              #        Unchanged across the inversion --
+                              #        the cheeks just live on the FOOT
+                              #        now instead of the tibia.
+FOOT_HINGE_SLOT_W    = LINK_THICKNESS + 0.4   # = 6.4 mm -- fork slot
+                              #        clearance for the tibia's tang.
+                              #        Tang nominal width = LINK_THICKNESS
+                              #        = 6 mm, so 0.2 mm of clearance per
+                              #        side.  Renamed from the pre-2026
+                              #        ``FOOT_HINGE_GAP`` (5 mm of slop
+                              #        around a separate 4 mm tongue);
+                              #        with the tongue gone the slot
+                              #        accepts the tang directly.
 FOOT_HINGE_PIN_HOLE_D =  3.4  # mm -- through-hole diameter for the M3
                               #        hinge bolt; 0.2 mm clearance over a
                               #        nominal 3.2 mm M3 shank so the joint
                               #        rotates freely.
 FOOT_HINGE_PIN_LEN    = 16.0  # mm -- pin length specification (M3 x 16
                               #        pan-head + M3 nylock nut).  Stack
-                              #        = 3.5 + 5 + 3.5 = 12 mm of clevis
-                              #        plus ~4 mm into the nylock nut.
+                              #        = 3.5 + 6.4 + 3.5 = 13.4 mm of fork
+                              #        + tang plus ~2.6 mm into the nylock
+                              #        nut (still well within the nylock's
+                              #        engagement range).
 
 # Hinge axis Z position in tibia local: 10 mm below the tibia spar
 # centreline (= 1 mm below the spar's bottom face at z = -9).  This
-# pulls the cheeks down past the spar so the fork's mouth opens
-# clearly into free space and the foot's tongue has room to swing.
+# pulls the tang down past the spar so the foot's fork mouth opens
+# clearly onto free space below the spar and the foot pad has room
+# to swing.
 FOOT_HINGE_TIBIA_Z   = -10.0  # mm -- pin axis z in tibia-local
 
 # Hinge axis Z position in foot-local: 14 mm above the disk bottom (=
 # 14 mm above the ground when the foot stands).  Computed downstream
-# in make_foot_pad() so the tongue reaches the pin with a few mm of
-# material above the hole and the foot pad disk sits below the
-# tibia's clevis.
+# in make_foot_pad() so the fork cheeks reach the pin with a few mm
+# of material above the hole and the foot pad disk sits below the
+# tibia's tang.
 FOOT_HINGE_FOOT_Z    = FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H + 7.0   # = 14.0
-FOOT_HINGE_TONGUE_OVER_PIN = 4.0  # mm of tongue material above the pin
+FOOT_HINGE_FORK_OVER_PIN = 4.0    # mm of fork-cheek material above the pin
+                                  #        axis (so the M3 hole has a
+                                  #        continuous ring of plastic
+                                  #        around it on the top side).
 
-# Tibia clevis bulk extent.  The clevis is a forked block at the
-# spar's far end (around x = TIBIA_LENGTH); the FOOT_CLEVIS_X_*
-# constants set how far the block extends inboard / past the spar
-# tip and how far the cheeks reach below the pin axis.
-FOOT_CLEVIS_X_INBOARD     = 12.0  # mm -- clevis bulk inboard of x=TIBIA_LENGTH
-FOOT_CLEVIS_X_BEYOND_TIP  =  6.0  # mm -- bulk extending past x=TIBIA_LENGTH
-FOOT_CLEVIS_CHEEK_BELOW_PIN = 5.0 # mm -- material below the pin axis in
-                                  #        each cheek (gives a ~1.5 mm
-                                  #        ring of material around the M3
-                                  #        hole on the bottom side)
+# Foot-pad fork X extent (along the foot's +X = spar direction).
+# Sized so the M3 hole has > 3 mm of material on each side of the
+# bore axis in X.  Matches the pre-inversion FOOT_HINGE_TONGUE_X
+# value so the fork preserves the same rotational clearance the old
+# tongue + slot pair had.
+FOOT_HINGE_FORK_X    = 10.0       # mm
+
+# Tibia tang bulk extent.  The tang is the SINGLE tongue at the spar's
+# far end (around x = TIBIA_LENGTH); the FOOT_TANG_X_* constants set
+# how far the tang extends inboard / past the spar tip and how far
+# it reaches below the pin axis.  Renamed from the pre-2026
+# ``FOOT_CLEVIS_X_*`` block when the tibia's clevis became a single
+# tang; numeric values are unchanged so the tang occupies the same
+# X / Z footprint as the old clevis bulk.
+FOOT_TANG_X_INBOARD       = 12.0  # mm -- tang inboard of x=TIBIA_LENGTH
+FOOT_TANG_X_BEYOND_TIP    =  6.0  # mm -- tang extending past x=TIBIA_LENGTH
+FOOT_TANG_BELOW_PIN       = 5.0   # mm -- material below the pin axis in
+                                  #        the tang (gives a ~1.5 mm ring
+                                  #        of plastic around the M3 hole
+                                  #        on the bottom side)
 
 # ---- Battery / electronics enclosures ------------------------------------
 # Sized for a generic 3S 2200 mAh LiPo (105 x 35 x 25 mm) plus an
@@ -2048,7 +2090,7 @@ def _servo_cradle_insert_pockets(
     return _union(*boss_parts), _union(*pocket_parts)
 
 
-def _servo_well_solid() -> trimesh.Trimesh:
+def _servo_well_solid(*, remove_floor: bool = False) -> trimesh.Trimesh:
     """Open-topped servo bucket, returned as one watertight mesh in the
     well's local frame.
 
@@ -2068,6 +2110,20 @@ def _servo_well_solid() -> trimesh.Trimesh:
                      (SERVO_BODY_W + 2*CL) x (SERVO_BODY_D + 2*CL) x
                      (WELL_RIM_Z + extra).  Cuts straight through the rim
                      so the body can be DROPPED in from above.
+
+    ``remove_floor=True`` cuts the floor frame (the annular slab around
+    the body cavity at z in [-WELL_FLOOR_T, 0]) out of the well entirely,
+    leaving a 4-wall "pen" that is OPEN on both +Z (rim / mouth) and -Z
+    (former floor) faces.  The well's load paths -- 4 side walls,
+    the tab shelf at z=WELL_RIM_Z, and the boss columns spanning
+    z in [WELL_RIM_Z - CRADLE_BOSS_HEIGHT_MM, WELL_RIM_Z] -- are
+    UNCHANGED by the cut: none of them depend on the floor frame for
+    support, and the bosses live above z=0 so the cut at z<=0 cannot
+    touch them.  Used by ``make_femur_link`` (May 2026 supports-free
+    print) so the knee cradle does not bridge a ~30 x 40 mm closed
+    ceiling when the femur is printed with the spar's broad face on
+    the bed (mouth-down orientation).  See the femur's docstring for
+    the full rationale.
         - 4 VERTICAL cradle bolt sites in the shelf material below
                      each servo ear (see ``_servo_cradle_insert_pockets``).
                      Sites split BY X SIGN under Design E (May 2026
@@ -2188,6 +2244,24 @@ def _servo_well_solid() -> trimesh.Trimesh:
     # subtract the cavity, finger notch, lead-in chamfer (already
     # boss-protected above) and the insert pockets themselves.
     solid = _union(outer, insert_bosses)
+    if remove_floor:
+        # Subtract the entire floor frame (z in [-WELL_FLOOR_T, 0]).
+        # X/Y oversized by 1 mm so the cut comfortably engulfs the
+        # outer perimeter (extra hangs into air outside the well -- no
+        # other geometry exists at well-local x>WELL_W/2 or y>WELL_D/2
+        # in this helper's frame).  Z spans -WELL_FLOOR_T-1 .. 0 so
+        # the cut overshoots the outer floor face by 1 mm and stops
+        # cleanly at z=0; the wall material above z=0 is untouched
+        # (walls + bosses span z in [0, WELL_RIM_Z] which is the body
+        # cavity's z range plus the boss columns above the shelf).
+        fc_z_min = -WELL_FLOOR_T - 1.0
+        fc_z_max = 0.0
+        floor_cut = _box(
+            (WELL_W + 1.0, WELL_D + 1.0, fc_z_max - fc_z_min),
+            center=(0.0, 0.0, 0.5 * (fc_z_min + fc_z_max)),
+        )
+        return _diff(solid, cavity, finger_notch, lead_in,
+                     insert_pockets, floor_cut)
     return _diff(solid, cavity, finger_notch, lead_in, insert_pockets)
 
 
@@ -4420,6 +4494,26 @@ def make_femur_link() -> trimesh.Trimesh:
     The femur prints with the spar's spar-Y axis vertical -- a flat
     plate 130 mm long, 30 mm tall, 6 mm thick -- so it lies on the
     build plate with no overhangs.
+
+    Knee cradle floor: OPEN (May 2026 supports-free refactor)
+    ---------------------------------------------------------
+    The knee cradle (``_servo_well_solid`` rotated to point its mouth
+    in femur +Y) is built with ``remove_floor=True`` so the floor
+    frame at well-local z in [-WELL_FLOOR_T, 0] is cut out entirely.
+    Why: in the "spar broad face on bed, mouth-down" print orientation
+    used by the slicer, the well's mouth (femur +Y) faces DOWN onto
+    the build plate and the well's floor faces UP -- a ~30 x 40 mm
+    closed slab becomes a BRIDGED CEILING printed in midair.  The
+    floor was purely a cosmetic seal: the servo body's load path is
+    the 4 side walls (X / Z bounds), the tab shelf at z=WELL_RIM_Z
+    that the servo's mounting tabs rest on, and the 4 boss columns
+    that anchor the cradle bolt sites.  None of those depend on the
+    floor.  After the cut the cradle is a 4-wall "pen" open on BOTH
+    Y faces (mouth +Y and former-floor -Y); the body's -Y face is
+    exposed to free air pointing AWAY from the chassis in the
+    assembled robot.  No equivalent change for the coxa_bracket yaw
+    cradle or the coxa_link hip cradle -- those print in different
+    orientations where their floors are NOT bridges.
     """
     # ---- Spar (with insertion slot at the knee end) ------------------
     spar = _box((FEMUR_LENGTH, LINK_THICKNESS, FEMUR_SPAR_H),
@@ -4595,7 +4689,13 @@ def make_femur_link() -> trimesh.Trimesh:
     # SERVO_TAB_HOLE_PCD_Y (49.5 x 10 mm) pattern -- NOT the 24 mm
     # XHORN_BOLT_PCD pattern.  XHORN_BOLT_PCD is the bolt circle for the
     # hip-pad horn adapter at the OTHER end of the femur.
-    well = _servo_well_solid()
+    #
+    # remove_floor=True: cut the cradle's floor frame so the print
+    # orientation (spar broad face on bed, mouth-down) no longer
+    # bridges a ~30 x 40 mm closed ceiling at the femur's -Y end.
+    # See the function docstring "Knee cradle floor: OPEN" section
+    # above for the load-path argument.
+    well = _servo_well_solid(remove_floor=True)
     wire_slot = _wire_exit_slot()
     R = rotation_matrix(-np.pi / 2.0, [1, 0, 0])    # well +Z -> femur +Y
     well.apply_transform(R)
@@ -4782,10 +4882,21 @@ def make_tibia_link() -> trimesh.Trimesh:
     Knee end: a square pad centred on the joint axis (x=0, z=0) with
     the 4 horn bolt holes drilled in Y.  Bolt-circle CENTRE is on
     the joint axis so the tibia rotates rigidly with the horn.
-    Foot end: a forked CLEVIS that captures the foot pad's tongue
-    (see ``make_foot_pad``) on an M3 pin parallel to the knee axis.
-    The clevis is a 18-mm-long fattened section of the spar tip with
-    a Y-axis through-hole at z = FOOT_HINGE_TIBIA_Z.
+    Foot end: a single TANG (a LINK_THICKNESS-wide downward tongue,
+    centred on tibia y=0) that slides into the foot pad's clevis
+    fork (see ``make_foot_pad``).  The tang carries an M3 through-
+    hole at z = FOOT_HINGE_TIBIA_Z, parallel to the knee axis.
+
+    May 2026 supports-free refactor: the tibia is now LINK_THICKNESS
+    = 6 mm wide in tibia Y EVERYWHERE (spar + tang) so the entire
+    part prints as a flat 6-mm-tall slab when oriented with the
+    spar's broad face on the bed.  Pre-2026 the tibia ended in a
+    12-mm-wide CLEVIS (2 cheeks + 4 mm tongue slot) that protruded
+    6 mm above the spar's broad face in that orientation and forced
+    supports under the cheeks.  Inverting the hinge so the FOOT
+    carries the fork and the TIBIA carries a single tang removed
+    the protrusion; the hinge axis, pin, nut and rotational
+    kinematics are otherwise identical to the old design.
     """
     spar = _box((TIBIA_LENGTH, LINK_THICKNESS, TIBIA_SPAR_H),
                 center=(TIBIA_LENGTH / 2.0, 0, 0))
@@ -4877,64 +4988,51 @@ def make_tibia_link() -> trimesh.Trimesh:
                                    HORN_RECESS_DEPTH, axis="y")
     knee_horn_recess.apply_translation([0.0, knee_pad_y_min, 0.0])
 
-    # ----- Foot clevis at the far end (x ~ TIBIA_LENGTH) -----
-    # The clevis is a single forked block built in two steps:
+    # ----- Foot tang at the far end (x ~ TIBIA_LENGTH) -----
+    # May 2026 inversion: the tibia ends in a SINGLE TANG that is
+    # in-plane with the spar (LINK_THICKNESS wide in Y, centred on
+    # tibia y=0), not a forked clevis.  Pre-2026 the tibia had a
+    # 12 mm-wide CLEVIS (2 x FOOT_HINGE_CHEEK_T + FOOT_HINGE_GAP)
+    # with a tongue-accepting slot; that geometry stuck 6 mm above
+    # the spar's broad face in the print orientation and forced
+    # supports.  Inverting the hinge so the FOOT carries the fork
+    # and the TIBIA carries a single tang keeps the tibia
+    # LINK_THICKNESS-wide everywhere; see the docstring above and
+    # the FOOT_HINGE_* / FOOT_TANG_* constants block for the full
+    # rationale.
     #
-    #   1. ``clevis_bulk`` = a solid box that flares the spar tip out
-    #      to the full fork width (2*CHEEK_T + GAP = 12 mm) in Y and
-    #      drops down past the spar's bottom face to the chosen pin
-    #      depth, so the M3 pin axis lives clearly below the spar.
-    #   2. ``clevis_slot`` = a Y-axis slab cut through the centre of
-    #      the bulk that removes the GAP-wide strip of material in the
-    #      middle of the block, leaving two CHEEK_T-thick cheeks on
-    #      either side of an open mouth that faces -Z (toward the
-    #      ground).  The foot pad's vertical tongue slides up into
-    #      this mouth from below.
-    #
-    # The M3 through-hole is drilled along Y at (x = TIBIA_LENGTH,
-    # z = FOOT_HINGE_TIBIA_Z) so the bolt passes through both cheeks
-    # and the foot's tongue.  Hinge axis is parallel to the knee axis
-    # by construction (both are tibia-local +Y), so the foot pitches
-    # passively about an axis parallel to the knee servo's axis --
-    # exactly the ankle pitch the user asked for.
-    clevis_x_min = TIBIA_LENGTH - FOOT_CLEVIS_X_INBOARD
-    clevis_x_max = TIBIA_LENGTH + FOOT_CLEVIS_X_BEYOND_TIP
-    clevis_dx    = clevis_x_max - clevis_x_min
-    clevis_cx    = (clevis_x_min + clevis_x_max) / 2.0
-    clevis_full_y = FOOT_HINGE_GAP + 2.0 * FOOT_HINGE_CHEEK_T   # 12 mm
+    # Tang geometry: a single solid box that occupies the same X/Z
+    # footprint as the old clevis bulk (FOOT_TANG_X_INBOARD inboard
+    # of TIBIA_LENGTH, FOOT_TANG_X_BEYOND_TIP past the tip, dropping
+    # FOOT_TANG_BELOW_PIN below the pin axis at z=FOOT_HINGE_TIBIA_Z)
+    # but only LINK_THICKNESS = 6 mm wide in Y instead of 12 mm.  No
+    # slot cut.  The M3 through-hole still drills along tibia +Y at
+    # (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z); the bolt now passes
+    # through the FOOT's fork cheeks + tang (in that order) instead
+    # of the old tibia cheeks + foot tongue.
+    tang_x_min = TIBIA_LENGTH - FOOT_TANG_X_INBOARD
+    tang_x_max = TIBIA_LENGTH + FOOT_TANG_X_BEYOND_TIP
+    tang_dx    = tang_x_max - tang_x_min
+    tang_cx    = (tang_x_min + tang_x_max) / 2.0
 
-    clevis_z_min = FOOT_HINGE_TIBIA_Z - FOOT_CLEVIS_CHEEK_BELOW_PIN  # -15
-    clevis_z_max = TIBIA_SPAR_H / 2.0                                # +9
-    clevis_bulk  = _box((clevis_dx,
-                          clevis_full_y,
-                          clevis_z_max - clevis_z_min),
-                         center=(clevis_cx, 0.0,
-                                  (clevis_z_max + clevis_z_min) / 2.0))
+    tang_z_min = FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN          # -15
+    tang_z_max = TIBIA_SPAR_H / 2.0                                # +9
+    tang = _box((tang_dx,
+                  LINK_THICKNESS,
+                  tang_z_max - tang_z_min),
+                 center=(tang_cx, 0.0,
+                          (tang_z_max + tang_z_min) / 2.0))
 
-    # Slot: GAP-wide strip in Y, open at the -Z (bottom) face of the
-    # bulk so the foot tongue has a clear vertical mouth.  Top of the
-    # slot stops a few mm above the pin axis so each cheek still has
-    # a continuous ring of material around the M3 hole.
-    slot_z_min = clevis_z_min - 1.0                # overshoot bottom -> open mouth
-    slot_z_max = FOOT_HINGE_TIBIA_Z + FOOT_HINGE_PIN_HOLE_D / 2.0 + 3.0
-    slot_x_min = clevis_x_min - 0.5                # overshoot in X -> through-cut
-    slot_x_max = clevis_x_max + 0.5
-    clevis_slot = _box((slot_x_max - slot_x_min,
-                         FOOT_HINGE_GAP,
-                         slot_z_max - slot_z_min),
-                        center=((slot_x_min + slot_x_max) / 2.0, 0.0,
-                                 (slot_z_min + slot_z_max) / 2.0))
-
-    # Pin hole through both cheeks (and the empty slot in between).
-    # Length = 2 * clevis_full_y to guarantee a clean cut through
-    # both cheeks even with FDM/Hildebrand voxelisation slop.
-    pin_hole = _cyl(FOOT_HINGE_PIN_HOLE_D / 2.0, clevis_full_y * 2.0)
+    # Pin hole through the tang (single bore in tibia Y).  Length =
+    # 4 * LINK_THICKNESS so the cylinder cleanly punches through
+    # even with FDM/Hildebrand voxelisation slop.
+    pin_hole = _cyl(FOOT_HINGE_PIN_HOLE_D / 2.0, LINK_THICKNESS * 4.0)
     pin_hole.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
     pin_hole.apply_translation([TIBIA_LENGTH, 0.0, FOOT_HINGE_TIBIA_Z])
 
-    # A short taper to blend the 6-mm-thick spar into the 12-mm-wide
-    # clevis bulk.  Sits on the spar centreline, narrower than the
-    # bulk so it tapers visually but still adds bending stiffness.
+    # A short taper to blend the spar into the tang.  Sits on the
+    # spar centreline; in Y it matches the spar (LINK_THICKNESS) so
+    # the whole tibia keeps a single Y thickness end-to-end.
     taper = _box((24.0, LINK_THICKNESS * 0.95, TIBIA_SPAR_H * 0.6),
                  center=(TIBIA_LENGTH - 12.0, 0, -3.0))
 
@@ -4947,56 +5045,97 @@ def make_tibia_link() -> trimesh.Trimesh:
         h.apply_translation([x, 0, 0])
         lightening.append(h)
 
-    body = _union(knee_pad, knee_neck_outer, spar, taper, clevis_bulk)
+    body = _union(knee_pad, knee_neck_outer, spar, taper, tang)
     return _diff(body, knee_neck_void, knee_horn_recess, *knee_holes,
-                 *knee_counterbores, clevis_slot, pin_hole, *lightening)
+                 *knee_counterbores, pin_hole, *lightening)
 
 
 def make_foot_pad() -> trimesh.Trimesh:
-    """Compliant foot pad with a single-axis hinge tongue.
+    """Compliant foot pad with a single-axis hinge fork.
 
     Stack (foot-local Z, +Z up):
 
         ground   z = 0 .. FOOT_PAD_BASE_H               -- TPU spring disk
         boss     z = FOOT_PAD_BASE_H
                    .. FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H -- 14 mm OD stub
-        tongue   z = boss top
-                   .. FOOT_HINGE_FOOT_Z + OVER_PIN      -- 4 x 10 mm tongue
-                                                          rising through the
-                                                          M3 pin axis
+        fork     z = boss top
+                   .. FOOT_HINGE_FOOT_Z + OVER_PIN      -- 2 cheeks (each
+                                                          FOOT_HINGE_CHEEK_T
+                                                          thick in Y) with
+                                                          a FOOT_HINGE_SLOT_W
+                                                          slot between them
+                                                          for the tibia tang
 
-    The tongue is sized to slide into the tibia's clevis slot (4 mm
-    Y-thick into a 5 mm gap with 0.5 mm clearance per side).  A
-    horizontal M3 clearance hole through the tongue lines up with the
-    cheek holes, captured by an M3 x 16 pan-head bolt + nylock nut.
+    May 2026 inversion: the foot now carries the FORK (2 cheeks with
+    a tang-accepting slot) and the tibia carries the single TANG;
+    pre-2026 it was the other way round (tibia clevis + foot tongue).
+    Total foot-pad Y extent across the fork: 2 * FOOT_HINGE_CHEEK_T
+    + FOOT_HINGE_SLOT_W = 2 * 3.5 + 6.4 = 13.4 mm, which fits
+    comfortably inside the disk's 28 mm OD.  The fork cheeks
+    extend above the boss in foot-local +Z, so the disk + boss
+    outlines are unchanged.
 
-    The hinge axis (tibia-local +Y) is parallel to the knee axis, so
-    when the tibia pitches the foot follows through ankle pitch.  TPU
-    compliance in the disk itself absorbs roll.
+    The slot accepts the tibia tang (LINK_THICKNESS = 6 mm in
+    tibia Y) with 0.2 mm clearance per side.  A horizontal M3
+    clearance hole drilled along Y through both cheeks lines up
+    with the tang's hole; an M3 x 16 pan-head bolt + nylock nut
+    captures the joint just like the old design (no BOM change).
 
-    Local frame: ground-plane at Z = 0; tongue rises in +Z; the
-    tongue's broad faces have normals +/-Y (matches the tibia's
-    knee-axis direction in the leg's local frame)."""
+    The hinge axis (tibia-local +Y = foot-local +Y in world frame
+    after both pieces are rotated by the leg's azimuth) is
+    parallel to the knee axis, so when the tibia pitches the foot
+    follows through ankle pitch.  TPU compliance in the disk
+    itself absorbs roll.
+
+    Printability note (TPU 95A): each fork cheek is
+    FOOT_HINGE_CHEEK_T = 3.5 mm of TPU material in Y, comfortably
+    above MIN_PRINT_T = 3.0 mm.  The cheeks print as two vertical
+    TPU walls with the disk lying on the bed; the M3 hole is a
+    horizontal bore through each cheek (no overhangs > 45 deg).
+
+    Local frame: ground-plane at Z = 0; fork cheeks rise in +Z;
+    the cheeks' broad faces have normals +/-Y (matches the
+    tibia's knee-axis direction in the leg's local frame)."""
     pad_base = _cyl(FOOT_PAD_OD / 2.0, FOOT_PAD_BASE_H)
     pad_base.apply_translation([0, 0, FOOT_PAD_BASE_H / 2.0])
 
     boss = _cyl(FOOT_PAD_BOSS_OD / 2.0, FOOT_PAD_BOSS_H)
     boss.apply_translation([0, 0, FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H / 2.0])
 
-    tongue_z_lo = FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H
-    tongue_z_hi = FOOT_HINGE_FOOT_Z + FOOT_HINGE_TONGUE_OVER_PIN
-    tongue = _box((FOOT_HINGE_TONGUE_X,
-                    FOOT_HINGE_TONGUE_T,
-                    tongue_z_hi - tongue_z_lo),
-                   center=(0.0, 0.0,
-                            (tongue_z_hi + tongue_z_lo) / 2.0))
+    fork_z_lo = FOOT_PAD_BASE_H + FOOT_PAD_BOSS_H
+    fork_z_hi = FOOT_HINGE_FOOT_Z + FOOT_HINGE_FORK_OVER_PIN
+    fork_z_centre = 0.5 * (fork_z_lo + fork_z_hi)
+    fork_z_ext = fork_z_hi - fork_z_lo
 
-    hinge_hole = _cyl(FOOT_HINGE_PIN_HOLE_D / 2.0,
-                       FOOT_HINGE_TONGUE_T * 4.0)
+    # 2 cheeks, one at +Y and one at -Y.  Inner faces sit at
+    # +/- FOOT_HINGE_SLOT_W/2; outer faces at +/-(SLOT_W/2 +
+    # CHEEK_T) = +/-6.7 mm.  Cheek X extent = FOOT_HINGE_FORK_X =
+    # 10 mm (matches the pre-inversion tongue's X width so the
+    # joint preserves the same rotational clearance).
+    cheek_y_centre = (FOOT_HINGE_SLOT_W / 2.0
+                       + FOOT_HINGE_CHEEK_T / 2.0)
+    cheek_plus = _box((FOOT_HINGE_FORK_X,
+                        FOOT_HINGE_CHEEK_T,
+                        fork_z_ext),
+                       center=(0.0, +cheek_y_centre, fork_z_centre))
+    cheek_minus = _box((FOOT_HINGE_FORK_X,
+                         FOOT_HINGE_CHEEK_T,
+                         fork_z_ext),
+                        center=(0.0, -cheek_y_centre, fork_z_centre))
+
+    # M3 through-hole drilled along foot-local +Y through both
+    # cheeks at z=FOOT_HINGE_FOOT_Z, coaxial with the tibia tang's
+    # hole when assembled.  Length oversized (2 cheeks + slot + a
+    # comfortable margin) so the cylinder cleanly punches through
+    # the entire fork even with FDM/Hildebrand voxelisation slop.
+    pin_hole_len = (2.0 * FOOT_HINGE_CHEEK_T
+                     + FOOT_HINGE_SLOT_W + 4.0) * 2.0
+    hinge_hole = _cyl(FOOT_HINGE_PIN_HOLE_D / 2.0, pin_hole_len)
     hinge_hole.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
     hinge_hole.apply_translation([0.0, 0.0, FOOT_HINGE_FOOT_Z])
 
-    return _diff(_union(pad_base, boss, tongue), hinge_hole)
+    return _diff(_union(pad_base, boss, cheek_plus, cheek_minus),
+                 hinge_hole)
 
 
 # ---------------------------------------------------------------------------

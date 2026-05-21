@@ -313,11 +313,19 @@ parts:
       - name: knee_servo_body
 
   tibia_link:
-    description: "Shin; knee pad bolts onto knee horn-adapter at x=0, foot clevis at x=TIBIA_LENGTH."
+    description: "Shin; knee pad bolts onto knee horn-adapter at x=0, foot hinge TANG at x=TIBIA_LENGTH."
     qty: 6
     # Design B (May 2026): Y-extent shrank from 21 -> 17 mm with the
     # knee pad mating face at y = HORN_STACK_H = 5 mm (was 9 mm).
-    bounds_mm: [155.5, 17.0, 39.0]
+    # Hinge inversion (May 2026): tibia y extent at the foot end
+    # shrank from 12 mm (old clevis fork = 2*CHEEK_T + GAP) to
+    # LINK_THICKNESS = 6 mm (new single tang); tibia is now
+    # LINK_THICKNESS-wide in Y EVERYWHERE so the part prints fully
+    # flat in the spar-broad-face-on-bed orientation.  Overall
+    # bounds Y extent dropped from 17 -> 14 mm because the knee
+    # pad now sets the maximum (y in [-3, +11] = 14 mm range) and
+    # the tang is no longer wider than the pad.
+    bounds_mm: [155.5, 14.0, 39.0]
     # Design B (May 2026): knee pad now spans y in [+5, +11] (HORN_STACK_H
     # shrank from 9.0 mm to 5.0 mm with the printed servo_horn_adapter
     # retired).  Bolt holes are still drilled along Y through the pad's
@@ -344,8 +352,16 @@ parts:
       - name: tibia_horn_stack_void
 
   foot_pad:
-    description: "Compliant TPU foot with hinge tongue captured by the tibia clevis."
+    description: "Compliant TPU foot with hinge FORK that captures the tibia tang."
     qty: 6
+    # Hinge inversion (May 2026): the foot now carries the FORK (2
+    # cheeks each FOOT_HINGE_CHEEK_T = 3.5 mm thick with a
+    # FOOT_HINGE_SLOT_W = LINK_THICKNESS + 0.4 = 6.4 mm slot
+    # between them).  Total Y extent across the fork = 2*3.5 + 6.4
+    # = 13.4 mm, which is still inside the disk's 28 mm OD.  The
+    # bounding box's Y face moves out from the OLD foot's tongue
+    # (4 mm wide) to 13.4 mm, but 13.4 < 28 so the disk's OD is
+    # still the dominant Y dimension; bounds_mm Y stays at 28 mm.
     bounds_mm: [28.0, 28.0, 18.0]
     holes:
       - name: hinge_pin

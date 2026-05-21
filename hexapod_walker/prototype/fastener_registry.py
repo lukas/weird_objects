@@ -1064,9 +1064,26 @@ def _emit_chassis_bolts(leg_index: int) -> list[FastenerInstance]:
 
 
 def _emit_foot_hinge_fastener(leg_index: int) -> list[FastenerInstance]:
-    """The single M3 x 16 pan-head hinge pin that captures the foot pad
-    in the tibia's clevis.  Bolt axis is parallel to the knee Y axis.
-    Head sits on one cheek, nut on the other.
+    """The single M3 x 16 pan-head hinge pin that captures the tibia's
+    TANG in the foot pad's FORK.  Bolt axis is parallel to the knee
+    Y axis.  Head sits on one fork cheek (foot-pad +Y face), nut on
+    the other.
+
+    May 2026 inversion: the OLD design had the fork on the tibia and
+    the tongue on the foot; the bolt then went head -> tibia +Y cheek
+    -> foot tongue -> tibia -Y cheek -> nut.  The NEW design swaps
+    fork and tang -- the bolt now goes head -> foot pad +Y cheek ->
+    tibia tang -> foot pad -Y cheek -> nut.  The hinge axis, pin
+    length (M3 x 16 pan-head), and nylock are identical; only the
+    cheek-bearing surfaces have moved from the tibia to the foot.
+    For the BOM auto-derivation that's a no-op: head_world_xyz and
+    nut_head world positions are unchanged because the fork outer
+    faces sit at the SAME world y as the old clevis outer faces
+    (cheek_outer_y formula goes from GAP/2+CHEEK_T = 5/2+3.5 = 6 mm
+    to SLOT_W/2+CHEEK_T = 6.4/2+3.5 = 6.7 mm -- a 0.7 mm outboard
+    shift per side, well within the pan-head + nylock engagement
+    range; the M3 x 16 pin still spans 13.4 mm of plastic + ~2.6 mm
+    of nylock threads).
     """
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
@@ -1088,10 +1105,17 @@ def _emit_foot_hinge_fastener(leg_index: int) -> list[FastenerInstance]:
         _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a) @ T_tibia_in_link
     )
     # Hinge pin axis is tibia-local +Y at (TIBIA_LENGTH, 0,
-    # FOOT_HINGE_TIBIA_Z).  Clevis fork outer Y face on the +Y cheek
-    # sits at y = +FOOT_HINGE_GAP/2 + FOOT_HINGE_CHEEK_T; the pan-head
-    # bolt enters from outside that cheek face, axis = -Y.
-    cheek_outer_y = HP.FOOT_HINGE_GAP / 2.0 + HP.FOOT_HINGE_CHEEK_T
+    # FOOT_HINGE_TIBIA_Z).  Post-inversion the fork lives on the
+    # FOOT, not the tibia; the foot's +Y cheek outer face sits at
+    # foot y = +FOOT_HINGE_SLOT_W/2 + FOOT_HINGE_CHEEK_T = 6.7 mm.
+    # Foot-Y and tibia-Y point in the SAME world direction at the
+    # hinge plane (both end up along the leg's azimuth-rotated +Y
+    # after the assembly transforms), so the cheek outer face in
+    # tibia-local coordinates is also +cheek_outer_y from the hinge
+    # axis -- the formula below stays expressed in tibia-local
+    # coords for continuity with the rest of T_tibia_to_world.
+    cheek_outer_y = (HP.FOOT_HINGE_SLOT_W / 2.0
+                     + HP.FOOT_HINGE_CHEEK_T)
     head_local = np.array([HP.TIBIA_LENGTH, +cheek_outer_y, HP.FOOT_HINGE_TIBIA_Z])
     head = _apply_point(T_tibia_to_world, head_local)
     axis = _apply_dir(T_tibia_to_world, np.array([0.0, -1.0, 0.0]))

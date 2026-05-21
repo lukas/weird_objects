@@ -637,7 +637,7 @@ def _tibia_link_visual_xml(i: int) -> str:
     tibia_link.stl's origin sits on the knee-pitch joint axis (= L{i}_tibia
     body origin).  foot_pad.stl's local origin is at the centre of the
     TPU ground-contact disc's BOTTOM face; in tibia-local the foot
-    hinges on the clevis pin at (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z)
+    hinges on the tang/fork pin at (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z)
     and the foot's matching hinge hole lives at foot-local
     (0, 0, FOOT_HINGE_FOOT_Z), so the foot's bottom-face centre lands
     at tibia-local (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z -
