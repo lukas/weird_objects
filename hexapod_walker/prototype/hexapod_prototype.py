@@ -4614,10 +4614,20 @@ def make_coxa_link() -> trimesh.Trimesh:
                             # plate).  See COXA_ARM_T docstring for the
                             # constraint that picks this thickness.
 
-    # Hub region (above the yaw servo horn) -- a thicker square.
-    # Built at the original (un-lifted) z, then translated up by
-    # COXA_LIFT after the whole link union is assembled (see below).
-    hub_t = arm_t + 2.0
+    # Hub region (above the yaw servo horn) -- a square pad flush with
+    # the arm top.  Built at the original (un-lifted) z, then translated
+    # up by COXA_LIFT after the whole link union is assembled (see
+    # below).
+    #
+    # Design A's printed ``servo_horn_adapter`` sat ON TOP of the link
+    # hub, so the hub used to be 2 mm taller than the arm slab to give
+    # the adapter's mating face a generous landing pad.  Design B (May
+    # 2026) bolts the link DIRECTLY to the plastic 4-arm X-horn -- the
+    # adapter is gone, and nothing in the live geometry references the
+    # hub's top face above z = arm_t.  Reduce hub_t to arm_t so the
+    # hub top is flush with the arm top at lifted z = +42 instead of
+    # carrying 2 mm of vestigial plastic above the arm.
+    hub_t = arm_t
     hub = _box((34.0, 34.0, hub_t),
                center=(0, 0, hub_t / 2.0))
 
@@ -5038,7 +5048,7 @@ def make_coxa_link() -> trimesh.Trimesh:
                  (spar_slot_z_min + spar_slot_z_max) / 2.0),
     )
 
-    # ---- Drop the -Y arm "stringer" over the bridge -----------------
+    # ---- Drop BOTH arm "stringers" over the slot --------------------
     # Before this cut, the spar_slot above leaves the arm slab as TWO
     # 7.5 mm-wide parallel stringers running over the outboard half of
     # the link: a +Y stringer at link y in [+spar_slot_y_half, +arm_w/2]
@@ -5059,43 +5069,63 @@ def make_coxa_link() -> trimesh.Trimesh:
     # mass + print time + a print-orientation-trapped overhang above
     # the bridge with no structural payoff.
     #
-    # We CAN'T do the same on the +Y side: there is no mirrored +Y
-    # bridge because the hip-pitch servo well opens to +Y for assembly
-    # insertion (the well's +Y "wall" is just air -- the servo body
-    # slides in/out along link +Y).  So the +Y stringer is the ONLY
-    # +Y-side bracing the geometry allows and MUST stay.
+    # The +Y stringer is the MIRROR of the -Y stringer, but unlike -Y
+    # there is no mirrored +Y bridge to back it up: the hip-pitch
+    # servo well opens to +Y for assembly insertion (the well's +Y
+    # "wall" is just air -- the servo body slides in/out along link
+    # +Y), so the geometry CANNOT host a +Y bridge.  The user has
+    # ACCEPTED the resulting ~10x torsion / lateral stiffness drop
+    # on the +Y side (no remaining hub-to-well member outboard of
+    # the inboard arm slab at x < +8) in exchange for the geometric
+    # cleanup -- the inboard arm slab + the -Y bridge + well_top_pad
+    # + the -Y gusset half are now the SOLE hub-to-well load path.
     #
     # X / Z_MIN: reuse spar_slot_x_min, spar_slot_x_max, spar_slot_z_min
-    # verbatim so the trim void is co-planar / co-bordered with the
+    # verbatim so each trim void is co-planar / co-bordered with the
     # spar slot at every face we share (no FDM "kissing" sliver of
-    # plastic between the two cuts).
+    # plastic between the cuts).
     #
-    # Y_MAX and Z_MAX diverge from spar_slot for the SAME reason:
-    # spar_slot was sized to JUST CLEAR the femur spar through-cut
-    # (y in [-3.5, +3.5] = LINK_THICKNESS + 1 mm FDM clearance, z up
-    # to COXA_LIFT + hub_t + 0.1 = +44.1, i.e. the hub top).  Our cut
-    # has to remove the FULL -Y stringer + the cap_neg slab sitting on
-    # top of it (arm_cap_neg lives at y in [-arm_w/2, -LINK_THICKNESS/2]
-    # = [-11, -3] and z in [arm_t + COXA_LIFT, arm_t + COXA_ARM_CAP_T +
-    # COXA_LIFT] = [+42, +46]).  Two adjustments:
+    # Y_MAX (or Y_MIN, for +Y) and Z_MAX diverge from spar_slot for the
+    # SAME reason on both sides: spar_slot was sized to JUST CLEAR the
+    # femur spar through-cut (y in [-3.5, +3.5] = LINK_THICKNESS + 1 mm
+    # FDM clearance, z up to COXA_LIFT + hub_t + 0.1 = +42.1 after the
+    # 2 mm hub trim, i.e. the hub top).  Each side's cut has to remove
+    # the FULL stringer + the cap slab sitting on top of it (arm_cap_neg
+    # at y in [-arm_w/2, -LINK_THICKNESS/2] = [-11, -3] and arm_cap_pos
+    # at y in [+LINK_THICKNESS/2, +arm_w/2] = [+3, +11], both at z in
+    # [arm_t + COXA_LIFT, arm_t + COXA_ARM_CAP_T + COXA_LIFT] = [+42,
+    # +46]).  Two adjustments per side:
     #
-    #   * Y_MAX = -LINK_THICKNESS/2 = -3 (not -spar_slot_y_half = -3.5)
-    #     so the trim covers cap_neg's FULL y range.  The 0.5 mm
-    #     overlap with spar_slot at y in [-3.5, -3] is a deliberate
-    #     redundant cut: at z in [+44.1, +46] (above spar_slot_z_max)
-    #     the cap_neg's y in [-3.5, -3] strip is NOT removed by
+    #   * Inner-Y bound = +/- LINK_THICKNESS/2 = +/- 3 (not +/-
+    #     spar_slot_y_half = +/- 3.5) so the trim covers each cap
+    #     half's FULL y range.  The 0.5 mm overlap with spar_slot at
+    #     |y| in [+3, +3.5] is a deliberate redundant cut: at z in
+    #     [+42.1, +46] (above spar_slot_z_max = +42.1 after the hub
+    #     trim) the cap's |y| in [+3, +3.5] strip is NOT removed by
     #     spar_slot, and without this 0.5 mm overlap it would survive
     #     as a free-floating ~25 mm^3 sliver after we wipe out the
-    #     stringer + cap_neg's main body at y < -3.5.
+    #     stringer + cap's main body.
     #   * Z_MAX = arm_t + COXA_ARM_CAP_T + COXA_LIFT + 0.1 = +46.1
-    #     (not COXA_LIFT + hub_t + 0.1 = +44.1) so the trim cuts
-    #     cap_neg cleanly through its top face.
+    #     (not COXA_LIFT + hub_t + 0.1 = +42.1) so each trim cuts
+    #     its cap cleanly through the top face.
+    #
+    # arm_cap_pos's x range [+15, +41] is fully covered by the slot's
+    # x range [+8, +42], so the +Y trim alone eliminates arm_cap_pos
+    # without needing a separate removal from the union (same trick
+    # as arm_neg_y_trim's coverage of arm_cap_neg's [+15, +41] in x).
+    #
+    # The +Y trim ALSO removes the outboard portion of the +Y gusset
+    # half at link y in [+3, +11], x in [+8, +26], z in [+36, +42]
+    # (gusset spans x in [-4, +26]).  The inboard portion at x in
+    # [-4, +8] survives and intentionally fuses with the inboard arm
+    # slab kept on the +Y side at x < +8.
     #
     # M2 X-horn bolt clearance: the 4 M2 clamp bolts live in the
     # pedestal cap at lifted z in [-0.1, PEDESTAL_CAP_T + 0.1] =
-    # [-0.1, +4.1], WAY below the trim's z_min = +25.  The trim's
-    # hub overlap at x in [+8, +17] is at z in [+25, +46.1], i.e.
-    # above the cap, so the bolts are untouched.
+    # [-0.1, +4.1], WAY below either trim's z_min = +25.  Neither
+    # trim's hub overlap at x in [+8, +17] (at z in [+25, +46.1])
+    # touches the cap, so all four M2 bolts + the central M3 horn
+    # screw are untouched.
     arm_neg_y_trim_y_min = -arm_w / 2.0                       # = -11
     arm_neg_y_trim_y_max = -LINK_THICKNESS / 2.0              # = -3
     arm_neg_y_trim_z_max = arm_t + COXA_ARM_CAP_T + COXA_LIFT + 0.1
@@ -5108,8 +5138,21 @@ def make_coxa_link() -> trimesh.Trimesh:
                  0.5 * (spar_slot_z_min + arm_neg_y_trim_z_max)),
     )
 
+    arm_pos_y_trim_y_min = +LINK_THICKNESS / 2.0              # = +3
+    arm_pos_y_trim_y_max = +arm_w / 2.0                       # = +11
+    arm_pos_y_trim_z_max = arm_t + COXA_ARM_CAP_T + COXA_LIFT + 0.1
+    arm_pos_y_trim = _box(
+        (spar_slot_x_max - spar_slot_x_min,
+         arm_pos_y_trim_y_max - arm_pos_y_trim_y_min,
+         arm_pos_y_trim_z_max - spar_slot_z_min),
+        center=((spar_slot_x_min + spar_slot_x_max) / 2.0,
+                 0.5 * (arm_pos_y_trim_y_min + arm_pos_y_trim_y_max),
+                 0.5 * (spar_slot_z_min + arm_pos_y_trim_z_max)),
+    )
+
     body = _union(pedestal, body_unlifted)
-    return _diff(body, trough, spar_slot, arm_neg_y_trim,
+    return _diff(body, trough, spar_slot,
+                 arm_neg_y_trim, arm_pos_y_trim,
                  pad_sweep_clear, horn_hub_recess,
                  *cap_holes, *counterbore_holes, centre_hole)
 
