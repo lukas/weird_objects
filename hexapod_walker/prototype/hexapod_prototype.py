@@ -869,6 +869,213 @@ WELL_LEAD_IN_H       = 1.8   # mm tall rim chamfer
 WELL_LEAD_IN_EXTRA   = 0.8   # mm extra clearance per side at the very top of
                               # the cavity, tapering down to WELL_BODY_CL
 
+# ---- Chassis_bottom-integrated yaw-servo cradle (May 2026) --------------
+# Replaces the role of the legacy ``make_coxa_bracket()`` part: instead of
+# a separate flange+well that bolts to chassis_bottom from above, the yaw
+# servo's cradle is now printed AS PART OF chassis_bottom -- a printed
+# boss rises ``CRADLE_BOSS_H_MM`` mm above the plate's top face, with a
+# tab shelf at ``CRADLE_TAB_SHELF_Z`` where the servo's mounting ears
+# land.  The body's bulk hangs DOWN through the plate's existing per-leg
+# body cutout (the same ``WELL_W + 2`` x ``WELL_D + 2`` rectangle cut by
+# ``_hex_plate`` for the legacy bracket's well drop-in).
+#
+# Cradle-local frame: origin at the YAW AXIS (= chassis hex edge
+# midpoint, where the output spline pokes up); +X = outboard radial;
+# +Y = tangential along the chassis edge; +Z = up.  Cradle-z = 0
+# coincides with chassis_bottom's TOP face -- pick this anchor instead
+# of the plate centre so the boss height value matches the user-facing
+# spec ("11 mm above the plate top"; see CRADLE_BOSS_H_MM below for
+# the history of the original +19 spec and why it dropped to +11).
+#
+# Z layout (cradle-local; cradle-z = 0 = chassis_bottom_top):
+#     cradle-z = +CRADLE_BOSS_H_MM   = +11  boss top (cradle rim; set
+#                                            by the cable-clearance
+#                                            floor at chassis-z = +13)
+#     cradle-z = +CRADLE_TAB_SHELF_Z =  +6  tab shelf (where the servo
+#                                            ears bottom-out)
+#     cradle-z =                         0  chassis_bottom_top
+#     cradle-z = -CHASSIS_PLATE_T    =  -4  chassis_bottom_bot (cradle
+#                                            ends here; body bulk hangs
+#                                            below in free air)
+#
+# Body Z layout (with tabs landing on the shelf):
+#     body bottom at cradle-z = +CRADLE_TAB_SHELF_Z - SERVO_TAB_Z = -21
+#     body top    at cradle-z = +CRADLE_TAB_SHELF_Z + (SERVO_BODY_H
+#                                                       - SERVO_TAB_Z) = +17
+# The body's gear housing top at cradle-z = +17 now pokes 6 mm ABOVE
+# the cradle rim (+11) into the inter-plate gap.  chassis_top sits at
+# chassis-z = chassis_bottom_top + CHASSIS_GAP = +32 (cradle-z =
+# +30), so the gear housing has +30 - +17 = 13 mm of clearance to
+# chassis_top.  See the CRADLE_BOSS_H_MM docstring below for the
+# Path-A fix that took the rim from +19 down to +11.
+#
+# Bonding: the cradle's outer footprint is wider than the plate's body
+# cutout (``WELL_W + 2`` x ``WELL_D + 2`` = 60 x 31 mm) by
+# ``CRADLE_BOND_STRIP_MM`` on each side, so the cradle overhangs the
+# cutout edges and bonds to plate material via boolean union when the
+# meshes are joined in ``make_chassis_bottom``.  The +X bond strip
+# overhangs PAST the chassis edge (cradle-x > 0) into empty air -- no
+# plate material there to bond with -- so only the -X / +Y / -Y bond
+# strips carry actual bonding load.  Adequate given the cradle's
+# modest 11 mm height above the plate.
+#
+# Wire features: the -X (radially INWARD) wall carries the wire-exit
+# slot and the printed zip-tie strain-relief post (mirror-flipped
+# copies of ``_wire_exit_slot()`` / ``_cable_zip_post()`` -- both
+# helpers are hard-coded to well-+X, so the cradle helper applies an
+# x-reflection transform before unioning).  Routing the 3-wire servo
+# harness OUT on the cradle's INBOARD face sends it toward the
+# chassis centre, where it follows chassis_bottom's top face to the
+# per-leg cable-drop slot at chassis-frame
+# (LEG_HARNESS_DROP_X_CENTRE, 0) = (-46, 0) in cradle-x / cradle-y,
+# then drops into the inter-plate gap.  The legacy bracket's wire
+# slot is on the +X (OUTBOARD) face -- its docstring claims inboard
+# routing but the actual mesh has always exited outboard.  That
+# inconsistency stays unresolved on the bracket since the part
+# retires entirely in the final cleanup commit; the new integrated
+# cradle gets the inboard exit the project always wanted.
+#
+# Heat-set inserts: the cradle reuses the same MIXED-MODE Design E
+# pattern as every other servo cradle in the project: 2 -X bolts per
+# cradle get a Phi CRADLE_BOSS_OD = 8 mm boss + Phi INSERT_M3_PILOT_OD
+# = 4 mm heat-set insert pocket (McMaster 94459A130), 2 +X bolts get a
+# bare Phi INSERT_M3_SELFTAP_PILOT_OD = 2.5 mm self-tap pilot (no boss,
+# because the Phi 8 mm boss footprint cannot coexist with the +X wire
+# channel that the servo's molded wire boot has to pass through during
+# insertion).  See the ``CRADLE_BOSS_*`` / ``INSERT_M3_*`` /
+# ``INSERT_M3_SELFTAP_*`` constant blocks above for the full rationale.
+CRADLE_BOSS_H_MM     = 11.0   # mm above chassis_bottom_top to the boss
+                               # top (= cradle rim).  Preserves
+                               # CHASSIS_GAP = 32 mm and the existing
+                               # 32 mm M3 brass standoff BOM (no new
+                               # hardware required).
+                               #
+                               # History.  The original planning spec
+                               # for this redesign (May 2026) was
+                               # BOSS_H = 19 mm so the cradle rim
+                               # wrapped the body's gear housing
+                               # (gear-housing top at cradle-z = +17)
+                               # with 2 mm of clearance above it.
+                               # Once the integrated cradle was
+                               # unioned into chassis_bottom (the
+                               # full plate mesh, all 6 legs), the
+                               # ``check_cable_clearance`` verifier
+                               # caught the cradle's inboard wings
+                               # poking into the Pi4 Ethernet, Pi4
+                               # USB-C, Pi4 Micro-HDMI 0 and
+                               # Mega2560 USB-B plug envelopes
+                               # (~2750 mm^3 of total intrusion).
+                               # Those keepouts have their FLOOR at
+                               # chassis-z = +13 to +15 mm (= cradle-
+                               # z = +11 to +13), so any cradle
+                               # material above cradle-z = +11
+                               # outside the body-cavity outline
+                               # blocks a real cable plug.
+                               #
+                               # The legacy ``coxa_bracket`` flange
+                               # on legs 1-5 has the same physical
+                               # conflict (flange top at chassis-z =
+                               # +17) but the cable-clearance check
+                               # only loaded leg 0's bracket via
+                               # ``_build_world_leg0_printed_parts``;
+                               # the missing legs let the bracket
+                               # design quietly violate the keepouts
+                               # without firing the check.  The new
+                               # integrated cradle, sitting inside
+                               # chassis_bottom which IS in every
+                               # check's parts dict, can no longer
+                               # hide.
+                               #
+                               # Path-A fix (May 22 2026, agreed
+                               # with the user): drop BOSS_H from
+                               # +19 to +11 so the cradle rim lands
+                               # AT the keepout floor.  The body's
+                               # gear housing now pokes 6 mm above
+                               # the cradle rim into the inter-plate
+                               # gap instead of sitting under a 2 mm
+                               # visual cap; the gear housing isn't
+                               # load-bearing -- the 4 servo
+                               # mounting tabs clamping down on the
+                               # +6 mm tab shelf carry the entire
+                               # reaction torque -- so the 5 mm of
+                               # wall above the shelf (= +11 - +6)
+                               # is purely a dust / visual shroud
+                               # strip, not a structural feature.
+                               # Tab shelf, bosses, fasteners, bond
+                               # strip and the outboard trim
+                               # threshold are all UNCHANGED by
+                               # this Path-A fix.
+                               #
+                               # Two alternatives we explicitly
+                               # rejected: (B) "step-narrow the
+                               # cradle above the shelf to a ~44 x
+                               # 24 mm body-cavity outline" was a
+                               # substantial geometry rewrite to
+                               # preserve BOSS_H = +19; (C) "mark
+                               # the 4 affected keepouts as exempt"
+                               # kept BOSS_H = +19 but blocked the
+                               # user from plugging in an Ethernet
+                               # cable without lifting chassis_top
+                               # off the standoffs.  Both were
+                               # strictly worse than Path A on the
+                               # design / code-size axis.
+CRADLE_TAB_SHELF_Z   =  6.0   # mm above chassis_bottom_top to the tab
+                               # shelf (where the servo's 4 mounting
+                               # ears land).  CRADLE_BOSS_H_MM -
+                               # CRADLE_TAB_SHELF_Z = 5 mm of wall
+                               # extension above the shelf (purely a
+                               # dust/visual shroud strip; see the
+                               # CRADLE_BOSS_H_MM Path-A docstring
+                               # above for why this is no longer
+                               # wrapping the body's gear housing).
+CRADLE_BOND_STRIP_MM =  1.0   # mm of bond strip per side: cradle outer
+                               # footprint is (WELL_W + 2 + 2*this) x
+                               # (WELL_D + 2 + 2*this) so the cradle
+                               # overhangs the plate's body cutout
+                               # edges by this much on each side, for
+                               # a boolean-union bond between cradle
+                               # walls and plate material.  Sized to
+                               # leave a healthy bonding strip without
+                               # widening the cradle so far that it
+                               # collides with the per-leg cable
+                               # anchor tab (CABLE_ANCHOR_TAB_X = -46,
+                               # comfortably inboard of the cradle's
+                               # -X face at cradle-x = -41).
+CRADLE_OUTBOARD_TRIM_Z = 15.0  # mm cradle-z above which the cradle's
+                                # OUTBOARD region (cradle-x > 0 =
+                                # outside the chassis hex perimeter)
+                                # is trimmed off.  Mirrors the legacy
+                                # ``BRACKET_FLANGE_T = 15 mm`` flange-
+                                # top height so the femur_link's
+                                # hip-pad sweep (which already cleared
+                                # the bracket at chassis-z = +17)
+                                # continues to clear the integrated
+                                # cradle without a workspace-collision
+                                # regression.  Under Path A
+                                # (CRADLE_BOSS_H_MM = +11, May 22
+                                # 2026 docstring) the cradle's rim
+                                # is now BELOW this trim threshold,
+                                # so the outboard trim subtraction
+                                # is a NO-OP at runtime -- the
+                                # helper's box-extent clamp handles
+                                # TRIM_Z >= BOSS_H cleanly.  Kept as
+                                # a constant + active diff so a
+                                # future taller-cradle revision
+                                # already has the femur-sweep floor
+                                # named in the code; lifting BOSS_H
+                                # back above +15 would also need to
+                                # revisit the cable-clearance
+                                # keepout intrusions documented in
+                                # the CRADLE_BOSS_H_MM history.
+                                # Audit-pass before lifting this:
+                                # ``check_workspace_self_collision``
+                                # in ``_verify_prototype.py`` is the
+                                # regression probe; it fires the
+                                # moment the cradle pokes more than
+                                # ~CRADLE_OUTBOARD_TRIM_Z mm above
+                                # chassis_bottom_top outside the
+                                # chassis hex.
+
 # ---- Coxa bracket (yaw-motor housing) -----------------------------------
 # A horizontal flange that bolts to the chassis edge plus a servo well
 # that hangs from it.  The yaw axis (the output spline of the servo)
@@ -2774,6 +2981,205 @@ def _cable_zip_post(
     )
 
 
+def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
+    """Yaw-servo cradle integrated into ``chassis_bottom`` (May 2026).
+    Returns the cradle for ONE leg, in cradle-local frame:
+
+      Origin: at the YAW AXIS (= chassis hex edge midpoint, where the
+              output spline pokes UP through chassis_top).
+      +X = outboard radial (away from chassis centre).
+      +Y = tangential (along the chassis edge).
+      +Z = up.  cradle-z = 0 coincides with chassis_bottom's TOP face.
+
+    Replaces the role of the legacy ``make_coxa_bracket()`` part, which
+    stays callable until the final cleanup commit so partial reverts
+    work.  Used by ``make_chassis_bottom`` which iterates over the 6
+    leg azimuths via ``_leg_chassis_frames`` and unions one cradle per
+    leg into the hex plate.  See the ``CRADLE_BOSS_H_MM`` /
+    ``CRADLE_TAB_SHELF_Z`` / ``CRADLE_BOND_STRIP_MM`` constant block
+    near the top of this file for the full Z-layout rationale and the
+    Path-A history that put BOSS_H at +11 (was +19 in the original
+    planning spec).
+
+    Structure (cradle-local):
+
+      * Outer shell: a single rectangular box spanning cradle-z in
+        ``[-CHASSIS_PLATE_T, CRADLE_BOSS_H_MM]`` = [-4, +11] (15 mm
+        tall) and footprint ``(WELL_W + 2 + 2*CRADLE_BOND_STRIP_MM)``
+        x ``(WELL_D + 2 + 2*CRADLE_BOND_STRIP_MM)`` = 62 x 33 mm,
+        centred at ``(body_centre_x, 0)`` = (-10, 0).  Wider than the
+        plate's body cutout (60 x 31 mm) by 1 mm on each side so the
+        boolean union with chassis_bottom bonds the cradle walls into
+        the plate material around the cutout perimeter.
+
+      * Body cavity: a 41.4 x 21.4 mm (= ``SERVO_BODY_W + 2*WELL_BODY_CL``
+        x ``SERVO_BODY_D + 2*WELL_BODY_CL``) rectangular through-hole
+        from below the plate up past the boss top, so the body's bulk
+        hangs DOWN through the plate while the tab shelf supports the
+        ears at cradle-z = +6.  The body's gear-housing top at
+        cradle-z = +17 pokes ABOVE the cradle rim into the inter-plate
+        gap (no wall material wraps it -- the rim sits 5 mm above
+        the shelf, below the gear housing top).
+
+      * Insert bosses + pockets: mixed-mode Design E from
+        ``_servo_cradle_insert_pockets(shelf_top_z=CRADLE_TAB_SHELF_Z)``.
+        The 2 -X bolts per cradle get a Phi 8 mm boss + Phi 4 mm
+        heat-set pocket (McMaster 94459A130); the 2 +X bolts get a
+        bare Phi 2.5 mm self-tap pilot (no boss, to clear the +X wire
+        channel that the servo's molded wire boot has to pass through
+        during insertion -- the boot points +X even though the EXIT
+        slot is now on the -X face; the boot only needs to pass the
+        +X bosses on its way down past the shelf).
+
+      * Wire-exit slot on the -X (radially INWARD) face:
+        ``_wire_exit_slot()`` is hard-coded to cut the +X face of a
+        well-local cradle, so we apply an x-reflection transform
+        (negate the slot mesh's x coordinates) before translating it
+        into place.  After mirroring the slot cuts the cradle's -X
+        cavity wall instead of the +X wall, routing the servo harness
+        OUT toward the chassis centre where it follows
+        chassis_bottom's top face to the per-leg harness-drop slot.
+        The slot's vertical channel covers cradle-z in
+        ``[-CHASSIS_PLATE_T, WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM
+        + well_dz]`` = [-4, +8.5], well within the BOSS_H = +11
+        cradle rim.  See the constant block docstring near the
+        top of this file for why the new cradle gets the inboard
+        exit but the legacy bracket does not.
+
+      * Cable zip-tie post on the -X face: ``_cable_zip_post()`` is
+        also hard-coded to +X, so we apply the same x-reflection
+        transform before translating.  The post sits at cradle-x in
+        [-43, -41] (= cradle outer -X face protruding outward by
+        CABLE_POST_X = 2 mm) and cradle-z in [+3, +11] (centred at
+        ``CRADLE_TAB_SHELF_Z + 1`` = +7), just past the wire-exit
+        slot so the assembler can loop a zip-tie around the post +
+        the exiting harness as a printed-in strain relief.
+    """
+    body_centre_x = -SERVO_OUTPUT_X                          # -10 mm
+
+    # x-reflection transform (mirrors a mesh across the YZ plane).
+    # Used to flip the well-local ``_wire_exit_slot()`` /
+    # ``_cable_zip_post()`` helpers from the +X face to the -X face
+    # of the cradle.  trimesh's boolean engine handles the implied
+    # face-winding flip transparently (verified: a reflected box has
+    # ``is_volume = True`` and unions / diffs correctly).
+    reflect_x = np.eye(4)
+    reflect_x[0, 0] = -1.0
+
+    # ---- Outer shell --------------------------------------------------
+    outer_w = WELL_W + 2.0 + 2.0 * CRADLE_BOND_STRIP_MM      # 62 mm
+    outer_d = WELL_D + 2.0 + 2.0 * CRADLE_BOND_STRIP_MM      # 33 mm
+    z_min = -CHASSIS_PLATE_T                                  # -4 mm
+    z_max = CRADLE_BOSS_H_MM                                  # +11 mm
+    outer = _box((outer_w, outer_d, z_max - z_min),
+                  center=(body_centre_x, 0.0,
+                          0.5 * (z_min + z_max)))
+
+    # ---- Body cavity (open top + open bottom) ------------------------
+    cavity_w = SERVO_BODY_W + 2.0 * WELL_BODY_CL              # 41.4 mm
+    cavity_d = SERVO_BODY_D + 2.0 * WELL_BODY_CL              # 21.4 mm
+    cav_z_min = z_min - 1.0
+    cav_z_max = z_max + 1.0
+    cavity = _box(
+        (cavity_w, cavity_d, cav_z_max - cav_z_min),
+        center=(body_centre_x, 0.0,
+                 0.5 * (cav_z_min + cav_z_max)),
+    )
+
+    # ---- Insert bosses + pockets (mixed-mode Design E) ---------------
+    bosses, pockets = _servo_cradle_insert_pockets(
+        shelf_top_z=CRADLE_TAB_SHELF_Z,
+    )
+    bosses = bosses.copy()
+    pockets = pockets.copy()
+    bosses.apply_translation([body_centre_x, 0.0, 0.0])
+    pockets.apply_translation([body_centre_x, 0.0, 0.0])
+
+    # ---- Wire-exit slot (mirrored to -X face) ------------------------
+    # ``_wire_exit_slot()`` returns the slot in well-local frame with
+    # the slot's mouth on the +X face.  Reflect across YZ so the
+    # mouth lands on the -X face, then translate so well-z =
+    # WELL_RIM_Z maps to cradle-z = CRADLE_TAB_SHELF_Z.  After the
+    # reflection the slot's natural well-x range [+17.5, +33] flips
+    # to [-33, -17.5]; after translation by body_centre_x it lands
+    # at cradle-x in [-43, -27.5], spanning the cradle's -X outer
+    # face (at cradle-x = -41) by 2 mm OUTSIDE the wall (clean
+    # boolean overshoot) and 13.5 mm INSIDE toward the cavity (so
+    # the slot reaches the cavity at cradle-x = -30.7).  The
+    # vertical channel covers cradle-z in [-CHASSIS_PLATE_T, +8.5]
+    # which is the height range that overlaps the cradle's material
+    # (the channel's well-local z [0, WELL_RIM_Z +
+    # WIRE_CHANNEL_TOP_OVER_RIM] = [0, +29.75] after well_dz =
+    # -21.25 translates to cradle-z [-21.25, +8.5]; the L-shaped
+    # bottom corner at cradle-z [-28.25, -7.75] sits entirely below
+    # the cradle z_min = -4 so it has no effect on the cradle).
+    well_dz = CRADLE_TAB_SHELF_Z - WELL_RIM_Z                 # -21.25
+    wire_slot = _wire_exit_slot()
+    wire_slot.apply_transform(reflect_x)
+    wire_slot.apply_translation([body_centre_x, 0.0, well_dz])
+
+    # ---- Cable zip-tie post on the -X face ---------------------------
+    # Same x-reflection trick as the wire slot: ``_cable_zip_post()``
+    # is hard-coded to the +X face of a well-local cradle, so we
+    # reflect across YZ to flip it to the -X face.
+    #
+    # Z placement: post centred at cradle-z = CRADLE_TAB_SHELF_Z + 1
+    # = +7 (1 mm above the tab shelf), so its z range is
+    # [+7 - CABLE_POST_Z/2, +7 + CABLE_POST_Z/2] = [+3, +11], from
+    # just above the shelf up to the cradle rim.  This puts the
+    # zip-tie loop right next to where the harness exits the wire-
+    # exit slot's channel top at cradle-z = +8.5, so the printed-in
+    # strain relief catches the wires immediately as they leave the
+    # cradle.  The z_centre arg is well-local, so we offset by
+    # ``-well_dz`` = +21.25 to compensate.
+    #
+    # X placement: the post's natural well-local x range is
+    # [WELL_W/2, WELL_W/2 + CABLE_POST_X] = [+30, +32].  After
+    # reflection that becomes [-32, -30].  We want the post's INNER
+    # edge flush with the cradle's outer -X face (at cradle-x =
+    # body_centre_x - outer_w/2 = -41) and the OUTER edge protruding
+    # CABLE_POST_X = 2 mm OUTSIDE the wall (at cradle-x = -43).  Set
+    # the translation x to ``body_centre_x - CRADLE_BOND_STRIP_MM`` =
+    # -11 so the post lands at cradle-x in [-11 + -32, -11 + -30] =
+    # [-43, -41].  (The legacy +X-face placement used
+    # ``+CRADLE_BOND_STRIP_MM``; the inboard mirror flips that to
+    # ``-CRADLE_BOND_STRIP_MM`` for symmetry.)
+    post_cradle_z = CRADLE_TAB_SHELF_Z + 1.0
+    cable_post = _cable_zip_post(z_centre=post_cradle_z - well_dz)
+    cable_post.apply_transform(reflect_x)
+    cable_post.apply_translation(
+        [body_centre_x - CRADLE_BOND_STRIP_MM, 0.0, well_dz],
+    )
+
+    # ---- Outboard upper-corner trim ----------------------------------
+    # The cradle's full +CRADLE_BOSS_H_MM height applies inside the
+    # chassis hex (cradle-x <= 0); past the chassis edge (cradle-x > 0,
+    # = outside the hex apothem line that runs through the yaw axis)
+    # the cradle would be capped at cradle-z = CRADLE_OUTBOARD_TRIM_Z
+    # so the outboard "wing" matches the legacy coxa_bracket's
+    # flange-top height (BRACKET_FLANGE_T = 15 mm), preserving the
+    # femur_link hip-pad sweep clearance the bracket already
+    # established.  Under Path A (BOSS_H = +11) the trim threshold
+    # (+15) sits ABOVE the cradle rim, so the trim subtraction is a
+    # no-op in practice -- the box has no material to remove.  We
+    # clamp the box's z extent to a positive value via ``max(BOSS_H,
+    # TRIM_Z) + 1.0`` so the helper doesn't try to instantiate a
+    # negative-extent box; the trim remains a real diff (just
+    # against empty air) so a future BOSS_H lift doesn't need to
+    # reintroduce the call.  See the CRADLE_OUTBOARD_TRIM_Z constant
+    # docstring for the audit rationale.
+    trim_z_lo = CRADLE_OUTBOARD_TRIM_Z
+    trim_z_hi = max(CRADLE_BOSS_H_MM, CRADLE_OUTBOARD_TRIM_Z) + 1.0
+    trim_outboard = _box(
+        (60.0, 60.0, trim_z_hi - trim_z_lo),
+        center=(30.0, 0.0, 0.5 * (trim_z_lo + trim_z_hi)),
+    )
+
+    body = _union(outer, bosses, cable_post)
+    body = _diff(body, cavity, pockets, wire_slot, trim_outboard)
+    return body
+
+
 def _servo_envelope() -> trimesh.Trimesh:
     """Return the bounding-volume of a hobby servo, with mounting tabs.
 
@@ -3247,6 +3653,59 @@ def make_chassis_bottom() -> trimesh.Trimesh:
                        with_centre_holes=True,
                        with_battery_holder_holes=True,
                        with_leg_harness_drops=True)
+
+    # Per-leg integrated yaw-servo cradles (May 2026 redesign).
+    # ``_chassis_yaw_cradle_solid`` returns the cradle for ONE leg in
+    # cradle-local frame (origin at the yaw axis / chassis edge
+    # midpoint; cradle-z = 0 = chassis_bottom_top face).  The plate's
+    # own z = 0 sits at the plate's CENTRE, so we translate each cradle
+    # UP by ``CHASSIS_PLATE_T / 2`` to put cradle-z = 0 at the plate's
+    # TOP face (plate-local z = +2 mm).
+    #
+    # During the May 2026 transition commits (between this commit and
+    # the final cleanup), the legacy ``make_coxa_bracket`` still gets
+    # placed on top of chassis_bottom by ``build_prototype_assembly``;
+    # its flange overlaps the cradle's outer shell at chassis-z in
+    # [+2, +17].  This overlap is intentional and harmless: no
+    # verifier check probes the bracket-flange-vs-chassis_bottom
+    # interface (see the explicit NOTE in
+    # ``_verify_prototype.check_mating_face_contact``).  The bracket
+    # holds the yaw servo until commit 4 swaps the assembly to use
+    # the integrated cradle instead.
+    cradles: list[trimesh.Trimesh] = []
+    for _i, edge_mid, R, R3 in _leg_chassis_frames():
+        cradle = _chassis_yaw_cradle_solid()
+        cradle.apply_transform(R)
+        cradle.apply_translation(
+            [edge_mid[0], edge_mid[1], CHASSIS_PLATE_T / 2.0],
+        )
+        cradles.append(cradle)
+    plate = _union(plate, *cradles)
+
+    # Re-cut the per-leg cable-drop slots.  ``_hex_plate`` already
+    # cuts them when ``with_leg_harness_drops=True``, but the cradle's
+    # -X bond-strip overhang at cradle-x in [-41, -40] crosses the
+    # outboard 1 mm of each slot at bracket-x = [-52, -40].  The
+    # boolean union of the cradles with the plate would re-fill that
+    # 1 mm strip and partially plug the slot (verified by
+    # ``check_leg_harness_drop`` firing on 12 of 12 probe points per
+    # leg when the slots are NOT re-cut).  Re-cutting after the union
+    # is an idempotent diff: the slot is already open in the original
+    # plate, the bond-strip union fills its outboard edge, and this
+    # diff carves it back out.  Geometry matches the cuts in
+    # ``_hex_plate(with_leg_harness_drops=True)`` so the post-union
+    # plate has identical drop-slot openings to the pre-union plate.
+    drops: list[trimesh.Trimesh] = []
+    for _i, edge_mid, R, R3 in _leg_chassis_frames():
+        drop = _box((LEG_HARNESS_DROP_X_EXTENT,
+                      LEG_HARNESS_DROP_Y_EXTENT,
+                      CHASSIS_PLATE_T * 4.0))
+        drop.apply_transform(R)
+        drop_world = edge_mid + R3 @ np.array(
+            [LEG_HARNESS_DROP_X_CENTRE, 0.0, 0.0])
+        drop.apply_translation(drop_world)
+        drops.append(drop)
+    plate = _diff(plate, *drops)
 
     # Per-leg vertical anchor tabs HANGING DOWN from the plate's -Z
     # (bottom) face.  Each tab is a CABLE_ANCHOR_TAB_T x
