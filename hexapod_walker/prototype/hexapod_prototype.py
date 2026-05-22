@@ -4963,10 +4963,80 @@ def make_coxa_link() -> trimesh.Trimesh:
                  (spar_slot_z_min + spar_slot_z_max) / 2.0),
     )
 
+    # ---- Drop the -Y arm "stringer" over the bridge -----------------
+    # Before this cut, the spar_slot above leaves the arm slab as TWO
+    # 7.5 mm-wide parallel stringers running over the outboard half of
+    # the link: a +Y stringer at link y in [+spar_slot_y_half, +arm_w/2]
+    # = [+3.5, +11] and a -Y stringer at y in [-arm_w/2, -spar_slot_y_half]
+    # = [-11, -3.5].  Each stringer is 7.5 mm (y) x arm_t = 6 mm (z) x
+    # ~34 mm (x in [+8, +42]), i.e. a 7.5 x 6 cross-section.
+    #
+    # The -Y stringer is STRUCTURALLY REDUNDANT with the bridge
+    # immediately below it.  The bridge spans link y in
+    # [bridge_y_min, bridge_y_max] = [~-17.25, -10.5] and z in
+    # [bridge_z_min + COXA_LIFT, arm_t + COXA_LIFT] = [~+27.5, +42]
+    # (lifted) over the FULL arm_x_extent = 53 mm.  Its cross-section
+    # is bridge_y_extent x bridge_z_extent = ~6.75 mm (y) x ~14.5 mm
+    # (z) = ~98 mm^2, more than 2x the stringer's 7.5 x 6 = 45 mm^2
+    # and with a much taller Z (= bending stiffness ~ z^3) -- the
+    # bridge carries ALL hip-pitch reaction load on the -Y side.
+    # The stringer is just a redundant top cap that adds plastic
+    # mass + print time + a print-orientation-trapped overhang above
+    # the bridge with no structural payoff.
+    #
+    # We CAN'T do the same on the +Y side: there is no mirrored +Y
+    # bridge because the hip-pitch servo well opens to +Y for assembly
+    # insertion (the well's +Y "wall" is just air -- the servo body
+    # slides in/out along link +Y).  So the +Y stringer is the ONLY
+    # +Y-side bracing the geometry allows and MUST stay.
+    #
+    # X / Z_MIN: reuse spar_slot_x_min, spar_slot_x_max, spar_slot_z_min
+    # verbatim so the trim void is co-planar / co-bordered with the
+    # spar slot at every face we share (no FDM "kissing" sliver of
+    # plastic between the two cuts).
+    #
+    # Y_MAX and Z_MAX diverge from spar_slot for the SAME reason:
+    # spar_slot was sized to JUST CLEAR the femur spar through-cut
+    # (y in [-3.5, +3.5] = LINK_THICKNESS + 1 mm FDM clearance, z up
+    # to COXA_LIFT + hub_t + 0.1 = +44.1, i.e. the hub top).  Our cut
+    # has to remove the FULL -Y stringer + the cap_neg slab sitting on
+    # top of it (arm_cap_neg lives at y in [-arm_w/2, -LINK_THICKNESS/2]
+    # = [-11, -3] and z in [arm_t + COXA_LIFT, arm_t + COXA_ARM_CAP_T +
+    # COXA_LIFT] = [+42, +46]).  Two adjustments:
+    #
+    #   * Y_MAX = -LINK_THICKNESS/2 = -3 (not -spar_slot_y_half = -3.5)
+    #     so the trim covers cap_neg's FULL y range.  The 0.5 mm
+    #     overlap with spar_slot at y in [-3.5, -3] is a deliberate
+    #     redundant cut: at z in [+44.1, +46] (above spar_slot_z_max)
+    #     the cap_neg's y in [-3.5, -3] strip is NOT removed by
+    #     spar_slot, and without this 0.5 mm overlap it would survive
+    #     as a free-floating ~25 mm^3 sliver after we wipe out the
+    #     stringer + cap_neg's main body at y < -3.5.
+    #   * Z_MAX = arm_t + COXA_ARM_CAP_T + COXA_LIFT + 0.1 = +46.1
+    #     (not COXA_LIFT + hub_t + 0.1 = +44.1) so the trim cuts
+    #     cap_neg cleanly through its top face.
+    #
+    # M2 X-horn bolt clearance: the 4 M2 clamp bolts live in the
+    # pedestal cap at lifted z in [-0.1, PEDESTAL_CAP_T + 0.1] =
+    # [-0.1, +4.1], WAY below the trim's z_min = +25.  The trim's
+    # hub overlap at x in [+8, +17] is at z in [+25, +46.1], i.e.
+    # above the cap, so the bolts are untouched.
+    arm_neg_y_trim_y_min = -arm_w / 2.0                       # = -11
+    arm_neg_y_trim_y_max = -LINK_THICKNESS / 2.0              # = -3
+    arm_neg_y_trim_z_max = arm_t + COXA_ARM_CAP_T + COXA_LIFT + 0.1
+    arm_neg_y_trim = _box(
+        (spar_slot_x_max - spar_slot_x_min,
+         arm_neg_y_trim_y_max - arm_neg_y_trim_y_min,
+         arm_neg_y_trim_z_max - spar_slot_z_min),
+        center=((spar_slot_x_min + spar_slot_x_max) / 2.0,
+                 0.5 * (arm_neg_y_trim_y_min + arm_neg_y_trim_y_max),
+                 0.5 * (spar_slot_z_min + arm_neg_y_trim_z_max)),
+    )
+
     body = _union(pedestal, body_unlifted)
-    return _diff(body, trough, spar_slot, pad_sweep_clear,
-                 horn_hub_recess, *cap_holes, *counterbore_holes,
-                 centre_hole)
+    return _diff(body, trough, spar_slot, arm_neg_y_trim,
+                 pad_sweep_clear, horn_hub_recess,
+                 *cap_holes, *counterbore_holes, centre_hole)
 
 
 def make_femur_link() -> trimesh.Trimesh:
