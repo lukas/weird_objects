@@ -448,3 +448,68 @@ parts:
   # link bolts straight onto the plastic 4-arm X-horn that ships
   # with the servo.  Validated by
   # ``_verify_prototype.check_horn_pattern_in_pad``.
+
+
+# ---------------------------------------------------------------------
+# Wire harness (per-leg, per-servo)
+# ---------------------------------------------------------------------
+# High-level shape ONLY; the per-joint numeric BOM lives in
+# ``pi_control/wire_harness_plan.py::WIRE_HARNESS_PLAN`` (18 dict
+# entries) and is regenerated from the CAD geometry on every
+# ``python -m hexapod_walker.prototype.pi_control.wire_harness_plan``
+# invocation.  The reach verifier
+# ``_verify_prototype.check_harness_reach`` asserts the predicted
+# extension-cable counts match the actual Manhattan path lengths.
+wire_harness:
+  stock_pigtail_mm: 300         # = wire_harness_plan.STOCK_PIGTAIL_MM
+  extension_length_mm: 300      # = wire_harness_plan.EXTENSION_LENGTH_MM
+  slack_per_joint_crossing_mm: 30  # = SLACK_PER_JOINT_CROSSING_MM
+  pca_boards:
+    - i2c_addr: 0x40
+      tray_local_centre_mm: [+64.0, +22.5]   # PCA_CENTRE
+      channels: 16
+      joints: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    - i2c_addr: 0x41
+      tray_local_centre_mm: [+64.0, -17.5]   # PCA2_CENTRE
+      channels: 16                            # only 2 used
+      joints: [16, 17]
+      note: "Daisy-chain over I2C from PCA1 (0x40 -> 0x41).  Used only by L5 hip_pitch (joint 16, ch 0) and L5 knee (joint 17, ch 1)."
+  legs:
+    - leg_idx: 0
+      azimuth_deg: 30
+      joints_servos:
+        - { joint: 0,  axis: yaw,        pca_board: 0x40, pca_channel: 0  }
+        - { joint: 1,  axis: hip_pitch,  pca_board: 0x40, pca_channel: 1  }
+        - { joint: 2,  axis: knee,       pca_board: 0x40, pca_channel: 2  }
+    - leg_idx: 1
+      azimuth_deg: 90
+      joints_servos:
+        - { joint: 3,  axis: yaw,        pca_board: 0x40, pca_channel: 3  }
+        - { joint: 4,  axis: hip_pitch,  pca_board: 0x40, pca_channel: 4  }
+        - { joint: 5,  axis: knee,       pca_board: 0x40, pca_channel: 5  }
+    - leg_idx: 2
+      azimuth_deg: 150
+      joints_servos:
+        - { joint: 6,  axis: yaw,        pca_board: 0x40, pca_channel: 6  }
+        - { joint: 7,  axis: hip_pitch,  pca_board: 0x40, pca_channel: 7  }
+        - { joint: 8,  axis: knee,       pca_board: 0x40, pca_channel: 8  }
+    - leg_idx: 3
+      azimuth_deg: 210
+      joints_servos:
+        - { joint: 9,  axis: yaw,        pca_board: 0x40, pca_channel: 9  }
+        - { joint: 10, axis: hip_pitch,  pca_board: 0x40, pca_channel: 10 }
+        - { joint: 11, axis: knee,       pca_board: 0x40, pca_channel: 11 }
+    - leg_idx: 4
+      azimuth_deg: 270
+      joints_servos:
+        - { joint: 12, axis: yaw,        pca_board: 0x40, pca_channel: 12 }
+        - { joint: 13, axis: hip_pitch,  pca_board: 0x40, pca_channel: 13 }
+        - { joint: 14, axis: knee,       pca_board: 0x40, pca_channel: 14 }
+    - leg_idx: 5
+      azimuth_deg: 330
+      cross_board: true
+      joints_servos:
+        - { joint: 15, axis: yaw,        pca_board: 0x40, pca_channel: 15 }
+        - { joint: 16, axis: hip_pitch,  pca_board: 0x41, pca_channel: 0  }
+        - { joint: 17, axis: knee,       pca_board: 0x41, pca_channel: 1  }
+      note: "L5 is the ONLY cross-board leg: yaw stays on PCA1 ch15 but hip+knee jump to PCA2 ch0+1 because joints 16 and 17 spill off the end of PCA1's 16 channels."

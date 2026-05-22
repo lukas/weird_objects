@@ -84,8 +84,31 @@ The pipeline they refer to is documented in `CAD_WORKFLOW.md`.
    match.  If you bump CHASSIS_GAP without updating the standoff
    length the chassis will not actually assemble.
 
-9. **Any printed feature that takes a threaded fastener for repeated
-   assembly MUST use a heat-set insert, not a self-tap pilot.**  The
+9. **When adding cable management features, NEVER place a feature
+   inside `keepout_volumes.py` cable_keepouts or the joint sweep
+   cylinders; always verify against `check_cable_clearance` and
+   `check_workspace_self_collision` BEFORE committing.**  The May 2026
+   cable-mgmt pass (commit `wire harness: cable posts on every link +
+   chassis_bottom drop slots`) added 18 printed zip-tie posts and 6
+   chassis-bottom anchor tabs; the placement search had to dodge the
+   bracket flange, the electronics_tray footprint, the bracket bolt
+   columns, the leg-sweep cylinders AND the cable_keepout boxes for
+   every USB/HDMI/I2C connector airspace.  Most candidate positions
+   FAILED one of these.  The workflow is: (a) sketch the new feature
+   in bracket-local / well-local coordinates, (b) compute the leg-0
+   chassis-frame position via `_leg_chassis_frames()` and check
+   against every leg's transform (rotational symmetry doesn't help
+   when the tray is asymmetric -- the May 2026 Pi cantilever shifted
+   the tray's chassis-frame Y centre to -2.5), (c) hand-verify the
+   z-range against the bracket flange's [+2, +17] mm slab and the
+   tray's [+5, +8] mm slab, (d) ONLY THEN run
+   `_verify_prototype.py --all`.  If a candidate fails any of
+   `check_workspace_self_collision`, `check_cable_clearance`,
+   `check_wire_slot`, or `check_leg_harness_drop`, MAKE THE FEATURE
+   SMALLER (or reroute it); never shrink the keep-out volume.
+
+10. **Any printed feature that takes a threaded fastener for repeated
+    assembly MUST use a heat-set insert, not a self-tap pilot.**  The
    May 2026 cradle audit (commit history under "Design D") showed
    that self-tap pilots into Phi 2.5 mm printed holes are
    structurally inadequate when the surrounding wall material isn't

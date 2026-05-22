@@ -626,6 +626,109 @@ during development) — DO NOT power the Arduino off the LiPo's raw
 11.1 V via the barrel jack, the on-board regulator can't handle the
 combined logic + sensor load.
 
+### 7.3 Per-leg harness recipe
+
+The 18-servo harness has three printed-in strain-relief features per
+leg + one per servo, all designed so a 2-3 mm wide zip-tie can secure
+the 3-wire bundle without yanking the JST plug at the PCA9685 header
+when a leg snags mid-walk.  This section is the assembler-facing
+recipe; the auto-generated BOM lives in
+`pi_control/wire_harness_plan.py` and prints by running:
+
+```bash
+python -m hexapod_walker.prototype.pi_control.wire_harness_plan
+```
+
+That command emits a 18-row markdown table with one row per servo:
+joint index, leg + axis, PCA board + channel, cradle wire-exit
+position, drop slot position, PCA channel pin position, minimum
+required path length, and the exact extension-cable shopping list
+(stock pigtail / + 30 cm / + 60 cm / + N x 30 cm).  Re-run after any
+electronics-tray or chassis geometry edit; the
+`_verify_prototype.check_harness_reach` verifier asserts the printed
+BOM still matches reality.
+
+**Per leg, build 3 extension cables**:
+
+1.  **Yaw servo** (cradle on `coxa_bracket`, doesn't rotate with any
+    upstream joint): typically `DS3225 stock pigtail` -- the harness
+    drops straight through the chassis_bottom slot into the PCA.  L1 -
+    L4 might need one +30 cm extension depending on which side of the
+    tray their PCA channel lives.
+2.  **Hip-pitch servo** (cradle on `coxa_link`, rotates with yaw):
+    `+ 30 mm slack loop` around the yaw axis, then routes inboard to
+    the drop slot.  L2 - L4 typically need one +30 cm extension.
+3.  **Knee servo** (cradle on `femur_link`, rotates with yaw + hip):
+    `+ 60 mm slack loop` (one across yaw, one across hip), then routes
+    inboard along the femur, then the coxa_link, then through the
+    drop slot.  L2 - L4 typically need one +30 cm extension; L3 knee
+    is the longest path in the build.
+
+**L5 cross-board callout** (the firmware mapping reserves PCA1's last
+channel for L5 yaw and bumps L5 hip + knee onto PCA2):
+
+* L5 yaw -> PCA1 (0x40) ch 15
+* L5 hip-pitch -> PCA2 (0x41) ch 0
+* L5 knee -> PCA2 (0x41) ch 1
+
+The L5 hip + knee cables land on the OTHER PCA board, so route them
+straight from the L5 drop slot toward PCA2 (-Y half of the tray)
+rather than PCA1 (+Y half).  `wire_harness_plan.py` tags these two
+entries with `(L5 cross-board: PCA2 0x41 ch{0,1})` so you can't miss
+it.
+
+**Slack-loop sizing** (the bundle's "extra" length at each joint
+axis the harness crosses):
+
+* Yaw axis:  ~20 mm slack loop in the bundle (the harness needs to
+  twist ~90 deg across the yaw axis at full sweep).
+* Hip axis:  ~30 mm slack loop (the hip-pitch range plus the
+  coxa_link's WELL_Z_DROP_EXTRA = 4 mm vertical hop adds bundle
+  length).
+* Knee axis: ~20 mm slack loop (the knee range is the largest
+  single-axis sweep but the bundle only crosses it on the knee
+  cable, which is anchored close to the joint by the femur_link's
+  knee-cradle zip-tie post).
+
+The `wire_harness_plan.py` reach model uses a uniform 30 mm slack
+budget per joint crossing; the per-axis numbers above are the
+*minimum* the user should aim for at zip-tie time.  Err larger;
+extra slack is harmless, deficit can fight the kinematics.
+
+**Zip-tie placement** (3 per leg, 1 per servo cradle):
+
+* `coxa_bracket` cradle post: anchor the YAW harness about 10 mm
+  past the cradle wire-exit slot.  Post sits on the well's +X
+  outer face, just past the slot.
+* `coxa_link` cradle post: anchor the HIP-PITCH harness right at
+  the hip cradle wire-exit; lets the bundle exit the cradle with
+  the slack loop OUTSIDE the bundle's anchor point.
+* `femur_link` cradle post: anchor the KNEE harness at the knee
+  cradle wire-exit.
+* `chassis_bottom` `cable_anchor_tab_L*`: anchor the FULL 3-cable
+  bundle just before it enters the chassis_bottom drop slot.  Tab
+  hangs DOWN from the plate's bottom face right next to the drop
+  slot, so the user reaches in from BELOW the chassis (with the
+  legs removed for first assembly, or between the plates for
+  re-tightening later) and loops a zip-tie around the tab + the
+  3-wire bundle.
+
+**Terminating the bundle near the PCA header**:
+
+Inside the inter-plate volume, the 3-cable bundle from each leg
+drops through its drop slot, then walks toward the appropriate
+PCA9685.  The PCA9685 has the channel headers on its long edge;
+plug each cable into the channel printed on the silkscreen for that
+joint.  At the PCA, leave a SHORT (~ 20 mm) tail before the plug so
+the cable can be pulled off for replacement without tugging on the
+adjacent channel plugs.  No printed zip-tie post is required at the
+PCA itself -- the PCA's bolted-down PCB is the strain relief.
+
+The Part C electronics-tray cable comb (a printed strain-relief
+fence ALONG the PCA headers) is on the design roadmap but NOT in
+this commit; until it ships, friction + the printed `cable_anchor_
+tab_L*` tabs above the plate are the strain-relief story.
+
 ---
 
 ## 8. Software

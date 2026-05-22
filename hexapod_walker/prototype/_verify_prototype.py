@@ -5248,6 +5248,88 @@ def check_mating_face_contact():
 
 
 # ---------------------------------------------------------------------------
+# 18.  Harness reach (Part D)
+# ---------------------------------------------------------------------------
+
+def check_harness_reach():
+    """Verify the per-joint extension-cable counts in
+    ``pi_control.wire_harness_plan.WIRE_HARNESS_PLAN`` are NOT
+    optimistic relative to the actual Manhattan path lengths.
+
+    For each of the 18 entries, asserts::
+
+        path_length_mm_min  <=  stock_pigtail_mm + n_ext * extension_mm
+
+    where ``n_ext`` is the count parsed from the plan's
+    ``extension_required`` string (0 for "DS3225 stock pigtail",
+    1 for "+ 30 cm extension", N for "+ N x 30 cm extensions").
+    PASS if every entry's required reach fits inside the
+    advertised cable count; FAIL if any entry's path length
+    EXCEEDS what the plan declares (= the plan is too
+    optimistic, so the user would build the harness short).
+
+    Listed in the --fast set per the task brief: the path-length
+    math is sub-millisecond and catches the most common
+    regression class (a CAD edit that lengthens a path past the
+    declared cable count without the BOM updating).
+    """
+    import re
+    print("\n[18] Harness reach (Part D, wire_harness_plan):")
+
+    # Lazy import so the verifier still loads if the pi_control
+    # package has a syntax error.
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from pi_control import wire_harness_plan as whp
+    finally:
+        if (os.path.dirname(os.path.abspath(__file__))
+                in sys.path):
+            try:
+                sys.path.remove(
+                    os.path.dirname(os.path.abspath(__file__)))
+            except ValueError:
+                pass
+
+    stock = whp.STOCK_PIGTAIL_MM
+    ext_len = whp.EXTENSION_LENGTH_MM
+    plan = whp.WIRE_HARNESS_PLAN
+
+    all_ok = True
+    n_pat = re.compile(r"\+\s*(\d+)\s*x\s*30 cm extension")
+    for entry in plan:
+        ext_str = entry["extension_required"]
+        if ext_str.startswith("DS3225 stock pigtail"):
+            n_ext = 0
+        elif ext_str.startswith("+ 30 cm extension"):
+            n_ext = 1
+        else:
+            m = n_pat.search(ext_str)
+            if m is None:
+                all_ok &= _label(
+                    f"joint {entry['joint_idx']:02d} L{entry['leg_idx']} "
+                    f"{entry['axis']}",
+                    False,
+                    f"unparseable extension_required string: "
+                    f"{ext_str!r}")
+                continue
+            n_ext = int(m.group(1))
+
+        budget = stock + n_ext * ext_len
+        path = entry["path_length_mm_min"]
+        ok = path <= budget + 1e-3
+        all_ok &= _label(
+            f"joint {entry['joint_idx']:02d} L{entry['leg_idx']} "
+            f"{entry['axis']:9s} ch{entry['pca_channel']:02d} "
+            f"@ PCA 0x{entry['pca_board']:02x}",
+            ok,
+            f"path={path:6.1f} mm  budget={budget:6.1f} mm "
+            f"(stock {stock:.0f} + {n_ext} x {ext_len:.0f}); "
+            f"{ext_str}",
+        )
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
 # Process-pool dispatch
 # ---------------------------------------------------------------------------
 #
@@ -5284,6 +5366,7 @@ CHECKS = (
     ("Fastener engagement",       "check_fastener_engagement"),
     ("Mating-face contact",       "check_mating_face_contact"),
     ("Cable clearance",           "check_cable_clearance"),
+    ("Harness reach",             "check_harness_reach"),
 )
 
 WORKSPACE_CHECK_NAME = "Workspace self-collision"
@@ -5340,6 +5423,7 @@ ESSENTIAL_CHECK_NAMES = (
     "Fastener engagement",
     "Mating-face contact",
     "Cable clearance",
+    "Harness reach",
 )
 
 
@@ -5436,6 +5520,11 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
         | frozenset({"bec_cradle", "switch_holster",
                      "imu_pad", "foot_pad"})
     ),
+    # check_harness_reach reads WIRE_HARNESS_PLAN, which is built
+    # from hexapod_prototype constants only; it doesn't touch
+    # any STL bytes.  Use a minimal stl set so --changed mode
+    # still selects the check when constants drift.
+    "Harness reach":             frozenset(),
     # Workspace sweep places the legs + chassis + neighbour bracket.
     "Workspace self-collision":  (_LEG_PARTS | _CHASSIS_PARTS),
 }
