@@ -2,7 +2,7 @@ filename,qty,material,color,finish,envelope_x_mm,envelope_y_mm,envelope_z_mm,vol
 chassis_top.stl,1,MJF PA12,white,as-printed,140.0,161.7,7.0,67.90,67.90,Top deck (140 mm flat-to-flat hex). Carries battery + electronics + optional arm; smaller than bottom so the legs sweep clear.
 chassis_bottom.stl,1,MJF PA12,white,as-printed,200.0,213.0,4.0,99.52,99.52,Bottom structural plate (200 mm flat-to-flat hex). Takes the six coxa-bracket M3 bolts and per-leg yaw-servo body cutouts.
 battery_holder.stl,1,MJF PA12,white,as-printed,110.0,60.0,28.0,15.84,15.84,Open-top LiPo tray; velcro slots through the long walls.
-electronics_tray.stl,1,MJF PA12,white,as-printed,160.0,130.0,8.0,64.57,64.57,Mounts Arduino + 2x PCA9685; standoffs are part of the geometry.
+electronics_tray.stl,1,MJF PA12,white,as-printed,160.0,137.0,8.0,66.97,66.97,Mounts Arduino + 2x PCA9685; standoffs are part of the geometry.
 bec_cradle.stl,1,MJF PA12,white,as-printed,27.0,32.6,12.0,3.47,3.47,"Snap-fit clip for 2 x switching BECs (Hobbywing UBEC form factor); sits on top of the electronics_tray, friction fit."
 switch_holster.stl,1,MJF PA12,white,as-printed,51.0,22.0,21.5,7.87,7.87,"Anti-spark on/off switch body holster; bolts to chassis_top's +X edge with 2 x M3 SHCS, toggle protrudes for user access."
 imu_pad.stl,1,MJF PA12,white,as-printed,25.0,20.0,7.2,1.73,1.73,Vibration-isolated MPU-6050 / GY-521 IMU mount; 25 x 20 mm pad with 4 x M3 heat-set bosses.  Glued to chassis_top with double-sided foam tape (the foam doubles as the vibration damper); no fasteners between the pad and chassis_top.

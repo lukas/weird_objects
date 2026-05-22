@@ -201,9 +201,9 @@ parts:
     keep_out_volumes: []
 
   electronics_tray:
-    description: "Flat 3 mm deck (160 x 130 mm) carrying Arduino Mega 2560 + Raspberry Pi 4 / 5 + PCA9685.  4 x M3 + 4 x M2.5 + 4 x M3 board-mount sites use printed Phi 8 mm (M3) / Phi 6 mm (M2.5) bosses with brass heat-set insert pockets; 5 mm standoff between board bottoms and tray top.  4 chassis-mount holes on the 35 mm-radius / 45 deg square pattern with Phi 5.5 x 3 mm counterbores so the chassis bolt heads sit flush with the tray top."
+    description: "Flat 3 mm deck (160 x 135 mm) carrying Arduino Mega 2560 + Raspberry Pi 4 / 5 + PCA9685.  4 x M3 + 4 x M2.5 + 4 x M3 board-mount sites use printed Phi 8 mm (M3) / Phi 6 mm (M2.5) bosses with brass heat-set insert pockets; 5 mm standoff between board bottoms and tray top.  4 chassis-mount holes on the 35 mm-radius / 45 deg square pattern with Phi 5.5 x 3 mm counterbores so the chassis bolt heads sit flush with the tray top.  May 2026 'Pi cantilever' pass grew Y from 130 to 135 mm (asymmetric, -Y only) and shifted the tray centre from chassis y=0 to y=-2.5 so the Pi can cantilever 2.5 mm past the chassis_top -Y apothem at y=-70 -- the USB-A/Ethernet bank now sits outside the chassis_top silhouette in plan view."
     qty: 1
-    bounds_mm: [160.0, 130.0, 8.0]      # = ELEC_TRAY_W, ELEC_TRAY_D, ELEC_TRAY_T + ELEC_STANDOFF_H
+    bounds_mm: [160.0, 135.0, 8.0]      # = ELEC_TRAY_W, ELEC_TRAY_D, ELEC_TRAY_T + ELEC_STANDOFF_H
     holes: []                            # board-mount + chassis-mount holes verified by `_verify_prototype.check_fastener_engagement`
     wire_channels: []
     keep_out_volumes: []

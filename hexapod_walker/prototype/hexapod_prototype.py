@@ -1387,7 +1387,16 @@ INSERT_M25_BOLT_HEAD_H    = 2.5   # mm -- M2.5 SHCS head height
 # every printed STL, every modelled-electronics STL and every
 # fastener mesh.
 ELEC_TRAY_W = 160.0  # mm -- X dimension (long axis; spans chassis +/-80 mm)
-ELEC_TRAY_D = 130.0  # mm -- Y dimension (spans chassis +/-65 mm)
+# Tray Y span: May 2026 "Pi cantilever" pass grew the tray from 130 ->
+# 135 mm (asymmetric, only in -Y) so the Pi's -Y mount-boss pair at
+# tray-local y = -66.5 still lands on tray plastic with ~ 1 mm of
+# radial wall around each boss.  The tray's chassis-frame Y centre
+# was shifted from 0 -> -2.5 in lockstep so the tray's +Y edge stays
+# at chassis y = +65 (the Mega + BEC cradle + PCA9685 layout on the
+# +Y half doesn't move in chassis frame); only the -Y edge extends
+# from -65 to -67.5 in chassis frame.  See ELEC_TRAY_CENTRE_Y +
+# PI_CENTRE comments below for the cantilever rationale.
+ELEC_TRAY_D = 135.0  # mm -- Y dimension (spans tray-local +/- 67.5 mm)
 ELEC_TRAY_T =   3.0  # mm -- thickness (unchanged from the original tray)
 
 ELEC_STANDOFF_H       = 5.0   # mm -- printed boss height above the tray top
@@ -1439,7 +1448,11 @@ MEGA_HOLES = tuple(
 # -X-most chassis-mount hole at -63.51 mm (well inboard of the
 # tray edge), so the shift doesn't cantilever any board feature
 # past the printed plate.
-MEGA_CENTRE = (-28.0, +28.0)
+#
+# May 2026 "Pi cantilever" pass: tray-local Y bumped from +28 -> +30.5
+# to compensate for the tray's chassis-frame Y centre shift (0 ->
+# -2.5).  The Mega's chassis-frame position (-28, +28) is UNCHANGED.
+MEGA_CENTRE = (-28.0, +30.5)
 
 # Raspberry Pi 4 / Pi 5 mounting holes.  Pi PCB is 85 x 56 mm with
 # 4 x M2.5 holes on a 58 x 49 mm rectangle (asymmetric -- the long-
@@ -1459,13 +1472,37 @@ _PI_HOLES_BOARD_CENTRE = tuple(
     for bx, by in _PI_HOLES_BOARD_FRAME
 )
 # Pi long axis stays along tray +X so the USB-A + Ethernet bank (on
-# the long edge) faces tray -Y / chassis -Y, where the user can
-# plug cables in from outside the chassis past chassis_top apothem
-# in the -Y direction.
+# the -Y long edge) faces chassis -Y, where the user can plug cables
+# in from outside the chassis past the chassis_top -Y apothem at
+# y = -70.  The USB-C + HDMI bank (on the -X short edge) faces
+# chassis -X so HDMI/USB-C cables exit in a separate corridor from
+# the +X PCA9685 servo header bank.
 PI_HOLES = _PI_HOLES_BOARD_CENTRE
 # Pi centre in tray-local coords.  -X -Y quadrant so the Pi's
 # connector bank sits opposite the Mega's USB-B + barrel jack.
-PI_CENTRE = (-20.0, -33.0)
+#
+# May 2026 "Pi cantilever" pass: Y moved from -33 -> -42 (in tray-
+# local frame, with the tray centre also shifted from chassis y = 0
+# to chassis y = -2.5) so the Pi cantilevers south past the
+# chassis_top -Y apothem.  Pi PCB -Y edge in chassis frame =
+# ELEC_TRAY_CENTRE_Y + PI_CENTRE_Y - PI_PCB_D/2 = -2.5 + (-42) - 28
+# = -72.5 mm -- 2.5 mm PAST chassis_top's -Y apothem at -70.  The
+# entire USB-A/Ethernet connector bank (which is on the Pi's -Y
+# long edge, 16 mm of body sticking off the edge -- chassis y range
+# = -72.5 .. -88.5) is OUTSIDE the chassis_top hexagon silhouette
+# in plan view, so the 17 mm-tall USB-A stacks + 14 mm-tall Ethernet
+# RJ45 tops (which reach into the chassis_top z-band at z in
+# [34, 38]) are in free air with no chassis_top above them.  Pre-
+# cantilever (PI_CENTRE_Y = -33, tray-centre at 0) the PCB -Y edge
+# was at chassis y = -61, inside the chassis_top hexagon, and the
+# Ethernet jack body punched THROUGH chassis_top.
+#
+# Pi -Y mount holes at PI_CENTRE_Y + PI_HOLES y = -42 + (-24.5) =
+# -66.5 in tray-local; with the tray's -Y edge at tray-local
+# y = -ELEC_TRAY_D/2 = -67.5, the boss has ~ 1 mm of plastic wall
+# around its -Y side.  Pi +Y mount holes at -42 + 24.5 = -17.5 sit
+# well inboard of the tray's +Y edge.
+PI_CENTRE = (-20.0, -42.0)
 
 # Adafruit PCA9685 PWM driver -- 62 x 25 mm PCB with 4 x M3 holes
 # on a 54 x 16 mm rectangle centred on the board.  Long axis = 62.
@@ -1491,7 +1528,11 @@ PCA_HOLES = tuple((by, -bx) for (bx, by) in PCA_HOLES_BOARD_CENTRE)
 # +76.5 mm (3.5 mm inside the tray's +X edge at +80).  +X-most
 # mount-boss outer face at +71.5 + CRADLE_BOSS_OD/2 = +75.5 mm,
 # 4.5 mm inside the tray's +X edge.
-PCA_CENTRE = (+64.0, +20.0)
+#
+# May 2026 "Pi cantilever" pass: tray-local Y bumped from +20 ->
+# +22.5 to compensate for the tray's chassis-frame Y centre shift
+# (0 -> -2.5).  PCA1's chassis-frame position (+64, +20) unchanged.
+PCA_CENTRE = (+64.0, +22.5)
 # Secondary PCA9685 (I2C 0x41) centre in tray-local coords.  May
 # 2026 "essentials" pass: previously this PCA9685 was on the BOM
 # but was just cable-tied to the chassis_top deck with no printed
@@ -1503,7 +1544,12 @@ PCA_CENTRE = (+64.0, +20.0)
 # the -Y leg cable routing direction; PCA1's headers do the same
 # in +Y.  Together the two boards drive all 18 servos (9 per
 # board) without any header crossing the tray midline.
-PCA2_CENTRE = (+64.0, -20.0)
+#
+# May 2026 "Pi cantilever" pass: tray-local Y bumped from -20 ->
+# -17.5 (+2.5) to compensate for the tray's chassis-frame Y centre
+# shift (0 -> -2.5).  PCA2's chassis-frame position (+64, -20)
+# unchanged.
+PCA2_CENTRE = (+64.0, -17.5)
 
 # 35-mm-radius / 45-deg-square chassis-mount hole pattern (matches
 # ``_hex_plate(with_centre_holes=True)`` on chassis_top + chassis_
@@ -1524,8 +1570,26 @@ ELEC_CHASSIS_MOUNT_HOLES_XY = tuple(
 # The old +35 mm offset had the tray's bolt holes mapping to
 # (+10.25, +/-24.75) and (+59.75, +/-24.75) instead -- a longstanding
 # bug masked because the assembly preview is purely visual.
+#
+# May 2026 "Pi cantilever" pass: the Y centre shifted from 0 -> -2.5
+# (paired with the asymmetric +5 mm -Y growth of ELEC_TRAY_D) so the
+# Pi can cantilever 2.5 mm past the chassis_top -Y apothem at chassis
+# y = -70.  The Pi sits at PI_CENTRE = (-20, -42) in tray-local coords,
+# so its PCB -Y edge is at chassis y = -2.5 + (-42) - 28 = -72.5 --
+# the entire USB-A/Ethernet connector bank sits OUTSIDE the chassis_
+# top hexagon silhouette in plan view, so the 17 mm-tall USB-A stacks
+# and 14 mm-tall Ethernet jack tops are in free air with no chassis_
+# top above them to collide with.  Mega + PCA + BEC cradle tray-local
+# Y centres bumped by +2.5 to keep their chassis-frame Y unchanged
+# (the only board that actually moves in chassis frame is the Pi --
+# everything else stays put; the 2.5 mm tray-local shift just keeps
+# the chassis-frame positions invariant against the tray centre move).
+# The chassis-mount holes in ``make_electronics_tray`` subtract
+# ELEC_TRAY_CENTRE_* from the chassis-frame ELEC_CHASSIS_MOUNT_HOLES_XY
+# positions so they STILL land on the 35-mm-radius chassis pattern
+# after the tray is translated.
 ELEC_TRAY_CENTRE_X = 0.0
-ELEC_TRAY_CENTRE_Y = 0.0
+ELEC_TRAY_CENTRE_Y = -2.5
 
 
 # ---- BEC cradle ----------------------------------------------------------
@@ -1587,11 +1651,15 @@ BEC_CRADLE_INTERFERENCE = 0.4  # mm -- 2 BECs share this much overlap so
 # and PCA1's -X edge (at +51.5 mm = PCA_CENTRE_X - PCA_PCB_D/2).  The
 # corridor is 28.75 mm wide; the cradle's outer X extent is
 # BEC_BODY_L + 2 * BEC_CRADLE_WALL = 27 mm so there's ~ 0.9 mm of
-# clearance on each side.  Y position is +20 so the cradle's
-# pigtail exits land within easy cable-routing distance of the
-# nearest PCA9685's V+ / GND rail (PCA1's -X servo header row at
-# tray (+51.5, +47 .. +51.5, -7)).
-BEC_CRADLE_CENTRE     = (+37.0, +20.0)
+# clearance on each side.  Chassis-frame Y position is +20 so the
+# cradle's pigtail exits land within easy cable-routing distance of
+# the nearest PCA9685's V+ / GND rail (PCA1's -X servo header row).
+#
+# May 2026 "Pi cantilever" pass: tray-local Y bumped from +20 ->
+# +22.5 (+2.5) to compensate for the tray's chassis-frame Y centre
+# shift (0 -> -2.5).  Cradle's chassis-frame position (+37, +20)
+# unchanged.
+BEC_CRADLE_CENTRE     = (+37.0, +22.5)
 
 
 # ---- Anti-spark switch holster -------------------------------------------
@@ -3071,8 +3139,20 @@ def make_electronics_tray() -> trimesh.Trimesh:
     # tray-local z = 0).  Boards on the 5 mm standoffs above the
     # tray then have an unobstructed 5 mm of clear air above the
     # tray face -- no PCB-vs-bolt-head conflict.
+    #
+    # ELEC_CHASSIS_MOUNT_HOLES_XY is the CHASSIS-frame pattern (35 mm
+    # radius / 45 deg square = (+/-24.75, +/-24.75)).  We subtract
+    # (ELEC_TRAY_CENTRE_X, ELEC_TRAY_CENTRE_Y) so the holes' tray-
+    # local positions still map onto the chassis pattern after the
+    # tray is translated.  Pre-May-2026 the tray centre was (0, 0)
+    # and chassis-frame == tray-local; the May 2026 "Pi cantilever"
+    # pass shifted the tray centre to (0, -2.5) -- without this
+    # subtraction the tray bolts would no longer line up with
+    # chassis_top + chassis_bottom's centre hole pattern.
     mount_holes: list[trimesh.Trimesh] = []
-    for (mx, my) in ELEC_CHASSIS_MOUNT_HOLES_XY:
+    for (mx_chassis, my_chassis) in ELEC_CHASSIS_MOUNT_HOLES_XY:
+        mx = mx_chassis - ELEC_TRAY_CENTRE_X
+        my = my_chassis - ELEC_TRAY_CENTRE_Y
         through = _cyl(BRACKET_BOLT_HOLE / 2.0, ELEC_TRAY_T * 4.0)
         through.apply_translation([mx, my, ELEC_TRAY_T / 2.0])
         mount_holes.append(through)
@@ -3460,17 +3540,35 @@ def make_raspberry_pi_visual() -> trimesh.Trimesh:
     """Visual mesh for the Raspberry Pi 4 / Pi 5 SBC (NOT FOR PRINTING).
 
     Models the bare PCB (PI_PCB_W x PI_PCB_D x COMMODITY_PCB_T) plus
-    the two perpendicular connector edges the user wires into:
+    the two perpendicular connector edges the user wires into.  Real
+    Pi 4 / Pi 5 layout per the published mechanical drawings:
 
-      * One LONG edge (chassis +Y after placement):
-          - 2 x micro-HDMI (~ 8 x 4 x 12 mm)
-          - 1 x USB-C  (~ 12 x 7 x 8 mm)
-      * Adjacent SHORT edge (chassis +X after placement):
-          - 2 x USB-A (~ 16 x 8 x 20 mm)
-          - 1 x Ethernet (~ 16 x 14 x 25 mm)
+      * -Y LONG edge (chassis -Y after placement; cables exit -Y
+        past chassis_top's -Y apothem):
+          - USB-A 3.0 PAIR (blue, 2 stacked) ~ 16 x 16 x 17 mm
+          - USB-A 2.0 PAIR (black, 2 stacked) ~ 16 x 16 x 17 mm
+          - Ethernet RJ45                     ~ 16 x 16 x 14 mm
+      * -X SHORT edge (chassis -X after placement; cables exit -X
+        in a separate corridor from the +X PCA9685 servo header
+        bank):
+          - USB-C power           ~ 8 x 12 x 8 mm
+          - 2 x micro-HDMI        ~ 8 x 8 x 12 mm each
+          - (3.5 mm audio jack omitted -- not used in this robot)
+      * +Y LONG edge: 40-pin GPIO header (no jumper cables modelled).
+      * +X SHORT edge: micro-SD slot (user reaches in to swap; no
+        plug, no keepout needed -- the card sits low on the PCB).
 
     Mesh frame: origin = PCB midplane.  +X = long axis (PI_PCB_W,
     chassis +X after placement).  +Y = short axis.  +Z = up.
+
+    Pre-May-2026 the visual mesh had USB-C/HDMI on the +Y LONG edge
+    and USB-A/Ethernet on the +X SHORT edge -- physically impossible
+    for the real Pi (USB-A x2 + Ethernet would overflow the 56 mm
+    short edge).  The May 2026 "Pi cantilever" pass corrected the
+    bank-to-edge assignment AND fixed the Ethernet RJ45 jack
+    out-of-plane height from 25 mm to 14 mm (the 25 mm figure
+    confused the in-plane plug depth with the actual ~ 13.5 mm-tall
+    metal jack body + ~ 1-2 mm metal EMI shield on top).
     """
     pcb = _box((PI_PCB_W, PI_PCB_D, COMMODITY_PCB_T),
                center=(0.0, 0.0, 0.0))
@@ -3479,37 +3577,53 @@ def make_raspberry_pi_visual() -> trimesh.Trimesh:
     half_x = PI_PCB_W / 2.0
     half_y = PI_PCB_D / 2.0
 
+    # USB-C power on -X SHORT edge.  Body sticks 8 mm in -X off the
+    # PCB edge; centre at PCB-local y = +half_y - 11 mm (11 mm from
+    # the +Y corner along the short axis, matching real Pi 4 USB-C
+    # position).
     usb_c_h = 8.0
-    usb_c = _box((12.0, 7.0, usb_c_h),
-                 center=(-half_x + 15.0,
-                          half_y + 3.5,
+    usb_c = _box((8.0, 12.0, usb_c_h),
+                 center=(-half_x - 4.0,
+                          half_y - 11.0,
                           pcb_top_z + usb_c_h / 2.0))
+
+    # Micro-HDMI 0 and 1 on -X SHORT edge.  Same body-depth-in-X
+    # convention as USB-C.
     hdmi_h = 12.0
-    hdmi_a = _box((8.0, 4.0, hdmi_h),
-                   center=(-half_x + 35.0,
-                            half_y + 2.0,
+    hdmi_a = _box((8.0, 8.0, hdmi_h),
+                   center=(-half_x - 4.0,
+                            half_y - 15.0,
                             pcb_top_z + hdmi_h / 2.0))
-    hdmi_b = _box((8.0, 4.0, hdmi_h),
-                   center=(-half_x + 50.0,
-                            half_y + 2.0,
+    hdmi_b = _box((8.0, 8.0, hdmi_h),
+                   center=(-half_x - 4.0,
+                            0.0,
                             pcb_top_z + hdmi_h / 2.0))
 
-    usb_a_h = 20.0
-    usb_a1 = _box((16.0, 8.0, usb_a_h),
-                   center=(half_x + 8.0,
-                            -half_y + 25.0,
-                            pcb_top_z + usb_a_h / 2.0))
-    usb_a2 = _box((16.0, 8.0, usb_a_h),
-                   center=(half_x + 8.0,
-                            -half_y + 8.0,
-                            pcb_top_z + usb_a_h / 2.0))
-    eth_h = 25.0
-    eth = _box((16.0, 14.0, eth_h),
-                center=(half_x + 8.0,
-                         -half_y + 45.0,
+    # USB-A pairs (16 x 16 x 17, 2 receptacles stacked vertically)
+    # on the -Y LONG edge.  Body sticks 16 mm in -Y off the PCB
+    # edge.  Positions matching real Pi 4 mech drawing: USB 3.0
+    # PAIR (blue) at PCB-local x = -3.5 mm, USB 2.0 PAIR (black) at
+    # PCB-local x = +13.5 mm.
+    usb_a_h = 17.0
+    usb_a_3 = _box((16.0, 16.0, usb_a_h),
+                    center=(-3.5,
+                             -half_y - 8.0,
+                             pcb_top_z + usb_a_h / 2.0))
+    usb_a_2 = _box((16.0, 16.0, usb_a_h),
+                    center=(+13.5,
+                             -half_y - 8.0,
+                             pcb_top_z + usb_a_h / 2.0))
+
+    # Ethernet RJ45 on -Y LONG edge at PCB-local x = +30 mm.  Body
+    # depth 16 mm in -Y; height in Z = 14 mm (~ 13.5 mm jack body
+    # + ~ 1-2 mm metal EMI shield, rounded up to 14).
+    eth_h = 14.0
+    eth = _box((16.0, 16.0, eth_h),
+                center=(+30.0,
+                         -half_y - 8.0,
                          pcb_top_z + eth_h / 2.0))
 
-    return _union(pcb, usb_c, hdmi_a, hdmi_b, usb_a1, usb_a2, eth)
+    return _union(pcb, usb_c, hdmi_a, hdmi_b, usb_a_3, usb_a_2, eth)
 
 
 def make_pca9685_visual() -> trimesh.Trimesh:
