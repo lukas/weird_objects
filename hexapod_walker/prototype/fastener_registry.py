@@ -1711,7 +1711,16 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         out.extend(_emit_spline_fastener(leg_index, "knee"))
 
         # Coxa-bracket -> chassis bolts (M3 x 32 SHCS + nyloc nuts).
-        out.extend(_emit_chassis_bolts(leg_index))
+        # Retired in commit 5/8 of the May 2026 chassis-bottom-
+        # integrated yaw-cradle redesign.  The bracket part itself is
+        # still placed in the assembly (it dies in commit 8) but the
+        # 24 chassis bolts + 24 nyloc nuts that used to clamp its
+        # flange to chassis_bottom are gone -- the yaw cradle's
+        # heat-set bosses + cradle bolts now carry the load.  The
+        # ``_emit_chassis_bolts`` helper is intentionally kept alive
+        # (uncalled) so a partial revert can re-enable the pattern;
+        # commit 8 deletes both the helper and the bracket part.
+        # (No-op: 48 fastener instances dropped relative to commit 4.)
 
         # Foot hinge pin (M3 x 16 pan-head + nyloc nut).
         out.extend(_emit_foot_hinge_fastener(leg_index))

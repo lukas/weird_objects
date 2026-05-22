@@ -3525,12 +3525,24 @@ def _hex_plate(flat_to_flat: float, thickness: float,
     holes = []
     if with_leg_features:
         for i, edge_mid, R, R3 in _leg_chassis_frames():
-            for bx in (bolt_x_outboard, bolt_x_inboard):
-                for by in bolt_ys:
-                    world = edge_mid + R3 @ np.array([bx, by, 0.0])
-                    h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
-                    h.apply_translation([world[0], world[1], 0])
-                    holes.append(h)
+            # ---- Coxa-bracket -> chassis bolt holes (Phi 3.4 mm) ----
+            # Commit 5 of the May 2026 chassis-bottom-integrated yaw-
+            # cradle redesign retired the 4-bolt-per-leg bracket-to-
+            # chassis pattern.  The yaw cradle no longer drops into
+            # the bracket flange + nyloc-nut sandwich; the cradle's
+            # heat-set inserts + cradle bolts (see
+            # ``_chassis_yaw_cradle_solid``) now do all the structural
+            # work.  The 4-bolt drill loop is intentionally GONE;
+            # ``bolt_x_outboard / inboard / bolt_ys`` above are still
+            # computed (cheap) so commit 8 can delete BRACKET_BOLT_PCD_X
+            # / PCD_Y / FLANGE_INSET / BOLT_HOLE alongside the rest of
+            # the BRACKET_* constants in one sweep.  Until commit 8 the
+            # bracket itself is still PLACED on the chassis edge -- its
+            # well hangs through the ``cutout`` carved below -- but no
+            # fastener clamps the flange to chassis_bottom, so the
+            # bracket is held by visual overlap only during commits 5-7.
+            # This is fine: commits 6-7 only touch the verifier +
+            # scripts; commit 8 removes the bracket entirely.
 
             cutout = _box((body_cutout_w, body_cutout_d, thickness * 4))
             cutout.apply_transform(R)
