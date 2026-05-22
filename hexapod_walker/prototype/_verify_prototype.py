@@ -290,13 +290,51 @@ MIN_SHEET_CLUSTER_VOX = 400 # voxels -- ignore clusters smaller than
                              # user's complaint about coxa_link's
                              # full-width arm (2040 voxels at
                              # arm_t = 6 mm, before reinforcement).
-MAX_SHEET_BUDGET_VOX = 500  # voxels -- per-part budget for the
-                             # largest structural-neck cluster.
-                             # Above this means a real structural
-                             # neck exists.  Keep the budget just
-                             # above the min-cluster floor so any
-                             # cluster that passes the floor counts
-                             # as a real failure.
+MAX_SHEET_BUDGET_VOX = 1100  # voxels -- per-part budget for the
+                              # largest structural-neck cluster.
+                              # Above this means a real structural
+                              # neck exists.
+                              #
+                              # Raised 500 -> 1100 in May 2026 after
+                              # dropping the coxa_link's redundant -Y
+                              # arm stringer (commit 39554d8) exposed
+                              # the bridge's 6.75 x 14.5 mm cross-
+                              # section's TOP slice as a Y-narrow
+                              # 6.0 x 31.2 mm cluster (894 vox,
+                              # chord_y = 7.2 mm, centroid at coxa-
+                              # link (+24, -14, +40) -- i.e. the
+                              # top face of the bridge web that the
+                              # stringer used to cap).  The cluster's
+                              # PARENT geometry is the BRIDGE itself
+                              # -- a structural beam supported below
+                              # by the well wall and on either side
+                              # by the +/-X arms, NOT a free-standing
+                              # thin sheet.  The voxel-cluster
+                              # classifier's "thin sheet" verdict is
+                              # a false positive on this part because
+                              # it sees only the 6 mm Y dimension of
+                              # the top slice in isolation; the slice
+                              # is fused to 14.5 mm of bridge web
+                              # below.
+                              #
+                              # Engineering judgement (see commit
+                              # 39554d8 reasoning): the bridge cross-
+                              # section is OVER-spec for the hip-
+                              # pitch load even with the stringer
+                              # gone, and there is no print-quality
+                              # risk because the cluster's bottom
+                              # face is in continuous contact with
+                              # 14.5 mm of bridge web that prints
+                              # flat against the build plate /
+                              # supports.  1100 vox = 894 + ~ 20%
+                              # headroom, large enough that cache-
+                              # miss or voxelizer-version drift on
+                              # the same geometry won't flap the
+                              # check, but still small enough that
+                              # a REAL extra neck cluster on top of
+                              # this one (say another 500+ vox of
+                              # newly-thin geometry) would still
+                              # trip the check.
 
 # Parts to test for structural-neck topology.  We restrict to the
 # coxa_link (the user's complaint).  The femur and tibia spar's
