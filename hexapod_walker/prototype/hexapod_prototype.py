@@ -1226,6 +1226,48 @@ PLASTIC_HORN_X_TIP_R = 18.0
 # horn-adapter disc has been removed.  The link's pad bolts directly
 # to the plastic X-horn's top face.
 HORN_STACK_H        = PLASTIC_HORN_H
+
+
+
+# ---- Yaw-axis output Z (chassis frame, May 2026 chassis_bottom cradle) ---
+# World-z (pre-lift) of the yaw X-horn's TOP mating face, where the
+# coxa_link's pedestal-bottom mating plane sits.  This is THE most-
+# duplicated coordinate in the codebase -- the same formula recurs in
+# ``build_prototype_assembly``, ``fastener_registry`` (yaw / hip /
+# knee cradle transforms), ``_verify_prototype`` (5 separate places),
+# ``inspect_build``, ``render_leg_assembly``, and ``arm/integrate``.
+# Centralising it here keeps the May 2026 chassis-bottom-integrated
+# yaw-cradle redesign (which lifted yaw_output_z by +8 mm from the
+# legacy bracket layout) confined to a single constant edit.
+#
+# Z stack (chassis-z = 0 = chassis_bottom CENTRE; world-z post-lift
+# is chassis-z + chassis_lift):
+#
+#   chassis_bottom top         z = CHASSIS_PLATE_T/2          = +2
+#   cradle tab shelf           z = CHASSIS_PLATE_T/2
+#                                    + CRADLE_TAB_SHELF_Z      = +8
+#   servo body bottom          z = shelf - WELL_RIM_Z          = -19.25
+#                                  (= +8 - +27.25)
+#   servo body top             z = body_bottom + SERVO_BODY_H  = +18.75
+#   output-gear top            z = body_top + SERVO_OUTPUT_H   = +24.75
+#   X-horn top (yaw_output)    z = gear_top + HORN_STACK_H     = +29.75
+#
+# Legacy formula (bracket-based, pre-May-2026):
+#   yaw_output_z_legacy = (SERVO_BODY_H - WELL_RIM_Z)
+#                          + SERVO_OUTPUT_H + HORN_STACK_H = +21.75
+# New formula simply adds the cradle-shelf offset
+# (CHASSIS_PLATE_T/2 + CRADLE_TAB_SHELF_Z = +8) on top of the legacy
+# stack: the servo's mounting tabs no longer rest at chassis-z = 0
+# (= chassis_bottom CENTRE, the legacy bracket-flange reference
+# plane) but on the new cradle shelf at chassis-z = +8 (= +6 mm above
+# chassis_bottom TOP).
+CHASSIS_YAW_OUTPUT_Z = (
+    CHASSIS_PLATE_T / 2.0
+    + CRADLE_TAB_SHELF_Z
+    + (SERVO_BODY_H - WELL_RIM_Z)
+    + SERVO_OUTPUT_H
+    + HORN_STACK_H
+)
 # Bolt circle for the plastic horn's 4-arm X-shaped output disc.  20.8 mm
 # is the PCD of the SECOND hole position out from the spline on each arm
 # of a standard DS3225 / MG996R / DS3218 plastic horn.  The bolt angles

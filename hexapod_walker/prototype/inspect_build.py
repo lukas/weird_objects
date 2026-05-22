@@ -351,11 +351,7 @@ def _build_assembly_instances() -> list[Instance]:
         _trans(xt60_x, 0.0, lipo_z),
     ))
 
-    yaw_output_z = (
-        (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-        + HP.SERVO_OUTPUT_H
-        + PLASTIC_HORN_H   # = HP.HORN_STACK_H (5 mm); see PLASTIC_HORN_H above
-    )
+    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z   # = +29.75 mm; X-horn top
     p_femur = np.deg2rad(HP.STANCE_FEMUR_DEG)
     pt = np.deg2rad(HP.STANCE_FEMUR_DEG + HP.STANCE_TIBIA_DEG)
     hip_drop = HP.COXA_HIP_DROP

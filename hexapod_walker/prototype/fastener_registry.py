@@ -421,15 +421,33 @@ def _wall_corner_label(sx: int, sy: int) -> str:
 
 def _yaw_cradle_T(leg_index: int) -> np.ndarray:
     """World 4x4 transform that maps the yaw cradle's well-local frame
-    into the chassis frame (pre-lift)."""
+    into the chassis frame (pre-lift).
+
+    May 2026 migration: the yaw cradle moved from the standalone
+    ``coxa_bracket`` (well rim at chassis-z = 0, body bottom at
+    chassis-z = -WELL_RIM_Z = -27.25) to an integrated cradle inside
+    ``chassis_bottom`` (tab shelf at chassis-z = +CHASSIS_PLATE_T/2
+    + CRADLE_TAB_SHELF_Z = +8, body bottom at chassis-z = +8 -
+    WELL_RIM_Z = -19.25).  The transform's Z shift is now
+    ``_CRADLE_SHELF_CHASSIS_Z - WELL_RIM_Z`` so a point at well-local
+    z = WELL_RIM_Z (the well's natural rim) lands at chassis-z =
+    _CRADLE_SHELF_CHASSIS_Z = +8 (the new cradle's tab shelf).  The
+    chassis_bottom cradle's rim is NOT eaten by a drop-in flange like
+    the bracket's was; ``shelf_top_z`` at the call site drops the
+    ``_BRACKET_SHELF_DROP_MM`` term accordingly.
+    """
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
-    # In make_coxa_bracket: well_dz = -WELL_RIM_Z, and the well is
-    # translated by (-SERVO_OUTPUT_X, 0, well_dz) in bracket-local
-    # coords; the bracket itself sits with its origin at edge_mid
-    # rotated by ``a`` about Z.
-    T = _T(*edge_mid) @ _Rz(a) @ _T(-HP.SERVO_OUTPUT_X, 0.0, -HP.WELL_RIM_Z)
+    cradle_shelf_chassis_z = (
+        HP.CHASSIS_PLATE_T / 2.0 + HP.CRADLE_TAB_SHELF_Z
+    )  # = +8 mm; chassis-z of the chassis_bottom cradle's tab shelf.
+    well_to_chassis_dz = cradle_shelf_chassis_z - HP.WELL_RIM_Z  # = -19.25 mm
+    T = (
+        _T(*edge_mid)
+        @ _Rz(a)
+        @ _T(-HP.SERVO_OUTPUT_X, 0.0, well_to_chassis_dz)
+    )
     return T
 
 
@@ -438,11 +456,7 @@ def _hip_cradle_T(leg_index: int) -> np.ndarray:
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
-    yaw_output_z = (
-        (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-        + HP.SERVO_OUTPUT_H
-        + HP.HORN_STACK_H
-    )
+    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z
     # The well's transformation INSIDE make_coxa_link:
     #   rotation: R = rotation_matrix(-pi/2, [1, 0, 0])  (well +Z -> link +Y)
     #   translation: delta = (COXA_LENGTH - SERVO_OUTPUT_X,
@@ -473,11 +487,7 @@ def _knee_cradle_T(leg_index: int) -> np.ndarray:
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
-    yaw_output_z = (
-        (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-        + HP.SERVO_OUTPUT_H
-        + HP.HORN_STACK_H
-    )
+    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z
     hip_drop = HP.COXA_HIP_DROP
     p = np.deg2rad(HP.STANCE_FEMUR_DEG)
     # The knee well lives in the FEMUR's local frame, translated by
@@ -694,11 +704,7 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
-    yaw_output_z = (
-        (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-        + HP.SERVO_OUTPUT_H
-        + HP.HORN_STACK_H
-    )
+    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z
     # Link-local z = 0 IS the cap's bottom mating face with the
     # X-horn; the link's transform places that face at world z =
     # yaw_output_z, which is exactly the X-horn's top face per
@@ -778,11 +784,7 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
-    yaw_output_z = (
-        (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-        + HP.SERVO_OUTPUT_H
-        + HP.HORN_STACK_H
-    )
+    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z
     hip_drop = HP.COXA_HIP_DROP
     p = np.deg2rad(HP.STANCE_FEMUR_DEG)
     # Counter-bore FLOOR (head bearing face) sits COUNTERBORE_DEPTH
@@ -831,11 +833,7 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
-    yaw_output_z = (
-        (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-        + HP.SERVO_OUTPUT_H
-        + HP.HORN_STACK_H
-    )
+    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z
     hip_drop = HP.COXA_HIP_DROP
     p = np.deg2rad(HP.STANCE_FEMUR_DEG)
     pt = np.deg2rad(HP.STANCE_FEMUR_DEG + HP.STANCE_TIBIA_DEG)
@@ -907,11 +905,7 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
         T = _T(*edge_mid) @ _Rz(a) @ _T(-HP.SERVO_OUTPUT_X, 0.0, -HP.WELL_RIM_Z)
         role = f"yaw servo spline screw L{leg_index}"
     elif joint == "hip":
-        yaw_output_z = (
-            (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-            + HP.SERVO_OUTPUT_H
-            + HP.HORN_STACK_H
-        )
+        yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z
         hip_drop = HP.COXA_HIP_DROP
         delta = np.array([
             HP.COXA_LENGTH - HP.SERVO_OUTPUT_X,
@@ -929,11 +923,7 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
         )
         role = f"hip servo spline screw L{leg_index}"
     elif joint == "knee":
-        yaw_output_z = (
-            (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-            + HP.SERVO_OUTPUT_H
-            + HP.HORN_STACK_H
-        )
+        yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z
         hip_drop = HP.COXA_HIP_DROP
         p = np.deg2rad(HP.STANCE_FEMUR_DEG)
         delta_knee = np.array([
@@ -1088,11 +1078,7 @@ def _emit_foot_hinge_fastener(leg_index: int) -> list[FastenerInstance]:
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
-    yaw_output_z = (
-        (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-        + HP.SERVO_OUTPUT_H
-        + HP.HORN_STACK_H
-    )
+    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z
     hip_drop = HP.COXA_HIP_DROP
     p = np.deg2rad(HP.STANCE_FEMUR_DEG)
     pt = np.deg2rad(HP.STANCE_FEMUR_DEG + HP.STANCE_TIBIA_DEG)
@@ -1678,24 +1664,28 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     out: list[FastenerInstance] = []
     for leg_index in range(6):
         # Yaw cradle bolts (Design E, May 2026 mixed-mode: heat-set on
-        # -X, self-tap on +X).  The yaw cradle migrated from the
-        # standalone ``coxa_bracket`` part to an integrated cradle
-        # inside ``chassis_bottom`` (May 2026 redesign); during the
-        # transition commits the cradle bolt INSTANCES stay at the
-        # bracket's eaten-shelf position so this registry remains
-        # consistent with the assembly's bracket placement.  Commit 4
-        # of the transition switches both the assembly and the
-        # registry transform to the chassis_bottom cradle's shelf
-        # (which sits at cradle-z = CRADLE_TAB_SHELF_Z = +6, NOT
-        # eaten by a flange-top trim like the bracket's well rim).
+        # -X, self-tap on +X).  Commit 4 of the May 2026 migration
+        # flipped both the assembly's yaw-servo placement and this
+        # registry's ``_yaw_cradle_T`` transform from the standalone
+        # ``coxa_bracket`` to the integrated cradle inside
+        # ``chassis_bottom``.  The integrated cradle's shelf is at
+        # ``WELL_RIM_Z`` in well-local (NOT
+        # ``WELL_RIM_Z - _BRACKET_SHELF_DROP_MM`` -- the bracket's
+        # drop-in flange used to eat 3 mm off the well rim; the
+        # chassis_bottom cradle has no such drop, the full rim is
+        # available for the servo tabs to seat on).  In chassis-z
+        # the new shelf is at +CHASSIS_PLATE_T/2 + CRADLE_TAB_SHELF_Z
+        # = +8 (legacy bracket shelf was at chassis-z = -3); the
+        # cradle bolt heads correspondingly rise by 11 mm.
         # The ``coxa_link`` and ``femur_link`` cradles keep
-        # ``WELL_RIM_Z`` intact (no drop).
+        # ``WELL_RIM_Z`` intact (no drop) -- their wells are not
+        # eaten by drop-in slots either.
         out.extend(_emit_cradle_fasteners(
             T_well_to_world=_yaw_cradle_T(leg_index),
             leg_index=leg_index,
             joint="yaw",
             location=f"chassis_bottom L{leg_index} yaw cradle",
-            shelf_top_z=HP.WELL_RIM_Z - _BRACKET_SHELF_DROP_MM,
+            shelf_top_z=HP.WELL_RIM_Z,
         ))
         out.extend(_emit_cradle_fasteners(
             T_well_to_world=_hip_cradle_T(leg_index),

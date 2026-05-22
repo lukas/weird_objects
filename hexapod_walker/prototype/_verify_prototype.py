@@ -1181,9 +1181,7 @@ def _build_standing_leg():
     # down to
     #   HORN_STACK_H = PLASTIC_HORN_H = 5 mm
     # now that the printed servo_horn_adapter has been retired.
-    yaw_output_z = ((hp.SERVO_BODY_H - hp.WELL_RIM_Z)
-                     + hp.SERVO_OUTPUT_H
-                     + hp.HORN_STACK_H)
+    yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
 
@@ -1311,9 +1309,7 @@ def _place_servo_bodies():
     # down to
     #   HORN_STACK_H = PLASTIC_HORN_H = 5 mm
     # now that the printed servo_horn_adapter has been retired.
-    yaw_output_z = ((hp.SERVO_BODY_H - hp.WELL_RIM_Z)
-                     + hp.SERVO_OUTPUT_H
-                     + hp.HORN_STACK_H)
+    yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     yaw_output_world = edge_mid + yaw_output_z * z_hat
 
     hip_drop = hp.COXA_HIP_DROP
@@ -2687,9 +2683,7 @@ def _build_workspace_leg(yaw_deg, femur_pitch_deg, knee_pitch_deg,
     # Design B (May 2026): yaw output stack collapsed to HORN_STACK_H
     # = PLASTIC_HORN_H = 5 mm now that the printed servo_horn_adapter
     # has been retired.
-    yaw_output_z = ((hp.SERVO_BODY_H - hp.WELL_RIM_Z)
-                     + hp.SERVO_OUTPUT_H
-                     + hp.HORN_STACK_H)
+    yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
 
@@ -3847,9 +3841,7 @@ def _build_world_leg0_printed_parts() -> dict:
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
     z_hat = np.array([0.0, 0.0, 1.0])
 
-    yaw_output_z = ((hp.SERVO_BODY_H - hp.WELL_RIM_Z)
-                     + hp.SERVO_OUTPUT_H
-                     + hp.HORN_STACK_H)
+    yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
 
@@ -4387,7 +4379,11 @@ def _servo_body_world_transform(joint: str, leg_index: int):
     import fastener_registry as _fr  # noqa: WPS433
     if joint == "yaw":
         T_well = _fr._yaw_cradle_T(leg_index)
-        shelf_top_z = hp.WELL_RIM_Z - _fr._BRACKET_SHELF_DROP_MM
+        # Yaw cradle migrated from coxa_bracket (eaten rim) to the
+        # chassis_bottom integrated cradle (full rim).  Shelf_top_z
+        # = WELL_RIM_Z (no _BRACKET_SHELF_DROP_MM subtraction).  See
+        # _yaw_cradle_T's docstring for the May 2026 migration.
+        shelf_top_z = hp.WELL_RIM_Z
     elif joint == "hip":
         T_well = _fr._hip_cradle_T(leg_index)
         shelf_top_z = hp.WELL_RIM_Z
@@ -4836,8 +4832,7 @@ def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
     Rz_a = rotation_matrix(a, [0, 0, 1])[:3, :3]
     z_hat = np.array([0.0, 0.0, 1.0])
 
-    yaw_output_z = ((hp.SERVO_BODY_H - hp.WELL_RIM_Z)
-                     + hp.SERVO_OUTPUT_H + hp.HORN_STACK_H)
+    yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     hip_drop = hp.COXA_HIP_DROP
     p = np.deg2rad(hp.STANCE_FEMUR_DEG)
     pt = np.deg2rad(hp.STANCE_FEMUR_DEG + hp.STANCE_TIBIA_DEG)

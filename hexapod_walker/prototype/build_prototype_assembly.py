@@ -174,22 +174,49 @@ def _build_leg(leg_index: int):
     R_a = rotation_matrix(a, [0, 0, 1])
     R_a_3 = R_a[:3, :3]
 
-    # Yaw output reference height (above the chassis edge plane).  Must
-    # match HP._leg_in_body_frame's vertical stack:
-    #   chassis-plate top   -> well rim                z = 0
-    #   well rim            -> body top                + (BODY_H - RIM_Z)
-    #   body top            -> gear-stack top          + SERVO_OUTPUT_H
-    #   gear-stack top      -> plastic-horn top        + HORN_STACK_H
-    #                                                  (= PLASTIC_HORN_H
-    #                                                  = 5 mm, May 2026:
-    #                                                   was PLASTIC_HORN_H
-    #                                                   + HORN_ADAPTER_T
-    #                                                   = 9 mm; printed
-    #                                                   servo_horn_adapter
-    #                                                   has been retired)
-    yaw_output_z = ((HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-                     + HP.SERVO_OUTPUT_H
-                     + HP.HORN_STACK_H)
+    # Yaw output reference height (above the chassis edge plane).
+    # Must match HP._leg_in_body_frame's vertical stack.  May 2026:
+    # the yaw servo migrated from the standalone ``coxa_bracket`` to
+    # the integrated cradle inside ``chassis_bottom``.  Commit 4 of
+    # the transition (this commit) flips the assembly's yaw-servo
+    # placement so the tabs land on the chassis_bottom cradle's tab
+    # shelf at chassis-z = CHASSIS_PLATE_T/2 + CRADLE_TAB_SHELF_Z =
+    # +2 + +6 = +8 mm (= +8 mm UP from the bracket shelf which was
+    # at chassis-z = 0).  The X-horn / coxa_link mating plane
+    # follows the servo: +8 mm UP from the legacy yaw_output_z =
+    # +21.75 to the new +29.75.  See the constant block near the
+    # CRADLE_BOSS_H_MM definition in hexapod_prototype.py for the
+    # Path-A history that placed the cradle shelf at +6.
+    #
+    # Z-stack (chassis-z = 0 = chassis_bottom CENTRE; world-z post-
+    # lift is chassis-z + chassis_lift):
+    #   chassis_bottom top     z = +CHASSIS_PLATE_T/2 = +2
+    #   cradle tab shelf       z = +CHASSIS_PLATE_T/2
+    #                                + CRADLE_TAB_SHELF_Z = +8
+    #   servo body bottom      z = shelf - WELL_RIM_Z = -19.25
+    #   servo body top         z = body_bottom + SERVO_BODY_H = +18.75
+    #   output-gear top        z = body_top + SERVO_OUTPUT_H = +24.75
+    #   X-horn top (yaw_output_z): z = gear_top + HORN_STACK_H = +29.75
+    #   chassis_top bottom     z = +CHASSIS_GAP + CHASSIS_PLATE_T/2
+    #                                - CHASSIS_PLATE_T/2 = +CHASSIS_GAP = +32
+    #     (= 32 - 29.75 = 2.25 mm clearance from X-horn top to top
+    #      plate; only relevant at the yaw axis which sits outside
+    #      chassis_top's 70-mm apothem hex anyway, so no XY overlap)
+    #
+    # The legacy bracket is still PLACED in the assembly during this
+    # transition commit; the bracket's well well-z = -WELL_RIM_Z body
+    # bottom would be at chassis-z = -27.25 (8 mm BELOW the new servo
+    # position).  We place the servo at the NEW cradle position; the
+    # bracket overlaps the cradle's outer shell in chassis-z [+2, +11]
+    # and the servo body hovers above the bracket's well floor at
+    # chassis-z = -19.25 (8 mm above the bracket's nominal well-
+    # floor seating plane).  This visual overlap is intentional for
+    # the transition; commit 8 retires the bracket entirely.
+    _CRADLE_SHELF_CHASSIS_Z = (
+        HP.CHASSIS_PLATE_T / 2.0 + HP.CRADLE_TAB_SHELF_Z
+    )  # = +8 mm; chassis-z of the chassis_bottom cradle's tab shelf.
+
+    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z   # = +29.75 mm; X-horn top
     yaw_output_world = edge_mid + yaw_output_z * z_hat
 
     arm_t = 6.0       # MUST match make_coxa_link()'s arm_t
@@ -217,28 +244,37 @@ def _build_leg(leg_index: int):
     # In bracket-local: body bottom at z = -SERVO_BODY_H, output at z=0.
     # The bracket itself is in leg-local coords with edge_mid at z=0.
     yaw_servo = _hobby_servo_visual()
-    # The yaw servo body hangs in the coxa-bracket well.  In the
-    # bracket's local frame (yaw axis at x=0, chassis-plate top at
-    # z=0), the body's bottom face is at z = -WELL_RIM_Z (its tabs
-    # land on the well rim at z = 0) and the body's long axis is
-    # along +X with output offset toward +X.  We want the output
-    # gear's centre to lie on the yaw axis (x=0) at z = 0 (above the
-    # chassis plate by SERVO_OUTPUT_H/2).  _hobby_servo_visual has
-    # body bottom at z=0 and output at (SERVO_OUTPUT_X, 0, ...), so
-    # we translate by (-SERVO_OUTPUT_X, 0, -WELL_RIM_Z) to drop the
-    # body into the well.
-    yaw_servo.apply_translation([-HP.SERVO_OUTPUT_X, 0,
-                                  -HP.WELL_RIM_Z])
+    # The yaw servo body sits in the chassis_bottom-integrated yaw
+    # cradle.  In the chassis frame (yaw axis at x=0, chassis_bottom
+    # centre at z=0, chassis_bottom top at z = +CHASSIS_PLATE_T/2),
+    # the body's bottom face lands at chassis-z =
+    # _CRADLE_SHELF_CHASSIS_Z - WELL_RIM_Z (the cradle's tab shelf
+    # rests under the servo's tab bottoms) and the body's long axis
+    # is along +X with output offset toward +X.
+    # ``_hobby_servo_visual`` has body bottom at z=0 and output at
+    # (SERVO_OUTPUT_X, 0, ...), so we translate by
+    # (-SERVO_OUTPUT_X, 0, _CRADLE_SHELF_CHASSIS_Z - WELL_RIM_Z) to
+    # land the body bottom at the right chassis-z and the output
+    # gear's centre on the yaw axis (chassis-x = 0).
+    yaw_servo.apply_translation(
+        [-HP.SERVO_OUTPUT_X, 0,
+         _CRADLE_SHELF_CHASSIS_Z - HP.WELL_RIM_Z],
+    )
     yaw_servo.apply_transform(R_a)
     yaw_servo.apply_translation(edge_mid)
     motor_parts.append(yaw_servo)
 
     # Yaw horn -- sits on top of the gear stack (above the body's
-    # exposed top by SERVO_OUTPUT_H), drives the coxa link via the
-    # printed horn adapter.
+    # exposed top by SERVO_OUTPUT_H), drives the coxa link directly
+    # via the 4 link-to-X-horn M2 bolts (Design B; no more printed
+    # adapter disc).
     yaw_horn = _horn_visual()
-    yaw_horn.apply_translation([0, 0, (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-                                       + HP.SERVO_OUTPUT_H])
+    yaw_horn.apply_translation(
+        [0, 0,
+         _CRADLE_SHELF_CHASSIS_Z
+         + (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
+         + HP.SERVO_OUTPUT_H],
+    )
     yaw_horn.apply_transform(R_a)
     yaw_horn.apply_translation(edge_mid)
     motor_parts.append(yaw_horn)
