@@ -616,6 +616,54 @@ CABLE_POST_Z_CENTRE     = 6.0   # mm well-local centre Z; range
                                  # [Z_CENTRE - CABLE_POST_Z/2,
                                  #  Z_CENTRE + CABLE_POST_Z/2] = [+2, +10]
                                  # sits inside solid wall material.
+                                 # NOTE: the coxa_bracket OVERRIDES this
+                                 # with BRACKET_CABLE_POST_Z_CENTRE below
+                                 # because its yaw well is trimmed off
+                                 # below bracket-z = BRACKET_WELL_TRIM_Z
+                                 # = -15 mm, and the default well-local
+                                 # +6 maps to bracket-z = -21.25 (post
+                                 # range [-25.25, -17.25]), ENTIRELY
+                                 # below the trim plane -- the trim's
+                                 # boolean diff would silently destroy
+                                 # the post.  coxa_link / femur_link
+                                 # cradles still use +6 because their
+                                 # wells are NOT trimmed.
+
+BRACKET_CABLE_POST_Z_CENTRE = 20.25  # mm well-local Z centre for the
+                                      # COXA_BRACKET cable_post ONLY;
+                                      # raised from the shared
+                                      # CABLE_POST_Z_CENTRE = +6 so the
+                                      # post sits ABOVE the
+                                      # BRACKET_WELL_TRIM_Z = -15 trim
+                                      # plane.  In bracket-local frame
+                                      # the post Z range becomes
+                                      # [+20.25 - 4 - WELL_RIM_Z,
+                                      #  +20.25 + 4 - WELL_RIM_Z]
+                                      # = [-11.0, -3.0]: 4 mm clear
+                                      # above the trim and 3 mm below
+                                      # the bracket-flange top at z =
+                                      # +15 (bracket-z bounds after the
+                                      # trim are [-15, +15]).  Without
+                                      # this override the default post
+                                      # at well-local +6 (= bracket-z
+                                      # in [-25.25, -17.25]) was
+                                      # silently boolean-subtracted
+                                      # away by the trim and every
+                                      # leg lost its bracket-level
+                                      # strain relief -- the wire
+                                      # harness then hung off the
+                                      # chassis_bottom anchor tab
+                                      # alone.  Used only by
+                                      # ``make_coxa_bracket`` via
+                                      # ``_cable_zip_post(z_centre=...)``;
+                                      # coxa_link / femur_link continue
+                                      # to use the +6 default because
+                                      # their wells are not trimmed and
+                                      # the +6 placement is already
+                                      # audited against the slot, bosses
+                                      # and link sweep in the
+                                      # ``CABLE_POST_*`` keep-out block
+                                      # at the top of this section.
 
 # ---- Per-leg chassis_bottom drop slot (Part B, May 2026) ----------------
 # A small 12 x 6 mm slot cut THROUGH the chassis_bottom plate at each of
@@ -2680,7 +2728,9 @@ def _wire_exit_slot() -> trimesh.Trimesh:
     return _union(exit_l, channel)
 
 
-def _cable_zip_post() -> trimesh.Trimesh:
+def _cable_zip_post(
+    z_centre: float = CABLE_POST_Z_CENTRE,
+) -> trimesh.Trimesh:
     """Return the printed-in zip-tie strain-relief post for one servo
     cradle.
 
@@ -2699,15 +2749,25 @@ def _cable_zip_post() -> trimesh.Trimesh:
     The post is anchored to the wall on its -X face (well_x = WELL_W/2)
     and extends OUTWARD by ``CABLE_POST_X``; the centre Y is offset to
     the +Y side of the slot by ``CABLE_POST_Y_OFFSET`` so the post does
-    not sit IN the wire-exit slot's Y span; centre Z is
-    ``CABLE_POST_Z_CENTRE`` (well-local Z above the cavity floor).  All
-    three numeric values live in the constants block; do not hard-code
-    here.
+    not sit IN the wire-exit slot's Y span; centre Z is ``z_centre``
+    (well-local Z above the cavity floor; defaults to the shared
+    ``CABLE_POST_Z_CENTRE`` for coxa_link / femur_link).  All three
+    NOMINAL numeric values live in the constants block; do not hard-
+    code here.
+
+    The ``z_centre`` parameter exists so ``make_coxa_bracket`` can pass
+    ``BRACKET_CABLE_POST_Z_CENTRE = 20.25`` (instead of the default +6)
+    to LIFT the post above the bracket's ``BRACKET_WELL_TRIM_Z = -15``
+    cut.  Without that override the default +6 post lands at bracket-
+    z in [-25.25, -17.25], entirely below the trim plane, and the
+    trim's boolean subtraction silently destroys the post material.
+    See the ``BRACKET_CABLE_POST_Z_CENTRE`` docstring for the full
+    derivation.
     """
     px_min = WELL_W / 2.0
     px_max = px_min + CABLE_POST_X
     py_centre = CABLE_POST_Y_OFFSET
-    pz_centre = CABLE_POST_Z_CENTRE
+    pz_centre = z_centre
     return _box(
         (CABLE_POST_X, CABLE_POST_Y, CABLE_POST_Z),
         center=(0.5 * (px_min + px_max), py_centre, pz_centre),
@@ -4217,7 +4277,22 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     # slot.  See ``_cable_zip_post`` + ``CABLE_POST_*`` constants for
     # the geometry rationale.  Applied with the SAME translation as
     # the wire_slot so the post sits next to the slot exit.
-    cable_post = _cable_zip_post()
+    #
+    # The bracket passes a LIFTED well-local Z centre
+    # (``BRACKET_CABLE_POST_Z_CENTRE = 20.25`` instead of the shared
+    # ``CABLE_POST_Z_CENTRE = 6``) so the post Z range in bracket-
+    # local coordinates is [-11.0, -3.0] -- a comfortable 4 mm ABOVE
+    # the ``BRACKET_WELL_TRIM_Z = -15`` cut applied at the bottom of
+    # this function.  Without the lift the default +6 post would land
+    # at bracket-z in [-25.25, -17.25] (entirely below the trim plane)
+    # and the trim's boolean subtraction would silently remove the
+    # strain-relief feature from the printed bracket.  The coxa_link
+    # and femur_link cradles do NOT trim their wells and so continue
+    # to use the +6 default (passed implicitly here by omitting the
+    # ``z_centre`` kwarg in those call sites).  See the
+    # ``BRACKET_CABLE_POST_Z_CENTRE`` constant docstring for the full
+    # derivation.
+    cable_post = _cable_zip_post(z_centre=BRACKET_CABLE_POST_Z_CENTRE)
     cable_post.apply_translation([body_centre_x, 0.0, well_dz])
 
     # ---- Mounting flange --------------------------------------------
