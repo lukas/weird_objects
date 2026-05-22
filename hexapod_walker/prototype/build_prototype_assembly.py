@@ -111,10 +111,15 @@ def _hobby_servo_visual() -> trimesh.Trimesh:
     # Top-side decorative groove (simulated with a thin band recess)
     # -- skip for simplicity / triangle-count reasons.
 
-    # Cable bundle on -X face
+    # Cable bundle on +X face -- the real DS3225's molded wire-exit boot
+    # protrudes from the +X SHORT face (same side as the output gear); the
+    # cradle's parametric ``_wire_exit_slot`` + ``WIRE_BOOT_*`` geometry
+    # all puts the boot on the +X face, so the visual mesh must match.
+    # Earlier versions drew this bundle on the -X face which made the
+    # inspector renders disagree with the real harness routing.
     bundle = _cyl(2.2, 18.0)
     bundle.apply_transform(rotation_matrix(np.pi / 2, [0, 1, 0]))
-    bundle.apply_translation([-HP.SERVO_BODY_W / 2.0 - 9.0,
+    bundle.apply_translation([+HP.SERVO_BODY_W / 2.0 + 9.0,
                                0, HP.SERVO_BODY_H * 0.55])
     parts.append(bundle)
 

@@ -168,16 +168,70 @@ bounds_tol_mm: 2.0
 parts:
 
   chassis_bottom:
-    description: "Structural 200 mm flat-to-flat hex plate; takes 6 x (4 M3 bolts + body cutout) per leg."
+    description: "Structural 200 mm flat-to-flat hex plate; takes 6 x (4 M3 bolts + body cutout) per leg.  Each leg also carries a radial 12 x 6 mm wire pass-through slot inboard of its bracket cutout (so the leg harness drops into the inter-plate volume) plus a 2 x 8 x 10 mm zip-tie anchor tab hanging below the plate adjacent to that slot."
     qty: 1
-    bounds_mm: [200.0, 213.0, 4.0]      # = CHASSIS_FLAT_TO_FLAT, 2*circumradius, CHASSIS_PLATE_T
+    bounds_mm: [200.0, 213.0, 14.0]     # = CHASSIS_FLAT_TO_FLAT, 2*circumradius, CHASSIS_PLATE_T + CABLE_ANCHOR_TAB_H (tab hangs below the plate)
     holes:
       - name: centre_mount_NE
         diameter_mm: 3.4                # = BRACKET_BOLT_HOLE
         position_mm: [24.75, 24.75, 0.0]
         axis: z
         note: "Battery / electronics tray + arm-baseplate M3 standoffs (4 holes on a 35-mm-radius square)."
-    wire_channels: []
+    wire_channels:
+      # 6 radial drop slots, one per leg.  Bracket-local position
+      # (LEG_HARNESS_DROP_X_CENTRE, 0, 0); long axis = chassis radial.
+      # Slot size = (LEG_HARNESS_DROP_X_EXTENT, LEG_HARNESS_DROP_Y_EXTENT).
+      # Verified by _verify_prototype.check_leg_harness_drop.
+      - name: leg_harness_drop_L0
+        bracket_local_xy_mm: [-46.0, 0.0]
+        extents_mm: [12.0, 6.0]
+        note: "Leg 0 drop slot (azimuth 30 deg)."
+      - name: leg_harness_drop_L1
+        bracket_local_xy_mm: [-46.0, 0.0]
+        extents_mm: [12.0, 6.0]
+        note: "Leg 1 drop slot (azimuth 90 deg)."
+      - name: leg_harness_drop_L2
+        bracket_local_xy_mm: [-46.0, 0.0]
+        extents_mm: [12.0, 6.0]
+        note: "Leg 2 drop slot (azimuth 150 deg)."
+      - name: leg_harness_drop_L3
+        bracket_local_xy_mm: [-46.0, 0.0]
+        extents_mm: [12.0, 6.0]
+        note: "Leg 3 drop slot (azimuth 210 deg)."
+      - name: leg_harness_drop_L4
+        bracket_local_xy_mm: [-46.0, 0.0]
+        extents_mm: [12.0, 6.0]
+        note: "Leg 4 drop slot (azimuth 270 deg)."
+      - name: leg_harness_drop_L5
+        bracket_local_xy_mm: [-46.0, 0.0]
+        extents_mm: [12.0, 6.0]
+        note: "Leg 5 drop slot (azimuth 330 deg; cross-board, yaw -> PCA1 ch15, hip+knee -> PCA2 ch0+1)."
+    cable_management:
+      # One downward-hanging zip-tie anchor tab per leg, adjacent to
+      # the drop slot.  See CABLE_ANCHOR_TAB_* constants in
+      # hexapod_prototype.py for the placement rationale and keep-out
+      # audit.  Used to anchor the leg's 3-cable harness as it makes
+      # the U-turn from the cradle wire-exit (below the plate) into
+      # the drop slot.
+      - name: cable_anchor_tab_L0
+        bracket_local_xyz_mm: [-46.0, 5.0, -7.0]
+        extents_mm: [2.0, 8.0, 10.0]
+        note: "Hangs from chassis_bottom -Z face; tab body in chassis-z [-12, -2]."
+      - name: cable_anchor_tab_L1
+        bracket_local_xyz_mm: [-46.0, 5.0, -7.0]
+        extents_mm: [2.0, 8.0, 10.0]
+      - name: cable_anchor_tab_L2
+        bracket_local_xyz_mm: [-46.0, 5.0, -7.0]
+        extents_mm: [2.0, 8.0, 10.0]
+      - name: cable_anchor_tab_L3
+        bracket_local_xyz_mm: [-46.0, 5.0, -7.0]
+        extents_mm: [2.0, 8.0, 10.0]
+      - name: cable_anchor_tab_L4
+        bracket_local_xyz_mm: [-46.0, 5.0, -7.0]
+        extents_mm: [2.0, 8.0, 10.0]
+      - name: cable_anchor_tab_L5
+        bracket_local_xyz_mm: [-46.0, 5.0, -7.0]
+        extents_mm: [2.0, 8.0, 10.0]
     keep_out_volumes: []
 
   chassis_top:
@@ -233,6 +287,11 @@ parts:
     wire_channels:
       - name: yaw_wire_exit_L
         note: "L-corridor at the well's +X bottom-outboard corner; delegated to _verify_prototype.check_wire_slot."
+    cable_management:
+      - name: yaw_cable_zip_post
+        well_local_xyz_mm: [30.0, 7.0, 6.0]  # post centre in well-local; X = WELL_W/2 + CABLE_POST_X/2, Y = CABLE_POST_Y_OFFSET, Z = CABLE_POST_Z_CENTRE
+        extents_mm: [2.0, 6.0, 8.0]
+        note: "Printed-in 2 x 6 x 8 mm zip-tie post on the well's +X outer face, +Y of the wire-exit slot; user loops a 2-3 mm zip-tie around the post + 3-wire harness so cradle pulls don't yank the JST plug at the PCA9685."
     keep_out_volumes:
       - name: yaw_horn_sweep
         note: "Horn + adapter sweep above the flange; from keepout_volumes.KEEP_OUT_VOLUMES."
@@ -271,6 +330,11 @@ parts:
     wire_channels:
       - name: hip_pitch_wire_exit_L
         note: "L-corridor at the hip-pitch well's +X bottom-outboard corner."
+    cable_management:
+      - name: hip_pitch_cable_zip_post
+        well_local_xyz_mm: [30.0, 7.0, 6.0]
+        extents_mm: [2.0, 6.0, 8.0]
+        note: "Same 2 x 6 x 8 mm zip-tie post as the yaw cradle, applied to the hip-pitch well after the well_z_drop + COXA_LIFT transforms; user loops a zip-tie to anchor the hip-pitch harness against the link wall."
     keep_out_volumes:
       - name: hip_pad_sweep
       - name: hip_pitch_servo_body
@@ -309,6 +373,11 @@ parts:
     wire_channels:
       - name: knee_wire_exit_L
         note: "L-corridor at the knee well's +X bottom-outboard corner."
+    cable_management:
+      - name: knee_cable_zip_post
+        well_local_xyz_mm: [30.0, 7.0, 6.0]
+        extents_mm: [2.0, 6.0, 8.0]
+        note: "Same 2 x 6 x 8 mm zip-tie post as the yaw / hip-pitch cradles, applied to the knee well; anchors the knee-servo harness against the femur spar so cradle pulls don't yank the JST plug."
     keep_out_volumes:
       - name: femur_horn_stack_void
       - name: knee_servo_body

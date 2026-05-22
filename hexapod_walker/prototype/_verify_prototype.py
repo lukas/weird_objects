@@ -1058,6 +1058,72 @@ def check_wire_slot():
     return all_ok
 
 
+def check_leg_harness_drop():
+    """Verify the per-leg cable drop slot through ``chassis_bottom``
+    is unobstructed at every leg position.
+
+    Part B (May 2026 wire-management pass) cut a small radial
+    ``LEG_HARNESS_DROP_X_EXTENT`` x ``LEG_HARNESS_DROP_Y_EXTENT`` mm
+    slot through ``chassis_bottom`` at each of the 6 leg positions,
+    just inboard of each ``coxa_bracket``'s body cutout, so each
+    leg's 3-cable harness can drop from the cradle wire-exit side
+    of the plate straight into the inter-plate volume.  See the
+    ``LEG_HARNESS_DROP_*`` constants block in ``hexapod_prototype.py``
+    for the geometry rationale.
+
+    This check probes a 3D corridor through the slot (the slot's XY
+    span, plus the plate's full Z extent + 0.5 mm overshoot above
+    and below) at each leg's bracket-local position, transforms it
+    into chassis frame via the same ``_leg_chassis_frames()`` iterator
+    that the chassis_bottom builder uses, and asserts EVERY probe
+    point is OUTSIDE the chassis_bottom mesh (no plate material
+    intrudes into the cable corridor).  Sibling to ``check_wire_slot``;
+    listed in the standard ``CHECKS`` table.
+    """
+    print("\n[3c] Per-leg chassis_bottom harness drop slot:")
+    cb = _load_mesh("chassis_bottom", copy=False)
+
+    # Sample the slot's interior on a tight 3D grid.  X / Y stay 0.3 mm
+    # inside the slot's nominal walls so a probe that lands ON the
+    # slot edge isn't a false fail.  Z stays inside the chassis_bottom
+    # plate's nominal Z extent ([-CHASSIS_PLATE_T/2, +CHASSIS_PLATE_T/2])
+    # by a small XY-mode margin -- the check is "is the slot a clean
+    # hole THROUGH the plate?", not "is everything below the plate
+    # clear?", and the per-leg cable_anchor_tab hangs DOWN from the
+    # plate's -Z face just outside the slot's Y span (see
+    # CABLE_ANCHOR_TAB_* constants); a probe that wanders down to
+    # chassis-z = -CHASSIS_PLATE_T/2 - 0.5 would catch the tab's
+    # top corner and report a false fail.
+    margin = 0.3
+    half_x = hp.LEG_HARNESS_DROP_X_EXTENT / 2.0 - margin
+    half_y = hp.LEG_HARNESS_DROP_Y_EXTENT / 2.0 - margin
+    half_z = hp.CHASSIS_PLATE_T / 2.0 - margin
+    bx_local = np.linspace(-half_x, +half_x, 5) + hp.LEG_HARNESS_DROP_X_CENTRE
+    by_local = np.linspace(-half_y, +half_y, 3)
+    bz_local = np.linspace(-half_z, +half_z, 4)
+    BX, BY, BZ = np.meshgrid(bx_local, by_local, bz_local, indexing="ij")
+    pts_bracket = np.stack(
+        [BX.ravel(), BY.ravel(), BZ.ravel()], axis=1)
+
+    all_ok = True
+    for i, edge_mid, R, R3 in hp._leg_chassis_frames():
+        # Transform bracket-frame probe points into chassis frame for
+        # this leg: chassis = edge_mid + R3 @ bracket.
+        pts_chassis = pts_bracket @ R3.T + edge_mid
+        inside = points_inside(cb, pts_chassis)
+        n_blocked = int(inside.sum())
+        n_total = len(pts_chassis)
+        ok = n_blocked == 0
+        all_ok &= _label(
+            f"leg_harness_drop_L{i} (bracket-x {hp.LEG_HARNESS_DROP_X_CENTRE:+.1f},"
+            f" y in +/-{hp.LEG_HARNESS_DROP_Y_EXTENT/2:.1f}, plate full Z)",
+            ok,
+            f"{n_total - n_blocked}/{n_total} probe points clear "
+            f"({'OK' if ok else f'{n_blocked} BLOCKED'})",
+        )
+    return all_ok
+
+
 # ---------------------------------------------------------------------------
 # 4.  Self-collision of the standing-pose assembly
 # ---------------------------------------------------------------------------
@@ -5204,6 +5270,7 @@ CHECKS = (
     ("Cradle openness",           "check_cradle_openness"),
     ("Bolt-hole engagement",      "check_bolt_holes"),
     ("Wire-exit slot",            "check_wire_slot"),
+    ("Leg harness drop",          "check_leg_harness_drop"),
     ("Self-collision",            "check_self_collision"),
     ("Servo clearance",           "check_servo_clearance"),
     ("Horn-stack clearance",      "check_horn_stack_clearance"),
@@ -5331,6 +5398,7 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Cradle openness":           _CRADLE_PARTS,
     "Bolt-hole engagement":      _CRADLE_PARTS,
     "Wire-exit slot":            _CRADLE_PARTS,
+    "Leg harness drop":          frozenset({"chassis_bottom"}),
     "Self-collision":            _LEG_PARTS,
     "Servo clearance":           _LEG_PARTS | {"servo_body"},
     "Horn-stack clearance":      frozenset({"femur_link", "tibia_link"}),

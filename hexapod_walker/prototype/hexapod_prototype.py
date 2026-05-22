@@ -542,6 +542,188 @@ WIRE_CHANNEL_TOP_OVER_RIM = 2.5  # mm extension of the channel ABOVE the well
                                   # rim, so wires exiting near the top of the
                                   # back-case (micro servos) still find it.
 
+# ---- Cable zip-tie post (printed-in strain relief) ----------------------
+# Every servo cradle (yaw / hip-pitch / knee) gets a small printed post on
+# the well's +X OUTER wall, just past where the wire-exit slot opens to
+# free air.  At assembly time the user loops a 2-3 mm wide zip-tie around
+# the post AND the 3-wire bundle, so any tug on the harness pulls the
+# bundle against the post (a printed-in strain relief) instead of yanking
+# the JST plug at the PCA9685 header.  Without these posts a single
+# accidental snag on a leg cable can pop a servo plug off the PCA at the
+# worst possible moment (mid-walk gait); with them the harness fails
+# safely (the zip-tie bears the load).
+#
+# Geometry summary (all three cradles use the SAME ``_cable_zip_post()``
+# helper applied in well-local frame and then transformed alongside the
+# wire_slot, so the post stays anchored to the well wall regardless of
+# how each cradle is rotated into its link's frame):
+#
+#   * Anchored at the well's OUTER +X face (well_x = WELL_W/2 = +29).
+#     Inboard face of the post sits AT the wall (= +29); outboard face
+#     at +29 + CABLE_POST_X = +31.
+#   * Offset in well-Y by CABLE_POST_Y_OFFSET = +7 mm so the post lives
+#     OUTSIDE the wire-exit slot's Y span (slot Y in
+#     [-WIRE_SLOT_W/2, +WIRE_SLOT_W/2] = [-3.5, +3.5]).  Without the
+#     offset the post would sit IN the slot exit and physically block
+#     the harness from leaving the cradle.  +7 mm Y centre leaves
+#     +7 - CABLE_POST_Y/2 = +4 mm of well-Y clearance from the slot
+#     edge at +3.5.
+#   * Z centre at CABLE_POST_Z_CENTRE = +6 mm in well-local Z (i.e.,
+#     +6 mm above the cavity floor).  Range +2..+10 mm sits comfortably
+#     INSIDE the well's outer +X wall material (the wall is solid from
+#     well-z = -WELL_FLOOR_T = -3 up to well-z = WELL_RIM_Z = +27.25 at
+#     this Y offset since the channel cut only spans y in [-3.5, +3.5]).
+#   * 2 x 6 x 8 mm extents (X / Y / Z) -- small enough to print
+#     supports-free as a horizontal nub off the vertical well wall in
+#     every cradle's print orientation (coxa_bracket prints cradle-up,
+#     coxa_link prints with hip cradle opening +Z after the +90 deg X
+#     rotation, femur_link prints spar-broad-face-on-bed; in all three
+#     the post is a 2 mm-deep ledge along a vertical wall, with the
+#     2 mm bottom face printing as a tiny horizontal bridge that FDM
+#     handles natively).
+#
+# Keep-out audit (verified by check_workspace_self_collision +
+# check_cable_clearance + check_wire_slot):
+#
+#   * Yaw cradle (coxa_bracket): post sits BELOW the bracket flange
+#     (well-z in [+2, +10] is below WELL_RIM_Z = +27.25 in well frame;
+#     in bracket frame the post is at bracket-z in [-25.25, -17.25],
+#     well clear of the chassis_bottom plate at bracket-z in [-4, 0]).
+#   * Hip-pitch cradle (coxa_link): after R + delta + well_z_drop +
+#     COXA_LIFT lift the post sits at link (x ~ +45, y ~ -42, z ~ +5)
+#     -- > 21 mm from the hip pad sweep cylinder centre at
+#     (COXA_LENGTH, 0, COXA_HIP_DROP), so well clear of HIP_PAD_R = 20
+#     mm sweep.
+#   * Knee cradle (femur_link): post sits at femur (x ~ +110, y ~ -42,
+#     z ~ +5), well outside the tibia knee-pad neck sweep at
+#     (FEMUR_LENGTH = +90, *, 0) with HIP_PAD_R = 20 mm clearance.
+#
+# Cradle bolt boss columns at well-y = +/- SERVO_TAB_HOLE_PCD_Y/2 = +/-5,
+# well-x = +/- SERVO_TAB_HOLE_PCD/2 = +/-24.75, well-z in
+# [SERVO_TAB_Z - CRADLE_BOSS_HEIGHT_MM, SERVO_TAB_Z] = [+17, +27].  Our
+# post at (well_x ~ +30, well_y ~ +7, well_z in [+2, +10]) is FAR from
+# the +X bosses' XY (+24.75, +/-5): distance ~ sqrt(5.25^2 + 2^2) =
+# 5.6 mm in XY from the (+24.75, +5) boss centre, well outside the
+# Phi CRADLE_BOSS_OD/2 = 4 mm boss radius.  Z ranges don't even overlap.
+CABLE_POST_X            = 2.0   # mm protrusion in well +X (outward from
+                                 # the well's outer face)
+CABLE_POST_Y            = 6.0   # mm width along well Y (slot transverse)
+CABLE_POST_Z            = 8.0   # mm height along well Z (slot depth axis)
+CABLE_POST_Y_OFFSET     = 7.0   # mm centre offset in well +Y from slot
+                                 # centreline (slot at y = 0); see audit
+                                 # above for clearance to slot + bosses.
+CABLE_POST_Z_CENTRE     = 6.0   # mm well-local centre Z; range
+                                 # [Z_CENTRE - CABLE_POST_Z/2,
+                                 #  Z_CENTRE + CABLE_POST_Z/2] = [+2, +10]
+                                 # sits inside solid wall material.
+
+# ---- Per-leg chassis_bottom drop slot (Part B, May 2026) ----------------
+# A small 12 x 6 mm slot cut THROUGH the chassis_bottom plate at each of
+# the 6 leg positions, located just INBOARD of each coxa_bracket's body
+# cutout (which the plate already carries for the servo body's drop-in
+# path; see ``_hex_plate``'s body_cutout block).  The slot lets each
+# leg's 3-cable harness drop from the bracket-flange-top side of the
+# plate INTO the inter-plate volume between chassis_bottom and
+# chassis_top -- where the electronics_tray + PCA9685 boards live --
+# without the harness having to share the body cutout with the seated
+# yaw servo (the body fills ~ 40 x 20 of the cutout's 60 x 31 footprint,
+# leaving only ~ 5 mm of margin around the body; cramming 3 wires into
+# the margin works but adds risk of pinching the harness against the
+# body during assembly).
+#
+# Slot orientation: LONG axis is along the chassis-radial (bracket +X)
+# direction; SHORT axis is tangential (bracket Y).  In each leg's
+# bracket frame the slot is centred at:
+#     bracket-x = LEG_HARNESS_DROP_X_CENTRE = -46
+#                 (10 mm inboard of the body-cutout's -X edge at -40)
+#     bracket-y = 0  (on the chassis radial line)
+# with extents (LEG_HARNESS_DROP_X_EXTENT, LEG_HARNESS_DROP_Y_EXTENT) =
+# (12, 6) mm.  The same hex-leg iterator that ``_hex_plate`` uses to
+# place the body cutouts places these slots, so the 6 drop slots
+# always line up with their parent cutouts (a regression here is
+# caught by the new ``check_leg_harness_drop`` sibling in
+# ``_verify_prototype.py``).
+LEG_HARNESS_DROP_X_CENTRE  = -46.0  # mm bracket-x (inboard of body cutout)
+LEG_HARNESS_DROP_X_EXTENT  =  12.0  # mm along bracket X (radial)
+LEG_HARNESS_DROP_Y_EXTENT  =   6.0  # mm along bracket Y (tangential)
+
+# ---- Chassis_bottom cable anchor tab (Part A continued) -----------------
+# Each leg also gets a SMALL printed tab hanging DOWN from chassis_bottom's
+# BOTTOM face, immediately adjacent to its ``leg_harness_drop_*`` slot, so
+# the assembler can loop a 2-3 mm zip-tie around the tab AND the 3-cable
+# harness BELOW the chassis plate -- exactly where the cradle wire-exit
+# bundle makes its U-turn from the cradle's lateral wire-exit (at well +X)
+# back inboard to the drop slot.  Anchoring the bundle here rather than
+# on chassis_bottom's TOP face dodges the electronics_tray (chassis-z in
+# [+5, +8] over chassis-x in [-80, +80] x y in [-70, +65], which fully
+# blankets the inter-plate volume directly above each drop slot), and it
+# matches the harness's natural routing: the cradle wire-exit fires at
+# bracket-z ~ -21 (= chassis-z ~ -19, well below the plate), the wire
+# hugs the underside of the plate inboard to bracket-x ~ -46, then comes
+# UP through the drop slot.  The tab grabs the bundle just BEFORE the
+# slot, so any cable tug puts load on the tab + plate instead of the
+# servo's JST plug or the cradle wire-exit boot.
+#
+# Geometry:
+#   * Anchored at chassis_bottom's BOTTOM face (chassis-z =
+#     -CHASSIS_PLATE_T/2 = -2 mm); extends DOWN by CABLE_ANCHOR_TAB_H so
+#     the bottom face sits at chassis-z = -CHASSIS_PLATE_T/2 -
+#     CABLE_ANCHOR_TAB_H = -12 mm.  In bracket-local frame the same range
+#     is bracket-z in [-12, -2].
+#   * Placed at bracket-x = LEG_HARNESS_DROP_X_CENTRE (= -46 mm), so the
+#     tab's radial position is centred on the drop slot itself.
+#   * Offset to the +Y side of the drop slot by CABLE_ANCHOR_TAB_Y_OFFSET
+#     = +5 mm (slot Y in [-3, +3]; tab centre at +5 leaves a 1 mm gap
+#     between the slot's +Y edge at +3 and the tab's -Y face at
+#     +5 - CABLE_ANCHOR_TAB_W/2 = +1).  The harness exits the slot in
+#     the slot's Y span, so the tab's -Y face is the natural surface
+#     for the zip-tie to bear against.
+#
+# Keep-out audit (verified by check_workspace_self_collision +
+# check_cable_clearance):
+#   * Bracket-x = -46 is 7 mm INBOARD of the yaw well's inboard wall
+#     (well outer face at bracket-x = body_centre_x - WELL_W/2 = -39).
+#     Below the plate the well + seated yaw servo body occupy
+#     bracket-x in [-39, +19]; tab at bracket-x = -46 sits in OPEN
+#     air well clear of that volume.
+#   * Bracket-x = -46 is 16 mm INBOARD of the bracket flange's inboard
+#     edge at bracket-x = -30; the flange is ABOVE the plate (bracket-z
+#     in [+2, +17]) so there's no overlap in either X or Z.
+#   * Bracket-y = +5 sits outside the drop slot's Y span [-3, +3] and
+#     well inside the chassis_bottom plate footprint.  Below the plate
+#     in the inter-plate region just inboard of the bracket nothing
+#     else exists -- the chassis_bottom plate's underside between the
+#     legs is otherwise empty.
+#   * The dynamic leg workspace (coxa_link, femur_link, tibia_link)
+#     sweeps OUTBOARD from the yaw axis; the inboard region around
+#     bracket(-46, *) is not reachable by any leg part.
+#     check_workspace_self_collision catches any regression.
+CABLE_ANCHOR_TAB_T   = 2.0    # mm thickness (along bracket X = chassis
+                               # radial); thin enough to print supports-
+                               # free as a horizontal nub off the plate
+                               # underside.
+CABLE_ANCHOR_TAB_W   = 8.0    # mm width (along bracket Y = chassis
+                               # tangential); enough to anchor a 2-3 mm
+                               # zip-tie loop with a comfortable bearing
+                               # surface on the -Y face.
+CABLE_ANCHOR_TAB_H   = 10.0   # mm height (chassis -Z direction, below
+                               # the plate bottom face); enough vertical
+                               # purchase to anchor a zip-tie without
+                               # snagging on the lower edge.
+CABLE_ANCHOR_TAB_X   = LEG_HARNESS_DROP_X_CENTRE  # = -46 mm bracket-x;
+                               # tab centred on the drop slot (so the
+                               # bundle exits the slot ABOVE the tab
+                               # and the zip-tie loop grabs it at the
+                               # plate level).
+CABLE_ANCHOR_TAB_Y_OFFSET = 5.0  # mm bracket +Y offset from drop slot
+                                  # centreline (slot Y in [-3, +3]; tab
+                                  # centred at +5 with width 8 spans
+                                  # bracket-y in [+1, +9], with a 1 mm
+                                  # gap to the slot's +Y edge so the
+                                  # cradle harness can sit against the
+                                  # tab's -Y face without binding in
+                                  # the slot itself).
+
 # ---- Servo well (open-topped bucket holding ONE servo) -------------------
 # The well is the structural pocket that the servo drops into during
 # assembly:
@@ -2498,6 +2680,40 @@ def _wire_exit_slot() -> trimesh.Trimesh:
     return _union(exit_l, channel)
 
 
+def _cable_zip_post() -> trimesh.Trimesh:
+    """Return the printed-in zip-tie strain-relief post for one servo
+    cradle.
+
+    Local frame: same as ``_servo_well_solid`` / ``_wire_exit_slot``.
+    The post is a small rectangular nub that protrudes from the well's
+    OUTER +X face just past the wire-exit slot, so the assembler can
+    loop a 2-3 mm zip-tie around the post AND the 3-wire harness as a
+    printed-in strain relief.  Used by ``make_coxa_bracket`` (yaw
+    cradle), ``make_coxa_link`` (hip-pitch cradle) and
+    ``make_femur_link`` (knee cradle) -- each calls this helper, applies
+    the SAME transform that the matching ``_wire_exit_slot()`` cut
+    received, and UNIONs the result into the link's body.  See the
+    ``CABLE_POST_*`` constants block near the top of this file for the
+    geometry rationale, keep-out audit and printability argument.
+
+    The post is anchored to the wall on its -X face (well_x = WELL_W/2)
+    and extends OUTWARD by ``CABLE_POST_X``; the centre Y is offset to
+    the +Y side of the slot by ``CABLE_POST_Y_OFFSET`` so the post does
+    not sit IN the wire-exit slot's Y span; centre Z is
+    ``CABLE_POST_Z_CENTRE`` (well-local Z above the cavity floor).  All
+    three numeric values live in the constants block; do not hard-code
+    here.
+    """
+    px_min = WELL_W / 2.0
+    px_max = px_min + CABLE_POST_X
+    py_centre = CABLE_POST_Y_OFFSET
+    pz_centre = CABLE_POST_Z_CENTRE
+    return _box(
+        (CABLE_POST_X, CABLE_POST_Y, CABLE_POST_Z),
+        center=(0.5 * (px_min + px_max), py_centre, pz_centre),
+    )
+
+
 def _servo_envelope() -> trimesh.Trimesh:
     """Return the bounding-volume of a hobby servo, with mounting tabs.
 
@@ -2713,10 +2929,34 @@ def make_servo_horn_adapter() -> trimesh.Trimesh:
 # Body parts
 # ---------------------------------------------------------------------------
 
+def _leg_chassis_frames():
+    """Yield ``(leg_index, edge_mid_xyz, R_a, R3)`` for each of the 6
+    legs in the hex chassis pattern.  Single source of truth for the
+    leg-azimuth iteration: ``_hex_plate``, ``make_chassis_bottom``, the
+    workspace verifier and the wire-harness planner ALL go through this
+    helper so a future change to the leg layout (different leg count,
+    different azimuth offset) only happens here.
+
+    Mirrors ``_build_workspace_leg`` / ``_build_standing_leg`` /
+    ``build_prototype_assembly._build_leg`` which all derive the same
+    azimuth ``a = (leg_index + 0.5) * pi / 3`` and radius
+    ``apothem = CHASSIS_FLAT_TO_FLAT / 2``.
+    """
+    apothem = CHASSIS_FLAT_TO_FLAT / 2.0
+    for i in range(6):
+        a = (i + 0.5) * np.pi / 3.0
+        edge_mid = np.array([apothem * np.cos(a),
+                              apothem * np.sin(a),
+                              0.0])
+        R = rotation_matrix(a, [0, 0, 1])
+        yield i, edge_mid, R, R[:3, :3]
+
+
 def _hex_plate(flat_to_flat: float, thickness: float,
                with_centre_holes: bool = False,
                with_leg_features: bool = True,
-               with_battery_holder_holes: bool = False) -> trimesh.Trimesh:
+               with_battery_holder_holes: bool = False,
+               with_leg_harness_drops: bool = False) -> trimesh.Trimesh:
     """Return a flat hexagonal plate, centred on origin, axis = +Z.
 
     Hole pattern (per leg, 6 legs total):
@@ -2776,13 +3016,7 @@ def _hex_plate(flat_to_flat: float, thickness: float,
 
     holes = []
     if with_leg_features:
-        for i in range(6):
-            a = (i + 0.5) * np.pi / 3
-            edge_mid = np.array([apothem * np.cos(a),
-                                  apothem * np.sin(a),
-                                  0.0])
-            R = rotation_matrix(a, [0, 0, 1])
-            R3 = R[:3, :3]
+        for i, edge_mid, R, R3 in _leg_chassis_frames():
             for bx in (bolt_x_outboard, bolt_x_inboard):
                 for by in bolt_ys:
                     world = edge_mid + R3 @ np.array([bx, by, 0.0])
@@ -2795,6 +3029,22 @@ def _hex_plate(flat_to_flat: float, thickness: float,
             cutout_world = edge_mid + R3 @ np.array([body_centre_x, 0.0, 0.0])
             cutout.apply_translation(cutout_world)
             holes.append(cutout)
+
+            if with_leg_harness_drops:
+                # Per-leg cable-drop slot through the plate, just
+                # INBOARD of the body cutout, on the chassis radial
+                # axis (slot long axis = bracket +X = chassis radial,
+                # short axis = bracket Y = chassis tangential).  See
+                # the LEG_HARNESS_DROP_* constants block above for
+                # the geometry rationale.
+                drop = _box((LEG_HARNESS_DROP_X_EXTENT,
+                              LEG_HARNESS_DROP_Y_EXTENT,
+                              thickness * 4))
+                drop.apply_transform(R)
+                drop_world = edge_mid + R3 @ np.array(
+                    [LEG_HARNESS_DROP_X_CENTRE, 0.0, 0.0])
+                drop.apply_translation(drop_world)
+                holes.append(drop)
 
     if with_centre_holes:
         # 4 holes for the electronics tray standoffs + optional arm
@@ -2908,10 +3158,72 @@ def make_chassis_bottom() -> trimesh.Trimesh:
     be unbolted (no chassis-side hole pattern; the holder's feet
     drilled clearance holes that mated to nothing); now 4 x M3 x 10
     SHCS pass UP through this plate into heat-set inserts in the
-    battery_holder feet."""
-    return _hex_plate(CHASSIS_FLAT_TO_FLAT, CHASSIS_PLATE_T,
+    battery_holder feet.
+
+    Cable management (Part A + Part B, May 2026):
+
+    * Each leg gets a small ``LEG_HARNESS_DROP_X_EXTENT`` x
+      ``LEG_HARNESS_DROP_Y_EXTENT`` mm slot cut THROUGH the plate just
+      INBOARD of the body cutout (long axis = chassis radial = bracket
+      +X), so the leg's 3-cable harness can drop from the cradle side
+      of the plate into the inter-plate volume without sharing the
+      body cutout with the seated yaw servo body.  Applied by
+      ``_hex_plate`` via ``with_leg_harness_drops=True``.
+    * Each leg also gets a small vertical anchor TAB hanging DOWN
+      ``CABLE_ANCHOR_TAB_H`` mm from the plate's -Z (bottom) face,
+      adjacent to the drop slot, so the assembler can zip-tie the
+      leg harness to the tab BELOW the chassis plate -- exactly where
+      the cradle-to-drop-slot bundle makes its U-turn.  The tab hangs
+      DOWN rather than rising UP because the electronics_tray fully
+      blankets the inter-plate volume directly above each drop slot
+      (chassis-z in [+5, +8]) and we are NOT allowed to modify the
+      tray.  See the CABLE_ANCHOR_TAB_* constants block above for
+      the placement rationale and keep-out audit.  Added by THIS
+      function AFTER ``_hex_plate`` (the tabs are NOT a plate-
+      thickness feature; they are full 3D objects hanging below
+      the plate).
+    """
+    plate = _hex_plate(CHASSIS_FLAT_TO_FLAT, CHASSIS_PLATE_T,
                        with_centre_holes=True,
-                       with_battery_holder_holes=True)
+                       with_battery_holder_holes=True,
+                       with_leg_harness_drops=True)
+
+    # Per-leg vertical anchor tabs HANGING DOWN from the plate's -Z
+    # (bottom) face.  Each tab is a CABLE_ANCHOR_TAB_T x
+    # CABLE_ANCHOR_TAB_W x CABLE_ANCHOR_TAB_H mm box rooted at the
+    # plate's BOTTOM face (chassis z = -CHASSIS_PLATE_T/2) and
+    # extending DOWN in chassis -Z by CABLE_ANCHOR_TAB_H.  Placed at
+    # bracket-local (CABLE_ANCHOR_TAB_X, +CABLE_ANCHOR_TAB_Y_OFFSET,
+    # *), then rotated and translated into chassis frame by the same
+    # _leg_chassis_frames iterator that places the body cutouts and
+    # the drop slots, so the tab's chassis-radial position lines up
+    # with its leg's drop slot to within float precision.
+    tabs: list[trimesh.Trimesh] = []
+    # 0.4 mm of vertical overlap with the plate's bottom face for a
+    # clean CSG union (no co-planar face artefacts), so the tab box
+    # extends from chassis-z = -CHASSIS_PLATE_T/2 + 0.2 (= -1.8 mm,
+    # 0.2 mm INTO the plate) down to chassis-z = -CHASSIS_PLATE_T/2
+    # - CABLE_ANCHOR_TAB_H (= -12 mm).  Total box height =
+    # CABLE_ANCHOR_TAB_H + 0.2 mm.
+    tab_overlap = 0.2
+    tab_z_max = -CHASSIS_PLATE_T / 2.0 + tab_overlap
+    tab_z_min = tab_z_max - CABLE_ANCHOR_TAB_H - tab_overlap
+    tab_z_extent = tab_z_max - tab_z_min
+    tab_z_centre = 0.5 * (tab_z_min + tab_z_max)
+    for _i, edge_mid, R, R3 in _leg_chassis_frames():
+        tab = _box((CABLE_ANCHOR_TAB_T,
+                    CABLE_ANCHOR_TAB_W,
+                    tab_z_extent),
+                   center=(0.0, 0.0, tab_z_centre))
+        tab.apply_transform(R)
+        tab_world_xy = edge_mid + R3 @ np.array(
+            [CABLE_ANCHOR_TAB_X,
+             CABLE_ANCHOR_TAB_Y_OFFSET,
+             0.0])
+        tab.apply_translation([tab_world_xy[0], tab_world_xy[1], 0.0])
+        tabs.append(tab)
+
+    return _union(plate, *tabs)
 
 
 def make_battery_holder() -> trimesh.Trimesh:
@@ -3900,6 +4212,14 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     wire_slot = _wire_exit_slot()
     wire_slot.apply_translation([body_centre_x, 0.0, well_dz])
 
+    # ---- Printed-in zip-tie strain-relief post (Part A, May 2026) ---
+    # Small nub on the well's +X outer wall just past the wire-exit
+    # slot.  See ``_cable_zip_post`` + ``CABLE_POST_*`` constants for
+    # the geometry rationale.  Applied with the SAME translation as
+    # the wire_slot so the post sits next to the slot exit.
+    cable_post = _cable_zip_post()
+    cable_post.apply_translation([body_centre_x, 0.0, well_dz])
+
     # ---- Mounting flange --------------------------------------------
     # The flange is sized so the body+tab insertion slot is fully
     # enclosed by flange material on ALL FOUR SIDES, forming a
@@ -4179,7 +4499,7 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     )
 
     body = _union(flange, well, rib, *side_gussets, *bridge_gussets,
-                   bracket_insert_bosses)
+                   bracket_insert_bosses, cable_post)
     return _diff(body, slot, wire_slot, horn_sweep_void,
                  *chassis_holes, bracket_insert_pockets,
                  bracket_well_trim)
@@ -4241,9 +4561,11 @@ def make_coxa_link() -> trimesh.Trimesh:
     # physical servo's mounting tabs, NOT the 24 mm horn PCD.
     well = _servo_well_solid()
     wire_slot = _wire_exit_slot()
+    cable_post = _cable_zip_post()
     R = rotation_matrix(-np.pi / 2.0, [1, 0, 0])  # well +Z -> link +Y
     well.apply_transform(R)
     wire_slot.apply_transform(R)
+    cable_post.apply_transform(R)
     # Output spline tip in well-local: (SERVO_OUTPUT_X, 0,
     #   SERVO_BODY_H + SERVO_OUTPUT_H) = (10, 0, 44).
     # After R: (10, 44, 0).  We want it at (COXA_LENGTH, 0, 0) (the
@@ -4253,6 +4575,7 @@ def make_coxa_link() -> trimesh.Trimesh:
                        0.0])
     well.apply_translation(delta)
     wire_slot.apply_translation(delta)
+    cable_post.apply_translation(delta)
     # Drop the well in -Z so it hangs below the arm rather than
     # interpenetrating it.  WELL_Z_DROP_EXTRA pushes the well an extra
     # 4 mm down (PAST the natural arm-bottom = well-top plane) so the
@@ -4262,6 +4585,7 @@ def make_coxa_link() -> trimesh.Trimesh:
     well_z_drop = -(WELL_D / 2.0 + arm_t / 2.0 + WELL_Z_DROP_EXTRA)
     well.apply_translation([0.0, 0.0, well_z_drop])
     wire_slot.apply_translation([0.0, 0.0, well_z_drop])
+    cable_post.apply_translation([0.0, 0.0, well_z_drop])
 
     # Bridge from the arm's -Y edge (y = -arm_w/2) down to the well's
     # near +Y face (y = WELL_RIM_Z + delta_y) and from the arm's bottom
@@ -4404,8 +4728,13 @@ def make_coxa_link() -> trimesh.Trimesh:
     )
 
     # ---- Build the link body in the original (un-lifted) frame ----
+    # Cable post (Part A, May 2026): printed-in zip-tie strain relief
+    # next to the hip-pitch wire-exit slot.  Built in well-local and
+    # transformed alongside ``wire_slot`` so it stays anchored to the
+    # well's +X outer wall in every part orientation.
     body_unlifted = _union(hub, arm, well, gusset, bridge, gusset_under,
-                            arm_cap_pos, arm_cap_neg, well_top_pad)
+                            arm_cap_pos, arm_cap_neg, well_top_pad,
+                            cable_post)
     body_unlifted = _diff(body_unlifted, wire_slot)
     # Lift everything UP by COXA_LIFT so the well's bottom + the
     # femur's hip-pad clear the chassis-plate top during yaw + pitch
@@ -4880,14 +5209,17 @@ def make_femur_link() -> trimesh.Trimesh:
     # above for the load-path argument.
     well = _servo_well_solid(remove_floor=True)
     wire_slot = _wire_exit_slot()
+    cable_post = _cable_zip_post()
     R = rotation_matrix(-np.pi / 2.0, [1, 0, 0])    # well +Z -> femur +Y
     well.apply_transform(R)
     wire_slot.apply_transform(R)
+    cable_post.apply_transform(R)
     delta = np.array([FEMUR_LENGTH - SERVO_OUTPUT_X,
                        -(SERVO_BODY_H + SERVO_OUTPUT_H),
                        0.0])
     well.apply_translation(delta)
     wire_slot.apply_translation(delta)
+    cable_post.apply_translation(delta)
 
     # ---- Two bridge flanges (top + bottom) ---------------------------
     # The body's z range is +/-(SERVO_BODY_D/2) = +/-10.  The spar's z
@@ -5045,8 +5377,12 @@ def make_femur_link() -> trimesh.Trimesh:
         [FEMUR_LENGTH, (HORN_STACK_H - LINK_THICKNESS / 2.0) / 2.0, 0.0]
     )
 
+    # Cable post (Part A, May 2026): printed-in zip-tie strain relief
+    # next to the knee wire-exit slot.  Built in well-local and
+    # transformed alongside ``wire_slot`` (R + delta) so it stays
+    # anchored to the well's +X outer wall.
     body = _union(hip_pad, hip_neck_outer, spar, well,
-                   bridge_top, bridge_bot)
+                   bridge_top, bridge_bot, cable_post)
     return _diff(body, hip_neck_void, insertion_slot, wire_slot,
                  cavity_trim, knee_clear, hip_horn_recess,
                  *hip_holes, *hip_counterbores)
