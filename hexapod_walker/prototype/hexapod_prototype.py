@@ -4813,19 +4813,18 @@ def make_femur_link() -> trimesh.Trimesh:
     cavity_trim.apply_transform(R)
     cavity_trim.apply_translation(delta)
 
-    # ---- Lightening holes through the spar ---------------------------
-    # Also used to pass jacketed servo harnesses through the spar
-    # (radius must clear the plastic bundle, not just the conductors).
-    # Only at x < body_x_min so they don't accidentally cut the slot
-    # walls or the bridges.
-    lightening = []
-    n_holes = 2
-    for i in range(n_holes):
-        x = (i + 1) * body_x_min / (n_holes + 1)
-        h = _cyl(6.5, LINK_THICKNESS * 4)
-        h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-        h.apply_translation([x, 0, 0])
-        lightening.append(h)
+    # ---- (Removed) lightening holes through the spar -----------------
+    # Earlier revisions drilled 2 x Phi 13 mm cross-spar holes between
+    # the hip pad and the knee-end body cradle ("for weight + zip-tie
+    # tie-down").  At HIP_PAD_R = 20 mm the first hole's outer rim
+    # (x_centre ~ 17 -> x_extent [10.5, 23.5]) lands within 0.1 mm of
+    # the M2 X-horn bolt at angle 0 deg (x = 10.4, z = 0) -- the
+    # lightening hole eats half the bolt's clearance sleeve and leaves
+    # the screw naked on its +X side.  See the analogous tibia code
+    # below where the holes sit well away from the foot pin and any
+    # bolt circles; on the femur there is no clean place to put them
+    # without intruding on the hip pad bolt circle.  We forgo them.
+    # The 90 mm femur spar is not heavy enough to require lightening.
 
     # ---- Knee-end clearance void for the tibia's pad/neck annulus ----
     # The tibia's knee-pad + neck-torus is a Phi (2 * HIP_PAD_R) = 39 mm
@@ -4867,7 +4866,7 @@ def make_femur_link() -> trimesh.Trimesh:
                    bridge_top, bridge_bot)
     return _diff(body, hip_neck_void, insertion_slot, wire_slot,
                  cavity_trim, knee_clear, hip_horn_recess,
-                 *hip_holes, *hip_counterbores, *lightening)
+                 *hip_holes, *hip_counterbores)
 
 
 def make_tibia_link() -> trimesh.Trimesh:

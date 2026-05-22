@@ -8,6 +8,6 @@ switch_holster.stl,1,MJF PA12,white,as-printed,51.0,22.0,21.5,7.87,7.87,"Anti-sp
 imu_pad.stl,1,MJF PA12,white,as-printed,25.0,20.0,7.2,1.73,1.73,Vibration-isolated MPU-6050 / GY-521 IMU mount; 25 x 20 mm pad with 4 x M3 heat-set bosses.  Glued to chassis_top with double-sided foam tape (the foam doubles as the vibration damper); no fasteners between the pad and chassis_top.
 coxa_bracket.stl,6,MJF PA12,white,as-printed,66.0,52.0,45.2,50.63,303.79,Holds the yaw servo. Cradle pocket prints opening +Z.
 coxa_link.stl,6,MJF PA12,white,as-printed,61.0,46.0,64.0,51.69,310.12,Yaw-driven arm; oriented so the hip-pitch cradle opens +Z.
-femur_link.stl,6,MJF PA12,white,as-printed,129.0,46.0,58.0,56.76,340.54,Thigh; printed with the spar's broad face on the bed and the knee cradle sticking up (opens -Z) -- minimizes FDM supports.
-tibia_link.stl,6,MJF PA12,white,as-printed,156.0,40.0,17.0,20.22,121.30,"Shin link, ends in foot socket. Lay flat for FDM."
-foot_pad.stl,6,FDM TPU 95A,black,as-printed,28.0,28.0,18.0,3.32,19.92,"*** SEPARATE QUOTE *** -- needs flexible TPU for grip. If TPU isn't available, FDM PLA works but the foot will slip."
+femur_link.stl,6,MJF PA12,white,as-printed,129.0,46.0,55.0,56.20,337.20,Thigh; printed with the spar's broad face on the bed and the knee cradle sticking up (opens -Z) -- minimizes FDM supports.
+tibia_link.stl,6,MJF PA12,white,as-printed,156.0,40.0,14.0,18.52,111.10,"Shin link, ends in foot socket. Lay flat for FDM."
+foot_pad.stl,6,FDM TPU 95A,black,as-printed,28.0,28.0,18.0,3.62,21.74,"*** SEPARATE QUOTE *** -- needs flexible TPU for grip. If TPU isn't available, FDM PLA works but the foot will slip."
