@@ -1010,6 +1010,15 @@ def check_wire_slot():
     above the slot -- the user is free to close the flange ring around
     the body-passage slot at the top of the bracket without affecting
     this check.
+
+    May 2026 bracket-trim note: the coxa_bracket's yaw well is trimmed
+    at ``BRACKET_WELL_TRIM_Z = -15 mm`` (no floor, open bottom).  In
+    the bracket's case both the lateral AND the downward probe legs
+    fall entirely below the trim plane and so naturally land in free
+    air; the existing ``lat_ok or down_ok`` clause handles this without
+    a bracket-specific override.  The coxa_link and femur_link cradles
+    retain their full-depth walls + floor so their probes still
+    discriminate between blocked and free corridors as before.
     """
     print("\n[3b] Wire-exit L-corridor + boot fitment "
           "(body's bottom +X corner):")

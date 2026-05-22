@@ -685,6 +685,38 @@ BRACKET_FLANGE_INSET = 8.0  # mm distance from the chassis edge (= bracket
                             # line.  >= BRACKET_BOLT_HOLE so the bolt is on
                             # solid chassis material, not in mid-air.
 
+# ---- Bracket yaw-well TRIM plane ----------------------------------------
+# May 2026 user-driven simplification:  the bracket's yaw-servo well used
+# to extend ``WELL_RIM_Z + WELL_FLOOR_T = 30.25 mm`` below the chassis-
+# plate top face -- a 38 mm DS3225 body fully enclosed by ~27 mm of side
+# walls plus a 3 mm perimeter floor.  The user pointed out that the
+# walls only need to extend deep enough to host the bracket-level
+# heat-set insert bosses at bracket-z in [-13, -3] (= 10 mm boss height
+# starting 3 mm below the effective shelf top); below that, the wall
+# material is just lateral confinement for a servo body that the
+# four tabs already hold up structurally.
+#
+# ``BRACKET_WELL_TRIM_Z`` is the bracket-z plane below which all bracket
+# material is removed by the final boolean subtraction in
+# ``make_coxa_bracket``.  Set to -15 mm:
+#
+#   * 2 mm of margin BELOW the bracket-level insert bosses (boss bottom
+#     at bracket-z = -13).
+#   * 5 mm of margin below the WELL-level inboard-bolt insert bosses
+#     emitted by ``_servo_well_solid`` (bracket-z in [-10, 0]).
+#   * The DS3225 wire-exit boot, centred at bracket-z ~ -19, hangs
+#     EXPOSED below the trim plane.  The +X insertion channel
+#     (boot-drop path) above the trim is preserved -- the boot still
+#     slides freely from the rim down to its seated position.
+#   * The bracket's lowest point moves from bracket-z = -30.25 to
+#     bracket-z = -15 (a 15.25 mm reduction in vertical extent).
+#
+# The trim is applied to the BRACKET ONLY (``make_coxa_bracket``); the
+# coxa_link (hip-pitch cradle) and femur_link (knee cradle) keep their
+# existing full-depth walls because their wells participate in those
+# links' structural geometry differently.
+BRACKET_WELL_TRIM_Z = -15.0
+
 # ---- Servo horn adapter (DEPRECATED -- retained for backward compat) -----
 # Design B (May 2026): the printed servo_horn_adapter has been RETIRED.
 # Each driven link (coxa_link, femur_link, tibia_link) now bolts DIRECTLY
@@ -3815,6 +3847,19 @@ def make_coxa_bracket() -> trimesh.Trimesh:
           X-end and a 15.5 mm perimeter strip at each Y-end -- all
           four chassis-bolt corners are tied together through that
           ring.
+        - YAW WELL WALL DEPTH: the well's vertical walls extend only
+          down to ``BRACKET_WELL_TRIM_Z = -15 mm`` (the bracket's
+          lowest point).  There is NO well floor; the well bottom is
+          open.  The lower ~12 mm of the seated DS3225 body (body
+          bottom at bracket-z = -27) hangs EXPOSED below the trim
+          plane.  This is a deliberate simplification (May 2026):
+          the wall material below the bracket-level insert bosses
+          (boss bottom at bracket-z = -13) has no structural job --
+          the four mounting tabs already hold the servo up at the
+          rim -- so trimming it off saves ~15 mm of vertical extent
+          plus the floor plate without affecting servo seating,
+          fastener engagement, or the +X wire-boot insertion path
+          (the boot-drop channel survives above the trim).
 
     Assembly order:
         1.  DROP the yaw servo straight DOWN through the rectangular
@@ -4110,10 +4155,34 @@ def make_coxa_bracket() -> trimesh.Trimesh:
     bracket_insert_bosses.apply_translation([body_centre_x, 0.0, well_dz])
     bracket_insert_pockets.apply_translation([body_centre_x, 0.0, well_dz])
 
+    # ---- Yaw-well TRIM block (May 2026 simplification) --------------
+    # Remove all bracket material below ``BRACKET_WELL_TRIM_Z``.  The
+    # trim box is a large slab whose TOP face sits at the trim plane
+    # and whose interior extends well below any feature in the part
+    # (well outer floor was at bracket-z = -30.25, the lowest existing
+    # feature).  Anchored on the yaw axis in X / Y so the slab fully
+    # covers the flange's 66 x 52 mm footprint plus all surrounding
+    # walls.  This is the LAST cut in the boolean tree so the trim
+    # also removes the matching lower portion of the L-shaped
+    # ``wire_slot`` cut (whose lower leg used to vent through the
+    # well floor): with the floor gone the wires simply dangle out
+    # the open bottom, so the lateral leg of the L is no longer
+    # required for harness escape.  The bracket's lowest point goes
+    # from bracket-z = -30.25 down to bracket-z = -15.
+    trim_box_z_extent = 100.0   # mm; chosen so the slab bottom (=
+                                # bracket-z = -65) sits well below
+                                # any conceivable bracket feature.
+    bracket_well_trim = _box(
+        (300.0, 300.0, trim_box_z_extent),
+        center=(0.0, 0.0,
+                 BRACKET_WELL_TRIM_Z - trim_box_z_extent / 2.0),
+    )
+
     body = _union(flange, well, rib, *side_gussets, *bridge_gussets,
                    bracket_insert_bosses)
     return _diff(body, slot, wire_slot, horn_sweep_void,
-                 *chassis_holes, bracket_insert_pockets)
+                 *chassis_holes, bracket_insert_pockets,
+                 bracket_well_trim)
 
 
 def make_coxa_link() -> trimesh.Trimesh:

@@ -209,9 +209,10 @@ parts:
     keep_out_volumes: []
 
   coxa_bracket:
-    description: "Bolts to chassis edge, holds the yaw servo with output pointing up."
+    description: "Bolts to chassis edge, holds the yaw servo with output pointing up. Open-bottom yaw cradle (May 2026 trim): walls extend only 15 mm below the rim; lower ~12 mm of servo body hangs exposed."
     qty: 6
-    bounds_mm: [66.0, 52.0, 45.25]      # = flange_x_extent, BRACKET_FLANGE_Y, BRACKET_FLANGE_T + WELL_H
+    bounds_mm: [66.0, 52.0, 30.0]       # = flange_x_extent, BRACKET_FLANGE_Y, BRACKET_FLANGE_T + |BRACKET_WELL_TRIM_Z|
+    well_wall_depth_mm: 15.0            # = |BRACKET_WELL_TRIM_Z|; well walls only extend this far below the rim, no floor.
     holes:
       - name: chassis_bolt_outboard_NE
         diameter_mm: 3.4

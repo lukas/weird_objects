@@ -262,7 +262,7 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 
 | File | Function | Print orientation |
 |---|---|---|
-| `coxa_bracket.stl` | Horizontal flange + servo well (yaw motor hangs below). 4 vertical M3 bolts clamp the flange between the two chassis plates. | Flange on bed, well opening up |
+| `coxa_bracket.stl` | Horizontal flange + servo well (yaw motor hangs below). 4 vertical M3 bolts clamp the flange between the two chassis plates. **Yaw well is OPEN-BOTTOM** (May 2026 simplification): walls extend only 15 mm below the rim, deep enough to host the bracket-level heat-set insert bosses, and the lower ~12 mm of the seated DS3225 body hangs exposed -- the four mounting tabs already carry the servo, the lower well walls had no structural role, and trimming them saves ~15 mm of vertical extent plus the floor plate. | Flange on bed, well opening up |
 | `coxa_link.stl` | U-arm driven by the yaw servo's horn; carries the hip-pitch servo in a side-loaded well. | Hub face down, well opening up |
 | `femur_link.stl` | I-beam thigh with a slot through the spar so the knee servo body can slide past it during assembly. Top + bottom flange bridges connect the spar to the well. **Knee cradle floor is OPEN** (May 2026 supports-free refactor) so the part prints flat with no bridged ceiling. | Spar's broad face flat on bed; knee cradle opens downward through the bed and upward through the print's top -- no closed floor, no supports needed. |
 | `tibia_link.stl` | Shin link with knee pad at one end and a single 6 mm-wide TANG at the other (foot-hinge end). **Tibia is `LINK_THICKNESS` = 6 mm wide in Y everywhere** (May 2026 supports-free refactor), so the entire part prints flat as a 6 mm-tall slab. | Spar's broad face flat on bed, no supports. |
