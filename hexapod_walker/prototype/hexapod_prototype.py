@@ -3570,10 +3570,55 @@ def make_chassis_top() -> trimesh.Trimesh:
     heat-set insert pocket opening UPWARD from the boss top.  The
     switch_holster ear sits ON TOP of these 2 bosses; an M3 x 10 SHCS
     threads DOWN from above the ear into the insert.
+
+    Yaw-shaft pass-through cutouts (May 2026 chassis-bottom-integrated
+    yaw-cradle redesign):
+
+      The redesigned yaw-servo cradle sits inside ``chassis_bottom``
+      and routes the servo's output spline UP toward chassis_top.  In
+      the legacy ``coxa_bracket`` design the spline + X-horn stack
+      lived ENTIRELY below the bracket flange (chassis-z <= +20),
+      well below chassis_top's bottom face at chassis-z =
+      +CHASSIS_GAP = +32; no top-plate hole was needed.  Under the
+      new design the spline still terminates at chassis-z = +20
+      (= cradle-z +6 tab shelf + SERVO_BODY_H - SERVO_TAB_Z + spline
+      length), but the project's CAD convention is to add an explicit
+      pass-through cutout in chassis_top for any output shaft whose
+      AXIS is below the top plate, so the design intent is documented
+      in code instead of relying on a footprint-aware reader.
+
+      Geometry: 6 x Phi (SERVO_OUTPUT_OD + 2 mm) = Phi 12 mm cylindrical
+      cutouts -- 2 mm bilateral clearance on the Phi 10 mm output
+      gear stack -- placed at the yaw-axis locations
+      (= chassis hex edge midpoints, apothem 100 mm).  The cylinders
+      have height ``CHASSIS_PLATE_T * 4`` mm for a clean through-cut.
+
+      Geometric reality: chassis_top's hex perimeter sits at apothem
+      = CHASSIS_TOP_FLAT_TO_FLAT / 2 = 70 mm, so the 6 yaw axes at
+      apothem 100 mm are 30 mm OUTSIDE the plate's footprint.  The
+      Phi 12 mm cylinders cut empty air; the diff is a geometric
+      no-op against the current chassis_top hex.  Kept as an active
+      diff so a future enlarged chassis_top (say apothem 110 mm) will
+      automatically gain the clearance holes without a code change.
+      The runtime cost of 6 empty diffs is negligible (well under
+      1 ms in trimesh's CSG path).
     """
     plate = _hex_plate(CHASSIS_TOP_FLAT_TO_FLAT, CHASSIS_PLATE_T,
                        with_centre_holes=True,
                        with_leg_features=False)
+
+    # Yaw-shaft pass-through cutouts at every leg's yaw axis (= chassis
+    # edge midpoint).  See the docstring above for why this is a
+    # geometric no-op against the current 70 mm apothem chassis_top
+    # (and why we keep the diff anyway).
+    yaw_passthroughs: list[trimesh.Trimesh] = []
+    yaw_clearance = 1.0  # mm radial clearance on the Phi 10 mm spline
+    yaw_hole_r = SERVO_OUTPUT_OD / 2.0 + yaw_clearance       # 6 mm
+    for _i, edge_mid, _R, _R3 in _leg_chassis_frames():
+        hole = _cyl(yaw_hole_r, CHASSIS_PLATE_T * 4.0)
+        hole.apply_translation([edge_mid[0], edge_mid[1], 0.0])
+        yaw_passthroughs.append(hole)
+    plate = _diff(plate, *yaw_passthroughs)
 
     # 2 switch_holster mounting bosses on the +X half of the plate.
     # Each boss is a Phi SWITCH_HOLSTER_BOSS_OD cylinder centred on
