@@ -1677,16 +1677,24 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     """
     out: list[FastenerInstance] = []
     for leg_index in range(6):
-        # Cradle bolts (Design C, May 2026 revert: vertical M3 self-tap
-        # SHCS into Phi 2.5 mm printed pilots).  The coxa_bracket's
-        # shelf top sits BRACKET_SHELF_DROP_MM = 3 mm below WELL_RIM_Z
-        # because its drop-in slot eats the rim above bracket-z = -3;
-        # the coxa_link and femur cradles keep WELL_RIM_Z intact.
+        # Yaw cradle bolts (Design E, May 2026 mixed-mode: heat-set on
+        # -X, self-tap on +X).  The yaw cradle migrated from the
+        # standalone ``coxa_bracket`` part to an integrated cradle
+        # inside ``chassis_bottom`` (May 2026 redesign); during the
+        # transition commits the cradle bolt INSTANCES stay at the
+        # bracket's eaten-shelf position so this registry remains
+        # consistent with the assembly's bracket placement.  Commit 4
+        # of the transition switches both the assembly and the
+        # registry transform to the chassis_bottom cradle's shelf
+        # (which sits at cradle-z = CRADLE_TAB_SHELF_Z = +6, NOT
+        # eaten by a flange-top trim like the bracket's well rim).
+        # The ``coxa_link`` and ``femur_link`` cradles keep
+        # ``WELL_RIM_Z`` intact (no drop).
         out.extend(_emit_cradle_fasteners(
             T_well_to_world=_yaw_cradle_T(leg_index),
             leg_index=leg_index,
             joint="yaw",
-            location=f"coxa_bracket L{leg_index} yaw cradle",
+            location=f"chassis_bottom L{leg_index} yaw cradle",
             shelf_top_z=HP.WELL_RIM_Z - _BRACKET_SHELF_DROP_MM,
         ))
         out.extend(_emit_cradle_fasteners(
