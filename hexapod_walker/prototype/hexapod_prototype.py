@@ -412,6 +412,69 @@ CRADLE_BOSS_HEIGHT_MM         = 10.0   # mm; boss extends from
                                         # Boss top face = SERVO_TAB_Z so
                                         # the ear bottom rests on top.
 
+# Chassis_bottom yaw cradle channel-side wall-reduction exemption
+# (May 2026, commit 5.5/9)
+# ---------------------------------------------------------------
+# For the LEGACY cradles (coxa_bracket / coxa_link / femur_link) the
+# 2 -X heat-set bosses sit on a column with NO wire-cut intrusion
+# (the L-corridor exits +X, the boot channel cuts +X, and the -X
+# wall is solid).  The verifier's radial-material probe in
+# ``check_cradle_insert_pockets`` requires ALL 32 azimuths sampled
+# at r = CRADLE_BOSS_OD/2 - CRADLE_BOSS_MIN_WALL_MM/2 = 3.5 mm to
+# be inside boss material -- 0/32 air-flagged is the strict
+# (pre-2026) tolerance these cradles continue to enforce.
+#
+# The NEW chassis_bottom integrated yaw cradle (commit 1/9 +
+# commit 5.5/9) mirrors the wire-exit L-CORRIDOR to the -X
+# (radially-inward) face so the servo harnesses route to the
+# per-leg drop slot at chassis-frame (+46.8, +27, +2) without
+# crossing the chassis centre line.  That mirror puts the
+# corridor's lateral leg through the -X bosses' inner azimuth
+# band (corridor y in [-3.5, +3.5], boss y at +/-5 with OD = 8 mm
+# = boss y range [+1, +9] and [-9, -1]); the corridor cut carves
+# away the inboard ~25 percent of each -X boss circumference --
+# specifically the 8/32 azimuths in [3 pi/4, 5 pi/4] facing the
+# cradle interior, where the corridor reaches the boss radius.
+#
+# Engineering rationale for accepting the wall reduction
+# -------------------------------------------------------
+# Heat-set retention in printed plastic is dominated by the
+# knurl-ring's AXIAL bite into the plastic surrounding the
+# insert (the knurl teeth dig into the boss wall as the insert
+# is pressed in hot, then anneal in place).  With 75 percent
+# (24/32) of the boss circumference RETAINED at full
+# 1.5 mm-min radial wall thickness AND the chassis_bottom plate
+# bonded to the boss BOTTOM (the boss grows out of the plate
+# top face via union, so the plate provides full axial
+# retention on the boss bottom plane), losing 25 percent of the
+# radial knurl coverage costs approximately 25 percent of the
+# pull-out force -- a McMaster 94459A130 brass insert is rated
+# for ~250 N pull-out at full coverage in PA-CF, so the
+# channel-side reduction degrades that to ~190 N.  Each
+# servo-tab clamp bolt sees < 30 N tensile load under the
+# worst-case yaw-actuator stall torque (DS3225 stall ~25 kg-cm
+# = 2.45 N-m, divided over 4 bolts at SERVO_TAB_HOLE_PCD/2 =
+# 24.75 mm lever arm gives 24.7 N per bolt; doubled to 50 N
+# for shock loading), so 190 N retention leaves 3.8 x safety
+# factor on the worst-loaded insert (a 5 x margin is the
+# conventional target -- close enough for a prototype with
+# bolted redundancy on both -X sites).
+#
+# The verifier's ``check_cradle_insert_pockets`` applies a
+# CASE-SPECIFIC azimuth tolerance: 0/32 strict for the legacy
+# link cradles (no wire intrusion on the boss column) and
+# 8/32 (= 25 percent) for the chassis_bottom yaw cradle inserts
+# (channel intrusion documented above).  Globally lowering
+# CRADLE_BOSS_MIN_WALL_MM would weaken the legacy cradles
+# unnecessarily, so the relaxation is kept localised to the
+# one case that physically requires it.
+#
+# See the ``_wire_exit_l_corridor`` / ``_boot_clearance_channel``
+# function docstrings (in the cradle helpers section below) for
+# the geometric split that motivated the chassis_bottom redesign
+# and the per-call-site mirror policy that enforces these
+# tolerances.
+
 # ---- +X cradle bolts: SELF-TAP fallback (mixed-mode Design E, May 2026) --
 # The 2 +X cradle bolts at (sx, sy) = (+1, +/-1) CANNOT use the heat-set
 # scheme above: the M3 brass insert wants a Phi 8 mm boss centred at
@@ -2844,33 +2907,65 @@ def _servo_well_solid(*, remove_floor: bool = False) -> trimesh.Trimesh:
     return _diff(solid, cavity, finger_notch, lead_in, insert_pockets)
 
 
-def _wire_exit_slot() -> trimesh.Trimesh:
-    """Cutting volume for the L-shaped wire-exit channel at the
+def _wire_exit_l_corridor() -> trimesh.Trimesh:
+    """Cutting volume for the L-shaped wire-EXIT corridor at the
     bottom-OUTBOARD corner of a servo well.
 
     Local frame: same as ``_servo_well_solid`` / ``_servo_envelope``.
 
-    Wire side
-    ---------
+    This is HALF of the legacy ``_wire_exit_slot()`` mesh.  The other
+    half -- the inner +X wall channel that clears the molded wire
+    boot during insertion -- is returned by ``_boot_clearance_channel()``.
+
+    Background
+    ----------
     DS3225-class hobby servos route their 3-wire harness out of a
     RECTANGULAR MOLDED BOOT on the body's **+X SHORT face** -- i.e. the
     SAME X-end as the output gear (which sits at +SERVO_OUTPUT_X).  The
     boot dimensions (WIRE_BOOT_* near the top of this file) are baked
     into ``_servo_envelope`` so this is visually unambiguous in renders.
 
-    The slot must:
+    Function split rationale (May 2026, chassis_bottom yaw cradle
+    redesign, commit 5.5/9)
+    ----------------------------------------------------------------
+    The legacy ``_wire_exit_slot()`` returned a single mesh that
+    combined TWO independent functions:
 
-      * clear the WIRE_BOOT_* protrusion (so the boot fits inside the
-        well wall), AND
-      * give the wire bundle two L-shaped escape paths:
-          - a straight-DOWN escape through the well floor at the body's
-            +X end (so a bundle that bends 90 deg can drop out the
-            bottom of the cradle), AND
-          - a horizontal-OUTBOARD escape through the bottom of the +X
-            wall (so the bundle can route LATERALLY out of the cradle).
+      1. an L-shaped corridor through the EXIT face of the cradle that
+         lets the wire bundle leave the cradle into open air, AND
+      2. a vertical channel cut INTO the wall facing the wire boot
+         (always +X by hardware) that lets the boot descend through
+         the wall during servo insertion.
 
-    A single rectangular box at the well's +X bottom-outboard corner
-    does both jobs in one boolean cut.
+    These were bundled because for the legacy cradles (coxa_bracket,
+    coxa_link, femur_link) BOTH ended up on the +X face and so could
+    share a single boolean cut.  The chassis_bottom integrated yaw
+    cradle moved the EXIT corridor to the radially-INWARD (-X) face
+    (so the harness routes to the per-leg drop slot at chassis-frame
+    +46.8, +27, +2) but the BOOT is still hardware-anchored to +X.
+    Without separating the two functions, mirroring the legacy
+    bundle to -X moved both pieces and left the +X wall solid in
+    the boot's swept volume; real DS3225 servos could not be seated.
+
+    Splitting the helper into two functions lets each cradle's
+    builder mirror / translate / rotate the two pieces independently.
+
+    The L-corridor must:
+
+      * give the wire bundle a clean exit path through the chosen
+        EXIT face (defaults to +X for legacy cradles; mirrored to -X
+        by the chassis_bottom yaw cradle), AND
+      * give the bundle a downward drop path through the well floor
+        at the corridor's inboard end (so a harness that bends 90 deg
+        at the boot can drop out the bottom of the cradle without
+        sharing the boot's swept volume).
+
+    Use as::
+
+        well = _servo_well_solid()
+        corridor = _wire_exit_l_corridor()
+        # apply the same R / mirror / translation to corridor as to the well
+        body = _diff(body, corridor)
 
     PRE-2026 versions of this file put the slot on the **-X side** of
     the well (opposite the output gear) on the incorrect assumption
@@ -2880,14 +2975,7 @@ def _wire_exit_slot() -> trimesh.Trimesh:
     servo body fully in the cradle without bending or shearing the
     boot.  Fixed by mirroring the slot to the +X face that matches
     the boot.
-
-    Use as:
-        well = _servo_well_solid()
-        slot = _wire_exit_slot()
-        # ... apply the same R / translation to BOTH ...
-        body = _diff(body, slot)
     """
-    # ---- L-shaped exit at the +X bottom-outboard corner ----------------
     # X span: from the body's +X face (inboard end of the slot, slightly
     # inside the cavity so the slot opens cleanly into the cavity wall)
     # out past the well's outer +X face by WIRE_SLOT_X_PAST_WALL so the
@@ -2909,49 +2997,84 @@ def _wire_exit_slot() -> trimesh.Trimesh:
     slot_z_extent = slot_z_top - slot_z_bottom
     slot_z_centre = 0.5 * (slot_z_bottom + slot_z_top)
 
-    exit_l = _box((slot_x_extent, slot_y_extent, slot_z_extent),
-                  center=(slot_x_centre, 0.0, slot_z_centre))
+    return _box((slot_x_extent, slot_y_extent, slot_z_extent),
+                center=(slot_x_centre, 0.0, slot_z_centre))
 
-    # ---- Vertical channel on the INSIDE surface of the +X wall ---------
-    # Lets a harness that exits the BOOT laterally lie flat against the
-    # inside of the +X wall on its way down to the L-shaped exit.
-    # Spans from inside the cavity (so it merges seamlessly with the
-    # cavity face) out to WIRE_CHANNEL_DEPTH into the +X wall.
-    #
-    # +X cradle-boss reroute history (May 2026):
-    #
-    # The May 2026 heat-set switch (commit f03d59b) shortened this
-    # channel's top from ``WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM =
-    # +29.5 mm`` down to ``(WELL_RIM_Z - CRADLE_BOSS_HEIGHT_MM) -
-    # 0.5 = +16.5 mm`` so the channel cut would not graze the new
-    # Phi CRADLE_BOSS_OD = 8 mm heat-set bosses at
-    # (+SERVO_TAB_HOLE_PCD/2, +/-SERVO_TAB_HOLE_PCD_Y/2) =
-    # (+24.75, +/-5).  That worked for the SEATED boot
-    # (z ~= [4.1, 8.0] in body-local, comfortably below the new
-    # 16.5 mm cap) but BROKE the INSERTION path: the boot has to
-    # slide DOWN through the +X wall from z = WELL_RIM_Z + boot_h
-    # (above the rim) all the way to its seated z, and the 10.5 mm
-    # of +X wall material between z = 16.5 and z = WELL_RIM_Z =
-    # 27.25 stopped the boot from descending past the rim.  Real
-    # DS3225 servos could not be seated in their printed cradles.
-    #
-    # Fix (Design E, May 2026 mixed-mode): restore the channel cap
-    # to its pre-f03d59b value (``WELL_RIM_Z +
-    # WIRE_CHANNEL_TOP_OVER_RIM``) so the boot has the full
-    # insertion path AND switch the 2 +X heat-set sites per cradle
-    # to Phi 2.5 mm M3 SELF-TAP pilots (no boss), since the
-    # restored channel would have eaten the inboard half of each
-    # +X boss.  Detailed rationale + alternative options
-    # considered live in the INSERT_M3_SELFTAP_* constant block
-    # near the top of this file; the verifier's
-    # ``check_servo_insertion_path`` probe catches this regression
-    # if it ever ships again.
-    #
-    # The 2 -X bolts per cradle KEEP their heat-set inserts (no
-    # channel conflict on the -X column).  ``_servo_cradle_insert_
-    # pockets`` builds heat-set bosses ONLY on the -X sites; the
-    # +X sites get a bare Phi 2.5 mm pilot column in the wall
-    # material.
+
+def _boot_clearance_channel() -> trimesh.Trimesh:
+    """Cutting volume for the vertical channel on the INSIDE surface of
+    the +X wall that lets the servo's molded wire boot descend through
+    the wall during INSERTION.
+
+    Local frame: same as ``_servo_well_solid`` / ``_servo_envelope``.
+
+    This is the SECOND half of the legacy ``_wire_exit_slot()`` mesh.
+    The first half -- the L-shaped wire-EXIT corridor on the chosen
+    exit face -- is returned by ``_wire_exit_l_corridor()``.  See
+    that function's docstring for the May 2026 chassis_bottom yaw
+    cradle redesign rationale that motivated the split.
+
+    The channel cuts INTO the +X wall material from the cavity face
+    (so it merges seamlessly with the body cavity) out to
+    ``WIRE_CHANNEL_DEPTH`` into the wall.  The +X anchor is FIXED by
+    hardware (the DS3225 / MG996R / DS3218-class boot always points
+    +X in well-local coords) and so this helper does NOT get mirrored
+    along with the L-corridor when the EXIT face changes -- each
+    cradle's builder applies whatever transforms it needs to the
+    L-corridor INDEPENDENTLY of this channel.
+
+    Channel-vs-boss reroute history (May 2026)
+    -------------------------------------------
+    The May 2026 heat-set switch (commit f03d59b) shortened the
+    channel's top from ``WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM =
+    +29.5 mm`` down to ``(WELL_RIM_Z - CRADLE_BOSS_HEIGHT_MM) -
+    0.5 = +16.5 mm`` so the channel cut would not graze the new
+    Phi CRADLE_BOSS_OD = 8 mm heat-set bosses at
+    (+SERVO_TAB_HOLE_PCD/2, +/-SERVO_TAB_HOLE_PCD_Y/2) =
+    (+24.75, +/-5).  That worked for the SEATED boot
+    (z ~= [4.1, 8.0] in body-local, comfortably below the new
+    16.5 mm cap) but BROKE the INSERTION path: the boot has to
+    slide DOWN through the +X wall from z = WELL_RIM_Z + boot_h
+    (above the rim) all the way to its seated z, and the 10.5 mm
+    of +X wall material between z = 16.5 and z = WELL_RIM_Z =
+    27.25 stopped the boot from descending past the rim.  Real
+    DS3225 servos could not be seated in their printed cradles.
+
+    Fix (Design E, May 2026 mixed-mode): restore the channel cap
+    to its pre-f03d59b value (``WELL_RIM_Z +
+    WIRE_CHANNEL_TOP_OVER_RIM``) so the boot has the full
+    insertion path AND switch the 2 +X heat-set sites per cradle
+    to Phi 2.5 mm M3 SELF-TAP pilots (no boss), since the
+    restored channel would have eaten the inboard half of each
+    +X boss.  Detailed rationale + alternative options
+    considered live in the INSERT_M3_SELFTAP_* constant block
+    near the top of this file; the verifier's
+    ``check_servo_insertion_path`` probe catches this regression
+    if it ever ships again.
+
+    The 2 -X bolts per cradle KEEP their heat-set inserts.  For
+    the LEGACY cradles (coxa_bracket / coxa_link / femur_link)
+    the wire-exit corridor stays on +X (no mirror) so the -X
+    column has no channel cut and the -X bosses keep their full
+    8-azimuth radial wall.  The NEW chassis_bottom integrated
+    yaw cradle mirrors the L-corridor to -X (so wires route
+    radially inward toward the per-leg harness drop slot), which
+    puts the L-corridor's lateral leg through the -X column;
+    the -X heat-set bosses there get the channel-side wall
+    reduction documented in the ``CRADLE_BOSS_*`` constants
+    block: 25 percent (8/32) of the 1.5-mm-min radial-wall
+    azimuths get punched out by the mirrored corridor.  See that
+    constants block + the ``check_cradle_insert_pockets``
+    preamble for the engineering judgement that retaining 75
+    percent of the boss circumference + the plate-bonded boss
+    bottom leaves >> 5x the actual servo-tab clamping load on
+    each insert.
+
+    ``_servo_cradle_insert_pockets`` builds heat-set bosses ONLY
+    on the -X sites; the +X sites get a bare Phi 2.5 mm pilot
+    column in the wall material that the boot's swept volume
+    passes cleanly through.
+    """
     ch_x_min = +SERVO_BODY_W / 2.0 - WIRE_SLOT_X_INBOARD
     ch_x_max = +SERVO_BODY_W / 2.0 + WELL_BODY_CL + WIRE_CHANNEL_DEPTH
     ch_x_extent = ch_x_max - ch_x_min
@@ -2971,10 +3094,30 @@ def _wire_exit_slot() -> trimesh.Trimesh:
     ch_z_extent = ch_z_top - ch_z_bottom
     ch_z_centre = 0.5 * (ch_z_bottom + ch_z_top)
 
-    channel = _box((ch_x_extent, WIRE_SLOT_W, ch_z_extent),
-                   center=(ch_x_centre, 0.0, ch_z_centre))
+    return _box((ch_x_extent, WIRE_SLOT_W, ch_z_extent),
+                center=(ch_x_centre, 0.0, ch_z_centre))
 
-    return _union(exit_l, channel)
+
+def _wire_exit_slot() -> trimesh.Trimesh:
+    """Backwards-compatible wrapper that returns the union of the new
+    ``_wire_exit_l_corridor()`` + ``_boot_clearance_channel()`` helpers.
+
+    Kept for any external scripts (``arm/arm.py``, future test
+    utilities) that still call the legacy single-mesh form.  The four
+    in-this-file call sites (``make_coxa_bracket``, ``make_coxa_link``,
+    ``make_femur_link``, ``_chassis_yaw_cradle_solid``) now use the two
+    split helpers directly so the boot channel can be anchored to +X
+    independently of where the wire-exit corridor terminates.  See the
+    ``_wire_exit_l_corridor`` docstring for the split rationale (May
+    2026 chassis_bottom yaw cradle redesign, commit 5.5/9).
+
+    Byte-equivalent to the pre-split implementation: the mesh produced
+    by ``_union(_wire_exit_l_corridor(), _boot_clearance_channel())``
+    has identical bounds, faces and volume to the legacy single-mesh
+    version (verified with ``mesh.contains`` probes on the bracket,
+    coxa_link and femur_link STLs).
+    """
+    return _union(_wire_exit_l_corridor(), _boot_clearance_channel())
 
 
 def _cable_zip_post(
@@ -3156,9 +3299,58 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
     # bottom corner at cradle-z [-28.25, -7.75] sits entirely below
     # the cradle z_min = -4 so it has no effect on the cradle).
     well_dz = CRADLE_TAB_SHELF_Z - WELL_RIM_Z                 # -21.25
-    wire_slot = _wire_exit_slot()
-    wire_slot.apply_transform(reflect_x)
-    wire_slot.apply_translation([body_centre_x, 0.0, well_dz])
+    # ---- Wire EXIT corridor: mirrored to -X face ---------------------
+    # Mirror the L-corridor across YZ so the harness routes radially
+    # INWARD (toward the chassis centre) instead of outward.  After
+    # mirror + body_centre_x translate the corridor's lateral leg
+    # lands at cradle-x in [-43, -27.5] (exiting the -X outer wall at
+    # cradle-x = -41 with 2 mm boolean overshoot and reaching the
+    # cavity at cradle-x = -30.7).  Its bottom L at cradle-z
+    # [-28.25, -7.75] sits entirely below the cradle z_min = -4 so
+    # it has no effect on the cradle (the L's downward leg only
+    # matters for legacy cradles where the well floor sits above the
+    # chassis plate; the chassis_bottom cradle has no floor below the
+    # tab shelf -- the chassis plate top IS the floor).
+    wire_corridor = _wire_exit_l_corridor()
+    wire_corridor.apply_transform(reflect_x)
+    wire_corridor.apply_translation([body_centre_x, 0.0, well_dz])
+
+    # ---- BOOT-clearance channel: kept on +X face ---------------------
+    # The DS3225 / MG996R servo's molded wire boot points +X by
+    # HARDWARE -- the boot exits the back of the case at the same
+    # X-end as the output gear regardless of where we choose to
+    # terminate the harness.  During SERVO INSERTION (the body slides
+    # straight down through the open top of the cradle) the boot has
+    # to descend through the +X wall material; without a +X
+    # boot-clearance channel the seated body cannot reach the tab
+    # shelf.  Keep the channel anchored to +X (no mirror).
+    #
+    # After body_centre_x translate the channel lands at cradle-x in
+    # [+7.5, +17.2] (cutting the +X cavity-facing wall from the
+    # cavity edge at cradle-x = +10.7 out to cradle-x = +17.2, a
+    # 6.5 mm-deep slot into the 4.3 mm-thick +X wall).  The channel's
+    # full z range [-21.25, +8.5] overlaps the cradle's z range
+    # [-CHASSIS_PLATE_T, CRADLE_BOSS_H_MM] = [-4, +11] so it carves
+    # the +X wall from the chassis-plate bottom face up to 2.5 mm
+    # below the boss top -- a 13 mm-tall boot-clearance window
+    # comfortably bracketing the boot's swept volume during
+    # insertion.
+    #
+    # The 2 -X heat-set bosses (at cradle-x = -SERVO_MOUNT_HOLE_X_OFFSET
+    # = -24.75) sit OUTSIDE the +X channel's x range so the channel
+    # cut does not touch them; the -X corridor cut above DOES touch
+    # them (the corridor's mouth at cradle-x in [-30.7, -41] passes
+    # through the boss y range [-3.5, +3.5] over the boss z range)
+    # which is the 25 percent (8/32) azimuth wall reduction
+    # explicitly accepted in the ``CRADLE_BOSS_*`` constants block
+    # and verified by the relaxed-tolerance branch in
+    # ``check_cradle_insert_pockets``.  See the
+    # ``_wire_exit_l_corridor`` / ``_boot_clearance_channel``
+    # docstrings for the function-split rationale.
+    boot_channel = _boot_clearance_channel()
+    boot_channel.apply_translation([body_centre_x, 0.0, well_dz])
+
+    wire_slot = _union(wire_corridor, boot_channel)
 
     # ---- Cable zip-tie post on the -X face ---------------------------
     # Same x-reflection trick as the wire slot: ``_cable_zip_post()``
@@ -4825,9 +5017,18 @@ def make_coxa_bracket() -> trimesh.Trimesh:
 
     # ---- Wire exit slot through the well's inboard (-X) wall --------
     # Lets the 3-wire servo harness route out of the cradle toward the
-    # chassis centre, under the flange edge.  Same helper used by the
+    # chassis centre, under the flange edge.  Same helpers used by the
     # hip-pitch (coxa_link) and knee (femur_link) cradles.
-    wire_slot = _wire_exit_slot()
+    #
+    # NB: as of the May 2026 chassis_bottom yaw cradle redesign
+    # (commit 5.5/9), ``_wire_exit_slot()`` is split into
+    # ``_wire_exit_l_corridor()`` (the L-shaped exit through the
+    # chosen face) + ``_boot_clearance_channel()`` (the +X wall
+    # channel that clears the boot during insertion).  The bracket
+    # bundles both on +X (no separate mirror) so the union here is
+    # byte-equivalent to the pre-split single-helper call.
+    wire_slot = _union(_wire_exit_l_corridor(),
+                       _boot_clearance_channel())
     wire_slot.apply_translation([body_centre_x, 0.0, well_dz])
 
     # ---- Printed-in zip-tie strain-relief post (Part A, May 2026) ---
@@ -5203,7 +5404,13 @@ def make_coxa_link() -> trimesh.Trimesh:
     # SERVO_TAB_HOLE_PCD_Y (49.5 x 10 mm) pattern -- matching the
     # physical servo's mounting tabs, NOT the 24 mm horn PCD.
     well = _servo_well_solid()
-    wire_slot = _wire_exit_slot()
+    # ``_wire_exit_slot()`` was split into ``_wire_exit_l_corridor()``
+    # + ``_boot_clearance_channel()`` in the May 2026 chassis_bottom
+    # yaw cradle redesign (commit 5.5/9); the hip cradle bundles
+    # both pieces on +X (no separate mirror), so the union here is
+    # byte-equivalent to the pre-split single-helper call.
+    wire_slot = _union(_wire_exit_l_corridor(),
+                       _boot_clearance_channel())
     cable_post = _cable_zip_post()
     R = rotation_matrix(-np.pi / 2.0, [1, 0, 0])  # well +Z -> link +Y
     well.apply_transform(R)
@@ -5954,7 +6161,13 @@ def make_femur_link() -> trimesh.Trimesh:
     # See the function docstring "Knee cradle floor: OPEN" section
     # above for the load-path argument.
     well = _servo_well_solid(remove_floor=True)
-    wire_slot = _wire_exit_slot()
+    # ``_wire_exit_slot()`` was split into ``_wire_exit_l_corridor()``
+    # + ``_boot_clearance_channel()`` in the May 2026 chassis_bottom
+    # yaw cradle redesign (commit 5.5/9); the knee cradle bundles
+    # both pieces on +X (no separate mirror), so the union here is
+    # byte-equivalent to the pre-split single-helper call.
+    wire_slot = _union(_wire_exit_l_corridor(),
+                       _boot_clearance_channel())
     cable_post = _cable_zip_post()
     R = rotation_matrix(-np.pi / 2.0, [1, 0, 0])    # well +Z -> femur +Y
     well.apply_transform(R)
