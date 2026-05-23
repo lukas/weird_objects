@@ -40,24 +40,6 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "battery_holder":      (0.580, 0.404, 0.741),
     # Electronics tray - tab:olive
     "electronics_tray":    (0.737, 0.741, 0.133),
-    # BEC cradle - lighter olive sibling (sits on the electronics_tray
-    # so visually grouping with the tray makes sense).
-    "bec_cradle":          (0.871, 0.871, 0.318),
-    # Switch holster - tab:pink-ish (sits on chassis_top at the +X
-    # edge; sibling of the chassis color family is too easy to lose,
-    # so a contrasting hue is used).
-    "switch_holster":      (0.890, 0.467, 0.137),
-    # IMU pad - bright cyan (sits at the chassis centre on chassis_top;
-    # cyan stands out against the chassis-blue / olive electronics
-    # neighbours so the small 25 x 20 mm pad is visually findable in
-    # the inspector).
-    "imu_pad":             (0.000, 0.800, 0.800),
-    # MPU-6050 / GY-521 visual PCB - bright magenta (commodity board,
-    # but distinctive against everything else on chassis_top so a
-    # quick visual scan picks it out).
-    "mpu6050":             (0.900, 0.100, 0.700),
-    # Coxa bracket - tab:orange (the chassis<->hip-yaw bridge "pops")
-    "coxa_bracket":        (1.000, 0.498, 0.055),
     # Coxa link - tab:green
     "coxa_link":           (0.173, 0.627, 0.173),
     # Femur link - tab:red
@@ -101,26 +83,6 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     # when the build is exploded.  Matches the "brass-bolt" palette
     # family the spec calls for.
     "M3 heat-set insert":  (0.72, 0.45, 0.20),
-    # M2.5 heat-set insert (McMaster 94459A106): same brass / bronze
-    # hue as the M3 sibling (May 2026 electronics-tray expansion).
-    "M2.5 heat-set insert": (0.72, 0.45, 0.20),
-    # M2.5 x 8 SHCS into the Pi 4 / Pi 5 heat-set insert -- same
-    # bluer-steel hue as the M2.5 spline screw it shares stock with.
-    "M2.5x8 SHCS into heat-set insert": (0.28, 0.32, 0.40),
-    # ---- Non-printed electronics visuals (May 2026 follow-up:
-    # BuildViz pass) -- one color per commodity board/body so the
-    # inspector can paint them apart from the printed parts that
-    # carry them.  See ``make_*_visual()`` in hexapod_prototype.py.
-    "arduino_mega":        (0.011764705882352941, 0.5372549019607843, 0.611764705882353),
-    "raspberry_pi":        (0.4980392156862745, 0.11372549019607843, 0.11372549019607843),
-    "pca9685_primary":     (0.12156862745098039, 0.1607843137254902, 0.21568627450980393),
-    "pca9685_secondary":   (0.12156862745098039, 0.1607843137254902, 0.21568627450980393),
-    "bec_a":               (0.13333333333333333, 0.13333333333333333, 0.13333333333333333),
-    "bec_b":               (0.13333333333333333, 0.13333333333333333, 0.13333333333333333),
-    "antispark_switch":    (0.30196078431372547, 0.30196078431372547, 0.30196078431372547),
-    "antispark_switch_toggle": (1.0, 0.5176470588235295, 0.0),
-    "lipo_battery":        (0.8627450980392157, 0.14901960784313725, 0.14901960784313725),
-    "lipo_xt60":           (0.984313725490196, 0.7490196078431373, 0.1411764705882353),
 }
 
 
@@ -137,13 +99,6 @@ _CHASSIS_LEVEL = frozenset({
     "chassis_top", "chassis_bottom",
     "chassis_plate_a", "chassis_plate_b",
     "battery_holder", "electronics_tray",
-    "bec_cradle", "switch_holster",
-    "imu_pad", "mpu6050",
-    "arduino_mega", "raspberry_pi",
-    "pca9685_primary", "pca9685_secondary",
-    "bec_a", "bec_b",
-    "antispark_switch", "antispark_switch_toggle",
-    "lipo_battery", "lipo_xt60",
 })
 
 
@@ -163,15 +118,12 @@ _FASTENER_PART_TYPES = frozenset({
     "M3x14 SHCS",
     "M3x8 SHCS",
     "M3x8 SHCS into heat-set insert",
-    "M3x10 SHCS",
     "M3x32 SHCS",
     "M3x16 pan-head",
     "M2x8 SHCS",
     "M2.5x8 spline screw",
-    "M2.5x8 SHCS into heat-set insert",
     "M3 nyloc nut",
     "M3 heat-set insert",
-    "M2.5 heat-set insert",
 })
 
 
@@ -197,7 +149,6 @@ def instance_role(
 
         instance_role("coxa_link",    0,    None)  -> "hip-yaw -> hip-pitch"
         instance_role("femur_link",   3,    None)  -> "hip-pitch -> knee"
-        instance_role("coxa_bracket", 2,    None)  -> "chassis -> hip-yaw"
         instance_role("servo_body",   1,    "yaw") -> "hip-yaw servo"
         instance_role("chassis_top",  None, None)  -> "chassis"
 
@@ -215,11 +166,8 @@ def instance_role(
             return f"{_JOINT_ROLE.get(joint, joint)} fastener"
         return "fastener"
     del leg_index  # the role string does not embed the leg index
-    # Part-type-specific role labels first; the generic
-    # ``_CHASSIS_LEVEL -> "chassis"`` fallback runs LAST so a part
-    # that lives once-per-robot can still carry a specific role.
-    if part_type == "coxa_bracket":
-        return "chassis -> hip-yaw"
+    if part_type in _CHASSIS_LEVEL:
+        return "chassis"
     if part_type == "coxa_link":
         return "hip-yaw -> hip-pitch"
     if part_type == "femur_link":
@@ -228,30 +176,6 @@ def instance_role(
         return "knee -> foot"
     if part_type == "foot_pad":
         return "foot"
-    if part_type == "imu_pad":
-        return "IMU mounting pad"
-    if part_type == "mpu6050":
-        return "MPU-6050 IMU"
-    if part_type == "arduino_mega":
-        return "Arduino Mega 2560"
-    if part_type == "raspberry_pi":
-        return "Raspberry Pi 4/5"
-    if part_type == "pca9685_primary":
-        return "PCA9685 primary (0x40)"
-    if part_type == "pca9685_secondary":
-        return "PCA9685 secondary (0x41)"
-    if part_type == "bec_a":
-        return "BEC A (5V/5A switching)"
-    if part_type == "bec_b":
-        return "BEC B (5V/5A switching)"
-    if part_type == "antispark_switch":
-        return "Anti-spark on/off switch"
-    if part_type == "antispark_switch_toggle":
-        return "Anti-spark switch toggle"
-    if part_type == "lipo_battery":
-        return "LiPo 3S 2200 mAh"
-    if part_type == "lipo_xt60":
-        return "LiPo XT60 + balance plug"
     if part_type == "servo_horn_adapter":
         suffix = _JOINT_ROLE.get(joint or "", "joint")
         return f"{suffix} output"
@@ -261,8 +185,6 @@ def instance_role(
     if part_type == "servo_horn":
         suffix = _JOINT_ROLE.get(joint or "", "joint")
         return f"{suffix} horn"
-    if part_type in _CHASSIS_LEVEL:
-        return "chassis"
     return ""
 
 

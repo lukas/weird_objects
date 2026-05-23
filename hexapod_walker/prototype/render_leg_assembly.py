@@ -37,7 +37,6 @@ BG = "#f1f3f5"
 PLASTIC_HORN_H = 5.0
 
 PART_COLORS: dict[str, str] = {
-    "coxa_bracket":      "#2563eb",
     "coxa_link":         "#16a34a",
     "femur_link":        "#ea580c",
     "tibia_link":        "#9333ea",
@@ -123,13 +122,9 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
 
     parts: dict[str, trimesh.Trimesh] = {}
 
-    # ---- coxa_bracket (chassis-fixed; bracket-local origin at edge_mid)
-    cb = HP.make_coxa_bracket()
-    cb.apply_transform(R_a)
-    cb.apply_translation(edge_mid)
-    parts["coxa_bracket"] = cb
-
-    # ---- yaw servo body (hangs in the bracket well; body bottom at -WELL_RIM_Z)
+    # ---- yaw servo body (hangs in chassis_bottom's yaw cradle; body
+    #      bottom at chassis-z = -WELL_RIM_Z; May 2026 Design F removed
+    #      the standalone coxa_bracket, folding it into chassis_bottom)
     yaw_servo = HP.make_servo_body()
     yaw_servo.apply_translation([-HP.SERVO_OUTPUT_X, 0, -HP.WELL_RIM_Z])
     yaw_servo.apply_transform(R_a)
@@ -230,13 +225,6 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
 
     # ---------- Landmarks for label leader anchors --------------------
     landmarks: dict[str, np.ndarray] = {}
-
-    flange_local = np.array([
-        -(HP.BRACKET_FLANGE_INSET + HP.BRACKET_BOLT_PCD_X / 2.0),
-        0.0,
-        HP.BRACKET_FLANGE_T,
-    ])
-    landmarks["coxa_bracket_flange"] = R_a_3 @ flange_local + edge_mid
 
     # Wire harness exits on the body's +X SHORT face (same X-end as the
     # output gear).  In bracket-local coords the well origin is at
@@ -572,8 +560,6 @@ def main() -> None:
     # naturally; we only override for the colour-coded callouts that
     # want a specific column.
     iso_labels: list[dict[str, Any]] = [
-        dict(key="bracket", text="coxa_bracket",
-             anchor=landmarks["coxa_bracket_flange"]),
         dict(key="wire", text="wire exit (L-slot)",
              anchor=landmarks["wire_exit"],
              box_fc="#fef9c3", box_ec="#a16207"),
@@ -614,8 +600,6 @@ def main() -> None:
     # Looking straight down.  +X right, +Y up.  Bracket on the LEFT
     # (low X), foot on the RIGHT (high X).
     top_labels: list[dict[str, Any]] = [
-        dict(key="bracket", text="coxa_bracket",
-             anchor=landmarks["coxa_bracket_flange"]),
         dict(key="wire", text="wire exit (L-slot)",
              anchor=landmarks["wire_exit"],
              box_fc="#fef9c3", box_ec="#a16207"),
@@ -641,8 +625,6 @@ def main() -> None:
     # Looking along +Y (camera at -Y).  +X right, +Z up.  Bracket lower-
     # LEFT, foot lower-RIGHT.
     side_labels: list[dict[str, Any]] = [
-        dict(key="bracket", text="coxa_bracket",
-             anchor=landmarks["coxa_bracket_flange"]),
         dict(key="wire", text="wire exit (L-slot)",
              anchor=landmarks["wire_exit"],
              box_fc="#fef9c3", box_ec="#a16207"),

@@ -251,7 +251,8 @@ def _link_hub_horn_sweep() -> trimesh.Trimesh:
 # ---------------------------------------------------------------------------
 
 KEEP_OUT_VOLUMES: dict[str, Callable[[], trimesh.Trimesh]] = {
-    # coxa_bracket-local
+    # chassis_bottom yaw cradle-local (May 2026 Design F: previously
+    # coxa_bracket-local; the yaw cradle moved into chassis_bottom).
     "yaw_horn_sweep":           _yaw_horn_sweep,
     "yaw_servo_body":           _yaw_servo_body_pocket,
     "yaw_wire_exit_corridor":   _yaw_wire_exit_corridor,
@@ -271,11 +272,6 @@ KEEP_OUT_VOLUMES: dict[str, Callable[[], trimesh.Trimesh]] = {
 # of keep-out volume keys defined in this module that apply to that
 # part's LOCAL frame.  Used by render_views.py and validate_geometry.py.
 PART_KEEPOUTS: dict[str, list[str]] = {
-    "coxa_bracket": [
-        "yaw_horn_sweep",
-        "yaw_servo_body",
-        "yaw_wire_exit_corridor",
-    ],
     "coxa_link": [
         "hip_pad_sweep",
         "hip_pitch_servo_body",

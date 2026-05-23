@@ -6,7 +6,7 @@ H2D preset:
     - Tibia and femur links are **separate plates** (the combined two-row plate
       used on the H2D is too tall in Y for a 256 mm bed).
     - Battery holder + electronics tray share one plate (side by side).
-    - Coxa brackets and links pack on their own plate.
+    - Coxa / femur / tibia links pack on their own plate.
     - The 18 servo horn adapters use a compact **6 × 3 grid** on one plate.
 
 Output: ``bambu_x1_trays/`` — README, layout_manifest.csv, and **eight** plate STLs.

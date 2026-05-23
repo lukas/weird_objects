@@ -76,18 +76,17 @@ Enumerated categories (Design B + Design C, May 2026 revert)
    with a SKIP because the screw is hidden under the X-horn during
    normal assembly -- install before fitting the horn.
 
-4. ``24 x M3 x 32 SHCS`` -- coxa-bracket-to-chassis bolts.  4 chassis
-   bolts per coxa_bracket x 6 brackets = 24.  Threads down through the
-   chassis_bottom plate, the bracket flange, into an M3 nyloc nut
-   captured below the chassis plate.
+4. ``6 x M3 x 16 pan-head bolts`` -- foot hinge pins.  1 per leg.
 
-5. ``24 x M3 nyloc nuts`` -- one per chassis-bracket bolt (see 4.).
+5. ``6 x M3 nyloc nuts`` -- one per foot hinge bolt.
 
-6. ``6 x M3 x 16 pan-head bolts`` -- foot hinge pins.  1 per leg.
+(May 2026 Design F: the previous categories 4 + 5 -- ``24 x M3 x 32 SHCS``
+coxa-bracket-to-chassis bolts and 24 matching M3 nyloc nuts -- have been
+RETIRED.  The standalone ``coxa_bracket`` part has been folded into
+``chassis_bottom`` as a printed-in cradle, so there is no bracket flange
+to clamp through the chassis plates.)
 
-7. ``6 x M3 nyloc nuts`` -- one per foot hinge bolt.
-
-8. ``4 x M3 x 10 SHCS`` -- battery_holder foot bolts.  Driven UP
+6. ``4 x M3 x 10 SHCS`` -- battery_holder foot bolts.  Driven UP
    through chassis_bottom (one per foot, on the BATTERY_FOOT_DX /
    DY square pattern) into the brass heat-set insert that lives in
    each holder foot.  May 2026 fix: the holder used to be enumerated
@@ -96,7 +95,7 @@ Enumerated categories (Design B + Design C, May 2026 revert)
    places both the bolts and their captive heat-set inserts so the
    verifier's check_fastener_engagement probes them on every run.
 
-9. ``4 x M3 heat-set inserts`` -- one per battery_holder foot (see 8.).
+7. ``4 x M3 heat-set inserts`` -- one per battery_holder foot (see 6.).
    Mirrors the f03d59b cradle insert pattern: Phi 4.0 mm pocket cut
    from the foot's BOTTOM face with the brass insert recessed 0.5 mm
    so the bolt head clamps the chassis_bottom plate against plastic,
@@ -971,88 +970,6 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
     ]
 
 
-# ---------------------------------------------------------------------------
-# Coxa-bracket -> chassis bolts (M3 x 32 SHCS) and their nyloc nuts
-# ---------------------------------------------------------------------------
-
-
-def _emit_chassis_bolts(leg_index: int) -> list[FastenerInstance]:
-    """The 4 M3 chassis-bracket bolts drilled through the bottom plate.
-
-    Pattern matches ``make_coxa_bracket()``'s chassis_holes:
-        outboard pair: bracket-x = -BRACKET_FLANGE_INSET
-        inboard  pair: bracket-x = -BRACKET_FLANGE_INSET - BRACKET_BOLT_PCD_X
-        y          = +/- BRACKET_BOLT_PCD_Y / 2
-    Heads sit ABOVE the bracket flange (+Z), axis points -Z into the
-    flange + chassis stack.  Nut is below the chassis_bottom plate.
-    """
-    apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
-    a = (leg_index + 0.5) * np.pi / 3.0
-    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
-    T = _T(*edge_mid) @ _Rz(a)
-
-    bolt_x_outboard = -HP.BRACKET_FLANGE_INSET
-    bolt_x_inboard  = -HP.BRACKET_FLANGE_INSET - HP.BRACKET_BOLT_PCD_X
-    bolt_ys = (-HP.BRACKET_BOLT_PCD_Y / 2.0, +HP.BRACKET_BOLT_PCD_Y / 2.0)
-
-    out: list[FastenerInstance] = []
-    for bx, x_label in ((bolt_x_outboard, "outb"), (bolt_x_inboard, "inb")):
-        for by in bolt_ys:
-            y_label = "+Y" if by > 0 else "-Y"
-            # Head face: just above the bracket flange top (z = BRACKET_FLANGE_T).
-            head_local = np.array([bx, by, HP.BRACKET_FLANGE_T])
-            head = _apply_point(T, head_local)
-            axis = _apply_dir(T, np.array([0.0, 0.0, -1.0]))
-            out.append(FastenerInstance(
-                part_number=PN_M3X32_SHCS,
-                spec=SPEC_M3X32_SHCS,
-                head_world_xyz=head,
-                axis_world=axis,
-                role=f"coxa_bracket L{leg_index} chassis bolt {x_label} {y_label} SHCS",
-                leg_index=leg_index,
-                joint=None,
-                length_mm=32.0,
-                cache_stl=f"{PN_M3X32_SHCS}.cache.stl",
-                # The chassis bolts are CAPTIVE SUB-ASSEMBLY fasteners:
-                # the bracket is bolted DOWN onto the chassis_bottom
-                # plate BEFORE the coxa_link is bolted onto the yaw
-                # servo's horn (the coxa_link's arm sits in the
-                # chassis-bolt driver cone above the bracket flange,
-                # so once the link is on, you cannot reach the
-                # chassis bolts).
-                skip_screwdriver_reason=(
-                    "captive sub-assembly fastener: torqued BEFORE "
-                    "the coxa_link is bolted onto the yaw servo horn. "
-                    "The coxa_link's arm sits in the driver cone "
-                    "above the bracket flange post-assembly"
-                ),
-            ))
-            # Nut hangs below the chassis_bottom plate.  Chassis_bottom
-            # plate top sits at z = 0; bottom at z = -CHASSIS_PLATE_T;
-            # the nyloc nut sits with its outboard (downward-facing)
-            # face at z = -CHASSIS_PLATE_T (under the plate).
-            nut_local = np.array([bx, by, -HP.CHASSIS_PLATE_T])
-            nut_head = _apply_point(T, nut_local)
-            nut_axis = _apply_dir(T, np.array([0.0, 0.0, +1.0]))  # nut faces -Z; INTO material is +Z
-            out.append(FastenerInstance(
-                part_number=PN_M3_NYLOC,
-                spec=SPEC_M3_NYLOC,
-                head_world_xyz=nut_head,
-                axis_world=nut_axis,
-                role=f"coxa_bracket L{leg_index} chassis bolt {x_label} {y_label} nyloc nut",
-                leg_index=leg_index,
-                joint=None,
-                length_mm=None,
-                cache_stl=f"{PN_M3_NYLOC}.cache.stl",
-            ))
-    return out
-
-
-# ---------------------------------------------------------------------------
-# Foot hinge bolts (M3 x 16 pan-head, one per leg)
-# ---------------------------------------------------------------------------
-
-
 def _emit_foot_hinge_fastener(leg_index: int) -> list[FastenerInstance]:
     """The single M3 x 16 pan-head hinge pin that captures the tibia's
     TANG in the foot pad's FORK.  Bolt axis is parallel to the knee
@@ -1710,18 +1627,6 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         out.extend(_emit_spline_fastener(leg_index, "hip"))
         out.extend(_emit_spline_fastener(leg_index, "knee"))
 
-        # Coxa-bracket -> chassis bolts (M3 x 32 SHCS + nyloc nuts).
-        # Retired in commit 5/8 of the May 2026 chassis-bottom-
-        # integrated yaw-cradle redesign.  The bracket part itself is
-        # still placed in the assembly (it dies in commit 8) but the
-        # 24 chassis bolts + 24 nyloc nuts that used to clamp its
-        # flange to chassis_bottom are gone -- the yaw cradle's
-        # heat-set bosses + cradle bolts now carry the load.  The
-        # ``_emit_chassis_bolts`` helper is intentionally kept alive
-        # (uncalled) so a partial revert can re-enable the pattern;
-        # commit 8 deletes both the helper and the bracket part.
-        # (No-op: 48 fastener instances dropped relative to commit 4.)
-
         # Foot hinge pin (M3 x 16 pan-head + nyloc nut).
         out.extend(_emit_foot_hinge_fastener(leg_index))
 
@@ -1835,8 +1740,6 @@ def _usage_bucket(fi: FastenerInstance) -> str:
         return "link-to-X-horn bolts"
     if "spline screw" in role:
         return "servo spline center screws"
-    if "chassis bolt" in role:
-        return "coxa-bracket-to-chassis bolts"
     if "hinge" in role:
         return "foot hinge pins"
     return role

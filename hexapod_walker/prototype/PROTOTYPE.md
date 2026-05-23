@@ -281,9 +281,12 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 
 ### 3.2 Per-leg parts (print 6 sets)
 
+(May 2026 Design F: the standalone `coxa_bracket.stl` is RETIRED.
+The yaw servo now drops into an integrated cradle in `chassis_bottom.stl`
+(see Part 3.1); there is no separate per-leg bracket part.)
+
 | File | Function | Print orientation |
 |---|---|---|
-| `coxa_bracket.stl` | Horizontal flange + servo well (yaw motor hangs below). 4 vertical M3 bolts clamp the flange between the two chassis plates. **Yaw well is OPEN-BOTTOM** (May 2026 simplification): walls extend only 15 mm below the rim, deep enough to host the bracket-level heat-set insert bosses, and the lower ~12 mm of the seated DS3225 body hangs exposed -- the four mounting tabs already carry the servo, the lower well walls had no structural role, and trimming them saves ~15 mm of vertical extent plus the floor plate. | Flange on bed, well opening up |
 | `coxa_link.stl` | U-arm driven by the yaw servo's horn; carries the hip-pitch servo in a side-loaded well. | Hub face down, well opening up |
 | `femur_link.stl` | I-beam thigh with a slot through the spar so the knee servo body can slide past it during assembly. Top + bottom flange bridges connect the spar to the well. **Knee cradle floor is OPEN** (May 2026 supports-free refactor) so the part prints flat with no bridged ceiling. | Spar's broad face flat on bed; knee cradle opens downward through the bed and upward through the print's top -- no closed floor, no supports needed. |
 | `tibia_link.stl` | Shin link with knee pad at one end and a single 6 mm-wide TANG at the other (foot-hinge end). **Tibia is `LINK_THICKNESS` = 6 mm wide in Y everywhere** (May 2026 supports-free refactor), so the entire part prints flat as a 6 mm-tall slab. | Spar's broad face flat on bed, no supports. |
@@ -348,8 +351,8 @@ printer.
 | M3 × 8 mm socket-head cap screws | ~ 50 | Link → horn bolts (4 per servo x 18 servos = 72; can also use 6 mm or 10 mm), chassis tie-rods. |
 | M3 × 12 mm | 24 | Standoffs between top + bottom chassis plates |
 | M3 × 14 mm SHCS | 72 + spares | **Design C servo-mount bolts**: horizontal, through the +/-X cradle walls and the servo tabs, into captive M3 nyloc nuts on the outer face. |
-| M3 × 16 mm | 24 | Coxa bracket → chassis (4 × 6 = 24) |
-| M3 nyloc nuts | >= 78 + spares | **Design C captive nuts**: 4 per servo x 18 servos = 72, plus 6 for the foot hinges. |
+| M3 × 16 mm pan-head | 6 + spares | Foot hinge pins (one per leg). |
+| M3 nyloc nuts | >= 6 + spares | One per foot hinge pin (May 2026 Design F: the 72 captive servo-mount nuts and the 24 coxa-bracket-to-chassis nuts have BOTH been retired). |
 | M3 × 25 mm round standoffs (M-F) | 8 | Top-to-bottom chassis spacers |
 | M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the plastic 4-arm X-horn onto the servo output spline. |
 | M3 brass heat-set inserts (McMaster 94459A130) | 18 | Electronics-tray board mounts: 4 for the Mega 2560 + 4 for the primary PCA9685 + 4 for the secondary PCA9685.  Plus 2 more in `chassis_top`'s 2 printed bosses for the `switch_holster` mount bolts.  Plus 4 more in the `imu_pad`'s 4 boss tops for the MPU-6050 mount.  Soldering-iron installed into the printed Phi 4 mm pilot pockets BEFORE the electronics / holster / IMU go on. |
@@ -384,7 +387,6 @@ A single Ender 3-class printer runs the whole BOM in roughly **21 hours**:
 
 | Pass | Parts | Bed | Time |
 |---|---|---|---|
-| 1 | 6 × coxa_bracket | 6 brackets pack onto a 220 mm bed | ~ 4 h |
 | 2 | 6 × coxa_link | Same | ~ 4 h |
 | 3 | 6 × femur_link | Same | ~ 5 h |
 | 4 | 6 × tibia_link | Same | ~ 4 h |
@@ -671,7 +673,7 @@ BOM still matches reality.
 
 **Per leg, build 3 extension cables**:
 
-1.  **Yaw servo** (cradle on `coxa_bracket`, doesn't rotate with any
+1.  **Yaw servo** (cradle integrated into `chassis_bottom`, doesn't rotate with any
     upstream joint): typically `DS3225 stock pigtail` -- the harness
     drops straight through the chassis_bottom slot into the PCA.  L1 -
     L4 might need one +30 cm extension depending on which side of the
@@ -718,7 +720,7 @@ extra slack is harmless, deficit can fight the kinematics.
 
 **Zip-tie placement** (3 per leg, 1 per servo cradle):
 
-* `coxa_bracket` cradle post: anchor the YAW harness about 10 mm
+* `chassis_bottom` yaw cradle post (-X face): anchor the YAW harness about 10 mm
   past the cradle wire-exit slot.  Post sits on the well's +X
   outer face, just past the slot.
 * `coxa_link` cradle post: anchor the HIP-PITCH harness right at

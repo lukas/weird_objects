@@ -183,11 +183,12 @@ def _build_one_leg_in_body_frame(leg_index: int):
     parameterised by ``leg_index`` (the upstream version hard-codes
     leg 0 for self-collision; the arm check needs all 6 legs).
 
-    Returns a dict ``{"coxa_bracket": mesh, "coxa_link": mesh,
-    "femur_link": mesh, "tibia_link": mesh}`` placed in the body's
-    world frame for the chosen edge (``a = (leg_index + 0.5) *
-    np.pi / 3``).  No servo bodies or horns -- just the 4 printed
-    leg parts.  Kept here so the arm check stays additive and
+    Returns a dict ``{"coxa_link": mesh, "femur_link": mesh,
+    "tibia_link": mesh}`` placed in the body's world frame for the
+    chosen edge (``a = (leg_index + 0.5) * np.pi / 3``).  No servo
+    bodies or horns -- just the 3 printed leg parts (May 2026 Design
+    F: the legacy ``coxa_bracket`` mesh has been folded into
+    ``chassis_bottom``).  Kept here so the arm check stays additive and
     doesn't depend on private helpers in ``_verify_prototype``
     being parameterised.
     """
@@ -218,11 +219,6 @@ def _build_one_leg_in_body_frame(leg_index: int):
         [hp.FEMUR_LENGTH, 0, 0])
 
     parts: dict[str, Any] = {}
-
-    cb = hp.make_coxa_bracket()
-    cb.apply_transform(rotation_matrix(a, [0, 0, 1]))
-    cb.apply_translation(edge_mid)
-    parts["coxa_bracket"] = cb
 
     cl = hp.make_coxa_link()
     cl.apply_transform(rotation_matrix(a, [0, 0, 1]))
@@ -312,7 +308,7 @@ def check_arm_interference(*,
         total_per_leg = []
         for leg_index in range(6):
             vol_leg = 0.0
-            for part_name in ("coxa_bracket", "coxa_link",
+            for part_name in ("coxa_link",
                               "femur_link", "tibia_link"):
                 leg_mesh = standing_legs.get(f"leg{leg_index}_{part_name}")
                 if leg_mesh is None:

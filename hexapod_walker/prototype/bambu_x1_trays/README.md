@@ -12,7 +12,7 @@ Generated for a **256 x 256 x 256 mm** build volume.
 - `plate_04b_rigid_femur_links_2of2.stl` (PLA/PETG rigid): 3 x `femur_link.stl`
 - `plate_05a_rigid_battery_holder.stl` (PLA/PETG rigid): 1 x `battery_holder.stl`
 - `plate_05b_rigid_electronics_tray.stl` (PLA/PETG rigid): 1 x `electronics_tray.stl`
-- `plate_06_rigid_coxa_brackets_links.stl` (PLA/PETG rigid): 6 x `coxa_bracket.stl`, 6 x `coxa_link.stl`
+- `plate_06_rigid_coxa_links.stl` (PLA/PETG rigid): 6 x `coxa_link.stl`
 - `plate_07_tpu_foot_pads.stl` (TPU 95A): 6 x `foot_pad.stl`
 
 Import one plate STL at a time into Bambu Studio. Parts are oriented for FDM.

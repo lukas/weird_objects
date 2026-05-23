@@ -119,7 +119,6 @@ _MESH_BUILDERS = {
     "bec_cradle":       hp.make_bec_cradle,
     "switch_holster":   hp.make_switch_holster,
     "imu_pad":          hp.make_imu_pad,
-    "coxa_bracket":     hp.make_coxa_bracket,
     "coxa_link":        hp.make_coxa_link,
     "femur_link":       hp.make_femur_link,
     "tibia_link":       hp.make_tibia_link,
@@ -675,7 +674,7 @@ def check_watertight():
     # backwards-compat but is no longer in the printable-output set.
     items_names = (
         "chassis_top", "chassis_bottom", "battery_holder",
-        "electronics_tray", "coxa_bracket", "coxa_link",
+        "electronics_tray", "coxa_link",
         "femur_link", "tibia_link", "foot_pad",
     )
     all_ok = True
@@ -1275,11 +1274,6 @@ def _build_standing_leg():
 
     parts = {}
 
-    cb = _load_mesh("coxa_bracket")
-    cb.apply_transform(rotation_matrix(a, [0, 0, 1]))
-    cb.apply_translation(edge_mid)
-    parts["coxa_bracket"] = cb
-
     cl = _load_mesh("coxa_link")
     cl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     cl.apply_translation(edge_mid + yaw_output_z * z_hat)
@@ -1337,7 +1331,6 @@ def check_self_collision():
     # interface that legitimately overlaps geometrically.  Allow a
     # generous tolerance there; for non-adjacent parts require zero.
     JOINT_PAIRS = {
-        ("coxa_bracket", "coxa_link"),
         ("coxa_link",    "femur_link"),
         ("femur_link",   "tibia_link"),
     }
@@ -1453,7 +1446,7 @@ def check_servo_clearance():
     # output side hosts the gear stack passage (a couple cm^3 of overlap is
     # expected through the spline bore).  Everything else should be ~zero.
     CRADLE_PARENT = {
-        "yaw_servo":  "coxa_bracket",
+        "yaw_servo":  "chassis_bottom",
         "hip_servo":  "coxa_link",
         "knee_servo": "femur_link",
     }
@@ -2281,7 +2274,7 @@ def check_flimsy_joints():
 
     items_names = (
         "chassis_top", "chassis_bottom", "battery_holder",
-        "electronics_tray", "coxa_bracket", "coxa_link",
+        "electronics_tray", "coxa_link",
         "femur_link", "tibia_link", "foot_pad",
         # Design B (May 2026): servo_horn_adapter dropped from the
         # flimsy-cluster sweep -- no longer in the printable-output set.
@@ -2730,10 +2723,6 @@ def _build_chassis_world(reference_leg_az_rad):
     edge_mid_n = np.array([apothem * np.cos(a_n),
                             apothem * np.sin(a_n),
                             0.0])
-    cbn = _load_mesh("coxa_bracket")
-    cbn.apply_transform(rotation_matrix(a_n, [0, 0, 1]))
-    cbn.apply_translation(edge_mid_n)
-    parts["neighbour_coxa_bracket"] = cbn
 
     return parts
 
@@ -2788,11 +2777,6 @@ def _build_workspace_leg(yaw_deg, femur_pitch_deg, knee_pitch_deg,
 
     parts = {}
 
-    cb = templates["coxa_bracket"].copy()
-    cb.apply_transform(R_a)
-    cb.apply_translation(edge_mid)
-    parts["coxa_bracket"] = cb
-
     cl = templates["coxa_link"].copy()
     cl.apply_transform(R_yaw)
     cl.apply_transform(R_a)
@@ -2825,7 +2809,6 @@ def _build_workspace_leg(yaw_deg, femur_pitch_deg, knee_pitch_deg,
 #   * everything else  -> WORKSPACE_ARTEFACT_TOL  (physically zero
 #     overlap expected).
 _WS_JOINT_PAIRS = {
-    ("coxa_bracket", "coxa_link"),
     ("coxa_link",    "femur_link"),
     ("femur_link",   "tibia_link"),
 }
@@ -2834,13 +2817,12 @@ _WS_JOINT_PAIRS = {
 # full set of "could plausibly collide somewhere in the workspace"
 # combinations the existing single-pose check misses.
 _WS_DYNAMIC_NAMES = ("coxa_link", "femur_link", "tibia_link")
-_WS_INTRA_LEG_STATIC = ("coxa_bracket",)  # same-leg static reference
+_WS_INTRA_LEG_STATIC = ()  # no chassis-fixed leg-static parts after Design F
 _WS_CHASSIS_STATIC = (
     "chassis_top",
     "chassis_bottom",
     "battery_holder",
     "electronics_tray",
-    "neighbour_coxa_bracket",
 )
 
 
@@ -2867,7 +2849,6 @@ def _ws_get_chassis_and_templates(leg_az: float):
         return cached
     chassis = _build_chassis_world(key)
     templates = {
-        "coxa_bracket": _load_mesh("coxa_bracket", copy=False),
         "coxa_link":    _load_mesh("coxa_link",    copy=False),
         "femur_link":   _load_mesh("femur_link",   copy=False),
         "tibia_link":   _load_mesh("tibia_link",   copy=False),
@@ -4040,7 +4021,7 @@ DRIVER_HEAD_STANDOFF_MM      = 0.5
 _DRIVER_PRINTED_PART_NAMES = (
     "chassis_bottom", "chassis_top", "battery_holder", "electronics_tray",
     "bec_cradle", "switch_holster", "imu_pad",
-    "coxa_bracket", "coxa_link", "femur_link", "tibia_link", "foot_pad",
+    "coxa_link", "femur_link", "tibia_link", "foot_pad",
 )
 
 
@@ -4127,11 +4108,6 @@ def _build_world_leg0_printed_parts() -> dict:
     # Leg-0 printed parts -- mirrors ``_build_standing_leg`` so the
     # legged-part transforms exactly match the registry's leg_index=0
     # fastener positions.
-    cbrk = _load_mesh("coxa_bracket")
-    cbrk.apply_transform(rotation_matrix(a, [0, 0, 1]))
-    cbrk.apply_translation(edge_mid)
-    parts["coxa_bracket"] = cbrk
-
     cl = _load_mesh("coxa_link")
     cl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     cl.apply_translation(edge_mid + yaw_output_z * z_hat)
@@ -5098,25 +5074,6 @@ def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
     hip_axis_world = Rz_a @ np.array([0.0, 1.0, 0.0])
     knee_axis_world = Rz_a @ np.array([0.0, 1.0, 0.0])
 
-    # coxa_bracket flange test point: bracket-local
-    # (-(BRACKET_FLANGE_INSET + BRACKET_BOLT_PCD_X / 2),
-    #  +BRACKET_BOLT_PCD_Y/2, ?) = (-18, +20, ?).  Chosen because:
-    # (a) the chassis_bottom plate has a body+tab cutout for the
-    # bracket well that swallows bracket-local x in [-40, +20] /
-    # y in [-15.5, +15.5] (centred on (-SERVO_OUTPUT_X=-10, 0)); the
-    # cutout x range alone is huge but |y| = 20 is well OUTSIDE the
-    # cutout's |y| = 15.5 -- so at bracket-local (-18, +20, 0) the
-    # chassis plate is solid.  (b) The 4 chassis bolt holes are at
-    # bracket-local (-8, +/-20) and (-28, +/-20); (-18, +20) sits
-    # MIDWAY between the +Y outboard and +Y inboard bolts so it's
-    # 10 mm clear of every bolt clearance hole.
-    bracket_test_local = np.array([
-        -(hp.BRACKET_FLANGE_INSET + hp.BRACKET_BOLT_PCD_X / 2.0),
-        +hp.BRACKET_BOLT_PCD_Y / 2.0,
-        0.0,
-    ])
-    bracket_test_world = edge_mid + Rz_a @ bracket_test_local
-
     interfaces: list[tuple] = []
 
     # Per-interface tolerances.  The yaw mating face is the link's
@@ -5700,7 +5657,7 @@ ALL_PRINTED_PARTS = frozenset({
     "chassis_top", "chassis_bottom",
     "battery_holder", "electronics_tray",
     "bec_cradle", "switch_holster", "imu_pad",
-    "coxa_bracket", "coxa_link",
+    "coxa_link",
     "femur_link", "tibia_link", "foot_pad",
     # Visual-only meshes that some checks place to test interfaces:
     "servo_body", "servo_horn",
@@ -5708,9 +5665,9 @@ ALL_PRINTED_PARTS = frozenset({
 
 # Subsets used by the per-check map below.
 _LEG_PARTS = frozenset({
-    "coxa_bracket", "coxa_link", "femur_link", "tibia_link",
+    "coxa_link", "femur_link", "tibia_link",
 })
-_CRADLE_PARTS = frozenset({"coxa_bracket", "coxa_link", "femur_link"})
+_CRADLE_PARTS = frozenset({"chassis_bottom", "coxa_link", "femur_link"})
 _PAD_PARTS = frozenset({"coxa_link", "femur_link", "tibia_link"})
 _CHASSIS_PARTS = frozenset({
     "chassis_top", "chassis_bottom",
@@ -5719,7 +5676,7 @@ _CHASSIS_PARTS = frozenset({
 _PRINTED_WATERTIGHT_SET = frozenset({
     "chassis_top", "chassis_bottom",
     "battery_holder", "electronics_tray",
-    "coxa_bracket", "coxa_link",
+    "coxa_link",
     "femur_link", "tibia_link", "foot_pad",
 })
 
@@ -5734,7 +5691,7 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Self-collision":            _LEG_PARTS,
     "Servo clearance":           _LEG_PARTS | {"servo_body"},
     "Horn-stack clearance":      frozenset({"femur_link", "tibia_link"}),
-    "Horn-sweep clearance":      frozenset({"coxa_bracket", "servo_horn"}),
+    "Horn-sweep clearance":      frozenset({"chassis_bottom", "servo_horn"}),
     "Horn pattern in pads":      _PAD_PARTS,
     "Cradle insert pockets":     _CRADLE_PARTS,
     "Servo insertion path":      _CRADLE_PARTS,

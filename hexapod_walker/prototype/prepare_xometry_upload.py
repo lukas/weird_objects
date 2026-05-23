@@ -15,7 +15,9 @@ Output:
         chassis_bottom.stl         -- qty 1  (full 200 mm structural hex)
         battery_holder.stl         -- qty 1
         electronics_tray.stl       -- qty 1
-        coxa_bracket.stl           -- qty 6
+        # Design F (May 2026): coxa_bracket.stl retired -- the yaw
+        # servo now drops INTO an integrated cradle inside
+        # chassis_bottom (see make_chassis_bottom).
         coxa_link.stl              -- qty 6
         femur_link.stl             -- qty 6
         tibia_link.stl             -- qty 6
@@ -42,16 +44,12 @@ from trimesh.transformations import rotation_matrix
 
 from hexapod_prototype import (
     make_battery_holder,
-    make_bec_cradle,
     make_chassis_bottom,
     make_chassis_top,
-    make_coxa_bracket,
     make_coxa_link,
     make_electronics_tray,
     make_femur_link,
     make_foot_pad,
-    make_imu_pad,
-    make_switch_holster,
     make_tibia_link,
 )
 
@@ -100,35 +98,6 @@ def _reorient_battery_holder(mesh):
 
 def _reorient_electronics_tray(mesh):
     """Flat 3 mm plate."""
-    return _drop_to_bed(mesh)
-
-
-def _reorient_bec_cradle(mesh):
-    """Snap-fit cradle for 2 x BECs.  Open top is +Z (cavity opens
-    UP); drop to bed."""
-    return _drop_to_bed(mesh)
-
-
-def _reorient_switch_holster(mesh):
-    """Switch holster.  Mesh-local +Z is UP (ear bottom face on the
-    bed when dropped); drop to bed.  The mounting ear is a thin
-    plate and the socket cantilevers up from it -- printable as-is
-    without supports."""
-    return _drop_to_bed(mesh)
-
-
-def _reorient_imu_pad(mesh):
-    """IMU pad.  Mesh-local +Z is UP (foam-tape bottom face on the
-    bed when dropped); drop to bed.  The pad floor is 2 mm thick and
-    the 4 corner bosses cantilever up to z = IMU_PAD_T +
-    IMU_PAD_BOSS_H = 7 mm -- printable as-is without supports."""
-    return _drop_to_bed(mesh)
-
-
-def _reorient_coxa_bracket(mesh):
-    """U-cradle with mounting pad. Cradle's open top is at +Z in the
-    bracket's assembly local frame — so flat-bottom of the cradle on
-    the bed, mounting pad as a vertical fin sticking out the side."""
     return _drop_to_bed(mesh)
 
 
@@ -228,27 +197,6 @@ PART_REGISTRY: list[tuple[str,
     ("electronics_tray.stl",     make_electronics_tray,    _reorient_electronics_tray,
      1, "MJF PA12",      "white", "as-printed",
      "Mounts Arduino + 2x PCA9685; standoffs are part of the geometry."),
-
-    ("bec_cradle.stl",           make_bec_cradle,          _reorient_bec_cradle,
-     1, "MJF PA12",      "white", "as-printed",
-     "Snap-fit clip for 2 x switching BECs (Hobbywing UBEC form "
-     "factor); sits on top of the electronics_tray, friction fit."),
-
-    ("switch_holster.stl",       make_switch_holster,      _reorient_switch_holster,
-     1, "MJF PA12",      "white", "as-printed",
-     "Anti-spark on/off switch body holster; bolts to chassis_top's "
-     "+X edge with 2 x M3 SHCS, toggle protrudes for user access."),
-
-    ("imu_pad.stl",              make_imu_pad,             _reorient_imu_pad,
-     1, "MJF PA12",      "white", "as-printed",
-     "Vibration-isolated MPU-6050 / GY-521 IMU mount; 25 x 20 mm "
-     "pad with 4 x M3 heat-set bosses.  Glued to chassis_top with "
-     "double-sided foam tape (the foam doubles as the vibration "
-     "damper); no fasteners between the pad and chassis_top."),
-
-    ("coxa_bracket.stl",         make_coxa_bracket,        _reorient_coxa_bracket,
-     6, "MJF PA12",      "white", "as-printed",
-     "Holds the yaw servo. Cradle pocket prints opening +Z."),
 
     ("coxa_link.stl",            make_coxa_link,           _reorient_coxa_link,
      6, "MJF PA12",      "white", "as-printed",

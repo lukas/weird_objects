@@ -110,7 +110,6 @@ _PART_STL_NAMES = (
     "chassis_bottom",
     "battery_holder",
     "electronics_tray",
-    "coxa_bracket",
     "coxa_link",
     "femur_link",
     "tibia_link",
@@ -338,7 +337,6 @@ def build_xml(obstacles_xml: str = "") -> str:
     actuator_blocks = []
     sensor_blocks = []
     yaw_chassis_blocks = []
-    bracket_blocks = []
     for i in range(6):
         a = (i + 0.5) * math.pi / 3.0
         x = LEG_RADIAL * math.cos(a)
@@ -349,10 +347,8 @@ def build_xml(obstacles_xml: str = "") -> str:
         actuator_blocks.append(_leg_actuators(i))
         sensor_blocks.append(_leg_sensors(i))
         yaw_chassis_blocks.append(_yaw_servo_chassis_xml(i, a, x, y, qw, qz))
-        bracket_blocks.append(_coxa_bracket_chassis_xml(i, a, qw, qz))
 
     yaw_chassis_xml = "\n      ".join(yaw_chassis_blocks) if USE_SERVO_MESHES else ""
-    coxa_brackets_xml = "\n      ".join(bracket_blocks) if USE_PART_MESHES else ""
     chassis_visuals_xml = _chassis_visuals_xml()
 
     mesh_asset_xml = ""
@@ -425,7 +421,6 @@ def build_xml(obstacles_xml: str = "") -> str:
       {chassis_visuals_xml}
       <geom class="collision" name="chassis_box" type="box" pos="0 0 0.014" size="0.115 0.105 0.020"/>
       {yaw_chassis_xml}
-      {coxa_brackets_xml}
 
 {''.join(leg_blocks)}
     </body>
@@ -495,30 +490,6 @@ def _chassis_visuals_xml() -> str:
         f'mesh="electronics_tray" pos="{HP_ELEC_TRAY_CX_M:.5f} '
         f'{HP_ELEC_TRAY_CY_M:.5f} 0.001" '
         'material="palette_electronics_tray"/>'
-    )
-
-
-def _coxa_bracket_chassis_xml(i: int, a: float, qw: float, qz: float) -> str:
-    """One coxa_bracket visual on the chassis edge, in chassis frame.
-
-    The bracket bolts to the chassis bottom plate at its leg's edge
-    midpoint with its local +X axis pointing radially outboard -- same
-    placement used by ``build_prototype_assembly._build_leg``:
-
-        cb.apply_transform(R_a)          # rotate about chassis +Z by leg_az
-        cb.apply_translation(edge_mid)   # move to apothem outboard
-
-    so we mirror that with pos = (apothem * cos a, apothem * sin a, 0)
-    and a Z-axis quaternion of (cos(a/2), 0, 0, sin(a/2)).
-    """
-    cos_a = math.cos(a)
-    sin_a = math.sin(a)
-    px = LEG_RADIAL * cos_a
-    py = LEG_RADIAL * sin_a
-    return (
-        f'<geom class="visual" name="L{i}_coxa_bracket_mesh" type="mesh" '
-        f'mesh="coxa_bracket" pos="{px:.5f} {py:.5f} 0" '
-        f'quat="{qw:.6f} 0 0 {qz:.6f}" material="palette_coxa_bracket"/>'
     )
 
 

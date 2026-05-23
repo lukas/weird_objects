@@ -233,12 +233,6 @@ def _build_leg(leg_index: int):
         mesh.apply_translation(yaw_output_world)
         return mesh
 
-    # ------------- Coxa bracket (chassis-fixed, frame) -----------------
-    cb = HP.make_coxa_bracket()
-    cb.apply_transform(R_a)
-    cb.apply_translation(edge_mid)
-    frame_parts.append(cb)
-
     # ------------- Yaw servo (output up) ------------------------------
     # Servo body sits below the chassis with output gear poking up.
     # In bracket-local: body bottom at z = -SERVO_BODY_H, output at z=0.

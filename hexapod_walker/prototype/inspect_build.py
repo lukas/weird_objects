@@ -371,12 +371,9 @@ def _build_assembly_instances() -> list[Instance]:
         T_edge = _trans(*edge_mid) @ R_a
         T_yaw_out = _trans(*yaw_output_world) @ R_a
 
-        # ----- coxa_bracket (chassis-fixed)
-        instances.append(Instance(
-            "coxa_bracket", "coxa_bracket.stl", i, None, T_edge,
-        ))
-
-        # ----- yaw servo body (hangs below the bracket)
+        # ----- yaw servo body (hangs below chassis_bottom in its
+        #       integrated cradle; May 2026 chassis_bottom-integrated
+        #       yaw cradle redesign retired the standalone coxa_bracket)
         T_yaw_body = T_edge @ _trans(-HP.SERVO_OUTPUT_X, 0, -HP.WELL_RIM_Z)
         instances.append(Instance(
             "servo_body", "servo_body.stl", i, "yaw", T_yaw_body,

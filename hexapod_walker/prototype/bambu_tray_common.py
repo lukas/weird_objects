@@ -153,7 +153,6 @@ def _pack_hardware(
         requests = [
             ("battery_holder.stl", 1),
             ("electronics_tray.stl", 1),
-            ("coxa_bracket.stl", 6),
             ("coxa_link.stl", 6),
         ]
 
@@ -372,10 +371,9 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
                     (_instance(et, 1, 0.0, 0.0, 0),),
                 ),
                 PlatePlan(
-                    "plate_06_rigid_coxa_brackets_links",
+                    "plate_06_rigid_coxa_links",
                     "PLA/PETG rigid",
                     tuple(_pack_hardware(cfg, parts, requests=[
-                        ("coxa_bracket.stl", 6),
                         ("coxa_link.stl", 6),
                     ])),
                 ),
@@ -412,14 +410,14 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
         # Design B (May 2026): the dedicated horn-adapter grid plate has
         # been removed; the printed servo_horn_adapter is no longer in
         # the printable-output set.
-        # May 2026 (electronics-tray expansion): the tray grew from 100x70
-        # mm to 160x130 mm to carry Mega 2560 + Pi 4 + PCA9685.  At the
-        # new footprint the simple shelf packer can no longer cram
-        # battery_holder + electronics_tray + 6x coxa_bracket + 6x
-        # coxa_link onto one 325x320 H2D plate, so the H2D path now
-        # mirrors the X1 ``split_hardware_plate`` layout: one plate for
-        # the two body trays and a separate plate for the 12 leg-segment
-        # pieces.
+        # Design F (May 2026): coxa_bracket.stl retired -- the yaw
+        # servo now drops INTO the chassis_bottom plate (integrated
+        # cradle), so there is no per-leg bracket part to print.
+        hardware_requests = [
+            ("battery_holder.stl", 1),
+            ("electronics_tray.stl", 1),
+            ("coxa_link.stl", 6),
+        ]
         plans.extend([
             PlatePlan(
                 "plate_03_rigid_long_links",
@@ -427,20 +425,12 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
                 tuple(long_links),
             ),
             PlatePlan(
-                "plate_04_rigid_battery_electronics",
+                "plate_04_rigid_hardware",
                 "PLA/PETG rigid",
-                tuple(_battery_and_electronics_row(cfg, parts)),
+                tuple(_pack_hardware(cfg, parts, requests=hardware_requests)),
             ),
             PlatePlan(
-                "plate_05_rigid_coxa_brackets_links",
-                "PLA/PETG rigid",
-                tuple(_pack_hardware(cfg, parts, requests=[
-                    ("coxa_bracket.stl", 6),
-                    ("coxa_link.stl", 6),
-                ])),
-            ),
-            PlatePlan(
-                "plate_06_tpu_foot_pads",
+                "plate_05_tpu_foot_pads",
                 "TPU 95A",
                 tuple(_grid_row(cfg, foot, 6, y_mm=0.0, rotate_z_deg=0)),
             ),
