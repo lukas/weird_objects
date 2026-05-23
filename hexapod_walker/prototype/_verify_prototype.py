@@ -1209,11 +1209,13 @@ def check_leg_harness_drop():
     # plate's nominal Z extent ([-CHASSIS_PLATE_T/2, +CHASSIS_PLATE_T/2])
     # by a small XY-mode margin -- the check is "is the slot a clean
     # hole THROUGH the plate?", not "is everything below the plate
-    # clear?", and the per-leg cable_anchor_tab hangs DOWN from the
-    # plate's -Z face just outside the slot's Y span (see
-    # CABLE_ANCHOR_TAB_* constants); a probe that wanders down to
-    # chassis-z = -CHASSIS_PLATE_T/2 - 0.5 would catch the tab's
-    # top corner and report a false fail.
+    # clear?".  (Historical note: an earlier revision printed a
+    # vertical anchor tab hanging DOWN from the plate's -Z face just
+    # outside the slot's Y span -- see the CABLE_ANCHOR_TAB_* constants
+    # block in hexapod_prototype.py.  The tab was retired in May 2026
+    # for printability; the harness now anchors through the drop slot
+    # itself.  The Z margin is kept conservative to mirror the original
+    # check's intent.)
     margin = 0.3
     half_x = hp.LEG_HARNESS_DROP_X_EXTENT / 2.0 - margin
     half_y = hp.LEG_HARNESS_DROP_Y_EXTENT / 2.0 - margin

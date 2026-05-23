@@ -759,6 +759,17 @@ LEG_HARNESS_DROP_X_EXTENT  =  12.0  # mm along bracket X (radial)
 LEG_HARNESS_DROP_Y_EXTENT  =   6.0  # mm along bracket Y (tangential)
 
 # ---- Chassis_bottom cable anchor tab (Part A continued) -----------------
+# RETIRED (May 2026): the per-leg vertical anchor tab that used to hang
+# DOWN from chassis_bottom's BOTTOM face was removed so the plate's
+# bottom face is fully flat (chassis-z = -CHASSIS_PLATE_T/2 = -2 mm
+# everywhere) for easier FDM printing.  The 3-cable harness is now
+# anchored by looping a zip-tie THROUGH the per-leg drop slot itself --
+# no sub-plate geometry required.  The CABLE_ANCHOR_TAB_* constants
+# below are PRESERVED so external references (docs, verifier comments,
+# historical commits) keep resolving; they are no longer consumed by
+# ``make_chassis_bottom``.
+#
+# Historical placement rationale (kept verbatim for reference):
 # Each leg also gets a SMALL printed tab hanging DOWN from chassis_bottom's
 # BOTTOM face, immediately adjacent to its ``leg_harness_drop_*`` slot, so
 # the assembler can loop a 2-3 mm zip-tie around the tab AND the 3-cable
@@ -3975,20 +3986,14 @@ def make_chassis_bottom() -> trimesh.Trimesh:
       +X), so the leg's 3-cable harness can drop from the cradle side
       of the plate into the inter-plate volume without sharing the
       body cutout with the seated yaw servo body.  Applied by
-      ``_hex_plate`` via ``with_leg_harness_drops=True``.
-    * Each leg also gets a small vertical anchor TAB hanging DOWN
-      ``CABLE_ANCHOR_TAB_H`` mm from the plate's -Z (bottom) face,
-      adjacent to the drop slot, so the assembler can zip-tie the
-      leg harness to the tab BELOW the chassis plate -- exactly where
-      the cradle-to-drop-slot bundle makes its U-turn.  The tab hangs
-      DOWN rather than rising UP because the electronics_tray fully
-      blankets the inter-plate volume directly above each drop slot
-      (chassis-z in [+5, +8]) and we are NOT allowed to modify the
-      tray.  See the CABLE_ANCHOR_TAB_* constants block above for
-      the placement rationale and keep-out audit.  Added by THIS
-      function AFTER ``_hex_plate`` (the tabs are NOT a plate-
-      thickness feature; they are full 3D objects hanging below
-      the plate).
+      ``_hex_plate`` via ``with_leg_harness_drops=True``.  The slot
+      itself is also the per-leg zip-tie anchor: the assembler loops
+      a zip-tie through the slot to bundle the 3-cable harness as it
+      makes its U-turn from the cradle wire-exit into the inter-plate
+      volume.  (A previous revision printed a vertical anchor tab
+      below the plate; it was retired in May 2026 to keep the plate's
+      bottom face flat for easier FDM printing -- see the
+      CABLE_ANCHOR_TAB_* constants block above.)
     """
     plate = _hex_plate(CHASSIS_FLAT_TO_FLAT, CHASSIS_PLATE_T,
                        with_centre_holes=True,
@@ -4048,42 +4053,15 @@ def make_chassis_bottom() -> trimesh.Trimesh:
         drops.append(drop)
     plate = _diff(plate, *drops)
 
-    # Per-leg vertical anchor tabs HANGING DOWN from the plate's -Z
-    # (bottom) face.  Each tab is a CABLE_ANCHOR_TAB_T x
-    # CABLE_ANCHOR_TAB_W x CABLE_ANCHOR_TAB_H mm box rooted at the
-    # plate's BOTTOM face (chassis z = -CHASSIS_PLATE_T/2) and
-    # extending DOWN in chassis -Z by CABLE_ANCHOR_TAB_H.  Placed at
-    # bracket-local (CABLE_ANCHOR_TAB_X, +CABLE_ANCHOR_TAB_Y_OFFSET,
-    # *), then rotated and translated into chassis frame by the same
-    # _leg_chassis_frames iterator that places the body cutouts and
-    # the drop slots, so the tab's chassis-radial position lines up
-    # with its leg's drop slot to within float precision.
-    tabs: list[trimesh.Trimesh] = []
-    # 0.4 mm of vertical overlap with the plate's bottom face for a
-    # clean CSG union (no co-planar face artefacts), so the tab box
-    # extends from chassis-z = -CHASSIS_PLATE_T/2 + 0.2 (= -1.8 mm,
-    # 0.2 mm INTO the plate) down to chassis-z = -CHASSIS_PLATE_T/2
-    # - CABLE_ANCHOR_TAB_H (= -12 mm).  Total box height =
-    # CABLE_ANCHOR_TAB_H + 0.2 mm.
-    tab_overlap = 0.2
-    tab_z_max = -CHASSIS_PLATE_T / 2.0 + tab_overlap
-    tab_z_min = tab_z_max - CABLE_ANCHOR_TAB_H - tab_overlap
-    tab_z_extent = tab_z_max - tab_z_min
-    tab_z_centre = 0.5 * (tab_z_min + tab_z_max)
-    for _i, edge_mid, R, R3 in _leg_chassis_frames():
-        tab = _box((CABLE_ANCHOR_TAB_T,
-                    CABLE_ANCHOR_TAB_W,
-                    tab_z_extent),
-                   center=(0.0, 0.0, tab_z_centre))
-        tab.apply_transform(R)
-        tab_world_xy = edge_mid + R3 @ np.array(
-            [CABLE_ANCHOR_TAB_X,
-             CABLE_ANCHOR_TAB_Y_OFFSET,
-             0.0])
-        tab.apply_translation([tab_world_xy[0], tab_world_xy[1], 0.0])
-        tabs.append(tab)
-
-    return _union(plate, *tabs)
+    # May 2026: the per-leg vertical anchor tabs that used to hang
+    # below the plate's bottom face have been RETIRED so the
+    # chassis_bottom mesh is fully flat at chassis-z =
+    # -CHASSIS_PLATE_T/2 (= -2 mm) for easier FDM printing.  The
+    # zip-tie now loops through the drop slot itself to bundle the
+    # per-leg harness -- no sub-plate geometry required.  See the
+    # CABLE_ANCHOR_TAB_* constants block above for the (preserved)
+    # historical dimensions.
+    return plate
 
 
 def make_battery_holder() -> trimesh.Trimesh:

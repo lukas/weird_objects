@@ -728,13 +728,13 @@ extra slack is harmless, deficit can fight the kinematics.
   the slack loop OUTSIDE the bundle's anchor point.
 * `femur_link` cradle post: anchor the KNEE harness at the knee
   cradle wire-exit.
-* `chassis_bottom` `cable_anchor_tab_L*`: anchor the FULL 3-cable
-  bundle just before it enters the chassis_bottom drop slot.  Tab
-  hangs DOWN from the plate's bottom face right next to the drop
-  slot, so the user reaches in from BELOW the chassis (with the
-  legs removed for first assembly, or between the plates for
-  re-tightening later) and loops a zip-tie around the tab + the
-  3-wire bundle.
+* `chassis_bottom` per-leg drop slot: anchor the FULL 3-cable
+  bundle just before it enters the chassis_bottom drop slot.  Each
+  leg's cable drop slot doubles as the zip-tie anchor -- pass a
+  zip-tie through the slot to bundle the per-leg harness.  (A
+  previous revision printed a vertical tab hanging below the plate
+  for this; it was retired in May 2026 to keep the plate's bottom
+  face flat for easier FDM printing.)
 
 **Terminating the bundle near the PCA header**:
 
@@ -749,8 +749,8 @@ PCA itself -- the PCA's bolted-down PCB is the strain relief.
 
 The Part C electronics-tray cable comb (a printed strain-relief
 fence ALONG the PCA headers) is on the design roadmap but NOT in
-this commit; until it ships, friction + the printed `cable_anchor_
-tab_L*` tabs above the plate are the strain-relief story.
+this commit; until it ships, friction + zip-tying each leg harness
+through its `chassis_bottom` drop slot are the strain-relief story.
 
 ---
 
