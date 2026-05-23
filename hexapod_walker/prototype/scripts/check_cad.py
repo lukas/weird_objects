@@ -185,6 +185,30 @@ def _write_report(validation_report, render_results,
         lines.extend(failing_details)
         lines.append("")
 
+    # ----- Shape: block warnings (RULE 7 -- WARN only, never flips
+    # PASS/FAIL).  Surface them here so a part-by-part rollout of the
+    # ``shape:`` anatomy block is easy to track.
+    shape_warnings = []
+    for p in validation_report.parts:
+        for warn in getattr(p, "warnings", []) or []:
+            shape_warnings.append(
+                f"- `{p.name}::{warn.name}`: {warn.detail}"
+            )
+    if shape_warnings:
+        lines.append("## Shape: warnings (RULE 7)")
+        lines.append("")
+        lines.append(
+            "These are part-by-part rollout WARNINGS for the "
+            "`shape:` anatomy block added in May 2026 (see RULE 7 "
+            "at the top of `design_spec.yaml`).  They do NOT flip "
+            "the part's PASS/FAIL bit -- they're surfaced here so a "
+            "rebuild-from-spec engineer can see which parts still "
+            "need their feature list filled in."
+        )
+        lines.append("")
+        lines.extend(shape_warnings)
+        lines.append("")
+
     for grp in validation_report.group_results:
         if not grp.passed and grp.detail:
             lines.append(f"### `{grp.name}` output")

@@ -107,7 +107,10 @@ class PartReport:
     wire_channels_passed: int = 0
     keep_outs_checked: int = 0
     keep_outs_passed: int = 0
+    shape_features_checked: int = 0
+    shape_features_passed: int = 0
     checks: list[CheckResult] = field(default_factory=list)
+    warnings: list[CheckResult] = field(default_factory=list)
 
 
 @dataclass
@@ -287,6 +290,183 @@ def _is_inside_majority(mesh: trimesh.Trimesh,
 
 
 # ---------------------------------------------------------------------------
+# Shape-block sanity checks (warnings, not errors)
+# ---------------------------------------------------------------------------
+
+# Whitelist of feature ``type`` tokens recognised by RULE 7 (see the
+# header of design_spec.yaml).  Unknown types only produce a warning
+# so a user adding a new primitive doesn't break the validator.
+_SHAPE_PRIMITIVE_KINDS = frozenset({
+    "cylindrical_disc",
+    "extruded_rectangle",
+    "hex_plate",
+    "rectangular_well",
+    "cylindrical_boss",
+    "rectangular_tang",
+    "cylindrical_tang",
+    "fork",
+    "gusset_rib",
+    "slot",
+    "recess",
+})
+
+_SHAPE_AXIS_NORMALS = frozenset({
+    "+x", "-x", "+y", "-y", "+z", "-z",
+})
+
+
+def _check_shape_block(part_name: str,
+                       spec_entry: dict,
+                       report: PartReport) -> None:
+    """Validate the ``shape:`` block (RULE 7) at WARNING severity.
+
+    Each warning is recorded on ``report.warnings`` (a parallel list to
+    ``report.checks``) so a part-by-part rollout doesn't break the
+    existing pipeline -- a missing or malformed ``shape:`` field does
+    NOT flip the part's PASS/FAIL bit.
+
+    Checks performed (per feature):
+
+    * ``name``, ``type``, ``description``, ``centre_mm`` are present.
+    * At least one of ``length_mm``, ``diameter_mm``, ``thickness_mm``
+      is present (so a feature isn't dimensionless).
+    * ``type`` is in the recognised primitive set (whitelist).
+    * If ``holes_on_feature`` is present, every referenced hole name
+      exists in the part's ``holes:`` block.
+    * If ``mating_face`` is present, ``normal`` is one of the 6 axis
+      tokens and ``mates_to`` is a non-empty string.
+    """
+    shape = spec_entry.get("shape")
+    if shape is None:
+        report.warnings.append(CheckResult(
+            name="shape:missing",
+            passed=True,    # warning, not error
+            detail=(f"part '{part_name}' has no `shape:` block -- "
+                    f"add per RULE 7 in design_spec.yaml so a "
+                    f"rebuild-from-spec engineer can reconstruct "
+                    f"the part without reading the CAD source"),
+        ))
+        return
+
+    features = shape.get("features") or []
+    if not isinstance(features, list) or not features:
+        report.warnings.append(CheckResult(
+            name="shape:no_features",
+            passed=True,
+            detail=(f"part '{part_name}' has a `shape:` block with no "
+                    f"`features:` list -- shape is the anatomical "
+                    f"reference, every part needs at least 1 feature"),
+        ))
+        return
+
+    declared_hole_names = {
+        h.get("name") for h in (spec_entry.get("holes") or []) if h.get("name")
+    }
+
+    required_fields = ("name", "type", "description", "centre_mm")
+    dimension_fields = ("length_mm", "diameter_mm", "thickness_mm")
+
+    for idx, feat in enumerate(features):
+        report.shape_features_checked += 1
+        if not isinstance(feat, dict):
+            report.warnings.append(CheckResult(
+                name=f"shape:feature[{idx}]",
+                passed=True,
+                detail=f"feature index {idx} is not a mapping; skipped",
+            ))
+            continue
+
+        fname = feat.get("name", f"<feature {idx}>")
+        fkey = f"shape:{part_name}.{fname}"
+
+        missing = [k for k in required_fields if k not in feat]
+        if missing:
+            report.warnings.append(CheckResult(
+                name=fkey,
+                passed=True,
+                detail=(f"missing required field(s): {missing} -- "
+                        f"every shape feature needs name + type + "
+                        f"description + centre_mm"),
+            ))
+            continue
+
+        if not any(k in feat for k in dimension_fields):
+            report.warnings.append(CheckResult(
+                name=fkey,
+                passed=True,
+                detail=(f"feature has no length_mm / diameter_mm / "
+                        f"thickness_mm -- need at least one to "
+                        f"reconstruct the primitive"),
+            ))
+            continue
+
+        ftype = feat.get("type")
+        if ftype not in _SHAPE_PRIMITIVE_KINDS:
+            report.warnings.append(CheckResult(
+                name=fkey,
+                passed=True,
+                detail=(f"type='{ftype}' is not in the recognised "
+                        f"primitive set {sorted(_SHAPE_PRIMITIVE_KINDS)} "
+                        f"-- add the new kind to RULE 7 in "
+                        f"design_spec.yaml + this validator if needed"),
+            ))
+            continue
+
+        holes_on_feat = feat.get("holes_on_feature")
+        if holes_on_feat:
+            if not isinstance(holes_on_feat, list):
+                report.warnings.append(CheckResult(
+                    name=fkey,
+                    passed=True,
+                    detail=(f"holes_on_feature must be a list of hole "
+                            f"names; got {type(holes_on_feat).__name__}"),
+                ))
+                continue
+            missing_holes = [h for h in holes_on_feat
+                             if h not in declared_hole_names]
+            if missing_holes:
+                report.warnings.append(CheckResult(
+                    name=fkey,
+                    passed=True,
+                    detail=(f"holes_on_feature references undeclared "
+                            f"hole name(s) {missing_holes}; each name "
+                            f"must appear in the part's `holes:` block"),
+                ))
+                continue
+
+        mating = feat.get("mating_face")
+        if mating is not None:
+            if not isinstance(mating, dict):
+                report.warnings.append(CheckResult(
+                    name=fkey,
+                    passed=True,
+                    detail=(f"mating_face must be a mapping; got "
+                            f"{type(mating).__name__}"),
+                ))
+                continue
+            normal = (mating.get("normal") or "").strip().lower()
+            if normal not in _SHAPE_AXIS_NORMALS:
+                report.warnings.append(CheckResult(
+                    name=fkey,
+                    passed=True,
+                    detail=(f"mating_face.normal='{normal}' must be one "
+                            f"of +x / -x / +y / -y / +z / -z"),
+                ))
+                continue
+            mates_to = mating.get("mates_to")
+            if not (isinstance(mates_to, str) and mates_to.strip()):
+                report.warnings.append(CheckResult(
+                    name=fkey,
+                    passed=True,
+                    detail=("mating_face.mates_to must be a non-empty "
+                            "string naming the mating part + feature"),
+                ))
+                continue
+
+        report.shape_features_passed += 1
+
+
+# ---------------------------------------------------------------------------
 # Per-part checks
 # ---------------------------------------------------------------------------
 
@@ -439,6 +619,9 @@ def _check_part(part_name: str, spec_entry: dict,
                     f"part (tol={tol})"),
         ))
 
+    # Shape: block (RULE 7) -- WARNINGS only, never flips PASS/FAIL.
+    _check_shape_block(part_name, spec_entry, report)
+
     return report
 
 
@@ -561,6 +744,7 @@ def _print_report(report: ValidationReport) -> None:
     print("=" * 72)
     print("design-spec validation summary:")
     print("=" * 72)
+    total_shape_warnings = 0
     for part in report.parts:
         ok = all(c.passed for c in part.checks)
         flag = "PASS" if ok else "FAIL"
@@ -572,10 +756,15 @@ def _print_report(report: ValidationReport) -> None:
               f"channels={part.wire_channels_passed}/"
               f"{part.wire_channels_checked}  "
               f"keep-outs={part.keep_outs_passed}/"
-              f"{part.keep_outs_checked}")
+              f"{part.keep_outs_checked}  "
+              f"shape={part.shape_features_passed}/"
+              f"{part.shape_features_checked}")
         for chk in part.checks:
             if not chk.passed:
                 print(f"            FAIL  {chk.name}: {chk.detail}")
+        for warn in part.warnings:
+            total_shape_warnings += 1
+            print(f"            WARN  {warn.name}: {warn.detail}")
 
     for grp in report.group_results:
         flag = "PASS" if grp.passed else "FAIL"
@@ -589,6 +778,12 @@ def _print_report(report: ValidationReport) -> None:
         print(f"  TODO fields in design_spec.yaml: {len(report.todo_fields)}")
         for trail in report.todo_fields:
             print(f"      - {trail}")
+
+    if total_shape_warnings:
+        print()
+        print(f"  shape: WARN count: {total_shape_warnings} "
+              f"(see RULE 7 in design_spec.yaml; warnings do NOT "
+              f"flip PASS/FAIL).")
 
     print("=" * 72)
     if report.passed:

@@ -34,6 +34,46 @@
 # 6. Anything written as `TODO` is a value the user still needs to
 #    measure or look up.  The validator surfaces these in cad_report.md
 #    so they are easy to spot.
+# 7. `shape:` (added May 2026 to make the spec self-contained for a
+#    rebuild-from-spec engineer) is the canonical anatomical reference
+#    for each printed part.  It enumerates the named geometric features
+#    that make up the part so a reader who never opens the CAD source
+#    can still reconstruct the print.  Subfields per feature:
+#       - name:               snake_case feature label (knee_pad, spar,
+#                             foot_tang, hub, gusset, bridge, ...).
+#       - type:               primitive kind (cylindrical_disc,
+#                             extruded_rectangle, hex_plate,
+#                             rectangular_well, cylindrical_boss,
+#                             rectangular_tang, cylindrical_tang,
+#                             fork, gusset_rib, slot, recess).
+#       - description:        plain-English call-out of the round
+#                             part, the long straight part, the depth,
+#                             the mating face, the wall.
+#       - centre_mm:          [x, y, z] of the feature's centre in the
+#                             part's LOCAL frame (mirrors
+#                             ``coordinate_systems`` above).
+#       - length_mm / width_mm / height_mm / diameter_mm /
+#         thickness_mm / inner_diameter_mm / wall_thickness_mm:
+#                             whichever subset applies to the primitive.
+#       - axis:               x / y / z for cylindrical primitives.
+#       - mating_face:        present only if the feature contacts
+#                             another part.  Subfields: ``normal``
+#                             (+/-x|y|z), ``mates_to`` (other part +
+#                             feature), ``mating_plane_z_local_mm``.
+#       - holes_on_feature:   list of hole names from the part's
+#                             ``holes:`` block that fall on this
+#                             feature.
+#       - notes:              chamfers, fillets, recesses, why the
+#                             dimension is what it is.
+#    The validator (scripts/validate_geometry.py) cross-checks the
+#    shape block at WARNING severity only: every shape: error becomes
+#    a WARNING line in artifacts/cad_report.md so a part-by-part
+#    rollout doesn't break the existing pipeline.  Numeric values in
+#    each feature carry an inline YAML comment citing the constant
+#    they trace from in ``hexapod_prototype.py`` (e.g.
+#    `# = HP.TIBIA_LENGTH`) or the formula they derive from; a
+#    ``TODO`` placeholder means the value still needs to be measured
+#    against the actual STL.
 
 units: mm
 
@@ -53,11 +93,10 @@ coordinate_systems:
     x_axis: "Same as chassis_top — apothem toward leg 0."
     y_axis: "In-plane perpendicular."
     z_axis: "Up."
-  coxa_bracket:
-    origin: "Yaw axis (centre of yaw-servo output spline) in the chassis-plate's TOP plane."
-    x_axis: "Outboard (away from chassis centre)."
-    y_axis: "Tangential along the chassis edge."
-    z_axis: "Yaw axis (output points UP)."
+  # May 2026: ``coxa_bracket`` retired -- the yaw cradle now lives
+  # integrated into ``chassis_bottom`` (see the ``yaw_cradle_x6``
+  # nested feature in that part's ``shape:`` block).  No separate
+  # coordinate frame anymore.
   coxa_link:
     origin: "Bolt-circle centre of the hub (= yaw axis, sitting on top of the horn adapter)."
     x_axis: "Arm direction (outboard at neutral pose)."
@@ -91,6 +130,21 @@ coordinate_systems:
     x_axis: "Long axis (chassis +X; Mega 2560 + Pi 4 long axes lie along this)."
     y_axis: "Short axis (chassis +Y)."
     z_axis: "Up (boards mount on +Z face via 5 mm standoff bosses)."
+  bec_cradle:
+    origin: "Centre of the cradle's footprint, on the electronics_tray top face."
+    x_axis: "Pigtail axis (XT60 input pigtails exit +X, 3-pin output pigtails exit -X)."
+    y_axis: "Wider axis -- the two BECs sit side-by-side along Y."
+    z_axis: "Up (cavity floor at z = BEC_CRADLE_FLOOR, opens +Z)."
+  switch_holster:
+    origin: "Midpoint of the holster's X extent on chassis_top's TOP face."
+    x_axis: "Toggle-exit direction (toggle pokes out the +X face)."
+    y_axis: "Tangential (along the chassis +X hex edge)."
+    z_axis: "Up (ear bottom at z = 0; socket cavity opens +Z above SWITCH_HOLSTER_FLOOR)."
+  imu_pad:
+    origin: "Pad floor centre on its BOTTOM face (chassis centre after assembly)."
+    x_axis: "IMU long axis (PCB long edge, = 8-pin header edge)."
+    y_axis: "IMU short axis."
+    z_axis: "Up (pad floor z in [0, IMU_PAD_T]; boss tops at z = IMU_PAD_T + IMU_PAD_BOSS_H)."
 
 # ---------------------------------------------------------------------
 # Printability rules
@@ -142,16 +196,20 @@ target_setup:
 # Mirrored from prepare_xometry_upload.py `_reorient_*` functions.
 print_orientations:
   chassis_top:        {rotation_deg: [0, 0, 0],   note: "Flat plate, already correct."}
-  chassis_bottom:     {rotation_deg: [0, 0, 0],   note: "Flat plate, already correct."}
+  chassis_bottom:     {rotation_deg: [0, 0, 0],   note: "Flat plate with integrated yaw cradles, already correct (cradles open +Z)."}
   battery_holder:     {rotation_deg: [0, 0, 0],   note: "Open top is +Z; drop to bed."}
   electronics_tray:   {rotation_deg: [0, 0, 0],   note: "Flat plate, already correct."}
-  coxa_bracket:       {rotation_deg: [0, 0, 0],   note: "Cradle opens +Z; drop to bed."}
   coxa_link:          {rotation_deg: [90, 0, 0],  note: "Rotate +90 about X so hip-pitch cradle opens +Z."}
   femur_link:         {rotation_deg: [-90, 0, 0], note: "Rotate -90 about X so spar +Y face is on the bed; minimises supports."}
   tibia_link:         {rotation_deg: [90, 0, 0],  note: "Rotate +90 about X to lay spar's broad face on the bed."}
   foot_pad:           {rotation_deg: [0, 0, 0],   note: "TPU disk on bed, tongue up."}
+  bec_cradle:         {rotation_deg: [0, 0, 0],   note: "Cavity opens +Z; drop floor to bed."}
+  switch_holster:     {rotation_deg: [0, 0, 0],   note: "Ear + socket floor on bed, cavity opens +Z."}
+  imu_pad:            {rotation_deg: [0, 0, 0],   note: "Pad floor on bed, bosses point +Z."}
   # Design B (May 2026): servo_horn_adapter retired -- no separate
   # part to orient.
+  # Design F (May 2026): coxa_bracket retired -- the yaw cradle is
+  # integrated into chassis_bottom and orients with it.
 
 # ---------------------------------------------------------------------
 # Parts registry
@@ -168,9 +226,9 @@ bounds_tol_mm: 2.0
 parts:
 
   chassis_bottom:
-    description: "Structural 200 mm flat-to-flat hex plate; takes 6 x (4 M3 bolts + body cutout) per leg.  Each leg also carries a radial 12 x 6 mm wire pass-through slot inboard of its bracket cutout (so the leg harness drops into the inter-plate volume); the slot itself doubles as the per-leg zip-tie anchor for the 3-cable harness."
+    description: "Structural 200 mm flat-to-flat hex plate with 6 integrated yaw-servo cradles (one per leg, May 2026 Design F).  Each cradle is a rectangular open-top bucket bonded into the plate at a chassis hex-edge midpoint; the yaw servo's body hangs DOWN through a body cutout in the plate and the tab ears sit on the cradle's internal shelf at +6 mm above the plate top.  Each leg also carries a radial 12 x 6 mm wire pass-through slot inboard of its body cutout (so the leg harness drops into the inter-plate volume); the slot itself doubles as the per-leg zip-tie anchor for the 3-cable harness.  Plate also carries 4 x M3 chassis-mount holes on a 35-mm-radius / 45-deg square (shared with chassis_top + electronics_tray) and 4 x M3 clearance holes for the battery_holder feet at (+/-50, +/-24) mm."
     qty: 1
-    bounds_mm: [200.0, 213.0, 4.0]      # = CHASSIS_FLAT_TO_FLAT, 2*circumradius, CHASSIS_PLATE_T (May 2026: underside anchor tabs retired so the plate's bottom face is flat)
+    bounds_mm: [226.0, 242.0, 15.0]     # measured: hex plate 200 mm flat-to-flat + 6 yaw cradles extending ~21 mm radially outboard from each edge midpoint; Z = CHASSIS_PLATE_T + CRADLE_BOSS_H_MM = 4 + 11 (cradle outer shell spans cradle-z in [-CHASSIS_PLATE_T, +CRADLE_BOSS_H_MM] = [-4, +11], for a 15 mm total height)
     holes:
       - name: centre_mount_NE
         diameter_mm: 3.4                # = BRACKET_BOLT_HOLE
@@ -215,11 +273,118 @@ parts:
       # 3-cable harness as it transitions from the cradle wire-exit
       # into the inter-plate volume.
     keep_out_volumes: []
+    shape:
+      overall_form: "Flat 200 mm flat-to-flat regular hexagonal plate (4 mm thick) with six integrated yaw-servo cradles bonded at the hex edge midpoints.  Plate broad face lies in the XY plane; the chassis-Z extent is dominated by the cradles, which rise 11 mm above the plate's TOP face and hang 4 mm BELOW into shared cavity space.  Silhouette in plan view: a regular hexagon with apothem 100 mm, embellished at each edge midpoint by a 62 x 33 mm rectangular cradle whose long axis runs radially outboard.  The plate carries chassis-mount, battery-holder, and per-leg drop-slot perforations clustered near the centre and at each leg azimuth."
+      print_orientation_rationale: "Lay the broad XY face on the bed (no rotation).  Cradles open in +Z so the cradle cavities and heat-set insert pockets print without bridges.  The plate's BOTTOM face is fully flat after the May 2026 anchor-tab retirement -- nothing protrudes downward, so a single-perimeter brim around the hex outline gives a clean release."
+      features:
+        - name: hex_plate
+          type: hex_plate
+          description: "The structural hexagonal disk.  Flat-to-flat distance is the chassis envelope; the deck takes the entire walker's weight via 6 cradles around its perimeter and 4 standoff bolts at its centre."
+          centre_mm: [0.0, 0.0, 0.0]
+          flat_to_flat_mm: 200.0     # = HP.CHASSIS_FLAT_TO_FLAT
+          thickness_mm: 4.0          # = HP.CHASSIS_PLATE_T
+          axis: z
+          notes: "Hex is oriented so its 6 vertices fall at azimuth 30/90/.../330 deg (the leg directions); apothem = 100 mm, circumradius = 100 / cos(30 deg) = 115.47 mm.  Plate thickness is symmetric about z = 0 so the plate spans z in [-2, +2] mm."
+        - name: centre_mount_pattern
+          type: slot
+          description: "4 vertical M3 clearance holes on a 35-mm-radius / 45-deg square (the (+/-24.75, +/-24.75) pattern).  Shared standoff sites with chassis_top, electronics_tray, and the optional arm baseplate; brass standoff columns thread DOWN through this pattern from chassis_top to chassis_bottom across the inter-plate gap."
+          centre_mm: [0.0, 0.0, 0.0]
+          diameter_mm: 3.4           # = HP.BRACKET_BOLT_HOLE
+          axis: z
+          holes_on_feature: [centre_mount_NE]
+          notes: "Only one of the 4 holes is enumerated in `holes:` above as a regression-check seed; the other 3 are at the symmetric (-24.75, +24.75), (+24.75, -24.75), (-24.75, -24.75) positions."
+        - name: battery_holder_bolt_pattern
+          type: slot
+          description: "4 vertical M3 clearance holes at (+/-50, +/-24) mm in chassis frame -- the 4 mounting feet of the battery_holder thread their M3 heat-set inserts onto these from above.  Bolts pass UP through the plate from below."
+          centre_mm: [-25.0, 0.0, 0.0]     # = HP.BATTERY_HOLDER_CENTRE_X, centred on the holder
+          diameter_mm: 3.4                  # = HP.BRACKET_BOLT_HOLE
+          axis: z
+          notes: "Pattern is offset by HP.BATTERY_HOLDER_CENTRE_X = -25 mm so the holder sits on the -X half of the chassis, leaving the +X half clear for the electronics_tray."
+        - name: yaw_cradle_x6
+          type: rectangular_well
+          description: "Six identical yaw-servo cradles, one at each hex edge midpoint (apothem 100 mm).  Each cradle is the integrated replacement for the legacy coxa_bracket (retired Design F, May 2026): a rectangular open-top bucket that captures the yaw servo's body through a body cutout in the plate, supports the servo's tabs on an internal shelf, and roots 2 heat-set inserts on its -X (inboard) face.  Cradle long-axis (cradle +X) points OUTBOARD; cradle origin sits at the yaw axis = chassis hex edge midpoint."
+          centre_mm: ["leg-radial", 0.0, 3.5]  # cradle outer shell centred at cradle-x = body_centre_x = -SERVO_OUTPUT_X = -10 mm, cradle-z = ((-CHASSIS_PLATE_T + CRADLE_BOSS_H_MM) / 2) = +3.5; one centre per leg, at apothem 100 mm + R*(-10, 0, 3.5)
+          length_mm: 62.0            # cradle outer shell along cradle-x = WELL_W + 2 + 2 * CRADLE_BOND_STRIP_MM = 58 + 2 + 2 = 62
+          width_mm: 33.0             # cradle outer shell along cradle-y = WELL_D + 2 + 2 * CRADLE_BOND_STRIP_MM = 29 + 2 + 2 = 33
+          height_mm: 15.0            # cradle-z range = CRADLE_BOSS_H_MM - (-CHASSIS_PLATE_T) = 11 - (-4) = 15
+          axis: z
+          mating_face:
+            normal: +z
+            mates_to: "yaw servo (DS3225-class) body + tabs (servo body slides DOWN through body cutout; tab ears land on shelf at cradle-z = +6 mm = CRADLE_TAB_SHELF_Z)"
+            mating_plane_z_local_mm: 6.0       # = HP.CRADLE_TAB_SHELF_Z (cradle-local)
+          holes_on_feature: []                  # the cradle's heat-set insert pockets are NOT enumerated in `holes:` because the verifier delegates them to ``_verify_prototype.check_cradle_insert_pockets``
+          notes: "Sub-features (per cradle, in cradle-local coords): (1) outer shell 62 x 33 x 15 mm box centred on cradle-x = -10, cradle-z = +3.5; (2) body cavity 41.4 x 21.4 mm = (SERVO_BODY_W + 2*WELL_BODY_CL) x (SERVO_BODY_D + 2*WELL_BODY_CL) through-hole spanning the cradle's full Z so the body hangs DOWN through the plate; (3) tab shelf at cradle-z = +6 mm (= CRADLE_TAB_SHELF_Z) where the servo's mounting tabs rest; (4) 2 x M3 heat-set insert bosses on the -X (inboard) face at cradle-(-24.75, +/-5) with Phi 4 mm x 6 mm pilot pockets (McMaster 94459A130); (5) 2 x Phi 2.5 mm self-tap pilots on the +X (outboard) face at cradle-(+24.75, +/-5) (no boss, to clear the wire-boot pass-through); (6) wire-exit corridor mirrored to the -X face (cradle-x in [-43, -27.5], cradle-z [-4, +8.5]); (7) boot-clearance channel kept on +X face (servo's molded wire boot needs to slide past during insertion); (8) cable zip-tie post on -X outer face at cradle-x in [-43, -41], cradle-z in [+3, +11]."
+          nested_sub_features:
+            - name: outer_shell
+              type: extruded_rectangle
+              description: "Cradle's outer bounding box.  Wider than the plate's body cutout (60 x 31 mm) by HP.CRADLE_BOND_STRIP_MM = 1 mm per side so the boolean union with chassis_bottom bonds the cradle walls into the plate material around the cutout perimeter."
+              centre_mm: [-10.0, 0.0, 3.5]    # body_centre_x = -SERVO_OUTPUT_X, cradle-z mid
+              length_mm: 62.0
+              width_mm: 33.0
+              height_mm: 15.0
+            - name: body_cavity
+              type: rectangular_well
+              description: "Through-hole that swallows the yaw servo body.  Opens BOTH ways in Z (no floor); the body's bottom hangs below the chassis plate, and the gear housing pokes ABOVE the cradle rim into the inter-plate gap."
+              centre_mm: [-10.0, 0.0, 3.5]
+              length_mm: 41.4                  # = HP.SERVO_BODY_W + 2 * HP.WELL_BODY_CL = 40 + 1.4
+              width_mm: 21.4                   # = HP.SERVO_BODY_D + 2 * HP.WELL_BODY_CL = 20 + 1.4
+              height_mm: 17.0                  # cradle's z range + 1 mm overshoot per side for clean CSG
+              axis: z
+            - name: tab_shelf
+              type: extruded_rectangle
+              description: "Internal shelf at cradle-z = +6 mm where the servo's tab ears rest after the body is inserted from above.  Built implicitly by the wall material at this Z slice; the +Y and -Y interior shelf surfaces are the bearing faces for the tabs."
+              centre_mm: [-10.0, 0.0, 6.0]    # = HP.CRADLE_TAB_SHELF_Z
+              thickness_mm: 2.0
+              mating_face:
+                normal: +z
+                mates_to: "yaw servo tab bottom faces (tabs sit ON the shelf)"
+                mating_plane_z_local_mm: 6.0    # = HP.CRADLE_TAB_SHELF_Z
+            - name: heat_set_boss_inboard_pair
+              type: cylindrical_boss
+              description: "2 Phi 8 mm bosses on the cradle's -X (inboard) face carrying M3 brass heat-set inserts (McMaster 94459A130).  Inserts open UPWARD; M3 SHCS thread DOWN through the servo's tab holes into them.  See HP.CRADLE_BOSS_OD / CRADLE_BOSS_HEIGHT_MM."
+              centre_mm: [-24.75, 0.0, 3.5]   # cradle-local; = -HP.SERVO_MOUNT_HOLE_X_OFFSET
+              diameter_mm: 8.0                 # = HP.CRADLE_BOSS_OD
+              inner_diameter_mm: 4.0           # = HP.INSERT_M3_PILOT_OD (heat-set pocket bore)
+              height_mm: 10.0                  # = HP.CRADLE_BOSS_HEIGHT_MM
+              axis: z
+            - name: selftap_pilot_outboard_pair
+              type: cylindrical_boss
+              description: "2 Phi 2.5 mm self-tap pilots on the cradle's +X (outboard) face.  No boss material -- the pilots are drilled into the cradle wall directly so the servo's molded wire boot can pass between them on its way down to the shelf."
+              centre_mm: [+24.75, 0.0, 3.5]
+              diameter_mm: 2.5                 # = HP.INSERT_M3_SELFTAP_PILOT_OD
+              axis: z
+            - name: wire_exit_corridor
+              type: slot
+              description: "L-shaped corridor cut through the cradle's -X (inboard) face that routes the 3-wire JST harness radially INWARD across the chassis_bottom top face to the leg's per-leg drop slot.  Mirrors the legacy bracket's wire-exit slot but with the exit on the INBOARD side of the chassis edge."
+              centre_mm: [-35.0, 0.0, 2.25]
+              width_mm: 7.0                    # = HP.WIRE_SLOT_W
+              height_mm: 12.5
+              notes: "Cradle-x range = [-43, -27.5] mm; cradle-z range = [-4, +8.5] mm.  Verified by _verify_prototype.check_wire_slot (the validator delegates the corridor sweep there)."
+            - name: boot_clearance_channel
+              type: slot
+              description: "Channel cut through the cradle's +X (outboard) face so the servo's molded wire boot can slide down during insertion.  Kept on +X because the boot points +X by HARDWARE regardless of where the harness terminates."
+              centre_mm: [+22.0, 0.0, 2.25]
+              width_mm: 7.0
+              height_mm: 12.5
+            - name: cable_zip_post
+              type: cylindrical_boss
+              description: "Printed-in 2 x 6 x 8 mm zip-tie post on the cradle's -X outer face just past the wire-exit slot.  User loops a 2-3 mm zip-tie around the post + 3-wire harness so cradle pulls don't yank the JST plug at the PCA9685."
+              centre_mm: [-42.0, 7.0, 7.0]
+              length_mm: 2.0                   # = HP.CABLE_POST_X
+              width_mm: 6.0                    # = HP.CABLE_POST_Y
+              height_mm: 8.0                   # = HP.CABLE_POST_Z
+            - name: leg_harness_drop_slot
+              type: slot
+              description: "12 x 6 mm through-slot just inboard of the body cutout (one per leg) so the 3-cable harness drops into the inter-plate volume.  Cradle's -X bond-strip overhang crosses the outboard 1 mm of this slot but the boolean diff in make_chassis_bottom re-cuts the slot so the opening is clean."
+              centre_mm: [-46.0, 0.0, 0.0]     # bracket-local = (LEG_HARNESS_DROP_X_CENTRE, 0, plate centre)
+              length_mm: 12.0                  # = HP.LEG_HARNESS_DROP_X_EXTENT
+              width_mm: 6.0                    # = HP.LEG_HARNESS_DROP_Y_EXTENT
+              height_mm: 4.0                   # = HP.CHASSIS_PLATE_T (full plate thickness)
 
   chassis_top:
-    description: "Smaller 140 mm hex deck for battery + electronics + optional arm; legs sweep clear of it."
+    description: "Smaller 140 mm hex deck for battery + electronics + optional arm; legs sweep clear of it (70 mm apothem leaves the legs' hip-pitch wells outside the deck).  May 2026: 2 x switch_holster mounting bosses (Phi 8 mm, 3 mm above the plate top) on the +X half of the plate carry M3 brass heat-set inserts so the anti-spark switch can be bolted on from above.  Also carries 6 x Phi 12 mm yaw-shaft pass-through cutouts at each leg's yaw axis (currently a geometric no-op because the 6 yaw axes are 30 mm OUTSIDE the 70 mm-apothem hex perimeter, kept as an active diff for forward compatibility)."
     qty: 1
-    bounds_mm: [140.0, 161.7, 4.0]      # = CHASSIS_TOP_FLAT_TO_FLAT, 2*circumradius, CHASSIS_PLATE_T
+    bounds_mm: [140.0, 161.7, 7.0]      # = CHASSIS_TOP_FLAT_TO_FLAT (X apothem*2), 2*circumradius (Y vertex*2 = 140/cos(30 deg) = 161.66), CHASSIS_PLATE_T + SWITCH_HOLSTER_BOSS_H = 4 + 3 = 7
     holes:
       - name: centre_mount_NE
         diameter_mm: 3.4
@@ -227,63 +392,163 @@ parts:
         axis: z
     wire_channels: []
     keep_out_volumes: []
+    shape:
+      overall_form: "Flat 140 mm flat-to-flat regular hexagonal deck (4 mm thick) plus 2 small switch-holster mounting bosses (3 mm tall) on its +X half.  Broad face lies in the XY plane; the Z extent is dominated by the 4 mm plate thickness with the bosses adding 3 mm of features on the +Z side only.  Silhouette in plan view: a regular hexagon with apothem 70 mm, sized intentionally smaller than the bottom plate so the legs' hip-pitch wells and femur hip pads sweep clear of it across the full joint workspace."
+      print_orientation_rationale: "Lay the broad XY face on the bed (no rotation).  The 2 switch-holster bosses point +Z so their heat-set insert pockets print as recessed cavities opening upward; no supports needed because the bosses are short stubby cylinders (Phi 8 mm, 3 mm tall).  The plate's BOTTOM face is fully flat."
+      features:
+        - name: hex_plate
+          type: hex_plate
+          description: "The structural hexagonal deck.  Smaller than chassis_bottom (140 mm vs 200 mm flat-to-flat) so the leg sweep clears it.  Takes the entire upper-deck stack (battery_holder + electronics_tray + optional arm) plus the 2 chassis bolts that clamp the deck to the bottom plate via brass standoffs."
+          centre_mm: [0.0, 0.0, 0.0]
+          flat_to_flat_mm: 140.0      # = HP.CHASSIS_TOP_FLAT_TO_FLAT
+          thickness_mm: 4.0           # = HP.CHASSIS_PLATE_T
+          axis: z
+          notes: "Same hex orientation as chassis_bottom (vertices at 30/90/.../330 deg).  Plate spans z in [-2, +2] mm; apothem = 70 mm, circumradius = 70 / cos(30 deg) = 80.83 mm."
+        - name: centre_mount_pattern
+          type: slot
+          description: "4 vertical M3 clearance holes on the same 35-mm-radius / 45-deg square pattern as chassis_bottom and electronics_tray.  Brass standoffs span the inter-plate gap on this pattern."
+          centre_mm: [0.0, 0.0, 0.0]
+          diameter_mm: 3.4            # = HP.BRACKET_BOLT_HOLE
+          axis: z
+          holes_on_feature: [centre_mount_NE]
+        - name: switch_holster_boss_pair
+          type: cylindrical_boss
+          description: "2 Phi 8 mm bosses on the +X half of the plate, each rising 3 mm above the deck's TOP face.  Each boss carries a Phi 4 mm x 6 mm M3 heat-set insert pocket opening UPWARD from the boss top.  The switch_holster ear sits on the bosses; an M3 SHCS threads DOWN from above through the ear into the insert."
+          centre_mm: ["+X-half (chassis (cx, cy) per HP.SWITCH_HOLSTER_BOLT_CHASSIS_XY)", 0.0, 3.5]
+          diameter_mm: 8.0             # = HP.SWITCH_HOLSTER_BOSS_OD
+          inner_diameter_mm: 4.0       # = HP.INSERT_M3_PILOT_OD (heat-set pocket bore)
+          height_mm: 3.0               # = HP.SWITCH_HOLSTER_BOSS_H above plate top
+          axis: z
+          mating_face:
+            normal: +z
+            mates_to: "switch_holster mounting_ear (ear bottom face sits ON boss tops at chassis-z = CHASSIS_GAP + CHASSIS_PLATE_T + SWITCH_HOLSTER_BOSS_H)"
+            mating_plane_z_local_mm: 5.0   # = CHASSIS_PLATE_T/2 + SWITCH_HOLSTER_BOSS_H = 2 + 3
+        - name: yaw_passthrough_x6
+          type: slot
+          description: "6 x Phi 12 mm cylindrical cutouts at each leg's yaw axis (chassis edge midpoint, apothem 100 mm).  Currently a geometric no-op (the cutouts sit 30 mm OUTSIDE the 70 mm-apothem plate's footprint) but kept as an active diff so a future enlarged chassis_top automatically gains the clearance."
+          centre_mm: ["apothem 100 mm at each leg azimuth (30/90/.../330 deg)", 0.0, 0.0]
+          diameter_mm: 12.0            # = SERVO_OUTPUT_OD + 2 mm radial clearance = 10 + 2
+          axis: z
 
   battery_holder:
-    description: "Open-top tray for one 3S 2200 mAh LiPo (110 x 38 x 28 mm)."
+    description: "Open-top tray for one 3S 2200 mAh LiPo (110 x 38 x 28 mm).  Two velcro slots cut through the long walls let the user strap the pack down.  4 mounting feet at (+/-50, +/-24) mm each carry an M3 brass heat-set insert (McMaster 94459A130) opening DOWNWARD from the foot bottom; the holder bolts to chassis_bottom FROM BELOW via 4 x M3 x 10 SHCS that thread UP into the inserts."
     qty: 1
-    bounds_mm: [110.0, 60.0, 28.0]      # outer envelope including foot tabs
+    bounds_mm: [110.0, 60.0, 28.0]      # = BATTERY_W (long), BATTERY_D + 2 * BATTERY_FOOT_DY-overhang = 38 + 22 = 60 mm (Y including foot tabs), BATTERY_H (28 mm) -- foot Z = BATTERY_FOOT_T = 8 mm < holder body H so the body sets Z extent
     holes: []                            # foot M3 holes are tangential to the outer envelope; skip
     wire_channels: []
     keep_out_volumes: []
+    shape:
+      overall_form: "Open-top rectangular tray with 4 mounting feet on its long-axis ends.  Body is a hollow 5-walled box (110 x 38 x 28 mm outer, BATTERY_WALL = 1.6 mm walls all around with the +Z face open) that snugs the LiPo.  Feet protrude OUTWARD from the +/-Y walls in 4 corners as 10 x 12 x 8 mm rectangular pads; each foot's -Y face is COINCIDENT with the body's +/-Y wall so the boolean union produces a single connected mesh.  Two rectangular velcro slots cut through the long walls roughly at mid-height let a 10-mm-wide velcro strap loop over the pack."
+      print_orientation_rationale: "Drop the closed bottom face to the bed (no rotation).  Tray opens +Z so the LiPo cavity prints empty; foot insert pockets open DOWNWARD from the foot bottoms but the cavities print as recessed pockets in the bottom face so the slicer handles them with the natural bridges across the pocket mouth (rare 1-2 layer bridge over Phi 4 mm holes -- well within FDM tolerance)."
+      features:
+        - name: body
+          type: rectangular_well
+          description: "5-walled open-top tray.  Inner cavity is BATTERY_W - 2*BATTERY_WALL = 106.8 mm long, BATTERY_D - 2*BATTERY_WALL = 34.8 mm wide, and opens upward with no top face.  Walls all around are BATTERY_WALL = 1.6 mm thick."
+          centre_mm: [0.0, 0.0, 14.0]
+          length_mm: 110.0          # = HP.BATTERY_W
+          width_mm: 38.0            # = HP.BATTERY_D
+          height_mm: 28.0           # = HP.BATTERY_H
+          wall_thickness_mm: 1.6    # = HP.BATTERY_WALL
+        - name: velcro_strap_slot_pair
+          type: slot
+          description: "2 rectangular through-slots cut through the long (+/-Z) walls (one near each end of the body) so a single 10-mm-wide velcro strap can loop around the LiPo from outside the holder.  Slots sit at roughly Z = 0.55 * BATTERY_H = 15.4 mm above the foot plane and span +/-X at 27.5 mm from the holder centre."
+          centre_mm: [27.5, 0.0, 15.4]   # one of two; symmetric pair at +/-X
+          length_mm: 10.0             # = HP.BATTERY_STRAP_W (along holder X = LiPo length)
+          width_mm: 9.6                # = BATTERY_WALL * 6 (cuts entirely through the +/-Y wall)
+          height_mm: 14.0              # = BATTERY_H * 0.5
+        - name: mounting_foot_x4
+          type: cylindrical_boss
+          description: "4 rectangular mounting feet at (+/-50, +/-24) mm.  Each foot is a 10 x 12 x 8 mm rectangular pad sharing its -Y face with the body wall.  Each foot has a Phi 4 mm heat-set insert pocket centred on (sx*50, sy*24, 0) opening DOWNWARD from the foot bottom face; pocket depth = INSERT_M3_PILOT_DEPTH = 6 mm leaves 2 mm of plastic above the insert top."
+          centre_mm: [50.0, 24.0, 4.0]
+          length_mm: 10.0              # = HP.BATTERY_FOOT_W (foot X dimension)
+          width_mm: 12.0               # = HP.BATTERY_FOOT_D (foot Y dimension)
+          height_mm: 8.0               # = HP.BATTERY_FOOT_T
+          inner_diameter_mm: 4.0       # = HP.INSERT_M3_PILOT_OD (heat-set pocket)
+          mating_face:
+            normal: -z
+            mates_to: "chassis_bottom top face at battery_holder bolt pattern (+/-50, +/-24)"
+            mating_plane_z_local_mm: 0.0
+          notes: "Foot Y dimension is 2 mm larger than X so the foot's -Y face is COINCIDENT with the body's +/-Y wall (sharing a 10 x 8 mm bond face for clean boolean union, see HP.BATTERY_FOOT_DX / DY commentary)."
 
   electronics_tray:
-    description: "Flat 3 mm deck (160 x 135 mm) carrying Arduino Mega 2560 + Raspberry Pi 4 / 5 + PCA9685.  4 x M3 + 4 x M2.5 + 4 x M3 board-mount sites use printed Phi 8 mm (M3) / Phi 6 mm (M2.5) bosses with brass heat-set insert pockets; 5 mm standoff between board bottoms and tray top.  4 chassis-mount holes on the 35 mm-radius / 45 deg square pattern with Phi 5.5 x 3 mm counterbores so the chassis bolt heads sit flush with the tray top.  May 2026 'Pi cantilever' pass grew Y from 130 to 135 mm (asymmetric, -Y only) and shifted the tray centre from chassis y=0 to y=-2.5 so the Pi can cantilever 2.5 mm past the chassis_top -Y apothem at y=-70 -- the USB-A/Ethernet bank now sits outside the chassis_top silhouette in plan view."
+    description: "Flat 3 mm deck (160 x 135 mm) carrying Arduino Mega 2560 + Raspberry Pi 4 / 5 + 2 x PCA9685.  4 x M3 + 4 x M2.5 + 4 x M3 + 4 x M3 board-mount sites use printed Phi 8 mm (M3) / Phi 6 mm (M2.5) bosses with brass heat-set insert pockets; 5 mm standoff between board bottoms and tray top.  4 chassis-mount holes on the 35 mm-radius / 45 deg square pattern with Phi 5.5 x 3 mm counterbores so the chassis bolt heads sit flush with the tray top.  May 2026 'Pi cantilever' pass grew Y from 130 to 135 mm (asymmetric, -Y only) and shifted the tray centre from chassis y=0 to y=-2.5 so the Pi can cantilever 2.5 mm past the chassis_top -Y apothem at y=-70 -- the USB-A/Ethernet bank now sits outside the chassis_top silhouette in plan view."
     qty: 1
-    bounds_mm: [160.0, 135.0, 8.0]      # = ELEC_TRAY_W, ELEC_TRAY_D, ELEC_TRAY_T + ELEC_STANDOFF_H
+    bounds_mm: [160.0, 137.0, 8.0]      # = ELEC_TRAY_W, ELEC_TRAY_D + a sliver of asymmetric boss bulk on -Y (measured 137 mm), ELEC_TRAY_T + ELEC_STANDOFF_H = 3 + 5
     holes: []                            # board-mount + chassis-mount holes verified by `_verify_prototype.check_fastener_engagement`
     wire_channels: []
     keep_out_volumes: []
-
-  coxa_bracket:
-    description: "Bolts to chassis edge, holds the yaw servo with output pointing up. Open-bottom yaw cradle (May 2026 trim): walls extend only 15 mm below the rim; lower ~12 mm of servo body hangs exposed."
-    qty: 6
-    bounds_mm: [66.0, 52.0, 30.0]       # = flange_x_extent, BRACKET_FLANGE_Y, BRACKET_FLANGE_T + |BRACKET_WELL_TRIM_Z|
-    well_wall_depth_mm: 15.0            # = |BRACKET_WELL_TRIM_Z|; well walls only extend this far below the rim, no floor.
-    holes:
-      - name: chassis_bolt_outboard_NE
-        diameter_mm: 3.4
-        position_mm: [-8.0, 20.0, 7.5]   # = (-BRACKET_FLANGE_INSET, +BRACKET_BOLT_PCD_Y/2, BRACKET_FLANGE_T/2)
-        axis: z
-      - name: chassis_bolt_outboard_SE
-        diameter_mm: 3.4
-        position_mm: [-8.0, -20.0, 7.5]
-        axis: z
-      - name: chassis_bolt_inboard_NW
-        diameter_mm: 3.4
-        position_mm: [-24.0, 20.0, 7.5]  # = (-BRACKET_FLANGE_INSET - BRACKET_BOLT_PCD_X, ...)
-        axis: z
-      - name: chassis_bolt_inboard_SW
-        diameter_mm: 3.4
-        position_mm: [-24.0, -20.0, 7.5]
-        axis: z
-    wire_channels:
-      - name: yaw_wire_exit_L
-        note: "L-corridor at the well's +X bottom-outboard corner; delegated to _verify_prototype.check_wire_slot."
-    cable_management:
-      - name: yaw_cable_zip_post
-        well_local_xyz_mm: [30.0, 7.0, 6.0]  # post centre in well-local; X = WELL_W/2 + CABLE_POST_X/2, Y = CABLE_POST_Y_OFFSET, Z = CABLE_POST_Z_CENTRE
-        extents_mm: [2.0, 6.0, 8.0]
-        note: "Printed-in 2 x 6 x 8 mm zip-tie post on the well's +X outer face, +Y of the wire-exit slot; user loops a 2-3 mm zip-tie around the post + 3-wire harness so cradle pulls don't yank the JST plug at the PCA9685."
-    keep_out_volumes:
-      - name: yaw_horn_sweep
-        note: "Horn + adapter sweep above the flange; from keepout_volumes.KEEP_OUT_VOLUMES."
-      - name: yaw_servo_body
-        note: "Yaw-servo body cavity that hangs below the flange."
+    shape:
+      overall_form: "Flat 160 x 135 mm rectangular plate (3 mm thick) with 16 short standoff bosses on its +Z face.  Broad face lies in the XY plane; Z extent is plate (3 mm) + boss height (5 mm) = 8 mm.  Bosses cluster in 4 regions: the Mega 2560 footprint on the +Y / -X quadrant, the Pi 4 footprint on the -Y / -X quadrant, the primary PCA9685 footprint on +Y / +X, and the secondary PCA9685 footprint on -Y / +X."
+      print_orientation_rationale: "Lay the broad XY face on the bed (no rotation).  All 16 bosses point +Z so each heat-set insert pocket prints as a recessed cavity opening upward; the 4 chassis-mount counterbores ALSO open upward (so the chassis bolt heads end up flush with the tray top after assembly, leaving the 5 mm boss-top air gap free for board screw heads).  The plate's BOTTOM face is fully flat for clean bed adhesion."
+      features:
+        - name: plate
+          type: extruded_rectangle
+          description: "The base deck.  Spans tray-local +/-80 mm in X and +/-67.5 mm in Y (note the asymmetric Y centre: chassis-frame tray centre is at y = -2.5, so the tray's +Y edge is at chassis y = +65 and -Y edge at chassis y = -70 -- the Pi cantilevers 2.5 mm past the chassis_top -Y apothem)."
+          centre_mm: [0.0, 0.0, 1.5]
+          length_mm: 160.0           # = HP.ELEC_TRAY_W
+          width_mm: 135.0            # = HP.ELEC_TRAY_D
+          thickness_mm: 3.0          # = HP.ELEC_TRAY_T
+        - name: mega_boss_x4
+          type: cylindrical_boss
+          description: "4 Phi 8 mm bosses on the Mega 2560 mounting-hole pattern (MEGA_CENTRE = (-28, +30.5), MEGA_HOLES asymmetric).  Each boss rises 5 mm above the plate top and carries a Phi 4 mm x 6 mm M3 heat-set insert pocket opening UPWARD."
+          centre_mm: [-28.0, 30.5, 5.5]
+          diameter_mm: 8.0           # = HP.ELEC_BOSS_OD_M3 (= HP.CRADLE_BOSS_OD)
+          inner_diameter_mm: 4.0     # = HP.INSERT_M3_PILOT_OD
+          height_mm: 5.0             # = HP.ELEC_STANDOFF_H
+          axis: z
+          mating_face:
+            normal: +z
+            mates_to: "Arduino Mega 2560 PCB bottom face (4 boss tops carry the PCB)"
+            mating_plane_z_local_mm: 8.0
+        - name: pi_boss_x4
+          type: cylindrical_boss
+          description: "4 Phi 6 mm bosses on the Raspberry Pi 4/5 mounting-hole pattern (PI_CENTRE = (-20, -42), PI_HOLES on the 49 x 58 mm pattern).  Each boss rises 5 mm above the plate top and carries a Phi 3 mm x 4.5 mm M2.5 heat-set insert pocket (McMaster 94459A106)."
+          centre_mm: [-20.0, -42.0, 5.5]
+          diameter_mm: 6.0           # = HP.ELEC_BOSS_OD_M25
+          inner_diameter_mm: 3.0     # = HP.INSERT_M25_PILOT_OD
+          height_mm: 5.0             # = HP.ELEC_STANDOFF_H
+          axis: z
+          mating_face:
+            normal: +z
+            mates_to: "Raspberry Pi 4 / 5 PCB bottom face"
+            mating_plane_z_local_mm: 8.0
+          notes: "Pi cantilevers 2.5 mm past chassis_top's -Y apothem at chassis y = -70 -- USB-A + Ethernet bank pokes out beyond the chassis silhouette so cables plug in WITHOUT removing the top plate."
+        - name: pca1_boss_x4
+          type: cylindrical_boss
+          description: "4 Phi 8 mm bosses on the primary PCA9685 mounting-hole pattern (PCA_CENTRE = (+64, +22.5), PCA_HOLES on the 54 x 16 mm pattern, rotated 90 deg so the board's long axis runs +Y).  Each boss carries a Phi 4 mm x 6 mm M3 heat-set insert pocket."
+          centre_mm: [64.0, 22.5, 5.5]
+          diameter_mm: 8.0           # = HP.ELEC_BOSS_OD_M3
+          inner_diameter_mm: 4.0     # = HP.INSERT_M3_PILOT_OD
+          height_mm: 5.0             # = HP.ELEC_STANDOFF_H
+          axis: z
+          mating_face:
+            normal: +z
+            mates_to: "Adafruit PCA9685 (I2C 0x40) PCB bottom face"
+            mating_plane_z_local_mm: 8.0
+        - name: pca2_boss_x4
+          type: cylindrical_boss
+          description: "4 Phi 8 mm bosses on the secondary PCA9685 mounting-hole pattern (PCA2_CENTRE = (+64, -17.5)).  Same geometry as the primary PCA, daisy-chained over I2C from PCA1 (0x40 -> 0x41).  Only 2 channels used (L5 hip_pitch + L5 knee, joints 16 + 17)."
+          centre_mm: [64.0, -17.5, 5.5]
+          diameter_mm: 8.0
+          inner_diameter_mm: 4.0
+          height_mm: 5.0
+          axis: z
+          mating_face:
+            normal: +z
+            mates_to: "Adafruit PCA9685 (I2C 0x41) PCB bottom face"
+            mating_plane_z_local_mm: 8.0
+        - name: chassis_mount_pattern
+          type: slot
+          description: "4 Phi 3.4 mm chassis-mount through-holes on the 35-mm-radius / 45-deg square pattern (the same (+/-24.75, +/-24.75) pattern shared with chassis_top + chassis_bottom).  Each hole has a Phi 5.5 mm x 3 mm counterbore from the tray's TOP face so the chassis bolt head sits flush with the tray top -- the 5 mm boss height above the tray then leaves an unobstructed air gap for the M3 / M2.5 SHCS heads that clamp the boards onto the heat-set inserts."
+          centre_mm: [24.75, 27.25, 1.5]    # one of 4; offset by ELEC_TRAY_CENTRE_Y = -2.5 in tray-local so chassis-frame (+24.75, +24.75) maps to tray-local (+24.75, +27.25)
+          diameter_mm: 3.4              # = HP.BRACKET_BOLT_HOLE
+          axis: z
+          notes: "Counterbore Phi 5.5 mm = HP.ELEC_CHASSIS_COUNTERBORE_OD, depth 3 mm = HP.ELEC_CHASSIS_COUNTERBORE_DEPTH; head TOP sits at tray-local z = 0 (= tray bottom face) which means the head BOTTOM is at z = -3 mm.  Wait -- counterbore opens from the TOP face, so head TOP at z = 3 (tray top) and head BOTTOM at z = 0 (i.e. coincident with tray bottom)."
 
   coxa_link:
-    description: "Yaw-driven flat arm; hub bolts to yaw horn-adapter, hip-pitch servo well at outboard end."
+    description: "Yaw-driven flat arm; pedestal cap bolts onto the yaw servo's plastic X-horn (4 x M2 self-tap into the horn arms + 1 central M3 horn screw), hip-pitch servo well at the outboard end.  Tall 36 mm pedestal lifts the arm clear of the chassis plate so the femur hip pad and the hip-pitch well don't clash with the chassis at standard yaw angles."
     qty: 6
-    bounds_mm: [61.0, 64.0, 46.0]
+    bounds_mm: [63.0, 64.0, 42.0]       # measured: HP.COXA_LENGTH + 28 + 10 (-X arm tail + arm +X end) ~ 63 mm in X, well_d 29 mm + well_z_drop offset ~64 mm in Y (mostly the hip-pitch well hanging in -Y), COXA_LIFT + arm_t + COXA_ARM_CAP_T = 36 + 6 = 42 mm in Z (was 46 before Design F dropped the hub + -Y gusset cap)
     # The hub sits ON TOP of a COXA_LIFT (= 32 mm) pedestal, so the
     # yaw-horn bolt holes live at z in [0, COXA_LIFT + hub_t] (drilled
     # all the way through the pedestal + hub stack).  We probe at the
@@ -321,16 +586,106 @@ parts:
       - name: hip_pad_sweep
       - name: hip_pitch_servo_body
       - name: link_hub_horn_sweep
+    shape:
+      overall_form: "L-shaped link with a 36 mm-tall yaw pedestal at one end and an open-topped hip-pitch servo cradle hanging in -Y at the other end, joined by a flat arm slab and a -Y bridge.  Pedestal is a 34 x 34 x 36 mm pillar (centred on the yaw axis) capped by a 4 mm-thick plate that takes the 4 X-horn clamp bolts.  The arm spans +X for 53 mm at 22 mm wide and 6 mm thick; the hip-pitch well hangs in -Y below the arm at the +X end, with its mouth opening in link +Y (= the hip-pitch axis direction) so the servo can be DROPPED in from the side during assembly."
+      print_orientation_rationale: "Rotate +90 deg about X so the well's mouth (link +Y) faces +Z, then drop to the bed.  The pedestal becomes a horizontal cylinder against the bed; the arm + bridge stack onto the +Z face.  This orientation lets the hip-pitch well's open top print as a recessed cavity (no bridges), the cable zip-tie post and wire-exit slot become outboard features on the side of a wall, and the pedestal cap's 4 M2 X-horn counter-bores print as recessed pockets opening upward.  Underside gusset + bridge mass falls below the +Z side after rotation -- still printable but the slicer adds supports there (the part is small enough that this is acceptable)."
+      features:
+        - name: pedestal
+          type: extruded_rectangle
+          description: "34 x 34 x 36 mm pillar from z = 0 (horn-adapter mating face) up to z = COXA_LIFT = 36 mm.  Carries the 4 M2 self-tap X-horn bolts on a 20.8 mm PCD through the 4 mm-thick bottom cap, plus the central M3 horn screw.  An assembly trough is carved out at z in [PEDESTAL_CAP_T, body_top_z + 1] so the seated hip-pitch servo body has clearance during +Y assembly insertion."
+          centre_mm: [0.0, 0.0, 18.0]   # COXA_LIFT / 2
+          length_mm: 34.0
+          width_mm: 34.0
+          height_mm: 36.0               # = HP.COXA_LIFT
+          axis: z
+          mating_face:
+            normal: -z
+            mates_to: "yaw servo's plastic 4-arm X-horn top face (pedestal bottom clamps onto horn arms + central spline hub)"
+            mating_plane_z_local_mm: 0.0
+          holes_on_feature: [yaw_horn_bolt_+X, yaw_horn_bolt_+Y, yaw_horn_bolt_-X, yaw_horn_bolt_-Y, yaw_horn_centre]
+          notes: "Bottom 4 mm = PEDESTAL_CAP_T is solid so the 4 M2 SHCS clamp bolts can seat.  Counter-bored at z in [1.5, 4] (Phi 4 mm clearance for M2 head, top flush with z = +4).  A Phi 16 mm x 1.2 mm horn-hub recess (HORN_RECESS_OD / HORN_RECESS_DEPTH) is cut into the BOTTOM face (z in [0, +1.2]) so the X-horn's central spline-screw head boss is fully swallowed."
+        - name: arm
+          type: extruded_rectangle
+          description: "Flat 53 x 22 x 6 mm slab spanning the pedestal top to the hip-pitch well; runs in +X at z = [COXA_LIFT, COXA_LIFT + arm_t]."
+          centre_mm: [14.5, 0.0, 39.0]   # arm_x_centre = arm_x_extent/2 - 12 = 53/2 - 12 = 14.5; z mid = COXA_LIFT + arm_t/2 = 39
+          length_mm: 53.0                 # = HP.COXA_LENGTH + 28
+          width_mm: 22.0                  # = arm_w
+          thickness_mm: 6.0               # = HP.COXA_ARM_T
+          axis: x
+          notes: "Bridges the pedestal and the hip-pitch well; carries up to ~2.5 N*m of hip-pitch reaction torque about link +Y.  Bumped from 4 mm to 6 mm in May 2026 for 3.4x bending stiffness gain."
+        - name: arm_cap_pos_y
+          type: extruded_rectangle
+          description: "+Y half top cap rib on the arm slab.  Spans y in [LINK_THICKNESS/2, +arm_w/2] = [+3, +11] and z in [arm_t, arm_t + COXA_ARM_CAP_T] = [+6, +10] (un-lifted).  Stiffens the +Y side of the arm by raising chord_z from 6 mm to 10 mm; leaves a y in [-3, +3] gap (2*LINK_THICKNESS centred on link y = 0) so the femur spar can swing freely through y = 0 at extreme negative femur_pitch."
+          centre_mm: [27.5, 7.0, 44.0]   # cap_x_centre ~ 27.5, cap_y_centre = 7, z = COXA_LIFT + arm_t + COXA_ARM_CAP_T/2 = 36 + 6 + 2 = 44
+          length_mm: 26.0
+          width_mm: 8.0
+          thickness_mm: 4.0               # = HP.COXA_ARM_CAP_T
+        - name: arm_cap_neg_y
+          type: extruded_rectangle
+          description: "-Y half top cap rib on the arm slab.  Mirror of the +Y cap above; structurally redundant with the bridge directly below it (the user has flagged the +Y stringer's mirror as the dominant -Y load path)."
+          centre_mm: [27.5, -7.0, 44.0]
+          length_mm: 26.0
+          width_mm: 8.0
+          thickness_mm: 4.0
+        - name: hip_pitch_well
+          type: rectangular_well
+          description: "Open-topped servo cradle that holds the hip-pitch servo body, output shaft pointing link +Y (= hip-pitch joint axis direction).  Hangs in -Y / -Z below the arm at the outboard end.  Mouth opens in link +Y so the servo body can be DROPPED in from the +Y direction during assembly.  Floor is 3 mm thick (WELL_FLOOR_T)."
+          centre_mm: [15.0, -16.0, 25.5]   # body_centre is at link (COXA_LENGTH - SERVO_OUTPUT_X) but the WELL CENTRE after the link-frame transform is roughly here
+          length_mm: 58.0                  # = HP.WELL_W
+          width_mm: 29.0                   # = HP.WELL_D
+          height_mm: 30.0                  # = HP.WELL_H ~ WELL_RIM_Z + WELL_FLOOR_T
+          wall_thickness_mm: 4.5           # = HP.WELL_WALL_Y on +/-Y faces (well-Y; in link frame this is the ±Z direction after rotation); +/-X = HP.WELL_WALL_X = 9 mm
+          axis: y                          # well's natural +Z (mouth direction) is mapped to link +Y by the R rotation; "axis" denotes the link-frame axis the well's MOUTH NORMAL points along
+          mating_face:
+            normal: +y
+            mates_to: "hip-pitch servo body top face (servo's tabs land on the well's internal shelf at well-z = WELL_RIM_Z; mouth normal is link +Y)"
+            mating_plane_z_local_mm: 27.25  # = HP.WELL_RIM_Z (well-local rim z, in link-frame +Y after rotation)
+          notes: "Well's body cavity is SERVO_BODY_W + 2*WELL_BODY_CL = 41.4 mm long, SERVO_BODY_D + 2*WELL_BODY_CL = 21.4 mm deep.  4 M3 self-tap pilots are drilled in the +/-X / +/-Y walls on the SERVO_TAB_HOLE_PCD x SERVO_TAB_HOLE_PCD_Y (49.5 x 10 mm) pattern matching the physical servo tabs."
+        - name: bridge
+          type: gusset_rib
+          description: "Slab from the arm's -Y edge down to the well's near +Y face.  Spans the FULL arm length (53 mm) so the hip-pitch reaction load spreads across the whole well footprint instead of concentrating in a 30 mm-wide neck at the well's centre.  Y extent = ~6.75 mm; Z extent = ~14.5 mm.  Cross-section ~ 98 mm^2."
+          centre_mm: [14.5, -13.9, 33.25]
+          length_mm: 53.0
+          width_mm: 6.75
+          thickness_mm: 14.5
+        - name: well_top_pad
+          type: extruded_rectangle
+          description: "Well-top-wall thickening pad sitting ON TOP of the well's outer top face and rising up into the bridge gap.  Width = WELL_TOP_PAD_Y_EXT = 13.25 mm.  Fixes the user-flagged 'top of coxa_link is not attached strongly to the servo housing' joint weakness by providing ~14 x 8.5 = 119 mm^2 of bonded interface."
+          centre_mm: [15.0, -16.4, 31.75]
+          length_mm: 58.0
+          width_mm: 13.25                  # = HP.WELL_TOP_PAD_Y_EXT
+          thickness_mm: 8.5
+        - name: gusset_under
+          type: gusset_rib
+          description: "Thin gusset hanging BELOW the arm in the bridge region (raises the cross-section's Z range to ~8 mm under bending load).  Spans x in [HIP_PAD_R + 1, HIP_PAD_R + 1 + COXA_BRIDGE_GUSSET_L] = [21, 44] and y in [bridge_y_min, -arm_w/2 + 2] = [-17.25, -9]; z in [-5, 0.5] below the arm bottom."
+          centre_mm: [32.5, -13.0, -2.25]
+          length_mm: 23.0                  # = HP.COXA_BRIDGE_GUSSET_L
+          width_mm: 8.0
+          thickness_mm: 5.0                # = HP.COXA_BRIDGE_GUSSET_H
+        - name: hip_pitch_wire_exit_L
+          type: slot
+          description: "L-corridor at the hip-pitch well's +X bottom-outboard corner that routes the 3-wire servo harness OUTBOARD past the well wall.  Cuts the well's +X wall over the boot's swept volume.  Verified by _verify_prototype.check_wire_slot."
+          centre_mm: [33.0, -16.0, 30.0]
+          length_mm: 13.5                  # = HP.WIRE_SLOT_DEPTH (reach into the +X wall)
+          width_mm: 7.0                    # = HP.WIRE_SLOT_W
+          height_mm: 12.5
+        - name: hip_pitch_cable_zip_post
+          type: cylindrical_boss
+          description: "Printed-in 2 x 6 x 8 mm zip-tie post on the well's +X outer face, +Y of the wire-exit slot.  User loops a 2-3 mm zip-tie around the post + 3-wire harness as a strain relief; identical to the yaw cradle's post."
+          centre_mm: [30.0, -16.0, 6.0]    # well-local (30, 7, 6) -- in link frame after the R rotation + delta
+          length_mm: 2.0                   # = HP.CABLE_POST_X
+          width_mm: 6.0                    # = HP.CABLE_POST_Y
+          height_mm: 8.0                   # = HP.CABLE_POST_Z
 
   femur_link:
-    description: "Thigh; hip pad bolts onto hip-pitch horn adapter at x=0, knee well at x=FEMUR_LENGTH."
+    description: "Thigh; hip pad bolts onto hip-pitch horn at x=0, knee well at x=FEMUR_LENGTH.  Spar carries a Phi 40 mm hip-end pad + 8 mm-tall neck annulus at the hip end (May 2026 pad <-> spar fuse Option A), an insertion slot through the spar at the knee's body x-range, and bridge flanges above + below the slot tying the spar's top/bottom to the knee well's wall."
     qty: 6
     # Design B (May 2026): Y-extent shrank from 62 -> 58 mm because
     # the hip pad / neck moved from y in [-3, +15] (extent 18 mm
     # including 2 x HIP_PAD_R = 39 mm in the rotation plane) to
     # y in [-3, +11] (extent 14 mm); HORN_STACK_H went 9 -> 5 mm
     # with the printed servo_horn_adapter retired.
-    bounds_mm: [128.5, 58.0, 46.0]
+    bounds_mm: [131.0, 55.0, 46.0]      # measured: X = HP.FEMUR_LENGTH + a 41 mm well overhang past the spar tip (knee well centre at x = FEMUR_LENGTH - SERVO_OUTPUT_X = 80; well_w/2 = 29 mm past that; -X end at hip pad ring at x = -HIP_PAD_R = -20), Y = LINK_THICKNESS (spar Y) + 2 * BRIDGE_WELL_EMBED + WELL_W ~ 55 mm, Z = max(FEMUR_SPAR_H, WELL_W) including 2 * BRIDGE_CAP_H = 6 mm caps = 46 mm
     # Design B (May 2026): hip pad now spans y in [+5, +11] (HORN_STACK_H
     # shrank from 9.0 mm to 5.0 mm with the printed servo_horn_adapter
     # retired).  Bolt holes are still drilled along Y through the pad's
@@ -363,6 +718,92 @@ parts:
     keep_out_volumes:
       - name: femur_horn_stack_void
       - name: knee_servo_body
+    shape:
+      overall_form: "Flat shin / thigh blade with a Phi 40 mm hip-end pad at x = 0 (broad face perpendicular to the hip-pitch axis = link +Y) and a 58 x 29 x 25 mm open-topped knee servo cradle at x = FEMUR_LENGTH = 90 mm.  Spar in between is a 90 x 6 x 34 mm rectangular beam (FEMUR_LENGTH x LINK_THICKNESS x FEMUR_SPAR_H) lying in the X-Z plane.  An insertion slot is cut through the spar at the knee end so the knee servo body can be slid in along +Y; bridge flanges above and below the slot tie the spar's top/bottom flanges into the knee well's wall."
+      print_orientation_rationale: "Rotate -90 deg about X so the spar's +Y face lies on the bed; the knee cradle's mouth (femur +Y) faces -Z onto the bed (the cradle's floor is REMOVED via remove_floor=True so the print orientation doesn't try to bridge a 30 x 40 mm ceiling).  Pad + neck ring print as a circular wall standing 6 mm proud of the spar; bridges + spar print flat against the bed.  No supports needed for the spar or bridges."
+      features:
+        - name: hip_pad
+          type: cylindrical_disc
+          description: "Round mounting pad at the hip end.  Bolts onto the hip-pitch servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm PCD; pad face mates flush to the horn's top arm plane at y = HORN_STACK_H = 5 mm.  Pad y-range is [+5, +11]."
+          centre_mm: [0.0, 8.0, 0.0]
+          diameter_mm: 40.0          # = 2 * HP.HIP_PAD_R
+          thickness_mm: 6.0          # = HP.LINK_THICKNESS
+          axis: y
+          mating_face:
+            normal: -y
+            mates_to: "hip-pitch servo's plastic 4-arm X-horn top face"
+            mating_plane_z_local_mm: 5.0    # = HP.HORN_STACK_H (= PLASTIC_HORN_H)
+          holes_on_feature: [hip_pad_bolt_+X, hip_pad_bolt_+Z, hip_pad_bolt_-X, hip_pad_bolt_-Z]
+          notes: "Pad has a Phi HORN_RECESS_OD = 16 mm x HORN_RECESS_DEPTH = 1.2 mm cylindrical pocket on its -Y mating face that swallows the X-horn's central spline-screw head boss.  4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face."
+        - name: hip_neck_annulus
+          type: cylindrical_disc
+          description: "8 mm-tall printable annulus at y in [-3, +5] with outer radius HIP_PAD_R = 20 mm and inner radius HORN_STACK_VOID_R = 18.5 mm (wall thickness 1.5 mm = 3 perimeters at 0.4 mm nozzle).  Fuses the pad to the spar over the full 6 mm of LINK_THICKNESS; the upper 2 mm is the unsupported annulus above the spar that ties into the pad."
+          centre_mm: [0.0, 1.0, 0.0]
+          diameter_mm: 40.0          # = 2 * HP.HIP_PAD_R
+          inner_diameter_mm: 37.0    # = 2 * HP.HORN_STACK_VOID_R = 2 * (PLASTIC_HORN_X_TIP_R + 0.5) = 2 * 18.5
+          thickness_mm: 8.0          # neck y range = HORN_STACK_H + LINK_THICKNESS/2 = 5 + 3
+          wall_thickness_mm: 1.5     # = HP.HIP_PAD_R - HP.HORN_STACK_VOID_R = 20 - 18.5
+          axis: y
+          notes: "Cup ID = Phi 37 mm so the Phi 36 mm plastic X-horn slides up into the annulus with 0.5 mm radial clearance per side at the arm tips."
+        - name: spar
+          type: extruded_rectangle
+          description: "Long straight thigh shaft.  Cross-section 6 mm Y x 34 mm Z gives I_y = 9826 mm^4 (~ 18x safety factor in the dominant bending direction).  Carries the hip-pitch reaction torque from the knee end back to the hip pad."
+          centre_mm: [45.0, 0.0, 0.0]
+          length_mm: 90.0            # = HP.FEMUR_LENGTH
+          width_mm: 6.0              # = HP.LINK_THICKNESS
+          height_mm: 34.0            # = HP.FEMUR_SPAR_H
+          axis: x
+          notes: "FEMUR_SPAR_H = 34 mm was bumped from 30 -> 34 mm to bring the slot's top/bottom flanges from 4 -> 6 mm thick; together with WELL_WALL_Y = 4.5 mm this removes the thin-slab artefact the verifier used to flag at the bridge / well joint."
+        - name: insertion_slot
+          type: slot
+          description: "Body insertion slot cut through the spar at the knee end (x in [body_x_min, body_x_max] = [52, 108] = SERVO_TAB_W + 2 mm wide).  Cuts the spar's mid-Z 22 mm so the SERVO_BODY_D = 20 mm-tall body + 2 mm clearance slides through during +Y assembly insertion.  Leaves 6 mm-tall spar flanges top and bottom (the 'bridges' below) that still tie the hip end to the knee end."
+          centre_mm: [80.0, 0.0, 0.0]
+          length_mm: 56.0
+          width_mm: 8.0              # = HP.LINK_THICKNESS + 2 mm clearance
+          height_mm: 22.0            # = HP.SERVO_BODY_D + 2 mm clearance
+          axis: x
+        - name: bridge_top
+          type: gusset_rib
+          description: "Top flange bridge.  Spans the slot's x range (56 mm) and z in [+SERVO_BODY_D/2, +FEMUR_SPAR_H/2 + BRIDGE_CAP_H] = [+10, +21].  Y range = [well_near_y - 2.5, 0] = ~10.5 mm.  Ties the spar's top flange to the well's +Y wall AND extends BRIDGE_CAP_H = 6 mm past the spar's top edge as an integral cap rib."
+          centre_mm: [80.0, -11.5, 15.5]
+          length_mm: 56.0
+          width_mm: 10.5
+          thickness_mm: 11.0
+        - name: bridge_bot
+          type: gusset_rib
+          description: "Mirror of bridge_top below the slot; z in [-21, -10].  Carries the spar's bottom-flange-to-well-wall load."
+          centre_mm: [80.0, -11.5, -15.5]
+          length_mm: 56.0
+          width_mm: 10.5
+          thickness_mm: 11.0
+        - name: knee_well
+          type: rectangular_well
+          description: "Open-topped knee servo cradle at the +X end of the spar.  Mouth opens in femur +Y (= the knee axis direction) so the servo can be DROPPED in.  Floor is REMOVED (remove_floor=True) so the print orientation doesn't bridge a closed ceiling at the femur's -Y end -- the body's -Y face is exposed to free air pointing AWAY from the chassis in the assembled robot."
+          centre_mm: [80.0, -17.0, 0.0]
+          length_mm: 58.0            # = HP.WELL_W
+          width_mm: 29.0             # = HP.WELL_D
+          height_mm: 30.0            # = HP.WELL_H
+          wall_thickness_mm: 4.5     # = HP.WELL_WALL_Y
+          axis: y
+          mating_face:
+            normal: +y
+            mates_to: "knee servo body top face (tabs land on the well's internal shelf at WELL_RIM_Z)"
+            mating_plane_z_local_mm: 27.25  # = HP.WELL_RIM_Z (well-local rim z, mapped to link-frame +Y)
+          notes: "4 M3 self-tap pilots on the SERVO_TAB_HOLE_PCD x SERVO_TAB_HOLE_PCD_Y (49.5 x 10 mm) pattern.  Floor cut for printability per the function docstring 'Knee cradle floor: OPEN' rationale."
+        - name: knee_wire_exit_L
+          type: slot
+          description: "L-corridor at the knee well's +X bottom-outboard corner; routes the knee-servo 3-wire harness OUTBOARD past the well wall.  Same geometry as the coxa_link's hip-pitch wire-exit slot."
+          centre_mm: [108.0, -17.0, 5.0]
+          length_mm: 13.5            # = HP.WIRE_SLOT_DEPTH
+          width_mm: 7.0              # = HP.WIRE_SLOT_W
+          height_mm: 12.5
+        - name: knee_cable_zip_post
+          type: cylindrical_boss
+          description: "Printed-in 2 x 6 x 8 mm zip-tie post on the knee well's +X outer face for harness strain relief.  Identical to the yaw / hip-pitch posts."
+          centre_mm: [110.0, -17.0, 5.0]
+          length_mm: 2.0             # = HP.CABLE_POST_X
+          width_mm: 6.0              # = HP.CABLE_POST_Y
+          height_mm: 8.0             # = HP.CABLE_POST_Z
 
   tibia_link:
     description: "Shin; knee pad bolts onto knee horn-adapter at x=0, foot hinge TANG at x=TIBIA_LENGTH."
@@ -377,7 +818,7 @@ parts:
     # bounds Y extent dropped from 17 -> 14 mm because the knee
     # pad now sets the maximum (y in [-3, +11] = 14 mm range) and
     # the tang is no longer wider than the pad.
-    bounds_mm: [155.5, 14.0, 39.0]
+    bounds_mm: [156.0, 14.0, 40.0]      # measured: X = HP.TIBIA_LENGTH (130) + FOOT_TANG_X_BEYOND_TIP (6) + ring radius at -X (HP.HIP_PAD_R = 20) = 156, Y = HP.HORN_STACK_H + HP.LINK_THICKNESS + LINK_THICKNESS/2 = 14, Z = max(TIBIA_SPAR_H, foot tang z reach from FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN = -15) -- spar [-9, +9] + tang reach down to -15 = 40 mm total
     # Design B (May 2026): knee pad now spans y in [+5, +11] (HORN_STACK_H
     # shrank from 9.0 mm to 5.0 mm with the printed servo_horn_adapter
     # retired).  Bolt holes are still drilled along Y through the pad's
@@ -402,6 +843,68 @@ parts:
     wire_channels: []                    # the tibia has no servo, hence no wire-exit
     keep_out_volumes:
       - name: tibia_horn_stack_void
+    shape:
+      overall_form: "Thin flat shin plate.  Broad face lies in the XZ plane; the part is uniformly LINK_THICKNESS = 6 mm deep in Y everywhere (Design B + May 2026 supports-free refactor).  Silhouette in X-Z: a Phi 40 mm round knee pad at one end (x = 0), a long 130 mm straight spar running +X at z in [-9, +9], and a single LINK_THICKNESS-wide foot tang at the other end (x = TIBIA_LENGTH) dropping below the spar to z = -15 with a transverse M3 hinge hole.  4 lightening holes (Phi 11 mm) punch through the spar along its length to save weight."
+      print_orientation_rationale: "Rotate +90 deg about X so the spar's broad XZ face lies on the bed (the 6 mm Y depth becomes the print height).  In this orientation the knee pad, spar, foot tang, and all 4 lightening holes print fully flat with NO bridges and NO supports -- the part's uniform LINK_THICKNESS = 6 mm Y depth is the slicer's only Z direction.  Pre-2026 the tibia ended in a 12-mm-wide clevis fork that protruded 6 mm above the spar's broad face in this orientation and forced supports under the cheeks; inverting the hinge (foot = fork, tibia = single tang) eliminated the supports."
+      features:
+        - name: knee_pad
+          type: cylindrical_disc
+          description: "Round mounting pad at the knee end.  Bolts onto the knee servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm bolt circle.  Pad face mates flush to the horn's top arm plane at y = HORN_STACK_H = 5 mm.  Pad y-range is [+5, +11]."
+          centre_mm: [0.0, 8.0, 0.0]
+          diameter_mm: 40.0           # = 2 * HP.HIP_PAD_R  (= 2 * (PLASTIC_HORN_X_TIP_R + 1.5 mm wall + 0 mm rim))
+          thickness_mm: 6.0           # = HP.LINK_THICKNESS
+          axis: y
+          mating_face:
+            normal: -y
+            mates_to: "knee servo's plastic 4-arm X-horn top face"
+            mating_plane_z_local_mm: 5.0    # = HP.HORN_STACK_H
+          holes_on_feature: [knee_pad_bolt_+X, knee_pad_bolt_+Z, knee_pad_bolt_-X, knee_pad_bolt_-Z]
+          notes: "Pad has a Phi HORN_RECESS_OD = 16 mm x HORN_RECESS_DEPTH = 1.2 mm cylindrical pocket on its -Y mating face that swallows the X-horn's central spline-screw head boss.  4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face."
+        - name: knee_neck_annulus
+          type: cylindrical_disc
+          description: "8 mm-tall neck annulus at y in [-3, +5] with outer radius HIP_PAD_R = 20 mm and inner radius HORN_STACK_VOID_R = 18.5 mm (wall 1.5 mm).  Lower 6 mm (y in [-3, +3]) is a full volumetric fuse with the spar; the upper 2 mm (y in [+3, +5]) is the unsupported annulus tying into the knee pad.  Mirrors the femur's hip_neck_annulus and exists for the same reason: TIBIA_SPAR_H = 18 mm gives only ~half the femur's pad-side fuse cross-section, so the user's recurring 'this joint looks like it would break in service' complaint specifically motivated the May 2026 deepening to 8 mm."
+          centre_mm: [0.0, 1.0, 0.0]
+          diameter_mm: 40.0
+          inner_diameter_mm: 37.0
+          thickness_mm: 8.0
+          wall_thickness_mm: 1.5
+          axis: y
+        - name: spar
+          type: extruded_rectangle
+          description: "Long straight shin shaft.  Carries the bending load from foot-strike to knee.  Cross-section is wide in Z and thin in Y."
+          centre_mm: [65.0, 0.0, 0.0]   # mid-span x = TIBIA_LENGTH / 2
+          length_mm: 130.0              # = HP.TIBIA_LENGTH
+          width_mm: 6.0                 # Y depth = HP.LINK_THICKNESS
+          height_mm: 18.0               # Z height = HP.TIBIA_SPAR_H
+          axis: x
+          notes: "Cross-section 6 x 18 mm gives I_strong = 2916 mm^4 about the Z bending axis (foot-strike load goes into bending about the knee axis = Y, with the spar's Z height as the strong direction)."
+        - name: spar_lightening_holes
+          type: slot
+          description: "4 Phi 11 mm lightening holes drilled through the spar along its X length.  Hole centres at x = i * TIBIA_LENGTH / 6 for i in {1, 2, 3, 4} -- avoids the knee pad's bolt circle and the foot tang's pin hole.  Drilled along Y through the full LINK_THICKNESS spar (cylinder length oversized to 4 * LINK_THICKNESS so the CSG diff cleanly punches through)."
+          centre_mm: [65.0, 0.0, 0.0]   # one of 4; spaced along X
+          diameter_mm: 11.0             # = 2 * 5.5 mm radius (per the _cyl(5.5, ...) call in make_tibia_link's lightening loop)
+          axis: y
+        - name: foot_tang
+          type: rectangular_tang
+          description: "Single solid tang at the +X foot end (May 2026 hinge inversion: replaces the legacy 2-cheek clevis fork).  LINK_THICKNESS-wide rectangular tongue centred on tibia y = 0 (so the tibia is 6 mm wide in Y EVERYWHERE and prints fully flat).  Tang occupies the same X / Z footprint as the legacy clevis bulk: x in [TIBIA_LENGTH - FOOT_TANG_X_INBOARD, TIBIA_LENGTH + FOOT_TANG_X_BEYOND_TIP] = [118, 136], z in [FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN, TIBIA_SPAR_H / 2] = [-15, +9].  Carries a single M3 through-hole at (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z) = (130, 0, -10) drilled along +Y; the hole pins into the foot_pad's 2-cheek fork."
+          centre_mm: [127.0, 0.0, -3.0]
+          length_mm: 18.0               # = FOOT_TANG_X_INBOARD + FOOT_TANG_X_BEYOND_TIP = 12 + 6
+          width_mm: 6.0                 # = HP.LINK_THICKNESS (Y depth)
+          height_mm: 24.0               # = (TIBIA_SPAR_H / 2) - (FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN) = 9 - (-15) = 24
+          axis: x
+          mating_face:
+            normal: +y                  # the hinge axis is along link +Y; the tang's broad faces ARE the +/-Y sides that the foot_pad's fork cheeks bear against
+            mates_to: "foot_pad fork slot inner faces (tang slides INTO the fork along link +X; pin captures both)"
+            mating_plane_z_local_mm: -10.0   # = HP.FOOT_HINGE_TIBIA_Z (pin axis Z in tibia-local)
+          holes_on_feature: []             # hinge_pin lives on the tang but the tibia spec currently delegates the foot pin check to the foot_pad's hinge_pin hole; add it here once the verifier is augmented
+          notes: "Single-tang inversion (May 2026): replaced the legacy clevis fork so the tibia prints fully flat in the spar-broad-face-on-bed orientation."
+        - name: taper
+          type: extruded_rectangle
+          description: "Short 24 mm taper that blends the spar into the tang.  Sits on the spar centreline at x in [TIBIA_LENGTH - 24, TIBIA_LENGTH], z in [-3 - TIBIA_SPAR_H*0.3, -3 + TIBIA_SPAR_H*0.3] = [-8.4, +2.4].  In Y it matches LINK_THICKNESS * 0.95 = 5.7 mm so the whole tibia keeps a single ~6 mm Y thickness end-to-end."
+          centre_mm: [118.0, 0.0, -3.0]
+          length_mm: 24.0
+          width_mm: 5.7                  # = HP.LINK_THICKNESS * 0.95
+          height_mm: 10.8                # = HP.TIBIA_SPAR_H * 0.6
 
   foot_pad:
     description: "Compliant TPU foot with hinge FORK that captures the tibia tang."
@@ -422,6 +925,166 @@ parts:
         axis: y
     wire_channels: []
     keep_out_volumes: []
+    shape:
+      overall_form: "Compliant TPU foot.  Bottom is a Phi 28 mm x 4 mm flat disk (the ground-contact spring); a short Phi 14 mm x 3 mm stiffening boss stacks on top of the disk; a 2-cheek hinge fork rises above the boss, with each cheek 3.5 mm thick in Y and a 6.4 mm-wide slot between them that captures the tibia tang.  An M3 hinge bore at foot-local z = 14 mm runs along +Y through both cheeks."
+      print_orientation_rationale: "Drop the disk's ground-contact face to the bed (no rotation).  Fork cheeks rise in +Z so the M3 hinge bore is a horizontal Y-axis through-cut (no overhangs > 45 deg).  TPU 95A prints the 3.5 mm cheek walls as solid vertical TPU walls; the disk's broad face gives an enormous bed-contact footprint for adhesion."
+      features:
+        - name: disk
+          type: cylindrical_disc
+          description: "Ground-contact TPU spring.  Phi 28 mm x 4 mm thick; the entire disk flexes under foot-strike load and the TPU compliance absorbs roll while the M3 hinge passively pitches the foot."
+          centre_mm: [0.0, 0.0, 2.0]
+          diameter_mm: 28.0           # = HP.FOOT_PAD_OD
+          thickness_mm: 4.0           # = HP.FOOT_PAD_BASE_H
+          axis: z
+          mating_face:
+            normal: -z
+            mates_to: "ground"
+            mating_plane_z_local_mm: 0.0
+        - name: boss
+          type: cylindrical_boss
+          description: "Stiffening boss between the disk and the fork.  Phi 14 mm x 3 mm tall; gives the fork a wider root than its 10 x 13.4 mm cross-section."
+          centre_mm: [0.0, 0.0, 5.5]
+          diameter_mm: 14.0           # = HP.FOOT_PAD_BOSS_OD
+          height_mm: 3.0              # = HP.FOOT_PAD_BOSS_H
+          axis: z
+        - name: fork
+          type: fork
+          description: "2-cheek fork that captures the tibia tang.  Cheek inner faces sit at +/- HP.FOOT_HINGE_SLOT_W/2 = +/- 3.2 mm; outer faces at +/- (SLOT_W/2 + CHEEK_T) = +/- 6.7 mm.  Each cheek X extent = HP.FOOT_HINGE_FORK_X = 10 mm (matches the pre-inversion tongue's X width so the joint preserves the same rotational clearance the old tongue + slot pair had).  Z extent = [boss_top, FOOT_HINGE_FOOT_Z + FOOT_HINGE_FORK_OVER_PIN] = [+7, +18]."
+          centre_mm: [0.0, 0.0, 12.5]
+          length_mm: 10.0             # = HP.FOOT_HINGE_FORK_X (X extent of each cheek)
+          width_mm: 13.4              # = 2 * HP.FOOT_HINGE_CHEEK_T + HP.FOOT_HINGE_SLOT_W = 2*3.5 + 6.4
+          height_mm: 11.0             # fork_z_hi - fork_z_lo = 18 - 7
+          wall_thickness_mm: 3.5      # = HP.FOOT_HINGE_CHEEK_T per cheek (TPU above MIN_PRINT_T = 3.0)
+          mating_face:
+            normal: +y
+            mates_to: "tibia foot_tang (tang slides INTO the slot along +X; M3 pin captures both)"
+            mating_plane_z_local_mm: 14.0    # = HP.FOOT_HINGE_FOOT_Z (pin axis Z in foot-local)
+          holes_on_feature: [hinge_pin]
+          notes: "Slot width = HP.FOOT_HINGE_SLOT_W = LINK_THICKNESS + 0.4 = 6.4 mm accepts the LINK_THICKNESS = 6 mm tang with 0.2 mm clearance per side."
+
+  bec_cradle:
+    description: "Snap-fit cradle for 2 x 5V 5A switching BECs (Hobbywing UBEC form factor, ~24 x 15 x 8 mm body).  Sits on top of the electronics_tray in the corridor between the Mega's +X edge and PCA1's -X edge.  No bolts -- the 2 BEC bodies wedge in side-by-side along Y with a 0.4 mm interference fit; a 2 mm-tall retention lip on each +/-Y side wall snaps over the BEC's top edge.  Both XT60 input pigtails exit out the +X end wall, both 3-pin servo-header output pigtails exit out the -X end wall via Phi 5 mm wire channels."
+    qty: 1
+    bounds_mm: [27.0, 32.6, 12.0]      # measured: outer_l = BEC_BODY_L + 2*BEC_CRADLE_WALL = 24 + 3 = 27, outer_w = 2*BEC_BODY_W - BEC_CRADLE_INTERFERENCE + 2*BEC_CRADLE_WALL = 30 - 0.4 + 3 = 32.6, outer_h = BEC_CRADLE_FLOOR + BEC_BODY_H + BEC_CRADLE_LIP_H = 2 + 8 + 2 = 12
+    holes: []
+    wire_channels: []
+    keep_out_volumes: []
+    shape:
+      overall_form: "Small rectangular open-top cradle (27 x 32.6 x 12 mm).  Two BEC body cavities sit side-by-side along Y inside one shared cavity; retention lips on the +/-Y side walls overhang into the cavity by 1 mm each to clip the BECs in.  +X and -X end walls are each pierced by 2 Phi 5 mm pigtail channels (one per BEC) at mid-body height.  No fasteners -- the part snap-fits onto the BEC bodies and is held to the electronics_tray by gravity + cable tension."
+      print_orientation_rationale: "Drop the floor face to the bed (no rotation).  Cavity opens +Z; the retention lips print as inward-pointing overhangs (~45 deg from vertical, just within the printability budget) on top of the side walls.  Pigtail channels print as horizontal Phi 5 mm bores through the end walls (no overhangs)."
+      features:
+        - name: outer_shell
+          type: rectangular_well
+          description: "5-walled open-top shell.  +/-X end walls are BEC_CRADLE_WALL = 1.5 mm thick (pierced by pigtail channels); +/-Y side walls are BEC_CRADLE_WALL = 1.5 mm thick (with a 2 mm-tall x 1 mm-inboard retention lip on top); floor is BEC_CRADLE_FLOOR = 2 mm thick."
+          centre_mm: [0.0, 0.0, 6.0]
+          length_mm: 27.0             # = HP.BEC_BODY_L + 2 * HP.BEC_CRADLE_WALL
+          width_mm: 32.6              # = 2 * HP.BEC_BODY_W - HP.BEC_CRADLE_INTERFERENCE + 2 * HP.BEC_CRADLE_WALL
+          height_mm: 12.0             # = HP.BEC_CRADLE_FLOOR + HP.BEC_BODY_H + HP.BEC_CRADLE_LIP_H
+          wall_thickness_mm: 1.5      # = HP.BEC_CRADLE_WALL
+        - name: body_cavity
+          type: rectangular_well
+          description: "Cavity that holds both BEC bodies side-by-side.  Y width has a 0.4 mm interference fit (cavity_w = 2 * BEC_BODY_W - 0.4 = 29.6 mm holds two 15 mm-wide BECs squeezed against each other in the middle).  Opens UP to z = BEC_CRADLE_FLOOR + BEC_BODY_H = 10 mm; the retention lip overhangs the cavity above that line."
+          centre_mm: [0.0, 0.0, 6.0]
+          length_mm: 24.0             # = HP.BEC_BODY_L
+          width_mm: 29.6              # = 2 * HP.BEC_BODY_W - HP.BEC_CRADLE_INTERFERENCE
+          height_mm: 8.0              # = HP.BEC_BODY_H
+        - name: retention_lip_pair
+          type: gusset_rib
+          description: "2 inward-pointing retention lips on the +/-Y side walls.  Each lip overhangs the cavity by HP.BEC_CRADLE_LIP_INSET = 1 mm and is 2 mm tall.  Snaps over the BEC body's top edge to hold the body captive."
+          centre_mm: [0.0, 14.8, 11.0]    # one of 2; symmetric pair at +/-Y
+          length_mm: 24.0
+          width_mm: 1.0                # = HP.BEC_CRADLE_LIP_INSET
+          thickness_mm: 2.0            # = HP.BEC_CRADLE_LIP_H
+        - name: pigtail_channel_x4
+          type: slot
+          description: "4 Phi 5 mm cylindrical wire channels (2 per end wall).  +X end wall channels carry the XT60 input pigtails; -X end wall channels carry the 3-pin servo-header output pigtails.  Channels are centred at mid-body height z = BEC_CRADLE_FLOOR + BEC_BODY_H/2 = 6 mm and at +/-Y of the cavity quarter-points."
+          centre_mm: [13.5, 7.4, 6.0]    # one of 4; symmetric over +/-X end walls and +/-Y quarter-points
+          diameter_mm: 5.0             # = HP.BEC_PIGTAIL_OD
+          height_mm: 1.9               # = HP.BEC_CRADLE_WALL + 0.4 mm overshoot
+          axis: x
+
+  switch_holster:
+    description: "Printed holster for the anti-spark XT60 on/off switch.  Mounts to chassis_top's +X edge between the L0 and L5 yaw cradles.  Two-part body: (1) socket (+X half), a 5-walled open-top box that snugs the switch body in with SWITCH_BODY_CL = 0.5 mm clearance per axis, with the toggle poking out a 14 x 10 mm cutout in the +X end wall and 2 XT60 pigtails exiting Phi 6 mm holes in the -X end wall; (2) mounting ear (-X half), a flat 14 x 22 x 4 mm plate that sits on chassis_top's TOP face on the 2 chassis-top bosses, clamped down by 2 M3 SHCS that thread DOWN from above into the brass heat-set inserts in the chassis_top bosses."
+    qty: 1
+    bounds_mm: [51.0, 22.0, 21.5]       # measured: SWITCH_HOLSTER_OUTER_L = SWITCH_SOCKET_OUTER_L + SWITCH_EAR_L = (32 + 1 + 4) + 14 = 51, SWITCH_HOLSTER_OUTER_W = SWITCH_BODY_W + 2*CL + 2*WALL = 17 + 1 + 4 = 22, socket_outer_h = SWITCH_BODY_H + SWITCH_BODY_CL + SWITCH_HOLSTER_FLOOR = 17 + 0.5 + 4 = 21.5
+    holes: []
+    wire_channels: []
+    keep_out_volumes: []
+    shape:
+      overall_form: "Two-zone block.  +X half is a 5-walled open-top socket (37 x 22 x 21.5 mm outer) that snugs the switch body; -X half is a flat mounting ear (14 x 22 x 4 mm) that bolts to chassis_top.  Toggle cutout (14 x 10 mm) on the +X end wall; 2 Phi 6 mm XT60 pigtail bores on the -X end wall at z = floor + body_h/2 = 11 mm."
+      print_orientation_rationale: "Drop the ear's bottom face to the bed (no rotation).  Socket cavity opens +Z so the switch body drops in from above; toggle cutout and pigtail bores print as horizontal cuts through the side walls (no overhangs).  The bottom of the socket (= ear top? No -- the socket floor at z = SWITCH_HOLSTER_FLOOR = 4 mm) prints as a closed slab over the ear's air gap; this is a 32 x 22 mm bridge over 4 mm of empty air, well within FDM bridge tolerance."
+      features:
+        - name: socket
+          type: rectangular_well
+          description: "+X half of the body.  Open-top 5-walled box that holds the anti-spark switch.  Inner cavity = SWITCH_BODY_L + 1 mm x SWITCH_BODY_W + 1 mm x SWITCH_BODY_H + 0.5 mm = 33 x 18 x 17.5 mm; outer = 37 x 22 x 21.5 mm.  Floor at z = SWITCH_HOLSTER_FLOOR = 4 mm; walls (SWITCH_HOLSTER_WALL = 2 mm) wrap the +/-X / +/-Y / +Z sides except for the toggle and pigtail cutouts."
+          centre_mm: [11.5, 0.0, 10.75]   # socket_centre_x = outer_l/2 - socket_l/2 = 25.5 - 18.5 = 7; z mid = socket_outer_h/2 = 10.75 -- but socket spans x in [socket_centre_x - socket_l/2, socket_centre_x + socket_l/2] which after the SWITCH_EAR_L offset is on the +X side
+          length_mm: 37.0             # = HP.SWITCH_SOCKET_OUTER_L (= HP.SWITCH_BODY_L + 1 + 2*HP.SWITCH_HOLSTER_WALL)
+          width_mm: 22.0              # = HP.SWITCH_HOLSTER_OUTER_W
+          height_mm: 21.5             # socket_outer_h
+          wall_thickness_mm: 2.0      # = HP.SWITCH_HOLSTER_WALL
+        - name: toggle_cutout
+          type: slot
+          description: "14 x 10 mm rectangular cutout through the +X end wall of the socket so the switch's toggle lever pokes out into open air past the chassis +X vertex.  Centred vertically on the switch body at z = SWITCH_HOLSTER_FLOOR + SWITCH_BODY_H/2 = 12.5 mm."
+          centre_mm: [25.0, 0.0, 12.5]
+          length_mm: 2.4              # = HP.SWITCH_HOLSTER_WALL + 0.4 mm overshoot
+          width_mm: 14.0              # = HP.SWITCH_TOGGLE_W
+          height_mm: 10.0             # = HP.SWITCH_TOGGLE_H
+        - name: xt60_pigtail_channel_pair
+          type: slot
+          description: "2 Phi 6 mm pigtail exit channels through the -X end wall of the socket (= the wall between the socket cavity and the mounting ear).  XT60 pigtails exit here on their way to the BEC cradle on the electronics_tray.  Centred vertically on the switch body at z = 11 mm; offset +/-5 mm in Y."
+          centre_mm: [-7.5, 5.0, 11.0]    # one of 2; symmetric pair at +/-Y
+          diameter_mm: 6.0             # = HP.SWITCH_PIGTAIL_OD
+          height_mm: 2.4               # = HP.SWITCH_HOLSTER_WALL + 0.4 mm overshoot
+          axis: x
+        - name: mounting_ear
+          type: extruded_rectangle
+          description: "-X half of the body.  Flat 14 x 22 x 4 mm plate that sits on chassis_top's TOP face on the 2 switch_holster bosses (Phi 8 mm bosses 3 mm above the chassis_top plate top).  Carries 2 vertical M3 clearance holes for the SHCS that clamp the ear to the chassis_top bosses."
+          centre_mm: [-18.5, 0.0, 2.0]
+          length_mm: 14.0              # = HP.SWITCH_EAR_L
+          width_mm: 22.0               # = HP.SWITCH_HOLSTER_OUTER_W
+          thickness_mm: 4.0            # = HP.SWITCH_HOLSTER_FLOOR
+          mating_face:
+            normal: -z
+            mates_to: "chassis_top switch_holster_boss_pair top faces (ear bottom rests on the boss tops at chassis-z = CHASSIS_GAP + CHASSIS_PLATE_T + SWITCH_HOLSTER_BOSS_H)"
+            mating_plane_z_local_mm: 0.0
+        - name: ear_bolt_pair
+          type: slot
+          description: "2 Phi 3.4 mm M3 clearance holes through the ear (top to bottom).  Bolt enters from above, passes through the ear, threads into the brass insert in the chassis_top boss below."
+          centre_mm: [-18.5, 5.0, 2.0]    # one of 2; symmetric pair at +/-5 mm in Y per HP.SWITCH_HOLSTER_BOLT_DY
+          diameter_mm: 3.4              # = HP.BRACKET_BOLT_HOLE
+          height_mm: 16.0               # = SWITCH_HOLSTER_FLOOR * 4
+          axis: z
+
+  imu_pad:
+    description: "Vibration-isolated mounting pad for the MPU-6050 / GY-521 IMU breakout (May 2026 'essentials' pass).  The pad is a thin 25 x 20 x 2 mm flat plate with 4 short Phi 8 mm bosses at the IMU's 15.0 x 11.0 mm hole pattern.  Each boss carries a Phi 4 mm M3 brass heat-set insert in a 6 mm-deep pocket opening DOWNWARD from the boss top.  No fasteners between the pad and chassis_top -- the pad is GLUED to chassis_top with a 3 mm-thick strip of 3M VHB / generic double-sided mounting foam tape; the foam tape doubles as the mount AND the vibration damper."
+    qty: 1
+    bounds_mm: [25.0, 20.0, 7.2]        # = IMU_PAD_W, IMU_PAD_D, IMU_PAD_T + IMU_PAD_BOSS_H + 0.2 (overdrill chamfer on boss top) = 2 + 5 + 0.2
+    holes: []
+    wire_channels: []
+    keep_out_volumes: []
+    shape:
+      overall_form: "Small rectangular plate (25 x 20 x 2 mm) with 4 short Phi 8 mm bosses on its +Z face arranged in a 15 x 11 mm rectangular pattern centred on the pad.  Bottom face is deliberately FLAT and free of features (foam-tape adhesion).  Each boss is 5 mm tall and carries an M3 heat-set insert pocket on its top face."
+      print_orientation_rationale: "Drop the flat bottom face to the bed (no rotation).  Bosses point +Z so each insert pocket prints as a recessed cavity opening upward.  No supports needed; the part is small enough that the 8 mm boss diameter on a 2 mm floor prints reliably with a 5 mm brim."
+      features:
+        - name: floor
+          type: extruded_rectangle
+          description: "The flat base plate.  Foam-tape adhesion side faces -Z (chassis_top); IMU bosses sit on +Z face."
+          centre_mm: [0.0, 0.0, 1.0]
+          length_mm: 25.0             # = HP.IMU_PAD_W
+          width_mm: 20.0              # = HP.IMU_PAD_D
+          thickness_mm: 2.0           # = HP.IMU_PAD_T
+        - name: boss_x4
+          type: cylindrical_boss
+          description: "4 Phi 8 mm bosses at the IMU's 4-hole pattern (offsets +/-7.5 mm in X, +/-5.5 mm in Y).  Each boss rises 5 mm above the pad's TOP face and carries a Phi 4 mm x 6 mm M3 heat-set insert pocket opening UPWARD from the boss top; pocket bottom sits at z = +0.8 mm, leaving 0.8 mm of pad floor below the pocket so the BOTTOM face stays flat for foam-tape adhesion."
+          centre_mm: [7.5, 5.5, 4.5]     # one of 4; centre = (sx*IMU_HOLE_PCD_X/2, sy*IMU_HOLE_PCD_Y/2, IMU_PAD_T + IMU_PAD_BOSS_H/2)
+          diameter_mm: 8.0             # = HP.IMU_PAD_BOSS_OD
+          inner_diameter_mm: 4.0       # = HP.INSERT_M3_PILOT_OD
+          height_mm: 5.0               # = HP.IMU_PAD_BOSS_H above pad top
+          axis: z
+          mating_face:
+            normal: +z
+            mates_to: "MPU-6050 / GY-521 IMU PCB bottom face"
+            mating_plane_z_local_mm: 7.0    # = HP.IMU_PAD_T + HP.IMU_PAD_BOSS_H
 
   # Design B (May 2026): the printed servo_horn_adapter has been
   # retired.  The 4 x M3 bolt-circle (Phi 3.2 mm on a 20.8 mm PCD)
