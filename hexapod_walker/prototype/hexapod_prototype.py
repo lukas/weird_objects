@@ -5006,11 +5006,15 @@ def make_coxa_link() -> trimesh.Trimesh:
           well dipped ~2.5 mm below the chassis-plate top face and the
           femur's hip-pad swung ~7 mm below the chassis-plate top, both
           of which clashed with the chassis at standard yaw angles.
-        - Hub: square pad on TOP of the pedestal, with a 4-bolt hole
-          pattern matching the horn adapter.  Bolt holes drill straight
-          through the pedestal so the same M3 screws clamp the hub +
-          pedestal stack to the horn adapter (use M3 x 25-30 screws).
-        - Arm: flat plate extending in +X from the hub, at z >= COXA_LIFT.
+        - Arm: flat plate extending in +X across the top of the
+          pedestal, at z >= COXA_LIFT.  Design A bolted a separate
+          ``hub`` square pad on top of the pedestal to host the
+          horn-adapter mating face; after Design B the 4 M2 X-horn
+          bolts moved into the pedestal CAP at lifted z in
+          [-0.1, +4.1] and the hub became vestigial, so it was
+          dropped (Design F final cleanup -- the arm at y in
+          [-11, +11] already covered the hub's central y range and
+          the +/-Y wings did nothing).
         - Hip-pitch servo well: hangs in -Z below the arm at the +X
           end, at z >= COXA_LIFT - 28 (i.e. ~+2 mm above the chassis
           plate top with COXA_LIFT = 10).  Open-topped (well +Z) is
@@ -5022,22 +5026,19 @@ def make_coxa_link() -> trimesh.Trimesh:
                             # plate).  See COXA_ARM_T docstring for the
                             # constraint that picks this thickness.
 
-    # Hub region (above the yaw servo horn) -- a square pad flush with
-    # the arm top.  Built at the original (un-lifted) z, then translated
-    # up by COXA_LIFT after the whole link union is assembled (see
-    # below).
-    #
-    # Design A's printed ``servo_horn_adapter`` sat ON TOP of the link
-    # hub, so the hub used to be 2 mm taller than the arm slab to give
-    # the adapter's mating face a generous landing pad.  Design B (May
-    # 2026) bolts the link DIRECTLY to the plastic 4-arm X-horn -- the
-    # adapter is gone, and nothing in the live geometry references the
-    # hub's top face above z = arm_t.  Reduce hub_t to arm_t so the
-    # hub top is flush with the arm top at lifted z = +42 instead of
-    # carrying 2 mm of vestigial plastic above the arm.
-    hub_t = arm_t
-    hub = _box((34.0, 34.0, hub_t),
-               center=(0, 0, hub_t / 2.0))
+    # No separate hub pad above the pedestal.  Design A had a
+    # 34 x 34 mm hub at lifted z in [+36, +42] (built at un-lifted
+    # z in [0, hub_t] then translated up by COXA_LIFT) as the
+    # mating surface for the printed ``servo_horn_adapter`` -- the
+    # 4 M2 X-horn bolts threaded into the hub's flange.  Design B
+    # (May 2026) moved those bolts into the pedestal CAP at lifted
+    # z in [-0.1, +4.1], so the hub no longer hosted any fastener;
+    # the arm at y in [-11, +11] already covered the hub's central
+    # y range, leaving only the +/-Y wings (y in [+/-11, +/-17])
+    # doing nothing.  Design F final cleanup drops the hub entirely.
+    # Downstream geometry that previously keyed off ``hub_t`` (the
+    # centre_hole length and spar_slot top face at lifted z = +42)
+    # keys off ``arm_t`` directly -- both equalled COXA_ARM_T = 6 mm.
 
     # Arm reaching out to the hip-pitch motor mount.  Spans local x in
     # [-12, COXA_LENGTH + 16].
@@ -5155,17 +5156,15 @@ def make_coxa_link() -> trimesh.Trimesh:
         ),
     )
 
-    # Stiffening gusset stacked on the +X end of the arm on TOP of the
-    # well.  Extended in -Y to cover the bridge so the upper flange of
-    # the arm-bridge-well section becomes a continuous 26+ mm-wide cap
-    # over the joint instead of stepping down at y = -arm_w/2.
-    gusset_y_min     = bridge_y_min
-    gusset_y_max     = +arm_w / 2.0
-    gusset_y_extent  = gusset_y_max - gusset_y_min
-    gusset_y_centre  = (gusset_y_min + gusset_y_max) / 2.0
-    gusset = _box((30.0, gusset_y_extent, arm_t),
-                  center=(COXA_LENGTH - 14.0, gusset_y_centre,
-                          arm_t / 2.0))
+    # Stiffening "gusset" cap (a 30 x 28 mm slab spanning bridge_y_min
+    # to +arm_w/2 at z in [arm_t..arm_t] lifted = [+36, +42], stacked
+    # on the +X end of the arm on TOP of the well to cover the bridge
+    # in -Y) was retired in Design F final cleanup.  The bridge below
+    # (14.5 mm tall x 6.75 mm wide beam at lifted z in [+27.5, +42],
+    # y in [-17.25, -10.5], full arm_x_extent) survives intact and
+    # remains the -Y top reinforcement; the gusset's contribution to
+    # stiffness was marginal once the bridge is there, and removing
+    # it frees ~5 g of plastic in y in [-17.25, +11] above the well.
 
     # Top cap rib stacked ON TOP of the arm slab.  See the
     # COXA_ARM_CAP_T comment near the top of this file for the
@@ -5231,7 +5230,7 @@ def make_coxa_link() -> trimesh.Trimesh:
     # next to the hip-pitch wire-exit slot.  Built in well-local and
     # transformed alongside ``wire_slot`` so it stays anchored to the
     # well's +X outer wall in every part orientation.
-    body_unlifted = _union(hub, arm, well, gusset, bridge, gusset_under,
+    body_unlifted = _union(arm, well, bridge, gusset_under,
                             arm_cap_pos, arm_cap_neg, well_top_pad,
                             cable_post)
     body_unlifted = _diff(body_unlifted, wire_slot)
@@ -5333,7 +5332,7 @@ def make_coxa_link() -> trimesh.Trimesh:
     # way up the stack so the M2.5 spline screw head (captive under
     # the link's bottom recess) is fully accommodated and assembly
     # tooling has visual line-of-sight along the joint axis.
-    bolt_total_h = COXA_LIFT + hub_t
+    bolt_total_h = COXA_LIFT + arm_t
     centre_hole = _cyl(HORN_CENTRE_OD / 2.0, bolt_total_h * 4)
     centre_hole.apply_translation([0, 0, bolt_total_h / 2.0])
 
@@ -5452,7 +5451,7 @@ def make_coxa_link() -> trimesh.Trimesh:
     # void.  Stop at trough_z_max - 0.5 (a 0.5 mm overlap with the
     # trough) so we don't accidentally cut deeper than needed.
     spar_slot_z_min  = body_top_z + 0.5
-    spar_slot_z_max  = COXA_LIFT + hub_t + 0.1
+    spar_slot_z_max  = COXA_LIFT + arm_t + 0.1
     spar_slot = _box(
         (spar_slot_x_max - spar_slot_x_min,
          2.0 * spar_slot_y_half,
@@ -5492,7 +5491,9 @@ def make_coxa_link() -> trimesh.Trimesh:
     # on the +Y side (no remaining hub-to-well member outboard of
     # the inboard arm slab at x < +8) in exchange for the geometric
     # cleanup -- the inboard arm slab + the -Y bridge + well_top_pad
-    # + the -Y gusset half are now the SOLE hub-to-well load path.
+    # are now the SOLE hub-to-well load path (the Design F gusset
+    # cap above the bridge at z in [+36, +42] was dropped in the
+    # same cleanup as the hub).
     #
     # X / Z_MIN: reuse spar_slot_x_min, spar_slot_x_max, spar_slot_z_min
     # verbatim so each trim void is co-planar / co-bordered with the
@@ -5502,25 +5503,25 @@ def make_coxa_link() -> trimesh.Trimesh:
     # Y_MAX (or Y_MIN, for +Y) and Z_MAX diverge from spar_slot for the
     # SAME reason on both sides: spar_slot was sized to JUST CLEAR the
     # femur spar through-cut (y in [-3.5, +3.5] = LINK_THICKNESS + 1 mm
-    # FDM clearance, z up to COXA_LIFT + hub_t + 0.1 = +42.1 after the
-    # 2 mm hub trim, i.e. the hub top).  Each side's cut has to remove
-    # the FULL stringer + the cap slab sitting on top of it (arm_cap_neg
-    # at y in [-arm_w/2, -LINK_THICKNESS/2] = [-11, -3] and arm_cap_pos
-    # at y in [+LINK_THICKNESS/2, +arm_w/2] = [+3, +11], both at z in
-    # [arm_t + COXA_LIFT, arm_t + COXA_ARM_CAP_T + COXA_LIFT] = [+42,
-    # +46]).  Two adjustments per side:
+    # FDM clearance, z up to COXA_LIFT + arm_t + 0.1 = +42.1, i.e. the
+    # arm top after the Design F hub drop).  Each side's cut has to
+    # remove the FULL stringer + the cap slab sitting on top of it
+    # (arm_cap_neg at y in [-arm_w/2, -LINK_THICKNESS/2] = [-11, -3]
+    # and arm_cap_pos at y in [+LINK_THICKNESS/2, +arm_w/2] = [+3,
+    # +11], both at z in [arm_t + COXA_LIFT, arm_t + COXA_ARM_CAP_T +
+    # COXA_LIFT] = [+42, +46]).  Two adjustments per side:
     #
     #   * Inner-Y bound = +/- LINK_THICKNESS/2 = +/- 3 (not +/-
     #     spar_slot_y_half = +/- 3.5) so the trim covers each cap
     #     half's FULL y range.  The 0.5 mm overlap with spar_slot at
     #     |y| in [+3, +3.5] is a deliberate redundant cut: at z in
-    #     [+42.1, +46] (above spar_slot_z_max = +42.1 after the hub
-    #     trim) the cap's |y| in [+3, +3.5] strip is NOT removed by
-    #     spar_slot, and without this 0.5 mm overlap it would survive
-    #     as a free-floating ~25 mm^3 sliver after we wipe out the
+    #     [+42.1, +46] (above spar_slot_z_max = +42.1) the cap's
+    #     |y| in [+3, +3.5] strip is NOT removed by spar_slot, and
+    #     without this 0.5 mm overlap it would survive as a
+    #     free-floating ~25 mm^3 sliver after we wipe out the
     #     stringer + cap's main body.
     #   * Z_MAX = arm_t + COXA_ARM_CAP_T + COXA_LIFT + 0.1 = +46.1
-    #     (not COXA_LIFT + hub_t + 0.1 = +42.1) so each trim cuts
+    #     (not COXA_LIFT + arm_t + 0.1 = +42.1) so each trim cuts
     #     its cap cleanly through the top face.
     #
     # arm_cap_pos's x range [+15, +41] is fully covered by the slot's
@@ -5528,16 +5529,10 @@ def make_coxa_link() -> trimesh.Trimesh:
     # without needing a separate removal from the union (same trick
     # as arm_neg_y_trim's coverage of arm_cap_neg's [+15, +41] in x).
     #
-    # The +Y trim ALSO removes the outboard portion of the +Y gusset
-    # half at link y in [+3, +11], x in [+8, +26], z in [+36, +42]
-    # (gusset spans x in [-4, +26]).  The inboard portion at x in
-    # [-4, +8] survives and intentionally fuses with the inboard arm
-    # slab kept on the +Y side at x < +8.
-    #
     # M2 X-horn bolt clearance: the 4 M2 clamp bolts live in the
     # pedestal cap at lifted z in [-0.1, PEDESTAL_CAP_T + 0.1] =
     # [-0.1, +4.1], WAY below either trim's z_min = +25.  Neither
-    # trim's hub overlap at x in [+8, +17] (at z in [+25, +46.1])
+    # trim's pedestal overlap at x in [+8, +17] (at z in [+25, +36])
     # touches the cap, so all four M2 bolts + the central M3 horn
     # screw are untouched.
     arm_neg_y_trim_y_min = -arm_w / 2.0                       # = -11
