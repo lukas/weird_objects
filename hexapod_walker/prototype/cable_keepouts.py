@@ -91,11 +91,17 @@ _BOARD_BASE_Z = _TRAY_TOP_Z + hp.ELEC_STANDOFF_H               # = 13 mm
 # start at PCB top + ~0.4 mm (a typical solder-pad / shell standoff)
 # rather than at BOARD_BASE_Z.  Keeping the plug envelope BELOW
 # the PCB top face would incorrectly model the plug as overlapping
-# the board's chassis-side coxa_brackets (whose +Z faces reach to
-# z ~ +15 mm).
-_PCB_TOP_Z = _BOARD_BASE_Z + 2.0             # 15 mm (round up to a
-                                              # safe coxa_bracket
-                                              # clearance margin)
+# the board's chassis-side yaw-cradle bosses (whose +Z faces reach
+# chassis-z = CHASSIS_PLATE_T/2 + CRADLE_BOSS_H_MM = +13 mm as of
+# the May 2026 chassis_bottom-integrated yaw-cradle redesign; the
+# pre-2026 legacy ``coxa_bracket`` reached +15 mm, and the +15 mm
+# margin is retained here as a safety buffer until commit 8/9
+# updates the downstream PCB-placement keepouts).
+_PCB_TOP_Z = _BOARD_BASE_Z + 2.0             # 15 mm (safe yaw-cradle
+                                              # boss-top clearance
+                                              # margin: actual top
+                                              # = +13 mm, kept at
+                                              # +15 for legacy parity)
 # Approx board (PCB + components) Z extent; matches
 # ``_body_battery_parts``'s 8 / 18 mm visual mesh heights.  Used as
 # the TOP of the plug envelope's Z range (port body extends UP

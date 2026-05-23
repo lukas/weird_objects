@@ -85,6 +85,27 @@ torque limits are all tuned around this DS3225-class case.
 > **36 x M3 brass heat-set inserts** (-X column only).  Replaces
 > the brief Design C captive-nyloc and Design D all-heat-set
 > iterations.
+>
+> **Design F (May 2026) chassis_bottom-integrated yaw cradle:**
+> the standalone `coxa_bracket` (orange flange + dangling servo
+> well) has been folded into the `chassis_bottom` plate as a
+> per-leg printed-in cradle that grows up 11 mm from the plate's
+> top face.  The yaw servo drops INTO chassis_bottom rather than
+> hanging from a screwed-on flange; the servo's output shaft pokes
+> up between the two chassis plates via the Phi 12 mm pass-through
+> cutouts in `chassis_top` (currently a no-op because the cradle
+> sites sit just outside chassis_top's 70 mm apothem, but the
+> cutout intent is documented in `make_chassis_top()`).  The wire-
+> exit corridor and zip-tie post mirror to the cradle's -X
+> (radially-INBOARD) face, putting each leg's harness mouth right
+> next to the existing leg drop slot in chassis_bottom and
+> shortening each yaw cable run by ~ 62 mm of Manhattan distance.
+> Fastener counts per cradle are unchanged from Design E (4 x
+> M3 x 8 SHCS, 2 of which thread into M3 heat-set inserts); the
+> previous 24 x M3 x 14 coxa-bracket-to-chassis bolts (4 per leg)
+> and the matching 4-hole-per-leg pattern in `chassis_top` /
+> `chassis_bottom` are dropped.  The legacy `coxa_bracket` STL is
+> retired in the final cleanup commit of this redesign.
 
 ---
 

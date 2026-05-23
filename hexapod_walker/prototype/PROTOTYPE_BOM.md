@@ -31,7 +31,7 @@ spec exactly.
 | 1 | USB cable, Pi to Arduino | USB-A to USB-B if using Arduino Mega with full-size USB-B. If your clone uses USB-C or micro-USB, buy that cable instead. | [Amazon: USB A to B cable Arduino](https://www.amazon.com/s?k=USB+A+to+B+cable+Arduino) |
 | 1 | M3 screw assortment | M3 socket-head screws, nuts, washers, lengths 6/8/10/12/16/20 mm. | [Amazon: M3 stainless screw kit assortment](https://www.amazon.com/s?k=M3+stainless+screw+kit+assortment) |
 | 6 | M3 x 16 pan-head bolts | Foot/tibia hinge pin -- one per leg.  Passes through the foot_pad's FORK (3.5 + 6.4 + 3.5 = 13.4 mm) and engages an M3 nylock on the far cheek; the tibia's TANG sits in the slot (May 2026 inversion: fork on the foot, tang on the tibia -- pre-2026 it was the other way round, same pin + nut + 16 mm length).  Pan-head (low profile), threaded full length.  Stainless.  Reuse from the M3 assortment if it includes 16 mm. | [Amazon: M3 x 16 pan head stainless](https://www.amazon.com/s?k=M3+x+16+pan+head+stainless) |
-| 1 | M3 nyloc nuts | 100-pack nylon-insert lock nuts. 30 used: 6 reserved for the foot-pad hinge pins, 24 for the coxa-bracket-to-chassis through-bolts. The cradle servo mounts thread into brass heat-set inserts (see below) and do NOT use a nut. | [Amazon: M3 nyloc lock nut 100 pack](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
+| 1 | M3 nyloc nuts | 100-pack nylon-insert lock nuts. **6 used as of the May 2026 chassis_bottom-integrated yaw cradle redesign**, all on the foot-pad hinge pins.  The previous 24 x M3 x 14 coxa-bracket-to-chassis through-bolts have been retired -- the `coxa_bracket` flange that those bolts clamped has been folded into the `chassis_bottom` plate as a printed-in cradle, so there is no longer a flange to bolt through chassis_top/chassis_bottom.  The 72 cradle servo mounts still thread into brass heat-set inserts (see below) and do NOT use a nut. | [Amazon: M3 nyloc lock nut 100 pack](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
 | 1 | M3 heat-set inserts (`94459A130`) | McMaster knurled brass M3 heat-set insert, Phi 4.0 mm pilot, Phi 5.7 mm OD, 5.0 mm length. **58 used** under the May 2026 Design E mixed-mode cradle scheme: 36 in the cradles (the 2 -X bolts per cradle only -- the 2 +X bolts self-tap into Phi 2.5 mm pilots; see PROTOTYPE.md §6 and `INSERT_M3_SELFTAP_*` in `hexapod_prototype.py`) + 4 in the battery_holder feet + 8 in the electronics_tray (4 for Mega 2560 + 4 for the primary PCA9685) + 4 more in the electronics_tray for the secondary PCA9685 + 4 in the imu_pad for the MPU-6050 mount + 2 in chassis_top's printed bosses for the switch_holster. Installed with a soldering iron at ~220 deg C, light downward pressure, ~10-15 s per insert, then cool ~30 s; an M3 x 8 SHCS (-X cradle bolts / board mount / IMU pad) or M3 x 10 SHCS (battery_holder foot / switch_holster) threads into the brass instead of self-tapping into plastic.  Same SKU re-used everywhere M3 inserts appear in the printed-parts BOM.  (Down from the 94 of the brief all-heat-set Design D iteration; commit history under "Design E" for the +X channel-vs-boss conflict that forced the partial revert.) | [McMaster 94459A130](https://www.mcmaster.com/94459A130/) |
 | 1 | M2.5 heat-set inserts (`94459A106`) | McMaster knurled brass M2.5 heat-set insert, Phi 3.0 mm pilot, Phi 3.6 mm OD, 4.0 mm length.  **4 used** -- electronics_tray Raspberry Pi 4 / Pi 5 board-mount bosses (May 2026 hardware-arrival pass).  Same soldering-iron install workflow as the M3 inserts; the printed Phi 6 mm boss around each pilot leaves a 1.5 mm plastic wall, which is enough for thermal install without slumping. | [McMaster 94459A106](https://www.mcmaster.com/94459A106/) |
 | 1 | M3 x 10 SHCS (`91290A114`) | M3 x 10 mm socket-head cap screw, black-oxide steel.  6 used: 4 battery-holder foot bolts (UP from under chassis_bottom into the holder feet's M3 inserts) + 2 switch_holster mount bolts (DOWN through the holster ear into chassis_top boss inserts; May 2026 "essentials" pass). | [McMaster 91290A114](https://www.mcmaster.com/91290A114/) |
@@ -57,44 +57,37 @@ Edit the registry (not this table) and re-run `make bom-fasteners`.
 | M3x8 SHCS self-tap | 91290A113 | 36 | cradle servo mounts (M3 SHCS self-tap) |
 | M3x10 SHCS | 91290A114 | 6 | battery_holder heat-set inserts, switch_holster heat-set inserts |
 | M3 heat-set insert | 94459A130 | 58 | battery_holder heat-set inserts, cradle heat-set inserts, electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685), imu_pad heat-set inserts (MPU-6050 mount), switch_holster heat-set inserts |
-| M3x32 SHCS | 91290A123 | 24 | coxa-bracket-to-chassis bolts |
 | M3x16 pan-head | 92010A130 | 6 | foot hinge pins |
-| M3 nyloc nut | 90576A102 | 30 | coxa-bracket-to-chassis bolts, foot hinge pins |
-|  |  | **310** | **total fasteners** |
+| M3 nyloc nut | 90576A102 | 6 | foot hinge pins |
+|  |  | **262** | **total fasteners** |
 
 Notes:
-- Cradle servo mounts (Design E mixed-mode, May 2026): each
-  cradle has 4 bolts driven VERTICALLY from above each servo
-  ear.  The 2 -X bolts thread into an M3 brass heat-set
-  insert (`94459A130`) in a Phi 4 mm pocket inside a Phi 8 mm
-  printed boss (36 such bolts = 2 -X x 3 cradles x 6 legs);
-  the 2 +X bolts self-tap into a bare Phi 2.5 mm pilot
-  drilled into the well wall (36 such bolts = 2 +X x 3
-  cradles x 6 legs).  The +X column reverted to self-tap
-  because the Phi 8 mm heat-set boss footprint cannot coexist
-  with the +X wire-exit channel that the servo's molded
-  wire boot must pass through during insertion -- see
-  ``hexapod_prototype.INSERT_M3_SELFTAP_*`` for the design
-  decision and ``_verify_prototype.check_servo_insertion_
-  path`` for the regression probe that catches the
-  boot-vs-wall collision.
-- Heat-set inserts (36 x `94459A130`) are pressed in BEFORE
-  the servo cradle is mated to its neighbour: heat the insert
-  with a soldering iron at ~220 deg C, drop it into the
-  printed Phi 4 mm x 6 mm pocket, apply light downward
-  pressure for ~10-15 s until the knurl displaces plastic
-  into the boss wall, then cool ~30 s before threading the
-  M3 x 8 SHCS in.  The 2 +X bolts per cradle bite directly
-  into the printed plastic and do NOT use a heat-set insert.
+- Cradle servo mounts (72 x `M3x8 SHCS into heat-set insert` /
+  `91290A113`) are driven VERTICALLY from above each servo ear and
+  thread into an M3 brass heat-set insert (`94459A130`) installed
+  flush with the boss top.  May 2026 fix: the previous self-tap
+  pilots grazed the cradle wall material at 7 of 12 sites (audit:
+  0.00-1.50 mm of plastic radially); the heat-set switch forces
+  Phi 8 mm bosses around every pilot and gives real metal threads.
+- Heat-set inserts (72 x `94459A130`) are installed BEFORE the
+  servo cradle is mated to its neighbour: heat the insert with a
+  soldering iron at ~220 deg C, drop it into the printed Phi 4 mm
+  x 6 mm pocket, apply light downward pressure for ~10-15 s until
+  the knurl displaces plastic into the boss wall, then cool ~30 s
+  before threading the M3 x 8 SHCS in.
 - Link-to-X-horn bolts (72 x M2x8 SHCS / `91290A005`) self-tap into
   the plastic 4-arm X-horn's existing Phi ~ 2.0 mm M2-sized untapped
   arm holes (May 2026 fastener-spec fix: the X-horn arms are NOT
   M3-sized -- an M3 SHCS won't fit through them).  Optional thread-
   forming upgrade: McMaster `99461A340` (M2x8 thread-form for
   plastic).  See `fasteners/README.md` for the full rationale.
-- Captive nyloc nuts are still used at the foot-pad hinge pins (6)
-  and at the coxa-bracket-to-chassis bolts (24); both joints have
-  through-hole bolts with the nut on the opposite side.
+- Captive nyloc nuts are used at the foot-pad hinge pins (6 total,
+  one per leg); the through-hole bolt is captured by the nyloc on
+  the opposite side of the foot.  The previous 24 x M3 x 14
+  coxa-bracket-to-chassis nyloc'd through-bolts were retired in
+  the May 2026 chassis_bottom-integrated yaw cradle redesign --
+  the printed bracket flange they clamped is gone, replaced by
+  per-leg cradle bosses inside chassis_bottom.
 - The M2.5 spline center screw ships with each DS3225-class servo --
   it's listed here so the screwdriver-access verifier check knows the
   fastener exists, but you do NOT order it separately.

@@ -21,7 +21,13 @@ to generate one ``WIRE_HARNESS_PLAN`` entry per servo:
     board.
   * ``source_xyz_chassis``: chassis-frame XYZ of the cradle
     wire-exit's mouth (where the harness physically exits the
-    +X face of the servo well).
+    servo well).  As of the May 2026 chassis_bottom-integrated
+    yaw cradle redesign the YAW cradle's exit is on the cradle's
+    -X (radially-inward) face; the legacy ``coxa_bracket`` had
+    it on +X.  HIP-PITCH and KNEE cradles still exit on the
+    link's +X face, but for path-length estimation we still
+    model all three cradles' sources as the YAW exit mouth (see
+    ``_cradle_source_bracket_xyz``).
   * ``destination_xyz_chassis``: chassis-frame XYZ of the
     PCA9685 channel header pin block (board centre +
     per-channel offset along the rotated PCA9685 long axis).
@@ -154,52 +160,65 @@ def _cradle_source_bracket_xyz(axis: str) -> tuple[float, float, float]:
     """Return the wire-exit 'mouth' position in BRACKET-LOCAL frame
     for one of the three cradle axes.
 
-    All three cradles share the same well-local wire-exit
-    geometry (``_wire_exit_slot``); they only differ in how the
-    well is transformed into bracket / link frames.  For the
-    YAW cradle the bracket frame == link frame, and the well
-    sits at (body_centre_x, 0, well_dz) = (-SERVO_OUTPUT_X, 0,
-    -WELL_RIM_Z).  In well-local frame the wire-exit mouth is
-    at (WELL_W/2 + WIRE_SLOT_X_PAST_WALL, 0, +small) -- i.e.
-    just past the well's +X outer face, on the centreline,
-    near the cavity floor.  Transforming that into bracket
-    frame for the yaw cradle: bracket-x = body_centre_x +
-    wire_exit_x_well = -SERVO_OUTPUT_X + WELL_W/2 +
-    WIRE_SLOT_X_PAST_WALL, bracket-y = 0, bracket-z = well_dz
-    + wire_exit_z_well = -WELL_RIM_Z + (small).
+    As of the May 2026 chassis_bottom-integrated yaw-cradle
+    redesign the YAW cradle's wire-exit corridor was mirrored
+    to the cradle's -X (radially INWARD) face.  The HIP-PITCH
+    and KNEE cradles still exit on the link's +X face -- their
+    cradles weren't redesigned -- but for path-length estimation
+    we still model all three cradles' sources as the YAW exit
+    mouth (= the harness's effective "I'm now in the inter-plate
+    volume on the inboard side of the leg" Manhattan node).
 
-    For the HIP-PITCH and KNEE cradles the well sits in coxa_
-    link / femur_link frame at the end of the arm.  Those
-    cradles' harnesses route INWARD along the link to the link's
-    pivot (yaw axis / hip-pitch axis), then DOWN through the
-    drop slot at the chassis leve.  In CHASSIS frame the source
-    position is the SAME for all three cradles per leg (they all
-    end up at the leg's bracket origin, since the hip-pitch and
-    knee harnesses follow their parent link inboard to the yaw
-    axis).  The DIFFERENCE between yaw / hip / knee is the
-    +SLACK_PER_JOINT_CROSSING_MM budget the hip + knee paths
-    pay for crossing the yaw / hip joint axes.
+    YAW cradle, post-redesign:
+      Well-local wire-exit mouth = (-WELL_W/2 - WIRE_SLOT_X_PAST_WALL,
+      0, +small) -- i.e. just past the well's -X (inboard) outer
+      face, on the centreline, near the cavity floor.
+      Transforming that into bracket frame for the YAW cradle:
+        bracket-x = body_centre_x + wire_exit_x_well
+                  = -SERVO_OUTPUT_X - WELL_W/2 - WIRE_SLOT_X_PAST_WALL
+                  ~= -41 mm  (was +21 mm with the legacy +X exit;
+                  the new value is INBOARD of the bracket origin)
+        bracket-y = 0
+        bracket-z = chassis-plate-top + small.  In the new cradle
+                    the wire-exit z range is the same well-local
+                    band as the legacy bracket, but the cradle
+                    floor IS the chassis_bottom top, so the mouth
+                    sits roughly at chassis-plate-top + 3 mm of
+                    bundle thickness.
 
-    So:  for path-length estimation we model EVERY cradle's
-    source as the YAW-cradle wire-exit mouth in chassis frame
-    (= the harness's effective "I'm now at the bracket"
-    position after walking out of its cradle and inboard to the
-    bracket), and add the appropriate slack loops for joint
-    crossings via ``n_crossings()``.  This matches the user's
-    "+30 mm slack-loop budget per joint crossing" rule and
-    sidesteps having to derive the link-local link-to-bracket
-    routing path (which would just add a constant offset
-    smaller than the +/-30 mm slack budget anyway).
+    The drop-slot centre is at bracket-x = LEG_HARNESS_DROP_X_CENTRE
+    = -46 mm, only 5 mm INBOARD of the new wire-exit mouth -- the
+    redesigned cradle shortens the per-leg yaw-cable run by
+    ~ |old - new| = |+21 - (-41)| = 62 mm of horizontal Manhattan
+    distance compared to the legacy +X bracket exit.  The path-length
+    model below picks up this shortening automatically since both
+    the source and the destination are computed in chassis frame.
+
+    For the HIP-PITCH and KNEE cradles the well sits in coxa_link
+    / femur_link frame at the end of the arm.  We continue to
+    model their harness "I'm now at the leg drop slot" position
+    as the YAW source for path-length purposes (their physical
+    routing follows the parent link inboard to the yaw axis and
+    then onto the chassis_bottom top face; the YAW source's chassis
+    coords already encode "leg's inboard wire-exit on the chassis"),
+    plus a +SLACK_PER_JOINT_CROSSING_MM joint-axis-crossing budget
+    each via ``n_crossings()``.  This sidesteps having to derive the
+    link-local routing path (which would just add a constant offset
+    smaller than the +/-30 mm slack budget anyway) and matches the
+    user's "+30 mm slack-loop budget per joint crossing" rule.
     """
     assert axis in ("yaw", "hip_pitch", "knee")
     # Bracket-frame wire-exit mouth, common to all 3 cradles
-    # for path-length estimation.  Well-local mouth at
-    # (WELL_W/2 + WIRE_SLOT_X_PAST_WALL, 0, +small).
-    bx = -hp.SERVO_OUTPUT_X + hp.WELL_W / 2.0 + hp.WIRE_SLOT_X_PAST_WALL
+    # for path-length estimation.  As of May 2026 the YAW cradle
+    # exits on the well's -X face (radially inboard); the well-
+    # local mouth coords are (-WELL_W/2 - WIRE_SLOT_X_PAST_WALL,
+    # 0, +small).
+    bx = -hp.SERVO_OUTPUT_X - hp.WELL_W / 2.0 - hp.WIRE_SLOT_X_PAST_WALL
     by = 0.0
-    # Bracket-z = well_dz + small.  well_dz = -WELL_RIM_Z;
-    # use cavity-floor + ~3 mm (= mid-bundle) for the mouth z.
-    bz = -hp.WELL_RIM_Z + 3.0
+    # Bracket-z = chassis-plate-top + ~3 mm of bundle thickness.
+    # In the chassis_bottom cradle the cavity floor IS the
+    # chassis_bottom top face, so bracket-z = 0 + 3 = +3 mm.
+    bz = 3.0
     return (bx, by, bz)
 
 
