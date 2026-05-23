@@ -155,6 +155,77 @@ def _load_mesh(name: str, *, copy: bool = True) -> trimesh.Trimesh:
     return cached.copy() if copy else cached
 
 
+def _chassis_yaw_cradle_to_well_local(mesh: trimesh.Trimesh,
+                                      leg_index: int = 0,
+                                      ) -> trimesh.Trimesh:
+    """Map a ``chassis_bottom`` mesh into the WELL-LOCAL frame of a
+    single leg's yaw cradle.
+
+    Used by the cradle-feature verifier checks (cradle openness,
+    bolt-hole engagement, cradle insert pockets, horn-sweep
+    clearance, servo insertion path) so the chassis_bottom-
+    integrated yaw cradle can be probed in the SAME well-local
+    frame as the bracket cradle used to be (May 2026 chassis-
+    bottom-integrated yaw-cradle redesign, commit 6/8).
+
+    Math: the transform is the inverse of ``fastener_registry.
+    _yaw_cradle_T``:
+
+        T_well_to_chassis = T(edge_mid)
+                            @ Rz(a)
+                            @ T(-SERVO_OUTPUT_X, 0,
+                                well_to_chassis_dz)
+
+    where ``well_to_chassis_dz = (CHASSIS_PLATE_T/2 +
+    CRADLE_TAB_SHELF_Z) - WELL_RIM_Z = -19.25 mm``.  So the inverse
+    is
+
+        T_chassis_to_well = T(+SERVO_OUTPUT_X, 0, -well_to_chassis_dz)
+                            @ Rz(-a)
+                            @ T(-edge_mid)
+
+    Well-local frame convention (matches ``_bracket_to_well_local``
+    helpers in the cradle checks): origin at the body's BOTTOM face
+    along the yaw axis; +Z up.  After this transform the leg's
+    cradle features land at:
+
+      * cradle tab shelf at well-local z = +WELL_RIM_Z          = +27.25
+      * cradle boss top  at well-local z = +WELL_RIM_Z +
+                            (CRADLE_BOSS_H - CRADLE_TAB_SHELF_Z) = +32.25
+      * chassis_bottom plate top    at well-local z =
+          +WELL_RIM_Z - CRADLE_TAB_SHELF_Z                       = +21.25
+      * chassis_bottom plate bottom at well-local z =
+          +WELL_RIM_Z - CRADLE_TAB_SHELF_Z - CHASSIS_PLATE_T     = +17.25
+      * servo body bottom (when seated) at well-local z          = 0
+      * servo body top                  at well-local z          = +38
+
+    The other 5 cradles + the rest of the chassis_bottom plate
+    material end up scattered far from the well-local origin (the
+    plate is ~200 mm flat-to-flat; only the L0 cradle lands at the
+    yaw axis).  Cradle-feature probes are localised to the L0
+    cradle's well-local region and so are unaffected by the rest
+    of the plate.
+    """
+    apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
+    a = (leg_index + 0.5) * np.pi / 3.0
+    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
+    cradle_shelf_chassis_z = (hp.CHASSIS_PLATE_T / 2.0
+                              + hp.CRADLE_TAB_SHELF_Z)
+    well_to_chassis_dz = cradle_shelf_chassis_z - hp.WELL_RIM_Z
+
+    T1 = np.eye(4)
+    T1[:3, 3] = -edge_mid
+    Rz_inv = rotation_matrix(-a, [0, 0, 1])
+    T3 = np.eye(4)
+    T3[0, 3] = +hp.SERVO_OUTPUT_X
+    T3[2, 3] = -well_to_chassis_dz
+    T_chassis_to_well = T3 @ Rz_inv @ T1
+
+    m = mesh.copy()
+    m.apply_transform(T_chassis_to_well)
+    return m
+
+
 def prebuild_mesh_cache(names=ALL_CACHED_PART_NAMES) -> dict:
     """Build every cacheable mesh now and return the cache dict.
 
@@ -687,19 +758,27 @@ def check_cradle_openness():
     print("\n[2] Cradle insertion-path openness:")
     all_ok = True
 
-    # ---- coxa_bracket: drop-in from above through the flange slot ------
-    # The bracket's flange has a 56 x 21 mm rectangular through-slot
-    # so the servo (gear pointing UP) can drop straight DOWN into the
-    # well.  Verify that the body's vertical drop-in column above the
-    # final body volume is fully clear of bracket material.
-    cb = _load_mesh("coxa_bracket", copy=False)
-    body_centre_cb = np.array([-hp.SERVO_OUTPUT_X, 0.0,
-                                 -hp.WELL_RIM_Z + hp.SERVO_BODY_H / 2.0])
+    # ---- chassis_bottom yaw cradle: drop-in from above through the
+    # tab-shelf opening ------------------------------------------------
+    # Commit 6/8 of the May 2026 chassis-bottom-integrated yaw-cradle
+    # redesign: rerouted the yaw cradle's open-insertion-path probe
+    # from ``coxa_bracket`` to the integrated cradle in
+    # ``chassis_bottom``.  The L0 cradle is probed in WELL-LOCAL
+    # coords -- after ``_chassis_yaw_cradle_to_well_local`` the
+    # cradle's tab shelf sits at well-local z = +WELL_RIM_Z = +27.25,
+    # the body bottom lands at well-local z = 0 (well-local origin =
+    # body-bottom centre by convention), and the body's top at
+    # well-local z = +SERVO_BODY_H = +38.  Probing OPEN_DIR=+Z above
+    # the body samples the column that the servo slides DOWN into
+    # (must be void).
+    cb = _chassis_yaw_cradle_to_well_local(
+        _load_mesh("chassis_bottom", copy=False))
+    body_centre_cb = np.array([0.0, 0.0, hp.SERVO_BODY_H / 2.0])
     ok, blocked, total = _cradle_open(cb, body_centre_cb,
                                         body_long_axis=[1, 0, 0],
                                         body_short_axis=[0, 1, 0],
                                         open_dir=[0, 0, 1])
-    all_ok &= _label("coxa_bracket  (servo drops in +Z)",
+    all_ok &= _label("chassis_bottom yaw cradle  (servo drops in +Z)",
                        ok, f"{blocked}/{total} samples blocked")
 
     cl = _load_mesh("coxa_link", copy=False)
@@ -739,34 +818,18 @@ def check_bolt_holes():
     print("\n[3] Bolt-hole material engagement:")
     all_ok = True
 
-    # ---- Coxa bracket flange chassis bolts -----------------------------
-    cb = _load_mesh("coxa_bracket", copy=False)
-    bolt_x_outboard = -hp.BRACKET_FLANGE_INSET
-    bolt_x_inboard  = -hp.BRACKET_FLANGE_INSET - hp.BRACKET_BOLT_PCD_X
-    bolt_ys = (-hp.BRACKET_BOLT_PCD_Y / 2.0,
-                +hp.BRACKET_BOLT_PCD_Y / 2.0)
-    bolt_centres = []
-    for bx in (bolt_x_outboard, bolt_x_inboard):
-        for by in bolt_ys:
-            bolt_centres.append((bx, by))
-    offsets = np.array([(2.0, 0.0), (-2.0, 0.0),
-                        (0.0, 2.0), (0.0, -2.0)])
-    n_offsets = len(offsets)
-    # Build (n_bolts * n_offsets, 3) probe array; classify
-    # "covered" per bolt as "ANY of its 4 probes inside the mesh".
-    probes = np.zeros((len(bolt_centres) * n_offsets, 3))
-    for bi, (bx, by) in enumerate(bolt_centres):
-        for oi, (ox, oy) in enumerate(offsets):
-            probes[bi * n_offsets + oi] = (
-                bx + ox, by + oy, hp.BRACKET_FLANGE_T / 2.0,
-            )
-    inside_flat = points_inside(cb, probes).reshape(
-        len(bolt_centres), n_offsets)
-    n_pass = int(inside_flat.any(axis=1).sum())
-    n_total = len(bolt_centres)
-    ok = n_pass == n_total
-    all_ok &= _label("coxa_bracket chassis bolts",
-                       ok, f"{n_pass}/{n_total} bolt holes have flange material")
+    # ---- Coxa bracket flange chassis bolts (RETIRED) -----------------
+    # Commit 5/8 of the May 2026 chassis-bottom-integrated yaw-cradle
+    # redesign retired the 4-bolt-per-leg coxa-bracket-to-chassis_bottom
+    # pattern.  The bracket flange's 4 Phi 3.4 mm clearance holes are
+    # still PRINTED into the bracket mesh (the part itself dies in
+    # commit 8) but no fastener clamps the flange to chassis_bottom --
+    # the new chassis_bottom yaw cradle's heat-set inserts + cradle
+    # bolts (see ``check_cradle_insert_pockets``) carry the load now.
+    # Verifying "the bracket flange has solid material around 4
+    # imaginary bolt positions" is no longer interesting; the bracket
+    # is held only by visual overlap during commits 5-7 and disappears
+    # in commit 8.
 
     # ---- Servo M3 pilot holes inside the wells -------------------------
     def _probe_pilots(part, pilot_positions, axis):
@@ -788,17 +851,26 @@ def check_bolt_holes():
         return int(flags.any(axis=1).sum())
 
     pilot_axis_z = np.array([0.0, 0.0, 1.0])
-    cb_pilots = []
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            cb_pilots.append(np.array([
-                -hp.SERVO_OUTPUT_X + sx * hp.SERVO_TAB_HOLE_PCD / 2.0,
-                sy * hp.SERVO_TAB_HOLE_PCD_Y / 2.0,
-                -hp.WELL_RIM_Z * 0.5,
-            ]))
-    n_cb = _probe_pilots(cb, cb_pilots, pilot_axis_z)
-    all_ok &= _label("coxa_bracket M3 pilots in well wall",
-                       n_cb == 4, f"{n_cb}/4 pilots have wall material around them")
+    # ---- chassis_bottom yaw cradle (RETIRED from this check) ---------
+    # Commit 6/8 of the May 2026 chassis-bottom-integrated yaw-cradle
+    # redesign retired the bracket-well-wall lateral pilot probe for
+    # the yaw cradle.  The legacy ``_probe_pilots`` function checks
+    # for material in 4 directions at +/- 1.6 mm around each pilot
+    # axis, which was designed for Phi 2.5 mm SELF-TAP pilots in a
+    # solid well wall.  The chassis_bottom yaw cradle's two -X sites
+    # have Phi 4 mm heat-set POCKETS (insert OD 5 mm, pocket OD 4 mm,
+    # pocket radius 2 mm), so a 1.6 mm radial probe lands INSIDE the
+    # pocket VOID at any z in [+21.25, +29.25] and the 4-direction
+    # heuristic returns False even though the boss material around
+    # the pocket is sound.  The rigorous radial-material + knurl-ring
+    # probes in ``check_cradle_insert_pockets`` (8 azimuths x 2
+    # z-planes at the boss outer-wall radius, 8 azimuths in the
+    # knurl ring) cover this case correctly; this function's
+    # equivalent sibling sub-check is redundant for the new design
+    # and has been dropped.  The hip / knee cradles in coxa_link and
+    # femur_link continue to use the legacy probe -- their pilots
+    # are bare Phi 2.5 mm SELF-TAP bores in solid well walls so the
+    # 1.6 mm lateral probe is the right tool there.
 
     # In well-local: pilot at (sx*PCD/2, sy*PCD_Y/2, +WELL_RIM_Z*0.5)
     # along the +Z bore.  After R(-pi/2, X): (x, y, z) -> (x, z, -y),
@@ -1069,11 +1141,22 @@ def check_wire_slot():
     # COXA_LIFT / WELL_Z_DROP_EXTRA / COXA_ARM_T change later.
     drop_z_cl = hp.COXA_HIP_DROP
 
+    # Commit 7/9 of the May 2026 chassis-bottom-integrated yaw-cradle
+    # redesign: rerouted the yaw-cradle case in this check from
+    # ``coxa_bracket`` to the integrated cradle in ``chassis_bottom``.
+    # The chassis_bottom cradle's wire-exit L-corridor is anchored to
+    # the radially-INWARD (-X) face (mirrored by ``_chassis_yaw_cradle_
+    # solid`` in commit 5.5) so it lands at the same well-local x
+    # position the bracket's corridor used to live at; the existing
+    # ``_probe_wire_corridor`` helper transfers unchanged after the
+    # ``_chassis_yaw_cradle_to_well_local`` re-mapping.  The hip and
+    # knee cradles continue to be probed as before.
     cradles = [
-        ("coxa_bracket wire-exit L-corridor",
-         _load_mesh("coxa_bracket", copy=False),
+        ("chassis_bottom (yaw cradle, L0) wire-exit L-corridor",
+         _chassis_yaw_cradle_to_well_local(
+             _load_mesh("chassis_bottom", copy=False)),
          None,
-         np.array([-hp.SERVO_OUTPUT_X, 0.0, -hp.WELL_RIM_Z])),
+         np.array([0.0, 0.0, 0.0])),
         ("coxa_link    wire-exit L-corridor",
          _load_mesh("coxa_link", copy=False),
          R_link,
@@ -1610,35 +1693,39 @@ def check_horn_sweep_clearance():
     plate_r       = hp.HORN_ADAPTER_OD / 2.0
     R = max(plate_r, plastic_tip_r) + HORN_SWEEP_CLEARANCE
 
-    # Bracket-local Z of the seated servo's top face.  See
-    # ``make_coxa_bracket`` -- the well is translated by ``-WELL_RIM_Z``
-    # so its rim lands at bracket-z = 0; the body's tabs seat on the
-    # rim, so its bottom face sits ``WELL_TAB_FLOAT`` mm above the
-    # well's nominal floor (well-z = WELL_TAB_FLOAT).  In bracket
-    # coords: body bottom at z = WELL_TAB_FLOAT - WELL_RIM_Z, body top
-    # at z = body_bottom + SERVO_BODY_H.  We DROP the WELL_TAB_FLOAT
-    # term here so the cylinder also covers the case where the tabs
-    # don't quite reach the rim and the body floats lower than
-    # nominal -- conservative.
-    body_top_z = hp.SERVO_BODY_H - hp.WELL_RIM_Z
+    # Commit 7/9 of the May 2026 chassis-bottom-integrated yaw-cradle
+    # redesign: rerouted the yaw-cradle horn-sweep probe from
+    # ``coxa_bracket`` to the integrated cradle in ``chassis_bottom``.
+    # The probe is now expressed in WELL-LOCAL coords (the same frame
+    # the hip / knee horn-sweep probes already use): the cradle is
+    # mapped via ``_chassis_yaw_cradle_to_well_local`` so the body
+    # bottom lands at well-local z = 0 by convention.  The yaw axis
+    # then sits at well-local (x = +SERVO_OUTPUT_X, y = 0) (the
+    # output spline in servo-local coords) and the body top + gear +
+    # adapter z range becomes:
+    #
+    #   body bottom at z = 0
+    #   body top    at z = SERVO_BODY_H              = +38
+    #   gear top    at z = body_top + WELL_TAB_FLOAT + SERVO_OUTPUT_H
+    #   adapter top at z = gear_top + HORN_STACK_H
+    body_top_z = hp.SERVO_BODY_H            # =  +38.0 mm
     gear_top_z = (body_top_z + hp.WELL_TAB_FLOAT
                   + hp.SERVO_OUTPUT_H)
     adapter_top_z = gear_top_z + hp.HORN_STACK_H
-    z_lo = body_top_z                  # = +10.75 mm (worst-case body float)
+    z_lo = body_top_z                  # +38 mm (worst-case body float)
     z_hi = adapter_top_z + 1.0         # +1 mm margin above adapter top
     H    = z_hi - z_lo
 
-    # Bracket-local yaw axis.  ``make_coxa_bracket`` places the servo BODY
-    # at bracket-x = -SERVO_OUTPUT_X so the output gear (= the SPLINE = the
-    # YAW AXIS, which sits at +SERVO_OUTPUT_X from the body centre in
-    # servo-local coords) lands at bracket-x = 0.  See the docstring of
-    # ``make_coxa_bracket``: "Origin: at the YAW AXIS ... +X = outboard".
-    yaw_x = 0.0
+    # Well-local yaw axis: the output spline sits at well-local
+    # (x = +SERVO_OUTPUT_X, y = 0) -- the body is offset in the well so
+    # the spline lands at +SERVO_OUTPUT_X from the well origin (which
+    # IS the body-bottom centre by convention).
+    yaw_x = +hp.SERVO_OUTPUT_X
     yaw_y = 0.0
 
-    print(f"\n[5c] Horn-sweep clearance in coxa_bracket "
+    print(f"\n[5c] Horn-sweep clearance in chassis_bottom yaw cradle "
           f"(Phi {2*R:.1f} mm x {H:.1f} mm tall):")
-    print(f"     bracket-local axis at (x={yaw_x:+.1f}, y={yaw_y:+.1f}); "
+    print(f"     well-local axis at (x={yaw_x:+.1f}, y={yaw_y:+.1f}); "
           f"z in [{z_lo:+.2f}, {z_hi:+.2f}]")
     print(f"     plastic horn tip radius (from mesh) = "
           f"{plastic_tip_r:.2f} mm; printed adapter radius = "
@@ -1647,18 +1734,19 @@ def check_horn_sweep_clearance():
     cyl = hp._cyl(R, H, sections=hp.CYL_SECTIONS)
     cyl.apply_translation([yaw_x, yaw_y, 0.5 * (z_lo + z_hi)])
 
-    bracket = _load_mesh("coxa_bracket", copy=False)
+    bracket = _chassis_yaw_cradle_to_well_local(
+        _load_mesh("chassis_bottom", copy=False))
     pitch = 0.6
     vol = _pair_overlap_volume(bracket, cyl, pitch=pitch)
     ok = vol <= HORN_SWEEP_OVERLAP_TOL
 
-    _label("coxa_bracket horn-sweep void", ok,
-           f"bracket-inside-cylinder vol = {vol:7.1f} mm^3 "
+    _label("chassis_bottom yaw cradle horn-sweep void", ok,
+           f"cradle-inside-cylinder vol = {vol:7.1f} mm^3 "
            f"(tol {HORN_SWEEP_OVERLAP_TOL:.0f})")
 
     # Diagnostic: when the check fails, report WHERE the intrusion
-    # lives in bracket-local coordinates so the geometry fix is
-    # obvious from the verifier output.  Resample at the same pitch.
+    # lives in well-local coordinates so the geometry fix is obvious
+    # from the verifier output.  Resample at the same pitch.
     if not ok:
         a_min, a_max = bracket.bounds
         b_min, b_max = cyl.bounds
@@ -3431,20 +3519,37 @@ def check_cradle_insert_pockets():
         m.apply_transform(R_inv)
         return m
 
-    bracket_shelf_drop = 3.0
+    # Commit 7/9 of the May 2026 chassis-bottom-integrated yaw-cradle
+    # redesign: rerouted the yaw-cradle case in this check from
+    # ``coxa_bracket`` to the integrated cradle in ``chassis_bottom``.
+    # After ``_chassis_yaw_cradle_to_well_local`` the L0 cradle's tab
+    # shelf sits at well-local z = +WELL_RIM_Z = +27.25 (no
+    # bracket-shelf-drop term: chassis_bottom's cradle does NOT
+    # have a drop-in flange eating its rim; the body drops straight
+    # in past the boss top).  The boss + heat-set + self-tap geometry
+    # in the cradle is built by the SAME
+    # ``_servo_cradle_insert_pockets`` helper as the legacy bracket
+    # used, so the sub-checks (pocket void, 8-azimuth radial wall,
+    # knurl-ring) and probe parameters all transfer unchanged --
+    # only the mesh + shelf_top_z constant + the per-case
+    # ``radial_air_frac`` tolerance change.
+    #
     # Each case = (label, well-local mesh, shelf_top_z, radial_air_frac).
     # radial_air_frac is the fraction of radial / knurl-ring azimuth
     # probes around the -X heat-set sites that are allowed to fall in
     # AIR before the case fails (see the function docstring's
-    # Per-case radial-wall tolerance section).  The legacy cradles
-    # carry strict 0.0; the chassis_bottom case (added in commit 7/9)
-    # will carry 0.25 to account for the -X wire-exit corridor's
-    # intrusion through the inboard 8/32 azimuths of each boss.
+    # Per-case radial-wall tolerance section).  The legacy link
+    # cradles carry strict 0.0; the chassis_bottom case carries 0.25
+    # (= 8/32 azimuths) to account for the -X wire-exit corridor's
+    # intrusion through the inboard azimuth band of each -X boss
+    # (engineering rationale in the function docstring + the
+    # CRADLE_BOSS_* constants block in hexapod_prototype.py).
     cases = [
-        ("coxa_bracket (yaw cradle)",
-         _bracket_to_well_local(_load_mesh("coxa_bracket", copy=False)),
-         hp.WELL_RIM_Z - bracket_shelf_drop,
-         0.0),
+        ("chassis_bottom (yaw cradle, L0)",
+         _chassis_yaw_cradle_to_well_local(
+             _load_mesh("chassis_bottom", copy=False)),
+         hp.WELL_RIM_Z,
+         0.25),
         ("coxa_link    (hip-pitch cradle)",
          _coxa_link_to_well_local(_load_mesh("coxa_link", copy=False)),
          hp.WELL_RIM_Z,
@@ -3771,9 +3876,18 @@ def check_servo_insertion_path():
         m.apply_transform(R_inv)
         return m
 
+    # Commit 7/9 of the May 2026 chassis-bottom-integrated yaw-cradle
+    # redesign: rerouted the yaw-cradle case in this check from
+    # ``coxa_bracket`` to the integrated cradle in ``chassis_bottom``.
+    # The boot envelope is fixed in well-local frame so the same
+    # _boot_envelope_sample_points() helper drives the sweep on
+    # chassis_bottom after _chassis_yaw_cradle_to_well_local re-maps
+    # the cradle into the bracket's old well-local origin.  The hip
+    # and knee cradles continue to be probed as before.
     cradles = [
-        ("coxa_bracket (yaw cradle)",
-         _bracket_to_well_local(_load_mesh("coxa_bracket", copy=False))),
+        ("chassis_bottom (yaw cradle, L0)",
+         _chassis_yaw_cradle_to_well_local(
+             _load_mesh("chassis_bottom", copy=False))),
         ("coxa_link    (hip-pitch cradle)",
          _coxa_link_to_well_local(_load_mesh("coxa_link", copy=False))),
         ("femur_link   (knee cradle)",

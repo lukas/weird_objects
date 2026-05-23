@@ -3350,7 +3350,57 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
     boot_channel = _boot_clearance_channel()
     boot_channel.apply_translation([body_centre_x, 0.0, well_dz])
 
-    wire_slot = _union(wire_corridor, boot_channel)
+    # ---- Upper +X shroud cut (chassis_bottom-specific extension) ------
+    # The legacy ``_boot_clearance_channel()`` z range is capped at
+    # well-local z = WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM = +29.75,
+    # which was sized for the BRACKET cradle (above the rim the
+    # bracket only has a 3-mm-thick flange and a body-passage slot,
+    # so the boot's swept volume z > +29.75 lands in the flange's
+    # body slot and is naturally clear).  The chassis_bottom
+    # integrated yaw cradle is DIFFERENT: its cradle wall extends UP
+    # from the well rim to the boss-top z = WELL_RIM_Z +
+    # (CRADLE_BOSS_H_MM - CRADLE_TAB_SHELF_Z) = +32.25 (a 2.5-mm-thick
+    # non-load-bearing SHROUD above the channel cap).  Without an
+    # extension cut, the boot's swept volume at offset > +24 mm
+    # above seated (i.e. boot bottom z > +28.3) hits the +X shroud
+    # material and the verifier's ``check_servo_insertion_path``
+    # registers ~ 91 mm^3 of step-wise overlap on the chassis_bottom
+    # case.
+    #
+    # The fix is a chassis_bottom-only cut that extends the channel's
+    # +X clearance window UP from the legacy cap (well-local z =
+    # +29.75) to 2 mm above the boss top (well-local z = +34.25),
+    # carving a 4.5-mm-tall x WIRE_SLOT_W = 7-mm-wide x
+    # WIRE_CHANNEL_DEPTH = 6.5-mm-deep notch through the upper +X
+    # shroud at the wire-boot's y / x lane.  The shroud above the
+    # channel cap is non-load-bearing (dust shroud only, see the
+    # CRADLE_BOSS_H_MM = 11 mm rationale in the constants block) so
+    # cutting a 7-mm-wide notch through it costs no mechanical
+    # function; the remaining shroud material wraps the rest of the
+    # boss perimeter and keeps debris out of the cavity.
+    shroud_cut_z_min = WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM    # +29.75
+    shroud_cut_z_max = (WELL_RIM_Z
+                        + (CRADLE_BOSS_H_MM - CRADLE_TAB_SHELF_Z)
+                        + 2.0)                                    # +34.25
+    shroud_cut_z_extent = shroud_cut_z_max - shroud_cut_z_min
+    shroud_cut_z_centre = 0.5 * (shroud_cut_z_min + shroud_cut_z_max)
+    # X / Y match the legacy ``_boot_clearance_channel()`` so the cut
+    # lines up with the channel above it.
+    shroud_cut_ch_x_min = +SERVO_BODY_W / 2.0 - WIRE_SLOT_X_INBOARD
+    shroud_cut_ch_x_max = (+SERVO_BODY_W / 2.0
+                           + WELL_BODY_CL
+                           + WIRE_CHANNEL_DEPTH)
+    shroud_cut_x_extent = shroud_cut_ch_x_max - shroud_cut_ch_x_min
+    shroud_cut_x_centre = 0.5 * (shroud_cut_ch_x_min + shroud_cut_ch_x_max)
+    shroud_cut = _box((shroud_cut_x_extent,
+                       WIRE_SLOT_W,
+                       shroud_cut_z_extent),
+                      center=(shroud_cut_x_centre,
+                              0.0,
+                              shroud_cut_z_centre))
+    shroud_cut.apply_translation([body_centre_x, 0.0, well_dz])
+
+    wire_slot = _union(_union(wire_corridor, boot_channel), shroud_cut)
 
     # ---- Cable zip-tie post on the -X face ---------------------------
     # Same x-reflection trick as the wire slot: ``_cable_zip_post()``
