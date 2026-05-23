@@ -18,7 +18,7 @@ else
 MJ_PY  := $(REPO_ROOT)/.venv/bin/python
 endif
 
-.PHONY: check-cad check-cad-fast validate render build verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz regen-fasteners bom-fasteners help
+.PHONY: check-cad check-cad-fast check-strength validate render build verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz regen-fasteners bom-fasteners help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -28,6 +28,8 @@ help:
 	@echo "Hexapod prototype CAD targets:"
 	@echo "  check-cad         Build STLs, validate against design_spec.yaml, render views, write cad_report.md."
 	@echo "  check-cad-fast    Same as check-cad but skip the slow workspace-sweep collision check."
+	@echo "  check-strength    OPT-IN failure-point check (Gmsh + CalculiX FEA + closed-form beam bending)."
+	@echo "                    Not wired into check-cad.  Example:  make check-strength MATERIAL=petg"
 	@echo "  validate          Run scripts/validate_geometry.py only (no renders, no report)."
 	@echo "  render            Run scripts/render_views.py only."
 	@echo "  build             Re-run build_all.py to regenerate stl_prototype/*.stl."
@@ -47,6 +49,30 @@ check-cad:
 
 check-cad-fast:
 	$(RUN) hexapod_walker/prototype/scripts/check_cad.py --fast
+
+# Opt-in strength / failure-point pipeline.  NOT a dependency of
+# check-cad: this is a separate observation-only pass that runs
+# Gmsh + CalculiX (and a closed-form Euler-Bernoulli beam-bending
+# sanity check) over the structural printed parts and writes
+# ``artifacts/strength_report.md`` (with per-part stress-field PNGs
+# under artifacts/strength/).  Install ``ccx`` and ``gmsh`` via
+# Homebrew on macOS (see PROTOTYPE.md "Opt-in strength check"
+# section) -- if either is missing the run falls back to the beam
+# check alone and notes the missing solver in the report.
+#
+# Usage:
+#   make check-strength                       # PETG default
+#   make check-strength MATERIAL=pla          # PLA derated yield
+#   make check-strength PARTS=tibia_link,femur_link SOLVER=beam
+MATERIAL ?= petg
+PARTS    ?=
+SOLVER   ?= both
+STRENGTH_ARGS := --material $(MATERIAL) --solver $(SOLVER)
+ifneq ($(strip $(PARTS)),)
+STRENGTH_ARGS += --parts $(PARTS)
+endif
+check-strength:
+	$(RUN) hexapod_walker/prototype/strength/__main__.py $(STRENGTH_ARGS)
 
 validate:
 	$(RUN) hexapod_walker/prototype/scripts/validate_geometry.py

@@ -232,6 +232,62 @@ If `_verify_prototype.py` itself is in the diff, `--changed` falls
 back to "select all"; the cache then dedups unchanged check sources
 at exec time.
 
+### Opt-in strength / failure-point check
+
+A SEPARATE pipeline lives under `hexapod_walker/prototype/strength/`
+that runs a closed-form Euler-Bernoulli beam-bending sanity check on
+the slender links plus -- when the toolchain is available -- a
+CalculiX linear-static FEA pass on every load-bearing printed part.
+Output is `artifacts/strength_report.md` (with per-part stress-field
+PNGs under `artifacts/strength/`).
+
+This pipeline is **deliberately not** wired into `make check-cad`.
+It's observation-only and you opt in explicitly:
+
+```bash
+make -C hexapod_walker/prototype check-strength            # PETG (default)
+make -C hexapod_walker/prototype check-strength MATERIAL=pla
+make -C hexapod_walker/prototype check-strength PARTS=tibia_link,femur_link SOLVER=beam
+make -C hexapod_walker/prototype check-strength SOLVER=beam   # closed-form only
+```
+
+**Installing the toolchain (macOS):**
+
+```bash
+# Tetrahedral mesher (works on Apple Silicon).
+brew install gmsh
+
+# CalculiX solver (Intel macOS / Linux):
+brew install costerwi/homebrew-calculix/calculix-ccx
+
+# Python deps land in the repo's shared venv via run.sh; if you
+# bypass run.sh, install manually:
+uv pip install pygmsh meshio
+```
+
+As of May 2026 the `calculix-ccx` Homebrew formula does **not** build
+on Apple Silicon (the bundled ARPACK fails to link `_dseupd_`);
+`gmsh` works fine.  If `ccx` is missing the pipeline falls back to
+the beam-bending check alone and notes the missing solver in the
+report.  On Linux (Ubuntu) `apt install calculix-ccx gmsh` covers
+both.
+
+**What the load cases look like** (derived from the design constants
+in `hexapod_prototype.py` and an inferred 2.15 kg assembled mass):
+
+| Part | Load case | Source |
+|---|---|---|
+| `tibia_link`    | foot tip -Z impact = `robot_weight / 3 * 2g` | `FEMUR_LENGTH`, `TIBIA_LENGTH`, `XHORN_BOLT_PCD` |
+| `femur_link`    | knee-end -Z impact = same `2g` foot load           | same + `FEMUR_LENGTH` |
+| `coxa_link`     | DS3225 stall = 2.5 N-m about the yaw axis          | `COXA_LENGTH` + `DS3225_STALL_TORQUE` |
+| `chassis_bottom`| dead load (battery + tray + 6 cradle/leg masses)   | `BATTERY_HOLDER_CENTRE_X`, yaw cradle XY |
+| `chassis_top`   | dead load minus battery                            | same supports |
+| `foot_pad`      | foot-strike pressure on the disk floor             | `FOOT_PAD_OD`, `FOOT_HINGE_PIN_HOLE_D` |
+
+The strength module imports from `hexapod_prototype` but the reverse
+is forbidden -- a missing FEA toolchain cannot break the geometry
+build.
+
 ### `check_screwdriver_access` envelopes
 
 The screwdriver-access check probes a per-fastener cylindrical
