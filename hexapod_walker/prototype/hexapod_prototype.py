@@ -5529,10 +5529,19 @@ def make_coxa_link() -> trimesh.Trimesh:
     #    its local-variable definition survives for documentation);
     #    the +Y trim's z up-to-+46.1 over-reach is therefore strictly
     #    redundant on +Y (slices through air above the arm's +Y top
-    #    face) but harmless.  The trim's structural job on +Y is to
-    #    excise the +Y stringer at x in [+8, +42], y in [+3, +11],
-    #    z in [+25, +42] so the arm's +Y outboard volume reduces to
-    #    just the inboard tongue at x < +8.
+    #    face) but harmless.  Originally the +Y trim's structural job
+    #    was to excise the +Y stringer at x in [+8, +42], y in [+3,
+    #    +11], z in [+25, +42] (= outboard arm only, mirroring spar
+    #    slot's x range).  A follow-up to 4995d4f (May 2026) extended
+    #    the +Y trim's x range BACK over the pedestal to x in [-12.5,
+    #    +42]: the over-pedestal slab at link x in [arm_x_min, +7],
+    #    y in [+3, +11], z in [+25, +42] was un-bonded plastic mass
+    #    (nothing on the +Y side of the link ties to it), so removing
+    #    it shrinks the part without touching any load path.  The arm
+    #    -X end therefore now looks like the bridge / well / pad
+    #    layout on -Y: -Y half intact + bridge + well + pad, +Y half
+    #    trimmed back to the y in [0, +3] centre strip.  See
+    #    arm_pos_y_trim_x_min below for the boolean detail.
     #
     #  * arm_cap_neg IS still in the union, but its [+15, +41] x
     #    range is entirely inside the -Y trim's [+8, +42] x range
@@ -5566,13 +5575,46 @@ def make_coxa_link() -> trimesh.Trimesh:
     )
 
     arm_pos_y_trim_y_min = +LINK_THICKNESS / 2.0              # = +3
-    arm_pos_y_trim_y_max = +arm_w / 2.0                       # = +11
+    # +Y arm-over-pedestal extension (follow-up to 4995d4f, May 2026):
+    # the +Y trim's x range used to mirror spar_slot_x_min/x_max =
+    # [+8, +42], leaving a ~19 x 11 x 6 mm chunk of +Y arm slab sitting
+    # directly above the pedestal at x in [arm_x_min, +7] = [-12, +7],
+    # y in [+3, +11], z in [+25, +42].  Nothing on the +Y side of the
+    # link bonds to that chunk -- the bridge, well, well_top_pad, and
+    # gusset_under all hang off the arm's -Y side, and arm_cap_pos was
+    # retired in 4995d4f so the +Y top cap rib is gone too.  Extending
+    # trim_x_min back to the arm's -X end (= arm_x_centre - arm_x_extent
+    # / 2.0 = -12) plus a 0.5 mm overlap removes the over-pedestal +Y
+    # arm material in one sweep, while leaving the inner +Y centre-
+    # strip at y in [0, +3] (= the spar-swing gap's +Y half) intact so
+    # the arm-centre still bonds the pedestal to the outboard arm + well.
+    #
+    # Y_MAX = pedestal +Y face + overlap (NOT +arm_w/2 = +11): once the
+    # +Y arm slab at y in [+3, +11], x in [-12.5, +17], z in [+27, +36]
+    # is gone, the pedestal's +Y SHOULDER ROOF (y in [+11, +17], z in
+    # [+27, +36]) loses the +Y arm slab it used to fuse to above (at
+    # z in [+36, +42]) and becomes an isolated 6 x 9 mm Y-thin tab of
+    # plastic only attached via the -X strip at x in [-17, -12.5].  It
+    # serves no purpose (no bolts seat in it, no feature mounts to it)
+    # and the thin-sheets check flags it as a fresh ~1200-vox cluster.
+    # Extending y_max from +11 to the pedestal +Y face + 0.5 mm overlap
+    # = +17.5 lets the trim also excise the +Y shoulder roof at the
+    # same x range as the over-pedestal arm slab, cleaning up the
+    # geometry in one stroke.  The cap below at z in [0, PEDESTAL_CAP_T]
+    # = [0, +4] and its surrounding pillar body at z in [+4, +25] are
+    # NOT touched (z_min stays at spar_slot_z_min = body_top_z + 0.5
+    # ~ +25), so all 4 M2 X-horn bolts + the central M3 horn screw
+    # remain seated; only material at z in [+27, +36] (= pedestal
+    # ROOF above the assembly trough) is removed on +Y.
+    arm_pos_y_trim_y_max = +17.0 + 0.5                               # pedestal +Y face (= 34/2) + 0.5 mm overlap = +17.5
     arm_pos_y_trim_z_max = arm_t + COXA_ARM_CAP_T + COXA_LIFT + 0.1
+    arm_pos_y_trim_x_min = arm_x_centre - arm_x_extent / 2.0 - 0.5   # = -12.5
+    arm_pos_y_trim_x_max = spar_slot_x_max                           # = +42
     arm_pos_y_trim = _box(
-        (spar_slot_x_max - spar_slot_x_min,
+        (arm_pos_y_trim_x_max - arm_pos_y_trim_x_min,
          arm_pos_y_trim_y_max - arm_pos_y_trim_y_min,
          arm_pos_y_trim_z_max - spar_slot_z_min),
-        center=((spar_slot_x_min + spar_slot_x_max) / 2.0,
+        center=(0.5 * (arm_pos_y_trim_x_min + arm_pos_y_trim_x_max),
                  0.5 * (arm_pos_y_trim_y_min + arm_pos_y_trim_y_max),
                  0.5 * (spar_slot_z_min + arm_pos_y_trim_z_max)),
     )
