@@ -5622,67 +5622,60 @@ def make_femur_link() -> trimesh.Trimesh:
                            center=((body_x_min + body_x_max) / 2.0,
                                     0, 0))
 
-    # ---- Hip-end pad + neck annulus ---------------------------------
+    # ---- Hip-end pad + 2 mm spar-to-pad stub ------------------------
     # The femur's hip pad bolts directly onto the plastic 4-arm X-horn
     # that sits on the hip-pitch servo's spline.  In femur-local coords
     # the joint AXIS (spline tip) is at y = 0 and the X-horn's top arm
     # plane (where the pad clamps) is at y = HORN_STACK_H = 5 mm.
-    # Placing the pad at y = 0 would put it inside the cradle's "swept
-    # volume" above the body and caused the femur vs coxa_bracket /
-    # femur vs tibia self-collision failures historically.
     #
-    # Current design (May 2026 pad <-> spar fuse refactor -- Option A
-    # from the fuse-area audit): a DEEP printable annulus neck that
-    # restores the pre-7e2ca87 volumetric fuse with the spar:
+    # Design (May 2026 "solid-pad simplification" refactor): drop the
+    # 8 mm-tall thin-walled neck annulus and the Phi 16 mm hub-recess
+    # pocket.  The user's measurement: the previous 8 mm-deep Phi 37 mm
+    # cup over-cleared the X-horn (whose arms are only 1.6 mm tall and
+    # whose hub stops at y = HORN_STACK_H = +5 mm); the gearbox cap
+    # below the X-horn lives at y in [-6, 0] and never enters the
+    # pad/neck envelope at all.  So the cup depth was over-spec by
+    # ~5 mm.
+    #
+    # Geometry:
     #
     #   1. HIP PAD: a solid disc at y in [+5, +11], radius HIP_PAD_R =
     #      20.0 mm.  The bolt-clamp ring; sits flat on the X-horn arm
     #      tops at y = +5 and carries the 4 M2 SHCS clamp bolts on
-    #      XHORN_BOLT_PCD = 20.8 mm.
-    #   2. NECK ANNULUS: an 8 mm-tall annulus at y in
-    #      [-LINK_THICKNESS/2, HORN_STACK_H] = [-3, +5], with outer
-    #      radius HIP_PAD_R = 20.0 mm (Phi 40 mm OD) and inner radius
-    #      HORN_STACK_VOID_R = PLASTIC_HORN_X_TIP_R + 0.5 = 18.5 mm
-    #      (Phi 37 mm ID).  Ring wall thickness: 1.5 mm (~3 perimeters
-    #      at 0.4 mm nozzle / 0.45 mm line width -- prints solid).
-    #
-    #      The neck's outer cylinder is FUSED with the spar over the
-    #      entire spar Y range (y in [-3, +3], 6 mm of volumetric
-    #      fusion), not just at the 0.5 mm "boolean kiss" that the
-    #      May 2026 shorten-neck refactor (7e2ca87) left behind.  The
-    #      pad <-> spar fuse cross-section in disk R=20.5 around the
-    #      joint axis is now ~180 mm^2 sustained over y in [-3, +5]
-    #      (8 mm range), up from ~106 mm^2 over y in [+3, +5] (2 mm)
-    #      in the 7e2ca87 flange-ring design.  Critically the TIBIA
-    #      benefits more than the femur: TIBIA_SPAR_H = 18 mm vs
-    #      FEMUR_SPAR_H = 34 mm, so the tibia had ~half the spar
-    #      cross-section to fuse with -- the failure mode the user
-    #      reported as "the tibia knee-pad connection looks like it
-    #      will break in service".
-    #
-    #      Cup ID stays at Phi 37 mm = PLASTIC_HORN_X_TIP_R*2 + 1 mm
-    #      so the Phi 36 mm plastic X-horn still slides up into the
-    #      annulus with 0.5 mm radial clearance per side at the arm
-    #      tips.  Check_horn_stack_clearance probes this void.
-    #
-    #   3. HORN_STACK_VOID (radius HORN_STACK_VOID_R = 18.5 mm,
-    #      y in [-LINK_THICKNESS/2 - 1, HORN_STACK_H + 1] = [-4, +6]):
-    #      a unified clearance void cut as the LAST step in the part's
-    #      CSG difference.  Hollows
-    #          (a) the neck's interior (y in [-3, +5] at radius < 18.5),
-    #          (b) the spar's hip-end material (y in [-3, +3] at
-    #              radius < 18.5) so the X-horn (Phi 36 mm) can rotate
-    #              freely inside the annulus at any hip-pitch angle, and
-    #          (c) the pad's mating face (y in [+5, +6] at radius
-    #              < 18.5).  The 1 mm +Y overshoot guarantees no FDM
-    #              sliver of plastic sits in the void at the pad
-    #              boundary -- carries the same 1 mm bolt-clamp gap
-    #              the previous deep-cup design had (within the
-    #              ``check_mating_face_contact`` 1.5 mm tolerance).
+    #      XHORN_BOLT_PCD = 20.8 mm.  Mating face (-Y) is FLAT now --
+    #      the previous Phi 16 mm hub-recess pocket is gone, since the
+    #      X-horn's hub top is flush with the arm-top plane at y = +5
+    #      and there's no spline-screw boss above that plane to
+    #      swallow.
+    #   2. NECK STUB: a 2 mm-tall, Phi 40 OD x Phi 37 ID annulus at
+    #      y in [LINK_THICKNESS/2, HORN_STACK_H] = [+3, +5].  This is
+    #      the minimum bridge needed between the spar's +Y face
+    #      (y = +3) and the pad's -Y mating face (y = +5): the spar
+    #      tops out 2 mm below the X-horn-top plane, so we need *some*
+    #      material spanning that 2 mm gap to keep the pad connected
+    #      to the spar.  Wall thickness 1.5 mm (3 perimeters at 0.4 mm
+    #      nozzle).  The 6 mm of full-Y-extent neck annulus that used
+    #      to live at y in [-3, +3] is GONE -- the cup-floor moves up
+    #      from y = -3 to y ~ 0 (see arm_relief_void below), giving
+    #      the spar's hip-end its full r-extent at y in [-3, 0] again
+    #      (was hollow before).
+    #   3. ARM-RELIEF VOID (radius HORN_STACK_VOID_R = 18.5 mm, y in
+    #      [-0.05, HORN_STACK_H + 0.05] = [-0.05, +5.05]):
+    #      a 5 mm-tall cylindrical void cut as the LAST step in the
+    #      part's CSG difference.  Hollows
+    #          (a) the neck stub's interior (y in [+3, +5] at r < 18.5),
+    #          (b) the spar's hip-end material (y in [0, +3] at
+    #              r < 18.5) so the X-horn hub (Phi 16, y in [0, +5])
+    #              and arms (Phi 36, y in [+3.4, +5]) physically fit.
+    #      The 0.05 mm overshoots at each end are CSG margins to avoid
+    #      voxel-stair-step sliver artefacts at the pad-bottom and
+    #      joint-axis boundaries; they do not introduce a meaningful
+    #      pad-mating-face recess.
     #
     #      The void volume is checked by ``check_horn_stack_clearance``
     #      in _verify_prototype.py with probe radius HORN_STACK_VOID_R
-    #      (kept in sync via the module-level constant).
+    #      and height HORN_STACK_H, exactly matching the X-horn's
+    #      physical envelope.
     hip_pad_centre_y = HORN_STACK_H + LINK_THICKNESS / 2.0    # +8
     hip_pad_y_min    = HORN_STACK_H                            # +5
     hip_pad_y_max    = HORN_STACK_H + LINK_THICKNESS           # +11
@@ -5691,25 +5684,25 @@ def make_femur_link() -> trimesh.Trimesh:
                           axis="y")
     hip_pad.apply_translation([0, hip_pad_y_min, 0])
 
-    # 8 mm-tall neck annulus.  Spans y in [-LINK_THICKNESS/2,
-    # HORN_STACK_H] = [-3, +5]: the lower 6 mm (y in [-3, +3]) is a
-    # full volumetric fuse with the spar; the upper 2 mm (y in [+3,
-    # +5]) is the unsupported annulus above the spar that ties into
-    # the pad at y = +5.
-    neck_y_min = -LINK_THICKNESS / 2.0                          # -3
-    neck_y_max = HORN_STACK_H                                   # +5
-    hip_neck_outer = _cyl_along(HIP_PAD_R,
-                                 neck_y_max - neck_y_min,
+    # 2 mm-tall spar-to-pad stub annulus.  Outer cylinder spans
+    # y in [LINK_THICKNESS/2, HORN_STACK_H] = [+3, +5]; the
+    # arm_relief_void below hollows out r < HORN_STACK_VOID_R so
+    # only the 1.5 mm-thick annular wall at r in [18.5, 20] remains.
+    hip_neck_stub = _cyl_along(HIP_PAD_R,
+                                HORN_STACK_H - LINK_THICKNESS / 2.0,
+                                axis="y")
+    hip_neck_stub.apply_translation([0, LINK_THICKNESS / 2.0, 0])
+    # X-horn clearance void.  Spans y in [-0.05, HORN_STACK_H + 0.05].
+    # The 0.05 mm overshoots are CSG cleanup margins, NOT a real
+    # pad-mating-face recess; the void's nominal floor is at the pad
+    # mating face (y = HORN_STACK_H = +5) and its nominal mouth is at
+    # the joint axis (y = 0) -- exactly the X-horn's physical envelope.
+    arm_relief_y_lo = -0.05
+    arm_relief_y_hi = HORN_STACK_H + 0.05                       # +5.05
+    hip_arm_relief = _cyl_along(HORN_STACK_VOID_R,
+                                 arm_relief_y_hi - arm_relief_y_lo,
                                  axis="y")
-    hip_neck_outer.apply_translation([0, neck_y_min, 0])
-    # Unified horn-stack clearance void.  Spans y in
-    # [-LINK_THICKNESS/2 - 1, HORN_STACK_H + 1] = [-4, +6], the same
-    # 1 mm overshoots at both ends as the previous deep-cup design.
-    void_y_lo = -LINK_THICKNESS / 2.0 - 1.0                     # -4
-    void_y_hi = HORN_STACK_H + 1.0                              # +6
-    hip_neck_void = _cyl_along(HORN_STACK_VOID_R,
-                                void_y_hi - void_y_lo, axis="y")
-    hip_neck_void.apply_translation([0, void_y_lo, 0])
+    hip_arm_relief.apply_translation([0, arm_relief_y_lo, 0])
 
     hip_holes = []
     hip_counterbores = []
@@ -5722,14 +5715,9 @@ def make_femur_link() -> trimesh.Trimesh:
         # The cylinder length = LINK_THICKNESS * 4 = 24 mm guarantees
         # a clean punch-through of the 6 mm pad even with voxel/CSG
         # tolerance; any over-length extends past the pad's -Y face
-        # into the flange ring's void (the ring's PCD = 10.4 mm radius
-        # sits well inside the void's HORN_STACK_VOID_R = 18.5 mm
-        # boundary), so the bolt hole punches through air there and
-        # doesn't actually remove any ring material.
-        # (May 2026 fastener-spec fix: previously this used
-        # SERVO_TAB_HOLE = 3.2 mm because Phi 3.2 also happened to be
-        # the (incorrect) M3 X-horn clearance; with M2 X-horn bolts
-        # the link-pad clearance is unique to the X-horn pattern.)
+        # into the arm-relief void (the bolt PCD = 10.4 mm radius
+        # sits well inside HORN_STACK_VOID_R = 18.5 mm), so the bolt
+        # hole punches through air there and doesn't remove material.
         h = _cyl(XHORN_BOLT_M2_SELFTAP_HOLE_OD / 2.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
         h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
@@ -5756,19 +5744,11 @@ def make_femur_link() -> trimesh.Trimesh:
                               XHORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_counterbores.append(cb)
 
-    # ---- Central horn-hub recess in the pad's mating face -----------
-    # Design B (May 2026): the femur's hip pad bolts DIRECTLY onto the
-    # plastic 4-arm X-horn (no printed servo_horn_adapter in the
-    # stack).  Cut a Phi HORN_RECESS_OD = 16 mm cylindrical pocket
-    # HORN_RECESS_DEPTH = 1.2 mm deep into the pad's -Y mating face
-    # (at y = hip_pad_y_min = HORN_STACK_H) so the plastic horn's
-    # central hub (spline collar + M3 centre-screw head) is fully
-    # swallowed by the pad.  Recess opens in -Y (toward the horn) and
-    # removes pad material at y in [hip_pad_y_min, hip_pad_y_min +
-    # HORN_RECESS_DEPTH].
-    hip_horn_recess = _cyl_along(HORN_RECESS_OD / 2.0,
-                                  HORN_RECESS_DEPTH, axis="y")
-    hip_horn_recess.apply_translation([0.0, hip_pad_y_min, 0.0])
+    # (May 2026 solid-pad simplification: the previous Phi 16 mm
+    # x 1.2 mm hub-recess pocket on the pad's mating face is gone.
+    # The X-horn's hub top is flush with the arm-top plane at
+    # y = HORN_STACK_H, so a flat mating face is sufficient and there
+    # is nothing left to swallow.)
 
     # ---- Knee-end servo well -----------------------------------------
     # NB: the 4 M3 mounting pilots in the wall (drilled by
@@ -5962,10 +5942,10 @@ def make_femur_link() -> trimesh.Trimesh:
     # next to the knee wire-exit slot.  Built in well-local and
     # transformed alongside ``wire_slot`` (R + delta) so it stays
     # anchored to the well's +X outer wall.
-    body = _union(hip_pad, hip_neck_outer, spar, well,
+    body = _union(hip_pad, hip_neck_stub, spar, well,
                    bridge_top, bridge_bot, cable_post)
-    return _diff(body, hip_neck_void, insertion_slot, wire_slot,
-                 cavity_trim, knee_clear, hip_horn_recess,
+    return _diff(body, hip_arm_relief, insertion_slot, wire_slot,
+                 cavity_trim, knee_clear,
                  *hip_holes, *hip_counterbores)
 
 
@@ -6000,25 +5980,13 @@ def make_tibia_link() -> trimesh.Trimesh:
     spar = _box((TIBIA_LENGTH, LINK_THICKNESS, TIBIA_SPAR_H),
                 center=(TIBIA_LENGTH / 2.0, 0, 0))
 
-    # Knee pad + neck annulus: same DEEP ANNULUS design as the
-    # femur's hip-end (May 2026 pad <-> spar fuse refactor, Option A).
-    # See make_femur_link for the full design rationale.  The neck
-    # annulus is 8 mm tall (y in [-3, +5]) with outer radius
-    # HIP_PAD_R = 20 mm and inner radius HORN_STACK_VOID_R = 18.5 mm.
-    #
-    # The tibia matters MORE than the femur for this fix.
-    # TIBIA_SPAR_H = 18 mm vs FEMUR_SPAR_H = 34 mm, so the tibia spar
-    # has ~half the femur's pad-side cross-section to fuse with.  The
-    # tibia spar's z range [-9, +9] sits ENTIRELY INSIDE the horn-
-    # stack void's HORN_STACK_VOID_R = 18.5 mm radius, so after the
-    # void cut the tibia spar's knee-end material at
-    # sqrt(x^2 + z^2) < 18.5 mm is hollowed away -- the ONLY pad <->
-    # spar fuse is the part of the spar+annulus union that lies at
-    # radius >= 18.5 mm.  The 7e2ca87 flange-ring design left this
-    # fuse as a 0.5 mm "boolean kiss" at y in [+2.5, +3], visibly
-    # flimsy in inspect_build (user complaint x 2).  Deepening the
-    # annulus to 8 mm (y in [-3, +5]) restores the full 6 mm
-    # volumetric fusion zone at y in [-3, +3].
+    # Knee pad + 2 mm spar-to-pad stub: see make_femur_link's
+    # "Hip-end pad + 2 mm spar-to-pad stub" section for the full
+    # design rationale and the May 2026 solid-pad simplification
+    # commit.  Geometry is identical for both joints because the
+    # X-horn / bolt-pattern / HORN_STACK_H / HIP_PAD_R / LINK_THICKNESS
+    # constants are shared and the joint axis sits at y = 0 in both
+    # link-local frames.
     knee_pad_centre_y = HORN_STACK_H + LINK_THICKNESS / 2.0    # +8
     knee_pad_y_min    = HORN_STACK_H                            # +5
     knee_pad_y_max    = HORN_STACK_H + LINK_THICKNESS           # +11
@@ -6027,24 +5995,26 @@ def make_tibia_link() -> trimesh.Trimesh:
                            axis="y")
     knee_pad.apply_translation([0, knee_pad_y_min, 0])
 
-    # 8 mm-tall neck annulus.  Spans y in [-LINK_THICKNESS/2,
-    # HORN_STACK_H] = [-3, +5]: the lower 6 mm (y in [-3, +3]) is a
-    # full volumetric fuse with the spar; the upper 2 mm (y in [+3,
-    # +5]) is the unsupported annulus above the spar that ties into
-    # the knee pad at y = +5.
-    neck_y_min = -LINK_THICKNESS / 2.0                          # -3
-    neck_y_max = HORN_STACK_H                                   # +5
-    knee_neck_outer = _cyl_along(HIP_PAD_R,
-                                  neck_y_max - neck_y_min,
+    # 2 mm-tall spar-to-pad stub annulus at y in [+3, +5].  Outer
+    # cylinder; the arm_relief_void below hollows out the interior
+    # at r < HORN_STACK_VOID_R so only the 1.5 mm-thick ring at
+    # r in [18.5, 20] remains -- the structural bridge from the
+    # spar's +Y face (y = +3) up to the pad's mating face (y = +5).
+    knee_neck_stub = _cyl_along(HIP_PAD_R,
+                                 HORN_STACK_H - LINK_THICKNESS / 2.0,
+                                 axis="y")
+    knee_neck_stub.apply_translation([0, LINK_THICKNESS / 2.0, 0])
+    # X-horn clearance void.  See make_femur_link for the full
+    # rationale -- the void's nominal envelope is y in [0, +5] at
+    # r < HORN_STACK_VOID_R, exactly the X-horn's physical footprint;
+    # 0.05 mm CSG overshoots at each end clean up voxel artefacts at
+    # the pad-bottom and joint-axis boundaries.
+    arm_relief_y_lo = -0.05
+    arm_relief_y_hi = HORN_STACK_H + 0.05                       # +5.05
+    knee_arm_relief = _cyl_along(HORN_STACK_VOID_R,
+                                  arm_relief_y_hi - arm_relief_y_lo,
                                   axis="y")
-    knee_neck_outer.apply_translation([0, neck_y_min, 0])
-    # Unified horn-stack clearance void.  Spans y in
-    # [-LINK_THICKNESS/2 - 1, HORN_STACK_H + 1] = [-4, +6].
-    void_y_lo = -LINK_THICKNESS / 2.0 - 1.0                     # -4
-    void_y_hi = HORN_STACK_H + 1.0                              # +6
-    knee_neck_void = _cyl_along(HORN_STACK_VOID_R,
-                                 void_y_hi - void_y_lo, axis="y")
-    knee_neck_void.apply_translation([0, void_y_lo, 0])
+    knee_arm_relief.apply_translation([0, arm_relief_y_lo, 0])
 
     knee_holes = []
     knee_counterbores = []
@@ -6079,13 +6049,9 @@ def make_tibia_link() -> trimesh.Trimesh:
                               XHORN_BOLT_PCD / 2.0 * np.sin(a)])
         knee_counterbores.append(cb)
 
-    # ---- Central horn-hub recess in the knee pad's mating face ------
-    # Design B (May 2026): see make_femur_link for the full
-    # docstring.  Identical geometry, just on the tibia's knee pad
-    # at y = knee_pad_y_min = HORN_STACK_H.
-    knee_horn_recess = _cyl_along(HORN_RECESS_OD / 2.0,
-                                   HORN_RECESS_DEPTH, axis="y")
-    knee_horn_recess.apply_translation([0.0, knee_pad_y_min, 0.0])
+    # (May 2026 solid-pad simplification: the previous Phi 16 mm
+    # x 1.2 mm hub-recess pocket on the knee pad's -Y mating face is
+    # gone.  See make_femur_link for the full rationale.)
 
     # ----- Foot tang at the far end (x ~ TIBIA_LENGTH) -----
     # May 2026 inversion: the tibia ends in a SINGLE TANG that is
@@ -6144,8 +6110,8 @@ def make_tibia_link() -> trimesh.Trimesh:
         h.apply_translation([x, 0, 0])
         lightening.append(h)
 
-    body = _union(knee_pad, knee_neck_outer, spar, taper, tang)
-    return _diff(body, knee_neck_void, knee_horn_recess, *knee_holes,
+    body = _union(knee_pad, knee_neck_stub, spar, taper, tang)
+    return _diff(body, knee_arm_relief, *knee_holes,
                  *knee_counterbores, pin_hole, *lightening)
 
 

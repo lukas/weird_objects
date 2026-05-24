@@ -197,22 +197,23 @@ def _knee_servo_body_pocket() -> trimesh.Trimesh:
 
 
 def _femur_horn_stack_void() -> trimesh.Trimesh:
-    """Cylindrical clearance void inside the femur's hip-end flange ring.
+    """Cylindrical clearance void inside the femur's hip-end pad.
 
-    Holds the plastic 4-arm X-horn when the femur is bolted directly
-    to the hip-pitch servo (femur-local frame).  May 2026
-    shorten-neck refactor: the void radius switched from
-    ``HORN_ADAPTER_OD/2 + 0.5`` = 16.5 mm (sized for the now-retired
-    printed servo_horn_adapter disc) to ``HORN_STACK_VOID_R`` =
-    ``PLASTIC_HORN_X_TIP_R + 0.5`` = 18.5 mm so the Phi 36 mm plastic
-    X-horn physically fits inside the ring.  Y extent matches the
-    unified void cut in ``make_femur_link`` -- y in
-    [-LINK_THICKNESS/2 - 1, HORN_STACK_H + 1] = [-4, +6], 1 mm
-    overshoot at each end for clean CSG cut through the spar bottom
-    and pad mating face.
+    Holds the plastic 4-arm X-horn (hub + arms) when the femur is
+    bolted directly to the hip-pitch servo (femur-local frame).
+
+    May 2026 solid-pad simplification: the 8 mm-tall thin-walled
+    neck annulus and its 10 mm-deep Phi 37 mm cup (y in [-4, +6])
+    were retired in favour of a 6 mm solid pad + 2 mm spar-to-pad
+    stub.  The new cup is 5 mm tall, spanning the X-horn's actual
+    physical envelope (y in [0, HORN_STACK_H] at radius
+    HORN_STACK_VOID_R = 18.5 mm) with 0.05 mm CSG overshoots at each
+    end.  Earlier the cup extended ~3 mm below the joint axis (y in
+    [-4, 0]) for no good reason -- the gearbox cap below the X-horn
+    lives at y in [-6, 0] and never enters this envelope.
     """
-    void_y_lo = -hp.LINK_THICKNESS / 2.0 - 1.0
-    void_y_hi = hp.HORN_STACK_H + 1.0
+    void_y_lo = -0.05
+    void_y_hi = hp.HORN_STACK_H + 0.05
     return _cyl_axis(
         radius=hp.HORN_STACK_VOID_R,
         height=void_y_hi - void_y_lo,
@@ -223,8 +224,8 @@ def _femur_horn_stack_void() -> trimesh.Trimesh:
 
 def _tibia_horn_stack_void() -> trimesh.Trimesh:
     """Same shape as the femur's, but in tibia-local coords."""
-    void_y_lo = -hp.LINK_THICKNESS / 2.0 - 1.0
-    void_y_hi = hp.HORN_STACK_H + 1.0
+    void_y_lo = -0.05
+    void_y_hi = hp.HORN_STACK_H + 0.05
     return _cyl_axis(
         radius=hp.HORN_STACK_VOID_R,
         height=void_y_hi - void_y_lo,

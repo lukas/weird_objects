@@ -3129,19 +3129,27 @@ def _optional_arm_checks():
 #      shrank this from the original (incorrect) Phi 3.2 mm M3
 #      clearance to match the X-horn's Phi ~ 2.0 mm M2-self-tap arm
 #      holes.  See hexapod_prototype.py XHORN_BOLT_* docstring.
-#   2. A central Phi HORN_RECESS_OD = 16 mm cylindrical recess
-#      HORN_RECESS_DEPTH = 1.2 mm deep cut into the pad's mating face,
-#      so the plastic horn's central hub (spline collar + M3 centre-
-#      screw head) is fully swallowed below the pad.  The centre
-#      screw stays M3; only the 4 outer arm bolts switched to M2.
-#      Depth user-measured May 2026 (1.0 mm screw head protrusion +
-#      0.2 mm FDM tolerance; was 1.6 mm).
+#   2. (coxa_link ONLY) A central Phi HORN_RECESS_OD = 16 mm
+#      cylindrical recess HORN_RECESS_DEPTH = 1.2 mm deep cut into the
+#      pad's mating face, so the plastic horn's central hub (spline
+#      collar + M3 centre-screw head) is fully swallowed below the
+#      pad.  The centre screw stays M3; only the 4 outer arm bolts
+#      switched to M2.  Depth user-measured May 2026 (1.0 mm screw
+#      head protrusion + 0.2 mm FDM tolerance; was 1.6 mm).
+#      May 2026 solid-pad simplification: the femur_link and
+#      tibia_link no longer carry this recess -- their hip/knee pads
+#      mate to the X-horn with a flat face since the X-horn's hub top
+#      is flush with the arm-top plane at HORN_STACK_H, so there is
+#      no spline-screw boss above that plane to swallow.  Only the
+#      coxa_link's pad still has the recess (its mating face geometry
+#      and yaw-side hub envelope are unchanged).
 #
-# This check confirms BOTH the 4 bolt holes and the central recess
-# exist by sampling a small voxel patch at each expected position and
-# requiring the link mesh to be VOID there.  A short pillar of pad
-# material at the bolt-PCD ring or at the central hub indicates the
-# pad was not drilled / recessed correctly.
+# This check confirms the 4 bolt holes on every driven part and the
+# central recess on the coxa_link by sampling small voxel patches at
+# each expected position and requiring the link mesh to be VOID
+# there.  A short pillar of pad material at the bolt-PCD ring or at
+# the central hub indicates the pad was not drilled / recessed
+# correctly.
 
 # Tolerance: small voxel-grid step-noise budget per probe.  Each probe
 # samples a Phi (hole_OD/2 - small) x depth column of voxels and
@@ -3195,19 +3203,27 @@ def check_horn_pattern_in_pad():
     """Verify that each driven link's pad has:
       a) 4 M2 clearance holes on the XHORN_BOLT_PCD = 20.8 mm bolt
          circle, drilled through the full pad thickness, and
-      b) a central Phi HORN_RECESS_OD = 16 mm x HORN_RECESS_DEPTH =
-         1.2 mm hub-clearance recess on the pad's mating face.
+      b) (coxa_link only) a central Phi HORN_RECESS_OD = 16 mm x
+         HORN_RECESS_DEPTH = 1.2 mm hub-clearance recess on the pad's
+         mating face.
 
     May 2026 fastener-spec fix: the bolts are M2 (Phi 2.2 mm
     clearance), not M3 (Phi 3.2 mm) -- see ``XHORN_BOLT_OD`` in
     ``hexapod_prototype.py``.  The probe radius below is sized off
     ``XHORN_BOLT_OD`` so the verifier will track any future change to
     the X-horn arm-hole standard without a code edit.
+
+    May 2026 solid-pad simplification: the femur_link's hip pad and
+    the tibia_link's knee pad no longer carry the central hub recess
+    -- the X-horn's hub top is flush with the arm-top plane so the
+    pads' mating faces are now FLAT.  The recess check is therefore
+    skipped for the femur and tibia (``has_recess=False``); the
+    coxa_link still has a recess for its yaw-side mating face.
     """
     print(f"\n[5d] Horn-pattern in driven link pads "
           f"(Phi {hp.XHORN_BOLT_OD:.1f} mm holes on PCD "
-          f"{hp.XHORN_BOLT_PCD:.1f} mm + Phi {hp.HORN_RECESS_OD:.1f} mm "
-          f"x {hp.HORN_RECESS_DEPTH:.2f} mm hub recess):")
+          f"{hp.XHORN_BOLT_PCD:.1f} mm; central hub recess on "
+          f"coxa_link only):")
 
     # The probe radius is a hair smaller than the actual clearance
     # hole / recess radius so voxel stair-step artefacts on the cut's
@@ -3221,8 +3237,8 @@ def check_horn_pattern_in_pad():
     recess_probe_r = hp.HORN_RECESS_OD / 2.0 - 0.5    # ~7.5 mm
 
     cases = [
-        # (name, mesh, pad_axis, mating_face_coord, pad_thickness,
-        #  recess_depth, mating_normal_sign)
+        # (name, mesh, pad_axis, mating_face_coord, mating_normal_sign,
+        #  has_recess)
         # ``pad_axis``: which axis the bolts are along ("y" for the
         #   femur/tibia knee/hip pads, "z" for the coxa_link's
         #   pedestal-bottom mating face).
@@ -3231,21 +3247,25 @@ def check_horn_pattern_in_pad():
         #   For coxa_link, the pad's bottom is at z = 0 in link frame.
         # ``mating_normal_sign``: which way the recess opens from the
         #   mating face.  Femur/tibia mating face faces -Y (toward the
-        #   horn below); the recess opens DOWNWARD in -Y, removing
+        #   horn below); the (former) recess opened in -Y, removing
         #   material at y in [mate, mate + RECESS_DEPTH].  Coxa_link
         #   mating face faces -Z (toward the horn below); the recess
         #   opens DOWNWARD in -Z, removing material at z in [0,
         #   +RECESS_DEPTH].  In both cases the recess probe centre
         #   sits +RECESS_DEPTH/2 INTO the pad along +pad_axis.
+        # ``has_recess``: True iff the part still carries the central
+        #   Phi HORN_RECESS_OD x HORN_RECESS_DEPTH hub recess.  The
+        #   May 2026 solid-pad simplification dropped it on the
+        #   femur and tibia; only the coxa_link still has one.
         ("coxa_link  (yaw joint)",        _load_mesh("coxa_link",
                                                        copy=False),
-         "z", 0.0,                          +1.0),
+         "z", 0.0,                          +1.0,  True),
         ("femur_link (hip-pitch joint)",  _load_mesh("femur_link",
                                                        copy=False),
-         "y", hp.HORN_STACK_H,              +1.0),
+         "y", hp.HORN_STACK_H,              +1.0,  False),
         ("tibia_link (knee-pitch joint)", _load_mesh("tibia_link",
                                                        copy=False),
-         "y", hp.HORN_STACK_H,              +1.0),
+         "y", hp.HORN_STACK_H,              +1.0,  False),
     ]
 
     # The pad's full thickness in the pad-axis direction.  For
@@ -3259,7 +3279,7 @@ def check_horn_pattern_in_pad():
                                # thickness.
 
     all_ok = True
-    for name, mesh, axis, mate, normal_sign in cases:
+    for name, mesh, axis, mate, normal_sign, has_recess in cases:
         # ---- (a) 4 M2 bolt holes on the XHORN_BOLT_PCD circle ----
         bolt_misses = 0
         for ang in hp.XHORN_BOLT_ANGLES_RAD:
@@ -3291,27 +3311,30 @@ def check_horn_pattern_in_pad():
         )
 
         # ---- (b) Central horn-hub recess ----
-        # The recess starts at the mating face and extends INTO the
-        # pad by HORN_RECESS_DEPTH.  Probe centre sits at half-depth
-        # so the entire cylinder lives strictly inside the recess
-        # volume.
-        recess_centre_axis = mate + normal_sign * (hp.HORN_RECESS_DEPTH
-                                                    / 2.0)
-        if axis == "y":
-            centre = np.array([0.0, recess_centre_axis, 0.0])
-        else:                                            # "z"
-            centre = np.array([0.0, 0.0, recess_centre_axis])
-        hits = _probe_void_cylinder(mesh, centre, axis,
-                                      recess_probe_r,
-                                      hp.HORN_RECESS_DEPTH * 0.8,
-                                      n_samples=64)
-        ok_recess = hits <= HORN_PATTERN_VOX_TOL
-        all_ok &= _label(
-            f"{name} :: Phi {hp.HORN_RECESS_OD} mm "
-            f"x {hp.HORN_RECESS_DEPTH:.2f} mm hub recess",
-            ok_recess,
-            f"hits={hits} (tol {HORN_PATTERN_VOX_TOL})",
-        )
+        # Only the coxa_link still carries this feature (May 2026
+        # solid-pad simplification: the femur and tibia pads now
+        # mate to the X-horn with a flat face).  The recess starts
+        # at the mating face and extends INTO the pad by
+        # HORN_RECESS_DEPTH.  Probe centre sits at half-depth so the
+        # entire cylinder lives strictly inside the recess volume.
+        if has_recess:
+            recess_centre_axis = mate + normal_sign * (
+                hp.HORN_RECESS_DEPTH / 2.0)
+            if axis == "y":
+                centre = np.array([0.0, recess_centre_axis, 0.0])
+            else:                                            # "z"
+                centre = np.array([0.0, 0.0, recess_centre_axis])
+            hits = _probe_void_cylinder(mesh, centre, axis,
+                                          recess_probe_r,
+                                          hp.HORN_RECESS_DEPTH * 0.8,
+                                          n_samples=64)
+            ok_recess = hits <= HORN_PATTERN_VOX_TOL
+            all_ok &= _label(
+                f"{name} :: Phi {hp.HORN_RECESS_OD} mm "
+                f"x {hp.HORN_RECESS_DEPTH:.2f} mm hub recess",
+                ok_recess,
+                f"hits={hits} (tol {HORN_PATTERN_VOX_TOL})",
+            )
 
     return all_ok
 

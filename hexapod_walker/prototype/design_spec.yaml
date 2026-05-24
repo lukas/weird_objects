@@ -678,7 +678,7 @@ parts:
           height_mm: 8.0                   # = HP.CABLE_POST_Z
 
   femur_link:
-    description: "Thigh; hip pad bolts onto hip-pitch horn at x=0, knee well at x=FEMUR_LENGTH.  Spar carries a Phi 40 mm hip-end pad + 8 mm-tall neck annulus at the hip end (May 2026 pad <-> spar fuse Option A), an insertion slot through the spar at the knee's body x-range, and bridge flanges above + below the slot tying the spar's top/bottom to the knee well's wall."
+    description: "Thigh; hip pad bolts onto hip-pitch horn at x=0, knee well at x=FEMUR_LENGTH.  Spar carries a SOLID Phi 40 mm x 6 mm hip-end pad + a 2 mm-tall Phi 40 mm spar-to-pad stub (May 2026 solid-pad simplification, replacing the previous 8 mm-tall thin-walled neck annulus), an insertion slot through the spar at the knee's body x-range, and bridge flanges above + below the slot tying the spar's top/bottom to the knee well's wall."
     qty: 6
     # Design B (May 2026): Y-extent shrank from 62 -> 58 mm because
     # the hip pad / neck moved from y in [-3, +15] (extent 18 mm
@@ -719,12 +719,12 @@ parts:
       - name: femur_horn_stack_void
       - name: knee_servo_body
     shape:
-      overall_form: "Flat shin / thigh blade with a Phi 40 mm hip-end pad at x = 0 (broad face perpendicular to the hip-pitch axis = link +Y) and a 58 x 29 x 25 mm open-topped knee servo cradle at x = FEMUR_LENGTH = 90 mm.  Spar in between is a 90 x 6 x 34 mm rectangular beam (FEMUR_LENGTH x LINK_THICKNESS x FEMUR_SPAR_H) lying in the X-Z plane.  An insertion slot is cut through the spar at the knee end so the knee servo body can be slid in along +Y; bridge flanges above and below the slot tie the spar's top/bottom flanges into the knee well's wall."
-      print_orientation_rationale: "Rotate -90 deg about X so the spar's +Y face lies on the bed; the knee cradle's mouth (femur +Y) faces -Z onto the bed (the cradle's floor is REMOVED via remove_floor=True so the print orientation doesn't try to bridge a 30 x 40 mm ceiling).  Pad + neck ring print as a circular wall standing 6 mm proud of the spar; bridges + spar print flat against the bed.  No supports needed for the spar or bridges."
+      overall_form: "Flat shin / thigh blade with a SOLID Phi 40 mm x LINK_THICKNESS = 6 mm round hip-end pad at x = 0 (broad face perpendicular to the hip-pitch axis = link +Y) and a 58 x 29 x 25 mm open-topped knee servo cradle at x = FEMUR_LENGTH = 90 mm.  Pad's -Y mating face is FLAT (no neck or hub recess); a 2 mm-tall, Phi 40 mm OD x Phi 37 mm ID thin-walled stub annulus at y in [+3, +5] bridges the spar's +Y face to the pad's -Y mating face -- the minimum bridge needed since HORN_STACK_H = 5 mm leaves a 2 mm gap between spar top (y = LINK_THICKNESS/2 = +3) and the X-horn-top plane (y = +5).  Spar in between is a 90 x 6 x 34 mm rectangular beam (FEMUR_LENGTH x LINK_THICKNESS x FEMUR_SPAR_H) lying in the X-Z plane.  An insertion slot is cut through the spar at the knee end so the knee servo body can be slid in along +Y; bridge flanges above and below the slot tie the spar's top/bottom flanges into the knee well's wall."
+      print_orientation_rationale: "Rotate -90 deg about X so the spar's +Y face lies on the bed; the knee cradle's mouth (femur +Y) faces -Z onto the bed (the cradle's floor is REMOVED via remove_floor=True so the print orientation doesn't try to bridge a 30 x 40 mm ceiling).  Pad prints as a circular disc standing 8 mm proud of the spar (2 mm stub annulus + 6 mm solid clamp ring); bridges + spar print flat against the bed.  No supports needed for the spar or bridges."
       features:
         - name: hip_pad
           type: cylindrical_disc
-          description: "Round mounting pad at the hip end.  Bolts onto the hip-pitch servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm PCD; pad face mates flush to the horn's top arm plane at y = HORN_STACK_H = 5 mm.  Pad y-range is [+5, +11]."
+          description: "Solid round mounting pad at the hip end.  Bolts onto the hip-pitch servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm PCD; pad face mates flush to the horn's top arm plane at y = HORN_STACK_H = 5 mm.  Pad y-range is [+5, +11], thickness LINK_THICKNESS = 6 mm.  May 2026 solid-pad simplification: mating face is FLAT (the previous Phi 16 mm x 1.2 mm hub recess is gone -- the X-horn's hub top is flush with the arm-top plane so there is no spline-screw boss above that plane to swallow)."
           centre_mm: [0.0, 8.0, 0.0]
           diameter_mm: 40.0          # = 2 * HP.HIP_PAD_R
           thickness_mm: 6.0          # = HP.LINK_THICKNESS
@@ -734,17 +734,17 @@ parts:
             mates_to: "hip-pitch servo's plastic 4-arm X-horn top face"
             mating_plane_z_local_mm: 5.0    # = HP.HORN_STACK_H (= PLASTIC_HORN_H)
           holes_on_feature: [hip_pad_bolt_+X, hip_pad_bolt_+Z, hip_pad_bolt_-X, hip_pad_bolt_-Z]
-          notes: "Pad has a Phi HORN_RECESS_OD = 16 mm x HORN_RECESS_DEPTH = 1.2 mm cylindrical pocket on its -Y mating face that swallows the X-horn's central spline-screw head boss.  4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face."
-        - name: hip_neck_annulus
+          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face."
+        - name: hip_neck_stub
           type: cylindrical_disc
-          description: "8 mm-tall printable annulus at y in [-3, +5] with outer radius HIP_PAD_R = 20 mm and inner radius HORN_STACK_VOID_R = 18.5 mm (wall thickness 1.5 mm = 3 perimeters at 0.4 mm nozzle).  Fuses the pad to the spar over the full 6 mm of LINK_THICKNESS; the upper 2 mm is the unsupported annulus above the spar that ties into the pad."
-          centre_mm: [0.0, 1.0, 0.0]
+          description: "2 mm-tall thin-walled stub annulus at y in [+3, +5] with outer radius HIP_PAD_R = 20 mm and inner radius HORN_STACK_VOID_R = 18.5 mm (wall thickness 1.5 mm = 3 perimeters at 0.4 mm nozzle).  Bridges the spar's +Y face (y = +3) to the pad's -Y mating face (y = +5).  May 2026 solid-pad simplification: this is the minimum stub needed since HORN_STACK_H - LINK_THICKNESS/2 = 2 mm of gap separates the spar top from the X-horn-top plane.  Previous design used an 8 mm-tall annulus at y in [-3, +5] that over-cleared the X-horn / gearbox cap envelope by ~6 mm."
+          centre_mm: [0.0, 4.0, 0.0]
           diameter_mm: 40.0          # = 2 * HP.HIP_PAD_R
-          inner_diameter_mm: 37.0    # = 2 * HP.HORN_STACK_VOID_R = 2 * (PLASTIC_HORN_X_TIP_R + 0.5) = 2 * 18.5
-          thickness_mm: 8.0          # neck y range = HORN_STACK_H + LINK_THICKNESS/2 = 5 + 3
+          inner_diameter_mm: 37.0    # = 2 * HP.HORN_STACK_VOID_R
+          thickness_mm: 2.0          # = HP.HORN_STACK_H - HP.LINK_THICKNESS/2 = 5 - 3
           wall_thickness_mm: 1.5     # = HP.HIP_PAD_R - HP.HORN_STACK_VOID_R = 20 - 18.5
           axis: y
-          notes: "Cup ID = Phi 37 mm so the Phi 36 mm plastic X-horn slides up into the annulus with 0.5 mm radial clearance per side at the arm tips."
+          notes: "Stub ID = Phi 37 mm so the Phi 36 mm plastic X-horn's arm tips clear the inner wall with 0.5 mm radial slop per side."
         - name: spar
           type: extruded_rectangle
           description: "Long straight thigh shaft.  Cross-section 6 mm Y x 34 mm Z gives I_y = 9826 mm^4 (~ 18x safety factor in the dominant bending direction).  Carries the hip-pitch reaction torque from the knee end back to the hip pad."
@@ -844,14 +844,14 @@ parts:
     keep_out_volumes:
       - name: tibia_horn_stack_void
     shape:
-      overall_form: "Thin flat shin plate.  Broad face lies in the XZ plane; the part is uniformly LINK_THICKNESS = 6 mm deep in Y everywhere (Design B + May 2026 supports-free refactor).  Silhouette in X-Z: a Phi 40 mm round knee pad at one end (x = 0), a long 130 mm straight spar running +X at z in [-9, +9], and a single LINK_THICKNESS-wide foot tang at the other end (x = TIBIA_LENGTH) dropping below the spar to z = -15 with a transverse M3 hinge hole.  4 lightening holes (Phi 11 mm) punch through the spar along its length to save weight."
-      print_orientation_rationale: "Rotate +90 deg about X so the spar's broad XZ face lies on the bed (the 6 mm Y depth becomes the print height).  In this orientation the knee pad, spar, foot tang, and all 4 lightening holes print fully flat with NO bridges and NO supports -- the part's uniform LINK_THICKNESS = 6 mm Y depth is the slicer's only Z direction.  Pre-2026 the tibia ended in a 12-mm-wide clevis fork that protruded 6 mm above the spar's broad face in this orientation and forced supports under the cheeks; inverting the hinge (foot = fork, tibia = single tang) eliminated the supports."
+      overall_form: "Thin flat shin plate.  Broad face lies in the XZ plane; the part is uniformly LINK_THICKNESS = 6 mm deep in Y everywhere (Design B + May 2026 supports-free refactor).  Silhouette in X-Z: a SOLID Phi 40 mm round knee pad at one end (x = 0) with a flat -Y mating face and a thin 2 mm-tall stub annulus bridging it to the spar, a long 130 mm straight spar running +X at z in [-9, +9], and a single LINK_THICKNESS-wide foot tang at the other end (x = TIBIA_LENGTH) dropping below the spar to z = -15 with a transverse M3 hinge hole.  4 lightening holes (Phi 11 mm) punch through the spar along its length to save weight."
+      print_orientation_rationale: "Rotate +90 deg about X so the spar's broad XZ face lies on the bed (the 6 mm Y depth becomes the print height).  In this orientation the spar, foot tang, and all 4 lightening holes print fully flat with NO bridges and NO supports -- the part's uniform LINK_THICKNESS = 6 mm Y depth is the slicer's only Z direction.  The knee pad + 2 mm stub annulus prints as a 8 mm-tall feature standing proud of the spar's broad face in print-Z (the pad-bolt direction); inverting the hinge (foot = fork, tibia = single tang) keeps the rest of the part 6 mm deep so supports under the foot end are eliminated."
       features:
         - name: knee_pad
           type: cylindrical_disc
-          description: "Round mounting pad at the knee end.  Bolts onto the knee servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm bolt circle.  Pad face mates flush to the horn's top arm plane at y = HORN_STACK_H = 5 mm.  Pad y-range is [+5, +11]."
+          description: "Solid round mounting pad at the knee end.  Bolts onto the knee servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm bolt circle.  Pad face mates flush to the horn's top arm plane at y = HORN_STACK_H = 5 mm.  Pad y-range is [+5, +11], thickness LINK_THICKNESS = 6 mm.  May 2026 solid-pad simplification: mating face is FLAT (the previous Phi 16 mm x 1.2 mm hub recess is gone)."
           centre_mm: [0.0, 8.0, 0.0]
-          diameter_mm: 40.0           # = 2 * HP.HIP_PAD_R  (= 2 * (PLASTIC_HORN_X_TIP_R + 1.5 mm wall + 0 mm rim))
+          diameter_mm: 40.0           # = 2 * HP.HIP_PAD_R
           thickness_mm: 6.0           # = HP.LINK_THICKNESS
           axis: y
           mating_face:
@@ -859,14 +859,14 @@ parts:
             mates_to: "knee servo's plastic 4-arm X-horn top face"
             mating_plane_z_local_mm: 5.0    # = HP.HORN_STACK_H
           holes_on_feature: [knee_pad_bolt_+X, knee_pad_bolt_+Z, knee_pad_bolt_-X, knee_pad_bolt_-Z]
-          notes: "Pad has a Phi HORN_RECESS_OD = 16 mm x HORN_RECESS_DEPTH = 1.2 mm cylindrical pocket on its -Y mating face that swallows the X-horn's central spline-screw head boss.  4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face."
-        - name: knee_neck_annulus
+          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face."
+        - name: knee_neck_stub
           type: cylindrical_disc
-          description: "8 mm-tall neck annulus at y in [-3, +5] with outer radius HIP_PAD_R = 20 mm and inner radius HORN_STACK_VOID_R = 18.5 mm (wall 1.5 mm).  Lower 6 mm (y in [-3, +3]) is a full volumetric fuse with the spar; the upper 2 mm (y in [+3, +5]) is the unsupported annulus tying into the knee pad.  Mirrors the femur's hip_neck_annulus and exists for the same reason: TIBIA_SPAR_H = 18 mm gives only ~half the femur's pad-side fuse cross-section, so the user's recurring 'this joint looks like it would break in service' complaint specifically motivated the May 2026 deepening to 8 mm."
-          centre_mm: [0.0, 1.0, 0.0]
+          description: "2 mm-tall thin-walled stub annulus at y in [+3, +5] with outer radius HIP_PAD_R = 20 mm and inner radius HORN_STACK_VOID_R = 18.5 mm (wall 1.5 mm).  Bridges the spar's +Y face (y = +3) to the knee pad's -Y mating face (y = +5).  Mirrors the femur's hip_neck_stub -- see make_femur_link for the May 2026 solid-pad simplification rationale (the previous 8 mm-tall annulus at y in [-3, +5] over-cleared the X-horn / gearbox cap envelope by ~6 mm)."
+          centre_mm: [0.0, 4.0, 0.0]
           diameter_mm: 40.0
           inner_diameter_mm: 37.0
-          thickness_mm: 8.0
+          thickness_mm: 2.0           # = HP.HORN_STACK_H - HP.LINK_THICKNESS/2 = 5 - 3
           wall_thickness_mm: 1.5
           axis: y
         - name: spar
