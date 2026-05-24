@@ -477,16 +477,39 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 > regression probe.
 
 1. **Press the heat-set inserts BEFORE seating any servo:** for each
-   cradle (12 total: 6 yaw + 6 hip-pitch + 6 knee), heat 2 x M3
-   brass heat-set inserts (McMaster `94459A130`) with a soldering
-   iron at ~ 220 °C and press them into the 2 -X-column Phi 4 mm
-   pockets.  Hold light downward pressure for ~ 10-15 s per insert
-   until the knurl displaces plastic into the boss wall; the insert
-   top should land ~ 0.5 mm below the boss top so the bolt head
-   clamps the servo ear against plastic, not brass.  Do NOT press
-   inserts on the +X column -- those 2 sites are bare Phi 2.5 mm
-   self-tap pilots and any heat-set insert there would block the
-   wire boot during insertion.
+   cradle (18 total: 6 yaw cradles integrated into `chassis_bottom` +
+   6 hip-pitch cradles in the coxa links + 6 knee cradles in the
+   femurs), heat 2 x M3 brass heat-set inserts (McMaster `94459A130`)
+   with a soldering iron at ~ 250 °C and press them into the 2
+   -X-column Phi 4 mm pockets.  Hold light downward pressure for
+   ~ 10-15 s per insert until the knurl displaces plastic into the
+   boss wall; the insert top should land flush with the cradle's
+   internal tab shelf (cradle-local z = +6 mm), 5 mm below the
+   cradle's rim, so the bolt head clamps the servo ear against
+   plastic, not brass.  Do NOT press inserts on the +X column --
+   those 2 sites are bare Phi 2.5 mm self-tap pilots and any
+   heat-set insert there would block the wire boot during
+   insertion.
+   * **chassis_bottom yaw cradles (12 inserts total: 2 per cradle x
+     6 legs):** after printing chassis_bottom, look DOWN at the top
+     face of each yaw cradle.  Each cradle has 2 visible Phi 4 mm
+     holes on its inboard rim (cradle-x = -24.75 mm, y = +/-5 mm)
+     -- these are the heat-set pockets, which were drilled THROUGH
+     the cradle's 5 mm shroud (May 24 2026 fix) so the operator
+     can see and access them.  Press each M3 brass insert DOWN
+     through the rim using the soldering iron at ~ 250 °C; the
+     insert seats with its top flush with the tab shelf, ready for
+     an M3 x 8 SHCS to thread down into it from above the servo
+     ear at step 2.  (Before the May 24 2026 fix the heat-set
+     pockets were capped by 3 mm of shroud material that hid them
+     from view and blocked installation; if you printed an older
+     chassis_bottom from before that commit, redrill the 12 holes
+     manually through the rim with a 4 mm bit and a hand drill.)
+   * **coxa_link / femur_link cradles (12 inserts total: 2 per
+     cradle x 6 of each link):** same workflow, but these cradles
+     have NO shroud above the shelf so the heat-set pocket is
+     visible directly from the cradle rim with no through-shroud
+     cut required.
 2. **Yaw servo into coxa bracket:** drop the yaw servo straight DOWN
    through the body cutout in the bracket flange and into the well
    below.  The servo's tabs land flush on the well rim, with the

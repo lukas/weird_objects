@@ -1102,6 +1102,45 @@ CRADLE_TAB_SHELF_Z   =  6.0   # mm above chassis_bottom_top to the tab
                                # CRADLE_BOSS_H_MM Path-A docstring
                                # above for why this is no longer
                                # wrapping the body's gear housing).
+                               #
+                               # May 24 2026 fix: the 12 -X heat-set
+                               # insert pockets (and, for consistency,
+                               # the 12 +X self-tap pockets) are now
+                               # drilled THROUGH the 5 mm shroud
+                               # above this shelf so the pocket
+                               # cylinder opens at the cradle rim
+                               # (cradle-z = +CRADLE_BOSS_H_MM = +11)
+                               # instead of being capped at +8 by
+                               # ~3 mm of shroud material.  This
+                               # lets the operator press the M3
+                               # brass heat-set insert (McMaster
+                               # 94459A130) DOWN through the cradle
+                               # rim with a soldering iron at
+                               # ~250 deg C; before the fix the
+                               # pocket was sandwiched between 4 mm
+                               # of plate below and 3 mm of shroud
+                               # above, with no way for the operator
+                               # to seat the insert.  User feedback
+                               # (May 24 2026): "the bottom chassis
+                               # really doesn't seem like it has the
+                               # inside holes for the heat set
+                               # inserts to hold the servo -- maybe
+                               # they are covered so they are
+                               # impossible to see?  Either way I
+                               # need a hole on the top to put the
+                               # heat set insert into".  The fix is
+                               # plumbed via the
+                               # ``heatset_pocket_z_top_override``
+                               # and ``selftap_pocket_z_top_override``
+                               # args on
+                               # ``_servo_cradle_insert_pockets``;
+                               # see that helper's docstring for the
+                               # parameter contract and rationale.
+                               # The shroud's OUTER perimeter
+                               # (everything past the Phi 8 mm boss
+                               # footprint) is unchanged -- only the
+                               # 24 Phi-2.5 / Phi-4 holes through
+                               # the boss interior are added.
 CRADLE_BOND_STRIP_MM =  1.0   # mm of bond strip per side: cradle outer
                                # footprint is (WELL_W + 2 + 2*this) x
                                # (WELL_D + 2 + 2*this) so the cradle
@@ -2609,6 +2648,8 @@ def _save(mesh: trimesh.Trimesh, name: str) -> str:
 
 def _servo_cradle_insert_pockets(
     shelf_top_z: float = None,
+    heatset_pocket_z_top_override: float = None,
+    selftap_pocket_z_top_override: float = None,
 ) -> tuple[trimesh.Trimesh, trimesh.Trimesh]:
     """Return ``(bosses_union, pockets_union)`` for the 4 cradle bolt
     sites in a cradle shelf (MIXED MODE -- Design E, May 2026).
@@ -2629,12 +2670,41 @@ def _servo_cradle_insert_pockets(
           ``CRADLE_BOSS_MIN_WALL_MM`` thick radially.
         - Pocket: a vertical Phi ``INSERT_M3_PILOT_OD`` cylinder
           centred on the same (x, y) axis, spanning well-z in
-          ``[shelf_top_z - INSERT_M3_PILOT_DEPTH, shelf_top_z + 2.0]``.
-          The pocket extends 2 mm ABOVE the shelf top so the boolean
-          cut leaves a clean rim and 1 mm BELOW the insert length
-          ``INSERT_M3_INSERT_LENGTH`` so debris from the heat-set
-          installation has somewhere to go.  The pocket is subtracted
-          from the cradle.
+          ``[shelf_top_z - INSERT_M3_PILOT_DEPTH, shelf_top_z + 2.0]``
+          BY DEFAULT.  The pocket extends 2 mm ABOVE the shelf top so
+          the boolean cut leaves a clean rim and 1 mm BELOW the
+          insert length ``INSERT_M3_INSERT_LENGTH`` so debris from
+          the heat-set installation has somewhere to go.  The pocket
+          is subtracted from the cradle.
+
+          The ``heatset_pocket_z_top_override`` arg lifts the
+          pocket's TOP cut plane above the default shelf_top_z +
+          2.0 mm.  Use this from the ``_chassis_yaw_cradle_solid``
+          call site -- and ONLY there -- to drill the pocket UP
+          through the cradle's non-load-bearing 5-mm shroud that
+          caps the shelf between cradle-z = +6 (shelf top) and
+          cradle-z = +11 (cradle rim, = CRADLE_BOSS_H_MM).  Without
+          the override the 12 chassis_bottom heat-set pockets are
+          fully CAPPED from above by ~3 mm of shroud material, and
+          the operator has no opening from which to press the
+          M3 brass insert (McMaster 94459A130) down into the
+          pocket with a soldering iron.  See the ``CRADLE_BOSS_H_MM``
+          constants block for the shroud's history (it used to wrap
+          the gear housing at BOSS_H = 19 mm; Path-A dropped it to
+          11 mm but left a 5 mm dust-shroud strip above the shelf
+          which the heat-set pocket geometry never adapted to).
+          User feedback (May 24 2026): "the bottom chassis really
+          doesn't seem like it has the inside holes for the heat
+          set inserts to hold the servo -- maybe they are covered
+          so they are impossible to see? Either way I need a hole
+          on the top to put the heat set insert into".  Confirmed
+          via Z-sweep probe at the bolt PCD before the fix.
+
+          The legacy ``_servo_well_solid`` cradles (coxa_bracket,
+          coxa_link, femur_link, tibia_link) have NO shroud above
+          the shelf -- their rims sit at well-z = WELL_RIM_Z which
+          equals the shelf top -- so the default +2.0 mm overshoot
+          suffices there and they pass ``shelf_top_z`` only.
 
       * ``sx == +1`` (the 2 +X bolts per cradle): SELF-TAP PILOT scheme.
 
@@ -2658,11 +2728,33 @@ def _servo_cradle_insert_pockets(
         the regression probe that catches the heat-set-boss-vs-boot
         collision if it ever recurs.
 
+        The ``selftap_pocket_z_top_override`` arg behaves
+        symmetrically to ``heatset_pocket_z_top_override`` above: it
+        lifts the +X self-tap pocket's TOP cut plane above the
+        default shelf_top_z + 2.0 mm.  The
+        ``_chassis_yaw_cradle_solid`` call site passes this so the
+        2 +X self-tap columns also open through the shroud cap,
+        keeping all 4 bolt sites consistent (clean Phi-2.5 holes
+        from rim to shelf top) and giving the bolt head 3 mm of
+        head-room above the seated servo ear during installation.
+        See ``heatset_pocket_z_top_override`` above for the full
+        rationale -- the shroud above the +X column is identical
+        to the shroud above the -X column.
+
     ``shelf_top_z`` defaults to ``WELL_RIM_Z`` (the nominal cradle rim
     height in well-local).  ``make_coxa_bracket`` passes a lower value
     when the bracket's drop-in slot has eaten the rim down by a known
     amount so its bolt-site bosses + pockets stay correctly aligned
     with the bracket's effective shelf top.
+
+    ``heatset_pocket_z_top_override`` / ``selftap_pocket_z_top_override``
+    both default to ``None`` which means "use ``shelf_top_z + 2.0``"
+    (the legacy +2 mm clean-rim overshoot).  Pass a numeric value
+    only from cradle call sites where the shelf is capped from above
+    by a non-load-bearing shroud that has to be punched through to
+    give the operator visual / mechanical access to the pocket --
+    i.e., the chassis_bottom integrated yaw cradle and only that
+    cradle.
 
     Use as::
 
@@ -2700,7 +2792,9 @@ def _servo_cradle_insert_pockets(
     boss_z_cen = 0.5 * (boss_z_top + boss_z_bot)
 
     heatset_pocket_radius = INSERT_M3_PILOT_OD / 2.0
-    heatset_pocket_z_top = shelf_top_z + 2.0
+    heatset_pocket_z_top = (heatset_pocket_z_top_override
+                            if heatset_pocket_z_top_override is not None
+                            else shelf_top_z + 2.0)
     heatset_pocket_z_bot = shelf_top_z - INSERT_M3_PILOT_DEPTH
     heatset_pocket_h = heatset_pocket_z_top - heatset_pocket_z_bot
     heatset_pocket_z_cen = 0.5 * (heatset_pocket_z_top
@@ -2714,7 +2808,9 @@ def _servo_cradle_insert_pockets(
     # reintroduce the very wire-channel collision Design E was
     # created to fix.
     selftap_pocket_radius = INSERT_M3_SELFTAP_PILOT_OD / 2.0
-    selftap_pocket_z_top = shelf_top_z + 2.0
+    selftap_pocket_z_top = (selftap_pocket_z_top_override
+                            if selftap_pocket_z_top_override is not None
+                            else shelf_top_z + 2.0)
     selftap_pocket_z_bot = shelf_top_z - INSERT_M3_SELFTAP_PILOT_DEPTH
     selftap_pocket_h = selftap_pocket_z_top - selftap_pocket_z_bot
     selftap_pocket_z_cen = 0.5 * (selftap_pocket_z_top
@@ -3283,8 +3379,43 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
     )
 
     # ---- Insert bosses + pockets (mixed-mode Design E) ---------------
+    # Drill BOTH the -X heat-set and the +X self-tap pockets all the
+    # way THROUGH the 5 mm shroud that sits between the tab shelf
+    # (cradle-z = +6) and the cradle rim (cradle-z = +11 =
+    # CRADLE_BOSS_H_MM).  The default pocket top of
+    # ``shelf_top_z + 2`` = +8 leaves the 12 -X heat-set pockets
+    # fully CAPPED from above by ~3 mm of shroud material, which
+    # blocks the operator from pressing in the M3 brass heat-set
+    # insert (McMaster 94459A130) -- they could not even see the
+    # pocket from above (user feedback May 24 2026: "the bottom
+    # chassis really doesn't seem like it has the inside holes for
+    # the heat set inserts to hold the servo -- maybe they are
+    # covered so they are impossible to see? Either way I need a
+    # hole on the top to put the heat set insert into").  The +X
+    # self-tap pockets had the SAME cap (probe confirmed: shroud
+    # solid at cradle-z [+8.5, +10.5] for both columns); the +X
+    # pockets only happened to be visible from below because their
+    # 10 mm depth pierces the chassis plate, while the -X heat-set
+    # 6 mm depth does not.  Lifting BOTH column tops to
+    # ``CRADLE_BOSS_H_MM + 0.5`` = +11.5 punches the pockets clean
+    # through the shroud with 0.5 mm of boolean overshoot, giving
+    # 4 consistent Phi-2.5 / Phi-4 holes through the cradle rim
+    # per cradle (12 heat-set + 12 self-tap = 24 holes total
+    # across the 6 legs).  Each operator-facing hole is at one of
+    # the bolt PCD's; the shroud's outer perimeter (everything past
+    # the boss Phi 8 mm footprint) is untouched, so the shroud
+    # still wraps the boss top sides for dust / visual protection.
+    # The fix is chassis_bottom-cradle-only: the legacy bracket /
+    # coxa_link / femur_link / tibia_link cradles have no shroud
+    # above the shelf (their well rim sits at WELL_RIM_Z = the
+    # shelf top) so they continue to use the default
+    # ``shelf_top_z + 2`` overshoot via the no-override call site
+    # in ``_servo_well_solid``.
+    pocket_top_through_shroud = CRADLE_BOSS_H_MM + 0.5            # +11.5
     bosses, pockets = _servo_cradle_insert_pockets(
         shelf_top_z=CRADLE_TAB_SHELF_Z,
+        heatset_pocket_z_top_override=pocket_top_through_shroud,
+        selftap_pocket_z_top_override=pocket_top_through_shroud,
     )
     bosses = bosses.copy()
     pockets = pockets.copy()
@@ -4978,26 +5109,64 @@ def make_coxa_link() -> trimesh.Trimesh:
         +Y = hip-pitch joint axis (= the hip-pitch servo's output
               shaft direction).
 
-    Layout:
-        - Pedestal: COXA_LIFT mm tall square pillar from z=0 (horn-adapter
-          mating face) up to z=COXA_LIFT.  Without this lift, the hip-pitch
-          well dipped ~2.5 mm below the chassis-plate top face and the
-          femur's hip-pad swung ~7 mm below the chassis-plate top, both
-          of which clashed with the chassis at standard yaw angles.
-        - Arm: flat plate extending in +X across the top of the
-          pedestal, at z >= COXA_LIFT.  Design A bolted a separate
-          ``hub`` square pad on top of the pedestal to host the
-          horn-adapter mating face; after Design B the 4 M2 X-horn
-          bolts moved into the pedestal CAP at lifted z in
-          [-0.1, +4.1] and the hub became vestigial, so it was
-          dropped (Design F final cleanup -- the arm at y in
-          [-11, +11] already covered the hub's central y range and
-          the +/-Y wings did nothing).
-        - Hip-pitch servo well: hangs in -Z below the arm at the +X
-          end, at z >= COXA_LIFT - 28 (i.e. ~+2 mm above the chassis
-          plate top with COXA_LIFT = 10).  Open-topped (well +Z) is
-          mapped to link +Y so the servo can be DROPPED in from the
-          +Y direction during assembly.
+    Layout (May 2026 aggressive +Y-overhang removal, follow-up to
+    407e191):
+
+        Viewed from +Y the link is an L-shape: cap at the -X end,
+        plank-shoulder + bridge stacked on the cap's -Y edge, and the
+        well + well-top pad hanging off the +X end.  All material at
+        y > bridge_y_max = -10.5 AND z > PEDESTAL_CAP_T = +4 is now
+        removed -- this excised the +Y half of the pedestal column
+        (was the full 34 x 34 mm pillar up to z = COXA_LIFT = +36)
+        AND the +Y arm slab over the pedestal.
+
+        - Pedestal CAP: 34 x 34 mm slab at z in [0, PEDESTAL_CAP_T] =
+          [0, +4], hosting the 4 M2 X-horn bolt counter-bores + the
+          central M3 horn-screw counter-bore + the Phi 16 x 1.2 mm
+          horn-pad recess.  The cap retains its full 34 x 34 footprint
+          (= +Y half is NOT trimmed at z < +4); only y > -10.5 above
+          the cap is removed.
+        - Assembly trough: the 34 mm wide (y in [-17, +17]) x
+          ~57 mm long (x in [-21, +36]) x ~21.5 mm tall (z in [+4,
+          +25.5]) servo-insertion void at the centre of the link
+          hollows out the entire pedestal column directly above the
+          cap.  Pre-existing; the +Y-overhang trim adds nothing here
+          (the column above the cap was already hollow in the body's
+          +Y assembly-insertion sweep).
+        - Pedestal -Y plank-shoulder: ~34 x 6.5 x ~10.5 mm wall at
+          x in [-17, +17], y in [-17, -10.5], z in [~+25.5, +36].
+          The surviving -Y slice of the pedestal ROOF (above the
+          trough, below the lifted body slab) after the y > -10.5
+          trim.  Carries yaw torque from the cap's -Y edge (which
+          touches the well's outer -Y wall at the cap plane) up
+          into the bridge.
+        - Bridge: ~53 x 6.75 x ~14.5 mm slab at x in [-12, +41],
+          y in [-17.25, -10.5], z in [+27.5, +42].  Bonds the
+          plank-shoulder top to the well-top pad and the arm.
+        - Arm slab: at y in [-11, +11], z in [+36, +42] before the
+          trim.  The y > -10.5 portion was trimmed away in May 2026;
+          only the y in [-11, -10.5] sliver survives and is now
+          geometrically MERGED with the bridge's +Y face (no
+          standalone "arm" exists in +Y any more).
+        - Hip-pitch servo well: hangs in -Z below the arm at the
+          +X end.  Open-topped (well +Z) is mapped to link +Y so the
+          servo can be DROPPED in from the +Y direction during
+          assembly.  The well's -Y outer wall (at y ~ -17, z in
+          [0, +29]) is the primary load path that ties the cap
+          (z in [0, +4]) to the bridge / pad / arm above the trough.
+        - Well-top pad: 58 x 11.75 x 8.5 mm slab at x in [-14, +44],
+          y in [-22.25, -10.5], z in [-8.5, 0] (un-lifted) = lifted
+          z in [+27.5, +36].  Entirely at y <= -10.5 so it survives
+          the +Y overhang trim untouched.
+        - Cable post: tucked at y ~ -42 / x ~ +45 / lifted z ~ +41.
+          Well outside the trim box.
+
+        Strength (PETG beam): pre-trim SF for coxa_link was 44.11
+        (Apr 2026 strength model).  Post-trim SF is reported in
+        the strength check; expect it to drop by a wide margin (the
+        new load path is the ~6.5 mm-thick -Y plank-shoulder + the
+        well's -Y outer wall, not the previous 34 x 34 mm column),
+        but it must stay above 5x for the build to be acceptable.
     """
     arm_w = 22.0           # mm, along Y
     arm_t = COXA_ARM_T     # mm, along Z (printed flat against the build
@@ -5619,9 +5788,53 @@ def make_coxa_link() -> trimesh.Trimesh:
                  0.5 * (spar_slot_z_min + arm_pos_y_trim_z_max)),
     )
 
+    # Aggressive +Y-overhang removal (May 2026 follow-up to 407e191):
+    # The prior arm_pos_y_trim only excised +Y material at y in [+3,
+    # +17.5], z in [spar_slot_z_min, +46.1] (~ z in [+25, +46]).  That
+    # left the +Y HALF of the pedestal column (y in [-10.5, +17], z in
+    # [PEDESTAL_CAP_T = +4, COXA_LIFT = +36]) -- = the chunk of plastic
+    # above the cap and on the +Y side of the bridge -- still solid.
+    # The user wants ALL material with z > PEDESTAL_CAP_T (= "above
+    # where the X-horn bolts seat") AND y > bridge_y_max (= "past
+    # where the hip-pitch servo connects") gone.  We do that with a
+    # single trim box covering the link's full x range and the full
+    # +Z range above the cap.
+    #
+    # GUARDRAILS (do not adjust without re-reading make_coxa_link's
+    # docstring):
+    #   * z_min = PEDESTAL_CAP_T = +4.  Going below this eats the
+    #     cap and disconnects all 4 M2 X-horn bolts + the central M3
+    #     horn screw.
+    #   * y_min = bridge_y_max = arm_minus_y_edge + 0.5 = -10.5.
+    #     Going below this eats the bridge's +Y face and disconnects
+    #     the bridge from the well-top pad.
+    #
+    # The post-trim load path from yaw servo to bridge is then a
+    # 6.5 mm-thick "-Y plank" at y in [-17, -10.5], x in [-17, +17],
+    # z in [+4, +27.5] (= cap top -> bridge bottom).  Yaw torque
+    # transmission goes through the plank's polar moment (~ 2900 mm^4,
+    # vs. ~ 188000 mm^4 for the previous 34 x 34 mm square pedestal
+    # column -- the strength verifier picks this up; see the docstring
+    # for the SF impact).
+    over_cap_plus_y_trim_x_min = -17.5                              # pedestal -X face (= -34/2) - 0.5 mm overlap
+    over_cap_plus_y_trim_x_max = +46.5                              # arm +X end (= +46) + 0.5 mm overlap
+    over_cap_plus_y_trim_y_min = bridge_y_max                       # = -10.5; DO NOT lower (would eat bridge)
+    over_cap_plus_y_trim_y_max = +17.5                              # pedestal +Y face (= +34/2) + 0.5 mm overlap
+    over_cap_plus_y_trim_z_min = PEDESTAL_CAP_T                     # = +4; DO NOT lower (would eat cap + bolts)
+    over_cap_plus_y_trim_z_max = COXA_LIFT + arm_t + COXA_ARM_CAP_T + 0.1  # = +46.1 = arm top + cap rib + overlap
+    over_cap_plus_y_trim = _box(
+        (over_cap_plus_y_trim_x_max - over_cap_plus_y_trim_x_min,
+         over_cap_plus_y_trim_y_max - over_cap_plus_y_trim_y_min,
+         over_cap_plus_y_trim_z_max - over_cap_plus_y_trim_z_min),
+        center=(0.5 * (over_cap_plus_y_trim_x_min + over_cap_plus_y_trim_x_max),
+                 0.5 * (over_cap_plus_y_trim_y_min + over_cap_plus_y_trim_y_max),
+                 0.5 * (over_cap_plus_y_trim_z_min + over_cap_plus_y_trim_z_max)),
+    )
+
     body = _union(pedestal, body_unlifted)
     return _diff(body, trough, spar_slot,
                  arm_neg_y_trim, arm_pos_y_trim,
+                 over_cap_plus_y_trim,
                  pad_sweep_clear, horn_hub_recess,
                  *cap_holes, *counterbore_holes, centre_hole)
 
