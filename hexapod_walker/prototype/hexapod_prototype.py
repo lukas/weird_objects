@@ -5160,6 +5160,21 @@ def make_coxa_link() -> trimesh.Trimesh:
     # which is 6.5 mm BELOW the cap's bottom face at z = arm_t +
     # COXA_LIFT = +20 mm lifted -- so the cap also stays out of
     # the pad's swept volume.
+    #
+    # ASYMMETRIC CAPPING (May 2026 retire-+Y-cap commit): the +Y
+    # half of the cap (``arm_cap_pos``) was retired.  Only the -Y
+    # half (``arm_cap_neg``) survives in the union.  Rationale:
+    # no -Y-side wall (bridge / well / well-top pad) hangs off the
+    # +Y side, so ``arm_cap_pos`` was symmetric-for-symmetry's-sake
+    # stiffening that the bridge + well already provide on -Y
+    # without any +Y counterpart -- the +Y top edge of the arm sees
+    # essentially no bonded load path it can transfer into, so the
+    # cap there was just plastic mass.  ``arm_cap_pos`` is still
+    # defined below as a local variable for documentation / future
+    # symmetry checks, but it is NOT unioned into ``body_unlifted``;
+    # ``arm_cap_neg`` remains and continues to stiffen the arm
+    # against hip-pitch reaction torque transmitted through the
+    # bridge and well-top pad on -Y.
     cap_x_min     = +17.0 - 2.0                # hub +X edge minus 2 mm overlap
     cap_x_max     = arm_x_extent - 12.0        # arm +X end
     cap_x_extent  = cap_x_max - cap_x_min
@@ -5170,11 +5185,13 @@ def make_coxa_link() -> trimesh.Trimesh:
     cap_z_centre  = (cap_z_min + cap_z_max) / 2.0
 
     # +Y half of the cap: y in [LINK_THICKNESS/2, arm_w/2].
+    # RETIRED (May 2026): defined for documentation but NOT unioned
+    # into the body -- see the "ASYMMETRIC CAPPING" note above.
     cap_pos_y_min     = LINK_THICKNESS / 2.0
     cap_pos_y_max     = +arm_w / 2.0
     cap_pos_y_extent  = cap_pos_y_max - cap_pos_y_min
     cap_pos_y_centre  = (cap_pos_y_min + cap_pos_y_max) / 2.0
-    arm_cap_pos = _box((cap_x_extent, cap_pos_y_extent, cap_z_extent),
+    arm_cap_pos = _box((cap_x_extent, cap_pos_y_extent, cap_z_extent),  # noqa: F841 -- retired from union; kept as documentation only
                         center=(cap_x_centre, cap_pos_y_centre, cap_z_centre))
 
     # -Y half of the cap: y in [-arm_w/2, -LINK_THICKNESS/2].
@@ -5208,8 +5225,12 @@ def make_coxa_link() -> trimesh.Trimesh:
     # next to the hip-pitch wire-exit slot.  Built in well-local and
     # transformed alongside ``wire_slot`` so it stays anchored to the
     # well's +X outer wall in every part orientation.
+    # arm_cap_pos (the +Y half of the arm top cap) was retired
+    # May 2026; only arm_cap_neg (the -Y half) is unioned in.
+    # See the "ASYMMETRIC CAPPING" docstring above the cap-rib
+    # construction for the full rationale.
     body_unlifted = _union(arm, well, bridge, gusset_under,
-                            arm_cap_pos, arm_cap_neg, well_top_pad,
+                            arm_cap_neg, well_top_pad,
                             cable_post)
     body_unlifted = _diff(body_unlifted, wire_slot)
     # Lift everything UP by COXA_LIFT so the well's bottom + the
@@ -5502,10 +5523,29 @@ def make_coxa_link() -> trimesh.Trimesh:
     #     (not COXA_LIFT + arm_t + 0.1 = +42.1) so each trim cuts
     #     its cap cleanly through the top face.
     #
-    # arm_cap_pos's x range [+15, +41] is fully covered by the slot's
-    # x range [+8, +42], so the +Y trim alone eliminates arm_cap_pos
-    # without needing a separate removal from the union (same trick
-    # as arm_neg_y_trim's coverage of arm_cap_neg's [+15, +41] in x).
+    # Cap-volume coverage by these trims:
+    #
+    #  * arm_cap_pos was retired from the union in May 2026 (only
+    #    its local-variable definition survives for documentation);
+    #    the +Y trim's z up-to-+46.1 over-reach is therefore strictly
+    #    redundant on +Y (slices through air above the arm's +Y top
+    #    face) but harmless.  The trim's structural job on +Y is to
+    #    excise the +Y stringer at x in [+8, +42], y in [+3, +11],
+    #    z in [+25, +42] so the arm's +Y outboard volume reduces to
+    #    just the inboard tongue at x < +8.
+    #
+    #  * arm_cap_neg IS still in the union, but its [+15, +41] x
+    #    range is entirely inside the -Y trim's [+8, +42] x range
+    #    AND its [+42, +46] z range is entirely inside the trim's
+    #    [+25, +46.1] z range, so arm_neg_y_trim currently still
+    #    eliminates the -Y cap volume even with arm_cap_neg in the
+    #    union (the cap is geometrically dead for the same reason
+    #    arm_cap_pos used to be).  We keep arm_cap_neg in the union
+    #    so the symbolic load-path documentation matches the design
+    #    intent ("-Y cap remains as -Y stiffener") and so that a
+    #    follow-up shrink of arm_neg_y_trim's z_max down to arm_t +
+    #    COXA_LIFT (= +42) would restore the cap WITHOUT any other
+    #    code change.  (See the May 2026 +Y-cap retirement commit.)
     #
     # M2 X-horn bolt clearance: the 4 M2 clamp bolts live in the
     # pedestal cap at lifted z in [-0.1, PEDESTAL_CAP_T + 0.1] =
