@@ -103,14 +103,14 @@ coordinate_systems:
     y_axis: "Hip-pitch joint axis (= hip-pitch servo's output-shaft direction)."
     z_axis: "Yaw axis (UP, away from the yaw servo)."
   femur_link:
-    origin: "Hip-pitch joint axis (centre of hip-pitch servo's horn-adapter top face)."
+    origin: "Hip pad MATING FACE = the X-horn-top arm plane that the hip pad bolts down onto (May 2026 collinear-pad refactor).  The hip-pitch joint axis (servo spline tip) sits HORN_STACK_H = 5 mm BELOW the origin along link -Y; pre-refactor the origin used to be on the joint axis itself with the pad raised 8 mm in +Y, which made the link an L-shape in side view."
     x_axis: "Spar long-axis; hip end at x=0, knee end at x=FEMUR_LENGTH."
-    y_axis: "Pitch joint axis (parallel to the hip-pitch axis; +Y points away from body)."
+    y_axis: "Pitch joint axis direction; +Y points AWAY from the X-horn into the link body.  Pad and spar both span y in [0, +LINK_THICKNESS] = [0, +6] (no L-bend); knee servo well + bridges hang in y < 0."
     z_axis: "Perpendicular to spar, in the leg's plane of motion."
   tibia_link:
-    origin: "Knee joint axis (centre of knee servo's output spline)."
+    origin: "Knee pad MATING FACE = the X-horn-top arm plane that the knee pad bolts down onto (May 2026 collinear-pad refactor).  The knee-pitch joint axis (servo spline tip) sits HORN_STACK_H = 5 mm BELOW the origin along link -Y; pre-refactor the origin used to be on the joint axis itself with the pad raised 8 mm in +Y."
     x_axis: "Spar long-axis; foot socket at x=TIBIA_LENGTH."
-    y_axis: "Knee joint axis (parallel to the hip-pitch axis)."
+    y_axis: "Knee joint axis direction; +Y points AWAY from the X-horn into the link body.  Pad and spar both span y in [0, +LINK_THICKNESS] = [0, +6] -- single flat in-line beam (the foot tang is in-plane with the spar)."
     z_axis: "Perpendicular to spar, in the leg's plane of motion."
   foot_pad:
     origin: "Ground-plane centre of the TPU disk."
@@ -678,34 +678,37 @@ parts:
           height_mm: 8.0                   # = HP.CABLE_POST_Z
 
   femur_link:
-    description: "Thigh; hip pad bolts onto hip-pitch horn at x=0, knee well at x=FEMUR_LENGTH.  Spar carries a SOLID Phi 40 mm x 6 mm hip-end pad + a 2 mm-tall Phi 40 mm spar-to-pad stub (May 2026 solid-pad simplification, replacing the previous 8 mm-tall thin-walled neck annulus), an insertion slot through the spar at the knee's body x-range, and bridge flanges above + below the slot tying the spar's top/bottom to the knee well's wall."
+    description: "Thigh; hip pad bolts onto hip-pitch horn at x=0, knee well at x=FEMUR_LENGTH.  Spar carries a SOLID Phi 40 mm x 6 mm hip-end pad COLLINEAR with the spar (May 2026 collinear-pad refactor; pad and spar share y in [0, +6]), an insertion slot through the spar at the knee's body x-range, and bridge flanges above + below the slot tying the spar's top/bottom to the knee well's wall."
     qty: 6
-    # Design B (May 2026): Y-extent shrank from 62 -> 58 mm because
-    # the hip pad / neck moved from y in [-3, +15] (extent 18 mm
-    # including 2 x HIP_PAD_R = 39 mm in the rotation plane) to
-    # y in [-3, +11] (extent 14 mm); HORN_STACK_H went 9 -> 5 mm
-    # with the printed servo_horn_adapter retired.
-    bounds_mm: [131.0, 55.0, 46.0]      # measured: X = HP.FEMUR_LENGTH + a 41 mm well overhang past the spar tip (knee well centre at x = FEMUR_LENGTH - SERVO_OUTPUT_X = 80; well_w/2 = 29 mm past that; -X end at hip pad ring at x = -HIP_PAD_R = -20), Y = LINK_THICKNESS (spar Y) + 2 * BRIDGE_WELL_EMBED + WELL_W ~ 55 mm, Z = max(FEMUR_SPAR_H, WELL_W) including 2 * BRIDGE_CAP_H = 6 mm caps = 46 mm
-    # Design B (May 2026): hip pad now spans y in [+5, +11] (HORN_STACK_H
-    # shrank from 9.0 mm to 5.0 mm with the printed servo_horn_adapter
-    # retired).  Bolt holes are still drilled along Y through the pad's
-    # mid-Y (now y = 8).
+    # May 2026 collinear-pad refactor: the link's local origin moved
+    # to the pad's mating face (= the X-horn-top arm plane).  The hip
+    # pad now sits at y in [0, +LINK_THICKNESS] = [0, +6], colinear
+    # with the spar's y range (was OLD y in [+5, +11] floating 5 mm
+    # above the OLD spar).  The 2 mm spar-to-pad stub annulus from
+    # commit c6c9970 is GONE -- the pad and spar bond directly.
+    # Y-extent stayed 55 mm because the well + bridges shifted -5 mm
+    # in link-local y to follow the spar's new range, and the bridge
+    # cap now reaches LINK_THICKNESS/2 = +3 instead of 0.
+    bounds_mm: [131.0, 55.0, 46.0]      # measured: X = HP.FEMUR_LENGTH + a 41 mm well overhang past the spar tip (knee well centre at x = FEMUR_LENGTH - SERVO_OUTPUT_X = 80; well_w/2 = 29 mm past that; -X end at hip pad ring at x = -HIP_PAD_R = -20), Y = LINK_THICKNESS + bridge/well drop = 55 mm spanning NEW y in [-49, +6], Z = max(FEMUR_SPAR_H, WELL_W) + 2 * BRIDGE_CAP_H = 46 mm
+    # NEW (May 2026 collinear-pad refactor): hip pad now spans y in
+    # [0, +LINK_THICKNESS] = [0, +6].  Bolt holes drilled along Y
+    # through the pad's mid-thickness at y = 3 (was 8 pre-refactor).
     holes:
       - name: hip_pad_bolt_+X
         diameter_mm: 2.2                # = XHORN_BOLT_M2_SELFTAP_HOLE_OD (M2, May 2026 fix)
-        position_mm: [10.4, 8.0, 0.0]
+        position_mm: [10.4, 3.0, 0.0]
         axis: y
       - name: hip_pad_bolt_+Z
         diameter_mm: 2.2
-        position_mm: [0.0, 8.0, 10.4]
+        position_mm: [0.0, 3.0, 10.4]
         axis: y
       - name: hip_pad_bolt_-X
         diameter_mm: 2.2
-        position_mm: [-10.4, 8.0, 0.0]
+        position_mm: [-10.4, 3.0, 0.0]
         axis: y
       - name: hip_pad_bolt_-Z
         diameter_mm: 2.2
-        position_mm: [0.0, 8.0, -10.4]
+        position_mm: [0.0, 3.0, -10.4]
         axis: y
     wire_channels:
       - name: knee_wire_exit_L
@@ -719,36 +722,26 @@ parts:
       - name: femur_horn_stack_void
       - name: knee_servo_body
     shape:
-      overall_form: "Flat shin / thigh blade with a SOLID Phi 40 mm x LINK_THICKNESS = 6 mm round hip-end pad at x = 0 (broad face perpendicular to the hip-pitch axis = link +Y) and a 58 x 29 x 25 mm open-topped knee servo cradle at x = FEMUR_LENGTH = 90 mm.  Pad's -Y mating face is FLAT (no neck or hub recess); a 2 mm-tall, Phi 40 mm OD x Phi 37 mm ID thin-walled stub annulus at y in [+3, +5] bridges the spar's +Y face to the pad's -Y mating face -- the minimum bridge needed since HORN_STACK_H = 5 mm leaves a 2 mm gap between spar top (y = LINK_THICKNESS/2 = +3) and the X-horn-top plane (y = +5).  Spar in between is a 90 x 6 x 34 mm rectangular beam (FEMUR_LENGTH x LINK_THICKNESS x FEMUR_SPAR_H) lying in the X-Z plane.  An insertion slot is cut through the spar at the knee end so the knee servo body can be slid in along +Y; bridge flanges above and below the slot tie the spar's top/bottom flanges into the knee well's wall."
-      print_orientation_rationale: "Rotate -90 deg about X so the spar's +Y face lies on the bed; the knee cradle's mouth (femur +Y) faces -Z onto the bed (the cradle's floor is REMOVED via remove_floor=True so the print orientation doesn't try to bridge a 30 x 40 mm ceiling).  Pad prints as a circular disc standing 8 mm proud of the spar (2 mm stub annulus + 6 mm solid clamp ring); bridges + spar print flat against the bed.  No supports needed for the spar or bridges."
+      overall_form: "Flat in-line thigh beam.  Hip pad and spar are COLLINEAR in Y -- both span y in [0, +LINK_THICKNESS] = [0, +6], so the link reads as a single flat beam from hip to knee (no L-bend in side view).  At x = 0 sits the SOLID Phi 40 mm x 6 mm round hip-end pad (broad face perpendicular to the hip-pitch axis = link +Y); the pad's -Y mating face at y = 0 sits flush on the plastic X-horn top arm plane, with the X-horn envelope (arms + hub + gearbox cap) occupying y < 0 entirely outside the link material.  Spar in between is a 90 x 6 x 34 mm rectangular beam (FEMUR_LENGTH x LINK_THICKNESS x FEMUR_SPAR_H) lying in the X-Z plane and BONDED directly to the pad through the union (no intermediate stub annulus; the May 2026 c6c9970 stub is retired).  At x = FEMUR_LENGTH the 58 x 29 x 25 mm open-topped knee servo cradle hangs off the spar's -Y underside (well centre at y = -17, spanning y in [-44, 0]), bridged by top + bottom rib flanges that cap to bridge_y_max = LINK_THICKNESS/2 = +3.  An insertion slot is cut through the spar at the knee end so the knee servo body can be slid in along +Y."
+      print_orientation_rationale: "Rotate -90 deg about X so the spar's +Y face (NEW y = +6) lies on the bed; the knee cradle's mouth (femur +Y) faces -Z onto the bed (the cradle's floor is REMOVED via remove_floor=True so the print orientation doesn't try to bridge a 30 x 40 mm ceiling).  Pad now prints as a circular disc IN-LINE with the spar (no 2 mm stub standoff) -- the entire link's broad +Y face is one continuous plane in print-Z.  Bridges + spar print flat against the bed.  No supports needed for the spar, bridges, or pad."
       features:
         - name: hip_pad
           type: cylindrical_disc
-          description: "Solid round mounting pad at the hip end.  Bolts onto the hip-pitch servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm PCD; pad face mates flush to the horn's top arm plane at y = HORN_STACK_H = 5 mm.  Pad y-range is [+5, +11], thickness LINK_THICKNESS = 6 mm.  May 2026 solid-pad simplification: mating face is FLAT (the previous Phi 16 mm x 1.2 mm hub recess is gone -- the X-horn's hub top is flush with the arm-top plane so there is no spline-screw boss above that plane to swallow)."
-          centre_mm: [0.0, 8.0, 0.0]
+          description: "Solid round mounting pad at the hip end.  Bolts onto the hip-pitch servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm PCD; pad's -Y face mates flush to the horn's top arm plane at NEW y = 0.  Pad y-range is [0, +6] = [0, +LINK_THICKNESS], COLLINEAR with the spar (May 2026 collinear-pad refactor).  Mating face is FLAT -- the X-horn hub top is flush with its arm-top plane so there is no spline-screw boss above that plane to swallow, and the link has no material at y < 0 so the X-horn envelope below is cleared by construction (no arm-relief cup carved in the pad)."
+          centre_mm: [0.0, 3.0, 0.0]
           diameter_mm: 40.0          # = 2 * HP.HIP_PAD_R
           thickness_mm: 6.0          # = HP.LINK_THICKNESS
           axis: y
           mating_face:
             normal: -y
             mates_to: "hip-pitch servo's plastic 4-arm X-horn top face"
-            mating_plane_z_local_mm: 5.0    # = HP.HORN_STACK_H (= PLASTIC_HORN_H)
+            mating_plane_z_local_mm: 0.0    # NEW link-local origin = mating face
           holes_on_feature: [hip_pad_bolt_+X, hip_pad_bolt_+Z, hip_pad_bolt_-X, hip_pad_bolt_-Z]
-          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face."
-        - name: hip_neck_stub
-          type: cylindrical_disc
-          description: "2 mm-tall thin-walled stub annulus at y in [+3, +5] with outer radius HIP_PAD_R = 20 mm and inner radius HORN_STACK_VOID_R = 18.5 mm (wall thickness 1.5 mm = 3 perimeters at 0.4 mm nozzle).  Bridges the spar's +Y face (y = +3) to the pad's -Y mating face (y = +5).  May 2026 solid-pad simplification: this is the minimum stub needed since HORN_STACK_H - LINK_THICKNESS/2 = 2 mm of gap separates the spar top from the X-horn-top plane.  Previous design used an 8 mm-tall annulus at y in [-3, +5] that over-cleared the X-horn / gearbox cap envelope by ~6 mm."
-          centre_mm: [0.0, 4.0, 0.0]
-          diameter_mm: 40.0          # = 2 * HP.HIP_PAD_R
-          inner_diameter_mm: 37.0    # = 2 * HP.HORN_STACK_VOID_R
-          thickness_mm: 2.0          # = HP.HORN_STACK_H - HP.LINK_THICKNESS/2 = 5 - 3
-          wall_thickness_mm: 1.5     # = HP.HIP_PAD_R - HP.HORN_STACK_VOID_R = 20 - 18.5
-          axis: y
-          notes: "Stub ID = Phi 37 mm so the Phi 36 mm plastic X-horn's arm tips clear the inner wall with 0.5 mm radial slop per side."
+          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face (head TOP at NEW y = +6, head BOTTOM at NEW y = +3.5)."
         - name: spar
           type: extruded_rectangle
-          description: "Long straight thigh shaft.  Cross-section 6 mm Y x 34 mm Z gives I_y = 9826 mm^4 (~ 18x safety factor in the dominant bending direction).  Carries the hip-pitch reaction torque from the knee end back to the hip pad."
-          centre_mm: [45.0, 0.0, 0.0]
+          description: "Long straight thigh shaft.  Cross-section 6 mm Y x 34 mm Z gives I_y = 9826 mm^4 (~ 18x safety factor in the dominant bending direction).  Carries the hip-pitch reaction torque from the knee end back to the hip pad.  NEW (May 2026 collinear-pad refactor): spar centred at y = +3 (was 0 pre-refactor), spanning y in [0, +LINK_THICKNESS] = [0, +6] -- same y range as the hip pad above."
+          centre_mm: [45.0, 3.0, 0.0]
           length_mm: 90.0            # = HP.FEMUR_LENGTH
           width_mm: 6.0              # = HP.LINK_THICKNESS
           height_mm: 34.0            # = HP.FEMUR_SPAR_H
@@ -764,22 +757,22 @@ parts:
           axis: x
         - name: bridge_top
           type: gusset_rib
-          description: "Top flange bridge.  Spans the slot's x range (56 mm) and z in [+SERVO_BODY_D/2, +FEMUR_SPAR_H/2 + BRIDGE_CAP_H] = [+10, +21].  Y range = [well_near_y - 2.5, 0] = ~10.5 mm.  Ties the spar's top flange to the well's +Y wall AND extends BRIDGE_CAP_H = 6 mm past the spar's top edge as an integral cap rib."
-          centre_mm: [80.0, -11.5, 15.5]
+          description: "Top flange bridge.  Spans the slot's x range (56 mm) and z in [+SERVO_BODY_D/2, +FEMUR_SPAR_H/2 + BRIDGE_CAP_H] = [+10, +21].  Y range = [well_near_y - 2.5, LINK_THICKNESS/2] = ~20 mm (May 2026 collinear-pad refactor: bridge_y_max raised from 0 to +3 and bridge_y_min dropped from -12.25 to -17.25 because the well + spar both shifted in opposite directions).  Ties the spar's top flange to the well's +Y wall AND extends BRIDGE_CAP_H = 6 mm past the spar's top edge as an integral cap rib."
+          centre_mm: [80.0, -7.125, 15.5]
           length_mm: 56.0
-          width_mm: 10.5
+          width_mm: 20.25            # = bridge_y_max - bridge_y_min = +3 - (-17.25)
           thickness_mm: 11.0
         - name: bridge_bot
           type: gusset_rib
           description: "Mirror of bridge_top below the slot; z in [-21, -10].  Carries the spar's bottom-flange-to-well-wall load."
-          centre_mm: [80.0, -11.5, -15.5]
+          centre_mm: [80.0, -7.125, -15.5]
           length_mm: 56.0
-          width_mm: 10.5
+          width_mm: 20.25
           thickness_mm: 11.0
         - name: knee_well
           type: rectangular_well
-          description: "Open-topped knee servo cradle at the +X end of the spar.  Mouth opens in femur +Y (= the knee axis direction) so the servo can be DROPPED in.  Floor is REMOVED (remove_floor=True) so the print orientation doesn't bridge a closed ceiling at the femur's -Y end -- the body's -Y face is exposed to free air pointing AWAY from the chassis in the assembled robot."
-          centre_mm: [80.0, -17.0, 0.0]
+          description: "Open-topped knee servo cradle at the +X end of the spar.  Mouth opens in femur +Y (= the knee axis direction) so the servo can be DROPPED in.  Floor is REMOVED (remove_floor=True) so the print orientation doesn't bridge a closed ceiling at the femur's -Y end -- the body's -Y face is exposed to free air pointing AWAY from the chassis in the assembled robot.  NEW (May 2026 collinear-pad refactor): well shifted -HORN_STACK_H = -5 mm along link Y to follow the spar's new range, so the spline tip (well-local z = SERVO_BODY_H + SERVO_OUTPUT_H) still lands on the knee joint axis at NEW link y = -HORN_STACK_H = -5 (= the X-horn-top plane below the tibia's knee pad)."
+          centre_mm: [80.0, -22.0, 0.0]
           length_mm: 58.0            # = HP.WELL_W
           width_mm: 29.0             # = HP.WELL_D
           height_mm: 30.0            # = HP.WELL_H
@@ -788,19 +781,19 @@ parts:
           mating_face:
             normal: +y
             mates_to: "knee servo body top face (tabs land on the well's internal shelf at WELL_RIM_Z)"
-            mating_plane_z_local_mm: 27.25  # = HP.WELL_RIM_Z (well-local rim z, mapped to link-frame +Y)
+            mating_plane_z_local_mm: 22.25  # = HP.WELL_RIM_Z - HP.HORN_STACK_H (well-local rim z mapped to NEW link-frame +Y after the -5 mm shift)
           notes: "4 M3 self-tap pilots on the SERVO_TAB_HOLE_PCD x SERVO_TAB_HOLE_PCD_Y (49.5 x 10 mm) pattern.  Floor cut for printability per the function docstring 'Knee cradle floor: OPEN' rationale."
         - name: knee_wire_exit_L
           type: slot
           description: "L-corridor at the knee well's +X bottom-outboard corner; routes the knee-servo 3-wire harness OUTBOARD past the well wall.  Same geometry as the coxa_link's hip-pitch wire-exit slot."
-          centre_mm: [108.0, -17.0, 5.0]
+          centre_mm: [108.0, -22.0, 5.0]
           length_mm: 13.5            # = HP.WIRE_SLOT_DEPTH
           width_mm: 7.0              # = HP.WIRE_SLOT_W
           height_mm: 12.5
         - name: knee_cable_zip_post
           type: cylindrical_boss
           description: "Printed-in 2 x 6 x 8 mm zip-tie post on the knee well's +X outer face for harness strain relief.  Identical to the yaw / hip-pitch posts."
-          centre_mm: [110.0, -17.0, 5.0]
+          centre_mm: [110.0, -22.0, 5.0]
           length_mm: 2.0             # = HP.CABLE_POST_X
           width_mm: 6.0              # = HP.CABLE_POST_Y
           height_mm: 8.0             # = HP.CABLE_POST_Z
@@ -808,71 +801,61 @@ parts:
   tibia_link:
     description: "Shin; knee pad bolts onto knee horn-adapter at x=0, foot hinge TANG at x=TIBIA_LENGTH."
     qty: 6
-    # Design B (May 2026): Y-extent shrank from 21 -> 17 mm with the
-    # knee pad mating face at y = HORN_STACK_H = 5 mm (was 9 mm).
-    # Hinge inversion (May 2026): tibia y extent at the foot end
-    # shrank from 12 mm (old clevis fork = 2*CHEEK_T + GAP) to
-    # LINK_THICKNESS = 6 mm (new single tang); tibia is now
-    # LINK_THICKNESS-wide in Y EVERYWHERE so the part prints fully
-    # flat in the spar-broad-face-on-bed orientation.  Overall
-    # bounds Y extent dropped from 17 -> 14 mm because the knee
-    # pad now sets the maximum (y in [-3, +11] = 14 mm range) and
-    # the tang is no longer wider than the pad.
-    bounds_mm: [156.0, 14.0, 40.0]      # measured: X = HP.TIBIA_LENGTH (130) + FOOT_TANG_X_BEYOND_TIP (6) + ring radius at -X (HP.HIP_PAD_R = 20) = 156, Y = HP.HORN_STACK_H + HP.LINK_THICKNESS + LINK_THICKNESS/2 = 14, Z = max(TIBIA_SPAR_H, foot tang z reach from FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN = -15) -- spar [-9, +9] + tang reach down to -15 = 40 mm total
-    # Design B (May 2026): knee pad now spans y in [+5, +11] (HORN_STACK_H
-    # shrank from 9.0 mm to 5.0 mm with the printed servo_horn_adapter
-    # retired).  Bolt holes are still drilled along Y through the pad's
-    # mid-Y (now y = 8).
+    # NEW (May 2026 collinear-pad refactor): Y-extent shrank from
+    # 14 -> 6 mm because the link is now LINK_THICKNESS = 6 mm wide
+    # in Y EVERYWHERE.  Pad mating face moved to y = 0 (= NEW link
+    # origin = X-horn-top arm plane), pad outer face to y = +6.
+    # Spar, knee pad and foot tang all share the same y in [0, +6]
+    # range so the link is a single flat in-line beam with no
+    # L-bend in side view; the X-horn envelope (formerly OLD y in
+    # [-3, +5] of stub annulus + cup) now lives ENTIRELY outside
+    # the link material at NEW y < 0.
+    bounds_mm: [156.0, 6.0, 40.0]       # measured: X = HP.TIBIA_LENGTH (130) + FOOT_TANG_X_BEYOND_TIP (6) + ring radius at -X (HP.HIP_PAD_R = 20) = 156, Y = HP.LINK_THICKNESS = 6 (was 14 pre-refactor), Z = max(TIBIA_SPAR_H, foot tang z reach from FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN = -15) -- spar [-9, +9] + tang reach down to -15 = 40 mm total
+    # NEW (May 2026 collinear-pad refactor): knee pad now spans
+    # y in [0, +LINK_THICKNESS] = [0, +6].  Bolt holes drilled
+    # along Y through the pad's mid-thickness at y = 3 (was 8
+    # pre-refactor when the pad floated 5 mm above the spar).
     holes:
       - name: knee_pad_bolt_+X
         diameter_mm: 2.2                # = XHORN_BOLT_M2_SELFTAP_HOLE_OD (M2, May 2026 fix)
-        position_mm: [10.4, 8.0, 0.0]
+        position_mm: [10.4, 3.0, 0.0]
         axis: y
       - name: knee_pad_bolt_+Z
         diameter_mm: 2.2
-        position_mm: [0.0, 8.0, 10.4]
+        position_mm: [0.0, 3.0, 10.4]
         axis: y
       - name: knee_pad_bolt_-X
         diameter_mm: 2.2
-        position_mm: [-10.4, 8.0, 0.0]
+        position_mm: [-10.4, 3.0, 0.0]
         axis: y
       - name: knee_pad_bolt_-Z
         diameter_mm: 2.2
-        position_mm: [0.0, 8.0, -10.4]
+        position_mm: [0.0, 3.0, -10.4]
         axis: y
     wire_channels: []                    # the tibia has no servo, hence no wire-exit
     keep_out_volumes:
       - name: tibia_horn_stack_void
     shape:
-      overall_form: "Thin flat shin plate.  Broad face lies in the XZ plane; the part is uniformly LINK_THICKNESS = 6 mm deep in Y everywhere (Design B + May 2026 supports-free refactor).  Silhouette in X-Z: a SOLID Phi 40 mm round knee pad at one end (x = 0) with a flat -Y mating face and a thin 2 mm-tall stub annulus bridging it to the spar, a long 130 mm straight spar running +X at z in [-9, +9], and a single LINK_THICKNESS-wide foot tang at the other end (x = TIBIA_LENGTH) dropping below the spar to z = -15 with a transverse M3 hinge hole.  4 lightening holes (Phi 11 mm) punch through the spar along its length to save weight."
-      print_orientation_rationale: "Rotate +90 deg about X so the spar's broad XZ face lies on the bed (the 6 mm Y depth becomes the print height).  In this orientation the spar, foot tang, and all 4 lightening holes print fully flat with NO bridges and NO supports -- the part's uniform LINK_THICKNESS = 6 mm Y depth is the slicer's only Z direction.  The knee pad + 2 mm stub annulus prints as a 8 mm-tall feature standing proud of the spar's broad face in print-Z (the pad-bolt direction); inverting the hinge (foot = fork, tibia = single tang) keeps the rest of the part 6 mm deep so supports under the foot end are eliminated."
+      overall_form: "Thin flat shin plate.  Broad face lies in the XZ plane; the part is uniformly LINK_THICKNESS = 6 mm deep in Y everywhere (Design B + May 2026 supports-free refactor + May 2026 collinear-pad refactor).  Knee pad, spar, and foot tang all share y in [0, +LINK_THICKNESS] = [0, +6] -- single flat in-line beam, no L-bend in side view.  Silhouette in X-Z: a SOLID Phi 40 mm round knee pad at one end (x = 0) with a flat -Y mating face at y = 0 sitting flush on the knee X-horn's top arm plane, a long 130 mm straight spar running +X at z in [-9, +9] BONDED directly to the pad (no intermediate stub annulus -- the May 2026 c6c9970 stub is retired), and a single LINK_THICKNESS-wide foot tang at the other end (x = TIBIA_LENGTH) dropping below the spar to z = -15 with a transverse M3 hinge hole.  4 lightening holes (Phi 11 mm) punch through the spar along its length to save weight."
+      print_orientation_rationale: "Rotate +90 deg about X so the spar's broad XZ face lies on the bed (the 6 mm Y depth becomes the print height).  In this orientation the spar, foot tang, knee pad, and all 4 lightening holes print fully flat with NO bridges and NO supports -- the part's uniform LINK_THICKNESS = 6 mm Y depth is the slicer's only Z direction.  Pad now prints IN-LINE with the spar (no 2 mm stub standoff), so the entire link's broad +Y face is one continuous plane in print-Z."
       features:
         - name: knee_pad
           type: cylindrical_disc
-          description: "Solid round mounting pad at the knee end.  Bolts onto the knee servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm bolt circle.  Pad face mates flush to the horn's top arm plane at y = HORN_STACK_H = 5 mm.  Pad y-range is [+5, +11], thickness LINK_THICKNESS = 6 mm.  May 2026 solid-pad simplification: mating face is FLAT (the previous Phi 16 mm x 1.2 mm hub recess is gone)."
-          centre_mm: [0.0, 8.0, 0.0]
+          description: "Solid round mounting pad at the knee end.  Bolts onto the knee servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm bolt circle.  Pad's -Y face mates flush to the horn's top arm plane at NEW y = 0.  Pad y-range is [0, +6] = [0, +LINK_THICKNESS], COLLINEAR with the spar (May 2026 collinear-pad refactor).  Mating face is FLAT -- the link has no material at y < 0 so the X-horn envelope (arms + hub + gearbox cap) is cleared by construction (no arm-relief cup or hub recess carved in the pad)."
+          centre_mm: [0.0, 3.0, 0.0]
           diameter_mm: 40.0           # = 2 * HP.HIP_PAD_R
           thickness_mm: 6.0           # = HP.LINK_THICKNESS
           axis: y
           mating_face:
             normal: -y
             mates_to: "knee servo's plastic 4-arm X-horn top face"
-            mating_plane_z_local_mm: 5.0    # = HP.HORN_STACK_H
+            mating_plane_z_local_mm: 0.0    # NEW link-local origin = mating face
           holes_on_feature: [knee_pad_bolt_+X, knee_pad_bolt_+Z, knee_pad_bolt_-X, knee_pad_bolt_-Z]
-          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face."
-        - name: knee_neck_stub
-          type: cylindrical_disc
-          description: "2 mm-tall thin-walled stub annulus at y in [+3, +5] with outer radius HIP_PAD_R = 20 mm and inner radius HORN_STACK_VOID_R = 18.5 mm (wall 1.5 mm).  Bridges the spar's +Y face (y = +3) to the knee pad's -Y mating face (y = +5).  Mirrors the femur's hip_neck_stub -- see make_femur_link for the May 2026 solid-pad simplification rationale (the previous 8 mm-tall annulus at y in [-3, +5] over-cleared the X-horn / gearbox cap envelope by ~6 mm)."
-          centre_mm: [0.0, 4.0, 0.0]
-          diameter_mm: 40.0
-          inner_diameter_mm: 37.0
-          thickness_mm: 2.0           # = HP.HORN_STACK_H - HP.LINK_THICKNESS/2 = 5 - 3
-          wall_thickness_mm: 1.5
-          axis: y
+          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face (head TOP at NEW y = +6, head BOTTOM at NEW y = +3.5)."
         - name: spar
           type: extruded_rectangle
-          description: "Long straight shin shaft.  Carries the bending load from foot-strike to knee.  Cross-section is wide in Z and thin in Y."
-          centre_mm: [65.0, 0.0, 0.0]   # mid-span x = TIBIA_LENGTH / 2
+          description: "Long straight shin shaft.  Carries the bending load from foot-strike to knee.  Cross-section is wide in Z and thin in Y.  NEW (May 2026 collinear-pad refactor): spar centred at y = +3 (was 0 pre-refactor), spanning y in [0, +LINK_THICKNESS] = [0, +6] -- same y range as the knee pad above."
+          centre_mm: [65.0, 3.0, 0.0]   # mid-span x = TIBIA_LENGTH / 2, centred at NEW y = +3
           length_mm: 130.0              # = HP.TIBIA_LENGTH
           width_mm: 6.0                 # Y depth = HP.LINK_THICKNESS
           height_mm: 18.0               # Z height = HP.TIBIA_SPAR_H
@@ -880,14 +863,14 @@ parts:
           notes: "Cross-section 6 x 18 mm gives I_strong = 2916 mm^4 about the Z bending axis (foot-strike load goes into bending about the knee axis = Y, with the spar's Z height as the strong direction)."
         - name: spar_lightening_holes
           type: slot
-          description: "4 Phi 11 mm lightening holes drilled through the spar along its X length.  Hole centres at x = i * TIBIA_LENGTH / 6 for i in {1, 2, 3, 4} -- avoids the knee pad's bolt circle and the foot tang's pin hole.  Drilled along Y through the full LINK_THICKNESS spar (cylinder length oversized to 4 * LINK_THICKNESS so the CSG diff cleanly punches through)."
-          centre_mm: [65.0, 0.0, 0.0]   # one of 4; spaced along X
+          description: "4 Phi 11 mm lightening holes drilled through the spar along its X length.  Hole centres at x = i * TIBIA_LENGTH / 6 for i in {1, 2, 3, 4} -- avoids the knee pad's bolt circle and the foot tang's pin hole.  Drilled along Y through the full LINK_THICKNESS spar at y = LINK_THICKNESS/2 = +3 (cylinder length oversized to 4 * LINK_THICKNESS so the CSG diff cleanly punches through)."
+          centre_mm: [65.0, 3.0, 0.0]   # one of 4; spaced along X; centred at NEW y = +3
           diameter_mm: 11.0             # = 2 * 5.5 mm radius (per the _cyl(5.5, ...) call in make_tibia_link's lightening loop)
           axis: y
         - name: foot_tang
           type: rectangular_tang
-          description: "Single solid tang at the +X foot end (May 2026 hinge inversion: replaces the legacy 2-cheek clevis fork).  LINK_THICKNESS-wide rectangular tongue centred on tibia y = 0 (so the tibia is 6 mm wide in Y EVERYWHERE and prints fully flat).  Tang occupies the same X / Z footprint as the legacy clevis bulk: x in [TIBIA_LENGTH - FOOT_TANG_X_INBOARD, TIBIA_LENGTH + FOOT_TANG_X_BEYOND_TIP] = [118, 136], z in [FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN, TIBIA_SPAR_H / 2] = [-15, +9].  Carries a single M3 through-hole at (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z) = (130, 0, -10) drilled along +Y; the hole pins into the foot_pad's 2-cheek fork."
-          centre_mm: [127.0, 0.0, -3.0]
+          description: "Single solid tang at the +X foot end (May 2026 hinge inversion: replaces the legacy 2-cheek clevis fork).  LINK_THICKNESS-wide rectangular tongue centred at NEW tibia y = LINK_THICKNESS/2 = +3 (so the tibia is 6 mm wide in Y EVERYWHERE and prints fully flat).  Tang occupies the same X / Z footprint as the legacy clevis bulk: x in [TIBIA_LENGTH - FOOT_TANG_X_INBOARD, TIBIA_LENGTH + FOOT_TANG_X_BEYOND_TIP] = [118, 136], z in [FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN, TIBIA_SPAR_H / 2] = [-15, +9].  Carries a single M3 through-hole at (TIBIA_LENGTH, +3, FOOT_HINGE_TIBIA_Z) = (130, +3, -10) drilled along +Y; the hole pins into the foot_pad's 2-cheek fork."
+          centre_mm: [127.0, 3.0, -3.0]
           length_mm: 18.0               # = FOOT_TANG_X_INBOARD + FOOT_TANG_X_BEYOND_TIP = 12 + 6
           width_mm: 6.0                 # = HP.LINK_THICKNESS (Y depth)
           height_mm: 24.0               # = (TIBIA_SPAR_H / 2) - (FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN) = 9 - (-15) = 24
@@ -900,8 +883,8 @@ parts:
           notes: "Single-tang inversion (May 2026): replaced the legacy clevis fork so the tibia prints fully flat in the spar-broad-face-on-bed orientation."
         - name: taper
           type: extruded_rectangle
-          description: "Short 24 mm taper that blends the spar into the tang.  Sits on the spar centreline at x in [TIBIA_LENGTH - 24, TIBIA_LENGTH], z in [-3 - TIBIA_SPAR_H*0.3, -3 + TIBIA_SPAR_H*0.3] = [-8.4, +2.4].  In Y it matches LINK_THICKNESS * 0.95 = 5.7 mm so the whole tibia keeps a single ~6 mm Y thickness end-to-end."
-          centre_mm: [118.0, 0.0, -3.0]
+          description: "Short 24 mm taper that blends the spar into the tang.  Sits on the spar centreline at x in [TIBIA_LENGTH - 24, TIBIA_LENGTH], z in [-3 - TIBIA_SPAR_H*0.3, -3 + TIBIA_SPAR_H*0.3] = [-8.4, +2.4].  In Y it matches LINK_THICKNESS * 0.95 = 5.7 mm centred at NEW y = +3 so the whole tibia keeps a single ~6 mm Y thickness end-to-end."
+          centre_mm: [118.0, 3.0, -3.0]
           length_mm: 24.0
           width_mm: 5.7                  # = HP.LINK_THICKNESS * 0.95
           height_mm: 10.8                # = HP.TIBIA_SPAR_H * 0.6

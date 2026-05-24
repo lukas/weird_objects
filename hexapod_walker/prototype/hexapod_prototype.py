@@ -5547,15 +5547,30 @@ def make_coxa_link() -> trimesh.Trimesh:
 def make_femur_link() -> trimesh.Trimesh:
     """Femur (thigh).
 
-    Local frame:
+    Local frame (May 2026 collinear-pad refactor):
+        Origin: pad mating face (= X-horn-top plane that the hip pad
+                bolts down onto).  The hip-pitch joint axis (= servo
+                spline tip) lives at link y = -HORN_STACK_H = -5 mm,
+                HORN_STACK_H mm BELOW the local origin along link
+                -Y.  Pre-refactor the origin used to be on the joint
+                axis with the pad raised to y = +HORN_STACK_H, which
+                made the link an L-shape in side view (pad above
+                spar by 8 mm).  The new convention puts pad + spar
+                in the SAME y range so the link reads as a single
+                flat in-line beam.
         +X = spar long-axis (hip-end at x=0, knee-end at x=FEMUR_LENGTH)
-        +Y = pitch joint axis (parallel for hip and knee, points away
-             from body)
+        +Y = pitch joint axis direction; points AWAY from the X-horn
+             into the link body.  Pad spans y in [0, +LINK_THICKNESS]
+             = [0, +6] and the spar spans y in [0, +LINK_THICKNESS]
+             = [0, +6] -- same range, no L-shape.  The knee servo
+             well and any bridge ribs that hang off the spar's
+             underside live in y < 0.
         +Z = perpendicular to spar, in the leg's plane of motion
 
     Hip end: a flat 4-bolt pad that bolts to the hip-pitch servo's
-    horn-adapter face.  This pad is perpendicular to Y (i.e. it lies
-    in the X-Z plane), at y = 0.
+    plastic 4-arm X-horn.  This pad is perpendicular to Y (lies in
+    the X-Z plane), with its -Y MATING FACE at y = 0 and its +Y
+    outer face at y = LINK_THICKNESS.
 
     Knee end: an open-topped servo cradle that holds the knee servo,
     output shaft pointing +Y (parallel to the hip-pitch axis), so
@@ -5603,8 +5618,15 @@ def make_femur_link() -> trimesh.Trimesh:
     orientations where their floors are NOT bridges.
     """
     # ---- Spar (with insertion slot at the knee end) ------------------
+    # NEW (May 2026 collinear-pad refactor): spar centred at NEW
+    # femur y = +LINK_THICKNESS / 2 = +3, spanning y in
+    # [0, +LINK_THICKNESS] = [0, +6].  Pre-refactor the spar sat at
+    # OLD femur y in [-3, +3] (8 mm BELOW the pad), making the link
+    # an L-shape in side view; the new local origin at the pad
+    # mating face puts pad + spar in the SAME y range.
+    SPAR_Y_CENTRE = LINK_THICKNESS / 2.0
     spar = _box((FEMUR_LENGTH, LINK_THICKNESS, FEMUR_SPAR_H),
-                center=(FEMUR_LENGTH / 2.0, 0, 0))
+                center=(FEMUR_LENGTH / 2.0, SPAR_Y_CENTRE, 0))
 
     # Insertion slot for the knee servo's body.  The slot must be wide
     # enough to admit the SERVO TABS (SERVO_TAB_W = 54 mm), not just the
@@ -5620,104 +5642,48 @@ def make_femur_link() -> trimesh.Trimesh:
     slot_z = SERVO_BODY_D + 2.0                              # 22 mm
     insertion_slot = _box((slot_x, LINK_THICKNESS + 2.0, slot_z),
                            center=((body_x_min + body_x_max) / 2.0,
-                                    0, 0))
+                                    SPAR_Y_CENTRE, 0))
 
-    # ---- Hip-end pad + 2 mm spar-to-pad stub ------------------------
+    # ---- Hip-end pad -------------------------------------------------
     # The femur's hip pad bolts directly onto the plastic 4-arm X-horn
-    # that sits on the hip-pitch servo's spline.  In femur-local coords
-    # the joint AXIS (spline tip) is at y = 0 and the X-horn's top arm
-    # plane (where the pad clamps) is at y = HORN_STACK_H = 5 mm.
+    # that sits on the hip-pitch servo's spline.  After the May 2026
+    # collinear-pad refactor the link's NEW local origin is the pad
+    # mating face (= the X-horn-top arm plane), so:
     #
-    # Design (May 2026 "solid-pad simplification" refactor): drop the
-    # 8 mm-tall thin-walled neck annulus and the Phi 16 mm hub-recess
-    # pocket.  The user's measurement: the previous 8 mm-deep Phi 37 mm
-    # cup over-cleared the X-horn (whose arms are only 1.6 mm tall and
-    # whose hub stops at y = HORN_STACK_H = +5 mm); the gearbox cap
-    # below the X-horn lives at y in [-6, 0] and never enters the
-    # pad/neck envelope at all.  So the cup depth was over-spec by
-    # ~5 mm.
+    #   * Pad mating face is at NEW y = 0 (was OLD y = +HORN_STACK_H = +5)
+    #   * Pad outer face is at NEW y = +LINK_THICKNESS = +6 (was OLD y = +11)
+    #   * Spar shares the pad's y range (NEW y in [0, +6]) so the pad
+    #     and spar bond directly through the union -- the old 2 mm
+    #     spar-to-pad neck-stub annulus (commit c6c9970) is GONE.
+    #   * The X-horn (arms, hub, gearbox cap) physically lives in world
+    #     coordinates that map to NEW y in [-HORN_STACK_H, 0] for the
+    #     arms / hub and y < -HORN_STACK_H for the gearbox cap below.
+    #     Since the link has NO material at NEW y < 0 the X-horn
+    #     envelope is cleared by construction -- no arm-relief cup is
+    #     boolean-diff'd out of the pad.
     #
-    # Geometry:
-    #
-    #   1. HIP PAD: a solid disc at y in [+5, +11], radius HIP_PAD_R =
-    #      20.0 mm.  The bolt-clamp ring; sits flat on the X-horn arm
-    #      tops at y = +5 and carries the 4 M2 SHCS clamp bolts on
-    #      XHORN_BOLT_PCD = 20.8 mm.  Mating face (-Y) is FLAT now --
-    #      the previous Phi 16 mm hub-recess pocket is gone, since the
-    #      X-horn's hub top is flush with the arm-top plane at y = +5
-    #      and there's no spline-screw boss above that plane to
-    #      swallow.
-    #   2. NECK STUB: a 2 mm-tall, Phi 40 OD x Phi 37 ID annulus at
-    #      y in [LINK_THICKNESS/2, HORN_STACK_H] = [+3, +5].  This is
-    #      the minimum bridge needed between the spar's +Y face
-    #      (y = +3) and the pad's -Y mating face (y = +5): the spar
-    #      tops out 2 mm below the X-horn-top plane, so we need *some*
-    #      material spanning that 2 mm gap to keep the pad connected
-    #      to the spar.  Wall thickness 1.5 mm (3 perimeters at 0.4 mm
-    #      nozzle).  The 6 mm of full-Y-extent neck annulus that used
-    #      to live at y in [-3, +3] is GONE -- the cup-floor moves up
-    #      from y = -3 to y ~ 0 (see arm_relief_void below), giving
-    #      the spar's hip-end its full r-extent at y in [-3, 0] again
-    #      (was hollow before).
-    #   3. ARM-RELIEF VOID (radius HORN_STACK_VOID_R = 18.5 mm, y in
-    #      [-0.05, HORN_STACK_H + 0.05] = [-0.05, +5.05]):
-    #      a 5 mm-tall cylindrical void cut as the LAST step in the
-    #      part's CSG difference.  Hollows
-    #          (a) the neck stub's interior (y in [+3, +5] at r < 18.5),
-    #          (b) the spar's hip-end material (y in [0, +3] at
-    #              r < 18.5) so the X-horn hub (Phi 16, y in [0, +5])
-    #              and arms (Phi 36, y in [+3.4, +5]) physically fit.
-    #      The 0.05 mm overshoots at each end are CSG margins to avoid
-    #      voxel-stair-step sliver artefacts at the pad-bottom and
-    #      joint-axis boundaries; they do not introduce a meaningful
-    #      pad-mating-face recess.
-    #
-    #      The void volume is checked by ``check_horn_stack_clearance``
-    #      in _verify_prototype.py with probe radius HORN_STACK_VOID_R
-    #      and height HORN_STACK_H, exactly matching the X-horn's
-    #      physical envelope.
-    hip_pad_centre_y = HORN_STACK_H + LINK_THICKNESS / 2.0    # +8
-    hip_pad_y_min    = HORN_STACK_H                            # +5
-    hip_pad_y_max    = HORN_STACK_H + LINK_THICKNESS           # +11
+    # Geometry: a solid Phi (2 * HIP_PAD_R) = 40 mm disc spanning NEW
+    # y in [0, +LINK_THICKNESS] = [0, +6].  The 4 M2 bolt holes are
+    # drilled along +Y through the disc, and a 2.5 mm-deep Phi 4 mm
+    # counter-bore opens at the +Y outer face for each M2 SHCS head.
+    hip_pad_y_min    = 0.0                          # mating face (= X-horn-top)
+    hip_pad_y_max    = LINK_THICKNESS               # +6
+    hip_pad_centre_y = LINK_THICKNESS / 2.0         # +3 (was +8 pre-refactor)
     hip_pad = _cyl_along(HIP_PAD_R,
                           hip_pad_y_max - hip_pad_y_min,
                           axis="y")
     hip_pad.apply_translation([0, hip_pad_y_min, 0])
 
-    # 2 mm-tall spar-to-pad stub annulus.  Outer cylinder spans
-    # y in [LINK_THICKNESS/2, HORN_STACK_H] = [+3, +5]; the
-    # arm_relief_void below hollows out r < HORN_STACK_VOID_R so
-    # only the 1.5 mm-thick annular wall at r in [18.5, 20] remains.
-    hip_neck_stub = _cyl_along(HIP_PAD_R,
-                                HORN_STACK_H - LINK_THICKNESS / 2.0,
-                                axis="y")
-    hip_neck_stub.apply_translation([0, LINK_THICKNESS / 2.0, 0])
-    # X-horn clearance void.  Spans y in [-0.05, HORN_STACK_H + 0.05].
-    # The 0.05 mm overshoots are CSG cleanup margins, NOT a real
-    # pad-mating-face recess; the void's nominal floor is at the pad
-    # mating face (y = HORN_STACK_H = +5) and its nominal mouth is at
-    # the joint axis (y = 0) -- exactly the X-horn's physical envelope.
-    arm_relief_y_lo = -0.05
-    arm_relief_y_hi = HORN_STACK_H + 0.05                       # +5.05
-    hip_arm_relief = _cyl_along(HORN_STACK_VOID_R,
-                                 arm_relief_y_hi - arm_relief_y_lo,
-                                 axis="y")
-    hip_arm_relief.apply_translation([0, arm_relief_y_lo, 0])
-
     hip_holes = []
     hip_counterbores = []
     for a in XHORN_BOLT_ANGLES_RAD:
-        # Drill the 4 M2 clamp holes through the pad's 6 mm-thick
-        # clamp ring (y in [+5, +11]).  Phi
-        # XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm clearance through the
-        # pad (M2 self-tap into the X-horn's Phi ~ 2.0 mm arm hole
-        # below; the X-horn provides the actual thread engagement).
-        # The cylinder length = LINK_THICKNESS * 4 = 24 mm guarantees
-        # a clean punch-through of the 6 mm pad even with voxel/CSG
-        # tolerance; any over-length extends past the pad's -Y face
-        # into the arm-relief void (the bolt PCD = 10.4 mm radius
-        # sits well inside HORN_STACK_VOID_R = 18.5 mm), so the bolt
-        # hole punches through air there and doesn't remove material.
+        # Drill the 4 M2 clamp holes through the pad's 6 mm thickness
+        # (NEW y in [0, +6]).  Phi XHORN_BOLT_M2_SELFTAP_HOLE_OD =
+        # 2.2 mm clearance through the pad (M2 self-tap into the
+        # X-horn's Phi ~ 2.0 mm arm hole below; the X-horn provides
+        # the actual thread engagement).  Cylinder length =
+        # LINK_THICKNESS * 4 = 24 mm so the diff cleanly punches
+        # through the pad even with voxel/CSG tolerance.
         h = _cyl(XHORN_BOLT_M2_SELFTAP_HOLE_OD / 2.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
         h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
@@ -5726,16 +5692,11 @@ def make_femur_link() -> trimesh.Trimesh:
         hip_holes.append(h)
 
         # Counter-bore for the M2 SHCS head, opening AWAY from the
-        # X-horn (i.e. at the pad's +Y outer face).  The pad's outer
-        # face is at y = hip_pad_y_max = HORN_STACK_H + LINK_THICKNESS;
-        # the counter-bore cylinder extends from y = pad_y_max -
-        # COUNTERBORE_DEPTH back through the outer face by 0.05 mm of
-        # overshoot to guarantee a clean CSG cut.  Head TOP sits flush
-        # with the pad's outer +Y face, head BOTTOM at y =
-        # pad_y_max - 2 mm (M2 SHCS head height).  The remaining
-        # pad material (y in [hip_pad_y_min, hip_pad_y_max -
-        # COUNTERBORE_DEPTH] = [5, 8.5]) is the actual clamp face
-        # that bears against the X-horn arm at y = HORN_STACK_H = 5.
+        # X-horn (at the pad's +Y outer face).  Head TOP sits flush at
+        # NEW y = LINK_THICKNESS = +6; head BOTTOM at NEW y =
+        # LINK_THICKNESS - COUNTERBORE_DEPTH = +3.5.  The remaining
+        # pad material at NEW y in [0, +3.5] clamps the X-horn arm
+        # at the mating face (y = 0).
         cb_len = COUNTERBORE_DEPTH + 0.1
         cb = _cyl(M2_HEAD_OD_CLEARANCE / 2.0, cb_len)
         cb.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
@@ -5743,12 +5704,6 @@ def make_femur_link() -> trimesh.Trimesh:
                               hip_pad_y_max - cb_len / 2.0 + 0.05,
                               XHORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_counterbores.append(cb)
-
-    # (May 2026 solid-pad simplification: the previous Phi 16 mm
-    # x 1.2 mm hub-recess pocket on the pad's mating face is gone.
-    # The X-horn's hub top is flush with the arm-top plane at
-    # y = HORN_STACK_H, so a flat mating face is sufficient and there
-    # is nothing left to swallow.)
 
     # ---- Knee-end servo well -----------------------------------------
     # NB: the 4 M3 mounting pilots in the wall (drilled by
@@ -5775,8 +5730,19 @@ def make_femur_link() -> trimesh.Trimesh:
     well.apply_transform(R)
     wire_slot.apply_transform(R)
     cable_post.apply_transform(R)
+    # NEW (May 2026 collinear-pad refactor): the well's spline tip
+    # (at well-local z = SERVO_BODY_H + SERVO_OUTPUT_H, mapped to
+    # femur +Y after R) must still land on the knee joint axis.  The
+    # knee joint axis line is at NEW femur y = -HORN_STACK_H (= -5)
+    # because the link's NEW origin is the hip pad mating face (=
+    # HORN_STACK_H above the hip joint axis), so the well shifts an
+    # additional -HORN_STACK_H along femur Y compared with the OLD
+    # delta.  World coordinates of the knee servo / spline are
+    # unchanged: the whole leg shifts +HORN_STACK_H in coxa-Y as a
+    # rigid body, and the well shifts -HORN_STACK_H in the link's
+    # local frame to compensate.
     delta = np.array([FEMUR_LENGTH - SERVO_OUTPUT_X,
-                       -(SERVO_BODY_H + SERVO_OUTPUT_H),
+                       -(SERVO_BODY_H + SERVO_OUTPUT_H) - HORN_STACK_H,
                        0.0])
     well.apply_translation(delta)
     wire_slot.apply_translation(delta)
@@ -5788,8 +5754,10 @@ def make_femur_link() -> trimesh.Trimesh:
     # [+11, +17] (top flange) and [-17, -11] (bottom flange).  The well
     # wraps z in [-WELL_D/2, +WELL_D/2] = [-12.5, +12.5].  Each bridge
     # connects a spar flange to the well's wall at the same z.
-    spar_far_y      =  LINK_THICKNESS / 2.0           # +3 (spar's +Y face)
-    spar_near_y     = -LINK_THICKNESS / 2.0           # -3 (spar's -Y face)
+    # NEW (May 2026 collinear-pad refactor): spar at NEW y in [0, +6],
+    # so spar's +Y face = LINK_THICKNESS = +6 and -Y face = 0.
+    spar_far_y      =  LINK_THICKNESS                 # +6 (spar's +Y face)
+    spar_near_y     =  0.0                            # 0 (spar's -Y face)
     well_near_y     = WELL_RIM_Z + delta[1]           # well's +Y face
 
     # Embed the bridge 2.5 mm INTO the well's +Y wall (instead of the
@@ -5834,7 +5802,11 @@ def make_femur_link() -> trimesh.Trimesh:
     #     femur-Y extent; "the bridge cap extends 6 mm in well +Z past
     #     the well rim" was a coordinate-axis misread.  The well walls
     #     remain untouched.
-    bridge_y_max    = 0.0
+    # NEW (May 2026 collinear-pad refactor): spar centreline now at
+    # NEW y = +LINK_THICKNESS / 2 = +3 (was OLD y = 0), so the
+    # bridge_y_max shifts up by +3 to keep the same 3 mm of bridge /
+    # spar fuse on the spar's -Y half.
+    bridge_y_max    = LINK_THICKNESS / 2.0
     bridge_y_extent = bridge_y_max - bridge_y_min
     bridge_y_centre = (bridge_y_min + bridge_y_max) / 2.0
     bridge_x_extent = slot_x                          # span the body's x range
@@ -5930,21 +5902,29 @@ def make_femur_link() -> trimesh.Trimesh:
     # of radius HIP_PAD_R + 0.5 (the neck-torus outer wall plus the
     # 0.5 mm horn-stack clearance applied to the OUTER boundary by
     # voxelisation).
+    # NEW (May 2026 collinear-pad refactor): the tibia's pad + spar
+    # now share the same y range (tibia y in [0, +LINK_THICKNESS] =
+    # [0, +6]), and the tibia is placed at NEW femur (FEMUR_LENGTH,
+    # 0, 0) so the swept volume in NEW femur y is at [0, +6] (rotation
+    # about Y preserves Y).  Carve a Phi (2*(HIP_PAD_R+2.5)) = 45 mm
+    # cylinder along +Y centred on (FEMUR_LENGTH, +LINK_THICKNESS/2,
+    # 0) with 1.5 mm margin per side so the tibia clears the femur's
+    # spar / bridge volume at any knee pitch.
     knee_clear_R = HIP_PAD_R + 2.5
-    knee_clear_y_extent = HORN_STACK_H + LINK_THICKNESS / 2.0 + 1.0
+    knee_clear_y_extent = LINK_THICKNESS + 3.0    # 9 mm (1.5 mm margin / side)
     knee_clear = _cyl(knee_clear_R, knee_clear_y_extent)
     knee_clear.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))
     knee_clear.apply_translation(
-        [FEMUR_LENGTH, (HORN_STACK_H - LINK_THICKNESS / 2.0) / 2.0, 0.0]
+        [FEMUR_LENGTH, LINK_THICKNESS / 2.0, 0.0]
     )
 
     # Cable post (Part A, May 2026): printed-in zip-tie strain relief
     # next to the knee wire-exit slot.  Built in well-local and
     # transformed alongside ``wire_slot`` (R + delta) so it stays
     # anchored to the well's +X outer wall.
-    body = _union(hip_pad, hip_neck_stub, spar, well,
+    body = _union(hip_pad, spar, well,
                    bridge_top, bridge_bot, cable_post)
-    return _diff(body, hip_arm_relief, insertion_slot, wire_slot,
+    return _diff(body, insertion_slot, wire_slot,
                  cavity_trim, knee_clear,
                  *hip_holes, *hip_counterbores)
 
@@ -5952,10 +5932,25 @@ def make_femur_link() -> trimesh.Trimesh:
 def make_tibia_link() -> trimesh.Trimesh:
     """Tibia (shin).
 
-    Local frame:
-        origin = KNEE joint axis (servo output spline centre)
+    Local frame (May 2026 collinear-pad refactor):
+        Origin: knee pad mating face (= the knee X-horn-top arm plane
+                that the tibia bolts down onto).  The knee joint axis
+                (= servo output spline tip) lives at link y =
+                -HORN_STACK_H = -5 mm, HORN_STACK_H mm BELOW the
+                local origin along link -Y.  Pre-refactor the origin
+                used to be the knee joint axis with the pad raised
+                to y = +HORN_STACK_H, which made the link an L-shape
+                in side view (pad above spar by 8 mm).  The new
+                convention puts pad + spar in the SAME y range
+                (y in [0, +LINK_THICKNESS] = [0, +6]).
         +X = spar long-axis (foot socket at x = TIBIA_LENGTH)
-        +Y = knee joint axis (parallel to the hip-pitch axis)
+        +Y = knee joint axis direction; points AWAY from the X-horn
+             into the link body.  Pad and spar both span y in
+             [0, +LINK_THICKNESS] = [0, +6] -- no L-bend in side
+             view.  The single-tang foot end is in-plane with the
+             spar (also at y in [0, +6]); the only sub-y=0 feature
+             is the X-horn envelope BELOW the pad which is cleared
+             by construction (no link material below y = 0).
         +Z = perpendicular to spar, in the leg's plane of motion
 
     Knee end: a square pad centred on the joint axis (x=0, z=0) with
@@ -5977,56 +5972,39 @@ def make_tibia_link() -> trimesh.Trimesh:
     the protrusion; the hinge axis, pin, nut and rotational
     kinematics are otherwise identical to the old design.
     """
+    # NEW (May 2026 collinear-pad refactor): spar centred at NEW
+    # tibia y = +LINK_THICKNESS / 2 = +3, spanning y in
+    # [0, +LINK_THICKNESS] = [0, +6] -- same y range as the knee pad
+    # below.
+    SPAR_Y_CENTRE = LINK_THICKNESS / 2.0
     spar = _box((TIBIA_LENGTH, LINK_THICKNESS, TIBIA_SPAR_H),
-                center=(TIBIA_LENGTH / 2.0, 0, 0))
+                center=(TIBIA_LENGTH / 2.0, SPAR_Y_CENTRE, 0))
 
-    # Knee pad + 2 mm spar-to-pad stub: see make_femur_link's
-    # "Hip-end pad + 2 mm spar-to-pad stub" section for the full
-    # design rationale and the May 2026 solid-pad simplification
-    # commit.  Geometry is identical for both joints because the
-    # X-horn / bolt-pattern / HORN_STACK_H / HIP_PAD_R / LINK_THICKNESS
-    # constants are shared and the joint axis sits at y = 0 in both
-    # link-local frames.
-    knee_pad_centre_y = HORN_STACK_H + LINK_THICKNESS / 2.0    # +8
-    knee_pad_y_min    = HORN_STACK_H                            # +5
-    knee_pad_y_max    = HORN_STACK_H + LINK_THICKNESS           # +11
+    # ---- Knee-end pad -----------------------------------------------
+    # Mirrors make_femur_link's hip pad (same X-horn, same
+    # XHORN_BOLT_PCD, same LINK_THICKNESS); see that docstring for
+    # the May 2026 collinear-pad refactor rationale.  Pad mating
+    # face at NEW y = 0 (= knee X-horn-top plane); pad outer face at
+    # NEW y = +LINK_THICKNESS = +6.  No neck-stub annulus and no
+    # arm-relief cup -- the link has no material at NEW y < 0 so the
+    # X-horn envelope (arms, hub, gearbox cap) is cleared by
+    # construction.
+    knee_pad_y_min    = 0.0
+    knee_pad_y_max    = LINK_THICKNESS
+    knee_pad_centre_y = LINK_THICKNESS / 2.0
     knee_pad = _cyl_along(HIP_PAD_R,
                            knee_pad_y_max - knee_pad_y_min,
                            axis="y")
     knee_pad.apply_translation([0, knee_pad_y_min, 0])
 
-    # 2 mm-tall spar-to-pad stub annulus at y in [+3, +5].  Outer
-    # cylinder; the arm_relief_void below hollows out the interior
-    # at r < HORN_STACK_VOID_R so only the 1.5 mm-thick ring at
-    # r in [18.5, 20] remains -- the structural bridge from the
-    # spar's +Y face (y = +3) up to the pad's mating face (y = +5).
-    knee_neck_stub = _cyl_along(HIP_PAD_R,
-                                 HORN_STACK_H - LINK_THICKNESS / 2.0,
-                                 axis="y")
-    knee_neck_stub.apply_translation([0, LINK_THICKNESS / 2.0, 0])
-    # X-horn clearance void.  See make_femur_link for the full
-    # rationale -- the void's nominal envelope is y in [0, +5] at
-    # r < HORN_STACK_VOID_R, exactly the X-horn's physical footprint;
-    # 0.05 mm CSG overshoots at each end clean up voxel artefacts at
-    # the pad-bottom and joint-axis boundaries.
-    arm_relief_y_lo = -0.05
-    arm_relief_y_hi = HORN_STACK_H + 0.05                       # +5.05
-    knee_arm_relief = _cyl_along(HORN_STACK_VOID_R,
-                                  arm_relief_y_hi - arm_relief_y_lo,
-                                  axis="y")
-    knee_arm_relief.apply_translation([0, arm_relief_y_lo, 0])
-
     knee_holes = []
     knee_counterbores = []
     for a in XHORN_BOLT_ANGLES_RAD:
-        # Bolt holes drilled through the PAD ONLY (y in [+5, +11]).
-        # Phi XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm M2 clearance
-        # through the pad (M2 self-tap into the X-horn's Phi ~ 2.0 mm
-        # arm hole below).  The bolt-PCD radius (10.4 mm) is INSIDE
-        # the horn-stack void (HORN_STACK_VOID_R = 18.5 mm), so any
-        # over-long hole punches through air inside the ring/void and
-        # doesn't remove material.  See make_femur_link for the May
-        # 2026 M3 -> M2 X-horn fastener-spec fix history.
+        # Bolt holes drilled through the 6 mm pad (NEW y in [0, +6]).
+        # Phi XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm M2 clearance;
+        # the X-horn provides the actual thread engagement below the
+        # mating face.  Cylinder length oversized to LINK_THICKNESS * 4
+        # so the diff cleanly punches through with voxel/CSG slop.
         h = _cyl(XHORN_BOLT_M2_SELFTAP_HOLE_OD / 2.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
         h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
@@ -6035,12 +6013,10 @@ def make_tibia_link() -> trimesh.Trimesh:
         knee_holes.append(h)
 
         # Counter-bore for the M2 SHCS head, opening AWAY from the
-        # X-horn (at the knee pad's +Y outer face).  Same geometry as
-        # make_femur_link's hip_counterbores: Phi 4 mm pocket 2.5 mm
-        # deep, with the head TOP flush at the pad's outer face.  The
-        # head BOTTOM is at y = knee_pad_y_max - 2 mm; the remaining
-        # 3.5 mm of pad material below the counter-bore clamps the
-        # X-horn arm at y = HORN_STACK_H.
+        # X-horn at NEW y = LINK_THICKNESS (+6).  Head BOTTOM at
+        # NEW y = LINK_THICKNESS - COUNTERBORE_DEPTH = +3.5.  Bearing
+        # face at NEW y = +3.5 leaves 3.5 mm of pad material clamping
+        # the X-horn arm at the mating face (y = 0).
         cb_len = COUNTERBORE_DEPTH + 0.1
         cb = _cyl(M2_HEAD_OD_CLEARANCE / 2.0, cb_len)
         cb.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
@@ -6048,10 +6024,6 @@ def make_tibia_link() -> trimesh.Trimesh:
                               knee_pad_y_max - cb_len / 2.0 + 0.05,
                               XHORN_BOLT_PCD / 2.0 * np.sin(a)])
         knee_counterbores.append(cb)
-
-    # (May 2026 solid-pad simplification: the previous Phi 16 mm
-    # x 1.2 mm hub-recess pocket on the knee pad's -Y mating face is
-    # gone.  See make_femur_link for the full rationale.)
 
     # ----- Foot tang at the far end (x ~ TIBIA_LENGTH) -----
     # May 2026 inversion: the tibia ends in a SINGLE TANG that is
@@ -6082,10 +6054,15 @@ def make_tibia_link() -> trimesh.Trimesh:
 
     tang_z_min = FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN          # -15
     tang_z_max = TIBIA_SPAR_H / 2.0                                # +9
+    # NEW (May 2026 collinear-pad refactor): tang stays in-plane with
+    # the spar (centred at NEW y = +LINK_THICKNESS / 2 = +3) so the
+    # whole tibia is uniformly LINK_THICKNESS-wide in Y from the
+    # knee pad through to the foot tang -- preserves the
+    # "supports-free flat-on-bed" print orientation.
     tang = _box((tang_dx,
                   LINK_THICKNESS,
                   tang_z_max - tang_z_min),
-                 center=(tang_cx, 0.0,
+                 center=(tang_cx, SPAR_Y_CENTRE,
                           (tang_z_max + tang_z_min) / 2.0))
 
     # Pin hole through the tang (single bore in tibia Y).  Length =
@@ -6093,13 +6070,13 @@ def make_tibia_link() -> trimesh.Trimesh:
     # even with FDM/Hildebrand voxelisation slop.
     pin_hole = _cyl(FOOT_HINGE_PIN_HOLE_D / 2.0, LINK_THICKNESS * 4.0)
     pin_hole.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-    pin_hole.apply_translation([TIBIA_LENGTH, 0.0, FOOT_HINGE_TIBIA_Z])
+    pin_hole.apply_translation([TIBIA_LENGTH, SPAR_Y_CENTRE, FOOT_HINGE_TIBIA_Z])
 
     # A short taper to blend the spar into the tang.  Sits on the
     # spar centreline; in Y it matches the spar (LINK_THICKNESS) so
     # the whole tibia keeps a single Y thickness end-to-end.
     taper = _box((24.0, LINK_THICKNESS * 0.95, TIBIA_SPAR_H * 0.6),
-                 center=(TIBIA_LENGTH - 12.0, 0, -3.0))
+                 center=(TIBIA_LENGTH - 12.0, SPAR_Y_CENTRE, -3.0))
 
     lightening = []
     n_holes = 4
@@ -6107,12 +6084,12 @@ def make_tibia_link() -> trimesh.Trimesh:
         x = (i + 1) * TIBIA_LENGTH / (n_holes + 2)
         h = _cyl(5.5, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-        h.apply_translation([x, 0, 0])
+        h.apply_translation([x, SPAR_Y_CENTRE, 0])
         lightening.append(h)
 
-    body = _union(knee_pad, knee_neck_stub, spar, taper, tang)
-    return _diff(body, knee_arm_relief, *knee_holes,
-                 *knee_counterbores, pin_hole, *lightening)
+    body = _union(knee_pad, spar, taper, tang)
+    return _diff(body, *knee_holes, *knee_counterbores,
+                 pin_hole, *lightening)
 
 
 def make_foot_pad() -> trimesh.Trimesh:
@@ -6260,24 +6237,30 @@ def _leg_in_body_frame(leg_index: int) -> trimesh.Trimesh:
     # COXA_LIFT formula used inside make_coxa_link.  See COXA_HIP_DROP's
     # docstring near the top of this file for the derivation.
     hip_joint_local = np.array([COXA_LENGTH, 0.0, COXA_HIP_DROP])
+    # NEW (May 2026 collinear-pad refactor): the femur's NEW local
+    # origin is its hip pad mating face, which sits HORN_STACK_H above
+    # the joint axis along femur +Y.  Femur +Y is parallel to coxa +Y
+    # here (both are the hip-pitch joint axis direction), so we add
+    # HORN_STACK_H to coxa-Y when placing the femur.  Pre-refactor
+    # the femur's origin was on the joint axis itself (no +Y offset).
+    # The same +HORN_STACK_H offset carries through the chain to the
+    # tibia / foot since the whole leg translates as a rigid body.
+    PAD_AXIS_OFFSET = np.array([0.0, HORN_STACK_H, 0.0])
 
     fl = make_femur_link()
     fl.apply_transform(rotation_matrix(np.deg2rad(STANCE_FEMUR_DEG),
                                         [0, 1, 0]))
-    # Femur's local origin sits ON the hip joint axis (the bolt-circle
-    # centre of its hip pad), so we translate the femur so (0,0,0)
-    # lands on hip_joint_local.
-    fl.apply_translation(hip_joint_local)
+    fl.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     fl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     fl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts.append(fl)
 
     # ------------------- Tibia ----------------------------------------
-    # In femur-local coords the knee joint axis is at (FEMUR_LENGTH,
-    # 0, 0) -- right on the spar centreline at the spar's far end.
-    # After femur rotation about Y by `p` it becomes
-    # R_y(p) @ (FEMUR_LENGTH, 0, 0) in coxa-link local, plus the
-    # femur's hip-end translation.
+    # In NEW femur-local coords the knee X-horn-top plane (= tibia's
+    # NEW local origin = tibia pad mating face) is at (FEMUR_LENGTH,
+    # 0, 0).  After femur rotation about Y by `p` and translation by
+    # (hip_joint_local + PAD_AXIS_OFFSET) the tibia's NEW origin
+    # lands at (knee_joint_local + PAD_AXIS_OFFSET) in coxa frame.
     p  = np.deg2rad(STANCE_FEMUR_DEG)
     pt = np.deg2rad(STANCE_FEMUR_DEG + STANCE_TIBIA_DEG)
     Ry_p = rotation_matrix(p, [0, 1, 0])[:3, :3]
@@ -6286,26 +6269,22 @@ def _leg_in_body_frame(leg_index: int) -> trimesh.Trimesh:
 
     tl = make_tibia_link()
     tl.apply_transform(rotation_matrix(pt, [0, 1, 0]))
-    tl.apply_translation(knee_joint_local)
+    tl.apply_translation(knee_joint_local + PAD_AXIS_OFFSET)
     tl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     tl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts.append(tl)
 
     # ------------------- Foot at tibia tip ----------------------------
     # The foot pivots about the hinge pin captured by the tibia's
-    # clevis at (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z) in tibia-local.
-    # We place the foot pad so its own hinge hole (at foot-local
-    # (0, 0, FOOT_HINGE_FOOT_Z)) lands on the same world point.  The
-    # foot is NOT rotated to follow the tibia's pitch -- it hangs on
-    # the hinge so its disk stays roughly horizontal on the ground
-    # (mimicking passive ankle compliance).  We do rotate it about Z
-    # by the leg's azimuth ``a`` so the foot's tongue (whose broad
-    # faces have normals +/-Y in foot-local) lines up with the
-    # tibia's knee-axis Y (also rotated by a).
+    # tang.  In NEW tibia-local the hinge axis is at (TIBIA_LENGTH,
+    # +LINK_THICKNESS / 2, FOOT_HINGE_TIBIA_Z) because the tang is
+    # in-plane with the spar (centred at y = LINK_THICKNESS / 2);
+    # pre-refactor the tang was centred at y = 0.
     Ry_pt = rotation_matrix(pt, [0, 1, 0])[:3, :3]
-    hinge_local = knee_joint_local + Ry_pt @ np.array(
-        [TIBIA_LENGTH, 0.0, FOOT_HINGE_TIBIA_Z]
-    )
+    hinge_local = (knee_joint_local + PAD_AXIS_OFFSET
+                    + Ry_pt @ np.array([TIBIA_LENGTH,
+                                          LINK_THICKNESS / 2.0,
+                                          FOOT_HINGE_TIBIA_Z]))
     R_a = rotation_matrix(a, [0, 0, 1])[:3, :3]
     hinge_world = R_a @ hinge_local + edge_mid + yaw_output_z * z_hat
 

@@ -109,6 +109,11 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
     arm_t = 6.0
     hip_drop = HP.COXA_HIP_DROP
     hip_joint_local = np.array([HP.COXA_LENGTH, 0.0, hip_drop])
+    # NEW (May 2026 collinear-pad refactor): femur / tibia local
+    # origins are pad mating faces, +HORN_STACK_H above the joint
+    # axis along link +Y; the whole leg translates +HORN_STACK_H in
+    # coxa-Y as a rigid body relative to the joint axes.
+    PAD_AXIS_OFFSET = np.array([0.0, HP.HORN_STACK_H, 0.0])
 
     Ry_p_3  = rotation_matrix(p_femur, [0, 1, 0])[:3, :3]
     Ry_pt_3 = rotation_matrix(p_tibia, [0, 1, 0])[:3, :3]
@@ -171,43 +176,54 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
     # ---- femur (pitched about leg-local +Y by STANCE_FEMUR_DEG)
     fl = HP.make_femur_link()
     fl.apply_transform(rotation_matrix(p_femur, [0, 1, 0]))
-    fl.apply_translation(hip_joint_local)
+    fl.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     to_world(fl)
     parts["femur_link"] = fl
 
-    # ---- knee servo body (lives at femur's far end)
+    # ---- knee servo body (lives at femur's far end; NEW: extra
+    # -HORN_STACK_H in femur-Y keeps world position unchanged)
     knee_servo = HP.make_servo_body()
     knee_servo.apply_transform(R_hip)
     knee_servo.apply_translation([
         HP.FEMUR_LENGTH - HP.SERVO_OUTPUT_X,
-        -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H),
+        -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H) - HP.HORN_STACK_H,
         0,
     ])
     knee_servo.apply_transform(rotation_matrix(p_femur, [0, 1, 0]))
-    knee_servo.apply_translation(hip_joint_local)
+    knee_servo.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     to_world(knee_servo)
     parts["knee_servo"] = knee_servo
 
-    # ---- knee horn adapter
+    # ---- knee horn adapter (knee X-horn-top plane is at NEW femur
+    # y = 0 = +HORN_STACK_H above the joint axis at femur y =
+    # -HORN_STACK_H; the adapter top face sits PLASTIC_HORN_H above
+    # the joint axis along femur +Y, i.e. at NEW femur y = 0)
     knee_adapter = HP.make_servo_horn_adapter()
     knee_adapter.apply_transform(R_hip)
-    knee_adapter.apply_translation([HP.FEMUR_LENGTH, PLASTIC_HORN_H, 0])
+    knee_adapter.apply_translation([HP.FEMUR_LENGTH,
+                                     PLASTIC_HORN_H - HP.HORN_STACK_H,
+                                     0])
     knee_adapter.apply_transform(rotation_matrix(p_femur, [0, 1, 0]))
-    knee_adapter.apply_translation(hip_joint_local)
+    knee_adapter.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     to_world(knee_adapter)
     parts["knee_horn_adapter"] = knee_adapter
 
     # ---- tibia (rotates with knee-pitch)
     tl = HP.make_tibia_link()
     tl.apply_transform(rotation_matrix(p_tibia, [0, 1, 0]))
-    tl.apply_translation(knee_joint_local)
+    tl.apply_translation(knee_joint_local + PAD_AXIS_OFFSET)
     to_world(tl)
     parts["tibia_link"] = tl
 
     # ---- foot pad (hangs on the clevis pin; NOT pitched with tibia)
-    hinge_local = knee_joint_local + Ry_pt_3 @ np.array(
-        [HP.TIBIA_LENGTH, 0.0, HP.FOOT_HINGE_TIBIA_Z]
-    )
+    # NEW (May 2026 collinear-pad refactor): hinge axis in NEW
+    # tibia-local at (TIBIA_LENGTH, +LINK_THICKNESS/2,
+    # FOOT_HINGE_TIBIA_Z) -- tang in-plane with spar.
+    hinge_local = (knee_joint_local + PAD_AXIS_OFFSET
+                    + Ry_pt_3 @ np.array(
+                        [HP.TIBIA_LENGTH,
+                         HP.LINK_THICKNESS / 2.0,
+                         HP.FOOT_HINGE_TIBIA_Z]))
     hinge_world = R_a_3 @ hinge_local + yaw_output_world
 
     foot = HP.make_foot_pad()
@@ -243,6 +259,9 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
         0, 0,
         (HP.SERVO_BODY_H - HP.WELL_RIM_Z) + HP.SERVO_OUTPUT_H,
     ])
+    # landmarks track the JOINT AXES (lines in world); these are
+    # unchanged from pre-refactor and remain on the joint-axis itself,
+    # NOT shifted by +HORN_STACK_H.
     landmarks["hip_joint"] = (R_a_3 @ np.array([HP.COXA_LENGTH, 0.0, hip_drop])
                               + yaw_output_world)
     landmarks["knee_joint"] = R_a_3 @ knee_joint_local + yaw_output_world

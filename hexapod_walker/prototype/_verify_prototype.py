@@ -1268,6 +1268,12 @@ def _build_standing_leg():
     yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
+    # NEW (May 2026 collinear-pad refactor): the femur / tibia local
+    # origins are now their PAD MATING FACES = HORN_STACK_H above the
+    # joint axes along link +Y, so the link translations add
+    # HORN_STACK_H in coxa-Y.  See hexapod_prototype._leg_in_body_frame
+    # for the full derivation.
+    PAD_AXIS_OFFSET = np.array([0.0, hp.HORN_STACK_H, 0.0])
 
     p = np.deg2rad(hp.STANCE_FEMUR_DEG)
     pt = np.deg2rad(hp.STANCE_FEMUR_DEG + hp.STANCE_TIBIA_DEG)
@@ -1283,14 +1289,14 @@ def _build_standing_leg():
 
     fl = _load_mesh("femur_link")
     fl.apply_transform(rotation_matrix(p, [0, 1, 0]))
-    fl.apply_translation(hip_joint_local)
+    fl.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     fl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     fl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts["femur_link"] = fl
 
     tl = _load_mesh("tibia_link")
     tl.apply_transform(rotation_matrix(pt, [0, 1, 0]))
-    tl.apply_translation(knee_joint_local)
+    tl.apply_translation(knee_joint_local + PAD_AXIS_OFFSET)
     tl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     tl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts["tibia_link"] = tl
@@ -1418,16 +1424,20 @@ def _place_servo_bodies():
     hip.apply_translation(yaw_output_world)
 
     # ----- Knee servo: sits in the femur-link cradle.  Pre-rotate by femur
-    # pitch like the link itself. -----
+    # pitch like the link itself.  NEW (May 2026 collinear-pad
+    # refactor): the femur's NEW origin is the pad mating face, so
+    # the well lives HORN_STACK_H DEEPER in femur-local -Y; the
+    # femur translation simultaneously shifts +HORN_STACK_H in coxa-Y
+    # so the servo body's world position is unchanged. -----
     knee = _load_mesh("servo_body")
     knee.apply_transform(R_hip)
     knee.apply_translation([
         hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X,
-        -(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
+        -(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H) - hp.HORN_STACK_H,
         0.0,
     ])
     knee.apply_transform(rotation_matrix(p, [0, 1, 0]))
-    knee.apply_translation(hip_joint_local)
+    knee.apply_translation(hip_joint_local + np.array([0.0, hp.HORN_STACK_H, 0.0]))
     knee.apply_transform(R_a)
     knee.apply_translation(yaw_output_world)
 
@@ -1565,17 +1575,35 @@ def check_horn_stack_clearance():
     R = hp.HORN_STACK_VOID_R
     H = hp.HORN_STACK_H
 
+    # NEW (May 2026 collinear-pad refactor): the link's local origin
+    # is the pad MATING FACE = the X-horn-top plane, so the X-horn
+    # envelope lives at y in [-HORN_STACK_H, 0] = [-5, 0] in NEW
+    # link-local coordinates (was y in [0, +HORN_STACK_H] when the
+    # link origin sat on the joint axis).  Probe range matches the
+    # X-horn's physical envelope; the link should have NO material in
+    # that half-space by construction (pad solid starts at NEW y = 0,
+    # spar / well / bridges live elsewhere).
+    #
+    # CSG margin: shift the probe DOWN by ``BOUNDARY_EPS`` mm so its
+    # top face doesn't share a plane with the pad's -Y mating face
+    # at NEW y = 0.  Without this the 6-ray inside-test gives
+    # boundary-coincident false positives on the pad-bottom voxel
+    # row (~ 700-1700 mm^3 of voxel-grid stair-step artefact on a
+    # mesh whose -Y face lies EXACTLY at the probe's +Y face) even
+    # though ``mesh.contains`` correctly returns False there.  This
+    # mirrors the 0.05 mm CSG overshoots the pre-refactor design
+    # baked into the cup's y_hi to avoid the same boundary noise.
+    BOUNDARY_EPS = 0.05
     print(f"\n[5b] Horn-stack clearance (Phi {2*R:.1f} mm x {H:.1f} mm tall, "
-          f"centred on joint axis, y in [0, {H:.1f}]):")
+          f"centred on joint axis, y in [-{H:.1f}, -{BOUNDARY_EPS:.2f}]):")
 
     # The horn-stack cylinder template is along +Y in part-local frame,
     # which is exactly the joint axis direction in both make_femur_link
-    # and make_tibia_link.  The yaw joint's "driven" side is the
-    # coxa_link, whose horn stack lives BELOW its z=0 origin (outside
-    # the link's printed volume) and so doesn't need this test.
-    # _cyl_along already places the cylinder with one end at y=0 and
-    # the other end at +length, so no extra translation is needed.
+    # and make_tibia_link.  Translate by -H - BOUNDARY_EPS so the
+    # cylinder spans NEW link y in [-H - eps, -eps] (= a hair below
+    # the X-horn-top plane down to a hair below the spline tip).
     stack = hp._cyl_along(R, H, axis="y")
+    stack.apply_translation([0.0, -H - BOUNDARY_EPS, 0.0])
 
     cases = [
         ("femur_link  (hip-pitch joint)", _load_mesh("femur_link",
@@ -2765,6 +2793,9 @@ def _build_workspace_leg(yaw_deg, femur_pitch_deg, knee_pitch_deg,
     yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
+    # NEW (May 2026 collinear-pad refactor): femur / tibia local
+    # origins are pad mating faces, so add +HORN_STACK_H in coxa-Y.
+    PAD_AXIS_OFFSET = np.array([0.0, hp.HORN_STACK_H, 0.0])
 
     yaw_rad = np.deg2rad(yaw_deg)
     p  = np.deg2rad(femur_pitch_deg)
@@ -2787,7 +2818,7 @@ def _build_workspace_leg(yaw_deg, femur_pitch_deg, knee_pitch_deg,
 
     fl = templates["femur_link"].copy()
     fl.apply_transform(rotation_matrix(p, [0, 1, 0]))
-    fl.apply_translation(hip_joint_local)
+    fl.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     fl.apply_transform(R_yaw)
     fl.apply_transform(R_a)
     fl.apply_translation(yaw_output_world)
@@ -2795,7 +2826,7 @@ def _build_workspace_leg(yaw_deg, femur_pitch_deg, knee_pitch_deg,
 
     tl = templates["tibia_link"].copy()
     tl.apply_transform(rotation_matrix(pt, [0, 1, 0]))
-    tl.apply_translation(knee_joint_local)
+    tl.apply_translation(knee_joint_local + PAD_AXIS_OFFSET)
     tl.apply_transform(R_yaw)
     tl.apply_transform(R_a)
     tl.apply_translation(yaw_output_world)
@@ -3243,8 +3274,10 @@ def check_horn_pattern_in_pad():
         #   femur/tibia knee/hip pads, "z" for the coxa_link's
         #   pedestal-bottom mating face).
         # ``mating_face_coord``: the position of the mating face on
-        #   *pad_axis*.  For femur/tibia, it's y = HORN_STACK_H = +5.
-        #   For coxa_link, the pad's bottom is at z = 0 in link frame.
+        #   *pad_axis*.  May 2026 collinear-pad refactor: for the
+        #   femur/tibia the mating face is now the link's NEW local
+        #   origin (y = 0); pre-refactor it was at y = HORN_STACK_H.
+        #   For coxa_link, the pad's bottom is still at z = 0.
         # ``mating_normal_sign``: which way the recess opens from the
         #   mating face.  Femur/tibia mating face faces -Y (toward the
         #   horn below); the (former) recess opened in -Y, removing
@@ -3262,10 +3295,10 @@ def check_horn_pattern_in_pad():
          "z", 0.0,                          +1.0,  True),
         ("femur_link (hip-pitch joint)",  _load_mesh("femur_link",
                                                        copy=False),
-         "y", hp.HORN_STACK_H,              +1.0,  False),
+         "y", 0.0,                          +1.0,  False),
         ("tibia_link (knee-pitch joint)", _load_mesh("tibia_link",
                                                        copy=False),
-         "y", hp.HORN_STACK_H,              +1.0,  False),
+         "y", 0.0,                          +1.0,  False),
     ]
 
     # The pad's full thickness in the pad-axis direction.  For
@@ -3516,10 +3549,14 @@ def check_cradle_insert_pockets():
         return m
 
     def _femur_link_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        # NEW (May 2026 collinear-pad refactor): the femur's NEW
+        # origin is the pad mating face, so the well sits HORN_STACK_H
+        # DEEPER in femur-local -Y than pre-refactor; invert delta_y
+        # by adding HORN_STACK_H to map the femur mesh into well-local.
         m = mesh.copy()
         m.apply_translation([
             -(hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X),
-            +(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
+            +(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H) + hp.HORN_STACK_H,
             0.0,
         ])
         m.apply_transform(R_inv)
@@ -3873,10 +3910,14 @@ def check_servo_insertion_path():
         return m
 
     def _femur_link_to_well_local(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        # NEW (May 2026 collinear-pad refactor): the femur's NEW
+        # origin is the pad mating face, so the well sits HORN_STACK_H
+        # DEEPER in femur-local -Y than pre-refactor; invert delta_y
+        # by adding HORN_STACK_H to map the femur mesh into well-local.
         m = mesh.copy()
         m.apply_translation([
             -(hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X),
-            +(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H),
+            +(hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H) + hp.HORN_STACK_H,
             0.0,
         ])
         m.apply_transform(R_inv)
@@ -4065,6 +4106,10 @@ def _build_world_leg0_printed_parts() -> dict:
     yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
+    # NEW (May 2026 collinear-pad refactor): femur / tibia local
+    # origins are pad mating faces, +HORN_STACK_H above the joint
+    # axis in link Y.
+    PAD_AXIS_OFFSET = np.array([0.0, hp.HORN_STACK_H, 0.0])
 
     p = np.deg2rad(hp.STANCE_FEMUR_DEG)
     pt = np.deg2rad(hp.STANCE_FEMUR_DEG + hp.STANCE_TIBIA_DEG)
@@ -4140,22 +4185,26 @@ def _build_world_leg0_printed_parts() -> dict:
 
     fl = _load_mesh("femur_link")
     fl.apply_transform(rotation_matrix(p, [0, 1, 0]))
-    fl.apply_translation(hip_joint_local)
+    fl.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     fl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     fl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts["femur_link"] = fl
 
     tl = _load_mesh("tibia_link")
     tl.apply_transform(rotation_matrix(pt, [0, 1, 0]))
-    tl.apply_translation(knee_joint_local)
+    tl.apply_translation(knee_joint_local + PAD_AXIS_OFFSET)
     tl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     tl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts["tibia_link"] = tl
 
-    # Foot pad world location (mirrors inspect_build._build_assembly_instances).
+    # Foot pad world location.  NEW (May 2026 collinear-pad refactor):
+    # hinge axis in NEW tibia-local is at (TIBIA_LENGTH,
+    # +LINK_THICKNESS/2, FOOT_HINGE_TIBIA_Z) -- the tang follows the
+    # spar.  Add PAD_AXIS_OFFSET to keep the world position correct.
     Ry_pt = rotation_matrix(pt, [0, 1, 0])[:3, :3]
-    hinge_local = (knee_joint_local
-                   + Ry_pt @ np.array([hp.TIBIA_LENGTH, 0.0,
+    hinge_local = (knee_joint_local + PAD_AXIS_OFFSET
+                   + Ry_pt @ np.array([hp.TIBIA_LENGTH,
+                                       hp.LINK_THICKNESS / 2.0,
                                        hp.FOOT_HINGE_TIBIA_Z]))
     R_a = rotation_matrix(a, [0, 0, 1])[:3, :3]
     hinge_world = R_a @ hinge_local + edge_mid + yaw_output_z * z_hat

@@ -373,21 +373,36 @@ def _build_assembly_instances() -> list[Instance]:
 
         # ----- yaw servo body (hangs below chassis_bottom in its
         #       integrated cradle; May 2026 chassis_bottom-integrated
-        #       yaw cradle redesign retired the standalone coxa_bracket)
-        T_yaw_body = T_edge @ _trans(-HP.SERVO_OUTPUT_X, 0, -HP.WELL_RIM_Z)
+        #       yaw cradle redesign retired the standalone coxa_bracket).
+        #
+        # Anchor: the cradle's tab shelf is +8 mm UP from the legacy
+        # bracket shelf (was at chassis-z = 0).  Build it from the same
+        # constants ``build_prototype_assembly._build_leg`` uses so the
+        # two views can never drift apart again.
+        cradle_shelf_z = HP.CHASSIS_PLATE_T / 2.0 + HP.CRADLE_TAB_SHELF_Z
+        T_yaw_body = T_edge @ _trans(
+            -HP.SERVO_OUTPUT_X, 0,
+            cradle_shelf_z - HP.WELL_RIM_Z,
+        )
         instances.append(Instance(
             "servo_body", "servo_body.stl", i, "yaw", T_yaw_body,
         ))
 
-        # ----- yaw plastic horn (above the bracket flange).  Design B
+        # ----- yaw plastic horn (above the cradle shelf).  Design B
         # (May 2026): the link's pad now bolts DIRECTLY onto this
         # plastic horn -- no printed servo_horn_adapter disc in the
         # stack any more.  The coxa_link's pedestal bottom mating face
         # therefore lands at z = yaw_horn_z + PLASTIC_HORN_H (= the
-        # plastic horn's top face) rather than yaw_horn_z +
-        # PLASTIC_HORN_H + HORN_ADAPTER_T.  yaw_output_z above already
-        # reflects this.
-        yaw_horn_z = (HP.SERVO_BODY_H - HP.WELL_RIM_Z) + HP.SERVO_OUTPUT_H
+        # plastic horn's top face) which must equal
+        # ``HP.CHASSIS_YAW_OUTPUT_Z`` -- i.e. the same +29.75 mm the
+        # coxa_link is anchored to via ``yaw_output_world``.  If you
+        # ever see the link floating above the horn, this is where the
+        # bug will be.
+        yaw_horn_z = (
+            cradle_shelf_z
+            + (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
+            + HP.SERVO_OUTPUT_H
+        )
         T_yaw_horn = T_edge @ _trans(0, 0, yaw_horn_z)
         instances.append(Instance(
             "servo_horn", "servo_horn.stl", i, "yaw", T_yaw_horn,
@@ -418,16 +433,29 @@ def _build_assembly_instances() -> list[Instance]:
         ))
 
         # ----- femur link (rotated by hip-pitch stance angle)
+        # NEW (May 2026 collinear-pad refactor): the femur's NEW local
+        # origin is its hip pad mating face = HORN_STACK_H above the
+        # joint axis along leg +Y, so the femur translation shifts
+        # +HORN_STACK_H in coxa-Y compared with the pre-refactor
+        # placement on the joint axis.
         hip_joint_local = np.array([HP.COXA_LENGTH, 0, hip_drop])
-        T_femur = T_yaw_out @ _trans(*hip_joint_local) @ _rot_y(p_femur)
+        pad_axis_offset = np.array([0.0, HP.HORN_STACK_H, 0.0])
+        T_femur = (T_yaw_out
+                    @ _trans(*(hip_joint_local + pad_axis_offset))
+                    @ _rot_y(p_femur))
         instances.append(Instance(
             "femur_link", "femur_link.stl", i, None, T_femur,
         ))
 
         # ----- knee-pitch servo body (in the femur cradle)
+        # NEW (May 2026 collinear-pad refactor): in NEW femur-local
+        # the well sits HORN_STACK_H deeper in -Y so the servo body's
+        # world position is unchanged (the femur's transform shifted
+        # +HORN_STACK_H above, the well shifts -HORN_STACK_H here,
+        # net zero in world).
         delta_knee = np.array([
             HP.FEMUR_LENGTH - HP.SERVO_OUTPUT_X,
-            -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H),
+            -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H) - HP.HORN_STACK_H,
             0.0,
         ])
         T_knee_body = T_femur @ _trans(*delta_knee) @ R_hip
@@ -437,8 +465,12 @@ def _build_assembly_instances() -> list[Instance]:
 
         # ----- knee plastic horn.  Design B (May 2026): tibia's knee
         # pad bolts DIRECTLY onto this plastic horn; the printed
-        # servo_horn_adapter is gone.
-        T_knee_horn = T_femur @ _trans(HP.FEMUR_LENGTH, 0, 0) @ R_hip
+        # servo_horn_adapter is gone.  May 2026 collinear-pad refactor:
+        # the knee X-horn lives on the knee axis at NEW femur-y =
+        # -HORN_STACK_H (the joint axis is HORN_STACK_H below the
+        # NEW link origin); world position unchanged.
+        T_knee_horn = T_femur @ _trans(HP.FEMUR_LENGTH,
+                                        -HP.HORN_STACK_H, 0) @ R_hip
         instances.append(Instance(
             "servo_horn", "servo_horn.stl", i, "knee", T_knee_horn,
         ))
@@ -448,16 +480,24 @@ def _build_assembly_instances() -> list[Instance]:
         knee_joint_local = (
             hip_joint_local + Ry_p_3 @ np.array([HP.FEMUR_LENGTH, 0, 0])
         )
-        T_tibia = T_yaw_out @ _trans(*knee_joint_local) @ _rot_y(pt)
+        T_tibia = (T_yaw_out
+                    @ _trans(*(knee_joint_local + pad_axis_offset))
+                    @ _rot_y(pt))
         instances.append(Instance(
             "tibia_link", "tibia_link.stl", i, None, T_tibia,
         ))
 
         # ----- foot pad (passive hinge -- only the leg azimuth is applied)
+        # NEW (May 2026 collinear-pad refactor): hinge axis in NEW
+        # tibia-local is at (TIBIA_LENGTH, +LINK_THICKNESS/2,
+        # FOOT_HINGE_TIBIA_Z); tang moved with the spar so the hinge
+        # axis is now at the spar centreline (was 0 pre-refactor).
         Ry_pt_3 = _rot_y(pt)[:3, :3]
-        hinge_local = knee_joint_local + Ry_pt_3 @ np.array(
-            [HP.TIBIA_LENGTH, 0.0, HP.FOOT_HINGE_TIBIA_Z]
-        )
+        hinge_local = (knee_joint_local + pad_axis_offset
+                        + Ry_pt_3 @ np.array(
+                            [HP.TIBIA_LENGTH,
+                             HP.LINK_THICKNESS / 2.0,
+                             HP.FOOT_HINGE_TIBIA_Z]))
         R_a_3 = R_a[:3, :3]
         hinge_world = R_a_3 @ hinge_local + yaw_output_world
         T_foot = (

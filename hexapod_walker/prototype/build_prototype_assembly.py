@@ -129,18 +129,30 @@ def _hobby_servo_visual() -> trimesh.Trimesh:
 def _horn_visual() -> trimesh.Trimesh:
     """A simple star-shaped servo horn (NOT the printed adapter; the
     plastic horn that ships with the servo).  Used 18 x to dress the
-    output of every joint."""
+    output of every joint.
+
+    Local frame: bottom face at z=0, top face at z=HP.HORN_STACK_H so
+    callers that translate by ``horn_base_z`` get a horn whose mating
+    face (= horn TOP) lands at ``horn_base_z + HP.HORN_STACK_H``.
+    This matches the X-horn-top reference used by ``CHASSIS_YAW_OUTPUT_Z``
+    and the per-joint hip/knee pad mounting math.  Previously the visual
+    was hard-coded at 2 mm, which left a ~3 mm visible gap between the
+    horn top and the coxa_link's pedestal bottom even though the
+    underlying geometry was assembled correctly.
+    """
     parts = []
-    base = _cyl(8.0, 2.0)
-    base.apply_translation([0, 0, 1.0])
+    horn_h = HP.HORN_STACK_H
+
+    base = _cyl(8.0, horn_h)
+    base.apply_translation([0, 0, horn_h / 2.0])
     parts.append(base)
 
-    # 4 arms
+    arm_h = horn_h * 0.8
     for i in range(4):
         ang = i * np.pi / 2
-        arm = _box((20.0, 4.0, 1.6))
+        arm = _box((20.0, 4.0, arm_h))
         arm.apply_transform(rotation_matrix(ang, [0, 0, 1]))
-        arm.apply_translation([0, 0, 0.8])
+        arm.apply_translation([0, 0, arm_h / 2.0])
         parts.append(arm)
 
     return trimesh.util.concatenate(parts)
@@ -227,6 +239,14 @@ def _build_leg(leg_index: int):
     # in femur local, so we don't add a 'drop' offset for the knee.
     knee_joint_local = hip_joint_local + Ry_p_3 @ np.array([HP.FEMUR_LENGTH,
                                                              0.0, 0.0])
+    # NEW (May 2026 collinear-pad refactor): the femur / tibia NEW
+    # local origins are their PAD MATING FACES, which sit HORN_STACK_H
+    # above their respective joint axes along link +Y.  Femur +Y is
+    # parallel to coxa +Y here (the hip-pitch axis), so the entire
+    # leg shifts +HORN_STACK_H in coxa-Y as a rigid body relative to
+    # the joint axes.  Pre-refactor the links' local origins were on
+    # the joint axes themselves (no +Y offset).
+    PAD_AXIS_OFFSET = np.array([0.0, HP.HORN_STACK_H, 0.0])
 
     def to_world(mesh):
         mesh.apply_transform(R_a)
@@ -312,37 +332,39 @@ def _build_leg(leg_index: int):
     # ------------- Femur (rotates with hip-pitch) ----------------------
     fl = HP.make_femur_link()
     fl.apply_transform(rotation_matrix(p, [0, 1, 0]))
-    fl.apply_translation(hip_joint_local)
+    fl.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     to_world(fl)
     frame_parts.append(fl)
 
     # ------------- Knee-pitch servo (output along +Y_local) ------------
-    # Lives at the femur's far end.  In femur-local coords its output
-    # is at (FEMUR_LENGTH, 0, 0) -- on the spar centreline -- with
-    # output along +Y_local.  Pre-rotated by femur pitch.
+    # Lives at the femur's far end.  In NEW femur-local coords the
+    # knee servo's spline tip is at (FEMUR_LENGTH, -HORN_STACK_H, 0)
+    # (the joint axis is HORN_STACK_H below the link's NEW origin =
+    # pad mating face); the body sits HORN_STACK_H deeper in -Y than
+    # the pre-refactor placement so its world position is unchanged.
     knee_servo = _hobby_servo_visual()
     knee_servo.apply_transform(R_hip)
     delta = np.array([HP.FEMUR_LENGTH - HP.SERVO_OUTPUT_X,
-                       -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H),
+                       -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H) - HP.HORN_STACK_H,
                        0])
     knee_servo.apply_translation(delta)
     knee_servo.apply_transform(rotation_matrix(p, [0, 1, 0]))
-    knee_servo.apply_translation(hip_joint_local)
+    knee_servo.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     to_world(knee_servo)
     motor_parts.append(knee_servo)
 
     knee_horn = _horn_visual()
     knee_horn.apply_transform(R_hip_horn)
-    knee_horn.apply_translation([HP.FEMUR_LENGTH, 0.0, 0])
+    knee_horn.apply_translation([HP.FEMUR_LENGTH, -HP.HORN_STACK_H, 0])
     knee_horn.apply_transform(rotation_matrix(p, [0, 1, 0]))
-    knee_horn.apply_translation(hip_joint_local)
+    knee_horn.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     to_world(knee_horn)
     motor_parts.append(knee_horn)
 
     # ------------- Tibia (rotates with knee-pitch) ---------------------
     tl = HP.make_tibia_link()
     tl.apply_transform(rotation_matrix(pt, [0, 1, 0]))
-    tl.apply_translation(knee_joint_local)
+    tl.apply_translation(knee_joint_local + PAD_AXIS_OFFSET)
     to_world(tl)
     frame_parts.append(tl)
 
@@ -355,9 +377,11 @@ def _build_leg(leg_index: int):
     # leg azimuth ``a`` is applied so the tongue's broad faces (foot
     # +/-Y) align with the knee axis (tibia +/-Y).
     Ry_pt_3 = rotation_matrix(pt, [0, 1, 0])[:3, :3]
-    hinge_local = knee_joint_local + Ry_pt_3 @ np.array(
-        [HP.TIBIA_LENGTH, 0.0, HP.FOOT_HINGE_TIBIA_Z]
-    )
+    hinge_local = (knee_joint_local + PAD_AXIS_OFFSET
+                    + Ry_pt_3 @ np.array(
+                        [HP.TIBIA_LENGTH,
+                         HP.LINK_THICKNESS / 2.0,
+                         HP.FOOT_HINGE_TIBIA_Z]))
     hinge_world = R_a_3 @ hinge_local + yaw_output_world
 
     foot = HP.make_foot_pad()

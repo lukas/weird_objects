@@ -211,6 +211,10 @@ def _build_one_leg_in_body_frame(leg_index: int):
     arm_t = 6.0
     hip_drop = hp.COXA_HIP_DROP
     hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
+    # NEW (May 2026 collinear-pad refactor): femur / tibia local
+    # origins are pad mating faces, +HORN_STACK_H above the joint
+    # axis along link +Y.
+    pad_axis_offset = np.array([0.0, hp.HORN_STACK_H, 0.0])
 
     p = np.deg2rad(hp.STANCE_FEMUR_DEG)
     pt = np.deg2rad(hp.STANCE_FEMUR_DEG + hp.STANCE_TIBIA_DEG)
@@ -227,14 +231,14 @@ def _build_one_leg_in_body_frame(leg_index: int):
 
     fl = hp.make_femur_link()
     fl.apply_transform(rotation_matrix(p, [0, 1, 0]))
-    fl.apply_translation(hip_joint_local)
+    fl.apply_translation(hip_joint_local + pad_axis_offset)
     fl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     fl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts["femur_link"] = fl
 
     tl = hp.make_tibia_link()
     tl.apply_transform(rotation_matrix(pt, [0, 1, 0]))
-    tl.apply_translation(knee_joint_local)
+    tl.apply_translation(knee_joint_local + pad_axis_offset)
     tl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     tl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts["tibia_link"] = tl

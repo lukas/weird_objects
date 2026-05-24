@@ -586,17 +586,21 @@ def _femur_link_visual_xml(i: int) -> str:
     coxa-link (COXA, 0, 0).  In reality that axis is at coxa-link
     (COXA, 0, COXA_HIP_DROP) -- about 3.5 mm BELOW -- but the
     simulation has always treated the joint as living at z=0 in the
-    parent.  The femur_link.stl's local origin is on the joint axis
-    too, so placing the mesh at the body origin keeps it visually
-    consistent with the SIMULATION's joint, not with the physical
-    ~3.5 mm drop.  The mesh's hip-pad will therefore appear ~3.5 mm
-    above the coxa-link's well opening in the rendered scene; that is
-    the same kinematic shortcut the simulation has always used and is
-    NOT introduced by switching to mesh visuals.
+    parent.
+
+    May 2026 collinear-pad refactor: the femur_link.stl's NEW local
+    origin is the hip pad MATING FACE (= HORN_STACK_H above the joint
+    axis along link +Y), not the joint axis itself.  Shift the mesh
+    by (0, +HORN_STACK_H, 0) so its NEW local origin lands on the
+    X-horn-top plane = body +Y at HORN_STACK_H; pre-refactor the
+    mesh sat at body origin (no shift).
     """
     if USE_PART_MESHES:
+        pad_y = HP.HORN_STACK_H * M
         return (f'          <geom class="visual" name="L{i}_femur_link_mesh" '
-                f'type="mesh" mesh="femur_link" material="palette_femur_link"/>')
+                f'type="mesh" mesh="femur_link" '
+                f'pos="0 {pad_y:.5f} 0" '
+                f'material="palette_femur_link"/>')
     return (f'          <geom class="visual" type="capsule" '
             f'fromto="0 0 0 {FEMUR:.5f} 0 0" size="0.009" '
             f'material="palette_femur_link"/>')
@@ -605,26 +609,36 @@ def _femur_link_visual_xml(i: int) -> str:
 def _tibia_link_visual_xml(i: int) -> str:
     """Tibia-link + foot-pad visuals in the L{i}_tibia body's local frame.
 
-    tibia_link.stl's origin sits on the knee-pitch joint axis (= L{i}_tibia
-    body origin).  foot_pad.stl's local origin is at the centre of the
-    TPU ground-contact disc's BOTTOM face; in tibia-local the foot
-    hinges on the tang/fork pin at (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z)
-    and the foot's matching hinge hole lives at foot-local
-    (0, 0, FOOT_HINGE_FOOT_Z), so the foot's bottom-face centre lands
-    at tibia-local (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z -
-    FOOT_HINGE_FOOT_Z) = (TIBIA_LENGTH, 0, -24 mm).  Note this is
-    PURELY decorative: the actual ground-contact in the simulation is
-    the L{i}_foot sphere at (TIBIA, 0, 0), which has been kept in
-    place for backwards compatibility.
+    May 2026 collinear-pad refactor: tibia_link.stl's NEW local origin
+    is the knee pad MATING FACE = HORN_STACK_H above the knee joint
+    axis along link +Y (= L{i}_tibia body +Y at HORN_STACK_H), not
+    the joint axis itself.  Mesh is shifted (0, +HORN_STACK_H, 0) to
+    land its NEW origin on the X-horn-top plane.  The tang at the
+    foot end is in-plane with the spar (centred at tibia y =
+    +LINK_THICKNESS / 2), so the foot's hinge hole now lives at
+    tibia-local (TIBIA_LENGTH, +LINK_THICKNESS / 2, FOOT_HINGE_TIBIA_Z)
+    in mesh-local, or body-local (TIBIA_LENGTH, +HORN_STACK_H +
+    LINK_THICKNESS / 2, FOOT_HINGE_TIBIA_Z); shift the foot_pad
+    mesh's pos accordingly so the foot's bottom-face centre lands at
+    body-local (TIBIA_LENGTH, +HORN_STACK_H + LINK_THICKNESS / 2,
+    FOOT_HINGE_TIBIA_Z - FOOT_HINGE_FOOT_Z).  The L{i}_foot ground-
+    contact sphere stays at (TIBIA, 0, 0) -- this is the same
+    "simulation pretends the kinematic chain is centerline"
+    decorative-vs-physics shortcut the pad mating face uses.
     """
     if USE_PART_MESHES:
         foot_z = (HP.FOOT_HINGE_TIBIA_Z - HP.FOOT_HINGE_FOOT_Z) * M
+        pad_y = HP.HORN_STACK_H * M
+        foot_y = (HP.HORN_STACK_H + HP.LINK_THICKNESS / 2.0) * M
         return (
             f'            <geom class="visual" name="L{i}_tibia_link_mesh" '
-            f'type="mesh" mesh="tibia_link" material="palette_tibia_link"/>\n'
+            f'type="mesh" mesh="tibia_link" '
+            f'pos="0 {pad_y:.5f} 0" '
+            f'material="palette_tibia_link"/>\n'
             f'            <geom class="visual" name="L{i}_foot_pad_mesh" '
             f'type="mesh" mesh="foot_pad" '
-            f'pos="{TIBIA:.5f} 0 {foot_z:.5f}" material="palette_foot_pad"/>'
+            f'pos="{TIBIA:.5f} {foot_y:.5f} {foot_z:.5f}" '
+            f'material="palette_foot_pad"/>'
         )
     return (
         f'            <geom class="visual" type="capsule" '

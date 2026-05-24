@@ -181,7 +181,13 @@ def _hip_pitch_servo_body_pocket() -> trimesh.Trimesh:
 
 def _knee_servo_body_pocket() -> trimesh.Trimesh:
     """Knee servo body cavity in the femur's outboard well
-    (femur-local frame).
+    (NEW May 2026 collinear-pad femur-local frame).
+
+    The well sits HORN_STACK_H deeper in NEW femur-Y than pre-refactor
+    (the femur's NEW origin is the pad mating face, HORN_STACK_H
+    above the joint axis along link +Y).  World coordinates of the
+    pocket are unchanged -- the femur translates +HORN_STACK_H in
+    coxa-Y to compensate.
     """
     extents = (
         hp.SERVO_BODY_W + 2.0 * hp.WELL_BODY_CL,
@@ -190,30 +196,31 @@ def _knee_servo_body_pocket() -> trimesh.Trimesh:
     )
     centre = (
         hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X,
-        -(hp.SERVO_BODY_H / 2.0 + hp.SERVO_OUTPUT_H),
+        -(hp.SERVO_BODY_H / 2.0 + hp.SERVO_OUTPUT_H) - hp.HORN_STACK_H,
         0.0,
     )
     return _box(extents, centre=centre)
 
 
 def _femur_horn_stack_void() -> trimesh.Trimesh:
-    """Cylindrical clearance void inside the femur's hip-end pad.
+    """Cylindrical clearance void below the femur's hip pad mating face.
 
     Holds the plastic 4-arm X-horn (hub + arms) when the femur is
     bolted directly to the hip-pitch servo (femur-local frame).
 
-    May 2026 solid-pad simplification: the 8 mm-tall thin-walled
-    neck annulus and its 10 mm-deep Phi 37 mm cup (y in [-4, +6])
-    were retired in favour of a 6 mm solid pad + 2 mm spar-to-pad
-    stub.  The new cup is 5 mm tall, spanning the X-horn's actual
-    physical envelope (y in [0, HORN_STACK_H] at radius
-    HORN_STACK_VOID_R = 18.5 mm) with 0.05 mm CSG overshoots at each
-    end.  Earlier the cup extended ~3 mm below the joint axis (y in
-    [-4, 0]) for no good reason -- the gearbox cap below the X-horn
-    lives at y in [-6, 0] and never enters this envelope.
+    May 2026 collinear-pad refactor: the link's NEW local origin is
+    the pad MATING FACE (= X-horn-top plane), so the X-horn envelope
+    is now at NEW y in [-HORN_STACK_H, 0] = [-5, 0] -- the same
+    physical volume as before but expressed in the new origin.  Pre-
+    refactor (origin = joint axis) the void sat at y in [-0.05,
+    +5.05]; the new local Y origin shift of +HORN_STACK_H carries
+    the void down to y in [-5.05, +0.05].  The link's material starts
+    at NEW y = 0 (pad mating face) so the void is OUTSIDE the link
+    body by construction -- no boolean diff is needed any more, this
+    helper now just documents the X-horn envelope.
     """
-    void_y_lo = -0.05
-    void_y_hi = hp.HORN_STACK_H + 0.05
+    void_y_lo = -hp.HORN_STACK_H - 0.05
+    void_y_hi = 0.05
     return _cyl_axis(
         radius=hp.HORN_STACK_VOID_R,
         height=void_y_hi - void_y_lo,
@@ -224,8 +231,8 @@ def _femur_horn_stack_void() -> trimesh.Trimesh:
 
 def _tibia_horn_stack_void() -> trimesh.Trimesh:
     """Same shape as the femur's, but in tibia-local coords."""
-    void_y_lo = -0.05
-    void_y_hi = hp.HORN_STACK_H + 0.05
+    void_y_lo = -hp.HORN_STACK_H - 0.05
+    void_y_hi = 0.05
     return _cyl_axis(
         radius=hp.HORN_STACK_VOID_R,
         height=void_y_hi - void_y_lo,
