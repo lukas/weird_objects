@@ -553,6 +553,8 @@ def _build_fastener_instances() -> list[Instance]:
     """
     out: list[Instance] = []
     for fi in fastener_registry.build_all_fastener_instances():
+        if fi.is_virtual:
+            continue
         T = _axis_to_transform(fi.axis_world, fi.head_world_xyz)
         out.append(Instance(
             part_type=fi.spec,

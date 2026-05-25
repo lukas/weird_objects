@@ -150,12 +150,33 @@ to clamp through the chassis plates.)
 15. ``4 x M2.5 heat-set inserts`` -- captive in the Pi's bosses (see
     14.).  McMaster ``94459A106``.
 
-Categories NOT enumerated yet (acknowledged future work; see
-PROTOTYPE_BOM.md "Fasteners" auto-derived section):
+16. ``4 x M3 x 8 SHCS`` -- electronics_tray chassis-mount bolts.
+    Threads DOWN through the tray's cbore floor (1 mm-rim cbore;
+    May 2026 tray-mount fix shrank cbore depth from 3.0 mm to
+    2.0 mm) into an M3 brass heat-set insert (McMaster ``94459A130``)
+    captive in chassis_bottom's tray-mount boss.  4 sites at
+    ``HP.ELEC_CHASSIS_MOUNT_HOLES_XY`` = (+/-24.75, +/-24.75) mm.
+    User-serviceable from above (hex key drops through the cbore).
 
-* Chassis-stack standoff bolts (4 M3 through the chassis_top + chassis_bottom
-  plates + the brass standoff column).  Hidden inside the chassis
-  bay and not user-serviceable.
+17. ``4 x M3 heat-set inserts`` -- captive in chassis_bottom's 4
+    tray-mount bosses (see 16.).  Same McMaster ``94459A130`` part.
+
+18. ``4 x M3 x 10 SHCS`` -- chassis_top -> brass-standoff bolts.
+    Threads DOWN from above chassis_top into the M-F brass
+    standoff's female top threads.  4 sites at
+    ``HP.CHASSIS_STANDOFF_HOLES_XY`` = (+/-35, 0) and (0, +/-35) mm
+    -- the rotated-45-deg 35-mm-radius pattern, INTENTIONALLY
+    different from the tray-mount pattern in (16.) so the brass
+    standoff body doesn't conflict with the tray-mount insert
+    pocket.  Modeled engagement target is a VIRTUAL
+    SPEC_M3_HEATSET_INSERT entry at the top of the standoff (=
+    chassis_top bottom face) so the verifier's engagement check
+    pairs the bolt correctly -- the actual brass standoff hardware
+    is unmodeled.
+
+19. ``4 x M3 nyloc nuts`` -- captive UNDER chassis_bottom retaining
+    the brass standoff's male threads at the same 4 standoff XY
+    positions (see 18.).  Accessible from below the robot.
 """
 
 from __future__ import annotations
@@ -294,6 +315,15 @@ class FastenerInstance:
     # that is hand-immobilised by the printed hex pocket and never
     # needs a wrench).
     skip_screwdriver_reason: str | None = None
+    # ``True`` marks the entry as a VIRTUAL engagement target that
+    # represents unmodeled mating hardware (e.g. the brass M-F standoff's
+    # female top threads, modelled as an M3 heat-set insert so the
+    # verifier's ``check_fastener_engagement`` can pair a bolt with a
+    # plausible engagement medium).  Virtual entries are SKIPPED by
+    # ``fastener_bom_rows`` so they don't inflate the BOM count, but
+    # they DO appear in ``build_all_fastener_instances`` so the
+    # verifier can probe them.
+    is_virtual: bool = False
 
     def __post_init__(self):
         # Normalise the axis to a unit vector so callers can rely on it.
@@ -1604,6 +1634,261 @@ def _emit_imu_pad_fasteners() -> list[FastenerInstance]:
 
 
 # ---------------------------------------------------------------------------
+# Chassis-stack fasteners (May 2026 tray-mount + standoff-pattern fix)
+# ---------------------------------------------------------------------------
+
+
+def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
+    """The 4 tray-to-chassis_bottom bolts + their heat-set inserts, the
+    4 chassis_top -> brass-standoff bolts + their (synthetic) engagement
+    targets, and the 4 chassis_bottom retention nyloc nuts that capture
+    the brass standoff male threads under the bottom plate.
+
+    Geometry summary (design frame, z = 0 = chassis_bottom mesh centre
+    plane; chassis_bottom spans z in [-2, +2], chassis_top spans z in
+    [+34, +38]):
+
+      Tray-mount path (4 sites at HP.ELEC_CHASSIS_MOUNT_HOLES_XY =
+      (+/-24.75, +/-24.75)):
+
+        * M3 x 8 SHCS, head at z = tray_top - cbore_depth = +8 - 2 =
+          +6 (the 1 mm-rim cbore floor in the tray), axis -Z, length
+          8 mm.  Tip at z = -2 (chassis_bottom bottom face).  Engages
+          an M3 heat-set insert in chassis_bottom's tray-mount boss.
+          NO ``skip_screwdriver_reason`` -- user-serviceable from
+          above (hex key drops through the cbore Phi 5.5 mm clearance).
+
+        * M3 heat-set insert (94459A130), top face at z = boss_top -
+          debris_overdrill = +5 - 1 = +4, axis -Z, length 5 mm.
+          Insert body occupies z in [-1, +4]; 1 mm of plate plastic
+          survives below the pocket (chassis_bottom bottom face at
+          z = -2 has only the existing Phi 3.4 mm clearance hole
+          through it).  ``skip_screwdriver_reason`` matches the
+          other heat-set inserts -- pressed in with a soldering
+          iron BEFORE the tray is bolted onto chassis_bottom.
+
+      Brass-standoff path (4 sites at HP.CHASSIS_STANDOFF_HOLES_XY =
+      (+/-35, 0) and (0, +/-35)):
+
+        * M3 x 10 SHCS, head at z = chassis_top_top = +38, axis -Z,
+          length 10 mm.  Tip at z = +28.  Engages the M-F brass
+          standoff's female top threads.  We model the engagement
+          target as a synthetic ``M3 heat-set insert`` at z = +34
+          (= top of standoff = chassis_top bottom face) so the
+          verifier's ``check_fastener_engagement`` pairs the bolt
+          correctly and the bolt's "joins >= 2 parts" rule passes
+          (chassis_top + paired engagement target).  Physically the
+          target is brass standoff thread, NOT a printed-part
+          insert; the role string makes this explicit.
+
+        * M3 nyloc nut, outer face at z = -2 (chassis_bottom bottom
+          face), axis +Z (driver approaches from below the robot,
+          nut threads onto the male stud projecting DOWN through
+          chassis_bottom).  Length None (nuts are not probed as
+          bolts).  No paired bolt -- the brass standoff's male
+          thread is unmodeled hardware.
+    """
+    out: list[FastenerInstance] = []
+
+    chassis_bottom_top_z = HP.CHASSIS_PLATE_T / 2.0           # = +2
+    chassis_bottom_bot_z = -HP.CHASSIS_PLATE_T / 2.0          # = -2
+    chassis_top_top_z = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T  # = +38
+    chassis_top_bot_z = HP.CHASSIS_GAP + 0.5 * HP.CHASSIS_PLATE_T  # = +34
+
+    tray_top_z = chassis_bottom_top_z + 3.0 + HP.ELEC_TRAY_T  # = +8
+    tray_cbore_floor_z = tray_top_z - HP.ELEC_CHASSIS_COUNTERBORE_DEPTH
+    boss_top_z = chassis_bottom_top_z + HP.TRAY_MOUNT_BOSS_H  # = +5
+    # Insert top face is recessed below boss top by the debris-overdrill
+    # convention (pocket depth - insert length).
+    debris_overdrill = HP.INSERT_M3_PILOT_DEPTH - HP.INSERT_M3_INSERT_LENGTH
+    insert_top_z = boss_top_z - debris_overdrill              # = +4
+
+    # ---- Tray-to-chassis_bottom path ----------------------------------
+    #
+    # All 4 tray-mount bolts are CAPTIVE SUB-ASSEMBLY fasteners: they
+    # are torqued DURING the electronics-tray install (before
+    # chassis_top + (optional) arm baseplate close the chassis stack
+    # from above), so the 2.5 mm hex key has open air above the
+    # cbore head ring at install time.  Once chassis_top is bolted
+    # onto the brass standoff tops, the hex key cannot reach the
+    # bolt heads any more (the standard 30 mm-long hex key intrudes
+    # into chassis_top at z = [+34, +38]).  The verifier sees the
+    # fully-assembled state and would flag the cone intrusion; the
+    # skip rationale matches the convention used for the existing
+    # tray-side board-mount bolts (Mega / Pi / PCA9685 / IMU).
+    tray_bolt_skip_reason = (
+        "captive sub-assembly fastener: torqued during the tray "
+        "install BEFORE chassis_top + (optional) arm baseplate "
+        "close the chassis stack from above.  Once chassis_top "
+        "is bolted onto the brass standoff tops, a 2.5 mm hex "
+        "key cannot reach the tray-mount bolt heads through the "
+        "tray cbore -- see PROTOTYPE.md section 6 for the explicit "
+        "assembly order"
+    )
+    for (mx, my) in HP.ELEC_CHASSIS_MOUNT_HOLES_XY:
+        sx_label = "+X" if mx > 0 else "-X"
+        sy_label = "+Y" if my > 0 else "-Y"
+        corner = f"{sx_label}{sy_label}"
+
+        head_world = np.array([mx, my, tray_cbore_floor_z])
+        axis_world = np.array([0.0, 0.0, -1.0])
+        out.append(FastenerInstance(
+            part_number=PN_M3X8_SHCS,
+            spec=SPEC_M3X8_SHCS_INTO_INSERT,
+            head_world_xyz=head_world,
+            axis_world=axis_world,
+            role=(
+                f"electronics_tray chassis-mount {corner} "
+                f"M3 x 8 SHCS into heat-set insert"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=8.0,
+            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
+            skip_screwdriver_reason=tray_bolt_skip_reason,
+        ))
+
+        insert_head_world = np.array([mx, my, insert_top_z])
+        out.append(FastenerInstance(
+            part_number=PN_M3_HEATSET_INSERT,
+            spec=SPEC_M3_HEATSET_INSERT,
+            head_world_xyz=insert_head_world,
+            axis_world=np.array([0.0, 0.0, -1.0]),
+            role=(
+                f"chassis_bottom tray-mount {corner} "
+                f"M3 heat-set insert"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=HP.INSERT_M3_INSERT_LENGTH,
+            cache_stl=f"{PN_M3_HEATSET_INSERT}.cache.stl",
+            skip_screwdriver_reason=(
+                "heat-set insert installed with a soldering iron "
+                "BEFORE the tray is bolted onto chassis_bottom; "
+                "no driver cone applies to the brass insert"
+            ),
+        ))
+
+    # ---- Chassis-top -> brass-standoff -> chassis_bottom path ---------
+    #
+    # The +X standoff at (+35, 0) sits UNDER the switch_holster
+    # (which spans chassis-x in [+34, +85], chassis-y in [-11, +11])
+    # so the chassis_top bolt's hex key driver from ABOVE intrudes
+    # into the holster body once the holster is dropped onto its 2
+    # chassis_top bosses.  The natural assembly order has chassis_
+    # top bolted DOWN onto the brass standoff tops BEFORE the
+    # switch_holster is fitted, so the +X bolt is captive-sub-
+    # assembly serviceable just like the tray-mount bolts above.
+    # The other 3 standoff bolts (0, +/-35) and (-35, 0) have open
+    # air above their heads and are user-serviceable at any time.
+    standoff_plus_x_skip_reason = (
+        "captive sub-assembly fastener: torqued during chassis-"
+        "stack closure BEFORE switch_holster is dropped onto "
+        "chassis_top's +X edge bosses.  Once the holster is "
+        "fitted, its body sits in the 2.5 mm hex key's vertical "
+        "approach path to this bolt head -- see PROTOTYPE.md "
+        "section 6 for the explicit assembly order"
+    )
+    for (sx, sy) in HP.CHASSIS_STANDOFF_HOLES_XY:
+        if sx > 0:
+            label = "+X"
+        elif sx < 0:
+            label = "-X"
+        elif sy > 0:
+            label = "+Y"
+        else:
+            label = "-Y"
+
+        # Only the +X standoff bolt sits under the switch_holster
+        # body; the other 3 are in clear air above chassis_top.
+        bolt_skip = (standoff_plus_x_skip_reason
+                     if (sx > 0 and abs(sy) < 1e-9) else None)
+
+        # M3 x 10 SHCS dropped DOWN from above chassis_top into the
+        # brass M-F standoff's female top threads.
+        head_world = np.array([sx, sy, chassis_top_top_z])
+        axis_world = np.array([0.0, 0.0, -1.0])
+        out.append(FastenerInstance(
+            part_number=PN_M3X10_SHCS,
+            spec=SPEC_M3X10_SHCS,
+            head_world_xyz=head_world,
+            axis_world=axis_world,
+            role=(
+                f"chassis_top brass standoff {label} top "
+                f"M3 x 10 SHCS into standoff female thread"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=10.0,
+            cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
+            skip_screwdriver_reason=bolt_skip,
+        ))
+
+        # Synthetic engagement target: the brass M-F standoff's female
+        # top threads modeled as an M3 heat-set insert at the chassis_
+        # top bottom face = top of standoff.  The role string makes
+        # the actual hardware (brass standoff) explicit; we re-use
+        # SPEC_M3_HEATSET_INSERT so the verifier's
+        # ``_find_paired_engagement_target`` pairs it with the bolt
+        # above (5 mm of brass thread engagement is equivalent to the
+        # cradle / battery / tray heat-set inserts the verifier was
+        # designed for).
+        #
+        # ``is_virtual=True`` marks this entry as NOT REAL HARDWARE so
+        # ``fastener_bom_rows`` doesn't count it toward the BOM total
+        # (the brass M-F standoff is the actual part on the order; see
+        # the "M3 standoffs" BOM row).
+        target_head_world = np.array([sx, sy, chassis_top_bot_z])
+        out.append(FastenerInstance(
+            part_number=PN_M3_HEATSET_INSERT,
+            spec=SPEC_M3_HEATSET_INSERT,
+            head_world_xyz=target_head_world,
+            axis_world=np.array([0.0, 0.0, -1.0]),
+            role=(
+                f"chassis_top brass standoff {label} top "
+                f"M3 standoff female thread "
+                f"(modelled as heat-set insert for engagement check)"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=HP.INSERT_M3_INSERT_LENGTH,
+            cache_stl="",
+            skip_screwdriver_reason=(
+                "virtual engagement target representing the brass "
+                "M-F standoff's female top thread; no separate "
+                "fastener is installed at this site -- the brass "
+                "standoff hardware supplies the threads.  No driver "
+                "cone applies."
+            ),
+            is_virtual=True,
+        ))
+
+        # M3 nyloc nut UNDER chassis_bottom retaining the standoff's
+        # male thread coming DOWN through the plate's Phi 3.4 mm
+        # clearance hole.  Driver approaches from below the robot
+        # (-Z); the nut's outer (visible) face sits flush against
+        # chassis_bottom's bottom face.
+        nut_head_world = np.array([sx, sy, chassis_bottom_bot_z])
+        nut_axis_world = np.array([0.0, 0.0, 1.0])  # axis INTO the wall above
+        out.append(FastenerInstance(
+            part_number=PN_M3_NYLOC,
+            spec=SPEC_M3_NYLOC,
+            head_world_xyz=nut_head_world,
+            axis_world=nut_axis_world,
+            role=(
+                f"chassis_bottom brass standoff {label} "
+                f"retention M3 nyloc nut"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=None,
+            cache_stl=f"{PN_M3_NYLOC}.cache.stl",
+        ))
+
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Top-level builder
 # ---------------------------------------------------------------------------
 
@@ -1696,6 +1981,15 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     # chassis_top.
     out.extend(_emit_imu_pad_fasteners())
 
+    # Chassis-stack standoff fasteners (May 2026 tray-mount fix).
+    # 4 x M3 x 8 SHCS into chassis_bottom tray-mount heat-set inserts
+    # + 4 x M3 x 10 SHCS into brass standoff female tops (chassis_top
+    # side) + 4 x M3 nyloc nuts UNDER chassis_bottom (capturing the
+    # standoff's male thread).  Replaces the previous "Chassis-stack
+    # standoff bolts" entry in the "NOT enumerated yet" docstring
+    # list.
+    out.extend(_emit_chassis_stack_fasteners())
+
     return out
 
 
@@ -1706,10 +2000,20 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
 
 def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
     """Return (spec, part_number, qty, used_in) rows for the BOM table,
-    aggregated across ``build_all_fastener_instances()``."""
+    aggregated across ``build_all_fastener_instances()``.
+
+    Virtual entries (``is_virtual=True``) -- e.g. the brass-standoff
+    female-thread engagement targets used by the verifier's engagement
+    check -- are SKIPPED so they don't inflate the BOM total.  Real
+    hardware that backs those entries (the M-F brass standoffs) is
+    enumerated under the "M3 standoffs" row of the printed-parts BOM
+    table.
+    """
     counts: dict[tuple[str, str], int] = {}
     usage: dict[tuple[str, str], set[str]] = {}
     for fi in build_all_fastener_instances():
+        if fi.is_virtual:
+            continue
         key = (fi.spec, fi.part_number)
         counts[key] = counts.get(key, 0) + 1
         usage.setdefault(key, set()).add(_usage_bucket(fi))
@@ -1738,6 +2042,20 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
 
 def _usage_bucket(fi: FastenerInstance) -> str:
     role = fi.role
+    if "tray-mount" in role:
+        # chassis_bottom tray-mount heat-set inserts (M3 x 8 SHCS path).
+        return "chassis_bottom tray-mount heat-set inserts"
+    if "electronics_tray chassis-mount" in role:
+        return ("electronics_tray chassis-mount bolts "
+                "(M3 x 8 SHCS into chassis_bottom heat-set insert)")
+    if "brass standoff" in role:
+        if "M3 x 10 SHCS" in role or "M3x10 SHCS" in role:
+            return ("chassis_top brass standoff bolts "
+                    "(M3 x 10 SHCS into standoff female thread)")
+        if "retention" in role and "nyloc" in role:
+            return "chassis_bottom brass standoff retention nuts"
+        return ("chassis_top brass standoff female threads "
+                "(virtual heat-set insert engagement targets)")
     if "electronics_tray" in role:
         if "heat-set insert" in role:
             return ("electronics_tray heat-set inserts "

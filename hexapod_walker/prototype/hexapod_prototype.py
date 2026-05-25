@@ -2157,11 +2157,50 @@ ELEC_BOSS_OD_M3       = CRADLE_BOSS_OD   # 8 mm -- reuse the cradle constant
 ELEC_BOSS_OD_M25      = 6.0    # mm -- smaller M2.5 boss (Phi 3 mm pilot +
                                 # 1.5 mm wall = Phi 6 mm minimum).
 ELEC_CHASSIS_COUNTERBORE_OD   = 5.5    # mm -- M3 SHCS head clearance Phi
-ELEC_CHASSIS_COUNTERBORE_DEPTH = 3.0   # mm -- counterbore depth from tray top
-                                        # (= ELEC_TRAY_T so the head sits
-                                        # flush with the tray's bottom face;
-                                        # the chassis bolt comes UP through
-                                        # chassis_bottom + standoff + tray).
+ELEC_CHASSIS_COUNTERBORE_DEPTH = 2.0   # mm -- counterbore depth from tray top.
+                                        # MUST be < ELEC_TRAY_T (= 3 mm) so a
+                                        # plastic rim survives at the cbore
+                                        # floor for the M3 SHCS head to clamp
+                                        # against.  With ELEC_TRAY_T = 3 mm and
+                                        # cbore_depth = 2 mm, the cbore floor
+                                        # sits 1 mm above the tray's bottom
+                                        # face -- the bolt head bears on that
+                                        # 1 mm rim (annulus radius 1.7..2.75
+                                        # mm) and the tray bolts DOWN onto an
+                                        # M3 heat-set insert in a chassis_
+                                        # bottom mounting boss (see
+                                        # TRAY_MOUNT_BOSS_* below).  May 2026
+                                        # tray-mount fix: cbore_depth was
+                                        # 3.0 mm before; the tray-bolt
+                                        # audit caught that the cbore ate the
+                                        # full tray thickness, leaving NO rim
+                                        # for the head to clamp against.
+
+# Tray-mount boss on chassis_bottom (May 2026 tray-mount fix).  Each
+# of the 4 ELEC_CHASSIS_MOUNT_HOLES_XY positions on chassis_bottom now
+# carries a Phi TRAY_MOUNT_BOSS_OD x TRAY_MOUNT_BOSS_H boss UNIONed
+# onto the plate's TOP face, with a Phi INSERT_M3_PILOT_OD heat-set
+# insert pocket cut DOWN from the boss top through the plate.  The
+# tray sits with its bottom face flush on the boss tops (boss_top_z
+# = chassis_bottom_top + TRAY_MOUNT_BOSS_H matches the tray-bottom
+# z used by build_prototype_assembly._body_battery_parts).  The 4
+# M3 SHCS thread DOWN from the tray's cbore floor (z = tray_top -
+# 2 = +6) into the brass insert (z = +5 .. 0) for the tray-to-
+# chassis_bottom fastener path.
+#
+# The boss OD is intentionally smaller than ELEC_CHASSIS_COUNTERBORE_OD
+# (5.5 mm) plus radial wall (~ 1.25 mm) = ~ 8 mm so that the boss top
+# is ENTIRELY UNDER the tray's chassis-mount hole (= cbore footprint);
+# the tray bottom can therefore land flat on the boss top without a
+# step.  6 mm OD = 4 mm pilot + 1 mm wall is the minimum that survives
+# a heat-set install without slumping (same rule that drove
+# ELEC_BOSS_OD_M25 = 6 mm above).
+TRAY_MOUNT_BOSS_OD = 6.0   # mm -- chassis_bottom tray-mount boss OD.
+TRAY_MOUNT_BOSS_H  = 3.0   # mm -- chassis_bottom tray-mount boss height
+                            # above the plate's TOP face.  3 mm matches
+                            # the inter-plate gap that build_prototype_
+                            # assembly leaves between chassis_bottom
+                            # top face and the tray's bottom face.
 
 # Mega 2560 R3 mounting holes (Arduino reference drawing).  Listed in
 # the BOARD'S OWN coordinate frame with origin at the PCB's bottom-left
@@ -2303,12 +2342,37 @@ PCA2_CENTRE = (+64.0, -17.5)
 
 # 35-mm-radius / 45-deg-square chassis-mount hole pattern (matches
 # ``_hex_plate(with_centre_holes=True)`` on chassis_top + chassis_
-# bottom and the 4 brass standoff columns between the plates).
+# bottom).  The 4 M3 SHCS tray-mount bolts thread DOWN through the
+# tray's cbore floor into M3 heat-set inserts captive in chassis_
+# bottom's tray-mount bosses (May 2026 tray-mount fix; the brass
+# standoffs no longer share this XY pattern -- see
+# CHASSIS_STANDOFF_HOLES_XY below for the new standoff pattern).
 ELEC_CHASSIS_MOUNT_R       = 35.0
 ELEC_CHASSIS_MOUNT_HOLES_XY = tuple(
     (ELEC_CHASSIS_MOUNT_R * np.cos(np.pi / 4 + i * np.pi / 2),
      ELEC_CHASSIS_MOUNT_R * np.sin(np.pi / 4 + i * np.pi / 2))
     for i in range(4)
+)
+
+# Brass-standoff column pattern (May 2026 tray-mount fix).  4 M3 M-F
+# brass standoffs span the inter-plate gap on a 35 mm radius / 45 deg
+# rotated-square pattern: (+/-35, 0) and (0, +/-35).  The pattern is
+# INTENTIONALLY rotated 45 deg from ELEC_CHASSIS_MOUNT_HOLES_XY so
+# the standoff columns and the tray-mount heat-set inserts in chassis_
+# bottom don't share an XY -- the brass standoff body would conflict
+# with the insert pocket if they did.  Each standoff is M3 M-F:
+#     * Male thread goes DOWN through chassis_bottom's Phi 3.4 mm
+#       clearance hole; an M3 nyloc on the under face captures it.
+#     * Female top accepts an M3 x 10 SHCS dropped DOWN from above
+#       chassis_top.
+# Both chassis_top and chassis_bottom carry these 4 clearance holes
+# via ``_hex_plate(with_chassis_standoffs=True)``.
+CHASSIS_STANDOFF_R          = 35.0
+CHASSIS_STANDOFF_HOLES_XY   = (
+    (+CHASSIS_STANDOFF_R, 0.0),
+    (0.0, +CHASSIS_STANDOFF_R),
+    (-CHASSIS_STANDOFF_R, 0.0),
+    (0.0, -CHASSIS_STANDOFF_R),
 )
 
 # Chassis-frame translation applied to the tray mesh by
@@ -4090,7 +4154,8 @@ def _hex_plate(flat_to_flat: float, thickness: float,
                with_centre_holes: bool = False,
                with_leg_features: bool = True,
                with_battery_holder_holes: bool = False,
-               with_leg_harness_drops: bool = False) -> trimesh.Trimesh:
+               with_leg_harness_drops: bool = False,
+               with_chassis_standoffs: bool = False) -> trimesh.Trimesh:
     """Return a flat hexagonal plate, centred on origin, axis = +Z.
 
     Hole pattern (per leg, 6 legs total):
@@ -4103,9 +4168,26 @@ def _hex_plate(flat_to_flat: float, thickness: float,
 
     Optional inboard hole patterns:
         ``with_centre_holes``: 4 vertical M3 clearance holes on a
-            35-mm-radius / 45-deg square, shared between the
-            electronics tray's standoff bolts and any arm baseplate.
-            chassis_top + chassis_bottom both carry this pattern.
+            35-mm-radius / 45-deg square (= ELEC_CHASSIS_MOUNT_HOLES_XY
+            = (+/-24.75, +/-24.75) mm).  Used by the electronics_tray
+            chassis-mount bolts which thread DOWN through the tray's
+            cbore floor into M3 heat-set inserts on chassis_bottom (see
+            ``make_chassis_bottom`` for the boss + pocket cut at the
+            same XY).  chassis_top carries the same 4 clearance holes
+            but they are redundant under the May 2026 tray-mount fix
+            (the tray-mount bolts stop in the chassis_bottom insert and
+            never reach chassis_top); they are kept for retrofit
+            compatibility with users who already printed an older
+            chassis_top.
+        ``with_chassis_standoffs``: 4 vertical M3 clearance holes on
+            the rotated-45-deg 35-mm-radius pattern
+            (= CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) and (0, +/-35)).
+            chassis_top + chassis_bottom both carry this pattern.  The
+            4 M3 M-F brass standoffs span the inter-plate gap on this
+            pattern: the standoff's male thread drops DOWN through
+            chassis_bottom's clearance hole (captured by an M3 nyloc
+            on the under face) and the female top accepts an M3 x 10
+            SHCS DROPPED DOWN from above chassis_top.
         ``with_battery_holder_holes``: 4 vertical M3 clearance holes
             at (+/- BATTERY_FOOT_DX, +/- BATTERY_FOOT_DY) =
             (+/- 50, +/- 24) mm.  Matches the 4 mounting feet on
@@ -4193,16 +4275,34 @@ def _hex_plate(flat_to_flat: float, thickness: float,
                 holes.append(drop)
 
     if with_centre_holes:
-        # 4 holes for the electronics tray standoffs + optional arm
-        # baseplate (35 mm radius, 45 deg square).  IMPORTANT: this
+        # 4 holes for the electronics tray's chassis-mount bolts on
+        # the 35 mm radius / 45 deg square pattern (= ELEC_CHASSIS_
+        # MOUNT_HOLES_XY = (+/-24.75, +/-24.75) mm).  IMPORTANT: this
         # is NOT the battery-holder bolt pattern -- see
         # ``with_battery_holder_holes`` below for that.  The battery-
-        # holder feet sit at (+/- 50, +/- 24) mm, far outside the
-        # 35 mm radius these standoff holes live on.
-        for i in range(4):
-            a = np.pi / 4 + i * np.pi / 2
+        # holder feet sit at (+/- 50, +/- 24) mm, far outside this
+        # 35-mm-radius square.  This pattern is ALSO not the brass-
+        # standoff column pattern -- see ``with_chassis_standoffs``
+        # below.  May 2026 tray-mount fix moved the brass standoffs
+        # OFF this pattern so chassis_bottom could carry an M3 heat-
+        # set insert at each of these 4 XY positions without
+        # conflicting with the brass standoff body.
+        for (cx, cy) in ELEC_CHASSIS_MOUNT_HOLES_XY:
             h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
-            h.apply_translation([35.0 * np.cos(a), 35.0 * np.sin(a), 0])
+            h.apply_translation([cx, cy, 0])
+            holes.append(h)
+
+    if with_chassis_standoffs:
+        # 4 holes for the brass M3 M-F standoff columns on the
+        # rotated-45-deg 35-mm-radius pattern (= CHASSIS_STANDOFF_
+        # HOLES_XY = (+/-35, 0) and (0, +/-35) mm).  chassis_top +
+        # chassis_bottom both carry this pattern; the brass standoff's
+        # male thread drops DOWN through chassis_bottom's hole
+        # (captured by an M3 nyloc on the under face) and the female
+        # top accepts an M3 x 10 SHCS from above chassis_top.
+        for (cx, cy) in CHASSIS_STANDOFF_HOLES_XY:
+            h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
+            h.apply_translation([cx, cy, 0])
             holes.append(h)
 
     if with_battery_holder_holes:
@@ -4285,6 +4385,7 @@ def make_chassis_top() -> trimesh.Trimesh:
     """
     plate = _hex_plate(CHASSIS_TOP_FLAT_TO_FLAT, CHASSIS_PLATE_T,
                        with_centre_holes=True,
+                       with_chassis_standoffs=True,
                        with_leg_features=False)
 
     # Yaw-shaft pass-through cutouts at every leg's yaw axis (= chassis
@@ -4342,13 +4443,22 @@ def make_chassis_top() -> trimesh.Trimesh:
 
 def make_chassis_bottom() -> trimesh.Trimesh:
     """Bottom hex plate.  Structural carrier for the coxa-bracket
-    flanges, the electronics tray + arm baseplate standoffs (35 mm
-    radius / 45 deg pattern via ``with_centre_holes``), and the
+    flanges, the electronics tray (4 tray-mount inserts at the 35-mm-
+    radius / 45-deg-square pattern via ``with_centre_holes`` PLUS
+    the tray-mount bosses + heat-set insert pockets unioned onto the
+    top face below), the brass standoff columns (rotated-45-deg 35-mm-
+    radius pattern via ``with_chassis_standoffs``), and the
     battery_holder feet (BATTERY_FOOT_DX / DY pattern via
-    ``with_battery_holder_holes``).  May 2026 fix: the holder used to
-    be unbolted (no chassis-side hole pattern; the holder's feet
-    drilled clearance holes that mated to nothing); now 4 x M3 x 10
-    SHCS pass UP through this plate into heat-set inserts in the
+    ``with_battery_holder_holes``).  May 2026 tray-mount fix: the tray
+    bolts now thread DOWN into M3 heat-set inserts captive in 4
+    printed bosses on this plate (one per ELEC_CHASSIS_MOUNT_HOLES_XY
+    position); the brass M-F standoffs have been MOVED OFF that
+    pattern onto CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0), (0, +/-35)
+    so the standoff body doesn't conflict with the heat-set insert.
+    Battery_holder fix (earlier May 2026): the holder used to be
+    unbolted (no chassis-side hole pattern; the holder's feet drilled
+    clearance holes that mated to nothing); now 4 x M3 x 10 SHCS
+    pass UP through this plate into heat-set inserts in the
     battery_holder feet.
 
     Cable management (Part A + Part B, May 2026):
@@ -4370,8 +4480,51 @@ def make_chassis_bottom() -> trimesh.Trimesh:
     """
     plate = _hex_plate(CHASSIS_FLAT_TO_FLAT, CHASSIS_PLATE_T,
                        with_centre_holes=True,
+                       with_chassis_standoffs=True,
                        with_battery_holder_holes=True,
                        with_leg_harness_drops=True)
+
+    # Tray-mount bosses + heat-set insert pockets (May 2026 tray-mount
+    # fix).  At each of the 4 ELEC_CHASSIS_MOUNT_HOLES_XY positions,
+    # UNION a Phi TRAY_MOUNT_BOSS_OD x TRAY_MOUNT_BOSS_H boss onto the
+    # plate's TOP face (boss top at plate-z = +CHASSIS_PLATE_T/2 +
+    # TRAY_MOUNT_BOSS_H = +5 mm, which is where the tray's bottom face
+    # lands per build_prototype_assembly._body_battery_parts).  Then
+    # DIFF a Phi INSERT_M3_PILOT_OD heat-set insert pocket extending
+    # DOWN from the boss top by INSERT_M3_PILOT_DEPTH.  The pocket
+    # eats through the boss and into the plate, with ~ 1 mm of
+    # plastic plate-bottom material remaining below the pocket bottom
+    # (boss height 3 mm + pocket depth 6 mm = 9 mm of cut; from boss
+    # top z=+5 down to z=-1; chassis_bottom's bottom face is at z=-2
+    # so 1 mm of plate plastic survives below the insert pocket).  The
+    # ``with_centre_holes`` pattern (above) already drilled a Phi 3.4
+    # mm clearance hole through the plate at the same XY; the 4 mm
+    # insert pocket cleanly supersedes it (the 4 mm cylinder cuts a
+    # 4 mm hole through the plate at the boss XY).  Together: a
+    # closed insert pocket at z in [-1, +5], with a 1 mm Phi 3.4 mm
+    # cleared section at the bottom face (z in [-2, -1]) so any
+    # printer slumping above the pocket has a vent.
+    tray_bosses: list[trimesh.Trimesh] = []
+    tray_pockets: list[trimesh.Trimesh] = []
+    boss_top_z = CHASSIS_PLATE_T / 2.0 + TRAY_MOUNT_BOSS_H
+    boss_bot_z = -0.2   # 0.2 mm below plate top for clean union
+    pocket_h = INSERT_M3_PILOT_DEPTH + 0.4   # 0.4 mm overdrill at the
+                                              # OPEN end of the pocket
+                                              # (same convention as
+                                              # the cradle / battery /
+                                              # tray heat-set pockets).
+    for (mx, my) in ELEC_CHASSIS_MOUNT_HOLES_XY:
+        boss = _cyl(TRAY_MOUNT_BOSS_OD / 2.0, boss_top_z - boss_bot_z)
+        boss.apply_translation([mx, my,
+                                 (boss_top_z + boss_bot_z) / 2.0])
+        tray_bosses.append(boss)
+
+        pocket = _cyl(INSERT_M3_PILOT_OD / 2.0, pocket_h)
+        pocket_top_z = boss_top_z + 0.2
+        pocket_centre_z = pocket_top_z - pocket_h / 2.0
+        pocket.apply_translation([mx, my, pocket_centre_z])
+        tray_pockets.append(pocket)
+    plate = _diff(_union(plate, *tray_bosses), *tray_pockets)
 
     # Per-leg integrated yaw-servo cradles (May 2026 redesign).
     # ``_chassis_yaw_cradle_solid`` returns the cradle for ONE leg in
@@ -4594,14 +4747,23 @@ def make_electronics_tray() -> trimesh.Trimesh:
           tray-local (0, 0).  Tray-local origin = chassis (0, 0)
           after ``build_prototype_assembly`` places the tray.
         * 4 chassis-mount holes on the 35-mm-radius / 45-deg square
-          pattern (shared with chassis_top + chassis_bottom + the 4
-          brass standoff columns between the plates).  Each hole is
-          Phi BRACKET_BOLT_HOLE = 3.4 mm with a Phi ELEC_CHASSIS_
+          pattern (= ELEC_CHASSIS_MOUNT_HOLES_XY, shared with
+          chassis_top + chassis_bottom).  Each hole is Phi
+          BRACKET_BOLT_HOLE = 3.4 mm with a Phi ELEC_CHASSIS_
           COUNTERBORE_OD = 5.5 mm x ELEC_CHASSIS_COUNTERBORE_DEPTH =
-          3.0 mm counterbore from the tray's TOP face so the M3
-          SHCS head sits flush with the tray top -- boards on the
-          ELEC_STANDOFF_H = 5 mm standoff bosses then clear the
-          chassis bolts entirely.
+          2.0 mm counterbore from the tray's TOP face.  The cbore
+          depth is INTENTIONALLY shallower than ELEC_TRAY_T = 3 mm so
+          a 1 mm plastic rim survives at the cbore floor (annulus
+          radius 1.7..2.75 mm) for the M3 SHCS head to clamp against
+          -- boards on the ELEC_STANDOFF_H = 5 mm standoff bosses
+          then clear the chassis bolt heads (which sit 1 mm below
+          the tray top face) entirely.  The bolt threads DOWN
+          through the tray and into an M3 heat-set insert captive in
+          chassis_bottom's tray-mount boss (see ``make_chassis_
+          bottom`` for the TRAY_MOUNT_BOSS_* geometry).  May 2026
+          tray-mount fix: cbore depth was 3.0 mm before; the tray-
+          mount audit caught that the cbore ate the full tray
+          thickness, leaving NO rim for the head to clamp.
         * 4 printed bosses + heat-set insert pockets for the Mega
           (Phi 8 mm boss, Phi 4 mm pocket, McMaster 94459A130
           insert) -- 4 x M3 SHCS clamps the Mega onto the boss tops.

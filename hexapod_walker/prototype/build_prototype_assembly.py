@@ -429,12 +429,17 @@ def _body_frame_parts(chassis_lift):
                                 + HP.CHASSIS_PLATE_T])
     parts.append(top)
 
-    # 4 stand-off posts between the plates, where the centre-hole
-    # bolt pattern lives
-    for i in range(4):
-        a = np.pi / 4 + i * np.pi / 2
+    # 4 stand-off posts between the plates on the rotated-45-deg 35-mm-
+    # radius pattern (= HP.CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) and
+    # (0, +/-35)).  May 2026 tray-mount fix: the standoffs MOVED off
+    # HP.ELEC_CHASSIS_MOUNT_HOLES_XY (the +/-24.75 square pattern) so
+    # the chassis_bottom plate could carry an M3 heat-set insert at
+    # each of those 4 XY positions for the tray-mount bolts without
+    # the brass standoff body conflicting with the insert pocket.
+    # Each standoff is M3 M-F, length HP.CHASSIS_GAP = 32 mm.
+    for (sx, sy) in HP.CHASSIS_STANDOFF_HOLES_XY:
         post = _cyl(2.5, HP.CHASSIS_GAP)
-        post.apply_translation([35.0 * np.cos(a), 35.0 * np.sin(a),
+        post.apply_translation([sx, sy,
                                   chassis_lift + HP.CHASSIS_PLATE_T
                                       + HP.CHASSIS_GAP / 2.0])
         parts.append(post)

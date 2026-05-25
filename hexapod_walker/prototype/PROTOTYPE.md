@@ -409,13 +409,14 @@ printer.
 | M3 × 14 mm SHCS | 72 + spares | **Design C servo-mount bolts**: horizontal, through the +/-X cradle walls and the servo tabs, into captive M3 nyloc nuts on the outer face. |
 | M3 × 16 mm pan-head | 6 + spares | Foot hinge pins (one per leg). |
 | M3 nyloc nuts | >= 6 + spares | One per foot hinge pin (May 2026 Design F: the 72 captive servo-mount nuts and the 24 coxa-bracket-to-chassis nuts have BOTH been retired). |
-| M3 × 25 mm round standoffs (M-F) | 8 | Top-to-bottom chassis spacers |
+| M3 × 32 mm round standoffs (M-F) | 4 | Top-to-bottom chassis spacers; brass M-F, length = `CHASSIS_GAP` = 32 mm.  On the rotated-45-deg 35-mm-radius pattern (= `CHASSIS_STANDOFF_HOLES_XY` = (±35, 0) and (0, ±35)) -- May 2026 tray-mount fix moved the standoffs OFF the (±24.75, ±24.75) tray-mount pattern so chassis_bottom could carry heat-set inserts for the tray-mount bolts. |
 | M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the plastic 4-arm X-horn onto the servo output spline. |
-| M3 brass heat-set inserts (McMaster 94459A130) | 18 | Electronics-tray board mounts: 4 for the Mega 2560 + 4 for the primary PCA9685 + 4 for the secondary PCA9685.  Plus 2 more in `chassis_top`'s 2 printed bosses for the `switch_holster` mount bolts.  Plus 4 more in the `imu_pad`'s 4 boss tops for the MPU-6050 mount.  Soldering-iron installed into the printed Phi 4 mm pilot pockets BEFORE the electronics / holster / IMU go on. |
+| M3 brass heat-set inserts (McMaster 94459A130) | 22 | Electronics-tray board mounts: 4 for the Mega 2560 + 4 for the primary PCA9685 + 4 for the secondary PCA9685.  Plus 2 more in `chassis_top`'s 2 printed bosses for the `switch_holster` mount bolts.  Plus 4 more in the `imu_pad`'s 4 boss tops for the MPU-6050 mount.  Plus 4 more in `chassis_bottom`'s 4 printed tray-mount bosses for the electronics_tray chassis-mount bolts (May 2026 tray-mount fix).  Soldering-iron installed into the printed Phi 4 mm pilot pockets BEFORE the electronics / holster / IMU / tray go on. |
 | M2.5 brass heat-set inserts (McMaster 94459A106) | 4 | Electronics-tray board mounts for the Raspberry Pi 4 / Pi 5.  Same soldering-iron install workflow as the M3 inserts. |
-| M3 × 8 SHCS (board mounts + IMU) | 16 | 4 x Mega 2560 + 4 x primary PCA9685 + 4 x secondary PCA9685 onto the M3 electronics-tray inserts, plus 4 x MPU-6050 (GY-521) onto the M3 imu_pad inserts. |
+| M3 × 8 SHCS (board mounts + IMU + tray-mount) | 20 | 4 x Mega 2560 + 4 x primary PCA9685 + 4 x secondary PCA9685 onto the M3 electronics-tray inserts, plus 4 x MPU-6050 (GY-521) onto the M3 imu_pad inserts, plus 4 x electronics_tray chassis-mount bolts that thread DOWN through the tray's cbore floor into chassis_bottom's tray-mount heat-set inserts (May 2026 tray-mount fix). |
 | 3M VHB / 3 mm foam tape | ~25 × 20 mm | Bonds `imu_pad.stl` to chassis_top centre.  Doubles as vibration damper that decouples the MPU-6050's gyro from the servo-driven chassis frame.  See §B.6 of `SHOPPING_LIST.md`. |
-| M3 × 10 SHCS (switch_holster mount) | 2 | Drop the printed `switch_holster.stl` onto chassis_top's 2 bosses and thread these 2 bolts DOWN through the holster ear's Phi 3.4 mm clearance holes into the heat-set inserts captive in the bosses.  Same stock as the battery_holder foot bolts. |
+| M3 × 10 SHCS (switch_holster mount + chassis_top standoff) | 6 | 2 for the switch_holster (drop the printed `switch_holster.stl` onto chassis_top's 2 bosses and thread DOWN through the holster ear's Phi 3.4 mm clearance holes into the heat-set inserts captive in the bosses); 4 more dropped DOWN from above chassis_top into the brass M-F standoff's female top threads (May 2026 tray-mount fix; brass standoffs are 32 mm long and span the inter-plate gap on the rotated-45-deg 35-mm-radius pattern).  Same stock as the battery_holder foot bolts. |
+| M3 nyloc nuts (chassis_top standoff retention) | 4 | UNDER chassis_bottom on the rotated-45-deg standoff pattern (±35, 0) and (0, ±35).  Captures the brass M-F standoff's male thread that protrudes DOWN through chassis_bottom's Phi 3.4 mm clearance hole.  Plus 6 more on the foot hinge pins (one per leg) -- see foot_pad row. |
 | M2.5 × 8 SHCS (board mounts) | 4 | 4 x Raspberry Pi 4 / Pi 5 onto the M2.5 inserts. |
 
 ### 4.5 3D-printed material
@@ -565,11 +566,16 @@ times.
    perimeter; the two inboard bolts sit 16 mm further in. The flange
    sandwiches between the bottom plate and the standoff ring later
    in step 13.
-10. **Stand-off posts:** screw 4 × M3 × **32 mm** M-F standoffs into
-    the 35 mm-radius inner bolt pattern (the `with_centre_holes` set
-    in `_hex_plate`).  **May 2026 fix:** standoffs were 25 mm before
-    the holder audit; the 28 mm-tall battery now needs CHASSIS_GAP =
-    32 mm of plate-to-plate void, so the standoffs grew to match.
+10. **Tray-mount heat-set inserts:** soldering-iron-install **4 × M3
+    brass heat-set inserts** (McMaster `94459A130`) into the 4
+    printed Phi 6 mm × 3 mm tray-mount bosses on chassis_bottom's
+    TOP face at the `ELEC_CHASSIS_MOUNT_HOLES_XY` = (±24.75, ±24.75)
+    pattern.  Press the inserts DOWN from above with the iron at
+    ~220 °C, light pressure, ~10-15 s until the knurl displaces
+    plastic into the boss wall.  These inserts hold the electronics_
+    tray-to-chassis_bottom bolts (May 2026 tray-mount fix; the
+    tray used to share its bolt pattern with the brass M-F
+    standoffs and physically could not bolt to anything).
 11. **Battery holder:** press 4 × M3 brass heat-set inserts (McMaster
     `94459A130`, same SKU as the cradle inserts) into the holder's
     foot pockets from BELOW with a soldering iron at ~ 220 °C.  Set
@@ -599,12 +605,30 @@ times.
        **4 × M3 × 8 mm SHCS**.  Boards sit 5 mm above the tray top
        on the printed standoff bosses; cables plug in from the ±X /
        -Y chassis edges.
-    d. Drop the populated tray onto the 4 × M3 × 32 mm standoffs and
-       drive **4 × M3 × 8 mm SHCS** UP from under the chassis_bottom
-       plate; the tray's Phi 5.5 mm × 3 mm counterbores recess the
-       SHCS heads flush with the tray's top face so the boards on
-       their 5 mm standoffs clear the chassis bolts entirely.
-    e. **IMU sub-assembly:** soldering-iron-install **4 × M3 brass
+    d. Drop the populated tray onto chassis_bottom's 4 tray-mount
+       bosses (the tray's bottom face lands flush on the boss tops
+       at chassis-z = +5 mm).  Drive **4 × M3 × 8 mm SHCS** DOWN
+       through the tray's chassis-mount cbores into the heat-set
+       inserts installed at step 10; the tray's Phi 5.5 mm × 2 mm
+       counterbores recess the SHCS heads 1 mm below the tray's
+       top face so the boards on their 5 mm standoffs clear the
+       chassis bolt heads entirely.  May 2026 tray-mount fix: cbore
+       depth was 3 mm before (= full tray thickness, leaving no rim
+       for the head to clamp); shrunk to 2 mm so a 1 mm plastic rim
+       survives at the cbore floor.
+    e. **Stand-off posts (chassis-stack closure):** screw 4 × M3 ×
+       **32 mm** M-F brass standoffs into the rotated-45-deg
+       35-mm-radius pattern (`CHASSIS_STANDOFF_HOLES_XY` = (±35, 0)
+       and (0, ±35)).  Each standoff's MALE thread drops DOWN
+       through chassis_bottom's clearance hole; capture it from
+       below with **4 × M3 nyloc nuts** (one per standoff).  The
+       FEMALE top accepts an M3 × 10 SHCS dropped DOWN from above
+       chassis_top in step 14.  May 2026 tray-mount fix: standoffs
+       MOVED off the (±24.75, ±24.75) tray-mount pattern onto the
+       rotated-45-deg pattern so the brass standoff body doesn't
+       conflict with the chassis_bottom heat-set inserts installed
+       at step 10.
+    f. **IMU sub-assembly:** soldering-iron-install **4 × M3 brass
        heat-set inserts** (McMaster `94459A130`, same SKU as the
        cradle / battery / electronics-tray inserts) into the
        `imu_pad.stl`'s 4 boss-top pilots (Phi 4 mm × 6 mm pockets,
@@ -623,8 +647,66 @@ times.
        electronics_tray's I2C cluster (a Phi 8 mm corridor is left
        clear above chassis_top for the harness).
 13. **Wire it up:** see §7.
-14. **Top chassis plate:** screw down onto the M3 × 32 mm standoff
-    tops.
+14. **Top chassis plate:** drop the printed `chassis_top.stl` onto
+    the 4 brass standoff tops at the rotated-45-deg 35-mm-radius
+    pattern (`CHASSIS_STANDOFF_HOLES_XY`).  Drive **4 × M3 × 10 mm
+    SHCS** DOWN from above through chassis_top's Phi 3.4 mm
+    clearance holes into the standoff's female top threads (May
+    2026 tray-mount fix).  IMPORTANT: install BEFORE the
+    switch_holster -- the +X standoff at (+35, 0) sits under the
+    holster's footprint, so a hex key cannot reach that bolt's
+    head once the holster is dropped onto its bosses.  Then drop
+    the populated `switch_holster.stl` onto chassis_top's 2 +X
+    bosses and bolt with **2 × M3 × 10 mm SHCS** as in step 14a
+    below.
+
+### 6.3 Retrofit for existing chassis_bottom prints (pre-May-2026-tray-mount-fix)
+
+If you printed `chassis_bottom.stl`, `chassis_top.stl`, or
+`electronics_tray.stl` from a build dated before the May 2026
+tray-mount fix (cbore depth 3.0 mm, brass standoffs on the
+(±24.75, ±24.75) pattern, no tray-mount bosses on chassis_bottom),
+your printed plates won't accept the new fastener layout as-is.
+You have two paths:
+
+**Path A -- reprint (recommended):** regenerate
+`stl_prototype/chassis_bottom.stl`, `stl_prototype/chassis_top.stl`,
+and `stl_prototype/electronics_tray.stl` from the current
+parametric source (`make -C hexapod_walker/prototype build`) and
+reprint.  The 3 STLs together print in ~4 hours on a single Ender 3
+bed.
+
+**Path B -- modify in place (if reprinting is impractical):**
+1. **Drill out the 4 existing Phi 3.4 mm holes at (±24.75, ±24.75)
+   on chassis_bottom** to **Phi 4.0 mm** using a standard 4 mm
+   drill bit.  These were originally the brass-standoff clearance
+   holes; they become the heat-set insert pilots for the new
+   tray-mount path.
+2. **Press an M3 brass heat-set insert** (McMaster `94459A130`)
+   into each enlarged hole from the TOP face using a soldering
+   iron at ~220 °C, ~10-15 s of light pressure per insert.  The
+   5 mm-long insert will protrude ~2 mm below the plate's bottom
+   face -- this is structurally fine (no part interferes with
+   the protruding section because the cradle bond-strips and
+   battery_holder feet sit far outside the (±24.75, ±24.75) ring).
+3. **Drill 4 NEW Phi 3.4 mm clearance holes** at the brass
+   standoff pattern: (±35, 0) and (0, ±35) -- the same 35 mm
+   radius rotated 45 deg from the existing tray-mount pattern.
+   These become the new chassis-stack standoff sites.
+4. **Reprint `electronics_tray.stl`** (the cbore depth changed
+   from 3 mm to 2 mm; you need the new 1 mm cbore-floor rim for
+   the M3 SHCS head to clamp against).
+5. **Reprint `chassis_top.stl`** OR drill 4 NEW Phi 3.4 mm holes
+   at the brass standoff pattern (same XY as step 3) into your
+   existing chassis_top print.  The existing (±24.75, ±24.75)
+   holes on chassis_top can stay as-is -- they are harmless under
+   the new layout (the tray-mount M3 × 8 SHCS bolts stop in the
+   chassis_bottom insert and never reach chassis_top).
+
+Assembly order under either path: tray-mount heat-set inserts
+FIRST → tray bolted DOWN onto chassis_bottom inserts → brass
+standoffs threaded through chassis_bottom (M3 nyloc underneath)
+→ chassis_top bolted DOWN onto standoff tops.
 
 ---
 

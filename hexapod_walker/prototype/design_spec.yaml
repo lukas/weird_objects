@@ -226,7 +226,7 @@ bounds_tol_mm: 2.0
 parts:
 
   chassis_bottom:
-    description: "Structural 200 mm flat-to-flat hex plate with 6 integrated yaw-servo cradles (one per leg, May 2026 Design F).  Each cradle is a rectangular open-top bucket bonded into the plate at a chassis hex-edge midpoint; the yaw servo's body hangs DOWN through a body cutout in the plate and the tab ears sit on the cradle's internal shelf at +6 mm above the plate top.  Each leg also carries a radial 12 x 6 mm wire pass-through slot inboard of its body cutout (so the leg harness drops into the inter-plate volume); the slot itself doubles as the per-leg zip-tie anchor for the 3-cable harness.  Plate also carries 4 x M3 chassis-mount holes on a 35-mm-radius / 45-deg square (shared with chassis_top + electronics_tray) and 4 x M3 clearance holes for the battery_holder feet at (+/-50, +/-24) mm."
+    description: "Structural 200 mm flat-to-flat hex plate with 6 integrated yaw-servo cradles (one per leg, May 2026 Design F).  Each cradle is a rectangular open-top bucket bonded into the plate at a chassis hex-edge midpoint; the yaw servo's body hangs DOWN through a body cutout in the plate and the tab ears sit on the cradle's internal shelf at +6 mm above the plate top.  Each leg also carries a radial 12 x 6 mm wire pass-through slot inboard of its body cutout (so the leg harness drops into the inter-plate volume); the slot itself doubles as the per-leg zip-tie anchor for the 3-cable harness.  Plate also carries 4 x M3 chassis-mount holes on a 35-mm-radius / 45-deg square (= ELEC_CHASSIS_MOUNT_HOLES_XY = (+/-24.75, +/-24.75)) PLUS 4 x Phi 6 mm x 3 mm tall tray-mount bosses unioned onto the TOP face at those same XY positions, each carrying an M3 heat-set insert pocket (May 2026 tray-mount fix: the electronics_tray bolts DOWN onto these inserts instead of trying to thread through unmodeled material); 4 x M3 clearance holes for the brass M-F standoff columns on the rotated-45-deg 35-mm-radius pattern (= CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) and (0, +/-35); M3 nyloc on the under face captures the standoff male thread); and 4 x M3 clearance holes for the battery_holder feet at (+/-50, +/-24) mm."
     qty: 1
     bounds_mm: [226.0, 242.0, 15.0]     # measured: hex plate 200 mm flat-to-flat + 6 yaw cradles extending ~21 mm radially outboard from each edge midpoint; Z = CHASSIS_PLATE_T + CRADLE_BOSS_H_MM = 4 + 11 (cradle outer shell spans cradle-z in [-CHASSIS_PLATE_T, +CRADLE_BOSS_H_MM] = [-4, +11], for a 15 mm total height)
     holes:
@@ -287,12 +287,18 @@ parts:
           notes: "Hex is oriented so its 6 vertices fall at azimuth 30/90/.../330 deg (the leg directions); apothem = 100 mm, circumradius = 100 / cos(30 deg) = 115.47 mm.  Plate thickness is symmetric about z = 0 so the plate spans z in [-2, +2] mm."
         - name: centre_mount_pattern
           type: slot
-          description: "4 vertical M3 clearance holes on a 35-mm-radius / 45-deg square (the (+/-24.75, +/-24.75) pattern).  Shared standoff sites with chassis_top, electronics_tray, and the optional arm baseplate; brass standoff columns thread DOWN through this pattern from chassis_top to chassis_bottom across the inter-plate gap."
+          description: "4 vertical M3 clearance holes on a 35-mm-radius / 45-deg square (= ELEC_CHASSIS_MOUNT_HOLES_XY = (+/-24.75, +/-24.75) pattern).  Each hole is UNIONed with a Phi TRAY_MOUNT_BOSS_OD = 6 mm x TRAY_MOUNT_BOSS_H = 3 mm boss on the plate's TOP face and a Phi INSERT_M3_PILOT_OD = 4 mm heat-set insert pocket cut DOWN from the boss top.  The electronics_tray bolts onto these inserts via 4 x M3 x 8 SHCS (May 2026 tray-mount fix; the brass standoff columns moved OFF this pattern -- see ``standoff_pattern`` below)."
           centre_mm: [0.0, 0.0, 0.0]
           diameter_mm: 3.4           # = HP.BRACKET_BOLT_HOLE
           axis: z
           holes_on_feature: [centre_mount_NE]
           notes: "Only one of the 4 holes is enumerated in `holes:` above as a regression-check seed; the other 3 are at the symmetric (-24.75, +24.75), (+24.75, -24.75), (-24.75, -24.75) positions."
+        - name: standoff_pattern
+          type: slot
+          description: "4 vertical M3 clearance holes on the rotated-45-deg 35-mm-radius pattern (= CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) and (0, +/-35)).  Brass M-F standoffs thread DOWN through chassis_top + this hole pattern + chassis_bottom; an M3 nyloc on the UNDER face captures the standoff's male thread.  May 2026 tray-mount fix: the standoffs MOVED off the (+/-24.75, +/-24.75) pattern (= ``centre_mount_pattern`` above) so the brass standoff body wouldn't conflict with the tray-mount heat-set insert pocket in chassis_bottom."
+          centre_mm: [0.0, 0.0, 0.0]
+          diameter_mm: 3.4           # = HP.BRACKET_BOLT_HOLE
+          axis: z
         - name: battery_holder_bolt_pattern
           type: slot
           description: "4 vertical M3 clearance holes at (+/-50, +/-24) mm in chassis frame -- the 4 mounting feet of the battery_holder thread their M3 heat-set inserts onto these from above.  Bolts pass UP through the plate from below."
@@ -398,7 +404,7 @@ parts:
       features:
         - name: hex_plate
           type: hex_plate
-          description: "The structural hexagonal deck.  Smaller than chassis_bottom (140 mm vs 200 mm flat-to-flat) so the leg sweep clears it.  Takes the entire upper-deck stack (battery_holder + electronics_tray + optional arm) plus the 2 chassis bolts that clamp the deck to the bottom plate via brass standoffs."
+          description: "The structural hexagonal deck.  Smaller than chassis_bottom (140 mm vs 200 mm flat-to-flat) so the leg sweep clears it.  Takes the entire upper-deck stack (battery_holder + electronics_tray + optional arm) plus the 4 chassis bolts that clamp the deck to the bottom plate via brass M-F standoffs on the rotated-45-deg 35-mm-radius pattern (= CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) and (0, +/-35); May 2026 tray-mount fix moved the standoffs OFF the (+/-24.75, +/-24.75) tray-mount pattern so chassis_bottom could carry M3 heat-set inserts at the tray-mount XYs without conflicting with the standoff bodies)."
           centre_mm: [0.0, 0.0, 0.0]
           flat_to_flat_mm: 140.0      # = HP.CHASSIS_TOP_FLAT_TO_FLAT
           thickness_mm: 4.0           # = HP.CHASSIS_PLATE_T
@@ -406,11 +412,17 @@ parts:
           notes: "Same hex orientation as chassis_bottom (vertices at 30/90/.../330 deg).  Plate spans z in [-2, +2] mm; apothem = 70 mm, circumradius = 70 / cos(30 deg) = 80.83 mm."
         - name: centre_mount_pattern
           type: slot
-          description: "4 vertical M3 clearance holes on the same 35-mm-radius / 45-deg square pattern as chassis_bottom and electronics_tray.  Brass standoffs span the inter-plate gap on this pattern."
+          description: "4 vertical M3 clearance holes on the 35-mm-radius / 45-deg square pattern shared with chassis_bottom and electronics_tray (= ELEC_CHASSIS_MOUNT_HOLES_XY = (+/-24.75, +/-24.75)).  These holes are REDUNDANT under the May 2026 tray-mount fix (the tray-mount M3 x 8 SHCS bolts stop in chassis_bottom's heat-set insert; they don't reach chassis_top); kept for retrofit compatibility with pre-fix prints."
           centre_mm: [0.0, 0.0, 0.0]
           diameter_mm: 3.4            # = HP.BRACKET_BOLT_HOLE
           axis: z
           holes_on_feature: [centre_mount_NE]
+        - name: standoff_pattern
+          type: slot
+          description: "4 vertical M3 clearance holes on the rotated-45-deg 35-mm-radius pattern (= CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) and (0, +/-35)).  Brass M-F standoffs span the inter-plate gap on this pattern; an M3 x 10 SHCS drops DOWN through chassis_top into the standoff female top.  May 2026 tray-mount fix introduced this rotated-45-deg pattern -- the standoffs used to live on the (+/-24.75, +/-24.75) tray-mount pattern and conflicted with chassis_bottom's heat-set insert pockets."
+          centre_mm: [0.0, 0.0, 0.0]
+          diameter_mm: 3.4            # = HP.BRACKET_BOLT_HOLE
+          axis: z
         - name: switch_holster_boss_pair
           type: cylindrical_boss
           description: "2 Phi 8 mm bosses on the +X half of the plate, each rising 3 mm above the deck's TOP face.  Each boss carries a Phi 4 mm x 6 mm M3 heat-set insert pocket opening UPWARD from the boss top.  The switch_holster ear sits on the bosses; an M3 SHCS threads DOWN from above through the ear into the insert."
