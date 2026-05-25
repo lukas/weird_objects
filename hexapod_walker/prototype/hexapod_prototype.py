@@ -6408,26 +6408,54 @@ def make_femur_link() -> trimesh.Trimesh:
     bridge_y_extent = bridge_y_max - bridge_y_min
     bridge_y_centre = (bridge_y_min + bridge_y_max) / 2.0
     # Bridge X-span: trimmed (May 24 2026) from the body's full x range
-    # (slot_x = 56 mm, x in [body_x_min, body_x_max] = [62, 118]) down
-    # to the inboard half x in [body_x_min, FEMUR_LENGTH] = [62, 90] so
+    # (slot_x = 56 mm, x in [body_x_min, body_x_max] = [52, 108]) down
+    # to the inboard half x in [body_x_min, FEMUR_LENGTH] = [52, 90] so
     # the bridges no longer overhang past the knee axis at the spar's
     # +X end.  User feedback: "the parts with high X and high Y, not
     # the spar, are what's blocking the servo on the femur_link --
-    # remove them".  The +X half of each bridge (x in [90, 118]) sat
+    # remove them".  The +X half of each bridge (x in [90, 108]) sat
     # outboard of the knee axis at y in [-22.75, +3], protruding past
     # the spar's +X tip and partially carved by the Phi 45 mm
-    # knee_clear cylinder cut (the visible "round cut out").  The
-    # surviving inboard half x in [62, 90] still:
-    #   * embeds 2.5 mm into the well's +Y wall (well outer rim at
-    #     femur y = WELL_RIM_Z + delta[1] = -22.75) at x in [62, 90]
-    #     for the well-to-spar bond (well's +X face is at femur x ~=
-    #     109, so the well's +Y wall is intact across all of [62, 90]);
-    #   * keeps the spar's +Y / -Y flanges tied to the well's top /
-    #     bottom walls between the body's -X edge and the knee axis.
-    bridge_x_min    = body_x_min                       # 62
-    bridge_x_max    = FEMUR_LENGTH                     # 90 (was body_x_max = 118)
-    bridge_x_extent = bridge_x_max - bridge_x_min      # 28 (was slot_x = 56)
-    bridge_x_centre = (bridge_x_min + bridge_x_max) / 2.0   # 76 (was 90)
+    # knee_clear cylinder cut (the visible "round cut out").
+    #
+    # User report (May 25 2026, BuildViz dimension call-out): "the
+    # end point in XYZ is around 90 -6 23" -- the user clicked a 19 mm
+    # dimension along the +X tail of the bridge top cap at z = +23,
+    # y = -6 (outboard of the tibia_clear cut at y < -5.5 so the cap
+    # is uncut there) and asked to mirror the recent side-wall shrink
+    # by reducing this 19 mm reading to ~16 mm.
+    #
+    # Geometric reading of the 19 mm: the bridge cap at y < -5.5
+    # (outside the tibia_clear cut) survives from bridge_x_min = 52
+    # to bridge_x_max = FEMUR_LENGTH = 90.  Of that range, the
+    # OUTBOARD TAIL outside the cut zone in +X is bounded by
+    # TIBIA_CLEAR_X_MIN = 72 on the -X side (where the cut starts)
+    # and bridge_x_max = 90 on the +X side -- 18 mm physically, ~19
+    # mm to a click-snap measurement.
+    #
+    # Fix (Option B -- bridge geometry): shorten bridge_x_max from
+    # FEMUR_LENGTH = 90 to TIBIA_CLEAR_X_MIN + 16 = 88 so the visible
+    # +X outboard tail at y < -5.5, z in +/-[10, 23] measures
+    # 88 - 72 = 16 mm not 18-19 mm.  Inboard bridge strip at x in
+    # [52, 72] (uncut, full bridge cross-section) is UNTOUCHED.
+    #
+    # Safety re. the +X load path: the knee-end flange-to-well rib
+    # (KNEE_RIB_X_MIN .. KNEE_RIB_X_MAX = [85, 95], commits fa4b7c9
+    # + 2a73036) provides the spar-flange-to-well structural bond at
+    # the knee tip independently of the bridge's outboard tail.  The
+    # rib fuses into the bridge over its x in [85, 88] overlap
+    # (under the new bridge_x_max = 88) and cantilevers from the
+    # well at x in [88, 95]; the bridge's old x in [88, 90] sliver
+    # was redundant load-path material now that the rib exists.
+    #
+    # bridge_x_min still anchors to body_x_min so the inboard strip
+    # continues to tie the spar to the well's +Y wall over its full
+    # uncut extent.
+    BRIDGE_X_MAX_FEMUR = 88.0    # = TIBIA_CLEAR_X_MIN + 16 (cut x_min is 72; defined later)
+    bridge_x_min    = body_x_min                       # 52
+    bridge_x_max    = BRIDGE_X_MAX_FEMUR                # 88 (was FEMUR_LENGTH = 90)
+    bridge_x_extent = bridge_x_max - bridge_x_min      # 36 (was 38)
+    bridge_x_centre = (bridge_x_min + bridge_x_max) / 2.0   # 70 (was 71)
 
     # Top flange bridge: z spans [body_top, spar_top + BRIDGE_CAP_H] so
     # it overlaps the well's top wall, the spar's top flange, AND
@@ -6650,6 +6678,15 @@ def make_femur_link() -> trimesh.Trimesh:
     # the spar's +X knee-end load path is a 5 mm cantilever overhanging
     # straight into open air with no tie to the well's outer side
     # walls that re-start 5 mm further out.
+    #
+    # Bridge-tail shrink (May 25 2026): bridge_x_max was reduced from
+    # FEMUR_LENGTH = 90 to BRIDGE_X_MAX_FEMUR = 88 to drop the visible
+    # +X outboard tail dimension from ~19 mm to 16 mm.  The rib's x
+    # overlap with the bridge is now [85, 88] = 3 mm (was [85, 90] =
+    # 5 mm) and its cantilever past the bridge tip is now [88, 95] =
+    # 7 mm (was [90, 95] = 5 mm).  The rib's well-embedment anchor at
+    # y in [-24.25, -21.75] is unchanged so the cantilever still
+    # earns its bond from the well wall, not from the bridge.
     #
     # Alternative interpretation (a) considered + REJECTED: connect
     # the cable post fragment at x ~= 110 (the literal max-x feature,
