@@ -1426,6 +1426,62 @@ HORN_CENTRE_OD      =  3.4   # mm -- M3 centre clearance (for the horn screw)
 HORN_RECESS_OD      = 16.0   # mm
 HORN_RECESS_DEPTH   =  1.2   # mm
 
+# ---------------------------------------------------------------------------
+# goBILDA 1906 25T aluminum servo hub
+# ---------------------------------------------------------------------------
+# An aluminum (anodized) low-profile servo hub from goBILDA.  Same H25T
+# spline as the DS3225 / MG996R / DS3218 plastic X-horn we model with
+# ``make_servo_horn`` -- so it can SHARE the servo, but the bolt pattern
+# is COMPLETELY DIFFERENT from XHORN_BOLT_PCD.  The 1906 hub presents 4 x
+# M4 threaded holes on a 16 mm SQUARE pattern on its TOP face: bolts at
+# (+/-8, +/-8) mm from the spline centre.  Compare XHORN_BOLT_PCD = 20.8
+# mm at 0 / 90 / 180 / 270 degrees -- the two are not interchangeable.
+#
+# Why we're modeling it (user report, May 2026):
+#     The OEM plastic 4-arm X-horn that ships with hobby servos
+#     ("make_servo_horn") strips its spline after a few load cycles at
+#     the hexapod's femur joint.  Replacing it with the goBILDA 1906
+#     aluminum hub (4.7 g, $4.99) is the upgrade path.  Using this hub
+#     requires REDESIGNING the link's mounting pad (XHORN_BOLT_PCD ->
+#     16 mm square M4 grid) which is a separate decision; for now we
+#     only PROVIDE the parametric factory + STL so a user can preview
+#     the swap visually.
+#
+# Source: https://www.gobilda.com/1906-series-lightweight-servo-hub-25-tooth-spline-32mm-diameter/
+#   * Outer diameter:        32 mm  (SKU last segment "0032")
+#   * Spline:                H25T (25-tooth, same as servo X-horn)
+#   * Bolt pattern:          4 x M4 on a 16 mm SQUARE (bolts at +/-8, +/-8)
+#   * Centering protrusion:  14 mm OD boss on the TOP face (for mating
+#                            parts with a 14 mm bore)
+#   * Material:              anodized aluminum
+#   * Mass:                  4.7 g  -> ~1.74 cm^3 of aluminum
+#
+# The product page lists no exact thickness number.  Working backwards from
+# 4.7 g / (2.70 g/cm^3) = 1.74 cm^3 and a ~32 mm OD x ~4 mm disc minus the
+# spline bore and 4 x M4 holes lands in the 4-6 mm range; goBILDA calls
+# the hub "low-profile", so we model a 4 mm main disc + a 2 mm tall
+# 14 mm centering boss for a 6 mm overall stack.  These are visualization-
+# grade estimates.  No spline TEETH are modeled (just a Phi ~6 mm smooth
+# female bore standing in for the 25T spline).
+GOBILDA_1906_HUB_OD       = 32.0   # mm -- outer diameter, from SKU
+GOBILDA_1906_HUB_H        =  6.0   # mm -- overall hub height (main disc + boss).
+                                   # Main disc is 4 mm, boss adds another 2 mm.
+GOBILDA_1906_DISC_H       =  4.0   # mm -- main 32 mm disc thickness
+GOBILDA_1906_BOSS_OD      = 14.0   # mm -- top centering protrusion (mates to
+                                   # parts with a 14 mm bore)
+GOBILDA_1906_BOSS_H       =  2.0   # mm -- boss height above the main disc
+GOBILDA_1906_BOLT_GRID    = 16.0   # mm -- 4 x M4 threaded holes at +/-GRID/2
+                                   # in X and Y.  NOT the same pattern as
+                                   # XHORN_BOLT_PCD = 20.8 mm (X-horn 4 arms).
+GOBILDA_1906_M4_OD        =  4.3   # mm -- M4 threaded-hole clearance for the
+                                   # visualization mesh (the real hub is
+                                   # tapped M4, not a clearance hole).
+GOBILDA_1906_M4_DEPTH     =  3.0   # mm -- blind pocket depth from the top face
+GOBILDA_1906_SPLINE_OD    =  6.0   # mm -- 25T spline female bore (major Phi
+                                   # ~5.92 mm on H25T).  Modeled as a smooth
+                                   # cylinder; the real part has 25 internal
+                                   # spline teeth that we don't draw.
+
 # Femur hip-pad mating-face recess.  The coxa_link's pedestal-bottom
 # horn_hub_recess at HORN_RECESS_DEPTH = 1.2 mm is sized for the
 # nominal "1 mm spline-screw-head protrusion + 0.2 mm FDM tolerance"
@@ -3855,6 +3911,110 @@ def make_servo_horn() -> trimesh.Trimesh:
     centre_hole = _cyl(HORN_CENTRE_OD / 2.0, hub_h + 2.0)
     centre_hole.apply_translation([0, 0, hub_h / 2.0])
     return _diff(horn, *bolt_holes, centre_hole)
+
+
+def make_gobilda_1906_hub() -> trimesh.Trimesh:
+    """goBILDA 1906 Series 25T aluminum servo hub (visualization mesh).
+
+    Source: https://www.gobilda.com/1906-series-lightweight-servo-hub-25-tooth-spline-32mm-diameter/
+    SKU:    1906-0025-0032 ("1906 Series Low-Profile Servo Hub, 25-Tooth
+            Spline, 32 mm Diameter"; aluminum, clear-anodized; 4.7 g; $4.99)
+
+    Why this exists (user report, May 2026):
+        The OEM plastic 4-arm X-horn that ships with hobby servos
+        (``make_servo_horn``) strips its spline after a few load cycles
+        at the hexapod's femur joint.  This aluminum hub is the
+        higher-torque replacement.  Using it requires redesigning the
+        link mounting pad -- the goBILDA bolt pattern is a 16 mm SQUARE
+        (M4 at +/-8, +/-8) which is COMPLETELY DIFFERENT from the
+        current ``XHORN_BOLT_PCD`` = 20.8 mm 4-arm PCD that the link
+        pad mates against -- so this factory is offered in parallel to
+        ``make_servo_horn`` and the assembly/inspector still call the
+        plastic horn for now.
+
+    Local frame (matches ``make_servo_horn``):
+        +Z = servo output shaft axis
+        Origin at the BOTTOM face (the spline-engagement side that mates
+            to the servo).  Top face sits at z = GOBILDA_1906_HUB_H.
+
+    Modeled features:
+        * Main hub disc: Phi GOBILDA_1906_HUB_OD = 32 mm, height
+          GOBILDA_1906_DISC_H = 4 mm, spanning z = [0, 4].
+        * Top centering boss: Phi GOBILDA_1906_BOSS_OD = 14 mm, height
+          GOBILDA_1906_BOSS_H = 2 mm, on top of the main disc spanning
+          z = [4, 6].  This is goBILDA's 14 mm "centering mechanism for
+          mating components that have a 14 mm bore."
+        * Central 25T spline female bore: Phi GOBILDA_1906_SPLINE_OD =
+          6 mm (smooth cylinder; the real part has 25 internal spline
+          teeth that we DON'T draw because this is a visualization mesh).
+          Modeled as a blind pocket from the BOTTOM face spanning the
+          full main-disc thickness (z = [0, GOBILDA_1906_DISC_H]) so
+          the spline engages the servo output shaft.
+        * Central M3 cap-screw clearance hole: Phi HORN_CENTRE_OD =
+          3.4 mm, drilled THROUGH the full hub from bottom to top so the
+          servo's M3 spline-cap screw passes through.
+        * 4 x M4 threaded holes: Phi GOBILDA_1906_M4_OD = 4.3 mm
+          (clearance for the M4 screw; the real hub is tapped M4),
+          at (+/-GOBILDA_1906_BOLT_GRID/2, +/-GOBILDA_1906_BOLT_GRID/2)
+          = (+/-8, +/-8) mm from the spline centre.  Important: the
+          bolts sit at radius sqrt(8^2 + 8^2) ~= 11.31 mm, which is
+          OUTSIDE the 14 mm boss footprint (boss radius = 7).  So the
+          M4 holes can only tap into the 32 mm DISC's flat top
+          shoulder, not the boss -- modeled as blind pockets going
+          DOWN GOBILDA_1906_M4_DEPTH = 3 mm from the disc top face
+          (z = GOBILDA_1906_DISC_H = 4 mm), spanning roughly z = [1, 4]
+          inside the main disc.
+
+    Returns:
+        A single watertight ``trimesh.Trimesh`` ~32 mm OD x 6 mm tall.
+
+    NOTE: This is a VISUALIZATION mesh.  Don't use it for printable-part
+    fit checks: spline teeth are omitted, hole positions are nominal,
+    and the boss/disc step is an estimate (the goBILDA product page
+    doesn't publish a sectional dimension drawing).  When goBILDA's
+    STEP file is available offline, prefer it for any production check.
+    """
+    disc_h = GOBILDA_1906_DISC_H
+    boss_h = GOBILDA_1906_BOSS_H
+    hub_h = GOBILDA_1906_HUB_H  # = disc_h + boss_h
+    assert abs((disc_h + boss_h) - hub_h) < 1e-9, (
+        "GOBILDA_1906_HUB_H must equal DISC_H + BOSS_H")
+
+    # Main 32 mm disc, z = [0, disc_h]
+    disc = _cyl(GOBILDA_1906_HUB_OD / 2.0, disc_h)
+    disc.apply_translation([0, 0, disc_h / 2.0])
+
+    # 14 mm centering boss on top of the disc, z = [disc_h, hub_h]
+    boss = _cyl(GOBILDA_1906_BOSS_OD / 2.0, boss_h)
+    boss.apply_translation([0, 0, disc_h + boss_h / 2.0])
+
+    hub = _union(disc, boss)
+
+    # Spline bore (blind from BOTTOM face, full disc thickness).  Smooth
+    # cylinder standing in for the 25T H25T female spline.
+    spline_bore = _cyl(GOBILDA_1906_SPLINE_OD / 2.0, disc_h + 0.2)
+    spline_bore.apply_translation([0, 0, (disc_h + 0.2) / 2.0 - 0.1])
+
+    # M3 spline cap-screw clearance hole, through the full hub.
+    centre_hole = _cyl(HORN_CENTRE_OD / 2.0, hub_h + 2.0)
+    centre_hole.apply_translation([0, 0, hub_h / 2.0])
+
+    # 4 x M4 threaded holes at +/-8, +/-8 on a 16 mm SQUARE grid.
+    # Bolts sit at radius ~11.3 mm = OUTSIDE the 14 mm boss (radius 7),
+    # so the holes tap into the 32 mm disc's flat top shoulder at
+    # z = disc_h.  Pocket spans z = [disc_h - M4_DEPTH, disc_h + 0.1]
+    # (the 0.1 overshoot at the disc top gives a clean CSG cut).
+    g = GOBILDA_1906_BOLT_GRID / 2.0
+    m4_depth = GOBILDA_1906_M4_DEPTH
+    m4_holes = []
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            h = _cyl(GOBILDA_1906_M4_OD / 2.0, m4_depth + 0.2)
+            h.apply_translation([sx * g, sy * g,
+                                  disc_h - m4_depth / 2.0 + 0.1])
+            m4_holes.append(h)
+
+    return _diff(hub, spline_bore, centre_hole, *m4_holes)
 
 
 def make_servo_horn_adapter() -> trimesh.Trimesh:
