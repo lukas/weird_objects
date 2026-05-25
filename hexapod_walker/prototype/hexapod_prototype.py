@@ -6375,6 +6375,84 @@ def make_femur_link() -> trimesh.Trimesh:
         [FEMUR_LENGTH, LINK_THICKNESS / 2.0, 0.0]
     )
 
+    # ---- Tibia knee-pose clearance cuts in the bridges ---------------
+    # User report (May 25 2026): "when the tibia link is at a 90degree
+    # angle to femur link the tibia link hits material at high Y and
+    # low Z on the femur link, need to remove that".
+    #
+    # Geometric reasoning:
+    #   The tibia pivots about the knee axis (femur +Y line through
+    #   (FEMUR_LENGTH, *, 0)) and at a +90 deg knee angle the tibia
+    #   spar (x in [0, TIBIA_LENGTH], y in [0, LINK_THICKNESS]=[0,+6],
+    #   z in [-TIBIA_SPAR_H/2, +TIBIA_SPAR_H/2] = [-9, +9]) maps to
+    #   femur (x = 90+tibia_z, y = tibia_y - HORN_STACK_H, z = -tibia_x)
+    #   = (x in [81, 99], y in [-5, +1], z in [-130, 0]).  The tibia's
+    #   knee pad disc (HIP_PAD_R = 19.5 radius about the knee axis,
+    #   y in [-5, +1] in femur) also sweeps through this region at
+    #   any non-trivial knee angle.
+    #
+    #   In the bridge-bottom region (x in [bridge_x_min, FEMUR_LENGTH],
+    #   y in [bridge_y_min, +LINK_THICKNESS/2], z in [-23, -10]) the
+    #   tibia spar at +90 deg collides over x in [81, 90], y in [-5, +1],
+    #   z in [-23, -10], plus the pad disc adds a sliver at x in
+    #   [73, 81] (where (x-90)^2 + z^2 <= 19.5^2 brushes the bridge
+    #   top edge).  The existing knee_clear cylinder (Phi 45, y in
+    #   [-1.5, +7.5]) only clears the top 2.5 mm of the tibia's y
+    #   range; it does NOT reach the y in [-5, -1.5] slab where the
+    #   tibia spar/pad-bottom intrude into the bridge.
+    #
+    # Fix: an axis-aligned box subtract covering the collision envelope
+    # at x in [73, 91], y in [-5.5, +1.5], z in [-23.5, -9.5] (0.5 mm
+    # margin on every face).  At +90 deg this clears the spar's bottom
+    # flange tie + the +Y outboard half of the bottom bridge over the
+    # outer 18 mm of the bridge's x range; the inboard 21 mm at x in
+    # [bridge_x_min, 73] = [52, 73] is UNTOUCHED and still bonds the
+    # spar's bottom flange (y in [0, +6], z in [-17, -11]) to the
+    # well's bottom wall (y around -22 to -45, z in [-14.5, -10.7])
+    # via the bridge's full y-extent.  The surviving inboard strut
+    # cross-section is 21 mm x 11 mm x ~27 mm y-extent -- well above
+    # any check_thin_sheets / check_flimsy_joints threshold and the
+    # dominant load path was always the inboard half anyway (the
+    # outboard half overhangs INTO the tibia's swing envelope).
+    #
+    # Top bridge symmetric cut: the MuJoCo knee range is asymmetric at
+    # [-20, +80] deg, but probing both extremes shows the tibia pad
+    # disc + spar bottom edge intrudes into the TOP bridge at the
+    # -20 deg negative joint limit by the same y-slab mechanism (the
+    # tibia y in [-5, -1.5] slab below knee_clear).  Cutting the top
+    # bridge with the mirrored box at z in [+9.5, +23.5] clears both
+    # extreme poses at once -- no downside since the outboard half
+    # of the top bridge plays the same overhang role as the bottom
+    # half and the inboard 21 mm still ties the spar's top flange to
+    # the well's top wall.
+    #
+    # Safety re. the well cavity: the well's outer envelope sits at
+    # femur y in [-49, -21.75] (probed) -- completely below the cut's
+    # y in [-5.5, +1.5] band -- so neither cut box overlaps the well
+    # body, the servo cavity, or the well's top/bottom wall.  The
+    # bridges are the ONLY femur material in y in [-5.5, +1.5] x
+    # x in [73, 91] x z in +/-[9.5, 23.5], so the cuts touch nothing
+    # else.
+    TIBIA_CLEAR_X_MIN  = 72.0
+    TIBIA_CLEAR_X_MAX  = FEMUR_LENGTH + 1.0          # 91 (1 mm overshoot)
+    TIBIA_CLEAR_Y_MIN  = -HORN_STACK_H - 0.5         # -5.5
+    TIBIA_CLEAR_Y_MAX  = +LINK_THICKNESS / 2.0 - 1.5 # +1.5 (covers tibia y [-5,+1] + 0.5 mm margin)
+    TIBIA_CLEAR_Z_MIN  = -(bridge_top_z_max + 0.5)   # -23.5 (full bridge_bot z range + 0.5 mm overshoot)
+    TIBIA_CLEAR_Z_MAX  = -(bridge_top_z_min - 0.5)   # -9.5  (0.5 mm into the air above bridge_bot)
+    tibia_clear_dx = TIBIA_CLEAR_X_MAX - TIBIA_CLEAR_X_MIN
+    tibia_clear_dy = TIBIA_CLEAR_Y_MAX - TIBIA_CLEAR_Y_MIN
+    tibia_clear_dz = TIBIA_CLEAR_Z_MAX - TIBIA_CLEAR_Z_MIN
+    tibia_clear_cx = 0.5 * (TIBIA_CLEAR_X_MIN + TIBIA_CLEAR_X_MAX)
+    tibia_clear_cy = 0.5 * (TIBIA_CLEAR_Y_MIN + TIBIA_CLEAR_Y_MAX)
+    tibia_clear_cz_bot = 0.5 * (TIBIA_CLEAR_Z_MIN + TIBIA_CLEAR_Z_MAX)
+    tibia_clear_cz_top = -tibia_clear_cz_bot
+    tibia_clear_bot = _box((tibia_clear_dx, tibia_clear_dy, tibia_clear_dz),
+                           center=(tibia_clear_cx, tibia_clear_cy,
+                                   tibia_clear_cz_bot))
+    tibia_clear_top = _box((tibia_clear_dx, tibia_clear_dy, tibia_clear_dz),
+                           center=(tibia_clear_cx, tibia_clear_cy,
+                                   tibia_clear_cz_top))
+
     # Cable post (Part A, May 2026): printed-in zip-tie strain relief
     # next to the knee wire-exit slot.  Built in well-local and
     # transformed alongside ``wire_slot`` (R + delta) so it stays
@@ -6383,6 +6461,7 @@ def make_femur_link() -> trimesh.Trimesh:
                    bridge_top, bridge_bot, cable_post)
     return _diff(body, insertion_slot, wire_slot,
                  cavity_trim, knee_clear,
+                 tibia_clear_bot, tibia_clear_top,
                  *hip_holes, *hip_counterbores,
                  hip_centre_hole, femur_hip_hub_recess)
 
