@@ -5865,7 +5865,15 @@ def make_femur_link() -> trimesh.Trimesh:
     Hip end: a flat 4-bolt pad that bolts to the hip-pitch servo's
     plastic 4-arm X-horn.  This pad is perpendicular to Y (lies in
     the X-Z plane), with its -Y MATING FACE at y = 0 and its +Y
-    outer face at y = LINK_THICKNESS.
+    outer face at y = LINK_THICKNESS.  A Phi HORN_CENTRE_OD = 3.4 mm
+    (M3 clearance) hole is drilled through the pad's centre along
+    +Y so the servo's central spline screw can be installed /
+    tightened / loosened from above (the pad's outer face) with
+    the link already bolted to the X-horn -- user-flagged May 2026:
+    without this hole the spline screw is captive under the link's
+    mating face and the link has to be fully unbolted to access
+    the spline screw.  Mirrors the coxa_link's pedestal-cap centre
+    hole that gives the same access for the yaw spline screw.
 
     Knee end: an open-topped servo cradle that holds the knee servo,
     output shaft pointing +Y (parallel to the hip-pitch axis), so
@@ -5999,6 +6007,32 @@ def make_femur_link() -> trimesh.Trimesh:
                               hip_pad_y_max - cb_len / 2.0 + 0.05,
                               XHORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_counterbores.append(cb)
+
+    # ---- Central spline-screw clearance through the hip pad ----------
+    # A Phi HORN_CENTRE_OD = 3.4 mm (M3 clearance) hole drilled along
+    # +Y through the pad's centre = the hip-pitch joint axis.  Punches
+    # through the full LINK_THICKNESS (NEW y in [0, +6]) so the
+    # M2.5 x 8 servo spline centre screw can be installed / tightened
+    # / loosened from above (the pad's +Y outer face) with the link
+    # already bolted to the X-horn.  Cylinder length = LINK_THICKNESS
+    # * 4 = 24 mm so the diff cleanly punches through with voxel/CSG
+    # slop on both faces.
+    #
+    # Centre is at (0, hip_pad_centre_y, 0); the bolt PCD is 20.8 mm
+    # so the PCD inner edge (radius 10.4 - 1.1 = 9.3 mm) sits 9.3 -
+    # 1.7 = 7.6 mm clear of this hole's outer rim -- the 4 M2 PCD
+    # holes are completely untouched.  The pad area lost to this cut
+    # is pi * 1.7^2 ~= 9 mm^2 = 2 % of the pad's pi * 20^2 = 1257
+    # mm^2 face, well below any strength concern.
+    #
+    # See the analogous ``centre_hole`` cut in make_coxa_link which
+    # provides the same access for the yaw spline screw through the
+    # pedestal cap.  User-flagged May 2026: "the tibia link and femur
+    # link round joints need a hole in the center to attach the screw
+    # into servo behind it".
+    hip_centre_hole = _cyl(HORN_CENTRE_OD / 2.0, LINK_THICKNESS * 4)
+    hip_centre_hole.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
+    hip_centre_hole.apply_translation([0.0, hip_pad_centre_y, 0.0])
 
     # ---- Knee-end servo well -----------------------------------------
     # NB: the 4 M3 mounting pilots in the wall (drilled by
@@ -6221,7 +6255,8 @@ def make_femur_link() -> trimesh.Trimesh:
                    bridge_top, bridge_bot, cable_post)
     return _diff(body, insertion_slot, wire_slot,
                  cavity_trim, knee_clear,
-                 *hip_holes, *hip_counterbores)
+                 *hip_holes, *hip_counterbores,
+                 hip_centre_hole)
 
 
 def make_tibia_link() -> trimesh.Trimesh:
@@ -6250,7 +6285,12 @@ def make_tibia_link() -> trimesh.Trimesh:
 
     Knee end: a square pad centred on the joint axis (x=0, z=0) with
     the 4 horn bolt holes drilled in Y.  Bolt-circle CENTRE is on
-    the joint axis so the tibia rotates rigidly with the horn.
+    the joint axis so the tibia rotates rigidly with the horn.  A
+    Phi HORN_CENTRE_OD = 3.4 mm (M3 clearance) hole is drilled
+    through the pad's centre along +Y so the knee servo's central
+    spline screw is reachable from above with the tibia already
+    bolted to the X-horn -- mirrors the hip pad's central hole and
+    the coxa_link pedestal cap centre hole (user-flagged May 2026).
     Foot end: a single TANG (a LINK_THICKNESS-wide downward tongue,
     centred on tibia y=0) that slides into the foot pad's clevis
     fork (see ``make_foot_pad``).  The tang carries an M3 through-
@@ -6320,6 +6360,24 @@ def make_tibia_link() -> trimesh.Trimesh:
                               XHORN_BOLT_PCD / 2.0 * np.sin(a)])
         knee_counterbores.append(cb)
 
+    # ---- Central spline-screw clearance through the knee pad ---------
+    # A Phi HORN_CENTRE_OD = 3.4 mm (M3 clearance) hole drilled along
+    # +Y through the pad's centre = the knee joint axis.  Punches
+    # through the full LINK_THICKNESS (NEW y in [0, +6]) so the
+    # M2.5 x 8 servo spline centre screw can be installed / tightened
+    # / loosened from above (the pad's +Y outer face) with the link
+    # already bolted to the X-horn.  Mirrors the femur hip pad's
+    # hip_centre_hole; same length oversize convention (LINK_THICKNESS
+    # * 4) and same clearance to the 4 M2 PCD bolts (PCD inner edge
+    # at radius 9.3 mm, central hole outer edge at 1.7 mm, 7.6 mm
+    # of pad material between).  See make_femur_link's analogous
+    # block for the full design rationale.  User-flagged May 2026:
+    # "the tibia link and femur link round joints need a hole in
+    # the center to attach the screw into servo behind it".
+    knee_centre_hole = _cyl(HORN_CENTRE_OD / 2.0, LINK_THICKNESS * 4)
+    knee_centre_hole.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
+    knee_centre_hole.apply_translation([0.0, knee_pad_centre_y, 0.0])
+
     # ----- Foot tang at the far end (x ~ TIBIA_LENGTH) -----
     # May 2026 inversion: the tibia ends in a SINGLE TANG that is
     # in-plane with the spar (LINK_THICKNESS wide in Y, centred on
@@ -6384,6 +6442,7 @@ def make_tibia_link() -> trimesh.Trimesh:
 
     body = _union(knee_pad, spar, taper, tang)
     return _diff(body, *knee_holes, *knee_counterbores,
+                 knee_centre_hole,
                  pin_hole, *lightening)
 
 

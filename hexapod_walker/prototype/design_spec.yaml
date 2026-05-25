@@ -711,6 +711,11 @@ parts:
         diameter_mm: 2.2
         position_mm: [0.0, 3.0, -10.4]
         axis: y
+      - name: hip_pad_centre_screw_clearance
+        diameter_mm: 3.4                # = HORN_CENTRE_OD (M3 clearance for the hip servo's spline centre screw)
+        position_mm: [0.0, 3.0, 0.0]
+        axis: y
+        note: "Phi 3.4 mm M3-clearance through-hole drilled along +Y through the pad's centre, aligned with the hip-pitch servo's output spline axis.  Lets the user drive the M2.5 spline screw with a hex key from the pad's +Y outer face AFTER the link is bolted to the X-horn; without this hole the spline screw is captive under the link's -Y mating face and the link has to be fully unbolted to access it.  Mirrors yaw_horn_centre in coxa_link's pedestal cap; user-flagged May 2026."
     wire_channels:
       - name: knee_wire_exit_L
         note: "L-corridor at the knee well's +X bottom-outboard corner."
@@ -737,8 +742,8 @@ parts:
             normal: -y
             mates_to: "hip-pitch servo's plastic 4-arm X-horn top face"
             mating_plane_z_local_mm: 0.0    # NEW link-local origin = mating face
-          holes_on_feature: [hip_pad_bolt_+X, hip_pad_bolt_+Z, hip_pad_bolt_-X, hip_pad_bolt_-Z]
-          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face (head TOP at NEW y = +6, head BOTTOM at NEW y = +3.5)."
+          holes_on_feature: [hip_pad_bolt_+X, hip_pad_bolt_+Z, hip_pad_bolt_-X, hip_pad_bolt_-Z, hip_pad_centre_screw_clearance]
+          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face (head TOP at NEW y = +6, head BOTTOM at NEW y = +3.5).  A Phi HORN_CENTRE_OD = 3.4 mm M3 clearance hole punches through the pad's centre (joint axis) along +Y so the M2.5 servo spline centre screw is reachable from above after the link is bolted to the X-horn -- mirrors the coxa_link pedestal cap's yaw_horn_centre hole."
         - name: spar
           type: extruded_rectangle
           description: "Long straight thigh shaft.  Cross-section 6 mm Y x 34 mm Z gives I_y = 9826 mm^4 (~ 18x safety factor in the dominant bending direction).  Carries the hip-pitch reaction torque from the knee end back to the hip pad.  NEW (May 2026 collinear-pad refactor): spar centred at y = +3 (was 0 pre-refactor), spanning y in [0, +LINK_THICKNESS] = [0, +6] -- same y range as the hip pad above."
@@ -833,6 +838,11 @@ parts:
         diameter_mm: 2.2
         position_mm: [0.0, 3.0, -10.4]
         axis: y
+      - name: knee_pad_centre_screw_clearance
+        diameter_mm: 3.4                # = HORN_CENTRE_OD (M3 clearance for the knee servo's spline centre screw)
+        position_mm: [0.0, 3.0, 0.0]
+        axis: y
+        note: "Phi 3.4 mm M3-clearance through-hole drilled along +Y through the pad's centre, aligned with the knee servo's output spline axis.  Lets the user drive the M2.5 spline screw with a hex key from the pad's +Y outer face AFTER the link is bolted to the X-horn.  Mirrors hip_pad_centre_screw_clearance on the femur and yaw_horn_centre on the coxa_link; user-flagged May 2026."
     wire_channels: []                    # the tibia has no servo, hence no wire-exit
     keep_out_volumes:
       - name: tibia_horn_stack_void
@@ -851,8 +861,8 @@ parts:
             normal: -y
             mates_to: "knee servo's plastic 4-arm X-horn top face"
             mating_plane_z_local_mm: 0.0    # NEW link-local origin = mating face
-          holes_on_feature: [knee_pad_bolt_+X, knee_pad_bolt_+Z, knee_pad_bolt_-X, knee_pad_bolt_-Z]
-          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face (head TOP at NEW y = +6, head BOTTOM at NEW y = +3.5)."
+          holes_on_feature: [knee_pad_bolt_+X, knee_pad_bolt_+Z, knee_pad_bolt_-X, knee_pad_bolt_-Z, knee_pad_centre_screw_clearance]
+          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face (head TOP at NEW y = +6, head BOTTOM at NEW y = +3.5).  A Phi HORN_CENTRE_OD = 3.4 mm M3 clearance hole punches through the pad's centre (joint axis) along +Y so the M2.5 servo spline centre screw is reachable from above after the link is bolted to the X-horn -- mirrors the coxa_link pedestal cap's yaw_horn_centre hole and the femur hip pad's central clearance."
         - name: spar
           type: extruded_rectangle
           description: "Long straight shin shaft.  Carries the bending load from foot-strike to knee.  Cross-section is wide in Z and thin in Y.  NEW (May 2026 collinear-pad refactor): spar centred at y = +3 (was 0 pre-refactor), spanning y in [0, +LINK_THICKNESS] = [0, +6] -- same y range as the knee pad above."

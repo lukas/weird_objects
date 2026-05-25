@@ -74,7 +74,20 @@ Enumerated categories (Design B + Design C, May 2026 revert)
    captive between the servo spline and the plastic horn.  18 servos
    x 1 screw each = 18.  Special-cased in ``check_screwdriver_access``
    with a SKIP because the screw is hidden under the X-horn during
-   normal assembly -- install before fitting the horn.
+   normal assembly -- install before fitting the horn.  A Phi
+   HORN_CENTRE_OD = 3.4 mm (M3 clearance) hole sits coaxial with the
+   joint axis through EVERY driven link's pad:
+     * yaw    -- ``centre_hole`` through the coxa_link pedestal cap
+     * hip    -- ``hip_centre_hole`` through the femur hip pad (May 2026)
+     * knee   -- ``knee_centre_hole`` through the tibia knee pad (May 2026)
+   so the spline screw head + a hex driver have line-of-sight from
+   the pad's outer face, which is what the user requested for
+   serviceability ("the tibia link and femur link round joints need a
+   hole in the center to attach the screw into servo behind it", May
+   2026).  The skip flag is preserved because the install order is
+   still "spline screw FIRST, X-horn SECOND, link THIRD" -- the new
+   pad holes are an access-from-above improvement, not a sequence
+   change.
 
 4. ``6 x M3 x 16 pan-head bolts`` -- foot hinge pins.  1 per leg.
 
@@ -967,7 +980,18 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
             # link bolts onto the horn (Design B retired the printed
             # adapter; the link's pad now bolts directly to the horn,
             # so the spline screw head is buried beneath the link).
-            # Install it BEFORE fitting the horn.
+            # Install it BEFORE fitting the horn.  May 2026: every
+            # driven link's pad now carries a coaxial Phi HORN_CENTRE_
+            # OD = 3.4 mm M3 clearance hole (coxa_link's centre_hole
+            # through the pedestal cap, femur's hip_centre_hole
+            # through the hip pad, tibia's knee_centre_hole through
+            # the knee pad) so the spline screw head + a hex driver
+            # have line-of-sight from the pad's outer face -- a
+            # user-flagged serviceability improvement for the hip
+            # and knee, matching the long-standing yaw access path.
+            # The skip flag is preserved because install order is
+            # still "spline screw -> X-horn -> link", not because
+            # the screw is geometrically unreachable.
             skip_screwdriver_reason=(
                 "captive under the X-horn after assembly; install "
                 "the spline screw BEFORE fitting the plastic horn"
