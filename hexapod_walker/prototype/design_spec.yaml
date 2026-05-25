@@ -679,7 +679,7 @@ parts:
           height_mm: 8.0                   # = HP.CABLE_POST_Z
 
   femur_link:
-    description: "Thigh; hip pad bolts onto hip-pitch horn at x=0, knee well at x=FEMUR_LENGTH.  Spar carries a SOLID Phi 40 mm x 6 mm hip-end pad COLLINEAR with the spar (May 2026 collinear-pad refactor; pad and spar share y in [0, +6]), an insertion slot through the spar at the knee's body x-range, and bridge flanges above + below the slot tying the spar's top/bottom to the knee well's wall."
+    description: "Thigh; hip pad bolts onto hip-pitch horn at x=0, knee well at x=FEMUR_LENGTH.  Spar carries a SOLID Phi 28 mm x 6 mm hip-end pad COLLINEAR with the spar (pad and spar share y in [0, +6]; pad shrunk from Phi 40 to Phi 28 in May 2026 user-flagged shrink so each X-horn arm tip pokes 4 mm past the pad edge in BuildViz), an insertion slot through the spar at the knee's body x-range, and bridge flanges above + below the slot tying the spar's top/bottom to the knee well's wall."
     qty: 6
     # May 2026 collinear-pad refactor: the link's local origin moved
     # to the pad's mating face (= the X-horn-top arm plane).  The hip
@@ -690,7 +690,7 @@ parts:
     # Y-extent stayed 55 mm because the well + bridges shifted -5 mm
     # in link-local y to follow the spar's new range, and the bridge
     # cap now reaches LINK_THICKNESS/2 = +3 instead of 0.
-    bounds_mm: [131.0, 55.0, 46.0]      # measured: X = HP.FEMUR_LENGTH + a 41 mm well overhang past the spar tip (knee well centre at x = FEMUR_LENGTH - SERVO_OUTPUT_X = 80; well_w/2 = 29 mm past that; -X end at hip pad ring at x = -HIP_PAD_R = -20), Y = LINK_THICKNESS + bridge/well drop = 55 mm spanning NEW y in [-49, +6], Z = max(FEMUR_SPAR_H, WELL_W) + 2 * BRIDGE_CAP_H = 46 mm
+    bounds_mm: [125.0, 55.0, 46.0]      # measured: X = HP.FEMUR_LENGTH + a 41 mm well overhang past the spar tip (knee well centre at x = FEMUR_LENGTH - SERVO_OUTPUT_X = 80; well_w/2 = 29 mm past that; -X end at hip pad ring at x = -FEMUR_HIP_PAD_R = -14; previously -HIP_PAD_R = -20), Y = LINK_THICKNESS + bridge/well drop = 55 mm spanning NEW y in [-49, +6], Z = max(FEMUR_SPAR_H, WELL_W) + 2 * BRIDGE_CAP_H = 46 mm
     # NEW (May 2026 collinear-pad refactor): hip pad now spans y in
     # [0, +LINK_THICKNESS] = [0, +6].  Bolt holes drilled along Y
     # through the pad's mid-thickness at y = 3 (was 8 pre-refactor).
@@ -733,9 +733,9 @@ parts:
       features:
         - name: hip_pad
           type: cylindrical_disc
-          description: "Solid round mounting pad at the hip end.  Bolts onto the hip-pitch servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm PCD; pad's -Y face mates flush to the horn's top arm plane at NEW y = 0.  Pad y-range is [0, +6] = [0, +LINK_THICKNESS], COLLINEAR with the spar (May 2026 collinear-pad refactor).  Mating face is FLAT -- the X-horn hub top is flush with its arm-top plane so there is no spline-screw boss above that plane to swallow, and the link has no material at y < 0 so the X-horn envelope below is cleared by construction (no arm-relief cup carved in the pad)."
+          description: "Solid round mounting pad at the hip end.  Bolts onto the hip-pitch servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm PCD; pad's -Y face mates flush to the horn's top arm plane at NEW y = 0.  Pad y-range is [0, +6] = [0, +LINK_THICKNESS], COLLINEAR with the spar (May 2026 collinear-pad refactor).  Mating face is FLAT -- the X-horn hub top is flush with its arm-top plane so there is no spline-screw boss above that plane to swallow, and the link has no material at y < 0 so the X-horn envelope below is cleared by construction (no arm-relief cup carved in the pad).  May 2026 user-flagged shrink: pad disc reduced from Phi 40 (HIP_PAD_R = 20 mm) to Phi 28 (FEMUR_HIP_PAD_R = 14 mm) so each X-horn arm tip (PLASTIC_HORN_X_TIP_R = 18 mm) pokes 4 mm past the pad's outer edge in BuildViz, restoring visibility of the X-horn arms from the +Y inspection view.  Tibia knee pad (separate feature) still uses HIP_PAD_R unchanged."
           centre_mm: [0.0, 3.0, 0.0]
-          diameter_mm: 40.0          # = 2 * HP.HIP_PAD_R
+          diameter_mm: 28.0          # = 2 * HP.FEMUR_HIP_PAD_R (was 40.0 = 2 * HIP_PAD_R)
           thickness_mm: 6.0          # = HP.LINK_THICKNESS
           axis: y
           mating_face:

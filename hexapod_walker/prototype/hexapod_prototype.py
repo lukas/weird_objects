@@ -1569,6 +1569,49 @@ TIBIA_SPAR_H     = 18.0   # mm -- Z-direction height of the tibia spar
 # check_workspace_self_collision for the runtime verification.
 HIP_PAD_R        = 20.0
 
+# ---- Femur hip-pad radius (May 2026 user-flagged shrink) ----------------
+# The femur's hip pad is a SEPARATE Phi-2*FEMUR_HIP_PAD_R disc that
+# clamps onto the hip-pitch X-horn at the link's NEW local origin.
+# Decoupled from HIP_PAD_R (= the tibia knee pad radius) so the femur
+# can be shrunk independently of the tibia.
+#
+# User-flagged May 2026: "the 20 mm from the femur link hip pitch to
+# knee is too long, it blocks the X horn, you need to shorten it".
+# The previous FEMUR_HIP_PAD_R = HIP_PAD_R = 20 mm covered the X-horn
+# arm tips (PLASTIC_HORN_X_TIP_R = 18 mm) in the assembled BuildViz
+# view from +Y -- the Phi 40 mm pad disc fully hid the Phi 36 mm
+# X-horn (and all 4 arms) behind it, making the X-horn invisible
+# during inspection.  Reduced to 14 mm so each X-horn arm tip pokes
+# out PLASTIC_HORN_X_TIP_R - FEMUR_HIP_PAD_R = 18 - 14 = 4 mm past
+# the pad's outer edge in BuildViz, restoring visibility of all 4
+# arms while still covering the 4 PCD bolts at radius 10.4 mm with
+# safe margin (wall thickness = 14 - 10.4 - M2_HEAD_OD_CLEARANCE/2 =
+# 14 - 10.4 - 2.0 = 1.6 mm of pad material outboard of each M2 head
+# counter-bore; well above the 1.5 mm = 3 perimeter @ 0.4 mm nozzle
+# minimum).
+#
+# Why the constraint HIP_PAD_R >= HORN_STACK_VOID_R + 1.5 mm wall
+# (= 20 mm, see the HIP_PAD_R docstring above) does NOT apply here:
+# that constraint was for the pre-May-2026 HOLLOW ANNULUS NECK
+# design where the pad enclosed the X-horn inside a printed cup
+# (the cup wall had to be >= 1.5 mm thick at FDM tolerance).  The
+# post-2026 COLLINEAR-PAD refactor moved the pad from y in
+# [-HORN_STACK_H, +LINK_THICKNESS+5] to a flat solid disc at NEW y
+# in [0, +LINK_THICKNESS], sitting ABOVE the X-horn (X-horn at y in
+# [-HORN_STACK_H, 0]).  The pad no longer encloses the horn, so the
+# wall-thickness constraint vanishes.  See make_femur_link's
+# "NEW (May 2026 collinear-pad refactor)" comment block.
+#
+# The pad's swept clearance cut in make_coxa_link (pad_sweep_clear =
+# HIP_PAD_R + 0.5) is left at HIP_PAD_R = 20 mm + 0.5 mm = 20.5 mm
+# even though the femur's actual sweep is now only 14 mm radius;
+# the cut just removes more coxa_link pedestal material than strictly
+# needed (no structural concern -- only fewer mm^3 of plastic) and
+# stays consistent with the historical sizing.  The tibia's knee pad
+# clearance cut (knee_clear_R = HIP_PAD_R + 2.5) is sized for the
+# TIBIA's pad (still HIP_PAD_R = 20 mm) so it stays unchanged.
+FEMUR_HIP_PAD_R  = 14.0
+
 # ---- Coxa-link bridge stiffener -----------------------------------------
 # The coxa link's "bridge" -- the flat 4 mm-thick arm + 6.5 mm-tall
 # bridge member that connects the horn-mating yoke (the inboard 4-bolt
@@ -5977,14 +6020,21 @@ def make_femur_link() -> trimesh.Trimesh:
     #     envelope is cleared by construction -- no arm-relief cup is
     #     boolean-diff'd out of the pad.
     #
-    # Geometry: a solid Phi (2 * HIP_PAD_R) = 40 mm disc spanning NEW
-    # y in [0, +LINK_THICKNESS] = [0, +6].  The 4 M2 bolt holes are
+    # Geometry: a solid Phi (2 * FEMUR_HIP_PAD_R) = 28 mm disc spanning
+    # NEW y in [0, +LINK_THICKNESS] = [0, +6].  The 4 M2 bolt holes are
     # drilled along +Y through the disc, and a 2.5 mm-deep Phi 4 mm
     # counter-bore opens at the +Y outer face for each M2 SHCS head.
+    #
+    # May 2026 user-flagged shrink: pad disc reduced from Phi 40
+    # (HIP_PAD_R = 20) to Phi 28 (FEMUR_HIP_PAD_R = 14) so each X-horn
+    # arm tip (PLASTIC_HORN_X_TIP_R = 18) pokes 4 mm past the pad's
+    # outer edge in the BuildViz +Y view.  See FEMUR_HIP_PAD_R docstring
+    # for the full rationale.  The tibia knee pad (line ~6361) still
+    # uses HIP_PAD_R unchanged at the user's request.
     hip_pad_y_min    = 0.0                          # mating face (= X-horn-top)
     hip_pad_y_max    = LINK_THICKNESS               # +6
     hip_pad_centre_y = LINK_THICKNESS / 2.0         # +3 (was +8 pre-refactor)
-    hip_pad = _cyl_along(HIP_PAD_R,
+    hip_pad = _cyl_along(FEMUR_HIP_PAD_R,
                           hip_pad_y_max - hip_pad_y_min,
                           axis="y")
     hip_pad.apply_translation([0, hip_pad_y_min, 0])
