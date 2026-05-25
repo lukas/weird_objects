@@ -6618,6 +6618,19 @@ def make_femur_link() -> trimesh.Trimesh:
     # the highest x part of the femur_link to the part that surrounds
     # the servo for structural stability".
     #
+    # User follow-up (May 25 2026, shorten Y extent): "the femur_link
+    # thing on the side of the servo needs to lowered even more in
+    # case the xhorn drops a bit. Currently the side wall is 18.75 mm
+    # make it more like 16mm".  The rib's Y-extent is shortened from
+    # 18.75 mm to 16.0 mm by lowering y_max (moving it more negative)
+    # while keeping y_min anchored to the well embedment.  New y_max =
+    # bridge_y_min + 16.0 = -24.25 + 16.0 = -8.25 mm.  The X-horn's
+    # bottom face sits at femur y = -HORN_STACK_H = -5 mm, so the new
+    # rib top at y = -8.25 leaves -8.25 - (-5) = -3.25 mm of vertical
+    # slack below the X-horn -- i.e., the X-horn can drop by up to
+    # 3.25 mm before contacting the rib (was 0.5 mm of slack before
+    # this change).
+    #
     # Interpretation chosen: the "highest x part" = the spar's +Y / -Y
     # bridge-flange tips that currently end as CANTILEVERS at x =
     # FEMUR_LENGTH = 90 (the knee axis), and the "part that surrounds
@@ -6655,29 +6668,37 @@ def make_femur_link() -> trimesh.Trimesh:
     # user's "around 10mm" target).  Geometry per rib:
     #
     #   x in [FEMUR_LENGTH - 5, FEMUR_LENGTH + 5] = [85, 95] (10 mm)
-    #   y in [bridge_y_min, TIBIA_CLEAR_Y_MIN]    = [-24.25, -5.5]
-    #          (matches existing bridge's surviving y range post
-    #           tibia_clear cut; embeds 2.5 mm = BRIDGE_WELL_EMBED
-    #           into the well's +Y outer rim wall at y = -21.75)
+    #   y in [bridge_y_min, bridge_y_min + KNEE_RIB_DY_TARGET]
+    #          = [-24.25, -8.25]    (16 mm; lowered from previous
+    #           [-24.25, -5.5] = 18.75 mm per the May 25 2026 X-horn
+    #           drop-slack follow-up).  Embeds 2.5 mm = BRIDGE_WELL_EMBED
+    #           into the well's +Y outer rim wall at y = -21.75 (anchor
+    #           preserved).  Top face now sits 3.25 mm BELOW the X-horn
+    #           bottom face at y = -HORN_STACK_H = -5 mm.
     #   z in +/-[SERVO_BODY_D/2, WELL_D/2] = +/-[10, 14.5]
     #          (matches the well's outer +Z / -Z side wall thickness
     #           exactly; the rib reads as a 5 mm INBOARD extension of
     #           that wall, capping off the bridge tip)
     #
-    # Volume per rib ~= 10 * 18.75 * 4.5 = 844 mm^3; both ribs ~= 1690
-    # mm^3 = +3.3 % over the ~ 50.7 cm^3 baseline femur volume.
+    # Volume per rib ~= 10 * 16.0 * 4.5 = 720 mm^3; both ribs ~= 1440
+    # mm^3 = +2.8 % over the ~ 50.7 cm^3 baseline femur volume.
     # Comfortably above noise-floor for the beam-bending second-moment
     # boost at the knee-end load station.
     #
     # Constraint check (must NOT impinge into):
     #   * knee_clear: Phi 45 mm cylinder at (90, +3, 0), y in
-    #     [-1.5, +7.5].  Rib y_max = -5.5 < -1.5 = knee_clear y_min,
+    #     [-1.5, +7.5].  Rib y_max = -8.25 < -1.5 = knee_clear y_min,
     #     so the rib lives entirely BELOW knee_clear in Y -- no
     #     overlap.
     #   * tibia_clear_top / tibia_clear_bot: x in [72, 91], y in
-    #     [-5.5, +3.0], z in +/-[9.5, 23.5].  Rib y_max = -5.5 =
-    #     TIBIA_CLEAR_Y_MIN; the rib's top y face touches but does
-    #     not cross the tibia_clear y_min plane -- no overlap.
+    #     [-5.5, +3.0], z in +/-[9.5, 23.5].  Rib y_max = -8.25 <
+    #     -5.5 = TIBIA_CLEAR_Y_MIN; the rib's top y face sits 2.75 mm
+    #     BELOW the tibia_clear y_min plane -- no overlap (margin
+    #     increased from 0 mm to 2.75 mm by this change).
+    #   * X-horn (yaw output) bottom face at femur y = -HORN_STACK_H
+    #     = -5 mm: rib y_max = -8.25, so the rib sits 3.25 mm below
+    #     the X-horn (was 0.5 mm).  The X-horn can drop by up to
+    #     3.25 mm before contacting the rib.
     #   * Well cavity / servo body slot: x in [59.3, 100.7], y in
     #     [-53, -21.75], z in +/-[10.7].  Rib z_min = +10 punches
     #     0.7 mm into the cavity z half-width at y in [-24.25,
@@ -6686,11 +6707,11 @@ def make_femur_link() -> trimesh.Trimesh:
     #     in the post-union diff pass.  The servo body insertion
     #     path is preserved.
     #   * insertion_slot: x in [62, 118], y in [-1, +7], z in
-    #     +/-[11].  Rib y_max = -5.5 < -1; no overlap.
+    #     +/-[11].  Rib y_max = -8.25 < -1; no overlap.
     #
     # Printability: the femur prints with the spar's broad face (the
     # X-Z plane) on the bed and the +Y direction pointing UP, so the
-    # rib's 19 mm Y-extent is a vertical wall in print orientation.
+    # rib's 16 mm Y-extent is a vertical wall in print orientation.
     # No new overhangs introduced; the rib's underside at z = +/-10
     # already exists in the bridge_top / bridge_bot floor.
     KNEE_RIB_HALF_DX  = 5.0                                  # mm  ->  10 mm total in X
@@ -6698,8 +6719,9 @@ def make_femur_link() -> trimesh.Trimesh:
     KNEE_RIB_X_MAX    = FEMUR_LENGTH + KNEE_RIB_HALF_DX      # 95
     KNEE_RIB_X_CENTRE = 0.5 * (KNEE_RIB_X_MIN + KNEE_RIB_X_MAX)
     KNEE_RIB_DX       = KNEE_RIB_X_MAX - KNEE_RIB_X_MIN
-    KNEE_RIB_Y_MIN    = bridge_y_min                          # = well_near_y - BRIDGE_WELL_EMBED
-    KNEE_RIB_Y_MAX    = TIBIA_CLEAR_Y_MIN                     # = -HORN_STACK_H - 0.5 = -5.5
+    KNEE_RIB_Y_MIN    = bridge_y_min                          # = well_near_y - BRIDGE_WELL_EMBED  (= -24.25)
+    KNEE_RIB_DY_TARGET = 16.0                                 # mm Y-extent (May 25 2026: shortened from 18.75 mm so the X-horn can drop ~3.25 mm before contacting the rib).
+    KNEE_RIB_Y_MAX    = KNEE_RIB_Y_MIN + KNEE_RIB_DY_TARGET   # -24.25 + 16.0 = -8.25  (was TIBIA_CLEAR_Y_MIN = -5.5)
     KNEE_RIB_DY       = KNEE_RIB_Y_MAX - KNEE_RIB_Y_MIN
     KNEE_RIB_Y_CENTRE = 0.5 * (KNEE_RIB_Y_MIN + KNEE_RIB_Y_MAX)
     KNEE_RIB_Z_MIN    = +SERVO_BODY_D / 2.0                   # +10 (body z half-width)
