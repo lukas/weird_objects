@@ -155,7 +155,28 @@ def _horn_visual() -> trimesh.Trimesh:
         arm.apply_translation([0, 0, arm_h / 2.0])
         parts.append(arm)
 
-    return trimesh.util.concatenate(parts)
+    # Boolean-union the hub + arms first so the central screw clearance
+    # hole (drilled next) cuts through the FULL solid horn including
+    # the region where the four arms overlap at the centre.  A plain
+    # ``trimesh.util.concatenate`` would leave non-manifold interior
+    # surfaces that the boolean diff fails to drill through cleanly,
+    # leaving stray solid voxels along the axis right at the arm
+    # centre (z ~ horn_h/2).
+    try:
+        horn = trimesh.boolean.union(parts)
+    except Exception:
+        horn = trimesh.util.concatenate(parts)
+
+    # Central screw clearance hole so the M3 spline screw is visible
+    # passing through the horn's hub in the assembled view.  Without
+    # this the solid Phi 16 mm hub occluded the link pad's central
+    # screw clearance hole, making the screw path appear blind.
+    centre_hole = _cyl(HP.HORN_CENTRE_OD / 2.0, horn_h + 2.0)
+    centre_hole.apply_translation([0, 0, horn_h / 2.0])
+    try:
+        return trimesh.boolean.difference([horn, centre_hole])
+    except Exception:
+        return horn
 
 
 # ---------------------------------------------------------------------------

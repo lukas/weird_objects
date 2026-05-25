@@ -3772,7 +3772,19 @@ def make_servo_horn() -> trimesh.Trimesh:
                               XHORN_BOLT_PCD / 2.0 * np.sin(a),
                               hole_z])
         bolt_holes.append(h)
-    return _diff(horn, *bolt_holes)
+
+    # Central screw clearance hole through the hub.  The real DS3225 /
+    # MG996R / DS3218 plastic X-horn has a Phi ~5.5 mm bore at the
+    # centre so an M3 SHCS head + driver passes through and threads
+    # into the servo's spline cap screw.  Without this hole the visual
+    # hub is a solid Phi 16 mm slug that occludes the link pad's
+    # central screw clearance hole (HORN_CENTRE_OD = 3.4 mm) in the
+    # assembled view, making it appear that the link's screw clearance
+    # dead-ends at the link's mating face.  Drill through the full
+    # hub_h + 1 mm overshoot on each face for clean boolean diff.
+    centre_hole = _cyl(HORN_CENTRE_OD / 2.0, hub_h + 2.0)
+    centre_hole.apply_translation([0, 0, hub_h / 2.0])
+    return _diff(horn, *bolt_holes, centre_hole)
 
 
 def make_servo_horn_adapter() -> trimesh.Trimesh:
