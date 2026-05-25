@@ -6138,8 +6138,27 @@ def make_femur_link() -> trimesh.Trimesh:
     bridge_y_max    = LINK_THICKNESS / 2.0
     bridge_y_extent = bridge_y_max - bridge_y_min
     bridge_y_centre = (bridge_y_min + bridge_y_max) / 2.0
-    bridge_x_extent = slot_x                          # span the body's x range
-    bridge_x_centre = (body_x_min + body_x_max) / 2.0
+    # Bridge X-span: trimmed (May 24 2026) from the body's full x range
+    # (slot_x = 56 mm, x in [body_x_min, body_x_max] = [62, 118]) down
+    # to the inboard half x in [body_x_min, FEMUR_LENGTH] = [62, 90] so
+    # the bridges no longer overhang past the knee axis at the spar's
+    # +X end.  User feedback: "the parts with high X and high Y, not
+    # the spar, are what's blocking the servo on the femur_link --
+    # remove them".  The +X half of each bridge (x in [90, 118]) sat
+    # outboard of the knee axis at y in [-22.75, +3], protruding past
+    # the spar's +X tip and partially carved by the Phi 45 mm
+    # knee_clear cylinder cut (the visible "round cut out").  The
+    # surviving inboard half x in [62, 90] still:
+    #   * embeds 2.5 mm into the well's +Y wall (well outer rim at
+    #     femur y = WELL_RIM_Z + delta[1] = -22.75) at x in [62, 90]
+    #     for the well-to-spar bond (well's +X face is at femur x ~=
+    #     109, so the well's +Y wall is intact across all of [62, 90]);
+    #   * keeps the spar's +Y / -Y flanges tied to the well's top /
+    #     bottom walls between the body's -X edge and the knee axis.
+    bridge_x_min    = body_x_min                       # 62
+    bridge_x_max    = FEMUR_LENGTH                     # 90 (was body_x_max = 118)
+    bridge_x_extent = bridge_x_max - bridge_x_min      # 28 (was slot_x = 56)
+    bridge_x_centre = (bridge_x_min + bridge_x_max) / 2.0   # 76 (was 90)
 
     # Top flange bridge: z spans [body_top, spar_top + BRIDGE_CAP_H] so
     # it overlaps the well's top wall, the spar's top flange, AND

@@ -763,18 +763,18 @@ parts:
           axis: x
         - name: bridge_top
           type: gusset_rib
-          description: "Top flange bridge.  Spans the slot's x range (56 mm) and z in [+SERVO_BODY_D/2, +FEMUR_SPAR_H/2 + BRIDGE_CAP_H] = [+10, +21].  Y range = [well_near_y - 2.5, LINK_THICKNESS/2] = ~20 mm (May 2026 collinear-pad refactor: bridge_y_max raised from 0 to +3 and bridge_y_min dropped from -12.25 to -17.25 because the well + spar both shifted in opposite directions).  Ties the spar's top flange to the well's +Y wall AND extends BRIDGE_CAP_H = 6 mm past the spar's top edge as an integral cap rib."
-          centre_mm: [80.0, -7.125, 15.5]
-          length_mm: 56.0
+          description: "Top flange bridge.  Spans x in [body_x_min, FEMUR_LENGTH] = [62, 90] (the INBOARD half of the slot, from the body's -X edge to the knee axis) and z in [+SERVO_BODY_D/2, +FEMUR_SPAR_H/2 + BRIDGE_CAP_H] = [+10, +23].  Y range = [well_near_y - 2.5, LINK_THICKNESS/2] = ~20 mm (May 2026 collinear-pad refactor: bridge_y_max raised from 0 to +3 and bridge_y_min dropped from -12.25 to -17.25 because the well + spar both shifted in opposite directions).  Ties the spar's top flange to the well's +Y wall AND extends BRIDGE_CAP_H = 6 mm past the spar's top edge as an integral cap rib.  May 24 2026: trimmed bridge_x_extent from slot_x = 56 mm down to 28 mm so the bridges no longer overhang past the knee axis (x > FEMUR_LENGTH = 90) -- the previous outboard half x in [90, 118] was the user-flagged 'high X, high Y' material that blocked the knee servo path and contained the visible 'round cut out' (the Phi 45 mm knee_clear cylinder carved into the +X portion of the cap rib)."
+          centre_mm: [76.0, -7.125, 16.5]
+          length_mm: 28.0            # = bridge_x_extent = FEMUR_LENGTH - body_x_min = 90 - 62 (was slot_x = 56)
           width_mm: 20.25            # = bridge_y_max - bridge_y_min = +3 - (-17.25)
-          thickness_mm: 11.0
+          thickness_mm: 13.0         # = bridge_top_z_max - bridge_top_z_min = +23 - +10
         - name: bridge_bot
           type: gusset_rib
-          description: "Mirror of bridge_top below the slot; z in [-21, -10].  Carries the spar's bottom-flange-to-well-wall load."
-          centre_mm: [80.0, -7.125, -15.5]
-          length_mm: 56.0
+          description: "Mirror of bridge_top below the slot; x in [62, 90], z in [-23, -10].  Carries the spar's bottom-flange-to-well-wall load.  May 24 2026: trimmed to inboard half (see bridge_top notes)."
+          centre_mm: [76.0, -7.125, -16.5]
+          length_mm: 28.0
           width_mm: 20.25
-          thickness_mm: 11.0
+          thickness_mm: 13.0
         - name: knee_well
           type: rectangular_well
           description: "Open-topped knee servo cradle at the +X end of the spar.  Mouth opens in femur +Y (= the knee axis direction) so the servo can be DROPPED in.  Floor is REMOVED (remove_floor=True) so the print orientation doesn't bridge a closed ceiling at the femur's -Y end -- the body's -Y face is exposed to free air pointing AWAY from the chassis in the assembled robot.  NEW (May 2026 collinear-pad refactor): well shifted -HORN_STACK_H = -5 mm along link Y to follow the spar's new range, so the spline tip (well-local z = SERVO_BODY_H + SERVO_OUTPUT_H) still lands on the knee joint axis at NEW link y = -HORN_STACK_H = -5 (= the X-horn-top plane below the tibia's knee pad)."
