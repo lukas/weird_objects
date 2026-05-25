@@ -1426,6 +1426,33 @@ HORN_CENTRE_OD      =  3.4   # mm -- M3 centre clearance (for the horn screw)
 HORN_RECESS_OD      = 16.0   # mm
 HORN_RECESS_DEPTH   =  1.2   # mm
 
+# Femur hip-pad mating-face recess.  The coxa_link's pedestal-bottom
+# horn_hub_recess at HORN_RECESS_DEPTH = 1.2 mm is sized for the
+# nominal "1 mm spline-screw-head protrusion + 0.2 mm FDM tolerance"
+# case (see HORN_RECESS_DEPTH above).  User-flagged May 2026: on the
+# femur_link side the X-horn can sit a few mm LOWER than nominal due
+# to spline-cap manufacturing variation, gear backlash, and how
+# tightly the central M3 screw is torqued down on the spline.  If
+# the X-horn slides ~3 mm down its spline relative to the servo
+# output disc, the X-horn's central screw head also sits ~3 mm
+# closer to the pad's mating face -- so the femur_link needs a
+# deeper recess than the coxa_link to keep the pad seating flush
+# against the X-horn arm plane.
+#
+# Depth 4.0 mm = 1.0 mm nominal protrusion + 3.0 mm extra slack for
+# the X-horn's vertical position uncertainty.  At Phi HORN_RECESS_OD
+# = 16 mm the recess sits well inside the XHORN_BOLT_PCD = 20.8 mm
+# bolt circle (recess outer rim r = 8 mm vs PCD inner rim r =
+# 10.4 - 1.1 = 9.3 mm, 1.3 mm radial gap), so it never punches into
+# the 4 M2 X-horn clamp bolts.  Material budget at the pad's
+# central annulus (radius r in [HORN_CENTRE_OD/2, HORN_RECESS_OD/2]
+# = [1.7, 8] mm): now y in [+4, +6] = 2 mm of pad cap left between
+# this recess and the +Y outer face -- thin, but acceptable since
+# the central annulus carries no clamp load (the 4 M2 bolts on
+# PCD 20.8 sit outside the recess and clamp through full 6 mm pad
+# thickness minus the COUNTERBORE_DEPTH = 2.5 mm head pocket).
+FEMUR_HIP_HUB_RECESS_DEPTH = 4.0   # mm -- see comment above
+
 # Radius of the cylindrical CLEARANCE VOID inside the hip/knee link's
 # flange ring.  The void is the air gap that holds the plastic X-horn
 # during assembly: the link slides down over the horn, and the horn's
@@ -6096,6 +6123,26 @@ def make_femur_link() -> trimesh.Trimesh:
     hip_centre_hole.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
     hip_centre_hole.apply_translation([0.0, hip_pad_centre_y, 0.0])
 
+    # ---- Hub/screw-head recess in the pad's -Y mating face -----------
+    # Phi HORN_RECESS_OD = 16 mm pocket FEMUR_HIP_HUB_RECESS_DEPTH =
+    # 4 mm deep, opening at the pad's -Y mating face (y = hip_pad_y_min
+    # = 0) and extending UP into the pad to y = +4.  Mirrors the
+    # coxa_link's pedestal-bottom horn_hub_recess (HORN_RECESS_OD x
+    # HORN_RECESS_DEPTH = 16 x 1.2 mm) but deeper to absorb the
+    # X-horn's vertical-position uncertainty -- see the
+    # FEMUR_HIP_HUB_RECESS_DEPTH docstring for the user-flagged
+    # rationale.  Without this pocket the pad's flat mating face
+    # hits the X-horn's central spline-screw head (~ 1 mm above
+    # the arm plane nominally, up to ~ 4 mm in the worst case)
+    # before the 4 M2 PCD bolts can pull the link onto the horn.
+    # The pocket sits inside the XHORN_BOLT_PCD = 20.8 mm bolt
+    # circle (r = 8 mm vs PCD inner rim r = 9.3 mm), so the 4
+    # M2 clamp holes are unaffected.
+    femur_hip_hub_recess = _cyl_along(HORN_RECESS_OD / 2.0,
+                                       FEMUR_HIP_HUB_RECESS_DEPTH,
+                                       axis="y")
+    femur_hip_hub_recess.apply_translation([0.0, hip_pad_y_min, 0.0])
+
     # ---- Knee-end servo well -----------------------------------------
     # NB: the 4 M3 mounting pilots in the wall (drilled by
     # ``_servo_well_solid``) sit on the standard SERVO_TAB_HOLE_PCD x
@@ -6337,7 +6384,7 @@ def make_femur_link() -> trimesh.Trimesh:
     return _diff(body, insertion_slot, wire_slot,
                  cavity_trim, knee_clear,
                  *hip_holes, *hip_counterbores,
-                 hip_centre_hole)
+                 hip_centre_hole, femur_hip_hub_recess)
 
 
 def make_tibia_link() -> trimesh.Trimesh:
