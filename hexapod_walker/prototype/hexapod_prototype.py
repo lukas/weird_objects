@@ -6436,7 +6436,7 @@ def make_femur_link() -> trimesh.Trimesh:
     TIBIA_CLEAR_X_MIN  = 72.0
     TIBIA_CLEAR_X_MAX  = FEMUR_LENGTH + 1.0          # 91 (1 mm overshoot)
     TIBIA_CLEAR_Y_MIN  = -HORN_STACK_H - 0.5         # -5.5
-    TIBIA_CLEAR_Y_MAX  = +LINK_THICKNESS / 2.0 - 1.5 # +1.5 (covers tibia y [-5,+1] + 0.5 mm margin)
+    TIBIA_CLEAR_Y_MAX  = +LINK_THICKNESS / 2.0       # +3.0 (covers full bridge_y_max so no 1.5 mm slab remains above the cut to brush the tibia at small tolerance offsets -- user-flagged May 2026)
     TIBIA_CLEAR_Z_MIN  = -(bridge_top_z_max + 0.5)   # -23.5 (full bridge_bot z range + 0.5 mm overshoot)
     TIBIA_CLEAR_Z_MAX  = -(bridge_top_z_min - 0.5)   # -9.5  (0.5 mm into the air above bridge_bot)
     tibia_clear_dx = TIBIA_CLEAR_X_MAX - TIBIA_CLEAR_X_MIN
