@@ -6416,46 +6416,28 @@ def make_femur_link() -> trimesh.Trimesh:
     # remove them".  The +X half of each bridge (x in [90, 108]) sat
     # outboard of the knee axis at y in [-22.75, +3], protruding past
     # the spar's +X tip and partially carved by the Phi 45 mm
-    # knee_clear cylinder cut (the visible "round cut out").
+    # knee_clear cylinder cut (the visible "round cut out").  The
+    # surviving inboard half x in [52, 90] still:
+    #   * embeds 2.5 mm into the well's +Y wall (well outer rim at
+    #     femur y = WELL_RIM_Z + delta[1] = -22.75) at x in [52, 90]
+    #     for the well-to-spar bond (well's +X face is at femur x ~=
+    #     109, so the well's +Y wall is intact across all of [52, 90]);
+    #   * keeps the spar's +Y / -Y flanges tied to the well's top /
+    #     bottom walls between the body's -X edge and the knee axis.
     #
-    # User report (May 25 2026, BuildViz dimension call-out): "the
-    # end point in XYZ is around 90 -6 23" -- the user clicked a 19 mm
-    # dimension along the +X tail of the bridge top cap at z = +23,
-    # y = -6 (outboard of the tibia_clear cut at y < -5.5 so the cap
-    # is uncut there) and asked to mirror the recent side-wall shrink
-    # by reducing this 19 mm reading to ~16 mm.
-    #
-    # Geometric reading of the 19 mm: the bridge cap at y < -5.5
-    # (outside the tibia_clear cut) survives from bridge_x_min = 52
-    # to bridge_x_max = FEMUR_LENGTH = 90.  Of that range, the
-    # OUTBOARD TAIL outside the cut zone in +X is bounded by
-    # TIBIA_CLEAR_X_MIN = 72 on the -X side (where the cut starts)
-    # and bridge_x_max = 90 on the +X side -- 18 mm physically, ~19
-    # mm to a click-snap measurement.
-    #
-    # Fix (Option B -- bridge geometry): shorten bridge_x_max from
-    # FEMUR_LENGTH = 90 to TIBIA_CLEAR_X_MIN + 16 = 88 so the visible
-    # +X outboard tail at y < -5.5, z in +/-[10, 23] measures
-    # 88 - 72 = 16 mm not 18-19 mm.  Inboard bridge strip at x in
-    # [52, 72] (uncut, full bridge cross-section) is UNTOUCHED.
-    #
-    # Safety re. the +X load path: the knee-end flange-to-well rib
-    # (KNEE_RIB_X_MIN .. KNEE_RIB_X_MAX = [85, 95], commits fa4b7c9
-    # + 2a73036) provides the spar-flange-to-well structural bond at
-    # the knee tip independently of the bridge's outboard tail.  The
-    # rib fuses into the bridge over its x in [85, 88] overlap
-    # (under the new bridge_x_max = 88) and cantilevers from the
-    # well at x in [88, 95]; the bridge's old x in [88, 90] sliver
-    # was redundant load-path material now that the rib exists.
-    #
-    # bridge_x_min still anchors to body_x_min so the inboard strip
-    # continues to tie the spar to the well's +Y wall over its full
-    # uncut extent.
-    BRIDGE_X_MAX_FEMUR = 88.0    # = TIBIA_CLEAR_X_MIN + 16 (cut x_min is 72; defined later)
+    # NOTE (May 25 2026): an earlier same-day commit 4cf3355 trimmed
+    # bridge_x_max from 90 to 88 in response to a BuildViz dimension
+    # call-out at (90, -6, +23).  That was the WRONG axis to cut: the
+    # user's real concern was the rotating knee X-horn clipping the
+    # bridge cap's +Y face under worst-case-tolerance horn drop or
+    # spline-screw-back protrusion, which calls for a deeper Y cut,
+    # not a shorter X tail.  The revert restores bridge_x_max =
+    # FEMUR_LENGTH = 90, and the Y clearance is enlarged below by
+    # lowering TIBIA_CLEAR_Y_MIN from -5.5 to -8.0.
     bridge_x_min    = body_x_min                       # 52
-    bridge_x_max    = BRIDGE_X_MAX_FEMUR                # 88 (was FEMUR_LENGTH = 90)
-    bridge_x_extent = bridge_x_max - bridge_x_min      # 36 (was 38)
-    bridge_x_centre = (bridge_x_min + bridge_x_max) / 2.0   # 70 (was 71)
+    bridge_x_max    = FEMUR_LENGTH                     # 90 (was body_x_max = 118)
+    bridge_x_extent = bridge_x_max - bridge_x_min      # 38 (was slot_x = 56)
+    bridge_x_centre = (bridge_x_min + bridge_x_max) / 2.0   # 71 (was 90)
 
     # Top flange bridge: z spans [body_top, spar_top + BRIDGE_CAP_H] so
     # it overlaps the well's top wall, the spar's top flange, AND
@@ -6616,14 +6598,43 @@ def make_femur_link() -> trimesh.Trimesh:
     #
     # Safety re. the well cavity: the well's outer envelope sits at
     # femur y in [-49, -21.75] (probed) -- completely below the cut's
-    # y in [-5.5, +1.5] band -- so neither cut box overlaps the well
+    # y in [-8.0, +3.0] band -- so neither cut box overlaps the well
     # body, the servo cavity, or the well's top/bottom wall.  The
-    # bridges are the ONLY femur material in y in [-5.5, +1.5] x
-    # x in [73, 91] x z in +/-[9.5, 23.5], so the cuts touch nothing
+    # bridges are the ONLY femur material in y in [-8.0, +3.0] x
+    # x in [72, 91] x z in +/-[9.5, 23.5], so the cuts touch nothing
     # else.
+    #
+    # X-horn drop / spline-screw-back clearance (May 25 2026, user
+    # correction following the wrong-axis 4cf3355 X-trim revert):
+    # TIBIA_CLEAR_Y_MIN was -HORN_STACK_H - 0.5 = -5.5, i.e., only
+    # 0.5 mm of vertical slack below the X-horn's NOMINAL bottom face
+    # at y = -HORN_STACK_H = -5.  User: "the important thing is to
+    # cut the Y down, not the X, lower the Y ... the point of this is
+    # to make room for the x horn if it sits lower on the servo than
+    # you think or if the screws go through the horn a bit, then when
+    # it rotates it could get caught".  The knee X-horn rotates about
+    # the spline axis at (FEMUR_LENGTH, *, 0); its arm tips sweep a
+    # Phi 36 mm disc and the BACK of the horn (where the spline
+    # screws protrude) sweeps a slightly larger disc into the femur
+    # material at y < -HORN_STACK_H.  If the horn sits ~3 mm lower on
+    # the spline than nominal (FEMUR_HIP_HUB_RECESS_DEPTH = 4 mm
+    # already accounts for the same uncertainty on the hip side) or
+    # the screws back out a couple mm, the swept disc punches into
+    # the bridge cap at y < -5.5.  Lowering TIBIA_CLEAR_Y_MIN from
+    # -5.5 to -8.0 gives 2.5 mm of additional clearance (3 mm worst-
+    # case drop minus 0.5 mm that was already there + a 0.5 mm
+    # contingency on top).  The new bridge cap +Y face at y = -8.0
+    # aligns with the knee-end flange-to-well rib's y_max = -8.25
+    # (commit 2a73036), so the cap and rib present a consistent
+    # horn-clearance plane at y ~= -8 across the x in [72, 95] knee-
+    # end region.  Cap-to-spar / cap-to-well structural connection is
+    # preserved: the surviving cap material in the cut x-z window is
+    # y in [bridge_y_min, -8.0] = [-19.25, -8.0] = 11.25 mm tall (was
+    # 13.75 mm; -2.5 mm = -18 % of the cap shoulder, well within the
+    # PETG beam SF budget).
     TIBIA_CLEAR_X_MIN  = 72.0
     TIBIA_CLEAR_X_MAX  = FEMUR_LENGTH + 1.0          # 91 (1 mm overshoot)
-    TIBIA_CLEAR_Y_MIN  = -HORN_STACK_H - 0.5         # -5.5
+    TIBIA_CLEAR_Y_MIN  = -8.0                        # was -HORN_STACK_H - 0.5 = -5.5; lowered May 25 2026 for knee X-horn drop / spline-screw-back clearance
     TIBIA_CLEAR_Y_MAX  = +LINK_THICKNESS / 2.0       # +3.0 (covers full bridge_y_max so no 1.5 mm slab remains above the cut to brush the tibia at small tolerance offsets -- user-flagged May 2026)
     TIBIA_CLEAR_Z_MIN  = -(bridge_top_z_max + 0.5)   # -23.5 (full bridge_bot z range + 0.5 mm overshoot)
     TIBIA_CLEAR_Z_MAX  = -(bridge_top_z_min - 0.5)   # -9.5  (0.5 mm into the air above bridge_bot)
@@ -6679,15 +6690,6 @@ def make_femur_link() -> trimesh.Trimesh:
     # straight into open air with no tie to the well's outer side
     # walls that re-start 5 mm further out.
     #
-    # Bridge-tail shrink (May 25 2026): bridge_x_max was reduced from
-    # FEMUR_LENGTH = 90 to BRIDGE_X_MAX_FEMUR = 88 to drop the visible
-    # +X outboard tail dimension from ~19 mm to 16 mm.  The rib's x
-    # overlap with the bridge is now [85, 88] = 3 mm (was [85, 90] =
-    # 5 mm) and its cantilever past the bridge tip is now [88, 95] =
-    # 7 mm (was [90, 95] = 5 mm).  The rib's well-embedment anchor at
-    # y in [-24.25, -21.75] is unchanged so the cantilever still
-    # earns its bond from the well wall, not from the bridge.
-    #
     # Alternative interpretation (a) considered + REJECTED: connect
     # the cable post fragment at x ~= 110 (the literal max-x feature,
     # at z in [-8, -5.5], y in [-44, -40]) to the well's main body.
@@ -6728,10 +6730,13 @@ def make_femur_link() -> trimesh.Trimesh:
     #     so the rib lives entirely BELOW knee_clear in Y -- no
     #     overlap.
     #   * tibia_clear_top / tibia_clear_bot: x in [72, 91], y in
-    #     [-5.5, +3.0], z in +/-[9.5, 23.5].  Rib y_max = -8.25 <
-    #     -5.5 = TIBIA_CLEAR_Y_MIN; the rib's top y face sits 2.75 mm
+    #     [-8.0, +3.0], z in +/-[9.5, 23.5].  Rib y_max = -8.25 <
+    #     -8.0 = TIBIA_CLEAR_Y_MIN; the rib's top y face sits 0.25 mm
     #     BELOW the tibia_clear y_min plane -- no overlap (margin
-    #     increased from 0 mm to 2.75 mm by this change).
+    #     was 2.75 mm under the old -5.5 cut floor; cut floor was
+    #     lowered May 25 2026 for X-horn drop clearance and the rib
+    #     and cap now present a near-coplanar +Y horn-clearance face
+    #     at y ~= -8).
     #   * X-horn (yaw output) bottom face at femur y = -HORN_STACK_H
     #     = -5 mm: rib y_max = -8.25, so the rib sits 3.25 mm below
     #     the X-horn (was 0.5 mm).  The X-horn can drop by up to
