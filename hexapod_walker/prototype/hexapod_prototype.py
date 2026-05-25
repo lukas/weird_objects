@@ -6453,12 +6453,114 @@ def make_femur_link() -> trimesh.Trimesh:
                            center=(tibia_clear_cx, tibia_clear_cy,
                                    tibia_clear_cz_top))
 
+    # ---- Knee-end flange-to-well stiffening ribs ---------------------
+    # User report (May 25 2026): "add around 10 mm of material connecting
+    # the highest x part of the femur_link to the part that surrounds
+    # the servo for structural stability".
+    #
+    # Interpretation chosen: the "highest x part" = the spar's +Y / -Y
+    # bridge-flange tips that currently end as CANTILEVERS at x =
+    # FEMUR_LENGTH = 90 (the knee axis), and the "part that surrounds
+    # the servo" = the knee servo well's outer +Z / -Z side walls at
+    # z = +/-[10.7, 14.5].  Probing femur.contains() across the +X
+    # knee end (see _probe_femur.py history) confirmed a 4-5 mm air
+    # gap in the load path: the bridge_bot / bridge_top end abruptly
+    # at bridge_x_max = FEMUR_LENGTH = 90 (commit 6aa4187 trimmed the
+    # outboard halves) and the well's outer +Z / -Z side walls don't
+    # re-emerge at z = +/-[10.7, 14.5] until x ~= 94 (the cavity ends
+    # at well-local x = +SERVO_BODY_W/2 + WELL_BODY_CL = +20.7 ->
+    # femur x = 100.7, but the side walls only run OUTSIDE the cavity
+    # z half-width, so at z = +/-12 the wall material is interrupted
+    # by the +Y mouth opening until the cavity ends... probed
+    # empirically: at x in [91, 93] every (y, z) outside the well's
+    # far -Y bottom-floor sliver y ~= [-48, -44] is AIR).  Net result:
+    # the spar's +X knee-end load path is a 5 mm cantilever overhanging
+    # straight into open air with no tie to the well's outer side
+    # walls that re-start 5 mm further out.
+    #
+    # Alternative interpretation (a) considered + REJECTED: connect
+    # the cable post fragment at x ~= 110 (the literal max-x feature,
+    # at z in [-8, -5.5], y in [-44, -40]) to the well's main body.
+    # _cable_zip_post() is built in well-local frame and union'd with
+    # the rest of the well via the same R + delta transform, so the
+    # post is already bonded into the well's +X outer wall by
+    # construction; there is no disconnect to fix there.  The user's
+    # phrase "structural stability" + "highest x part" reads as the
+    # spar's cantilevered knee-end tip, not the strain-relief stub.
+    #
+    # Fix: a top + bottom pair of axis-aligned box ribs spanning the
+    # 5 mm air gap at x in [bridge_x_max, bridge_x_max + 5] = [90, 95]
+    # AND fusing 5 mm into the existing bridge_top / bridge_bot tip
+    # at x in [85, 90].  Total rib length in X is 10 mm (matching the
+    # user's "around 10mm" target).  Geometry per rib:
+    #
+    #   x in [FEMUR_LENGTH - 5, FEMUR_LENGTH + 5] = [85, 95] (10 mm)
+    #   y in [bridge_y_min, TIBIA_CLEAR_Y_MIN]    = [-24.25, -5.5]
+    #          (matches existing bridge's surviving y range post
+    #           tibia_clear cut; embeds 2.5 mm = BRIDGE_WELL_EMBED
+    #           into the well's +Y outer rim wall at y = -21.75)
+    #   z in +/-[SERVO_BODY_D/2, WELL_D/2] = +/-[10, 14.5]
+    #          (matches the well's outer +Z / -Z side wall thickness
+    #           exactly; the rib reads as a 5 mm INBOARD extension of
+    #           that wall, capping off the bridge tip)
+    #
+    # Volume per rib ~= 10 * 18.75 * 4.5 = 844 mm^3; both ribs ~= 1690
+    # mm^3 = +3.3 % over the ~ 50.7 cm^3 baseline femur volume.
+    # Comfortably above noise-floor for the beam-bending second-moment
+    # boost at the knee-end load station.
+    #
+    # Constraint check (must NOT impinge into):
+    #   * knee_clear: Phi 45 mm cylinder at (90, +3, 0), y in
+    #     [-1.5, +7.5].  Rib y_max = -5.5 < -1.5 = knee_clear y_min,
+    #     so the rib lives entirely BELOW knee_clear in Y -- no
+    #     overlap.
+    #   * tibia_clear_top / tibia_clear_bot: x in [72, 91], y in
+    #     [-5.5, +3.0], z in +/-[9.5, 23.5].  Rib y_max = -5.5 =
+    #     TIBIA_CLEAR_Y_MIN; the rib's top y face touches but does
+    #     not cross the tibia_clear y_min plane -- no overlap.
+    #   * Well cavity / servo body slot: x in [59.3, 100.7], y in
+    #     [-53, -21.75], z in +/-[10.7].  Rib z_min = +10 punches
+    #     0.7 mm into the cavity z half-width at y in [-24.25,
+    #     -21.75] (= 2.5 mm of overlap), producing a 0.7 x 2.5 x 10
+    #     = 17 mm^3 sliver that ``cavity_trim`` carves out cleanly
+    #     in the post-union diff pass.  The servo body insertion
+    #     path is preserved.
+    #   * insertion_slot: x in [62, 118], y in [-1, +7], z in
+    #     +/-[11].  Rib y_max = -5.5 < -1; no overlap.
+    #
+    # Printability: the femur prints with the spar's broad face (the
+    # X-Z plane) on the bed and the +Y direction pointing UP, so the
+    # rib's 19 mm Y-extent is a vertical wall in print orientation.
+    # No new overhangs introduced; the rib's underside at z = +/-10
+    # already exists in the bridge_top / bridge_bot floor.
+    KNEE_RIB_HALF_DX  = 5.0                                  # mm  ->  10 mm total in X
+    KNEE_RIB_X_MIN    = FEMUR_LENGTH - KNEE_RIB_HALF_DX      # 85
+    KNEE_RIB_X_MAX    = FEMUR_LENGTH + KNEE_RIB_HALF_DX      # 95
+    KNEE_RIB_X_CENTRE = 0.5 * (KNEE_RIB_X_MIN + KNEE_RIB_X_MAX)
+    KNEE_RIB_DX       = KNEE_RIB_X_MAX - KNEE_RIB_X_MIN
+    KNEE_RIB_Y_MIN    = bridge_y_min                          # = well_near_y - BRIDGE_WELL_EMBED
+    KNEE_RIB_Y_MAX    = TIBIA_CLEAR_Y_MIN                     # = -HORN_STACK_H - 0.5 = -5.5
+    KNEE_RIB_DY       = KNEE_RIB_Y_MAX - KNEE_RIB_Y_MIN
+    KNEE_RIB_Y_CENTRE = 0.5 * (KNEE_RIB_Y_MIN + KNEE_RIB_Y_MAX)
+    KNEE_RIB_Z_MIN    = +SERVO_BODY_D / 2.0                   # +10 (body z half-width)
+    KNEE_RIB_Z_MAX    = +WELL_D / 2.0                         # +14.5 (well outer +Z face)
+    KNEE_RIB_DZ       = KNEE_RIB_Z_MAX - KNEE_RIB_Z_MIN
+    KNEE_RIB_Z_CENTRE = 0.5 * (KNEE_RIB_Z_MIN + KNEE_RIB_Z_MAX)
+    knee_rib_top = _box((KNEE_RIB_DX, KNEE_RIB_DY, KNEE_RIB_DZ),
+                        center=(KNEE_RIB_X_CENTRE, KNEE_RIB_Y_CENTRE,
+                                +KNEE_RIB_Z_CENTRE))
+    knee_rib_bot = _box((KNEE_RIB_DX, KNEE_RIB_DY, KNEE_RIB_DZ),
+                        center=(KNEE_RIB_X_CENTRE, KNEE_RIB_Y_CENTRE,
+                                -KNEE_RIB_Z_CENTRE))
+
     # Cable post (Part A, May 2026): printed-in zip-tie strain relief
     # next to the knee wire-exit slot.  Built in well-local and
     # transformed alongside ``wire_slot`` (R + delta) so it stays
     # anchored to the well's +X outer wall.
     body = _union(hip_pad, spar, well,
-                   bridge_top, bridge_bot, cable_post)
+                   bridge_top, bridge_bot,
+                   knee_rib_top, knee_rib_bot,
+                   cable_post)
     return _diff(body, insertion_slot, wire_slot,
                  cavity_trim, knee_clear,
                  tibia_clear_bot, tibia_clear_top,
