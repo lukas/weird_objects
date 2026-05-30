@@ -374,6 +374,10 @@ def build_for_spec(spec: str) -> trimesh.Trimesh:
     s = spec.replace(" ", "").lower()
     if s == "m3x14shcs":
         return make_m3_shcs(14.0)
+    # June 2026 disc-horn switch: link-to-disc-horn bolts are M3 x 6
+    # SHCS that thread into the 20 mm aluminum 25T disc's tapped holes.
+    if s == "m3x6shcs":
+        return make_m3_shcs(6.0)
     if s == "m3x8shcs" or s == "m3x8shcsintoheat-setinsert":
         return make_m3_shcs(8.0)
     if s == "m3x10shcs":

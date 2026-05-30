@@ -60,11 +60,20 @@ worst-case knee torque.  The printed wells, tab pilots and RL servo
 torque limits are all tuned around this DS3225-class case.
 
 > **Design B (May 2026):** the printed `servo_horn_adapter` disc has
-> been retired.  Each link now bolts directly onto the plastic 4-arm
-> X-horn that ships with the servo, via 4 x Phi 3.2 mm holes on a
-> 20.8 mm PCD plus a 16 mm x 1.2 mm central hub recess cut into the
-> link's pad face.  Drops the printed-leg-bolt-up Z stack by
-> ``HORN_ADAPTER_T`` (4 mm) per joint.
+> been retired.  Each link now bolts directly onto a purchased servo
+> horn.  Drops the printed-leg-bolt-up Z stack by ``HORN_ADAPTER_T``
+> (4 mm) per joint.
+>
+> **June 2026 disc-horn switch:** the servo horn is now a **20 mm
+> aluminum 25T disc** (Amazon B07D56FVK5, MG995 / MG996R type), NOT
+> the plastic 4-arm X-horn.  Each link bolts onto the disc's flat top
+> face via 4 x Phi 3.4 mm M3 clearance holes on a **14 mm bolt circle**
+> (``XHORN_BOLT_PCD`` = 14.0, cross pattern at 0/90/180/270 deg) plus a
+> Phi 9 x 2 mm central spline-collar clearance bore.  The 4 x M3 x 6
+> SHCS thread DIRECTLY into the disc's M3 tapped holes -- the aluminium
+> is the thread-engagement medium.  (The 14 mm value is interpreted as
+> a bolt-circle DIAMETER; if calipers say it is a 14 mm square instead,
+> it is a one-line change to ``XHORN_BOLT_PCD`` + the bolt angles.)
 >
 > **Design E (May 2026) mixed-mode cradle bolts:** each cradle has
 > 4 vertical M3 x 8 SHCS driven DOWN through the servo's mounting
@@ -298,12 +307,13 @@ envelopes are dispatched off `FastenerInstance.spec`:
 | Envelope | Dia × length | Used for |
 |---|---|---|
 | `HEX_KEY`  | 8 mm × 30 mm  | SHCS (M3x8 / M3x14 / M3x32) + the M2.5 spline center screw — anything driven with an L-shaped hex key short arm |
+| `HEX_KEY` (counter-bored) | 5.7 mm × 15 mm | `M3x6 SHCS` disc-horn bolts — recessed in a Phi 5.7 mm counter-bore on the tight 14 mm bolt circle, so the driver turns inside the bore (narrower envelope, mirrors the old M2 link-bolt special case) |
 | `PHILLIPS` | 12 mm × 80 mm | `pan-head` / `Phillips` / `slotted` — currently just the M3x16 foot hinge bolt |
 | `SOCKET`   | 12 mm × 50 mm | `nyloc nut` / generic `nut` — M3 nyloc driven with a 5.5 mm nut socket |
 
 Spline center screws are technically a small Phillips on hobby
 servos, but every such fastener is also explicitly SKIPped (captive
-under the X-horn after assembly), so they're mapped to `HEX_KEY`
+under the disc horn after assembly), so they're mapped to `HEX_KEY`
 purely so the per-spec envelope table reads consistently. See the
 top of `check_screwdriver_access` in `_verify_prototype.py` for the
 exact dispatch logic.
@@ -404,13 +414,13 @@ printer.
 
 | Item | Qty | Notes |
 |---|---|---|
-| M3 × 8 mm socket-head cap screws | ~ 50 | Link → horn bolts (4 per servo x 18 servos = 72; can also use 6 mm or 10 mm), chassis tie-rods. |
+| M3 × 6 mm socket-head cap screws | 72 + spares | Link → disc-horn bolts (4 per servo x 18 servos = 72) on a 14 mm bolt circle, threading into the 20 mm aluminum 25T disc horn's M3 tapped holes.  M3 x 6 ships with the disc-horn 10-packs; McMaster `91290A111` for spares. |
 | M3 × 12 mm | 24 | Standoffs between top + bottom chassis plates |
 | M3 × 14 mm SHCS | 72 + spares | **Design C servo-mount bolts**: horizontal, through the +/-X cradle walls and the servo tabs, into captive M3 nyloc nuts on the outer face. |
 | M3 × 16 mm pan-head | 6 + spares | Foot hinge pins (one per leg). |
 | M3 nyloc nuts | >= 6 + spares | One per foot hinge pin (May 2026 Design F: the 72 captive servo-mount nuts and the 24 coxa-bracket-to-chassis nuts have BOTH been retired). |
 | M3 × 32 mm round standoffs (M-F) | 4 | Top-to-bottom chassis spacers; brass M-F, length = `CHASSIS_GAP` = 32 mm.  On the rotated-45-deg 35-mm-radius pattern (= `CHASSIS_STANDOFF_HOLES_XY` = (±35, 0) and (0, ±35)) -- May 2026 tray-mount fix moved the standoffs OFF the (±24.75, ±24.75) tray-mount pattern so chassis_bottom could carry heat-set inserts for the tray-mount bolts. |
-| M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the plastic 4-arm X-horn onto the servo output spline. |
+| M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the 20 mm aluminum 25T disc horn onto the servo output spline. |
 | M3 brass heat-set inserts (McMaster 94459A130) | 22 | Electronics-tray board mounts: 4 for the Mega 2560 + 4 for the primary PCA9685 + 4 for the secondary PCA9685.  Plus 2 more in `chassis_top`'s 2 printed bosses for the `switch_holster` mount bolts.  Plus 4 more in the `imu_pad`'s 4 boss tops for the MPU-6050 mount.  Plus 4 more in `chassis_bottom`'s 4 printed tray-mount bosses for the electronics_tray chassis-mount bolts (May 2026 tray-mount fix).  Soldering-iron installed into the printed Phi 4 mm pilot pockets BEFORE the electronics / holster / IMU / tray go on. |
 | M2.5 brass heat-set inserts (McMaster 94459A106) | 4 | Electronics-tray board mounts for the Raspberry Pi 4 / Pi 5.  Same soldering-iron install workflow as the M3 inserts. |
 | M3 × 8 SHCS (board mounts + IMU + tray-mount) | 20 | 4 x Mega 2560 + 4 x primary PCA9685 + 4 x secondary PCA9685 onto the M3 electronics-tray inserts, plus 4 x MPU-6050 (GY-521) onto the M3 imu_pad inserts, plus 4 x electronics_tray chassis-mount bolts that thread DOWN through the tray's cbore floor into chassis_bottom's tray-mount heat-set inserts (May 2026 tray-mount fix). |
@@ -521,28 +531,33 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    self-tap into the Phi 2.5 mm pilots in the cradle's +X wall
    material.  Use a 2.5 mm hex key; finger-tight + 1/4 turn is
    enough for self-tap (over-tightening will strip the plastic).
-3. **Plastic horn on the yaw servo:** centre the servo, push a stock
-   plastic 4-arm X-horn onto the spline at 0 deg, then secure it with
-   the M3 horn-attach screw that ships in the servo bag.
-4. **Coxa link:** drop the link's hub pad onto the X-horn -- the
-   16 mm recess on the underside of the pad seats the horn's central
-   hub -- and bolt the link to the horn with 4 x M2 x 8 SHCS through
-   the pad's M2 clearance holes into the X-horn's pre-drilled arm
-   holes.
+3. **Disc horn on the yaw servo:** centre the servo, push a 20 mm
+   aluminum 25T disc horn (Amazon B07D56FVK5) onto the spline at
+   0 deg, then secure it with the M3 horn-attach screw that ships in
+   the servo bag.
+4. **Coxa link:** drop the link's pedestal cap flat onto the disc's
+   top face -- the central Phi 9 mm collar bore clears the disc's
+   raised spline hub so the cap seats flat -- and bolt the link to
+   the disc with 4 x M3 x 6 SHCS through the cap's Phi 3.4 mm M3
+   clearance holes (14 mm bolt circle) into the disc's M3 tapped
+   holes.  Use a 2.5 mm hex key; the heads recess into the cap's
+   Phi 5.7 mm counter-bores.
 5. **Hip-pitch servo:** repeat the heat-set / self-tap install on the
    coxa link's hip-pitch cradle (2 inserts on the -X column FIRST,
    then drop the servo, then drive the 4 M3 x 8 SHCS as in step 2).
-   Fit a plastic 4-arm X-horn perpendicular to the leg arm so the
+   Fit a 20 mm aluminum disc horn perpendicular to the leg arm so the
    femur swings up and down.
-6. **Femur:** seat the femur's hip-end pad on the hip horn (16 mm
-   recess engaging the horn hub) and bolt to the horn with 4 x M2 x
-   8 SHCS into the X-horn arms.
+6. **Femur:** seat the femur's hip-end pad flat on the hip disc horn
+   (central collar bore clearing the spline hub) and bolt to the disc
+   with 4 x M3 x 6 SHCS on the 14 mm bolt circle into the disc's M3
+   tapped holes.
 7. **Knee servo:** repeat the heat-set / self-tap install on the
    femur's knee cradle (2 -X heat-set inserts pressed BEFORE the
    servo goes in, then 4 M3 x 8 SHCS down through the tab holes).
-   Plastic X-horn perpendicular to the femur spar.
-8. **Tibia:** seat the tibia's knee-end pad on the knee horn and
-   bolt to the horn with 4 x M2 x 8 SHCS into the X-horn arms.
+   Fit a 20 mm aluminum disc horn perpendicular to the femur spar.
+8. **Tibia:** seat the tibia's knee-end pad flat on the knee disc horn
+   and bolt to the disc with 4 x M3 x 6 SHCS on the 14 mm bolt circle
+   into the disc's M3 tapped holes.
 9. **Foot pad:** slide the foot pad's FORK over the tibia's tang
    from below (May 2026 hinge inversion -- the foot now carries
    the fork, the tibia carries the single tang), align the M3

@@ -69,7 +69,11 @@ from fasteners import _parametric  # noqa: E402
 # files actually present under fasteners/scad/.
 
 SPEC_TO_SCAD: dict[str, str] = {
-    "M2x8 SHCS":                      "m2x8_shcs",   # link-to-X-horn self-tap (M2 fix May 2026)
+    # June 2026 disc-horn switch: link-to-disc-horn bolts are "M3x6
+    # SHCS".  Intentionally NOT mapped here -- there is no m3x6_shcs.scad
+    # and the parametric fallback (``_parametric.build_for_spec`` ->
+    # ``make_m3_shcs(6.0)``) renders it fine, same as the heat-set
+    # inserts fall through to parametric.
     "M3x8 SHCS":                      "m3x8_shcs",
     # May 2026 heat-set switch: cradle M3 x 8 SHCS now thread into
     # a brass insert instead of a plastic pilot.  Same physical

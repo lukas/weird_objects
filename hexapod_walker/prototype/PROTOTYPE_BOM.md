@@ -49,7 +49,7 @@ Edit the registry (not this table) and re-run `make bom-fasteners`.
 
 | Spec | McMaster P/N | Qty | Used in |
 |------|--------------|-----|---------|
-| M2x8 SHCS | 91290A005 | 72 | link-to-X-horn bolts |
+| M3x6 SHCS | 91290A111 | 72 | link-to-disc-horn bolts |
 | M2.5x8 spline screw | 91290A104 | 18 | servo spline center screws |
 | M2.5x8 SHCS into heat-set insert | 91290A102 | 4 | electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685) |
 | M2.5 heat-set insert | 94459A106 | 4 | electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685) |
@@ -75,12 +75,14 @@ Notes:
   x 6 mm pocket, apply light downward pressure for ~10-15 s until
   the knurl displaces plastic into the boss wall, then cool ~30 s
   before threading the M3 x 8 SHCS in.
-- Link-to-X-horn bolts (72 x M2x8 SHCS / `91290A005`) self-tap into
-  the plastic 4-arm X-horn's existing Phi ~ 2.0 mm M2-sized untapped
-  arm holes (May 2026 fastener-spec fix: the X-horn arms are NOT
-  M3-sized -- an M3 SHCS won't fit through them).  Optional thread-
-  forming upgrade: McMaster `99461A340` (M2x8 thread-form for
-  plastic).  See `fasteners/README.md` for the full rationale.
+- Link-to-disc-horn bolts (72 x M3x6 SHCS / `91290A111`) thread
+  DIRECTLY into the 20 mm aluminium 25T disc horn's 4 x M3 TAPPED
+  holes on a 14 mm bolt circle (June 2026 disc-horn switch, replacing
+  the old plastic 4-arm X-horn + M2 self-tap scheme).  The aluminium
+  IS the thread-engagement medium -- no heat-set, no self-tap into
+  plastic.  M3 x 6 screws usually ship with the disc-horn 10-packs
+  (Amazon B07D56FVK5); `91290A111` is the McMaster equivalent for
+  spares.  See `fasteners/README.md` for the full rationale.
 - Captive nyloc nuts are used at the foot-pad hinge pins (6 total,
   one per leg); the through-hole bolt is captured by the nyloc on
   the opposite side of the foot.  The previous 24 x M3 x 14
@@ -128,8 +130,11 @@ Files are in `hexapod_walker/prototype/stl_prototype/`.
 | 6 | `foot_pad.stl` |
 
 Design B (May 2026) retired the printed `servo_horn_adapter` -- each
-link now bolts DIRECTLY onto the plastic 4-arm X-horn that ships with
-the DS3225, so it no longer appears in the printed-parts set.
+link now bolts DIRECTLY onto a purchased servo horn, so it no longer
+appears in the printed-parts set.  June 2026 disc-horn switch: the
+purchased horn is now a 20 mm aluminum 25T disc (Amazon B07D56FVK5),
+bolted with 4 x M3 x 6 SHCS on a 14 mm bolt circle into the disc's
+M3 tapped holes (replacing the old plastic 4-arm X-horn + M2 scheme).
 
 For a one-leg test, print only:
 
@@ -144,7 +149,7 @@ For a one-leg test, print only:
 ## Bench Test Order
 
 1. Buy **one DS3225** first if you want to de-risk fit.
-2. Print `coxa_bracket.stl`, `coxa_link.stl`, `femur_link.stl`, and one `servo_horn_adapter.stl`.
+2. Print `coxa_bracket.stl`, `coxa_link.stl`, `femur_link.stl` (the servo horn is the purchased 20 mm aluminum disc, not a printed part).
 3. Confirm the DS3225 slides into all three wells and the tab holes line up.
 4. Wire one DS3225 to PCA9685 channel 0 and run:
 

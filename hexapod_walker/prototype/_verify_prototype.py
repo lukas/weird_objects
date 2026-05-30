@@ -124,7 +124,13 @@ _MESH_BUILDERS = {
     "tibia_link":       hp.make_tibia_link,
     "foot_pad":         hp.make_foot_pad,
     "servo_body":       hp.make_servo_body,
-    "servo_horn":       hp.make_servo_horn,
+    # June 2026: the servo joints drive a 20 mm aluminum 25T DISC horn
+    # (Amazon B07D56FVK5), so the "servo_horn" mating part IS the disc.
+    # The engagement / mating-face / horn-sweep checks all read this
+    # mesh, so pointing it at make_disc_horn keeps the verifier in sync
+    # with the real hardware.  ``make_servo_horn`` (the plastic X-horn)
+    # is retained for backwards compat but no longer used by the robot.
+    "servo_horn":       hp.make_disc_horn,
 }
 
 ALL_CACHED_PART_NAMES = tuple(_MESH_BUILDERS.keys())
@@ -3232,24 +3238,24 @@ def _probe_void_cylinder(mesh: trimesh.Trimesh,
 
 def check_horn_pattern_in_pad():
     """Verify that each driven link's pad has:
-      a) 4 M2 clearance holes on the XHORN_BOLT_PCD = 20.8 mm bolt
+      a) 4 M3 clearance holes on the XHORN_BOLT_PCD = 14 mm bolt
          circle, drilled through the full pad thickness, and
-      b) (coxa_link only) a central Phi HORN_RECESS_OD = 16 mm x
-         HORN_RECESS_DEPTH = 1.2 mm hub-clearance recess on the pad's
-         mating face.
+      b) (coxa_link only) a central Phi DISC_HORN_COLLAR_OD = 9 mm x
+         DISC_HORN_COLLAR_DEPTH = 2 mm spline-collar clearance bore on
+         the pad's mating face.
 
-    May 2026 fastener-spec fix: the bolts are M2 (Phi 2.2 mm
-    clearance), not M3 (Phi 3.2 mm) -- see ``XHORN_BOLT_OD`` in
+    June 2026 disc-horn switch: the joints drive a 20 mm aluminum 25T
+    disc horn, so the bolts are M3 (Phi 3.4 mm clearance) into the
+    disc's M3 tapped holes -- see ``XHORN_BOLT_OD`` in
     ``hexapod_prototype.py``.  The probe radius below is sized off
-    ``XHORN_BOLT_OD`` so the verifier will track any future change to
-    the X-horn arm-hole standard without a code edit.
+    ``XHORN_BOLT_OD`` so the verifier tracks any future change to the
+    bolt standard without a code edit.
 
-    May 2026 solid-pad simplification: the femur_link's hip pad and
-    the tibia_link's knee pad no longer carry the central hub recess
-    -- the X-horn's hub top is flush with the arm-top plane so the
-    pads' mating faces are now FLAT.  The recess check is therefore
-    skipped for the femur and tibia (``has_recess=False``); the
-    coxa_link still has a recess for its yaw-side mating face.
+    The femur_link's hip pad and the tibia_link's knee pad now carry
+    the same small spline-collar bore as the coxa cap (the disc seats
+    flat on all three), but the bolt-pattern check only probes the
+    coxa_link's collar bore (``has_recess=True``); the femur/tibia
+    bores are validated indirectly via mating-face contact.
     """
     print(f"\n[5d] Horn-pattern in driven link pads "
           f"(Phi {hp.XHORN_BOLT_OD:.1f} mm holes on PCD "
@@ -3264,8 +3270,8 @@ def check_horn_pattern_in_pad():
     # the verifier's 1.5 mm voxel pitch -- a missing hole produces a
     # solid pillar of pad material at the probe position and registers
     # as ~ 40-100 hits (well above HORN_PATTERN_VOX_TOL * 4 = 20).
-    bolt_probe_r   = hp.XHORN_BOLT_OD / 2.0 - 0.2     # ~0.9 mm at M2
-    recess_probe_r = hp.HORN_RECESS_OD / 2.0 - 0.5    # ~7.5 mm
+    bolt_probe_r   = hp.XHORN_BOLT_OD / 2.0 - 0.2     # ~1.5 mm at M3
+    recess_probe_r = hp.DISC_HORN_COLLAR_OD / 2.0 - 0.5    # ~4.0 mm
 
     cases = [
         # (name, mesh, pad_axis, mating_face_coord, mating_normal_sign,
@@ -3337,7 +3343,7 @@ def check_horn_pattern_in_pad():
             bolt_misses += hits
         ok_bolts = bolt_misses <= HORN_PATTERN_VOX_TOL * 4
         all_ok &= _label(
-            f"{name} :: 4 x M2 bolts on Phi {hp.XHORN_BOLT_PCD} mm PCD",
+            f"{name} :: 4 x M3 bolts on Phi {hp.XHORN_BOLT_PCD} mm PCD",
             ok_bolts,
             f"hits={bolt_misses} (tol "
             f"{HORN_PATTERN_VOX_TOL * 4})",
@@ -3352,19 +3358,19 @@ def check_horn_pattern_in_pad():
         # entire cylinder lives strictly inside the recess volume.
         if has_recess:
             recess_centre_axis = mate + normal_sign * (
-                hp.HORN_RECESS_DEPTH / 2.0)
+                hp.DISC_HORN_COLLAR_DEPTH / 2.0)
             if axis == "y":
                 centre = np.array([0.0, recess_centre_axis, 0.0])
             else:                                            # "z"
                 centre = np.array([0.0, 0.0, recess_centre_axis])
             hits = _probe_void_cylinder(mesh, centre, axis,
                                           recess_probe_r,
-                                          hp.HORN_RECESS_DEPTH * 0.8,
+                                          hp.DISC_HORN_COLLAR_DEPTH * 0.8,
                                           n_samples=64)
             ok_recess = hits <= HORN_PATTERN_VOX_TOL
             all_ok &= _label(
-                f"{name} :: Phi {hp.HORN_RECESS_OD} mm "
-                f"x {hp.HORN_RECESS_DEPTH:.2f} mm hub recess",
+                f"{name} :: Phi {hp.DISC_HORN_COLLAR_OD} mm "
+                f"x {hp.DISC_HORN_COLLAR_DEPTH:.2f} mm spline-collar bore",
                 ok_recess,
                 f"hits={hits} (tol {HORN_PATTERN_VOX_TOL})",
             )
@@ -4069,6 +4075,20 @@ HEX_KEY_CLEARANCE_LEN_MM     = 30.0   # short-arm reach
 # space above the head for finger access.
 M2_HEX_KEY_CLEARANCE_DIA_MM  = 4.0    # = M2_HEAD_OD_CLEARANCE
 M2_HEX_KEY_CLEARANCE_LEN_MM  = 15.0   # short-arm reach + finger headroom
+# June 2026 disc-horn switch: the link-to-disc-horn bolts are M3 x 6
+# SHCS recessed in a Phi DISC_HORN_BOLT_HEAD_OD = 5.7 mm counter-bore
+# in the link pad and driven with a 2.5 mm hex key whose short arm
+# enters the counter-bore from above (exactly like the old M2 link-to-
+# X-horn bolts).  Because the bolts now sit on the tighter PCD 14 mm
+# circle (radius 7, well inside each pad) instead of the old PCD 20.8
+# (radius 10.4, near the pad edge), the generic Phi 8 mm "finger room"
+# HEX_KEY cone would clip the pad annulus ringing each counter-bore
+# (2.85..4 mm from the bolt axis) and falsely report a self-intrusion.
+# The driver clearance is bounded by the counter-bore (the hex key
+# turns inside it), so we use the counter-bore diameter as the
+# envelope -- mirrors the M2 precedent above.
+DISC_HORN_HEX_KEY_CLEARANCE_DIA_MM = 5.7   # = hp.DISC_HORN_BOLT_HEAD_OD
+DISC_HORN_HEX_KEY_CLEARANCE_LEN_MM = 15.0  # short-arm reach + finger headroom
 PHILLIPS_CLEARANCE_DIA_MM    = 12.0   # full-length Phillips shaft + handle
 PHILLIPS_CLEARANCE_LEN_MM    = 80.0
 SOCKET_CLEARANCE_DIA_MM      = 12.0   # M3 nut driver / 5.5 mm socket + handle taper
@@ -4258,6 +4278,17 @@ def _driver_envelope_for_spec(spec: str) -> tuple:
         # HEX_KEY_CLEARANCE_* constants block above for the
         # derivation.
         return (M2_HEX_KEY_CLEARANCE_DIA_MM, M2_HEX_KEY_CLEARANCE_LEN_MM)
+    if spec == "M3x6 SHCS":
+        # June 2026 disc-horn switch: link-to-disc-horn bolts (M3 x 6
+        # SHCS) are recessed in a Phi 5.7 mm counter-bore on the tight
+        # PCD 14 mm circle and turned with a 2.5 mm hex key whose short
+        # arm enters the counter-bore.  Bound the envelope by the
+        # counter-bore diameter -- same reasoning as the M2 branch
+        # above; see the DISC_HORN_HEX_KEY_CLEARANCE_* constants.  The
+        # M3 x 8 cradle bolts keep the wide Phi 8 mm envelope (they are
+        # driven through the servo ear in open space, not counter-bored).
+        return (DISC_HORN_HEX_KEY_CLEARANCE_DIA_MM,
+                DISC_HORN_HEX_KEY_CLEARANCE_LEN_MM)
     if "SHCS" in spec:
         return (HEX_KEY_CLEARANCE_DIA_MM, HEX_KEY_CLEARANCE_LEN_MM)
     if ("pan-head" in spec) or ("Phillips" in spec) or ("slotted" in spec):
@@ -4471,19 +4502,16 @@ def check_screwdriver_access():
 # ``engagement_mm`` is the expected thread-engagement length at the
 # tip.  Default values are used for any spec missing from the table.
 FASTENER_ENGAGEMENT_SPEC = {
-    # ``M2x8 SHCS`` engagement = XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3.0 mm
-    # (the design-spec depth into the X-horn arm).  The stock M2 x 8
-    # SHCS overhangs the cap + horn stack by ~ 1.5 mm in -Z below the
-    # plastic horn, so the engagement-zone window (the last
-    # ``engagement_mm`` of the modeled bolt length) deliberately
-    # straddles the horn-bottom face: roughly half the window sits in
-    # the horn arm, half in the air below.  TIP_ENGAGEMENT_MIN_FRACTION
-    # = 0.5 is therefore exactly the right pass-threshold for an
-    # overhung bolt that still bites the design-required 3 mm of
-    # plastic.  Pre-fix the entry was 1.6 mm, a generic default that
-    # made the check too tight for the 8 mm-long bolt in a 4 mm cap +
-    # 5 mm horn stack.
-    "M2x8 SHCS":                       dict(head_od=3.8, shaft_od=2.2, engagement_mm=3.0),
+    # ``M3x6 SHCS`` -- link-to-disc-horn bolts (June 2026 disc-horn
+    # switch).  The M3 x 6 SHCS threads into the 20 mm aluminum 25T
+    # disc's M3 TAPPED hole; the aluminium is the thread-engagement
+    # medium.  engagement_mm = XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3.0 mm
+    # (worst case, the femur / tibia pads = LINK_THICKNESS 6 mm leave
+    # 3 mm of bolt in the disc; the coxa cap leaves ~5 mm).  The
+    # engagement-zone window (the last 3 mm of the bolt) sits fully
+    # inside the 5 mm disc, so TIP_ENGAGEMENT_MIN_FRACTION = 0.5 is
+    # comfortably met.
+    "M3x6 SHCS":                       dict(head_od=5.5, shaft_od=3.0, engagement_mm=3.0),
     "M3x8 SHCS":                       dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x8 SHCS into heat-set insert":  dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     # ``M3x8 SHCS self-tap`` -- Design E mixed-mode, May 2026.  The 2 +X
@@ -5104,31 +5132,33 @@ def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
     Ry_p = rotation_matrix(p, [0, 1, 0])[:3, :3]
     Ry_pt = rotation_matrix(pt, [0, 1, 0])[:3, :3]
 
-    # Test points on each X-horn mating face are SHIFTED to a radial
-    # offset of 12 mm in the HORN's bolt-circle plane (= the joint's
-    # mating-face plane perpendicular to the joint axis).  Why not the
-    # joint-axis ITSELF (radial 0)?  Two design features make the
-    # axis a poor probe location:
-    #   (a) the coxa_link has a Phi HORN_CENTRE_OD = 3.4 mm through-
-    #       hole for the spline center screw, so a vertical scan
-    #       through the yaw axis finds NO link material at all;
-    #   (b) the femur/tibia pads have a Phi HORN_RECESS_OD = 16 mm
-    #       counter-bore for the horn's central hub, so a scan
-    #       through the joint axis lands in the recess and the
-    #       "pad bottom" registers HORN_RECESS_DEPTH ~ 1.2 mm too
-    #       far from the horn top.
-    # At radial r = 12 mm in HORN-LOCAL (-x) we sit OUTSIDE the recess
-    # (Phi 16 -> radius 8 mm) AND OUTSIDE the bolt holes (PCD 20.8 / 2
-    # = 10.4 mm, hole radius 1.1 mm) AND INSIDE the pad's outer ring
-    # (HIP_PAD_R = 19.5 mm), where the X-horn's arm and the link's
-    # pad are supposed to touch flush.  We probe HORN-LOCAL (not
-    # link-/femur-/tibia-local) because the horn is the COMMON mating
-    # part for all three joints AND because horn-local +Z aligns with
-    # the joint axis exactly, so the scan direction is clean.  We use
-    # the -X arm so the femur / tibia tests probe AWAY from the spar's
-    # +X knee end (where ``knee_clear`` / ``insertion_slot`` cuts
-    # remove pad material at femur-local x > 8).
-    _MATING_RADIAL_OFFSET_MM = -12.0
+    # Test points on each disc-horn mating face are SHIFTED to a radial
+    # offset in the HORN's bolt-circle plane (= the joint's mating-face
+    # plane perpendicular to the joint axis).  Why not the joint-axis
+    # ITSELF (radial 0)?  Two design features make the axis a poor
+    # probe location:
+    #   (a) the links have a Phi HORN_CENTRE_OD = 3.4 mm through-hole
+    #       for the spline center screw, and the disc has a Phi 5.5 mm
+    #       spline bore, so a vertical scan through the axis finds NO
+    #       material at all;
+    #   (b) the pads + the disc collar bore (Phi DISC_HORN_COLLAR_OD =
+    #       9 mm) sit on the axis, so a scan through the joint axis
+    #       lands in the recess and reads the gap too large.
+    # June 2026 disc-horn switch: the 20 mm aluminium disc only extends
+    # to radius 10 mm, so the old radius-12 probe now falls OFF the disc
+    # entirely.  We move the probe to HORN-LOCAL radius 5 mm (-X arm):
+    # that sits OUTSIDE the collar bore (Phi 9 -> radius 4.5) and the
+    # disc spline bore (radius 2.75), OUTSIDE the 4 M3 bolt holes
+    # (PCD 14 / 2 = 7 mm, the -X hole at (-7, 0) is 2 mm away), and
+    # well INSIDE both the disc (radius 10) and every pad, where the
+    # disc's flat top face and the link's pad are supposed to touch
+    # flush.  We probe HORN-LOCAL (not link-local) because the disc is
+    # the COMMON mating part for all three joints AND horn-local +Z
+    # aligns with the joint axis exactly, so the scan direction is
+    # clean.  The -X arm keeps the femur / tibia tests away from the
+    # spar's +X knee end (where ``knee_clear`` / ``insertion_slot``
+    # cuts remove pad material at femur-local x > 8).
+    _MATING_RADIAL_OFFSET_MM = -5.0
 
     def _horn_local_xy_world(joint: str, x_local: float, y_local: float):
         """Convert (x, y, 0) in HORN-LOCAL to world coords (z=0 = the
@@ -5166,7 +5196,7 @@ def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
     if ("coxa_link" in world_parts
         and "servo_horn(yaw)" in world_parts):
         interfaces.append((
-            "coxa_link bottom <-> yaw X-horn top",
+            "coxa_link bottom <-> yaw disc-horn top",
             world_parts["coxa_link"], world_parts["servo_horn(yaw)"],
             yaw_test_world,
             z_hat.copy(),
@@ -5176,7 +5206,7 @@ def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
     if ("femur_link" in world_parts
         and "servo_horn(hip)" in world_parts):
         interfaces.append((
-            "femur_link hip pad <-> hip X-horn",
+            "femur_link hip pad <-> hip disc-horn",
             world_parts["femur_link"], world_parts["servo_horn(hip)"],
             hip_test_world,
             hip_axis_world,
@@ -5186,7 +5216,7 @@ def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
     if ("tibia_link" in world_parts
         and "servo_horn(knee)" in world_parts):
         interfaces.append((
-            "tibia_link knee pad <-> knee X-horn",
+            "tibia_link knee pad <-> knee disc-horn",
             world_parts["tibia_link"], world_parts["servo_horn(knee)"],
             knee_test_world,
             knee_axis_world,

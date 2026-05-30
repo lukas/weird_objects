@@ -117,9 +117,13 @@ coordinate_systems:
     x_axis: "Foot spar direction (matches the tibia's +X after assembly)."
     y_axis: "Hinge-pin axis (matches the tibia's +Y / knee axis)."
     z_axis: "Up; tongue rises in +Z."
-  # Design B (May 2026): servo_horn_adapter retired -- the 4 x M3
-  # bolt pattern and central 16 mm horn-hub recess now live directly
-  # in each link's pad face.
+  # Design B (May 2026): servo_horn_adapter retired -- the 4-bolt
+  # pattern + central spline-collar clearance bore now live directly
+  # in each link's pad face.  June 2026 disc-horn switch: the 4 bolts
+  # are now M3 SHCS on a 14 mm BCD threading into a 20 mm aluminum 25T
+  # disc horn (Amazon B07D56FVK5), and the old Phi 16 mm horn-hub
+  # recess is replaced by a small Phi 9 x 2 mm spline-collar bore so
+  # the flat disc seats face-to-face on the pad.
   battery_holder:
     origin: "Centre of the bottom face of the open-top tray."
     x_axis: "Long axis of the LiPo (length direction)."
@@ -558,33 +562,36 @@ parts:
           notes: "Counterbore Phi 5.5 mm = HP.ELEC_CHASSIS_COUNTERBORE_OD, depth 3 mm = HP.ELEC_CHASSIS_COUNTERBORE_DEPTH; head TOP sits at tray-local z = 0 (= tray bottom face) which means the head BOTTOM is at z = -3 mm.  Wait -- counterbore opens from the TOP face, so head TOP at z = 3 (tray top) and head BOTTOM at z = 0 (i.e. coincident with tray bottom)."
 
   coxa_link:
-    description: "Yaw-driven flat arm; pedestal cap bolts onto the yaw servo's plastic X-horn (4 x M2 self-tap into the horn arms + 1 central M3 horn screw), hip-pitch servo well at the outboard end.  Tall 36 mm pedestal lifts the arm clear of the chassis plate so the femur hip pad and the hip-pitch well don't clash with the chassis at standard yaw angles."
+    description: "Yaw-driven flat arm; pedestal cap bolts onto the yaw servo's 20 mm aluminum 25T DISC horn (Amazon B07D56FVK5) via 4 x M3 SHCS into the disc's tapped holes on a 14 mm BCD + 1 central M3 spline screw, hip-pitch servo well at the outboard end.  Tall 36 mm pedestal lifts the arm clear of the chassis plate so the femur hip pad and the hip-pitch well don't clash with the chassis at standard yaw angles."
     qty: 6
     bounds_mm: [63.0, 64.0, 42.0]       # measured (May 2026, post over_cap_plus_y_trim): X = HP.COXA_LENGTH + 28 + 10 (-X arm tail + arm +X end) ~ 63 mm; Y = 64 mm (overall y in [-47, +17]; cap retains full +Y footprint to y = +17 at z < PEDESTAL_CAP_T = +4, only z > +4 was trimmed back to y <= -10.5); Z = COXA_LIFT + arm_t = 36 + 6 = 42 mm
-    # The hub sits ON TOP of a COXA_LIFT (= 32 mm) pedestal, so the
-    # yaw-horn bolt holes live at z in [0, COXA_LIFT + hub_t] (drilled
-    # all the way through the pedestal + hub stack).  We probe at the
-    # hub mid-thickness (z = COXA_LIFT + hub_t / 2 = 36 mm).
+    # Design B/F + June 2026 disc-horn switch: the yaw disc bolts onto
+    # the pedestal CAP at the BOTTOM of the link (z in [0, PEDESTAL_CAP_T
+    # = +4]); the bolt holes are drilled through that 4 mm cap (M3
+    # clearance, counter-bored from the top for the SHCS heads).  We
+    # probe at the cap mid-thickness (z = PEDESTAL_CAP_T / 2 = +2 mm).
+    # (Pre-Design-B the bolts threaded into a hub at the pedestal TOP at
+    # z = 36; that hub is retired -- the stale z = 36 probe is fixed.)
     holes:
       - name: yaw_horn_bolt_+X
-        diameter_mm: 2.2                # = XHORN_BOLT_OD (M2 self-tap, May 2026)
-        position_mm: [10.4, 0.0, 36.0]
+        diameter_mm: 3.4                # = XHORN_BOLT_OD (M3 clearance into disc-horn tap, June 2026)
+        position_mm: [7.0, 0.0, 2.0]
         axis: z
       - name: yaw_horn_bolt_+Y
-        diameter_mm: 2.2
-        position_mm: [0.0, 10.4, 36.0]
+        diameter_mm: 3.4
+        position_mm: [0.0, 7.0, 2.0]
         axis: z
       - name: yaw_horn_bolt_-X
-        diameter_mm: 2.2
-        position_mm: [-10.4, 0.0, 36.0]
+        diameter_mm: 3.4
+        position_mm: [-7.0, 0.0, 2.0]
         axis: z
       - name: yaw_horn_bolt_-Y
-        diameter_mm: 2.2
-        position_mm: [0.0, -10.4, 36.0]
+        diameter_mm: 3.4
+        position_mm: [0.0, -7.0, 2.0]
         axis: z
       - name: yaw_horn_centre
         diameter_mm: 3.4                # = HORN_CENTRE_OD (M3 spline centre screw)
-        position_mm: [0.0, 0.0, 36.0]
+        position_mm: [0.0, 0.0, 2.0]
         axis: z
     wire_channels:
       - name: hip_pitch_wire_exit_L
@@ -604,7 +611,7 @@ parts:
       features:
         - name: pedestal_cap
           type: extruded_rectangle
-          description: "34 x 34 x 4 mm bolt cap at z in [0, PEDESTAL_CAP_T = +4].  Carries the 4 M2 self-tap X-horn bolts on a 20.8 mm PCD (counter-bored at z in [+1.5, +4] for the M2 SHCS heads, top flush with z = +4) plus the central M3 horn screw.  A Phi 16 x 1.2 mm horn-hub recess is cut into the BOTTOM face (z in [0, +1.2]) so the X-horn's central spline-screw head boss is fully swallowed.  The cap retains its full 34 x 34 footprint after the May 2026 over_cap_plus_y_trim (= the +Y half of the pedestal ROOF above the cap was excised, but the cap itself is untouched at z < +4)."
+          description: "34 x 34 x 4 mm bolt cap at z in [0, PEDESTAL_CAP_T = +4].  Carries the 4 M3 disc-horn bolts on a 14 mm BCD (counter-bored Phi 5.7 mm at z in [+1, +4] for the M3 SHCS heads, top flush with z = +4) plus the central M3 spline screw.  A Phi 9 x 2 mm spline-collar clearance bore is cut into the BOTTOM face (z in [0, +2]) so the disc's raised central spline collar / hub clears and the flat 20 mm disc seats face-to-face on the cap bottom.  The cap retains its full 34 x 34 footprint after the May 2026 over_cap_plus_y_trim (= the +Y half of the pedestal ROOF above the cap was excised, but the cap itself is untouched at z < +4)."
           centre_mm: [0.0, 0.0, 2.0]
           length_mm: 34.0
           width_mm: 34.0
@@ -612,10 +619,10 @@ parts:
           axis: z
           mating_face:
             normal: -z
-            mates_to: "yaw servo's plastic 4-arm X-horn top face (cap bottom clamps onto horn arms + central spline hub)"
+            mates_to: "yaw servo's 20 mm aluminum 25T disc horn top face (cap bottom clamps flat onto the disc; 4 x M3 SHCS thread into the disc's tapped holes)"
             mating_plane_z_local_mm: 0.0
           holes_on_feature: [yaw_horn_bolt_+X, yaw_horn_bolt_+Y, yaw_horn_bolt_-X, yaw_horn_bolt_-Y, yaw_horn_centre]
-          notes: "Pre-May-2026 the cap was the bottom 4 mm of a 34 x 34 x 36 mm pedestal pillar; the pillar's +Y half above z = +4 was excised in the May 2026 +Y overhang removal (commit follows 407e191), leaving only the cap + the -Y plank-shoulder above it.  All 4 X-horn bolts + the central M3 horn screw stay seated in the unchanged cap."
+          notes: "Pre-May-2026 the cap was the bottom 4 mm of a 34 x 34 x 36 mm pedestal pillar; the pillar's +Y half above z = +4 was excised in the May 2026 +Y overhang removal (commit follows 407e191), leaving only the cap + the -Y plank-shoulder above it.  All 4 M3 disc-horn bolts + the central M3 spline screw stay seated in the unchanged cap."
         - name: pedestal_plank_shoulder
           type: extruded_rectangle
           description: "34 x 6.5 x ~10.5 mm wall at x in [-17, +17], y in [-17, -10.5], z in [~+25.5, +36].  The surviving -Y slice of the old pedestal ROOF (above the assembly trough at z = +25.5, below the lifted body slab at z = +36) after the May 2026 over_cap_plus_y_trim excised everything at y > bridge_y_max = -10.5 and z > PEDESTAL_CAP_T = +4.  Carries yaw torque from the cap's -Y edge (which touches the well's outer -Y wall at the cap plane) up into the bridge above.  The +Y mirror used to span y in [+10.5, +17] but was eaten by the trim."
@@ -708,20 +715,20 @@ parts:
     # through the pad's mid-thickness at y = 3 (was 8 pre-refactor).
     holes:
       - name: hip_pad_bolt_+X
-        diameter_mm: 2.2                # = XHORN_BOLT_M2_SELFTAP_HOLE_OD (M2, May 2026 fix)
-        position_mm: [10.4, 3.0, 0.0]
+        diameter_mm: 3.4                # = XHORN_BOLT_OD (M3 clearance into disc-horn tap, June 2026)
+        position_mm: [7.0, 3.0, 0.0]
         axis: y
       - name: hip_pad_bolt_+Z
-        diameter_mm: 2.2
-        position_mm: [0.0, 3.0, 10.4]
+        diameter_mm: 3.4
+        position_mm: [0.0, 3.0, 7.0]
         axis: y
       - name: hip_pad_bolt_-X
-        diameter_mm: 2.2
-        position_mm: [-10.4, 3.0, 0.0]
+        diameter_mm: 3.4
+        position_mm: [-7.0, 3.0, 0.0]
         axis: y
       - name: hip_pad_bolt_-Z
-        diameter_mm: 2.2
-        position_mm: [0.0, 3.0, -10.4]
+        diameter_mm: 3.4
+        position_mm: [0.0, 3.0, -7.0]
         axis: y
       - name: hip_pad_centre_screw_clearance
         diameter_mm: 3.4                # = HORN_CENTRE_OD (M3 clearance for the hip servo's spline centre screw)
@@ -745,17 +752,17 @@ parts:
       features:
         - name: hip_pad
           type: cylindrical_disc
-          description: "Solid round mounting pad at the hip end.  Bolts onto the hip-pitch servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm PCD; pad's -Y face mates flush to the horn's top arm plane at NEW y = 0.  Pad y-range is [0, +6] = [0, +LINK_THICKNESS], COLLINEAR with the spar (May 2026 collinear-pad refactor).  Mating face is FLAT -- the X-horn hub top is flush with its arm-top plane so there is no spline-screw boss above that plane to swallow, and the link has no material at y < 0 so the X-horn envelope below is cleared by construction (no arm-relief cup carved in the pad).  May 2026 user-flagged shrink: pad disc reduced from Phi 40 (HIP_PAD_R = 20 mm) to Phi 28 (FEMUR_HIP_PAD_R = 14 mm) so each X-horn arm tip (PLASTIC_HORN_X_TIP_R = 18 mm) pokes 4 mm past the pad's outer edge in BuildViz, restoring visibility of the X-horn arms from the +Y inspection view.  Tibia knee pad (separate feature) still uses HIP_PAD_R unchanged."
+          description: "Solid round mounting pad at the hip end.  Bolts onto the hip-pitch servo's 20 mm aluminum 25T DISC horn via 4 x M3 SHCS into the disc's tapped holes on a 14 mm BCD; pad's -Y face mates flush to the disc's flat top face at NEW y = 0.  Pad y-range is [0, +6] = [0, +LINK_THICKNESS], COLLINEAR with the spar (May 2026 collinear-pad refactor).  Mating face is FLAT -- the flat 20 mm disc seats face-to-face; only the disc's raised central spline collar is cleared by a small Phi 9 x 2 mm bore in the pad centre.  Pad is Phi 28 (FEMUR_HIP_PAD_R = 14 mm) so it fully backs the Phi 20 disc and all 4 M3 bolt holes on the 14 mm BCD land in solid material (3 mm pad rim past the disc edge)."
           centre_mm: [0.0, 3.0, 0.0]
           diameter_mm: 28.0          # = 2 * HP.FEMUR_HIP_PAD_R (was 40.0 = 2 * HIP_PAD_R)
           thickness_mm: 6.0          # = HP.LINK_THICKNESS
           axis: y
           mating_face:
             normal: -y
-            mates_to: "hip-pitch servo's plastic 4-arm X-horn top face"
+            mates_to: "hip-pitch servo's 20 mm aluminum 25T disc horn top face (4 x M3 SHCS thread into the disc's tapped holes)"
             mating_plane_z_local_mm: 0.0    # NEW link-local origin = mating face
           holes_on_feature: [hip_pad_bolt_+X, hip_pad_bolt_+Z, hip_pad_bolt_-X, hip_pad_bolt_-Z, hip_pad_centre_screw_clearance]
-          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face (head TOP at NEW y = +6, head BOTTOM at NEW y = +3.5).  A Phi HORN_CENTRE_OD = 3.4 mm M3 clearance hole punches through the pad's centre (joint axis) along +Y so the M2.5 servo spline centre screw is reachable from above after the link is bolted to the X-horn -- mirrors the coxa_link pedestal cap's yaw_horn_centre hole."
+          notes: "4 x Phi 5.7 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 3.0 mm) recess the M3 SHCS heads flush with the pad outer face (head TOP at NEW y = +6, head BOTTOM at NEW y = +3).  A Phi HORN_CENTRE_OD = 3.4 mm M3 clearance hole punches through the pad's centre (joint axis) along +Y so the M2.5 servo spline centre screw is reachable from above after the link is bolted to the disc -- mirrors the coxa_link pedestal cap's yaw_horn_centre hole."
         - name: spar
           type: extruded_rectangle
           description: "Long straight thigh shaft.  Cross-section 6 mm Y x 34 mm Z gives I_y = 9826 mm^4 (~ 18x safety factor in the dominant bending direction).  Carries the hip-pitch reaction torque from the knee end back to the hip pad.  NEW (May 2026 collinear-pad refactor): spar centred at y = +3 (was 0 pre-refactor), spanning y in [0, +LINK_THICKNESS] = [0, +6] -- same y range as the hip pad above."
@@ -835,20 +842,20 @@ parts:
     # pre-refactor when the pad floated 5 mm above the spar).
     holes:
       - name: knee_pad_bolt_+X
-        diameter_mm: 2.2                # = XHORN_BOLT_M2_SELFTAP_HOLE_OD (M2, May 2026 fix)
-        position_mm: [10.4, 3.0, 0.0]
+        diameter_mm: 3.4                # = XHORN_BOLT_OD (M3 clearance into disc-horn tap, June 2026)
+        position_mm: [7.0, 3.0, 0.0]
         axis: y
       - name: knee_pad_bolt_+Z
-        diameter_mm: 2.2
-        position_mm: [0.0, 3.0, 10.4]
+        diameter_mm: 3.4
+        position_mm: [0.0, 3.0, 7.0]
         axis: y
       - name: knee_pad_bolt_-X
-        diameter_mm: 2.2
-        position_mm: [-10.4, 3.0, 0.0]
+        diameter_mm: 3.4
+        position_mm: [-7.0, 3.0, 0.0]
         axis: y
       - name: knee_pad_bolt_-Z
-        diameter_mm: 2.2
-        position_mm: [0.0, 3.0, -10.4]
+        diameter_mm: 3.4
+        position_mm: [0.0, 3.0, -7.0]
         axis: y
       - name: knee_pad_centre_screw_clearance
         diameter_mm: 3.4                # = HORN_CENTRE_OD (M3 clearance for the knee servo's spline centre screw)
@@ -864,17 +871,17 @@ parts:
       features:
         - name: knee_pad
           type: cylindrical_disc
-          description: "Solid round mounting pad at the knee end.  Bolts onto the knee servo's plastic 4-arm X-horn via 4 x M2 self-tap screws on a 20.8 mm bolt circle.  Pad's -Y face mates flush to the horn's top arm plane at NEW y = 0.  Pad y-range is [0, +6] = [0, +LINK_THICKNESS], COLLINEAR with the spar (May 2026 collinear-pad refactor).  Mating face is FLAT -- the link has no material at y < 0 so the X-horn envelope (arms + hub + gearbox cap) is cleared by construction (no arm-relief cup or hub recess carved in the pad)."
+          description: "Solid round mounting pad at the knee end.  Bolts onto the knee servo's 20 mm aluminum 25T DISC horn via 4 x M3 SHCS into the disc's tapped holes on a 14 mm BCD.  Pad's -Y face mates flush to the disc's flat top face at NEW y = 0.  Pad y-range is [0, +6] = [0, +LINK_THICKNESS], COLLINEAR with the spar (May 2026 collinear-pad refactor).  Mating face is FLAT -- the flat 20 mm disc seats face-to-face; only the disc's raised central spline collar is cleared by a small Phi 9 x 2 mm bore in the pad centre.  Pad is Phi 40 (HIP_PAD_R = 20 mm) so it fully backs the Phi 20 disc and all 4 M3 bolt holes on the 14 mm BCD land in solid material."
           centre_mm: [0.0, 3.0, 0.0]
           diameter_mm: 40.0           # = 2 * HP.HIP_PAD_R
           thickness_mm: 6.0           # = HP.LINK_THICKNESS
           axis: y
           mating_face:
             normal: -y
-            mates_to: "knee servo's plastic 4-arm X-horn top face"
+            mates_to: "knee servo's 20 mm aluminum 25T disc horn top face (4 x M3 SHCS thread into the disc's tapped holes)"
             mating_plane_z_local_mm: 0.0    # NEW link-local origin = mating face
           holes_on_feature: [knee_pad_bolt_+X, knee_pad_bolt_+Z, knee_pad_bolt_-X, knee_pad_bolt_-Z, knee_pad_centre_screw_clearance]
-          notes: "4 x Phi 4 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 2.5 mm) recess the M2 SHCS heads flush with the pad outer face (head TOP at NEW y = +6, head BOTTOM at NEW y = +3.5).  A Phi HORN_CENTRE_OD = 3.4 mm M3 clearance hole punches through the pad's centre (joint axis) along +Y so the M2.5 servo spline centre screw is reachable from above after the link is bolted to the X-horn -- mirrors the coxa_link pedestal cap's yaw_horn_centre hole and the femur hip pad's central clearance."
+          notes: "4 x Phi 5.7 mm counter-bores on the +Y outer face (COUNTERBORE_DEPTH = 3.0 mm) recess the M3 SHCS heads flush with the pad outer face (head TOP at NEW y = +6, head BOTTOM at NEW y = +3).  A Phi HORN_CENTRE_OD = 3.4 mm M3 clearance hole punches through the pad's centre (joint axis) along +Y so the M2.5 servo spline centre screw is reachable from above after the link is bolted to the disc -- mirrors the coxa_link pedestal cap's yaw_horn_centre hole and the femur hip pad's central clearance."
         - name: spar
           type: extruded_rectangle
           description: "Long straight shin shaft.  Carries the bending load from foot-strike to knee.  Cross-section is wide in Z and thin in Y.  NEW (May 2026 collinear-pad refactor): spar centred at y = +3 (was 0 pre-refactor), spanning y in [0, +LINK_THICKNESS] = [0, +6] -- same y range as the knee pad above."

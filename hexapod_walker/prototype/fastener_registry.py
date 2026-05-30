@@ -56,19 +56,17 @@ Enumerated categories (Design B + Design C, May 2026 revert)
        insertion.  See ``hexapod_prototype.INSERT_M3_SELFTAP_*`` for
        the design-decision rationale.
 
-2. ``72 x M2 x 8 SHCS`` -- link-to-X-horn bolts.  4 per joint
-   (XHORN_BOLT_PCD = 20.8 mm circle) x (yaw + hip + knee) = 3 joints
+2. ``72 x M3 x 6 SHCS`` -- link-to-disc-horn bolts.  4 per joint
+   (XHORN_BOLT_PCD = 14 mm circle) x (yaw + hip + knee) = 3 joints
    per leg x 6 legs.  Threads downward from the printed link's pad
-   face into the plastic 4-arm X-horn that ships with the servo
-   (Design B retired the printed adapter disc; the link clamps the
-   X-horn directly).  PN_M2X8_SHCS / 91290A005 -- a plain M2 SHCS
-   used as a self-tapper into the X-horn's existing Phi ~ 2.0 mm
-   M2-sized arm hole (the plastic arm provides the actual thread
-   engagement).  May 2026 fastener-spec fix: the X-horn arm holes
-   are Phi ~ 2.0 mm, NOT Phi 3.2 mm M3 clearance -- an M3 SHCS
-   literally would not fit through the plastic horn's arm.  See
-   ``hexapod_prototype.py`` XHORN_BOLT_* docstring + ``fasteners/
-   README.md`` for the McMaster thread-former upgrade path.
+   face into the 20 mm aluminum 25T DISC horn (Amazon B07D56FVK5)
+   that the servo joints drive.  PN_M3X6_SHCS / 91290A111 -- a plain
+   M3 SHCS that threads into the disc's M3 TAPPED hole; the aluminium
+   IS the thread-engagement medium (no heat-set insert, no self-tap
+   into plastic).  June 2026 disc-horn switch: replaced the plastic
+   4-arm X-horn (PCD 20.8 mm, M2 self-tap) -- see the ``XHORN_BOLT_*``
+   / ``DISC_HORN_*`` docstrings in ``hexapod_prototype.py``.  The
+   M3 x 6 screws ship with the disc kit.
 
 3. ``18 x M2.5 x 8 spline center screw`` -- ships with the servo; sits
    captive between the servo spline and the plastic horn.  18 servos
@@ -225,17 +223,16 @@ PN_M3X32_SHCS    = "91290A123"   # M3 x 30 socket-head cap screw (closest stock 
 PN_M3_NYLOC      = "90576A102"   # M3 nylon-insert lock nut, A2 stainless
 PN_M3X16_PAN     = "92010A130"   # M3 x 16 pan-head Phillips, A2 stainless (foot hinge)
 PN_M25X8_SHCS    = "91290A104"   # M2.5 x 8 socket-head cap screw (servo spline)
-# Link-to-X-horn bolts (May 2026 M3 -> M2 fastener-spec fix; see the
-# XHORN_BOLT_* docstring in hexapod_prototype.py).  Plain M2 SHCS used
-# as a self-tapper into the X-horn's existing Phi ~ 2.0 mm arm hole;
-# the X-horn plastic provides the actual thread engagement.  An
-# optional thread-forming upgrade exists for in-plastic use --
-# McMaster ``99461A340`` (M2 x 8 thread-forming) -- documented in
-# fasteners/README.md.  We keep the plain SHCS as the default because
-# the McMaster stock is reliable, the visual mesh is identical at
-# inspector zoom, and self-tap behaviour is supplied by the X-horn's
-# pre-drilled hole.
-PN_M2X8_SHCS     = "91290A005"   # M2 x 8 socket-head cap screw, black-oxide steel
+# Link-to-disc-horn bolts (June 2026 disc-horn switch; see the
+# XHORN_BOLT_* / DISC_HORN_* docstrings in hexapod_prototype.py).  The
+# servo joints now drive a 20 mm aluminum 25T DISC horn (Amazon
+# B07D56FVK5) with 4 x M3 TAPPED holes on a 14 mm bolt circle.  The
+# link's pad has a Phi 3.4 mm M3 clearance hole; the M3 SHCS threads
+# DIRECTLY into the disc's tapped hole -- the aluminium IS the thread-
+# engagement medium (no heat-set, no self-tap into plastic).  M3 x 6
+# screws ship with the disc kit; we use that length (3-5 mm of
+# engagement into the 5 mm disc depending on pad thickness).
+PN_M3X6_SHCS     = "91290A111"   # M3 x 6 socket-head cap screw (ships with disc)
 # May 2026 revert: the brief Design C horizontal-nyloc cradle bolt
 # (PN_M3X14_SHCS = 91290A115) was retired in favour of vertical M3 x 8
 # self-tap SHCS into Phi 2.5 mm printed pilots, reusing the existing
@@ -286,7 +283,7 @@ SPEC_M25X8_SHCS  = "M2.5x8 spline screw"
 # the spline-screw entries above.
 SPEC_M25X8_SHCS_INTO_INSERT = "M2.5x8 SHCS into heat-set insert"
 SPEC_M25_HEATSET_INSERT     = "M2.5 heat-set insert"
-SPEC_M2X8_SHCS   = "M2x8 SHCS"   # link-to-X-horn self-tap bolts
+SPEC_M3X6_SHCS   = "M3x6 SHCS"   # link-to-disc-horn bolts (into M3 tapped disc)
 
 
 # ---------------------------------------------------------------------------
@@ -693,24 +690,25 @@ def _emit_cradle_fasteners(
 # Per-joint horn-bolt fastener generators
 # ---------------------------------------------------------------------------
 #
-# Each rotary joint (yaw, hip-pitch, knee-pitch) clamps the printed link's
-# pad onto the plastic 4-arm X-horn via 4 x M2 SHCS on XHORN_BOLT_PCD =
-# 20.8 mm.  Design B (May 2026) retired the printed adapter disc, so the
-# bolts thread DIRECTLY from the link's pad into the X-horn that ships
-# with the servo.  The X-horn arm has a Phi ~ 2.0 mm untapped through
-# hole (M2 self-tap-sized); the plain M2 SHCS self-taps a clean thread
-# into the plastic on first install.  Bolt length budget:
-#   * coxa_link hub:    COXA_LIFT + hub_t = 36 + 8 mm of pad/pedestal
-#   * femur hip pad:    LINK_THICKNESS = 6 mm
-#   * tibia knee pad:   LINK_THICKNESS = 6 mm
-# All three pad thicknesses share a single M2 x 8 SHCS stock (the
-# coxa_link's pedestal-bolt run is taller, but the bolt only needs to
-# engage the X-horn's Phi 2.0 mm self-tap thread for
-# XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3 mm; the rest of the pedestal is
-# a clearance pass-through).  M2 x 8 is the safe round-up for
-# pad (3-4 mm) + X-horn thread (3 mm) + bolt-head clearance (1 mm)
-# = 7-8 mm.  See the user's catch in the May 2026 audit and
-# ``fasteners/README.md`` (PN 91290A005 entry).
+# Each rotary joint (yaw, hip-pitch, knee-pitch) clamps the printed
+# link's pad onto a 20 mm aluminum 25T DISC horn (Amazon B07D56FVK5)
+# via 4 x M3 SHCS on XHORN_BOLT_PCD = 14 mm (radius 7).  The bolts
+# thread DIRECTLY from the link's pad into the disc's 4 M3 TAPPED
+# holes -- the aluminium IS the thread-engagement medium.  Bolt-length
+# budget (M3 x 6, head counter-bored COUNTERBORE_DEPTH = 3 mm into the
+# pad outer face):
+#   * coxa_link cap:    PEDESTAL_CAP_T = 4 mm -> ~5 mm into the disc
+#   * femur hip pad:    LINK_THICKNESS = 6 mm -> ~3 mm into the disc
+#   * tibia knee pad:   LINK_THICKNESS = 6 mm -> ~3 mm into the disc
+# All three share a single M3 x 6 SHCS stock (the one that ships with
+# the disc kit); engagement is into the disc's M3 thread for
+# XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3 mm minimum.
+#
+# Moment-arm note: the bolt circle shrank from r = 10.4 (plastic
+# X-horn PCD 20.8) to r = 7 (disc PCD 14), so per-bolt shear roughly
+# doubles -- but M3 (vs M2) has ~2.25x the tensile/shear area, so the
+# joint is net stronger, not weaker.  See ``fasteners/README.md``
+# (PN 91290A111 entry).
 
 _HORN_BOLT_PCD_HALF = HP.XHORN_BOLT_PCD / 2.0
 
@@ -765,23 +763,23 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
         head = _apply_point(T_link_to_world, p_local)
         axis = _apply_dir(T_link_to_world, np.array([0.0, 0.0, -1.0]))
         out.append(FastenerInstance(
-            part_number=PN_M2X8_SHCS,
-            spec=SPEC_M2X8_SHCS,
+            part_number=PN_M3X6_SHCS,
+            spec=SPEC_M3X6_SHCS,
             head_world_xyz=head,
             axis_world=axis,
             role=(
-                f"coxa_link L{leg_index} hub-to-X-horn @ "
+                f"coxa_link L{leg_index} hub-to-disc-horn @ "
                 f"{int(round(np.degrees(ang)))}deg SHCS"
             ),
             leg_index=leg_index,
             joint="yaw",
-            length_mm=8.0,
-            cache_stl=f"{PN_M2X8_SHCS}.cache.stl",
+            length_mm=6.0,
+            cache_stl=f"{PN_M3X6_SHCS}.cache.stl",
             # Captive sub-assembly fastener.  Per PROTOTYPE.md
-            # section 6.1 the 4 yaw M2 x 8 SHCS are driven in step 3
-            # (coxa_link dropped onto yaw X-horn, bolts torqued from
+            # section 6.1 the 4 yaw M3 x 6 SHCS are driven in step 3
+            # (coxa_link dropped onto yaw disc horn, bolts torqued from
             # above through the pedestal-cap counter-bore) BEFORE the
-            # femur is mounted on the hip X-horn in step 5.  At
+            # femur is mounted on the hip disc horn in step 5.  At
             # standing pose the +X yaw bolt (ang = 0 deg) is then
             # blocked from above by the femur's hip pad which tilts
             # up and back over the coxa_link hub when p_femur =
@@ -790,9 +788,9 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             # the same assembly step before the femur is in place,
             # so the explicit allow-list applies uniformly.
             skip_screwdriver_reason=(
-                "captive sub-assembly fastener: the M2 x 8 SHCS is "
+                "captive sub-assembly fastener: the M3 x 6 SHCS is "
                 "torqued through the pedestal-cap counter-bore "
-                "BEFORE the femur is mounted on the hip X-horn "
+                "BEFORE the femur is mounted on the hip disc horn "
                 "(PROTOTYPE.md section 6.1 step 3 vs step 5).  At "
                 "standing pose (p_femur = -25 deg) the +X yaw bolt "
                 "is blocked from above by the femur hip pad."
@@ -843,18 +841,18 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
         head = _apply_point(T_femur_to_world, p_local)
         axis = _apply_dir(T_femur_to_world, np.array([0.0, -1.0, 0.0]))
         out.append(FastenerInstance(
-            part_number=PN_M2X8_SHCS,
-            spec=SPEC_M2X8_SHCS,
+            part_number=PN_M3X6_SHCS,
+            spec=SPEC_M3X6_SHCS,
             head_world_xyz=head,
             axis_world=axis,
             role=(
-                f"femur_link L{leg_index} hip-pad-to-X-horn @ "
+                f"femur_link L{leg_index} hip-pad-to-disc-horn @ "
                 f"{int(round(np.degrees(ang)))}deg SHCS"
             ),
             leg_index=leg_index,
             joint="hip",
-            length_mm=8.0,
-            cache_stl=f"{PN_M2X8_SHCS}.cache.stl",
+            length_mm=6.0,
+            cache_stl=f"{PN_M3X6_SHCS}.cache.stl",
         ))
     return out
 
@@ -900,18 +898,18 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
         head = _apply_point(T_tibia_to_world, p_local)
         axis = _apply_dir(T_tibia_to_world, np.array([0.0, -1.0, 0.0]))
         out.append(FastenerInstance(
-            part_number=PN_M2X8_SHCS,
-            spec=SPEC_M2X8_SHCS,
+            part_number=PN_M3X6_SHCS,
+            spec=SPEC_M3X6_SHCS,
             head_world_xyz=head,
             axis_world=axis,
             role=(
-                f"tibia_link L{leg_index} knee-pad-to-X-horn @ "
+                f"tibia_link L{leg_index} knee-pad-to-disc-horn @ "
                 f"{int(round(np.degrees(ang)))}deg SHCS"
             ),
             leg_index=leg_index,
             joint="knee",
-            length_mm=8.0,
-            cache_stl=f"{PN_M2X8_SHCS}.cache.stl",
+            length_mm=6.0,
+            cache_stl=f"{PN_M3X6_SHCS}.cache.stl",
         ))
     return out
 
@@ -2023,7 +2021,7 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
         rows.append((spec, pn, qty, used))
     # Stable, human-friendly order: SHCS by length, then nuts.
     spec_order = {
-        SPEC_M2X8_SHCS:             0,
+        SPEC_M3X6_SHCS:             0,
         SPEC_M25X8_SHCS:            1,
         SPEC_M25X8_SHCS_INTO_INSERT: 2,
         SPEC_M25_HEATSET_INSERT:    3,
@@ -2091,8 +2089,8 @@ def _usage_bucket(fi: FastenerInstance) -> str:
         if "self-tap" in role:
             return "cradle servo mounts (M3 SHCS self-tap)"
         return "cradle servo mounts (M3 SHCS into heat-set insert)"
-    if "X-horn" in role:
-        return "link-to-X-horn bolts"
+    if "disc-horn" in role:
+        return "link-to-disc-horn bolts"
     if "spline screw" in role:
         return "servo spline center screws"
     if "hinge" in role:

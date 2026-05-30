@@ -127,56 +127,21 @@ def _hobby_servo_visual() -> trimesh.Trimesh:
 
 
 def _horn_visual() -> trimesh.Trimesh:
-    """A simple star-shaped servo horn (NOT the printed adapter; the
-    plastic horn that ships with the servo).  Used 18 x to dress the
-    output of every joint.
+    """The 20 mm aluminum 25T DISC servo horn (Amazon B07D56FVK5) that
+    every servo joint now drives.  Used 18 x to dress the output of
+    every joint; the driven link bolts onto the disc's flat top face
+    with 4 x M3 SHCS into the disc's tapped holes.
 
-    Local frame: bottom face at z=0, top face at z=HP.HORN_STACK_H so
-    callers that translate by ``horn_base_z`` get a horn whose mating
-    face (= horn TOP) lands at ``horn_base_z + HP.HORN_STACK_H``.
-    This matches the X-horn-top reference used by ``CHASSIS_YAW_OUTPUT_Z``
-    and the per-joint hip/knee pad mounting math.  Previously the visual
-    was hard-coded at 2 mm, which left a ~3 mm visible gap between the
-    horn top and the coxa_link's pedestal bottom even though the
-    underlying geometry was assembled correctly.
+    Delegates to ``HP.make_disc_horn`` so the assembly, the static
+    ``servo_horn.stl`` and the verifier all share ONE disc geometry.
+
+    Local frame: bottom face (spline side) at z=0, top mating face at
+    z=HP.HORN_STACK_H = HP.DISC_HORN_H = 5 mm, so callers that
+    translate by ``horn_base_z`` get a disc whose mating face lands at
+    ``horn_base_z + HP.HORN_STACK_H`` -- the same reference the plastic
+    X-horn used, so no placement math changes.
     """
-    parts = []
-    horn_h = HP.HORN_STACK_H
-
-    base = _cyl(8.0, horn_h)
-    base.apply_translation([0, 0, horn_h / 2.0])
-    parts.append(base)
-
-    arm_h = horn_h * 0.8
-    for i in range(4):
-        ang = i * np.pi / 2
-        arm = _box((20.0, 4.0, arm_h))
-        arm.apply_transform(rotation_matrix(ang, [0, 0, 1]))
-        arm.apply_translation([0, 0, arm_h / 2.0])
-        parts.append(arm)
-
-    # Boolean-union the hub + arms first so the central screw clearance
-    # hole (drilled next) cuts through the FULL solid horn including
-    # the region where the four arms overlap at the centre.  A plain
-    # ``trimesh.util.concatenate`` would leave non-manifold interior
-    # surfaces that the boolean diff fails to drill through cleanly,
-    # leaving stray solid voxels along the axis right at the arm
-    # centre (z ~ horn_h/2).
-    try:
-        horn = trimesh.boolean.union(parts)
-    except Exception:
-        horn = trimesh.util.concatenate(parts)
-
-    # Central screw clearance hole so the M3 spline screw is visible
-    # passing through the horn's hub in the assembled view.  Without
-    # this the solid Phi 16 mm hub occluded the link pad's central
-    # screw clearance hole, making the screw path appear blind.
-    centre_hole = _cyl(HP.HORN_CENTRE_OD / 2.0, horn_h + 2.0)
-    centre_hole.apply_translation([0, 0, horn_h / 2.0])
-    try:
-        return trimesh.boolean.difference([horn, centre_hole])
-    except Exception:
-        return horn
+    return HP.make_disc_horn()
 
 
 # ---------------------------------------------------------------------------
