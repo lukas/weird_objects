@@ -54,3 +54,6 @@ test_*.png
 # RL training artefacts (large, regeneratable)
 hexapod_walker/policies/
 MUJOCO_LOG.TXT
+
+# Local Netlify folder
+.netlify

@@ -8,9 +8,16 @@
       J <joint> <deg>      set one joint, joint=0..17, see per-axis limits below
       A <18 floats>        set all joints in degrees
       C                    centre all joints
-      T <joint> <deg>      set trim for one joint
+      T <joint> <deg>      set trim for one joint (persisted to EEPROM)
       P                    print current trim table
       ?                    help
+
+  Trim persistence:
+      Per-joint trims are stored in the Mega's EEPROM.  They are LOADED
+      on boot (before the initial centre) and SAVED on every T command,
+      so the robot powers up already calibrated and survives the
+      serial-open auto-reset.  Uses EEPROM.put (update semantics), so
+      unchanged bytes are not rewritten -- negligible wear.
 
   Joint order matches the simulation and docs:
 
@@ -42,10 +49,19 @@
 */
 
 #include <Wire.h>
+#include <EEPROM.h>
 #include <Adafruit_PWMServoDriver.h>
 
 Adafruit_PWMServoDriver pwm1(0x40);
 Adafruit_PWMServoDriver pwm2(0x41);
+
+// --- Trim persistence (EEPROM) -------------------------------------
+// Layout: [0..1] magic, [4 .. 4+18*4) the 18 float trims.  The magic
+// marks the block as initialised (blank AVR EEPROM reads as 0xFF).
+const uint16_t EE_MAGIC       = 0x4831;  // 'H','1' -- bump on layout change
+const int      EE_MAGIC_ADDR  = 0;
+const int      EE_TRIM_ADDR   = 4;
+const float    TRIM_LIMIT_DEG = 30.0;
 
 const float PWM_MIN_US = 500.0;    // DS3225 nominal -90 deg
 const float PWM_MAX_US = 2500.0;   // DS3225 nominal +90 deg
@@ -95,6 +111,43 @@ static inline float clampf(float x, float lo, float hi) {
   return x;
 }
 
+static inline int trimEepromAddr(int joint_idx) {
+  return EE_TRIM_ADDR + joint_idx * (int)sizeof(float);
+}
+
+// Persist one joint's trim to EEPROM (and ensure the magic is set).
+// EEPROM.put uses update semantics, so bytes that didn't change are
+// not rewritten.
+void saveTrim(int joint_idx) {
+  if (joint_idx < 0 || joint_idx >= 18) return;
+  EEPROM.put(trimEepromAddr(joint_idx), trim_deg[joint_idx]);
+  uint16_t magic = EE_MAGIC;
+  EEPROM.put(EE_MAGIC_ADDR, magic);
+}
+
+// Load all trims from EEPROM on boot.  If the magic doesn't match
+// (blank or older-layout EEPROM) leave the in-RAM zeros and write a
+// fresh, valid block so subsequent saves are consistent.  Loaded
+// values are sanitised (NaN -> 0) and clamped to +/-TRIM_LIMIT_DEG.
+void loadTrims() {
+  uint16_t magic = 0;
+  EEPROM.get(EE_MAGIC_ADDR, magic);
+  if (magic != EE_MAGIC) {
+    for (int i = 0; i < 18; ++i) {
+      trim_deg[i] = 0.0;
+      EEPROM.put(trimEepromAddr(i), trim_deg[i]);
+    }
+    EEPROM.put(EE_MAGIC_ADDR, (uint16_t)EE_MAGIC);
+    return;
+  }
+  for (int i = 0; i < 18; ++i) {
+    float v = 0.0;
+    EEPROM.get(trimEepromAddr(i), v);
+    if (v != v) v = 0.0;  // NaN check, portable (no <math.h> needed)
+    trim_deg[i] = clampf(v, -TRIM_LIMIT_DEG, TRIM_LIMIT_DEG);
+  }
+}
+
 void writeJoint(int joint_idx, float angle_deg) {
   if (joint_idx < 0 || joint_idx >= 18) return;
   float lo, hi;
@@ -123,7 +176,7 @@ void printHelp() {
   Serial.println(F("  J <joint 0..17> <deg>  (yaw +/-35, hip -80..30, knee -20..80)"));
   Serial.println(F("  A <18 deg values>"));
   Serial.println(F("  C"));
-  Serial.println(F("  T <joint 0..17> <trim_deg>"));
+  Serial.println(F("  T <joint 0..17> <trim_deg>  (saved to EEPROM)"));
   Serial.println(F("  P"));
   Serial.println(F("  ?"));
 }
@@ -192,7 +245,8 @@ void handleLine(char* line) {
       Serial.println(F("ERR joint"));
       return;
     }
-    trim_deg[joint] = clampf(deg, -30.0, 30.0);
+    trim_deg[joint] = clampf(deg, -TRIM_LIMIT_DEG, TRIM_LIMIT_DEG);
+    saveTrim(joint);
     Serial.print(F("OK T "));
     Serial.print(joint);
     Serial.print(' ');
@@ -224,6 +278,7 @@ void setup() {
   pwm1.setPWMFreq(SERVO_HZ);
   pwm2.setPWMFreq(SERVO_HZ);
   delay(50);
+  loadTrims();   // restore calibration BEFORE the initial centre
   centreAll();
   printHelp();
 }

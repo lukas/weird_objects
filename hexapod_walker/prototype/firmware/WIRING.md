@@ -190,6 +190,66 @@ silkscreen `GND/V+/PWM` rows exactly.
 
 ---
 
+## 3b. The zero state — how the leg must sit at 0 / 0 / 0
+
+`C` (and `J <j> 0`) drives every joint to **0°**. The servo horns must
+be bolted on so that **0° corresponds to this pose**, or every angle you
+command afterwards is off by the mounting error. Get this right *before*
+you power the arm — it's also what makes the boot-time auto-centre safe.
+
+**At 0 / 0 / 0 the whole leg is dead straight and horizontal, pointing
+straight out from the body**, with coxa, femur, tibia, and foot all in
+one line:
+
+```
+   zero state (side view, body at left):
+
+   body | ==coxa== (Y)yaw  ==femur== (H)hip  ==tibia== (K)knee  ==> ● foot
+                    axis ↕               axis ↺              axis ↺
+        all three links colinear, parallel to the table, foot straight ahead
+```
+
+- **yaw = 0** → leg points straight out along its mounting azimuth (no
+  fore/aft swing).
+- **hip = 0** → femur is horizontal, in line with the coxa (not lifted).
+- **knee = 0** → tibia is straight, in line with the femur (fully
+  extended, no bend).
+
+### Which way each axis moves (so you mount horns the right way round)
+
+| Axis (joint)   | `+` angle moves the link… | `−` angle moves it… | Range      | Stance |
+|----------------|---------------------------|---------------------|------------|-------:|
+| yaw (j0)       | swings horizontally one way | the other way      | ±35°       | 0°     |
+| hip pitch (j1) | femur tip **down**        | femur tip **up**    | −80 … +30° | −25°   |
+| knee pitch (j2)| tibia tip **down** (folds under) | tibia tip **up** | −20 … +80° | +60°   |
+
+So the **standing stance (0, −25, +60)** is "femur lifted up ~25°, knee
+folded down ~60°," which plants the foot below the body — the classic
+knee-up / foot-down insect stance. Zero state is the *straightened-out*
+version of that, which is easier to eyeball when mounting horns.
+
+### Mounting each horn against zero
+
+1. Send `C` so the PCA holds every channel at 0° (servo is now at its
+   electrical centre, ~1500 µs).
+2. With the servo powered and held at 0°, fit the horn/link so the link
+   sits in the straight-out-horizontal zero pose above, then bolt it.
+3. Don't fight the spline tooth pitch — get within one tooth, bolt it,
+   then null out the rest with a software trim: `T <joint> <deg>`
+   (clamped ±30°). e.g. if hip sits 4° high at "0", `T 1 -4`.
+4. Re-send `C` and confirm all three links are straight and level.
+
+> Trims are **saved to the Mega's EEPROM** and reloaded on every boot
+> (before the initial centre), so you calibrate each joint **once** and
+> it survives power-cycles and the serial-open auto-reset. You do not
+> need to re-enter trims every time you power on.
+
+> This is exactly why the boot-time `centreAll()` is safe **once horns
+> are mounted at zero**: a reset just returns the leg to straight-out,
+> not into a hard stop.
+
+---
+
 ## 4. Bench bring-up sequence
 
 **You drive the servos by typing commands into the Arduino IDE Serial
@@ -201,7 +261,7 @@ commands (see `prototype_servo_bridge.ino`):
 | `?`              | print help                                        |
 | `C`              | centre all joints (0°)                             |
 | `J <joint> <deg>`| move one joint, e.g. `J 0 20` = joint 0 to +20°   |
-| `T <joint> <deg>`| set a trim offset (±30°), e.g. `T 1 -5`           |
+| `T <joint> <deg>`| set a trim offset (±30°), e.g. `T 1 -5` — **saved to EEPROM** |
 | `P`              | print the trim table                              |
 
 Serial Monitor settings: **baud `115200`**, line ending **"Newline"**
@@ -297,13 +357,36 @@ J 2 60
 > thing for leg 0 with just the Serial Monitor.
 
 ### Stage F — IMU (requires the Pi, separate from the arm test)
-The MPU-6050 is **not** on the Mega's bus — wire it to the **Pi's**
-GPIO I²C (`SDA`=GPIO2/pin 3, `SCL`=GPIO3/pin 5, `3V3`, `GND`), `AD0`
-low → `0x68`. This is the one place `i2cdetect` is the right tool, and
-it runs **on the Pi**:
+The MPU-6050 is **not** on the Mega's bus. It's **4 wires** from the
+GY-521 breakout straight to pins on the **Raspberry Pi's 40-pin
+header**. Nothing here touches the Arduino.
+
+**Wire each GY-521 pin to the Pi header pin in the same row:**
+
+| GY-521 pin | → Pi header pin            | What it is        |
+|------------|----------------------------|-------------------|
+| `VCC`      | **pin 1** (3V3 power)      | power — use 3V3, **not** 5V (see warning) |
+| `GND`      | **pin 6** (Ground)         | ground            |
+| `SCL`      | **pin 5** (GPIO3 / SCL1)   | I²C clock         |
+| `SDA`      | **pin 3** (GPIO2 / SDA1)   | I²C data          |
+| `AD0`      | leave unconnected          | sets address `0x68` |
+| `XDA`,`XCL`,`INT` | leave unconnected   | not used          |
+
+(Pi 40-pin header numbering: pin 1 is the corner nearest the SD-card /
+board edge; odd pins are one row, even pins the other. Pins 1-3-5-6 are
+all clustered at that same corner.)
+
+> ⚠ **Power the GY-521 from 3V3 (pin 1), never 5V.** The breakout's
+> SDA/SCL pull-up resistors go to whatever you feed `VCC`. On 5V they
+> would pull the Pi's 3.3V I²C lines up to 5V and can damage the Pi.
+> 3V3 keeps the bus at a safe 3.3V.
+
+Then enable + scan I²C **on the Pi**:
 
 ```bash
-i2cdetect -y 1    # on the Pi → expect 0x68
+sudo raspi-config        # Interface Options → I2C → Enable (once)
+sudo apt install -y i2c-tools
+i2cdetect -y 1           # expect 0x68
 ```
 
 - [ ] `i2cdetect -y 1` on the Pi shows `0x68`.
