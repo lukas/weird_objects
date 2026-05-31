@@ -332,6 +332,20 @@ def run(inp_path: str, *, verbose: bool = False) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _parse_frd_record(line: str, n_values: int) -> tuple[int, list[float]]:
+    """Parse a CalculiX ``-1`` fixed-width result record.
+
+    FRD floats are 12-character fields and may be adjacent with no
+    separating whitespace, e.g. ``1-2.61052E-03`` after the node id.
+    """
+    nid = int(line[3:13])
+    values = [
+        float(line[13 + 12 * i:25 + 12 * i])
+        for i in range(n_values)
+    ]
+    return nid, values
+
+
 def parse_frd(frd_path: str):
     """Return (nodes (N,3) in m, displacement (N,3) in m, von_mises (N,) in Pa).
 
@@ -355,11 +369,7 @@ def parse_frd(frd_path: str):
         if line.startswith("    2C"):
             i += 1
             while i < len(lines) and lines[i].startswith(" -1"):
-                parts = lines[i].split()
-                nid = int(parts[1])
-                x = float(parts[2])
-                y = float(parts[3])
-                z = float(parts[4])
+                nid, (x, y, z) = _parse_frd_record(lines[i], 3)
                 nodes[nid] = np.array([x, y, z])
                 i += 1
             continue
@@ -371,11 +381,7 @@ def parse_frd(frd_path: str):
             while i < len(lines) and not lines[i].startswith(" -1"):
                 i += 1
             while i < len(lines) and lines[i].startswith(" -1"):
-                parts = lines[i].split()
-                nid = int(parts[1])
-                u = float(parts[2])
-                v = float(parts[3])
-                w = float(parts[4])
+                nid, (u, v, w) = _parse_frd_record(lines[i], 3)
                 disp[nid] = np.array([u, v, w])
                 i += 1
             continue
@@ -384,9 +390,7 @@ def parse_frd(frd_path: str):
             while i < len(lines) and not lines[i].startswith(" -1"):
                 i += 1
             while i < len(lines) and lines[i].startswith(" -1"):
-                parts = lines[i].split()
-                nid = int(parts[1])
-                vals = [float(p) for p in parts[2:8]]
+                nid, vals = _parse_frd_record(lines[i], 6)
                 stress[nid] = np.array(vals)
                 i += 1
             continue
