@@ -1,0 +1,14 @@
+plate,plate_material,part,copy,x_mm,y_mm,rotate_z_deg
+plate_01_arm,PLA/PETG rigid,arm_forearm.stl,1,-75.2,-131.0,0
+plate_01_arm,PLA/PETG rigid,arm_upper.stl,1,72.5,-125.0,0
+plate_01_arm,PLA/PETG rigid,arm_base_bracket.stl,1,-112.5,-67.5,0
+plate_01_arm,PLA/PETG rigid,arm_shoulder_link.stl,1,-36.0,-86.0,0
+plate_01_arm,PLA/PETG rigid,gripper_base.stl,1,28.5,-79.0,0
+plate_01_arm,PLA/PETG rigid,gripper_jaw_left.stl,1,80.0,-76.6,0
+plate_01_arm,PLA/PETG rigid,gripper_jaw_right.stl,1,126.0,-76.6,0
+plate_01_arm,PLA/PETG rigid,wrist_adapter.stl,1,-49.5,-43.0,0
+plate_01_arm,PLA/PETG rigid,servo_horn_adapter.stl,1,-8.5,-40.0,0
+plate_01_arm,PLA/PETG rigid,servo_horn_adapter.stl,2,31.5,-40.0,0
+plate_01_arm,PLA/PETG rigid,servo_horn_adapter.stl,3,71.5,-34.0,0
+plate_01_arm,PLA/PETG rigid,servo_horn_adapter.stl,4,111.5,-34.0,0
+plate_01_arm,PLA/PETG rigid,servo_horn_adapter.stl,5,-134.5,-4.0,0
