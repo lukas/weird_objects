@@ -81,7 +81,7 @@ later just requires re-running `make regen-fasteners`.
 
 | Part number | Spec | Used for |
 |-------------|------|----------|
-| 91290A005   | M2 x 8  SHCS, black-oxide steel | **link-to-X-horn bolts (72)** -- used as self-tappers into the plastic 4-arm X-horn's existing Phi ~ 2.0 mm M2-sized arm holes.  May 2026 fastener-spec fix: an earlier draft listed these as M3 x 8 SHCS but a real DS3225 / MG996R / DS3218 X-horn won't accept an M3 shank -- the arm holes are Phi ~ 2.0 mm untapped through holes intended for M2 self-tap.  See the "M2 thread-former upgrade" note below for the optional McMaster 99461A340 swap. |
+| 91290A005   | M2 x 8  SHCS, black-oxide steel | **RETIRED (June 2026 disc-horn switch).**  Was the link-to-X-horn self-tapper into the plastic 4-arm X-horn's Phi ~ 2.0 mm arm holes.  The robot no longer uses the plastic X-horn -- each link now bolts to a **20 mm aluminum 25T disc horn** (Amazon B07D56FVK5) with **4 x M3 x 6 SHCS (`91290A111`)** threaded into the disc's M3 tapped holes on a 14 mm bolt circle.  The `m2x8_shcs` cache STL is still bundled but unused; an `m3x6` SCAD cache has not been generated yet, so the registry falls back to parametric geometry -- run `make regen-fasteners` to add a dedicated cache. |
 | 91290A113   | M3 x 8  SHCS, black-oxide steel | **cradle servo-mount bolts into heat-set inserts (72)** -- driven vertically through each servo ear into the brass heat-set insert (`94459A130`) in the cradle boss below.  Same SKU works for both single-leg sub-assemblies and full-build kits.  The registry spec string is `M3x8 SHCS into heat-set insert` so the verifier / BOM can tell cradle bolts apart from any future M3 x 8 use. |
 | 94459A130   | M3 brass knurled heat-set insert, Phi 4 mm pilot, Phi 5.7 mm OD, 5 mm length | **cradle servo-mount thread carriers (72)** -- one per cradle bolt.  Installed BEFORE the servo is dropped into the cradle with a soldering iron at ~ 220 deg C, light downward pressure, ~ 10-15 s per insert.  May 2026 fix for the cradle pilot's radial-engagement bug; see the Design D blurb in PROTOTYPE.md. |
 | 91290A123   | M3 x 30 SHCS, black-oxide steel (treated as M3 x 32 in the BOM -- swap to 91290A126 if you want exactly 35 mm) | coxa-bracket-to-chassis bolts |
@@ -135,47 +135,33 @@ displacement ring at r = 2.42 mm so the boss has enough plastic for
 the brass knurl to displace when the iron is applied.  All three
 sub-checks must pass at every 12 (cradle, site) combination.
 
-## X-horn bolts are also self-tappers (May 2026 M3 -> M2 fastener-spec fix)
+## Link-to-disc-horn bolts thread into the aluminum disc (June 2026 disc-horn switch)
 
-The 72 link-to-X-horn bolts use the same self-tap-into-existing-pilot
-trick as the cradle bolts, except the pilot is **already drilled by
-the X-horn's injection moulder**: every plastic 4-arm X-horn that
-ships with a DS3225 / MG996R / DS3218-class hobby servo has 4 x
-Phi ~ 2.0 mm UNTAPPED through-holes in its arms (intended for M2
-self-tap, per the manufacturer's mounting style).  An M3 SHCS does
-NOT fit through those holes -- this fix swaps the link-to-X-horn
-bolt from M3 SHCS (`91290A113`) to M2 SHCS (`91290A005`) and shrinks
-the link pad's clearance bore from Phi 3.2 mm to
-`XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm`.  Self-tap behaviour comes
-from the X-horn's pre-drilled hole; the plain M2 SHCS forms a clean
-thread in the plastic arm on first install
-(`XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3 mm` of engagement, matching
-the X-horn arm's ~ 3 mm thickness).  Bolt length is M2 x 8: pad
-(3-4 mm) + arm thread (3 mm) + head clearance (~ 1 mm) = 7-8 mm.
+The 72 link-to-horn bolts no longer self-tap into a plastic X-horn.
+Each servo joint now drives a **20 mm aluminum 25T disc horn**
+(Amazon B07D56FVK5, MG995 / MG996R type) seated on the 25T spline,
+and the printed link bolts to the disc's flat top face with **4 x
+M3 x 6 SHCS** on a `XHORN_BOLT_PCD` = 14 mm bolt circle (cross
+pattern at 0 / 90 / 180 / 270 deg).  The bolts pass through the
+link pad's 4 x Phi `XHORN_BOLT_OD` = 3.4 mm M3 clearance holes and
+thread **directly into the disc's M3 tapped holes** -- the aluminum
+is the thread-engagement medium (no self-tap into plastic, no
+heat-set insert).  M3 x 6 keeps the screw from bottoming past the
+disc's tapped depth; the M3 x 6 screws ship with the disc-horn
+10-packs, and `91290A111` is the McMaster equivalent for spares.
+
+A Phi `DISC_HORN_COLLAR_OD` = 9 mm x `DISC_HORN_COLLAR_DEPTH` = 2 mm
+central bore in the link pad clears the disc's spline collar / the
+M2.5 spline center screw head so the pad seats flat on the disc.
 
 The cradle bolts (M3 x 8, `91290A113`) are mechanically symmetric
-but ORTHOGONAL to this fix -- they live in printed shelf material,
-not in the plastic X-horn.  Both rows stay in the BOM.
+but ORTHOGONAL to this -- they live in printed shelf material with
+brass heat-set inserts, not in the aluminum disc.  Both rows stay
+in the BOM.
 
-### Optional M2 thread-forming upgrade
-
-If you'd rather not rely on the X-horn's Phi ~ 2.0 mm hole producing
-a clean thread on first install (e.g. you're building 6+ legs and
-worry about stripping out a stock M2 SHCS thread on the second or
-third dis-assembly), McMaster sells dedicated thread-forming
-screws for plastic:
-
-* `99461A340` -- **M2 x 8 thread-forming for plastic**, recommended
-  pick.  Hex socket, similar head geometry to the plain M2 SHCS so
-  the inspector's HEX_KEY (8 mm x 30 mm) driver envelope is
-  unchanged.
-* `99461A330` -- M2 x 6 thread-forming, drop in if you prefer to
-  bottom out the bolt in the X-horn arm without poking through.
-
-To swap, edit `PN_M2X8_SHCS` in `fastener_registry.py` to
-`"99461A340"` and re-run `make regen-fasteners`.  No SCAD edit
-needed: NopSCADlib's `M2_cap_screw` head model is dimensionally
-identical to a thread-former at inspector zoom.
+> Legacy note: the old plastic 4-arm X-horn scheme used 72 x M2 x 8
+> SHCS (`91290A005`) self-tapped into the X-horn's Phi ~ 2.0 mm arm
+> holes.  That part is retired; see the bundled-cache table above.
 
 ## Axis convention
 

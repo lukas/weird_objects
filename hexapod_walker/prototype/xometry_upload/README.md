@@ -34,11 +34,14 @@ xometry_upload/
 ```
 
 > **Design B (May 2026)** retired the printed `servo_horn_adapter`
-> disc. Each link is now machined with the 4 × Φ 3.2 mm M3 bolt
-> circle and a 16 mm × 1.2 mm central hub recess directly into its
-> pad face, so the link bolts straight onto the plastic 4-arm
-> X-horn that ships with the servo. No adapter STL ships in this
-> bundle.
+> disc -- no adapter STL ships in this bundle.
+>
+> **June 2026 disc-horn switch:** each link's pad now carries a
+> 4 × Φ 3.4 mm M3 clearance bolt circle on a **14 mm circle** plus a
+> Φ 9 × 2 mm central spline-collar clearance bore, and bolts straight
+> onto a **20 mm aluminum 25T disc horn** (Amazon B07D56FVK5) with
+> 4 × M3 × 6 SHCS that thread into the disc's M3 tapped holes -- NOT
+> the plastic 4-arm X-horn.
 
 Every STL is **watertight, manifold, and pre-oriented for FDM** with
 flat faces on the build plate and any hollow servo pocket opening

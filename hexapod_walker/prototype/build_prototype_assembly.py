@@ -9,9 +9,10 @@ Imports the part builders from `hexapod_prototype.py`, then places:
     - 6 leg sub-assemblies, each with:
         coxa bracket, coxa link, femur, tibia, foot
         + 3 hobby servo bodies (yaw, hip-pitch, knee-pitch)
-        + 3 plastic servo horns (the stock 4-arm X-horns -- the links
-          now bolt DIRECTLY onto these; the printed servo_horn_adapter
-          disc has been retired, see Design B in hexapod_prototype.py)
+        + 3 aluminum 25T disc servo horns (Amazon B07D56FVK5 -- the
+          links now bolt DIRECTLY onto these with 4 x M3 x 6 SHCS; the
+          printed servo_horn_adapter disc and the stock plastic 4-arm
+          X-horn are both retired, see hexapod_prototype.py)
 
 Outputs (in ./prototype_assembly/):
     frame.stl       printed PLA / PETG structural parts
@@ -180,7 +181,7 @@ def _build_leg(leg_index: int):
     # placement so the tabs land on the chassis_bottom cradle's tab
     # shelf at chassis-z = CHASSIS_PLATE_T/2 + CRADLE_TAB_SHELF_Z =
     # +2 + +6 = +8 mm (= +8 mm UP from the bracket shelf which was
-    # at chassis-z = 0).  The X-horn / coxa_link mating plane
+    # at chassis-z = 0).  The disc-horn / coxa_link mating plane
     # follows the servo: +8 mm UP from the legacy yaw_output_z =
     # +21.75 to the new +29.75.  See the constant block near the
     # CRADLE_BOSS_H_MM definition in hexapod_prototype.py for the
@@ -194,10 +195,10 @@ def _build_leg(leg_index: int):
     #   servo body bottom      z = shelf - WELL_RIM_Z = -19.25
     #   servo body top         z = body_bottom + SERVO_BODY_H = +18.75
     #   output-gear top        z = body_top + SERVO_OUTPUT_H = +24.75
-    #   X-horn top (yaw_output_z): z = gear_top + HORN_STACK_H = +29.75
+    #   disc-horn top (yaw_output_z): z = gear_top + HORN_STACK_H = +29.75
     #   chassis_top bottom     z = +CHASSIS_GAP + CHASSIS_PLATE_T/2
     #                                - CHASSIS_PLATE_T/2 = +CHASSIS_GAP = +32
-    #     (= 32 - 29.75 = 2.25 mm clearance from X-horn top to top
+    #     (= 32 - 29.75 = 2.25 mm clearance from disc-horn top to top
     #      plate; only relevant at the yaw axis which sits outside
     #      chassis_top's 70-mm apothem hex anyway, so no XY overlap)
     #
@@ -214,7 +215,7 @@ def _build_leg(leg_index: int):
         HP.CHASSIS_PLATE_T / 2.0 + HP.CRADLE_TAB_SHELF_Z
     )  # = +8 mm; chassis-z of the chassis_bottom cradle's tab shelf.
 
-    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z   # = +29.75 mm; X-horn top
+    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z   # = +29.75 mm; disc-horn top
     yaw_output_world = edge_mid + yaw_output_z * z_hat
 
     arm_t = 6.0       # MUST match make_coxa_link()'s arm_t
@@ -264,10 +265,10 @@ def _build_leg(leg_index: int):
     yaw_servo.apply_translation(edge_mid)
     motor_parts.append(yaw_servo)
 
-    # Yaw horn -- sits on top of the gear stack (above the body's
+    # Yaw disc horn -- sits on top of the gear stack (above the body's
     # exposed top by SERVO_OUTPUT_H), drives the coxa link directly
-    # via the 4 link-to-X-horn M2 bolts (Design B; no more printed
-    # adapter disc).
+    # via the 4 link-to-disc-horn M3 x 6 bolts (June 2026 disc-horn
+    # switch; no more printed adapter disc).
     yaw_horn = _horn_visual()
     yaw_horn.apply_translation(
         [0, 0,

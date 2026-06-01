@@ -30,7 +30,8 @@ class TrayPrinterConfig:
     split_long_link_plates: bool
     """If True, emit separate plates for tibia and femur rows (needed on 256 mm beds)."""
     split_hardware_plate: bool
-    """If True, large hardware packs alone and horn adapters get their own plate."""
+    """If True, large hardware packs alone on its own plate (the printed
+    horn adapters that once shared this plate are retired)."""
 
 
 @dataclass(frozen=True)
@@ -146,10 +147,10 @@ def _pack_hardware(
 ) -> list[LayoutItem]:
     """Simple deterministic bottom-left pack for rigid hardware pieces."""
     if requests is None:
-        # Design B (May 2026): servo_horn_adapter.stl has been retired
-        # (each link bolts directly onto the plastic 4-arm X-horn that
-        # ships with the servo).  No more 18 x adapter discs on the
-        # hardware plates.
+        # June 2026 disc-horn switch: servo_horn_adapter.stl has been
+        # retired (each link bolts directly onto the 20 mm aluminum 25T
+        # disc horn that seats on the servo spline).  No more 18 x
+        # adapter discs on the hardware plates.
         requests = [
             ("battery_holder.stl", 1),
             ("electronics_tray.stl", 1),
@@ -377,10 +378,10 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
                         ("coxa_link.stl", 6),
                     ])),
                 ),
-                # Design B (May 2026): plate_07_rigid_servo_horn_adapters
+                # June 2026 disc-horn switch: plate_07_rigid_servo_horn_adapters
                 # removed -- the printed servo_horn_adapter has been
-                # retired (links bolt directly onto the plastic 4-arm
-                # X-horn).
+                # retired (links bolt directly onto the aluminum disc
+                # horn).
                 PlatePlan(
                     "plate_07_tpu_foot_pads",
                     "TPU 95A",

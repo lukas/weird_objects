@@ -22,9 +22,9 @@ Output:
         femur_link.stl             -- qty 6
         tibia_link.stl             -- qty 6
         foot_pad.stl               -- qty 6  (TPU 95A, separate quote)
-        # Design B (May 2026): servo_horn_adapter.stl retired -- the
-        # links now bolt directly onto the plastic horn that ships
-        # with the servo.
+        # June 2026 disc-horn switch: servo_horn_adapter.stl retired --
+        # the links now bolt directly onto the 20 mm aluminum 25T disc
+        # horn that seats on the servo spline.
 
 For Multi-Jet Fusion (Xometry's PA12 process) the orientation does not
 affect part quality — it only affects nesting and cost — so the
@@ -136,7 +136,7 @@ def _reorient_femur_link(mesh):
     The bridge flanges in ``make_femur_link`` stop at the spar's
     CENTRELINE (y = 0) -- 3 mm short of the spar's +Y face -- to keep
     a clearance corridor open for the tibia's knee-pad neck disk
-    (which mates at femur y = +9 above the knee-servo horn adapter).
+    (which mates at femur y = +9 above the knee-servo disc horn).
     Because the spar's +Y face is the part's outermost surface in -Y,
     after this reorient the spar's full broad face is the print's
     lowest surface and ``_drop_to_bed`` plants it cleanly at z = 0 --
@@ -164,9 +164,9 @@ def _reorient_foot_pad(mesh):
     return _drop_to_bed(mesh)
 
 
-# Design B (May 2026): _reorient_servo_horn_adapter removed along
+# June 2026 disc-horn switch: _reorient_servo_horn_adapter removed along
 # with make_servo_horn_adapter (printed adapter retired -- links bolt
-# straight onto the plastic 4-arm horn).
+# straight onto the aluminum disc horn).
 
 
 # ---------------------------------------------------------------------------
@@ -216,11 +216,12 @@ PART_REGISTRY: list[tuple[str,
      "*** SEPARATE QUOTE *** -- needs flexible TPU for grip. "
      "If TPU isn't available, FDM PLA works but the foot will slip."),
 
-    # Design B (May 2026): servo_horn_adapter.stl removed -- each link
-    # now bolts directly onto the plastic 4-arm X-horn that ships with
-    # the servo (HORN_RECESS_OD + 4 x XHORN_BOLT_PCD pattern cut into
-    # the link's pad in make_coxa_link / make_femur_link / make_tibia_
-    # link).  No 18 x adapter discs to quote.
+    # June 2026 disc-horn switch: servo_horn_adapter.stl removed -- each
+    # link now bolts directly onto the 20 mm aluminum 25T disc horn that
+    # seats on the servo spline (DISC_HORN_COLLAR_OD recess + 4 x
+    # DISC_HORN_BOLT_PCD = 14 mm pattern cut into the link's pad in
+    # make_coxa_link / make_femur_link / make_tibia_link).  No 18 x
+    # adapter discs to quote.
 ]
 
 

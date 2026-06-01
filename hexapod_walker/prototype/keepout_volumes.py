@@ -89,12 +89,12 @@ def _box(extents, centre=(0.0, 0.0, 0.0)) -> trimesh.Trimesh:
 
 
 def _yaw_horn_sweep() -> trimesh.Trimesh:
-    """Cylinder swept by the plastic horn above the coxa_bracket flange
+    """Cylinder swept by the disc horn above the coxa_bracket flange
     (bracket-local frame).
 
-    Design B (May 2026): the printed servo_horn_adapter has been
-    retired; the link's pad now bolts directly onto the plastic horn,
-    so the swept stack collapses from
+    June 2026 disc-horn switch: the printed servo_horn_adapter has been
+    retired; the link's pad now bolts directly onto the aluminum disc
+    horn, so the swept stack collapses from
         SERVO_OUTPUT_H + PLASTIC_HORN_H + HORN_ADAPTER_T = 14 mm
     down to
         SERVO_OUTPUT_H + HORN_STACK_H = 10 mm
@@ -205,11 +205,13 @@ def _knee_servo_body_pocket() -> trimesh.Trimesh:
 def _femur_horn_stack_void() -> trimesh.Trimesh:
     """Cylindrical clearance void below the femur's hip pad mating face.
 
-    Holds the plastic 4-arm X-horn (hub + arms) when the femur is
-    bolted directly to the hip-pitch servo (femur-local frame).
+    Holds the aluminum disc horn when the femur is bolted directly to
+    the hip-pitch servo (femur-local frame).  The void is still sized
+    as a CONSERVATIVE keep-out to the now-retired plastic 4-arm
+    X-horn's larger swept envelope.
 
     May 2026 collinear-pad refactor: the link's NEW local origin is
-    the pad MATING FACE (= X-horn-top plane), so the X-horn envelope
+    the pad MATING FACE (= disc-horn-top plane), so the horn envelope
     is now at NEW y in [-HORN_STACK_H, 0] = [-5, 0] -- the same
     physical volume as before but expressed in the new origin.  Pre-
     refactor (origin = joint axis) the void sat at y in [-0.05,
@@ -217,7 +219,7 @@ def _femur_horn_stack_void() -> trimesh.Trimesh:
     the void down to y in [-5.05, +0.05].  The link's material starts
     at NEW y = 0 (pad mating face) so the void is OUTSIDE the link
     body by construction -- no boolean diff is needed any more, this
-    helper now just documents the X-horn envelope.
+    helper now just documents the (retired) X-horn envelope.
     """
     void_y_lo = -hp.HORN_STACK_H - 0.05
     void_y_hi = 0.05
@@ -242,8 +244,10 @@ def _tibia_horn_stack_void() -> trimesh.Trimesh:
 
 
 def _link_hub_horn_sweep() -> trimesh.Trimesh:
-    """Plastic horn living BELOW the coxa_link's hub face
+    """Disc horn living BELOW the coxa_link's hub face
     (coxa_link-local frame).  Stays clear of the underside of the hub.
+    Radius is the now-retired plastic X-horn's tip radius, kept as a
+    CONSERVATIVE keep-out envelope.
     """
     radius = hp.PLASTIC_HORN_X_TIP_R + 0.6
     return _cyl_axis(

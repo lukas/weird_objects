@@ -40,7 +40,7 @@ Mouse
 * Hover -> show the part role under the cursor in the top banner.
 * Left-click a part -> isolate it (dim every other part to 15%).
 * Double-click a part -> focus its **sub-assembly** (the servo in its
-  cradle if any, the X-horn it rotates with if any, and every
+  cradle if any, the disc horn it rotates with if any, and every
   fastener through it).  Everything else is hidden and the camera
   auto-fits the focused group.  Same effect as ``F`` while hovering.
 
@@ -91,12 +91,12 @@ FASTENERS_DIR = os.path.join(THIS_DIR, "fasteners")
 ARTIFACTS_DIR = os.path.join(THIS_DIR, "artifacts", "views")
 
 
-# Plastic-horn height stack (matches build_prototype_assembly.py and
-# mujoco_prototype.py via HP.HORN_STACK_H).  Design B (May 2026): with
-# the printed servo_horn_adapter retired, the link's mating face sits
-# directly on top of the plastic horn, so the stack collapses to
-# HP.HORN_STACK_H = PLASTIC_HORN_H = 5 mm above the spline tip (was
-# PLASTIC_HORN_H + HORN_ADAPTER_T = 9 mm).
+# Disc-horn height stack (matches build_prototype_assembly.py and
+# mujoco_prototype.py via HP.HORN_STACK_H).  June 2026 disc-horn
+# switch: with the printed servo_horn_adapter retired, the link's
+# mating face sits directly on top of the aluminum disc horn, so the
+# stack collapses to HP.HORN_STACK_H = PLASTIC_HORN_H = 5 mm above the
+# spline tip (was PLASTIC_HORN_H + HORN_ADAPTER_T = 9 mm).
 PLASTIC_HORN_H = HP.HORN_STACK_H   # 5 mm
 
 
@@ -351,7 +351,7 @@ def _build_assembly_instances() -> list[Instance]:
         _trans(xt60_x, 0.0, lipo_z),
     ))
 
-    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z   # = +29.75 mm; X-horn top
+    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z   # = +29.75 mm; disc-horn top
     p_femur = np.deg2rad(HP.STANCE_FEMUR_DEG)
     pt = np.deg2rad(HP.STANCE_FEMUR_DEG + HP.STANCE_TIBIA_DEG)
     hip_drop = HP.COXA_HIP_DROP
@@ -388,12 +388,12 @@ def _build_assembly_instances() -> list[Instance]:
             "servo_body", "servo_body.stl", i, "yaw", T_yaw_body,
         ))
 
-        # ----- yaw plastic horn (above the cradle shelf).  Design B
-        # (May 2026): the link's pad now bolts DIRECTLY onto this
-        # plastic horn -- no printed servo_horn_adapter disc in the
-        # stack any more.  The coxa_link's pedestal bottom mating face
-        # therefore lands at z = yaw_horn_z + PLASTIC_HORN_H (= the
-        # plastic horn's top face) which must equal
+        # ----- yaw disc horn (above the cradle shelf).  June 2026
+        # disc-horn switch: the link's pad now bolts DIRECTLY onto this
+        # 20 mm aluminum 25T disc horn -- no printed servo_horn_adapter
+        # disc in the stack any more.  The coxa_link's pedestal bottom
+        # mating face therefore lands at z = yaw_horn_z + PLASTIC_HORN_H
+        # (= the disc horn's top face) which must equal
         # ``HP.CHASSIS_YAW_OUTPUT_Z`` -- i.e. the same +29.75 mm the
         # coxa_link is anchored to via ``yaw_output_world``.  If you
         # ever see the link floating above the horn, this is where the
@@ -424,9 +424,10 @@ def _build_assembly_instances() -> list[Instance]:
             "servo_body", "servo_body.stl", i, "hip", T_hip_body,
         ))
 
-        # ----- hip plastic horn (on the hip-pitch output axis).
-        # Design B (May 2026): femur's hip pad bolts DIRECTLY onto this
-        # plastic horn; the printed servo_horn_adapter is gone.
+        # ----- hip disc horn (on the hip-pitch output axis).
+        # June 2026 disc-horn switch: femur's hip pad bolts DIRECTLY
+        # onto this aluminum disc horn; the printed servo_horn_adapter
+        # is gone.
         T_hip_horn = T_yaw_out @ _trans(HP.COXA_LENGTH, 0, hip_drop) @ R_hip
         instances.append(Instance(
             "servo_horn", "servo_horn.stl", i, "hip", T_hip_horn,
@@ -463,10 +464,10 @@ def _build_assembly_instances() -> list[Instance]:
             "servo_body", "servo_body.stl", i, "knee", T_knee_body,
         ))
 
-        # ----- knee plastic horn.  Design B (May 2026): tibia's knee
-        # pad bolts DIRECTLY onto this plastic horn; the printed
-        # servo_horn_adapter is gone.  May 2026 collinear-pad refactor:
-        # the knee X-horn lives on the knee axis at NEW femur-y =
+        # ----- knee disc horn.  June 2026 disc-horn switch: tibia's
+        # knee pad bolts DIRECTLY onto this aluminum disc horn; the
+        # printed servo_horn_adapter is gone.  May 2026 collinear-pad
+        # refactor: the knee disc horn lives on the knee axis at NEW femur-y =
         # -HORN_STACK_H (the joint axis is HORN_STACK_H below the
         # NEW link origin); world position unchanged.
         T_knee_horn = T_femur @ _trans(HP.FEMUR_LENGTH,

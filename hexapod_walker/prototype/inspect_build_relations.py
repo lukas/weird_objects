@@ -2,7 +2,7 @@
 
 The build inspector's "focus on sub-assembly" mode (``inspect_build.py``
 keybinding ``F`` and double-click) needs to know, for any clicked
-printable part, which OTHER inspector entities (servos, plastic horns,
+printable part, which OTHER inspector entities (servos, disc horns,
 fasteners) physically belong to the same sub-assembly so it can hide
 the rest of the robot and present the picked part unobstructed.
 
@@ -36,7 +36,7 @@ What we deliberately DO NOT do:
   literal string ``"chassis"`` and trust the registry's naming.
 
 The structural part of the sub-assembly (the servo dropped into a
-cradle and the X-horn the part rotates with) is enumerated from the
+cradle and the disc horn the part rotates with) is enumerated from the
 inspector's ``all_instances`` list by matching ``(part_type,
 leg_index, joint)`` exactly, NOT by role strings -- so a missing
 horn / servo Instance loudly drops out instead of silently matching

@@ -22,7 +22,7 @@ The pipeline they refer to is documented in `CAD_WORKFLOW.md`.
    - `pad_sweep_clear` (a cylinder along Y inside the coxa link's
      pedestal + hub; the femur hip pad sweeps through it).
    - `yaw_horn_sweep` / `link_hub_horn_sweep` (cylinders above /
-     below the horn-bolt circle; the plastic horn rotates inside
+     below the horn-bolt circle; the disc horn rotates inside
      them).
    - `*_servo_body` (rectangular pockets that hold each servo body —
      the body must drop in cleanly).
@@ -40,7 +40,7 @@ The pipeline they refer to is documented in `CAD_WORKFLOW.md`.
 4. **Every new support / gusset / pad must be checked against
    rotation and wire clearances.**  Anything that adds material near a
    joint axis can clip an actively rotating part (femur hip pad,
-   plastic horn) or block a wire-exit corridor.  Run
+   disc horn) or block a wire-exit corridor.  Run
    `make -C hexapod_walker/prototype check-cad` after the edit and
    look specifically at the `check_workspace_self_collision` and
    `check_wire_slot` lines.

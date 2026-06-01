@@ -316,7 +316,7 @@ FLIMSY_VOXEL_PITCH = 1.2    # mm
 #      check above already flags these.
 #   2. Intentional thin PERIMETER walls / plates (servo well walls
 #      WELL_WALL_Y = 4.5 mm, chassis plate CHASSIS_PLATE_T = 4 mm,
-#      servo horn adapter HORN_ADAPTER_T = 4 mm).  The user has
+#      the retired servo horn adapter HORN_ADAPTER_T = 4 mm).  The user has
 #      explicitly accepted these thicknesses in the design notes --
 #      they are NOT structural load-path necks, and flagging them
 #      here would just generate noise.
@@ -674,9 +674,10 @@ def _describe(mesh):
 
 def check_watertight():
     print("\n[1] Mesh watertightness / manifoldness:")
-    # Design B (May 2026): the printed servo_horn_adapter has been
-    # retired (each link now bolts directly onto the plastic 4-arm
-    # X-horn).  ``make_servo_horn_adapter`` is preserved for
+    # Design B (May 2026) + June 2026 disc-horn switch: the printed
+    # servo_horn_adapter and the plastic 4-arm X-horn are both retired
+    # (each link now bolts directly onto the 20 mm aluminum 25T disc
+    # horn).  ``make_servo_horn_adapter`` is preserved for
     # backwards-compat but is no longer in the printable-output set.
     items_names = (
         "chassis_top", "chassis_bottom", "battery_holder",
@@ -1349,8 +1350,8 @@ def check_self_collision():
         ("femur_link",   "tibia_link"),
     }
     # Adjacent printed parts at a rotary joint share NO printed
-    # material -- the actual physical interface (plastic horn + horn
-    # adapter + servo gear stack) lives in dedicated horn-stack volume
+    # material -- the actual physical interface (disc horn + servo
+    # gear stack) lives in dedicated horn-stack volume
     # which is checked separately by check_horn_stack_clearance.  So
     # we expect ZERO printed-vs-printed overlap here, modulo the
     # voxel-stair-step artefact along sharp mesh boundaries.  This
@@ -1514,41 +1515,43 @@ def check_servo_clearance():
 # spline to the next printed link via this physical stack, laid out
 # along the joint axis (+Y in each driven part's local frame):
 #
-#     servo body  |  output gear  |  plastic horn (link bolts here)
+#     servo body  |  output gear  |  disc horn (link bolts here)
 #     y < 0       |  y in [-6, 0] |  y in [0, +5]  -> y = HORN_STACK_H
 #                                  ^               ^
 #                                spline tip       link mating face
 #                                = joint axis
 #
-# Design B (May 2026): the printed servo_horn_adapter has been retired.
-# The link's pad now bolts DIRECTLY onto the plastic horn (the part
-# that ships with the servo), so the horn stack is the plastic horn
-# alone -- HORN_STACK_H = PLASTIC_HORN_H = 5 mm (was 9 mm when the
-# printed adapter sat on top of the plastic horn).
+# Design B (May 2026) + June 2026 disc-horn switch: the printed
+# servo_horn_adapter and the plastic X-horn are both retired.
+# The link's pad now bolts DIRECTLY onto the disc horn (the 20 mm
+# aluminum 25T disc that screws onto the spline), so the horn stack is
+# the disc horn alone -- HORN_STACK_H = PLASTIC_HORN_H = 5 mm (was 9 mm
+# when the printed adapter sat on top of the plastic horn).
 #
 # The driven printed part (coxa_link for yaw, femur_link for hip-pitch,
-# tibia_link for knee-pitch) sits ABOVE the plastic horn at femur/tibia
-# y >= HORN_STACK_H = +5, with a 4-bolt clamp pad on XHORN_BOLT_PCD =
-# 20.8 mm.  The part's "neck" / flange ring -- the material between the
+# tibia_link for knee-pitch) sits ABOVE the disc horn at femur/tibia
+# y >= HORN_STACK_H = +5, with a 4-bolt clamp pad on DISC_HORN_BOLT_PCD =
+# 14 mm.  The part's "neck" / flange ring -- the material between the
 # pad's mating face (y = HORN_STACK_H) and the spar's +Y face
 # (y = LINK_THICKNESS/2 = +3) -- MUST be free of plastic anywhere
-# inside the plastic X-horn's swept envelope plus a small clearance
-# margin.
+# inside the conservative horn-sweep envelope (still sized to the
+# now-retired plastic X-horn) plus a small clearance margin.
 #
 # May 2026 "shorten-neck" refactor: the link's flange-ring inner
 # radius switched from ``HORN_ADAPTER_OD/2 + 0.5`` = 16.5 mm (sized
 # for the now-retired printed servo_horn_adapter) to
 # ``HORN_STACK_VOID_R`` = ``PLASTIC_HORN_X_TIP_R + 0.5`` = 18.5 mm
-# (sized for the plastic X-horn's actual Phi 36 mm sweep -- the user
+# (sized for the now-retired plastic X-horn's Phi 36 mm sweep -- the user
 # found that the previous Phi 33 mm cup physically blocked the
-# Phi 36 mm horn from fitting).  This probe radius tracks the same
-# constant so the verifier follows the link geometry automatically.
+# Phi 36 mm horn from fitting; the smaller disc horn keeps that envelope
+# as headroom).  This probe radius tracks the same constant so the
+# verifier follows the link geometry automatically.
 #
 # This is exactly the failure mode the user reported as "the femur link
 # doesn't let the end of the servo stick out high enough to connect to
 # the tibia link" -- the tibia knee-pad's neck cylinder was a solid
 # Phi HIP_PAD_R*2 = 34 mm column that punched straight through the
-# Phi 32 mm horn-adapter footprint.
+# Phi 32 mm horn-adapter footprint (the retired printed adapter).
 #
 # Test geometry
 # -------------
@@ -1567,13 +1570,14 @@ def check_servo_clearance():
 # rim where the neck-clearance void's CYLINDRICAL boundary meets the
 # pad's CIRCULAR-DISC boundary on slightly mismatched voxel grids.
 
-HORN_STACK_CLEARANCE = 0.5   # mm -- radial clearance around the X-horn tips
+HORN_STACK_CLEARANCE = 0.5   # mm -- radial clearance around the (retired) X-horn envelope tips
 HORN_STACK_OVERLAP_TOL = 50.0  # mm^3 -- voxel-grid artefact budget
 
 
 def check_horn_stack_clearance():
     """Verify each driven printed part has a clear cylindrical void
-    for the plastic X-horn at its joint."""
+    for the disc horn (probed against the conservative retired-X-horn
+    envelope) at its joint."""
     # Probe radius matches the link's flange-ring inner radius
     # (HORN_STACK_VOID_R) so the verifier follows the geometry
     # automatically.  Equal to PLASTIC_HORN_X_TIP_R + 0.5 = 18.5 mm
@@ -1582,11 +1586,11 @@ def check_horn_stack_clearance():
     H = hp.HORN_STACK_H
 
     # NEW (May 2026 collinear-pad refactor): the link's local origin
-    # is the pad MATING FACE = the X-horn-top plane, so the X-horn
+    # is the pad MATING FACE = the horn-top plane, so the horn
     # envelope lives at y in [-HORN_STACK_H, 0] = [-5, 0] in NEW
     # link-local coordinates (was y in [0, +HORN_STACK_H] when the
     # link origin sat on the joint axis).  Probe range matches the
-    # X-horn's physical envelope; the link should have NO material in
+    # conservative horn envelope; the link should have NO material in
     # that half-space by construction (pad solid starts at NEW y = 0,
     # spar / well / bridges live elsewhere).
     #
@@ -1607,7 +1611,7 @@ def check_horn_stack_clearance():
     # which is exactly the joint axis direction in both make_femur_link
     # and make_tibia_link.  Translate by -H - BOUNDARY_EPS so the
     # cylinder spans NEW link y in [-H - eps, -eps] (= a hair below
-    # the X-horn-top plane down to a hair below the spline tip).
+    # the horn-top plane down to a hair below the spline tip).
     stack = hp._cyl_along(R, H, axis="y")
     stack.apply_translation([0.0, -H - BOUNDARY_EPS, 0.0])
 
@@ -1642,43 +1646,44 @@ def check_horn_stack_clearance():
 #
 # But the YAW joint also has a NON-DRIVEN side -- the coxa_bracket --
 # which holds the servo body and whose flange / walls / gussets sit
-# RIGHT NEXT TO the rotating gear stack + plastic horn + printed
-# adapter.  Nothing in the existing checks ever probed the cylindrical
-# sweep volume above the seated yaw servo.  The recurring "the servo
-# motor doesn't stick out high enough in the coxa bracket" failure
-# lives here: a flange / gusset / boss that intrudes into the horn-
-# sweep cylinder physically prevents the plastic X-horn from rotating
-# (or worse, prevents the horn + horn-adapter stack from seating
-# above the bracket in the first place).
+# RIGHT NEXT TO the rotating gear stack + disc horn (the printed
+# adapter is retired).  Nothing in the existing checks ever probed the
+# cylindrical sweep volume above the seated yaw servo.  The recurring
+# "the servo motor doesn't stick out high enough in the coxa bracket"
+# failure lives here: a flange / gusset / boss that intrudes into the
+# horn-sweep cylinder physically prevents the disc horn from rotating
+# (or worse, prevents the horn stack from seating above the bracket in
+# the first place).
 #
 # WHY 5b's CYLINDER WAS THE WRONG SIZE (for the YAW joint)
 # --------------------------------------------------------
 # 5b uses radius HORN_STACK_VOID_R = PLASTIC_HORN_X_TIP_R + 0.5 =
-# 18.5 mm, sized for the plastic X-horn's actual sweep.  But 5b's
-# height is HORN_STACK_H = 5 mm, which covers only the plastic-horn
+# 18.5 mm, sized for the now-retired plastic X-horn's sweep.  But 5b's
+# height is HORN_STACK_H = 5 mm, which covers only the disc-horn
 # stack, NOT the SERVO_OUTPUT_H = 6 mm gear-stack region between the
-# body's top face and the plastic horn's bottom face.  A bracket wall
+# body's top face and the disc horn's bottom face.  A bracket wall
 # that wraps over the top of the well to z = +13 mm in bracket-local
-# clears the printed adapter (which lives above z = +18 in legacy
-# coords) but clobbers the gear stack and the plastic horn
+# clears the retired printed adapter (which lived above z = +18 in
+# legacy coords) but clobbers the gear stack and the disc horn
 # underneath.
 #
 # WHAT THIS CHECK DOES
 # --------------------
 # Build a vertical cylinder centred on the BRACKET-LOCAL YAW AXIS at
 # (x = -SERVO_OUTPUT_X = 0 in bracket coords after the servo offset
-# is applied, y = 0).  Its radius is the larger of the printed
-# adapter's half-OD and the plastic horn's tip radius (read from the
-# bounding cylinder of ``make_servo_horn`` so the test stays in sync
-# with the modelled hardware geometry), plus a small clearance.  Its
-# Z range covers the ENTIRE rotating stack:
+# is applied, y = 0).  Its radius is the larger of the retired printed
+# adapter's half-OD and the disc horn's tip radius (read from the
+# bounding cylinder of the "servo_horn" registry mesh, which now maps
+# to ``make_disc_horn``, so the test stays in sync with the modelled
+# hardware geometry), plus a small clearance.  Its Z range covers the
+# ENTIRE rotating stack:
 #
 #     z_lo = bracket-local Z of the seated body's TOP face
 #            (= SERVO_BODY_H - WELL_RIM_Z, taking WELL_TAB_FLOAT=0 as
 #            the worst-case body-seats-lower scenario so the cylinder
 #            covers the full gear-stack region even if the tabs sit
 #            slightly below their nominal float height)
-#     z_hi = z of the printed adapter's TOP face + 1 mm extra margin
+#     z_hi = z of the horn-stack TOP face + 1 mm extra margin
 #
 # Any sample voxel inside both the bracket mesh AND this cylinder is
 # a FAIL.  The cylinder MUST be entirely VOID inside the printed
@@ -1693,14 +1698,14 @@ HORN_SWEEP_OVERLAP_TOL = 30.0  # mm^3 -- voxel artefact budget (tighter
 
 
 def _horn_tip_radius_from_mesh() -> float:
-    """Return the plastic horn's tip radius, read from the bounding
-    cylinder of ``hp.make_servo_horn()`` projected onto the spline-
-    perpendicular plane.  Keeping this read off the actual mesh means
-    a future change to ``make_servo_horn`` (longer arms, an extra
-    feature, a different horn style) is automatically picked up by
-    the verifier -- a recurring failure mode in this project has been
-    "constant drift between the rendered visual and what the test
-    measures".
+    """Return the disc horn's tip radius, read from the bounding
+    cylinder of the ``"servo_horn"`` registry mesh (which now maps to
+    ``hp.make_disc_horn()``) projected onto the spline-perpendicular
+    plane.  Keeping this read off the actual mesh means a future change
+    to the disc-horn factory (a larger disc, an extra feature, a
+    different horn style) is automatically picked up by the verifier --
+    a recurring failure mode in this project has been "constant drift
+    between the rendered visual and what the test measures".
     """
     horn = _load_mesh("servo_horn", copy=False)
     xy = horn.vertices[:, :2]
@@ -1709,10 +1714,10 @@ def _horn_tip_radius_from_mesh() -> float:
 
 def check_horn_sweep_clearance():
     """Verify the coxa_bracket has a clean cylindrical VOID above the
-    seated yaw servo so the gear stack + plastic X-horn + printed horn
-    adapter can rotate freely without colliding with any bracket-local
-    geometry (flange material around the body slot, side gussets,
-    bridge gussets, wire-channel flanges, M3 pilot bosses, ...).
+    seated yaw servo so the gear stack + disc horn can rotate freely
+    without colliding with any bracket-local geometry (flange material
+    around the body slot, side gussets, bridge gussets, wire-channel
+    flanges, M3 pilot bosses, ...).
 
     This is the missing check that caused the recurring
     'the servo motor doesn't stick out high enough in the coxa
@@ -1731,12 +1736,12 @@ def check_horn_sweep_clearance():
     # bottom lands at well-local z = 0 by convention.  The yaw axis
     # then sits at well-local (x = +SERVO_OUTPUT_X, y = 0) (the
     # output spline in servo-local coords) and the body top + gear +
-    # adapter z range becomes:
+    # horn-stack z range becomes:
     #
     #   body bottom at z = 0
     #   body top    at z = SERVO_BODY_H              = +38
     #   gear top    at z = body_top + WELL_TAB_FLOAT + SERVO_OUTPUT_H
-    #   adapter top at z = gear_top + HORN_STACK_H
+    #   horn top    at z = gear_top + HORN_STACK_H
     body_top_z = hp.SERVO_BODY_H            # =  +38.0 mm
     gear_top_z = (body_top_z + hp.WELL_TAB_FLOAT
                   + hp.SERVO_OUTPUT_H)
@@ -1967,7 +1972,7 @@ def _flimsy_clusters_for_part(mesh, pitch, min_t, min_cluster_vox):
 # failure mode:
 #
 # In ``make_coxa_link`` the HORN YOKE (the top hub bolted to the yaw
-# servo's horn adapter) is tied to the SERVO WELL BOX (the cradle that
+# servo's disc horn) is tied to the SERVO WELL BOX (the cradle that
 # holds the hip-pitch servo) by an X-long, Y-thin BRIDGE slab that lives
 # in the Z-gap between the well's outer top face and the hub/arm bottom
 # face.  The bridge's cross-section (with the baseline geometry) is
@@ -2660,7 +2665,7 @@ WORKSPACE_VOXEL_PITCH    = 2.5
 WORKSPACE_JOINT_TOL      =  200.0    # mm^3 -- adjacent rotary joint.
                                       # PRINTED parts at a rotary joint
                                       # share no printed material; the gear
-                                      # stack + horn adapter live in
+                                      # stack + disc horn live in
                                       # dedicated horn-stack volume (see
                                       # check_horn_stack_clearance).  So
                                       # we require ~zero printed-vs-
@@ -3151,35 +3156,34 @@ def _optional_arm_checks():
 
 
 # ---------------------------------------------------------------------------
-# Design B (May 2026): direct-to-plastic-horn pad pattern
+# June 2026 disc-horn switch: direct-to-disc-horn pad pattern
 # ---------------------------------------------------------------------------
 #
-# The link's pad now bolts DIRECTLY onto the plastic 4-arm X-horn that
-# ships with the servo (no printed servo_horn_adapter disc in the
-# stack).  Each driven link MUST therefore carry:
+# The link's pad now bolts DIRECTLY onto the 20 mm aluminum 25T disc
+# horn (no printed servo_horn_adapter disc in the stack; the earlier
+# plastic 4-arm X-horn scheme is also retired).  Each driven link MUST
+# therefore carry:
 #
-#   1. A 4 x M2-clearance hole pattern on an XHORN_BOLT_PCD = 20.8 mm
+#   1. A 4 x M3-clearance hole pattern on a DISC_HORN_BOLT_PCD = 14 mm
 #      bolt circle, drilled through the pad's mating face along the
 #      joint axis (link +Z for coxa_link; link +Y for femur_link /
-#      tibia_link).  Phi XHORN_BOLT_OD = 2.2 mm (M2 clearance with
-#      0.2 mm FDM print tolerance) -- the May 2026 fastener-spec fix
-#      shrank this from the original (incorrect) Phi 3.2 mm M3
-#      clearance to match the X-horn's Phi ~ 2.0 mm M2-self-tap arm
-#      holes.  See hexapod_prototype.py XHORN_BOLT_* docstring.
-#   2. (coxa_link ONLY) A central Phi HORN_RECESS_OD = 16 mm
-#      cylindrical recess HORN_RECESS_DEPTH = 1.2 mm deep cut into the
-#      pad's mating face, so the plastic horn's central hub (spline
-#      collar + M3 centre-screw head) is fully swallowed below the
-#      pad.  The centre screw stays M3; only the 4 outer arm bolts
-#      switched to M2.  Depth user-measured May 2026 (1.0 mm screw
-#      head protrusion + 0.2 mm FDM tolerance; was 1.6 mm).
+#      tibia_link).  Phi DISC_HORN_BOLT_OD = 3.4 mm (M3 clearance with
+#      0.2 mm FDM print tolerance) -- the M3 SHCS threads into the
+#      aluminium disc's M3 TAPPED holes (the disc is the thread-
+#      engagement medium).  The retired plastic X-horn scheme used
+#      4 x M2 self-tap holes on a 20.8 mm PCD instead.  See
+#      hexapod_prototype.py DISC_HORN_BOLT_* docstring.
+#   2. (coxa_link ONLY) A central Phi DISC_HORN_COLLAR_OD = 9 mm
+#      cylindrical bore DISC_HORN_COLLAR_DEPTH = 2 mm deep cut into the
+#      pad's mating face, so the disc horn's raised central spline
+#      collar + M3 centre-screw head is cleared and the disc seats
+#      flat below the pad.  (The retired plastic horn used a wider
+#      Phi 16 mm x 1.2 mm hub recess.)
 #      May 2026 solid-pad simplification: the femur_link and
-#      tibia_link no longer carry this recess -- their hip/knee pads
-#      mate to the X-horn with a flat face since the X-horn's hub top
-#      is flush with the arm-top plane at HORN_STACK_H, so there is
-#      no spline-screw boss above that plane to swallow.  Only the
-#      coxa_link's pad still has the recess (its mating face geometry
-#      and yaw-side hub envelope are unchanged).
+#      tibia_link historically dropped the wide recess -- their
+#      hip/knee pads mate to the disc horn with a flat face.  They now
+#      carry the same small spline-collar bore as the coxa cap; the
+#      bolt-pattern check only probes the coxa_link's bore here.
 #
 # This check confirms the 4 bolt holes on every driven part and the
 # central recess on the coxa_link by sampling small voxel patches at
@@ -3238,7 +3242,7 @@ def _probe_void_cylinder(mesh: trimesh.Trimesh,
 
 def check_horn_pattern_in_pad():
     """Verify that each driven link's pad has:
-      a) 4 M3 clearance holes on the XHORN_BOLT_PCD = 14 mm bolt
+      a) 4 M3 clearance holes on the DISC_HORN_BOLT_PCD = 14 mm bolt
          circle, drilled through the full pad thickness, and
       b) (coxa_link only) a central Phi DISC_HORN_COLLAR_OD = 9 mm x
          DISC_HORN_COLLAR_DEPTH = 2 mm spline-collar clearance bore on
@@ -3246,9 +3250,9 @@ def check_horn_pattern_in_pad():
 
     June 2026 disc-horn switch: the joints drive a 20 mm aluminum 25T
     disc horn, so the bolts are M3 (Phi 3.4 mm clearance) into the
-    disc's M3 tapped holes -- see ``XHORN_BOLT_OD`` in
+    disc's M3 tapped holes -- see ``DISC_HORN_BOLT_OD`` in
     ``hexapod_prototype.py``.  The probe radius below is sized off
-    ``XHORN_BOLT_OD`` so the verifier tracks any future change to the
+    ``DISC_HORN_BOLT_OD`` so the verifier tracks any future change to the
     bolt standard without a code edit.
 
     The femur_link's hip pad and the tibia_link's knee pad now carry
@@ -3258,19 +3262,19 @@ def check_horn_pattern_in_pad():
     bores are validated indirectly via mating-face contact.
     """
     print(f"\n[5d] Horn-pattern in driven link pads "
-          f"(Phi {hp.XHORN_BOLT_OD:.1f} mm holes on PCD "
-          f"{hp.XHORN_BOLT_PCD:.1f} mm; central hub recess on "
+          f"(Phi {hp.DISC_HORN_BOLT_OD:.1f} mm holes on PCD "
+          f"{hp.DISC_HORN_BOLT_PCD:.1f} mm; central hub recess on "
           f"coxa_link only):")
 
     # The probe radius is a hair smaller than the actual clearance
     # hole / recess radius so voxel stair-step artefacts on the cut's
     # curved boundary don't pollute the "is the volume void" answer.
-    # With XHORN_BOLT_OD = 2.2 mm the bolt probe shrinks to ~ 0.9 mm
-    # radius (Phi 1.8 mm probe) which still resolves cleanly against
+    # With DISC_HORN_BOLT_OD = 3.4 mm the bolt probe shrinks to ~ 1.5 mm
+    # radius (Phi 3.0 mm probe) which still resolves cleanly against
     # the verifier's 1.5 mm voxel pitch -- a missing hole produces a
     # solid pillar of pad material at the probe position and registers
     # as ~ 40-100 hits (well above HORN_PATTERN_VOX_TOL * 4 = 20).
-    bolt_probe_r   = hp.XHORN_BOLT_OD / 2.0 - 0.2     # ~1.5 mm at M3
+    bolt_probe_r   = hp.DISC_HORN_BOLT_OD / 2.0 - 0.2     # ~1.5 mm at M3
     recess_probe_r = hp.DISC_HORN_COLLAR_OD / 2.0 - 0.5    # ~4.0 mm
 
     cases = [
@@ -3292,10 +3296,11 @@ def check_horn_pattern_in_pad():
         #   opens DOWNWARD in -Z, removing material at z in [0,
         #   +RECESS_DEPTH].  In both cases the recess probe centre
         #   sits +RECESS_DEPTH/2 INTO the pad along +pad_axis.
-        # ``has_recess``: True iff the part still carries the central
-        #   Phi HORN_RECESS_OD x HORN_RECESS_DEPTH hub recess.  The
-        #   May 2026 solid-pad simplification dropped it on the
-        #   femur and tibia; only the coxa_link still has one.
+        # ``has_recess``: True iff the bolt-pattern check probes the
+        #   central Phi DISC_HORN_COLLAR_OD x DISC_HORN_COLLAR_DEPTH
+        #   spline-collar bore.  Only the coxa_link's bore is probed
+        #   here; the femur/tibia bores are checked via mating-face
+        #   contact.
         ("coxa_link  (yaw joint)",        _load_mesh("coxa_link",
                                                        copy=False),
          "z", 0.0,                          +1.0,  True),
@@ -3319,12 +3324,12 @@ def check_horn_pattern_in_pad():
 
     all_ok = True
     for name, mesh, axis, mate, normal_sign, has_recess in cases:
-        # ---- (a) 4 M2 bolt holes on the XHORN_BOLT_PCD circle ----
+        # ---- (a) 4 M3 bolt holes on the DISC_HORN_BOLT_PCD circle ----
         bolt_misses = 0
-        for ang in hp.XHORN_BOLT_ANGLES_RAD:
+        for ang in hp.DISC_HORN_BOLT_ANGLES_RAD:
             # Bolt-circle position in the pad's transverse plane.
-            tx = hp.XHORN_BOLT_PCD / 2.0 * np.cos(ang)
-            ty = hp.XHORN_BOLT_PCD / 2.0 * np.sin(ang)
+            tx = hp.DISC_HORN_BOLT_PCD / 2.0 * np.cos(ang)
+            ty = hp.DISC_HORN_BOLT_PCD / 2.0 * np.sin(ang)
             # Probe centre sits half-way along the bolt's path into
             # the pad (the bolt enters at the mating face and exits
             # the far side, depth = LINK_THICKNESS for femur/tibia or
@@ -3343,16 +3348,16 @@ def check_horn_pattern_in_pad():
             bolt_misses += hits
         ok_bolts = bolt_misses <= HORN_PATTERN_VOX_TOL * 4
         all_ok &= _label(
-            f"{name} :: 4 x M3 bolts on Phi {hp.XHORN_BOLT_PCD} mm PCD",
+            f"{name} :: 4 x M3 bolts on Phi {hp.DISC_HORN_BOLT_PCD} mm PCD",
             ok_bolts,
             f"hits={bolt_misses} (tol "
             f"{HORN_PATTERN_VOX_TOL * 4})",
         )
 
         # ---- (b) Central horn-hub recess ----
-        # Only the coxa_link still carries this feature (May 2026
-        # solid-pad simplification: the femur and tibia pads now
-        # mate to the X-horn with a flat face).  The recess starts
+        # Only the coxa_link's bore is probed here (the femur and tibia
+        # pads mate to the disc horn with a flat face plus their own
+        # small spline-collar bore).  The recess starts
         # at the mating face and extends INTO the pad by
         # HORN_RECESS_DEPTH.  Probe centre sits at half-depth so the
         # entire cylinder lives strictly inside the recess volume.
@@ -4036,7 +4041,7 @@ def check_servo_insertion_path():
 #                and the long-arm sticking out to the side.  Anything
 #                tagged SHCS (or the M2.5 spline center screw, which
 #                IS a tiny Phillips on hobby servos but is always
-#                SKIPped because it sits captive under the X-horn
+#                SKIPped because it sits captive under the disc horn
 #                after assembly -- mapping it here is documentation
 #                only, the cone never lands on actual geometry).
 #
@@ -4062,9 +4067,11 @@ def check_servo_insertion_path():
 
 HEX_KEY_CLEARANCE_DIA_MM     = 8.0    # 2.5 / 3 mm hex key short arm + finger room
 HEX_KEY_CLEARANCE_LEN_MM     = 30.0   # short-arm reach
-# M2 SHCS uses a Phi 1.5 mm hex key.  The bolt head is recessed in a
-# Phi M2_HEAD_OD_CLEARANCE = 4.0 mm counter-bore in the printed cap
-# / pad above the bolt; the hex key short arm enters the counter-bore
+# M2 SHCS (the retired link-to-X-horn bolts; kept as a precedent for
+# the disc-horn block below) uses a Phi 1.5 mm hex key.  The bolt head
+# is recessed in a Phi M2_HEAD_OD_CLEARANCE = 4.0 mm counter-bore in
+# the printed cap / pad above the bolt; the hex key short arm enters
+# the counter-bore
 # from above so the envelope diameter is bounded by the counter-bore
 # clearance (Phi 4 mm) not the larger 8 mm "finger room" diameter
 # used for M2.5 / M3 hex keys (those keys are driven with two fingers
@@ -4251,12 +4258,12 @@ def _driver_envelope_for_spec(spec: str) -> tuple:
     * Anything containing ``"spline"`` -> HEX_KEY envelope.  The
       hobby servo's M2.5 spline center screw IS a small Phillips in
       reality, but it is also explicitly SKIPped in every fastener
-      registry instance (captive under the X-horn after assembly),
+      registry instance (captive under the disc horn after assembly),
       so its cone never lands on actual geometry.  Mapping it to
       HEX_KEY here is purely so an analyst dumping the per-spec
       envelope table sees the SMALLEST plausible envelope and isn't
       misled into thinking we modelled an 80 mm Phillips reach
-      through the X-horn.
+      through the disc horn.
     * Anything containing ``"SHCS"`` -> HEX_KEY envelope.
     * Anything containing ``"pan-head"``, ``"Phillips"``, or
       ``"slotted"`` -> PHILLIPS envelope.
@@ -4270,7 +4277,8 @@ def _driver_envelope_for_spec(spec: str) -> tuple:
     if "spline" in spec:
         return (HEX_KEY_CLEARANCE_DIA_MM, HEX_KEY_CLEARANCE_LEN_MM)
     if spec.startswith("M2x") and "SHCS" in spec:
-        # M2 SHCS uses a small Phi 1.5 mm hex key driving into a Phi
+        # M2 SHCS (the retired link-to-X-horn bolts) uses a small Phi
+        # 1.5 mm hex key driving into a Phi
         # 4 mm counter-bore in the printed link cap / pad.  Use the
         # narrower M2 envelope so the surrounding pad material that
         # rings the counter-bore (annulus 2..4 mm from bolt axis)
@@ -4362,7 +4370,7 @@ def check_screwdriver_access():
     * SOCKET   (Phi 12 mm x 50 mm) -- nyloc nut / generic nut
 
     Fasteners with an explicit ``skip_screwdriver_reason`` -- the
-    servo's M2.5 spline center screw (captive under the X-horn after
+    servo's M2.5 spline center screw (captive under the disc horn after
     assembly) and the cradle captive nyloc nuts (held in the Design C
     hex pocket; the bolt is driven from the head side) -- are SKIPped
     with the reason printed alongside.
@@ -4483,9 +4491,10 @@ def check_screwdriver_access():
 #   doesn't reach the X-horn at z = [-5, 0]).
 #
 # * ``check_mating_face_contact`` -- a small explicit list of mating
-#   faces (coxa_link bottom <-> yaw X-horn top, femur_link hip pad <->
-#   hip X-horn, tibia_link knee pad <-> knee X-horn, coxa_bracket flange
-#   <-> chassis_bottom, foot_pad tongue <-> tibia clevis).  For each
+#   faces (coxa_link bottom <-> yaw disc-horn top, femur_link hip pad
+#   <-> hip disc horn, tibia_link knee pad <-> knee disc horn,
+#   coxa_bracket flange <-> chassis_bottom, foot_pad tongue <-> tibia
+#   clevis).  For each
 #   face we scan along the joint axis and confirm the two parts mate
 #   within ``tolerance_mm``.  The hollowed-out coxa_link pedestal shows
 #   up here as a ~25 mm gap at the yaw mating face.
@@ -4498,14 +4507,14 @@ def check_screwdriver_access():
 # radial probes, ``shaft_od`` drives the shaft / engagement radial
 # probes (we offset by 0.4 mm so the probe sits just OUTSIDE the
 # drilled bolt clearance hole -- otherwise every probe sits inside the
-# Phi 2.2 mm / Phi 3.2 mm clearance cylinder and reports "AIR"),
+# Phi 3.4 mm / Phi 3.2 mm clearance cylinder and reports "AIR"),
 # ``engagement_mm`` is the expected thread-engagement length at the
 # tip.  Default values are used for any spec missing from the table.
 FASTENER_ENGAGEMENT_SPEC = {
     # ``M3x6 SHCS`` -- link-to-disc-horn bolts (June 2026 disc-horn
     # switch).  The M3 x 6 SHCS threads into the 20 mm aluminum 25T
     # disc's M3 TAPPED hole; the aluminium is the thread-engagement
-    # medium.  engagement_mm = XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3.0 mm
+    # medium.  engagement_mm = DISC_HORN_BOLT_THREAD_ENGAGEMENT_MM = 3.0 mm
     # (worst case, the femur / tibia pads = LINK_THICKNESS 6 mm leave
     # 3 mm of bolt in the disc; the coxa cap leaves ~5 mm).  The
     # engagement-zone window (the last 3 mm of the bolt) sits fully
@@ -4567,7 +4576,7 @@ _NUT_INSERT_SPECS = (
 )
 
 # Joints whose horn (servo_horn) sits ON the spline tip and is the
-# target the X-horn bolts thread INTO.  Used by ``check_mating_face_contact``
+# target the M3 disc-horn bolts thread INTO.  Used by ``check_mating_face_contact``
 # and by ``_world_horn_meshes`` to place the visual horn for leg 0.
 _HORN_JOINTS = ("yaw", "hip", "knee")
 
@@ -4581,7 +4590,7 @@ def _horn_world_transform(joint: str, leg_index: int):
     mating face, +Z = output-shaft axis) into the world frame for the
     given joint on ``leg_index``.
 
-    The X-horn is BOLTED to the driven link (coxa_link / femur_link /
+    The disc horn is BOLTED to the driven link (coxa_link / femur_link /
     tibia_link) so it rotates RIGIDLY with that link.  At the neutral
     stance pose the relevant rotations are:
 
@@ -4695,7 +4704,7 @@ def _build_world_assembly_parts(leg_index: int = 0) -> dict:
     """Return the printed parts (from ``_build_world_leg0_printed_parts``)
     augmented with placed ``servo_horn`` AND ``servo_body`` meshes for
     the 3 joints on ``leg_index``.  Used by ``check_fastener_engagement``
-    so a bolt can be confirmed to engage the X-horn (EXTERNAL mating
+    so a bolt can be confirmed to engage the disc horn (EXTERNAL mating
     part) and the cradle bolts can be confirmed to bear on the SERVO
     body's TABS (also an external part).
     """
@@ -4973,9 +4982,10 @@ def check_fastener_engagement():
         # ---- (c.1) Effective bolt tip -------------------------------
         # Bolts can be SHORTER than the assembled material run (rare;
         # caught by the shaft / tip checks below) OR LONGER than the
-        # engagement target (the M2 x 8 X-horn SHCS is 8 mm long but
-        # the cap + arm stack is only ~ 3.1 mm thick; the bolt
-        # overhangs the arm bottom into free air by ~ 5 mm).  Use the
+        # engagement target (e.g. the retired M2 x 8 X-horn SHCS was
+        # 8 mm long but its cap + arm stack was only ~ 3.1 mm thick;
+        # the bolt overhung the arm bottom into free air by ~ 5 mm).
+        # Use the
         # DEEPEST axial sample with material as the "effective tip" so
         # the tail overhang past the last engagement target doesn't
         # poison shaft_air_span / tip_engagement, which both assume
@@ -5162,8 +5172,8 @@ def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
 
     def _horn_local_xy_world(joint: str, x_local: float, y_local: float):
         """Convert (x, y, 0) in HORN-LOCAL to world coords (z=0 = the
-        spline-mating face).  Helper for the X-horn mating-face test
-        points so they sit ON the printed-horn arm regardless of which
+        spline-mating face).  Helper for the disc-horn mating-face test
+        points so they sit ON the disc horn's top face regardless of which
         leg/yaw angle we're probing."""
         T = _horn_world_transform(joint, 0)
         return (T @ np.array([x_local, y_local, 0.0, 1.0]))[:3]
@@ -5181,7 +5191,7 @@ def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
     interfaces: list[tuple] = []
 
     # Per-interface tolerances.  The yaw mating face is the link's
-    # solid pedestal bottom mating with the X-horn arm top -- a clean,
+    # solid pedestal bottom mating with the disc-horn top -- a clean,
     # 0.5 mm-precision flush join.  The femur / tibia hip / knee pads
     # mate at the BOLT-CIRCLE radius (PCD/2) where the central horn-
     # stack void's FDM tolerance band (+1 mm in +Y past the pad face)

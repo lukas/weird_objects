@@ -67,7 +67,7 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "M3x8 SHCS into heat-set insert": (0.30, 0.32, 0.36),
     # Link-to-disc-horn M3 x 6 cap screws: bluer steel, slightly
     # lighter than the M3 family (June 2026 disc-horn switch -- see
-    # XHORN_BOLT_PCD / DISC_HORN_* docstrings).
+    # DISC_HORN_BOLT_PCD / DISC_HORN_* docstrings).
     "M3x6 SHCS":           (0.28, 0.34, 0.42),
     # M3 pan-head hinge pin: same dark steel family but a hint lighter
     # so the foot hinge bolt visually distinguishes from the cap screws.

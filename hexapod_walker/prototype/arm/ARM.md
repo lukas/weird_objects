@@ -63,23 +63,25 @@ chassis edge, at the chassis-top elevation.
    4 servo self-tappers down through the tabs into the bracket pilot
    holes.  Route the servo's 3-wire harness out of the L-shaped wire
    exit slot at the -Y / -Z corner of the well.
-4. **Stack the J1 horn, the printed `servo_horn_adapter.stl`, and
-   `arm_shoulder_link.stl`** on top of the J1 spline using a single
-   M3 x 25-30 mm centre screw plus 4 M3 x 8 mm bolts on the horn-
-   adapter's 20.8 mm PCD (4 holes at 0/90/180/270 deg, aligned with the
-   plastic horn's X arms).  The shoulder link is a literal re-export of
-   the leg's `coxa_link` — its hub matches the standard servo horn
-   adapter and its outboard cradle takes the J2 DS3225 servo.
-5. **Repeat the cradle/horn pattern** for J2 → `arm_upper`,
-   J3 → `arm_forearm`, J4 → `gripper_base`.  At each joint a
-   `servo_horn_adapter.stl` mediates between the servo's plastic horn
-   and the next link's 4-bolt hub.
+4. **Seat the J1 disc horn and bolt `arm_shoulder_link.stl` onto it.**
+   Press the 20 mm aluminum 25T disc horn (Amazon B07D56FVK5) onto the
+   J1 spline and secure it with the servo's M2.5 centre screw, then bolt
+   the shoulder link's hub onto the disc's flat top with 4 M3 x 6 SHCS
+   on the 14 mm bolt circle (4 holes at 0/90/180/270 deg) threading into
+   the disc's M3 tapped holes.  The shoulder link is a literal re-export
+   of the leg's `coxa_link` — its hub mates to the disc horn and its
+   outboard cradle takes the J2 DS3225 servo.  (No printed adapter — the
+   aluminum disc replaces the retired `servo_horn_adapter.stl`.)
+5. **Repeat the cradle / disc-horn pattern** for J2 → `arm_upper`,
+   J3 → `arm_forearm`, J4 → `gripper_base`.  At each joint a 20 mm
+   aluminum disc horn seats on the servo spline and the next link's
+   4-bolt hub bolts directly onto it (4 M3 x 6 SHCS, 14 mm circle).
 6. **Press `wrist_adapter.stl`** into the forearm's foot socket bore
    (FOOT_HUB_OD = 12 mm friction fit; you can secure it with a tiny
    drop of CA glue or by drilling a 1 mm cross-pin through the
    socket).
 7. **Bolt `gripper_base.stl`** to the underside of the wrist adapter
-   using its 4 horn-PCD M3 holes (engaged with the J4 horn adapter
+   using its 4 disc-horn-PCD M3 holes (engaged with the J4 disc horn
    on the gripper side).  When J4 actuates, the entire gripper base
    pivots about the wrist axis relative to the (forearm-fixed) wrist
    adapter.
@@ -104,8 +106,9 @@ chassis edge, at the chassis-top elevation.
 | `gripper_jaw_left.stl`     | NEW                  | 1   |       |
 | `gripper_jaw_right.stl`    | NEW                  | 1   | mirror of jaw_left |
 
-Plus a `servo_horn_adapter.stl` from the prototype's parts list —
-**print 4 extra** (one per arm joint J1-J4).
+Plus **4 × 20 mm aluminum 25T disc horns** (Amazon B07D56FVK5, one per
+arm joint J1-J4) — the same disc the legs use, bolted with 4 M3 × 6
+SHCS each. No printed `servo_horn_adapter` is needed any more.
 
 ## Print order + filament estimate
 

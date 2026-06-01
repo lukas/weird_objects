@@ -44,7 +44,7 @@ STANCE_TIBIA = math.radians(HP.STANCE_TIBIA_DEG)
 #   (BODY_H - RIM_Z) + SERVO_OUTPUT_H + HORN_STACK_H
 # now that ``HORN_STACK_H == PLASTIC_HORN_H == 5 mm`` and the printed
 # servo_horn_adapter has been retired (the link bolts directly to the
-# plastic 4-arm X-horn).
+# 20 mm aluminum 25T disc horn).
 YAW_OUTPUT_HEIGHT = (
     (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
     + HP.SERVO_OUTPUT_H
@@ -592,7 +592,7 @@ def _femur_link_visual_xml(i: int) -> str:
     origin is the hip pad MATING FACE (= HORN_STACK_H above the joint
     axis along link +Y), not the joint axis itself.  Shift the mesh
     by (0, +HORN_STACK_H, 0) so its NEW local origin lands on the
-    X-horn-top plane = body +Y at HORN_STACK_H; pre-refactor the
+    disc-horn-top plane = body +Y at HORN_STACK_H; pre-refactor the
     mesh sat at body origin (no shift).
     """
     if USE_PART_MESHES:
@@ -613,7 +613,7 @@ def _tibia_link_visual_xml(i: int) -> str:
     is the knee pad MATING FACE = HORN_STACK_H above the knee joint
     axis along link +Y (= L{i}_tibia body +Y at HORN_STACK_H), not
     the joint axis itself.  Mesh is shifted (0, +HORN_STACK_H, 0) to
-    land its NEW origin on the X-horn-top plane.  The tang at the
+    land its NEW origin on the disc-horn-top plane.  The tang at the
     foot end is in-plane with the spar (centred at tibia y =
     +LINK_THICKNESS / 2), so the foot's hinge hole now lives at
     tibia-local (TIBIA_LENGTH, +LINK_THICKNESS / 2, FOOT_HINGE_TIBIA_Z)

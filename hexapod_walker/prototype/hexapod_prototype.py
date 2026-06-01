@@ -32,13 +32,17 @@ Outputs (in ./stl_prototype/):
     Generic (DEPRECATED -- Design B retired the printed adapter; see
     HORN_ADAPTER_OD / make_servo_horn_adapter below.  Kept only for
     backward-compatible STL references in old quotes.)
-        servo_horn_adapter.stl  -- round disc that bolted to a standard 25T spline
-                                   horn and provided 4 x M3 holes on a 20.8 mm PCD
-                                   at 0 / 90 / 180 / 270 deg (aligned with the
-                                   X-horn arms) so a flat printed link could mate
-                                   to a servo horn.  Replaced by direct
-                                   link-pad-to-X-horn bolting via 4 x M2 SHCS
-                                   self-tap into the X-horn's plastic arms.
+        servo_horn_adapter.stl  -- round printed disc that bolted to a standard
+                                   25T spline horn and provided 4 x M3 holes on
+                                   a 20.8 mm PCD at 0 / 90 / 180 / 270 deg
+                                   (aligned with the now-retired plastic X-horn
+                                   arms) so a flat printed link could mate to a
+                                   servo horn.  That printed adapter AND the
+                                   later plastic X-horn scheme are both retired:
+                                   each link now bolts DIRECTLY onto a 20 mm
+                                   aluminum 25T disc horn (Amazon B07D56FVK5) via
+                                   4 x M3 x 6 SHCS that thread into the disc's
+                                   M3 tapped holes on a 14 mm bolt circle.
 
     Assembly preview (everything in standing pose — visualization only)
         assembly_preview.stl
@@ -143,7 +147,7 @@ FEMUR_LENGTH   =  90.0   # mm -- hip-pitch axis -> knee axis
 TIBIA_LENGTH   = 130.0   # mm -- knee axis -> foot tip
 
 # ---- Coxa link pedestal --------------------------------------------------
-# How far above the horn-adapter mating face the coxa-link arm + well
+# How far above the disc-horn mating face the coxa-link arm + well
 # float on a built-in pedestal.  Without the lift the hip-pitch well
 # bottom sits ~2.5 mm below the chassis-plate top and the femur's
 # hip-pad swings into the bracket flange + well as the femur pitches.
@@ -170,7 +174,7 @@ TIBIA_LENGTH   = 130.0   # mm -- knee axis -> foot tip
 # pad still clears the taller flange.
 #
 # Bolt screws need to be ~M3 x 32 mm long to reach through the
-# (taller) pedestal + horn adapter + plastic horn into the servo's
+# (taller) pedestal + disc horn into the servo's
 # output gear.  The pedestal's structural Z extent is unchanged
 # (still 3.5 mm; the lift increases the air gap below the structural
 # slab, not the slab itself).
@@ -1270,40 +1274,46 @@ BRACKET_WELL_TRIM_Z = -15.0
 # ---- Servo horn adapter (DEPRECATED -- retained for backward compat) -----
 # Design B (May 2026): the printed servo_horn_adapter has been RETIRED.
 # Each driven link (coxa_link, femur_link, tibia_link) now bolts DIRECTLY
-# onto the plastic 4-arm X-horn that ships with the servo: 4 x M2
+# onto a 20 mm aluminum 25T DISC horn (Amazon B07D56FVK5): 4 x M3
 # clearance holes are carved straight into the link's mating pad on the
-# XHORN_BOLT_PCD = 20.8 mm pattern, and a HORN_RECESS_OD x HORN_RECESS_DEPTH
-# counter-bore swallows the horn's central hub.
+# DISC_HORN_BOLT_PCD = 14 mm pattern, and a DISC_HORN_COLLAR_OD x
+# DISC_HORN_COLLAR_DEPTH bore clears the disc's central spline collar.
 #
-# May 2026 fastener-spec fix: the X-horn bolts were originally drawn as
-# M3 SHCS (Phi 3.2 mm clearance through the pad), which is WRONG -- the
-# X-horn that ships with DS3225 / MG996R / DS3218-class servos has
-# Phi ~ 2.0 mm untapped through-holes in its arms (M2 self-tap-sized),
-# not Phi 3.2 mm clearance.  M3 literally won't fit.  The link pad
-# clearance bore is now Phi XHORN_BOLT_OD = 2.2 mm and the fastener is
-# M2 x 8 SHCS used as a self-tapper into the X-horn plastic.  The
-# cradle bolts (4 per servo into a Phi 2.5 mm printed shelf pilot) are
-# orthogonal to this fix and stay M3 x 8 (b447f88).  The adapter geometry
-# below is left in place so old STL references / Xometry quotes / spare-
-# stock screenshots keep resolving, but ``make_servo_horn_adapter`` is
-# no longer called from any printable output path and no
-# ``servo_horn_adapter.stl`` is written by ``main()``.
+# Retired-scheme history (kept for context): an intermediate Design B
+# bolted the link onto the plastic 4-arm X-horn that ships with the
+# servo.  Those X-horn bolts were originally drawn as M3 SHCS
+# (Phi 3.2 mm clearance), which was WRONG -- the X-horn that shipped
+# with DS3225 / MG996R / DS3218-class servos had Phi ~ 2.0 mm untapped
+# through-holes in its arms (M2 self-tap-sized), not Phi 3.2 mm
+# clearance, so that pad bored Phi 2.2 mm and used M2 x 8 SHCS as a
+# self-tapper into the X-horn plastic.  That whole plastic-X-horn
+# scheme is RETIRED in favour of the aluminum disc horn (4 x M3 x 6
+# SHCS into the disc's M3 TAPPED holes).  The cradle bolts (4 per servo
+# into a Phi 2.5 mm printed shelf pilot) were always orthogonal to this
+# and stay M3 x 8 (b447f88).  The adapter geometry below is left in
+# place so old STL references / Xometry quotes / spare-stock screenshots
+# keep resolving, but ``make_servo_horn_adapter`` is no longer called
+# from any printable output path and no ``servo_horn_adapter.stl`` is
+# written by ``main()``.
 HORN_ADAPTER_OD     = 32.0   # mm -- plate OD; gives (32 - 20.8) / 2 - 1.1
                               # = 4.5 mm wall outboard of each M2 bolt
-                              # hole on XHORN_BOLT_PCD = 20.8 mm
+                              # hole on the retired adapter's 20.8 mm PCD
 HORN_ADAPTER_T      =  4.0   # mm -- thickness (LEGACY).  No longer added
                               # to any joint output Z stack.
-# Hobby servo plastic horn (the part that ships with the servo and screws
-# onto the 25T spline with an M3 centre screw).  Adds 5 mm of "stack"
-# along the output-shaft direction between the servo's gear-stack top
-# face and the link's pad MATING face.  With the adapter retired, this
-# IS the entire horn stack (it used to be PLASTIC_HORN_H + HORN_ADAPTER_T
-# = 9 mm).
+# Servo horn stack height.  Historically the hobby-servo plastic horn;
+# the robot now drives a 20 mm aluminum 25T disc horn of the same ~5 mm
+# thickness that screws onto the 25T spline with an M3 centre screw.
+# Adds 5 mm of "stack" along the output-shaft direction between the
+# servo's gear-stack top face and the link's pad MATING face.  With the
+# printed adapter retired, this IS the entire horn stack (it used to be
+# PLASTIC_HORN_H + HORN_ADAPTER_T = 9 mm).
 PLASTIC_HORN_H      =  5.0
-# Plastic 4-arm X-shaped horn (DS3225 / MG996R / DS3218 -class hardware):
-# the arms extend ~18 mm from the spline centre, so the horn sweeps a
-# Phi 36 mm cylinder as the servo rotates.  This is BIGGER than the
-# XHORN_BOLT_PCD = 20.8 mm bolt circle (radius 10.4 mm): each arm runs
+# Now-retired plastic 4-arm X-shaped horn (DS3225 / MG996R / DS3218 -class
+# hardware): the arms extended ~18 mm from the spline centre, so that horn
+# swept a Phi 36 mm cylinder as the servo rotated.  The current 20 mm
+# aluminum disc horn sweeps only Phi 20 mm, but this larger X-horn sweep
+# is retained as a CONSERVATIVE clearance envelope.  It is bigger than
+# the retired X-horn's 20.8 mm bolt circle (radius 10.4 mm): each arm ran
 # past the bolt position to give the user a thumb-purchase for hand-
 # tightening + spare hole positions.  Drives:
 #   * ``make_servo_horn`` arm length (the visual mesh's bounding
@@ -1327,7 +1337,7 @@ PLASTIC_HORN_X_TIP_R = 18.0
 # Total height of the servo output stack ABOVE the spline tip.  In the
 # hip-pitch and knee-pitch joints this is the offset between the joint
 # AXIS (where the spline pokes out of the servo body) and the link's
-# pad MATING face (where the link bolts directly onto the plastic X-horn).
+# pad MATING face (where the link bolts directly onto the disc horn).
 # Driven links must offset their pad along the joint axis by this much,
 # then bridge the gap back to the spar with a short "neck" -- without
 # this offset the link's pad sits directly on the joint axis and
@@ -1337,13 +1347,13 @@ PLASTIC_HORN_X_TIP_R = 18.0
 # May 2026: HORN_STACK_H collapses to PLASTIC_HORN_H = 5 mm (was
 # PLASTIC_HORN_H + HORN_ADAPTER_T = 9 mm) now that the printed
 # horn-adapter disc has been removed.  The link's pad bolts directly
-# to the plastic X-horn's top face.
+# to the disc horn's top face.
 HORN_STACK_H        = PLASTIC_HORN_H
 
 
 
 # ---- Yaw-axis output Z (chassis frame, May 2026 chassis_bottom cradle) ---
-# World-z (pre-lift) of the yaw X-horn's TOP mating face, where the
+# World-z (pre-lift) of the yaw disc horn's TOP mating face, where the
 # coxa_link's pedestal-bottom mating plane sits.  This is THE most-
 # duplicated coordinate in the codebase -- the same formula recurs in
 # ``build_prototype_assembly``, ``fastener_registry`` (yaw / hip /
@@ -1363,7 +1373,7 @@ HORN_STACK_H        = PLASTIC_HORN_H
 #                                  (= +8 - +27.25)
 #   servo body top             z = body_bottom + SERVO_BODY_H  = +18.75
 #   output-gear top            z = body_top + SERVO_OUTPUT_H   = +24.75
-#   X-horn top (yaw_output)    z = gear_top + HORN_STACK_H     = +29.75
+#   disc-horn top (yaw_output) z = gear_top + HORN_STACK_H     = +29.75
 #
 # Legacy formula (bracket-based, pre-May-2026):
 #   yaw_output_z_legacy = (SERVO_BODY_H - WELL_RIM_Z)
@@ -1381,26 +1391,26 @@ CHASSIS_YAW_OUTPUT_Z = (
     + SERVO_OUTPUT_H
     + HORN_STACK_H
 )
-# Bolt circle for the plastic horn's 4-arm X-shaped output disc.  20.8 mm
-# is the PCD of the SECOND hole position out from the spline on each arm
-# of a standard DS3225 / MG996R / DS3218 plastic horn.  The bolt angles
-# match the horn arms (0 / 90 / 180 / 270 deg in horn-local coords) so a
-# bolt drilled through XHORN_BOLT_ANGLES_RAD[i] on the link's pad
-# passes straight through the matching hole in the X arm.
+# Retired link-to-horn bolt-circle history (superseded by the disc-horn
+# block below -- see DISC_HORN_BOLT_* for the live values).  The
+# now-retired plastic 4-arm X-horn put its 4 bolt holes on a ~20.8 mm
+# PCD (the SECOND hole position out from the spline on each arm of a
+# standard DS3225 / MG996R / DS3218 plastic horn) at 0 / 90 / 180 / 270
+# deg.  The CURRENT disc horn keeps the same 0 / 90 / 180 / 270 cross
+# angles (DISC_HORN_BOLT_ANGLES_RAD) but on a 14 mm bolt circle.
 #
-# May 2026 fastener-spec fix (XHORN_BOLT_OD: 3.2 -> 2.2 mm):
-#     The plastic X-horn that ships with DS3225 / MG996R / DS3218-class
-#     hobby servos has Phi ~ 2.0 mm UNTAPPED through-holes in its arms
-#     (intended for M2 self-tap), NOT Phi 3.2 mm clearance for M3.  An
-#     M3 SHCS literally won't fit through those holes.  The link pad's
-#     clearance bore therefore shrinks to Phi 2.2 mm (M2 clearance with
-#     0.2 mm FDM print tolerance) and the link bolts onto the X-horn
-#     with 4 x M2 SHCS used as self-tappers into the X-horn's plastic
-#     arm.  Mechanically symmetric to the cradle bolt fix that landed
-#     in b447f88 -- the cradle bolts stay M3 x 8 (they self-tap into a
-#     Phi 2.5 mm printed shelf pilot); the X-horn bolts split off into
-#     their own row.  See fastener_registry.py (SPEC_M2X8_SHCS) and
-#     fasteners/README.md for the McMaster SKU.
+# Old May 2026 fastener-spec note (the retired X-horn scheme, kept for
+# history):
+#     The plastic X-horn that shipped with DS3225 / MG996R / DS3218-class
+#     hobby servos had Phi ~ 2.0 mm UNTAPPED through-holes in its arms
+#     (intended for M2 self-tap), NOT Phi 3.2 mm clearance for M3, so the
+#     old link pad bored Phi 2.2 mm and bolted on with 4 x M2 SHCS used
+#     as self-tappers into the X-horn's plastic arm.  That whole scheme
+#     is RETIRED: the link now bolts with 4 x M3 x 6 SHCS straight into
+#     the aluminium disc's M3 TAPPED holes (DISC_HORN_BOLT_OD = 3.4 mm
+#     clearance).  The cradle bolts were always orthogonal to this and
+#     stay M3 x 8 (they self-tap into a Phi 2.5 mm printed shelf pilot).
+#     See fastener_registry.py and fasteners/README.md for the SKUs.
 # ---- Disc-horn bolt circle (June 2026: 20 mm aluminum 25T disc) ----------
 # The servo joints now drive a 20 mm aluminum 25T DISC horn (MG995 /
 # MG996R type, Amazon B07D56FVK5), NOT the plastic 4-arm X-horn.  The
@@ -1414,18 +1424,16 @@ CHASSIS_YAW_OUTPUT_Z = (
 # so): "14 mm" = the side of a 14 mm SQUARE, putting the 4 holes at
 # (+/-7, +/-7) = radius 9.9 mm -- basically off the 20 mm disc edge.
 # To switch to the square reading it is a ONE-LINE change: set
-# XHORN_BOLT_PCD = 14.0 * 2**0.5 (= 19.8 mm diagonal) and change
-# XHORN_BOLT_ANGLES_RAD to (pi/4, 3pi/4, 5pi/4, 7pi/4).
+# DISC_HORN_BOLT_PCD = 14.0 * 2**0.5 (= 19.8 mm diagonal) and change
+# DISC_HORN_BOLT_ANGLES_RAD to (pi/4, 3pi/4, 5pi/4, 7pi/4).
 #
-# The name XHORN_BOLT_PCD is kept (it is referenced in ~30 places as
-# THE single source of truth for the link-to-horn bolt circle);
-# DISC_HORN_BOLT_PCD is an explicit alias for new code that wants a
-# self-documenting name.  Changing the one value here moves every
-# link pad, every fastener, the disc visual and the spec together.
-XHORN_BOLT_PCD       = 14.0   # mm -- disc-horn 4 x M3 bolt-circle DIAMETER
-DISC_HORN_BOLT_PCD   = XHORN_BOLT_PCD   # explicit alias (one source of truth)
-XHORN_BOLT_ANGLES_RAD = (0.0, np.pi / 2.0, np.pi, 3.0 * np.pi / 2.0)
-XHORN_BOLT_OD        =  3.4   # mm -- M3 clearance (0.2 mm FDM tolerance)
+# DISC_HORN_BOLT_PCD is THE single source of truth for the link-to-horn
+# bolt circle (referenced in ~30 places).  Changing the one value here
+# moves every link pad, every fastener, the disc visual and the spec
+# together.
+DISC_HORN_BOLT_PCD    = 14.0   # mm -- disc-horn 4 x M3 bolt-circle DIAMETER
+DISC_HORN_BOLT_ANGLES_RAD = (0.0, np.pi / 2.0, np.pi, 3.0 * np.pi / 2.0)
+DISC_HORN_BOLT_OD     =  3.4   # mm -- M3 clearance (0.2 mm FDM tolerance)
                               # for the M3 SHCS shank passing through the
                               # link pad; the bolt threads into the disc's
                               # M3 TAPPED hole below (the aluminium disc IS
@@ -1445,7 +1453,7 @@ HORN_CENTRE_OD      =  3.4   # mm -- M3 centre clearance (for the spline
 # centred on the joint axis does that and nothing more.
 #
 # Sizing: collar bore radius (4.5) sits INSIDE the bolt circle's inner
-# rim (XHORN_BOLT_PCD/2 - XHORN_BOLT_OD/2 = 7 - 1.7 = 5.3 mm) so it
+# rim (DISC_HORN_BOLT_PCD/2 - DISC_HORN_BOLT_OD/2 = 7 - 1.7 = 5.3 mm) so it
 # never punches into the 4 M3 clamp holes (0.8 mm radial gap).
 DISC_HORN_COLLAR_OD    = 9.0   # mm -- spline-collar / screw-head clearance
 DISC_HORN_COLLAR_DEPTH = 2.0   # mm -- depth of the clearance bore at the
@@ -1478,19 +1486,20 @@ DISC_HORN_TAP_OD    =  2.5   # mm -- M3 tap-drill diameter, used to draw the
 # goBILDA 1906 25T aluminum servo hub
 # ---------------------------------------------------------------------------
 # An aluminum (anodized) low-profile servo hub from goBILDA.  Same H25T
-# spline as the DS3225 / MG996R / DS3218 plastic X-horn we model with
-# ``make_servo_horn`` -- so it can SHARE the servo, but the bolt pattern
-# is COMPLETELY DIFFERENT from XHORN_BOLT_PCD.  The 1906 hub presents 4 x
-# M4 threaded holes on a 16 mm SQUARE pattern on its TOP face: bolts at
-# (+/-8, +/-8) mm from the spline centre.  Compare XHORN_BOLT_PCD = 20.8
-# mm at 0 / 90 / 180 / 270 degrees -- the two are not interchangeable.
+# spline as the now-retired DS3225 / MG996R / DS3218 plastic X-horn we
+# still model with ``make_servo_horn`` -- so it can SHARE the servo, but
+# the bolt pattern is COMPLETELY DIFFERENT from DISC_HORN_BOLT_PCD.  The
+# 1906 hub presents 4 x M4 threaded holes on a 16 mm SQUARE pattern on
+# its TOP face: bolts at (+/-8, +/-8) mm from the spline centre.  Compare
+# the retired X-horn's 20.8 mm PCD at 0 / 90 / 180 / 270 degrees -- the
+# two are not interchangeable.
 #
 # Why we're modeling it (user report, May 2026):
 #     The OEM plastic 4-arm X-horn that ships with hobby servos
 #     ("make_servo_horn") strips its spline after a few load cycles at
 #     the hexapod's femur joint.  Replacing it with the goBILDA 1906
 #     aluminum hub (4.7 g, $4.99) is the upgrade path.  Using this hub
-#     requires REDESIGNING the link's mounting pad (XHORN_BOLT_PCD ->
+#     requires REDESIGNING the link's mounting pad (DISC_HORN_BOLT_PCD ->
 #     16 mm square M4 grid) which is a separate decision; for now we
 #     only PROVIDE the parametric factory + STL so a user can preview
 #     the swap visually.
@@ -1519,8 +1528,9 @@ GOBILDA_1906_BOSS_OD      = 14.0   # mm -- top centering protrusion (mates to
                                    # parts with a 14 mm bore)
 GOBILDA_1906_BOSS_H       =  2.0   # mm -- boss height above the main disc
 GOBILDA_1906_BOLT_GRID    = 16.0   # mm -- 4 x M4 threaded holes at +/-GRID/2
-                                   # in X and Y.  NOT the same pattern as
-                                   # XHORN_BOLT_PCD = 20.8 mm (X-horn 4 arms).
+                                   # in X and Y.  NOT the same pattern as the
+                                   # disc horn's DISC_HORN_BOLT_PCD = 14 mm cross
+                                   # (nor the retired X-horn's 20.8 mm 4-arm PCD).
 GOBILDA_1906_M4_OD        =  4.3   # mm -- M4 threaded-hole clearance for the
                                    # visualization mesh (the real hub is
                                    # tapped M4, not a clearance hole).
@@ -1531,46 +1541,51 @@ GOBILDA_1906_SPLINE_OD    =  6.0   # mm -- 25T spline female bore (major Phi
                                    # spline teeth that we don't draw.
 
 # Femur hip-pad mating-face recess.  The coxa_link's pedestal-bottom
-# horn_hub_recess at HORN_RECESS_DEPTH = 1.2 mm is sized for the
-# nominal "1 mm spline-screw-head protrusion + 0.2 mm FDM tolerance"
-# case (see HORN_RECESS_DEPTH above).  User-flagged May 2026: on the
-# femur_link side the X-horn can sit a few mm LOWER than nominal due
+# horn_hub_recess at DISC_HORN_COLLAR_DEPTH = 2.0 mm is sized for the
+# nominal "spline-collar / screw-head protrusion + FDM tolerance"
+# case (see the disc-horn block above).  User-flagged May 2026: on the
+# femur_link side the disc horn can sit a few mm LOWER than nominal due
 # to spline-cap manufacturing variation, gear backlash, and how
 # tightly the central M3 screw is torqued down on the spline.  If
-# the X-horn slides ~3 mm down its spline relative to the servo
-# output disc, the X-horn's central screw head also sits ~3 mm
+# the disc horn slides ~3 mm down its spline relative to the servo
+# output disc, the disc horn's central screw head also sits ~3 mm
 # closer to the pad's mating face -- so the femur_link needs a
 # deeper recess than the coxa_link to keep the pad seating flush
-# against the X-horn arm plane.
+# against the disc-horn top plane.
 #
 # Depth 4.0 mm = 1.0 mm nominal protrusion + 3.0 mm extra slack for
-# the X-horn's vertical position uncertainty.  At Phi HORN_RECESS_OD
-# = 16 mm the recess sits well inside the XHORN_BOLT_PCD = 20.8 mm
-# bolt circle (recess outer rim r = 8 mm vs PCD inner rim r =
-# 10.4 - 1.1 = 9.3 mm, 1.3 mm radial gap), so it never punches into
-# the 4 M2 X-horn clamp bolts.  Material budget at the pad's
-# central annulus (radius r in [HORN_CENTRE_OD/2, HORN_RECESS_OD/2]
-# = [1.7, 8] mm): now y in [+4, +6] = 2 mm of pad cap left between
-# this recess and the +Y outer face -- thin, but acceptable since
-# the central annulus carries no clamp load (the 4 M2 bolts on
-# PCD 20.8 sit outside the recess and clamp through full 6 mm pad
-# thickness minus the COUNTERBORE_DEPTH = 2.5 mm head pocket).
+# the horn's vertical position uncertainty.  (The bolt-interference
+# sizing below is from the now-RETIRED Phi 16 mm plastic-X-horn hub
+# recess: at Phi HORN_RECESS_OD = 16 mm that legacy recess sat well
+# inside the retired X-horn's 20.8 mm bolt circle -- recess outer rim
+# r = 8 mm vs PCD inner rim r = 10.4 - 1.1 = 9.3 mm, 1.3 mm radial
+# gap -- so it never punched into the 4 M2 X-horn clamp bolts.  The
+# current disc horn instead clears its central collar with the small
+# Phi 9 mm DISC_HORN_COLLAR_OD bore, well inside the 14 mm M3 bolt
+# circle.)  Material budget at the pad's central annulus (radius r in
+# [HORN_CENTRE_OD/2, HORN_RECESS_OD/2] = [1.7, 8] mm): y in [+4, +6]
+# = 2 mm of pad cap left between this recess and the +Y outer face --
+# thin, but acceptable since the central annulus carries no clamp load
+# (the 4 clamp bolts sit outside the recess and clamp through full
+# 6 mm pad thickness minus the COUNTERBORE_DEPTH = 2.5 mm head pocket).
 FEMUR_HIP_HUB_RECESS_DEPTH = 4.0   # mm -- see comment above
 
 # Radius of the cylindrical CLEARANCE VOID inside the hip/knee link's
-# flange ring.  The void is the air gap that holds the plastic X-horn
-# during assembly: the link slides down over the horn, and the horn's
-# arm tips (PLASTIC_HORN_X_TIP_R = 18 mm) must clear the ring's inner
-# wall by a small FDM-tolerance margin.
+# flange ring.  The void is the air gap above the horn during assembly.
+# It is still sized to the now-RETIRED plastic X-horn's swept envelope
+# (arm tips at PLASTIC_HORN_X_TIP_R = 18 mm) as a CONSERVATIVE keep-out;
+# the current 20 mm aluminum disc horn (radius 10 mm) drops in with room
+# to spare.
 #
 # May 2026 (post-shorten-neck refactor): the void switched from
 # HORN_ADAPTER_OD/2 + 0.5 = 16.5 mm (sized for the now-retired
 # printed servo_horn_adapter disc) to PLASTIC_HORN_X_TIP_R + 0.5 =
-# 18.5 mm (sized for the plastic X-horn's actual Phi 36 mm sweep).
+# 18.5 mm (sized for the retired plastic X-horn's Phi 36 mm sweep).
 # The user found that the previous Phi 33 mm cup physically blocked
 # the Phi 36 mm plastic X-horn from fitting -- the horn arm tips
-# slammed into the cup's inner wall.  Bumping to Phi 37 mm ID gives
-# the horn 0.5 mm radial clearance per side at the arm tips.
+# slammed into the cup's inner wall.  Bumping to Phi 37 mm ID gave
+# the horn 0.5 mm radial clearance per side at the arm tips; the
+# smaller disc horn keeps that envelope as headroom.
 #
 # Consumers: ``make_femur_link`` + ``make_tibia_link`` (flange-ring
 # inner radius), ``keepout_volumes.py`` (femur/tibia horn-stack
@@ -1586,7 +1601,7 @@ HORN_STACK_VOID_R   = PLASTIC_HORN_X_TIP_R + 0.5
 # Bottom-cap geometry on driven link pads.  Each printed link pad has
 # to:
 #   (a) be solid in the central region where the 4 M3 disc clamp
-#       bolts seat (PCD = XHORN_BOLT_PCD = 14 mm, radius 7, well
+#       bolts seat (PCD = DISC_HORN_BOLT_PCD = 14 mm, radius 7, well
 #       within every pad footprint),
 #   (b) recess each M3 SHCS head into a counter-bore so the head
 #       doesn't protrude into the assembly trough above and block
@@ -1612,23 +1627,13 @@ M2_HEAD_OD_CLEARANCE    = 5.7   # mm -- Phi 5.7 mm clearance pocket for
                                 #       DISC_HORN_BOLT_HEAD_OD is the
                                 #       self-documenting alias.)
 DISC_HORN_BOLT_HEAD_OD  = M2_HEAD_OD_CLEARANCE   # explicit alias
-XHORN_BOLT_M2_SELFTAP_HOLE_OD = 3.4   # mm -- M3 clearance through the
-                                       #       link's pad (the disc's M3
-                                       #       TAPPED hole is the actual
-                                       #       thread engagement; the link
-                                       #       just needs the bolt shank to
-                                       #       pass through).  Numeric
-                                       #       duplicate of XHORN_BOLT_OD;
-                                       #       kept under a more explicit
-                                       #       name so callers can grep
-                                       #       for either.
-XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3.0  # mm -- depth of M3 thread
+DISC_HORN_BOLT_THREAD_ENGAGEMENT_MM = 3.0  # mm -- depth of M3 thread
                                        #       engagement INTO the
                                        #       aluminium disc (disc is
                                        #       ~5 mm thick; an M3 x 6 bolt
                                        #       gives 3-5 mm engagement
                                        #       depending on pad thickness).
-                                       #       Drives the M2 x 8 SHCS
+                                       #       Drives the M3 x 6 SHCS
                                        #       length pick in
                                        #       fastener_registry.py.
 
@@ -1689,9 +1694,9 @@ TIBIA_SPAR_H     = 18.0   # mm -- Z-direction height of the tibia spar
 # 1.5 mm, 3 perimeters @ 0.4 mm nozzle) AND deepen the neck back
 # to ~8 mm (y in [-LINK_THICKNESS/2, HORN_STACK_H] = [-3, +5]) so
 # the full volumetric fusion with the spar at y in [-3, +3] is
-# restored.  Cup ID stays at PLASTIC_HORN_X_TIP_R + 0.5 = 18.5 mm
-# so the Phi 36 mm plastic X-horn still fits with 0.5 mm radial
-# clearance.
+# restored.  Cup ID stays at PLASTIC_HORN_X_TIP_R + 0.5 = 18.5 mm,
+# the conservative envelope of the now-retired Phi 36 mm plastic
+# X-horn; the current 20 mm disc horn clears it easily.
 #
 # Bumping HIP_PAD_R increases the pad's swept disk diameter (39 mm
 # -> 40 mm) which means the pad reaches 0.5 mm further toward the
@@ -1705,24 +1710,26 @@ HIP_PAD_R        = 20.0
 
 # ---- Femur hip-pad radius (May 2026 user-flagged shrink) ----------------
 # The femur's hip pad is a SEPARATE Phi-2*FEMUR_HIP_PAD_R disc that
-# clamps onto the hip-pitch X-horn at the link's NEW local origin.
+# clamps onto the hip-pitch disc horn at the link's NEW local origin.
 # Decoupled from HIP_PAD_R (= the tibia knee pad radius) so the femur
 # can be shrunk independently of the tibia.
 #
-# User-flagged May 2026: "the 20 mm from the femur link hip pitch to
-# knee is too long, it blocks the X horn, you need to shorten it".
-# The previous FEMUR_HIP_PAD_R = HIP_PAD_R = 20 mm covered the X-horn
-# arm tips (PLASTIC_HORN_X_TIP_R = 18 mm) in the assembled BuildViz
-# view from +Y -- the Phi 40 mm pad disc fully hid the Phi 36 mm
-# X-horn (and all 4 arms) behind it, making the X-horn invisible
-# during inspection.  Reduced to 14 mm so each X-horn arm tip pokes
-# out PLASTIC_HORN_X_TIP_R - FEMUR_HIP_PAD_R = 18 - 14 = 4 mm past
-# the pad's outer edge in BuildViz, restoring visibility of all 4
-# arms while still covering the 4 PCD bolts at radius 10.4 mm with
+# The FEMUR_HIP_PAD_R = 14 mm value dates from the now-retired plastic
+# X-horn era.  User-flagged May 2026: "the 20 mm from the femur link
+# hip pitch to knee is too long, it blocks the X horn, you need to
+# shorten it".  The previous FEMUR_HIP_PAD_R = HIP_PAD_R = 20 mm covered
+# the (then-current) X-horn arm tips (PLASTIC_HORN_X_TIP_R = 18 mm) in
+# the assembled BuildViz view from +Y -- the Phi 40 mm pad disc fully
+# hid the Phi 36 mm X-horn (and all 4 arms) behind it, making the
+# X-horn invisible during inspection.  It was reduced to 14 mm so each
+# X-horn arm tip poked out PLASTIC_HORN_X_TIP_R - FEMUR_HIP_PAD_R =
+# 18 - 14 = 4 mm past the pad's outer edge, restoring visibility while
+# still covering the 4 retired-X-horn PCD bolts at radius 10.4 mm with
 # safe margin (wall thickness = 14 - 10.4 - M2_HEAD_OD_CLEARANCE/2 =
-# 14 - 10.4 - 2.0 = 1.6 mm of pad material outboard of each M2 head
+# 14 - 10.4 - 2.0 = 1.6 mm of pad material outboard of each head
 # counter-bore; well above the 1.5 mm = 3 perimeter @ 0.4 mm nozzle
-# minimum).
+# minimum).  The current 14 mm disc-horn M3 bolt circle (radius 7) sits
+# even further inside this pad, so the coverage margin only improves.
 #
 # Why the constraint HIP_PAD_R >= HORN_STACK_VOID_R + 1.5 mm wall
 # (= 20 mm, see the HIP_PAD_R docstring above) does NOT apply here:
@@ -3954,20 +3961,24 @@ def make_servo_body() -> trimesh.Trimesh:
 
 
 def make_servo_horn() -> trimesh.Trimesh:
-    """Plastic 4-arm output horn (the part that ships with the servo).
+    """Plastic 4-arm output horn -- the now-RETIRED part (kept for compat).
+
+    The robot now drives a 20 mm aluminum 25T disc horn (``make_disc_horn``);
+    this X-horn factory is retained only for backward-compatible visuals and
+    old quotes.
 
     Local frame:
         +Z = output shaft axis (mates to the servo spline at z = 0)
         Origin at the bottom face of the horn hub.
 
-    The 4 arms point along +X, +Y, -X, -Y (XHORN_BOLT_ANGLES_RAD).  Each
+    The 4 arms point along +X, +Y, -X, -Y (DISC_HORN_BOLT_ANGLES_RAD).  Each
     arm carries a row of mounting holes; the SECOND hole out from the
-    spline on each arm sits on XHORN_BOLT_PCD (= 20.8 mm) -- that's the
-    pattern the printed ``servo_horn_adapter`` clamps onto.  This visual
-    mesh drills those 4 bolt holes so any render that includes both the
-    horn and the adapter shows the bolts lining up.
-    Used as a visual stand-in only; the printed ``servo_horn_adapter``
-    bolts on top of this.
+    spline on each arm sits on DISC_HORN_BOLT_PCD -- the pattern the retired
+    printed ``servo_horn_adapter`` clamped onto.  This visual mesh drills
+    those 4 bolt holes so any legacy render that includes both the horn and
+    the adapter shows the bolts lining up.
+    Used as a visual stand-in only; the retired printed ``servo_horn_adapter``
+    bolted on top of this.
     """
     parts: list[trimesh.Trimesh] = []
     # Hub spans z=[0, PLASTIC_HORN_H] so the mesh's bounding cylinder
@@ -3988,13 +3999,13 @@ def make_servo_horn() -> trimesh.Trimesh:
     # real-hardware sweep radius (= 19 mm from the spline centre on a
     # standard DS3225 / MG996R / DS3218 horn).  Previously hard-coded
     # to 20 mm (tip at radius 10 mm), which was INSIDE the
-    # XHORN_BOLT_PCD = 20.8 mm bolt circle -- nonsensical, and made the
+    # retired X-horn's 20.8 mm bolt circle -- nonsensical, and made the
     # mesh's bounding cylinder understate the horn's swept volume.
     # check_horn_sweep_clearance reads the bounding cylinder of this
     # mesh; keep it in sync with real hardware so the verifier
     # measures the right sweep radius.
     arm_z_centre = hub_h - arm_t / 2.0
-    for a in XHORN_BOLT_ANGLES_RAD:
+    for a in DISC_HORN_BOLT_ANGLES_RAD:
         arm = _box((2.0 * PLASTIC_HORN_X_TIP_R, 4.0, arm_t))
         arm.apply_transform(rotation_matrix(a, [0, 0, 1]))
         arm.apply_translation([0, 0, arm_z_centre])
@@ -4007,10 +4018,10 @@ def make_servo_horn() -> trimesh.Trimesh:
     bolt_holes = []
     hole_h = arm_t + 0.4
     hole_z = hub_h - hole_h / 2.0
-    for a in XHORN_BOLT_ANGLES_RAD:
-        h = _cyl(XHORN_BOLT_OD / 2.0, hole_h)
-        h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
-                              XHORN_BOLT_PCD / 2.0 * np.sin(a),
+    for a in DISC_HORN_BOLT_ANGLES_RAD:
+        h = _cyl(DISC_HORN_BOLT_OD / 2.0, hole_h)
+        h.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
+                              DISC_HORN_BOLT_PCD / 2.0 * np.sin(a),
                               hole_z])
         bolt_holes.append(h)
 
@@ -4035,8 +4046,8 @@ def make_disc_horn() -> trimesh.Trimesh:
     Silvery Servo Disc ... MG945 MG995 MG996"): a Phi DISC_HORN_OD =
     20 mm x DISC_HORN_H = 5 mm silver-anodised aluminium disc with a
     central 25T female spline bore (Phi DISC_HORN_SPLINE_OD = 5.5 mm)
-    and 4 x M3 TAPPED mounting holes on the XHORN_BOLT_PCD = 14 mm
-    bolt circle (cross pattern at XHORN_BOLT_ANGLES_RAD).
+    and 4 x M3 TAPPED mounting holes on the DISC_HORN_BOLT_PCD = 14 mm
+    bolt circle (cross pattern at DISC_HORN_BOLT_ANGLES_RAD).
 
     This replaces the plastic 4-arm X-horn (``make_servo_horn``) at
     every servo joint (yaw / hip-pitch / knee-pitch).  The driven link
@@ -4067,10 +4078,10 @@ def make_disc_horn() -> trimesh.Trimesh:
 
     # 4 x M3 tapped holes on the 14 mm bolt circle (cross pattern).
     holes = []
-    for a in XHORN_BOLT_ANGLES_RAD:
+    for a in DISC_HORN_BOLT_ANGLES_RAD:
         hole = _cyl(DISC_HORN_TAP_OD / 2.0, h + 2.0)
-        hole.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
-                                 XHORN_BOLT_PCD / 2.0 * np.sin(a),
+        hole.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
+                                 DISC_HORN_BOLT_PCD / 2.0 * np.sin(a),
                                  h / 2.0])
         holes.append(hole)
 
@@ -4091,10 +4102,10 @@ def make_gobilda_1906_hub() -> trimesh.Trimesh:
         higher-torque replacement.  Using it requires redesigning the
         link mounting pad -- the goBILDA bolt pattern is a 16 mm SQUARE
         (M4 at +/-8, +/-8) which is COMPLETELY DIFFERENT from the
-        current ``XHORN_BOLT_PCD`` = 20.8 mm 4-arm PCD that the link
-        pad mates against -- so this factory is offered in parallel to
-        ``make_servo_horn`` and the assembly/inspector still call the
-        plastic horn for now.
+        current ``DISC_HORN_BOLT_PCD`` = 14 mm disc-horn cross PCD that the
+        link pad mates against -- so this factory is offered in parallel
+        to ``make_disc_horn`` and the assembly/inspector still call the
+        disc horn for now.
 
     Local frame (matches ``make_servo_horn``):
         +Z = servo output shaft axis
@@ -4182,20 +4193,22 @@ def make_gobilda_1906_hub() -> trimesh.Trimesh:
 
 
 def make_servo_horn_adapter() -> trimesh.Trimesh:
-    """Round servo-horn adapter plate.
+    """Round servo-horn adapter plate -- RETIRED (kept for backward compat).
 
-    Bolts to a standard plastic servo horn from below (single M3 centre
-    screw + a counter-bored recess for the horn body) and presents a flat
-    4 x M3 bolt pattern on the bolt circle so any link with the matching
-    hole pattern can clamp onto it.
+    Models the now-retired printed adapter.  It bolted to a standard
+    plastic servo horn from below (single M3 centre screw + a counter-bored
+    recess for the horn body) and presented a flat 4 x M3 bolt pattern on
+    the bolt circle so any link with the matching hole pattern could clamp
+    onto it.  The robot now bolts each link straight onto a 20 mm aluminum
+    25T disc horn instead.
 
     Local frame:
         +Z = servo output axis
         Origin at the bottom face (mating to the plastic horn)
-        Bolt holes on XHORN_BOLT_PCD (= 20.8 mm) at XHORN_BOLT_ANGLES_RAD
-        (= 0 / 90 / 180 / 270 deg), aligned with the plastic horn's
-        4 X-shaped arms so each bolt drops straight into the second
-        hole-position out from the spline on each arm.
+        Bolt holes on DISC_HORN_BOLT_PCD at DISC_HORN_BOLT_ANGLES_RAD
+        (= 0 / 90 / 180 / 270 deg), aligned with the retired plastic
+        horn's 4 X-shaped arms so each bolt dropped straight into the
+        second hole-position out from the spline on each arm.
 
     Why a solid disc (and not the 4-arm cross the BOM used to advertise):
         The previous design had four "lightening cuts" sized so they sliced
@@ -4213,10 +4226,10 @@ def make_servo_horn_adapter() -> trimesh.Trimesh:
     centre = _cyl(HORN_CENTRE_OD / 2.0, HORN_ADAPTER_T * 4)
 
     bolts = []
-    for a in XHORN_BOLT_ANGLES_RAD:
-        h = _cyl(XHORN_BOLT_OD / 2.0, HORN_ADAPTER_T * 4)
-        h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
-                              XHORN_BOLT_PCD / 2.0 * np.sin(a),
+    for a in DISC_HORN_BOLT_ANGLES_RAD:
+        h = _cyl(DISC_HORN_BOLT_OD / 2.0, HORN_ADAPTER_T * 4)
+        h.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
+                              DISC_HORN_BOLT_PCD / 2.0 * np.sin(a),
                               0])
         bolts.append(h)
 
@@ -5607,7 +5620,7 @@ def make_coxa_link() -> trimesh.Trimesh:
 
     Local frame:
         Origin: bolt-circle centre of the hub (= yaw axis, sitting
-                on top of the horn adapter).
+                on top of the disc horn).
         +Z = yaw axis (UP, away from the yaw servo).
         +X = arm direction (outboard at neutral pose).
         +Y = hip-pitch joint axis (= the hip-pitch servo's output
@@ -5625,9 +5638,9 @@ def make_coxa_link() -> trimesh.Trimesh:
         AND the +Y arm slab over the pedestal.
 
         - Pedestal CAP: 34 x 34 mm slab at z in [0, PEDESTAL_CAP_T] =
-          [0, +4], hosting the 4 M2 X-horn bolt counter-bores + the
-          central M3 horn-screw counter-bore + the Phi 16 x 1.2 mm
-          horn-pad recess.  The cap retains its full 34 x 34 footprint
+          [0, +4], hosting the 4 M3 disc-horn bolt counter-bores + the
+          central M3 horn-screw counter-bore + the disc-horn collar
+          recess.  The cap retains its full 34 x 34 footprint
           (= +Y half is NOT trimmed at z < +4); only y > -10.5 above
           the cap is removed.
         - Assembly trough: the 34 mm wide (y in [-17, +17]) x
@@ -5680,9 +5693,10 @@ def make_coxa_link() -> trimesh.Trimesh:
     # No separate hub pad above the pedestal.  Design A had a
     # 34 x 34 mm hub at lifted z in [+36, +42] (built at un-lifted
     # z in [0, hub_t] then translated up by COXA_LIFT) as the
-    # mating surface for the printed ``servo_horn_adapter`` -- the
-    # 4 M2 X-horn bolts threaded into the hub's flange.  Design B
-    # (May 2026) moved those bolts into the pedestal CAP at lifted
+    # mating surface for the now-retired printed ``servo_horn_adapter``
+    # -- the (then-current) 4 M2 X-horn bolts threaded into the hub's
+    # flange.  Design B (May 2026) moved those clamp bolts (now 4 M3
+    # disc-horn bolts) into the pedestal CAP at lifted
     # z in [-0.1, +4.1], so the hub no longer hosted any fastener;
     # the arm at y in [-11, +11] already covered the hub's central
     # y range, leaving only the +/-Y wings (y in [+/-11, +/-17])
@@ -5948,13 +5962,13 @@ def make_coxa_link() -> trimesh.Trimesh:
     # z in [0, PEDESTAL_CAP_T].  Pre-2026-05 the trough was rooted at
     # z = 0 -- that sliced the ENTIRE bottom 25.5 mm out of the
     # pedestal and left only a thin "cap" at z in [25.5, 36], with NO
-    # material in the central region where the 4 M2 X-horn bolts at
-    # PCD 20.8 mm have to seat.  body_bot_z (= well_z_drop +
+    # material in the central region where the 4 M3 disc-horn bolts at
+    # PCD 14 mm have to seat.  body_bot_z (= well_z_drop +
     # COXA_LIFT - SERVO_BODY_D/2 = 4.5) is the bottom of the hip-pitch
     # servo body's +Y face; we need trough_z_min <= body_bot_z - 0.5
     # for the body to still drop in cleanly, so the new floor at 4 mm
     # leaves 0.5 mm of clearance below the body and preserves a 4 mm
-    # thick cap above the X-horn.
+    # thick cap above the disc horn.
     trough_z_min = PEDESTAL_CAP_T
     trough_z_ext = trough_z_max - trough_z_min
     trough_z_cen = (trough_z_min + trough_z_max) / 2.0
@@ -5962,8 +5976,8 @@ def make_coxa_link() -> trimesh.Trimesh:
                   center=(trough_x_cen, 0.0, trough_z_cen))
 
     # ---- M3 disc-horn bolt clearance through the bottom cap ----------
-    # June 2026 disc-horn switch: 4 x M3 clearance holes (XHORN_BOLT_OD
-    # = 3.4 mm) on the XHORN_BOLT_PCD = 14 mm bolt circle (radius 7)
+    # June 2026 disc-horn switch: 4 x M3 clearance holes (DISC_HORN_BOLT_OD
+    # = 3.4 mm) on the DISC_HORN_BOLT_PCD = 14 mm bolt circle (radius 7)
     # drilled through the 4 mm bottom cap so the M3 SHCS shank can pass
     # through the printed cap material and thread into the 20 mm
     # aluminium 25T disc horn's M3 TAPPED hole below (the aluminium IS
@@ -5989,16 +6003,16 @@ def make_coxa_link() -> trimesh.Trimesh:
     shaft_h_extent = PEDESTAL_CAP_T + 0.2  # 0.1 mm overshoot top + bottom
     counterbore_h_extent = COUNTERBORE_DEPTH + 0.05
     counterbore_z_centre = PEDESTAL_CAP_T - counterbore_h_extent / 2.0
-    for a in XHORN_BOLT_ANGLES_RAD:
-        h = _cyl(XHORN_BOLT_OD / 2.0, shaft_h_extent)
-        h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
-                              XHORN_BOLT_PCD / 2.0 * np.sin(a),
+    for a in DISC_HORN_BOLT_ANGLES_RAD:
+        h = _cyl(DISC_HORN_BOLT_OD / 2.0, shaft_h_extent)
+        h.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
+                              DISC_HORN_BOLT_PCD / 2.0 * np.sin(a),
                               shaft_h_extent / 2.0 - 0.1])
         cap_holes.append(h)
 
         cb = _cyl(M2_HEAD_OD_CLEARANCE / 2.0, counterbore_h_extent)
-        cb.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
-                              XHORN_BOLT_PCD / 2.0 * np.sin(a),
+        cb.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
+                              DISC_HORN_BOLT_PCD / 2.0 * np.sin(a),
                               counterbore_z_centre])
         counterbore_holes.append(cb)
 
@@ -6019,8 +6033,8 @@ def make_coxa_link() -> trimesh.Trimesh:
     # so the disc still seats flat on the cap.  A small Phi
     # DISC_HORN_COLLAR_OD = 9 mm x DISC_HORN_COLLAR_DEPTH = 2 mm bore
     # centred on the yaw axis does exactly that.  Its radius (4.5 mm)
-    # sits inside the bolt circle's inner rim (XHORN_BOLT_PCD/2 -
-    # XHORN_BOLT_OD/2 = 5.3 mm) so it never touches the 4 M3 clamp holes.
+    # sits inside the bolt circle's inner rim (DISC_HORN_BOLT_PCD/2 -
+    # DISC_HORN_BOLT_OD/2 = 5.3 mm) so it never touches the 4 M3 clamp holes.
     horn_hub_recess = _cyl(DISC_HORN_COLLAR_OD / 2.0, DISC_HORN_COLLAR_DEPTH)
     horn_hub_recess.apply_translation([0.0, 0.0,
                                         DISC_HORN_COLLAR_DEPTH / 2.0])
@@ -6228,11 +6242,11 @@ def make_coxa_link() -> trimesh.Trimesh:
     #    COXA_LIFT (= +42) would restore the cap WITHOUT any other
     #    code change.  (See the May 2026 +Y-cap retirement commit.)
     #
-    # M2 X-horn bolt clearance: the 4 M2 clamp bolts live in the
+    # M3 disc-horn bolt clearance: the 4 M3 clamp bolts live in the
     # pedestal cap at lifted z in [-0.1, PEDESTAL_CAP_T + 0.1] =
     # [-0.1, +4.1], WAY below either trim's z_min = +25.  Neither
     # trim's pedestal overlap at x in [+8, +17] (at z in [+25, +36])
-    # touches the cap, so all four M2 bolts + the central M3 horn
+    # touches the cap, so all four M3 bolts + the central M3 horn
     # screw are untouched.
     arm_neg_y_trim_y_min = -arm_w / 2.0                       # = -11
     arm_neg_y_trim_y_max = -LINK_THICKNESS / 2.0              # = -3
@@ -6275,7 +6289,7 @@ def make_coxa_link() -> trimesh.Trimesh:
     # geometry in one stroke.  The cap below at z in [0, PEDESTAL_CAP_T]
     # = [0, +4] and its surrounding pillar body at z in [+4, +25] are
     # NOT touched (z_min stays at spar_slot_z_min = body_top_z + 0.5
-    # ~ +25), so all 4 M2 X-horn bolts + the central M3 horn screw
+    # ~ +25), so all 4 M3 disc-horn bolts + the central M3 horn screw
     # remain seated; only material at z in [+27, +36] (= pedestal
     # ROOF above the assembly trough) is removed on +Y.
     arm_pos_y_trim_y_max = +17.0 + 0.5                               # pedestal +Y face (= 34/2) + 0.5 mm overlap = +17.5
@@ -6298,7 +6312,7 @@ def make_coxa_link() -> trimesh.Trimesh:
     # [PEDESTAL_CAP_T = +4, COXA_LIFT = +36]) -- = the chunk of plastic
     # above the cap and on the +Y side of the bridge -- still solid.
     # The user wants ALL material with z > PEDESTAL_CAP_T (= "above
-    # where the X-horn bolts seat") AND y > bridge_y_max (= "past
+    # where the disc-horn bolts seat") AND y > bridge_y_max (= "past
     # where the hip-pitch servo connects") gone.  We do that with a
     # single trim box covering the link's full x range and the full
     # +Z range above the cap.
@@ -6306,7 +6320,7 @@ def make_coxa_link() -> trimesh.Trimesh:
     # GUARDRAILS (do not adjust without re-reading make_coxa_link's
     # docstring):
     #   * z_min = PEDESTAL_CAP_T = +4.  Going below this eats the
-    #     cap and disconnects all 4 M2 X-horn bolts + the central M3
+    #     cap and disconnects all 4 M3 disc-horn bolts + the central M3
     #     horn screw.
     #   * y_min = bridge_y_max = arm_minus_y_edge + 0.5 = -10.5.
     #     Going below this eats the bridge's +Y face and disconnects
@@ -6346,7 +6360,7 @@ def make_femur_link() -> trimesh.Trimesh:
     """Femur (thigh).
 
     Local frame (May 2026 collinear-pad refactor):
-        Origin: pad mating face (= X-horn-top plane that the hip pad
+        Origin: pad mating face (= disc-horn-top plane that the hip pad
                 bolts down onto).  The hip-pitch joint axis (= servo
                 spline tip) lives at link y = -HORN_STACK_H = -5 mm,
                 HORN_STACK_H mm BELOW the local origin along link
@@ -6357,7 +6371,7 @@ def make_femur_link() -> trimesh.Trimesh:
                 in the SAME y range so the link reads as a single
                 flat in-line beam.
         +X = spar long-axis (hip-end at x=0, knee-end at x=FEMUR_LENGTH)
-        +Y = pitch joint axis direction; points AWAY from the X-horn
+        +Y = pitch joint axis direction; points AWAY from the disc horn
              into the link body.  Pad spans y in [0, +LINK_THICKNESS]
              = [0, +6] and the spar spans y in [0, +LINK_THICKNESS]
              = [0, +6] -- same range, no L-shape.  The knee servo
@@ -6366,13 +6380,13 @@ def make_femur_link() -> trimesh.Trimesh:
         +Z = perpendicular to spar, in the leg's plane of motion
 
     Hip end: a flat 4-bolt pad that bolts to the hip-pitch servo's
-    plastic 4-arm X-horn.  This pad is perpendicular to Y (lies in
-    the X-Z plane), with its -Y MATING FACE at y = 0 and its +Y
+    20 mm aluminum 25T disc horn.  This pad is perpendicular to Y (lies
+    in the X-Z plane), with its -Y MATING FACE at y = 0 and its +Y
     outer face at y = LINK_THICKNESS.  A Phi HORN_CENTRE_OD = 3.4 mm
     (M3 clearance) hole is drilled through the pad's centre along
     +Y so the servo's central spline screw can be installed /
     tightened / loosened from above (the pad's outer face) with
-    the link already bolted to the X-horn -- user-flagged May 2026:
+    the link already bolted to the disc horn -- user-flagged May 2026:
     without this hole the spline screw is captive under the link's
     mating face and the link has to be fully unbolted to access
     the spline screw.  Mirrors the coxa_link's pedestal-cap centre
@@ -6451,35 +6465,36 @@ def make_femur_link() -> trimesh.Trimesh:
                                     SPAR_Y_CENTRE, 0))
 
     # ---- Hip-end pad -------------------------------------------------
-    # The femur's hip pad bolts directly onto the plastic 4-arm X-horn
-    # that sits on the hip-pitch servo's spline.  After the May 2026
+    # The femur's hip pad bolts directly onto the 20 mm aluminum 25T disc
+    # horn that sits on the hip-pitch servo's spline.  After the May 2026
     # collinear-pad refactor the link's NEW local origin is the pad
-    # mating face (= the X-horn-top arm plane), so:
+    # mating face (= the disc-horn-top plane), so:
     #
     #   * Pad mating face is at NEW y = 0 (was OLD y = +HORN_STACK_H = +5)
     #   * Pad outer face is at NEW y = +LINK_THICKNESS = +6 (was OLD y = +11)
     #   * Spar shares the pad's y range (NEW y in [0, +6]) so the pad
     #     and spar bond directly through the union -- the old 2 mm
     #     spar-to-pad neck-stub annulus (commit c6c9970) is GONE.
-    #   * The X-horn (arms, hub, gearbox cap) physically lives in world
-    #     coordinates that map to NEW y in [-HORN_STACK_H, 0] for the
-    #     arms / hub and y < -HORN_STACK_H for the gearbox cap below.
-    #     Since the link has NO material at NEW y < 0 the X-horn
-    #     envelope is cleared by construction -- no arm-relief cup is
-    #     boolean-diff'd out of the pad.
+    #   * The disc horn (and the servo gearbox cap below it) physically
+    #     lives in world coordinates that map to NEW y in
+    #     [-HORN_STACK_H, 0] for the disc and y < -HORN_STACK_H for the
+    #     gearbox cap below.  Since the link has NO material at NEW
+    #     y < 0 the disc-horn envelope is cleared by construction -- no
+    #     arm-relief cup is boolean-diff'd out of the pad.
     #
     # Geometry: a solid Phi (2 * FEMUR_HIP_PAD_R) = 28 mm disc spanning
-    # NEW y in [0, +LINK_THICKNESS] = [0, +6].  The 4 M2 bolt holes are
+    # NEW y in [0, +LINK_THICKNESS] = [0, +6].  The 4 M3 bolt holes are
     # drilled along +Y through the disc, and a 2.5 mm-deep Phi 4 mm
-    # counter-bore opens at the +Y outer face for each M2 SHCS head.
+    # counter-bore opens at the +Y outer face for each M3 SHCS head.
     #
     # May 2026 user-flagged shrink: pad disc reduced from Phi 40
-    # (HIP_PAD_R = 20) to Phi 28 (FEMUR_HIP_PAD_R = 14) so each X-horn
-    # arm tip (PLASTIC_HORN_X_TIP_R = 18) pokes 4 mm past the pad's
-    # outer edge in the BuildViz +Y view.  See FEMUR_HIP_PAD_R docstring
-    # for the full rationale.  The tibia knee pad (line ~6361) still
-    # uses HIP_PAD_R unchanged at the user's request.
-    hip_pad_y_min    = 0.0                          # mating face (= X-horn-top)
+    # (HIP_PAD_R = 20) to Phi 28 (FEMUR_HIP_PAD_R = 14) so each
+    # now-retired X-horn arm tip (PLASTIC_HORN_X_TIP_R = 18) poked 4 mm
+    # past the pad's outer edge in the BuildViz +Y view.  See
+    # FEMUR_HIP_PAD_R docstring for the full rationale.  The tibia knee
+    # pad (line ~6361) still uses HIP_PAD_R unchanged at the user's
+    # request.
+    hip_pad_y_min    = 0.0                          # mating face (= disc-horn-top)
     hip_pad_y_max    = LINK_THICKNESS               # +6
     hip_pad_centre_y = LINK_THICKNESS / 2.0         # +3 (was +8 pre-refactor)
     hip_pad = _cyl_along(FEMUR_HIP_PAD_R,
@@ -6489,33 +6504,33 @@ def make_femur_link() -> trimesh.Trimesh:
 
     hip_holes = []
     hip_counterbores = []
-    for a in XHORN_BOLT_ANGLES_RAD:
-        # Drill the 4 M2 clamp holes through the pad's 6 mm thickness
-        # (NEW y in [0, +6]).  Phi XHORN_BOLT_M2_SELFTAP_HOLE_OD =
-        # 2.2 mm clearance through the pad (M2 self-tap into the
-        # X-horn's Phi ~ 2.0 mm arm hole below; the X-horn provides
+    for a in DISC_HORN_BOLT_ANGLES_RAD:
+        # Drill the 4 M3 clamp holes through the pad's 6 mm thickness
+        # (NEW y in [0, +6]).  Phi DISC_HORN_BOLT_OD =
+        # 3.4 mm clearance through the pad; the M3 SHCS threads into the
+        # aluminium disc's M3 TAPPED hole below (the disc provides
         # the actual thread engagement).  Cylinder length =
         # LINK_THICKNESS * 4 = 24 mm so the diff cleanly punches
         # through the pad even with voxel/CSG tolerance.
-        h = _cyl(XHORN_BOLT_M2_SELFTAP_HOLE_OD / 2.0, LINK_THICKNESS * 4)
+        h = _cyl(DISC_HORN_BOLT_OD / 2.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-        h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
+        h.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
                               hip_pad_centre_y,
-                              XHORN_BOLT_PCD / 2.0 * np.sin(a)])
+                              DISC_HORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_holes.append(h)
 
-        # Counter-bore for the M2 SHCS head, opening AWAY from the
-        # X-horn (at the pad's +Y outer face).  Head TOP sits flush at
+        # Counter-bore for the M3 SHCS head, opening AWAY from the
+        # disc horn (at the pad's +Y outer face).  Head TOP sits flush at
         # NEW y = LINK_THICKNESS = +6; head BOTTOM at NEW y =
         # LINK_THICKNESS - COUNTERBORE_DEPTH = +3.5.  The remaining
-        # pad material at NEW y in [0, +3.5] clamps the X-horn arm
+        # pad material at NEW y in [0, +3.5] clamps onto the disc horn
         # at the mating face (y = 0).
         cb_len = COUNTERBORE_DEPTH + 0.1
         cb = _cyl(M2_HEAD_OD_CLEARANCE / 2.0, cb_len)
         cb.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-        cb.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
+        cb.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
                               hip_pad_y_max - cb_len / 2.0 + 0.05,
-                              XHORN_BOLT_PCD / 2.0 * np.sin(a)])
+                              DISC_HORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_counterbores.append(cb)
 
     # ---- Central spline-screw clearance through the hip pad ----------
@@ -6524,13 +6539,13 @@ def make_femur_link() -> trimesh.Trimesh:
     # through the full LINK_THICKNESS (NEW y in [0, +6]) so the
     # M2.5 x 8 servo spline centre screw can be installed / tightened
     # / loosened from above (the pad's +Y outer face) with the link
-    # already bolted to the X-horn.  Cylinder length = LINK_THICKNESS
+    # already bolted to the disc horn.  Cylinder length = LINK_THICKNESS
     # * 4 = 24 mm so the diff cleanly punches through with voxel/CSG
     # slop on both faces.
     #
-    # Centre is at (0, hip_pad_centre_y, 0); the bolt PCD is 20.8 mm
-    # so the PCD inner edge (radius 10.4 - 1.1 = 9.3 mm) sits 9.3 -
-    # 1.7 = 7.6 mm clear of this hole's outer rim -- the 4 M2 PCD
+    # Centre is at (0, hip_pad_centre_y, 0); the bolt PCD is 14 mm
+    # so the PCD inner edge (radius 7 - 1.7 = 5.3 mm) sits 5.3 -
+    # 1.7 = 3.6 mm clear of this hole's outer rim -- the 4 M3 PCD
     # holes are completely untouched.  The pad area lost to this cut
     # is pi * 1.7^2 ~= 9 mm^2 = 2 % of the pad's pi * 20^2 = 1257
     # mm^2 face, well below any strength concern.
@@ -6565,7 +6580,7 @@ def make_femur_link() -> trimesh.Trimesh:
     # NB: the 4 M3 mounting pilots in the wall (drilled by
     # ``_servo_well_solid``) sit on the standard SERVO_TAB_HOLE_PCD x
     # SERVO_TAB_HOLE_PCD_Y (49.5 x 10 mm) pattern -- NOT the 24 mm
-    # XHORN_BOLT_PCD pattern.  XHORN_BOLT_PCD is the bolt circle for the
+    # DISC_HORN_BOLT_PCD pattern.  DISC_HORN_BOLT_PCD is the bolt circle for the
     # hip-pad horn adapter at the OTHER end of the femur.
     #
     # remove_floor=True: cut the cradle's floor frame so the print
@@ -6686,7 +6701,7 @@ def make_femur_link() -> trimesh.Trimesh:
     # NOTE (May 25 2026): an earlier same-day commit 4cf3355 trimmed
     # bridge_x_max from 90 to 88 in response to a BuildViz dimension
     # call-out at (90, -6, +23).  That was the WRONG axis to cut: the
-    # user's real concern was the rotating knee X-horn clipping the
+    # user's real concern was the rotating knee disc horn clipping the
     # bridge cap's +Y face under worst-case-tolerance horn drop or
     # spline-screw-back protrusion, which calls for a deeper Y cut,
     # not a shorter X tail.  The revert restores bridge_x_max =
@@ -6751,7 +6766,8 @@ def make_femur_link() -> trimesh.Trimesh:
     # the hip pad and the knee-end body cradle ("for weight + zip-tie
     # tie-down").  At HIP_PAD_R = 20 mm the first hole's outer rim
     # (x_centre ~ 17 -> x_extent [10.5, 23.5]) lands within 0.1 mm of
-    # the M2 X-horn bolt at angle 0 deg (x = 10.4, z = 0) -- the
+    # the then-current M2 X-horn bolt at angle 0 deg (x = 10.4, z = 0,
+    # on the retired 20.8 mm PCD) -- the
     # lightening hole eats half the bolt's clearance sleeve and leaves
     # the screw naked on its +X side.  See the analogous tibia code
     # below where the holes sit well away from the foot pin and any
@@ -6862,19 +6878,20 @@ def make_femur_link() -> trimesh.Trimesh:
     # x in [72, 91] x z in +/-[9.5, 23.5], so the cuts touch nothing
     # else.
     #
-    # X-horn drop / spline-screw-back clearance (May 25 2026, user
+    # Horn drop / spline-screw-back clearance (May 25 2026, user
     # correction following the wrong-axis 4cf3355 X-trim revert):
     # TIBIA_CLEAR_Y_MIN was -HORN_STACK_H - 0.5 = -5.5, i.e., only
-    # 0.5 mm of vertical slack below the X-horn's NOMINAL bottom face
+    # 0.5 mm of vertical slack below the disc horn's NOMINAL bottom face
     # at y = -HORN_STACK_H = -5.  User: "the important thing is to
     # cut the Y down, not the X, lower the Y ... the point of this is
     # to make room for the x horn if it sits lower on the servo than
     # you think or if the screws go through the horn a bit, then when
-    # it rotates it could get caught".  The knee X-horn rotates about
-    # the spline axis at (FEMUR_LENGTH, *, 0); its arm tips sweep a
-    # Phi 36 mm disc and the BACK of the horn (where the spline
-    # screws protrude) sweeps a slightly larger disc into the femur
-    # material at y < -HORN_STACK_H.  If the horn sits ~3 mm lower on
+    # it rotates it could get caught".  The knee disc horn rotates about
+    # the spline axis at (FEMUR_LENGTH, *, 0); the BACK of the horn
+    # (where the spline screws protrude) sweeps into the femur
+    # material at y < -HORN_STACK_H.  (The clearance band is sized to
+    # the larger now-retired plastic X-horn's Phi 36 mm sweep as a
+    # conservative envelope.)  If the horn sits ~3 mm lower on
     # the spline than nominal (FEMUR_HIP_HUB_RECESS_DEPTH = 4 mm
     # already accounts for the same uncertainty on the hip side) or
     # the screws back out a couple mm, the swept disc punches into
@@ -6892,7 +6909,7 @@ def make_femur_link() -> trimesh.Trimesh:
     # PETG beam SF budget).
     TIBIA_CLEAR_X_MIN  = 72.0
     TIBIA_CLEAR_X_MAX  = FEMUR_LENGTH + 1.0          # 91 (1 mm overshoot)
-    TIBIA_CLEAR_Y_MIN  = -8.0                        # was -HORN_STACK_H - 0.5 = -5.5; lowered May 25 2026 for knee X-horn drop / spline-screw-back clearance
+    TIBIA_CLEAR_Y_MIN  = -8.0                        # was -HORN_STACK_H - 0.5 = -5.5; lowered May 25 2026 for knee disc-horn drop / spline-screw-back clearance
     TIBIA_CLEAR_Y_MAX  = +LINK_THICKNESS / 2.0       # +3.0 (covers full bridge_y_max so no 1.5 mm slab remains above the cut to brush the tibia at small tolerance offsets -- user-flagged May 2026)
     TIBIA_CLEAR_Z_MIN  = -(bridge_top_z_max + 0.5)   # -23.5 (full bridge_bot z range + 0.5 mm overshoot)
     TIBIA_CLEAR_Z_MAX  = -(bridge_top_z_min - 0.5)   # -9.5  (0.5 mm into the air above bridge_bot)
@@ -6921,10 +6938,10 @@ def make_femur_link() -> trimesh.Trimesh:
     # make it more like 16mm".  The rib's Y-extent is shortened from
     # 18.75 mm to 16.0 mm by lowering y_max (moving it more negative)
     # while keeping y_min anchored to the well embedment.  New y_max =
-    # bridge_y_min + 16.0 = -24.25 + 16.0 = -8.25 mm.  The X-horn's
+    # bridge_y_min + 16.0 = -24.25 + 16.0 = -8.25 mm.  The disc horn's
     # bottom face sits at femur y = -HORN_STACK_H = -5 mm, so the new
     # rib top at y = -8.25 leaves -8.25 - (-5) = -3.25 mm of vertical
-    # slack below the X-horn -- i.e., the X-horn can drop by up to
+    # slack below the disc horn -- i.e., the disc horn can drop by up to
     # 3.25 mm before contacting the rib (was 0.5 mm of slack before
     # this change).
     #
@@ -6967,10 +6984,10 @@ def make_femur_link() -> trimesh.Trimesh:
     #   x in [FEMUR_LENGTH - 5, FEMUR_LENGTH + 5] = [85, 95] (10 mm)
     #   y in [bridge_y_min, bridge_y_min + KNEE_RIB_DY_TARGET]
     #          = [-24.25, -8.25]    (16 mm; lowered from previous
-    #           [-24.25, -5.5] = 18.75 mm per the May 25 2026 X-horn
+    #           [-24.25, -5.5] = 18.75 mm per the May 25 2026 disc-horn
     #           drop-slack follow-up).  Embeds 2.5 mm = BRIDGE_WELL_EMBED
     #           into the well's +Y outer rim wall at y = -21.75 (anchor
-    #           preserved).  Top face now sits 3.25 mm BELOW the X-horn
+    #           preserved).  Top face now sits 3.25 mm BELOW the disc horn
     #           bottom face at y = -HORN_STACK_H = -5 mm.
     #   z in +/-[SERVO_BODY_D/2, WELL_D/2] = +/-[10, 14.5]
     #          (matches the well's outer +Z / -Z side wall thickness
@@ -6992,12 +7009,12 @@ def make_femur_link() -> trimesh.Trimesh:
     #     -8.0 = TIBIA_CLEAR_Y_MIN; the rib's top y face sits 0.25 mm
     #     BELOW the tibia_clear y_min plane -- no overlap (margin
     #     was 2.75 mm under the old -5.5 cut floor; cut floor was
-    #     lowered May 25 2026 for X-horn drop clearance and the rib
+    #     lowered May 25 2026 for disc-horn drop clearance and the rib
     #     and cap now present a near-coplanar +Y horn-clearance face
     #     at y ~= -8).
-    #   * X-horn (yaw output) bottom face at femur y = -HORN_STACK_H
+    #   * disc horn (knee output) bottom face at femur y = -HORN_STACK_H
     #     = -5 mm: rib y_max = -8.25, so the rib sits 3.25 mm below
-    #     the X-horn (was 0.5 mm).  The X-horn can drop by up to
+    #     the disc horn (was 0.5 mm).  The disc horn can drop by up to
     #     3.25 mm before contacting the rib.
     #   * Well cavity / servo body slot: x in [59.3, 100.7], y in
     #     [-53, -21.75], z in +/-[10.7].  Rib z_min = +10 punches
@@ -7020,7 +7037,7 @@ def make_femur_link() -> trimesh.Trimesh:
     KNEE_RIB_X_CENTRE = 0.5 * (KNEE_RIB_X_MIN + KNEE_RIB_X_MAX)
     KNEE_RIB_DX       = KNEE_RIB_X_MAX - KNEE_RIB_X_MIN
     KNEE_RIB_Y_MIN    = bridge_y_min                          # = well_near_y - BRIDGE_WELL_EMBED  (= -24.25)
-    KNEE_RIB_DY_TARGET = 16.0                                 # mm Y-extent (May 25 2026: shortened from 18.75 mm so the X-horn can drop ~3.25 mm before contacting the rib).
+    KNEE_RIB_DY_TARGET = 16.0                                 # mm Y-extent (May 25 2026: shortened from 18.75 mm so the disc horn can drop ~3.25 mm before contacting the rib).
     KNEE_RIB_Y_MAX    = KNEE_RIB_Y_MIN + KNEE_RIB_DY_TARGET   # -24.25 + 16.0 = -8.25  (was TIBIA_CLEAR_Y_MIN = -5.5)
     KNEE_RIB_DY       = KNEE_RIB_Y_MAX - KNEE_RIB_Y_MIN
     KNEE_RIB_Y_CENTRE = 0.5 * (KNEE_RIB_Y_MIN + KNEE_RIB_Y_MAX)
@@ -7054,7 +7071,7 @@ def make_tibia_link() -> trimesh.Trimesh:
     """Tibia (shin).
 
     Local frame (May 2026 collinear-pad refactor):
-        Origin: knee pad mating face (= the knee X-horn-top arm plane
+        Origin: knee pad mating face (= the knee disc-horn-top plane
                 that the tibia bolts down onto).  The knee joint axis
                 (= servo output spline tip) lives at link y =
                 -HORN_STACK_H = -5 mm, HORN_STACK_H mm BELOW the
@@ -7065,12 +7082,12 @@ def make_tibia_link() -> trimesh.Trimesh:
                 convention puts pad + spar in the SAME y range
                 (y in [0, +LINK_THICKNESS] = [0, +6]).
         +X = spar long-axis (foot socket at x = TIBIA_LENGTH)
-        +Y = knee joint axis direction; points AWAY from the X-horn
+        +Y = knee joint axis direction; points AWAY from the disc horn
              into the link body.  Pad and spar both span y in
              [0, +LINK_THICKNESS] = [0, +6] -- no L-bend in side
              view.  The single-tang foot end is in-plane with the
              spar (also at y in [0, +6]); the only sub-y=0 feature
-             is the X-horn envelope BELOW the pad which is cleared
+             is the disc-horn envelope BELOW the pad which is cleared
              by construction (no link material below y = 0).
         +Z = perpendicular to spar, in the leg's plane of motion
 
@@ -7080,7 +7097,7 @@ def make_tibia_link() -> trimesh.Trimesh:
     Phi HORN_CENTRE_OD = 3.4 mm (M3 clearance) hole is drilled
     through the pad's centre along +Y so the knee servo's central
     spline screw is reachable from above with the tibia already
-    bolted to the X-horn -- mirrors the hip pad's central hole and
+    bolted to the disc horn -- mirrors the hip pad's central hole and
     the coxa_link pedestal cap centre hole (user-flagged May 2026).
     Foot end: a single TANG (a LINK_THICKNESS-wide downward tongue,
     centred on tibia y=0) that slides into the foot pad's clevis
@@ -7107,13 +7124,13 @@ def make_tibia_link() -> trimesh.Trimesh:
                 center=(TIBIA_LENGTH / 2.0, SPAR_Y_CENTRE, 0))
 
     # ---- Knee-end pad -----------------------------------------------
-    # Mirrors make_femur_link's hip pad (same X-horn, same
-    # XHORN_BOLT_PCD, same LINK_THICKNESS); see that docstring for
+    # Mirrors make_femur_link's hip pad (same disc horn, same
+    # DISC_HORN_BOLT_PCD, same LINK_THICKNESS); see that docstring for
     # the May 2026 collinear-pad refactor rationale.  Pad mating
-    # face at NEW y = 0 (= knee X-horn-top plane); pad outer face at
+    # face at NEW y = 0 (= knee disc-horn-top plane); pad outer face at
     # NEW y = +LINK_THICKNESS = +6.  No neck-stub annulus and no
     # arm-relief cup -- the link has no material at NEW y < 0 so the
-    # X-horn envelope (arms, hub, gearbox cap) is cleared by
+    # disc-horn envelope (disc + gearbox cap below) is cleared by
     # construction.
     knee_pad_y_min    = 0.0
     knee_pad_y_max    = LINK_THICKNESS
@@ -7125,30 +7142,30 @@ def make_tibia_link() -> trimesh.Trimesh:
 
     knee_holes = []
     knee_counterbores = []
-    for a in XHORN_BOLT_ANGLES_RAD:
+    for a in DISC_HORN_BOLT_ANGLES_RAD:
         # Bolt holes drilled through the 6 mm pad (NEW y in [0, +6]).
-        # Phi XHORN_BOLT_M2_SELFTAP_HOLE_OD = 2.2 mm M2 clearance;
-        # the X-horn provides the actual thread engagement below the
-        # mating face.  Cylinder length oversized to LINK_THICKNESS * 4
+        # Phi DISC_HORN_BOLT_OD = 3.4 mm M3 clearance;
+        # the aluminium disc provides the actual thread engagement below
+        # the mating face.  Cylinder length oversized to LINK_THICKNESS * 4
         # so the diff cleanly punches through with voxel/CSG slop.
-        h = _cyl(XHORN_BOLT_M2_SELFTAP_HOLE_OD / 2.0, LINK_THICKNESS * 4)
+        h = _cyl(DISC_HORN_BOLT_OD / 2.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-        h.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
+        h.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
                               knee_pad_centre_y,
-                              XHORN_BOLT_PCD / 2.0 * np.sin(a)])
+                              DISC_HORN_BOLT_PCD / 2.0 * np.sin(a)])
         knee_holes.append(h)
 
-        # Counter-bore for the M2 SHCS head, opening AWAY from the
-        # X-horn at NEW y = LINK_THICKNESS (+6).  Head BOTTOM at
+        # Counter-bore for the M3 SHCS head, opening AWAY from the
+        # disc horn at NEW y = LINK_THICKNESS (+6).  Head BOTTOM at
         # NEW y = LINK_THICKNESS - COUNTERBORE_DEPTH = +3.5.  Bearing
         # face at NEW y = +3.5 leaves 3.5 mm of pad material clamping
-        # the X-horn arm at the mating face (y = 0).
+        # onto the disc horn at the mating face (y = 0).
         cb_len = COUNTERBORE_DEPTH + 0.1
         cb = _cyl(M2_HEAD_OD_CLEARANCE / 2.0, cb_len)
         cb.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-        cb.apply_translation([XHORN_BOLT_PCD / 2.0 * np.cos(a),
+        cb.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
                               knee_pad_y_max - cb_len / 2.0 + 0.05,
-                              XHORN_BOLT_PCD / 2.0 * np.sin(a)])
+                              DISC_HORN_BOLT_PCD / 2.0 * np.sin(a)])
         knee_counterbores.append(cb)
 
     # ---- Central spline-screw clearance through the knee pad ---------
@@ -7157,10 +7174,10 @@ def make_tibia_link() -> trimesh.Trimesh:
     # through the full LINK_THICKNESS (NEW y in [0, +6]) so the
     # M2.5 x 8 servo spline centre screw can be installed / tightened
     # / loosened from above (the pad's +Y outer face) with the link
-    # already bolted to the X-horn.  Mirrors the femur hip pad's
+    # already bolted to the disc horn.  Mirrors the femur hip pad's
     # hip_centre_hole; same length oversize convention (LINK_THICKNESS
-    # * 4) and same clearance to the 4 M2 PCD bolts (PCD inner edge
-    # at radius 9.3 mm, central hole outer edge at 1.7 mm, 7.6 mm
+    # * 4) and same clearance to the 4 M3 PCD bolts (PCD inner edge
+    # at radius 5.3 mm, central hole outer edge at 1.7 mm, 3.6 mm
     # of pad material between).  See make_femur_link's analogous
     # block for the full design rationale.  User-flagged May 2026:
     # "the tibia link and femur link round joints need a hole in
@@ -7413,7 +7430,7 @@ def _leg_in_body_frame(leg_index: int) -> trimesh.Trimesh:
     parts.append(fl)
 
     # ------------------- Tibia ----------------------------------------
-    # In NEW femur-local coords the knee X-horn-top plane (= tibia's
+    # In NEW femur-local coords the knee disc-horn-top plane (= tibia's
     # NEW local origin = tibia pad mating face) is at (FEMUR_LENGTH,
     # 0, 0).  After femur rotation about Y by `p` and translation by
     # (hip_joint_local + PAD_AXIS_OFFSET) the tibia's NEW origin
@@ -7527,14 +7544,15 @@ def main() -> None:
     parts.append(("tibia_link.stl",       make_tibia_link()))
     parts.append(("foot_pad.stl",         make_foot_pad()))
 
-    # Design B (May 2026): the printed servo_horn_adapter has been
-    # RETIRED.  Each link now bolts directly to the plastic 4-arm
-    # X-horn that ships with the servo (see HORN_RECESS_OD /
-    # HORN_RECESS_DEPTH cuts in make_coxa_link / make_femur_link /
-    # make_tibia_link, and the Design B notes near the top of this
-    # file).  The ``make_servo_horn_adapter()`` factory itself is
-    # preserved for backwards compatibility with downstream tooling
-    # that still imports it, but is no longer called from any
+    # Design B (May 2026) + June 2026 disc-horn switch: the printed
+    # servo_horn_adapter AND the plastic 4-arm X-horn have both been
+    # RETIRED.  Each link now bolts directly onto the 20 mm aluminum 25T
+    # disc horn that screws onto the servo spline (see the
+    # DISC_HORN_COLLAR_* clearance bores in make_coxa_link /
+    # make_femur_link / make_tibia_link, and the disc-horn notes near the
+    # top of this file).  The ``make_servo_horn_adapter()`` factory
+    # itself is preserved for backwards compatibility with downstream
+    # tooling that still imports it, but is no longer called from any
     # printable-output path.
 
     print("Servo visuals (not for printing -- MuJoCo / fit-check meshes):")

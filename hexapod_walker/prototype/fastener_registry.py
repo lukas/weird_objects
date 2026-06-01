@@ -57,21 +57,21 @@ Enumerated categories (Design B + Design C, May 2026 revert)
        the design-decision rationale.
 
 2. ``72 x M3 x 6 SHCS`` -- link-to-disc-horn bolts.  4 per joint
-   (XHORN_BOLT_PCD = 14 mm circle) x (yaw + hip + knee) = 3 joints
+   (DISC_HORN_BOLT_PCD = 14 mm circle) x (yaw + hip + knee) = 3 joints
    per leg x 6 legs.  Threads downward from the printed link's pad
    face into the 20 mm aluminum 25T DISC horn (Amazon B07D56FVK5)
    that the servo joints drive.  PN_M3X6_SHCS / 91290A111 -- a plain
    M3 SHCS that threads into the disc's M3 TAPPED hole; the aluminium
    IS the thread-engagement medium (no heat-set insert, no self-tap
-   into plastic).  June 2026 disc-horn switch: replaced the plastic
-   4-arm X-horn (PCD 20.8 mm, M2 self-tap) -- see the ``XHORN_BOLT_*``
-   / ``DISC_HORN_*`` docstrings in ``hexapod_prototype.py``.  The
+   into plastic).  June 2026 disc-horn switch: replaced the now-retired
+   plastic 4-arm X-horn (PCD 20.8 mm, M2 self-tap) -- see the
+   ``DISC_HORN_BOLT_*`` docstrings in ``hexapod_prototype.py``.  The
    M3 x 6 screws ship with the disc kit.
 
 3. ``18 x M2.5 x 8 spline center screw`` -- ships with the servo; sits
-   captive between the servo spline and the plastic horn.  18 servos
+   captive between the servo spline and the disc horn.  18 servos
    x 1 screw each = 18.  Special-cased in ``check_screwdriver_access``
-   with a SKIP because the screw is hidden under the X-horn during
+   with a SKIP because the screw is hidden under the disc horn during
    normal assembly -- install before fitting the horn.  A Phi
    HORN_CENTRE_OD = 3.4 mm (M3 clearance) hole sits coaxial with the
    joint axis through EVERY driven link's pad:
@@ -83,7 +83,7 @@ Enumerated categories (Design B + Design C, May 2026 revert)
    serviceability ("the tibia link and femur link round joints need a
    hole in the center to attach the screw into servo behind it", May
    2026).  The skip flag is preserved because the install order is
-   still "spline screw FIRST, X-horn SECOND, link THIRD" -- the new
+   still "spline screw FIRST, disc horn SECOND, link THIRD" -- the new
    pad holes are an access-from-above improvement, not a sequence
    change.
 
@@ -224,7 +224,7 @@ PN_M3_NYLOC      = "90576A102"   # M3 nylon-insert lock nut, A2 stainless
 PN_M3X16_PAN     = "92010A130"   # M3 x 16 pan-head Phillips, A2 stainless (foot hinge)
 PN_M25X8_SHCS    = "91290A104"   # M2.5 x 8 socket-head cap screw (servo spline)
 # Link-to-disc-horn bolts (June 2026 disc-horn switch; see the
-# XHORN_BOLT_* / DISC_HORN_* docstrings in hexapod_prototype.py).  The
+# DISC_HORN_BOLT_* docstrings in hexapod_prototype.py).  The
 # servo joints now drive a 20 mm aluminum 25T DISC horn (Amazon
 # B07D56FVK5) with 4 x M3 TAPPED holes on a 14 mm bolt circle.  The
 # link's pad has a Phi 3.4 mm M3 clearance hole; the M3 SHCS threads
@@ -692,7 +692,7 @@ def _emit_cradle_fasteners(
 #
 # Each rotary joint (yaw, hip-pitch, knee-pitch) clamps the printed
 # link's pad onto a 20 mm aluminum 25T DISC horn (Amazon B07D56FVK5)
-# via 4 x M3 SHCS on XHORN_BOLT_PCD = 14 mm (radius 7).  The bolts
+# via 4 x M3 SHCS on DISC_HORN_BOLT_PCD = 14 mm (radius 7).  The bolts
 # thread DIRECTLY from the link's pad into the disc's 4 M3 TAPPED
 # holes -- the aluminium IS the thread-engagement medium.  Bolt-length
 # budget (M3 x 6, head counter-bored COUNTERBORE_DEPTH = 3 mm into the
@@ -702,7 +702,7 @@ def _emit_cradle_fasteners(
 #   * tibia knee pad:   LINK_THICKNESS = 6 mm -> ~3 mm into the disc
 # All three share a single M3 x 6 SHCS stock (the one that ships with
 # the disc kit); engagement is into the disc's M3 thread for
-# XHORN_BOLT_THREAD_ENGAGEMENT_MM = 3 mm minimum.
+# DISC_HORN_BOLT_THREAD_ENGAGEMENT_MM = 3 mm minimum.
 #
 # Moment-arm note: the bolt circle shrank from r = 10.4 (plastic
 # X-horn PCD 20.8) to r = 7 (disc PCD 14), so per-bolt shear roughly
@@ -710,35 +710,34 @@ def _emit_cradle_fasteners(
 # joint is net stronger, not weaker.  See ``fasteners/README.md``
 # (PN 91290A111 entry).
 
-_HORN_BOLT_PCD_HALF = HP.XHORN_BOLT_PCD / 2.0
+_HORN_BOLT_PCD_HALF = HP.DISC_HORN_BOLT_PCD / 2.0
 
 
 def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
-    """The 4 link-to-X-horn bolts at the yaw joint (coxa_link hub).
+    """The 4 link-to-disc-horn bolts at the yaw joint (coxa_link hub).
 
-    Each M2 SHCS sits in a counter-bore cut into the TOP of the
-    pedestal's bottom cap and clamps the cap DOWN onto the plastic
-    X-horn that lives at link-local z in [-PLASTIC_HORN_H, 0].
+    Each M3 SHCS sits in a counter-bore cut into the TOP of the
+    pedestal's bottom cap and clamps the cap DOWN onto the aluminum
+    disc horn that lives at link-local z in [-PLASTIC_HORN_H, 0].
     Geometry in link-local z (cap spans z in [0, PEDESTAL_CAP_T] =
     [0, 4] mm)::
 
         head bearing face  : z = PEDESTAL_CAP_T - COUNTERBORE_DEPTH
                              = 4 - 2.5 = 1.5  (= counter-bore floor)
         shaft clearance run: z in [0, 1.5]  (1.5 mm of cap below head)
-        X-horn engagement  : z in [-PLASTIC_HORN_H, 0]  (the bolt
+        disc-horn engagement: z in [-PLASTIC_HORN_H, 0]  (the bolt
                              threads downward into the 5 mm-thick
-                             plastic horn; the last 3 mm is the
-                             design-required XHORN_BOLT_THREAD_
-                             ENGAGEMENT_MM = 3 mm).
-        bolt tip overshoot : z in [-PLASTIC_HORN_H - 1.5,
-                                   -PLASTIC_HORN_H]  (the stock M2 x
-                             8 SHCS is 1.5 mm longer than the
-                             cap + horn stack so the tip pokes
-                             through the horn into free air below).
+                             aluminium disc's M3 TAPPED hole; the last
+                             3 mm is the design-required
+                             DISC_HORN_BOLT_THREAD_ENGAGEMENT_MM = 3 mm).
+        bolt tip           : the M3 x 6 SHCS engages 3-5 mm into the
+                             5 mm-thick disc (cap + disc stack), so the
+                             tip stays inside the disc rather than
+                             poking out the far side.
 
     Before this fix (commit b5f7095): the head was placed at the
     hub's TOP face (link-local z = COXA_LIFT + hub_t = 44 mm); the
-    bolt floated 36 mm above the X-horn entirely inside the printed
+    bolt floated 36 mm above the disc horn entirely inside the printed
     hub.  check_fastener_engagement caught this with a
     "joins only 1 part [coxa_link]" failure on every yaw bolt.
     """
@@ -747,14 +746,14 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
     yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z
     # Link-local z = 0 IS the cap's bottom mating face with the
-    # X-horn; the link's transform places that face at world z =
-    # yaw_output_z, which is exactly the X-horn's top face per
-    # check_mating_face_contact's "coxa_link bottom <-> yaw X-horn
+    # disc horn; the link's transform places that face at world z =
+    # yaw_output_z, which is exactly the disc horn's top face per
+    # check_mating_face_contact's "coxa_link bottom <-> yaw disc-horn
     # top" probe (gap = +0.00 mm).
     head_local_z = HP.PEDESTAL_CAP_T - HP.COUNTERBORE_DEPTH
     T_link_to_world = _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a)
     out: list[FastenerInstance] = []
-    for ang in HP.XHORN_BOLT_ANGLES_RAD:
+    for ang in HP.DISC_HORN_BOLT_ANGLES_RAD:
         p_local = np.array([
             _HORN_BOLT_PCD_HALF * np.cos(ang),
             _HORN_BOLT_PCD_HALF * np.sin(ang),
@@ -800,21 +799,21 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
 
 
 def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
-    """The 4 link-to-X-horn bolts at the hip-pitch joint (femur hip pad).
+    """The 4 link-to-disc-horn bolts at the hip-pitch joint (femur hip pad).
 
     May 2026 collinear-pad refactor: the femur's NEW local origin is
-    the hip pad MATING FACE (= X-horn-top plane), not the joint axis,
+    the hip pad MATING FACE (= disc-horn-top plane), not the joint axis,
     so the femur-local y of each face shifts down by HORN_STACK_H::
 
         +Y outer face        : y = LINK_THICKNESS = +6 (was +11)
         counter-bore floor   : y = LINK_THICKNESS - COUNTERBORE_DEPTH = +3.5 (was +8.5)
-        -Y mating face       : y = 0  (= X-horn top; was +5)
+        -Y mating face       : y = 0  (= disc-horn top; was +5)
         3 mm thread depth    : y in [-3, 0]
         bolt tip overshoot   : y in [-3.5, -3]
 
     The world coordinates of the heads / bolts are UNCHANGED -- the
     femur translates +HORN_STACK_H in coxa-Y as a rigid body so the
-    pad mating face still lands on the X-horn-top plane in world.
+    pad mating face still lands on the disc-horn-top plane in world.
     """
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
@@ -826,13 +825,13 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
     # below the pad's outer +Y face = LINK_THICKNESS in NEW frame.
     head_local_y = HP.LINK_THICKNESS - HP.COUNTERBORE_DEPTH
     # NEW femur translation includes a +HORN_STACK_H Y shift so the
-    # NEW link origin lands on the X-horn-top plane.
+    # NEW link origin lands on the disc-horn-top plane.
     T_femur_in_link = _T(HP.COXA_LENGTH, HP.HORN_STACK_H, hip_drop) @ _Ry(p)
     T_femur_to_world = (
         _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a) @ T_femur_in_link
     )
     out: list[FastenerInstance] = []
-    for ang in HP.XHORN_BOLT_ANGLES_RAD:
+    for ang in HP.DISC_HORN_BOLT_ANGLES_RAD:
         p_local = np.array([
             _HORN_BOLT_PCD_HALF * np.cos(ang),
             head_local_y,
@@ -858,12 +857,12 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
 
 
 def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
-    """The 4 link-to-X-horn bolts at the knee joint (tibia knee pad).
+    """The 4 link-to-disc-horn bolts at the knee joint (tibia knee pad).
 
     Mirrors ``_emit_horn_fasteners_hip``: head bearing face sits on
     the COUNTERBORE_DEPTH-deep pocket floor on the pad's outer +Y
     face, bolt axis points -Y INTO the pad and through the -Y mating
-    face into the plastic X-horn below.  See that function's
+    face into the aluminum disc horn below.  See that function's
     docstring for the y-coordinate breakdown.
     """
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
@@ -879,7 +878,7 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
     )
     # NEW (May 2026 collinear-pad refactor): the tibia's NEW local
     # origin is the knee pad mating face, so the tibia placement adds
-    # +HORN_STACK_H in coxa-Y to land the NEW origin on the X-horn-top
+    # +HORN_STACK_H in coxa-Y to land the NEW origin on the disc-horn-top
     # plane.  Counter-bore floor (head bearing) at NEW pad y =
     # LINK_THICKNESS - COUNTERBORE_DEPTH = +3.5.
     head_local_y = HP.LINK_THICKNESS - HP.COUNTERBORE_DEPTH
@@ -889,7 +888,7 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
         _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a) @ T_tibia_in_link
     )
     out: list[FastenerInstance] = []
-    for ang in HP.XHORN_BOLT_ANGLES_RAD:
+    for ang in HP.DISC_HORN_BOLT_ANGLES_RAD:
         p_local = np.array([
             _HORN_BOLT_PCD_HALF * np.cos(ang),
             head_local_y,
@@ -915,7 +914,7 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
 
 
 # ---------------------------------------------------------------------------
-# Spline center screws (M2.5 x 8, captive under the X-horn after assembly)
+# Spline center screws (M2.5 x 8, captive under the disc horn after assembly)
 # ---------------------------------------------------------------------------
 
 
@@ -923,7 +922,7 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
     """One M2.5 x 8 spline screw per servo (18 total).
 
     The screw threads into the servo's spline collar.  In the servo's
-    local frame the screw HEAD sits on top of the plastic horn at
+    local frame the screw HEAD sits on top of the disc horn at
     (SERVO_OUTPUT_X, 0, SERVO_BODY_H + SERVO_OUTPUT_H + PLASTIC_HORN_H);
     the axis points down (-Z in servo-local) into the spline.
     """
@@ -931,7 +930,7 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
     a = (leg_index + 0.5) * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
     # Servo-local head position (x = output offset, y = 0, z = top of
-    # plastic horn).
+    # disc horn).
     head_local = np.array([
         HP.SERVO_OUTPUT_X,
         0.0,
@@ -1004,10 +1003,12 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
             length_mm=8.0,
             cache_stl=f"{PN_M25X8_SHCS}.cache.stl",
             # The servo spline center screw ships with the servo and
-            # sits captive UNDER the plastic 4-arm X-horn after the
+            # sits captive UNDER the disc horn after the
             # link bolts onto the horn (Design B retired the printed
-            # adapter; the link's pad now bolts directly to the horn,
-            # so the spline screw head is buried beneath the link).
+            # adapter and the June 2026 switch replaced the plastic
+            # X-horn with the aluminum disc horn; the link's pad now
+            # bolts directly to the disc horn, so the spline screw head
+            # is buried beneath the link).
             # Install it BEFORE fitting the horn.  May 2026: every
             # driven link's pad now carries a coaxial Phi HORN_CENTRE_
             # OD = 3.4 mm M3 clearance hole (coxa_link's centre_hole
@@ -1018,7 +1019,7 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
             # user-flagged serviceability improvement for the hip
             # and knee, matching the long-standing yaw access path.
             # The skip flag is preserved because install order is
-            # still "spline screw -> X-horn -> link", not because
+            # still "spline screw -> disc horn -> link", not because
             # the screw is geometrically unreachable.
             skip_screwdriver_reason=(
                 "captive under the X-horn after assembly; install "
@@ -1937,7 +1938,7 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
             location=f"femur_link L{leg_index} knee cradle",
         ))
 
-        # Link-to-X-horn bolts (Design B: no more printed adapter disc).
+        # Link-to-disc-horn bolts (June 2026: disc horn, no printed adapter).
         out.extend(_emit_horn_fasteners_yaw(leg_index))
         out.extend(_emit_horn_fasteners_hip(leg_index))
         out.extend(_emit_horn_fasteners_knee(leg_index))

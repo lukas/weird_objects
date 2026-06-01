@@ -2,7 +2,8 @@
 
 Produces a 3/4 isometric (plus top and side) PNG showing every printed
 part in a distinct colour, the three DS3225 servo bodies in their wells,
-the printed horn adapters at every joint, and a thin M3 x 16 hinge pin
+the now-retired printed horn adapters at every joint (this guide still
+draws them via make_servo_horn_adapter), and a thin M3 x 16 hinge pin
 at the foot clevis.  Labels are drawn on top via matplotlib with thin
 leader lines pointing to each part's projected centroid.
 
@@ -136,7 +137,7 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
     yaw_servo.apply_translation(edge_mid)
     parts["yaw_servo"] = yaw_servo
 
-    # ---- yaw horn adapter (above plastic horn above the spline tip)
+    # ---- yaw horn adapter (above disc horn above the spline tip)
     yaw_adapter = HP.make_servo_horn_adapter()
     yaw_adapter.apply_translation([
         0, 0,
@@ -194,7 +195,7 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
     to_world(knee_servo)
     parts["knee_servo"] = knee_servo
 
-    # ---- knee horn adapter (knee X-horn-top plane is at NEW femur
+    # ---- knee horn adapter (knee disc-horn-top plane is at NEW femur
     # y = 0 = +HORN_STACK_H above the joint axis at femur y =
     # -HORN_STACK_H; the adapter top face sits PLASTIC_HORN_H above
     # the joint axis along femur +Y, i.e. at NEW femur y = 0)

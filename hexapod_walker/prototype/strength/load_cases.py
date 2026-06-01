@@ -129,7 +129,8 @@ NUM_LEGS = 6
 # so the foot tip on the tibia STL sits at link-local +X = TIBIA_LENGTH,
 # and the femur knee end sits at link-local +X = FEMUR_LENGTH.  Both
 # links have their hip / knee pad centred at link-local x = 0 with the
-# 4-bolt X-horn pattern on XHORN_BOLT_PCD = 20.8 mm.
+# 4-bolt disc-horn pattern on DISC_HORN_BOLT_PCD = 14 mm (June 2026 disc-horn
+# switch; DISC_HORN_BOLT_PCD is the retained legacy name for the disc PCD).
 
 # Foot-pad load axis: the foot pad's STL origin is at the disk floor
 # centre; +Z points UP (toward the tibia tang); +X / +Y in the disk
@@ -321,8 +322,8 @@ def _mm_to_m(v: float) -> float:
     return v * 1.0e-3
 
 
-def _xhorn_bolt_circle_radius_m() -> float:
-    return _mm_to_m(hp.XHORN_BOLT_PCD / 2.0)
+def _disc_horn_bolt_circle_radius_m() -> float:
+    return _mm_to_m(hp.DISC_HORN_BOLT_PCD / 2.0)
 
 
 # ---------------------------------------------------------------------------
@@ -334,8 +335,8 @@ def tibia_link_case(total_mass_kg: float) -> LoadCase:
     """Foot tip loaded vertically; reacted at the knee 4-bolt pattern.
 
     The tibia STL has the knee bolt circle at link-local (x = 0,
-    y = 0, z = 0) with the 4 X-horn bolts on XHORN_BOLT_PCD =
-    20.8 mm.  The foot tip is at link-local x = TIBIA_LENGTH +
+    y = 0, z = 0) with the 4 disc-horn bolts on DISC_HORN_BOLT_PCD =
+    14 mm.  The foot tip is at link-local x = TIBIA_LENGTH +
     FOOT_HINGE_FORK_X / 2 (the tang end).  We simplify to
     x = TIBIA_LENGTH because the spar carries the bending; the
     tang adds < 5 mm to the moment arm.
@@ -347,8 +348,8 @@ def tibia_link_case(total_mass_kg: float) -> LoadCase:
         part="tibia_link",
         description=(
             f"Foot tip loaded -Z with {F:.1f} N (= robot_weight/3 * "
-            f"{IMPACT_G_FACTOR:g}g impact); reacted at the knee X-horn "
-            f"bolt circle (PCD {hp.XHORN_BOLT_PCD} mm)."
+            f"{IMPACT_G_FACTOR:g}g impact); reacted at the knee disc-horn "
+            f"bolt circle (PCD {hp.DISC_HORN_BOLT_PCD} mm)."
         ),
         loads=(
             PointLoad(
@@ -361,9 +362,9 @@ def tibia_link_case(total_mass_kg: float) -> LoadCase:
             ClampedRegion(
                 kind="bolt_circle",
                 centre_m=(0.0, 0.0, 0.0),
-                radius_m=_xhorn_bolt_circle_radius_m(),
+                radius_m=_disc_horn_bolt_circle_radius_m(),
                 axis="y",
-                label="knee 4-bolt X-horn pattern",
+                label="knee 4-bolt disc-horn pattern",
             ),
         ),
         beam_axis="x",
@@ -380,7 +381,7 @@ def femur_link_case(total_mass_kg: float) -> LoadCase:
     pad sits at link-local (FEMUR_LENGTH, 0, 0).  In the assembled
     leg the knee bolts attach the tibia, so the load that arrives at
     the femur knee end is the same tibia foot-tip force resolved at
-    x = FEMUR_LENGTH.  Reacted at the hip 4-bolt X-horn pattern at
+    x = FEMUR_LENGTH.  Reacted at the hip 4-bolt disc-horn pattern at
     the hip pad centre.
 
     The pitch angle (STANCE_FEMUR_DEG ~ -25 deg) means a vertical
@@ -400,7 +401,7 @@ def femur_link_case(total_mass_kg: float) -> LoadCase:
         part="femur_link",
         description=(
             f"Knee-end loaded -Z with {F:.1f} N (foot-tip impact load "
-            f"transferred through the tibia); reacted at the hip X-horn "
+            f"transferred through the tibia); reacted at the hip disc-horn "
             f"bolt circle.  Resulting moment at the hip = {M:.2f} N-m "
             f"(arm = {hp.FEMUR_LENGTH:.0f} mm)."
         ),
@@ -415,9 +416,9 @@ def femur_link_case(total_mass_kg: float) -> LoadCase:
             ClampedRegion(
                 kind="bolt_circle",
                 centre_m=(0.0, 0.0, 0.0),
-                radius_m=_xhorn_bolt_circle_radius_m(),
+                radius_m=_disc_horn_bolt_circle_radius_m(),
                 axis="y",
-                label="hip 4-bolt X-horn pattern",
+                label="hip 4-bolt disc-horn pattern",
             ),
         ),
         beam_axis="x",
@@ -429,9 +430,9 @@ def femur_link_case(total_mass_kg: float) -> LoadCase:
 
 def coxa_link_case(total_mass_kg: float) -> LoadCase:
     """Yaw stall torque applied at the hip-pitch pad; reacted at the
-    yaw X-horn 4-bolt pattern.
+    yaw disc-horn 4-bolt pattern.
 
-    The coxa link sits on the yaw servo's X-horn.  In stall the yaw
+    The coxa link sits on the yaw servo's disc horn.  In stall the yaw
     servo delivers ~ 2.5 N-m which the coxa link arm has to carry
     out to the hip-pitch servo pad at link-local +X = COXA_LENGTH.
     We model that as a pure horizontal force F_h applied at the
@@ -440,9 +441,9 @@ def coxa_link_case(total_mass_kg: float) -> LoadCase:
     pure yaw torque applied to a +X-pointing arm rotates the arm in
     the X-Y plane, i.e. lateral force at the +X tip).
 
-    Reacted at the yaw 4-bolt X-horn pattern at the inboard end of
+    Reacted at the yaw 4-bolt disc-horn pattern at the inboard end of
     the coxa link (link-local origin), which is bolted DOWN onto the
-    yaw servo's horn.
+    yaw servo's disc horn.
     """
     L_m = _mm_to_m(hp.COXA_LENGTH)
     F_h = DS3225_STALL_TORQUE / L_m
@@ -453,8 +454,8 @@ def coxa_link_case(total_mass_kg: float) -> LoadCase:
             f"DS3225 stall torque {DS3225_STALL_TORQUE:.2f} N-m applied "
             f"about the yaw axis at the hip-pitch pad ({hp.COXA_LENGTH:.0f} "
             f"mm out).  Equivalent lateral force = {F_h:.1f} N in +Y at "
-            f"x = {hp.COXA_LENGTH:.0f} mm.  Reacted at the yaw X-horn "
-            f"bolt circle (PCD {hp.XHORN_BOLT_PCD} mm)."
+            f"x = {hp.COXA_LENGTH:.0f} mm.  Reacted at the yaw disc-horn "
+            f"bolt circle (PCD {hp.DISC_HORN_BOLT_PCD} mm)."
         ),
         loads=(
             PointLoad(
@@ -467,9 +468,9 @@ def coxa_link_case(total_mass_kg: float) -> LoadCase:
             ClampedRegion(
                 kind="bolt_circle",
                 centre_m=(0.0, 0.0, 0.0),
-                radius_m=_xhorn_bolt_circle_radius_m(),
+                radius_m=_disc_horn_bolt_circle_radius_m(),
                 axis="z",
-                label="yaw 4-bolt X-horn pattern",
+                label="yaw 4-bolt disc-horn pattern",
             ),
         ),
         beam_axis="x",

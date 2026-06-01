@@ -3,10 +3,11 @@ hexapod walker prototype.
 
 This module now lives at ``prototype/arm/`` (was ``hexapod_walker/arm/``)
 so the optional arm is bundled with the prototype it bolts onto.  It
-still re-uses the leg's parametric servo well, horn adapter, and link
+still re-uses the leg's parametric servo well, disc horn, and link
 helpers (in ``prototype/hexapod_prototype.py``) as-is, so the arm
-shares the same servo specs (DS3225-class 25 kg-cm, 24 mm horn PCD,
-49.5 x 10 mm tab pattern) without modifying any prototype geometry.
+shares the same servo specs (DS3225-class 25 kg-cm, 14 mm disc-horn
+bolt circle, 49.5 x 10 mm tab pattern) without modifying any prototype
+geometry.
 
 The arm is OPT-IN -- see the ``--with-arm`` flag on
 ``prototype/build_all.py`` and ``prototype/_verify_prototype.py``.
@@ -174,9 +175,11 @@ JAW_LINKAGE_OD   =  2.2   # M2 clearance for the linkage pins
 WRIST_TO_GRIPPER_TIP = WRIST_PLATE_T + GBASE_H + JAW_LENGTH  # mm
 J4_HORN_STACK_Z      = (HP.SERVO_BODY_H - HP.WELL_RIM_Z      # ~10.75
                         + HP.SERVO_OUTPUT_H                  # +6
-                        + 5.0                                # plastic horn
-                        + HP.HORN_ADAPTER_T)                 # +4 = 25.75
-# (= the same "yaw_output_z" stack used in the leg.)
+                        + HP.HORN_STACK_H)                   # +5 disc = 21.75
+# (= the same "yaw_output_z" stack used in the leg: the 20 mm aluminum
+#  25T disc horn seats on the spline and its 5 mm-thick top face is the
+#  link mating plane.  The old printed servo_horn_adapter is gone, so
+#  the stack dropped by HORN_ADAPTER_T relative to the pre-disc design.)
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +272,7 @@ def make_arm_shoulder_link() -> trimesh.Trimesh:
 
     Geometrically IDENTICAL to the leg's coxa_link — same horn-driven
     hub on one end, same hip-pitch servo cradle on the other.  Here the
-    hub bolts to the J1 horn adapter on top of arm_base_bracket and the
+    hub bolts to the J1 disc horn on top of arm_base_bracket and the
     cradle holds the J2 (shoulder pitch) servo.
     """
     return HP.make_coxa_link()
@@ -296,17 +299,16 @@ def make_arm_forearm() -> trimesh.Trimesh:
 def make_wrist_adapter() -> trimesh.Trimesh:
     """Wrist-adapter plate.
 
-    Bridges the forearm's foot socket to the J4 horn adapter:
+    Bridges the forearm's foot socket to the J4 disc horn:
 
         forearm.foot_socket  <- FOOT_HUB plug ON TOP face
-        gripper_base side    <- 4 x M2 horn-bolt pattern ON BOTTOM face
-                                (matching XHORN_BOLT_PCD = 20.8 mm so the
-                                 SAME plastic 4-arm X-horn that the legs
-                                 use mates here too; the May 2026
-                                 fastener-spec fix renamed HORN_BOLT_*
-                                 to XHORN_BOLT_* and dropped the bolt
-                                 from M3 to M2 SHCS -- see
-                                 hexapod_prototype.py XHORN_BOLT_*)
+        gripper_base side    <- 4 x M3 horn-bolt pattern ON BOTTOM face
+                                (matching DISC_HORN_BOLT_PCD = 14 mm so the
+                                 SAME 20 mm aluminum 25T disc horn that the
+                                 legs use mates here too: 4 x M3 x 6 SHCS on
+                                 the cross pattern thread into the disc's
+                                 tapped holes -- see hexapod_prototype.py
+                                 DISC_HORN_BOLT_*)
 
     Local frame:
         Origin = wrist-adapter centre, on the plate's TOP face.
@@ -321,7 +323,7 @@ def make_wrist_adapter() -> trimesh.Trimesh:
     forearm-fixed wrist_adapter.
     """
     # Plate body, centred on the plate's bottom face (z = 0 is the BOTTOM
-    # face that mates to the J4 horn adapter; +Z reaches up to the foot-
+    # face that mates to the J4 disc horn; +Z reaches up to the foot-
     # socket plug).
     plate = _box((WRIST_PLATE_W, WRIST_PLATE_D, WRIST_PLATE_T),
                  center=(0, 0, WRIST_PLATE_T / 2.0))
@@ -332,17 +334,16 @@ def make_wrist_adapter() -> trimesh.Trimesh:
     plug = _cyl(WRIST_PLUG_OD / 2.0 - 0.2, WRIST_PLUG_H + 1.0)
     plug.apply_translation([0, 0, WRIST_PLATE_T + (WRIST_PLUG_H + 1.0) / 2.0])
 
-    # 4 horn-bolt-pattern holes through the plate so the plastic 4-arm
-    # X-horn from the leg's parts list bolts directly to the bottom
-    # face.  Phi XHORN_BOLT_OD = 2.2 mm M2 clearance (May 2026
-    # fastener-spec fix: was M3 clearance, but the X-horn's arm holes
-    # are M2-sized -- see hexapod_prototype.py XHORN_BOLT_*).
+    # 4 horn-bolt-pattern holes through the plate so the 20 mm aluminum
+    # 25T disc horn (same part the legs use) bolts directly to the bottom
+    # face.  Phi DISC_HORN_BOLT_OD = 3.4 mm M3 clearance; the M3 SHCS
+    # thread into the disc's tapped holes on the DISC_HORN_BOLT_PCD =
+    # 14 mm cross pattern (DISC_HORN_BOLT_ANGLES_RAD = 0/90/180/270).
     bolt_holes = []
-    for i in range(4):
-        a = np.pi / 4 + i * np.pi / 2
-        h = _cyl(HP.XHORN_BOLT_OD / 2.0, WRIST_PLATE_T * 4)
-        h.apply_translation([HP.XHORN_BOLT_PCD / 2.0 * np.cos(a),
-                             HP.XHORN_BOLT_PCD / 2.0 * np.sin(a),
+    for a in HP.DISC_HORN_BOLT_ANGLES_RAD:
+        h = _cyl(HP.DISC_HORN_BOLT_OD / 2.0, WRIST_PLATE_T * 4)
+        h.apply_translation([HP.DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
+                             HP.DISC_HORN_BOLT_PCD / 2.0 * np.sin(a),
                              WRIST_PLATE_T / 2.0])
         bolt_holes.append(h)
 
@@ -454,17 +455,16 @@ def make_gripper_base() -> trimesh.Trimesh:
                                 j5_pocket_centre_z - 9.0))
 
     # ---- Wrist-side bolt pattern: 4 horn-pattern bolt holes through
-    # the TOP face into the J4 horn adapter that drives the wrist_adapter.
+    # the TOP face into the J4 disc horn that drives the wrist_adapter.
     # These are not strictly necessary to BUILD the gripper (J4's horn
     # already drives the adapter from the cradle side), but having them
     # gives us 4 access slots for the assembler's screwdriver and acts
     # as a visual key for "this is the wrist-mating face".
     wrist_screw_slots = []
-    for i in range(4):
-        a = np.pi / 4 + i * np.pi / 2
-        h = _cyl(HP.XHORN_BOLT_OD / 2.0 + 0.3, 12.0)
-        h.apply_translation([HP.XHORN_BOLT_PCD / 2.0 * np.cos(a),
-                             HP.XHORN_BOLT_PCD / 2.0 * np.sin(a),
+    for a in HP.DISC_HORN_BOLT_ANGLES_RAD:
+        h = _cyl(HP.DISC_HORN_BOLT_OD / 2.0 + 0.3, 12.0)
+        h.apply_translation([HP.DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
+                             HP.DISC_HORN_BOLT_PCD / 2.0 * np.sin(a),
                              GBASE_H - 6.0])
         wrist_screw_slots.append(h)
 
@@ -539,12 +539,13 @@ NEUTRAL_JAW_DEG = 18.0    # jaws open at this half-angle
 
 
 def _yaw_output_world_z():
-    """Vertical offset from chassis-top TOP face up to the J1 horn-
-    adapter's TOP face (= where arm_shoulder_link.z=0 lands)."""
+    """Vertical offset from chassis-top TOP face up to the J1 disc
+    horn's TOP face (= where arm_shoulder_link.z=0 lands)."""
     return ((HP.SERVO_BODY_H - HP.WELL_RIM_Z)
             + HP.SERVO_OUTPUT_H
-            + 5.0                       # plastic horn height
-            + HP.HORN_ADAPTER_T)
+            + HP.HORN_STACK_H)          # 5 mm aluminum 25T disc horn
+                                        # (no printed adapter; disc top
+                                        # face = link mating plane)
 
 
 def _arm_in_chassis_frame(j1_deg: float = NEUTRAL_J1_DEG,
@@ -571,16 +572,17 @@ def _arm_in_chassis_frame(j1_deg: float = NEUTRAL_J1_DEG,
     bracket.apply_translation([0, 0, chassis_top_z])
     parts.append(bracket)
 
-    # ---- J1 horn adapter (rotates with J1) ----
-    # The horn-adapter top is exactly J1_HORN_STACK_Z above the bracket
+    # ---- J1 disc horn (rotates with J1) ----
+    # The disc-horn top is exactly J1_HORN_STACK_Z above the bracket
     # origin, which equals chassis_top_z + _yaw_output_world_z().
     j1_stack_top_z = chassis_top_z + _yaw_output_world_z()
-    j1_adapter = HP.make_servo_horn_adapter()
-    j1_adapter.apply_transform(rotation_matrix(j1, [0, 0, 1]))
-    # The horn adapter's own +Z = 0 is its BOTTOM face; place its top
-    # face at j1_stack_top_z.
-    j1_adapter.apply_translation([0, 0, j1_stack_top_z - HP.HORN_ADAPTER_T])
-    parts.append(j1_adapter)
+    j1_horn = HP.make_disc_horn()
+    j1_horn.apply_transform(rotation_matrix(j1, [0, 0, 1]))
+    # make_disc_horn's +Z = 0 is its BOTTOM (spline) face and its TOP
+    # mating face sits HORN_STACK_H above, so drop it by HORN_STACK_H to
+    # land the top face at j1_stack_top_z.
+    j1_horn.apply_translation([0, 0, j1_stack_top_z - HP.HORN_STACK_H])
+    parts.append(j1_horn)
 
     # ---- arm_shoulder_link (= coxa_link) — rotates with J1 ----
     shoulder = make_arm_shoulder_link()
