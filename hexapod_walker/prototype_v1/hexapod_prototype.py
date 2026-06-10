@@ -26,8 +26,12 @@ Outputs (in ./stl_prototype/):
         coxa_bracket.stl        -- bolts to the chassis edge, holds the yaw servo
         coxa_link.stl           -- horn-driven U-bracket; holds the hip-pitch servo
         femur_link.stl          -- thigh; horn-driven by hip, holds the knee servo
-        tibia_link.stl          -- shin; horn-driven by knee, ends in the foot socket
-        foot_pad.stl            -- compliant foot pad (TPU or printed PLA + rubber tip)
+        tibia_link.stl          -- shin; horn-driven by knee, CURVES TO A CRAB
+                                   SPIKE (the tip is the ground contact; no
+                                   separate foot pad).  June 2026.
+        foot_pad.stl            -- DEPRECATED (replaced by the tibia spike).
+                                   Still emitted as a part for legacy refs but
+                                   no longer printed on a tray.
 
     Generic (DEPRECATED -- Design B retired the printed adapter; see
     HORN_ADAPTER_OD / make_servo_horn_adapter below.  Kept only for
@@ -218,7 +222,15 @@ TIBIA_LENGTH   = 130.0   # mm -- knee axis -> foot tip
 #   the same WORLD Z as before, the kinematic chain is unchanged for
 #   RL / gait / MuJoCo, and the documented +1.25 mm bracket and
 #   +1.5 mm arm clearances are restored.
-COXA_LIFT     = 36.0     # mm  (was 32.0 before Design B)
+COXA_LIFT     = 40.0     # mm  (was 32.0 before Design B; 36.0 -> 40.0 in the
+                          #       Jun 2026 "8 mm cap" change -- doubling
+                          #       PEDESTAL_CAP_T from 4 to 8 mm raises the cap
+                          #       top by 4 mm, so the whole link is lifted 4 mm
+                          #       more to keep the same 0.5 mm clearance below
+                          #       the seated hip-pitch servo body.  The hip-pitch
+                          #       axis therefore rises 4 mm in world Z -- the
+                          #       IK / gait / MuJoCo stance is 4 mm taller and
+                          #       wants a policy refresh.)
 
 # Extra drop of the hip-pitch well centre BELOW the natural "arm-bottom =
 # well-top" plane.  When 0, the well's +Z face (= the hip-pitch axis +
@@ -1610,15 +1622,38 @@ HORN_STACK_VOID_R   = PLASTIC_HORN_X_TIP_R + 0.5
 # the counter-bore depth COUNTERBORE_DEPTH below.  See the
 # make_coxa_link / make_femur_link / make_tibia_link docstrings for
 # the full geometry.
-PEDESTAL_CAP_T          = 4.0   # mm -- thickness of the solid bottom
+PEDESTAL_CAP_T          = 8.0   # mm -- thickness of the solid bottom
                                 #       cap that carries the 4 M3
-                                #       disc clamp bolts.  4 mm gives
-                                #       a 1.0 mm shaft-clearance run
-                                #       + 3.0 mm counter-bore.
+                                #       disc clamp bolts.  Jun 2026: doubled
+                                #       4 -> 8 mm ("you are not good at making
+                                #       things strong") to fuse the
+                                #       yaw->hip-pitch load path with twice the
+                                #       section depth.  The M3 x 6 disc-horn
+                                #       bolt grip is UNCHANGED: it still grips
+                                #       PEDESTAL_CAP_T_BOLT_GRIP = 1.0 mm of cap
+                                #       below the head; the extra 4 mm of cap
+                                #       simply DEEPENS the head counter-bore up
+                                #       to the trough floor (hex-key entry from
+                                #       +Y).  Requires COXA_LIFT 36 -> 40 to keep
+                                #       0.5 mm clearance below the servo body.
+PEDESTAL_CAP_T_BOLT_GRIP = 1.0  # mm -- cap thickness BELOW the M3 disc-horn
+                                #       bolt head (head bearing face / counter-
+                                #       bore floor).  Pinned independent of
+                                #       PEDESTAL_CAP_T so the M3 x 6 bolt keeps
+                                #       its 1 mm cap + 5 mm disc engagement no
+                                #       matter how thick the cap gets.
 COUNTERBORE_DEPTH       = 3.0   # mm -- counter-bore depth (M3 SHCS
                                 #       head height = 3 mm).  Bolt head
                                 #       TOP sits flush with the cap /
                                 #       pad outer face.
+# -- Cap -X end-wall: REMOVED (Jun 2026) ------------------------------
+# An earlier anti-snap attempt added a 3.5 mm-thick "back wall" across the
+# cap's full Y width at the link's -X face (x in [-17, -13.5]) running up in
+# Z to brace the bare -X cap shelf.  The user did not want a -X back wall --
+# the intended fix was a THICKER BOTTOM.  That is now the doubled 8 mm
+# pedestal cap (PEDESTAL_CAP_T = 8): the -X shelf is 8 mm of solid material
+# at z in [0, 8] (vs the old 4 mm), so the back wall was deleted.  The
+# COXA_CAP_ENDWALL_* constants are gone with it.
 M2_HEAD_OD_CLEARANCE    = 5.7   # mm -- Phi 5.7 mm clearance pocket for
                                 #       the M3 SHCS head (head OD =
                                 #       5.5 mm + 0.2 mm FDM tolerance).
@@ -2431,6 +2466,24 @@ CHASSIS_STANDOFF_HOLES_XY   = (
     (0.0, +CHASSIS_STANDOFF_R),
     (-CHASSIS_STANDOFF_R, 0.0),
     (0.0, -CHASSIS_STANDOFF_R),
+)
+
+# Outer tooling-plate mount ring (Jun 2026).  4 extra M3 clearance holes
+# at R = 44 mm on the 4 hex-CORNER directions (30/150/210/330 deg) that
+# the two R=35 patterns above leave unsupported.  Drilled in
+# chassis_bottom, chassis_top AND the tooling plate so 4 extra M3
+# standoffs anchor the plate's overhanging corners.  Like the brass
+# standoff ring these are plain Phi 3.4 clearance holes -- a standoff
+# bolts up from BELOW (M3 screw / nyloc on the under face), so it's a
+# drill-only retrofit on an already-printed chassis (no heat-set).  R=44
+# is the widest ring that stays on solid plate: the yaw cradles and
+# lightening cutouts begin past ~48 mm (verified by ray-casting both
+# plates' top faces).
+TOOLING_OUTER_MOUNT_R       = 44.0
+TOOLING_OUTER_MOUNT_HOLES_XY = tuple(
+    (TOOLING_OUTER_MOUNT_R * np.cos(np.deg2rad(ang)),
+     TOOLING_OUTER_MOUNT_R * np.sin(np.deg2rad(ang)))
+    for ang in (30.0, 150.0, 210.0, 330.0)
 )
 
 # Chassis-frame translation applied to the tray mesh by
@@ -4268,7 +4321,8 @@ def _hex_plate(flat_to_flat: float, thickness: float,
                with_leg_features: bool = True,
                with_battery_holder_holes: bool = False,
                with_leg_harness_drops: bool = False,
-               with_chassis_standoffs: bool = False) -> trimesh.Trimesh:
+               with_chassis_standoffs: bool = False,
+               with_outer_mount_ring: bool = False) -> trimesh.Trimesh:
     """Return a flat hexagonal plate, centred on origin, axis = +Z.
 
     Hole pattern (per leg, 6 legs total):
@@ -4418,6 +4472,18 @@ def _hex_plate(flat_to_flat: float, thickness: float,
             h.apply_translation([cx, cy, 0])
             holes.append(h)
 
+    if with_outer_mount_ring:
+        # 4 outer M3 clearance holes at R = 44 mm on the hex-corner
+        # directions (TOOLING_OUTER_MOUNT_HOLES_XY) so a tooling plate's
+        # overhanging corners get their own standoff column.  Plain
+        # Phi BRACKET_BOLT_HOLE = 3.4 mm clearance (standoff bolts up
+        # from below); chassis_top + chassis_bottom + the tooling plate
+        # all carry this pattern so the columns stack straight.
+        for (cx, cy) in TOOLING_OUTER_MOUNT_HOLES_XY:
+            h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
+            h.apply_translation([cx, cy, 0])
+            holes.append(h)
+
     if with_battery_holder_holes:
         # 4 holes aligned with battery_holder's mounting feet at
         # (BATTERY_HOLDER_CENTRE_X +/- BATTERY_FOOT_DX,
@@ -4499,6 +4565,7 @@ def make_chassis_top() -> trimesh.Trimesh:
     plate = _hex_plate(CHASSIS_TOP_FLAT_TO_FLAT, CHASSIS_PLATE_T,
                        with_centre_holes=True,
                        with_chassis_standoffs=True,
+                       with_outer_mount_ring=True,
                        with_leg_features=False)
 
     # Yaw-shaft pass-through cutouts at every leg's yaw axis (= chassis
@@ -4594,6 +4661,7 @@ def make_chassis_bottom() -> trimesh.Trimesh:
     plate = _hex_plate(CHASSIS_FLAT_TO_FLAT, CHASSIS_PLATE_T,
                        with_centre_holes=True,
                        with_chassis_standoffs=True,
+                       with_outer_mount_ring=True,
                        with_battery_holder_holes=True,
                        with_leg_harness_drops=True)
 
@@ -5707,7 +5775,7 @@ def make_coxa_link() -> trimesh.Trimesh:
 
     # Arm reaching out to the hip-pitch motor mount.  Spans local x in
     # [-12, COXA_LENGTH + 16].
-    arm = _box((COXA_LENGTH + 28.0, arm_w, arm_t),
+    arm = _box((COXA_LENGTH + 28.0, arm_w, arm_t),  # noqa: F841 -- retired from union Jun 2026 (vestigial 0.5 mm fin); kept for documentation
                center=((COXA_LENGTH + 28.0) / 2.0 - 12.0, 0,
                         arm_t / 2.0))
 
@@ -5781,7 +5849,18 @@ def make_coxa_link() -> trimesh.Trimesh:
     # bottom face at well-top - 1.5 mm is several mm above that body
     # top).
     bridge_z_min = (well_z_drop + WELL_D / 2.0) - 1.5
-    bridge_z_max = arm_t                                        # up to arm top
+    # Jun 2026 "remove the high-Z fin" change: the bridge USED to run all the
+    # way up to the arm top (z = arm_t, lifted +46), but the top ~6 mm of it
+    # (the slice ABOVE the well_top_pad, lifted z in [COXA_LIFT, COXA_LIFT +
+    # arm_t]) was a free-standing 6.75 mm-wide x 53 mm-long fin -- the user's
+    # "5.5 x 6.2 x 53 at high Z, mid Y, across all X" -- that only reached up
+    # to the now-vestigial arm slab and carried no load (the well<->pedestal
+    # path runs through the bridge + pad BELOW the pad top, which the flimsy-
+    # joint slice measures at z < COXA_LIFT).  Top the bridge out at the
+    # well_top_pad top (z = 0, lifted = COXA_LIFT) so the fin is gone; below
+    # that the bridge is fully fused with the pad and the well exactly as
+    # before.
+    bridge_z_max = 0.0                                          # = well-top-pad top (arm bottom)
     bridge_z_extent = bridge_z_max - bridge_z_min
     bridge_z_centre = (bridge_z_min + bridge_z_max) / 2.0
     bridge = _box((arm_x_extent, bridge_y_extent, bridge_z_extent),
@@ -5805,12 +5884,20 @@ def make_coxa_link() -> trimesh.Trimesh:
     # into the well).
     pad_x_min = -WELL_W / 2.0 + delta[0]                        # = -14
     pad_x_max = +WELL_W / 2.0 + delta[0]                        # = +44
-    pad_y_min = bridge_y_min - WELL_TOP_PAD_Y_EXT               # = -22.25
-    pad_y_max = bridge_y_max                                    # = -10.5
+    # Jun 2026 "go all the way across" change: the pad USED to stop at
+    # bridge_y_min - WELL_TOP_PAD_Y_EXT (= -30.5), i.e. it only thickened
+    # the NEAR (+Y) half of the 29 mm-deep well.  The well's outer top
+    # wall on the FAR -Y half (y in [well_far, -30.5]) was left as the
+    # bare WELL_FLOOR_T-thin shell, so the bridge slice check measured the
+    # thin far-Y corner.  Run the pad all the way to the well's FAR -Y
+    # outer face so the thickened deck spans the FULL well width in Y.
+    well_far_y = well_near_y - WELL_D                           # well's far -Y outer face (~ -45.75)
+    pad_y_min = well_far_y                                      # full-Y coverage (-Y side: well far face)
+    pad_y_max = +17.0                                           # full-Y coverage (+Y side: pedestal +Y face)
     pad_z_min = bridge_z_min                                    # = -8.5
     pad_z_max = 0.0                                              # arm bottom
     pad_x_extent = pad_x_max - pad_x_min                        # = 58
-    pad_y_extent = pad_y_max - pad_y_min                        # = 11.75
+    pad_y_extent = pad_y_max - pad_y_min                        # full well + bridge in Y
     pad_z_extent = pad_z_max - pad_z_min                        # = 8.5
     well_top_pad = _box(
         (pad_x_extent, pad_y_extent, pad_z_extent),
@@ -5886,7 +5973,7 @@ def make_coxa_link() -> trimesh.Trimesh:
     cap_neg_y_max     = -LINK_THICKNESS / 2.0
     cap_neg_y_extent  = cap_neg_y_max - cap_neg_y_min
     cap_neg_y_centre  = (cap_neg_y_min + cap_neg_y_max) / 2.0
-    arm_cap_neg = _box((cap_x_extent, cap_neg_y_extent, cap_z_extent),
+    arm_cap_neg = _box((cap_x_extent, cap_neg_y_extent, cap_z_extent),  # noqa: F841 -- retired from union Jun 2026 (vestigial 0.5 mm fin); kept for documentation
                         center=(cap_x_centre, cap_neg_y_centre, cap_z_centre))
 
     # Underside stiffening gusset hanging below the arm in the bridge
@@ -5912,13 +5999,19 @@ def make_coxa_link() -> trimesh.Trimesh:
     # next to the hip-pitch wire-exit slot.  Built in well-local and
     # transformed alongside ``wire_slot`` so it stays anchored to the
     # well's +X outer wall in every part orientation.
-    # arm_cap_pos (the +Y half of the arm top cap) was retired
-    # May 2026; only arm_cap_neg (the -Y half) is unioned in.
-    # See the "ASYMMETRIC CAPPING" docstring above the cap-rib
-    # construction for the full rationale.
-    body_unlifted = _union(arm, well, bridge, gusset_under,
-                            arm_cap_neg, well_top_pad,
-                            cable_post)
+    # Jun 2026 "remove the high-Z fin" change: the ``arm`` slab and the
+    # ``arm_cap_neg`` rib were BOTH retired from the union.  After the May 2026
+    # +Y-overhang + over-cap trims, each had been reduced to a 0.5 mm-wide
+    # (y in [-11, -10.5]) sliver at lifted z in [+40, +46] -- a thin standing
+    # fin with no load path now that the hip-pitch servo seats in the well
+    # (not on the arm).  Dropping them (together with topping the bridge out
+    # at the pad, above) removes the high-Z thin-sheet entirely.  The link
+    # stays one connected body: the well + well_top_pad + bridge overlap the
+    # pedestal/plank-shoulder over x in [-14, +17] at y in [-17, -10.5].
+    # ``arm`` / ``arm_cap_neg`` remain defined above for documentation and so
+    # the downstream spar/arm trim comments stay anchored.
+    body_unlifted = _union(well, bridge, gusset_under,
+                            well_top_pad, cable_post)
     body_unlifted = _diff(body_unlifted, wire_slot)
     # Lift everything UP by COXA_LIFT so the well's bottom + the
     # femur's hip-pad clear the chassis-plate top during yaw + pitch
@@ -5985,24 +6078,35 @@ def make_coxa_link() -> trimesh.Trimesh:
     #
     # Each bolt gets a STEPPED cut:
     #
-    #    z in [0, PEDESTAL_CAP_T - COUNTERBORE_DEPTH]  Phi 3.4 mm shaft
-    #         = [0, 1.0]                                clearance
+    #    z in [0, PEDESTAL_CAP_T_BOLT_GRIP]            Phi 3.4 mm shaft
+    #         = [0, 1.0]                                clearance (the 1 mm of
+    #                                                   cap the bolt grips)
     #
-    #    z in [PEDESTAL_CAP_T - COUNTERBORE_DEPTH,     Phi 5.7 mm head
-    #          PEDESTAL_CAP_T] = [1.0, 4.0]            counter-bore
+    #    z in [PEDESTAL_CAP_T_BOLT_GRIP,               Phi 5.7 mm head
+    #          PEDESTAL_CAP_T] = [1.0, 8.0]            counter-bore
     #
-    # so the M3 SHCS head (Phi 5.5 mm + 0.2 mm tolerance, 3 mm tall)
-    # recesses fully into the cap with its TOP face flush at z = 4 mm
-    # (just below the trough floor).  A hex key reaches the head from
-    # +Y through the existing body-insertion trough above the cap.
-    # The shaft hole is intentionally restricted to the cap region:
-    # above z = PEDESTAL_CAP_T the trough already supplies a clear
-    # vertical path so drilling further is unnecessary.
+    # so the M3 SHCS head (Phi 5.5 mm + 0.2 mm tolerance, 3 mm tall) rests on
+    # the z = 1 mm shoulder and recesses well below the cap top.  With the cap
+    # now 8 mm the head pocket is 7 mm deep; the top 4 mm is open access bore
+    # that meets the trough floor so a hex key still reaches the socket from
+    # +Y through the body-insertion trough.  The shaft hole is restricted to
+    # the cap region: above z = PEDESTAL_CAP_T the trough already supplies a
+    # clear vertical path so drilling further is unnecessary.
     cap_holes = []
     counterbore_holes = []
     shaft_h_extent = PEDESTAL_CAP_T + 0.2  # 0.1 mm overshoot top + bottom
-    counterbore_h_extent = COUNTERBORE_DEPTH + 0.05
-    counterbore_z_centre = PEDESTAL_CAP_T - counterbore_h_extent / 2.0
+    # Counter-bore floor (= M3 SHCS head bearing face) is PINNED at
+    # PEDESTAL_CAP_T_BOLT_GRIP = 1.0 mm above the cap bottom, independent of
+    # the (now 8 mm) cap thickness.  The bolt still grips 1 mm of cap + ~5 mm
+    # of aluminium disc (M3 x 6); the head pocket simply runs UP from that
+    # floor to the cap top (trough floor), where a hex key reaches the socket
+    # from +Y through the body-insertion trough.  (Old behaviour kept the head
+    # COUNTERBORE_DEPTH below the cap TOP -- with an 8 mm cap that would have
+    # floated the head 5 mm up and lost all disc thread engagement.)
+    counterbore_floor_z  = PEDESTAL_CAP_T_BOLT_GRIP          # = 1.0 mm
+    counterbore_top_z    = PEDESTAL_CAP_T + 0.05             # 0.05 mm overshoot
+    counterbore_h_extent = counterbore_top_z - counterbore_floor_z
+    counterbore_z_centre = 0.5 * (counterbore_floor_z + counterbore_top_z)
     for a in DISC_HORN_BOLT_ANGLES_RAD:
         h = _cyl(DISC_HORN_BOLT_OD / 2.0, shaft_h_extent)
         h.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
@@ -6333,6 +6437,15 @@ def make_coxa_link() -> trimesh.Trimesh:
     # vs. ~ 188000 mm^4 for the previous 34 x 34 mm square pedestal
     # column -- the strength verifier picks this up; see the docstring
     # for the SF impact).
+    #
+    # *** June 2026 UPDATE: that polar-moment collapse turned out to be
+    # the root cause of the user's repeatedly-reported "hip_yaw->hip_pitch
+    # joint snaps" failure.  The trimmed +Y material is now REBUILT
+    # (keepout-safely) as the `buttress` UNION at the tail of
+    # make_coxa_link, restoring a wide cap-to-bridge column over
+    # z in [+4, ~+25].  over_cap_plus_y_trim is left in place (the buttress
+    # re-adds only the keepout-clear volume on top of it) so this cut and
+    # its guardrails stay authoritative for the upper arm region. ***
     over_cap_plus_y_trim_x_min = -17.5                              # pedestal -X face (= -34/2) - 0.5 mm overlap
     over_cap_plus_y_trim_x_max = +46.5                              # arm +X end (= +46) + 0.5 mm overlap
     over_cap_plus_y_trim_y_min = bridge_y_max                       # = -10.5; DO NOT lower (would eat bridge)
@@ -6349,11 +6462,117 @@ def make_coxa_link() -> trimesh.Trimesh:
     )
 
     body = _union(pedestal, body_unlifted)
-    return _diff(body, trough, spar_slot,
+    body = _diff(body, trough, spar_slot,
                  arm_neg_y_trim, arm_pos_y_trim,
                  over_cap_plus_y_trim,
                  pad_sweep_clear, horn_hub_recess,
                  *cap_holes, *counterbore_holes, centre_hole)
+
+    # ---- Cap -X end-wall: REMOVED (Jun 2026) ------------------------
+    # An earlier anti-snap attempt added a 3.5 mm-thick wall across the cap's
+    # full Y width at the link's -X face (x in [-17, -13.5]) running up in Z.
+    # The user did not want a -X "back wall"; the intended fix was simply a
+    # THICKER BOTTOM, which is now the doubled 8 mm pedestal cap
+    # (PEDESTAL_CAP_T = 8).  The -X cap shelf the wall was bracing is now
+    # 8 mm of solid material at z in [0, 8] (vs the old 4 mm), so the back
+    # wall is no longer needed and has been deleted.
+
+    # ---- +Y pedestal buttress (yaw->hip-pitch anti-snap reinforcement) --
+    # ROOT CAUSE of the snapping joint the user keeps flagging: the May 2026
+    # over_cap_plus_y_trim excised the ENTIRE +Y half of the pedestal column
+    # above the cap (everything at z > PEDESTAL_CAP_T = +4 and y > bridge_y_max
+    # = -10.5), leaving the yaw-torque path from the disc-horn cap up to the
+    # bridge as a lone 6.5 mm-thick -Y plank.  That collapsed the column's
+    # polar moment from ~188000 mm^4 (full 34 x 34 column) to ~2900 mm^4 -- a
+    # 65x loss -- and THAT thin plank is the "4 mm hip_yaw->hip_pitch" member
+    # the user reports breaking.
+    #
+    # We rebuild the trimmed +Y material as a buttress, but pass it through
+    # EVERY real physical keepout so it cannot reintroduce a clash:
+    #   * trough            -> hip-pitch servo body insertion volume
+    #   * spar_slot         -> femur spar swing gap at y ~ 0
+    #   * pad_sweep_clear    -> femur hip-pad sweep envelope
+    #   * horn_hub_recess    -> yaw disc-horn collar
+    #   * arm_*_y_trim       -> keep the buttress inside the validated arm
+    #                           envelope at the upper (z > ~25) levels
+    #   * the 4 bolt bores + central horn-screw bore stay open
+    # The buttress therefore re-fills only the structurally-dead +Y volume the
+    # design vacated for styling, restoring a near-symmetric column across the
+    # cap-to-bridge fuse (z in [+4, ~+27.5]) where the part was breaking.
+    # Built as a UNION after the main diff so the existing diff logic (and the
+    # user's original over_cap_plus_y_trim intent) stays intact and auditable.
+    buttress_x_min = -17.0                                          # pedestal -X face
+    buttress_x_max = +17.0                                          # pedestal +X face
+    buttress_y_min = bridge_y_max                                   # = -10.5 (do NOT lower: meets the -Y plank)
+    buttress_y_max = +17.0                                          # pedestal +Y face
+    buttress_z_min = PEDESTAL_CAP_T                                 # = +4 (sits ON the cap; bolts unaffected)
+    # Top out the buttress exactly where the arm_*_y_trim cuts begin
+    # (spar_slot_z_min = body_top_z + 0.5 ~ +25).  Above this the +Y
+    # material is excised by arm_pos_y_trim everywhere except a ~6 mm
+    # sliver at the -X end -- restoring it there would only create a NEW
+    # thin sheet, so we stop the buttress at the cut plane.  The full-
+    # thickness +Y column over z in [+4, +25] still bonds to the existing
+    # 6.5 mm -Y plank (y in [-17, -10.5], z in [+4, +27.5]) along the
+    # shared y = -10.5 face, so the two form a wide cap-to-bridge column.
+    buttress_z_max = spar_slot_z_min                                # ~ +25 (arm-trim plane)
+    buttress_raw = _box(
+        (buttress_x_max - buttress_x_min,
+         buttress_y_max - buttress_y_min,
+         buttress_z_max - buttress_z_min),
+        center=(0.5 * (buttress_x_min + buttress_x_max),
+                0.5 * (buttress_y_min + buttress_y_max),
+                0.5 * (buttress_z_min + buttress_z_max)),
+    )
+    buttress = _diff(buttress_raw, trough, spar_slot,
+                     arm_neg_y_trim, arm_pos_y_trim,
+                     pad_sweep_clear, horn_hub_recess,
+                     *cap_holes, *counterbore_holes, centre_hole)
+    body = _union(body, buttress)
+
+    # Jun 2026 "flat bottom" change (user: "the bottom Z for ALL values of X
+    # and Y should be the same").  Previously only the 34 x 34 mm pedestal had
+    # a solid bottom cap at z in [0, PEDESTAL_CAP_T]; the servo-well region
+    # (y < -17) had NO floor -- it was open on -Z (bottom_z jumped to ~+32 over
+    # the cavity, ~+4 over the well walls) so the underside was a stepped mess.
+    # The hip-pitch servo INSERTS FROM +Y (along the joint axis -- see the well
+    # build above), NOT from -Z, so closing the -Z bottom does not block
+    # assembly.  We therefore extend the PEDESTAL_CAP_T-thick solid cap across
+    # the WHOLE link footprint, giving one flat bottom plane at z = 0.  The only
+    # places the cap cannot be solid are carved back by the existing keepouts:
+    #   * pad_sweep_clear -> the femur hip pad swings through z in [0, 8] at
+    #                        x ~ [17, 33]; a solid cap there would hit the femur
+    #   * cap/counterbore/centre holes -> keep the 4 M3 disc-horn bolts + the
+    #                        central horn screw open
+    #   * wire_slot       -> keep the servo wire-exit corridor open
+    # Jun 2026: the flat z=0 plane is restricted to the region DIRECTLY UNDER
+    # THE SERVO HOUSING (well), i.e. y < -16.25 -- the femur pad-sweep -Y limit
+    # (pad_sweep_y_min).  Keeping the plane out of y > -16.25 leaves the femur
+    # swing envelope clear (the +Y / hip side is where the thigh sweeps).  The
+    # pedestal keeps its own 34 x 34 cap at y in [-17, +17]; the two overlap at
+    # y in [-17, -16.25] so they fuse into a continuous bottom under the well.
+    flat_bottom_x_min = -17.0
+    flat_bottom_x_max = pad_x_max                              # +44 (well +X outer face)
+    flat_bottom_y_min = pad_y_min                              # well far -Y face (~ -45.75)
+    flat_bottom_y_max = -16.25                                 # servo-housing +Y face (= femur pad-sweep -Y limit)
+    flat_bottom = _box(
+        (flat_bottom_x_max - flat_bottom_x_min,
+         flat_bottom_y_max - flat_bottom_y_min,
+         PEDESTAL_CAP_T),
+        center=(0.5 * (flat_bottom_x_min + flat_bottom_x_max),
+                0.5 * (flat_bottom_y_min + flat_bottom_y_max),
+                PEDESTAL_CAP_T / 2.0),
+    )
+    # Only the wire-exit slot + bolt bores pass through the plate.
+    # KNOWN (user-accepted): the well's -X / far-Y corner of this plate sweeps
+    # into chassis_top at full inboard yaw (-35 deg) -> ~373 mm^3, so the
+    # workspace self-collision check fails on that one corner.  It is kept flat
+    # per the user's request (flat z=0 under the whole servo housing).
+    flat_bottom = _diff(flat_bottom,
+                        wire_slot,
+                        *cap_holes, *counterbore_holes, centre_hole)
+    body = _union(body, flat_bottom)
+
+    return body
 
 
 def make_femur_link() -> trimesh.Trimesh:
@@ -7099,29 +7318,24 @@ def make_tibia_link() -> trimesh.Trimesh:
     spline screw is reachable from above with the tibia already
     bolted to the disc horn -- mirrors the hip pad's central hole and
     the coxa_link pedestal cap centre hole (user-flagged May 2026).
-    Foot end: a single TANG (a LINK_THICKNESS-wide downward tongue,
-    centred on tibia y=0) that slides into the foot pad's clevis
-    fork (see ``make_foot_pad``).  The tang carries an M3 through-
-    hole at z = FOOT_HINGE_TIBIA_Z, parallel to the knee axis.
+    Foot end (June 2026 crab-spike): the tibia no longer hinges into a
+    separate compliant ``foot_pad``.  Instead the shin CURVES DOWN to a
+    single tapered point -- like a crab's dactyl -- and the tip itself is
+    the ground contact.  The spike is a flat blade swept along a quadratic
+    Bezier in the X-Z plane (LINK_THICKNESS wide in Y, necking near the
+    tip), built from a chain of tangent-aligned boxes so the whole tibia
+    still prints flat-on-bed, broad face down, with NO supports.
 
-    May 2026 supports-free refactor: the tibia is now LINK_THICKNESS
-    = 6 mm wide in tibia Y EVERYWHERE (spar + tang) so the entire
-    part prints as a flat 6-mm-tall slab when oriented with the
-    spar's broad face on the bed.  Pre-2026 the tibia ended in a
-    12-mm-wide CLEVIS (2 cheeks + 4 mm tongue slot) that protruded
-    6 mm above the spar's broad face in that orientation and forced
-    supports under the cheeks.  Inverting the hinge so the FOOT
-    carries the fork and the TIBIA carries a single tang removed
-    the protrusion; the hinge axis, pin, nut and rotational
-    kinematics are otherwise identical to the old design.
+    The part stays LINK_THICKNESS = 6 mm wide in tibia Y everywhere, so it
+    prints as a flat slab on its broad face.  The spike makes the part
+    ~59 mm tall in Z (spar + downward hook), which is why the tray packer
+    auto-splits the six tibias into two plates of three.
     """
-    # NEW (May 2026 collinear-pad refactor): spar centred at NEW
-    # tibia y = +LINK_THICKNESS / 2 = +3, spanning y in
-    # [0, +LINK_THICKNESS] = [0, +6] -- same y range as the knee pad
-    # below.
+    # The whole shin is centred at NEW tibia y = +LINK_THICKNESS / 2 = +3,
+    # spanning y in [0, +LINK_THICKNESS] = [0, +6] -- same y range as the
+    # knee pad below.  June 2026 crab-arc: there is no straight spar any
+    # more; the entire tibia is one long arcing blade (built further down).
     SPAR_Y_CENTRE = LINK_THICKNESS / 2.0
-    spar = _box((TIBIA_LENGTH, LINK_THICKNESS, TIBIA_SPAR_H),
-                center=(TIBIA_LENGTH / 2.0, SPAR_Y_CENTRE, 0))
 
     # ---- Knee-end pad -----------------------------------------------
     # Mirrors make_femur_link's hip pad (same disc horn, same
@@ -7198,72 +7412,83 @@ def make_tibia_link() -> trimesh.Trimesh:
                                   axis="y")
     knee_hub_recess.apply_translation([0.0, knee_pad_y_min, 0.0])
 
-    # ----- Foot tang at the far end (x ~ TIBIA_LENGTH) -----
-    # May 2026 inversion: the tibia ends in a SINGLE TANG that is
-    # in-plane with the spar (LINK_THICKNESS wide in Y, centred on
-    # tibia y=0), not a forked clevis.  Pre-2026 the tibia had a
-    # 12 mm-wide CLEVIS (2 x FOOT_HINGE_CHEEK_T + FOOT_HINGE_GAP)
-    # with a tongue-accepting slot; that geometry stuck 6 mm above
-    # the spar's broad face in the print orientation and forced
-    # supports.  Inverting the hinge so the FOOT carries the fork
-    # and the TIBIA carries a single tang keeps the tibia
-    # LINK_THICKNESS-wide everywhere; see the docstring above and
-    # the FOOT_HINGE_* / FOOT_TANG_* constants block for the full
-    # rationale.
+    # ----- Long arcing shin -> crab spike (June 2026 redesign) -----
+    # User request: the WHOLE tibia is one long arcing curve sweeping from
+    # the knee joint out to a tapered point -- like a crab's leg -- instead
+    # of a straight spar with a hook on the end.  There is no separate
+    # foot_pad: the arc's tip is the ground contact.
     #
-    # Tang geometry: a single solid box that occupies the same X/Z
-    # footprint as the old clevis bulk (FOOT_TANG_X_INBOARD inboard
-    # of TIBIA_LENGTH, FOOT_TANG_X_BEYOND_TIP past the tip, dropping
-    # FOOT_TANG_BELOW_PIN below the pin axis at z=FOOT_HINGE_TIBIA_Z)
-    # but only LINK_THICKNESS = 6 mm wide in Y instead of 12 mm.  No
-    # slot cut.  The M3 through-hole still drills along tibia +Y at
-    # (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z); the bolt now passes
-    # through the FOOT's fork cheeks + tang (in that order) instead
-    # of the old tibia cheeks + foot tongue.
-    tang_x_min = TIBIA_LENGTH - FOOT_TANG_X_INBOARD
-    tang_x_max = TIBIA_LENGTH + FOOT_TANG_X_BEYOND_TIP
-    tang_dx    = tang_x_max - tang_x_min
-    tang_cx    = (tang_x_min + tang_x_max) / 2.0
+    # The shin is a FLAT blade swept along a cubic Bezier in the X-Z plane
+    # (the leg's plane of motion).  It leaves the knee, bows gently UP
+    # through the middle, then curves DOWN to the tip.  It stays
+    # LINK_THICKNESS wide in tibia Y (necking near the tip) and is built
+    # from a chain of short boxes aligned to the local tangent, so the
+    # whole part still prints flat-on-bed, broad face down, no supports.
+    #
+    #   P0 -> at the knee joint (blends into the knee pad)
+    #   P1, P2 -> bow the arc up and forward over the span
+    #   P3 -> the tapered tip, hooked DOWN and forward (the "foot")
+    P0 = np.array([2.0,   0.0])
+    P1 = np.array([62.0, 12.0])
+    P2 = np.array([120.0,  4.0])
+    P3 = np.array([150.0, -24.0])
 
-    tang_z_min = FOOT_HINGE_TIBIA_Z - FOOT_TANG_BELOW_PIN          # -15
-    tang_z_max = TIBIA_SPAR_H / 2.0                                # +9
-    # NEW (May 2026 collinear-pad refactor): tang stays in-plane with
-    # the spar (centred at NEW y = +LINK_THICKNESS / 2 = +3) so the
-    # whole tibia is uniformly LINK_THICKNESS-wide in Y from the
-    # knee pad through to the foot tang -- preserves the
-    # "supports-free flat-on-bed" print orientation.
-    tang = _box((tang_dx,
-                  LINK_THICKNESS,
-                  tang_z_max - tang_z_min),
-                 center=(tang_cx, SPAR_Y_CENTRE,
-                          (tang_z_max + tang_z_min) / 2.0))
+    def _bez(t):
+        u = 1.0 - t
+        return (u ** 3 * P0 + 3.0 * u ** 2 * t * P1
+                + 3.0 * u * t ** 2 * P2 + t ** 3 * P3)
 
-    # Pin hole through the tang (single bore in tibia Y).  Length =
-    # 4 * LINK_THICKNESS so the cylinder cleanly punches through
-    # even with FDM/Hildebrand voxelisation slop.
-    pin_hole = _cyl(FOOT_HINGE_PIN_HOLE_D / 2.0, LINK_THICKNESS * 4.0)
-    pin_hole.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-    pin_hole.apply_translation([TIBIA_LENGTH, SPAR_Y_CENTRE, FOOT_HINGE_TIBIA_Z])
+    # Half-height (Z, perpendicular to the spar) tapers from the full spar
+    # half-height at the knee toward the tip.  June 2026: blunter tip (min
+    # 1.4 mm half-height = ~2.8 mm tall) + a near-linear taper that keeps
+    # more material out near the end so the point is stout and won't snap.
+    def _half_h(t):
+        return (TIBIA_SPAR_H / 2.0 - 1.4) * (1.0 - t) + 1.4
 
-    # A short taper to blend the spar into the tang.  Sits on the
-    # spar centreline; in Y it matches the spar (LINK_THICKNESS) so
-    # the whole tibia keeps a single Y thickness end-to-end.
-    taper = _box((24.0, LINK_THICKNESS * 0.95, TIBIA_SPAR_H * 0.6),
-                 center=(TIBIA_LENGTH - 12.0, SPAR_Y_CENTRE, -3.0))
+    # Y width holds at LINK_THICKNESS, then necks only over the last
+    # quarter, bottoming out at ~3 mm (half the spar) -- a chunky crab
+    # point rather than a fragile chisel.
+    def _width(t):
+        if t < 0.75:
+            return LINK_THICKNESS
+        return LINK_THICKNESS * (1.0 - (t - 0.75) / 0.25 * 0.5)
 
+    N_SEG = 64
+    ts = [i / N_SEG for i in range(N_SEG + 1)]
+    pts = [_bez(t) for t in ts]
+    arc_segs = []
+    for i in range(N_SEG):
+        a, b = pts[i], pts[i + 1]
+        mid = (a + b) / 2.0
+        d = b - a
+        seg_len = float(np.hypot(d[0], d[1]))
+        ang = float(np.arctan2(d[1], d[0]))   # tangent angle in X-Z
+        hh = (_half_h(ts[i]) + _half_h(ts[i + 1])) / 2.0
+        ww = (_width(ts[i]) + _width(ts[i + 1])) / 2.0
+        # Box length along local +X; rotate by -ang about +Y so local +X
+        # aligns with the tangent (rotation_matrix(+a,[0,1,0]) maps
+        # +X -> (cos a, 0, -sin a), so -ang is the right sign here).
+        seg = _box((seg_len + 1.4, ww, 2.0 * hh))
+        seg.apply_transform(rotation_matrix(-ang, [0, 1, 0]))
+        seg.apply_translation([mid[0], SPAR_Y_CENTRE, mid[1]])
+        arc_segs.append(seg)
+
+    # Lightening holes drilled through the wide inner part of the arc,
+    # placed ON the arc centreline (Phi 8 mm) where the blade is tall
+    # enough to keep a healthy rim around each hole.
     lightening = []
-    n_holes = 4
-    for i in range(n_holes):
-        x = (i + 1) * TIBIA_LENGTH / (n_holes + 2)
-        h = _cyl(5.5, LINK_THICKNESS * 4)
+    for t in (0.13, 0.26, 0.39, 0.52):
+        cx, cz = _bez(t)
+        if _half_h(t) < 5.5:
+            continue
+        h = _cyl(4.0, LINK_THICKNESS * 4)
         h.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
-        h.apply_translation([x, SPAR_Y_CENTRE, 0])
+        h.apply_translation([cx, SPAR_Y_CENTRE, cz])
         lightening.append(h)
 
-    body = _union(knee_pad, spar, taper, tang)
+    body = _union(knee_pad, *arc_segs)
     return _diff(body, *knee_holes, *knee_counterbores,
-                 knee_centre_hole, knee_hub_recess,
-                 pin_hole, *lightening)
+                 knee_centre_hole, knee_hub_recess, *lightening)
 
 
 def make_foot_pad() -> trimesh.Trimesh:

@@ -488,27 +488,10 @@ def _build_assembly_instances() -> list[Instance]:
             "tibia_link", "tibia_link.stl", i, None, T_tibia,
         ))
 
-        # ----- foot pad (passive hinge -- only the leg azimuth is applied)
-        # NEW (May 2026 collinear-pad refactor): hinge axis in NEW
-        # tibia-local is at (TIBIA_LENGTH, +LINK_THICKNESS/2,
-        # FOOT_HINGE_TIBIA_Z); tang moved with the spar so the hinge
-        # axis is now at the spar centreline (was 0 pre-refactor).
-        Ry_pt_3 = _rot_y(pt)[:3, :3]
-        hinge_local = (knee_joint_local + pad_axis_offset
-                        + Ry_pt_3 @ np.array(
-                            [HP.TIBIA_LENGTH,
-                             HP.LINK_THICKNESS / 2.0,
-                             HP.FOOT_HINGE_TIBIA_Z]))
-        R_a_3 = R_a[:3, :3]
-        hinge_world = R_a_3 @ hinge_local + yaw_output_world
-        T_foot = (
-            _trans(hinge_world[0], hinge_world[1],
-                   hinge_world[2] - HP.FOOT_HINGE_FOOT_Z)
-            @ R_a
-        )
-        instances.append(Instance(
-            "foot_pad", "foot_pad.stl", i, None, T_foot,
-        ))
+        # June 2026 crab-spike: the separate hinged foot_pad has been
+        # removed.  The tibia now curves to an integral spike whose tip is
+        # the ground contact, so there is no foot_pad instance to place
+        # (chassis_lift below now lands the leg on the spike tip instead).
 
     instances.extend(_build_fastener_instances())
     return instances

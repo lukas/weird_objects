@@ -275,6 +275,17 @@ The Python client in `../pi_control/servo_bridge_client.py` is an
 *optional* convenience (it adds smooth `--sweep` ramps and a `wiggle`
 macro) — but it is **not needed** for any stage below.
 
+> **Shortcut for Stages C–D:** flash
+> `prototype_servo_test/prototype_servo_test.ino` instead of the bridge
+> to **automatically march through every motor one at a time** and gently
+> sweep each one. Open the Serial Monitor @ `115200` (line ending
+> "Newline") and press **ENTER** to test the next joint (it prints which
+> leg/axis/board/channel it's poking before it moves), `N 5` to test just
+> joint 5, `L 0` to test all of leg 0, or `A` for the full 18-joint tour.
+> It reuses the same safe per-axis limits and the EEPROM trims you set
+> with the bridge's `T` command, so "0°" still matches your mounted horns.
+> Re-flash `prototype_servo_bridge.ino` when you're done testing.
+
 ### Stage A — Rails only, nothing else connected
 Bench supply set to **5.5 V, current limit 2.0 A**. No PCA, no Mega.
 

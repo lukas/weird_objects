@@ -720,11 +720,12 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
     pedestal's bottom cap and clamps the cap DOWN onto the aluminum
     disc horn that lives at link-local z in [-PLASTIC_HORN_H, 0].
     Geometry in link-local z (cap spans z in [0, PEDESTAL_CAP_T] =
-    [0, 4] mm)::
+    [0, 8] mm after the Jun 2026 8 mm-cap change)::
 
-        head bearing face  : z = PEDESTAL_CAP_T - COUNTERBORE_DEPTH
-                             = 4 - 2.5 = 1.5  (= counter-bore floor)
-        shaft clearance run: z in [0, 1.5]  (1.5 mm of cap below head)
+        head bearing face  : z = PEDESTAL_CAP_T_BOLT_GRIP = 1.0
+                             (= counter-bore floor; pinned independent of cap
+                             thickness so the M3 x 6 engagement is unchanged)
+        shaft clearance run: z in [0, 1.0]  (1.0 mm of cap below head)
         disc-horn engagement: z in [-PLASTIC_HORN_H, 0]  (the bolt
                              threads downward into the 5 mm-thick
                              aluminium disc's M3 TAPPED hole; the last
@@ -750,7 +751,7 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
     # yaw_output_z, which is exactly the disc horn's top face per
     # check_mating_face_contact's "coxa_link bottom <-> yaw disc-horn
     # top" probe (gap = +0.00 mm).
-    head_local_z = HP.PEDESTAL_CAP_T - HP.COUNTERBORE_DEPTH
+    head_local_z = HP.PEDESTAL_CAP_T_BOLT_GRIP
     T_link_to_world = _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a)
     out: list[FastenerInstance] = []
     for ang in HP.DISC_HORN_BOLT_ANGLES_RAD:

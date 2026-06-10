@@ -356,27 +356,10 @@ def _build_leg(leg_index: int):
     frame_parts.append(tl)
 
     # ------------- Foot at tibia tip ----------------------------------
-    # The foot now hangs on the tibia's clevis-hinge pin at
-    # (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z) in tibia-local; the foot
-    # pad's hinge hole at foot-local (0, 0, FOOT_HINGE_FOOT_Z) lands
-    # on that same world point.  Foot is NOT pitched to follow the
-    # tibia (passive hinge keeps the disk on the ground); only the
-    # leg azimuth ``a`` is applied so the tongue's broad faces (foot
-    # +/-Y) align with the knee axis (tibia +/-Y).
-    Ry_pt_3 = rotation_matrix(pt, [0, 1, 0])[:3, :3]
-    hinge_local = (knee_joint_local + PAD_AXIS_OFFSET
-                    + Ry_pt_3 @ np.array(
-                        [HP.TIBIA_LENGTH,
-                         HP.LINK_THICKNESS / 2.0,
-                         HP.FOOT_HINGE_TIBIA_Z]))
-    hinge_world = R_a_3 @ hinge_local + yaw_output_world
-
-    foot = HP.make_foot_pad()
-    foot.apply_transform(rotation_matrix(a, [0, 0, 1]))
-    foot.apply_translation([hinge_world[0], hinge_world[1],
-                             hinge_world[2] - HP.FOOT_HINGE_FOOT_Z])
-    soft_parts.append(foot)
-
+    # June 2026 crab-spike: the tibia curves to an integral spike, so there
+    # is no separate hinged foot_pad to place.  The spike tip (part of the
+    # tibia frame mesh) is the ground contact, and the chassis_lift solve
+    # in main() lands the leg on that tip.
     return frame_parts, motor_parts, soft_parts
 
 
@@ -630,7 +613,7 @@ def main(argv: list[str] | None = None) -> None:
     z_min = min(float(m.bounds[0][2]) for m in probe_meshes)
     chassis_lift = -z_min
     print(f"  chassis_lift computed as {chassis_lift:.1f} mm "
-          f"(foot pad bottom at z = {z_min:.1f})")
+          f"(crab-spike tip bottom at z = {z_min:.1f})")
 
     frame_meshes  = []
     motor_meshes  = []
@@ -661,14 +644,18 @@ def main(argv: list[str] | None = None) -> None:
                   f"assembly preview.")
 
     def cat(name, meshes_list):
-        mesh = trimesh.util.concatenate(meshes_list)
+        # soft.stl is empty since the crab-spike retired the foot pads;
+        # fall back to an empty mesh so the export + envelope print don't
+        # choke on a None concatenate result.
+        mesh = (trimesh.util.concatenate(meshes_list)
+                if meshes_list else trimesh.Trimesh())
         _yup(mesh)
         path = os.path.join(OUT_DIR, name)
         mesh.export(path)
+        ext = mesh.extents if mesh.faces.size else np.zeros(3)
         print(f"  wrote prototype_assembly/{name:18s}"
               f" {len(mesh.faces):>6d} faces"
-              f"  envelope {mesh.extents[0]:5.1f} x "
-              f"{mesh.extents[1]:5.1f} x {mesh.extents[2]:5.1f} mm")
+              f"  envelope {ext[0]:5.1f} x {ext[1]:5.1f} x {ext[2]:5.1f} mm")
         return mesh
 
     frame   = cat("frame.stl",   frame_meshes)
