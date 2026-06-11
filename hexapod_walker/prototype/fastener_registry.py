@@ -173,8 +173,8 @@ to clamp through the chassis plates.)
     is unmodeled.
 
 19. ``4 x M3 nyloc nuts`` -- captive UNDER chassis_bottom retaining
-    the brass standoff's male threads at the same 4 standoff XY
-    positions (see 18.).  Accessible from below the robot.
+   the brass standoff's male threads at the same 4 standoff XY
+   positions (see 18.).  Accessible from below the robot.
 """
 
 from __future__ import annotations
