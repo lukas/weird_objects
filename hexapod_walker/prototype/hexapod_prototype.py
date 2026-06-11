@@ -6349,11 +6349,12 @@ def make_coxa_link() -> trimesh.Trimesh:
     )
 
     body = _union(pedestal, body_unlifted)
-    return _diff(body, trough, spar_slot,
+    coxa = _diff(body, trough, spar_slot,
                  arm_neg_y_trim, arm_pos_y_trim,
                  over_cap_plus_y_trim,
                  pad_sweep_clear, horn_hub_recess,
                  *cap_holes, *counterbore_holes, centre_hole)
+    return coxa
 
 
 def make_femur_link() -> trimesh.Trimesh:
@@ -7052,10 +7053,6 @@ def make_femur_link() -> trimesh.Trimesh:
                         center=(KNEE_RIB_X_CENTRE, KNEE_RIB_Y_CENTRE,
                                 -KNEE_RIB_Z_CENTRE))
 
-    # Cable post (Part A, May 2026): printed-in zip-tie strain relief
-    # next to the knee wire-exit slot.  Built in well-local and
-    # transformed alongside ``wire_slot`` (R + delta) so it stays
-    # anchored to the well's +X outer wall.
     body = _union(hip_pad, spar, well,
                    bridge_top, bridge_bot,
                    knee_rib_top, knee_rib_bot,

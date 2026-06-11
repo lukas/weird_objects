@@ -1,205 +1,173 @@
-# Hexapod prototype — wiring & bench bring-up
+# Hexapod prototype — wiring & bench bring-up (FEETECH bus servos)
 
 One-page checklist for wiring the electronics and testing them **on a
-bench power supply first**, before the LiPo is ever connected. Pair
-this with the firmware in `prototype_servo_bridge/` and the client in
-`../pi_control/servo_bridge_client.py`.
+bench power supply first**, before the LiPo is ever connected. Pair this
+with the Pi-side driver in `../pi_control/feetech_bus.py`.
 
-Your first built arm is **leg 0 = joints 0 / 1 / 2**, all on PCA9685
-`0x40`, channels 0 / 1 / 2, stock DS3225 pigtails (no extensions). This
-doc gets that leg moving safely.
+**June 2026 redesign.** The prototype now uses **18× FEETECH STS3215**
+(ST-3215-C018, 12 V / 30 kg·cm) **serial-bus** smart servos. Each servo
+has a built-in 12-bit magnetic encoder and reports **position, load,
+voltage, current and temperature** back over the bus, so the robot has
+closed-loop joint feedback with **no external sensors**. This also
+deletes the old stack: **no Arduino Mega, no PCA9685 PWM boards, no
+servo BECs, no AS5600 encoders.** The Raspberry Pi (or your laptop)
+talks the STS protocol **directly** over one USB→TTL bus adapter.
 
-**You do not need the Raspberry Pi for any of this.** The whole servo
-bench test runs on just the **Arduino Mega + your laptop** (USB serial).
-The Pi is only involved in the very last step (the IMU), which is on a
-separate I²C bus — see Stage F.
+Your first built arm is **leg 0 = joints 0 / 1 / 2 = servo IDs 1 / 2 /
+3**. This doc gets that leg moving safely, then scales to all 18.
 
 ---
 
 ## 0. Why bench power before the battery
 
-A charged 3S LiPo is a ~12 V, many-amp source with no current limit —
-a wiring mistake dumps all of it into a short (smoke, burnt traces, or
-a slammed servo). A bench supply lets you **set a current limit** so a
+A charged 3S LiPo is a ~12 V, many-amp source with no current limit — a
+wiring mistake dumps all of it into a short (smoke, burnt traces, or a
+slammed servo). A bench supply lets you **set a current limit** so a
 mistake trips the supply instead of cooking hardware. Only move to the
 LiPo once everything below passes on the bench.
 
 If you don't own a bench supply: at minimum put an **inline fuse**
-(~5 A) on the servo rail and keep first power-ons short, but a
-current-limited supply is strongly preferred for bring-up.
+(~5 A for one leg, ~15–20 A for all 18) on the servo V+ rail and keep
+first power-ons short — but a current-limited supply is strongly
+preferred for bring-up.
+
+> **Voltage note:** the STS3215-30kg is the **12 V** variant (range
+> 6–12.6 V). Run the bus at **12 V** (bench supply, later a 3S LiPo at
+> 11.1 V nominal). There is **no servo BEC** any more — 12 V goes
+> straight to the servos. The Pi still needs its own 5 V (a 5 V BEC or
+> USB supply); it is **never** powered from the 12 V servo rail.
 
 ---
 
 ## 1. Two power domains (share ground only)
 
 ```
-   BENCH SUPPLY (set 5.5V, limit 2A)        ← swap in LiPo+BEC later
-            │
-   ┌────────┴────────┐
-   │                 │
- PCA 0x40 V+      (PCA 0x41 V+)             ← servo power, NOT from Arduino
- servo rail        servo rail
-
-   Arduino Mega  ── 5V / GND / SDA / SCL ──► PCA 0x40 (+ PCA 0x41 later)
-        │   (Mega is the I²C master for the PCA boards)
-       USB ──► laptop (logic power + serial during bench test)
-
-   MPU-6050 IMU ── separate bus ──► Raspberry Pi GPIO I²C  (Stage F only)
+   BENCH SUPPLY (set 12.0 V, limit 2 A for one leg)   ← swap in 3S LiPo later
+            │  12 V servo rail
+   ┌────────┴─────────────────────────────────┐
+   │  V+ injected on the bus power rail        │
+ Bus adapter ──TTL bus──► servo 1 ─► servo 2 ─► … ─► servo 18
+ (FE-URT-1 /             (3-wire daisy chain: V+ / GND / Signal)
+  Waveshare)
+   │ USB
+   ▼
+ Raspberry Pi (or laptop)  ── 5 V of its own (USB / 5 V BEC) ──┐
+   │                                                           │
+   └──I²C (GPIO2/3, its OWN bus)──► MPU-6050 IMU  (Stage F)     │
+                                                               ground common
 ```
 
-- **Logic** (Mega, PCA9685 VCC) is powered from the Mega's USB on the
-  bench — clean and current-limited by the laptop port. No Pi needed.
-- **Servo V+** comes only from the bench supply (later: the BECs) into
-  the PCA9685 **screw terminals**. Never power DS3225s from the Mega
-  5V pin (firmware header, lines 39–41).
-- **All grounds common**: bench-supply −, PCA V+ terminal GND, PCA
-  logic GND, Mega GND. Verify with a continuity beep.
-- **The IMU is NOT on the Mega's bus.** It rides the Pi's I²C bus and
-  is read by the Pi directly — the servo firmware never touches it. It
-  plays no part in the arm test; see Stage F.
+- **Servo power** (12 V) is a single rail injected onto the bus. The
+  STS3215 connector is **3-pin**: `V+ / GND / Signal`. Servos pass power
+  and signal through to the next servo, so the whole robot is one chain.
+- **The bus adapter** (FE-URT-1 or Waveshare Bus Servo Adapter) converts
+  USB↔half-duplex TTL and passes the 12 V through to the first servo's
+  power pins (most adapters have a DC barrel jack for the servo rail).
+- **All grounds common**: bench-supply −, bus-rail GND, adapter GND, Pi
+  GND. Verify with a continuity beep.
+- **The IMU is on the Pi's I²C bus**, totally separate from the servo
+  bus. It plays no part in the arm test; see Stage F.
 
 ---
 
-## 2. I²C control bus — Mega ↔ PCA9685 (Mega is the master)
+## 2. The serial bus — Pi ↔ adapter ↔ servos
 
-The **Arduino Mega is the I²C master** for the PCA boards (the firmware
-does `Wire.begin()` / `pwm.begin()`). The PCAs hang off the Mega's pins
-20/21 — **not** the Pi or laptop. That's why you verify them with a
-scanner *sketch* on the Mega, not with `i2cdetect` (which only scans a
-Linux host's own bus, and your laptop doesn't have one).
-
-| Mega pin        | PCA9685 #1 (0x40) | PCA9685 #2 (0x41, later) |
-|-----------------|-------------------|--------------------------|
-| `SDA` (pin 20)  | SDA               | SDA (chain)              |
-| `SCL` (pin 21)  | SCL               | SCL (chain)              |
-| `5V`            | VCC (logic)       | VCC (logic)              |
-| `GND`           | GND (logic)       | GND (logic)              |
-
-- For the single-arm bench test you only wire **board `0x40`**. Board
-  `0x41` comes later (it only carries joints 16 & 17 = leg 5 hip+knee).
-- Daisy-chain board #2 from board #1's pass-through header, or run
-  separate jumpers from the Mega.
-- **Solder the `A0` pad on board #2** so it enumerates as `0x41`.
-  Board #1 stays unjumpered (`0x40`).
-- VCC (logic, ~5 V low current) is **separate** from the V+ servo
-  terminal block — don't bridge them.
-
-**Verify the Mega sees the board(s)** with this scanner sketch, read in
-the Arduino serial monitor @ `115200`, then re-flash the real firmware:
-
-```cpp
-#include <Wire.h>
-void setup() {
-  Serial.begin(115200);
-  Wire.begin();
-  Serial.println("Scanning I2C...");
-  for (byte a = 1; a < 127; a++) {
-    Wire.beginTransmission(a);
-    if (Wire.endTransmission() == 0) {
-      Serial.print("found 0x"); Serial.println(a, HEX);
-    }
-  }
-}
-void loop() {}
-```
-
-Expect `0x40` (and `0x41` once that board's `A0` jumper is set).
-
----
-
-## 2b. Where the Raspberry Pi fits in (USB, **not** I²C)
-
-Short answer: **you never connect the Pi to the PCA's SDA/SCL.** The
-PCA boards stay on the Arduino's I²C bus, and the Arduino is their only
-master. The Pi connects to the **Arduino over USB** and sends the same
-text commands you typed by hand (`C`, `J 0 20`, …). The Arduino is a
-"servo bridge": Pi decides *what* pose, Arduino does the real-time PWM.
+There is exactly **one** data wire pair on the robot: the half-duplex
+TTL bus, daisy-chained servo to servo. No I²C, no per-servo PWM lines.
 
 ```
-  Raspberry Pi ──USB cable──► Arduino Mega ──I²C (pins 20/21)──► PCA 0x40 / 0x41 ──► servos
-       │           (serial,           (Mega = I²C master)
-       │            115200)
-       └──I²C (GPIO2/3, its OWN bus)──► MPU-6050 IMU
+  Raspberry Pi ──USB──► Bus adapter ──TTL bus──► ID1 ─► ID2 ─► ID3 ─► … ─► ID18
+       │   (serial, 1 Mbps)          (V+ / GND / Signal, chained)
+       └──I²C (GPIO2/3)──► MPU-6050 IMU   (separate bus)
 ```
 
-Two separate I²C buses, one per processor — they are **not** joined:
+- The adapter enumerates on the Pi as **`/dev/ttyUSB0`** (or
+  `/dev/ttyACM0`). Find it with `ls /dev/ttyUSB* /dev/ttyACM*`.
+- **12 V must be present on the bus** for the adapter to talk to servos
+  (the STS logic is powered from V+). Power the rail before scanning.
+- Default servo baud is **1 Mbps**; `feetech_bus.py` uses that.
 
-- **Arduino's bus** (Mega pins 20/21): the two PCA9685 boards. Mega is
-  master.
-- **Pi's bus** (Pi GPIO2 `SDA` / GPIO3 `SCL`): the MPU-6050 only. Pi is
-  master.
-
-> ⚠ **Do not wire the Pi's SDA/SCL to the Arduino's SDA/SCL.** That
-> would put two masters on one bus and they'd fight. The Pi↔Arduino
-> link is USB serial, full stop.
-
-### How to talk to the Arduino from the Pi
-
-It's the *exact same serial protocol* you've been typing — the Pi just
-sends those lines over the USB cable instead of you typing them. The
-repo's client already does this:
+### Install the driver (once, on the Pi/laptop)
 
 ```bash
-# On the Pi (after: python -m pip install pyserial):
-python hexapod_walker/prototype/pi_control/servo_bridge_client.py \
-    --port /dev/ttyACM0 centre
-python hexapod_walker/prototype/pi_control/servo_bridge_client.py \
-    --port /dev/ttyACM0 joint 1 20 --sweep
+python -m pip install feetech-servo-sdk pyserial
 ```
 
-- The Arduino enumerates on the Pi as **`/dev/ttyACM0`** (or
-  `/dev/ttyUSB0` on some clones). Find it with `ls /dev/ttyACM* /dev/ttyUSB*`.
-- This is the only wire between Pi and Arduino: the **USB-A → USB-B
-  cable** from the BOM. Power-wise the Pi can power the Mega over that
-  cable, but on the robot give each its own supply (see §5).
-- Everything in Stages C–E works identically whether the serial host is
-  your laptop (bench) or the Pi (on-robot) — only the `--port` changes.
+### Assign servo IDs (once per servo — CRITICAL)
 
-### Division of labor (why two processors)
+Every servo ships as **ID 1**. A bus needs unique IDs, so you set each
+one **with only that single servo connected** (otherwise every ID-1
+servo answers at once and you brick the address):
 
-- **Arduino Mega**: real-time servo PWM via the PCAs, hard angle-limit
-  clamping, trim. Deterministic, never blocked by an OS.
-- **Raspberry Pi**: high-level brain — gait planner, vision, Wi-Fi, and
-  reading the IMU on its own bus. Streams pose vectors (`A <18 floats>`)
-  to the Arduino over USB.
+```bash
+# Connect ONE new servo. It is ID 1 from the factory. Give it its ID:
+python ../pi_control/feetech_bus.py --port /dev/ttyUSB0 setid --from 1 --to 3   # this is joint 2 (knee), leg 0
+```
+
+Logical joint → servo ID is simply **ID = joint + 1**:
+
+| Leg | yaw (axis0) | hip (axis1) | knee (axis2) |
+|----:|:-----------:|:-----------:|:------------:|
+| 0   | ID 1        | ID 2        | ID 3         |
+| 1   | ID 4        | ID 5        | ID 6         |
+| 2   | ID 7        | ID 8        | ID 9         |
+| 3   | ID 10       | ID 11       | ID 12        |
+| 4   | ID 13       | ID 14       | ID 15        |
+| 5   | ID 16       | ID 17       | ID 18        |
+
+Label each servo as you ID it. After all are chained, verify:
+
+```bash
+python ../pi_control/feetech_bus.py --port /dev/ttyUSB0 scan   # expect IDs 1..18
+```
+
+---
+
+## 2b. Where the Raspberry Pi fits in
+
+The Pi **is** the controller now — there is no microcontroller in the
+loop. It runs `feetech_bus.py`, which:
+
+- maps the 18 logical joints to servo IDs 1..18,
+- enforces the same safe per-axis angle limits in software,
+- applies per-joint **trims** (now stored in
+  `../pi_control/feetech_trims.json`, since there's no EEPROM),
+- sync-writes goal positions and reads back live feedback.
+
+Everything below works identically whether the host is your laptop
+(bench) or the Pi (on-robot) — only `--port` changes.
 
 ---
 
 ## 3. Servos — leg 0 (your built arm)
 
-All three land on PCA `0x40`. Source of truth:
-`python -m hexapod_walker.prototype.pi_control.wire_harness_plan`.
+| Joint | Axis      | Servo ID | Limit (deg) |
+|------:|-----------|:--------:|-------------|
+| 0     | yaw       | 1        | ±35         |
+| 1     | hip pitch | 2        | −80 … +30   |
+| 2     | knee      | 3        | −20 … +80   |
 
-| Joint | Axis      | Board | Ch | Cable          | Limit (deg) |
-|------:|-----------|-------|---:|----------------|-------------|
-| 0     | yaw       | 0x40  | 0  | stock pigtail  | ±35         |
-| 1     | hip pitch | 0x40  | 1  | stock pigtail  | −80 … +30   |
-| 2     | knee      | 0x40  | 2  | stock pigtail  | −20 … +80   |
+STS3215 3-pin bus connector (both ports are identical — chain in or
+out of either):
 
-3-pin connector orientation on each channel column:
+- **black → GND**
+- **red → V+ (12 V)**
+- **white/yellow → Signal**
 
-- **brown/black → GND** (outer-rim row, `–`)
-- **red → V+** (middle)
-- **orange/yellow → PWM** (signal, nearest the chip)
-
-Reversing the connector is the #1 bring-up mistake — match the
-silkscreen `GND/V+/PWM` rows exactly.
-
-> When you wire all 6 legs later: **only joints 16 & 17 (leg 5 hip +
-> knee) cross to board `0x41`.** Everything else is on `0x40`.
+Match the connector keying; the two ports on each servo are wired in
+parallel, so "in" vs "out" doesn't matter electrically — pick whichever
+makes the harness tidy.
 
 ---
 
 ## 3b. The zero state — how the leg must sit at 0 / 0 / 0
 
-`C` (and `J <j> 0`) drives every joint to **0°**. The servo horns must
-be bolted on so that **0° corresponds to this pose**, or every angle you
-command afterwards is off by the mounting error. Get this right *before*
-you power the arm — it's also what makes the boot-time auto-centre safe.
+`centre` (and `joint <j> 0`) drives every joint to **0°**. The horns
+must be bolted so that **0° corresponds to this pose**, or every angle
+you command afterwards is off by the mounting error.
 
 **At 0 / 0 / 0 the whole leg is dead straight and horizontal, pointing
-straight out from the body**, with coxa, femur, tibia, and foot all in
-one line:
+straight out from the body**, with coxa, femur, tibia and foot colinear:
 
 ```
    zero state (side view, body at left):
@@ -209,189 +177,141 @@ one line:
         all three links colinear, parallel to the table, foot straight ahead
 ```
 
-- **yaw = 0** → leg points straight out along its mounting azimuth (no
-  fore/aft swing).
-- **hip = 0** → femur is horizontal, in line with the coxa (not lifted).
-- **knee = 0** → tibia is straight, in line with the femur (fully
-  extended, no bend).
+- **yaw = 0** → leg points straight out along its mounting azimuth.
+- **hip = 0** → femur horizontal, in line with the coxa.
+- **knee = 0** → tibia straight, in line with the femur.
 
 ### Which way each axis moves (so you mount horns the right way round)
 
-| Axis (joint)   | `+` angle moves the link… | `−` angle moves it… | Range      | Stance |
-|----------------|---------------------------|---------------------|------------|-------:|
-| yaw (j0)       | swings horizontally one way | the other way      | ±35°       | 0°     |
-| hip pitch (j1) | femur tip **down**        | femur tip **up**    | −80 … +30° | −25°   |
-| knee pitch (j2)| tibia tip **down** (folds under) | tibia tip **up** | −20 … +80° | +60°   |
+| Axis (joint)   | `+` angle moves the link…        | `−` angle moves it… | Range      | Stance |
+|----------------|----------------------------------|---------------------|------------|-------:|
+| yaw (j0)       | swings horizontally one way      | the other way       | ±35°       | 0°     |
+| hip pitch (j1) | femur tip **down**               | femur tip **up**    | −80 … +30° | −25°   |
+| knee pitch (j2)| tibia tip **down** (folds under) | tibia tip **up**    | −20 … +80° | +60°   |
 
-So the **standing stance (0, −25, +60)** is "femur lifted up ~25°, knee
-folded down ~60°," which plants the foot below the body — the classic
-knee-up / foot-down insect stance. Zero state is the *straightened-out*
-version of that, which is easier to eyeball when mounting horns.
+So the **standing stance (0, −25, +60)** is "femur lifted ~25°, knee
+folded ~60°," planting the foot below the body.
 
 ### Mounting each horn against zero
 
-1. Send `C` so the PCA holds every channel at 0° (servo is now at its
-   electrical centre, ~1500 µs).
-2. With the servo powered and held at 0°, fit the horn/link so the link
-   sits in the straight-out-horizontal zero pose above, then bolt it.
-3. Don't fight the spline tooth pitch — get within one tooth, bolt it,
-   then null out the rest with a software trim: `T <joint> <deg>`
-   (clamped ±30°). e.g. if hip sits 4° high at "0", `T 1 -4`.
-4. Re-send `C` and confirm all three links are straight and level.
+1. `python ../pi_control/feetech_bus.py --port /dev/ttyUSB0 centre` —
+   the servo holds at count 2048 (its 0° centre).
+2. With the servo powered and held at 0°, fit the FEETECH POM horn /
+   link so the link sits in the straight-out zero pose above, then bolt
+   it (4× M2.5 on the 9.9 mm square pattern + the central M3 horn screw).
+3. Get within one spline tooth, bolt it, then null out the rest with a
+   software trim: `feetech_bus.py … trim <joint> <deg>` (clamped ±30°).
+   e.g. if hip sits 4° high at "0": `trim 1 -4`.
+4. Re-run `centre` and confirm all three links are straight and level.
 
-> Trims are **saved to the Mega's EEPROM** and reloaded on every boot
-> (before the initial centre), so you calibrate each joint **once** and
-> it survives power-cycles and the serial-open auto-reset. You do not
-> need to re-enter trims every time you power on.
+> Trims are saved to **`feetech_trims.json`** and re-applied on every
+> command, so you calibrate each joint **once**.
 
-> This is exactly why the boot-time `centreAll()` is safe **once horns
-> are mounted at zero**: a reset just returns the leg to straight-out,
-> not into a hard stop.
+> Unlike the old PWM servos, the STS3215 is **absolute**: it knows its
+> angle the instant it powers on (12-bit magnetic encoder), so there is
+> no blind centre-on-boot slam — you can `relax` it, pose it by hand,
+> and `feedback` will read exactly where it is.
 
 ---
 
 ## 4. Bench bring-up sequence
 
-**You drive the servos by typing commands into the Arduino IDE Serial
-Monitor** — no Python, no Pi. The firmware parses newline-terminated
-commands (see `prototype_servo_bridge.ino`):
+Drive everything from `feetech_bus.py`. Common commands:
 
-| Type this        | Does                                              |
-|------------------|---------------------------------------------------|
-| `?`              | print help                                        |
-| `C`              | centre all joints (0°)                             |
-| `J <joint> <deg>`| move one joint, e.g. `J 0 20` = joint 0 to +20°   |
-| `T <joint> <deg>`| set a trim offset (±30°), e.g. `T 1 -5` — **saved to EEPROM** |
-| `P`              | print the trim table                              |
+| Command                              | Does                                            |
+|--------------------------------------|-------------------------------------------------|
+| `scan`                               | list servo IDs on the bus                       |
+| `setid --from 1 --to N`              | re-ID the **only** servo on the bus             |
+| `centre`                             | all joints → 0°                                 |
+| `joint <j> <deg> [--sweep]`          | move one joint (eased with `--sweep`)           |
+| `wiggle --joint <j>`                 | direction/range check macro                     |
+| `stance`                             | full standing pose on all 18 joints             |
+| `relax [--joint j]`                  | torque **off** (limp) so you can pose by hand   |
+| `hold [--joint j]`                   | torque **on** (hold position)                   |
+| `feedback [--watch]`                 | position / load / volt / temp / current table   |
+| `trim <j> <deg>`                     | set + save a trim offset (±30°)                 |
 
-Serial Monitor settings: **baud `115200`**, line ending **"Newline"**
-(so each command is terminated with `\n`). Each command echoes `OK ...`.
+Software clamps every command to the safe per-axis limits (yaw ±35, hip
+−80…+30, knee −20…+80).
 
-> The firmware clamps every command to the safe per-axis limits (yaw
-> ±35, hip −80…+30, knee −20…+80), so you can't drive past them even by
-> typing a bigger number.
+### Stage A — Rail only, nothing else connected
+Bench supply set to **12.0 V, current limit 2.0 A**. No adapter, no servos.
 
-The Python client in `../pi_control/servo_bridge_client.py` is an
-*optional* convenience (it adds smooth `--sweep` ramps and a `wiggle`
-macro) — but it is **not needed** for any stage below.
-
-### Stage A — Rails only, nothing else connected
-Bench supply set to **5.5 V, current limit 2.0 A**. No PCA, no Mega.
-
-- [ ] Output reads ~5.5 V on the meter.
-- [ ] No short between the V+ and GND leads (continuity = open).
+- [ ] Output reads ~12.0 V on the meter.
+- [ ] No short between V+ and GND leads (continuity = open).
 - [ ] Supply OFF.
 
-### Stage B — Mega + PCA9685 logic, no servos, no servo rail
-Mega powered by **USB only** (laptop); bench supply still
-OFF/disconnected. Just the Mega and PCA `0x40` — no Pi.
+### Stage B — Adapter + Pi, no servos
+Bus adapter on USB; 12 V rail still OFF. 
 
-- [ ] Upload the **I²C scanner sketch** (§2); serial monitor @ `115200`
-      lists `0x40` (and `0x41` if that board is wired + jumpered). If a
-      board is missing, fix wiring / the `A0` jumper now.
-- [ ] Re-flash `prototype_servo_bridge.ino` (needs the
-      "Adafruit PWM Servo Driver Library").
-- [ ] Serial @ `115200` prints `OK prototype_servo_bridge` + help.
-- [ ] PCA + Mega regulators stay cool after a minute.
+- [ ] `ls /dev/ttyUSB* /dev/ttyACM*` shows the adapter.
+- [ ] `scan` returns nothing yet (no servos / no power) — that's fine; it
+      confirms the port opens.
 
 ### Stage C — One spare servo, off the arm
-Plug a **spare** DS3225 into `0x40` ch 0. Connect bench supply to the
-PCA V+ terminal. Supply ON (still 5.5 V / 2 A limit). In the Serial
-Monitor, type these one line at a time:
+Connect a **spare** STS3215 to the adapter and the 12 V rail. Supply ON
+(12 V / 2 A limit).
 
-```
-C            ← centre (joint 0 → 0°)
-J 0 15       ← nudge +15°
-J 0 0
-J 0 -15      ← nudge −15°
-J 0 0
-J 0 30
-J 0 -30
-J 0 0
+```bash
+feetech_bus.py --port /dev/ttyUSB0 scan          # expect [1] (factory ID)
+feetech_bus.py --port /dev/ttyUSB0 setid --from 1 --to 1
+feetech_bus.py --port /dev/ttyUSB0 joint 0 15
+feetech_bus.py --port /dev/ttyUSB0 joint 0 -15
+feetech_bus.py --port /dev/ttyUSB0 feedback      # reads back ~ -15 deg, volts, temp
 ```
 
-- [ ] Centres without a violent jump; each step is smooth both ways.
-- [ ] Idle current is small; moving current well under 2 A (the supply
-      shouldn't be hitting its limit / going into CV→CC).
-- [ ] No continuous buzz (= stall), no overheating.
+- [ ] Servo answers `scan`; moves smoothly both ways.
+- [ ] `feedback` shows sane volts (~12 V), low load, reasonable temp.
+- [ ] Idle/move current well under the 2 A limit.
 
-### Stage D — Leg 0 servos, one joint at a time
-Plug the arm's 3 servos into `0x40` ch 0/1/2. **Clamp the arm, foot in
-the air.** Raise the current limit to **~3 A** (three DS3225s).
+### Stage D — Leg 0 servos (IDs 1/2/3), one joint at a time
+ID the three leg-0 servos (1, 2, 3), chain them, plug into the rail.
+**Clamp the arm, foot in the air.** Current limit ~**3 A**.
 
-> ⚠ On serial-open the Mega resets and `setup()` calls `centreAll()` →
-> every joint jumps to 0°. Confirm each horn's 0° is near mid-travel
-> *before* opening the Serial Monitor, or the arm can drive into a hard
-> stop the instant you connect.
-
-Step each joint out in small increments, typing one line at a time and
-watching the joint after every step:
-
-```
-J 0 10       ← yaw toward +; then 20, then -20 (limit ±35)
-J 1 -10      ← hip; then -25 (the stance value); stay within −80…+30
-J 2 30       ← knee; then 60 (stance value); stay within −20…+80
+```bash
+feetech_bus.py --port /dev/ttyUSB0 scan          # expect [1, 2, 3]
+feetech_bus.py --port /dev/ttyUSB0 joint 0 20 --sweep    # yaw
+feetech_bus.py --port /dev/ttyUSB0 joint 1 -25 --sweep   # hip toward stance
+feetech_bus.py --port /dev/ttyUSB0 joint 2 60 --sweep    # knee toward stance
 ```
 
-- [ ] Each joint moves the **expected direction**.
-- [ ] No mechanical binding before the firmware limit.
-- [ ] Fix offsets with trim instead of re-bolting the horn, e.g. `T 1 -5`
-      (trim is clamped ±30° and re-applies immediately).
+- [ ] Each joint moves the **expected direction** (flip `JOINT_SIGN[j]`
+      in `feetech_bus.py` if reversed).
+- [ ] No mechanical binding before the software limit.
+- [ ] Fix offsets with `trim`, not by re-bolting the horn.
 
 ### Stage E — Coordinated stance + load
-Bring all three joints to the neutral standing pose by typing them in
-sequence:
 
-```
-J 0 0
-J 1 -25
-J 2 60
+```bash
+feetech_bus.py --port /dev/ttyUSB0 stance
+feetech_bus.py --port /dev/ttyUSB0 feedback --watch
 ```
 
-- [ ] The leg settles into a stable stance pose.
-- [ ] Hold 30–60 s: servos warm at most, supply not pinned at its limit.
-- [ ] Let the foot lightly touch; small hip/knee moves feel sane.
+- [ ] Leg settles into a stable stance pose.
+- [ ] Hold 30–60 s watching `feedback`: temp climbs modestly, load
+      sane, supply not pinned at its limit.
 
-> Optional: the `stance` command in the Python client sends all 18
-> joints at once, but typing the three `J` lines above does the same
-> thing for leg 0 with just the Serial Monitor.
+### Stage F — IMU (Pi I²C, separate from the servo bus)
+The MPU-6050 is **4 wires** from the GY-521 breakout to the **Pi's
+40-pin header** — nothing to do with the servo bus.
 
-### Stage F — IMU (requires the Pi, separate from the arm test)
-The MPU-6050 is **not** on the Mega's bus. It's **4 wires** from the
-GY-521 breakout straight to pins on the **Raspberry Pi's 40-pin
-header**. Nothing here touches the Arduino.
+| GY-521 pin | → Pi header pin           | What it is        |
+|------------|---------------------------|-------------------|
+| `VCC`      | **pin 1** (3V3 power)     | power — 3V3, **not** 5V |
+| `GND`      | **pin 6** (Ground)        | ground            |
+| `SCL`      | **pin 5** (GPIO3 / SCL1)  | I²C clock         |
+| `SDA`      | **pin 3** (GPIO2 / SDA1)  | I²C data          |
+| `AD0`      | leave unconnected         | sets address `0x68` |
+| `XDA`,`XCL`,`INT` | leave unconnected  | not used          |
 
-**Wire each GY-521 pin to the Pi header pin in the same row:**
-
-| GY-521 pin | → Pi header pin            | What it is        |
-|------------|----------------------------|-------------------|
-| `VCC`      | **pin 1** (3V3 power)      | power — use 3V3, **not** 5V (see warning) |
-| `GND`      | **pin 6** (Ground)         | ground            |
-| `SCL`      | **pin 5** (GPIO3 / SCL1)   | I²C clock         |
-| `SDA`      | **pin 3** (GPIO2 / SDA1)   | I²C data          |
-| `AD0`      | leave unconnected          | sets address `0x68` |
-| `XDA`,`XCL`,`INT` | leave unconnected   | not used          |
-
-(Pi 40-pin header numbering: pin 1 is the corner nearest the SD-card /
-board edge; odd pins are one row, even pins the other. Pins 1-3-5-6 are
-all clustered at that same corner.)
-
-> ⚠ **Power the GY-521 from 3V3 (pin 1), never 5V.** The breakout's
-> SDA/SCL pull-up resistors go to whatever you feed `VCC`. On 5V they
-> would pull the Pi's 3.3V I²C lines up to 5V and can damage the Pi.
-> 3V3 keeps the bus at a safe 3.3V.
-
-Then enable + scan I²C **on the Pi**:
+> ⚠ **Power the GY-521 from 3V3 (pin 1), never 5V** — its SDA/SCL
+> pull-ups go to VCC and 5V would over-drive the Pi's 3.3 V I²C lines.
 
 ```bash
 sudo raspi-config        # Interface Options → I2C → Enable (once)
 sudo apt install -y i2c-tools
 i2cdetect -y 1           # expect 0x68
 ```
-
-- [ ] `i2cdetect -y 1` on the Pi shows `0x68`.
-- [ ] Read the MPU-6050 in Python; gyro/accel values change as you tilt
-      the chassis.
 
 ---
 
@@ -400,24 +320,25 @@ i2cdetect -y 1           # expect 0x68
 Only after Stages A–F pass:
 
 1. Bench supply OFF and disconnected.
-2. Wire: `LiPo XT60 → anti-spark switch → split → BEC #1 (→ PCA 0x40)`
-   and `BEC #2 (→ PCA 0x41)`.
-3. **Set both BEC outputs to the same voltage (5.0–6.0 V) with the
-   meter before connecting them to the PCAs.**
-4. Re-verify common ground across LiPo −, both BECs, both PCAs, and the
-   Mega. (The IMU shares ground with the Pi on its own bus.)
-5. The **anti-spark switch is now your e-stop** — keep a hand near it
-   for the first powered run.
+2. Wire: `3S LiPo XT60 → anti-spark switch → 12 V bus rail` (with a
+   ~15–20 A fuse for all 18 servos), plus a **separate 5 V BEC** tapped
+   off the LiPo for the Pi.
+3. **Verify common ground** across LiPo −, bus rail GND, adapter, and Pi.
+4. The **anti-spark switch is your e-stop** — keep a hand near it for
+   the first powered run.
 
-Per the harness plan, **leg 0 needs no extension cables** — stock
-pigtails reach ch 0/1/2 directly. Don't add slack you'll have to manage.
+> With 18 servos the bus carries real current at stall (2.7 A each).
+> Don't rely on the adapter's thin pass-through for all of it — inject
+> 12 V on a **separate power rail** (thick wire / distribution) and let
+> the bus connectors carry it leg-to-leg, or split the chain into 2–3
+> branches each fed from the rail.
 
 ---
 
 ## Per-joint log (fill in for all 6 legs)
 
-| Joint | Ch | Board | Neutral | Safe min | Safe max | Dir | Binds at | Notes |
-|------:|---:|-------|--------:|---------:|---------:|-----|----------|-------|
-| 0 yaw | 0  | 0x40  | 0       |          |          |     |          |       |
-| 1 hip | 1  | 0x40  | −25     |          |          |     |          |       |
-| 2 knee| 2  | 0x40  | +60     |          |          |     |          |       |
+| Joint | ID | Neutral | Safe min | Safe max | Dir (`JOINT_SIGN`) | Binds at | Notes |
+|------:|---:|--------:|---------:|---------:|--------------------|----------|-------|
+| 0 yaw | 1  | 0       |          |          |                    |          |       |
+| 1 hip | 2  | −25     |          |          |                    |          |       |
+| 2 knee| 3  | +60     |          |          |                    |          |       |

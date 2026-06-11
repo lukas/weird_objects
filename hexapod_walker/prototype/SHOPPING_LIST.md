@@ -156,12 +156,12 @@ Notes:
   the knurl displaces plastic into the boss wall, then cool ~30 s
   before threading the M3 x 8 SHCS in.
 - Link-to-disc-horn bolts (72 x M3x6 SHCS / `91290A111`) thread
-  DIRECTLY into the 20 mm aluminium 25T disc horn's 4 x M3 TAPPED
-  holes on a 14 mm bolt circle; the aluminium IS the thread-engagement
-  medium (no heat-set, no self-tap into plastic).  M3 x 6 screws ship
-  with the disc-horn 10-packs (Amazon B07D56FVK5); `91290A111` is the
-  McMaster equivalent for spares.  See `fasteners/README.md` for the
-  full rationale.
+  into the 20 mm aluminum 25T disc horn's M3 TAPPED holes on a
+  14 mm bolt circle (cross pattern at 0/90/180/270 deg); the
+  aluminum is the thread-engagement medium -- no self-tap, no
+  heat-set (June 2026 disc-horn switch, retiring the now-retired
+  plastic 4-arm X-horn's M2x8 self-tap scheme).  See
+  `fasteners/README.md` for the full rationale.
 - Captive nyloc nuts are used at the foot-pad hinge pins (6 total,
   one per leg); the through-hole bolt is captured by the nyloc on
   the opposite side of the foot.  The previous 24 x M3 x 14
