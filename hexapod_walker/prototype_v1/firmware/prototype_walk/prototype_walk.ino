@@ -76,7 +76,7 @@ float target_deg[18] = {0};
 
 // --- Leg geometry (mm) -- mirror hexapod_prototype.py ---------------
 const float COXA  =  25.0;
-const float FEMUR =  90.0;
+const float FEMUR =  75.0;   // Jun 2026: shortened from 90 (coxa-link crack fix)
 const float TIBIA = 130.0;
 const float LEG_RADIAL = 100.0;            // chassis apothem (200 mm flat-to-flat / 2)
 const float STANCE_HIP_DEG  = -25.0;       // STANCE_FEMUR_DEG

@@ -147,7 +147,14 @@ CHASSIS_TOP_FLAT_TO_FLAT = 140.0  # mm
 # build.  Tibia is intentionally a hair longer than 4 x coxa so the
 # foot can lift clear over a small obstacle in swing phase.
 COXA_LENGTH    =  25.0   # mm -- yaw axis -> hip-pitch axis
-FEMUR_LENGTH   =  90.0   # mm -- hip-pitch axis -> knee axis
+# Jun 2026: FEMUR_LENGTH shortened 90 -> 75.  First-steps testing cracked
+# a coxa link: with the leg sprawled, ground reaction at the foot pries
+# the hip-yaw->hip-pitch joint with a moment that scales directly with
+# the femur.  -15 mm cuts that pry moment ~17% (and every downstream
+# femur feature is parametric in FEMUR_LENGTH, so only this number
+# changes).  Torque margin on the 25 kg-cm hip servos improves the same
+# amount; reach loss is made up by the firmware's tucked stance.
+FEMUR_LENGTH   =  75.0   # mm -- hip-pitch axis -> knee axis (was 90)
 TIBIA_LENGTH   = 130.0   # mm -- knee axis -> foot tip
 
 # ---- Coxa link pedestal --------------------------------------------------
@@ -7286,6 +7293,47 @@ def make_femur_link() -> trimesh.Trimesh:
                  hip_centre_hole, femur_hip_hub_recess)
 
 
+# ---- Tibia crab-spike arc (shared by tibia + TPU foot boot) ---------------
+# Centreline + section profile of the tibia's arcing crab-spike blade, in
+# tibia-local X-Z (the leg's plane of motion).  Module level so that
+# make_foot_boot() can build its stretch-fit cavity from the EXACT same
+# curve the tibia is swept along -- one source of truth for the blade.
+TIBIA_ARC_P0 = np.array([2.0,   0.0])
+TIBIA_ARC_P1 = np.array([62.0, 12.0])
+TIBIA_ARC_P2 = np.array([120.0,  4.0])
+TIBIA_ARC_P3 = np.array([150.0, -24.0])
+
+
+def tibia_arc_point(t: float) -> np.ndarray:
+    """Cubic-Bezier centreline point (x, z) of the shin blade at t in [0, 1]."""
+    u = 1.0 - t
+    return (u ** 3 * TIBIA_ARC_P0 + 3.0 * u ** 2 * t * TIBIA_ARC_P1
+            + 3.0 * u * t ** 2 * TIBIA_ARC_P2 + t ** 3 * TIBIA_ARC_P3)
+
+
+def tibia_arc_half_h(t: float) -> float:
+    """Blade half-height (Z, perpendicular to the spar) at t.
+
+    Tapers from the full spar half-height at the knee toward the tip.
+    June 2026: blunter tip (min 1.4 mm half-height = ~2.8 mm tall) + a
+    near-linear taper that keeps more material out near the end so the
+    point is stout and won't snap.
+    """
+    return (TIBIA_SPAR_H / 2.0 - 1.4) * (1.0 - t) + 1.4
+
+
+def tibia_arc_width(t: float) -> float:
+    """Blade width (tibia Y) at t.
+
+    Holds at LINK_THICKNESS, then necks only over the last quarter,
+    bottoming out at ~3 mm (half the spar) -- a chunky crab point rather
+    than a fragile chisel.
+    """
+    if t < 0.75:
+        return LINK_THICKNESS
+    return LINK_THICKNESS * (1.0 - (t - 0.75) / 0.25 * 0.5)
+
+
 def make_tibia_link() -> trimesh.Trimesh:
     """Tibia (shin).
 
@@ -7428,30 +7476,13 @@ def make_tibia_link() -> trimesh.Trimesh:
     #   P0 -> at the knee joint (blends into the knee pad)
     #   P1, P2 -> bow the arc up and forward over the span
     #   P3 -> the tapered tip, hooked DOWN and forward (the "foot")
-    P0 = np.array([2.0,   0.0])
-    P1 = np.array([62.0, 12.0])
-    P2 = np.array([120.0,  4.0])
-    P3 = np.array([150.0, -24.0])
-
-    def _bez(t):
-        u = 1.0 - t
-        return (u ** 3 * P0 + 3.0 * u ** 2 * t * P1
-                + 3.0 * u * t ** 2 * P2 + t ** 3 * P3)
-
-    # Half-height (Z, perpendicular to the spar) tapers from the full spar
-    # half-height at the knee toward the tip.  June 2026: blunter tip (min
-    # 1.4 mm half-height = ~2.8 mm tall) + a near-linear taper that keeps
-    # more material out near the end so the point is stout and won't snap.
-    def _half_h(t):
-        return (TIBIA_SPAR_H / 2.0 - 1.4) * (1.0 - t) + 1.4
-
-    # Y width holds at LINK_THICKNESS, then necks only over the last
-    # quarter, bottoming out at ~3 mm (half the spar) -- a chunky crab
-    # point rather than a fragile chisel.
-    def _width(t):
-        if t < 0.75:
-            return LINK_THICKNESS
-        return LINK_THICKNESS * (1.0 - (t - 0.75) / 0.25 * 0.5)
+    #
+    # The centreline + section functions live at module level
+    # (tibia_arc_point / tibia_arc_half_h / tibia_arc_width) so the TPU
+    # foot boot (make_foot_boot) can wrap the exact same blade.
+    _bez = tibia_arc_point
+    _half_h = tibia_arc_half_h
+    _width = tibia_arc_width
 
     N_SEG = 64
     ts = [i / N_SEG for i in range(N_SEG + 1)]
@@ -7489,6 +7520,110 @@ def make_tibia_link() -> trimesh.Trimesh:
     body = _union(knee_pad, *arc_segs)
     return _diff(body, *knee_holes, *knee_counterbores,
                  knee_centre_hole, knee_hub_recess, *lightening)
+
+
+# ---- TPU spike boot --------------------------------------------------------
+# First-steps testing (June 2026 video): the bare printed spike tips skate
+# on smooth floors -- every push-off bleeds away sideways, the legs splay,
+# and the prying loads that result cracked a coxa link.  The fix is a
+# grippy TPU "boot" that stretches over the last ~17 mm of each spike and
+# ends in a round rubber bulb (the new ground contact).
+FOOT_BOOT_T0      = 0.86   # arc parameter where the boot mouth starts
+FOOT_BOOT_WALL_T  = 2.6    # mm -- TPU wall around the blade
+FOOT_BOOT_CLEAR   = 0.10   # mm -- per-side cavity clearance (stretch fit)
+FOOT_BOOT_TIP_R   = 5.0    # mm -- ground-contact bulb radius
+FOOT_BOOT_TIP_ADV = 2.0    # mm -- bulb centre advance past the blade tip
+FOOT_BOOT_N_SEG   = 16     # segments along the boot's share of the arc
+
+
+def make_foot_boot() -> trimesh.Trimesh:
+    """Stretch-fit TPU boot for the tibia's crab-spike tip (print 6, TPU 95A).
+
+    Built around the EXACT tibia blade geometry (tibia_arc_* shared
+    functions): the internal cavity is the blade swept over t in
+    [FOOT_BOOT_T0, 1] plus FOOT_BOOT_CLEAR per side, so the boot pushes
+    on by hand and grips by TPU stretch + the arc's curvature (pulling
+    straight off would have to follow the curved cavity).  The outer
+    shell is the same sweep inflated by FOOT_BOOT_WALL_T, ending in a
+    FOOT_BOOT_TIP_R rubber bulb past the spike point -- the bulb, not
+    the hard PETG, is now what touches the floor.
+
+    Exported in PRINT orientation: insertion axis vertical, mouth up,
+    bulb down on the bed with a small flat (better adhesion AND a flat
+    contact patch when the leg is at stance angles).
+    """
+    eps = 1e-4
+
+    def _tangent(t: float) -> np.ndarray:
+        a = tibia_arc_point(max(0.0, t - eps))
+        b = tibia_arc_point(min(1.0, t + eps))
+        d = b - a
+        return d / float(np.hypot(d[0], d[1]))
+
+    # ---- swept cavity + shell along the shared blade arc -------------
+    ts = [FOOT_BOOT_T0 + (1.0 - FOOT_BOOT_T0) * i / FOOT_BOOT_N_SEG
+          for i in range(FOOT_BOOT_N_SEG + 1)]
+    cavity_segs = []
+    shell_segs = []
+    for i in range(FOOT_BOOT_N_SEG):
+        a = tibia_arc_point(ts[i])
+        b = tibia_arc_point(ts[i + 1])
+        mid = (a + b) / 2.0
+        d = b - a
+        seg_len = float(np.hypot(d[0], d[1]))
+        ang = float(np.arctan2(d[1], d[0]))
+        hh = (tibia_arc_half_h(ts[i]) + tibia_arc_half_h(ts[i + 1])) / 2.0
+        ww = (tibia_arc_width(ts[i]) + tibia_arc_width(ts[i + 1])) / 2.0
+        for segs, grow in ((cavity_segs, FOOT_BOOT_CLEAR),
+                           (shell_segs, FOOT_BOOT_WALL_T)):
+            seg = _box((seg_len + 0.8, ww + 2.0 * grow, 2.0 * (hh + grow)))
+            seg.apply_transform(rotation_matrix(-ang, [0, 1, 0]))
+            seg.apply_translation([mid[0], LINK_THICKNESS / 2.0, mid[1]])
+            segs.append(seg)
+
+    # Mouth entry: extend the cavity backward along the mouth tangent so
+    # the opening cuts cleanly through the shell's mouth face, slightly
+    # flared (+0.5 mm) so the blade self-locates when pushed in by hand.
+    m0 = tibia_arc_point(FOOT_BOOT_T0)
+    d0 = _tangent(FOOT_BOOT_T0)
+    ang0 = float(np.arctan2(d0[1], d0[0]))
+    hh0 = tibia_arc_half_h(FOOT_BOOT_T0)
+    ww0 = tibia_arc_width(FOOT_BOOT_T0)
+    entry = _box((12.0, ww0 + 2.0 * FOOT_BOOT_CLEAR + 0.5,
+                  2.0 * hh0 + 2.0 * FOOT_BOOT_CLEAR + 0.5))
+    entry.apply_transform(rotation_matrix(-ang0, [0, 1, 0]))
+    entry.apply_translation([m0[0] - d0[0] * 6.0,
+                             LINK_THICKNESS / 2.0,
+                             m0[1] - d0[1] * 6.0])
+    cavity_segs.append(entry)
+
+    # ---- ground-contact bulb past the spike point ---------------------
+    tip = tibia_arc_point(1.0)
+    dt = _tangent(1.0)
+    bulb_c = tip + dt * FOOT_BOOT_TIP_ADV
+    bulb = trimesh.creation.icosphere(subdivisions=3,
+                                      radius=FOOT_BOOT_TIP_R)
+    bulb.apply_translation([bulb_c[0], LINK_THICKNESS / 2.0, bulb_c[1]])
+
+    boot = _diff(_union(*shell_segs, bulb), *cavity_segs)
+
+    # ---- print orientation --------------------------------------------
+    # Align the mid-insertion tangent with -Z (mouth up, bulb down), then
+    # shave a small flat on the bulb bottom for bed adhesion.
+    d_mid = _tangent((FOOT_BOOT_T0 + 1.0) / 2.0)
+    R = trimesh.geometry.align_vectors([d_mid[0], 0.0, d_mid[1]],
+                                       [0.0, 0.0, -1.0])
+    boot.apply_transform(R)
+    boot.apply_translation([0, 0, -boot.bounds[0][2]])      # bed at z = 0
+    flat_h = 0.8
+    boot = _diff(boot, _box((40.0, 40.0, 20.0),
+                            center=(boot.bounds.mean(axis=0)[0],
+                                    boot.bounds.mean(axis=0)[1],
+                                    flat_h - 10.0)))
+    boot.apply_translation([0, 0, -flat_h])
+    centre = boot.bounds.mean(axis=0)
+    boot.apply_translation([-centre[0], -centre[1], 0])
+    return boot
 
 
 def make_foot_pad() -> trimesh.Trimesh:
@@ -7768,6 +7903,9 @@ def main() -> None:
     parts.append(("femur_link.stl",       make_femur_link()))
     parts.append(("tibia_link.stl",       make_tibia_link()))
     parts.append(("foot_pad.stl",         make_foot_pad()))
+    # TPU 95A, print 6: stretch-fit traction boot over each tibia spike
+    # tip (June 2026 -- bare PETG spikes skate on smooth floors).
+    parts.append(("foot_boot.stl",        make_foot_boot()))
 
     # Design B (May 2026) + June 2026 disc-horn switch: the printed
     # servo_horn_adapter AND the plastic 4-arm X-horn have both been
