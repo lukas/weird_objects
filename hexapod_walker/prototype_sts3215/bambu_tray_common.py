@@ -264,8 +264,6 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
     parts = _part_specs()
     chassis_top = parts["chassis_top.stl"]
     chassis_bottom = parts["chassis_bottom.stl"]
-    femur = parts["femur_link.stl"]
-    tibia = parts["tibia_link.stl"]
     foot = parts["foot_pad.stl"]
 
     # chassis_top is the smaller 140 mm deck (battery + electronics + arm),
@@ -285,157 +283,73 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
         ),
     ]
 
-    if cfg.split_long_link_plates:
-        # Femur post-reorient + 90 deg tray rotation is ~46 mm wide in
-        # X-on-plate; six in a row at the 5 mm part_clearance on an X1
-        # is 6*46 + 5*5 = 301 mm and overflows the 256 mm bed.  Auto-
-        # split the femur row into two plates of three when a single
-        # six-femur row no longer fits the bed.  Tibias historically
-        # fit six in a row on the 256 mm X1 bed (6*34 + 5*5 = 229 mm),
-        # but with HIP_PAD_R bumped to 19.5 mm the tibia knee neck is
-        # 39 mm tall (6*39 + 5*5 = 259 mm > 256), so apply the same
-        # auto-split logic to the tibia row.
-        femur_fits_six = _row_fits_x(cfg, femur, 6, rotate_z_deg=90)
-        femur_plates: list[PlatePlan]
-        if femur_fits_six:
-            femur_plates = [
-                PlatePlan(
-                    "plate_04_rigid_femur_links",
-                    "PLA/PETG rigid",
-                    tuple(_grid_row(cfg, femur, 6, y_mm=0.0,
-                                     rotate_z_deg=90)),
-                ),
-            ]
-        else:
-            femur_plates = [
-                PlatePlan(
-                    "plate_04a_rigid_femur_links_1of2",
-                    "PLA/PETG rigid",
-                    tuple(_grid_row(cfg, femur, 3, y_mm=0.0,
-                                     rotate_z_deg=90, start_index=1)),
-                ),
-                PlatePlan(
-                    "plate_04b_rigid_femur_links_2of2",
-                    "PLA/PETG rigid",
-                    tuple(_grid_row(cfg, femur, 3, y_mm=0.0,
-                                     rotate_z_deg=90, start_index=4)),
-                ),
-            ]
+    # Bearing-sandwich leg (Jun 2026): the femur and tibia SEGMENTS are
+    # bought Ø8 carbon-fibre tubes (cut to length and epoxied into the
+    # printed sockets), NOT printed.  The retired one-piece femur_link /
+    # tibia_link were assembled visual/sim meshes (yoke + SOLID tube +
+    # bracket) and printing them would have produced a solid plastic rod.
+    # We now print only the socket fittings:
+    #   femur  = femur_hip_yoke  + Ø8 CF tube + femur_knee_bracket
+    #   tibia  = tibia_knee_yoke + Ø8 CF tube + tibia_foot_fitting + foot_pad
+    # Each fitting is small and blocky, so it bottom-left packs onto a
+    # shared plate per leg segment rather than getting a one-per-row plate.
+    plans.append(PlatePlan(
+        "plate_03_rigid_coxa_links",
+        "PLA/PETG rigid",
+        tuple(_pack_hardware(cfg, parts, requests=[("coxa_link.stl", 6)])),
+    ))
+    plans.append(PlatePlan(
+        "plate_04_rigid_femur_sockets",
+        "PLA/PETG rigid",
+        tuple(_pack_hardware(cfg, parts, requests=[
+            ("femur_hip_yoke.stl", 6),
+            ("femur_knee_bracket.stl", 6),
+        ])),
+    ))
+    plans.append(PlatePlan(
+        "plate_05_rigid_tibia_sockets",
+        "PLA/PETG rigid",
+        tuple(_pack_hardware(cfg, parts, requests=[
+            ("tibia_knee_yoke.stl", 6),
+            ("tibia_foot_fitting.stl", 6),
+        ])),
+    ))
 
-        tibia_fits_six = _row_fits_x(cfg, tibia, 6, rotate_z_deg=90)
-        tibia_plates: list[PlatePlan]
-        if tibia_fits_six:
-            tibia_plates = [
-                PlatePlan(
-                    "plate_03_rigid_tibia_links",
-                    "PLA/PETG rigid",
-                    tuple(_grid_row(cfg, tibia, 6, y_mm=0.0,
-                                     rotate_z_deg=90)),
-                ),
-            ]
-        else:
-            tibia_plates = [
-                PlatePlan(
-                    "plate_03a_rigid_tibia_links_1of2",
-                    "PLA/PETG rigid",
-                    tuple(_grid_row(cfg, tibia, 3, y_mm=0.0,
-                                     rotate_z_deg=90, start_index=1)),
-                ),
-                PlatePlan(
-                    "plate_03b_rigid_tibia_links_2of2",
-                    "PLA/PETG rigid",
-                    tuple(_grid_row(cfg, tibia, 3, y_mm=0.0,
-                                     rotate_z_deg=90, start_index=4)),
-                ),
-            ]
-
-        if cfg.split_hardware_plate:
-            # May 2026 (electronics-tray expansion): the tray grew to
-            # 160x130 mm to carry Mega + Pi + PCA9685, so the old
-            # battery_holder + electronics_tray side-by-side row no
-            # longer fits on the X1's 256 mm-wide bed (118 + 5 + 160 =
-            # 283 mm).  The two body trays now get one plate each on
-            # the split-hardware path.
-            bat = parts["battery_holder.stl"]
-            et = parts["electronics_tray.stl"]
-            plans.extend([
-                *tibia_plates,
-                *femur_plates,
-                PlatePlan(
-                    "plate_05a_rigid_battery_holder",
-                    "PLA/PETG rigid",
-                    (_instance(bat, 1, 0.0, 0.0, 0),),
-                ),
-                PlatePlan(
-                    "plate_05b_rigid_electronics_tray",
-                    "PLA/PETG rigid",
-                    (_instance(et, 1, 0.0, 0.0, 0),),
-                ),
-                PlatePlan(
-                    "plate_06_rigid_coxa_links",
-                    "PLA/PETG rigid",
-                    tuple(_pack_hardware(cfg, parts, requests=[
-                        ("coxa_link.stl", 6),
-                    ])),
-                ),
-                # June 2026 disc-horn switch: plate_07_rigid_servo_horn_adapters
-                # removed -- the printed servo_horn_adapter has been
-                # retired (links bolt directly onto the aluminum disc
-                # horn).
-                PlatePlan(
-                    "plate_07_tpu_foot_pads",
-                    "TPU 95A",
-                    tuple(_grid_row(cfg, foot, 6, y_mm=0.0, rotate_z_deg=0)),
-                ),
-            ])
-        else:
-            plans.extend([
-                *tibia_plates,
-                *femur_plates,
-                PlatePlan(
-                    "plate_05_rigid_hardware",
-                    "PLA/PETG rigid",
-                    tuple(_pack_hardware(cfg, parts)),
-                ),
-                PlatePlan(
-                    "plate_06_tpu_foot_pads",
-                    "TPU 95A",
-                    tuple(_grid_row(cfg, foot, 6, y_mm=0.0, rotate_z_deg=0)),
-                ),
-            ])
-    else:
-        long_links = [
-            *_grid_row(cfg, tibia, 6, y_mm=-70.0, rotate_z_deg=90),
-            *_grid_row(cfg, femur, 6, y_mm=78.0, rotate_z_deg=90),
-        ]
-        # Design B (May 2026): the dedicated horn-adapter grid plate has
-        # been removed; the printed servo_horn_adapter is no longer in
-        # the printable-output set.
-        # Design F (May 2026): coxa_bracket.stl retired -- the yaw
-        # servo now drops INTO the chassis_bottom plate (integrated
-        # cradle), so there is no per-leg bracket part to print.
-        hardware_requests = [
-            ("battery_holder.stl", 1),
-            ("electronics_tray.stl", 1),
-            ("coxa_link.stl", 6),
-        ]
+    if cfg.split_hardware_plate:
+        # May 2026 (electronics-tray expansion): the tray grew to
+        # 160x130 mm to carry Mega + Pi + PCA9685, so the old
+        # battery_holder + electronics_tray side-by-side row no longer
+        # fits on the X1's 256 mm-wide bed (118 + 5 + 160 = 283 mm).
+        # The two body trays now get one plate each on the small bed.
+        bat = parts["battery_holder.stl"]
+        et = parts["electronics_tray.stl"]
         plans.extend([
             PlatePlan(
-                "plate_03_rigid_long_links",
+                "plate_06a_rigid_battery_holder",
                 "PLA/PETG rigid",
-                tuple(long_links),
+                (_instance(bat, 1, 0.0, 0.0, 0),),
             ),
             PlatePlan(
-                "plate_04_rigid_hardware",
+                "plate_06b_rigid_electronics_tray",
                 "PLA/PETG rigid",
-                tuple(_pack_hardware(cfg, parts, requests=hardware_requests)),
-            ),
-            PlatePlan(
-                "plate_05_tpu_foot_pads",
-                "TPU 95A",
-                tuple(_grid_row(cfg, foot, 6, y_mm=0.0, rotate_z_deg=0)),
+                (_instance(et, 1, 0.0, 0.0, 0),),
             ),
         ])
+    else:
+        plans.append(PlatePlan(
+            "plate_06_rigid_body_hardware",
+            "PLA/PETG rigid",
+            tuple(_pack_hardware(cfg, parts, requests=[
+                ("battery_holder.stl", 1),
+                ("electronics_tray.stl", 1),
+            ])),
+        ))
+
+    plans.append(PlatePlan(
+        "plate_07_tpu_foot_pads",
+        "TPU 95A",
+        tuple(_grid_row(cfg, foot, 6, y_mm=0.0, rotate_z_deg=0)),
+    ))
 
     return plans
 

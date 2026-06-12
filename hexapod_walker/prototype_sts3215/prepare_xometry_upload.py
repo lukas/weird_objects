@@ -19,8 +19,12 @@ Output:
         # servo now drops INTO an integrated cradle inside
         # chassis_bottom (see make_chassis_bottom).
         coxa_link.stl              -- qty 6
-        femur_link.stl             -- qty 6
-        tibia_link.stl             -- qty 6
+        # Bearing-sandwich leg: femur/tibia SEGMENTS are bought Ø8 CF
+        # tubes; only the sockets below are printed.
+        femur_hip_yoke.stl         -- qty 6
+        femur_knee_bracket.stl     -- qty 6
+        tibia_knee_yoke.stl        -- qty 6
+        tibia_foot_fitting.stl     -- qty 6
         foot_pad.stl               -- qty 6  (TPU 95A, separate quote)
         # June 2026 disc-horn switch: servo_horn_adapter.stl retired --
         # the links now bolt directly onto the 20 mm aluminum 25T disc
@@ -49,9 +53,11 @@ from hexapod_prototype import (
     make_chassis_top,
     make_coxa_link,
     make_electronics_tray,
-    make_femur_link,
+    make_femur_hip_yoke,
+    make_femur_knee_bracket,
     make_foot_pad,
-    make_tibia_link,
+    make_tibia_foot_fitting,
+    make_tibia_knee_yoke,
 )
 
 
@@ -110,54 +116,23 @@ def _reorient_coxa_link(mesh):
     return _drop_to_bed(out)
 
 
-def _reorient_femur_link(mesh):
-    """Flat plate with knee cradle hanging off in -Y in the link's local
-    frame.  Two viable print orientations -- both put the spar's broad
-    X-Z face on the bed (since the spar's broadest face has normal +/-Y,
-    laying it on the bed forces the cradle's open mouth to point either
-    +Z or -Z; the cradle cannot open sideways in the same orientation).
-
-    Rotate -90 deg about X.  That maps raw +Y -> new -Z (= down), so:
-      * The spar's +Y face sits on the bed.  The whole 90 x 30 mm broad
-        face of the spar + the 34 x 34 mm hip pad become the part's
-        footprint -- a wide stable base.
-      * The knee cradle (which is offset in raw -Y from the spar) goes
-        UP, sticking ~28 mm above the spar.  The cradle's open mouth
-        opens DOWNWARD; its CLOSED FLOOR ends up at the top of the
-        part (a 40 x 20 mm interior ceiling bridged across the cavity).
-      * Bridge flanges run as 5 mm vertical columns from spar (bottom)
-        up to cradle (top).
-
-    The +90-deg-about-X alternative puts the cradle on the bed but
-    leaves the entire spar + hip pad floating 28 mm above the well rim
-    (~44 mm above the build plate) -- a ~3000 mm^2 overhang needing
-    a forest of tall supports.  Flipping to -90 deg X reduces
-    estimated support volume from ~103 cm^3 to ~46 cm^3.
-
-    The bridge flanges in ``make_femur_link`` stop at the spar's
-    CENTRELINE (y = 0) -- 3 mm short of the spar's +Y face -- to keep
-    a clearance corridor open for the tibia's knee-pad neck disk
-    (which mates at femur y = +9 above the knee-servo disc horn).
-    Because the spar's +Y face is the part's outermost surface in -Y,
-    after this reorient the spar's full broad face is the print's
-    lowest surface and ``_drop_to_bed`` plants it cleanly at z = 0 --
-    no half-millimetre gap to the bed.  The bridges sit 3 mm above
-    the bed at the spar-centreline plane and fuse into the spar's
-    -Y half (y in [-3, 0]) over a 3 mm-wide volumetric overlap.  The
-    cradle ceiling (40 x 20 mm closed slab) prints as a short bridge
-    across the 20 mm direction, which is well within FDM bridging
-    range."""
-    out = _rotate(mesh, -np.pi / 2, [1, 0, 0])
-    return _drop_to_bed(out)
-
-
-def _reorient_tibia_link(mesh):
-    """Flat plate (130 x 6 x 18 mm) with knee pad and foot socket.
-    Lay it flat on the bed -- broadest face (X-Z plane) downward.
-    Rotate +90 deg about X to put the spar's broad face on the bed
-    (Y becomes vertical, so layers are 6 mm of part)."""
-    out = _rotate(mesh, np.pi / 2, [1, 0, 0])
-    return _drop_to_bed(out)
+def _lay_flat(mesh):
+    """Generic FDM reorient for the bearing-sandwich leg socket fittings
+    (hip yoke, knee bracket, knee yoke, foot fitting).  Picks whichever
+    of the three axis-aligned orientations leaves the SHORTEST Z extent
+    so the part lies on its broadest face (largest bed contact, lowest
+    centre of gravity, least support).  The CF-tube socket bore ends up
+    roughly horizontal -- the user can spin individual parts in Bambu
+    Studio if a particular bore would print better vertically."""
+    best = None
+    for axis, angle in ((None, 0.0), ((1, 0, 0), np.pi / 2), ((0, 1, 0), np.pi / 2)):
+        out = mesh.copy()
+        if axis is not None:
+            out.apply_transform(rotation_matrix(angle, axis))
+        z_extent = float(out.extents[2])
+        if best is None or z_extent < best[0]:
+            best = (z_extent, out)
+    return _drop_to_bed(best[1])
 
 
 def _reorient_foot_pad(mesh):
@@ -203,14 +178,30 @@ PART_REGISTRY: list[tuple[str,
      6, "MJF PA12",      "white", "as-printed",
      "Yaw-driven arm; oriented so the hip-pitch cradle opens +Z."),
 
-    ("femur_link.stl",           make_femur_link,          _reorient_femur_link,
+    # Bearing-sandwich leg (Jun 2026): the femur and tibia SEGMENTS are
+    # bought Ø8 carbon-fibre tubes (cut to length, epoxied into the
+    # printed sockets below) -- NOT printed.  The old one-piece
+    # femur_link / tibia_link were assembled visual/sim meshes (yoke +
+    # SOLID tube + bracket) and must not be printed.
+    ("femur_hip_yoke.stl",       make_femur_hip_yoke,      _lay_flat,
      6, "MJF PA12",      "white", "as-printed",
-     "Thigh; printed with the spar's broad face on the bed and the "
-     "knee cradle sticking up (opens -Z) -- minimizes FDM supports."),
+     "Femur hip moving-yoke: bolts to the hip disc horn, sockets the "
+     "Ø8 CF femur tube. Pair with femur_knee_bracket + CF tube."),
 
-    ("tibia_link.stl",           make_tibia_link,          _reorient_tibia_link,
+    ("femur_knee_bracket.stl",   make_femur_knee_bracket,  _lay_flat,
      6, "MJF PA12",      "white", "as-printed",
-     "Shin link, ends in foot socket. Lay flat for FDM."),
+     "Femur knee FIXED side: carries the knee servo cradle and sockets "
+     "the far end of the Ø8 CF femur tube."),
+
+    ("tibia_knee_yoke.stl",      make_tibia_knee_yoke,     _lay_flat,
+     6, "MJF PA12",      "white", "as-printed",
+     "Tibia knee moving-yoke: bolts to the knee disc horn, sockets the "
+     "Ø8 CF tibia tube."),
+
+    ("tibia_foot_fitting.stl",   make_tibia_foot_fitting,  _lay_flat,
+     6, "MJF PA12",      "white", "as-printed",
+     "Tibia foot fitting: sockets the far end of the Ø8 CF tibia tube "
+     "and carries the foot-pad hinge tang."),
 
     ("foot_pad.stl",             make_foot_pad,            _reorient_foot_pad,
      6, "FDM TPU 95A",   "black", "as-printed",
@@ -218,11 +209,11 @@ PART_REGISTRY: list[tuple[str,
      "If TPU isn't available, FDM PLA works but the foot will slip."),
 
     # June 2026 disc-horn switch: servo_horn_adapter.stl removed -- each
-    # link now bolts directly onto the 20 mm aluminum 25T disc horn that
-    # seats on the servo spline (DISC_HORN_COLLAR_OD recess + 4 x
-    # DISC_HORN_BOLT_PCD = 14 mm pattern cut into the link's pad in
-    # make_coxa_link / make_femur_link / make_tibia_link).  No 18 x
-    # adapter discs to quote.
+    # moving yoke now bolts directly onto the 20 mm aluminum 25T disc horn
+    # that seats on the servo spline (DISC_HORN_COLLAR_OD recess + 4 x
+    # DISC_HORN_BOLT_PCD = 14 mm pattern cut into the yoke pad in
+    # make_coxa_link / make_femur_hip_yoke / make_tibia_knee_yoke).  No
+    # 18 x adapter discs to quote.
 ]
 
 
