@@ -24,6 +24,12 @@ H2D_CONFIG = TrayPrinterConfig(
     bed_z_mm=325.0,
     edge_margin_mm=12.0,
     part_clearance_mm=8.0,
+    # Bearing-sandwich leg: the femur/tibia segments are bought Ø8 CF
+    # tubes, so there are no long printed links to split anymore -- only
+    # small socket fittings that bottom-left pack onto shared plates.
+    # ``split_long_link_plates`` is retained for dataclass compatibility
+    # but no longer consumed by build_plate_plans.  The 325 mm bed fits
+    # the battery + electronics trays together, so no hardware split.
     split_long_link_plates=False,
     split_hardware_plate=False,
 )

@@ -1,0 +1,7691 @@
+{
+  "name": "Hexapod STS3215 \u2014 full robot (verified standing pose)",
+  "source": "/Users/lbiewald/weird_objects/hexapod_walker/prototype_sts3215/full_robot_viz",
+  "designSpecUrl": "design_spec.yaml",
+  "units": "mm",
+  "center": [
+    0.0,
+    2.842170943040401e-14,
+    72.05825707377309
+  ],
+  "meshes": [
+    {
+      "id": "stl:body_chassis_bottom_0",
+      "name": "body_chassis_bottom_0.stl",
+      "url": "stl/body_chassis_bottom_0.stl"
+    },
+    {
+      "id": "stl:body_chassis_top_1",
+      "name": "body_chassis_top_1.stl",
+      "url": "stl/body_chassis_top_1.stl"
+    },
+    {
+      "id": "stl:body_battery_holder_2",
+      "name": "body_battery_holder_2.stl",
+      "url": "stl/body_battery_holder_2.stl"
+    },
+    {
+      "id": "stl:body_electronics_tray_3",
+      "name": "body_electronics_tray_3.stl",
+      "url": "stl/body_electronics_tray_3.stl"
+    },
+    {
+      "id": "stl:L0_coxa_link_4",
+      "name": "L0_coxa_link_4.stl",
+      "url": "stl/L0_coxa_link_4.stl"
+    },
+    {
+      "id": "stl:L0_femur_link_5",
+      "name": "L0_femur_link_5.stl",
+      "url": "stl/L0_femur_link_5.stl"
+    },
+    {
+      "id": "stl:L0_tibia_link_6",
+      "name": "L0_tibia_link_6.stl",
+      "url": "stl/L0_tibia_link_6.stl"
+    },
+    {
+      "id": "stl:L0_yaw_servo_7",
+      "name": "L0_yaw_servo_7.stl",
+      "url": "stl/L0_yaw_servo_7.stl"
+    },
+    {
+      "id": "stl:L0_hip_servo_8",
+      "name": "L0_hip_servo_8.stl",
+      "url": "stl/L0_hip_servo_8.stl"
+    },
+    {
+      "id": "stl:L0_knee_servo_9",
+      "name": "L0_knee_servo_9.stl",
+      "url": "stl/L0_knee_servo_9.stl"
+    },
+    {
+      "id": "stl:L1_coxa_link_10",
+      "name": "L1_coxa_link_10.stl",
+      "url": "stl/L1_coxa_link_10.stl"
+    },
+    {
+      "id": "stl:L1_femur_link_11",
+      "name": "L1_femur_link_11.stl",
+      "url": "stl/L1_femur_link_11.stl"
+    },
+    {
+      "id": "stl:L1_tibia_link_12",
+      "name": "L1_tibia_link_12.stl",
+      "url": "stl/L1_tibia_link_12.stl"
+    },
+    {
+      "id": "stl:L1_yaw_servo_13",
+      "name": "L1_yaw_servo_13.stl",
+      "url": "stl/L1_yaw_servo_13.stl"
+    },
+    {
+      "id": "stl:L1_hip_servo_14",
+      "name": "L1_hip_servo_14.stl",
+      "url": "stl/L1_hip_servo_14.stl"
+    },
+    {
+      "id": "stl:L1_knee_servo_15",
+      "name": "L1_knee_servo_15.stl",
+      "url": "stl/L1_knee_servo_15.stl"
+    },
+    {
+      "id": "stl:L2_coxa_link_16",
+      "name": "L2_coxa_link_16.stl",
+      "url": "stl/L2_coxa_link_16.stl"
+    },
+    {
+      "id": "stl:L2_femur_link_17",
+      "name": "L2_femur_link_17.stl",
+      "url": "stl/L2_femur_link_17.stl"
+    },
+    {
+      "id": "stl:L2_tibia_link_18",
+      "name": "L2_tibia_link_18.stl",
+      "url": "stl/L2_tibia_link_18.stl"
+    },
+    {
+      "id": "stl:L2_yaw_servo_19",
+      "name": "L2_yaw_servo_19.stl",
+      "url": "stl/L2_yaw_servo_19.stl"
+    },
+    {
+      "id": "stl:L2_hip_servo_20",
+      "name": "L2_hip_servo_20.stl",
+      "url": "stl/L2_hip_servo_20.stl"
+    },
+    {
+      "id": "stl:L2_knee_servo_21",
+      "name": "L2_knee_servo_21.stl",
+      "url": "stl/L2_knee_servo_21.stl"
+    },
+    {
+      "id": "stl:L3_coxa_link_22",
+      "name": "L3_coxa_link_22.stl",
+      "url": "stl/L3_coxa_link_22.stl"
+    },
+    {
+      "id": "stl:L3_femur_link_23",
+      "name": "L3_femur_link_23.stl",
+      "url": "stl/L3_femur_link_23.stl"
+    },
+    {
+      "id": "stl:L3_tibia_link_24",
+      "name": "L3_tibia_link_24.stl",
+      "url": "stl/L3_tibia_link_24.stl"
+    },
+    {
+      "id": "stl:L3_yaw_servo_25",
+      "name": "L3_yaw_servo_25.stl",
+      "url": "stl/L3_yaw_servo_25.stl"
+    },
+    {
+      "id": "stl:L3_hip_servo_26",
+      "name": "L3_hip_servo_26.stl",
+      "url": "stl/L3_hip_servo_26.stl"
+    },
+    {
+      "id": "stl:L3_knee_servo_27",
+      "name": "L3_knee_servo_27.stl",
+      "url": "stl/L3_knee_servo_27.stl"
+    },
+    {
+      "id": "stl:L4_coxa_link_28",
+      "name": "L4_coxa_link_28.stl",
+      "url": "stl/L4_coxa_link_28.stl"
+    },
+    {
+      "id": "stl:L4_femur_link_29",
+      "name": "L4_femur_link_29.stl",
+      "url": "stl/L4_femur_link_29.stl"
+    },
+    {
+      "id": "stl:L4_tibia_link_30",
+      "name": "L4_tibia_link_30.stl",
+      "url": "stl/L4_tibia_link_30.stl"
+    },
+    {
+      "id": "stl:L4_yaw_servo_31",
+      "name": "L4_yaw_servo_31.stl",
+      "url": "stl/L4_yaw_servo_31.stl"
+    },
+    {
+      "id": "stl:L4_hip_servo_32",
+      "name": "L4_hip_servo_32.stl",
+      "url": "stl/L4_hip_servo_32.stl"
+    },
+    {
+      "id": "stl:L4_knee_servo_33",
+      "name": "L4_knee_servo_33.stl",
+      "url": "stl/L4_knee_servo_33.stl"
+    },
+    {
+      "id": "stl:L5_coxa_link_34",
+      "name": "L5_coxa_link_34.stl",
+      "url": "stl/L5_coxa_link_34.stl"
+    },
+    {
+      "id": "stl:L5_femur_link_35",
+      "name": "L5_femur_link_35.stl",
+      "url": "stl/L5_femur_link_35.stl"
+    },
+    {
+      "id": "stl:L5_tibia_link_36",
+      "name": "L5_tibia_link_36.stl",
+      "url": "stl/L5_tibia_link_36.stl"
+    },
+    {
+      "id": "stl:L5_yaw_servo_37",
+      "name": "L5_yaw_servo_37.stl",
+      "url": "stl/L5_yaw_servo_37.stl"
+    },
+    {
+      "id": "stl:L5_hip_servo_38",
+      "name": "L5_hip_servo_38.stl",
+      "url": "stl/L5_hip_servo_38.stl"
+    },
+    {
+      "id": "stl:L5_knee_servo_39",
+      "name": "L5_knee_servo_39.stl",
+      "url": "stl/L5_knee_servo_39.stl"
+    },
+    {
+      "id": "stl:L0_screw_yaw_40",
+      "name": "L0_screw_yaw_40.stl",
+      "url": "stl/L0_screw_yaw_40.stl"
+    },
+    {
+      "id": "stl:L0_screw_yaw_41",
+      "name": "L0_screw_yaw_41.stl",
+      "url": "stl/L0_screw_yaw_41.stl"
+    },
+    {
+      "id": "stl:L0_screw_yaw_42",
+      "name": "L0_screw_yaw_42.stl",
+      "url": "stl/L0_screw_yaw_42.stl"
+    },
+    {
+      "id": "stl:L0_screw_yaw_43",
+      "name": "L0_screw_yaw_43.stl",
+      "url": "stl/L0_screw_yaw_43.stl"
+    },
+    {
+      "id": "stl:L0_screw_hip_44",
+      "name": "L0_screw_hip_44.stl",
+      "url": "stl/L0_screw_hip_44.stl"
+    },
+    {
+      "id": "stl:L0_screw_hip_45",
+      "name": "L0_screw_hip_45.stl",
+      "url": "stl/L0_screw_hip_45.stl"
+    },
+    {
+      "id": "stl:L0_screw_hip_46",
+      "name": "L0_screw_hip_46.stl",
+      "url": "stl/L0_screw_hip_46.stl"
+    },
+    {
+      "id": "stl:L0_screw_hip_47",
+      "name": "L0_screw_hip_47.stl",
+      "url": "stl/L0_screw_hip_47.stl"
+    },
+    {
+      "id": "stl:L0_screw_knee_48",
+      "name": "L0_screw_knee_48.stl",
+      "url": "stl/L0_screw_knee_48.stl"
+    },
+    {
+      "id": "stl:L0_screw_knee_49",
+      "name": "L0_screw_knee_49.stl",
+      "url": "stl/L0_screw_knee_49.stl"
+    },
+    {
+      "id": "stl:L0_screw_knee_50",
+      "name": "L0_screw_knee_50.stl",
+      "url": "stl/L0_screw_knee_50.stl"
+    },
+    {
+      "id": "stl:L0_screw_knee_51",
+      "name": "L0_screw_knee_51.stl",
+      "url": "stl/L0_screw_knee_51.stl"
+    },
+    {
+      "id": "stl:L0_screw_yaw_52",
+      "name": "L0_screw_yaw_52.stl",
+      "url": "stl/L0_screw_yaw_52.stl"
+    },
+    {
+      "id": "stl:L0_screw_yaw_53",
+      "name": "L0_screw_yaw_53.stl",
+      "url": "stl/L0_screw_yaw_53.stl"
+    },
+    {
+      "id": "stl:L0_screw_yaw_54",
+      "name": "L0_screw_yaw_54.stl",
+      "url": "stl/L0_screw_yaw_54.stl"
+    },
+    {
+      "id": "stl:L0_screw_yaw_55",
+      "name": "L0_screw_yaw_55.stl",
+      "url": "stl/L0_screw_yaw_55.stl"
+    },
+    {
+      "id": "stl:L0_screw_hip_56",
+      "name": "L0_screw_hip_56.stl",
+      "url": "stl/L0_screw_hip_56.stl"
+    },
+    {
+      "id": "stl:L0_screw_hip_57",
+      "name": "L0_screw_hip_57.stl",
+      "url": "stl/L0_screw_hip_57.stl"
+    },
+    {
+      "id": "stl:L0_screw_hip_58",
+      "name": "L0_screw_hip_58.stl",
+      "url": "stl/L0_screw_hip_58.stl"
+    },
+    {
+      "id": "stl:L0_screw_hip_59",
+      "name": "L0_screw_hip_59.stl",
+      "url": "stl/L0_screw_hip_59.stl"
+    },
+    {
+      "id": "stl:L0_screw_knee_60",
+      "name": "L0_screw_knee_60.stl",
+      "url": "stl/L0_screw_knee_60.stl"
+    },
+    {
+      "id": "stl:L0_screw_knee_61",
+      "name": "L0_screw_knee_61.stl",
+      "url": "stl/L0_screw_knee_61.stl"
+    },
+    {
+      "id": "stl:L0_screw_knee_62",
+      "name": "L0_screw_knee_62.stl",
+      "url": "stl/L0_screw_knee_62.stl"
+    },
+    {
+      "id": "stl:L0_screw_knee_63",
+      "name": "L0_screw_knee_63.stl",
+      "url": "stl/L0_screw_knee_63.stl"
+    },
+    {
+      "id": "stl:L0_screw_yaw_64",
+      "name": "L0_screw_yaw_64.stl",
+      "url": "stl/L0_screw_yaw_64.stl"
+    },
+    {
+      "id": "stl:L0_screw_hip_65",
+      "name": "L0_screw_hip_65.stl",
+      "url": "stl/L0_screw_hip_65.stl"
+    },
+    {
+      "id": "stl:L0_screw_knee_66",
+      "name": "L0_screw_knee_66.stl",
+      "url": "stl/L0_screw_knee_66.stl"
+    },
+    {
+      "id": "stl:L1_screw_yaw_67",
+      "name": "L1_screw_yaw_67.stl",
+      "url": "stl/L1_screw_yaw_67.stl"
+    },
+    {
+      "id": "stl:L1_screw_yaw_68",
+      "name": "L1_screw_yaw_68.stl",
+      "url": "stl/L1_screw_yaw_68.stl"
+    },
+    {
+      "id": "stl:L1_screw_yaw_69",
+      "name": "L1_screw_yaw_69.stl",
+      "url": "stl/L1_screw_yaw_69.stl"
+    },
+    {
+      "id": "stl:L1_screw_yaw_70",
+      "name": "L1_screw_yaw_70.stl",
+      "url": "stl/L1_screw_yaw_70.stl"
+    },
+    {
+      "id": "stl:L1_screw_hip_71",
+      "name": "L1_screw_hip_71.stl",
+      "url": "stl/L1_screw_hip_71.stl"
+    },
+    {
+      "id": "stl:L1_screw_hip_72",
+      "name": "L1_screw_hip_72.stl",
+      "url": "stl/L1_screw_hip_72.stl"
+    },
+    {
+      "id": "stl:L1_screw_hip_73",
+      "name": "L1_screw_hip_73.stl",
+      "url": "stl/L1_screw_hip_73.stl"
+    },
+    {
+      "id": "stl:L1_screw_hip_74",
+      "name": "L1_screw_hip_74.stl",
+      "url": "stl/L1_screw_hip_74.stl"
+    },
+    {
+      "id": "stl:L1_screw_knee_75",
+      "name": "L1_screw_knee_75.stl",
+      "url": "stl/L1_screw_knee_75.stl"
+    },
+    {
+      "id": "stl:L1_screw_knee_76",
+      "name": "L1_screw_knee_76.stl",
+      "url": "stl/L1_screw_knee_76.stl"
+    },
+    {
+      "id": "stl:L1_screw_knee_77",
+      "name": "L1_screw_knee_77.stl",
+      "url": "stl/L1_screw_knee_77.stl"
+    },
+    {
+      "id": "stl:L1_screw_knee_78",
+      "name": "L1_screw_knee_78.stl",
+      "url": "stl/L1_screw_knee_78.stl"
+    },
+    {
+      "id": "stl:L1_screw_yaw_79",
+      "name": "L1_screw_yaw_79.stl",
+      "url": "stl/L1_screw_yaw_79.stl"
+    },
+    {
+      "id": "stl:L1_screw_yaw_80",
+      "name": "L1_screw_yaw_80.stl",
+      "url": "stl/L1_screw_yaw_80.stl"
+    },
+    {
+      "id": "stl:L1_screw_yaw_81",
+      "name": "L1_screw_yaw_81.stl",
+      "url": "stl/L1_screw_yaw_81.stl"
+    },
+    {
+      "id": "stl:L1_screw_yaw_82",
+      "name": "L1_screw_yaw_82.stl",
+      "url": "stl/L1_screw_yaw_82.stl"
+    },
+    {
+      "id": "stl:L1_screw_hip_83",
+      "name": "L1_screw_hip_83.stl",
+      "url": "stl/L1_screw_hip_83.stl"
+    },
+    {
+      "id": "stl:L1_screw_hip_84",
+      "name": "L1_screw_hip_84.stl",
+      "url": "stl/L1_screw_hip_84.stl"
+    },
+    {
+      "id": "stl:L1_screw_hip_85",
+      "name": "L1_screw_hip_85.stl",
+      "url": "stl/L1_screw_hip_85.stl"
+    },
+    {
+      "id": "stl:L1_screw_hip_86",
+      "name": "L1_screw_hip_86.stl",
+      "url": "stl/L1_screw_hip_86.stl"
+    },
+    {
+      "id": "stl:L1_screw_knee_87",
+      "name": "L1_screw_knee_87.stl",
+      "url": "stl/L1_screw_knee_87.stl"
+    },
+    {
+      "id": "stl:L1_screw_knee_88",
+      "name": "L1_screw_knee_88.stl",
+      "url": "stl/L1_screw_knee_88.stl"
+    },
+    {
+      "id": "stl:L1_screw_knee_89",
+      "name": "L1_screw_knee_89.stl",
+      "url": "stl/L1_screw_knee_89.stl"
+    },
+    {
+      "id": "stl:L1_screw_knee_90",
+      "name": "L1_screw_knee_90.stl",
+      "url": "stl/L1_screw_knee_90.stl"
+    },
+    {
+      "id": "stl:L1_screw_yaw_91",
+      "name": "L1_screw_yaw_91.stl",
+      "url": "stl/L1_screw_yaw_91.stl"
+    },
+    {
+      "id": "stl:L1_screw_hip_92",
+      "name": "L1_screw_hip_92.stl",
+      "url": "stl/L1_screw_hip_92.stl"
+    },
+    {
+      "id": "stl:L1_screw_knee_93",
+      "name": "L1_screw_knee_93.stl",
+      "url": "stl/L1_screw_knee_93.stl"
+    },
+    {
+      "id": "stl:L2_screw_yaw_94",
+      "name": "L2_screw_yaw_94.stl",
+      "url": "stl/L2_screw_yaw_94.stl"
+    },
+    {
+      "id": "stl:L2_screw_yaw_95",
+      "name": "L2_screw_yaw_95.stl",
+      "url": "stl/L2_screw_yaw_95.stl"
+    },
+    {
+      "id": "stl:L2_screw_yaw_96",
+      "name": "L2_screw_yaw_96.stl",
+      "url": "stl/L2_screw_yaw_96.stl"
+    },
+    {
+      "id": "stl:L2_screw_yaw_97",
+      "name": "L2_screw_yaw_97.stl",
+      "url": "stl/L2_screw_yaw_97.stl"
+    },
+    {
+      "id": "stl:L2_screw_hip_98",
+      "name": "L2_screw_hip_98.stl",
+      "url": "stl/L2_screw_hip_98.stl"
+    },
+    {
+      "id": "stl:L2_screw_hip_99",
+      "name": "L2_screw_hip_99.stl",
+      "url": "stl/L2_screw_hip_99.stl"
+    },
+    {
+      "id": "stl:L2_screw_hip_100",
+      "name": "L2_screw_hip_100.stl",
+      "url": "stl/L2_screw_hip_100.stl"
+    },
+    {
+      "id": "stl:L2_screw_hip_101",
+      "name": "L2_screw_hip_101.stl",
+      "url": "stl/L2_screw_hip_101.stl"
+    },
+    {
+      "id": "stl:L2_screw_knee_102",
+      "name": "L2_screw_knee_102.stl",
+      "url": "stl/L2_screw_knee_102.stl"
+    },
+    {
+      "id": "stl:L2_screw_knee_103",
+      "name": "L2_screw_knee_103.stl",
+      "url": "stl/L2_screw_knee_103.stl"
+    },
+    {
+      "id": "stl:L2_screw_knee_104",
+      "name": "L2_screw_knee_104.stl",
+      "url": "stl/L2_screw_knee_104.stl"
+    },
+    {
+      "id": "stl:L2_screw_knee_105",
+      "name": "L2_screw_knee_105.stl",
+      "url": "stl/L2_screw_knee_105.stl"
+    },
+    {
+      "id": "stl:L2_screw_yaw_106",
+      "name": "L2_screw_yaw_106.stl",
+      "url": "stl/L2_screw_yaw_106.stl"
+    },
+    {
+      "id": "stl:L2_screw_yaw_107",
+      "name": "L2_screw_yaw_107.stl",
+      "url": "stl/L2_screw_yaw_107.stl"
+    },
+    {
+      "id": "stl:L2_screw_yaw_108",
+      "name": "L2_screw_yaw_108.stl",
+      "url": "stl/L2_screw_yaw_108.stl"
+    },
+    {
+      "id": "stl:L2_screw_yaw_109",
+      "name": "L2_screw_yaw_109.stl",
+      "url": "stl/L2_screw_yaw_109.stl"
+    },
+    {
+      "id": "stl:L2_screw_hip_110",
+      "name": "L2_screw_hip_110.stl",
+      "url": "stl/L2_screw_hip_110.stl"
+    },
+    {
+      "id": "stl:L2_screw_hip_111",
+      "name": "L2_screw_hip_111.stl",
+      "url": "stl/L2_screw_hip_111.stl"
+    },
+    {
+      "id": "stl:L2_screw_hip_112",
+      "name": "L2_screw_hip_112.stl",
+      "url": "stl/L2_screw_hip_112.stl"
+    },
+    {
+      "id": "stl:L2_screw_hip_113",
+      "name": "L2_screw_hip_113.stl",
+      "url": "stl/L2_screw_hip_113.stl"
+    },
+    {
+      "id": "stl:L2_screw_knee_114",
+      "name": "L2_screw_knee_114.stl",
+      "url": "stl/L2_screw_knee_114.stl"
+    },
+    {
+      "id": "stl:L2_screw_knee_115",
+      "name": "L2_screw_knee_115.stl",
+      "url": "stl/L2_screw_knee_115.stl"
+    },
+    {
+      "id": "stl:L2_screw_knee_116",
+      "name": "L2_screw_knee_116.stl",
+      "url": "stl/L2_screw_knee_116.stl"
+    },
+    {
+      "id": "stl:L2_screw_knee_117",
+      "name": "L2_screw_knee_117.stl",
+      "url": "stl/L2_screw_knee_117.stl"
+    },
+    {
+      "id": "stl:L2_screw_yaw_118",
+      "name": "L2_screw_yaw_118.stl",
+      "url": "stl/L2_screw_yaw_118.stl"
+    },
+    {
+      "id": "stl:L2_screw_hip_119",
+      "name": "L2_screw_hip_119.stl",
+      "url": "stl/L2_screw_hip_119.stl"
+    },
+    {
+      "id": "stl:L2_screw_knee_120",
+      "name": "L2_screw_knee_120.stl",
+      "url": "stl/L2_screw_knee_120.stl"
+    },
+    {
+      "id": "stl:L3_screw_yaw_121",
+      "name": "L3_screw_yaw_121.stl",
+      "url": "stl/L3_screw_yaw_121.stl"
+    },
+    {
+      "id": "stl:L3_screw_yaw_122",
+      "name": "L3_screw_yaw_122.stl",
+      "url": "stl/L3_screw_yaw_122.stl"
+    },
+    {
+      "id": "stl:L3_screw_yaw_123",
+      "name": "L3_screw_yaw_123.stl",
+      "url": "stl/L3_screw_yaw_123.stl"
+    },
+    {
+      "id": "stl:L3_screw_yaw_124",
+      "name": "L3_screw_yaw_124.stl",
+      "url": "stl/L3_screw_yaw_124.stl"
+    },
+    {
+      "id": "stl:L3_screw_hip_125",
+      "name": "L3_screw_hip_125.stl",
+      "url": "stl/L3_screw_hip_125.stl"
+    },
+    {
+      "id": "stl:L3_screw_hip_126",
+      "name": "L3_screw_hip_126.stl",
+      "url": "stl/L3_screw_hip_126.stl"
+    },
+    {
+      "id": "stl:L3_screw_hip_127",
+      "name": "L3_screw_hip_127.stl",
+      "url": "stl/L3_screw_hip_127.stl"
+    },
+    {
+      "id": "stl:L3_screw_hip_128",
+      "name": "L3_screw_hip_128.stl",
+      "url": "stl/L3_screw_hip_128.stl"
+    },
+    {
+      "id": "stl:L3_screw_knee_129",
+      "name": "L3_screw_knee_129.stl",
+      "url": "stl/L3_screw_knee_129.stl"
+    },
+    {
+      "id": "stl:L3_screw_knee_130",
+      "name": "L3_screw_knee_130.stl",
+      "url": "stl/L3_screw_knee_130.stl"
+    },
+    {
+      "id": "stl:L3_screw_knee_131",
+      "name": "L3_screw_knee_131.stl",
+      "url": "stl/L3_screw_knee_131.stl"
+    },
+    {
+      "id": "stl:L3_screw_knee_132",
+      "name": "L3_screw_knee_132.stl",
+      "url": "stl/L3_screw_knee_132.stl"
+    },
+    {
+      "id": "stl:L3_screw_yaw_133",
+      "name": "L3_screw_yaw_133.stl",
+      "url": "stl/L3_screw_yaw_133.stl"
+    },
+    {
+      "id": "stl:L3_screw_yaw_134",
+      "name": "L3_screw_yaw_134.stl",
+      "url": "stl/L3_screw_yaw_134.stl"
+    },
+    {
+      "id": "stl:L3_screw_yaw_135",
+      "name": "L3_screw_yaw_135.stl",
+      "url": "stl/L3_screw_yaw_135.stl"
+    },
+    {
+      "id": "stl:L3_screw_yaw_136",
+      "name": "L3_screw_yaw_136.stl",
+      "url": "stl/L3_screw_yaw_136.stl"
+    },
+    {
+      "id": "stl:L3_screw_hip_137",
+      "name": "L3_screw_hip_137.stl",
+      "url": "stl/L3_screw_hip_137.stl"
+    },
+    {
+      "id": "stl:L3_screw_hip_138",
+      "name": "L3_screw_hip_138.stl",
+      "url": "stl/L3_screw_hip_138.stl"
+    },
+    {
+      "id": "stl:L3_screw_hip_139",
+      "name": "L3_screw_hip_139.stl",
+      "url": "stl/L3_screw_hip_139.stl"
+    },
+    {
+      "id": "stl:L3_screw_hip_140",
+      "name": "L3_screw_hip_140.stl",
+      "url": "stl/L3_screw_hip_140.stl"
+    },
+    {
+      "id": "stl:L3_screw_knee_141",
+      "name": "L3_screw_knee_141.stl",
+      "url": "stl/L3_screw_knee_141.stl"
+    },
+    {
+      "id": "stl:L3_screw_knee_142",
+      "name": "L3_screw_knee_142.stl",
+      "url": "stl/L3_screw_knee_142.stl"
+    },
+    {
+      "id": "stl:L3_screw_knee_143",
+      "name": "L3_screw_knee_143.stl",
+      "url": "stl/L3_screw_knee_143.stl"
+    },
+    {
+      "id": "stl:L3_screw_knee_144",
+      "name": "L3_screw_knee_144.stl",
+      "url": "stl/L3_screw_knee_144.stl"
+    },
+    {
+      "id": "stl:L3_screw_yaw_145",
+      "name": "L3_screw_yaw_145.stl",
+      "url": "stl/L3_screw_yaw_145.stl"
+    },
+    {
+      "id": "stl:L3_screw_hip_146",
+      "name": "L3_screw_hip_146.stl",
+      "url": "stl/L3_screw_hip_146.stl"
+    },
+    {
+      "id": "stl:L3_screw_knee_147",
+      "name": "L3_screw_knee_147.stl",
+      "url": "stl/L3_screw_knee_147.stl"
+    },
+    {
+      "id": "stl:L4_screw_yaw_148",
+      "name": "L4_screw_yaw_148.stl",
+      "url": "stl/L4_screw_yaw_148.stl"
+    },
+    {
+      "id": "stl:L4_screw_yaw_149",
+      "name": "L4_screw_yaw_149.stl",
+      "url": "stl/L4_screw_yaw_149.stl"
+    },
+    {
+      "id": "stl:L4_screw_yaw_150",
+      "name": "L4_screw_yaw_150.stl",
+      "url": "stl/L4_screw_yaw_150.stl"
+    },
+    {
+      "id": "stl:L4_screw_yaw_151",
+      "name": "L4_screw_yaw_151.stl",
+      "url": "stl/L4_screw_yaw_151.stl"
+    },
+    {
+      "id": "stl:L4_screw_hip_152",
+      "name": "L4_screw_hip_152.stl",
+      "url": "stl/L4_screw_hip_152.stl"
+    },
+    {
+      "id": "stl:L4_screw_hip_153",
+      "name": "L4_screw_hip_153.stl",
+      "url": "stl/L4_screw_hip_153.stl"
+    },
+    {
+      "id": "stl:L4_screw_hip_154",
+      "name": "L4_screw_hip_154.stl",
+      "url": "stl/L4_screw_hip_154.stl"
+    },
+    {
+      "id": "stl:L4_screw_hip_155",
+      "name": "L4_screw_hip_155.stl",
+      "url": "stl/L4_screw_hip_155.stl"
+    },
+    {
+      "id": "stl:L4_screw_knee_156",
+      "name": "L4_screw_knee_156.stl",
+      "url": "stl/L4_screw_knee_156.stl"
+    },
+    {
+      "id": "stl:L4_screw_knee_157",
+      "name": "L4_screw_knee_157.stl",
+      "url": "stl/L4_screw_knee_157.stl"
+    },
+    {
+      "id": "stl:L4_screw_knee_158",
+      "name": "L4_screw_knee_158.stl",
+      "url": "stl/L4_screw_knee_158.stl"
+    },
+    {
+      "id": "stl:L4_screw_knee_159",
+      "name": "L4_screw_knee_159.stl",
+      "url": "stl/L4_screw_knee_159.stl"
+    },
+    {
+      "id": "stl:L4_screw_yaw_160",
+      "name": "L4_screw_yaw_160.stl",
+      "url": "stl/L4_screw_yaw_160.stl"
+    },
+    {
+      "id": "stl:L4_screw_yaw_161",
+      "name": "L4_screw_yaw_161.stl",
+      "url": "stl/L4_screw_yaw_161.stl"
+    },
+    {
+      "id": "stl:L4_screw_yaw_162",
+      "name": "L4_screw_yaw_162.stl",
+      "url": "stl/L4_screw_yaw_162.stl"
+    },
+    {
+      "id": "stl:L4_screw_yaw_163",
+      "name": "L4_screw_yaw_163.stl",
+      "url": "stl/L4_screw_yaw_163.stl"
+    },
+    {
+      "id": "stl:L4_screw_hip_164",
+      "name": "L4_screw_hip_164.stl",
+      "url": "stl/L4_screw_hip_164.stl"
+    },
+    {
+      "id": "stl:L4_screw_hip_165",
+      "name": "L4_screw_hip_165.stl",
+      "url": "stl/L4_screw_hip_165.stl"
+    },
+    {
+      "id": "stl:L4_screw_hip_166",
+      "name": "L4_screw_hip_166.stl",
+      "url": "stl/L4_screw_hip_166.stl"
+    },
+    {
+      "id": "stl:L4_screw_hip_167",
+      "name": "L4_screw_hip_167.stl",
+      "url": "stl/L4_screw_hip_167.stl"
+    },
+    {
+      "id": "stl:L4_screw_knee_168",
+      "name": "L4_screw_knee_168.stl",
+      "url": "stl/L4_screw_knee_168.stl"
+    },
+    {
+      "id": "stl:L4_screw_knee_169",
+      "name": "L4_screw_knee_169.stl",
+      "url": "stl/L4_screw_knee_169.stl"
+    },
+    {
+      "id": "stl:L4_screw_knee_170",
+      "name": "L4_screw_knee_170.stl",
+      "url": "stl/L4_screw_knee_170.stl"
+    },
+    {
+      "id": "stl:L4_screw_knee_171",
+      "name": "L4_screw_knee_171.stl",
+      "url": "stl/L4_screw_knee_171.stl"
+    },
+    {
+      "id": "stl:L4_screw_yaw_172",
+      "name": "L4_screw_yaw_172.stl",
+      "url": "stl/L4_screw_yaw_172.stl"
+    },
+    {
+      "id": "stl:L4_screw_hip_173",
+      "name": "L4_screw_hip_173.stl",
+      "url": "stl/L4_screw_hip_173.stl"
+    },
+    {
+      "id": "stl:L4_screw_knee_174",
+      "name": "L4_screw_knee_174.stl",
+      "url": "stl/L4_screw_knee_174.stl"
+    },
+    {
+      "id": "stl:L5_screw_yaw_175",
+      "name": "L5_screw_yaw_175.stl",
+      "url": "stl/L5_screw_yaw_175.stl"
+    },
+    {
+      "id": "stl:L5_screw_yaw_176",
+      "name": "L5_screw_yaw_176.stl",
+      "url": "stl/L5_screw_yaw_176.stl"
+    },
+    {
+      "id": "stl:L5_screw_yaw_177",
+      "name": "L5_screw_yaw_177.stl",
+      "url": "stl/L5_screw_yaw_177.stl"
+    },
+    {
+      "id": "stl:L5_screw_yaw_178",
+      "name": "L5_screw_yaw_178.stl",
+      "url": "stl/L5_screw_yaw_178.stl"
+    },
+    {
+      "id": "stl:L5_screw_hip_179",
+      "name": "L5_screw_hip_179.stl",
+      "url": "stl/L5_screw_hip_179.stl"
+    },
+    {
+      "id": "stl:L5_screw_hip_180",
+      "name": "L5_screw_hip_180.stl",
+      "url": "stl/L5_screw_hip_180.stl"
+    },
+    {
+      "id": "stl:L5_screw_hip_181",
+      "name": "L5_screw_hip_181.stl",
+      "url": "stl/L5_screw_hip_181.stl"
+    },
+    {
+      "id": "stl:L5_screw_hip_182",
+      "name": "L5_screw_hip_182.stl",
+      "url": "stl/L5_screw_hip_182.stl"
+    },
+    {
+      "id": "stl:L5_screw_knee_183",
+      "name": "L5_screw_knee_183.stl",
+      "url": "stl/L5_screw_knee_183.stl"
+    },
+    {
+      "id": "stl:L5_screw_knee_184",
+      "name": "L5_screw_knee_184.stl",
+      "url": "stl/L5_screw_knee_184.stl"
+    },
+    {
+      "id": "stl:L5_screw_knee_185",
+      "name": "L5_screw_knee_185.stl",
+      "url": "stl/L5_screw_knee_185.stl"
+    },
+    {
+      "id": "stl:L5_screw_knee_186",
+      "name": "L5_screw_knee_186.stl",
+      "url": "stl/L5_screw_knee_186.stl"
+    },
+    {
+      "id": "stl:L5_screw_yaw_187",
+      "name": "L5_screw_yaw_187.stl",
+      "url": "stl/L5_screw_yaw_187.stl"
+    },
+    {
+      "id": "stl:L5_screw_yaw_188",
+      "name": "L5_screw_yaw_188.stl",
+      "url": "stl/L5_screw_yaw_188.stl"
+    },
+    {
+      "id": "stl:L5_screw_yaw_189",
+      "name": "L5_screw_yaw_189.stl",
+      "url": "stl/L5_screw_yaw_189.stl"
+    },
+    {
+      "id": "stl:L5_screw_yaw_190",
+      "name": "L5_screw_yaw_190.stl",
+      "url": "stl/L5_screw_yaw_190.stl"
+    },
+    {
+      "id": "stl:L5_screw_hip_191",
+      "name": "L5_screw_hip_191.stl",
+      "url": "stl/L5_screw_hip_191.stl"
+    },
+    {
+      "id": "stl:L5_screw_hip_192",
+      "name": "L5_screw_hip_192.stl",
+      "url": "stl/L5_screw_hip_192.stl"
+    },
+    {
+      "id": "stl:L5_screw_hip_193",
+      "name": "L5_screw_hip_193.stl",
+      "url": "stl/L5_screw_hip_193.stl"
+    },
+    {
+      "id": "stl:L5_screw_hip_194",
+      "name": "L5_screw_hip_194.stl",
+      "url": "stl/L5_screw_hip_194.stl"
+    },
+    {
+      "id": "stl:L5_screw_knee_195",
+      "name": "L5_screw_knee_195.stl",
+      "url": "stl/L5_screw_knee_195.stl"
+    },
+    {
+      "id": "stl:L5_screw_knee_196",
+      "name": "L5_screw_knee_196.stl",
+      "url": "stl/L5_screw_knee_196.stl"
+    },
+    {
+      "id": "stl:L5_screw_knee_197",
+      "name": "L5_screw_knee_197.stl",
+      "url": "stl/L5_screw_knee_197.stl"
+    },
+    {
+      "id": "stl:L5_screw_knee_198",
+      "name": "L5_screw_knee_198.stl",
+      "url": "stl/L5_screw_knee_198.stl"
+    },
+    {
+      "id": "stl:L5_screw_yaw_199",
+      "name": "L5_screw_yaw_199.stl",
+      "url": "stl/L5_screw_yaw_199.stl"
+    },
+    {
+      "id": "stl:L5_screw_hip_200",
+      "name": "L5_screw_hip_200.stl",
+      "url": "stl/L5_screw_hip_200.stl"
+    },
+    {
+      "id": "stl:L5_screw_knee_201",
+      "name": "L5_screw_knee_201.stl",
+      "url": "stl/L5_screw_knee_201.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "000-chassis_bottom",
+      "meshId": "stl:body_chassis_bottom_0",
+      "name": "chassis_bottom",
+      "partType": "chassis_bottom",
+      "role": "chassis",
+      "leg": null,
+      "joint": null,
+      "color": "#79b0e1",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -0.14134348040628136,
+        1.244757363007541,
+        40.73142648358622
+      ]
+    },
+    {
+      "id": "001-chassis_top",
+      "meshId": "stl:body_chassis_top_1",
+      "name": "chassis_top",
+      "partType": "chassis_top",
+      "role": "chassis",
+      "leg": null,
+      "joint": null,
+      "color": "#5b8fc7",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        0.3452049763459906,
+        -1.1836520380321888e-14,
+        71.82661679362701
+      ]
+    },
+    {
+      "id": "002-battery_holder",
+      "meshId": "stl:body_battery_holder_2",
+      "name": "battery_holder",
+      "partType": "battery_holder",
+      "role": "electronics",
+      "leg": null,
+      "joint": null,
+      "color": "#d62728",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -26.094587108319956,
+        0.340553933173197,
+        50.57545193997288
+      ]
+    },
+    {
+      "id": "003-electronics_tray",
+      "meshId": "stl:body_electronics_tray_3",
+      "name": "electronics_tray",
+      "partType": "electronics_tray",
+      "role": "electronics",
+      "leg": null,
+      "joint": null,
+      "color": "#17becf",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        35.2861932345423,
+        -0.6737111262682799,
+        40.415065592569384
+      ]
+    },
+    {
+      "id": "004-coxa_link",
+      "meshId": "stl:L0_coxa_link_4",
+      "name": "L0 coxa_link",
+      "partType": "coxa_link",
+      "role": "frame",
+      "leg": 0,
+      "joint": null,
+      "color": "#9467bd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        108.72641416728526,
+        39.29018883660748,
+        81.84246100500083
+      ]
+    },
+    {
+      "id": "005-femur_link",
+      "meshId": "stl:L0_femur_link_5",
+      "name": "L0 femur_link",
+      "partType": "femur_link",
+      "role": "frame",
+      "leg": 0,
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        167.3385012593854,
+        69.44654979242311,
+        108.13029455896223
+      ]
+    },
+    {
+      "id": "006-tibia_link",
+      "meshId": "stl:L0_tibia_link_6",
+      "name": "L0 tibia_link",
+      "partType": "tibia_link",
+      "role": "frame",
+      "leg": 0,
+      "joint": null,
+      "color": "#1f77b4",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        232.37054579991835,
+        105.67452331218978,
+        87.41993415368633
+      ]
+    },
+    {
+      "id": "007-yaw_servo",
+      "meshId": "stl:L0_yaw_servo_7",
+      "name": "L0 yaw_servo",
+      "partType": "yaw_servo",
+      "role": "motor",
+      "leg": 0,
+      "joint": null,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        76.47768294625658,
+        44.154410836019956,
+        18.69063813463072
+      ]
+    },
+    {
+      "id": "008-hip_servo",
+      "meshId": "stl:L0_hip_servo_8",
+      "name": "L0 hip_servo",
+      "partType": "hip_servo",
+      "role": "motor",
+      "leg": 0,
+      "joint": null,
+      "color": "#3a3a40",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        110.18299897355185,
+        35.775090991578395,
+        82.64999999999999
+      ]
+    },
+    {
+      "id": "009-knee_servo",
+      "meshId": "stl:L0_knee_servo_9",
+      "name": "L0 knee_servo",
+      "partType": "knee_servo",
+      "role": "motor",
+      "leg": 0,
+      "joint": null,
+      "color": "#46464d",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        181.77132032223795,
+        77.10662759307559,
+        115.74473809399994
+      ]
+    },
+    {
+      "id": "010-coxa_link",
+      "meshId": "stl:L1_coxa_link_10",
+      "name": "L1 coxa_link",
+      "partType": "coxa_link",
+      "role": "frame",
+      "leg": 1,
+      "joint": null,
+      "color": "#9467bd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        20.336905431652774,
+        113.80493114956093,
+        81.8424610050008
+      ]
+    },
+    {
+      "id": "011-femur_link",
+      "meshId": "stl:L1_femur_link_11",
+      "name": "L1 femur_link",
+      "partType": "femur_link",
+      "role": "frame",
+      "leg": 1,
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        23.526774304273435,
+        179.64266801805326,
+        108.13029455896225
+      ]
+    },
+    {
+      "id": "012-tibia_link",
+      "meshId": "stl:L1_tibia_link_12",
+      "name": "L1 tibia_link",
+      "partType": "tibia_link",
+      "role": "frame",
+      "leg": 1,
+      "joint": null,
+      "color": "#1f77b4",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        24.66845117879197,
+        254.0760574100793,
+        87.41993415368638
+      ]
+    },
+    {
+      "id": "013-yaw_servo",
+      "meshId": "stl:L1_yaw_servo_13",
+      "name": "L1 yaw_servo",
+      "partType": "yaw_servo",
+      "role": "motor",
+      "leg": 1,
+      "joint": null,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        2.0635486399675408e-14,
+        88.30882167203991,
+        18.69063813463071
+      ]
+    },
+    {
+      "id": "014-hip_servo",
+      "meshId": "stl:L1_hip_servo_14",
+      "name": "L1 hip_servo",
+      "partType": "hip_servo",
+      "role": "motor",
+      "leg": 1,
+      "joint": null,
+      "color": "#3a3a40",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        24.109361865369273,
+        113.30882167203967,
+        82.64999999999999
+      ]
+    },
+    {
+      "id": "015-knee_servo",
+      "meshId": "stl:L1_knee_servo_15",
+      "name": "L1 knee_servo",
+      "partType": "knee_servo",
+      "role": "motor",
+      "leg": 1,
+      "joint": null,
+      "color": "#46464d",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        24.10936186536928,
+        195.9718948750338,
+        115.74473809399989
+      ]
+    },
+    {
+      "id": "016-coxa_link",
+      "meshId": "stl:L2_coxa_link_16",
+      "name": "L2 coxa_link",
+      "partType": "coxa_link",
+      "role": "frame",
+      "leg": 2,
+      "joint": null,
+      "color": "#9467bd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -88.38950873563212,
+        74.51474231295347,
+        81.84246100500083
+      ]
+    },
+    {
+      "id": "017-femur_link",
+      "meshId": "stl:L2_femur_link_17",
+      "name": "L2 femur_link",
+      "partType": "femur_link",
+      "role": "frame",
+      "leg": 2,
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -143.81172695511148,
+        110.19611822563026,
+        108.13029455896232
+      ]
+    },
+    {
+      "id": "018-tibia_link",
+      "meshId": "stl:L2_tibia_link_18",
+      "name": "L2 tibia_link",
+      "partType": "tibia_link",
+      "role": "frame",
+      "leg": 2,
+      "joint": null,
+      "color": "#1f77b4",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -207.70209462112626,
+        148.40153409788982,
+        87.41993415368627
+      ]
+    },
+    {
+      "id": "019-yaw_servo",
+      "meshId": "stl:L2_yaw_servo_19",
+      "name": "L2 yaw_servo",
+      "partType": "yaw_servo",
+      "role": "motor",
+      "leg": 2,
+      "joint": null,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -76.47768294625658,
+        44.15441083601999,
+        18.690638134630714
+      ]
+    },
+    {
+      "id": "020-hip_servo",
+      "meshId": "stl:L2_hip_servo_20",
+      "name": "L2 hip_servo",
+      "partType": "hip_servo",
+      "role": "motor",
+      "leg": 2,
+      "joint": null,
+      "color": "#3a3a40",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -86.07363710818271,
+        77.53373068046152,
+        82.64999999999996
+      ]
+    },
+    {
+      "id": "021-knee_servo",
+      "meshId": "stl:L2_knee_servo_21",
+      "name": "L2 knee_servo",
+      "partType": "knee_servo",
+      "role": "motor",
+      "leg": 2,
+      "joint": null,
+      "color": "#46464d",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -157.66195845686838,
+        118.86526728195868,
+        115.74473809400001
+      ]
+    },
+    {
+      "id": "022-coxa_link",
+      "meshId": "stl:L3_coxa_link_22",
+      "name": "L3 coxa_link",
+      "partType": "coxa_link",
+      "role": "frame",
+      "leg": 3,
+      "joint": null,
+      "color": "#9467bd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -108.7264141672852,
+        -39.290188836607456,
+        81.84246100500081
+      ]
+    },
+    {
+      "id": "023-femur_link",
+      "meshId": "stl:L3_femur_link_23",
+      "name": "L3 femur_link",
+      "partType": "femur_link",
+      "role": "frame",
+      "leg": 3,
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -167.33850125938542,
+        -69.4465497924231,
+        108.13029455896223
+      ]
+    },
+    {
+      "id": "024-tibia_link",
+      "meshId": "stl:L3_tibia_link_24",
+      "name": "L3 tibia_link",
+      "partType": "tibia_link",
+      "role": "frame",
+      "leg": 3,
+      "joint": null,
+      "color": "#1f77b4",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -232.37054579991832,
+        -105.67452331218973,
+        87.41993415368633
+      ]
+    },
+    {
+      "id": "025-yaw_servo",
+      "meshId": "stl:L3_yaw_servo_25",
+      "name": "L3 yaw_servo",
+      "partType": "yaw_servo",
+      "role": "motor",
+      "leg": 3,
+      "joint": null,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -76.47768294625656,
+        -44.15441083601996,
+        18.690638134630717
+      ]
+    },
+    {
+      "id": "026-hip_servo",
+      "meshId": "stl:L3_hip_servo_26",
+      "name": "L3 hip_servo",
+      "partType": "hip_servo",
+      "role": "motor",
+      "leg": 3,
+      "joint": null,
+      "color": "#3a3a40",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -110.18299897355183,
+        -35.77509099157838,
+        82.64999999999999
+      ]
+    },
+    {
+      "id": "027-knee_servo",
+      "meshId": "stl:L3_knee_servo_27",
+      "name": "L3 knee_servo",
+      "partType": "knee_servo",
+      "role": "motor",
+      "leg": 3,
+      "joint": null,
+      "color": "#46464d",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -181.77132032223795,
+        -77.10662759307556,
+        115.74473809399996
+      ]
+    },
+    {
+      "id": "028-coxa_link",
+      "meshId": "stl:L4_coxa_link_28",
+      "name": "L4 coxa_link",
+      "partType": "coxa_link",
+      "role": "frame",
+      "leg": 4,
+      "joint": null,
+      "color": "#9467bd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -20.336905431652813,
+        -113.80493114956091,
+        81.84246100500087
+      ]
+    },
+    {
+      "id": "029-femur_link",
+      "meshId": "stl:L4_femur_link_29",
+      "name": "L4 femur_link",
+      "partType": "femur_link",
+      "role": "frame",
+      "leg": 4,
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -23.52677430427348,
+        -179.64266801805314,
+        108.13029455896223
+      ]
+    },
+    {
+      "id": "030-tibia_link",
+      "meshId": "stl:L4_tibia_link_30",
+      "name": "L4 tibia_link",
+      "partType": "tibia_link",
+      "role": "frame",
+      "leg": 4,
+      "joint": null,
+      "color": "#1f77b4",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -24.668451178792086,
+        -254.0760574100792,
+        87.41993415368636
+      ]
+    },
+    {
+      "id": "031-yaw_servo",
+      "meshId": "stl:L4_yaw_servo_31",
+      "name": "L4 yaw_servo",
+      "partType": "yaw_servo",
+      "role": "motor",
+      "leg": 4,
+      "joint": null,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -5.612451686452693e-14,
+        -88.30882167203993,
+        18.690638134630714
+      ]
+    },
+    {
+      "id": "032-hip_servo",
+      "meshId": "stl:L4_hip_servo_32",
+      "name": "L4 hip_servo",
+      "partType": "hip_servo",
+      "role": "motor",
+      "leg": 4,
+      "joint": null,
+      "color": "#3a3a40",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -24.109361865369316,
+        -113.30882167203967,
+        82.64999999999995
+      ]
+    },
+    {
+      "id": "033-knee_servo",
+      "meshId": "stl:L4_knee_servo_33",
+      "name": "L4 knee_servo",
+      "partType": "knee_servo",
+      "role": "motor",
+      "leg": 4,
+      "joint": null,
+      "color": "#46464d",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -24.109361865369372,
+        -195.97189487503385,
+        115.74473809399997
+      ]
+    },
+    {
+      "id": "034-coxa_link",
+      "meshId": "stl:L5_coxa_link_34",
+      "name": "L5 coxa_link",
+      "partType": "coxa_link",
+      "role": "frame",
+      "leg": 5,
+      "joint": null,
+      "color": "#9467bd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        88.38950873563216,
+        -74.51474231295343,
+        81.84246100500086
+      ]
+    },
+    {
+      "id": "035-femur_link",
+      "meshId": "stl:L5_femur_link_35",
+      "name": "L5 femur_link",
+      "partType": "femur_link",
+      "role": "frame",
+      "leg": 5,
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        143.8117269551116,
+        -110.19611822563023,
+        108.13029455896229
+      ]
+    },
+    {
+      "id": "036-tibia_link",
+      "meshId": "stl:L5_tibia_link_36",
+      "name": "L5 tibia_link",
+      "partType": "tibia_link",
+      "role": "frame",
+      "leg": 5,
+      "joint": null,
+      "color": "#1f77b4",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        207.70209462112655,
+        -148.4015340978898,
+        87.41993415368631
+      ]
+    },
+    {
+      "id": "037-yaw_servo",
+      "meshId": "stl:L5_yaw_servo_37",
+      "name": "L5 yaw_servo",
+      "partType": "yaw_servo",
+      "role": "motor",
+      "leg": 5,
+      "joint": null,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        76.47768294625656,
+        -44.154410836019984,
+        18.690638134630714
+      ]
+    },
+    {
+      "id": "038-hip_servo",
+      "meshId": "stl:L5_hip_servo_38",
+      "name": "L5 hip_servo",
+      "partType": "hip_servo",
+      "role": "motor",
+      "leg": 5,
+      "joint": null,
+      "color": "#3a3a40",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        86.0736371081827,
+        -77.53373068046147,
+        82.64999999999995
+      ]
+    },
+    {
+      "id": "039-knee_servo",
+      "meshId": "stl:L5_knee_servo_39",
+      "name": "L5 knee_servo",
+      "partType": "knee_servo",
+      "role": "motor",
+      "leg": 5,
+      "joint": null,
+      "color": "#46464d",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        157.66195845686846,
+        -118.86526728195871,
+        115.74473809399993
+      ]
+    },
+    {
+      "id": "040-screw_yaw",
+      "meshId": "stl:L0_screw_yaw_40",
+      "name": "L0 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        84.80901589990003,
+        43.30647552145621,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "041-screw_yaw",
+      "meshId": "stl:L0_screw_yaw_41",
+      "name": "L0 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        79.90901589990008,
+        51.793524478543716,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "042-screw_yaw",
+      "meshId": "stl:L0_screw_yaw_42",
+      "name": "L0 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        93.29606485698766,
+        48.20647552145624,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "043-screw_yaw",
+      "meshId": "stl:L0_screw_yaw_43",
+      "name": "L0 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        88.39606485698758,
+        56.69352447854373,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "044-screw_hip",
+      "meshId": "stl:L0_screw_hip_44",
+      "name": "L0 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        106.21653405521396,
+        56.22756641249947,
+        87.55
+      ]
+    },
+    {
+      "id": "045-screw_hip",
+      "meshId": "stl:L0_screw_hip_45",
+      "name": "L0 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        106.21653405521396,
+        56.22756641249947,
+        77.74999999999999
+      ]
+    },
+    {
+      "id": "046-screw_hip",
+      "meshId": "stl:L0_screw_hip_46",
+      "name": "L0 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        114.70358301230151,
+        61.127566412499476,
+        87.55000000000001
+      ]
+    },
+    {
+      "id": "047-screw_hip",
+      "meshId": "stl:L0_screw_hip_47",
+      "name": "L0 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        114.70358301230151,
+        61.127566412499476,
+        77.75000000000001
+      ]
+    },
+    {
+      "id": "048-screw_knee",
+      "meshId": "stl:L0_screw_knee_48",
+      "name": "L0 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        175.46042936552232,
+        96.20554800964423,
+        123.05572223061317
+      ]
+    },
+    {
+      "id": "049-screw_knee",
+      "meshId": "stl:L0_screw_knee_49",
+      "name": "L0 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        179.04721124307477,
+        98.27637749217367,
+        114.173905917654
+      ]
+    },
+    {
+      "id": "050-screw_knee",
+      "meshId": "stl:L0_screw_knee_50",
+      "name": "L0 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        183.152307924292,
+        100.64645616612377,
+        127.19738119567188
+      ]
+    },
+    {
+      "id": "051-screw_knee",
+      "meshId": "stl:L0_screw_knee_51",
+      "name": "L0 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        186.73908980184456,
+        102.71728564865315,
+        118.31556488271285
+      ]
+    },
+    {
+      "id": "052-screw_yaw",
+      "meshId": "stl:L0_screw_yaw_52",
+      "name": "L0 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        92.66471820493497,
+        53.49999999999997,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "053-screw_yaw",
+      "meshId": "stl:L0_screw_yaw_53",
+      "name": "L0 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        83.10254037844395,
+        56.06217782649103,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "054-screw_yaw",
+      "meshId": "stl:L0_screw_yaw_54",
+      "name": "L0 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        80.5403625519529,
+        46.49999999999992,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "055-screw_yaw",
+      "meshId": "stl:L0_screw_yaw_55",
+      "name": "L0 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        90.10254037844393,
+        43.937822173508906,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "056-screw_hip",
+      "meshId": "stl:L0_screw_hip_56",
+      "name": "L0 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        112.43922723156814,
+        69.24954567114189,
+        82.64999999999998
+      ]
+    },
+    {
+      "id": "057-screw_hip",
+      "meshId": "stl:L0_screw_hip_57",
+      "name": "L0 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        106.3770494050771,
+        65.74954567114192,
+        75.64999999999992
+      ]
+    },
+    {
+      "id": "058-screw_hip",
+      "meshId": "stl:L0_screw_hip_58",
+      "name": "L0 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        100.31487157858595,
+        62.249545671141874,
+        82.64999999999999
+      ]
+    },
+    {
+      "id": "059-screw_hip",
+      "meshId": "stl:L0_screw_hip_59",
+      "name": "L0 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        106.37704940507707,
+        65.74954567114192,
+        89.64999999999995
+      ]
+    },
+    {
+      "id": "060-screw_knee",
+      "meshId": "stl:L0_screw_knee_60",
+      "name": "L0 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        181.98259581441633,
+        109.4004282428026,
+        116.6706085022057
+      ]
+    },
+    {
+      "id": "061-screw_knee",
+      "meshId": "stl:L0_screw_knee_61",
+      "name": "L0 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        173.5396281007577,
+        104.52587856056248,
+        114.95157924663995
+      ]
+    },
+    {
+      "id": "062-screw_knee",
+      "meshId": "stl:L0_screw_knee_62",
+      "name": "L0 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        172.050905095589,
+        103.66636393277955,
+        124.70067861112014
+      ]
+    },
+    {
+      "id": "063-screw_knee",
+      "meshId": "stl:L0_screw_knee_63",
+      "name": "L0 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        180.49387280924768,
+        108.54091361501973,
+        126.4197078666861
+      ]
+    },
+    {
+      "id": "064-screw_yaw",
+      "meshId": "stl:L0_screw_yaw_64",
+      "name": "L0 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        86.6025403784438,
+        49.999999999999936,
+        41.386233878594226
+      ]
+    },
+    {
+      "id": "065-screw_hip",
+      "meshId": "stl:L0_screw_hip_65",
+      "name": "L0 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        106.46005853375776,
+        65.60576964277496,
+        82.64999999999998
+      ]
+    },
+    {
+      "id": "066-screw_knee",
+      "meshId": "stl:L0_screw_knee_66",
+      "name": "L0 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 0,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        177.0997595836833,
+        106.38962005942427,
+        120.68564355666302
+      ]
+    },
+    {
+      "id": "067-screw_yaw",
+      "meshId": "stl:L1_screw_yaw_67",
+      "name": "L1 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.9000000000000075,
+        95.09999999999992,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "068-screw_yaw",
+      "meshId": "stl:L1_screw_yaw_68",
+      "name": "L1 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.899999999999992,
+        95.09999999999992,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "069-screw_yaw",
+      "meshId": "stl:L1_screw_yaw_69",
+      "name": "L1 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.9000000000000075,
+        104.90000000000008,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "070-screw_yaw",
+      "meshId": "stl:L1_screw_yaw_70",
+      "name": "L1 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.899999999999992,
+        104.90000000000008,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "071-screw_hip",
+      "meshId": "stl:L1_screw_hip_71",
+      "name": "L1 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.413766121405784,
+        120.09999999999991,
+        87.55
+      ]
+    },
+    {
+      "id": "072-screw_hip",
+      "meshId": "stl:L1_screw_hip_72",
+      "name": "L1 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.413766121405784,
+        120.09999999999991,
+        77.75000000000001
+      ]
+    },
+    {
+      "id": "073-screw_hip",
+      "meshId": "stl:L1_screw_hip_73",
+      "name": "L1 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.413766121405784,
+        129.90000000000003,
+        87.55
+      ]
+    },
+    {
+      "id": "074-screw_hip",
+      "meshId": "stl:L1_screw_hip_74",
+      "name": "L1 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.413766121405784,
+        129.90000000000003,
+        77.75000000000001
+      ]
+    },
+    {
+      "id": "075-screw_knee",
+      "meshId": "stl:L1_screw_knee_75",
+      "name": "L1 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.413766121405793,
+        200.05596319428972,
+        123.05572223061304
+      ]
+    },
+    {
+      "id": "076-screw_knee",
+      "meshId": "stl:L1_screw_knee_76",
+      "name": "L1 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.413766121405793,
+        204.19762215934819,
+        114.17390591765384
+      ]
+    },
+    {
+      "id": "077-screw_knee",
+      "meshId": "stl:L1_screw_knee_77",
+      "name": "L1 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.413766121405793,
+        208.93777950724856,
+        127.19738119567197
+      ]
+    },
+    {
+      "id": "078-screw_knee",
+      "meshId": "stl:L1_screw_knee_78",
+      "name": "L1 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.413766121405793,
+        213.07943847230757,
+        118.31556488271274
+      ]
+    },
+    {
+      "id": "079-screw_yaw",
+      "meshId": "stl:L1_screw_yaw_79",
+      "name": "L1 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        6.590554201459738e-15,
+        106.99999999999979,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "080-screw_yaw",
+      "meshId": "stl:L1_screw_yaw_80",
+      "name": "L1 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -6.999999999999992,
+        100.00000000000001,
+        69.30225213595557
+      ]
+    },
+    {
+      "id": "081-screw_yaw",
+      "meshId": "stl:L1_screw_yaw_81",
+      "name": "L1 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.7143188749553085e-15,
+        92.99999999999997,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "082-screw_yaw",
+      "meshId": "stl:L1_screw_yaw_82",
+      "name": "L1 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        7.000000000000009,
+        100.0,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "083-screw_hip",
+      "meshId": "stl:L1_screw_hip_83",
+      "name": "L1 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -3.7522521359554886,
+        132.0,
+        82.64999999999999
+      ]
+    },
+    {
+      "id": "084-screw_hip",
+      "meshId": "stl:L1_screw_hip_84",
+      "name": "L1 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -3.7522521359554886,
+        125.00000000000003,
+        75.6499999999999
+      ]
+    },
+    {
+      "id": "085-screw_hip",
+      "meshId": "stl:L1_screw_hip_85",
+      "name": "L1 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -3.7522521359554886,
+        117.99999999999999,
+        82.64999999999999
+      ]
+    },
+    {
+      "id": "086-screw_hip",
+      "meshId": "stl:L1_screw_hip_86",
+      "name": "L1 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -3.7522521359554886,
+        125.00000000000003,
+        89.64999999999995
+      ]
+    },
+    {
+      "id": "087-screw_knee",
+      "meshId": "stl:L1_screw_knee_87",
+      "name": "L1 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -3.7522521359554797,
+        212.30176514332163,
+        116.67060850220564
+      ]
+    },
+    {
+      "id": "088-screw_knee",
+      "meshId": "stl:L1_screw_knee_88",
+      "name": "L1 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -3.7522521359554797,
+        202.55266577884123,
+        114.95157924663998
+      ]
+    },
+    {
+      "id": "089-screw_knee",
+      "meshId": "stl:L1_screw_knee_89",
+      "name": "L1 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -3.7522521359554797,
+        200.83363652327554,
+        124.70067861112024
+      ]
+    },
+    {
+      "id": "090-screw_knee",
+      "meshId": "stl:L1_screw_knee_90",
+      "name": "L1 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -3.7522521359554797,
+        210.58273588775566,
+        126.41970786668598
+      ]
+    },
+    {
+      "id": "091-screw_yaw",
+      "meshId": "stl:L1_screw_yaw_91",
+      "name": "L1 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        6.27523735875649e-15,
+        99.99999999999996,
+        41.386233878594226
+      ]
+    },
+    {
+      "id": "092-screw_hip",
+      "meshId": "stl:L1_screw_hip_92",
+      "name": "L1 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -3.586233878594208,
+        124.99999999999993,
+        82.64999999999998
+      ]
+    },
+    {
+      "id": "093-screw_knee",
+      "meshId": "stl:L1_screw_knee_93",
+      "name": "L1 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 1,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -3.5862338785942023,
+        206.56770083329863,
+        120.68564355666288
+      ]
+    },
+    {
+      "id": "094-screw_yaw",
+      "meshId": "stl:L2_screw_yaw_94",
+      "name": "L2 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -79.90901589989997,
+        51.793524478543716,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "095-screw_yaw",
+      "meshId": "stl:L2_screw_yaw_95",
+      "name": "L2 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -84.80901589990012,
+        43.30647552145621,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "096-screw_yaw",
+      "meshId": "stl:L2_screw_yaw_96",
+      "name": "L2 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -88.39606485698765,
+        56.69352447854373,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "097-screw_yaw",
+      "meshId": "stl:L2_screw_yaw_97",
+      "name": "L2 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -93.2960648569876,
+        48.20647552145624,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "098-screw_hip",
+      "meshId": "stl:L2_screw_hip_98",
+      "name": "L2 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -101.80276793380824,
+        63.87243358750056,
+        87.55000000000003
+      ]
+    },
+    {
+      "id": "099-screw_hip",
+      "meshId": "stl:L2_screw_hip_99",
+      "name": "L2 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -101.80276793380824,
+        63.87243358750056,
+        77.75000000000001
+      ]
+    },
+    {
+      "id": "100-screw_hip",
+      "meshId": "stl:L2_screw_hip_100",
+      "name": "L2 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -110.28981689089568,
+        68.77243358750053,
+        87.55000000000004
+      ]
+    },
+    {
+      "id": "101-screw_hip",
+      "meshId": "stl:L2_screw_hip_101",
+      "name": "L2 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -110.28981689089568,
+        68.77243358750053,
+        77.75
+      ]
+    },
+    {
+      "id": "102-screw_knee",
+      "meshId": "stl:L2_screw_knee_102",
+      "name": "L2 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -171.04666324411644,
+        103.85041518464526,
+        123.05572223061314
+      ]
+    },
+    {
+      "id": "103-screw_knee",
+      "meshId": "stl:L2_screw_knee_103",
+      "name": "L2 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -174.633445121669,
+        105.9212446671747,
+        114.173905917654
+      ]
+    },
+    {
+      "id": "104-screw_knee",
+      "meshId": "stl:L2_screw_knee_104",
+      "name": "L2 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -178.73854180288615,
+        108.29132334112487,
+        127.19738119567194
+      ]
+    },
+    {
+      "id": "105-screw_knee",
+      "meshId": "stl:L2_screw_knee_105",
+      "name": "L2 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -182.32532368043874,
+        110.36215282365426,
+        118.31556488271283
+      ]
+    },
+    {
+      "id": "106-screw_yaw",
+      "meshId": "stl:L2_screw_yaw_106",
+      "name": "L2 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -92.66471820493493,
+        53.49999999999997,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "107-screw_yaw",
+      "meshId": "stl:L2_screw_yaw_107",
+      "name": "L2 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -90.10254037844392,
+        43.937822173508906,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "108-screw_yaw",
+      "meshId": "stl:L2_screw_yaw_108",
+      "name": "L2 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -80.54036255195287,
+        46.49999999999992,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "109-screw_yaw",
+      "meshId": "stl:L2_screw_yaw_109",
+      "name": "L2 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -83.10254037844393,
+        56.06217782649103,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "110-screw_hip",
+      "meshId": "stl:L2_screw_hip_110",
+      "name": "L2 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -116.19147936752363,
+        62.75045432885809,
+        82.64999999999996
+      ]
+    },
+    {
+      "id": "111-screw_hip",
+      "meshId": "stl:L2_screw_hip_111",
+      "name": "L2 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -110.12930154103249,
+        59.25045432885812,
+        75.64999999999989
+      ]
+    },
+    {
+      "id": "112-screw_hip",
+      "meshId": "stl:L2_screw_hip_112",
+      "name": "L2 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -104.06712371454154,
+        55.75045432885812,
+        82.64999999999996
+      ]
+    },
+    {
+      "id": "113-screw_hip",
+      "meshId": "stl:L2_screw_hip_113",
+      "name": "L2 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -110.12930154103249,
+        59.25045432885812,
+        89.64999999999996
+      ]
+    },
+    {
+      "id": "114-screw_knee",
+      "meshId": "stl:L2_screw_knee_114",
+      "name": "L2 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -185.734847950372,
+        102.90133690051887,
+        116.6706085022057
+      ]
+    },
+    {
+      "id": "115-screw_knee",
+      "meshId": "stl:L2_screw_knee_115",
+      "name": "L2 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -177.2918802367131,
+        98.02678721827861,
+        114.95157924663984
+      ]
+    },
+    {
+      "id": "116-screw_knee",
+      "meshId": "stl:L2_screw_knee_116",
+      "name": "L2 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -175.8031572315447,
+        97.16727259049591,
+        124.70067861112024
+      ]
+    },
+    {
+      "id": "117-screw_knee",
+      "meshId": "stl:L2_screw_knee_117",
+      "name": "L2 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -184.24612494520346,
+        102.04182227273601,
+        126.41970786668607
+      ]
+    },
+    {
+      "id": "118-screw_yaw",
+      "meshId": "stl:L2_screw_yaw_118",
+      "name": "L2 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -86.6025403784439,
+        49.999999999999936,
+        41.386233878594226
+      ]
+    },
+    {
+      "id": "119-screw_hip",
+      "meshId": "stl:L2_screw_hip_119",
+      "name": "L2 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -110.04629241235196,
+        59.394230357225,
+        82.64999999999999
+      ]
+    },
+    {
+      "id": "120-screw_knee",
+      "meshId": "stl:L2_screw_knee_120",
+      "name": "L2 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 2,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -180.68599346227757,
+        100.17808077387421,
+        120.68564355666305
+      ]
+    },
+    {
+      "id": "121-screw_yaw",
+      "meshId": "stl:L3_screw_yaw_121",
+      "name": "L3 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -84.80901589990012,
+        -43.3064755214562,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "122-screw_yaw",
+      "meshId": "stl:L3_screw_yaw_122",
+      "name": "L3 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -79.90901589989997,
+        -51.79352447854371,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "123-screw_yaw",
+      "meshId": "stl:L3_screw_yaw_123",
+      "name": "L3 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -93.2960648569876,
+        -48.20647552145623,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "124-screw_yaw",
+      "meshId": "stl:L3_screw_yaw_124",
+      "name": "L3 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -88.39606485698765,
+        -56.693524478543715,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "125-screw_hip",
+      "meshId": "stl:L3_screw_hip_125",
+      "name": "L3 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -106.21653405521397,
+        -56.227566412499456,
+        87.54999999999997
+      ]
+    },
+    {
+      "id": "126-screw_hip",
+      "meshId": "stl:L3_screw_hip_126",
+      "name": "L3 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -106.21653405521397,
+        -56.227566412499456,
+        77.74999999999999
+      ]
+    },
+    {
+      "id": "127-screw_hip",
+      "meshId": "stl:L3_screw_hip_127",
+      "name": "L3 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -114.7035830123015,
+        -61.12756641249948,
+        87.54999999999998
+      ]
+    },
+    {
+      "id": "128-screw_hip",
+      "meshId": "stl:L3_screw_hip_128",
+      "name": "L3 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -114.7035830123015,
+        -61.12756641249948,
+        77.74999999999999
+      ]
+    },
+    {
+      "id": "129-screw_knee",
+      "meshId": "stl:L3_screw_knee_129",
+      "name": "L3 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -175.46042936552232,
+        -96.20554800964419,
+        123.05572223061314
+      ]
+    },
+    {
+      "id": "130-screw_knee",
+      "meshId": "stl:L3_screw_knee_130",
+      "name": "L3 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -179.04721124307483,
+        -98.27637749217361,
+        114.17390591765397
+      ]
+    },
+    {
+      "id": "131-screw_knee",
+      "meshId": "stl:L3_screw_knee_131",
+      "name": "L3 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -183.152307924292,
+        -100.64645616612371,
+        127.19738119567191
+      ]
+    },
+    {
+      "id": "132-screw_knee",
+      "meshId": "stl:L3_screw_knee_132",
+      "name": "L3 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -186.73908980184444,
+        -102.71728564865315,
+        118.31556488271283
+      ]
+    },
+    {
+      "id": "133-screw_yaw",
+      "meshId": "stl:L3_screw_yaw_133",
+      "name": "L3 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -92.66471820493493,
+        -53.49999999999997,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "134-screw_yaw",
+      "meshId": "stl:L3_screw_yaw_134",
+      "name": "L3 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -83.10254037844393,
+        -56.06217782649103,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "135-screw_yaw",
+      "meshId": "stl:L3_screw_yaw_135",
+      "name": "L3 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -80.54036255195287,
+        -46.49999999999991,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "136-screw_yaw",
+      "meshId": "stl:L3_screw_yaw_136",
+      "name": "L3 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -90.10254037844392,
+        -43.93782217350889,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "137-screw_hip",
+      "meshId": "stl:L3_screw_hip_137",
+      "name": "L3 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -112.43922723156813,
+        -69.24954567114192,
+        82.64999999999996
+      ]
+    },
+    {
+      "id": "138-screw_hip",
+      "meshId": "stl:L3_screw_hip_138",
+      "name": "L3 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -106.37704940507707,
+        -65.74954567114186,
+        75.64999999999989
+      ]
+    },
+    {
+      "id": "139-screw_hip",
+      "meshId": "stl:L3_screw_hip_139",
+      "name": "L3 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -100.31487157858594,
+        -62.24954567114183,
+        82.64999999999996
+      ]
+    },
+    {
+      "id": "140-screw_hip",
+      "meshId": "stl:L3_screw_hip_140",
+      "name": "L3 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -106.37704940507707,
+        -65.74954567114186,
+        89.64999999999993
+      ]
+    },
+    {
+      "id": "141-screw_knee",
+      "meshId": "stl:L3_screw_knee_141",
+      "name": "L3 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -181.98259581441638,
+        -109.4004282428026,
+        116.67060850220567
+      ]
+    },
+    {
+      "id": "142-screw_knee",
+      "meshId": "stl:L3_screw_knee_142",
+      "name": "L3 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -173.53962810075774,
+        -104.52587856056238,
+        114.95157924663984
+      ]
+    },
+    {
+      "id": "143-screw_knee",
+      "meshId": "stl:L3_screw_knee_143",
+      "name": "L3 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -172.05090509558906,
+        -103.66636393277956,
+        124.70067861112024
+      ]
+    },
+    {
+      "id": "144-screw_knee",
+      "meshId": "stl:L3_screw_knee_144",
+      "name": "L3 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -180.49387280924785,
+        -108.54091361501966,
+        126.41970786668607
+      ]
+    },
+    {
+      "id": "145-screw_yaw",
+      "meshId": "stl:L3_screw_yaw_145",
+      "name": "L3 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -86.6025403784439,
+        -49.99999999999994,
+        41.386233878594226
+      ]
+    },
+    {
+      "id": "146-screw_hip",
+      "meshId": "stl:L3_screw_hip_146",
+      "name": "L3 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -106.46005853375779,
+        -65.60576964277493,
+        82.64999999999995
+      ]
+    },
+    {
+      "id": "147-screw_knee",
+      "meshId": "stl:L3_screw_knee_147",
+      "name": "L3 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 3,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -177.09975958368338,
+        -106.38962005942422,
+        120.68564355666301
+      ]
+    },
+    {
+      "id": "148-screw_yaw",
+      "meshId": "stl:L4_screw_yaw_148",
+      "name": "L4 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.900000000000018,
+        -95.09999999999991,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "149-screw_yaw",
+      "meshId": "stl:L4_screw_yaw_149",
+      "name": "L4 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.899999999999982,
+        -95.09999999999991,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "150-screw_yaw",
+      "meshId": "stl:L4_screw_yaw_150",
+      "name": "L4 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.900000000000019,
+        -104.90000000000012,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "151-screw_yaw",
+      "meshId": "stl:L4_screw_yaw_151",
+      "name": "L4 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        4.89999999999998,
+        -104.90000000000012,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "152-screw_hip",
+      "meshId": "stl:L4_screw_hip_152",
+      "name": "L4 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.413766121405799,
+        -120.09999999999991,
+        87.54999999999997
+      ]
+    },
+    {
+      "id": "153-screw_hip",
+      "meshId": "stl:L4_screw_hip_153",
+      "name": "L4 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.413766121405799,
+        -120.09999999999991,
+        77.75000000000003
+      ]
+    },
+    {
+      "id": "154-screw_hip",
+      "meshId": "stl:L4_screw_hip_154",
+      "name": "L4 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.413766121405799,
+        -129.9,
+        87.54999999999997
+      ]
+    },
+    {
+      "id": "155-screw_hip",
+      "meshId": "stl:L4_screw_hip_155",
+      "name": "L4 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.413766121405799,
+        -129.9,
+        77.75000000000003
+      ]
+    },
+    {
+      "id": "156-screw_knee",
+      "meshId": "stl:L4_screw_knee_156",
+      "name": "L4 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.413766121405814,
+        -200.05596319428966,
+        123.05572223061304
+      ]
+    },
+    {
+      "id": "157-screw_knee",
+      "meshId": "stl:L4_screw_knee_157",
+      "name": "L4 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.413766121405814,
+        -204.19762215934804,
+        114.17390591765383
+      ]
+    },
+    {
+      "id": "158-screw_knee",
+      "meshId": "stl:L4_screw_knee_158",
+      "name": "L4 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.413766121405814,
+        -208.93777950724865,
+        127.19738119567197
+      ]
+    },
+    {
+      "id": "159-screw_knee",
+      "meshId": "stl:L4_screw_knee_159",
+      "name": "L4 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -4.413766121405814,
+        -213.0794384723075,
+        118.31556488271274
+      ]
+    },
+    {
+      "id": "160-screw_yaw",
+      "meshId": "stl:L4_screw_yaw_160",
+      "name": "L4 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -1.9661680591969395e-14,
+        -106.99999999999996,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "161-screw_yaw",
+      "meshId": "stl:L4_screw_yaw_161",
+      "name": "L4 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        6.999999999999981,
+        -99.99999999999999,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "162-screw_yaw",
+      "meshId": "stl:L4_screw_yaw_162",
+      "name": "L4 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -1.6281749286666823e-14,
+        -92.99999999999999,
+        69.30225213595554
+      ]
+    },
+    {
+      "id": "163-screw_yaw",
+      "meshId": "stl:L4_screw_yaw_163",
+      "name": "L4 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -7.0000000000000195,
+        -99.99999999999997,
+        69.30225213595557
+      ]
+    },
+    {
+      "id": "164-screw_hip",
+      "meshId": "stl:L4_screw_hip_164",
+      "name": "L4 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        3.7522521359554744,
+        -132.00000000000006,
+        82.65
+      ]
+    },
+    {
+      "id": "165-screw_hip",
+      "meshId": "stl:L4_screw_hip_165",
+      "name": "L4 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        3.7522521359554775,
+        -125.00000000000017,
+        75.64999999999993
+      ]
+    },
+    {
+      "id": "166-screw_hip",
+      "meshId": "stl:L4_screw_hip_166",
+      "name": "L4 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        3.7522521359554775,
+        -118.00000000000003,
+        82.65
+      ]
+    },
+    {
+      "id": "167-screw_hip",
+      "meshId": "stl:L4_screw_hip_167",
+      "name": "L4 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        3.7522521359554775,
+        -125.00000000000017,
+        89.64999999999996
+      ]
+    },
+    {
+      "id": "168-screw_knee",
+      "meshId": "stl:L4_screw_knee_168",
+      "name": "L4 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        3.752252135955465,
+        -212.3017651433216,
+        116.67060850220561
+      ]
+    },
+    {
+      "id": "169-screw_knee",
+      "meshId": "stl:L4_screw_knee_169",
+      "name": "L4 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        3.752252135955465,
+        -202.55266577884134,
+        114.95157924663991
+      ]
+    },
+    {
+      "id": "170-screw_knee",
+      "meshId": "stl:L4_screw_knee_170",
+      "name": "L4 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        3.752252135955465,
+        -200.83363652327552,
+        124.70067861112034
+      ]
+    },
+    {
+      "id": "171-screw_knee",
+      "meshId": "stl:L4_screw_knee_171",
+      "name": "L4 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        3.752252135955465,
+        -210.58273588775592,
+        126.419707866686
+      ]
+    },
+    {
+      "id": "172-screw_yaw",
+      "meshId": "stl:L4_screw_yaw_172",
+      "name": "L4 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -1.842544140504849e-14,
+        -99.99999999999996,
+        41.38623387859423
+      ]
+    },
+    {
+      "id": "173-screw_hip",
+      "meshId": "stl:L4_screw_hip_173",
+      "name": "L4 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        3.5862338785941974,
+        -124.99999999999999,
+        82.64999999999998
+      ]
+    },
+    {
+      "id": "174-screw_knee",
+      "meshId": "stl:L4_screw_knee_174",
+      "name": "L4 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 4,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        3.5862338785941796,
+        -206.56770083329866,
+        120.68564355666291
+      ]
+    },
+    {
+      "id": "175-screw_yaw",
+      "meshId": "stl:L5_screw_yaw_175",
+      "name": "L5 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        79.90901589990006,
+        -51.79352447854374,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "176-screw_yaw",
+      "meshId": "stl:L5_screw_yaw_176",
+      "name": "L5 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        84.80901589990002,
+        -43.306475521456264,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "177-screw_yaw",
+      "meshId": "stl:L5_screw_yaw_177",
+      "name": "L5 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        88.39606485698756,
+        -56.69352447854379,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "178-screw_yaw",
+      "meshId": "stl:L5_screw_yaw_178",
+      "name": "L5 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        93.29606485698764,
+        -48.2064755214563,
+        59.13623387859421
+      ]
+    },
+    {
+      "id": "179-screw_hip",
+      "meshId": "stl:L5_screw_hip_179",
+      "name": "L5 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        101.80276793380814,
+        -63.872433587500545,
+        87.54999999999997
+      ]
+    },
+    {
+      "id": "180-screw_hip",
+      "meshId": "stl:L5_screw_hip_180",
+      "name": "L5 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        101.80276793380814,
+        -63.872433587500545,
+        77.75000000000001
+      ]
+    },
+    {
+      "id": "181-screw_hip",
+      "meshId": "stl:L5_screw_hip_181",
+      "name": "L5 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        110.28981689089571,
+        -68.77243358750063,
+        87.55
+      ]
+    },
+    {
+      "id": "182-screw_hip",
+      "meshId": "stl:L5_screw_hip_182",
+      "name": "L5 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        110.28981689089571,
+        -68.77243358750063,
+        77.75000000000003
+      ]
+    },
+    {
+      "id": "183-screw_knee",
+      "meshId": "stl:L5_screw_knee_183",
+      "name": "L5 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        171.04666324411636,
+        -103.8504151846453,
+        123.05572223061317
+      ]
+    },
+    {
+      "id": "184-screw_knee",
+      "meshId": "stl:L5_screw_knee_184",
+      "name": "L5 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        174.6334451216689,
+        -105.92124466717476,
+        114.17390591765394
+      ]
+    },
+    {
+      "id": "185-screw_knee",
+      "meshId": "stl:L5_screw_knee_185",
+      "name": "L5 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        178.7385418028861,
+        -108.29132334112492,
+        127.19738119567188
+      ]
+    },
+    {
+      "id": "186-screw_knee",
+      "meshId": "stl:L5_screw_knee_186",
+      "name": "L5 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        182.32532368043866,
+        -110.36215282365433,
+        118.31556488271283
+      ]
+    },
+    {
+      "id": "187-screw_yaw",
+      "meshId": "stl:L5_screw_yaw_187",
+      "name": "L5 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        92.66471820493491,
+        -53.50000000000005,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "188-screw_yaw",
+      "meshId": "stl:L5_screw_yaw_188",
+      "name": "L5 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        90.10254037844392,
+        -43.937822173508984,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "189-screw_yaw",
+      "meshId": "stl:L5_screw_yaw_189",
+      "name": "L5 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        80.54036255195287,
+        -46.49999999999998,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "190-screw_yaw",
+      "meshId": "stl:L5_screw_yaw_190",
+      "name": "L5 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        83.1025403784439,
+        -56.06217782649108,
+        69.30225213595556
+      ]
+    },
+    {
+      "id": "191-screw_hip",
+      "meshId": "stl:L5_screw_hip_191",
+      "name": "L5 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        116.19147936752358,
+        -62.750454328858154,
+        82.64999999999993
+      ]
+    },
+    {
+      "id": "192-screw_hip",
+      "meshId": "stl:L5_screw_hip_192",
+      "name": "L5 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        110.12930154103248,
+        -59.25045432885814,
+        75.6499999999999
+      ]
+    },
+    {
+      "id": "193-screw_hip",
+      "meshId": "stl:L5_screw_hip_193",
+      "name": "L5 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        104.06712371454145,
+        -55.75045432885819,
+        82.64999999999993
+      ]
+    },
+    {
+      "id": "194-screw_hip",
+      "meshId": "stl:L5_screw_hip_194",
+      "name": "L5 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        110.12930154103248,
+        -59.25045432885814,
+        89.64999999999995
+      ]
+    },
+    {
+      "id": "195-screw_knee",
+      "meshId": "stl:L5_screw_knee_195",
+      "name": "L5 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        185.73484795037174,
+        -102.90133690051887,
+        116.6706085022057
+      ]
+    },
+    {
+      "id": "196-screw_knee",
+      "meshId": "stl:L5_screw_knee_196",
+      "name": "L5 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        177.29188023671304,
+        -98.02678721827878,
+        114.95157924664
+      ]
+    },
+    {
+      "id": "197-screw_knee",
+      "meshId": "stl:L5_screw_knee_197",
+      "name": "L5 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        175.80315723154456,
+        -97.16727259049603,
+        124.70067861112014
+      ]
+    },
+    {
+      "id": "198-screw_knee",
+      "meshId": "stl:L5_screw_knee_198",
+      "name": "L5 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        184.24612494520323,
+        -102.04182227273606,
+        126.41970786668607
+      ]
+    },
+    {
+      "id": "199-screw_yaw",
+      "meshId": "stl:L5_screw_yaw_199",
+      "name": "L5 screw_yaw",
+      "partType": "screw_yaw",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "yaw",
+      "color": "#bdbdbd",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        86.60254037844378,
+        -50.00000000000001,
+        41.386233878594226
+      ]
+    },
+    {
+      "id": "200-screw_hip",
+      "meshId": "stl:L5_screw_hip_200",
+      "name": "L5 screw_hip",
+      "partType": "screw_hip",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "hip",
+      "color": "#ffd000",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        110.04629241235186,
+        -59.394230357225105,
+        82.64999999999998
+      ]
+    },
+    {
+      "id": "201-screw_knee",
+      "meshId": "stl:L5_screw_knee_201",
+      "name": "L5 screw_knee",
+      "partType": "screw_knee",
+      "role": "fastener",
+      "leg": 5,
+      "joint": "knee",
+      "color": "#9ad0ff",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        180.6859934622775,
+        -100.17808077387433,
+        120.68564355666301
+      ]
+    }
+  ]
+}

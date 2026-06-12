@@ -1,9 +1,11 @@
 filename,qty,material,color,finish,envelope_x_mm,envelope_y_mm,envelope_z_mm,volume_cm3_per_part,volume_cm3_total,notes
-chassis_top.stl,1,MJF PA12,white,as-printed,140.0,161.7,7.0,67.90,67.90,Top deck (140 mm flat-to-flat hex). Carries battery + electronics + optional arm; smaller than bottom so the legs sweep clear.
-chassis_bottom.stl,1,MJF PA12,white,as-printed,226.1,242.0,15.0,193.52,193.52,Bottom structural plate (200 mm flat-to-flat hex). Takes the six coxa-bracket M3 bolts and per-leg yaw-servo body cutouts.
+chassis_top.stl,1,MJF PA12,white,as-printed,140.0,161.7,7.0,67.75,67.75,Top deck (140 mm flat-to-flat hex). Carries battery + electronics + optional arm; smaller than bottom so the legs sweep clear.
+chassis_bottom.stl,1,MJF PA12,white,as-printed,228.8,242.4,38.3,396.02,396.02,Bottom structural plate (200 mm flat-to-flat hex). Takes the six coxa-bracket M3 bolts and per-leg yaw-servo body cutouts.
 battery_holder.stl,1,MJF PA12,white,as-printed,110.0,60.0,28.0,15.84,15.84,Open-top LiPo tray; velcro slots through the long walls.
-electronics_tray.stl,1,MJF PA12,white,as-printed,160.0,137.0,8.0,66.97,66.97,Mounts Arduino + 2x PCA9685; standoffs are part of the geometry.
-coxa_link.stl,6,MJF PA12,white,as-printed,63.0,42.0,64.0,32.18,193.06,Yaw-driven arm; oriented so the hip-pitch cradle opens +Z.
-femur_link.stl,6,MJF PA12,white,as-printed,125.0,46.0,55.0,50.87,305.22,Thigh; printed with the spar's broad face on the bed and the knee cradle sticking up (opens -Z) -- minimizes FDM supports.
-tibia_link.stl,6,MJF PA12,white,as-printed,156.0,40.0,6.0,18.21,109.26,"Shin link, ends in foot socket. Lay flat for FDM."
+electronics_tray.stl,1,MJF PA12,white,as-printed,160.0,137.0,8.0,65.42,65.42,Mounts Arduino + 2x PCA9685; standoffs are part of the geometry.
+coxa_link.stl,6,MJF PA12,white,as-printed,63.4,35.0,63.3,44.24,265.46,Yaw-driven arm; oriented so the hip-pitch cradle opens +Z.
+femur_hip_yoke.stl,6,MJF PA12,white,as-printed,60.0,57.3,24.0,14.51,87.09,"Femur hip moving-yoke: bolts to the hip disc horn, sockets the Ø8 CF femur tube. Pair with femur_knee_bracket + CF tube."
+femur_knee_bracket.stl,6,MJF PA12,white,as-printed,83.4,45.3,33.8,44.71,268.26,Femur knee FIXED side: carries the knee servo cradle and sockets the far end of the Ø8 CF femur tube.
+tibia_knee_yoke.stl,6,MJF PA12,white,as-printed,60.0,57.3,24.0,14.51,87.09,"Tibia knee moving-yoke: bolts to the knee disc horn, sockets the Ø8 CF tibia tube."
+tibia_foot_fitting.stl,6,MJF PA12,white,as-printed,42.0,16.0,14.0,4.02,24.11,Tibia foot fitting: sockets the far end of the Ø8 CF tibia tube and carries the foot-pad hinge tang.
 foot_pad.stl,6,FDM TPU 95A,black,as-printed,28.0,28.0,18.0,3.62,21.74,"*** SEPARATE QUOTE *** -- needs flexible TPU for grip. If TPU isn't available, FDM PLA works but the foot will slip."
