@@ -6663,16 +6663,31 @@ def make_femur_link() -> trimesh.Trimesh:
     cradle or the coxa_link hip cradle -- those print in different
     orientations where their floors are NOT bridges.
     """
+    # ---- Single flat max-Y top plane (Jun 2026 anti-snap rework) ----------
+    # The femur snapped, and the first fix (a mid-shaft +Y rib + raised
+    # housing flanges) left a STEPPED +Y profile: pad/spar at +6, rib +
+    # bridges at +12.  User follow-up: "make all the high Y parts on that
+    # part go to a single max Y value -- easier to print and stronger".
+    # So the ENTIRE +Y face is now one flat plane at FEMUR_TOP_Y = +12:
+    # the spar (and the hip pad) are thickened from 6 mm to the full 12 mm,
+    # the hip bolt counter-bores are deepened to still reach the M3 heads
+    # through the thicker pad, the knee-servo insertion slot is cut the full
+    # height so the body still slides in, and the housing bridge flanges
+    # already climb to +12.  Printability: the whole broad +Y face now lies
+    # FLAT on the bed (was resting on the narrow rib + bridge strips with
+    # the spar face floating 6 mm up -- an unsupported down-face).  Strength:
+    # the 6 -> 12 mm web roughly triples the out-of-plane section modulus
+    # along the full beam and removes the step stress-risers.
+    FEMUR_TOP_Y = LINK_THICKNESS + 6.0               # +12: the single flat top plane
+
     # ---- Spar (with insertion slot at the knee end) ------------------
-    # NEW (May 2026 collinear-pad refactor): spar centred at NEW
-    # femur y = +LINK_THICKNESS / 2 = +3, spanning y in
-    # [0, +LINK_THICKNESS] = [0, +6].  Pre-refactor the spar sat at
-    # OLD femur y in [-3, +3] (8 mm BELOW the pad), making the link
-    # an L-shape in side view; the new local origin at the pad
-    # mating face puts pad + spar in the SAME y range.
+    # The spar now spans the FULL thigh thickness y in [0, FEMUR_TOP_Y] =
+    # [0, +12] (was [0, +LINK_THICKNESS] = [0, +6]).  SPAR_Y_CENTRE is kept
+    # at +LINK_THICKNESS / 2 = +3 as the pad-mating / bolt-hole reference
+    # (the disc-horn clamp geometry lives in the lower 6 mm half).
     SPAR_Y_CENTRE = LINK_THICKNESS / 2.0
-    spar = _box((FEMUR_LENGTH, LINK_THICKNESS, FEMUR_SPAR_H),
-                center=(FEMUR_LENGTH / 2.0, SPAR_Y_CENTRE, 0))
+    spar = _box((FEMUR_LENGTH, FEMUR_TOP_Y, FEMUR_SPAR_H),
+                center=(FEMUR_LENGTH / 2.0, FEMUR_TOP_Y / 2.0, 0))
 
     # Insertion slot for the knee servo's body.  The slot must be wide
     # enough to admit the SERVO TABS (SERVO_TAB_W = 54 mm), not just the
@@ -6686,9 +6701,12 @@ def make_femur_link() -> trimesh.Trimesh:
     body_x_max = body_x_centre + SERVO_TAB_W / 2.0 + 1.0
     slot_x = body_x_max - body_x_min                         # 56 mm
     slot_z = SERVO_BODY_D + 2.0                              # 22 mm
-    insertion_slot = _box((slot_x, LINK_THICKNESS + 2.0, slot_z),
+    # Slot cut spans the FULL spar height in Y (y in [-1, FEMUR_TOP_Y + 1] =
+    # [-1, +13]) so the knee servo body still slides clear through the now
+    # 12 mm-thick spar; the top/bottom Z flanges (|z| > slot_z/2) survive.
+    insertion_slot = _box((slot_x, FEMUR_TOP_Y + 2.0, slot_z),
                            center=((body_x_min + body_x_max) / 2.0,
-                                    SPAR_Y_CENTRE, 0))
+                                    FEMUR_TOP_Y / 2.0, 0))
 
     # ---- Hip-end pad -------------------------------------------------
     # The femur's hip pad bolts directly onto the 20 mm aluminum 25T disc
@@ -6721,8 +6739,8 @@ def make_femur_link() -> trimesh.Trimesh:
     # pad (line ~6361) still uses HIP_PAD_R unchanged at the user's
     # request.
     hip_pad_y_min    = 0.0                          # mating face (= disc-horn-top)
-    hip_pad_y_max    = LINK_THICKNESS               # +6
-    hip_pad_centre_y = LINK_THICKNESS / 2.0         # +3 (was +8 pre-refactor)
+    hip_pad_y_max    = FEMUR_TOP_Y                  # +12 (flat top; was LINK_THICKNESS = +6)
+    hip_pad_centre_y = LINK_THICKNESS / 2.0         # +3 -- bolt/hole drilling reference (mating half)
     hip_pad = _cyl_along(FEMUR_HIP_PAD_R,
                           hip_pad_y_max - hip_pad_y_min,
                           axis="y")
@@ -6745,17 +6763,23 @@ def make_femur_link() -> trimesh.Trimesh:
                               DISC_HORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_holes.append(h)
 
-        # Counter-bore for the M3 SHCS head, opening AWAY from the
-        # disc horn (at the pad's +Y outer face).  Head TOP sits flush at
-        # NEW y = LINK_THICKNESS = +6; head BOTTOM at NEW y =
-        # LINK_THICKNESS - COUNTERBORE_DEPTH = +3.5.  The remaining
-        # pad material at NEW y in [0, +3.5] clamps onto the disc horn
-        # at the mating face (y = 0).
-        cb_len = COUNTERBORE_DEPTH + 0.1
+        # Counter-bore for the M3 SHCS head, opening AWAY from the disc
+        # horn at the pad's +Y outer face.  The pad is now FEMUR_TOP_Y =
+        # 12 mm thick (flat-top rework), so this is a DEEP counter-bore that
+        # opens at the +12 flat face and recesses all the way down to the
+        # M3 head's bottom at the ORIGINAL LINK_THICKNESS - COUNTERBORE_DEPTH
+        # = +3 plane.  The head still sits at +3..+6 and the lower pad
+        # material (y in [0, +3]) clamps the disc horn exactly as before --
+        # the same bolt + thread engagement is kept; only the hex-driver
+        # access bore above the head (y in [+6, +12]) is longer so a key
+        # still reaches the head through the thicker pad.
+        cb_floor = LINK_THICKNESS - COUNTERBORE_DEPTH        # +3 (head bottom, unchanged)
+        cb_top   = FEMUR_TOP_Y + 0.1                         # +12.1 (opens at the flat top)
+        cb_len   = cb_top - cb_floor
         cb = _cyl(M2_HEAD_OD_CLEARANCE / 2.0, cb_len)
         cb.apply_transform(rotation_matrix(np.pi / 2, [1, 0, 0]))
         cb.apply_translation([DISC_HORN_BOLT_PCD / 2.0 * np.cos(a),
-                              hip_pad_y_max - cb_len / 2.0 + 0.05,
+                              0.5 * (cb_floor + cb_top),
                               DISC_HORN_BOLT_PCD / 2.0 * np.sin(a)])
         hip_counterbores.append(cb)
 
@@ -6903,7 +6927,18 @@ def make_femur_link() -> trimesh.Trimesh:
     # NEW y = +LINK_THICKNESS / 2 = +3 (was OLD y = 0), so the
     # bridge_y_max shifts up by +3 to keep the same 3 mm of bridge /
     # spar fuse on the spar's -Y half.
-    bridge_y_max    = LINK_THICKNESS / 2.0
+    #
+    # Jun 2026 (anti-snap flat-top rework): raise bridge_y_max from +3 to
+    # the flat top FEMUR_TOP_Y = +12 (defined at the top of this function)
+    # so the knee-housing top + bottom flanges climb the full thigh
+    # thickness instead of stopping 9 mm short.  This only adds material in
+    # the bridge Z-bands (|z| in [10, 23]) -- OUTSIDE the knee servo's
+    # z +/-10 insertion corridor -- so it does NOT block servo insertion.
+    # The taller flanges fully fuse the now-12 mm-thick spar to the well
+    # wall.  The tibia's swept envelope is carved back out of this taller
+    # material by the knee_clear cylinder + tibia_clear boxes below, whose
+    # Y ceilings are raised to FEMUR_TOP_Y to match.
+    bridge_y_max    = FEMUR_TOP_Y                    # was LINK_THICKNESS / 2 = +3
     bridge_y_extent = bridge_y_max - bridge_y_min
     bridge_y_centre = (bridge_y_min + bridge_y_max) / 2.0
     # Bridge X-span: trimmed (May 24 2026) from the body's full x range
@@ -7037,12 +7072,19 @@ def make_femur_link() -> trimesh.Trimesh:
     # cylinder along +Y centred on (FEMUR_LENGTH, +LINK_THICKNESS/2,
     # 0) with 1.5 mm margin per side so the tibia clears the femur's
     # spar / bridge volume at any knee pitch.
+    # Jun 2026: the cylinder's +Y ceiling is raised from +7.5 to
+    # FEMUR_TOP_Y + 0.5 = +12.5 (keeping the -1.5 floor) so it also clears
+    # the tibia knee-pad disc (Phi 39 mm, y in [+9, +15]) out of the newly
+    # raised bridge flanges -- without this, the +12 bridge tops near the
+    # knee axis would sit inside the rotating tibia pad's swept volume.
     knee_clear_R = HIP_PAD_R + 2.5
-    knee_clear_y_extent = LINK_THICKNESS + 3.0    # 9 mm (1.5 mm margin / side)
+    knee_clear_y_min    = -LINK_THICKNESS / 2.0          # -1.5 (unchanged floor)
+    knee_clear_y_max    = FEMUR_TOP_Y + 0.5             # +12.5 (was +7.5)
+    knee_clear_y_extent = knee_clear_y_max - knee_clear_y_min
     knee_clear = _cyl(knee_clear_R, knee_clear_y_extent)
     knee_clear.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))
     knee_clear.apply_translation(
-        [FEMUR_LENGTH, LINK_THICKNESS / 2.0, 0.0]
+        [FEMUR_LENGTH, 0.5 * (knee_clear_y_min + knee_clear_y_max), 0.0]
     )
 
     # ---- Tibia knee-pose clearance cuts in the bridges ---------------
@@ -7136,7 +7178,7 @@ def make_femur_link() -> trimesh.Trimesh:
     TIBIA_CLEAR_X_MIN  = 72.0
     TIBIA_CLEAR_X_MAX  = FEMUR_LENGTH + 1.0          # 91 (1 mm overshoot)
     TIBIA_CLEAR_Y_MIN  = -8.0                        # was -HORN_STACK_H - 0.5 = -5.5; lowered May 25 2026 for knee disc-horn drop / spline-screw-back clearance
-    TIBIA_CLEAR_Y_MAX  = +LINK_THICKNESS / 2.0       # +3.0 (covers full bridge_y_max so no 1.5 mm slab remains above the cut to brush the tibia at small tolerance offsets -- user-flagged May 2026)
+    TIBIA_CLEAR_Y_MAX  = FEMUR_TOP_Y                 # +12.0 (Jun 2026: raised from +3 to track the raised bridge_y_max so the taller knee-housing flanges are carved out of the tibia spar's +90 deg swept envelope; covers the full bridge_y_max so no slab remains above the cut to brush the tibia)
     TIBIA_CLEAR_Z_MIN  = -(bridge_top_z_max + 0.5)   # -23.5 (full bridge_bot z range + 0.5 mm overshoot)
     TIBIA_CLEAR_Z_MAX  = -(bridge_top_z_min - 0.5)   # -9.5  (0.5 mm into the air above bridge_bot)
     tibia_clear_dx = TIBIA_CLEAR_X_MAX - TIBIA_CLEAR_X_MIN
@@ -7277,6 +7319,13 @@ def make_femur_link() -> trimesh.Trimesh:
     knee_rib_bot = _box((KNEE_RIB_DX, KNEE_RIB_DY, KNEE_RIB_DZ),
                         center=(KNEE_RIB_X_CENTRE, KNEE_RIB_Y_CENTRE,
                                 -KNEE_RIB_Z_CENTRE))
+
+    # NOTE (Jun 2026): the earlier standalone mid-shaft ``spar_reinforce``
+    # rib (a +Y slab over x in [16, 35]) is GONE -- the spar itself is now a
+    # full FEMUR_TOP_Y = 12 mm-thick beam over its entire length (see the
+    # "Single flat max-Y top plane" block above), so a separate rib would be
+    # redundant.  The flat-top spar + the +12 bridge flanges give one
+    # continuous flat +Y face from hip to knee.
 
     # Cable post (Part A, May 2026): printed-in zip-tie strain relief
     # next to the knee wire-exit slot.  Built in well-local and

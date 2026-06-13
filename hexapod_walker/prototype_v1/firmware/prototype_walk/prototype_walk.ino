@@ -13,12 +13,20 @@
   are all identical to prototype_servo_bridge.ino, so a leg calibrated
   with the bridge firmware ('T' commands) walks correctly here too.
 
-  Joint order (matches the sim and docs):
+  Joint order (wired/physical order on this prototype):
       joint = leg * 3 + axis        leg = 0..5
       axis 0 = yaw, axis 1 = hip pitch, axis 2 = knee pitch
-  Legs sit at azimuth (leg + 0.5) * 60 deg = 30, 90, ... , 330 deg.
+  Physical leg wiring order is NOT circular: legs 0,1,2 run down the
+  robot's right side from front -> rear, then legs 3,4,5 run down the
+  left side from front -> rear.  The gait maps that physical order back
+  to the circular CAD/sim azimuths:
+
+      wired leg:      0    1    2    3    4    5
+      physical pos:   RF   RM   RR   LF   LM   LR
+      CAD leg index:  5    4    3    0    1    2
+
   Forward (+vx) drives the chassis along its +X axis (the flat edge
-  between leg 5 and leg 0).
+  between wired legs 0 and 3).
 
   PCA9685 routing (one board per 3 legs -- 9 servos each, so every
   leg's 3 servos stay on ONE board and the V+ current splits evenly):
@@ -99,6 +107,11 @@ float leg_cos[6], leg_sin[6];
 float foot_neutral_z;       // mm, leg-local foot height at stance
 float foot_radius_eff;      // mm, body-frame neutral foot radius
 
+// Physical wiring order: 0,1,2 down the RIGHT side (front->rear), then
+// 3,4,5 down the LEFT side (front->rear).  Convert each wired leg index
+// to the CAD/sim circular leg index (azimuth = (cad + 0.5) * 60 deg).
+const int WIRED_TO_CAD_LEG[6] = {5, 4, 3, 0, 1, 2};
+
 // --- Gait state ------------------------------------------------------
 float g_phase   = 0.0;      // rad, 0..2pi
 float g_elapsed = 0.0;      // s since walking started (drives ramp)
@@ -163,8 +176,11 @@ void writeJoint(int joint_idx, float angle_deg) {
   float us = PWM_MIN_US + (corrected + 90.0) / 180.0 * (PWM_MAX_US - PWM_MIN_US);
   // Legs 0..2 (joints 0..8) -> 0x40 ch 0..8; legs 3..5 (joints 9..17)
   // -> 0x41 ch 0..8.  Keeps each leg's 3 servos on one board.
+  // Hardware exception (Jun 2026): 0x41 ch6 is BROKEN, so leg 5 yaw
+  // (joint 15) is physically plugged into 0x41 ch 9 instead.
   Adafruit_PWMServoDriver& drv = (joint_idx < 9) ? pwm1 : pwm2;
   int chan = (joint_idx < 9) ? joint_idx : (joint_idx - 9);
+  if (joint_idx == 15) chan = 9;
   drv.writeMicroseconds(chan, (int)(us + 0.5));
 }
 
@@ -242,7 +258,7 @@ bool legIK(float target_x, float target_z, float& p, float& k) {
 
 void initGaitConstants() {
   for (int i = 0; i < 6; ++i) {
-    float a = (i + 0.5f) * (float)PI / 3.0f;   // leg azimuth
+    float a = (WIRED_TO_CAD_LEG[i] + 0.5f) * (float)PI / 3.0f;
     leg_cos[i] = cosf(a);
     leg_sin[i] = sinf(a);
   }

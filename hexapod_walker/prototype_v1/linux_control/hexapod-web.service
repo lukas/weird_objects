@@ -1,0 +1,24 @@
+[Unit]
+Description=Hexapod web control panel (serves the drive UI on :8080)
+After=network.target
+
+[Service]
+Type=simple
+Environment=PYTHONUNBUFFERED=1
+# %h = the service user's home dir. web_drive.py talks to the firmware over
+# the local arduino-router monitor port (127.0.0.1:7500) and reconnects on
+# its own, so no hard ordering against arduino-router.service is needed.
+ExecStart=/usr/bin/python3 %h/web_drive.py
+Restart=always
+RestartSec=3
+
+# Installed as a systemd USER service (no sudo):
+#   mkdir -p ~/.config/systemd/user
+#   cp hexapod-web.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now hexapod-web.service
+#   loginctl enable-linger "$USER"      # start at boot without being logged in
+# To run system-wide instead (needs sudo), set User=arduino + WantedBy=
+# multi-user.target and drop it in /etc/systemd/system/.
+[Install]
+WantedBy=default.target

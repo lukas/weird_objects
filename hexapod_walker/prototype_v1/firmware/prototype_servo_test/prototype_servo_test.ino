@@ -18,6 +18,13 @@
         per-board channel = (leg % 3) * 3 + axis
       joint = leg * 3 + axis;  axis 0 = yaw, 1 = hip pitch, 2 = knee pitch
 
+      Physical wiring order on this robot is side-ordered, not circular:
+        legs 0,1,2 = right side front -> rear
+        legs 3,4,5 = left  side front -> rear
+      The whole-body gait maps those wired legs back to CAD/sim azimuths
+      internally, so `L 0` still tests the first physical right-side leg
+      while `W` walks with the correct geometry.
+
   Power: servo V+ comes from the external 5-6 V BEC / bench rail into the
   PCA screw terminals -- NEVER from the Arduino 5 V pin.  Bench-test with a
   current-limited supply and the legs clamped / feet in the air.
@@ -62,9 +69,54 @@
 
       U            raise every leg UP over the body ("legs over its head")
       P            ease into the walking stance / position (feet planted)
-      W [mm/s]     walk forward (live tripod gait) at the given speed,
-                   default 35 mm/s, e.g.  W 20 ;  negative walks backward.
+      W [mm/s] [t|r|w]
+                   walk forward (live gait) at the given speed; the optional
+                   letter picks the gait: t = tripod (fast, default), r =
+                   ripple (medium), w = wave (slowest, most stable).  e.g.
+                   W 20 ,  W r ,  W 25 w .  Negative speed walks backward.
                    Any key / C stops.
+
+      The three gaits are the same engine with different leg phasing + duty
+      factor (fraction of the cycle each foot stays planted): tripod 0.55,
+      ripple 2/3, wave 5/6.  Body speed is held at the commanded mm/s for
+      every gait, so wave just takes more, smaller, overlapping steps -- use
+      it if tripod walks too wobbly.
+
+  --- Stability shaping (all gaits) ---
+
+      Three things keep the body from rocking on top of the work the gaits do:
+        * Double support -- tripod runs at duty 0.55 (not 0.5) so the two
+          tripods overlap briefly; there's always >=3 feet down AND a short
+          all-six window at each swap, removing the drop/pitch a zero-overlap
+          swap causes.
+        * COM weight-shift -- the body is nudged toward the centroid of the
+          feet currently planted so the mass stays over the support polygon.
+          This is small for the symmetric tripod (its support triangle is
+          already centred) but real when turning or in ripple/wave.  Use
+          `E <x> <y>` to add a STATIC lean (mm) that cancels a known load
+          imbalance (e.g. the wire bundle tugging the robot to one side) --
+          that static trim is usually the single biggest COM win here.
+        * Cycloidal, velocity-matched swing -- the swing foot's horizontal
+          motion is a Hermite whose end velocity equals the stance speed, so
+          the foot is already moving with the ground (zero scrub) at both
+          lift-off and touch-down.  Stance keeps the foot planted at constant
+          ground speed.  `K <mm>` lowers the swing lift for an even steadier,
+          flatter step.
+
+      Other stability levers live in the geometry: `D` / `Z` set the standing
+      foot height (lower body + the feet tuck inward = lower COM, bigger tilt
+      margin).  Physically: fit the TPU spike boots (traction), route the wire
+      harness low/centred, and a shorter tibia would cut servo sag + COM
+      height further.
+
+  --- Dances (live 50 Hz moves; any key stops) ---
+
+      V            stadium wave: a crest of raised femur+tibia travels
+                   around the body azimuth like a sports-crowd wave
+      O            say hi: weight shifts onto the rear four legs, the two
+                   FRONT legs lift up and wave side-to-side
+      B            hula: feet stay planted, the body sways in a circle
+      T            twist & dip: the body twists on its yaws while bouncing
 
   Each joint test sweeps:  0 deg -> -side -> +side -> back to 0, slowly,
   staying inside the SAFE per-axis limits (same limits as the bridge /
@@ -202,6 +254,12 @@ int   g_auto_gap_ms = 700; // pause between joints in auto mode
 // is mutually exclusive with g_auto.
 bool  g_walk = false;
 
+// --- Dance modes (V/O/B/T commands) -- live 50 Hz moves like the walk ----
+// 0 = off, 1 = V stadium wave, 2 = O hi-wave, 3 = B hula, 4 = T twist&dip.
+int   g_dance = 0;
+float g_dance_phase   = 0.0f;
+float g_dance_elapsed = 0.0f;
+
 // Leg geometry (mm) + stance angles -- mirror hexapod_prototype.py.
 const float COXA  =  25.0;
 const float FEMUR =  75.0;   // Jun 2026: shortened from 90 (coxa-link crack fix)
@@ -211,17 +269,41 @@ const float STANCE_HIP_DEG  = -25.0;
 const float STANCE_KNEE_DEG =  60.0;
 
 // Gait parameters -- slow, gentle defaults for bench bring-up.
-float g_period = 0.90;     // s  -- full gait cycle (slow cadence)
-float g_lift   = 22.0;     // mm -- peak swing foot lift
+float g_period = 1.00;     // s  -- full gait cycle (slow cadence)
+float g_lift   = 18.0;     // mm -- peak swing foot lift (lower = steadier)
 float g_ramp   = 0.45;     // s  -- ease-in for stride + lift
 float g_vx     = 35.0;     // mm/s forward (slow); chassis +X
 float g_vy     = 0.0;      // mm/s lateral
 float g_omega  = 0.0;      // rad/s yaw
 
-#ifndef HALF_PI
-#define HALF_PI 1.5707963267948966
-#endif
-const float PHASE_OFFSET = (float)HALF_PI;
+// --- Stability shaping ----------------------------------------------------
+// Body weight-shift: each tick the body is nudged toward the centroid of the
+// feet currently PLANTED, so the centre of mass stays over the loaded
+// support polygon.  g_com_gain scales the live (gait-driven) part; g_com_x/
+// g_com_y are a STATIC trim (chassis +X forward, +Y left, mm) to cancel a
+// known load imbalance -- e.g. set these if the wire bundle/battery makes the
+// robot lean.  Tunable live with `E <x> <y>`.  See the header "stability"
+// note for why this is small for a symmetric tripod but matters when turning
+// or in ripple/wave.
+float g_com_gain = 0.5f;   // 0 = off; how hard to track the support centroid
+float g_com_x    = 0.0f;   // static fore/aft COM trim (mm, + = lean forward)
+float g_com_y    = 0.0f;   // static lateral COM trim (mm, + = lean left)
+
+// --- Selectable hexapod gait ---------------------------------------------
+// All three real insect gaits are the SAME engine with different per-leg
+// phase offsets + duty factor (= fraction of the cycle a foot is planted):
+//   0 TRIPOD  beta 1/2 : two alternating sets of 3 -> fast, least stable
+//             (this is what the robot walked in the wobbly first video)
+//   1 RIPPLE  beta 2/3 : a diagonal wave, ~2 feet swinging -> medium
+//   2 WAVE    beta 5/6 : one foot at a time, back->front -> slow, rock-steady
+// leg_phase[] is keyed by WIRED leg index (0..2 right front->rear, 3..5
+// left front->rear).  Body speed is held at g_vx for every gait by scaling
+// stride with the stance time (beta*period), so a more stable gait just
+// takes more, smaller, overlapping steps -- it doesn't crawl slower for the
+// same command (though its default speed is gentler).
+int   g_gait  = 0;         // 0 tripod, 1 ripple, 2 wave, 3 tetrapod
+float g_duty  = 0.5f;      // beta: fraction of the cycle each foot is planted
+float leg_phase[6] = {0.0f, 0.5f, 0.0f, 0.5f, 0.0f, 0.5f};   // tripod default
 
 // Precomputed per-leg constants (filled by initGaitConstants()).
 float leg_cos[6], leg_sin[6];
@@ -231,11 +313,17 @@ float foot_neutral_x, foot_neutral_z, foot_radius_eff;
 // the `D` descend command and remembered.
 float g_stand_z = 0.0f;
 
+// Physical wiring order: 0,1,2 down the RIGHT side (front->rear), then
+// 3,4,5 down the LEFT side (front->rear).  Convert each wired leg index
+// to the CAD/sim circular leg index (azimuth = (cad + 0.5) * 60 deg).
+const int WIRED_TO_CAD_LEG[6] = {5, 4, 3, 0, 1, 2};
+
 // Forward declarations (definitions appear further down).
 bool legIK(float target_x, float target_z, float& p, float& k);
 float stanceFootX(float foot_z);
 bool stanceDestAtZ(float foot_z, float dest[18]);
 void descendLegs(float step_mm);
+void setGait(int g);
 
 // Live gait state.
 float g_phase = 0.0, g_elapsed = 0.0;
@@ -326,6 +414,15 @@ void loadStandZ() {
 #endif
 }
 
+// Per-board PCA channel for a joint.  Default rule: ch = joint % 9 on the
+// leg's board.  Hardware exceptions are remapped here -- Jun 2026: channel
+// 6 on the 0x41 board is BROKEN, so leg 5 yaw (joint 15) is physically
+// plugged into 0x41 ch 9 instead.
+static inline int jointChannel(int joint_idx) {
+  if (joint_idx == 15) return 9;   // leg 5 yaw: 0x41 ch6 dead -> moved to ch9
+  return (joint_idx < 9) ? joint_idx : (joint_idx - 9);
+}
+
 // Drive one joint to an angle (clamped to its safe range, trim applied).
 void writeJoint(int joint_idx, float angle_deg) {
   if (joint_idx < 0 || joint_idx >= 18) return;
@@ -344,8 +441,7 @@ void writeJoint(int joint_idx, float angle_deg) {
   int board = (joint_idx < 9) ? 0 : 1;
   if (!have_board[board]) return;   // absent driver: skip -> never wedge the bus
   Adafruit_PWMServoDriver& drv = (board == 0) ? pwm1 : pwm2;
-  int chan = (joint_idx < 9) ? joint_idx : (joint_idx - 9);
-  drv.writeMicroseconds(chan, (int)(us + 0.5));
+  drv.writeMicroseconds(jointChannel(joint_idx), (int)(us + 0.5));
 }
 
 // Wake a present PCA9685 from its power-on SLEEP state and set the 50 Hz
@@ -431,7 +527,7 @@ void poseStance() {
 
 void initGaitConstants() {
   for (int i = 0; i < 6; ++i) {
-    float a = (i + 0.5f) * (float)PI / 3.0f;   // leg azimuth
+    float a = (WIRED_TO_CAD_LEG[i] + 0.5f) * (float)PI / 3.0f;
     leg_cos[i] = cosf(a);
     leg_sin[i] = sinf(a);
   }
@@ -493,34 +589,119 @@ bool stanceDestAtZ(float foot_z, float dest[18]) {
   return true;
 }
 
+// Select a gait: load its per-leg phase offsets, duty factor (beta) and a
+// sensible cadence.  Phase tables are keyed by WIRED leg index
+// (0..2 = right front->rear, 3..5 = left front->rear).
+void setGait(int g) {
+  // TRIPOD: {rf,rr,lm} swing together, {rm,lf,lr} half a cycle later.
+  static const float TRIPOD[6] = {0.0f, 0.5f, 0.0f, 0.5f, 0.0f, 0.5f};
+  // RIPPLE: diagonal wave alternating sides front->rear
+  //   lf, rm, lr, rf, lm, rr at 0, 1/6, 2/6, 3/6, 4/6, 5/6  (by wired idx):
+  static const float RIPPLE[6] = {3.0f/6, 1.0f/6, 5.0f/6, 0.0f/6, 4.0f/6, 2.0f/6};
+  // WAVE: one foot at a time, right side back->front then left back->front
+  //   rr, rm, rf, lr, lm, lf at 0, 1/6, ... 5/6  (by wired idx):
+  static const float WAVE[6]   = {2.0f/6, 1.0f/6, 0.0f/6, 5.0f/6, 4.0f/6, 3.0f/6};
+  // TETRAPOD (a.k.a. 4+2): three pairs of OPPOSITE legs swing in turn, so 4
+  // feet are always down.  More stable than tripod, quicker than ripple/wave.
+  //   pairs (CAD 0&3, 1&4, 2&5) at phase 0, 1/3, 2/3  -> by wired idx:
+  static const float TETRA[6]  = {4.0f/6, 2.0f/6, 0.0f, 0.0f, 2.0f/6, 4.0f/6};
+  const float* src;
+  // Duty (beta) = fraction of the cycle each foot is planted.  Tripod uses
+  // 0.55 (not 0.5) so the two tripods OVERLAP briefly -> short windows of
+  // all-six ground contact at each swap, which kills the pitch/drop that a
+  // zero-overlap swap causes.  Ripple/wave/tetrapod overlap inherently.
+  if (g == 3)      { src = TETRA;  g_duty = 2.0f / 3.0f; g_period = 1.05f; }
+  else if (g == 2) { src = WAVE;   g_duty = 5.0f / 6.0f; g_period = 1.50f; }
+  else if (g == 1) { src = RIPPLE; g_duty = 2.0f / 3.0f; g_period = 1.10f; }
+  else             { src = TRIPOD; g_duty = 0.55f;       g_period = 1.00f; g = 0; }
+  for (int i = 0; i < 6; ++i) leg_phase[i] = src[i];
+  g_gait = g;
+}
+
+const char* gaitName(int g) {
+  return (g == 3) ? "tetrapod" : (g == 2) ? "wave" : (g == 1) ? "ripple" : "tripod";
+}
+
 // One 50 Hz control update: advance the gait phase by dt seconds and drive
-// all 18 joints (port of TripodGait, scalar scales = 1).
+// all 18 joints.  Generalised tripod/ripple/wave gait -- each leg follows
+// the same swing/stance profile, offset by leg_phase[i] (fraction of cycle)
+// with a stance (planted) fraction of g_duty.  Body speed is held at g_vx
+// by scaling stride with the stance time (g_duty * period).
+//
+// Two stability features layered on the base gait:
+//  * COM weight-shift -- pass 1 finds the centroid of the planted feet and
+//    nudges the body toward it (+ static g_com trim) so the mass stays over
+//    the support polygon.
+//  * Cycloidal, velocity-matched swing -- the swing foot's horizontal motion
+//    is a Hermite whose end-velocity equals the stance speed, so the foot is
+//    moving with the ground (zero scrub) at both lift-off and touch-down.
 void stepGait(float dt) {
   g_elapsed += dt;
   g_phase = wrap2pi(g_phase + 2.0f * (float)PI * dt / fmaxf(g_period, 0.05f));
   float ramp_amp = fminf(g_elapsed / g_ramp, 1.0f);
   float t_eff = fmaxf(g_period, 0.05f);
+  float swing = 1.0f - g_duty;                 // fraction of cycle in the air
+  float base_u = g_phase / (2.0f * (float)PI); // global cycle position 0..1
+  // Swing end-tangent (in tau units) so the foot leaves/meets the ground at
+  // the stance speed (-1/g_duty per unit u) -> no scrub at lift-off/touch-down.
+  float Mtan = (swing > 1e-4f) ? (-swing / g_duty) : 0.0f;
 
+  // Lift gate: fade the swing lift out as the commanded speed -> 0 so a
+  // centred joystick just STANDS (feet planted, no marching in place) yet
+  // resumes stepping instantly when pushed.  Below ~8 mm/s the feet stay down.
+  float speed_mag = sqrtf(g_vx * g_vx + g_vy * g_vy)
+                  + fabsf(g_omega) * foot_radius_eff;
+  float lift_gate = clampf(speed_mag / 8.0f, 0.0f, 1.0f);
+
+  // --- Pass 1: body weight-shift toward the planted-foot centroid ----------
+  float sumx = 0.0f, sumy = 0.0f;
+  int   nstance = 0;
+  for (int i = 0; i < 6; ++i) {
+    float u = base_u + leg_phase[i];
+    while (u >= 1.0f) u -= 1.0f;
+    if (u < swing) continue;                   // airborne -> not a support foot
+    float ca = leg_cos[i], sa = leg_sin[i];
+    float prog = 0.5f - (u - swing) / g_duty;
+    float vx_at = g_vx - g_omega * foot_radius_eff * sa;
+    float vy_at = g_vy + g_omega * foot_radius_eff * ca;
+    sumx += foot_radius_eff * ca + prog * vx_at * g_duty * t_eff * ramp_amp;
+    sumy += foot_radius_eff * sa + prog * vy_at * g_duty * t_eff * ramp_amp;
+    ++nstance;
+  }
+  float ox = g_com_x, oy = g_com_y;            // static trim
+  if (nstance > 0) {                           // + live tracking of support
+    ox += g_com_gain * sumx / (float)nstance;
+    oy += g_com_gain * sumy / (float)nstance;
+  }
+  ox *= ramp_amp;  oy *= ramp_amp;             // ease the shift in with the gait
+
+  // --- Pass 2: place every foot with the body displaced by (ox, oy) --------
   for (int i = 0; i < 6; ++i) {
     float ca = leg_cos[i], sa = leg_sin[i];
-    int tripod = (i % 2 == 0) ? 0 : 1;
-    float phi = wrap2pi(g_phase + PHASE_OFFSET + tripod * (float)PI);
+    float u = base_u + leg_phase[i];           // this leg's cycle position
+    while (u >= 1.0f) u -= 1.0f;               // frac into [0,1)
     float prog, dz;
-    if (phi < (float)PI) {                 // swing: lift + carry forward
-      float s = phi / (float)PI;
-      prog = -0.5f + s;
-      dz = g_lift * ramp_amp * sinf((float)PI * s);
-    } else {                               // stance: planted, push back
-      float s = (phi - (float)PI) / (float)PI;
+    if (u < swing) {                           // SWING: cycloidal, vel-matched
+      float tau = u / swing;
+      float t2 = tau * tau, t3 = t2 * tau;
+      float h00 =  2.0f * t3 - 3.0f * t2 + 1.0f;   // Hermite basis
+      float h10 =         t3 - 2.0f * t2 + tau;
+      float h01 = -2.0f * t3 + 3.0f * t2;
+      float h11 =         t3 -        t2;
+      prog = h00 * (-0.5f) + h01 * (0.5f) + (h10 + h11) * Mtan;
+      dz = g_lift * ramp_amp * lift_gate * sinf((float)PI * tau);
+    } else {                                   // STANCE: planted, push back
+      float s = (u - swing) / g_duty;
       prog = 0.5f - s;
       dz = 0.0f;
     }
     float v_x_at = g_vx - g_omega * foot_radius_eff * sa;
     float v_y_at = g_vy + g_omega * foot_radius_eff * ca;
-    float dx = prog * v_x_at * t_eff / 2.0f * ramp_amp;
-    float dy = prog * v_y_at * t_eff / 2.0f * ramp_amp;
-    float fx_b = foot_radius_eff * ca + dx;
-    float fy_b = foot_radius_eff * sa + dy;
+    // stride = body speed * stance time -> body advances at v_x during stance
+    float dx = prog * v_x_at * g_duty * t_eff * ramp_amp;
+    float dy = prog * v_y_at * g_duty * t_eff * ramp_amp;
+    float fx_b = foot_radius_eff * ca + dx - ox;
+    float fy_b = foot_radius_eff * sa + dy - oy;
     float rx = fx_b - LEG_RADIAL * ca;
     float ry = fy_b - LEG_RADIAL * sa;
     float x_yaw =  ca * rx + sa * ry;
@@ -540,10 +721,12 @@ void stepGait(float dt) {
   }
 }
 
-// Ease into stance, then start the live tripod gait at vx mm/s forward
-// (negative walks backward).  Speed is clamped to a sane bench range.
-void startWalking(float vx) {
+// Ease into stance, then start the live gait at vx mm/s forward (negative
+// walks backward) using gait `g` (0 tripod, 1 ripple, 2 wave).  Speed is
+// clamped to a sane bench range.
+void startWalking(float vx, int g) {
   g_auto = false;
+  setGait(g);
   g_vx    = clampf(vx, -120.0f, 120.0f);
   g_vy    = 0.0f;
   g_omega = 0.0f;
@@ -555,7 +738,8 @@ void startWalking(float vx) {
   g_elapsed = 0.0f;          // re-arm the ease-in ramp
   last_step_us = micros();
   g_walk = true;
-  say(String("OK walking ") + String(g_vx, 0) + " mm/s -- any key or C to stop");
+  say(String("OK walking ") + String(g_vx, 0) + " mm/s, " + gaitName(g_gait)
+      + " gait -- any key or C to stop");
 }
 
 // `D` -- gradually lower (descend) all six feet, one small eased step at a
@@ -618,6 +802,450 @@ void descendLegs(float step_mm) {
   else if (stopc == 'C' || stopc == 'c') { centreAll(); say("OK C centred"); }
 }
 
+// --- Dance moves -----------------------------------------------------------
+// Eight whole-body party tricks.  Each runs as a live 50 Hz mode exactly like
+// the walk (any key stops it).  Every move starts by easing into the planted
+// stance at the remembered standing height, then ramps its amplitude in over
+// ~1.5 s so nothing snaps.  Trigger by letter (V/O/B/T) or `M <n>` (1..8):
+//
+//   V/M1 stadium wave -- a crest of raised femur+tibia travels around the
+//                        body azimuth, like a sports-crowd wave
+//   O/M2 say hi       -- weight shifts back onto the rear four legs, both
+//                        FRONT legs lift up and wave side-to-side
+//   B/M3 hula         -- feet stay planted, the body sways in a 22 mm circle
+//   T/M4 twist & dip  -- the body twists side-to-side on its yaws while
+//                        bouncing up and down
+//   M5   tripod march -- lift one tripod (CAD legs 0/2/4) high while the other
+//                        (1/3/5) stays planted, then swap; always 3 feet down
+//   M6   boogie       -- the alternating tripod stomp plus a body weight-shift
+//                        sway so it grooves between steps
+//   M7   pinwheel     -- a narrow raised-leg crest circles the body while every
+//                        yaw twists in unison, so it looks like it spins
+//   M8   freakout     -- fast alternating tripod hops with a body bounce and
+//                        yaw flailing on the airborne legs
+//   M9   pogo         -- feet planted, body bounces straight up/down + yaw wag
+//   M10  cancan       -- a crest of STRAIGHT-leg kicks travels the body
+//   M11  corkscrew    -- body grinds in a tilted circle (sway + vertical bob)
+//   M12  shimmy       -- fast little side-to-side shake, yaws counter-rotating
+//   M13  twist-stomp  -- alternating tripod stomp while the body twists L/R
+//   M14  tippy-taps   -- a very narrow crest skitters round as rapid toe taps
+//   M15  disco point  -- weight back, one front leg points up and sweeps an arc
+//   M16  rave         -- grand finale: hops + bounce + twist + flailing (wildest)
+//   -- gentle/slow set (small + slow, safe to leave running) --
+//   M17  breathe      -- very slow, small body rise/fall
+//   M18  sway         -- slow gentle side-to-side body lean
+//   M19  nod          -- slow forward/back body lean (a gentle bow)
+//   M20  slow wave    -- a gentle low crest drifts slowly around the body
+
+// Stance hip/knee the dances modulate around (filled by startDance()).
+float g_base_hip = STANCE_HIP_DEG, g_base_knee = STANCE_KNEE_DEG;
+
+// Joint angles for wired leg i that keep its foot PLANTED at the stance
+// footprint while the body is displaced by (ox, oy) mm in chassis X/Y AND the
+// body sits at height `z` (foot stays on the ground, so a different z just
+// raises/lowers the body) -- the same world->yaw-frame math the gait uses.
+// False = out of IK reach.
+bool plantedLegAnglesZ(int i, float ox, float oy, float z,
+                       float& yaw_deg, float& hip_deg, float& knee_deg) {
+  float ca = leg_cos[i], sa = leg_sin[i];
+  float R  = LEG_RADIAL + stanceFootX(g_stand_z);   // foot stays where stance put it
+  float rx = (R * ca - ox) - LEG_RADIAL * ca;
+  float ry = (R * sa - oy) - LEG_RADIAL * sa;
+  float x_yaw =  ca * rx + sa * ry;
+  float y_yaw = -sa * rx + ca * ry;
+  float p, k;
+  if (!legIK(sqrtf(x_yaw * x_yaw + y_yaw * y_yaw), z, p, k))
+    return false;
+  yaw_deg  = degrees(atan2f(y_yaw, x_yaw));
+  hip_deg  = degrees(p);
+  knee_deg = degrees(k);
+  return true;
+}
+
+// Planted-foot angles at the remembered standing height (the common case).
+bool plantedLegAngles(int i, float ox, float oy,
+                      float& yaw_deg, float& hip_deg, float& knee_deg) {
+  return plantedLegAnglesZ(i, ox, oy, g_stand_z, yaw_deg, hip_deg, knee_deg);
+}
+
+void startDance(int n) {
+  g_auto = false; g_walk = false; g_dance = 0;
+  // Capture the stance angles this dance modulates around / returns to.
+  float dest[18];
+  if (stanceDestAtZ(g_stand_z, dest)) { g_base_hip = dest[1]; g_base_knee = dest[2]; }
+  else { g_base_hip = STANCE_HIP_DEG; g_base_knee = STANCE_KNEE_DEG; }
+  poseStance();                 // plant the feet first (eased)
+  g_dance_phase   = 0.0f;
+  g_dance_elapsed = 0.0f;
+  last_step_us = micros();
+  g_dance = n;
+  static const char* names[] =
+      {"", "V stadium wave", "O hi-wave (front legs)", "B hula sway", "T twist & dip",
+       "M5 tripod march", "M6 tripod boogie", "M7 pinwheel", "M8 freakout",
+       "M9 pogo", "M10 cancan", "M11 corkscrew", "M12 shimmy",
+       "M13 twist-stomp", "M14 tippy-taps", "M15 disco point", "M16 rave",
+       "M17 breathe", "M18 sway", "M19 nod", "M20 slow wave"};
+  const char* nm = (n >= 1 && n <= 20) ? names[n] : "?";
+  say(String("OK dancing: ") + nm + " -- any key stops");
+}
+
+// Raised-cosine lift pulse: 1.0 when the cycle phase is at `center`, easing to
+// 0 by `hw` radians either side (and 0 beyond).  Two tripods half a cycle apart
+// with hw < PI/2 therefore never lift at the same time -- there is always a
+// double-support window, so an alternating-tripod move stays statically stable.
+static inline float legPulse(float phase, float center, float hw) {
+  float d = wrap2pi(phase - center);     // 0..2pi
+  if (d > (float)PI) d = 2.0f * (float)PI - d;   // fold to 0..pi
+  if (d >= hw) return 0.0f;
+  return 0.5f * (1.0f + cosf(d / hw * (float)PI));
+}
+
+// One 50 Hz dance update (mirrors stepGait's timing contract).
+void stepDance(float dt) {
+  g_dance_elapsed += dt;
+  float ramp = fminf(g_dance_elapsed / 1.5f, 1.0f);   // global amplitude ease-in
+
+  switch (g_dance) {
+
+  case 1: {   // V -- stadium wave: a raised-leg crest circles the body
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 2.4f);
+    for (int i = 0; i < 6; ++i) {
+      // Crest position is in CAD azimuth space so it travels smoothly
+      // AROUND the body even though the wiring order is side-by-side.
+      float az = (WIRED_TO_CAD_LEG[i] + 0.5f) * (float)PI / 3.0f;
+      float c  = 0.5f * (1.0f + cosf(g_dance_phase - az));
+      float bump = c * c * c * ramp;     // cube narrows the crest to ~1-2 legs
+      writeJoint(i * 3 + 0, 0.0f);
+      writeJoint(i * 3 + 1, g_base_hip  + bump * (-70.0f - g_base_hip));
+      writeJoint(i * 3 + 2, g_base_knee + bump * (  5.0f - g_base_knee));
+    }
+  } break;
+
+  case 2: {   // O -- weight back, lift the two FRONT legs and wave them
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 1.2f);
+    float shift = fminf(g_dance_elapsed / 0.8f, 1.0f);              // weight back first
+    float arms  = clampf((g_dance_elapsed - 0.7f) / 1.0f, 0.0f, 1.0f); // then arms up
+    for (int i = 0; i < 6; ++i) {
+      // Everyone tracks the 25 mm body shift while planted...
+      float yd = 0.0f, hd = g_base_hip, kd = g_base_knee;
+      plantedLegAngles(i, -25.0f * shift, 0.0f, yd, hd, kd);
+      if (i == 0 || i == 3) {
+        // ...but the front pair (wired 0 = right-front, 3 = left-front)
+        // blends from planted into a raised wave, half a cycle apart.
+        float ph = g_dance_phase + ((i == 3) ? (float)PI : 0.0f);
+        float wy = 18.0f * sinf(ph);                  // side-to-side wave
+        float wh = -55.0f;                            // femur raised high
+        float wk = 15.0f + 25.0f * sinf(ph);          // knee flaps along
+        yd += arms * (wy - yd);
+        hd += arms * (wh - hd);
+        kd += arms * (wk - kd);
+      }
+      writeJoint(i * 3 + 0, yd);
+      writeJoint(i * 3 + 1, hd);
+      writeJoint(i * 3 + 2, kd);
+    }
+  } break;
+
+  case 3: {   // B -- hula: feet planted, body centre sways in a circle
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 2.0f);
+    float ox = 22.0f * ramp * cosf(g_dance_phase);
+    float oy = 22.0f * ramp * sinf(g_dance_phase);
+    for (int i = 0; i < 6; ++i) {
+      float yd, hd, kd;
+      if (plantedLegAngles(i, ox, oy, yd, hd, kd)) {
+        writeJoint(i * 3 + 0, yd);
+        writeJoint(i * 3 + 1, hd);
+        writeJoint(i * 3 + 2, kd);
+      }
+    }
+  } break;
+
+  case 4: {   // T -- twist & dip: yaws twist the body while it bounces
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 1.6f);
+    float twist = 20.0f * ramp * sinf(g_dance_phase);
+    float dip   = 14.0f * ramp * 0.5f * (1.0f - cosf(2.0f * g_dance_phase));
+    float z = g_stand_z + dip;     // less negative = body dips DOWN
+    float p, k;
+    if (legIK(stanceFootX(z), z, p, k)) {
+      for (int i = 0; i < 6; ++i) {
+        writeJoint(i * 3 + 0, twist);
+        writeJoint(i * 3 + 1, degrees(p));
+        writeJoint(i * 3 + 2, degrees(k));
+      }
+    }
+  } break;
+
+  case 5: {   // M5 -- tripod march: lift one tripod (CAD legs 0/2/4) high while
+              // the other (1/3/5) stays planted, then swap, and so on.  hw<PI/2
+              // keeps a double-support gap so it never lifts all six at once.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 1.5f);
+    const float hw = 0.40f * (float)PI;
+    for (int i = 0; i < 6; ++i) {
+      int   grp    = WIRED_TO_CAD_LEG[i] & 1;           // two interleaved tripods
+      float center = grp ? (float)PI : 0.0f;
+      float lift   = legPulse(g_dance_phase, center, hw) * ramp;
+      writeJoint(i * 3 + 0, 10.0f * lift * sinf(2.0f * g_dance_phase));   // little kick
+      writeJoint(i * 3 + 1, g_base_hip  + lift * (-70.0f - g_base_hip));
+      writeJoint(i * 3 + 2, g_base_knee + lift * (  8.0f - g_base_knee));
+    }
+  } break;
+
+  case 6: {   // M6 -- tripod boogie: same alternating stomp, but the body also
+              // sways side-to-side (planted feet track it) so it grooves.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 1.15f);
+    const float hw = 0.45f * (float)PI;
+    float oy = 20.0f * ramp * cosf(g_dance_phase);     // lean toward the loaded tripod
+    for (int i = 0; i < 6; ++i) {
+      int   grp    = WIRED_TO_CAD_LEG[i] & 1;
+      float center = grp ? (float)PI : 0.0f;
+      float lift   = legPulse(g_dance_phase, center, hw) * ramp;
+      float yd, hd, kd;
+      if (!plantedLegAngles(i, 0.0f, oy, yd, hd, kd)) { yd = 0.0f; hd = g_base_hip; kd = g_base_knee; }
+      if (lift > 0.001f) {                              // blend the lifted tripod up
+        float wy = 16.0f * sinf(2.0f * g_dance_phase);
+        float wh = -72.0f, wk = 25.0f * lift;
+        yd += lift * (wy - yd);
+        hd += lift * (wh - hd);
+        kd += lift * (wk - kd);
+      }
+      writeJoint(i * 3 + 0, yd);
+      writeJoint(i * 3 + 1, hd);
+      writeJoint(i * 3 + 2, kd);
+    }
+  } break;
+
+  case 7: {   // M7 -- pinwheel: a narrow raised-leg crest circles the body while
+              // every leg's yaw twists in unison, so it looks like it spins.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 1.6f);
+    float twist = 28.0f * ramp * sinf(2.0f * (float)PI * g_dance_elapsed / 1.1f);
+    for (int i = 0; i < 6; ++i) {
+      float az   = (WIRED_TO_CAD_LEG[i] + 0.5f) * (float)PI / 3.0f;
+      float c    = 0.5f * (1.0f + cosf(g_dance_phase - az));
+      float bump = c * c * ramp;
+      writeJoint(i * 3 + 0, twist);
+      writeJoint(i * 3 + 1, g_base_hip  + bump * (-72.0f - g_base_hip));
+      writeJoint(i * 3 + 2, g_base_knee + bump * (  0.0f - g_base_knee));
+    }
+  } break;
+
+  case 8: {   // M8 -- freakout: fast alternating tripod hops + body bounce + yaw
+              // flailing on the airborne legs.  The wildest one (max amplitude).
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 0.7f);
+    const float hw = 0.42f * (float)PI;
+    float dip = 16.0f * ramp * 0.5f * (1.0f - cosf(2.0f * g_dance_phase));   // 2 bounces/cycle
+    float z   = g_stand_z + dip;
+    float pz, kz;  bool ok = legIK(stanceFootX(z), z, pz, kz);
+    for (int i = 0; i < 6; ++i) {
+      int   grp    = WIRED_TO_CAD_LEG[i] & 1;
+      float center = grp ? (float)PI : 0.0f;
+      float lift   = legPulse(g_dance_phase, center, hw) * ramp;
+      float hd = ok ? degrees(pz) : g_base_hip;
+      float kd = ok ? degrees(kz) : g_base_knee;
+      float yd;
+      if (lift > 0.001f) {                              // airborne: flail
+        float fl = sinf(6.0f * g_dance_phase);
+        yd = 30.0f * lift * fl;
+        hd += lift * (-78.0f - hd);
+        kd += lift * (45.0f + 30.0f * fl - kd);
+      } else {
+        yd = 8.0f * ramp * sinf(3.0f * g_dance_phase); // planted: jitter the yaw
+      }
+      writeJoint(i * 3 + 0, yd);
+      writeJoint(i * 3 + 1, hd);
+      writeJoint(i * 3 + 2, kd);
+    }
+  } break;
+
+  case 9: {   // M9 -- pogo: feet planted, body bounces straight up/down in
+              // unison with a little yaw wag.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 0.6f);
+    float z   = g_stand_z + 16.0f * ramp * sinf(g_dance_phase);
+    float wag = 6.0f * ramp * sinf(2.0f * g_dance_phase);
+    for (int i = 0; i < 6; ++i) {
+      float yd, hd, kd;
+      if (plantedLegAnglesZ(i, 0.0f, 0.0f, z, yd, hd, kd)) {
+        writeJoint(i * 3 + 0, wag);
+        writeJoint(i * 3 + 1, hd);
+        writeJoint(i * 3 + 2, kd);
+      }
+    }
+  } break;
+
+  case 10: {  // M10 -- cancan: a crest of STRAIGHT-leg kicks travels the body
+              // (knee extends as each leg kicks out, unlike the tucked wave).
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 2.2f);
+    for (int i = 0; i < 6; ++i) {
+      float az   = (WIRED_TO_CAD_LEG[i] + 0.5f) * (float)PI / 3.0f;
+      float c    = 0.5f * (1.0f + cosf(g_dance_phase - az));
+      float bump = c * c * c * ramp;
+      writeJoint(i * 3 + 0, bump * 25.0f * sinf(2.0f * g_dance_phase));   // kick sideways
+      writeJoint(i * 3 + 1, g_base_hip  + bump * (-62.0f - g_base_hip));  // leg up
+      writeJoint(i * 3 + 2, g_base_knee + bump * (-15.0f - g_base_knee)); // knee STRAIGHT
+    }
+  } break;
+
+  case 11: {  // M11 -- corkscrew: the body grinds in a tilted circle (hula
+              // sway + vertical bob on the same phase).
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 1.8f);
+    float ox = 18.0f * ramp * cosf(g_dance_phase);
+    float oy = 18.0f * ramp * sinf(g_dance_phase);
+    float z  = g_stand_z + 10.0f * ramp * cosf(g_dance_phase);
+    for (int i = 0; i < 6; ++i) {
+      float yd, hd, kd;
+      if (plantedLegAnglesZ(i, ox, oy, z, yd, hd, kd)) {
+        writeJoint(i * 3 + 0, yd);
+        writeJoint(i * 3 + 1, hd);
+        writeJoint(i * 3 + 2, kd);
+      }
+    }
+  } break;
+
+  case 12: {  // M12 -- shimmy: fast little side-to-side body shake with the
+              // yaws counter-rotating so it looks like it's vibrating.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 0.35f);
+    float oy    = 12.0f * ramp * sinf(g_dance_phase);
+    float twist = 10.0f * ramp * sinf(g_dance_phase);
+    for (int i = 0; i < 6; ++i) {
+      float yd, hd, kd;
+      if (plantedLegAngles(i, 0.0f, oy, yd, hd, kd)) {
+        writeJoint(i * 3 + 0, yd + twist);
+        writeJoint(i * 3 + 1, hd);
+        writeJoint(i * 3 + 2, kd);
+      }
+    }
+  } break;
+
+  case 13: {  // M13 -- twist-stomp: alternating tripod stomp while the WHOLE
+              // body twists left/right on the planted feet.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 1.2f);
+    const float hw = 0.42f * (float)PI;
+    float twist = 22.0f * ramp * sinf(g_dance_phase);
+    for (int i = 0; i < 6; ++i) {
+      int   grp    = WIRED_TO_CAD_LEG[i] & 1;
+      float center = grp ? (float)PI : 0.0f;
+      float lift   = legPulse(g_dance_phase, center, hw) * ramp;
+      writeJoint(i * 3 + 0, twist);
+      writeJoint(i * 3 + 1, g_base_hip  + lift * (-70.0f - g_base_hip));
+      writeJoint(i * 3 + 2, g_base_knee + lift * (  5.0f - g_base_knee));
+    }
+  } break;
+
+  case 14: {  // M14 -- tippy-taps: a single very narrow crest skitters quickly
+              // around the body so it looks like rapid little toe taps.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 1.0f);
+    for (int i = 0; i < 6; ++i) {
+      float az   = (WIRED_TO_CAD_LEG[i] + 0.5f) * (float)PI / 3.0f;
+      float c    = 0.5f * (1.0f + cosf(g_dance_phase - az));
+      float c2   = c * c;  float bump = c2 * c2 * c2 * ramp;   // c^6: very narrow
+      writeJoint(i * 3 + 0, 0.0f);
+      writeJoint(i * 3 + 1, g_base_hip  + bump * (-48.0f - g_base_hip));
+      writeJoint(i * 3 + 2, g_base_knee + bump * ( 20.0f - g_base_knee));
+    }
+  } break;
+
+  case 15: {  // M15 -- disco point: weight shifts back, ONE front leg points
+              // up straight and sweeps a big arc (Saturday-night-fever).
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 2.4f);
+    float shift = fminf(g_dance_elapsed / 0.8f, 1.0f);
+    float armup = clampf((g_dance_elapsed - 0.7f) / 1.0f, 0.0f, 1.0f);
+    for (int i = 0; i < 6; ++i) {
+      float yd = 0.0f, hd = g_base_hip, kd = g_base_knee;
+      plantedLegAngles(i, -22.0f * shift, 0.0f, yd, hd, kd);
+      if (i == 0) {                          // wired 0 = right-front: the pointer
+        float py = 30.0f * sinf(g_dance_phase);     // big slow arc sweep
+        float ph = -72.0f;                          // raised high
+        float pk = -15.0f;                          // knee straight (pointing)
+        yd += armup * (py - yd);
+        hd += armup * (ph - hd);
+        kd += armup * (pk - kd);
+      }
+      writeJoint(i * 3 + 0, yd);
+      writeJoint(i * 3 + 1, hd);
+      writeJoint(i * 3 + 2, kd);
+    }
+  } break;
+
+  case 16: {  // M16 -- rave: the grand finale.  Fast alternating tripod hops +
+              // body bounce + full-body twist + airborne flailing.  Everything.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 0.55f);
+    const float hw = 0.45f * (float)PI;
+    float dip = 18.0f * ramp * 0.5f * (1.0f - cosf(2.0f * g_dance_phase));
+    float z   = g_stand_z + dip;
+    float pz, kz;  bool ok = legIK(stanceFootX(z), z, pz, kz);
+    float twist = 30.0f * ramp * sinf(3.0f * g_dance_phase);
+    for (int i = 0; i < 6; ++i) {
+      int   grp    = WIRED_TO_CAD_LEG[i] & 1;
+      float center = grp ? (float)PI : 0.0f;
+      float lift   = legPulse(g_dance_phase, center, hw) * ramp;
+      float hd = ok ? degrees(pz) : g_base_hip;
+      float kd = ok ? degrees(kz) : g_base_knee;
+      float yd = twist;
+      if (lift > 0.001f) {
+        float fl = sinf(8.0f * g_dance_phase);
+        yd  = twist + 30.0f * lift * fl;
+        hd += lift * (-80.0f - hd);
+        kd += lift * (50.0f + 30.0f * fl - kd);
+      }
+      writeJoint(i * 3 + 0, yd);
+      writeJoint(i * 3 + 1, hd);
+      writeJoint(i * 3 + 2, kd);
+    }
+  } break;
+
+  // ---- gentle / slow set (small amplitude, low speed -- safe to leave running)
+  case 17: {  // M17 -- breathe: very slow, small body rise/fall (calm).
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 3.0f);
+    float z = g_stand_z + 8.0f * ramp * sinf(g_dance_phase);
+    for (int i = 0; i < 6; ++i) {
+      float yd, hd, kd;
+      if (plantedLegAnglesZ(i, 0.0f, 0.0f, z, yd, hd, kd)) {
+        writeJoint(i * 3 + 0, 0.0f);
+        writeJoint(i * 3 + 1, hd);
+        writeJoint(i * 3 + 2, kd);
+      }
+    }
+  } break;
+
+  case 18: {  // M18 -- sway: slow gentle side-to-side body lean.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 2.5f);
+    float oy = 12.0f * ramp * sinf(g_dance_phase);
+    for (int i = 0; i < 6; ++i) {
+      float yd, hd, kd;
+      if (plantedLegAngles(i, 0.0f, oy, yd, hd, kd)) {
+        writeJoint(i * 3 + 0, yd);
+        writeJoint(i * 3 + 1, hd);
+        writeJoint(i * 3 + 2, kd);
+      }
+    }
+  } break;
+
+  case 19: {  // M19 -- nod: slow forward/back body lean, like a gentle bow.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 2.5f);
+    float ox = 12.0f * ramp * sinf(g_dance_phase);
+    for (int i = 0; i < 6; ++i) {
+      float yd, hd, kd;
+      if (plantedLegAngles(i, ox, 0.0f, yd, hd, kd)) {
+        writeJoint(i * 3 + 0, yd);
+        writeJoint(i * 3 + 1, hd);
+        writeJoint(i * 3 + 2, kd);
+      }
+    }
+  } break;
+
+  case 20: {  // M20 -- slow wave: a gentle low crest drifts slowly around.
+    g_dance_phase = wrap2pi(g_dance_phase + 2.0f * (float)PI * dt / 3.0f);
+    for (int i = 0; i < 6; ++i) {
+      float az   = (WIRED_TO_CAD_LEG[i] + 0.5f) * (float)PI / 3.0f;
+      float c    = 0.5f * (1.0f + cosf(g_dance_phase - az));
+      float bump = c * c * c * ramp;                 // narrow, gentle crest
+      writeJoint(i * 3 + 0, 0.0f);
+      writeJoint(i * 3 + 1, g_base_hip  + bump * (-40.0f - g_base_hip));  // modest lift
+      writeJoint(i * 3 + 2, g_base_knee + bump * ( 30.0f - g_base_knee));
+    }
+  } break;
+  }
+}
+
 // Smoothly ramp one joint from its current angle to `to_deg` in ~1 deg
 // steps so the servo eases over instead of slamming.
 void rampTo(int joint_idx, float to_deg) {
@@ -642,7 +1270,7 @@ void announceJoint(int j) {
   s += "  leg ";   s += (j / 3);
   s += ' ';        s += axisName(j);
   s += "  board "; s += ((j < 9) ? "0x40" : "0x41");
-  s += " ch ";     s += ((j < 9) ? j : j - 9);
+  s += " ch ";     s += jointChannel(j);
   s += "  range "; s += (int)lo;
   s += "..";       s += (int)hi;
   s += " deg";
@@ -803,13 +1431,26 @@ void printHelp() {
   s += "  D [mm]    descend feet gradually + REMEMBER ground height (any key stops;\n";
   s += "            feet tuck inward as they drop so the legs can lift the body)\n";
   s += "  Z [mm]    show (or set) the remembered standing foot Z\n";
-  s += "  W [mm/s]  walk forward (default 35; e.g. W 20). any key/C stops\n";
+  s += "  W [mm/s] [t|r|w|q]  walk: t=tripod r=ripple w=wave q=tetrapod\n";
+  s += "            e.g. W 20, W r, W 25 w. tripod=fast, wave=most stable.\n";
+  s += "            any key/C stops\n";
+  s += "  J vx vy w [g]  live analog drive (gamepad bridge): mm/s, mm/s,\n";
+  s += "            rad/s, optional gait 0/1/2. steers without restarting\n";
+  s += "  K [mm]    swing lift height (lower=steadier). live while walking\n";
+  s += "  E [x y]   COM lean trim mm (+x fwd,+y left) to cancel imbalance\n";
+  s += "  -- dances (any key stops; M <n> picks any by number 1..20) --\n";
+  s += "  V (M1) wave  O (M2) say hi  B (M3) hula  T (M4) twist & dip\n";
+  s += "  M5 march  M6 boogie  M7 pinwheel  M8 freakout  M9 pogo\n";
+  s += "  M10 cancan  M11 corkscrew  M12 shimmy  M13 twist-stomp\n";
+  s += "  M14 tippy-taps  M15 disco point  M16 rave (finale)\n";
+  s += "  gentle/slow: M17 breathe  M18 sway  M19 nod  M20 slow wave\n";
   s += "  ?         help";
   say(s);
 }
 
 void handleLine(char* line) {
   g_seen_input = true;   // silence the idle heartbeat once we hear from the user
+  g_dance = 0;           // ANY command stops a running dance (V/O/B/T/M restart one)
   while (*line == ' ') ++line;
   char cmd = line[0];
   char* p = line + 1;
@@ -835,9 +1476,85 @@ void handleLine(char* line) {
     return;
   }
   if (cmd == 'W') {
-    float vx = atof(p);              // `W` -> default slow; `W 20` -> 20 mm/s
-    if (vx == 0.0f) vx = 35.0f;
-    startWalking(vx);
+    // `W [mm/s] [t|r|w|q]` -- speed then optional gait letter (tripod/ripple/
+    // wave/tetrapod).  `W` alone = tripod @ 35; `W r` = ripple; `W 20 w` =
+    // wave @ 20 mm/s; `W q` = tetrapod; negative speed walks backward.
+    float vx = atof(p);
+    int gait = 0;
+    for (char* q = p; *q; ++q) {
+      if (*q == 'r' || *q == 'R') { gait = 1; break; }
+      if (*q == 'w' || *q == 'W') { gait = 2; break; }
+      if (*q == 'q' || *q == 'Q') { gait = 3; break; }
+      if (*q == 't' || *q == 'T') { gait = 0; break; }
+    }
+    if (vx == 0.0f) vx = (gait == 2) ? 18.0f : (gait == 1) ? 28.0f
+                       : (gait == 3) ? 30.0f : 35.0f;
+    startWalking(vx, gait);
+    return;
+  }
+  if (cmd == 'J') {
+    // Live analog drive (used by the Linux gamepad bridge):
+    //   J <vx> <vy> <omega> [gait]
+    // vx/vy mm/s (chassis +X fwd, +Y left), omega rad/s (+ = turn left),
+    // optional gait 0/1/2/3.  Updates the live gait velocities WITHOUT
+    // restarting it (smooth steering) and starts walking if not already.
+    // Nothing is printed back -- it's streamed at ~20 Hz.
+    char* e = p;
+    float vx = strtod(p, &e);
+    float vy = strtod(e, &e);
+    float w  = strtod(e, &e);
+    while (*e == ' ') ++e;
+    if (*e >= '0' && *e <= '3') { int gg = *e - '0'; if (gg != g_gait) setGait(gg); }
+    g_vx    = clampf(vx, -120.0f, 120.0f);
+    g_vy    = clampf(vy, -120.0f, 120.0f);
+    g_omega = clampf(w,  -1.5f,   1.5f);
+    if (!g_walk) {                       // first packet: ease into the gait
+      g_auto = false;
+      foot_radius_eff = LEG_RADIAL + stanceFootX(g_stand_z);
+      poseStance();
+      g_phase = 0.0f; g_elapsed = 0.0f;
+      last_step_us = micros();
+      g_walk = true;
+    }
+    return;
+  }
+  if (cmd == 'E') {
+    // `E` prints the COM trim; `E <x> <y>` sets it (mm, chassis +X fwd /
+    // +Y left).  Lean the body to cancel a known load imbalance -- e.g. the
+    // wire bundle pulling it to one side.  Applies on the next/again walk.
+    while (*p == ' ') ++p;
+    if (*p == '\0') {
+      say(String("OK COM trim x=") + String(g_com_x, 1) + " y=" + String(g_com_y, 1)
+          + " mm (gain " + String(g_com_gain, 2) + ")");
+    } else {
+      char* endp = p;
+      g_com_x = strtod(p, &endp);
+      g_com_y = strtod(endp, NULL);
+      say(String("OK COM trim set x=") + String(g_com_x, 1) + " y=" + String(g_com_y, 1)
+          + " mm (takes effect while walking)");
+    }
+    return;
+  }
+  if (cmd == 'K') {
+    // `K` prints the swing lift; `K <mm>` sets it.  Lower = steadier (less
+    // body rock per step); higher = clears taller obstacles.
+    while (*p == ' ') ++p;
+    if (*p == '\0') {
+      say(String("OK swing lift = ") + String(g_lift, 1) + " mm");
+    } else {
+      g_lift = clampf(atof(p), 4.0f, 45.0f);
+      say(String("OK swing lift set to ") + String(g_lift, 1) + " mm");
+    }
+    return;
+  }
+  if (cmd == 'V') { startDance(1); return; }   // stadium wave around the body
+  if (cmd == 'O') { startDance(2); return; }   // say hi with the front legs
+  if (cmd == 'B') { startDance(3); return; }   // hula body sway
+  if (cmd == 'T') { startDance(4); return; }   // twist & dip
+  if (cmd == 'M') {                            // M <n> -- dance by number (1..20)
+    int n = atoi(p);
+    if (n < 1 || n > 20) { say("ERR dance 1..20"); return; }
+    startDance(n);
     return;
   }
   g_auto = false;
@@ -945,6 +1662,17 @@ void setup() {
 
 void loop() {
   pumpSerial();
+
+  if (g_dance) {
+    digitalWrite(LED_BUILTIN, (millis() / 150) & 1);   // disco blink
+    unsigned long now = micros();
+    unsigned long elapsed = now - last_step_us;
+    if (elapsed >= STEP_PERIOD_US) {
+      last_step_us = now;
+      stepDance((float)elapsed * 1e-6f);
+    }
+    return;
+  }
 
   if (g_walk) {
     digitalWrite(LED_BUILTIN, HIGH);    // LED solid while walking
