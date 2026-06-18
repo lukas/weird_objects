@@ -1,39 +1,40 @@
-"""Cable-clearance keep-out volumes for the electronics_tray boards.
+"""Cable-clearance keep-out volumes for the stacked electronics decks.
 
-STS3215 refit (Jun 2026): the Arduino Mega 2560 and BOTH PCA9685 PWM
-drivers were removed -- the FEETECH STS3215 serial-bus servos are
-driven DIRECTLY by the Pi over one half-duplex TTL bus through a small
-USB-to-TTL bus adapter.  So the only boards left on the tray are the
-Raspberry Pi 4 / Pi 5 and that bus adapter, and the Mega / PCA
-connector keepouts are retired.
+Deck redesign (Jun 2026): the in-gap electronics_tray (Raspberry Pi +
+USB-to-TTL bus adapter) is retired.  The brain is an Arduino Uno Q
+(on-board Linux SoC + MCU) on the LOWER stacked deck that drives the
+STS3215 serial bus DIRECTLY -- it replaces both the Pi and the bus
+adapter.  A XINGYHENG 12V->5V buck converter rides the UPPER deck.
 
-For each connector on the Raspberry Pi 4 / Pi 5 and the USB-to-TTL bus
-adapter, this module exposes a ``trimesh.Trimesh`` box that covers the
-airspace the cable plug + strain relief occupies once the cable is
-plugged in.  ``check_cable_clearance`` in
-``_verify_prototype.py`` asserts each keep-out has < 50 mm^3 of
-overlap with any printed part, modelled electronics body, or fastener
-mesh -- a future CAD edit that grew material into a cable's plug-in
-airspace will FAIL the verifier instead of being discovered the first
-time the cables are routed.
+For each modelled connector on the Uno Q (USB-C power/data + the two
+shield pin-header strips that carry the servo-bus + power harness) and
+the buck converter (12 V-in / 5 V-out screw terminals), this module
+exposes a ``trimesh.Trimesh`` box that covers the airspace the cable
+plug + strain relief occupies once the cable is plugged in.
+``check_cable_clearance`` in ``_verify_prototype.py`` asserts each
+keep-out has < 50 mm^3 of overlap with any printed part, modelled
+electronics body, or fastener mesh -- a future CAD edit that grew
+material into a cable's plug-in airspace will FAIL the verifier
+instead of being discovered the first time the cables are routed.
 
 Frame
 -----
 
 All keep-out volumes are returned in the **CHASSIS frame** (the same
 pre-chassis-lift world frame the fastener registry uses).  Z = 0 at
-the chassis_bottom plate's CENTRE plane (z = +CHASSIS_PLATE_T/2 = +2
-mm is the chassis_bottom TOP face).  The boards live on top of the
-electronics_tray at the chassis_tray's per-board centre offset.
+the chassis_bottom plate's CENTRE plane.  The decks bolt onto 4
+standoff columns rising ABOVE chassis_top, whose top face is at
+chassis-z = CHASSIS_GAP + 1.5 * CHASSIS_PLATE_T.  Both decks are
+centred on the chassis Z axis at deck-local (0, 0).
 
 Sources
 -------
 
-Connector positions on each board are taken from the Adafruit /
-Raspberry Pi mechanical drawings (publicly published PDFs).  Where
-the connector position on the board is uncertain we conservatively
-place it at the centre of the appropriate board edge -- the > 50
-mm^3 verifier tolerance absorbs the 1-3 mm of slop this introduces.
+Connector positions match the ``make_uno_q_visual`` /
+``make_buck_converter_visual`` proxy meshes in hexapod_prototype.py.
+Where a connector position is uncertain we conservatively place it at
+the centre of the appropriate board edge -- the > 50 mm^3 verifier
+tolerance absorbs the 1-3 mm of slop this introduces.
 """
 
 from __future__ import annotations
@@ -81,43 +82,30 @@ class CableKeepout:
 
 
 # ---------------------------------------------------------------------------
-# Constants tied to the electronics_tray's chassis-frame placement
+# Constants tied to the stacked decks' chassis-frame placement
 # ---------------------------------------------------------------------------
 #
-# ``_emit_electronics_tray_fasteners`` uses the SAME placement:
-#     tray top face z = HP.CHASSIS_PLATE_T / 2 + 3 + HP.ELEC_TRAY_T
-# Each board sits on standoff bosses HP.ELEC_STANDOFF_H above the tray
-# top face -- the connector envelope therefore sits at the BOARD's
-# top face z = TRAY_TOP_Z + ELEC_STANDOFF_H + (per-board PCB Z height).
+# The decks bolt onto 4 standoff columns above chassis_top, whose top
+# face sits at chassis-z = CHASSIS_GAP + 1.5 * CHASSIS_PLATE_T (deck
+# z0).  Each board's PCB BOTTOM face lands at:
+#     tray base + DECK_TRAY_T + DECK_STANDOFF_BOSS_H
+# matching the deck placement used by build_prototype_assembly,
+# inspect_build and full_robot_viz_build.
 
-_TRAY_TOP_Z = hp.CHASSIS_PLATE_T / 2.0 + 3.0 + hp.ELEC_TRAY_T  # = 8 mm
-_BOARD_BASE_Z = _TRAY_TOP_Z + hp.ELEC_STANDOFF_H               # = 13 mm
-# Bare-PCB top face: BOARD_BASE_Z + 1.6 mm FR-4 thickness.  Most
-# connector PORT bodies (the metal/plastic shell soldered to the
-# PCB) sit ON the PCB top face and extend UP, so plug envelopes
-# start at PCB top + ~0.4 mm (a typical solder-pad / shell standoff)
-# rather than at BOARD_BASE_Z.  Keeping the plug envelope BELOW
-# the PCB top face would incorrectly model the plug as overlapping
-# the board's chassis-side yaw-cradle bosses (whose +Z faces reach
-# chassis-z = CHASSIS_PLATE_T/2 + CRADLE_BOSS_H_MM = +13 mm as of
-# the May 2026 chassis_bottom-integrated yaw-cradle redesign; the
-# pre-2026 legacy ``coxa_bracket`` reached +15 mm, and the +15 mm
-# margin is retained here as a safety buffer until commit 8/9
-# updates the downstream PCB-placement keepouts).
-_PCB_TOP_Z = _BOARD_BASE_Z + 2.0             # 15 mm (safe yaw-cradle
-                                              # boss-top clearance
-                                              # margin: actual top
-                                              # = +13 mm, kept at
-                                              # +15 for legacy parity)
-# Approx board (PCB + components) Z extent; matches
-# ``_body_battery_parts``'s 18 mm visual mesh height.  Used as
-# the TOP of the plug envelope's Z range (port body extends UP
-# from the PCB by this many mm).
-_PI_BOARD_TOP_Z   = _BOARD_BASE_Z + 18.0     # 31 mm (includes the
-                                              # Pi's Ethernet jack +
-                                              # USB-A stack height)
-_BUS_ADAPTER_TOP_Z = _BOARD_BASE_Z + 6.0     # 19 mm (small USB-to-TTL
-                                              # dongle PCB + headers)
+_DECK_Z0 = hp.CHASSIS_GAP + 1.5 * hp.CHASSIS_PLATE_T          # chassis_top top
+_UNO_BOARD_BASE_Z = (_DECK_Z0 + hp.DECK_LEVEL_1_STANDOFF_H
+                     + hp.DECK_TRAY_T + hp.DECK_STANDOFF_BOSS_H)   # PCB bottom
+_BUCK_BOARD_BASE_Z = (_DECK_Z0 + hp.DECK_LEVEL_1_STANDOFF_H
+                      + hp.DECK_LEVEL_2_STANDOFF_H
+                      + hp.DECK_TRAY_T + hp.DECK_STANDOFF_BOSS_H)  # PCB bottom
+
+_PCB_T = 1.6   # FR-4 thickness for both proxy boards (see make_*_visual)
+
+# Both decks are centred on the chassis Z axis at deck-local (0, 0).
+_UNO_HALF_W = hp.UNO_Q_PCB_W / 2.0
+_UNO_HALF_D = hp.UNO_Q_PCB_D / 2.0
+_BUCK_HALF_W = hp.BUCK_PCB_W / 2.0
+_BUCK_HALF_D = hp.BUCK_PCB_D / 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -139,185 +127,71 @@ def _aabb_box(x_lo: float, x_hi: float,
 
 
 # ---------------------------------------------------------------------------
-# Raspberry Pi 4 / Pi 5 connectors
+# Arduino Uno Q connectors (lower deck)
 # ---------------------------------------------------------------------------
 #
-# PI_HOLES is the board-local hole pattern; the tray places the Pi
-# with its long axis along chassis +X (PI_PCB_W = 85 mm along X) and
-# short axis along chassis +Y (PI_PCB_D = 56 mm along Y).
+# The Uno Q board is centred on the lower deck at deck-local (0, 0),
+# long axis (UNO_Q_PCB_W = 68.58 mm) along chassis +X, short axis
+# (UNO_Q_PCB_D = 53.34 mm) along chassis +Y.  ``make_uno_q_visual``
+# puts the USB-C jack on the -X short edge and the two shield pin-
+# header strips along the +/- Y long edges.
 #
-# Per the Pi 4 / Pi 5 mechanical drawing:
-#
-#   * USB-A 3.0 PAIR, USB-A 2.0 PAIR and Ethernet RJ45 share ONE
-#     LONG edge of the 85 mm x 56 mm PCB.
-#   * USB-C power, 2 x micro-HDMI and 3.5 mm audio jack share the
-#     ADJACENT SHORT edge.
-#   * 40-pin GPIO header runs along the OTHER LONG edge.
-#   * micro-SD slot is on the OTHER SHORT edge (underside).
-#
-# The Pi is placed on the tray so that USB-A / Ethernet face chassis
-# -Y (cables exit -Y past the chassis_top -Y apothem at y = -70 mm)
-# and USB-C / HDMI face chassis -X (cables exit -X in a separate
-# corridor from the +X PCA9685 servo header bank):
-#
-#   * -Y LONG edge of the Pi (chassis y = pi_y_min)
-#       : USB-A 3.0 PAIR  (blue, 2 stacked)
-#       : USB-A 2.0 PAIR  (black, 2 stacked)
-#       : Ethernet RJ45
-#   * -X SHORT edge of the Pi (chassis x = pi_x_min)
-#       : USB-C power
-#       : Micro-HDMI 0
-#       : Micro-HDMI 1
-#       : (3.5 mm audio jack -- not used in this robot; no keepout)
-#   * +Y LONG edge: GPIO 40-pin header (no cables modelled).
-#   * +X SHORT edge: micro-SD slot (no plug; no keepout).
-#
-# Pre-May-2026 the keepouts had this layout BACKWARD -- USB-C / HDMI
-# on the -Y long edge and USB-A / Ethernet on the +X short edge --
-# matching an equally-incorrect ``make_raspberry_pi_visual()``.  The
-# physical Pi cannot fit 2 x USB-A stacks + RJ45 on a 56 mm short
-# edge (their combined width is ~ 48 mm of connector body before
-# margins).  The May 2026 "Pi cantilever" pass fixed both files to
-# agree on the real Pi layout, AND moved the Pi south so its -Y
-# long edge sits at chassis y = -72.5 mm -- 2.5 mm past the
-# chassis_top -Y apothem -- so the USB-A stacks + RJ45 cable bank
-# is OUTSIDE the chassis_top hexagon silhouette in plan view, with
-# their connector tops in free air (z up to 29 mm; chassis_top z
-# band is 34..38 mm).
-#
-# Notes on cable-exit clearance:
-#   * USB-A and Ethernet cables exit chassis -Y; the keepout
-#     extends 22 mm in -Y from the plug face.  At y = pi_y_min - 22
-#     = -94.5 mm the keepout is far outside chassis_top (apothem
-#     -70) AND well inside chassis_bottom (the -X / -Y slanted
-#     edges of the 200 mm flat-to-flat hexagon).
-#   * USB-C and HDMI cables exit chassis -X.  Keepouts extend 32-33
-#     mm in -X from the plug face, ending at chassis x ~ -95 mm
-#     (just inside chassis_bottom's -X flat at x = -100 mm).
-#   * The keepouts below model ONE USB-A receptacle per stack (the
-#     TOP port, z = +21..+29 mm) at the standard 12 x 8 mm plug
-#     envelope, so the bottom port stays accessible only with the
-#     chassis open during dev.  This matches the SHOPPING_LIST
-#     design intent (Pi 4 USB-A used for ssh / dev keyboard, never
-#     both ports of a stack at once).
+# The Uno Q sits on the LOWER deck; the buck tray hangs above it (its
+# bottom face at chassis-z = DECK_Z0 + DECK_LEVEL_1 + DECK_LEVEL_2 =
+# +76 mm).  So Uno Q cables exit HORIZONTALLY out past the deck edges
+# rather than straight up into the buck tray:
+#   * USB-C power/data  -- exits -X off the short edge.
+#   * servo-bus + power harness on the shield headers -- exits +Y off
+#     the long edge (the half-duplex TTL bus daisy-chains out to the
+#     18 STS3215 servos from here).
 
-def _pi_hdmi_short_edge_x() -> float:
-    """Chassis x of the Pi's -X short edge (HDMI / USB-C side)."""
-    return (hp.ELEC_TRAY_CENTRE_X + hp.PI_CENTRE[0]
-            - hp.PI_PCB_W / 2.0)
-
-
-def _pi_usb_long_edge_y() -> float:
-    """Chassis y of the Pi's -Y long edge (USB-A / Ethernet side)."""
-    return (hp.ELEC_TRAY_CENTRE_Y + hp.PI_CENTRE[1]
-            - hp.PI_PCB_D / 2.0)
-
-
-def _pi_usb_c_power() -> trimesh.Trimesh:
-    base_y = hp.ELEC_TRAY_CENTRE_Y + hp.PI_CENTRE[1]
-    plug_face_x = _pi_hdmi_short_edge_x()
-    # USB-C centred at PCB-local y = +half_y - 11 mm (11 mm in -Y
-    # from the +Y corner of the Pi PCB, matching the real Pi 4
-    # mech drawing's USB-C position on its long edge).
-    cy = base_y + hp.PI_PCB_D / 2.0 - 11.0
-    # 12 mm wide (along Y, parallel to short edge) x 7 mm tall in
-    # Z plug face + 8 mm plug body + 25 mm strain relief = 33 mm
-    # along -X.  Most of this is outside chassis_top (apothem
-    # at x = -70 mm); chassis_bottom's -X flat at x = -100 mm gives
-    # the cable 4.5 mm of margin past the strain relief.
+def _uno_usb_c() -> trimesh.Trimesh:
+    # USB-C jack centred at board-local (-_UNO_HALF_W + 4, +14) per
+    # make_uno_q_visual.  Plug + strain relief exit -X off the short
+    # edge.  12 mm wide (Y) x 7 mm tall plug face + ~26 mm plug body.
+    cy = 14.0
+    plug_face_x = -_UNO_HALF_W
     return _aabb_box(
-        x_lo=plug_face_x - 33.0,  x_hi=plug_face_x,
+        x_lo=plug_face_x - 26.0,  x_hi=plug_face_x + 4.0,
         y_lo=cy - 12.0 / 2.0,     y_hi=cy + 12.0 / 2.0,
-        z_lo=_BOARD_BASE_Z,       z_hi=_BOARD_BASE_Z + 7.0,
+        z_lo=_UNO_BOARD_BASE_Z,   z_hi=_UNO_BOARD_BASE_Z + 7.0,
     )
 
 
-def _pi_micro_hdmi(slot: int) -> trimesh.Trimesh:
-    """slot 0 = HDMI0 (nearer USB-C); slot 1 = HDMI1 (farther)."""
-    base_y = hp.ELEC_TRAY_CENTRE_Y + hp.PI_CENTRE[1]
-    plug_face_x = _pi_hdmi_short_edge_x()
-    # HDMI 0 and HDMI 1 share the -X short edge with USB-C.  Per
-    # the visual mesh in ``make_raspberry_pi_visual``: HDMI 0 at
-    # PCB-local y = +half_y - 15 = +13 (in centred-PCB coords);
-    # HDMI 1 at PCB-local y = 0 (middle of the short edge).
-    offset_y = +13.0 if slot == 0 else 0.0
-    cy = base_y + offset_y
+def _uno_bus_header() -> trimesh.Trimesh:
+    # Shield pin-header strip on the +Y long edge (servo-bus + power
+    # harness).  Connectors plug onto the header and the bundle exits
+    # +Y off the long edge.  Slab spanning most of the board length in
+    # X, rising over the ~9 mm header height, extending +Y for the
+    # plug bodies + immediate strain relief.
+    plug_face_y = _UNO_HALF_D - 3.0   # header strip centreline
     return _aabb_box(
-        x_lo=plug_face_x - 32.0,  x_hi=plug_face_x,
-        y_lo=cy - 8.0 / 2.0,      y_hi=cy + 8.0 / 2.0,
-        z_lo=_BOARD_BASE_Z,       z_hi=_BOARD_BASE_Z + 4.0,
-    )
-
-
-def _pi_usb_a(slot: int) -> trimesh.Trimesh:
-    """slot 1 = USB 3.0 PAIR (blue, -X end of the -Y long edge);
-    slot 0 = USB 2.0 PAIR (black, middle of the -Y long edge).
-    Each PAIR is a 2x1 stack of USB-A receptacles.  Models the TOP
-    receptacle only (z = +21..+29 mm) -- see module docstring.
-    """
-    base_x = hp.ELEC_TRAY_CENTRE_X + hp.PI_CENTRE[0]
-    plug_face_y = _pi_usb_long_edge_y()
-    # Per Pi 4 mech drawing: USB 3.0 PAIR centred at PCB board x
-    # ~ 39 (= PCB-local x = -3.5 in centred-PCB coords); USB 2.0
-    # PAIR centred at PCB board x ~ 56 (= PCB-local x = +13.5).
-    offset_x = -3.5 if slot == 1 else +13.5
-    cx = base_x + offset_x
-    # 12 mm wide x 8 mm tall (single-plug) envelope, 22 mm plug body
-    # extending -Y past the receptacle face.  Top-of-stack port only
-    # (see module docstring) so z = top half of board's component
-    # zone, i.e. +21..+29 mm (= _BOARD_BASE_Z + 8..+16).
-    return _aabb_box(
-        x_lo=cx - 12.0 / 2.0,     x_hi=cx + 12.0 / 2.0,
-        y_lo=plug_face_y - 22.0,  y_hi=plug_face_y,
-        z_lo=_BOARD_BASE_Z + 8.0, z_hi=_BOARD_BASE_Z + 16.0,
-    )
-
-
-def _pi_ethernet() -> trimesh.Trimesh:
-    base_x = hp.ELEC_TRAY_CENTRE_X + hp.PI_CENTRE[0]
-    plug_face_y = _pi_usb_long_edge_y()
-    # Ethernet RJ45 sits at the +X end of the -Y long edge of the
-    # Pi PCB.  Per Pi 4 mech drawing: PCB board x ~ 72.5 (=
-    # PCB-local x = +30 in centred-PCB coords).
-    cx = base_x + 30.0
-    # 14 mm wide x 14 mm tall plug + 13 mm rigid plug body =
-    # 13 mm along -Y.  Robot deployment expects RJ45 to be
-    # plugged ONLY during setup; right-angled RJ45 keeps the
-    # cable bend tight against the -Y edge.  Keepout reserves a
-    # generous 22 mm of -Y corridor (rigid + bend allowance).
-    return _aabb_box(
-        x_lo=cx - 14.0 / 2.0,     x_hi=cx + 14.0 / 2.0,
-        y_lo=plug_face_y - 22.0,  y_hi=plug_face_y,
-        z_lo=_BOARD_BASE_Z,       z_hi=_BOARD_BASE_Z + 14.0,
+        x_lo=-25.0,               x_hi=25.0,
+        y_lo=plug_face_y,         y_hi=_UNO_HALF_D + 16.0,
+        z_lo=_UNO_BOARD_BASE_Z + 2.0, z_hi=_UNO_BOARD_BASE_Z + 11.0,
     )
 
 
 # ---------------------------------------------------------------------------
-# USB-to-TTL serial-bus adapter (STS3215 refit)
+# XINGYHENG buck converter terminals (upper deck)
 # ---------------------------------------------------------------------------
 #
-# The bus adapter is a small (BUS_ADAPTER_PCB_W x BUS_ADAPTER_PCB_D =
-# 30 x 24 mm) USB-to-TTL dongle that replaces the 2x PCA9685 stack.
-# It carries two cable interfaces:
-#   * a USB lead UP to one of the Pi's USB-A ports (short jumper), and
-#   * the half-duplex TTL servo bus pigtail that daisy-chains out to
-#     the 18 STS3215 servos.
-# Both leads plug into headers on the board's TOP face and exit
-# straight UP, so the keepout is a thin vertical slab above the board
-# footprint (clear airspace below the chassis_top deck).
+# The buck board is centred on the upper deck at deck-local (0, 0).
+# ``make_buck_converter_visual`` places the two screw-terminal blocks
+# at board-local (+/-(BUCK_PCB_W/2 - 6), -14).  The 12 V-in lead (from
+# the LiPo / anti-spark switch) lands on one terminal and the 5 V-out
+# logic-rail lead leaves the other.  Nothing sits above the upper
+# deck, so both leads exit straight UP into clear air.
 
-def _bus_adapter_headers() -> trimesh.Trimesh:
-    cx = hp.ELEC_TRAY_CENTRE_X + hp.BUS_ADAPTER_CENTRE[0]
-    cy = hp.ELEC_TRAY_CENTRE_Y + hp.BUS_ADAPTER_CENTRE[1]
-    # Cover the board's connector edge: a slab spanning most of the
-    # board footprint in X/Y, rising 12 mm above the board top for the
-    # USB + bus plug bodies and their immediate strain relief.
-    half_w = hp.BUS_ADAPTER_PCB_W / 2.0
-    half_d = hp.BUS_ADAPTER_PCB_D / 2.0
+def _buck_terminal(sx: int) -> trimesh.Trimesh:
+    """sx = -1 -> -X terminal (5 V out); sx = +1 -> +X terminal (12 V in)."""
+    cx = sx * (_BUCK_HALF_W - 6.0)
+    cy = -14.0
+    term_top_z = _BUCK_BOARD_BASE_Z + _PCB_T + 9.0   # screw-terminal top
     return _aabb_box(
-        x_lo=cx - half_w,           x_hi=cx + half_w,
-        y_lo=cy - half_d,           y_hi=cy + half_d,
-        z_lo=_BUS_ADAPTER_TOP_Z,    z_hi=_BUS_ADAPTER_TOP_Z + 12.0,
+        x_lo=cx - 10.0 / 2.0,     x_hi=cx + 10.0 / 2.0,
+        y_lo=cy - 9.0 / 2.0,      y_hi=cy + 9.0 / 2.0,
+        z_lo=term_top_z,          z_hi=term_top_z + 14.0,
     )
 
 
@@ -326,13 +200,10 @@ def _bus_adapter_headers() -> trimesh.Trimesh:
 # ---------------------------------------------------------------------------
 
 _CABLE_KEEPOUTS_TABLE: tuple[tuple[str, str, Callable[[], trimesh.Trimesh]], ...] = (
-    ("Pi4",          "USB-C power",  _pi_usb_c_power),
-    ("Pi4",          "Micro-HDMI 0", lambda: _pi_micro_hdmi(0)),
-    ("Pi4",          "Micro-HDMI 1", lambda: _pi_micro_hdmi(1)),
-    ("Pi4",          "USB-A (top)",  lambda: _pi_usb_a(1)),
-    ("Pi4",          "USB-A (bot)",  lambda: _pi_usb_a(0)),
-    ("Pi4",          "Ethernet",     _pi_ethernet),
-    ("BusAdapter",   "USB+TTL bus",  _bus_adapter_headers),
+    ("UnoQ",         "USB-C power",  _uno_usb_c),
+    ("UnoQ",         "servo-bus hdr", _uno_bus_header),
+    ("Buck",         "12V in",       lambda: _buck_terminal(+1)),
+    ("Buck",         "5V out",       lambda: _buck_terminal(-1)),
 )
 
 

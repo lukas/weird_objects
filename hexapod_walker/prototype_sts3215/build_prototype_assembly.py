@@ -175,16 +175,16 @@ def _build_leg(leg_index: int):
     # chassis-z = -19.25 (8 mm above the bracket's nominal well-
     # floor seating plane).  This visual overlap is intentional for
     # the transition; commit 8 retires the bracket entirely.
-    _CRADLE_SHELF_CHASSIS_Z = (
-        HP.CHASSIS_PLATE_T / 2.0 + HP.CRADLE_TAB_SHELF_Z
-    )  # = +8 mm; chassis-z of the chassis_bottom cradle's tab shelf.
+    # (chassis_bottom cradle's tab shelf sits at chassis-z =
+    #  CHASSIS_PLATE_T/2 + CRADLE_TAB_SHELF_Z = +8 mm; the yaw servo +
+    #  horn placement below is keyed off CHASSIS_YAW_OUTPUT_Z directly.)
 
     yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z   # = +29.75 mm; disc-horn top
     yaw_output_world = edge_mid + yaw_output_z * z_hat
 
     arm_t = 6.0       # MUST match make_coxa_link()'s arm_t
     hip_drop = HP.COXA_HIP_DROP
-    hip_joint_local = np.array([HP.COXA_LENGTH, 0.0, hip_drop])
+    hip_joint_local = np.array(HP.COXA_HIP_ANCHOR)
     Ry_p_3 = rotation_matrix(p, [0, 1, 0])[:3, :3]
     # Femur's knee-end joint axis is on the spar centreline at z=0
     # in femur local, so we don't add a 'drop' offset for the knee.
@@ -216,29 +216,29 @@ def _build_leg(leg_index: int):
     # _CRADLE_SHELF_CHASSIS_Z - WELL_RIM_Z (the cradle's tab shelf
     # rests under the servo's tab bottoms) and the body's long axis
     # is along +X with output offset toward +X.
-    # ``_hobby_servo_visual`` has body bottom at z=0 and output at
-    # (SERVO_OUTPUT_X, 0, ...), so we translate by
-    # (-SERVO_OUTPUT_X, 0, _CRADLE_SHELF_CHASSIS_Z - WELL_RIM_Z) to
-    # land the body bottom at the right chassis-z and the output
-    # gear's centre on the yaw axis (chassis-x = 0).
+    # ``_hobby_servo_visual`` has body bottom at z=0 and output (front)
+    # face at z = SERVO_BODY_H.  Land that output face at the disc-horn
+    # underside (CHASSIS_YAW_OUTPUT_Z - HORN_STACK_H) so the gear/hub +
+    # disc horn reach CHASSIS_YAW_OUTPUT_Z where the coxa_link bolts on.
+    # The old '_CRADLE_SHELF_CHASSIS_Z - WELL_RIM_Z' shift predated the
+    # STS3215 refit (WELL_RIM_Z == SERVO_BODY_H) and sank the hub ~15 mm,
+    # leaving the coxa hovering above the yaw servo in the assembly view.
     yaw_servo.apply_translation(
         [-HP.SERVO_OUTPUT_X, 0,
-         _CRADLE_SHELF_CHASSIS_Z - HP.WELL_RIM_Z],
+         HP.CHASSIS_YAW_OUTPUT_Z - HP.HORN_STACK_H - HP.SERVO_BODY_H],
     )
     yaw_servo.apply_transform(R_a)
     yaw_servo.apply_translation(edge_mid)
     motor_parts.append(yaw_servo)
 
-    # Yaw disc horn -- sits on top of the gear stack (above the body's
-    # exposed top by SERVO_OUTPUT_H), drives the coxa link directly
-    # via the 4 link-to-disc-horn M3 x 6 bolts (June 2026 disc-horn
-    # switch; no more printed adapter disc).
+    # Yaw disc horn -- bottom (spline side) at z=0, top mating face at
+    # HORN_STACK_H.  Seat its bottom at CHASSIS_YAW_OUTPUT_Z - HORN_STACK_H
+    # so the top mating face lands exactly at CHASSIS_YAW_OUTPUT_Z (the
+    # coxa_link pad plane).  Drives the coxa link via the 4
+    # link-to-disc-horn M3 bolts.
     yaw_horn = _horn_visual()
     yaw_horn.apply_translation(
-        [0, 0,
-         _CRADLE_SHELF_CHASSIS_Z
-         + (HP.SERVO_BODY_H - HP.WELL_RIM_Z)
-         + HP.SERVO_OUTPUT_H],
+        [0, 0, HP.CHASSIS_YAW_OUTPUT_Z - HP.HORN_STACK_H],
     )
     yaw_horn.apply_transform(R_a)
     yaw_horn.apply_translation(edge_mid)
@@ -265,18 +265,27 @@ def _build_leg(leg_index: int):
     # post-y=SERVO_BODY_H+SERVO_OUTPUT_H.  We want the spline tip to
     # land on the joint axis at (COXA_LENGTH, 0, hip_drop):
     delta = np.array([HP.COXA_LENGTH - HP.SERVO_OUTPUT_X,
-                       -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H),
+                       -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H) + HP.COXA_HIP_ANCHOR_Y,
                        hip_drop])
     hip_servo.apply_translation(delta)
     to_world(hip_servo)
     motor_parts.append(hip_servo)
+
+    # Hip sandwich-joint clamp cap: closes the coxa_link cradle's OPEN
+    # +Y face around the STS3215 body.  Modelled in the servo well-local
+    # frame, so it reuses the IDENTICAL transform chain as hip_servo.
+    hip_cap = HP.make_servo_clamp_cap()
+    hip_cap.apply_transform(R_hip)
+    hip_cap.apply_translation(delta)
+    to_world(hip_cap)
+    frame_parts.append(hip_cap)
 
     # Hip horn -- bolted to the servo output, sticking out into +Y
     # from the cradle face.  The femur's hip-pad clamps onto this.
     hip_horn = _horn_visual()
     R_hip_horn = rotation_matrix(-np.pi / 2.0, [1, 0, 0])
     hip_horn.apply_transform(R_hip_horn)
-    hip_horn.apply_translation([HP.COXA_LENGTH, 0.0, hip_drop])
+    hip_horn.apply_translation([HP.COXA_LENGTH, HP.COXA_HIP_ANCHOR_Y, hip_drop])
     to_world(hip_horn)
     motor_parts.append(hip_horn)
 
@@ -303,6 +312,15 @@ def _build_leg(leg_index: int):
     knee_servo.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
     to_world(knee_servo)
     motor_parts.append(knee_servo)
+
+    # Knee sandwich-joint clamp cap (same well-local frame as knee_servo).
+    knee_cap = HP.make_servo_clamp_cap()
+    knee_cap.apply_transform(R_hip)
+    knee_cap.apply_translation(delta)
+    knee_cap.apply_transform(rotation_matrix(p, [0, 1, 0]))
+    knee_cap.apply_translation(hip_joint_local + PAD_AXIS_OFFSET)
+    to_world(knee_cap)
+    frame_parts.append(knee_cap)
 
     knee_horn = _horn_visual()
     knee_horn.apply_transform(R_hip_horn)
@@ -378,77 +396,55 @@ def _body_frame_parts(chassis_lift):
 
 
 def _body_battery_parts(chassis_lift):
-    """Battery holder, LiPo pack, electronics tray + the three control
-    boards mounted on it (Arduino Mega 2560, Raspberry Pi 4, PCA9685).
+    """LiPo pack (velcro-strapped to chassis_bottom) + the stacked
+    electronics decks (Uno Q lower tray + buck upper tray) with their
+    board visuals (Jun 2026 deck redesign).
 
-    ``bh_z0`` is the world z of the battery_holder's bottom face,
-    which mates with the chassis_bottom mesh's TOP face.  The
-    chassis_bottom mesh is centred on its own z = 0 (it's a hex
-    extrusion of CHASSIS_PLATE_T = 4 mm so its top face is at
-    chassis_lift + CHASSIS_PLATE_T / 2 = chassis_lift + 2 in world
-    coordinates), so the holder's bottom face must also sit there.
-    Pre-May-2026 the holder was translated by full CHASSIS_PLATE_T
-    (= 4 mm) which left it floating 2 mm above the chassis_bottom
-    mesh; the verifier's check_fastener_engagement caught this
-    when battery_holder bolts started being enumerated.
+    The clip-in battery_holder and the in-gap electronics_tray (which
+    carried the Raspberry Pi + USB-to-TTL bus adapter) are RETIRED.  The
+    brain is now an Arduino Uno Q (on-board Linux SoC + MCU) that drives
+    the STS3215 serial bus directly, with a XINGYHENG 12V->5V buck
+    converter on the upper deck.
     """
     parts = []
-    bh_z0 = chassis_lift + HP.CHASSIS_PLATE_T / 2.0
+    bh_z0 = chassis_lift + HP.CHASSIS_PLATE_T / 2.0   # chassis_bottom top face
 
-    # Holder shell.  ``HP.BATTERY_HOLDER_CENTRE_X`` (= -25 mm) is the
-    # single source of truth for the holder's chassis-frame X
-    # position; the fastener_registry, _hex_plate, the verifier and
-    # inspect_build all read the same constant so the chassis_bottom
-    # bolt-pass holes line up with the holder's feet.
-    bh = HP.make_battery_holder()
-    bh.apply_translation([HP.BATTERY_HOLDER_CENTRE_X, 0, bh_z0])
-    parts.append(bh)
-
-    # The LiPo pack itself (visible inside the holder).  Standard 3S
-    # 2200 mAh pack: ~ 105 x 35 x 25 mm with shrink-wrap label.
+    # The LiPo pack velcro-strapped directly to chassis_bottom's TOP
+    # face (no holder).  Standard 3S 2200 mAh pack: ~105 x 35 x 25 mm.
+    # ``HP.BATTERY_HOLDER_CENTRE_X`` (= -25 mm) is the single source of
+    # truth for the pack's X offset; the velcro slots in chassis_bottom
+    # straddle it.
     lipo = _box((105.0, 35.0, 25.0),
                 center=(HP.BATTERY_HOLDER_CENTRE_X, 0,
-                         bh_z0 + HP.BATTERY_WALL + 25.0 / 2.0))
+                         bh_z0 + 25.0 / 2.0))
     parts.append(lipo)
 
-    # Electronics tray + Mega 2560 + Pi 4 + PCA9685.  Tray base sits
-    # 3 mm above the chassis_bottom top face (= bh_z0 + 3) so the
-    # tray-local origin lands at chassis frame
-    # (ELEC_TRAY_CENTRE_X, ELEC_TRAY_CENTRE_Y, bh_z0 + 3).  May 2026
-    # tray-expansion pass moved the tray centre from the previous
-    # (+35, 0) to (0, 0) so the tray's 4 chassis-mount holes
-    # actually align with the chassis-side 35-mm-radius pattern at
-    # chassis (+/-24.75, +/-24.75); the old offset put them at
-    # (+10.25, +/-24.75) and (+59.75, +/-24.75) instead -- a
-    # longstanding bug masked by the assembly preview being purely
-    # visual.
-    tray_top_z = bh_z0 + 3.0 + HP.ELEC_TRAY_T
-    board_top_z = tray_top_z + HP.ELEC_STANDOFF_H
-    et = HP.make_electronics_tray()
-    et.apply_translation([HP.ELEC_TRAY_CENTRE_X, HP.ELEC_TRAY_CENTRE_Y,
-                           bh_z0 + 3.0])
-    parts.append(et)
+    # Stacked electronics decks on 4 standoff columns rising above
+    # chassis_top's top face (deck z0).
+    deck_z0 = (chassis_lift + HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T)
+    uno_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H
+    buck_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H + HP.DECK_LEVEL_2_STANDOFF_H
 
-    # Raspberry Pi 4 Model B / Pi 5 (85 x 56 x 1.5 mm bare PCB; ~ 18
-    # mm overall with the Ethernet jack + dual USB-A 3.0 stack +
-    # ATSoC + heat-sink).  Long axis along chassis +X (PI_HOLES is
-    # the un-rotated board-centre offset set).
-    pi = _box((HP.PI_PCB_W, HP.PI_PCB_D, 18.0),
-              center=(HP.ELEC_TRAY_CENTRE_X + HP.PI_CENTRE[0],
-                       HP.ELEC_TRAY_CENTRE_Y + HP.PI_CENTRE[1],
-                       board_top_z + 18.0 / 2.0))
-    parts.append(pi)
+    uno_tray = HP.make_uno_q_tray()
+    uno_tray.apply_translation([0.0, 0.0, uno_tray_z])
+    parts.append(uno_tray)
 
-    # STS3215 serial-bus adapter (USB-to-TTL, ~30 x 24 x 8 mm).  The
-    # STS3215 refit retired the Arduino Mega + 2x PCA9685 + 2x BEC: the
-    # Pi drives the serial bus servos directly through this single
-    # adapter (see pi_control/feetech_bus.py).  Placed on the tray at
-    # BUS_ADAPTER_CENTRE.
-    bus = HP.make_bus_adapter_visual()
-    bus.apply_translation([HP.ELEC_TRAY_CENTRE_X + HP.BUS_ADAPTER_CENTRE[0],
-                           HP.ELEC_TRAY_CENTRE_Y + HP.BUS_ADAPTER_CENTRE[1],
-                           board_top_z + 8.0 / 2.0])
-    parts.append(bus)
+    buck_tray = HP.make_buck_tray()
+    buck_tray.apply_translation([0.0, 0.0, buck_tray_z])
+    parts.append(buck_tray)
+
+    # Board visuals seated on each deck's standoff bosses (PCB bottom =
+    # tray top + DECK_STANDOFF_BOSS_H; the visuals' mesh origin is the
+    # PCB bottom face).
+    uno = HP.make_uno_q_visual()
+    uno.apply_translation([0.0, 0.0,
+                           uno_tray_z + HP.DECK_TRAY_T + HP.DECK_STANDOFF_BOSS_H])
+    parts.append(uno)
+
+    buck = HP.make_buck_converter_visual()
+    buck.apply_translation([0.0, 0.0,
+                            buck_tray_z + HP.DECK_TRAY_T + HP.DECK_STANDOFF_BOSS_H])
+    parts.append(buck)
 
     # Switch holster: anti-spark on/off switch.  Sits on 2 printed
     # bosses on chassis_top's top face.  Bolted DOWN from above

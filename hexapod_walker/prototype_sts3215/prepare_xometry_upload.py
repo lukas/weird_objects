@@ -13,8 +13,8 @@ Output:
                                       finish, volume, notes
         chassis_top.stl            -- qty 1  (small 140 mm hex deck)
         chassis_bottom.stl         -- qty 1  (full 200 mm structural hex)
-        battery_holder.stl         -- qty 1
-        electronics_tray.stl       -- qty 1
+        uno_q_tray.stl             -- qty 6  (lower stacked electronics deck)
+        buck_tray.stl              -- qty 6  (upper stacked electronics deck)
         # Design F (May 2026): coxa_bracket.stl retired -- the yaw
         # servo now drops INTO an integrated cradle inside
         # chassis_bottom (see make_chassis_bottom).
@@ -48,16 +48,19 @@ from trimesh.transformations import rotation_matrix
 
 import hexapod_prototype as hp
 from hexapod_prototype import (
-    make_battery_holder,
+    make_buck_tray,
     make_chassis_bottom,
     make_chassis_top,
-    make_coxa_link,
-    make_electronics_tray,
+    make_coxa_hip_bracket,
+    make_coxa_yaw_hub,
     make_femur_hip_yoke,
     make_femur_knee_bracket,
     make_foot_pad,
+    make_servo_clamp_cap,
     make_tibia_foot_fitting,
     make_tibia_knee_yoke,
+    make_uno_q_tray,
+    make_yaw_servo_retainer,
 )
 
 
@@ -98,21 +101,23 @@ def _reorient_chassis_plate(mesh):
     return _drop_to_bed(mesh)
 
 
-def _reorient_battery_holder(mesh):
-    """Open-top tray: top face is +Z, drop to bed."""
+def _reorient_deck_tray(mesh):
+    """Flat deck tray (Uno Q / buck): bosses point +Z, drop to bed."""
     return _drop_to_bed(mesh)
 
 
-def _reorient_electronics_tray(mesh):
-    """Flat 3 mm plate."""
-    return _drop_to_bed(mesh)
-
-
-def _reorient_coxa_link(mesh):
+def _reorient_coxa_hip_bracket(mesh):
     """The hip-pitch cradle hangs in -Z below the arm, with its open
     face pointing -Y. Rotate +90 deg about X to put the open face up
     (-Y -> +Z)."""
     out = _rotate(mesh, np.pi / 2, [1, 0, 0])
+    return _drop_to_bed(out)
+
+
+def _reorient_coxa_yaw_hub(mesh):
+    """Yaw turntable hub: a flat disc.  Print platform-up so the disc-horn
+    clamp counterbores + Part B join pilots open +Z; boss points down."""
+    out = _rotate(mesh, np.pi, [1, 0, 0])   # flip so the boss faces -Z (down)
     return _drop_to_bed(out)
 
 
@@ -166,17 +171,33 @@ PART_REGISTRY: list[tuple[str,
      "Bottom structural plate (200 mm flat-to-flat hex). Takes the six "
      "coxa-bracket M3 bolts and per-leg yaw-servo body cutouts."),
 
-    ("battery_holder.stl",       make_battery_holder,      _reorient_battery_holder,
-     1, "MJF PA12",      "white", "as-printed",
-     "Open-top LiPo tray; velcro slots through the long walls."),
+    ("uno_q_tray.stl",           make_uno_q_tray,          _reorient_deck_tray,
+     6, "PLA/PETG rigid", "white", "as-printed",
+     "Lower stacked electronics deck: carries the Arduino Uno Q on its "
+     "non-square UNO hole pattern; bolts onto the 4 standoff columns "
+     "rising above chassis_top."),
 
-    ("electronics_tray.stl",     make_electronics_tray,    _reorient_electronics_tray,
-     1, "MJF PA12",      "white", "as-printed",
-     "Mounts Arduino + 2x PCA9685; standoffs are part of the geometry."),
+    ("buck_tray.stl",            make_buck_tray,           _reorient_deck_tray,
+     6, "PLA/PETG rigid", "white", "as-printed",
+     "Upper stacked electronics deck: carries the XINGYHENG 12V->5V buck "
+     "converter on its 53x39 mm M3 hole pattern, with cooling vents; "
+     "bolts onto the columns above the Uno Q tray."),
 
-    ("coxa_link.stl",            make_coxa_link,           _reorient_coxa_link,
+    # Yaw joint split into TWO printed parts (Jun 2026): the turntable HUB
+    # bolts to the disc horn + rides the SPACED 6706 bearing pair; the hip
+    # BRACKET bolts on top (4x M3) and carries the hip-pitch cradle.  The hub
+    # is bolted to the chassis-borne bearing tower BEFORE the bracket goes on.
+    ("coxa_yaw_hub.stl",         make_coxa_yaw_hub,        _reorient_coxa_yaw_hub,
      6, "MJF PA12",      "white", "as-printed",
-     "Yaw-driven arm; oriented so the hip-pitch cradle opens +Z."),
+     "Yaw turntable hub: bolts DOWN onto the 20 mm disc horn (4x M3 "
+     "clamp-through, oversized/torque-only holes) and rides the inner races "
+     "of the spaced 6706-2RS pair; Part B bolts onto its top platform."),
+
+    ("coxa_hip_bracket.stl",     make_coxa_hip_bracket,    _reorient_coxa_hip_bracket,
+     6, "MJF PA12",      "white", "as-printed",
+     "Hip bracket: bolts onto the yaw hub top (4x M3) and carries the "
+     "hip-pitch servo cradle + 688 bearing housing. Oriented so the cradle "
+     "opens +Z."),
 
     # Bearing-sandwich leg (Jun 2026): the femur and tibia SEGMENTS are
     # bought Ø8 carbon-fibre tubes (cut to length, epoxied into the
@@ -207,6 +228,19 @@ PART_REGISTRY: list[tuple[str,
      6, "FDM TPU 95A",   "black", "as-printed",
      "*** SEPARATE QUOTE *** -- needs flexible TPU for grip. "
      "If TPU isn't available, FDM PLA works but the foot will slip."),
+
+    ("yaw_servo_retainer.stl",   make_yaw_servo_retainer,  _lay_flat,
+     6, "MJF PA12",      "white", "as-printed",
+     "Strap across each chassis_bottom yaw cradle's open bottom; bolts to "
+     "the cradle end walls + the STS3215's 4 bottom-face M3 holes so the "
+     "servo can't drop out. Open centre clears the rear cable bundle."),
+
+    ("servo_clamp_cap.stl",      make_servo_clamp_cap,     _lay_flat,
+     12, "MJF PA12",     "white", "as-printed",
+     "Clamshell cap closing the OPEN +Y face of each sandwich-joint servo "
+     "cradle (hip-pitch coxa_link + knee femur_knee_bracket = 2/leg). Bolts "
+     "-Y with 2 x M3 into the cradle's +/-X wall ends to clamp the STS3215 "
+     "body; centre is bored so the disc horn spins free."),
 
     # June 2026 disc-horn switch: servo_horn_adapter.stl removed -- each
     # moving yoke now bolts directly onto the 20 mm aluminum 25T disc horn

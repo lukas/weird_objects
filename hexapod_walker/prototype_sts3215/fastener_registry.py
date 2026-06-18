@@ -37,24 +37,19 @@ Convention
 Enumerated categories (Design B + Design C, May 2026 revert)
 ------------------------------------------------------------
 
-1. ``72 x M3 x 8 SHCS`` -- cradle servo-mount bolts (Design E mixed-
-   mode, May 2026).  4 per cradle x 3 cradles (yaw / hip-pitch / knee)
-   per leg x 6 legs = 72.  Driven VERTICALLY from above through each
-   servo ear.  Same physical PN_M3X8_SHCS / 91290A113 stock for every
-   bolt, but the engagement medium SPLITS by X sign:
-     * 36 bolts (sx = -1, the 2 -X bolts per cradle):
-       ``SPEC_M3X8_SHCS_INTO_INSERT`` -- threads into an M3 brass
-       heat-set insert (McMaster 94459A130) in a Phi 4 mm pocket
-       inside a Phi 8 mm boss.  Same scheme as the original f03d59b
-       heat-set switch.
-     * 36 bolts (sx = +1, the 2 +X bolts per cradle):
-       ``SPEC_M3X8_SHCS_SELFTAP`` -- self-taps into a Phi 2.5 mm
-       pilot drilled into the existing well-wall material.  No boss,
-       no insert.  Reverted to self-tap because the Phi 8 mm
-       heat-set boss footprint cannot coexist with the +X
-       WIRE_CHANNEL the servo's wire boot must pass through during
-       insertion.  See ``hexapod_prototype.INSERT_M3_SELFTAP_*`` for
-       the design-decision rationale.
+1. (RETIRED -- STS3215 reconciliation, Jun 2026) The model used to
+   emit ``72 x M2.5 case screws`` on the servo OUTPUT face -- an
+   invented "front-face 4-bolt case-screw mount" (4 per cradle x 3
+   cradles (yaw / hip / knee) per leg x 6 legs = 72).  These were
+   PHANTOM: the authoritative Waveshare ST3215 mount-bracket geometry
+   shows the output face has NO usable body-mounting screws -- the
+   dia-20 disc horn sits on the dia-14 disc-horn bolt cross and covers
+   them.  All 72 have been removed.  Servo BODY retention is by printed
+   parts only: the yaw servo by ``make_yaw_servo_retainer`` (a strap
+   with its own anchor bolts), the hip/knee servos by the clamshell
+   ``make_servo_clamp_cap`` (2 x M3 self-tap per joint -- see 14.).
+   The output face now carries ONLY the flush disc horn + its 4 x M3
+   leg bolts on DISC_HORN_BOLT_PCD = 14 mm (see 2.).
 
 2. ``72 x M3 x 6 SHCS`` -- link-to-disc-horn bolts.  4 per joint
    (DISC_HORN_BOLT_PCD = 14 mm circle) x (yaw + hip + knee) = 3 joints
@@ -97,31 +92,32 @@ RETIRED.  The standalone ``coxa_bracket`` part has been folded into
 ``chassis_bottom`` as a printed-in cradle, so there is no bracket flange
 to clamp through the chassis plates.)
 
-6. ``4 x M3 x 10 SHCS`` -- battery_holder foot bolts.  Driven UP
-   through chassis_bottom (one per foot, on the BATTERY_FOOT_DX /
-   DY square pattern) into the brass heat-set insert that lives in
-   each holder foot.  May 2026 fix: the holder used to be enumerated
-   under "not yet enumerated" with 4 M3 clearance holes in the feet
-   that never matched anything in chassis_bottom; the registry now
-   places both the bolts and their captive heat-set inserts so the
-   verifier's check_fastener_engagement probes them on every run.
+6. ``8 x M3 deck board-mount bolts`` -- Deck redesign (Jun 2026): the
+   clip-in battery_holder is RETIRED (the LiPo is now velcro-strapped
+   to the top of chassis_bottom through cut strap slots -- no bolts),
+   and the stacked electronics deck carries the brain.  4 x M3 x 8 SHCS
+   bolt the Arduino Uno Q DOWN onto the lower ``uno_q_tray`` and 4 x M3
+   x 8 SHCS bolt the XINGYHENG buck converter DOWN onto the upper
+   ``buck_tray``, each threading into an M3 brass heat-set insert in a
+   printed tray boss on the board's hole pattern (UNO_Q_HOLES /
+   BUCK_HOLES).  Emitted by ``_emit_deck_fasteners``.
 
-7. ``4 x M3 heat-set inserts`` -- one per battery_holder foot (see 6.).
-   Mirrors the f03d59b cradle insert pattern: Phi 4.0 mm pocket cut
-   from the foot's BOTTOM face with the brass insert recessed 0.5 mm
-   so the bolt head clamps the chassis_bottom plate against plastic,
-   not brass.
+7. ``8 x M3 heat-set inserts`` -- one per deck board-mount bolt (see
+   6.).  Brass heat-set inserts pressed into the tray bosses.
 
-10. ``M2.5 x 8 SHCS`` -- electronics_tray board-mount bolts.
-    STS3215 refit (Jun 2026): the Arduino Mega 2560 + 2x PCA9685 PWM
-    drivers are RETIRED (the Pi drives the serial-bus servos directly
-    through a USB-to-TTL bus adapter), so the tray now carries only the
-    Raspberry Pi 4 + a single bus adapter.  Each board bolts DOWN
-    through its M2.5 mounting holes into an M2.5 brass heat-set insert
-    embedded in a printed boss on top of the tray.
+10. ``8 x M3 x 10 deck standoff-column bolts`` -- Deck redesign
+    (Jun 2026).  The two trays stack on 4 M3 brass standoff columns
+    rising ABOVE chassis_top on the ``DECK_COLUMN_XY`` (+/-41, +/-33)
+    pattern.  4 x M3 x 10 SHCS bolt the ``uno_q_tray`` DOWN onto the
+    level-1 columns and 4 x M3 x 10 SHCS bolt the ``buck_tray`` DOWN
+    onto the level-2 columns, each threading into the brass standoff's
+    female top thread (modeled as a VIRTUAL heat-set-insert engagement
+    target, like the chassis standoffs in 18.).  Emitted by
+    ``_emit_deck_fasteners``.
 
-11. ``M2.5 heat-set inserts`` -- one per Pi4 / bus_adapter mounting
-    hole (see 10.).  Brass heat-set inserts in the tray bosses.
+11. ``4 x M3 nyloc nuts`` -- captive UNDER chassis_top retaining the
+    lowest (level-1) deck standoff columns' male threads at the 4
+    ``DECK_COLUMN_XY`` positions (see 10.).
 
 12. ``2 x M3 x 8 SHCS`` -- switch_holster mount bolts.  Threads
     DOWN through 2 printed clearance holes in chassis_top into an
@@ -136,25 +132,21 @@ to clamp through the chassis plates.)
     2 bosses (see 12.).  Same McMaster ``94459A130`` part as the
     other M3 inserts on this build.
 
-14. ``4 x M2.5 x 8 SHCS`` -- electronics_tray board-mount bolts for
-    the Raspberry Pi 4 / Pi 5.  Threads DOWN through each Pi
-    mounting hole into an M2.5 brass heat-set insert (McMaster
-    94459A106).  PN_M25X8_BOARD_SHCS (same physical stock as the
-    M2.5 spline screw, distinct role label).
+14. ``24 x M3 x 8 SHCS`` -- sandwich-joint clamp-cap bolts.  Deck
+    redesign (Jun 2026): 2 self-tapping M3 x 8 SHCS per ``servo_clamp_cap``
+    drive DOWN through the cap into the cradle ±X wall-end pilots that
+    already exist in ``_servo_well_solid``.  12 clamp caps robot-wide
+    (1 per hip + knee sandwich joint, 2 per leg x 6 legs) = 24 bolts.
+    Emitted by ``_emit_clamp_cap_fasteners`` inside the per-leg loop.
 
-15. ``4 x M2.5 heat-set inserts`` -- captive in the Pi's bosses (see
-    14.).  McMaster ``94459A106``.
+15. (retired) -- the M2.5 Pi board-mount inserts are gone with the
+    Raspberry Pi (see 6./10.).
 
-16. ``4 x M3 x 8 SHCS`` -- electronics_tray chassis-mount bolts.
-    Threads DOWN through the tray's cbore floor (1 mm-rim cbore;
-    May 2026 tray-mount fix shrank cbore depth from 3.0 mm to
-    2.0 mm) into an M3 brass heat-set insert (McMaster ``94459A130``)
-    captive in chassis_bottom's tray-mount boss.  4 sites at
-    ``HP.ELEC_CHASSIS_MOUNT_HOLES_XY`` = (+/-24.75, +/-24.75) mm.
-    User-serviceable from above (hex key drops through the cbore).
+16. (retired) -- the electronics_tray chassis-mount bolts are gone
+    with the in-gap electronics_tray (see 6./10.).
 
-17. ``4 x M3 heat-set inserts`` -- captive in chassis_bottom's 4
-    tray-mount bosses (see 16.).  Same McMaster ``94459A130`` part.
+17. (retired) -- the chassis_bottom tray-mount heat-set inserts are
+    gone with the electronics_tray.
 
 18. ``4 x M3 x 10 SHCS`` -- chassis_top -> brass-standoff bolts.
     Threads DOWN from above chassis_top into the M-F brass
@@ -281,13 +273,17 @@ SPEC_M25X8_SHCS  = "M2.5x8 spline screw"
 SPEC_M25X8_SHCS_INTO_INSERT = "M2.5x8 SHCS into heat-set insert"
 SPEC_M25_HEATSET_INSERT     = "M2.5 heat-set insert"
 SPEC_M3X6_SHCS   = "M3x6 SHCS"   # link-to-disc-horn bolts (into M3 tapped disc)
-# STS3215 refit (Jun 2026): the 4 front-face case screws that bolt each
-# STS3215 to its cradle mount plate.  They pass DOWN through the plate
-# on the SERVO_MOUNT_SQUARE around the output axis and thread into the
-# servo's OWN metal case (the case face is the thread-engagement medium
-# -- no printed boss / heat-set insert / self-tap pilot).  Same M2.5 hex
-# driver as the spline screw; "SHCS" kept for the driver-envelope match.
-SPEC_M25_CASE_SCREW = "M2.5 SHCS into servo case"
+# STS3215 reconciliation (Jun 2026): the invented "front-face 4-bolt
+# case-screw mount" on the servo OUTPUT face (4 per cradle x 3 cradles x
+# 6 legs = 72) was REMOVED -- the dia-20 disc horn covers the output
+# face.  POSITIVE body retention is now provided on the servo's REAL
+# END-face M2.5 holes (measured Waveshare ST3215: a 10 x 10 mm square
+# centred on each +/-X end face).  Each cradle bolts the servo's -X end
+# face to the cradle's -X wall with 4 x M2.5 x 8 SHCS that thread into
+# the servo's own metal case (the case IS the thread; no printed boss /
+# insert).  Same exempt spec string as before so the engagement check's
+# clearance-bore air-span exemption still applies.
+SPEC_M25_BODY_SCREW = "M2.5 SHCS into servo case"
 
 
 # ---------------------------------------------------------------------------
@@ -423,43 +419,6 @@ def _apply_dir(T: np.ndarray, v_local) -> np.ndarray:
 _BRACKET_SHELF_DROP_MM = 3.0
 
 
-def _well_bolt_local_pos_axis(shelf_top_z: float):
-    """Return ``(positions, axes, signs)`` for the 4 front-face M2.5
-    case screws at the given plate-underside z (in well-local coords).
-
-    STS3215 front-face mount (Jun 2026): the 4 case screws pass DOWN
-    through the cradle mount plate (head bearing on the plate TOP at
-    ``shelf_top_z + WELL_PLATE_T``) on the ``servo_mount_hole_centres``
-    square around the OUTPUT axis, and thread into the servo's own
-    metal case (axis = well-local -Z).  ``shelf_top_z`` is the plate
-    underside (= the servo front face), normally ``WELL_RIM_Z``.
-    """
-    plate_top_z = shelf_top_z + HP.WELL_PLATE_T
-    centres = HP.servo_mount_hole_centres()
-    positions = [
-        np.array([hx, hy, plate_top_z]) for (hx, hy) in centres
-    ]
-    # Axis points FROM head INTO the servo case (downward), well-local -Z.
-    axes = [
-        np.array([0.0, 0.0, -1.0])
-        for _ in positions
-    ]
-    # ``servo_mount_hole_centres`` enumerates ``for sx in (-1, 1) for sy
-    # in (-1, 1)`` so these sign labels line up with the centres order.
-    signs = [
-        (sx, sy)
-        for sx in (-1, +1)
-        for sy in (-1, +1)
-    ]
-    return positions, axes, signs
-
-
-def _wall_corner_label(sx: int, sy: int) -> str:
-    x_face = "+X" if sx > 0 else "-X"
-    y_corner = "top" if sy > 0 else "bot"
-    return f"{x_face} {y_corner}"
-
-
 def _yaw_cradle_T(leg_index: int) -> np.ndarray:
     """World 4x4 transform that maps the yaw cradle's well-local frame
     into the chassis frame (pre-lift).
@@ -497,11 +456,12 @@ def _yaw_cradle_T(leg_index: int) -> np.ndarray:
     CAD cradle: body back face -> chassis -13.55, body front face (=
     plate underside) -> chassis +20.75, plate top -> +24.75, disc-horn
     top -> +29.75.  The servo body (``_servo_body_world_transform``)
-    therefore needs NO extra seat offset, and the 4 M2.5 case screws
-    (head on plate top, tip into the case 4 mm behind the front face)
-    engage the body correctly.  NOTE: the disc horn is placed
-    plate-aware in ``_horn_world_transform`` (yaw offset uses
-    WELL_PLATE_T, not the hip/knee SERVO_OUTPUT_H convention).
+    therefore needs NO extra seat offset, and the printed yaw retainer
+    strap (``make_yaw_servo_retainer``) holds the body up against the
+    plate (the earlier output-face case screws were a phantom feature
+    and have been removed).  NOTE: the disc horn is placed plate-aware
+    in ``_horn_world_transform`` (yaw offset uses WELL_PLATE_T, not the
+    hip/knee SERVO_OUTPUT_H convention).
     """
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = (leg_index + 0.5) * np.pi / 3.0
@@ -534,8 +494,8 @@ def _hip_cradle_T(leg_index: int) -> np.ndarray:
     lands on the hip joint axis (COXA_LENGTH, 0, COXA_HIP_DROP) -- the
     same anchor make_coxa_link / make_femur_hip_yoke use, guaranteeing
     the case-screw + disc-horn-bolt sites match the geometry."""
-    M = HP._joint_place((HP.COXA_LENGTH, 0.0, HP.COXA_HIP_DROP),
-                        (1, 0, 0), (0, 1, 0))
+    M = HP._joint_place(HP.COXA_HIP_ANCHOR,
+                        (1, 0, 0), HP.LEG_PITCH_AXIS)
     return _coxa_to_world(leg_index) @ M
 
 
@@ -549,70 +509,63 @@ def _knee_cradle_T(leg_index: int) -> np.ndarray:
     -- matching make_femur_link's internal _joint_place((FEMUR_LENGTH,0,0)).
     """
     p = np.deg2rad(HP.STANCE_FEMUR_DEG)
-    T_femur_in_link = _T(HP.COXA_LENGTH, 0.0, HP.COXA_HIP_DROP) @ _Ry(p)
+    T_femur_in_link = _T(*HP.COXA_HIP_ANCHOR) @ _Ry(p)
     M = HP._joint_place((HP.FEMUR_LENGTH, 0.0, 0.0),
-                        (1, 0, 0), (0, 1, 0))
+                        (1, 0, 0), HP.LEG_PITCH_AXIS)
     return _coxa_to_world(leg_index) @ T_femur_in_link @ M
 
 
-def _emit_cradle_fasteners(
+def _emit_end_face_fasteners(
     *,
     T_well_to_world: np.ndarray,
     leg_index: int,
     joint: str,
     location: str,
-    shelf_top_z: float = None,
 ) -> list[FastenerInstance]:
-    """Emit the 4 STS3215 front-face M2.5 case screws for one cradle.
+    """The 4 M2.5 body-retention bolts on the servo's -X END face.
 
-    STS3215 front-face mount (Jun 2026): the tab-less STS3215 bolts to
-    the cradle's front mount PLATE via 4 x M2.5 case screws on the
-    ``servo_mount_hole_centres`` square around the output axis.  Each
-    screw passes DOWN through the plate and threads into the servo's
-    OWN metal case (the case face is the thread-engagement medium), so
-    there are NO printed bosses, heat-set inserts, or self-tap pilots
-    and NO +X/-X split -- just 4 identical ``SPEC_M25_CASE_SCREW``
-    entries.  This replaces the DS3225 mixed-mode (heat-set on -X,
-    self-tap on +X) ear-clamp scheme.
+    POSITIVE retention (Jun 2026): measured from the authoritative
+    Waveshare ST3215 brackets, each +/-X END face of the servo carries a
+    10 x 10 mm square of 4 M2.5 threaded case holes centred on the face.
+    Each cradle (yaw chassis_bottom, hip coxa_link, knee femur_link)
+    bolts the servo's -X end face to its -X wall: the head is recessed in
+    a wall counterbore and the M2.5 x 8 SHCS threads +X (well-local) into
+    the servo's own metal case.  Geometry is cut by
+    ``hexapod_prototype._servo_well_solid`` (hip/knee) and
+    ``_chassis_yaw_cradle_solid`` (yaw) at ``servo_end_face_bolt_centres``.
 
-    ``shelf_top_z`` is the well-local z of the mount plate UNDERSIDE
-    (= the servo front face); ``WELL_RIM_Z`` for every front-face
-    cradle (coxa_link hip, femur knee, chassis_bottom yaw).
+    Well-local frame matches ``_servo_well_solid``: body centred at
+    x = y = 0, z in [0, SERVO_BODY_H]; the -X end face is at
+    x = -SERVO_BODY_W/2 and the head plane stands SERVO_BODY_BOLT_STANDOFF
+    off it.  The screws are driven BEFORE the disc horn / next-stage link
+    close over the cradle, so they are sub-assembly fasteners (the
+    inboard/-X driver approach is buried once the robot is assembled).
     """
-    if shelf_top_z is None:
-        shelf_top_z = HP.WELL_RIM_Z
-
-    positions, axes, signs = _well_bolt_local_pos_axis(shelf_top_z)
-
-    # The 4 case screws are CAPTIVE SUB-ASSEMBLY fasteners: they are
-    # driven from the FRONT (output) side BEFORE the disc horn (and the
-    # next stage's link) goes on -- once the horn is on the spline it
-    # covers the screw heads.
-    bolt_skip_reason = (
-        "captive sub-assembly fastener: the 4 M2.5 case screws are "
-        "driven from the front (output) side BEFORE the disc horn and "
-        "the next stage's link are added (yaw cradle -> coxa_link, hip "
-        "cradle -> femur, knee cradle -> tibia); once the disc horn is "
-        "on the spline it covers the screw heads.  See PROTOTYPE.md "
-        "for the explicit sub-assembly order"
+    head_x = -(HP.SERVO_BODY_W / 2.0 + HP.SERVO_BODY_BOLT_STANDOFF)
+    axis_local = np.array([1.0, 0.0, 0.0])   # +X, into the servo case
+    skip_reason = (
+        "captive sub-assembly fastener: the 4 M2.5 end-face screws bolt "
+        "the servo body to the cradle's -X wall BEFORE the disc horn and "
+        "the next-stage link close over the cradle; the inboard/-X driver "
+        "approach is buried once the robot is assembled"
     )
-
     out: list[FastenerInstance] = []
-    for (sx, sy), p_local, ax_local in zip(signs, positions, axes):
-        head = _apply_point(T_well_to_world, p_local)
-        axis = _apply_dir(T_well_to_world, ax_local)
-        role_suffix = _wall_corner_label(sx, sy)
+    for (by, bz) in HP.servo_end_face_bolt_centres():
+        head = _apply_point(T_well_to_world, np.array([head_x, by, bz]))
+        axis = _apply_dir(T_well_to_world, axis_local)
+        y_lbl = "+Y" if by > 0 else "-Y"
+        z_lbl = "top" if bz > HP.SERVO_BODY_H / 2.0 else "bot"
         out.append(FastenerInstance(
             part_number=PN_M25X8_SHCS,
-            spec=SPEC_M25_CASE_SCREW,
+            spec=SPEC_M25_BODY_SCREW,
             head_world_xyz=head,
             axis_world=axis,
-            role=f"{location} {role_suffix} M2.5 case screw",
+            role=f"{location} -X end-face {y_lbl} {z_lbl} M2.5 body screw",
             leg_index=leg_index,
             joint=joint,
-            length_mm=6.0,
+            length_mm=HP.SERVO_BODY_BOLT_LEN,
             cache_stl=f"{PN_M25X8_SHCS}.cache.stl",
-            skip_screwdriver_reason=bolt_skip_reason,
+            skip_screwdriver_reason=skip_reason,
         ))
     return out
 
@@ -797,7 +750,7 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
     p = np.deg2rad(HP.STANCE_FEMUR_DEG)
     pt = np.deg2rad(HP.STANCE_FEMUR_DEG + HP.STANCE_TIBIA_DEG)
     Ry_p_3 = _Ry(p)[:3, :3]
-    knee_joint_local = (np.array([HP.COXA_LENGTH, 0.0, HP.COXA_HIP_DROP])
+    knee_joint_local = (np.array(HP.COXA_HIP_ANCHOR)
                         + Ry_p_3 @ np.array([HP.FEMUR_LENGTH, 0.0, 0.0]))
     # Tibia knee yoke anchored at the knee axis, oriented by the tibia
     # stance (matches _leg_in_body_frame's tibia _joint_place).
@@ -867,7 +820,7 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
         hip_drop = HP.COXA_HIP_DROP
         delta = np.array([
             HP.COXA_LENGTH - HP.SERVO_OUTPUT_X,
-            -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H),
+            -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H) + HP.COXA_HIP_ANCHOR_Y,
             hip_drop,
         ])
         # Servo's local +Z is the output direction; in the coxa link
@@ -893,7 +846,7 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
             -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H),
             0.0,
         ])
-        T_femur_in_link = _T(HP.COXA_LENGTH, 0.0, hip_drop) @ _Ry(p)
+        T_femur_in_link = _T(*HP.COXA_HIP_ANCHOR) @ _Ry(p)
         T = (
             _T(*edge_mid)
             @ _T(0.0, 0.0, yaw_output_z)
@@ -976,7 +929,7 @@ def _emit_foot_hinge_fastener(leg_index: int) -> list[FastenerInstance]:
     p = np.deg2rad(HP.STANCE_FEMUR_DEG)
     pt = np.deg2rad(HP.STANCE_FEMUR_DEG + HP.STANCE_TIBIA_DEG)
     Ry_p_3 = _Ry(p)[:3, :3]
-    knee_joint_local = np.array([HP.COXA_LENGTH, 0.0, hip_drop]) + Ry_p_3 @ np.array(
+    knee_joint_local = np.array(HP.COXA_HIP_ANCHOR) + Ry_p_3 @ np.array(
         [HP.FEMUR_LENGTH, 0.0, 0.0]
     )
     # Bearing-sandwich refit (Jun 2026): tibia-link origin is the knee
@@ -1032,251 +985,260 @@ def _emit_foot_hinge_fastener(leg_index: int) -> list[FastenerInstance]:
 # ---------------------------------------------------------------------------
 
 
-def _emit_battery_holder_fasteners() -> list[FastenerInstance]:
-    """The 4 battery-holder foot bolts + their captive heat-set inserts.
+# ---------------------------------------------------------------------------
+# Stacked-deck board-mount + standoff-column fasteners (Jun 2026 redesign)
+# ---------------------------------------------------------------------------
+#
+# RETIRED: ``_emit_battery_holder_fasteners`` (the 4 clip-in
+# battery_holder foot bolts) and ``_emit_electronics_tray_fasteners``
+# (the Pi4 + USB-TTL bus-adapter board-mount bolts) are gone with the
+# deck redesign.  The LiPo is now velcro-strapped to chassis_bottom's
+# top face (NO bolts -- see ``make_chassis_bottom``'s velcro-strap
+# slots), and the in-gap electronics_tray is replaced by two stacked
+# decks (``make_uno_q_tray`` lower + ``make_buck_tray`` upper) bolted
+# onto 4 standoff columns rising ABOVE chassis_top.
 
-    Mirrors the f03d59b cradle insert pattern: each foot has a
-    Phi INSERT_M3_PILOT_OD = 4.0 mm x INSERT_M3_PILOT_DEPTH = 6.0 mm
-    pocket cut from its BOTTOM face that holds an M3 brass heat-set
-    insert (McMaster 94459A130).  The 4 M3 x 10 SHCS enter from
-    BELOW: head face bears on the UNDER side of chassis_bottom
-    (z = -CHASSIS_PLATE_T in the design frame), axis = +Z (UP), and
-    threads engage the brass insert in the foot above.
 
-    Length budget (design frame, z = 0 = chassis_bottom top face =
-    battery_holder bottom face):
+def _emit_deck_fasteners() -> list[FastenerInstance]:
+    """Board-mount + standoff-column fasteners for the two stacked decks.
 
-        head face         : z = -CHASSIS_PLATE_T = -4 mm
-        chassis-plate run : z in [-4, 0]                (4 mm)
-        recess gap        : z in [0, BATTERY_FOOT_INSERT_RECESS]
-                            = [0, 0.5] mm  (plastic between bolt
-                            head ring and insert face -- standard
-                            heat-set practice so the head clamps the
-                            chassis plate against plastic, not brass)
-        insert engagement : z in [0.5, 5.5]              (5 mm)
-        tip overshoot     : z in [5.5, 6.0]              (0.5 mm
-                            free space inside the pocket's overdrill
-                            before the closed top at z = 6).
+    Geometry (chassis design frame, z = 0 = chassis_bottom mesh centre
+    plane; chassis_top top face = CHASSIS_GAP + 1.5 * CHASSIS_PLATE_T).
+    Both trays are centred on the chassis Z axis at deck-local (0, 0);
+    each tray mesh has its plate BOTTOM at local z = 0.
 
-    Total bolt run: 4 + 0.5 + 5 + 0.5 = 10 mm.  M3 x 10 SHCS
-    (PN 91290A114) is the smallest stock length that meets the
-    5 mm-insert-engagement target with the 4 mm chassis_bottom plate
-    in the stack.
+      Board-mount path (Uno Q on the lower tray's UNO_Q_HOLES, buck on
+      the upper tray's BUCK_HOLES):
+        * M3 x 8 SHCS DOWN into an M3 heat-set insert in the tray's
+          DECK_BOSS_OD_M3 board-standoff boss.  Head bears on the boss
+          top (= board underside); captive sub-assembly (the board is
+          screwed down during the electronics install).
 
-    The fastener is also a CAPTIVE SUB-ASSEMBLY: PROTOTYPE.md
-    section 6.1 step 11 installs the battery_holder onto chassis_
-    bottom AFTER the 4 heat-set inserts have been pressed into the
-    feet but BEFORE the chassis_top + standoff stack is added.  The
-    driver cone for the SHCS therefore swings clear in -Z (under
-    the assembled robot) at the time of installation, not blocked
-    by chassis_top from above.
+      Standoff-column path (4 columns at DECK_COLUMN_XY, per deck):
+        * M3 x 10 SHCS DOWN through each tray's DECK_COLUMN_BOSS_OD
+          column boss into the brass standoff's female top thread
+          (modelled as a virtual M3 heat-set insert engagement target,
+          same convention as the chassis_top brass-standoff bolts).
+        * 4 M3 nyloc nuts UNDER chassis_top capture the lowest (level-1)
+          standoff's male stud that drops through the chassis_top
+          DECK_COLUMN_XY clearance holes.
     """
     out: list[FastenerInstance] = []
-    # chassis_bottom is generated centred on z = 0 (its centre plane
-    # at z = 0; bounds z in [-CHASSIS_PLATE_T/2, +CHASSIS_PLATE_T/2] =
-    # [-2, +2]) and the verifier / build_prototype_assembly place it
-    # at world (0, 0, chassis_lift) without flipping that convention.
-    # The bolt head bearing face therefore sits at world z =
-    # -CHASSIS_PLATE_T / 2 = -2 mm (chassis_bottom UNDER face) in the
-    # pre-chassis-lift world frame the registry returns.
-    chassis_bottom_face_z = -HP.CHASSIS_PLATE_T / 2.0
-    # The battery_holder mesh is generated with its bottom face at
-    # local z = 0 and is placed at world z = +CHASSIS_PLATE_T / 2 = +2
-    # so its bottom face sits flush on chassis_bottom top face.  The
-    # heat-set insert top face is BATTERY_FOOT_INSERT_RECESS = 0.5 mm
-    # ABOVE the foot bottom (recessed INTO the foot from below so the
-    # bolt head clamps chassis plastic, not brass).
-    insert_top_z = HP.CHASSIS_PLATE_T / 2.0 + HP.BATTERY_FOOT_INSERT_RECESS
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            # The battery_holder is OFFSET in X relative to the
-            # chassis centre (HP.BATTERY_HOLDER_CENTRE_X = -25 mm);
-            # the foot world X position is therefore
-            # ``BATTERY_HOLDER_CENTRE_X + sx * BATTERY_FOOT_DX``.
-            # build_prototype_assembly and the verifier's
-            # _build_world_leg0_printed_parts apply the same offset
-            # to the holder mesh, and _hex_plate's
-            # ``with_battery_holder_holes`` pattern offsets the
-            # chassis_bottom holes by the same amount.
-            fx = HP.BATTERY_HOLDER_CENTRE_X + sx * HP.BATTERY_FOOT_DX
-            fy = sy * HP.BATTERY_FOOT_DY
-            x_label = "+X" if sx > 0 else "-X"
-            y_label = "+Y" if sy > 0 else "-Y"
 
-            head_world = np.array([fx, fy, chassis_bottom_face_z])
-            axis_world = np.array([0.0, 0.0, 1.0])  # +Z (UP into material)
+    deck_top_face = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T
+    chassis_top_bot_z = HP.CHASSIS_GAP + 0.5 * HP.CHASSIS_PLATE_T
+
+    board_skip_reason = (
+        "captive sub-assembly fastener: the board is screwed down onto "
+        "its tray bosses during the electronics install, before the "
+        "tray stack is closed up; a hex key cannot reach the heads once "
+        "the upper deck / board sit above"
+    )
+
+    # (label, tray plate-bottom world z, board hole pattern)
+    uno_plate_bottom = deck_top_face + HP.DECK_LEVEL_1_STANDOFF_H
+    buck_plate_bottom = (deck_top_face + HP.DECK_LEVEL_1_STANDOFF_H
+                         + HP.DECK_LEVEL_2_STANDOFF_H)
+    board_decks = (
+        ("uno_q_tray", uno_plate_bottom, HP.UNO_Q_HOLES),
+        ("buck_tray",  buck_plate_bottom, HP.BUCK_HOLES),
+    )
+
+    for (deck_label, plate_bottom_z, holes) in board_decks:
+        boss_top_z = (plate_bottom_z + HP.DECK_TRAY_T
+                      + HP.DECK_STANDOFF_BOSS_H)
+        insert_top_z = boss_top_z - (HP.INSERT_M3_PILOT_DEPTH
+                                     - HP.INSERT_M3_INSERT_LENGTH)
+        for (hx, hy) in holes:
+            head_world = np.array([hx, hy, boss_top_z])
+            axis_world = np.array([0.0, 0.0, -1.0])
             out.append(FastenerInstance(
-                part_number=PN_M3X10_SHCS,
-                spec=SPEC_M3X10_SHCS,
+                part_number=PN_M3X8_SHCS,
+                spec=SPEC_M3X8_SHCS_INTO_INSERT,
                 head_world_xyz=head_world,
                 axis_world=axis_world,
                 role=(
-                    f"battery_holder foot bolt {x_label}{y_label} "
-                    f"M3 x 10 SHCS into heat-set insert"
+                    f"{deck_label} board-mount "
+                    f"M3 x 8 SHCS into heat-set insert"
                 ),
                 leg_index=None,
                 joint=None,
-                length_mm=10.0,
-                cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
+                length_mm=8.0,
+                cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
+                skip_screwdriver_reason=board_skip_reason,
             ))
 
-            insert_head_world = np.array([fx, fy, insert_top_z])
             out.append(FastenerInstance(
                 part_number=PN_M3_HEATSET_INSERT,
                 spec=SPEC_M3_HEATSET_INSERT,
-                head_world_xyz=insert_head_world,
-                axis_world=axis_world,
+                head_world_xyz=np.array([hx, hy, insert_top_z]),
+                axis_world=np.array([0.0, 0.0, -1.0]),
                 role=(
-                    f"battery_holder foot {x_label}{y_label} "
+                    f"{deck_label} board-mount "
                     f"M3 heat-set insert"
                 ),
                 leg_index=None,
                 joint=None,
                 length_mm=HP.INSERT_M3_INSERT_LENGTH,
                 cache_stl=f"{PN_M3_HEATSET_INSERT}.cache.stl",
-                # The insert is pressed in with a soldering iron from
-                # BELOW (foot inverted on the bench) BEFORE the
-                # battery_holder is bolted onto chassis_bottom; no
-                # driver cone applies to the brass insert itself.
                 skip_screwdriver_reason=(
                     "heat-set insert installed with a soldering iron "
-                    "BEFORE the battery_holder is bolted to "
-                    "chassis_bottom (PROTOTYPE.md section 6.1 step "
-                    "11); no driver cone applies to the brass insert"
+                    "BEFORE the board is screwed onto the tray boss; "
+                    "no driver cone applies to the brass insert"
                 ),
             ))
+
+    # ---- Standoff-column path -----------------------------------------
+    column_skip_reason = (
+        "captive sub-assembly fastener: torqued as each deck is added "
+        "to the standoff-column stack; once the deck above is fitted a "
+        "hex key cannot reach the column-bolt heads"
+    )
+    for (cx, cy) in HP.DECK_COLUMN_XY:
+        x_label = "+X" if cx > 0 else "-X"
+        y_label = "+Y" if cy > 0 else "-Y"
+        corner = f"{x_label}{y_label}"
+
+        for (deck_label, plate_bottom_z) in (
+            ("uno_q_tray", uno_plate_bottom),
+            ("buck_tray",  buck_plate_bottom),
+        ):
+            boss_top_z = (plate_bottom_z + HP.DECK_TRAY_T
+                          + HP.DECK_STANDOFF_BOSS_H)
+            # Bolt DOWN through the column boss into the brass standoff
+            # female top thread sitting directly under the tray plate.
+            head_world = np.array([cx, cy, boss_top_z])
+            axis_world = np.array([0.0, 0.0, -1.0])
+            out.append(FastenerInstance(
+                part_number=PN_M3X10_SHCS,
+                spec=SPEC_M3X10_SHCS,
+                head_world_xyz=head_world,
+                axis_world=axis_world,
+                role=(
+                    f"{deck_label} standoff column {corner} "
+                    f"M3 x 10 SHCS into standoff female thread"
+                ),
+                leg_index=None,
+                joint=None,
+                length_mm=10.0,
+                cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
+                skip_screwdriver_reason=column_skip_reason,
+            ))
+
+            # Virtual engagement target: the brass standoff's female top
+            # thread (real hardware is the standoff; not counted in BOM).
+            out.append(FastenerInstance(
+                part_number=PN_M3_HEATSET_INSERT,
+                spec=SPEC_M3_HEATSET_INSERT,
+                head_world_xyz=np.array([cx, cy, plate_bottom_z]),
+                axis_world=np.array([0.0, 0.0, -1.0]),
+                role=(
+                    f"{deck_label} standoff column {corner} "
+                    f"M3 standoff female thread "
+                    f"(modelled as heat-set insert for engagement check)"
+                ),
+                leg_index=None,
+                joint=None,
+                length_mm=HP.INSERT_M3_INSERT_LENGTH,
+                cache_stl="",
+                skip_screwdriver_reason=(
+                    "virtual engagement target representing the brass "
+                    "standoff's female top thread; no separate fastener "
+                    "is installed at this site -- the standoff hardware "
+                    "supplies the threads.  No driver cone applies."
+                ),
+                is_virtual=True,
+            ))
+
+        # M3 nyloc nut UNDER chassis_top capturing the level-1 standoff's
+        # male stud dropping through the DECK_COLUMN_XY clearance hole.
+        out.append(FastenerInstance(
+            part_number=PN_M3_NYLOC,
+            spec=SPEC_M3_NYLOC,
+            head_world_xyz=np.array([cx, cy, chassis_top_bot_z]),
+            axis_world=np.array([0.0, 0.0, 1.0]),
+            role=(
+                f"chassis_top standoff column {corner} "
+                f"retention M3 nyloc nut"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=None,
+            cache_stl=f"{PN_M3_NYLOC}.cache.stl",
+            skip_screwdriver_reason=(
+                "captive sub-assembly fastener: the standoff columns + "
+                "decks are bolted onto chassis_top as a SEPARATE top "
+                "sub-assembly (column nuts torqued on the open underside "
+                "of chassis_top) BEFORE that sub-assembly is lowered "
+                "onto the chassis_bottom brass standoffs.  In the "
+                "assembled robot chassis_bottom sits below this nut, so "
+                "the socket cannot reach it -- but it is never driven "
+                "in the assembled state"
+            ),
+        ))
+
     return out
 
 
 # ---------------------------------------------------------------------------
-# Electronics-tray board-mount fasteners (M3/M2.5 SHCS + heat-set inserts)
+# Sandwich-joint clamp-cap fasteners (2 x M3 self-tap per hip + knee cradle)
 # ---------------------------------------------------------------------------
 
 
-def _emit_electronics_tray_fasteners() -> list[FastenerInstance]:
-    """The electronics-tray board-mount fasteners + their captive
-    heat-set inserts (Jun 2026 STS3215 refit: single-tray Pi4 +
-    USB-to-TTL bus adapter; the Mega + 2x PCA9685 are retired).
+def _emit_clamp_cap_fasteners(
+    *,
+    T_well_to_world: np.ndarray,
+    leg_index: int,
+    joint: str,
+    location: str,
+) -> list[FastenerInstance]:
+    """The 2 M3 self-tap bolts that fasten one sandwich-joint clamp cap
+    (``make_servo_clamp_cap``) onto the cradle's +/-X wall +Y ends.
 
-    The tray's chassis-frame placement is
-    ``(HP.ELEC_TRAY_CENTRE_X, HP.ELEC_TRAY_CENTRE_Y,
-       HP.CHASSIS_PLATE_T / 2 + 3)``; the tray's TOP face sits at
-    ``z = HP.CHASSIS_PLATE_T / 2 + 3 + HP.ELEC_TRAY_T`` and the
-    standoff bosses extend ``HP.ELEC_STANDOFF_H`` mm above that.
-    Each insert top face is recessed ``HP.INSERT_M3_PILOT_DEPTH``
-    (or ``HP.INSERT_M25_PILOT_DEPTH``) below the boss top so the
-    bolt head clamps the board onto the boss top, not directly
-    onto the brass insert.
-
-    All 12 board-mount sites are CAPTIVE SUB-ASSEMBLY fasteners:
-    they are torqued during the electronics install BEFORE
-    chassis_top is bolted onto the standoffs from above.  Once the
-    top plate + (optional) arm bracket close over the tray a hex
-    key cannot reach the heads, so ``skip_screwdriver_reason``
-    marks them all SKIPped (same convention as the cradle bolts +
-    the battery_holder foot bolts).
+    Well-local frame matches ``_servo_well_solid`` / the clamp cap: the
+    head bears on the cap flange OUTER face (y = WELL_D/2 + CLAMP_CAP_T)
+    and the M3 x 8 SHCS threads -Y through the flange clearance hole into
+    the Phi CLAMP_BOLT_PILOT_OD self-tap pilot in the wall end (pilots
+    cut by ``_servo_well_solid``).  Same part for the hip (coxa_link) and
+    knee (femur_link) joints -- 2 per joint, 4 per leg, 24 per robot.
     """
     out: list[FastenerInstance] = []
 
-    tray_top_z = HP.CHASSIS_PLATE_T / 2.0 + 3.0 + HP.ELEC_TRAY_T
-    boss_top_z = tray_top_z + HP.ELEC_STANDOFF_H
+    flange_outer_y = HP.WELL_D / 2.0 + HP.CLAMP_CAP_T
 
-    def _absolute_xy(centre, offsets):
-        cx, cy = centre
-        return [(cx + ox, cy + oy) for ox, oy in offsets]
-
-    # STS3215 refit (Jun 2026): the Arduino Mega + 2x PCA9685 are
-    # retired (the Pi drives the serial-bus servos directly), so the
-    # tray now carries only the Pi and a single USB-to-TTL bus adapter,
-    # both on M2.5 heat-set inserts.
-    board_specs = (
-        # (label, centre_xy, hole_offsets, pilot_depth, bolt_pn, bolt_spec,
-        #  bolt_length, insert_pn, insert_spec, insert_length)
-        (
-            "Pi4",
-            HP.PI_CENTRE, HP.PI_HOLES,
-            HP.INSERT_M25_PILOT_DEPTH,
-            PN_M25X8_BOARD_SHCS, SPEC_M25X8_SHCS_INTO_INSERT,
-            8.0,
-            PN_M25_HEATSET_INSERT, SPEC_M25_HEATSET_INSERT,
-            HP.INSERT_M25_INSERT_LENGTH,
-        ),
-        (
-            "bus_adapter",
-            HP.BUS_ADAPTER_CENTRE, HP.BUS_ADAPTER_HOLES,
-            HP.INSERT_M25_PILOT_DEPTH,
-            PN_M25X8_BOARD_SHCS, SPEC_M25X8_SHCS_INTO_INSERT,
-            8.0,
-            PN_M25_HEATSET_INSERT, SPEC_M25_HEATSET_INSERT,
-            HP.INSERT_M25_INSERT_LENGTH,
-        ),
-    )
-
+    # The clamp cap goes on from the OPEN +Y face AFTER the servo is
+    # seated but the disc horn + next-stage link close over that face,
+    # so the +Y driver approach is blocked in the assembled robot.
     skip_reason = (
-        "captive sub-assembly fastener: torqued during electronics "
-        "install before chassis_top + (optional) arm baseplate "
-        "close the chassis stack from above.  Once the top plate "
-        "is on, a hex key cannot reach the board-mount heads"
+        "captive sub-assembly fastener: the clamp cap is bolted onto "
+        "the cradle's open +Y face to trap the servo BEFORE the disc "
+        "horn and the next-stage link are added; once those are on, the "
+        "+Y driver approach to the cap bolts is blocked"
     )
 
-    for (label, centre, offsets, pilot_depth, bolt_pn, bolt_spec,
-         bolt_len, insert_pn, insert_spec, insert_len) in board_specs:
-        for (hx_tray, hy_tray) in _absolute_xy(centre, offsets):
-            hx = HP.ELEC_TRAY_CENTRE_X + hx_tray
-            hy = HP.ELEC_TRAY_CENTRE_Y + hy_tray
-
-            # SHCS head bears on the BOARD's top face = boss top +
-            # board thickness; conservative: place head face at the
-            # boss top (matches inspect_build's bolt rendering and
-            # avoids leaking a per-board PCB-thickness constant).
-            # axis_world points DOWN into the insert.
-            head_world = np.array([hx, hy, boss_top_z])
-            axis_world = np.array([0.0, 0.0, -1.0])
-            out.append(FastenerInstance(
-                part_number=bolt_pn,
-                spec=bolt_spec,
-                head_world_xyz=head_world,
-                axis_world=axis_world,
-                role=(
-                    f"electronics_tray {label} board-mount "
-                    f"({bolt_spec})"
-                ),
-                leg_index=None,
-                joint=None,
-                length_mm=bolt_len,
-                cache_stl=f"{bolt_pn}.cache.stl",
-                skip_screwdriver_reason=skip_reason,
-            ))
-
-            # Insert top face sits ``pilot_depth - insert_len`` mm
-            # below the boss top (debris-clearance overdrill).  Axis
-            # = +Z (the bolt comes DOWN from above; the insert was
-            # pressed in with a soldering iron BEFORE the bolt was
-            # threaded in, so the insert is captive in the boss).
-            insert_top_z = boss_top_z - (pilot_depth - insert_len)
-            insert_head_world = np.array([hx, hy, insert_top_z])
-            out.append(FastenerInstance(
-                part_number=insert_pn,
-                spec=insert_spec,
-                head_world_xyz=insert_head_world,
-                axis_world=np.array([0.0, 0.0, -1.0]),
-                role=(
-                    f"electronics_tray {label} board-mount "
-                    f"{insert_spec}"
-                ),
-                leg_index=None,
-                joint=None,
-                length_mm=insert_len,
-                cache_stl=f"{insert_pn}.cache.stl",
-                skip_screwdriver_reason=(
-                    "heat-set insert installed with a soldering "
-                    "iron BEFORE the board is bolted to the "
-                    "electronics_tray (PROTOTYPE.md section 6.1 "
-                    "step 12); no driver cone applies to the "
-                    "brass insert"
-                ),
-            ))
-
+    for sx in (-1, 1):
+        x_label = "+X" if sx > 0 else "-X"
+        p_local = np.array([sx * HP.CLAMP_BOLT_X,
+                            flange_outer_y,
+                            HP.CLAMP_BOLT_Z])
+        axis_local = np.array([0.0, -1.0, 0.0])   # -Y, into the wall pilot
+        head = _apply_point(T_well_to_world, p_local)
+        axis = _apply_dir(T_well_to_world, axis_local)
+        out.append(FastenerInstance(
+            part_number=PN_M3X8_SHCS,
+            spec=SPEC_M3X8_SHCS_SELFTAP,
+            head_world_xyz=head,
+            axis_world=axis,
+            role=(
+                f"{location} {x_label} clamp-cap "
+                f"M3 x 8 SHCS self-tap"
+            ),
+            leg_index=leg_index,
+            joint=joint,
+            length_mm=8.0,
+            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
+            skip_screwdriver_reason=skip_reason,
+        ))
     return out
 
 
@@ -1322,10 +1284,10 @@ def _emit_switch_holster_fasteners() -> list[FastenerInstance]:
     SHCS (PN 91290A114) -- same stock as the battery_holder feet
     bolts so the BOM stays compact.
 
-    Both fasteners are user-serviceable from ABOVE chassis_top
-    AFTER the holster is dropped onto the bosses -- no skip
-    reason needed (driver envelope is unobstructed open air
-    above the ear).
+    Deck redesign (Jun 2026): the Uno Q tray now sits 16 mm above
+    chassis_top in the vertical hex-key approach to the ear bolt
+    heads, so both mount bolts are captive sub-assembly fasteners
+    (torqued BEFORE the standoff-column + deck stack is fitted).
     """
     out: list[FastenerInstance] = []
     # ``inspect_build._build_assembly_instances`` and the verifier's
@@ -1364,6 +1326,18 @@ def _emit_switch_holster_fasteners() -> list[FastenerInstance]:
             joint=None,
             length_mm=10.0,
             cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
+            # Deck redesign (Jun 2026): the Uno Q tray (16 mm above
+            # chassis_top) now sits in the vertical hex-key approach to
+            # the holster ear bolt head, so it is a captive sub-assembly
+            # fastener -- the holster is bolted on BEFORE the standoff-
+            # column + deck stack is fitted above chassis_top.
+            skip_screwdriver_reason=(
+                "captive sub-assembly fastener: the switch_holster is "
+                "bolted onto chassis_top BEFORE the standoff-column + "
+                "electronics-deck stack is fitted; once the Uno Q tray "
+                "(16 mm above chassis_top) is on, it blocks the vertical "
+                "hex-key approach to this ear bolt head"
+            ),
         ))
 
         insert_head_world = np.array([bx, by, insert_top_z])
@@ -1527,33 +1501,18 @@ def _emit_imu_pad_fasteners() -> list[FastenerInstance]:
 
 
 def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
-    """The 4 tray-to-chassis_bottom bolts + their heat-set inserts, the
-    4 chassis_top -> brass-standoff bolts + their (synthetic) engagement
-    targets, and the 4 chassis_bottom retention nyloc nuts that capture
-    the brass standoff male threads under the bottom plate.
+    """The 4 chassis_top -> brass-standoff bolts + their (synthetic)
+    engagement targets, and the 4 chassis_bottom retention nyloc nuts
+    that capture the brass standoff male threads under the bottom plate.
+
+    Deck redesign (Jun 2026): the in-gap electronics_tray is retired, so
+    the former 4 tray-to-chassis_bottom mount bolts + heat-set inserts
+    are gone; only the brass-standoff path (which clamps the two main
+    plates together) remains here.
 
     Geometry summary (design frame, z = 0 = chassis_bottom mesh centre
     plane; chassis_bottom spans z in [-2, +2], chassis_top spans z in
     [+34, +38]):
-
-      Tray-mount path (4 sites at HP.ELEC_CHASSIS_MOUNT_HOLES_XY =
-      (+/-24.75, +/-24.75)):
-
-        * M3 x 8 SHCS, head at z = tray_top - cbore_depth = +8 - 2 =
-          +6 (the 1 mm-rim cbore floor in the tray), axis -Z, length
-          8 mm.  Tip at z = -2 (chassis_bottom bottom face).  Engages
-          an M3 heat-set insert in chassis_bottom's tray-mount boss.
-          NO ``skip_screwdriver_reason`` -- user-serviceable from
-          above (hex key drops through the cbore Phi 5.5 mm clearance).
-
-        * M3 heat-set insert (94459A130), top face at z = boss_top -
-          debris_overdrill = +5 - 1 = +4, axis -Z, length 5 mm.
-          Insert body occupies z in [-1, +4]; 1 mm of plate plastic
-          survives below the pocket (chassis_bottom bottom face at
-          z = -2 has only the existing Phi 3.4 mm clearance hole
-          through it).  ``skip_screwdriver_reason`` matches the
-          other heat-set inserts -- pressed in with a soldering
-          iron BEFORE the tray is bolted onto chassis_bottom.
 
       Brass-standoff path (4 sites at HP.CHASSIS_STANDOFF_HOLES_XY =
       (+/-35, 0) and (0, +/-35)):
@@ -1578,84 +1537,14 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
     """
     out: list[FastenerInstance] = []
 
-    chassis_bottom_top_z = HP.CHASSIS_PLATE_T / 2.0           # = +2
     chassis_bottom_bot_z = -HP.CHASSIS_PLATE_T / 2.0          # = -2
     chassis_top_top_z = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T  # = +38
     chassis_top_bot_z = HP.CHASSIS_GAP + 0.5 * HP.CHASSIS_PLATE_T  # = +34
 
-    tray_top_z = chassis_bottom_top_z + 3.0 + HP.ELEC_TRAY_T  # = +8
-    tray_cbore_floor_z = tray_top_z - HP.ELEC_CHASSIS_COUNTERBORE_DEPTH
-    boss_top_z = chassis_bottom_top_z + HP.TRAY_MOUNT_BOSS_H  # = +5
-    # Insert top face is recessed below boss top by the debris-overdrill
-    # convention (pocket depth - insert length).
-    debris_overdrill = HP.INSERT_M3_PILOT_DEPTH - HP.INSERT_M3_INSERT_LENGTH
-    insert_top_z = boss_top_z - debris_overdrill              # = +4
-
-    # ---- Tray-to-chassis_bottom path ----------------------------------
-    #
-    # All 4 tray-mount bolts are CAPTIVE SUB-ASSEMBLY fasteners: they
-    # are torqued DURING the electronics-tray install (before
-    # chassis_top + (optional) arm baseplate close the chassis stack
-    # from above), so the 2.5 mm hex key has open air above the
-    # cbore head ring at install time.  Once chassis_top is bolted
-    # onto the brass standoff tops, the hex key cannot reach the
-    # bolt heads any more (the standard 30 mm-long hex key intrudes
-    # into chassis_top at z = [+34, +38]).  The verifier sees the
-    # fully-assembled state and would flag the cone intrusion; the
-    # skip rationale matches the convention used for the existing
-    # tray-side board-mount bolts (Pi4 / bus_adapter / IMU).
-    tray_bolt_skip_reason = (
-        "captive sub-assembly fastener: torqued during the tray "
-        "install BEFORE chassis_top + (optional) arm baseplate "
-        "close the chassis stack from above.  Once chassis_top "
-        "is bolted onto the brass standoff tops, a 2.5 mm hex "
-        "key cannot reach the tray-mount bolt heads through the "
-        "tray cbore -- see PROTOTYPE.md section 6 for the explicit "
-        "assembly order"
-    )
-    for (mx, my) in HP.ELEC_CHASSIS_MOUNT_HOLES_XY:
-        sx_label = "+X" if mx > 0 else "-X"
-        sy_label = "+Y" if my > 0 else "-Y"
-        corner = f"{sx_label}{sy_label}"
-
-        head_world = np.array([mx, my, tray_cbore_floor_z])
-        axis_world = np.array([0.0, 0.0, -1.0])
-        out.append(FastenerInstance(
-            part_number=PN_M3X8_SHCS,
-            spec=SPEC_M3X8_SHCS_INTO_INSERT,
-            head_world_xyz=head_world,
-            axis_world=axis_world,
-            role=(
-                f"electronics_tray chassis-mount {corner} "
-                f"M3 x 8 SHCS into heat-set insert"
-            ),
-            leg_index=None,
-            joint=None,
-            length_mm=8.0,
-            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
-            skip_screwdriver_reason=tray_bolt_skip_reason,
-        ))
-
-        insert_head_world = np.array([mx, my, insert_top_z])
-        out.append(FastenerInstance(
-            part_number=PN_M3_HEATSET_INSERT,
-            spec=SPEC_M3_HEATSET_INSERT,
-            head_world_xyz=insert_head_world,
-            axis_world=np.array([0.0, 0.0, -1.0]),
-            role=(
-                f"chassis_bottom tray-mount {corner} "
-                f"M3 heat-set insert"
-            ),
-            leg_index=None,
-            joint=None,
-            length_mm=HP.INSERT_M3_INSERT_LENGTH,
-            cache_stl=f"{PN_M3_HEATSET_INSERT}.cache.stl",
-            skip_screwdriver_reason=(
-                "heat-set insert installed with a soldering iron "
-                "BEFORE the tray is bolted onto chassis_bottom; "
-                "no driver cone applies to the brass insert"
-            ),
-        ))
+    # Deck redesign (Jun 2026): the in-gap electronics_tray is retired,
+    # so its 4 tray-to-chassis_bottom mount bolts + heat-set inserts are
+    # gone.  Only the chassis_top <-> chassis_bottom brass-standoff path
+    # (which actually clamps the two main plates together) remains.
 
     # ---- Chassis-top -> brass-standoff -> chassis_bottom path ---------
     #
@@ -1663,19 +1552,22 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
     # (which spans chassis-x in [+34, +85], chassis-y in [-11, +11])
     # so the chassis_top bolt's hex key driver from ABOVE intrudes
     # into the holster body once the holster is dropped onto its 2
-    # chassis_top bosses.  The natural assembly order has chassis_
-    # top bolted DOWN onto the brass standoff tops BEFORE the
-    # switch_holster is fitted, so the +X bolt is captive-sub-
-    # assembly serviceable just like the tray-mount bolts above.
-    # The other 3 standoff bolts (0, +/-35) and (-35, 0) have open
-    # air above their heads and are user-serviceable at any time.
-    standoff_plus_x_skip_reason = (
+    # chassis_top bosses.  Deck redesign (Jun 2026): ALL 4 brass
+    # standoff heads at CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) /
+    # (0, +/-35) now also sit UNDER the Uno Q tray (96 x 80 mm, deck-
+    # local (0,0), 16 mm above chassis_top), so the vertical hex-key
+    # approach to every standoff bolt head is blocked by the lower
+    # deck.  The natural assembly order bolts chassis_top DOWN onto
+    # the brass standoff tops BEFORE the standoff-column + deck stack
+    # is fitted above, so all 4 are captive-sub-assembly serviceable.
+    standoff_skip_reason = (
         "captive sub-assembly fastener: torqued during chassis-"
-        "stack closure BEFORE switch_holster is dropped onto "
-        "chassis_top's +X edge bosses.  Once the holster is "
-        "fitted, its body sits in the 2.5 mm hex key's vertical "
-        "approach path to this bolt head -- see PROTOTYPE.md "
-        "section 6 for the explicit assembly order"
+        "stack closure BEFORE the standoff-column + electronics-deck "
+        "stack (Uno Q tray 16 mm above chassis_top) is fitted.  Once "
+        "the lower deck is on, it sits in the 2.5 mm hex key's "
+        "vertical approach path to this standoff bolt head (the +X "
+        "head is additionally under the switch_holster) -- see "
+        "PROTOTYPE.md section 6 for the explicit assembly order"
     )
     for (sx, sy) in HP.CHASSIS_STANDOFF_HOLES_XY:
         if sx > 0:
@@ -1687,10 +1579,10 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
         else:
             label = "-Y"
 
-        # Only the +X standoff bolt sits under the switch_holster
-        # body; the other 3 are in clear air above chassis_top.
-        bolt_skip = (standoff_plus_x_skip_reason
-                     if (sx > 0 and abs(sy) < 1e-9) else None)
+        # All 4 standoff bolt heads are now under the lower deck (and
+        # the +X head is also under the switch_holster), so each is a
+        # captive sub-assembly fastener.
+        bolt_skip = standoff_skip_reason
 
         # M3 x 10 SHCS dropped DOWN from above chassis_top into the
         # brass M-F standoff's female top threads.
@@ -1790,41 +1682,57 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     """
     out: list[FastenerInstance] = []
     for leg_index in range(6):
-        # Yaw cradle bolts (Design E, May 2026 mixed-mode: heat-set on
-        # -X, self-tap on +X).  Commit 4 of the May 2026 migration
-        # flipped both the assembly's yaw-servo placement and this
-        # registry's ``_yaw_cradle_T`` transform from the standalone
-        # ``coxa_bracket`` to the integrated cradle inside
-        # ``chassis_bottom``.  The integrated cradle's shelf is at
-        # ``WELL_RIM_Z`` in well-local (NOT
-        # ``WELL_RIM_Z - _BRACKET_SHELF_DROP_MM`` -- the bracket's
-        # drop-in flange used to eat 3 mm off the well rim; the
-        # chassis_bottom cradle has no such drop, the full rim is
-        # available for the servo tabs to seat on).  In chassis-z
-        # the new shelf is at +CHASSIS_PLATE_T/2 + CRADLE_TAB_SHELF_Z
-        # = +8 (legacy bracket shelf was at chassis-z = -3); the
-        # cradle bolt heads correspondingly rise by 11 mm.
-        # The ``coxa_link`` and ``femur_link`` cradles keep
-        # ``WELL_RIM_Z`` intact (no drop) -- their wells are not
-        # eaten by drop-in slots either.
-        out.extend(_emit_cradle_fasteners(
+        # NO output-face case screws (Jun 2026 STS3215 reconciliation).
+        # An earlier model invented a "front-face 4-bolt case-screw
+        # mount" on the servo OUTPUT face (4 x M2.5 per cradle x 3
+        # cradles x 6 legs = 72 phantom case screws).  Per the
+        # authoritative Waveshare ST3215 mount-bracket geometry the
+        # output face has NO usable body-mounting screws: the dia-20
+        # disc horn sits on the dia-14 cross and covers them, so those
+        # 72 case screws are physically impossible.  Servo body
+        # retention is instead provided by PRINTED parts -- the yaw
+        # servo by ``make_yaw_servo_retainer`` (strap + anchor bolts)
+        # and the hip/knee servos by the clamshell
+        # ``make_servo_clamp_cap`` (2 x M3 per joint, emitted below).
+        # The output face carries ONLY the flush disc horn + its 4 x M3
+        # leg bolts on DISC_HORN_BOLT_PCD = 14 mm.
+
+        # POSITIVE servo body retention: 4 M2.5 end-face bolts per cradle
+        # into the servo's real -X END-face 10x10 case-hole square (yaw +
+        # hip + knee), so the printed cradle bolts the servo instead of
+        # only gripping it.  4 x 3 cradles x 6 legs = 72.
+        out.extend(_emit_end_face_fasteners(
             T_well_to_world=_yaw_cradle_T(leg_index),
             leg_index=leg_index,
             joint="yaw",
             location=f"chassis_bottom L{leg_index} yaw cradle",
-            shelf_top_z=HP.WELL_RIM_Z,
         ))
-        out.extend(_emit_cradle_fasteners(
+        out.extend(_emit_end_face_fasteners(
             T_well_to_world=_hip_cradle_T(leg_index),
             leg_index=leg_index,
             joint="hip",
             location=f"coxa_link L{leg_index} hip cradle",
         ))
-        out.extend(_emit_cradle_fasteners(
+        out.extend(_emit_end_face_fasteners(
             T_well_to_world=_knee_cradle_T(leg_index),
             leg_index=leg_index,
             joint="knee",
             location=f"femur_link L{leg_index} knee cradle",
+        ))
+
+        # Sandwich-joint clamp-cap self-tap bolts (2 per hip + knee
+        # cradle).  The yaw cradle (chassis_bottom) has no clamp cap.
+        out.extend(_emit_clamp_cap_fasteners(
+            T_well_to_world=_hip_cradle_T(leg_index),
+            leg_index=leg_index,
+            joint="hip",
+            location=f"coxa_link L{leg_index} hip clamp-cap",
+        ))
+        out.extend(_emit_clamp_cap_fasteners(
+            T_well_to_world=_knee_cradle_T(leg_index),
+            leg_index=leg_index,
+            joint="knee",
+            location=f"femur_link L{leg_index} knee clamp-cap",
         ))
 
         # Link-to-disc-horn bolts (June 2026: disc horn, no printed adapter).
@@ -1840,19 +1748,17 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         # Foot hinge pin (M3 x 16 pan-head + nyloc nut).
         out.extend(_emit_foot_hinge_fastener(leg_index))
 
-    # Chassis-level fasteners (no leg index).  Battery_holder feet
-    # are bolted to chassis_bottom from BELOW via 4 x M3 x 10 SHCS
-    # into M3 heat-set inserts (May 2026 fix; previously the holder
-    # was un-enumerated and physically un-bolted).
-    out.extend(_emit_battery_holder_fasteners())
+    # Chassis-level fasteners (no leg index).  Deck redesign (Jun 2026):
+    # the clip-in battery_holder is retired (LiPo is velcro-strapped to
+    # chassis_bottom -- no bolts), so there are no battery-mount
+    # fasteners.
 
-    # Electronics-tray board-mount fasteners (Jun 2026 STS3215 refit,
-    # single-tray Pi 4 + USB-to-TTL bus adapter; Mega + 2x PCA9685
-    # retired).  M2.5 x 8 SHCS into M2.5 heat-set inserts.  All SKIPped
-    # from the screwdriver-access probe because they're captive
-    # sub-assembly fasteners (driven before chassis_top closes the
-    # stack).
-    out.extend(_emit_electronics_tray_fasteners())
+    # Stacked-deck board-mount + standoff-column fasteners (Jun 2026
+    # redesign): M3 x 8 SHCS board bolts into the Uno Q / buck tray
+    # bosses, M3 x 10 column bolts into the brass standoff female tops,
+    # and 4 retention nyloc nuts under chassis_top.  Replaces the retired
+    # electronics_tray board-mount bolts.
+    out.extend(_emit_deck_fasteners())
 
     # Switch-holster mount bolts (May 2026 "essentials" pass).  2 x
     # M3 x 10 SHCS thread UP from BELOW chassis_top into 2 x M3
@@ -1913,6 +1819,7 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
     # Stable, human-friendly order: SHCS by length, then nuts.
     spec_order = {
         SPEC_M3X6_SHCS:             0,
+        SPEC_M25_BODY_SCREW:        1,
         SPEC_M25X8_SHCS:            1,
         SPEC_M25X8_SHCS_INTO_INSERT: 2,
         SPEC_M25_HEATSET_INSERT:    3,
@@ -1931,12 +1838,6 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
 
 def _usage_bucket(fi: FastenerInstance) -> str:
     role = fi.role
-    if "tray-mount" in role:
-        # chassis_bottom tray-mount heat-set inserts (M3 x 8 SHCS path).
-        return "chassis_bottom tray-mount heat-set inserts"
-    if "electronics_tray chassis-mount" in role:
-        return ("electronics_tray chassis-mount bolts "
-                "(M3 x 8 SHCS into chassis_bottom heat-set insert)")
     if "brass standoff" in role:
         if "M3 x 10 SHCS" in role or "M3x10 SHCS" in role:
             return ("chassis_top brass standoff bolts "
@@ -1945,20 +1846,32 @@ def _usage_bucket(fi: FastenerInstance) -> str:
             return "chassis_bottom brass standoff retention nuts"
         return ("chassis_top brass standoff female threads "
                 "(virtual heat-set insert engagement targets)")
-    if "electronics_tray" in role:
-        if "heat-set insert" in role:
-            return ("electronics_tray heat-set inserts "
-                    "(Pi 4 + USB-TTL bus adapter)")
-        return ("electronics_tray board-mount bolts "
-                "(Pi 4 + bus adapter, M2.5 SHCS into inserts)")
+    if "standoff column" in role:
+        # Stacked-deck standoff-column hardware (Jun 2026 redesign).
+        if "M3 x 10 SHCS" in role or "M3x10 SHCS" in role:
+            return ("deck standoff column bolts "
+                    "(M3 x 10 SHCS into standoff female thread)")
+        if "retention" in role and "nyloc" in role:
+            return ("deck standoff column retention nuts "
+                    "(M3 nyloc under chassis_top)")
+        return ("deck standoff column female threads "
+                "(virtual heat-set insert engagement targets)")
+    if "board-mount" in role:
+        # Stacked-deck board-mount hardware (Uno Q + buck converter).
+        # Distinguish bolt vs insert by the "SHCS" marker -- both role
+        # strings contain "heat-set insert".
+        if "SHCS" in role:
+            return ("deck board-mount bolts "
+                    "(Uno Q + buck, M3 x 8 SHCS into inserts)")
+        return "deck board-mount heat-set inserts (Uno Q + buck)"
+    if "body screw" in role:
+        return "cradle servo body-retention bolts (M2.5 into servo end face)"
+    if "clamp-cap" in role:
+        return "sandwich-joint clamp-cap bolts (M3 SHCS self-tap)"
     if "switch_holster" in role:
         if "heat-set insert" in role:
             return "switch_holster heat-set inserts"
         return "switch_holster mount bolts (M3 SHCS into heat-set insert)"
-    if "battery_holder" in role:
-        if "heat-set insert" in role:
-            return "battery_holder heat-set inserts"
-        return "battery_holder foot bolts (M3x10 SHCS into heat-set insert)"
     if "imu_pad" in role:
         if "heat-set insert" in role:
             return "imu_pad heat-set inserts (MPU-6050 mount)"

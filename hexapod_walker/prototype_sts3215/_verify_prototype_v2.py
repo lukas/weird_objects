@@ -1092,14 +1092,11 @@ def check_wire_slot():
     # basis (joint x->x, z->Y, y->-Z); only the Y offset picks up HORN_STACK_H.
     well_origin_y = -hp.JOINT_HORN_TOP_Z
     cradles = [
-        # coxa_link: the hip bracket is centred on the yaw axis, so its
-        # cradle is shifted by COXA_HIP_ANCHOR_Y in coxa-Y (the hub stays
-        # at the origin); follow it with the same offset.
         ("coxa_link    wire-exit L-corridor",
          _load_mesh("coxa_link", copy=False),
          R_link,
          np.array([hp.COXA_LENGTH - hp.SERVO_OUTPUT_X,
-                   well_origin_y + hp.COXA_HIP_ANCHOR_Y,
+                   well_origin_y,
                    drop_z_cl])),
         ("femur_link   wire-exit L-corridor",
          _load_mesh("femur_link", copy=False),
@@ -1206,7 +1203,7 @@ def _build_standing_leg():
     # now that the printed servo_horn_adapter has been retired.
     yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     hip_drop = hp.COXA_HIP_DROP
-    hip_joint_local = np.array(hp.COXA_HIP_ANCHOR)
+    hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
     # Jun 2026 bearing-sandwich refit: the moving link's local origin is
     # now the disc-horn-TOP (mating face) sitting ON the joint axis (the
     # yoke top arm bolts to the horn there), so the link origin coincides
@@ -1250,15 +1247,25 @@ def _build_standing_leg():
     return parts
 
 
-def _pair_overlap_volume(a_mesh, b_mesh, pitch=1.5):
+def _pair_overlap_volume(a_mesh, b_mesh, pitch=1.5, skip_below=0.0):
     """Estimate the overlap volume between mesh A and mesh B by voxel
     sampling A inside its AABB intersection with B, then counting how
-    many of those voxel centres fall inside both meshes."""
+    many of those voxel centres fall inside both meshes.
+
+    ``skip_below`` is a SOUND, verdict-preserving fast reject: the true
+    (and voxel-estimated) overlap can never exceed the volume of the
+    AABB intersection, so if that bounding volume is <= ``skip_below``
+    (the caller's pass tolerance) we return 0.0 WITHOUT any raycasting.
+    This skips the cheap-but-numerous near-miss pairs that dominate the
+    pose sweep's call count, with zero change to any pass/fail verdict.
+    """
     a_min, a_max = a_mesh.bounds
     b_min, b_max = b_mesh.bounds
     lo = np.maximum(a_min, b_min)
     hi = np.minimum(a_max, b_max)
     if np.any(hi <= lo):
+        return 0.0
+    if skip_below > 0.0 and float(np.prod(hi - lo)) <= skip_below:
         return 0.0
     n = np.maximum(2, np.ceil((hi - lo) / pitch).astype(int))
     gx = np.linspace(lo[0], hi[0], int(n[0]))
@@ -1317,7 +1324,6 @@ def check_self_collision():
         for j, nb in enumerate(names):
             if j <= i:
                 continue
-            vol = _pair_overlap_volume(parts[na], parts[nb])
             adj = (na, nb) in JOINT_PAIRS or (nb, na) in JOINT_PAIRS
             clamp = (na, nb) in CLAMP_PAIRS or (nb, na) in CLAMP_PAIRS
             if clamp:
@@ -1326,6 +1332,7 @@ def check_self_collision():
                 tol, kind = JOINT_TOLERANCE, "joint"
             else:
                 tol, kind = NONADJ_TOLERANCE, "non-adj"
+            vol = _pair_overlap_volume(parts[na], parts[nb], skip_below=tol)
             ok = vol <= tol
             all_ok &= _label(f"{na} vs {nb} ({kind})",
                                ok,
@@ -1360,7 +1367,7 @@ def _place_servo_bodies():
     yaw_output_world = edge_mid + yaw_output_z * z_hat
 
     hip_drop = hp.COXA_HIP_DROP
-    hip_joint_local = np.array(hp.COXA_HIP_ANCHOR)
+    hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
 
     p = np.deg2rad(hp.STANCE_FEMUR_DEG)
     Ry_p = rotation_matrix(p, [0, 1, 0])[:3, :3]
@@ -1390,7 +1397,7 @@ def _place_servo_bodies():
     # apply the IDENTICAL transform to the servo envelope, then the coxa's
     # world placement (R_a + yaw-output translate).  Output axis -> +Y
     # (the hip-pitch axis), not the legacy downward well. -----
-    M_hip = hp._joint_place(hp.COXA_HIP_ANCHOR, (1, 0, 0),
+    M_hip = hp._joint_place((hp.COXA_LENGTH, 0.0, hip_drop), (1, 0, 0),
                             hp.LEG_PITCH_AXIS)
     hip = _load_mesh("servo_body")
     hip.apply_transform(M_hip)
@@ -1430,11 +1437,11 @@ def _place_servo_clamp_caps():
     z_hat = np.array([0.0, 0.0, 1.0])
     yaw_output_world = edge_mid + hp.CHASSIS_YAW_OUTPUT_Z * z_hat
     hip_drop = hp.COXA_HIP_DROP
-    hip_joint_local = np.array(hp.COXA_HIP_ANCHOR)
+    hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
     p = np.deg2rad(hp.STANCE_FEMUR_DEG)
     R_a = rotation_matrix(a, [0, 0, 1])
 
-    M_hip = hp._joint_place(hp.COXA_HIP_ANCHOR, (1, 0, 0),
+    M_hip = hp._joint_place((hp.COXA_LENGTH, 0.0, hip_drop), (1, 0, 0),
                             hp.LEG_PITCH_AXIS)
     hip_cap = hp.make_servo_clamp_cap()
     hip_cap.apply_transform(M_hip)
@@ -1762,17 +1769,7 @@ def check_horn_sweep_clearance():
     body_top_z = hp.SERVO_BODY_H                 # +34.3 (body front face)
     horn_base_z = body_top_z + hp.WELL_PLATE_T   # +38.3 (plate top = disc base)
     adapter_top_z = horn_base_z + hp.HORN_STACK_H
-    # The disc horn SEATS on the mount-plate top (well-local z = horn_base_z)
-    # and sweeps in the airspace ABOVE it; the solid plate below is the
-    # bearing-supported seat, not an obstruction.  Voxelising a cylinder
-    # whose base plane coincides with that solid seat counts the plate's
-    # top boundary layer as a false intrusion (~1 kmm^3 of pure z=plate-top
-    # sliver).  Start the probe HORN_SEAT_SKIP above the seat so we verify
-    # only the rotating airspace.  (Probed: no cradle material exists above
-    # the seat plane inside the envelope, so this skip cannot hide a real
-    # obstruction.)
-    HORN_SEAT_SKIP = 1.0               # mm -- skip the coincident seat plane
-    z_lo = horn_base_z + HORN_SEAT_SKIP
+    z_lo = horn_base_z                 # disc-horn base (= plate top)
     z_hi = adapter_top_z + 1.0         # +1 mm margin above adapter top
     H    = z_hi - z_lo
 
@@ -2088,229 +2085,13 @@ COXA_LINK_BRIDGE_MIN_Y_THK_MM = 6.0    # mm -- min Y thickness (max y extent
                                        # at any single z in the bridge slice)
 
 
-def _slice_polygons(mesh, z):
-    """Horizontal cross-section of ``mesh`` at world Z = ``z`` as a
-    shapely MultiPolygon in link (X, Y) coordinates.  Empty if the mesh
-    does not cross the plane.
-    """
-    section = mesh.section(plane_origin=[0.0, 0.0, float(z)],
-                           plane_normal=[0.0, 0.0, 1.0])
-    if section is None:
-        return _sg.MultiPolygon()
-    planar, _T = section.to_planar()
-    polys = list(planar.polygons_full)
-    if not polys:
-        return _sg.MultiPolygon()
-    if len(polys) == 1:
-        return _sg.MultiPolygon([polys[0]])
-    return _sg.MultiPolygon(polys)
-
-
-def _ixx_about_centroid_x(geom, *, pitch=0.25):
-    """Rasterise ``geom`` (shapely Polygon / MultiPolygon in (X, Y)) at
-    ``pitch`` mm resolution and return ``(area, centroid_y, ixx, y_min,
-    y_max)`` where Ixx is the second moment of area about an axis
-    parallel to the X axis passing through the centroid (units: mm^4).
-
-    Bending the bridge column (axis along link +Z) about this X axis
-    bends the slab in the (Y, Z) plane -- the bridge's weakest bending
-    direction in its current Y-thin geometry.
-    """
-    if geom.is_empty:
-        return 0.0, 0.0, 0.0, 0.0, 0.0
-    minx, miny, maxx, maxy = geom.bounds
-    # Sample on a regular grid.
-    nx = max(int(np.ceil((maxx - minx) / pitch)), 1)
-    ny = max(int(np.ceil((maxy - miny) / pitch)), 1)
-    xs = minx + (np.arange(nx) + 0.5) * (maxx - minx) / nx
-    ys = miny + (np.arange(ny) + 0.5) * (maxy - miny) / ny
-    XX, YY = np.meshgrid(xs, ys, indexing="xy")
-    pts_x = XX.ravel()
-    pts_y = YY.ravel()
-    # Vectorised "inside" via shapely.contains with prepared geometry.
-    from shapely import contains_xy
-    mask = contains_xy(geom, pts_x, pts_y)
-    if not mask.any():
-        return 0.0, 0.0, 0.0, 0.0, 0.0
-    da = (maxx - minx) / nx * (maxy - miny) / ny
-    area = float(mask.sum() * da)
-    yy = pts_y[mask]
-    y_c = float(yy.mean())
-    ixx = float(((yy - y_c) ** 2).sum() * da)
-    return area, y_c, ixx, float(yy.min()), float(yy.max())
-
-
-def _check_coxa_link_bridge_yz_thickness(coxa_link_mesh):
-    """Per-X YZ cross-section probe of coxa_link's bridge region.
-
-    Catches the user-pointed "thin neck in the middle" failure mode
-    where ``pad_sweep_clear`` eats most of the bridge + well-top pad
-    at x ~ COXA_LENGTH = +25 mm, leaving only a thin vertical strip
-    where the bridge ties the well to the arm/hub.
-
-    Probes every COXA_LINK_BRIDGE_X_STEP_MM mm in X across the bridge
-    x range. At each x, point-samples a YZ grid inside a bridge-only
-    window (y between the well rim and the arm -Y face, z between the
-    well top and the arm bottom) and measures the cross-section area
-    + the maximum Y extent at any single z (= the widest local slab).
-    """
-    well_z_drop = -(hp.WELL_D / 2.0
-                    + hp.COXA_ARM_T / 2.0
-                    + hp.WELL_Z_DROP_EXTRA)
-    well_top_z  = hp.COXA_LIFT + well_z_drop + hp.WELL_D / 2.0
-    yoke_bot_z  = hp.COXA_LIFT
-
-    # Bridge x range: full arm extent (the bridge spans the arm's
-    # full length).
-    arm_x_extent = hp.COXA_LENGTH + 28.0
-    x_lo = -12.0 + 1.0                               # +1 mm margin
-    x_hi = arm_x_extent - 12.0 - 1.0                 # arm +X end - 1 mm
-    n_x = max(int(np.ceil((x_hi - x_lo) /
-                          COXA_LINK_BRIDGE_X_STEP_MM)) + 1, 2)
-    x_values = np.linspace(x_lo, x_hi, n_x)
-
-    # YZ window: y from a margin below the well rim to just above the
-    # arm's -Y face (so a fix that widens the pad in -Y still lands in
-    # the window). z from just above the well top to just below the
-    # arm bottom (so we measure the BRIDGE alone, not the well's outer
-    # slab or the arm slab).
-    y_lo, y_hi = -34.0, -10.0
-    z_lo, z_hi = well_top_z + 0.25, yoke_bot_z - 0.25
-    dy = 0.25                                        # mm grid pitch in y
-    dz = 0.5                                         # mm grid pitch in z
-    ys = np.arange(y_lo, y_hi + 1e-9, dy)
-    zs = np.arange(z_lo, z_hi + 1e-9, dz)
-    dA = dy * dz
-
-    rows = []   # (x, area, max_y_extent_at_any_z)
-    YY, ZZ = np.meshgrid(ys, zs, indexing="ij")
-    for x in x_values:
-        pts = np.stack([np.full(YY.size, float(x)),
-                        YY.ravel(), ZZ.ravel()], axis=1)
-        inside = coxa_link_mesh.contains(pts).reshape(YY.shape)
-        area = float(inside.sum()) * dA
-        # Max Y-extent at any single z (column in `inside`): count
-        # interior cells per z row and multiply by dy.
-        per_z = inside.sum(axis=0)
-        max_y_extent = float(per_z.max()) * dy
-        rows.append((float(x), area, max_y_extent))
-
-    areas = [r[1] for r in rows]
-    yt = [r[2] for r in rows]
-    min_area = min(areas) if areas else 0.0
-    min_yt   = min(yt)    if yt    else 0.0
-    min_area_x = rows[int(np.argmin(areas))][0] if rows else 0.0
-    min_yt_x   = rows[int(np.argmin(yt))][0]    if rows else 0.0
-
-    ok_area = min_area >= COXA_LINK_BRIDGE_MIN_AREA_MM2
-    ok_yt   = min_yt   >= COXA_LINK_BRIDGE_MIN_Y_THK_MM
-    ok = ok_area and ok_yt
-
-    head = (f"min YZ-slice area = {min_area:5.1f} mm^2 at x = {min_area_x:+.1f} "
-            f"({'>=' if ok_area else '<'}{COXA_LINK_BRIDGE_MIN_AREA_MM2:.0f}), "
-            f"min Y-thickness = {min_yt:4.2f} mm at x = {min_yt_x:+.1f} "
-            f"({'>=' if ok_yt else '<'}{COXA_LINK_BRIDGE_MIN_Y_THK_MM:.0f}); "
-            f"YZ window y in ({y_lo:.1f}, {y_hi:.1f}), z in ({z_lo:.1f}, {z_hi:.1f})")
-    _label("coxa_link bridge YZ thickness", ok, head)
-
-    if not ok:
-        # Dump worst 8 x values so the user can see where the bridge
-        # is thinnest.
-        ranked = sorted(rows, key=lambda r: r[2])[:8]
-        print(f"           thinnest 8 x slices (sorted by Y-thickness):")
-        for x, a, yt_val in ranked:
-            tag_a = " " if a    >= COXA_LINK_BRIDGE_MIN_AREA_MM2 else "A"
-            tag_y = " " if yt_val >= COXA_LINK_BRIDGE_MIN_Y_THK_MM else "Y"
-            print(f"           [{tag_a}{tag_y}]  x = {x:+6.2f}  "
-                  f"area = {a:5.1f} mm^2  max Y-thickness = {yt_val:5.2f} mm")
-    return ok
-
-
-def _check_coxa_link_bridge_joint(coxa_link_mesh):
-    """Slice-based check for the bridge that ties coxa_link's horn yoke
-    (top hub) to the hip-pitch servo well box.  See the big comment
-    above for motivation and threshold rationale.
-    """
-    # All Z coordinates are in the final LIFTED coxa_link frame (i.e.
-    # what ``hp.make_coxa_link()`` returns).
-    #
-    # Well outer top face Z (= COXA_LIFT + well_z_drop + WELL_D/2)
-    well_z_drop = -(hp.WELL_D / 2.0
-                    + hp.COXA_ARM_T / 2.0
-                    + hp.WELL_Z_DROP_EXTRA)
-    well_top_z  = hp.COXA_LIFT + well_z_drop + hp.WELL_D / 2.0
-    yoke_bot_z  = hp.COXA_LIFT                       # = hub / arm bottom
-
-    # Outboard-of-pedestal slice window.  Pedestal is the 34 x 34 mm
-    # square pillar centred on (0, 0) (link x, y in [-17, +17]) so an X
-    # window x in [+17, +50] excludes the pedestal entirely.  Y window
-    # covers the bridge's existing y range [-17.25, -10.5] with generous
-    # margin on BOTH sides so a wall-widening / pad fix that grows the
-    # bridge in -Y (toward the well's outer body) or +Y (toward the arm
-    # face) still lands inside the window.
-    x_win = (+17.0, +50.0)
-    y_win = (-25.0,  -5.0)
-    window = _sg.box(x_win[0], y_win[0], x_win[1], y_win[1])
-
-    # Slice every COXA_LINK_BRIDGE_SLICE_DZ mm in the gap, with a
-    # COXA_LINK_BRIDGE_SLICE_DZ mm margin off each end so we never hit
-    # the exact well-top or arm-bottom plane (where the cross-section
-    # discontinuously jumps to the full well or arm footprint and
-    # masks the bridge's weakness).
-    z_lo = well_top_z + COXA_LINK_BRIDGE_SLICE_DZ
-    z_hi = yoke_bot_z - COXA_LINK_BRIDGE_SLICE_DZ
-    n_slices = max(int(round((z_hi - z_lo) / COXA_LINK_BRIDGE_SLICE_DZ)) + 1, 2)
-    z_values = np.linspace(z_lo, z_hi, n_slices)
-
-    rows = []   # (z, area, sx)
-    for z in z_values:
-        polys = _slice_polygons(coxa_link_mesh, float(z))
-        if polys.is_empty:
-            rows.append((float(z), 0.0, 0.0))
-            continue
-        inter = polys.intersection(window)
-        if inter.is_empty:
-            rows.append((float(z), 0.0, 0.0))
-            continue
-        area, y_c, ixx, y_min, y_max = _ixx_about_centroid_x(inter)
-        if area <= 0.0:
-            rows.append((float(z), 0.0, 0.0))
-            continue
-        c = max(y_max - y_c, y_c - y_min)
-        sx = ixx / c if c > 1e-6 else 0.0
-        rows.append((float(z), area, sx))
-
-    areas = [r[1] for r in rows]
-    sxs   = [r[2] for r in rows]
-    min_area = min(areas) if areas else 0.0
-    min_sx   = min(sxs)   if sxs   else 0.0
-    min_area_z = rows[int(np.argmin(areas))][0] if rows else 0.0
-    min_sx_z   = rows[int(np.argmin(sxs))][0]   if rows else 0.0
-
-    ok_area = min_area >= COXA_LINK_BRIDGE_AREA_MIN_MM2
-    ok_sx   = min_sx   >= COXA_LINK_BRIDGE_SX_MIN_MM3
-    ok = ok_area and ok_sx
-
-    head = (f"min slice area = {min_area:6.1f} mm^2 "
-            f"({'>=' if ok_area else '<'}{COXA_LINK_BRIDGE_AREA_MIN_MM2:.0f}), "
-            f"Sx_bend = {min_sx:7.1f} mm^3 "
-            f"({'>=' if ok_sx else '<'}{COXA_LINK_BRIDGE_SX_MIN_MM3:.0f}); "
-            f"slice band z in [{z_lo:.1f}, {z_hi:.1f}] mm "
-            f"(window x in {x_win}, y in {y_win})")
-    _label("coxa_link top<->well bridge", ok, head)
-
-    if not ok:
-        # Dump every slice (the band is only ~13 slices) so the user
-        # can see exactly where the cross-section is too thin.
-        for z, a, s in rows:
-            tag_a = " " if a >= COXA_LINK_BRIDGE_AREA_MIN_MM2 else "A"
-            tag_s = " " if s >= COXA_LINK_BRIDGE_SX_MIN_MM3   else "S"
-            print(f"           [{tag_a}{tag_s}]  z = {z:6.2f}  "
-                  f"area = {a:6.1f} mm^2  Sx = {s:7.1f} mm^3")
-        print(f"           worst area at z = {min_area_z:.2f}, "
-              f"worst Sx at z = {min_sx_z:.2f}")
-
-    return ok
+# v2 prune: _slice_polygons, _ixx_about_centroid_x,
+# _check_coxa_link_bridge_yz_thickness and _check_coxa_link_bridge_joint
+# were RETIRED with the Jun 2026 bearing-sandwich coxa redesign (they
+# probe the legacy lifted-well/arm gap that no longer exists, so they
+# scan empty space and false-FAIL).  coxa_link structural soundness is
+# fully covered by the global Hildebrand sweep in check_flimsy_joints.
+# Removed here along with the COXA_LINK_BRIDGE_* constants above.
 
 
 def check_flimsy_joints():
@@ -2327,12 +2108,13 @@ def check_flimsy_joints():
     cluster at the 1.2 mm pitch as the largest acceptable thin
     region (~ 350 mm^3 of < 3 mm material per part).
 
-    Additionally runs the targeted ``_check_coxa_link_bridge_joint``
-    slice test that catches the recurring "top of coxa_link is not
-    attached strongly to the part housing the servo" failure -- a
-    bridge / wall-thickness defect the isotropic Hildebrand check
-    cannot see.  See the big comment block above
-    ``_check_coxa_link_bridge_joint`` for full motivation.
+    v2 note: the targeted coxa_link bridge slice probes were RETIRED
+    with the Jun 2026 bearing-sandwich coxa redesign (they scan empty
+    space on the new topology and false-FAIL).  The global Hildebrand
+    sweep below now fully covers coxa_link.  The dead probe helpers and
+    their constants (_slice_polygons / _ixx_about_centroid_x /
+    _check_coxa_link_bridge_yz_thickness / _check_coxa_link_bridge_joint
+    and the COXA_LINK_BRIDGE_* constants) are slated for deletion.
     """
     print(f"\n[6] Flimsy joints (local thickness < {MIN_PRINT_T:.1f} mm; "
           f"pitch={FLIMSY_VOXEL_PITCH:.1f} mm, "
@@ -2370,23 +2152,9 @@ def check_flimsy_joints():
                   f"bbox={extent[0]:5.1f} x {extent[1]:5.1f} "
                   f"x {extent[2]:5.1f} mm")
 
-    # Bearing-sandwich refit (Jun 2026): the two targeted coxa_link
-    # bridge probes (``_check_coxa_link_bridge_joint`` /
-    # ``_check_coxa_link_bridge_yz_thickness``) are RETIRED.  They were
-    # hard-wired to the LEGACY coxa topology -- a servo well dropped
-    # WELL_Z_DROP_EXTRA below a lifted arm (COXA_LIFT), tied by a thin
-    # bridge in the z in [well_top, COXA_LIFT] gap at x in [17,50],
-    # y in [-25,-5].  The sandwich coxa has no such lifted-well/arm gap:
-    # the hip FIXED side is a solid bracket placed by _joint_place and
-    # the only structural neck (the inboard pad->bracket bridge) is well
-    # away from that legacy window, so the probes scan empty space and
-    # false-FAIL.  Structural soundness of the new coxa is covered by the
-    # global per-part Hildebrand sweep above (coxa_link passes with a
-    # 27 mm max thickness and its largest sub-3 mm cluster well under
-    # budget).  The two helper functions are kept (unused) for reference
-    # should the legacy bridge topology ever return.
-    _ = (_check_coxa_link_bridge_joint, _check_coxa_link_bridge_yz_thickness)
-
+    # v2: the retired coxa_link bridge probes (see prune note above
+    # check_flimsy_joints) have been removed; the global Hildebrand
+    # sweep above fully covers coxa_link.
     return all_ok
 
 
@@ -2716,7 +2484,7 @@ WORKSPACE_JOINT_TOL      =  200.0    # mm^3 -- adjacent rotary joint.
 WORKSPACE_ARTEFACT_TOL   =  200.0    # mm^3 -- non-adjacent pairs
 
 
-def _pair_overlap_volume_and_centroid(a_mesh, b_mesh, pitch):
+def _pair_overlap_volume_and_centroid(a_mesh, b_mesh, pitch, skip_below=0.0):
     """Voxel-sampling overlap estimator that returns ``(volume_mm3,
     centroid_in_world)`` or ``(0.0, None)`` if there is no overlap.
 
@@ -2743,6 +2511,12 @@ def _pair_overlap_volume_and_centroid(a_mesh, b_mesh, pitch):
     if np.any(hi <= lo):
         return 0.0, None
     span = hi - lo
+    # SOUND fast reject: overlap <= AABB-intersection volume.  If that
+    # bound is within the caller's tolerance the pair PASSES, so skip
+    # the raycasting entirely (verdict-preserving; see the docstring on
+    # ``_pair_overlap_volume``).
+    if skip_below > 0.0 and float(np.prod(span)) <= skip_below:
+        return 0.0, None
     n = np.maximum(2, np.ceil(span / pitch).astype(int))
     gx = np.linspace(lo[0], hi[0], int(n[0]))
     gy = np.linspace(lo[1], hi[1], int(n[1]))
@@ -2843,7 +2617,7 @@ def _build_workspace_leg(yaw_deg, femur_pitch_deg, knee_pitch_deg,
     # has been retired.
     yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     hip_drop = hp.COXA_HIP_DROP
-    hip_joint_local = np.array(hp.COXA_HIP_ANCHOR)
+    hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
     # Bearing-sandwich refit (Jun 2026): femur / tibia local origins are
     # the disc-horn-top ON the joint axis -- no axial pad offset.
     PAD_AXIS_OFFSET = np.array([0.0, 0.0, 0.0])
@@ -2957,11 +2731,11 @@ def _workspace_pose_failures(pose, leg_az):
     leg_names = list(leg.keys())
     for i, na in enumerate(leg_names):
         for nb in leg_names[i + 1:]:
-            vol, centroid = _pair_overlap_volume_and_centroid(
-                leg[na], leg[nb], WORKSPACE_VOXEL_PITCH)
             pair_kind = _ws_pair_kind(na, nb)
             tol = (WORKSPACE_JOINT_TOL if pair_kind == "joint"
                     else WORKSPACE_ARTEFACT_TOL)
+            vol, centroid = _pair_overlap_volume_and_centroid(
+                leg[na], leg[nb], WORKSPACE_VOXEL_PITCH, skip_below=tol)
             if vol > tol:
                 pose_failures.append({
                     "pose":     (yaw_deg, f_deg, k_deg),
@@ -2975,7 +2749,8 @@ def _workspace_pose_failures(pose, leg_az):
         dyn_mesh = leg[dyn_name]
         for stat_name, stat_mesh in chassis.items():
             vol, centroid = _pair_overlap_volume_and_centroid(
-                dyn_mesh, stat_mesh, WORKSPACE_VOXEL_PITCH)
+                dyn_mesh, stat_mesh, WORKSPACE_VOXEL_PITCH,
+                skip_below=WORKSPACE_ARTEFACT_TOL)
             if vol > WORKSPACE_ARTEFACT_TOL:
                 pose_failures.append({
                     "pose":     (yaw_deg, f_deg, k_deg),
@@ -4206,7 +3981,7 @@ def _build_world_leg0_printed_parts() -> dict:
 
     yaw_output_z = hp.CHASSIS_YAW_OUTPUT_Z
     hip_drop = hp.COXA_HIP_DROP
-    hip_joint_local = np.array(hp.COXA_HIP_ANCHOR)
+    hip_joint_local = np.array([hp.COXA_LENGTH, 0.0, hip_drop])
     # Bearing-sandwich refit (Jun 2026): femur / tibia local origins are
     # the disc-horn-top ON the joint axis -- no axial pad offset.
     PAD_AXIS_OFFSET = np.array([0.0, 0.0, 0.0])
@@ -5289,16 +5064,16 @@ def _mating_interfaces_leg0(world_parts: dict) -> list[tuple]:
     YAW_TOL = DEFAULT_MATING_TOLERANCE_MM
     HIP_KNEE_TOL = 1.5
 
-    # NOTE (coaxial spaced-bearing refit, Jun 2026): the yaw turntable hub
-    # (coxa_yaw_hub) NO LONGER seats flat on the disc-horn top -- it rides
-    # the spaced 6706 bearing pair for support and is DRIVEN by the 4 x M3
-    # disc-horn bolts in tension/shear, with a Phi 22 bore that deliberately
-    # CLEARS the Phi 20 disc horn (so the bearings, not the horn face, set
-    # concentricity).  There is therefore no flat hub<->horn mating face to
-    # probe; this interface is retired for the yaw joint (the bolt drive +
-    # bearing seats are covered by check_fastener_engagement and the
-    # bearing-bore geometry).  Hip/knee disc-horn pads still mate flush and
-    # are checked below.
+    if ("coxa_link" in world_parts
+        and "servo_horn(yaw)" in world_parts):
+        interfaces.append((
+            "coxa_link bottom <-> yaw disc-horn top",
+            world_parts["coxa_link"], world_parts["servo_horn(yaw)"],
+            yaw_test_world,
+            z_hat.copy(),
+            40.0,
+            YAW_TOL,
+        ))
     if ("femur_link" in world_parts
         and "servo_horn(hip)" in world_parts):
         interfaces.append((
@@ -5995,8 +5770,17 @@ CHECK_SOURCE_DEPS: dict[str, frozenset[str]] = {
 #   * Trimesh / numpy versions.  If you upgrade those, ``--no-cache``
 #     once.
 
-CACHE_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              ".verify_cache.sqlite")
+# v2 uses a SEPARATE cache file so it never races / corrupts the live
+# verifier's ``.verify_cache.sqlite`` (the live file may be running in
+# another process).  Override-able via $VERIFY_CACHE_DB for ad-hoc runs.
+CACHE_DB_PATH = os.environ.get(
+    "VERIFY_CACHE_DB",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                 ".verify_cache_v2.sqlite"))
+
+# Bump whenever the cache schema or the meaning of a stored row changes
+# so old rows are treated as misses (mixed into the global input hash).
+CACHE_SCHEMA_VERSION = "v2-2026-06"
 STL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          "stl_prototype")
 CACHE_MAX_AGE_S = 30 * 24 * 3600  # 30 days
@@ -6022,6 +5806,44 @@ def _cache_global_input_hash() -> str:
         if _CACHE_INPUT_HASH_GLOBAL is not None:
             return _CACHE_INPUT_HASH_GLOBAL
         h = hashlib.sha1()
+        # --- v2 correctness fixes -------------------------------------
+        # The live verifier's cache key intentionally hashed ONLY the
+        # check fn body + hp/fr source + STL bytes.  That left two ways
+        # to serve a STALE PASS:
+        #   (1) editing a HELPER (e.g. _pair_overlap_volume) the check
+        #       calls -- the helper source was never hashed; and
+        #   (2) changing the trimesh/numpy versions or the active ray
+        #       backend (pure-Python rtree vs embree), which shifts the
+        #       computed overlap volumes.
+        # v2 mixes the schema version, library versions, ray-backend
+        # identity, and the ENTIRE verifier module source into the
+        # global component so any of those changes invalidates the
+        # cache.  Coarser granularity (any verifier edit re-runs the
+        # suite once) is the right trade for "never serve a stale pass".
+        h.update(CACHE_SCHEMA_VERSION.encode("ascii"))
+        h.update(b"\0")
+        try:
+            import numpy as _np  # noqa: WPS433
+            h.update(f"numpy={_np.__version__}".encode("ascii"))
+            h.update(f";trimesh={trimesh.__version__}".encode("ascii"))
+        except Exception:
+            pass
+        # Ray backend identity: embree (fast, slightly different float
+        # results) vs the pure-Python rtree fallback.  Switching busts
+        # the cache so we never compare volumes across backends.
+        try:
+            import trimesh.ray.ray_pyembree as _rpe  # noqa: WPS433,F401
+            h.update(b";ray=embree")
+        except Exception:
+            h.update(b";ray=rtree")
+        h.update(b"\0")
+        # Full verifier module source (fixes stale-helper-edit bug).
+        try:
+            with open(os.path.abspath(__file__), "rb") as _vf:
+                h.update(_vf.read())
+        except OSError:
+            pass
+        h.update(b"\0")
         try:
             h.update(inspect.getsource(hp).encode("utf-8"))
         except OSError:
@@ -6073,9 +5895,13 @@ def _cache_check_input_hash(check_name: str, fn_name: str) -> str:
     return h.hexdigest()
 
 
-def _cache_open() -> sqlite3.Connection:
-    """Open (creating if necessary) the per-check cache DB."""
-    conn = sqlite3.connect(CACHE_DB_PATH)
+def _cache_init_schema(conn: sqlite3.Connection) -> None:
+    # WAL + a busy timeout make concurrent readers/writers (e.g. the
+    # process pool + a second verifier invocation) coexist instead of
+    # raising "database is locked".
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     conn.execute(
         "CREATE TABLE IF NOT EXISTS check_cache ("
         "  check_name      TEXT NOT NULL,"
@@ -6091,20 +5917,57 @@ def _cache_open() -> sqlite3.Connection:
         "ON check_cache(timestamp_unix)"
     )
     conn.commit()
-    return conn
+
+
+def _cache_open() -> sqlite3.Connection:
+    """Open (creating if necessary) the per-check cache DB.
+
+    Self-healing: if the file is corrupt / unreadable (e.g. a half-
+    written DB from a killed run) we delete it and recreate an empty
+    one rather than crashing the whole verifier.  A cold cache is never
+    wrong -- it just re-runs everything once.
+    """
+    def _fresh() -> sqlite3.Connection:
+        conn = sqlite3.connect(CACHE_DB_PATH)
+        _cache_init_schema(conn)
+        return conn
+
+    try:
+        conn = _fresh()
+        # Touch the table to surface a corrupt DB now, not mid-run.
+        conn.execute("SELECT COUNT(*) FROM check_cache").fetchone()
+        return conn
+    except sqlite3.DatabaseError:
+        for suffix in ("", "-wal", "-shm"):
+            try:
+                os.remove(CACHE_DB_PATH + suffix)
+            except OSError:
+                pass
+        try:
+            return _fresh()
+        except sqlite3.DatabaseError:
+            # Give up on persistence but keep the run going with an
+            # in-memory cache (writes are lost, every check runs).
+            conn = sqlite3.connect(":memory:")
+            _cache_init_schema(conn)
+            return conn
 
 
 def _cache_lookup(conn: sqlite3.Connection,
                     check_name: str,
                     input_hash: str):
     """Return ``(result_bool, runtime_s, message, timestamp_unix)`` or
-    ``None`` on cache miss."""
-    cur = conn.execute(
-        "SELECT result, runtime_s, message, timestamp_unix "
-        "FROM check_cache WHERE check_name = ? AND input_hash = ?",
-        (check_name, input_hash),
-    )
-    row = cur.fetchone()
+    ``None`` on cache miss.  A DB-level error degrades to a miss (the
+    check just re-runs) instead of aborting the verifier."""
+    try:
+        cur = conn.execute(
+            "SELECT result, runtime_s, message, timestamp_unix "
+            "FROM check_cache WHERE check_name = ? AND input_hash = ?",
+            (check_name, input_hash),
+        )
+        row = cur.fetchone()
+    except sqlite3.DatabaseError:
+        return None
     if row is None:
         return None
     return (bool(row[0]), float(row[1]), str(row[2]), float(row[3]))
@@ -6121,15 +5984,19 @@ def _cache_insert(conn: sqlite3.Connection,
     check, truncated to 64 KiB to keep the DB compact."""
     if len(message) > 65536:
         message = message[:65536] + "\n... (truncated to 64 KiB)\n"
-    conn.execute(
-        "INSERT OR REPLACE INTO check_cache "
-        "(check_name, input_hash, result, runtime_s, "
-        " message, timestamp_unix) VALUES (?, ?, ?, ?, ?, ?)",
-        (check_name, input_hash,
-         int(bool(result)), float(runtime_s),
-         message, time.time()),
-    )
-    conn.commit()
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO check_cache "
+            "(check_name, input_hash, result, runtime_s, "
+            " message, timestamp_unix) VALUES (?, ?, ?, ?, ?, ?)",
+            (check_name, input_hash,
+             int(bool(result)), float(runtime_s),
+             message, time.time()),
+        )
+        conn.commit()
+    except sqlite3.DatabaseError:
+        # Losing a write only costs a re-run next time; never fatal.
+        pass
 
 
 def _cache_prune(conn: sqlite3.Connection) -> int:

@@ -6,10 +6,11 @@ Generated for a **325 x 320 x 325 mm** build volume.
 
 - `plate_01_chassis_top.stl` (PLA/PETG rigid): 1 x `chassis_top.stl`
 - `plate_02_chassis_bottom.stl` (PLA/PETG rigid): 1 x `chassis_bottom.stl`
-- `plate_03_rigid_coxa_links.stl` (PLA/PETG rigid): 6 x `coxa_link.stl`
-- `plate_04_rigid_femur_sockets.stl` (PLA/PETG rigid): 6 x `femur_hip_yoke.stl`, 6 x `femur_knee_bracket.stl`
+- `plate_03_rigid_coxa_links.stl` (PLA/PETG rigid): 6 x `coxa_hip_bracket.stl`, 6 x `coxa_yaw_hub.stl`, 6 x `servo_clamp_cap.stl`, 6 x `yaw_servo_retainer.stl`
+- `plate_04_rigid_femur_sockets.stl` (PLA/PETG rigid): 6 x `femur_hip_yoke.stl`, 6 x `femur_knee_bracket.stl`, 6 x `servo_clamp_cap.stl`
 - `plate_05_rigid_tibia_sockets.stl` (PLA/PETG rigid): 6 x `tibia_foot_fitting.stl`, 6 x `tibia_knee_yoke.stl`
-- `plate_06_rigid_body_hardware.stl` (PLA/PETG rigid): 1 x `battery_holder.stl`, 1 x `electronics_tray.stl`
+- `plate_06_rigid_uno_q_trays.stl` (PLA/PETG rigid): 6 x `uno_q_tray.stl`
+- `plate_07_rigid_buck_trays.stl` (PLA/PETG rigid): 6 x `buck_tray.stl`
 - `plate_07_tpu_foot_pads.stl` (TPU 95A): 6 x `foot_pad.stl`
 
 Import one plate STL at a time into Bambu Studio. Parts are oriented for FDM.

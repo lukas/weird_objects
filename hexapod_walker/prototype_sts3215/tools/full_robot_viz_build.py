@@ -48,32 +48,146 @@ OUT_DIR = _HERE.parent / "full_robot_viz"
 STL_DIR = OUT_DIR / "stl"
 FASTENERS_DIR = _HERE.parent / "fasteners"
 
+# BuildViz serves each build under ``/builds/<id>/``.  The viewer's STLLoader
+# does NOT prepend the build base to mesh URLs, so mesh URLs must be ABSOLUTE
+# (``/builds/<id>/stl/...``) -- a relative ``stl/...`` URL resolves against the
+# page origin, 404s to the SPA's index.html, and the loader then misparses HTML
+# as a binary STL ("Invalid typed array length").  This must match the build id
+# the build is registered/served under (public/builds/prototype_sts3215).
+SCENE_BUILD_ID = "prototype_sts3215"
+SCENE_ASSET_BASE = f"/builds/{SCENE_BUILD_ID}/stl"
+
 # Joint screws to render (the leg "connecting" fasteners).  Bright colours
 # for the hip bolts so the coxa<->femur connection stands out.
 FASTENER_JOINT_COLOR = {"yaw": "#bdbdbd", "hip": "#ffd000", "knee": "#9ad0ff"}
 
 PALETTE = {
+    # Each leg is now called out as its INDIVIDUAL printed parts (BOM-correct
+    # sandwich: yoke + dia-8 CF tube + bracket/fitting) instead of the merged
+    # femur_link / tibia_link proxies.
     "coxa_link": "#9467bd",
-    "femur_link": "#2ca02c",
-    "tibia_link": "#1f77b4",
+    "coxa_yaw_hub": "#9467bd", "coxa_hip_bracket": "#b08fd6",
+    "yaw_bearing_lower": "#d4af37", "yaw_bearing_upper": "#ffd966",
+    "femur_hip_yoke": "#2ca02c", "femur_knee_bracket": "#7fce5a",
+    "tibia_knee_yoke": "#1f77b4", "tibia_foot_fitting": "#17becf",
+    "femur_tube": "#2b2b2b", "tibia_tube": "#2b2b2b",   # carbon fibre
+    "foot_pad": "#3a3a3a",                               # TPU pad
     "yaw_servo": "#2e2e33", "hip_servo": "#3a3a40", "knee_servo": "#46464d",
     "chassis_bottom": "#79b0e1", "chassis_top": "#5b8fc7",
-    "battery_holder": "#d62728", "electronics_tray": "#17becf",
+    "uno_q_tray": "#9467bd", "buck_tray": "#bcbd22",
+    "uno_q": "#1b7a3d", "buck_converter": "#b5651d",
+    "lipo_battery": "#d62728",
+    "hip_clamp_cap": "#4a90d9", "knee_clamp_cap": "#4a90d9",
 }
 ROLE = {
-    "coxa_link": "frame", "femur_link": "frame", "tibia_link": "frame",
+    "coxa_link": "frame",
+    "coxa_yaw_hub": "frame", "coxa_hip_bracket": "frame",
+    "yaw_bearing_lower": "bearing", "yaw_bearing_upper": "bearing",
+    "femur_hip_yoke": "frame", "femur_knee_bracket": "frame",
+    "tibia_knee_yoke": "frame", "tibia_foot_fitting": "frame",
+    "femur_tube": "spar", "tibia_tube": "spar", "foot_pad": "frame",
     "yaw_servo": "motor", "hip_servo": "motor", "knee_servo": "motor",
     "chassis_bottom": "chassis", "chassis_top": "chassis",
-    "battery_holder": "electronics", "electronics_tray": "electronics",
+    "uno_q_tray": "electronics", "buck_tray": "electronics",
+    "uno_q": "electronics", "buck_converter": "electronics",
+    "lipo_battery": "electronics",
+    "hip_clamp_cap": "frame", "knee_clamp_cap": "frame",
 }
+
+
+def _trans(v) -> np.ndarray:
+    T = np.eye(4)
+    T[:3, 3] = np.asarray(v, float)
+    return T
+
+
+def _leg0_individual_link_parts() -> list[tuple[str, trimesh.Trimesh]]:
+    """Leg-0 femur/tibia decomposed into their REAL printed parts (yoke +
+    dia-8 CF tube + bracket/fitting) + coxa_link + foot_pad, each placed
+    with the verifier's EXACT per-link world transform.
+
+    The femur/tibia sub-parts are built in each link's LOCAL frame exactly
+    as ``make_femur_link`` / ``make_tibia_link`` do, then the verifier's
+    link transform (``_build_standing_leg``) is applied to each piece.  So
+    the union of the pieces occupies the identical space the verifier
+    checks for collision -- they stay aligned with the servos/caps (which
+    are taken from the same verifier world frame) and provably clear."""
+    a = 0.5 * np.pi / 3.0
+    apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
+    edge = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0]) \
+        + HP.CHASSIS_YAW_OUTPUT_Z * np.array([0.0, 0.0, 1.0])
+    p = np.deg2rad(HP.STANCE_FEMUR_DEG)
+    pt = np.deg2rad(HP.STANCE_FEMUR_DEG + HP.STANCE_TIBIA_DEG)
+    hip_local = np.array(HP.COXA_HIP_ANCHOR)
+    knee_local = hip_local + rotation_matrix(p, [0, 1, 0])[:3, :3] \
+        @ np.array([HP.FEMUR_LENGTH, 0.0, 0.0])
+
+    # World transform of each link's local frame (mirrors _build_standing_leg).
+    Rz = rotation_matrix(a, [0, 0, 1])
+    T_coxa = _trans(edge) @ Rz
+    T_femur = _trans(edge) @ Rz @ _trans(hip_local) @ rotation_matrix(p, [0, 1, 0])
+    T_tibia = _trans(edge) @ Rz @ _trans(knee_local) @ rotation_matrix(pt, [0, 1, 0])
+
+    def placed(mesh, T):
+        m = mesh.copy()
+        m.apply_transform(T)
+        return m
+
+    xz = (1, 0, 0), HP.LEG_PITCH_AXIS
+    out: list[tuple[str, trimesh.Trimesh]] = []
+    # Coxa called out as its TWO printed parts (yaw turntable hub + hip
+    # bracket) plus the SPACED 6706 bearing PAIR (visual, NOT printed) so the
+    # bearing-supported yaw joint is visible.
+    out.append(("coxa_yaw_hub", placed(HP.make_coxa_yaw_hub(), T_coxa)))
+    out.append(("coxa_hip_bracket", placed(HP.make_coxa_hip_bracket(), T_coxa)))
+    out.append(("yaw_bearing_lower", placed(HP.make_yaw_bearing_lower(), T_coxa)))
+    out.append(("yaw_bearing_upper", placed(HP.make_yaw_bearing_upper(), T_coxa)))
+
+    # Femur sub-parts in femur-link-local frame (== make_femur_link).
+    Mh = HP._joint_place((0.0, 0.0, 0.0), *xz)
+    Mk = HP._joint_place((HP.FEMUR_LENGTH, 0.0, 0.0), *xz)
+    hy = HP.make_femur_hip_yoke();     hy.apply_transform(Mh)
+    kb = HP.make_femur_knee_bracket(); kb.apply_transform(Mk)
+    fa = (Mh @ np.array([HP._YOKE_SPINE_X1, 0.0, HP.JOINT_SOCKET_Z, 1.0]))[:3]
+    fb = (Mk @ np.array([-HP.WELL_W / 2.0, 0.0, HP.JOINT_SOCKET_Z, 1.0]))[:3]
+    ftube = HP._tube_between(fa, fb, HP.LEG_TUBE_OD / 2.0)
+    out.append(("femur_hip_yoke", placed(hy, T_femur)))
+    out.append(("femur_knee_bracket", placed(kb, T_femur)))
+    out.append(("femur_tube", placed(ftube, T_femur)))
+
+    # Tibia sub-parts in tibia-link-local frame (== make_tibia_link).
+    Mk0 = HP._joint_place((0.0, 0.0, 0.0), *xz)
+    ky = HP.make_tibia_knee_yoke(); ky.apply_transform(Mk0)
+    ta = (Mk0 @ np.array([HP._YOKE_SPINE_X1, 0.0, HP.JOINT_SOCKET_Z, 1.0]))[:3]
+    foot_sock = ta + np.array([HP.TIBIA_LENGTH - 8.0, 0.0, 0.0])
+    foot_frame = HP._frame(foot_sock, (1, 0, 0), (0, 0, 1))
+    ff = HP.make_tibia_foot_fitting(); ff.apply_transform(foot_frame)
+    ttube = HP._tube_between(ta, foot_sock, HP.LEG_TUBE_OD / 2.0)
+    out.append(("tibia_knee_yoke", placed(ky, T_tibia)))
+    out.append(("tibia_tube", placed(ttube, T_tibia)))
+    out.append(("tibia_foot_fitting", placed(ff, T_tibia)))
+
+    # Foot pad: hinge at local x=16 on the foot fitting; the foot stays flat
+    # on the ground (yaw-only orientation), dropped by FOOT_HINGE_FOOT_Z.
+    hinge_w = (T_tibia @ foot_frame @ np.array([16.0, 0.0, 0.0, 1.0]))[:3]
+    foot = HP.make_foot_pad()
+    foot.apply_transform(rotation_matrix(a, [0, 0, 1]))
+    foot.apply_translation([hinge_w[0], hinge_w[1],
+                            hinge_w[2] - HP.FOOT_HINGE_FOOT_Z])
+    out.append(("foot_pad", foot))
+    return out
 
 
 def _leg0_parts() -> list[tuple[str, trimesh.Trimesh]]:
-    """Leg-0 printed links + servo bodies, in the verifier's world frame."""
-    links = V._build_standing_leg()          # coxa_link, femur_link, tibia_link
+    """Leg-0 INDIVIDUAL printed parts + servo bodies + clamp caps, all in
+    the verifier's leg-0 world frame (apothem a = pi/6).  The femur/tibia
+    are decomposed into their real printed sandwich parts so the assembly
+    calls out every part instead of the merged link proxies."""
+    links = _leg0_individual_link_parts()
     servos = V._place_servo_bodies()         # yaw_servo, hip_servo, knee_servo
-    out: list[tuple[str, trimesh.Trimesh]] = []
-    for name, mesh in {**links, **servos}.items():
+    caps = V._place_servo_clamp_caps()       # hip_clamp_cap, knee_clamp_cap
+    out: list[tuple[str, trimesh.Trimesh]] = list(links)
+    for name, mesh in {**servos, **caps}.items():
         out.append((name, mesh))
     return out
 
@@ -117,13 +231,30 @@ def _body_parts(chassis_lift: float) -> list[tuple[str, trimesh.Trimesh]]:
     bot.apply_translation([0, 0, chassis_lift])
     top = HP.make_chassis_top()
     top.apply_translation([0, 0, chassis_lift + HP.CHASSIS_GAP + HP.CHASSIS_PLATE_T])
-    bh = HP.make_battery_holder()
-    bh.apply_translation([HP.BATTERY_HOLDER_CENTRE_X, 0,
-                          chassis_lift + HP.CHASSIS_PLATE_T / 2.0])
-    et = HP.make_electronics_tray()
-    et.apply_translation([35.0, 0, chassis_lift + HP.CHASSIS_PLATE_T / 2.0 + 1.0])
+
+    # LiPo velcro-strapped to chassis_bottom's top face (no holder).
+    from trimesh.creation import box as _box_mesh
+    lipo = _box_mesh(extents=(105.0, 35.0, 25.0))
+    lipo.apply_translation([HP.BATTERY_HOLDER_CENTRE_X, 0,
+                            chassis_lift + HP.CHASSIS_PLATE_T / 2.0 + 25.0 / 2.0])
+
+    # Stacked electronics decks on 4 columns above chassis_top.
+    deck_z0 = chassis_lift + HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T
+    uno_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H
+    buck_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H + HP.DECK_LEVEL_2_STANDOFF_H
+    uno_tray = HP.make_uno_q_tray()
+    uno_tray.apply_translation([0, 0, uno_tray_z])
+    buck_tray = HP.make_buck_tray()
+    buck_tray.apply_translation([0, 0, buck_tray_z])
+    uno = HP.make_uno_q_visual()
+    uno.apply_translation([0, 0, uno_tray_z + HP.DECK_TRAY_T + HP.DECK_STANDOFF_BOSS_H])
+    buck = HP.make_buck_converter_visual()
+    buck.apply_translation([0, 0, buck_tray_z + HP.DECK_TRAY_T + HP.DECK_STANDOFF_BOSS_H])
+
     return [("chassis_bottom", bot), ("chassis_top", top),
-            ("battery_holder", bh), ("electronics_tray", et)]
+            ("lipo_battery", lipo),
+            ("uno_q_tray", uno_tray), ("buck_tray", buck_tray),
+            ("uno_q", uno), ("buck_converter", buck)]
 
 
 def main(single_leg: bool = False) -> None:
@@ -169,7 +300,8 @@ def main(single_leg: bool = False) -> None:
         mesh.export(STL_DIR / fname)
         allb.append(mesh.bounds)
         mid = f"stl:{fname[:-4]}"
-        meshes_json.append({"id": mid, "name": fname, "url": f"stl/{fname}"})
+        meshes_json.append({"id": mid, "name": fname,
+                            "url": f"{SCENE_ASSET_BASE}/{fname}"})
         instances_json.append({
             "id": f"{idx:03d}-{name}",
             "meshId": mid,

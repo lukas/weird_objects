@@ -190,14 +190,20 @@ def _build_assembly_instances() -> list[Instance]:
         "chassis_top", "chassis_top.stl", None, None,
         _trans(0, 0, gap + plate_t),
     ))
+    # Jun 2026 deck redesign: the clip-in battery_holder + the in-gap
+    # electronics_tray (Pi + bus adapter) are retired.  The two stacked
+    # electronics decks (Uno Q lower + buck upper) bolt onto 4 standoff
+    # columns rising ABOVE chassis_top's top face.
+    deck_z0 = gap + 1.5 * plate_t                      # chassis_top top face
+    uno_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H
+    buck_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H + HP.DECK_LEVEL_2_STANDOFF_H
     instances.append(Instance(
-        "battery_holder", "battery_holder.stl", None, None,
-        _trans(HP.BATTERY_HOLDER_CENTRE_X, 0, plate_t / 2.0),
+        "uno_q_tray", "uno_q_tray.stl", None, None,
+        _trans(0.0, 0.0, uno_tray_z),
     ))
     instances.append(Instance(
-        "electronics_tray", "electronics_tray.stl", None, None,
-        _trans(HP.ELEC_TRAY_CENTRE_X, HP.ELEC_TRAY_CENTRE_Y,
-                plate_t / 2.0 + 3.0),
+        "buck_tray", "buck_tray.stl", None, None,
+        _trans(0.0, 0.0, buck_tray_z),
     ))
     # Switch holster sits on TWO printed BOSSES on chassis_top's TOP
     # face (one boss under each SWITCH_HOLSTER_BOLT_CHASSIS_XY
@@ -227,7 +233,7 @@ def _build_assembly_instances() -> list[Instance]:
     # stl_prototype/mpu6050.stl alongside the other visual-only
     # meshes (servo_body.stl, servo_horn.stl).
     instances.append(Instance(
-        "mpu6050", "mpu6050.stl", None, None,
+        "mpu6050", "mpu6050_DO_NOT_PRINT.stl", None, None,
         _trans(
             HP.IMU_PAD_CENTRE_X,
             HP.IMU_PAD_CENTRE_Y,
@@ -250,24 +256,24 @@ def _build_assembly_instances() -> list[Instance]:
     # face -- the verifier's cable-clearance check already covers
     # those volumes via the keepouts in cable_keepouts.py, so the
     # visuals participate in NO design verification.
-    tray_top_z_local = plate_t / 2.0 + 3.0 + HP.ELEC_TRAY_T
-    board_pcb_mid_z = (tray_top_z_local
-                       + HP.ELEC_STANDOFF_H
-                       + HP.COMMODITY_PCB_T / 2.0)
+    # Board visuals sit on their deck's standoff bosses (board PCB
+    # bottom face = tray top + DECK_STANDOFF_BOSS_H).  Both
+    # make_uno_q_visual / make_buck_converter_visual put their mesh
+    # origin at the PCB BOTTOM face (z = 0), so the inspector translates
+    # by the board-base z directly (no PCB-midplane offset).
+    uno_board_base_z = uno_tray_z + HP.DECK_TRAY_T + HP.DECK_STANDOFF_BOSS_H
+    buck_board_base_z = buck_tray_z + HP.DECK_TRAY_T + HP.DECK_STANDOFF_BOSS_H
 
     instances.append(Instance(
-        "raspberry_pi", "raspberry_pi.stl", None, None,
-        _trans(HP.ELEC_TRAY_CENTRE_X + HP.PI_CENTRE[0],
-               HP.ELEC_TRAY_CENTRE_Y + HP.PI_CENTRE[1],
-               board_pcb_mid_z),
+        "uno_q", "uno_q_DO_NOT_PRINT.stl", None, None,
+        _trans(0.0, 0.0, uno_board_base_z),
     ))
-    # STS3215 USB-to-TTL serial-bus adapter (replaces the retired
-    # Arduino Mega + 2x PCA9685 + 2x BEC).
+    # XINGYHENG 12V->5V buck converter on the upper deck (replaces the
+    # retired Raspberry Pi + USB-to-TTL bus adapter; the Uno Q drives
+    # the STS3215 serial bus directly).
     instances.append(Instance(
-        "bus_adapter", "bus_adapter.stl", None, None,
-        _trans(HP.ELEC_TRAY_CENTRE_X + HP.BUS_ADAPTER_CENTRE[0],
-               HP.ELEC_TRAY_CENTRE_Y + HP.BUS_ADAPTER_CENTRE[1],
-               board_pcb_mid_z),
+        "buck_converter", "buck_converter_DO_NOT_PRINT.stl", None, None,
+        _trans(0.0, 0.0, buck_board_base_z),
     ))
 
     # Anti-spark switch BODY sits in the switch_holster's socket
@@ -282,7 +288,7 @@ def _build_assembly_instances() -> list[Instance]:
                       + HP.SWITCH_BODY_H / 2.0)
     switch_body_x = HP.SWITCH_HOLSTER_CENTRE_X + socket_centre_x_local
     instances.append(Instance(
-        "antispark_switch", "antispark_switch_body.stl", None, None,
+        "antispark_switch", "antispark_switch_body_DO_NOT_PRINT.stl", None, None,
         _trans(switch_body_x, HP.SWITCH_HOLSTER_CENTRE_Y, switch_body_z),
     ))
     # Toggle: centred 4 mm past the switch body's +X face (Phi 4 x 8
@@ -290,20 +296,19 @@ def _build_assembly_instances() -> list[Instance]:
     # toggle cutout in the holster's +X end wall).
     toggle_x = switch_body_x + HP.SWITCH_BODY_L / 2.0 + 8.0 / 2.0
     instances.append(Instance(
-        "antispark_switch_toggle", "antispark_switch_toggle.stl",
+        "antispark_switch_toggle", "antispark_switch_toggle_DO_NOT_PRINT.stl",
         None, None,
         _trans(toggle_x, HP.SWITCH_HOLSTER_CENTRE_Y, switch_body_z),
     ))
 
-    # LiPo battery BODY sits inside the battery_holder.  The
-    # holder's local origin is at the battery cradle floor (= z = 0
-    # in holder-local frame) so the LiPo's BOTTOM face is at
-    # bh_z0 + BATTERY_WALL = (plate_t/2) + BATTERY_WALL.  Body
-    # centre therefore sits at plate_t/2 + BATTERY_WALL + 25/2.
-    # Mirrors the lipo box already placed in build_prototype_assembly.
-    lipo_z = plate_t / 2.0 + HP.BATTERY_WALL + 25.0 / 2.0
+    # LiPo battery BODY velcro-strapped to chassis_bottom's TOP face
+    # (Jun 2026 deck redesign; the clip-in battery_holder is retired).
+    # The pack's BOTTOM face rests directly on the chassis_bottom top
+    # face at z = plate_t/2, so its centre sits plate_t/2 + 25/2 up.
+    # Mirrors the lipo box placed in build_prototype_assembly.
+    lipo_z = plate_t / 2.0 + 25.0 / 2.0
     instances.append(Instance(
-        "lipo_battery", "lipo_battery_body.stl", None, None,
+        "lipo_battery", "lipo_battery_body_DO_NOT_PRINT.stl", None, None,
         _trans(HP.BATTERY_HOLDER_CENTRE_X, 0.0, lipo_z),
     ))
     # XT60 + balance plug at the LiPo's +X short face (toward chassis
@@ -311,7 +316,7 @@ def _build_assembly_instances() -> list[Instance]:
     # cluster).  XT60 centre 7 mm past the LiPo's +X face.
     xt60_x = HP.BATTERY_HOLDER_CENTRE_X + 105.0 / 2.0 + 14.0 / 2.0
     instances.append(Instance(
-        "lipo_xt60", "lipo_xt60.stl", None, None,
+        "lipo_xt60", "lipo_xt60_DO_NOT_PRINT.stl", None, None,
         _trans(xt60_x, 0.0, lipo_z),
     ))
 
@@ -349,7 +354,7 @@ def _build_assembly_instances() -> list[Instance]:
             cradle_shelf_z - HP.WELL_RIM_Z,
         )
         instances.append(Instance(
-            "servo_body", "servo_body.stl", i, "yaw", T_yaw_body,
+            "servo_body", "servo_body_DO_NOT_PRINT.stl", i, "yaw", T_yaw_body,
         ))
 
         # ----- yaw disc horn (above the cradle shelf).  June 2026
@@ -369,7 +374,7 @@ def _build_assembly_instances() -> list[Instance]:
         )
         T_yaw_horn = T_edge @ _trans(0, 0, yaw_horn_z)
         instances.append(Instance(
-            "servo_horn", "servo_horn.stl", i, "yaw", T_yaw_horn,
+            "servo_horn", "servo_horn_DO_NOT_PRINT.stl", i, "yaw", T_yaw_horn,
         ))
 
         # ----- coxa link (rotates with yaw output -- in standing pose, yaw=0)
@@ -380,21 +385,30 @@ def _build_assembly_instances() -> list[Instance]:
         # ----- hip-pitch servo body (in the coxa-link cradle)
         delta_hip = np.array([
             HP.COXA_LENGTH - HP.SERVO_OUTPUT_X,
-            -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H),
+            -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H) + HP.COXA_HIP_ANCHOR_Y,
             hip_drop,
         ])
         T_hip_body = T_yaw_out @ _trans(*delta_hip) @ R_hip
         instances.append(Instance(
-            "servo_body", "servo_body.stl", i, "hip", T_hip_body,
+            "servo_body", "servo_body_DO_NOT_PRINT.stl", i, "hip", T_hip_body,
+        ))
+
+        # Hip-pitch sandwich-joint clamp cap: closes the OPEN +Y face of
+        # the coxa_link hip cradle around the STS3215 body.  The cap is
+        # modelled in the servo well-local frame (same origin/axes as
+        # servo_body), so it reuses the IDENTICAL transform as the hip
+        # servo body (Jun 2026 sandwich-joint clamp cap).
+        instances.append(Instance(
+            "servo_clamp_cap", "servo_clamp_cap.stl", i, "hip", T_hip_body,
         ))
 
         # ----- hip disc horn (on the hip-pitch output axis).
         # June 2026 disc-horn switch: femur's hip pad bolts DIRECTLY
         # onto this aluminum disc horn; the printed servo_horn_adapter
         # is gone.
-        T_hip_horn = T_yaw_out @ _trans(HP.COXA_LENGTH, 0, hip_drop) @ R_hip
+        T_hip_horn = T_yaw_out @ _trans(HP.COXA_LENGTH, HP.COXA_HIP_ANCHOR_Y, hip_drop) @ R_hip
         instances.append(Instance(
-            "servo_horn", "servo_horn.stl", i, "hip", T_hip_horn,
+            "servo_horn", "servo_horn_DO_NOT_PRINT.stl", i, "hip", T_hip_horn,
         ))
 
         # ----- femur link (rotated by hip-pitch stance angle)
@@ -403,13 +417,13 @@ def _build_assembly_instances() -> list[Instance]:
         # joint axis along leg +Y, so the femur translation shifts
         # +HORN_STACK_H in coxa-Y compared with the pre-refactor
         # placement on the joint axis.
-        hip_joint_local = np.array([HP.COXA_LENGTH, 0, hip_drop])
+        hip_joint_local = np.array([HP.COXA_LENGTH, HP.COXA_HIP_ANCHOR_Y, hip_drop])
         pad_axis_offset = np.array([0.0, HP.HORN_STACK_H, 0.0])
         T_femur = (T_yaw_out
                     @ _trans(*(hip_joint_local + pad_axis_offset))
                     @ _rot_y(p_femur))
         instances.append(Instance(
-            "femur_link", "femur_link.stl", i, None, T_femur,
+            "femur_link", "femur_link_DO_NOT_PRINT.stl", i, None, T_femur,
         ))
 
         # ----- knee-pitch servo body (in the femur cradle)
@@ -425,7 +439,14 @@ def _build_assembly_instances() -> list[Instance]:
         ])
         T_knee_body = T_femur @ _trans(*delta_knee) @ R_hip
         instances.append(Instance(
-            "servo_body", "servo_body.stl", i, "knee", T_knee_body,
+            "servo_body", "servo_body_DO_NOT_PRINT.stl", i, "knee", T_knee_body,
+        ))
+
+        # Knee sandwich-joint clamp cap: closes the OPEN +Y face of the
+        # femur_knee_bracket cradle around the STS3215 body.  Same
+        # well-local frame as the knee servo body.
+        instances.append(Instance(
+            "servo_clamp_cap", "servo_clamp_cap.stl", i, "knee", T_knee_body,
         ))
 
         # ----- knee disc horn.  June 2026 disc-horn switch: tibia's
@@ -437,7 +458,7 @@ def _build_assembly_instances() -> list[Instance]:
         T_knee_horn = T_femur @ _trans(HP.FEMUR_LENGTH,
                                         -HP.HORN_STACK_H, 0) @ R_hip
         instances.append(Instance(
-            "servo_horn", "servo_horn.stl", i, "knee", T_knee_horn,
+            "servo_horn", "servo_horn_DO_NOT_PRINT.stl", i, "knee", T_knee_horn,
         ))
 
         # ----- tibia link
@@ -449,7 +470,7 @@ def _build_assembly_instances() -> list[Instance]:
                     @ _trans(*(knee_joint_local + pad_axis_offset))
                     @ _rot_y(pt))
         instances.append(Instance(
-            "tibia_link", "tibia_link.stl", i, None, T_tibia,
+            "tibia_link", "tibia_link_DO_NOT_PRINT.stl", i, None, T_tibia,
         ))
 
         # ----- foot pad (passive hinge -- only the leg azimuth is applied)

@@ -103,8 +103,8 @@ FOOT_R = HP.FOOT_PAD_OD / 2.0 * M
 # -- MuJoCo's convex-hull collision would only report false positives on
 # parts like the C-shaped coxa_bracket.
 
-_SERVO_BODY_STL = os.path.join(HP.STL_DIR, "servo_body.stl")
-_SERVO_HORN_STL = os.path.join(HP.STL_DIR, "servo_horn.stl")
+_SERVO_BODY_STL = os.path.join(HP.STL_DIR, HP.stl_filename("servo_body"))
+_SERVO_HORN_STL = os.path.join(HP.STL_DIR, HP.stl_filename("servo_horn"))
 USE_SERVO_MESHES = (os.path.isfile(_SERVO_BODY_STL)
                      and os.path.isfile(_SERVO_HORN_STL))
 
@@ -114,15 +114,16 @@ USE_SERVO_MESHES = (os.path.isfile(_SERVO_BODY_STL)
 _PART_STL_NAMES = (
     "chassis_top",
     "chassis_bottom",
-    "battery_holder",
-    "electronics_tray",
+    "uno_q_tray",
+    "buck_tray",
     "coxa_link",
     "femur_link",
     "tibia_link",
     "foot_pad",
+    "servo_clamp_cap",
 )
 USE_PART_MESHES = all(
-    os.path.isfile(os.path.join(HP.STL_DIR, f"{name}.stl"))
+    os.path.isfile(os.path.join(HP.STL_DIR, HP.stl_filename(name)))
     for name in _PART_STL_NAMES
 )
 
@@ -149,6 +150,11 @@ HIP_DROP = HP.COXA_HIP_DROP * M
 HIP_BODY_DX = -HP.SERVO_OUTPUT_X * M
 HIP_BODY_DY = -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H) * M
 HIP_BODY_DZ = HIP_DROP
+# Jun 2026 re-centre: the hip bracket is centred on the yaw axis, so the
+# hip-pitch joint axis sits at coxa-link y = COXA_HIP_ANCHOR_Y (tangential)
+# instead of y=0.  The femur sub-tree + hip servo/horn/cap visuals all
+# shift by this amount in the coxa frame.
+HIP_ANCHOR_Y = HP.COXA_HIP_ANCHOR_Y * M
 
 # Quaternion (w, x, y, z) for -90 deg about X axis: cos(-pi/4) = sqrt(2)/2,
 # sin(-pi/4) = -sqrt(2)/2.
@@ -207,6 +213,29 @@ def _servo_horn_geom_xml(local_class: str, body_offset: tuple[float, float, floa
         f'<geom class="{local_class}"{name_attr} type="mesh" mesh="servo_horn" '
         f'pos="{bx:.5f} {by:.5f} {bz:.5f}"{quat_attr} material="{material}"/>'
     )
+
+
+def _servo_clamp_cap_geom_xml(local_class: str,
+                               body_offset: tuple[float, float, float],
+                               quat: tuple[float, float, float, float] | None = None,
+                               name: str | None = None,
+                               material: str = "palette_servo_clamp_cap") -> str:
+    """Single visual mesh geom for one sandwich-joint clamp cap.  The cap
+    is modelled in the servo well-local frame (same origin/axes as the
+    servo body), so it stamps at the same offset/quat as the body."""
+    name_attr = f' name="{name}"' if name else ""
+    if quat is None:
+        quat_attr = ""
+    else:
+        qw, qx, qy, qz = quat
+        quat_attr = f' quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}"'
+    bx, by, bz = body_offset
+    return (
+        f'<geom class="{local_class}"{name_attr} type="mesh" '
+        f'mesh="servo_clamp_cap" '
+        f'pos="{bx:.5f} {by:.5f} {bz:.5f}"{quat_attr} material="{material}"/>'
+    )
+
 
 HFIELD_NROW = 128
 HFIELD_NCOL = 128
@@ -364,15 +393,19 @@ def build_xml(obstacles_xml: str = "") -> str:
         mesh_lines: list[str] = []
         if USE_SERVO_MESHES:
             mesh_lines.append(
-                '<mesh name="servo_body" file="servo_body.stl" scale="0.001 0.001 0.001"/>'
+                f'<mesh name="servo_body" file="{HP.stl_filename("servo_body")}" '
+                f'scale="0.001 0.001 0.001"/>'
             )
             mesh_lines.append(
-                '<mesh name="servo_horn" file="servo_horn.stl" scale="0.001 0.001 0.001"/>'
+                f'<mesh name="servo_horn" file="{HP.stl_filename("servo_horn")}" '
+                f'scale="0.001 0.001 0.001"/>'
             )
         if USE_PART_MESHES:
             for name in _PART_STL_NAMES:
+                # Logical mesh name stays plain (geoms reference mesh="femur_link");
+                # only the on-disk file carries the _DO_NOT_PRINT marker.
                 mesh_lines.append(
-                    f'<mesh name="{name}" file="{name}.stl" '
+                    f'<mesh name="{name}" file="{HP.stl_filename(name)}" '
                     f'scale="0.001 0.001 0.001"/>'
                 )
         mesh_asset_xml = "\n    ".join(mesh_lines)
@@ -464,10 +497,10 @@ def _chassis_visuals_xml() -> str:
             '<geom class="visual" type="cylinder" '
             f'size="{flat_to_flat / math.cos(math.pi / 6):.5f} 0.004" '
             f'euler="0 0 {math.pi / 6:.5f}" material="palette_chassis_top"/>\n'
-            '      <geom class="visual" type="box" size="0.055 0.019 0.014" '
-            'pos="-0.025 0 0.018" material="palette_battery_holder"/>\n'
-            '      <geom class="visual" type="box" size="0.050 0.035 0.003" '
-            'pos="0.035 0 0.021" material="palette_electronics_tray"/>'
+            '      <geom class="visual" type="box" size="0.0525 0.0175 0.0125" '
+            'pos="-0.025 0 0.0125" material="palette_uno_q_tray"/>\n'
+            '      <geom class="visual" type="box" size="0.048 0.040 0.0015" '
+            'pos="0 0 0.040" material="palette_buck_tray"/>'
         )
 
     plate_t = HP.CHASSIS_PLATE_T * M
@@ -482,6 +515,17 @@ def _chassis_visuals_xml() -> str:
     #   battery holder at (-0.025, 0, 0) -- sits ON the bottom plate.
     #   electronics tray at ( 0.035, 0, +0.001) -- sits ON the bottom
     #     plate with 1 mm clearance.
+    # Jun 2026 deck redesign: the clip-in battery_holder + in-gap
+    # electronics_tray are retired.  The LiPo velcro-straps to the
+    # bottom plate's top face; the Uno Q + buck stacked decks bolt onto
+    # 4 columns above chassis_top.  chassis_top's top face (deck z0)
+    # sits at chassis-local z = gap + plate_t/2.
+    deck_z0 = gap + plate_t / 2.0
+    uno_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H * M
+    buck_tray_z = deck_z0 + (HP.DECK_LEVEL_1_STANDOFF_H
+                             + HP.DECK_LEVEL_2_STANDOFF_H) * M
+    lipo_h = 0.025
+    lipo_z = lipo_h / 2.0   # pack bottom on the bottom-plate top face (z=0)
     return (
         f'<geom class="visual" name="chassis_bottom_mesh" type="mesh" '
         f'mesh="chassis_bottom" pos="0 0 {-plate_t:.5f}" '
@@ -489,13 +533,16 @@ def _chassis_visuals_xml() -> str:
         '      <geom class="visual" name="chassis_top_mesh" type="mesh" '
         f'mesh="chassis_top" pos="0 0 {gap:.5f}" '
         f'material="palette_chassis_top"/>\n'
-        '      <geom class="visual" name="battery_holder_mesh" type="mesh" '
-        'mesh="battery_holder" pos="-0.025 0 0" '
-        'material="palette_battery_holder"/>\n'
-        '      <geom class="visual" name="electronics_tray_mesh" type="mesh" '
-        f'mesh="electronics_tray" pos="{HP_ELEC_TRAY_CX_M:.5f} '
-        f'{HP_ELEC_TRAY_CY_M:.5f} 0.001" '
-        'material="palette_electronics_tray"/>'
+        '      <geom class="visual" name="lipo_battery" type="box" '
+        f'size="0.0525 0.0175 {lipo_h / 2.0:.5f}" '
+        f'pos="{HP.BATTERY_HOLDER_CENTRE_X * M:.5f} 0 {lipo_z:.5f}" '
+        'material="palette_uno_q_tray"/>\n'
+        '      <geom class="visual" name="uno_q_tray_mesh" type="mesh" '
+        f'mesh="uno_q_tray" pos="0 0 {uno_tray_z:.5f}" '
+        'material="palette_uno_q_tray"/>\n'
+        '      <geom class="visual" name="buck_tray_mesh" type="mesh" '
+        f'mesh="buck_tray" pos="0 0 {buck_tray_z:.5f}" '
+        'material="palette_buck_tray"/>'
     )
 
 
@@ -538,15 +585,22 @@ def _hip_servo_visual_xml(i: int) -> str:
         return ('        <geom class="visual" type="box" '
                 'pos="0 -0.026 -0.017" size="0.020 0.010 0.019" '
                 'material="palette_servo_body"/>')
-    body_offset = (COXA + HIP_BODY_DX, HIP_BODY_DY, HIP_BODY_DZ)
-    horn_offset = (COXA, 0.0, HIP_DROP)
+    body_offset = (COXA + HIP_BODY_DX, HIP_BODY_DY + HIP_ANCHOR_Y, HIP_BODY_DZ)
+    horn_offset = (COXA, HIP_ANCHOR_Y, HIP_DROP)
     body = _servo_body_geom_xml(
         "visual", body_offset, quat=_PITCH_QUAT, name=f"L{i}_hip_servo",
     )
     horn = _servo_horn_geom_xml(
         "visual", horn_offset, quat=_PITCH_QUAT, name=f"L{i}_hip_horn",
     )
-    return "        " + body + "\n        " + horn
+    # Sandwich-joint clamp cap shares the servo body's well-local frame.
+    cap = _servo_clamp_cap_geom_xml(
+        "visual", body_offset, quat=_PITCH_QUAT, name=f"L{i}_hip_clamp_cap",
+    ) if USE_PART_MESHES else ""
+    out = "        " + body + "\n        " + horn
+    if cap:
+        out += "\n        " + cap
+    return out
 
 
 def _knee_servo_visual_xml(i: int) -> str:
@@ -563,7 +617,13 @@ def _knee_servo_visual_xml(i: int) -> str:
     horn = _servo_horn_geom_xml(
         "visual", horn_offset, quat=_PITCH_QUAT, name=f"L{i}_knee_horn",
     )
-    return "          " + body + "\n          " + horn
+    cap = _servo_clamp_cap_geom_xml(
+        "visual", body_offset, quat=_PITCH_QUAT, name=f"L{i}_knee_clamp_cap",
+    ) if USE_PART_MESHES else ""
+    out = "          " + body + "\n          " + horn
+    if cap:
+        out += "\n          " + cap
+    return out
 
 
 def _coxa_link_visual_xml(i: int) -> str:
@@ -686,7 +746,7 @@ def _leg_xml(i: int, x: float, y: float, z: float, qw: float, qz: float) -> str:
 {coxa_link_xml}
 {hip_servo_xml}
 
-        <body name="L{i}_femur" pos="{COXA:.5f} 0 0">
+        <body name="L{i}_femur" pos="{COXA:.5f} {HIP_ANCHOR_Y:.5f} 0">
           <inertial pos="{FEMUR / 2:.5f} 0 0" mass="{FEMUR_MASS}" diaginertia="0.00008 0.00022 0.00022"/>
           <joint name="L{i}_pitch" type="hinge" axis="0 1 0" range="-1.40 0.52"/>
 {femur_link_xml}

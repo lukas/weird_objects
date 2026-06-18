@@ -1,4 +1,10 @@
 part,copy,x_mm,y_mm,rotate_z_deg
-tibia_link.stl,1,-85.0,-128.0,0
-femur_link.stl,1,61.5,-125.0,0
-coxa_link.stl,1,-131.5,-81.0,0
+femur_knee_bracket.stl,1,-74.3,-93.4,0
+yaw_servo_retainer.stl,1,7.5,-104.0,0
+coxa_hip_bracket.stl,1,80.7,-97.4,0
+servo_clamp_cap.stl,1,4.7,-67.9,0
+servo_clamp_cap.stl,2,73.7,-53.9,0
+femur_hip_yoke.stl,1,-86.0,-36.4,0
+tibia_knee_yoke.stl,1,-21.0,-14.4,0
+coxa_yaw_hub.stl,1,39.8,-3.2,0
+tibia_foot_fitting.stl,1,92.0,-21.0,0

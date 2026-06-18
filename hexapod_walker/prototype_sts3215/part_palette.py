@@ -36,10 +36,16 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "chassis_top":         (0.122, 0.467, 0.706),
     # Chassis "B" (bottom plate) - lighter sibling of chassis_top
     "chassis_bottom":      (0.475, 0.690, 0.882),
-    # Battery holder - tab:purple
-    "battery_holder":      (0.580, 0.404, 0.741),
-    # Electronics tray - tab:olive
-    "electronics_tray":    (0.737, 0.741, 0.133),
+    # Uno Q tray (lower electronics deck) - tab:purple
+    "uno_q_tray":          (0.580, 0.404, 0.741),
+    # Buck-converter tray (upper electronics deck) - tab:olive
+    "buck_tray":           (0.737, 0.741, 0.133),
+    # Arduino Uno Q board visual - muted green PCB
+    "uno_q":               (0.106, 0.478, 0.239),
+    # XINGYHENG buck converter board visual - copper/orange
+    "buck_converter":      (0.710, 0.396, 0.114),
+    # Sandwich-joint servo clamp cap - tab:gray-blue
+    "servo_clamp_cap":     (0.290, 0.565, 0.851),
     # Coxa link - tab:green
     "coxa_link":           (0.173, 0.627, 0.173),
     # Femur link - tab:red
@@ -99,7 +105,7 @@ PART_COLORS["chassis_plate_b"] = PART_COLORS["chassis_bottom"]
 _CHASSIS_LEVEL = frozenset({
     "chassis_top", "chassis_bottom",
     "chassis_plate_a", "chassis_plate_b",
-    "battery_holder", "electronics_tray",
+    "uno_q_tray", "buck_tray", "uno_q", "buck_converter",
 })
 
 

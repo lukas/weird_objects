@@ -109,7 +109,7 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
 
     arm_t = 6.0
     hip_drop = HP.COXA_HIP_DROP
-    hip_joint_local = np.array([HP.COXA_LENGTH, 0.0, hip_drop])
+    hip_joint_local = np.array(HP.COXA_HIP_ANCHOR)
     # NEW (May 2026 collinear-pad refactor): femur / tibia local
     # origins are pad mating faces, +HORN_STACK_H above the joint
     # axis along link +Y; the whole leg translates +HORN_STACK_H in
@@ -161,7 +161,7 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
     hip_servo.apply_transform(R_hip)
     hip_servo.apply_translation([
         HP.COXA_LENGTH - HP.SERVO_OUTPUT_X,
-        -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H),
+        -(HP.SERVO_BODY_H + HP.SERVO_OUTPUT_H) + HP.COXA_HIP_ANCHOR_Y,
         hip_drop,
     ])
     to_world(hip_servo)
@@ -170,7 +170,7 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
     # ---- hip horn adapter (disc plane facing leg +Y)
     hip_adapter = HP.make_servo_horn_adapter()
     hip_adapter.apply_transform(R_hip)
-    hip_adapter.apply_translation([HP.COXA_LENGTH, PLASTIC_HORN_H, hip_drop])
+    hip_adapter.apply_translation([HP.COXA_LENGTH, PLASTIC_HORN_H + HP.COXA_HIP_ANCHOR_Y, hip_drop])
     to_world(hip_adapter)
     parts["hip_horn_adapter"] = hip_adapter
 
@@ -263,7 +263,7 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
     # landmarks track the JOINT AXES (lines in world); these are
     # unchanged from pre-refactor and remain on the joint-axis itself,
     # NOT shifted by +HORN_STACK_H.
-    landmarks["hip_joint"] = (R_a_3 @ np.array([HP.COXA_LENGTH, 0.0, hip_drop])
+    landmarks["hip_joint"] = (R_a_3 @ np.array(HP.COXA_HIP_ANCHOR)
                               + yaw_output_world)
     landmarks["knee_joint"] = R_a_3 @ knee_joint_local + yaw_output_world
     landmarks["hinge_pin"] = hinge_world

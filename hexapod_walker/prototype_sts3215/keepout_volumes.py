@@ -158,7 +158,7 @@ def _hip_pad_sweep() -> trimesh.Trimesh:
         radius=hp.HIP_PAD_R,
         height=2.0 * (hp.HORN_STACK_H + hp.LINK_THICKNESS + 2.0),
         axis="y",
-        centre=(hp.COXA_LENGTH, 0.0, hp.COXA_HIP_DROP),
+        centre=(hp.COXA_LENGTH, hp.COXA_HIP_ANCHOR_Y, hp.COXA_HIP_DROP),
     )
 
 
@@ -173,7 +173,7 @@ def _hip_pitch_servo_body_pocket() -> trimesh.Trimesh:
     )
     centre = (
         hp.COXA_LENGTH - hp.SERVO_OUTPUT_X,
-        -(hp.SERVO_BODY_H / 2.0 + hp.SERVO_OUTPUT_H),
+        -(hp.SERVO_BODY_H / 2.0 + hp.SERVO_OUTPUT_H) + hp.COXA_HIP_ANCHOR_Y,
         hp.COXA_HIP_DROP,
     )
     return _box(extents, centre=centre)

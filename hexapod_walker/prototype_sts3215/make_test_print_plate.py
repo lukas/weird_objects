@@ -4,15 +4,21 @@ part to test-print before committing to six full sets.
 Plate contents (one copy of each, oriented for print as defined in
 ``prepare_xometry_upload.PART_REGISTRY``):
 
-    - coxa_link.stl      (rotates on yaw axis, carries the hip servo)
-    - femur_link.stl     (rotates on hip-pitch axis, carries the knee servo)
-    - tibia_link.stl     (rotates on knee axis, ends in the foot socket)
+    - coxa_yaw_hub.stl       (yaw turntable hub; rides the spaced 6706 pair)
+    - coxa_hip_bracket.stl   (bolts on the hub; carries the hip servo)
+    - femur_hip_yoke.stl     (hip moving yoke + Ø8 CF-tube socket)
+    - femur_knee_bracket.stl (knee fixed side + CF-tube socket)
+    - tibia_knee_yoke.stl    (knee moving yoke + CF-tube socket)
+    - tibia_foot_fitting.stl (CF-tube socket + foot hinge tang)
 
-These are the three printed parts that define a single LEG -- once a
-plate prints clean and a real servo seats correctly in each of the
-hip-pitch + knee cradles AND the femur + tibia hinge together, you've
-validated the whole leg subassembly and can commit to printing all 6
-copies.  May 2026: the standalone ``coxa_bracket`` was retired -- the
+These are the printed parts that define a single LEG in the bearing-
+sandwich design (Jun 2026): the femur and tibia SEGMENTS themselves are
+bought Ø8 carbon-fibre tubes, so they are NOT on this plate -- only the
+printed end fittings are.  Once a plate prints clean and a real servo
+seats correctly in each cradle AND the fittings socket onto a test
+length of CF tube, you've validated the whole leg subassembly and can
+commit to printing all 6 copies.  May 2026: the standalone
+``coxa_bracket`` was retired -- the
 yaw servo now drops INTO an integrated cradle inside ``chassis_bottom``,
 so testing the yaw mount requires printing one full chassis_bottom (see
 ``make_bambu_x1_trays.py`` for the chassis plate).
@@ -65,9 +71,16 @@ _H2D = btc.TrayPrinterConfig(
 
 
 _REQUESTS = [
-    ("coxa_link.stl", 1),
-    ("femur_link.stl", 1),
-    ("tibia_link.stl", 1),
+    ("coxa_yaw_hub.stl", 1),
+    ("coxa_hip_bracket.stl", 1),
+    ("femur_hip_yoke.stl", 1),
+    ("femur_knee_bracket.stl", 1),
+    ("tibia_knee_yoke.stl", 1),
+    ("tibia_foot_fitting.stl", 1),
+    ("yaw_servo_retainer.stl", 1),
+    # 2 clamp caps: one for the hip-pitch cradle (coxa_link), one for the
+    # knee cradle (femur_knee_bracket), so a test leg can seat real servos.
+    ("servo_clamp_cap.stl", 2),
 ]
 
 

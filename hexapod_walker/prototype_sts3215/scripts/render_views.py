@@ -316,7 +316,7 @@ def render_all(*, stl_dir: str = STL_DIR,
         os.path.splitext(p)[0]
         for p in os.listdir(stl_dir)
         if p.endswith(".stl") and not p.startswith("_")
-        and p not in ("assembly_preview.stl",)
+        and p not in ("assembly_preview_DO_NOT_PRINT.stl",)
     )
     results = []
     for name in parts:

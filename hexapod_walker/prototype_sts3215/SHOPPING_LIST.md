@@ -11,7 +11,7 @@ nested sandwich joint).
 
 This is the everything-you-need-to-buy-and-print sheet. Numbers are
 sized for **one complete walking robot** with a small spare margin
-(~ 10% on fasteners, +2 servos, +1 BEC).
+(~ 10% on fasteners, +2 servos).
 
 ---
 
@@ -24,10 +24,11 @@ exactly as the generator writes them.
 |---|---|---:|---|---|---:|---:|---:|---|
 | 1 | `chassis_top.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 4 | ~ 2 h | Identical to bottom |
 | 2 | `chassis_bottom.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 4 | ~ 2 h | Identical to top |
-| 3 | `battery_holder.stl` | **1** | PLA / PETG | 0.2 mm | 20% gyroid | 3 | ~ 1.5 h | LiPo tray |
-| 4 | `electronics_tray.stl` | **1** | PLA / PETG | 0.2 mm | 20% gyroid | 2 | ~ 2 h | Deck for the Raspberry Pi 4/5 + the FE-URT-1/Waveshare bus adapter (STS3215 serial bus — no Arduino, no PCA9685). |
+| 3 | `uno_q_tray.stl` | **1** | PLA / PETG | 0.2 mm | 20% gyroid | 3 | ~ 1.5 h | Lower deck — Arduino Uno Q (brain + direct STS3215 TTL bus driver). Stacks on 4 M3 standoff columns above chassis_top at `DECK_LEVEL_1_STANDOFF_H` (16 mm). |
+| 4 | `buck_tray.stl` | **1** | PLA / PETG | 0.2 mm | 20% gyroid | 2 | ~ 1.5 h | Upper deck — XINGYHENG 12V→5V buck converter. Stacks on the uno_q_tray columns at `DECK_LEVEL_2_STANDOFF_H` (22 mm). |
 | 4b | `switch_holster.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 3 | ~ 0.3 h | Snap-in holster for anti-spark on/off switch.  Bolts to chassis_top's +X edge via 2 x M3 x 10 SHCS into 2 chassis_top heat-set inserts. |
 | 4c | `imu_pad.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 3 | ~ 0.2 h | 25 x 20 mm IMU mounting pad with 4 M3 heat-set insert bosses on the GY-521 15 x 11 mm hole pattern.  No fasteners between pad and chassis_top -- the pad is foam-taped to the chassis_top centre for vibration isolation. |
+| 4d | `servo_clamp_cap.stl` | **12** | MJF PA12 (PLA OK) | 0.2 mm | solid | 3 | ~ 0.2 h ea | Sandwich-joint clamp cap — 1 per hip + knee joint (2 per leg x 6 legs). Bolts to the cradle ±X wall ends with 2 x M3 x 8 SHCS self-tapping into the cradle pilots. |
 | 5 | `coxa_link.stl` | **6** | PLA / PETG | 0.2 mm | 30% gyroid | 4 | ~ 4 h total | Yaw pad + arm + hip fixed side (servo bracket + 688 bearing housing). Yaw-pad face down on the bed; the bracket opens UP. |
 | 6 | `femur_hip_yoke.stl` | **6** | PLA / PETG | 0.2 mm | 35% gyroid | 4 | ~ 4 h total | Hip moving yoke (disc-horn top arm + bearing stub) + Ø8 CF-tube socket. Print spine-down. |
 | 7 | `femur_knee_bracket.stl` | **6** | PLA / PETG | 0.2 mm | 35% gyroid | 4 | ~ 4 h total | Knee fixed side (servo bracket + 688 bearing housing) + Ø8 CF-tube socket. |
@@ -97,26 +98,25 @@ link is gear stripping during tuning).
 
 | Qty | Part | Why | Search link |
 |---:|---|---|---|
-| 1 | **3S 2200 mAh LiPo, 25C+, XT60 connector** | 11.1 V nominal, ~ 30 min run time. "Zeee", "OVONIC", "CNHL", or "Tattu" are all fine. | [Amazon search: "3S 2200mAh 25C lipo XT60"](https://www.amazon.com/s?k=3S+2200mAh+25C+lipo+XT60) |
-| 2 | **5 V 5 A switching BEC, 2S–4S input** | Two BECs split the 18-servo current draw; "Hobbywing 5A UBEC", "Castle Creations 10A SBEC", "Skyrc UBEC" all work. Order 2 (one per PCA9685) — single-BEC will brown out during tripod swing. | [Amazon search: "5V 5A UBEC switching"](https://www.amazon.com/s?k=5V+5A+UBEC+switching) |
+| 1 | **3S 2200 mAh LiPo, 25C+, XT60 connector** | 11.1 V nominal, ~ 30 min run time. "Zeee", "OVONIC", "CNHL", or "Tattu" are all fine. Velcro-strapped to the top of chassis_bottom in the inter-plate gap. | [Amazon search: "3S 2200mAh 25C lipo XT60"](https://www.amazon.com/s?k=3S+2200mAh+25C+lipo+XT60) |
+| 1 | **Velcro hook-and-loop cinch straps (~ 15–20 mm wide)** | Loop through the chassis_bottom velcro-strap slots that straddle the battery footprint to retain the LiPo on the plate top face (replaces the old clip-in `battery_holder`). | [Amazon search: "velcro cinch straps 15mm"](https://www.amazon.com/s?k=velcro+cinch+straps+15mm) |
 | 1 | **iSDT D2 / SkyRC B6 / HOTA D6 — any 3S balance charger** | Don't cheap out on charging — this is the fire-risk part of the build. | [Amazon search: "3S lipo balance charger"](https://www.amazon.com/s?k=3S+lipo+balance+charger) |
 | 1 | **LiPo safety bag (medium)** | Charge AND store inside this. $8. | [Amazon search: "lipo safety bag fireproof"](https://www.amazon.com/s?k=lipo+safety+bag+fireproof) |
-| 2 | **XT60 pigtail (M and F, with silicone wire)** | One on the battery cable, one to feed the BEC pair through a switch. | [Amazon search: "XT60 pigtail 12awg"](https://www.amazon.com/s?k=XT60+pigtail+12awg) |
+| 2 | **XT60 pigtail (M and F, with silicone wire)** | One on the battery cable, one to feed the servo rail + buck converter through the anti-spark switch. | [Amazon search: "XT60 pigtail 12awg"](https://www.amazon.com/s?k=XT60+pigtail+12awg) |
 | 1 | **Anti-spark on/off switch with XT60 ends** | Hard cut-off so you don't have to unplug the LiPo every time. The "anti-spark" variant has a precharge resistor so you don't pop the switch the first time you connect. | [Amazon search: "rc lipo anti-spark switch xt60"](https://www.amazon.com/s?k=rc+lipo+anti-spark+switch+xt60) |
 
 ### B.3 Control electronics
 
 | Qty | Part | Why | Search link |
 |---:|---|---|---|
-| 1 | **Arduino Mega 2560 (ELEGOO R3 clone is fine)** | Servo-bridge firmware host.  Need 18 PWM channels + I²C bus. Mega has both. The Uno does *not* have enough hardware PWM, but you don't need hardware PWM because the PCA9685 is generating the PWM. Mounts onto the `electronics_tray` via 4 × M3 brass heat-set inserts + 4 × M3 × 8 mm SHCS (next two rows in §B.4); bolt pattern is the published Arduino Mega 2560 R3 footprint (2.54/15.24, 50.8/15.24, 7.62/66.04, 50.8/90.17 mm). | [Amazon search: "Arduino Mega 2560 R3"](https://www.amazon.com/s?k=Arduino+Mega+2560+R3) |
-| 1 | **Raspberry Pi 4 Model B (or Pi 5)** | High-level brain: ROS 2 / Python gait planner + vision + Wi-Fi.  85 x 56 mm board mounts onto the `electronics_tray` via 4 × M2.5 brass heat-set inserts + 4 × M2.5 × 8 mm SHCS (rows in §B.4); the Pi's standard 49 x 58 mm 4-hole pattern fits the tray's `PI_HOLES` bosses 1:1.  Pi 5 has the same mounting footprint; choose either. | [Amazon search: "Raspberry Pi 4 Model B 4GB"](https://www.amazon.com/s?k=Raspberry+Pi+4+Model+B+4GB) |
-| 2 | **PCA9685 16-channel 12-bit PWM driver (I²C)** | Two boards, daisy-chained, give you 32 PWM lines. Adafruit-clone listings are typically $4–6 each. **Both** PCA9685s bolt to the `electronics_tray` via 4 × M3 heat-set inserts + 4 × M3 × 8 mm SHCS each (8 of each total — see §B.4); the secondary daisy-chains over I²C at address 0x41 (jumper). | [Amazon search: "PCA9685 16 channel servo driver"](https://www.amazon.com/s?k=PCA9685+16+channel+servo+driver) |
-| 1 | **MPU-6050 IMU breakout (GY-521)** | Closed-loop body-attitude control: 3-axis gyro + 3-axis accelerometer over I²C.  PCB is ~ 21.2 × 16.4 × 1.6 mm with 4 × Φ 3.0 mm holes on a 15 × 11 mm pattern; bolts to `imu_pad.stl` via 4 × M3 × 8 SHCS into M3 brass heat-set inserts.  The pad mounts foam-taped to chassis_top centre (NOT to the electronics_tray — see PROTOTYPE.md §"IMU mount"). | [Amazon search: "MPU-6050 GY-521 module"](https://www.amazon.com/s?k=MPU-6050+GY-521+module) |
+| 1 | **Arduino Uno Q** | The whole brain: on-board Linux SoC (Python gait/RL/teleop) + MCU that drives the half-duplex STS3215 TTL bus DIRECTLY — replaces the Raspberry Pi, the Arduino Mega, the 2×PCA9685, AND the separate USB-to-TTL bus adapter. Mounts onto the lower `uno_q_tray` deck via 4 × M3 brass heat-set inserts + 4 × M3 × 8 mm SHCS (rows in §B.4) on the `UNO_Q_HOLES` board pattern. | [Arduino Store: "Uno Q"](https://store.arduino.cc/products/uno-q) |
+| 1 | **XINGYHENG 12V→5V buck converter** | Step-down buck converter (3 A+) that drops the 3S rail to 5 V for the Uno Q (the STS3215 run on the raw 3S rail; the buck is for logic only). Same part as prototype_v1. Mounts onto the upper `buck_tray` deck via 4 × M3 brass heat-set inserts + 4 × M3 × 8 mm SHCS on the `BUCK_HOLES` board pattern. | [Amazon search: "XINGYHENG 12V to 5V buck converter"](https://www.amazon.com/s?k=XINGYHENG+12V+to+5V+buck+converter) |
+| 1 | **MPU-6050 IMU breakout (GY-521)** | Closed-loop body-attitude control: 3-axis gyro + 3-axis accelerometer over I²C.  PCB is ~ 21.2 × 16.4 × 1.6 mm with 4 × Φ 3.0 mm holes on a 15 × 11 mm pattern; bolts to `imu_pad.stl` via 4 × M3 × 8 SHCS into M3 brass heat-set inserts.  The pad mounts foam-taped to chassis_top centre for vibration isolation (see PROTOTYPE.md §"IMU mount"). | [Amazon search: "MPU-6050 GY-521 module"](https://www.amazon.com/s?k=MPU-6050+GY-521+module) |
 | 1 | **Servo extension cables, 30 cm, 3-pin male-female, pack of 20** | The DS3225 stock pigtails are ~ 30 cm and most of the 18 joints reach the PCA on stock pigtail alone; the remainder need ONE 30 cm extension to reach the +X-half PCAs.  The BOM auto-generated by `python -m hexapod_walker.prototype.pi_control.wire_harness_plan` is the source of truth.  As of the May 2026 chassis_bottom-integrated yaw cradle redesign the per-leg yaw run shortened by ~ 62 mm of Manhattan distance (the wire-exit corridor moved from the cradle's +X face to its -X face, putting the harness mouth right next to the leg drop slot), so a few of the previously-required yaw extensions are no longer needed -- re-derive the count from the harness plan output before ordering.  The 20-pack is the cheapest stocking unit and leaves headroom either way. | [Amazon search: "servo extension cable 30cm 20 pack"](https://www.amazon.com/s?k=servo+extension+cable+30cm+20+pack) |
 | 1 | **Nylon zip-ties, 2-3 mm wide x ~ 100 mm long, 100-pack** | 4 per leg = 24 used for harness strain relief: one at each cradle's printed `cable_zip_post` (yaw / hip / knee = 3 per leg) plus one looped through each leg's `chassis_bottom` cable drop slot per leg (each leg's cable drop slot doubles as the zip-tie anchor -- pass a zip-tie through the slot to bundle the per-leg harness).  Plus a few extras for tidying up the inter-plate cable runs.  A standard 100-pack is far more than enough. | [Amazon search: "nylon zip ties 4 inch 100 pack"](https://www.amazon.com/s?k=nylon+zip+ties+4+inch+100+pack) |
 | 1 | **Dupont jumper wire kit (M-F, F-F, M-M, 20 cm)** | I²C, power, IMU wiring. | [Amazon search: "dupont jumper wires 120 pcs"](https://www.amazon.com/s?k=dupont+jumper+wires+120+pcs) |
 | 1 | **Heat-shrink assortment** | Power-side wiring tidy-up. | [Amazon search: "heat shrink tubing assorted"](https://www.amazon.com/s?k=heat+shrink+tubing+assorted) |
-| 1 | **USB-A → USB-B cable, 6 ft** | Programming the Mega. | [Amazon search: "USB A to B cable Arduino"](https://www.amazon.com/s?k=USB+A+to+B+cable+Arduino) |
+| 1 | **USB-C cable, 6 ft** | Flashing / powering / console access to the Arduino Uno Q. | [Amazon search: "USB C cable data"](https://www.amazon.com/s?k=USB+C+cable+data) |
 
 ### B.4 Fasteners — get a kit, not individual sizes
 
@@ -124,13 +124,13 @@ link is gear stripping during tuning).
 |---:|---|---|---|
 | 1 | **M3 socket-head cap screw + nut + washer assortment kit (~ 500 pieces, 6 / 8 / 10 / 12 / 16 / 20 mm lengths, A2 stainless)** | Simpler than buying lengths separately. Use 8 mm for servo tabs, 12 mm for chassis-spacer bolts, 16 mm for coxa-bracket → chassis and **for the 6 foot/tibia hinge pins** (May 2026 inversion: pin now passes through the foot_pad's FORK + tibia's TANG instead of the old tibia-clevis + foot-tongue; same M3 × 16 mm pan-head + nylock, just installed in the opposite direction), 20 mm for the rare longer reach. | [Amazon search: "M3 stainless screw kit assortment"](https://www.amazon.com/s?k=M3+stainless+screw+kit+assortment) |
 | 6 | **M3 × 16 mm pan-head bolts (foot hinge pins)** | One per leg: passes through the foot_pad's +Y fork cheek (3.5 mm), the tibia tang (6 mm), and the foot_pad's -Y fork cheek (3.5 mm) for 13 mm of plastic + ~ 2.6 mm into an M3 nylock nut on the far side.  May 2026 hinge inversion: previously the FORK was on the tibia and the tongue was on the foot; the geometry is now reversed so the tibia can print as a uniform LINK_THICKNESS-wide slab (no supports), but the hinge axis, bolt, and nut are unchanged.  Pan-head sits flatter against the cheek than a socket head.  The M3 assortment above usually covers this if it has 16 mm + pan-head; otherwise buy this row separately. | [Amazon search: "M3 x 16 pan head stainless"](https://www.amazon.com/s?k=M3+x+16+pan+head+stainless) |
-| 1 | **M3 nylon-insert (nyloc) lock nut, ~ 100 pieces** | **10 used** as of the May 2026 tray-mount fix: 6 on the foot-pad hinge pins (one per leg) + 4 UNDER chassis_bottom retaining the brass M-F standoffs' male threads at the rotated-45-deg 35-mm-radius pattern (CHASSIS_STANDOFF_HOLES_XY).  The cradle servo mounts thread into brass heat-set inserts (next row) and do **not** use a nut.  Earlier docs claimed 24 + 6 on a since-retired coxa-bracket flange; that count is obsolete. | [Amazon search: "M3 nyloc lock nut 100 pack"](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
-| 1 | **M3 brass heat-set inserts — McMaster `94459A130`, 100-pack** | **Design E (May 2026, mixed-mode cradle bolts) + tray-mount fix:** the 4 cradle bolts per cradle are split by X sign -- only the 2 -X bolts use a heat-set insert (2 -X × 3 cradles × 6 legs = **36** cradle inserts), and the 2 +X bolts self-tap into a bare Φ 2.5 mm pilot.  Plus 4 battery_holder feet + 8 electronics_tray (4 Mega + 4 primary PCA9685) + 4 electronics_tray (4 secondary PCA9685) + 2 chassis_top (switch_holster mount bosses) + 4 imu_pad (MPU-6050 mount) + **4 chassis_bottom tray-mount bosses (May 2026 tray-mount fix)** = **62** needed.  A 100-pack still gives healthy spares.  Knurled brass M3, Φ 4.0 mm pilot, Φ 5.7 mm OD, 5.0 mm length, ≈ $0.10 ea.  Installed with a soldering iron at ~ 220 °C, light downward pressure, ~ 10–15 s per insert. | [McMaster 94459A130](https://www.mcmaster.com/94459A130/) |
-| 1 | **M2.5 brass heat-set inserts — McMaster `94459A106`, 50-pack** | 4 needed for the Raspberry Pi 4 / Pi 5 mount on the electronics_tray (the Pi's holes are M2.5 clearance, smaller than the Mega's M3 clearance, so a smaller insert is required).  Knurled brass M2.5, Φ 3.0 mm pilot, Φ 3.6 mm OD, 4.0 mm length.  Installed with the same soldering-iron technique as the M3 inserts; the printed Phi 6 mm boss around each pilot leaves a 1.5 mm plastic wall, which is enough for thermal install without slumping. | [McMaster 94459A106](https://www.mcmaster.com/94459A106/) |
-| 1 | **M3 × 32 mm hex round standoffs, M-F brass, set of 20** | Sandwich the chassis plates 32 mm apart with **4** of these on the rotated-45-deg 35-mm-radius pattern (`CHASSIS_STANDOFF_HOLES_XY` = (±35, 0) and (0, ±35)). **May 2026 tray-mount fix:** moved off the (±24.75, ±24.75) tray-mount pattern onto the rotated pattern so the standoff body no longer conflicts with the new heat-set inserts in chassis_bottom's tray-mount bosses.  Earlier May 2026 audit also bumped the length from 25 mm to 32 mm so the 28 mm-tall battery_holder fits between the plates with 4 mm headroom -- whenever `CHASSIS_GAP` in `hexapod_prototype.py` changes, this standoff length MUST change with it. | [Amazon search: "M3 32mm standoffs male female brass"](https://www.amazon.com/s?k=M3+32mm+standoffs+male+female+brass) |
-| 1 | **M3 × 10 mm socket-head cap screws, A2 stainless, ~ 20 pieces** | **10 used:** 4 battery-holder feet (UP through chassis_bottom into the holder's 4 brass inserts) + 2 switch_holster (DOWN through the holster ear's clearance holes into chassis_top's 2 boss inserts) + 4 chassis_top → brass-standoff bolts (DOWN from above chassis_top into the M-F standoff female top threads on the rotated-45-deg 35-mm-radius pattern, May 2026 tray-mount fix).  Stock from the same M3 kit row above is fine, but listed separately because the M3x10 length isn't always in the 6/8/12/16/20 mm mix. | [Amazon search: "M3 10mm SHCS A2 stainless 100 pack"](https://www.amazon.com/s?k=M3+10mm+SHCS+A2+stainless) |
-| 1 | **M3 × 8 mm socket-head cap screws (cradle bolts + electronics_tray board bolts + IMU pad + tray-mount), ~ 100 pieces** | **72 cradle bolts** (4 per cradle × 3 cradles per leg × 6 legs) use this stock under the Design E mixed-mode pattern: 36 of them (the -X bolts) thread into M3 brass heat-set inserts, and 36 of them (the +X bolts) self-tap into a Φ 2.5 mm pilot in plastic.  An additional 12 are driven DOWN through the Mega 2560 (4) + primary PCA9685 (4) + secondary PCA9685 (4) into the M3 brass heat-set inserts in the electronics_tray bosses; 4 more clamp the MPU-6050 PCB onto `imu_pad.stl`'s heat-set inserts; and **4 more (May 2026 tray-mount fix) thread DOWN through the electronics_tray's chassis-mount cbore floor into M3 heat-set inserts in chassis_bottom's tray-mount bosses**.  92 load-bearing + spares -- a 100-pack is the right size. | [Amazon search: "M3 8mm SHCS A2 stainless 100 pack"](https://www.amazon.com/s?k=M3+8mm+SHCS+A2+stainless+100+pack) |
-| 1 | **M2.5 × 8 mm screws (servo horn screws + Raspberry Pi mount), 50-pack** | Comes free with the servos as self-tappers, but a 50-pack of M2.5 × 8 + M2.5 nuts is $5 and saves a trip if you strip one.  May 2026 update: 4 of these are now also load-bearing on the electronics_tray as the Raspberry Pi 4 / Pi 5 board-mount bolts (threading into the M2.5 brass heat-set inserts above). | [Amazon search: "M2.5 8mm screw 50 pack"](https://www.amazon.com/s?k=M2.5+8mm+screw+50+pack) |
+| 1 | **M3 nylon-insert (nyloc) lock nut, ~ 100 pieces** | **14 used (Jun 2026 deck redesign):** 6 on the foot-pad hinge pins (one per leg) + 4 UNDER chassis_bottom retaining the brass M-F standoffs' male threads at the rotated-45-deg 35-mm-radius pattern (CHASSIS_STANDOFF_HOLES_XY) + 4 UNDER chassis_top retaining the lowest deck standoff columns at `DECK_COLUMN_XY` (±41, ±33).  The servo is bolted by 4× M2.5 into its END-face case holes (plus the strap/clamp cap), so no servo-retention nut is used. | [Amazon search: "M3 nyloc lock nut 100 pack"](https://www.amazon.com/s?k=M3+nyloc+lock+nut+100+pack) |
+| 1 | **M3 brass heat-set inserts — McMaster `94459A130`, 100-pack** | **14 used (Jun 2026 deck redesign):** 8 in the printed deck trays for the board-mount bosses (4 `uno_q_tray` for the Arduino Uno Q + 4 `buck_tray` for the buck converter) + 4 imu_pad (MPU-6050 mount) + 2 chassis_top (switch_holster mount bosses).  (The 24 sandwich-joint clamp-cap bolts self-tap and use NO inserts; the 72 M2.5 servo body-retention screws thread directly into the servo's own metal end-face case holes, also no inserts.)  A 100-pack gives plenty of spares.  Knurled brass M3, Φ 4.0 mm pilot, Φ 5.7 mm OD, 5.0 mm length, ≈ $0.10 ea.  Installed with a soldering iron at ~ 220 °C, light downward pressure, ~ 10–15 s per insert. | [McMaster 94459A130](https://www.mcmaster.com/94459A130/) |
+| 1 | **M3 × 32 mm hex round standoffs, M-F brass, set of 20** | Sandwich the chassis plates 32 mm apart with **4** of these on the rotated-45-deg 35-mm-radius pattern (`CHASSIS_STANDOFF_HOLES_XY` = (±35, 0) and (0, ±35)).  Male thread drops DOWN through chassis_bottom's Φ 3.4 mm clearance hole and is captured by an M3 nyloc underneath; female top accepts an M3 × 10 SHCS dropped DOWN from above chassis_top.  Whenever `CHASSIS_GAP` in `hexapod_prototype.py` changes, this standoff length MUST change with it. | [Amazon search: "M3 32mm standoffs male female brass"](https://www.amazon.com/s?k=M3+32mm+standoffs+male+female+brass) |
+| 8 | **M3 deck standoff columns, M-F brass (mixed-length assortment)** | The stacked electronics deck rises on the `DECK_COLUMN_XY` (±41, ±33) pattern above chassis_top: **4 at `DECK_LEVEL_1_STANDOFF_H` (16 mm, chassis_top → `uno_q_tray`)** + **4 at `DECK_LEVEL_2_STANDOFF_H` (22 mm, `uno_q_tray` → `buck_tray`)**.  Lowest column male threads pass through chassis_top and are retained by M3 nyloc nuts underneath; each upper level bolts down with an M3 × 10 SHCS.  An M-F standoff assortment kit covers both lengths. | [Amazon search: "M3 standoff assortment male female brass"](https://www.amazon.com/s?k=M3+standoff+assortment+male+female+brass) |
+| 1 | **M3 × 10 mm socket-head cap screws, A2 stainless, ~ 20 pieces** | **14 used (Jun 2026 deck redesign):** 2 switch_holster (DOWN through the holster ear's clearance holes into chassis_top's 2 boss inserts) + 4 chassis_top → brass-standoff bolts (DOWN from above chassis_top into the M-F standoff female top threads on the rotated-45-deg 35-mm-radius pattern) + **8 deck standoff-column bolts (DOWN through each tray's column bosses into the brass standoff female threads — 4 at `uno_q_tray`, 4 at `buck_tray`)**.  Stock from the same M3 kit row above is fine, but listed separately because the M3x10 length isn't always in the 6/8/12/16/20 mm mix. | [Amazon search: "M3 10mm SHCS A2 stainless 100 pack"](https://www.amazon.com/s?k=M3+10mm+SHCS+A2+stainless) |
+| 1 | **M3 × 8 mm socket-head cap screws (deck board bolts + IMU pad + clamp caps), ~ 50 pieces** | **8 deck board bolts** are driven DOWN through the Arduino Uno Q (4) + buck converter (4) into the M3 brass heat-set inserts in the deck tray bosses; **4 more** clamp the MPU-6050 PCB onto `imu_pad.stl`'s heat-set inserts; and **24 more (Jun 2026 deck redesign) self-tap the 12 `servo_clamp_cap`s** onto the cradle ±X wall-end pilots (2 per hip + knee joint).  36 load-bearing + spares -- a 50-pack covers it.  (Servo body retention uses M2.5 into the servo's END-face case holes -- see the M2.5 row below -- not these M3s.) | [Amazon search: "M3 8mm SHCS A2 stainless 100 pack"](https://www.amazon.com/s?k=M3+8mm+SHCS+A2+stainless+100+pack) |
+| 1 | **M2.5 × 8 mm SHCS (servo body-retention + horn screws), 100-pack** | **72 used** for POSITIVE servo body retention (4 per cradle × 3 cradles × 6 legs): each cradle bolts the servo's real **END-face 10 × 10 mm M2.5 hole square** (measured Waveshare ST3215) through the cradle's −X wall, head recessed in a counterbore, threading into the servo's own metal case — this bolts the servo instead of only gripping it.  The same M2.5 × 8 stock also covers the 18 spline center screws.  A 100-pack gives spares. | [Amazon search: "M2.5 8mm SHCS 100 pack"](https://www.amazon.com/s?k=M2.5+8mm+SHCS+100+pack) |
 
 <!-- BEGIN FASTENERS (auto-generated by scripts/render_fastener_bom.py) -->
 
@@ -142,31 +142,27 @@ Edit the registry (not this table) and re-run `make bom-fasteners`.
 | Spec | McMaster P/N | Qty | Used in |
 |------|--------------|-----|---------|
 | M3x6 SHCS | 91290A111 | 72 | link-to-disc-horn bolts |
+| M2.5 SHCS into servo case | 91290A104 | 72 | cradle servo body-retention bolts (M2.5 into servo end face) |
 | M2.5x8 spline screw | 91290A104 | 18 | servo spline center screws |
-| M2.5x8 SHCS into heat-set insert | 91290A102 | 8 | electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685) |
-| M2.5 heat-set insert | 94459A106 | 8 | electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685) |
-| M3x8 SHCS into heat-set insert | 91290A113 | 8 | electronics_tray chassis-mount bolts (M3 x 8 SHCS into chassis_bottom heat-set insert), imu_pad heat-set inserts (MPU-6050 mount) |
-| M3x10 SHCS | 91290A114 | 10 | battery_holder heat-set inserts, chassis_top brass standoff bolts (M3 x 10 SHCS into standoff female thread), switch_holster heat-set inserts |
-| M3 heat-set insert | 94459A130 | 14 | battery_holder heat-set inserts, chassis_bottom tray-mount heat-set inserts, imu_pad heat-set inserts (MPU-6050 mount), switch_holster heat-set inserts |
+| M3x8 SHCS into heat-set insert | 91290A113 | 12 | deck board-mount bolts (Uno Q + buck, M3 x 8 SHCS into inserts), imu_pad heat-set inserts (MPU-6050 mount) |
+| M3x8 SHCS self-tap | 91290A113 | 24 | sandwich-joint clamp-cap bolts (M3 SHCS self-tap) |
+| M3x10 SHCS | 91290A114 | 14 | chassis_top brass standoff bolts (M3 x 10 SHCS into standoff female thread), deck standoff column bolts (M3 x 10 SHCS into standoff female thread), switch_holster heat-set inserts |
+| M3 heat-set insert | 94459A130 | 14 | deck board-mount heat-set inserts (Uno Q + buck), imu_pad heat-set inserts (MPU-6050 mount), switch_holster heat-set inserts |
 | M3x16 pan-head | 92010A130 | 6 | foot hinge pins |
-| M3 nyloc nut | 90576A102 | 10 | chassis_bottom brass standoff retention nuts, foot hinge pins |
-| M2.5 SHCS into servo case | 91290A104 | 72 | cradle servo mounts (M3 SHCS into heat-set insert) |
-|  |  | **226** | **total fasteners** |
+| M3 nyloc nut | 90576A102 | 14 | chassis_bottom brass standoff retention nuts, deck standoff column retention nuts (M3 nyloc under chassis_top), foot hinge pins |
+|  |  | **246** | **total fasteners** |
 
 Notes:
-- Cradle servo mounts (72 x `M3x8 SHCS into heat-set insert` /
-  `91290A113`) are driven VERTICALLY from above each servo ear and
-  thread into an M3 brass heat-set insert (`94459A130`) installed
-  flush with the boss top.  May 2026 fix: the previous self-tap
-  pilots grazed the cradle wall material at 7 of 12 sites (audit:
-  0.00-1.50 mm of plastic radially); the heat-set switch forces
-  Phi 8 mm bosses around every pilot and gives real metal threads.
-- Heat-set inserts (72 x `94459A130`) are installed BEFORE the
-  servo cradle is mated to its neighbour: heat the insert with a
-  soldering iron at ~220 deg C, drop it into the printed Phi 4 mm
-  x 6 mm pocket, apply light downward pressure for ~10-15 s until
-  the knurl displaces plastic into the boss wall, then cool ~30 s
-  before threading the M3 x 8 SHCS in.
+- The servo OUTPUT face is reserved for the flush 20 mm disc
+  horn (no front-face mounting).  POSITIVE body retention bolts
+  into the servo's REAL END-face M2.5 holes: each STS3215 +/-X end
+  face carries a 10 x 10 mm square of 4 M2.5 case holes (measured
+  Waveshare ST3215), and every cradle drives 4 x M2.5 x 8 SHCS
+  through its -X wall into that square (`91290A104`, 4 per cradle
+  x 3 cradles x 6 legs = 72; head recessed in a wall counterbore,
+  threads into the servo's own metal case).  This positively bolts
+  the servo instead of only gripping it; the hip/knee clamp cap
+  and the yaw retainer strap are retained as secondary capture.
 - Link-to-disc-horn bolts (72 x M3x6 SHCS / `91290A111`) thread
   into the 20 mm aluminum 25T disc horn's M3 TAPPED holes on a
   14 mm bolt circle (cross pattern at 0/90/180/270 deg); the
@@ -181,7 +177,7 @@ Notes:
   the May 2026 chassis_bottom-integrated yaw cradle redesign --
   the printed bracket flange they clamped is gone, replaced by
   per-leg cradle bosses inside chassis_bottom.
-- The M2.5 spline center screw ships with each DS3225-class servo --
+- The M2.5 spline center screw ships with each STS3215 servo --
   it's listed here so the screwdriver-access verifier check knows the
   fastener exists, but you do NOT order it separately.
 - See `fasteners/README.md` for the McMaster STEP swap-in flow if you
@@ -200,7 +196,7 @@ Notes:
 
 | Qty | Part | Why | Search link |
 |---:|---|---|---|
-| 1 | **Soldering iron + flux + 60/40 solder** | If you don't have one. PCA9685 boards usually need their headers soldered in. | [Amazon search: "soldering iron kit beginner"](https://www.amazon.com/s?k=soldering+iron+kit+beginner) |
+| 1 | **Soldering iron + flux + 60/40 solder** | Required to install the M3 brass heat-set inserts in the deck trays / imu_pad / switch_holster bosses (and any header soldering). | [Amazon search: "soldering iron kit beginner"](https://www.amazon.com/s?k=soldering+iron+kit+beginner) |
 | 1 | **Hex (Allen) key set, 1.5 / 2 / 2.5 / 3 / 4 mm** | M3 cap screws need 2.5 mm, M2.5 needs 2 mm. | [Amazon search: "hex key set metric ball end"](https://www.amazon.com/s?k=hex+key+set+metric+ball+end) |
 | 1 | **Cyanoacrylate (super-glue) 20 g** | Glue the rubber sleeve into the foot pad cup. | [Amazon search: "super glue gel"](https://www.amazon.com/s?k=super+glue+gel) |
 | 1 | **Inner-tube section** (or skateboard-tape strip) | Foot tread. Cut a circle from a bicycle inner tube and CA-glue inside `foot_pad.stl`'s cup. | n/a — old bicycle tube |
@@ -212,17 +208,17 @@ Notes:
 
 | Bucket | Cost (USD, mid-2026) |
 |---|---:|
-| 20 × DS3225 servos | $260 |
-| Battery + 2 × BEC + charger + bag + cables | $80 |
-| Arduino Mega + Raspberry Pi 4 + 2 × PCA9685 + IMU + servo cables + jumpers | $100 |
-| Fasteners (M3 kit + nylocs + standoffs) | $25 |
-| Filament (PLA 1 kg + TPU 250 g) | $25 |
+| 20 × STS3215 serial-bus servos | $360–$500 |
+| Battery + charger + bag + cables + velcro | $70 |
+| Arduino Uno Q + XINGYHENG buck converter + IMU + servo cables + jumpers | $90 |
+| Fasteners (M3 kit + nylocs + chassis standoffs + 8 deck columns) | $30 |
+| Filament (PLA 1 kg + TPU 250 g) + 12 × MJF servo_clamp_cap | $40 |
 | Soldering iron / hex keys / glue (if you don't have them) | $30 |
-| **Total** | **~ $470** |
+| **Total** | **~ $620–$760** |
 
-The cost assumes DS3225 servos. Cheaper servos are intentionally not
-listed here because they change the risk profile and may not fit the
-printed wells without regenerating the STLs.
+The cost assumes STS3215 serial-bus servos. Cheaper servos are
+intentionally not listed here because they change the risk profile and
+may not fit the printed wells without regenerating the STLs.
 
 ---
 
@@ -238,7 +234,7 @@ leg on the servo before committing the chassis plates.
    it should slide straight in through the slot from the +Y side
    with finger pressure. If it binds, sand the slot lightly.
 4. **6 × `tibia_link.stl`** — 4 hours.
-5. **`chassis_top.stl` + `chassis_bottom.stl` + `battery_holder.stl` + `electronics_tray.stl`** — 6 hours (single bed for the small parts, separate bed for each chassis plate).
+5. **`chassis_top.stl` + `chassis_bottom.stl` + `uno_q_tray.stl` + `buck_tray.stl` + `switch_holster.stl` + `imu_pad.stl`** — 6 hours (single bed for the small parts, separate bed for each chassis plate).
 6. **6 × `foot_pad.stl`** in TPU — 1 hour.
 
 After step 3 you can start mounting the yaw servos in the coxa

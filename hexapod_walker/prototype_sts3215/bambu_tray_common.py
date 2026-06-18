@@ -152,9 +152,10 @@ def _pack_hardware(
         # disc horn that seats on the servo spline).  No more 18 x
         # adapter discs on the hardware plates.
         requests = [
-            ("battery_holder.stl", 1),
-            ("electronics_tray.stl", 1),
-            ("coxa_link.stl", 6),
+            ("uno_q_tray.stl", 6),
+            ("buck_tray.stl", 6),
+            ("coxa_yaw_hub.stl", 6),
+            ("coxa_hip_bracket.stl", 6),
         ]
 
     expanded: list[tuple[PartSpec, int]] = []
@@ -208,21 +209,10 @@ def _pack_hardware(
     return items
 
 
-def _battery_and_electronics_row(cfg: TrayPrinterConfig,
-                                  parts: dict[str, PartSpec]) -> list[LayoutItem]:
-    """Side-by-side layout for the two tray-like body parts."""
-    bat = parts["battery_holder.stl"]
-    et = parts["electronics_tray.stl"]
-    mb = _oriented_mesh(bat, 0)
-    me = _oriented_mesh(et, 0)
-    gap = cfg.part_clearance_mm
-    total_w = float(mb.extents[0]) + gap + float(me.extents[0])
-    x_bat = -total_w / 2.0 + float(mb.extents[0]) / 2.0
-    x_et = total_w / 2.0 - float(me.extents[0]) / 2.0
-    return [
-        _instance(bat, 1, x_bat, 0.0, 0),
-        _instance(et, 1, x_et, 0.0, 0),
-    ]
+# Jun 2026 deck redesign: ``_battery_and_electronics_row`` (the old
+# side-by-side battery_holder + electronics_tray layout) is retired
+# along with those two parts; the stacked Uno Q + buck decks each get
+# their own bottom-left-packed plate in ``build_plate_plans``.
 
 
 # Design B (May 2026): the printed servo_horn_adapter has been retired.
@@ -260,6 +250,96 @@ def _make_plate_mesh(cfg: TrayPrinterConfig, plan: PlatePlan) -> trimesh.Trimesh
     return combined
 
 
+def _pack_into_plates(
+    cfg: TrayPrinterConfig,
+    parts: dict[str, PartSpec],
+    requests: list[tuple[str, int]],
+) -> list[list[LayoutItem]]:
+    """Bottom-left pack ``requests`` onto one or more plates.
+
+    Like ``_pack_hardware`` but, instead of raising when the bed fills
+    up, it SPILLS the remaining parts onto a fresh plate.  Returns one
+    inner item-list per plate.  On the big H2D bed everything fits on a
+    single plate (one inner list); on the 256 mm X1 bed the larger
+    redesigned coxa/femur hardware automatically overflows onto a
+    second (suffixed) plate.
+    """
+    expanded: list[tuple[PartSpec, int]] = []
+    for filename, qty in requests:
+        expanded.extend((parts[filename], i) for i in range(1, qty + 1))
+    expanded.sort(key=lambda entry: max(_footprint(entry[0], 0)), reverse=True)
+
+    bx, by = cfg.bed_x_mm, cfg.bed_y_mm
+    m = cfg.edge_margin_mm
+    min_x = -bx / 2.0 + m
+    max_x = bx / 2.0 - m
+    min_y = -by / 2.0 + m
+    max_y = by / 2.0 - m
+    step = 1.0 if cfg.slug == "x1" else 2.0
+    pad = cfg.part_clearance_mm
+
+    plates: list[list[LayoutItem]] = []
+    used: list[tuple[float, float, float, float]] = []
+    items: list[LayoutItem] = []
+
+    def _try_place(part: PartSpec, copy_index: int) -> bool:
+        for y in _frange(min_y, max_y, step):
+            for x in _frange(min_x, max_x, step):
+                for rotate_z_deg in (0, 90):
+                    w, h = _footprint(part, rotate_z_deg)
+                    if x + w > max_x or y + h > max_y:
+                        continue
+                    rect = (x, y, x + w + pad, y + h + pad)
+                    if any(_rectangles_intersect(rect, other) for other in used):
+                        continue
+                    used.append(rect)
+                    items.append(_instance(part, copy_index,
+                                           x + w / 2.0, y + h / 2.0,
+                                           rotate_z_deg))
+                    return True
+        return False
+
+    for part, copy_index in expanded:
+        if _try_place(part, copy_index):
+            continue
+        # Bed is full -- flush the current plate and start a new one.
+        if not items:
+            raise RuntimeError(
+                f"{cfg.slug}: {part.filename} copy {copy_index} does not fit "
+                f"on an empty plate ({bx:.0f} x {by:.0f} mm bed)"
+            )
+        plates.append(items)
+        used = []
+        items = []
+        if not _try_place(part, copy_index):
+            raise RuntimeError(
+                f"{cfg.slug}: {part.filename} copy {copy_index} does not fit "
+                f"on an empty plate ({bx:.0f} x {by:.0f} mm bed)"
+            )
+    if items:
+        plates.append(items)
+    return plates
+
+
+def _hardware_plates(
+    cfg: TrayPrinterConfig,
+    parts: dict[str, PartSpec],
+    base_name: str,
+    material: str,
+    requests: list[tuple[str, int]],
+) -> list[PlatePlan]:
+    """Build 1+ PlatePlans for a hardware request list, auto-splitting
+    across plates (``base_name`` + ``_a``/``_b``/... suffix) when the
+    parts overflow the bed."""
+    plate_item_lists = _pack_into_plates(cfg, parts, requests)
+    if len(plate_item_lists) == 1:
+        return [PlatePlan(base_name, material, tuple(plate_item_lists[0]))]
+    return [
+        PlatePlan(f"{base_name}_{chr(ord('a') + i)}", material, tuple(items))
+        for i, items in enumerate(plate_item_lists)
+    ]
+
+
 def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
     parts = _part_specs()
     chassis_top = parts["chassis_top.stl"]
@@ -293,57 +373,47 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
     #   tibia  = tibia_knee_yoke + Ø8 CF tube + tibia_foot_fitting + foot_pad
     # Each fitting is small and blocky, so it bottom-left packs onto a
     # shared plate per leg segment rather than getting a one-per-row plate.
-    plans.append(PlatePlan(
-        "plate_03_rigid_coxa_links",
-        "PLA/PETG rigid",
-        tuple(_pack_hardware(cfg, parts, requests=[("coxa_link.stl", 6)])),
+    plans.extend(_hardware_plates(
+        cfg, parts, "plate_03_rigid_coxa_links", "PLA/PETG rigid",
+        requests=[
+            ("coxa_yaw_hub.stl", 6),
+            ("coxa_hip_bracket.stl", 6),
+            ("yaw_servo_retainer.stl", 6),
+            # 6 hip-pitch clamp caps (the other 6 ride the femur plate).
+            ("servo_clamp_cap.stl", 6),
+        ],
     ))
-    plans.append(PlatePlan(
-        "plate_04_rigid_femur_sockets",
-        "PLA/PETG rigid",
-        tuple(_pack_hardware(cfg, parts, requests=[
+    plans.extend(_hardware_plates(
+        cfg, parts, "plate_04_rigid_femur_sockets", "PLA/PETG rigid",
+        requests=[
             ("femur_hip_yoke.stl", 6),
             ("femur_knee_bracket.stl", 6),
-        ])),
+            # 6 knee clamp caps (pairs with each femur_knee_bracket cradle).
+            ("servo_clamp_cap.stl", 6),
+        ],
     ))
-    plans.append(PlatePlan(
-        "plate_05_rigid_tibia_sockets",
-        "PLA/PETG rigid",
-        tuple(_pack_hardware(cfg, parts, requests=[
+    plans.extend(_hardware_plates(
+        cfg, parts, "plate_05_rigid_tibia_sockets", "PLA/PETG rigid",
+        requests=[
             ("tibia_knee_yoke.stl", 6),
             ("tibia_foot_fitting.stl", 6),
-        ])),
+        ],
     ))
 
-    if cfg.split_hardware_plate:
-        # May 2026 (electronics-tray expansion): the tray grew to
-        # 160x130 mm to carry Mega + Pi + PCA9685, so the old
-        # battery_holder + electronics_tray side-by-side row no longer
-        # fits on the X1's 256 mm-wide bed (118 + 5 + 160 = 283 mm).
-        # The two body trays now get one plate each on the small bed.
-        bat = parts["battery_holder.stl"]
-        et = parts["electronics_tray.stl"]
-        plans.extend([
-            PlatePlan(
-                "plate_06a_rigid_battery_holder",
-                "PLA/PETG rigid",
-                (_instance(bat, 1, 0.0, 0.0, 0),),
-            ),
-            PlatePlan(
-                "plate_06b_rigid_electronics_tray",
-                "PLA/PETG rigid",
-                (_instance(et, 1, 0.0, 0.0, 0),),
-            ),
-        ])
-    else:
-        plans.append(PlatePlan(
-            "plate_06_rigid_body_hardware",
-            "PLA/PETG rigid",
-            tuple(_pack_hardware(cfg, parts, requests=[
-                ("battery_holder.stl", 1),
-                ("electronics_tray.stl", 1),
-            ])),
-        ))
+    # Jun 2026 deck redesign: the clip-in battery_holder + the in-gap
+    # electronics_tray are retired.  The stacked electronics decks
+    # (Uno Q lower tray + buck upper tray, 96 x 80 mm each) are printed
+    # 6 each so a build can stock spares of both small decks.  Each
+    # deck type gets its own plate so the bottom-left pack stays simple
+    # on both the 256 mm X1 bed and the 350 mm H2D bed.
+    plans.extend(_hardware_plates(
+        cfg, parts, "plate_06_rigid_uno_q_trays", "PLA/PETG rigid",
+        requests=[("uno_q_tray.stl", 6)],
+    ))
+    plans.extend(_hardware_plates(
+        cfg, parts, "plate_07_rigid_buck_trays", "PLA/PETG rigid",
+        requests=[("buck_tray.stl", 6)],
+    ))
 
     plans.append(PlatePlan(
         "plate_07_tpu_foot_pads",

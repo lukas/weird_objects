@@ -109,18 +109,20 @@ def _carbon_tube() -> "HP.trimesh.Trimesh":
 
 
 # (mesh_id, filename, builder, color, role, focus group)
+# Bought (COTS) reference meshes get the loud _DO_NOT_PRINT suffix; only the
+# printed testfit parts (housing, yoke) keep a plain printable filename.
 PARTS = [
-    ("servo_body", "servo_body.stl", _servo_body, "#2e2e33",
+    ("servo_body", "servo_body_DO_NOT_PRINT.stl", _servo_body, "#2e2e33",
      "STS3215 servo (real FEETECH geometry, fixed)", "joint"),
     ("housing", "housing.stl", lambda: TF.make_testfit_cradle(back_bearing=True),
      "#ff7f0e", "printed housing: front M2 plate + back bearing pocket", "joint"),
-    ("disc_horn", "disc_horn.stl", _disc_horn, "#b6b6bd",
+    ("disc_horn", "disc_horn_DO_NOT_PRINT.stl", _disc_horn, "#b6b6bd",
      "driven Phi20 disc horn (output side)", "joint"),
-    ("bearing_688", "bearing_688.stl", _bearing, "#5b6b7a",
+    ("bearing_688", "bearing_688_DO_NOT_PRINT.stl", _bearing, "#5b6b7a",
      "688-2RS ball bearing (passive side)", "joint"),
     ("yoke", "yoke.stl", TF.make_testfit_yoke, "#2ca02c",
      "moving yoke: top->horn, bottom stub->bearing", "joint"),
-    ("carbon_tube", "carbon_tube.stl", _carbon_tube, "#1a1a1a",
+    ("carbon_tube", "carbon_tube_DO_NOT_PRINT.stl", _carbon_tube, "#1a1a1a",
      "Phi 8 carbon-fibre leg segment", "joint"),
 ]
 
