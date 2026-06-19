@@ -75,6 +75,7 @@ PALETTE = {
     "yaw_servo": "#2e2e33", "hip_servo": "#3a3a40", "knee_servo": "#46464d",
     "chassis_bottom": "#79b0e1", "chassis_top": "#5b8fc7",
     "uno_q_tray": "#9467bd", "buck_tray": "#bcbd22",
+    "spider_carapace": "#23232a",
     "uno_q": "#1b7a3d", "buck_converter": "#b5651d",
     "lipo_battery": "#d62728",
     "hip_clamp_cap": "#4a90d9", "knee_clamp_cap": "#4a90d9",
@@ -89,6 +90,7 @@ ROLE = {
     "yaw_servo": "motor", "hip_servo": "motor", "knee_servo": "motor",
     "chassis_bottom": "chassis", "chassis_top": "chassis",
     "uno_q_tray": "electronics", "buck_tray": "electronics",
+    "spider_carapace": "chassis",
     "uno_q": "electronics", "buck_converter": "electronics",
     "lipo_battery": "electronics",
     "hip_clamp_cap": "frame", "knee_clamp_cap": "frame",
@@ -251,10 +253,18 @@ def _body_parts(chassis_lift: float) -> list[tuple[str, trimesh.Trimesh]]:
     buck = HP.make_buck_converter_visual()
     buck.apply_translation([0, 0, buck_tray_z + HP.DECK_TRAY_T + HP.DECK_STANDOFF_BOSS_H])
 
+    # Spider carapace dome bolts on as a 3rd deck level above the buck tray.
+    carapace_z = (deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H
+                  + HP.DECK_LEVEL_2_STANDOFF_H
+                  + HP.DECK_LEVEL_3_STANDOFF_H)
+    carapace = HP.make_spider_carapace()
+    carapace.apply_translation([0, 0, carapace_z])
+
     return [("chassis_bottom", bot), ("chassis_top", top),
             ("lipo_battery", lipo),
             ("uno_q_tray", uno_tray), ("buck_tray", buck_tray),
-            ("uno_q", uno), ("buck_converter", buck)]
+            ("uno_q", uno), ("buck_converter", buck),
+            ("spider_carapace", carapace)]
 
 
 def main(single_leg: bool = False) -> None:

@@ -1,0 +1,812 @@
+{
+  "scene": "scene.json",
+  "generatedBy": "buildviz_checks.py (generic prototype)",
+  "config": {
+    "overlapMm3": 100.0,
+    "pitchMm": 1.5
+  },
+  "results": [
+    {
+      "check": "scene_meta",
+      "pass": true,
+      "detail": "manifest OK",
+      "offenders": []
+    },
+    {
+      "check": "placement",
+      "pass": true,
+      "detail": "289 instances placed sanely",
+      "offenders": []
+    },
+    {
+      "check": "mesh_overlap",
+      "pass": false,
+      "detail": "37 interpenetrating pair(s)",
+      "offenders": [
+        {
+          "a": "040-coxa_hip_bracket",
+          "b": "051-hip_servo",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_servo",
+          "volume_mm3": 6288.2,
+          "centroid": [
+            -98.859855675948,
+            28.802556397492477,
+            62.73840856552124
+          ]
+        },
+        {
+          "a": "088-coxa_hip_bracket",
+          "b": "099-hip_servo",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_servo",
+          "volume_mm3": 6288.2,
+          "centroid": [
+            98.85985567594852,
+            -28.80255639749225,
+            62.73840856552124
+          ]
+        },
+        {
+          "a": "008-coxa_hip_bracket",
+          "b": "019-hip_servo",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_servo",
+          "volume_mm3": 6212.4,
+          "centroid": [
+            74.3266031820672,
+            71.2648131681637,
+            62.73840856552124
+          ]
+        },
+        {
+          "a": "056-coxa_hip_bracket",
+          "b": "067-hip_servo",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_servo",
+          "volume_mm3": 6212.4,
+          "centroid": [
+            -74.32660318206689,
+            -71.26481316816346,
+            62.73840856552124
+          ]
+        },
+        {
+          "a": "024-coxa_hip_bracket",
+          "b": "035-hip_servo",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_servo",
+          "volume_mm3": 6118.3,
+          "centroid": [
+            -25.082397268636473,
+            100.20413709790098,
+            62.73840856552124
+          ]
+        },
+        {
+          "a": "072-coxa_hip_bracket",
+          "b": "083-hip_servo",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_servo",
+          "volume_mm3": 6118.3,
+          "centroid": [
+            25.082397268635763,
+            -100.20413709790111,
+            62.73840856552124
+          ]
+        },
+        {
+          "a": "000-chassis_bottom",
+          "b": "018-yaw_servo",
+          "aType": "chassis_bottom",
+          "bType": "yaw_servo",
+          "volume_mm3": 3225.4,
+          "centroid": [
+            76.91711908198435,
+            44.407442107104174,
+            37.82006350181976
+          ]
+        },
+        {
+          "a": "000-chassis_bottom",
+          "b": "050-yaw_servo",
+          "aType": "chassis_bottom",
+          "bType": "yaw_servo",
+          "volume_mm3": 3225.4,
+          "centroid": [
+            -76.91711908198562,
+            44.40744210710394,
+            37.8200635018198
+          ]
+        },
+        {
+          "a": "000-chassis_bottom",
+          "b": "066-yaw_servo",
+          "aType": "chassis_bottom",
+          "bType": "yaw_servo",
+          "volume_mm3": 3225.4,
+          "centroid": [
+            -76.91711908198562,
+            -44.40744210710393,
+            37.8200635018198
+          ]
+        },
+        {
+          "a": "000-chassis_bottom",
+          "b": "098-yaw_servo",
+          "aType": "chassis_bottom",
+          "bType": "yaw_servo",
+          "volume_mm3": 3225.4,
+          "centroid": [
+            76.91711908198435,
+            -44.407442107104174,
+            37.82006350181976
+          ]
+        },
+        {
+          "a": "000-chassis_bottom",
+          "b": "034-yaw_servo",
+          "aType": "chassis_bottom",
+          "bType": "yaw_servo",
+          "volume_mm3": 2884.2,
+          "centroid": [
+            0.0,
+            88.9732920941874,
+            37.83786179068311
+          ]
+        },
+        {
+          "a": "000-chassis_bottom",
+          "b": "082-yaw_servo",
+          "aType": "chassis_bottom",
+          "bType": "yaw_servo",
+          "volume_mm3": 2884.2,
+          "centroid": [
+            0.0,
+            -88.97329209418737,
+            37.8378617906831
+          ]
+        },
+        {
+          "a": "043-femur_hip_yoke",
+          "b": "044-femur_knee_bracket",
+          "aType": "femur_hip_yoke",
+          "bType": "femur_knee_bracket",
+          "volume_mm3": 1849.2,
+          "centroid": [
+            -138.91750899323287,
+            51.78838083769099,
+            87.68230559951385
+          ]
+        },
+        {
+          "a": "091-femur_hip_yoke",
+          "b": "092-femur_knee_bracket",
+          "aType": "femur_hip_yoke",
+          "bType": "femur_knee_bracket",
+          "volume_mm3": 1849.2,
+          "centroid": [
+            138.917508993232,
+            -51.788380837691236,
+            87.68230559951377
+          ]
+        },
+        {
+          "a": "011-femur_hip_yoke",
+          "b": "012-femur_knee_bracket",
+          "aType": "femur_hip_yoke",
+          "bType": "femur_knee_bracket",
+          "volume_mm3": 1816.7,
+          "centroid": [
+            114.28386020554083,
+            94.41971457363371,
+            87.7391385915154
+          ]
+        },
+        {
+          "a": "059-femur_hip_yoke",
+          "b": "060-femur_knee_bracket",
+          "aType": "femur_hip_yoke",
+          "bType": "femur_knee_bracket",
+          "volume_mm3": 1816.7,
+          "centroid": [
+            -114.28386020554082,
+            -94.41971457363371,
+            87.73913859151551
+          ]
+        },
+        {
+          "a": "027-femur_hip_yoke",
+          "b": "028-femur_knee_bracket",
+          "aType": "femur_hip_yoke",
+          "bType": "femur_knee_bracket",
+          "volume_mm3": 1792.2,
+          "centroid": [
+            -24.310068279267423,
+            146.12120654178833,
+            87.6608816326953
+          ]
+        },
+        {
+          "a": "075-femur_hip_yoke",
+          "b": "076-femur_knee_bracket",
+          "aType": "femur_hip_yoke",
+          "bType": "femur_knee_bracket",
+          "volume_mm3": 1792.2,
+          "centroid": [
+            24.31006827926739,
+            -146.12120654178827,
+            87.66088163269528
+          ]
+        },
+        {
+          "a": "000-chassis_bottom",
+          "b": "002-lipo_battery",
+          "aType": "chassis_bottom",
+          "bType": "lipo_battery",
+          "volume_mm3": 1029.4,
+          "centroid": [
+            -58.40217391304378,
+            1.5543122344752192e-15,
+            34.21965926885605
+          ]
+        },
+        {
+          "a": "012-femur_knee_bracket",
+          "b": "022-knee_clamp_cap",
+          "aType": "femur_knee_bracket",
+          "bType": "knee_clamp_cap",
+          "volume_mm3": 518.5,
+          "centroid": [
+            149.91497066391864,
+            92.14095203693094,
+            114.01102600097663
+          ]
+        },
+        {
+          "a": "060-femur_knee_bracket",
+          "b": "070-knee_clamp_cap",
+          "aType": "femur_knee_bracket",
+          "bType": "knee_clamp_cap",
+          "volume_mm3": 518.5,
+          "centroid": [
+            -149.9149706639184,
+            -92.14095203693098,
+            114.0110260009765
+          ]
+        },
+        {
+          "a": "044-femur_knee_bracket",
+          "b": "054-knee_clamp_cap",
+          "aType": "femur_knee_bracket",
+          "bType": "knee_clamp_cap",
+          "volume_mm3": 508.4,
+          "centroid": [
+            -154.50975124091866,
+            83.66528875041627,
+            113.92855144913781
+          ]
+        },
+        {
+          "a": "092-femur_knee_bracket",
+          "b": "102-knee_clamp_cap",
+          "aType": "femur_knee_bracket",
+          "bType": "knee_clamp_cap",
+          "volume_mm3": 508.4,
+          "centroid": [
+            154.5097512409186,
+            -83.66528875041621,
+            113.92855144913796
+          ]
+        },
+        {
+          "a": "028-femur_knee_bracket",
+          "b": "038-knee_clamp_cap",
+          "aType": "femur_knee_bracket",
+          "bType": "knee_clamp_cap",
+          "volume_mm3": 418.6,
+          "centroid": [
+            -5.29800062656403,
+            175.9287102794873,
+            114.07282927542022
+          ]
+        },
+        {
+          "a": "076-femur_knee_bracket",
+          "b": "086-knee_clamp_cap",
+          "aType": "femur_knee_bracket",
+          "bType": "knee_clamp_cap",
+          "volume_mm3": 418.6,
+          "centroid": [
+            5.298000626564032,
+            -175.92871027948678,
+            114.0728292754202
+          ]
+        },
+        {
+          "a": "008-coxa_hip_bracket",
+          "b": "021-hip_clamp_cap",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_clamp_cap",
+          "volume_mm3": 374.9,
+          "centroid": [
+            82.91253444126677,
+            53.43220853569434,
+            83.57811029190424
+          ]
+        },
+        {
+          "a": "040-coxa_hip_bracket",
+          "b": "053-hip_clamp_cap",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_clamp_cap",
+          "volume_mm3": 374.9,
+          "centroid": [
+            -87.53088420495055,
+            44.98239835192258,
+            83.57811029190424
+          ]
+        },
+        {
+          "a": "056-coxa_hip_bracket",
+          "b": "069-hip_clamp_cap",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_clamp_cap",
+          "volume_mm3": 374.9,
+          "centroid": [
+            -82.91253444126674,
+            -53.43220853569435,
+            83.57811029190422
+          ]
+        },
+        {
+          "a": "088-coxa_hip_bracket",
+          "b": "101-hip_clamp_cap",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_clamp_cap",
+          "volume_mm3": 374.9,
+          "centroid": [
+            87.53088420495055,
+            -44.982398351922555,
+            83.57811029190424
+          ]
+        },
+        {
+          "a": "001-chassis_top",
+          "b": "008-coxa_hip_bracket",
+          "aType": "chassis_top",
+          "bType": "coxa_hip_bracket",
+          "volume_mm3": 346.3,
+          "centroid": [
+            57.38145518302915,
+            43.60952206315669,
+            61.81340789794922
+          ]
+        },
+        {
+          "a": "001-chassis_top",
+          "b": "056-coxa_hip_bracket",
+          "aType": "chassis_top",
+          "bType": "coxa_hip_bracket",
+          "volume_mm3": 346.3,
+          "centroid": [
+            -57.38145518302916,
+            -43.60952206315669,
+            61.81340789794922
+          ]
+        },
+        {
+          "a": "024-coxa_hip_bracket",
+          "b": "037-hip_clamp_cap",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_clamp_cap",
+          "volume_mm3": 310.6,
+          "centroid": [
+            -5.29800062656403,
+            98.46303045099434,
+            83.57768377130688
+          ]
+        },
+        {
+          "a": "072-coxa_hip_bracket",
+          "b": "085-hip_clamp_cap",
+          "aType": "coxa_hip_bracket",
+          "bType": "hip_clamp_cap",
+          "volume_mm3": 310.6,
+          "centroid": [
+            5.298000626564032,
+            -98.4630304509943,
+            83.57768377130685
+          ]
+        },
+        {
+          "a": "001-chassis_top",
+          "b": "040-coxa_hip_bracket",
+          "aType": "chassis_top",
+          "bType": "coxa_hip_bracket",
+          "volume_mm3": 276.3,
+          "centroid": [
+            -65.89711460658494,
+            28.087114273771952,
+            61.81340789794922
+          ]
+        },
+        {
+          "a": "001-chassis_top",
+          "b": "088-coxa_hip_bracket",
+          "aType": "chassis_top",
+          "bType": "coxa_hip_bracket",
+          "volume_mm3": 276.3,
+          "centroid": [
+            65.89711460658481,
+            -28.08711427377195,
+            61.81340789794922
+          ]
+        },
+        {
+          "a": "001-chassis_top",
+          "b": "024-coxa_hip_bracket",
+          "aType": "chassis_top",
+          "bType": "coxa_hip_bracket",
+          "volume_mm3": 263.2,
+          "centroid": [
+            -9.174537210327024,
+            71.80968221028647,
+            61.81340789794922
+          ]
+        },
+        {
+          "a": "001-chassis_top",
+          "b": "072-coxa_hip_bracket",
+          "aType": "chassis_top",
+          "bType": "coxa_hip_bracket",
+          "volume_mm3": 263.2,
+          "centroid": [
+            9.174537210327022,
+            -71.80968221028641,
+            61.81340789794922
+          ]
+        }
+      ]
+    }
+  ],
+  "highlights": {
+    "parts": [],
+    "points": [
+      {
+        "partType": "chassis_bottom",
+        "point": [
+          -58.40217391304378,
+          1.5543122344752192e-15,
+          34.21965926885605
+        ],
+        "annotation": "overlaps lipo_battery by 1029 mm^3"
+      },
+      {
+        "partType": "chassis_bottom",
+        "point": [
+          76.91711908198435,
+          44.407442107104174,
+          37.82006350181976
+        ],
+        "annotation": "overlaps yaw_servo by 3225 mm^3"
+      },
+      {
+        "partType": "chassis_bottom",
+        "point": [
+          0.0,
+          88.9732920941874,
+          37.83786179068311
+        ],
+        "annotation": "overlaps yaw_servo by 2884 mm^3"
+      },
+      {
+        "partType": "chassis_bottom",
+        "point": [
+          -76.91711908198562,
+          44.40744210710394,
+          37.8200635018198
+        ],
+        "annotation": "overlaps yaw_servo by 3225 mm^3"
+      },
+      {
+        "partType": "chassis_bottom",
+        "point": [
+          -76.91711908198562,
+          -44.40744210710393,
+          37.8200635018198
+        ],
+        "annotation": "overlaps yaw_servo by 3225 mm^3"
+      },
+      {
+        "partType": "chassis_bottom",
+        "point": [
+          0.0,
+          -88.97329209418737,
+          37.8378617906831
+        ],
+        "annotation": "overlaps yaw_servo by 2884 mm^3"
+      },
+      {
+        "partType": "chassis_bottom",
+        "point": [
+          76.91711908198435,
+          -44.407442107104174,
+          37.82006350181976
+        ],
+        "annotation": "overlaps yaw_servo by 3225 mm^3"
+      },
+      {
+        "partType": "chassis_top",
+        "point": [
+          57.38145518302915,
+          43.60952206315669,
+          61.81340789794922
+        ],
+        "annotation": "overlaps coxa_hip_bracket by 346 mm^3"
+      },
+      {
+        "partType": "chassis_top",
+        "point": [
+          -9.174537210327024,
+          71.80968221028647,
+          61.81340789794922
+        ],
+        "annotation": "overlaps coxa_hip_bracket by 263 mm^3"
+      },
+      {
+        "partType": "chassis_top",
+        "point": [
+          -65.89711460658494,
+          28.087114273771952,
+          61.81340789794922
+        ],
+        "annotation": "overlaps coxa_hip_bracket by 276 mm^3"
+      },
+      {
+        "partType": "chassis_top",
+        "point": [
+          -57.38145518302916,
+          -43.60952206315669,
+          61.81340789794922
+        ],
+        "annotation": "overlaps coxa_hip_bracket by 346 mm^3"
+      },
+      {
+        "partType": "chassis_top",
+        "point": [
+          9.174537210327022,
+          -71.80968221028641,
+          61.81340789794922
+        ],
+        "annotation": "overlaps coxa_hip_bracket by 263 mm^3"
+      },
+      {
+        "partType": "chassis_top",
+        "point": [
+          65.89711460658481,
+          -28.08711427377195,
+          61.81340789794922
+        ],
+        "annotation": "overlaps coxa_hip_bracket by 276 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          74.3266031820672,
+          71.2648131681637,
+          62.73840856552124
+        ],
+        "annotation": "overlaps hip_servo by 6212 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          82.91253444126677,
+          53.43220853569434,
+          83.57811029190424
+        ],
+        "annotation": "overlaps hip_clamp_cap by 375 mm^3"
+      },
+      {
+        "partType": "femur_hip_yoke",
+        "point": [
+          114.28386020554083,
+          94.41971457363371,
+          87.7391385915154
+        ],
+        "annotation": "overlaps femur_knee_bracket by 1817 mm^3"
+      },
+      {
+        "partType": "femur_knee_bracket",
+        "point": [
+          149.91497066391864,
+          92.14095203693094,
+          114.01102600097663
+        ],
+        "annotation": "overlaps knee_clamp_cap by 519 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          -25.082397268636473,
+          100.20413709790098,
+          62.73840856552124
+        ],
+        "annotation": "overlaps hip_servo by 6118 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          -5.29800062656403,
+          98.46303045099434,
+          83.57768377130688
+        ],
+        "annotation": "overlaps hip_clamp_cap by 311 mm^3"
+      },
+      {
+        "partType": "femur_hip_yoke",
+        "point": [
+          -24.310068279267423,
+          146.12120654178833,
+          87.6608816326953
+        ],
+        "annotation": "overlaps femur_knee_bracket by 1792 mm^3"
+      },
+      {
+        "partType": "femur_knee_bracket",
+        "point": [
+          -5.29800062656403,
+          175.9287102794873,
+          114.07282927542022
+        ],
+        "annotation": "overlaps knee_clamp_cap by 419 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          -98.859855675948,
+          28.802556397492477,
+          62.73840856552124
+        ],
+        "annotation": "overlaps hip_servo by 6288 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          -87.53088420495055,
+          44.98239835192258,
+          83.57811029190424
+        ],
+        "annotation": "overlaps hip_clamp_cap by 375 mm^3"
+      },
+      {
+        "partType": "femur_hip_yoke",
+        "point": [
+          -138.91750899323287,
+          51.78838083769099,
+          87.68230559951385
+        ],
+        "annotation": "overlaps femur_knee_bracket by 1849 mm^3"
+      },
+      {
+        "partType": "femur_knee_bracket",
+        "point": [
+          -154.50975124091866,
+          83.66528875041627,
+          113.92855144913781
+        ],
+        "annotation": "overlaps knee_clamp_cap by 508 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          -74.32660318206689,
+          -71.26481316816346,
+          62.73840856552124
+        ],
+        "annotation": "overlaps hip_servo by 6212 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          -82.91253444126674,
+          -53.43220853569435,
+          83.57811029190422
+        ],
+        "annotation": "overlaps hip_clamp_cap by 375 mm^3"
+      },
+      {
+        "partType": "femur_hip_yoke",
+        "point": [
+          -114.28386020554082,
+          -94.41971457363371,
+          87.73913859151551
+        ],
+        "annotation": "overlaps femur_knee_bracket by 1817 mm^3"
+      },
+      {
+        "partType": "femur_knee_bracket",
+        "point": [
+          -149.9149706639184,
+          -92.14095203693098,
+          114.0110260009765
+        ],
+        "annotation": "overlaps knee_clamp_cap by 519 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          25.082397268635763,
+          -100.20413709790111,
+          62.73840856552124
+        ],
+        "annotation": "overlaps hip_servo by 6118 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          5.298000626564032,
+          -98.4630304509943,
+          83.57768377130685
+        ],
+        "annotation": "overlaps hip_clamp_cap by 311 mm^3"
+      },
+      {
+        "partType": "femur_hip_yoke",
+        "point": [
+          24.31006827926739,
+          -146.12120654178827,
+          87.66088163269528
+        ],
+        "annotation": "overlaps femur_knee_bracket by 1792 mm^3"
+      },
+      {
+        "partType": "femur_knee_bracket",
+        "point": [
+          5.298000626564032,
+          -175.92871027948678,
+          114.0728292754202
+        ],
+        "annotation": "overlaps knee_clamp_cap by 419 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          98.85985567594852,
+          -28.80255639749225,
+          62.73840856552124
+        ],
+        "annotation": "overlaps hip_servo by 6288 mm^3"
+      },
+      {
+        "partType": "coxa_hip_bracket",
+        "point": [
+          87.53088420495055,
+          -44.982398351922555,
+          83.57811029190424
+        ],
+        "annotation": "overlaps hip_clamp_cap by 375 mm^3"
+      },
+      {
+        "partType": "femur_hip_yoke",
+        "point": [
+          138.917508993232,
+          -51.788380837691236,
+          87.68230559951377
+        ],
+        "annotation": "overlaps femur_knee_bracket by 1849 mm^3"
+      },
+      {
+        "partType": "femur_knee_bracket",
+        "point": [
+          154.5097512409186,
+          -83.66528875041621,
+          113.92855144913796
+        ],
+        "annotation": "overlaps knee_clamp_cap by 508 mm^3"
+      }
+    ]
+  },
+  "allPass": false
+}

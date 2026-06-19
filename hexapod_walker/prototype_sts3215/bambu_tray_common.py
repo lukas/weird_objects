@@ -415,6 +415,15 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
         requests=[("buck_tray.stl", 6)],
     ))
 
+    # Spider carapace dome (Jun 2026): a single ~141 x 124 mm domed shell.
+    # Printed rim-down (open skirt on the bed); it fits the 256 mm X1 bed and
+    # the 350 mm H2D bed as one piece, so it gets its own plate.
+    plans.append(PlatePlan(
+        "plate_08_carapace",
+        "PLA/PETG rigid",
+        (_instance(parts["spider_carapace.stl"], 1, 0.0, 0.0),),
+    ))
+
     plans.append(PlatePlan(
         "plate_07_tpu_foot_pads",
         "TPU 95A",

@@ -1,0 +1,24 @@
+# Regenerable verifier scratch / caches / logs
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+_verify_*.log
+_verify_baseline.log
+_verify_profile.txt
+_verify_prototype.bak.py
+_measure_*.py
+__pycache__/
+*.pyc
+
+# Local npm install
+node_modules/
+
+# Large regenerable / unrelated artifacts (rebuilt from source by the
+# build + verify + viz scripts; not tracked by convention)
+policies_prototype/
+joint_viz/
+stl_prototype/
+full_robot_viz/stl/
+
+# Stray top-level scene dump (the canonical scene is full_robot_viz/scene.json)
+/scene.json

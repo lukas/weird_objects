@@ -11,6 +11,7 @@ Generated for a **325 x 320 x 325 mm** build volume.
 - `plate_05_rigid_tibia_sockets.stl` (PLA/PETG rigid): 6 x `tibia_foot_fitting.stl`, 6 x `tibia_knee_yoke.stl`
 - `plate_06_rigid_uno_q_trays.stl` (PLA/PETG rigid): 6 x `uno_q_tray.stl`
 - `plate_07_rigid_buck_trays.stl` (PLA/PETG rigid): 6 x `buck_tray.stl`
+- `plate_08_carapace.stl` (PLA/PETG rigid): 1 x `spider_carapace.stl`
 - `plate_07_tpu_foot_pads.stl` (TPU 95A): 6 x `foot_pad.stl`
 
 Import one plate STL at a time into Bambu Studio. Parts are oriented for FDM.

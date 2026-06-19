@@ -15,6 +15,7 @@ Generated for a **256 x 256 x 256 mm** build volume.
 - `plate_06_rigid_uno_q_trays_b.stl` (PLA/PETG rigid): 2 x `uno_q_tray.stl`
 - `plate_07_rigid_buck_trays_a.stl` (PLA/PETG rigid): 4 x `buck_tray.stl`
 - `plate_07_rigid_buck_trays_b.stl` (PLA/PETG rigid): 2 x `buck_tray.stl`
+- `plate_08_carapace.stl` (PLA/PETG rigid): 1 x `spider_carapace.stl`
 - `plate_07_tpu_foot_pads.stl` (TPU 95A): 6 x `foot_pad.stl`
 
 Import one plate STL at a time into Bambu Studio. Parts are oriented for FDM.

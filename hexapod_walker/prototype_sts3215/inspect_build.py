@@ -205,6 +205,16 @@ def _build_assembly_instances() -> list[Instance]:
         "buck_tray", "buck_tray.stl", None, None,
         _trans(0.0, 0.0, buck_tray_z),
     ))
+    # Spider carapace dome bolts on as a 3rd deck level above the buck tray
+    # (4 M3 standoffs at DECK_COLUMN_XY).  Its local rim/seat plane sits at
+    # deck_z0 + L1 + L2 + L3 so it clears the whole electronics stack.
+    carapace_z = (deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H
+                  + HP.DECK_LEVEL_2_STANDOFF_H
+                  + HP.DECK_LEVEL_3_STANDOFF_H)
+    instances.append(Instance(
+        "spider_carapace", "spider_carapace.stl", None, None,
+        _trans(0.0, 0.0, carapace_z),
+    ))
     # Switch holster sits on TWO printed BOSSES on chassis_top's TOP
     # face (one boss under each SWITCH_HOLSTER_BOLT_CHASSIS_XY
     # position).  Ear bottom rests on the boss tops at

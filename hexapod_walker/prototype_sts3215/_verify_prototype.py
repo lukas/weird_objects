@@ -116,6 +116,7 @@ _MESH_BUILDERS = {
     "chassis_bottom":   hp.make_chassis_bottom,
     "uno_q_tray":       hp.make_uno_q_tray,
     "buck_tray":        hp.make_buck_tray,
+    "spider_carapace":  hp.make_spider_carapace,
     "servo_clamp_cap":  hp.make_servo_clamp_cap,
     "switch_holster":   hp.make_switch_holster,
     "imu_pad":          hp.make_imu_pad,
@@ -688,7 +689,7 @@ def check_watertight():
     # backwards-compat but is no longer in the printable-output set.
     items_names = (
         "chassis_top", "chassis_bottom", "uno_q_tray",
-        "buck_tray", "servo_clamp_cap", "coxa_link",
+        "buck_tray", "spider_carapace", "servo_clamp_cap", "coxa_link",
         "femur_link", "tibia_link", "foot_pad",
     )
     all_ok = True
@@ -2799,6 +2800,17 @@ def _build_chassis_world(reference_leg_az_rad):
                             + hp.DECK_LEVEL_2_STANDOFF_H])
     parts["buck_tray"] = buck
 
+    # Spider carapace dome (Jun 2026): bolts on as a THIRD deck level above
+    # the buck tray.  Its local z = 0 (rim/seat plane) lands at deck_top +
+    # L1 + L2 + L3 so its clearance over the electronics stack AND against
+    # the full leg swing is checked by the workspace sweep.
+    carapace = _load_mesh("spider_carapace")
+    carapace.apply_translation([0.0, 0.0, deck_top_face
+                                + hp.DECK_LEVEL_1_STANDOFF_H
+                                + hp.DECK_LEVEL_2_STANDOFF_H
+                                + hp.DECK_LEVEL_3_STANDOFF_H])
+    parts["spider_carapace"] = carapace
+
     apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
     a_n = reference_leg_az_rad + np.pi / 3.0
     edge_mid_n = np.array([apothem * np.cos(a_n),
@@ -2907,6 +2919,7 @@ _WS_CHASSIS_STATIC = (
     "chassis_bottom",
     "uno_q_tray",
     "buck_tray",
+    "spider_carapace",
 )
 
 

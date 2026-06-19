@@ -2685,6 +2685,40 @@ DECK_SPARE_HOLE_OD = 3.4               # M3 clearance for spare bolt-down holes
 DECK_VENT_SLOT_W = 4.0                  # buck-tray cooling vent slot width
 DECK_VENT_SLOT_L = 26.0                 # buck-tray cooling vent slot length
 
+# ---------------------------------------------------------------------------
+# Spider carapace dome (Jun 2026) -- a domed cephalothorax/prosoma shell with
+# the classic 8-eye spider face, bolted on as a THIRD deck level ABOVE the
+# buck tray.  It reuses the 4-point DECK_COLUMN_XY (+/-41, +/-33) column
+# pattern: 4 M3 standoffs rise from the buck-tray column bosses up to the
+# carapace feet, so the dome bolts on / lifts off as one piece.  The dome
+# floats high enough that its open skirt + rear window leave the whole
+# electronics stack (Uno Q tray, buck converter at z<=104, battery, all wire
+# exits and the per-leg cable drops) uncovered and vented.
+#
+# Z reference (chassis frame, no lift): the carapace SEAT/RIM plane (the
+# part's local z = 0) sits at deck_top_face + L1 + L2 + L3 above chassis,
+# i.e. DECK_LEVEL_3_STANDOFF_H above the buck-tray BASE.  Chosen so the rim
+# clears the tallest electronics point (buck converter envelope top, z=104).
+DECK_LEVEL_3_STANDOFF_H = 31.0          # buck-tray base -> carapace seat/rim
+# Outer half-ellipsoid (prosoma) semi-axes, local frame: +X = forward
+# (anterior; the eyes live on this front slope), +Y = lateral, +Z = up.
+CARAPACE_AX = 72.0                      # mm -- fore/aft outer semi-axis
+CARAPACE_AY = 62.0                      # mm -- lateral outer semi-axis
+CARAPACE_HD = 34.0                      # mm -- dome height (rim -> apex)
+CARAPACE_WALL = 5.0                     # mm -- shell wall (>= MIN_PRINT_T)
+CARAPACE_FOOT_OD = 8.0                  # mm -- mount-foot boss OD at columns
+# 8-eye layout (plan-view (x, y) on the front slope + lens radius).  Two
+# rows: a large anterior-median pair (AME) + flanking anterior laterals
+# (ALE) low on the face, and a posterior-median (PME) + wider posterior-
+# lateral (PLE) pair set higher/back -- reads as a jumping-spider face.
+CARAPACE_EYES = (
+    # (x, y, radius) -- mirrored in +/-Y below for the paired eyes.
+    (58.0,  9.0, 6.5),   # AME -- big forward pair
+    (52.0, 23.0, 4.3),   # ALE -- smaller, flanking + slightly outboard
+    (41.0, 14.0, 3.4),   # PME -- posterior median (higher up)
+    (38.0, 31.0, 3.2),   # PLE -- posterior lateral (wider, higher)
+)
+
 # Adafruit PCA9685 PWM driver -- 62 x 25 mm PCB with 4 x M3 holes
 # on a 54 x 16 mm rectangle centred on the board.  Long axis = 62.
 PCA_PCB_W = 62.0
@@ -5724,6 +5758,106 @@ def make_buck_tray() -> trimesh.Trimesh:
     )
 
 
+def _half_ellipsoid(ax: float, ay: float, hd: float,
+                    subdivisions: int = 4) -> trimesh.Trimesh:
+    """Solid upper half-ellipsoid (a dome) with its flat rim on z = 0 and
+    apex at z = hd.  Built from a unit icosphere scaled to (ax, ay, hd),
+    then the lower half (z < 0) sliced off so the rim lands on z = 0."""
+    sph = trimesh.creation.icosphere(subdivisions=subdivisions, radius=1.0)
+    sph.apply_scale((ax, ay, hd))
+    # Slice off everything below z = 0 (keep the dome).
+    cutter = _box((4.0 * ax, 4.0 * ay, 4.0 * hd),
+                  center=(0.0, 0.0, -2.0 * hd))
+    return _diff(sph, cutter)
+
+
+def make_spider_carapace() -> trimesh.Trimesh:
+    """Domed spider cephalothorax/prosoma carapace that bolts on TOP of the
+    robot, OVER the electronics stack, as a removable 3rd deck level.
+
+    Local frame: origin at the chassis centre on the carapace SEAT/RIM
+    plane (local z = 0), +X = forward (anterior; the 8-eye face lives on
+    this front slope), +Y = lateral, +Z = up.  Placed in the chassis frame
+    by a single +Z translation to ``deck_top_face + DECK_LEVEL_1 +
+    DECK_LEVEL_2 + DECK_LEVEL_3_STANDOFF_H`` so the rim clears the tallest
+    electronics point (buck-converter envelope top at z = 104).
+
+    Construction:
+      * Shell: outer half-ellipsoid (CARAPACE_AX/AY/HD) minus an inner
+        half-ellipsoid offset inward by CARAPACE_WALL -> a ~5 mm domed
+        shell, open at the bottom (skirt) so the stack stays vented.
+      * 4 mount feet at DECK_COLUMN_XY (+/-41, +/-33): Phi CARAPACE_FOOT_OD
+        bosses that rise from the seat plane and fuse into the shell, each
+        with an M3 heat-set insert pocket (INSERT_M3 convention) opening
+        DOWN -- an M3 screw threads UP from the standoff below into the
+        insert, so the dome lifts off as one piece.
+      * 8 eyes: raised domed lenses (spherical caps) on the front slope in
+        the classic two-row spider arrangement (large anterior-median pair
+        + flanking anterior laterals, then a posterior-median + wider
+        posterior-lateral pair set higher/back).
+      * Rear (-X) wire-exit / vent window through the lower shell + a fan
+        of lateral cooling-vent slots.
+    """
+    ax, ay, hd = CARAPACE_AX, CARAPACE_AY, CARAPACE_HD
+    w = CARAPACE_WALL
+    outer = _half_ellipsoid(ax, ay, hd)
+    inner = _half_ellipsoid(ax - w, ay - w, hd - w)
+    shell = _diff(outer, inner)
+
+    # --- Mount feet at the 4 deck columns -------------------------------
+    feet: list[trimesh.Trimesh] = []
+    pockets: list[trimesh.Trimesh] = []
+    for (cx, cy) in DECK_COLUMN_XY:
+        # Inner-surface height at this column so the boss fuses into the
+        # shell; add a margin and clamp so it always reaches the shell.
+        frac = 1.0 - (cx / (ax - w)) ** 2 - (cy / (ay - w)) ** 2
+        inner_z = (hd - w) * np.sqrt(max(frac, 0.04))
+        boss_h = inner_z + 4.0
+        boss = _cyl(CARAPACE_FOOT_OD / 2.0, boss_h)
+        boss.apply_translation([cx, cy, boss_h / 2.0])
+        feet.append(boss)
+        # M3 heat-set insert pocket opening DOWN from the seat face.
+        pocket = _cyl(INSERT_M3_PILOT_OD / 2.0, INSERT_M3_PILOT_DEPTH + 0.4)
+        pocket.apply_translation(
+            [cx, cy, (INSERT_M3_PILOT_DEPTH + 0.4) / 2.0 - 0.2])
+        pockets.append(pocket)
+
+    body = _union(shell, *feet)
+
+    # --- Rear (-X) wire-exit / vent window through the lower shell ------
+    rear_window = _box((40.0, 34.0, 2.0 * (hd - w) + 4.0),
+                       center=(-(ax - 6.0), 0.0, (hd - w)))
+    # Trim the window so it only opens the lower band (keep an arch above).
+    rear_cap = _box((60.0, 40.0, 40.0), center=(-(ax - 6.0), 0.0, 17.0 + 20.0))
+    rear_window = _diff(rear_window, rear_cap)
+    cuts: list[trimesh.Trimesh] = [rear_window]
+
+    # --- Lateral cooling-vent slots on each flank ----------------------
+    for sy in (-1.0, 1.0):
+        for vx in (-18.0, 0.0, 18.0):
+            slot = _cyl(2.0, 30.0)
+            slot.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))
+            slot.apply_translation([vx, sy * (ay - 8.0), 9.0])
+            cuts.append(slot)
+
+    body = _diff(body, *pockets, *cuts)
+
+    # --- 8 spider eyes: raised domed lenses on the front slope ----------
+    eyes: list[trimesh.Trimesh] = []
+    for (ex, ey, er) in CARAPACE_EYES:
+        for sy in (-1.0, 1.0):
+            yy = sy * ey
+            frac = 1.0 - (ex / ax) ** 2 - (yy / ay) ** 2
+            if frac <= 0.0:
+                continue
+            ez = hd * np.sqrt(frac)
+            lens = trimesh.creation.icosphere(subdivisions=3, radius=er)
+            lens.apply_translation([ex, yy, ez])
+            eyes.append(lens)
+    carapace = _union(body, *eyes)
+    return carapace
+
+
 def make_uno_q_visual() -> trimesh.Trimesh:
     """Visual-only proxy for the Arduino Uno Q (NOT printed).  PCB slab +
     a USB-C jack stub + a header-strip block so cable-clearance checks and
@@ -8723,6 +8857,10 @@ def main() -> None:
     # chassis_top.
     parts.append(("uno_q_tray.stl",       make_uno_q_tray()))
     parts.append(("buck_tray.stl",        make_buck_tray()))
+    # Spider cephalothorax/prosoma carapace dome (Jun 2026) -- bolts on as a
+    # 3rd deck level above the buck tray; the 8-eye spider face is on its
+    # front slope.  Print 1 (rim-down).
+    parts.append(("spider_carapace.stl",  make_spider_carapace()))
     parts.append(("switch_holster.stl",   make_switch_holster()))
     parts.append(("imu_pad.stl",          make_imu_pad()))
     # Yaw-servo retainer strap -- print 6 (one per leg cradle).  Bolts

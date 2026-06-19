@@ -67,6 +67,7 @@ plate_07_rigid_buck_trays,PLA/PETG rigid,buck_tray.stl,3,97.5,-100.0,90
 plate_07_rigid_buck_trays,PLA/PETG rigid,buck_tray.stl,4,-102.5,-20.0,0
 plate_07_rigid_buck_trays,PLA/PETG rigid,buck_tray.stl,5,1.5,-20.0,0
 plate_07_rigid_buck_trays,PLA/PETG rigid,buck_tray.stl,6,97.5,4.0,90
+plate_08_carapace,PLA/PETG rigid,spider_carapace.stl,1,0.0,0.0,0
 plate_07_tpu_foot_pads,TPU 95A,foot_pad.stl,1,-90.0,0.0,0
 plate_07_tpu_foot_pads,TPU 95A,foot_pad.stl,2,-54.0,0.0,0
 plate_07_tpu_foot_pads,TPU 95A,foot_pad.stl,3,-18.0,0.0,0

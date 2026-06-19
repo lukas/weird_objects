@@ -40,6 +40,9 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "uno_q_tray":          (0.580, 0.404, 0.741),
     # Buck-converter tray (upper electronics deck) - tab:olive
     "buck_tray":           (0.737, 0.741, 0.133),
+    # Spider carapace dome (cephalothorax shell over the stack) - near-black
+    # so it reads as a dark spider body distinct from the colored decks.
+    "spider_carapace":     (0.130, 0.130, 0.150),
     # Arduino Uno Q board visual - muted green PCB
     "uno_q":               (0.106, 0.478, 0.239),
     # XINGYHENG buck converter board visual - copper/orange
@@ -106,6 +109,7 @@ _CHASSIS_LEVEL = frozenset({
     "chassis_top", "chassis_bottom",
     "chassis_plate_a", "chassis_plate_b",
     "uno_q_tray", "buck_tray", "uno_q", "buck_converter",
+    "spider_carapace",
 })
 
 

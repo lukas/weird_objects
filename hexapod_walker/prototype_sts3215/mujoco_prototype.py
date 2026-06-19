@@ -116,6 +116,7 @@ _PART_STL_NAMES = (
     "chassis_bottom",
     "uno_q_tray",
     "buck_tray",
+    "spider_carapace",
     "coxa_link",
     "femur_link",
     "tibia_link",
@@ -524,6 +525,9 @@ def _chassis_visuals_xml() -> str:
     uno_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H * M
     buck_tray_z = deck_z0 + (HP.DECK_LEVEL_1_STANDOFF_H
                              + HP.DECK_LEVEL_2_STANDOFF_H) * M
+    carapace_z = deck_z0 + (HP.DECK_LEVEL_1_STANDOFF_H
+                            + HP.DECK_LEVEL_2_STANDOFF_H
+                            + HP.DECK_LEVEL_3_STANDOFF_H) * M
     lipo_h = 0.025
     lipo_z = lipo_h / 2.0   # pack bottom on the bottom-plate top face (z=0)
     return (
@@ -542,7 +546,10 @@ def _chassis_visuals_xml() -> str:
         'material="palette_uno_q_tray"/>\n'
         '      <geom class="visual" name="buck_tray_mesh" type="mesh" '
         f'mesh="buck_tray" pos="0 0 {buck_tray_z:.5f}" '
-        'material="palette_buck_tray"/>'
+        'material="palette_buck_tray"/>\n'
+        '      <geom class="visual" name="spider_carapace_mesh" type="mesh" '
+        f'mesh="spider_carapace" pos="0 0 {carapace_z:.5f}" '
+        'material="palette_spider_carapace"/>'
     )
 
 

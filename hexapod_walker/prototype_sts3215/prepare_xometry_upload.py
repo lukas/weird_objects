@@ -58,6 +58,7 @@ from hexapod_prototype import (
     make_foot_pad,
     make_servo_clamp_cap,
     make_tibia_foot_fitting,
+    make_spider_carapace,
     make_tibia_knee_yoke,
     make_uno_q_tray,
     make_yaw_servo_retainer,
@@ -142,6 +143,14 @@ def _lay_flat(mesh):
 
 def _reorient_foot_pad(mesh):
     """Cylindrical disc with hub, hub up. Already in correct orientation."""
+    return _drop_to_bed(mesh)
+
+
+def _reorient_carapace(mesh):
+    """Spider carapace dome: print rim-down (open skirt on the bed, apex up)
+    so the shell self-supports as a gentle overhang and the 4 mount-foot
+    insert pockets open downward onto the bed.  Built that way already; just
+    drop to z = 0."""
     return _drop_to_bed(mesh)
 
 
@@ -241,6 +250,14 @@ PART_REGISTRY: list[tuple[str,
      "cradle (hip-pitch coxa_link + knee femur_knee_bracket = 2/leg). Bolts "
      "-Y with 2 x M3 into the cradle's +/-X wall ends to clamp the STS3215 "
      "body; centre is bored so the disc horn spins free."),
+
+    ("spider_carapace.stl",      make_spider_carapace,     _reorient_carapace,
+     1, "PLA/PETG rigid", "black", "as-printed",
+     "Spider cephalothorax/prosoma dome (~141 x 124 x 34 mm). Bolts on as a "
+     "3rd deck level above the buck tray on 4 M3 standoffs at DECK_COLUMN_XY; "
+     "open skirt + rear window leave the electronics + wire exits vented. "
+     "Front face carries the 8-eye spider arrangement as raised lenses. "
+     "Print rim-down; large but single-piece on the 256/350 mm Bambu beds."),
 
     # June 2026 disc-horn switch: servo_horn_adapter.stl removed -- each
     # moving yoke now bolts directly onto the 20 mm aluminum 25T disc horn
