@@ -4385,25 +4385,25 @@ def make_yaw_bearing_cap() -> trimesh.Trimesh:
 
         z[-3.5, -1]  register wrap-lip (slips over the tower OD, centres the
                      two halves concentrically)
-        z[-1, +2]    Phi 34 neck: its z=-1 bottom face CAPS the lower outer
-                     race; its z=+2 top face is the UPPER race seat shoulder
-        z[+2, +6]    Phi 37 OPEN-TOP pocket: the upper outer race drops in
-                     from ABOVE onto the z=+2 shoulder (clear Phi 37 path)
+        z[-1, +6]    Phi 37 CLEAN through-bore (radial housing for the upper
+                     outer race; NO sub-Phi-37 constriction below the race)
         z[-1, +3]    3 x M3 ear bosses (bolt DOWN into the tower pilots)
 
-    The old Phi 34 retaining lip over the upper race is RETIRED -- it was the
-    constriction that trapped the race.  The upper outer race is now located
-    by the z=+2 gravity shoulder; the rotating hub's upper inner-race flange
-    sits just above it.  All join hardware stays below the rotating dust-lip
-    band (coxa-local z < +3.5).
+    ASSEMBLY (Jun 2026 assemblability fix): the cap is LOWERED straight down
+    over the upper outer race already seated on the hub boss, so the bore is
+    Phi 37 all the way to the split plane.  The retired Phi 34 neck (which
+    capped the lower race + seated the upper race from below) was an 85.5 mm^3
+    hard stop on that descent -- see ``check_bearing_cap_descent_path``.  The
+    upper bearing is now located axially by its INNER race against the hub
+    uflange (z=+6) + the M3 disc-horn clamp preload; the cap is RADIAL (moment)
+    support only.  The lower (floating) outer race is held by the tower
+    press-fit + its z=-5 plate seat, as a floating race should be.
     """
     r_out = YAW_BEARING_OD / 2.0 + YAW_TOWER_WALL          # Phi 44
     r_bore = YAW_TOWER_BORE_OD / 2.0                       # Phi 37 race seat
-    r_neck = YAW_TOWER_SHOULDER_OD / 2.0                   # Phi 34 neck / lower-race cap
 
     split_z = YAW_SPLIT_Z                                  # -1
     top_z = YAW_CAP_TOP_Z                                  # +6
-    seat_z = YAW_BEARING_UPPER_BOT_Z                       # +2 (upper-race seat)
 
     # ---- Main ring (Phi 44 OD, split plane up to the open top) ----
     ring = _cyl(r_out, top_z - split_z)
@@ -4459,14 +4459,31 @@ def make_yaw_bearing_cap() -> trimesh.Trimesh:
         cap = _union(cap, boss)
 
     cuts = []
-    # Neck (Phi 34): caps the lower race at z=-1, seat shoulder at z=+2.
-    neck = _cyl(r_neck, seat_z - split_z)
-    neck.apply_translation([0.0, 0.0, 0.5 * (split_z + seat_z)])
-    cuts.append(neck)
-    # Upper outer-race pocket: open-top Phi 37 from the seat to the top face.
-    pocket = _cyl(r_bore, (top_z - seat_z) + 0.02)
-    pocket.apply_translation([0.0, 0.0, 0.5 * (seat_z + top_z)])
-    cuts.append(pocket)
+    # CLEAN Phi 37 through-bore from the split plane to the open top.
+    #
+    # ASSEMBLABILITY (Jun 2026 fix): a 6706 is ONE rigid unit, so the upper
+    # inner race must slide onto the hub boss (from the boss BOTTOM, the only
+    # open end -- the platform caps the top) AND the upper outer race must end
+    # up in this cap.  The two races move together, so the ONLY valid sequence
+    # is: slide both bearings up the hub boss, drop the hub+bearings into the
+    # bottom tower, then LOWER THIS CAP straight down over the already-seated
+    # upper outer race.  The retired Phi 34 neck (a lower-race cap + z=+2 seat
+    # shoulder) sat BELOW the Phi 37 pocket, so lowering the cap forced its
+    # Phi 34 wall down past the Phi 37 race -- an 85.5 mm^3 hard stop the cap
+    # could not pass (measured; see check_bearing_cap_descent_path).  The old
+    # check only swept the race DOWN into a free-standing cap (race-into-cap,
+    # which never happens in the robot) so it stayed blind to this.
+    #
+    # The bore is now Phi 37 ALL THE WAY DOWN: the cap slips over the Phi 37
+    # outer race with a clear monotone path.  The upper bearing is located
+    # axially by its INNER race seating up against the hub uflange (z=+6) plus
+    # the 4 x M3 disc-horn clamp preload -- the cap provides RADIAL (moment)
+    # support only, which is the bearing pair's job here.  The lower (floating)
+    # outer race is retained by the tower press-fit + its z=-5 plate seat, so
+    # dropping its cap is also mechanically correct for a floating race.
+    bore = _cyl(r_bore, (top_z - split_z) + 0.02)
+    bore.apply_translation([0.0, 0.0, 0.5 * (split_z + top_z)])
+    cuts.append(bore)
 
     # Join-bolt clearance + head counterbore.  The M3 self-tap join screw
     # enters from the ear TOP (z = ear_top), its head recessed in a Phi

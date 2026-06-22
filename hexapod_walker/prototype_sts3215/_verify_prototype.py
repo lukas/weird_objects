@@ -4924,6 +4924,110 @@ def check_bearing_insertion_path():
     return all_ok
 
 
+def _sweep_bearing_disc_up(mesh: trimesh.Trimesh, z_lo: float, z_seat: float):
+    """Slide a filled Phi (YAW_BEARING_OD) disc from ``z_lo`` (below the cap)
+    UP to one Z step BELOW ``z_seat`` and return ``(worst_mm3, worst_z,
+    n_blocked, n_steps)``.
+
+    Models the cap being LOWERED straight down over the upper outer race that
+    is already seated on the hub boss -- in the cap's own frame the race
+    travels UP from below the split plane to its seat.  Any cap feature whose
+    bore is < Phi (YAW_BEARING_OD) BELOW the seated race position trips the
+    tolerance (it is a wall the descending cap cannot pass over the race)."""
+    R = hp.YAW_BEARING_OD / 2.0
+    pitch = BEARING_INSERTION_PATH_PITCH_MM
+    vox = pitch ** 3
+    worst, worst_z, n_blocked, n_steps = 0.0, z_lo, 0, 0
+    z = z_lo
+    z_end = z_seat - BEARING_INSERTION_PATH_Z_STEP_MM
+    while z <= z_end + 1e-6:
+        n_steps += 1
+        pts = _bearing_disc_points(z, R, pitch)
+        overlap = int(points_inside(mesh, pts).sum()) * vox
+        if overlap > worst:
+            worst, worst_z = overlap, z
+        if overlap > BEARING_INSERTION_PATH_TOL_MM3:
+            n_blocked += 1
+        z += BEARING_INSERTION_PATH_Z_STEP_MM
+    return worst, worst_z, n_blocked, n_steps
+
+
+def _old_necked_yaw_cap() -> trimesh.Trimesh:
+    """Reconstruct the RETIRED yaw_bearing_cap bore (coxa-local) WITH the Phi 34
+    neck below the Phi 37 upper-race pocket -- the constriction that blocked the
+    cap from being LOWERED over the hub-seated upper outer race.  Used ONLY by
+    ``check_bearing_cap_descent_path``'s self-test to prove the probe is
+    sensitive enough to flag the regression the clean Phi 37 bore fixes."""
+    r_out = hp.YAW_BEARING_OD / 2.0 + hp.YAW_TOWER_WALL
+    r_bore = hp.YAW_TOWER_BORE_OD / 2.0          # Phi 37 race pocket
+    r_neck = hp.YAW_TOWER_SHOULDER_OD / 2.0      # Phi 34 neck constriction
+
+    def _cyl_at(r, z0, z1):
+        c = hp._cyl(r, z1 - z0)
+        c.apply_translation([0.0, 0.0, 0.5 * (z0 + z1)])
+        return c
+
+    ring = _cyl_at(r_out, hp.YAW_SPLIT_Z, hp.YAW_CAP_TOP_Z)   # Phi 44, z[-1, +6]
+    return hp._diff(
+        ring,
+        _cyl_at(r_neck, hp.YAW_SPLIT_Z, hp.YAW_BEARING_UPPER_BOT_Z),   # Phi34 z[-1,+2]
+        _cyl_at(r_bore, hp.YAW_BEARING_UPPER_BOT_Z, hp.YAW_CAP_TOP_Z), # Phi37 z[+2,+6]
+    )
+
+
+def check_bearing_cap_descent_path():
+    """Sweep a rigid Phi (YAW_BEARING_OD) disc UP through the live
+    ``yaw_bearing_cap`` and assert the cap can be LOWERED straight down over
+    the upper outer race already seated on the hub boss -- the ONLY valid
+    assembly motion for a one-piece 6706 (its inner race must load onto the
+    boss from below, so the outer race cannot also drop into the cap from
+    above).
+
+    This closes the blind spot in ``check_bearing_insertion_path``, which only
+    swept the race DOWN into a FREE-STANDING cap (race-into-cap) -- a motion
+    that never happens in the robot, since the outer race is welded to its
+    inner race riding the boss.  That probe passed the retired Phi 34-neck cap
+    (the neck is BELOW its down-sweep's z=+2 stop), so the un-assemblable cap
+    validated green.
+
+    Includes a FAIL-ON-OLD self-test: the reconstructed Phi 34-neck cap MUST be
+    flagged (the neck is a measured ~85 mm^3 hard stop), proving the probe is
+    sensitive; the live clean-Phi-37-bore cap must then PASS."""
+    R = hp.YAW_BEARING_OD / 2.0
+    print(f"\n[5i] Bearing-cap descent-path probe (rigid Phi{2 * R:.0f} disc "
+          f"slides UP through the cap to the upper-race seat; models the cap "
+          f"LOWERED over the hub-seated race; max overlap "
+          f"{BEARING_INSERTION_PATH_TOL_MM3:.0f} mm^3 per step):")
+
+    all_ok = True
+    z_lo = hp.YAW_SPLIT_Z - 2.0
+    z_seat = hp.YAW_BEARING_UPPER_BOT_Z                       # +2
+
+    # ---- Self-test: the retired Phi 34-neck cap MUST be flagged ------------
+    old = _old_necked_yaw_cap()
+    ow, _owz, old_blocked, _ons = _sweep_bearing_disc_up(old, z_lo, z_seat)
+    all_ok &= _label(
+        "SELF-TEST: retired Phi34-neck cap blocks the cap descent",
+        old_blocked > 0,
+        f"reconstructed old necked cap flagged at {old_blocked} step(s); worst "
+        f"overlap {ow:.1f} mm^3 >> tol "
+        f"{BEARING_INSERTION_PATH_TOL_MM3:.0f} mm^3 (probe is sensitive)")
+
+    # ---- Live cap MUST pass -----------------------------------------------
+    cap = hp.make_yaw_bearing_cap()
+    worst, worst_z, n_blocked, n_steps = _sweep_bearing_disc_up(cap, z_lo, z_seat)
+    ok = n_blocked == 0
+    detail = (f"{n_steps} Z steps probed; worst overlap {worst:.1f} mm^3 "
+              f"at z={worst_z:+.1f} (tol "
+              f"{BEARING_INSERTION_PATH_TOL_MM3:.0f} mm^3)")
+    if not ok:
+        detail = (f"{n_blocked}/{n_steps} steps blocked; " + detail)
+    all_ok &= _label("yaw_bearing_cap lowers over the hub-seated upper race",
+                     ok, detail)
+
+    return all_ok
+
+
 # ---------------------------------------------------------------------------
 # Hub-boss INNER-race insertion-path / assemblability probe (Jun 2026)
 # ---------------------------------------------------------------------------
@@ -5083,6 +5187,268 @@ def check_hub_inner_race_insertion_path():
         if not ok:
             detail = (f"{n_blocked}/{n_steps} steps blocked; " + detail)
         all_ok &= _label(name, ok, detail)
+
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
+# ONE-PIECE-BEARING assembly-sequence probe (Jun 2026)
+# ---------------------------------------------------------------------------
+#
+# The forensic gap that shipped two un-assemblable yaw 6706s: every prior
+# insertion probe validates ONE race interface IN ISOLATION.
+# ``check_bearing_insertion_path`` sweeps only the STATIONARY OUTER race into
+# the chassis tower / cap (the cap pocket is "open-top" with the hub absent);
+# ``check_hub_inner_race_insertion_path`` sweeps only the ROTATING INNER race
+# onto the hub boss (the cap absent).  Each passes independently, but a 6706 is
+# ONE RIGID UNIT (inner ring + balls + outer ring, inseparable, ID/OD/W fixed):
+# the SAME single annulus must satisfy BOTH its inner (hub boss) AND its outer
+# (chassis tower / yaw_bearing_cap) interface along ONE monotone axial
+# insertion, with BOTH mating parts PRESENT.  Nothing enforced that.
+#
+# Forensic finding the cheap isolated probes missed (upper 6706, ID 30 / OD 37
+# / W 4):
+#   * the hub carries a Phi (YAW_BEARING_INNER_OD)=32 uflange + the Phi 51.6
+#     turntable platform CAPPING the boss top, so a rigid annulus cannot come
+#     DOWN (-Z) onto the boss from above (the platform is a solid disc the
+#     annulus would have to pass through);
+#   * the cap bored Phi 34 NECK (z[-1,+2]) BELOW its Phi 37 upper-race pocket,
+#     so the same annulus cannot come UP (+Z) from below either (its Phi 37 OD
+#     hits the Phi 34 neck).
+# Inner interface only clears one direction, outer only the OTHER -> opposite
+# directions -> NO single axial insertion exists for the one rigid bearing.
+#
+# This probe models each REAL bearing as ONE rigid annulus (true ID/OD/W) at
+# its seated pose and, for the declared assembly order, sweeps it along BOTH
+# axial directions against the union of the joint-stack parts PRESENT when that
+# bearing is inserted (hub boss + chassis tower + yaw_bearing_cap), EXCLUDING
+# only features that ship as SEPARATE post-install retainer parts (a retainer
+# installed AFTER the bearing is legitimately absent during its insertion).
+# A bearing is ASSEMBLABLE iff at least one axial direction has a clear,
+# monotone, collision-free path to one step short of its seat -- i.e. NO
+# feature on the inner approach with OD > the bearing bore AND NO feature on
+# the outer approach with bore < the bearing OD, SIMULTANEOUSLY, along that one
+# direction.  The probe FAILS the build if any bearing has NO clear direction.
+#
+# Embedded FAIL-ON-OLD self-test: a reconstructed platform-capped + uflanged
+# boss UNION a Phi-34-necked cap traps the rigid upper annulus in BOTH
+# directions; the probe MUST report it un-assemblable, proving it is sensitive
+# enough to catch the captured-bearing regression the live split design fixes.
+
+BEARING_ASSY_TOL_MM3 = 25.0       # per-step annulus-vs-parts overlap budget
+BEARING_ASSY_Z_STEP_MM = 0.5
+BEARING_ASSY_PITCH_MM = 0.5
+BEARING_ASSY_APPROACH_MM = 8.0    # axial standoff swept on each side of seat
+
+# Printed parts that ship as SEPARATE post-install retainers: legitimately
+# ABSENT while a bearing is being inserted (they are bolted/snapped on AFTER).
+# A feature only earns a place here if it is genuinely a discrete part the
+# assembler adds after seating the bearing -- NOT an integral wall/shoulder.
+_BEARING_ASSY_POST_INSTALL_RETAINERS = frozenset()
+
+
+def _bearing_annulus_points(zc: float, r_in: float, r_out: float,
+                            w: float, pitch: float) -> np.ndarray:
+    """Filled SOLID annulus (r in [r_in, r_out], z in [zc-w/2, zc+w/2]) of
+    sample points -- the true cross-section + WIDTH of one rigid 6706 ring
+    stack, swept as a single inseparable body."""
+    n = int(np.ceil(2.0 * r_out / pitch)) + 1
+    xs = np.linspace(-r_out, r_out, n)
+    X, Y = np.meshgrid(xs, xs)
+    rr = X ** 2 + Y ** 2
+    m = (rr <= r_out ** 2) & (rr >= r_in ** 2)
+    nz = max(1, int(np.ceil(w / pitch)))
+    zs = np.linspace(zc - w / 2.0 + pitch / 2.0,
+                     zc + w / 2.0 - pitch / 2.0, nz)
+    cols = [np.column_stack([X[m], Y[m], np.full(int(m.sum()), z)]) for z in zs]
+    return np.vstack(cols)
+
+
+def _bearing_overlap_mm3(obstacles, pts, vox) -> float:
+    """Overlap (mm^3) of the sampled annulus ``pts`` against the obstacle SET.
+    A point counts as solid if it lies inside ANY obstacle mesh -- we OR the
+    per-mesh point-in-mesh results rather than boolean-union the meshes,
+    because the joint parts are coaxial RUNNING-CLEARANCE fits whose boolean
+    union produces degenerate near-coincident facets that ``points_inside``
+    misreads (observed: a real Phi 34 constriction silently dropping from ~514
+    to ~8 mm^3 across runs).  Per-mesh membership is exact and deterministic."""
+    inside = None
+    for obs in obstacles:
+        if obs is None:
+            continue
+        hit = points_inside(obs, pts)
+        inside = hit if inside is None else (inside | hit)
+    return (int(inside.sum()) if inside is not None else 0) * vox
+
+
+def _sweep_rigid_bearing(obstacles, seat_c: float,
+                         r_in: float, r_out: float, w: float,
+                         going_up: bool):
+    """Slide the rigid bearing annulus along ONE axial direction toward its
+    seat at center ``seat_c`` and return ``(worst_mm3, worst_z, n_blocked,
+    n_steps)``.  ``obstacles`` is a LIST of meshes (see _bearing_overlap_mm3).
+
+    ``going_up`` True  -> +Z insertion: approach from ``seat_c -
+    BEARING_ASSY_APPROACH_MM`` UP to one step BELOW the seat.
+    ``going_up`` False -> -Z insertion: approach from ``seat_c +
+    BEARING_ASSY_APPROACH_MM`` DOWN to one step ABOVE the seat.
+    Stopping one step short of the seat keeps the intended seated contact
+    (annulus resting against its shoulder) out of the blockage count; a real
+    constriction lives strictly along the approach and trips the tolerance."""
+    if not isinstance(obstacles, (list, tuple)):
+        obstacles = [obstacles]
+    pitch = BEARING_ASSY_PITCH_MM
+    vox = pitch ** 3
+    step = BEARING_ASSY_Z_STEP_MM
+    worst = 0.0
+    worst_z = seat_c
+    n_blocked = 0
+    n_steps = 0
+    zc = (seat_c - BEARING_ASSY_APPROACH_MM if going_up
+          else seat_c + BEARING_ASSY_APPROACH_MM)
+    z_end = seat_c - step if going_up else seat_c + step
+    while (zc <= z_end + 1e-6) if going_up else (zc >= z_end - 1e-6):
+        n_steps += 1
+        pts = _bearing_annulus_points(zc, r_in, r_out, w, pitch)
+        ov = _bearing_overlap_mm3(obstacles, pts, vox)
+        if ov > worst:
+            worst, worst_z = ov, zc
+        if ov > BEARING_ASSY_TOL_MM3:
+            n_blocked += 1
+        zc += step if going_up else -step
+    return worst, worst_z, n_blocked, n_steps
+
+
+def _cyl_at(r, z0, z1):
+    c = hp._cyl(r, z1 - z0)
+    c.apply_translation([0.0, 0.0, 0.5 * (z0 + z1)])
+    return c
+
+
+def _reconstruct_trapped_upper_stack():
+    """Reconstruct the RETIRED captured upper-6706 stack (coxa-local) as a LIST
+    of obstacle meshes: a platform-capped + Phi 32 uflanged hub boss, plus a
+    Phi-34-necked cap.  The rigid upper annulus is trapped in BOTH directions
+    (platform blocks -Z, the Phi 34 neck blocks +Z).  Used ONLY by the
+    self-test to prove the probe is sensitive.  Returned as separate meshes (no
+    boolean union of the running-clearance hub vs cap)."""
+    rboss = hp.YAW_HUB_BOSS_OD / 2.0
+    rinner = hp.YAW_BEARING_INNER_OD / 2.0
+    plat_r = max(hp.YAW_HUB_OD, hp.YAW_HUB_DUST_LIP_OD) / 2.0
+    r_out = hp.YAW_BEARING_OD / 2.0 + hp.YAW_TOWER_WALL     # Phi 44
+    r_bore = hp.YAW_TOWER_BORE_OD / 2.0                     # Phi 37
+    r_neck = hp.YAW_TOWER_SHOULDER_OD / 2.0                 # Phi 34
+
+    boss = _cyl_at(rboss, hp.YAW_HUB_BOSS_BOT_Z, hp.YAW_HUB_BOSS_TOP_Z)
+    uflange = _cyl_at(rinner, hp.YAW_BEARING_UPPER_TOP_Z,
+                      hp.YAW_BEARING_UPPER_TOP_Z + 1.0)      # z[6, 7]
+    plat = _cyl_at(plat_r, hp.YAW_HUB_BOSS_TOP_Z, hp.YAW_HUB_PLATFORM_Z1)
+    # boss/uflange/platform are coaxial STACKED solids -> a clean union.
+    hub_recon = hp._union(boss, uflange, plat)
+    # Old necked cap: Phi 37 pocket z[2,6] over a Phi 34 neck z[-1,2].
+    cap = _cyl_at(r_out, hp.YAW_SPLIT_Z, hp.YAW_BEARING_UPPER_TOP_Z)
+    cap = hp._diff(
+        cap,
+        _cyl_at(r_bore, hp.YAW_BEARING_UPPER_BOT_Z, hp.YAW_BEARING_UPPER_TOP_Z),
+        _cyl_at(r_neck, hp.YAW_SPLIT_Z, hp.YAW_BEARING_UPPER_BOT_Z),
+    )
+    return [hub_recon, cap]
+
+
+def check_bearing_assembly_sequence():
+    """Model each REAL yaw 6706 as ONE rigid annulus and assert a concrete,
+    monotone, single-direction AXIAL insertion exists for the FULL joint stack
+    (hub boss + chassis tower + yaw_bearing_cap), with BOTH the inner and outer
+    mating parts present (only declared SEPARATE post-install retainers absent).
+
+    A 6706 is one inseparable unit, so the SAME annulus must clear its inner
+    approach (no boss feature OD > the bore) AND its outer approach (no housing
+    feature bore < the OD) along ONE axial direction.  FAILS if any bearing has
+    NO clear direction -- the exact constraint the two isolated single-race
+    probes structurally could not see.
+
+    Embedded FAIL-ON-OLD self-test: the reconstructed platform/uflange boss +
+    Phi-34-necked cap traps the rigid upper annulus both ways; the probe MUST
+    report it un-assemblable.  The live split design must then PASS."""
+    r_in = hp.YAW_BEARING_ID / 2.0
+    r_out = hp.YAW_BEARING_OD / 2.0
+    w = hp.YAW_BEARING_W
+    print(f"\n[5j] One-piece-bearing assembly-sequence probe "
+          f"(rigid Phi{2 * r_in:.0f}/Phi{2 * r_out:.0f}/W{w:.0f} 6706 annulus "
+          f"slides along a SINGLE axis with BOTH races' parts present; "
+          f"max overlap {BEARING_ASSY_TOL_MM3:.0f} mm^3 per "
+          f"{BEARING_ASSY_Z_STEP_MM:.1f} mm step):")
+
+    all_ok = True
+
+    def _assemblable(obstacle, seat_c, label):
+        up = _sweep_rigid_bearing(obstacle, seat_c, r_in, r_out, w, True)
+        dn = _sweep_rigid_bearing(obstacle, seat_c, r_in, r_out, w, False)
+        up_ok = up[2] == 0
+        dn_ok = dn[2] == 0
+        ok = up_ok or dn_ok
+        if up_ok:
+            why = (f"+Z insertion CLEAR ({up[3]} steps, worst {up[0]:.1f} mm^3 "
+                   f"@z={up[1]:+.1f})")
+        elif dn_ok:
+            why = (f"-Z insertion CLEAR ({dn[3]} steps, worst {dn[0]:.1f} mm^3 "
+                   f"@z={dn[1]:+.1f})")
+        else:
+            why = (f"NO clear axis: +Z {up[2]}/{up[3]} steps blocked "
+                   f"(worst {up[0]:.1f} mm^3 @z={up[1]:+.1f}); "
+                   f"-Z {dn[2]}/{dn[3]} steps blocked "
+                   f"(worst {dn[0]:.1f} mm^3 @z={dn[1]:+.1f})")
+        return _label(label, ok, why)
+
+    # ---- Self-test: reconstructed captured upper stack MUST be un-assemblable
+    trapped = _reconstruct_trapped_upper_stack()   # list of meshes
+    seat_upper = 0.5 * (hp.YAW_BEARING_UPPER_BOT_Z + hp.YAW_BEARING_UPPER_TOP_Z)
+    up = _sweep_rigid_bearing(trapped, seat_upper, r_in, r_out, w, True)
+    dn = _sweep_rigid_bearing(trapped, seat_upper, r_in, r_out, w, False)
+    self_ok = (up[2] > 0) and (dn[2] > 0)
+    all_ok &= _label(
+        "SELF-TEST: reconstructed platform+uflange / Phi34-neck stack traps "
+        "the rigid upper 6706 BOTH ways",
+        self_ok,
+        f"+Z {up[2]}/{up[3]} blocked (worst {up[0]:.1f} mm^3); "
+        f"-Z {dn[2]}/{dn[3]} blocked (worst {dn[0]:.1f} mm^3) -- probe is "
+        f"sensitive")
+
+    # ---- Live joint stack: build the real obstacle meshes in coxa-local -----
+    # NB: kept as a LIST (never boolean-unioned) -- the hub, cap and tower are
+    # coaxial running-clearance fits, and unioning them yields degenerate
+    # near-coincident facets that make point-in-mesh non-deterministic.
+    hub = hp.make_coxa_yaw_hub()
+    cap = hp.make_yaw_bearing_cap()
+    if "coxa_yaw_hub" in _BEARING_ASSY_POST_INSTALL_RETAINERS:
+        hub = None
+    if "yaw_bearing_cap" in _BEARING_ASSY_POST_INSTALL_RETAINERS:
+        cap = None
+    # Lower-race housing is the SPLIT bottom half (``chassis_bottom``): its tower
+    # is an OPEN-TOP Phi 37 pocket capped at the split plane (z=-1), so nothing
+    # sits above the lower race when it is seated.  (The un-split
+    # ``chassis_assembled`` still carries the full Phi 37->34 upper tower up to
+    # z=+7 -- the geometry the bolt-on cap REPLACES -- so feeding it here would
+    # falsely trap the descending lower annulus against features that are not
+    # present until after the cap is installed.)
+    tower = _chassis_yaw_cradle_to_coxa_local(
+        _load_mesh("chassis_bottom", copy=False))
+
+    # Upper 6706: inner = hub boss, outer = yaw_bearing_cap (both present).
+    all_ok &= _assemblable(
+        [hub, cap], seat_upper,
+        "upper 6706 (one rigid annulus vs hub boss + yaw_bearing_cap)")
+
+    # Lower 6706: outer = chassis bottom tower (its open-top Phi 37 pocket).
+    # Per the declared assembly order the lower race is the FIRST thing seated
+    # -- dropped straight down onto its z=-5 tower shoulder BEFORE the hub boss
+    # or the cap are present (both are installed after), so the tower is the
+    # only part present.  The boss-side (inner) path is independently covered
+    # by check_hub_inner_race_insertion_path.
+    seat_lower = 0.5 * (hp.YAW_BEARING_LOWER_BOT_Z + hp.YAW_BEARING_LOWER_TOP_Z)
+    all_ok &= _assemblable(
+        [tower], seat_lower,
+        "lower 6706 (one rigid annulus vs chassis bottom tower)")
 
     return all_ok
 
@@ -6869,7 +7235,9 @@ CHECKS = (
     ("Cradle insert pockets",     "check_cradle_insert_pockets"),
     ("Servo insertion path",      "check_servo_insertion_path"),
     ("Bearing insertion path",    "check_bearing_insertion_path"),
+    ("Bearing-cap descent path",  "check_bearing_cap_descent_path"),
     ("Hub inner-race insertion",  "check_hub_inner_race_insertion_path"),
+    ("Bearing assembly sequence", "check_bearing_assembly_sequence"),
     ("Flimsy joints",             "check_flimsy_joints"),
     ("Thin sheets",               "check_thin_sheets"),
     ("Flat-bottom printability",  "check_flat_bottom"),
@@ -7027,6 +7395,13 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     # Builds make_coxa_yaw_hub directly from hexapod_prototype; the coxa_link
     # STL footprint stands in for the per-leg coxa parts that gate it.
     "Hub inner-race insertion":  frozenset({"coxa_link"}),
+    # Models the rigid 6706 vs make_coxa_yaw_hub + make_yaw_bearing_cap +
+    # the chassis bottom tower; gate on the coxa + chassis parts so any change
+    # to the hub boss / cap / tower geometry re-runs it.
+    "Bearing assembly sequence": frozenset({"coxa_link", "chassis_bottom",
+                                            "chassis_bottom_lower"}),
+    # Builds make_yaw_bearing_cap directly; its own STL + the coxa parts gate it.
+    "Bearing-cap descent path":  frozenset({"yaw_bearing_cap", "coxa_link"}),
     "Flimsy joints":             _PRINTED_WATERTIGHT_SET,
     "Thin sheets":               _PAD_PARTS,
     # Builds every PART_REGISTRY part in its print pose; any STL change
