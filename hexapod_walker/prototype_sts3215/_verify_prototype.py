@@ -1551,6 +1551,82 @@ def check_self_collision():
 
 
 # ---------------------------------------------------------------------------
+# 4a.  Printed-part pairwise INTERPENETRATION (exact boolean intersection)
+# ---------------------------------------------------------------------------
+#
+# ``check_self_collision`` (above) is a VOXEL-sampled overlap test whose
+# clamp-cap <-> link pairs carry a deliberately GENEROUS tolerance
+# (CLAMP_TOLERANCE = 1800 mm^3) to absorb the voxel stair-step along the
+# many flush faces where the clamp cap mates its cradle.  That tolerance
+# is large enough to MASK a real printed-part interference: the clamp
+# cap's top retaining lip used to overhang -Y to ``body_face_y - 4`` mm
+# and bury ~560 mm^3 INSIDE the cradle's own top retaining plate (two
+# solid printed parts occupying the same space -- impossible to assemble).
+#
+# This guard is the authoritative, voxel-free interference test for the
+# printed parts that are MEANT to mate flush (share only a 0-volume
+# contact face), computed with the EXACT manifold boolean intersection so
+# the tolerance can be tight.  It covers the sandwich-joint clamp cap vs
+# its bracket/cradle for BOTH driven joints (hip + knee), in the exact
+# relative pose the assembly uses (the cap shares the bracket's
+# ``_joint_place`` transform -- see ``_place_servo_clamp_caps``).
+
+# A correctly-mating clamp cap touches its cradle only on flush faces
+# (0 volume).  Allow a small budget for boolean facet noise on those
+# coincident faces; the real defect this guards against is ~560 mm^3.
+CLAMP_CAP_INTERFERENCE_TOL_MM3 = 20.0
+
+
+def _boolean_overlap_volume(a, b):
+    """Exact overlap volume via the manifold boolean intersection.
+
+    Returns ``(volume_mm3, ok_bool)``.  Falls back to the robust voxel
+    estimator (``_pair_overlap_volume``) if the boolean kernel errors out
+    so a kernel hiccup can't silently pass a real clash."""
+    try:
+        inter = trimesh.boolean.intersection([a, b])
+    except Exception:
+        return _pair_overlap_volume(a, b, pitch=1.0), True
+    if inter is None or len(getattr(inter, "faces", [])) == 0:
+        return 0.0, True
+    return abs(float(inter.volume)), True
+
+
+def check_clamp_cap_interference():
+    """The sandwich-joint clamp cap must mate its bracket/cradle FLUSH --
+    no printed-vs-printed interpenetration.  Built from hexapod_prototype
+    directly (like ``check_clamp_cap_alignment``) and posed exactly as the
+    assembly does, then intersected with the EXACT boolean kernel."""
+    print("\n[4a] Clamp-cap <-> bracket printed-part interpenetration:")
+
+    cases = []
+    # HIP: make_coxa_hip_bracket() already applies the hip _joint_place to
+    # its fixed side, so the cap must get the SAME transform.
+    hip_bracket = hp.make_coxa_hip_bracket()
+    hip_cap = hp.make_servo_clamp_cap()
+    hip_cap.apply_transform(
+        hp._joint_place(hp.COXA_HIP_ANCHOR, (1, 0, 0), hp.LEG_PITCH_AXIS))
+    cases.append(("hip  coxa_hip_bracket vs hip_clamp_cap",
+                  hip_bracket, hip_cap))
+
+    # KNEE: make_femur_knee_bracket() is in joint-local; the knee cap shares
+    # the identical knee _joint_place, so their RELATIVE pose is identity.
+    knee_bracket = hp.make_femur_knee_bracket()
+    knee_cap = hp.make_servo_clamp_cap()
+    cases.append(("knee femur_knee_bracket vs knee_clamp_cap",
+                  knee_bracket, knee_cap))
+
+    all_ok = True
+    tol = CLAMP_CAP_INTERFERENCE_TOL_MM3
+    for name, bracket, cap in cases:
+        vol, _ = _boolean_overlap_volume(bracket, cap)
+        ok = vol <= tol
+        all_ok &= _label(name, ok,
+                         f"interpenetration = {vol:7.1f} mm^3 (tol {tol:.0f})")
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
 # 5.  Servo-body clearance in standing pose
 # ---------------------------------------------------------------------------
 
@@ -2173,6 +2249,73 @@ def check_disc_horn_fit():
         all_ok &= _label(f"{name} disc-horn void", ok,
                          f"cradle-inside-disc vol = {vol:7.1f} mm^3 "
                          f"(tol {DISC_HORN_FIT_TOL:.0f})")
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
+# 5e.  Back bearing-HOUSING symmetry + pocket OD guard
+# ---------------------------------------------------------------------------
+#
+# The BACK (idler, -Z) face of the hip/knee brackets presses a 688 ball
+# bearing into ``_passive_bearing_housing()``.  That housing was once an
+# asymmetric +X-HALF rectangular plate -- a one-sided "weird lip" hanging
+# off the cradle back -- and the defect slipped through silently because no
+# check probed it.  This guard asserts the rebuilt housing is a clean boss
+# CENTRED on the idler axis (x = SERVO_OUTPUT_X, y = 0): its X/Y extents must
+# be balanced about that axis (no big one-sided overhang), and the press
+# pocket bored on the OUTER face must measure Phi PASSIVE_BEARING_OD so the
+# bearing actually seats.  It does NOT touch the FRONT output face -- the
+# (correct, keep-bearing) Phi 12-16 back bore is a bearing seat, not a horn
+# socket -- that face stays the exclusive concern of check_disc_horn_fit.
+BACK_HOUSING_ASYM_TOL_MM     = 1.5   # mm -- max |(-X ext) - (+X ext)| (and Y)
+BACK_HOUSING_POCKET_OD_TOL_MM = 1.0  # mm -- |measured pocket OD - PASSIVE_BEARING_OD|
+
+
+def check_back_housing_symmetry():
+    """Guard: the back bearing housing is a clean idler-axis-CENTRED boss
+    (no asymmetric 'weird lip') and its press pocket OD matches
+    PASSIVE_BEARING_OD.  Cheap: bounds math + one radial first-solid scan on
+    the OUTER face.  Built from hexapod_prototype directly."""
+    print("\n[5e] Back bearing-housing symmetry + pocket OD:")
+
+    h = hp._passive_bearing_housing()
+    b = h.bounds
+    axis = float(hp.SERVO_OUTPUT_X)
+
+    left  = axis - float(b[0][0])      # extent toward -X (cable side)
+    right = float(b[1][0]) - axis      # extent toward +X
+    asym_x = abs(left - right)
+    y_lo, y_hi = float(b[0][1]), float(b[1][1])
+    asym_y = abs(abs(y_lo) - abs(y_hi))
+    tol = BACK_HOUSING_ASYM_TOL_MM
+
+    all_ok = True
+    all_ok &= _label("housing X-symmetry about idler axis", asym_x <= tol,
+                     f"-X ext {left:4.1f} vs +X ext {right:4.1f} mm "
+                     f"(asym {asym_x:4.1f} <= {tol:.1f})")
+    all_ok &= _label("housing Y-symmetry about idler axis", asym_y <= tol,
+                     f"-Y {y_lo:+5.1f} vs +Y {y_hi:+5.1f} mm "
+                     f"(asym {asym_y:4.1f} <= {tol:.1f})")
+
+    # Pocket OD: radial first-solid scan 1 mm inboard of the OUTER face.
+    zc = float(b[0][2]) + 1.0
+    az = np.linspace(0.0, 2.0 * np.pi, 16, endpoint=False)
+    radii = np.arange(1.0, hp.PASSIVE_HOUSING_OD / 2.0 + 1.0, 0.1)
+    measured = []
+    for a in az:
+        dx, dy = np.cos(a), np.sin(a)
+        pts = np.column_stack([axis + radii * dx, radii * dy,
+                               np.full_like(radii, zc)])
+        inside = h.contains(pts)
+        solid = np.nonzero(inside)[0]
+        if solid.size:
+            measured.append(float(radii[solid[0]]))
+    pocket_od = 2.0 * float(np.median(measured)) if measured else 0.0
+    od_err = abs(pocket_od - hp.PASSIVE_BEARING_OD)
+    all_ok &= _label("bearing pocket OD == PASSIVE_BEARING_OD",
+                     od_err <= BACK_HOUSING_POCKET_OD_TOL_MM,
+                     f"measured Phi {pocket_od:4.1f} vs Phi "
+                     f"{hp.PASSIVE_BEARING_OD:.1f} mm (err {od_err:4.2f})")
     return all_ok
 
 
@@ -6356,10 +6499,12 @@ CHECKS = (
     ("Wire-exit slot",            "check_wire_slot"),
     ("Leg harness drop",          "check_leg_harness_drop"),
     ("Self-collision",            "check_self_collision"),
+    ("Clamp-cap interference",    "check_clamp_cap_interference"),
     ("Servo clearance",           "check_servo_clearance"),
     ("Horn-stack clearance",      "check_horn_stack_clearance"),
     ("Horn-sweep clearance",      "check_horn_sweep_clearance"),
     ("Disc-horn fit",             "check_disc_horn_fit"),
+    ("Back-housing symmetry",     "check_back_housing_symmetry"),
     ("Horn pattern in pads",      "check_horn_pattern_in_pad"),
     ("Cradle insert pockets",     "check_cradle_insert_pockets"),
     ("Servo insertion path",      "check_servo_insertion_path"),
@@ -6500,12 +6645,18 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Wire-exit slot":            _CRADLE_PARTS,
     "Leg harness drop":          frozenset({"chassis_bottom"}),
     "Self-collision":            _LEG_PARTS | {"servo_clamp_cap"},
+    # Builds the clamp cap + hip/knee brackets directly from
+    # hexapod_prototype; the servo_clamp_cap STL footprint also gates it.
+    "Clamp-cap interference":    _CRADLE_PARTS | {"servo_clamp_cap"},
     "Servo clearance":           _LEG_PARTS | {"servo_body"},
     "Horn-stack clearance":      frozenset({"femur_link", "tibia_link"}),
     "Horn-sweep clearance":      frozenset({"chassis_bottom",
                                              "chassis_bottom_lower",
                                              "servo_horn"}),
     "Horn pattern in pads":      _PAD_PARTS,
+    # Builds _passive_bearing_housing directly from hexapod_prototype; the
+    # hip/knee cradle STL footprints gate it (both embed the housing).
+    "Back-housing symmetry":     _CRADLE_PARTS,
     "Cradle insert pockets":     _CRADLE_PARTS,
     "Servo insertion path":      _CRADLE_PARTS,
     "Flimsy joints":             _PRINTED_WATERTIGHT_SET,

@@ -119,6 +119,213 @@ def _trans(v) -> np.ndarray:
     return T
 
 
+# ---------------------------------------------------------------------------
+# BuildViz "checks" sidecar (precomputed, read on scene load)
+# ---------------------------------------------------------------------------
+#
+# BuildViz auto-loads a ``buildviz_checks.json`` sidecar next to ``scene.json``
+# into its clickable Checks panel (see /Users/lbiewald/buildviz
+# BUILDVIZ_INTEGRATION.md "scene.json Contract" + the ``buildviz check --emit``
+# sidecar: generatedAt / build / checksConfig / summary / checks[] / highlights).
+# We can't run the (concurrently-edited) buildviz CLI, so we PRECOMPUTE the
+# generic geometric ``mesh_overlap`` class here -- the same printed-part
+# interpenetration class the offline verifier guards with
+# ``check_clamp_cap_interference`` -- and write the sidecar in BuildViz's exact
+# schema so the panel surfaces it on load (the publish path is a symlink, so it
+# is picked up).
+#
+# SceneCheck = { id, kind, status: 'pass'|'warn'|'fail', label,
+#                instances?: string[], point?: [x,y,z], region?: {min,max} }
+# Status colours (CHECK_STATUS_COLOR): fail #ff3b30, warn #f59e0b, pass #22c55e.
+
+CHECK_STATUS_COLOR = {"fail": "#ff3b30", "warn": "#f59e0b", "pass": "#22c55e"}
+
+# Overlap volume (mm^3) at/above which a non-intended printed-part pair is a
+# FAIL.  A correct flush mate (clamp cap on its cradle, stacked hub/bracket)
+# leaves only voxel-boundary noise well under this; the clamp-cap lip bug this
+# guards against was ~560 mm^3.
+CHECK_OVERLAP_MM3 = 80.0
+CHECK_PITCH_MM = 2.0
+
+# Intended part-type matings (overlap by design): servo bodies seated in their
+# cradles, the disc horn clamped on its servo output, the carbon tube epoxied
+# into its sockets, and the bolt-together printed stacks that share a flush or
+# bonded interface.  These are reported ``pass (allowed)`` rather than failing,
+# exactly as BuildViz's ``checksConfig.ignoreOverlapPairs`` intends.  The
+# sandwich-joint clamp cap <-> its bracket is DELIBERATELY *not* listed: it must
+# mate flush (~0 mm^3), so a real interpenetration there still surfaces as FAIL.
+INTENDED_OVERLAP_PAIRS = frozenset(
+    frozenset(p) for p in [
+        # Servo body fills its cradle / bracket.
+        ("chassis_bottom", "yaw_servo"),
+        ("chassis_bottom_lower", "yaw_servo"),
+        ("coxa_hip_bracket", "hip_servo"),
+        ("femur_knee_bracket", "knee_servo"),
+        # Disc horn seats on its servo output boss.
+        ("yaw_servo", "disc_horn_yaw"),
+        ("hip_servo", "disc_horn_hip"),
+        ("knee_servo", "disc_horn_knee"),
+        # Carbon-fibre spar epoxied into the yoke / fitting sockets.
+        ("femur_hip_yoke", "femur_tube"),
+        ("femur_knee_bracket", "femur_tube"),
+        ("tibia_knee_yoke", "tibia_tube"),
+        ("tibia_foot_fitting", "tibia_tube"),
+        # Bolt-together printed stacks sharing a flush/bonded interface.
+        ("coxa_yaw_hub", "coxa_hip_bracket"),
+        ("coxa_yaw_hub", "yaw_bearing_cap"),
+        ("coxa_hip_bracket", "yaw_bearing_cap"),
+        # LiPo velcro-strapped onto the chassis bottom plate.
+        ("chassis_bottom", "lipo_battery"),
+    ]
+)
+
+
+def _pair_overlap(a_mesh, b_mesh, *, pitch, skip_below):
+    """Voxel-sample the AABB intersection of two WORLD-space meshes.
+
+    Returns ``(volume_mm3, centroid_xyz, region_min, region_max)`` or
+    ``(0.0, None, None, None)`` when they do not interpenetrate.  Mirrors the
+    generic estimator in tools/buildviz_checks.py / the verifier's
+    ``_pair_overlap_volume`` so the numbers line up with the offline gate."""
+    lo = np.maximum(a_mesh.bounds[0], b_mesh.bounds[0])
+    hi = np.minimum(a_mesh.bounds[1], b_mesh.bounds[1])
+    if np.any(hi <= lo):
+        return 0.0, None, None, None
+    span = hi - lo
+    if float(np.prod(span)) <= skip_below:
+        return 0.0, None, None, None
+    n = np.maximum(2, np.ceil(span / pitch).astype(int))
+    gx = np.linspace(lo[0], hi[0], int(n[0]))
+    gy = np.linspace(lo[1], hi[1], int(n[1]))
+    gz = np.linspace(lo[2], hi[2], int(n[2]))
+    XX, YY, ZZ = np.meshgrid(gx, gy, gz, indexing="ij")
+    pts = np.stack([XX.ravel(), YY.ravel(), ZZ.ravel()], axis=1)
+    try:
+        in_a = a_mesh.contains(pts)
+    except Exception:
+        return 0.0, None, None, None
+    if not in_a.any():
+        return 0.0, None, None, None
+    pts_a = pts[in_a]
+    try:
+        in_b = b_mesh.contains(pts_a)
+    except Exception:
+        return 0.0, None, None, None
+    n_overlap = int(in_b.sum())
+    if n_overlap == 0:
+        return 0.0, None, None, None
+    voxel_vol = float(np.prod(span / n.astype(float)))
+    inside = pts_a[in_b]
+    centroid = [float(c) for c in inside.mean(axis=0)]
+    rmin = [float(c) for c in inside.min(axis=0)]
+    rmax = [float(c) for c in inside.max(axis=0)]
+    return n_overlap * voxel_vol, centroid, rmin, rmax
+
+
+def _build_checks_sidecar(tagged, instances_json):
+    """Compute the generic ``mesh_overlap`` + ``scene_meta`` checks over the
+    placed scene and return the BuildViz sidecar dict (its exact schema)."""
+    # tagged[idx] world mesh is aligned 1:1 with instances_json[idx].
+    items = []
+    for inst, (name, _leg, mesh) in zip(instances_json, tagged):
+        # Fasteners occupy their holes by design (BuildViz suppresses them by
+        # default); skip them from the interpenetration scan.
+        if inst.get("role") == "fastener":
+            continue
+        items.append((inst["id"], inst["partType"], mesh))
+
+    checks: list[dict] = []
+
+    # scene_meta: every instance resolves to a mesh + ids are unique (the
+    # builder guarantees this, so it is a green hygiene line in the panel).
+    ids = [i["id"] for i in instances_json]
+    dupes = sorted({x for x in ids if ids.count(x) > 1})
+    checks.append({
+        "id": "scene_meta-unique-ids",
+        "kind": "scene_meta",
+        "status": "pass" if not dupes else "fail",
+        "label": (f"{len(ids)} instances, ids unique"
+                  if not dupes else f"duplicate ids: {dupes}"),
+    })
+
+    # mesh_overlap: pairwise interpenetration with an AABB pre-filter.
+    overlaps = []
+    for i in range(len(items)):
+        ida, pta, ma = items[i]
+        amin, amax = ma.bounds
+        for j in range(i + 1, len(items)):
+            idb, ptb, mb = items[j]
+            bmin, bmax = mb.bounds
+            if np.any(amax < bmin) or np.any(bmax < amin):
+                continue
+            vol, centroid, rmin, rmax = _pair_overlap(
+                ma, mb, pitch=CHECK_PITCH_MM, skip_below=CHECK_OVERLAP_MM3)
+            if vol <= CHECK_OVERLAP_MM3:
+                continue
+            overlaps.append((vol, ida, pta, idb, ptb, centroid, rmin, rmax))
+
+    overlaps.sort(key=lambda r: -r[0])
+    for k, (vol, ida, pta, idb, ptb, centroid, rmin, rmax) in enumerate(overlaps):
+        allowed = frozenset((pta, ptb)) in INTENDED_OVERLAP_PAIRS
+        status = "pass" if allowed else "fail"
+        suffix = " (allowed)" if allowed else ""
+        rec = {
+            "id": f"mesh_overlap-{k}",
+            "kind": "mesh_overlap",
+            "status": status,
+            "label": f"{pta} \u2229 {ptb} = {vol:.0f} mm\u00b3 interpenetration{suffix}",
+            "instances": [ida, idb],
+        }
+        if centroid is not None:
+            rec["point"] = centroid
+        if rmin is not None and rmax is not None:
+            rec["region"] = {"min": rmin, "max": rmax}
+        checks.append(rec)
+
+    # summary + highlights, mirroring buildvizChecks.summarizeChecks /
+    # checksToHighlights so the panel badge + overlays match a CLI --emit run.
+    summary = {"total": len(checks), "pass": 0, "warn": 0, "fail": 0, "byKind": {}}
+    for c in checks:
+        summary[c["status"]] += 1
+        bk = summary["byKind"].setdefault(c["kind"], {"pass": 0, "warn": 0, "fail": 0})
+        bk[c["status"]] += 1
+
+    parts: dict[str, dict] = {}
+    points: list[dict] = []
+    regions: list[dict] = []
+    for c in checks:
+        if c["status"] == "pass":
+            continue
+        color = CHECK_STATUS_COLOR[c["status"]]
+        for iid in c.get("instances", []):
+            parts.setdefault(iid, {"instanceId": iid, "color": color,
+                                   "annotation": c["label"]})
+        if "region" in c:
+            regions.append({"min": c["region"]["min"], "max": c["region"]["max"],
+                            "color": color, "annotation": c["label"]})
+        if "point" in c:
+            pt = {"point": c["point"], "color": color, "annotation": c["label"]}
+            if "region" not in c and c.get("instances"):
+                pt["instanceId"] = c["instances"][0]
+            points.append(pt)
+
+    return {
+        "generatedAt": __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc).isoformat(),
+        "build": {"id": SCENE_BUILD_ID, "name": "Hexapod STS3215 — full robot"},
+        "generatedBy": "full_robot_viz_build.py (precomputed offline)",
+        "checksConfig": {
+            "overlapMm3": CHECK_OVERLAP_MM3,
+            "pitchMm": CHECK_PITCH_MM,
+            "ignoreOverlapPairs": sorted(sorted(p) for p in INTENDED_OVERLAP_PAIRS),
+        },
+        "summary": summary,
+        "checks": checks,
+        "highlights": {"parts": list(parts.values()), "points": points,
+                       "regions": regions},
+    }
+
+
 def _leg0_individual_link_parts() -> list[tuple[str, trimesh.Trimesh]]:
     """Leg-0 femur/tibia decomposed into their REAL printed parts (yoke +
     dia-8 CF tube + bracket/fitting) + coxa_link + foot_pad, each placed
@@ -409,12 +616,28 @@ def main(single_leg: bool = False) -> None:
         "designSpecUrl": "design_spec.yaml",
         "units": "mm",
         "center": center,
+        # Project intent as DATA (BuildViz checksConfig): the intended part-type
+        # matings that overlap by design, so the viewer's live checks mark them
+        # pass(allowed) instead of flagging them.
+        "checksConfig": {
+            "overlapMm3": CHECK_OVERLAP_MM3,
+            "pitchMm": CHECK_PITCH_MM,
+            "ignoreOverlapPairs": sorted(sorted(p) for p in INTENDED_OVERLAP_PAIRS),
+        },
         "meshes": meshes_json,
         "instances": instances_json,
     }
     (OUT_DIR / "scene.json").write_text(json.dumps(scene, indent=2))
     print(f"Wrote {OUT_DIR/'scene.json'}  ({len(instances_json)} instances, "
           f"lift={chassis_lift:.1f})")
+
+    # Precompute the BuildViz checks sidecar (read on scene load).
+    sidecar = _build_checks_sidecar(tagged, instances_json)
+    (OUT_DIR / "buildviz_checks.json").write_text(json.dumps(sidecar, indent=2))
+    s = sidecar["summary"]
+    print(f"Wrote {OUT_DIR/'buildviz_checks.json'}  "
+          f"({s['fail']} fail / {s['warn']} warn / {s['pass']} pass "
+          f"of {s['total']} checks)")
 
 
 if __name__ == "__main__":

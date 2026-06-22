@@ -394,6 +394,19 @@ PASSIVE_BEARING_PRESS     = 0.0   # mm -- pocket-dia shrink for press fit (tune 
 PASSIVE_BEARING_SHOULDER_T = 2.0  # mm -- backing wall seating the outer race
 PASSIVE_STUB_OD           = PASSIVE_BEARING_BORE   # mm -- moving-link stub shaft dia
 PASSIVE_STUB_CLEAR_OD     = PASSIVE_BEARING_OD - 4.0  # mm -- shoulder bore (inner-race/stub access)
+# Back bearing-HOUSING shell (Jun 2026 cleanup).  The 688 bearing seat used
+# to be an asymmetric +X-HALF rectangular plate (x in [2, WELL_W/2], full
+# WELL_D) -- a one-sided "weird lip" hanging off the cradle back.  It is now
+# a clean boss CENTRED on the idler axis (x = SERVO_OUTPUT_X): a Phi
+# PASSIVE_HOUSING_OD barrel that holds the Phi PASSIVE_BEARING_OD press
+# pocket + its wall, topped by a Phi PASSIVE_HOUSING_FLANGE_OD x
+# PASSIVE_HOUSING_FLANGE_T backing collar that fuses the boss to the cradle's
+# +X and +/-Y walls so the housing stays ONE connected component.  Centring
+# on the +X-offset idler axis keeps the -X half of the back face open for the
+# serial-bus connectors / cables (the original reason it was +X-half-only).
+PASSIVE_HOUSING_OD        = 24.0  # mm -- bearing-boss OD (holds Phi16 pocket + ~4 mm wall)
+PASSIVE_HOUSING_FLANGE_OD = 30.0  # mm -- back-face collar OD that ties into the cradle walls
+PASSIVE_HOUSING_FLANGE_T  = 4.0   # mm -- collar thickness (>= MIN_PRINT_T, prints flat-bottom)
 
 # ===== SPACED YAW BEARING PAIR (cantilever moment support) ===============
 # The coxa cantilevers the whole hip/femur/tibia ~COXA_LENGTH out to the
@@ -4500,26 +4513,45 @@ def _disc_horn_bolt_centres():
 
 
 def _passive_bearing_housing() -> trimesh.Trimesh:
-    """Partial +X-half back housing pressing the 688 passive bearing.
+    """Clean, idler-axis-CENTRED back housing pressing the 688 passive
+    bearing.
 
-    Spans z in [-PASSIVE_BACK_PLATE_T, 0] (behind the servo back face) and
-    only the +X (idler-axis) half so the -X half stays open for the
-    serial-bus connectors and cables.  A Phi PASSIVE_BEARING_OD pocket
+    Spans z in [-PASSIVE_BACK_PLATE_T, 0] (behind the servo back face).  It
+    is a Phi PASSIVE_HOUSING_OD barrel centred on the idler axis (x =
+    SERVO_OUTPUT_X), topped by a Phi PASSIVE_HOUSING_FLANGE_OD x
+    PASSIVE_HOUSING_FLANGE_T backing collar at the back-face plane (z = 0)
+    that fuses the boss to the cradle's +X and +/-Y walls so the union into
+    ``_sandwich_fixed_side`` stays ONE connected, print-flat-bottom body.
+
+    Because the boss is centred on the +X-OFFSET idler axis it never reaches
+    the -X cable region (its -X edge sits near x = 0), so the -X half of the
+    back face stays open for the serial-bus connectors -- the original reason
+    the legacy plate was +X-half-only -- WITHOUT the asymmetric overhang.
+
+    Pocket geometry is preserved verbatim: a Phi PASSIVE_BEARING_OD pocket
     opens on the OUTER face (z = -PASSIVE_BACK_PLATE_T), PASSIVE_BEARING_W
     deep, seating the bearing outer race against a PASSIVE_BEARING_SHOULDER_T
     backing wall; a Phi PASSIVE_STUB_CLEAR_OD shoulder bore clears the inner
-    race + the moving yoke's stub shaft."""
-    x_lo = 2.0
-    x_hi = WELL_W / 2.0
+    race + the moving yoke's stub shaft.
+    """
     t = PASSIVE_BACK_PLATE_T
-    plate = _box((x_hi - x_lo, WELL_D, t),
-                 center=(0.5 * (x_lo + x_hi), 0.0, -t / 2.0))
+    # Round bearing boss centred on the idler axis, full depth z in [-t, 0].
+    boss = _cyl(PASSIVE_HOUSING_OD / 2.0, t)
+    boss.apply_translation([SERVO_OUTPUT_X, 0.0, -t / 2.0])
+    # Back-face collar (>= MIN_PRINT_T thick) that ties the boss into the
+    # cradle walls.  Concentric with the boss -> symmetric about the idler
+    # axis in X (no one-sided lip).
+    flange = _cyl(PASSIVE_HOUSING_FLANGE_OD / 2.0, PASSIVE_HOUSING_FLANGE_T)
+    flange.apply_translation([SERVO_OUTPUT_X, 0.0,
+                              -PASSIVE_HOUSING_FLANGE_T / 2.0])
+    body = _union(boss, flange)
+
     pocket = _cyl((PASSIVE_BEARING_OD - PASSIVE_BEARING_PRESS) / 2.0,
                   PASSIVE_BEARING_W * 2)
     pocket.apply_translation([SERVO_OUTPUT_X, 0.0, -t])   # opens at z=-t
     stub = _cyl(PASSIVE_STUB_CLEAR_OD / 2.0, t * 4)
     stub.apply_translation([SERVO_OUTPUT_X, 0.0, -t / 2.0])
-    return _diff(plate, pocket, stub)
+    return _diff(body, pocket, stub)
 
 
 def _sandwich_fixed_side() -> trimesh.Trimesh:
@@ -4570,11 +4602,21 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
     tongue = _box((cav_w, wall_end_y - tongue_y0, cap_z1),
                   center=(0.0, 0.5 * (tongue_y0 + wall_end_y), cap_z1 / 2.0))
 
-    # Top retaining lip lapping the body +Y front-face edge.
-    lip_overhang = 4.0
-    lip = _box((cav_w, (body_face_y + 1.0) - (body_face_y - lip_overhang),
-                WELL_H - WELL_RIM_Z),
-               center=(0.0, 0.5 * ((body_face_y - lip_overhang) + (body_face_y + 1.0)),
+    # Top retaining lip that ROOFS the cradle's OPEN +Y drop-in slot.  It
+    # tiles FLUSH against the cradle's surviving top plate instead of
+    # interpenetrating it: ``_servo_well_solid`` removes its top plate only
+    # for y >= cav_d/2 (the lateral drop-in slot), so the cap lip starts
+    # exactly at that cut edge and spans out to the wall ends, where the
+    # flange takes over.  (It used to overhang -Y to ``body_face_y - 4``
+    # = +9.1 mm, burying ~560 mm^3 INSIDE the cradle's own retaining plate
+    # -- a real printed-part interference.  The cradle plate already laps
+    # the servo's +Y front-face edge for +Z pull-out retention, so the cap
+    # only needs to close the slot.)
+    cav_d = SERVO_BODY_D + 2 * WELL_BODY_CL
+    lip_y0 = cav_d / 2.0 - 0.01           # flush with the cradle plate +Y edge
+    lip_y1 = wall_end_y                   # meet the flange at the wall ends
+    lip = _box((cav_w, lip_y1 - lip_y0, WELL_H - WELL_RIM_Z),
+               center=(0.0, 0.5 * (lip_y0 + lip_y1),
                        0.5 * (WELL_RIM_Z + WELL_H)))
     # The lip must clear the dia-20 disc horn (centred on +SERVO_OUTPUT_X).
     body = _union(flange, tongue, lip)
@@ -8856,6 +8898,9 @@ COXA_JOIN_FOOT_T = 8.0  # mm -- Part B foot-plate thickness (>=7.2 so the
                         #       flat plate clears the thin-sheet band; it is
                         #       the sole Part A<->B structural join, so a
                         #       stout plate is wanted anyway)
+LIP_RELIEF_CHAMFER = 5.0  # mm -- 45-deg chamfer leg cut into the foot's FRONT
+                          #       (-Y) bottom-outer edge to kill the proud
+                          #       print lip on the high-coxa-Z output face
 
 
 def make_yaw_bearing(which: str = "lower") -> trimesh.Trimesh:
@@ -9063,6 +9108,25 @@ def make_coxa_hip_bracket() -> trimesh.Trimesh:
                center=(FEMUR_CLEAR_X + 20.0, 0.5 * (foot_y0 + foot_y1),
                        0.5 * (4.0 + FEMUR_CLEAR_Z)))
     body = _diff(body, clr)
+
+    # Printability relief (Jun 2026): the foot is sized to the full cradle
+    # bbox (fb +/- 1 mm) and is a thick (COXA_JOIN_FOOT_T) slab, so on the
+    # FRONT (-Y, LOW-Y) side -- the disc-horn / output face, where coxa-Z is
+    # HIGHEST -- its bottom-outer edge is a proud, sharp lip that prints as a
+    # fragile unsupported ledge.  Chamfer that front-bottom-outer edge back at
+    # 45 deg.  This is OUTBOARD of the Phi YAW_HUB hub seat (which is central,
+    # within Phi 44) and the 4 join bolts (y = +/-COXA_JOIN_BOLT_PCD/2), and
+    # BELOW the cradle's seating plane, so the seating face, bolt pattern,
+    # bearing housing and cradle are all untouched.
+    chamfer = LIP_RELIEF_CHAMFER
+    wedge = _box((foot_x1 - foot_x0 + 2.0, 50.0, 50.0),
+                 center=(0.5 * (foot_x0 + foot_x1), 0.0, 0.0))
+    wedge.apply_transform(rotation_matrix(np.deg2rad(-45.0), [1, 0, 0]))
+    _n = np.array([0.0, -1.0, -1.0]) / np.sqrt(2.0)
+    _mid = np.array([0.0, foot_y0 + chamfer / 2.0, foot_z0 + chamfer / 2.0])
+    _ctr = _mid + _n * 25.0
+    wedge.apply_translation([0.0, _ctr[1], _ctr[2]])
+    body = _diff(body, wedge)
 
     # Join clearance holes + head counterbores (driven from the foot top).
     cuts = []
