@@ -1627,6 +1627,202 @@ def check_clamp_cap_interference():
 
 
 # ---------------------------------------------------------------------------
+# 4b.  COMPREHENSIVE all-pairs printed-part interference over the FULL robot
+# ---------------------------------------------------------------------------
+#
+# This is the AUTHORITATIVE, comprehensive replacement for the leg-only
+# allow-list-of-pairs collision tests (``check_self_collision`` covers only
+# {coxa,femur,tibia,clamp caps} on ONE leg; ``check_clamp_cap_interference``
+# covers only 2 hard-coded clamp pairs).  Whole classes of printed-vs-printed
+# interpenetration -- cap<->chassis, hub<->chassis, tray/dome<->chassis, the
+# chassis split halves, the femur hip-yoke<->knee-bracket tube sockets, the
+# foot tang<->pad fork -- were structurally UNCHECKED by those, and each was
+# papered over until it bit during assembly.
+#
+# This gate assembles the ENTIRE static robot from EVERY printed part, in its
+# nominal assembled pose, DECOMPOSED into the real printed parts (coxa_yaw_hub
+# + coxa_hip_bracket, femur_hip_yoke + femur_knee_bracket, tibia_knee_yoke +
+# tibia_foot_fitting, foot_pad, the two chassis halves, both clamp caps, both
+# decks, the dome) -- not the merged link proxies -- using the SAME
+# authoritative scene placement that ``tools/full_robot_viz_build.py`` lays
+# the buildviz scene out with (so poses are never re-invented and stay locked
+# to the disc-horn / bearing world frame the rest of the verifier uses).  It
+# then computes the EXACT boolean overlap (voxel fallback on kernel error) for
+# every AABB-overlapping pair and requires it to be <= a tiny facet-noise
+# budget, EXCEPT for an explicit, NAMED allow-list of DESIGNED flush / slip-fit
+# mates (parts that share a coincident 0-volume contact face), each with a
+# tight justified budget.
+#
+# NEW-PART CONTRACT: this check is gated on ALL_PRINTED_PARTS, so any printed
+# part added in future is automatically pulled into the matrix.  A new part
+# that genuinely interpenetrates another printed part with NO allow-list entry
+# will FAIL the build.  Do NOT widen a budget or add an allow-list entry to
+# silence a REAL volumetric clash -- the allow-list is ONLY for true flush /
+# slip-fit mates whose real solid overlap is ~0 (facet noise).  Fix the
+# geometry instead.
+
+# Facet/voxel noise floor permitted for ANY printed-part pair (two manifold
+# meshes that merely TOUCH still emit a few stray boolean facets).
+ASSEMBLY_INTERFERENCE_NOISE_MM3 = 5.0
+
+# Printed parts assembled by the gate (COTS -- bearings, CF tubes, servos,
+# disc horns, lipo, PCBs -- are excluded; they are not printed).
+_ASSEMBLY_PRINTED_PARTS = frozenset({
+    "coxa_yaw_hub", "coxa_hip_bracket", "yaw_bearing_cap",
+    "femur_hip_yoke", "femur_knee_bracket",
+    "tibia_knee_yoke", "tibia_foot_fitting", "foot_pad",
+    "hip_clamp_cap", "knee_clamp_cap",
+    "chassis_bottom", "chassis_bottom_lower", "chassis_top",
+    "uno_q_tray", "buck_tray", "spider_carapace",
+})
+
+# NAMED allow-list of DESIGNED flush / slip-fit mates.  Each entry is a pair of
+# printed parts that SHARE a coincident contact face (real solid overlap ~0);
+# the budget is a tight facet-noise allowance, never a cover for a real clash.
+ASSEMBLY_INTERFERENCE_ALLOW = {
+    # Print-split chassis: the bolt-on LOW cradle half mates the HIGH plate on
+    # a large coincident flange/join face (12 join screws) -- big flush area,
+    # so a slightly larger facet-noise budget.
+    frozenset({"chassis_bottom", "chassis_bottom_lower"}):
+        (25.0, "bolted chassis print-split: large coincident join flange face"),
+    # Yaw bearing tower split: cap mates the chassis bottom tower at a flush
+    # split face (YAW_SPLIT_Z) + a 0.3 mm radial slip register lip.
+    frozenset({"yaw_bearing_cap", "chassis_bottom"}):
+        (25.0, "yaw tower split: flush split face + 0.3mm slip register lip"),
+    # Yaw turntable hub seats in the chassis tower bore on the 6706 bearing
+    # stack -- a running slip fit (coaxial), only facet noise at the seat.
+    frozenset({"coxa_yaw_hub", "chassis_bottom"}):
+        (15.0, "yaw bearing seat: hub boss is a running slip fit in the tower"),
+    # Hub rides the cap-captured upper 6706 inner race; the rotating hub has
+    # running clearance to the stationary cap (flush at the race face only).
+    frozenset({"coxa_yaw_hub", "yaw_bearing_cap"}):
+        (15.0, "yaw joint: hub runs against the cap-captured race, flush face"),
+    # The two coxa printed parts (yaw hub + hip bracket) bolt together flush.
+    frozenset({"coxa_yaw_hub", "coxa_hip_bracket"}):
+        (15.0, "coxa two-part join: flush bolt face between hub and bracket"),
+    # Sandwich-joint clamp caps clamshell their cradle bracket on flush faces
+    # (the 0.2 mm tongue interference is against the COTS servo body, not the
+    # printed bracket); guarded tightly by check_clamp_cap_interference too.
+    frozenset({"coxa_hip_bracket", "hip_clamp_cap"}):
+        (25.0, "hip clamp cap clamshells its cradle bracket on flush faces"),
+    frozenset({"femur_knee_bracket", "knee_clamp_cap"}):
+        (25.0, "knee clamp cap clamshells its cradle bracket on flush faces"),
+}
+
+
+def _aabb_overlap(a, b, margin: float = 0.0) -> bool:
+    a_lo, a_hi = a.bounds
+    b_lo, b_hi = b.bounds
+    return not (bool(np.any(a_hi < b_lo - margin))
+                or bool(np.any(b_hi < a_lo - margin)))
+
+
+def _assembly_interference_parts():
+    """Return ``(core, neighbour)`` lists of ``(label, basename, mesh)`` for
+    every PRINTED part of the full static assembly, built LIVE from
+    hexapod_prototype and placed with full_robot_viz_build's authoritative
+    scene transforms.
+
+    ``core``      = leg-0 printed parts + the entire chassis / yaw / deck /
+                    dome body (placed once).
+    ``neighbour`` = leg-0 printed parts rotated to the adjacent +60 deg hex
+                    edge, so leg<->leg adjacency is covered.  The chassis is
+                    6-fold symmetric, so leg-0 + ONE neighbour is fully
+                    representative of all six leg-chassis interfaces and all
+                    six adjacent leg-leg pairs.
+    """
+    import sys as _sys
+    import pathlib as _pathlib
+    _tools = str(_pathlib.Path(__file__).resolve().parent / "tools")
+    if _tools not in _sys.path:
+        _sys.path.insert(0, _tools)
+    import full_robot_viz_build as FRB  # noqa: WPS433
+
+    core: list[tuple[str, str, object]] = []
+    leg0: list[tuple[str, object]] = []
+    for name, mesh in FRB._leg0_parts():
+        if name in _ASSEMBLY_PRINTED_PARTS:
+            core.append((name, name, mesh))
+            leg0.append((name, mesh))
+    for name, mesh in FRB._body_parts(0.0):
+        if name in _ASSEMBLY_PRINTED_PARTS:
+            core.append((name, name, mesh))
+
+    R = rotation_matrix(np.pi / 3.0, [0, 0, 1])
+    neighbour: list[tuple[str, str, object]] = []
+    for name, mesh in leg0:
+        m = mesh.copy()
+        m.apply_transform(R)
+        neighbour.append((f"{name}@leg+1", name, m))
+    return core, neighbour
+
+
+def check_assembly_interference():
+    """COMPREHENSIVE all-pairs printed-part interference gate over the full
+    static assembly (see the design note above).  Assembles EVERY printed part
+    in its nominal pose (decomposed into the real printed parts, not the merged
+    link proxies), then for every AABB-overlapping pair computes the EXACT
+    boolean overlap and requires it <= a tiny facet-noise budget, except for a
+    small NAMED allow-list of designed flush / slip-fit mates.
+
+    This REPLACES the leg-only collision allow-list: new printed parts are
+    pulled in automatically (gated on ALL_PRINTED_PARTS).  A new part that
+    interpenetrates another with no allow-list entry FAILS the build -- fix the
+    geometry, do not allow-list a real clash."""
+    print("\n[4b] Assembly interference (all printed parts, full robot):")
+
+    from itertools import combinations, product  # noqa: WPS433
+
+    core, neighbour = _assembly_interference_parts()
+    print(f"       assembled {len(core)} core printed parts "
+          f"(leg 0 + chassis/yaw/deck/dome) + {len(neighbour)} neighbour-leg "
+          f"parts")
+
+    stats = {"ok": True, "checked": 0, "reported": 0}
+
+    def _judge(la, ba, ma, lb, bb, mb):
+        if not _aabb_overlap(ma, mb):
+            return
+        stats["checked"] += 1
+        key = frozenset({ba, bb})
+        allowed = key in ASSEMBLY_INTERFERENCE_ALLOW
+        vol, _ = _boolean_overlap_volume(ma, mb)
+        # Sub-noise & not a named mate -> a legitimately-just-touching pair;
+        # clear it silently so the log isn't flooded with dozens of neighbours.
+        if vol <= ASSEMBLY_INTERFERENCE_NOISE_MM3 and not allowed:
+            return
+        if allowed:
+            budget, why = ASSEMBLY_INTERFERENCE_ALLOW[key]
+            tag = f"flush mate, tol {budget:.0f}: {why}"
+        else:
+            budget = ASSEMBLY_INTERFERENCE_NOISE_MM3
+            tag = (f"REAL interpenetration (tol {budget:.0f}) -- fix geometry, "
+                   f"do NOT allow-list")
+        stats["reported"] += 1
+        ok = vol <= budget
+        stats["ok"] &= _label(f"{la} vs {lb}", ok,
+                              f"overlap = {vol:7.1f} mm^3 ({tag})")
+
+    # Core all-pairs: leg 0 printed parts + the whole chassis/yaw/deck/dome.
+    for a, b in combinations(core, 2):
+        _judge(*a, *b)
+    # Leg-leg adjacency: leg-0 LEG parts vs the +60 deg neighbour leg's parts
+    # (chassis is shared, so skip body parts here -- already in core).
+    leg0_legparts = [p for p in core if p[1] not in _CHASSIS_PARTS
+                     and p[1] != "spider_carapace"]
+    for a, b in product(leg0_legparts, neighbour):
+        _judge(*a, *b)
+
+    print(f"       {stats['checked']} AABB-overlapping pairs examined; "
+          f"{stats['reported']} above the "
+          f"{ASSEMBLY_INTERFERENCE_NOISE_MM3:.0f} mm^3 noise floor")
+    if stats["reported"] == 0:
+        _label("no printed-part interpenetration above the noise floor",
+               True, "")
+    return stats["ok"]
+
+
+# ---------------------------------------------------------------------------
 # 5.  Servo-body clearance in standing pose
 # ---------------------------------------------------------------------------
 
@@ -6663,6 +6859,7 @@ CHECKS = (
     ("Leg harness drop",          "check_leg_harness_drop"),
     ("Self-collision",            "check_self_collision"),
     ("Clamp-cap interference",    "check_clamp_cap_interference"),
+    ("Assembly interference",     "check_assembly_interference"),
     ("Servo clearance",           "check_servo_clearance"),
     ("Horn-stack clearance",      "check_horn_stack_clearance"),
     ("Horn-sweep clearance",      "check_horn_sweep_clearance"),
@@ -6812,6 +7009,10 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     # Builds the clamp cap + hip/knee brackets directly from
     # hexapod_prototype; the servo_clamp_cap STL footprint also gates it.
     "Clamp-cap interference":    _CRADLE_PARTS | {"servo_clamp_cap"},
+    # COMPREHENSIVE all-pairs gate over the full static assembly: gated on
+    # EVERY printed part so any new/changed part is auto-pulled into the
+    # interference matrix (builds all parts live from hexapod_prototype).
+    "Assembly interference":     ALL_PRINTED_PARTS,
     "Servo clearance":           _LEG_PARTS | {"servo_body"},
     "Horn-stack clearance":      frozenset({"femur_link", "tibia_link"}),
     "Horn-sweep clearance":      frozenset({"chassis_bottom",

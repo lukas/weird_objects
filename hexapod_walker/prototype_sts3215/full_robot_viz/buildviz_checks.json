@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-22T17:45:20.617103+00:00",
+  "generatedAt": "2026-06-22T18:53:24.675452+00:00",
   "build": {
     "id": "prototype_sts3215",
     "name": "Hexapod STS3215 \u2014 full robot"
@@ -72,10 +72,10 @@
     ]
   },
   "summary": {
-    "total": 18,
+    "total": 12,
     "pass": 12,
     "warn": 0,
-    "fail": 6,
+    "fail": 0,
     "byKind": {
       "scene_meta": {
         "pass": 1,
@@ -85,7 +85,7 @@
       "mesh_overlap": {
         "pass": 11,
         "warn": 0,
-        "fail": 6
+        "fail": 0
       }
     }
   },
@@ -261,168 +261,6 @@
     {
       "id": "mesh_overlap-6",
       "kind": "mesh_overlap",
-      "status": "fail",
-      "label": "femur_hip_yoke \u2229 femur_knee_bracket = 1755 mm\u00b3 interpenetration",
-      "instances": [
-        "099-femur_hip_yoke",
-        "100-femur_knee_bracket"
-      ],
-      "point": [
-        125.90701532372286,
-        -73.82448734275113,
-        90.3651287819217
-      ],
-      "region": {
-        "min": [
-          114.939570560315,
-          -85.1809433861733,
-          80.850627869676
-        ],
-        "max": [
-          138.01802780876724,
-          -64.09684571193137,
-          99.85244540584665
-        ]
-      }
-    },
-    {
-      "id": "mesh_overlap-7",
-      "kind": "mesh_overlap",
-      "status": "fail",
-      "label": "femur_hip_yoke \u2229 femur_knee_bracket = 1755 mm\u00b3 interpenetration",
-      "instances": [
-        "048-femur_hip_yoke",
-        "049-femur_knee_bracket"
-      ],
-      "point": [
-        -125.90701532372324,
-        73.82448734275123,
-        90.36512878192181
-      ],
-      "region": {
-        "min": [
-          -138.0180278087672,
-          64.0968457119314,
-          80.850627869676
-        ],
-        "max": [
-          -114.93957056031498,
-          85.18094338617334,
-          99.85244540584665
-        ]
-      }
-    },
-    {
-      "id": "mesh_overlap-8",
-      "kind": "mesh_overlap",
-      "status": "fail",
-      "label": "femur_hip_yoke \u2229 femur_knee_bracket = 1746 mm\u00b3 interpenetration",
-      "instances": [
-        "014-femur_hip_yoke",
-        "015-femur_knee_bracket"
-      ],
-      "point": [
-        127.10010712966047,
-        72.10558062571464,
-        90.38219886061826
-      ],
-      "region": {
-        "min": [
-          115.93957065568245,
-          61.87146859847067,
-          80.850627869676
-        ],
-        "max": [
-          139.01802790413467,
-          82.00551756635528,
-          99.85244540584665
-        ]
-      }
-    },
-    {
-      "id": "mesh_overlap-9",
-      "kind": "mesh_overlap",
-      "status": "fail",
-      "label": "femur_hip_yoke \u2229 femur_knee_bracket = 1746 mm\u00b3 interpenetration",
-      "instances": [
-        "065-femur_hip_yoke",
-        "066-femur_knee_bracket"
-      ],
-      "point": [
-        -127.10010712966063,
-        -72.10558062571474,
-        90.38219886061835
-      ],
-      "region": {
-        "min": [
-          -139.01802790413467,
-          -82.00551756635527,
-          80.850627869676
-        ],
-        "max": [
-          -115.93957065568246,
-          -61.871468598470656,
-          99.85244540584665
-        ]
-      }
-    },
-    {
-      "id": "mesh_overlap-10",
-      "kind": "mesh_overlap",
-      "status": "fail",
-      "label": "femur_hip_yoke \u2229 femur_knee_bracket = 1619 mm\u00b3 interpenetration",
-      "instances": [
-        "031-femur_hip_yoke",
-        "032-femur_knee_bracket"
-      ],
-      "point": [
-        1.05326730083315,
-        146.09321090443257,
-        90.39531962747608
-      ],
-      "region": {
-        "min": [
-          -4.11818213029337,
-          135.03180860564092,
-          80.850627869676
-        ],
-        "max": [
-          6.177272241765859,
-          158.2131670667609,
-          99.85244540584665
-        ]
-      }
-    },
-    {
-      "id": "mesh_overlap-11",
-      "kind": "mesh_overlap",
-      "status": "fail",
-      "label": "femur_hip_yoke \u2229 femur_knee_bracket = 1619 mm\u00b3 interpenetration",
-      "instances": [
-        "082-femur_hip_yoke",
-        "083-femur_knee_bracket"
-      ],
-      "point": [
-        -1.0532673008332423,
-        -146.0932109044325,
-        90.39531962747611
-      ],
-      "region": {
-        "min": [
-          -6.1772722417659445,
-          -158.2131670667609,
-          80.850627869676
-        ],
-        "max": [
-          4.118182130293281,
-          -135.03180860564092,
-          99.85244540584665
-        ]
-      }
-    },
-    {
-      "id": "mesh_overlap-12",
-      "kind": "mesh_overlap",
       "status": "pass",
       "label": "chassis_bottom \u2229 lipo_battery = 912 mm\u00b3 interpenetration (allowed)",
       "instances": [
@@ -448,7 +286,7 @@
       }
     },
     {
-      "id": "mesh_overlap-13",
+      "id": "mesh_overlap-7",
       "kind": "mesh_overlap",
       "status": "pass",
       "label": "yaw_servo \u2229 disc_horn_yaw = 88 mm\u00b3 interpenetration (allowed)",
@@ -475,7 +313,7 @@
       }
     },
     {
-      "id": "mesh_overlap-14",
+      "id": "mesh_overlap-8",
       "kind": "mesh_overlap",
       "status": "pass",
       "label": "yaw_servo \u2229 disc_horn_yaw = 88 mm\u00b3 interpenetration (allowed)",
@@ -502,7 +340,7 @@
       }
     },
     {
-      "id": "mesh_overlap-15",
+      "id": "mesh_overlap-9",
       "kind": "mesh_overlap",
       "status": "pass",
       "label": "yaw_servo \u2229 disc_horn_yaw = 88 mm\u00b3 interpenetration (allowed)",
@@ -529,7 +367,7 @@
       }
     },
     {
-      "id": "mesh_overlap-16",
+      "id": "mesh_overlap-10",
       "kind": "mesh_overlap",
       "status": "pass",
       "label": "yaw_servo \u2229 disc_horn_yaw = 88 mm\u00b3 interpenetration (allowed)",
@@ -557,209 +395,8 @@
     }
   ],
   "highlights": {
-    "parts": [
-      {
-        "instanceId": "099-femur_hip_yoke",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1755 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "100-femur_knee_bracket",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1755 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "048-femur_hip_yoke",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1755 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "049-femur_knee_bracket",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1755 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "014-femur_hip_yoke",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1746 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "015-femur_knee_bracket",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1746 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "065-femur_hip_yoke",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1746 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "066-femur_knee_bracket",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1746 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "031-femur_hip_yoke",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1619 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "032-femur_knee_bracket",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1619 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "082-femur_hip_yoke",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1619 mm\u00b3 interpenetration"
-      },
-      {
-        "instanceId": "083-femur_knee_bracket",
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1619 mm\u00b3 interpenetration"
-      }
-    ],
-    "points": [
-      {
-        "point": [
-          125.90701532372286,
-          -73.82448734275113,
-          90.3651287819217
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1755 mm\u00b3 interpenetration"
-      },
-      {
-        "point": [
-          -125.90701532372324,
-          73.82448734275123,
-          90.36512878192181
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1755 mm\u00b3 interpenetration"
-      },
-      {
-        "point": [
-          127.10010712966047,
-          72.10558062571464,
-          90.38219886061826
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1746 mm\u00b3 interpenetration"
-      },
-      {
-        "point": [
-          -127.10010712966063,
-          -72.10558062571474,
-          90.38219886061835
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1746 mm\u00b3 interpenetration"
-      },
-      {
-        "point": [
-          1.05326730083315,
-          146.09321090443257,
-          90.39531962747608
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1619 mm\u00b3 interpenetration"
-      },
-      {
-        "point": [
-          -1.0532673008332423,
-          -146.0932109044325,
-          90.39531962747611
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1619 mm\u00b3 interpenetration"
-      }
-    ],
-    "regions": [
-      {
-        "min": [
-          114.939570560315,
-          -85.1809433861733,
-          80.850627869676
-        ],
-        "max": [
-          138.01802780876724,
-          -64.09684571193137,
-          99.85244540584665
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1755 mm\u00b3 interpenetration"
-      },
-      {
-        "min": [
-          -138.0180278087672,
-          64.0968457119314,
-          80.850627869676
-        ],
-        "max": [
-          -114.93957056031498,
-          85.18094338617334,
-          99.85244540584665
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1755 mm\u00b3 interpenetration"
-      },
-      {
-        "min": [
-          115.93957065568245,
-          61.87146859847067,
-          80.850627869676
-        ],
-        "max": [
-          139.01802790413467,
-          82.00551756635528,
-          99.85244540584665
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1746 mm\u00b3 interpenetration"
-      },
-      {
-        "min": [
-          -139.01802790413467,
-          -82.00551756635527,
-          80.850627869676
-        ],
-        "max": [
-          -115.93957065568246,
-          -61.871468598470656,
-          99.85244540584665
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1746 mm\u00b3 interpenetration"
-      },
-      {
-        "min": [
-          -4.11818213029337,
-          135.03180860564092,
-          80.850627869676
-        ],
-        "max": [
-          6.177272241765859,
-          158.2131670667609,
-          99.85244540584665
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1619 mm\u00b3 interpenetration"
-      },
-      {
-        "min": [
-          -6.1772722417659445,
-          -158.2131670667609,
-          80.850627869676
-        ],
-        "max": [
-          4.118182130293281,
-          -135.03180860564092,
-          99.85244540584665
-        ],
-        "color": "#ff3b30",
-        "annotation": "femur_hip_yoke \u2229 femur_knee_bracket = 1619 mm\u00b3 interpenetration"
-      }
-    ]
+    "parts": [],
+    "points": [],
+    "regions": []
   }
 }

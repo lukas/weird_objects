@@ -535,6 +535,28 @@ LEG_TUBE_SOCKET_DEPTH     = 14.0  # mm -- tube engagement depth into a socket
 LEG_TUBE_PIN_OD           = 2.6   # mm -- cross-hole dia (dia-2.5 roll pin / M2.5 screw)
 LEG_TUBE_PIN_INSET        = LEG_TUBE_SOCKET_DEPTH / 2.0  # mm -- pin axis from socket mouth
 
+# FEMUR-only short tube sockets (Jun 2026 sandwich-femur fit fix).  The femur
+# is only FEMUR_LENGTH = 90 mm hip-axis-to-knee-axis; once the hip moving yoke
+# (reaches +X to the spine end) and the bulky knee servo bracket (reaches -X to
+# its -WELL_W/2 face) are placed, only ~19 mm of clear span remains between the
+# two tube-socket MOUTHS.  The default LEG_TUBE_SOCKET_DEPTH+6 = 20 mm boss on
+# EACH side therefore drove the two Phi 14 socket bosses ~19 mm THROUGH each
+# other (~2.1k mm^3 of two-printed-solids-in-one-space -- the femur_hip_yoke
+# vs femur_knee_bracket clash the assembly gate flags).  The femur sockets are
+# shortened so the two bosses leave a clear exposed-tube gap; the dia-2.5
+# transverse retention pin (now at the shortened mid-engagement) is the primary
+# pull-out/rotation lock, with epoxy over the 9 mm bond.  The 130 mm tibia has
+# ample span, so its sockets keep the full LEG_TUBE_SOCKET_DEPTH.
+FEMUR_TUBE_SOCKET_LEN     = 7.0   # mm -- femur hip-yoke / knee-bracket boss length.
+                                  # Only ~19 mm of clear span exists between the
+                                  # two femur socket mouths, and each boss reaches
+                                  # a touch past its length, so a 7 mm boss leaves
+                                  # a ~2.3 mm exposed-tube gap between the two
+                                  # bosses (0 interpenetration) -- the most tube
+                                  # engagement the tight femur span allows.  The
+                                  # dia-2.5 transverse pin + epoxy retains the tube.
+FEMUR_TUBE_PIN_INSET      = 3.5   # mm -- pin axis from mouth (mid of the 7 mm boss)
+
 # ---- Heat-set brass insert for cradle servo mounts (May 2026) -----------
 # McMaster 94459A130: M3 brass heat-set insert, knurled.  Pilot Phi 4.0 mm,
 # insert OD 5.7 mm (knurled max), insert length 5.0 mm, recommended pilot
@@ -4394,7 +4416,40 @@ def make_yaw_bearing_cap() -> trimesh.Trimesh:
     lip = _diff(_cyl(lip_od, split_z - lip_z0),
                 _cyl(lip_id, (split_z - lip_z0) * 3.0))
     lip.apply_translation([0.0, 0.0, 0.5 * (lip_z0 + split_z)])
+    # The bottom-tower's 3 M3 join-bolt ear bosses (YAW_CAP_BOLT_BOSS_OD at
+    # YAW_CAP_BOLT_PCD) straddle the tower OD and protrude radially OUT to
+    # ~Phi 53 at the 3 ear azimuths -- squarely into this wrap-lip's
+    # Phi 44.6..47.6 slip band.  A FULL-ring lip therefore collides with those
+    # protruding ears (~60 mm^3 of two-solids-in-one-space, an un-assemblable
+    # clash).  NOTCH the lip at each ear azimuth so it registers on the CLEAN
+    # tower OD over the 3 arcs BETWEEN the ears (3-point concentric centring)
+    # while clearing the ear bosses the cap bolts down onto.
+    lip_notches = []
+    for (ex, ey) in _yaw_cap_bolt_centres():
+        notch = _cyl(YAW_CAP_BOLT_BOSS_OD / 2.0 + 0.8, (split_z - lip_z0) * 3.0)
+        notch.apply_translation([ex, ey, 0.5 * (lip_z0 + split_z)])
+        lip_notches.append(notch)
+    lip = _diff(lip, *lip_notches)
     cap = _union(ring, lip)
+    # The wrap-lip sits 0.3 mm (YAW_CAP_REG_LIP_CL) RADIALLY OUTSIDE the ring OD,
+    # so the full-ring lip used to hang off the cap only through the 3 ear
+    # bosses.  Notching it at the 3 ears (above) to clear the chassis ears
+    # therefore left 3 FLOATING lip arcs (the notch is wider than the ear boss
+    # that re-bridges them).  Tie each arc back to the ring with a small
+    # connector tab at the 3 arc MIDPOINTS (between the ears, over the CLEAN
+    # tower OD where no chassis ear protrudes).  Each tab lives entirely at
+    # z >= split_z (above the capped tower top) so it never bites the tower,
+    # overlaps the ring solidly, and seats on the lip-arc top face -- making the
+    # cap a single connected body again.
+    mid_angles = [a + np.pi / 3.0 for a in YAW_CAP_BOLT_ANGLES_RAD]
+    tabs = []
+    for ang in mid_angles:
+        tab = _box((lip_od - r_out + 2.5, 6.0, 1.6),
+                   center=(0.5 * (r_out - 1.0 + lip_od), 0.0,
+                           split_z + 0.8))
+        tab.apply_transform(rotation_matrix(ang, [0, 0, 1]))
+        tabs.append(tab)
+    cap = _union(cap, *tabs)
 
     # ---- 3 x M3 join-bolt ear bosses ----
     ear_top = YAW_CAP_EAR_TOP_Z                            # +3 (below dust lip)
@@ -4639,13 +4694,20 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
 
 
 def _leg_tube_socket_x(x_mouth: float, sock_z: float, *, direction: int = 1,
-                       length: float = None):
+                       length: float = None, pin_inset: float = None):
     """A Phi LEG_TUBE_OD carbon-tube socket extending along +/-X from
     ``x_mouth`` at height ``sock_z`` (joint-local).  ``direction`` = +1
     (toward +X) or -1 (toward -X).  Returns ``(boss, bore, pin)``: union
     the boss into the part, then diff the bore + transverse retention-pin
-    cross-hole (epoxy bond + dia-2.5 pin retains the tube)."""
+    cross-hole (epoxy bond + dia-2.5 pin retains the tube).
+
+    ``length`` overrides the default boss length (used by the short FEMUR
+    sockets so the hip-yoke + knee-bracket bosses don't interpenetrate across
+    the femur's tight ~19 mm tube span -- see FEMUR_TUBE_SOCKET_LEN).  When a
+    shorter ``length`` is given, pass the matching ``pin_inset`` so the
+    transverse pin still lands at the boss mid-engagement (not past its end)."""
     sock_len = length if length is not None else (LEG_TUBE_SOCKET_DEPTH + 6.0)
+    inset = pin_inset if pin_inset is not None else LEG_TUBE_PIN_INSET
     s = float(direction)
     Rx = rotation_matrix(np.pi / 2.0, [0, 1, 0])   # cyl axis Z -> X
     boss = _cyl(LEG_TUBE_OD / 2.0 + 3.0, sock_len)
@@ -4656,7 +4718,7 @@ def _leg_tube_socket_x(x_mouth: float, sock_z: float, *, direction: int = 1,
     bore.apply_translation([x_mouth + s * sock_len, 0.0, sock_z])
     pin = _cyl(LEG_TUBE_PIN_OD / 2.0, (LEG_TUBE_OD / 2.0 + 3.0) * 4)
     pin.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))   # axis Y
-    pin.apply_translation([x_mouth + s * LEG_TUBE_PIN_INSET, 0.0, sock_z])
+    pin.apply_translation([x_mouth + s * inset, 0.0, sock_z])
     return boss, bore, pin
 
 
@@ -4678,9 +4740,16 @@ _YOKE_TOP_Z1 = JOINT_HORN_TOP_Z + _YOKE_ARM_T                          # 47.3
 JOINT_SOCKET_Z = 0.5 * (_YOKE_BOT_Z0 + _YOKE_TOP_Z1)                   # ~17.65
 
 
-def _sandwich_moving_yoke(*, tube_socket: bool = True) -> trimesh.Trimesh:
+def _sandwich_moving_yoke(*, tube_socket: bool = True,
+                          socket_length: float = None,
+                          socket_pin_inset: float = None) -> trimesh.Trimesh:
     """The MOVING printed link of a sandwich joint: a C-clevis straddling
     the fixed servo/housing stack.
+
+    ``socket_length`` / ``socket_pin_inset`` override the CF-tube socket size
+    (the FEMUR hip yoke uses a SHORT socket so it doesn't collide with the
+    femur knee bracket across the tight 90 mm femur span -- see
+    FEMUR_TUBE_SOCKET_LEN; the long-span tibia knee yoke keeps the default).
 
     - TOP arm seats on the disc-horn top (z = JOINT_HORN_TOP_Z) and bolts
       to it with 4x M3 on the Phi DISC_HORN_BOLT_PCD circle (driven).
@@ -4722,7 +4791,9 @@ def _sandwich_moving_yoke(*, tube_socket: bool = True) -> trimesh.Trimesh:
 
     parts = [top, bot, stub, spine]
     if tube_socket:
-        boss, bore, pin = _leg_tube_socket_x(_YOKE_SPINE_X1, JOINT_SOCKET_Z)
+        boss, bore, pin = _leg_tube_socket_x(
+            _YOKE_SPINE_X1, JOINT_SOCKET_Z,
+            length=socket_length, pin_inset=socket_pin_inset)
         parts.append(boss)
         return _diff(_union(*parts), bore, pin)
     return _union(*parts)
@@ -9172,17 +9243,41 @@ def make_coxa_link() -> trimesh.Trimesh:  # noqa: F811  (sandwich override)
 def make_femur_hip_yoke() -> trimesh.Trimesh:
     """Femur's HIP end: the moving yoke (driven by the hip disc horn,
     stub into the hip 688 bearing) with the femur CF-tube socket toward
-    the knee.  Joint-local frame."""
-    return _sandwich_moving_yoke(tube_socket=True)
+    the knee.  Joint-local frame.
+
+    Uses the SHORT femur tube socket (FEMUR_TUBE_SOCKET_LEN) so it does not
+    interpenetrate the femur knee bracket's facing socket across the femur's
+    tight ~19 mm tube span (caught by the assembly-interference gate)."""
+    yoke = _sandwich_moving_yoke(tube_socket=True,
+                                 socket_length=FEMUR_TUBE_SOCKET_LEN,
+                                 socket_pin_inset=FEMUR_TUBE_PIN_INSET)
+    # Hip-pitch clearance relief on the spine's BACK (-X) / +Y corner.  At the
+    # STANCE_FEMUR_DEG = -25 deg hip pitch, the FIXED hip_clamp_cap flange
+    # corner (it roofs the servo cradle's +Y face) sweeps ~1.1 mm INTO this
+    # corner of the rotating yoke spine -- a real ~58 mm^3 two-solids clash the
+    # assembly gate flags.  The spine is 4 mm deep in X (x[38,42]) and the
+    # clash only bites its -X face over the +Y band y[9.4,12], so pocket that
+    # corner back ~1.7 mm (leaving >=2.3 mm of spine tying the arms + tube
+    # socket, which lives at the FAR +X end x=42).  Only this hip yoke needs it
+    # (the knee yoke's +35 deg pose clears its clamp cap), so it is applied
+    # here rather than in the shared _sandwich_moving_yoke.
+    relief = _box((4.7, 4.0, 46.0), center=(37.35, 11.0, 17.0))
+    return _diff(yoke, relief)
 
 
 def make_femur_knee_bracket() -> trimesh.Trimesh:
     """Femur's KNEE end: the knee joint FIXED side (servo bracket + 688
     bearing housing) plus the femur CF-tube socket pointing back toward
-    the hip (-X).  Joint-local frame (+Z = knee output)."""
+    the hip (-X).  Joint-local frame (+Z = knee output).
+
+    Uses the SHORT femur tube socket (FEMUR_TUBE_SOCKET_LEN) -- see
+    make_femur_hip_yoke -- so the two femur tube-socket bosses leave a clear
+    exposed-tube gap instead of driving through one another."""
     fixed = _sandwich_fixed_side()
     boss, bore, pin = _leg_tube_socket_x(-WELL_W / 2.0, JOINT_SOCKET_Z,
-                                         direction=-1)
+                                         direction=-1,
+                                         length=FEMUR_TUBE_SOCKET_LEN,
+                                         pin_inset=FEMUR_TUBE_PIN_INSET)
     return _diff(_union(fixed, boss), bore, pin)
 
 
@@ -9203,7 +9298,19 @@ def make_tibia_foot_fitting() -> trimesh.Trimesh:
     hinge = _cyl(FOOT_HINGE_PIN_HOLE_D / 2.0, LINK_THICKNESS * 4)
     hinge.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))
     hinge.apply_translation([16.0, 0.0, 0.0])
-    return _diff(body, bore, pin, hinge)
+    # Distal-bottom swing-clearance chamfer.  The tang is a 22 x 16 mm slab
+    # whose square BOTTOM-DISTAL corner (local x[14..22], z below ~-3) swings
+    # DOWN into the foot_pad's central boss when the ankle sits at its stance
+    # pitch -- a real ~57 mm^3 two-solids-in-one-space clash the assembly gate
+    # flags.  Bevel that corner back along the 45 deg plane x - z = 19.2 (kept
+    # material stops at z = -3.2 right at the pin, leaving >1.5 mm of wall
+    # below the Phi 3.4 hinge bore) so the tang clears the boss through the
+    # ankle's compliant range while still fully wrapping the pin.
+    cham = _box((40.0, LINK_THICKNESS + 2.0, 60.0))
+    cham.apply_transform(rotation_matrix(np.pi / 4.0, [0, 1, 0]))
+    n = np.array([1.0, 0.0, -1.0]) / np.sqrt(2.0)
+    cham.apply_translation(np.array([16.0, 0.0, -3.2]) + n * 20.0)
+    return _diff(body, bore, pin, hinge, cham)
 
 
 def tibia_foot_hinge_local() -> np.ndarray:
