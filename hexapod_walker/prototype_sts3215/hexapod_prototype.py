@@ -478,20 +478,24 @@ YAW_TOWER_TOP_Z           = YAW_BEARING_UPPER_TOP_Z + YAW_TOWER_LIP_T  # +7.0
 #     gravity shoulder and the rotating hub's upper inner-race flange above.
 #
 # 3 x M3 self-tap join bolts (YAW_CAP_BOLT_*) pull the cap down onto the
-# tower; a wrap-lip register (YAW_CAP_REG_*) seats the cap concentrically on
-# the tower OD.  All join hardware lives BELOW the rotating dust-lip band
+# tower.  All join hardware lives BELOW the rotating dust-lip band
 # (coxa-local z < YAW_HUB lip z0 = +3.5) so it never fouls the turntable.
+# (Jun 2026: the bottom register wrap-lip was removed -- it was flimsy and
+# hard to print; concentricity now comes from the 3 bolts into the tower
+# pilots, which are coaxial by construction with the bottom-tower ear bosses.)
 YAW_SPLIT_Z               = YAW_BEARING_LOWER_TOP_Z   # -1 (coxa-local split plane)
 YAW_CAP_TOP_Z             = YAW_BEARING_UPPER_TOP_Z   # +6 (cap open top; lip retired)
 YAW_CAP_EAR_TOP_Z         = YAW_BEARING_UPPER_BOT_Z + 1.0   # +3 (ear top, below dust lip)
-YAW_CAP_REG_LIP_DROP      = 2.5   # mm -- wrap-lip descent over the tower OD
-YAW_CAP_REG_LIP_CL        = 0.3   # mm -- wrap-lip radial slip clearance on tower OD
-YAW_CAP_REG_LIP_WALL      = 1.5   # mm -- wrap-lip radial wall
 YAW_CAP_BOLT_N            = 3
-YAW_CAP_BOLT_PCD          = 45.0  # mm -- join-bolt circle DIAMETER (clears bore + dust lip)
+# Bolt circle DIAMETER.  Each bolt sits in an OUTBOARD ear lug so the head
+# counterbore fully clears the Phi 37 (r 18.5) central bore: at PCD 47 the
+# head edge is at r = 47/2 - HEAD_OD/2 = 23.5 - 3 = 20.5 mm, a 2 mm wall to
+# the bore.  (The retired PCD 45 left the head edge at r 19.5 -- only 1 mm to
+# the bore and overhanging the Phi 44 cap OD, with no room for the head.)
+YAW_CAP_BOLT_PCD          = 47.0  # mm -- join-bolt circle DIAMETER (head clears bore + ring)
 YAW_CAP_BOLT_OD           = 3.4   # mm -- M3 clearance (through the cap ear)
 YAW_CAP_BOLT_PILOT_OD     = 2.5   # mm -- M3 self-tap pilot (into the tower ear)
-YAW_CAP_BOLT_BOSS_OD      = 8.0   # mm -- ear-boss OD around each join bolt
+YAW_CAP_BOLT_BOSS_OD      = 9.0   # mm -- ear-boss OD (contains the Phi 6 head with 1.5 mm wall)
 YAW_CAP_BOLT_HEAD_OD      = 6.0   # mm -- M3 SHCS head clearance (cap counterbore)
 YAW_CAP_BOLT_LEN          = 8.0   # mm -- M3 x 8 self-tap SHCS join screw
                                   #       (head recessed in the cap ear, ~7 mm
@@ -4383,11 +4387,13 @@ def make_yaw_bearing_cap() -> trimesh.Trimesh:
     identical to ``make_coxa_yaw_hub`` so the same per-leg placement transform
     positions both.  Vertical layout:
 
-        z[-3.5, -1]  register wrap-lip (slips over the tower OD, centres the
-                     two halves concentrically)
         z[-1, +6]    Phi 37 CLEAN through-bore (radial housing for the upper
                      outer race; NO sub-Phi-37 constriction below the race)
-        z[-1, +3]    3 x M3 ear bosses (bolt DOWN into the tower pilots)
+        z[-1, +3]    3 x M3 outboard ear lugs (bolt DOWN into the tower pilots)
+
+    (Jun 2026: the bottom register wrap-lip at z[-3.5, -1] was removed -- it
+    was a thin, hard-to-print floating ring; the two halves are now kept
+    concentric by the 3 join bolts seating into the tower pilots.)
 
     ASSEMBLY (Jun 2026 assemblability fix): the cap is LOWERED straight down
     over the upper outer race already seated on the hub boss, so the bore is
@@ -4408,50 +4414,15 @@ def make_yaw_bearing_cap() -> trimesh.Trimesh:
     # ---- Main ring (Phi 44 OD, split plane up to the open top) ----
     ring = _cyl(r_out, top_z - split_z)
     ring.apply_translation([0.0, 0.0, 0.5 * (split_z + top_z)])
+    cap = ring
 
-    # ---- Register wrap-lip (descends over the tower OD) ----
-    lip_id = r_out + YAW_CAP_REG_LIP_CL
-    lip_od = lip_id + YAW_CAP_REG_LIP_WALL
-    lip_z0 = split_z - YAW_CAP_REG_LIP_DROP
-    lip = _diff(_cyl(lip_od, split_z - lip_z0),
-                _cyl(lip_id, (split_z - lip_z0) * 3.0))
-    lip.apply_translation([0.0, 0.0, 0.5 * (lip_z0 + split_z)])
-    # The bottom-tower's 3 M3 join-bolt ear bosses (YAW_CAP_BOLT_BOSS_OD at
-    # YAW_CAP_BOLT_PCD) straddle the tower OD and protrude radially OUT to
-    # ~Phi 53 at the 3 ear azimuths -- squarely into this wrap-lip's
-    # Phi 44.6..47.6 slip band.  A FULL-ring lip therefore collides with those
-    # protruding ears (~60 mm^3 of two-solids-in-one-space, an un-assemblable
-    # clash).  NOTCH the lip at each ear azimuth so it registers on the CLEAN
-    # tower OD over the 3 arcs BETWEEN the ears (3-point concentric centring)
-    # while clearing the ear bosses the cap bolts down onto.
-    lip_notches = []
-    for (ex, ey) in _yaw_cap_bolt_centres():
-        notch = _cyl(YAW_CAP_BOLT_BOSS_OD / 2.0 + 0.8, (split_z - lip_z0) * 3.0)
-        notch.apply_translation([ex, ey, 0.5 * (lip_z0 + split_z)])
-        lip_notches.append(notch)
-    lip = _diff(lip, *lip_notches)
-    cap = _union(ring, lip)
-    # The wrap-lip sits 0.3 mm (YAW_CAP_REG_LIP_CL) RADIALLY OUTSIDE the ring OD,
-    # so the full-ring lip used to hang off the cap only through the 3 ear
-    # bosses.  Notching it at the 3 ears (above) to clear the chassis ears
-    # therefore left 3 FLOATING lip arcs (the notch is wider than the ear boss
-    # that re-bridges them).  Tie each arc back to the ring with a small
-    # connector tab at the 3 arc MIDPOINTS (between the ears, over the CLEAN
-    # tower OD where no chassis ear protrudes).  Each tab lives entirely at
-    # z >= split_z (above the capped tower top) so it never bites the tower,
-    # overlaps the ring solidly, and seats on the lip-arc top face -- making the
-    # cap a single connected body again.
-    mid_angles = [a + np.pi / 3.0 for a in YAW_CAP_BOLT_ANGLES_RAD]
-    tabs = []
-    for ang in mid_angles:
-        tab = _box((lip_od - r_out + 2.5, 6.0, 1.6),
-                   center=(0.5 * (r_out - 1.0 + lip_od), 0.0,
-                           split_z + 0.8))
-        tab.apply_transform(rotation_matrix(ang, [0, 0, 1]))
-        tabs.append(tab)
-    cap = _union(cap, *tabs)
-
-    # ---- 3 x M3 join-bolt ear bosses ----
+    # ---- 3 x M3 join-bolt OUTBOARD ear lugs ----
+    # Each ear boss (YAW_CAP_BOLT_BOSS_OD) is centred on YAW_CAP_BOLT_PCD,
+    # straddling the ring OD so its inner flank merges solidly into the ring
+    # (single connected body) and its outboard flank carries the bolt head
+    # counterbore clear of the Phi 37 bore.  The ears top out at
+    # YAW_CAP_EAR_TOP_Z (+3), below the rotating dust-lip band (z >= +3.5),
+    # so the radial growth never fouls the turntable skirt.
     ear_top = YAW_CAP_EAR_TOP_Z                            # +3 (below dust lip)
     for (ex, ey) in _yaw_cap_bolt_centres():
         boss = _cyl(YAW_CAP_BOLT_BOSS_OD / 2.0, ear_top - split_z)

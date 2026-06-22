@@ -1686,9 +1686,9 @@ ASSEMBLY_INTERFERENCE_ALLOW = {
     frozenset({"chassis_bottom", "chassis_bottom_lower"}):
         (25.0, "bolted chassis print-split: large coincident join flange face"),
     # Yaw bearing tower split: cap mates the chassis bottom tower at a flush
-    # split face (YAW_SPLIT_Z) + a 0.3 mm radial slip register lip.
+    # split face (YAW_SPLIT_Z); the 3 join bolts/ear bosses are coaxial.
     frozenset({"yaw_bearing_cap", "chassis_bottom"}):
-        (25.0, "yaw tower split: flush split face + 0.3mm slip register lip"),
+        (25.0, "yaw tower split: flush split face (coaxial bolted join)"),
     # Yaw turntable hub seats in the chassis tower bore on the 6706 bearing
     # stack -- a running slip fit (coaxial), only facet noise at the seat.
     frozenset({"coxa_yaw_hub", "chassis_bottom"}):

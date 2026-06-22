@@ -165,11 +165,11 @@ def _reorient_foot_pad(mesh):
 
 
 def _reorient_yaw_bearing_cap(mesh):
-    """yaw_bearing_cap: built open-pocket-UP in coxa-local (z[-3.5,+6]).  Flip
+    """yaw_bearing_cap: built open-pocket-UP in coxa-local (z[-1,+6]).  Flip
     180 deg about X so the broad Phi 44 top-rim annulus lies FLAT on the bed
-    (open pocket + neck face down as a clean blind hole); the join-bolt ears
-    and register wrap-lip point UP.  Only overhang is the ~1.5 mm upper-race
-    seat shoulder, which bridges -- no supports needed."""
+    (the clean Phi 37 through-bore opens straight up); the 3 join-bolt ear
+    lugs point UP.  No internal overhang -- the bore is a clean through-hole,
+    so no supports are needed."""
     out = mesh.copy()
     out.apply_transform(rotation_matrix(np.pi, (1, 0, 0)))
     return _drop_to_bed(out)
@@ -290,11 +290,11 @@ PART_REGISTRY: list[tuple[str,
     ("yaw_bearing_cap.stl",      make_yaw_bearing_cap,     _reorient_yaw_bearing_cap,
      6, "MJF PA12",      "white", "as-printed",
      "TOP half of the SPLIT yaw-bearing tower (Jun 2026 insertion fix). "
-     "Holds the UPPER 6706 outer race in an open-top pocket and caps the "
-     "lower race via its Phi 34 neck; bolts DOWN onto each chassis_bottom "
-     "tower with 3 x M3 x 8 self-tap join screws. A register wrap-lip seats "
-     "it concentric on the tower OD. Lets each race drop onto an OPEN face "
-     "during assembly (the old one-piece tower trapped both races)."),
+     "Holds the UPPER 6706 outer race in a clean Phi 37 through-bore; bolts "
+     "DOWN onto each chassis_bottom tower with 3 x M3 x 8 self-tap join "
+     "screws in outboard ear lugs (concentricity comes from the bolts into "
+     "the tower pilots). Lets each race drop onto an OPEN face during "
+     "assembly (the old one-piece tower trapped both races)."),
 
     ("servo_clamp_cap.stl",      make_servo_clamp_cap,     _lay_flat,
      12, "MJF PA12",     "white", "as-printed",
