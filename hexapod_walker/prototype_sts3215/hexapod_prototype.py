@@ -8965,10 +8965,29 @@ def make_coxa_yaw_hub() -> trimesh.Trimesh:
     # Upper boss: solid, rides the UPPER inner race (z[0, BOSS_TOP]).
     uboss = _cyl(rboss, YAW_HUB_BOSS_TOP_Z)
     uboss.apply_translation([0.0, 0.0, YAW_HUB_BOSS_TOP_Z / 2.0])
-    # Inner-race retain flanges (OD = inner-race OD; clear the outer race).
-    lflange = _diff(_cyl(rinner, -YAW_BEARING_LOWER_TOP_Z),   # z[-1, 0]
-                    _cyl(rbore, -YAW_BEARING_LOWER_TOP_Z * 3))
-    lflange.apply_translation([0.0, 0.0, YAW_BEARING_LOWER_TOP_Z / 2.0])
+    # Single inner-race retain flange (OD = inner-race OD = Phi 32; clears the
+    # Phi 35 outer-race ID so it never rubs the STATIONARY race).  This is the
+    # uflange ABOVE the upper race (z[6, 7]) -- it makes the upper bearing the
+    # axially-LOCATED ("fixed") race of a fixed/floating pair.
+    #
+    # The old design also carried an lflange ABOVE the lower race (z[-1, 0]).
+    # That flange was the "lip" the user could not push the upper bearing over:
+    # the boss is capped on top by the Phi 44+ turntable platform (z >= +7.5),
+    # so the only open end an inner race can slide on from is the boss BOTTOM
+    # (z = -4.5).  The lflange (Phi 32 > the Phi 30 bore) sat squarely in that
+    # bottom-load path between the open end and the upper race's z[+2, +6] seat,
+    # trapping the upper inner race between it (below) and the uflange/platform
+    # (above) on a Phi 29.8 boss -- physically un-assemblable from EITHER end.
+    #
+    # Dropping the lflange leaves a clean Phi 29.8 slide path from the boss
+    # bottom all the way up to the uflange, so BOTH inner races slide on from
+    # below (upper race seats UP against the uflange; lower race rides free).
+    # The lower bearing becomes the FLOATING race: its OUTER ring is still
+    # positively captured in the chassis tower (z = -5 seat) + yaw_bearing_cap
+    # neck (z = -1), and the 4 x M3 disc-horn clamp preloads the whole hub down
+    # onto the located (upper) bearing -- so no race is left free, and nothing
+    # of OD > the bearing bore sits between either seat and the open end it
+    # loads from (verified by check_hub_inner_race_insertion_path).
     uflange = _cyl(rinner, 1.0)                               # z[6, 7]
     uflange.apply_translation([0.0, 0.0, YAW_BEARING_UPPER_TOP_Z + 0.5])
     # Top platform (turntable disc) above the tower.  Its rim must reach OUT
@@ -8995,7 +9014,7 @@ def make_coxa_yaw_hub() -> trimesh.Trimesh:
                 _cyl(lip_inner_r, (lip_z1 - lip_z0) * 3))
     lip.apply_translation([0.0, 0.0, 0.5 * (lip_z0 + lip_z1)])
 
-    hub = _union(lboss, uboss, lflange, uflange, plat, lip)
+    hub = _union(lboss, uboss, uflange, plat, lip)
 
     cuts = []
     # Disc-horn drive bolts (4 x M3, PCD14).  CLAMP-THROUGH: heads recess at

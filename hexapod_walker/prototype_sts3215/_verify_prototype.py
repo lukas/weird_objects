@@ -4729,6 +4729,169 @@ def check_bearing_insertion_path():
 
 
 # ---------------------------------------------------------------------------
+# Hub-boss INNER-race insertion-path / assemblability probe (Jun 2026)
+# ---------------------------------------------------------------------------
+#
+# Sibling of check_bearing_insertion_path.  That probe verifies the STATIONARY
+# OUTER races can reach their seats in the chassis tower / yaw_bearing_cap.
+# This probe verifies the ROTATING INNER races can slide onto the coxa yaw
+# HUB BOSS.
+#
+# Forensic regression probe for the user's "it's not possible to push the
+# bearing over the lip on the coxa yaw hub" report.  make_coxa_yaw_hub rides
+# both 6706 inner races on a Phi (YAW_HUB_BOSS_OD) boss whose TOP is capped by
+# the Phi 44+ turntable platform, so an inner race can only slide on from the
+# boss BOTTOM open end.  The old hub carried TWO Phi (YAW_BEARING_INNER_OD)
+# retain flanges -- one ABOVE each race -- so the UPPER inner race was trapped
+# between the lower flange (below) and the upper flange/platform (above): a
+# Phi (YAW_BEARING_ID) bore cannot pass either Phi (YAW_BEARING_INNER_OD)
+# flange, so it could not reach its seat from either end.  The static-assembly
+# CAD validated the seated state but never an insertion PATH.
+#
+# This check slides a rigid annulus the size of an inner race's bore..OD band
+# (r in [YAW_BEARING_ID/2, YAW_BEARING_INNER_OD/2]) up the boss axis from the
+# open (bottom) end to one step below the race's seat-retain shoulder, and
+# asserts the swept volume stays collision-free against the printed hub: i.e.
+# NO feature of OD > the bore (Phi YAW_BEARING_ID) sits between the seat and
+# the open end the race loads from.  The seat-retain shoulder itself (the
+# uflange the upper race seats UP against) lives one step ABOVE the swept band
+# and is intentionally excluded -- exactly as _sweep_bearing_disc stops a step
+# short of the outer-race seat.
+#
+# Fail-on-old / pass-on-new is proven INLINE by the embedded self-test
+# (_old_lflanged_yaw_hub): the reconstructed old hub WITH the lower flange
+# blocks the upper inner race at the Phi 32 lip, while the live hub sweeps
+# clean.
+
+HUB_RACE_INSERTION_PATH_TOL_MM3 = 25.0
+HUB_RACE_INSERTION_PATH_Z_STEP_MM = 0.5
+HUB_RACE_INSERTION_PATH_PITCH_MM = 0.5
+
+
+def _inner_race_annulus_points(zc: float, r_in: float, r_out: float,
+                               pitch: float) -> np.ndarray:
+    """Filled annular band (r in [r_in, r_out]) of sample points at coxa-local
+    height ``zc`` -- the cross-section of a 6706 inner race (bore..OD band)."""
+    n = int(np.ceil(2.0 * r_out / pitch)) + 1
+    xs = np.linspace(-r_out, r_out, n)
+    X, Y = np.meshgrid(xs, xs)
+    rr = X ** 2 + Y ** 2
+    m = (rr <= r_out ** 2) & (rr >= r_in ** 2)
+    return np.column_stack([X[m], Y[m], np.full(int(m.sum()), zc)])
+
+
+def _sweep_inner_race(mesh: trimesh.Trimesh, z_lo: float, z_seat_top: float):
+    """Slide an inner-race annulus from below the boss (``z_lo``) UP to one Z
+    step BELOW the race's seat-retain shoulder (``z_seat_top``) and return
+    ``(worst_mm3, worst_z, n_blocked, n_steps)``.  Stopping a step below the
+    shoulder keeps the intended seated contact (race resting against its
+    shoulder) out of the blockage count; any real lip lives strictly BELOW the
+    shoulder in the slide path and trips the tolerance."""
+    r_in = hp.YAW_BEARING_ID / 2.0
+    r_out = hp.YAW_BEARING_INNER_OD / 2.0
+    pitch = HUB_RACE_INSERTION_PATH_PITCH_MM
+    vox = pitch ** 3
+    worst = 0.0
+    worst_z = z_lo
+    n_blocked = 0
+    n_steps = 0
+    z = z_lo
+    z_end = z_seat_top - HUB_RACE_INSERTION_PATH_Z_STEP_MM
+    while z <= z_end + 1e-6:
+        n_steps += 1
+        pts = _inner_race_annulus_points(z, r_in, r_out, pitch)
+        overlap = int(points_inside(mesh, pts).sum()) * vox
+        if overlap > worst:
+            worst, worst_z = overlap, z
+        if overlap > HUB_RACE_INSERTION_PATH_TOL_MM3:
+            n_blocked += 1
+        z += HUB_RACE_INSERTION_PATH_Z_STEP_MM
+    return worst, worst_z, n_blocked, n_steps
+
+
+def _old_lflanged_yaw_hub() -> trimesh.Trimesh:
+    """Reconstruct the RETIRED hub central column (coxa-local) carrying BOTH
+    inner-race retain flanges -- the lower flange (Phi YAW_BEARING_INNER_OD at
+    z[-1, 0]) that trapped the UPPER inner race between it and the upper
+    flange/platform.  Used ONLY by check_hub_inner_race_insertion_path's
+    self-test to prove the probe is sensitive enough to flag the captured race
+    the live single-flange hub eliminates."""
+    rboss = hp.YAW_HUB_BOSS_OD / 2.0
+    rinner = hp.YAW_BEARING_INNER_OD / 2.0
+    plat_r = max(hp.YAW_HUB_OD, hp.YAW_HUB_DUST_LIP_OD) / 2.0
+
+    def _cyl_at(r, z0, z1):
+        c = hp._cyl(r, z1 - z0)
+        c.apply_translation([0.0, 0.0, 0.5 * (z0 + z1)])
+        return c
+
+    boss = _cyl_at(rboss, hp.YAW_HUB_BOSS_BOT_Z, hp.YAW_HUB_BOSS_TOP_Z)
+    lflange = _cyl_at(rinner, hp.YAW_BEARING_LOWER_TOP_Z, 0.0)        # z[-1, 0]
+    uflange = _cyl_at(rinner, hp.YAW_BEARING_UPPER_TOP_Z,
+                      hp.YAW_BEARING_UPPER_TOP_Z + 1.0)               # z[6, 7]
+    plat = _cyl_at(plat_r, hp.YAW_HUB_BOSS_TOP_Z, hp.YAW_HUB_PLATFORM_Z1)
+    return hp._union(boss, lflange, uflange, plat)
+
+
+def check_hub_inner_race_insertion_path():
+    """Sweep a rigid inner-race annulus up the coxa yaw HUB BOSS and assert a
+    clear, monotone slide path to each 6706 inner race's seat exists (no
+    feature of OD > the bore sits between the seat and the boss-bottom open
+    end the race loads from).
+
+    Includes an embedded FAIL-ON-OLD self-test: the retired two-flange hub is
+    reconstructed and swept; the probe MUST flag the UPPER inner race as
+    blocked at the lower flange's Phi 32 lip, proving it is sensitive enough to
+    catch the trapped-race regression.  The live hub must then PASS."""
+    r_in = hp.YAW_BEARING_ID / 2.0
+    r_out = hp.YAW_BEARING_INNER_OD / 2.0
+    print(f"\n[5h] Hub-boss inner-race insertion-path probe "
+          f"(rigid Phi{2 * r_in:.0f}..Phi{2 * r_out:.0f} race annulus slides "
+          f"UP the boss in {HUB_RACE_INSERTION_PATH_Z_STEP_MM:.1f} mm Z steps; "
+          f"max overlap {HUB_RACE_INSERTION_PATH_TOL_MM3:.0f} mm^3 per step):")
+
+    all_ok = True
+
+    # The boss bottom open end the inner races load from.
+    z_open = hp.YAW_HUB_BOSS_BOT_Z - 1.0
+
+    # ---- Self-test: the OLD two-flange hub MUST flag the upper race ---------
+    old = _old_lflanged_yaw_hub()
+    ow, _owz, old_blocked, _ons = _sweep_inner_race(
+        old, z_open, hp.YAW_BEARING_UPPER_TOP_Z)
+    self_ok = old_blocked > 0
+    all_ok &= _label(
+        "SELF-TEST: retired two-flange hub traps the UPPER inner race",
+        self_ok,
+        f"reconstructed old hub flagged at {old_blocked} step(s); worst "
+        f"overlap {ow:.1f} mm^3 >> tol "
+        f"{HUB_RACE_INSERTION_PATH_TOL_MM3:.0f} mm^3 (probe is sensitive)")
+
+    # ---- Live hub MUST pass for BOTH inner races ---------------------------
+    hub = hp.make_coxa_yaw_hub()
+    cases = [
+        # (label, z_seat_top -- the race's retain shoulder; swept up to a step
+        #  below it).  Both races load from the boss-bottom open end.
+        ("coxa_yaw_hub UPPER inner race (slides up to the uflange seat)",
+         hp.YAW_BEARING_UPPER_TOP_Z),    # +6 (uflange bottom is the seat stop)
+        ("coxa_yaw_hub LOWER inner race (slides up to its z=-1 seat)",
+         hp.YAW_BEARING_LOWER_TOP_Z),    # -1 (floating race; no over-boss lip)
+    ]
+    for name, z_seat_top in cases:
+        worst, worst_z, n_blocked, n_steps = _sweep_inner_race(
+            hub, z_open, z_seat_top)
+        ok = n_blocked == 0
+        detail = (f"{n_steps} Z steps probed; worst overlap {worst:.1f} mm^3 "
+                  f"at z={worst_z:+.1f} (tol "
+                  f"{HUB_RACE_INSERTION_PATH_TOL_MM3:.0f} mm^3)")
+        if not ok:
+            detail = (f"{n_blocked}/{n_steps} steps blocked; " + detail)
+        all_ok &= _label(name, ok, detail)
+
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
 # Screwdriver-access clearance check
 # ---------------------------------------------------------------------------
 #
@@ -6509,6 +6672,7 @@ CHECKS = (
     ("Cradle insert pockets",     "check_cradle_insert_pockets"),
     ("Servo insertion path",      "check_servo_insertion_path"),
     ("Bearing insertion path",    "check_bearing_insertion_path"),
+    ("Hub inner-race insertion",  "check_hub_inner_race_insertion_path"),
     ("Flimsy joints",             "check_flimsy_joints"),
     ("Thin sheets",               "check_thin_sheets"),
     ("Flat-bottom printability",  "check_flat_bottom"),
@@ -6659,6 +6823,9 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Back-housing symmetry":     _CRADLE_PARTS,
     "Cradle insert pockets":     _CRADLE_PARTS,
     "Servo insertion path":      _CRADLE_PARTS,
+    # Builds make_coxa_yaw_hub directly from hexapod_prototype; the coxa_link
+    # STL footprint stands in for the per-leg coxa parts that gate it.
+    "Hub inner-race insertion":  frozenset({"coxa_link"}),
     "Flimsy joints":             _PRINTED_WATERTIGHT_SET,
     "Thin sheets":               _PAD_PARTS,
     # Builds every PART_REGISTRY part in its print pose; any STL change
