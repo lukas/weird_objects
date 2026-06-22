@@ -5266,17 +5266,24 @@ def _bearing_annulus_points(zc: float, r_in: float, r_out: float,
 
 def _bearing_overlap_mm3(obstacles, pts, vox) -> float:
     """Overlap (mm^3) of the sampled annulus ``pts`` against the obstacle SET.
-    A point counts as solid if it lies inside ANY obstacle mesh -- we OR the
-    per-mesh point-in-mesh results rather than boolean-union the meshes,
-    because the joint parts are coaxial RUNNING-CLEARANCE fits whose boolean
-    union produces degenerate near-coincident facets that ``points_inside``
-    misreads (observed: a real Phi 34 constriction silently dropping from ~514
-    to ~8 mm^3 across runs).  Per-mesh membership is exact and deterministic."""
+
+    A point counts as solid if it lies inside ANY obstacle mesh.  Two
+    deliberate robustness choices:
+
+    * we OR the per-mesh memberships rather than boolean-UNION the meshes --
+      the joint parts are coaxial RUNNING-CLEARANCE fits, and unioning them
+      yields degenerate near-coincident facets that confuse point-in-mesh; and
+    * we use ``mesh.contains`` (watertight winding test) directly rather than
+      the 6-axis ray vote, because the ray vote SILENTLY UNDER-COUNTS the
+      annulus inside the cap's thin Phi 34..44 annular neck wall (observed a
+      real ~515 mm^3 constriction read as ~8 mm^3).  Every part the probe
+      consults is guaranteed watertight by check_watertight, so contains() is
+      both valid and exact here."""
     inside = None
     for obs in obstacles:
         if obs is None:
             continue
-        hit = points_inside(obs, pts)
+        hit = _points_inside_contains(obs, pts)
         inside = hit if inside is None else (inside | hit)
     return (int(inside.sum()) if inside is not None else 0) * vox
 
