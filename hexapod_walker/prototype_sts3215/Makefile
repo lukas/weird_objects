@@ -18,7 +18,7 @@ else
 MJ_PY  := $(REPO_ROOT)/.venv/bin/python
 endif
 
-.PHONY: check-cad check-cad-fast check-strength validate render build verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz regen-fasteners bom-fasteners help
+.PHONY: check-cad check-cad-fast check-strength validate render build build-prototype-v0 verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz regen-fasteners bom-fasteners help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -32,7 +32,8 @@ help:
 	@echo "                    Not wired into check-cad.  Example:  make check-strength MATERIAL=petg"
 	@echo "  validate          Run scripts/validate_geometry.py only (no renders, no report)."
 	@echo "  render            Run scripts/render_views.py only."
-	@echo "  build             Re-run build_all.py to regenerate stl_prototype/*.stl."
+	@echo "  build             Re-run prototype_sts3215/build_all.py to regenerate stl_prototype/*.stl (CURRENT design)."
+	@echo "  build-prototype-v0  Re-run the OLD prototype/build_all.py (legacy v0 geometry)."
 	@echo "  verify-prototype  Run the legacy _verify_prototype.main() directly (full suite, ~95-270 s)."
 	@echo "  verify-fast       Run _verify_prototype.py --fast (5 essential checks, ~5-15 s)."
 	@echo "  verify-changed    Run _verify_prototype.py --changed (only checks affected by git diff vs origin/main)."
@@ -81,6 +82,11 @@ render:
 	$(RUN) hexapod_walker/prototype/scripts/render_views.py
 
 build:
+	$(RUN) hexapod_walker/prototype_sts3215/build_all.py --skip-assembly --skip-xometry --skip-bambu --skip-test-plate
+
+# Legacy v0 geometry: regenerate the OLD prototype/ design's STLs.  Kept
+# for regression comparisons against the current prototype_sts3215 build.
+build-prototype-v0:
 	$(RUN) hexapod_walker/prototype/build_all.py --skip-assembly --skip-xometry --skip-bambu --skip-test-plate
 
 verify-prototype:
