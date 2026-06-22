@@ -50,6 +50,7 @@ import hexapod_prototype as hp
 from hexapod_prototype import (
     make_buck_tray,
     make_chassis_bottom,
+    make_chassis_bottom_lower,
     make_chassis_top,
     make_coxa_hip_bracket,
     make_coxa_yaw_hub,
@@ -61,6 +62,7 @@ from hexapod_prototype import (
     make_spider_carapace,
     make_tibia_knee_yoke,
     make_uno_q_tray,
+    make_yaw_bearing_cap,
     make_yaw_servo_retainer,
 )
 
@@ -98,8 +100,24 @@ def _drop_to_bed(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
 # a sensible visual layout.
 
 def _reorient_chassis_plate(mesh):
-    """Hex 4 mm plate — already flat. Just drop to z=0."""
+    """Hex 4 mm plate — already flat. Just drop to z=0.
+
+    Jun 2026 print split: ``chassis_bottom`` is now the flat HIGH half whose
+    new underside IS the cut plane (z = CHASSIS_SPLIT_Z), so it prints
+    face-DOWN exactly as built (bearing tower up) — drop to bed, no flip."""
     return _drop_to_bed(mesh)
+
+
+def _reorient_chassis_lower(mesh):
+    """``chassis_bottom_lower`` (Jun 2026 split): the bolt-on LOW half holding
+    the 6 yaw-servo cradle buckets + the hex join-flange ring.  Built with the
+    flange/mating face UP at z = CHASSIS_SPLIT_Z and the bucket cavities
+    opening DOWN.  Flip 180 deg about X so the broad flange face lands FLAT on
+    the bed and the cavities open +Z — the yaw servo drops straight in before
+    the halves are bolted, and the part prints with no supports."""
+    out = mesh.copy()
+    out.apply_transform(rotation_matrix(np.pi, (1, 0, 0)))
+    return _drop_to_bed(out)
 
 
 def _reorient_deck_tray(mesh):
@@ -146,6 +164,17 @@ def _reorient_foot_pad(mesh):
     return _drop_to_bed(mesh)
 
 
+def _reorient_yaw_bearing_cap(mesh):
+    """yaw_bearing_cap: built open-pocket-UP in coxa-local (z[-3.5,+6]).  Flip
+    180 deg about X so the broad Phi 44 top-rim annulus lies FLAT on the bed
+    (open pocket + neck face down as a clean blind hole); the join-bolt ears
+    and register wrap-lip point UP.  Only overhang is the ~1.5 mm upper-race
+    seat shoulder, which bridges -- no supports needed."""
+    out = mesh.copy()
+    out.apply_transform(rotation_matrix(np.pi, (1, 0, 0)))
+    return _drop_to_bed(out)
+
+
 def _reorient_carapace(mesh):
     """Spider carapace dome: print rim-down (open skirt on the bed, apex up)
     so the shell self-supports as a gentle overhang and the 4 mount-foot
@@ -177,8 +206,22 @@ PART_REGISTRY: list[tuple[str,
 
     ("chassis_bottom.stl",       make_chassis_bottom,      _reorient_chassis_plate,
      1, "MJF PA12",      "white", "as-printed",
-     "Bottom structural plate (200 mm flat-to-flat hex). Takes the six "
-     "coxa-bracket M3 bolts and per-leg yaw-servo body cutouts."),
+     "FLAT HIGH half of the split bottom plate (200 mm flat-to-flat hex; "
+     "Jun 2026 print split). The 6 yaw-servo cradle buckets that hung 20.5 mm "
+     "below were cut off at the plate underside and moved to "
+     "chassis_bottom_lower, so this half prints face-DOWN on a full-footprint "
+     "flat face (bearing tower + tray bosses up) with NO supports. Takes the "
+     "six coxa-bracket M3 bolts; 12 self-tap bosses on top receive the LOW "
+     "half's M3x10 join screws."),
+
+    ("chassis_bottom_lower.stl", make_chassis_bottom_lower, _reorient_chassis_lower,
+     1, "MJF PA12",      "white", "as-printed",
+     "Bolt-on LOW half of the split bottom plate (Jun 2026 print split): the "
+     "6 yaw-servo cradle buckets tied together by a hex join-flange ring. "
+     "Printed flange-face-DOWN (cavities up) so each STS3215 yaw servo drops "
+     "straight in before the two halves bolt together (12x M3x10 from below "
+     "into the HIGH plate's self-tap bosses; 6x Ø4 dowel pins register the "
+     "join concentric)."),
 
     ("uno_q_tray.stl",           make_uno_q_tray,          _reorient_deck_tray,
      6, "PLA/PETG rigid", "white", "as-printed",
@@ -243,6 +286,15 @@ PART_REGISTRY: list[tuple[str,
      "Strap across each chassis_bottom yaw cradle's open bottom; bolts to "
      "the cradle end walls + the STS3215's 4 bottom-face M3 holes so the "
      "servo can't drop out. Open centre clears the rear cable bundle."),
+
+    ("yaw_bearing_cap.stl",      make_yaw_bearing_cap,     _reorient_yaw_bearing_cap,
+     6, "MJF PA12",      "white", "as-printed",
+     "TOP half of the SPLIT yaw-bearing tower (Jun 2026 insertion fix). "
+     "Holds the UPPER 6706 outer race in an open-top pocket and caps the "
+     "lower race via its Phi 34 neck; bolts DOWN onto each chassis_bottom "
+     "tower with 3 x M3 x 8 self-tap join screws. A register wrap-lip seats "
+     "it concentric on the tower OD. Lets each race drop onto an OPEN face "
+     "during assembly (the old one-piece tower trapped both races)."),
 
     ("servo_clamp_cap.stl",      make_servo_clamp_cap,     _lay_flat,
      12, "MJF PA12",     "white", "as-printed",

@@ -186,6 +186,12 @@ def _build_assembly_instances() -> list[Instance]:
     instances.append(Instance(
         "chassis_bottom", "chassis_bottom.stl", None, None, _trans(0, 0, 0),
     ))
+    # Jun 2026 print split: bolt-on LOW half (yaw-servo cradle plate) shares
+    # the chassis frame directly below the flat HIGH plate.
+    instances.append(Instance(
+        "chassis_bottom_lower", "chassis_bottom_lower.stl", None, None,
+        _trans(0, 0, 0),
+    ))
     instances.append(Instance(
         "chassis_top", "chassis_top.stl", None, None,
         _trans(0, 0, gap + plate_t),
@@ -830,6 +836,7 @@ def _add_instances_to_plotter(
             edges_actor=edges_actor,
         ))
         if inst.part_type in ("chassis_top", "chassis_bottom",
+                              "chassis_bottom_lower",
                               "chassis_plate_a", "chassis_plate_b"):
             chassis_centroids.append(cen)
 

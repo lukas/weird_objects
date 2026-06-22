@@ -470,6 +470,23 @@ substantial stiffness for very little weight.
 
 Allow ~ 4 hours for a first build, ~ 90 min for a second.
 
+> **Chassis print-split (Jun 2026).** `chassis_bottom` is printed as TWO
+> bolt-together halves so the big 200 mm plate prints flat with no supports:
+> the **HIGH** half (`chassis_bottom.stl`) is the flat hex plate + the upward
+> yaw-bearing tower + tray bosses (prints face-DOWN), and the **LOW** half
+> (`chassis_bottom_lower.stl`) is the 6 yaw-servo cradle buckets tied together
+> by a hex join-flange (prints FLIPPED, flange face down / bucket cavities up).
+> **Chassis sub-assembly order:** (1) press the 12 yaw-cradle heat-set inserts
+> into the LOW half's cradles (step 1 below); (2) drop each yaw servo DOWN into
+> its bucket in the LOW half and bolt it in (steps 2-3) — the open-top buckets
+> make this easy BEFORE the plate closes over them; (3) seat the 6 Ø4 register
+> dowels into the LOW flange's blind holes; (4) lower the HIGH plate onto the
+> dowels so the two halves seat concentric; (5) from BELOW, drive the **12
+> M3 × 10 SHCS** UP through `chassis_bottom_lower`'s flange counter-bores (2 per
+> hex-edge midpoint) into `chassis_bottom`'s Ø2.5 mm boss pilots on the plate
+> top. The bolted pair reproduces exactly the old one-piece yaw-cradle geometry,
+> so all the per-leg yaw steps below are unchanged.
+
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
 > Both the **coxa bracket**, the **coxa link** (hip-pitch cradle), and

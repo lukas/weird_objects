@@ -232,6 +232,13 @@ SPEC_M3X8_SHCS   = "M3x8 SHCS"
 SPEC_M3X10_SHCS  = "M3x10 SHCS"   # battery_holder foot bolts (4); threads
                                    # into M3 brass heat-set insert in the
                                    # holder foot above chassis_bottom.
+# Chassis print-split join screws (Jun 2026): M3 x 10 SHCS driven from
+# BELOW through chassis_bottom_lower's flange into a Phi 2.5 mm self-tap
+# pilot in chassis_bottom's (HIGH half) top-side boss.  Same PN_M3X10_SHCS
+# stock; distinct spec so the BOM + engagement check identify the
+# self-tap-into-plastic join screws.  "SHCS" preserved for the driver
+# dispatcher.
+SPEC_M3X10_SHCS_SELFTAP = "M3x10 SHCS self-tap"
 # Cradle bolt spec post-heat-set switch (May 2026): same M3 x 8
 # SHCS stock as ``SPEC_M3X8_SHCS`` (same P/N -- they are the same
 # fastener), but with a distinct spec string so the verifier's
@@ -321,6 +328,19 @@ class FastenerInstance:
     # they DO appear in ``build_all_fastener_instances`` so the
     # verifier can probe them.
     is_virtual: bool = False
+    # ``True`` marks a COMPLIANT, TORQUE-ONLY clamp bolt whose clearance
+    # hole is intentionally OVERSIZED so the shaft never grips its
+    # near-side part -- concentricity is set by a separate feature (e.g.
+    # the spaced 6706 yaw bearings) and the bolt only PRELOADS the stack
+    # (head clamps the near part, thread bites the far part).  The yaw
+    # ``hub-to-disc-horn`` bolts are the canonical case: the hub's Phi 4.2
+    # torque-only holes let the bearings -- not the bolts -- locate the
+    # turntable, so the shaft floats by design.  ``check_fastener_engagement``
+    # therefore folds the HEAD-bearing part into the distinct-parts join
+    # (the head still clamps a real part) and waives the shaft-air-span rule
+    # for these bolts, while STILL requiring a head bearing + thread (tip)
+    # engagement into the far part.
+    compliant_torque_only: bool = False
 
     def __post_init__(self):
         # Normalise the axis to a unit vector so callers can rely on it.
@@ -660,6 +680,16 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             joint="yaw",
             length_mm=6.0,
             cache_stl=f"{PN_M3X6_SHCS}.cache.stl",
+            # COMPLIANT torque-only clamp: the coxa_yaw_hub's Phi 4.2 mm
+            # disc-horn bolt holes are deliberately OVERSIZED so the
+            # SPACED 6706 bearing pair -- not these bolts -- sets the
+            # turntable concentricity (avoids the over-constraint
+            # Waveshare warns spikes servo current).  The bolt head
+            # clamps the rotating yaw stack DOWN and the thread bites the
+            # aluminium disc horn; the shaft floats in the torque-only
+            # clearance by design.  (Hip/knee disc-horn bolts use TIGHT
+            # Phi 3.4 holes and stay rigid, so they are NOT flagged.)
+            compliant_torque_only=True,
             # Captive sub-assembly fastener.  Per PROTOTYPE.md
             # section 6.1 the 4 yaw M3 x 6 SHCS are driven in step 3
             # (coxa_link dropped onto yaw disc horn, bolts torqued from
@@ -679,6 +709,116 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
                 "(PROTOTYPE.md section 6.1 step 3 vs step 5).  At "
                 "standing pose (p_femur = -25 deg) the +X yaw bolt "
                 "is blocked from above by the femur hip pad."
+            ),
+        ))
+    return out
+
+
+def _emit_yaw_cap_join_fasteners(leg_index: int) -> list[FastenerInstance]:
+    """The 3 M3 x 8 self-tap join screws that bolt each ``yaw_bearing_cap``
+    DOWN onto its ``chassis_bottom`` bearing tower (Jun 2026 split-tower fix).
+
+    Coxa-local frame (z = 0 = disc-horn top, same as the yaw horn bolts):
+    the head bears in the cap ear's counter-bore at
+    ``YAW_CAP_EAR_TOP_Z - (INSERT_M3_BOLT_HEAD_H + 0.3)`` and the shank threads
+    DOWN (-Z) into the tower's Phi 2.5 mm self-tap pilot below the split plane.
+    These capture the spaced 6706 pair after each race is dropped onto its open
+    face.  3 bolts x 6 legs = 18.
+    """
+    apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
+    a = (leg_index + 0.5) * np.pi / 3.0
+    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
+    T_coxa_to_world = (_T(*edge_mid)
+                       @ _T(0.0, 0.0, HP.CHASSIS_YAW_OUTPUT_Z) @ _Rz(a))
+    head_local_z = HP.YAW_CAP_EAR_TOP_Z - (HP.INSERT_M3_BOLT_HEAD_H + 0.3)
+    out: list[FastenerInstance] = []
+    for ang in HP.YAW_CAP_BOLT_ANGLES_RAD:
+        p_local = np.array([
+            HP.YAW_CAP_BOLT_PCD / 2.0 * np.cos(ang),
+            HP.YAW_CAP_BOLT_PCD / 2.0 * np.sin(ang),
+            head_local_z,
+        ])
+        head = _apply_point(T_coxa_to_world, p_local)
+        axis = _apply_dir(T_coxa_to_world, np.array([0.0, 0.0, -1.0]))
+        out.append(FastenerInstance(
+            part_number=PN_M3X8_SHCS,
+            spec=SPEC_M3X8_SHCS_SELFTAP,
+            head_world_xyz=head,
+            axis_world=axis,
+            role=(
+                f"yaw_bearing_cap L{leg_index} cap-to-tower join @ "
+                f"{int(round(np.degrees(ang)))}deg M3 self-tap"
+            ),
+            leg_index=leg_index,
+            joint="yaw",
+            length_mm=HP.YAW_CAP_BOLT_LEN,
+            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
+            # Driven BEFORE the coxa_yaw_hub (with its rotating dust lip) is
+            # fitted, while the cap top is fully open from above -- the
+            # standing-pose dust lip overlaps the driver envelope but the join
+            # is a sub-assembly step (drop both races onto open faces, bolt the
+            # cap down, THEN fit the hub).
+            skip_screwdriver_reason=(
+                "split-tower sub-assembly fastener: the 3 cap-to-tower M3 "
+                "self-tap screws are driven from directly above the open cap "
+                "ear BEFORE the coxa_yaw_hub (and its rotating dust lip) is "
+                "fitted onto the bearing pair."
+            ),
+        ))
+    return out
+
+
+def _emit_chassis_join_fasteners() -> list[FastenerInstance]:
+    """The 12 M3 x 10 self-tap join screws that bolt the split chassis_bottom's
+    LOW half (``chassis_bottom_lower``, the yaw-cradle plate) UP onto the flat
+    HIGH half (``chassis_bottom``) at the cut plane (Jun 2026 print split).
+
+    They live on the 6 hex-EDGE MIDPOINTS (2 per edge), NOT the leg corners:
+    the legs sit at the corners where the big servo-body cutout eats the flange
+    ring, so the edges are the only clean, fully-solid flange stock to bolt
+    into.  Chassis-level (no leg index) because each edge is shared between two
+    adjacent legs.
+
+    Chassis frame (chassis_bottom plate centre at z = 0): each screw is driven
+    from BELOW -- its head bears in a counter-bore at the flange bottom face
+    (``CHASSIS_SPLIT_Z - CHASSIS_JOIN_FLANGE_T``) and the shank threads UP
+    (+Z) through the flange into the HIGH plate's Phi 2.5 mm self-tap boss on
+    the plate top.  6 x Ø4 register dowel pins (BOM line item) seat the join
+    concentric.
+    """
+    # Head BEARING face = the counter-bore shoulder (CB_DEPTH up from the
+    # flange bottom), not the flange's outer face -- the Phi6 counter-bore is
+    # open below the shoulder, so the head grips the shoulder ring.  Matches the
+    # yaw_bearing_cap join-screw convention (head at the ear counter-bore floor).
+    head_z = (HP.CHASSIS_SPLIT_Z - HP.CHASSIS_JOIN_FLANGE_T
+              + HP.CHASSIS_JOIN_BOLT_CB_DEPTH)
+    out: list[FastenerInstance] = []
+    for idx, (px, py) in enumerate(HP._chassis_join_bolt_centres()):
+        edge = idx // 2
+        head = np.array([px, py, head_z])
+        axis = np.array([0.0, 0.0, 1.0])   # head below -> threads UP into plate
+        out.append(FastenerInstance(
+            part_number=PN_M3X10_SHCS,
+            spec=SPEC_M3X10_SHCS_SELFTAP,
+            head_world_xyz=head,
+            axis_world=axis,
+            role=(
+                f"chassis_bottom_lower edge{edge} cradle-plate-to-plate "
+                f"join @ ({px:+.0f},{py:+.0f}) M3 self-tap"
+            ),
+            leg_index=None,
+            joint="yaw",
+            length_mm=HP.CHASSIS_JOIN_BOLT_LEN,
+            cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
+            # Driven from BELOW while the chassis_bottom assembly is upside-down
+            # on the bench, BEFORE the legs / feet are fitted -- the underside
+            # is fully open at that sub-assembly step.
+            skip_screwdriver_reason=(
+                "chassis print-split sub-assembly fastener: the 12 cradle-"
+                "plate-to-plate M3 join screws are driven from directly below "
+                "the inverted chassis_bottom stack BEFORE the legs and feet "
+                "are installed, so the standing-pose leg envelope does not "
+                "apply."
             ),
         ))
     return out
@@ -1216,11 +1356,12 @@ def _emit_clamp_cap_fasteners(
         "+Y driver approach to the cap bolts is blocked"
     )
 
-    for sx in (-1, 1):
-        x_label = "+X" if sx > 0 else "-X"
-        p_local = np.array([sx * HP.CLAMP_BOLT_X,
-                            flange_outer_y,
-                            HP.CLAMP_BOLT_Z])
+    # (x, z) centres come from the SAME source the cap holes + cradle pilots
+    # read (``hexapod_prototype.servo_clamp_bolt_centres``) so the emitted
+    # fasteners land exactly on the coaxial cap-hole / wall-pilot axes.
+    for (bx, bz) in HP.servo_clamp_bolt_centres():
+        x_label = "+X" if bx > 0 else "-X"
+        p_local = np.array([bx, flange_outer_y, bz])
         axis_local = np.array([0.0, -1.0, 0.0])   # -Y, into the wall pilot
         head = _apply_point(T_well_to_world, p_local)
         axis = _apply_dir(T_well_to_world, axis_local)
@@ -1735,6 +1876,10 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
             location=f"femur_link L{leg_index} knee clamp-cap",
         ))
 
+        # Yaw-bearing cap join screws (3 M3 self-tap per leg = 18) that bolt
+        # the split bearing tower's TOP half down onto chassis_bottom.
+        out.extend(_emit_yaw_cap_join_fasteners(leg_index))
+
         # Link-to-disc-horn bolts (June 2026: disc horn, no printed adapter).
         out.extend(_emit_horn_fasteners_yaw(leg_index))
         out.extend(_emit_horn_fasteners_hip(leg_index))
@@ -1785,6 +1930,12 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     # list.
     out.extend(_emit_chassis_stack_fasteners())
 
+    # Chassis print-split join screws (12 M3 x 10 self-tap on the 6 hex-edge
+    # midpoints) that bolt the LOW cradle-plate half (chassis_bottom_lower) up
+    # onto the flat HIGH plate (chassis_bottom).  Chassis-level (no leg index):
+    # the bolts sit on the EDGES between leg corners, shared by the whole plate.
+    out.extend(_emit_chassis_join_fasteners())
+
     return out
 
 
@@ -1827,6 +1978,7 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
         SPEC_M3X8_SHCS_INTO_INSERT: 5,
         SPEC_M3X8_SHCS_SELFTAP:     6,
         SPEC_M3X10_SHCS:            7,
+        SPEC_M3X10_SHCS_SELFTAP:    7,
         SPEC_M3_HEATSET_INSERT:     8,
         SPEC_M3X32_SHCS:            9,
         SPEC_M3X16_PAN:            10,
@@ -1866,6 +2018,17 @@ def _usage_bucket(fi: FastenerInstance) -> str:
         return "deck board-mount heat-set inserts (Uno Q + buck)"
     if "body screw" in role:
         return "cradle servo body-retention bolts (M2.5 into servo end face)"
+    if "cradle-plate-to-plate" in role:
+        # Jun 2026 chassis print-split: the 12 M3 x 10 SHCS that bolt the LOW
+        # cradle-plate half (chassis_bottom_lower) up onto the flat HIGH plate
+        # (chassis_bottom) on the 6 hex-edge midpoints.
+        return ("chassis print-split cradle-plate join screws "
+                "(chassis_bottom_lower -> chassis_bottom, M3 x 10 SHCS self-tap)")
+    if "cap-to-tower" in role:
+        # Jun 2026 split yaw-bearing tower: the 18 M3 x 8 SHCS that pull each
+        # yaw_bearing_cap down onto chassis_bottom to capture the 6706 pair.
+        return ("yaw_bearing_cap join screws "
+                "(cap -> chassis_bottom tower, M3 x 8 SHCS self-tap)")
     if "clamp-cap" in role:
         return "sandwich-joint clamp-cap bolts (M3 SHCS self-tap)"
     if "switch_holster" in role:

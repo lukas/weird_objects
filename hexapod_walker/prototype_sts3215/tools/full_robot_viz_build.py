@@ -58,8 +58,17 @@ SCENE_BUILD_ID = "prototype_sts3215"
 SCENE_ASSET_BASE = f"/builds/{SCENE_BUILD_ID}/stl"
 
 # Joint screws to render (the leg "connecting" fasteners).  Bright colours
-# for the hip bolts so the coxa<->femur connection stands out.
+# for the hip bolts so the coxa<->femur connection stands out.  Chassis-level
+# / foot fasteners (registry joint == None) fall back to FASTENER_CHASSIS_COLOR.
 FASTENER_JOINT_COLOR = {"yaw": "#bdbdbd", "hip": "#ffd000", "knee": "#9ad0ff"}
+FASTENER_CHASSIS_COLOR = "#9a9a9a"          # steel hardware (standoffs/foot/deck)
+DISC_HORN_COLOR = "#b8b8c0"                  # silver-anodised aluminium disc horn
+
+# Non-printed COTS roles: every instance with one of these roles is hardware we
+# BUY (servos, bearings, disc horns, fasteners) and tag ``cots: true`` so the
+# viewer can distinguish them from printed bodies.  They live ONLY in this scene
+# and are never registered in the printable PART_REGISTRY / trays / BOM.
+COTS_ROLES = {"motor", "bearing", "horn", "fastener", "electronics"}
 
 PALETTE = {
     # Each leg is now called out as its INDIVIDUAL printed parts (BOM-correct
@@ -67,13 +76,17 @@ PALETTE = {
     # femur_link / tibia_link proxies.
     "coxa_link": "#9467bd",
     "coxa_yaw_hub": "#9467bd", "coxa_hip_bracket": "#b08fd6",
+    "yaw_bearing_cap": "#6b4fa0",
     "yaw_bearing_lower": "#d4af37", "yaw_bearing_upper": "#ffd966",
     "femur_hip_yoke": "#2ca02c", "femur_knee_bracket": "#7fce5a",
     "tibia_knee_yoke": "#1f77b4", "tibia_foot_fitting": "#17becf",
     "femur_tube": "#2b2b2b", "tibia_tube": "#2b2b2b",   # carbon fibre
     "foot_pad": "#3a3a3a",                               # TPU pad
+    "disc_horn_yaw": DISC_HORN_COLOR, "disc_horn_hip": DISC_HORN_COLOR,
+    "disc_horn_knee": DISC_HORN_COLOR,
     "yaw_servo": "#2e2e33", "hip_servo": "#3a3a40", "knee_servo": "#46464d",
-    "chassis_bottom": "#79b0e1", "chassis_top": "#5b8fc7",
+    "chassis_bottom": "#79b0e1", "chassis_bottom_lower": "#5fa0d8",
+    "chassis_top": "#5b8fc7",
     "uno_q_tray": "#9467bd", "buck_tray": "#bcbd22",
     "spider_carapace": "#23232a",
     "uno_q": "#1b7a3d", "buck_converter": "#b5651d",
@@ -83,12 +96,15 @@ PALETTE = {
 ROLE = {
     "coxa_link": "frame",
     "coxa_yaw_hub": "frame", "coxa_hip_bracket": "frame",
+    "yaw_bearing_cap": "chassis",
     "yaw_bearing_lower": "bearing", "yaw_bearing_upper": "bearing",
     "femur_hip_yoke": "frame", "femur_knee_bracket": "frame",
     "tibia_knee_yoke": "frame", "tibia_foot_fitting": "frame",
     "femur_tube": "spar", "tibia_tube": "spar", "foot_pad": "frame",
+    "disc_horn_yaw": "horn", "disc_horn_hip": "horn", "disc_horn_knee": "horn",
     "yaw_servo": "motor", "hip_servo": "motor", "knee_servo": "motor",
-    "chassis_bottom": "chassis", "chassis_top": "chassis",
+    "chassis_bottom": "chassis", "chassis_bottom_lower": "chassis",
+    "chassis_top": "chassis",
     "uno_q_tray": "electronics", "buck_tray": "electronics",
     "spider_carapace": "chassis",
     "uno_q": "electronics", "buck_converter": "electronics",
@@ -142,6 +158,9 @@ def _leg0_individual_link_parts() -> list[tuple[str, trimesh.Trimesh]]:
     # bearing-supported yaw joint is visible.
     out.append(("coxa_yaw_hub", placed(HP.make_coxa_yaw_hub(), T_coxa)))
     out.append(("coxa_hip_bracket", placed(HP.make_coxa_hip_bracket(), T_coxa)))
+    # yaw_bearing_cap: TOP half of the SPLIT bearing tower, coaxial on the yaw
+    # axis (built in coxa-local, same frame as coxa_yaw_hub).
+    out.append(("yaw_bearing_cap", placed(HP.make_yaw_bearing_cap(), T_coxa)))
     out.append(("yaw_bearing_lower", placed(HP.make_yaw_bearing_lower(), T_coxa)))
     out.append(("yaw_bearing_upper", placed(HP.make_yaw_bearing_upper(), T_coxa)))
 
@@ -209,28 +228,70 @@ def _axis_to_transform(axis, origin) -> np.ndarray:
     return T
 
 
+def _primitive_bolt(fi) -> trimesh.Trimesh:
+    """Fallback capped-cylinder bolt for any fastener lacking a cache STL.
+
+    Mesh-local +Z = shaft, origin = head face (matches the cache convention
+    consumed by ``_axis_to_transform``): a flat head disc at z in [0, head_t]
+    and a shank running down -Z for ``length_mm``."""
+    from trimesh.creation import cylinder as _cyl_mesh
+    dia = float(getattr(fi, "nominal_dia_mm", 3.0) or 3.0)
+    length = float(getattr(fi, "length_mm", 8.0) or 8.0)
+    head_d, head_t = dia * 1.8, max(0.6 * dia, 1.0)
+    head = _cyl_mesh(radius=head_d / 2.0, height=head_t)
+    head.apply_translation([0, 0, -head_t / 2.0])      # head top at z=0
+    shank = _cyl_mesh(radius=dia / 2.0, height=length)
+    shank.apply_translation([0, 0, -head_t - length / 2.0])
+    bolt = trimesh.util.concatenate([head, shank])
+    # Flip so +Z points along the shaft (down into the part) like the caches.
+    bolt.apply_transform(rotation_matrix(np.pi, [1, 0, 0]))
+    return bolt
+
+
 def _fastener_instances(chassis_lift: float):
-    """Yield (name, leg, joint, color, mesh) for every leg-joint screw."""
+    """Yield (name, leg, joint, color, mesh) for EVERY non-virtual fastener
+    in the registry -- leg-joint screws (yaw/hip/knee) AND chassis-level /
+    foot / deck hardware (registry ``joint is None``).  COTS, scene-only."""
     for fi in FR.build_all_fastener_instances():
         if getattr(fi, "is_virtual", False):
             continue
-        if fi.joint not in FASTENER_JOINT_COLOR:
-            continue
-        cache = FASTENERS_DIR / fi.cache_stl
-        if not cache.is_file():
-            continue
-        mesh = trimesh.load(cache, process=False)
-        if isinstance(mesh, trimesh.Scene):
-            mesh = trimesh.util.concatenate(list(mesh.geometry.values()))
+        cache = FASTENERS_DIR / fi.cache_stl if fi.cache_stl else None
+        if cache is not None and cache.is_file():
+            mesh = trimesh.load(cache, process=False)
+            if isinstance(mesh, trimesh.Scene):
+                mesh = trimesh.util.concatenate(list(mesh.geometry.values()))
+        else:
+            mesh = _primitive_bolt(fi)
         mesh.apply_transform(_axis_to_transform(fi.axis_world, fi.head_world_xyz))
         mesh.apply_translation([0, 0, chassis_lift])
-        name = f"screw_{fi.joint}"
-        yield name, fi.leg_index, fi.joint, FASTENER_JOINT_COLOR[fi.joint], mesh
+        joint_key = fi.joint if fi.joint in FASTENER_JOINT_COLOR else "chassis"
+        color = FASTENER_JOINT_COLOR.get(fi.joint, FASTENER_CHASSIS_COLOR)
+        yield f"screw_{joint_key}", fi.leg_index, joint_key, color, mesh
+
+
+def _disc_horn_instances(chassis_lift: float, legs: list[int]):
+    """Yield (name, leg, joint, color, mesh) for the Phi20 aluminium disc
+    horn seated on EACH servo output (yaw/hip/knee) of every leg.
+
+    Authoritative pose: ``_verify_prototype._horn_world_transform`` maps the
+    horn-local frame of ``make_disc_horn`` (origin = spline/servo face, +Z =
+    output-shaft axis) into the per-leg world frame -- the SAME transform the
+    verifier's disc-horn-fit / fastener-engagement checks use, so the horns
+    land exactly on the servo output bosses the link bolts clamp to."""
+    for joint in V._HORN_JOINTS:
+        for leg in legs:
+            mesh = HP.make_disc_horn()
+            mesh.apply_transform(V._horn_world_transform(joint, leg))
+            mesh.apply_translation([0, 0, chassis_lift])
+            yield f"disc_horn_{joint}", leg, joint, DISC_HORN_COLOR, mesh
 
 
 def _body_parts(chassis_lift: float) -> list[tuple[str, trimesh.Trimesh]]:
     bot = HP.make_chassis_bottom()
     bot.apply_translation([0, 0, chassis_lift])
+    # Jun 2026 print split: bolt-on LOW half (yaw-servo cradle plate).
+    bot_lower = HP.make_chassis_bottom_lower()
+    bot_lower.apply_translation([0, 0, chassis_lift])
     top = HP.make_chassis_top()
     top.apply_translation([0, 0, chassis_lift + HP.CHASSIS_GAP + HP.CHASSIS_PLATE_T])
 
@@ -260,7 +321,8 @@ def _body_parts(chassis_lift: float) -> list[tuple[str, trimesh.Trimesh]]:
     carapace = HP.make_spider_carapace()
     carapace.apply_translation([0, 0, carapace_z])
 
-    return [("chassis_bottom", bot), ("chassis_top", top),
+    return [("chassis_bottom", bot), ("chassis_bottom_lower", bot_lower),
+            ("chassis_top", top),
             ("lipo_battery", lipo),
             ("uno_q_tray", uno_tray), ("buck_tray", buck_tray),
             ("uno_q", uno), ("buck_converter", buck),
@@ -292,13 +354,19 @@ def main(single_leg: bool = False) -> None:
             m.apply_translation([0, 0, chassis_lift])
             tagged.append((name, i, m))
 
-    # Leg-joint screws (placed independently by the fastener registry in
-    # the SAME per-leg frame as the verifier parts).
-    fastener_color: dict[str, str] = {}
+    # COTS hardware placed independently in the SAME per-leg frame as the
+    # verifier parts: every screw/nut/insert (registry) + the disc horns on
+    # each servo output.  These are scene-only and NOT printable parts.
+    cots_color: dict[str, str] = {}
     for name, leg, joint, color, mesh in _fastener_instances(chassis_lift):
+        if single_leg and leg not in (0, None):
+            continue
+        cots_color[name] = color
+        tagged.append((name, leg, mesh))
+    for name, leg, joint, color, mesh in _disc_horn_instances(chassis_lift, legs):
         if single_leg and leg != 0:
             continue
-        fastener_color[name] = color
+        cots_color[name] = color
         tagged.append((name, leg, mesh))
 
     meshes_json: list[dict] = []
@@ -312,15 +380,22 @@ def main(single_leg: bool = False) -> None:
         mid = f"stl:{fname[:-4]}"
         meshes_json.append({"id": mid, "name": fname,
                             "url": f"{SCENE_ASSET_BASE}/{fname}"})
+        if name.startswith("screw_"):
+            role, joint = "fastener", name[len("screw_"):]
+        elif name.startswith("disc_horn_"):
+            role, joint = "horn", name[len("disc_horn_"):]
+        else:
+            role, joint = ROLE.get(name, "part"), None
         instances_json.append({
             "id": f"{idx:03d}-{name}",
             "meshId": mid,
             "name": f"L{leg} {name}" if leg is not None else name,
             "partType": name,
-            "role": "fastener" if name.startswith("screw_") else ROLE.get(name, "part"),
+            "role": role,
             "leg": leg,
-            "joint": name[len("screw_"):] if name.startswith("screw_") else None,
-            "color": fastener_color.get(name) or PALETTE.get(name, "#888888"),
+            "joint": joint,
+            "cots": role in COTS_ROLES,
+            "color": cots_color.get(name) or PALETTE.get(name, "#888888"),
             "transform": [1.0, 0, 0, 0, 0, 1.0, 0, 0,
                           0, 0, 1.0, 0, 0, 0, 0, 1.0],
             "centroid": [float(v) for v in mesh.centroid],

@@ -372,6 +372,13 @@ def _body_frame_parts(chassis_lift):
     bot.apply_translation([0, 0, chassis_lift])
     parts.append(bot)
 
+    # Jun 2026 print split: the bolt-on LOW half (yaw-servo cradle buckets +
+    # join-flange ring) sits directly below the flat HIGH plate, sharing the
+    # same chassis frame (cut plane at chassis-z = CHASSIS_SPLIT_Z).
+    bot_lower = HP.make_chassis_bottom_lower()
+    bot_lower.apply_translation([0, 0, chassis_lift])
+    parts.append(bot_lower)
+
     top = HP.make_chassis_top()
     top.apply_translation([0, 0, chassis_lift + HP.CHASSIS_GAP
                                 + HP.CHASSIS_PLATE_T])

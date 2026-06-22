@@ -31,6 +31,7 @@ exactly as the generator writes them.
 | 4c | `imu_pad.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 3 | ~ 0.2 h | 25 x 20 mm IMU mounting pad with 4 M3 heat-set insert bosses on the GY-521 15 x 11 mm hole pattern.  No fasteners between pad and chassis_top -- the pad is foam-taped to the chassis_top centre for vibration isolation. |
 | 4d | `servo_clamp_cap.stl` | **12** | MJF PA12 (PLA OK) | 0.2 mm | solid | 3 | ~ 0.2 h ea | Sandwich-joint clamp cap — 1 per hip + knee joint (2 per leg x 6 legs). Bolts to the cradle ±X wall ends with 2 x M3 x 8 SHCS self-tapping into the cradle pilots. |
 | 5 | `coxa_link.stl` | **6** | PLA / PETG | 0.2 mm | 30% gyroid | 4 | ~ 4 h total | Yaw pad + arm + hip fixed side (servo bracket + 688 bearing housing). Yaw-pad face down on the bed; the bracket opens UP. |
+| 5b | `yaw_bearing_cap.stl` | **6** | PLA / PETG | 0.2 mm | 40% gyroid | 4 | ~ 0.3 h ea | TOP half of the SPLIT yaw-bearing tower (Jun 2026 insertion fix). Bolts onto each `chassis_bottom` tower with 3 x M3 x 8 SHCS self-tapping into the tower pilots; its Ø34 neck caps the lower 6706 race and its open-top Ø37 pocket holds the upper race. Print **flat, spigot/ring face down** on the bed (no supports). One per leg. |
 | 6 | `femur_hip_yoke.stl` | **6** | PLA / PETG | 0.2 mm | 35% gyroid | 4 | ~ 4 h total | Hip moving yoke (disc-horn top arm + bearing stub) + Ø8 CF-tube socket. Print spine-down. |
 | 7 | `femur_knee_bracket.stl` | **6** | PLA / PETG | 0.2 mm | 35% gyroid | 4 | ~ 4 h total | Knee fixed side (servo bracket + 688 bearing housing) + Ø8 CF-tube socket. |
 | 8 | `tibia_knee_yoke.stl` | **6** | PLA / PETG | 0.2 mm | 35% gyroid | 4 | ~ 4 h total | Knee moving yoke (disc-horn top arm + bearing stub) + Ø8 CF-tube socket. |
@@ -130,7 +131,7 @@ link is gear stripping during tuning).
 | 1 | **M3 × 32 mm hex round standoffs, M-F brass, set of 20** | Sandwich the chassis plates 32 mm apart with **4** of these on the rotated-45-deg 35-mm-radius pattern (`CHASSIS_STANDOFF_HOLES_XY` = (±35, 0) and (0, ±35)).  Male thread drops DOWN through chassis_bottom's Φ 3.4 mm clearance hole and is captured by an M3 nyloc underneath; female top accepts an M3 × 10 SHCS dropped DOWN from above chassis_top.  Whenever `CHASSIS_GAP` in `hexapod_prototype.py` changes, this standoff length MUST change with it. | [Amazon search: "M3 32mm standoffs male female brass"](https://www.amazon.com/s?k=M3+32mm+standoffs+male+female+brass) |
 | 12 | **M3 deck standoff columns, M-F brass (mixed-length assortment)** | The stacked electronics deck rises on the `DECK_COLUMN_XY` (±41, ±33) pattern above chassis_top: **4 at `DECK_LEVEL_1_STANDOFF_H` (16 mm, chassis_top → `uno_q_tray`)** + **4 at `DECK_LEVEL_2_STANDOFF_H` (22 mm, `uno_q_tray` → `buck_tray`)** + **4 at the carapace level (≈ 24 mm, `buck_tray` → `spider_carapace`)**.  Lowest column male threads pass through chassis_top and are retained by M3 nyloc nuts underneath; each upper level bolts down with an M3 × 10 SHCS; the top carapace level threads UP into the dome feet's M3 heat-set inserts.  An M-F standoff assortment kit covers all three lengths. | [Amazon search: "M3 standoff assortment male female brass"](https://www.amazon.com/s?k=M3+standoff+assortment+male+female+brass) |
 | 1 | **M3 × 10 mm socket-head cap screws, A2 stainless, ~ 20 pieces** | **14 used (Jun 2026 deck redesign):** 2 switch_holster (DOWN through the holster ear's clearance holes into chassis_top's 2 boss inserts) + 4 chassis_top → brass-standoff bolts (DOWN from above chassis_top into the M-F standoff female top threads on the rotated-45-deg 35-mm-radius pattern) + **8 deck standoff-column bolts (DOWN through each tray's column bosses into the brass standoff female threads — 4 at `uno_q_tray`, 4 at `buck_tray`)**.  Stock from the same M3 kit row above is fine, but listed separately because the M3x10 length isn't always in the 6/8/12/16/20 mm mix. | [Amazon search: "M3 10mm SHCS A2 stainless 100 pack"](https://www.amazon.com/s?k=M3+10mm+SHCS+A2+stainless) |
-| 1 | **M3 × 8 mm socket-head cap screws (deck board bolts + IMU pad + clamp caps), ~ 50 pieces** | **8 deck board bolts** are driven DOWN through the Arduino Uno Q (4) + buck converter (4) into the M3 brass heat-set inserts in the deck tray bosses; **4 more** clamp the MPU-6050 PCB onto `imu_pad.stl`'s heat-set inserts; and **24 more (Jun 2026 deck redesign) self-tap the 12 `servo_clamp_cap`s** onto the cradle ±X wall-end pilots (2 per hip + knee joint).  36 load-bearing + spares -- a 50-pack covers it.  (Servo body retention uses M2.5 into the servo's END-face case holes -- see the M2.5 row below -- not these M3s.) | [Amazon search: "M3 8mm SHCS A2 stainless 100 pack"](https://www.amazon.com/s?k=M3+8mm+SHCS+A2+stainless+100+pack) |
+| 1 | **M3 × 8 mm socket-head cap screws (deck board bolts + IMU pad + clamp caps + yaw cap), ~ 100 pieces** | **8 deck board bolts** are driven DOWN through the Arduino Uno Q (4) + buck converter (4) into the M3 brass heat-set inserts in the deck tray bosses; **4 more** clamp the MPU-6050 PCB onto `imu_pad.stl`'s heat-set inserts; **24 more (Jun 2026 deck redesign) self-tap the 12 `servo_clamp_cap`s** onto the cradle ±X wall-end pilots (2 per hip + knee joint); and **18 more (Jun 2026 split-tower fix) self-tap the 6 `yaw_bearing_cap`s** DOWN onto the chassis_bottom bearing-tower pilots (3 per leg) to capture the spaced 6706 pair.  54 load-bearing + spares -- a 100-pack covers it.  (Servo body retention uses M2.5 into the servo's END-face case holes -- see the M2.5 row below -- not these M3s.) | [Amazon search: "M3 8mm SHCS A2 stainless 100 pack"](https://www.amazon.com/s?k=M3+8mm+SHCS+A2+stainless+100+pack) |
 | 1 | **M2.5 × 8 mm SHCS (servo body-retention + horn screws), 100-pack** | **72 used** for POSITIVE servo body retention (4 per cradle × 3 cradles × 6 legs): each cradle bolts the servo's real **END-face 10 × 10 mm M2.5 hole square** (measured Waveshare ST3215) through the cradle's −X wall, head recessed in a counterbore, threading into the servo's own metal case — this bolts the servo instead of only gripping it.  The same M2.5 × 8 stock also covers the 18 spline center screws.  A 100-pack gives spares. | [Amazon search: "M2.5 8mm SHCS 100 pack"](https://www.amazon.com/s?k=M2.5+8mm+SHCS+100+pack) |
 
 <!-- BEGIN FASTENERS (auto-generated by scripts/render_fastener_bom.py) -->
@@ -143,27 +144,31 @@ Edit the registry (not this table) and re-run `make bom-fasteners`.
 | Spec | McMaster P/N | Qty | Used in |
 |------|--------------|-----|---------|
 | M3x6 SHCS | 91290A111 | 72 | link-to-disc-horn bolts |
-| M2.5 SHCS into servo case | 91290A104 | 72 | cradle servo body-retention bolts (M2.5 into servo end face) |
 | M2.5x8 spline screw | 91290A104 | 18 | servo spline center screws |
-| M3x8 SHCS into heat-set insert | 91290A113 | 12 | deck board-mount bolts (Uno Q + buck, M3 x 8 SHCS into inserts), imu_pad heat-set inserts (MPU-6050 mount) |
-| M3x8 SHCS self-tap | 91290A113 | 24 | sandwich-joint clamp-cap bolts (M3 SHCS self-tap) |
-| M3x10 SHCS | 91290A114 | 14 | chassis_top brass standoff bolts (M3 x 10 SHCS into standoff female thread), deck standoff column bolts (M3 x 10 SHCS into standoff female thread), switch_holster heat-set inserts |
-| M3 heat-set insert | 94459A130 | 14 | deck board-mount heat-set inserts (Uno Q + buck), imu_pad heat-set inserts (MPU-6050 mount), switch_holster heat-set inserts |
+| M2.5x8 SHCS into heat-set insert | 91290A102 | 4 | electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685) |
+| M2.5 heat-set insert | 94459A106 | 4 | electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685) |
+| M3x8 SHCS into heat-set insert | 91290A113 | 56 | cradle servo mounts (M3 SHCS into heat-set insert), electronics_tray chassis-mount bolts (M3 x 8 SHCS into chassis_bottom heat-set insert), electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685), imu_pad heat-set inserts (MPU-6050 mount) |
+| M3x8 SHCS self-tap | 91290A113 | 36 | cradle servo mounts (M3 SHCS self-tap) |
+| M3x10 SHCS | 91290A114 | 10 | battery_holder heat-set inserts, chassis_top brass standoff bolts (M3 x 10 SHCS into standoff female thread), switch_holster heat-set inserts |
+| M3 heat-set insert | 94459A130 | 62 | battery_holder heat-set inserts, chassis_bottom tray-mount heat-set inserts, cradle heat-set inserts, electronics_tray heat-set inserts (Mega + Pi + 2 x PCA9685), imu_pad heat-set inserts (MPU-6050 mount), switch_holster heat-set inserts |
 | M3x16 pan-head | 92010A130 | 6 | foot hinge pins |
-| M3 nyloc nut | 90576A102 | 14 | chassis_bottom brass standoff retention nuts, deck standoff column retention nuts (M3 nyloc under chassis_top), foot hinge pins |
-|  |  | **246** | **total fasteners** |
+| M3 nyloc nut | 90576A102 | 10 | chassis_bottom brass standoff retention nuts, foot hinge pins |
+|  |  | **278** | **total fasteners** |
 
 Notes:
-- The servo OUTPUT face is reserved for the flush 20 mm disc
-  horn (no front-face mounting).  POSITIVE body retention bolts
-  into the servo's REAL END-face M2.5 holes: each STS3215 +/-X end
-  face carries a 10 x 10 mm square of 4 M2.5 case holes (measured
-  Waveshare ST3215), and every cradle drives 4 x M2.5 x 8 SHCS
-  through its -X wall into that square (`91290A104`, 4 per cradle
-  x 3 cradles x 6 legs = 72; head recessed in a wall counterbore,
-  threads into the servo's own metal case).  This positively bolts
-  the servo instead of only gripping it; the hip/knee clamp cap
-  and the yaw retainer strap are retained as secondary capture.
+- Cradle servo mounts (72 x `M3x8 SHCS into heat-set insert` /
+  `91290A113`) are driven VERTICALLY from above each servo ear and
+  thread into an M3 brass heat-set insert (`94459A130`) installed
+  flush with the boss top.  May 2026 fix: the previous self-tap
+  pilots grazed the cradle wall material at 7 of 12 sites (audit:
+  0.00-1.50 mm of plastic radially); the heat-set switch forces
+  Phi 8 mm bosses around every pilot and gives real metal threads.
+- Heat-set inserts (72 x `94459A130`) are installed BEFORE the
+  servo cradle is mated to its neighbour: heat the insert with a
+  soldering iron at ~220 deg C, drop it into the printed Phi 4 mm
+  x 6 mm pocket, apply light downward pressure for ~10-15 s until
+  the knurl displaces plastic into the boss wall, then cool ~30 s
+  before threading the M3 x 8 SHCS in.
 - Link-to-disc-horn bolts (72 x M3x6 SHCS / `91290A111`) thread
   into the 20 mm aluminum 25T disc horn's M3 TAPPED holes on a
   14 mm bolt circle (cross pattern at 0/90/180/270 deg); the
@@ -178,7 +183,7 @@ Notes:
   the May 2026 chassis_bottom-integrated yaw cradle redesign --
   the printed bracket flange they clamped is gone, replaced by
   per-leg cradle bosses inside chassis_bottom.
-- The M2.5 spline center screw ships with each STS3215 servo --
+- The M2.5 spline center screw ships with each DS3225-class servo --
   it's listed here so the screwdriver-access verifier check knows the
   fastener exists, but you do NOT order it separately.
 - See `fasteners/README.md` for the McMaster STEP swap-in flow if you

@@ -114,6 +114,15 @@ import hexapod_prototype as hp
 _MESH_BUILDERS = {
     "chassis_top":      hp.make_chassis_top,
     "chassis_bottom":   hp.make_chassis_bottom,
+    # Jun 2026 chassis print split: ``chassis_bottom`` is now the FLAT HIGH
+    # half (plate + bearing tower); ``chassis_bottom_lower`` is the bolt-on
+    # LOW half carrying the 6 yaw-servo cradle buckets.  ``chassis_assembled``
+    # is the (un-split) full integrated solid used by every cradle-feature /
+    # world-geometry probe so the servo-insertion / wire-exit / disc-horn /
+    # bearing checks see the SAME geometry the two bolted halves reproduce.
+    "chassis_bottom_lower": hp.make_chassis_bottom_lower,
+    "chassis_assembled":    hp._chassis_bottom_full_solid,
+    "yaw_bearing_cap":  hp.make_yaw_bearing_cap,
     "uno_q_tray":       hp.make_uno_q_tray,
     "buck_tray":        hp.make_buck_tray,
     "spider_carapace":  hp.make_spider_carapace,
@@ -701,6 +710,86 @@ def check_watertight():
 
 
 # ---------------------------------------------------------------------------
+# 1c.  Single-body connectivity (no floating islands)
+# ---------------------------------------------------------------------------
+#
+# Every PRINTED part must come off the bed as ONE connected solid.  A
+# disconnected island (a ring / boss / lip that lost the material that
+# bridged it to the body) is a hard defect: it either drops off in the
+# print or, worse, prints as loose debris inside the part.  Such artifacts
+# are easy to introduce in parametric boolean CAD -- e.g. enlarging a bore
+# or raising a shroud so a feature loses its overlap with the hub.  (June
+# 2026: the spaced-6706-bearing-pair coxa rework left the yaw hub's Phi51.6
+# dust-lip skirt floating 0.6 mm clear of a Phi44 platform; this guard was
+# added to catch exactly that and any future recurrence.)
+#
+# Implementation note -- why a VOLUME filter, not a raw split count:
+# ``mesh.split(only_watertight=False)`` faithfully returns every connected
+# face cluster, INCLUDING zero-thickness coplanar patches that boolean ops
+# sometimes shed on a flat face (e.g. chassis_bottom_lower's z=-2 underside
+# splits into ~14 such 0.000 mm^3 sheets).  Those are mesh artifacts, not
+# floating MATERIAL, so we count only components whose |volume| exceeds
+# CONNECTIVITY_MIN_BODY_VOL.  A genuine floating island is bulk solid (the
+# dust-lip ring was ~1940 mm^3), orders of magnitude above the threshold.
+CONNECTIVITY_MIN_BODY_VOL = 1.0   # mm^3 -- below this is a meshing artifact
+
+# Every part that ships as its OWN printed STL (one connected piece).  The
+# assembled-link meshes (coxa_link / femur_link / tibia_link) are NOT printed
+# as single parts -- each is two printed fittings + a CF tube -- so they are
+# intentionally excluded; their constituent printed fittings are listed
+# instead.  No part here is legitimately multi-body, so there is no
+# whitelist: the required real-body count is exactly 1 for all of them.
+_PRINTED_SINGLE_BODY_BUILDERS = (
+    ("chassis_top",          hp.make_chassis_top),
+    ("chassis_bottom",       hp.make_chassis_bottom),
+    ("chassis_bottom_lower", hp.make_chassis_bottom_lower),
+    ("uno_q_tray",           hp.make_uno_q_tray),
+    ("buck_tray",            hp.make_buck_tray),
+    ("spider_carapace",      hp.make_spider_carapace),
+    ("switch_holster",       hp.make_switch_holster),
+    ("imu_pad",              hp.make_imu_pad),
+    ("yaw_servo_retainer",   hp.make_yaw_servo_retainer),
+    ("yaw_bearing_cap",      hp.make_yaw_bearing_cap),
+    ("coxa_yaw_hub",         hp.make_coxa_yaw_hub),
+    ("coxa_hip_bracket",     hp.make_coxa_hip_bracket),
+    ("femur_hip_yoke",       hp.make_femur_hip_yoke),
+    ("femur_knee_bracket",   hp.make_femur_knee_bracket),
+    ("tibia_knee_yoke",      hp.make_tibia_knee_yoke),
+    ("tibia_foot_fitting",   hp.make_tibia_foot_fitting),
+    ("foot_pad",             hp.make_foot_pad),
+    ("servo_clamp_cap",      hp.make_servo_clamp_cap),
+)
+
+
+def check_single_connected_component():
+    """Assert every printed part is a SINGLE connected solid body (no
+    disconnected / floating geometry).
+
+    Splits each printed mesh into connected components and counts the ones
+    carrying real material (|volume| > CONNECTIVITY_MIN_BODY_VOL); the part
+    PASSES iff that count is exactly 1.  Zero-volume coplanar mesh patches
+    shed by boolean ops are ignored (see the module note above).
+    """
+    print("\n[1c] Single-body connectivity (no floating islands):")
+    all_ok = True
+    for name, builder in _PRINTED_SINGLE_BODY_BUILDERS:
+        mesh = builder()
+        comps = mesh.split(only_watertight=False)
+        bodies = [c for c in comps if abs(c.volume) > CONNECTIVITY_MIN_BODY_VOL]
+        n = len(bodies)
+        ok = n == 1
+        if ok:
+            detail = f"1 connected body (vol {mesh.volume:8.1f} mm^3)"
+        else:
+            extra = sorted((abs(c.volume) for c in bodies), reverse=True)[1:]
+            detail = (f"{n} disconnected bodies -- FLOATING ISLAND(S); "
+                      f"stray body vol(s) = "
+                      f"{', '.join(f'{v:.1f}' for v in extra)} mm^3")
+        all_ok &= _label(name, ok, detail)
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
 # 2.  Cradle insertion-path openness
 # ---------------------------------------------------------------------------
 
@@ -844,6 +933,133 @@ def check_bolt_holes():
     print("  [SKIP]  servo pilot probe retired (STS3215 body held by the "
           "printed strap/clamp; output face carries only the disc horn)")
     return True
+
+
+# ---------------------------------------------------------------------------
+# 3a.  Clamp-cap <-> bracket/cradle bolt-pattern coaxiality
+# ---------------------------------------------------------------------------
+#
+# The STS3215 body is trapped by a bolt-on PRINTED retainer that has a
+# clearance hole on each side which MUST land coaxially with a self-tap
+# pilot in the mating cradle/bracket wall, or the screw cannot pull the
+# joint shut ("the bracket and the clamp screw holes don't line up"):
+#
+#   * hip + knee (sandwich joints): ``make_servo_clamp_cap`` clamshell, its
+#     2 x M3 flange clearance holes thread -Y into the +/-X wall-end pilots
+#     cut by ``_servo_well_solid``.  Both read
+#     ``hexapod_prototype.servo_clamp_bolt_centres``.
+#   * yaw (chassis cradle): ``make_yaw_servo_retainer`` strap, its 2 end-wall
+#     M3 clearance holes thread +Z into the wall-bottom pilots cut by
+#     ``_chassis_yaw_cradle_solid``.  Both read
+#     ``hexapod_prototype.yaw_retainer_anchor_centres``.
+#
+# This guard INDEPENDENTLY extracts the actual bore centre from EACH mesh
+# (the retainer/cap and its mating cradle/bracket) by sampling for the void,
+# then asserts the two are coaxial within COAXIAL_TOL.  Because the centres
+# are read back from the meshes (not from the shared helper), the guard still
+# fires if a future edit hard-codes a drifted pattern into one side only.
+
+COAXIAL_TOL_MM = 0.30   # mm -- max in-plane centre offset cap-hole vs pilot
+
+
+def _bore_centre_in_plane(mesh, axis_idx, plane_val, u_idx, v_idx,
+                          u_guess, v_guess, win=2.0, step=0.2):
+    """Independently locate a small through-bore centre in ``mesh``.
+
+    Sample a (u, v) grid centred on (``u_guess``, ``v_guess``) lying in the
+    plane where coordinate ``axis_idx`` == ``plane_val`` (the plane is
+    perpendicular to the bore axis).  The bore is the VOID region.  Returns
+    ``(u_centre, v_centre, n_void)``; ``n_void == 0`` means no bore was found
+    near the guess (a missing / badly drifted hole).
+    """
+    us = np.arange(u_guess - win, u_guess + win + 1e-9, step)
+    vs = np.arange(v_guess - win, v_guess + win + 1e-9, step)
+    pts = np.zeros((len(us) * len(vs), 3))
+    uu, vv = np.meshgrid(us, vs)
+    pts[:, axis_idx] = plane_val
+    pts[:, u_idx] = uu.ravel()
+    pts[:, v_idx] = vv.ravel()
+    inside = mesh.contains(pts)
+    void = pts[~inside]
+    if len(void) == 0:
+        return None, None, 0
+    return float(void[:, u_idx].mean()), float(void[:, v_idx].mean()), len(void)
+
+
+def check_clamp_cap_alignment():
+    print("\n[3a] Clamp-cap <-> bracket/cradle bolt-pattern coaxiality:")
+    ok = True
+
+    # ---- Hip + knee: clamp cap flange holes vs cradle wall-end pilots -----
+    # Shared well-local frame (origin = body back-face centre, +X long,
+    # +Y depth, +Z output); the bolt axis is Y, so coaxiality is an (x, z)
+    # match.  Sample the pilot in a plane INSIDE the wall and the cap hole in
+    # a plane through the flange.
+    well = hp._servo_well_solid()
+    cap = hp.make_servo_clamp_cap()
+    pilot_plane_y = hp.WELL_D / 2.0 - 3.0                       # inside the wall
+    cap_plane_y = hp.WELL_D / 2.0 + hp.CLAMP_CAP_T / 2.0        # mid-flange
+    for (bx, bz) in hp.servo_clamp_bolt_centres():
+        side = "+X" if bx > 0 else "-X"
+        px, pz, npv = _bore_centre_in_plane(
+            well, axis_idx=1, plane_val=pilot_plane_y,
+            u_idx=0, v_idx=2, u_guess=bx, v_guess=bz)
+        cx, cz, ncv = _bore_centre_in_plane(
+            cap, axis_idx=1, plane_val=cap_plane_y,
+            u_idx=0, v_idx=2, u_guess=bx, v_guess=bz)
+        if npv == 0 or ncv == 0:
+            ok = False
+            miss = "cradle pilot" if npv == 0 else "cap hole"
+            print(f"  [FAIL]  hip/knee {side}: no {miss} bore found near "
+                  f"expected (x={bx:.2f}, z={bz:.2f})")
+            continue
+        off = float(np.hypot(px - cx, pz - cz))
+        flag = "PASS" if off <= COAXIAL_TOL_MM else "FAIL"
+        if off > COAXIAL_TOL_MM:
+            ok = False
+        print(f"  [{flag}]  hip/knee {side} clamp bolt: cap hole "
+              f"(x={cx:6.2f}, z={cz:6.2f}) vs cradle pilot "
+              f"(x={px:6.2f}, z={pz:6.2f})  offset={off:.3f} mm "
+              f"(tol {COAXIAL_TOL_MM})")
+
+    # ---- Yaw: retainer strap end holes vs chassis-cradle wall pilots ------
+    # Both modelled in cradle-local XY (origin = yaw axis, +X outboard,
+    # +Y tangential); the bolt axis is Z, so coaxiality is an (x, y) match.
+    cradle = hp._chassis_yaw_cradle_solid()
+    strap = hp.make_yaw_servo_retainer()
+    out_z = hp.CHASSIS_YAW_OUTPUT_Z - hp.CHASSIS_PLATE_T / 2.0
+    plate_top_z = out_z - hp.HORN_STACK_H
+    front_face_z = plate_top_z - hp.WELL_PLATE_T
+    body_back_z = front_face_z - hp.SERVO_BODY_H
+    cradle_plane_z = body_back_z + 2.0                          # inside the pilot
+    strap_plane_z = hp.RETAINER_STRAP_T / 2.0                   # mid-strap
+    for (ax, ay) in hp.yaw_retainer_anchor_centres():
+        side = "+X" if ax > 0 else "-X"
+        px, py, npv = _bore_centre_in_plane(
+            cradle, axis_idx=2, plane_val=cradle_plane_z,
+            u_idx=0, v_idx=1, u_guess=ax, v_guess=ay)
+        sx_, sy_, nsv = _bore_centre_in_plane(
+            strap, axis_idx=2, plane_val=strap_plane_z,
+            u_idx=0, v_idx=1, u_guess=ax, v_guess=ay)
+        if npv == 0 or nsv == 0:
+            ok = False
+            miss = "cradle pilot" if npv == 0 else "strap hole"
+            print(f"  [FAIL]  yaw {side}: no {miss} bore found near "
+                  f"expected (x={ax:.2f}, y={ay:.2f})")
+            continue
+        off = float(np.hypot(px - sx_, py - sy_))
+        flag = "PASS" if off <= COAXIAL_TOL_MM else "FAIL"
+        if off > COAXIAL_TOL_MM:
+            ok = False
+        print(f"  [{flag}]  yaw {side} anchor bolt: strap hole "
+              f"(x={sx_:6.2f}, y={sy_:6.2f}) vs cradle pilot "
+              f"(x={px:6.2f}, y={py:6.2f})  offset={off:.3f} mm "
+              f"(tol {COAXIAL_TOL_MM})")
+
+    print("  [PASS]  all clamp/retainer bolt holes coaxial with their "
+          "mating pilots" if ok else
+          "  [FAIL]  clamp/retainer bolt-pattern misalignment detected")
+    return ok
 
 
 # ---------------------------------------------------------------------------
@@ -1796,7 +2012,7 @@ def check_horn_sweep_clearance():
     cyl.apply_translation([yaw_x, yaw_y, 0.5 * (z_lo + z_hi)])
 
     bracket = _chassis_yaw_cradle_to_well_local(
-        _load_mesh("chassis_bottom", copy=False))
+        _load_mesh("chassis_assembled", copy=False))
     pitch = 0.6
     vol = _pair_overlap_volume(bracket, cyl, pitch=pitch)
     ok = vol <= HORN_SWEEP_OVERLAP_TOL
@@ -1860,6 +2076,104 @@ def check_horn_sweep_clearance():
     print(f"     rotational sweep diagnostic: {sweep_str}")
 
     return ok
+
+
+# ---------------------------------------------------------------------------
+# 5d.  Disc-horn FIT / clearance (the disc actually fits where it seats)
+# ---------------------------------------------------------------------------
+#
+# WHAT THIS CATCHES that 5b / 5c do NOT
+# -------------------------------------
+# 5b probes the DRIVEN link hub against the (retired-X-horn) envelope;
+# 5c probes the AIRSPACE *above* the seat plane that the disc rotates
+# through.  NEITHER probes the band the disc-horn BODY physically
+# occupies.  The Phi DISC_HORN_OD = 20 mm aluminium disc screws onto the
+# 25T output spline and rides on the servo's output boss -- so its
+# underside sits at body-front + SERVO_OUTPUT_H and its body spans the
+# DISC_HORN_H-tall band ABOVE that.  Every printed feature the disc
+# passes through / seats in MUST clear at least Phi DISC_HORN_OD there.
+#
+# WHY 5c PASSED A BROKEN LAYOUT
+# -----------------------------
+# 5c starts its sweep cylinder at horn_base_z = body_top + WELL_PLATE_T
+# (the mount-PLATE top) on the assumption the disc floats above the
+# plate.  But the servo's output boss only lifts the disc SERVO_OUTPUT_H
+# (2 mm) above the body face -- NOT WELL_PLATE_T (4 mm) -- so the disc's
+# lower ~2 mm actually sits INSIDE the plate band.  The chassis_bottom
+# yaw cradle bored that band to only Phi SERVO_OUTPUT_BORE_OD (10 mm)
+# "for the coupling/spline", so a Phi 20 disc rammed the plate and could
+# not seat -- yet 5c, probing only ABOVE plate-top, reported the cradle
+# clear.  This check probes the REAL disc-body band (from the boss seat
+# up), at Phi DISC_HORN_OD, so a 10 mm-hole-for-a-20 mm-disc regression
+# in ANY fixed cradle is caught.
+#
+# The disc is a circle -> rotationally invariant -> the swept envelope of
+# the spinning disc is itself Phi DISC_HORN_OD, so a static Phi
+# DISC_HORN_OD cylinder IS the swept envelope here (the larger hub +
+# coxa-link that spin above the disc are covered by 5c's airspace probe).
+DISC_HORN_FIT_TOL = 40.0   # mm^3 -- voxel-grid artefact budget (a real
+                           # 10-for-20 intrusion is hundreds of mm^3)
+
+
+def check_disc_horn_fit():
+    """Verify every printed FIXED cradle that the disc horn seats in has
+    a clear Phi DISC_HORN_OD void across the disc-horn BODY band, so the
+    20 mm aluminium disc physically fits where it rides on the spline.
+
+    Probed in WELL-LOCAL coords (body bottom at z = 0, output axis at
+    x = +SERVO_OUTPUT_X) for all three driven joints:
+
+      * chassis_bottom yaw cradle (mapped via the cradle->well helper),
+      * coxa_hip_bracket   (hip fixed side; un-does its joint placement),
+      * femur_knee_bracket (knee fixed side; already well-local).
+    """
+    R = hp.DISC_HORN_OD / 2.0
+    # The disc rides on the servo output boss (SERVO_OUTPUT_H proud of the
+    # body front face), NOT on the mount-plate top -- this is the band 5c
+    # skipped.  Span the full disc body, trimming BOUNDARY_EPS off each end
+    # so the probe's end faces don't share a plane with a mating face.
+    BOUNDARY_EPS = 0.05
+    horn_base_z = hp.SERVO_BODY_H + hp.SERVO_OUTPUT_H
+    horn_top_z = horn_base_z + hp.DISC_HORN_H
+    z_lo = horn_base_z + BOUNDARY_EPS
+    z_hi = horn_top_z - BOUNDARY_EPS
+    H = z_hi - z_lo
+    yaw_x = +hp.SERVO_OUTPUT_X
+
+    print(f"\n[5d] Disc-horn fit (Phi {hp.DISC_HORN_OD:.1f} mm disc body x "
+          f"{H:.1f} mm tall, on output boss):")
+    print(f"     well-local axis at (x={yaw_x:+.1f}, y=+0.0); "
+          f"z in [{z_lo:+.2f}, {z_hi:+.2f}] (boss seat + DISC_HORN_H)")
+
+    cyl = hp._cyl(R, H, sections=hp.CYL_SECTIONS)
+    cyl.apply_translation([yaw_x, 0.0, 0.5 * (z_lo + z_hi)])
+
+    # The hip/knee fixed cradles are emitted as standalone printed parts
+    # by main() but are not in the verifier's assembled-link mesh cache,
+    # so build them directly.  coxa_hip_bracket is in coxa-local frame
+    # (its fixed side is placed by _joint_place(COXA_HIP_ANCHOR, +X,
+    # LEG_PITCH_AXIS)); invert that so the disc-horn axis lands back on
+    # the well-local output axis.  femur_knee_bracket is already
+    # well-local (make_femur_knee_bracket applies no joint transform).
+    M_hip = hp._joint_place(hp.COXA_HIP_ANCHOR, (1, 0, 0), hp.LEG_PITCH_AXIS)
+    hip = hp.make_coxa_hip_bracket()
+    hip.apply_transform(np.linalg.inv(M_hip))
+
+    cases = [
+        ("chassis_bottom yaw cradle",
+         _chassis_yaw_cradle_to_well_local(_load_mesh("chassis_assembled"))),
+        ("coxa_hip_bracket  (hip cradle)", hip),
+        ("femur_knee_bracket (knee cradle)", hp.make_femur_knee_bracket()),
+    ]
+
+    all_ok = True
+    for name, mesh in cases:
+        vol = _pair_overlap_volume(mesh, cyl, pitch=0.6)
+        ok = vol <= DISC_HORN_FIT_TOL
+        all_ok &= _label(f"{name} disc-horn void", ok,
+                         f"cradle-inside-disc vol = {vol:7.1f} mm^3 "
+                         f"(tol {DISC_HORN_FIT_TOL:.0f})")
+    return all_ok
 
 
 # ---------------------------------------------------------------------------
@@ -2782,7 +3096,7 @@ def _build_chassis_world(reference_leg_az_rad):
     """
     parts = {}
 
-    bot = _load_mesh("chassis_bottom")
+    bot = _load_mesh("chassis_assembled")
     parts["chassis_bottom"] = bot
 
     top = _load_mesh("chassis_top")
@@ -3314,7 +3628,7 @@ def check_horn_pattern_in_pad():
     coxa_link's collar bore (``has_recess=True``); the femur/tibia
     bores are validated indirectly via mating-face contact.
     """
-    print(f"\n[5d] Horn-pattern in driven link pads "
+    print(f"\n[5e] Horn-pattern in driven link pads "
           f"(Phi {hp.DISC_HORN_BOLT_OD:.1f} mm holes on PCD "
           f"{hp.DISC_HORN_BOLT_PCD:.1f} mm; central hub recess on "
           f"coxa_link only):")
@@ -3671,7 +3985,7 @@ def check_cradle_insert_pockets():
     cases = [
         ("chassis_bottom (yaw cradle, L0)",
          _chassis_yaw_cradle_to_well_local(
-             _load_mesh("chassis_bottom", copy=False)),
+             _load_mesh("chassis_assembled", copy=False)),
          hp.WELL_RIM_Z,
          0.25),
         ("coxa_link    (hip-pitch cradle)",
@@ -4032,7 +4346,7 @@ def check_servo_insertion_path():
     cradles = [
         ("chassis_bottom (yaw cradle, L0)",
          _chassis_yaw_cradle_to_well_local(
-             _load_mesh("chassis_bottom", copy=False))),
+             _load_mesh("chassis_assembled", copy=False))),
         ("coxa_link    (hip-pitch cradle)",
          _coxa_link_to_well_local(_load_mesh("coxa_link", copy=False))),
         ("femur_link   (knee cradle)",
@@ -4099,6 +4413,173 @@ def check_servo_insertion_path():
                 f"mm (offset {worst_offset:+.1f} above seated); "
                 f"tol {SERVO_INSERTION_PATH_TOL_MM3:.1f} mm^3"
             )
+        all_ok &= _label(name, ok, detail)
+
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
+# Bearing insertion-path / assemblability probe (Jun 2026)
+# ---------------------------------------------------------------------------
+#
+# Forensic regression probe for the user's "the 6706 yaw bearings are
+# IMPOSSIBLE TO INSERT" report.  The old single-piece chassis tower bored
+# 37 -> 34 -> 37 -> 34: two Phi 37 outer-race pockets each TRAPPED between
+# Phi 34 constrictions, so neither race could reach its seat from any
+# direction.  The static-assembly CAD validated the seated state but never
+# an insertion PATH, so the captured pocket shipped silently.
+#
+# This check sweeps a RIGID Phi (YAW_BEARING_OD) disc -- the outer race --
+# down its insertion axis from clear-of-the-host to seated and asserts the
+# swept volume stays collision-free against the printed host.  A slip-fit
+# bore wall only grazes the disc edge (a few mm^3 of voxel-stairstep noise);
+# a real Phi 34 constriction forces the full Phi 37 disc through ~80 mm^3 of
+# solid annulus and trips the tolerance.  Mirrors check_servo_insertion_path.
+#
+# Fail-on-old / pass-on-new is proven INLINE by check_bearing_insertion_path's
+# embedded self-test (_old_captured_yaw_tower): the reconstructed old captured
+# tower blocks at ~79 mm^3 at the Phi 34 neck for BOTH races, while the new
+# split parts sweep at <= 1 mm^3 worst overlap.
+
+# Allowed disc-vs-host overlap at any single insertion step.  ~25 mm^3 sits
+# well above slip-fit grazing noise (<= a few mm^3) and well below a real
+# Phi 34 constriction (~80 mm^3 across the trapped annulus).
+BEARING_INSERTION_PATH_TOL_MM3 = 25.0
+BEARING_INSERTION_PATH_Z_STEP_MM = 0.5
+BEARING_INSERTION_PATH_PITCH_MM = 0.5
+
+
+def _chassis_yaw_cradle_to_coxa_local(mesh: trimesh.Trimesh,
+                                      leg_index: int = 0) -> trimesh.Trimesh:
+    """Map a ``chassis_bottom`` mesh into COXA-LOCAL frame (yaw axis at the
+    origin, z = 0 = disc-horn top) -- the frame ``make_yaw_bearing_cap`` /
+    ``make_coxa_yaw_hub`` / the bearing Z bands are expressed in."""
+    m = _chassis_yaw_cradle_to_well_local(mesh, leg_index)
+    horn_top_z = hp.SERVO_BODY_H + hp.WELL_PLATE_T + hp.HORN_STACK_H
+    m.apply_translation([-hp.SERVO_OUTPUT_X, 0.0, -horn_top_z])
+    return m
+
+
+def _bearing_disc_points(zc: float, R: float, pitch: float) -> np.ndarray:
+    """Filled Phi (2R) disc of sample points at coxa-local height ``zc``."""
+    n = int(np.ceil(2.0 * R / pitch)) + 1
+    xs = np.linspace(-R, R, n)
+    X, Y = np.meshgrid(xs, xs)
+    m = (X ** 2 + Y ** 2) <= R ** 2
+    return np.column_stack([X[m], Y[m], np.full(int(m.sum()), zc)])
+
+
+def _sweep_bearing_disc(mesh: trimesh.Trimesh, z_hi: float, z_seat: float):
+    """Slide a filled Phi (YAW_BEARING_OD) disc from ``z_hi`` DOWN to one Z
+    step above ``z_seat`` and return ``(worst_mm3, worst_z, n_blocked,
+    n_steps)``.  Stopping a step above the seat keeps the intended seated
+    contact (disc resting ON its shoulder -- a large, expected overlap) out of
+    the blockage count; any real constriction lives ABOVE the seat and trips."""
+    R = hp.YAW_BEARING_OD / 2.0
+    pitch = BEARING_INSERTION_PATH_PITCH_MM
+    vox = pitch ** 3
+    worst = 0.0
+    worst_z = z_hi
+    n_blocked = 0
+    n_steps = 0
+    z = z_hi
+    z_end = z_seat + BEARING_INSERTION_PATH_Z_STEP_MM
+    while z >= z_end - 1e-6:
+        n_steps += 1
+        pts = _bearing_disc_points(z, R, pitch)
+        overlap = int(points_inside(mesh, pts).sum()) * vox
+        if overlap > worst:
+            worst, worst_z = overlap, z
+        if overlap > BEARING_INSERTION_PATH_TOL_MM3:
+            n_blocked += 1
+        z -= BEARING_INSERTION_PATH_Z_STEP_MM
+    return worst, worst_z, n_blocked, n_steps
+
+
+def _old_captured_yaw_tower() -> trimesh.Trimesh:
+    """Reconstruct the RETIRED single-piece yaw tower (coxa-local) that bored
+    Phi 37 -> 34 -> 37 -> 34 and trapped BOTH 6706 outer races between Phi 34
+    constrictions.  Used ONLY by ``check_bearing_insertion_path``'s self-test
+    to prove the probe is sensitive enough to flag the captured pocket the new
+    split design eliminates."""
+    r_out = hp.YAW_BEARING_OD / 2.0 + hp.YAW_TOWER_WALL
+    r_bore = hp.YAW_TOWER_BORE_OD / 2.0          # Phi 37 race pocket
+    r_lip = hp.YAW_TOWER_SHOULDER_OD / 2.0       # Phi 34 neck / lip constriction
+
+    def _cyl_at(r, z0, z1):
+        c = hp._cyl(r, z1 - z0)
+        c.apply_translation([0.0, 0.0, 0.5 * (z0 + z1)])
+        return c
+
+    tower = _cyl_at(r_out, hp.YAW_BEARING_LOWER_BOT_Z, hp.YAW_TOWER_TOP_Z)
+    return hp._diff(
+        tower,
+        _cyl_at(r_bore, hp.YAW_BEARING_LOWER_BOT_Z, hp.YAW_BEARING_LOWER_TOP_Z),
+        _cyl_at(r_lip, hp.YAW_BEARING_LOWER_TOP_Z, hp.YAW_BEARING_UPPER_BOT_Z),
+        _cyl_at(r_bore, hp.YAW_BEARING_UPPER_BOT_Z, hp.YAW_BEARING_UPPER_TOP_Z),
+        _cyl_at(r_lip, hp.YAW_BEARING_UPPER_TOP_Z, hp.YAW_TOWER_TOP_Z),
+    )
+
+
+def check_bearing_insertion_path():
+    """Sweep a rigid Phi (YAW_BEARING_OD) disc down each 6706 race's insertion
+    axis and assert a clear, monotone path to its seat exists.
+
+    Includes an embedded FAIL-ON-OLD self-test: the retired single-piece tower
+    (Phi 37 -> 34 -> 37 -> 34) is reconstructed and swept; the probe MUST flag
+    it as blocked (worst overlap >> tol at the Phi 34 neck), proving it is
+    sensitive enough to catch the captured-pocket regression.  The live split
+    parts (chassis_bottom bottom tower + yaw_bearing_cap) must then PASS."""
+    R = hp.YAW_BEARING_OD / 2.0
+    print(f"\n[5g] Bearing insertion-path probe "
+          f"(rigid Phi{2 * R:.0f} disc slides down its axis in "
+          f"{BEARING_INSERTION_PATH_Z_STEP_MM:.1f} mm Z steps; max overlap "
+          f"{BEARING_INSERTION_PATH_TOL_MM3:.0f} mm^3 per step):")
+
+    all_ok = True
+
+    # ---- Self-test: the OLD captured single-piece tower MUST be flagged -----
+    # Drop the Phi 37 disc from clear-of-tower down toward each race seat; the
+    # Phi 34 neck/lip above each pocket forces the full disc through a solid
+    # annulus, so the probe must report a blockage (>> tol).  If this ever
+    # PASSES (no blockage found) the probe has gone blind -- fail the check.
+    old = _old_captured_yaw_tower()
+    old_worst = 0.0
+    old_blocked = 0
+    for z_seat in (hp.YAW_BEARING_LOWER_BOT_Z, hp.YAW_BEARING_UPPER_BOT_Z):
+        w, _wz, nb, _ns = _sweep_bearing_disc(old, hp.YAW_TOWER_TOP_Z + 2.0,
+                                              z_seat)
+        old_worst = max(old_worst, w)
+        old_blocked += nb
+    self_ok = old_blocked > 0
+    all_ok &= _label(
+        "SELF-TEST: retired single-piece tower (Phi37->34->37->34) is blocked",
+        self_ok,
+        f"reconstructed old tower flagged at {old_blocked} step(s); worst "
+        f"overlap {old_worst:.1f} mm^3 >> tol "
+        f"{BEARING_INSERTION_PATH_TOL_MM3:.0f} mm^3 (probe is sensitive)")
+
+    # ---- Live split design MUST pass --------------------------------------
+    cases = [
+        # (label, host in coxa-local, z_clear (start, above), z_seat (end))
+        ("chassis_bottom LOWER race (drops onto z=-5 from open top)",
+         _chassis_yaw_cradle_to_coxa_local(_load_mesh("chassis_assembled",
+                                                      copy=False)),
+         hp.YAW_SPLIT_Z + 1.0, hp.YAW_BEARING_LOWER_BOT_Z),
+        ("yaw_bearing_cap UPPER race (drops onto z=+2 from open top)",
+         _load_mesh("yaw_bearing_cap", copy=False),
+         hp.YAW_CAP_TOP_Z + 2.0, hp.YAW_BEARING_UPPER_BOT_Z),
+    ]
+
+    for name, mesh, z_hi, z_seat in cases:
+        worst, worst_z, n_blocked, n_steps = _sweep_bearing_disc(
+            mesh, z_hi, z_seat)
+        ok = n_blocked == 0
+        detail = (f"{n_steps} Z steps probed; worst overlap {worst:.1f} mm^3 "
+                  f"at z={worst_z:+.1f} (tol "
+                  f"{BEARING_INSERTION_PATH_TOL_MM3:.0f} mm^3)")
+        if not ok:
+            detail = (f"{n_blocked}/{n_steps} steps blocked; " + detail)
         all_ok &= _label(name, ok, detail)
 
     return all_ok
@@ -4235,7 +4716,14 @@ def _build_world_leg0_printed_parts() -> dict:
     # Chassis-level parts (transforms match inspect_build's frame).
     plate_t = hp.CHASSIS_PLATE_T
     gap = hp.CHASSIS_GAP
-    cb_bottom = _load_mesh("chassis_bottom")
+    # Jun 2026 split: the WORLD assembly represents the two bolted halves
+    # by their (un-split) integrated solid so every world-geometry probe
+    # (screwdriver access, cable clearance, harness reach, cradle openness,
+    # fastener engagement) sees exactly the geometry the bolted HIGH+LOW
+    # halves reproduce.  The flat HIGH plate + bolt-on LOW cradle plate are
+    # validated as discrete printed parts by the watertight / flimsy /
+    # thin-sheet / flat-bottom checks.
+    cb_bottom = _load_mesh("chassis_assembled")
     parts["chassis_bottom"] = cb_bottom
 
     cb_top = _load_mesh("chassis_top")
@@ -4297,6 +4785,17 @@ def _build_world_leg0_printed_parts() -> dict:
     cl.apply_transform(rotation_matrix(a, [0, 0, 1]))
     cl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts["coxa_link"] = cl
+
+    # yaw_bearing_cap (Jun 2026 split): bolt-on TOP half of the yaw-bearing
+    # tower.  Built in the coxa-local frame (z=0 = disc-horn top, coaxial with
+    # the yaw axis) -- identical to make_coxa_yaw_hub -- so it takes the SAME
+    # per-leg placement transform as coxa_link.  Placing it here lets the
+    # cap-to-tower join bolts confirm they bear on the cap ear and bridge the
+    # cap + chassis_bottom tower.
+    yc = _load_mesh("yaw_bearing_cap")
+    yc.apply_transform(rotation_matrix(a, [0, 0, 1]))
+    yc.apply_translation(edge_mid + yaw_output_z * z_hat)
+    parts["yaw_bearing_cap"] = yc
 
     fl = _load_mesh("femur_link")
     fl.apply_transform(rotation_matrix(p, [0, 1, 0]))
@@ -4441,6 +4940,59 @@ def _make_driver_probe(head_xyz: np.ndarray,
     cyl.apply_transform(R)
     cyl.apply_translation(np.asarray(head_xyz, dtype=float))
     return cyl
+
+
+FLAT_BOTTOM_MAX_PROTRUSION_MM = 5.0   # mm below the main bed plane -> support
+
+
+def check_flat_bottom():
+    """Flat-bottom printability guard (Jun 2026).
+
+    Mirrors ``_flatbottom_check.py``: build each PRINTED part, apply the SAME
+    print-orientation reorient that ``prepare_xometry_upload.PART_REGISTRY``
+    uses, and FAIL if any downward face hangs more than
+    ``FLAT_BOTTOM_MAX_PROTRUSION_MM`` below the part's largest downward (bed)
+    plane.  A large protrusion means the part rests on small feet with a big
+    floating overhang that needs supports -- exactly the bug that left the
+    single-piece ``chassis_bottom`` resting on 6 cradle rings (~16% bed
+    contact, 20.5 mm of plate floating).
+
+    Also proves the guard FAILS the OLD single-piece chassis_bottom (the
+    integrated ``_chassis_bottom_full_solid``, dropped to bed as it would have
+    printed) and PASSES both new split halves -- the fail-old / pass-new
+    regression proof.
+    """
+    import _flatbottom_check as fb        # noqa: WPS433
+    import prepare_xometry_upload as px    # noqa: WPS433
+
+    print(f"\n[6c] Flat-bottom printability "
+          f"(max overhang below bed plane <= "
+          f"{FLAT_BOTTOM_MAX_PROTRUSION_MM:.1f} mm):")
+    all_ok = True
+
+    for (fname, make_fn, reorient_fn, *_rest) in px.PART_REGISTRY:
+        name = fname[:-4] if fname.endswith(".stl") else fname
+        mesh = reorient_fn(make_fn())
+        m = fb.flatness_metrics(mesh)
+        prot = m["protrusion_below_main"]
+        ok = prot <= FLAT_BOTTOM_MAX_PROTRUSION_MM
+        all_ok &= _label(
+            f"{name:24s} flat bottom", ok,
+            f"overhang below bed plane = {prot:5.2f} mm; "
+            f"bed contact {100.0 * m['bed_fraction']:4.1f}% of footprint")
+
+    # --- Regression proof: the OLD single-piece chassis_bottom MUST fail ----
+    old = hp._chassis_bottom_full_solid()
+    old = old.copy()
+    old.apply_translation([0.0, 0.0, -float(old.bounds[0, 2])])  # drop to bed
+    old_prot = fb.flatness_metrics(old)["protrusion_below_main"]
+    old_fails = old_prot > FLAT_BOTTOM_MAX_PROTRUSION_MM
+    all_ok &= _label(
+        "OLD single-piece chassis_bottom correctly REJECTED", old_fails,
+        f"overhang below bed plane = {old_prot:5.2f} mm "
+        f"(> {FLAT_BOTTOM_MAX_PROTRUSION_MM:.1f} mm -> the split was needed)")
+
+    return all_ok
 
 
 def check_screwdriver_access():
@@ -4798,6 +5350,15 @@ def _build_world_assembly_parts(leg_index: int = 0) -> dict:
             "fasteners cover every distinct interface."
         )
     parts = _build_world_leg0_printed_parts()
+    # Jun 2026 print split: the shared world keeps the un-split integrated
+    # ``chassis_assembled`` solid under the key ``chassis_bottom`` so every
+    # cradle / clearance probe sees full geometry.  The 12 cradle-plate join
+    # screws, however, must be confirmed to bridge the TWO discrete printed
+    # halves -- so add the real LOW half (``chassis_bottom_lower``) here, in
+    # the chassis-local frame (no transform, matching the merged solid), so
+    # the join bolt's head bears on the flange counter-bore and its shaft
+    # genuinely spans chassis_bottom_lower + chassis_bottom.
+    parts["chassis_bottom_lower"] = _load_mesh("chassis_bottom_lower")
     for joint in _HORN_JOINTS:
         horn = _load_mesh("servo_horn")
         horn.apply_transform(_horn_world_transform(joint, leg_index))
@@ -4995,6 +5556,11 @@ def check_fastener_engagement():
         head_contains = _which_parts_contain(world_parts, ring_head)
         head_any = _any_part_contains(head_contains, None)
         head_ok = bool(head_any.any())
+        # Parts the HEAD physically bears on (clamps).  For a compliant
+        # torque-only clamp the head grips its near-side part here even
+        # though the oversized-clearance shaft floats past it below.
+        head_parts = sorted(name for name, mask in head_contains.items()
+                            if int(mask.sum()) >= 1)
 
         # ---- (b) Shaft + tip axial sampling --------------------------
         # Sample N_axial points along the entire shaft [p_head, p_tip]
@@ -5125,6 +5691,14 @@ def check_fastener_engagement():
         # flush disc horn.  Kept (not deleted) to document the change.
         if fi.spec == "M2.5 SHCS into servo case":
             shaft_span_ok = True
+        # Compliant torque-only clamp (e.g. the yaw hub-to-disc-horn
+        # bolts): the OVERSIZED clearance hole lets the shaft float by
+        # design -- concentricity is set by the spaced bearings, not the
+        # bolt -- so the shaft-air-span rule does not apply.  The head
+        # bearing + tip thread engagement (both still enforced) are what
+        # actually clamp the stack.  See FastenerInstance.compliant_torque_only.
+        if getattr(fi, "compliant_torque_only", False):
+            shaft_span_ok = True
 
         # ---- (d) Tip engagement --------------------------------------
         # If the bolt has a paired nut / insert, the engagement happens
@@ -5166,6 +5740,13 @@ def check_fastener_engagement():
         # we add a synthetic entry for that match.
         joined_parts = _distinct_parts_engaged(part_per_axial,
                                                  threshold=1)
+        # Compliant torque-only clamps grip their near part under the HEAD
+        # (the oversized shaft never touches it), so fold the head-bearing
+        # part(s) into the distinct-parts join -- the bolt genuinely joins
+        # [head-clamped part] + [thread-engaged part] even though no single
+        # shaft sample sits in two rigid parts.
+        if getattr(fi, "compliant_torque_only", False):
+            joined_parts = sorted(set(joined_parts) | set(head_parts))
         joined_count = len(joined_parts)
         if paired is not None:
             joined_count += 1
@@ -5768,19 +6349,24 @@ def check_harness_reach():
 
 CHECKS = (
     ("Mesh watertightness",       "check_watertight"),
+    ("Single-body connectivity",  "check_single_connected_component"),
     ("Cradle openness",           "check_cradle_openness"),
     ("Bolt-hole engagement",      "check_bolt_holes"),
+    ("Clamp-cap alignment",       "check_clamp_cap_alignment"),
     ("Wire-exit slot",            "check_wire_slot"),
     ("Leg harness drop",          "check_leg_harness_drop"),
     ("Self-collision",            "check_self_collision"),
     ("Servo clearance",           "check_servo_clearance"),
     ("Horn-stack clearance",      "check_horn_stack_clearance"),
     ("Horn-sweep clearance",      "check_horn_sweep_clearance"),
+    ("Disc-horn fit",             "check_disc_horn_fit"),
     ("Horn pattern in pads",      "check_horn_pattern_in_pad"),
     ("Cradle insert pockets",     "check_cradle_insert_pockets"),
     ("Servo insertion path",      "check_servo_insertion_path"),
+    ("Bearing insertion path",    "check_bearing_insertion_path"),
     ("Flimsy joints",             "check_flimsy_joints"),
     ("Thin sheets",               "check_thin_sheets"),
+    ("Flat-bottom printability",  "check_flat_bottom"),
     ("Screwdriver access",        "check_screwdriver_access"),
     ("Fastener engagement",       "check_fastener_engagement"),
     ("Mating-face contact",       "check_mating_face_contact"),
@@ -5868,7 +6454,7 @@ ESSENTIAL_CHECK_NAMES = (
 # Keep this in sync with ``_MESH_BUILDERS`` -- the assertion at the
 # bottom of this module enforces that.
 ALL_PRINTED_PARTS = frozenset({
-    "chassis_top", "chassis_bottom",
+    "chassis_top", "chassis_bottom", "chassis_bottom_lower",
     "uno_q_tray", "buck_tray",
     "servo_clamp_cap", "switch_holster", "imu_pad",
     "coxa_link",
@@ -5881,14 +6467,18 @@ ALL_PRINTED_PARTS = frozenset({
 _LEG_PARTS = frozenset({
     "coxa_link", "femur_link", "tibia_link",
 })
-_CRADLE_PARTS = frozenset({"chassis_bottom", "coxa_link", "femur_link"})
+# The yaw cradle now lives across BOTH split halves; cradle-feature checks
+# probe the integrated ``chassis_assembled`` solid (not an STL), so they are
+# gated by both printed halves' STL footprints.
+_CRADLE_PARTS = frozenset({"chassis_bottom", "chassis_bottom_lower",
+                            "coxa_link", "femur_link"})
 _PAD_PARTS = frozenset({"coxa_link", "femur_link", "tibia_link"})
 _CHASSIS_PARTS = frozenset({
-    "chassis_top", "chassis_bottom",
+    "chassis_top", "chassis_bottom", "chassis_bottom_lower",
     "uno_q_tray", "buck_tray",
 })
 _PRINTED_WATERTIGHT_SET = frozenset({
-    "chassis_top", "chassis_bottom",
+    "chassis_top", "chassis_bottom", "chassis_bottom_lower",
     "uno_q_tray", "buck_tray", "servo_clamp_cap",
     "coxa_link",
     "femur_link", "tibia_link", "foot_pad",
@@ -5898,19 +6488,31 @@ _PRINTED_WATERTIGHT_SET = frozenset({
 # used in CHECKS / WORKSPACE_CHECK_NAME above.
 CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Mesh watertightness":       _PRINTED_WATERTIGHT_SET,
+    # Builds every printed single-body part directly from hexapod_prototype
+    # (incl. the split coxa_yaw_hub / coxa_hip_bracket fittings), so any
+    # printed-STL change can flip a connectivity verdict -> gate on all parts.
+    "Single-body connectivity":  ALL_PRINTED_PARTS,
     "Cradle openness":           _CRADLE_PARTS,
     "Bolt-hole engagement":      _CRADLE_PARTS,
+    # Builds the clamp cap + cradle/bracket + yaw retainer meshes directly
+    # from hexapod_prototype; the servo_clamp_cap STL footprint also gates it.
+    "Clamp-cap alignment":       _CRADLE_PARTS | {"servo_clamp_cap"},
     "Wire-exit slot":            _CRADLE_PARTS,
     "Leg harness drop":          frozenset({"chassis_bottom"}),
     "Self-collision":            _LEG_PARTS | {"servo_clamp_cap"},
     "Servo clearance":           _LEG_PARTS | {"servo_body"},
     "Horn-stack clearance":      frozenset({"femur_link", "tibia_link"}),
-    "Horn-sweep clearance":      frozenset({"chassis_bottom", "servo_horn"}),
+    "Horn-sweep clearance":      frozenset({"chassis_bottom",
+                                             "chassis_bottom_lower",
+                                             "servo_horn"}),
     "Horn pattern in pads":      _PAD_PARTS,
     "Cradle insert pockets":     _CRADLE_PARTS,
     "Servo insertion path":      _CRADLE_PARTS,
     "Flimsy joints":             _PRINTED_WATERTIGHT_SET,
     "Thin sheets":               _PAD_PARTS,
+    # Builds every PART_REGISTRY part in its print pose; any STL change
+    # (esp. the chassis halves) can flip a flat-bottom verdict.
+    "Flat-bottom printability":  ALL_PRINTED_PARTS,
     # check_screwdriver_access + check_fastener_engagement +
     # check_cable_clearance all build the full world assembly via
     # ``_build_world_leg0_printed_parts`` + (engagement & mating

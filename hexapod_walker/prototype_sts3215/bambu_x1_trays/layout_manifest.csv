@@ -1,6 +1,7 @@
 plate,plate_material,part,copy,x_mm,y_mm,rotate_z_deg
 plate_01_chassis_top,PLA/PETG rigid,chassis_top.stl,1,0.0,0.0,0
 plate_02_chassis_bottom,PLA/PETG rigid,chassis_bottom.stl,1,0.0,0.0,0
+plate_02b_chassis_bottom_lower,PLA/PETG rigid,chassis_bottom_lower.stl,1,0.0,0.0,0
 plate_03_rigid_coxa_links_a,PLA/PETG rigid,yaw_servo_retainer.stl,1,-81.5,-104.0,0
 plate_03_rigid_coxa_links_a,PLA/PETG rigid,yaw_servo_retainer.stl,2,-6.5,-104.0,0
 plate_03_rigid_coxa_links_a,PLA/PETG rigid,yaw_servo_retainer.stl,3,68.5,-104.0,0
@@ -25,6 +26,12 @@ plate_03_rigid_coxa_links_b,PLA/PETG rigid,coxa_yaw_hub.stl,3,23.8,-90.2,0
 plate_03_rigid_coxa_links_b,PLA/PETG rigid,coxa_yaw_hub.stl,4,80.8,-90.2,0
 plate_03_rigid_coxa_links_b,PLA/PETG rigid,coxa_yaw_hub.stl,5,-90.2,-33.2,0
 plate_03_rigid_coxa_links_b,PLA/PETG rigid,coxa_yaw_hub.stl,6,-33.2,-33.2,0
+plate_03_rigid_coxa_links_b,PLA/PETG rigid,yaw_bearing_cap.stl,1,21.8,-33.9,0
+plate_03_rigid_coxa_links_b,PLA/PETG rigid,yaw_bearing_cap.stl,2,74.8,-33.9,0
+plate_03_rigid_coxa_links_b,PLA/PETG rigid,yaw_bearing_cap.stl,3,21.8,22.1,0
+plate_03_rigid_coxa_links_b,PLA/PETG rigid,yaw_bearing_cap.stl,4,74.8,22.1,0
+plate_03_rigid_coxa_links_b,PLA/PETG rigid,yaw_bearing_cap.stl,5,-92.2,23.1,0
+plate_03_rigid_coxa_links_b,PLA/PETG rigid,yaw_bearing_cap.stl,6,-39.2,23.1,0
 plate_04_rigid_femur_sockets_a,PLA/PETG rigid,femur_knee_bracket.stl,1,-74.3,-93.4,0
 plate_04_rigid_femur_sockets_a,PLA/PETG rigid,femur_knee_bracket.stl,2,14.7,-93.4,0
 plate_04_rigid_femur_sockets_a,PLA/PETG rigid,femur_knee_bracket.stl,3,84.6,-74.3,90

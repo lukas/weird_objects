@@ -19,9 +19,12 @@ seats correctly in each cradle AND the fittings socket onto a test
 length of CF tube, you've validated the whole leg subassembly and can
 commit to printing all 6 copies.  May 2026: the standalone
 ``coxa_bracket`` was retired -- the
-yaw servo now drops INTO an integrated cradle inside ``chassis_bottom``,
-so testing the yaw mount requires printing one full chassis_bottom (see
-``make_bambu_x1_trays.py`` for the chassis plate).
+yaw servo now drops INTO an integrated cradle inside ``chassis_bottom``
+(Jun 2026: that cradle is the bolt-on LOW half ``chassis_bottom_lower``),
+so testing the yaw mount requires printing the full 200 mm chassis halves
+(see ``make_bambu_x1_trays.py`` for the chassis plates) -- they are far too
+big for this leg-subassembly test plate and are intentionally NOT requested
+here.
 
 Output: ``hexapod_walker/prototype/test_print_plate/test_print_plate.stl``
 plus a tiny layout manifest.
@@ -78,6 +81,7 @@ _REQUESTS = [
     ("tibia_knee_yoke.stl", 1),
     ("tibia_foot_fitting.stl", 1),
     ("yaw_servo_retainer.stl", 1),
+    ("yaw_bearing_cap.stl", 1),
     # 2 clamp caps: one for the hip-pitch cradle (coxa_link), one for the
     # knee cradle (femur_knee_bracket), so a test leg can seat real servos.
     ("servo_clamp_cap.stl", 2),
