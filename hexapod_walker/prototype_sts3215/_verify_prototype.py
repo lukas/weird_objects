@@ -863,6 +863,86 @@ def check_single_connected_component():
 
 
 # ---------------------------------------------------------------------------
+# 1d.  Hexagonal (C6) rotational symmetry
+# ---------------------------------------------------------------------------
+#
+# ``chassis_bottom_lower`` must have TRUE 6-fold symmetry about the central
+# yaw (Z) axis.  Its six servo arms are built by replicating ONE canonical
+# 60-deg sector of cutters by an EXACT k*60-deg rotation (see
+# ``make_chassis_bottom_lower``), so the symmetry is structural -- not an
+# accident of six independent per-arm booleans.  (Jun 2026: an earlier
+# per-arm build left an asymmetric, degenerate centre that the slicer
+# rendered as shredded garbage even though it passed every watertight /
+# manifold / single-body probe; this guard makes any loss of 6-fold symmetry
+# a HARD failure.)
+#
+# Metric -- tessellation-INDEPENDENT: classify a dense grid of points
+# inside/outside the mesh, and inside/outside the mesh ROTATED 60 deg
+# (equivalently rotate the query points by -60 deg).  A perfectly C6 solid
+# yields identical occupancy fields, so the mismatch FRACTION over occupied
+# cells is ~0; a real asymmetry lights up the differing cells.  Vertices are
+# deliberately NOT compared: the flat hex faces are fanned from an arbitrary
+# apex, so the tessellation is not itself symmetric even when the SHAPE is.
+C6_SYMMETRY_PITCH = 1.5      # mm -- occupancy-probe grid pitch
+C6_SYMMETRY_TOL   = 0.003    # max mismatch fraction (a true C6 part scores ~0;
+                             # the tiny residual is grid aliasing at the
+                             # boundary, well clear of a real asymmetry)
+
+
+def _c6_occupancy_mismatch(mesh, n_fold=6, pitch=C6_SYMMETRY_PITCH):
+    """Return (mismatch_fraction, n_inside) for ``mesh`` vs its own copy
+    rotated 360/n_fold deg about Z -- 0.0 for a perfectly n-fold part."""
+    lo, hi = mesh.bounds
+    xs = np.arange(lo[0] + pitch / 2.0, hi[0], pitch)
+    ys = np.arange(lo[1] + pitch / 2.0, hi[1], pitch)
+    zs = np.arange(lo[2] + pitch / 2.0, hi[2], pitch)
+    X, Y, Z = np.meshgrid(xs, ys, zs, indexing="ij")
+    P = np.c_[X.ravel(), Y.ravel(), Z.ravel()]
+    a = mesh.contains(P)
+    ang = 2.0 * np.pi / n_fold
+    Rm = trimesh.transformations.rotation_matrix(ang, [0, 0, 1])[:3, :3]
+    b = mesh.contains((Rm @ P.T).T)
+    inside = int(a.sum())
+    if inside == 0:
+        return 1.0, 0
+    return float(np.count_nonzero(a != b)) / inside, inside
+
+
+def check_c6_symmetry():
+    """Assert ``chassis_bottom_lower`` is invariant under a 60-deg rotation
+    about the central Z axis (true hexagonal / C6 symmetry).
+
+    Self-test: a regular hex prism MUST pass; the SAME prism with one extra
+    off-axis hole (a deliberate symmetry break) MUST be flagged -- proving the
+    occupancy probe is sensitive before the live part is trusted."""
+    print("\n[1d] Hexagonal C6 symmetry (invariant under 60-deg rotation):")
+    all_ok = True
+
+    # ---- Self-test: sensitive to a broken-symmetry control -----------------
+    hex_prism = hp._cyl(20.0, 4.0, sections=6)
+    sym_mm, _ = _c6_occupancy_mismatch(hex_prism)
+    hole = hp._cyl(3.0, 10.0)
+    hole.apply_translation([10.0, 2.0, 0.0])
+    asym = hp._diff(hp._cyl(20.0, 4.0, sections=6), hole)
+    asym_mm, _ = _c6_occupancy_mismatch(asym)
+    self_ok = (sym_mm <= C6_SYMMETRY_TOL) and (asym_mm > C6_SYMMETRY_TOL)
+    all_ok &= _label(
+        "SELF-TEST: hex prism C6, off-axis-holed prism flagged",
+        self_ok,
+        f"hex mismatch={sym_mm:.5f} (<= {C6_SYMMETRY_TOL}); "
+        f"holed mismatch={asym_mm:.5f} (probe is sensitive)")
+
+    # ---- Live part ---------------------------------------------------------
+    mm, inside = _c6_occupancy_mismatch(hp.make_chassis_bottom_lower())
+    ok = mm <= C6_SYMMETRY_TOL
+    all_ok &= _label(
+        "chassis_bottom_lower", ok,
+        f"60-deg-rotation occupancy mismatch={mm:.5f} "
+        f"(<= {C6_SYMMETRY_TOL}; {inside} cells inside)")
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
 # 2.  Cradle insertion-path openness
 # ---------------------------------------------------------------------------
 
@@ -7299,6 +7379,7 @@ CHECKS = (
     ("Mesh watertightness",       "check_watertight"),
     ("Exported-STL manifoldness", "check_export_manifold"),
     ("Single-body connectivity",  "check_single_connected_component"),
+    ("Hexagonal C6 symmetry",     "check_c6_symmetry"),
     ("Cradle openness",           "check_cradle_openness"),
     ("Bolt-hole engagement",      "check_bolt_holes"),
     ("Clamp-cap alignment",       "check_clamp_cap_alignment"),
@@ -7451,6 +7532,8 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     # (incl. the split coxa_yaw_hub / coxa_hip_bracket fittings), so any
     # printed-STL change can flip a connectivity verdict -> gate on all parts.
     "Single-body connectivity":  ALL_PRINTED_PARTS,
+    # Builds make_chassis_bottom_lower directly and asserts 6-fold symmetry.
+    "Hexagonal C6 symmetry":     frozenset({"chassis_bottom_lower"}),
     "Cradle openness":           _CRADLE_PARTS,
     "Bolt-hole engagement":      _CRADLE_PARTS,
     # Builds the clamp cap + cradle/bracket + yaw retainer meshes directly
