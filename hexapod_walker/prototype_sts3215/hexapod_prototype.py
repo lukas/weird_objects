@@ -3480,18 +3480,125 @@ def _intersection(a: trimesh.Trimesh, b: trimesh.Trimesh) -> trimesh.Trimesh:
         return a
 
 
-def _heal_for_export(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
-    """Collapse sub-micron boolean slivers so the part survives float32 STL.
+# Sub-tolerance below which collinear/coincident features are collapsed by the
+# manifold simplify pass during export healing.  0.1 um is far below both the
+# float32-STL quantisation floor and any real printed feature, so the simplify
+# only ever removes degenerate boolean slivers, never real geometry.
+MANIFOLD_SIMPLIFY_TOL = 1e-4   # mm
 
-    The manifold boolean kernel occasionally emits a handful of zero-area
-    faces / sub-micron edges.  ``is_watertight`` tolerates them in memory, but
-    binary-STL export quantises coordinates to float32, which collapses those
-    edges into coincident vertices and cracks the surface (e.g. coxa_link came
-    back with 81 broken faces on round-trip).  Merge near-coincident vertices
-    (1 um) and drop the degenerate/duplicate faces, but only ADOPT the healed
-    copy when it is watertight with volume preserved -- so genuine assembly
-    meshes (femur_link's CF-tube-in-bore gap) are left untouched rather than
-    being made worse."""
+
+def _exported_mesh_defects(mesh: trimesh.Trimesh) -> dict:
+    """Count the mesh defects a SLICER sees after welding a binary STL.
+
+    Binary STL is a float32 triangle soup with no shared-vertex topology, so a
+    slicer (Bambu Studio, Cura, ...) re-welds vertices by quantised position.
+    We reproduce that here: quantise to float32, weld identical coordinates,
+    drop any face that collapsed to <3 distinct vertices, and tally the edges.
+
+    Returns ``{"degenerate": .., "open_edges": .., "nonmanifold_edges": ..}``
+    where ``nonmanifold_edges`` is edges shared by >2 faces (what Bambu Studio
+    flags) and ``open_edges`` is edges shared by exactly 1 face (holes).  A
+    clean, printable, watertight 2-manifold has 0 of all three.  This is the
+    check ``trimesh.is_watertight`` is NOT strong enough to make -- it tolerates
+    the sub-micron boolean slivers that crack on float32 export.
+    """
+    v = np.asarray(mesh.vertices, dtype=np.float32)
+    faces = np.asarray(mesh.faces)
+    uniq: dict = {}
+    idx = np.empty(len(v), dtype=np.int64)
+    for i, row in enumerate(map(tuple, v)):
+        idx[i] = uniq.setdefault(row, len(uniq))
+    welded = idx[faces]
+    edge_count: dict = {}
+    degenerate = 0
+    for f in welded:
+        a, b, c = int(f[0]), int(f[1]), int(f[2])
+        if a == b or b == c or a == c:
+            degenerate += 1
+            continue
+        for u, w in ((a, b), (b, c), (c, a)):
+            e = (u, w) if u < w else (w, u)
+            edge_count[e] = edge_count.get(e, 0) + 1
+    open_edges = sum(1 for n in edge_count.values() if n == 1)
+    nonmanifold = sum(1 for n in edge_count.values() if n > 2)
+    return {"degenerate": degenerate,
+            "open_edges": open_edges,
+            "nonmanifold_edges": nonmanifold}
+
+
+def _is_export_clean(mesh: trimesh.Trimesh) -> bool:
+    """True iff the mesh welds to a defect-free 2-manifold on float32 export."""
+    d = _exported_mesh_defects(mesh)
+    return (d["degenerate"] == 0 and d["open_edges"] == 0
+            and d["nonmanifold_edges"] == 0)
+
+
+def _simplify_via_manifold(mesh: trimesh.Trimesh,
+                           tol: float = MANIFOLD_SIMPLIFY_TOL):
+    """Round-trip a mesh through the manifold3d kernel and collapse sub-``tol``
+    features, returning a guaranteed-2-manifold ``Trimesh`` (or ``None`` if the
+    input is not a valid manifold the kernel will accept).
+
+    The manifold boolean kernel can leave vertices that are DISTINCT in float64
+    yet closer together than the float32 STL grid; ``is_watertight`` is happy
+    but the slicer welds them and gets coincident/sliver faces -> non-manifold
+    edges.  ``Manifold.simplify(tol)`` dissolves exactly those sub-tolerance
+    slivers while preserving the topology, so the float32 export stays clean."""
+    try:
+        import manifold3d
+        mg = manifold3d.Mesh(
+            vert_properties=np.asarray(mesh.vertices, dtype=np.float32).reshape(-1, 3),
+            tri_verts=np.asarray(mesh.faces, dtype=np.uint32).reshape(-1, 3),
+        )
+        man = manifold3d.Manifold(mg)
+        if man.status() != manifold3d.Error.NoError or man.is_empty():
+            return None
+        man = man.simplify(tol)
+        g = man.to_mesh64() if hasattr(man, "to_mesh64") else man.to_mesh()
+        h = trimesh.Trimesh(
+            vertices=np.asarray(g.vert_properties)[:, :3].astype(np.float64),
+            faces=np.asarray(g.tri_verts).reshape(-1, 3),
+            process=False,
+        )
+        trimesh.repair.fix_normals(h)
+        return h
+    except Exception:
+        return None
+
+
+def _heal_for_export(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+    """Return a slicer-clean mesh for STL export (0 non-manifold edges).
+
+    The manifold boolean kernel occasionally emits zero-area faces and
+    vertices spaced finer than the float32-STL grid.  ``is_watertight``
+    tolerates them in memory, but binary STL quantises to float32 and a slicer
+    re-welds them into coincident/sliver faces -> NON-MANIFOLD edges that block
+    slicing (Bambu Studio rejected chassis_bottom_lower with 29 such edges).
+
+    Strategy, in order of preference:
+
+      1. Route through ``manifold3d.Manifold.simplify`` -- this dissolves the
+         sub-tolerance slivers while *guaranteeing* a 2-manifold result.  Adopt
+         it only when it welds export-clean (``_is_export_clean``), stays
+         watertight, and preserves volume -- so genuine assembly meshes
+         (femur_link's CF-tube-in-bore gap, which is not a closed solid) are
+         never silently mangled.
+      2. Fall back to the legacy merge / drop-degenerate / drop-duplicate pass,
+         adopted under the same guard.
+      3. Otherwise return the mesh untouched.
+
+    The volume guard is relative (<=0.5 %): a sliver-ridden raw mesh slightly
+    MIS-measures its own volume, so the clean mesh legitimately differs by a
+    fraction of a percent -- that is the corrected value, not lost material."""
+    def _vol_ok(h: trimesh.Trimesh) -> bool:
+        return abs(h.volume - mesh.volume) <= max(0.05, 5e-3 * abs(mesh.volume))
+
+    # 1) manifold3d simplify -- guaranteed-manifold, removes sub-tol slivers.
+    h = _simplify_via_manifold(mesh)
+    if h is not None and h.is_watertight and _vol_ok(h) and _is_export_clean(h):
+        return h
+
+    # 2) legacy merge-based heal.
     try:
         h = mesh.copy()
         h.merge_vertices(digits_vertex=3)
@@ -3499,11 +3606,12 @@ def _heal_for_export(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
         h.update_faces(h.unique_faces())
         h.remove_unreferenced_vertices()
         trimesh.repair.fix_normals(h)
+        if h.is_watertight and _vol_ok(h) and _is_export_clean(h):
+            return h
     except Exception:
-        return mesh
-    vol_ok = abs(h.volume - mesh.volume) <= max(1e-3, 1e-4 * abs(mesh.volume))
-    if h.is_watertight and vol_ok:
-        return h
+        pass
+
+    # 3) give up -- export the mesh as-is (the verifier guard will flag it).
     return mesh
 
 
@@ -5960,7 +6068,6 @@ def make_chassis_bottom_lower() -> trimesh.Trimesh:
 
     big = 800.0
     below = _box((big, big, big), center=(0.0, 0.0, CHASSIS_SPLIT_Z - big / 2.0))
-    buckets = _intersection(full, below)
 
     # ---- Solid bucket bottom (Jun 2026 "totally solid" pass) ---------------
     # ROOT CAUSE: ``_chassis_yaw_cradle_solid`` leaves the body cavity OPEN at
@@ -5985,9 +6092,8 @@ def make_chassis_bottom_lower() -> trimesh.Trimesh:
     # cradle solid + flat HIGH plate are untouched.  The slab buries the
     # +/-X end-wall retainer-strap anchor pilots; those are re-opened THROUGH
     # the slab as a final diff below (so they don't become enclosed voids).
-    # Unioned into ``buckets`` HERE -- BEFORE the join-flange ring -- so the
-    # final ``_union(buckets, ring)`` leaves the join-bolt counter-bore
-    # shoulders' tessellation undisturbed.
+    # These slabs are fused with the cradle solid + flange ring in a SINGLE
+    # union below, before the half-space cap (see the manifold note there).
     out_z_l        = CHASSIS_YAW_OUTPUT_Z - CHASSIS_PLATE_T / 2.0
     plate_top_z_l  = out_z_l - HORN_STACK_H
     front_face_z_l = plate_top_z_l - WELL_PLATE_T
@@ -6002,20 +6108,25 @@ def make_chassis_bottom_lower() -> trimesh.Trimesh:
         fl.apply_transform(R)
         fl.apply_translation([edge_mid[0], edge_mid[1], CHASSIS_PLATE_T / 2.0])
         floors.append(fl)
-    buckets = _union(buckets, *floors)
 
     # ---- Hex join-flange ring at the cut plane -----------------------------
+    # The ring is built TALLER than the flange (top extended RING_CAP_SLACK
+    # above CHASSIS_SPLIT_Z); the single half-space intersection below trims it
+    # back to the cut plane.  See the manifold note at the cap for why the ring
+    # must NOT terminate exactly on the cut plane on its own.
+    RING_CAP_SLACK = 4.0
     apothem = CHASSIS_FLAT_TO_FLAT / 2.0
     circum = apothem / np.cos(np.pi / 6.0)
     inner_circum = CHASSIS_JOIN_FLANGE_INNER_APO / np.cos(np.pi / 6.0)
     flange_top = CHASSIS_SPLIT_Z
     flange_bot = CHASSIS_SPLIT_Z - CHASSIS_JOIN_FLANGE_T
-    ring_outer = _cyl(circum, CHASSIS_JOIN_FLANGE_T, sections=6)
+    ring_h = CHASSIS_JOIN_FLANGE_T + RING_CAP_SLACK
+    ring_outer = _cyl(circum, ring_h, sections=6)
     ring_outer.apply_transform(rotation_matrix(np.pi / 6, [0, 0, 1]))
-    ring_inner = _cyl(inner_circum, CHASSIS_JOIN_FLANGE_T * 4.0, sections=6)
+    ring_inner = _cyl(inner_circum, ring_h * 4.0, sections=6)
     ring_inner.apply_transform(rotation_matrix(np.pi / 6, [0, 0, 1]))
     ring = _diff(ring_outer, ring_inner)
-    ring.apply_translation([0.0, 0.0, 0.5 * (flange_bot + flange_top)])
+    ring.apply_translation([0.0, 0.0, 0.5 * (flange_bot + flange_top + RING_CAP_SLACK)])
 
     # Bore the per-leg body cutout + harness-drop slot through the ring so
     # the servo passes up + wires route (mirrors ``_hex_plate`` /
@@ -6025,51 +6136,61 @@ def make_chassis_bottom_lower() -> trimesh.Trimesh:
     body_cutout_d = WELL_D + 2.0
     ring_cuts: list[trimesh.Trimesh] = []
     for _i, edge_mid, R, R3 in _leg_chassis_frames():
-        cutout = _box((body_cutout_w, body_cutout_d, CHASSIS_JOIN_FLANGE_T * 4.0))
+        cutout = _box((body_cutout_w, body_cutout_d, ring_h * 4.0))
         cutout.apply_transform(R)
         cutout.apply_translation(edge_mid + R3 @ np.array([body_centre_x, 0.0, 0.0]))
         ring_cuts.append(cutout)
         drop = _box((LEG_HARNESS_DROP_X_EXTENT, LEG_HARNESS_DROP_Y_EXTENT,
-                     CHASSIS_JOIN_FLANGE_T * 4.0))
+                     ring_h * 4.0))
         drop.apply_transform(R)
         drop.apply_translation(edge_mid + R3 @ np.array(
             [LEG_HARNESS_DROP_X_CENTRE, 0.0, 0.0]))
         ring_cuts.append(drop)
     ring = _diff(ring, *ring_cuts)
 
-    # ---- Join-bolt clearance + head counterbore (driven from BELOW) --------
-    # IMPORTANT: these are cut into the RING *before* it is unioned with the
-    # buckets.  Diff-ing them out of the already-unioned solid corrupted the
-    # thin 4 mm flange slab at 3 of the 6 edges (the multi-cutter boolean ate
-    # the slab where the bucket walls interpenetrate the ring), leaving those
-    # join bolts with no LOW-half material.  Cutting the clean ring first and
-    # unioning last keeps every edge solid.
-    cuts: list[trimesh.Trimesh] = []
+    # ---- Single capped solid (manifold-critical) ---------------------------
+    # ROOT CAUSE of the 29 non-manifold edges Bambu Studio rejected: the
+    # earlier build unioned two solids that BOTH terminated exactly on the cut
+    # plane -- the buckets (``_intersection(full, below)``, top face at
+    # CHASSIS_SPLIT_Z) and the flange ring (top face at CHASSIS_SPLIT_Z).  Two
+    # independently-tessellated solids sharing that coplanar cut-plane face
+    # left T-junctions along the seam: watertight in float64, but once a slicer
+    # welds vertices at float32 precision those T-junctions crack into edges
+    # shared by != 2 faces (non-manifold).  Post-union diffing of localised
+    # features (dowels, pilots) never re-tessellated the seam, so it survived
+    # to the exported STL.
+    #
+    # FIX: fuse the cradle solid (``full``), the over-tall flange ring and the
+    # solid bucket floors in ONE union, then cap the result with a SINGLE
+    # half-space intersection.  The cut plane is now produced by one boolean,
+    # so every top-face vertex is shared and coplanar T-junctions cannot form;
+    # the residual handful of interpenetration slivers are dissolved by the
+    # manifold-simplify export heal (``_heal_for_export``), giving 0
+    # non-manifold edges on the welded STL.
+    solid = _union(full, ring, *floors)
+    lower = _intersection(solid, below)
+
+    # ---- Functional holes carved LAST, into the capped solid ---------------
+    # All recesses/bores are diffed AFTER the cap so they are clean, open,
+    # single-walled features: cutting them into a host BEFORE the union let
+    # manifold3d back-fill the blind recesses into enclosed negative-volume
+    # void shells (destroying the holes and tripping the single-body check).
+    # The join-bolt counterbore + clearance are bored here, through whatever
+    # material -- cradle, floor slab or ring -- lies on each axis, so each bolt
+    # gets a single clean hole and its head bears on solid LOW-half material at
+    # every edge.
+    final_cuts: list[trimesh.Trimesh] = []
+
+    # (0) Join-bolt head counterbore (opening at the flange bottom) + shank
+    # clearance bore through the full flange depth.
     for (bx, by) in _chassis_join_bolt_centres():
-        clr = _cyl(CHASSIS_JOIN_BOLT_CLEAR_OD / 2.0, CHASSIS_JOIN_FLANGE_T * 2.0)
-        clr.apply_translation([bx, by, 0.5 * (flange_bot + flange_top)])
-        cuts.append(clr)
-        # Head counterbore opens at the flange BOTTOM (z = flange_bot) and is
-        # only CHASSIS_JOIN_BOLT_CB_DEPTH deep so the upper part of the flange
-        # keeps a Phi3.4 clearance-hole wall (head shoulder bears on it; the
-        # shank threads up into the HIGH plate boss -- the join clamps both
-        # halves).  Extends 0.2 mm below the face so the recess opens cleanly.
         cb_h = CHASSIS_JOIN_BOLT_CB_DEPTH + 0.2
         cb = _cyl(CHASSIS_JOIN_BOLT_HEAD_OD / 2.0, cb_h)
         cb.apply_translation([bx, by, flange_bot - 0.2 + cb_h / 2.0])
-        cuts.append(cb)
-    ring = _diff(ring, *cuts)
-
-    lower = _union(buckets, ring)
-
-    # ---- Functional blind holes carved LAST, into the finished solid -------
-    # Two families of recess are diffed AFTER ``_union(buckets, ring)`` rather
-    # than cut into their host before the union, because the solid bucket
-    # bottoms make manifold3d's union back-fill pre-cut recesses into enclosed
-    # negative-volume void shells (a coincident-geometry artifact that
-    # destroys the holes AND trips the single-body check).  Carving them last
-    # into the completed solid guarantees clean, open recesses.
-    final_cuts: list[trimesh.Trimesh] = []
+        final_cuts.append(cb)
+        clr = _cyl(CHASSIS_JOIN_BOLT_CLEAR_OD / 2.0, CHASSIS_JOIN_FLANGE_T * 2.0)
+        clr.apply_translation([bx, by, 0.5 * (flange_bot + flange_top)])
+        final_cuts.append(clr)
 
     # (a) Register dowel-pin blind holes in the flange TOP (the cut-plane
     # mating face, z = flange_top), opening UPWARD toward the HIGH half -- a

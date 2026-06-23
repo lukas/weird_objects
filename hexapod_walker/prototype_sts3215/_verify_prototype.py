@@ -710,6 +710,79 @@ def check_watertight():
 
 
 # ---------------------------------------------------------------------------
+# 1b.  Exported-STL manifoldness (what the SLICER sees)
+# ---------------------------------------------------------------------------
+#
+# ``check_watertight`` uses ``trimesh.is_watertight``, which groups edges by
+# rounded vertex position and therefore TOLERATES the sub-micron slivers /
+# zero-area faces the manifold boolean kernel occasionally emits.  Bambu Studio
+# (and every other slicer) re-welds the float32 binary-STL triangle soup by
+# quantised position and flags those slivers as NON-MANIFOLD edges -- a real
+# slicing blocker.  (Jun 2026: chassis_bottom_lower passed every watertight /
+# single-body check yet Bambu rejected its STL with "29 non-manifold edges",
+# traced to coincident cylindrical hole walls where the join-bolt bores were
+# cut into the flange ring BEFORE it was unioned with the interpenetrating
+# bucket walls.  Fixed by boring the bolts into the COMBINED solid + a
+# manifold-simplify export heal; this guard keeps it from regressing.)
+#
+# The guard checks the SAME mesh ``_save`` writes -- i.e. after
+# ``hp._heal_for_export`` -- and requires it to weld to a defect-free
+# 2-manifold: 0 degenerate faces, 0 open edges, 0 edges shared by >2 faces.
+
+def _export_manifold_selftest_meshes():
+    """Return (clean_box, nonmanifold_fin) for the embedded self-test.
+
+    ``nonmanifold_fin`` is three triangles sharing one common edge -- a
+    textbook non-manifold "fin" -- so the float32-weld probe MUST report a
+    >2-face edge.  If the probe ever passes it the guard has gone blind."""
+    box = hp._box((10.0, 10.0, 10.0))
+    fin = trimesh.Trimesh(
+        vertices=np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0],
+                           [0, 0, 1], [1, 1, 0]], dtype=float),
+        faces=np.array([[0, 1, 2], [0, 1, 3], [0, 1, 4]], dtype=np.int64),
+        process=False,
+    )
+    return box, fin
+
+
+def check_export_manifold():
+    """Assert every printed STL welds to a defect-free 2-manifold (0
+    non-manifold edges) the way a slicer reads it -- the check
+    ``is_watertight`` is too weak to make.
+
+    Includes an embedded self-test: a 3-triangles-share-one-edge "fin" MUST
+    be flagged non-manifold (and a clean box MUST pass), proving the float32
+    weld probe is sensitive before the live parts are trusted."""
+    print("\n[1b] Exported-STL manifoldness (slicer-weld; 0 non-manifold edges):")
+    all_ok = True
+
+    # ---- Self-test: sensitive to a known non-manifold fin ------------------
+    box, fin = _export_manifold_selftest_meshes()
+    fin_def = hp._exported_mesh_defects(fin)
+    box_clean = hp._is_export_clean(box)
+    self_ok = (fin_def["nonmanifold_edges"] > 0
+               and not hp._is_export_clean(fin)
+               and box_clean)
+    all_ok &= _label(
+        "SELF-TEST: 3-tri fin flagged non-manifold, clean box passes",
+        self_ok,
+        f"fin nonmanifold_edges={fin_def['nonmanifold_edges']} (>0); "
+        f"box export-clean={box_clean} (probe is sensitive)")
+
+    # ---- Live printed parts: the EXPORTED (healed) mesh must be clean ------
+    for name, builder in _PRINTED_SINGLE_BODY_BUILDERS:
+        exported = hp._heal_for_export(builder())
+        d = hp._exported_mesh_defects(exported)
+        ok = (d["degenerate"] == 0 and d["open_edges"] == 0
+              and d["nonmanifold_edges"] == 0)
+        detail = (f"degenerate={d['degenerate']}  open_edges={d['open_edges']}  "
+                  f"nonmanifold_edges={d['nonmanifold_edges']}")
+        all_ok &= _label(name, ok, detail)
+
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
 # 1c.  Single-body connectivity (no floating islands)
 # ---------------------------------------------------------------------------
 #
@@ -7224,6 +7297,7 @@ def check_harness_reach():
 
 CHECKS = (
     ("Mesh watertightness",       "check_watertight"),
+    ("Exported-STL manifoldness", "check_export_manifold"),
     ("Single-body connectivity",  "check_single_connected_component"),
     ("Cradle openness",           "check_cradle_openness"),
     ("Bolt-hole engagement",      "check_bolt_holes"),
@@ -7369,6 +7443,10 @@ _PRINTED_WATERTIGHT_SET = frozenset({
 # used in CHECKS / WORKSPACE_CHECK_NAME above.
 CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Mesh watertightness":       _PRINTED_WATERTIGHT_SET,
+    # Builds + heals every single-body printed part directly from
+    # hexapod_prototype, so any printed-STL change can introduce a slicer
+    # non-manifold edge -> gate on the printed watertight set.
+    "Exported-STL manifoldness": _PRINTED_WATERTIGHT_SET,
     # Builds every printed single-body part directly from hexapod_prototype
     # (incl. the split coxa_yaw_hub / coxa_hip_bracket fittings), so any
     # printed-STL change can flip a connectivity verdict -> gate on all parts.
