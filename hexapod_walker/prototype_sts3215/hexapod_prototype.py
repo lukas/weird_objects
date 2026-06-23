@@ -1161,13 +1161,15 @@ HORN_CLEAR_PEDESTAL_R = 12.0      # mm
 # the servo no longer has to be inserted through an OPEN bottom -- it drops
 # into the chassis_bottom_lower bucket from the flange (cut-plane) side before
 # the two halves are bolted.  That lets ``make_chassis_bottom_lower`` CLOSE
-# the bucket bottom with an integral floor directly beneath the servo body's
-# back (-Z) face: the body bottoms out on this floor and can no longer fall
-# out the open bottom (user report).  The floor is added in the LOW-half
-# builder (below CHASSIS_SPLIT_Z), so the shared ``_chassis_yaw_cradle_solid``
-# -- consumed by the HIGH half AND every verifier cradle probe -- is left
-# untouched, and the floor never appears in the flat HIGH plate.
-YAW_CRADLE_FLOOR_T = 4.0          # mm -- closed back-wall thickness (>= MIN_PRINT_T)
+# the bucket bottom with an integral solid slab directly beneath the servo
+# body's back (-Z) face, spanning the bucket's full outer footprint so the
+# LOW half is solid below the cut plane: the body bottoms out on this slab and
+# can no longer fall out the open bottom (user report).  The slab is added in
+# the LOW-half builder (below CHASSIS_SPLIT_Z), so the shared
+# ``_chassis_yaw_cradle_solid`` -- consumed by the HIGH half AND every
+# verifier cradle probe -- is left untouched, and it never appears in the flat
+# HIGH plate.
+YAW_CRADLE_FLOOR_T = 4.0          # mm -- solid bucket-bottom slab thickness (>= MIN_PRINT_T)
 
 # ---- Yaw-servo retainer strap (Jun 2026) --------------------------------
 # A small printed strap (``make_yaw_servo_retainer``) bridges the open
@@ -5945,12 +5947,14 @@ def make_chassis_bottom_lower() -> trimesh.Trimesh:
     UP, so the yaw servo drops straight into its bucket BEFORE the two halves
     are bolted (see PROTOTYPE_BOM.md assembly order).
 
-    Each bucket bottom is CLOSED by an integral ``YAW_CRADLE_FLOOR_T``
-    retention floor just beneath the servo body's back face (Jun 2026
-    two-part-build fix): the body bottoms out on it and is positively
-    captured between the floor and the HIGH-half mount plate, so it can no
-    longer fall out the (formerly open) bottom -- the user report this fix
-    addresses.
+    Each bucket bottom is a fully SOLID ``YAW_CRADLE_FLOOR_T`` slab spanning
+    the bucket's entire outer footprint, just beneath the servo body's back
+    face (Jun 2026 "totally solid" pass): the body bottoms out on it and is
+    positively captured between the slab and the HIGH-half mount plate, so it
+    can no longer fall out the (formerly open) bottom, and the LOW half is a
+    single solid mass below the cut plane whose only negative space is the
+    functional servo pockets, fastener/dowel holes, wire-exit slot and
+    join-flange features.
     """
     full = _chassis_bottom_full_solid()
 
@@ -5958,33 +5962,38 @@ def make_chassis_bottom_lower() -> trimesh.Trimesh:
     below = _box((big, big, big), center=(0.0, 0.0, CHASSIS_SPLIT_Z - big / 2.0))
     buckets = _intersection(full, below)
 
-    # ---- Integral yaw-servo retention floor (Jun 2026 two-part-build fix) --
+    # ---- Solid bucket bottom (Jun 2026 "totally solid" pass) ---------------
     # ROOT CAUSE: ``_chassis_yaw_cradle_solid`` leaves the body cavity OPEN at
     # the bottom (a legacy of the single-piece design, where the servo was
     # pushed UP into the bucket from below).  After the print split the servo
     # is dropped into THIS LOW half from the flange (cut-plane) side before
     # the halves bolt up -- with nothing under it, it falls straight back out
-    # the open bottom (user report).  Close each bucket with a
-    # ``YAW_CRADLE_FLOOR_T`` slab directly beneath the servo body's back (-Z)
-    # face: the body bottoms out on the slab TOP (at the body back-face plane)
-    # and is positively captured between this floor and the HIGH-half mount
-    # plate, so it cannot drop out.  Built ONLY here (it lives wholly below
-    # CHASSIS_SPLIT_Z), so the shared cradle solid + flat HIGH plate are
-    # untouched.  The slab footprint is the body cavity + 2 mm/side: it fuses
-    # volumetrically into the bucket walls (no coincident-face seam) yet stays
-    # clear of the +/-X end-wall retainer-strap anchor pilots, so it does not
-    # seal them into enclosed voids.  Its top face seats flush with the body
-    # back face, so the servo's resting height (front face against the mount
-    # plate) is unchanged.  Unioned into ``buckets`` HERE -- BEFORE the
-    # join-flange ring -- so the final ``_union(buckets, ring)`` matches the
-    # baseline boolean (the floors sit far below the flange, leaving the
-    # join-bolt counter-bore shoulders' tessellation undisturbed).
+    # the open bottom (user report).  The first fix closed it with a narrow
+    # ``body + 2 mm`` retention pad, but that still left each bucket's outer
+    # CORNERS open underneath the servo (the bucket footprint is the
+    # ``WELL_W+2 x WELL_D+2`` cradle outer shell, ~10 mm/5.8 mm wider than the
+    # pad), so the LOW half was not a fully solid mass below the cut plane.
+    # Fill each bucket's ENTIRE outer footprint as one solid slab directly
+    # beneath the servo body's back (-Z) face: the body bottoms out on the
+    # slab TOP (at the body back-face plane) and is positively captured
+    # between it and the HIGH-half mount plate, so it cannot drop out, and the
+    # underside is now a single solid block with no corner voids.  The slab
+    # footprint matches the cradle outer shell exactly so it fuses flush into
+    # the bucket walls; its top seats at the body back-face plane so the
+    # servo's resting height (front face against the mount plate) is
+    # unchanged.  Built ONLY here (wholly below CHASSIS_SPLIT_Z) so the shared
+    # cradle solid + flat HIGH plate are untouched.  The slab buries the
+    # +/-X end-wall retainer-strap anchor pilots; those are re-opened THROUGH
+    # the slab as a final diff below (so they don't become enclosed voids).
+    # Unioned into ``buckets`` HERE -- BEFORE the join-flange ring -- so the
+    # final ``_union(buckets, ring)`` leaves the join-bolt counter-bore
+    # shoulders' tessellation undisturbed.
     out_z_l        = CHASSIS_YAW_OUTPUT_Z - CHASSIS_PLATE_T / 2.0
     plate_top_z_l  = out_z_l - HORN_STACK_H
     front_face_z_l = plate_top_z_l - WELL_PLATE_T
     body_back_z_l  = front_face_z_l - SERVO_BODY_H        # cradle-local body bottom
-    floor_w = SERVO_BODY_W + 2.0 * WELL_BODY_CL + 4.0
-    floor_d = SERVO_BODY_D + 2.0 * WELL_BODY_CL + 4.0
+    floor_w = WELL_W + 2.0 + 2.0 * CRADLE_BOND_STRIP_MM   # = cradle outer shell
+    floor_d = WELL_D + 2.0 + 2.0 * CRADLE_BOND_STRIP_MM
     floors: list[trimesh.Trimesh] = []
     for _i, edge_mid, R, R3 in _leg_chassis_frames():
         fl = _box((floor_w, floor_d, YAW_CRADLE_FLOOR_T),
@@ -6053,23 +6062,43 @@ def make_chassis_bottom_lower() -> trimesh.Trimesh:
 
     lower = _union(buckets, ring)
 
-    # ---- Dowel-pin blind holes carved LAST, into the finished solid --------
-    # Register dowel-pin blind holes in the flange TOP (the cut-plane mating
-    # face, z = flange_top), opening UPWARD toward the HIGH half -- a recess,
-    # so the flipped LOW half still prints flat on its flange face.  These are
-    # diffed AFTER ``_union(buckets, ring)`` (not cut into the ring first):
-    # once the retention floors thicken the buckets, the union boolean was
-    # back-filling 5 of the 6 pre-cut dowel recesses into solid (enclosed
-    # negative-volume void shells, manifold3d coincident-geometry artifact),
-    # destroying the dowel holes AND tripping the single-body check.  Carving
-    # them last into the completed solid guarantees clean, open recesses.
-    dowel_cuts: list[trimesh.Trimesh] = []
+    # ---- Functional blind holes carved LAST, into the finished solid -------
+    # Two families of recess are diffed AFTER ``_union(buckets, ring)`` rather
+    # than cut into their host before the union, because the solid bucket
+    # bottoms make manifold3d's union back-fill pre-cut recesses into enclosed
+    # negative-volume void shells (a coincident-geometry artifact that
+    # destroys the holes AND trips the single-body check).  Carving them last
+    # into the completed solid guarantees clean, open recesses.
+    final_cuts: list[trimesh.Trimesh] = []
+
+    # (a) Register dowel-pin blind holes in the flange TOP (the cut-plane
+    # mating face, z = flange_top), opening UPWARD toward the HIGH half -- a
+    # recess, so the flipped LOW half still prints flat on its flange face.
     for (dx, dy) in _chassis_join_dowel_centres():
         depth = CHASSIS_JOIN_DOWEL_DEPTH + 0.4
         hole = _cyl(CHASSIS_JOIN_DOWEL_HOLE_OD / 2.0, depth)
         hole.apply_translation([dx, dy, flange_top - depth / 2.0 + 0.2])
-        dowel_cuts.append(hole)
-    lower = _diff(lower, *dowel_cuts)
+        final_cuts.append(hole)
+
+    # (b) Re-open the retainer-strap anchor pilots THROUGH the full-footprint
+    # bucket floor.  The pilots are cut in the shared cradle solid (mouth at
+    # body_back - 0.5, extending RETAINER_ANCHOR_PILOT_DEPTH+1 up into the
+    # +/-X end walls); the solid slab buries their mouths, which would leave
+    # them as enclosed blind voids.  Re-bore each coaxially from below the
+    # slab bottom up to the original pilot top so the printed
+    # ``yaw_servo_retainer`` strap can still screw into them from below.
+    pilot_top_z = body_back_z_l - 0.5 + (RETAINER_ANCHOR_PILOT_DEPTH + 1.0)
+    pilot_bot_z = body_back_z_l - YAW_CRADLE_FLOOR_T - 0.4
+    pilot_h     = pilot_top_z - pilot_bot_z
+    for _i, edge_mid, R, R3 in _leg_chassis_frames():
+        for ax, ay in yaw_retainer_anchor_centres():
+            pin = _cyl(RETAINER_ANCHOR_PILOT_OD / 2.0, pilot_h)
+            pin.apply_translation([ax, ay, 0.5 * (pilot_bot_z + pilot_top_z)])
+            pin.apply_transform(R)
+            pin.apply_translation([edge_mid[0], edge_mid[1], CHASSIS_PLATE_T / 2.0])
+            final_cuts.append(pin)
+
+    lower = _diff(lower, *final_cuts)
     return lower
 
 
