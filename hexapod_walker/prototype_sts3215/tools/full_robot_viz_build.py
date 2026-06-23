@@ -92,6 +92,7 @@ PALETTE = {
     "uno_q": "#1b7a3d", "buck_converter": "#b5651d",
     "lipo_battery": "#d62728",
     "hip_clamp_cap": "#4a90d9", "knee_clamp_cap": "#4a90d9",
+    "yaw_servo_retainer": "#e377c2",
 }
 ROLE = {
     "coxa_link": "frame",
@@ -110,6 +111,7 @@ ROLE = {
     "uno_q": "electronics", "buck_converter": "electronics",
     "lipo_battery": "electronics",
     "hip_clamp_cap": "frame", "knee_clamp_cap": "frame",
+    "yaw_servo_retainer": "frame",
 }
 
 
@@ -414,8 +416,9 @@ def _leg0_parts() -> list[tuple[str, trimesh.Trimesh]]:
     links = _leg0_individual_link_parts()
     servos = V._place_servo_bodies()         # yaw_servo, hip_servo, knee_servo
     caps = V._place_servo_clamp_caps()       # hip_clamp_cap, knee_clamp_cap
+    retainers = V._place_yaw_retainers()     # yaw_servo_retainer (1 per leg)
     out: list[tuple[str, trimesh.Trimesh]] = list(links)
-    for name, mesh in {**servos, **caps}.items():
+    for name, mesh in {**servos, **caps, **retainers}.items():
         out.append((name, mesh))
     return out
 

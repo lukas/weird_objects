@@ -283,9 +283,10 @@ PART_REGISTRY: list[tuple[str,
 
     ("yaw_servo_retainer.stl",   make_yaw_servo_retainer,  _lay_flat,
      6, "MJF PA12",      "white", "as-printed",
-     "Strap across each chassis_bottom yaw cradle's open bottom; bolts to "
-     "the cradle end walls + the STS3215's 4 bottom-face M3 holes so the "
-     "servo can't drop out. Open centre clears the rear cable bundle."),
+     "Capture stirrup under each yaw servo: a cross-bar blocks the hanging "
+     "STS3215 from dropping while two arms rise to the flat chassis_bottom_lower "
+     "plate, bolting into 2 blind M3 self-tap pilots. Open centre clears the "
+     "rear cable bundle."),
 
     ("yaw_bearing_cap.stl",      make_yaw_bearing_cap,     _reorient_yaw_bearing_cap,
      6, "MJF PA12",      "white", "as-printed",

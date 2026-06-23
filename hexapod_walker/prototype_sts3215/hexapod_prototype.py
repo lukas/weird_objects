@@ -1172,6 +1172,9 @@ HORN_CLEAR_PEDESTAL_R = 12.0      # mm
 YAW_CRADLE_FLOOR_T = 4.0          # mm -- solid bucket-bottom slab thickness (>= MIN_PRINT_T)
 
 # ---- Yaw-servo retainer strap (Jun 2026) --------------------------------
+# LEGACY (pre flat-plate) constants for the original deep-cradle strap; see
+# the "Flat-plate retainer re-anchor" block below and make_yaw_servo_retainer
+# for the CURRENT capture-stirrup design that supersedes the end-wall anchors.
 # A small printed strap (``make_yaw_servo_retainer``) bridges the open
 # bottom of each chassis_bottom yaw cradle.  It bolts to the cradle's two
 # +/-X end walls (M3 self-tap pilots) and to the servo's 4 bottom-face M3
@@ -1195,6 +1198,32 @@ RETAINER_ANCHOR_Y_OFFSET    = 8.0   # mm -- the cradle's end-wall anchor pilots 
 RETAINER_BOLT_CLEAR_OD      = 3.4   # mm -- M3 clearance through the strap
 RETAINER_CABLE_SLOT_W       = 6.0   # mm -- central cable window (X)
 RETAINER_CABLE_SLOT_L      = 12.0   # mm -- central cable window (Y)
+
+# ---- Flat-plate retainer re-anchor (Jun 2026 flat-chassis redesign) ------
+# The chassis_bottom_lower LOW half is now a SIMPLE FLAT hex plate (z in
+# [-6, -2]); it no longer has the deep cradle side walls the old strap bolted
+# to, and the legacy anchor pattern (yaw_retainer_anchor_centres) falls inside
+# the plate's body cutout (no material).  So the strap is re-built as a CAPTURE
+# STIRRUP: two arms rise ~14 mm from a cross-bar under the servo body bottom up
+# to the flat plate's underside, where they bolt into two blind M3 self-tap
+# pilots cut in REAL plate material on the TANGENTIAL flanks of the body cutout.
+# The cross-bar physically blocks the hanging yaw servo from dropping (the
+# servo is captured between the HIGH-half mount plate on top and this bar
+# below).  All coords below are cradle-local: +X = radial outboard (the
+# yaw-axis -> hex-edge-midpoint direction), +Y = tangential, origin = yaw axis.
+RETAINER_ANCHOR_RADIAL  = -SERVO_OUTPUT_X  # -12.5 mm -- anchor radial pos (under
+                                           # the servo body centreline)
+RETAINER_ANCHOR_TANG    = 21.0   # mm -- anchor tangential pos; > body-cutout
+                                 # half-depth (17.9) so the pilot lands in solid
+                                 # plate material beside the cutout
+RETAINER_PLATE_PILOT_OD = 2.5    # mm -- M3 self-tap pilot in the flat plate
+RETAINER_PLATE_PILOT_DEPTH = 3.0 # mm -- blind into the 4 mm plate (>=1 mm cap)
+RETAINER_ARM_RADIAL     = 9.0    # mm -- stirrup arm cross-section (radial)
+RETAINER_ARM_TANG       = 8.0    # mm -- stirrup arm cross-section (tangential)
+RETAINER_ARM_RISE       = 14.0   # mm -- bar top (servo bottom) -> plate bottom
+RETAINER_BAR_RADIAL     = 30.0   # mm -- capture cross-bar span (radial)
+RETAINER_BAR_TANG       = 46.0   # mm -- capture cross-bar span (tangential,
+                                 # reaches both arms at y = +/-RETAINER_ANCHOR_TANG)
 WELL_BODY_CL = 0.7   # mm clearance on every body face inside the well.
                      # FDM in PLA / PETG can swallow ~0.3 mm per side just in
                      # line-width / shrinkage, so 0.4 mm is too tight for a
@@ -1272,6 +1301,24 @@ def yaw_retainer_anchor_centres():
     ax_plus = body_centre_x + 0.5 * (cav_half_x + outer_w / 2.0)
     return [(ax_minus, -RETAINER_ANCHOR_Y_OFFSET),
             (ax_plus, +RETAINER_ANCHOR_Y_OFFSET)]
+
+
+def chassis_lower_retainer_anchor_centres():
+    """SINGLE SOURCE OF TRUTH for the FLAT-PLATE yaw retainer anchor pattern
+    (Jun 2026 flat-chassis redesign), in cradle-local XY (origin on the yaw/
+    output axis, +X = outboard radial, +Y = tangential).
+
+    The two anchors straddle the body centreline tangentially, sitting just
+    OUTSIDE the plate's body cutout (|y| > body-cutout half-depth) so each
+    lands in solid plate material.  Consumed by ``make_chassis_bottom_lower``
+    (the plate PILOTS), ``make_yaw_servo_retainer`` (the stirrup arm clearance
+    holes) and ``check_clamp_cap_alignment`` so the three cannot drift apart.
+    The bolt AXIS is Z for both anchors.
+
+    Returns ``[(x, y), ...]``.
+    """
+    return [(RETAINER_ANCHOR_RADIAL, -RETAINER_ANCHOR_TANG),
+            (RETAINER_ANCHOR_RADIAL, +RETAINER_ANCHOR_TANG)]
 
 # ---- "Drop-in" assembly features ----------------------------------------
 # Two changes to the otherwise solid bucket geometry that make seating the
@@ -4464,51 +4511,68 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
 
 
 def make_yaw_servo_retainer() -> trimesh.Trimesh:
-    """Printed strap that keeps the yaw STS3215 from dropping out the open
-    bottom of its chassis_bottom cradle (Jun 2026).
+    """Printed CAPTURE STIRRUP that keeps the yaw STS3215 from dropping out
+    the bottom of the chassis (Jun 2026 flat-chassis re-anchor).
 
-    The servo inserts from BELOW and seats its front face against the
-    cradle's top mount plate.  Previously it was held only by the plate's
-    case screws and fell out (user report).  This strap bridges the open
-    cavity mouth: it bolts to the cradle's two +/-X end walls (M3 self-tap
-    into ``RETAINER_ANCHOR_PILOT`` pilots) and up into the servo's 4
-    bottom-face M3 holes, sandwiching the servo.  A central window lets the
-    rear STS3215 cable bundle exit straight down through the strap.
+    History: the yaw servo's output points UP and its body hangs ~14 mm below
+    the chassis underside; it seats its front face against the HIGH-half mount
+    plate but nothing held it from dropping (user report).  The original
+    retainer was a flat strap that bolted to the OLD deep-cradle's +/-X end
+    walls.  The Jun 2026 flat-plate redesign of ``chassis_bottom_lower``
+    deleted those walls, AND the legacy anchor pattern falls inside the new
+    plate's body cutout (no material) -- so that strap had nothing real to
+    anchor to.
 
-    Local frame matches the cradle XY (origin on the yaw/output axis,
-    +X = outboard radial), laid flat for printing (z in [0, strap_t]).
+    This part is rebuilt as a STIRRUP that re-establishes real retention
+    against features that exist on the current flat plate:
+
+        * a CAPTURE CROSS-BAR sits directly under the servo body's bottom
+          face, physically blocking the servo from dropping (the servo is
+          now trapped between the HIGH-half mount plate on top and this bar
+          below);
+        * two ARMS rise ~RETAINER_ARM_RISE mm from the bar up to the flat
+          plate's underside, where they bolt into two blind M3 self-tap
+          pilots cut in SOLID plate material on the tangential flanks of the
+          body cutout (``chassis_lower_retainer_anchor_centres`` -- the SAME
+          source ``make_chassis_bottom_lower`` reads, guarded by
+          ``check_clamp_cap_alignment``);
+        * a central window lets the rear STS3215 cable bundle drop through.
+
+    Frame: cradle-local XY (origin on the yaw/output axis, +X = outboard
+    radial, +Y = tangential) and WORLD Z (the part is placed by a pure
+    Z-rotation + in-plane translate, so its local Z is the world Z); the
+    bar bottom is the flat print-bed face.
     """
-    # End-wall anchor bolts: (x, y) centres come from
-    # ``yaw_retainer_anchor_centres`` -- the SAME source the cradle pilots
-    # read in ``_chassis_yaw_cradle_solid`` -- so the strap holes stay
-    # coaxial with the cradle pilots (guarded by check_clamp_cap_alignment).
-    anchor_centres = yaw_retainer_anchor_centres()
-    ax_minus = min(ax for (ax, _ay) in anchor_centres)
-    ax_plus = max(ax for (ax, _ay) in anchor_centres)
+    plate_bot = CHASSIS_SPLIT_Z - CHASSIS_JOIN_FLANGE_T          # -6
+    bar_top = plate_bot - RETAINER_ARM_RISE                      # ~ -20 (servo bottom)
+    bar_bot = bar_top - RETAINER_STRAP_T                         # ~ -24
 
-    tab = 6.0
-    x_lo = ax_minus - tab
-    x_hi = ax_plus + tab
-    plate = _box((x_hi - x_lo, RETAINER_STRAP_W, RETAINER_STRAP_T),
-                 center=(0.5 * (x_lo + x_hi), 0.0, RETAINER_STRAP_T / 2.0))
+    # ---- Capture cross-bar (under the servo body bottom face) -------------
+    bar = _box((RETAINER_BAR_RADIAL, RETAINER_BAR_TANG, RETAINER_STRAP_T),
+               center=(RETAINER_ANCHOR_RADIAL, 0.0, bar_bot + RETAINER_STRAP_T / 2.0))
+    parts = [bar]
 
+    # ---- Two arms rising to the flat-plate underside (overlap the bar by
+    # 1 mm so the union is a clean volumetric merge, never a coplanar kiss) --
+    arm_lo = bar_top - 1.0
+    for (ax, ay) in chassis_lower_retainer_anchor_centres():
+        arm = _box((RETAINER_ARM_RADIAL, RETAINER_ARM_TANG, plate_bot - arm_lo),
+                   center=(ax, ay, 0.5 * (arm_lo + plate_bot)))
+        parts.append(arm)
+    stirrup = _union(*parts)
+
+    # ---- Cuts: 2 vertical anchor-bolt clearances + cable window -----------
     cuts: list[trimesh.Trimesh] = []
-    bolt_xy = [(sx * SERVO_MOUNT_HOLE_X_OFFSET, sy * SERVO_MOUNT_HOLE_Y_OFFSET)
-               for sx in (-1, 1) for sy in (-1, 1)]
-    # The diagonal y offset (+ on the +X end, - on the -X end) straddles the
-    # central y=0 wire-boot insertion channel -- see RETAINER_ANCHOR_Y_OFFSET
-    # / _chassis_yaw_cradle_solid.
-    bolt_xy += list(anchor_centres)
-    for (hx, hy) in bolt_xy:
-        hole = _cyl(RETAINER_BOLT_CLEAR_OD / 2.0, RETAINER_STRAP_T + 2.0)
-        hole.apply_translation([hx, hy, RETAINER_STRAP_T / 2.0])
+    for (ax, ay) in chassis_lower_retainer_anchor_centres():
+        hole = _cyl(RETAINER_BOLT_CLEAR_OD / 2.0,
+                    (plate_bot - bar_top) + RETAINER_STRAP_T + 2.0)
+        hole.apply_translation([ax, ay, 0.5 * (bar_bot + plate_bot) + 0.5])
         cuts.append(hole)
-
-    slot = _box((RETAINER_CABLE_SLOT_W, RETAINER_CABLE_SLOT_L,
+    slot = _box((RETAINER_CABLE_SLOT_L, RETAINER_CABLE_SLOT_W,
                  RETAINER_STRAP_T + 2.0),
-                center=(0.0, 0.0, RETAINER_STRAP_T / 2.0))
+                center=(RETAINER_ANCHOR_RADIAL, 0.0, bar_bot + RETAINER_STRAP_T / 2.0))
     cuts.append(slot)
-    return _diff(plate, *cuts)
+    return _diff(stirrup, *cuts)
 
 
 def _yaw_cap_bolt_centres():
@@ -6169,6 +6233,24 @@ def make_chassis_bottom_lower() -> trimesh.Trimesh:
     dowel.apply_translation([CHASSIS_JOIN_BOLT_RADIUS, 0.0,
                              flange_top - depth / 2.0 + 0.2])
     sector.append(dowel)
+
+    # Yaw-servo retainer-strap anchor pilots: 2 blind M3 self-tap holes in the
+    # plate BOTTOM at the tangential flanks of the leg's body cutout, where the
+    # capture stirrup (make_yaw_servo_retainer) bolts UP to tie the hanging yaw
+    # servo to the chassis.  (The old deep-cradle end-wall pilots vanished with
+    # the flat-plate redesign and their pattern fell inside this cutout; these
+    # re-establish real retention in solid plate material.)  Built from the
+    # cradle-local anchor pattern mapped into the canonical leg's radial/
+    # tangential basis, so the k*60 deg replication below keeps them C6.
+    rad = np.array([np.cos(leg_az), np.sin(leg_az)])
+    tan = np.array([-np.sin(leg_az), np.cos(leg_az)])
+    edge = apothem * rad
+    pil_h = RETAINER_PLATE_PILOT_DEPTH + 0.2
+    for (cxr, cyt) in chassis_lower_retainer_anchor_centres():
+        pxy = edge + cxr * rad + cyt * tan
+        pil = _cyl(RETAINER_PLATE_PILOT_OD / 2.0, pil_h)
+        pil.apply_translation([pxy[0], pxy[1], flange_bot - 0.2 + pil_h / 2.0])
+        sector.append(pil)
 
     # ---- Replicate the sector by EXACT k*60 deg rotation, batch diff ------
     cutters: list[trimesh.Trimesh] = []

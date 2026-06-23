@@ -1175,37 +1175,50 @@ def check_clamp_cap_alignment():
               f"(x={px:6.2f}, z={pz:6.2f})  offset={off:.3f} mm "
               f"(tol {COAXIAL_TOL_MM})")
 
-    # ---- Yaw: retainer strap end holes vs chassis-cradle wall pilots ------
-    # Both modelled in cradle-local XY (origin = yaw axis, +X outboard,
-    # +Y tangential); the bolt axis is Z, so coaxiality is an (x, y) match.
-    cradle = hp._chassis_yaw_cradle_solid()
-    strap = hp.make_yaw_servo_retainer()
-    out_z = hp.CHASSIS_YAW_OUTPUT_Z - hp.CHASSIS_PLATE_T / 2.0
-    plate_top_z = out_z - hp.HORN_STACK_H
-    front_face_z = plate_top_z - hp.WELL_PLATE_T
-    body_back_z = front_face_z - hp.SERVO_BODY_H
-    cradle_plane_z = body_back_z + 2.0                          # inside the pilot
-    strap_plane_z = hp.RETAINER_STRAP_T / 2.0                   # mid-strap
-    for (ax, ay) in hp.yaw_retainer_anchor_centres():
-        side = "+X" if ax > 0 else "-X"
+    # ---- Yaw: retainer-stirrup arm holes vs REAL flat-plate pilots --------
+    # (Jun 2026 flat-chassis re-anchor.)  The capture stirrup
+    # (make_yaw_servo_retainer) bolts UP into 2 blind self-tap pilots cut in
+    # the actual printed chassis_bottom_lower flat plate -- NOT the phantom
+    # _chassis_yaw_cradle_solid the old strap referenced.  We test against the
+    # REAL plate so a future plate edit that drops/moves the pilots fires this
+    # guard.  Both bolt axes are Z; coaxiality is an (x, y) match.  The strap
+    # is built in cradle-local XY + world Z, so we map each anchor's cradle-
+    # local (x, y) into the canonical leg-0 world frame (apothem dir a=pi/6)
+    # and probe both meshes (plate in its own frame == world; strap placed by
+    # the same Ra + edge_mid the scene/servo placement uses).
+    a = 0.5 * np.pi / 3
+    apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
+    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
+    Ra = rotation_matrix(a, [0, 0, 1])
+    plate = hp.make_chassis_bottom_lower()
+    strap = hp.make_yaw_servo_retainer().copy()
+    strap.apply_transform(Ra)
+    strap.apply_translation(edge_mid)
+    plate_bot = hp.CHASSIS_SPLIT_Z - hp.CHASSIS_JOIN_FLANGE_T
+    pilot_plane_z = plate_bot + hp.RETAINER_PLATE_PILOT_DEPTH / 2.0   # inside the blind pilot
+    strap_plane_z = plate_bot - 6.0                                  # inside the arm clearance
+    for (cx, cy) in hp.chassis_lower_retainer_anchor_centres():
+        side = "+Y" if cy > 0 else "-Y"
+        w = Ra @ np.array([cx, cy, 0.0, 1.0])
+        wx, wy = w[0] + edge_mid[0], w[1] + edge_mid[1]
         px, py, npv = _bore_centre_in_plane(
-            cradle, axis_idx=2, plane_val=cradle_plane_z,
-            u_idx=0, v_idx=1, u_guess=ax, v_guess=ay)
+            plate, axis_idx=2, plane_val=pilot_plane_z,
+            u_idx=0, v_idx=1, u_guess=wx, v_guess=wy)
         sx_, sy_, nsv = _bore_centre_in_plane(
             strap, axis_idx=2, plane_val=strap_plane_z,
-            u_idx=0, v_idx=1, u_guess=ax, v_guess=ay)
+            u_idx=0, v_idx=1, u_guess=wx, v_guess=wy)
         if npv == 0 or nsv == 0:
             ok = False
-            miss = "cradle pilot" if npv == 0 else "strap hole"
+            miss = "plate pilot" if npv == 0 else "strap arm hole"
             print(f"  [FAIL]  yaw {side}: no {miss} bore found near "
-                  f"expected (x={ax:.2f}, y={ay:.2f})")
+                  f"expected world (x={wx:.2f}, y={wy:.2f})")
             continue
         off = float(np.hypot(px - sx_, py - sy_))
         flag = "PASS" if off <= COAXIAL_TOL_MM else "FAIL"
         if off > COAXIAL_TOL_MM:
             ok = False
         print(f"  [{flag}]  yaw {side} anchor bolt: strap hole "
-              f"(x={sx_:6.2f}, y={sy_:6.2f}) vs cradle pilot "
+              f"(x={sx_:6.2f}, y={sy_:6.2f}) vs plate pilot "
               f"(x={px:6.2f}, y={py:6.2f})  offset={off:.3f} mm "
               f"(tol {COAXIAL_TOL_MM})")
 
@@ -2092,6 +2105,21 @@ def _place_servo_clamp_caps():
     knee_cap.apply_transform(R_a)
     knee_cap.apply_translation(yaw_output_world)
     return {"hip_clamp_cap": hip_cap, "knee_clamp_cap": knee_cap}
+
+
+def _place_yaw_retainers():
+    """Return the yaw-servo capture stirrup for one leg in the leg-0 world
+    frame (apothem dir a=pi/6), positioned coaxially under the yaw servo --
+    the SAME Ra + edge_mid placement ``_place_servo_bodies`` uses for the yaw
+    servo.  The strap is modelled in cradle-local XY + world Z, so only the
+    in-plane yaw rotation + edge-midpoint translate are applied (no Z shift)."""
+    apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
+    a = 0.5 * np.pi / 3
+    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
+    strap = hp.make_yaw_servo_retainer()
+    strap.apply_transform(rotation_matrix(a, [0, 0, 1]))
+    strap.apply_translation(edge_mid)
+    return {"yaw_servo_retainer": strap}
 
 
 def check_servo_clearance():
