@@ -114,14 +114,15 @@ import hexapod_prototype as hp
 _MESH_BUILDERS = {
     "chassis_top":      hp.make_chassis_top,
     "chassis_bottom":   hp.make_chassis_bottom,
-    # Jun 2026 chassis print split: ``chassis_bottom`` is now the FLAT HIGH
-    # half (plate + bearing tower); ``chassis_bottom_lower`` is the bolt-on
-    # LOW half carrying the 6 yaw-servo cradle buckets.  ``chassis_assembled``
-    # is the (un-split) full integrated solid used by every cradle-feature /
-    # world-geometry probe so the servo-insertion / wire-exit / disc-horn /
-    # bearing checks see the SAME geometry the two bolted halves reproduce.
-    "chassis_bottom_lower": hp.make_chassis_bottom_lower,
-    "chassis_assembled":    hp._chassis_bottom_full_solid,
+    # Jun 2026 single-part merge: the HIGH/LOW print split is gone, so
+    # ``chassis_bottom`` IS the whole printed plate (flat plate + bearing tower
+    # + the folded-in flat floor slab carrying the yaw cradles + retainer
+    # pilots).  ``chassis_assembled`` -- the key every cradle-feature /
+    # world-geometry probe loads -- is therefore now the REAL merged
+    # ``make_chassis_bottom`` (no longer the old bucketed ghost solid), so the
+    # servo-insertion / wire-exit / disc-horn / bearing checks test the part
+    # that actually prints.
+    "chassis_assembled":    hp.make_chassis_bottom,
     "yaw_bearing_cap":  hp.make_yaw_bearing_cap,
     "uno_q_tray":       hp.make_uno_q_tray,
     "buck_tray":        hp.make_buck_tray,
@@ -815,7 +816,6 @@ CONNECTIVITY_MIN_BODY_VOL = 1.0   # mm^3 -- below this is a meshing artifact
 _PRINTED_SINGLE_BODY_BUILDERS = (
     ("chassis_top",          hp.make_chassis_top),
     ("chassis_bottom",       hp.make_chassis_bottom),
-    ("chassis_bottom_lower", hp.make_chassis_bottom_lower),
     ("uno_q_tray",           hp.make_uno_q_tray),
     ("buck_tray",            hp.make_buck_tray),
     ("spider_carapace",      hp.make_spider_carapace),
@@ -866,12 +866,15 @@ def check_single_connected_component():
 # 1d.  Hexagonal (C6) rotational symmetry
 # ---------------------------------------------------------------------------
 #
-# ``chassis_bottom_lower`` must have TRUE 6-fold symmetry about the central
-# yaw (Z) axis.  Its six servo arms are built by replicating ONE canonical
-# 60-deg sector of cutters by an EXACT k*60-deg rotation (see
-# ``make_chassis_bottom_lower``), so the symmetry is structural -- not an
-# accident of six independent per-arm booleans.  (Jun 2026: an earlier
-# per-arm build left an asymmetric, degenerate centre that the slicer
+# The merged ``chassis_bottom``'s FLOOR slab (``_chassis_bottom_floor_solid``,
+# the C6-bearing portion that carries the 6 servo cutouts + retainer pilots)
+# must have TRUE 6-fold symmetry about the central yaw (Z) axis.  Its six legs
+# are built by replicating ONE canonical 60-deg sector of cutters by an EXACT
+# k*60-deg rotation, so the symmetry is structural -- not an accident of six
+# independent per-arm booleans.  (The full chassis_bottom legitimately breaks
+# C6 only via the off-centre battery/electronics features in the plate above,
+# so the guard probes the floor slab, not the whole part.)  (Jun 2026: an
+# earlier per-arm build left an asymmetric, degenerate centre that the slicer
 # rendered as shredded garbage even though it passed every watertight /
 # manifold / single-body probe; this guard makes any loss of 6-fold symmetry
 # a HARD failure.)
@@ -909,7 +912,8 @@ def _c6_occupancy_mismatch(mesh, n_fold=6, pitch=C6_SYMMETRY_PITCH):
 
 
 def check_c6_symmetry():
-    """Assert ``chassis_bottom_lower`` is invariant under a 60-deg rotation
+    """Assert the merged chassis_bottom's FLOOR slab
+    (``_chassis_bottom_floor_solid``) is invariant under a 60-deg rotation
     about the central Z axis (true hexagonal / C6 symmetry).
 
     Self-test: a regular hex prism MUST pass; the SAME prism with one extra
@@ -932,11 +936,11 @@ def check_c6_symmetry():
         f"hex mismatch={sym_mm:.5f} (<= {C6_SYMMETRY_TOL}); "
         f"holed mismatch={asym_mm:.5f} (probe is sensitive)")
 
-    # ---- Live part ---------------------------------------------------------
-    mm, inside = _c6_occupancy_mismatch(hp.make_chassis_bottom_lower())
+    # ---- Live part (the C6-bearing floor slab of the merged chassis) -------
+    mm, inside = _c6_occupancy_mismatch(hp._chassis_bottom_floor_solid())
     ok = mm <= C6_SYMMETRY_TOL
     all_ok &= _label(
-        "chassis_bottom_lower", ok,
+        "chassis_bottom floor slab", ok,
         f"60-deg-rotation occupancy mismatch={mm:.5f} "
         f"(<= {C6_SYMMETRY_TOL}; {inside} cells inside)")
     return all_ok
@@ -1175,26 +1179,26 @@ def check_clamp_cap_alignment():
               f"(x={px:6.2f}, z={pz:6.2f})  offset={off:.3f} mm "
               f"(tol {COAXIAL_TOL_MM})")
 
-    # ---- Yaw: retainer-stirrup arm holes vs REAL flat-plate pilots --------
-    # (Jun 2026 flat-chassis re-anchor.)  The capture stirrup
-    # (make_yaw_servo_retainer) bolts UP into 2 blind self-tap pilots cut in
-    # the actual printed chassis_bottom_lower flat plate -- NOT the phantom
+    # ---- Yaw: retainer-stirrup arm holes vs REAL merged-chassis pilots ----
+    # (Jun 2026 flat-chassis re-anchor / single-part merge.)  The capture
+    # stirrup (make_yaw_servo_retainer) bolts UP into 2 blind self-tap pilots
+    # cut in the actual printed chassis_bottom floor slab -- NOT the phantom
     # _chassis_yaw_cradle_solid the old strap referenced.  We test against the
-    # REAL plate so a future plate edit that drops/moves the pilots fires this
-    # guard.  Both bolt axes are Z; coaxiality is an (x, y) match.  The strap
-    # is built in cradle-local XY + world Z, so we map each anchor's cradle-
-    # local (x, y) into the canonical leg-0 world frame (apothem dir a=pi/6)
-    # and probe both meshes (plate in its own frame == world; strap placed by
-    # the same Ra + edge_mid the scene/servo placement uses).
+    # REAL merged plate so a future plate edit that drops/moves the pilots
+    # fires this guard.  Both bolt axes are Z; coaxiality is an (x, y) match.
+    # The strap is built in cradle-local XY + world Z, so we map each anchor's
+    # cradle-local (x, y) into the canonical leg-0 world frame (apothem dir
+    # a=pi/6) and probe both meshes (plate in its own frame == world; strap
+    # placed by the same Ra + edge_mid the scene/servo placement uses).
     a = 0.5 * np.pi / 3
     apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
     Ra = rotation_matrix(a, [0, 0, 1])
-    plate = hp.make_chassis_bottom_lower()
+    plate = hp.make_chassis_bottom()
     strap = hp.make_yaw_servo_retainer().copy()
     strap.apply_transform(Ra)
     strap.apply_translation(edge_mid)
-    plate_bot = hp.CHASSIS_SPLIT_Z - hp.CHASSIS_JOIN_FLANGE_T
+    plate_bot = hp.CHASSIS_SPLIT_Z - hp.CHASSIS_BOTTOM_FLOOR_T
     pilot_plane_z = plate_bot + hp.RETAINER_PLATE_PILOT_DEPTH / 2.0   # inside the blind pilot
     strap_plane_z = plate_bot - 6.0                                  # inside the arm clearance
     for (cx, cy) in hp.chassis_lower_retainer_anchor_centres():
@@ -1838,7 +1842,7 @@ _ASSEMBLY_PRINTED_PARTS = frozenset({
     "femur_hip_yoke", "femur_knee_bracket",
     "tibia_knee_yoke", "tibia_foot_fitting", "foot_pad",
     "hip_clamp_cap", "knee_clamp_cap",
-    "chassis_bottom", "chassis_bottom_lower", "chassis_top",
+    "chassis_bottom", "chassis_top",
     "uno_q_tray", "buck_tray", "spider_carapace",
 })
 
@@ -1846,11 +1850,6 @@ _ASSEMBLY_PRINTED_PARTS = frozenset({
 # printed parts that SHARE a coincident contact face (real solid overlap ~0);
 # the budget is a tight facet-noise allowance, never a cover for a real clash.
 ASSEMBLY_INTERFERENCE_ALLOW = {
-    # Print-split chassis: the bolt-on LOW cradle half mates the HIGH plate on
-    # a large coincident flange/join face (12 join screws) -- big flush area,
-    # so a slightly larger facet-noise budget.
-    frozenset({"chassis_bottom", "chassis_bottom_lower"}):
-        (25.0, "bolted chassis print-split: large coincident join flange face"),
     # Yaw bearing tower split: cap mates the chassis bottom tower at a flush
     # split face (YAW_SPLIT_Z); the 3 join bolts/ear bosses are coaxial.
     frozenset({"yaw_bearing_cap", "chassis_bottom"}):
@@ -6013,10 +6012,13 @@ def check_flat_bottom():
     single-piece ``chassis_bottom`` resting on 6 cradle rings (~16% bed
     contact, 20.5 mm of plate floating).
 
-    Also proves the guard FAILS the OLD single-piece chassis_bottom (the
-    integrated ``_chassis_bottom_full_solid``, dropped to bed as it would have
-    printed) and PASSES both new split halves -- the fail-old / pass-new
-    regression proof.
+    Also proves the guard is SENSITIVE: the OLD bucketed integrated solid
+    (``_chassis_bottom_full_solid``, the pre-merge geometry with the 6 deep
+    cradle buckets still hanging below the plate), dropped to bed as it would
+    have printed, MUST be REJECTED -- while the merged single ``chassis_bottom``
+    (tested in the PART_REGISTRY sweep above) PASSES.  That fail-bucketed /
+    pass-merged pair is the regression proof that the floor-fold kept the part
+    genuinely flat-bottom rather than re-introducing the overhang.
     """
     import _flatbottom_check as fb        # noqa: WPS433
     import prepare_xometry_upload as px    # noqa: WPS433
@@ -6037,16 +6039,17 @@ def check_flat_bottom():
             f"overhang below bed plane = {prot:5.2f} mm; "
             f"bed contact {100.0 * m['bed_fraction']:4.1f}% of footprint")
 
-    # --- Regression proof: the OLD single-piece chassis_bottom MUST fail ----
+    # --- Regression proof: the OLD bucketed integrated solid MUST fail ------
     old = hp._chassis_bottom_full_solid()
     old = old.copy()
     old.apply_translation([0.0, 0.0, -float(old.bounds[0, 2])])  # drop to bed
     old_prot = fb.flatness_metrics(old)["protrusion_below_main"]
     old_fails = old_prot > FLAT_BOTTOM_MAX_PROTRUSION_MM
     all_ok &= _label(
-        "OLD single-piece chassis_bottom correctly REJECTED", old_fails,
+        "OLD bucketed chassis_bottom correctly REJECTED", old_fails,
         f"overhang below bed plane = {old_prot:5.2f} mm "
-        f"(> {FLAT_BOTTOM_MAX_PROTRUSION_MM:.1f} mm -> the split was needed)")
+        f"(> {FLAT_BOTTOM_MAX_PROTRUSION_MM:.1f} mm -> the buckets had to go; "
+        f"the merged floor-fold keeps the printed part flat)")
 
     return all_ok
 
@@ -6406,15 +6409,10 @@ def _build_world_assembly_parts(leg_index: int = 0) -> dict:
             "fasteners cover every distinct interface."
         )
     parts = _build_world_leg0_printed_parts()
-    # Jun 2026 print split: the shared world keeps the un-split integrated
-    # ``chassis_assembled`` solid under the key ``chassis_bottom`` so every
-    # cradle / clearance probe sees full geometry.  The 12 cradle-plate join
-    # screws, however, must be confirmed to bridge the TWO discrete printed
-    # halves -- so add the real LOW half (``chassis_bottom_lower``) here, in
-    # the chassis-local frame (no transform, matching the merged solid), so
-    # the join bolt's head bears on the flange counter-bore and its shaft
-    # genuinely spans chassis_bottom_lower + chassis_bottom.
-    parts["chassis_bottom_lower"] = _load_mesh("chassis_bottom_lower")
+    # Jun 2026 single-part merge: the chassis bottom is ONE printed part again
+    # (``chassis_bottom`` == the merged plate + folded-in floor slab), already
+    # in ``parts`` under that key via ``chassis_assembled``.  No separate LOW
+    # half / join screws to add.
     for joint in _HORN_JOINTS:
         horn = _load_mesh("servo_horn")
         horn.apply_transform(_horn_world_transform(joint, leg_index))
@@ -7518,7 +7516,7 @@ ESSENTIAL_CHECK_NAMES = (
 # Keep this in sync with ``_MESH_BUILDERS`` -- the assertion at the
 # bottom of this module enforces that.
 ALL_PRINTED_PARTS = frozenset({
-    "chassis_top", "chassis_bottom", "chassis_bottom_lower",
+    "chassis_top", "chassis_bottom",
     "uno_q_tray", "buck_tray",
     "servo_clamp_cap", "switch_holster", "imu_pad",
     "coxa_link",
@@ -7531,18 +7529,18 @@ ALL_PRINTED_PARTS = frozenset({
 _LEG_PARTS = frozenset({
     "coxa_link", "femur_link", "tibia_link",
 })
-# The yaw cradle now lives across BOTH split halves; cradle-feature checks
-# probe the integrated ``chassis_assembled`` solid (not an STL), so they are
-# gated by both printed halves' STL footprints.
-_CRADLE_PARTS = frozenset({"chassis_bottom", "chassis_bottom_lower",
+# The yaw cradle now lives entirely in the single merged ``chassis_bottom``;
+# cradle-feature checks probe the ``chassis_assembled`` solid (== the merged
+# ``make_chassis_bottom``), so they are gated by its STL footprint.
+_CRADLE_PARTS = frozenset({"chassis_bottom",
                             "coxa_link", "femur_link"})
 _PAD_PARTS = frozenset({"coxa_link", "femur_link", "tibia_link"})
 _CHASSIS_PARTS = frozenset({
-    "chassis_top", "chassis_bottom", "chassis_bottom_lower",
+    "chassis_top", "chassis_bottom",
     "uno_q_tray", "buck_tray",
 })
 _PRINTED_WATERTIGHT_SET = frozenset({
-    "chassis_top", "chassis_bottom", "chassis_bottom_lower",
+    "chassis_top", "chassis_bottom",
     "uno_q_tray", "buck_tray", "servo_clamp_cap",
     "coxa_link",
     "femur_link", "tibia_link", "foot_pad",
@@ -7560,8 +7558,8 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     # (incl. the split coxa_yaw_hub / coxa_hip_bracket fittings), so any
     # printed-STL change can flip a connectivity verdict -> gate on all parts.
     "Single-body connectivity":  ALL_PRINTED_PARTS,
-    # Builds make_chassis_bottom_lower directly and asserts 6-fold symmetry.
-    "Hexagonal C6 symmetry":     frozenset({"chassis_bottom_lower"}),
+    # Builds the merged chassis_bottom's floor slab directly and asserts C6.
+    "Hexagonal C6 symmetry":     frozenset({"chassis_bottom"}),
     "Cradle openness":           _CRADLE_PARTS,
     "Bolt-hole engagement":      _CRADLE_PARTS,
     # Builds the clamp cap + cradle/bracket + yaw retainer meshes directly
@@ -7580,7 +7578,6 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Servo clearance":           _LEG_PARTS | {"servo_body"},
     "Horn-stack clearance":      frozenset({"femur_link", "tibia_link"}),
     "Horn-sweep clearance":      frozenset({"chassis_bottom",
-                                             "chassis_bottom_lower",
                                              "servo_horn"}),
     "Horn pattern in pads":      _PAD_PARTS,
     # Builds _passive_bearing_housing directly from hexapod_prototype; the
@@ -7594,8 +7591,7 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     # Models the rigid 6706 vs make_coxa_yaw_hub + make_yaw_bearing_cap +
     # the chassis bottom tower; gate on the coxa + chassis parts so any change
     # to the hub boss / cap / tower geometry re-runs it.
-    "Bearing assembly sequence": frozenset({"coxa_link", "chassis_bottom",
-                                            "chassis_bottom_lower"}),
+    "Bearing assembly sequence": frozenset({"coxa_link", "chassis_bottom"}),
     # Builds make_yaw_bearing_cap directly; its own STL + the coxa parts gate it.
     "Bearing-cap descent path":  frozenset({"yaw_bearing_cap", "coxa_link"}),
     "Flimsy joints":             _PRINTED_WATERTIGHT_SET,

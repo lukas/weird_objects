@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-23T03:07:27.286442+00:00",
+  "generatedAt": "2026-06-23T04:22:00.286044+00:00",
   "build": {
     "id": "prototype_sts3215",
     "name": "Hexapod STS3215 \u2014 full robot"
@@ -15,10 +15,6 @@
       ],
       [
         "chassis_bottom",
-        "yaw_servo"
-      ],
-      [
-        "chassis_bottom_lower",
         "yaw_servo"
       ],
       [
@@ -94,32 +90,32 @@
       "id": "scene_meta-unique-ids",
       "kind": "scene_meta",
       "status": "pass",
-      "label": "411 instances, ids unique"
+      "label": "386 instances, ids unique"
     },
     {
       "id": "mesh_overlap-0",
       "kind": "mesh_overlap",
       "status": "pass",
-      "label": "chassis_bottom \u2229 yaw_servo = 2530 mm\u00b3 interpenetration (allowed)",
+      "label": "chassis_bottom \u2229 yaw_servo = 2534 mm\u00b3 interpenetration (allowed)",
       "instances": [
         "000-chassis_bottom",
-        "111-yaw_servo"
+        "110-yaw_servo"
       ],
       "point": [
         69.18625531860675,
         -40.00554937251505,
-        38.3125
+        38.38541666666674
       ],
       "region": {
         "min": [
           51.95293491013106,
           -63.83065005275845,
-          37.224999999999994
+          37.3125
         ],
         "max": [
           100.78067606747945,
           -23.669349947241557,
-          39.4
+          39.458333333333336
         ]
       }
     },
@@ -127,26 +123,26 @@
       "id": "mesh_overlap-1",
       "kind": "mesh_overlap",
       "status": "pass",
-      "label": "chassis_bottom \u2229 yaw_servo = 2530 mm\u00b3 interpenetration (allowed)",
+      "label": "chassis_bottom \u2229 yaw_servo = 2534 mm\u00b3 interpenetration (allowed)",
       "instances": [
         "000-chassis_bottom",
-        "021-yaw_servo"
+        "020-yaw_servo"
       ],
       "point": [
         69.18625531860675,
         40.00554937251505,
-        38.3125
+        38.38541666666674
       ],
       "region": {
         "min": [
           51.95293491013107,
           23.66934994724155,
-          37.224999999999994
+          37.3125
         ],
         "max": [
           100.78067606747943,
           63.830650052758436,
-          39.4
+          39.458333333333336
         ]
       }
     },
@@ -154,26 +150,26 @@
       "id": "mesh_overlap-2",
       "kind": "mesh_overlap",
       "status": "pass",
-      "label": "chassis_bottom \u2229 yaw_servo = 2530 mm\u00b3 interpenetration (allowed)",
+      "label": "chassis_bottom \u2229 yaw_servo = 2504 mm\u00b3 interpenetration (allowed)",
       "instances": [
         "000-chassis_bottom",
-        "057-yaw_servo"
+        "056-yaw_servo"
       ],
       "point": [
-        -69.18625531860754,
-        40.005549372515084,
-        38.3125
+        -69.25820329154304,
+        40.200027937101666,
+        38.385416666666735
       ],
       "region": {
         "min": [
           -100.7806760674794,
-          23.669349947241574,
-          37.224999999999994
+          25.67741495251742,
+          37.3125
         ],
         "max": [
           -51.95293491013104,
           63.830650052758486,
-          39.4
+          39.458333333333336
         ]
       }
     },
@@ -181,26 +177,26 @@
       "id": "mesh_overlap-3",
       "kind": "mesh_overlap",
       "status": "pass",
-      "label": "chassis_bottom \u2229 yaw_servo = 2530 mm\u00b3 interpenetration (allowed)",
+      "label": "chassis_bottom \u2229 yaw_servo = 2504 mm\u00b3 interpenetration (allowed)",
       "instances": [
         "000-chassis_bottom",
-        "075-yaw_servo"
+        "074-yaw_servo"
       ],
       "point": [
-        -69.18625531860755,
-        -40.00554937251506,
-        38.3125
+        -69.25820329154305,
+        -40.200027937101645,
+        38.385416666666735
       ],
       "region": {
         "min": [
           -100.78067606747943,
           -63.83065005275842,
-          37.224999999999994
+          37.3125
         ],
         "max": [
           -51.95293491013107,
-          -23.669349947241543,
-          39.4
+          -25.67741495251739,
+          39.458333333333336
         ]
       }
     },
@@ -208,26 +204,26 @@
       "id": "mesh_overlap-4",
       "kind": "mesh_overlap",
       "status": "pass",
-      "label": "chassis_bottom \u2229 yaw_servo = 2033 mm\u00b3 interpenetration (allowed)",
+      "label": "chassis_bottom \u2229 yaw_servo = 2037 mm\u00b3 interpenetration (allowed)",
       "instances": [
         "000-chassis_bottom",
-        "093-yaw_servo"
+        "092-yaw_servo"
       ],
       "point": [
         -4.352732166471132e-14,
         -79.16284410377801,
-        38.3125
+        38.38541666666668
       ],
       "region": {
         "min": [
           -10.333333015441962,
           -108.39600051879884,
-          37.224999999999994
+          37.3125
         ],
         "max": [
           10.333333015441852,
           -66.8759992980957,
-          39.4
+          39.458333333333336
         ]
       }
     },
@@ -235,26 +231,26 @@
       "id": "mesh_overlap-5",
       "kind": "mesh_overlap",
       "status": "pass",
-      "label": "chassis_bottom \u2229 yaw_servo = 2033 mm\u00b3 interpenetration (allowed)",
+      "label": "chassis_bottom \u2229 yaw_servo = 2037 mm\u00b3 interpenetration (allowed)",
       "instances": [
         "000-chassis_bottom",
-        "039-yaw_servo"
+        "038-yaw_servo"
       ],
       "point": [
         4.736951571734001e-15,
         79.16284410377804,
-        38.3125
+        38.38541666666668
       ],
       "region": {
         "min": [
           -10.333333015441877,
           66.8759992980957,
-          37.224999999999994
+          37.3125
         ],
         "max": [
           10.333333015441923,
           108.39600051879884,
-          39.4
+          39.458333333333336
         ]
       }
     },
@@ -265,7 +261,7 @@
       "label": "chassis_bottom \u2229 lipo_battery = 912 mm\u00b3 interpenetration (allowed)",
       "instances": [
         "000-chassis_bottom",
-        "003-lipo_battery"
+        "002-lipo_battery"
       ],
       "point": [
         -57.913461538461576,
@@ -291,8 +287,8 @@
       "status": "pass",
       "label": "yaw_servo \u2229 disc_horn_yaw = 88 mm\u00b3 interpenetration (allowed)",
       "instances": [
-        "021-yaw_servo",
-        "393-disc_horn_yaw"
+        "020-yaw_servo",
+        "368-disc_horn_yaw"
       ],
       "point": [
         86.60254037844386,
@@ -318,8 +314,8 @@
       "status": "pass",
       "label": "yaw_servo \u2229 disc_horn_yaw = 88 mm\u00b3 interpenetration (allowed)",
       "instances": [
-        "057-yaw_servo",
-        "395-disc_horn_yaw"
+        "056-yaw_servo",
+        "370-disc_horn_yaw"
       ],
       "point": [
         -86.60254037844386,
@@ -345,8 +341,8 @@
       "status": "pass",
       "label": "yaw_servo \u2229 disc_horn_yaw = 88 mm\u00b3 interpenetration (allowed)",
       "instances": [
-        "075-yaw_servo",
-        "396-disc_horn_yaw"
+        "074-yaw_servo",
+        "371-disc_horn_yaw"
       ],
       "point": [
         -86.60254037844386,
@@ -372,8 +368,8 @@
       "status": "pass",
       "label": "yaw_servo \u2229 disc_horn_yaw = 88 mm\u00b3 interpenetration (allowed)",
       "instances": [
-        "111-yaw_servo",
-        "398-disc_horn_yaw"
+        "110-yaw_servo",
+        "373-disc_horn_yaw"
       ],
       "point": [
         86.60254037844382,

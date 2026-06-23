@@ -344,16 +344,14 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
     parts = _part_specs()
     chassis_top = parts["chassis_top.stl"]
     chassis_bottom = parts["chassis_bottom.stl"]
-    chassis_bottom_lower = parts["chassis_bottom_lower.stl"]
     foot = parts["foot_pad.stl"]
 
     # chassis_top is the smaller 140 mm deck (battery + electronics + arm),
     # chassis_bottom is the full 200 mm structural plate with per-leg
     # bracket cutouts and bolt holes.  They are no longer interchangeable,
-    # so each gets its own plate.  Jun 2026 print split: the bottom plate is
-    # now TWO bolt-together 200 mm halves -- the flat HIGH plate
-    # (chassis_bottom) and the LOW cradle-plate (chassis_bottom_lower) --
-    # each printed face-down on its own plate.
+    # so each gets its own plate.  Jun 2026: the bottom plate's HIGH/LOW print
+    # split has been re-merged into ONE part (flat plate + bearing tower + a
+    # folded-in flat floor slab), printed face-down on its own plate.
     plans: list[PlatePlan] = [
         PlatePlan(
             "plate_01_chassis_top",
@@ -364,11 +362,6 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
             "plate_02_chassis_bottom",
             "PLA/PETG rigid",
             (_instance(chassis_bottom, 1, 0.0, 0.0),),
-        ),
-        PlatePlan(
-            "plate_02b_chassis_bottom_lower",
-            "PLA/PETG rigid",
-            (_instance(chassis_bottom_lower, 1, 0.0, 0.0),),
         ),
     ]
 

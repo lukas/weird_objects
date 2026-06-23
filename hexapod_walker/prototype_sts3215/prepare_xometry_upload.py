@@ -50,7 +50,6 @@ import hexapod_prototype as hp
 from hexapod_prototype import (
     make_buck_tray,
     make_chassis_bottom,
-    make_chassis_bottom_lower,
     make_chassis_top,
     make_coxa_hip_bracket,
     make_coxa_yaw_hub,
@@ -100,24 +99,13 @@ def _drop_to_bed(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
 # a sensible visual layout.
 
 def _reorient_chassis_plate(mesh):
-    """Hex 4 mm plate — already flat. Just drop to z=0.
+    """Hex plate — already flat. Just drop to z=0.
 
-    Jun 2026 print split: ``chassis_bottom`` is now the flat HIGH half whose
-    new underside IS the cut plane (z = CHASSIS_SPLIT_Z), so it prints
-    face-DOWN exactly as built (bearing tower up) — drop to bed, no flip."""
+    Jun 2026 single-part merge: ``chassis_bottom`` is the whole bottom plate
+    (flat plate + bearing tower + the folded-in flat floor slab).  Its broad
+    flat -6 mm underside is the bed face, so it prints face-DOWN exactly as
+    built (bearing tower up) — drop to bed, no flip."""
     return _drop_to_bed(mesh)
-
-
-def _reorient_chassis_lower(mesh):
-    """``chassis_bottom_lower`` (Jun 2026 split): the bolt-on LOW half holding
-    the 6 yaw-servo cradle buckets + the hex join-flange ring.  Built with the
-    flange/mating face UP at z = CHASSIS_SPLIT_Z and the bucket cavities
-    opening DOWN.  Flip 180 deg about X so the broad flange face lands FLAT on
-    the bed and the cavities open +Z — the yaw servo drops straight in before
-    the halves are bolted, and the part prints with no supports."""
-    out = mesh.copy()
-    out.apply_transform(rotation_matrix(np.pi, (1, 0, 0)))
-    return _drop_to_bed(out)
 
 
 def _reorient_deck_tray(mesh):
@@ -206,22 +194,13 @@ PART_REGISTRY: list[tuple[str,
 
     ("chassis_bottom.stl",       make_chassis_bottom,      _reorient_chassis_plate,
      1, "MJF PA12",      "white", "as-printed",
-     "FLAT HIGH half of the split bottom plate (200 mm flat-to-flat hex; "
-     "Jun 2026 print split). The 6 yaw-servo cradle buckets that hung 20.5 mm "
-     "below were cut off at the plate underside and moved to "
-     "chassis_bottom_lower, so this half prints face-DOWN on a full-footprint "
-     "flat face (bearing tower + tray bosses up) with NO supports. Takes the "
-     "six coxa-bracket M3 bolts; 12 self-tap bosses on top receive the LOW "
-     "half's M3x10 join screws."),
-
-    ("chassis_bottom_lower.stl", make_chassis_bottom_lower, _reorient_chassis_lower,
-     1, "MJF PA12",      "white", "as-printed",
-     "Bolt-on LOW half of the split bottom plate (Jun 2026 print split): the "
-     "6 yaw-servo cradle buckets tied together by a hex join-flange ring. "
-     "Printed flange-face-DOWN (cavities up) so each STS3215 yaw servo drops "
-     "straight in before the two halves bolt together (12x M3x10 from below "
-     "into the HIGH plate's self-tap bosses; 6x Ø4 dowel pins register the "
-     "join concentric)."),
+     "Single merged bottom plate (200 mm flat-to-flat hex; Jun 2026 re-merge "
+     "of the old HIGH/LOW print split). The flat plate + bearing tower + a "
+     "solid flat floor slab folded onto the underside (perimeter ~8 mm thick) "
+     "give a broad flat -6 mm bed face, so it prints face-DOWN (bearing tower "
+     "+ tray bosses up) with NO supports. Takes the six coxa-bracket M3 bolts; "
+     "the yaw servo body drops through a per-leg cutout and is captured by the "
+     "bolt-on yaw_servo_retainer stirrup (2 self-tap pilots per leg)."),
 
     ("uno_q_tray.stl",           make_uno_q_tray,          _reorient_deck_tray,
      6, "PLA/PETG rigid", "white", "as-printed",
@@ -284,8 +263,8 @@ PART_REGISTRY: list[tuple[str,
     ("yaw_servo_retainer.stl",   make_yaw_servo_retainer,  _lay_flat,
      6, "MJF PA12",      "white", "as-printed",
      "Capture stirrup under each yaw servo: a cross-bar blocks the hanging "
-     "STS3215 from dropping while two arms rise to the flat chassis_bottom_lower "
-     "plate, bolting into 2 blind M3 self-tap pilots. Open centre clears the "
+     "STS3215 from dropping while two arms rise to the merged chassis_bottom "
+     "floor, bolting into 2 blind M3 self-tap pilots. Open centre clears the "
      "rear cable bundle."),
 
     ("yaw_bearing_cap.stl",      make_yaw_bearing_cap,     _reorient_yaw_bearing_cap,

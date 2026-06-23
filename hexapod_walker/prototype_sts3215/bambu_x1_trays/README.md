@@ -6,7 +6,6 @@ Generated for a **256 x 256 x 256 mm** build volume.
 
 - `plate_01_chassis_top.stl` (PLA/PETG rigid): 1 x `chassis_top.stl`
 - `plate_02_chassis_bottom.stl` (PLA/PETG rigid): 1 x `chassis_bottom.stl`
-- `plate_02b_chassis_bottom_lower.stl` (PLA/PETG rigid): 1 x `chassis_bottom_lower.stl`
 - `plate_03_rigid_coxa_links_a.stl` (PLA/PETG rigid): 6 x `coxa_hip_bracket.stl`, 4 x `coxa_yaw_hub.stl`, 6 x `servo_clamp_cap.stl`
 - `plate_03_rigid_coxa_links_b.stl` (PLA/PETG rigid): 2 x `coxa_yaw_hub.stl`, 6 x `yaw_bearing_cap.stl`, 6 x `yaw_servo_retainer.stl`
 - `plate_04_rigid_femur_sockets_a.stl` (PLA/PETG rigid): 6 x `femur_knee_bracket.stl`, 6 x `servo_clamp_cap.stl`

@@ -85,7 +85,7 @@ PALETTE = {
     "disc_horn_yaw": DISC_HORN_COLOR, "disc_horn_hip": DISC_HORN_COLOR,
     "disc_horn_knee": DISC_HORN_COLOR,
     "yaw_servo": "#2e2e33", "hip_servo": "#3a3a40", "knee_servo": "#46464d",
-    "chassis_bottom": "#79b0e1", "chassis_bottom_lower": "#5fa0d8",
+    "chassis_bottom": "#79b0e1",
     "chassis_top": "#5b8fc7",
     "uno_q_tray": "#9467bd", "buck_tray": "#bcbd22",
     "spider_carapace": "#23232a",
@@ -104,7 +104,7 @@ ROLE = {
     "femur_tube": "spar", "tibia_tube": "spar", "foot_pad": "frame",
     "disc_horn_yaw": "horn", "disc_horn_hip": "horn", "disc_horn_knee": "horn",
     "yaw_servo": "motor", "hip_servo": "motor", "knee_servo": "motor",
-    "chassis_bottom": "chassis", "chassis_bottom_lower": "chassis",
+    "chassis_bottom": "chassis",
     "chassis_top": "chassis",
     "uno_q_tray": "electronics", "buck_tray": "electronics",
     "spider_carapace": "chassis",
@@ -160,7 +160,6 @@ INTENDED_OVERLAP_PAIRS = frozenset(
     frozenset(p) for p in [
         # Servo body fills its cradle / bracket.
         ("chassis_bottom", "yaw_servo"),
-        ("chassis_bottom_lower", "yaw_servo"),
         ("coxa_hip_bracket", "hip_servo"),
         ("femur_knee_bracket", "knee_servo"),
         # Disc horn seats on its servo output boss.
@@ -499,9 +498,6 @@ def _disc_horn_instances(chassis_lift: float, legs: list[int]):
 def _body_parts(chassis_lift: float) -> list[tuple[str, trimesh.Trimesh]]:
     bot = HP.make_chassis_bottom()
     bot.apply_translation([0, 0, chassis_lift])
-    # Jun 2026 print split: bolt-on LOW half (yaw-servo cradle plate).
-    bot_lower = HP.make_chassis_bottom_lower()
-    bot_lower.apply_translation([0, 0, chassis_lift])
     top = HP.make_chassis_top()
     top.apply_translation([0, 0, chassis_lift + HP.CHASSIS_GAP + HP.CHASSIS_PLATE_T])
 
@@ -531,7 +527,7 @@ def _body_parts(chassis_lift: float) -> list[tuple[str, trimesh.Trimesh]]:
     carapace = HP.make_spider_carapace()
     carapace.apply_translation([0, 0, carapace_z])
 
-    return [("chassis_bottom", bot), ("chassis_bottom_lower", bot_lower),
+    return [("chassis_bottom", bot),
             ("chassis_top", top),
             ("lipo_battery", lipo),
             ("uno_q_tray", uno_tray), ("buck_tray", buck_tray),

@@ -232,12 +232,10 @@ SPEC_M3X8_SHCS   = "M3x8 SHCS"
 SPEC_M3X10_SHCS  = "M3x10 SHCS"   # battery_holder foot bolts (4); threads
                                    # into M3 brass heat-set insert in the
                                    # holder foot above chassis_bottom.
-# Chassis print-split join screws (Jun 2026): M3 x 10 SHCS driven from
-# BELOW through chassis_bottom_lower's flange into a Phi 2.5 mm self-tap
-# pilot in chassis_bottom's (HIGH half) top-side boss.  Same PN_M3X10_SHCS
-# stock; distinct spec so the BOM + engagement check identify the
-# self-tap-into-plastic join screws.  "SHCS" preserved for the driver
-# dispatcher.
+# RETIRED (Jun 2026): the chassis_bottom HIGH/LOW print split was re-merged
+# into one part, so the 12 M3 x 10 self-tap cradle-plate join screws are gone.
+# The spec string is kept (no longer emitted) so the driver dispatcher / BOM
+# ordering table stay stable.
 SPEC_M3X10_SHCS_SELFTAP = "M3x10 SHCS self-tap"
 # Cradle bolt spec post-heat-set switch (May 2026): same M3 x 8
 # SHCS stock as ``SPEC_M3X8_SHCS`` (same P/N -- they are the same
@@ -541,8 +539,9 @@ def _emit_end_face_fasteners(
     leg_index: int,
     joint: str,
     location: str,
+    upper_row_only: bool = False,
 ) -> list[FastenerInstance]:
-    """The 4 M2.5 body-retention bolts on the servo's -X END face.
+    """The M2.5 body-retention bolts on the servo's -X END face.
 
     POSITIVE retention (Jun 2026): measured from the authoritative
     Waveshare ST3215 brackets, each +/-X END face of the servo carries a
@@ -554,6 +553,16 @@ def _emit_end_face_fasteners(
     ``hexapod_prototype._servo_well_solid`` (hip/knee) and
     ``_chassis_yaw_cradle_solid`` (yaw) at ``servo_end_face_bolt_centres``.
 
+    ``upper_row_only`` (yaw cradle, Jun 2026 single-part merge): the merged
+    chassis_bottom keeps the yaw cradle's -X WELL wall only down to its -6
+    bottom face; the servo body hangs ~14 mm BELOW that, so the LOWER end-face
+    bolt row (well-local bz < SERVO_BODY_H/2 -> world z ~ -10) would bear in
+    open air with no wall behind it (it belonged to the abandoned deep cradle
+    bucket).  Only the UPPER row engages real wall, so the yaw cradle bolts the
+    servo's upper -X face (2 screws) + seats its output face on the mount plate
+    + is captured from below by the bolt-on yaw_servo_retainer stirrup.  The
+    deep hip/knee cradles keep all 4.
+
     Well-local frame matches ``_servo_well_solid``: body centred at
     x = y = 0, z in [0, SERVO_BODY_H]; the -X end face is at
     x = -SERVO_BODY_W/2 and the head plane stands SERVO_BODY_BOLT_STANDOFF
@@ -564,13 +573,17 @@ def _emit_end_face_fasteners(
     head_x = -(HP.SERVO_BODY_W / 2.0 + HP.SERVO_BODY_BOLT_STANDOFF)
     axis_local = np.array([1.0, 0.0, 0.0])   # +X, into the servo case
     skip_reason = (
-        "captive sub-assembly fastener: the 4 M2.5 end-face screws bolt "
+        "captive sub-assembly fastener: the M2.5 end-face screws bolt "
         "the servo body to the cradle's -X wall BEFORE the disc horn and "
         "the next-stage link close over the cradle; the inboard/-X driver "
         "approach is buried once the robot is assembled"
     )
+    centres = HP.servo_end_face_bolt_centres()
+    if upper_row_only:
+        centres = [(by, bz) for (by, bz) in centres
+                   if bz > HP.SERVO_BODY_H / 2.0]
     out: list[FastenerInstance] = []
-    for (by, bz) in HP.servo_end_face_bolt_centres():
+    for (by, bz) in centres:
         head = _apply_point(T_well_to_world, np.array([head_x, by, bz]))
         axis = _apply_dir(T_well_to_world, axis_local)
         y_lbl = "+Y" if by > 0 else "-Y"
@@ -763,62 +776,6 @@ def _emit_yaw_cap_join_fasteners(leg_index: int) -> list[FastenerInstance]:
                 "self-tap screws are driven from directly above the open cap "
                 "ear BEFORE the coxa_yaw_hub (and its rotating dust lip) is "
                 "fitted onto the bearing pair."
-            ),
-        ))
-    return out
-
-
-def _emit_chassis_join_fasteners() -> list[FastenerInstance]:
-    """The 12 M3 x 10 self-tap join screws that bolt the split chassis_bottom's
-    LOW half (``chassis_bottom_lower``, the yaw-cradle plate) UP onto the flat
-    HIGH half (``chassis_bottom``) at the cut plane (Jun 2026 print split).
-
-    They live on the 6 hex-EDGE MIDPOINTS (2 per edge), NOT the leg corners:
-    the legs sit at the corners where the big servo-body cutout eats the flange
-    ring, so the edges are the only clean, fully-solid flange stock to bolt
-    into.  Chassis-level (no leg index) because each edge is shared between two
-    adjacent legs.
-
-    Chassis frame (chassis_bottom plate centre at z = 0): each screw is driven
-    from BELOW -- its head bears in a counter-bore at the flange bottom face
-    (``CHASSIS_SPLIT_Z - CHASSIS_JOIN_FLANGE_T``) and the shank threads UP
-    (+Z) through the flange into the HIGH plate's Phi 2.5 mm self-tap boss on
-    the plate top.  6 x Ø4 register dowel pins (BOM line item) seat the join
-    concentric.
-    """
-    # Head BEARING face = the counter-bore shoulder (CB_DEPTH up from the
-    # flange bottom), not the flange's outer face -- the Phi6 counter-bore is
-    # open below the shoulder, so the head grips the shoulder ring.  Matches the
-    # yaw_bearing_cap join-screw convention (head at the ear counter-bore floor).
-    head_z = (HP.CHASSIS_SPLIT_Z - HP.CHASSIS_JOIN_FLANGE_T
-              + HP.CHASSIS_JOIN_BOLT_CB_DEPTH)
-    out: list[FastenerInstance] = []
-    for idx, (px, py) in enumerate(HP._chassis_join_bolt_centres()):
-        edge = idx // 2
-        head = np.array([px, py, head_z])
-        axis = np.array([0.0, 0.0, 1.0])   # head below -> threads UP into plate
-        out.append(FastenerInstance(
-            part_number=PN_M3X10_SHCS,
-            spec=SPEC_M3X10_SHCS_SELFTAP,
-            head_world_xyz=head,
-            axis_world=axis,
-            role=(
-                f"chassis_bottom_lower edge{edge} cradle-plate-to-plate "
-                f"join @ ({px:+.0f},{py:+.0f}) M3 self-tap"
-            ),
-            leg_index=None,
-            joint="yaw",
-            length_mm=HP.CHASSIS_JOIN_BOLT_LEN,
-            cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
-            # Driven from BELOW while the chassis_bottom assembly is upside-down
-            # on the bench, BEFORE the legs / feet are fitted -- the underside
-            # is fully open at that sub-assembly step.
-            skip_screwdriver_reason=(
-                "chassis print-split sub-assembly fastener: the 12 cradle-"
-                "plate-to-plate M3 join screws are driven from directly below "
-                "the inverted chassis_bottom stack BEFORE the legs and feet "
-                "are installed, so the standing-pose leg envelope does not "
-                "apply."
             ),
         ))
     return out
@@ -1678,7 +1635,11 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
     """
     out: list[FastenerInstance] = []
 
-    chassis_bottom_bot_z = -HP.CHASSIS_PLATE_T / 2.0          # = -2
+    # Jun 2026 single-part merge: chassis_bottom's bottom face stepped down from
+    # the old -2 plate underside to -6 (the folded-in flat floor slab), so the
+    # standoff nyloc nut now seats on the -6 face (and its stud passes through
+    # the floor via the clearance hole make_chassis_bottom cuts there).
+    chassis_bottom_bot_z = HP.CHASSIS_SPLIT_Z - HP.CHASSIS_BOTTOM_FLOOR_T  # = -6
     chassis_top_top_z = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T  # = +38
     chassis_top_bot_z = HP.CHASSIS_GAP + 0.5 * HP.CHASSIS_PLATE_T  # = +34
 
@@ -1838,15 +1799,19 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         # The output face carries ONLY the flush disc horn + its 4 x M3
         # leg bolts on DISC_HORN_BOLT_PCD = 14 mm.
 
-        # POSITIVE servo body retention: 4 M2.5 end-face bolts per cradle
-        # into the servo's real -X END-face 10x10 case-hole square (yaw +
-        # hip + knee), so the printed cradle bolts the servo instead of
-        # only gripping it.  4 x 3 cradles x 6 legs = 72.
+        # POSITIVE servo body retention: M2.5 end-face bolts per cradle into
+        # the servo's real -X END-face 10x10 case-hole square, so the printed
+        # cradle bolts the servo instead of only gripping it.  The deep hip/
+        # knee cradles take all 4; the merged-chassis yaw cradle's -X wall only
+        # reaches its -6 floor (the servo hangs below), so it takes the UPPER
+        # row (2) -- the lower row would bear in air (abandoned deep bucket).
+        # 2 yaw + 4 hip + 4 knee = 10 per leg x 6 = 60.
         out.extend(_emit_end_face_fasteners(
             T_well_to_world=_yaw_cradle_T(leg_index),
             leg_index=leg_index,
             joint="yaw",
             location=f"chassis_bottom L{leg_index} yaw cradle",
+            upper_row_only=True,
         ))
         out.extend(_emit_end_face_fasteners(
             T_well_to_world=_hip_cradle_T(leg_index),
@@ -1930,11 +1895,9 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     # list.
     out.extend(_emit_chassis_stack_fasteners())
 
-    # Chassis print-split join screws (12 M3 x 10 self-tap on the 6 hex-edge
-    # midpoints) that bolt the LOW cradle-plate half (chassis_bottom_lower) up
-    # onto the flat HIGH plate (chassis_bottom).  Chassis-level (no leg index):
-    # the bolts sit on the EDGES between leg corners, shared by the whole plate.
-    out.extend(_emit_chassis_join_fasteners())
+    # Jun 2026: the chassis_bottom HIGH/LOW print split has been re-merged into
+    # ONE printed part, so the 12 M3 x 10 cradle-plate-to-plate join screws + 6
+    # register dowels are GONE (no _emit_chassis_join_fasteners).
 
     return out
 
@@ -2018,12 +1981,6 @@ def _usage_bucket(fi: FastenerInstance) -> str:
         return "deck board-mount heat-set inserts (Uno Q + buck)"
     if "body screw" in role:
         return "cradle servo body-retention bolts (M2.5 into servo end face)"
-    if "cradle-plate-to-plate" in role:
-        # Jun 2026 chassis print-split: the 12 M3 x 10 SHCS that bolt the LOW
-        # cradle-plate half (chassis_bottom_lower) up onto the flat HIGH plate
-        # (chassis_bottom) on the 6 hex-edge midpoints.
-        return ("chassis print-split cradle-plate join screws "
-                "(chassis_bottom_lower -> chassis_bottom, M3 x 10 SHCS self-tap)")
     if "cap-to-tower" in role:
         # Jun 2026 split yaw-bearing tower: the 18 M3 x 8 SHCS that pull each
         # yaw_bearing_cap down onto chassis_bottom to capture the 6706 pair.

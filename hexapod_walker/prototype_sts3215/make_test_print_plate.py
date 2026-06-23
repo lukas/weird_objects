@@ -20,11 +20,10 @@ length of CF tube, you've validated the whole leg subassembly and can
 commit to printing all 6 copies.  May 2026: the standalone
 ``coxa_bracket`` was retired -- the
 yaw servo now drops INTO an integrated cradle inside ``chassis_bottom``
-(Jun 2026: that cradle is the bolt-on LOW half ``chassis_bottom_lower``),
-so testing the yaw mount requires printing the full 200 mm chassis halves
-(see ``make_bambu_x1_trays.py`` for the chassis plates) -- they are far too
-big for this leg-subassembly test plate and are intentionally NOT requested
-here.
+(Jun 2026: re-merged into a single part -- the cradle + a folded-in flat
+floor slab), so testing the yaw mount requires printing the full 200 mm
+chassis plate (see ``make_bambu_x1_trays.py``) -- far too big for this
+leg-subassembly test plate and intentionally NOT requested here.
 
 Output: ``hexapod_walker/prototype/test_print_plate/test_print_plate.stl``
 plus a tiny layout manifest.

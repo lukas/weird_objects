@@ -1156,20 +1156,13 @@ WELL_H       = WELL_RIM_Z + WELL_PLATE_T          # mm: outer height (plate on t
 # coxa_link hub have a clear swing cone.
 HORN_CLEAR_PEDESTAL_R = 12.0      # mm
 
-# ---- Yaw-servo retention floor (Jun 2026 two-part build) ----------------
-# The chassis_bottom print-split made the yaw cradle a two-piece bolt-up, so
-# the servo no longer has to be inserted through an OPEN bottom -- it drops
-# into the chassis_bottom_lower bucket from the flange (cut-plane) side before
-# the two halves are bolted.  That lets ``make_chassis_bottom_lower`` CLOSE
-# the bucket bottom with an integral solid slab directly beneath the servo
-# body's back (-Z) face, spanning the bucket's full outer footprint so the
-# LOW half is solid below the cut plane: the body bottoms out on this slab and
-# can no longer fall out the open bottom (user report).  The slab is added in
-# the LOW-half builder (below CHASSIS_SPLIT_Z), so the shared
-# ``_chassis_yaw_cradle_solid`` -- consumed by the HIGH half AND every
-# verifier cradle probe -- is left untouched, and it never appears in the flat
-# HIGH plate.
-YAW_CRADLE_FLOOR_T = 4.0          # mm -- solid bucket-bottom slab thickness (>= MIN_PRINT_T)
+# ---- Yaw-servo retention floor (RETIRED) --------------------------------
+# Historical: a brief two-part build closed the yaw cradle bottom with a solid
+# bucket-bottom slab.  Both the deep bucket and that slab are gone -- the
+# merged chassis_bottom is a flat plate + folded-in flat floor, and the yaw
+# servo is captured from below by the bolt-on yaw_servo_retainer stirrup.  The
+# constant is unused (kept only to preserve historical context).
+YAW_CRADLE_FLOOR_T = 4.0          # mm -- (retired) bucket-bottom slab thickness
 
 # ---- Yaw-servo retainer strap (Jun 2026) --------------------------------
 # LEGACY (pre flat-plate) constants for the original deep-cradle strap; see
@@ -1200,9 +1193,9 @@ RETAINER_CABLE_SLOT_W       = 6.0   # mm -- central cable window (X)
 RETAINER_CABLE_SLOT_L      = 12.0   # mm -- central cable window (Y)
 
 # ---- Flat-plate retainer re-anchor (Jun 2026 flat-chassis redesign) ------
-# The chassis_bottom_lower LOW half is now a SIMPLE FLAT hex plate (z in
-# [-6, -2]); it no longer has the deep cradle side walls the old strap bolted
-# to, and the legacy anchor pattern (yaw_retainer_anchor_centres) falls inside
+# The merged chassis_bottom's floor is a SIMPLE FLAT hex slab (z in [-6, -2]);
+# it has no deep cradle side walls for the old strap to bolt to, and the
+# legacy anchor pattern (yaw_retainer_anchor_centres) falls inside
 # the plate's body cutout (no material).  So the strap is re-built as a CAPTURE
 # STIRRUP: two arms rise ~14 mm from a cross-bar under the servo body bottom up
 # to the flat plate's underside, where they bolt into two blind M3 self-tap
@@ -1310,9 +1303,10 @@ def chassis_lower_retainer_anchor_centres():
 
     The two anchors straddle the body centreline tangentially, sitting just
     OUTSIDE the plate's body cutout (|y| > body-cutout half-depth) so each
-    lands in solid plate material.  Consumed by ``make_chassis_bottom_lower``
-    (the plate PILOTS), ``make_yaw_servo_retainer`` (the stirrup arm clearance
-    holes) and ``check_clamp_cap_alignment`` so the three cannot drift apart.
+    lands in solid plate material.  Consumed by ``_chassis_bottom_floor_solid``
+    (the floor PILOTS folded into the merged ``make_chassis_bottom``),
+    ``make_yaw_servo_retainer`` (the stirrup arm clearance holes) and
+    ``check_clamp_cap_alignment`` so the three cannot drift apart.
     The bolt AXIS is Z for both anchors.
 
     Returns ``[(x, y), ...]``.
@@ -4259,10 +4253,10 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
       * Outer shell tower: bond-strip footprint, spanning from the body
         back face (below the plate, hanging into the inter-plate gap)
         up to the front mount plate top.
-      * Body cavity: open at the BOTTOM in this shared solid; the LOW
-        half adds an integral retention floor just below the body back
-        face (see ``make_chassis_bottom_lower``) so the servo cannot drop
-        out, while this solid stays unchanged for the other consumers.
+      * Body cavity: open at the BOTTOM in this shared solid; the servo
+        hangs through the merged chassis_bottom floor's body cutout and is
+        captured from below by the bolt-on ``yaw_servo_retainer`` stirrup
+        (which anchors into 2 M3 pilots in the floor) so it cannot drop out.
       * Front mount plate: central output-coupling bore + 4x M2.5
         countersunk case-screw holes + a disc-horn collar recess.
       * Inboard (-X) wire-exit window for the serial-bus harness.
@@ -4294,13 +4288,13 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
                  center=(body_centre_x, 0.0,
                          0.5 * (body_back_z + plate_top_z)))
 
-    # ---- Body cavity: OPEN at the BOTTOM in this shared cradle solid; the
-    # CLOSED retention floor that captures the servo is added downstream in
-    # ``make_chassis_bottom_lower`` (it lives wholly below CHASSIS_SPLIT_Z,
-    # so it belongs only to the LOW half and is built there to keep this
-    # shared solid -- consumed by both halves + the verifier probes --
-    # unchanged).  Capped at the front face by the plate.  WELL_BODY_CL
-    # clearance on each body face.
+    # ---- Body cavity: OPEN at the BOTTOM in this shared cradle solid.  The
+    # merged chassis_bottom floor (``_chassis_bottom_floor_solid``) keeps a
+    # body cutout here, so the servo body hangs through and is captured from
+    # below by the bolt-on ``yaw_servo_retainer`` stirrup -- this shared solid
+    # (consumed by the chassis + every verifier cradle probe) stays cavity-
+    # open.  Capped at the front face by the plate.  WELL_BODY_CL clearance on
+    # each body face.
     cav_z_min = body_back_z - 5.0
     cav_z_max = front_face_z
     cavity = _box((SERVO_BODY_W + 2.0 * WELL_BODY_CL,
@@ -4317,11 +4311,10 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
     # CANNOT be bolted through its output face, and there is no room there
     # for a pedestal/collar boss.  The coxa hub bolts straight onto the
     # flush horn (DISC_HORN_BOLT_PCD) and the servo is now POSITIVELY
-    # captured between the LOW-half integral retention floor (see
-    # ``make_chassis_bottom_lower``) and the mount plate, so it cannot fall
-    # out the bottom; the bolt-on ``yaw_servo_retainer`` strap is retained
-    # as an optional belt-and-suspenders anchor.  The output-face region is
-    # left fully open by the swing relief below.
+    # captured between the chassis_bottom mount plate on top and the bolt-on
+    # ``yaw_servo_retainer`` capture stirrup underneath (which bolts into 2 M3
+    # pilots in the merged floor), so it cannot fall out the bottom.  The
+    # output-face region is left fully open by the swing relief below.
 
     # ---- Inboard (-X) wire-exit window for the STS3215 serial-bus
     # daisy-chain harness.  The STS3215 routes its bus through 2-pin
@@ -4343,15 +4336,13 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
                      center=(0.5 * (wire_x_inner + wire_x_outer),
                              0.0, 0.5 * (wire_z_min + wire_z_max)))
 
-    # ---- Retainer-strap anchor pilots (Jun 2026) -------------------------
-    # The servo body is now positively captured by the LOW-half integral
-    # retention floor (see ``make_chassis_bottom_lower``) -- it bottoms out
-    # on the floor and cannot drop through -- so this is no longer the SOLE
-    # retention.  The 2x M3 self-tap pilots are kept in the thick +/-X
-    # end-wall bottoms as an OPTIONAL anchor for the printed
-    # ``yaw_servo_retainer`` strap (a belt-and-suspenders bolt-on); they sit
-    # in the wall stock OUTBOARD of the body cavity, clear of the floor
-    # (which only spans the body footprint).  See ``make_yaw_servo_retainer``.
+    # ---- Retainer-strap anchor pilots (LEGACY end-wall pattern) ----------
+    # These 2x M3 self-tap pilots in the thick +/-X end-wall bottoms are the
+    # LEGACY anchor for the old flat retainer strap.  The current capture
+    # stirrup (``make_yaw_servo_retainer``) instead anchors into the merged
+    # floor pilots (``chassis_lower_retainer_anchor_centres``), so these
+    # end-wall pilots are vestigial belt-and-suspenders holes; they sit in the
+    # wall stock OUTBOARD of the body cavity.
     # Diagonal Y offset (+ on the +X end, - on the -X end) so the two anchor
     # pilots straddle the central y=0 wire-boot insertion channel cut through
     # the +X end wall below (the boot rides straight up the open bottom on the
@@ -4518,8 +4509,8 @@ def make_yaw_servo_retainer() -> trimesh.Trimesh:
     the chassis underside; it seats its front face against the HIGH-half mount
     plate but nothing held it from dropping (user report).  The original
     retainer was a flat strap that bolted to the OLD deep-cradle's +/-X end
-    walls.  The Jun 2026 flat-plate redesign of ``chassis_bottom_lower``
-    deleted those walls, AND the legacy anchor pattern falls inside the new
+    walls.  The Jun 2026 flat-plate redesign (now the merged chassis_bottom
+    floor) deleted those walls, AND the legacy anchor pattern falls inside the
     plate's body cutout (no material) -- so that strap had nothing real to
     anchor to.
 
@@ -4528,13 +4519,13 @@ def make_yaw_servo_retainer() -> trimesh.Trimesh:
 
         * a CAPTURE CROSS-BAR sits directly under the servo body's bottom
           face, physically blocking the servo from dropping (the servo is
-          now trapped between the HIGH-half mount plate on top and this bar
-          below);
+          now trapped between the chassis_bottom mount plate on top and this
+          bar below);
         * two ARMS rise ~RETAINER_ARM_RISE mm from the bar up to the flat
           plate's underside, where they bolt into two blind M3 self-tap
           pilots cut in SOLID plate material on the tangential flanks of the
           body cutout (``chassis_lower_retainer_anchor_centres`` -- the SAME
-          source ``make_chassis_bottom_lower`` reads, guarded by
+          source the merged ``make_chassis_bottom`` floor reads, guarded by
           ``check_clamp_cap_alignment``);
         * a central window lets the rear STS3215 cable bundle drop through.
 
@@ -4543,7 +4534,7 @@ def make_yaw_servo_retainer() -> trimesh.Trimesh:
     Z-rotation + in-plane translate, so its local Z is the world Z); the
     bar bottom is the flat print-bed face.
     """
-    plate_bot = CHASSIS_SPLIT_Z - CHASSIS_JOIN_FLANGE_T          # -6
+    plate_bot = CHASSIS_SPLIT_Z - CHASSIS_BOTTOM_FLOOR_T         # -6 (merged floor face)
     bar_top = plate_bot - RETAINER_ARM_RISE                      # ~ -20 (servo bottom)
     bar_bot = bar_top - RETAINER_STRAP_T                         # ~ -24
 
@@ -5719,20 +5710,21 @@ def make_chassis_top() -> trimesh.Trimesh:
 
 
 def _chassis_bottom_full_solid() -> trimesh.Trimesh:
-    """Full (un-split) bottom hex plate INCLUDING the 6 below-plate yaw-
-    servo cradle buckets.
+    """Full bottom hex plate INCLUDING the 6 below-plate yaw-servo cradle
+    buckets -- the pre-merge construction base.
 
-    Jun 2026 print-split: this is the single source of truth for the
-    integrated chassis_bottom geometry.  It is NO LONGER printed as one
-    piece (the 6 cradle buckets hung ~20.5 mm below the plate, so the
-    whole 200 mm plate floated as a giant support-needing overhang -- see
-    ``_flatbottom_check.py``).  ``make_chassis_bottom`` (the flat HIGH
-    half) and ``make_chassis_bottom_lower`` (the cradle-bucket LOW half)
-    both derive from this solid by a single horizontal planar cut at
-    ``CHASSIS_SPLIT_Z`` (the plate underside) and bolt back together.  The
-    verifier's cradle-feature probes build this assembled solid so the
-    servo-insertion / wire-exit / disc-horn / bearing-insertion checks see
-    the SAME geometry the two bolted halves reproduce.
+    INTERNAL CONSTRUCTION HELPER (Jun 2026 single-part merge).  This is the
+    plate + tray-mount bosses + upward bearing tower + the 6 deep cradle
+    buckets.  ``make_chassis_bottom`` builds the real printed part by cutting
+    everything below ``CHASSIS_SPLIT_Z`` off this solid (discarding the deep
+    buckets, keeping the flat plate + cradle WELL walls + tower) and folding a
+    flat floor slab onto the underside.  This solid is NOT printed and is NO
+    LONGER the verifier's assembled reference -- the cradle-feature probes now
+    load the REAL merged ``make_chassis_bottom`` (via the ``chassis_assembled``
+    key) so they test the part that actually prints.  Its one remaining
+    standalone use is as the known-bad flat-bottom fixture in
+    ``check_flat_bottom`` (the deep buckets MUST be rejected by the guard --
+    see ``_flatbottom_check.py``).
 
     Structural carrier for the coxa-bracket
     flanges, the electronics tray (4 tray-mount inserts at the 35-mm-
@@ -5946,134 +5938,72 @@ def _chassis_bottom_full_solid() -> trimesh.Trimesh:
 
 
 # ===========================================================================
-# Chassis-bottom PRINT SPLIT (Jun 2026)
+# Chassis-bottom FLOOR -- single merged part (Jun 2026)
 # ===========================================================================
-# Forensic context: ``_flatbottom_check.py`` proved the single-piece
+# Forensic context: ``_flatbottom_check.py`` proved the ORIGINAL single-piece
 # chassis_bottom did NOT print flat -- the 6 integrated yaw-servo cradle
-# buckets hang ~20.5 mm BELOW the main hex plate, so the part rested on 6
+# buckets hung ~20.5 mm BELOW the main hex plate, so the part rested on 6
 # small rings (~16% bed contact) with the whole 200 mm plate floating as a
-# giant support-needing overhang.  The yaw BEARING tower ABOVE the plate
-# (the already-split ``yaw_bearing_cap`` interface) prints fine; the
-# below-plate servo buckets were the problem.
+# support-needing overhang.  That drove a temporary HIGH/LOW print split.
 #
-# Fix (user directive): a SINGLE horizontal planar cut of the existing
-# solid at the plate underside, splitting it into two bolt-together halves
-# that each present a broad flat face for printing:
+# The LOW half was then simplified to a plain flat hex slab (the deep buckets
+# were abandoned; the yaw servo is retained by the bolt-on
+# ``yaw_servo_retainer`` capture stirrup instead).  At that point the split
+# was VESTIGIAL: the HIGH half already prints flat (bearing tower up, broad
+# flat underside on the bed), so the horizontal split bought nothing.
 #
-#   * HIGH half = ``make_chassis_bottom`` -- the flat hex plate + EVERYTHING
-#     above it (tray-mount bosses, the upward yaw-bearing tower + its
-#     yaw_bearing_cap interface, disc-horn bore, velcro/battery cutouts,
-#     electronics-deck interfaces).  The cut plane is its new UNDERSIDE, so
-#     it prints face-DOWN on the bed (bearing tower up) with NO supports.
-#   * LOW half = ``make_chassis_bottom_lower`` -- the 6 servo-cradle bucket
-#     bodies that hung below the cut, tied together by a hex JOIN-FLANGE
-#     ring at the cut plane.  Printed flipped (cut plane / flange face on
-#     the bed) it presents that broad flat ring with the bucket cavities
-#     opening UP -- so the yaw servo drops straight in before the halves
-#     are bolted.
-#
-# The cut is placed EXACTLY at the plate underside (the plane where the
-# buckets meet the plate).  In ``_flatbottom_check`` print-drop coordinates
-# (part dropped so z_min = 0) the plate underside sits at z ~= 20.55 mm
-# above the bucket bottoms; CHASSIS_SPLIT_Z is the same plane expressed in
-# the part's native chassis frame.
-CHASSIS_SPLIT_Z = -CHASSIS_PLATE_T / 2.0    # = -2.0 mm (plate underside)
-
-# Join flange (LOW half): a hexagonal ring at the cut plane that ties the 6
-# otherwise-disconnected buckets into one printable part and carries the
-# join-bolt pattern + alignment dowels.  Kept as a perimeter RING (open
-# centre) so it never crosses the central battery / standoff / electronics
-# features (all inboard of ~82 mm radius) -- only the edge buckets.
-CHASSIS_JOIN_FLANGE_T          = 4.0    # mm -- flange thickness (z below cut)
-CHASSIS_JOIN_FLANGE_INNER_APO  = 86.0   # mm -- ring inner apothem (clears the
-                                        # battery footprint @ r<=82 mm)
-# Join hardware lives on the 6 hex-EDGE MIDPOINTS (angles k*60 deg), NOT on
-# the leg corners ((i+0.5)*60 deg): the legs sit at the hex corners where the
-# big Phi WELL_W servo-body cutout eats almost all of the flange ring, leaving
-# only ragged, asymmetric scraps.  The edge midpoints carry a clean, fully
-# solid flange band (radius 86..100 mm) clear of every cutout -- so the join
-# bolts get real engagement on BOTH halves and the dowels seat in solid stock.
-# Each edge gets 2 join bolts (tangentially +/- CHASSIS_JOIN_BOLT_TANG) and 1
-# register dowel (edge centre) at mid-flange radius.
-CHASSIS_JOIN_BOLT_RADIUS = 0.5 * (CHASSIS_JOIN_FLANGE_INNER_APO
-                                  + CHASSIS_FLAT_TO_FLAT / 2.0)  # ~93 mm
-CHASSIS_JOIN_BOLT_TANG   = 14.0    # mm -- 2 bolts/edge straddle the midpoint
-CHASSIS_JOIN_N_EDGES     = 6       # hex edges -> 12 bolts, 6 dowels total
-CHASSIS_JOIN_BOLT_CLEAR_OD = 3.4    # mm -- M3 clearance hole through flange
-CHASSIS_JOIN_BOLT_HEAD_OD  = 6.0    # mm -- SHCS head counterbore (flange under)
-CHASSIS_JOIN_BOLT_CB_DEPTH = 2.5    # mm -- counterbore DEPTH (M3 SHCS head ~3 mm;
-                                    # shallow so the upper ~1.5 mm of the 4 mm
-                                    # flange keeps a Phi3.4 clearance-hole wall the
-                                    # head shoulder bears on + the shank threads up
-                                    # into the HIGH plate's self-tap boss.
-CHASSIS_JOIN_BOLT_PILOT_OD = 2.5    # mm -- M3 self-tap pilot into HIGH boss
-CHASSIS_JOIN_BOLT_BOSS_OD  = 8.0    # mm -- self-tap boss on HIGH plate TOP
-CHASSIS_JOIN_BOSS_H        = 4.0    # mm -- boss height above the plate top
-CHASSIS_JOIN_BOLT_LEN      = 10.0   # mm -- M3 x 10 SHCS (flange under -> plate)
-# Register dowels: a Phi DOWEL_OD x 2*DOWEL_DEPTH steel/printed pin seats
-# in a blind hole in BOTH mating faces (no protrusion on either face, so
-# both halves still print flat).  Gives repeatable concentric seating that
-# the Phi3.4 bolt clearance alone would leave ~0.4 mm of slop on.
-CHASSIS_JOIN_DOWEL_HOLE_OD = 4.2    # mm -- blind dowel-pin hole (slip fit Phi4)
-CHASSIS_JOIN_DOWEL_DEPTH   = 3.0    # mm -- blind hole depth in each face
-
-
-def _chassis_join_edge_frames():
-    """Yield ``(edge_index, radial_unit, tangential_unit)`` for each of the 6
-    hex EDGE MIDPOINTS (angles ``k * 60 deg``), i.e. the gaps BETWEEN the
-    leg corners.  Single source of truth for the join-hardware azimuths."""
-    for k in range(CHASSIS_JOIN_N_EDGES):
-        a = k * np.pi / 3.0
-        radial = np.array([np.cos(a), np.sin(a), 0.0])
-        tang = np.array([-np.sin(a), np.cos(a), 0.0])
-        yield k, radial, tang
-
-
-def _chassis_join_bolt_centres():
-    """World (chassis-frame) XY of the 12 HIGH<->LOW join-bolt axes (2 per
-    hex edge, straddling the edge midpoint at mid-flange radius)."""
-    out = []
-    for _k, radial, tang in _chassis_join_edge_frames():
-        for s in (+1.0, -1.0):
-            p = (CHASSIS_JOIN_BOLT_RADIUS * radial
-                 + s * CHASSIS_JOIN_BOLT_TANG * tang)
-            out.append((float(p[0]), float(p[1])))
-    return out
-
-
-def _chassis_join_dowel_centres():
-    """World (chassis-frame) XY of the 6 HIGH<->LOW register dowels (1 per
-    hex edge, on the edge midpoint at mid-flange radius)."""
-    out = []
-    for _k, radial, _tang in _chassis_join_edge_frames():
-        p = CHASSIS_JOIN_BOLT_RADIUS * radial
-        out.append((float(p[0]), float(p[1])))
-    return out
+# So the two halves are MERGED back into ONE printed ``make_chassis_bottom``:
+# the flat plate + everything above it, plus a solid flat FLOOR slab
+# (``_chassis_bottom_floor_solid`` -- the old LOW plate, minus all the now-dead
+# join hardware) folded onto its underside.  The result is a single part whose
+# perimeter is ~8 mm thick with a broad flat -6 mm bed face -- still flat-bottom
+# printable, tower up, no supports.  CHASSIS_SPLIT_Z is retained only as the
+# plate-underside / floor-step reference plane.
+CHASSIS_SPLIT_Z = -CHASSIS_PLATE_T / 2.0     # = -2.0 mm (plate underside; the
+                                             # old print-split cut plane, kept as
+                                             # the floor-step reference)
+CHASSIS_BOTTOM_FLOOR_T = 4.0                 # mm -- solid flat floor folded onto
+                                             # the plate underside (the old LOW
+                                             # plate).  Bottom face at
+                                             # CHASSIS_SPLIT_Z - this = -6 mm, so
+                                             # the perimeter is ~8 mm thick.  The
+                                             # yaw_servo_retainer stirrup bolts UP
+                                             # into 2-per-leg self-tap pilots in
+                                             # this floor (see
+                                             # _chassis_bottom_floor_solid).
 
 
 def make_chassis_bottom() -> trimesh.Trimesh:
-    """HIGH half of the split chassis_bottom: the genuinely FLAT-BOTTOM hex
-    plate + everything above it (Jun 2026 print split -- see
-    ``_chassis_bottom_full_solid`` and ``CHASSIS_SPLIT_Z``).
+    """The single, merged chassis_bottom (Jun 2026 -- the temporary HIGH/LOW
+    print split has been re-merged into ONE printed part; see the
+    "Chassis-bottom FLOOR" block above).
 
-    Built by taking the full integrated solid and cutting away everything
-    BELOW the plate underside (``CHASSIS_SPLIT_Z`` = -2 mm), which removes
-    the 6 hanging yaw-servo cradle buckets.  What remains -- the flat plate,
-    the tray-mount bosses, the upward yaw-bearing tower + ``yaw_bearing_cap``
-    interface, the disc-horn Phi24 clearance bore, the velcro/battery
-    cutouts and electronics-deck interfaces -- has its new underside at
-    z = ``CHASSIS_SPLIT_Z``, a broad flat hex face that prints face-DOWN on
-    the bed with no supports.
+    Three steps:
 
-    Join interface: each of the 12 ``_chassis_join_bolt_centres`` gets a
-    Phi ``CHASSIS_JOIN_BOLT_BOSS_OD`` self-tap boss UNIONED onto the plate
-    TOP (so the flat bottom is untouched) with a Phi
-    ``CHASSIS_JOIN_BOLT_PILOT_OD`` pilot drilled UP from the underside; the
-    LOW half's M3 x ``CHASSIS_JOIN_BOLT_LEN`` SHCS thread into these from
-    below.  Each of the 12 ``_chassis_join_dowel_centres`` gets a Phi
-    ``CHASSIS_JOIN_DOWEL_HOLE_OD`` blind register hole in the underside that
-    receives the LOW half's printed dowel boss for repeatable concentric
-    alignment.
+      1. take the full integrated solid (``_chassis_bottom_full_solid``: the
+         flat hex plate + tray-mount bosses + the upward yaw-bearing tower +
+         ``yaw_bearing_cap`` interface + the 6 yaw cradles + velcro/battery
+         cutouts) and cut away everything BELOW the plate underside
+         (``CHASSIS_SPLIT_Z`` = -2 mm).  That removes the deep cradle buckets
+         that used to hang ~20.5 mm down, leaving the flat plate + the cradle
+         WELL walls above the cut + the bearing tower -- a broad flat -2 face.
+
+      2. fold a solid flat FLOOR slab (``_chassis_bottom_floor_solid``, the old
+         LOW plate minus all join hardware) onto that underside, z in
+         ``[-6, -2]`` (overlapping the plate by 1 mm for a clean volumetric
+         union, never a coplanar kiss).  The perimeter is now ~8 mm thick with
+         a broad flat -6 mm bed face -- still flat-bottom printable, tower up,
+         no supports.  The floor carries the 6 per-leg servo-body clearance
+         cutouts + harness-drop slots + the 2-per-leg ``yaw_servo_retainer``
+         self-tap pilots.
+
+      3. re-cut the 3 pairs of battery velcro-strap slots through the merged
+         solid so a strap can still loop under the (now thicker) plate.
+
+    The yaw servo body passes down through the floor's body cutout and hangs
+    below the chassis; the bolt-on ``yaw_servo_retainer`` capture stirrup bolts
+    UP into the floor pilots and blocks the servo from dropping (real retention
+    preserved -- the pilots migrated here unchanged from the old LOW plate).
     """
     full = _chassis_bottom_full_solid()
 
@@ -6081,126 +6011,96 @@ def make_chassis_bottom() -> trimesh.Trimesh:
     below = _box((big, big, big), center=(0.0, 0.0, CHASSIS_SPLIT_Z - big / 2.0))
     high = _diff(full, below)
 
-    # Self-tap bolt bosses on the TOP face (keep the flat bottom clean) +
-    # the pilot drilled up from the underside.
-    bosses: list[trimesh.Trimesh] = []
-    cuts: list[trimesh.Trimesh] = []
-    boss_bot = CHASSIS_PLATE_T / 2.0 - 0.2          # 0.2 mm into the plate top
-    boss_top = CHASSIS_PLATE_T / 2.0 + CHASSIS_JOIN_BOSS_H
-    for (bx, by) in _chassis_join_bolt_centres():
-        boss = _cyl(CHASSIS_JOIN_BOLT_BOSS_OD / 2.0, boss_top - boss_bot)
-        boss.apply_translation([bx, by, 0.5 * (boss_bot + boss_top)])
-        bosses.append(boss)
-        # Pilot up from the underside (z = CHASSIS_SPLIT_Z) into the boss.
-        pilot_top = boss_top - 0.5
-        pilot_bot = CHASSIS_SPLIT_Z - 0.2
-        pilot = _cyl(CHASSIS_JOIN_BOLT_PILOT_OD / 2.0, pilot_top - pilot_bot)
-        pilot.apply_translation([bx, by, 0.5 * (pilot_bot + pilot_top)])
-        cuts.append(pilot)
-    # Register dowel-pin blind holes in the underside (z = CHASSIS_SPLIT_Z),
-    # opening DOWNWARD toward the LOW half.  A recess, so the flat bottom is
-    # preserved (just a Phi4 hole in the bed-contact face).
-    for (dx, dy) in _chassis_join_dowel_centres():
-        depth = CHASSIS_JOIN_DOWEL_DEPTH + 0.4
-        hole = _cyl(CHASSIS_JOIN_DOWEL_HOLE_OD / 2.0, depth)
-        hole.apply_translation([dx, dy, CHASSIS_SPLIT_Z + depth / 2.0 - 0.2])
-        cuts.append(hole)
+    # Fold the flat floor slab onto the underside -> single ~8 mm part.
+    merged = _union(high, _chassis_bottom_floor_solid())
 
-    high = _union(high, *bosses)
-    high = _diff(high, *cuts)
-    return high
+    # Re-cut the through-features the floor slab would otherwise plug below the
+    # plate underside.  The cutters are tall enough to clear the full merged
+    # thickness (z in [-6, +2]); cutting them in make_chassis_bottom (NOT in the
+    # C6 floor slab) keeps the floor's C6 symmetry intact while these
+    # off-centre / 4-fold features punch through the merged part.
+    through_cuts: list[trimesh.Trimesh] = []
+
+    # (a) 3 pairs of battery velcro-strap slots (BATTERY_HOLDER_CENTRE_X +/- 35
+    #     mm, straddling the pack's long edges) so a strap can loop UNDER the
+    #     plate.
+    strap_y = BATTERY_D / 2.0 + 3.0
+    for strap_dx in (-35.0, 0.0, 35.0):
+        sx_centre = BATTERY_HOLDER_CENTRE_X + strap_dx
+        for sy in (-1, 1):
+            through_cuts.append(
+                _box((BATTERY_STRAP_W, 4.0, CHASSIS_PLATE_T * 8.0),
+                     center=(sx_centre, sy * strap_y, 0.0)))
+
+    # (b) the 4 brass-standoff male-stud clearance holes (CHASSIS_STANDOFF_
+    #     HOLES_XY = (+/-35, 0), (0, +/-35)).  ``with_chassis_standoffs`` only
+    #     drilled them through the z[-2,+2] plate; extend them through the floor
+    #     so the standoff stud reaches its M3 nyloc nut on the -6 bottom face.
+    for (cx, cy) in CHASSIS_STANDOFF_HOLES_XY:
+        h = _cyl(BRACKET_BOLT_HOLE / 2.0, CHASSIS_PLATE_T * 8.0)
+        h.apply_translation([cx, cy, 0.0])
+        through_cuts.append(h)
+
+    merged = _diff(merged, *through_cuts)
+    return merged
 
 
-def make_chassis_bottom_lower() -> trimesh.Trimesh:
-    """LOW half of the split chassis_bottom: a SIMPLE FLAT hex join-flange
-    PLATE (Jun 2026 simplification -- replaces the elaborate cradle-bucket
-    LOW half).
-
-    WHY THE REWRITE
-    ---------------
-    The previous LOW half buried the 6 yaw-servo cradle buckets, a
-    full-footprint solid retention slab and the perimeter flange ring in a
-    stack of interpenetrating, coplanar booleans.  manifold3d emitted a result
-    that was watertight + 2-manifold by edge count (so every verifier probe,
-    incl. the float32-weld manifold guard, passed) yet was geometrically
-    self-overlapping -- the slicer rendered the centre as a shredded mess of
-    z-fighting / inverted triangles and could not slice it.  Per the user
-    directive ("stop fighting the geometry -- I just want a simple flat
-    chassis") the LOW half is now the simplest robust geometry that does the
-    job: ONE extruded hex prism minus ONE batched difference of every hole and
-    slot.  No unions of coplanar-faced solids, so there is nothing for the
-    boolean kernel to shred and nothing for the export heal to "repair".
+def _chassis_bottom_floor_solid() -> trimesh.Trimesh:
+    """Solid flat hex FLOOR slab folded onto ``make_chassis_bottom``'s
+    underside (Jun 2026 single-part merge -- replaces the old bolt-on
+    ``chassis_bottom_lower`` LOW half).
 
     GEOMETRY
     --------
-    A flat hexagonal RING (open centre) at the cut plane, z in
-    ``[CHASSIS_SPLIT_Z - CHASSIS_JOIN_FLANGE_T, CHASSIS_SPLIT_Z]`` (= [-6, -2]),
-    uniform ``CHASSIS_JOIN_FLANGE_T`` (4 mm) thick.  Outer footprint = the
-    chassis hex (``CHASSIS_FLAT_TO_FLAT``); inner apothem =
-    ``CHASSIS_JOIN_FLANGE_INNER_APO`` (86 mm) so the plate stays a perimeter
-    ring clear of the central battery / standoff / electronics features
-    (all inboard of ~82 mm radius), exactly as the old flange ring did.
+    A solid regular hex prism, outer footprint = the chassis hex
+    (``CHASSIS_FLAT_TO_FLAT``), spanning z in
+    ``[CHASSIS_SPLIT_Z - CHASSIS_BOTTOM_FLOOR_T, CHASSIS_SPLIT_Z + 1]``
+    (= [-6, -1]).  The nominal floor is [-6, -2]; the extra +1 mm overlaps the
+    plate so ``make_chassis_bottom``'s union is a clean volumetric merge rather
+    than a fragile coplanar kiss.
 
-    Functional negative space (the single batched diff):
-      * 6 per-leg servo-body clearance cutouts (``WELL_W+2 x WELL_D+2``) so
-        each yaw servo body passes through the plate at the cut plane and is
-        laterally located by the cutout walls;
+    Functional negative space (ONE batched diff -- no coplanar-faced unions, so
+    nothing for the boolean kernel to shred):
+      * 6 per-leg servo-body clearance cutouts (``WELL_W+2 x WELL_D+2``) so each
+        yaw servo body passes down through the floor and hangs below;
       * 6 per-leg harness-drop slots (the serial-bus wire exits);
-      * 12 join-bolt counterbores (M3 SHCS head, opening at the flange BOTTOM)
-        + Phi3.4 clearance bores -- the LOW half bolts UP into the HIGH half's
-        self-tap bosses, identical interface to before;
-      * 6 register-dowel blind holes in the flange TOP (mating face).
+      * 2-per-leg ``yaw_servo_retainer`` self-tap pilots (blind, opening at the
+        -6 bottom face) in solid plate material on the tangential flanks of
+        each body cutout.
 
-    Printed FLIPPED (``_reorient_chassis_lower``) the flange face lands flat
-    on the bed -- a trivial flat-bottom print.
+    NO join hardware: the HIGH/LOW split is gone, so the 12 join-bolt
+    counterbores/clearances + 6 register dowels of the old LOW plate are
+    deleted.
 
     STRUCTURAL 6-FOLD (C6) SYMMETRY
     -------------------------------
-    The shredded, asymmetric centre of the previous LOW half came from
-    building the six servo arms INDEPENDENTLY (per-arm booleans on a
-    floating-point-accreted cradle solid), so the result was only
-    incidentally symmetric and the kernel left a degenerate centre.  Here the
-    symmetry is STRUCTURAL: ONE canonical 60-deg sector of cutters (one leg's
-    body cutout + harness-drop slot, one hex-edge's 2 join bolts + 1 register
-    dowel) is built ONCE, then the WHOLE sector is replicated by an EXACT
-    ``k * 60 deg`` rotation about the central yaw (Z) axis for ``k = 0..5``.
-    Every arm is therefore bit-identical up to its rotation, and the regular
-    hex prism is itself C6, so the finished plate is invariant under 60-deg
-    rotation (enforced by ``check_c6_symmetry``).
-
-    FUNCTIONAL TRADEOFF (documented per user request)
-    -------------------------------------------------
-    The deep cradle buckets + full-footprint retention slab are GONE, so the
-    LOW half no longer captures each servo body from below.  The yaw servo is
-    still seated by the HIGH half (its output face registers against the HIGH
-    mount-plate underside, output shaft up through the disc-horn bore --
-    unchanged, so the yaw/bearing/coxa kinematics are untouched) and held up
-    by the bolt-on ``yaw_servo_retainer`` strap.  Servo retention is therefore
-    now strap-only rather than strap-plus-slab; the upside is a flat,
-    cleanly-sliceable plate and a much lighter, faster print.
+    ONE canonical 60-deg sector of cutters (one leg's body cutout +
+    harness-drop slot + the 2 retainer pilots) is built ONCE, then replicated
+    by an EXACT ``k * 60 deg`` rotation about the central Z axis for
+    ``k = 0..5`` -- every leg is bit-identical up to its rotation and the hex
+    prism is itself C6.  ``check_c6_symmetry`` probes THIS slab (the
+    C6-bearing portion of the merged chassis_bottom); the full chassis_bottom
+    legitimately breaks C6 only via the off-centre battery/electronics
+    features, which live in the plate above, not in this floor.
     """
-    flange_top = CHASSIS_SPLIT_Z
-    flange_bot = CHASSIS_SPLIT_Z - CHASSIS_JOIN_FLANGE_T
-    z_c = 0.5 * (flange_bot + flange_top)
-    t = CHASSIS_JOIN_FLANGE_T
+    floor_bot = CHASSIS_SPLIT_Z - CHASSIS_BOTTOM_FLOOR_T   # -6
+    floor_top = CHASSIS_SPLIT_Z + 1.0                      # -1 (1 mm plate overlap)
+    z_c = 0.5 * (floor_bot + floor_top)
+    t = floor_top - floor_bot
 
     apothem = CHASSIS_FLAT_TO_FLAT / 2.0
     circum = apothem / np.cos(np.pi / 6.0)
 
-    # ---- The plate: ONE solid regular-hex prism (inherently C6) -----------
+    # ---- The slab: ONE solid regular-hex prism (inherently C6) ------------
     plate = _cyl(circum, t, sections=6)
     plate.apply_transform(rotation_matrix(np.pi / 6, [0, 0, 1]))
     plate.apply_translation([0.0, 0.0, z_c])
 
     # ---- ONE canonical 60-deg sector of cutters (built ONCE) --------------
-    # Canonical leg azimuth = 30 deg (legs sit at the 6 hex-edge midpoints,
-    # 30 + k*60); canonical join azimuth = 0 deg (the 6 hex corners carry the
-    # join hardware, 0 + k*60).  Everything is replicated by exact k*60 deg
-    # rotation below, so symmetry cannot drift.
     sector: list[trimesh.Trimesh] = []
 
-    # Leg body-clearance cutout (servo body passes through the plate here) +
-    # serial-bus harness-drop slot, placed at the canonical leg azimuth.
+    # Leg body-clearance cutout + serial-bus harness-drop slot at the canonical
+    # leg azimuth (legs sit at the 6 hex-edge midpoints, 30 + k*60 deg).
     leg_az = np.radians(30.0)
     body_r = apothem - SERVO_OUTPUT_X
     cutout = _box((WELL_W + 2.0, WELL_D + 2.0, t * 4.0))
@@ -6214,34 +6114,11 @@ def make_chassis_bottom_lower() -> trimesh.Trimesh:
     drop.apply_translation([drop_r * np.cos(leg_az), drop_r * np.sin(leg_az), z_c])
     sector.append(drop)
 
-    # Join hardware for the canonical hex edge (azimuth 0 deg): 2 M3 join
-    # bolts straddling the edge midpoint + 1 register dowel on it.  Bolt =
-    # head counterbore (opens at the flange BOTTOM) + Phi3.4 clearance bore
-    # (full thickness); the M3 x 10 SHCS thread UP into the HIGH half's
-    # self-tap bosses.  Dowel = blind hole in the flange TOP (mating face).
-    for s in (+1.0, -1.0):
-        bx, by = CHASSIS_JOIN_BOLT_RADIUS, s * CHASSIS_JOIN_BOLT_TANG
-        cb_h = CHASSIS_JOIN_BOLT_CB_DEPTH + 0.2
-        cb = _cyl(CHASSIS_JOIN_BOLT_HEAD_OD / 2.0, cb_h)
-        cb.apply_translation([bx, by, flange_bot - 0.2 + cb_h / 2.0])
-        sector.append(cb)
-        clr = _cyl(CHASSIS_JOIN_BOLT_CLEAR_OD / 2.0, t * 2.0)
-        clr.apply_translation([bx, by, z_c])
-        sector.append(clr)
-    depth = CHASSIS_JOIN_DOWEL_DEPTH + 0.4
-    dowel = _cyl(CHASSIS_JOIN_DOWEL_HOLE_OD / 2.0, depth)
-    dowel.apply_translation([CHASSIS_JOIN_BOLT_RADIUS, 0.0,
-                             flange_top - depth / 2.0 + 0.2])
-    sector.append(dowel)
-
     # Yaw-servo retainer-strap anchor pilots: 2 blind M3 self-tap holes in the
-    # plate BOTTOM at the tangential flanks of the leg's body cutout, where the
+    # floor BOTTOM at the tangential flanks of the leg's body cutout, where the
     # capture stirrup (make_yaw_servo_retainer) bolts UP to tie the hanging yaw
-    # servo to the chassis.  (The old deep-cradle end-wall pilots vanished with
-    # the flat-plate redesign and their pattern fell inside this cutout; these
-    # re-establish real retention in solid plate material.)  Built from the
-    # cradle-local anchor pattern mapped into the canonical leg's radial/
-    # tangential basis, so the k*60 deg replication below keeps them C6.
+    # servo to the chassis.  chassis_lower_retainer_anchor_centres is the shared
+    # single source of truth for the stirrup arms + the alignment guard.
     rad = np.array([np.cos(leg_az), np.sin(leg_az)])
     tan = np.array([-np.sin(leg_az), np.cos(leg_az)])
     edge = apothem * rad
@@ -6249,7 +6126,7 @@ def make_chassis_bottom_lower() -> trimesh.Trimesh:
     for (cxr, cyt) in chassis_lower_retainer_anchor_centres():
         pxy = edge + cxr * rad + cyt * tan
         pil = _cyl(RETAINER_PLATE_PILOT_OD / 2.0, pil_h)
-        pil.apply_translation([pxy[0], pxy[1], flange_bot - 0.2 + pil_h / 2.0])
+        pil.apply_translation([pxy[0], pxy[1], floor_bot - 0.2 + pil_h / 2.0])
         sector.append(pil)
 
     # ---- Replicate the sector by EXACT k*60 deg rotation, batch diff ------
@@ -9807,10 +9684,9 @@ def main() -> None:
     print("Body parts:")
     parts.append(("chassis_top.stl",      make_chassis_top()))
     parts.append(("chassis_bottom.stl",   make_chassis_bottom()))
-    # Jun 2026 print split: the bottom plate is now TWO bolt-together parts.
-    # chassis_bottom (above) is the flat HIGH half; chassis_bottom_lower is the
-    # bolt-on LOW half carrying the 6 yaw-servo cradle buckets.
-    parts.append(("chassis_bottom_lower.stl", make_chassis_bottom_lower()))
+    # Jun 2026: the bottom plate is a SINGLE merged part again -- the flat plate
+    # + bearing tower + a solid flat floor slab folded onto the underside (the
+    # old chassis_bottom_lower LOW half, sans join hardware).
     # Jun 2026 deck redesign: the clip-in battery_holder + the in-gap
     # electronics_tray (Pi + bus adapter) are RETIRED.  The battery now
     # velcro-straps to chassis_bottom; the brain is an Arduino Uno Q on
