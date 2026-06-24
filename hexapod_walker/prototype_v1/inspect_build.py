@@ -232,6 +232,31 @@ def _build_assembly_instances() -> list[Instance]:
         "imu_pad", "imu_pad.stl", None, None,
         _trans(HP.IMU_PAD_CENTRE_X, HP.IMU_PAD_CENTRE_Y, imu_z),
     ))
+    # Spider carapace dome on its spacer standoffs above chassis_top, plus
+    # the 8 removable eyes seated in their sockets (a separate instance so
+    # the eyes render in their own contrasting colour).  Both share the same
+    # placement transform; the eye STL is already positioned in carapace-local
+    # coordinates.
+    carapace_seat_z = chassis_top_top_z + HP.CARAPACE_SEAT_ABOVE_TOP
+    instances.append(Instance(
+        "spider_carapace", "spider_carapace.stl", None, None,
+        _trans(0, 0, carapace_seat_z),
+    ))
+    # Eyes split into three coloured groups: the 2 big dark "headlight" eyes,
+    # the 6 little accent eyes, and the white catchlight beads.  All share the
+    # carapace placement transform (the STLs are in carapace-local coords).
+    instances.append(Instance(
+        "spider_eye_big", "spider_eyes_big_placed.stl", None, None,
+        _trans(0, 0, carapace_seat_z),
+    ))
+    instances.append(Instance(
+        "spider_eye", "spider_eyes_small_placed.stl", None, None,
+        _trans(0, 0, carapace_seat_z),
+    ))
+    instances.append(Instance(
+        "spider_glint", "spider_glints_placed.stl", None, None,
+        _trans(0, 0, carapace_seat_z),
+    ))
     # MPU-6050 / GY-521 visual mesh sits on the 4 boss tops of the
     # IMU pad.  Synthesised as a flat IMU_PCB slab written to
     # stl_prototype/mpu6050.stl alongside the other visual-only

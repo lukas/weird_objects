@@ -7922,11 +7922,318 @@ def make_assembly_preview() -> trimesh.Trimesh:
         leg.apply_translation([0, 0, chassis_lift])
         parts.append(leg)
 
+    # Spider carapace dome (with the 8 removable eyes inserted), mounted on
+    # spacer standoffs above chassis_top's top face.  chassis_top top face =
+    # chassis_lift + CHASSIS_GAP + CHASSIS_PLATE_T + CHASSIS_PLATE_T/2.
+    chassis_top_top_z = (chassis_lift + CHASSIS_GAP
+                         + CHASSIS_PLATE_T + CHASSIS_PLATE_T / 2.0)
+    carapace = make_spider_carapace(with_eyes=True)
+    carapace.apply_translation(
+        [0, 0, chassis_top_top_z + CARAPACE_SEAT_ABOVE_TOP])
+    parts.append(carapace)
+
     preview = _union(*parts)
 
     # Z-up -> Y-up so default STL viewers show the walker upright
     preview.apply_transform(rotation_matrix(-np.pi / 2.0, [1, 0, 0]))
     return preview
+
+
+# ---------------------------------------------------------------------------
+# Spider carapace dome + removable press-fit eyes (Jun 2026)
+# ---------------------------------------------------------------------------
+# A domed cephalothorax/prosoma shell that bolts on TOP of chassis_top via 4
+# spacer standoffs, turning the hexapod into an 8-eyed spider.  Adapted from
+# the prototype_sts3215 carapace, but with one deliberate improvement the user
+# asked for: the 8 eyes are SEPARATE press-fit parts (not fused to the shell)
+# so they can be printed in a contrasting colour (e.g. glossy red) and pushed
+# into sockets on the front slope.
+#
+# Local frame: origin on the carapace SEAT/RIM plane (local z = 0), +X =
+# forward (anterior; the eyes live on this front slope), +Y = lateral, +Z = up.
+# The 4 mount feet land on CHASSIS_STANDOFF_HOLES_XY (+/-35, 0)/(0, +/-35) --
+# the same 4 columns the inter-plate brass standoffs already use -- so a short
+# M3 spacer standoff rises from each column top and the dome bolts down onto
+# the 4 spacers (M3 screw threads UP into a heat-set insert in each foot, so
+# the closed dome lifts off as one piece).
+CARAPACE_AX     = 60.0   # mm -- fore/aft outer semi-axis
+CARAPACE_AY     = 56.0   # mm -- lateral outer semi-axis
+CARAPACE_HD     = 40.0   # mm -- dome height (rim -> apex); rounder = cuter
+CARAPACE_WALL   =  3.0   # mm -- shell wall (>= 3-perimeter min)
+CARAPACE_FOOT_OD =  9.0  # mm -- mount-foot boss OD at the 4 columns
+CARAPACE_SEAT_ABOVE_TOP = 22.0   # mm -- spacer length: rim above chassis_top top
+
+# 8-eye layout: (x, y, lens_radius) on the front (+X) slope, each MIRRORED in
+# +/-Y.  CUTE jumping-spider ("Lucas") face: a big forward pair of "headlight"
+# eyes (AME) dominates, with a smaller flanking pair (ALE) just outboard and 4
+# little eyes (PME + PLE) up top.  The size contrast -- two huge eyes + six
+# tiny ones -- is what reads as adorable rather than as a creepy 8-eye grid.
+CARAPACE_EYES = (
+    (52.0,  9.5, 7.5),   # AME -- the two BIG forward "headlight" eyes
+    (45.0, 24.0, 3.6),   # ALE -- small, flanking + slightly outboard
+    (38.0, 12.0, 2.8),   # PME -- little, up between
+    (34.0, 28.0, 2.6),   # PLE -- little, top outer
+)
+EYE_PLUG_CLEAR  = 0.15   # mm -- radial socket-bore clearance (friction press fit)
+EYE_PLUG_H      =  6.0   # mm -- press-fit plug length
+EYE_TURRET_IN   =  6.0   # mm -- how far the socket turret reaches INTO the shell
+EYE_TURRET_PROUD = 0.6   # mm -- how far the socket rim stands PROUD of the shell
+
+# An eye counts as a BIG "headlight" eye (dark lens + white catchlight) when its
+# lens radius is at least this; the little secondary eyes stay the accent colour.
+EYE_BIG_MIN_R   =  6.0   # mm
+EYE_GLINT_R     =  1.7   # mm -- tiny white catchlight bead on each big eye
+
+
+def _half_ellipsoid(ax: float, ay: float, hd: float,
+                    subdivisions: int = 4) -> trimesh.Trimesh:
+    """Upper half-ellipsoid (a dome): flat rim on z = 0, apex at z = hd."""
+    sph = trimesh.creation.icosphere(subdivisions=subdivisions, radius=1.0)
+    sph.apply_scale((ax, ay, hd))
+    cutter = _box((4.0 * ax, 4.0 * ay, 4.0 * hd), center=(0.0, 0.0, -2.0 * hd))
+    return _diff(sph, cutter)
+
+
+def _oriented_cyl(radius: float, length: float, center, axis_unit,
+                  *, sections: int = CYL_SECTIONS) -> trimesh.Trimesh:
+    """Cylinder of given radius/length whose axis points along ``axis_unit``
+    (a unit 3-vector), centred at ``center`` (world mm)."""
+    m = _cyl(radius, length, sections=sections)
+    T = trimesh.geometry.align_vectors([0.0, 0.0, 1.0], np.asarray(axis_unit))
+    m.apply_transform(T)
+    m.apply_translation(np.asarray(center))
+    return m
+
+
+def _eye_surface_point_normal(ex: float, ey: float):
+    """Return (P, n): the point on the OUTER carapace ellipsoid above plan-view
+    (ex, ey) and the outward unit normal there.  None if (ex, ey) is off-dome."""
+    ax, ay, hd = CARAPACE_AX, CARAPACE_AY, CARAPACE_HD
+    frac = 1.0 - (ex / ax) ** 2 - (ey / ay) ** 2
+    if frac <= 0.0:
+        return None
+    ez = hd * np.sqrt(frac)
+    P = np.array([ex, ey, ez])
+    n = np.array([ex / ax ** 2, ey / ay ** 2, ez / hd ** 2])
+    n = n / np.linalg.norm(n)
+    return P, n
+
+
+def _eye_socket(P, n, er: float):
+    """Build (turret_boss, bore_cut) for one eye socket at surface point P with
+    outward normal n.  The turret is a flat-topped cylinder along n that gives
+    the round eye a clean seat ring; the bore is the Phi(2*er)+clearance blind
+    hole the eye's plug press-fits into."""
+    L = EYE_TURRET_IN + EYE_TURRET_PROUD
+    turret_centre = P + n * (EYE_TURRET_PROUD - L / 2.0)
+    turret = _oriented_cyl(er + 1.5, L, turret_centre, n)
+    bore_len = EYE_PLUG_H + 1.0
+    bore_centre = P + n * (EYE_TURRET_PROUD - bore_len / 2.0 + 0.1)
+    bore = _oriented_cyl(er + EYE_PLUG_CLEAR, bore_len, bore_centre, n)
+    return turret, bore
+
+
+def make_spider_eye(er: float) -> trimesh.Trimesh:
+    """One removable spider eye, in PRINT orientation (plug down, dome up):
+    a Phi(2*er) cylindrical plug that press-fits the carapace socket, capped by
+    a smooth hemispherical lens of the same radius (zero overhang -> prints
+    support-free, glossy dome facing up).  Print these in a contrasting colour
+    and push them into the carapace front slope."""
+    plug = _cyl(er, EYE_PLUG_H)
+    plug.apply_translation([0.0, 0.0, EYE_PLUG_H / 2.0])
+    dome = trimesh.creation.icosphere(subdivisions=3, radius=er)
+    dome = _diff(dome, _box((4.0 * er, 4.0 * er, 4.0 * er),
+                            center=(0.0, 0.0, -2.0 * er)))
+    dome.apply_translation([0.0, 0.0, EYE_PLUG_H])
+    return _union(plug, dome)
+
+
+def _seated_eye(P, n, er: float) -> trimesh.Trimesh:
+    """The same eye, transformed to its INSTALLED pose (plug into the socket
+    along -n, lens proud along +n) for the assembly/BuildViz preview."""
+    plug = _cyl(er, EYE_PLUG_H)
+    plug.apply_translation([0.0, 0.0, -EYE_PLUG_H / 2.0])
+    dome = trimesh.creation.icosphere(subdivisions=3, radius=er)
+    dome = _diff(dome, _box((4.0 * er, 4.0 * er, 4.0 * er),
+                            center=(0.0, 0.0, -2.0 * er)))
+    eye = _union(plug, dome)
+    T = trimesh.geometry.align_vectors([0.0, 0.0, 1.0], np.asarray(n))
+    eye.apply_transform(T)
+    eye.apply_translation(np.asarray(P) + np.asarray(n) * EYE_TURRET_PROUD)
+    return eye
+
+
+def make_spider_carapace(with_eyes: bool = False) -> trimesh.Trimesh:
+    """Domed spider cephalothorax/prosoma carapace that bolts on TOP of
+    chassis_top as a removable shell, with 8 EYE SOCKETS on the front slope.
+
+    ``with_eyes=False`` (default, the printed part): the bare shell + 4 mount
+    feet + 8 empty press-fit eye sockets + a rear wire/vent window and side
+    vents.  ``with_eyes=True``: the same shell with all 8 removable eyes
+    inserted, for the assembly preview / BuildViz only."""
+    ax, ay, hd, w = CARAPACE_AX, CARAPACE_AY, CARAPACE_HD, CARAPACE_WALL
+    outer = _half_ellipsoid(ax, ay, hd)
+    # Inner subtractor is a FULL ellipsoid (not a half): subtracting it from
+    # the half-dome hollows out the top while leaving a clean curved inner
+    # wall down to a flat annular rim at z = 0.  Using a half-ellipsoid here
+    # instead would put a flat inner cut face coincident with the outer's
+    # z = 0 cut, which makes the boolean non-watertight at the rim.
+    inner = trimesh.creation.icosphere(subdivisions=4, radius=1.0)
+    inner.apply_scale((ax - w, ay - w, hd - w))
+    shell = _diff(outer, inner)
+
+    # --- 4 mount feet at the chassis standoff columns ------------------
+    feet: list[trimesh.Trimesh] = []
+    pockets: list[trimesh.Trimesh] = []
+    for (cx, cy) in CHASSIS_STANDOFF_HOLES_XY:
+        frac = 1.0 - (cx / (ax - w)) ** 2 - (cy / (ay - w)) ** 2
+        inner_z = (hd - w) * np.sqrt(max(frac, 0.04))
+        boss_h = inner_z + 3.0
+        boss = _cyl(CARAPACE_FOOT_OD / 2.0, boss_h)
+        boss.apply_translation([cx, cy, boss_h / 2.0])
+        feet.append(boss)
+        # M3 heat-set insert pocket opening DOWN from the seat face: an M3
+        # screw threads UP from the spacer standoff into the insert.
+        pocket = _cyl(INSERT_M3_PILOT_OD / 2.0, INSERT_M3_PILOT_DEPTH + 0.4)
+        pocket.apply_translation(
+            [cx, cy, (INSERT_M3_PILOT_DEPTH + 0.4) / 2.0 - 0.2])
+        pockets.append(pocket)
+
+    body = _union(shell, *feet)
+
+    # --- Eye socket turrets (added) + bores (cut later) ----------------
+    turrets: list[trimesh.Trimesh] = []
+    bores: list[trimesh.Trimesh] = []
+    seated: list[trimesh.Trimesh] = []
+    for (ex, ey, er) in CARAPACE_EYES:
+        for sy in (-1.0, 1.0):
+            pn = _eye_surface_point_normal(ex, sy * ey)
+            if pn is None:
+                continue
+            P, n = pn
+            turret, bore = _eye_socket(P, n, er)
+            turrets.append(turret)
+            bores.append(bore)
+            if with_eyes:
+                seated.append(_seated_eye(P, n, er))
+                if er >= EYE_BIG_MIN_R:
+                    seated.append(_seated_glint(P, n, er))
+    body = _union(body, *turrets)
+
+    # --- Rear (-X) wire-exit / vent window + lateral vent slots --------
+    rear_window = _box((34.0, 28.0, 2.0 * (hd - w) + 4.0),
+                       center=(-(ax - 5.0), 0.0, (hd - w)))
+    rear_cap = _box((52.0, 36.0, 40.0),
+                    center=(-(ax - 5.0), 0.0, 16.0 + 20.0))
+    rear_window = _diff(rear_window, rear_cap)
+    cuts: list[trimesh.Trimesh] = [rear_window]
+    for sy in (-1.0, 1.0):
+        for vx in (-14.0, 4.0):
+            slot = _cyl(2.0, 26.0)
+            slot.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))
+            slot.apply_translation([vx, sy * (ay - 7.0), 8.0])
+            cuts.append(slot)
+
+    body = _diff(body, *pockets, *bores, *cuts)
+
+    if with_eyes and seated:
+        body = _union(body, *seated)
+    return body
+
+
+def _seated_glint(P, n, er: float) -> trimesh.Trimesh:
+    """A tiny white catchlight bead sitting proud of a big eye's lens, in the
+    carapace LOCAL frame.  The lens is a sphere of radius ``er`` centred at the
+    seat point C = P + n*PROUD; the bead is a small sphere on that lens surface,
+    pushed up-and-outboard so it reads as a glossy highlight (à la Lucas the
+    Spider).  Visual-only -- in print it is a paint dot or a glued-in bead."""
+    C = np.asarray(P) + np.asarray(n) * EYE_TURRET_PROUD
+    up = np.array([0.0, 0.0, 1.0])
+    # Highlight direction: mostly along the lens normal, biased upward and a
+    # touch outboard (away from y = 0) so both beads catch the "light" the same.
+    g = np.asarray(n) + 0.85 * up + 0.18 * np.sign(P[1] or 1.0) * np.array([0, 1, 0])
+    g = g / np.linalg.norm(g)
+    bead = trimesh.creation.icosphere(subdivisions=2, radius=EYE_GLINT_R)
+    bead.apply_translation(C + g * (er - EYE_GLINT_R * 0.35))
+    return bead
+
+
+def _iter_seated_eyes():
+    """Yield (P, n, er, is_big) for every mirrored eye that lands on the dome."""
+    for (ex, ey, er) in CARAPACE_EYES:
+        for sy in (-1.0, 1.0):
+            pn = _eye_surface_point_normal(ex, sy * ey)
+            if pn is None:
+                continue
+            P, n = pn
+            yield P, n, er, (er >= EYE_BIG_MIN_R)
+
+
+def make_spider_eyes_placed() -> trimesh.Trimesh:
+    """ALL 8 removable eyes seated in their sockets (carapace LOCAL frame).
+    Kept for callers that want every eye as one mesh; BuildViz instead uses the
+    big/small/glint split below so each group renders in its own colour."""
+    return trimesh.util.concatenate(
+        [_seated_eye(P, n, er) for P, n, er, _ in _iter_seated_eyes()])
+
+
+def make_spider_eyes_big_placed() -> trimesh.Trimesh:
+    """The two BIG forward "headlight" eyes, seated (carapace LOCAL frame).
+    Rendered dark so the catchlight bead pops."""
+    return trimesh.util.concatenate(
+        [_seated_eye(P, n, er) for P, n, er, big in _iter_seated_eyes() if big])
+
+
+def make_spider_eyes_small_placed() -> trimesh.Trimesh:
+    """The 6 little secondary eyes, seated (carapace LOCAL frame), accent colour."""
+    return trimesh.util.concatenate(
+        [_seated_eye(P, n, er) for P, n, er, big in _iter_seated_eyes() if not big])
+
+
+def make_spider_glints_placed() -> trimesh.Trimesh:
+    """The white catchlight beads on the two big eyes (carapace LOCAL frame)."""
+    return trimesh.util.concatenate(
+        [_seated_glint(P, n, er) for P, n, er, big in _iter_seated_eyes() if big])
+
+
+def _eye_plate(sizes, *, beads: bool = False) -> trimesh.Trimesh:
+    """Lay out ``sizes`` eyes (each printed twice -- L/R) flat on one plate.
+    With ``beads=True`` emit tiny catchlight beads instead of full eyes."""
+    spacing = 2.0 * (max(sizes) if sizes else 1.0) + 6.0
+    out: list[trimesh.Trimesh] = []
+    for col, er in enumerate(sizes):
+        for row in range(2):
+            if beads:
+                e = trimesh.creation.icosphere(subdivisions=2, radius=EYE_GLINT_R)
+                e = _diff(e, _box((4.0 * EYE_GLINT_R,) * 3,
+                                  center=(0.0, 0.0, -2.0 * EYE_GLINT_R)))
+            else:
+                e = make_spider_eye(er)
+            e.apply_translation([col * spacing, row * spacing, 0.0])
+            out.append(e)
+    return trimesh.util.concatenate(out)
+
+
+def make_spider_eyes() -> trimesh.Trimesh:
+    """All 8 removable eyes (2 each of 4 sizes) on one plate (back-compat)."""
+    return _eye_plate([er for (_, _, er) in CARAPACE_EYES])
+
+
+def make_spider_eyes_big() -> trimesh.Trimesh:
+    """The 2 BIG eyes on a small plate -- print in a DARK colour."""
+    return _eye_plate([er for (_, _, er) in CARAPACE_EYES if er >= EYE_BIG_MIN_R])
+
+
+def make_spider_eyes_small() -> trimesh.Trimesh:
+    """The 6 little eyes on a plate -- print in the ACCENT colour."""
+    return _eye_plate([er for (_, _, er) in CARAPACE_EYES if er < EYE_BIG_MIN_R])
+
+
+def make_spider_glints() -> trimesh.Trimesh:
+    """The 2 tiny catchlight beads on a plate -- print in WHITE (optional;
+    a dab of white paint works too)."""
+    return _eye_plate([er for (_, _, er) in CARAPACE_EYES if er >= EYE_BIG_MIN_R],
+                      beads=True)
 
 
 # ---------------------------------------------------------------------------
@@ -7946,6 +8253,23 @@ def main() -> None:
     parts.append(("bec_cradle.stl",       make_bec_cradle()))
     parts.append(("switch_holster.stl",   make_switch_holster()))
     parts.append(("imu_pad.stl",          make_imu_pad()))
+
+    print("Spider carapace + removable eyes (Jun 2026 -- print eyes in a\n"
+          "contrasting colour and press them into the dome's front sockets):")
+    parts.append(("spider_carapace.stl",  make_spider_carapace()))
+    # Print plates, split by colour: 2 BIG dark "headlight" eyes, 6 little
+    # accent eyes, and 2 tiny white catchlight beads (beads optional -- a dab
+    # of white paint works too).  spider_eyes.stl keeps all 8 for back-compat.
+    parts.append(("spider_eyes.stl",       make_spider_eyes()))
+    parts.append(("spider_eyes_big.stl",   make_spider_eyes_big()))
+    parts.append(("spider_eyes_small.stl", make_spider_eyes_small()))
+    parts.append(("spider_glints.stl",     make_spider_glints()))
+    # Viz-only: eyes/beads seated in their sockets (carapace-local frame) so
+    # BuildViz / the inspector show each group as its own coloured instance.
+    parts.append(("spider_eyes_placed.stl",       make_spider_eyes_placed()))
+    parts.append(("spider_eyes_big_placed.stl",   make_spider_eyes_big_placed()))
+    parts.append(("spider_eyes_small_placed.stl", make_spider_eyes_small_placed()))
+    parts.append(("spider_glints_placed.stl",     make_spider_glints_placed()))
 
     print("Leg parts (one of each -- print 6 sets):")
     parts.append(("coxa_link.stl",        make_coxa_link()))

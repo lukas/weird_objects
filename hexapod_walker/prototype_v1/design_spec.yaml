@@ -1138,6 +1138,39 @@ parts:
             mates_to: "MPU-6050 / GY-521 IMU PCB bottom face"
             mating_plane_z_local_mm: 7.0    # = HP.IMU_PAD_T + HP.IMU_PAD_BOSS_H
 
+  spider_carapace:
+    role: "cosmetic body shell"
+    qty: 1
+    material: "PLA / PETG (body colour)"
+    description: "Domed spider cephalothorax/prosoma shell (Jun 2026) that bolts on TOP of chassis_top via 4 spacer standoffs, turning the hexapod into a cute jumping-spider.  Outer half-ellipsoid (CARAPACE_AX/AY/HD = 60/56/40 mm semi-axes -- tall + round for a bulbous, adorable body) hollowed to a CARAPACE_WALL = 3 mm shell, open at the bottom (skirt) so the electronics stack stays vented.  4 mount feet land on CHASSIS_STANDOFF_HOLES_XY (+/-35, 0)/(0, +/-35) -- the same columns the inter-plate brass standoffs use -- each with an M3 heat-set insert pocket opening DOWN so an M3 screw threads UP from the spacer below (the closed dome lifts off as one piece).  The 8 spider eyes are NOT part of this shell: the front (+X) slope carries 8 flat-topped EYE SOCKET turrets with Phi(2*er)+0.3 mm blind bores -- two BIG forward 'headlight' sockets + 6 little ones -- and the eyes are SEPARATE press-fit parts (see spider_eye) so they can be printed in a contrasting colour.  A rear (-X) arched window + lateral vent slots provide wire exit and cooling.  Local frame: +X forward (eye face), +Y lateral, +Z up; rim/seat at z = 0."
+    bounds_mm: [120.0, 112.0, 40.0]   # = 2*CARAPACE_AX, 2*CARAPACE_AY, CARAPACE_HD
+    print_orientation_rationale: "Print as modelled, rim/skirt down on the bed (z = 0 face down).  The dome is a self-supporting convex shell -- no supports for the outer surface.  The 8 eye-socket turrets and the 4 internal mount-foot bosses point inward/upward and print cleanly; the open skirt needs no bridging."
+    notes: "Mounting hardware (not printed): 4 x M3 spacer standoffs ~CARAPACE_SEAT_ABOVE_TOP = 22 mm long between chassis_top and the dome feet, + 4 x M3 heat-set inserts in the feet + 4 x M3 screws.  Eyes: print spider_eyes_big.stl (2 pcs) DARK, spider_eyes_small.stl (6 pcs) in an accent colour, and optionally spider_glints.stl (2 white catchlight beads, or just paint them on); press all eyes into the front-slope sockets (0.15 mm radial press fit)."
+
+  spider_eye:
+    role: "removable eye lens (little secondary eyes)"
+    qty: 6     # the 6 little eyes (ALE/PME/PLE); see CARAPACE_EYES.  Plate: spider_eyes_small.stl
+    material: "PLA / PETG (accent colour, e.g. glossy red)"
+    description: "One removable spider eye: a Phi(2*er) cylindrical plug capped by a smooth hemispherical lens of the same radius (zero overhang -> prints support-free, glossy dome up).  This entry covers the 6 LITTLE secondary eyes (lens radius er = 3.6 / 2.8 / 2.6 mm); the 2 big forward eyes are spider_eye_big.  Cute jumping-spider face = two big dark 'headlight' eyes dominate, ringed by these little accent eyes.  The plug press-fits the matching carapace front-slope socket with a 0.15 mm radial interference; pull-out by hand for recolouring.  Printed flat on spider_eyes_small.stl; the viz-only spider_eyes_small_placed.stl shows them seated.  (spider_eyes.stl still carries all 8 for a single-colour print.)"
+    bounds_mm: [8.0, 8.0, 8.0]    # largest little eye: Phi 7.2 plug + Phi 7.2 lens
+    print_orientation_rationale: "Plug flat-face DOWN on the bed, lens UP -- the hemisphere is a support-free convex dome with a clean top surface; a small brim helps the round plug base adhere."
+
+  spider_eye_big:
+    role: "removable eye lens (big headlight eyes)"
+    qty: 2     # the AME pair; plate: spider_eyes_big.stl
+    material: "PLA / PETG (DARK colour -- near-black/dark-brown, glossy)"
+    description: "The two BIG forward 'headlight' eyes (lens radius er = 7.5 mm -> Phi 15) that give the cute jumping-spider ('Lucas') look.  Same plug+hemisphere geometry as spider_eye but printed DARK so the white catchlight bead (spider_glint) pops.  Press-fits the front-slope big sockets with a 0.15 mm radial interference.  Plate: spider_eyes_big.stl; viz-only seated: spider_eyes_big_placed.stl."
+    bounds_mm: [15.0, 15.0, 15.0]    # Phi 15 plug + Phi 15 hemispherical lens
+    print_orientation_rationale: "Plug flat-face DOWN on the bed, lens UP -- support-free convex dome, clean glossy top; a small brim helps the round base adhere."
+
+  spider_glint:
+    role: "catchlight bead (cosmetic)"
+    qty: 2     # one per big eye; plate: spider_glints.stl
+    material: "PLA (WHITE)  -- OR omit and dab on white paint"
+    description: "A tiny Phi(2*EYE_GLINT_R) = Phi 3.4 mm hemispherical white bead glued onto the upper-outer surface of each big eye to read as a glossy catchlight (the single detail that flips the face from 'creepy' to 'adorable').  Optional: a dot of white paint or a nail-art bead does the same.  Plate: spider_glints.stl (printed as small domes); viz-only seated: spider_glints_placed.stl."
+    bounds_mm: [3.4, 3.4, 1.7]    # Phi 3.4 hemisphere
+    print_orientation_rationale: "Flat face DOWN, dome UP -- support-free.  So tiny that a brim/raft is recommended; or skip printing and paint instead."
+
   # June 2026 disc-horn switch: the printed servo_horn_adapter has
   # been retired.  The 4 x M3 bolt-circle (Phi 3.4 mm on a 14 mm PCD)
   # and the central spline-collar recess now live directly in

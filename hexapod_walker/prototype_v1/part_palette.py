@@ -48,6 +48,16 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "tibia_link":          (0.890, 0.467, 0.761),
     # Foot pad - tab:brown (TPU pad)
     "foot_pad":            (0.549, 0.337, 0.294),
+    # Spider carapace dome - dark charcoal-brown spider body.
+    "spider_carapace":     (0.247, 0.184, 0.157),
+    # Removable spider eyes - the 6 little secondary eyes are glossy deep red
+    # (printed in a contrasting colour and pressed into the front-slope sockets).
+    "spider_eye":          (0.792, 0.094, 0.118),
+    # The 2 BIG forward "headlight" eyes - near-black glossy, like a real
+    # jumping spider, so the white catchlight bead pops (Lucas-the-Spider cute).
+    "spider_eye_big":      (0.063, 0.063, 0.086),
+    # Tiny white catchlight bead on each big eye (print in white or paint it).
+    "spider_glint":        (0.961, 0.969, 0.984),
     # Servo horn adapter - tab:cyan
     "servo_horn_adapter":  (0.090, 0.745, 0.812),
     # Servo body - muted dark gray (commodity hardware)
@@ -100,6 +110,7 @@ _CHASSIS_LEVEL = frozenset({
     "chassis_top", "chassis_bottom",
     "chassis_plate_a", "chassis_plate_b",
     "battery_holder", "electronics_tray",
+    "spider_carapace", "spider_eye", "spider_eye_big", "spider_glint",
 })
 
 
