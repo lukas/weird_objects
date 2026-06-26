@@ -18,10 +18,12 @@ What it does
        - Bounding box matches spec.bounds_mm +/- spec.bounds_tol_mm.
        - Each declared hole punches a tunnel of the right diameter
          through the STL along the declared axis (raycast tunnel probe).
-       - Wire-channel start + end samples are NOT inside the STL
-         (corridor is open).
        - Keep-out-volume samples are NOT inside the STL (the part does
          not penetrate the keep-out).
+     Wire-channel corridors are NOT re-probed here -- they are named
+     references whose open-corridor sweep is owned by
+     ``_verify_prototype.check_wire_slot`` (run in step 4); this script
+     only records the declared channel names.
 4.  Optionally runs the full ``_verify_prototype.main()`` validator
     (skipped under ``--fast``: the workspace sweep is the slow group).
 5.  Writes a structured report dict (returned by ``run_validation()``)
@@ -234,11 +236,6 @@ def _hole_probe(mesh: trimesh.Trimesh,
               f"surrounding ring: {n_ring_solid}/8 inside mesh "
               f"(>=1 = bore has SOME material around it)")
     return ok, detail
-
-
-def _samples_on_line(start: np.ndarray, end: np.ndarray,
-                     n: int = 9) -> np.ndarray:
-    return np.linspace(start, end, n)
 
 
 def _voxel_sample_interior(mesh: trimesh.Trimesh,

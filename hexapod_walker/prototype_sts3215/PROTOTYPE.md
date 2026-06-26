@@ -5,11 +5,12 @@
 > you commit to industrial servomotors. Same architecture: regular hex
 > chassis, six identical 3-DOF legs, alternating-tripod gait — but
 > everything is shrunk roughly 6× and every joint is driven by a
-> generic 25 kg·cm hobby servo (DS3225 case/geometry) instead of a
-> $5000 harmonic-drive servomotor.
+> **FEETECH STS3215 (ST-3215-C018, 12 V / 30 kg·cm) serial-bus smart
+> servo** instead of a $5000 harmonic-drive servomotor.
 >
-> Total parts cost: **~$150 – $300** in 2026 USD. A motivated builder
-> can have it walking on a tabletop in a weekend.
+> Total parts cost: **~$615 – $1000** in 2026 USD (see
+> [`PROTOTYPE_BOM.md`](PROTOTYPE_BOM.md)). A motivated builder can have
+> it walking on a tabletop in a weekend.
 
 ![Cycles render of the prototype hexapod](renders/prototype.png)
 
@@ -50,14 +51,19 @@ when you graduate to the big version — just re-tune the gains.
 | Vehicle dry mass | ~ 1.3 kg |
 | Per-leg static load (tripod stance) | ~ 4.3 N (~ 0.43 kg) |
 | Peak knee torque | ~ 0.6 N·m (~ 6 kg·cm) |
-| Battery | 1 × 3S 2200 mAh LiPo (11.1 V → 5 V BEC) |
-| Continuous draw (cruise) | ~ 1.5 A @ 5 V |
+| Battery | 1 × 3S 2200 mAh LiPo (11.1 V nom / 12.6 V full) |
+| Servo rail | Raw 3S (12 V) via distributed fused power bus; see [`firmware/WIRING.md`](firmware/WIRING.md) §6 |
+| Logic rail | 5 V from a XINGYHENG 12→5 V buck (Uno Q only) |
+| Continuous draw (cruise) | ~ 9 A @ 12 V (all 18 servos walking), ~ 0.3 A @ 5 V (logic) |
 | Run time, level ground | ~ 30 min |
 
-**Knee torque margin:** the design target is a DS3225 25 kg·cm metal-gear
-digital servo.  At 6.8 V it gives a ~ 4× safety factor over the
-worst-case knee torque.  The printed wells, tab pilots and RL servo
-torque limits are all tuned around this DS3225-class case.
+**Knee torque margin:** the actuator is a FEETECH STS3215
+(ST-3215-C018, 12 V / 30 kg·cm) serial-bus smart servo.  At 12 V it
+gives a comfortable safety factor over the worst-case knee torque, and
+its built-in 12-bit encoder closes the position loop and reports
+load/voltage/current/temperature back over the bus.  The printed
+cradles, disc-horn sandwich joints and RL servo torque limits are all
+tuned around this STS3215-class case.
 
 > **Design B (May 2026):** the printed `servo_horn_adapter` disc has
 > been retired.  Each link now bolts directly onto a purchased servo
@@ -121,7 +127,7 @@ torque limits are all tuned around this DS3225-class case.
 ## Visual inspection
 
 Three viewers share the same `part_palette.PART_COLORS` table, so a
-given part type (e.g. `coxa_link` = green, `coxa_bracket` = orange,
+given part type (e.g. `coxa_link` = green, `foot_pad` = brown,
 `servo_body` = dark gray) is rendered with the *same* color in each:
 
 - `make view-static`  — MuJoCo viewer, prototype frozen in stance pose
@@ -162,7 +168,7 @@ The bottom slider (0.0 – 2.0) scales each part's distance from the
 chassis centroid for finer exploded-view control than the `E` toggle,
 and the row of color-coded checkboxes along the left edge hides or
 shows all instances of a given part type so you can isolate, say,
-just the coxa brackets or just the servo bodies. The MuJoCo
+just the coxa links or just the servo bodies. The MuJoCo
 viewers' body-name labels default to ON (toggle with `B` once inside
 the viewer).
 
@@ -293,6 +299,16 @@ in `hexapod_prototype.py` and an inferred 2.15 kg assembled mass):
 | `chassis_top`   | dead load minus battery                            | same supports |
 | `foot_pad`      | foot-strike pressure on the disk floor             | `FOOT_PAD_OD`, `FOOT_HINGE_PIN_HOLE_D` |
 
+> **Legacy symbol names.** The opt-in `strength/` module has **not**
+> been renamed to the STS3215 sandwich-joint part set: it still keys its
+> load cases on the old single-spar names `tibia_link` / `femur_link` /
+> `coxa_link` and on the constant `DS3225_STALL_TORQUE` (~2.5 N·m yaw
+> stall, comparable to the STS3215's ~30 kg·cm ≈ 2.9 N·m). These are
+> internal strength-tooling symbols only — the actual robot is driven by
+> 18× FEETECH STS3215 serial-bus servos (see §2/§4). The CLI examples
+> above use those legacy `PARTS=` names because that is what the module
+> currently expects.
+
 The strength module imports from `hexapod_prototype` but the reverse
 is forbidden -- a missing FEA toolchain cannot break the geometry
 build.
@@ -337,26 +353,44 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 
 | File | Function | Suggested print settings |
 |---|---|---|
-| `chassis_top.stl` | Top hex deck (4 mm PLA, 200 mm flat-to-flat).  Carries 2 x Phi 8 mm printed bosses near the +X edge for the `switch_holster` heat-set inserts. | 0.2 mm layer, 25% gyroid infill, 4 walls |
-| `chassis_bottom.stl` | Identical bottom plate | same as top |
-| `battery_holder.stl` | Open-top tray for one 3S 2200 mAh LiPo.  Has a 14 x 12 x 10 mm cable-clearance notch at the +X -Y corner of the cradle so the Pi 4 / Pi 5's USB-A 3.0 plug can be inserted without colliding with the cradle wall (see `cable_keepouts.py`). | 0.2 mm layer, 20% infill |
-| `electronics_tray.stl` | 160 x 130 mm mount deck for Arduino Mega 2560 + Raspberry Pi 4/5 + 2 x PCA9685.  Both PCA9685s are now bolted (8 x M3 inserts total) instead of cable-tied. | 0.2 mm, 20% infill, 2 walls |
-| `bec_cradle.stl` | Snap-fit clip for 2 x 5V 5A switching BECs.  Sits on top of the electronics_tray near the -Y edge in the corridor between the Mega's +X edge and PCA2's -X edge.  No fasteners (interference fit on long sides + retention lip).  Phi 5 mm wire-exit channels at +/- X ends route the XT60 input pigtail and the 3-pin servo-header output pigtail. | 0.2 mm, 25% infill, 3 walls |
-| `switch_holster.stl` | Snap-in holster for one ~ 32 x 17 x 17 mm anti-spark on/off switch.  Bolted to chassis_top's +X edge via 2 x M3 x 10 SHCS that thread DOWN into M3 brass heat-set inserts captive in chassis_top's 2 printed bosses.  Toggle protrudes +X past the chassis edge for user access; XT60 pigtails exit the +/- Y end faces. | 0.2 mm, 25% infill, 3 walls |
+| `chassis_top.stl` | Top hex deck (4 mm PLA, 200 mm flat-to-flat).  Carries 2 x Phi 8 mm printed bosses near the +X edge for the `switch_holster` heat-set inserts, plus the 4 `DECK_COLUMN_XY` standoff sites that carry the stacked electronics deck. | 0.2 mm layer, 25% gyroid infill, 4 walls |
+| `chassis_bottom.stl` | Single merged bottom plate (Jun 2026): a flat 200 mm hex with a ~8 mm floor that carries the 6 yaw-servo cradles, the split yaw-bearing tower bases, and the velcro-strap slots that retain the LiPo on the plate top face.  Prints face-DOWN, no supports. | same as top |
+| `uno_q_tray.stl` | Lower electronics deck — carries the **Arduino Uno Q** (the brain + direct STS3215 TTL-bus driver).  Stacks on 4 M3 standoff columns above `chassis_top` at `DECK_LEVEL_1_STANDOFF_H` (16 mm). | 0.2 mm, 20% gyroid, 3 walls |
+| `buck_tray.stl` | Upper electronics deck — carries the **XINGYHENG 12→5 V buck converter** that powers the Uno Q's logic.  Stacks on the `uno_q_tray` columns at `DECK_LEVEL_2_STANDOFF_H` (22 mm). | 0.2 mm, 20% gyroid, 2 walls |
+| `spider_carapace.stl` | Domed cephalothorax shell (~141 x 124 x 34 mm) with the classic 8-eye spider face.  Bolts on as the 3rd deck level on 4 M3 standoffs above `buck_tray`; the open skirt + rear window keep every wire exit and the buck vented. | 0.2 mm, 10–15% gyroid, 3 walls, print rim-down |
+| `switch_holster.stl` | Snap-in holster for one ~ 32 x 17 x 17 mm anti-spark on/off switch (the e-stop).  Bolted to chassis_top's +X edge via 2 x M3 x 10 SHCS that thread DOWN into M3 brass heat-set inserts captive in chassis_top's 2 printed bosses.  Toggle protrudes +X past the chassis edge for user access; XT60 pigtails exit the +/- Y end faces. | 0.2 mm, 25% infill, 3 walls |
 | `imu_pad.stl` | 25 x 20 x 2 mm pad with 4 x Phi 8 mm bosses (3 mm tall) carrying M3 brass heat-set inserts on the GY-521 15 x 11 mm pattern (4 x Phi 3.0 mm clearance holes).  Bolts the MPU-6050 IMU breakout via 4 x M3 x 8 SHCS.  **No fasteners between the pad and chassis_top** -- the pad's flat smooth underside is bonded to chassis_top's centre with 3 mm double-sided foam tape, which serves AS the mount AND the vibration damper.  Sits at chassis (0, 0, chassis_top_top_z + 3 mm) -- the chassis centre of gravity, so gyro rates are not contaminated by linear-acceleration cross-coupling from body swing. | 0.2 mm, 25% infill, 3 walls |
 
 ### 3.2 Per-leg parts (print 6 sets)
 
-(May 2026 Design F: the standalone `coxa_bracket.stl` is RETIRED.
-The yaw servo now drops into an integrated cradle in `chassis_bottom.stl`
-(see Part 3.1); there is no separate per-leg bracket part.)
+The leg is a **disc-horn sandwich joint** design (Jun 2026): each hip
+and knee joint drives a 20 mm aluminium 25T disc horn on the servo's
+output spline and reuses a SECOND disc horn on the servo's rear idler
+boss for passive support, with the yoke bolting identically to both.
+The femur and tibia segments are Ø8 mm carbon-fibre tubes epoxy-bonded
+into printed end-fittings, NOT single printed spars.
 
 | File | Function | Print orientation |
 |---|---|---|
-| `coxa_link.stl` | U-arm driven by the yaw servo's horn; carries the hip-pitch servo in a side-loaded well. | Hub face down, well opening up |
-| `femur_link.stl` | I-beam thigh with a slot through the spar so the knee servo body can slide past it during assembly. Top + bottom flange bridges connect the spar to the well. **Knee cradle floor is OPEN** (May 2026 supports-free refactor) so the part prints flat with no bridged ceiling. | Spar's broad face flat on bed; knee cradle opens downward through the bed and upward through the print's top -- no closed floor, no supports needed. |
-| `tibia_link.stl` | Shin link with knee pad at one end and a single 6 mm-wide TANG at the other (foot-hinge end). **Tibia is `LINK_THICKNESS` = 6 mm wide in Y everywhere** (May 2026 supports-free refactor), so the entire part prints flat as a 6 mm-tall slab. | Spar's broad face flat on bed, no supports. |
-| `foot_pad.stl` | Compliant foot with a 2-cheek FORK at +Z (May 2026 inversion: foot now carries the fork, tibia carries the tang). M3 x 16 pan-head pin + M3 nylock captures the joint just as before. Print in TPU 95A for grip and ankle compliance. | Disk on bed, fork up. Fork cheeks are 3.5 mm thick TPU walls and the 6.4 mm slot between them prints in air -- no supports needed (vertical features only). |
+| `coxa_link.stl` | Yaw pad + arm + hip fixed side (symmetric servo cradle; the passive disc horn rides the servo's own rear idler boss, so there is no separate bearing housing). | Yaw-pad face down, bracket opening up |
+| `yaw_bearing_cap.stl` | TOP half of the SPLIT yaw-bearing tower; bolts onto each `chassis_bottom` tower with 3 x M3 x 8 SHCS to capture the spaced 6706 bearing pair.  Print flat, ring face down (no supports). | Ring face down |
+| `femur_hip_yoke.stl` | Hip moving yoke (symmetric clevis — both arms bolt to a disc horn, driven on the front, passive on the rear boss) + Ø8 CF-tube socket. | Spine down |
+| `femur_knee_bracket.stl` | Knee fixed side (symmetric servo cradle) + Ø8 CF-tube socket. | CF socket up |
+| `tibia_knee_yoke.stl` | Knee moving yoke (symmetric clevis — driven + passive disc horns) + Ø8 CF-tube socket. | Spine down |
+| `tibia_foot_fitting.stl` | Ø8 CF-tube socket + single foot-hinge TANG (M3 pin). | CF socket up |
+| `foot_pad.stl` | Compliant foot with a 2-cheek FORK at +Z (May 2026 inversion: foot now carries the fork, tibia carries the tang). M3 x 16 pan-head pin + M3 nylock captures the joint. Print in TPU 95A for grip and ankle compliance. | Disk on bed, fork up. Fork cheeks are 3.5 mm thick TPU walls and the 6.4 mm slot between them prints in air -- no supports needed (vertical features only). |
+
+> **Femur** = `femur_hip_yoke` + Ø8 CF tube + `femur_knee_bracket`.
+> **Tibia** = `tibia_knee_yoke` + Ø8 CF tube + `tibia_foot_fitting` +
+> `foot_pad`.  Cut each tube to length, epoxy into the printed sockets,
+> and drive a transverse Ø2.5 mm roll pin through the cross-hole.
+
+### 3.2a Per-joint parts (print 12 of each — 1 per hip + knee joint)
+
+| File | Function | Print orientation |
+|---|---|---|
+| `servo_clamp_cap.stl` | Sandwich-joint clamp cap that traps the hip/knee servo body; 2 x M3 x 8 SHCS self-tap into the cradle ±X wall-end pilots. | Flat |
+| `passive_horn_adapter.stl` | Press-fits the servo's rear idler boss and centres the reused 25T disc horn on the passive side; a central M2.5 screw retains it. | Collar down |
 
 ### 3.3 Visualization (do not print)
 
@@ -387,82 +421,118 @@ printer.
 
 | Item | Spec | Qty | Approx. cost |
 |---|---|---|---|
-| Hobby servo | **DS3225 25 kg·cm metal-gear digital servo**, standard 40 × 20 × 38 mm case, 54 mm tab span, ~49.5 mm tab-hole spacing, output offset ~10 mm from case centre. Buy all 20 from the same listing/batch. | 18 + 2 spare | ~$13 each on AliExpress, ~$18 each on Amazon ($260 – $360 total) |
+| Serial-bus servo | **FEETECH STS3215 (ST-3215-C018), 12 V / 30 kg·cm metal-gear smart serial-bus servo**, standard ~40 × 20 × 40 mm case with a 25T output spline carrying the flush 20 mm disc horn; a real END-face 10×10 mm M2.5 hole square for body retention.  Built-in 12-bit encoder; daisy-chained on a 1 Mbps half-duplex TTL bus with closed-loop position/load/voltage/current/temp feedback.  Buy all 20 from the same batch. | 18 + 2 spare | ~$18 – $25 each ($360 – $500 total) |
 
 ### 4.2 Power
 
+> Power architecture (3S → distributed fused bus → per-leg branches +
+> a separate 5 V logic buck) is documented in full in
+> [`firmware/WIRING.md`](firmware/WIRING.md) §6.  There is **no servo
+> BEC** — the STS3215 run directly off the raw 3S (12 V) rail.
+
 | Item | Spec | Qty | Cost |
 |---|---|---|---|
-| LiPo battery | 3S 2200 mAh 25C, XT60 connector | 1 | $20 |
-| BEC (5–6 V regulator) | 5 V 5 A switching, 3S input, Hobbywing UBEC form factor (~ 24 x 15 x 8 mm body).  One per PCA9685 (see `bec_cradle.stl`). | 2 | $8 each |
-| Anti-spark on/off switch | XT60 in/out pigtails, ~ 30 x 15 x 15 mm body (e.g. "LowPro RC" or "HRB").  Snaps into `switch_holster.stl` on chassis_top's +X edge; toggle protrudes outside the chassis for user access. | 1 | $10 |
+| LiPo battery | 3S 2200 mAh 25C+, XT60 connector.  Velcro-strapped to the top of `chassis_bottom` (no clip-in holder). | 1 | $20 |
+| Velcro cinch straps | Hook-and-loop straps (~15–20 mm) through the chassis_bottom strap slots; retain the LiPo on the plate. | 1 set | $5 |
+| XINGYHENG 12→5 V buck | 12 V→5 V step-down (3 A+); drops the 3S rail to 5 V for the Uno Q logic only (servos run on raw 12 V).  Mounts on `buck_tray`. | 1 | $8 |
+| Power distribution bus bar | 12 V DC bus bar / fused distribution block (V+ + GND); the 6 per-leg power branches + the buck tap off it. | 1 | $10 |
+| Main fuse + holder | 15–20 A blade/ANL fuse + inline holder between the anti-spark switch and the bus bar. | 1 | $8 |
+| Per-branch fuse + holder (optional) | 5–7 A mini-blade fuse + holder, one per leg branch. | 6 | $1.50 each |
+| 16–18 AWG silicone wire | Red + black, ~5 m each; the six per-leg V+/GND branches from the bus bar to each leg's 5264 injection pigtail. | 1 | $10 |
+| XT60 pigtails | Male/female, 12–14 AWG silicone (battery cable + bus-bar feed). | 2 | $4 |
+| Molex 5264 connector + crimp kit | 3-pin 2.5 mm kit (~20 sets) for the per-leg injection pigtails and the leg-to-leg signal+GND-only data jumpers. | 1 | $10 |
+| Anti-spark on/off switch | XT60 in/out pigtails (the e-stop).  Snaps into `switch_holster.stl` on chassis_top's +X edge; toggle protrudes outside the chassis for user access. | 1 | $10 |
 | LiPo charger | iSDT D2, B6AC, or any decent 3S balance charger | 1 | $30 |
 | LiPo bag | Fire-safe charging | 1 | $10 |
 
 ### 4.3 Control electronics
 
+> The whole control stack is a single **Arduino Uno Q** (on-board Linux
+> SoC + MCU) that runs the Python gait/RL/teleop AND drives the
+> half-duplex STS3215 TTL bus directly at 1 Mbps.  It replaces the old
+> Arduino Mega 2560, the Raspberry Pi, the 2×PCA9685 PWM boards, AND any
+> separate USB-to-TTL bus adapter.
+
 | Item | Spec | Qty | Cost |
 |---|---|---|---|
-| Arduino Mega 2560 (ELEGOO R3 clone) | ATmega 2560, 5 V; mounts to electronics_tray via 4 x M3x8 SHCS + 4 x M3 brass heat-set inserts (McMaster 94459A130) | 1 | $15 |
-| Raspberry Pi 4 Model B / Pi 5 | High-level brain (ROS 2, vision, gait planning); mounts to electronics_tray via 4 x M2.5x8 SHCS + 4 x M2.5 brass heat-set inserts (McMaster 94459A106) | 1 | $45 |
-| PCA9685 16-channel PWM driver | I²C, 12-bit; **both** bolt to the tray now (4 x M3x8 SHCS + 4 x M3 heat-set inserts each, 8 x of each total).  Secondary daisy-chains over I²C at address 0x41 (jumper). | 2 | $4 each |
-| MPU-6050 IMU | 6-DOF gyro + accel, I²C (optional but useful) | 1 | $4 |
-| Jumper wires | F-F, 20 cm × 50 + servo extensions × 18 | — | $15 |
-| Logic-level wiring + heat-shrink | — | — | $5 |
+| Arduino Uno Q | On-board Linux SoC + MCU; runs Python gait/RL/teleop and drives the STS3215 bus directly.  Mounts on `uno_q_tray` via 4 x M3 brass heat-set inserts (McMaster 94459A130) + 4 x M3x8 SHCS. | 1 | $50 |
+| microSD card | 32–64 GB, A1/A2 rated (OS/storage if not using on-board eMMC). | 1 | $10 |
+| USB-C cable | Flashing / powering / console access to the Uno Q. | 1 | $8 |
+| MPU-6050 IMU (GY-521) | 6-DOF gyro + accel, I²C, powered from 3V3.  Bolts to `imu_pad.stl` via 4 x M3x8 SHCS into M3 heat-set inserts. | 1 | $4 |
+| FEETECH 3-pin serial-bus cables | DATA daisy-chain (servos ship with one each; buy a spare pack for the chassis-to-first-servo runs). | 1 pack | $8 |
+| Dupont jumper wires + heat-shrink | I²C / logic wiring cleanup | — | $10 |
 
 ### 4.4 Fasteners
 
+The authoritative, auto-generated fastener counts live in the
+**Fasteners** table of [`PROTOTYPE_BOM.md`](PROTOTYPE_BOM.md) (300
+total fasteners; edit `fastener_registry.py`, not the table).  The
+key items:
+
 | Item | Qty | Notes |
 |---|---|---|
-| M3 × 6 mm socket-head cap screws | 72 + spares | Link → disc-horn bolts (4 per servo x 18 servos = 72) on a 14 mm bolt circle, threading into the 20 mm aluminum 25T disc horn's M3 tapped holes.  M3 x 6 ships with the disc-horn 10-packs; McMaster `91290A111` for spares. |
-| M3 × 12 mm | 24 | Standoffs between top + bottom chassis plates |
-| M3 × 14 mm SHCS | 72 + spares | **Design C servo-mount bolts**: horizontal, through the +/-X cradle walls and the servo tabs, into captive M3 nyloc nuts on the outer face. |
-| M3 × 16 mm pan-head | 6 + spares | Foot hinge pins (one per leg). |
-| M3 nyloc nuts | >= 6 + spares | One per foot hinge pin (May 2026 Design F: the 72 captive servo-mount nuts and the 24 coxa-bracket-to-chassis nuts have BOTH been retired). |
-| M3 × 32 mm round standoffs (M-F) | 4 | Top-to-bottom chassis spacers; brass M-F, length = `CHASSIS_GAP` = 32 mm.  On the rotated-45-deg 35-mm-radius pattern (= `CHASSIS_STANDOFF_HOLES_XY` = (±35, 0) and (0, ±35)) -- May 2026 tray-mount fix moved the standoffs OFF the (±24.75, ±24.75) tray-mount pattern so chassis_bottom could carry heat-set inserts for the tray-mount bolts. |
-| M2.5 self-tappers (horn → spline) | 18 | Ships with the servos.  Holds the 20 mm aluminum 25T disc horn onto the servo output spline. |
-| M3 brass heat-set inserts (McMaster 94459A130) | 22 | Electronics-tray board mounts: 4 for the Mega 2560 + 4 for the primary PCA9685 + 4 for the secondary PCA9685.  Plus 2 more in `chassis_top`'s 2 printed bosses for the `switch_holster` mount bolts.  Plus 4 more in the `imu_pad`'s 4 boss tops for the MPU-6050 mount.  Plus 4 more in `chassis_bottom`'s 4 printed tray-mount bosses for the electronics_tray chassis-mount bolts (May 2026 tray-mount fix).  Soldering-iron installed into the printed Phi 4 mm pilot pockets BEFORE the electronics / holster / IMU / tray go on. |
-| M2.5 brass heat-set inserts (McMaster 94459A106) | 4 | Electronics-tray board mounts for the Raspberry Pi 4 / Pi 5.  Same soldering-iron install workflow as the M3 inserts. |
-| M3 × 8 SHCS (board mounts + IMU + tray-mount) | 20 | 4 x Mega 2560 + 4 x primary PCA9685 + 4 x secondary PCA9685 onto the M3 electronics-tray inserts, plus 4 x MPU-6050 (GY-521) onto the M3 imu_pad inserts, plus 4 x electronics_tray chassis-mount bolts that thread DOWN through the tray's cbore floor into chassis_bottom's tray-mount heat-set inserts (May 2026 tray-mount fix). |
-| 3M VHB / 3 mm foam tape | ~25 × 20 mm | Bonds `imu_pad.stl` to chassis_top centre.  Doubles as vibration damper that decouples the MPU-6050's gyro from the servo-driven chassis frame.  See §B.6 of `SHOPPING_LIST.md`. |
-| M3 × 10 SHCS (switch_holster mount + chassis_top standoff) | 6 | 2 for the switch_holster (drop the printed `switch_holster.stl` onto chassis_top's 2 bosses and thread DOWN through the holster ear's Phi 3.4 mm clearance holes into the heat-set inserts captive in the bosses); 4 more dropped DOWN from above chassis_top into the brass M-F standoff's female top threads (May 2026 tray-mount fix; brass standoffs are 32 mm long and span the inter-plate gap on the rotated-45-deg 35-mm-radius pattern).  Same stock as the battery_holder foot bolts. |
-| M3 nyloc nuts (chassis_top standoff retention) | 4 | UNDER chassis_bottom on the rotated-45-deg standoff pattern (±35, 0) and (0, ±35).  Captures the brass M-F standoff's male thread that protrudes DOWN through chassis_bottom's Phi 3.4 mm clearance hole.  Plus 6 more on the foot hinge pins (one per leg) -- see foot_pad row. |
-| M2.5 × 8 SHCS (board mounts) | 4 | 4 x Raspberry Pi 4 / Pi 5 onto the M2.5 inserts. |
+| M3 × 10 SHCS disc-horn bolts (`91290A114`) | 48 | DRIVEN hip + knee front-horn bolts on a 14 mm bolt circle into the disc's M3 tapped holes (2 mm longer because the flush output seats the driven disc 2 mm lower). |
+| M3 × 8 SHCS disc-horn bolts (`91290A113`) | 72 | Yaw front horn + the two passive rear-boss horns, same 14 mm bolt circle into the disc's M3 tapped holes. |
+| M2.5 × 8 SHCS, servo body retention (`91290A104`) | 48 | HIP + KNEE cradles only — 4 per cradle into the servo's real END-face 10×10 mm M2.5 hole square; the YAW cradle takes none (held by the `yaw_servo_retainer` strap instead). |
+| M2.5 × 8 spline / passive-horn screws (`91290A104`) | 30 | Passive-horn retention + servo spline center screws (ship with the servos). |
+| M3 × 8 SHCS (`91290A113`) | 54 | 8 deck board mounts (Uno Q + buck) + 4 imu_pad into heat-set inserts; 24 `servo_clamp_cap` + 18 `yaw_bearing_cap` self-tap. |
+| M3 × 10 SHCS (`91290A114`) | 14 | chassis_top → brass-standoff bolts + deck standoff-column bolts + 2 switch_holster mount bolts. |
+| M3 × 16 mm pan-head (`92010A130`) | 6 | Foot hinge pins (one per leg). |
+| M3 nyloc nuts (`90576A102`) | 14 | 6 foot hinge pins + 4 under chassis_bottom (chassis standoffs) + 4 under chassis_top (deck columns). |
+| M3 brass heat-set inserts (McMaster `94459A130`) | 18 | 8 deck trays + 4 imu_pad + 2 chassis_top (switch_holster) + 4 `spider_carapace` feet.  Soldering-iron installed at ~220 °C. |
+| M3 × 32 mm M-F brass standoffs | 4 | chassis_top ↔ chassis_bottom across `CHASSIS_GAP` = 32 mm on the rotated-45° 35-mm-radius pattern. |
+| M3 deck standoff columns, M-F brass | 12 | Stacked deck: 4 × 16 mm (chassis_top → uno_q_tray) + 4 × 22 mm (uno_q_tray → buck_tray) + 4 × ~24 mm (buck_tray → spider_carapace). |
+| 6706-2RS ball bearings | 12 | Yaw joint spaced pair (2 per leg), Ø30 × Ø37 × 4 mm; captured by the split tower + `yaw_bearing_cap`. |
+| Ø8 mm carbon-fibre tube | ~1 m | Femur + tibia leg segments (epoxy-bonded into the printed sockets). |
+| Ø2.5 mm roll pins | 12 | Transverse CF-tube retention (2 per leg). |
+| Two-part epoxy | 1 | Bonds the CF tubes into the printed sockets. |
+| 3M VHB / 3 mm foam tape | ~25 × 20 mm | Bonds `imu_pad.stl` to chassis_top centre; doubles as the IMU vibration damper.  See §B.6 of `SHOPPING_LIST.md`. |
 
 ### 4.5 3D-printed material
 
 | Item | Spec | Qty | Cost |
 |---|---|---|---|
-| PLA filament | 1.75 mm, any colour | ~ 250 g | $5 |
-| TPU filament | 1.75 mm, 95A | ~ 50 g (foot pads only) | $5 |
+| PLA / PETG filament | 1.75 mm, any colour | ~ 1 kg | $20 |
+| TPU filament | 1.75 mm, 95A | ~ 250 g (foot pads only) | $5 |
+| MJF PA12 (optional) | 12 × `servo_clamp_cap` (PLA also OK) | — | print-service |
 
 ### 4.6 Total
 
-| Bucket | DS3225 build |
+Cost buckets mirror the **Rough Cost** table in
+[`PROTOTYPE_BOM.md`](PROTOTYPE_BOM.md):
+
+| Bucket | STS3215 build |
 |---|---:|
-| Actuators | ~$300 |
-| Power | ~$70 |
-| Electronics (incl. Raspberry Pi 4) | ~$100 |
-| Fasteners + filament | ~$20 |
-| **Total** | **~ $490** |
+| STS3215 serial-bus servos (20) | ~$360 – $500 |
+| Arduino Uno Q + microSD + USB-C | ~$60 – $100 |
+| XINGYHENG buck converter | ~$8 – $15 |
+| Battery + charger + bag + switch + velcro | ~$70 – $120 |
+| Power distribution (bus bar + fuses + silicone wire + 5264 kit) | ~$25 – $45 |
+| Disc horns (30) + CF tube + roll pins + epoxy | ~$30 – $55 |
+| Fasteners / standoffs / deck columns / wiring | ~$30 – $55 |
+| Filament + MJF clamp caps | ~$30 – $55 |
+| **Total** | **~ $615 – $1000** |
 
 ---
 
 ## 5. Print plan
 
-A single Ender 3-class printer runs the whole BOM in roughly **21 hours**:
+A single Ender 3-class printer runs the whole BOM in roughly **22 hours**
+(see the print queue in [`SHOPPING_LIST.md`](SHOPPING_LIST.md) §D):
 
-| Pass | Parts | Bed | Time |
-|---|---|---|---|
-| 2 | 6 × coxa_link | Same | ~ 4 h |
-| 3 | 6 × femur_link | Same | ~ 5 h |
-| 4 | 6 × tibia_link | Same | ~ 4 h |
-| 5 | chassis_top + chassis_bottom + battery_holder + electronics_tray + switch_holster + bec_cradle + imu_pad | ~ 4 h |
-| 6 | 6 × foot_pad (TPU) | Single bed | ~ 1 h |
+| Pass | Parts | Time |
+|---|---|---|
+| 1 | 6 × `coxa_link` + 6 × `yaw_bearing_cap` | ~ 4 h |
+| 2 | 6 × `femur_hip_yoke` + 6 × `femur_knee_bracket` | ~ 8 h |
+| 3 | 6 × `tibia_knee_yoke` + 6 × `tibia_foot_fitting` | ~ 6 h |
+| 4 | 12 × `passive_horn_adapter` + 12 × `servo_clamp_cap` (MJF PA12 or PLA) | ~ 5 h |
+| 5 | `chassis_top` + `chassis_bottom` + `uno_q_tray` + `buck_tray` + `switch_holster` + `imu_pad` + `spider_carapace` | ~ 12 h |
+| 6 | 6 × `foot_pad` (TPU) | ~ 1 h |
 
-Tip: use 4 walls and 25 % gyroid infill for the bracket and link
-parts — the servo cradles see the most load and the extra walls add
-substantial stiffness for very little weight.
+Tip: use 4 walls and 30–40 % gyroid infill for the yokes, brackets and
+the split yaw-bearing tower cap — the servo cradles and bearing tower
+see the most load and the extra walls add substantial stiffness for
+very little weight.
 
 ---
 
@@ -470,537 +540,328 @@ substantial stiffness for very little weight.
 
 Allow ~ 4 hours for a first build, ~ 90 min for a second.
 
-> **Chassis_bottom is ONE printed part (Jun 2026 merge).** The old
-> bolt-together print-split (HIGH plate + LOW cradle ring, joined by 12 M3
-> screws and 6 Ø4 register dowels) is gone — the lower half had become a plain
-> flat ring, so it was folded back into a single `chassis_bottom.stl`: the
+> **Chassis_bottom is ONE printed part (Jun 2026 merge).** It is a
 > 200 mm flat hex plate with a ~8 mm-thick flat floor that carries the 6
-> yaw-servo cradles, the upward yaw-bearing tower, and the tray bosses.  It
-> still prints face-DOWN flat with no supports.  **Yaw servo retention:** each
-> yaw servo seats into its open-bottom cradle, is bolted through the cradle's
-> −X wall by the upper M2.5 end-face pair, and is captured from below by the
-> bolt-on `yaw_servo_retainer` stirrup, which threads into 2 blind M3 self-tap
-> pilots in real floor material on the tangential flanks of the body cutout
-> (`chassis_lower_retainer_anchor_centres`).
+> yaw-servo cradles, the base half of each split yaw-bearing tower, and
+> the velcro-strap slots that retain the LiPo on the plate's top face.
+> It prints face-DOWN flat with no supports.  **Yaw servo retention:**
+> each yaw servo seats into its open-bottom cradle and is captured by the
+> bolt-on `yaw_servo_retainer` strap + anchor bolts + the output-face
+> seat on the mount plate (the yaw cradle takes **no** M2.5 end-face
+> bolts — the flush-horn refit dropped the yaw output ~5.5 mm so the
+> servo hangs below the chassis floor; see `PROTOTYPE_BOM.md`).
+
+> **The joint is a disc-horn sandwich (Jun 2026).** Each hip and knee
+> joint drives a 20 mm aluminium 25T disc horn on the servo's output
+> spline and reuses a SECOND disc horn on the servo's rear idler boss
+> for passive support, so the moving yoke bolts identically to a disc on
+> BOTH faces — no external ball bearing on the hip/knee. The femur and
+> tibia are Ø8 mm carbon-fibre tubes epoxy-bonded into the printed
+> end-fittings (with a transverse Ø2.5 mm roll pin), NOT single printed
+> spars. Full joint detail is in the **Bench Test Order** of
+> [`PROTOTYPE_BOM.md`](PROTOTYPE_BOM.md).
 
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
-> Both the **coxa bracket**, the **coxa link** (hip-pitch cradle), and
-> the **femur link** (knee cradle) use the **Design E mixed-mode**
-> vertical servo-mount (May 2026): each cradle has 4 vertical M3 x 8
-> SHCS that thread DOWN through the servo's mounting tabs.  The 2 -X
-> bolts thread into M3 brass heat-set inserts (McMaster `94459A130`)
-> pressed into Phi 4 mm pockets inside Phi 8 mm printed bosses; the
-> 2 +X bolts self-tap into bare Phi 2.5 mm pilots in the existing
-> well-wall material (NO heat-set insert on this column).  The +X
-> column reverted to self-tap because the Phi 8 mm heat-set boss
-> footprint could not coexist with the +X wire-exit channel that the
-> servo's molded wire boot must pass through during insertion -- see
-> the `INSERT_M3_SELFTAP_*` constant block in `hexapod_prototype.py`
-> and `check_servo_insertion_path` in `_verify_prototype.py` for the
-> regression probe.
+> **Servo body retention (hip + knee cradles).** Each hip and knee
+> cradle bolts the servo's real **END-face 10 × 10 mm M2.5 hole square**
+> with 4 × M2.5 × 8 SHCS driven through the cradle's −X wall (head
+> recessed in a wall counterbore, threading into the servo's own metal
+> case), plus the printed `servo_clamp_cap` seated flush against the
+> body's +Y face and retained by 2 × M3 × 8 SHCS self-tapping into the
+> cradle's ±X wall-end pilots.  The YAW servo uses no cradle bolts (see
+> the chassis_bottom note above).  There are **no heat-set inserts and
+> no vertical tab bolts** anywhere on the leg — the servo threads bolt
+> straight into the servo's own steel case.
 
-1. **Press the heat-set inserts BEFORE seating any servo:** for each
-   cradle (18 total: 6 yaw cradles integrated into `chassis_bottom` +
-   6 hip-pitch cradles in the coxa links + 6 knee cradles in the
-   femurs), heat 2 x M3 brass heat-set inserts (McMaster `94459A130`)
-   with a soldering iron at ~ 250 °C and press them into the 2
-   -X-column Phi 4 mm pockets.  Hold light downward pressure for
-   ~ 10-15 s per insert until the knurl displaces plastic into the
-   boss wall; the insert top should land flush with the cradle's
-   internal tab shelf (cradle-local z = +6 mm), 5 mm below the
-   cradle's rim, so the bolt head clamps the servo ear against
-   plastic, not brass.  Do NOT press inserts on the +X column --
-   those 2 sites are bare Phi 2.5 mm self-tap pilots and any
-   heat-set insert there would block the wire boot during
-   insertion.
-   * **chassis_bottom yaw cradles (12 inserts total: 2 per cradle x
-     6 legs):** after printing chassis_bottom, look DOWN at the top
-     face of each yaw cradle.  Each cradle has 2 visible Phi 4 mm
-     holes on its inboard rim (cradle-x = -24.75 mm, y = +/-5 mm)
-     -- these are the heat-set pockets, which were drilled THROUGH
-     the cradle's 5 mm shroud (May 24 2026 fix) so the operator
-     can see and access them.  Press each M3 brass insert DOWN
-     through the rim using the soldering iron at ~ 250 °C; the
-     insert seats with its top flush with the tab shelf, ready for
-     an M3 x 8 SHCS to thread down into it from above the servo
-     ear at step 2.  (Before the May 24 2026 fix the heat-set
-     pockets were capped by 3 mm of shroud material that hid them
-     from view and blocked installation; if you printed an older
-     chassis_bottom from before that commit, redrill the 12 holes
-     manually through the rim with a 4 mm bit and a hand drill.)
-   * **coxa_link / femur_link cradles (12 inserts total: 2 per
-     cradle x 6 of each link):** same workflow, but these cradles
-     have NO shroud above the shelf so the heat-set pocket is
-     visible directly from the cradle rim with no through-shroud
-     cut required.
-2. **Yaw servo into coxa bracket:** drop the yaw servo straight DOWN
-   through the body cutout in the bracket flange and into the well
-   below.  The servo's tabs land flush on the well rim, with the
-   gear stack + output spline poking UP above the flange and the
-   wire boot sliding down through the +X wire channel.  Drive 4 x
-   M3 x 8 SHCS straight DOWN through the servo's tab holes: the 2
-   -X bolts thread into the brass heat-set inserts; the 2 +X bolts
-   self-tap into the Phi 2.5 mm pilots in the cradle's +X wall
-   material.  Use a 2.5 mm hex key; finger-tight + 1/4 turn is
-   enough for self-tap (over-tightening will strip the plastic).
-3. **Disc horn on the yaw servo:** centre the servo, push a 20 mm
-   aluminum 25T disc horn (Amazon B07D56FVK5) onto the spline at
-   0 deg, then secure it with the M3 horn-attach screw that ships in
-   the servo bag.
-4. **Coxa link:** drop the link's pedestal cap flat onto the disc's
-   top face -- the central Phi 9 mm collar bore clears the disc's
-   raised spline hub so the cap seats flat -- and bolt the link to
-   the disc with 4 x M3 x 6 SHCS through the cap's Phi 3.4 mm M3
-   clearance holes (14 mm bolt circle) into the disc's M3 tapped
-   holes.  Use a 2.5 mm hex key; the heads recess into the cap's
-   Phi 5.7 mm counter-bores.
-5. **Hip-pitch servo:** repeat the heat-set / self-tap install on the
-   coxa link's hip-pitch cradle (2 inserts on the -X column FIRST,
-   then drop the servo, then drive the 4 M3 x 8 SHCS as in step 2).
-   Fit a 20 mm aluminum disc horn perpendicular to the leg arm so the
-   femur swings up and down.
-6. **Femur:** seat the femur's hip-end pad flat on the hip disc horn
-   (central collar bore clearing the spline hub) and bolt to the disc
-   with 4 x M3 x 6 SHCS on the 14 mm bolt circle into the disc's M3
-   tapped holes.
-7. **Knee servo:** repeat the heat-set / self-tap install on the
-   femur's knee cradle (2 -X heat-set inserts pressed BEFORE the
-   servo goes in, then 4 M3 x 8 SHCS down through the tab holes).
-   Fit a 20 mm aluminum disc horn perpendicular to the femur spar.
-8. **Tibia:** seat the tibia's knee-end pad flat on the knee disc horn
-   and bolt to the disc with 4 x M3 x 6 SHCS on the 14 mm bolt circle
-   into the disc's M3 tapped holes.
-9. **Foot pad:** slide the foot pad's FORK over the tibia's tang
-   from below (May 2026 hinge inversion -- the foot now carries
-   the fork, the tibia carries the single tang), align the M3
-   holes in both cheeks with the M3 hole in the tang, and drive
-   one M3 x 16 pan-head bolt (92010A130) THROUGH the fork +
-   tang into an M3 nylock nut on the far cheek.  Tighten just
-   until the joint is snug but still rotates freely.  The hinge
-   axis is parallel to the knee pitch axis so the foot pitches
-   passively about it as the leg walks.
+1. **Bond the CF leg segments first.** Cut the Ø8 mm carbon-fibre tube
+   to the femur and tibia lengths, epoxy each into its printed socket
+   (`femur_hip_yoke` ↔ `femur_knee_bracket` for the femur,
+   `tibia_knee_yoke` ↔ `tibia_foot_fitting` for the tibia), and drive a
+   transverse Ø2.5 mm roll pin through each socket cross-hole.  Let the
+   slow-cure epoxy fully set before loading the joints.
+2. **Hip-pitch servo into the coxa link's hip cradle:** seat the servo
+   into the `coxa_link` hip cradle and drive 4 × M2.5 × 8 SHCS through
+   the cradle's −X wall into the servo's END-face hole square, then
+   snap on the `servo_clamp_cap` and secure it with 2 × M3 × 8 SHCS
+   self-tapping into the cradle wall-end pilots.
+3. **Disc horns on the hip servo:** push a 20 mm aluminium 25T disc
+   horn onto the output spline at 0° and retain it with the servo's
+   M2.5 spline screw; centre the SECOND (passive) disc horn on the
+   servo's rear idler boss with a `passive_horn_adapter` and retain it
+   with one M2.5 screw.
+4. **Femur onto the hip joint:** seat the `femur_hip_yoke`'s two clevis
+   arms onto the driven (front) and passive (rear) disc horns and bolt
+   each arm to its disc on the Ø14 cross — the **driven** front horn
+   takes 4 × M3 × 10 SHCS (the flush output seats it 2 mm lower); the
+   **passive** rear horn takes 4 × M3 × 8 SHCS — into the discs' M3
+   tapped holes.  Use a 2.5 mm hex key.
+5. **Knee servo into the femur knee bracket:** repeat step 2 on the
+   `femur_knee_bracket`'s knee cradle (4 × M2.5 × 8 into the END-face
+   square + the `servo_clamp_cap`), then fit the driven + passive disc
+   horns as in step 3.
+6. **Tibia onto the knee joint:** seat the `tibia_knee_yoke`'s clevis
+   arms onto the driven + passive knee disc horns and bolt each arm to
+   its disc (driven = 4 × M3 × 10, passive = 4 × M3 × 8) as in step 4.
+7. **Foot pad:** slide the `foot_pad`'s FORK over the
+   `tibia_foot_fitting`'s tang from below (the foot carries the fork,
+   the tibia carries the single tang), align the M3 holes, and drive
+   one M3 × 16 pan-head bolt (`92010A130`) THROUGH the fork + tang into
+   an M3 nylock nut on the far cheek.  Tighten just until the joint is
+   snug but still rotates freely; the hinge axis is parallel to the
+   knee pitch axis so the foot pitches passively as the leg walks.
 
-You now have a complete leg dangling from a coxa bracket. Repeat 6
+You now have a complete leg (yaw pad → hip → femur → knee → tibia →
+foot) ready to drop onto its `chassis_bottom` yaw cradle. Repeat 6
 times.
 
 ### 6.2 Final assembly
 
-9. **Bottom chassis plate:** lay flat. Each coxa bracket's flange
-   bolts to the chassis edge with **4 × M3 × 16 mm** caps — drive
-   them straight down through the flange and through the matching
-   bolt pattern in the chassis plate, capture with a nyloc on the
-   underside. The two outboard bolts sit just inside the chassis
-   perimeter; the two inboard bolts sit 16 mm further in. The flange
-   sandwiches between the bottom plate and the standoff ring later
-   in step 13.
-10. **Tray-mount heat-set inserts:** soldering-iron-install **4 × M3
-    brass heat-set inserts** (McMaster `94459A130`) into the 4
-    printed Phi 6 mm × 3 mm tray-mount bosses on chassis_bottom's
-    TOP face at the `ELEC_CHASSIS_MOUNT_HOLES_XY` = (±24.75, ±24.75)
-    pattern.  Press the inserts DOWN from above with the iron at
-    ~220 °C, light pressure, ~10-15 s until the knurl displaces
-    plastic into the boss wall.  These inserts hold the electronics_
-    tray-to-chassis_bottom bolts (May 2026 tray-mount fix; the
-    tray used to share its bolt pattern with the brass M-F
-    standoffs and physically could not bolt to anything).
-11. **Battery holder:** press 4 × M3 brass heat-set inserts (McMaster
-    `94459A130`, same SKU as the cradle inserts) into the holder's
-    foot pockets from BELOW with a soldering iron at ~ 220 °C.  Set
-    the holder onto the bottom chassis plate so each foot lands on
-    one of the 4 dedicated mounting holes (the `with_battery_holder_
-    holes` pattern at `(±BATTERY_FOOT_DX, ±BATTERY_FOOT_DY)` mm =
-    `(±50, ±24)`).  Drive 4 × **M3 × 10 mm SHCS** UP from under the
-    chassis_bottom plate, threading into each insert.  This pattern
-    is INTENTIONALLY separate from the standoff pattern (the holder
-    is wider than the 35 mm standoff radius); see
-    `hexapod_prototype.make_chassis_bottom` and
-    `fastener_registry._emit_battery_holder_fasteners` for the
-    geometry.
-12. **Electronics tray + boards (May 2026 hardware-arrival pass):**
-    install all 12 board-mount fasteners NOW, before the top chassis
-    plate goes on -- once chassis_top is bolted down the M3 SHCS
-    heads on the Mega + PCA9685 and the M2.5 heads on the Pi are no
-    longer driver-accessible.  Workflow:
-    a. Soldering-iron-install **8 × M3 brass heat-set inserts**
-       (McMaster `94459A130`) into the tray's Mega + PCA9685 bosses
-       and **4 × M2.5 brass heat-set inserts** (McMaster `94459A106`)
-       into the Pi bosses; same ~ 220 °C technique as the cradle /
-       battery_holder inserts.
-    c. Bolt the Mega 2560 onto its 4 M3 inserts with **4 × M3 × 8 mm
-       SHCS**, the Pi onto its 4 M2.5 inserts with **4 × M2.5 × 8 mm
-       SHCS**, and the primary PCA9685 onto its 4 M3 inserts with
-       **4 × M3 × 8 mm SHCS**.  Boards sit 5 mm above the tray top
-       on the printed standoff bosses; cables plug in from the ±X /
-       -Y chassis edges.
-    d. Drop the populated tray onto chassis_bottom's 4 tray-mount
-       bosses (the tray's bottom face lands flush on the boss tops
-       at chassis-z = +5 mm).  Drive **4 × M3 × 8 mm SHCS** DOWN
-       through the tray's chassis-mount cbores into the heat-set
-       inserts installed at step 10; the tray's Phi 5.5 mm × 2 mm
-       counterbores recess the SHCS heads 1 mm below the tray's
-       top face so the boards on their 5 mm standoffs clear the
-       chassis bolt heads entirely.  May 2026 tray-mount fix: cbore
-       depth was 3 mm before (= full tray thickness, leaving no rim
-       for the head to clamp); shrunk to 2 mm so a 1 mm plastic rim
-       survives at the cbore floor.
-    e. **Stand-off posts (chassis-stack closure):** screw 4 × M3 ×
-       **32 mm** M-F brass standoffs into the rotated-45-deg
-       35-mm-radius pattern (`CHASSIS_STANDOFF_HOLES_XY` = (±35, 0)
-       and (0, ±35)).  Each standoff's MALE thread drops DOWN
-       through chassis_bottom's clearance hole; capture it from
-       below with **4 × M3 nyloc nuts** (one per standoff).  The
-       FEMALE top accepts an M3 × 10 SHCS dropped DOWN from above
-       chassis_top in step 14.  May 2026 tray-mount fix: standoffs
-       MOVED off the (±24.75, ±24.75) tray-mount pattern onto the
-       rotated-45-deg pattern so the brass standoff body doesn't
-       conflict with the chassis_bottom heat-set inserts installed
-       at step 10.
-    f. **IMU sub-assembly:** soldering-iron-install **4 × M3 brass
-       heat-set inserts** (McMaster `94459A130`, same SKU as the
-       cradle / battery / electronics-tray inserts) into the
-       `imu_pad.stl`'s 4 boss-top pilots (Phi 4 mm × 6 mm pockets,
-       same ~ 220 °C technique).  Bolt the MPU-6050 (GY-521) PCB down
-       through its 4 × Phi 3.0 mm holes (15 × 11 mm GY-521 pattern)
-       with **4 × M3 × 8 mm SHCS** into the inserts.  Peel a ~ 25 ×
-       20 mm rectangle of 3 mm double-sided foam tape (3M VHB or
-       generic mounting foam, §B.6 of `SHOPPING_LIST.md`) and stick
-       it to the pad's flat smooth underside.  Press the loaded pad
-       down onto chassis_top centred at (0, 0) -- this places the
-       IMU at the chassis centre of gravity so gyro rates aren't
-       contaminated by linear-acceleration cross-coupling from the
-       body swing, and the foam tape acts as both adhesive AND
-       vibration damper (decouples the gyro from servo HF noise).
-       Route 5 Dupont jumpers (VCC, GND, SDA, SCL, INT) toward the
-       electronics_tray's I2C cluster (a Phi 8 mm corridor is left
-       clear above chassis_top for the harness).
-13. **Wire it up:** see §7.
-14. **Top chassis plate:** drop the printed `chassis_top.stl` onto
-    the 4 brass standoff tops at the rotated-45-deg 35-mm-radius
-    pattern (`CHASSIS_STANDOFF_HOLES_XY`).  Drive **4 × M3 × 10 mm
-    SHCS** DOWN from above through chassis_top's Phi 3.4 mm
-    clearance holes into the standoff's female top threads (May
-    2026 tray-mount fix).  IMPORTANT: install BEFORE the
-    switch_holster -- the +X standoff at (+35, 0) sits under the
-    holster's footprint, so a hex key cannot reach that bolt's
-    head once the holster is dropped onto its bosses.  Then drop
-    the populated `switch_holster.stl` onto chassis_top's 2 +X
-    bosses and bolt with **2 × M3 × 10 mm SHCS** as in step 14a
-    below.
-
-### 6.3 Retrofit for existing chassis_bottom prints (pre-May-2026-tray-mount-fix)
-
-If you printed `chassis_bottom.stl`, `chassis_top.stl`, or
-`electronics_tray.stl` from a build dated before the May 2026
-tray-mount fix (cbore depth 3.0 mm, brass standoffs on the
-(±24.75, ±24.75) pattern, no tray-mount bosses on chassis_bottom),
-your printed plates won't accept the new fastener layout as-is.
-You have two paths:
-
-**Path A -- reprint (recommended):** regenerate
-`stl_prototype/chassis_bottom.stl`, `stl_prototype/chassis_top.stl`,
-and `stl_prototype/electronics_tray.stl` from the current
-parametric source (`make -C hexapod_walker/prototype build`) and
-reprint.  The 3 STLs together print in ~4 hours on a single Ender 3
-bed.
-
-**Path B -- modify in place (if reprinting is impractical):**
-1. **Drill out the 4 existing Phi 3.4 mm holes at (±24.75, ±24.75)
-   on chassis_bottom** to **Phi 4.0 mm** using a standard 4 mm
-   drill bit.  These were originally the brass-standoff clearance
-   holes; they become the heat-set insert pilots for the new
-   tray-mount path.
-2. **Press an M3 brass heat-set insert** (McMaster `94459A130`)
-   into each enlarged hole from the TOP face using a soldering
-   iron at ~220 °C, ~10-15 s of light pressure per insert.  The
-   5 mm-long insert will protrude ~2 mm below the plate's bottom
-   face -- this is structurally fine (no part interferes with
-   the protruding section because the cradle bond-strips and
-   battery_holder feet sit far outside the (±24.75, ±24.75) ring).
-3. **Drill 4 NEW Phi 3.4 mm clearance holes** at the brass
-   standoff pattern: (±35, 0) and (0, ±35) -- the same 35 mm
-   radius rotated 45 deg from the existing tray-mount pattern.
-   These become the new chassis-stack standoff sites.
-4. **Reprint `electronics_tray.stl`** (the cbore depth changed
-   from 3 mm to 2 mm; you need the new 1 mm cbore-floor rim for
-   the M3 SHCS head to clamp against).
-5. **Reprint `chassis_top.stl`** OR drill 4 NEW Phi 3.4 mm holes
-   at the brass standoff pattern (same XY as step 3) into your
-   existing chassis_top print.  The existing (±24.75, ±24.75)
-   holes on chassis_top can stay as-is -- they are harmless under
-   the new layout (the tray-mount M3 × 8 SHCS bolts stop in the
-   chassis_bottom insert and never reach chassis_top).
-
-Assembly order under either path: tray-mount heat-set inserts
-FIRST → tray bolted DOWN onto chassis_bottom inserts → brass
-standoffs threaded through chassis_bottom (M3 nyloc underneath)
-→ chassis_top bolted DOWN onto standoff tops.
+1. **Yaw servos + split bearing towers into chassis_bottom:** lay
+   chassis_bottom flat.  Seat each yaw servo into its open-bottom
+   cradle and secure it with the `yaw_servo_retainer` strap + anchor
+   bolts (no M2.5 end-face bolts on the yaw cradle).  Fit the yaw
+   driven disc horn on the output spline.  Assemble the **spaced
+   6706 bearing pair**: drop the LOWER 6706 race into chassis_bottom's
+   open-top Ø37 pocket, set the `coxa_yaw_hub` boss, drop the UPPER
+   6706 into the `yaw_bearing_cap`, then pull the cap down with **3 ×
+   M3 × 8 SHCS** self-tapping into the tower pilots to capture both
+   races at the correct spacing.
+2. **Coxa links onto the yaw joints:** bolt each leg's `coxa_link` yaw
+   pad to its yaw driven disc horn with 4 × M3 × 8 SHCS on the Ø14
+   cross into the disc's M3 tapped holes.  Each completed leg now hangs
+   from its yaw axis.
+3. **Battery:** velcro-strap the 3S LiPo to the top face of
+   chassis_bottom, looping the cinch straps through the chassis_bottom
+   strap slots (there is no clip-in `battery_holder` any more).
+4. **Chassis standoffs + top plate:** screw 4 × M3 × 32 mm M-F brass
+   standoffs into the rotated-45° 35-mm-radius pattern
+   (`CHASSIS_STANDOFF_HOLES_XY` = (±35, 0) and (0, ±35)).  Each
+   standoff's MALE thread drops DOWN through chassis_bottom's clearance
+   hole; capture it from below with 4 × M3 nyloc nuts.  Drop
+   `chassis_top.stl` onto the standoff tops and drive **4 × M3 × 10 mm
+   SHCS** DOWN from above into the standoffs' female top threads.
+   Install this **before** the switch_holster — the +X standoff sits
+   under the holster's footprint.
+5. **Switch holster + IMU on chassis_top:** soldering-iron-install the
+   2 chassis_top boss inserts and the 4 imu_pad inserts (McMaster
+   `94459A130`, ~220 °C).  Bolt the `switch_holster.stl` to chassis_top's
+   +X edge with **2 × M3 × 10 mm SHCS**.  Bolt the MPU-6050 (GY-521) to
+   `imu_pad.stl` with **4 × M3 × 8 mm SHCS**, peel a ~25 × 20 mm square
+   of 3 mm foam tape onto the pad's flat underside, and press the pad
+   down onto chassis_top centred at (0, 0) — placing the IMU at the
+   chassis centre of gravity and using the foam as both adhesive AND
+   vibration damper.  Route the 4 IMU wires (VCC→3V3, GND, SDA, SCL) to
+   the Uno Q's I²C pins (see `firmware/WIRING.md` Stage F).
+6. **Electronics deck (Arduino Uno Q + buck):** the stack rises on M3
+   M-F brass standoff columns at the `DECK_COLUMN_XY` (±41, ±33)
+   pattern above chassis_top.  Soldering-iron-install the 8 deck-tray
+   board-mount inserts (4 `uno_q_tray` + 4 `buck_tray`).  Thread the
+   level-1 columns (16 mm) through chassis_top — retained by M3 nyloc
+   nuts underneath — bolt the **Arduino Uno Q** onto `uno_q_tray` with
+   4 × M3 × 8 SHCS, and drop the populated tray onto the columns with
+   4 × M3 × 10 SHCS.  Repeat for the level-2 columns (22 mm) →
+   `buck_tray` carrying the **XINGYHENG 12→5 V buck converter**.
+7. **Wire it up:** see §7 and `firmware/WIRING.md`.  Bench-test all 18
+   joints on a current-limited supply BEFORE the LiPo (WIRING.md
+   Stages A–F).
+8. **Spider carapace:** as the 3rd deck level, run 4 more standoff
+   columns (~24 mm) up from `buck_tray` to the `spider_carapace` feet
+   (which carry M3 heat-set inserts opening down) and drive an M3 screw
+   UP from each standoff into the dome foot so the shell lifts off for
+   service.  The open skirt + rear window keep every wire exit and the
+   buck vented.
 
 ---
 
 ## 7. Wiring
 
+> **Wiring of record: [`firmware/WIRING.md`](firmware/WIRING.md).**
+> That doc is the buildable, step-by-step plan (two power domains, the
+> half-duplex serial bus, the distributed fused power harness, and the
+> bench bring-up checklist). This section is only a summary; when the
+> two disagree, `firmware/WIRING.md` wins. See also `PROTOTYPE_BOM.md`
+> and `SHOPPING_LIST.md` for the parts.
+
+The robot is **18× FEETECH STS3215** (ST-3215-C018, 12 V / 30 kg·cm)
+**serial-bus** smart servos driven **directly by an Arduino Uno Q**
+(on-board Linux SoC + MCU). There is **no Raspberry Pi, no PCA9685 PWM
+boards, no DS3225 PWM servos, and no FE-URT-1 / Waveshare bus adapter**
+— the Uno Q's UART drives the half-duplex TTL bus itself at 1 Mbps.
+Each servo has a built-in 12-bit encoder and reports
+position/load/voltage/current/temperature back over the bus, so there
+are no external encoders.
+
 ### 7.1 One-servo bench test first
 
-Before assembling the robot, test **one DS3225 + one PCA9685 + Arduino**
-on the bench. This proves the exact servo listing you bought fits the
-electrical and software assumptions before you print/bolt all 18 joints.
+Before assembling the robot, bring up **one STS3215 on a
+current-limited bench supply** (not the LiPo) so a wiring mistake trips
+the supply instead of cooking hardware. This proves the exact servo you
+bought talks on the bus before you bolt all 18 joints. Full procedure:
+`firmware/WIRING.md` §0–§4 (Stages A–C).
 
-Bench wiring:
-
-```text
-Raspberry Pi / laptop  --USB serial-->  Arduino Mega
-Arduino Mega SDA/SCL  ------------->  PCA9685 SDA/SCL
-Arduino Mega 5V/GND   ------------->  PCA9685 VCC/GND  (logic only)
-5-6 V BEC + / -       ------------->  PCA9685 V+ / GND (servo power)
-DS3225 signal/+/-     ------------->  PCA9685 channel 0
-```
-
-Important: **all grounds must be common**: Pi USB ground, Arduino ground,
-PCA9685 ground, and BEC/servo ground. Do **not** power the DS3225 from
-the Arduino 5 V pin.
-
-Upload the Arduino bridge sketch:
+In brief, with the bus signal wired to the Uno Q UART (per the FEETECH
+half-duplex convention) and 12 V on the bus V+ rail, common ground:
 
 ```bash
-hexapod_walker/prototype/firmware/prototype_servo_bridge/prototype_servo_bridge.ino
+python -m pip install feetech-servo-sdk pyserial
+python pi_control/feetech_bus.py --port /dev/ttyACM0 scan          # expect [1] (factory ID)
+python pi_control/feetech_bus.py --port /dev/ttyACM0 setid --from 1 --to 1
+python pi_control/feetech_bus.py --port /dev/ttyACM0 joint 0 15 --sweep
+python pi_control/feetech_bus.py --port /dev/ttyACM0 feedback      # reads back angle, volts, temp
 ```
 
-Then from the Raspberry Pi or laptop:
-
-```bash
-python -m pip install pyserial
-python hexapod_walker/prototype/pi_control/servo_bridge_client.py --port /dev/ttyACM0 centre
-python hexapod_walker/prototype/pi_control/servo_bridge_client.py --port /dev/ttyACM0 wiggle --joint 0
-python hexapod_walker/prototype/pi_control/servo_bridge_client.py --port /dev/ttyACM0 joint 0 20 --sweep
-```
-
-On macOS the port will look like `/dev/cu.usbmodem...`; on Raspberry Pi /
-Linux it is usually `/dev/ttyACM0` or `/dev/ttyUSB0`.
-
-Once one servo works, plug the same servo into channels 1 and 2 and run:
-
-```bash
-python hexapod_walker/prototype/pi_control/servo_bridge_client.py --port /dev/ttyACM0 wiggle --joint 1
-python hexapod_walker/prototype/pi_control/servo_bridge_client.py --port /dev/ttyACM0 wiggle --joint 2
-```
-
-That validates the yaw / hip / knee channel order for one leg before
-you connect all 18 servos.
+On the Uno Q's Linux side the port is usually `/dev/ttyACM0` or
+`/dev/ttyUSB0` (on a laptop it may be `/dev/cu.usbmodem…`). The
+yaw / hip / knee joint order for one leg is validated by re-ID'ing the
+three leg-0 servos to IDs 1/2/3 and chaining them (`WIRING.md` Stage D)
+— there are no PCA channels to plug into, just unique bus IDs.
 
 ### 7.2 Full robot wiring
 
-```
-                    +--------------+
-                    |  Arduino     |
-                    |  Mega 2560   |
-                    +-+-+----+--+--+
-                      | |    |  |
-                  SDA/SCL   D2-D5
-                      | |    |  |
-            +---------+ |    |  +-- IMU MPU-6050 (I2C, addr 0x68)
-            |           |    |
-       +----+----+ +----+----+
-       | PCA9685 | | PCA9685 |   I2C addr 0x40 + 0x41 (jumper)
-       |  #1     | |  #2     |
-       | ch 0-15 | | ch 0-1  |
-       +-+-+-+...+ +-+-+-+...+
-         | | |       | | |
-        18 PWM lines to the servos:
-            #1 ch  0-2  -> leg 0 (yaw, hip, knee)
-            #1 ch  3-5  -> leg 1
-            #1 ch  6-8  -> leg 2
-            #1 ch  9-11 -> leg 3
-            #1 ch 12-14 -> leg 4
-            #1 ch 15    -> leg 5 yaw
-            #2 ch  0-1  -> leg 5 hip + knee
+There are exactly **two domains** that share only ground (full detail
++ ASCII diagrams in `firmware/WIRING.md` §1, §2 and §6):
 
-  Power side (separate from logic):
-            +-----------+
-            | 3S LiPo   |  (XT60 -> on/off switch -> XT60 splitter)
-            +-----+-----+
-                  |
-        +---------+---------+
-        |                   |
-     5V 5A BEC          5V 5A BEC
-   (servo rail #1)    (servo rail #2)
-        |                   |
-        +-> PCA9685 #1 V+   +-> PCA9685 #2 V+
-            (powers 9 servos)   (powers 9 servos)
+```
+  DATA (one half-duplex TTL bus, daisy-chained, low current):
+  Uno Q UART ─sig+GND─► ID1─►ID2─►ID3 ─┊─► ID4─►ID5─►ID6 ─┊─► … ─► ID18
+                        └── leg 0 ──┘       └── leg 1 ──┘
+                        leg-to-leg jumper = SIGNAL + GND only (no V+)
+  Uno Q I²C (separate bus) ─► MPU-6050 IMU
+
+  POWER (12 V, DISTRIBUTED — never daisy-chained leg-to-leg):
+  3S LiPo ─XT60─► anti-spark switch ─► MAIN FUSE 15–20 A ─► BUS BAR
+       BUS BAR ├─► leg 0 branch (16–18 AWG, opt 5–7 A fuse) ─► leg 0 V+/GND
+               ├─► … one branch per leg …                  ─► leg 5 V+/GND
+               └─► XINGYHENG 12→5 V buck ─► Uno Q 5 V logic
 ```
 
-Two BECs / two PCA9685s let you split the 18-servo current draw
-across two regulators. A single 5 A BEC will brown out under
-synchronous-walk current spikes (peak ~ 6 – 8 A across all 18 servos).
-
-The Arduino gets its 5 V from one BEC's auxiliary output (or USB
-during development) — DO NOT power the Arduino off the LiPo's raw
-11.1 V via the barrel jack, the on-board regulator can't handle the
-combined logic + sensor load.
+Why the power bus is **distributed** and not chained: the FEETECH
+3-pin bus connector (Molex 5264) is rated ~3 A/pin, but all-18 walking
+current is ~9 A and would melt the first upstream connector. So **DATA
+stays chained, POWER is injected per-leg from the bus bar** — no single
+5264 pin ever carries more than one leg (~1.5 A walking). The
+leg-to-leg data jumper carries **signal + GND only (V+ omitted)**. The
+Uno Q's 5 V comes from a 12→5 V buck off the bus bar — **never** from
+the raw 12 V servo rail. The anti-spark switch is the e-stop. See
+`firmware/WIRING.md` §6 for the per-branch current budget, wire gauges
+and fuse sizing.
 
 ### 7.3 Per-leg harness recipe
 
-The 18-servo harness has three printed-in strain-relief features per
-leg + one per servo, all designed so a 2-3 mm wide zip-tie can secure
-the 3-wire bundle without yanking the JST plug at the PCA9685 header
-when a leg snags mid-walk.  This section is the assembler-facing
-recipe; the auto-generated BOM lives in
-`pi_control/wire_harness_plan.py` and prints by running:
+With the serial bus, each leg is just **three STS3215s daisy-chained
+with stock 3-pin bus cables**; the leg's bundle drops through that
+leg's `chassis_bottom` drop slot into the inter-plate volume, where it
+meets its **power branch from the bus bar** (V+/GND) and the **data
+jumper** to the next leg. There are **no per-servo runs back to a
+driver board** — the old PWM extension-cable star is retired. The
+printed strain-relief features (zip-tie posts at each cradle wire-exit
++ the per-leg drop slot) still apply: anchor each servo's cable at its
+cradle post and the full 3-cable bundle at the drop slot so a leg snag
+mid-walk can't yank a connector.
+
+The cable lengths are modelled by `pi_control/wire_harness_plan.py`
+(per-joint serial-bus reach budget: cradle wire-exit → leg drop slot →
+electronics-tray bus landing, plus a +30 mm slack loop per joint axis
+the harness crosses). Print the BOM with:
 
 ```bash
 python -m hexapod_walker.prototype.pi_control.wire_harness_plan
 ```
 
-That command emits a 18-row markdown table with one row per servo:
-joint index, leg + axis, PCA board + channel, cradle wire-exit
-position, drop slot position, PCA channel pin position, minimum
-required path length, and the exact extension-cable shopping list
-(stock pigtail / + 30 cm / + 60 cm / + N x 30 cm).  Re-run after any
-electronics-tray or chassis geometry edit; the
-`_verify_prototype.check_harness_reach` verifier asserts the printed
-BOM still matches reality.
+It emits one row per servo (joint, leg + axis, servo ID, cradle exit,
+drop slot, bus landing, minimum path length, and how many 30 cm
+extensions that joint needs on top of the stock STS3215 bus lead).
+Every joint currently fits inside the stock bus lead. Re-run after any
+electronics-tray or chassis geometry edit; the verifier check **[18]
+Harness reach** (`_verify_prototype.check_harness_reach`) asserts the
+printed reach budget still covers the geometry.
 
-**Per leg, build 3 extension cables**:
+**Slack-loop sizing** (aim for at least this much "extra" bundle at
+each joint axis the harness crosses; err larger — extra slack is
+harmless, a deficit fights the kinematics):
 
-1.  **Yaw servo** (cradle integrated into `chassis_bottom`, doesn't rotate with any
-    upstream joint): typically `DS3225 stock pigtail` -- the harness
-    drops straight through the chassis_bottom slot into the PCA.  L1 -
-    L4 might need one +30 cm extension depending on which side of the
-    tray their PCA channel lives.
-2.  **Hip-pitch servo** (cradle on `coxa_link`, rotates with yaw):
-    `+ 30 mm slack loop` around the yaw axis, then routes inboard to
-    the drop slot.  L2 - L4 typically need one +30 cm extension.
-3.  **Knee servo** (cradle on `femur_link`, rotates with yaw + hip):
-    `+ 60 mm slack loop` (one across yaw, one across hip), then routes
-    inboard along the femur, then the coxa_link, then through the
-    drop slot.  L2 - L4 typically need one +30 cm extension; L3 knee
-    is the longest path in the build.
-
-**L5 cross-board callout** (the firmware mapping reserves PCA1's last
-channel for L5 yaw and bumps L5 hip + knee onto PCA2):
-
-* L5 yaw -> PCA1 (0x40) ch 15
-* L5 hip-pitch -> PCA2 (0x41) ch 0
-* L5 knee -> PCA2 (0x41) ch 1
-
-The L5 hip + knee cables land on the OTHER PCA board, so route them
-straight from the L5 drop slot toward PCA2 (-Y half of the tray)
-rather than PCA1 (+Y half).  `wire_harness_plan.py` tags these two
-entries with `(L5 cross-board: PCA2 0x41 ch{0,1})` so you can't miss
-it.
-
-**Slack-loop sizing** (the bundle's "extra" length at each joint
-axis the harness crosses):
-
-* Yaw axis:  ~20 mm slack loop in the bundle (the harness needs to
-  twist ~90 deg across the yaw axis at full sweep).
+* Yaw axis:  ~20 mm slack loop (the bundle twists ~90° across the yaw
+  axis at full sweep).
 * Hip axis:  ~30 mm slack loop (the hip-pitch range plus the
-  coxa_link's WELL_Z_DROP_EXTRA = 4 mm vertical hop adds bundle
-  length).
-* Knee axis: ~20 mm slack loop (the knee range is the largest
-  single-axis sweep but the bundle only crosses it on the knee
-  cable, which is anchored close to the joint by the femur_link's
-  knee-cradle zip-tie post).
-
-The `wire_harness_plan.py` reach model uses a uniform 30 mm slack
-budget per joint crossing; the per-axis numbers above are the
-*minimum* the user should aim for at zip-tie time.  Err larger;
-extra slack is harmless, deficit can fight the kinematics.
-
-**Zip-tie placement** (3 per leg, 1 per servo cradle):
-
-* `chassis_bottom` yaw cradle post (-X face): anchor the YAW harness about 10 mm
-  past the cradle wire-exit slot.  Post sits on the well's +X
-  outer face, just past the slot.
-* `coxa_link` cradle post: anchor the HIP-PITCH harness right at
-  the hip cradle wire-exit; lets the bundle exit the cradle with
-  the slack loop OUTSIDE the bundle's anchor point.
-* `femur_link` cradle post: anchor the KNEE harness at the knee
-  cradle wire-exit.
-* `chassis_bottom` per-leg drop slot: anchor the FULL 3-cable
-  bundle just before it enters the chassis_bottom drop slot.  Each
-  leg's cable drop slot doubles as the zip-tie anchor -- pass a
-  zip-tie through the slot to bundle the per-leg harness.  (A
-  previous revision printed a vertical tab hanging below the plate
-  for this; it was retired in May 2026 to keep the plate's bottom
-  face flat for easier FDM printing.)
-
-**Terminating the bundle near the PCA header**:
-
-Inside the inter-plate volume, the 3-cable bundle from each leg
-drops through its drop slot, then walks toward the appropriate
-PCA9685.  The PCA9685 has the channel headers on its long edge;
-plug each cable into the channel printed on the silkscreen for that
-joint.  At the PCA, leave a SHORT (~ 20 mm) tail before the plug so
-the cable can be pulled off for replacement without tugging on the
-adjacent channel plugs.  No printed zip-tie post is required at the
-PCA itself -- the PCA's bolted-down PCB is the strain relief.
-
-The Part C electronics-tray cable comb (a printed strain-relief
-fence ALONG the PCA headers) is on the design roadmap but NOT in
-this commit; until it ships, friction + zip-tying each leg harness
-through its `chassis_bottom` drop slot are the strain-relief story.
+  `coxa_link`'s WELL_Z_DROP_EXTRA = 4 mm vertical hop).
+* Knee axis: ~20 mm slack loop (largest single-axis sweep, but the
+  bundle only crosses it on the knee cable, anchored close to the
+  joint by the `femur_knee_bracket` knee-cradle zip-tie post).
 
 ---
 
 ## 8. Software
 
-A starter Arduino sketch (~ 200 lines) is enough to walk the
-prototype. You will need:
+There is no PWM pulse-width layer: the **Arduino Uno Q** runs Python on
+its Linux side and drives the half-duplex STS3215 TTL bus directly at
+1 Mbps via the host-side driver `pi_control/feetech_bus.py`. Each servo
+takes an absolute **position command** (12-bit, count 2048 = 0°) and
+reports position/load/voltage/current/temperature back over the same
+bus, so the joint loop is closed inside each servo — you command angles,
+not microseconds.
 
-```cpp
-#include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
+The driver maps the 18 logical joints to servo IDs 1..18
+(`ID = leg*3 + axis + 1`), enforces the safe per-axis angle limits
+(yaw ±35°, hip −80…+30°, knee −20…+80°), applies per-joint trims from
+`pi_control/feetech_trims.json`, and sync-writes goal positions while
+reading back live feedback:
 
-Adafruit_PWMServoDriver pwm1(0x40);
-Adafruit_PWMServoDriver pwm2(0x41);
+```python
+from pi_control.feetech_bus import FeetechBus
 
-// Pulse-width mapping (DS3225: 500 us = -90 deg, 2500 us = +90 deg)
-const float PWM_MIN_US = 500.0;
-const float PWM_MAX_US = 2500.0;
+bus = FeetechBus(port="/dev/ttyACM0")   # Uno Q UART → TTL bus
+bus.centre()                            # all joints → 0°
 
-// Per-joint trim (calibrate after first power-up)
-float trim_deg[18] = { /* ... */ };
+# command one joint (degrees; clamped to the safe per-axis limit):
+bus.write_joint(joint=2, deg=60)        # leg 0 knee toward stance
 
-void writeJoint(int joint_idx, float angle_deg) {
-    Adafruit_PWMServoDriver& drv = (joint_idx < 16) ? pwm1 : pwm2;
-    int chan = joint_idx % 16;
-    float us = PWM_MIN_US
-             + (angle_deg + 90 + trim_deg[joint_idx]) / 180.0
-             * (PWM_MAX_US - PWM_MIN_US);
-    drv.writeMicroseconds(chan, (int)us);
-}
+# sync-write all 18 goal positions per gait tick:
+bus.write_all(goal_degrees)             # list of 18 angles
+
+# read live feedback (angle / load / volts / temp / current):
+print(bus.read_feedback(joint=2))
 ```
 
-Then add a ~ 50 Hz loop that runs the inverse kinematics for each leg
-(closed-form 3R IK — coxa yaw, hip pitch, knee pitch — there's a
-classical solution; see e.g. the "Phantom X / Lynxmotion AX hexapod"
-references) and a tripod-gait scheduler.
-
-If you want to use ROS instead of bare-metal Arduino, swap the Arduino
-for a Raspberry Pi 4 running `ros2_control` + the same PCA9685
-driver, and the same gait code (Python or C++) you intend to use on
-the full-size walker.
+Wrap that in a ~ 50 Hz loop that runs the closed-form 3R inverse
+kinematics for each leg (coxa yaw, hip pitch, knee pitch — see e.g. the
+"Phantom X / Lynxmotion AX hexapod" references) and a tripod-gait
+scheduler, sync-writing all 18 goal positions per tick. The same
+Python gait/IK code runs on your laptop (bench, via a USB→TTL lead) or
+on the Uno Q on-robot — only `--port` changes. See `firmware/WIRING.md`
+§2b for how the Uno Q sits in the loop and `feetech_bus.py` for the
+full command set (`scan`, `centre`, `joint`, `stance`, `relax`,
+`hold`, `feedback`, `trim`).
 
 ---
 
 ## 9. Tuning notes
 
-* **Per-joint trim:** the first thing you do after assembly is set
-  every joint to its "neutral" angle (femur and tibia horizontal,
-  pointing radially out) and adjust the `trim_deg` array until each
-  link physically lines up. Mechanical horn-spline mounting introduces
-  ~ 14 ° of quantization, so you'll see ~ 7 ° trim on each joint.
-* **Pulse-width range:** check the actual mechanical end-stops by
-  sweeping each joint slowly from 500 µs to 2500 µs. Cheap servos
-  often only achieve ~ 160 ° of travel, not the advertised 180 °, so
-  clamp `angle_deg` to ±80 ° in software.
+* **Per-joint trim:** the first thing you do after assembly is drive
+  every joint to 0° (`feetech_bus.py … centre`) and null out any
+  mounting offset with `feetech_bus.py … trim <joint> <deg>` (clamped
+  ±30°, saved to `feetech_trims.json` and re-applied on every command).
+  Mechanical disc-horn/spline mounting lands within ~ one spline tooth,
+  so expect a few degrees of trim per joint. Unlike the old PWM servos
+  the STS3215 is **absolute** — it knows its angle the instant it
+  powers on (12-bit encoder), so you can `relax` it, pose by hand, and
+  `feedback` reads exactly where it is (no blind centre-on-boot slam).
+* **Travel range:** the safe per-axis limits (yaw ±35°, hip −80…+30°,
+  knee −20…+80°) are enforced in software by `feetech_bus.py`. Sweep
+  each joint slowly with `joint <j> <deg> --sweep` to confirm no
+  mechanical binding before the software limit; fix offsets with
+  `trim`, not by re-bolting the horn.
 * **Gait period:** start at 2 s per cycle (very slow, easy to debug),
   speed up to 1 s once the IK and trim are dialled.
 * **Power supply sag:** if the robot collapses momentarily during
-  swing-to-stance transitions, the BECs are sagging. Switch to a
-  beefier 5 A switching BEC (D-Link D24V50F5 or similar) or split
-  the 18 servos across 3 BECs instead of 2.
+  swing-to-stance transitions, a per-leg power branch or the bus-bar
+  feed is undersized. Verify the distributed harness against
+  `firmware/WIRING.md` §6 — heavier 16–18 AWG branches, solid bus-bar
+  crimps, and the 15–20 A main fuse — and watch each servo's reported
+  voltage with `feetech_bus.py … feedback --watch` under load (the
+  STS3215 run on the raw 3S rail, so a sag shows up directly in the
+  per-servo voltage). The Uno Q's logic is on its own 12→5 V buck and
+  is unaffected by servo-rail sag.
 
 ---
 
@@ -1017,8 +878,8 @@ level transfers unchanged** to the full-size walker:
 
 What changes when you scale up:
 
-* The actuators talk EtherCAT or CAN instead of PWM, so the joint
-  driver layer changes.
+* The actuators talk EtherCAT or CAN instead of the prototype's
+  half-duplex serial bus, so the joint driver layer changes.
 * Joint torque limits are 100× higher, so the gait scheduler needs to
   add a torque-aware planner (don't command a stride that requires
   more than 70 % of peak knee torque).
@@ -1035,8 +896,9 @@ and IK out, before you cut metal for the full-size build.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Robot "twitches" but won't move | One BEC is browning out | Add a second BEC, verify 5 V steady on a scope under load |
-| One leg drags | Per-joint trim is off, or that servo's output dead-band is unusually wide | Re-trim, or swap that servo (cheap servos have ± 10 ° unit-to-unit variation) |
+| Robot "twitches" but won't move | Servo-rail sag, a loose bus-bar/branch crimp, or a blown leg fuse | Check the distributed power harness (`firmware/WIRING.md` §6); watch per-servo voltage with `feetech_bus.py … feedback --watch` under load |
+| A servo is silent on the bus / `scan` misses an ID | Duplicate or unset servo ID, or a broken DATA jumper to that leg | Re-ID that servo alone (`setid`), and confirm the leg-to-leg signal+GND jumper is intact |
+| One leg drags | Per-joint trim is off | Re-trim with `feetech_bus.py … trim <joint> <deg>` (the encoder is absolute, so this is a software offset, not a re-bolt) |
 | Knee servos overheat | Gait is over-loading (too high a chassis, too long a stride) | Lower chassis by re-targeting `STANCE_FEMUR_DEG = -15`, shorter stride |
 | Robot drifts sideways | Tripod legs not lifting in sync | Increase swing duration; verify `trim_deg` for hip-pitch is consistent across all 6 legs |
 | Foot slips on floor | TPU pad too smooth | Cut a small section of bicycle inner tube, glue inside the pad |

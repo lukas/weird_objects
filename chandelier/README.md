@@ -21,15 +21,15 @@ interior 12 V COB LED that lights the panels from within.
 | `render_blender.sh` | Wrapper that locates Blender, builds Blender assets, and dispatches the render. Run from anywhere. |
 | `make_panel_outlines.py` | Reproduces the chandelier's vertex layout in 2-D and writes a DXF + JSON of every laser-cut acrylic panel (one per face except the open access face). |
 | `make_drill_jigs.py` | Generates per-part drill jigs for the canopy and star plate. |
-| `split_polyhedra.py` | Splits the assembled chandelier STL into per-polyhedron STLs for individual review or per-piece foundry quoting. |
+| `split_polyhedra.py` | Splits the assembled chandelier into per-polyhedron parts (STL and/or STEP) for individual review or per-piece foundry quoting. |
 | `make_bambu_h2d_plates.py` | Packs quarter-scale print-ready polyhedra onto Bambu H2D build plate STL(s). |
-| `export_plate_to_step.py` | Converts a packed plate STL to STEP (requires ``pip install cadquery`` for OpenCascade bindings). |
+| `export_plate_to_step.py` | Converts a packed plate STL to STEP, and exposes the reusable `trimeshes_to_step()` mesh→STEP helper (requires ``pip install cadquery`` for OpenCascade bindings). |
 | `ASSEMBLY.md` | Step-by-step assembly + sourcing guide: foundry → finish → wiring → panel install → hanging. |
 | `ASSEMBLY_full_cast.md` | Variant assembly guide for an all-cast (no laser-cut sub-frame) approach. |
 | `shopping_list.csv`, `shopping_list_with_urls.csv` | Bill of materials. |
 | `renders/` | Committed example renders (showroom, night, projection, PyVista preview). |
 | `blender_assets/` | (gitignored) Cached `panels.ply` and `led_positions.json` produced by `simulate_chandelier.py --export-blender` for the Blender renderer. |
-| `polyhedra_stl/` | (gitignored) Per-polyhedron STLs produced by `split_polyhedra.py`. |
+| `polyhedra_stl/` | (gitignored) Per-polyhedron parts (STL and/or STEP) produced by `split_polyhedra.py`. |
 | `bambu_h2d_plates/` | (gitignored STL outputs) Quarter-scale H2D build plates produced by `make_bambu_h2d_plates.py`. |
 | `jigs/` | (gitignored) Drill-jig STLs produced by `make_drill_jigs.py`. |
 
@@ -49,7 +49,13 @@ The shared `polyhedra.py` library at the repo root and its tests
 # -> chandelier/panels.dxf  +  chandelier/panels.json    (1029 panels)
 
 ./run.sh chandelier/split_polyhedra.py
-# -> chandelier/polyhedra_stl/*.stl     (33 individual polyhedron STLs)
+# -> chandelier/polyhedra_stl/*.stl     (31 individual polyhedron STLs)
+
+# Per-polyhedron STEP instead of STL (needs cadquery / OpenCascade):
+./run.sh chandelier/split_polyhedra.py --format step
+# -> chandelier/polyhedra_stl/*.step    (31 individual polyhedron STEPs)
+#    Use --format both for both, and --step-decimate 0.9 to shrink the
+#    (tessellated) STEP files, which are large at full resolution.
 
 ./run.sh chandelier/make_bambu_h2d_plates.py
 # -> chandelier/bambu_h2d_plates/plate_*.stl + layout_manifest.csv + README.md

@@ -40,6 +40,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import subprocess
 import sys
 from itertools import combinations
 
@@ -273,6 +275,77 @@ def check_mesh_overlap(instances, *, overlap_mm3, pitch,
 
 
 # --------------------------------------------------------------------------
+# BuildViz publish (bump a new version every verifier run)
+# --------------------------------------------------------------------------
+#
+# Static discovery / register / send all OVERWRITE the default version in place
+# and never accumulate history (see buildviz BUILDVIZ_INTEGRATION.md "Build
+# Versions").  ``buildviz push --bump`` is the one command that auto-picks the
+# next free ``v<N>`` and makes it the default, so wiring it into the verifier
+# means every verified revision lands as its own version in the machine-wide hub
+# cache (~/.buildviz/cache/<id>), the canonical cross-process target.
+#
+#   * ``--upload-assets`` ships the scene's RELATIVE mesh bytes so the pushed
+#     build is self-contained (no static mirror needed); identical STL bytes are
+#     content-hashed and deduped across versions, so an unchanged re-push writes
+#     ~0 new bytes.
+#   * ``--keep <n>`` bounds growth by pruning the oldest non-default versions
+#     (the default is never pruned).
+#
+# Resolves ``npx buildviz`` from the consuming project's node_modules (the
+# ``file:`` devDependency), so it drives the on-disk buildviz CLI.
+
+def _find_project_root(start_dir: str) -> str | None:
+    """Walk up from ``start_dir`` to the nearest dir with a buildviz install
+    (``node_modules/buildviz`` or a ``package.json`` listing it)."""
+    cur = os.path.abspath(start_dir)
+    while True:
+        if os.path.exists(os.path.join(cur, "node_modules", "buildviz")) or \
+           os.path.exists(os.path.join(cur, "node_modules", ".bin", "buildviz")):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            return None
+        cur = parent
+
+
+def publish_to_buildviz(scene_path: str, *, build_id: str | None,
+                        keep: int) -> int:
+    """Push ``scene_path`` to the BuildViz hub as a fresh auto-numbered version
+    (``buildviz push --bump``).  Returns the CLI exit code (0 on success).
+
+    A publish failure is reported but never masks the verifier's own pass/fail
+    exit code -- the caller keeps the checks result authoritative."""
+    scene_path = os.path.abspath(scene_path)
+    scene_dir = os.path.dirname(scene_path)
+    project_root = _find_project_root(scene_dir) or scene_dir
+
+    npx = shutil.which("npx")
+    if npx is None:
+        print("  [publish] SKIP: `npx` not on PATH; cannot push to BuildViz hub.")
+        return 1
+
+    cmd = [npx, "buildviz", "push",
+           "--scene", scene_path,
+           "--bump", "--set-default",
+           "--keep", str(keep),
+           "--upload-assets", "--assets-dir", scene_dir]
+    if build_id:
+        cmd += ["--build-id", build_id]
+
+    print(f"  [publish] buildviz push --bump (keep {keep}) from {project_root}")
+    try:
+        proc = subprocess.run(cmd, cwd=project_root)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [publish] FAILED to launch buildviz: {exc}")
+        return 1
+    if proc.returncode != 0:
+        print(f"  [publish] buildviz push exited {proc.returncode} "
+              "(version NOT bumped).")
+    return proc.returncode
+
+
+# --------------------------------------------------------------------------
 # Driver
 # --------------------------------------------------------------------------
 
@@ -341,9 +414,24 @@ def main(argv=None):
                     help="write the sidecar buildviz_checks.json")
     ap.add_argument("--json", action="store_true",
                     help="print the full result JSON to stdout")
+    ap.add_argument("--publish", action="store_true",
+                    help="after checking, bump a new BuildViz version "
+                         "(buildviz push --bump) into the hub cache")
+    ap.add_argument("--build-id", default=None,
+                    help="build id to publish under (e.g. prototype_sts3215); "
+                         "only used with --publish")
+    ap.add_argument("--keep", type=int, default=20,
+                    help="retained-version cap passed to buildviz push --keep "
+                         "(default 20; only used with --publish)")
     args = ap.parse_args(argv)
-    return run(args.scene, overlap_mm3=args.overlap_mm3, pitch=args.pitch,
+    code = run(args.scene, overlap_mm3=args.overlap_mm3, pitch=args.pitch,
                emit=args.emit, as_json=args.json)
+    if args.publish:
+        # Honour the user's intent that running the verifier bumps the version:
+        # publish on EVERY run regardless of pass/fail.  --keep bounds growth
+        # and --upload-assets dedupes identical mesh bytes, so this stays cheap.
+        publish_to_buildviz(args.scene, build_id=args.build_id, keep=args.keep)
+    return code
 
 
 if __name__ == "__main__":

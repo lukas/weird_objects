@@ -1,24 +1,39 @@
 #!/usr/bin/env python3
-"""Per-joint wire-harness plan for the 18-servo hexapod prototype.
+"""Per-joint wire-harness reach model for the 18-servo hexapod prototype.
 
-This module is the SOURCE OF TRUTH for "how long is each leg's
-servo extension cable, where does it route, and which PCA9685
-channel is on the other end".  It reads the parametric CAD
-geometry (``hexapod_prototype``), the chassis-frame leg layout
-(``hexapod_prototype._leg_chassis_frames``), and the firmware's
-joint-to-PCA-channel mapping
-(``firmware/prototype_servo_bridge/prototype_servo_bridge.ino``)
-to generate one ``WIRE_HARNESS_PLAN`` entry per servo:
+Jun 2026 STS3215 serial-bus refit.  The robot is 18x FEETECH STS3215
+**serial-bus** servos on a single half-duplex TTL bus driven directly
+by an **Arduino Uno Q** (no PCA9685, no Raspberry Pi, no FE-URT-1 /
+Waveshare bus adapter).  Each leg's three servos are **daisy-chained
+with stock FEETECH 3-pin bus cables**; the leg's bundle drops through
+that leg's ``chassis_bottom`` drop slot into the inter-plate volume,
+where it meets the leg's **power branch from the distributed bus bar**
+(V+/GND) and the **leg-to-leg data jumper** (signal + GND only).  The
+full, buildable wiring plan — the DATA daisy-chain plus the
+DISTRIBUTED-POWER bus-bar / per-leg branch harness that keeps any one
+Molex 5264 pin under its ~3 A rating — lives in
+``../firmware/WIRING.md`` (§6).  See also ``../SHOPPING_LIST.md`` and
+``../PROTOTYPE_BOM.md``.
 
-  * ``joint_idx`` (0 .. 17): canonical joint index used by the
-    servo-bridge firmware.  ``joint = leg * 3 + axis`` with
-    ``axis in {0=yaw, 1=hip_pitch, 2=knee}``.
+This module is the SOURCE OF TRUTH for the per-joint **cable reach
+budget**: "starting from each servo's cradle wire-exit, how long a
+bus lead does it take to reach the electronics-tray bus landing,
+routing through that leg's drop slot?"  It reads the parametric CAD
+geometry (``hexapod_prototype``) and the chassis-frame leg layout
+(``hexapod_prototype._leg_chassis_frames``) to generate one
+``WIRE_HARNESS_PLAN`` entry per servo:
+
+  * ``joint_idx`` (0 .. 17): canonical joint index.
+    ``joint = leg * 3 + axis`` with ``axis in {0=yaw, 1=hip_pitch,
+    2=knee}``.
   * ``leg_idx`` (0 .. 5): hex-leg index (0 = +X half north-east,
     going CCW; matches ``_leg_chassis_frames()``).
   * ``axis`` (string): "yaw" / "hip_pitch" / "knee".
-  * ``pca_board`` (int 0x40 / 0x41): PCA9685 I2C address.
-  * ``pca_channel`` (int 0 .. 15): PCA channel number on that
-    board.
+  * ``servo_id`` (int 1 .. 18): the bus address assigned to this
+    joint (``servo_id = joint_idx + 1``; set once with
+    ``feetech_bus.py setid``).  Replaces the retired PWM
+    ``pca_board`` / ``pca_channel`` pair — on the serial bus a
+    joint is addressed by ID, not by a driver-board channel.
   * ``source_xyz_chassis``: chassis-frame XYZ of the cradle
     wire-exit's mouth (where the harness physically exits the
     servo well).  As of the May 2026 chassis_bottom-integrated
@@ -28,14 +43,17 @@ to generate one ``WIRE_HARNESS_PLAN`` entry per servo:
     link's +X face, but for path-length estimation we still
     model all three cradles' sources as the YAW exit mouth (see
     ``_cradle_source_bracket_xyz``).
-  * ``destination_xyz_chassis``: chassis-frame XYZ of the
-    PCA9685 channel header pin block (board centre +
-    per-channel offset along the rotated PCA9685 long axis).
+  * ``destination_xyz_chassis``: chassis-frame XYZ of this leg's
+    landing post on the electronics-tray **power bus bar + Uno Q
+    UART tap** (see ``_bus_landing_chassis_xyz``).  All three
+    servos in a leg share that leg's branch terminal, so the
+    destination depends only on ``leg_idx``; the per-axis
+    difference in reach comes from the slack budget below.
   * ``via_chassis_drop_xyz``: chassis-frame XYZ of the leg's
     drop slot through ``chassis_bottom``
     (= bracket_frame(LEG_HARNESS_DROP_X_CENTRE, 0, 0)).
-  * ``path_length_mm_min``: minimum harness length needed to
-    span source -> drop -> PCA pin, computed as a Manhattan
+  * ``path_length_mm_min``: minimum bus-lead length needed to
+    span source -> drop -> bus landing, computed as a Manhattan
     distance plus a +30 mm slack-loop budget per joint axis
     the harness physically crosses (see SLACK_BUDGET below).
     Manhattan rather than Euclidean because the harness has
@@ -43,35 +61,28 @@ to generate one ``WIRE_HARNESS_PLAN`` entry per servo:
     surface rather than fly diagonally through the chassis.
   * ``extension_required``: human-readable string describing
     the cable build for this joint, computed from
-    ``path_length_mm_min`` minus the stock pigtail length and
+    ``path_length_mm_min`` minus the stock bus-lead length and
     rounded up to the next 30 cm extension cable.
 
-Stock pigtail + extension assumption (DOCUMENTED here per the
-task brief):
+Stock bus lead + extension assumption:
 
-    DS3225 stock pigtail = STOCK_PIGTAIL_MM (declared below).  The
-    real DS3225 pigtail is "barely long enough" per
-    SHOPPING_LIST.md, with no exact figure published; the standard
-    Hiwonder DS3225 ships with ~ 30 cm pigtail.  We treat the stock
-    pigtail as 300 mm = STOCK_PIGTAIL_MM.
+    STS3215 stock bus lead = STOCK_PIGTAIL_MM (declared below).
+    Each STS3215 ships with one 3-pin serial-bus cable, and
+    SHOPPING_LIST.md calls for a pack of "FEETECH 3-pin serial-bus
+    cables, assorted lengths".  We treat the stock lead as
+    300 mm = STOCK_PIGTAIL_MM (the longest assorted length), the
+    reach available before a leg needs an extra/longer cable.
 
-    Extension cables are 30 cm, 3-pin male-female servo
-    extensions (the existing "Servo extension cables, 30 cm,
-    3-pin male-female, pack of 20" line in SHOPPING_LIST.md).
-    Each extension adds EXTENSION_LENGTH_MM = 300 mm of
-    reach when wired end-to-end with the stock pigtail.
+    Extension cables are 30 cm, 3-pin serial-bus extensions.
+    Each adds EXTENSION_LENGTH_MM = 300 mm of reach when wired
+    end-to-end with the stock lead.
 
     extension_required:
       n_ext = max(0, ceil((path_length_mm_min - STOCK_PIGTAIL_MM)
                           / EXTENSION_LENGTH_MM))
-      0 -> "DS3225 stock pigtail"
+      0 -> "STS3215 stock bus lead"
       1 -> "+ 30 cm extension"
       n -> "+ N x 30 cm extensions"
-    Cross-board callout: L5 yaw goes to PCA1 ch15, L5 hip + knee
-    go to PCA2 ch 0+1 (per the firmware's `joint = leg * 3 + axis`
-    rule).  The L5 hip + knee entries' ``extension_required``
-    appends " (L5 cross-board)" so the BOM reader can tell at a
-    glance that these two servos cross the PCA1 / PCA2 boundary.
 
 The leg azimuth + chassis-frame transforms come from
 ``hexapod_prototype._leg_chassis_frames()`` -- DO NOT re-derive
@@ -111,38 +122,45 @@ import hexapod_prototype as hp  # noqa: E402
 # ---------------------------------------------------------------------------
 
 STOCK_PIGTAIL_MM = 300.0
-"""mm.  See module docstring for the SHOPPING_LIST.md citation and
-the Hiwonder DS3225 spec assumption."""
+"""mm.  STS3215 stock 3-pin serial-bus lead.  See the module
+docstring for the SHOPPING_LIST.md citation; treated as 300 mm,
+the reach available before a leg needs an extra/longer cable."""
 
 EXTENSION_LENGTH_MM = 300.0
-"""mm.  Standard 30 cm servo extension; matches the
-"Servo extension cables, 30 cm" line in SHOPPING_LIST.md."""
+"""mm.  Standard 30 cm 3-pin serial-bus extension; matches the
+"FEETECH 3-pin serial-bus cables, assorted lengths" line in
+SHOPPING_LIST.md."""
 
 SLACK_PER_JOINT_CROSSING_MM = 30.0
 """mm of slack loop the harness needs at every joint axis it
 physically crosses (so the wire bend radius stays > the servo
 wire's minimum bend radius across the full joint sweep)."""
 
-# PCA9685 channel layout (Adafruit 16-channel servo driver,
-# rotated 90 deg so its 62 mm long axis runs along tray-Y).  The
-# 16 servo headers fan out along the +X edge of the rotated PCB.
-# Channel-to-channel pitch is empirically ~3.4 mm on the Adafruit
-# board (16 channels span ~55 mm of the 62 mm board length).  The
-# exact pin position doesn't matter much for path-length
-# estimation; the +30 mm slack budget dominates the per-channel
-# delta of < 1 mm in the Manhattan path length.
-PCA_CHANNEL_PITCH_MM = 3.4
-PCA_CHANNEL_PIN_X_OFFSET = 0.5 * hp.PCA_PCB_D
-"""mm.  The header pins sit on the +X edge of the rotated PCB
-(= +PCA_PCB_D/2 in tray-local X) since PCA_HOLES uses the
-(by, -bx) rotation, which maps the original board's +Y edge
-(where the servo headers live) to tray +X."""
-PCA_PIN_Z_ABOVE_TRAY_TOP_MM = (hp.ELEC_STANDOFF_H
-                                + 1.6  # PCB thickness
-                                + 1.5)  # nominal header pin tip
-"""mm.  Channel pin tips sit this far above the tray top face
-(tray top face is at chassis-z = +CHASSIS_PLATE_T/2 + 3 =
-+5 mm; pin tips at +5 + 5 + 1.6 + 1.5 = +13.1 mm)."""
+# Electronics-tray serial-bus landing (Jun 2026 STS3215 refit).
+# The retired PWM star fanned each servo's own extension cable
+# back to one of two PCA9685 boards in the tray's +X strip.  On
+# the serial bus there is no driver board: each leg's bundle lands
+# at that leg's branch terminal on the POWER BUS BAR + the Uno Q
+# UART tap, which sit in the SAME +X strip the two PCA9685s used
+# to occupy (tray-local x ~= +64 mm, ~3.5 mm inside the tray +X
+# edge).  We model the bus bar with one landing post per leg,
+# fanned along tray-Y at BUS_BAR_POST_PITCH_MM so each leg's
+# branch is a distinct, geometrically-grounded reach target.
+BUS_BAR_TRAY_X = 64.0
+"""mm, tray-local.  +X strip the retired PCA9685 boards occupied;
+where the power bus bar + Uno Q UART tap now live."""
+BUS_BAR_TRAY_Y_CENTRE = 2.5
+"""mm, tray-local.  Bus-bar centre, midway between the two retired
+PCA centres (PCA1 +22.5 / PCA2 -17.5)."""
+BUS_BAR_POST_PITCH_MM = 8.0
+"""mm.  Per-leg branch-post spacing along the bus bar (tray-Y).
+The six legs' posts fan symmetrically about BUS_BAR_TRAY_Y_CENTRE."""
+BUS_LANDING_Z_ABOVE_TRAY_TOP_MM = (hp.ELEC_STANDOFF_H
+                                   + 1.6   # PCB / bus-bar base thickness
+                                   + 1.5)  # nominal terminal-post tip
+"""mm.  Bus-bar branch-post tips sit this far above the tray top
+face (tray top face at chassis-z = +CHASSIS_PLATE_T/2 + 3 = +5 mm;
+post tips at +5 + 5 + 1.6 + 1.5 = +13.1 mm)."""
 
 CHASSIS_PLATE_TOP_Z = hp.CHASSIS_PLATE_T / 2.0
 """mm.  chassis_bottom top face in chassis-frame Z."""
@@ -233,39 +251,35 @@ def _drop_slot_bracket_xyz() -> tuple[float, float, float]:
     return (hp.LEG_HARNESS_DROP_X_CENTRE, 0.0, 0.0)
 
 
-def _pca_pin_chassis_xyz(pca_board: int, channel: int
-                          ) -> tuple[float, float, float]:
-    """Return the chassis-frame XYZ of one PCA9685 channel header
-    pin tip.
+def _bus_landing_chassis_xyz(leg_idx: int
+                             ) -> tuple[float, float, float]:
+    """Return the chassis-frame XYZ of one leg's landing post on the
+    electronics-tray power bus bar + Uno Q UART tap.
 
-    PCA boards live in tray-local frame; tray-frame -> chassis-
+    The bus bar lives in tray-local frame; tray-frame -> chassis-
     frame translation is (ELEC_TRAY_CENTRE_X, ELEC_TRAY_CENTRE_Y,
     ELEC_TRAY_TOP_Z + tray-z) where tray-z = 0 at the tray's mid-
-    plane.  Pin tips sit at PCA_PIN_Z_ABOVE_TRAY_TOP_MM above the
+    plane.  Post tips sit BUS_LANDING_Z_ABOVE_TRAY_TOP_MM above the
     tray top face.
 
-    Channel layout: 16 channels along the rotated board's tray-Y
-    axis, at PCA_CHANNEL_PITCH_MM pitch, with channel 0 at the
-    -Y end and channel 15 at the +Y end.  Pins are on the board's
-    +X edge (= tray +X), offset by +PCA_PCB_D / 2 from
-    PCA_CENTRE.
+    Post layout: the six per-leg branch posts fan along the bus
+    bar's tray-Y axis at BUS_BAR_POST_PITCH_MM pitch, symmetric
+    about BUS_BAR_TRAY_Y_CENTRE, on the bus bar's +X strip
+    (tray-local x = BUS_BAR_TRAY_X).  Leg 0's post sits at the -Y
+    end, leg 5's at the +Y end -- so each leg's bundle lands at the
+    branch terminal nearest the direction it routes inboard from.
     """
-    assert pca_board in (0x40, 0x41)
-    assert 0 <= channel <= 15
-    pca_centre_tray = (hp.PCA_CENTRE if pca_board == 0x40
-                       else hp.PCA2_CENTRE)
-    # Channels span tray-Y from -15/2 * PITCH to +15/2 * PITCH
-    # around the board centre.
-    n_channels = 16
-    span_y = (n_channels - 1) * PCA_CHANNEL_PITCH_MM
-    ch_y_tray = (pca_centre_tray[1] - span_y / 2.0
-                 + channel * PCA_CHANNEL_PITCH_MM)
-    ch_x_tray = pca_centre_tray[0] + PCA_CHANNEL_PIN_X_OFFSET
+    assert 0 <= leg_idx <= 5
+    n_legs = 6
+    span_y = (n_legs - 1) * BUS_BAR_POST_PITCH_MM
+    post_y_tray = (BUS_BAR_TRAY_Y_CENTRE - span_y / 2.0
+                   + leg_idx * BUS_BAR_POST_PITCH_MM)
+    post_x_tray = BUS_BAR_TRAY_X
     # Tray -> chassis
-    ch_x = hp.ELEC_TRAY_CENTRE_X + ch_x_tray
-    ch_y = hp.ELEC_TRAY_CENTRE_Y + ch_y_tray
-    ch_z = ELEC_TRAY_TOP_Z + PCA_PIN_Z_ABOVE_TRAY_TOP_MM
-    return (ch_x, ch_y, ch_z)
+    px = hp.ELEC_TRAY_CENTRE_X + post_x_tray
+    py = hp.ELEC_TRAY_CENTRE_Y + post_y_tray
+    pz = ELEC_TRAY_TOP_Z + BUS_LANDING_Z_ABOVE_TRAY_TOP_MM
+    return (px, py, pz)
 
 
 def _bracket_to_chassis(edge_mid: np.ndarray, R3: np.ndarray,
@@ -286,9 +300,9 @@ def _bracket_to_chassis(edge_mid: np.ndarray, R3: np.ndarray,
 
 _AXIS_ORDER = ("yaw", "hip_pitch", "knee")
 _AXIS_SLACK_CROSSINGS: dict[str, int] = {
-    # Yaw cradle is chassis-fixed (mounted to coxa_bracket); no
-    # downstream joint between the cradle and the chassis-side
-    # PCA9685, so 0 slack loops.
+    # Yaw cradle is chassis-fixed (integrated into chassis_bottom);
+    # no downstream joint between the cradle and the chassis-side
+    # bus landing, so 0 slack loops.
     "yaw": 0,
     # Hip-pitch cradle is on coxa_link (rotates with yaw); harness
     # crosses the yaw joint once on its way back to the chassis.
@@ -312,7 +326,7 @@ def _manhattan(a: tuple[float, float, float],
 
 
 # ---------------------------------------------------------------------------
-# Joint mapping (mirrors the firmware's joint -> PCA channel rule)
+# Joint mapping (serial-bus: servo ID = joint + 1)
 # ---------------------------------------------------------------------------
 
 
@@ -320,17 +334,16 @@ def joint_idx(leg_idx: int, axis: str) -> int:
     return leg_idx * 3 + _AXIS_ORDER.index(axis)
 
 
-def joint_to_pca(joint: int) -> tuple[int, int]:
-    """Return ``(pca_board, pca_channel)`` for one joint index.
+def joint_to_servo_id(joint: int) -> int:
+    """Return the serial-bus address for one joint index.
 
-    Mirrors ``firmware/prototype_servo_bridge/
-    prototype_servo_bridge.ino``: joints 0..15 -> PCA1 (0x40)
-    channels 0..15, joints 16..17 -> PCA2 (0x41) channels 0..1.
+    ``servo_id = joint + 1`` (IDs 1..18), matching
+    ``pi_control/feetech_bus.py`` and ``firmware/WIRING.md``: the
+    logical joint ``j`` is the servo set to ID ``j + 1`` with
+    ``feetech_bus.py setid``.
     """
     assert 0 <= joint <= 17
-    if joint <= 15:
-        return (0x40, joint)
-    return (0x41, joint - 16)
+    return joint + 1
 
 
 # ---------------------------------------------------------------------------
@@ -342,8 +355,7 @@ class HarnessEntry(TypedDict, total=False):
     joint_idx: int
     leg_idx: int
     axis: str
-    pca_board: int
-    pca_channel: int
+    servo_id: int
     source_xyz_chassis: tuple[float, float, float]
     destination_xyz_chassis: tuple[float, float, float]
     via_chassis_drop_xyz: tuple[float, float, float]
@@ -351,27 +363,17 @@ class HarnessEntry(TypedDict, total=False):
     extension_required: str
 
 
-def _extension_required_str(path_mm: float, leg_idx: int,
-                            pca_board: int, axis: str) -> str:
+def _extension_required_str(path_mm: float) -> str:
     """Return the BOM string for one harness path.
 
-    See module docstring for the assumption + rounding rule.
-    Appends " (L5 cross-board)" for L5 hip + knee (the two
-    servos that physically cross the PCA1 / PCA2 boundary in
-    the firmware mapping)."""
+    See module docstring for the assumption + rounding rule."""
     deficit_mm = path_mm - STOCK_PIGTAIL_MM
     n_ext = max(0, math.ceil(deficit_mm / EXTENSION_LENGTH_MM))
     if n_ext == 0:
-        s = "DS3225 stock pigtail"
-    elif n_ext == 1:
-        s = "+ 30 cm extension"
-    else:
-        s = f"+ {n_ext} x 30 cm extensions"
-    # L5 cross-board callout
-    if leg_idx == 5 and pca_board == 0x41:
-        # L5 yaw is on PCA1 ch15, L5 hip+knee are on PCA2 ch0+1
-        s = f"{s} (L5 cross-board: PCA2 0x41 ch{'0' if axis == 'hip_pitch' else '1'})"
-    return s
+        return "STS3215 stock bus lead"
+    if n_ext == 1:
+        return "+ 30 cm extension"
+    return f"+ {n_ext} x 30 cm extensions"
 
 
 def _build_plan() -> list[HarnessEntry]:
@@ -379,7 +381,7 @@ def _build_plan() -> list[HarnessEntry]:
     for leg_idx, edge_mid, _R, R3 in hp._leg_chassis_frames():
         for axis in _AXIS_ORDER:
             j_idx = joint_idx(leg_idx, axis)
-            pca_board, pca_channel = joint_to_pca(j_idx)
+            servo_id = joint_to_servo_id(j_idx)
 
             source_bracket = _cradle_source_bracket_xyz(axis)
             drop_bracket = _drop_slot_bracket_xyz()
@@ -388,22 +390,19 @@ def _build_plan() -> list[HarnessEntry]:
                                                   source_bracket)
             drop_chassis = _bracket_to_chassis(edge_mid, R3,
                                                 drop_bracket)
-            dest_chassis = _pca_pin_chassis_xyz(pca_board,
-                                                 pca_channel)
+            dest_chassis = _bus_landing_chassis_xyz(leg_idx)
 
             man_path = (_manhattan(source_chassis, drop_chassis)
                         + _manhattan(drop_chassis, dest_chassis))
             slack = _AXIS_SLACK_MM[axis]
             path_length_mm_min = man_path + slack
-            ext = _extension_required_str(path_length_mm_min,
-                                           leg_idx, pca_board, axis)
+            ext = _extension_required_str(path_length_mm_min)
 
             plan.append(HarnessEntry(
                 joint_idx=j_idx,
                 leg_idx=leg_idx,
                 axis=axis,
-                pca_board=pca_board,
-                pca_channel=pca_channel,
+                servo_id=servo_id,
                 source_xyz_chassis=tuple(round(v, 2) for v in source_chassis),
                 destination_xyz_chassis=tuple(round(v, 2) for v in dest_chassis),
                 via_chassis_drop_xyz=tuple(round(v, 2) for v in drop_chassis),
@@ -436,13 +435,12 @@ def print_harness_plan() -> None:
         ("joint", 5),
         ("leg", 4),
         ("axis", 10),
-        ("PCA",   6),
-        ("ch",    3),
+        ("ID",    3),
         ("src (mm)", 24),
         ("via drop (mm)", 24),
-        ("dest (mm)", 24),
+        ("bus landing (mm)", 24),
         ("path mm", 8),
-        ("extension", 50),
+        ("extension", 40),
     ]
     fmt_cells = lambda cells: "| " + " | ".join(
         f"{c:<{w}}" for (c, (_n, w)) in zip(cells, cols)) + " |"
@@ -455,8 +453,7 @@ def print_harness_plan() -> None:
             str(entry["joint_idx"]),
             f"L{entry['leg_idx']}",
             entry["axis"],
-            f"0x{entry['pca_board']:02x}",
-            str(entry["pca_channel"]),
+            str(entry["servo_id"]),
             _fmt_xyz(entry["source_xyz_chassis"]),
             _fmt_xyz(entry["via_chassis_drop_xyz"]),
             _fmt_xyz(entry["destination_xyz_chassis"]),

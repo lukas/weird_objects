@@ -1,0 +1,443 @@
+# Robot Cat — design contract for a CUTE, buildable cat-like quadruped (rev 8).
+#
+# Human-readable design intent behind the BuildViz build in this directory
+# (scene.json + stl/).  scene.json references it via `designSpecUrl`.  Geometry
+# is generated procedurally by `robot_cat/build_cat.py` (trimesh); the numbers
+# below mirror the constants in that script.
+#
+# Drive train (since rev 4): a SANE, PROVEN configuration modelled on the
+# open-source robot cats Petoi Nybble / Bittle —
+#   * 2 actuated DOF per leg in the SAGITTAL plane (shoulder/hip pitch +
+#     elbow/knee pitch); NO hip abduction servos -> 8 leg servos.
+#   * 1 neck-pan servo (Bittle's 9th joint) -> 9 servos total.
+#   * PASSIVE rigid spine (the body is one fused shell) and a PASSIVE tail.
+#
+# Rev 8 (this revision) is a CUTENESS redesign.  Revs 6-7 were a full-size adult
+# cat on big 60 g STS3215 servos; reviewers found it menacing — a hunched
+# teardrop body, a small ducked head, spindly legs with clunky external knee
+# boxes, and exposed electronics.  Rev 8 abandons "full-size anatomy" and chases
+# NEOTENY (the baby-schema "cute" recipe) on a Petoi-Nybble-class MICRO platform:
+#   (1) Smaller hardware: ~10 g micro metal-gear serial servos (~23x12x24 mm)
+#       instead of the 60 g, 45x34 mm STS3215; a compact NyBoard/BiBoard-class
+#       ESP32 brain instead of the 68 mm Arduino Uno Q; a small 2S LiPo.
+#   (2) A BIG round head held UP with large forward eyes (iris+pupil+catch-light),
+#       plump cheeks, a small pink nose, rounded ears.
+#   (3) A compact, chubby, rounded BODY (head:body ~1:2.6), not a long teardrop.
+#   (4) Short stubby rounded LEGS whose elbow/knee actuators hide inside a chubby
+#       FUR knee bulge (no external boxes); rounded paws.
+#   (5) Electronics tucked LOW inside the belly, fully hidden; a coral collar +
+#       gold bell hides the neck joint and wiring.
+#
+# Source of truth: build_cat.py for geometry, scene.json for what BuildViz
+# renders, this file for design INTENT.
+
+units: mm
+
+design_intent: >
+  A CUTE, clearly feline quadruped robot that is genuinely buildable and able to
+  stand: a small Petoi-Nybble-class kitten following neotenic ("baby-schema")
+  proportions — a big rounded head held high with large forward-facing eyes, a
+  compact chubby rounded body, short stubby legs with hidden actuators, rounded
+  paws and a perky tail curl.  It keeps the proven hobby-quadruped drivetrain
+  (planar two-joint legs, an un-actuated rigid spine, a passive tail) but on
+  small ~10 g micro servos so the legs can be short and the joints hide inside
+  the body / a chubby knee instead of clunky external boxes.
+
+cuteness_research:
+  baby_schema_neoteny: >
+    Konrad Lorenz's Kindchenschema and follow-up studies (Glocker 2009; Borgi
+    2014) list the traits humans read as "cute": a large head relative to the
+    body, a high/domed forehead, large eyes set LOW (below the skull's mid-line)
+    and wide apart, a small nose and mouth, round protruding "chubby" cheeks,
+    short thick limbs, and an overall rounded body with no sharp angles.
+  proportion_rules_applied:
+    head_to_body_ratio: "head ~80 mm on a ~210 mm body -> ~1:2.6 (large head, neotenic)."
+    eyes: "big (~28 mm) forward-facing eyes set ~6 mm BELOW head centre and wide apart; iris + pupil + a tiny white catch-light for an expressive, friendly gaze."
+    nose_mouth: "small (~8 mm) pink nose, no harsh mouth -> soft lower face."
+    cheeks: "plump rounded cheeks flanking the muzzle (chubby-cheek cue)."
+    ears: "short ROUNDED ears (plump ellipsoids), not sharp triangles."
+    body: "compact, chubby, near-circular cross-sections -> a rounded barrel, not a hunched teardrop."
+    limbs: "short, stubby, thick, rounded; rounded paws; nothing spindly."
+    posture: "head held UP and forward (alert/friendly), not ducked into a stalk."
+  robot_pet_references:
+    - "Petoi Nybble — open-source robot cat: 11 joints, ~10-13 g micro metal-gear servos, NyBoard (Arduino-Uno-class) / BiBoard (ESP32), ~250 x 107 x 140 mm, ~320 g.  THE size/hardware template for a cute compact cat."
+    - "Petoi Nybble Q — 11-12 servos (Petoi P1S ~10 g), BiBoard ESP32, 240 x 115 x 150 mm, ~400-430 g, 3D-printed shell."
+    - "Elephant Robotics MarsCat — 16 servos, OLED eyes, rubber ears/paws, ~2 kg.  Takeaway: big expressive OLED EYES are the cuteness engine; a rounded shell hides the mechanism."
+    - "Sony Aibo ERS-1000 — 22 actuators, OLED eyes, fluid organic CURVES and a rounded body ('vitality'); the gold standard that round forms + expressive eyes read 'adorable' where earlier angular robots read 'Terminator'."
+    - "Loona / Moflin / Cozmo-Vector — expressive eyes + compact rounded bodies; emotion lives in the face, not extra DOF."
+  takeaway: >
+    Cute robot pets are SMALL, ROUNDED, and lead with a big-eyed expressive FACE;
+    they hide actuators inside clean rounded shells.  Rev 8 copies that: shrink the
+    cat to Nybble scale, give it a big neotenic head + eyes, round everything, and
+    bury the hardware.
+
+design_lineage:
+  references:
+    - "Petoi Nybble / Bittle — 2 DOF/leg sagittal quadruped, passive spine + tail, 8 leg + 1 neck servo."
+  what_we_copied: >
+    The 2-DOF-per-leg sagittal layout, the un-actuated spine, the passive tail,
+    the single neck servo, the shoulder/hip-in-body + knee/elbow-on-leg scheme,
+    AND now the Nybble hardware class itself (micro servos + a compact ESP32
+    board) and its ~250 mm / few-hundred-gram scale.
+  what_differs: >
+    A deliberately NEOTENIC (cute) shape — big head, big eyes, chubby rounded
+    body, stubby legs — rather than Nybble's flat plate-and-box construction, and
+    a continuously-lofted smooth shell that hides every servo.
+
+# ---------------------------------------------------------------------
+# Coordinate frame (world, mm)
+# ---------------------------------------------------------------------
+coordinate_system:
+  origin: "Ground plane under the cat; model lifted so the lowest paw is at z=0."
+  x_axis: "+X = forward, toward the head / nose."
+  y_axis: "+Y = the cat's LEFT (right-hand rule with +Z up)."
+  z_axis: "+Z = up."
+
+# ---------------------------------------------------------------------
+# Overall dimensions (this build, SCALE = 1.0)
+# ---------------------------------------------------------------------
+overall_dimensions_mm:
+  bounding_box_LxWxH: [253, 127, 183]   # nose..tail-curl x track x ear-top
+  body_length_chest_to_tail_base: 154
+  head_diameter: 80
+  shoulder_pivot_height: 80
+  hip_pivot_height: 86
+  ear_top_height: 183
+  foot_track_half_y: 33
+  foot_fore_aft_span: 114        # front paws x=+62 .. hind paws x=-52
+  scale_factor: 1.0              # structural geometry is design-mm x SCALE; hardware is TRUE size
+  size_note: >
+    A compact ~Nybble-class kitten (~250 mm nose-to-tail-curl, ~80 mm hip pivot),
+    NOT a full-size cat — small is part of "cute".
+
+# ---------------------------------------------------------------------
+# Actuator — the real part, chosen by a torque + weight + proportion check
+# ---------------------------------------------------------------------
+actuator:
+  part: "Micro metal-gear serial-bus servo (Feetech P1S / SCS-class, ~MG90 footprint)"
+  why: >
+    Cute needs SMALL: the 45 x 34 mm STS3215 forced long legs and big knee bulges.
+    A ~23 x 12 x 24 mm, ~10 g micro servo is small enough to HIDE inside a stubby
+    chubby leg, and at this light ~570 g kitten it still clears the torque target
+    with margin (4.5x standing / 2.3x trot).  It is the actuator class Petoi's cute
+    Nybble actually uses.
+  body_mm: [23.0, 12.0, 24.0]
+  output: "small disc horn; the driven bone seats on the horn top (~15 mm above the case)"
+  mass_g_each: 11.0
+  stall_torque: "~0.29 N-m @ 8.4 V (metal-gear, HV)"
+  speed: "~0.10 s/60 deg"
+  drive: "serial / PWM micro servos on one bus from the controller board"
+  alternative_considered:
+    part: "FEETECH STS3215 (revs 6-7 servo)"
+    spec: "2.94 N-m, 60 g, 45.4 x 24.8 x 34.3 mm"
+    verdict: >
+      Huge torque headroom, but its size forced the un-cute spindly-leg + big-knee
+      look reviewers rejected.  On a light Nybble-class cat its torque is wasted, so
+      rev 8 drops it for the micro servo.  (It would only return if the cat were
+      scaled back up to a heavy adult.)
+
+# ---------------------------------------------------------------------
+# Hidden actuators + body covers  (mounting + cover scheme)
+# ---------------------------------------------------------------------
+actuator_cover_scheme:
+  hip_shoulder: >
+    Each shoulder/hip micro servo mounts INBOARD on the inner chassis with its
+    output facing outboard; the leg root sits just inside the body wall, so the
+    chubby torso shell completely covers the servo (it lives in the belly/haunch
+    cavity).  From outside you see only the cat's body and the leg emerging from
+    under it.
+  elbow_knee: >
+    The elbow/knee micro servo sits at the joint but is wrapped in a small, smooth
+    FUR-coloured 'knee' bulge (a filleted rounded box sized to the servo case +
+    ~2.8 mm).  It reads as a chubby joint, not a black box — no external hardware
+    shows.
+  collar_bell: >
+    A coral collar + gold bell ring the lower neck; besides being cute they hide
+    the neck-pan servo and the servo-bus wiring exiting the chest.
+  audits: >
+    check_overlaps.py treats limb-root<->torso, knee-cover<->bone/paw, the
+    one-piece head's features and electronics<->hollow-trunk as intended; 0 mm^3
+    unexpected overlap.  check_assembly.py confirms one connected body, nothing
+    hovering, all paws on z=0.
+
+# ---------------------------------------------------------------------
+# Electronics & power packaging  (where the controller + battery go)
+# ---------------------------------------------------------------------
+electronics:
+  controller:
+    part: "Compact ESP32 quadruped board (NyBoard / BiBoard-class)"
+    board_mm: [46.0, 30.0, 9.0]
+    mass_g: 16
+    power_in: "2S LiPo (6-8.4 V); on-board servo-bus driver"
+    location_mm: [30.0, 0.0, 70.0]    # low in the chest cavity, fully enclosed
+    orientation: "PCB flat (XY), long axis along X"
+    mount: "printed controller_tray; tray ties to the battery cradle riser"
+    why_not_uno_q: >
+      The 68.58 x 53.34 mm Arduino Uno Q used in revs 6-7 is simply too big for a
+      cute compact (~160 mm) body — it forces the body to bloat.  A Nybble-class
+      ESP32 board fits with room to spare, so rev 8 switches to it.
+  battery:
+    part: "2S LiPo (7.4 V, ~450 mAh)"
+    size_mm: [46, 28, 12]
+    mass_g: 32
+    location_mm: [-14.0, 0.0, 55.0]   # LOW + ~centred in the belly, on the cradle floor
+    orientation: "long axis fore/aft (X), resting ON the printed battery_cradle floor"
+    why_here: >
+      Heaviest single item, placed low and near the centreline to keep the CoM low
+      and inside the support polygon; fully hidden inside the belly.
+    powers: "micro-servo bus + the controller board"
+  wiring:
+    bus: "one servo bus from the board; the neck/leg servos daisy-chain or fan out."
+    routing: "bus drops to each shoulder/hip servo, jumper to that leg's knee servo; neck servo taps the front, hidden by the collar."
+  packaging_note: >
+    The torso is modelled as a SOLID silhouette but is really a hollow shell; the
+    board, battery and mounts sit in that belly cavity and never show from outside.
+    check_overlaps.py treats electronics<->trunk contact as expected.
+
+# ---------------------------------------------------------------------
+# Joint / DOF layout  (the explicit "what joints and why")
+# ---------------------------------------------------------------------
+actuated_joints:
+  per_front_leg:
+    dof: 2
+    motors: 2
+    joints:
+      - name: shoulder_pitch
+        axis: y_lateral
+        hardware: "micro servo (case tucked INBOARD, hidden by the body shell) + disc horn"
+        anatomy: "shoulder swing; the upper arm hangs from the horn"
+      - name: elbow_pitch
+        axis: y_lateral
+        hardware: "micro servo (wrapped in the FUR knee bulge) + disc horn"
+        anatomy: "elbow; drives the forearm + paw"
+  per_hind_leg:
+    dof: 2
+    motors: 2
+    joints:
+      - name: hip_pitch
+        axis: y_lateral
+        hardware: "micro servo (case tucked INBOARD, hidden by the body shell) + disc horn"
+        anatomy: "hip swing; the femur hangs from the horn"
+      - name: knee_pitch
+        axis: y_lateral
+        hardware: "micro servo (wrapped in the FUR knee bulge) + disc horn"
+        anatomy: "stifle (true knee); drives the shank + paw"
+  neck:
+    motors: 1
+    joints:
+      - name: neck_pan
+        axis: z_vertical
+        hardware: "micro servo + disc horn (hidden under the collar)"
+        anatomy: "head aiming (pan left/right), Bittle's 9th servo"
+  spine:
+    motors: 0
+    note: "PASSIVE / rigid — the body is one continuously-lofted shell."
+  tail:
+    motors: 0
+    note: "PASSIVE decorative curl bolted to the pelvis; no servo."
+  dof_summary:
+    front_leg_dof: 4
+    hind_leg_dof: 4
+    neck_dof: 1
+    spine_dof: 0
+    tail_dof: 0
+    total_motors: 9
+  drive_system_counts:
+    micro_servos: 9       # 8 leg (2/leg) + 1 neck pan
+    servo_horns: 9        # one disc horn per servo
+    printed_knee_covers: 4   # FUR bulges over the elbow/knee servos
+    note: "shoulder/hip + neck servos are hidden by the body shell / collar; no external clamps."
+
+# ---------------------------------------------------------------------
+# Feasibility — torque, weight, static stability, gait, connectivity (numbers)
+# ---------------------------------------------------------------------
+feasibility:
+  mass_budget_g:
+    servos: 99            # 9 x 11 g micro
+    horns: 14             # 9 small disc horns
+    controller_board: 16
+    battery_2s_lipo: 32
+    printed_pla: 411      # hollow ~2 mm-wall body/head + stubby legs + knee covers + tail + mounts
+    estimated_total: 572
+  torque_check:
+    method: "Worst-leg vertical load x knee moment arm vs. the micro servo's 0.29 N-m stall."
+    knee_moment_arm_mm: 46
+    standing: "load ~W/4; ~0.064 N-m -> margin 4.5x"
+    trot: "load ~W/2; ~0.128 N-m -> margin 2.3x"
+    verdict: "The micro servo clears the >=3x standing / >=1.5x trot target at the light ~572 g cute scale."
+  static_stability:
+    com_mm: [20.2, 0.0, 77.5]       # includes the placed battery + controller board
+    support_polygon_paws_xy: [[-52, -33], [62, -30], [62, 30], [-52, 33]]
+    com_inside_support_polygon: true
+    edge_margin_mm: 31
+    note: >
+      CoM ground projection sits 31 mm inside the 4-paw polygon -> statically
+      stable, even with the big head forward (battery low + aft balances it).
+  gait_feasibility:
+    foot_fore_aft_span_mm: 114
+    lateral_track_half_mm: 33
+    static_walk: >
+      4-paw polygon (114 x 66 mm) with the CoM 31 mm inside, so a static-stable
+      crawl (lift one foot at a time) is reachable — the gait Nybble/Bittle use.
+    limitations: >
+      Geared position micro servos (no torque control) + a passive spine -> good
+      for standing, posing and a slow static/quasi-static walk; the chubby
+      cute proportions and short legs trade stride length for adorableness.
+  connectivity_check:
+    tool: "robot_cat/check_assembly.py"
+    connected_components: 1
+    hovering_parts: 0
+    feet_on_ground: "all 4 paws at z=0"
+    note: >
+      Bones butt the real servo body / horn at each joint; shoulder/hip servos tuck
+      into the torso; the knee covers wrap their servos and bones; the battery cradle
+      touches the belly floor and carries the controller tray.  No floating parts.
+
+# ---------------------------------------------------------------------
+# Part list  (partType -> what it is).  EVERY partType in scene.json must
+# appear here (the validator cross-checks).
+# ---------------------------------------------------------------------
+parts:
+  # --- trunk: ONE continuously-lofted chubby cat body (passive spine) ---
+  torso:
+    count: 1
+    role: body
+    description: >
+      ONE smoothly-lofted, compact CHUBBY cat body: rounded chest -> full belly ->
+      rounded haunches, near-circular cross-sections (a plump barrel, not a hunched
+      teardrop).  A single Catmull-Rom-smoothed mesh; hides the inboard hip/shoulder
+      servos and all the electronics.
+  neck:
+    count: 1
+    role: body
+    description: "Short, thick neck blending the chest up to the big head (driven by the neck-pan servo)."
+  # --- head (prints as one piece; feature meshes are cosmetic) ---
+  head:      {count: 1, role: head, description: "Big, high, rounded skull (high-subdivision) held UP — the neotenic centrepiece."}
+  cheek:     {count: 2, role: head, description: "Plump chubby cheeks low on the face (baby-schema cue)."}
+  ear:       {count: 2, role: head, description: "Short ROUNDED kitten ears (plump ellipsoids), tilted slightly outward."}
+  ear_inner: {count: 2, role: head, description: "Pink inner-ear pinnae."}
+  muzzle:    {count: 1, role: head, description: "Small soft cream muzzle in the lower face."}
+  nose:      {count: 1, role: head, description: "Small pink nose at the muzzle tip."}
+  eye_white: {count: 2, role: head, description: "Large forward-facing eyeball (white), set low + wide for a friendly gaze."}
+  iris:      {count: 2, role: head, description: "Big green iris on each eye."}
+  pupil:     {count: 2, role: head, description: "Dark pupil."}
+  eye_gleam: {count: 2, role: head, description: "Tiny white catch-light (the sparkle that sells 'cute')."}
+  # --- tail (passive) ---
+  tail_segment:
+    count: 1
+    role: tail
+    description: "One smooth tapering tail in a perky upright CURL over the back — a PASSIVE balance tail."
+  # --- front limb (x2, mirrored L/R): 2 short stubby segments, 2 joints ---
+  upper_arm: {count: 2, role: limb, description: "Short, chubby upper arm (shoulder->elbow)."}
+  forearm:   {count: 2, role: limb, description: "Short, stubby forearm (elbow->paw)."}
+  front_paw: {count: 2, role: paw,  description: "Plump rounded paw on the ground."}
+  knee:      {count: 4, role: limb, description: "Smooth FUR 'knee' bulge wrapping each elbow/knee servo (no external box)."}
+  # --- hind limb (x2, mirrored L/R): 2 short stubby segments, 2 joints ---
+  femur:    {count: 2, role: limb, description: "Short, chubby thigh (hip->knee)."}
+  shank:    {count: 2, role: limb, description: "Short, stubby shank (knee->paw)."}
+  hind_paw: {count: 2, role: paw,  description: "Plump rounded paw on the ground."}
+  # --- cosmetic accessory ---
+  collar: {count: 1, role: trim, description: "Coral collar around the lower neck; hides the neck joint + wiring."}
+  bell:   {count: 1, role: trim, description: "Little gold bell on the collar front."}
+  # --- drive system (REAL micro servos), 9 servos ---
+  micro_servo:
+    count: 9
+    role: motor
+    description: >
+      REAL micro metal-gear serial servo: case ~23 x 12 x 24 mm, ~11 g, ~0.29 N-m
+      stall.  8 leg servos (shoulder/hip + elbow/knee, 2 per leg) + 1 neck-pan
+      servo.  Shoulder/hip + neck cases hide inside the body/collar; elbow/knee
+      cases hide inside the FUR knee bulges.
+  servo_horn:
+    count: 9
+    role: horn
+    description: "Small printed disc horn on each servo output; the driven bone seats on it.  Light grey."
+  # --- electronics & power (packaged inside the belly cavity) ---
+  controller:
+    count: 1
+    role: controller
+    description: >
+      Compact ESP32 quadruped board (NyBoard/BiBoard-class), ~46 x 30 x 9 mm, ~16 g.
+      Mounted low in the chest cavity, fully enclosed by the body shell.  Green.
+  controller_tray:
+    count: 1
+    role: bracket
+    description: "3D-printed tray the controller board mounts to; tied to the battery cradle riser.  Dark grey."
+  battery:
+    count: 1
+    role: battery
+    description: >
+      REAL 2S LiPo pack (7.4 V, ~450 mAh), ~46 x 28 x 12 mm, ~32 g.  Placed LOW and
+      ~centred in the belly for a low CoM; powers the servo bus + the board.  Dark red.
+  battery_cradle:
+    count: 1
+    role: bracket
+    description: >
+      3D-printed cradle (floor + 2 side rails + a riser); the LiPo rests on its
+      floor against the inner belly wall, and the riser carries the controller tray
+      so the whole electronics cluster is one connected, hidden chassis.  Dark grey.
+
+# ---------------------------------------------------------------------
+# Limb joint coordinates (DESIGN mm side profile x,z; SCALE=1.0 so = world mm;
+# y = +/- track/2)
+# ---------------------------------------------------------------------
+limb_geometry_mm:
+  front_track_half_y: 30
+  hind_track_half_y: 33
+  front_leg_xz:
+    shoulder: [52, 80]
+    elbow:    [56, 42]
+    paw:      [60, 0]
+  hind_leg_xz:
+    hip:  [-50, 86]
+    knee: [-42, 44]
+    paw:  [-54, 0]
+  attachment_scheme: >
+    Each leg has TWO short stubby segments and TWO sagittal micro servos.  The
+    shoulder/hip servo tucks inboard into the body (hidden by the shell) and the
+    limb hangs from its horn; the elbow/knee servo sits at the joint inside a FUR
+    knee bulge and its horn drives the lower segment.  Bones are trimmed ~6.5 mm
+    from each joint so they BUTT the servo/horn — gap-free per check_assembly.py,
+    overlap-free per check_overlaps.py.
+
+# ---------------------------------------------------------------------
+# Torso loft control cross-sections (DESIGN mm: x, z_centre, half_y, half_z);
+# Catmull-Rom-smoothed and lofted as ONE mesh.  SCALE=1.0
+# ---------------------------------------------------------------------
+torso_sections_mm:
+  - [72, 92, 20, 24]      # chest front (meets the neck)
+  - [58, 90, 36, 38]      # wide chest -> shoulder servos tuck inside
+  - [38, 89, 44, 46]      # deep chubby barrel
+  - [10, 89, 47, 47]      # roundest belly
+  - [-20, 90, 47, 47]
+  - [-48, 92, 45, 46]     # round haunches
+  - [-68, 96, 32, 35]
+  - [-82, 100, 17, 20]    # tail base
+
+# ---------------------------------------------------------------------
+# Intended gaits
+# ---------------------------------------------------------------------
+gaits:
+  static_crawl:
+    type: "statically-stable, one foot lifted at a time; CoM stays in the support tripod."
+    note: "Primary gait — matches the stability margin above."
+  walk:
+    type: "lateral-sequence four-beat (RH -> RF -> LH -> LF)."
+  not_supported: "trot/gallop/bound/jump at speed (short stubby legs + position micro servos + passive spine)."
+
+quality_checks:
+  overlap_check: "robot_cat/check_overlaps.py — pairwise solid-intersection volume between structural parts."
+  overlap_status: "0 mm^3 UNEXPECTED overlap.  Remaining contacts are intended: foot<->lower-leg bonds, the one-piece head's features, limb-root<->torso, knee-cover<->bone/paw, collar<->neck, and electronics<->hollow-trunk cavity."
+  connectivity_check: "robot_cat/check_assembly.py — nearest-surface gaps + connected components."
+  connectivity_status: "1 connected component (60 parts), 0 hovering parts, all 4 paws on z=0."
+  servo_count: "9 — 8 leg + 1 neck pan (micro metal-gear serial servos)."
+  instance_count: "60 (56 structural/drive + 4 electronics: controller, tray, battery, cradle)."
+  stability: "CoM 31 mm inside the 4-paw support polygon; knee torque margin 4.5x standing / 2.3x trot."
+
+regenerate:
+  build: "./run.sh robot_cat/build_cat.py"
+  check_overlaps: "./run.sh robot_cat/check_overlaps.py"
+  check_assembly: "./run.sh robot_cat/check_assembly.py"
+  render: "./run.sh robot_cat/render_cat.py"
+  view:  "npx buildviz robot_cat/cat_viz --port 5174"
+  validate: "cd robot_cat/cat_viz && node /Users/lbiewald/buildviz/bin/buildviz.mjs validate . --json"

@@ -21,7 +21,7 @@ STLs that the Blender render script materials separately.
 > See the [tabletop prototype](#tabletop-prototype) section below for a
 > ~ 60 cm, ~ 1.3 kg sibling design that runs on $13 hobby servos and
 > 3D-printed PLA — same architecture, same gait, ~ $200 BOM, walks in
-> a weekend. Full guide: [`prototype/PROTOTYPE.md`](prototype/PROTOTYPE.md).
+> a weekend. Full guide: [`prototype_sts3215/PROTOTYPE.md`](prototype_sts3215/PROTOTYPE.md).
 
 ## Quick start
 
@@ -533,13 +533,13 @@ prototype port unchanged to the full-size walker.
 * Build time: ~ 4 hours
 
 ```bash
-./run.sh hexapod_walker/prototype/build_all.py      # all prototype STL bundles
-./hexapod_walker/prototype/render_prototype.sh \    # Cycles render
+./run.sh hexapod_walker/prototype_sts3215/build_all.py      # all prototype STL bundles
+./hexapod_walker/prototype_sts3215/render_prototype.sh \    # Cycles render
     --device METAL --samples 256 \
     --out renders/prototype.png
 ```
 
-This writes prototype-specific STL sets under `prototype/`, including
+This writes prototype-specific STL sets under `prototype_sts3215/`, including
 `stl_prototype/`, `prototype_assembly/`, `xometry_upload/`, and the
 `bambu_h2d_trays/` Bambu H2D Carbon build plates.
 
@@ -548,19 +548,19 @@ parametric validate → render → report pipeline so you can catch
 geometry regressions without opening a slicer:
 
 ```bash
-make -C hexapod_walker/prototype check-cad        # full validate + render + report
-make -C hexapod_walker/prototype check-cad-fast   # inner-loop variant (skips workspace sweep)
+make -C hexapod_walker/prototype_sts3215 verify-prototype   # full verifier suite
+make -C hexapod_walker/prototype_sts3215 verify-fast        # inner-loop variant (skips workspace sweep)
 ```
 
-See [`prototype/CAD_WORKFLOW.md`](prototype/CAD_WORKFLOW.md) for the
-pipeline overview, [`prototype/design_spec.yaml`](prototype/design_spec.yaml)
+See [`prototype_sts3215/CAD_WORKFLOW.md`](prototype_sts3215/CAD_WORKFLOW.md) for the
+pipeline overview, [`prototype_sts3215/design_spec.yaml`](prototype_sts3215/design_spec.yaml)
 for the human-readable geometry contract, and
-[`prototype/CAD_AGENT_INSTRUCTIONS.md`](prototype/CAD_AGENT_INSTRUCTIONS.md)
+[`prototype_sts3215/CAD_AGENT_INSTRUCTIONS.md`](prototype_sts3215/CAD_AGENT_INSTRUCTIONS.md)
 for the rules an LLM coding agent should follow when editing CAD.
 
-![Cycles render of the prototype hexapod walker](prototype/renders/prototype.png)
+![Render of the prototype hexapod walker](prototype_sts3215/full_robot_viz/robot_iso.png)
 
-See [`prototype/PROTOTYPE.md`](prototype/PROTOTYPE.md) for the full BOM (specific servo
+See [`prototype_sts3215/PROTOTYPE.md`](prototype_sts3215/PROTOTYPE.md) for the full BOM (specific servo
 recommendations, power-distribution wiring, fastener counts), print
 plan, assembly sequence, starter Arduino sketch, and tuning notes.
 

@@ -128,10 +128,12 @@ _MESH_BUILDERS = {
     "buck_tray":        hp.make_buck_tray,
     "spider_carapace":  hp.make_spider_carapace,
     "servo_clamp_cap":  hp.make_servo_clamp_cap,
+    "passive_horn_adapter": hp.make_passive_horn_adapter,
     "switch_holster":   hp.make_switch_holster,
     "imu_pad":          hp.make_imu_pad,
     "coxa_link":        hp.make_coxa_link,
     "femur_link":       hp.make_femur_link,
+    "femur_strut":      hp.make_femur_strut,
     "tibia_link":       hp.make_tibia_link,
     "foot_pad":         hp.make_foot_pad,
     "servo_body":       hp.make_servo_body,
@@ -784,6 +786,102 @@ def check_export_manifold():
 
 
 # ---------------------------------------------------------------------------
+# 1b2.  Exported-STL freshness (on-disk STL == current parametric source)
+# ---------------------------------------------------------------------------
+#
+# Every OTHER check builds its meshes fresh from hexapod_prototype (via
+# ``_MESH_BUILDERS``) and never reads the on-disk ``stl_prototype/*.stl``.
+# That makes the suite correct about the parametric SOURCE but BLIND to a
+# real, recurring foot-gun: edit a ``make_*`` factory, forget to re-run
+# ``build_all.py``, and the verifier still reports a clean pass while the
+# actual STLs handed to the slicer / Xometry are a build behind.  (Jun 2026:
+# this bit us on coxa_yaw_hub + yaw_bearing_cap after the dual-bearing
+# rework -- the source was right, the .stl files on disk were stale.)
+#
+# This guard rebuilds EVERY part ``hexapod_prototype.main()`` exports by
+# walking the SAME ``hp.stl_export_groups()`` registry the exporter uses (so
+# the two can never drift), heals each mesh exactly the way ``_save`` does,
+# and compares its geometry signature -- triangle count, |volume|, and
+# axis-aligned bounds -- against the on-disk STL.  A missing or stale file
+# FAILS with a "run `make build`" pointer.
+#
+# Why a tolerant signature and not an exact byte-compare: ``_save`` writes a
+# float32 binary STL, so a re-export round-trips vertices through 32-bit
+# floats (sub-micron drift).  Exact bytes would false-alarm on that noise;
+# faces-exact + tight volume/bounds tolerances absorb the round-trip while a
+# genuine source edit moves at least one signature far outside them.
+
+_FRESHNESS_VOL_RTOL = 1e-4       # relative |volume| tolerance (float32 export)
+_FRESHNESS_VOL_ATOL = 1e-3       # mm^3 floor so tiny parts aren't over-strict
+_FRESHNESS_BOUNDS_ATOL = 1e-2    # mm, per-corner axis-aligned bounds tolerance
+
+
+def _stl_signature(mesh):
+    """(n_faces, |volume|, flat 6-vector of AABB corners) fingerprint used to
+    compare a freshly-built+healed mesh against its on-disk STL."""
+    return (int(len(mesh.faces)),
+            float(abs(mesh.volume)),
+            np.asarray(mesh.bounds, dtype=float).reshape(-1))
+
+
+def check_exported_stl_freshness():
+    """Assert every STL in ``stl_prototype/`` matches what the CURRENT
+    parametric source would export -- i.e. nobody edited a ``make_*`` factory
+    and forgot to re-run ``build_all.py``.  Closes the gap that lets the rest
+    of the suite pass on stale on-disk geometry (it all builds from source and
+    never reads the files)."""
+    print("\n[1b2] Exported-STL freshness (on-disk STL == parametric source; "
+          "re-run `make build` if any are stale):")
+    all_ok = True
+    for _section, builders in hp.stl_export_groups():
+        for name, build in builders:
+            path = os.path.join(STL_DIR, name)
+            if not os.path.isfile(path):
+                all_ok &= _label(name, False,
+                                 "MISSING on disk -- run `make build`")
+                continue
+            try:
+                fresh = hp._heal_for_export(build())
+            except Exception as exc:  # a build failure is its own bug, but flag it
+                all_ok &= _label(name, False,
+                                 f"rebuild raised {type(exc).__name__}: {exc}")
+                continue
+            try:
+                disk = trimesh.load(path, process=False)
+                if isinstance(disk, trimesh.Scene):
+                    disk = disk.dump(concatenate=True)
+            except Exception as exc:
+                all_ok &= _label(name, False, f"on-disk STL unreadable: {exc}")
+                continue
+
+            f_src, v_src, b_src = _stl_signature(fresh)
+            f_disk, v_disk, b_disk = _stl_signature(disk)
+
+            faces_ok = (f_src == f_disk)
+            vol_tol = max(_FRESHNESS_VOL_ATOL,
+                          _FRESHNESS_VOL_RTOL * max(v_src, v_disk))
+            vol_ok = abs(v_src - v_disk) <= vol_tol
+            bounds_off = float(np.max(np.abs(b_src - b_disk)))
+            bounds_ok = bounds_off <= _FRESHNESS_BOUNDS_ATOL
+
+            ok = faces_ok and vol_ok and bounds_ok
+            if ok:
+                detail = f"faces={f_disk}  vol={v_disk:,.1f} mm^3 (current)"
+            else:
+                bits = []
+                if not faces_ok:
+                    bits.append(f"faces disk={f_disk} src={f_src}")
+                if not vol_ok:
+                    bits.append(f"vol disk={v_disk:,.1f} src={v_src:,.1f} mm^3")
+                if not bounds_ok:
+                    bits.append(f"bounds off {bounds_off:.2f} mm")
+                detail = "STALE -- run `make build`: " + "; ".join(bits)
+            all_ok &= _label(name, ok, detail)
+
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
 # 1c.  Single-body connectivity (no floating islands)
 # ---------------------------------------------------------------------------
 #
@@ -826,6 +924,7 @@ _PRINTED_SINGLE_BODY_BUILDERS = (
     ("coxa_yaw_hub",         hp.make_coxa_yaw_hub),
     ("coxa_hip_bracket",     hp.make_coxa_hip_bracket),
     ("femur_hip_yoke",       hp.make_femur_hip_yoke),
+    ("femur_strut",          hp.make_femur_strut),
     ("femur_knee_bracket",   hp.make_femur_knee_bracket),
     ("tibia_knee_yoke",      hp.make_tibia_knee_yoke),
     ("tibia_foot_fitting",   hp.make_tibia_foot_fitting),
@@ -1200,7 +1299,10 @@ def check_clamp_cap_alignment():
     strap.apply_translation(edge_mid)
     plate_bot = hp.CHASSIS_SPLIT_Z - hp.CHASSIS_BOTTOM_FLOOR_T
     pilot_plane_z = plate_bot + hp.RETAINER_PLATE_PILOT_DEPTH / 2.0   # inside the blind pilot
-    strap_plane_z = plate_bot - 6.0                                  # inside the arm clearance
+    # Jun 2026 saddle redesign: the anchor clearance hole now lives in the
+    # saddle's TOP FLANGE band z[plate_bot - SADDLE_FLANGE_T, plate_bot], so
+    # probe the flange mid-plane (was the old stirrup arm at plate_bot - 6).
+    strap_plane_z = plate_bot - hp.SADDLE_FLANGE_T / 2.0             # inside the flange-tab hole
     for (cx, cy) in hp.chassis_lower_retainer_anchor_centres():
         side = "+Y" if cy > 0 else "-Y"
         w = Ra @ np.array([cx, cy, 0.0, 1.0])
@@ -1543,32 +1645,39 @@ def check_leg_harness_drop():
     # itself.  The Z margin is kept conservative to mirror the original
     # check's intent.)
     margin = 0.3
-    half_x = hp.LEG_HARNESS_DROP_X_EXTENT / 2.0 - margin
-    half_y = hp.LEG_HARNESS_DROP_Y_EXTENT / 2.0 - margin
     half_z = hp.CHASSIS_PLATE_T / 2.0 - margin
-    bx_local = np.linspace(-half_x, +half_x, 5) + hp.LEG_HARNESS_DROP_X_CENTRE
-    by_local = np.linspace(-half_y, +half_y, 3)
     bz_local = np.linspace(-half_z, +half_z, 4)
-    BX, BY, BZ = np.meshgrid(bx_local, by_local, bz_local, indexing="ij")
-    pts_bracket = np.stack(
-        [BX.ravel(), BY.ravel(), BZ.ravel()], axis=1)
+
+    # One probe grid per slot in the shared single-source-of-truth list
+    # (primary drop slot + tangential flanking ports); each grid stays 0.3 mm
+    # inside its own nominal walls so an on-edge probe is not a false fail.
+    slots = hp.leg_harness_drop_slots()
+    slot_grids = []
+    for (sx, sy, sxe, sye) in slots:
+        half_x = sxe / 2.0 - margin
+        half_y = sye / 2.0 - margin
+        bx = np.linspace(-half_x, +half_x, 5) + sx
+        by = np.linspace(-half_y, +half_y, 3) + sy
+        BX, BY, BZ = np.meshgrid(bx, by, bz_local, indexing="ij")
+        slot_grids.append(np.stack([BX.ravel(), BY.ravel(), BZ.ravel()], axis=1))
 
     all_ok = True
     for i, edge_mid, R, R3 in hp._leg_chassis_frames():
-        # Transform bracket-frame probe points into chassis frame for
-        # this leg: chassis = edge_mid + R3 @ bracket.
-        pts_chassis = pts_bracket @ R3.T + edge_mid
-        inside = points_inside(cb, pts_chassis)
-        n_blocked = int(inside.sum())
-        n_total = len(pts_chassis)
-        ok = n_blocked == 0
-        all_ok &= _label(
-            f"leg_harness_drop_L{i} (bracket-x {hp.LEG_HARNESS_DROP_X_CENTRE:+.1f},"
-            f" y in +/-{hp.LEG_HARNESS_DROP_Y_EXTENT/2:.1f}, plate full Z)",
-            ok,
-            f"{n_total - n_blocked}/{n_total} probe points clear "
-            f"({'OK' if ok else f'{n_blocked} BLOCKED'})",
-        )
+        for (sx, sy, sxe, sye), pts_bracket in zip(slots, slot_grids):
+            # Transform bracket-frame probe points into chassis frame for
+            # this leg: chassis = edge_mid + R3 @ bracket.
+            pts_chassis = pts_bracket @ R3.T + edge_mid
+            inside = points_inside(cb, pts_chassis)
+            n_blocked = int(inside.sum())
+            n_total = len(pts_chassis)
+            ok = n_blocked == 0
+            all_ok &= _label(
+                f"leg_harness_drop_L{i} slot(x{sx:+.0f},y{sy:+.0f},"
+                f"{sxe:.0f}x{sye:.0f})",
+                ok,
+                f"{n_total - n_blocked}/{n_total} probe points clear "
+                f"({'OK' if ok else f'{n_blocked} BLOCKED'})",
+            )
     return all_ok
 
 
@@ -1839,7 +1948,7 @@ ASSEMBLY_INTERFERENCE_NOISE_MM3 = 5.0
 # disc horns, lipo, PCBs -- are excluded; they are not printed).
 _ASSEMBLY_PRINTED_PARTS = frozenset({
     "coxa_yaw_hub", "coxa_hip_bracket", "yaw_bearing_cap",
-    "femur_hip_yoke", "femur_knee_bracket",
+    "femur_hip_yoke", "femur_strut", "femur_knee_bracket",
     "tibia_knee_yoke", "tibia_foot_fitting", "foot_pad",
     "hip_clamp_cap", "knee_clamp_cap",
     "chassis_bottom", "chassis_top",
@@ -1872,6 +1981,13 @@ ASSEMBLY_INTERFERENCE_ALLOW = {
         (25.0, "hip clamp cap clamshells its cradle bracket on flush faces"),
     frozenset({"femur_knee_bracket", "knee_clamp_cap"}):
         (25.0, "knee clamp cap clamshells its cradle bracket on flush faces"),
+    # Printed femur strut is a SLIP FIT in both femur sockets (Phi 7.8 rod in a
+    # Phi 8.1 bore -> ~0.15 mm radial gap); any reported overlap is facet noise
+    # at the bore contact, not a real clash (it replaces the CF tube, same fit).
+    frozenset({"femur_strut", "femur_hip_yoke"}):
+        (10.0, "femur strut slip-fits the hip-yoke socket (0.15 mm radial gap)"),
+    frozenset({"femur_strut", "femur_knee_bracket"}):
+        (10.0, "femur strut slip-fits the knee-bracket socket (0.15 mm radial gap)"),
 }
 
 
@@ -2144,8 +2260,24 @@ def check_servo_clearance():
         "hip_servo":  "femur_link",
         "knee_servo": "tibia_link",
     }
+    # The clamp cap that CLAMPS each servo into its sandwich cradle (hip/knee;
+    # yaw uses the saddle, no cap).  Its centre tongue is INTENTIONALLY a
+    # press fit -- it reaches CLAMP_TONGUE_INTERF = 1 mm PAST the seated body
+    # +Y face so the 2 cap bolts trap the body with zero slop (user request,
+    # Jun 2026).  This is a designed interference, not a collision, so the
+    # servo-vs-its-own-cap pair gets a dedicated press-fit budget.
+    CLAMP_CAP = {
+        "hip_servo":  "hip_clamp_cap",
+        "knee_servo": "knee_clamp_cap",
+    }
     CRADLE_TOLERANCE = 600.0    # mm^3 -- tab plane resting on the rim
     OUTPUT_TOLERANCE = 1500.0   # mm^3 -- horn passage / gear stack
+    # Intended 1 mm tongue press onto the body +Y face: true boolean overlap is
+    # ~1530 mm^3 (45 x 34 x 1 contact), but the pitch-1.5 voxel sampler reads up
+    # to ~4250 mm^3 depending on grid alignment with the joint's pose.  Budget
+    # 6000 covers the voxel reading with margin while still failing loudly on a
+    # gross bury (a tongue/flange sinking several mm into the body is >> 10000).
+    CLAMP_PRESS_TOLERANCE = 6000.0
     # Servo body next to a thin printed flange registers ~100-250 mm^3 of
     # voxel-sampling noise even when the surfaces are physically apart.
     # The cradle-openness check (using analytic probing) is the source of
@@ -2163,6 +2295,9 @@ def check_servo_clearance():
             elif part_name == OUTPUT_NEIGHBOUR[servo_name]:
                 tol = OUTPUT_TOLERANCE
                 kind = "output"
+            elif part_name == CLAMP_CAP.get(servo_name):
+                tol = CLAMP_PRESS_TOLERANCE
+                kind = "clamp press-fit"
             else:
                 tol = OTHER_TOLERANCE
                 kind = "non-adj"
@@ -2253,7 +2388,18 @@ def check_horn_stack_clearance():
     # automatically.  Equal to PLASTIC_HORN_X_TIP_R + 0.5 = 18.5 mm
     # as of the May 2026 shorten-neck refactor.
     R = hp.HORN_STACK_VOID_R
-    H = hp.HORN_STACK_H
+    # Jun 2026 flush-horn fix: the disc that must stay clear of the driven link
+    # is only DISC_HORN_H (~2 mm) tall and sits at the BOTTOM of the stack (on
+    # the servo output boss).  The frozen seat plane is still HORN_STACK_H above
+    # the boss, and the link's printed reach-down boss LEGITIMATELY fills the
+    # (HORN_STACK_H - DISC_HORN_H) gap above the disc, so only the real disc band
+    # -- not the full 5 mm stack -- is reserved here.
+    H = hp.DISC_HORN_H
+    # Jun 2026 yoke-width fix: the DRIVEN disc (this check probes the DRIVEN
+    # side -- femur hip pad / tibia knee pad) seats flush on the body front face,
+    # so it sits DRIVEN_HORN_REACH_DOWN (5 mm) below the frozen seat plane and
+    # the printed reach-down boss legitimately fills [0, 5] above it.
+    reach = hp.DRIVEN_HORN_REACH_DOWN
 
     # NEW (May 2026 collinear-pad refactor): the link's local origin
     # is the pad MATING FACE = the horn-top plane, so the horn
@@ -2274,8 +2420,10 @@ def check_horn_stack_clearance():
     # mirrors the 0.05 mm CSG overshoots the pre-refactor design
     # baked into the cup's y_hi to avoid the same boundary noise.
     BOUNDARY_EPS = 0.05
-    print(f"\n[5b] Horn-stack clearance (Phi {2*R:.1f} mm x {H:.1f} mm tall, "
-          f"centred on joint axis, y in [-{H:.1f}, -{BOUNDARY_EPS:.2f}]):")
+    print(f"\n[5b] Horn-stack clearance (Phi {2*R:.1f} mm x {H:.1f} mm disc band, "
+          f"centred on joint axis, |y| in [{reach:.1f}, {reach + H:.1f}] -- the "
+          f"real {H:.1f} mm disc {reach:.1f} mm below the seat, past the "
+          f"reach-down boss):")
 
     # The horn-stack cylinder template is along +Y in part-local frame,
     # which is exactly the joint axis direction in both make_femur_link
@@ -2285,11 +2433,14 @@ def check_horn_stack_clearance():
     stack = hp._cyl_along(R, H, axis="y")
     # LEG_PITCH_AXIS = -Y (coaxial refit) flips the cradle/horn so the
     # disc-horn void now lives on the +Y half of the link-local frame
-    # (was -Y).  Probe whichever half the output axis points toward.
+    # (was -Y).  Probe whichever half the output axis points toward.  The
+    # disc band sits ``reach`` below the seat plane (the pad fills [0, reach]),
+    # so offset the band by ``reach`` and keep only DISC_HORN_H of height.
     if hp.LEG_PITCH_AXIS[1] < 0:
-        stack.apply_translation([0.0, BOUNDARY_EPS, 0.0])      # void at y in [+eps, +H]
+        # disc at y in [reach, reach+H] = [reach, HORN_STACK_H]
+        stack.apply_translation([0.0, reach + H / 2.0 + BOUNDARY_EPS, 0.0])
     else:
-        stack.apply_translation([0.0, -H - BOUNDARY_EPS, 0.0])  # void at y in [-H, -eps]
+        stack.apply_translation([0.0, -(reach + H / 2.0) - BOUNDARY_EPS, 0.0])
 
     cases = [
         ("femur_link  (hip-pitch joint)", _load_mesh("femur_link",
@@ -2632,66 +2783,56 @@ def check_disc_horn_fit():
 # 5e.  Back bearing-HOUSING symmetry + pocket OD guard
 # ---------------------------------------------------------------------------
 #
-# The BACK (idler, -Z) face of the hip/knee brackets presses a 688 ball
-# bearing into ``_passive_bearing_housing()``.  That housing was once an
-# asymmetric +X-HALF rectangular plate -- a one-sided "weird lip" hanging
-# off the cradle back -- and the defect slipped through silently because no
-# check probed it.  This guard asserts the rebuilt housing is a clean boss
-# CENTRED on the idler axis (x = SERVO_OUTPUT_X, y = 0): its X/Y extents must
-# be balanced about that axis (no big one-sided overhang), and the press
-# pocket bored on the OUTER face must measure Phi PASSIVE_BEARING_OD so the
-# bearing actually seats.  It does NOT touch the FRONT output face -- the
-# (correct, keep-bearing) Phi 12-16 back bore is a bearing seat, not a horn
-# socket -- that face stays the exclusive concern of check_disc_horn_fit.
-BACK_HOUSING_ASYM_TOL_MM     = 1.5   # mm -- max |(-X ext) - (+X ext)| (and Y)
-BACK_HOUSING_POCKET_OD_TOL_MM = 1.0  # mm -- |measured pocket OD - PASSIVE_BEARING_OD|
+# Symmetric-yoke refit (Jun 2026): the external 688 ball bearing + its back
+# housing are RETIRED.  The passive (idler) side is now a SECOND disc horn
+# riding the servo's own rear-bearing-supported boss, located by a printed
+# centering ADAPTER (``make_passive_horn_adapter``) and held by a central
+# retention screw.  This guard replaces the old back-housing-symmetry check:
+# it asserts the adapter is one clean watertight body spanning the rear boss
+# -> horn, and that the back-side stack keeps the yoke bottom-arm seat FROZEN
+# at JOINT_HORN_BOT_Z = -(REAR_BOSS_H + HORN_STACK_H) so the joint envelope /
+# COXA_HIP_ANCHOR_Y are unchanged from the bearing era (kinematics frozen).
+PASSIVE_ADAPTER_Z_TOL_MM = 0.6   # mm -- adapter z-span tolerance
 
 
-def check_back_housing_symmetry():
-    """Guard: the back bearing housing is a clean idler-axis-CENTRED boss
-    (no asymmetric 'weird lip') and its press pocket OD matches
-    PASSIVE_BEARING_OD.  Cheap: bounds math + one radial first-solid scan on
-    the OUTER face.  Built from hexapod_prototype directly."""
-    print("\n[5e] Back bearing-housing symmetry + pocket OD:")
+def check_passive_horn_adapter():
+    """Guard for the symmetric-yoke refit: the passive-horn centering adapter
+    is one clean watertight body spanning the rear boss -> horn, and the
+    back-side stack keeps the yoke bottom-arm seat frozen at JOINT_HORN_BOT_Z
+    = -(REAR_BOSS_H + HORN_STACK_H)."""
+    print("\n[5e] Passive-horn adapter + frozen back-stack:")
 
-    h = hp._passive_bearing_housing()
-    b = h.bounds
-    axis = float(hp.SERVO_OUTPUT_X)
-
-    left  = axis - float(b[0][0])      # extent toward -X (cable side)
-    right = float(b[1][0]) - axis      # extent toward +X
-    asym_x = abs(left - right)
-    y_lo, y_hi = float(b[0][1]), float(b[1][1])
-    asym_y = abs(abs(y_lo) - abs(y_hi))
-    tol = BACK_HOUSING_ASYM_TOL_MM
-
+    a = hp.make_passive_horn_adapter()
     all_ok = True
-    all_ok &= _label("housing X-symmetry about idler axis", asym_x <= tol,
-                     f"-X ext {left:4.1f} vs +X ext {right:4.1f} mm "
-                     f"(asym {asym_x:4.1f} <= {tol:.1f})")
-    all_ok &= _label("housing Y-symmetry about idler axis", asym_y <= tol,
-                     f"-Y {y_lo:+5.1f} vs +Y {y_hi:+5.1f} mm "
-                     f"(asym {asym_y:4.1f} <= {tol:.1f})")
+    all_ok &= _label("adapter watertight", bool(a.is_watertight),
+                     str(bool(a.is_watertight)))
+    n_bodies = len(a.split(only_watertight=False))
+    all_ok &= _label("adapter is ONE connected body", n_bodies == 1,
+                     f"{n_bodies} body(ies)")
 
-    # Pocket OD: radial first-solid scan 1 mm inboard of the OUTER face.
-    zc = float(b[0][2]) + 1.0
-    az = np.linspace(0.0, 2.0 * np.pi, 16, endpoint=False)
-    radii = np.arange(1.0, hp.PASSIVE_HOUSING_OD / 2.0 + 1.0, 0.1)
-    measured = []
-    for a in az:
-        dx, dy = np.cos(a), np.sin(a)
-        pts = np.column_stack([axis + radii * dx, radii * dy,
-                               np.full_like(radii, zc)])
-        inside = h.contains(pts)
-        solid = np.nonzero(inside)[0]
-        if solid.size:
-            measured.append(float(radii[solid[0]]))
-    pocket_od = 2.0 * float(np.median(measured)) if measured else 0.0
-    od_err = abs(pocket_od - hp.PASSIVE_BEARING_OD)
-    all_ok &= _label("bearing pocket OD == PASSIVE_BEARING_OD",
-                     od_err <= BACK_HOUSING_POCKET_OD_TOL_MM,
-                     f"measured Phi {pocket_od:4.1f} vs Phi "
-                     f"{hp.PASSIVE_BEARING_OD:.1f} mm (err {od_err:4.2f})")
+    # Frozen kinematics: BACK_STACK_DEPTH (-> COXA_HIP_ANCHOR_Y / joint envelope)
+    # stays at -(REAR_BOSS_H + HORN_STACK_H) regardless of the printed bottom-arm
+    # depth.  This is what the bearing-era freeze actually pins.
+    expect_back = hp.REAR_BOSS_H + hp.HORN_STACK_H
+    all_ok &= _label("BACK_STACK_DEPTH frozen at REAR_BOSS_H+HORN_STACK_H",
+                     abs(hp.BACK_STACK_DEPTH - expect_back) < 1e-6,
+                     f"{hp.BACK_STACK_DEPTH:.2f} == {expect_back:.2f}")
+    # Symmetric-yoke refit: the BOTTOM-arm seat is one YOKE_ARM_PAD below the
+    # real passive disc face -- a true mirror of the top arm, so a single M3 x 10
+    # screw bolts each side identically.
+    expect_seat = hp.PASSIVE_HORN_FACE_Z - hp.YOKE_ARM_PAD
+    all_ok &= _label("JOINT_HORN_BOT_Z = PASSIVE_HORN_FACE_Z - YOKE_ARM_PAD",
+                     abs(hp.JOINT_HORN_BOT_Z - expect_seat) < 1e-6,
+                     f"{hp.JOINT_HORN_BOT_Z:.2f} == {expect_seat:.2f}")
+
+    # Adapter spans z in [-(REAR_BOSS_H + DISC_HORN_H), 0] on the output axis.
+    b = a.bounds
+    z_lo_expect = -(hp.REAR_BOSS_H + hp.DISC_HORN_H)
+    z_ok = (abs(float(b[0][2]) - z_lo_expect) < PASSIVE_ADAPTER_Z_TOL_MM
+            and abs(float(b[1][2]) - 0.0) < PASSIVE_ADAPTER_Z_TOL_MM)
+    all_ok &= _label("adapter z-span boss->horn", z_ok,
+                     f"z[{b[0][2]:.1f},{b[1][2]:.1f}] vs "
+                     f"[{z_lo_expect:.1f},0.0]")
     return all_ok
 
 
@@ -3731,6 +3872,63 @@ def _build_workspace_leg(yaw_deg, femur_pitch_deg, knee_pitch_deg,
     return parts
 
 
+def _ws_clamp_caps_world(yaw_deg, femur_pitch_deg, leg_azimuth_rad):
+    """Place the two sandwich-joint clamp caps in the SAME world frame as
+    ``_build_workspace_leg`` for the given pose.
+
+    The caps are FIXED servo-cradle parts that the MOVING yoke sweeps past, so
+    they ride their PARENT link -- the hip cap is fixed to the coxa (moves with
+    yaw + leg azimuth only) and the knee cap is fixed to the femur (moves with
+    yaw + leg + femur-pitch).  Modelled in the well-local frame (like
+    ``make_servo_clamp_cap`` / ``_place_servo_clamp_caps``); we prepend the
+    per-joint ``_joint_place`` and then apply the SAME kinematic chain the
+    parent link uses so the cap stays glued to its cradle through the ROM.
+
+    Returns ``{"hip_clamp_cap": mesh, "knee_clamp_cap": mesh}``.  Without these,
+    the sweep only checks the merged links and MISSES the moving-yoke-vs-fixed-
+    clamp-cap clash (the cap is not part of any link proxy)."""
+    apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
+    a = leg_azimuth_rad
+    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
+    z_hat = np.array([0.0, 0.0, 1.0])
+    yaw_output_world = edge_mid + hp.CHASSIS_YAW_OUTPUT_Z * z_hat
+    hip_joint_local = np.array(hp.COXA_HIP_ANCHOR)
+
+    R_a = rotation_matrix(a, [0, 0, 1])
+    R_yaw = rotation_matrix(np.deg2rad(yaw_deg), [0, 0, 1])
+    p = np.deg2rad(femur_pitch_deg)
+
+    # Hip cap -- glued to the coxa (yaw + leg azimuth).
+    M_hip = hp._joint_place(hp.COXA_HIP_ANCHOR, (1, 0, 0), hp.LEG_PITCH_AXIS)
+    hip_cap = hp.make_servo_clamp_cap()
+    hip_cap.apply_transform(M_hip)
+    hip_cap.apply_transform(R_yaw)
+    hip_cap.apply_transform(R_a)
+    hip_cap.apply_translation(yaw_output_world)
+
+    # Knee cap -- glued to the femur (yaw + leg + femur-pitch).
+    M_knee = hp._joint_place((hp.FEMUR_LENGTH, 0.0, 0.0), (1, 0, 0),
+                             hp.LEG_PITCH_AXIS)
+    knee_cap = hp.make_servo_clamp_cap()
+    knee_cap.apply_transform(M_knee)
+    knee_cap.apply_transform(rotation_matrix(p, [0, 1, 0]))
+    knee_cap.apply_translation(hip_joint_local)
+    knee_cap.apply_transform(R_yaw)
+    knee_cap.apply_transform(R_a)
+    knee_cap.apply_translation(yaw_output_world)
+    return {"hip_clamp_cap": hip_cap, "knee_clamp_cap": knee_cap}
+
+
+# Which MOVING link each fixed clamp cap is checked against through the ROM.
+# The cap's OWN parent link is excluded (the cap is bolted flush to that
+# cradle -- a designed contact guarded by check_clamp_cap_interference); we
+# guard the cap against the links that rotate PAST it.
+_WS_CLAMP_CAP_PAIRS = {
+    "hip_clamp_cap":  ("femur_link", "tibia_link"),
+    "knee_clamp_cap": ("coxa_link", "tibia_link"),
+}
+
+
 # Joint-adjacency table for the workspace sweep.  Pair tolerances:
 #   * adjacent JOINT pair -> WORKSPACE_JOINT_TOL  (gear stack / horn
 #     interface is allowed to register some mm^3 of overlap intrinsic
@@ -3827,6 +4025,24 @@ def _workspace_pose_failures(pose, leg_az):
                     "pose":     (yaw_deg, f_deg, k_deg),
                     "pair":     (dyn_name, stat_name),
                     "kind":     "chassis",
+                    "vol":      vol,
+                    "centroid": centroid,
+                })
+
+    # Fixed servo CLAMP CAPS vs the moving yoke (sandwich-joint ROM guard).
+    # The cap rides its parent cradle; the driven yoke rotates past it, so this
+    # is the pair that catches the femur/tibia-yoke-into-clamp-cap clash the
+    # merged-link sweep otherwise misses.
+    caps = _ws_clamp_caps_world(yaw_deg, f_deg, leg_az)
+    for cap_name, cap_mesh in caps.items():
+        for dyn_name in _WS_CLAMP_CAP_PAIRS[cap_name]:
+            vol, centroid = _pair_overlap_volume_and_centroid(
+                leg[dyn_name], cap_mesh, WORKSPACE_VOXEL_PITCH)
+            if vol > WORKSPACE_ARTEFACT_TOL:
+                pose_failures.append({
+                    "pose":     (yaw_deg, f_deg, k_deg),
+                    "pair":     (dyn_name, cap_name),
+                    "kind":     "clamp-cap",
                     "vol":      vol,
                     "centroid": centroid,
                 })
@@ -4189,7 +4405,7 @@ def check_horn_pattern_in_pad():
         #   contact.
         ("coxa_link  (yaw joint)",        _load_mesh("coxa_link",
                                                        copy=False),
-         "z", 0.0,                          +1.0,  True),
+         "z", hp.YAW_HUB_BOSS_BOT_Z,        +1.0,  True),
         ("femur_link (hip-pitch joint)",  _load_mesh("femur_link",
                                                        copy=False),
          "y", 0.0,                          +1.0,  False),
@@ -5047,8 +5263,17 @@ def check_bearing_insertion_path():
     Includes an embedded FAIL-ON-OLD self-test: the retired single-piece tower
     (Phi 37 -> 34 -> 37 -> 34) is reconstructed and swept; the probe MUST flag
     it as blocked (worst overlap >> tol at the Phi 34 neck), proving it is
-    sensitive enough to catch the captured-pocket regression.  The live split
-    parts (chassis_bottom bottom tower + yaw_bearing_cap) must then PASS."""
+    sensitive enough to catch the captured-pocket regression.  The live
+    chassis_bottom bottom tower must then PASS.
+
+    NB: only the chassis_bottom LOWER-race pocket is swept here (a true
+    drop-from-open-top motion).  The ``yaw_bearing_cap`` is NOT swept top-down:
+    its UPPER-race insertion is the cap LOWERED over the already-seated race
+    (the race never drops into the cap from above -- and the cap's Phi 34
+    retaining lip now deliberately blocks that motion).  That lowered-cap
+    motion is covered by ``check_bearing_cap_descent_path`` [5i] (race sweeps UP
+    to its seat) and ``check_bearing_assembly_sequence`` [5j] (rigid annulus,
+    both mating parts present)."""
     R = hp.YAW_BEARING_OD / 2.0
     print(f"\n[5g] Bearing insertion-path probe "
           f"(rigid Phi{2 * R:.0f} disc slides down its axis in "
@@ -5079,15 +5304,17 @@ def check_bearing_insertion_path():
         f"{BEARING_INSERTION_PATH_TOL_MM3:.0f} mm^3 (probe is sensitive)")
 
     # ---- Live split design MUST pass --------------------------------------
+    # Only the chassis_bottom LOWER-race pocket is a genuine drop-from-open-top
+    # insertion.  The yaw_bearing_cap is intentionally OMITTED: the upper race
+    # is not dropped into the cap from above (the cap is lowered over the
+    # already-seated race, and its Phi 34 retaining lip now blocks top-drop by
+    # design).  The lowered-cap motion is covered by [5i] / [5j].
     cases = [
         # (label, host in coxa-local, z_clear (start, above), z_seat (end))
         ("chassis_bottom LOWER race (drops onto z=-5 from open top)",
          _chassis_yaw_cradle_to_coxa_local(_load_mesh("chassis_assembled",
                                                       copy=False)),
          hp.YAW_SPLIT_Z + 1.0, hp.YAW_BEARING_LOWER_BOT_Z),
-        ("yaw_bearing_cap UPPER race (drops onto z=+2 from open top)",
-         _load_mesh("yaw_bearing_cap", copy=False),
-         hp.YAW_CAP_TOP_Z + 2.0, hp.YAW_BEARING_UPPER_BOT_Z),
     ]
 
     for name, mesh, z_hi, z_seat in cases:
@@ -5808,6 +6035,13 @@ def _build_world_leg0_printed_parts() -> dict:
     parts["hip_clamp_cap"] = caps["hip_clamp_cap"]
     parts["knee_clamp_cap"] = caps["knee_clamp_cap"]
 
+    # Yaw anti-rotation saddle on leg 0 (placed by the same Ra + edge_mid as
+    # _place_yaw_retainers).  Placing it here lets check_screwdriver_access +
+    # check_fastener_engagement actually SEE the part, so the 2 saddle->floor
+    # anchor screws are guarded (the old undrivable stirrup anchors weren't
+    # even in the registry, a blind spot this redesign closes).
+    parts["yaw_servo_retainer"] = _place_yaw_retainers()["yaw_servo_retainer"]
+
     # switch_holster: sits ON TOP of 2 printed bosses on chassis_top's
     # TOP face.  Ear bottom rests on the boss tops at z = chassis_top_top
     # + SWITCH_HOLSTER_BOSS_H = gap + plate_t + plate_t/2 + BOSS_H =
@@ -6219,6 +6453,20 @@ FASTENER_ENGAGEMENT_SPEC = {
     # inside the 5 mm disc, so TIP_ENGAGEMENT_MIN_FRACTION = 0.5 is
     # comfortably met.
     "M3x6 SHCS":                       dict(head_od=5.5, shaft_od=3.0, engagement_mm=3.0),
+    # ``M3x8 disc-horn SHCS`` -- Jun 2026 flush-horn fix.  The real disc is
+    # only DISC_HORN_H = 2 mm, so the bolt threads the FULL 2 mm disc (the
+    # driven mount's printed reach-down boss carries the rest of the grip).
+    # engagement_mm = DISC_HORN_H so the tip-engagement window is exactly the
+    # 2 mm aluminium band -- on the yaw joint (oversized torque-only clearance
+    # bore) the shaft floats above the disc, so a wider window would dip into
+    # air and falsely fail; on hip/knee (tight bore) the column is solid and
+    # the 2 mm window is comfortably met.
+    "M3x8 disc-horn SHCS":             dict(head_od=5.5, shaft_od=3.2, engagement_mm=2.0),
+    # ``M3x10 disc-horn SHCS`` -- Jun 2026 yoke-width fix.  Same aluminium-disc
+    # thread target as the M3 x 8 disc-horn bolt (engagement_mm = DISC_HORN_H =
+    # 2 mm), but 2 mm longer because the DRIVEN (flush-output) yoke top-arm pad
+    # bridges DRIVEN_HORN_REACH_DOWN = 5 mm before reaching the disc.
+    "M3x10 disc-horn SHCS":            dict(head_od=5.5, shaft_od=3.2, engagement_mm=2.0),
     "M3x8 SHCS":                       dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x8 SHCS into heat-set insert":  dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     # ``M3x8 SHCS self-tap`` -- Design E mixed-mode, May 2026.  The 2 +X
@@ -6235,6 +6483,13 @@ FASTENER_ENGAGEMENT_SPEC = {
     # is identical and the shelf material at this depth is the
     # engagement medium in either case).
     "M3x8 SHCS self-tap":              dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
+    # ``M3x6 SHCS self-tap`` -- Jun 2026 flush-head tweak.  The 2 yaw-saddle
+    # chassis-anchor screws self-tap RETAINER_PLATE_PILOT_DEPTH = 3 mm into the
+    # blind Phi 2.5 mm floor pilot (z[-6,-3]); after the flange thinned 5 -> 3 mm
+    # the head seats at -9 and the 6 mm screw tip lands exactly at the -3 pilot
+    # bottom, so engagement_mm = 3 mm probes precisely that floor bite (a wider
+    # window would dip into the flange clearance hole below -6 and falsely fail).
+    "M3x6 SHCS self-tap":              dict(head_od=5.5, shaft_od=3.0, engagement_mm=3.0),
     # ``M3x10 SHCS`` -- battery_holder foot bolts (4) into M3 heat-set
     # inserts.  Same engagement target as M3 x 8 into insert (= the
     # 5 mm insert body length) since both rely on the brass thread,
@@ -6248,6 +6503,14 @@ FASTENER_ENGAGEMENT_SPEC = {
     # body is INSERT_M25_INSERT_LENGTH = 4 mm long; engagement target
     # is the brass thread, not the surrounding plastic.
     "M2.5x8 SHCS into heat-set insert": dict(head_od=4.5, shaft_od=2.7, engagement_mm=4.0),
+    # ``M2.5 self-tap into servo rear case`` -- Jun 2026 (corrected) yaw rear
+    # CASE-mount.  The 4 saddle screws self-tap straight UP into the STS3215's
+    # FIXED rear (back) case face holes (cradle (-8.3/-32.8,+-10.2); NOT the horn
+    # circle), ~2.5 mm bite, so engagement_mm = SADDLE_CASE_SCREW_BITE = 2.5 -- the
+    # tip-zone window probes exactly that shallow case bite (the engagement target
+    # is the injected real rear-case block; the head bears on the boss counterbore).
+    "M2.5 self-tap into servo rear case": dict(head_od=4.5, shaft_od=2.7,
+                                               engagement_mm=2.5),
 }
 _FASTENER_ENGAGEMENT_DEFAULT = dict(head_od=5.0, shaft_od=3.0, engagement_mm=3.0)
 
@@ -6324,19 +6587,29 @@ def _horn_world_transform(joint: str, leg_index: int):
     import fastener_registry as _fr  # noqa: WPS433
     if joint == "yaw":
         T_well = _fr._yaw_cradle_T(leg_index)
-        # STS3215 front-face mount (Jun 2026): the yaw disc horn seats
-        # on the cradle's mount PLATE (WELL_PLATE_T = 4 mm thick), not
-        # on the bare output shaft, so its base sits WELL_PLATE_T above
-        # the body front face.  (hip / knee keep the SERVO_OUTPUT_H
-        # convention below -- their link pads are modelled to match it
-        # and their mating-face checks pass.)
-        horn_base_dz = hp.WELL_PLATE_T
+        # STS3215 flush-output mount (Jun 2026 DEPTH fix): the output does NOT
+        # protrude, so the Phi20 disc horn seats FLUSH on the body front face --
+        # RECESSED inside the WELL_PLATE_T (4 mm) mount-plate bore, NOT sitting
+        # on the plate top.  Its base is therefore AT the front face (dz = 0),
+        # so its top lands WELL_PLATE_T - DISC_HORN_H (= 2 mm) below the plate
+        # top and YAW_HORN_REACH_DOWN (= 7 mm) below the frozen output plane,
+        # which is exactly where the coxa_yaw_hub's necked drive nub reaches
+        # (YAW_HUB_BOSS_BOT_Z).  The old WELL_PLATE_T base offset placed the
+        # horn 4 mm too high (on the plate top), baking in a phantom output
+        # protrusion and leaving the bearing cap unable to seat flush.
+        horn_base_dz = 0.0
     elif joint == "hip":
         T_well = _fr._hip_cradle_T(leg_index)
-        horn_base_dz = hp.SERVO_OUTPUT_H
+        # STS3215 flush-output mount (Jun 2026 yoke-width fix): the output
+        # spline does NOT protrude, so the driven disc horn seats FLUSH on the
+        # body front face (base dz = 0), topping out at SERVO_BODY_H +
+        # DISC_HORN_H = 36.3 -- SERVO_OUTPUT_H (2 mm) below the old placement.
+        # The yoke top-arm pad now reaches DRIVEN_HORN_REACH_DOWN (5 mm) to meet
+        # it, fixing the user-reported ~2 mm clevis gap.  Matches the yaw joint.
+        horn_base_dz = 0.0
     elif joint == "knee":
         T_well = _fr._knee_cradle_T(leg_index)
-        horn_base_dz = hp.SERVO_OUTPUT_H
+        horn_base_dz = 0.0      # flush output (see hip note above)
     else:
         raise ValueError(f"unknown joint: {joint!r}")
     horn_offset = _fr._T(hp.SERVO_OUTPUT_X, 0.0,
@@ -6394,6 +6667,54 @@ def _servo_body_world_transform(joint: str, leg_index: int):
     return T_well
 
 
+# Joints that carry a PASSIVE rear-boss disc horn (symmetric-yoke refit).
+_PASSIVE_HORN_JOINTS = ("hip", "knee")
+
+
+def _passive_link_angle(joint: str) -> float:
+    """Stance rotation (rad) the passive horn shares with the driven link,
+    same convention as ``_horn_world_transform``."""
+    if joint == "hip":
+        return np.deg2rad(hp.STANCE_FEMUR_DEG)
+    if joint == "knee":
+        return np.deg2rad(hp.STANCE_TIBIA_DEG)
+    raise ValueError(f"joint {joint!r} has no passive horn")
+
+
+def _passive_horn_world_transform(joint: str, leg_index: int):
+    """World transform for the PASSIVE disc horn on the servo's rear idler
+    boss.  Mirror of ``_horn_world_transform``: the horn is flipped 180 deg
+    about X so its flat mating face points AWAY from the servo (-Z), seated at
+    well-z in [-(REAR_BOSS_H + DISC_HORN_H), -REAR_BOSS_H].  The 4-hole cross
+    is symmetric under the flip, so the bottom-arm bolts engage it exactly as
+    the driven horn's bolts engage the top arm."""
+    import fastener_registry as _fr  # noqa: WPS433
+    if joint == "hip":
+        T_well = _fr._hip_cradle_T(leg_index)
+    elif joint == "knee":
+        T_well = _fr._knee_cradle_T(leg_index)
+    else:
+        raise ValueError(f"joint {joint!r} has no passive horn")
+    flip = rotation_matrix(np.pi, [1, 0, 0])
+    return (T_well
+            @ _fr._T(hp.SERVO_OUTPUT_X, 0.0, -hp.REAR_BOSS_H)
+            @ _fr._Rz(_passive_link_angle(joint))
+            @ flip)
+
+
+def _passive_adapter_world_transform(joint: str, leg_index: int):
+    """World transform for the passive-horn centering adapter.  The adapter
+    is built in well-local coords (already at x = SERVO_OUTPUT_X, z < 0) and
+    is axisymmetric about the output axis, so the well-to-world transform
+    places it directly."""
+    import fastener_registry as _fr  # noqa: WPS433
+    if joint == "hip":
+        return _fr._hip_cradle_T(leg_index)
+    if joint == "knee":
+        return _fr._knee_cradle_T(leg_index)
+    raise ValueError(f"joint {joint!r} has no passive adapter")
+
+
 def _build_world_assembly_parts(leg_index: int = 0) -> dict:
     """Return the printed parts (from ``_build_world_leg0_printed_parts``)
     augmented with placed ``servo_horn`` AND ``servo_body`` meshes for
@@ -6421,6 +6742,18 @@ def _build_world_assembly_parts(leg_index: int = 0) -> dict:
         body = _load_mesh("servo_body")
         body.apply_transform(_servo_body_world_transform(joint, leg_index))
         parts[f"servo_body({joint})"] = body
+    # PASSIVE (rear-boss) disc horns + centering adapters on the hip + knee
+    # sandwich joints (the symmetric-yoke refit; yaw uses the 6706 pair, no
+    # passive horn).  The yoke's bottom arm bolts to these exactly like its
+    # top arm bolts to the driven horns above.
+    for joint in _PASSIVE_HORN_JOINTS:
+        ph = _load_mesh("servo_horn")
+        ph.apply_transform(_passive_horn_world_transform(joint, leg_index))
+        parts[f"passive_horn({joint})"] = ph
+
+        ad = hp.make_passive_horn_adapter()
+        ad.apply_transform(_passive_adapter_world_transform(joint, leg_index))
+        parts[f"passive_horn_adapter({joint})"] = ad
     return parts
 
 
@@ -6576,6 +6909,31 @@ def check_fastener_engagement():
     sample = [fi for fi in sample if fi.spec != "M2.5x8 spline screw"]
 
     world_parts = _build_world_assembly_parts(leg_index=0)
+
+    # Real STS3215 rear (back) CASE block (Jun 2026 corrected).  The 4 yaw rear
+    # case-mount M2.5 screws self-tap straight UP into the FIXED rear case FACE at
+    # cradle (-8.3/-32.8,+-10.2) -- the standard STS3215 case mount holes (NOT the
+    # horn circle).  The frozen-short modeled servo_body (SERVO_BODY_H is the
+    # mount-HOLE-plane gap, SADDLE_CASE_LEN_FIX shorter than the real case) stops
+    # SADDLE_CASE_LEN_FIX ABOVE the real rear face, so the screws would thread into
+    # empty model space.  Inject the real rear-case slab as a LOCAL engagement
+    # target (this check only -- NOT _build_world_assembly_parts, so interference /
+    # clearance are untouched), spanning the full case footprint in cradle-local
+    # XY at z[real_back, real_back + SADDLE_CASE_LEN_FIX] (abuts the modeled
+    # servo_body back face for shaft continuity), placed by the SAME saddle->world
+    # chain (_place_yaw_retainers) so it lands under all 4 hole stations.
+    _zc = hp.yaw_servo_real_back_z()
+    _bx_c = -hp.SERVO_OUTPUT_X
+    _rear_case = trimesh.creation.box(
+        extents=(hp.SERVO_BODY_W, hp.SERVO_BODY_D, hp.SADDLE_CASE_LEN_FIX))
+    _rear_case.apply_translation([_bx_c, 0.0, _zc + hp.SADDLE_CASE_LEN_FIX / 2.0])
+    _a_yaw = 0.5 * np.pi / 3.0
+    _apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
+    _edge_mid = np.array([_apothem * np.cos(_a_yaw), _apothem * np.sin(_a_yaw), 0.0])
+    _rear_case.apply_transform(rotation_matrix(_a_yaw, [0, 0, 1]))
+    _rear_case.apply_translation(_edge_mid)
+    world_parts["servo_rear_case(yaw)"] = _rear_case
+
     print(f"  Probing {len(sample)} bolt(s) on leg 0 + chassis-level "
           f"against {len(world_parts)} placed parts.")
 
@@ -7315,7 +7673,7 @@ def check_harness_reach():
         path_length_mm_min  <=  stock_pigtail_mm + n_ext * extension_mm
 
     where ``n_ext`` is the count parsed from the plan's
-    ``extension_required`` string (0 for "DS3225 stock pigtail",
+    ``extension_required`` string (0 for "STS3215 stock bus lead",
     1 for "+ 30 cm extension", N for "+ N x 30 cm extensions").
     PASS if every entry's required reach fits inside the
     advertised cable count; FAIL if any entry's path length
@@ -7352,7 +7710,7 @@ def check_harness_reach():
     n_pat = re.compile(r"\+\s*(\d+)\s*x\s*30 cm extension")
     for entry in plan:
         ext_str = entry["extension_required"]
-        if ext_str.startswith("DS3225 stock pigtail"):
+        if ext_str.startswith("STS3215 stock bus lead"):
             n_ext = 0
         elif ext_str.startswith("+ 30 cm extension"):
             n_ext = 1
@@ -7373,8 +7731,7 @@ def check_harness_reach():
         ok = path <= budget + 1e-3
         all_ok &= _label(
             f"joint {entry['joint_idx']:02d} L{entry['leg_idx']} "
-            f"{entry['axis']:9s} ch{entry['pca_channel']:02d} "
-            f"@ PCA 0x{entry['pca_board']:02x}",
+            f"{entry['axis']:9s} ID{entry['servo_id']:02d}",
             ok,
             f"path={path:6.1f} mm  budget={budget:6.1f} mm "
             f"(stock {stock:.0f} + {n_ext} x {ext_len:.0f}); "
@@ -7404,6 +7761,7 @@ def check_harness_reach():
 CHECKS = (
     ("Mesh watertightness",       "check_watertight"),
     ("Exported-STL manifoldness", "check_export_manifold"),
+    ("Exported-STL freshness",    "check_exported_stl_freshness"),
     ("Single-body connectivity",  "check_single_connected_component"),
     ("Hexagonal C6 symmetry",     "check_c6_symmetry"),
     ("Cradle openness",           "check_cradle_openness"),
@@ -7418,7 +7776,7 @@ CHECKS = (
     ("Horn-stack clearance",      "check_horn_stack_clearance"),
     ("Horn-sweep clearance",      "check_horn_sweep_clearance"),
     ("Disc-horn fit",             "check_disc_horn_fit"),
-    ("Back-housing symmetry",     "check_back_housing_symmetry"),
+    ("Passive-horn adapter",      "check_passive_horn_adapter"),
     ("Horn pattern in pads",      "check_horn_pattern_in_pad"),
     ("Cradle insert pockets",     "check_cradle_insert_pockets"),
     ("Servo insertion path",      "check_servo_insertion_path"),
@@ -7437,6 +7795,66 @@ CHECKS = (
 )
 
 WORKSPACE_CHECK_NAME = "Workspace self-collision"
+
+
+# ---------------------------------------------------------------------------
+# Timing instrumentation (Jun 2026, user request: "add timing output so I can
+# optimise its speed later")
+# ---------------------------------------------------------------------------
+#
+# A flat list of (label, seconds, source) records that ``main()`` collects as
+# it runs.  ``source`` is one of:
+#   * "ran"    -- a freshly-executed check (worker compute time via
+#                 perf_counter, NOT pool queue wait, so it's a true cost).
+#   * "cached" -- resolved from the result cache; the seconds are what the
+#                 check took the last time it actually ran.
+#   * "setup"  -- a shared fixed-overhead phase (mesh prebuild, etc.) that is
+#                 NOT inside any one named check.
+# Pure bookkeeping; nothing here changes any check's pass/fail behaviour.
+_TIMINGS: list[tuple[str, float, str]] = []
+
+
+def _record_timing(label: str, seconds: float, source: str) -> None:
+    """Append one timing record (see ``_TIMINGS``)."""
+    _TIMINGS.append((label, float(seconds), source))
+
+
+def _print_timing_summary(wall_s: float, mode: str) -> None:
+    """Emit the per-check timing table (slowest first) + the fixed-overhead
+    setup phases + totals.  Clearly delineated so it never collides with the
+    check output the suite's other tooling parses."""
+    if not _TIMINGS:
+        return
+    checks = [(lbl, s, src) for (lbl, s, src) in _TIMINGS if src != "setup"]
+    setup = [(lbl, s, src) for (lbl, s, src) in _TIMINGS if src == "setup"]
+    checks.sort(key=lambda r: r[1], reverse=True)
+
+    print()
+    print("#" * 72)
+    print("# Per-check timing (slowest first) "
+          "-- profile aid, not a pass/fail signal")
+    print("#" * 72)
+    for lbl, s, src in checks:
+        tag = "  (cached)" if src == "cached" else ""
+        print(f"  {s:7.2f} s   {lbl}{tag}")
+    if setup:
+        print("  " + "-" * 50)
+        for lbl, s, _src in setup:
+            print(f"  {s:7.2f} s   [setup] {lbl}")
+    sum_checks = sum(s for _l, s, _src in checks)
+    n_ran = sum(1 for _l, _s, src in checks if src == "ran")
+    n_cached = sum(1 for _l, _s, src in checks if src == "cached")
+    sum_setup = sum(s for _l, s, _src in setup)
+    print("  " + "-" * 50)
+    print(f"  {sum_checks:7.2f} s   SUM of {len(checks)} checks "
+          f"({n_ran} ran, {n_cached} cached) -- summed serial cost")
+    if sum_setup:
+        print(f"  {sum_setup:7.2f} s   SUM of shared setup phases")
+    print(f"  {wall_s:7.2f} s   WALL clock ({mode})")
+    if sum_checks > 0 and wall_s > 0:
+        print(f"  {sum_checks / wall_s:7.2f} x   parallel speedup "
+              f"(summed check cost / wall)")
+    print("#" * 72)
 
 
 # ---------------------------------------------------------------------------
@@ -7520,7 +7938,7 @@ ALL_PRINTED_PARTS = frozenset({
     "uno_q_tray", "buck_tray",
     "servo_clamp_cap", "switch_holster", "imu_pad",
     "coxa_link",
-    "femur_link", "tibia_link", "foot_pad",
+    "femur_link", "femur_strut", "tibia_link", "foot_pad",
     # Visual-only meshes that some checks place to test interfaces:
     "servo_body", "servo_horn",
 })
@@ -7554,6 +7972,11 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     # hexapod_prototype, so any printed-STL change can introduce a slicer
     # non-manifold edge -> gate on the printed watertight set.
     "Exported-STL manifoldness": _PRINTED_WATERTIGHT_SET,
+    # Compares the on-disk STLs against a fresh rebuild of EVERY exported
+    # part, so any change anywhere can leave a file stale -> always run it
+    # (the ALL_PRINTED_PARTS gate makes it fire whenever any part changes,
+    # and its cache key already mixes the full hp source + all STL bytes).
+    "Exported-STL freshness":    ALL_PRINTED_PARTS,
     # Builds every printed single-body part directly from hexapod_prototype
     # (incl. the split coxa_yaw_hub / coxa_hip_bracket fittings), so any
     # printed-STL change can flip a connectivity verdict -> gate on all parts.
@@ -7580,9 +8003,9 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Horn-sweep clearance":      frozenset({"chassis_bottom",
                                              "servo_horn"}),
     "Horn pattern in pads":      _PAD_PARTS,
-    # Builds _passive_bearing_housing directly from hexapod_prototype; the
-    # hip/knee cradle STL footprints gate it (both embed the housing).
-    "Back-housing symmetry":     _CRADLE_PARTS,
+    # Builds make_passive_horn_adapter directly from hexapod_prototype; the
+    # hip/knee cradle STL footprints stand in for the joints that carry it.
+    "Passive-horn adapter":      _CRADLE_PARTS,
     "Cradle insert pockets":     _CRADLE_PARTS,
     "Servo insertion path":      _CRADLE_PARTS,
     # Builds make_coxa_yaw_hub directly from hexapod_prototype; the coxa_link
@@ -8068,17 +8491,20 @@ def _worker_initializer(mesh_cache, inside_mode):
 def _check_runner(display_name: str, fn_name: str):
     """Worker entry point: resolve ``fn_name`` in this module's globals,
     run it under ``redirect_stdout`` to capture every print, and return
-    ``(display_name, ok, captured_output_str, mismatch_records)``.
+    ``(display_name, ok, captured_output_str, mismatch_records, runtime_s)``.
     Exceptions are caught and serialised into the output string so a
     worker traceback never silently disappears.  ``mismatch_records``
     is the list of points_inside disagreements accumulated by this
     check (empty unless --inside-mode is ``both``); the parent
-    aggregates them across all workers."""
+    aggregates them across all workers.  ``runtime_s`` is the worker's
+    own perf_counter compute time (NOT pool queue wait) for the timing
+    summary."""
     global _inside_mismatches
     buf = io.StringIO()
     fn = globals()[fn_name]
     _set_inside_check_context(display_name)
     _inside_mismatches = []
+    t0 = time.perf_counter()
     try:
         with redirect_stdout(buf):
             ok = bool(fn())
@@ -8086,9 +8512,9 @@ def _check_runner(display_name: str, fn_name: str):
         import traceback
         traceback.print_exc(file=buf)
         return (display_name, False, buf.getvalue(),
-                list(_inside_mismatches))
+                list(_inside_mismatches), time.perf_counter() - t0)
     return (display_name, bool(ok), buf.getvalue(),
-            list(_inside_mismatches))
+            list(_inside_mismatches), time.perf_counter() - t0)
 
 
 def _print_cache_hit(name: str,
@@ -8119,6 +8545,7 @@ def _try_cache_hit(cache_conn,
         return input_hash, None
     result, runtime_s, _message, ts = hit
     _print_cache_hit(name, result, runtime_s, ts)
+    _record_timing(name, runtime_s, "cached")
     return input_hash, hit
 
 
@@ -8141,7 +8568,7 @@ def _run_checks_serial(check_subset, *, cache_conn=None, use_cache=True):
             continue
         _set_inside_check_context(name)
         buf = io.StringIO()
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         try:
             with redirect_stdout(buf):
                 ok = bool(globals()[fn_name]())
@@ -8149,11 +8576,13 @@ def _run_checks_serial(check_subset, *, cache_conn=None, use_cache=True):
             import traceback
             traceback.print_exc(file=buf)
             ok = False
-        runtime_s = time.monotonic() - t0
+        runtime_s = time.perf_counter() - t0
         output = buf.getvalue()
         if output:
             sys.stdout.write(output)
             sys.stdout.flush()
+        _record_timing(name, runtime_s, "ran")
+        print(f"  [timing] {name}: {runtime_s:.1f} s")
         if cache_conn is not None:
             _cache_insert(cache_conn, name, input_hash,
                           ok, runtime_s, output)
@@ -8202,11 +8631,16 @@ def _run_checks_pool(check_subset, pool, *, cache_conn=None, use_cache=True):
         if s["kind"] == "hit":
             out.append((s["name"], s["ok"]))
             continue
-        _name, ok, output, worker_mismatches = s["future"].result()
-        runtime_s = time.monotonic() - s["t_submit"]
+        _name, ok, output, worker_mismatches, compute_s = s["future"].result()
+        # Cache the WORKER'S own compute time (perf_counter, not the
+        # submit->result wall that includes pool queue wait) so a cached
+        # replay reports the real per-check cost.
+        runtime_s = compute_s
         if output:
             sys.stdout.write(output)
             sys.stdout.flush()
+        _record_timing(s["name"], compute_s, "ran")
+        print(f"  [timing] {s['name']}: {compute_s:.1f} s")
         if worker_mismatches:
             _inside_mismatches.extend(worker_mismatches)
         if cache_conn is not None:
@@ -8426,7 +8860,10 @@ def main(argv=None):
 
     if will_miss:
         print("  Pre-building mesh cache in parent process ...")
+        _t_prebuild = time.perf_counter()
         prebuild_mesh_cache()
+        _record_timing("mesh cache prebuild", time.perf_counter() - _t_prebuild,
+                       "setup")
     else:
         print("  Cache: every selected check has a hit; "
               "skipping mesh prebuild.")
@@ -8448,10 +8885,11 @@ def main(argv=None):
                 result, runtime_s, _msg, ts = hit
                 _print_cache_hit(WORKSPACE_CHECK_NAME, result,
                                    runtime_s, ts)
+                _record_timing(WORKSPACE_CHECK_NAME, runtime_s, "cached")
                 return result
 
         buf = io.StringIO()
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         try:
             with redirect_stdout(buf):
                 if pool is None:
@@ -8462,11 +8900,13 @@ def main(argv=None):
             import traceback
             traceback.print_exc(file=buf)
             ws_ok = False
-        runtime_s = time.monotonic() - t0
+        runtime_s = time.perf_counter() - t0
         output = buf.getvalue()
         if output:
             sys.stdout.write(output)
             sys.stdout.flush()
+        _record_timing(WORKSPACE_CHECK_NAME, runtime_s, "ran")
+        print(f"  [timing] {WORKSPACE_CHECK_NAME}: {runtime_s:.1f} s")
         _cache_insert(cache_conn, WORKSPACE_CHECK_NAME, ws_input_hash,
                        ws_ok, runtime_s, output)
         return ws_ok
@@ -8530,8 +8970,10 @@ def main(argv=None):
         all_ok &= ok
     print("=" * 72)
     elapsed = time.monotonic() - t_start
-    print(f"Total verifier wall time: {elapsed:6.1f} s "
-          f"({'serial' if args.serial else f'pool max_workers={n_workers}'})")
+    _mode = 'serial' if args.serial else f'pool max_workers={n_workers}'
+    print(f"Total verifier wall time: {elapsed:6.1f} s ({_mode})")
+
+    _print_timing_summary(elapsed, _mode)
 
     if profiler is not None:
         profiler.disable()

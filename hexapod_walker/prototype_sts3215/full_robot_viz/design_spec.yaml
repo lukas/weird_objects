@@ -38,8 +38,34 @@ parts:
     description: "Compliant foot pad at each tibia tip."
     qty: 6
   chassis_bottom:
-    description: "Hex bottom plate with 6 integrated yaw cradles (existing part, shown for context)."
+    description: >-
+      Structural 200 mm flat-to-flat hex deck (single MERGED print) with 6
+      integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing
+      towers, one per leg at each hex edge midpoint.  Each STS3215 inserts from
+      BELOW (output UP), bolts via 4x M2.5 through the cradle's front mount
+      plate, and its body hangs DOWN through a body cutout; the bolt-on
+      yaw_servo_retainer stirrup captures it from below.  A flat 4 mm FLOOR slab
+      is folded onto the plate underside, so the printed BOTTOM is one flush
+      flat face (print-bed side) and the towers/cradles open upward -- prints
+      flat, tower-up, no supports.
     qty: 1
+    # bounds in the PART's own frame (X, Y, Z extents in mm)
+    bounds_mm: [229.2, 249.7, 25.75]
+    z_levels:
+      # The part is lifted +25.55 mm in this STANDING scene, so part-local z
+      # maps to the world z BuildViz displays as: world = local + 25.55.
+      world_to_local_offset_mm: 25.55
+      flat_bottom: "world 19.55  (part-local -6.0)  -- MIN Z, the flat printed bottom / print-bed face; the chassis underside sits 19.55 mm above the ground plane in the standing pose."
+      plate_top:   "world 27.55  (part-local +2.0)  -- broad hex deck top face."
+      cradle_boss_rim: "world 35.80  (part-local +10.25)"
+      tower_top:   "world 45.30  (part-local +19.75)  -- MAX Z, yaw-bearing tower top / yaw_bearing_cap seat."
+    notes: >-
+      Jun 2026 flush-bottom fix: the per-leg floor cutout was shrunk from the
+      well footprint (60 x 31) to the servo BODY cavity (46.8 x 26.2) and a
+      cradle-footprint pad added per leg, so the cradle walls + outboard
+      overhangs are GROUNDED to the world-19.55 bed instead of floating 4 mm
+      proud at world 23.55.  Verified flat: check_flat_bottom overhang below
+      bed plane = 0.00 mm.
   chassis_top:
     description: "Hex top plate (existing part, shown for context)."
     qty: 1

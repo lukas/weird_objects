@@ -217,28 +217,28 @@ def _build_leg(leg_index: int):
     # rests under the servo's tab bottoms) and the body's long axis
     # is along +X with output offset toward +X.
     # ``_hobby_servo_visual`` has body bottom at z=0 and output (front)
-    # face at z = SERVO_BODY_H.  Land that output face at the disc-horn
-    # underside (CHASSIS_YAW_OUTPUT_Z - HORN_STACK_H) so the gear/hub +
-    # disc horn reach CHASSIS_YAW_OUTPUT_Z where the coxa_link bolts on.
-    # The old '_CRADLE_SHELF_CHASSIS_Z - WELL_RIM_Z' shift predated the
-    # STS3215 refit (WELL_RIM_Z == SERVO_BODY_H) and sank the hub ~15 mm,
-    # leaving the coxa hovering above the yaw servo in the assembly view.
+    # face at z = SERVO_BODY_H.  The front face seats against the mount-plate
+    # UNDERSIDE, which sits WELL_PLATE_T below the plate top and HORN_STACK_H +
+    # WELL_PLATE_T below the frozen output plane (CHASSIS_YAW_OUTPUT_Z).  Land
+    # the front face there so the body matches the printed cradle stack-up.
+    # (Jun 2026 flush-output DEPTH fix: the old placement omitted WELL_PLATE_T
+    # and sat the servo 4 mm too high, baking in a phantom output protrusion.)
+    yaw_face_z = (HP.CHASSIS_YAW_OUTPUT_Z - HP.HORN_STACK_H - HP.WELL_PLATE_T)
     yaw_servo.apply_translation(
-        [-HP.SERVO_OUTPUT_X, 0,
-         HP.CHASSIS_YAW_OUTPUT_Z - HP.HORN_STACK_H - HP.SERVO_BODY_H],
+        [-HP.SERVO_OUTPUT_X, 0, yaw_face_z - HP.SERVO_BODY_H],
     )
     yaw_servo.apply_transform(R_a)
     yaw_servo.apply_translation(edge_mid)
     motor_parts.append(yaw_servo)
 
-    # Yaw disc horn -- bottom (spline side) at z=0, top mating face at
-    # HORN_STACK_H.  Seat its bottom at CHASSIS_YAW_OUTPUT_Z - HORN_STACK_H
-    # so the top mating face lands exactly at CHASSIS_YAW_OUTPUT_Z (the
-    # coxa_link pad plane).  Drives the coxa link via the 4
-    # link-to-disc-horn M3 bolts.
+    # Yaw disc horn -- bottom (spline side) seats FLUSH on the servo front face
+    # (the output does NOT protrude), RECESSED inside the mount-plate bore.  Its
+    # base lands at yaw_face_z so its top sits DISC_HORN_H above the face, where
+    # the coxa_yaw_hub's necked drive nub reaches it.  Drives the coxa link via
+    # the 4 link-to-disc-horn M3 bolts.
     yaw_horn = _horn_visual()
     yaw_horn.apply_translation(
-        [0, 0, HP.CHASSIS_YAW_OUTPUT_Z - HP.HORN_STACK_H],
+        [0, 0, yaw_face_z],
     )
     yaw_horn.apply_transform(R_a)
     yaw_horn.apply_translation(edge_mid)

@@ -1,0 +1,2499 @@
+{
+  "name": "Robot Cat \u2014 sculpted feline body, 9-servo STS3215 walker (rev 7)",
+  "source": "/Users/lbiewald/weird_objects/robot_cat/cat_viz",
+  "designSpecUrl": "design_spec.yaml",
+  "units": "mm",
+  "center": [
+    -0.798506400946934,
+    0.0,
+    171.59970544855005
+  ],
+  "meshes": [
+    {
+      "id": "stl:torso",
+      "name": "00_torso.stl",
+      "url": "stl/00_torso.stl"
+    },
+    {
+      "id": "stl:neck",
+      "name": "01_neck.stl",
+      "url": "stl/01_neck.stl"
+    },
+    {
+      "id": "stl:head",
+      "name": "02_head.stl",
+      "url": "stl/02_head.stl"
+    },
+    {
+      "id": "stl:L_cheek",
+      "name": "03_L_cheek.stl",
+      "url": "stl/03_L_cheek.stl"
+    },
+    {
+      "id": "stl:R_cheek",
+      "name": "04_R_cheek.stl",
+      "url": "stl/04_R_cheek.stl"
+    },
+    {
+      "id": "stl:muzzle",
+      "name": "05_muzzle.stl",
+      "url": "stl/05_muzzle.stl"
+    },
+    {
+      "id": "stl:nose",
+      "name": "06_nose.stl",
+      "url": "stl/06_nose.stl"
+    },
+    {
+      "id": "stl:L_eye",
+      "name": "07_L_eye.stl",
+      "url": "stl/07_L_eye.stl"
+    },
+    {
+      "id": "stl:L_whisker_pad",
+      "name": "08_L_whisker_pad.stl",
+      "url": "stl/08_L_whisker_pad.stl"
+    },
+    {
+      "id": "stl:L_ear",
+      "name": "09_L_ear.stl",
+      "url": "stl/09_L_ear.stl"
+    },
+    {
+      "id": "stl:L_ear_inner",
+      "name": "10_L_ear_inner.stl",
+      "url": "stl/10_L_ear_inner.stl"
+    },
+    {
+      "id": "stl:R_eye",
+      "name": "11_R_eye.stl",
+      "url": "stl/11_R_eye.stl"
+    },
+    {
+      "id": "stl:R_whisker_pad",
+      "name": "12_R_whisker_pad.stl",
+      "url": "stl/12_R_whisker_pad.stl"
+    },
+    {
+      "id": "stl:R_ear",
+      "name": "13_R_ear.stl",
+      "url": "stl/13_R_ear.stl"
+    },
+    {
+      "id": "stl:R_ear_inner",
+      "name": "14_R_ear_inner.stl",
+      "url": "stl/14_R_ear_inner.stl"
+    },
+    {
+      "id": "stl:tail",
+      "name": "15_tail.stl",
+      "url": "stl/15_tail.stl"
+    },
+    {
+      "id": "stl:L_upper_arm",
+      "name": "16_L_upper_arm.stl",
+      "url": "stl/16_L_upper_arm.stl"
+    },
+    {
+      "id": "stl:L_forearm",
+      "name": "17_L_forearm.stl",
+      "url": "stl/17_L_forearm.stl"
+    },
+    {
+      "id": "stl:L_front_paw",
+      "name": "18_L_front_paw.stl",
+      "url": "stl/18_L_front_paw.stl"
+    },
+    {
+      "id": "stl:L_femur",
+      "name": "19_L_femur.stl",
+      "url": "stl/19_L_femur.stl"
+    },
+    {
+      "id": "stl:L_shank",
+      "name": "20_L_shank.stl",
+      "url": "stl/20_L_shank.stl"
+    },
+    {
+      "id": "stl:L_hind_paw",
+      "name": "21_L_hind_paw.stl",
+      "url": "stl/21_L_hind_paw.stl"
+    },
+    {
+      "id": "stl:R_upper_arm",
+      "name": "22_R_upper_arm.stl",
+      "url": "stl/22_R_upper_arm.stl"
+    },
+    {
+      "id": "stl:R_forearm",
+      "name": "23_R_forearm.stl",
+      "url": "stl/23_R_forearm.stl"
+    },
+    {
+      "id": "stl:R_front_paw",
+      "name": "24_R_front_paw.stl",
+      "url": "stl/24_R_front_paw.stl"
+    },
+    {
+      "id": "stl:R_femur",
+      "name": "25_R_femur.stl",
+      "url": "stl/25_R_femur.stl"
+    },
+    {
+      "id": "stl:R_shank",
+      "name": "26_R_shank.stl",
+      "url": "stl/26_R_shank.stl"
+    },
+    {
+      "id": "stl:R_hind_paw",
+      "name": "27_R_hind_paw.stl",
+      "url": "stl/27_R_hind_paw.stl"
+    },
+    {
+      "id": "stl:L_shoulder_shroud",
+      "name": "28_L_shoulder_shroud.stl",
+      "url": "stl/28_L_shoulder_shroud.stl"
+    },
+    {
+      "id": "stl:L_elbow_cuff",
+      "name": "29_L_elbow_cuff.stl",
+      "url": "stl/29_L_elbow_cuff.stl"
+    },
+    {
+      "id": "stl:L_haunch_shroud",
+      "name": "30_L_haunch_shroud.stl",
+      "url": "stl/30_L_haunch_shroud.stl"
+    },
+    {
+      "id": "stl:L_knee_cuff",
+      "name": "31_L_knee_cuff.stl",
+      "url": "stl/31_L_knee_cuff.stl"
+    },
+    {
+      "id": "stl:R_shoulder_shroud",
+      "name": "32_R_shoulder_shroud.stl",
+      "url": "stl/32_R_shoulder_shroud.stl"
+    },
+    {
+      "id": "stl:R_elbow_cuff",
+      "name": "33_R_elbow_cuff.stl",
+      "url": "stl/33_R_elbow_cuff.stl"
+    },
+    {
+      "id": "stl:R_haunch_shroud",
+      "name": "34_R_haunch_shroud.stl",
+      "url": "stl/34_R_haunch_shroud.stl"
+    },
+    {
+      "id": "stl:R_knee_cuff",
+      "name": "35_R_knee_cuff.stl",
+      "url": "stl/35_R_knee_cuff.stl"
+    },
+    {
+      "id": "stl:neck_pan_servo",
+      "name": "36_neck_pan_servo.stl",
+      "url": "stl/36_neck_pan_servo.stl"
+    },
+    {
+      "id": "stl:neck_pan_horn",
+      "name": "37_neck_pan_horn.stl",
+      "url": "stl/37_neck_pan_horn.stl"
+    },
+    {
+      "id": "stl:neck_pan_horn_bolts",
+      "name": "38_neck_pan_horn_bolts.stl",
+      "url": "stl/38_neck_pan_horn_bolts.stl"
+    },
+    {
+      "id": "stl:neck_pan_clamp",
+      "name": "39_neck_pan_clamp.stl",
+      "url": "stl/39_neck_pan_clamp.stl"
+    },
+    {
+      "id": "stl:battery",
+      "name": "40_battery.stl",
+      "url": "stl/40_battery.stl"
+    },
+    {
+      "id": "stl:battery_cradle",
+      "name": "41_battery_cradle.stl",
+      "url": "stl/41_battery_cradle.stl"
+    },
+    {
+      "id": "stl:controller_tray",
+      "name": "42_controller_tray.stl",
+      "url": "stl/42_controller_tray.stl"
+    },
+    {
+      "id": "stl:controller_standoffs",
+      "name": "43_controller_standoffs.stl",
+      "url": "stl/43_controller_standoffs.stl"
+    },
+    {
+      "id": "stl:controller",
+      "name": "44_controller.stl",
+      "url": "stl/44_controller.stl"
+    },
+    {
+      "id": "stl:L_shoulder_servo",
+      "name": "45_L_shoulder_servo.stl",
+      "url": "stl/45_L_shoulder_servo.stl"
+    },
+    {
+      "id": "stl:L_shoulder_horn",
+      "name": "46_L_shoulder_horn.stl",
+      "url": "stl/46_L_shoulder_horn.stl"
+    },
+    {
+      "id": "stl:L_shoulder_horn_bolts",
+      "name": "47_L_shoulder_horn_bolts.stl",
+      "url": "stl/47_L_shoulder_horn_bolts.stl"
+    },
+    {
+      "id": "stl:L_elbow_servo",
+      "name": "48_L_elbow_servo.stl",
+      "url": "stl/48_L_elbow_servo.stl"
+    },
+    {
+      "id": "stl:L_elbow_horn",
+      "name": "49_L_elbow_horn.stl",
+      "url": "stl/49_L_elbow_horn.stl"
+    },
+    {
+      "id": "stl:L_elbow_horn_bolts",
+      "name": "50_L_elbow_horn_bolts.stl",
+      "url": "stl/50_L_elbow_horn_bolts.stl"
+    },
+    {
+      "id": "stl:L_hip_servo",
+      "name": "51_L_hip_servo.stl",
+      "url": "stl/51_L_hip_servo.stl"
+    },
+    {
+      "id": "stl:L_hip_horn",
+      "name": "52_L_hip_horn.stl",
+      "url": "stl/52_L_hip_horn.stl"
+    },
+    {
+      "id": "stl:L_hip_horn_bolts",
+      "name": "53_L_hip_horn_bolts.stl",
+      "url": "stl/53_L_hip_horn_bolts.stl"
+    },
+    {
+      "id": "stl:L_knee_servo",
+      "name": "54_L_knee_servo.stl",
+      "url": "stl/54_L_knee_servo.stl"
+    },
+    {
+      "id": "stl:L_knee_horn",
+      "name": "55_L_knee_horn.stl",
+      "url": "stl/55_L_knee_horn.stl"
+    },
+    {
+      "id": "stl:L_knee_horn_bolts",
+      "name": "56_L_knee_horn_bolts.stl",
+      "url": "stl/56_L_knee_horn_bolts.stl"
+    },
+    {
+      "id": "stl:R_shoulder_servo",
+      "name": "57_R_shoulder_servo.stl",
+      "url": "stl/57_R_shoulder_servo.stl"
+    },
+    {
+      "id": "stl:R_shoulder_horn",
+      "name": "58_R_shoulder_horn.stl",
+      "url": "stl/58_R_shoulder_horn.stl"
+    },
+    {
+      "id": "stl:R_shoulder_horn_bolts",
+      "name": "59_R_shoulder_horn_bolts.stl",
+      "url": "stl/59_R_shoulder_horn_bolts.stl"
+    },
+    {
+      "id": "stl:R_elbow_servo",
+      "name": "60_R_elbow_servo.stl",
+      "url": "stl/60_R_elbow_servo.stl"
+    },
+    {
+      "id": "stl:R_elbow_horn",
+      "name": "61_R_elbow_horn.stl",
+      "url": "stl/61_R_elbow_horn.stl"
+    },
+    {
+      "id": "stl:R_elbow_horn_bolts",
+      "name": "62_R_elbow_horn_bolts.stl",
+      "url": "stl/62_R_elbow_horn_bolts.stl"
+    },
+    {
+      "id": "stl:R_hip_servo",
+      "name": "63_R_hip_servo.stl",
+      "url": "stl/63_R_hip_servo.stl"
+    },
+    {
+      "id": "stl:R_hip_horn",
+      "name": "64_R_hip_horn.stl",
+      "url": "stl/64_R_hip_horn.stl"
+    },
+    {
+      "id": "stl:R_hip_horn_bolts",
+      "name": "65_R_hip_horn_bolts.stl",
+      "url": "stl/65_R_hip_horn_bolts.stl"
+    },
+    {
+      "id": "stl:R_knee_servo",
+      "name": "66_R_knee_servo.stl",
+      "url": "stl/66_R_knee_servo.stl"
+    },
+    {
+      "id": "stl:R_knee_horn",
+      "name": "67_R_knee_horn.stl",
+      "url": "stl/67_R_knee_horn.stl"
+    },
+    {
+      "id": "stl:R_knee_horn_bolts",
+      "name": "68_R_knee_horn_bolts.stl",
+      "url": "stl/68_R_knee_horn_bolts.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "00-torso",
+      "meshId": "stl:torso",
+      "name": "torso",
+      "partType": "torso",
+      "role": "body",
+      "color": "#74747e",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        8.152723766275074,
+        1.1552302604978005e-06,
+        240.09871694430916
+      ]
+    },
+    {
+      "id": "01-neck",
+      "meshId": "stl:neck",
+      "name": "neck",
+      "partType": "neck",
+      "role": "body",
+      "color": "#74747e",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        166.16311614443018,
+        -4.2733316594074035e-16,
+        256.2141813011011
+      ]
+    },
+    {
+      "id": "02-head",
+      "meshId": "stl:head",
+      "name": "head",
+      "partType": "head",
+      "role": "head",
+      "color": "#74747e",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        202.99999999999966,
+        2.6960136909624384e-14,
+        274.00000000000045
+      ]
+    },
+    {
+      "id": "03-L_cheek",
+      "meshId": "stl:L_cheek",
+      "name": "L cheek",
+      "partType": "cheek",
+      "role": "head",
+      "color": "#74747e",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        216.00000000000017,
+        17.99999999999999,
+        265.00000000000017
+      ]
+    },
+    {
+      "id": "04-R_cheek",
+      "meshId": "stl:R_cheek",
+      "name": "R cheek",
+      "partType": "cheek",
+      "role": "head",
+      "color": "#74747e",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        216.00000000000017,
+        -17.999999999999982,
+        265.00000000000017
+      ]
+    },
+    {
+      "id": "05-muzzle",
+      "meshId": "stl:muzzle",
+      "name": "muzzle",
+      "partType": "muzzle",
+      "role": "head",
+      "color": "#ccbfaf",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        230.00000000000108,
+        -2.9624224411857878e-15,
+        265.00000000000017
+      ]
+    },
+    {
+      "id": "06-nose",
+      "meshId": "stl:nose",
+      "name": "nose",
+      "partType": "nose",
+      "role": "head",
+      "color": "#d98a9a",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        242.99999999999957,
+        -1.938456808071128e-16,
+        266.9999999999999
+      ]
+    },
+    {
+      "id": "07-L_eye",
+      "meshId": "stl:L_eye",
+      "name": "L eye",
+      "partType": "eye",
+      "role": "head",
+      "color": "#caa015",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        226.0000000000005,
+        13.999999999999973,
+        279.9999999999995
+      ]
+    },
+    {
+      "id": "08-L_whisker_pad",
+      "meshId": "stl:L_whisker_pad",
+      "name": "L whisker pad",
+      "partType": "whisker_pad",
+      "role": "head",
+      "color": "#c2b4a2",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        236.00000000000006,
+        7.999999999999985,
+        261.99999999999943
+      ]
+    },
+    {
+      "id": "09-L_ear",
+      "meshId": "stl:L_ear",
+      "name": "L ear",
+      "partType": "ear",
+      "role": "head",
+      "color": "#5a5a62",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        196.06961210405902,
+        19.120396182610662,
+        298.0718818674006
+      ]
+    },
+    {
+      "id": "10-L_ear_inner",
+      "meshId": "stl:L_ear_inner",
+      "name": "L ear inner",
+      "partType": "ear_inner",
+      "role": "head",
+      "color": "#caa6a6",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        197.7743300955017,
+        17.642568372644465,
+        297.93908046778165
+      ]
+    },
+    {
+      "id": "11-R_eye",
+      "meshId": "stl:R_eye",
+      "name": "R eye",
+      "partType": "eye",
+      "role": "head",
+      "color": "#caa015",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        226.00000000000048,
+        -13.999999999999998,
+        279.9999999999995
+      ]
+    },
+    {
+      "id": "12-R_whisker_pad",
+      "meshId": "stl:R_whisker_pad",
+      "name": "R whisker pad",
+      "partType": "whisker_pad",
+      "role": "head",
+      "color": "#c2b4a2",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        236.00000000000009,
+        -8.000000000000009,
+        261.9999999999995
+      ]
+    },
+    {
+      "id": "13-R_ear",
+      "meshId": "stl:R_ear",
+      "name": "R ear",
+      "partType": "ear",
+      "role": "head",
+      "color": "#5a5a62",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        196.0696121040591,
+        -19.120396182610662,
+        298.0718818674005
+      ]
+    },
+    {
+      "id": "14-R_ear_inner",
+      "meshId": "stl:R_ear_inner",
+      "name": "R ear inner",
+      "partType": "ear_inner",
+      "role": "head",
+      "color": "#caa6a6",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        197.77433009550168,
+        -17.64256837264446,
+        297.9390804677816
+      ]
+    },
+    {
+      "id": "15-tail",
+      "meshId": "stl:tail",
+      "name": "tail",
+      "partType": "tail_segment",
+      "role": "tail",
+      "color": "#74747e",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -195.11876433789496,
+        -0.004415025725835869,
+        254.33951420447102
+      ]
+    },
+    {
+      "id": "16-L_upper_arm",
+      "meshId": "stl:L_upper_arm",
+      "name": "L upper arm",
+      "partType": "upper_arm",
+      "role": "limb",
+      "color": "#8a8a94",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        113.35252499234201,
+        37.999999999999964,
+        144.03171493414172
+      ]
+    },
+    {
+      "id": "17-L_forearm",
+      "meshId": "stl:L_forearm",
+      "name": "L forearm",
+      "partType": "forearm",
+      "role": "limb",
+      "color": "#8a8a94",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        116.4715795518075,
+        37.99999999999998,
+        52.153804778453775
+      ]
+    },
+    {
+      "id": "18-L_front_paw",
+      "meshId": "stl:L_front_paw",
+      "name": "L front paw",
+      "partType": "front_paw",
+      "role": "paw",
+      "color": "#c3b59f",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        124.2033741430143,
+        37.999999999999915,
+        9.999999999999984
+      ]
+    },
+    {
+      "id": "19-L_femur",
+      "meshId": "stl:L_femur",
+      "name": "L femur",
+      "partType": "femur",
+      "role": "limb",
+      "color": "#8a8a94",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -98.99454362828253,
+        41.99999999999999,
+        163.3151454276089
+      ]
+    },
+    {
+      "id": "20-L_shank",
+      "meshId": "stl:L_shank",
+      "name": "L shank",
+      "partType": "shank",
+      "role": "limb",
+      "color": "#8a8a94",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -93.19822423032674,
+        42.00000000000001,
+        65.29349584951683
+      ]
+    },
+    {
+      "id": "21-L_hind_paw",
+      "meshId": "stl:L_hind_paw",
+      "name": "L hind paw",
+      "partType": "hind_paw",
+      "role": "paw",
+      "color": "#c3b59f",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -101.79662585698641,
+        41.999999999999865,
+        9.999999999999988
+      ]
+    },
+    {
+      "id": "22-R_upper_arm",
+      "meshId": "stl:R_upper_arm",
+      "name": "R upper arm",
+      "partType": "upper_arm",
+      "role": "limb",
+      "color": "#8a8a94",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        113.35252499234204,
+        -37.999999999999964,
+        144.0317149341417
+      ]
+    },
+    {
+      "id": "23-R_forearm",
+      "meshId": "stl:R_forearm",
+      "name": "R forearm",
+      "partType": "forearm",
+      "role": "limb",
+      "color": "#8a8a94",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        116.4715795518075,
+        -38.00000000000001,
+        52.15380477845379
+      ]
+    },
+    {
+      "id": "24-R_front_paw",
+      "meshId": "stl:R_front_paw",
+      "name": "R front paw",
+      "partType": "front_paw",
+      "role": "paw",
+      "color": "#c3b59f",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        124.20337414301433,
+        -37.999999999999844,
+        9.999999999999984
+      ]
+    },
+    {
+      "id": "25-R_femur",
+      "meshId": "stl:R_femur",
+      "name": "R femur",
+      "partType": "femur",
+      "role": "limb",
+      "color": "#8a8a94",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -98.99454362828253,
+        -42.00000000000003,
+        163.3151454276089
+      ]
+    },
+    {
+      "id": "26-R_shank",
+      "meshId": "stl:R_shank",
+      "name": "R shank",
+      "partType": "shank",
+      "role": "limb",
+      "color": "#8a8a94",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -93.19822423032674,
+        -42.0,
+        65.29349584951682
+      ]
+    },
+    {
+      "id": "27-R_hind_paw",
+      "meshId": "stl:R_hind_paw",
+      "name": "R hind paw",
+      "partType": "hind_paw",
+      "role": "paw",
+      "color": "#c3b59f",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -101.79662585698641,
+        -41.99999999999998,
+        9.999999999999988
+      ]
+    },
+    {
+      "id": "28-L_shoulder_shroud",
+      "meshId": "stl:L_shoulder_shroud",
+      "name": "L shoulder shroud",
+      "partType": "shoulder_shroud",
+      "role": "body",
+      "color": "#74747e",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        116.63331904769095,
+        48.50305458139578,
+        172.01783564429752
+      ]
+    },
+    {
+      "id": "29-L_elbow_cuff",
+      "meshId": "stl:L_elbow_cuff",
+      "name": "L elbow cuff",
+      "partType": "joint_cuff",
+      "role": "bracket",
+      "color": "#7c7c86",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        106.93161706188528,
+        60.40000038144728,
+        88.81190673221356
+      ]
+    },
+    {
+      "id": "30-L_haunch_shroud",
+      "meshId": "stl:L_haunch_shroud",
+      "name": "L haunch shroud",
+      "partType": "haunch_shroud",
+      "role": "body",
+      "color": "#74747e",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -106.90470087696934,
+        52.96165665967524,
+        190.3327552057823
+      ]
+    },
+    {
+      "id": "31-L_knee_cuff",
+      "meshId": "stl:L_knee_cuff",
+      "name": "L knee cuff",
+      "partType": "joint_cuff",
+      "role": "bracket",
+      "color": "#7c7c86",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -83.3420320585114,
+        64.40000038144734,
+        111.14010686170444
+      ]
+    },
+    {
+      "id": "32-R_shoulder_shroud",
+      "meshId": "stl:R_shoulder_shroud",
+      "name": "R shoulder shroud",
+      "partType": "shoulder_shroud",
+      "role": "body",
+      "color": "#74747e",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        116.63331902428784,
+        -48.503054505363984,
+        172.01783547280937
+      ]
+    },
+    {
+      "id": "33-R_elbow_cuff",
+      "meshId": "stl:R_elbow_cuff",
+      "name": "R elbow cuff",
+      "partType": "joint_cuff",
+      "role": "bracket",
+      "color": "#7c7c86",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        106.9316170618853,
+        -60.40000038144733,
+        88.8119067322136
+      ]
+    },
+    {
+      "id": "34-R_haunch_shroud",
+      "meshId": "stl:R_haunch_shroud",
+      "name": "R haunch shroud",
+      "partType": "haunch_shroud",
+      "role": "body",
+      "color": "#74747e",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -106.90470060752905,
+        -52.96165664182421,
+        190.33275540158135
+      ]
+    },
+    {
+      "id": "35-R_knee_cuff",
+      "meshId": "stl:R_knee_cuff",
+      "name": "R knee cuff",
+      "partType": "joint_cuff",
+      "role": "bracket",
+      "color": "#7c7c86",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -83.3420320585114,
+        -64.40000038144728,
+        111.14010686170444
+      ]
+    },
+    {
+      "id": "36-neck_pan_servo",
+      "meshId": "stl:neck_pan_servo",
+      "name": "neck pan servo",
+      "partType": "sts3215_servo",
+      "role": "motor",
+      "color": "#2f3338",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        143.30882167205147,
+        -4.2950471039195414e-16,
+        224.8906381346549
+      ]
+    },
+    {
+      "id": "37-neck_pan_horn",
+      "meshId": "stl:neck_pan_horn",
+      "name": "neck pan horn",
+      "partType": "disc_horn",
+      "role": "horn",
+      "color": "#c9ccd1",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        154.9999999999996,
+        -5.245427721864499e-16,
+        246.50000000000242
+      ]
+    },
+    {
+      "id": "38-neck_pan_horn_bolts",
+      "meshId": "stl:neck_pan_horn_bolts",
+      "name": "neck pan horn bolts",
+      "partType": "horn_bolts",
+      "role": "fastener",
+      "color": "#d9a521",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        154.99999999999994,
+        5.839519292174147e-17,
+        251.4999999999974
+      ]
+    },
+    {
+      "id": "39-neck_pan_clamp",
+      "meshId": "stl:neck_pan_clamp",
+      "name": "neck pan clamp",
+      "partType": "servo_clamp",
+      "role": "bracket",
+      "color": "#3f7fb5",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        142.50000000001245,
+        -4.858813755451184e-16,
+        224.85000000002415
+      ]
+    },
+    {
+      "id": "40-battery",
+      "meshId": "stl:battery",
+      "name": "battery",
+      "partType": "battery",
+      "role": "battery",
+      "color": "#7a1f2b",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -18.0,
+        0.0,
+        214.0
+      ]
+    },
+    {
+      "id": "41-battery_cradle",
+      "meshId": "stl:battery_cradle",
+      "name": "battery cradle",
+      "partType": "battery_cradle",
+      "role": "bracket",
+      "color": "#4a6a86",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -18.0,
+        0.0,
+        209.28421426397486
+      ]
+    },
+    {
+      "id": "42-controller_tray",
+      "meshId": "stl:controller_tray",
+      "name": "controller tray",
+      "partType": "controller_tray",
+      "role": "bracket",
+      "color": "#3f7fb5",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        65.83451696129048,
+        4.819456024786007e-16,
+        240.7506238039234
+      ]
+    },
+    {
+      "id": "43-controller_standoffs",
+      "meshId": "stl:controller_standoffs",
+      "name": "controller standoffs",
+      "partType": "controller_standoffs",
+      "role": "fastener",
+      "color": "#d9a521",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        78.34999999999995,
+        -2.5400000000000027,
+        248.74999999999991
+      ]
+    },
+    {
+      "id": "44-controller",
+      "meshId": "stl:controller",
+      "name": "controller",
+      "partType": "controller",
+      "role": "controller",
+      "color": "#1f8a4d",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        71.66055534664541,
+        0.15689088819169006,
+        254.12537354523477
+      ]
+    },
+    {
+      "id": "45-L_shoulder_servo",
+      "meshId": "stl:L_shoulder_servo",
+      "name": "L shoulder servo",
+      "partType": "sts3215_servo",
+      "role": "motor",
+      "color": "#2f3338",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        116.26572531154393,
+        13.890638134654846,
+        172.4381687436255
+      ]
+    },
+    {
+      "id": "46-L_shoulder_horn",
+      "meshId": "stl:L_shoulder_horn",
+      "name": "L shoulder horn",
+      "partType": "disc_horn",
+      "role": "horn",
+      "color": "#c9ccd1",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        117.99999999999983,
+        35.50000000000232,
+        184.0000000000002
+      ]
+    },
+    {
+      "id": "47-L_shoulder_horn_bolts",
+      "meshId": "stl:L_shoulder_horn_bolts",
+      "name": "L shoulder horn bolts",
+      "partType": "horn_bolts",
+      "role": "fastener",
+      "color": "#d9a521",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        118.00000000000009,
+        40.49999999999751,
+        183.99999999999994
+      ]
+    },
+    {
+      "id": "48-L_elbow_servo",
+      "meshId": "stl:L_elbow_servo",
+      "name": "L elbow servo",
+      "partType": "sts3215_servo",
+      "role": "motor",
+      "color": "#2f3338",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        106.64965887004861,
+        62.10936186534534,
+        86.38706628241943
+      ]
+    },
+    {
+      "id": "49-L_elbow_horn",
+      "meshId": "stl:L_elbow_horn",
+      "name": "L elbow horn",
+      "partType": "disc_horn",
+      "role": "horn",
+      "color": "#c9ccd1",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        108.00000000000023,
+        40.49999999999761,
+        97.99999999999994
+      ]
+    },
+    {
+      "id": "50-L_elbow_horn_bolts",
+      "meshId": "stl:L_elbow_horn_bolts",
+      "name": "L elbow horn bolts",
+      "partType": "horn_bolts",
+      "role": "fastener",
+      "color": "#d9a521",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        107.99999999999999,
+        35.500000000002494,
+        98.00000000000004
+      ]
+    },
+    {
+      "id": "51-L_hip_servo",
+      "meshId": "stl:L_hip_servo",
+      "name": "L hip servo",
+      "partType": "sts3215_servo",
+      "role": "motor",
+      "color": "#2f3338",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -108.83668427663127,
+        17.890638134654836,
+        188.36684276631402
+      ]
+    },
+    {
+      "id": "52-L_hip_horn",
+      "meshId": "stl:L_hip_horn",
+      "name": "L hip horn",
+      "partType": "disc_horn",
+      "role": "horn",
+      "color": "#c9ccd1",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -110.0,
+        39.50000000000253,
+        199.9999999999997
+      ]
+    },
+    {
+      "id": "53-L_hip_horn_bolts",
+      "meshId": "stl:L_hip_horn_bolts",
+      "name": "L hip horn bolts",
+      "partType": "horn_bolts",
+      "role": "fastener",
+      "color": "#d9a521",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -110.00000000000003,
+        44.4999999999975,
+        199.99999999999991
+      ]
+    },
+    {
+      "id": "54-L_knee_servo",
+      "meshId": "stl:L_knee_servo",
+      "name": "L knee servo",
+      "partType": "sts3215_servo",
+      "role": "motor",
+      "color": "#2f3338",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -82.64056462768166,
+        66.10936186534538,
+        108.80188209227227
+      ]
+    },
+    {
+      "id": "55-L_knee_horn",
+      "meshId": "stl:L_knee_horn",
+      "name": "L knee horn",
+      "partType": "disc_horn",
+      "role": "horn",
+      "color": "#c9ccd1",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -86.00000000000006,
+        44.49999999999753,
+        120.00000000000009
+      ]
+    },
+    {
+      "id": "56-L_knee_horn_bolts",
+      "meshId": "stl:L_knee_horn_bolts",
+      "name": "L knee horn bolts",
+      "partType": "horn_bolts",
+      "role": "fastener",
+      "color": "#d9a521",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -85.99999999999996,
+        39.5000000000025,
+        120.00000000000004
+      ]
+    },
+    {
+      "id": "57-R_shoulder_servo",
+      "meshId": "stl:R_shoulder_servo",
+      "name": "R shoulder servo",
+      "partType": "sts3215_servo",
+      "role": "motor",
+      "color": "#2f3338",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        116.26572531154396,
+        -13.890638134654846,
+        172.43816874362554
+      ]
+    },
+    {
+      "id": "58-R_shoulder_horn",
+      "meshId": "stl:R_shoulder_horn",
+      "name": "R shoulder horn",
+      "partType": "disc_horn",
+      "role": "horn",
+      "color": "#c9ccd1",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        117.99999999999982,
+        -35.500000000002316,
+        184.00000000000023
+      ]
+    },
+    {
+      "id": "59-R_shoulder_horn_bolts",
+      "meshId": "stl:R_shoulder_horn_bolts",
+      "name": "R shoulder horn bolts",
+      "partType": "horn_bolts",
+      "role": "fastener",
+      "color": "#d9a521",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        117.99999999999996,
+        -40.4999999999975,
+        183.99999999999997
+      ]
+    },
+    {
+      "id": "60-R_elbow_servo",
+      "meshId": "stl:R_elbow_servo",
+      "name": "R elbow servo",
+      "partType": "sts3215_servo",
+      "role": "motor",
+      "color": "#2f3338",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        106.64965887004865,
+        -62.10936186534538,
+        86.38706628241935
+      ]
+    },
+    {
+      "id": "61-R_elbow_horn",
+      "meshId": "stl:R_elbow_horn",
+      "name": "R elbow horn",
+      "partType": "disc_horn",
+      "role": "horn",
+      "color": "#c9ccd1",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        108.00000000000026,
+        -40.4999999999976,
+        97.99999999999987
+      ]
+    },
+    {
+      "id": "62-R_elbow_horn_bolts",
+      "meshId": "stl:R_elbow_horn_bolts",
+      "name": "R elbow horn bolts",
+      "partType": "horn_bolts",
+      "role": "fastener",
+      "color": "#d9a521",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        108.00000000000009,
+        -35.50000000000251,
+        97.99999999999999
+      ]
+    },
+    {
+      "id": "63-R_hip_servo",
+      "meshId": "stl:R_hip_servo",
+      "name": "R hip servo",
+      "partType": "sts3215_servo",
+      "role": "motor",
+      "color": "#2f3338",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -108.83668427663135,
+        -17.89063813465483,
+        188.3668427663141
+      ]
+    },
+    {
+      "id": "64-R_hip_horn",
+      "meshId": "stl:R_hip_horn",
+      "name": "R hip horn",
+      "partType": "disc_horn",
+      "role": "horn",
+      "color": "#c9ccd1",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -109.99999999999993,
+        -39.500000000002494,
+        199.9999999999999
+      ]
+    },
+    {
+      "id": "65-R_hip_horn_bolts",
+      "meshId": "stl:R_hip_horn_bolts",
+      "name": "R hip horn bolts",
+      "partType": "horn_bolts",
+      "role": "fastener",
+      "color": "#d9a521",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -110.00000000000004,
+        -44.499999999997485,
+        199.99999999999983
+      ]
+    },
+    {
+      "id": "66-R_knee_servo",
+      "meshId": "stl:R_knee_servo",
+      "name": "R knee servo",
+      "partType": "sts3215_servo",
+      "role": "motor",
+      "color": "#2f3338",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -82.64056462768163,
+        -66.10936186534536,
+        108.80188209227224
+      ]
+    },
+    {
+      "id": "67-R_knee_horn",
+      "meshId": "stl:R_knee_horn",
+      "name": "R knee horn",
+      "partType": "disc_horn",
+      "role": "horn",
+      "color": "#c9ccd1",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -86.0000000000001,
+        -44.499999999997485,
+        120.00000000000009
+      ]
+    },
+    {
+      "id": "68-R_knee_horn_bolts",
+      "meshId": "stl:R_knee_horn_bolts",
+      "name": "R knee horn bolts",
+      "partType": "horn_bolts",
+      "role": "fastener",
+      "color": "#d9a521",
+      "transform": [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+      ],
+      "centroid": [
+        -86.00000000000003,
+        -39.50000000000254,
+        120.00000000000003
+      ]
+    }
+  ]
+}

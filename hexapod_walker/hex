@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Reliable one-shot command sender for the UNO Q hexapod.
+#
+# Each command opens a FRESH connection to the on-board Monitor bridge
+# (tcp:127.0.0.1:7500 via adb), so it can never wedge the way a long-lived
+# socat session does.
+#
+# Usage:
+#   ./hex ?            send the help/banner command
+#   ./hex X            relax all motors (safe)
+#   ./hex C            centre all
+#   ./hex "W 25"       walk slowly at 25 mm/s
+#   ./hex              interactive mode: type commands, Ctrl-D to quit
+#
+# Env:
+#   HEX_WAIT  seconds to wait for the reply (default 1.5)
+
+set -euo pipefail
+WAIT="${HEX_WAIT:-1.5}"
+
+# Transport: SSH (Wi-Fi) by default; set HEX_ADB=1 to use the USB adb tunnel.
+# mDNS (hexapod.local) is flaky, so default to the board's LAN IP.
+HEX_HOST="${HEX_HOST:-arduino@192.168.0.192}"
+HEX_ADB="${HEX_ADB:-0}"
+SSH_OPTS=(-o ConnectTimeout=10 -o ServerAliveInterval=3 -o ServerAliveCountMax=3 -o BatchMode=yes)
+
+send_once() {
+  local cmd="$1"
+  local remote="(printf '%s\r' '$cmd'; sleep $WAIT) | socat - tcp:127.0.0.1:7500"
+  if [[ "$HEX_ADB" == "1" ]]; then
+    adb shell "$remote" 2>/dev/null
+  else
+    ssh "${SSH_OPTS[@]}" "$HEX_HOST" "$remote" 2>/dev/null
+  fi
+}
+
+send() {
+  local cmd="$1" out="" i
+  for i in 1 2 3 4 5; do
+    out="$(send_once "$cmd")" && [[ -n "$out" ]] && { printf '%s\n' "$out"; return 0; }
+    sleep 1
+  done
+  echo "!! no response after 5 tries (flaky Wi-Fi). cmd: $cmd" >&2
+  return 1
+}
+
+if [[ $# -gt 0 ]]; then
+  send "$*"
+  exit 0
+fi
+
+# interactive
+echo "hex> connected (Ctrl-D to quit). Try: ?  C  X  'W 25'"
+while IFS= read -r -p "hex> " line; do
+  [[ -z "$line" ]] && continue
+  send "$line"
+done
+echo

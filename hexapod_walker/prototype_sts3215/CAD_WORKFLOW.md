@@ -14,7 +14,7 @@ change before printing.
 | Derived STL artifacts                  | `stl_prototype/*.stl`         | Auto-generated from `hexapod_prototype.py` via `build_all.py`.          |
 | Human-readable design contract         | `design_spec.yaml`            | Local frames, bounding boxes, holes, channels, keep-out volumes.        |
 | Code-driven keep-out / clearance shapes| `keepout_volumes.py`          | Named `trimesh` factories tracking the parametric constants.            |
-| Deep validation                        | `_verify_prototype.py`        | The 11-check correctness suite (manifoldness, cradle openness, …).      |
+| Deep validation                        | `_verify_prototype.py`        | The 34-check correctness suite (manifoldness, cradle openness, …).      |
 | Light validation + reporting           | `scripts/validate_geometry.py`| Spec-vs-STL regression check + report generator.                        |
 
 The contract is: **constants in `hexapod_prototype.py` are the truth**.

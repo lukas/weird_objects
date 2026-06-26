@@ -366,47 +366,53 @@ SERVO_BODY_BOLT_LEN     = 8.0   # mm -- M2.5 x 8 screw into the servo case
 # threads SERVO_MOUNT_THREAD_DEPTH into the case.  Keeps a stock M2.5 x 8.
 SERVO_BODY_BOLT_STANDOFF = SERVO_BODY_BOLT_LEN - SERVO_MOUNT_THREAD_DEPTH  # 4 mm
 
-# ---- Bearing-SANDWICH joint architecture (Jun 2026 design review) --------
+# ---- Bearing-SANDWICH joint architecture (Jun 2026 -> symmetric refit) ----
 # Real STS3215 legged-robot joints are supported on BOTH ends, not
-# cantilevered off the output horn.  Validated against FEETECH/SO-ARM
-# STEP + an external design review, the hexapod adopts:
+# cantilevered off the output horn.  The STS3215 already gives us TWO
+# coaxial bearing-supported bosses: the 25T DRIVEN spline on the front
+# (output) face, and a SMOOTH idler boss on the back face that rotates with
+# the output shaft on the servo's own internal rear bearing.  So instead of
+# adding an external 688 ball bearing + housing on the back (an asymmetric
+# "ring" that only supported the yoke through a loose stub), we mount a
+# SECOND disc horn -- the PASSIVE horn -- on the rear idler boss and bolt the
+# moving yoke to BOTH horns identically.  The result is a symmetric, fully
+# bolted bearing sandwich carried on the servo's own two bearings:
 #
-#   * DRIVEN side  : STS3215 output -> dia-20 disc horn -> moving link
-#                    (case bolts via M2/M2.5 SELF-TAP into the un-tapped
-#                     PA+GF case holes -- NOT heat-set inserts/machine
-#                     screws, which suited the old DS3225 / aluminium case).
-#   * PASSIVE side : a 688-2RS ball bearing pressed into the fixed housing;
-#                    the moving link carries a stub shaft (coaxial with the
-#                    output axis) riding the bearing INNER race.
+#   * DRIVEN side  : STS3215 25T spline -> dia-20 disc horn -> yoke top arm
+#                    (4x M3 into the horn's tapped holes + central spline
+#                     screw).
+#   * PASSIVE side : rear idler boss -> centering ADAPTER -> a SECOND dia-20
+#                    disc horn -> yoke bottom arm (4x M3 + a central
+#                    retention screw into the rear boss so the horn can't
+#                    work loose).  Same horn part, same bolt pattern, same
+#                    reach-down pad -- the yoke arms are mirror-identical.
 #   * SEGMENTS     : dia-8 CARBON-FIBRE TUBE between joints (femur / tibia),
 #                    socketed into printed end-fittings.
-#
-# A good rule of thumb (design review): any link longer than ~50 mm wants
-# a passive bearing side; our 100-150 mm leg segments definitely do.
 SERVO_MOUNT_SELFTAP_OD    = 2.6   # mm -- printed-plate clearance for M2/M2.5 self-tap
 SERVO_CASE_HOLE_OD        = 2.5   # mm -- molded case hole the self-tapper bites (STEP)
 
-# 688-2RS deep-groove ball bearing (passive joint side).
-PASSIVE_BEARING_BORE      = 8.0   # mm -- inner-race bore = stub-shaft dia
-PASSIVE_BEARING_OD        = 16.0  # mm -- outer-race OD = press-fit pocket dia
-PASSIVE_BEARING_W         = 5.0   # mm -- bearing width = pocket depth
-PASSIVE_BEARING_PRESS     = 0.0   # mm -- pocket-dia shrink for press fit (tune per printer)
-PASSIVE_BEARING_SHOULDER_T = 2.0  # mm -- backing wall seating the outer race
-PASSIVE_STUB_OD           = PASSIVE_BEARING_BORE   # mm -- moving-link stub shaft dia
-PASSIVE_STUB_CLEAR_OD     = PASSIVE_BEARING_OD - 4.0  # mm -- shoulder bore (inner-race/stub access)
-# Back bearing-HOUSING shell (Jun 2026 cleanup).  The 688 bearing seat used
-# to be an asymmetric +X-HALF rectangular plate (x in [2, WELL_W/2], full
-# WELL_D) -- a one-sided "weird lip" hanging off the cradle back.  It is now
-# a clean boss CENTRED on the idler axis (x = SERVO_OUTPUT_X): a Phi
-# PASSIVE_HOUSING_OD barrel that holds the Phi PASSIVE_BEARING_OD press
-# pocket + its wall, topped by a Phi PASSIVE_HOUSING_FLANGE_OD x
-# PASSIVE_HOUSING_FLANGE_T backing collar that fuses the boss to the cradle's
-# +X and +/-Y walls so the housing stays ONE connected component.  Centring
-# on the +X-offset idler axis keeps the -X half of the back face open for the
-# serial-bus connectors / cables (the original reason it was +X-half-only).
-PASSIVE_HOUSING_OD        = 24.0  # mm -- bearing-boss OD (holds Phi16 pocket + ~4 mm wall)
-PASSIVE_HOUSING_FLANGE_OD = 30.0  # mm -- back-face collar OD that ties into the cradle walls
-PASSIVE_HOUSING_FLANGE_T  = 4.0   # mm -- collar thickness (>= MIN_PRINT_T, prints flat-bottom)
+# --- Passive (rear-boss) horn stack -----------------------------------------
+# The back side mirrors the front about each face: the rear idler boss
+# protrudes REAR_BOSS_H off the back face, the passive disc horn seats on it,
+# and a reach-down pad on the yoke bottom arm bridges down to the real thin
+# horn -- exactly like the driven side.  (Derived constants that depend on the
+# disc-horn dimensions live in the JOINT_HORN block below, once those are
+# defined; see REAR_BOSS_OD / BACK_STACK_DEPTH / PASSIVE_ADAPTER_* there.)
+REAR_BOSS_H        = SERVO_OUTPUT_H               # 2 mm -- rear idler boss protrusion
+REAR_BOSS_OD       = 4.0                          # mm -- smooth rear boss/shaft dia (MEASURE
+                                                  #       on your unit; assumed ~Phi4 so the
+                                                  #       adapter spigot can pad it out to the
+                                                  #       horn's ~Phi5.9 spline bore).  Must be
+                                                  #       < the horn spline bore for the
+                                                  #       adapter to be one connected part.
+PASSIVE_ADAPTER_OD        = 12.0                  # mm -- base disc (> boss, < horn OD)
+PASSIVE_ADAPTER_BASE_T    = REAR_BOSS_H           # 2 mm -- base disc thickness
+PASSIVE_ADAPTER_BORE_OD   = REAR_BOSS_OD + 0.4    # slip-fit counterbore over rear boss
+PASSIVE_ADAPTER_SPIGOT_OD = SERVO_SPLINE_OD - 0.2 # ~5.7 mm spigot into the horn spline bore
+# Central retention screw that keeps the passive horn from working loose on
+# the smooth boss (the user's "screw through the middle").  M3 into the rear
+# boss's central hole, mirroring the driven side's central spline screw.
+PASSIVE_HORN_SCREW_LEN    = 8.0   # mm -- M3 x 8 through horn + adapter into boss
 
 # ===== SPACED YAW BEARING PAIR (cantilever moment support) ===============
 # The coxa cantilevers the whole hip/femur/tibia ~COXA_LENGTH out to the
@@ -424,7 +430,11 @@ PASSIVE_HOUSING_FLANGE_T  = 4.0   # mm -- collar thickness (>= MIN_PRINT_T, prin
 # WORLD hip-pitch axis Z is unchanged -> leg kinematics / RL / MuJoCo are
 # unchanged (same trick the COXA_LIFT history used).  See CHASSIS_YAW_OUTPUT_Z
 # and COXA_HIP_DROP below.
-YAW_TOWER_RAISE           =  9.0  # mm -- yaw output lowered / hip lifted by this
+YAW_TOWER_RAISE           = 14.5  # mm -- yaw output lowered / hip lifted by this
+                                  #       (Jun 2026: bumped 9 -> 14.5 = +5.5 when
+                                  #       BOTH yaw bearings moved above the flush
+                                  #       horn, raising the hub platform +5.5 mm;
+                                  #       keeps WORLD hip-axis Z fixed)
 
 # Two coaxial 6706-2RS (30 x 37 x 4) deep-groove bearings.  Both clear the
 # ~21 mm disc horn (30 ID) so a single hub boss (OD = 30) rides both inner
@@ -436,13 +446,20 @@ YAW_BEARING_W             =  4.0  # mm -- bearing width
 YAW_BEARING_INNER_OD      = 32.0  # mm -- approx inner-race OD (rotating band)
 YAW_BEARING_OUTER_ID      = 35.0  # mm -- approx outer-race ID (stationary band)
 YAW_BEARING_PRESS         =  0.0  # mm -- OD shrink for press fit (tune per printer)
-# Bearing Z bands (coxa-local; z = 0 = disc-horn top).  LOWER bearing sits
-# in the original gap around the disc horn (z in [-5, -1]); UPPER bearing
-# sits on the solid hub boss a few mm above it, giving the moment couple.
-YAW_BEARING_LOWER_TOP_Z   = -1.0
-YAW_BEARING_LOWER_BOT_Z   = YAW_BEARING_LOWER_TOP_Z - YAW_BEARING_W   # -5.0
-YAW_BEARING_UPPER_BOT_Z   = YAW_BEARING_LOWER_TOP_Z + 3.0            # +2.0 (3 mm boss gap)
-YAW_BEARING_UPPER_TOP_Z   = YAW_BEARING_UPPER_BOT_Z + YAW_BEARING_W   # +6.0
+# Bearing Z bands (coxa-local; z = 0 = disc-horn top).  Jun 2026 FLUSH-HORN
+# refit: the real STS3215 disc horn is ~2 mm and sits recessed FLUSH with the
+# servo's output face -- there is no protruding horn pedestal, so the old
+# LOWER bearing band (z in [-5, -1], "in the gap around the disc horn") sat
+# INSIDE the real servo body.  BOTH bearings now sit ABOVE the flush horn
+# (z > 0) on the solid hub boss: the LOWER race starts 0.5 mm above the horn
+# top and the UPPER race sits a 3 mm boss gap above it, preserving the 7 mm
+# moment-couple spacing.  The whole stack therefore grows ~5.5 mm taller; the
+# hip platform rises with it and YAW_TOWER_RAISE is bumped the same amount so
+# the WORLD hip-pitch axis Z is unchanged (kinematics fixed).
+YAW_BEARING_LOWER_BOT_Z   = 0.5
+YAW_BEARING_LOWER_TOP_Z   = YAW_BEARING_LOWER_BOT_Z + YAW_BEARING_W   # +4.5
+YAW_BEARING_UPPER_BOT_Z   = YAW_BEARING_LOWER_TOP_Z + 3.0            # +7.5 (3 mm boss gap)
+YAW_BEARING_UPPER_TOP_Z   = YAW_BEARING_UPPER_BOT_Z + YAW_BEARING_W   # +11.5
 YAW_BEARING_SPACING       = (0.5 * (YAW_BEARING_UPPER_BOT_Z + YAW_BEARING_UPPER_TOP_Z)
                              - 0.5 * (YAW_BEARING_LOWER_BOT_Z + YAW_BEARING_LOWER_TOP_Z))  # 7 mm
 # Back-compat single-bearing aliases (older references / fastener notes).
@@ -484,7 +501,7 @@ YAW_TOWER_TOP_Z           = YAW_BEARING_UPPER_TOP_Z + YAW_TOWER_LIP_T  # +7.0
 # hard to print; concentricity now comes from the 3 bolts into the tower
 # pilots, which are coaxial by construction with the bottom-tower ear bosses.)
 YAW_SPLIT_Z               = YAW_BEARING_LOWER_TOP_Z   # -1 (coxa-local split plane)
-YAW_CAP_TOP_Z             = YAW_BEARING_UPPER_TOP_Z   # +6 (cap open top; lip retired)
+YAW_CAP_TOP_Z             = YAW_BEARING_UPPER_TOP_Z   # +6 (upper-race top / lip underside)
 YAW_CAP_EAR_TOP_Z         = YAW_BEARING_UPPER_BOT_Z + 1.0   # +3 (ear top, below dust lip)
 YAW_CAP_BOLT_N            = 3
 # Bolt circle DIAMETER.  Each bolt sits in an OUTBOARD ear lug so the head
@@ -503,6 +520,22 @@ YAW_CAP_BOLT_LEN          = 8.0   # mm -- M3 x 8 self-tap SHCS join screw
 YAW_CAP_BOLT_ANGLES_RAD   = (np.pi / 2.0,            # +Y
                              np.pi * 7.0 / 6.0,      # 210
                              np.pi * 11.0 / 6.0)     # 330  (none on +X swing axis)
+
+# Inner retaining lip on the cap bore TOP (Jun 2026): a thin Phi YAW_CAP_LIP_ID
+# shoulder that the UPPER outer race seats UP against, so the cap positively
+# HOLDS the bearing rather than being radial-only support.  It overhangs ONLY
+# the stationary outer race -- ID Phi 34 clears the Phi 32 rotating inner race
+# / hub uflange by ~1 mm -- and sits ABOVE the seated race (z in
+# [YAW_CAP_TOP_Z, YAW_CAP_RIM_Z]).  Because it is at the cap TOP it only
+# contacts the race at the END of the cap's straight-down descent over the
+# already-seated race, so it retains WITHOUT re-introducing the retired
+# bottom-neck hard stop (the race never has to pass the lip).  This restores
+# the retention the original single-piece tower lip gave, now compatible with
+# the lowered-cap assembly.  The cap rim rises to YAW_CAP_RIM_Z (+7) = the old
+# YAW_TOWER_TOP_Z, which already cleared the hub platform (z >= +7.5) by 0.5 mm.
+YAW_CAP_LIP_T             = YAW_TOWER_LIP_T          # 1 mm retaining lip thickness
+YAW_CAP_LIP_ID            = YAW_TOWER_SHOULDER_OD    # Phi 34 lip bore (outer-race only)
+YAW_CAP_RIM_Z             = YAW_CAP_TOP_Z + YAW_CAP_LIP_T   # +7 cap structural rim (lip top)
 
 # Coxa yaw-hub turntable disc.
 YAW_HUB_OD                = 44.0  # mm -- hub pad OD (covers the bearing)
@@ -525,7 +558,7 @@ COXA_JOIN_BOLT_ANGLES_RAD = (np.pi / 4.0, 3 * np.pi / 4.0,
 # Carbon-fibre leg-segment tube.
 LEG_TUBE_OD               = 8.0   # mm -- carbon tube outer diameter
 LEG_TUBE_WALL             = 1.0   # mm -- typical CF tube wall (8 OD / 6 ID)
-LEG_TUBE_SOCKET_CLEAR     = 0.15  # mm -- radial glue-gap in the printed socket
+LEG_TUBE_SOCKET_CLEAR     = 0.05  # mm -- radial: snug slip-fit (Ø8.1 bore = 0.1 mm diametral), still slides on over a thin epoxy film, retained by the transverse pin
 LEG_TUBE_SOCKET_DEPTH     = 14.0  # mm -- tube engagement depth into a socket
 
 # Tube retention (Jun 2026): epoxy bond ALONE is not enough for a dynamic
@@ -973,19 +1006,53 @@ BRACKET_CABLE_POST_Z_CENTRE = 20.25  # mm well-local Z centre for the
 #
 # Slot orientation: LONG axis is along the chassis-radial (bracket +X)
 # direction; SHORT axis is tangential (bracket Y).  In each leg's
-# bracket frame the slot is centred at:
+# bracket frame the PRIMARY slot is centred at:
 #     bracket-x = LEG_HARNESS_DROP_X_CENTRE = -46
-#                 (10 mm inboard of the body-cutout's -X edge at -40)
+#                 (inboard of the body-cutout's -X edge)
 #     bracket-y = 0  (on the chassis radial line)
-# with extents (LEG_HARNESS_DROP_X_EXTENT, LEG_HARNESS_DROP_Y_EXTENT) =
-# (12, 6) mm.  The same hex-leg iterator that ``_hex_plate`` uses to
-# place the body cutouts places these slots, so the 6 drop slots
-# always line up with their parent cutouts (a regression here is
-# caught by the new ``check_leg_harness_drop`` sibling in
-# ``_verify_prototype.py``).
+# The same hex-leg iterator that ``_hex_plate`` uses to place the body
+# cutouts places these slots, so the drop slots always line up with their
+# parent cutouts (a regression here is caught by ``check_leg_harness_drop``
+# in ``_verify_prototype.py``, which probes EVERY slot in
+# ``leg_harness_drop_slots()``).
+#
+# Jun 2026 wire-room pass: the harness on a real STS3215 leg is a daisy-chain
+# of three 3-pin bus cables (servo connectors ~ 8 x 4 mm each), and the
+# original 12 x 6 mm port was a tight single drop.  The primary slot was
+# enlarged (radial 12 -> 18, tangential 6 -> 8) AND two tangential FLANKING
+# slots were added (``LEG_HARNESS_DROP_EXTRA_SLOTS``) so each leg now has a
+# ~26 mm-wide perforated pass-through band (3 ports separated by ~3 mm ribs)
+# instead of one narrow hole.  All slots stay inboard of the body cutout
+# (radial 45-64) and clear of the standoff holes (radial 35) and the yaw
+# retainer pilots (tangential +/-21).
 LEG_HARNESS_DROP_X_CENTRE  = -46.0  # mm bracket-x (inboard of body cutout)
-LEG_HARNESS_DROP_X_EXTENT  =  12.0  # mm along bracket X (radial)
-LEG_HARNESS_DROP_Y_EXTENT  =   6.0  # mm along bracket Y (tangential)
+LEG_HARNESS_DROP_X_EXTENT  =  18.0  # mm along bracket X (radial)
+LEG_HARNESS_DROP_Y_EXTENT  =   8.0  # mm along bracket Y (tangential)
+
+# Additional per-leg cable pass-throughs flanking the primary drop slot on
+# the tangential (bracket +/-Y) sides, for MORE wire room.  Each tuple is
+# (bracket_x_centre, bracket_y_centre, x_extent, y_extent) in the leg bracket
+# frame (x = chassis radial, y = chassis tangential).  Kept separate from the
+# primary slot by a ~3 mm rib so the floor still has structure between ports.
+LEG_HARNESS_DROP_EXTRA_SLOTS = (
+    (-46.0,  11.0, 18.0, 6.0),
+    (-46.0, -11.0, 18.0, 6.0),
+)
+
+
+def leg_harness_drop_slots():
+    """All per-leg cable pass-through slots as
+    ``(bracket_x_centre, bracket_y_centre, x_extent, y_extent)`` tuples in the
+    leg bracket frame (x = chassis radial, y = chassis tangential): the primary
+    drop slot followed by ``LEG_HARNESS_DROP_EXTRA_SLOTS``.
+
+    Single source of truth shared by every chassis_bottom builder that cuts the
+    slots (``_hex_plate``, ``_chassis_bottom_full_solid``,
+    ``_chassis_bottom_floor_solid``) and by ``check_leg_harness_drop`` so the
+    cut geometry and the verifier probe can never drift apart."""
+    return ((LEG_HARNESS_DROP_X_CENTRE, 0.0,
+             LEG_HARNESS_DROP_X_EXTENT, LEG_HARNESS_DROP_Y_EXTENT),
+            *LEG_HARNESS_DROP_EXTRA_SLOTS)
 
 # ---- Chassis_bottom cable anchor tab (Part A continued) -----------------
 # RETIRED (May 2026): the per-leg vertical anchor tab that used to hang
@@ -1189,15 +1256,22 @@ RETAINER_ANCHOR_Y_OFFSET    = 8.0   # mm -- the cradle's end-wall anchor pilots 
                                     # rides up the cradle's open bottom on the y=0
                                     # axis during insertion).
 RETAINER_BOLT_CLEAR_OD      = 3.4   # mm -- M3 clearance through the strap
-RETAINER_CABLE_SLOT_W       = 6.0   # mm -- central cable window (X)
-RETAINER_CABLE_SLOT_L      = 12.0   # mm -- central cable window (Y)
+# Central cable DROP WINDOW (Jun 2026 bottom-exit rework).  The two 5264-3P
+# serial-bus connectors are on the STS3215's BACK face and the cables exit
+# toward the servo BOTTOM, i.e. straight down onto the capture bar.  The old
+# 12 x 6 mm slot was far too small for two 3-wire bundles + their connector
+# housings, so it is enlarged to a generous window that clears the bundle
+# wherever it drops on the body-bottom footprint while leaving a capture frame
+# (the servo 24.8 x 45 mm bottom cannot fall through a 20 x 22 mm hole).
+RETAINER_CABLE_SLOT_L      = 22.0   # mm -- drop window RADIAL span (cradle X)
+RETAINER_CABLE_SLOT_W      = 20.0   # mm -- drop window TANGENTIAL span (cradle Y)
 
 # ---- Flat-plate retainer re-anchor (Jun 2026 flat-chassis redesign) ------
 # The merged chassis_bottom's floor is a SIMPLE FLAT hex slab (z in [-6, -2]);
 # it has no deep cradle side walls for the old strap to bolt to, and the
 # legacy anchor pattern (yaw_retainer_anchor_centres) falls inside
 # the plate's body cutout (no material).  So the strap is re-built as a CAPTURE
-# STIRRUP: two arms rise ~14 mm from a cross-bar under the servo body bottom up
+# STIRRUP: two arms rise ~20 mm from a cross-bar under the servo body bottom up
 # to the flat plate's underside, where they bolt into two blind M3 self-tap
 # pilots cut in REAL plate material on the TANGENTIAL flanks of the body cutout.
 # The cross-bar physically blocks the hanging yaw servo from dropping (the
@@ -1213,10 +1287,137 @@ RETAINER_PLATE_PILOT_OD = 2.5    # mm -- M3 self-tap pilot in the flat plate
 RETAINER_PLATE_PILOT_DEPTH = 3.0 # mm -- blind into the 4 mm plate (>=1 mm cap)
 RETAINER_ARM_RADIAL     = 9.0    # mm -- stirrup arm cross-section (radial)
 RETAINER_ARM_TANG       = 8.0    # mm -- stirrup arm cross-section (tangential)
-RETAINER_ARM_RISE       = 14.0   # mm -- bar top (servo bottom) -> plate bottom
+RETAINER_CAPTURE_GAP    = 1.0    # mm -- gap below the REAL yaw-servo body bottom
+                                 # to the capture bar TOP.  The bar sits this far
+                                 # UNDER the servo so it positively blocks drop-out
+                                 # (servo can fall <= this then is stopped) without
+                                 # preloading the body.  The bar Z is derived from
+                                 # the actual placed servo bottom in
+                                 # make_yaw_servo_retainer (auto-tracks the yaw
+                                 # hang depth), NOT a fixed arm length -- the old
+                                 # fixed 14 mm rise left the bar ~6.5 mm ABOVE the
+                                 # servo bottom (buried in the body, not under it).
 RETAINER_BAR_RADIAL     = 30.0   # mm -- capture cross-bar span (radial)
 RETAINER_BAR_TANG       = 46.0   # mm -- capture cross-bar span (tangential,
                                  # reaches both arms at y = +/-RETAINER_ANCHOR_TANG)
+# ---- Tangential GRIP JAWS (Jun 2026 anti-wobble) ----------------------------
+# The yaw STS3215 body hangs BELOW the chassis floor (z < plate_bot), so once
+# clear of the well the only lateral support is this retainer.  The two arms
+# anchor at y = +/-RETAINER_ANCHOR_TANG (= 21, out in solid plate beside the
+# body cutout), leaving their inner faces 4.6 mm OFF the servo's +/-Y (depth)
+# faces -- the dangling body could rock tangentially in that slop (user report:
+# "the retainer is loose, the servo wobbles").  Each arm now carries an inward
+# GRIP JAW that closes that gap to a snug-but-assemblable slip fit: the jaw
+# inner face lands RETAINER_BODY_GRIP_CL off the SERVO_BODY_D/2 face, so the
+# body still slides straight DOWN the Z channel into / out of the jaws (no
+# interference, no insertion block) but cannot rock sideways once seated.
+# 0.15 mm/side is tight enough to kill the wobble yet > one FDM line-width of
+# play so the body seats by hand; this is INTENTIONALLY far tighter than the
+# shared WELL_BODY_CL (0.7) cavity clearance, which is left untouched so the
+# cradle/well cavities keep their drop-in fit.
+RETAINER_BODY_GRIP_CL   = 0.15   # mm -- jaw inner face clearance per +/-Y face
+RETAINER_GRIP_WELD      = 1.0    # mm -- jaw overlap INTO the arm (clean weld)
+
+# ---- Stand-off base for cable run-out (Jun 2026 bottom-exit rework) ----------
+# The cables drop straight down through the enlarged window and would be pinned
+# against whatever the bar rests on.  So the bar stands RETAINER_LEG_H above a
+# flat BASE plate on 4 corner posts, opening a cable run-out cavity between the
+# base and the bar (OPEN on all four sides between the posts) where the bundle
+# turns and exits laterally instead of being crushed.  The base carries the
+# full bar footprint so it is the LARGEST downward face -> it becomes the print
+# bed plane and the part stays flat-bottom printable (4 bare legs would leave
+# the big bar face floating > the 5 mm support tolerance above small feet).
+RETAINER_LEG_H      = 7.0   # mm -- cavity height (bar bottom -> base top)
+RETAINER_LEG_W      = 6.0   # mm -- corner post square cross-section
+RETAINER_LEG_INSET  = 2.0   # mm -- post inset from the base/bar outer edges
+RETAINER_BASE_T     = 2.5   # mm -- stand-off base plate thickness
+
+# ---- Anti-rotation SADDLE (Jun 2026 yaw-servo-retainer redesign) ------------
+# Replaces the capture-stirrup above.  Root cause it fixes (user report + the
+# _chk diagnostic): the old stirrup threaded its 2 anchor bolts UP through a
+# ~20 mm arm into the floor with a SOLID stand-off base SEALING the bolt axis
+# from below -> undrivable (a ~38 mm screw down 34 mm of part), and held the
+# case with 1 mm of axial slop + only two 0.15 mm-clearance side jaws (no
+# radial / rotational key).  The yaw CASE cannot actually fall -- it hangs from
+# the output shaft via the servo's internal bearings -> disc horn -> coxa_link
+# -> 6706 yaw tower -> chassis -- so the real need is ANTI-ROTATION (reaction
+# torque) + anti-wobble + a DRIVABLE chassis anchor.  (The rear idler boss
+# rotates WITH the output, so a passive horn there would LOCK yaw -- hence we
+# key the CASE, not the boss.)
+SADDLE_BODY_CL      = 0.12  # mm -- snug wall clearance per case face (anti-rotation)
+SADDLE_WALL_T       = 3.0   # mm -- saddle wall thickness
+SADDLE_FLANGE_T     = 5.0   # mm -- top-flange / screw-hole boss depth, z[-11, -6].
+                            #       Jun 2026: kept THICK (user: "I liked the thicker
+                            #       walls for the screw holes") -- the head does NOT bear
+                            #       on the bottom face; instead a COUNTERBORE recesses it
+                            #       (SADDLE_HEAD_CB_*), so the head seat is at z=-9 and the
+                            #       M3x6 tip still lands at the -3 pilot bottom (3 mm bite,
+                            #       1 mm blind cap preserved).  An M3x8 would need the seat
+                            #       at -11 (no recess) or overshoot the 4 mm plate.
+# Recessed-head counterbore in each thick screw-hole boss (user: "leave room for
+# the screw head to go lower").  A Phi SADDLE_HEAD_CB_OD bore opens DOWNWARD from
+# the flange bottom (-11) up SADDLE_HEAD_CB_DEPTH, so the M3 SHCS head recesses
+# into the boss and bears on the counterbore shoulder at z = -11 + depth = -9
+# (driver still enters straight up the open cavity into the down-facing socket).
+SADDLE_HEAD_CB_OD    = 6.0  # mm -- counterbore dia (M3 SHCS head Phi 5.5 + clearance)
+SADDLE_HEAD_CB_DEPTH = 2.0  # mm -- counterbore depth from the flange bottom (head recess)
+SADDLE_FLOOR_T      = 3.0   # mm -- anti-drop backstop floor under the case back face
+SADDLE_ANCHOR_PAD_R = 6.0   # mm -- solid flange-tab radius (head bearing + wall weld)
+SADDLE_FLOOR_X_OUT  = -2.0  # mm -- +X edge of the backstop floor
+# Jun 2026 case-length reconciliation (USER MEASURED the real STS3215, 1 horn on:
+# 39 mm from the driven-horn TOP to the FLAT case bottom, centre rear boss lower
+# still).  The model's driven-horn top sits SERVO_BODY_H + DISC_HORN_H = 36.3 mm
+# above the case back face (SERVO_BODY_H = 34.3 is the STEP mount-HOLE-plane gap,
+# NOT the full case length), so the REAL flat bottom hangs ~2.7 mm BELOW the
+# modeled back face.  SERVO_BODY_H is the FROZEN kinematic anchor (JOINT_HORN_TOP_Z,
+# passive-horn planes, well, clamp caps) so we do NOT move it globally; instead the
+# yaw SADDLE references the real bottom via this local drop so its case-hugging
+# walls run ~3 mm TALLER and SEAT FLUSH (the old short ref propped the saddle low,
+# the backstop hitting the longer real case ~3 mm before the flange reached the
+# floor).  Rounded to 3.0 (>= the user's ">=3 mm" ask; +0.3 mm anti-drop gap also
+# clears the lower rear boss through the central drop window).
+SADDLE_CASE_LEN_FIX  = 3.0  # mm -- extra case-bottom drop for the yaw saddle walls/backstop
+# Jun 2026 wire-exit follow-up (user: "doesnt leave space for the wires that come
+# out of the center of the bottom").  The harness exits the CENTER of the case
+# back (bottom) face and drops STRAIGHT DOWN, so the backstop floor is opened
+# into a perimeter FRAME: a SADDLE_FLOOR_RIM-wide ledge on the -X + -/+Y edges
+# (still catches the case back-face rim as an anti-drop backstop AND is the
+# print bed face) with a big central DROP WINDOW so the wire falls free into the
+# open under-chassis cavity.  (We do NOT screw into the rear boss/horn to "cover"
+# it: that boss rotates 1:1 with the yaw output, so a chassis-fixed screw into it
+# would LOCK the yaw DOF -- the case-keyed walls give the anti-rotation instead.)
+SADDLE_FLOOR_RIM    = 5.0   # mm -- backstop-frame ledge width on the -X / +-Y edges
+
+# Jun 2026 STEP-driven rear case-mount capture (CORRECTED, 3rd pass; the prior two
+# passes wrongly bolted the HORN bolt circle).  Re-parsed STS3215_c.step and
+# classified EVERY hole by solid: the only Phi 2.5 four-hole crosses (STEP
+# (X,Z)=(+-7,0),(0,+-7) at the OUTPUT axis, both the +Y front face s17 and the -Y
+# rear face s18) are the DISC-HORN bolt circle -- NOT a case mount.  The model's
+# own SERVO_BODY_H constant documents the real case mounting holes: it is the gap
+# "between the two 4x M2.5 hole planes (STEP)" = the BACK and FRONT(output) case
+# faces.  On the FIXED rear (back) case face (STEP solid 1) those 4 holes sit at
+# STEP (X,Z) = (8.3, +-10.2) and (32.8, +-10.2), drilled along the output axis.
+# Frame: cradle_x = -STEP_X, cradle_y = STEP_Z, cradle_z = STEP_Y (output, UP), so
+# they map to cradle (x,y) = (-8.3,+-10.2) [18.5 mm from the +X/output-end "top",
+# the user's landmark, just above the centre wire boot] and (-32.8,+-10.2) [43 mm].
+# All 4 are on the FIXED case shell, clear of the rotating idler (at the axis,
+# r~0) and the centre-bottom wire exit (cradle x~-14).  Their axis IS the output
+# axis = WORLD Z (vertical), so the saddle drives 4 M2.5 SELF-TAPPERS straight UP
+# from a backstop boss under each hole, head recessed in a counterbore, driven up
+# the open under-chassis cavity (the +Y/-Y depth side-walls run PARALLEL to these
+# holes, so they cannot host them -- the capture is vertical, not through a wall).
+SADDLE_CASE_HOLE_X1     = -8.3   # mm -- cradle x of the landmark rear-face hole pair
+SADDLE_CASE_HOLE_X2     = -32.8  # mm -- cradle x of the companion rear-face hole pair
+SADDLE_CASE_HOLE_Y      = 10.2   # mm -- cradle |y| of the rear-face holes (STEP Z)
+SADDLE_CASE_SCREW_OD    = SERVO_MOUNT_SCREW_OD  # 2.7 mm -- M2.5 clearance bore in boss
+SADDLE_CASE_SCREW_BITE  = 2.5    # mm -- self-tap bite into the shallow (~2.8) rear case hole
+SADDLE_CASE_SHANK       = 3.5    # mm -- real-case face down to the head bearing (= boss height)
+SADDLE_CASE_SCREW_LEN   = SADDLE_CASE_SHANK + SADDLE_CASE_SCREW_BITE  # 6.0 -- M2.5x6 self-tap
+SADDLE_CASE_BOSS_R      = 3.4    # mm -- backstop boss pad radius (hosts bore, welds to wall/rim)
+# The head bears FLAT on the boss UNDERSIDE (boss bottom = head plane = zc - SHANK)
+# -- NO counterbore, so no boss material sits below the head to foul the driver
+# cone (Phi-12 Phillips clears straight up the open cavity).  Boss height = SHANK.
+
 WELL_BODY_CL = 0.7   # mm clearance on every body face inside the well.
                      # FDM in PLA / PETG can swallow ~0.3 mm per side just in
                      # line-width / shrinkage, so 0.4 mm is too tight for a
@@ -1240,11 +1441,55 @@ HORN_CLEAR_OPENING_OD  = 24.0   # = DISC_HORN_OD (20) + HORN_CLEAR_OPENING_MARGI
                                 #   the DISC_HORN_OD definition (single source)
 WELL_LIP_SLIDE_CL      = 0.4    # lift the top retaining lip off the front face
 CLAMP_CAP_T            = 5.0    # clamp-cap flange thickness (Y)
+CLAMP_TONGUE_INTERF    = 1.0    # mm -- PRESS-FIT: the tongue reaches 1 mm PAST the
+                                #       SEATED body +Y face (into the body) for a snug
+                                #       press fit (user: "the part that comes down and
+                                #       touches the servo should come down 1 more mm").
+                                #       Was 0 (flush); tightening the 2 cap bolts then
+                                #       FORCES the body against the -Y wall and
+                                #       holds it with zero slop (preload comes
+                                #       from bolt tension + print fit).  Fixes
+                                #       the old ~1.5-2 mm rattle where the
+                                #       tongue stopped at the +Y CAVITY face and
+                                #       left the body free to float.  Kept as a
+                                #       named knob in case a press fit is wanted
+                                #       (any >0 value adds a real interference).
 CLAMP_BOLT_PILOT_OD    = 2.5    # M3 self-tap pilot in the +/-X wall +Y ends
 CLAMP_BOLT_PILOT_DEPTH = 12.0   # mm thread engagement into the wall
 CLAMP_BOLT_CLEAR_OD    = 3.4    # M3 clearance through the cap flange
 CLAMP_BOLT_X           = WELL_W / 2.0 - WELL_WALL_X / 2.0   # +/-27.2 (wall centre)
 CLAMP_BOLT_Z           = SERVO_BODY_H / 2.0                 # ~17.15 (mid-body)
+# Jun 2026 head-inset fix: the 2 M3x8 SHCS heads (Phi 5.5, 3.0 mm tall) bore on
+# the flange OUTER (+Y) face and stood ~3 mm PROUD.  The femur_hip_yoke (user-
+# confirmed) and the tibia_knee_yoke sweep PAST that +Y face and clear the
+# flange itself by only ~3 mm at the closest ROM pose, so the proud head ate the
+# whole margin and BRUSHED.  A counterbore opens from the +Y outer face and runs
+# CLAMP_HEAD_CB_DEPTH inward (-Y) so the head recesses FLUSH with the face; the
+# M3x8 simply threads CLAMP_HEAD_CB_DEPTH deeper into the +/-X wall pilot
+# (engagement ~3 -> ~6 mm; CLAMP_BOLT_PILOT_DEPTH = 12 mm has room) so the screw
+# length is UNCHANGED.  Counterbore r = 3 at the bolt (4.5 mm inboard of the
+# flange edge) leaves a 1.5 mm rim, and the 2 mm of flange surviving below the
+# shoulder carries the clamp preload.
+CLAMP_HEAD_CB_OD       = 6.0    # mm -- head counterbore dia (M3 SHCS head Phi 5.5 + clearance)
+CLAMP_HEAD_CB_DEPTH    = 3.0    # mm -- recess from flange OUTER face (= M3 head height -> flush)
+# Jun 2026 snug-fit (user, on the femur KNEE bracket: "let the clamp come down
+# 1 mm lower for a snug fit; the inside on the x dimension should also be reduced
+# by 1 mm").  The cradle (_servo_well_solid) + clamp cap (make_servo_clamp_cap)
+# are ONE shared part used at BOTH the hip and knee sandwich joints (same
+# STS3215), so these snug-fit tweaks are applied to the shared part -> both
+# joints get the tighter fit.  Both are sub-mm-to-1 mm and stay inside positive
+# clearance (servo still inserts; guarded by check_servo_clearance /
+# check_servo_insertion_path).
+#   * INSIDE_X_TIGHTEN: shrink the body cavity (and the matching clamp tongue /
+#     drop-in slot) in X by this TOTAL (0.5 mm/side), 0.7 -> 0.2 mm/side body
+#     clearance, killing the X slop the user felt.  Interpreted as 1 mm TOTAL.
+#   * CLAMP_SEAT_DROP: the clamp-cap pressing TONGUE reaches this much FURTHER
+#     (in -Z, past the body back-face plane) so it "comes down lower" and adds a
+#     -Z backstop lip behind the body's outboard +Y edge for a snug seat.  The
+#     bolt-bearing flange + the 2 cap bolt holes are UNCHANGED (still coaxial
+#     with the wall pilots -- guarded by check_clamp_cap_alignment).
+WELL_INSIDE_X_TIGHTEN  = 1.0    # mm -- total X-cavity reduction (0.5/side)
+CLAMP_SEAT_DROP        = 1.0    # mm -- clamp tongue reaches this far past z=0 (-Z)
 
 
 def servo_clamp_bolt_centres():
@@ -1872,9 +2117,17 @@ HORN_RECESS_DEPTH   =  1.2   # mm
 # 25T female spline bore Phi 5.5 mm, 4 x M3 tapped holes on a 14 mm
 # bolt circle, ships with M3 x 6 screws.
 DISC_HORN_OD        = 20.0   # mm -- disc outer diameter
-DISC_HORN_H         =  5.0   # mm -- disc thickness (= HORN_STACK_H, so the
-                              #       Z-stack is unchanged from the 5 mm
-                              #       plastic-horn stack it replaces)
+# Jun 2026 flush-horn correction: the aluminium 25T disc is RECESSED onto the
+# servo's output boss, so its flat mating top sits ~2 mm above the front face --
+# essentially FLUSH with the SERVO_OUTPUT_H output bump -- NOT 5 mm proud as the
+# old model drew it.  DISC_HORN_H is now the TRUE visible horn height above the
+# front face (the link/hub mating plane).  HORN_STACK_H (5 mm) is kept as the
+# FROZEN output-plane offset (kinematics): the (HORN_STACK_H - DISC_HORN_H) =
+# 3 mm difference is now carried by a printed reach-down boss on each driven
+# mount (coxa_yaw_hub / hip + knee yokes) so they physically seat on the real
+# thin horn while every joint axis / link length stays exactly where it was.
+DISC_HORN_H         =  2.0   # mm -- TRUE disc mating-top height above front face
+HORN_REACH_DOWN     = HORN_STACK_H - DISC_HORN_H   # 3 mm printed boss bridge
 DISC_HORN_SPLINE_OD =  5.5   # mm -- 25T female spline bore (visualisation;
                               #       teeth not modelled)
 DISC_HORN_TAP_OD    =  2.5   # mm -- M3 tap-drill diameter, used to draw the
@@ -2042,13 +2295,17 @@ M2_HEAD_OD_CLEARANCE    = 5.7   # mm -- Phi 5.7 mm clearance pocket for
                                 #       DISC_HORN_BOLT_HEAD_OD is the
                                 #       self-documenting alias.)
 DISC_HORN_BOLT_HEAD_OD  = M2_HEAD_OD_CLEARANCE   # explicit alias
-DISC_HORN_BOLT_THREAD_ENGAGEMENT_MM = 3.0  # mm -- depth of M3 thread
-                                       #       engagement INTO the
-                                       #       aluminium disc (disc is
-                                       #       ~5 mm thick; an M3 x 6 bolt
-                                       #       gives 3-5 mm engagement
-                                       #       depending on pad thickness).
-                                       #       Drives the M3 x 6 SHCS
+DISC_HORN_BOLT_THREAD_ENGAGEMENT_MM = DISC_HORN_H  # mm -- depth of M3
+                                       #       thread engagement INTO the
+                                       #       aluminium disc.  Jun 2026
+                                       #       flush-horn fix: the real disc
+                                       #       is only DISC_HORN_H = 2 mm, so
+                                       #       the bolt threads the FULL disc
+                                       #       thickness (2 mm) -- the driven
+                                       #       mount's printed reach-down boss
+                                       #       carries the remaining
+                                       #       HORN_REACH_DOWN = 3 mm of grip.
+                                       #       Drives the M3 x 8 disc-horn SHCS
                                        #       length pick in
                                        #       fastener_registry.py.
 
@@ -2315,14 +2572,21 @@ WELL_TOP_PAD_Y_EXT = 13.25 # mm -- distance the pad extends PAST the
 # COXA_COAXIAL_FOOT_RAISE lifts the hip-pitch axis a few mm MORE so the
 # coaxially-stacked hip cradle's solid back seats on a real foot plate
 # (COXA_JOIN_FOOT_T thick) above the yaw-hub platform top
-# (YAW_HUB_PLATFORM_Z1 = 13.5) instead of resting straight on it.  The
+# (YAW_HUB_PLATFORM_Z1, defined late) instead of resting straight on it.  The
 # seated servo-body bottom is at COXA_HIP_DROP - SERVO_BODY_D/2; we want
-# that = 13.5 + 8.0 (platform top + COXA_JOIN_FOOT_T foot plate).  (World
-# hip-axis Z rises by this small amount; the verifier re-derives the pose
-# consistently.)  NB: the 8.0 here MUST track COXA_JOIN_FOOT_T (defined
+# that = platform_top + 8.0 (platform top + COXA_JOIN_FOOT_T foot plate).
+# (World hip-axis Z rises by this small amount; the verifier re-derives the
+# pose consistently.)  NB: the 8.0 here MUST track COXA_JOIN_FOOT_T (defined
 # further down); the foot is the sole Part A<->B structural join so it is
 # deliberately >= 7.2 mm (out of the thin-sheet band).
-COXA_COAXIAL_FOOT_RAISE = (13.5 + 8.0 + SERVO_BODY_D / 2.0) - (
+#
+# Jun 2026 flush-horn refit: the platform top is no longer the literal 13.5;
+# it tracks the bearing stack via YAW_TOWER_TOP_Z (= UPPER_race_top + lip).
+# YAW_HUB_PLATFORM_Z1 = YAW_TOWER_TOP_Z + 0.5 (boss over lip) + YAW_HUB_PAD_T
+# (6) -- expressed here from the EARLY-defined YAW_TOWER_TOP_Z because
+# YAW_HUB_PLATFORM_Z1 itself is defined further down.
+_YAW_HUB_PLATFORM_TOP_EARLY = YAW_TOWER_TOP_Z + 0.5 + 6.0   # == YAW_HUB_PLATFORM_Z1
+COXA_COAXIAL_FOOT_RAISE = (_YAW_HUB_PLATFORM_TOP_EARLY + 8.0 + SERVO_BODY_D / 2.0) - (
     -(WELL_D / 2.0 + COXA_ARM_T / 2.0 + WELL_Z_DROP_EXTRA)
     + COXA_LIFT + YAW_TOWER_RAISE)
 COXA_HIP_DROP = (-(WELL_D / 2.0 + COXA_ARM_T / 2.0 + WELL_Z_DROP_EXTRA)
@@ -3899,7 +4163,8 @@ def _servo_well_solid(*, remove_floor: bool = False) -> trimesh.Trimesh:
     # laterally (in -Y) without binding under the retaining lip.
     cav_z_bot = -1.0
     cav_z_top = WELL_RIM_Z + WELL_LIP_SLIDE_CL
-    cav_w = SERVO_BODY_W + 2 * WELL_BODY_CL
+    # Inside-X tightened WELL_INSIDE_X_TIGHTEN total (snug-fit; see CLAMP block).
+    cav_w = SERVO_BODY_W + 2 * WELL_BODY_CL - WELL_INSIDE_X_TIGHTEN
     cav_d = SERVO_BODY_D + 2 * WELL_BODY_CL
     cuts.append(_box((cav_w, cav_d, cav_z_top - cav_z_bot),
                      center=(0, 0, 0.5 * (cav_z_top + cav_z_bot))))
@@ -4358,33 +4623,20 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
             [ax, ay, body_back_z - 0.5 + (RETAINER_ANCHOR_PILOT_DEPTH + 1.0) / 2.0])
         anchor_pilots.append(pilot)
 
-    # POSITIVE body retention: 4x M2.5 bolts through the -X (inboard)
-    # tower wall into the servo's real END-face 10x10 square
-    # (``servo_end_face_bolt_centres``).  Screws pass +X (radially
-    # outward) through the wall and thread into the servo's -X end-face
-    # M2.5 case holes, positively bolting the body to the cradle in
-    # addition to the open-bottom pocket + the ``yaw_servo_retainer``
-    # strap.  Holes sit at y = +/-5, clear of the central bus-harness
-    # window (y in [-3.5, 3.5]).  Z = body back + the well-local end-face
-    # centres.  Head recessed in a counterbore so a stock M2.5 x 8
-    # reaches the case through the thick inboard wall.
-    end_face_x = body_centre_x - SERVO_BODY_W / 2.0           # servo -X end face
-    end_wall_outer_x = body_centre_x - outer_w / 2.0          # -X wall outer face
-    end_head_plane_x = end_face_x - SERVO_BODY_BOLT_STANDOFF  # counterbore floor
-    end_cl_outer = end_wall_outer_x - 1.0
-    end_cl_inner = end_face_x + SERVO_MOUNT_THREAD_DEPTH
+    # END-face M2.5 body screws RETIRED on the yaw cradle (Jun 2026 flush-horn
+    # refit).  Moving both 6706 bearings above the flush horn raised the hub
+    # stack +5.5 mm; to hold the WORLD hip axis fixed the yaw output was lowered
+    # the same amount (YAW_TOWER_RAISE 9 -> 14.5), which drops the whole yaw
+    # servo 5.5 mm.  The servo body bottom now hangs ~20 mm below the -6 chassis
+    # floor, and even the UPPER end-face bolt row lands right at the floor edge
+    # (world z ~= -5.9) with no -X wall left behind its head ("head bearing in
+    # air", caught by check_fastener_engagement).  Positive body retention is
+    # therefore carried entirely by the bolt-on ``yaw_servo_retainer`` strap +
+    # its anchor bolts + the output-face seat on the mount plate + the
+    # open-bottom pocket grip -- the supplementary end-face screws are dropped
+    # (their reaction was X-translation, not yaw torque, so no torque path is
+    # lost).  No end-face bolt holes are cut into this cradle.
     end_bolts = []
-    for (by, bz) in servo_end_face_bolt_centres():
-        zc = body_back_z + bz
-        hole = _cyl(SERVO_BODY_BOLT_OD / 2.0, end_cl_inner - end_cl_outer)
-        hole.apply_transform(rotation_matrix(np.pi / 2.0, [0, 1, 0]))   # axis -> X
-        hole.apply_translation([0.5 * (end_cl_outer + end_cl_inner), by, zc])
-        end_bolts.append(hole)
-        cbore = _cyl(SERVO_BODY_BOLT_HEAD_OD / 2.0,
-                     end_head_plane_x - end_cl_outer)
-        cbore.apply_transform(rotation_matrix(np.pi / 2.0, [0, 1, 0]))
-        cbore.apply_translation([0.5 * (end_cl_outer + end_head_plane_x), by, zc])
-        end_bolts.append(cbore)
 
     # ---- Disc-horn clearance bore through the mount plate (Jun 2026 fix) ---
     # The mount-plate cap (front_face_z .. plate_top_z) is SOLID on the output
@@ -4457,27 +4709,77 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
     relief = _diff(relief, tower_protect)
     body = _diff(body, relief)
 
-    # ---- SPLIT yaw-bearing tower: BOTTOM half (Jun 2026 insertion fix) -----
-    # Forensic fix: the old single-piece tower bored 37 -> 34 -> 37 -> 34 and
-    # CAPTURED both 6706 outer races between Phi 34 constrictions, so neither
-    # race could reach its seat.  This BOTTOM half now carries ONLY the LOWER
-    # race in an OPEN-TOP Phi 37 pocket: the race drops straight down onto the
-    # mount-plate shoulder (z = -5) with no constriction above it -- a clear,
-    # monotone Phi 37 insertion path.  The UPPER race + the lower-race retaining
-    # neck move to the bolt-on ``yaw_bearing_cap``.  Coxa-local Z maps to cradle
-    # Z via ``out_z`` (= disc-horn top).
+    # ---- SPLIT yaw-bearing tower: BOTTOM half (Jun 2026 flush-horn refit) ---
+    # Both 6706 races now sit ABOVE the flush disc horn (z > 0), so this BOTTOM
+    # half is no longer a short ring seated on the mount plate -- it RISES from
+    # the mount-plate top (z = -HORN_STACK_H) up to the split plane between the
+    # two bearings (z = YAW_SPLIT_Z = +4.5), carrying the LOWER race in an
+    # OPEN-TOP Phi 37 pocket whose seat is a printed shoulder at the lower-race
+    # bottom (z = YAW_BEARING_LOWER_BOT_Z = +0.5).  Below that shoulder the bore
+    # steps IN to Phi YAW_TOWER_SHOULDER_OD (34): wide enough to clear BOTH the
+    # rotating hub boss (Phi 29.8) and the flush horn (Phi 20), narrow enough to
+    # catch the Phi 37 outer race on a ~1 mm ledge.  The race drops straight
+    # down the Phi 37 pocket onto that ledge -- a clear, monotone insertion path
+    # with no constriction above it.  The UPPER race + retaining lip live on the
+    # bolt-on ``yaw_bearing_cap`` that lands on the split plane.  Coxa-local Z
+    # maps to cradle Z via ``out_z`` (= disc-horn top).
     def _cz(coxa_z):
         return out_z + coxa_z
     r_out = YAW_BEARING_OD / 2.0 + YAW_TOWER_WALL          # Phi 44
-    r_bore = YAW_TOWER_BORE_OD / 2.0                       # Phi 37 race seat
-    tower_bot = _cz(YAW_BEARING_LOWER_BOT_Z)               # mount-plate top (z=-5)
-    tower_top = _cz(YAW_SPLIT_Z)                           # split plane (z=-1)
+    r_bore = YAW_TOWER_BORE_OD / 2.0                       # Phi 37 race pocket
+    r_shoulder = YAW_TOWER_SHOULDER_OD / 2.0               # Phi 34 seat ledge / boss clear
+    # Jun 2026 (floating-ring fix): the tower used to start at
+    # ``plate_top_z - 0.5`` (cradle +7.75), which left it cantilevered ~3.5 mm
+    # ABOVE the +X swing-relief floor (front_face_z = +4.25) -- a thin Phi 44
+    # ring visibly floating over a moat, structurally tied to the chassis only
+    # through the mount plate.  EXTEND the solid cylinder all the way DOWN to
+    # the chassis FLAT BOTTOM (cradle z = -(CHASSIS_PLATE_T + CHASSIS_BOTTOM_
+    # FLOOR_T) = chassis-local z = -6, the print-bed face) so the bearing
+    # housing is a continuous column grounded into the bed on the loaded
+    # outboard + tangential sides instead of a perched ring stopping 4 mm short
+    # at the plate underside.  The servo cavity / horn bore / wire routes are
+    # re-opened after the union below so the lowered cylinder doesn't plug the
+    # servo that shares this volume.
+    tower_bot = -(CHASSIS_PLATE_T + CHASSIS_BOTTOM_FLOOR_T)  # to the flat bottom (chassis z=-6)
+    race_seat_z = _cz(YAW_BEARING_LOWER_BOT_Z)             # +0.5 lower-race seat shoulder
+    tower_top = _cz(YAW_SPLIT_Z)                           # +4.5 split plane (open top)
     tower = _cyl(r_out, tower_top - tower_bot)
     tower.apply_translation([0.0, 0.0, 0.5 * (tower_bot + tower_top)])
-    # lower outer-race pocket: open-top Phi 37 bore, seat on the plate at z=-5.
-    bore = _cyl(r_bore, tower_top - tower_bot + 0.02)
-    bore.apply_translation([0, 0, 0.5 * (tower_bot + tower_top)])
-    tower = _diff(tower, bore)
+    # Lower outer-race pocket: open-top Phi 37 bore from the seat up to the top.
+    race_pocket = _cyl(r_bore, (tower_top + 0.02) - race_seat_z)
+    race_pocket.apply_translation([0.0, 0.0, 0.5 * (race_seat_z + tower_top + 0.02)])
+    tower = _diff(tower, race_pocket)
+    # Relief bore BELOW the lower-race seat -- STEPPED so the tower wall stays
+    # THICK and grounds into the deck instead of being a thin ring perched over
+    # an empty round moat (Jun 2026 floating-ring/gap fix).  The old single
+    # Phi 34 (YAW_TOWER_SHOULDER_OD) relief ran the full height to the deck,
+    # but the only thing that needs that width is the rotating hub boss
+    # (Phi 29.8), which descends ONLY to the disc-horn top (coxa z = 0).  Below
+    # that just the spinning disc horn (Phi 20) + servo output coupling live on
+    # the axis, so the bore steps in to the small Phi HORN_CLEAR_OPENING_OD (24)
+    # disc-horn clearance, leaving the surrounding wall SOLID out to Phi 44.
+    # Combined with the servo-body cutout (which opens the inboard half for the
+    # hanging servo), the lower tower becomes a thick GROUNDED horseshoe
+    # buttress that carries the yaw-bearing load into the floor on the outboard
+    # + tangential sides -- no more floating ring, no more dead gap.
+    #   * UPPER step Phi 34: from the disc-horn BASE (= mount-plate top) up to
+    #     the race seat -- spans the full rotating disc-horn + hub-boss sweep
+    #     (forms the outer-race seat ledge, clears the Phi 29.8 hub boss AND the
+    #     spinning Phi 20 disc horn that the horn-sweep check guards).
+    #   * LOWER step Phi 24: from the mount-plate top down to the deck -- only
+    #     the small output coupling lives this low (the same bore the mount-plate
+    #     out_bore already cuts), so the wall stays SOLID out to Phi 44 here.
+    # The step sits at the mount-plate top so the wide relief never narrows
+    # inside the disc-horn sweep envelope (a higher step clipped that sweep).
+    relief_step_z = plate_top_z                        # disc-horn base = mount-plate top
+    relief_upper = _cyl(r_shoulder, race_seat_z - (relief_step_z - 0.02))
+    relief_upper.apply_translation(
+        [0.0, 0.0, 0.5 * ((relief_step_z - 0.02) + race_seat_z)])
+    relief_lower = _cyl(HORN_CLEAR_OPENING_OD / 2.0,
+                        (relief_step_z + 0.02) - (tower_bot - 0.02))
+    relief_lower.apply_translation(
+        [0.0, 0.0, 0.5 * ((tower_bot - 0.02) + (relief_step_z + 0.02))])
+    tower = _diff(tower, relief_upper, relief_lower)
 
     # ---- 3 x M3 join-bolt ear bosses (cap pulls DOWN into these pilots) ----
     # Solid bosses straddle the tower wall at YAW_CAP_BOLT_PCD, extending from
@@ -4498,72 +4800,213 @@ def _chassis_yaw_cradle_solid() -> trimesh.Trimesh:
         tower = _diff(tower, pilot)
 
     body = _union(body, tower)
+    # Re-open the servo cavity / disc-horn bore / wire routes that the
+    # now-grounded tower cylinder reaches down into and would otherwise plug
+    # (the tower and the offset servo body share this z < front_face volume).
+    body = _diff(body, cavity, out_bore, boot_channel, wire_slot)
     return body
 
 
+def yaw_servo_real_back_z() -> float:
+    """World Z of the yaw servo's REAL flat case-back (rear flange) face.
+
+    The frozen-kinematic SERVO_BODY_H is the STEP mount-HOLE-plane gap (34.3),
+    ~SADDLE_CASE_LEN_FIX shorter than the real case, so the real rear flange
+    (where the rear case-mount screws thread) hangs that much below the modeled
+    servo_body back face.  The saddle floor + rear screw fingers reference THIS
+    plane so the printed holes line up with the real STS3215 rear flange."""
+    return (CHASSIS_YAW_OUTPUT_Z - HORN_STACK_H
+            - SERVO_BODY_H - SADDLE_CASE_LEN_FIX)
+
+
+def yaw_rear_screw_centres():
+    """The 4 FIXED REAR (back) case-mount screw centres in saddle cradle-local XY
+    (origin on the output/yaw axis, +X outboard radial, +Y tangential).
+
+    These are the standard STS3215 case mounting holes on the rear face (STEP
+    solid 1, NOT the horn bolt circle): STEP (X,Z) = (8.3, +-10.2) and
+    (32.8, +-10.2) -> cradle (x,y) = (-8.3, +-10.2) [the landmark pair, 18.5 mm
+    from the +X output-end "top"] and (-32.8, +-10.2) [the companion pair, 43 mm].
+    Each is r~13.1 / 34.4 mm from the output axis, so all clear the central
+    rotating idler boss; the screws self-tap UP (+Z, the output axis) into the
+    rear case face."""
+    return [(SADDLE_CASE_HOLE_X1, +SADDLE_CASE_HOLE_Y),
+            (SADDLE_CASE_HOLE_X1, -SADDLE_CASE_HOLE_Y),
+            (SADDLE_CASE_HOLE_X2, +SADDLE_CASE_HOLE_Y),
+            (SADDLE_CASE_HOLE_X2, -SADDLE_CASE_HOLE_Y)]
+
+
 def make_yaw_servo_retainer() -> trimesh.Trimesh:
-    """Printed CAPTURE STIRRUP that keeps the yaw STS3215 from dropping out
-    the bottom of the chassis (Jun 2026 flat-chassis re-anchor).
+    """Printed ANTI-ROTATION SADDLE that keys the yaw STS3215 CASE to the
+    chassis (Jun 2026 redesign; replaces the undrivable capture-stirrup).
 
-    History: the yaw servo's output points UP and its body hangs ~14 mm below
-    the chassis underside; it seats its front face against the HIGH-half mount
-    plate but nothing held it from dropping (user report).  The original
-    retainer was a flat strap that bolted to the OLD deep-cradle's +/-X end
-    walls.  The Jun 2026 flat-plate redesign (now the merged chassis_bottom
-    floor) deleted those walls, AND the legacy anchor pattern falls inside the
-    plate's body cutout (no material) -- so that strap had nothing real to
-    anchor to.
+    Why this shape (user report + the _chk diagnostic): the yaw servo's
+    output points UP and its body hangs ~18 mm below the chassis floor.  The
+    case CANNOT actually fall -- it is suspended from the output shaft via the
+    servo's internal bearings -> disc horn -> coxa_link -> 6706 yaw tower ->
+    chassis -- so the real unmet need is ANTI-ROTATION (reaction torque) +
+    anti-wobble of the case, plus a DRIVABLE chassis anchor.  The old stirrup
+    failed on BOTH: its 2 anchor bolts threaded UP a ~20 mm arm into the floor
+    with a SOLID stand-off base sealing the bolt axis from below (undrivable,
+    ~38 mm screw down 34 mm of part), and it held the case with 1 mm of axial
+    slop + two 0.15 mm side jaws (no radial key).  (The rear idler boss rotates
+    WITH the output, so a passive horn there would LOCK yaw -- so we key the
+    CASE, not the boss.)
 
-    This part is rebuilt as a STIRRUP that re-establishes real retention
-    against features that exist on the current flat plate:
-
-        * a CAPTURE CROSS-BAR sits directly under the servo body's bottom
-          face, physically blocking the servo from dropping (the servo is
-          now trapped between the chassis_bottom mount plate on top and this
-          bar below);
-        * two ARMS rise ~RETAINER_ARM_RISE mm from the bar up to the flat
-          plate's underside, where they bolt into two blind M3 self-tap
-          pilots cut in SOLID plate material on the tangential flanks of the
-          body cutout (``chassis_lower_retainer_anchor_centres`` -- the SAME
-          source the merged ``make_chassis_bottom`` floor reads, guarded by
-          ``check_clamp_cap_alignment``);
-        * a central window lets the rear STS3215 cable bundle drop through.
+    Geometry -- a U-channel open on +X, with a clear central wire drop:
+        * +/-Y SIDE WALLS + a -X END WALL snugly hug the hanging lower case
+          body (SADDLE_BODY_CL clearance per face) over an ~18 mm Z band, so
+          the two side walls form a stiff couple that reacts the yaw reaction
+          torque and the end wall keys -X push -- no case rock/back-lash;
+        * a BACKSTOP FRAME under the case BACK face -- a SADDLE_FLOOR_RIM-wide
+          ledge on the -X + -/+Y edges (still catches the back-face rim as an
+          anti-drop backstop and is the print bed face) with a big central DROP
+          WINDOW so the harness, which exits the CENTER of the bottom face, falls
+          STRAIGHT DOWN into the open under-chassis cavity (user feedback).  We
+          deliberately do NOT cap/screw the rear boss/horn: it rotates 1:1 with
+          the yaw output, so a chassis-fixed screw into it would LOCK yaw -- the
+          case-keyed walls supply the anti-rotation instead;
+        * 4 REAR-CASE CAPTURE SCREWS: a printed boss under each of the 4 FIXED
+          rear (back) case mounting holes (``yaw_rear_screw_centres`` -> cradle
+          (-8.3,+-10.2) [18.5 mm from the output-end "top", user's landmark] and
+          (-32.8,+-10.2)).  An M2.5 self-tapper drives straight UP (the holes'
+          axis IS the output axis) into the rear case face, head recessed in a
+          counterbore, driven up the open cavity -- a positive tie of the CASE
+          (NOT the horn / rotating idler) to the saddle.  These are the standard
+          STS3215 case mount holes (SERVO_BODY_H = the gap between the two M2.5
+          hole planes); the +-Y depth side-walls run PARALLEL to the holes, so
+          the capture is vertical from below, not horizontal through a wall;
+        * a thin TOP FLANGE of anchor tabs (at ``chassis_lower_retainer_anchor_
+          centres``, the SAME pilots the merged ``make_chassis_bottom`` floor
+          cuts, guarded by ``check_clamp_cap_alignment``) puts each bolt HEAD
+          directly under the floor: an M3 x 8 self-taps RETAINER_PLATE_PILOT_
+          DEPTH (3 mm) into the 4 mm floor and the driver enters straight up
+          the open under-chassis cavity through a clear Phi-8 cone below the
+          head (no material below it -- guarded by check_screwdriver_access +
+          check_fastener_engagement, which now place this part).
 
     Frame: cradle-local XY (origin on the yaw/output axis, +X = outboard
-    radial, +Y = tangential) and WORLD Z (the part is placed by a pure
-    Z-rotation + in-plane translate, so its local Z is the world Z); the
-    bar bottom is the flat print-bed face.
+    radial, +Y = tangential) and WORLD Z (placed by a pure Z-rotation +
+    in-plane translate, so local Z is world Z).  Prints flat on the backstop-
+    floor underside (the largest downward face; ``_drop_to_bed``).
     """
     plate_bot = CHASSIS_SPLIT_Z - CHASSIS_BOTTOM_FLOOR_T         # -6 (merged floor face)
-    bar_top = plate_bot - RETAINER_ARM_RISE                      # ~ -20 (servo bottom)
-    bar_bot = bar_top - RETAINER_STRAP_T                         # ~ -24
+    # Real seated yaw case (SAME placement _place_servo_bodies uses): the
+    # output/front face lands at CHASSIS_YAW_OUTPUT_Z - HORN_STACK_H and the
+    # case hangs below it.  The modeled SERVO_BODY_H (34.3) is the STEP mount-
+    # HOLE-plane gap, but the user MEASURED the real case ~SADDLE_CASE_LEN_FIX mm
+    # longer to the flat bottom (39 mm horn-top -> flat bottom), so we reference
+    # the REAL bottom here -- the walls run that much TALLER and the saddle SEATS
+    # FLUSH up against the floor instead of being propped low by the backstop
+    # hitting the longer real case early.  (SERVO_BODY_H stays frozen globally.)
+    servo_back_z = yaw_servo_real_back_z()                          # real flange face
 
-    # ---- Capture cross-bar (under the servo body bottom face) -------------
-    bar = _box((RETAINER_BAR_RADIAL, RETAINER_BAR_TANG, RETAINER_STRAP_T),
-               center=(RETAINER_ANCHOR_RADIAL, 0.0, bar_bot + RETAINER_STRAP_T / 2.0))
-    parts = [bar]
+    # Case footprint, cradle-local: the output axis is x=0 but the STS3215
+    # output sits off-centre, so the body centre is at x=-SERVO_OUTPUT_X.
+    bx_c = -SERVO_OUTPUT_X                                       # -12.5
+    x_in = bx_c - SERVO_BODY_W / 2.0                             # -35.2  (-X end, NON-wire)
+    x_out = bx_c + SERVO_BODY_W / 2.0                            # +10.2  (+X end, wire boot)
+    yf = SERVO_BODY_D / 2.0                                      # 12.4
 
-    # ---- Two arms rising to the flat-plate underside (overlap the bar by
-    # 1 mm so the union is a clean volumetric merge, never a coplanar kiss) --
-    arm_lo = bar_top - 1.0
+    yi = yf + SADDLE_BODY_CL                                     # snug inner face
+    yo = yi + SADDLE_WALL_T                                      # wall outer face
+    xi = x_in - SADDLE_BODY_CL                                   # -X wall inner face
+    xo = xi - SADDLE_WALL_T                                      # -X wall outer face
+
+    wall_z0, wall_z1 = servo_back_z, plate_bot                   # ~[-24.05, -6]
+
+    parts = []
+    # +/-Y side walls (run the body length; +X stays open for the boot).
+    for sgn in (-1.0, +1.0):
+        wall = _box((x_out - xi, SADDLE_WALL_T, wall_z1 - wall_z0),
+                    center=(0.5 * (xi + x_out), sgn * 0.5 * (yi + yo),
+                            0.5 * (wall_z0 + wall_z1)))
+        parts.append(wall)
+    # -X end wall ties the side walls + adds a third anti-rotation key face.
+    endw = _box((SADDLE_WALL_T, 2 * yo, wall_z1 - wall_z0),
+                center=(0.5 * (xo + xi), 0.0, 0.5 * (wall_z0 + wall_z1)))
+    parts.append(endw)
+
+    # Anti-drop BACKSTOP FRAME under the case back face (z = servo_back_z): the
+    # full plate spans out to the wall outers (welds them into one body) but a
+    # central DROP WINDOW is cut from it below (see `cuts`) so the centrally-
+    # exiting harness falls straight down -- only a SADDLE_FLOOR_RIM-wide ledge
+    # remains on the -X + -/+Y edges to catch the back-face rim + carry the bed.
+    fl_z1 = servo_back_z
+    fl_z0 = fl_z1 - SADDLE_FLOOR_T
+    floor = _box((SADDLE_FLOOR_X_OUT - xo, 2 * yo, SADDLE_FLOOR_T),
+                 center=(0.5 * (xo + SADDLE_FLOOR_X_OUT), 0.0,
+                         0.5 * (fl_z0 + fl_z1)))
+    parts.append(floor)
+
+    # Top-flange anchor tabs: a THICK solid pad (radius SADDLE_ANCHOR_PAD_R,
+    # reaching IN to weld its +/-Y side wall) in the z[flange_z0, plate_bot] band.
+    # The head does NOT bear on the bottom face -- a counterbore (cut below)
+    # recesses it so the seat sits at flange_z0 + SADDLE_HEAD_CB_DEPTH = -9, with
+    # the down-facing socket open to the clear driver cone in the cavity below.
+    flange_z0 = plate_bot - SADDLE_FLANGE_T                      # -11 (boss bottom)
+    flange_z1 = plate_bot                                        # -6  (mates floor)
     for (ax, ay) in chassis_lower_retainer_anchor_centres():
-        arm = _box((RETAINER_ARM_RADIAL, RETAINER_ARM_TANG, plate_bot - arm_lo),
-                   center=(ax, ay, 0.5 * (arm_lo + plate_bot)))
-        parts.append(arm)
-    stirrup = _union(*parts)
+        pad = _cyl(SADDLE_ANCHOR_PAD_R, SADDLE_FLANGE_T)
+        pad.apply_translation([ax, ay, 0.5 * (flange_z0 + flange_z1)])
+        parts.append(pad)
 
-    # ---- Cuts: 2 vertical anchor-bolt clearances + cable window -----------
-    cuts: list[trimesh.Trimesh] = []
+    saddle = _union(*parts)
+
+    cuts = []
+    # Central DROP WINDOW through the backstop floor: opens the bottom-centre so
+    # the harness exiting the case-bottom centre drops straight down.  Leaves a
+    # SADDLE_FLOOR_RIM ledge on the -X + -/+Y edges; the +X side is already open.
+    win_x0 = xo + SADDLE_FLOOR_RIM
+    win_x1 = SADDLE_FLOOR_X_OUT + 1.0
+    win_y = yo - SADDLE_FLOOR_RIM
+    window = _box((win_x1 - win_x0, 2 * win_y, SADDLE_FLOOR_T + 2.0),
+                  center=(0.5 * (win_x0 + win_x1), 0.0, 0.5 * (fl_z0 + fl_z1)))
+    cuts.append(window)
+    # 2x M3 anchor-bolt clearance holes through the flange tabs (axis Z) + a
+    # head COUNTERBORE opening downward from the boss bottom so the M3 SHCS head
+    # recesses (seat at flange_z0 + SADDLE_HEAD_CB_DEPTH = -9; the M3x6 tip still
+    # reaches the -3 pilot for a full 3 mm bite).
     for (ax, ay) in chassis_lower_retainer_anchor_centres():
-        hole = _cyl(RETAINER_BOLT_CLEAR_OD / 2.0,
-                    (plate_bot - bar_top) + RETAINER_STRAP_T + 2.0)
-        hole.apply_translation([ax, ay, 0.5 * (bar_bot + plate_bot) + 0.5])
+        hole = _cyl(RETAINER_BOLT_CLEAR_OD / 2.0, SADDLE_FLANGE_T + 2.0)
+        hole.apply_translation([ax, ay, 0.5 * (flange_z0 + flange_z1)])
         cuts.append(hole)
-    slot = _box((RETAINER_CABLE_SLOT_L, RETAINER_CABLE_SLOT_W,
-                 RETAINER_STRAP_T + 2.0),
-                center=(RETAINER_ANCHOR_RADIAL, 0.0, bar_bot + RETAINER_STRAP_T / 2.0))
-    cuts.append(slot)
-    return _diff(stirrup, *cuts)
+        cb_h = SADDLE_HEAD_CB_DEPTH + 1.0   # +1 so the bottom mouth cuts cleanly
+        cbore = _cyl(SADDLE_HEAD_CB_OD / 2.0, cb_h)
+        cbore.apply_translation([ax, ay, flange_z0 + SADDLE_HEAD_CB_DEPTH - cb_h / 2.0])
+        cuts.append(cbore)
+
+    body = _diff(saddle, *cuts)
+
+    # 4x FIXED-REAR-CASE-MOUNT capture screws (CORRECTED Jun 2026): a printed
+    # boss under EACH of the 4 rear-face case holes (yaw_rear_screw_centres ->
+    # cradle (-8.3,+-10.2) landmark pair + (-32.8,+-10.2) companion pair), each
+    # spanning z[servo_back_z - SADDLE_CASE_SHANK, servo_back_z] up to the real
+    # rear case face.  An M2.5 self-tapper drives straight UP (the holes' axis IS
+    # the output axis) through the boss into the case (SADDLE_CASE_SCREW_BITE); its
+    # head bears FLAT on the boss UNDERSIDE (boss bottom = head plane) -- NO
+    # counterbore, so nothing sits below the head to foul the driver cone, which
+    # enters straight up the open under-chassis cavity.  Each boss reaches r
+    # SADDLE_CASE_BOSS_R, welding into the +-Y side-wall / floor rim (and the -X
+    # end wall for the x2 pair) for a single body.  Bosses are unioned AFTER the
+    # central drop-window cut so the window can't carve them; their clearance bores
+    # are cut last.  They sit at |y| ~ 10.2 (out by the depth walls), well clear of
+    # the centre wire exit (cradle x~-14, y~0) and the central idler (axis, r~0).
+    zc = servo_back_z                                           # real rear case face
+    boss_z0 = zc - SADDLE_CASE_SHANK                            # boss bottom = head plane
+    bosses = []
+    boss_cuts = []
+    for (rx, ry) in yaw_rear_screw_centres():
+        boss = _cyl(SADDLE_CASE_BOSS_R, SADDLE_CASE_SHANK)
+        boss.apply_translation([rx, ry, 0.5 * (boss_z0 + zc)])
+        bosses.append(boss)
+        # M2.5 clearance bore (full boss height + a touch into the case region).
+        bore = _cyl(SADDLE_CASE_SCREW_OD / 2.0, SADDLE_CASE_SHANK + 2.0)
+        bore.apply_translation([rx, ry, 0.5 * (boss_z0 + zc)])
+        boss_cuts.append(bore)
+
+    body = _union(body, *bosses)
+    return _diff(body, *boss_cuts)
 
 
 def _yaw_cap_bolt_centres():
@@ -4589,6 +5032,9 @@ def make_yaw_bearing_cap() -> trimesh.Trimesh:
 
         z[-1, +6]    Phi 37 CLEAN through-bore (radial housing for the upper
                      outer race; NO sub-Phi-37 constriction below the race)
+        z[+6, +7]    Phi 34 inner RETAINING LIP -- a thin shoulder the upper
+                     outer race seats UP against, holding the bearing in (the
+                     lip clears the Phi 32 rotating inner race / hub uflange)
         z[-1, +3]    3 x M3 outboard ear lugs (bolt DOWN into the tower pilots)
 
     (Jun 2026: the bottom register wrap-lip at z[-3.5, -1] was removed -- it
@@ -4597,23 +5043,33 @@ def make_yaw_bearing_cap() -> trimesh.Trimesh:
 
     ASSEMBLY (Jun 2026 assemblability fix): the cap is LOWERED straight down
     over the upper outer race already seated on the hub boss, so the bore is
-    Phi 37 all the way to the split plane.  The retired Phi 34 neck (which
-    capped the lower race + seated the upper race from below) was an 85.5 mm^3
-    hard stop on that descent -- see ``check_bearing_cap_descent_path``.  The
-    upper bearing is now located axially by its INNER race against the hub
-    uflange (z=+6) + the M3 disc-horn clamp preload; the cap is RADIAL (moment)
-    support only.  The lower (floating) outer race is held by the tower
-    press-fit + its z=-5 plate seat, as a floating race should be.
+    Phi 37 all the way DOWN from the lip to the split plane.  The retired Phi 34
+    NECK (which capped the LOWER race + seated the upper race from BELOW) was an
+    85.5 mm^3 hard stop on that descent -- see ``check_bearing_cap_descent_path``.
+    The new Phi 34 lip is the OPPOSITE feature: it sits ABOVE the seated race
+    (z[+6, +7]) so the cap clears the race all the way down and the lip only
+    lands on the race TOP at full descent -- positive axial retention with no
+    descent hard stop.  The upper bearing is now POSITIVELY held: located
+    axially by its inner race against the hub uflange (z=+6) + the M3 disc-horn
+    clamp preload, and capped by this lip on the outer race.  The lower
+    (floating) outer race is held by the tower press-fit + its z=-5 plate seat.
+
+    The 3 M3 head counterbores are cut as COMPLETE circles up through the (now
+    +7) ring rim: since the bolt circle (PCD 47) is ~1.5 mm outboard of the
+    Phi 44 ring OD, each head pocket carves a small scallop into the ring wall,
+    giving the screw head a clean full-circle seat + clear driver access from
+    above instead of being crowded by the taller ring wall.
     """
     r_out = YAW_BEARING_OD / 2.0 + YAW_TOWER_WALL          # Phi 44
     r_bore = YAW_TOWER_BORE_OD / 2.0                       # Phi 37 race seat
 
     split_z = YAW_SPLIT_Z                                  # -1
-    top_z = YAW_CAP_TOP_Z                                  # +6
+    top_z = YAW_CAP_TOP_Z                                  # +6 (race top / lip underside)
+    rim_z = YAW_CAP_RIM_Z                                  # +7 (rim above the lip)
 
-    # ---- Main ring (Phi 44 OD, split plane up to the open top) ----
-    ring = _cyl(r_out, top_z - split_z)
-    ring.apply_translation([0.0, 0.0, 0.5 * (split_z + top_z)])
+    # ---- Main ring (Phi 44 OD, split plane up to the rim above the lip) ----
+    ring = _cyl(r_out, rim_z - split_z)
+    ring.apply_translation([0.0, 0.0, 0.5 * (split_z + rim_z)])
     cap = ring
 
     # ---- 3 x M3 join-bolt OUTBOARD ear lugs ----
@@ -4656,18 +5112,35 @@ def make_yaw_bearing_cap() -> trimesh.Trimesh:
     bore.apply_translation([0.0, 0.0, 0.5 * (split_z + top_z)])
     cuts.append(bore)
 
+    # Inner retaining lip: ABOVE the race top the bore steps IN from Phi 37 to
+    # Phi YAW_CAP_LIP_ID, so the lip underside (z = top_z) caps the upper outer
+    # race.  The cap lowers straight down over the seated race (clean Phi 37 all
+    # the way to top_z), and the lip lands on the race top only at full descent
+    # -- positive axial retention with NO bottom-neck hard stop (the race never
+    # passes the lip).  Phi 34 clears the Phi 32 rotating inner race / uflange.
+    lip_bore = _cyl(YAW_CAP_LIP_ID / 2.0, (rim_z - top_z) + 0.04)
+    lip_bore.apply_translation([0.0, 0.0, 0.5 * (top_z + rim_z)])
+    cuts.append(lip_bore)
+
     # Join-bolt clearance + head counterbore.  The M3 self-tap join screw
-    # enters from the ear TOP (z = ear_top), its head recessed in a Phi
-    # YAW_CAP_BOLT_HEAD_OD counterbore, shank clearing the cap, threads biting
-    # the tower pilot below the split plane.
+    # enters from the ear TOP (z = ear_top), its head recessed onto the
+    # cb_floor bearing plane, shank clearing the cap, threads biting the tower
+    # pilot below the split plane.
     cb_floor = ear_top - (INSERT_M3_BOLT_HEAD_H + 0.3)    # head bearing plane
     for (ex, ey) in _yaw_cap_bolt_centres():
         clr = _cyl(YAW_CAP_BOLT_OD / 2.0, (ear_top - split_z) + 2.0)
         clr.apply_translation([ex, ey, 0.5 * (split_z + ear_top)])
         cuts.append(clr)
-        cb_h = (ear_top + 0.5) - cb_floor
-        cb = _cyl(YAW_CAP_BOLT_HEAD_OD / 2.0, cb_h)
-        cb.apply_translation([ex, ey, 0.5 * (cb_floor + ear_top + 0.5)])
+        # Head counterbore: a COMPLETE circular seat for the M3 head at
+        # cb_floor, cut all the way UP through the (now taller) ring rim so the
+        # ring no longer towers beside the head.  Because the bolt circle (PCD
+        # 47) sits ~1.5 mm OUTBOARD of the Phi 44 ring OD, the head circle
+        # overlaps the ring slightly, so this carves a small scallop INTO the
+        # ring wall -- giving a clean full-circle head pocket with clear
+        # driver access from above, while keeping a >= 2 mm wall to the bore.
+        cb_top = rim_z + 0.02
+        cb = _cyl(YAW_CAP_BOLT_HEAD_OD / 2.0, cb_top - cb_floor)
+        cb.apply_translation([ex, ey, 0.5 * (cb_floor + cb_top)])
         cuts.append(cb)
 
     return _diff(cap, *cuts)
@@ -4726,7 +5199,17 @@ def servo_end_face_bolt_centres():
 # These primitives are the validated proof geometry (tools/sts3215_testfit.py)
 # promoted into the model so every driven joint shares one reusable pattern.
 
-PASSIVE_BACK_PLATE_T = PASSIVE_BEARING_W + PASSIVE_BEARING_SHOULDER_T  # 7 mm
+# Back-side stack depth (frozen).  The back mirrors the front: rear boss
+# (REAR_BOSS_H) + frozen horn offset (HORN_STACK_H) measured from the back
+# face.  Kept = SERVO_OUTPUT_H + HORN_STACK_H = 7 mm so the yoke bottom-arm
+# seat / COXA_HIP_ANCHOR_Y / joint envelope are byte-identical to the
+# retired 688-bearing era (kinematics frozen).  Retired name was
+# PASSIVE_BACK_PLATE_T.
+BACK_STACK_DEPTH     = REAR_BOSS_H + HORN_STACK_H                      # 7 mm
+PASSIVE_BACK_PLATE_T = BACK_STACK_DEPTH                                # 7 mm
+# Passive-horn centering-adapter spigot length = the reused disc horn's true
+# thickness (defined here now that DISC_HORN_H is available).
+PASSIVE_ADAPTER_SPIGOT_T = DISC_HORN_H                                 # 2 mm
 
 # Joint-local Z of the disc-horn TOP plane on the output axis (the moving
 # link / yoke top arm seats here).  The disc horn seats on the servo OUTPUT
@@ -4736,6 +5219,41 @@ PASSIVE_BACK_PLATE_T = PASSIVE_BEARING_W + PASSIVE_BEARING_SHOULDER_T  # 7 mm
 # (= WELL_PLATE_T - SERVO_OUTPUT_H) above the real horn top, which showed up
 # as a +2 mm femur/tibia mating-face gap.
 JOINT_HORN_TOP_Z = SERVO_BODY_H + SERVO_OUTPUT_H + HORN_STACK_H        # 41.3 mm
+
+# Reach-down depth for the DRIVEN (front) yoke top-arm pad.  JOINT_HORN_TOP_Z
+# stays FROZEN (kinematic seat plane / link mount), but the real STS3215 output
+# spline is FLUSH with the body front face -- it does NOT protrude SERVO_OUTPUT_H
+# -- so the driven disc horn actually tops out at SERVO_BODY_H + DISC_HORN_H =
+# 36.3 mm, i.e. SERVO_OUTPUT_H (2 mm) BELOW where the generic HORN_REACH_DOWN (3)
+# assumed.  The top-arm pad must therefore bridge that extra 2 mm so it seats
+# FLUSH on the real horn instead of leaving the user-reported ~2 mm clevis gap.
+# The yaw joint already models this flush output (its _horn_world_transform uses
+# horn_base_dz = 0); the hip/knee driven horn now does too.
+DRIVEN_HORN_REACH_DOWN = JOINT_HORN_TOP_Z - (SERVO_BODY_H + DISC_HORN_H)  # 5 mm
+
+# Jun 2026 symmetric-yoke refit (user: "same screw on each side").  BOTH clevis
+# arms now use ONE reach-down pad depth so a single screw (M3 x 10) bolts the
+# yoke to the disc horn on each side.  The DRIVEN top arm already needs 5 mm (the
+# flush output sits the driven disc 5 mm below the frozen JOINT_HORN_TOP_Z seat),
+# so 5 mm is the shared pad; the PASSIVE bottom-arm seat is moved DOWN to put the
+# same 5 mm pad onto the real passive disc face (see JOINT_HORN_BOT_Z below).
+YOKE_ARM_PAD = DRIVEN_HORN_REACH_DOWN                                  # 5 mm (both arms)
+# Tiny clamp preload (user: "maybe a very tiny bit loose still"): each pad reaches
+# YOKE_SEAT_INTERF PAST the rigid disc face so the printed arms seat snug with a
+# light squeeze instead of dead-flush.  ~0.13 mm/side = ~0.26 mm off the inner
+# span -- well inside the +/-0.5 mm mating-face tolerance.
+YOKE_SEAT_INTERF = 0.13                                               # mm per side
+# Real PASSIVE disc mating face (joint-local): the rear idler boss protrudes
+# REAR_BOSS_H below the back face, the passive disc (DISC_HORN_H) rides it.
+PASSIVE_HORN_FACE_Z = -(REAR_BOSS_H + DISC_HORN_H)                    # -4 mm
+
+# Joint-local Z of the PASSIVE disc-horn seat plane (the yoke BOTTOM arm body's
+# inner face).  Symmetric refit: the bottom arm is a true MIRROR of the top arm
+# about the real disc-stack mid-plane -- it carries the SAME YOKE_ARM_PAD (5 mm)
+# down onto the real passive disc face, so the seat is PASSIVE_HORN_FACE_Z minus
+# one pad depth.  (BACK_STACK_DEPTH / COXA_HIP_ANCHOR_Y / the joint envelope stay
+# FROZEN -- only the printed bottom-arm body grows 2 mm deeper to match the top.)
+JOINT_HORN_BOT_Z = PASSIVE_HORN_FACE_Z - YOKE_ARM_PAD                 # -9 mm
 
 # Hip-bracket centering on the yaw axis (see the big note next to
 # COXA_HIP_DROP for the rationale + kinematic consequence).  With the hip
@@ -4755,60 +5273,54 @@ def _disc_horn_bolt_centres():
             for t in DISC_HORN_BOLT_ANGLES_RAD]
 
 
-def _passive_bearing_housing() -> trimesh.Trimesh:
-    """Clean, idler-axis-CENTRED back housing pressing the 688 passive
-    bearing.
+def make_passive_horn_adapter() -> trimesh.Trimesh:
+    """Printed centering adapter for the PASSIVE disc horn on the servo's
+    smooth rear idler boss (joint-local frame: origin = servo back face,
+    +Z = output, output axis at x = SERVO_OUTPUT_X).
 
-    Spans z in [-PASSIVE_BACK_PLATE_T, 0] (behind the servo back face).  It
-    is a Phi PASSIVE_HOUSING_OD barrel centred on the idler axis (x =
-    SERVO_OUTPUT_X), topped by a Phi PASSIVE_HOUSING_FLANGE_OD x
-    PASSIVE_HOUSING_FLANGE_T backing collar at the back-face plane (z = 0)
-    that fuses the boss to the cradle's +X and +/-Y walls so the union into
-    ``_sandwich_fixed_side`` stays ONE connected, print-flat-bottom body.
-
-    Because the boss is centred on the +X-OFFSET idler axis it never reaches
-    the -X cable region (its -X edge sits near x = 0), so the -X half of the
-    back face stays open for the serial-bus connectors -- the original reason
-    the legacy plate was +X-half-only -- WITHOUT the asymmetric overhang.
-
-    Pocket geometry is preserved verbatim: a Phi PASSIVE_BEARING_OD pocket
-    opens on the OUTER face (z = -PASSIVE_BACK_PLATE_T), PASSIVE_BEARING_W
-    deep, seating the bearing outer race against a PASSIVE_BEARING_SHOULDER_T
-    backing wall; a Phi PASSIVE_STUB_CLEAR_OD shoulder bore clears the inner
-    race + the moving yoke's stub shaft.
-    """
-    t = PASSIVE_BACK_PLATE_T
-    # Round bearing boss centred on the idler axis, full depth z in [-t, 0].
-    boss = _cyl(PASSIVE_HOUSING_OD / 2.0, t)
-    boss.apply_translation([SERVO_OUTPUT_X, 0.0, -t / 2.0])
-    # Back-face collar (>= MIN_PRINT_T thick) that ties the boss into the
-    # cradle walls.  Concentric with the boss -> symmetric about the idler
-    # axis in X (no one-sided lip).
-    flange = _cyl(PASSIVE_HOUSING_FLANGE_OD / 2.0, PASSIVE_HOUSING_FLANGE_T)
-    flange.apply_translation([SERVO_OUTPUT_X, 0.0,
-                              -PASSIVE_HOUSING_FLANGE_T / 2.0])
-    body = _union(boss, flange)
-
-    pocket = _cyl((PASSIVE_BEARING_OD - PASSIVE_BEARING_PRESS) / 2.0,
-                  PASSIVE_BEARING_W * 2)
-    pocket.apply_translation([SERVO_OUTPUT_X, 0.0, -t])   # opens at z=-t
-    stub = _cyl(PASSIVE_STUB_CLEAR_OD / 2.0, t * 4)
-    stub.apply_translation([SERVO_OUTPUT_X, 0.0, -t / 2.0])
-    return _diff(body, pocket, stub)
+    The rear boss protrudes REAR_BOSS_H below the back face (z in
+    [-REAR_BOSS_H, 0]).  This stepped bushing adapts that short smooth boss
+    into a proper centred seat for the reused aluminium disc horn:
+      * a base disc (Phi PASSIVE_ADAPTER_OD, z in [-REAR_BOSS_H, 0]) seats on
+        the back face, with a Phi PASSIVE_ADAPTER_BORE_OD counterbore that
+        slips over the rear boss (centres the adapter on the boss);
+      * a Phi PASSIVE_ADAPTER_SPIGOT_OD spigot (z in
+        [-REAR_BOSS_H - PASSIVE_ADAPTER_SPIGOT_T, -REAR_BOSS_H]) fills the
+        horn's central spline bore (centres the horn on the adapter);
+      * a central Phi DISC_HORN_BOLT_OD bore passes the M3 retention screw
+        through into the rear boss.
+    Prints flat on its base-disc face.  6 per robot (one per hip + knee)."""
+    x = SERVO_OUTPUT_X
+    base = _cyl(PASSIVE_ADAPTER_OD / 2.0, PASSIVE_ADAPTER_BASE_T)
+    base.apply_translation([x, 0.0, -PASSIVE_ADAPTER_BASE_T / 2.0])
+    spig = _cyl(PASSIVE_ADAPTER_SPIGOT_OD / 2.0, PASSIVE_ADAPTER_SPIGOT_T)
+    spig.apply_translation([x, 0.0,
+                            -REAR_BOSS_H - PASSIVE_ADAPTER_SPIGOT_T / 2.0])
+    body = _union(base, spig)
+    # Counterbore over the rear boss (opens at the back face, z = 0).
+    cbore = _cyl(PASSIVE_ADAPTER_BORE_OD / 2.0, REAR_BOSS_H * 2.0)
+    cbore.apply_translation([x, 0.0, 0.0])
+    # Central retention-screw clearance through the whole adapter.
+    scr = _cyl(DISC_HORN_BOLT_OD / 2.0,
+               (PASSIVE_ADAPTER_BASE_T + PASSIVE_ADAPTER_SPIGOT_T) * 3.0)
+    scr.apply_translation([x, 0.0, -PASSIVE_ADAPTER_BASE_T])
+    return _diff(body, cbore, scr)
 
 
 def _sandwich_fixed_side() -> trimesh.Trimesh:
-    """The FIXED printed side of a sandwich joint: the STS3215 front-face
-    mount bracket (4 walls + output-face plate) PLUS the +X-half passive
-    bearing housing below the body.  The servo bolts to the plate; the
-    moving yoke wraps top (disc horn) and bottom (688 bearing).
+    """The FIXED printed side of a sandwich joint: JUST the STS3215
+    front-face mount cradle (4 walls + output-face mount lip + end-face body
+    bolts).  The back is now OPEN -- the PASSIVE disc horn rides the servo's
+    own internal rear-bearing idler boss (no external 688 bearing or printed
+    housing), so nothing printed lives behind the body.  The moving yoke
+    wraps the DRIVEN horn on the front (+Z) and the PASSIVE horn on the back
+    (-Z), bolting to both identically.
 
     The serial-bus harness exits the body's +X bottom-outboard corner via
     the L-shaped wire-exit corridor + boot-clearance channel (well-local,
     shared with every cradle) so ``check_wire_slot`` finds a clear exit
     and the molded boot has a pocket to seat in."""
-    body = _union(_servo_well_solid(), _passive_bearing_housing())
-    return _diff(body, _wire_exit_slot())
+    return _diff(_servo_well_solid(), _wire_exit_slot())
 
 
 def make_servo_clamp_cap() -> trimesh.Trimesh:
@@ -4828,22 +5340,41 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
         pull-out, matching the cradle's -Y / corner lip.
 
     Same part for the hip-pitch (coxa_link) and knee (femur_knee_bracket)
-    joints -- 2 per leg, 12 per robot.  Prints flat on its +Z face."""
-    body_face_y = SERVO_BODY_D / 2.0 + WELL_BODY_CL       # +12.4 (body +Y face)
+    joints -- 2 per leg, 12 per robot.  Prints flat on its +Z face.
+
+    Jun 2026 clamp-fit fix: the sandwich cradle's -Y wall sits right at the
+    body's -Y face (the WELL_BODY_CL clearance is on the OPEN +Y / cap side
+    and laterally, NOT behind the body), so the body's seated +Y face is at
+    +SERVO_BODY_D/2.  The OLD tongue stopped at the +Y CAVITY face
+    (SERVO_BODY_D/2 + WELL_BODY_CL = +13.1), i.e. WELL_BODY_CL OUTBOARD of the
+    body, so the body could float toward +Y into that gap -> the user's
+    measured ~1.5-2 mm rattle.  The tongue now reaches CLAMP_TONGUE_INTERF =
+    1 mm PAST the body's seated +Y face (a press-fit interference, user
+    request), so tightening the 2 cap bolts traps the body between the -Y wall
+    and the tongue with a snug press fit and zero slop."""
+    # +Y face of the body, seated against the cradle's -Y wall.
+    body_face_y = SERVO_BODY_D / 2.0                       # +12.4 (seated body +Y face)
     wall_end_y = WELL_D / 2.0                              # +16.9 (wall +Y ends)
     flange_y0 = wall_end_y
     flange_y1 = wall_end_y + CLAMP_CAP_T                   # outer face
     cap_z1 = WELL_RIM_Z + WELL_LIP_SLIDE_CL                # tongue top (under lip)
-    cav_w = SERVO_BODY_W + 2 * WELL_BODY_CL
+    # Inside-X tightened WELL_INSIDE_X_TIGHTEN total so the tongue + lip match
+    # the narrower cavity / drop-in slot (snug-fit; see the CLAMP_* block).
+    cav_w = SERVO_BODY_W + 2 * WELL_BODY_CL - WELL_INSIDE_X_TIGHTEN
 
     # Flange bar (spans the full well width so it covers both wall ends).
     flange = _box((WELL_W, flange_y1 - flange_y0, cap_z1),
                   center=(0.0, 0.5 * (flange_y0 + flange_y1), cap_z1 / 2.0))
 
-    # Centre tongue: presses the body with 0.2 mm interference.
-    tongue_y0 = body_face_y - 0.2
-    tongue = _box((cav_w, wall_end_y - tongue_y0, cap_z1),
-                  center=(0.0, 0.5 * (tongue_y0 + wall_end_y), cap_z1 / 2.0))
+    # Centre tongue: reaches the SEATED body face and presses it with
+    # CLAMP_TONGUE_INTERF interference so the 2 bolts genuinely clamp it.  The
+    # tongue also drops CLAMP_SEAT_DROP PAST the body back-face plane (z=0) so it
+    # "comes down lower" -- a -Z backstop lip for a snug seat (user request).
+    tongue_y0 = body_face_y - CLAMP_TONGUE_INTERF
+    tongue_z0 = -CLAMP_SEAT_DROP
+    tongue = _box((cav_w, wall_end_y - tongue_y0, cap_z1 - tongue_z0),
+                  center=(0.0, 0.5 * (tongue_y0 + wall_end_y),
+                          0.5 * (tongue_z0 + cap_z1)))
 
     # Top retaining lip that ROOFS the cradle's OPEN +Y drop-in slot.  It
     # tiles FLUSH against the cradle's surviving top plate instead of
@@ -4878,6 +5409,16 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
         hole.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))   # axis -> Y
         hole.apply_translation([bx, flange_mid_y, bz])
         cuts.append(hole)
+        # Head counterbore: opens at the flange OUTER (+Y) face and runs
+        # CLAMP_HEAD_CB_DEPTH inward (-Y) so the M3 SHCS head recesses FLUSH
+        # with the face (head no longer brushes the sweeping yoke).  The head
+        # bears on the shoulder at flange_y1 - CLAMP_HEAD_CB_DEPTH; +1 mm of
+        # over-length cuts the outer mouth cleanly.
+        cb_h = CLAMP_HEAD_CB_DEPTH + 1.0
+        cbore = _cyl(CLAMP_HEAD_CB_OD / 2.0, cb_h)
+        cbore.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))  # axis -> Y
+        cbore.apply_translation([bx, flange_y1 - CLAMP_HEAD_CB_DEPTH + cb_h / 2.0, bz])
+        cuts.append(cbore)
     return _diff(body, *cuts)
 
 
@@ -4913,6 +5454,17 @@ def _leg_tube_socket_x(x_mouth: float, sock_z: float, *, direction: int = 1,
 # Yoke arm geometry (joint-local).
 _YOKE_ARM_T = 4.0
 _YOKE_ARM_Y = 12.0
+# Jun 2026 (user: "add 1mm to each side of the bump that goes out to connect to
+# the servos ... on each of the yokes").  The horn-contact pad is the cylindrical
+# "bump" on each clevis arm that reaches inboard to seat on (and bolt to) the
+# disc horn.  Grow it YOKE_PAD_RADIAL_GROW per side -- i.e. +1 mm of material on
+# every radial face, so the pad diameter grows by 2x this.  The pad OD goes from
+# (DISC_HORN_OD - 1) = 19 mm to 21 mm; it still clears the fixed cradle's
+# Phi HORN_CLEAR_OPENING_OD (24 mm) running bore by ~1.5 mm/side as it sweeps, and
+# the reach-down depth (seating against the disc face) is unchanged, so screw
+# engagement and every frozen joint axis / link length stay put.  Applies to
+# BOTH yokes (hip femur yoke + knee tibia yoke share this component).
+YOKE_PAD_RADIAL_GROW = 1.0   # mm per side added to the horn-contact pad radius
 # Spine sits OUTBOARD of the disc-horn sweep: the Phi HORN_STACK_VOID_R
 # (= 18.5 mm) horn envelope about the output axis (joint-local x =
 # SERVO_OUTPUT_X = 12.5) reaches x = 31 mm, and the fixed-side servo well
@@ -4920,12 +5472,20 @@ _YOKE_ARM_Y = 12.0
 # moving yoke clear of BOTH the horn-stack clearance probe (5b) and the
 # fixed bracket (self-collision), while the arms still cover the Phi 14
 # bolt circle (x in [5.5, 19.5]) on the driven horn.
-_YOKE_ARM_X0, _YOKE_ARM_X1 = 2.0, 42.0
-_YOKE_SPINE_X0, _YOKE_SPINE_X1 = 38.0, 42.0
+# Jun 2026 ROM-clearance fix (user: "they bang into the cap... need to be a
+# little longer").  At hip femur pitch ~ -30..-65 deg (and the mirrored knee
+# pose) the mid-height connecting WEB (spine) swept into the fixed servo clamp
+# cap (~400 mm^3 clash at -40 deg).  Moving the web +4 mm OUTBOARD (vacating the
+# old x[38,42] band where it banged the cap) clears the full ROM with margin.
+# The arms extend to the new web; the CF-tube socket MOUTH stays at the old face
+# (_YOKE_SOCKET_X) so the femur tube span is unchanged.
+_YOKE_ARM_X0, _YOKE_ARM_X1 = 2.0, 46.0
+_YOKE_SOCKET_X = 42.0                       # CF-tube socket mouth (femur span frozen)
+_YOKE_SPINE_X0, _YOKE_SPINE_X1 = 42.0, 46.0
 # Socket height = mid-plane of the yoke (between the top + bottom arms).
-_YOKE_BOT_Z0 = (-PASSIVE_BACK_PLATE_T - 1.0) - _YOKE_ARM_T              # -12
-_YOKE_TOP_Z1 = JOINT_HORN_TOP_Z + _YOKE_ARM_T                          # 47.3
-JOINT_SOCKET_Z = 0.5 * (_YOKE_BOT_Z0 + _YOKE_TOP_Z1)                   # ~17.65
+_YOKE_BOT_Z0 = JOINT_HORN_BOT_Z - _YOKE_ARM_T                          # -13
+_YOKE_TOP_Z1 = JOINT_HORN_TOP_Z + _YOKE_ARM_T                          # 45.3
+JOINT_SOCKET_Z = 0.5 * (_YOKE_BOT_Z0 + _YOKE_TOP_Z1)                   # ~16.15
 
 
 def _sandwich_moving_yoke(*, tube_socket: bool = True,
@@ -4939,52 +5499,140 @@ def _sandwich_moving_yoke(*, tube_socket: bool = True,
     femur knee bracket across the tight 90 mm femur span -- see
     FEMUR_TUBE_SOCKET_LEN; the long-span tibia knee yoke keeps the default).
 
-    - TOP arm seats on the disc-horn top (z = JOINT_HORN_TOP_Z) and bolts
-      to it with 4x M3 on the Phi DISC_HORN_BOLT_PCD circle (driven).
-    - BOTTOM arm carries a Phi PASSIVE_STUB_OD stub shaft rising into the
-      688 bearing inner race (passive support).
+    - TOP arm seats on the DRIVEN disc-horn top (z = JOINT_HORN_TOP_Z) and
+      bolts to it with 4x M3 on the Phi DISC_HORN_BOLT_PCD circle.
+    - BOTTOM arm is the MIRROR of the top: it seats on the PASSIVE disc horn
+      (z = JOINT_HORN_BOT_Z) and bolts to it with the SAME 4x M3 pattern +
+      reach-down pad.  Both arms clamp a disc horn identically; the passive
+      horn rides the servo's rear idler boss (no external bearing).
     - +X spine ties the arms and (optionally) sockets the Phi 8 CF tube
       (epoxy + transverse retention pin).
     """
-    top_z0 = JOINT_HORN_TOP_Z                       # 43.3 (top arm underside)
     arm_t = _YOKE_ARM_T
-    back_out = -PASSIVE_BACK_PLATE_T                 # -7 (housing outer face)
-    bot_z1 = back_out - 1.0                          # -8
-    bot_z0 = _YOKE_BOT_Z0                            # -12
 
-    # Top arm (bolts to disc horn).
-    top = _box((_YOKE_ARM_X1 - _YOKE_ARM_X0, 2 * _YOKE_ARM_Y, arm_t),
-               center=(0.5 * (_YOKE_ARM_X0 + _YOKE_ARM_X1), 0.0,
-                       top_z0 + arm_t / 2.0))
-    cuts = []
-    for (hx, hy) in _disc_horn_bolt_centres():
-        h = _cyl(DISC_HORN_BOLT_OD / 2.0, arm_t * 4)
-        h.apply_translation([hx, hy, top_z0 + arm_t / 2.0])
-        cuts.append(h)
-    top = _diff(top, *cuts)
+    def _disc_arm(seat_z, arm_dir, reach):
+        """One disc-clamping clevis arm.  ``seat_z`` is the seat plane (the arm
+        body's inner face); ``arm_dir`` is +1 for the TOP arm (pad reaches DOWN
+        -Z to the horn, arm body +Z) and -1 for the BOTTOM arm (mirrored).
+        ``reach`` is the reach-down-pad depth bridging the seat plane to the REAL
+        disc mating face.  Symmetric refit: BOTH arms use the SAME reach
+        (YOKE_ARM_PAD + YOKE_SEAT_INTERF) so one screw bolts each side -- the
+        driven seat (JOINT_HORN_TOP_Z) and the moved passive seat
+        (JOINT_HORN_BOT_Z) are each one pad above/below their disc face, and the
+        pad reaches YOKE_SEAT_INTERF PAST the rigid disc for a snug clamp."""
+        d = float(arm_dir)
+        # Arm body: a slab on the OUTBOARD side of the seat plane.
+        arm = _box((_YOKE_ARM_X1 - _YOKE_ARM_X0, 2 * _YOKE_ARM_Y, arm_t),
+                   center=(0.5 * (_YOKE_ARM_X0 + _YOKE_ARM_X1), 0.0,
+                           seat_z + d * arm_t / 2.0))
+        # Reach-down pad: the real aluminium disc horn is only DISC_HORN_H
+        # (2 mm), so its mating face sits ``reach`` INBOARD of the frozen seat
+        # plane.  A concentric pad bridges the arm to the real horn so the yoke
+        # actually bolts onto the disc -- every joint axis / link length stays
+        # frozen.  Sized to the disc OD (+ YOKE_PAD_RADIAL_GROW per side, user
+        # request) so it still clears the fixed cradle's running bore as it
+        # rotates.
+        pad = _cyl(DISC_HORN_OD / 2.0 - 0.5 + YOKE_PAD_RADIAL_GROW, reach)
+        pad.apply_translation([SERVO_OUTPUT_X, 0.0,
+                               seat_z - d * reach / 2.0])
+        arm = _union(arm, pad)
+        cuts = []
+        for (hx, hy) in _disc_horn_bolt_centres():
+            h = _cyl(DISC_HORN_BOLT_OD / 2.0, arm_t * 4 + 2 * reach)
+            h.apply_translation([hx, hy, seat_z + d * arm_t / 2.0])
+            cuts.append(h)
+        # Central spline-collar clearance through the reach-down pad face.
+        collar = _cyl(DISC_HORN_COLLAR_OD / 2.0 + 0.25, DISC_HORN_COLLAR_DEPTH + 1.0)
+        collar.apply_translation([SERVO_OUTPUT_X, 0.0,
+                                  (seat_z - d * reach)
+                                  + d * (DISC_HORN_COLLAR_DEPTH + 1.0) / 2.0])
+        cuts.append(collar)
+        return _diff(arm, *cuts)
 
-    # Bottom arm + stub shaft into the bearing inner race.
-    bot = _box((_YOKE_ARM_X1 - _YOKE_ARM_X0, 2 * _YOKE_ARM_Y, arm_t),
-               center=(0.5 * (_YOKE_ARM_X0 + _YOKE_ARM_X1), 0.0,
-                       bot_z0 + arm_t / 2.0))
-    stub_top = back_out + PASSIVE_BEARING_W          # -2
-    stub_z0 = bot_z1 - arm_t
-    stub = _cyl(PASSIVE_STUB_OD / 2.0 - 0.1, stub_top - stub_z0)
-    stub.apply_translation([SERVO_OUTPUT_X, 0.0, 0.5 * (stub_z0 + stub_top)])
+    reach = YOKE_ARM_PAD + YOKE_SEAT_INTERF                        # symmetric, snug
+    top = _disc_arm(JOINT_HORN_TOP_Z, +1, reach)                   # driven (flush front)
+    bot = _disc_arm(JOINT_HORN_BOT_Z, -1, reach)                   # passive (rear boss)
+    top_z0 = JOINT_HORN_TOP_Z
 
     spine = _box((_YOKE_SPINE_X1 - _YOKE_SPINE_X0, 2 * _YOKE_ARM_Y,
-                  (top_z0 + arm_t) - bot_z0),
+                  (top_z0 + arm_t) - _YOKE_BOT_Z0),
                  center=(0.5 * (_YOKE_SPINE_X0 + _YOKE_SPINE_X1), 0.0,
-                         0.5 * (bot_z0 + top_z0 + arm_t)))
+                         0.5 * (_YOKE_BOT_Z0 + top_z0 + arm_t)))
 
-    parts = [top, bot, stub, spine]
+    parts = [top, bot, spine]
     if tube_socket:
         boss, bore, pin = _leg_tube_socket_x(
-            _YOKE_SPINE_X1, JOINT_SOCKET_Z,
+            _YOKE_SOCKET_X, JOINT_SOCKET_Z,
             length=socket_length, pin_inset=socket_pin_inset)
         parts.append(boss)
         return _diff(_union(*parts), bore, pin)
     return _union(*parts)
+
+
+# ---------------------------------------------------------------------------
+# Printed FEMUR strut (Jun 2026) -- 3D-printed drop-in for the femur CF tube
+# ---------------------------------------------------------------------------
+# User: "the femur tube is so ridiculously short and cutting the carbon fiber
+# is kind of a pain, would you make a 3d print version of the tube (probably
+# should be solid with the screw holes built in to save me time)?"
+#
+# The femur CF segment is only the mouth-to-mouth span between the hip-yoke
+# socket (_YOKE_SOCKET_X) and the knee-bracket socket (-WELL_W/2) -- the two
+# facing sockets nearly meet, so the exposed tube is tiny (~16 mm) and fiddly to
+# cut + drill.  make_femur_strut() prints a SOLID rod that replaces ONLY the
+# femur tube: it slides into the SAME two Phi (LEG_TUBE_OD + 2*clear) sockets and
+# is retained by the SAME 2 transverse pins, but with the Phi LEG_TUBE_PIN_OD pin
+# cross-holes already PRINTED IN (no CF to cut, no holes to drill).  The longer
+# 130 mm tibia stays CF (its span is ample and cutting one long tube is easy).
+#
+# It is a TRUE drop-in: the hip-yoke / knee-bracket socket geometry and the
+# transverse-pin pattern are UNCHANGED -- only the tube material/part changes.
+FEMUR_STRUT_LEN       = FEMUR_LENGTH - _YOKE_SOCKET_X - WELL_W / 2.0
+                        # mouth-to-mouth span the tube occupied (~16.3 mm); the
+                        # strut engages FEMUR_TUBE_SOCKET_LEN of each socket.
+FEMUR_STRUT_FIT_CLEAR = 0.1   # mm radial slip UNDER the socket bore so the
+                              # printed rod drops into the printed socket (the
+                              # CF tube used a 0.05 mm epoxy-film fit; a dry
+                              # printed-printed pair wants a touch more).
+FEMUR_STRUT_OD        = LEG_TUBE_OD - 2 * FEMUR_STRUT_FIT_CLEAR
+                        # Phi 7.8 -> ~0.15 mm radial gap in the Phi 8.1 bore;
+                        # the transverse pins locate + lock it (as on the tube).
+
+
+def make_femur_strut() -> trimesh.Trimesh:
+    """SOLID printed replacement for the femur Phi 8 mm CF tube (Jun 2026).
+
+    A Phi FEMUR_STRUT_OD rod of length FEMUR_STRUT_LEN with the 2 transverse
+    Phi LEG_TUBE_PIN_OD retention-pin cross-holes printed in at
+    FEMUR_TUBE_PIN_INSET from each end -- so it drops into the existing
+    femur_hip_yoke / femur_knee_bracket sockets and is pinned exactly like the
+    CF tube it replaces, with NO cutting + NO drilling.
+
+    Canonical local frame: rod AXIS along X, centred at the origin; the two
+    pin holes run along Y.  Placed in the femur via ``_femur_strut_joint_local``
+    so the pins land coaxial with BOTH socket pins.  Prints standing on a flat
+    Phi FEMUR_STRUT_OD end cap (see prepare_xometry_upload reorient)."""
+    L = FEMUR_STRUT_LEN
+    rod = _cyl(FEMUR_STRUT_OD / 2.0, L)
+    rod.apply_transform(rotation_matrix(np.pi / 2.0, [0, 1, 0]))   # axis Z -> X
+    cuts = []
+    for sx in (-1, 1):
+        hx = sx * (L / 2.0 - FEMUR_TUBE_PIN_INSET)
+        pin = _cyl(LEG_TUBE_PIN_OD / 2.0, FEMUR_STRUT_OD * 2.0)
+        pin.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))   # axis -> Y
+        pin.apply_translation([hx, 0.0, 0.0])
+        cuts.append(pin)
+    return _diff(rod, *cuts)
+
+
+def _femur_strut_joint_local() -> trimesh.Trimesh:
+    """``make_femur_strut`` translated into the HIP-YOKE joint-local frame so it
+    spans the two socket mouths: applying the hip-yoke ``_joint_place`` matrix
+    then lands its rod axis on the femur tube line and its pin holes coaxial
+    with BOTH the hip-yoke (+X) and knee-bracket (-X) socket retention pins."""
+    s = make_femur_strut()
+    s.apply_translation([_YOKE_SOCKET_X + FEMUR_STRUT_LEN / 2.0, 0.0, JOINT_SOCKET_Z])
+    return s
 
 
 def _servo_envelope() -> trimesh.Trimesh:
@@ -5003,17 +5651,20 @@ def _servo_envelope() -> trimesh.Trimesh:
     body = _box((SERVO_BODY_W, SERVO_BODY_D, SERVO_BODY_H),
                 center=(0, 0, SERVO_BODY_H / 2.0))
 
-    # Output COUPLING stub on the FRONT (+Z) face: only the spline/bushing
-    # (~dia 9) passes up through the cradle's plate bore.  The dia-20 disc
-    # horn is a SEPARATE part (``make_disc_horn``) that mounts ABOVE the
-    # plate, so it is NOT part of the servo body envelope -- modelling the
-    # dia-20 cap here would (wrongly) overlap the mount plate.
-    coupling = _cyl((SERVO_OUTPUT_BORE_OD - 1.0) / 2.0, SERVO_OUTPUT_H + 1.5)
-    coupling.apply_translation([SERVO_OUTPUT_X, 0,
-                                 SERVO_BODY_H + (SERVO_OUTPUT_H + 1.5) / 2.0])
-    spline = _cyl(SERVO_SPLINE_OD / 2.0, SERVO_OUTPUT_H + 3.0)
-    spline.apply_translation([SERVO_OUTPUT_X, 0,
-                                SERVO_BODY_H + (SERVO_OUTPUT_H + 3.0) / 2.0])
+    # Output spline/coupling on the FRONT (+Z) face.  Jun 2026 flush-output
+    # correction (user, repeated): the STS3215 output does NOT protrude beyond
+    # the body front face -- the 25T spline is essentially flush and the Phi20
+    # aluminium disc horn (a SEPARATE part, ``make_disc_horn``) RECESSES onto it,
+    # seating FLUSH on the front face.  The old model drew the coupling/spline
+    # SERVO_OUTPUT_H+ proud, which (a) contradicted the hardware and (b) would
+    # now ram the flush-seated disc horn.  Model the output as a flush boss whose
+    # TOP is the front face (z = SERVO_BODY_H), extending DOWN into the body, so
+    # it never pokes up into the disc horn or the mount-plate bore.
+    OUT_BOSS_H = 2.0
+    coupling = _cyl((SERVO_OUTPUT_BORE_OD - 1.0) / 2.0, OUT_BOSS_H)
+    coupling.apply_translation([SERVO_OUTPUT_X, 0, SERVO_BODY_H - OUT_BOSS_H / 2.0])
+    spline = _cyl(SERVO_SPLINE_OD / 2.0, OUT_BOSS_H)
+    spline.apply_translation([SERVO_OUTPUT_X, 0, SERVO_BODY_H - OUT_BOSS_H / 2.0])
 
     # Idler coupling on the BACK (-Z) face (open air -- the cradle is open
     # behind the body), same axis.
@@ -5493,20 +6144,18 @@ def _hex_plate(flat_to_flat: float, thickness: float,
             holes.append(cutout)
 
             if with_leg_harness_drops:
-                # Per-leg cable-drop slot through the plate, just
-                # INBOARD of the body cutout, on the chassis radial
-                # axis (slot long axis = bracket +X = chassis radial,
-                # short axis = bracket Y = chassis tangential).  See
-                # the LEG_HARNESS_DROP_* constants block above for
-                # the geometry rationale.
-                drop = _box((LEG_HARNESS_DROP_X_EXTENT,
-                              LEG_HARNESS_DROP_Y_EXTENT,
-                              thickness * 4))
-                drop.apply_transform(R)
-                drop_world = edge_mid + R3 @ np.array(
-                    [LEG_HARNESS_DROP_X_CENTRE, 0.0, 0.0])
-                drop.apply_translation(drop_world)
-                holes.append(drop)
+                # Per-leg cable-drop slots through the plate, just INBOARD of
+                # the body cutout, on the chassis radial axis (slot long axis =
+                # bracket +X = chassis radial, short axis = bracket Y = chassis
+                # tangential).  ``leg_harness_drop_slots()`` enumerates the
+                # primary slot + the tangential flanking ports; see the
+                # LEG_HARNESS_DROP_* constants block above for the rationale.
+                for sx, sy, sxe, sye in leg_harness_drop_slots():
+                    drop = _box((sxe, sye, thickness * 4))
+                    drop.apply_transform(R)
+                    drop_world = edge_mid + R3 @ np.array([sx, sy, 0.0])
+                    drop.apply_translation(drop_world)
+                    holes.append(drop)
 
     if with_centre_holes:
         # 4 holes for the electronics tray's chassis-mount bolts on
@@ -5853,14 +6502,12 @@ def _chassis_bottom_full_solid() -> trimesh.Trimesh:
     # plate has identical drop-slot openings to the pre-union plate.
     drops: list[trimesh.Trimesh] = []
     for _i, edge_mid, R, R3 in _leg_chassis_frames():
-        drop = _box((LEG_HARNESS_DROP_X_EXTENT,
-                      LEG_HARNESS_DROP_Y_EXTENT,
-                      CHASSIS_PLATE_T * 4.0))
-        drop.apply_transform(R)
-        drop_world = edge_mid + R3 @ np.array(
-            [LEG_HARNESS_DROP_X_CENTRE, 0.0, 0.0])
-        drop.apply_translation(drop_world)
-        drops.append(drop)
+        for sx, sy, sxe, sye in leg_harness_drop_slots():
+            drop = _box((sxe, sye, CHASSIS_PLATE_T * 4.0))
+            drop.apply_transform(R)
+            drop_world = edge_mid + R3 @ np.array([sx, sy, 0.0])
+            drop.apply_translation(drop_world)
+            drops.append(drop)
     plate = _diff(plate, *drops)
 
     # Battery-bolt driver access (Jun 2026).  Carve a vertical hex-key
@@ -6061,8 +6708,11 @@ def _chassis_bottom_floor_solid() -> trimesh.Trimesh:
 
     Functional negative space (ONE batched diff -- no coplanar-faced unions, so
     nothing for the boolean kernel to shred):
-      * 6 per-leg servo-body clearance cutouts (``WELL_W+2 x WELL_D+2``) so each
-        yaw servo body passes down through the floor and hangs below;
+      * 6 per-leg servo-body clearance cutouts (sized to the servo BODY +
+        ``WELL_BODY_CL``, == the cradle's own body cavity -- NOT the larger
+        ``WELL_W+2 x WELL_D+2`` well) so each yaw servo body passes down through
+        the floor and hangs below while the floor still fills in UNDER the
+        cradle walls to keep the -6 bottom face flush/flat for printing;
       * 6 per-leg harness-drop slots (the serial-bus wire exits);
       * 2-per-leg ``yaw_servo_retainer`` self-tap pilots (blind, opening at the
         -6 bottom face) in solid plate material on the tangential flanks of
@@ -6096,6 +6746,30 @@ def _chassis_bottom_floor_solid() -> trimesh.Trimesh:
     plate.apply_transform(rotation_matrix(np.pi / 6, [0, 0, 1]))
     plate.apply_translation([0.0, 0.0, z_c])
 
+    # ---- Per-leg cradle-footprint pads ground the OUTBOARD cradle walls ----
+    # The hex prism only reaches the apothem (radial 100 mm at each edge
+    # midpoint), but each yaw cradle's outer shell OVERHANGS outboard past the
+    # hex edge (to radial ~ apothem + outer_w/2 - SERVO_OUTPUT_X = 118.5 mm).
+    # With no floor out there the cradle's outboard end-wall underside floats
+    # at the -2 split plane (world +23.5).  Union a pad matching the cradle
+    # outer-shell footprint under each leg so the floor reaches the FULL
+    # cradle silhouette and grounds those outboard walls to the -6 bed.  This
+    # is purely BELOW the deck (z in [-6, -1]); the leg/coxa mounts ~20 mm
+    # ABOVE the deck and the swing relief sits at z = +4.25, so the pad adds
+    # no collision envelope (the cradle TOWER already occupies this silhouette
+    # above the plate).  The servo-body cutout below still punches through.
+    outer_w = WELL_W + 2.0 + 2.0 * CRADLE_BOND_STRIP_MM
+    outer_d = WELL_D + 2.0 + 2.0 * CRADLE_BOND_STRIP_MM
+    pad_r = apothem - SERVO_OUTPUT_X            # cradle outer-shell centre radius
+    pads: list[trimesh.Trimesh] = []
+    for k in range(6):
+        az = np.radians(30.0 + 60.0 * k)
+        pad = _box((outer_w, outer_d, t))
+        pad.apply_transform(rotation_matrix(az, [0, 0, 1]))
+        pad.apply_translation([pad_r * np.cos(az), pad_r * np.sin(az), z_c])
+        pads.append(pad)
+    plate = _union(plate, *pads)
+
     # ---- ONE canonical 60-deg sector of cutters (built ONCE) --------------
     sector: list[trimesh.Trimesh] = []
 
@@ -6103,25 +6777,42 @@ def _chassis_bottom_floor_solid() -> trimesh.Trimesh:
     # leg azimuth (legs sit at the 6 hex-edge midpoints, 30 + k*60 deg).
     leg_az = np.radians(30.0)
     body_r = apothem - SERVO_OUTPUT_X
-    cutout = _box((WELL_W + 2.0, WELL_D + 2.0, t * 4.0))
+    # Servo-BODY clearance cutout (Jun 2026 flush-bottom fix).  Sized to the
+    # servo body + WELL_BODY_CL on each face -- i.e. the SAME body cavity the
+    # cradle uses in ``_chassis_yaw_cradle_solid`` -- NOT the larger
+    # ``WELL_W+2 x WELL_D+2`` plate body cutout the cradle TOWER bonds into.
+    # The old well-sized cutout stripped floor out under the cradle WALLS,
+    # leaving their undersides floating at the split plane (z = CHASSIS_SPLIT_Z
+    # = -2, world +23.5 -- 4 mm proud of the -6 / world +19.55 bed).  Sizing it
+    # to the body lets the floor fill in UNDER the cradle walls all the way to
+    # the -6 bed, so the chassis_bottom underside is ONE flush flat face (no
+    # 4-mm-deep recesses -> fewer FDM supports); the servo body still drops
+    # through with its usual 0.7 mm/face clearance.
+    body_cut_w = SERVO_BODY_W + 2.0 * WELL_BODY_CL
+    body_cut_d = SERVO_BODY_D + 2.0 * WELL_BODY_CL
+    cutout = _box((body_cut_w, body_cut_d, t * 4.0))
     cutout.apply_transform(rotation_matrix(leg_az, [0, 0, 1]))
     cutout.apply_translation([body_r * np.cos(leg_az), body_r * np.sin(leg_az), z_c])
     sector.append(cutout)
 
-    drop_r = apothem + LEG_HARNESS_DROP_X_CENTRE   # X_CENTRE is negative (inboard)
-    drop = _box((LEG_HARNESS_DROP_X_EXTENT, LEG_HARNESS_DROP_Y_EXTENT, t * 4.0))
-    drop.apply_transform(rotation_matrix(leg_az, [0, 0, 1]))
-    drop.apply_translation([drop_r * np.cos(leg_az), drop_r * np.sin(leg_az), z_c])
-    sector.append(drop)
+    # Per-leg cable pass-through slots (primary + tangential flanking ports);
+    # x = chassis radial (along leg_az), y = chassis tangential.  Shared with
+    # the plate cuts via ``leg_harness_drop_slots()``.
+    rad = np.array([np.cos(leg_az), np.sin(leg_az)])
+    tan = np.array([-np.sin(leg_az), np.cos(leg_az)])
+    edge = apothem * rad
+    for sx, sy, sxe, sye in leg_harness_drop_slots():
+        pxy = edge + sx * rad + sy * tan
+        drop = _box((sxe, sye, t * 4.0))
+        drop.apply_transform(rotation_matrix(leg_az, [0, 0, 1]))
+        drop.apply_translation([pxy[0], pxy[1], z_c])
+        sector.append(drop)
 
     # Yaw-servo retainer-strap anchor pilots: 2 blind M3 self-tap holes in the
     # floor BOTTOM at the tangential flanks of the leg's body cutout, where the
     # capture stirrup (make_yaw_servo_retainer) bolts UP to tie the hanging yaw
     # servo to the chassis.  chassis_lower_retainer_anchor_centres is the shared
     # single source of truth for the stirrup arms + the alignment guard.
-    rad = np.array([np.cos(leg_az), np.sin(leg_az)])
-    tan = np.array([-np.sin(leg_az), np.cos(leg_az)])
-    edge = apothem * rad
     pil_h = RETAINER_PLATE_PILOT_DEPTH + 0.2
     for (cxr, cyt) in chassis_lower_retainer_anchor_centres():
         pxy = edge + cxr * rad + cyt * tan
@@ -9139,9 +9830,50 @@ def _coxa_join_bolt_centres():
 
 # Coxa-local Z planes for the spaced-pair hub (shared by Part A + Part B so
 # the two printed parts mate without interpenetrating).
-YAW_HUB_BOSS_BOT_Z = YAW_BEARING_LOWER_BOT_Z + 0.5     # -4.5 (0.5 over servo face)
-YAW_HUB_BOSS_TOP_Z = YAW_TOWER_TOP_Z + 0.5             # +7.5 (just above tower lip)
-YAW_HUB_PLATFORM_Z1 = YAW_HUB_BOSS_TOP_Z + YAW_HUB_PAD_T  # +13.5 (Part B seats here)
+# Jun 2026 flush-horn refit: the hub seats FLAT on the horn top (z = 0) -- the
+# old wrap-around skirt that dipped to z = -4.5 is gone -- and the solid boss
+# rides BOTH inner races above it.
+# Jun 2026 flush-horn DEPTH fix (user: "the motor tip doesn't protrude; the
+# bearing cap can't get flush with the horn").  ROOT CAUSE: the yaw servo's
+# front face seats against the mount-plate UNDERSIDE and the output does NOT
+# protrude, so the Phi20 disc horn sits FLUSH on the front face -- i.e. RECESSED
+# inside the WELL_PLATE_T (4 mm) mount-plate bore, with its top
+# (WELL_PLATE_T - DISC_HORN_H) = 2 mm BELOW the plate top, NOT sitting ON the
+# plate top.  The frozen output plane (coxa z = 0) is WELL_PLATE_T + HORN_STACK_H
+# above the front face, so the REAL flush-horn top is YAW_HORN_REACH_DOWN below
+# it -- 4 mm deeper than the generic HORN_REACH_DOWN = 3 mm that the PLATELESS
+# hip/knee joints use (their horn rides the bare output boss, no 4 mm plate).
+# The old hub reached only -HORN_REACH_DOWN = -3, leaving a 4 mm axial GAP above
+# the real horn: the 4 drive bolts never bit the disc and the whole turntable
+# stack (incl. the bearing cap) floated, never seating flush.  The hub now
+# reaches the real horn through the plate bore via a necked drive nub.
+YAW_HORN_REACH_DOWN = WELL_PLATE_T + HORN_STACK_H - DISC_HORN_H   # 7 mm
+YAW_HUB_BOSS_BOT_Z = -YAW_HORN_REACH_DOWN             # -7: real flush-horn top
+# The wide Phi YAW_HUB_BOSS_OD boss (rides BOTH inner races) necks DOWN to a
+# Phi YAW_HUB_DRIVE_NUB_OD stub that passes THROUGH the Phi HORN_CLEAR_OPENING_OD
+# plate bore to seat on the recessed horn (this IS the "~3 mm bump <= the 20 mm
+# chassis hole" the user asked for, sized to the disc footprint).  The nub
+# carries the 4 x M3 drive bolts (PCD 14).
+#
+# Jun 2026 (user: "the bottom ring of the coxa yaw hub needs to be 4 mm not
+# 2 mm"): the disc-horn-mating "bottom ring" is this necked nub.  Its BOTTOM
+# face is FROZEN at YAW_HUB_BOSS_BOT_Z = -7 (the recessed flush-horn top) so the
+# 4 drive bolts still bite the disc and the cap seats flush (gap 0.00 mm) --
+# growing the ring DOWN would crash the horn/servo, so we grow it UP by raising
+# the wide-boss neck plane.  The narrow Phi 20 nub stays well clear: through the
+# plate bore (Phi 24) below z = -5 and inside the Phi 37 tower pocket / Phi 44
+# tower relief above it, so a taller narrow neck only ADDS clearance.  The wide
+# boss still spans the full bearing band (z >= +0.5) untouched.
+YAW_HUB_BOTTOM_RING_T = 4.0                            # mm -- disc-horn-mating ring (Z thickness)
+YAW_HUB_BOSS_WIDE_BOT_Z = YAW_HUB_BOSS_BOT_Z + YAW_HUB_BOTTOM_RING_T  # -3: neck plane (ring top)
+YAW_HUB_DRIVE_NUB_OD    = DISC_HORN_OD                 # Phi 20: == disc footprint
+assert YAW_HUB_DRIVE_NUB_OD <= HORN_CLEAR_OPENING_OD - 2.0, (
+    "yaw drive nub must clear the chassis mount-plate bore by >=1 mm radial")
+YAW_HUB_BOSS_TOP_Z = YAW_TOWER_TOP_Z + 0.5             # +13.0 (just above tower lip)
+YAW_HUB_PLATFORM_Z1 = YAW_HUB_BOSS_TOP_Z + YAW_HUB_PAD_T  # +19.0 (Part B seats here)
+assert abs(YAW_HUB_PLATFORM_Z1 - _YAW_HUB_PLATFORM_TOP_EARLY) < 1e-9, (
+    "YAW_HUB_PLATFORM_Z1 drifted from the early estimate used in "
+    "COXA_COAXIAL_FOOT_RAISE -- keep the two formulas in sync")
 
 
 def make_coxa_yaw_hub() -> trimesh.Trimesh:
@@ -9163,13 +9895,38 @@ def make_coxa_yaw_hub() -> trimesh.Trimesh:
     rboss = YAW_HUB_BOSS_OD / 2.0
     rinner = YAW_BEARING_INNER_OD / 2.0
 
-    # Lower boss: annular (clears the disc horn), rides the LOWER inner race.
-    lboss = _diff(_cyl(rboss, -YAW_HUB_BOSS_BOT_Z),       # z[BOSS_BOT, 0]
-                  _cyl(rbore, -YAW_HUB_BOSS_BOT_Z * 3))
-    lboss.apply_translation([0.0, 0.0, YAW_HUB_BOSS_BOT_Z / 2.0])
-    # Upper boss: solid, rides the UPPER inner race (z[0, BOSS_TOP]).
-    uboss = _cyl(rboss, YAW_HUB_BOSS_TOP_Z)
-    uboss.apply_translation([0.0, 0.0, YAW_HUB_BOSS_TOP_Z / 2.0])
+    # Jun 2026 flush-horn fix: the real STS3215 disc horn is ~2 mm thick and
+    # sits RECESSED into the servo's output face, so the horn top is
+    # essentially FLUSH with the servo body -- there is no protruding
+    # horn pedestal for the hub to wrap a skirt down around.  The old
+    # annular LOWER boss (z[-4.5, 0], Phi 22 bore that "clears the disc horn")
+    # was therefore a recess for a horn that does not protrude; on the real
+    # hardware that skirt would just crash into the servo face.  Dropped: the
+    # hub now seats FLAT on the horn top at z = 0 (its bottom face meets the
+    # horn where it actually sits).  The central spline collar / screw bump is
+    # cleared by the Phi DISC_HORN_COLLAR_OD recess cut below.
+    # Boss: solid, rides BOTH inner races.  Jun 2026 flush-horn DEPTH fix: the
+    # real disc horn sits FLUSH on the servo front face -- RECESSED 2 mm into the
+    # 4 mm mount-plate bore -- so its top is YAW_HORN_REACH_DOWN = 7 mm below the
+    # frozen output plane (z = 0), NOT 3 mm.  The wide Phi 29.8 boss descends to
+    # the plate top (YAW_HUB_BOSS_WIDE_BOT_Z = -5) where the Phi 44 tower relief
+    # still clears it; below that it necks to the Phi 20 drive nub (built above)
+    # that passes through the Phi 24 plate bore down to YAW_HUB_BOSS_BOT_Z = -7,
+    # seating on the real horn so the 4 drive bolts bite the disc and the cap
+    # seats flush.  The boss stays below the lower bearing (z >= +0.5), so the
+    # inner-race insertion path is unchanged.
+    # Wide boss (rides BOTH inner races) spans the mount-plate top up to the
+    # platform.  Below the plate top it NECKS to the Phi 20 drive nub that
+    # threads through the plate bore down to the recessed flush horn so the
+    # 4 drive bolts bite the disc and the stack seats flush (the user's
+    # "3 mm bump <= the chassis hole").
+    uboss = _cyl(rboss, YAW_HUB_BOSS_TOP_Z - YAW_HUB_BOSS_WIDE_BOT_Z)
+    uboss.apply_translation([0.0, 0.0,
+                             0.5 * (YAW_HUB_BOSS_WIDE_BOT_Z + YAW_HUB_BOSS_TOP_Z)])
+    drive_nub = _cyl(YAW_HUB_DRIVE_NUB_OD / 2.0,
+                     YAW_HUB_BOSS_WIDE_BOT_Z - YAW_HUB_BOSS_BOT_Z)
+    drive_nub.apply_translation(
+        [0.0, 0.0, 0.5 * (YAW_HUB_BOSS_BOT_Z + YAW_HUB_BOSS_WIDE_BOT_Z)])
     # Single inner-race retain flange (OD = inner-race OD = Phi 32; clears the
     # Phi 35 outer-race ID so it never rubs the STATIONARY race).  This is the
     # uflange ABOVE the upper race (z[6, 7]) -- it makes the upper bearing the
@@ -9219,7 +9976,7 @@ def make_coxa_yaw_hub() -> trimesh.Trimesh:
                 _cyl(lip_inner_r, (lip_z1 - lip_z0) * 3))
     lip.apply_translation([0.0, 0.0, 0.5 * (lip_z0 + lip_z1)])
 
-    hub = _union(lboss, uboss, uflange, plat, lip)
+    hub = _union(uboss, drive_nub, uflange, plat, lip)
 
     cuts = []
     # Disc-horn drive bolts (4 x M3, PCD14).  CLAMP-THROUGH: heads recess at
@@ -9232,10 +9989,11 @@ def make_coxa_yaw_hub() -> trimesh.Trimesh:
     # collar (Phi ~9) protrudes ABOVE the horn top (z=0) into the solid
     # upper boss.  Recess it so the hub seats on the disc FACE (via the
     # bearings) and never bottoms on the collar.
-    collar = _cyl(DISC_HORN_COLLAR_OD / 2.0 + 0.25,
-                  DISC_HORN_COLLAR_DEPTH + 1.0)            # z[-0.5, +2.5]
-    collar.apply_translation([0.0, 0.0,
-                              (DISC_HORN_COLLAR_DEPTH + 1.0) / 2.0 - 0.5])
+    # Recess starts at the (now lowered) boss bottom face = real horn top and
+    # rises COLLAR_DEPTH+1 so the disc's raised central spline collar clears.
+    collar_h = DISC_HORN_COLLAR_DEPTH + 1.0
+    collar = _cyl(DISC_HORN_COLLAR_OD / 2.0 + 0.25, collar_h)
+    collar.apply_translation([0.0, 0.0, YAW_HUB_BOSS_BOT_Z + collar_h / 2.0])
     cuts.append(collar)
     r = DISC_HORN_BOLT_PCD / 2.0
     drive_clear = DISC_HORN_BOLT_OD + 0.8                 # Phi 4.2 (torque-only)
@@ -9375,28 +10133,22 @@ def make_coxa_link() -> trimesh.Trimesh:  # noqa: F811  (sandwich override)
 
 
 def make_femur_hip_yoke() -> trimesh.Trimesh:
-    """Femur's HIP end: the moving yoke (driven by the hip disc horn,
-    stub into the hip 688 bearing) with the femur CF-tube socket toward
-    the knee.  Joint-local frame.
+    """Femur's HIP end: the moving yoke (driven by the hip disc horn) with the
+    femur CF-tube socket toward the knee.  Joint-local frame.
 
     Uses the SHORT femur tube socket (FEMUR_TUBE_SOCKET_LEN) so it does not
     interpenetrate the femur knee bracket's facing socket across the femur's
-    tight ~19 mm tube span (caught by the assembly-interference gate)."""
-    yoke = _sandwich_moving_yoke(tube_socket=True,
+    tight ~19 mm tube span (caught by the assembly-interference gate).
+
+    Jun 2026 ROM-clearance refit: the two hip-pitch spine reliefs (a +Y/-25 deg
+    corner pocket and a -Y/+30 deg shave) are RETIRED -- moving the connecting
+    web +4 mm outboard (see _YOKE_SPINE_X0/X1) lifts the whole swept web clear of
+    BOTH the fixed clamp cap and the coxa across the full femur ROM, so no local
+    pocketing is needed (verified 0 mm^3 overlap, femur -80..+30, by the
+    clamp-cap-augmented workspace sweep)."""
+    return _sandwich_moving_yoke(tube_socket=True,
                                  socket_length=FEMUR_TUBE_SOCKET_LEN,
                                  socket_pin_inset=FEMUR_TUBE_PIN_INSET)
-    # Hip-pitch clearance relief on the spine's BACK (-X) / +Y corner.  At the
-    # STANCE_FEMUR_DEG = -25 deg hip pitch, the FIXED hip_clamp_cap flange
-    # corner (it roofs the servo cradle's +Y face) sweeps ~1.1 mm INTO this
-    # corner of the rotating yoke spine -- a real ~58 mm^3 two-solids clash the
-    # assembly gate flags.  The spine is 4 mm deep in X (x[38,42]) and the
-    # clash only bites its -X face over the +Y band y[9.4,12], so pocket that
-    # corner back ~1.7 mm (leaving >=2.3 mm of spine tying the arms + tube
-    # socket, which lives at the FAR +X end x=42).  Only this hip yoke needs it
-    # (the knee yoke's +35 deg pose clears its clamp cap), so it is applied
-    # here rather than in the shared _sandwich_moving_yoke.
-    relief = _box((4.7, 4.0, 46.0), center=(37.35, 11.0, 17.0))
-    return _diff(yoke, relief)
 
 
 def make_femur_knee_bracket() -> trimesh.Trimesh:
@@ -9458,7 +10210,7 @@ def tibia_foot_hinge_local() -> np.ndarray:
     """
     xz = (1, 0, 0), LEG_PITCH_AXIS
     Mk = _joint_place((0.0, 0.0, 0.0), *xz)
-    a = (Mk @ np.array([_YOKE_SPINE_X1, 0.0, JOINT_SOCKET_Z, 1.0]))[:3]
+    a = (Mk @ np.array([_YOKE_SOCKET_X, 0.0, JOINT_SOCKET_Z, 1.0]))[:3]
     foot_sock = a + np.array([TIBIA_LENGTH - 8.0, 0.0, 0.0])
     return foot_sock + np.array([16.0, 0.0, 0.0])
 
@@ -9473,7 +10225,7 @@ def tibia_foot_hinge_local() -> np.ndarray:
 # separately by main() (femur_hip_yoke / femur_knee_bracket / ...).
 
 def _femur_socket_world(M):  # mouth of the hip-yoke / knee-bracket socket
-    return M @ np.array([_YOKE_SPINE_X1, 0.0, JOINT_SOCKET_Z, 1.0])
+    return M @ np.array([_YOKE_SOCKET_X, 0.0, JOINT_SOCKET_Z, 1.0])
 
 
 def make_femur_link() -> trimesh.Trimesh:  # noqa: F811  (sandwich override)
@@ -9486,9 +10238,11 @@ def make_femur_link() -> trimesh.Trimesh:  # noqa: F811  (sandwich override)
     Mk = _joint_place((FEMUR_LENGTH, 0.0, 0.0), *xz)
     hy = make_femur_hip_yoke();     hy.apply_transform(Mh)
     kb = make_femur_knee_bracket(); kb.apply_transform(Mk)
-    a = (Mh @ np.array([_YOKE_SPINE_X1, 0.0, JOINT_SOCKET_Z, 1.0]))[:3]
-    b = (Mk @ np.array([-WELL_W / 2.0, 0.0, JOINT_SOCKET_Z, 1.0]))[:3]
-    return _union(hy, kb, _tube_between(a, b, LEG_TUBE_OD / 2.0))
+    # Jun 2026: the femur CF tube is replaced by a printed SOLID strut (see
+    # make_femur_strut); place it in the hip-yoke joint-local frame so it spans
+    # the two sockets exactly where the tube did.
+    strut = _femur_strut_joint_local(); strut.apply_transform(Mh)
+    return _union(hy, kb, strut)
 
 
 def make_tibia_link() -> trimesh.Trimesh:  # noqa: F811  (sandwich override)
@@ -9498,7 +10252,7 @@ def make_tibia_link() -> trimesh.Trimesh:  # noqa: F811  (sandwich override)
     xz = (1, 0, 0), LEG_PITCH_AXIS
     Mk = _joint_place((0.0, 0.0, 0.0), *xz)
     ky = make_tibia_knee_yoke(); ky.apply_transform(Mk)
-    a = (Mk @ np.array([_YOKE_SPINE_X1, 0.0, JOINT_SOCKET_Z, 1.0]))[:3]
+    a = (Mk @ np.array([_YOKE_SOCKET_X, 0.0, JOINT_SOCKET_Z, 1.0]))[:3]
     foot_sock = a + np.array([TIBIA_LENGTH - 8.0, 0.0, 0.0])
     ff = make_tibia_foot_fitting()
     # Place the fitting so its local +X runs along the tube (foot direction)
@@ -9574,12 +10328,10 @@ def leg_named_parts_in_body_frame(
     named.append(("femur_hip_yoke",     _placed(make_femur_hip_yoke(),     M_hipyoke)))
     named.append(("femur_knee_bracket", _placed(make_femur_knee_bracket(), M_kneebrack)))
 
-    sock_pt = np.array([_YOKE_SPINE_X1, 0.0, JOINT_SOCKET_Z, 1.0])
-    brack_sock = np.array([-WELL_W / 2.0, 0.0, JOINT_SOCKET_Z, 1.0])
-    femur_tube_a = (W @ M_hipyoke   @ sock_pt)[:3]
-    femur_tube_b = (W @ M_kneebrack @ brack_sock)[:3]
-    named.append(("femur_tube", _tube_between(femur_tube_a, femur_tube_b,
-                                              LEG_TUBE_OD / 2.0)))
+    sock_pt = np.array([_YOKE_SOCKET_X, 0.0, JOINT_SOCKET_Z, 1.0])
+    # Jun 2026: printed SOLID femur strut in place of the CF tube (placed in the
+    # hip-yoke joint-local frame so it spans + pins to both sockets).
+    named.append(("femur_strut", _placed(_femur_strut_joint_local(), M_hipyoke)))
 
     # ----- Tibia: knee yoke + CF tube + foot fitting ------------------
     M_tibyoke = _joint_place(K, tibia_dir, ty)
@@ -9676,115 +10428,112 @@ def make_assembly_preview() -> trimesh.Trimesh:
 # Main
 # ---------------------------------------------------------------------------
 
+def stl_export_groups() -> "list[tuple[str, list[tuple[str, object]]]]":
+    """Single source of truth for every STL ``main()`` writes to
+    ``stl_prototype/``.
+
+    Returns a list of ``(section_label, [(filename, builder), ...])`` where
+    each ``builder`` is a zero-argument callable returning a
+    ``trimesh.Trimesh`` (called lazily so importing this module is cheap).
+
+    Both the exporter (``main()``) and the verifier's
+    ``check_exported_stl_freshness`` walk THIS list, so the printable
+    on-disk STLs can never silently drift from the parametric source: if
+    you change a ``make_*`` factory but forget to re-run ``build_all.py``,
+    the verifier rebuilds each part here and flags the stale file.
+    """
+    return [
+        ("Body parts:", [
+            # Jun 2026: chassis_bottom is a SINGLE merged plate (flat plate +
+            # bearing tower + folded-in floor slab carrying the yaw cradles).
+            # The battery velcro-straps to it; the brain is an Arduino Uno Q on
+            # the lower stacked deck, a XINGYHENG buck converter on the upper.
+            ("chassis_top.stl",        make_chassis_top),
+            ("chassis_bottom.stl",     make_chassis_bottom),
+            ("uno_q_tray.stl",         make_uno_q_tray),
+            ("buck_tray.stl",          make_buck_tray),
+            # Spider carapace dome -- bolts on as a 3rd deck level (print rim-down).
+            ("spider_carapace.stl",    make_spider_carapace),
+            ("switch_holster.stl",     make_switch_holster),
+            ("imu_pad.stl",            make_imu_pad),
+            # Yaw-servo retainer strap (print 6) -- bolts across each cradle's
+            # open bottom so the STS3215 can't drop out.
+            ("yaw_servo_retainer.stl", make_yaw_servo_retainer),
+            # Yaw-bearing cap -- TOP half of the SPLIT bearing tower (print 6).
+            ("yaw_bearing_cap.stl",    make_yaw_bearing_cap),
+        ]),
+        ("Leg parts (one of each -- print 6 sets):", [
+            # Bearing-sandwich design: femur + tibia are each a printed yoke +
+            # bracket/fitting joined by a dia-8 CF tube.  Coxa prints as TWO
+            # parts -- the yaw turntable hub (rides the spaced bearing pair) and
+            # the hip bracket that stacks coaxially on top.
+            ("coxa_link.stl",          make_coxa_link),
+            ("coxa_yaw_hub.stl",       make_coxa_yaw_hub),
+            ("coxa_hip_bracket.stl",   make_coxa_hip_bracket),
+            ("femur_hip_yoke.stl",     make_femur_hip_yoke),
+            # Printed SOLID femur strut -- 3D-printed drop-in for the femur CF
+            # tube (slides into the same 2 sockets, pin holes printed in).
+            ("femur_strut.stl",        make_femur_strut),
+            ("femur_knee_bracket.stl", make_femur_knee_bracket),
+            ("tibia_knee_yoke.stl",    make_tibia_knee_yoke),
+            ("tibia_foot_fitting.stl", make_tibia_foot_fitting),
+            ("foot_pad.stl",           make_foot_pad),
+            # Clamshell clamp cap closing each sandwich-joint servo cradle
+            # (hip + knee = 2 per leg, 12 per robot).
+            ("servo_clamp_cap.stl",    make_servo_clamp_cap),
+            # Passive-horn centering adapter on the rear idler boss
+            # (symmetric-yoke refit; hip + knee = 2 per leg, 12 per robot).
+            ("passive_horn_adapter.stl", make_passive_horn_adapter),
+        ]),
+        # Assembled-link visual/sim meshes (NOT printed as single parts -- each
+        # is two printed fittings + a CF tube).  Emitted so MuJoCo's visual
+        # mesh loader and any mesh consumers show the real sandwich geometry.
+        ("Assembled-link visual/sim meshes (not printed as single parts):", [
+            (stl_filename("femur_link"), make_femur_link),
+            (stl_filename("tibia_link"), make_tibia_link),
+        ]),
+        # June 2026: the servo joints drive a 20 mm aluminum 25T DISC horn, not
+        # the plastic 4-arm X-horn, so ``servo_horn`` IS the disc (a
+        # ``disc_horn`` alias is written too).  ``make_servo_horn`` is kept for
+        # backwards compat but is no longer placed in the robot.
+        ("Servo visuals (not for printing -- MuJoCo / fit-check meshes):", [
+            (stl_filename("servo_body"), make_servo_body),
+            (stl_filename("servo_horn"), make_disc_horn),
+            (stl_filename("disc_horn"),  make_disc_horn),
+            (stl_filename("mpu6050"),    make_mpu6050_visual),
+        ]),
+        ("Electronics visuals (NOT FOR PRINTING -- BuildViz / inspector only):", [
+            (stl_filename("uno_q"),                   make_uno_q_visual),
+            (stl_filename("buck_converter"),          make_buck_converter_visual),
+            (stl_filename("antispark_switch_body"),   make_antispark_switch_body_visual),
+            (stl_filename("antispark_switch_toggle"), make_antispark_switch_toggle_visual),
+            (stl_filename("lipo_battery_body"),       make_lipo_battery_body_visual),
+            (stl_filename("lipo_xt60"),               make_lipo_xt60_visual),
+        ]),
+        ("Assembly preview (everything in standing pose):", [
+            (stl_filename("assembly_preview"), make_assembly_preview),
+        ]),
+    ]
+
+
 def main() -> None:
     print("Hexapod walker PROTOTYPE -- generating STLs in stl_prototype/ ...")
 
     parts: list[tuple[str, trimesh.Trimesh]] = []
-
-    print("Body parts:")
-    parts.append(("chassis_top.stl",      make_chassis_top()))
-    parts.append(("chassis_bottom.stl",   make_chassis_bottom()))
-    # Jun 2026: the bottom plate is a SINGLE merged part again -- the flat plate
-    # + bearing tower + a solid flat floor slab folded onto the underside (the
-    # old chassis_bottom_lower LOW half, sans join hardware).
-    # Jun 2026 deck redesign: the clip-in battery_holder + the in-gap
-    # electronics_tray (Pi + bus adapter) are RETIRED.  The battery now
-    # velcro-straps to chassis_bottom; the brain is an Arduino Uno Q on
-    # the lower stacked deck, with a XINGYHENG buck converter on the
-    # upper deck.  Both trays bolt onto 4 standoff columns rising above
-    # chassis_top.
-    parts.append(("uno_q_tray.stl",       make_uno_q_tray()))
-    parts.append(("buck_tray.stl",        make_buck_tray()))
-    # Spider cephalothorax/prosoma carapace dome (Jun 2026) -- bolts on as a
-    # 3rd deck level above the buck tray; the 8-eye spider face is on its
-    # front slope.  Print 1 (rim-down).
-    parts.append(("spider_carapace.stl",  make_spider_carapace()))
-    parts.append(("switch_holster.stl",   make_switch_holster()))
-    parts.append(("imu_pad.stl",          make_imu_pad()))
-    # Yaw-servo retainer strap -- print 6 (one per leg cradle).  Bolts
-    # across each chassis_bottom cradle's open bottom so the STS3215 can't
-    # drop out (Jun 2026).
-    parts.append(("yaw_servo_retainer.stl", make_yaw_servo_retainer()))
-    # Yaw-bearing cap -- TOP half of the SPLIT bearing tower (Jun 2026).  Print
-    # 6 (one per leg).  Bolts onto each chassis_bottom tower so both 6706 races
-    # drop onto open faces during assembly; the old one-piece tower trapped them.
-    parts.append(("yaw_bearing_cap.stl", make_yaw_bearing_cap()))
-
-    print("Leg parts (one of each -- print 6 sets):")
-    # Bearing-sandwich design (Jun 2026): femur + tibia are now each a
-    # printed yoke + printed bracket/fitting joined by a dia-8 CF tube.
-    parts.append(("coxa_link.stl",          make_coxa_link()))
-    # Coxa is printed as TWO parts: the yaw turntable hub (Part A, bolts to
-    # the disc horn + rides the spaced 6706 bearing pair) and the hip
-    # bracket (Part B, stacks coaxially on top of the hub).
-    parts.append(("coxa_yaw_hub.stl",       make_coxa_yaw_hub()))
-    parts.append(("coxa_hip_bracket.stl",   make_coxa_hip_bracket()))
-    parts.append(("femur_hip_yoke.stl",     make_femur_hip_yoke()))
-    parts.append(("femur_knee_bracket.stl", make_femur_knee_bracket()))
-    parts.append(("tibia_knee_yoke.stl",    make_tibia_knee_yoke()))
-    parts.append(("tibia_foot_fitting.stl", make_tibia_foot_fitting()))
-    parts.append(("foot_pad.stl",           make_foot_pad()))
-    # Clamshell clamp cap closing each sandwich-joint servo cradle (hip +
-    # knee = 2 per leg, 12 per robot); see make_servo_clamp_cap (Jun 2026).
-    parts.append(("servo_clamp_cap.stl",    make_servo_clamp_cap()))
-
-    # Assembled-link visual/sim meshes (NOT printed as single parts -- each
-    # is two printed fittings + a CF tube).  Emitted so mujoco_prototype's
-    # visual mesh loader and any mesh consumers show the real sandwich
-    # geometry; the verifier calls make_femur_link()/make_tibia_link()
-    # directly.
-    parts.append((stl_filename("femur_link"),          make_femur_link()))
-    parts.append((stl_filename("tibia_link"),          make_tibia_link()))
-
-    # Design B (May 2026) + June 2026 disc-horn switch: the printed
-    # servo_horn_adapter AND the plastic 4-arm X-horn have both been
-    # RETIRED.  Each link now bolts directly onto the 20 mm aluminum 25T
-    # disc horn that screws onto the servo spline (see the
-    # DISC_HORN_COLLAR_* clearance bores in make_coxa_link /
-    # make_femur_link / make_tibia_link, and the disc-horn notes near the
-    # top of this file).  The ``make_servo_horn_adapter()`` factory
-    # itself is preserved for backwards compatibility with downstream
-    # tooling that still imports it, but is no longer called from any
-    # printable-output path.
-
-    print("Servo visuals (not for printing -- MuJoCo / fit-check meshes):")
-    parts.append((stl_filename("servo_body"), make_servo_body()))
-    # June 2026: the servo joints drive a 20 mm aluminum 25T DISC horn
-    # (Amazon B07D56FVK5), not the plastic 4-arm X-horn.  ``servo_horn``
-    # IS the disc so the MuJoCo viewer, inspect_build, the BuildViz
-    # export and the verifier all show / measure the real part.  A
-    # ``disc_horn.stl`` alias is written too for explicit references.
-    # ``make_servo_horn`` (the X-horn) is kept for backwards compat but
-    # is no longer placed in the robot.
-    parts.append((stl_filename("servo_horn"), make_disc_horn()))
-    parts.append((stl_filename("disc_horn"),  make_disc_horn()))
-    parts.append((stl_filename("mpu6050"),    make_mpu6050_visual()))
-
-    print("Electronics visuals (NOT FOR PRINTING -- BuildViz / inspector\n"
-          "only; user buys these from Amazon / McMaster):")
-    parts.append((stl_filename("uno_q"),          make_uno_q_visual()))
-    parts.append((stl_filename("buck_converter"), make_buck_converter_visual()))
-    parts.append((stl_filename("antispark_switch_body"),
-                  make_antispark_switch_body_visual()))
-    parts.append((stl_filename("antispark_switch_toggle"),
-                  make_antispark_switch_toggle_visual()))
-    parts.append((stl_filename("lipo_battery_body"),
-                  make_lipo_battery_body_visual()))
-    parts.append((stl_filename("lipo_xt60"),      make_lipo_xt60_visual()))
-
-    for name, mesh in parts:
-        _save(mesh, name)
-
-    print("Assembly preview (everything in standing pose):")
-    preview = make_assembly_preview()
-    _save(preview, stl_filename("assembly_preview"))
+    for section_label, builders in stl_export_groups():
+        print(section_label)
+        for name, build in builders:
+            mesh = build()
+            _save(mesh, name)
+            parts.append((name, mesh))
 
     # ----- Final summary -----
-    total_faces = sum(len(m.faces) for _, m in parts) + len(preview.faces)
+    preview = dict(parts)[stl_filename("assembly_preview")]
+    total_faces = sum(len(m.faces) for _, m in parts)
     foot_to_foot    = preview.extents[0]
     standing_height = preview.extents[1]
     print()
-    print(f"OK -- {len(parts) + 1} STL files written.")
+    print(f"OK -- {len(parts)} STL files written.")
     print(f"   Vehicle envelope (foot to foot):  {foot_to_foot/10:.1f} cm")
     print(f"   Vehicle standing height:          {standing_height/10:.1f} cm")
     print(f"   Total geometry triangle count:    {total_faces:,}")

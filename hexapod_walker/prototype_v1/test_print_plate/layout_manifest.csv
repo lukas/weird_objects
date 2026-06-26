@@ -1,4 +1,4 @@
 part,copy,x_mm,y_mm,rotate_z_deg
 tibia_link.stl,1,-30.3,-93.2,0
-femur_link.stl,1,84.0,-53.5,90
-coxa_link.stl,1,-84.5,-44.0,0
+femur_link.stl,1,84.0,-61.0,90
+coxa_link.stl,1,-84.5,-44.8,0

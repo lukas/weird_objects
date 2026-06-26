@@ -15,9 +15,9 @@ plate_04b_rigid_femur_links_2of2,PLA/PETG rigid,femur_link.stl,5,0.0,0.0,90
 plate_04b_rigid_femur_links_2of2,PLA/PETG rigid,femur_link.stl,6,54.0,0.0,90
 plate_05_rigid_hardware,PLA/PETG rigid,electronics_tray.stl,1,-70.5,-79.5,0
 plate_05_rigid_hardware,PLA/PETG rigid,battery_holder.stl,1,72.5,-118.0,0
-plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,1,49.0,-59.0,0
-plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,2,110.5,-48.5,90
-plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,3,49.0,-9.0,0
-plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,4,110.5,23.5,90
-plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,5,-119.0,19.0,0
-plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,6,-47.0,19.0,0
+plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,1,49.0,-59.8,0
+plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,2,109.8,-48.5,90
+plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,3,49.0,-9.8,0
+plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,4,109.8,23.5,90
+plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,5,-119.0,18.2,0
+plate_05_rigid_hardware,PLA/PETG rigid,coxa_link.stl,6,-47.0,18.2,0

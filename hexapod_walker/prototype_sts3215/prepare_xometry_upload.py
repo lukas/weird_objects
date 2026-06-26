@@ -55,7 +55,9 @@ from hexapod_prototype import (
     make_coxa_yaw_hub,
     make_femur_hip_yoke,
     make_femur_knee_bracket,
+    make_femur_strut,
     make_foot_pad,
+    make_passive_horn_adapter,
     make_servo_clamp_cap,
     make_tibia_foot_fitting,
     make_spider_carapace,
@@ -147,6 +149,15 @@ def _lay_flat(mesh):
     return _drop_to_bed(best[1])
 
 
+def _reorient_femur_strut(mesh):
+    """Printed femur strut: a short Phi 7.8 rod (axis +X in its local frame).
+    Stand it on an end cap (rotate axis X -> Z) so it prints on a FULL flat
+    circular bed face -- zero overhang, max bed contact.  The 2 transverse pin
+    holes end up horizontal (fine on MJF; small Phi 2.6 bridges on FDM)."""
+    out = _rotate(mesh, np.pi / 2, [0, 1, 0])   # rod axis X -> Z (stand upright)
+    return _drop_to_bed(out)
+
+
 def _reorient_foot_pad(mesh):
     """Cylindrical disc with hub, hub up. Already in correct orientation."""
     return _drop_to_bed(mesh)
@@ -227,8 +238,9 @@ PART_REGISTRY: list[tuple[str,
     ("coxa_hip_bracket.stl",     make_coxa_hip_bracket,    _reorient_coxa_hip_bracket,
      6, "MJF PA12",      "white", "as-printed",
      "Hip bracket: bolts onto the yaw hub top (4x M3) and carries the "
-     "hip-pitch servo cradle + 688 bearing housing. Oriented so the cradle "
-     "opens +Z."),
+     "hip-pitch servo cradle (symmetric disc-horn sandwich -- the passive "
+     "disc horn rides the servo's rear idler boss, no 688 bearing). Oriented "
+     "so the cradle opens +Z."),
 
     # Bearing-sandwich leg (Jun 2026): the femur and tibia SEGMENTS are
     # bought Ø8 carbon-fibre tubes (cut to length, epoxied into the
@@ -238,12 +250,22 @@ PART_REGISTRY: list[tuple[str,
     ("femur_hip_yoke.stl",       make_femur_hip_yoke,      _lay_flat,
      6, "MJF PA12",      "white", "as-printed",
      "Femur hip moving-yoke: bolts to the hip disc horn, sockets the "
-     "Ø8 CF femur tube. Pair with femur_knee_bracket + CF tube."),
+     "printed femur strut. Pair with femur_knee_bracket + femur_strut."),
+
+    # Jun 2026: printed SOLID femur strut REPLACES the Ø8 CF femur tube (user:
+    # the femur tube is tiny + cutting CF is a pain).  Drops into the SAME two
+    # sockets and is retained by the SAME 2 transverse pins, with the pin
+    # cross-holes printed in -- no CF to cut, no holes to drill.  Stand on end.
+    ("femur_strut.stl",          make_femur_strut,         _reorient_femur_strut,
+     6, "MJF PA12",      "white", "as-printed",
+     "Printed femur strut: solid Ø7.8 rod replacing the Ø8 CF femur segment. "
+     "Slip-fits both femur sockets; the 2 transverse Ø2.6 retention-pin holes "
+     "are printed in (no cutting/drilling). 1 per leg, 6 per robot."),
 
     ("femur_knee_bracket.stl",   make_femur_knee_bracket,  _lay_flat,
      6, "MJF PA12",      "white", "as-printed",
      "Femur knee FIXED side: carries the knee servo cradle and sockets "
-     "the far end of the Ø8 CF femur tube."),
+     "the far end of the printed femur strut (snug-fit cradle, Jun 2026)."),
 
     ("tibia_knee_yoke.stl",      make_tibia_knee_yoke,     _lay_flat,
      6, "MJF PA12",      "white", "as-printed",
@@ -260,12 +282,15 @@ PART_REGISTRY: list[tuple[str,
      "*** SEPARATE QUOTE *** -- needs flexible TPU for grip. "
      "If TPU isn't available, FDM PLA works but the foot will slip."),
 
-    ("yaw_servo_retainer.stl",   make_yaw_servo_retainer,  _lay_flat,
+    ("yaw_servo_retainer.stl",   make_yaw_servo_retainer,  _drop_to_bed,
      6, "MJF PA12",      "white", "as-printed",
-     "Capture stirrup under each yaw servo: a cross-bar blocks the hanging "
-     "STS3215 from dropping while two arms rise to the merged chassis_bottom "
-     "floor, bolting into 2 blind M3 self-tap pilots. Open centre clears the "
-     "rear cable bundle."),
+     "Anti-rotation saddle under each yaw servo (Jun 2026 redesign): a U-channel "
+     "(open on +X for the wire boot) snugly hugs the hanging STS3215 case on its "
+     "+/-Y + -X faces to react reaction torque, with a flush backstop floor under "
+     "the case bottom. Two THICK flange-tab bosses bolt UP to the merged "
+     "chassis_bottom floor via 2 M3x6 self-tap screws whose heads RECESS into a "
+     "counterbore (driven straight up from the open under-chassis cavity). Walls "
+     "sized to the real 39 mm case so they seat flush to the floor. Printed floor-down."),
 
     ("yaw_bearing_cap.stl",      make_yaw_bearing_cap,     _reorient_yaw_bearing_cap,
      6, "MJF PA12",      "white", "as-printed",
@@ -281,7 +306,17 @@ PART_REGISTRY: list[tuple[str,
      "Clamshell cap closing the OPEN +Y face of each sandwich-joint servo "
      "cradle (hip-pitch coxa_link + knee femur_knee_bracket = 2/leg). Bolts "
      "-Y with 2 x M3 into the cradle's +/-X wall ends to clamp the STS3215 "
-     "body; centre is bored so the disc horn spins free."),
+     "body; the tongue now seats FLUSH on the body's +Y face so the bolts "
+     "trap it with no slop; centre is bored so the disc horn spins free. The "
+     "2 bolt heads RECESS into Phi 6 mm counterbores (flush with the +Y face) "
+     "so the swept femur/tibia yoke clears them."),
+
+    ("passive_horn_adapter.stl", make_passive_horn_adapter, _drop_to_bed,
+     12, "MJF PA12",     "white", "as-printed",
+     "Symmetric-yoke refit centering adapter (1 per hip + knee sandwich "
+     "joint = 2/leg). Press-fits the STS3215's rear idler boss and centres "
+     "the reused 20 mm aluminium 25T disc horn on the PASSIVE side; a central "
+     "M2.5 screw retains it. Replaces the retired 688 passive ball bearing."),
 
     ("spider_carapace.stl",      make_spider_carapace,     _reorient_carapace,
      1, "PLA/PETG rigid", "black", "as-printed",

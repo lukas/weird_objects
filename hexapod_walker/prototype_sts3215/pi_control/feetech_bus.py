@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Raspberry Pi direct driver for the FEETECH STS3215 serial-bus servos.
+"""Arduino Uno Q direct driver for the FEETECH STS3215 serial-bus servos.
 
 June 2026 redesign: the prototype dropped the Arduino Mega + 2x PCA9685
 PWM stack (and the AS5600 add-on encoders) in favour of 18x FEETECH
@@ -11,13 +11,15 @@ sensors and NO PWM driver boards.
 
 Topology (see ../firmware/WIRING.md):
 
-    Raspberry Pi --USB--> FE-URT-1 (or Waveshare Bus Servo Adapter)
-                  half-duplex TTL bus, 1 Mbps
-                  --> servo 1 --> servo 2 --> ... --> servo 18
-    12 V (3S LiPo / bench supply) injected on the bus V+ rail, common
-    ground with the adapter.  This file is the ONLY controller -- the
-    Pi talks the STS protocol directly; there is no microcontroller in
-    the loop.
+    Arduino Uno Q UART --half-duplex TTL bus, 1 Mbps-->
+                  servo 1 --> servo 2 --> ... --> servo 18
+    12 V (3S LiPo / bench supply) injected on the bus V+ rail per leg,
+    common ground with the Uno Q.  The Uno Q (on-board Linux SoC + MCU)
+    runs this file AND drives the half-duplex STS3215 bus directly: it
+    replaces BOTH the Raspberry Pi and the separate USB->TTL bus adapter
+    (no FE-URT-1 / Waveshare adapter).  This file is the ONLY controller
+    -- the Uno Q talks the STS protocol directly; there is no other
+    microcontroller in the loop.
 
 Joint model (unchanged from the old Arduino bridge so poses, the MuJoCo
 sim and the docs all still line up):
@@ -33,10 +35,10 @@ check_workspace_self_collision in _verify_prototype.py):
     hip pitch:  -80 .. +30 deg
     knee pitch: -20 .. +80 deg
 
-Trims: the Arduino used to persist per-joint trims in EEPROM.  With no
-microcontroller, trims now live in a JSON file next to this script
-(``feetech_trims.json``) and are applied in software before the
-angle->step conversion.
+Trims: the old Arduino bridge used to persist per-joint trims in
+EEPROM.  Trims now live in a JSON file next to this script
+(``feetech_trims.json``) on the Uno Q and are applied in software
+before the angle->step conversion.
 
 Examples
 --------
@@ -177,7 +179,8 @@ def _import_sdk():
         return scs
     except ImportError as exc:
         raise SystemExit(
-            "feetech-servo-sdk is required.  Install on the Pi with:\n"
+            "feetech-servo-sdk is required.  Install on the Uno Q "
+            "(or your laptop) with:\n"
             "  python -m pip install feetech-servo-sdk\n"
             "(provides the `scservo_sdk` module used here)."
         ) from exc

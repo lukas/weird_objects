@@ -212,6 +212,10 @@ PN_M3X32_SHCS    = "91290A123"   # M3 x 30 socket-head cap screw (closest stock 
 PN_M3_NYLOC      = "90576A102"   # M3 nylon-insert lock nut, A2 stainless
 PN_M3X16_PAN     = "92010A130"   # M3 x 16 pan-head Phillips, A2 stainless (foot hinge)
 PN_M25X8_SHCS    = "91290A104"   # M2.5 x 8 socket-head cap screw (servo spline)
+PN_M25X6_SELFTAP = "96877A150"   # M2.5 x 6 self-tapping screw (yaw rear CASE-mount;
+                                 # threads the STS3215 FIXED rear-face case holes
+                                 # at cradle (-8.3/-32.8, +-10.2), ~2.5 mm bite --
+                                 # user opted for a self-tapper for the shallow holes)
 # Link-to-disc-horn bolts (June 2026 disc-horn switch; see the
 # DISC_HORN_BOLT_* docstrings in hexapod_prototype.py).  The
 # servo joints now drive a 20 mm aluminum 25T DISC horn (Amazon
@@ -277,7 +281,28 @@ SPEC_M25X8_SHCS  = "M2.5x8 spline screw"
 # the spline-screw entries above.
 SPEC_M25X8_SHCS_INTO_INSERT = "M2.5x8 SHCS into heat-set insert"
 SPEC_M25_HEATSET_INSERT     = "M2.5 heat-set insert"
-SPEC_M3X6_SHCS   = "M3x6 SHCS"   # link-to-disc-horn bolts (into M3 tapped disc)
+SPEC_M3X6_SHCS   = "M3x6 SHCS"   # (retired) old link-to-disc-horn bolt length
+# Jun 2026 flush-head tweak: the yaw anti-rotation saddle's flange thinned 5 ->
+# 3 mm, so its 2 chassis-anchor screws shortened M3x8 -> M3x6 to keep the tip at
+# the -3 pilot bottom (3 mm self-tap bite unchanged).  DISTINCT from the disc-
+# horn "M3x6 SHCS" spec so the driver-envelope dispatcher gives it the WIDE
+# open-cavity hex envelope (the disc-horn spec is counter-bored / narrow).
+SPEC_M3X6_SHCS_SELFTAP = "M3x6 SHCS self-tap"
+# Jun 2026 flush-horn fix: the real aluminium disc is only DISC_HORN_H = 2 mm
+# (not 5 mm), so the driven mounts grew a HORN_REACH_DOWN = 3 mm printed boss to
+# bridge down to it.  The link-to-disc-horn bolt now traverses that boss PLUS
+# the 2 mm disc, so the M3 x 6 is too short -- it is replaced by an M3 x 8 with
+# a DISTINCT spec string so the engagement check reserves engagement_mm =
+# DISC_HORN_H = 2 mm (the full disc thickness) instead of the generic 5 mm
+# M3 x 8 window.  Same PN_M3X8_SHCS stock as the cradle bolts.
+SPEC_M3X8_DISC_HORN = "M3x8 disc-horn SHCS"
+# Jun 2026 yoke-width fix: the STS3215 FRONT output is FLUSH (no SERVO_OUTPUT_H
+# protrusion), so the DRIVEN disc horn seats 2 mm lower and the yoke top-arm pad
+# bridges DRIVEN_HORN_REACH_DOWN = 5 mm (vs 3 mm on the passive side).  The
+# driven link-to-disc-horn bolt therefore traverses arm (4) + 5 mm pad before
+# the 2 mm disc, so it grows to M3 x 10 (the passive bolts stay M3 x 8).  Distinct
+# spec so the engagement check still reserves engagement_mm = DISC_HORN_H = 2 mm.
+SPEC_M3X10_DISC_HORN = "M3x10 disc-horn SHCS"
 # STS3215 reconciliation (Jun 2026): the invented "front-face 4-bolt
 # case-screw mount" on the servo OUTPUT face (4 per cradle x 3 cradles x
 # 6 legs = 72) was REMOVED -- the dia-20 disc horn covers the output
@@ -289,6 +314,13 @@ SPEC_M3X6_SHCS   = "M3x6 SHCS"   # link-to-disc-horn bolts (into M3 tapped disc)
 # insert).  Same exempt spec string as before so the engagement check's
 # clearance-bore air-span exemption still applies.
 SPEC_M25_BODY_SCREW = "M2.5 SHCS into servo case"
+# Shallow SELF-TAPPING M2.5 into the STS3215 FIXED REAR (back) CASE FACE.  The 4
+# yaw anti-rotation saddle screws drive vertically UP into the standard STS3215
+# case mounting holes on the rear face (STEP solid 1: cradle (-8.3/-32.8,+-10.2),
+# NOT the horn bolt circle), ~2.5 mm self-tap bite.  Engagement target is the
+# real rear-case block injected in check_fastener_engagement (the frozen-short
+# modeled servo_body does not reach the real rear face).
+SPEC_M25_REAR_SELFTAP = "M2.5 self-tap into servo rear case"
 
 
 # ---------------------------------------------------------------------------
@@ -667,9 +699,15 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
     # yaw_output_z, which is exactly the disc horn's top face per
     # check_mating_face_contact's "coxa_link bottom <-> yaw disc-horn
     # top" probe (gap = +0.00 mm).
-    # Sandwich refit: the coxa yaw pad is a plain (non-counterbored)
-    # disc clamp, so the bolt head bears on the pad TOP face.
-    head_local_z = HP.PEDESTAL_CAP_T
+    # Jun 2026 flush-horn fix: the real disc is only DISC_HORN_H = 2 mm and
+    # the hub boss now reaches DOWN to YAW_HUB_BOSS_BOT_Z to seat on it, so the
+    # M3 x 8 bolt drops the bolt TIP to the disc BOTTOM (full 2 mm thread bite).
+    # Head sits in a shallow counter-bore one bolt-length above the disc bottom
+    # (= link-local z = YAW_HUB_BOSS_BOT_Z - DISC_HORN_H + 8).  The OVERSIZED
+    # Phi 4.2 torque-only clearance bore lets the shaft float between the head
+    # and the disc by design (concentricity set by the spaced bearings).
+    horn_bolt_len = 8.0
+    head_local_z = (HP.YAW_HUB_BOSS_BOT_Z - HP.DISC_HORN_H) + horn_bolt_len
     T_link_to_world = _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a)
     out: list[FastenerInstance] = []
     for ang in HP.DISC_HORN_BOLT_ANGLES_RAD:
@@ -681,8 +719,8 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
         head = _apply_point(T_link_to_world, p_local)
         axis = _apply_dir(T_link_to_world, np.array([0.0, 0.0, -1.0]))
         out.append(FastenerInstance(
-            part_number=PN_M3X6_SHCS,
-            spec=SPEC_M3X6_SHCS,
+            part_number=PN_M3X8_SHCS,
+            spec=SPEC_M3X8_DISC_HORN,
             head_world_xyz=head,
             axis_world=axis,
             role=(
@@ -691,8 +729,8 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             ),
             leg_index=leg_index,
             joint="yaw",
-            length_mm=6.0,
-            cache_stl=f"{PN_M3X6_SHCS}.cache.stl",
+            length_mm=horn_bolt_len,
+            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
             # COMPLIANT torque-only clamp: the coxa_yaw_hub's Phi 4.2 mm
             # disc-horn bolt holes are deliberately OVERSIZED so the
             # SPACED 6706 bearing pair -- not these bolts -- sets the
@@ -781,6 +819,102 @@ def _emit_yaw_cap_join_fasteners(leg_index: int) -> list[FastenerInstance]:
     return out
 
 
+def _emit_yaw_retainer_anchor_fasteners(leg_index: int) -> list[FastenerInstance]:
+    """The 2 M3 x 6 self-tap anchor screws that bolt the yaw anti-rotation
+    SADDLE (``make_yaw_servo_retainer``) UP to the ``chassis_bottom`` floor
+    (Jun 2026 saddle redesign; replaces the old undrivable stirrup anchors
+    that were never even emitted here).
+
+    Cradle-local frame (origin on the yaw/output axis, +X outboard radial,
+    +Y tangential, WORLD Z): the head RECESSES into a counterbore in the thick
+    (5 mm) flange boss and bears on its shoulder at z = plate_bot - SADDLE_
+    FLANGE_T + SADDLE_HEAD_CB_DEPTH = -9 (3 mm under the -6 floor), and the shank
+    threads UP (+Z) RETAINER_PLATE_PILOT_DEPTH into a blind Phi 2.5 mm self-tap
+    pilot in the 4 mm floor.  The 6 mm length keeps the tip at the -3 pilot
+    bottom (3 mm bite, 1 mm blind cap; an M3 x 8 with the head at -9 would push
+    the tip to -1, 1 mm proud through the plate).  The down-facing socket is open
+    to the under-chassis cavity, so the driver enters straight up (guarded by
+    check_screwdriver_access + check_fastener_engagement).  2 bolts x 6 = 12.
+    """
+    apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
+    a = (leg_index + 0.5) * np.pi / 3.0
+    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
+    # Saddle placement: pure Z-rotation + in-plane translate (it is modelled in
+    # cradle-local XY + world Z) -- the SAME chain _place_yaw_retainers uses.
+    T_saddle_to_world = _T(*edge_mid) @ _Rz(a)
+    plate_bot = HP.CHASSIS_SPLIT_Z - HP.CHASSIS_BOTTOM_FLOOR_T
+    # Head bears on the COUNTERBORE shoulder (recessed into the thick flange), not
+    # the boss bottom: z = plate_bot - SADDLE_FLANGE_T + SADDLE_HEAD_CB_DEPTH = -9.
+    head_local_z = plate_bot - HP.SADDLE_FLANGE_T + HP.SADDLE_HEAD_CB_DEPTH
+    out: list[FastenerInstance] = []
+    for (ax, ay) in HP.chassis_lower_retainer_anchor_centres():
+        p_local = np.array([ax, ay, head_local_z])
+        head = _apply_point(T_saddle_to_world, p_local)
+        axis = _apply_dir(T_saddle_to_world, np.array([0.0, 0.0, 1.0]))
+        side = "+Y" if ay > 0 else "-Y"
+        out.append(FastenerInstance(
+            part_number=PN_M3X6_SHCS,
+            spec=SPEC_M3X6_SHCS_SELFTAP,
+            head_world_xyz=head,
+            axis_world=axis,
+            role=f"yaw_servo_retainer L{leg_index} saddle {side} chassis anchor M3 self-tap",
+            leg_index=leg_index,
+            joint="yaw",
+            length_mm=6.0,
+            cache_stl=f"{PN_M3X6_SHCS}.cache.stl",
+        ))
+    return out
+
+
+def _emit_yaw_rear_case_fasteners(leg_index: int) -> list[FastenerInstance]:
+    """The 4 M2.5 x 6 SELF-TAPPING rear-CASE-mount screws that POSITIVELY capture
+    the yaw STS3215 to the anti-rotation SADDLE (Jun 2026, CORRECTED 3rd pass --
+    the prior two passes wrongly used the HORN bolt circle).
+
+    Re-parsed STS3215_c.step and classified every hole by SOLID: the only Phi 2.5
+    four-hole crosses (at the OUTPUT axis, both faces) are the DISC-HORN bolt
+    circle, NOT a case mount.  The real STS3215 case mounting holes are on the
+    FIXED rear (back) case face (STEP solid 1) at STEP (X,Z) = (8.3,+-10.2) and
+    (32.8,+-10.2).  Frame: cradle_x = -STEP_X, cradle_y = STEP_Z, cradle_z = STEP_Y
+    (output, UP), so they map to cradle (x,y) = (-8.3,+-10.2) [18.5 mm from the
+    +X output-end "top", the user's landmark] and (-32.8,+-10.2) [43 mm].  Their
+    axis IS the output axis = WORLD +Z, so each M2.5 SELF-TAPS straight UP into the
+    rear case face (SADDLE_CASE_SCREW_BITE = 2.5 mm; shallow holes, self-tap), head
+    recessed in the backstop boss counterbore (bearing at z = real_back -
+    SADDLE_CASE_SHANK), driven straight up the open under-chassis cavity (guarded
+    by check_screwdriver_access).  The real rear face hangs SADDLE_CASE_LEN_FIX
+    below the frozen-short modeled servo_body, so check_fastener_engagement targets
+    the real rear-case block injected in the yaw section.  All 4 are on the FIXED
+    case shell, clear of the rotating idler (at the axis, r~0) and the centre wire
+    exit (cradle x~-14, y~0).
+
+    Cradle-local frame (origin on the yaw/output axis, +X outboard, +Y tangential,
+    WORLD Z) -- the SAME placement chain _place_yaw_retainers uses."""
+    apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
+    a = (leg_index + 0.5) * np.pi / 3.0
+    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
+    T_saddle_to_world = _T(*edge_mid) @ _Rz(a)
+    head_local_z = HP.yaw_servo_real_back_z() - HP.SADDLE_CASE_SHANK
+    out: list[FastenerInstance] = []
+    for (rx, ry) in HP.yaw_rear_screw_centres():
+        head = _apply_point(T_saddle_to_world, np.array([rx, ry, head_local_z]))
+        axis = _apply_dir(T_saddle_to_world, np.array([0.0, 0.0, 1.0]))
+        xtag = "x1" if abs(rx) < 20.0 else "x2"
+        side = f"{xtag}{'+Y' if ry > 0 else '-Y'}"
+        out.append(FastenerInstance(
+            part_number=PN_M25X6_SELFTAP,
+            spec=SPEC_M25_REAR_SELFTAP,
+            head_world_xyz=head,
+            axis_world=axis,
+            role=f"yaw_servo_retainer L{leg_index} saddle {side} rear case-mount M2.5 self-tap",
+            leg_index=leg_index,
+            joint="yaw",
+            length_mm=HP.SADDLE_CASE_SCREW_LEN,
+            cache_stl=f"{PN_M25X6_SELFTAP}.cache.stl",
+        ))
+    return out
+
+
 def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
     """The 4 link-to-disc-horn bolts at the hip-pitch joint (femur hip pad).
 
@@ -813,9 +947,12 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
         ])
         head = _apply_point(T, p_local)
         axis = _apply_dir(T, np.array([0.0, 0.0, -1.0]))
+        # Jun 2026 yoke-width fix: flush output drops the driven disc horn 2 mm,
+        # so the top-arm pad reaches DRIVEN_HORN_REACH_DOWN (5 mm) and the bolt
+        # grows arm(4) + pad(5) + 1 mm-into-disc = 10 mm (M3 x 10).
         out.append(FastenerInstance(
-            part_number=PN_M3X6_SHCS,
-            spec=SPEC_M3X6_SHCS,
+            part_number=PN_M3X10_SHCS,
+            spec=SPEC_M3X10_DISC_HORN,
             head_world_xyz=head,
             axis_world=axis,
             role=(
@@ -824,8 +961,8 @@ def _emit_horn_fasteners_hip(leg_index: int) -> list[FastenerInstance]:
             ),
             leg_index=leg_index,
             joint="hip",
-            length_mm=6.0,
-            cache_stl=f"{PN_M3X6_SHCS}.cache.stl",
+            length_mm=10.0,
+            cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
         ))
     return out
 
@@ -844,16 +981,15 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
     # knee bracket).  The disc horn sits at the knee joint axis; the yoke
     # top arm is oriented by the TIBIA stance angle.  Bolt heads bear on
     # the yoke top-arm outer face, axis -Z into the disc.
-    p = np.deg2rad(HP.STANCE_FEMUR_DEG)
-    pt = np.deg2rad(HP.STANCE_FEMUR_DEG + HP.STANCE_TIBIA_DEG)
-    Ry_p_3 = _Ry(p)[:3, :3]
-    knee_joint_local = (np.array(HP.COXA_HIP_ANCHOR)
-                        + Ry_p_3 @ np.array([HP.FEMUR_LENGTH, 0.0, 0.0]))
-    # Tibia knee yoke anchored at the knee axis, oriented by the tibia
-    # stance (matches _leg_in_body_frame's tibia _joint_place).
-    tibia_dir = _Ry(pt)[:3, :3] @ np.array([1.0, 0.0, 0.0])
-    T_in_coxa = HP._joint_place(knee_joint_local, tibia_dir, (0, 1, 0))
-    T = _coxa_to_world(leg_index) @ T_in_coxa
+    # Place the bolt heads in the SAME knee WELL/cradle frame the disc horn
+    # is placed in (``_horn_world_transform("knee")``), exactly as the hip
+    # emitter uses ``_hip_cradle_T``.  This keeps the bolts COAXIAL with the
+    # disc's output axis.  The previous ``_joint_place`` reconstruction put the
+    # bolt axis in the horizontal plane (off the tilted output axis); a short
+    # M3 x 8 bolt into a 2 mm-higher horn masked it, but the Jun 2026
+    # flush-output refit (horn 2 mm lower, M3 x 10 bolt) exposed it as the knee
+    # bolts "join only 1 part".
+    T = _knee_cradle_T(leg_index)
     head_local_z = HP.JOINT_HORN_TOP_Z + HP._YOKE_ARM_T
     out: list[FastenerInstance] = []
     for ang in HP.DISC_HORN_BOLT_ANGLES_RAD:
@@ -864,9 +1000,12 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
         ])
         head = _apply_point(T, p_local)
         axis = _apply_dir(T, np.array([0.0, 0.0, -1.0]))
+        # Jun 2026 yoke-width fix: flush output drops the driven disc horn 2 mm,
+        # so the top-arm pad reaches DRIVEN_HORN_REACH_DOWN (5 mm) and the bolt
+        # grows to M3 x 10 (see _emit_horn_fasteners_hip).
         out.append(FastenerInstance(
-            part_number=PN_M3X6_SHCS,
-            spec=SPEC_M3X6_SHCS,
+            part_number=PN_M3X10_SHCS,
+            spec=SPEC_M3X10_DISC_HORN,
             head_world_xyz=head,
             axis_world=axis,
             role=(
@@ -875,10 +1014,110 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
             ),
             leg_index=leg_index,
             joint="knee",
-            length_mm=6.0,
-            cache_stl=f"{PN_M3X6_SHCS}.cache.stl",
+            length_mm=10.0,
+            cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
         ))
     return out
+
+
+# ---------------------------------------------------------------------------
+# PASSIVE (rear-boss) disc-horn fasteners (symmetric-yoke refit)
+# ---------------------------------------------------------------------------
+# Mirror of the driven horn bolts: the yoke BOTTOM arm clamps the PASSIVE
+# disc horn on the rear idler boss.  Head bears on the bottom-arm OUTER face
+# (joint-local z = JOINT_HORN_BOT_Z - _YOKE_ARM_T), axis +Z UP into the disc's
+# M3 tapped hole; plus one central M2.5 retention screw (mirrors the driven
+# spline screw) through the horn + adapter into the rear boss so the passive
+# horn can't work loose on the smooth boss.
+
+
+def _passive_horn_T(leg_index: int, joint: str) -> np.ndarray:
+    """World transform that maps PASSIVE-disc-horn-LOCAL coords (origin at the
+    horn's spline-mating face, +Z = output-shaft axis toward the servo) into
+    the world frame.  Mirror of the verifier's ``_passive_horn_world_transform``
+    (and of the driven ``_horn_world_transform``): the horn rides the servo's
+    rear idler boss, flipped 180 deg about X so its flat mating face points
+    AWAY from the servo, seated REAR_BOSS_H below the back face and rotated with
+    the driven link's stance.  Placing the bolts in this (correctly located)
+    frame keeps them co-located with the passive horn AND the yoke bottom arm
+    on BOTH the hip and the knee, regardless of the link-pad frame offsets."""
+    if joint == "hip":
+        T_well = _hip_cradle_T(leg_index)
+        p_link = np.deg2rad(HP.STANCE_FEMUR_DEG)
+    elif joint == "knee":
+        T_well = _knee_cradle_T(leg_index)
+        p_link = np.deg2rad(HP.STANCE_TIBIA_DEG)
+    else:
+        raise ValueError(f"joint {joint!r} has no passive horn")
+    return (T_well
+            @ _T(HP.SERVO_OUTPUT_X, 0.0, -HP.REAR_BOSS_H)
+            @ _Rz(p_link)
+            @ _Rx(np.pi))
+
+
+def _emit_passive_horn_fasteners(leg_index: int, joint: str
+                                 ) -> list[FastenerInstance]:
+    """The 4 yoke-bottom-arm-to-passive-disc-horn bolts at a sandwich joint.
+
+    Worked in PASSIVE-horn-local coords: head on the yoke bottom-arm outer
+    face (horn-local z = DISC_HORN_H + YOKE_ARM_PAD + _YOKE_ARM_T), axis
+    -Z DOWN into the disc's tapped hole -- a TRUE mirror of the driven horn
+    bolts (symmetric-yoke refit: same YOKE_ARM_PAD = 5 mm pad and same M3 x 10
+    screw both sides, 1 mm tip into the aluminium disc)."""
+    T = _passive_horn_T(leg_index, joint)
+    link = "femur_link" if joint == "hip" else "tibia_link"
+    head_local_z = HP.DISC_HORN_H + HP.YOKE_ARM_PAD + HP._YOKE_ARM_T
+    out: list[FastenerInstance] = []
+    for ang in HP.DISC_HORN_BOLT_ANGLES_RAD:
+        p_local = np.array([
+            _HORN_BOLT_PCD_HALF * np.cos(ang),
+            _HORN_BOLT_PCD_HALF * np.sin(ang),
+            head_local_z,
+        ])
+        head = _apply_point(T, p_local)
+        axis = _apply_dir(T, np.array([0.0, 0.0, -1.0]))   # into the disc
+        out.append(FastenerInstance(
+            part_number=PN_M3X10_SHCS,
+            spec=SPEC_M3X10_DISC_HORN,
+            head_world_xyz=head,
+            axis_world=axis,
+            role=(
+                f"{link} L{leg_index} {joint}-yoke-to-PASSIVE-disc-horn @ "
+                f"{int(round(np.degrees(ang)))}deg SHCS"
+            ),
+            leg_index=leg_index,
+            joint=joint,
+            length_mm=10.0,
+            cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
+        ))
+    return out
+
+
+def _emit_passive_center_screw(leg_index: int, joint: str
+                               ) -> list[FastenerInstance]:
+    """One M2.5 x 8 central retention screw per passive horn: head in the
+    horn's collar recess on the mating face (horn-local z = DISC_HORN_H),
+    axis -Z through the horn + centering adapter into the rear idler boss.
+    Mirrors the driven spline screw; keeps the passive horn from loosening."""
+    T = _passive_horn_T(leg_index, joint)
+    head_local = np.array([0.0, 0.0, HP.DISC_HORN_H])
+    head = _apply_point(T, head_local)
+    axis = _apply_dir(T, np.array([0.0, 0.0, -1.0]))
+    return [FastenerInstance(
+        part_number=PN_M25X8_SHCS,
+        spec=SPEC_M25X8_SHCS,
+        head_world_xyz=head,
+        axis_world=axis,
+        role=f"{joint} passive-horn retention screw L{leg_index}",
+        leg_index=leg_index,
+        joint=joint,
+        length_mm=8.0,
+        cache_stl=f"{PN_M25X8_SHCS}.cache.stl",
+        skip_screwdriver_reason=(
+            "captive under the passive disc horn after assembly; install "
+            "the retention screw BEFORE fitting the yoke"
+        ),
+    )]
 
 
 # ---------------------------------------------------------------------------
@@ -1293,7 +1532,9 @@ def _emit_clamp_cap_fasteners(
     (``make_servo_clamp_cap``) onto the cradle's +/-X wall +Y ends.
 
     Well-local frame matches ``_servo_well_solid`` / the clamp cap: the
-    head bears on the cap flange OUTER face (y = WELL_D/2 + CLAMP_CAP_T)
+    head now bears on the COUNTERBORE shoulder recessed CLAMP_HEAD_CB_DEPTH
+    below the flange OUTER face (y = WELL_D/2 + CLAMP_CAP_T - CLAMP_HEAD_CB_DEPTH;
+    Jun 2026 head-inset fix so the head sits flush and the swept yoke clears it)
     and the M3 x 8 SHCS threads -Y through the flange clearance hole into
     the Phi CLAMP_BOLT_PILOT_OD self-tap pilot in the wall end (pilots
     cut by ``_servo_well_solid``).  Same part for the hip (coxa_link) and
@@ -1301,7 +1542,9 @@ def _emit_clamp_cap_fasteners(
     """
     out: list[FastenerInstance] = []
 
-    flange_outer_y = HP.WELL_D / 2.0 + HP.CLAMP_CAP_T
+    # Head recesses into the counterbore -> bears on the shoulder, not the
+    # flange outer face (Jun 2026 head-inset fix).
+    flange_outer_y = HP.WELL_D / 2.0 + HP.CLAMP_CAP_T - HP.CLAMP_HEAD_CB_DEPTH
 
     # The clamp cap goes on from the OPEN +Y face AFTER the servo is
     # seated but the disc horn + next-stage link close over that face,
@@ -1802,17 +2045,17 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         # POSITIVE servo body retention: M2.5 end-face bolts per cradle into
         # the servo's real -X END-face 10x10 case-hole square, so the printed
         # cradle bolts the servo instead of only gripping it.  The deep hip/
-        # knee cradles take all 4; the merged-chassis yaw cradle's -X wall only
-        # reaches its -6 floor (the servo hangs below), so it takes the UPPER
-        # row (2) -- the lower row would bear in air (abandoned deep bucket).
-        # 2 yaw + 4 hip + 4 knee = 10 per leg x 6 = 60.
-        out.extend(_emit_end_face_fasteners(
-            T_well_to_world=_yaw_cradle_T(leg_index),
-            leg_index=leg_index,
-            joint="yaw",
-            location=f"chassis_bottom L{leg_index} yaw cradle",
-            upper_row_only=True,
-        ))
+        # knee cradles take all 4.
+        #
+        # The YAW cradle takes NONE (Jun 2026 flush-horn refit): both bearings
+        # moving above the flush horn lowered the yaw output 5.5 mm
+        # (YAW_TOWER_RAISE 9 -> 14.5), dropping the servo so its body hangs
+        # ~20 mm below the -6 chassis floor.  Even the upper end-face row now
+        # lands at the floor edge with no -X wall behind the head, so the yaw
+        # servo is retained instead by the ``make_yaw_servo_retainer`` strap +
+        # anchor bolts + the output-face seat + open-bottom pocket.  (The
+        # retired screws reacted X-translation, not yaw torque.)
+        # 0 yaw + 4 hip + 4 knee = 8 per leg x 6 = 48.
         out.extend(_emit_end_face_fasteners(
             T_well_to_world=_hip_cradle_T(leg_index),
             leg_index=leg_index,
@@ -1845,10 +2088,22 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         # the split bearing tower's TOP half down onto chassis_bottom.
         out.extend(_emit_yaw_cap_join_fasteners(leg_index))
 
+        # Yaw anti-rotation SADDLE chassis anchors (2 M3 self-tap per leg = 12)
+        # that bolt the yaw_servo_retainer UP to the chassis_bottom floor.
+        out.extend(_emit_yaw_retainer_anchor_fasteners(leg_index))
+        out.extend(_emit_yaw_rear_case_fasteners(leg_index))
+
         # Link-to-disc-horn bolts (June 2026: disc horn, no printed adapter).
         out.extend(_emit_horn_fasteners_yaw(leg_index))
         out.extend(_emit_horn_fasteners_hip(leg_index))
         out.extend(_emit_horn_fasteners_knee(leg_index))
+
+        # PASSIVE rear-boss disc-horn bolts + central retention screws on the
+        # hip + knee sandwich joints (symmetric-yoke refit; yaw has none).
+        out.extend(_emit_passive_horn_fasteners(leg_index, "hip"))
+        out.extend(_emit_passive_horn_fasteners(leg_index, "knee"))
+        out.extend(_emit_passive_center_screw(leg_index, "hip"))
+        out.extend(_emit_passive_center_screw(leg_index, "knee"))
 
         # Servo spline center screws (3 servos x 6 legs = 18 total).
         out.extend(_emit_spline_fastener(leg_index, "yaw"))
@@ -1933,14 +2188,17 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
     # Stable, human-friendly order: SHCS by length, then nuts.
     spec_order = {
         SPEC_M3X6_SHCS:             0,
+        SPEC_M3X6_SHCS_SELFTAP:     0,
         SPEC_M25_BODY_SCREW:        1,
         SPEC_M25X8_SHCS:            1,
         SPEC_M25X8_SHCS_INTO_INSERT: 2,
         SPEC_M25_HEATSET_INSERT:    3,
         SPEC_M3X8_SHCS:             4,
+        SPEC_M3X8_DISC_HORN:        4,
         SPEC_M3X8_SHCS_INTO_INSERT: 5,
         SPEC_M3X8_SHCS_SELFTAP:     6,
         SPEC_M3X10_SHCS:            7,
+        SPEC_M3X10_DISC_HORN:       7,
         SPEC_M3X10_SHCS_SELFTAP:    7,
         SPEC_M3_HEATSET_INSERT:     8,
         SPEC_M3X32_SHCS:            9,

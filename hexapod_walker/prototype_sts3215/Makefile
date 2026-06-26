@@ -18,7 +18,7 @@ else
 MJ_PY  := $(REPO_ROOT)/.venv/bin/python
 endif
 
-.PHONY: check-cad check-cad-fast check-strength validate render build build-prototype-v0 verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz regen-fasteners bom-fasteners help
+.PHONY: check-cad check-cad-fast check-strength validate render build verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -33,7 +33,6 @@ help:
 	@echo "  validate          Run scripts/validate_geometry.py only (no renders, no report)."
 	@echo "  render            Run scripts/render_views.py only."
 	@echo "  build             Re-run prototype_sts3215/build_all.py to regenerate stl_prototype/*.stl (CURRENT design)."
-	@echo "  build-prototype-v0  Re-run the OLD prototype/build_all.py (legacy v0 geometry)."
 	@echo "  verify-prototype  Run the legacy _verify_prototype.main() directly (full suite, ~95-270 s)."
 	@echo "  verify-fast       Run _verify_prototype.py --fast (5 essential checks, ~5-15 s)."
 	@echo "  verify-changed    Run _verify_prototype.py --changed (only checks affected by git diff vs origin/main)."
@@ -41,15 +40,17 @@ help:
 	@echo "  view-static       Same viewer, but freeze the legs in the standing-pose keyframe (--no-gait)."
 	@echo "  view-build        Open a PyVista build inspector with colored, labeled parts and an exploded-view slider."
 	@echo "  view-buildviz     Re-export to lukas/buildviz (Three.js web inspector) and serve at http://localhost:5173."
+	@echo "  verify-buildviz   Regenerate full_robot_viz/scene.json, run the BuildViz verifier, and BUMP a new"
+	@echo "                    versioned snapshot into the BuildViz hub cache (buildviz push --bump; keep BUILDVIZ_KEEP)."
 	@echo "  regen-fasteners   Regenerate fasteners/<P/N>.cache.stl from real STEPs or parametric fallback."
 	@echo "  bom-fasteners     Inject the auto-derived fastener BOM into PROTOTYPE_BOM.md and SHOPPING_LIST.md."
 	@echo "  clean-artifacts   Delete artifacts/ (renders + cad_report.md)."
 
 check-cad:
-	$(RUN) hexapod_walker/prototype/scripts/check_cad.py
+	$(RUN) hexapod_walker/prototype_sts3215/scripts/check_cad.py
 
 check-cad-fast:
-	$(RUN) hexapod_walker/prototype/scripts/check_cad.py --fast
+	$(RUN) hexapod_walker/prototype_sts3215/scripts/check_cad.py --fast
 
 # Opt-in strength / failure-point pipeline.  NOT a dependency of
 # check-cad: this is a separate observation-only pass that runs
@@ -73,24 +74,19 @@ ifneq ($(strip $(PARTS)),)
 STRENGTH_ARGS += --parts $(PARTS)
 endif
 check-strength:
-	$(RUN) hexapod_walker/prototype/strength/__main__.py $(STRENGTH_ARGS)
+	$(RUN) hexapod_walker/prototype_sts3215/strength/__main__.py $(STRENGTH_ARGS)
 
 validate:
-	$(RUN) hexapod_walker/prototype/scripts/validate_geometry.py
+	$(RUN) hexapod_walker/prototype_sts3215/scripts/validate_geometry.py
 
 render:
-	$(RUN) hexapod_walker/prototype/scripts/render_views.py
+	$(RUN) hexapod_walker/prototype_sts3215/scripts/render_views.py
 
 build:
 	$(RUN) hexapod_walker/prototype_sts3215/build_all.py --skip-assembly --skip-xometry --skip-bambu --skip-test-plate
 
-# Legacy v0 geometry: regenerate the OLD prototype/ design's STLs.  Kept
-# for regression comparisons against the current prototype_sts3215 build.
-build-prototype-v0:
-	$(RUN) hexapod_walker/prototype/build_all.py --skip-assembly --skip-xometry --skip-bambu --skip-test-plate
-
 verify-prototype:
-	$(RUN) hexapod_walker/prototype/_verify_prototype.py
+	$(RUN) hexapod_walker/prototype_sts3215/_verify_prototype.py
 
 # Inner-loop verifier: skip the 12 slow checks (workspace sweep,
 # screwdriver-access ray cones, voxelised thin-sheet / flimsy-joint
@@ -98,7 +94,7 @@ verify-prototype:
 # ~80% of regressions in ~15% of the wall time.  Use this between
 # every edit; gate commits on the full verify-prototype.
 verify-fast:
-	$(RUN) hexapod_walker/prototype/_verify_prototype.py --fast
+	$(RUN) hexapod_walker/prototype_sts3215/_verify_prototype.py --fast
 
 # Smart-selection verifier: only run the checks whose static
 # input dependency set intersects what `git diff origin/main`
@@ -107,7 +103,7 @@ verify-fast:
 # hexapod_prototype.py runs ~0 checks).  Combine with the cache
 # from a previous full pass to skip everything else.
 verify-changed:
-	$(RUN) hexapod_walker/prototype/_verify_prototype.py --changed
+	$(RUN) hexapod_walker/prototype_sts3215/_verify_prototype.py --changed
 
 # Open the interactive MuJoCo viewer (passive mode) with the prototype
 # walker in the procedurally generated terrain + obstacle world.  Mouse
@@ -116,13 +112,13 @@ verify-changed:
 # any extra CLI flag from mujoco_prototype.py, e.g.:
 #   make view ARGS="--vx 0.20 --no-terrain --obstacles 0"
 view:
-	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(MJ_PY) hexapod_walker/prototype/mujoco_prototype.py $(ARGS)
+	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(MJ_PY) hexapod_walker/prototype_sts3215/mujoco_prototype.py $(ARGS)
 
 # Same viewer but with the gait disabled: the prototype freezes in its
 # stance-pose keyframe so you can orbit and inspect part fitment without
 # the legs cycling underneath you.
 view-static:
-	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(MJ_PY) hexapod_walker/prototype/mujoco_prototype.py --no-gait --no-terrain --obstacles 0 $(ARGS)
+	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(MJ_PY) hexapod_walker/prototype_sts3215/mujoco_prototype.py --no-gait --no-terrain --obstacles 0 $(ARGS)
 
 # PyVista build inspector: every printable part placed at the assembled
 # pose, colored by part type (matching the MuJoCo viewer's palette),
@@ -131,7 +127,7 @@ view-static:
 # mjpython.  Forward ARGS=... for things like
 #   make view-build ARGS="--screenshot /tmp/build.png --explode 0.8"
 view-build:
-	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(REPO_ROOT)/.venv/bin/python hexapod_walker/prototype/inspect_build.py $(ARGS)
+	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(REPO_ROOT)/.venv/bin/python hexapod_walker/prototype_sts3215/inspect_build.py $(ARGS)
 
 # Browser-based build inspector (https://github.com/lukas/buildviz): a
 # Three.js / React port of inspect_build.py.  Workflow:
@@ -158,6 +154,25 @@ view-buildviz:
 	cd $(BUILDVIZ_ROOT) && WEIRD_OBJECTS_ROOT=$(REPO_ROOT) npm run export:hexapod
 	cd $(BUILDVIZ_ROOT) && npm run dev -- --open
 
+# Versioned BuildViz publish: regenerate the full-robot scene, run the generic
+# geometry verifier (tools/buildviz_checks.py), and then BUMP a brand-new
+# version into the machine-wide BuildViz hub cache via `buildviz push --bump`.
+# Every run of this target therefore archives the just-verified revision as the
+# next v<N> (newest = default), so `buildviz versions prototype_sts3215` and the
+# hub accumulate history with no manual bookkeeping.  `--upload-assets` makes the
+# pushed build self-contained (relative STL bytes are uploaded + content-deduped);
+# BUILDVIZ_KEEP caps how many versions are retained (oldest non-default pruned).
+#
+#   make -C hexapod_walker/prototype_sts3215 verify-buildviz
+#   make -C hexapod_walker/prototype_sts3215 verify-buildviz BUILDVIZ_KEEP=10
+BUILDVIZ_BUILD_ID ?= prototype_sts3215
+BUILDVIZ_KEEP     ?= 20
+verify-buildviz:
+	$(RUN) hexapod_walker/prototype_sts3215/tools/full_robot_viz_build.py
+	$(RUN) hexapod_walker/prototype_sts3215/tools/buildviz_checks.py \
+		$(CURDIR)/full_robot_viz/scene.json \
+		--emit --publish --build-id $(BUILDVIZ_BUILD_ID) --keep $(BUILDVIZ_KEEP)
+
 # ---------------------------------------------------------------------------
 # Fastener pipeline (May 2026 -- see fastener_registry.py + fasteners/README.md)
 # ---------------------------------------------------------------------------
@@ -171,7 +186,7 @@ view-buildviz:
 # file, or upgrade NopSCADlib.  See fasteners/README.md for the
 # install commands (openscad CLI + NopSCADlib clone).
 regen-fasteners:
-	$(RUN) hexapod_walker/prototype/make_fastener_meshes.py
+	$(RUN) hexapod_walker/prototype_sts3215/make_fastener_meshes.py
 
 # Auto-derive the fastener BOM table from fastener_registry and inject
 # it (between the BEGIN FASTENERS / END FASTENERS markers) into the
@@ -179,11 +194,11 @@ regen-fasteners:
 #
 # Paths must be absolute because run.sh cd's into the script's own
 # directory before executing -- a path relative to the repo root
-# (e.g. ``hexapod_walker/prototype/PROTOTYPE_BOM.md``) would then
-# resolve against ``prototype/scripts/``, where the BOM file does
+# (e.g. ``hexapod_walker/prototype_sts3215/PROTOTYPE_BOM.md``) would then
+# resolve against ``prototype_sts3215/scripts/``, where the BOM file does
 # not live.
 bom-fasteners:
-	$(RUN) hexapod_walker/prototype/scripts/render_fastener_bom.py \
+	$(RUN) hexapod_walker/prototype_sts3215/scripts/render_fastener_bom.py \
 		--inject $(CURDIR)/PROTOTYPE_BOM.md \
 		--inject $(CURDIR)/SHOPPING_LIST.md
 

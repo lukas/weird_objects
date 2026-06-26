@@ -1,0 +1,487 @@
+# Robot Cat — design contract for a BUILDABLE, WALKABLE cat-like quadruped (rev 7).
+#
+# Human-readable design intent behind the BuildViz build in this directory
+# (scene.json + stl/).  scene.json references it via `designSpecUrl`.  Geometry
+# is generated procedurally by `robot_cat/build_cat.py` (trimesh); the numbers
+# below mirror the constants in that script.
+#
+# Drive train (since rev 4): a SANE, PROVEN configuration modelled on the
+# open-source robot cats Petoi Nybble / Bittle —
+#   * 2 actuated DOF per leg in the SAGITTAL plane (shoulder/hip pitch +
+#     elbow/knee pitch); NO hip abduction servos -> 8 leg servos.
+#   * 1 neck-pan servo (Bittle's 9th joint) -> 9 servos total.
+#   * PASSIVE rigid spine (the body is one fused shell) and a PASSIVE tail.
+#
+# Rev 7 (this revision) is an AESTHETIC overhaul; the engineering (rev 6) is
+# unchanged — same STS3215 servos, inboard hip/shoulder + body-cover scheme,
+# electronics, CoM, torque, audits.  What changed is the SHAPE language:
+#   (1) Haunch/shoulder covers are no longer spheres but SCULPTED teardrop
+#       thigh/shoulder MUSCLES that taper and blend into the body.
+#   (2) The trunk is ONE continuously-lofted cat body (deep chest -> tucked
+#       waist -> rounded pelvis), not three faceted segment shells.
+#   (3) Limbs are smoothly TAPERED (fuller upper limb, slim shank, neat paws),
+#       not uniform cylinders.
+#   (4) The boxy elbow/knee servos are recessed in clean filleted KNEE HOUSINGS.
+#   (5) Mesh resolution is raised (smooth surfaces, not low-poly facets).
+#   (6) The head gets cheeks, almond eyes and tidier pinna ears.
+#
+# Source of truth: build_cat.py for geometry, scene.json for what BuildViz
+# renders, this file for design INTENT.
+
+units: mm
+
+design_intent: >
+  A clearly feline quadruped robot that is genuinely BUILDABLE and able to
+  STAND and WALK, not an anatomical-DOF showpiece.  It follows the proven Petoi
+  Nybble/Bittle hobby-quadruped pattern: planar (sagittal) legs with two
+  actuated joints each, an un-actuated rigid spine, and a passive tail.  Rev 7
+  makes the OUTER FORM read as a real cat — one continuous body with a deep
+  chest, tucked waist and rounded haunches; sculpted teardrop thigh/shoulder
+  muscles that hide the inboard hip/shoulder servos and blend into the torso;
+  tapered limbs ending in neat paws; clean knee/elbow housings; and a feline
+  head with cheeks, almond eyes and triangular ears.
+
+design_lineage:
+  references:
+    - "Petoi Nybble — open-source robot cat, 8 leg servos (2 DOF/leg), passive spine, ~9 servos with head."
+    - "Petoi Bittle — open-source robot dog, 9 servos = 8 walking + 1 neck pan, 2 DOF/leg."
+  what_we_copied: >
+    The 2-DOF-per-leg sagittal layout, the un-actuated spine, the passive tail,
+    the single head/neck servo, AND the scheme of shoulder/hip motors tucked into
+    the body with the knee/elbow motors out on the legs.  Bittle proves this 8-9
+    servo arrangement walks and trots reliably.
+  what_differs: >
+    Built at full small-to-mid cat scale (~490 mm nose-to-tail, ~290 mm withers,
+    ~1.6 kg) instead of Bittle's ~200 mm, with a sculpted continuous body rather
+    than visible servo boxes.  Uses the FEETECH STS3215 serial-bus servo (the same
+    actuator family as the hexapod) so the whole robot shares one TTL bus, and the
+    hip/shoulder servos are covered by printed body muscle masses.
+
+# ---------------------------------------------------------------------
+# Coordinate frame (world, mm)
+# ---------------------------------------------------------------------
+coordinate_system:
+  origin: "Ground plane under the cat; model lifted so the lowest paw is at z=0."
+  x_axis: "+X = forward, toward the head / nose."
+  y_axis: "+Y = the cat's LEFT (right-hand rule with +Z up)."
+  z_axis: "+Z = up."
+
+# ---------------------------------------------------------------------
+# Overall dimensions (this build, SCALE = 1.0)
+# ---------------------------------------------------------------------
+overall_dimensions_mm:
+  bounding_box_LxWxH: [489, 176, 343]   # W includes the outboard knee/elbow housings
+  torso_length_shoulder_to_hip: 228
+  withers_height_top_of_shoulder: 290
+  shoulder_pivot_height: 184
+  hip_pivot_height: 200
+  foot_track_half_y: 42         # lateral half-spacing of the paw contacts
+  foot_fore_aft_span: 226       # front paws x=+124 .. hind paws x=-102
+  scale_factor: 1.0             # structural geometry is design-mm x SCALE; servos are TRUE size
+  size_note: >
+    A real adult-cat envelope: ~490 mm nose-to-tail-tip, ~290 mm at the withers,
+    ~200 mm hip pivot.
+
+# ---------------------------------------------------------------------
+# Actuator — the real part, chosen by a torque + weight + proportion check
+# ---------------------------------------------------------------------
+actuator:
+  part: "FEETECH STS3215 serial-bus servo"
+  why: >
+    At this full ~490 mm / ~1.6 kg adult-cat scale the slim STS3032 (0.44 N-m)
+    would STALL at trot (~0.9x margin), so the drive uses the STS3215 (2.94 N-m).
+    On a full-size cat the bigger servo is proportionate to the now-larger legs,
+    and the hip/shoulder units are hidden inside the body muscle masses anyway.
+    Same STS serial family as the hexapod, so all 9 servos share one TTL bus.
+    Geometry reused READ-ONLY from hexapod_prototype (make_servo_body /
+    make_disc_horn).
+  body_mm: [45.4, 24.8, 34.3]        # case envelope (L x depth x back->front-face)
+  output: "disc horn on a 25T spline; link seats at the 41.3 mm horn top"
+  mass_g_each: 60.0
+  stall_torque: "~30 kg-cm (~2.94 N-m) @ 7.4 V"
+  speed: "~0.16 s/60 deg"
+  drive: "single TTL serial bus, daisy-chained (Feetech FE-URT-1 / Waveshare adapter, 6-8.4 V supply)"
+  alternative_considered:
+    part: "FEETECH STS3032 (rev-5 servo)"
+    spec: "0.44 N-m, 20.6 g, 32x12x27.5 mm"
+    verdict: >
+      Great at the rev-5 SCALE=0.72 / 560 g cat (3.7x standing, 1.8x trot), but at
+      the 1.6 kg cat it gives only ~3.1x standing and ~0.9x trot (stalls).  So
+      STS3215 is chosen for headroom; STS3032 would return if the cat were shrunk.
+
+# ---------------------------------------------------------------------
+# Inboard hip/shoulder servos + sculpted body muscle  (mounting + cover scheme)
+# ---------------------------------------------------------------------
+hip_cover_scheme:
+  mounting: >
+    Each shoulder/hip servo case is oriented with its OUTPUT facing outboard, so
+    the body tucks INBOARD against the inner chassis (it sits inside the body
+    silhouette).  The leg hangs from the disc horn at the joint.  The printed
+    muscle shell IS the servo's outboard mount (no separate case clamp needed on
+    the leg servos).
+  muscle_cover: >
+    Instead of a spherical shroud, each hip/shoulder is covered by a SCULPTED
+    teardrop MUSCLE mass (haunch_shroud / shoulder_shroud) — fat near the body and
+    tapering down toward the knee/elbow, blending smoothly into the one-piece
+    torso.  It reads as a thigh/shoulder muscle, hides the inboard servo, and the
+    upper bone exits a slot at its lower end.
+  real_geometry: >
+    The muscle is a true lofted teardrop (ellipse rings swept along the bone axis
+    with a fat-to-thin radius profile) with the servo (inflated ~1.16x) AND the
+    leg bone SWEPT across its swing range carved out by a boolean difference.  This
+    leaves a real cavity around the motor and an open slot where the bone exits —
+    it does not interpenetrate the servo or the moving leg.
+  swing_clearance:
+    method: "The bone's swept volume is unioned across its swing arc and subtracted from the muscle."
+    hind_femur_swing_carved_deg: "+/-30"
+    front_upper_arm_swing_carved_deg: "+/-26"
+    result: >
+      The femur/upper-arm can rotate fore/aft through the carved range (and the
+      knee/elbow bend below the muscle) without the bone crashing into the slot
+      edge.  Beyond that range the bone would contact the muscle lip, which bounds
+      the usable stride.
+  knee_elbow_housing: >
+    The elbow/knee servos stay on the legs but are recessed in a clean filleted
+    BOX HOUSING (joint_cuff), sized to the servo's oriented bounding box + ~2.6 mm,
+    so each lower joint reads as a deliberate knee module rather than a loose box.
+  audits: >
+    check_overlaps.py treats muscle<->body and muscle<->leg-root as intended (the
+    muscle IS an extension of the body shell); 0 mm^3 unexpected overlap overall.
+    check_assembly.py confirms each muscle is connected to the body and the leg
+    still connects through the slot: 1 connected component, 0 hovering, paws z=0.
+
+# ---------------------------------------------------------------------
+# Electronics & power packaging  (where the controller + battery go)
+# ---------------------------------------------------------------------
+electronics:
+  controller:
+    part: "Arduino Uno Q"
+    board_mm: [68.58, 53.34]          # datasheet ABX00162, UNO form factor
+    pcb_thickness_mm: 1.6
+    mount_holes: "standard UNO 4-hole pattern (UNO_Q_HOLES, board-centre frame)"
+    geometry_source: "hexapod_prototype.make_uno_q_visual() / UNO_Q_PCB_W/D / UNO_Q_HOLES (read-only)"
+    mass_g: 30
+    power_in: "VIN 7-24 V (also USB-C 5 V); fed from the 2S pack"
+    location_mm: [72.0, 0.0, 252.0]   # PCB bottom; horizontal, in the wide CHEST cavity
+    orientation: "PCB flat (XY), long axis along X, USB-C toward the tail for access"
+    mount: "4x M3 standoffs onto a printed controller_tray; a chassis post ties the tray to the battery cradle"
+    fit_note: >
+      In the DEEP CHEST where the interior is widest (~80 mm).  The 53.34 mm board
+      sits flat with comfortable clearance per side.  The tray now carries a short
+      chassis post down to the battery cradle so the controller mount is part of
+      the single connected chassis.
+  battery:
+    part: "2S LiPo (7.4 V, ~2200 mAh)"   # sized for 9x STS3215 stall current
+    size_mm: [105, 34, 16]
+    mass_g: 120
+    location_mm: [-18.0, 0.0, 214.0]     # LOW + ~centred in the belly
+    orientation: "long axis fore/aft (X), resting ON the printed battery_cradle floor"
+    why_here: >
+      Heaviest single item, placed low and near the centreline (slightly aft to
+      balance the chest-mounted Uno Q) to keep the CoM low and inside the polygon.
+    powers: "STS3215 servo bus + Uno Q VIN"
+  wiring:
+    bus: "single TTL serial bus (Feetech FE-URT-1 / Waveshare driver beside the Uno Q)"
+    routing: >
+      All 9 STS3215 daisy-chain on one bus: driver -> down each side of the spine
+      -> a drop to each shoulder/hip servo -> jumper to that leg's knee/elbow
+      servo; the neck servo taps the front of the chain.
+  packaging_note: >
+    The torso is modelled as a SOLID silhouette but is really a hollow shell; the
+    controller, battery and their mounts sit in that cavity.  check_overlaps.py
+    treats electronics<->trunk contact as expected (they live inside the shell).
+
+# ---------------------------------------------------------------------
+# Joint / DOF layout  (the explicit "what joints and why")
+# ---------------------------------------------------------------------
+actuated_joints:
+  per_front_leg:
+    dof: 2
+    motors: 2
+    joints:
+      - name: shoulder_pitch                  # axis +Y (lateral)
+        axis: y_lateral
+        hardware: "STS3215 (case tucked INBOARD; covered by the shoulder muscle) + disc horn"
+        anatomy: "shoulder swing, drives the upper arm fore/aft; limb hangs from the horn"
+      - name: elbow_pitch                      # axis +Y, elbow points back
+        axis: y_lateral
+        hardware: "STS3215 (on the leg, recessed in the joint_cuff housing) + disc horn"
+        anatomy: "elbow (humerus<->forearm), drives the forearm+paw"
+  per_hind_leg:
+    dof: 2
+    motors: 2
+    joints:
+      - name: hip_pitch                        # axis +Y
+        axis: y_lateral
+        hardware: "STS3215 (case tucked INBOARD; covered by the haunch muscle) + disc horn"
+        anatomy: "hip swing, drives the femur fore/aft; limb hangs from the horn"
+      - name: knee_pitch                       # axis +Y, high forward stifle
+        axis: y_lateral
+        hardware: "STS3215 (on the leg, recessed in the joint_cuff housing) + disc horn"
+        anatomy: "stifle (true knee), drives the shank+paw"
+  neck:
+    motors: 1
+    joints:
+      - name: neck_pan                         # axis +Z (vertical) — head yaw
+        axis: z_vertical
+        hardware: "STS3215 + disc horn + printed clamp"
+        anatomy: "head aiming (pan left/right), Bittle's 9th servo"
+  spine:
+    motors: 0
+    note: "PASSIVE / rigid — the body is one continuously-lofted shell."
+  tail:
+    motors: 0
+    note: "PASSIVE decorative taper bolted to the pelvis; no servo."
+  dof_summary:
+    front_leg_dof: 4      # 2 legs x 2
+    hind_leg_dof: 4       # 2 legs x 2
+    neck_dof: 1
+    spine_dof: 0
+    tail_dof: 0
+    total_motors: 9
+  drive_system_counts:
+    sts3215_servos: 9     # 8 leg (2/leg) + 1 neck pan
+    disc_horns: 9         # one disc horn per servo
+    printed_servo_clamps: 1   # neck only; leg servos are held by the muscle/cuff shells
+    printed_joint_cuffs: 4    # elbow/knee servo housings
+    m3_horn_bolts_per_joint: 4
+
+# ---------------------------------------------------------------------
+# Feasibility — torque, weight, static stability, gait, connectivity (numbers)
+# ---------------------------------------------------------------------
+feasibility:
+  mass_budget_g:
+    servos: 540           # 9 x 60 g (STS3215)
+    disc_horns: 36        # 9 x 4 g
+    controller_uno_q: 30
+    battery_2s_lipo: 120
+    printed_pla: 852      # hollow ~2 mm-wall torso + muscles + tapered legs + cuffs + trays
+    estimated_total: 1578
+  torque_check:
+    method: "Worst-leg vertical load x scaled knee moment arm vs. STS3215 2.94 N-m stall."
+    knee_moment_arm_mm: 121
+    standing: "load ~W/4; ~0.47 N-m -> margin 6.3x"
+    trot: "load ~W/2; ~0.94 N-m -> margin 3.1x"
+    verdict: "STS3215 clears the >=3x standing / >=1.5x trot target with comfortable headroom even at 1.6 kg."
+  static_stability:
+    com_mm: [20.3, 0.0, 171.6]      # includes the placed battery + Uno Q controller
+    support_polygon_paws_xy: [[-102, -42], [124, -38], [124, 38], [-102, 42]]
+    com_inside_support_polygon: true
+    edge_margin_mm: 40
+    note: >
+      CoM ground projection sits 40 mm inside the 4-paw polygon -> statically
+      stable.  The battery is low + slightly aft to balance the chest-mounted Uno Q.
+  gait_feasibility:
+    foot_fore_aft_span_mm: 226
+    lateral_track_half_mm: 42
+    static_walk: >
+      4-paw polygon (226 x 84 mm) with the CoM 40 mm inside, so a static-stable
+      crawl (lift one foot at a time) is reachable — the gait Nybble/Bittle use.
+    swing_clearance: >
+      Legs are planar and laterally separated (±38-42 mm), swinging fore/aft in
+      their own sagittal planes; opposite legs cannot collide.  Each hip/shoulder
+      muscle has the leg's swept volume (±30°/±26°) carved out, so the bone clears
+      the slot through the stride.
+    limitations: >
+      Geared position servos (no torque control) + a passive spine -> good for
+      standing, posing and static/quasi-static walk; the STS3215 headroom also
+      supports a slow trot.  True feline gallop/bound/jump is NOT in scope.
+  connectivity_check:
+    tool: "robot_cat/check_assembly.py"
+    connected_components: 1     # the whole robot is one touching body
+    hovering_parts: 0
+    feet_on_ground: "all 4 paws at z=0"
+    note: >
+      Bone segments butt the real servo body / horn at each joint; shoulder/hip
+      servo cases tuck into the torso and the muscles connect to the body; a
+      chassis post ties the controller tray to the battery cradle.  No floating
+      parts.
+
+# ---------------------------------------------------------------------
+# Part list  (partType -> what it is).  EVERY partType in scene.json must
+# appear here (the validator cross-checks).
+# ---------------------------------------------------------------------
+parts:
+  # --- trunk: ONE continuously-lofted cat body (passive spine) ---
+  torso:
+    count: 1
+    role: body
+    description: >
+      ONE smoothly-lofted cat body: deep chest/ribcage at the shoulders -> tucked
+      waist -> rounded pelvis/haunches, with a smooth topline and tucked belly.
+      A single mesh (Catmull-Rom-smoothed cross-sections, no segment seams).
+  neck:
+    count: 1
+    role: body
+    description: "Tapered neck blending the chest/withers up to the head (driven by the neck-pan servo)."
+  haunch_shroud:
+    count: 2
+    role: body
+    description: >
+      Sculpted teardrop HIND-THIGH muscle that covers each INBOARD hip servo and
+      blends into the pelvis; the femur exits a slot at its lower end.  A lofted
+      teardrop with the servo + the femur's swept volume carved out.
+  shoulder_shroud:
+    count: 2
+    role: body
+    description: >
+      Sculpted teardrop SHOULDER muscle that covers each INBOARD shoulder servo and
+      blends into the chest; the upper arm exits a slot at its lower end.  Lofted
+      teardrop, servo + swing carved.
+  # --- head (prints as one piece; feature meshes are cosmetic) ---
+  head:        {count: 1, role: head, description: "Smooth (high-subdivision) skull."}
+  cheek:       {count: 2, role: head, description: "Fuller feline cheeks/jowls low on the face."}
+  ear:         {count: 2, role: head, description: "Flattened triangular pinna ears, tilted outward."}
+  ear_inner:   {count: 2, role: head, description: "Smaller inner-ear pinnae (two-tone)."}
+  muzzle:      {count: 1, role: head, description: "Cream muzzle at the front of the head."}
+  nose:        {count: 1, role: head, description: "Small pink nose at the muzzle tip."}
+  eye:         {count: 2, role: head, description: "Almond amber eyes set into the upper face."}
+  whisker_pad: {count: 2, role: head, description: "Whisker pads flanking the muzzle."}
+  # --- tail (passive) ---
+  tail_segment:
+    count: 1
+    role: tail
+    description: "One smooth, continuously-tapering tail curving up and back — a PASSIVE balance tail."
+  # --- front limb (x2, mirrored L/R): 2 segments, 2 joints ---
+  upper_arm: {count: 2, role: limb, description: "Humerus: tapered shoulder->elbow segment (fuller at the shoulder)."}
+  forearm:   {count: 2, role: limb, description: "Forearm: tapered elbow->paw lower leg (slim ankle)."}
+  front_paw: {count: 2, role: paw,  description: "Neat rounded paw pad on the ground."}
+  # --- hind limb (x2, mirrored L/R): 2 segments, 2 joints ---
+  femur: {count: 2, role: limb, description: "Thigh/femur: tapered hip->HIGH stifle segment (fuller at the hip)."}
+  shank: {count: 2, role: limb, description: "Shank: tapered knee->paw lower leg (slim ankle)."}
+  hind_paw: {count: 2, role: paw, description: "Neat rounded paw pad on the ground."}
+  # --- drive system (REAL FEETECH STS3215), 9 servos ---
+  sts3215_servo:
+    count: 9
+    role: motor
+    description: >
+      REAL FEETECH STS3215 serial-bus servo: case ~45.4 x 24.8 x 34.3 mm, ~60 g,
+      ~2.94 N-m stall, 25T spline.  8 leg servos (shoulder/hip + elbow/knee, 2 per
+      leg) + 1 neck-pan servo.  Shoulder/hip cases tuck INBOARD (hidden under the
+      muscles); knee/elbow cases sit on the legs (recessed in the joint cuffs).
+  disc_horn:
+    count: 9
+    role: horn
+    description: >
+      Round disc horn on each 25T spline; the driven segment seats on its top face
+      and is retained by the centre + 4 perimeter M3 screws.  Light grey.
+  servo_clamp:
+    count: 1
+    role: bracket
+    description: >
+      3D-printed clamp/collar sized to the STS3215 case for the NECK servo (the leg
+      servos are held instead by the printed muscle / joint-cuff shells).  Steel-blue.
+  joint_cuff:
+    count: 4
+    role: bracket
+    description: >
+      Printed filleted-box housing that recesses each boxy elbow/knee servo, sized
+      to the servo's oriented bounding box + ~2.6 mm so the lower joint reads as a
+      clean knee module.  Grey.
+  horn_bolts:
+    count: 9
+    role: fastener
+    description: "Per-joint 4x M3 disc-horn bolts on the 14 mm bolt circle, grouped one instance per joint.  Gold."
+  # --- electronics & power (packaged inside the torso cavity) ---
+  controller:
+    count: 1
+    role: controller
+    description: >
+      REAL Arduino Uno Q single-board computer, PCB 68.58 x 53.34 mm (UNO form
+      factor), reused read-only from hexapod_prototype.make_uno_q_visual().
+      Mounted horizontally on standoffs in the deep chest, USB-C facing the tail.
+  controller_tray:
+    count: 1
+    role: bracket
+    description: >
+      3D-printed tray plate (~77 x 61 x 3 mm) the Uno Q bolts to via 4 M3
+      standoffs, plus a short chassis post tying it down to the battery cradle so
+      the controller mount is part of the one connected chassis.  Steel-blue.
+  controller_standoffs:
+    count: 1
+    role: fastener
+    description: "4x M3 standoffs (grouped) lifting the Uno Q off its tray.  Gold."
+  battery:
+    count: 1
+    role: battery
+    description: >
+      REAL 2S LiPo pack (7.4 V, ~2200 mAh), ~105 x 34 x 16 mm, ~120 g.  Placed LOW
+      and ~centred in the belly for a low central CoM; powers the STS3215 bus and
+      the Uno Q VIN.  Dark red.
+  battery_cradle:
+    count: 1
+    role: bracket
+    description: >
+      3D-printed cradle (floor + 2 side rails); the LiPo rests ON its floor low
+      against the belly.  Slate-blue.
+
+# ---------------------------------------------------------------------
+# Limb joint coordinates (DESIGN mm side profile x,z; SCALE=1.0 so = world mm;
+# y = +/- track/2)
+# ---------------------------------------------------------------------
+limb_geometry_mm:
+  front_track_half_y: 38
+  hind_track_half_y: 42
+  front_leg_xz:
+    shoulder: [118, 184]
+    elbow:    [108, 98]    # slightly behind -> elbow points back
+    paw:      [122, 0]
+  hind_leg_xz:
+    hip:  [-110, 200]
+    knee:  [-86, 120]      # forward of hip, high near body
+    paw:  [-104, 0]
+  attachment_scheme: >
+    Each leg has TWO tapered segments and TWO sagittal servos.  The shoulder/hip
+    servo case tucks inboard into the torso (chassis-mounted, hidden under the
+    muscle) and the limb hangs from its horn; the elbow/knee servo sits on the leg
+    (in the joint-cuff housing) and its horn drives the lower segment.  Bones are
+    trimmed ~9 mm from each joint so they BUTT the servo/horn — gap-free per
+    check_assembly.py, overlap-free per check_overlaps.py.
+
+# ---------------------------------------------------------------------
+# Torso loft control cross-sections (DESIGN mm: x, z_centre, half_y, half_z);
+# Catmull-Rom-smoothed and lofted as ONE mesh.  SCALE=1.0
+# ---------------------------------------------------------------------
+torso_sections_mm:
+  - [162, 251, 18, 23]    # chest front (meets the neck)
+  - [142, 245, 31, 41]
+  - [118, 240, 41, 52]    # deep chest / behind the shoulders
+  - [88, 238, 43, 54]     # deepest barrel
+  - [52, 239, 40, 49]
+  - [12, 241, 34, 42]     # tucked waist
+  - [-20, 242, 33, 40]
+  - [-56, 241, 37, 45]
+  - [-92, 240, 42, 49]    # pelvis / haunch core
+  - [-122, 241, 35, 43]
+  - [-146, 244, 21, 27]
+  - [-158, 247, 11, 15]   # tail base
+
+# ---------------------------------------------------------------------
+# Intended gaits
+# ---------------------------------------------------------------------
+gaits:
+  static_crawl:
+    type: "statically-stable, one foot lifted at a time; CoM stays in the support tripod."
+    note: "Primary gait — matches the stability margin above."
+  walk:
+    type: "lateral-sequence four-beat (RH -> RF -> LH -> LF)."
+  trot:
+    type: "two-beat diagonal couplets; STS3215 has 3.1x knee margin at trot."
+  not_supported: "gallop / bound / jump (needs torque-controlled actuators + a sprung spine)."
+
+quality_checks:
+  overlap_check: "robot_cat/check_overlaps.py — pairwise solid-intersection volume between structural parts."
+  overlap_status: "0 mm^3 UNEXPECTED overlap.  Remaining contacts are intended: foot<->lower-leg bonds, the one-piece head's features, limb-root<->torso, muscle<->body/leg-root, and electronics<->hollow-trunk cavity."
+  connectivity_check: "robot_cat/check_assembly.py — nearest-surface gaps + connected components."
+  connectivity_status: "1 connected component (69 parts), 0 hovering parts, all 4 paws on z=0."
+  servo_count: "9 — 8 leg + 1 neck pan (FEETECH STS3215)."
+  instance_count: "69 (64 structural/drive + 5 electronics: controller, tray, standoffs, battery, cradle)."
+  stability: "CoM 40 mm inside the 4-paw support polygon; knee torque margin 6.3x standing / 3.1x trot."
+
+regenerate:
+  build: "./run.sh robot_cat/build_cat.py"
+  check_overlaps: "./run.sh robot_cat/check_overlaps.py"
+  check_assembly: "./run.sh robot_cat/check_assembly.py"
+  render: "./run.sh robot_cat/render_cat.py"
+  view:  "npx buildviz robot_cat/cat_viz --port 5174"
+  validate: "cd robot_cat/cat_viz && node /Users/lbiewald/buildviz/bin/buildviz.mjs validate . --json"

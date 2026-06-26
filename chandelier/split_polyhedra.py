@@ -17,13 +17,15 @@ Usage
 -----
 
     python split_polyhedra.py                     # writes ./polyhedra_stl/*.stl
+    python split_polyhedra.py --format step       # writes ./polyhedra_stl/*.step
+    python split_polyhedra.py --format both        # writes both .stl and .step
     python split_polyhedra.py --out-dir parts/    # alternative output dir
     python split_polyhedra.py --skip-pocket       # skip the heat-set pocket
                                                   # (drill it post-print instead)
     python split_polyhedra.py --skip-fiber-hole   # skip the fiber pass-through
 
-Output filenames are prefixed by category so the 31 STLs sort cleanly
-in a slicer file browser:
+Output filenames are prefixed by category so the 31 parts sort cleanly
+in a slicer / CAD file browser:
 
     polyhedra_stl/
         platonic_01_tetrahedron.stl
@@ -33,6 +35,11 @@ in a slicer file browser:
         ...
         catalan_01_triakis_tetrahedron.stl
         ...
+
+STEP export (``--format step``/``both``) requires the OpenCascade Python
+bindings (``pip install cadquery``).  Each STEP body is tessellated from
+the same watertight mesh, so it round-trips the geometry faithfully but
+is not analytic B-rep.
 """
 
 from __future__ import annotations
@@ -53,6 +60,7 @@ from all_polyhedra import (
     PLATONIC_ORDER,
     ARCHIMEDEAN_ORDER,
 )
+from export_plate_to_step import trimeshes_to_step
 
 
 # ---------------------------------------------------------------------------
@@ -258,10 +266,14 @@ def split_one(solid, *, with_pocket: bool, with_fiber_hole: bool,
 def split_all(out_dir: str, *, with_pocket: bool, with_fiber_hole: bool,
               hole_diameter_mm: float, hole_depth_mm: float,
               fiber_hole_diameter_mm: float, fiber_hole_depth_mm: float,
-              fiber_hole_offset_mm: float):
+              fiber_hole_offset_mm: float, fmt: str = "stl",
+              step_decimate: float = 0.0):
     os.makedirs(out_dir, exist_ok=True)
 
-    print(f"Per-polyhedron STL split (scale {SCALE_FACTOR:.3f}x)")
+    want_stl = fmt in ("stl", "both")
+    want_step = fmt in ("step", "both")
+
+    print(f"Per-polyhedron split (scale {SCALE_FACTOR:.3f}x), format: {fmt}")
     print(f"  Each polyhedron: ~{NODE_DIAMETER_MM * SCALE_FACTOR:.0f} mm OD post-cast")
     if with_pocket:
         print(f"  Heat-set insert pocket: {hole_diameter_mm:.1f} mm Ø × "
@@ -280,9 +292,8 @@ def split_all(out_dir: str, *, with_pocket: bool, with_fiber_hole: bool,
     n_ok = 0
     for solid in P.ALL_SOLIDS:
         idx = _split_index_for_filename(solid.category, solid.name)
-        fname = (f"{solid.category}_"
-                 f"{idx:02d}_{_safe_filename(solid.name)}.stl")
-        out_path = os.path.join(out_dir, fname)
+        base = (f"{solid.category}_"
+                f"{idx:02d}_{_safe_filename(solid.name)}")
 
         mesh = split_one(solid, with_pocket=with_pocket,
                          with_fiber_hole=with_fiber_hole,
@@ -291,17 +302,30 @@ def split_all(out_dir: str, *, with_pocket: bool, with_fiber_hole: bool,
                          fiber_hole_diameter_mm=fiber_hole_diameter_mm,
                          fiber_hole_depth_mm=fiber_hole_depth_mm,
                          fiber_hole_offset_mm=fiber_hole_offset_mm)
-        mesh.export(out_path)
+
+        written = []
+        if want_stl:
+            stl_path = os.path.join(out_dir, base + ".stl")
+            mesh.export(stl_path)
+            written.append(base + ".stl")
+        if want_step:
+            step_path = os.path.join(out_dir, base + ".step")
+            # Each polyhedron is a single watertight body; the converter
+            # falls back to per-shell reads if a stray sliver from the
+            # boolean ops makes OpenCascade reject the whole body.
+            trimeshes_to_step([mesh], step_path,
+                              decimate=step_decimate, verbose=False)
+            written.append(base + ".step")
 
         ext = mesh.bounds[1] - mesh.bounds[0]
         wt = "OK" if mesh.is_watertight else "open"
         print(f"  [{solid.category:11s}] {solid.name:32s}  "
               f"size={ext[0]:5.1f} x {ext[1]:5.1f} x {ext[2]:5.1f} mm  "
-              f"({wt})  -> {fname}")
+              f"({wt})  -> {', '.join(written)}")
         n_ok += 1
 
     print()
-    print(f"Wrote {n_ok} STL files to {out_dir}/")
+    print(f"Wrote {n_ok} part(s) ({fmt}) to {out_dir}/")
     print("Each polyhedron prints in PETG at ~ 0.3 mm layers, 15% gyroid")
     print("infill, no supports.  See ASSEMBLY.md §6.1 for full print settings.")
 
@@ -311,6 +335,14 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out-dir", default="polyhedra_stl",
                     help="output directory (default: polyhedra_stl)")
+    ap.add_argument("--format", choices=("stl", "step", "both"), default="stl",
+                    help="output geometry format (default: stl).  STEP "
+                         "requires the OpenCascade bindings (pip install "
+                         "cadquery).")
+    ap.add_argument("--step-decimate", type=float, default=0.0,
+                    help="PyVista decimation reduction in (0,1) applied per "
+                         "body before STEP export; 0 keeps full triangle "
+                         "count (default: 0).")
     ap.add_argument("--skip-pocket", action="store_true",
                     help="don't subtract the heat-set insert pocket "
                          "(drill it post-print instead)")
@@ -341,7 +373,9 @@ def main():
               hole_depth_mm=args.pocket_depth,
               fiber_hole_diameter_mm=args.fiber_hole_diameter,
               fiber_hole_depth_mm=args.fiber_hole_depth,
-              fiber_hole_offset_mm=args.fiber_hole_offset)
+              fiber_hole_offset_mm=args.fiber_hole_offset,
+              fmt=args.format,
+              step_decimate=args.step_decimate)
 
 
 if __name__ == "__main__":
