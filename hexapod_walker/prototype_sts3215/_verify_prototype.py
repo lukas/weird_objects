@@ -3323,10 +3323,28 @@ def check_flimsy_joints():
     )
     items = {name: _load_mesh(name, copy=False) for name in items_names}
 
+    # Each part's voxelise + double-EDT pass is independent and the
+    # scipy heavy lifting (``distance_transform_edt``) releases the GIL,
+    # so fan the per-part compute across a thread pool.  This is the
+    # single longest serial check post-embree; threading it collapses
+    # its wall time to ~ the cost of the biggest single part while the
+    # OTHER process-pool workers (which have already finished the small
+    # checks) sit idle.  Printing + verdict aggregation below still
+    # happen in DECLARATION ORDER in this thread, so the output and the
+    # pass/fail result are byte-for-byte identical to the serial loop.
+    n_threads = min(len(items), (os.cpu_count() or 1))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as ex:
+        cluster_results = dict(zip(
+            items.keys(),
+            ex.map(
+                lambda m: _flimsy_clusters_for_part(
+                    m, FLIMSY_VOXEL_PITCH, MIN_PRINT_T, MIN_CLUSTER_VOX),
+                items.values()),
+        ))
+
     all_ok = True
     for name, mesh in items.items():
-        clusters, biggest, max_t = _flimsy_clusters_for_part(
-            mesh, FLIMSY_VOXEL_PITCH, MIN_PRINT_T, MIN_CLUSTER_VOX)
+        clusters, biggest, max_t = cluster_results[name]
         ok = biggest <= MAX_FLIMSY_BUDGET_VOX
         all_ok &= ok
         n_clusters = len(clusters)

@@ -7,7 +7,18 @@ matplotlib
 rtree
 shapely
 mapbox_earcut
-embreex; sys_platform != "darwin" or platform_machine != "arm64"
+# embreex = Intel Embree ray-tracing backend for trimesh. Without it,
+# trimesh silently falls back to a ~100x slower pure-Python rtree ray
+# engine, which dominates the hexapod CAD verifier's runtime. The old
+# `darwin/arm64` exclusion predated the arm64 macOS wheel; embreex >=4.4
+# now ships cp3x macosx_arm64 wheels, so enable it there (this repo's
+# primary dev machines are Apple Silicon). The marker below installs it
+# ONLY on the platforms embreex publishes prebuilt wheels for (macOS
+# both arches, manylinux x86_64, win_amd64) and EXCLUDES wheel-less
+# targets like linux-aarch64 / win32, where pip would otherwise attempt
+# a slow (and usually failing) source build. trimesh degrades gracefully
+# to the pure-Python engine on the excluded platforms.
+embreex; sys_platform == "darwin" or (sys_platform == "linux" and platform_machine == "x86_64") or (sys_platform == "win32" and platform_machine == "AMD64")
 pyvista
 pytest
 
