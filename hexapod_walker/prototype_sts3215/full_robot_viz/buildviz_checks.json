@@ -1,33 +1,460 @@
 {
-  "scene": "scene.json",
-  "generatedBy": "buildviz_checks.py (generic prototype)",
-  "config": {
-    "overlapMm3": 80.0,
-    "pitchMm": 2.0
+  "generatedAt": "2026-07-08T14:37:30.605566+00:00",
+  "build": {
+    "id": "prototype_sts3215",
+    "name": "Hexapod STS3215 \u2014 full robot"
   },
-  "results": [
+  "generatedBy": "full_robot_viz_build.py (precomputed offline)",
+  "checksConfig": {
+    "overlapMm3": 80.0,
+    "pitchMm": 2.0,
+    "ignoreOverlapPairs": [
+      [
+        "chassis_bottom",
+        "lipo_battery"
+      ],
+      [
+        "chassis_bottom",
+        "yaw_servo"
+      ],
+      [
+        "coxa_hip_bracket",
+        "coxa_yaw_hub"
+      ],
+      [
+        "coxa_hip_bracket",
+        "hip_servo"
+      ],
+      [
+        "coxa_hip_bracket",
+        "yaw_bearing_cap"
+      ],
+      [
+        "coxa_yaw_hub",
+        "yaw_bearing_cap"
+      ],
+      [
+        "disc_horn_hip",
+        "hip_servo"
+      ],
+      [
+        "disc_horn_knee",
+        "knee_servo"
+      ],
+      [
+        "disc_horn_yaw",
+        "yaw_servo"
+      ],
+      [
+        "femur_hip_yoke",
+        "femur_strut"
+      ],
+      [
+        "femur_knee_bracket",
+        "femur_strut"
+      ],
+      [
+        "femur_knee_bracket",
+        "knee_servo"
+      ],
+      [
+        "hip_clamp_cap",
+        "hip_servo"
+      ],
+      [
+        "knee_clamp_cap",
+        "knee_servo"
+      ],
+      [
+        "tibia_foot_fitting",
+        "tibia_tube"
+      ],
+      [
+        "tibia_knee_yoke",
+        "tibia_tube"
+      ]
+    ]
+  },
+  "summary": {
+    "total": 14,
+    "pass": 14,
+    "warn": 0,
+    "fail": 0,
+    "byKind": {
+      "scene_meta": {
+        "pass": 1,
+        "warn": 0,
+        "fail": 0
+      },
+      "mesh_overlap": {
+        "pass": 13,
+        "warn": 0,
+        "fail": 0
+      }
+    }
+  },
+  "checks": [
     {
-      "check": "scene_meta",
-      "pass": true,
-      "detail": "manifest OK",
-      "offenders": []
+      "id": "scene_meta-unique-ids",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "506 instances, ids unique"
     },
     {
-      "check": "placement",
-      "pass": true,
-      "detail": "494 instances placed sanely",
-      "offenders": []
+      "id": "mesh_overlap-0",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1226 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "058-knee_servo",
+        "060-knee_clamp_cap"
+      ],
+      "point": [
+        -152.8750293390983,
+        89.96876167436507,
+        128.59074456042396
+      ],
+      "region": {
+        "min": [
+          -176.74929951266347,
+          66.97667783004849,
+          120.62463498417048
+        ],
+        "max": [
+          -130.59005703423,
+          112.45893932249587,
+          136.76679553107337
+        ]
+      }
     },
     {
-      "check": "mesh_overlap",
-      "pass": true,
-      "detail": "no solids interpenetrate above 80 mm^3",
-      "offenders": []
+      "id": "mesh_overlap-1",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1226 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "112-knee_servo",
+        "114-knee_clamp_cap"
+      ],
+      "point": [
+        152.87502933909818,
+        -89.96876167436506,
+        128.5907445604239
+      ],
+      "region": {
+        "min": [
+          130.59005703423006,
+          -112.45893932249581,
+          120.62463498417048
+        ],
+        "max": [
+          176.74929951266353,
+          -66.97667783004843,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-2",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1222 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "022-knee_servo",
+        "024-knee_clamp_cap"
+      ],
+      "point": [
+        154.03470061271267,
+        87.56538058420703,
+        128.50910068482534
+      ],
+      "region": {
+        "min": [
+          130.0900296447739,
+          64.36527876084453,
+          120.62463498417048
+        ],
+        "max": [
+          178.4217135820037,
+          109.55442284463032,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-3",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1222 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "076-knee_servo",
+        "078-knee_clamp_cap"
+      ],
+      "point": [
+        -154.03470061271278,
+        -87.565380584207,
+        128.50910068482548
+      ],
+      "region": {
+        "min": [
+          -178.4217135820037,
+          -109.5544228446303,
+          120.62463498417048
+        ],
+        "max": [
+          -130.0900296447739,
+          -64.36527876084452,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-4",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 1155 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "110-yaw_servo"
+      ],
+      "point": [
+        69.18625531860704,
+        -40.005549372515055,
+        38.768748569488636
+      ],
+      "region": {
+        "min": [
+          51.95293491013105,
+          -63.83065005275845,
+          38.76874856948853
+        ],
+        "max": [
+          100.78067606747942,
+          -23.669349947241543,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-5",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 1155 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "020-yaw_servo"
+      ],
+      "point": [
+        69.18625531860704,
+        40.005549372515055,
+        38.768748569488636
+      ],
+      "region": {
+        "min": [
+          51.95293491013106,
+          23.66934994724155,
+          38.76874856948853
+        ],
+        "max": [
+          100.78067606747945,
+          63.830650052758436,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-6",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 1141 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "074-yaw_servo"
+      ],
+      "point": [
+        -69.25820329154242,
+        -40.20002793710163,
+        38.768748569488636
+      ],
+      "region": {
+        "min": [
+          -100.78067606747943,
+          -63.830650052758436,
+          38.76874856948853
+        ],
+        "max": [
+          -51.952934910131056,
+          -25.677414952517374,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-7",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 1141 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "056-yaw_servo"
+      ],
+      "point": [
+        -69.25820329154242,
+        40.20002793710166,
+        38.768748569488636
+      ],
+      "region": {
+        "min": [
+          -100.7806760674794,
+          25.677414952517424,
+          38.76874856948853
+        ],
+        "max": [
+          -51.95293491013105,
+          63.830650052758486,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-8",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1137 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "094-knee_servo",
+        "096-knee_clamp_cap"
+      ],
+      "point": [
+        -0.9999996185303957,
+        -179.3893238727669,
+        129.5028232849671
+      ],
+      "region": {
+        "min": [
+          -16.573528693704183,
+          -196.08284730063642,
+          120.62463498417048
+        ],
+        "max": [
+          14.573529456643382,
+          -161.04705739029288,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-9",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1137 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "040-knee_servo",
+        "042-knee_clamp_cap"
+      ],
+      "point": [
+        0.9999996185303102,
+        179.3893238727669,
+        129.50282328496706
+      ],
+      "region": {
+        "min": [
+          -14.573529456643467,
+          161.04705739029288,
+          120.62463498417048
+        ],
+        "max": [
+          16.573528693704084,
+          196.08284730063642,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-10",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 928 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "092-yaw_servo"
+      ],
+      "point": [
+        -5.684341886080802e-14,
+        -79.16284410377786,
+        38.76874856948862
+      ],
+      "region": {
+        "min": [
+          -10.333333015441964,
+          -108.39600051879883,
+          38.76874856948853
+        ],
+        "max": [
+          10.333333015441848,
+          -66.87599929809568,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-11",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 928 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "038-yaw_servo"
+      ],
+      "point": [
+        9.868649107779169e-15,
+        79.16284410377786,
+        38.76874856948862
+      ],
+      "region": {
+        "min": [
+          -10.333333015441877,
+          66.8759992980957,
+          38.76874856948853
+        ],
+        "max": [
+          10.333333015441921,
+          108.39600051879883,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-12",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 lipo_battery = 425 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "002-lipo_battery"
+      ],
+      "point": [
+        -58.245192307692314,
+        -2.6010939434075094e-15,
+        37.066740308489116
+      ],
+      "region": {
+        "min": [
+          -63.36538461538461,
+          -15.441176470588236,
+          34.76874923706055
+        ],
+        "max": [
+          -53.269230769230774,
+          15.441176470588232,
+          39.20624923706055
+        ]
+      }
     }
   ],
   "highlights": {
     "parts": [],
-    "points": []
-  },
-  "allPass": true
+    "points": [],
+    "regions": []
+  }
 }

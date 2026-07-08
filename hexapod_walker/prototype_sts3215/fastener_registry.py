@@ -820,10 +820,10 @@ def _emit_yaw_cap_join_fasteners(leg_index: int) -> list[FastenerInstance]:
 
 
 def _emit_yaw_retainer_anchor_fasteners(leg_index: int) -> list[FastenerInstance]:
-    """The 2 M3 x 6 self-tap anchor screws that bolt the yaw anti-rotation
-    SADDLE (``make_yaw_servo_retainer``) UP to the ``chassis_bottom`` floor
-    (Jun 2026 saddle redesign; replaces the old undrivable stirrup anchors
-    that were never even emitted here).
+    """The 4 M3 x 6 self-tap anchor screws (Jul 2026 4-point rework -- was 2)
+    that bolt the yaw anti-rotation SADDLE (``make_yaw_servo_retainer``) UP to
+    the ``chassis_bottom`` floor (Jun 2026 saddle redesign; replaces the old
+    undrivable stirrup anchors that were never even emitted here).
 
     Cradle-local frame (origin on the yaw/output axis, +X outboard radial,
     +Y tangential, WORLD Z): the head RECESSES into a counterbore in the thick
@@ -852,12 +852,15 @@ def _emit_yaw_retainer_anchor_fasteners(leg_index: int) -> list[FastenerInstance
         head = _apply_point(T_saddle_to_world, p_local)
         axis = _apply_dir(T_saddle_to_world, np.array([0.0, 0.0, 1.0]))
         side = "+Y" if ay > 0 else "-Y"
+        # Jul 2026 4-point rework: tag the radial row so the outboard (-12.5)
+        # and inboard (-29) anchor pairs read distinctly in the BOM.
+        row = "outboard" if abs(ax - HP.RETAINER_ANCHOR_RADIAL) < 1e-6 else "inboard"
         out.append(FastenerInstance(
             part_number=PN_M3X6_SHCS,
             spec=SPEC_M3X6_SHCS_SELFTAP,
             head_world_xyz=head,
             axis_world=axis,
-            role=f"yaw_servo_retainer L{leg_index} saddle {side} chassis anchor M3 self-tap",
+            role=f"yaw_servo_retainer L{leg_index} saddle {row} {side} chassis anchor M3 self-tap",
             leg_index=leg_index,
             joint="yaw",
             length_mm=6.0,
@@ -2088,8 +2091,9 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         # the split bearing tower's TOP half down onto chassis_bottom.
         out.extend(_emit_yaw_cap_join_fasteners(leg_index))
 
-        # Yaw anti-rotation SADDLE chassis anchors (2 M3 self-tap per leg = 12)
-        # that bolt the yaw_servo_retainer UP to the chassis_bottom floor.
+        # Yaw anti-rotation SADDLE chassis anchors (4 M3 self-tap per leg = 24;
+        # Jul 2026 4-point rework -- was 2 per leg = 12) that bolt the
+        # yaw_servo_retainer UP to the chassis_bottom floor.
         out.extend(_emit_yaw_retainer_anchor_fasteners(leg_index))
         out.extend(_emit_yaw_rear_case_fasteners(leg_index))
 

@@ -1278,8 +1278,18 @@ RETAINER_CABLE_SLOT_W      = 20.0   # mm -- drop window TANGENTIAL span (cradle 
 # servo is captured between the HIGH-half mount plate on top and this bar
 # below).  All coords below are cradle-local: +X = radial outboard (the
 # yaw-axis -> hex-edge-midpoint direction), +Y = tangential, origin = yaw axis.
-RETAINER_ANCHOR_RADIAL  = -SERVO_OUTPUT_X  # -12.5 mm -- anchor radial pos (under
-                                           # the servo body centreline)
+RETAINER_ANCHOR_RADIAL  = -SERVO_OUTPUT_X  # -12.5 mm -- OUTBOARD anchor radial pos
+                                           # (under the servo body centreline)
+# Jul 2026: a SECOND, inboard anchor pair was added so the retainer bolts to the
+# chassis at FOUR points instead of two.  The original two anchors both sat on
+# one tangential line at RADIAL = -12.5, so the saddle could still rock about
+# that line (pivot in the radial/X direction).  Adding an inboard pair at
+# RADIAL_2 = -29 makes a ~16.5 mm x 42 mm rectangular 4-bolt pattern that reacts
+# rocking in BOTH axes.  -29 keeps each Phi 12 flange pad fully on the saddle's
+# +/-Y side walls (walls span cradle-x [-35.4, +10.2]) and clear of the harness
+# drop slots (x in [-55, -37]); the pilot still lands in solid floor because
+# y = +/-TANG = 21 is outboard of the body cutout in Y.
+RETAINER_ANCHOR_RADIAL_2 = -29.0  # mm -- inboard anchor radial pos (2nd pair)
 RETAINER_ANCHOR_TANG    = 21.0   # mm -- anchor tangential pos; > body-cutout
                                  # half-depth (17.9) so the pilot lands in solid
                                  # plate material beside the cutout
@@ -1543,21 +1553,30 @@ def yaw_retainer_anchor_centres():
 
 def chassis_lower_retainer_anchor_centres():
     """SINGLE SOURCE OF TRUTH for the FLAT-PLATE yaw retainer anchor pattern
-    (Jun 2026 flat-chassis redesign), in cradle-local XY (origin on the yaw/
-    output axis, +X = outboard radial, +Y = tangential).
+    (Jun 2026 flat-chassis redesign; Jul 2026 4-point rework), in cradle-local
+    XY (origin on the yaw/output axis, +X = outboard radial, +Y = tangential).
 
-    The two anchors straddle the body centreline tangentially, sitting just
-    OUTSIDE the plate's body cutout (|y| > body-cutout half-depth) so each
-    lands in solid plate material.  Consumed by ``_chassis_bottom_floor_solid``
-    (the floor PILOTS folded into the merged ``make_chassis_bottom``),
-    ``make_yaw_servo_retainer`` (the stirrup arm clearance holes) and
-    ``check_clamp_cap_alignment`` so the three cannot drift apart.
-    The bolt AXIS is Z for both anchors.
+    FOUR anchors form a rectangle: an OUTBOARD pair at RADIAL = -12.5 and an
+    INBOARD pair at RADIAL_2 = -29, each straddling the body centreline
+    tangentially at y = +/-TANG = 21 -- just OUTSIDE the plate's body cutout
+    (|y| > body-cutout half-depth) so every pilot lands in solid plate
+    material and clear of the harness drop slots (x in [-55, -37]).  The
+    two-per-line -> four-point pattern reacts saddle rock in BOTH axes (the
+    old 2-bolt line could still pivot about itself in the radial direction).
+
+    Consumed by ``_chassis_bottom_floor_solid`` (the floor PILOTS folded into
+    the merged ``make_chassis_bottom``), ``make_yaw_servo_retainer`` (the
+    flange-tab clearance holes + counterbores), ``_emit_yaw_retainer_anchor_
+    fasteners`` (the BOM/engagement/screwdriver-access fasteners) and
+    ``check_clamp_cap_alignment`` so they cannot drift apart.  The bolt AXIS is
+    Z for all four anchors.
 
     Returns ``[(x, y), ...]``.
     """
-    return [(RETAINER_ANCHOR_RADIAL, -RETAINER_ANCHOR_TANG),
-            (RETAINER_ANCHOR_RADIAL, +RETAINER_ANCHOR_TANG)]
+    return [(RETAINER_ANCHOR_RADIAL,   -RETAINER_ANCHOR_TANG),
+            (RETAINER_ANCHOR_RADIAL,   +RETAINER_ANCHOR_TANG),
+            (RETAINER_ANCHOR_RADIAL_2, -RETAINER_ANCHOR_TANG),
+            (RETAINER_ANCHOR_RADIAL_2, +RETAINER_ANCHOR_TANG)]
 
 # ---- "Drop-in" assembly features ----------------------------------------
 # Two changes to the otherwise solid bucket geometry that make seating the
@@ -4963,7 +4982,7 @@ def make_yaw_servo_retainer() -> trimesh.Trimesh:
     window = _box((win_x1 - win_x0, 2 * win_y, SADDLE_FLOOR_T + 2.0),
                   center=(0.5 * (win_x0 + win_x1), 0.0, 0.5 * (fl_z0 + fl_z1)))
     cuts.append(window)
-    # 2x M3 anchor-bolt clearance holes through the flange tabs (axis Z) + a
+    # 4x M3 anchor-bolt clearance holes through the flange tabs (axis Z) + a
     # head COUNTERBORE opening downward from the boss bottom so the M3 SHCS head
     # recesses (seat at flange_z0 + SADDLE_HEAD_CB_DEPTH = -9; the M3x6 tip still
     # reaches the -3 pilot for a full 3 mm bite).
@@ -6714,9 +6733,9 @@ def _chassis_bottom_floor_solid() -> trimesh.Trimesh:
         the floor and hangs below while the floor still fills in UNDER the
         cradle walls to keep the -6 bottom face flush/flat for printing;
       * 6 per-leg harness-drop slots (the serial-bus wire exits);
-      * 2-per-leg ``yaw_servo_retainer`` self-tap pilots (blind, opening at the
+      * 4-per-leg ``yaw_servo_retainer`` self-tap pilots (blind, opening at the
         -6 bottom face) in solid plate material on the tangential flanks of
-        each body cutout.
+        each body cutout, in two radial rows (Jul 2026 4-point anchor rework).
 
     NO join hardware: the HIGH/LOW split is gone, so the 12 join-bolt
     counterbores/clearances + 6 register dowels of the old LOW plate are
@@ -6808,11 +6827,12 @@ def _chassis_bottom_floor_solid() -> trimesh.Trimesh:
         drop.apply_translation([pxy[0], pxy[1], z_c])
         sector.append(drop)
 
-    # Yaw-servo retainer-strap anchor pilots: 2 blind M3 self-tap holes in the
-    # floor BOTTOM at the tangential flanks of the leg's body cutout, where the
-    # capture stirrup (make_yaw_servo_retainer) bolts UP to tie the hanging yaw
-    # servo to the chassis.  chassis_lower_retainer_anchor_centres is the shared
-    # single source of truth for the stirrup arms + the alignment guard.
+    # Yaw-servo retainer anchor pilots: 4 blind M3 self-tap holes (Jul 2026
+    # 4-point rework -- was 2) in the floor BOTTOM at the tangential flanks of
+    # the leg's body cutout, in two radial rows (outboard -12.5 + inboard -29),
+    # where the retainer saddle (make_yaw_servo_retainer) bolts UP to tie the
+    # hanging yaw servo to the chassis.  chassis_lower_retainer_anchor_centres
+    # is the shared single source of truth for the saddle tabs + alignment guard.
     pil_h = RETAINER_PLATE_PILOT_DEPTH + 0.2
     for (cxr, cyt) in chassis_lower_retainer_anchor_centres():
         pxy = edge + cxr * rad + cyt * tan
