@@ -20,5 +20,15 @@ RestartSec=3
 #   loginctl enable-linger "$USER"      # start at boot without being logged in
 # To run system-wide instead (needs sudo), set User=arduino + WantedBy=
 # multi-user.target and drop it in /etc/systemd/system/.
+#
+# Binding port 443 (so the clean `https://hexapod.local` -- no port -- works
+# for the browser Gamepad API): a USER service can't bind a privileged port,
+# so web_drive.py falls back to :8443 unless the OS allows an unprivileged
+# bind to 443.  Enable that ONCE (needs sudo), persisted across reboots:
+#   sudo sh -c 'echo net.ipv4.ip_unprivileged_port_start=443 \
+#       > /etc/sysctl.d/50-hexapod-lowport.conf \
+#       && sysctl -w net.ipv4.ip_unprivileged_port_start=443'
+#   systemctl --user restart hexapod-web
+# After that web_drive binds :443 directly (it already tries 443 before 8443).
 [Install]
 WantedBy=default.target

@@ -57,3 +57,7 @@ MUJOCO_LOG.TXT
 
 # Local Netlify folder
 .netlify
+
+# Local board credentials / secrets -- NEVER commit
+**/.board_secrets.env
+.secrets/

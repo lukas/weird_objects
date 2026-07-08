@@ -179,17 +179,51 @@ PAGE = r"""<!doctype html>
   kbd { background:#222838; border:1px solid #333b52; border-radius:4px; padding:1px 5px; font-size:11px; }
   #sent { font-family: ui-monospace, monospace; font-size:12px; color:#5fd08a; }
   #gp { font-size:12px; color:#8089a0; }
+  nav.tabs { display:flex; gap:6px; }
+  .tab { flex:0 0 auto; min-width:0; padding:7px 16px; font-size:13px; font-weight:600;
+         border-radius:8px; background:#161a22; border:1px solid #2c3140; color:#e7eaf0;
+         cursor:pointer; }
+  .tab.on { background:#2b6cff; border-color:#2b6cff; }
+  .view { display:none; } .view.active { display:block; }
+  code { background:#222838; border:1px solid #333b52; border-radius:4px; padding:0 4px;
+         font-family: ui-monospace, monospace; font-size:11px; }
+  .armbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+            padding:11px 14px; border-radius:12px; margin-bottom:14px;
+            border:1px solid #2c3140; }
+  .armbar.disarmed { background:#2a1416; border-color:#7a2b2b; }
+  .armbar.armed    { background:#12271a; border-color:#2e7d47; }
+  .armstate { font-weight:800; font-size:15px; letter-spacing:.3px; }
+  .armbar.disarmed .armstate { color:#ff6b6b; }
+  .armbar.armed    .armstate { color:#5fd08a; }
+  .armbtn, .estop { flex:0 0 auto; min-width:0; padding:11px 16px; font-weight:700;
+            font-size:14px; border-radius:10px; cursor:pointer; }
+  .armbtn { background:#2e7d47; border:1px solid #3a9a58; color:#fff; }
+  .armbar.armed .armbtn { background:#1b2030; border-color:#2c3140; color:#e7eaf0; }
+  .estop { background:#7a2b2b; border:1px solid #a33; color:#fff; }
+  .estop:active { background:#5a2020; }
 </style>
 </head>
 <body>
 <header>
   <h1>🕷 Hexapod control</h1>
+  <nav class="tabs">
+    <button id="tab-drive" class="tab on">Drive</button>
+    <button id="tab-debug" class="tab">Debug</button>
+  </nav>
   <span id="conn" class="ok">ready</span>
   <span id="gp"></span>
   <span style="flex:1"></span>
   <span id="sent"></span>
 </header>
 <div class="wrap">
+  <div id="armbar" class="armbar disarmed">
+    <span id="armstate" class="armstate">● SERVOS OFF (disarmed)</span>
+    <span class="hint" style="margin:0;flex:1 1 160px">Servos receive <b>no signal</b>
+      and sit limp. Press Enable to arm, then Stand.</span>
+    <button id="armbtn" class="armbtn">Enable servos (power on)</button>
+    <button id="estop" class="estop">■ EMERGENCY STOP</button>
+  </div>
+  <div id="view-drive" class="view active">
   <div class="row">
     <div class="pad">
       <h2>Drive (left stick)</h2>
@@ -288,12 +322,86 @@ PAGE = r"""<!doctype html>
       </div>
     </div>
   </div>
+  </div><!-- /view-drive -->
+
+  <div id="view-debug" class="view">
+  <div class="row">
+    <div class="pad">
+      <h2>Per-servo control</h2>
+      <label class="slab">Leg</label>
+      <div class="btns seg" id="dbgleg">
+        <button data-leg="0" class="on">0</button>
+        <button data-leg="1">1</button>
+        <button data-leg="2">2</button>
+        <button data-leg="3">3</button>
+        <button data-leg="4">4</button>
+        <button data-leg="5">5</button>
+      </div>
+      <label class="slab">Joint</label>
+      <div class="btns seg" id="dbgaxis">
+        <button data-axis="0" class="on">Yaw</button>
+        <button data-axis="1">Hip</button>
+        <button data-axis="2">Knee</button>
+      </div>
+      <div class="hint">Selected: <b>servo index <span id="dbgidx">0</span></b>
+        (leg <span id="dbglegn">0</span> <span id="dbgaxisn">yaw</span>),
+        safe range <span id="dbglo">-35</span>..<span id="dbghi">35</span>°.</div>
+
+      <label class="slab">Angle: <span id="dbganglelab">0</span>°</label>
+      <input id="dbgangle" type="range" min="-35" max="35" step="1" value="0">
+      <div class="btns">
+        <button id="dbgneg">◀ −lim</button>
+        <button id="dbgdn">− 5°</button>
+        <button id="dbgctr" class="on">● center</button>
+        <button id="dbgup">+ 5°</button>
+        <button id="dbgpos">+lim ▶</button>
+      </div>
+      <div class="hint">Moves ONLY the selected servo (firmware
+        <code>#&lt;index&gt; &lt;deg&gt;</code>), clamped to its safe per-axis
+        range. Sends live as you drag (throttled &amp; de-duped like the drive
+        joystick).</div>
+    </div>
+
+    <div class="pad">
+      <h2>Movement test</h2>
+      <label class="slab">Wiggle amplitude: <span id="dbgamplab">8</span>°
+        &nbsp;<span style="color:#8089a0">(small = safe)</span></label>
+      <input id="dbgamp" type="range" min="3" max="20" step="1" value="8">
+      <div class="btns">
+        <button id="dbgtestone">Test this servo</button>
+        <button id="dbgtestall" class="on">Test ALL in sequence</button>
+        <button id="dbgteststop" class="danger">■ Stop test</button>
+      </div>
+      <div class="hint" id="dbgteststatus">Idle. <b>Test this servo</b> wiggles
+        the selected joint ±amplitude around its current angle (firmware
+        <code>Q&nbsp;&lt;j&gt;&nbsp;&lt;deg&gt;</code>). <b>Test ALL</b> centers
+        every joint, then wiggles each one in turn (0→17) with a pause between,
+        so you can watch each servo respond. Press <b>Stop test</b> to abort.</div>
+
+      <h2 style="margin-top:18px">Safety</h2>
+      <div class="btns">
+        <button id="dbgstand" class="on">Stand / Park</button>
+        <button id="dbgcenter">Center all</button>
+        <button id="dbgrelax" class="danger">Relax (limp)</button>
+      </div>
+      <div class="hint"><b>Relax</b> cuts PWM so every servo goes limp — use it
+        to recover a stalled/buzzing servo (firmware <code>X</code>).
+        <b>Stand / Park</b> eases into the planted stance (<code>P</code>);
+        <b>Center all</b> sends every joint to 0° (<code>C</code>).</div>
+    </div>
+  </div>
+  </div><!-- /view-debug -->
 </div>
 <script>
 const conn = document.getElementById('conn');
 const sentEl = document.getElementById('sent');
 const gpEl = document.getElementById('gp');
-let gait = 0, armed = false, dancePaused = false, lastInput = 0;
+let gait = 0, armed = false, dancePaused = false, lastInput = 0, debugMode = false;
+// SERVO ARM GATE (separate from `armed`, which just means "a stick is pushed").
+// Defaults OFF on every page load and the firmware boots DISARMED, so nothing
+// drives a servo until the human presses Enable. All servo-driving sends are
+// gated on this flag; ARM/DISARM/E-stop are the only power controls.
+let servosArmed = false;
 let maxVx = 55, maxVy = 40, maxOmega = 0.8;
 
 // --- command transport -----------------------------------------------------
@@ -418,9 +526,10 @@ function pollGamepad(){
 function setGait(g){ gait=g;
   document.querySelectorAll('#gaits button').forEach(btn=>
     btn.classList.toggle('on', +btn.dataset.gait===g)); }
-function doDance(c){ cmd(c); dancePaused=true; armed=true; forceResend();
+function doDance(c){ if(needArm()) return; cmd(c); dancePaused=true; armed=true; forceResend();
   showSent('dance '+c+' (move to resume)'); }
-function disc(c){ cmd(c); forceResend(); if('PUX'.includes(c)) armed=false; }
+function disc(c){ if(c==='X'){ disarmServos(); return; }   // X = disarm/e-stop, always allowed
+  if(needArm()) return; cmd(c); forceResend(); if('PU'.includes(c)) armed=false; }
 
 // Nudge the COM lean trim sliders (also what the bare D-pad does on the pad).
 function trimNudge(dx, dy){
@@ -436,7 +545,7 @@ function isDance(c){ return 'VBOT'.includes(c) || c[0]==='M'; }
 document.querySelectorAll('button[data-cmd]').forEach(btn=>
   btn.onclick=()=>{ const c=btn.dataset.cmd;
     if(isDance(c)) doDance(c); else disc(c); });
-document.getElementById('stop').onclick=()=>{ cmd('P'); forceResend(); armed=false; showSent('stopped'); };
+document.getElementById('stop').onclick=disarmServos;   // STOP = disarm (e-stop)
 
 // Tooltip each dance button with the equivalent controller combo.
 (function(){
@@ -464,8 +573,9 @@ comx.onchange=sendCom; comy.onchange=sendCom;
 // into the stance (P) so you can see/feel the new height; Save persists it.
 const standh=document.getElementById('standh'), standlab=document.getElementById('standlab');
 function standZ(){ return -(+standh.value); }
-async function applyStand(){ await cmd('Z '+standZ().toFixed(1)); cmd('P'); armed=false;
-  forceResend(); showSent('stand height '+standh.value+' mm'); }
+async function applyStand(){ await cmd('Z '+standZ().toFixed(1));   // Z = calibration only, no motion
+  if(!servosArmed){ showSent('height stored — enable servos to move'); return; }
+  cmd('P'); armed=false; forceResend(); showSent('stand height '+standh.value+' mm'); }
 standh.oninput=()=>{ standlab.textContent=standh.value; };
 standh.onchange=applyStand;
 document.getElementById('standup').onclick=()=>{
@@ -490,6 +600,7 @@ function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 let lastLine='', lastSendT=0;
 function forceResend(){ lastLine=''; }   // call after any discrete command
 function loop(){
+  if(debugMode) return;   // Debug tab active: never stream drive/J packets
   const gpv = pollGamepad();
   let x=0,y=0,t=0;
   if(gpv && (gpv.x||gpv.y||gpv.t)){ x=gpv.x; y=gpv.y; t=gpv.t; }
@@ -499,7 +610,7 @@ function loop(){
     y = driveStick.y || kv.y;
     t = turnStick.x  || kv.t;
   }
-  if(armed && !dancePaused){
+  if(servosArmed && armed && !dancePaused){
     const vx = clamp(y,-1,1)*maxVx;          // up = forward
     const vy = clamp(-x,-1,1)*maxVy;         // right = strafe right (chassis -Y)
     const om = clamp(-t,-1,1)*maxOmega;      // right = turn right
@@ -512,6 +623,153 @@ function loop(){
 }
 setInterval(loop, 50);
 window.addEventListener('gamepadconnected', ()=>{ armed=true; });
+
+// --- Debug page: per-servo control + movement test -------------------------
+// Firmware protocol used here (prototype_servo_test.ino):
+//   "# <j> <deg>"  set ONE joint j (0..17) to an absolute angle + hold
+//   "Q <j> <deg>"  quick wiggle joint j by +/-deg around its current angle
+//   C center all,  P stand/park,  X relax (limp)
+// Per-axis safe limits MUST match the firmware (axisLimits): yaw/hip/knee.
+const AXIS_LIM  = [[-35,35],[-80,30],[-20,80]];   // yaw, hip, knee (deg)
+const AXIS_NAME = ['yaw','hip','knee'];
+let dbgLeg = 0, dbgAxis = 0;
+let dbgTestRunning = false, dbgTestAbort = false;
+const dbgIndex  = ()=> dbgLeg*3 + dbgAxis;
+const dbgLimits = ()=> AXIS_LIM[dbgAxis];
+const $ = id => document.getElementById(id);
+
+function dbgRefresh(){
+  const idx = dbgIndex(), lim = dbgLimits();
+  $('dbgidx').textContent = idx;
+  $('dbglegn').textContent = dbgLeg;
+  $('dbgaxisn').textContent = AXIS_NAME[dbgAxis];
+  $('dbglo').textContent = lim[0];
+  $('dbghi').textContent = lim[1];
+  const a = $('dbgangle');
+  a.min = lim[0]; a.max = lim[1];
+  a.value = clamp(+a.value, lim[0], lim[1]);
+  $('dbganglelab').textContent = a.value;
+}
+
+// De-duped / throttled single-servo set (same idea as the J drive loop, which
+// avoids flooding the MCU<->Linux serial bridge with identical packets).
+let dbgLastLine = '', dbgLastT = 0;
+function dbgSend(deg, force){
+  const idx = dbgIndex(), lim = dbgLimits();
+  deg = Math.round(clamp(deg, lim[0], lim[1]));
+  $('dbgangle').value = deg; $('dbganglelab').textContent = deg;   // UI updates even when disarmed
+  if(needArm()) return;                                            // but never sends while disarmed
+  const line = '# '+idx+' '+deg, now = performance.now();
+  if(!force){
+    if(line === dbgLastLine && now - dbgLastT < 400) return;  // slow heartbeat only
+    if(now - dbgLastT < 50) return;                           // ~20 Hz cap while dragging
+  }
+  dbgLastLine = line; dbgLastT = now;
+  cmd(line); showSent(line);
+}
+
+document.querySelectorAll('#dbgleg button').forEach(b=>b.onclick=()=>{
+  dbgLeg = +b.dataset.leg;
+  document.querySelectorAll('#dbgleg button').forEach(x=>x.classList.toggle('on', x===b));
+  dbgRefresh();
+});
+document.querySelectorAll('#dbgaxis button').forEach(b=>b.onclick=()=>{
+  dbgAxis = +b.dataset.axis;
+  document.querySelectorAll('#dbgaxis button').forEach(x=>x.classList.toggle('on', x===b));
+  dbgRefresh();
+});
+const dbgAngle = $('dbgangle');
+dbgAngle.oninput  = ()=>{ $('dbganglelab').textContent = dbgAngle.value; dbgSend(+dbgAngle.value); };
+dbgAngle.onchange = ()=> dbgSend(+dbgAngle.value, true);
+$('dbgctr').onclick = ()=> dbgSend(0, true);
+$('dbgneg').onclick = ()=> dbgSend(dbgLimits()[0], true);
+$('dbgpos').onclick = ()=> dbgSend(dbgLimits()[1], true);
+$('dbgdn').onclick  = ()=> dbgSend(+dbgAngle.value - 5, true);
+$('dbgup').onclick  = ()=> dbgSend(+dbgAngle.value + 5, true);
+
+const dbgAmp = $('dbgamp');
+dbgAmp.oninput = ()=>{ $('dbgamplab').textContent = dbgAmp.value; };
+const dbgStatus = t => { $('dbgteststatus').textContent = t; };
+
+$('dbgtestone').onclick = ()=>{
+  if(needArm()) return;
+  const idx = dbgIndex(), amp = dbgAmp.value;
+  cmd('Q '+idx+' '+amp); showSent('Q '+idx+' '+amp);
+  dbgStatus('Wiggling servo '+idx+' (leg '+dbgLeg+' '+AXIS_NAME[dbgAxis]+') ±'+amp+'° around its current angle.');
+};
+
+const sleep = ms => new Promise(r=>setTimeout(r, ms));
+async function dbgTestAll(){
+  if(needArm()) return;
+  if(dbgTestRunning) return;
+  dbgTestRunning = true; dbgTestAbort = false;
+  cmd('C'); showSent('C'); dbgStatus('Centering all servos…');
+  await sleep(1500);
+  const amp = +dbgAmp.value;
+  for(let j=0; j<18 && !dbgTestAbort; j++){
+    cmd('Q '+j+' '+amp); showSent('Q '+j+' '+amp);
+    dbgStatus('Testing servo '+j+'/17  (leg '+Math.floor(j/3)+' '+AXIS_NAME[j%3]+')  ±'+amp+'°…');
+    await sleep(2600);   // let each wiggle finish before starting the next
+  }
+  dbgStatus(dbgTestAbort ? 'Test stopped.' : 'Test complete — all 18 servos wiggled.');
+  dbgTestRunning = false;
+}
+$('dbgtestall').onclick = dbgTestAll;
+$('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); dbgStatus('Stopping…'); };
+
+$('dbgstand').onclick  = ()=>{ if(needArm()) return; cmd('P'); showSent('P'); armed=false; };
+$('dbgcenter').onclick = ()=>{ if(needArm()) return; cmd('C'); showSent('C'); armed=false; };
+$('dbgrelax').onclick  = disarmServos;   // Relax (limp) = disarm / e-stop, always allowed
+
+// --- tab switching ----------------------------------------------------------
+function showView(which){
+  debugMode = (which === 'debug');
+  $('view-drive').classList.toggle('active', !debugMode);
+  $('view-debug').classList.toggle('active', debugMode);
+  $('tab-drive').classList.toggle('on', !debugMode);
+  $('tab-debug').classList.toggle('on', debugMode);
+  if(debugMode) armed = false;   // stop the drive loop streaming J packets
+}
+$('tab-drive').onclick = ()=> showView('drive');
+$('tab-debug').onclick = ()=> showView('debug');
+dbgRefresh();
+// deep link: /debug (or #debug) opens straight to the Debug tab.
+if(location.pathname.replace(/\/+$/,'').endsWith('/debug') || location.hash === '#debug')
+  showView('debug');
+
+// --- SERVO ARM / DISARM gate ------------------------------------------------
+// The firmware boots DISARMED (all PCA9685 channels forced full-off = no PWM,
+// so every servo is limp). This page also defaults to disarmed on EVERY load
+// and NEVER auto-arms. "Enable servos" sends ARM; the big red EMERGENCY STOP,
+// the drive STOP, and Debug's Relax all send DISARM (firmware `X`), which cuts
+// all PWM. needArm() gates every servo-driving send on both pages.
+function updateArmUI(){
+  const bar = $('armbar');
+  bar.classList.toggle('armed', servosArmed);
+  bar.classList.toggle('disarmed', !servosArmed);
+  $('armstate').textContent = servosArmed ? '● ARMED — servos live'
+                                          : '● SERVOS OFF (disarmed)';
+  $('armbtn').textContent   = servosArmed ? 'Disarm (servos off)'
+                                          : 'Enable servos (power on)';
+}
+function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); }
+function armServos(){ cmd('ARM'); setArmed(true);
+  showSent('ARM — servos enabled (nothing moves; press Stand to stand)'); }
+function disarmServos(){ dbgTestAbort = true; cmd('X'); setArmed(false);
+  showSent('DISARM — servos limp'); }
+// Returns true (and warns) when disarmed; every servo-driving action calls it.
+function needArm(){
+  if(servosArmed) return false;
+  showSent('⚠ Servos disarmed — press “Enable servos” first');
+  return true;
+}
+$('armbtn').onclick = ()=> servosArmed ? disarmServos() : armServos();
+$('estop').onclick  = disarmServos;
+// Enforce the safe default on EVERY page load: show disarmed AND tell the
+// firmware to disarm now — harmless if it just booted disarmed, and it clears
+// any stale ARMED state from a prior session so the page's OFF state is real.
+setArmed(false);
+cmd('X');
 </script>
 </body>
 </html>
@@ -536,7 +794,7 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
     def do_GET(self):
-        if self.path in ("/", "/index.html"):
+        if self.path in ("/", "/index.html", "/debug"):
             page = PAGE.replace("__HTTPS_PORT__", str(HTTPS_PORT or 8443))
             self._send(200, page, "text/html; charset=utf-8")
         elif self.path == "/cal":

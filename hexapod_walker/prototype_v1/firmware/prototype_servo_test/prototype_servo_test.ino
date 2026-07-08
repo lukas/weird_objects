@@ -242,6 +242,14 @@ const int STEP_FAST_MS = 14;  // ms per 1-deg step, brisk
 const int STEP_SLOW_MS = 32;  // ms per 1-deg step, gentle (the default)
 int   g_step_ms    = STEP_SLOW_MS;  // start SLOW; `S` toggles slow<->fast
 bool  g_seen_input = false; // becomes true on the first command received
+// SAFETY GATE: the robot boots DISARMED -- every PCA9685 channel is forced to
+// "full OFF" (no PWM pulse) so all 18 servos sit LIMP (no holding torque, no
+// stall current) until a human explicitly sends `ARM` from the web page.  When
+// disarmed, ALL servo-driving commands are refused as a backstop.  There is no
+// software cutoff of the servo V+ rail (BEC power via the manual anti-spark
+// switch), so DISARMED == "powered but receiving no signal", the software
+// equivalent of unpowered.  `X` / `DISARM` returns to this state (e-stop).
+bool  g_armed      = false;
 // Auto mode marches through every joint on its own.  It starts OFF so the
 // robot does NOTHING out of reset -- send `G` to begin the sweep.  Any
 // other command takes manual control; `G` (re)starts the auto loop.
@@ -456,18 +464,42 @@ void centreAll() {
   for (int i = 0; i < 18; ++i) writeJoint(i, 0.0);
 }
 
-// Turn every servo OFF: write the PCA9685 "full-off" bit on all channels
-// so the PWM pulse stops and the servos de-energize (go limp, no holding
-// torque).  Also drops out of auto/walk so nothing re-drives them.  Any
-// later move/pose command re-energizes the relevant channels.
-void relaxAll() {
-  g_auto = false;
-  g_walk = false;
+// Write the PCA9685 "full-off" bit on every channel of each present board so
+// the PWM pulse stops and the servos de-energize (go limp, no holding torque).
+// This is the raw output-kill used by both boot and DISARM.  A later real
+// writeMicroseconds() on a channel clears its full-off bit and re-energizes it.
+void disarmOutputs() {
   for (uint8_t ch = 0; ch < 16; ++ch) {
     if (have_board[0]) pwm1.setPWM(ch, 0, 4096);   // bit12 = full OFF -> no pulse
     if (have_board[1]) pwm2.setPWM(ch, 0, 4096);   // skip absent driver
   }
-  say("OK motors OFF (relaxed/limp). Send any move/pose to re-energize.");
+}
+
+// DISARM = the safe / emergency-stop state: cut all PWM (servos limp) AND set
+// the armed gate false so NOTHING can re-drive them until the human ARMs
+// again.  Also drops out of auto/walk/dance so no live mode re-energizes a
+// channel.  This is what the robot boots into and what `X` / `DISARM` do.
+void relaxAll() {
+  g_auto  = false;
+  g_walk  = false;
+  g_dance = 0;
+  g_armed = false;
+  disarmOutputs();
+  say("OK DISARMED -- all servos OFF/limp (no PWM). Send ARM to enable outputs.");
+}
+
+// ARM = enable outputs, but WITHOUT moving anything: we deliberately write no
+// angles here, so every channel stays in its full-off (no-pulse) state and the
+// servos remain limp until an explicit motion command (e.g. `P` stand) re-
+// energizes them gradually.  This guarantees arming never slams a joint or
+// spikes stall current.  The human presses Stand/Park afterwards to stand.
+void arm() {
+  g_armed = true;
+  // Make sure any present board is awake / configured (normally already done
+  // at boot; re-assert in case a driver was hot-plugged after boot).
+  for (int i = 0; i < 2; ++i)
+    if (have_board[i] && !board_inited[i]) { initBoard(i); board_inited[i] = true; }
+  say("OK ARMED -- outputs enabled; joints stay LIMP until you move/Stand (send P).");
 }
 
 // --- Whole-body poses + tripod gait (ported from prototype_walk.ino) -----
@@ -1408,20 +1440,27 @@ void i2cScan() {
   }
   say(String("  0x40 driver (legs 0-2): ") + (have_board[0] ? "OK" : "MISSING"));
   say(String("  0x41 driver (legs 3-5): ") + (have_board[1] ? "OK" : "MISSING"));
+  // initBoard() above wakes a freshly-seen board; if we are DISARMED, force
+  // its channels straight back to full-off so a rescan never energizes a
+  // servo while the robot is meant to be limp.
+  if (!g_armed) disarmOutputs();
 }
 
 void printHelp() {
   String s = "OK prototype_servo_test\n";
-  s += "  (idle at boot -- nothing moves until you send a command)\n";
+  s += "  (boots DISARMED -- all servos LIMP/no PWM until you send ARM)\n";
+  s += "  ARM       enable servo outputs (nothing moves on arm; then send P)\n";
+  s += "  X/DISARM  DISARM: cut all PWM, servos limp -- EMERGENCY STOP\n";
   s += "  G         GO: start/resume the auto sweep (all joints)\n";
   s += "  <ENTER>   test NEXT joint\n";
   s += "  N <j>     test joint j (0..17), full sweep\n";
   s += "  Q <j> [d] quick wiggle joint j +/-d deg (default 8) -- is it listening?\n";
+  s += "  # <j> <deg> set ONE joint j (0..17) to an absolute angle and HOLD it\n";
   s += "  L <leg>   test leg (0..5), all 3 joints\n";
   s += "  A         test ALL 18 in sequence\n";
   s += "  R         repeat last joint\n";
   s += "  C         centre all + stop\n";
-  s += "  X         turn OFF all motors (relax/limp)\n";
+  s += "  X         DISARM: turn OFF all motors (relax/limp, e-stop)\n";
   s += "  F <frac>  sweep amplitude 0.1..1.0\n";
   s += "  S         slow/fast sweep toggle\n";
   s += "  I         scan I2C bus (are the 0x40/0x41 drivers seen?)\n";
@@ -1448,12 +1487,49 @@ void printHelp() {
   say(s);
 }
 
+// Case-insensitive full-line token match, ignoring trailing spaces.  Used for
+// the multi-char ARM / DISARM safety tokens (kept dependency-free -- no
+// strcasecmp, which isn't reliably available on this Zephyr/newlib-nano core).
+static bool tokenIs(const char* s, const char* tok) {
+  while (*tok) {
+    char a = *s++, b = *tok++;
+    if (a >= 'a' && a <= 'z') a -= 32;
+    if (b >= 'a' && b <= 'z') b -= 32;
+    if (a != b) return false;
+  }
+  while (*s == ' ') ++s;
+  return *s == '\0';
+}
+
+// Does this command letter drive/energize a servo?  Used by the DISARMED
+// backstop to refuse motion until the robot is ARMed.  '\0' (bare ENTER) is
+// the "test next joint" command, so it counts as motion too.
+static bool isMotionCmd(char c) {
+  if (c == '\0') return true;
+  for (const char* q = "GUPDWJVOBTMCRANQL#"; *q; ++q)
+    if (*q == c) return true;
+  return false;
+}
+
 void handleLine(char* line) {
   g_seen_input = true;   // silence the idle heartbeat once we hear from the user
   g_dance = 0;           // ANY command stops a running dance (V/O/B/T/M restart one)
   while (*line == ' ') ++line;
+
+  // Safety tokens (multi-char), checked before the single-letter dispatch.
+  if (tokenIs(line, "ARM"))    { arm();     return; }
+  if (tokenIs(line, "DISARM")) { relaxAll(); return; }
+
   char cmd = line[0];
   char* p = line + 1;
+
+  // DISARMED backstop: until the human ARMs, refuse anything that could drive
+  // a servo.  Arming is the single gate.  Diagnostics + parameter/config
+  // commands (?, H, I, Y, S, F, Z, E, K) and X/DISARM still work while limp.
+  if (!g_armed && isMotionCmd(cmd)) {
+    say("DISARMED -- servos off. Send ARM to enable, then retry.");
+    return;
+  }
 
   // `G` (go) RESUMES the hands-free auto sweep; `W` starts walking; every
   // other command takes manual control by leaving both modes.  Stopping
@@ -1571,6 +1647,23 @@ void handleLine(char* line) {
   if (cmd == 'Y') { i2cRegTest(); return; }
   if (cmd == 'C') { centreAll(); say("OK C centred"); return; }
   if (cmd == 'X') { relaxAll(); return; }
+  if (cmd == '#') {
+    // `# <joint> <deg>` -- set ONE joint to an absolute angle and HOLD it,
+    // clamped to that axis's safe range.  Per-servo debug positioning used
+    // by the web panel's Debug page.  This mirrors the servo BRIDGE's
+    // `J <joint> <deg>`; here `J` is the live analog-drive command, so a
+    // distinct `#` prefix is used to avoid the collision.  Modes are already
+    // cleared above, so nothing re-drives the joint after we set it.
+    char* e = p;
+    long  j   = strtol(p, &e, 10);
+    float deg = strtod(e, NULL);
+    if (j < 0 || j >= 18) { say("ERR joint"); return; }
+    writeJoint((int)j, deg);
+    float lo, hi; axisLimits((int)j, lo, hi);
+    say(String("OK joint ") + (int)j + " -> " + String(clampf(deg, lo, hi), 1)
+        + " deg (" + axisName((int)j) + " leg " + ((int)j / 3) + ")");
+    return;
+  }
   if (cmd == 'R') { testJoint(g_joint == 0 ? 17 : g_joint - 1); return; }
   if (cmd == 'A') { testAll(); return; }
   if (cmd == 'S') {
@@ -1649,15 +1742,21 @@ void setup() {
   loadStandZ();   // override with a previously-remembered descend height (AVR EEPROM only)
   // i2cScan() probes the bus AND initialises every board it finds (wake +
   // 50 Hz).  Re-send `I` any time you connect a board after boot and it
-  // will be configured -- no reflash, no power-cycle needed.
+  // will be configured -- no reflash, no power-cycle needed.  Because we are
+  // DISARMED (g_armed == false), i2cScan() also forces every channel to
+  // full-off at the end, so waking the boards does NOT energize any servo.
   i2cScan();
-  centreAll();
+
+  // SAFE BOOT: start DISARMED -- do NOT auto-centre (the old boot-time
+  // centreAll() slammed all 18 joints at once, the mechanical-stress +
+  // stall-current spike that melted power wiring).  Instead force every
+  // channel to no-PWM so all servos sit LIMP until a human sends `ARM`.
+  relaxAll();     // sets g_armed=false + all channels full-off (limp)
   printHelp();
 
-  // No motion until you ask for it: the sketch boots centred and idle.
-  // Clamp the legs / put the feet in the air, then send `G` to begin the
-  // (slow) auto sweep, or N/L/A/ENTER to test a single joint or leg.
-  say("READY -- centred & idle. Send G to start the sweep (or N/L/A; ? = help).");
+  // Nothing is driven at boot.  Put the feet where you want them, then from
+  // the web page (or a monitor) send ARM to enable outputs, then P to stand.
+  say("READY -- DISARMED & limp at boot. Send ARM to enable outputs, then P to stand.");
 }
 
 void loop() {
