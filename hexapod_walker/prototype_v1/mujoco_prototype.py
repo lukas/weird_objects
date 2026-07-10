@@ -34,8 +34,32 @@ APOTHEM = HP.CHASSIS_FLAT_TO_FLAT / 2.0 * M
 COXA = HP.COXA_LENGTH * M
 FEMUR = HP.FEMUR_LENGTH * M
 TIBIA = HP.TIBIA_LENGTH * M
-STANCE_FEMUR = math.radians(HP.STANCE_FEMUR_DEG)
-STANCE_TIBIA = math.radians(HP.STANCE_TIBIA_DEG)
+# The firmware (prototype_servo_test.ino) is the source of truth for the REAL
+# robot's standing footprint.  It tucks the feet IN as the body lowers, so the
+# final planted stance is stanceFootX(g_stand_z) at the fully-tucked STAND_TUCK
+# depth -- each foot at STANCE_FOOT_RADIAL mm (yaw-frame hip-to-foot horizontal)
+# and STANCE_FOOT_Z mm below the hip -- NOT the sprawled ~199 mm geometric
+# neutral (HP.STANCE_FEMUR_DEG / STANCE_TIBIA_DEG, kept for the CAD preview).
+# Derive the sim's stance hip/knee from the SAME 2-link IK the firmware uses so
+# the keyframe pose and the gait both plant on the real, tucked-in footprint.
+STANCE_FOOT_RADIAL_MM = 135.0   # firmware STAND_TUCK_X_MM
+STANCE_FOOT_Z_MM = -150.0       # firmware STAND_TUCK_Z_MM
+
+
+def _stance_hip_knee(foot_x: float, foot_z: float) -> tuple[float, float]:
+    u = foot_x - COXA
+    w = -foot_z
+    L = math.hypot(u, w)
+    cos_k = (L * L - FEMUR * FEMUR - TIBIA * TIBIA) / (2 * FEMUR * TIBIA)
+    cos_k = max(-1.0, min(1.0, cos_k))
+    k = math.acos(cos_k)
+    p = math.atan2(w, u) - math.atan2(TIBIA * math.sin(k), FEMUR + TIBIA * math.cos(k))
+    return p, k
+
+
+STANCE_FEMUR, STANCE_TIBIA = _stance_hip_knee(
+    STANCE_FOOT_RADIAL_MM * M, STANCE_FOOT_Z_MM * M
+)
 
 # Output-shaft stack above the chassis-plate top (= bracket flange top
 # face).  Design B (May 2026): collapsed from

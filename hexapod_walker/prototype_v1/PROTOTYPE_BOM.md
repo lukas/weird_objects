@@ -20,7 +20,15 @@ spec exactly.
 | 1 | Arduino Mega 2560 | Mega 2560 R3 compatible board. Acts as the real-time USB-to-PCA9685 servo bridge. | [Amazon: Arduino Mega 2560 R3](https://www.amazon.com/s?k=Arduino+Mega+2560+R3) |
 | 2 | PCA9685 servo driver | 16-channel I2C PWM servo driver boards. One at `0x40`, one at `0x41`. | [Amazon: PCA9685 16 channel servo driver](https://www.amazon.com/s?k=PCA9685+16+channel+servo+driver) |
 | 1 | LiPo battery | 3S 2200 mAh, 25C or higher, XT60 connector. | [Amazon: 3S 2200mAh 25C lipo XT60](https://www.amazon.com/s?k=3S+2200mAh+25C+lipo+XT60) |
-| 2 | 5-6 V BEC / UBEC | Switching BEC, 5 A minimum each. Use two rails: ~9 servos per BEC. | [Amazon: 5V 5A UBEC switching](https://www.amazon.com/s?k=5V+5A+UBEC+switching) |
+| 2-3 | 6.0 V high-current regulator ("the buck") | **Castle Creations CC BEC PRO (P/N 010-0004-01)**, 20 A peak / ~15 A continuous, output **locked to 6.0 V** via Castle Link. **Split the 18 servos across 2-3 of these on separate fused rails** — do NOT feed ~9 servos from one 5 A BEC (that melted the V+ wires). ⚠ The old "2 × 5-6 V BEC 5 A" entry and any generic "20 A / 300 W adjustable buck" are RETIRED for the servo rail: 5 A is badly undersized for the ~40 A stand-up peak, and the adjustable buck overvolted the servos to ~10 V and failed short. See `POWER_SYSTEM.md`. | [Castle CC BEC PRO 010-0004-01](https://www.castlecreations.com/en/bec-voltage-regulator/cc-bec-pro-010-0004-01) |
+| 1 | Main fuse — MIDI/ANL, 30 A | Bolt-down 30 A MIDI/ANL fuse + inline holder, mounted within ~15 cm of the LiPo + terminal on the 12 AWG main lead. Protects the whole downstream system; sized to the main-lead ampacity, not the load. | [Amazon: MIDI ANL inline fuse holder 30A](https://www.amazon.com/s?k=MIDI+ANL+inline+fuse+holder+30A) |
+| 1 | Per-rail fused distribution block | **Blue Sea Systems ST-Blade fuse block** (100 A block / 30 A per circuit) — one **ATC blade fuse per servo rail**, sized to that rail's wire (10 A on 16 AWG / 3-servo rails, 15 A on 14 AWG / 6-servo rails). The fuse must blow before the wire melts. | [Amazon: Blue Sea ST blade fuse block](https://www.amazon.com/s?k=Blue+Sea+ST+blade+fuse+block) |
+| 1 | Assorted ATC blade fuses | 10 A + 15 A ATC/ATO blade fuses (+ spares) for the per-rail distribution block above. | [Amazon: ATC ATO blade fuse assortment 10A 15A](https://www.amazon.com/s?k=ATC+ATO+blade+fuse+assortment) |
+| 1 | 6 V power distribution bus bar | Positive + negative bus bar / junction block (100 A dual-stud, M6/M8) to distribute regulated 6 V to the per-rail feeds and inject V+ into BOTH PCA9685 boards. Never run all rail current through one PCA screw terminal (that burned a board's V+ trace). | [Amazon: 12v 100A bus bar M6 stud](https://www.amazon.com/s?k=12v+100A+bus+bar+M6+stud) |
+| 1 | 12 AWG silicone wire (main) | Fine-strand silicone, red + black, for the LiPo main lead and regulator feeds (~15-22 A). | [Amazon: 12 AWG silicone wire red black](https://www.amazon.com/s?k=12+AWG+silicone+wire+red+black) |
+| 1 | 14/16 AWG silicone wire (rails) | Fine-strand silicone for per-rail 6 V feeds, gauge sized to each rail's fuse (14 AWG for 15 A rails, 16 AWG for 10 A rails). | [Amazon: 14 AWG 16 AWG silicone wire](https://www.amazon.com/s?k=14+16+AWG+silicone+wire) |
+| 1 | Hardware power cutoff (e-stop) | **30/40 A automotive SPST relay + Arduino relay-driver module** (transistor + flyback diode) on the 12 V feed to the regulators. **Defaults OFF** at power-on/reset; an Arduino GPIO must actively arm it, and DISARM/E-STOP/watchdog opens it. The software "disarm" only stops PWM (firmware `X` = limp) — this removes POWER for a real e-stop. Keep the manual anti-spark switch as the physical e-stop too. | [Amazon: arduino relay module 30A automotive](https://www.amazon.com/s?k=arduino+relay+module+30A+automotive) |
+| 1 | Current sensor (overcurrent auto-cutoff) | **ACS758-050B** hall sensor (isolated, on the main lead, reads on one Arduino ADC) so firmware can AUTO-DISARM + open the cutoff on overcurrent. Optional add: **INA226** I²C shunt monitor for per-rail digital amps — ⚠ jumper its address OFF 0x40 (PCA9685 clash) to 0x44/0x45, or put it on the Pi's I²C bus. See `POWER_SYSTEM.md` §9. | [Amazon: ACS758 current sensor 50A](https://www.amazon.com/s?k=ACS758+current+sensor+50A) |
 | 1 | LiPo charger | 3S balance charger, e.g. SkyRC B6 style or better. | [Amazon: 3S lipo balance charger](https://www.amazon.com/s?k=3S+lipo+balance+charger) |
 | 1 | LiPo safety bag | Fire-resistant charging/storage bag. | [Amazon: lipo safety bag fireproof](https://www.amazon.com/s?k=lipo+safety+bag+fireproof) |
 | 1 | Anti-spark switch | XT60 RC LiPo anti-spark/on-off switch for servo rail power. | [Amazon: rc lipo anti-spark switch xt60](https://www.amazon.com/s?k=rc+lipo+anti-spark+switch+xt60) |
@@ -166,10 +174,11 @@ python hexapod_walker/prototype/pi_control/servo_bridge_client.py --port /dev/tt
 | DS3225 servos, 20 total | $260-$360 |
 | Pi + power + microSD | $90-$130 |
 | Arduino + PCA9685 + cables | $35-$60 |
-| Battery + BECs + charger + safety bag + switch | $90-$140 |
+| Battery + 6 V regulators (2-3× Castle CC BEC Pro) + charger + safety bag + switch | $200-$300 |
+| Power path: main fuse + fused distro + bus bar + silicone wire + e-stop relay + current sensor | $70-$110 |
 | Fasteners / standoffs / wiring consumables | $40-$70 |
 | Filament | $25-$40 |
-| **Total** | **~$540-$800** |
+| **Total** | **~$720-$1080** |
 
 If you already own a Raspberry Pi, charger, tools, or filament, the actual
 cash outlay is much lower.

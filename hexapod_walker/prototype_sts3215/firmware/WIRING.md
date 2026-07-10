@@ -11,15 +11,42 @@ connected. Pair this with the host-side driver in
 yaw/hip/knee). Each servo has a built-in 12-bit magnetic encoder and
 reports **position, load, voltage, current and temperature** back over
 the bus, so the robot has closed-loop joint feedback with **no external
-sensors**. This deletes the old stack entirely: **no Arduino Mega, no
-PCA9685 PWM boards, no servo BECs, no AS5600 encoders, and no separate
-USB→TTL bus adapter.**
+sensors**. This deletes most of the old stack: **no Arduino Mega, no
+PCA9685 PWM boards, no servo BECs, and no AS5600 encoders.**
 
 The controller is now an **Arduino Uno Q** (on-board Linux SoC + MCU).
-It runs the Python gait/RL/teleop AND drives the half-duplex STS3215
-TTL bus **directly** — it replaces both the Raspberry Pi and the bus
-adapter. A **XINGYHENG 12 V→5 V buck** on the upper deck powers the
-Uno Q's logic from the 3S rail.
+It runs the Python gait/RL/teleop on its **Linux** side and drives the
+half-duplex STS3215 TTL bus through a small **USB bus-servo adapter**
+plugged into the Uno Q's USB-C — it replaces the Raspberry Pi. The
+adapter does the half-duplex direction-switching in hardware and
+enumerates on Linux as **`/dev/ttyUSB0`**, so `feetech_bus.py` runs
+unchanged (only `--port` changes). A **XINGYHENG 12 V→5 V buck** on the
+upper deck powers the Uno Q's logic from the 3S rail.
+
+> **Buy one USB bus-servo adapter** — either:
+> - **FEETECH FE-URT-2** (`FE-URT2-C001`) — the Type-C successor to the
+>   FE-URT-1; native **USB-C**, a **TTL-BUS** port for STS/SCS servos, a
+>   separate RS485 port for SMS servos, a **3.3 V / 5 V logic-level
+>   slide switch** (set **5 V** — see §2), and a 5.08 screw terminal for
+>   servo power. Because the Uno Q is USB-C, this is the tidiest pick: a
+>   single **USB-C-to-C** cable. *(The older FE-URT-1 also works but is
+>   mini-USB, so you'd need a C-to-mini cable / OTG adapter.)*
+> - **Waveshare Bus Servo Adapter (A)** (SKU **25514**) — also native
+>   USB-C, **D/V/G** servo header, `9–12.6 V` power input; instead of a
+>   voltage switch it has an **A/B mode jumper** (A = UART to an MCU,
+>   **B = USB** to a host — use **B**). CH343 USB-serial chip.
+>
+> **USB-C host note:** the Uno Q's *only* USB is a single Type-C port,
+> so the adapter hangs off it in **USB-host / OTG** mode. Use a USB-C
+> OTG adapter or a small **USB-C hub** (ideally one with power
+> passthrough so the Uno Q can still be powered while hosting the
+> adapter).
+
+> **Do NOT wire the servo bus to the Uno Q's D0/D1 header.** That UART
+> is the Uno Q's **STM32 MCU** side (`Serial1`, **3.3 V**, sketch-owned)
+> and is **not** exposed to the Linux side as a `/dev/tty*`, so the
+> Python driver cannot reach it. The servo bus reaches Linux **only**
+> through the USB adapter above.
 
 Your first built arm is **leg 0 = joints 0 / 1 / 2 = servo IDs 1 / 2 /
 3**. This doc gets that leg moving safely, then scales to all 18 with a
@@ -61,45 +88,78 @@ supply is strongly preferred for bring-up.
             ├─► leg 1 V+/GND   │  (V+/GND injected per leg, NOT chained
             └─► …              │   leg-to-leg through the servo pins)
                                │
- Uno Q  ──TTL signal──► ID1 ─► ID2 ─► … ─► ID18   (data daisy-chain)
-   │ (half-duplex, 1 Mbps)   (signal+GND chained; V+ fed per leg)
+ Uno Q ─USB-C─► USB bus-servo adapter ─TTL signal─► ID1 ─► ID2 ─► … ─► ID18
+   │           (FE-URT-2 / Waveshare A;          (signal+GND chained;
+   │            half-duplex dir-switch, 1 Mbps)   V+ fed per leg)
    │
    └──I²C (its OWN bus)──► MPU-6050 IMU  (Stage F)
                                │
-                          ground common (LiPo −, bus-bar GND, Uno Q GND)
+                          ground common (LiPo −, bus-bar GND, Uno Q GND,
+                                         adapter GND)
 ```
 
 - **Servo power** (12 V) comes from a **power distribution bus bar**,
   split into **per-leg branches** in heavy silicone wire. Power is
   **not** passed leg-to-leg through the thin servo connector pins
   (see §6 for why that melts the upstream connector).
-- **Data** is one half-duplex TTL signal pair, daisy-chained servo to
-  servo. The Uno Q's MCU UART drives it directly at **1 Mbps**.
+- **Data** is one half-duplex TTL signal, daisy-chained servo to servo.
+  The Uno Q drives it over USB through the **USB bus-servo adapter** at
+  **1 Mbps**; the adapter handles the half-duplex direction switching.
 - **All grounds common**: bench-supply − (or LiPo −), bus-bar GND,
-  Uno Q GND, IMU GND. Verify with a continuity beep.
+  Uno Q GND, adapter GND, IMU GND. Verify with a continuity beep.
+- The adapter carries **DATA** (its `D`/`G` pins → bus signal + GND).
+  Servo **12 V** comes from the rail, not the Uno Q and not "5 V/3 V":
+  on the bench (one leg) you may feed 12 V into the adapter's power
+  terminal; on the full robot the adapter is **data-only** and each leg
+  gets 12 V per-leg from the bus bar (see §2 and §6).
 - **The IMU is on the Uno Q's I²C bus**, totally separate from the
   servo bus. It plays no part in the arm test; see Stage F.
 
 ---
 
-## 2. The serial bus — Uno Q ↔ servos (DATA)
+## 2. The serial bus — Uno Q ↔ USB adapter ↔ servos (DATA)
 
 There is exactly **one** data signal on the robot: the half-duplex TTL
-bus, daisy-chained servo to servo. No I²C on the servos, no per-servo
-PWM lines.
+bus, daisy-chained servo to servo. It reaches the Uno Q's Linux side
+through a **USB bus-servo adapter** (§ intro). No I²C on the servos, no
+per-servo PWM lines.
 
 ```
-  Arduino Uno Q ──TTL signal (1 Mbps)──► ID1 ─► ID2 ─► ID3 ─► … ─► ID18
-       │   half-duplex, single signal line + common GND
+  Uno Q ─USB-C─► USB adapter ─TTL (1 Mbps)─► ID1 ─► ID2 ─► ID3 ─► … ─► ID18
+       │  (USB-C OTG/hub)   half-duplex, single signal line + common GND
        └──I²C (separate bus)──► MPU-6050 IMU
 ```
 
 - The STS3215 bus is **half-duplex** (one signal wire, TX and RX
-  shared). Wire the Uno Q UART TX/RX to the bus signal line per the
-  FEETECH half-duplex convention and bond GND.
-- The host port enumerates as **`/dev/ttyACM0`** (or `/dev/ttyUSB0`)
-  on the Uno Q's Linux side. Find it with
-  `ls /dev/ttyACM* /dev/ttyUSB*`.
+  shared). You do **not** hand-wire TX/RX: the USB adapter does the
+  direction switching in hardware. You only connect the adapter's servo
+  header to the bus — **`D` → Signal, `G` → GND** (and `V` = servo 12 V,
+  but read the power note below before wiring `V`).
+- **Adapter mode/level settings** (this is the "5 V or 3 V?" question):
+  - **FE-URT-2 / FE-URT-1** have a **3.3 V / 5 V logic-level slide
+    switch** for the TTL signal. STS/SCS TTL servos use a **5 V** bus —
+    set the switch to **5 V**. Plug the servo chain into the **TTL-BUS**
+    port (not the RS485 port, which is for SMS servos).
+  - **Waveshare Bus Servo Adapter (A)** has no voltage switch; it has an
+    **A/B mode jumper** — set it to **B (USB)** since the host is the
+    Uno Q over USB.
+  - **Neither switch sets the servo supply.** The 3.3/5 V logic level is
+    the *signal* voltage only. Servo **power** is a separate **12 V**
+    rail (matched to the STS3215's 9–12.6 V range), **never** 5 V or 3 V.
+- **How servo power reaches the bus** (keep §6 distributed-power intact):
+  - **Bench, one leg** (Stages C–E): simplest to feed **12 V** into the
+    adapter's screw terminal and let `V` pass to that one leg through the
+    servo header (one leg ≈ 1.5–3.7 A, under the adapter's ~5–6 A limit).
+  - **Full 18-servo robot** (§6): do **not** route servo power through
+    the adapter — it can't carry 18 servos. Use the adapter for **`D` +
+    `G` only**; inject each leg's 12 V per-leg from the **bus bar**.
+    Leave the adapter's power terminal unpowered (or a low-current 12 V
+    reference tap). Either way, common ground is mandatory.
+- The host port enumerates as **`/dev/ttyUSB0`** on the Uno Q's Linux
+  side (CH340-based FE-URT-1). A CH343-based board (FE-URT-2 / Waveshare)
+  may instead show as `/dev/ttyUSB0` or `/dev/ttyCH343USB0` depending on
+  the kernel driver — just find it with `ls /dev/ttyUSB* /dev/ttyACM*`
+  and pass that to `--port`.
 - **12 V must be present on the bus** for the servos to talk (the STS
   logic is powered from V+). Power the rail before scanning.
 - Default servo baud is **1 Mbps**; `feetech_bus.py` uses that.
@@ -118,7 +178,7 @@ servo answers at once and you brick the address):
 
 ```bash
 # Connect ONE new servo. It is ID 1 from the factory. Give it its ID:
-python ../pi_control/feetech_bus.py --port /dev/ttyACM0 setid --from 1 --to 3   # joint 2 (knee), leg 0
+python ../pi_control/feetech_bus.py --port /dev/ttyUSB0 setid --from 1 --to 3   # joint 2 (knee), leg 0
 ```
 
 Logical joint → servo ID is simply **ID = joint + 1**
@@ -136,7 +196,7 @@ Logical joint → servo ID is simply **ID = joint + 1**
 Label each servo as you ID it. After all are chained, verify:
 
 ```bash
-python ../pi_control/feetech_bus.py --port /dev/ttyACM0 scan   # expect IDs 1..18
+python ../pi_control/feetech_bus.py --port /dev/ttyUSB0 scan   # expect IDs 1..18
 ```
 
 ---
@@ -144,7 +204,9 @@ python ../pi_control/feetech_bus.py --port /dev/ttyACM0 scan   # expect IDs 1..1
 ## 2b. Where the Arduino Uno Q fits in
 
 The Uno Q **is** the controller — there is no separate microcontroller
-or bus adapter in the loop. It runs `feetech_bus.py`, which:
+in the loop. The only thing between it and the servos is the passive
+**USB bus-servo adapter** (a USB↔half-duplex-TTL converter, no CPU). Its
+Linux side runs `feetech_bus.py`, which:
 
 - maps the 18 logical joints to servo IDs 1..18,
 - enforces the same safe per-axis angle limits in software,
@@ -153,8 +215,8 @@ or bus adapter in the loop. It runs `feetech_bus.py`, which:
 - sync-writes goal positions and reads back live feedback.
 
 Everything below works identically whether the host is your laptop
-(bench, via a USB→TTL lead to the bus) or the Uno Q (on-robot) — only
-`--port` changes.
+(bench) or the Uno Q (on-robot): both talk to the **same USB bus-servo
+adapter**, so only `--port` changes.
 
 ---
 
@@ -214,7 +276,7 @@ folded ~60°," planting the foot below the body.
 
 ### Mounting each horn against zero
 
-1. `python ../pi_control/feetech_bus.py --port /dev/ttyACM0 centre` —
+1. `python ../pi_control/feetech_bus.py --port /dev/ttyUSB0 centre` —
    the servo holds at count 2048 (its 0° centre).
 2. With the servo powered and held at 0°, fit the FEETECH POM horn /
    link so the link sits in the straight-out zero pose above, then bolt
@@ -261,10 +323,13 @@ Bench supply set to **12.0 V, current limit 2.0 A**. No servos.
 - [ ] No short between V+ and GND leads (continuity = open).
 - [ ] Supply OFF.
 
-### Stage B — Uno Q on the bus, no servos
-Uno Q powered (USB-C or buck); 12 V rail still OFF.
+### Stage B — Uno Q + USB adapter on the bus, no servos
+Uno Q powered (USB-C or buck); **USB bus-servo adapter plugged into the
+Uno Q's USB-C** (mode set per §2: FE-URT-2 level switch → 5 V, or
+Waveshare jumper → B); 12 V rail still OFF.
 
-- [ ] `ls /dev/ttyACM* /dev/ttyUSB*` shows the bus port.
+- [ ] `ls /dev/ttyUSB* /dev/ttyACM*` shows the adapter's port (note it,
+      that's your `--port`).
 - [ ] `scan` returns nothing yet (no servos / no power) — that's fine; it
       confirms the port opens.
 
@@ -273,11 +338,11 @@ Connect a **spare** STS3215 to the bus signal and the 12 V rail. Supply
 ON (12 V / 2 A limit).
 
 ```bash
-feetech_bus.py --port /dev/ttyACM0 scan          # expect [1] (factory ID)
-feetech_bus.py --port /dev/ttyACM0 setid --from 1 --to 1
-feetech_bus.py --port /dev/ttyACM0 joint 0 15
-feetech_bus.py --port /dev/ttyACM0 joint 0 -15
-feetech_bus.py --port /dev/ttyACM0 feedback      # reads back ~ -15 deg, volts, temp
+feetech_bus.py --port /dev/ttyUSB0 scan          # expect [1] (factory ID)
+feetech_bus.py --port /dev/ttyUSB0 setid --from 1 --to 1
+feetech_bus.py --port /dev/ttyUSB0 joint 0 15
+feetech_bus.py --port /dev/ttyUSB0 joint 0 -15
+feetech_bus.py --port /dev/ttyUSB0 feedback      # reads back ~ -15 deg, volts, temp
 ```
 
 - [ ] Servo answers `scan`; moves smoothly both ways.
@@ -290,10 +355,10 @@ branch** of the rail. **Clamp the arm, foot in the air.** Current limit
 ~**3 A**.
 
 ```bash
-feetech_bus.py --port /dev/ttyACM0 scan          # expect [1, 2, 3]
-feetech_bus.py --port /dev/ttyACM0 joint 0 20 --sweep    # yaw
-feetech_bus.py --port /dev/ttyACM0 joint 1 -25 --sweep   # hip toward stance
-feetech_bus.py --port /dev/ttyACM0 joint 2 60 --sweep    # knee toward stance
+feetech_bus.py --port /dev/ttyUSB0 scan          # expect [1, 2, 3]
+feetech_bus.py --port /dev/ttyUSB0 joint 0 20 --sweep    # yaw
+feetech_bus.py --port /dev/ttyUSB0 joint 1 -25 --sweep   # hip toward stance
+feetech_bus.py --port /dev/ttyUSB0 joint 2 60 --sweep    # knee toward stance
 ```
 
 - [ ] Each joint moves the **expected direction** (flip `JOINT_SIGN[j]`
@@ -304,8 +369,8 @@ feetech_bus.py --port /dev/ttyACM0 joint 2 60 --sweep    # knee toward stance
 ### Stage E — Coordinated stance + load
 
 ```bash
-feetech_bus.py --port /dev/ttyACM0 stance
-feetech_bus.py --port /dev/ttyACM0 feedback --watch
+feetech_bus.py --port /dev/ttyUSB0 stance
+feetech_bus.py --port /dev/ttyUSB0 feedback --watch
 ```
 
 - [ ] Leg settles into a stable stance pose.
@@ -398,8 +463,8 @@ with stall headroom).
   └──────────────────────────────────────────────────────────┘
 
   DATA (separate, low current):
-  Uno Q UART ─sig+GND─► ID1─►ID2─►ID3 ─┊─► ID4─►ID5─►ID6 ─┊─► … ─► ID18
-                        └── leg 0 ──┘   ▲   └── leg 1 ──┘
+  Uno Q ─USB─► adapter ─sig+GND─► ID1─►ID2─►ID3 ─┊─► ID4─►ID5─►ID6 ─┊─► … ─► ID18
+                                 └── leg 0 ──┘    ▲   └── leg 1 ──┘
                         leg-to-leg jumper = SIGNAL + GND only (no V+)
 ```
 
@@ -454,11 +519,16 @@ prevent anyway).
 | Branch → leg first servo         | **Molex 5264 3-pin pigtail** (crimped)    | one leg            |
 | Within-leg servo-to-servo        | stock FEETECH 3-pin (22–24 AWG, 5264)     | one leg            |
 | Leg-to-leg (DATA only)           | 2-wire signal+GND (22–24 AWG) — **no V+** | signal (mA)        |
+| Uno Q USB-C → USB adapter        | USB-C-to-C cable + **USB-C OTG/hub**      | USB data + 5 V log.|
+| USB adapter `D`/`G` → bus        | 2-wire signal+GND (22–24 AWG) — **no V+** | signal (mA)        |
 | Bus bar → buck → Uno Q           | 20–22 AWG (low current)                   | logic (~0.3 A @5V) |
 
-> **Common ground is mandatory.** The bus-bar GND, the Uno Q GND, and
-> the buck output GND must all be bonded, or the half-duplex signal
-> has no return reference and the bus goes silent/garbled.
+> **Common ground is mandatory.** The bus-bar GND, the Uno Q GND, the
+> buck output GND, and the **USB adapter's servo-power GND** must all be
+> bonded, or the half-duplex signal has no return reference and the bus
+> goes silent/garbled. (USB already shares GND between the Uno Q and the
+> adapter's logic side; the point here is the adapter's **12 V servo
+> terminal GND** must also tie to the bus-bar GND.)
 
 ---
 

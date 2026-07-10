@@ -330,6 +330,12 @@ def publish_to_buildviz(scene_path: str, *, build_id: str | None,
            "--bump", "--set-default",
            "--keep", str(keep),
            "--upload-assets", "--assets-dir", scene_dir]
+    # Ship the design_spec.yaml sitting next to the scene so the pushed cache's
+    # spec stays in sync with the scene's partTypes (without --design-spec, push
+    # leaves a stale cache spec, which fails `buildviz compat`'s coverage check).
+    design_spec = os.path.join(scene_dir, "design_spec.yaml")
+    if os.path.exists(design_spec):
+        cmd += ["--design-spec", design_spec]
     if build_id:
         cmd += ["--build-id", build_id]
 
@@ -342,7 +348,41 @@ def publish_to_buildviz(scene_path: str, *, build_id: str | None,
     if proc.returncode != 0:
         print(f"  [publish] buildviz push exited {proc.returncode} "
               "(version NOT bumped).")
+        return proc.returncode
+
+    # BuildViz-compat finishing touch: `buildviz push` ships meshes + the
+    # design_spec, but NOT the project-authored ASSEMBLY.md / BOM.md (they are
+    # not referenced by scene.json).  Copy them from the scene dir into the
+    # served cache build dir so `buildviz compat <cache-dir>` passes on the
+    # hub-served build too.  Best-effort + non-fatal: never masks the push/verify
+    # result if the cache layout can't be resolved.
+    if build_id:
+        _copy_compat_docs_to_cache(scene_dir, build_id)
     return proc.returncode
+
+
+def _copy_compat_docs_to_cache(scene_dir: str, build_id: str) -> None:
+    """Copy ASSEMBLY.md / BOM.md from ``scene_dir`` into the served cache dir
+    for ``build_id`` (resolved from ~/.buildviz/registry.json)."""
+    try:
+        registry = os.path.join(
+            os.path.expanduser("~"), ".buildviz", "registry.json")
+        if not os.path.exists(registry):
+            return
+        with open(registry, encoding="utf-8") as fh:
+            entries = json.load(fh).get("builds", [])
+        build_dir = next(
+            (e.get("buildDir") for e in entries if e.get("id") == build_id),
+            None)
+        if not build_dir or not os.path.isdir(build_dir):
+            return
+        for doc in ("ASSEMBLY.md", "BOM.md"):
+            src = os.path.join(scene_dir, doc)
+            if os.path.exists(src):
+                shutil.copy2(src, os.path.join(build_dir, doc))
+        print(f"  [publish] copied ASSEMBLY.md + BOM.md into {build_dir}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [publish] (compat doc copy skipped: {exc})")
 
 
 # --------------------------------------------------------------------------

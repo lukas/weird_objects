@@ -200,6 +200,11 @@ const float    TRIM_LIMIT_DEG = 30.0;
 const uint16_t EE_STAND_MAGIC      = 0x535A;  // 'S','Z'
 const int      EE_STAND_MAGIC_ADDR = EE_TRIM_ADDR + 18 * (int)sizeof(float);  // 76
 const int      EE_STAND_ADDR       = EE_STAND_MAGIC_ADDR + (int)sizeof(uint16_t);  // 78
+// Remembered stand-up RISE tuck-in radius (the `$` command); same AVR-only
+// persistence as the stand Z above (UNO Q keeps it in RAM for the session).
+const uint16_t EE_STAND_TUCK_MAGIC      = 0x5452;  // 'T','R' (tuck radius)
+const int      EE_STAND_TUCK_MAGIC_ADDR = EE_STAND_ADDR + (int)sizeof(float);  // 82
+const int      EE_STAND_TUCK_ADDR       = EE_STAND_TUCK_MAGIC_ADDR + (int)sizeof(uint16_t);  // 84
 // Uncomment + set (mm) to hardcode the standing foot Z on EEPROM-less
 // boards (UNO Q).  Leave undefined to use the geometric stance height.
 // #define DEFAULT_STAND_Z -150.0
@@ -218,6 +223,58 @@ const int   DESCEND_HOLD_MS  = 120;  // dwell after each step so you can watch/f
 // hip, which keeps the knee bent in a strong, crouched-insect posture.
 const float STAND_TUCK_Z_MM = -150.0;  // depth at which feet are fully tucked
 const float STAND_TUCK_X_MM = 135.0;   // tucked foot radial (yaw frame, mm)
+
+// --- Staged STAND-UP sequence (peak-torque / peak-current reduction) --------
+// Standing from a wide sprawl by shoving all six legs up at once is what
+// browned out / smoked the rail: (1) sprawled feet ~200 mm out out-lever the
+// femur/tibia servos, so the lift is near-stall, and (2) all 18 servos hit
+// that near-stall load in the SAME instant, summing their currents into one
+// spike.  The `P` (Stand) command therefore no longer eases straight to the
+// final pose -- it runs standUp(), which:
+//   1. FOLDS to the lowest safe crouch (body resting, feet barely below the
+//      hips) so the rise begins from a known, lightly-loaded pose;
+//   2. RISES to the target height through several slew-limited waypoints,
+//      lifting ONE tripod (3 legs / 9 servos) at a time so the moving-servo
+//      current is ~halved vs an all-six lift, while >=3 feet stay planted at
+//      every instant (statically stable).  The feet tuck INWARD as the body
+//      rises (shorter moment arm = less torque exactly where the lift is
+//      hardest): at each height the feet are pulled in as TIGHT as the knee/hip
+//      limits allow (aiming for STAND_RISE_RADIUS_MM), relaxing outward only as
+//      far as needed -- so the tuck tightens smoothly instead of snapping in
+//      from a full sprawl at the crouch heights where a tight tuck can't reach;
+//   3. SPREADS the feet out to the final stance footprint at the target
+//      height, landing in exactly the pose poseStance()/the gait expect.
+// Everything stays inside the existing IK + servo angle limits and is gated
+// behind ARM.  The FINAL stance radius is governed by the existing STANCE /
+// STAND_TUCK_* geometry (stanceFootX(g_stand_z)) so `P`, `W` and the dances
+// all launch cleanly from the result -- it is intentionally not overridden
+// here.  Tune the rise itself with:
+#define STAND_RISE_RADIUS_MM 130.0f  // DEFAULT rise tuck-in radial; live via `$`
+#define STAND_RISE_STEPS     6       // slew-limited height waypoints fold -> target
+#define STAND_STEP_MS        170     // ease time per tripod sub-move (slew-rate limit)
+#define STAND_FOLD_MS        900     // ease time into the initial folded crouch
+#define STAND_SETTLE_MS      450     // final eased spread onto the stance footprint
+
+// --- Pre-lift CROUCH / TUCK (the `CROUCH` command) --------------------------
+// The FOLD/crouch stage of the stand-up exposed on its OWN so the feet can be
+// pulled in under the body -- gradually, statically stable -- WHILE THE BODY
+// STAYS LOW, without lifting into a stand.  Watch it settle, then send `P`
+// (Stand) to lift.  Same slew-limited, tripod-staggered, progressive-relax
+// approach the rise uses (tuckDestAt) so the knee never jams at its limit.
+#define CROUCH_FOLD_MS    900     // ease down into the low sprawled crouch first
+#define CROUCH_TUCK_STEPS 5       // slew-limited waypoints tightening the tuck
+#define CROUCH_STEP_MS    170     // ease time per tripod sub-move (slew-rate limit)
+
+// --- Graceful SIT-DOWN / LOWER (the `SIT` / `SETTLE` commands) ---------------
+// The INVERSE of standUp(): from the current standing pose, step the body
+// height DOWN over slew-limited waypoints -- lifting ONE tripod at a time so
+// >=3 feet always support the body -- to a low resting pose, then spread onto a
+// wide base.  Only THEN is it safe to relax/limp, so the robot settles gently
+// instead of smashing to the ground.  A touch slower than the rise (gravity
+// helps) so each step stays controlled.
+#define SIT_LOWER_STEPS 6         // slew-limited height waypoints stand -> rest
+#define SIT_STEP_MS     190       // ease time per tripod sub-move (slew-rate limit)
+#define SIT_SETTLE_MS   450       // final eased spread onto a wide resting base
 
 const float PWM_MIN_US = 500.0;    // DS3225 nominal -90 deg
 const float PWM_MAX_US = 2500.0;   // DS3225 nominal +90 deg
@@ -320,6 +377,12 @@ float foot_neutral_x, foot_neutral_z, foot_radius_eff;
 // from geometry (or DEFAULT_STAND_Z / EEPROM) at boot, then refined live by
 // the `D` descend command and remembered.
 float g_stand_z = 0.0f;
+// Stand-up RISE tuck-in radius (yaw-frame foot radial, mm): how tight standUp()
+// pulls the feet in under the body during the staggered rise -- smaller = tucked
+// tighter = shorter moment arm = more lift leverage (watch the knee limit).  This
+// is only the RISE tuck; the FINAL stance radius stays governed by stanceFootX().
+// Defaults to STAND_RISE_RADIUS_MM; set live with `$ <mm>` (AVR-persisted like Z).
+float g_stand_tuck_r = STAND_RISE_RADIUS_MM;
 
 // Physical wiring order: 0,1,2 down the RIGHT side (front->rear), then
 // 3,4,5 down the LEFT side (front->rear).  Convert each wired leg index
@@ -330,8 +393,14 @@ const int WIRED_TO_CAD_LEG[6] = {5, 4, 3, 0, 1, 2};
 bool legIK(float target_x, float target_z, float& p, float& k);
 float stanceFootX(float foot_z);
 bool stanceDestAtZ(float foot_z, float dest[18]);
+bool poseDestAt(float foot_x, float foot_z, float dest[18]);
+bool tuckDestAt(float foot_z, float aim_x, float dest[18]);
+bool riseDestAt(float foot_z, float dest[18]);
 void descendLegs(float step_mm);
 void setGait(int g);
+void standUp();
+void crouchDown();
+void sitDown();
 
 // Live gait state.
 float g_phase = 0.0, g_elapsed = 0.0;
@@ -419,6 +488,27 @@ void loadStandZ() {
   float v = g_stand_z;
   EEPROM.get(EE_STAND_ADDR, v);
   if (v == v) g_stand_z = v;   // NaN guard
+#endif
+}
+
+// Persist / reload the stand-up rise tuck-in radius (AVR only) -- same pattern
+// as saveStandZ/loadStandZ.  On the UNO Q (no EEPROM) these are no-ops and the
+// value lives only for the session (default STAND_RISE_RADIUS_MM at boot).
+void saveStandTuck() {
+#if defined(HAVE_EEPROM)
+  EEPROM.put(EE_STAND_TUCK_MAGIC_ADDR, EE_STAND_TUCK_MAGIC);
+  EEPROM.put(EE_STAND_TUCK_ADDR, g_stand_tuck_r);
+#endif
+}
+
+void loadStandTuck() {
+#if defined(HAVE_EEPROM)
+  uint16_t m = 0;
+  EEPROM.get(EE_STAND_TUCK_MAGIC_ADDR, m);
+  if (m != EE_STAND_TUCK_MAGIC) return;
+  float v = g_stand_tuck_r;
+  EEPROM.get(EE_STAND_TUCK_ADDR, v);
+  if (v == v) g_stand_tuck_r = v;   // NaN guard
 #endif
 }
 
@@ -557,6 +647,137 @@ void poseStance() {
   say("OK stance");
 }
 
+// Staged, low-peak-current stand-up -- what the `P` (Stand) command now runs.
+// See the big STAND_* comment near the top for WHY (fold -> tripod-staggered
+// rise -> spread), which lowers both peak servo torque and peak simultaneous
+// current so the robot can stand from a sprawl without stalling/browning out.
+// Ends in exactly the pose poseStance() would, so walking/dances launch cleanly.
+void standUp() {
+  g_auto = false; g_walk = false; g_dance = 0;
+  float dest[18], full[18];
+
+  // Stage 1 -- FOLD: ease every leg to the lowest safe stance (body resting,
+  // feet just below the hips).  A known, lightly-loaded starting pose no matter
+  // where the legs were (sprawled, centred, mid-sweep).  fold_z is the SHALLOW
+  // end of the rise; never start deeper than the target itself.
+  float fold_z = fmaxf(foot_neutral_z, g_stand_z);
+  say(String("P -> stand: folding to a low crouch (foot Z ")
+      + String(fold_z, 1) + " mm)...");
+  if (stanceDestAtZ(fold_z, dest)) sweepAllTo(dest, STAND_FOLD_MS);
+
+  // Stage 2 -- RISE: step body height from fold_z down to g_stand_z over
+  // STAND_RISE_STEPS slew-limited waypoints, lifting ONE tripod at a time.
+  // Only three legs (nine servos) ever move into the load at once, so peak
+  // current is ~halved vs an all-six lift.  At each waypoint riseDestAt() tucks
+  // the feet in as TIGHT as the knee/hip limits allow (down to g_stand_tuck_r),
+  // relaxing outward only as far as needed -- so the moment arm stays as short
+  // as possible for max lift leverage at EVERY height, and the tuck tightens
+  // smoothly step to step instead of snapping in from a full sprawl in one
+  // loaded move (which jammed the rise at the crouch heights).
+  for (int s = 1; s <= STAND_RISE_STEPS; ++s) {
+    float z = fold_z + (g_stand_z - fold_z) * ((float)s / (float)STAND_RISE_STEPS);
+    if (!riseDestAt(z, full)) continue;              // unreachable waypoint: skip
+    for (int grp = 0; grp < 2; ++grp) {              // two interleaved tripods
+      for (int i = 0; i < 18; ++i) dest[i] = current_deg[i];   // hold the others
+      for (int i = 0; i < 6; ++i) {
+        if ((WIRED_TO_CAD_LEG[i] & 1) != grp) continue;        // CAD 0,2,4 then 1,3,5
+        dest[i * 3 + 0] = full[i * 3 + 0];
+        dest[i * 3 + 1] = full[i * 3 + 1];
+        dest[i * 3 + 2] = full[i * 3 + 2];
+      }
+      sweepAllTo(dest, STAND_STEP_MS);
+    }
+  }
+
+  // Stage 3 -- SPREAD: ease the feet out to the final stance footprint at the
+  // target height (a near-constant-height slide -> little vertical load),
+  // landing exactly where poseStance()/the gait expect.
+  say(String("   settling to stance footprint (foot Z ")
+      + String(g_stand_z, 1) + " mm)...");
+  if (stanceDestAtZ(g_stand_z, dest)) sweepAllTo(dest, STAND_SETTLE_MS);
+  else poseStance();
+  say("OK standing");
+}
+
+// Pre-lift CROUCH / TUCK -- the FOLD stage of standUp() on its own.  Ease the
+// body down to the low crouch height, then pull the feet INWARD toward the tuck
+// radius (g_stand_tuck_r) GRADUALLY over CROUCH_TUCK_STEPS slew-limited
+// waypoints, moving ONE tripod (3 legs) at a time so >=3 feet always stay
+// planted (statically stable).  It does NOT lift into a stand: it leaves the
+// robot low and tucked so the human can watch it settle, then press `P` (Stand)
+// to lift from there.  tuckDestAt() relaxes the tuck outward only as far as the
+// knee/hip limits allow, so the knee never jams at its limit.
+void crouchDown() {
+  g_auto = false; g_walk = false; g_dance = 0;
+  float dest[18], full[18];
+  float crouch_z = fmaxf(foot_neutral_z, g_stand_z);   // low, resting body height
+
+  // Ease to the sprawled stance at the crouch height first (a known, lightly
+  // loaded starting pose no matter where the legs were).
+  say(String("CROUCH -> easing to a low crouch (foot Z ")
+      + String(crouch_z, 1) + " mm), then tucking the feet in...");
+  if (stanceDestAtZ(crouch_z, dest)) sweepAllTo(dest, CROUCH_FOLD_MS);
+
+  // Tighten the tuck from the full sprawl toward g_stand_tuck_r a few mm per
+  // waypoint, one tripod at a time, so the feet pull in smoothly instead of
+  // snapping in under load.
+  float x_wide = stanceFootX(crouch_z);
+  float x_aim  = fminf(g_stand_tuck_r, x_wide);
+  for (int s = 1; s <= CROUCH_TUCK_STEPS; ++s) {
+    float aim = x_wide + (x_aim - x_wide) * ((float)s / (float)CROUCH_TUCK_STEPS);
+    if (!tuckDestAt(crouch_z, aim, full)) continue;    // unreachable tuck: skip
+    for (int grp = 0; grp < 2; ++grp) {                // two interleaved tripods
+      for (int i = 0; i < 18; ++i) dest[i] = current_deg[i];   // hold the others
+      for (int i = 0; i < 6; ++i) {
+        if ((WIRED_TO_CAD_LEG[i] & 1) != grp) continue;
+        dest[i * 3 + 0] = full[i * 3 + 0];
+        dest[i * 3 + 1] = full[i * 3 + 1];
+        dest[i * 3 + 2] = full[i * 3 + 2];
+      }
+      sweepAllTo(dest, CROUCH_STEP_MS);
+    }
+  }
+  say("OK crouched -- feet tucked low. Send P (Stand) to lift.");
+}
+
+// Graceful SIT-DOWN / LOWER -- the INVERSE of standUp().  From the current
+// standing pose, step the body height DOWN from g_stand_z to the low rest
+// height over SIT_LOWER_STEPS slew-limited waypoints, moving ONE tripod at a
+// time so >=3 feet always support the body (statically stable) and it descends
+// in small controlled steps instead of dropping.  riseDestAt() keeps the feet
+// tucked tight at each height (short moment arm = the servos hold the descent
+// easily).  Finishes by spreading the feet onto a WIDE base at the low height,
+// so afterwards it is safe to relax/limp without the robot toppling.  Does NOT
+// cut PWM itself -- the caller (SIT holds the low pose; SETTLE then DISARMs).
+void sitDown() {
+  g_auto = false; g_walk = false; g_dance = 0;
+  float dest[18], full[18];
+  float rest_z = fmaxf(foot_neutral_z, g_stand_z);   // low resting body height
+
+  say(String("SIT -> lowering from stand (foot Z ") + String(g_stand_z, 1)
+      + " mm) to a low rest (foot Z " + String(rest_z, 1) + " mm)...");
+  for (int s = 1; s <= SIT_LOWER_STEPS; ++s) {
+    float z = g_stand_z + (rest_z - g_stand_z) * ((float)s / (float)SIT_LOWER_STEPS);
+    if (!riseDestAt(z, full)) continue;                // unreachable waypoint: skip
+    for (int grp = 0; grp < 2; ++grp) {                // two interleaved tripods
+      for (int i = 0; i < 18; ++i) dest[i] = current_deg[i];   // hold the others
+      for (int i = 0; i < 6; ++i) {
+        if ((WIRED_TO_CAD_LEG[i] & 1) != grp) continue;
+        dest[i * 3 + 0] = full[i * 3 + 0];
+        dest[i * 3 + 1] = full[i * 3 + 1];
+        dest[i * 3 + 2] = full[i * 3 + 2];
+      }
+      sweepAllTo(dest, SIT_STEP_MS);
+    }
+  }
+
+  // Spread the feet out to the sprawled stance at the low rest height so the
+  // body settles on a WIDE, stable base -- now it is safe to relax/limp.
+  say("   settling onto a wide resting base...");
+  if (stanceDestAtZ(rest_z, dest)) sweepAllTo(dest, SIT_SETTLE_MS);
+  say("OK seated -- low & stable. Safe to relax (DISARM) now.");
+}
+
 void initGaitConstants() {
   for (int i = 0; i < 6; ++i) {
     float a = (WIRED_TO_CAD_LEG[i] + 0.5f) * (float)PI / 3.0f;
@@ -619,6 +840,51 @@ bool stanceDestAtZ(float foot_z, float dest[18]) {
     dest[i * 3 + 2] = kd;
   }
   return true;
+}
+
+// Like stanceDestAtZ but at an EXPLICIT foot radial (mm, yaw frame) instead of
+// the geometry-derived stanceFootX -- used by the staged stand-up to hold the
+// feet tucked in (short moment arm) during the rise.  Yaw stays 0 on all legs.
+// Returns false (dest untouched) if that (x, z) is out of IK reach OR needs a
+// hip/knee angle beyond the safe servo limits, so the caller can fall back to a
+// sprawled-but-reachable stance pose at heights where this tuck is too tight.
+bool poseDestAt(float foot_x, float foot_z, float dest[18]) {
+  float p, k;
+  if (!legIK(foot_x, foot_z, p, k)) return false;
+  float pd = degrees(p), kd = degrees(k);
+  if (pd < HIP_LIMIT_LO_DEG || pd > HIP_LIMIT_HI_DEG) return false;
+  if (kd < KNEE_LIMIT_LO_DEG || kd > KNEE_LIMIT_HI_DEG) return false;
+  for (int i = 0; i < 6; ++i) {
+    dest[i * 3 + 0] = 0.0f;
+    dest[i * 3 + 1] = pd;
+    dest[i * 3 + 2] = kd;
+  }
+  return true;
+}
+
+// Tightest reachable tucked pose at a given foot Z for a desired tuck-in radial
+// `aim_x`.  Start at aim_x and relax OUTWARD only as far as the knee/hip limits +
+// IK reach require, never tighter than that and never wider than the sprawled
+// stance radius stanceFootX(foot_z).  This keeps the foot moment arm as SHORT as
+// the joints allow at EVERY height (max lift leverage) and lets the tuck tighten
+// a few mm per waypoint as the body rises/lowers, instead of the old all-or-
+// nothing "full tuck or full sprawl" that snapped the feet in ~50-70 mm in a
+// single loaded sub-move (the jam that stalled the rise at crouch heights).
+// Falls back to the full sprawled stance only if nothing tighter fits.  Yaw 0.
+// Shared by the staged rise (standUp), the pre-lift crouch (crouchDown) and the
+// graceful lower (sitDown).
+bool tuckDestAt(float foot_z, float aim_x, float dest[18]) {
+  float x_wide = stanceFootX(foot_z);              // sprawled-but-safe radius
+  float x_tuck = fminf(aim_x, x_wide);             // never tuck wider than sprawl
+  for (float x = x_tuck; x < x_wide; x += 2.0f)
+    if (poseDestAt(x, foot_z, dest)) return true;  // tightest tuck that fits
+  return stanceDestAtZ(foot_z, dest);              // last resort: full sprawl
+}
+
+// Tightest reachable stand-up RISE pose at a given foot Z -- the tuck aimed at
+// the live rise tuck-in radius g_stand_tuck_r (settable via `$`).
+bool riseDestAt(float foot_z, float dest[18]) {
+  return tuckDestAt(foot_z, g_stand_tuck_r, dest);
 }
 
 // Select a gait: load its per-leg phase offsets, duty factor (beta) and a
@@ -1466,10 +1732,16 @@ void printHelp() {
   s += "  I         scan I2C bus (are the 0x40/0x41 drivers seen?)\n";
   s += "  -- whole-body --\n";
   s += "  U         legs UP over head\n";
-  s += "  P         walking stance / position (plants at remembered height)\n";
+  s += "  P         STAND UP: staged low-current rise (fold->tripod lift->spread)\n";
+  s += "  CROUCH    pre-lift TUCK: ease into the low feet-tucked crouch (no lift;\n";
+  s += "            then send P to stand). gradual, tripod-staggered, ARM-gated\n";
+  s += "  SIT       graceful sit-down: slew-limited lower stand->low rest (stays\n";
+  s += "            held/powered so it settles, doesn't smash down). then DISARM\n";
+  s += "  SETTLE    SIT then DISARM: lower gently, THEN cut power (web relax/off)\n";
   s += "  D [mm]    descend feet gradually + REMEMBER ground height (any key stops;\n";
   s += "            feet tuck inward as they drop so the legs can lift the body)\n";
   s += "  Z [mm]    show (or set) the remembered standing foot Z\n";
+  s += "  $ [mm]    show (or set) stand-up tuck-in radius (feet pull-in; 90..200)\n";
   s += "  W [mm/s] [t|r|w|q]  walk: t=tripod r=ripple w=wave q=tetrapod\n";
   s += "            e.g. W 20, W r, W 25 w. tripod=fast, wave=most stable.\n";
   s += "            any key/C stops\n";
@@ -1520,12 +1792,30 @@ void handleLine(char* line) {
   if (tokenIs(line, "ARM"))    { arm();     return; }
   if (tokenIs(line, "DISARM")) { relaxAll(); return; }
 
+  // Graceful settle tokens (multi-char, all MOTION -> gated behind ARM).  These
+  // are the safe "come down gently" moves; DISARM above stays the INSTANT e-stop
+  // (cut PWM now).  Every letter is already taken, hence word tokens.
+  //   CROUCH  pre-lift tuck: ease into the low, feet-tucked crouch (no lift);
+  //           then send P (Stand) to lift from there.
+  //   SIT     graceful sit-down: slew-limited lower from standing to a low rest
+  //           pose so it settles instead of smashing down (stays powered/held).
+  //   SETTLE  SIT, THEN DISARM -- the web "relax/disarm/off" while standing:
+  //           lower gently first, only THEN cut power (go limp).
+  if (tokenIs(line, "CROUCH") || tokenIs(line, "SIT") || tokenIs(line, "SETTLE")) {
+    if (!g_armed) { say("DISARMED -- servos off. Send ARM to enable, then retry."); return; }
+    if      (tokenIs(line, "CROUCH")) crouchDown();
+    else if (tokenIs(line, "SIT"))    sitDown();
+    else                              { sitDown(); relaxAll(); }
+    return;
+  }
+
   char cmd = line[0];
   char* p = line + 1;
 
   // DISARMED backstop: until the human ARMs, refuse anything that could drive
   // a servo.  Arming is the single gate.  Diagnostics + parameter/config
-  // commands (?, H, I, Y, S, F, Z, E, K) and X/DISARM still work while limp.
+  // commands (?, H, I, Y, S, F, Z, $, E, K) and X/DISARM still work while limp.
+  // The motion word tokens (CROUCH, SIT, SETTLE) are ARM-gated above.
   if (!g_armed && isMotionCmd(cmd)) {
     say("DISARMED -- servos off. Send ARM to enable, then retry.");
     return;
@@ -1536,7 +1826,7 @@ void handleLine(char* line) {
   // the gait/sweep is just sending any other key (e.g. C to centre).
   if (cmd == 'G') { g_auto = true; g_walk = false; say("OK auto"); return; }
   if (cmd == 'U') { poseLegsUp();      return; }
-  if (cmd == 'P') { poseStance();      return; }
+  if (cmd == 'P') { standUp();         return; }   // staged low-current stand-up
   if (cmd == 'D') { descendLegs(atof(p)); return; }  // descend feet + remember height
   if (cmd == 'Z') {
     // `Z` prints the remembered standing foot Z; `Z <mm>` sets + saves it.
@@ -1548,6 +1838,23 @@ void handleLine(char* line) {
       saveStandZ();
       say(String("OK standing foot Z set to ") + String(g_stand_z, 1)
           + " mm (P/W plant here; send P to apply)");
+    }
+    return;
+  }
+  if (cmd == '$') {
+    // `$` prints the stand-up rise tuck-in radius; `$ <mm>` sets + saves it.
+    // Smaller = feet tucked tighter under the body during the rise (shorter
+    // arm = more lift leverage); clamped to the reachable band up to the
+    // sprawled stance radius.  Only affects the RISE; the final stance radius
+    // stays governed by stanceFootX().  Mirrors the `Z` calibration command.
+    while (*p == ' ') ++p;
+    if (*p == '\0') {
+      say(String("OK stand tuck-in radius = ") + String(g_stand_tuck_r, 1) + " mm");
+    } else {
+      g_stand_tuck_r = clampf(atof(p), 90.0f, 200.0f);
+      saveStandTuck();
+      say(String("OK stand tuck-in radius set to ") + String(g_stand_tuck_r, 1)
+          + " mm (smaller = tucked tighter; send P to apply)");
     }
     return;
   }
@@ -1740,6 +2047,7 @@ void setup() {
   loadTrims();    // match the bridge's mounted-horn calibration
   initGaitConstants();   // precompute leg azimuths + neutral foot pose (sets g_stand_z default)
   loadStandZ();   // override with a previously-remembered descend height (AVR EEPROM only)
+  loadStandTuck();   // override the rise tuck-in radius if one was saved (AVR EEPROM only)
   // i2cScan() probes the bus AND initialises every board it finds (wake +
   // 50 Hz).  Re-send `I` any time you connect a board after boot and it
   // will be configured -- no reflash, no power-cycle needed.  Because we are

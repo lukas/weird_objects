@@ -219,9 +219,11 @@ PAGE = r"""<!doctype html>
   <div id="armbar" class="armbar disarmed">
     <span id="armstate" class="armstate">● SERVOS OFF (disarmed)</span>
     <span class="hint" style="margin:0;flex:1 1 160px">Servos receive <b>no signal</b>
-      and sit limp. Press Enable to arm, then Stand.</span>
+      and sit limp. Press Enable to arm, then Stand.
+      <b>Disarm</b> lowers gently first, THEN cuts power; <b>EMERGENCY STOP</b>
+      cuts power instantly (drops).</span>
     <button id="armbtn" class="armbtn">Enable servos (power on)</button>
-    <button id="estop" class="estop">■ EMERGENCY STOP</button>
+    <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ EMERGENCY STOP</button>
   </div>
   <div id="view-drive" class="view active">
   <div class="row">
@@ -263,12 +265,16 @@ PAGE = r"""<!doctype html>
       </div>
       <h2 style="margin-top:14px">Pose</h2>
       <div class="btns">
-        <button data-cmd="P" title="Controller: A">Stand</button>
+        <button id="crouch" title="Gradually pull the legs INWARD into the low, feet-tucked crouch — WITHOUT lifting. Body stays low so you can watch it settle, then press Stand to lift. Slew-limited, tripod-staggered, stays stable (firmware CROUCH).">⤵ Tuck / Crouch</button>
+        <button data-cmd="P" title="Controller: A — lift into a stand from wherever it is (folds first, then rises).">▲ Stand</button>
+      </div>
+      <div class="btns">
+        <button id="sit" title="Graceful sit-down: slew-limited, tripod-staggered lower from standing to a low resting pose so the robot settles gently instead of smashing down. Stays powered/held at the bottom — then Disarm to go limp (firmware SIT).">▼ Sit / Lower</button>
         <button data-cmd="U" title="Controller: Y">Legs up</button>
         <button data-cmd="C" title="Controller: X">Center</button>
-        <button data-cmd="X" class="danger" title="Controller: B">Relax</button>
       </div>
-      <button id="stop" class="danger" style="margin-top:10px">■ STOP / disarm</button>
+      <button id="stop" class="danger" style="margin-top:10px"
+        title="Gently lower to the ground FIRST, then cut power (limp). For an instant drop use EMERGENCY STOP above.">▼ Sit &amp; power off (gentle)</button>
 
       <h2 style="margin-top:16px">Stand height (calibrate)</h2>
       <label class="slab">Body height: <span id="standlab">120</span> mm
@@ -282,6 +288,17 @@ PAGE = r"""<!doctype html>
       <div class="hint">Drag until the feet plant firmly and the body sits at
         the height you want (it eases to each new height when you let go), then
         <b>Save</b>. It's remembered on the robot and re-applied on boot.</div>
+
+      <label class="slab" title="How far the feet pull inward under the body during stand-up — smaller = tucked tighter = easier to lift but watch knee limits.">
+        Stand tuck-in radius: <span id="tucklab">130</span> mm</label>
+      <input id="tuckr" type="range" min="90" max="200" value="130"
+        title="How far the feet pull inward under the body during stand-up — smaller = tucked tighter = easier to lift but watch knee limits.">
+      <div class="hint"><b>Stand tuck-in radius</b> = how far the feet pull
+        inward under the body while it rises during <b>Stand</b>. <b>Smaller</b>
+        = feet tucked tighter (shorter leg lever = easier to lift), <b>larger</b>
+        = feet more sprawled. Too tight can hit the knee limit — the firmware
+        then relaxes the tuck automatically. Remembered on the robot and
+        re-applied on boot.</div>
 
       <label class="slab">Max speed: <span id="vlab">55</span> mm/s</label>
       <input id="vmax" type="range" min="15" max="110" value="55">
@@ -384,8 +401,10 @@ PAGE = r"""<!doctype html>
         <button id="dbgcenter">Center all</button>
         <button id="dbgrelax" class="danger">Relax (limp)</button>
       </div>
-      <div class="hint"><b>Relax</b> cuts PWM so every servo goes limp — use it
-        to recover a stalled/buzzing servo (firmware <code>X</code>).
+      <div class="hint"><b>Relax</b> cuts PWM <i>instantly</i> so every servo goes
+        limp NOW (firmware <code>X</code>) — use it to recover a stalled/buzzing
+        servo. For a <i>gentle</i> power-off that lowers the robot to the ground
+        first, use <b>Sit &amp; power off</b> / <b>Disarm</b> on the Drive tab.
         <b>Stand / Park</b> eases into the planted stance (<code>P</code>);
         <b>Center all</b> sends every joint to 0° (<code>C</code>).</div>
     </div>
@@ -528,7 +547,9 @@ function setGait(g){ gait=g;
     btn.classList.toggle('on', +btn.dataset.gait===g)); }
 function doDance(c){ if(needArm()) return; cmd(c); dancePaused=true; armed=true; forceResend();
   showSent('dance '+c+' (move to resume)'); }
-function disc(c){ if(c==='X'){ disarmServos(); return; }   // X = disarm/e-stop, always allowed
+// A plain "Relax/off" (X) means "come down gracefully then go limp" -- route it
+// through settleServos(). The true instant limp is EMERGENCY STOP (disarmServos).
+function disc(c){ if(c==='X'){ settleServos(); return; }
   if(needArm()) return; cmd(c); forceResend(); if('PU'.includes(c)) armed=false; }
 
 // Nudge the COM lean trim sliders (also what the bare D-pad does on the pad).
@@ -545,7 +566,16 @@ function isDance(c){ return 'VBOT'.includes(c) || c[0]==='M'; }
 document.querySelectorAll('button[data-cmd]').forEach(btn=>
   btn.onclick=()=>{ const c=btn.dataset.cmd;
     if(isDance(c)) doDance(c); else disc(c); });
-document.getElementById('stop').onclick=disarmServos;   // STOP = disarm (e-stop)
+// Pre-lift tuck: gradually pull the legs into the low crouch (no lift).
+document.getElementById('crouch').onclick=()=>{ if(needArm()) return;
+  cmd('CROUCH'); forceResend(); armed=false;
+  showSent('CROUCH — tucking legs in low (then press Stand to lift)'); };
+// Graceful sit-down: slew-limited lower to a low resting pose (stays held).
+document.getElementById('sit').onclick=()=>{ if(needArm()) return;
+  cmd('SIT'); forceResend(); armed=false;
+  showSent('SIT — lowering gently to a low rest'); };
+// "Sit & power off": graceful lower THEN cut power (NOT the instant e-stop).
+document.getElementById('stop').onclick=settleServos;
 
 // Tooltip each dance button with the equivalent controller combo.
 (function(){
@@ -586,10 +616,21 @@ document.getElementById('savestand').onclick=async ()=>{
   try{ await fetch('/cal',{method:'POST',body:standZ().toFixed(1)});
        showSent('✓ saved '+standh.value+' mm'); }
   catch(e){ showSent('save failed'); } };
-// load the remembered height + sync it to the firmware on page open
+// --- stand-up tuck-in radius ------------------------------------------------
+// Rise tuck radius (mm) sent to the firmware with `$ <mm>` (config only, no
+// motion). Low-frequency, so sent + persisted on change (mirrors stand height).
+const tuckr=document.getElementById('tuckr'), tucklab=document.getElementById('tucklab');
+tuckr.oninput=()=>{ tucklab.textContent=tuckr.value; };
+tuckr.onchange=async ()=>{ cmd('$ '+(+tuckr.value).toFixed(1));   // $ = tuck radius, no motion
+  try{ await fetch('/cal_tuck',{method:'POST',body:(+tuckr.value).toFixed(1)}); }catch(e){}
+  showSent('stand tuck-in '+tuckr.value+' mm'); };
+
+// load the remembered height + tuck radius and sync them to the firmware on open
 fetch('/cal').then(r=>r.json()).then(d=>{
   if(d && d.stand_z!=null){ standh.value=Math.round(-d.stand_z);
     standlab.textContent=standh.value; cmd('Z '+(+d.stand_z).toFixed(1)); }
+  if(d && d.tuck_r!=null){ tuckr.value=Math.round(d.tuck_r);
+    tucklab.textContent=tuckr.value; cmd('$ '+(+d.tuck_r).toFixed(1)); }
 }).catch(()=>{});
 
 // --- drive loop -------------------------------------------------------------
@@ -755,15 +796,25 @@ function updateArmUI(){
 function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); }
 function armServos(){ cmd('ARM'); setArmed(true);
   showSent('ARM — servos enabled (nothing moves; press Stand to stand)'); }
+// GRACEFUL power-off: lower to the ground first (firmware SETTLE = SIT then
+// DISARM), only THEN cut power. This is the NORMAL disarm/relax/off path so the
+// robot settles instead of collapsing. UI shows disarmed once the command is
+// sent (the firmware does the lower, then goes limp on its own).
+function settleServos(){ dbgTestAbort = true; cmd('SETTLE'); setArmed(false);
+  showSent('DISARM — lowering gently, then servos off'); }
+// INSTANT limp: cut all PWM NOW (true emergency stop; the robot drops). Always
+// allowed, even while disarmed, and used for the boot-time safe default.
 function disarmServos(){ dbgTestAbort = true; cmd('X'); setArmed(false);
-  showSent('DISARM — servos limp'); }
+  showSent('EMERGENCY STOP — servos limp NOW'); }
 // Returns true (and warns) when disarmed; every servo-driving action calls it.
 function needArm(){
   if(servosArmed) return false;
   showSent('⚠ Servos disarmed — press “Enable servos” first');
   return true;
 }
-$('armbtn').onclick = ()=> servosArmed ? disarmServos() : armServos();
+// The Disarm toggle is a NORMAL power-off -> graceful lower then limp.
+$('armbtn').onclick = ()=> servosArmed ? settleServos() : armServos();
+// EMERGENCY STOP is the ONLY instant-limp control (cuts PWM immediately).
 $('estop').onclick  = disarmServos;
 // Enforce the safe default on EVERY page load: show disarmed AND tell the
 // firmware to disarm now — harmless if it just booted disarmed, and it clears
@@ -798,7 +849,8 @@ class Handler(BaseHTTPRequestHandler):
             page = PAGE.replace("__HTTPS_PORT__", str(HTTPS_PORT or 8443))
             self._send(200, page, "text/html; charset=utf-8")
         elif self.path == "/cal":
-            self._send(200, json.dumps({"stand_z": CAL.get("stand_z")}),
+            self._send(200, json.dumps({"stand_z": CAL.get("stand_z"),
+                                        "tuck_r": CAL.get("tuck_r")}),
                        "application/json")
         else:
             self._send(404, "not found")
@@ -820,6 +872,18 @@ class Handler(BaseHTTPRequestHandler):
             CAL["stand_z"] = z
             saved = save_cal(CAL)
             LINK.send(f"Z {z:.1f}")
+            self._send(200 if saved else 500, "saved" if saved else "save failed")
+        elif self.path == "/cal_tuck":
+            # Persist the stand-up rise tuck-in radius (mm) and push it to the
+            # firmware so it survives reboots/reflashes (no on-board EEPROM).
+            try:
+                r = float(body.strip())
+            except ValueError:
+                self._send(400, "bad value")
+                return
+            CAL["tuck_r"] = r
+            saved = save_cal(CAL)
+            LINK.send(f"$ {r:.1f}")
             self._send(200 if saved else 500, "saved" if saved else "save failed")
         else:
             self._send(404, "not found")
@@ -843,6 +907,9 @@ def main():
     if CAL.get("stand_z") is not None:
         if LINK.send(f"Z {float(CAL['stand_z']):.1f}"):
             print(f"[cal] applied saved stand Z = {CAL['stand_z']} mm")
+    if CAL.get("tuck_r") is not None:
+        if LINK.send(f"$ {float(CAL['tuck_r']):.1f}"):
+            print(f"[cal] applied saved stand tuck-in radius = {CAL['tuck_r']} mm")
 
     # HTTPS (in a background thread) so the Gamepad API is available.  Prefer
     # 443 so the plain `https://hexapod.local` (no port) works; if we lack the

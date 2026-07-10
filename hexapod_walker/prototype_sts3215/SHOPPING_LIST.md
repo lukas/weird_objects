@@ -24,7 +24,7 @@ exactly as the generator writes them.
 |---|---|---:|---|---|---:|---:|---:|---|
 | 1 | `chassis_top.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 4 | ~ 2 h | Identical to bottom |
 | 2 | `chassis_bottom.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 4 | ~ 2 h | Identical to top |
-| 3 | `uno_q_tray.stl` | **1** | PLA / PETG | 0.2 mm | 20% gyroid | 3 | ~ 1.5 h | Lower deck — Arduino Uno Q (brain + direct STS3215 TTL bus driver). Stacks on 4 M3 standoff columns above chassis_top at `DECK_LEVEL_1_STANDOFF_H` (16 mm). |
+| 3 | `uno_q_tray.stl` | **1** | PLA / PETG | 0.2 mm | 20% gyroid | 3 | ~ 1.5 h | Lower deck — Arduino Uno Q (brain; drives the STS3215 bus via a USB bus-servo adapter). Stacks on 4 M3 standoff columns above chassis_top at `DECK_LEVEL_1_STANDOFF_H` (16 mm). |
 | 4 | `buck_tray.stl` | **1** | PLA / PETG | 0.2 mm | 20% gyroid | 2 | ~ 1.5 h | Upper deck — XINGYHENG 12V→5V buck converter. Stacks on the uno_q_tray columns at `DECK_LEVEL_2_STANDOFF_H` (22 mm). |
 | 4b | `spider_carapace.stl` | **1** | PLA / PETG | 0.2 mm | 10–15% gyroid | 3 | ~ 5–7 h | Domed cephalothorax shell (~141 × 124 × 34 mm) with the 8-eye spider face; bolts on as the 3rd deck level on 4 M3 standoffs at `DECK_COLUMN_XY` above `buck_tray`. Print **rim-down** (open skirt on the bed, apex up — self-supporting); colour it black/dark for the spider look. Open skirt + rear window keep the stack vented. |
 | 4b | `switch_holster.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 3 | ~ 0.3 h | Snap-in holster for anti-spark on/off switch.  Bolts to chassis_top's +X edge via 2 x M3 x 10 SHCS into 2 chassis_top heat-set inserts. |
@@ -140,7 +140,9 @@ The data chain stays as-is (milliamps). See `firmware/WIRING.md` §6.
 
 | Qty | Part | Why | Search link |
 |---:|---|---|---|
-| 1 | **Arduino Uno Q** | The whole brain: on-board Linux SoC (Python gait/RL/teleop) + MCU that drives the half-duplex STS3215 TTL bus DIRECTLY — replaces the Raspberry Pi, the Arduino Mega, the 2×PCA9685, AND the separate USB-to-TTL bus adapter. Mounts onto the lower `uno_q_tray` deck via 4 × M3 brass heat-set inserts + 4 × M3 × 8 mm SHCS (rows in §B.4) on the `UNO_Q_HOLES` board pattern. | [Arduino Store: "Uno Q"](https://store.arduino.cc/products/uno-q) |
+| 1 | **Arduino Uno Q** | The whole brain: on-board Linux SoC (Python gait/RL/teleop) + MCU — replaces the Raspberry Pi, the Arduino Mega, and the 2×PCA9685. Its Linux side drives the half-duplex STS3215 TTL bus through a small **USB bus-servo adapter** (next row); its own D0/D1 UART is the 3.3 V STM32/sketch side and is **not** reachable from Linux, so it is *not* wired to the servo bus (see `firmware/WIRING.md`). Mounts onto the lower `uno_q_tray` deck via 4 × M3 brass heat-set inserts + 4 × M3 × 8 mm SHCS (rows in §B.4) on the `UNO_Q_HOLES` board pattern. | [Arduino Store: "Uno Q"](https://store.arduino.cc/products/uno-q) |
+| 1 | **USB bus-servo adapter — FEETECH FE-URT-2** (or Waveshare **Bus Servo Adapter (A)**, SKU 25514) | The **USB↔half-duplex-TTL** bridge between the Uno Q's Linux side and the STS3215 bus; does the direction-switching in hardware, so `feetech_bus.py` runs unchanged on `/dev/ttyUSB0`. Plug the servo chain into the **TTL-BUS** port; set the FE-URT-2's **3.3 V/5 V logic switch to 5 V** (Waveshare: **A/B mode jumper → B = USB**). Signal only: `D`→bus signal, `G`→common GND; servo **12 V is fed per-leg from the bus bar**, not through the adapter (see `firmware/WIRING.md` §2/§6). | [FEETECH FE-URT-2](https://www.feetechrc.com) / [Waveshare 25514](https://www.waveshare.com/wiki/Bus_Servo_Adapter_(A)) |
+| 1 | **USB-C OTG adapter / small USB-C hub** | The Uno Q's *only* USB is one Type-C port, so the bus-servo adapter hangs off it in **USB-host/OTG** mode. A USB-C OTG adapter (or a hub with power passthrough so the Uno Q can be powered while hosting the adapter) makes the connection. FE-URT-2 is USB-C → a single USB-C-to-C cable + OTG; the older mini-USB FE-URT-1 needs a C-to-mini cable instead. | [Amazon search: "USB-C OTG hub power delivery"](https://www.amazon.com/s?k=USB+C+OTG+hub+power+delivery) |
 | 1 | **XINGYHENG 12V→5V buck converter** | Step-down buck converter (3 A+) that drops the 3S rail to 5 V for the Uno Q (the STS3215 run on the raw 3S rail; the buck is for logic only). Same part as prototype_v1. Mounts onto the upper `buck_tray` deck via 4 × M3 brass heat-set inserts + 4 × M3 × 8 mm SHCS on the `BUCK_HOLES` board pattern. | [Amazon search: "XINGYHENG 12V to 5V buck converter"](https://www.amazon.com/s?k=XINGYHENG+12V+to+5V+buck+converter) |
 | 1 | **MPU-6050 IMU breakout (GY-521)** | Closed-loop body-attitude control: 3-axis gyro + 3-axis accelerometer over I²C.  PCB is ~ 21.2 × 16.4 × 1.6 mm with 4 × Φ 3.0 mm holes on a 15 × 11 mm pattern; bolts to `imu_pad.stl` via 4 × M3 × 8 SHCS into M3 brass heat-set inserts.  The pad mounts foam-taped to chassis_top centre for vibration isolation (see PROTOTYPE.md §"IMU mount"). | [Amazon search: "MPU-6050 GY-521 module"](https://www.amazon.com/s?k=MPU-6050+GY-521+module) |
 | 1 | **FEETECH 3-pin serial-bus cables, assorted lengths (pack)** | The **DATA daisy-chain**: each STS3215 ships with one 3-pin bus cable, but you need a few extra/longer ones for the chassis-to-first-servo run and any leg with a longer reach. These carry V+/GND/Signal within a leg (one leg ≤ ~1.5 A walking — under the 3 A pin rating). **Leg-to-leg, make the data jumper signal+GND only** (omit V+) from the 5264 crimp kit in B.2, so power is never chained between legs (see `firmware/WIRING.md` §6). The old per-servo PWM extension-cable star (and the `wire_harness_plan.py` PCA-reach BOM) is **retired** — the serial bus needs short jumpers, not 18 individual runs back to a driver board. | [Amazon search: "FEETECH serial bus servo cable"](https://www.amazon.com/s?k=FEETECH+serial+bus+servo+cable) |
@@ -257,11 +259,11 @@ Notes:
 | 20 × STS3215 serial-bus servos | $360–$500 |
 | Battery + charger + bag + XT60/velcro | $70 |
 | Power distribution (bus bar + 15–20 A main fuse + 6 branch fuses + 16–18 AWG silicone + 5264 crimp kit) | $25–$45 |
-| Arduino Uno Q + XINGYHENG buck converter + IMU + serial-bus cables + jumpers | $90 |
+| Arduino Uno Q + USB bus-servo adapter + USB-C OTG/hub + XINGYHENG buck converter + IMU + serial-bus cables + jumpers | $110 |
 | Fasteners (M3 kit + nylocs + chassis standoffs + 8 deck columns) | $30 |
 | Filament (PLA 1 kg + TPU 250 g) + 12 × MJF servo_clamp_cap | $40 |
 | Soldering iron / hex keys / glue (if you don't have them) | $30 |
-| **Total** | **~ $645–$805** |
+| **Total** | **~ $665–$825** |
 
 The cost assumes STS3215 serial-bus servos. Cheaper servos are
 intentionally not listed here because they change the risk profile and

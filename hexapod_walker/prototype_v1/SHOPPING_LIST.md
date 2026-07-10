@@ -6,7 +6,14 @@ bolt-hole engagement, self-collision — all four checks clean against
 
 This is the everything-you-need-to-buy-and-print sheet. Numbers are
 sized for **one complete walking robot** with a small spare margin
-(~ 10% on fasteners, +2 servos, +1 BEC).
+(~ 10% on fasteners, +2 servos).
+
+> ⚠ **Power path was corrected after a string of power failures** (melted
+> V+ wires, an overvolted buck that failed short, and smoke on stand-up).
+> The battery/power rows in §B.2 now reflect the fixed spec — 6.0 V
+> high-current regulators, per-rail + main fusing, a bus bar, an e-stop
+> cutoff, and a current sensor. The full rationale, current budget, and
+> bring-up checklist live in `POWER_SYSTEM.md`.
 
 ---
 
@@ -21,7 +28,7 @@ exactly as the generator writes them.
 | 2 | `chassis_bottom.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 4 | ~ 2 h | Identical to top |
 | 3 | `battery_holder.stl` | **1** | PLA / PETG | 0.2 mm | 20% gyroid | 3 | ~ 1.5 h | LiPo tray |
 | 4 | `electronics_tray.stl` | **1** | PLA / PETG | 0.2 mm | 20% gyroid | 2 | ~ 2 h | 160 x 130 mm deck for Arduino Mega 2560 + Raspberry Pi 4/5 + 2 x PCA9685 (May 2026 expansion + "essentials" 2nd-PCA bump) |
-| 4a | `bec_cradle.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 3 | ~ 0.3 h | Snap-fit clip for 2 x 5V 5A switching BECs.  Sits on the electronics_tray. No fasteners (friction fit). |
+| 4a | `bec_cradle.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 3 | ~ 0.3 h | Snap-fit clip for the 6 V regulators.  ⚠ The printed clip was sized for 2 × small 5 A BECs; the corrected power spec (`POWER_SYSTEM.md`) uses 2–3 × Castle CC BEC Pro (~43 × 33 × 24 mm each) which need airflow (§7 cooling), so re-check the cradle fit / spacing before printing — it may need regenerating for the larger regulators.  Sits on the electronics_tray. No fasteners (friction fit). |
 | 4b | `switch_holster.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 3 | ~ 0.3 h | Snap-in holster for anti-spark on/off switch.  Bolts to chassis_top's +X edge via 2 x M3 x 10 SHCS into 2 chassis_top heat-set inserts. |
 | 4c | `imu_pad.stl` | **1** | PLA / PETG | 0.2 mm | 25% gyroid | 3 | ~ 0.2 h | 25 x 20 mm IMU mounting pad with 4 M3 heat-set insert bosses on the GY-521 15 x 11 mm hole pattern.  No fasteners between pad and chassis_top -- the pad is foam-taped to the chassis_top centre for vibration isolation. |
 | 5 | `coxa_bracket.stl` | **6** | PLA / PETG | 0.2 mm | 30% gyroid | 4 | ~ 4 h total | Flange-down on bed; the well opens UP. The flange bolts to the chassis. |
@@ -86,7 +93,14 @@ link is gear stripping during tuning).
 | Qty | Part | Why | Search link |
 |---:|---|---|---|
 | 1 | **3S 2200 mAh LiPo, 25C+, XT60 connector** | 11.1 V nominal, ~ 30 min run time. "Zeee", "OVONIC", "CNHL", or "Tattu" are all fine. | [Amazon search: "3S 2200mAh 25C lipo XT60"](https://www.amazon.com/s?k=3S+2200mAh+25C+lipo+XT60) |
-| 2 | **5 V 5 A switching BEC, 2S–4S input** | Two BECs split the 18-servo current draw; "Hobbywing 5A UBEC", "Castle Creations 10A SBEC", "Skyrc UBEC" all work. Order 2 (one per PCA9685) — single-BEC will brown out during tripod swing. | [Amazon search: "5V 5A UBEC switching"](https://www.amazon.com/s?k=5V+5A+UBEC+switching) |
+| 2–3 | **Castle Creations CC BEC PRO (010-0004-01), locked to 6.0 V** | The corrected servo-rail regulator. 20 A peak / ~15 A continuous each, output adjustable **and lockable** 4.9–12.5 V via Castle Link. **Split the 18 servos across 2–3 of these on separate fused rails.** ⚠ **RETIRES the old "2 × 5 A BEC" and any generic 20 A/300 W adjustable buck for the servo rail:** 5 A is badly undersized (9 servos ≈ 22 A stall → melted V+ wires), and the adjustable buck was run at ~10 V (overvolting the 4.8–6.8 V servos) and failed short. See `POWER_SYSTEM.md`. Budget alt: 5–6 × Hobbywing UBEC 10A HV, one per ~3–4 servos. | [Castle CC BEC PRO 010-0004-01](https://www.castlecreations.com/en/bec-voltage-regulator/cc-bec-pro-010-0004-01) |
+| 1 | **Main fuse — 30 A MIDI/ANL + inline bolt-down holder** | Mount within ~15 cm of the LiPo + terminal on the 12 AWG main lead. The fuse protects the **wire** (must be ≤ wire ampacity), not the load — sized to the ~15–22 A the 12 V side carries at peak. | [Amazon search: "MIDI ANL inline fuse holder 30A"](https://www.amazon.com/s?k=MIDI+ANL+inline+fuse+holder+30A) |
+| 1 | **Blue Sea ST-Blade fused distribution block + 10 A/15 A ATC blades** | One ATC blade fuse **per servo rail**, sized to that rail's wire (10 A on 16 AWG / 3-servo rails, 15 A on 14 AWG / 6-servo rails). Rail fuse < main fuse so a rail fault trips locally. | [Amazon search: "Blue Sea ST blade fuse block"](https://www.amazon.com/s?k=Blue+Sea+ST+blade+fuse+block) |
+| 1 | **6 V power distribution bus bar (100 A dual-stud)** | Distribute regulated 6 V to the per-rail feeds and inject V+ into **both** PCA9685 boards with adequate gauge. **Never run all rail current through one PCA screw terminal** — that burned a board's V+ trace (9.8 V in, 0.5 V at the header). | [Amazon search: "12v 100A bus bar M6 stud"](https://www.amazon.com/s?k=12v+100A+bus+bar+M6+stud) |
+| 1 | **12 AWG silicone wire (red + black)** | Main LiPo lead + regulator feeds (~15–22 A). Fine-strand silicone flexes and takes heat. | [Amazon search: "12 AWG silicone wire red black"](https://www.amazon.com/s?k=12+AWG+silicone+wire+red+black) |
+| 1 | **14/16 AWG silicone wire (red + black)** | Per-rail 6 V feeds, gauge matched to each rail's fuse (14 AWG for 15 A rails, 16 AWG for 10 A rails). | [Amazon search: "14 16 AWG silicone wire"](https://www.amazon.com/s?k=14+16+AWG+silicone+wire) |
+| 1 | **Hardware e-stop: 30/40 A automotive relay + Arduino relay-driver module** | High-current cutoff on the 12 V feed to the regulators that **defaults OFF** at power-on/reset; the Arduino GPIO must actively arm it, and DISARM/E-STOP/watchdog opens it. The software disarm only stops PWM (firmware `X` = limp) — this removes **power**. Keep the manual anti-spark switch as the physical e-stop. | [Amazon search: "arduino relay module 30A automotive"](https://www.amazon.com/s?k=arduino+relay+module+30A+automotive) |
+| 1 | **ACS758-050B current sensor** (+ optional INA226) | Isolated hall sensor on the main lead so firmware can read amps and **auto-DISARM + open the cutoff on overcurrent** (ties into the ARM/DISARM system). Optional INA226 I²C for per-rail digital amps — jumper its address OFF **0x40** (PCA9685 clash) to 0x44/0x45. See `POWER_SYSTEM.md` §9. | [Amazon search: "ACS758 current sensor 50A"](https://www.amazon.com/s?k=ACS758+current+sensor+50A) |
 | 1 | **iSDT D2 / SkyRC B6 / HOTA D6 — any 3S balance charger** | Don't cheap out on charging — this is the fire-risk part of the build. | [Amazon search: "3S lipo balance charger"](https://www.amazon.com/s?k=3S+lipo+balance+charger) |
 | 1 | **LiPo safety bag (medium)** | Charge AND store inside this. $8. | [Amazon search: "lipo safety bag fireproof"](https://www.amazon.com/s?k=lipo+safety+bag+fireproof) |
 | 2 | **XT60 pigtail (M and F, with silicone wire)** | One on the battery cable, one to feed the BEC pair through a switch. | [Amazon search: "XT60 pigtail 12awg"](https://www.amazon.com/s?k=XT60+pigtail+12awg) |
@@ -201,12 +215,13 @@ Notes:
 | Bucket | Cost (USD, mid-2026) |
 |---|---:|
 | 20 × DS3225 servos | $260 |
-| Battery + 2 × BEC + charger + bag + cables | $80 |
+| Battery + 2–3 × Castle CC BEC Pro (6.0 V) + charger + bag + cables | $220 |
+| Power path: main fuse + fused distro + bus bar + silicone wire + e-stop relay + current sensor | $90 |
 | Arduino Mega + Raspberry Pi 4 + 2 × PCA9685 + IMU + servo cables + jumpers | $100 |
 | Fasteners (M3 kit + nylocs + standoffs) | $25 |
 | Filament (PLA 1 kg + TPU 250 g) | $25 |
 | Soldering iron / hex keys / glue (if you don't have them) | $30 |
-| **Total** | **~ $470** |
+| **Total** | **~ $700** |
 
 The cost assumes DS3225 servos. Cheaper servos are intentionally not
 listed here because they change the risk profile and may not fit the

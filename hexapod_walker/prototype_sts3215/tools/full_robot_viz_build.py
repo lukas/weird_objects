@@ -21,9 +21,24 @@ are rotationally symmetric about the chassis Z axis, so legs 1-5 are leg 0
 rotated by i*60 deg.  Body parts (chassis plates, battery holder,
 electronics tray) are placed exactly as ``make_assembly_preview`` does.
 
+Motion is now baked into this ONE scene: the additive BuildViz ``joints[]`` +
+``poses[]`` + ``animations[]`` blocks (per-joint sliders, clickable poses, a
+looping tripod-walk clip) live directly in ``full_robot_viz/scene.json`` -- there
+is no longer a separate ``scene_motion.json`` file or a distinct
+``prototype_sts3215_motion`` build id.  Generating the motion blocks is
+essentially free (~0.01 s of joint/pose math on the ALREADY-placed meshes vs the
+~4 s STL rebuild), so motion is ALWAYS generated.  The only expensive motion step
+is the swept self-overlap check (``buildviz sweep`` ~13 s), which is therefore
+OPT-IN on push (see the Makefile ``SWEEP=1``), while the cheap manifest
+validation runs every push.
+
 Run:
     ./run.sh hexapod_walker/prototype_sts3215/tools/full_robot_viz_build.py
-    npx buildviz full_robot_viz --port 5174
+
+Then PUBLISH into the ONE machine-wide BuildViz hub (default port 5183) and view
+it there -- never start a per-project dev server on 5173/etc:
+    make -C hexapod_walker/prototype_sts3215 verify-buildviz   # buildviz push --bump
+    open http://127.0.0.1:5183/?build=prototype_sts3215
 """
 
 from __future__ import annotations
@@ -124,6 +139,101 @@ ROLE = {
     "hip_clamp_cap": "frame", "knee_clamp_cap": "frame",
     "yaw_servo_retainer": "frame",
 }
+
+# Per-partType design intent / rationale.  This is the semantic source of truth
+# that `tools/full_robot_viz_build.py` writes into full_robot_viz/design_spec.yaml
+# so the file ALWAYS covers every partType the scene emits (BuildViz `compat`
+# fails on any scene part with no entry).  Kinematics are FROZEN: 6 legs, COXA 25
+# / FEMUR 90 / TIBIA 130 mm; only joint/segment CONSTRUCTION changes.  Joint
+# architecture: YAW = cantilevered (coxa 25 mm < ~50 mm rule, no passive
+# bearing); HIP + KNEE = bearing sandwich (driven Ø20 25T disc horn on one side,
+# 688 passive bearing on the other).  When you add/rename a partType in PALETTE,
+# add its rationale here too — a missing key makes the build non-compat.
+DESCRIPTIONS = {
+    "coxa_link": "Short (25 mm) coxa link driven by the yaw disc horn; carries the hip joint at its outboard end. Cantilevered (no passive bearing) because 25 mm < the ~50 mm span where a passive bearing earns its complexity.",
+    "coxa_yaw_hub": "Printed coxa inboard hub that bolts to the driven yaw disc horn (Ø14 / 4x M3 circle) and takes the yaw servo's output.",
+    "coxa_hip_bracket": "Printed coxa outboard bracket that carries the hip joint (hip servo cradle + disc-horn / passive-bearing sandwich).",
+    "yaw_bearing_cap": "Printed cap that closes the top of each chassis yaw-bearing tower, capturing the upper yaw bearing.",
+    "yaw_bearing_lower": "Lower ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
+    "yaw_bearing_upper": "Upper ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
+    "femur_hip_yoke": "Printed femur hip-end yoke: straddles the hip servo, top arm bolts to the driven disc horn, bottom stub rides the 688 passive bearing; sockets the Ø8 femur strut.",
+    "femur_knee_bracket": "Printed femur knee-end bracket that mounts the knee servo and sockets the femur strut.",
+    "tibia_knee_yoke": "Printed tibia knee-end yoke driven off the knee disc horn (bearing-sandwich passive side on the opposite face); sockets the Ø8 tibia tube.",
+    "tibia_foot_fitting": "Printed tibia foot-end fitting that sockets the tibia tube and carries the compliant foot pad.",
+    "femur_strut": "Printed PA12 femur strut (90 mm hip->knee segment). Printed (not CF tube) here so the hip yoke/knee bracket integrate as one stiff member.",
+    "tibia_tube": "Ø8 carbon-fibre tibia segment (130 mm knee->foot). Retained by epoxy bond + a transverse pin. CF for stiffness/weight at the longest, most-loaded segment.",
+    "foot_pad": "Compliant TPU foot pad at each tibia tip for ground grip + shock absorption.",
+    "disc_horn_yaw": "Driven Ø20 25T aluminium disc horn on the yaw servo output; the coxa hub bolts to it (Ø14 / 4x M3). COTS.",
+    "disc_horn_hip": "Driven Ø20 25T aluminium disc horn on the hip servo output; the femur hip yoke bolts to it. COTS.",
+    "disc_horn_knee": "Driven Ø20 25T aluminium disc horn on the knee servo output; the tibia knee yoke bolts to it. COTS.",
+    "passive_horn_hip": "Passive-side disc horn of the hip bearing sandwich (mirrors the driven horn so the yoke is symmetric across the servo).",
+    "passive_horn_knee": "Passive-side disc horn of the knee bearing sandwich.",
+    "passive_adapter_hip": "Printed rear-boss centering adapter that seats the hip 688 passive bearing to the yoke's passive stub.",
+    "passive_adapter_knee": "Printed rear-boss centering adapter that seats the knee 688 passive bearing.",
+    "yaw_servo": "FEETECH STS3215 serial-bus servo driving the hip-yaw axis (real FEETECH envelope). COTS.",
+    "hip_servo": "FEETECH STS3215 serial-bus servo driving the hip-pitch axis. COTS.",
+    "knee_servo": "FEETECH STS3215 serial-bus servo driving the knee axis. COTS.",
+    "chassis_bottom": "Structural 200 mm flat-to-flat hex deck (single merged print) with 6 integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing towers, one per leg at each hex-edge midpoint. Each STS3215 inserts from BELOW (output UP), bolts via 4x M2.5 through the cradle front plate, body hangs DOWN through a body cutout; the bolt-on yaw_servo_retainer stirrup captures it. A folded 4 mm floor makes the printed bottom one flush flat face so it prints flat, tower-up, no supports (Jun 2026 flush-bottom fix; check_flat_bottom overhang = 0.00 mm).",
+    "chassis_top": "Hex top plate that closes the chassis over the electronics stack.",
+    "uno_q_tray": "Printed tray that mounts the Arduino Uno Q compute board on the chassis.",
+    "buck_tray": "Printed tray that mounts the buck converter on the chassis.",
+    "spider_carapace": "Cosmetic domed carapace shell over the chassis (jumping-spider styling); vented, lifts off as one piece.",
+    "uno_q": "Arduino Uno Q compute board (high-level control host). COTS.",
+    "buck_converter": "DC-DC buck converter stepping the LiPo down to the servo-bus/logic rail. COTS.",
+    "lipo_battery": "LiPo battery pack, mounted low + central for stance stability. COTS.",
+    "hip_clamp_cap": "Printed clamp cap that closes the hip yoke's tube socket, clamping the Ø8 femur strut.",
+    "knee_clamp_cap": "Printed clamp cap that closes the knee yoke's tube socket, clamping the Ø8 tibia tube.",
+    "yaw_servo_retainer": "Printed stirrup that bolts under each chassis yaw cradle to capture the STS3215 servo body from below.",
+    "screw_yaw": "Fasteners around the yaw joint / servo mount (rendered set; count is the summed per-leg joint hardware).",
+    "screw_hip": "Fasteners around the hip joint / bearing sandwich (rendered set).",
+    "screw_knee": "Fasteners around the knee joint / bearing sandwich (rendered set).",
+    "screw_chassis": "Chassis-level / foot / deck fasteners (rendered set).",
+}
+
+
+def _write_design_spec(instances_json: list[dict]) -> None:
+    """Write full_robot_viz/design_spec.yaml keyed by every scene partType.
+
+    BuildViz's compatibility contract (see ~/buildviz/BUILDVIZ_COMPATIBILITY.md)
+    requires the design_spec's ``parts:`` mapping to cover every ``partType`` the
+    scene emits.  We derive it from the instances we just placed so the spec can
+    never silently drift out of coverage: qty + role + cots come from the scene,
+    the rationale from DESCRIPTIONS above.
+    """
+    counts: dict[str, int] = {}
+    role_of: dict[str, str] = {}
+    cots_of: dict[str, bool] = {}
+    for inst in instances_json:
+        pt = inst["partType"]
+        counts[pt] = counts.get(pt, 0) + 1
+        role_of[pt] = inst.get("role", "")
+        cots_of[pt] = bool(inst.get("cots", False))
+
+    lines = [
+        "# Hexapod STS3215 — full robot (viz).  design intent + rationale, and",
+        "# BuildViz's semantic source of truth (one entry per scene partType).",
+        "#",
+        "# GENERATED by tools/full_robot_viz_build.py from the placed instances so",
+        "# it always covers every scene partType (edit DESCRIPTIONS in that script,",
+        "# not this file).  Kinematics FROZEN: 6 legs, COXA 25 / FEMUR 90 / TIBIA",
+        "# 130 mm.  YAW = cantilevered; HIP + KNEE = bearing sandwich (driven Ø20",
+        "# 25T disc horn + 688 passive bearing).",
+        "",
+        "units: mm",
+        "",
+        "parts:",
+    ]
+    for pt in sorted(counts):
+        label = pt.replace("_", " ")
+        desc = DESCRIPTIONS.get(pt, f"{label} (see full_robot_viz_build.py).")
+        lines.append(f"  {pt}:")
+        lines.append(f"    label: {json.dumps(label)}")
+        lines.append(f"    role: {json.dumps(role_of[pt])}")
+        lines.append(f"    cots: {'true' if cots_of[pt] else 'false'}")
+        lines.append(f"    qty: {counts[pt]}")
+        lines.append(f"    description: {json.dumps(desc)}")
+    (OUT_DIR / "design_spec.yaml").write_text("\n".join(lines) + "\n")
+    print(f"Wrote {OUT_DIR/'design_spec.yaml'}  ({len(counts)} part types)")
 
 
 def _trans(v) -> np.ndarray:
@@ -675,15 +785,22 @@ def _col_major(M: np.ndarray) -> list[float]:
 
 
 # ---------------------------------------------------------------------------
-# Motion model (BuildViz ``joints[]`` + ``poses[]``, optional & additive)
+# Motion model (BuildViz ``joints[]`` + ``poses[]`` + ``animations[]``)
 # ---------------------------------------------------------------------------
 #
-# BuildViz drives motion from two OPTIONAL top-level scene keys (see
+# These blocks are ALWAYS baked into the single ``scene.json`` (mirroring the
+# prototype_v1 ``hexapod-prototype`` build): generating them is essentially free
+# (joint/pose math on the already-placed meshes), so there is no reason to gate
+# GENERATION or split them into a second build.  Only the swept self-overlap
+# VALIDATION (``buildviz sweep``) is expensive and is opt-in on push.
+#
+# BuildViz drives motion from three OPTIONAL top-level scene keys (see
 # /Users/lbiewald/buildviz BUILDVIZ_INTEGRATION.md "Motion / kinematics" and
 # src/buildvizKinematics.ts).  Old viewers ignore them; a viewer that
 # understands them gets per-joint sliders, an "Animate sweep" button (each DOF
-# swept min->max->min) and clickable named poses, plus swept-pose overlap
-# validation.  The forward-kinematics the viewer computes is EXACTLY:
+# swept min->max->min), clickable named poses, and a play/scrub timeline for the
+# keyframed ``animations[]`` clip, plus swept-pose overlap validation.  The
+# forward-kinematics the viewer computes is EXACTLY:
 #
 #   L(joint, v) = T(origin) * R(axis, v-home) * T(-origin)     [revolute, deg]
 #   C(j)        = C(parent) * L(j)                             [chain compose]
@@ -765,11 +882,12 @@ def _leg0_joint_frames() -> dict[str, tuple[np.ndarray, np.ndarray]]:
 
 
 def _build_motion(instances_json, chassis_lift, legs):
-    """Build the additive ``(joints, poses)`` motion blocks for the placed
-    scene.  ``joints`` carry real per-leg yaw/hip/knee axes + pivots in the
-    final world frame and the exact instance ids each drives; ``poses`` are a
+    """Build the additive ``(joints, poses, animations)`` motion blocks for the
+    placed scene.  ``joints`` carry real per-leg yaw/hip/knee axes + pivots in
+    the final world frame and the exact instance ids each drives; ``poses`` are a
     handful of named whole-body configurations (a tripod-gait march + stance
-    variants) expressed as degree offsets from the home stance."""
+    variants) expressed as degree offsets from the home stance; ``animations``
+    is a single looping tripod-walk clip so the assembly can be seen WALKING."""
     frames = _leg0_joint_frames()
 
     # Group placed instance ids by (leg, link) using the authoritative ids the
@@ -813,7 +931,8 @@ def _build_motion(instances_json, chassis_lift, legs):
             joints.append(joint)
 
     poses = _build_motion_poses(legs)
-    return joints, poses
+    animations = _build_motion_animations(legs)
+    return joints, poses, animations
 
 
 def _build_motion_poses(legs):
@@ -857,7 +976,57 @@ def _build_motion_poses(legs):
     ]
 
 
-def main(single_leg: bool = False, motion: bool = False) -> None:
+# Tripod-walk clip tuning (degree offsets from the home stance; matches the
+# _MOTION_LIMITS envelope so the clip never drives a joint out of range).
+_WALK_YAW_AMP = 14.0      # +/- fore/aft stride yaw
+_WALK_LIFT_DEG = 18.0     # swing-phase hip lift (femur tip up = foot up)
+_WALK_FRAMES = 24         # keyframes per cycle (inclusive end closes the loop)
+_WALK_SECONDS = 2.4       # clip playback length for one gait cycle
+
+
+def _walk_leg_offset(phase: float) -> tuple[float, float]:
+    """``(yaw, hip)`` degree offset for one leg at gait ``phase`` in [0, 1).
+
+    Stance half (phase 0..0.5): foot planted, yaw sweeps fore->aft as the body
+    drives forward (hip level).  Swing half (0.5..1): foot lifts (smooth
+    ``hip = -LIFT*sin``, negative = femur tip up) and recovers aft->fore."""
+    if phase < 0.5:
+        s = phase / 0.5
+        return _WALK_YAW_AMP - 2.0 * _WALK_YAW_AMP * s, 0.0
+    s = (phase - 0.5) / 0.5
+    return -_WALK_YAW_AMP + 2.0 * _WALK_YAW_AMP * s, -_WALK_LIFT_DEG * np.sin(np.pi * s)
+
+
+def _build_motion_animations(legs):
+    """A single looping tripod-walk clip built from the same per-joint DOFs.
+
+    Tripod A (legs 0·2·4) and B (legs 1·3·5) run half a cycle out of phase, so
+    one tripod plants + drives the body forward while the other lifts + swings.
+    Keyframes are degree offsets from the home stance (knee held at home), so the
+    clip plays inside the verified joint envelope.  Mirrors the prototype_v1
+    ``hexapod-prototype`` build's keyframed ``animations[]`` walk clip."""
+    keyframes = []
+    for k in range(_WALK_FRAMES + 1):      # inclusive end closes the loop
+        frac = k / _WALK_FRAMES
+        values: dict[str, float] = {}
+        for i in legs:
+            phase = (frac + (0.0 if i % 2 == 0 else 0.5)) % 1.0
+            yaw, hip = _walk_leg_offset(phase)
+            values[f"L{i}-yaw"] = round(float(yaw), 3)
+            values[f"L{i}-hip"] = round(float(hip), 3)
+            values[f"L{i}-knee"] = 0.0
+        keyframes.append({"t": round(frac * _WALK_SECONDS, 4),
+                          "jointValues": values})
+    return [{
+        "id": "walk",
+        "name": "Walk (tripod gait)",
+        "loop": True,
+        "duration": _WALK_SECONDS,
+        "keyframes": keyframes,
+    }]
+
+
+def main(single_leg: bool = False, motion: bool = True) -> None:
     if STL_DIR.exists():
         shutil.rmtree(STL_DIR)
     STL_DIR.mkdir(parents=True, exist_ok=True)
@@ -963,9 +1132,44 @@ def main(single_leg: bool = False, motion: bool = False) -> None:
         "meshes": meshes_json,
         "instances": instances_json,
     }
+
+    # ADDITIVE motion, baked into this ONE scene (there is no separate
+    # scene_motion.json / prototype_sts3215_motion build any more).  Generating
+    # the joints/poses/animations is essentially free (~0.01 s of joint/pose math
+    # on the already-placed meshes), so we ALWAYS bake them in -- mirroring the
+    # prototype_v1 hexapod-prototype build.  Old viewers ignore the extra keys and
+    # render the identical static home pose.
+    if motion:
+        joints, poses, animations = _build_motion(
+            instances_json, chassis_lift, legs)
+        scene["joints"] = joints
+        scene["poses"] = poses
+        scene["animations"] = animations
+
     (OUT_DIR / "scene.json").write_text(json.dumps(scene, indent=2))
-    print(f"Wrote {OUT_DIR/'scene.json'}  ({len(instances_json)} instances, "
-          f"lift={chassis_lift:.1f})")
+    msg = f"Wrote {OUT_DIR/'scene.json'}  ({len(instances_json)} instances, "
+    if motion:
+        moved = sum(len(j["instances"]) for j in scene["joints"])
+        msg += (f"lift={chassis_lift:.1f}; motion: {len(scene['joints'])} joints "
+                f"driving {moved} instances, {len(scene['poses'])} poses, "
+                f"{len(scene['animations'])} walk clip)")
+    else:
+        msg += f"lift={chassis_lift:.1f}; motion OFF)"
+    print(msg)
+
+    # BuildViz-compatibility contract (see ~/buildviz/BUILDVIZ_COMPATIBILITY.md):
+    # write a design_spec.yaml that covers every scene partType, and copy the
+    # project-authored assembly guide + BOM in under the contract's expected
+    # names so full_robot_viz/ is a self-contained, compat-clean build dir.
+    _write_design_spec(instances_json)
+    project_dir = _HERE.parent
+    for source_name, dest_name in (
+        ("PROTOTYPE.md", "ASSEMBLY.md"),
+        ("PROTOTYPE_BOM.md", "BOM.md"),
+    ):
+        source = project_dir / source_name
+        if source.exists():
+            shutil.copy2(source, OUT_DIR / dest_name)
 
     # Precompute the BuildViz checks sidecar (read on scene load).
     sidecar = _build_checks_sidecar(tagged, instances_json)
@@ -975,25 +1179,10 @@ def main(single_leg: bool = False, motion: bool = False) -> None:
           f"({s['fail']} fail / {s['warn']} warn / {s['pass']} pass "
           f"of {s['total']} checks)")
 
-    # ADDITIVE motion variant: same static scene + BuildViz joints[]/poses[].
-    # Written to a SEPARATE sibling file so the tracked static scene.json is
-    # never touched; the relative ``stl/<file>`` mesh URLs resolve next to it.
-    if motion:
-        joints, poses = _build_motion(instances_json, chassis_lift, legs)
-        motion_scene = dict(scene)
-        motion_scene["name"] = scene["name"] + " + motion (joints/poses)"
-        motion_scene["source"] = (
-            f"{OUT_DIR} (motion: additive joints/poses from "
-            "full_robot_viz_build._build_motion)")
-        motion_scene["joints"] = joints
-        motion_scene["poses"] = poses
-        (OUT_DIR / "scene_motion.json").write_text(
-            json.dumps(motion_scene, indent=2))
-        moved = sum(len(j["instances"]) for j in joints)
-        print(f"Wrote {OUT_DIR/'scene_motion.json'}  "
-              f"({len(joints)} joints across {len(legs)} legs driving "
-              f"{moved} instances, {len(poses)} named poses)")
-
 
 if __name__ == "__main__":
-    main(single_leg="--single" in sys.argv, motion="--motion" in sys.argv)
+    # Motion is ALWAYS baked into scene.json (generation is free).  ``--no-motion``
+    # is a debug escape hatch for a static-only scene; there is no ``--motion``
+    # flag any more because motion is the default.
+    main(single_leg="--single" in sys.argv,
+         motion="--no-motion" not in sys.argv)

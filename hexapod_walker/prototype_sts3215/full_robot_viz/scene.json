@@ -17450,5 +17450,1583 @@
         123.23564283100903
       ]
     }
+  ],
+  "joints": [
+    {
+      "id": "L0-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        86.60254037844388,
+        49.99999999999999,
+        45.79999923706055
+      ],
+      "instances": [
+        "008-coxa_yaw_hub",
+        "009-coxa_hip_bracket",
+        "010-yaw_bearing_cap",
+        "011-yaw_bearing_lower",
+        "012-yaw_bearing_upper",
+        "021-hip_servo",
+        "023-hip_clamp_cap",
+        "128-screw_yaw",
+        "129-screw_yaw",
+        "130-screw_yaw",
+        "131-screw_yaw",
+        "132-screw_yaw",
+        "133-screw_yaw",
+        "134-screw_yaw",
+        "135-screw_yaw",
+        "136-screw_yaw",
+        "137-screw_yaw",
+        "138-screw_yaw",
+        "139-screw_yaw",
+        "140-screw_yaw",
+        "141-screw_yaw",
+        "142-screw_yaw",
+        "161-screw_yaw",
+        "464-disc_horn_yaw"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L0 yaw"
+    },
+    {
+      "id": "L0-hip",
+      "type": "revolute",
+      "axis": [
+        -0.49999999999999994,
+        0.8660254037844387,
+        0.0
+      ],
+      "origin": [
+        110.25285792574937,
+        34.036448392929145,
+        85.19999923706055
+      ],
+      "instances": [
+        "013-femur_hip_yoke",
+        "014-femur_knee_bracket",
+        "015-femur_strut",
+        "022-knee_servo",
+        "024-knee_clamp_cap",
+        "116-screw_hip",
+        "117-screw_hip",
+        "118-screw_hip",
+        "119-screw_hip",
+        "124-screw_hip",
+        "125-screw_hip",
+        "143-screw_hip",
+        "144-screw_hip",
+        "145-screw_hip",
+        "146-screw_hip",
+        "151-screw_hip",
+        "152-screw_hip",
+        "153-screw_hip",
+        "154-screw_hip",
+        "159-screw_hip",
+        "162-screw_hip",
+        "470-disc_horn_hip",
+        "482-passive_horn_hip",
+        "483-passive_adapter_hip"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L0 hip",
+      "parent": "L0-yaw"
+    },
+    {
+      "id": "L0-knee",
+      "type": "revolute",
+      "axis": [
+        -0.49999999999999994,
+        0.8660254037844387,
+        0.0
+      ],
+      "origin": [
+        180.892558975675,
+        74.82029880957838,
+        123.23564279372349
+      ],
+      "instances": [
+        "016-tibia_knee_yoke",
+        "017-tibia_tube",
+        "018-tibia_foot_fitting",
+        "019-foot_pad",
+        "120-screw_knee",
+        "121-screw_knee",
+        "122-screw_knee",
+        "123-screw_knee",
+        "126-screw_knee",
+        "127-screw_knee",
+        "147-screw_knee",
+        "148-screw_knee",
+        "149-screw_knee",
+        "150-screw_knee",
+        "155-screw_knee",
+        "156-screw_knee",
+        "157-screw_knee",
+        "158-screw_knee",
+        "160-screw_knee",
+        "163-screw_knee",
+        "476-disc_horn_knee",
+        "494-passive_horn_knee",
+        "495-passive_adapter_knee"
+      ],
+      "limits": {
+        "min": -30.0,
+        "max": 20.0
+      },
+      "home": 0,
+      "label": "L0 knee",
+      "parent": "L0-hip"
+    },
+    {
+      "id": "L1-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        2.1316282072803006e-14,
+        100.0,
+        45.79999923706055
+      ],
+      "instances": [
+        "026-coxa_yaw_hub",
+        "027-coxa_hip_bracket",
+        "028-yaw_bearing_cap",
+        "029-yaw_bearing_lower",
+        "030-yaw_bearing_upper",
+        "039-hip_servo",
+        "041-hip_clamp_cap",
+        "178-screw_yaw",
+        "179-screw_yaw",
+        "180-screw_yaw",
+        "181-screw_yaw",
+        "182-screw_yaw",
+        "183-screw_yaw",
+        "184-screw_yaw",
+        "185-screw_yaw",
+        "186-screw_yaw",
+        "187-screw_yaw",
+        "188-screw_yaw",
+        "189-screw_yaw",
+        "190-screw_yaw",
+        "191-screw_yaw",
+        "192-screw_yaw",
+        "211-screw_yaw",
+        "465-disc_horn_yaw"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L1 yaw"
+    },
+    {
+      "id": "L1-hip",
+      "type": "revolute",
+      "axis": [
+        -1.0,
+        2.220446049250313e-16,
+        0.0
+      ],
+      "origin": [
+        25.65000000000003,
+        112.50000000000001,
+        85.19999923706055
+      ],
+      "instances": [
+        "031-femur_hip_yoke",
+        "032-femur_knee_bracket",
+        "033-femur_strut",
+        "040-knee_servo",
+        "042-knee_clamp_cap",
+        "166-screw_hip",
+        "167-screw_hip",
+        "168-screw_hip",
+        "169-screw_hip",
+        "174-screw_hip",
+        "175-screw_hip",
+        "193-screw_hip",
+        "194-screw_hip",
+        "195-screw_hip",
+        "196-screw_hip",
+        "201-screw_hip",
+        "202-screw_hip",
+        "203-screw_hip",
+        "204-screw_hip",
+        "209-screw_hip",
+        "212-screw_hip",
+        "471-disc_horn_hip",
+        "484-passive_horn_hip",
+        "485-passive_adapter_hip"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L1 hip",
+      "parent": "L1-yaw"
+    },
+    {
+      "id": "L1-knee",
+      "type": "revolute",
+      "axis": [
+        -1.0,
+        2.220446049250313e-16,
+        0.0
+      ],
+      "origin": [
+        25.65000000000005,
+        194.06770083329852,
+        123.23564279372349
+      ],
+      "instances": [
+        "034-tibia_knee_yoke",
+        "035-tibia_tube",
+        "036-tibia_foot_fitting",
+        "037-foot_pad",
+        "170-screw_knee",
+        "171-screw_knee",
+        "172-screw_knee",
+        "173-screw_knee",
+        "176-screw_knee",
+        "177-screw_knee",
+        "197-screw_knee",
+        "198-screw_knee",
+        "199-screw_knee",
+        "200-screw_knee",
+        "205-screw_knee",
+        "206-screw_knee",
+        "207-screw_knee",
+        "208-screw_knee",
+        "210-screw_knee",
+        "213-screw_knee",
+        "477-disc_horn_knee",
+        "496-passive_horn_knee",
+        "497-passive_adapter_knee"
+      ],
+      "limits": {
+        "min": -30.0,
+        "max": 20.0
+      },
+      "home": 0,
+      "label": "L1 knee",
+      "parent": "L1-hip"
+    },
+    {
+      "id": "L2-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        -86.60254037844385,
+        50.00000000000003,
+        45.79999923706055
+      ],
+      "instances": [
+        "044-coxa_yaw_hub",
+        "045-coxa_hip_bracket",
+        "046-yaw_bearing_cap",
+        "047-yaw_bearing_lower",
+        "048-yaw_bearing_upper",
+        "057-hip_servo",
+        "059-hip_clamp_cap",
+        "228-screw_yaw",
+        "229-screw_yaw",
+        "230-screw_yaw",
+        "231-screw_yaw",
+        "232-screw_yaw",
+        "233-screw_yaw",
+        "234-screw_yaw",
+        "235-screw_yaw",
+        "236-screw_yaw",
+        "237-screw_yaw",
+        "238-screw_yaw",
+        "239-screw_yaw",
+        "240-screw_yaw",
+        "241-screw_yaw",
+        "242-screw_yaw",
+        "261-screw_yaw",
+        "466-disc_horn_yaw"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L2 yaw"
+    },
+    {
+      "id": "L2-hip",
+      "type": "revolute",
+      "axis": [
+        -0.5000000000000002,
+        -0.8660254037844385,
+        0.0
+      ],
+      "origin": [
+        -84.60285792574933,
+        78.46355160707088,
+        85.19999923706055
+      ],
+      "instances": [
+        "049-femur_hip_yoke",
+        "050-femur_knee_bracket",
+        "051-femur_strut",
+        "058-knee_servo",
+        "060-knee_clamp_cap",
+        "216-screw_hip",
+        "217-screw_hip",
+        "218-screw_hip",
+        "219-screw_hip",
+        "224-screw_hip",
+        "225-screw_hip",
+        "243-screw_hip",
+        "244-screw_hip",
+        "245-screw_hip",
+        "246-screw_hip",
+        "251-screw_hip",
+        "252-screw_hip",
+        "253-screw_hip",
+        "254-screw_hip",
+        "259-screw_hip",
+        "262-screw_hip",
+        "472-disc_horn_hip",
+        "486-passive_horn_hip",
+        "487-passive_adapter_hip"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L2 hip",
+      "parent": "L2-yaw"
+    },
+    {
+      "id": "L2-knee",
+      "type": "revolute",
+      "axis": [
+        -0.5000000000000002,
+        -0.8660254037844385,
+        0.0
+      ],
+      "origin": [
+        -155.24255897567494,
+        119.24740202372016,
+        123.23564279372349
+      ],
+      "instances": [
+        "052-tibia_knee_yoke",
+        "053-tibia_tube",
+        "054-tibia_foot_fitting",
+        "055-foot_pad",
+        "220-screw_knee",
+        "221-screw_knee",
+        "222-screw_knee",
+        "223-screw_knee",
+        "226-screw_knee",
+        "227-screw_knee",
+        "247-screw_knee",
+        "248-screw_knee",
+        "249-screw_knee",
+        "250-screw_knee",
+        "255-screw_knee",
+        "256-screw_knee",
+        "257-screw_knee",
+        "258-screw_knee",
+        "260-screw_knee",
+        "263-screw_knee",
+        "478-disc_horn_knee",
+        "498-passive_horn_knee",
+        "499-passive_adapter_knee"
+      ],
+      "limits": {
+        "min": -30.0,
+        "max": 20.0
+      },
+      "home": 0,
+      "label": "L2 knee",
+      "parent": "L2-hip"
+    },
+    {
+      "id": "L3-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        -86.60254037844388,
+        -49.999999999999986,
+        45.79999923706055
+      ],
+      "instances": [
+        "062-coxa_yaw_hub",
+        "063-coxa_hip_bracket",
+        "064-yaw_bearing_cap",
+        "065-yaw_bearing_lower",
+        "066-yaw_bearing_upper",
+        "075-hip_servo",
+        "077-hip_clamp_cap",
+        "278-screw_yaw",
+        "279-screw_yaw",
+        "280-screw_yaw",
+        "281-screw_yaw",
+        "282-screw_yaw",
+        "283-screw_yaw",
+        "284-screw_yaw",
+        "285-screw_yaw",
+        "286-screw_yaw",
+        "287-screw_yaw",
+        "288-screw_yaw",
+        "289-screw_yaw",
+        "290-screw_yaw",
+        "291-screw_yaw",
+        "292-screw_yaw",
+        "311-screw_yaw",
+        "467-disc_horn_yaw"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L3 yaw"
+    },
+    {
+      "id": "L3-hip",
+      "type": "revolute",
+      "axis": [
+        0.49999999999999983,
+        -0.8660254037844388,
+        0.0
+      ],
+      "origin": [
+        -110.25285792574937,
+        -34.03644839292913,
+        85.19999923706055
+      ],
+      "instances": [
+        "067-femur_hip_yoke",
+        "068-femur_knee_bracket",
+        "069-femur_strut",
+        "076-knee_servo",
+        "078-knee_clamp_cap",
+        "266-screw_hip",
+        "267-screw_hip",
+        "268-screw_hip",
+        "269-screw_hip",
+        "274-screw_hip",
+        "275-screw_hip",
+        "293-screw_hip",
+        "294-screw_hip",
+        "295-screw_hip",
+        "296-screw_hip",
+        "301-screw_hip",
+        "302-screw_hip",
+        "303-screw_hip",
+        "304-screw_hip",
+        "309-screw_hip",
+        "312-screw_hip",
+        "473-disc_horn_hip",
+        "488-passive_horn_hip",
+        "489-passive_adapter_hip"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L3 hip",
+      "parent": "L3-yaw"
+    },
+    {
+      "id": "L3-knee",
+      "type": "revolute",
+      "axis": [
+        0.49999999999999983,
+        -0.8660254037844388,
+        0.0
+      ],
+      "origin": [
+        -180.892558975675,
+        -74.82029880957835,
+        123.23564279372349
+      ],
+      "instances": [
+        "070-tibia_knee_yoke",
+        "071-tibia_tube",
+        "072-tibia_foot_fitting",
+        "073-foot_pad",
+        "270-screw_knee",
+        "271-screw_knee",
+        "272-screw_knee",
+        "273-screw_knee",
+        "276-screw_knee",
+        "277-screw_knee",
+        "297-screw_knee",
+        "298-screw_knee",
+        "299-screw_knee",
+        "300-screw_knee",
+        "305-screw_knee",
+        "306-screw_knee",
+        "307-screw_knee",
+        "308-screw_knee",
+        "310-screw_knee",
+        "313-screw_knee",
+        "479-disc_horn_knee",
+        "500-passive_horn_knee",
+        "501-passive_adapter_knee"
+      ],
+      "limits": {
+        "min": -30.0,
+        "max": 20.0
+      },
+      "home": 0,
+      "label": "L3 knee",
+      "parent": "L3-hip"
+    },
+    {
+      "id": "L4-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        -6.394884621840902e-14,
+        -100.0,
+        45.79999923706055
+      ],
+      "instances": [
+        "080-coxa_yaw_hub",
+        "081-coxa_hip_bracket",
+        "082-yaw_bearing_cap",
+        "083-yaw_bearing_lower",
+        "084-yaw_bearing_upper",
+        "093-hip_servo",
+        "095-hip_clamp_cap",
+        "328-screw_yaw",
+        "329-screw_yaw",
+        "330-screw_yaw",
+        "331-screw_yaw",
+        "332-screw_yaw",
+        "333-screw_yaw",
+        "334-screw_yaw",
+        "335-screw_yaw",
+        "336-screw_yaw",
+        "337-screw_yaw",
+        "338-screw_yaw",
+        "339-screw_yaw",
+        "340-screw_yaw",
+        "341-screw_yaw",
+        "342-screw_yaw",
+        "361-screw_yaw",
+        "468-disc_horn_yaw"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L4 yaw"
+    },
+    {
+      "id": "L4-hip",
+      "type": "revolute",
+      "axis": [
+        1.0,
+        -6.106226635438361e-16,
+        0.0
+      ],
+      "origin": [
+        -25.650000000000073,
+        -112.5,
+        85.19999923706055
+      ],
+      "instances": [
+        "085-femur_hip_yoke",
+        "086-femur_knee_bracket",
+        "087-femur_strut",
+        "094-knee_servo",
+        "096-knee_clamp_cap",
+        "316-screw_hip",
+        "317-screw_hip",
+        "318-screw_hip",
+        "319-screw_hip",
+        "324-screw_hip",
+        "325-screw_hip",
+        "343-screw_hip",
+        "344-screw_hip",
+        "345-screw_hip",
+        "346-screw_hip",
+        "351-screw_hip",
+        "352-screw_hip",
+        "353-screw_hip",
+        "354-screw_hip",
+        "359-screw_hip",
+        "362-screw_hip",
+        "474-disc_horn_hip",
+        "490-passive_horn_hip",
+        "491-passive_adapter_hip"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L4 hip",
+      "parent": "L4-yaw"
+    },
+    {
+      "id": "L4-knee",
+      "type": "revolute",
+      "axis": [
+        1.0,
+        -6.106226635438361e-16,
+        0.0
+      ],
+      "origin": [
+        -25.650000000000134,
+        -194.0677008332985,
+        123.23564279372349
+      ],
+      "instances": [
+        "088-tibia_knee_yoke",
+        "089-tibia_tube",
+        "090-tibia_foot_fitting",
+        "091-foot_pad",
+        "320-screw_knee",
+        "321-screw_knee",
+        "322-screw_knee",
+        "323-screw_knee",
+        "326-screw_knee",
+        "327-screw_knee",
+        "347-screw_knee",
+        "348-screw_knee",
+        "349-screw_knee",
+        "350-screw_knee",
+        "355-screw_knee",
+        "356-screw_knee",
+        "357-screw_knee",
+        "358-screw_knee",
+        "360-screw_knee",
+        "363-screw_knee",
+        "480-disc_horn_knee",
+        "502-passive_horn_knee",
+        "503-passive_adapter_knee"
+      ],
+      "limits": {
+        "min": -30.0,
+        "max": 20.0
+      },
+      "home": 0,
+      "label": "L4 knee",
+      "parent": "L4-hip"
+    },
+    {
+      "id": "L5-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        86.60254037844388,
+        -50.0,
+        45.79999923706055
+      ],
+      "instances": [
+        "098-coxa_yaw_hub",
+        "099-coxa_hip_bracket",
+        "100-yaw_bearing_cap",
+        "101-yaw_bearing_lower",
+        "102-yaw_bearing_upper",
+        "111-hip_servo",
+        "113-hip_clamp_cap",
+        "378-screw_yaw",
+        "379-screw_yaw",
+        "380-screw_yaw",
+        "381-screw_yaw",
+        "382-screw_yaw",
+        "383-screw_yaw",
+        "384-screw_yaw",
+        "385-screw_yaw",
+        "386-screw_yaw",
+        "387-screw_yaw",
+        "388-screw_yaw",
+        "389-screw_yaw",
+        "390-screw_yaw",
+        "391-screw_yaw",
+        "392-screw_yaw",
+        "411-screw_yaw",
+        "469-disc_horn_yaw"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L5 yaw"
+    },
+    {
+      "id": "L5-hip",
+      "type": "revolute",
+      "axis": [
+        0.5,
+        0.8660254037844387,
+        0.0
+      ],
+      "origin": [
+        84.60285792574936,
+        -78.46355160707087,
+        85.19999923706055
+      ],
+      "instances": [
+        "103-femur_hip_yoke",
+        "104-femur_knee_bracket",
+        "105-femur_strut",
+        "112-knee_servo",
+        "114-knee_clamp_cap",
+        "366-screw_hip",
+        "367-screw_hip",
+        "368-screw_hip",
+        "369-screw_hip",
+        "374-screw_hip",
+        "375-screw_hip",
+        "393-screw_hip",
+        "394-screw_hip",
+        "395-screw_hip",
+        "396-screw_hip",
+        "401-screw_hip",
+        "402-screw_hip",
+        "403-screw_hip",
+        "404-screw_hip",
+        "409-screw_hip",
+        "412-screw_hip",
+        "475-disc_horn_hip",
+        "492-passive_horn_hip",
+        "493-passive_adapter_hip"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L5 hip",
+      "parent": "L5-yaw"
+    },
+    {
+      "id": "L5-knee",
+      "type": "revolute",
+      "axis": [
+        0.5,
+        0.8660254037844387,
+        0.0
+      ],
+      "origin": [
+        155.24255897567497,
+        -119.24740202372013,
+        123.23564279372349
+      ],
+      "instances": [
+        "106-tibia_knee_yoke",
+        "107-tibia_tube",
+        "108-tibia_foot_fitting",
+        "109-foot_pad",
+        "370-screw_knee",
+        "371-screw_knee",
+        "372-screw_knee",
+        "373-screw_knee",
+        "376-screw_knee",
+        "377-screw_knee",
+        "397-screw_knee",
+        "398-screw_knee",
+        "399-screw_knee",
+        "400-screw_knee",
+        "405-screw_knee",
+        "406-screw_knee",
+        "407-screw_knee",
+        "408-screw_knee",
+        "410-screw_knee",
+        "413-screw_knee",
+        "481-disc_horn_knee",
+        "504-passive_horn_knee",
+        "505-passive_adapter_knee"
+      ],
+      "limits": {
+        "min": -30.0,
+        "max": 20.0
+      },
+      "home": 0,
+      "label": "L5 knee",
+      "parent": "L5-hip"
+    }
+  ],
+  "poses": [
+    {
+      "id": "home",
+      "name": "Home (verified stance)",
+      "jointValues": {}
+    },
+    {
+      "id": "tripodA",
+      "name": "Tripod A swing (legs 0\u00b72\u00b74 lift)",
+      "jointValues": {
+        "L0-yaw": 0.0,
+        "L0-hip": -18.0,
+        "L0-knee": 0.0,
+        "L2-yaw": 0.0,
+        "L2-hip": -18.0,
+        "L2-knee": 0.0,
+        "L4-yaw": 0.0,
+        "L4-hip": -18.0,
+        "L4-knee": 0.0
+      }
+    },
+    {
+      "id": "tripodB",
+      "name": "Tripod B swing (legs 1\u00b73\u00b75 lift)",
+      "jointValues": {
+        "L1-yaw": 0.0,
+        "L1-hip": -18.0,
+        "L1-knee": 0.0,
+        "L3-yaw": 0.0,
+        "L3-hip": -18.0,
+        "L3-knee": 0.0,
+        "L5-yaw": 0.0,
+        "L5-hip": -18.0,
+        "L5-knee": 0.0
+      }
+    },
+    {
+      "id": "stepA",
+      "name": "Tripod A step forward",
+      "jointValues": {
+        "L0-yaw": 14.0,
+        "L0-hip": -18.0,
+        "L0-knee": 0.0,
+        "L2-yaw": 14.0,
+        "L2-hip": -18.0,
+        "L2-knee": 0.0,
+        "L4-yaw": 14.0,
+        "L4-hip": -18.0,
+        "L4-knee": 0.0,
+        "L1-yaw": -10.0,
+        "L1-hip": 0.0,
+        "L1-knee": 0.0,
+        "L3-yaw": -10.0,
+        "L3-hip": 0.0,
+        "L3-knee": 0.0,
+        "L5-yaw": -10.0,
+        "L5-hip": 0.0,
+        "L5-knee": 0.0
+      }
+    },
+    {
+      "id": "stepB",
+      "name": "Tripod B step forward",
+      "jointValues": {
+        "L1-yaw": 14.0,
+        "L1-hip": -18.0,
+        "L1-knee": 0.0,
+        "L3-yaw": 14.0,
+        "L3-hip": -18.0,
+        "L3-knee": 0.0,
+        "L5-yaw": 14.0,
+        "L5-hip": -18.0,
+        "L5-knee": 0.0,
+        "L0-yaw": -10.0,
+        "L0-hip": 0.0,
+        "L0-knee": 0.0,
+        "L2-yaw": -10.0,
+        "L2-hip": 0.0,
+        "L2-knee": 0.0,
+        "L4-yaw": -10.0,
+        "L4-hip": 0.0,
+        "L4-knee": 0.0
+      }
+    },
+    {
+      "id": "crouch",
+      "name": "Crouch (body low)",
+      "jointValues": {
+        "L0-yaw": 0.0,
+        "L0-hip": -12.0,
+        "L0-knee": -12.0,
+        "L1-yaw": 0.0,
+        "L1-hip": -12.0,
+        "L1-knee": -12.0,
+        "L2-yaw": 0.0,
+        "L2-hip": -12.0,
+        "L2-knee": -12.0,
+        "L3-yaw": 0.0,
+        "L3-hip": -12.0,
+        "L3-knee": -12.0,
+        "L4-yaw": 0.0,
+        "L4-hip": -12.0,
+        "L4-knee": -12.0,
+        "L5-yaw": 0.0,
+        "L5-hip": -12.0,
+        "L5-knee": -12.0
+      }
+    },
+    {
+      "id": "tall",
+      "name": "Stand tall",
+      "jointValues": {
+        "L0-yaw": 0.0,
+        "L0-hip": 10.0,
+        "L0-knee": 18.0,
+        "L1-yaw": 0.0,
+        "L1-hip": 10.0,
+        "L1-knee": 18.0,
+        "L2-yaw": 0.0,
+        "L2-hip": 10.0,
+        "L2-knee": 18.0,
+        "L3-yaw": 0.0,
+        "L3-hip": 10.0,
+        "L3-knee": 18.0,
+        "L4-yaw": 0.0,
+        "L4-hip": 10.0,
+        "L4-knee": 18.0,
+        "L5-yaw": 0.0,
+        "L5-hip": 10.0,
+        "L5-knee": 18.0
+      }
+    },
+    {
+      "id": "splay",
+      "name": "Yaw splay",
+      "jointValues": {
+        "L0-yaw": 28.0,
+        "L0-hip": 0.0,
+        "L0-knee": 0.0,
+        "L1-yaw": 28.0,
+        "L1-hip": 0.0,
+        "L1-knee": 0.0,
+        "L2-yaw": 28.0,
+        "L2-hip": 0.0,
+        "L2-knee": 0.0,
+        "L3-yaw": 28.0,
+        "L3-hip": 0.0,
+        "L3-knee": 0.0,
+        "L4-yaw": 28.0,
+        "L4-hip": 0.0,
+        "L4-knee": 0.0,
+        "L5-yaw": 28.0,
+        "L5-hip": 0.0,
+        "L5-knee": 0.0
+      }
+    }
+  ],
+  "animations": [
+    {
+      "id": "walk",
+      "name": "Walk (tripod gait)",
+      "loop": true,
+      "duration": 2.4,
+      "keyframes": [
+        {
+          "t": 0.0,
+          "jointValues": {
+            "L0-yaw": 14.0,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": -14.0,
+            "L1-hip": -0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": 14.0,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": -14.0,
+            "L3-hip": -0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": 14.0,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": -14.0,
+            "L5-hip": -0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 0.1,
+          "jointValues": {
+            "L0-yaw": 11.667,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": -11.667,
+            "L1-hip": -4.659,
+            "L1-knee": 0.0,
+            "L2-yaw": 11.667,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": -11.667,
+            "L3-hip": -4.659,
+            "L3-knee": 0.0,
+            "L4-yaw": 11.667,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": -11.667,
+            "L5-hip": -4.659,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 0.2,
+          "jointValues": {
+            "L0-yaw": 9.333,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": -9.333,
+            "L1-hip": -9.0,
+            "L1-knee": 0.0,
+            "L2-yaw": 9.333,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": -9.333,
+            "L3-hip": -9.0,
+            "L3-knee": 0.0,
+            "L4-yaw": 9.333,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": -9.333,
+            "L5-hip": -9.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 0.3,
+          "jointValues": {
+            "L0-yaw": 7.0,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": -7.0,
+            "L1-hip": -12.728,
+            "L1-knee": 0.0,
+            "L2-yaw": 7.0,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": -7.0,
+            "L3-hip": -12.728,
+            "L3-knee": 0.0,
+            "L4-yaw": 7.0,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": -7.0,
+            "L5-hip": -12.728,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 0.4,
+          "jointValues": {
+            "L0-yaw": 4.667,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": -4.667,
+            "L1-hip": -15.588,
+            "L1-knee": 0.0,
+            "L2-yaw": 4.667,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": -4.667,
+            "L3-hip": -15.588,
+            "L3-knee": 0.0,
+            "L4-yaw": 4.667,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": -4.667,
+            "L5-hip": -15.588,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 0.5,
+          "jointValues": {
+            "L0-yaw": 2.333,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": -2.333,
+            "L1-hip": -17.387,
+            "L1-knee": 0.0,
+            "L2-yaw": 2.333,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": -2.333,
+            "L3-hip": -17.387,
+            "L3-knee": 0.0,
+            "L4-yaw": 2.333,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": -2.333,
+            "L5-hip": -17.387,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 0.6,
+          "jointValues": {
+            "L0-yaw": 0.0,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": 0.0,
+            "L1-hip": -18.0,
+            "L1-knee": 0.0,
+            "L2-yaw": 0.0,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": 0.0,
+            "L3-hip": -18.0,
+            "L3-knee": 0.0,
+            "L4-yaw": 0.0,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": 0.0,
+            "L5-hip": -18.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 0.7,
+          "jointValues": {
+            "L0-yaw": -2.333,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": 2.333,
+            "L1-hip": -17.387,
+            "L1-knee": 0.0,
+            "L2-yaw": -2.333,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": 2.333,
+            "L3-hip": -17.387,
+            "L3-knee": 0.0,
+            "L4-yaw": -2.333,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": 2.333,
+            "L5-hip": -17.387,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 0.8,
+          "jointValues": {
+            "L0-yaw": -4.667,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": 4.667,
+            "L1-hip": -15.588,
+            "L1-knee": 0.0,
+            "L2-yaw": -4.667,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": 4.667,
+            "L3-hip": -15.588,
+            "L3-knee": 0.0,
+            "L4-yaw": -4.667,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": 4.667,
+            "L5-hip": -15.588,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 0.9,
+          "jointValues": {
+            "L0-yaw": -7.0,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": 7.0,
+            "L1-hip": -12.728,
+            "L1-knee": 0.0,
+            "L2-yaw": -7.0,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": 7.0,
+            "L3-hip": -12.728,
+            "L3-knee": 0.0,
+            "L4-yaw": -7.0,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": 7.0,
+            "L5-hip": -12.728,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 1.0,
+          "jointValues": {
+            "L0-yaw": -9.333,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": 9.333,
+            "L1-hip": -9.0,
+            "L1-knee": 0.0,
+            "L2-yaw": -9.333,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": 9.333,
+            "L3-hip": -9.0,
+            "L3-knee": 0.0,
+            "L4-yaw": -9.333,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": 9.333,
+            "L5-hip": -9.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 1.1,
+          "jointValues": {
+            "L0-yaw": -11.667,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": 11.667,
+            "L1-hip": -4.659,
+            "L1-knee": 0.0,
+            "L2-yaw": -11.667,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": 11.667,
+            "L3-hip": -4.659,
+            "L3-knee": 0.0,
+            "L4-yaw": -11.667,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": 11.667,
+            "L5-hip": -4.659,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 1.2,
+          "jointValues": {
+            "L0-yaw": -14.0,
+            "L0-hip": -0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": 14.0,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": -14.0,
+            "L2-hip": -0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": 14.0,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": -14.0,
+            "L4-hip": -0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": 14.0,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 1.3,
+          "jointValues": {
+            "L0-yaw": -11.667,
+            "L0-hip": -4.659,
+            "L0-knee": 0.0,
+            "L1-yaw": 11.667,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": -11.667,
+            "L2-hip": -4.659,
+            "L2-knee": 0.0,
+            "L3-yaw": 11.667,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": -11.667,
+            "L4-hip": -4.659,
+            "L4-knee": 0.0,
+            "L5-yaw": 11.667,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 1.4,
+          "jointValues": {
+            "L0-yaw": -9.333,
+            "L0-hip": -9.0,
+            "L0-knee": 0.0,
+            "L1-yaw": 9.333,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": -9.333,
+            "L2-hip": -9.0,
+            "L2-knee": 0.0,
+            "L3-yaw": 9.333,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": -9.333,
+            "L4-hip": -9.0,
+            "L4-knee": 0.0,
+            "L5-yaw": 9.333,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 1.5,
+          "jointValues": {
+            "L0-yaw": -7.0,
+            "L0-hip": -12.728,
+            "L0-knee": 0.0,
+            "L1-yaw": 7.0,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": -7.0,
+            "L2-hip": -12.728,
+            "L2-knee": 0.0,
+            "L3-yaw": 7.0,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": -7.0,
+            "L4-hip": -12.728,
+            "L4-knee": 0.0,
+            "L5-yaw": 7.0,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 1.6,
+          "jointValues": {
+            "L0-yaw": -4.667,
+            "L0-hip": -15.588,
+            "L0-knee": 0.0,
+            "L1-yaw": 4.667,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": -4.667,
+            "L2-hip": -15.588,
+            "L2-knee": 0.0,
+            "L3-yaw": 4.667,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": -4.667,
+            "L4-hip": -15.588,
+            "L4-knee": 0.0,
+            "L5-yaw": 4.667,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 1.7,
+          "jointValues": {
+            "L0-yaw": -2.333,
+            "L0-hip": -17.387,
+            "L0-knee": 0.0,
+            "L1-yaw": 2.333,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": -2.333,
+            "L2-hip": -17.387,
+            "L2-knee": 0.0,
+            "L3-yaw": 2.333,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": -2.333,
+            "L4-hip": -17.387,
+            "L4-knee": 0.0,
+            "L5-yaw": 2.333,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 1.8,
+          "jointValues": {
+            "L0-yaw": 0.0,
+            "L0-hip": -18.0,
+            "L0-knee": 0.0,
+            "L1-yaw": 0.0,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": 0.0,
+            "L2-hip": -18.0,
+            "L2-knee": 0.0,
+            "L3-yaw": 0.0,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": 0.0,
+            "L4-hip": -18.0,
+            "L4-knee": 0.0,
+            "L5-yaw": 0.0,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 1.9,
+          "jointValues": {
+            "L0-yaw": 2.333,
+            "L0-hip": -17.387,
+            "L0-knee": 0.0,
+            "L1-yaw": -2.333,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": 2.333,
+            "L2-hip": -17.387,
+            "L2-knee": 0.0,
+            "L3-yaw": -2.333,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": 2.333,
+            "L4-hip": -17.387,
+            "L4-knee": 0.0,
+            "L5-yaw": -2.333,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 2.0,
+          "jointValues": {
+            "L0-yaw": 4.667,
+            "L0-hip": -15.588,
+            "L0-knee": 0.0,
+            "L1-yaw": -4.667,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": 4.667,
+            "L2-hip": -15.588,
+            "L2-knee": 0.0,
+            "L3-yaw": -4.667,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": 4.667,
+            "L4-hip": -15.588,
+            "L4-knee": 0.0,
+            "L5-yaw": -4.667,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 2.1,
+          "jointValues": {
+            "L0-yaw": 7.0,
+            "L0-hip": -12.728,
+            "L0-knee": 0.0,
+            "L1-yaw": -7.0,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": 7.0,
+            "L2-hip": -12.728,
+            "L2-knee": 0.0,
+            "L3-yaw": -7.0,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": 7.0,
+            "L4-hip": -12.728,
+            "L4-knee": 0.0,
+            "L5-yaw": -7.0,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 2.2,
+          "jointValues": {
+            "L0-yaw": 9.333,
+            "L0-hip": -9.0,
+            "L0-knee": 0.0,
+            "L1-yaw": -9.333,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": 9.333,
+            "L2-hip": -9.0,
+            "L2-knee": 0.0,
+            "L3-yaw": -9.333,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": 9.333,
+            "L4-hip": -9.0,
+            "L4-knee": 0.0,
+            "L5-yaw": -9.333,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 2.3,
+          "jointValues": {
+            "L0-yaw": 11.667,
+            "L0-hip": -4.659,
+            "L0-knee": 0.0,
+            "L1-yaw": -11.667,
+            "L1-hip": 0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": 11.667,
+            "L2-hip": -4.659,
+            "L2-knee": 0.0,
+            "L3-yaw": -11.667,
+            "L3-hip": 0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": 11.667,
+            "L4-hip": -4.659,
+            "L4-knee": 0.0,
+            "L5-yaw": -11.667,
+            "L5-hip": 0.0,
+            "L5-knee": 0.0
+          }
+        },
+        {
+          "t": 2.4,
+          "jointValues": {
+            "L0-yaw": 14.0,
+            "L0-hip": 0.0,
+            "L0-knee": 0.0,
+            "L1-yaw": -14.0,
+            "L1-hip": -0.0,
+            "L1-knee": 0.0,
+            "L2-yaw": 14.0,
+            "L2-hip": 0.0,
+            "L2-knee": 0.0,
+            "L3-yaw": -14.0,
+            "L3-hip": -0.0,
+            "L3-knee": 0.0,
+            "L4-yaw": 14.0,
+            "L4-hip": 0.0,
+            "L4-knee": 0.0,
+            "L5-yaw": -14.0,
+            "L5-hip": -0.0,
+            "L5-knee": 0.0
+          }
+        }
+      ]
+    }
   ]
 }

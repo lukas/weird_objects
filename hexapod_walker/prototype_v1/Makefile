@@ -39,7 +39,7 @@ help:
 	@echo "  view              Open the interactive MuJoCo viewer with the prototype walking in tripod gait."
 	@echo "  view-static       Same viewer, but freeze the legs in the standing-pose keyframe (--no-gait)."
 	@echo "  view-build        Open a PyVista build inspector with colored, labeled parts and an exploded-view slider."
-	@echo "  view-buildviz     Re-export to lukas/buildviz (Three.js web inspector) and serve at http://localhost:5173."
+	@echo "  view-buildviz     Re-export + REGISTER into the central BuildViz hub, open http://127.0.0.1:5183/?build=hexapod-prototype."
 	@echo "  regen-fasteners   Regenerate fasteners/<P/N>.cache.stl from real STEPs or parametric fallback."
 	@echo "  bom-fasteners     Inject the auto-derived fastener BOM into PROTOTYPE_BOM.md and SHOPPING_LIST.md."
 	@echo "  clean-artifacts   Delete artifacts/ (renders + cad_report.md)."
@@ -134,8 +134,10 @@ view-build:
 #      and writes buildviz/public/builds/hexapod-prototype/{manifest.json,
 #      *.stl}.  This is what keeps the web viewer in sync with whatever
 #      the PyVista inspector would show.
-#   2. Start the Vite dev server.  --open hands the URL to the OS so the
-#      default browser pops up once Vite is listening.
+#   2. REGISTER the build into the ONE machine-wide BuildViz hub (default
+#      port 5183) and open its URL.  We never start a per-project Vite dev
+#      server on 5173/etc -- the hub serves every project's builds at once.
+#      `register` auto-starts a detached hub if none is running.
 #
 # Override the BuildViz checkout location with
 #   make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz
@@ -150,7 +152,9 @@ view-buildviz:
 		cd $(BUILDVIZ_ROOT) && npm install; \
 	fi
 	cd $(BUILDVIZ_ROOT) && WEIRD_OBJECTS_ROOT=$(REPO_ROOT) npm run export:hexapod
-	cd $(BUILDVIZ_ROOT) && npm run dev -- --open
+	cd $(BUILDVIZ_ROOT) && npx buildviz register public/builds/hexapod-prototype --build-id hexapod-prototype
+	@echo ">>> Central BuildViz hub: http://127.0.0.1:5183/?build=hexapod-prototype"
+	@command -v open >/dev/null 2>&1 && open "http://127.0.0.1:5183/?build=hexapod-prototype" || true
 
 # ---------------------------------------------------------------------------
 # Fastener pipeline (May 2026 -- see fastener_registry.py + fasteners/README.md)

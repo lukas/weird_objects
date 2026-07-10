@@ -23,7 +23,10 @@ parts already meshed together.
 
 Run:
     python tools/joint_viz_build.py
-    npx buildviz joint_viz --port 5174
+    # then publish into the ONE machine-wide hub (port 5183) -- never a
+    # per-project dev server on 5174/etc:
+    npx buildviz register joint_viz --build-id prototype_sts3215_joint_viz
+    open http://127.0.0.1:5183/?build=prototype_sts3215_joint_viz
 """
 
 from __future__ import annotations
@@ -185,7 +188,9 @@ def main() -> None:
     }
     (OUT_DIR / "scene.json").write_text(json.dumps(scene, indent=2))
     print(f"\nWrote {OUT_DIR/'scene.json'} ({len(instances)} instances)")
-    print(f"View:  npx buildviz {OUT_DIR.relative_to(Path.cwd()) if OUT_DIR.is_relative_to(Path.cwd()) else OUT_DIR} --port 5174")
+    rel = OUT_DIR.relative_to(Path.cwd()) if OUT_DIR.is_relative_to(Path.cwd()) else OUT_DIR
+    print(f"View:  npx buildviz register {rel} --build-id prototype_sts3215_joint_viz")
+    print("       open http://127.0.0.1:5183/?build=prototype_sts3215_joint_viz")
 
 
 if __name__ == "__main__":

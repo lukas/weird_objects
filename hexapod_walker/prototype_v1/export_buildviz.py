@@ -11,8 +11,10 @@ Usage:
     python export_buildviz.py            # write scene into ~/buildviz
     BUILDVIZ_ROOT=/path python export_buildviz.py
 
-Then serve it:
-    cd ~/buildviz && npm run dev -- --open      # http://localhost:5173
+Then VIEW it in the ONE machine-wide BuildViz hub (default port 5183) -- do NOT
+start a per-project dev server on 5173/etc:
+    cd ~/buildviz && npx buildviz register public/builds/hexapod-prototype --build-id hexapod-prototype
+    open http://127.0.0.1:5183/?build=hexapod-prototype
 """
 
 from __future__ import annotations
@@ -188,16 +190,58 @@ def main() -> None:
         "instances": manifest_instances,
     }
 
+    # Additive MOTION block: articulated joints + named poses + keyframed gait
+    # animation so the assembly can be seen WALKING in BuildViz.  Backward
+    # compatible -- older viewers ignore joints/poses/animations and render the
+    # static scene.  Set BUILDVIZ_NO_MOTION=1 to skip.
+    if os.environ.get("BUILDVIZ_NO_MOTION") != "1":
+        import motion_export  # type: ignore
+
+        joints, poses, animations = motion_export.build_motion(
+            manifest_instances, float(chassis_lift),
+        )
+        if joints:
+            manifest["joints"] = joints
+            manifest["poses"] = poses
+            manifest["animations"] = animations
+            print(
+                f"  + motion: {len(joints)} joints, {len(poses)} poses, "
+                f"{len(animations)} animation clip(s)"
+            )
+
     manifest_path = PUBLIC_BUILD_DIR / "scene.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     design_spec_path = THIS_DIR / "design_spec.yaml"
     if design_spec_path.exists():
-        shutil.copy2(design_spec_path, PUBLIC_BUILD_DIR / "design_spec.yaml")
+        dest_spec = PUBLIC_BUILD_DIR / "design_spec.yaml"
+        shutil.copy2(design_spec_path, dest_spec)
+        # shutil.copy2 preserves the SOURCE mtime, which makes the freshly
+        # written scene.json / STLs (touched a moment ago in this same export)
+        # look "newer" than the spec and trips `buildviz compat`'s staleness
+        # heuristic even though the spec was regenerated in this very pass.
+        # Stamp the copied spec to "now" so the contract sees it as current.
+        os.utime(dest_spec, None)
+
+    # BuildViz-compatibility contract (see ~/buildviz/BUILDVIZ_COMPATIBILITY.md):
+    # a compatible build dir needs a non-empty ASSEMBLY.md + BOM.md alongside
+    # scene.json / design_spec.yaml.  Our single source of truth for those lives
+    # in the project's own docs (PROTOTYPE.md = the assembly build guide,
+    # PROTOTYPE_BOM.md = the controlled bill of materials), so copy them in under
+    # the contract's expected names rather than maintaining duplicates.
+    for source_name, dest_name in (
+        ("PROTOTYPE.md", "ASSEMBLY.md"),
+        ("PROTOTYPE_BOM.md", "BOM.md"),
+    ):
+        source = THIS_DIR / source_name
+        if source.exists():
+            shutil.copy2(source, PUBLIC_BUILD_DIR / dest_name)
 
     print(f"Exported {len(manifest_instances)} instances, {len(meshes)} meshes")
     print(f"  -> {manifest_path}")
-    print("Serve with:  cd ~/buildviz && npm run dev -- --open")
+    print("View in the central BuildViz hub (default port 5183) -- do NOT start a new dev server:")
+    print("  cd ~/buildviz && npx buildviz register public/builds/hexapod-prototype --build-id hexapod-prototype")
+    print("  open http://127.0.0.1:5183/?build=hexapod-prototype")
 
 
 if __name__ == "__main__":

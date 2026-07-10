@@ -1179,6 +1179,97 @@ parts:
   # seats on the servo spline.  Validated by
   # ``_verify_prototype.check_horn_pattern_in_pad``.
 
+  # -------------------------------------------------------------------
+  # COTS / non-printed visual proxies (May 2026 BuildViz "essentials"
+  # pass).  These part types are NOT printed -- they are datasheet-sized
+  # stand-in meshes (written to stl_prototype/ as flat slabs / simple
+  # bodies) placed by inspect_build.py so the viewer shows what the
+  # purchased electronics + servos occupy inside the chassis stack.
+  # They carry NO geometric verification (the verifier reasons about the
+  # printed parts + keep-out volumes in cable_keepouts.py instead); their
+  # design_spec entries exist to record WHICH real component each proxy
+  # represents and WHY it lives where it does, so the next agent doesn't
+  # have to re-derive the electronics layout.  Footprints are nominal
+  # vendor datasheet values, not measured STL bounds.
+  servo_body:
+    role: "servo proxy (COTS, non-printed)"
+    qty: 18            # one per joint (3 joints x 6 legs)
+    material: "n/a -- purchased servo (DS3218-class 20 kg metal-gear)"
+    description: "Visual stand-in for one hobby servo body (the DS3218-class 20 kg-cm metal-gear servo that drives every joint).  Placed at each of the 18 joints so the viewer shows the servo envelope that the yaw cradle / femur+tibia knee wells must clear.  Non-printed: the real servo is a commodity part, so this is a muted-grey ~40 x 20 x 40 mm box proxy only (matches part_palette's servo_body grey).  Rationale for the proxy: keeping the servo body in the scene makes joint-clearance and cable-exit obvious to a human without cluttering the printed-part palette."
+    llm_context: "Do NOT try to regenerate this from CAD -- it is a purchased servo. If the joint servo class changes (torque/size), update this description + the well/cradle pockets that clear it, not a CAD function."
+  servo_horn:
+    role: "servo horn proxy (COTS, non-printed)"
+    qty: 18            # ships with each servo
+    material: "n/a -- ships with the servo (plus 20 mm Al 25T disc horn)"
+    description: "Visual stand-in for the servo output horn / the 20 mm aluminum 25T disc horn (Amazon B07D56FVK5) that each printed link bolts onto (see the retired servo_horn_adapter note above).  One per joint, muted mid-grey.  Non-printed proxy; recorded so the disc-horn stack height (HORN_STACK_H) that sets each link's pad-face origin is documented alongside the servo it seats on."
+    llm_context: "Purchased part. The 4 x M3 on 14 mm PCD that bolts the link to this disc horn lives in each link's pad face; changing the horn changes HORN_STACK_H and the link origins."
+  mpu6050:
+    role: "IMU breakout proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- purchased MPU-6050 / GY-521 breakout"
+    description: "Visual stand-in for the MPU-6050 / GY-521 6-axis IMU breakout PCB that mounts on imu_pad's 4 bosses at the chassis centre.  Flat ~21 x 16 x 1.6 mm PCB slab proxy.  Placed at the chassis centre (the IMU is deliberately at the centre of rotation so body-frame accel/gyro is least corrupted by lever-arm effects -- the reason imu_pad sits where it does)."
+    llm_context: "Purchased breakout. Its 15.0 x 11.0 mm mount-hole pattern is what imu_pad's bosses match; if the IMU changes, update imu_pad, not this proxy."
+  arduino_mega:
+    role: "MCU board proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- purchased Arduino Mega 2560"
+    description: "Visual stand-in for the Arduino Mega 2560 (the real-time servo/PWM + sensor MCU) mounted on the electronics_tray's 5 mm standoff bosses.  Nominal ~101.5 x 53.3 x 1.6 mm PCB proxy at MEGA_CENTRE.  Recorded here so the board footprint that sets the electronics_tray size + standoff pattern, and the connector keep-outs in cable_keepouts.py, trace back to a named board."
+    llm_context: "Purchased board. Footprint + mount holes drive electronics_tray; do not regenerate geometry -- edit the tray if the board changes."
+  raspberry_pi:
+    role: "SBC proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- purchased Raspberry Pi 4"
+    description: "Visual stand-in for the Raspberry Pi 4 (high-level control / policy host) mounted alongside the Mega on the electronics_tray.  Nominal ~85 x 56 x 1.6 mm PCB proxy at PI_CENTRE.  Present so the Pi's footprint + its 58 x 49 mm mount pattern are visible against the tray and the USB/Ethernet connector keep-outs."
+    llm_context: "Purchased board. Drives electronics_tray sizing; edit the tray, not this proxy."
+  pca9685_primary:
+    role: "servo-driver board proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- purchased PCA9685 16-ch driver"
+    description: "Visual stand-in for the PRIMARY PCA9685 16-channel PWM/servo driver (I2C 0x40) on the electronics_tray at PCA_CENTRE.  Nominal ~62 x 26 x 1.6 mm PCB proxy.  Drives joints 0-15 (see wire_harness.pca_boards[0]).  Recorded so the board's I2C address + channel map documented in wire_harness stays tied to a placed board."
+    llm_context: "Purchased board. Channel/joint mapping lives in wire_harness.legs; edit the tray if the board footprint changes."
+  pca9685_secondary:
+    role: "servo-driver board proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- purchased PCA9685 16-ch driver"
+    description: "Visual stand-in for the SECONDARY PCA9685 (I2C 0x41) at PCA2_CENTRE, daisy-chained off the primary.  Same ~62 x 26 mm proxy.  Exists only because joints 16 + 17 (L5 hip-pitch + knee) spill off the end of the primary's 16 channels -- see wire_harness.pca_boards[1].note; recorded so that 'why is there a second driver?' answer isn't lost."
+    llm_context: "Purchased board. Only 2 of its 16 channels are used (L5 cross-board). Edit wire_harness if the channel budget changes."
+  bec_a:
+    role: "BEC / step-down proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- purchased UBEC / DC-DC buck converter"
+    description: "Visual stand-in for one of the two BEC / DC-DC buck converters that step the LiPo down to servo-logic + 5 V rails, seated in the printed bec_cradle on the +Y edge of the tray.  Placed at cradle-local +Y half so the pair (bec_a / bec_b) sit side-by-side.  Non-printed body proxy sized to BEC_BODY_* constants."
+    llm_context: "Purchased converter. Its body size sets bec_cradle's cavity; edit bec_cradle if the BEC changes, not this proxy."
+  bec_b:
+    role: "BEC / step-down proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- purchased UBEC / DC-DC buck converter"
+    description: "Second of the two BECs (see bec_a), seated at the -Y half of the bec_cradle cavity.  Two BECs split the servo current so no single converter is over its continuous-current rating -- the reason there are two rather than one, documented so it isn't re-derived."
+    llm_context: "Purchased converter; see bec_a. Two-BEC split is a current-budget decision."
+  antispark_switch:
+    role: "power-switch proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- purchased anti-spark toggle switch"
+    description: "Visual stand-in for the anti-spark main power switch body, seated in the printed switch_holster socket on chassis_top.  Anti-spark (vs a plain toggle) because the servo-bank bulk capacitance would arc/pit a bare switch on connect -- rationale for the specific part.  Body proxy sized to SWITCH_BODY_* constants."
+    llm_context: "Purchased switch. Its body size sets switch_holster's socket cavity; edit the holster if the switch changes."
+  antispark_switch_toggle:
+    role: "power-switch toggle proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- part of the anti-spark switch"
+    description: "The protruding toggle lever of antispark_switch: a Phi 4 x 8 mm cylinder proxy poking out the holster's +X toggle cutout so the viewer shows the operator can reach the switch with the spider carapace on.  Recorded so the toggle-clearance cutout in switch_holster traces to a real feature."
+    llm_context: "Part of the purchased switch; the holster's +X toggle cutout must clear it."
+  lipo_battery:
+    role: "battery proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- purchased LiPo pack"
+    description: "Visual stand-in for the LiPo battery pack seated in the printed battery_holder under the chassis.  ~105 x (width) x 25 mm body proxy.  Placed at BATTERY_HOLDER_CENTRE so the pack's mass sits low + centred for stance stability -- the reason the holder hangs where it does, documented here."
+    llm_context: "Purchased pack. Pack size sets battery_holder's cradle; edit the holder if the pack changes, not this proxy."
+  lipo_xt60:
+    role: "battery connector proxy (COTS, non-printed)"
+    qty: 1
+    material: "n/a -- XT60 + JST-XH balance lead on the LiPo"
+    description: "Visual stand-in for the LiPo's XT60 discharge plug + balance lead at the pack's +X short face, so the lead routes toward the anti-spark switch / BEC cluster (the reason the pack is oriented XT60-inboard).  Small connector-lump proxy 7 mm past the LiPo +X face."
+    llm_context: "Part of the purchased pack. Its position documents the power-lead routing to the switch/BEC; not a printed part."
+
 
 # ---------------------------------------------------------------------
 # Wire harness (per-leg, per-servo)

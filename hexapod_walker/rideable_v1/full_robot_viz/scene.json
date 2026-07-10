@@ -1,0 +1,2694 @@
+{
+  "name": "Rideable hexapod (rideable_v1) \u2014 design-draft visualization",
+  "source": "/Users/lbiewald/weird_objects/hexapod_walker/rideable_v1/full_robot_viz",
+  "designSpecUrl": "design_spec.yaml",
+  "units": "mm",
+  "center": [
+    0.0,
+    1.1368683772161603e-13,
+    547.5
+  ],
+  "checksConfig": {
+    "overlapMm3": 3000.0,
+    "pitchMm": 12.0,
+    "ignoreOverlapPairs": [
+      [
+        "battery",
+        "chassis_frame"
+      ],
+      [
+        "battery",
+        "deck_plate"
+      ],
+      [
+        "battery",
+        "e_bay"
+      ],
+      [
+        "chassis_frame",
+        "coxa_frame"
+      ],
+      [
+        "chassis_frame",
+        "deck_plate"
+      ],
+      [
+        "chassis_frame",
+        "e_bay"
+      ],
+      [
+        "chassis_frame",
+        "footpeg"
+      ],
+      [
+        "chassis_frame",
+        "hip_yaw_actuator"
+      ],
+      [
+        "chassis_frame",
+        "saddle_post"
+      ],
+      [
+        "controls",
+        "deck_plate"
+      ],
+      [
+        "coxa_frame",
+        "femur_frame"
+      ],
+      [
+        "coxa_frame",
+        "hip_pitch_actuator"
+      ],
+      [
+        "coxa_frame",
+        "hip_secondary"
+      ],
+      [
+        "coxa_frame",
+        "hip_yaw_actuator"
+      ],
+      [
+        "deck_plate",
+        "e_bay"
+      ],
+      [
+        "deck_plate",
+        "footpeg"
+      ],
+      [
+        "deck_plate",
+        "saddle_post"
+      ],
+      [
+        "femur_frame",
+        "hip_pitch_actuator"
+      ],
+      [
+        "femur_frame",
+        "hip_secondary"
+      ],
+      [
+        "femur_frame",
+        "knee_actuator"
+      ],
+      [
+        "femur_frame",
+        "knee_secondary"
+      ],
+      [
+        "femur_frame",
+        "tibia_frame"
+      ],
+      [
+        "foot",
+        "tibia_frame"
+      ],
+      [
+        "hip_pitch_actuator",
+        "hip_secondary"
+      ],
+      [
+        "hip_secondary",
+        "hip_yaw_actuator"
+      ],
+      [
+        "knee_actuator",
+        "knee_brake"
+      ],
+      [
+        "knee_actuator",
+        "knee_secondary"
+      ],
+      [
+        "knee_actuator",
+        "tibia_frame"
+      ],
+      [
+        "knee_secondary",
+        "tibia_frame"
+      ],
+      [
+        "saddle",
+        "saddle_post"
+      ]
+    ]
+  },
+  "meshes": [
+    {
+      "id": "stl:000_chassis_frame",
+      "name": "000_chassis_frame.stl",
+      "url": "stl/000_chassis_frame.stl"
+    },
+    {
+      "id": "stl:001_deck_plate",
+      "name": "001_deck_plate.stl",
+      "url": "stl/001_deck_plate.stl"
+    },
+    {
+      "id": "stl:002_battery",
+      "name": "002_battery.stl",
+      "url": "stl/002_battery.stl"
+    },
+    {
+      "id": "stl:003_e_bay",
+      "name": "003_e_bay.stl",
+      "url": "stl/003_e_bay.stl"
+    },
+    {
+      "id": "stl:004_saddle_post",
+      "name": "004_saddle_post.stl",
+      "url": "stl/004_saddle_post.stl"
+    },
+    {
+      "id": "stl:005_saddle",
+      "name": "005_saddle.stl",
+      "url": "stl/005_saddle.stl"
+    },
+    {
+      "id": "stl:006_controls",
+      "name": "006_controls.stl",
+      "url": "stl/006_controls.stl"
+    },
+    {
+      "id": "stl:007_footpeg",
+      "name": "007_footpeg.stl",
+      "url": "stl/007_footpeg.stl"
+    },
+    {
+      "id": "stl:008_footpeg",
+      "name": "008_footpeg.stl",
+      "url": "stl/008_footpeg.stl"
+    },
+    {
+      "id": "stl:009_hip_yaw_actuator",
+      "name": "009_hip_yaw_actuator.stl",
+      "url": "stl/009_hip_yaw_actuator.stl"
+    },
+    {
+      "id": "stl:010_coxa_frame",
+      "name": "010_coxa_frame.stl",
+      "url": "stl/010_coxa_frame.stl"
+    },
+    {
+      "id": "stl:011_hip_pitch_actuator",
+      "name": "011_hip_pitch_actuator.stl",
+      "url": "stl/011_hip_pitch_actuator.stl"
+    },
+    {
+      "id": "stl:012_hip_secondary",
+      "name": "012_hip_secondary.stl",
+      "url": "stl/012_hip_secondary.stl"
+    },
+    {
+      "id": "stl:013_femur_frame",
+      "name": "013_femur_frame.stl",
+      "url": "stl/013_femur_frame.stl"
+    },
+    {
+      "id": "stl:014_knee_actuator",
+      "name": "014_knee_actuator.stl",
+      "url": "stl/014_knee_actuator.stl"
+    },
+    {
+      "id": "stl:015_knee_secondary",
+      "name": "015_knee_secondary.stl",
+      "url": "stl/015_knee_secondary.stl"
+    },
+    {
+      "id": "stl:016_knee_brake",
+      "name": "016_knee_brake.stl",
+      "url": "stl/016_knee_brake.stl"
+    },
+    {
+      "id": "stl:017_tibia_frame",
+      "name": "017_tibia_frame.stl",
+      "url": "stl/017_tibia_frame.stl"
+    },
+    {
+      "id": "stl:018_foot",
+      "name": "018_foot.stl",
+      "url": "stl/018_foot.stl"
+    },
+    {
+      "id": "stl:019_hip_yaw_actuator",
+      "name": "019_hip_yaw_actuator.stl",
+      "url": "stl/019_hip_yaw_actuator.stl"
+    },
+    {
+      "id": "stl:020_coxa_frame",
+      "name": "020_coxa_frame.stl",
+      "url": "stl/020_coxa_frame.stl"
+    },
+    {
+      "id": "stl:021_hip_pitch_actuator",
+      "name": "021_hip_pitch_actuator.stl",
+      "url": "stl/021_hip_pitch_actuator.stl"
+    },
+    {
+      "id": "stl:022_hip_secondary",
+      "name": "022_hip_secondary.stl",
+      "url": "stl/022_hip_secondary.stl"
+    },
+    {
+      "id": "stl:023_femur_frame",
+      "name": "023_femur_frame.stl",
+      "url": "stl/023_femur_frame.stl"
+    },
+    {
+      "id": "stl:024_knee_actuator",
+      "name": "024_knee_actuator.stl",
+      "url": "stl/024_knee_actuator.stl"
+    },
+    {
+      "id": "stl:025_knee_secondary",
+      "name": "025_knee_secondary.stl",
+      "url": "stl/025_knee_secondary.stl"
+    },
+    {
+      "id": "stl:026_knee_brake",
+      "name": "026_knee_brake.stl",
+      "url": "stl/026_knee_brake.stl"
+    },
+    {
+      "id": "stl:027_tibia_frame",
+      "name": "027_tibia_frame.stl",
+      "url": "stl/027_tibia_frame.stl"
+    },
+    {
+      "id": "stl:028_foot",
+      "name": "028_foot.stl",
+      "url": "stl/028_foot.stl"
+    },
+    {
+      "id": "stl:029_hip_yaw_actuator",
+      "name": "029_hip_yaw_actuator.stl",
+      "url": "stl/029_hip_yaw_actuator.stl"
+    },
+    {
+      "id": "stl:030_coxa_frame",
+      "name": "030_coxa_frame.stl",
+      "url": "stl/030_coxa_frame.stl"
+    },
+    {
+      "id": "stl:031_hip_pitch_actuator",
+      "name": "031_hip_pitch_actuator.stl",
+      "url": "stl/031_hip_pitch_actuator.stl"
+    },
+    {
+      "id": "stl:032_hip_secondary",
+      "name": "032_hip_secondary.stl",
+      "url": "stl/032_hip_secondary.stl"
+    },
+    {
+      "id": "stl:033_femur_frame",
+      "name": "033_femur_frame.stl",
+      "url": "stl/033_femur_frame.stl"
+    },
+    {
+      "id": "stl:034_knee_actuator",
+      "name": "034_knee_actuator.stl",
+      "url": "stl/034_knee_actuator.stl"
+    },
+    {
+      "id": "stl:035_knee_secondary",
+      "name": "035_knee_secondary.stl",
+      "url": "stl/035_knee_secondary.stl"
+    },
+    {
+      "id": "stl:036_knee_brake",
+      "name": "036_knee_brake.stl",
+      "url": "stl/036_knee_brake.stl"
+    },
+    {
+      "id": "stl:037_tibia_frame",
+      "name": "037_tibia_frame.stl",
+      "url": "stl/037_tibia_frame.stl"
+    },
+    {
+      "id": "stl:038_foot",
+      "name": "038_foot.stl",
+      "url": "stl/038_foot.stl"
+    },
+    {
+      "id": "stl:039_hip_yaw_actuator",
+      "name": "039_hip_yaw_actuator.stl",
+      "url": "stl/039_hip_yaw_actuator.stl"
+    },
+    {
+      "id": "stl:040_coxa_frame",
+      "name": "040_coxa_frame.stl",
+      "url": "stl/040_coxa_frame.stl"
+    },
+    {
+      "id": "stl:041_hip_pitch_actuator",
+      "name": "041_hip_pitch_actuator.stl",
+      "url": "stl/041_hip_pitch_actuator.stl"
+    },
+    {
+      "id": "stl:042_hip_secondary",
+      "name": "042_hip_secondary.stl",
+      "url": "stl/042_hip_secondary.stl"
+    },
+    {
+      "id": "stl:043_femur_frame",
+      "name": "043_femur_frame.stl",
+      "url": "stl/043_femur_frame.stl"
+    },
+    {
+      "id": "stl:044_knee_actuator",
+      "name": "044_knee_actuator.stl",
+      "url": "stl/044_knee_actuator.stl"
+    },
+    {
+      "id": "stl:045_knee_secondary",
+      "name": "045_knee_secondary.stl",
+      "url": "stl/045_knee_secondary.stl"
+    },
+    {
+      "id": "stl:046_knee_brake",
+      "name": "046_knee_brake.stl",
+      "url": "stl/046_knee_brake.stl"
+    },
+    {
+      "id": "stl:047_tibia_frame",
+      "name": "047_tibia_frame.stl",
+      "url": "stl/047_tibia_frame.stl"
+    },
+    {
+      "id": "stl:048_foot",
+      "name": "048_foot.stl",
+      "url": "stl/048_foot.stl"
+    },
+    {
+      "id": "stl:049_hip_yaw_actuator",
+      "name": "049_hip_yaw_actuator.stl",
+      "url": "stl/049_hip_yaw_actuator.stl"
+    },
+    {
+      "id": "stl:050_coxa_frame",
+      "name": "050_coxa_frame.stl",
+      "url": "stl/050_coxa_frame.stl"
+    },
+    {
+      "id": "stl:051_hip_pitch_actuator",
+      "name": "051_hip_pitch_actuator.stl",
+      "url": "stl/051_hip_pitch_actuator.stl"
+    },
+    {
+      "id": "stl:052_hip_secondary",
+      "name": "052_hip_secondary.stl",
+      "url": "stl/052_hip_secondary.stl"
+    },
+    {
+      "id": "stl:053_femur_frame",
+      "name": "053_femur_frame.stl",
+      "url": "stl/053_femur_frame.stl"
+    },
+    {
+      "id": "stl:054_knee_actuator",
+      "name": "054_knee_actuator.stl",
+      "url": "stl/054_knee_actuator.stl"
+    },
+    {
+      "id": "stl:055_knee_secondary",
+      "name": "055_knee_secondary.stl",
+      "url": "stl/055_knee_secondary.stl"
+    },
+    {
+      "id": "stl:056_knee_brake",
+      "name": "056_knee_brake.stl",
+      "url": "stl/056_knee_brake.stl"
+    },
+    {
+      "id": "stl:057_tibia_frame",
+      "name": "057_tibia_frame.stl",
+      "url": "stl/057_tibia_frame.stl"
+    },
+    {
+      "id": "stl:058_foot",
+      "name": "058_foot.stl",
+      "url": "stl/058_foot.stl"
+    },
+    {
+      "id": "stl:059_hip_yaw_actuator",
+      "name": "059_hip_yaw_actuator.stl",
+      "url": "stl/059_hip_yaw_actuator.stl"
+    },
+    {
+      "id": "stl:060_coxa_frame",
+      "name": "060_coxa_frame.stl",
+      "url": "stl/060_coxa_frame.stl"
+    },
+    {
+      "id": "stl:061_hip_pitch_actuator",
+      "name": "061_hip_pitch_actuator.stl",
+      "url": "stl/061_hip_pitch_actuator.stl"
+    },
+    {
+      "id": "stl:062_hip_secondary",
+      "name": "062_hip_secondary.stl",
+      "url": "stl/062_hip_secondary.stl"
+    },
+    {
+      "id": "stl:063_femur_frame",
+      "name": "063_femur_frame.stl",
+      "url": "stl/063_femur_frame.stl"
+    },
+    {
+      "id": "stl:064_knee_actuator",
+      "name": "064_knee_actuator.stl",
+      "url": "stl/064_knee_actuator.stl"
+    },
+    {
+      "id": "stl:065_knee_secondary",
+      "name": "065_knee_secondary.stl",
+      "url": "stl/065_knee_secondary.stl"
+    },
+    {
+      "id": "stl:066_knee_brake",
+      "name": "066_knee_brake.stl",
+      "url": "stl/066_knee_brake.stl"
+    },
+    {
+      "id": "stl:067_tibia_frame",
+      "name": "067_tibia_frame.stl",
+      "url": "stl/067_tibia_frame.stl"
+    },
+    {
+      "id": "stl:068_foot",
+      "name": "068_foot.stl",
+      "url": "stl/068_foot.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "000-chassis_frame",
+      "meshId": "stl:000_chassis_frame",
+      "name": "chassis frame",
+      "partType": "chassis_frame",
+      "role": "chassis",
+      "cots": false,
+      "color": "#6b7c8c",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -2.3635935143470236e-13,
+        -3.941510971750723e-13,
+        714.9999999999945
+      ]
+    },
+    {
+      "id": "001-deck_plate",
+      "meshId": "stl:001_deck_plate",
+      "name": "deck plate",
+      "partType": "deck_plate",
+      "role": "chassis",
+      "cots": false,
+      "color": "#c8ccd0",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        0.0,
+        0.0,
+        802.5
+      ]
+    },
+    {
+      "id": "002-battery",
+      "meshId": "stl:002_battery",
+      "name": "battery",
+      "partType": "battery",
+      "role": "electronics",
+      "cots": true,
+      "color": "#2e7d32",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        40.0,
+        0.0,
+        715.0
+      ]
+    },
+    {
+      "id": "003-e_bay",
+      "meshId": "stl:003_e_bay",
+      "name": "e bay",
+      "partType": "e_bay",
+      "role": "electronics",
+      "cots": true,
+      "color": "#6a4fb0",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -230.0,
+        0.0,
+        875.0
+      ]
+    },
+    {
+      "id": "004-saddle_post",
+      "meshId": "stl:004_saddle_post",
+      "name": "saddle post",
+      "partType": "saddle_post",
+      "role": "rider",
+      "cots": true,
+      "color": "#4a4a4a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -40.00000000000001,
+        3.286603629556283e-15,
+        909.999999999999
+      ]
+    },
+    {
+      "id": "005-saddle",
+      "meshId": "stl:005_saddle",
+      "name": "saddle",
+      "partType": "saddle",
+      "role": "rider",
+      "cots": true,
+      "color": "#191919",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -40.0,
+        0.0,
+        1050.0
+      ]
+    },
+    {
+      "id": "006-controls",
+      "meshId": "stl:006_controls",
+      "name": "controls",
+      "partType": "controls",
+      "role": "rider",
+      "cots": true,
+      "color": "#3a3a3a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        299.99999999999966,
+        -1.5005626108293676e-16,
+        1011.2793282036392
+      ]
+    },
+    {
+      "id": "007-footpeg",
+      "meshId": "stl:007_footpeg",
+      "name": "footpeg",
+      "partType": "footpeg",
+      "role": "rider",
+      "cots": true,
+      "color": "#555555",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -40.0,
+        330.0,
+        805.0
+      ]
+    },
+    {
+      "id": "008-footpeg",
+      "meshId": "stl:008_footpeg",
+      "name": "footpeg",
+      "partType": "footpeg",
+      "role": "rider",
+      "cots": true,
+      "color": "#555555",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -40.0,
+        -330.0,
+        805.0
+      ]
+    },
+    {
+      "id": "009-hip_yaw_actuator",
+      "meshId": "stl:009_hip_yaw_actuator",
+      "name": "hip yaw actuator",
+      "partType": "hip_yaw_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#3a5a80",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        519.9999999999998,
+        1.2821703868928915e-16,
+        622.5000000000002
+      ]
+    },
+    {
+      "id": "010-coxa_frame",
+      "meshId": "stl:010_coxa_frame",
+      "name": "coxa frame",
+      "partType": "coxa_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        595.0000000000003,
+        1.1430859152364058e-14,
+        622.4999999999989
+      ]
+    },
+    {
+      "id": "011-hip_pitch_actuator",
+      "meshId": "stl:011_hip_pitch_actuator",
+      "name": "hip pitch actuator",
+      "partType": "hip_pitch_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        670.0000000000001,
+        -52.50000000000001,
+        600.0000000000003
+      ]
+    },
+    {
+      "id": "012-hip_secondary",
+      "meshId": "stl:012_hip_secondary",
+      "name": "hip secondary",
+      "partType": "hip_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        670.0000000000001,
+        -3.980099471623098e-16,
+        599.9999999999999
+      ]
+    },
+    {
+      "id": "013-femur_frame",
+      "meshId": "stl:013_femur_frame",
+      "name": "femur frame",
+      "partType": "femur_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        955.3299832284358,
+        1.7448085451799764e-14,
+        692.6649916142147
+      ]
+    },
+    {
+      "id": "014-knee_actuator",
+      "meshId": "stl:014_knee_actuator",
+      "name": "knee actuator",
+      "partType": "knee_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        1240.6599664568637,
+        -52.49999999999999,
+        785.3299832284318
+      ]
+    },
+    {
+      "id": "015-knee_secondary",
+      "meshId": "stl:015_knee_secondary",
+      "name": "knee secondary",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        1240.6599664568637,
+        -1.5920397886492392e-16,
+        785.3299832284322
+      ]
+    },
+    {
+      "id": "016-knee_brake",
+      "meshId": "stl:016_knee_brake",
+      "name": "knee brake",
+      "partType": "knee_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        1240.6599664568641,
+        -107.50000000000007,
+        785.3299832284317
+      ]
+    },
+    {
+      "id": "017-tibia_frame",
+      "meshId": "stl:017_tibia_frame",
+      "name": "tibia frame",
+      "partType": "tibia_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#7a8a9a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        1095.3299832284347,
+        -1.8986581646200763e-16,
+        412.66499161421524
+      ]
+    },
+    {
+      "id": "018-foot",
+      "meshId": "stl:018_foot",
+      "name": "foot",
+      "partType": "foot",
+      "role": "frame",
+      "cots": false,
+      "color": "#2b2b2b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        949.9999999999998,
+        -6.391693685055312e-15,
+        20.00000000000001
+      ]
+    },
+    {
+      "id": "019-hip_yaw_actuator",
+      "meshId": "stl:019_hip_yaw_actuator",
+      "name": "hip yaw actuator",
+      "partType": "hip_yaw_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#3a5a80",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        259.99999999999983,
+        450.33320996790815,
+        622.5000000000007
+      ]
+    },
+    {
+      "id": "020-coxa_frame",
+      "meshId": "stl:020_coxa_frame",
+      "name": "coxa frame",
+      "partType": "coxa_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        297.49999999999994,
+        515.285115251741,
+        622.4999999999989
+      ]
+    },
+    {
+      "id": "021-hip_pitch_actuator",
+      "meshId": "stl:021_hip_pitch_actuator",
+      "name": "hip pitch actuator",
+      "partType": "hip_pitch_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        380.466333698683,
+        553.987020535574,
+        600.0000000000002
+      ]
+    },
+    {
+      "id": "022-hip_secondary",
+      "meshId": "stl:022_hip_secondary",
+      "name": "hip secondary",
+      "partType": "hip_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        335.00000000000006,
+        580.2370205355737,
+        600.0
+      ]
+    },
+    {
+      "id": "023-femur_frame",
+      "meshId": "stl:023_femur_frame",
+      "name": "femur frame",
+      "partType": "femur_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        477.6649916142174,
+        827.3400344727868,
+        692.6649916142138
+      ]
+    },
+    {
+      "id": "024-knee_actuator",
+      "meshId": "stl:024_knee_actuator",
+      "name": "knee actuator",
+      "partType": "knee_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        665.7963169271152,
+        1048.1930484099935,
+        785.3299832284324
+      ]
+    },
+    {
+      "id": "025-knee_secondary",
+      "meshId": "stl:025_knee_secondary",
+      "name": "knee secondary",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        620.329983228432,
+        1074.4430484099933,
+        785.3299832284323
+      ]
+    },
+    {
+      "id": "026-knee_brake",
+      "meshId": "stl:026_knee_brake",
+      "name": "knee brake",
+      "partType": "knee_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        713.4277141352592,
+        1020.6930484099937,
+        785.3299832284321
+      ]
+    },
+    {
+      "id": "027-tibia_frame",
+      "meshId": "stl:027_tibia_frame",
+      "name": "tibia frame",
+      "partType": "tibia_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#7a8a9a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        547.6649916142176,
+        948.5835910026012,
+        412.66499161421575
+      ]
+    },
+    {
+      "id": "028-foot",
+      "meshId": "stl:028_foot",
+      "name": "foot",
+      "partType": "foot",
+      "role": "frame",
+      "cots": false,
+      "color": "#2b2b2b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        475.0,
+        822.724133595217,
+        19.999999999999993
+      ]
+    },
+    {
+      "id": "029-hip_yaw_actuator",
+      "meshId": "stl:029_hip_yaw_actuator",
+      "name": "hip yaw actuator",
+      "partType": "hip_yaw_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#3a5a80",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -259.9999999999997,
+        450.333209967908,
+        622.5000000000003
+      ]
+    },
+    {
+      "id": "030-coxa_frame",
+      "meshId": "stl:030_coxa_frame",
+      "name": "coxa frame",
+      "partType": "coxa_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -297.50000000000045,
+        515.2851152517427,
+        622.499999999999
+      ]
+    },
+    {
+      "id": "031-hip_pitch_actuator",
+      "meshId": "stl:031_hip_pitch_actuator",
+      "name": "hip pitch actuator",
+      "partType": "hip_pitch_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -289.5336663013167,
+        606.487020535574,
+        600.0000000000002
+      ]
+    },
+    {
+      "id": "032-hip_secondary",
+      "meshId": "stl:032_hip_secondary",
+      "name": "hip secondary",
+      "partType": "hip_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -335.00000000000006,
+        580.2370205355741,
+        599.9999999999999
+      ]
+    },
+    {
+      "id": "033-femur_frame",
+      "meshId": "stl:033_femur_frame",
+      "name": "femur frame",
+      "partType": "femur_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -477.6649916142152,
+        827.3400344727831,
+        692.6649916142146
+      ]
+    },
+    {
+      "id": "034-knee_actuator",
+      "meshId": "stl:034_knee_actuator",
+      "name": "knee actuator",
+      "partType": "knee_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -574.8636495297487,
+        1100.693048409994,
+        785.3299832284321
+      ]
+    },
+    {
+      "id": "035-knee_secondary",
+      "meshId": "stl:035_knee_secondary",
+      "name": "knee secondary",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -620.3299832284317,
+        1074.4430484099933,
+        785.3299832284321
+      ]
+    },
+    {
+      "id": "036-knee_brake",
+      "meshId": "stl:036_knee_brake",
+      "name": "knee brake",
+      "partType": "knee_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -527.2322523216045,
+        1128.1930484099937,
+        785.329983228432
+      ]
+    },
+    {
+      "id": "037-tibia_frame",
+      "meshId": "stl:037_tibia_frame",
+      "name": "tibia frame",
+      "partType": "tibia_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#7a8a9a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -547.6649916142177,
+        948.5835910025995,
+        412.6649916142154
+      ]
+    },
+    {
+      "id": "038-foot",
+      "meshId": "stl:038_foot",
+      "name": "foot",
+      "partType": "foot",
+      "role": "frame",
+      "cots": false,
+      "color": "#2b2b2b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -474.99999999999983,
+        822.7241335952164,
+        20.000000000000004
+      ]
+    },
+    {
+      "id": "039-hip_yaw_actuator",
+      "meshId": "stl:039_hip_yaw_actuator",
+      "name": "hip yaw actuator",
+      "partType": "hip_yaw_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#3a5a80",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -519.9999999999998,
+        6.062528979358556e-14,
+        622.5000000000002
+      ]
+    },
+    {
+      "id": "040-coxa_frame",
+      "meshId": "stl:040_coxa_frame",
+      "name": "coxa frame",
+      "partType": "coxa_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -595.0000000000005,
+        7.21957896935389e-14,
+        622.4999999999986
+      ]
+    },
+    {
+      "id": "041-hip_pitch_actuator",
+      "meshId": "stl:041_hip_pitch_actuator",
+      "name": "hip pitch actuator",
+      "partType": "hip_pitch_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -670.0,
+        52.50000000000009,
+        600.0000000000003
+      ]
+    },
+    {
+      "id": "042-hip_secondary",
+      "meshId": "stl:042_hip_secondary",
+      "name": "hip secondary",
+      "partType": "hip_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -670.0000000000001,
+        8.230845707316566e-14,
+        599.9999999999999
+      ]
+    },
+    {
+      "id": "043-femur_frame",
+      "meshId": "stl:043_femur_frame",
+      "name": "femur frame",
+      "partType": "femur_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -955.329983228436,
+        1.0902578028731207e-13,
+        692.6649916142147
+      ]
+    },
+    {
+      "id": "044-knee_actuator",
+      "meshId": "stl:044_knee_actuator",
+      "name": "knee actuator",
+      "partType": "knee_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -1240.6599664568637,
+        52.500000000000135,
+        785.3299832284318
+      ]
+    },
+    {
+      "id": "045-knee_secondary",
+      "meshId": "stl:045_knee_secondary",
+      "name": "knee secondary",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -1240.6599664568637,
+        1.5343283463107041e-13,
+        785.3299832284322
+      ]
+    },
+    {
+      "id": "046-knee_brake",
+      "meshId": "stl:046_knee_brake",
+      "name": "knee brake",
+      "partType": "knee_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -1240.6599664568641,
+        107.50000000000018,
+        785.3299832284318
+      ]
+    },
+    {
+      "id": "047-tibia_frame",
+      "meshId": "stl:047_tibia_frame",
+      "name": "tibia frame",
+      "partType": "tibia_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#7a8a9a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -1095.3299832284351,
+        1.37761014257558e-13,
+        412.66499161421524
+      ]
+    },
+    {
+      "id": "048-foot",
+      "meshId": "stl:048_foot",
+      "name": "foot",
+      "partType": "foot",
+      "role": "frame",
+      "cots": false,
+      "color": "#2b2b2b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -949.9999999999998,
+        1.2158152499686258e-13,
+        20.00000000000001
+      ]
+    },
+    {
+      "id": "049-hip_yaw_actuator",
+      "meshId": "stl:049_hip_yaw_actuator",
+      "name": "hip yaw actuator",
+      "partType": "hip_yaw_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#3a5a80",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -260.00000000000006,
+        -450.3332099679077,
+        622.4999999999999
+      ]
+    },
+    {
+      "id": "050-coxa_frame",
+      "meshId": "stl:050_coxa_frame",
+      "name": "coxa frame",
+      "partType": "coxa_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -297.50000000000057,
+        -515.2851152517408,
+        622.4999999999992
+      ]
+    },
+    {
+      "id": "051-hip_pitch_actuator",
+      "meshId": "stl:051_hip_pitch_actuator",
+      "name": "hip pitch actuator",
+      "partType": "hip_pitch_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -380.46633369868334,
+        -553.9870205355737,
+        600.0000000000003
+      ]
+    },
+    {
+      "id": "052-hip_secondary",
+      "meshId": "stl:052_hip_secondary",
+      "name": "hip secondary",
+      "partType": "hip_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -335.0000000000002,
+        -580.2370205355735,
+        599.9999999999995
+      ]
+    },
+    {
+      "id": "053-femur_frame",
+      "meshId": "stl:053_femur_frame",
+      "name": "femur frame",
+      "partType": "femur_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -477.664991614218,
+        -827.3400344727862,
+        692.6649916142143
+      ]
+    },
+    {
+      "id": "054-knee_actuator",
+      "meshId": "stl:054_knee_actuator",
+      "name": "knee actuator",
+      "partType": "knee_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -665.7963169271154,
+        -1048.1930484099933,
+        785.3299832284318
+      ]
+    },
+    {
+      "id": "055-knee_secondary",
+      "meshId": "stl:055_knee_secondary",
+      "name": "knee secondary",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -620.3299832284323,
+        -1074.4430484099921,
+        785.3299832284323
+      ]
+    },
+    {
+      "id": "056-knee_brake",
+      "meshId": "stl:056_knee_brake",
+      "name": "knee brake",
+      "partType": "knee_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -713.4277141352601,
+        -1020.6930484099933,
+        785.329983228432
+      ]
+    },
+    {
+      "id": "057-tibia_frame",
+      "meshId": "stl:057_tibia_frame",
+      "name": "tibia frame",
+      "partType": "tibia_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#7a8a9a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -547.6649916142176,
+        -948.5835910026004,
+        412.6649916142157
+      ]
+    },
+    {
+      "id": "058-foot",
+      "meshId": "stl:058_foot",
+      "name": "foot",
+      "partType": "foot",
+      "role": "frame",
+      "cots": false,
+      "color": "#2b2b2b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -475.0000000000003,
+        -822.7241335952162,
+        20.000000000000004
+      ]
+    },
+    {
+      "id": "059-hip_yaw_actuator",
+      "meshId": "stl:059_hip_yaw_actuator",
+      "name": "hip yaw actuator",
+      "partType": "hip_yaw_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#3a5a80",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        259.9999999999999,
+        -450.33320996790815,
+        622.5000000000003
+      ]
+    },
+    {
+      "id": "060-coxa_frame",
+      "meshId": "stl:060_coxa_frame",
+      "name": "coxa frame",
+      "partType": "coxa_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        297.50000000000045,
+        -515.2851152517427,
+        622.4999999999984
+      ]
+    },
+    {
+      "id": "061-hip_pitch_actuator",
+      "meshId": "stl:061_hip_pitch_actuator",
+      "name": "hip pitch actuator",
+      "partType": "hip_pitch_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        289.5336663013168,
+        -606.4870205355738,
+        600.0
+      ]
+    },
+    {
+      "id": "062-hip_secondary",
+      "meshId": "stl:062_hip_secondary",
+      "name": "hip secondary",
+      "partType": "hip_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        335.0000000000002,
+        -580.2370205355737,
+        600.0
+      ]
+    },
+    {
+      "id": "063-femur_frame",
+      "meshId": "stl:063_femur_frame",
+      "name": "femur frame",
+      "partType": "femur_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        477.66499161421496,
+        -827.3400344727842,
+        692.6649916142142
+      ]
+    },
+    {
+      "id": "064-knee_actuator",
+      "meshId": "stl:064_knee_actuator",
+      "name": "knee actuator",
+      "partType": "knee_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        574.8636495297488,
+        -1100.6930484099942,
+        785.3299832284324
+      ]
+    },
+    {
+      "id": "065-knee_secondary",
+      "meshId": "stl:065_knee_secondary",
+      "name": "knee secondary",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        620.3299832284322,
+        -1074.4430484099933,
+        785.3299832284323
+      ]
+    },
+    {
+      "id": "066-knee_brake",
+      "meshId": "stl:066_knee_brake",
+      "name": "knee brake",
+      "partType": "knee_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        527.2322523216051,
+        -1128.1930484099944,
+        785.3299832284321
+      ]
+    },
+    {
+      "id": "067-tibia_frame",
+      "meshId": "stl:067_tibia_frame",
+      "name": "tibia frame",
+      "partType": "tibia_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#7a8a9a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        547.6649916142176,
+        -948.5835910025999,
+        412.6649916142153
+      ]
+    },
+    {
+      "id": "068-foot",
+      "meshId": "stl:068_foot",
+      "name": "foot",
+      "partType": "foot",
+      "role": "frame",
+      "cots": false,
+      "color": "#2b2b2b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        475.0000000000002,
+        -822.724133595216,
+        20.000000000000007
+      ]
+    }
+  ]
+}
