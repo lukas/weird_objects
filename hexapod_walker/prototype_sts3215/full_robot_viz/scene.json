@@ -19129,7 +19129,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L0 yaw bus lead (servo ID 1, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j01",
@@ -19152,7 +19153,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L0 hip_pitch bus lead (servo ID 2, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j02",
@@ -19175,7 +19177,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L0 knee bus lead (servo ID 3, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j03",
@@ -19198,7 +19201,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L1 yaw bus lead (servo ID 4, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j04",
@@ -19221,7 +19225,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L1 hip_pitch bus lead (servo ID 5, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j05",
@@ -19244,7 +19249,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L1 knee bus lead (servo ID 6, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j06",
@@ -19277,7 +19283,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L2 yaw bus lead (servo ID 7, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j07",
@@ -19310,7 +19317,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L2 hip_pitch bus lead (servo ID 8, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j08",
@@ -19343,7 +19351,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L2 knee bus lead (servo ID 9, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j09",
@@ -19376,7 +19385,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L3 yaw bus lead (servo ID 10, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j10",
@@ -19409,7 +19419,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L3 hip_pitch bus lead (servo ID 11, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j11",
@@ -19442,7 +19453,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L3 knee bus lead (servo ID 12, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j12",
@@ -19465,7 +19477,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L4 yaw bus lead (servo ID 13, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j13",
@@ -19488,7 +19501,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L4 hip_pitch bus lead (servo ID 14, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j14",
@@ -19511,7 +19525,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L4 knee bus lead (servo ID 15, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j15",
@@ -19534,7 +19549,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L5 yaw bus lead (servo ID 16, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j16",
@@ -19557,7 +19573,8 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L5 hip_pitch bus lead (servo ID 17, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
     },
     {
       "id": "route-j17",
@@ -19580,7 +19597,453 @@
       ],
       "maxLengthMm": 300.0,
       "label": "L5 knee bus lead (servo ID 18, data)",
-      "color": "#eab308"
+      "color": "#eab308",
+      "radiusMm": 1.2
+    },
+    {
+      "id": "route-trunk-lipo-switch",
+      "points": [
+        [
+          28.5,
+          0.0,
+          50.54999923706055
+        ],
+        [
+          64.0,
+          -16.0,
+          50.54999923706055
+        ],
+        [
+          64.0,
+          -16.0,
+          76.54999923706055
+        ],
+        [
+          52.0,
+          -13.0,
+          76.54999923706055
+        ]
+      ],
+      "maxLengthMm": 200.0,
+      "label": "power trunk 12-14 AWG: LiPo XT60 -> anti-spark switch (rises past the top-plate +X edge)",
+      "color": "#ef4444",
+      "radiusMm": 2.6,
+      "instances": [
+        "002-lipo_battery",
+        "008-switch_holster"
+      ]
+    },
+    {
+      "id": "route-trunk-switch-busbar",
+      "points": [
+        [
+          48.0,
+          -13.0,
+          76.54999923706055
+        ],
+        [
+          64.0,
+          -16.0,
+          76.54999923706055
+        ],
+        [
+          64.0,
+          -16.0,
+          43.64999923706055
+        ],
+        [
+          64.0,
+          0.0,
+          43.64999923706055
+        ]
+      ],
+      "maxLengthMm": 200.0,
+      "label": "power trunk 12-14 AWG: switch -> 15-20 A main fuse (inline, not modeled) -> bus bar",
+      "color": "#ef4444",
+      "radiusMm": 2.6,
+      "instances": [
+        "008-switch_holster"
+      ]
+    },
+    {
+      "id": "route-pwr-buck",
+      "points": [
+        [
+          64.0,
+          8.0,
+          43.64999923706055
+        ],
+        [
+          64.0,
+          -16.0,
+          43.64999923706055
+        ],
+        [
+          64.0,
+          -16.0,
+          118.54999923706055
+        ],
+        [
+          36.0,
+          16.0,
+          118.54999923706055
+        ]
+      ],
+      "maxLengthMm": 300.0,
+      "label": "bus bar -> buck converter 12 V feed (20 AWG V+/GND pair)",
+      "color": "#ef4444",
+      "radiusMm": 1.8,
+      "instances": [
+        "006-buck_converter",
+        "004-buck_tray"
+      ]
+    },
+    {
+      "id": "route-logic-5v",
+      "points": [
+        [
+          34.5,
+          8.0,
+          120.54999923706055
+        ],
+        [
+          56.0,
+          8.0,
+          120.54999923706055
+        ],
+        [
+          56.0,
+          8.0,
+          97.54999923706055
+        ],
+        [
+          36.0,
+          8.0,
+          97.54999923706055
+        ]
+      ],
+      "maxLengthMm": 200.0,
+      "label": "buck 5 V out -> Uno Q logic supply (20 AWG, 5 V/GND)",
+      "color": "#3b82f6",
+      "radiusMm": 1.5,
+      "instances": [
+        "006-buck_converter",
+        "005-uno_q"
+      ]
+    },
+    {
+      "id": "route-data-head",
+      "points": [
+        [
+          36.0,
+          -8.0,
+          97.54999923706055
+        ],
+        [
+          60.0,
+          -20.0,
+          97.54999923706055
+        ],
+        [
+          60.0,
+          -20.0,
+          48.54999923706055
+        ],
+        [
+          44.86,
+          25.9,
+          35.54999923706055
+        ]
+      ],
+      "maxLengthMm": 400.0,
+      "label": "Uno Q USB-C -> USB bus-servo adapter (inline, not modeled) -> servo ID 1 bus head (data)",
+      "color": "#eab308",
+      "radiusMm": 1.4,
+      "instances": [
+        "005-uno_q"
+      ]
+    },
+    {
+      "id": "route-i2c-imu",
+      "points": [
+        [
+          -36.0,
+          0.0,
+          97.54999923706055
+        ],
+        [
+          -54.0,
+          0.0,
+          97.54999923706055
+        ],
+        [
+          -54.0,
+          0.0,
+          75.54999923706055
+        ],
+        [
+          -15.0,
+          0.0,
+          75.54999923706055
+        ]
+      ],
+      "maxLengthMm": 200.0,
+      "label": "Uno Q I2C -> GY-521 IMU on imu_pad (28 AWG: 3V3/GND/SCL/SDA -- 3V3, NOT 5 V)",
+      "color": "#22c55e",
+      "radiusMm": 1.4,
+      "instances": [
+        "005-uno_q",
+        "009-imu_pad"
+      ]
+    },
+    {
+      "id": "route-pwr-L0",
+      "points": [
+        [
+          64.0,
+          -20.0,
+          43.64999923706055
+        ],
+        [
+          46.77,
+          27.0,
+          32.54999923706055
+        ]
+      ],
+      "maxLengthMm": 250.0,
+      "label": "L0 power branch 16-18 AWG: bus bar -> 5264 injection at leg 0 drop slot (V+/GND)",
+      "color": "#ef4444",
+      "radiusMm": 2.0
+    },
+    {
+      "id": "route-pwr-L1",
+      "points": [
+        [
+          64.0,
+          -12.0,
+          43.64999923706055
+        ],
+        [
+          0.0,
+          54.0,
+          32.54999923706055
+        ]
+      ],
+      "maxLengthMm": 250.0,
+      "label": "L1 power branch 16-18 AWG: bus bar -> 5264 injection at leg 1 drop slot (V+/GND)",
+      "color": "#ef4444",
+      "radiusMm": 2.0
+    },
+    {
+      "id": "route-pwr-L2",
+      "points": [
+        [
+          64.0,
+          -4.0,
+          43.64999923706055
+        ],
+        [
+          30.0,
+          24.0,
+          37.04999923706055
+        ],
+        [
+          -38.0,
+          24.5,
+          37.04999923706055
+        ],
+        [
+          -46.77,
+          27.0,
+          32.54999923706055
+        ]
+      ],
+      "maxLengthMm": 250.0,
+      "label": "L2 power branch 16-18 AWG: bus bar -> 5264 injection at leg 2 drop slot (V+/GND)",
+      "color": "#ef4444",
+      "radiusMm": 2.0
+    },
+    {
+      "id": "route-pwr-L3",
+      "points": [
+        [
+          64.0,
+          4.0,
+          43.64999923706055
+        ],
+        [
+          30.0,
+          -24.0,
+          37.04999923706055
+        ],
+        [
+          -38.0,
+          -24.5,
+          37.04999923706055
+        ],
+        [
+          -46.77,
+          -27.0,
+          32.54999923706055
+        ]
+      ],
+      "maxLengthMm": 250.0,
+      "label": "L3 power branch 16-18 AWG: bus bar -> 5264 injection at leg 3 drop slot (V+/GND)",
+      "color": "#ef4444",
+      "radiusMm": 2.0
+    },
+    {
+      "id": "route-pwr-L4",
+      "points": [
+        [
+          64.0,
+          12.0,
+          43.64999923706055
+        ],
+        [
+          -0.0,
+          -54.0,
+          32.54999923706055
+        ]
+      ],
+      "maxLengthMm": 250.0,
+      "label": "L4 power branch 16-18 AWG: bus bar -> 5264 injection at leg 4 drop slot (V+/GND)",
+      "color": "#ef4444",
+      "radiusMm": 2.0
+    },
+    {
+      "id": "route-pwr-L5",
+      "points": [
+        [
+          64.0,
+          20.0,
+          43.64999923706055
+        ],
+        [
+          46.77,
+          -27.0,
+          32.54999923706055
+        ]
+      ],
+      "maxLengthMm": 250.0,
+      "label": "L5 power branch 16-18 AWG: bus bar -> 5264 injection at leg 5 drop slot (V+/GND)",
+      "color": "#ef4444",
+      "radiusMm": 2.0
+    },
+    {
+      "id": "route-data-L0L1",
+      "points": [
+        [
+          44.86,
+          25.9,
+          35.54999923706055
+        ],
+        [
+          0.0,
+          51.8,
+          35.54999923706055
+        ]
+      ],
+      "maxLengthMm": 300.0,
+      "label": "leg 0 -> leg 1 data jumper (signal+GND only, NO V+)",
+      "color": "#1f2937",
+      "radiusMm": 1.3
+    },
+    {
+      "id": "route-data-L1L2",
+      "points": [
+        [
+          0.0,
+          51.8,
+          35.54999923706055
+        ],
+        [
+          -44.86,
+          25.9,
+          35.54999923706055
+        ]
+      ],
+      "maxLengthMm": 300.0,
+      "label": "leg 1 -> leg 2 data jumper (signal+GND only, NO V+)",
+      "color": "#1f2937",
+      "radiusMm": 1.3
+    },
+    {
+      "id": "route-data-L2L3",
+      "points": [
+        [
+          -44.86,
+          25.9,
+          35.54999923706055
+        ],
+        [
+          -38.0,
+          24.5,
+          37.04999923706055
+        ],
+        [
+          -38.0,
+          24.5,
+          60.04999923706055
+        ],
+        [
+          -38.0,
+          -24.5,
+          60.04999923706055
+        ],
+        [
+          -38.0,
+          -24.5,
+          37.04999923706055
+        ],
+        [
+          -44.86,
+          -25.9,
+          35.54999923706055
+        ]
+      ],
+      "maxLengthMm": 300.0,
+      "label": "leg 2 -> leg 3 data jumper (signal+GND only, NO V+)",
+      "color": "#1f2937",
+      "radiusMm": 1.3
+    },
+    {
+      "id": "route-data-L3L4",
+      "points": [
+        [
+          -44.86,
+          -25.9,
+          35.54999923706055
+        ],
+        [
+          -0.0,
+          -51.8,
+          35.54999923706055
+        ]
+      ],
+      "maxLengthMm": 300.0,
+      "label": "leg 3 -> leg 4 data jumper (signal+GND only, NO V+)",
+      "color": "#1f2937",
+      "radiusMm": 1.3
+    },
+    {
+      "id": "route-data-L4L5",
+      "points": [
+        [
+          -0.0,
+          -51.8,
+          35.54999923706055
+        ],
+        [
+          44.86,
+          -25.9,
+          35.54999923706055
+        ]
+      ],
+      "maxLengthMm": 300.0,
+      "label": "leg 4 -> leg 5 data jumper (signal+GND only, NO V+)",
+      "color": "#1f2937",
+      "radiusMm": 1.3
     }
   ]
 }

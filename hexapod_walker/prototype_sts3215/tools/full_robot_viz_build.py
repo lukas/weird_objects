@@ -1123,7 +1123,212 @@ def _build_routes(chassis_lift: float, legs: list[int]) -> list[dict]:
             "label": (f"L{entry['leg_idx']} {axis_label} bus lead "
                       f"(servo ID {entry['servo_id']}, data)"),
             "color": _ROUTE_COLOR_DATA,
+            "radiusMm": 1.2,
         })
+    return routes
+
+
+# ---------------------------------------------------------------------------
+# Body-harness routes (the rest of the WIRING.md §1/§6 nets)
+# ---------------------------------------------------------------------------
+#
+# The 18 per-joint bus leads above cover only the servo DATA chains.  The
+# routes below document the REST of the harness -- power trunk, per-leg power
+# branches, leg-to-leg data jumpers, buck feed, Uno Q logic supply, the data
+# head to servo ID 1, and the IMU I2C pigtail -- with waypoints derived from
+# the MODELED parts placed by ``_body_local_parts`` (LiPo box, switch_holster
+# on chassis_top's +X edge, buck/uno trays, imu_pad).  Two nodes are NOT
+# modeled parts and use their DOCUMENTED planned locations instead:
+#
+#   * bus bar: the electronics-tray "+X strip" landing posts of
+#     wire_harness_plan (chassis x = +64, y = -20..+20, post tips z = 13.1) --
+#     the same node the 18 bus leads already terminate on;
+#   * main fuse + USB bus-servo adapter: inline devices with no CAD part; the
+#     trunk/data-head routes pass through their planned neighbourhood and say
+#     so in their labels.
+#
+# These are DOCUMENTATION routes (which wire goes where, at what gauge), not
+# reach-critical cable builds, so budgets are generous -- but every route must
+# still clear the routing_reach obstruction ray test, hence the explicit
+# inter-plate corridors (z ~ 5-20 between the plates, rises past the top
+# plate's hex edge at |x| > 58, deck crossings above the tray tops).
+#
+# ``radiusMm`` is a per-route DISPLAY thickness hint for the viewer (mm), used
+# to render the 12 AWG trunk visibly fatter than a 28 AWG I2C pigtail.  The
+# routing_reach check ignores it (centreline ray test only).
+
+_ROUTE_COLOR_POWER = "#ef4444"  # bright red: 12 V V+/GND power pairs
+_ROUTE_COLOR_GND = "#1f2937"    # near-black: GND-only / no-V+ jumpers
+_ROUTE_COLOR_LOGIC = "#3b82f6"  # blue: 5 V logic supply (buck -> Uno Q)
+_ROUTE_COLOR_I2C = "#22c55e"    # green: I2C sensor pigtail
+
+# Chassis-frame anchor nodes for the body harness (pre-lift z).  Derived from
+# the same constants ``_body_local_parts`` places the parts with.
+_LIPO_EXIT = (28.5, 0.0, 20.0)          # just past the LiPo +X face (x=27.5)
+_SWITCH_SIDE = (52.0, -13.0, 46.0)      # outside the holster's -Y wall (|y|>11)
+_SWITCH_SIDE_OUT = (48.0, -13.0, 46.0)  # switch-side start of the fused leg
+_EDGE_DROP_XY = (64.0, -16.0)           # rise/drop corridor past the top-plate
+                                        # hex edge (|x| > 57.5), clear of the
+                                        # holster's |y| <= 11 band
+_BUS_BAR_MID = (64.0, 0.0, 13.1)        # wire_harness_plan bus-bar strip centre
+_BUS_BAR_BUCK_POST = (64.0, 8.0, 13.1)  # spare post feeding the buck
+
+
+def _leg_src(leg: int) -> tuple[float, float, float]:
+    """Cradle wire-exit (source) of ``leg``'s servos, from the harness plan."""
+    for entry in WHP.WIRE_HARNESS_PLAN:
+        if entry["leg_idx"] == leg and entry["axis"] == "yaw":
+            return entry["source_xyz_chassis"]
+    raise KeyError(leg)
+
+
+def _leg_drop(leg: int) -> tuple[float, float, float]:
+    """Chassis_bottom drop slot of ``leg`` (the power-injection point)."""
+    for entry in WHP.WIRE_HARNESS_PLAN:
+        if entry["leg_idx"] == leg and entry["axis"] == "yaw":
+            return entry["via_chassis_drop_xyz"]
+    raise KeyError(leg)
+
+
+def _leg_bus_post(leg: int) -> tuple[float, float, float]:
+    """Bus-bar landing post of ``leg`` (destination in the harness plan)."""
+    for entry in WHP.WIRE_HARNESS_PLAN:
+        if entry["leg_idx"] == leg and entry["axis"] == "yaw":
+            return entry["destination_xyz_chassis"]
+    raise KeyError(leg)
+
+
+def _build_body_routes(chassis_lift: float, legs: list[int],
+                       part_ids: dict[str, str]) -> list[dict]:
+    """BuildViz ``routes[]`` for the non-servo-lead nets of WIRING.md §1/§6.
+
+    ``part_ids`` maps body partType -> scene instance id so each route can
+    declare its termination instances (exempt from the obstruction ray test,
+    exactly like connector seating)."""
+    # Deck heights (chassis frame): trays at deck0+l1 / deck0+l1+l2, boards on
+    # 7 mm tray bosses.  Uno Q top ~ z 71.6, buck body z 83..104.
+    ex, ey = _EDGE_DROP_XY
+
+    def pts(*chassis_pts):
+        return [[float(x), float(y), float(z) + chassis_lift]
+                for x, y, z in chassis_pts]
+
+    def ids(*names):
+        return [part_ids[n] for n in names if n in part_ids]
+
+    routes: list[dict] = [
+        # -- power trunk (split at the switch so the polyline never doubles
+        #    back through the same point, which the tube render dislikes) -----
+        {
+            "id": "route-trunk-lipo-switch",
+            "points": pts(_LIPO_EXIT, (ex, ey, 20.0), (ex, ey, 46.0),
+                          _SWITCH_SIDE),
+            "maxLengthMm": 200.0,
+            "label": ("power trunk 12-14 AWG: LiPo XT60 -> anti-spark switch "
+                      "(rises past the top-plate +X edge)"),
+            "color": _ROUTE_COLOR_POWER,
+            "radiusMm": 2.6,
+            "instances": ids("lipo_battery", "switch_holster"),
+        },
+        {
+            "id": "route-trunk-switch-busbar",
+            "points": pts(_SWITCH_SIDE_OUT, (ex, ey, 46.0), (ex, ey, 13.1),
+                          _BUS_BAR_MID),
+            "maxLengthMm": 200.0,
+            "label": ("power trunk 12-14 AWG: switch -> 15-20 A main fuse "
+                      "(inline, not modeled) -> bus bar"),
+            "color": _ROUTE_COLOR_POWER,
+            "radiusMm": 2.6,
+            "instances": ids("switch_holster"),
+        },
+        # -- buck feed + 5 V logic supply -----------------------------------
+        {
+            "id": "route-pwr-buck",
+            # Shares the trunk's proven (+X edge, y=-16) rise corridor: the +Y
+            # side is blocked by leg 0's coxa_hip_bracket / hip_clamp_cap,
+            # which reach down to (64, 26, z~34) (routing_reach probe).
+            "points": pts(_BUS_BAR_BUCK_POST, (ex, ey, 13.1),
+                          (ex, ey, 88.0), (36.0, 16.0, 88.0)),
+            "maxLengthMm": 300.0,
+            "label": "bus bar -> buck converter 12 V feed (20 AWG V+/GND pair)",
+            "color": _ROUTE_COLOR_POWER,
+            "radiusMm": 1.8,
+            "instances": ids("buck_converter", "buck_tray"),
+        },
+        {
+            "id": "route-logic-5v",
+            "points": pts((34.5, 8.0, 90.0), (56.0, 8.0, 90.0),
+                          (56.0, 8.0, 67.0), (36.0, 8.0, 67.0)),
+            "maxLengthMm": 200.0,
+            "label": "buck 5 V out -> Uno Q logic supply (20 AWG, 5 V/GND)",
+            "color": _ROUTE_COLOR_LOGIC,
+            "radiusMm": 1.5,
+            "instances": ids("buck_converter", "uno_q"),
+        },
+        # -- data head: Uno Q -> USB bus-servo adapter -> servo ID 1 ---------
+        {
+            "id": "route-data-head",
+            "points": pts((36.0, -8.0, 67.0), (60.0, -20.0, 67.0),
+                          (60.0, -20.0, 18.0), _leg_src(0)),
+            "maxLengthMm": 400.0,
+            "label": ("Uno Q USB-C -> USB bus-servo adapter (inline, not "
+                      "modeled) -> servo ID 1 bus head (data)"),
+            "color": _ROUTE_COLOR_DATA,
+            "radiusMm": 1.4,
+            "instances": ids("uno_q"),
+        },
+        # -- IMU I2C: Uno Q -> imu_pad under the uno tray --------------------
+        {
+            "id": "route-i2c-imu",
+            "points": pts((-36.0, 0.0, 67.0), (-54.0, 0.0, 67.0),
+                          (-54.0, 0.0, 45.0), (-15.0, 0.0, 45.0)),
+            "maxLengthMm": 200.0,
+            "label": ("Uno Q I2C -> GY-521 IMU on imu_pad "
+                      "(28 AWG: 3V3/GND/SCL/SDA -- 3V3, NOT 5 V)"),
+            "color": _ROUTE_COLOR_I2C,
+            "radiusMm": 1.4,
+            "instances": ids("uno_q", "imu_pad"),
+        },
+    ]
+
+    # -- 6x power branches: bus-bar post -> leg drop slot (Molex 5264
+    #    injection near the leg's first servo).  Reuses the SAME inter-plate
+    #    doglegs the bus leads needed (legs 2/3 hug the battery flank), just
+    #    walked in reverse.
+    for leg in legs:
+        dogleg = list(reversed(_ROUTE_LEG_DOGLEGS.get(leg, [])))
+        routes.append({
+            "id": f"route-pwr-L{leg}",
+            "points": pts(_leg_bus_post(leg), *dogleg, _leg_drop(leg)),
+            "maxLengthMm": 250.0,
+            "label": (f"L{leg} power branch 16-18 AWG: bus bar -> 5264 "
+                      f"injection at leg {leg} drop slot (V+/GND)"),
+            "color": _ROUTE_COLOR_POWER,
+            "radiusMm": 2.0,
+        })
+
+    # -- 5x leg-to-leg data jumpers: last servo of leg N -> first servo of
+    #    leg N+1 (signal+GND only, NO V+ -- power injects per leg).  The 2->3
+    #    jumper cannot run straight (through the LiPo) nor outboard (through
+    #    the leg 2/3 yaw cradles + servos), so it steps to the proven dogleg
+    #    flank points and hops OVER the battery top (z 29.5, between the
+    #    battery's z=27 top and chassis_top's z=34 underside).
+    _JUMPER_DETOURS: dict[tuple[int, int], list[tuple[float, float, float]]] = {
+        (2, 3): [(-38.0, 24.5, 6.5), (-38.0, 24.5, 29.5),
+                 (-38.0, -24.5, 29.5), (-38.0, -24.5, 6.5)],
+    }
+    for a, b in zip(legs, legs[1:]):
+        detour = _JUMPER_DETOURS.get((a, b), [])
+        routes.append({
+            "id": f"route-data-L{a}L{b}",
+            "points": pts(_leg_src(a), *detour, _leg_src(b)),
+            "maxLengthMm": 300.0,
+            "label": (f"leg {a} -> leg {b} data jumper "
+                      f"(signal+GND only, NO V+)"),
+            "color": _ROUTE_COLOR_GND,
+            "radiusMm": 1.3,
+        })
+
     return routes
 
 def main(single_leg: bool = False, motion: bool = True) -> None:
@@ -1247,8 +1452,13 @@ def main(single_leg: bool = False, motion: bool = True) -> None:
         scene["animations"] = animations
 
     # ADDITIVE cable/harness routes (BuildViz routing_reach gate + tube render):
-    # one per WIRE_HARNESS_PLAN joint, waypoints straight from the plan.
-    scene["routes"] = _build_routes(chassis_lift, legs)
+    # one per WIRE_HARNESS_PLAN joint (waypoints straight from the plan), plus
+    # the body-harness nets of WIRING.md §1/§6 (power trunk/branches, jumpers,
+    # buck feed, 5 V logic, data head, IMU I2C).
+    body_part_ids = {inst["partType"]: inst["id"]
+                     for inst in instances_json if inst["leg"] is None}
+    scene["routes"] = (_build_routes(chassis_lift, legs)
+                       + _build_body_routes(chassis_lift, legs, body_part_ids))
 
     (OUT_DIR / "scene.json").write_text(json.dumps(scene, indent=2))
     msg = f"Wrote {OUT_DIR/'scene.json'}  ({len(instances_json)} instances, "
