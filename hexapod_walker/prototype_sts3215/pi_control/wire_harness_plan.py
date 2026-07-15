@@ -59,6 +59,12 @@ geometry (``hexapod_prototype``) and the chassis-frame leg layout
     Manhattan rather than Euclidean because the harness has
     to follow the drop slot's radial corridor and the tray's
     surface rather than fly diagonally through the chassis.
+    NB: the BuildViz scene's ``routes[]`` (emitted by
+    ``tools/full_robot_viz_build.py``) reuse THESE SAME
+    source / drop / landing waypoints as their polylines, but
+    this length model deliberately stays Manhattan -- a
+    polyline (Euclidean) length would make the reach check
+    optimistic about the cable the builder actually needs.
   * ``extension_required``: human-readable string describing
     the cable build for this joint, computed from
     ``path_length_mm_min`` minus the stock bus-lead length and

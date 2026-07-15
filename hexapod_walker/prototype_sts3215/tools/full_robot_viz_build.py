@@ -58,6 +58,7 @@ sys.path.insert(0, str(_HERE.parent))
 import hexapod_prototype as HP  # noqa: E402
 import _verify_prototype as V  # noqa: E402
 import fastener_registry as FR  # noqa: E402
+from pi_control import wire_harness_plan as WHP  # noqa: E402
 
 OUT_DIR = _HERE.parent / "full_robot_viz"
 STL_DIR = OUT_DIR / "stl"
@@ -117,6 +118,7 @@ PALETTE = {
     "lipo_battery": "#d62728",
     "hip_clamp_cap": "#4a90d9", "knee_clamp_cap": "#4a90d9",
     "yaw_servo_retainer": "#e377c2",
+    "switch_holster": "#c46a1f", "imu_pad": "#7a5cc4",
 }
 ROLE = {
     "coxa_link": "frame",
@@ -138,6 +140,7 @@ ROLE = {
     "lipo_battery": "electronics",
     "hip_clamp_cap": "frame", "knee_clamp_cap": "frame",
     "yaw_servo_retainer": "frame",
+    "switch_holster": "electronics", "imu_pad": "electronics",
 }
 
 # Per-partType design intent / rationale.  This is the semantic source of truth
@@ -184,6 +187,8 @@ DESCRIPTIONS = {
     "hip_clamp_cap": "Printed clamp cap that closes the hip yoke's tube socket, clamping the Ø8 femur strut.",
     "knee_clamp_cap": "Printed clamp cap that closes the knee yoke's tube socket, clamping the Ø8 tibia tube.",
     "yaw_servo_retainer": "Printed stirrup that bolts under each chassis yaw cradle to capture the STS3215 servo body from below.",
+    "switch_holster": "Printed holster for the anti-spark XT60 on/off switch, bolted to 2 bosses on chassis_top's +X edge (2x M3x10 SHCS into heat-set inserts).",
+    "imu_pad": "Printed vibration-isolated MPU-6050 mounting pad, foam-taped to chassis_top at the chassis CG; the IMU bolts to 4 heat-set inserts in its bosses.",
     "screw_yaw": "Fasteners around the yaw joint / servo mount (rendered set; count is the summed per-leg joint hardware).",
     "screw_hip": "Fasteners around the hip joint / bearing sandwich (rendered set).",
     "screw_knee": "Fasteners around the knee joint / bearing sandwich (rendered set).",
@@ -763,6 +768,18 @@ def _body_local_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
          _trans([0, 0, buck_tray_z + boss])),
         ("spider_carapace", HP.make_spider_carapace(),
          _trans([0, 0, deck0 + l1 + l2 + l3])),
+        # May 2026 "essentials" printed parts on chassis_top's TOP face.
+        # These were in the verifier's world assembly + fastener registry all
+        # along but MISSING from this scene list, so their screw_chassis
+        # fasteners rendered floating in air (the Jul 2026 "floating
+        # screw_chassis" bug).  Placement mirrors
+        # _verify_prototype._build_world_assembly_parts exactly.
+        ("switch_holster", HP.make_switch_holster(),
+         _trans([HP.SWITCH_HOLSTER_CENTRE_X, HP.SWITCH_HOLSTER_CENTRE_Y,
+                 gap + 1.5 * plate + HP.SWITCH_HOLSTER_BOSS_H])),
+        ("imu_pad", HP.make_imu_pad(),
+         _trans([HP.IMU_PAD_CENTRE_X, HP.IMU_PAD_CENTRE_Y,
+                 gap + 1.5 * plate + HP.IMU_PAD_TAPE_T])),
     ]
 
 
@@ -1026,6 +1043,89 @@ def _build_motion_animations(legs):
     }]
 
 
+# ---------------------------------------------------------------------------
+# Cable/harness routes (BuildViz ``routes[]`` -> the routing_reach gate)
+# ---------------------------------------------------------------------------
+#
+# One route per joint, straight from the SOURCE OF TRUTH for cable reach --
+# ``pi_control/wire_harness_plan.py`` (WIRE_HARNESS_PLAN).  Each route is the
+# polyline the joint's 3-pin bus lead follows in CHASSIS frame: cradle wire-exit
+# -> the leg's chassis_bottom drop slot -> (inter-plate dogleg, below) -> the
+# leg's bus-bar landing post.  The scene builder only lifts those chassis-frame
+# waypoints by the standing-pose ``chassis_lift`` -- no new geometry is derived
+# here, so the routes[] can never drift from the harness plan.
+#
+# The length BUDGET per route is the plan's cable build: the 300 mm stock lead
+# plus any 30 cm extensions its ``extension_required`` string calls for
+# (currently none -- all 18 joints fit the stock lead).  BuildViz's
+# ``routing_reach`` check then gates BOTH polyline length <= budget AND
+# "no segment passes through a solid part".
+
+_ROUTE_COLOR_DATA = "#eab308"   # amber: these are the serial-bus DATA leads
+
+def _route_budget_mm(extension_required: str) -> float:
+    """Stock lead + n x 30 cm extensions, parsed from the plan's BOM string
+    ("STS3215 stock bus lead" / "+ 30 cm extension" / "+ N x 30 cm ...")."""
+    import re
+    if not extension_required.startswith("+"):
+        return WHP.STOCK_PIGTAIL_MM
+    m = re.match(r"\+ (\d+) x", extension_required)
+    n_ext = int(m.group(1)) if m else 1
+    return WHP.STOCK_PIGTAIL_MM + n_ext * WHP.EXTENSION_LENGTH_MM
+
+# Per-leg intermediate waypoints (chassis frame) inserted between the drop
+# slot and the bus landing where a STRAIGHT drop->landing segment would clip a
+# solid in the routing_reach ray test.  Filled from the `buildviz check
+# --checks routing_reach` obstruction report (Jul 2026): legs 2 + 3 (the -X
+# pair) aim straight through the LiPo (a 105 x 35 x 25 box at x centre -25,
+# spanning x in [-77.5, +27.5], |y| <= 17.5, z in [2, 27]), so their harness
+# instead hugs the battery's +/-Y flank (|y| ~ 24 > 17.5) along the
+# chassis_bottom top face until past the battery's +X face (x = 30 > 27.5),
+# then cuts over to the bus landing.  Legs whose straight segment is already
+# clear stay out of this table.
+#
+# The corridor: rise off the drop slot to z ~ 6.5 (probed clear band between
+# the plate-top bosses, z <= 5, and the cradle overhangs, z >= 8.5) while
+# turning radially inward, run along the battery's flank at that height, then
+# cut over to the landing once past the battery's +X face.
+_ROUTE_LEG_DOGLEGS: dict[int, list[tuple[float, float, float]]] = {
+    2: [(-38.0, 24.5, 6.5), (30.0, 24.0, 6.5)],
+    3: [(-38.0, -24.5, 6.5), (30.0, -24.0, 6.5)],
+}
+
+def _route_dogleg_points(entry: WHP.HarnessEntry) -> list[tuple[float, float, float]]:
+    """Intermediate inter-plate waypoints for one plan entry (may be [])."""
+    return _ROUTE_LEG_DOGLEGS.get(entry["leg_idx"], [])
+
+def _build_routes(chassis_lift: float, legs: list[int]) -> list[dict]:
+    """BuildViz ``routes[]`` for every WIRE_HARNESS_PLAN joint on ``legs``.
+
+    Waypoints are the plan's chassis-frame source / drop-slot / bus-landing
+    nodes (plus the inter-plate dogleg of ``_route_dogleg_points``), lifted to
+    the scene's standing-pose world frame; the budget is the plan's cable
+    build (stock lead + extensions)."""
+    routes: list[dict] = []
+    for entry in WHP.WIRE_HARNESS_PLAN:
+        if entry["leg_idx"] not in legs:
+            continue
+        axis_label = {"hip_pitch": "hip_pitch"}.get(entry["axis"], entry["axis"])
+        chassis_pts = [
+            entry["source_xyz_chassis"],
+            entry["via_chassis_drop_xyz"],
+            *_route_dogleg_points(entry),
+            entry["destination_xyz_chassis"],
+        ]
+        routes.append({
+            "id": f"route-j{entry['joint_idx']:02d}",
+            "points": [[float(x), float(y), float(z) + chassis_lift]
+                       for x, y, z in chassis_pts],
+            "maxLengthMm": _route_budget_mm(entry["extension_required"]),
+            "label": (f"L{entry['leg_idx']} {axis_label} bus lead "
+                      f"(servo ID {entry['servo_id']}, data)"),
+            "color": _ROUTE_COLOR_DATA,
+        })
+    return routes
+
 def main(single_leg: bool = False, motion: bool = True) -> None:
     if STL_DIR.exists():
         shutil.rmtree(STL_DIR)
@@ -1146,15 +1246,21 @@ def main(single_leg: bool = False, motion: bool = True) -> None:
         scene["poses"] = poses
         scene["animations"] = animations
 
+    # ADDITIVE cable/harness routes (BuildViz routing_reach gate + tube render):
+    # one per WIRE_HARNESS_PLAN joint, waypoints straight from the plan.
+    scene["routes"] = _build_routes(chassis_lift, legs)
+
     (OUT_DIR / "scene.json").write_text(json.dumps(scene, indent=2))
     msg = f"Wrote {OUT_DIR/'scene.json'}  ({len(instances_json)} instances, "
     if motion:
         moved = sum(len(j["instances"]) for j in scene["joints"])
         msg += (f"lift={chassis_lift:.1f}; motion: {len(scene['joints'])} joints "
                 f"driving {moved} instances, {len(scene['poses'])} poses, "
-                f"{len(scene['animations'])} walk clip)")
+                f"{len(scene['animations'])} walk clip; "
+                f"{len(scene['routes'])} harness routes)")
     else:
-        msg += f"lift={chassis_lift:.1f}; motion OFF)"
+        msg += (f"lift={chassis_lift:.1f}; motion OFF; "
+                f"{len(scene['routes'])} harness routes)")
     print(msg)
 
     # BuildViz-compatibility contract (see ~/buildviz/BUILDVIZ_COMPATIBILITY.md):

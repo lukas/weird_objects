@@ -6,6 +6,13 @@ current-limited bench supply first**, before the LiPo is ever
 connected. Pair this with the host-side driver in
 `../pi_control/feetech_bus.py`.
 
+> **Rendered harness diagram:** the full connector-by-connector WireViz
+> diagram (with wire colors, gauges and the auto-generated BOM) lives at
+> [`harness.svg`](harness.svg) / `harness.png` / `harness.html` next to
+> this file. Regenerate it (after editing this doc's topology or the
+> geometry in `../pi_control/wire_harness_plan.py`) with
+> `../scripts/render_harness_diagram.py` (repo venv).
+
 **June 2026 redesign.** The prototype uses **18× FEETECH STS3215**
 (ST-3215-C018, 12 V / 30 kg·cm) **serial-bus** smart servos (6 legs ×
 yaw/hip/knee). Each servo has a built-in 12-bit magnetic encoder and
@@ -418,6 +425,11 @@ Only after Stages A–F pass, build the §6 power harness and then:
 
 This is the heart of the full-robot wiring. **Read it before you chain
 all 18 servos to one rail.**
+
+> This whole section is also rendered as a WireViz diagram —
+> [`harness.svg`](harness.svg) (regenerate with
+> `../scripts/render_harness_diagram.py`). The per-leg branch lengths in
+> it come from the geometry-derived `../pi_control/wire_harness_plan.py`.
 
 ### 6.1 Why you cannot daisy-chain power
 

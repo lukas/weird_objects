@@ -27,3 +27,13 @@ mujoco==3.9.0
 gymnasium>=1.0
 stable-baselines3>=2.4,<3
 torch>=2.0,<3
+
+# Wiring-harness diagram generator (hexapod_walker/prototype_sts3215/
+# scripts/render_harness_diagram.py). Also needs the Graphviz `dot`
+# binary on PATH (brew install graphviz).
+wireviz>=0.4,<0.5
+
+# rideable_v1 design-consistency check reads design_spec.yaml directly
+# (hexapod_walker/rideable_v1/tools/design_consistency_check.py). PyYAML
+# was previously only a transitive dep (wireviz); pin it as a direct one.
+pyyaml>=6

@@ -13,6 +13,14 @@ GENERIC, build-independent checks:
   * placement      -- per-instance sanity: degenerate / NaN / empty
                       bounds, instances sitting far outside the scene
                       bounding sphere (likely a bad transform).
+  * fastener_attach - every ``role: fastener`` instance must touch (be
+                      within a small attach tolerance of) at least one
+                      non-fastener solid.  Catches screws floating in
+                      air because the part they join is missing from
+                      the scene (mesh_overlap deliberately SKIPS
+                      fasteners, so without this a floating screw was
+                      invisible to the gate -- the Jul 2026 hexapod
+                      "floating screw_chassis" bug).
   * scene_meta     -- manifest hygiene: units present, every instance
                       resolves to a mesh, no duplicate ids.
 
@@ -241,6 +249,71 @@ def check_placement(instances: list[Instance], center) -> dict:
     }
 
 
+def check_fastener_attach(instances, *, attach_mm) -> dict:
+    """Every ``role: fastener`` instance must sit ON (within ``attach_mm``
+    of) at least one non-fastener solid.
+
+    ``mesh_overlap`` deliberately SKIPS fasteners (they occupy their holes
+    by design), so before this check a screw whose joined part was missing
+    from the scene simply floated in air with no gate failing (Jul 2026
+    hexapod "floating screw_chassis": the imu_pad / switch_holster printed
+    parts were in the verifier assembly + fastener registry but not in the
+    scene, so their 12 screws rendered 2-4 mm from anything).  This closes
+    that class generically: a fastener that touches nothing fails loudly.
+    """
+    from trimesh.proximity import ProximityQuery
+
+    fasteners = [i for i in instances
+                 if i.mesh is not None and i.role == "fastener"]
+    solids = [i for i in instances
+              if i.mesh is not None and i.role != "fastener"]
+    if not fasteners or not solids:
+        return {"check": "fastener_attach", "pass": True,
+                "detail": "no fastener/solid instances", "offenders": []}
+
+    pqs = [(s, None, s.mesh.bounds) for s in solids]  # lazy ProximityQuery
+    offenders = []
+    highlights = []
+    for f in fasteners:
+        verts = f.mesh.vertices
+        pts = verts[:: max(1, len(verts) // 48)]
+        lo, hi = f.mesh.bounds
+        best = float("inf")
+        best_part = None
+        for k, (s, pq, b) in enumerate(pqs):
+            # AABB pre-filter with the attach tolerance as margin.
+            if np.any(lo - attach_mm > b[1]) or np.any(hi + attach_mm < b[0]):
+                continue
+            if pq is None:
+                pq = ProximityQuery(s.mesh)
+                pqs[k] = (s, pq, b)
+            d = float(np.abs(pq.signed_distance(pts)).min())
+            if d < best:
+                best, best_part = d, s.part_type
+            if best <= attach_mm:
+                break
+        if best > attach_mm:
+            near = (f"nearest solid {best_part} at {best:.1f} mm"
+                    if best_part is not None and np.isfinite(best)
+                    else "no solid within reach")
+            offenders.append({"id": f.id, "partType": f.part_type,
+                              "gap_mm": round(best, 2) if np.isfinite(best)
+                              else None,
+                              "detail": near})
+            c = [float(v) for v in f.mesh.centroid]
+            highlights.append({"partType": f.part_type, "point": c,
+                               "annotation": f"floating fastener: {near}"})
+    return {
+        "check": "fastener_attach",
+        "pass": not offenders,
+        "detail": (f"{len(offenders)} floating fastener(s)" if offenders
+                   else f"{len(fasteners)} fasteners all touch a solid "
+                        f"(within {attach_mm:g} mm)"),
+        "offenders": offenders,
+        "highlights": highlights,
+    }
+
+
 def check_mesh_overlap(instances, *, overlap_mm3, pitch,
                        ignore_pairs=frozenset()) -> dict:
     solid = [i for i in instances if i.mesh is not None]
@@ -389,11 +462,12 @@ def _copy_compat_docs_to_cache(scene_dir: str, build_id: str) -> None:
 # Driver
 # --------------------------------------------------------------------------
 
-def run(scene_path, *, overlap_mm3, pitch, emit, as_json):
+def run(scene_path, *, overlap_mm3, pitch, attach_mm, emit, as_json):
     scene, instances = load_scene(scene_path)
     cfg = scene.get("checksConfig", {}) or {}
     overlap_mm3 = float(cfg.get("overlapMm3", overlap_mm3))
     pitch = float(cfg.get("pitchMm", pitch))
+    attach_mm = float(cfg.get("attachMm", attach_mm))
     ignore_pairs = frozenset(
         frozenset(p) for p in cfg.get("ignoreOverlapPairs", []))
 
@@ -402,6 +476,7 @@ def run(scene_path, *, overlap_mm3, pitch, emit, as_json):
         check_placement(instances, scene.get("center")),
         check_mesh_overlap(instances, overlap_mm3=overlap_mm3, pitch=pitch,
                            ignore_pairs=ignore_pairs),
+        check_fastener_attach(instances, attach_mm=attach_mm),
     ]
 
     highlights_parts, highlights_points = [], []
@@ -450,6 +525,9 @@ def main(argv=None):
                     help="overlap volume tolerance (default 100 mm^3)")
     ap.add_argument("--pitch", type=float, default=1.5,
                     help="voxel sampling pitch in mm (default 1.5)")
+    ap.add_argument("--attach-mm", type=float, default=1.0,
+                    help="max air gap between a fastener and its nearest "
+                         "solid before it counts as floating (default 1.0)")
     ap.add_argument("--emit", action="store_true",
                     help="write the sidecar buildviz_checks.json")
     ap.add_argument("--json", action="store_true",
@@ -465,7 +543,7 @@ def main(argv=None):
                          "(default 20; only used with --publish)")
     args = ap.parse_args(argv)
     code = run(args.scene, overlap_mm3=args.overlap_mm3, pitch=args.pitch,
-               emit=args.emit, as_json=args.json)
+               attach_mm=args.attach_mm, emit=args.emit, as_json=args.json)
     if args.publish:
         # Honour the user's intent that running the verifier bumps the version:
         # publish on EVERY run regardless of pass/fail.  --keep bounds growth

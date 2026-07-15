@@ -100,6 +100,12 @@ parts:
     cots: true
     qty: 6
     description: "FEETECH STS3215 serial-bus servo driving the hip-pitch axis. COTS."
+  imu_pad:
+    label: "imu pad"
+    role: "electronics"
+    cots: true
+    qty: 1
+    description: "Printed vibration-isolated MPU-6050 mounting pad, foam-taped to chassis_top at the chassis CG; the IMU bolts to 4 heat-set inserts in its bosses."
   knee_clamp_cap:
     label: "knee clamp cap"
     role: "frame"
@@ -172,6 +178,12 @@ parts:
     cots: false
     qty: 1
     description: "Cosmetic domed carapace shell over the chassis (jumping-spider styling); vented, lifts off as one piece."
+  switch_holster:
+    label: "switch holster"
+    role: "electronics"
+    cots: true
+    qty: 1
+    description: "Printed holster for the anti-spark XT60 on/off switch, bolted to 2 bosses on chassis_top's +X edge (2x M3x10 SHCS into heat-set inserts)."
   tibia_foot_fitting:
     label: "tibia foot fitting"
     role: "frame"
