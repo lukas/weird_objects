@@ -31,24 +31,26 @@ order time.
 ## B. Secondary reductions (12 sets, 6:1)
 
 One set per hip-pitch and per knee joint (the 12 RMD-X15 joints). The
-hip-yaw joints are **direct-drive** and need no secondary. Pick **one**
-of the three build styles per [`DRIVETRAIN.md` §3](DRIVETRAIN.md#3-the-6-1-secondary-reduction);
-the belt option is the recommended default and is costed here.
+hip-yaw joints are **direct-drive** and need no secondary. The
+**duplex #40 roller chain** is the decided default per
+[`DRIVETRAIN.md` §3](DRIVETRAIN.md#3-the-6-1-secondary-reduction) — a
+single-stage 6:1 HTD-14M belt is not buildable (12T pulleys don't exist
+for 14M), and the belt's allowable tension is far below the ~8 kN the
+design torque implies.
 
 | Qty | Item | Spec to buy | Unit $ | Line $ | Link |
 |---:|---|---|---:|---:|---|
-| 12 | **HTD-14M driven pulley (large)** | ~72T HTD-14M, bore/keyway to the joint shaft. The 6:1 slow-side pulley. | ~$110 | $1,320 | [HTD 14M timing pulley](https://www.sdp-si.com/products/timing-belt-pulleys/) |
-| 12 | **HTD-14M drive pulley (small)** | ~12T HTD-14M, bore to the RMD-X15 output. The fast-side pulley. | ~$55 | $660 | [HTD 14M timing pulley](https://www.sdp-si.com/products/timing-belt-pulleys/) |
-| 12 | **HTD-14M belt** | 40 mm wide, length to centre distance. | ~$35 | $420 | [HTD 14M timing belt](https://www.sdp-si.com/products/timing-belts/) |
-| 12 | **Joint output shaft + 2 bearings + pillow-block/housing** | Machined shaft, 2 × tapered-roller or deep-groove bearings, housing/tensioner plate per joint. | ~$150 | $1,800 | machine shop / [McMaster bearings](https://www.mcmaster.com/) |
-| | | | **Secondary-reduction subtotal (~$350/set × 12)** | **$4,200** | |
+| 12 | **Duplex #40 driven sprocket (large)** | 72T duplex #40 (Ø291 mm PCD), plate style with lightening holes, bore/bolt-circle to the joint hub. The 6:1 slow-side sprocket. | ~$130 | $1,560 | [#40 duplex sprocket 72T](https://www.google.com/search?q=%2340+duplex+roller+chain+sprocket+72+tooth) |
+| 12 | **Duplex #40 drive sprocket (small)** | 12T duplex #40, bore/keyway to the RMD-X15 output. The fast-side sprocket. | ~$40 | $480 | [#40 duplex sprocket 12T](https://www.google.com/search?q=%2340+duplex+roller+chain+sprocket+12+tooth) |
+| 12 | **Duplex #40 roller chain + master links** | ANSI 40-2 duplex strand, length to centre distance, + guard. | ~$60 | $720 | [ANSI 40-2 duplex roller chain](https://www.google.com/search?q=ANSI+40-2+duplex+roller+chain) |
+| 12 | **Joint output shaft + 2 bearings + pillow-block/housing + tensioner** | Machined shaft, 2 × tapered-roller or deep-groove bearings, housing/tensioner plate per joint. | ~$150 | $1,800 | machine shop / [McMaster bearings](https://www.mcmaster.com/) |
+| | | | **Secondary-reduction subtotal (~$380/set × 12)** | **$4,560** | |
 
-> **Chain alternative:** #40 roller-chain sprockets (~12T / ~72T) + chain
-> + guard land at roughly the same ~$350/set, more shock-tolerant, noisier,
-> needs lubrication. **Planetary alternative:** a 6:1 planetary gearhead
-> rated for ~2.4 kN·m output runs meaningfully more per joint but is the
-> most compact and stiff. Cost the option you pick; totals below use the
-> belt.
+> **Planetary alternative:** a 6:1 planetary gearhead rated for
+> ~1.5–2 kN·m output is the most compact and stiff option but is a
+> 10–20 kg, $1–2 k industrial gearbox per joint — it blows the mass and
+> cost budgets and is retained only as a fallback. Totals below use the
+> duplex chain.
 
 ---
 
@@ -61,21 +63,19 @@ Each holds ~160 N·m there; buy at a ≥ ~240 N·m static rating for margin.
 
 | Qty | Item | Spec to buy | Unit $ | Line $ | Link |
 |---:|---|---|---:|---:|---|
-| 12 | **Spring-applied / power-off electromagnetic brake** | Static holding ≥ ~240 N·m, 24 V or 48 V coil (see power rail below), through-bore or shaft-mount to fit the RMD-X15 output shaft, ~0.5 kg. **6 knee (required) + 6 hip (optional but funded).** | ~$200 | **$2,400** | [power-off / fail-safe brake](https://www.google.com/search?q=spring+applied+electromagnetic+fail+safe+brake+240+Nm) |
+| 12 | **Spring-applied / power-off electromagnetic brake** | Static holding ≥ ~240 N·m, 24 V coil (matches the ≥400 W 24 V rail), through-bore or shaft-mount to fit the RMD-X15 output shaft, ~0.5 kg. **6 knee + 6 hip-pitch — all 12 required** (the hip static hold would cook the motor too, see [`DRIVETRAIN.md` §7](DRIVETRAIN.md#7-assumptions--open-questions)). | ~$200 | **$2,400** | [power-off / fail-safe brake](https://www.google.com/search?q=spring+applied+electromagnetic+fail+safe+brake+240+Nm) |
 | | | | **Brakes subtotal** | **$2,400** | |
 
-> Drop to **6** (knees only) and this line halves to ~$1,200 if a static
-> hip-torque analysis clears the hip of needing a brake.
-
-**Drivetrain grand subtotal (A + B + C, no spares):** **~$28,650** — the
+**Drivetrain grand subtotal (A + B + C, no spares):** **~$29,010** — the
 ~$27–30 k drivetrain figure headlined in [`README.md`](README.md).
 
 ---
 
 ## D. Legs — welded 4130 chromoly space-frames
 
-Six identical triangulated space-frame legs, ~3 kg each. Full rationale
-and stress handling in [`STRUCTURE.md`](STRUCTURE.md).
+Six identical triangulated space-frame legs, ~10 kg each including
+pivot hubs and clevises. Full rationale and stress handling in
+[`STRUCTURE.md`](STRUCTURE.md).
 
 | Qty | Item | Spec to buy | Unit $ | Line $ | Link |
 |---:|---|---|---:|---:|---|
@@ -115,15 +115,15 @@ Full sizing and current budget in [`POWER_SYSTEM.md`](POWER_SYSTEM.md).
 
 | Qty | Item | Spec to buy | Unit $ | Line $ | Link |
 |---:|---|---|---:|---:|---|
-| 1 | **72 V (20S) Li-ion pack, ~42 Ah / ~3 kWh** | 20S Li-ion (18650/21700), integrated BMS ≥ 80 A continuous, ~20 kg. 72 V nom / 84 V full. | ~$1,100 | ~$1,100 | [20S ebike battery](https://www.google.com/search?q=20S+72V+lithium+ebike+battery+pack) |
+| 1 | **72 V (20S) Li-ion pack, ~42 Ah / ~3 kWh** | 20S Li-ion (18650/21700), integrated BMS ≥ 100 A continuous, ~20 kg. 72 V nom / 84 V full. | ~$1,100 | ~$1,100 | [20S ebike battery](https://www.google.com/search?q=20S+72V+lithium+ebike+battery+pack) |
 | 1 | **72→48 V DC-DC converter** | ≥ ~300 W for the six RMD-X8 yaw actuators (48 V rail). | ~$120 | ~$120 | [72V to 48V DC-DC converter](https://www.google.com/search?q=72V+to+48V+DC-DC+converter+300W) |
-| 1 | **72→24 V DC-DC converter** | Logic + brake-release coils + contactor + compute. | ~$60 | ~$60 | [72V to 24V DC-DC converter](https://www.google.com/search?q=72V+to+24V+DC-DC+converter) |
-| 1 | **Main contactor + pre-charge** | ≥ 100 A DC contactor, pre-charge resistor + relay, on the 72 V bus. | ~$120 | ~$120 | [EV DC contactor 100A](https://www.google.com/search?q=EV+DC+contactor+100A+precharge) |
-| 1 | **Main fuse — Class-T / MIDI, ~80 A** | At the pack +, sized to the main-lead ampacity. | ~$40 | ~$40 | [Class T fuse 80A](https://www.google.com/search?q=Class+T+fuse+80A+holder) |
+| 1 | **72→24 V DC-DC converter, ≥ 400 W** | Logic + contactor + compute + **12 simultaneously-held brake coils** (~250–300 W coil load — do not buy a 150 W logic-class unit). | ~$90 | ~$90 | [72V to 24V DC-DC converter 400W](https://www.google.com/search?q=72V+to+24V+DC-DC+converter+400W) |
+| 1 | **Main contactor + pre-charge** | ≥ 120 A DC contactor, pre-charge resistor + relay, on the 72 V bus. | ~$120 | ~$120 | [EV DC contactor 120A](https://www.google.com/search?q=EV+DC+contactor+120A+precharge) |
+| 1 | **Main fuse — Class-T / MIDI, ~100 A** | At the pack +, sized to the main-lead ampacity. | ~$40 | ~$40 | [Class T fuse 100A](https://www.google.com/search?q=Class+T+fuse+100A+holder) |
 | 1 | **Handlebar e-stop (latching mushroom)** | Drops the contactor **and** the brake-release rail → brakes engage. | ~$25 | ~$25 | [latching e-stop mushroom](https://www.google.com/search?q=latching+emergency+stop+mushroom+button) |
 | 1 | **72 V balance charger** | 20S Li-ion charger, ~5–10 A. | ~$150 | ~$150 | [20S 84V lithium charger](https://www.google.com/search?q=20S+84V+lithium+battery+charger) |
-| 1 | **Power wiring, lugs, bus bars, DC clamp meter** | 8 AWG bus, 12 AWG branch, ring lugs, heat-shrink. | ~$120 | ~$120 | [8 AWG silicone wire](https://www.google.com/search?q=8+AWG+silicone+wire) |
-| | | | **Battery + power subtotal** | **~$1,735** | |
+| 1 | **Power wiring, lugs, bus bars, DC clamp meter** | 6 AWG bus, 12 AWG branch, ring lugs, heat-shrink. | ~$140 | ~$140 | [6 AWG silicone wire](https://www.google.com/search?q=6+AWG+silicone+wire) |
+| | | | **Battery + power subtotal** | **~$1,785** | |
 
 ---
 
@@ -168,26 +168,26 @@ Full sizing and current budget in [`POWER_SYSTEM.md`](POWER_SYSTEM.md).
 | Bucket | Cost (USD, mid-2026) |
 |---|---:|
 | A. Actuators — 18 installed, no spares (12 × $1,515 + 6 × $645) | $22,050 |
-| B. Secondary reductions (12 sets) | $4,200 |
+| B. Secondary reductions (12 duplex-#40 chain sets) | $4,560 |
 | C. Fail-safe brakes (12) | $2,400 |
-| **→ Drivetrain subtotal (A₁₈ + B + C)** | **~$28,650** |
+| **→ Drivetrain subtotal (A₁₈ + B + C)** | **~$29,010** |
 | D. Legs (4130 space-frames) | $1,500 |
 | E. Feet | $360 |
 | F. Chassis + saddle + rider interface | $2,300 |
-| G. Battery + power | $1,735 |
+| G. Battery + power | $1,785 |
 | H. Control electronics + sensors | $1,706 |
 | I. Bearings, shafts, fasteners, misc | $2,000 |
 | J. Consumables & finishing | $500 |
-| **Full-build subtotal** | **~$38,750** |
+| **Full-build subtotal** | **~$39,160** |
 | Recommended spares (1× X15 + 1× X8) | +$2,160 |
-| **Full-build with spares** | **~$40,900 (≈ $38–45 k)** |
+| **Full-build with spares** | **~$41,300 (≈ $38–45 k)** |
 
 The 18 installed actuators (12 × $1,515 + 6 × $645 = **$22,050**) are the
 figure rolled into the drivetrain subtotal; the recommended spare pair
 (1 × X15 + 1 × X8 = $2,160) is tracked separately on the last line so it
 doesn't inflate the per-vehicle build cost.
 
-The **drivetrain (A+B+C) is ~$28.7 k**, ~74% of the installed cost — the
+The **drivetrain (A+B+C) is ~$29.0 k**, ~74% of the installed cost — the
 payoff of the tucked-stance / QDD decision is that this stays in the high
 ‑$20 k range instead of the $100 k+ of a harmonic-drive build.
 
@@ -202,6 +202,10 @@ payoff of the tucked-stance / QDD decision is that this stays in the high
    (measure winding current = 0, confirm no creep, confirm no heat).
 4. Verify **power-off engages** the brake and holds the load (pull the
    coil supply and confirm the joint locks).
-5. Verify the actuator delivers **~98 °/s** unloaded and hits its peak
-   torque against a stop without thermal fault.
-6. Only then order the remaining 17 actuators, 11 reductions, 11 brakes.
+5. Verify the actuator delivers **~98 °/s** unloaded and hits the
+   **software-limited ~1.6 kN·m** against a stop without thermal fault.
+6. **Pull-test one duplex #40 chain stage to failure** (or to 2× the
+   11.1 kN working tension) — the chain is a single point of failure in
+   the brake load path ([`DRIVETRAIN.md` §4.2](DRIVETRAIN.md#42-the-load-path)),
+   so its real margin must be measured, not assumed.
+7. Only then order the remaining 17 actuators, 11 reductions, 11 brakes.

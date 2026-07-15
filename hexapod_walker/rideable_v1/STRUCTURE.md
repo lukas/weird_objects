@@ -11,24 +11,24 @@
 
 ## 1. Load cases
 
-Everything is sized to the **design foot load of 2.0 kN** (the 1.3 kN
+Everything is sized to the **design foot load of 2.25 kN** (the 1.5 kN
 nominal per-leg tripod load × 1.5 safety factor).
 
 | Case | Foot load | Where it bites | Governing failure mode |
 |---|---:|---|---|
-| **Static stand** | 1.3 kN nominal / 2.0 kN design | vertical into the foot, held by the brakes | bending of leg members, weld yield |
-| **Walk stride** | ~1.3 kN cyclic | swings direction each stride | **fatigue** at welds / notches |
-| **Landing / step-down shock** | up to ~2.0 kN (~1.5 g on a planted foot) | impulsive, vertical + fore-aft | bending peak, weld crack initiation |
+| **Static stand** | 1.5 kN nominal / 2.25 kN design | vertical into the foot, held by the brakes | bending of leg members, weld yield |
+| **Walk stride** | ~1.5 kN cyclic | swings direction each stride | **fatigue** at welds / notches |
+| **Landing / step-down shock** | up to ~2.25 kN (~1.5 g on a planted foot) | impulsive, vertical + fore-aft | bending peak, weld crack initiation |
 | **Foot side-load / stumble** | ~0.5 kN lateral | torsion + out-of-plane bending on the leg | buckling of a slender diagonal (checked, non-issue) |
 
 **Headline bending load:** taking the design foot load through the
 longest moment arm in the leg (foot to the knee/hip node, ~0.7 m):
 
 ```
-    M_bend  ≈  2.0 kN × 0.70 m  ≈  1.4 kN·m
+    M_bend  ≈  2.25 kN × 0.70 m  ≈  1.6 kN·m
 ```
 
-So each leg must carry a **~1.4 kN·m bending moment** at design load. How
+So each leg must carry a **~1.6 kN·m bending moment** at design load. How
 that is reacted is the whole reason for the space-frame ([§3](#3-why-a-space-frame-the-stress-logic)).
 
 ---
@@ -64,13 +64,13 @@ loads at welded/bolted nodes.
 
 ## 3. Why a space-frame — the stress logic
 
-A single tube trying to carry 1.4 kN·m in **pure bending** would be badly
+A single tube trying to carry 1.6 kN·m in **pure bending** would be badly
 overstressed. Take a representative 38 mm OD × 2.4 mm wall 4130 tube:
 
 ```
     I  = (π/64)(D⁴ − d⁴) = (π/64)(38⁴ − 33.2⁴)  ≈  4.27×10⁴ mm⁴
     Z  = I / c = 4.27×10⁴ / 19  ≈  2,250 mm³
-    σ  = M / Z = 1.4×10⁶ N·mm / 2,250 mm³  ≈  620 MPa   ✗  (> ~435 MPa yield)
+    σ  = M / Z = 1.6×10⁶ N·mm / 2,250 mm³  ≈  710 MPa   ✗  (> ~435 MPa yield)
 ```
 
 That single member yields. A **space-frame** instead resolves the bending
@@ -78,14 +78,14 @@ moment into a **couple of axial forces** in parallel chords separated by a
 frame depth `h`. With `h ≈ 150 mm`:
 
 ```
-    F_chord  =  M / h  =  1.4×10⁶ N·mm / 150 mm  ≈  9.3 kN   (tension in one chord,
-                                                              compression in the other)
+    F_chord  =  M / h  =  1.6×10⁶ N·mm / 150 mm  ≈  10.7 kN   (tension in one chord,
+                                                               compression in the other)
     A_tube   =  (π/4)(38² − 33.2²)  ≈  268 mm²
-    σ_axial  =  F_chord / A  =  9,300 / 268  ≈  35 MPa        ✓  (vs 435 MPa yield → SF ~12)
+    σ_axial  =  F_chord / A  =  10,700 / 268  ≈  40 MPa        ✓  (vs 435 MPa yield → SF ~11)
 ```
 
 Turning bending into axial load in triangulated members drops the working
-stress from ~620 MPa (fail) to ~35 MPa (huge margin). That is why the legs
+stress from ~710 MPa (fail) to ~40 MPa (huge margin). That is why the legs
 are trusses, and it also keeps the **weld stress ranges low enough for
 effectively infinite fatigue life** ([§5](#5-fatigue-is-the-design-driver)).
 
@@ -97,14 +97,14 @@ so no member is asked to bend.
 
 ## 4. Buckling is a non-issue
 
-The compression chord (9.3 kN) is short. Euler critical load for a
+The compression chord (10.7 kN) is short. Euler critical load for a
 pinned 38×2.4 tube, `L ≈ 0.4 m`:
 
 ```
     P_cr = π²EI / (KL)²
          = π² × 200,000 MPa × 4.27×10⁴ mm⁴ / (1.0 × 400 mm)²
          ≈  527,000 N  =  527 kN
-    buckling SF = 527 kN / 9.3 kN  ≈  57×
+    buckling SF = 527 kN / 10.7 kN  ≈  49×
 ```
 
 Even the slender diagonals sit at double-digit buckling safety factors.
@@ -126,8 +126,9 @@ allowable stress.**
   joint** knocks that down dramatically — a fillet weld toe is a stress
   raiser and behaves like a low fatigue-class detail (endurance strength
   order ~50–90 MPa stress *range* for typical welded steel details).
-* The space-frame keeps **chord stress ~35 MPa** at design load, so the
-  cyclic stress *range* at the welds stays under the weld detail's
+* The space-frame keeps **chord stress ~40 MPa** at design load (and the
+  everyday cyclic range, at nominal rather than design load, ~27 MPa), so
+  the stress *range* at the welds stays under the weld detail's
   endurance limit → **effectively infinite life** at the nodes.
 * **Normalise / stress-relieve** the finished weldments to remove residual
   stress and refine the heat-affected zone.
@@ -223,13 +224,18 @@ Not final — a starting geometry for FEA to refine.
 
 | Member | Section | Role |
 |---|---|---|
-| Leg main chords | 38 mm OD × 2.4 mm wall 4130 | carry the bending-couple axial loads (~9.3 kN) |
+| Leg main chords | 38 mm OD × 2.4 mm wall 4130 | carry the bending-couple axial loads (~10.7 kN) |
 | Leg diagonals | 25 mm OD × 1.6 mm wall 4130 | triangulate; carry shear as axial load |
 | Node / boss plates | 3–5 mm 4130 sheet, laser-cut | spread joint loads, host bolt bosses |
 | Foot boss | machined steel, welded into tibia corner | react landing shock |
 | Brake / motor mounts | machined boss + 10.9 bolts | react holding torque into the frame |
+| Pivot hubs & clevises | machined steel, welded to truss ends | host the joint pins + driven sprockets |
 
-Target ~3 kg per leg, ~20 kg for all six ([`README.md` mass budget](README.md#6-mass-budget-280-kg-dry)).
+Budget **~10 kg per leg (~60 kg for all six)** including hubs, clevises,
+and mount plates — the bare tube of a femur+tibia truss alone is ~7 kg
+(≈ 3.3 m of 38×2.4 chord at 2.1 kg/m per leg plus webs), so an earlier
+~3 kg/leg target was not achievable in steel at these lengths
+([`README.md` mass budget](README.md#6-mass-budget-360-kg-dry)).
 
 ---
 
@@ -238,8 +244,9 @@ Target ~3 kg per leg, ~20 kg for all six ([`README.md` mass budget](README.md#6-
 1. **Frame depth `h ≈ 150 mm`** sets the chord force (M/h). A shallower
    leg raises chord stress; keep the truss deep where the moment is
    largest.
-2. **Bending moment arm ≈ 0.7 m** for the 1.4 kN·m figure follows the
-   tucked geometry; final leg lengths (still open) move it.
+2. **Bending moment arm ≈ 0.7 m** for the 1.6 kN·m figure bounds the
+   tucked geometry (the solved pose gives 0.63 m hip-to-foot straight-line
+   distance); final leg lengths (still open) move it.
 3. **4130 normalised properties** (yield ~435 MPa, UTS ~670 MPa,
    E = 200 GPa) are nominal; use certified material data for the real
    build.

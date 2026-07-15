@@ -15,13 +15,19 @@
     {
       "check": "placement",
       "pass": true,
-      "detail": "69 instances placed sanely",
+      "detail": "93 instances placed sanely",
       "offenders": []
     },
     {
       "check": "mesh_overlap",
       "pass": true,
       "detail": "no solids interpenetrate above 3000 mm^3",
+      "offenders": []
+    },
+    {
+      "check": "fastener_attach",
+      "pass": true,
+      "detail": "no fastener/solid instances",
       "offenders": []
     }
   ],

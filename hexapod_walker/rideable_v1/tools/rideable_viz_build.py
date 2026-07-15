@@ -5,15 +5,29 @@ Unlike ``prototype_sts3215`` (which exports verified parametric CAD), the
 rideable design is a mechanical-design DRAFT captured only in markdown
 (README.md / DRIVETRAIN.md / STRUCTURE.md / POWER_SYSTEM.md / BOM.md).  So this
 tool GENERATES primitive stand-in geometry — triangulated 4130 space-frame legs
-(3-chord trusses), cylindrical COTS actuators / secondary-reduction pulleys /
+(3-chord trusses), cylindrical COTS actuators / secondary-reduction sprockets /
 fail-safe brakes, and a welded rider chassis (hex tube frame + deck + saddle +
 battery) — placed at rideable scale directly from the numbers in
 ``design_spec.yaml`` (which distils the decided parameters from the docs).
 
+The joint layout is physically articulable (and verified by the BuildViz
+joint-articulation checks):
+
+  * every revolute DOF is declared in an additive ``joints[]`` block
+    (6 hip-yaw + 6 hip-pitch + 6 knee, world axis + origin + distal links);
+  * the driven sprocket of each 6:1 secondary sits ON the joint axis and is
+    bolted to the MOVING (distal) link; the actuator + fail-safe brake are
+    offset-mounted on the PARENT link (chain/belt run not modelled);
+  * parent and child links meet only through a coaxial pivot pin (a
+    ``fasteners:``-namespaced instance, exempt as the joint's own axle) with
+    real clearance everywhere else — no link is fused or bolted across a DOF;
+  * intended mounting interfaces are flat-on-flat with a nominal 0.1 mm
+    seat so the ``mating_contact`` gate reads them as in-contact.
+
 It writes a self-contained BuildViz build under ``rideable_v1/full_robot_viz/``
 (mirroring the sts3215 layout):
 
-    full_robot_viz/scene.json      BuildViz manifest (meshes[] + instances[])
+    full_robot_viz/scene.json      BuildViz manifest (meshes[] + instances[] + joints[])
     full_robot_viz/stl/*.stl       one world-baked STL per instance
 
 Each instance mesh is baked in WORLD coordinates and shipped with an identity
@@ -35,7 +49,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -57,6 +70,8 @@ FEMUR_LEN = 600.0              # hip-pitch -> knee     (brief)
 TIBIA_LEN = 800.0             # knee -> foot          (brief)
 FOOT_OUT = 280.0               # tucked foot, outboard of the hip-pitch joint
 FOOT_DOWN = 560.0              # tucked foot, below the hip-pitch joint
+HIP_DROP = 80.0                # hip-pitch axis sits this far below the yaw plane
+                               # (drops the Ø300 sprocket clear of the chassis)
 
 FRAME_DEPTH = 150.0            # 4130 truss depth h (STRUCTURE.md)
 CHORD_OD = 38.0               # main chord tube (STRUCTURE.md member schedule)
@@ -64,16 +79,51 @@ WEB_OD = 25.0                 # diagonal / web member
 
 # COTS actuator envelopes (DRIVETRAIN.md / BOM.md; dia's are assumptions).
 X15_DIA, X15_T = 100.0, 60.0   # RMD-X15-450 (hip-pitch, knee)
-X8_DIA, X8_T = 80.0, 45.0      # RMD-X8-120 (hip-yaw)
-SEC_DIA, SEC_T = 300.0, 45.0   # 6:1 HTD-14M driven pulley (large)
+X8_DIA, X8_T = 80.0, 60.0      # RMD-X8-120 (hip-yaw)
+SEC_DIA, SEC_T = 300.0, 50.0   # 6:1 driven sprocket (#40 72T, PCD ~291) + carrier
 BRAKE_DIA, BRAKE_T = 90.0, 50.0
 FOOT_DIA, FOOT_T = 120.0, 40.0
+
+# Joint-node geometry (leg frame; the pitch/knee axis is the local +Y).
+HUB_R = 45.0                   # moving-link pivot hub radius
+HUB_Y = (-45.0, 40.0)          # hub extent along the joint axis (asymmetric:
+                               # the -Y face carries the driven sprocket)
+PIN_R = 15.0                   # pivot pin (coaxial fastener) radius
+PIN_Y = (-40.0, 75.0)          # pin extent: grips the hub AND the +Y clevis plate
+SPROCKET_Y = (-95.0, -44.9)    # sprocket: flush-seated 0.1 mm onto the hub -Y face
+CLEVIS_PLATE_Y = (45.0, 70.0)  # parent-side bearing plate (single-sided clevis)
+CROSSBAR_S = (200.0, 240.0)    # parent crossbar span, measured back from the joint
+PLATE_S = (-35.0, 240.0)       # clevis plate span, measured back from the joint
+DRIVE_STANDOFF = 350.0         # knee actuator centre, back from the knee along the femur
+HIP_DRIVE_X = 400.0            # hip actuator centre (leg frame x; ~270 mm inboard of the hip)
+DRIVE_Y = (-160.0, -100.0)     # actuator body extent along the joint axis
+BRAKE_Y = (-210.0, -159.9)     # brake, flush-seated on the actuator outboard face
+SEAT = 0.1                     # nominal interference at intended flat seats (mm)
+
+# Truss setbacks so nothing structural crosses a declared joint: each truss
+# stops well clear of the Ø300 sprocket disc and of the opposing link across
+# the folded knee, and a Ø70 collar (part of the same link) bridges the gap.
+FEMUR_TRUSS_S0, FEMUR_TRUSS_S1 = 185.0, 230.0   # from hip / short of knee
+TIBIA_TRUSS_S0 = 230.0                           # from knee
+TIBIA_TRUSS_S1 = 100.0                           # short of the foot point
+COLLAR_R = 35.0
+
+# Chassis / rider interface (leg frame z: 0 = yaw-actuator mount plane).
+YAW_ACT_Z = (0.0, 60.0 + SEAT)     # RMD-X8, output DOWN, flush under the vertex plate
+VERTEX_PLATE_Z = (60.0, 95.0)      # chassis vertex mounting plate
+COXA_HUB_Z = (-60.0, -5.0)         # coxa yaw hub (5 mm below the actuator)
+YAW_PIN_Z = (-40.0, 30.0)          # yaw output shaft (coaxial fastener)
+COXA_BEAM = dict(x=(330.0, 530.0), y=40.0, z=(-110.0, -50.0))
+RING_Z = (110.0, 260.0)            # chassis hex ring centrelines (tube r=20)
+RING_TUBE_R = 20.0
+DECK = dict(x=900.0, y=660.0, t=25.0)
 
 # Colours.
 C_X8 = "#3a5a80"          # hip-yaw actuator (blue-grey)
 C_X15 = "#2e2e33"         # RMD-X15 (dark)
-C_SEC = "#95a5a6"         # belt-reduction pulley housing (grey)
+C_SEC = "#95a5a6"         # driven sprocket / secondary (grey)
 C_BRAKE = "#f1c40f"       # fail-safe brake — bright yellow (safety call-out)
+C_PIN = "#b8860b"         # pivot pins / output shafts
 C_STEEL = "#8b9bab"       # 4130 chromoly space-frame
 C_STEEL_HI = "#7a8a9a"    # tibia (slightly darker)
 C_FOOT = "#2b2b2b"        # urethane pad
@@ -88,57 +138,109 @@ C_EBAY = "#6a4fb0"        # electronics (purple)
 
 COTS_ROLES = {"motor", "brake", "bearing", "electronics", "drivetrain", "rider"}
 
-# Intended part-type matings that overlap by design (BuildViz
-# checksConfig.ignoreOverlapPairs).  Anything NOT listed that interpenetrates
-# is a real clash the verifier will flag.
+# Intended MOUNTING interfaces (flat seats, nominally 0.1 mm interference).
+# These are BuildViz checksConfig.ignoreOverlapPairs entries: the
+# mating_contact gate verifies each pair really is seated (|gap| and
+# penetration within tolerance), and the repo-side voxel overlap check skips
+# them.  The pivot-pin pairs are listed only for the repo-side checker
+# (BuildViz already exempts fasteners); the pins intentionally pass through
+# the links they join.
 INTENDED_OVERLAP_PAIRS = [
-    ("chassis_frame", "hip_yaw_actuator"),
-    ("hip_yaw_actuator", "coxa_frame"),
-    ("hip_yaw_actuator", "hip_secondary"),   # large 6:1 pulley sits just above the yaw actuator
-    ("coxa_frame", "hip_pitch_actuator"),
-    ("coxa_frame", "hip_secondary"),         # 6:1 driven pulley shares the hip node with the coxa
-    ("coxa_frame", "femur_frame"),           # coxa + femur trusses meet at the hip-pitch node
-    ("hip_pitch_actuator", "hip_secondary"),
-    ("hip_pitch_actuator", "femur_frame"),
-    ("hip_secondary", "femur_frame"),
-    ("femur_frame", "tibia_frame"),          # folded-knee trusses meet at the knee node
-    ("femur_frame", "knee_actuator"),
-    ("femur_frame", "knee_secondary"),
-    ("knee_actuator", "knee_secondary"),
-    ("knee_actuator", "knee_brake"),
-    ("knee_actuator", "tibia_frame"),
-    ("knee_secondary", "tibia_frame"),
-    ("tibia_frame", "foot"),
-    ("chassis_frame", "coxa_frame"),
+    ("chassis_frame", "hip_yaw_actuator"),      # X8 flange under the vertex plate
+    ("femur_frame", "hip_secondary"),           # hip driven sprocket on the femur hub
+    ("coxa_frame", "hip_pitch_actuator"),       # hip X15 on the coxa mount plate
+    ("hip_pitch_actuator", "hip_brake"),        # hip brake on the X15 tail shaft
+    ("tibia_frame", "knee_secondary"),          # knee driven sprocket on the tibia hub
+    ("femur_frame", "knee_actuator"),           # knee X15 on the femur mount plate
+    ("knee_actuator", "knee_brake"),            # knee brake on the X15 tail shaft
+    ("tibia_frame", "foot"),                    # foot disc under the ankle post
     ("chassis_frame", "deck_plate"),
-    ("chassis_frame", "battery"),
-    ("chassis_frame", "e_bay"),
-    ("chassis_frame", "saddle_post"),
-    ("chassis_frame", "footpeg"),
-    ("deck_plate", "saddle_post"),
-    ("deck_plate", "battery"),
+    ("chassis_frame", "battery"),               # battery tray on the lower spokes
     ("deck_plate", "e_bay"),
+    ("deck_plate", "saddle_post"),
     ("deck_plate", "controls"),
     ("deck_plate", "footpeg"),
     ("saddle_post", "saddle"),
-    ("battery", "e_bay"),
+    # pivot pins (fasteners) — repo-side checker only:
+    ("hip_yaw_actuator", "yaw_pivot_pin"),
+    ("coxa_frame", "yaw_pivot_pin"),
+    ("coxa_frame", "hip_pivot_pin"),
+    ("femur_frame", "hip_pivot_pin"),
+    ("femur_frame", "knee_pivot_pin"),
+    ("tibia_frame", "knee_pivot_pin"),
 ]
+
+# Declared joint travel (deg, about the home/static pose).  The docs leave the
+# exact ranges open; these are assumptions consistent with the tucked stance
+# (README.md §3) and the ±0.3 m stride excursion.
+YAW_LIMITS = (-35.0, 35.0)
+HIP_LIMITS = (-45.0, 30.0)
+KNEE_LIMITS = (-40.0, 40.0)
 
 
 # ---------------------------------------------------------------------------
 # Geometry helpers
 # ---------------------------------------------------------------------------
-def _tube(p0, p1, radius) -> trimesh.Trimesh:
+def _tube(p0, p1, radius, sections=32) -> trimesh.Trimesh:
     """Solid cylinder spanning p0->p1."""
-    return _cyl(radius=radius, segment=np.array([p0, p1], dtype=float))
+    return _cyl(radius=radius, segment=np.array([p0, p1], dtype=float),
+                sections=sections)
 
 
-def _actuator(center, axis, dia, thick) -> trimesh.Trimesh:
-    """Disc/cylinder actuator body of ``thick`` along unit ``axis``."""
+def _disc(center, axis, dia, thick, lo=None, hi=None, sections=48) -> trimesh.Trimesh:
+    """Disc/cylinder of ``thick`` along unit ``axis`` centred at ``center``,
+    or spanning [lo, hi] along the axis when given."""
     axis = np.asarray(axis, float)
     axis = axis / np.linalg.norm(axis)
     c = np.asarray(center, float)
-    return _tube(c - axis * thick / 2.0, c + axis * thick / 2.0, dia / 2.0)
+    if lo is not None and hi is not None:
+        return _tube(c + axis * lo, c + axis * hi, dia / 2.0, sections)
+    return _tube(c - axis * thick / 2.0, c + axis * thick / 2.0, dia / 2.0, sections)
+
+
+def _obox(center, half_extents, axes=None) -> trimesh.Trimesh:
+    """Box with half-extents, optionally oriented by a 3x3 column-axes matrix."""
+    T = np.eye(4)
+    if axes is not None:
+        T[:3, :3] = np.asarray(axes, float)
+    T[:3, 3] = np.asarray(center, float)
+    return _box(extents=2.0 * np.asarray(half_extents, float), transform=T)
+
+
+def _union(parts: list[trimesh.Trimesh]) -> trimesh.Trimesh:
+    """Boolean-union a list of primitive solids into ONE watertight body (so a
+    truss/chassis ships as a manifold mesh with no internal self-intersections).
+
+    Uses manifold3d NATIVELY (build Manifolds, batch-union, take the output
+    mesh): the Manifold output is guaranteed 2-manifold, and empirically it
+    survives the float32 STL round-trip with 0 open / 0 non-manifold edges,
+    unlike trimesh's post-boolean scrubbing.  Falls back to a raw concatenate
+    if the engine is unavailable (checks would then flag the overlap debris).
+    """
+    if len(parts) == 1:
+        return parts[0]
+    try:
+        import manifold3d as _m3d
+
+        solids = [
+            _m3d.Manifold(_m3d.Mesh(
+                vert_properties=np.asarray(p.vertices, dtype=np.float32),
+                tri_verts=np.asarray(p.faces, dtype=np.uint32),
+            ))
+            for p in parts
+        ]
+        merged = _m3d.Manifold.batch_boolean(solids, _m3d.OpType.Add)
+        # Collapse the near-degenerate sliver triangles booleans leave along
+        # coplanar seams (they round to zero-area / self-touching after the
+        # float32 STL export); 0.01 mm is far below any real feature here.
+        merged = merged.simplify(0.01)
+        out = merged.to_mesh()
+        return trimesh.Trimesh(
+            vertices=np.asarray(out.vert_properties)[:, :3],
+            faces=np.asarray(out.tri_verts),
+        )
+    except BaseException:  # noqa: BLE001 - engine availability differs per env
+        return trimesh.util.concatenate(parts)
 
 
 def _frame_vectors(axis):
@@ -152,13 +254,12 @@ def _frame_vectors(axis):
     return u, v, w
 
 
-def _truss(p0, p1, depth, chord_r, web_r, min_bays=1) -> trimesh.Trimesh:
-    """A triangulated 3-chord space-frame truss from p0 to p1.
+def _truss_parts(p0, p1, depth, chord_r, web_r, min_bays=1) -> list[trimesh.Trimesh]:
+    """Members of a triangulated 3-chord space-frame truss from p0 to p1.
 
     Three chord tubes run the full length at the corners of an equilateral
     triangle (radius ~depth/2 about the centreline); per bay we add a corner
-    ring plus a zig-zag diagonal on each of the 3 faces.  Everything is merged
-    into ONE mesh so intra-truss member overlaps don't count as clashes.
+    ring plus a zig-zag diagonal on each of the 3 faces.
     """
     p0 = np.asarray(p0, float)
     p1 = np.asarray(p1, float)
@@ -172,10 +273,8 @@ def _truss(p0, p1, depth, chord_r, web_r, min_bays=1) -> trimesh.Trimesh:
     stations = [p0 + (p1 - p0) * (k / n_bays) for k in range(n_bays + 1)]
 
     parts: list[trimesh.Trimesh] = []
-    # 3 full-length chords
     for c in corners:
         parts.append(_tube(p0 + c, p1 + c, chord_r))
-    # rings at every station + diagonals per bay
     for k, s in enumerate(stations):
         for j in range(3):
             parts.append(_tube(s + corners[j], s + corners[(j + 1) % 3], web_r))
@@ -183,17 +282,19 @@ def _truss(p0, p1, depth, chord_r, web_r, min_bays=1) -> trimesh.Trimesh:
             s_next = stations[k + 1]
             for j in range(3):
                 parts.append(_tube(s + corners[j], s_next + corners[(j + 1) % 3], web_r))
-    return trimesh.util.concatenate(parts)
+    return parts
 
 
-def _hex_chassis(z_bot, z_top, r_vertex, hub_r, tube_r) -> trimesh.Trimesh:
-    """Welded hex tube frame: two hexagonal rings (bottom/top) at the 6 leg
-    bearings + verticals + face diagonals + radial spokes to a centre hub."""
+def _hex_chassis() -> trimesh.Trimesh:
+    """Welded hex tube frame: two hexagonal rings at the 6 leg vertices +
+    verticals + face diagonals + radial spokes to a centre hub column, plus a
+    flat vertex mounting plate under each hip-yaw actuator."""
+    z_bot, z_top = RING_Z
+    r_vertex, tube_r = HIP_YAW_RING_R, RING_TUBE_R
     verts = []
     for i in range(N_LEGS):
         a = i * 2 * np.pi / N_LEGS
-        p = np.array([r_vertex * np.cos(a), r_vertex * np.sin(a), 0.0])
-        verts.append(p)
+        verts.append(np.array([r_vertex * np.cos(a), r_vertex * np.sin(a), 0.0]))
     parts: list[trimesh.Trimesh] = []
     hub_bot = np.array([0.0, 0.0, z_bot])
     hub_top = np.array([0.0, 0.0, z_top])
@@ -208,8 +309,13 @@ def _hex_chassis(z_bot, z_top, r_vertex, hub_r, tube_r) -> trimesh.Trimesh:
         parts.append(_tube(vb, vt_n, tube_r))     # face diagonal
         parts.append(_tube(hub_top, vt, tube_r))  # top radial spoke
         parts.append(_tube(hub_bot, vb, tube_r))  # bottom radial spoke
+        # Flat mounting plate under the vertex: the hip-yaw actuator flange
+        # seats on its underside (reaches up past the ring tube bottom so the
+        # union stays one body).
+        parts.append(_obox(verts[i] + [0, 0, (VERTEX_PLATE_Z[0] + VERTEX_PLATE_Z[1]) / 2],
+                           [55.0, 55.0, (VERTEX_PLATE_Z[1] - VERTEX_PLATE_Z[0]) / 2]))
     parts.append(_tube(hub_bot, hub_top, tube_r))  # centre column
-    return trimesh.util.concatenate(parts)
+    return _union(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -221,7 +327,7 @@ def _solve_leg():
     Places the foot TUCKED at (FOOT_OUT, -FOOT_DOWN) relative to the hip-pitch
     joint using femur/tibia lengths exactly (knee-up branch)."""
     yaw = np.array([HIP_YAW_RING_R, 0.0, 0.0])
-    hip = yaw + np.array([COXA_LEN, 0.0, 0.0])
+    hip = yaw + np.array([COXA_LEN, 0.0, -HIP_DROP])
     tx, tz = FOOT_OUT, -FOOT_DOWN
     d = float(np.hypot(tx, tz))
     L1, L2 = FEMUR_LEN, TIBIA_LEN
@@ -238,82 +344,181 @@ def _solve_leg():
             "femur_deg": np.degrees(femur_ang), "knee_int_deg": knee_int, "d": d}
 
 
+def _pitch_node_parent(J, back_dir):
+    """Parent-side clevis pieces at a pitch joint ``J``: a crossbar well clear
+    of the sprocket disc + a single +Y bearing plate hosting the pivot pin.
+    Returned as raw solids to merge into the parent link's mesh."""
+    J = np.asarray(J, float)
+    a = np.asarray(back_dir, float)
+    a = a / np.linalg.norm(a)
+    y = np.array([0.0, 1.0, 0.0])
+    w = np.cross(a, y)
+    axes = np.column_stack([a, y, w])
+    s0, s1 = CROSSBAR_S
+    crossbar = _obox(J + a * (s0 + s1) / 2, [(s1 - s0) / 2, 69.0, 30.0], axes)
+    p0, p1 = PLATE_S
+    py0, py1 = CLEVIS_PLATE_Y
+    plate = _obox(J + a * (p0 + p1) / 2 + y * (py0 + py1) / 2,
+                  [(p1 - p0) / 2, (py1 - py0) / 2, 30.0], axes)
+    return [crossbar, plate]
+
+
+def _pitch_node_child(J, out_dir):
+    """Child-side pivot hub + collar at a pitch joint ``J`` (merged into the
+    moving link's mesh): a hub on the axis (its -Y face seats the sprocket)
+    and a collar reaching out toward the link's truss."""
+    J = np.asarray(J, float)
+    c = np.asarray(out_dir, float)
+    c = c / np.linalg.norm(c)
+    y = np.array([0.0, 1.0, 0.0])
+    hub = _disc(J, y, 2 * HUB_R, None, lo=HUB_Y[0], hi=HUB_Y[1])
+    collar = _tube(J, J + c * (TIBIA_TRUSS_S0 + 40.0), COLLAR_R)
+    return [hub, collar]
+
+
+def _drive_stack(P, part_prefix):
+    """Actuator + brake bodies on the joint axis direction at x-z point ``P``
+    (leg frame), offset along -Y per DRIVE_Y/BRAKE_Y.  The mount plate that
+    seats them belongs to the PARENT link mesh (built by the caller)."""
+    y = np.array([0.0, 1.0, 0.0])
+    act = _disc(P, y, X15_DIA, None, lo=DRIVE_Y[0], hi=DRIVE_Y[1])
+    brake = _disc(P, y, BRAKE_DIA, None, lo=BRAKE_Y[0], hi=BRAKE_Y[1])
+    return [(f"{part_prefix}_actuator", "motor", C_X15, act),
+            (f"{part_prefix}_brake", "brake", C_BRAKE, brake)]
+
+
 def _leg0_instances(k):
     """(name, role, color, mesh) for every leg-0 part, in the leg-0 frame."""
     yaw, hip, knee, foot = k["yaw"], k["hip"], k["knee"], k["foot"]
-    pitch_axis = np.array([0.0, 1.0, 0.0])       # hip-pitch / knee axis (tangential)
+    y = np.array([0.0, 1.0, 0.0])
+    f_hat = knee - hip
+    f_hat = f_hat / np.linalg.norm(f_hat)
+    t_hat = foot - knee
+    t_hat = t_hat / np.linalg.norm(t_hat)
 
     out = []
-    # hip-yaw actuator (vertical axis), sits at the ring, output up into coxa.
+
+    # --- hip-yaw node: X8 hangs under the chassis vertex plate; the coxa hub
+    # hangs 5 mm below it, joined only by the coaxial yaw output shaft. ---
     out.append(("hip_yaw_actuator", "motor", C_X8,
-                _actuator(yaw + [0, 0, X8_T / 2], [0, 0, 1], X8_DIA, X8_T)))
-    # coxa truss: yaw output -> hip-pitch joint
-    out.append(("coxa_frame", "frame", C_STEEL,
-                _truss(yaw + [0, 0, X8_T], hip, 0.75 * FRAME_DEPTH, CHORD_OD / 2, WEB_OD / 2)))
-    # hip-pitch actuator + 6:1 driven pulley on the joint axis
-    out.append(("hip_pitch_actuator", "motor", C_X15,
-                _actuator(hip - pitch_axis * (SEC_T / 2 + X15_T / 2), pitch_axis, X15_DIA, X15_T)))
+                _disc(yaw, [0, 0, 1], X8_DIA, None, lo=YAW_ACT_Z[0], hi=YAW_ACT_Z[1])))
+    out.append(("yaw_pivot_pin", "bearing", C_PIN,
+                _disc(yaw, [0, 0, 1], 2 * 14.0, None, lo=YAW_PIN_Z[0], hi=YAW_PIN_Z[1])))
+
+    # --- coxa: yaw hub + box beam (reaches inboard to carry the hip drive) +
+    # hip clevis (crossbar + bearing plate) + hip-drive mount plate.  The yaw
+    # hub radius (40) stays inside the driven sprocket's -Y face plane. ---
+    bx, by, bz = COXA_BEAM["x"], COXA_BEAM["y"], COXA_BEAM["z"]
+    mount_y = ((DRIVE_Y[1] - SEAT) + (-30.0)) / 2         # plate spans y in
+    mount_hy = ((-30.0) - (DRIVE_Y[1] - SEAT)) / 2        # [DRIVE_Y[1]-SEAT, -30]
+    coxa_parts = [
+        _disc(yaw, [0, 0, 1], 2 * 40.0, None, lo=COXA_HUB_Z[0], hi=COXA_HUB_Z[1]),
+        _obox([(bx[0] + bx[1]) / 2, 0.0, (bz[0] + bz[1]) / 2],
+              [(bx[1] - bx[0]) / 2, by, (bz[1] - bz[0]) / 2]),
+        _obox([HIP_DRIVE_X, mount_y, (bz[0] + bz[1]) / 2],
+              [45.0, mount_hy, (bz[1] - bz[0]) / 2]),
+    ]
+    coxa_parts += _pitch_node_parent(hip, np.array([-1.0, 0.0, 0.0]))
+    out.append(("coxa_frame", "frame", C_STEEL, _union(coxa_parts)))
+
+    # --- hip drive: X15 + fail-safe brake on the coxa mount plate, inboard,
+    # chain run (not modelled) to the driven sprocket on the hip axis. ---
+    hip_drive_xz = np.array([HIP_DRIVE_X, 0.0, hip[2]])
+    out += _drive_stack(hip_drive_xz, "hip_pitch")
+    # rename hip_pitch_brake -> hip_brake to match the docs/spec
+    name, role, color, mesh = out[-1]
+    out[-1] = ("hip_brake", role, color, mesh)
+
+    # --- hip joint: pivot pin + driven sprocket (bolted to the femur hub). ---
+    out.append(("hip_pivot_pin", "bearing", C_PIN,
+                _disc(hip, y, 2 * PIN_R, None, lo=PIN_Y[0], hi=PIN_Y[1])))
     out.append(("hip_secondary", "drivetrain", C_SEC,
-                _actuator(hip, pitch_axis, SEC_DIA, SEC_T)))
-    # femur truss: hip -> knee
-    out.append(("femur_frame", "frame", C_STEEL,
-                _truss(hip, knee, FRAME_DEPTH, CHORD_OD / 2, WEB_OD / 2)))
-    # knee actuator + 6:1 driven pulley + fail-safe brake on the fast shaft
-    out.append(("knee_actuator", "motor", C_X15,
-                _actuator(knee - pitch_axis * (SEC_T / 2 + X15_T / 2), pitch_axis, X15_DIA, X15_T)))
+                _disc(hip, y, SEC_DIA, None, lo=SPROCKET_Y[0], hi=SPROCKET_Y[1])))
+
+    # --- femur: pivot hub + collar + truss + knee clevis + knee-drive mount ---
+    femur_parts = [
+        _disc(hip, y, 2 * HUB_R, None, lo=HUB_Y[0], hi=HUB_Y[1]),
+        _tube(hip, hip + f_hat * (FEMUR_TRUSS_S0 + 40.0), COLLAR_R),
+    ]
+    femur_parts += _truss_parts(hip + f_hat * FEMUR_TRUSS_S0,
+                                knee - f_hat * FEMUR_TRUSS_S1,
+                                FRAME_DEPTH, CHORD_OD / 2, WEB_OD / 2)
+    femur_parts += _pitch_node_parent(knee, -f_hat)
+    # knee-drive mount plate: reaches from the truss chords down to the
+    # actuator seat plane (flat -Y face at DRIVE_Y[1] - SEAT).
+    knee_drive_xz = knee - f_hat * DRIVE_STANDOFF
+    w_f = np.cross(f_hat, y)
+    axes_f = np.column_stack([f_hat, y, w_f])
+    femur_parts.append(_obox(
+        knee_drive_xz + y * ((DRIVE_Y[1] - SEAT) + (-50.0)) / 2 + w_f * (-28.0),
+        [45.0, ((-50.0) - (DRIVE_Y[1] - SEAT)) / 2, 28.0], axes_f))
+    out.append(("femur_frame", "frame", C_STEEL, _union(femur_parts)))
+
+    # --- knee drive: X15 + MANDATORY fail-safe brake, mid-femur. ---
+    out += _drive_stack(knee_drive_xz, "knee")
+
+    # --- knee joint: pivot pin + driven sprocket (bolted to the tibia hub) ---
+    out.append(("knee_pivot_pin", "bearing", C_PIN,
+                _disc(knee, y, 2 * PIN_R, None, lo=PIN_Y[0], hi=PIN_Y[1])))
     out.append(("knee_secondary", "drivetrain", C_SEC,
-                _actuator(knee, pitch_axis, SEC_DIA, SEC_T)))
-    out.append(("knee_brake", "brake", C_BRAKE,
-                _actuator(knee - pitch_axis * (SEC_T / 2 + X15_T + BRAKE_T / 2),
-                          pitch_axis, BRAKE_DIA, BRAKE_T)))
-    # tibia truss: knee -> foot
-    out.append(("tibia_frame", "frame", C_STEEL_HI,
-                _truss(knee, foot, 0.85 * FRAME_DEPTH, CHORD_OD / 2, WEB_OD / 2)))
-    # foot pad (top at the ankle/foot point)
+                _disc(knee, y, SEC_DIA, None, lo=SPROCKET_Y[0], hi=SPROCKET_Y[1])))
+
+    # --- tibia: pivot hub + collar + truss + an AXIAL ankle strut down to the
+    # foot (along the tibia axis so it crosses the truss end rings at a clean
+    # angle — a vertical post grazes the near-parallel chords and leaves
+    # float32 self-intersection slivers). ---
+    tibia_parts = _pitch_node_child(knee, t_hat)
+    tibia_parts += _truss_parts(knee + t_hat * TIBIA_TRUSS_S0,
+                                foot - t_hat * TIBIA_TRUSS_S1,
+                                0.85 * FRAME_DEPTH, CHORD_OD / 2, WEB_OD / 2)
+    tibia_parts.append(_tube(foot - t_hat * (TIBIA_TRUSS_S1 + 60.0),
+                             foot - t_hat * 40.0, 30.0))
+    # short vertical ankle stub: flat-on-flat 0.1 mm seat onto the foot disc
+    tibia_parts.append(_tube([foot[0], foot[1], foot[2] + 65.0],
+                             [foot[0], foot[1], foot[2] - SEAT], 30.0))
+    out.append(("tibia_frame", "frame", C_STEEL_HI, _union(tibia_parts)))
+
+    # --- foot pad (top at the ankle/foot point) ---
     out.append(("foot", "frame", C_FOOT,
-                _actuator(foot + [0, 0, -FOOT_T / 2], [0, 0, 1], FOOT_DIA, FOOT_T)))
+                _disc(foot, [0, 0, 1], FOOT_DIA, None, lo=-FOOT_T, hi=0.0)))
     return out
 
 
 def _body_instances():
     """(name, role, color, mesh) for the chassis + rider interface, baseline
-    frame (hip-yaw axis at z=0)."""
-    z_bot, z_top = 40.0, 190.0
-    deck_t = 25.0
-    deck_bot = z_top
-    deck_ctr_z = deck_bot + deck_t / 2.0
-    deck_top = deck_bot + deck_t
+    frame (hip-yaw actuator mount plane at z=0)."""
+    deck_bot = RING_Z[1] + RING_TUBE_R - SEAT
+    deck_top = deck_bot + DECK["t"]
 
     out = []
-    out.append(("chassis_frame", "chassis", C_CHASSIS,
-                _hex_chassis(z_bot, z_top, r_vertex=HIP_YAW_RING_R, hub_r=60, tube_r=20)))
+    out.append(("chassis_frame", "chassis", C_CHASSIS, _hex_chassis()))
     out.append(("deck_plate", "chassis", C_DECK,
-                _box(extents=(780, 560, deck_t),
-                     transform=_trans([0, 0, deck_ctr_z]))))
-    # battery low + central
+                _obox([0, 0, (deck_bot + deck_top) / 2],
+                      [DECK["x"] / 2, DECK["y"] / 2, DECK["t"] / 2])))
+    # battery tray: low + central, seated on the lower radial spokes (footprint
+    # kept inside the chassis face diagonals)
+    batt_bot = RING_Z[0] + RING_TUBE_R - SEAT
     out.append(("battery", "electronics", C_BATT,
-                _box(extents=(420, 300, 150), transform=_trans([40, 0, 115]))))
+                _obox([240, 0, batt_bot + 50], [150, 130, 50])))
     # electronics bay on the deck, rear
     out.append(("e_bay", "electronics", C_EBAY,
-                _box(extents=(240, 200, 120), transform=_trans([-230, 0, deck_top + 60]))))
+                _obox([-230, 0, deck_top - SEAT + 60], [120, 100, 60])))
     # saddle on a suspension post (slightly rear)
     post_top = deck_top + 190.0
     out.append(("saddle_post", "rider", C_POST,
-                _tube([-40, 0, deck_top], [-40, 0, post_top], 26)))
+                _tube([-40, 0, deck_top - SEAT], [-40, 0, post_top], 26)))
     out.append(("saddle", "rider", C_SADDLE,
-                _box(extents=(360, 300, 90), transform=_trans([-40, 0, post_top + 45]))))
-    # handlebar (post + crossbar) at the front
+                _obox([-40, 0, post_top - SEAT + 45], [180, 150, 45])))
+    # handlebar (post + crossbar) at the front — one welded body
     bar_z = deck_top + 250.0
-    ctrl = trimesh.util.concatenate([
-        _tube([300, 0, deck_top], [300, 0, bar_z], 20),
+    out.append(("controls", "rider", C_CTRL, _union([
+        _tube([300, 0, deck_top - SEAT], [300, 0, bar_z], 20),
         _tube([300, -190, bar_z], [300, 190, bar_z], 18),
-    ])
-    out.append(("controls", "rider", C_CTRL, ctrl))
-    # footrests either side
-    out.append(("footpeg", "rider", C_PEG,
-                _box(extents=(150, 90, 30), transform=_trans([-40, 330, deck_top - 10]))))
-    out.append(("footpeg", "rider", C_PEG,
-                _box(extents=(150, 90, 30), transform=_trans([-40, -330, deck_top - 10]))))
+    ])))
+    # footrests either side, on the deck
+    for sy in (+1, -1):
+        out.append(("footpeg", "rider", C_PEG,
+                    _obox([-40, sy * 300, deck_top - SEAT + 15], [75, 45, 15])))
     return out
 
 
@@ -331,6 +536,17 @@ def _rot_z(theta) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # Scene assembly
 # ---------------------------------------------------------------------------
+# Distal (moving) link membership per declared joint, by leg-0 part name.
+# The driven sprocket moves with the joint it drives; the actuator + brake
+# ride on the PARENT link (so e.g. the knee drive belongs to the HIP set).
+YAW_DISTAL = ["coxa_frame", "yaw_pivot_pin", "hip_pitch_actuator", "hip_brake"]
+HIP_DISTAL = ["femur_frame", "hip_secondary", "hip_pivot_pin",
+              "knee_actuator", "knee_brake"]
+KNEE_DISTAL = ["tibia_frame", "knee_secondary", "knee_pivot_pin", "foot"]
+
+FASTENER_PARTS = {"yaw_pivot_pin", "hip_pivot_pin", "knee_pivot_pin"}
+
+
 def main() -> None:
     if STL_DIR.exists():
         shutil.rmtree(STL_DIR)
@@ -341,43 +557,127 @@ def main() -> None:
     body = _body_instances()
 
     # Build every world-baked mesh (baseline frame), collect for lift.
-    baked: list[tuple[str, str, str, trimesh.Trimesh]] = []
+    baked: list[tuple[str, str, str, trimesh.Trimesh, int | None]] = []
     for name, role, color, mesh in body:
-        baked.append((name, role, color, mesh))
+        baked.append((name, role, color, mesh, None))
     for i in range(N_LEGS):
         R = _rot_z(i * 2 * np.pi / N_LEGS)
         for name, role, color, mesh in leg0:
             m = mesh.copy()
             m.apply_transform(R)
-            baked.append((name, role, color, m))
+            baked.append((name, role, color, m, i))
 
     # Lift so the lowest point sits on z = 0 (ground).
-    z_min = min(float(m.bounds[0][2]) for _n, _r, _c, m in baked)
+    z_min = min(float(m.bounds[0][2]) for _n, _r, _c, m, _l in baked)
     Tlift = _trans([0.0, 0.0, -z_min])
+
+    # Pivot-pin shaft axes in the BODY frame (before lift), per leg: the yaw
+    # pin is vertical, the pitch/knee pins lie along the leg's pitch axis.
+    # Fastener meshes are exported in a LOCAL frame with the shaft along +Z and
+    # placed by a real instance transform, so any consumer that reasons about a
+    # fastener's axis (e.g. the joint-check coaxial-pivot exemption) sees the
+    # true shaft direction rather than a world-AABB guess.
+    pin_axis_leg0 = {
+        "yaw_pivot_pin": np.array([0.0, 0.0, 1.0]),
+        "hip_pivot_pin": np.array([0.0, 1.0, 0.0]),
+        "knee_pivot_pin": np.array([0.0, 1.0, 0.0]),
+    }
+
+    def _axis_to_transform(axis, origin) -> np.ndarray:
+        """Rigid transform mapping local +Z to ``axis`` at ``origin``."""
+        u = np.asarray(axis, float)
+        u = u / np.linalg.norm(u)
+        ref = np.array([1.0, 0.0, 0.0]) if abs(u[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+        v = np.cross(u, ref)
+        v /= np.linalg.norm(v)
+        w = np.cross(u, v)
+        T = np.eye(4)
+        T[:3, 0], T[:3, 1], T[:3, 2] = v, w, u
+        T[:3, 3] = np.asarray(origin, float)
+        return T
 
     instances_json: list[dict] = []
     meshes_json: list[dict] = []
     all_bounds: list[np.ndarray] = []
     identity = [float(v) for v in np.eye(4).flatten("F")]
+    ids_by_leg: dict[int, dict[str, str]] = {i: {} for i in range(N_LEGS)}
 
-    for idx, (name, role, color, mesh) in enumerate(baked):
+    for idx, (name, role, color, mesh, leg) in enumerate(baked):
         m = mesh.copy()
         m.apply_transform(Tlift)
         all_bounds.append(m.bounds)
         fname = f"{idx:03d}_{name}.stl"
-        m.export(STL_DIR / fname)
-        mesh_id = f"stl:{idx:03d}_{name}"
+        if name in FASTENER_PARTS:
+            # Export the pin in its local shaft frame; ship a real transform.
+            R = _rot_z(leg * 2 * np.pi / N_LEGS)[:3, :3]
+            axis = R @ pin_axis_leg0[name]
+            T = _axis_to_transform(axis, m.centroid)
+            local = m.copy()
+            local.apply_transform(np.linalg.inv(T))
+            local.export(STL_DIR / fname)
+            transform = [float(v) for v in T.flatten("F")]
+        else:
+            m.export(STL_DIR / fname)
+            transform = identity
+        # Pivot pins are fasteners: namespace their mesh id so BuildViz treats
+        # them as hardware (exempt from interference, used as joint axles).
+        ns = "fasteners" if name in FASTENER_PARTS else "stl"
+        mesh_id = f"{ns}:{idx:03d}_{name}"
+        inst_id = f"{idx:03d}-{name}"
         meshes_json.append({"id": mesh_id, "name": fname, "url": f"stl/{fname}"})
         instances_json.append({
-            "id": f"{idx:03d}-{name}",
+            "id": inst_id,
             "meshId": mesh_id,
-            "name": name.replace("_", " "),
+            "name": name.replace("_", " ") + ("" if leg is None else f" L{leg}"),
             "partType": name,
             "role": role,
             "cots": role in COTS_ROLES,
             "color": color,
-            "transform": identity,
+            "transform": transform,
             "centroid": [float(v) for v in m.centroid],
+            "leg": None if leg is None else f"L{leg}",
+        })
+        if leg is not None:
+            ids_by_leg[leg][name] = inst_id
+
+    # --- joints[] : the additive kinematics block (see buildScene.ts). One
+    # revolute joint per articulating DOF, world axis + origin at the HOME
+    # (static) pose, distal instances only (ancestors compose via parent). ---
+    lift = np.array([0.0, 0.0, -z_min])
+    joints_json: list[dict] = []
+    for i in range(N_LEGS):
+        th = i * 2 * np.pi / N_LEGS
+        R = _rot_z(th)[:3, :3]
+        yaw_o = R @ np.array([HIP_YAW_RING_R, 0.0, (COXA_HUB_Z[0] + YAW_ACT_Z[1]) / 2]) + lift
+        hip_o = R @ k["hip"] + lift
+        knee_o = R @ k["knee"] + lift
+        pitch_axis = R @ np.array([0.0, 1.0, 0.0])
+        ids = ids_by_leg[i]
+        joints_json.append({
+            "id": f"L{i}-yaw", "type": "revolute",
+            "axis": [0.0, 0.0, 1.0],
+            "origin": [float(v) for v in yaw_o],
+            "instances": [ids[n] for n in YAW_DISTAL],
+            "limits": {"min": YAW_LIMITS[0], "max": YAW_LIMITS[1]},
+            "home": 0, "label": f"L{i} hip yaw",
+        })
+        joints_json.append({
+            "id": f"L{i}-hip", "type": "revolute",
+            "axis": [float(v) for v in pitch_axis],
+            "origin": [float(v) for v in hip_o],
+            "parent": f"L{i}-yaw",
+            "instances": [ids[n] for n in HIP_DISTAL],
+            "limits": {"min": HIP_LIMITS[0], "max": HIP_LIMITS[1]},
+            "home": 0, "label": f"L{i} hip pitch",
+        })
+        joints_json.append({
+            "id": f"L{i}-knee", "type": "revolute",
+            "axis": [float(v) for v in pitch_axis],
+            "origin": [float(v) for v in knee_o],
+            "parent": f"L{i}-hip",
+            "instances": [ids[n] for n in KNEE_DISTAL],
+            "limits": {"min": KNEE_LIMITS[0], "max": KNEE_LIMITS[1]},
+            "home": 0, "label": f"L{i} knee",
         })
 
     b = np.array(all_bounds)
@@ -396,6 +696,7 @@ def main() -> None:
         },
         "meshes": meshes_json,
         "instances": instances_json,
+        "joints": joints_json,
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / "scene.json").write_text(json.dumps(scene, indent=2))
@@ -420,7 +721,8 @@ def main() -> None:
 
     dims = b[:, 1, :].max(0) - b[:, 0, :].min(0)
     print(f"Wrote {OUT_DIR/'scene.json'}")
-    print(f"  {len(instances_json)} instances, {len(meshes_json)} meshes")
+    print(f"  {len(instances_json)} instances, {len(meshes_json)} meshes, "
+          f"{len(joints_json)} joints")
     print(f"  leg IK: femur {k['femur_deg']:.1f}deg above horiz, "
           f"knee interior {k['knee_int_deg']:.1f}deg, hip->foot {k['d']:.0f} mm")
     print(f"  footprint bbox (mm): {dims[0]:.0f} x {dims[1]:.0f} wide, "

@@ -17,7 +17,8 @@ BUILDVIZ_ROOT ?= $(HOME)/buildviz
 help:
 	@echo "rideable_v1 BuildViz targets:"
 	@echo "  viz     Generate full_robot_viz/scene.json + stl/*.stl from design_spec.yaml."
-	@echo "  check   Run the generic BuildViz geometry verifier (buildviz_checks.py --emit)."
+	@echo "  check   Repo geometry verifier + design-consistency numbers + FULL buildviz"
+	@echo "          check suite (mesh overlap / mating / watertight / joint articulation)."
 	@echo "  render  Write PyVista preview PNGs (iso/side/front/top) into full_robot_viz/."
 	@echo "  all     viz + check + render."
 	@echo "  view-buildviz  Register the scene into the central BuildViz hub, open http://127.0.0.1:5183/?build=rideable_v1."
@@ -25,9 +26,18 @@ help:
 viz:
 	$(RUN) hexapod_walker/rideable_v1/tools/rideable_viz_build.py
 
+# check = three layers, all must pass:
+#   1. the generic repo-side geometry verifier (scene sanity, voxel overlap),
+#   2. the design-consistency regression script (mass/torque/chain/brake/power
+#      numbers re-derived from design_spec.yaml + doc-drift greps),
+#   3. the FULL BuildViz check suite via --buildviz (watertight, mesh_overlap,
+#      mating_contact, and the joint_fused/joint_fastener/joint_articulation
+#      checks against the scene's 18-DOF joints[] block).
 check:
 	$(RUN) $(STS)/tools/buildviz_checks.py \
 		$(CURDIR)/full_robot_viz/scene.json --emit --json
+	BUILDVIZ_ROOT=$(BUILDVIZ_ROOT) $(RUN) \
+		hexapod_walker/rideable_v1/tools/design_consistency_check.py --buildviz
 
 render:
 	$(RUN) hexapod_walker/rideable_v1/tools/render_rideable.py

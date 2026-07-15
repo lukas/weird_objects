@@ -6,7 +6,7 @@
   "center": [
     0.0,
     1.1368683772161603e-13,
-    547.5
+    632.4
   ],
   "checksConfig": {
     "overlapMm3": 3000.0,
@@ -17,36 +17,12 @@
         "chassis_frame"
       ],
       [
-        "battery",
-        "deck_plate"
-      ],
-      [
-        "battery",
-        "e_bay"
-      ],
-      [
-        "chassis_frame",
-        "coxa_frame"
-      ],
-      [
         "chassis_frame",
         "deck_plate"
-      ],
-      [
-        "chassis_frame",
-        "e_bay"
-      ],
-      [
-        "chassis_frame",
-        "footpeg"
       ],
       [
         "chassis_frame",
         "hip_yaw_actuator"
-      ],
-      [
-        "chassis_frame",
-        "saddle_post"
       ],
       [
         "controls",
@@ -54,19 +30,15 @@
       ],
       [
         "coxa_frame",
-        "femur_frame"
-      ],
-      [
-        "coxa_frame",
         "hip_pitch_actuator"
       ],
       [
         "coxa_frame",
-        "hip_secondary"
+        "hip_pivot_pin"
       ],
       [
         "coxa_frame",
-        "hip_yaw_actuator"
+        "yaw_pivot_pin"
       ],
       [
         "deck_plate",
@@ -82,7 +54,7 @@
       ],
       [
         "femur_frame",
-        "hip_pitch_actuator"
+        "hip_pivot_pin"
       ],
       [
         "femur_frame",
@@ -94,34 +66,26 @@
       ],
       [
         "femur_frame",
-        "knee_secondary"
-      ],
-      [
-        "femur_frame",
-        "tibia_frame"
+        "knee_pivot_pin"
       ],
       [
         "foot",
         "tibia_frame"
       ],
       [
-        "hip_pitch_actuator",
-        "hip_secondary"
+        "hip_brake",
+        "hip_pitch_actuator"
       ],
       [
-        "hip_secondary",
-        "hip_yaw_actuator"
+        "hip_yaw_actuator",
+        "yaw_pivot_pin"
       ],
       [
         "knee_actuator",
         "knee_brake"
       ],
       [
-        "knee_actuator",
-        "knee_secondary"
-      ],
-      [
-        "knee_actuator",
+        "knee_pivot_pin",
         "tibia_frame"
       ],
       [
@@ -186,184 +150,184 @@
       "url": "stl/009_hip_yaw_actuator.stl"
     },
     {
-      "id": "stl:010_coxa_frame",
-      "name": "010_coxa_frame.stl",
-      "url": "stl/010_coxa_frame.stl"
+      "id": "fasteners:010_yaw_pivot_pin",
+      "name": "010_yaw_pivot_pin.stl",
+      "url": "stl/010_yaw_pivot_pin.stl"
     },
     {
-      "id": "stl:011_hip_pitch_actuator",
-      "name": "011_hip_pitch_actuator.stl",
-      "url": "stl/011_hip_pitch_actuator.stl"
+      "id": "stl:011_coxa_frame",
+      "name": "011_coxa_frame.stl",
+      "url": "stl/011_coxa_frame.stl"
     },
     {
-      "id": "stl:012_hip_secondary",
-      "name": "012_hip_secondary.stl",
-      "url": "stl/012_hip_secondary.stl"
+      "id": "stl:012_hip_pitch_actuator",
+      "name": "012_hip_pitch_actuator.stl",
+      "url": "stl/012_hip_pitch_actuator.stl"
     },
     {
-      "id": "stl:013_femur_frame",
-      "name": "013_femur_frame.stl",
-      "url": "stl/013_femur_frame.stl"
+      "id": "stl:013_hip_brake",
+      "name": "013_hip_brake.stl",
+      "url": "stl/013_hip_brake.stl"
     },
     {
-      "id": "stl:014_knee_actuator",
-      "name": "014_knee_actuator.stl",
-      "url": "stl/014_knee_actuator.stl"
+      "id": "fasteners:014_hip_pivot_pin",
+      "name": "014_hip_pivot_pin.stl",
+      "url": "stl/014_hip_pivot_pin.stl"
     },
     {
-      "id": "stl:015_knee_secondary",
-      "name": "015_knee_secondary.stl",
-      "url": "stl/015_knee_secondary.stl"
+      "id": "stl:015_hip_secondary",
+      "name": "015_hip_secondary.stl",
+      "url": "stl/015_hip_secondary.stl"
     },
     {
-      "id": "stl:016_knee_brake",
-      "name": "016_knee_brake.stl",
-      "url": "stl/016_knee_brake.stl"
+      "id": "stl:016_femur_frame",
+      "name": "016_femur_frame.stl",
+      "url": "stl/016_femur_frame.stl"
     },
     {
-      "id": "stl:017_tibia_frame",
-      "name": "017_tibia_frame.stl",
-      "url": "stl/017_tibia_frame.stl"
+      "id": "stl:017_knee_actuator",
+      "name": "017_knee_actuator.stl",
+      "url": "stl/017_knee_actuator.stl"
     },
     {
-      "id": "stl:018_foot",
-      "name": "018_foot.stl",
-      "url": "stl/018_foot.stl"
+      "id": "stl:018_knee_brake",
+      "name": "018_knee_brake.stl",
+      "url": "stl/018_knee_brake.stl"
     },
     {
-      "id": "stl:019_hip_yaw_actuator",
-      "name": "019_hip_yaw_actuator.stl",
-      "url": "stl/019_hip_yaw_actuator.stl"
+      "id": "fasteners:019_knee_pivot_pin",
+      "name": "019_knee_pivot_pin.stl",
+      "url": "stl/019_knee_pivot_pin.stl"
     },
     {
-      "id": "stl:020_coxa_frame",
-      "name": "020_coxa_frame.stl",
-      "url": "stl/020_coxa_frame.stl"
+      "id": "stl:020_knee_secondary",
+      "name": "020_knee_secondary.stl",
+      "url": "stl/020_knee_secondary.stl"
     },
     {
-      "id": "stl:021_hip_pitch_actuator",
-      "name": "021_hip_pitch_actuator.stl",
-      "url": "stl/021_hip_pitch_actuator.stl"
+      "id": "stl:021_tibia_frame",
+      "name": "021_tibia_frame.stl",
+      "url": "stl/021_tibia_frame.stl"
     },
     {
-      "id": "stl:022_hip_secondary",
-      "name": "022_hip_secondary.stl",
-      "url": "stl/022_hip_secondary.stl"
+      "id": "stl:022_foot",
+      "name": "022_foot.stl",
+      "url": "stl/022_foot.stl"
     },
     {
-      "id": "stl:023_femur_frame",
-      "name": "023_femur_frame.stl",
-      "url": "stl/023_femur_frame.stl"
+      "id": "stl:023_hip_yaw_actuator",
+      "name": "023_hip_yaw_actuator.stl",
+      "url": "stl/023_hip_yaw_actuator.stl"
     },
     {
-      "id": "stl:024_knee_actuator",
-      "name": "024_knee_actuator.stl",
-      "url": "stl/024_knee_actuator.stl"
+      "id": "fasteners:024_yaw_pivot_pin",
+      "name": "024_yaw_pivot_pin.stl",
+      "url": "stl/024_yaw_pivot_pin.stl"
     },
     {
-      "id": "stl:025_knee_secondary",
-      "name": "025_knee_secondary.stl",
-      "url": "stl/025_knee_secondary.stl"
+      "id": "stl:025_coxa_frame",
+      "name": "025_coxa_frame.stl",
+      "url": "stl/025_coxa_frame.stl"
     },
     {
-      "id": "stl:026_knee_brake",
-      "name": "026_knee_brake.stl",
-      "url": "stl/026_knee_brake.stl"
+      "id": "stl:026_hip_pitch_actuator",
+      "name": "026_hip_pitch_actuator.stl",
+      "url": "stl/026_hip_pitch_actuator.stl"
     },
     {
-      "id": "stl:027_tibia_frame",
-      "name": "027_tibia_frame.stl",
-      "url": "stl/027_tibia_frame.stl"
+      "id": "stl:027_hip_brake",
+      "name": "027_hip_brake.stl",
+      "url": "stl/027_hip_brake.stl"
     },
     {
-      "id": "stl:028_foot",
-      "name": "028_foot.stl",
-      "url": "stl/028_foot.stl"
+      "id": "fasteners:028_hip_pivot_pin",
+      "name": "028_hip_pivot_pin.stl",
+      "url": "stl/028_hip_pivot_pin.stl"
     },
     {
-      "id": "stl:029_hip_yaw_actuator",
-      "name": "029_hip_yaw_actuator.stl",
-      "url": "stl/029_hip_yaw_actuator.stl"
+      "id": "stl:029_hip_secondary",
+      "name": "029_hip_secondary.stl",
+      "url": "stl/029_hip_secondary.stl"
     },
     {
-      "id": "stl:030_coxa_frame",
-      "name": "030_coxa_frame.stl",
-      "url": "stl/030_coxa_frame.stl"
+      "id": "stl:030_femur_frame",
+      "name": "030_femur_frame.stl",
+      "url": "stl/030_femur_frame.stl"
     },
     {
-      "id": "stl:031_hip_pitch_actuator",
-      "name": "031_hip_pitch_actuator.stl",
-      "url": "stl/031_hip_pitch_actuator.stl"
+      "id": "stl:031_knee_actuator",
+      "name": "031_knee_actuator.stl",
+      "url": "stl/031_knee_actuator.stl"
     },
     {
-      "id": "stl:032_hip_secondary",
-      "name": "032_hip_secondary.stl",
-      "url": "stl/032_hip_secondary.stl"
+      "id": "stl:032_knee_brake",
+      "name": "032_knee_brake.stl",
+      "url": "stl/032_knee_brake.stl"
     },
     {
-      "id": "stl:033_femur_frame",
-      "name": "033_femur_frame.stl",
-      "url": "stl/033_femur_frame.stl"
+      "id": "fasteners:033_knee_pivot_pin",
+      "name": "033_knee_pivot_pin.stl",
+      "url": "stl/033_knee_pivot_pin.stl"
     },
     {
-      "id": "stl:034_knee_actuator",
-      "name": "034_knee_actuator.stl",
-      "url": "stl/034_knee_actuator.stl"
+      "id": "stl:034_knee_secondary",
+      "name": "034_knee_secondary.stl",
+      "url": "stl/034_knee_secondary.stl"
     },
     {
-      "id": "stl:035_knee_secondary",
-      "name": "035_knee_secondary.stl",
-      "url": "stl/035_knee_secondary.stl"
+      "id": "stl:035_tibia_frame",
+      "name": "035_tibia_frame.stl",
+      "url": "stl/035_tibia_frame.stl"
     },
     {
-      "id": "stl:036_knee_brake",
-      "name": "036_knee_brake.stl",
-      "url": "stl/036_knee_brake.stl"
+      "id": "stl:036_foot",
+      "name": "036_foot.stl",
+      "url": "stl/036_foot.stl"
     },
     {
-      "id": "stl:037_tibia_frame",
-      "name": "037_tibia_frame.stl",
-      "url": "stl/037_tibia_frame.stl"
+      "id": "stl:037_hip_yaw_actuator",
+      "name": "037_hip_yaw_actuator.stl",
+      "url": "stl/037_hip_yaw_actuator.stl"
     },
     {
-      "id": "stl:038_foot",
-      "name": "038_foot.stl",
-      "url": "stl/038_foot.stl"
+      "id": "fasteners:038_yaw_pivot_pin",
+      "name": "038_yaw_pivot_pin.stl",
+      "url": "stl/038_yaw_pivot_pin.stl"
     },
     {
-      "id": "stl:039_hip_yaw_actuator",
-      "name": "039_hip_yaw_actuator.stl",
-      "url": "stl/039_hip_yaw_actuator.stl"
+      "id": "stl:039_coxa_frame",
+      "name": "039_coxa_frame.stl",
+      "url": "stl/039_coxa_frame.stl"
     },
     {
-      "id": "stl:040_coxa_frame",
-      "name": "040_coxa_frame.stl",
-      "url": "stl/040_coxa_frame.stl"
+      "id": "stl:040_hip_pitch_actuator",
+      "name": "040_hip_pitch_actuator.stl",
+      "url": "stl/040_hip_pitch_actuator.stl"
     },
     {
-      "id": "stl:041_hip_pitch_actuator",
-      "name": "041_hip_pitch_actuator.stl",
-      "url": "stl/041_hip_pitch_actuator.stl"
+      "id": "stl:041_hip_brake",
+      "name": "041_hip_brake.stl",
+      "url": "stl/041_hip_brake.stl"
     },
     {
-      "id": "stl:042_hip_secondary",
-      "name": "042_hip_secondary.stl",
-      "url": "stl/042_hip_secondary.stl"
+      "id": "fasteners:042_hip_pivot_pin",
+      "name": "042_hip_pivot_pin.stl",
+      "url": "stl/042_hip_pivot_pin.stl"
     },
     {
-      "id": "stl:043_femur_frame",
-      "name": "043_femur_frame.stl",
-      "url": "stl/043_femur_frame.stl"
+      "id": "stl:043_hip_secondary",
+      "name": "043_hip_secondary.stl",
+      "url": "stl/043_hip_secondary.stl"
     },
     {
-      "id": "stl:044_knee_actuator",
-      "name": "044_knee_actuator.stl",
-      "url": "stl/044_knee_actuator.stl"
+      "id": "stl:044_femur_frame",
+      "name": "044_femur_frame.stl",
+      "url": "stl/044_femur_frame.stl"
     },
     {
-      "id": "stl:045_knee_secondary",
-      "name": "045_knee_secondary.stl",
-      "url": "stl/045_knee_secondary.stl"
+      "id": "stl:045_knee_actuator",
+      "name": "045_knee_actuator.stl",
+      "url": "stl/045_knee_actuator.stl"
     },
     {
       "id": "stl:046_knee_brake",
@@ -371,114 +335,234 @@
       "url": "stl/046_knee_brake.stl"
     },
     {
-      "id": "stl:047_tibia_frame",
-      "name": "047_tibia_frame.stl",
-      "url": "stl/047_tibia_frame.stl"
+      "id": "fasteners:047_knee_pivot_pin",
+      "name": "047_knee_pivot_pin.stl",
+      "url": "stl/047_knee_pivot_pin.stl"
     },
     {
-      "id": "stl:048_foot",
-      "name": "048_foot.stl",
-      "url": "stl/048_foot.stl"
+      "id": "stl:048_knee_secondary",
+      "name": "048_knee_secondary.stl",
+      "url": "stl/048_knee_secondary.stl"
     },
     {
-      "id": "stl:049_hip_yaw_actuator",
-      "name": "049_hip_yaw_actuator.stl",
-      "url": "stl/049_hip_yaw_actuator.stl"
+      "id": "stl:049_tibia_frame",
+      "name": "049_tibia_frame.stl",
+      "url": "stl/049_tibia_frame.stl"
     },
     {
-      "id": "stl:050_coxa_frame",
-      "name": "050_coxa_frame.stl",
-      "url": "stl/050_coxa_frame.stl"
+      "id": "stl:050_foot",
+      "name": "050_foot.stl",
+      "url": "stl/050_foot.stl"
     },
     {
-      "id": "stl:051_hip_pitch_actuator",
-      "name": "051_hip_pitch_actuator.stl",
-      "url": "stl/051_hip_pitch_actuator.stl"
+      "id": "stl:051_hip_yaw_actuator",
+      "name": "051_hip_yaw_actuator.stl",
+      "url": "stl/051_hip_yaw_actuator.stl"
     },
     {
-      "id": "stl:052_hip_secondary",
-      "name": "052_hip_secondary.stl",
-      "url": "stl/052_hip_secondary.stl"
+      "id": "fasteners:052_yaw_pivot_pin",
+      "name": "052_yaw_pivot_pin.stl",
+      "url": "stl/052_yaw_pivot_pin.stl"
     },
     {
-      "id": "stl:053_femur_frame",
-      "name": "053_femur_frame.stl",
-      "url": "stl/053_femur_frame.stl"
+      "id": "stl:053_coxa_frame",
+      "name": "053_coxa_frame.stl",
+      "url": "stl/053_coxa_frame.stl"
     },
     {
-      "id": "stl:054_knee_actuator",
-      "name": "054_knee_actuator.stl",
-      "url": "stl/054_knee_actuator.stl"
+      "id": "stl:054_hip_pitch_actuator",
+      "name": "054_hip_pitch_actuator.stl",
+      "url": "stl/054_hip_pitch_actuator.stl"
     },
     {
-      "id": "stl:055_knee_secondary",
-      "name": "055_knee_secondary.stl",
-      "url": "stl/055_knee_secondary.stl"
+      "id": "stl:055_hip_brake",
+      "name": "055_hip_brake.stl",
+      "url": "stl/055_hip_brake.stl"
     },
     {
-      "id": "stl:056_knee_brake",
-      "name": "056_knee_brake.stl",
-      "url": "stl/056_knee_brake.stl"
+      "id": "fasteners:056_hip_pivot_pin",
+      "name": "056_hip_pivot_pin.stl",
+      "url": "stl/056_hip_pivot_pin.stl"
     },
     {
-      "id": "stl:057_tibia_frame",
-      "name": "057_tibia_frame.stl",
-      "url": "stl/057_tibia_frame.stl"
+      "id": "stl:057_hip_secondary",
+      "name": "057_hip_secondary.stl",
+      "url": "stl/057_hip_secondary.stl"
     },
     {
-      "id": "stl:058_foot",
-      "name": "058_foot.stl",
-      "url": "stl/058_foot.stl"
+      "id": "stl:058_femur_frame",
+      "name": "058_femur_frame.stl",
+      "url": "stl/058_femur_frame.stl"
     },
     {
-      "id": "stl:059_hip_yaw_actuator",
-      "name": "059_hip_yaw_actuator.stl",
-      "url": "stl/059_hip_yaw_actuator.stl"
+      "id": "stl:059_knee_actuator",
+      "name": "059_knee_actuator.stl",
+      "url": "stl/059_knee_actuator.stl"
     },
     {
-      "id": "stl:060_coxa_frame",
-      "name": "060_coxa_frame.stl",
-      "url": "stl/060_coxa_frame.stl"
+      "id": "stl:060_knee_brake",
+      "name": "060_knee_brake.stl",
+      "url": "stl/060_knee_brake.stl"
     },
     {
-      "id": "stl:061_hip_pitch_actuator",
-      "name": "061_hip_pitch_actuator.stl",
-      "url": "stl/061_hip_pitch_actuator.stl"
+      "id": "fasteners:061_knee_pivot_pin",
+      "name": "061_knee_pivot_pin.stl",
+      "url": "stl/061_knee_pivot_pin.stl"
     },
     {
-      "id": "stl:062_hip_secondary",
-      "name": "062_hip_secondary.stl",
-      "url": "stl/062_hip_secondary.stl"
+      "id": "stl:062_knee_secondary",
+      "name": "062_knee_secondary.stl",
+      "url": "stl/062_knee_secondary.stl"
     },
     {
-      "id": "stl:063_femur_frame",
-      "name": "063_femur_frame.stl",
-      "url": "stl/063_femur_frame.stl"
+      "id": "stl:063_tibia_frame",
+      "name": "063_tibia_frame.stl",
+      "url": "stl/063_tibia_frame.stl"
     },
     {
-      "id": "stl:064_knee_actuator",
-      "name": "064_knee_actuator.stl",
-      "url": "stl/064_knee_actuator.stl"
+      "id": "stl:064_foot",
+      "name": "064_foot.stl",
+      "url": "stl/064_foot.stl"
     },
     {
-      "id": "stl:065_knee_secondary",
-      "name": "065_knee_secondary.stl",
-      "url": "stl/065_knee_secondary.stl"
+      "id": "stl:065_hip_yaw_actuator",
+      "name": "065_hip_yaw_actuator.stl",
+      "url": "stl/065_hip_yaw_actuator.stl"
     },
     {
-      "id": "stl:066_knee_brake",
-      "name": "066_knee_brake.stl",
-      "url": "stl/066_knee_brake.stl"
+      "id": "fasteners:066_yaw_pivot_pin",
+      "name": "066_yaw_pivot_pin.stl",
+      "url": "stl/066_yaw_pivot_pin.stl"
     },
     {
-      "id": "stl:067_tibia_frame",
-      "name": "067_tibia_frame.stl",
-      "url": "stl/067_tibia_frame.stl"
+      "id": "stl:067_coxa_frame",
+      "name": "067_coxa_frame.stl",
+      "url": "stl/067_coxa_frame.stl"
     },
     {
-      "id": "stl:068_foot",
-      "name": "068_foot.stl",
-      "url": "stl/068_foot.stl"
+      "id": "stl:068_hip_pitch_actuator",
+      "name": "068_hip_pitch_actuator.stl",
+      "url": "stl/068_hip_pitch_actuator.stl"
+    },
+    {
+      "id": "stl:069_hip_brake",
+      "name": "069_hip_brake.stl",
+      "url": "stl/069_hip_brake.stl"
+    },
+    {
+      "id": "fasteners:070_hip_pivot_pin",
+      "name": "070_hip_pivot_pin.stl",
+      "url": "stl/070_hip_pivot_pin.stl"
+    },
+    {
+      "id": "stl:071_hip_secondary",
+      "name": "071_hip_secondary.stl",
+      "url": "stl/071_hip_secondary.stl"
+    },
+    {
+      "id": "stl:072_femur_frame",
+      "name": "072_femur_frame.stl",
+      "url": "stl/072_femur_frame.stl"
+    },
+    {
+      "id": "stl:073_knee_actuator",
+      "name": "073_knee_actuator.stl",
+      "url": "stl/073_knee_actuator.stl"
+    },
+    {
+      "id": "stl:074_knee_brake",
+      "name": "074_knee_brake.stl",
+      "url": "stl/074_knee_brake.stl"
+    },
+    {
+      "id": "fasteners:075_knee_pivot_pin",
+      "name": "075_knee_pivot_pin.stl",
+      "url": "stl/075_knee_pivot_pin.stl"
+    },
+    {
+      "id": "stl:076_knee_secondary",
+      "name": "076_knee_secondary.stl",
+      "url": "stl/076_knee_secondary.stl"
+    },
+    {
+      "id": "stl:077_tibia_frame",
+      "name": "077_tibia_frame.stl",
+      "url": "stl/077_tibia_frame.stl"
+    },
+    {
+      "id": "stl:078_foot",
+      "name": "078_foot.stl",
+      "url": "stl/078_foot.stl"
+    },
+    {
+      "id": "stl:079_hip_yaw_actuator",
+      "name": "079_hip_yaw_actuator.stl",
+      "url": "stl/079_hip_yaw_actuator.stl"
+    },
+    {
+      "id": "fasteners:080_yaw_pivot_pin",
+      "name": "080_yaw_pivot_pin.stl",
+      "url": "stl/080_yaw_pivot_pin.stl"
+    },
+    {
+      "id": "stl:081_coxa_frame",
+      "name": "081_coxa_frame.stl",
+      "url": "stl/081_coxa_frame.stl"
+    },
+    {
+      "id": "stl:082_hip_pitch_actuator",
+      "name": "082_hip_pitch_actuator.stl",
+      "url": "stl/082_hip_pitch_actuator.stl"
+    },
+    {
+      "id": "stl:083_hip_brake",
+      "name": "083_hip_brake.stl",
+      "url": "stl/083_hip_brake.stl"
+    },
+    {
+      "id": "fasteners:084_hip_pivot_pin",
+      "name": "084_hip_pivot_pin.stl",
+      "url": "stl/084_hip_pivot_pin.stl"
+    },
+    {
+      "id": "stl:085_hip_secondary",
+      "name": "085_hip_secondary.stl",
+      "url": "stl/085_hip_secondary.stl"
+    },
+    {
+      "id": "stl:086_femur_frame",
+      "name": "086_femur_frame.stl",
+      "url": "stl/086_femur_frame.stl"
+    },
+    {
+      "id": "stl:087_knee_actuator",
+      "name": "087_knee_actuator.stl",
+      "url": "stl/087_knee_actuator.stl"
+    },
+    {
+      "id": "stl:088_knee_brake",
+      "name": "088_knee_brake.stl",
+      "url": "stl/088_knee_brake.stl"
+    },
+    {
+      "id": "fasteners:089_knee_pivot_pin",
+      "name": "089_knee_pivot_pin.stl",
+      "url": "stl/089_knee_pivot_pin.stl"
+    },
+    {
+      "id": "stl:090_knee_secondary",
+      "name": "090_knee_secondary.stl",
+      "url": "stl/090_knee_secondary.stl"
+    },
+    {
+      "id": "stl:091_tibia_frame",
+      "name": "091_tibia_frame.stl",
+      "url": "stl/091_tibia_frame.stl"
+    },
+    {
+      "id": "stl:092_foot",
+      "name": "092_foot.stl",
+      "url": "stl/092_foot.stl"
     }
   ],
   "instances": [
@@ -509,10 +593,11 @@
         1.0
       ],
       "centroid": [
-        -2.3635935143470236e-13,
-        -3.941510971750723e-13,
-        714.9999999999945
-      ]
+        1.454379846545567e-07,
+        -2.3486960029464959e-07,
+        854.8091533759317
+      ],
+      "leg": null
     },
     {
       "id": "001-deck_plate",
@@ -543,8 +628,9 @@
       "centroid": [
         0.0,
         0.0,
-        802.5
-      ]
+        972.4
+      ],
+      "leg": null
     },
     {
       "id": "002-battery",
@@ -573,10 +659,11 @@
         1.0
       ],
       "centroid": [
-        40.0,
+        240.0,
         0.0,
-        715.0
-      ]
+        859.9
+      ],
+      "leg": null
     },
     {
       "id": "003-e_bay",
@@ -607,8 +694,9 @@
       "centroid": [
         -230.0,
         0.0,
-        875.0
-      ]
+        1044.8
+      ],
+      "leg": null
     },
     {
       "id": "004-saddle_post",
@@ -637,10 +725,11 @@
         1.0
       ],
       "centroid": [
-        -40.00000000000001,
-        3.286603629556283e-15,
-        909.999999999999
-      ]
+        -40.0,
+        1.2494042209078548e-15,
+        1079.8500000000013
+      ],
+      "leg": null
     },
     {
       "id": "005-saddle",
@@ -671,8 +760,9 @@
       "centroid": [
         -40.0,
         0.0,
-        1050.0
-      ]
+        1219.8
+      ],
+      "leg": null
     },
     {
       "id": "006-controls",
@@ -701,10 +791,11 @@
         1.0
       ],
       "centroid": [
-        299.99999999999966,
-        -1.5005626108293676e-16,
-        1011.2793282036392
-      ]
+        299.99999999999983,
+        2.336176851229351e-15,
+        1178.6321614285978
+      ],
+      "leg": null
     },
     {
       "id": "007-footpeg",
@@ -734,9 +825,10 @@
       ],
       "centroid": [
         -40.0,
-        330.0,
-        805.0
-      ]
+        300.0,
+        999.7999999999998
+      ],
+      "leg": null
     },
     {
       "id": "008-footpeg",
@@ -766,14 +858,15 @@
       ],
       "centroid": [
         -40.0,
-        -330.0,
-        805.0
-      ]
+        -300.0,
+        999.7999999999998
+      ],
+      "leg": null
     },
     {
       "id": "009-hip_yaw_actuator",
       "meshId": "stl:009_hip_yaw_actuator",
-      "name": "hip yaw actuator",
+      "name": "hip yaw actuator L0",
       "partType": "hip_yaw_actuator",
       "role": "motor",
       "cots": true,
@@ -797,15 +890,49 @@
         1.0
       ],
       "centroid": [
-        519.9999999999998,
-        1.2821703868928915e-16,
-        622.5000000000002
-      ]
+        519.9999999999997,
+        -3.065258469958316e-15,
+        710.05
+      ],
+      "leg": "L0"
     },
     {
-      "id": "010-coxa_frame",
-      "meshId": "stl:010_coxa_frame",
-      "name": "coxa frame",
+      "id": "010-yaw_pivot_pin",
+      "meshId": "fasteners:010_yaw_pivot_pin",
+      "name": "yaw pivot pin L0",
+      "partType": "yaw_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        520.0,
+        2.8771182666642657e-16,
+        674.9999999999994,
+        1.0
+      ],
+      "centroid": [
+        520.0,
+        2.8771182666642657e-16,
+        674.9999999999994
+      ],
+      "leg": "L0"
+    },
+    {
+      "id": "011-coxa_frame",
+      "meshId": "stl:011_coxa_frame",
+      "name": "coxa frame L0",
       "partType": "coxa_frame",
       "role": "frame",
       "cots": false,
@@ -829,15 +956,16 @@
         1.0
       ],
       "centroid": [
-        595.0000000000003,
-        1.1430859152364058e-14,
-        622.4999999999989
-      ]
+        483.1250120693631,
+        6.772399195488901,
+        606.2424202972313
+      ],
+      "leg": "L0"
     },
     {
-      "id": "011-hip_pitch_actuator",
-      "meshId": "stl:011_hip_pitch_actuator",
-      "name": "hip pitch actuator",
+      "id": "012-hip_pitch_actuator",
+      "meshId": "stl:012_hip_pitch_actuator",
+      "name": "hip pitch actuator L0",
       "partType": "hip_pitch_actuator",
       "role": "motor",
       "cots": true,
@@ -861,15 +989,82 @@
         1.0
       ],
       "centroid": [
-        670.0000000000001,
-        -52.50000000000001,
-        600.0000000000003
-      ]
+        399.9999999999996,
+        -129.99999999999994,
+        599.9999999999993
+      ],
+      "leg": "L0"
     },
     {
-      "id": "012-hip_secondary",
-      "meshId": "stl:012_hip_secondary",
-      "name": "hip secondary",
+      "id": "013-hip_brake",
+      "meshId": "stl:013_hip_brake",
+      "name": "hip brake L0",
+      "partType": "hip_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        399.9999999999999,
+        -184.94999999999993,
+        600.0000000000003
+      ],
+      "leg": "L0"
+    },
+    {
+      "id": "014-hip_pivot_pin",
+      "meshId": "fasteners:014_hip_pivot_pin",
+      "name": "hip pivot pin L0",
+      "partType": "hip_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        669.9999999999995,
+        17.499999999999996,
+        599.9999999999994,
+        1.0
+      ],
+      "centroid": [
+        669.9999999999995,
+        17.499999999999996,
+        599.9999999999994
+      ],
+      "leg": "L0"
+    },
+    {
+      "id": "015-hip_secondary",
+      "meshId": "stl:015_hip_secondary",
+      "name": "hip secondary L0",
       "partType": "hip_secondary",
       "role": "drivetrain",
       "cots": true,
@@ -893,335 +1088,16 @@
         1.0
       ],
       "centroid": [
-        670.0000000000001,
-        -3.980099471623098e-16,
-        599.9999999999999
-      ]
-    },
-    {
-      "id": "013-femur_frame",
-      "meshId": "stl:013_femur_frame",
-      "name": "femur frame",
-      "partType": "femur_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#8b9bab",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        955.3299832284358,
-        1.7448085451799764e-14,
-        692.6649916142147
-      ]
-    },
-    {
-      "id": "014-knee_actuator",
-      "meshId": "stl:014_knee_actuator",
-      "name": "knee actuator",
-      "partType": "knee_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#2e2e33",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        1240.6599664568637,
-        -52.49999999999999,
-        785.3299832284318
-      ]
-    },
-    {
-      "id": "015-knee_secondary",
-      "meshId": "stl:015_knee_secondary",
-      "name": "knee secondary",
-      "partType": "knee_secondary",
-      "role": "drivetrain",
-      "cots": true,
-      "color": "#95a5a6",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        1240.6599664568637,
-        -1.5920397886492392e-16,
-        785.3299832284322
-      ]
-    },
-    {
-      "id": "016-knee_brake",
-      "meshId": "stl:016_knee_brake",
-      "name": "knee brake",
-      "partType": "knee_brake",
-      "role": "brake",
-      "cots": true,
-      "color": "#f1c40f",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        1240.6599664568641,
-        -107.50000000000007,
-        785.3299832284317
-      ]
-    },
-    {
-      "id": "017-tibia_frame",
-      "meshId": "stl:017_tibia_frame",
-      "name": "tibia frame",
-      "partType": "tibia_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#7a8a9a",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        1095.3299832284347,
-        -1.8986581646200763e-16,
-        412.66499161421524
-      ]
-    },
-    {
-      "id": "018-foot",
-      "meshId": "stl:018_foot",
-      "name": "foot",
-      "partType": "foot",
-      "role": "frame",
-      "cots": false,
-      "color": "#2b2b2b",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        949.9999999999998,
-        -6.391693685055312e-15,
-        20.00000000000001
-      ]
-    },
-    {
-      "id": "019-hip_yaw_actuator",
-      "meshId": "stl:019_hip_yaw_actuator",
-      "name": "hip yaw actuator",
-      "partType": "hip_yaw_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#3a5a80",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        259.99999999999983,
-        450.33320996790815,
-        622.5000000000007
-      ]
-    },
-    {
-      "id": "020-coxa_frame",
-      "meshId": "stl:020_coxa_frame",
-      "name": "coxa frame",
-      "partType": "coxa_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#8b9bab",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        297.49999999999994,
-        515.285115251741,
-        622.4999999999989
-      ]
-    },
-    {
-      "id": "021-hip_pitch_actuator",
-      "meshId": "stl:021_hip_pitch_actuator",
-      "name": "hip pitch actuator",
-      "partType": "hip_pitch_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#2e2e33",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        380.466333698683,
-        553.987020535574,
+        669.9999999999998,
+        -69.95000000000006,
         600.0000000000002
-      ]
-    },
-    {
-      "id": "022-hip_secondary",
-      "meshId": "stl:022_hip_secondary",
-      "name": "hip secondary",
-      "partType": "hip_secondary",
-      "role": "drivetrain",
-      "cots": true,
-      "color": "#95a5a6",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
       ],
-      "centroid": [
-        335.00000000000006,
-        580.2370205355737,
-        600.0
-      ]
+      "leg": "L0"
     },
     {
-      "id": "023-femur_frame",
-      "meshId": "stl:023_femur_frame",
-      "name": "femur frame",
+      "id": "016-femur_frame",
+      "meshId": "stl:016_femur_frame",
+      "name": "femur frame L0",
       "partType": "femur_frame",
       "role": "frame",
       "cots": false,
@@ -1245,15 +1121,16 @@
         1.0
       ],
       "centroid": [
-        477.6649916142174,
-        827.3400344727868,
-        692.6649916142138
-      ]
+        923.1272342224033,
+        1.3908862783613656,
+        679.4358722993289
+      ],
+      "leg": "L0"
     },
     {
-      "id": "024-knee_actuator",
-      "meshId": "stl:024_knee_actuator",
-      "name": "knee actuator",
+      "id": "017-knee_actuator",
+      "meshId": "stl:017_knee_actuator",
+      "name": "knee actuator L0",
       "partType": "knee_actuator",
       "role": "motor",
       "cots": true,
@@ -1277,47 +1154,16 @@
         1.0
       ],
       "centroid": [
-        665.7963169271152,
-        1048.1930484099935,
-        785.3299832284324
-      ]
-    },
-    {
-      "id": "025-knee_secondary",
-      "meshId": "stl:025_knee_secondary",
-      "name": "knee secondary",
-      "partType": "knee_secondary",
-      "role": "drivetrain",
-      "cots": true,
-      "color": "#95a5a6",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
+        907.7749860236936,
+        -129.99999999999994,
+        677.2208263451803
       ],
-      "centroid": [
-        620.329983228432,
-        1074.4430484099933,
-        785.3299832284323
-      ]
+      "leg": "L0"
     },
     {
-      "id": "026-knee_brake",
-      "meshId": "stl:026_knee_brake",
-      "name": "knee brake",
+      "id": "018-knee_brake",
+      "meshId": "stl:018_knee_brake",
+      "name": "knee brake L0",
       "partType": "knee_brake",
       "role": "brake",
       "cots": true,
@@ -1341,15 +1187,82 @@
         1.0
       ],
       "centroid": [
-        713.4277141352592,
-        1020.6930484099937,
+        907.774986023693,
+        -184.94999999999987,
+        677.2208263451805
+      ],
+      "leg": "L0"
+    },
+    {
+      "id": "019-knee_pivot_pin",
+      "meshId": "fasteners:019_knee_pivot_pin",
+      "name": "knee pivot pin L0",
+      "partType": "knee_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1240.6599664568625,
+        17.500000000000007,
+        785.3299832284313,
+        1.0
+      ],
+      "centroid": [
+        1240.6599664568625,
+        17.500000000000007,
+        785.3299832284313
+      ],
+      "leg": "L0"
+    },
+    {
+      "id": "020-knee_secondary",
+      "meshId": "stl:020_knee_secondary",
+      "name": "knee secondary L0",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        1240.6599664568635,
+        -69.95000000000003,
         785.3299832284321
-      ]
+      ],
+      "leg": "L0"
     },
     {
-      "id": "027-tibia_frame",
-      "meshId": "stl:027_tibia_frame",
-      "name": "tibia frame",
+      "id": "021-tibia_frame",
+      "meshId": "stl:021_tibia_frame",
+      "name": "tibia frame L0",
       "partType": "tibia_frame",
       "role": "frame",
       "cots": false,
@@ -1373,15 +1286,16 @@
         1.0
       ],
       "centroid": [
-        547.6649916142176,
-        948.5835910026012,
-        412.66499161421575
-      ]
+        1089.8279812681203,
+        -0.21871903320026934,
+        399.5634283841413
+      ],
+      "leg": "L0"
     },
     {
-      "id": "028-foot",
-      "meshId": "stl:028_foot",
-      "name": "foot",
+      "id": "022-foot",
+      "meshId": "stl:022_foot",
+      "name": "foot L0",
       "partType": "foot",
       "role": "frame",
       "cots": false,
@@ -1405,15 +1319,16 @@
         1.0
       ],
       "centroid": [
-        475.0,
-        822.724133595217,
-        19.999999999999993
-      ]
+        950.0000000000002,
+        4.5687694145260086e-15,
+        20.000000000000014
+      ],
+      "leg": "L0"
     },
     {
-      "id": "029-hip_yaw_actuator",
-      "meshId": "stl:029_hip_yaw_actuator",
-      "name": "hip yaw actuator",
+      "id": "023-hip_yaw_actuator",
+      "meshId": "stl:023_hip_yaw_actuator",
+      "name": "hip yaw actuator L1",
       "partType": "hip_yaw_actuator",
       "role": "motor",
       "cots": true,
@@ -1437,975 +1352,49 @@
         1.0
       ],
       "centroid": [
-        -259.9999999999997,
-        450.333209967908,
-        622.5000000000003
-      ]
-    },
-    {
-      "id": "030-coxa_frame",
-      "meshId": "stl:030_coxa_frame",
-      "name": "coxa frame",
-      "partType": "coxa_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#8b9bab",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
+        260.00000000000017,
+        450.3332099679077,
+        710.0500000000001
       ],
-      "centroid": [
-        -297.50000000000045,
-        515.2851152517427,
-        622.499999999999
-      ]
+      "leg": "L1"
     },
     {
-      "id": "031-hip_pitch_actuator",
-      "meshId": "stl:031_hip_pitch_actuator",
-      "name": "hip pitch actuator",
-      "partType": "hip_pitch_actuator",
-      "role": "motor",
+      "id": "024-yaw_pivot_pin",
+      "meshId": "fasteners:024_yaw_pivot_pin",
+      "name": "yaw pivot pin L1",
+      "partType": "yaw_pivot_pin",
+      "role": "bearing",
       "cots": true,
-      "color": "#2e2e33",
+      "color": "#b8860b",
       "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -289.5336663013167,
-        606.487020535574,
-        600.0000000000002
-      ]
-    },
-    {
-      "id": "032-hip_secondary",
-      "meshId": "stl:032_hip_secondary",
-      "name": "hip secondary",
-      "partType": "hip_secondary",
-      "role": "drivetrain",
-      "cots": true,
-      "color": "#95a5a6",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -335.00000000000006,
-        580.2370205355741,
-        599.9999999999999
-      ]
-    },
-    {
-      "id": "033-femur_frame",
-      "meshId": "stl:033_femur_frame",
-      "name": "femur frame",
-      "partType": "femur_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#8b9bab",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -477.6649916142152,
-        827.3400344727831,
-        692.6649916142146
-      ]
-    },
-    {
-      "id": "034-knee_actuator",
-      "meshId": "stl:034_knee_actuator",
-      "name": "knee actuator",
-      "partType": "knee_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#2e2e33",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -574.8636495297487,
-        1100.693048409994,
-        785.3299832284321
-      ]
-    },
-    {
-      "id": "035-knee_secondary",
-      "meshId": "stl:035_knee_secondary",
-      "name": "knee secondary",
-      "partType": "knee_secondary",
-      "role": "drivetrain",
-      "cots": true,
-      "color": "#95a5a6",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -620.3299832284317,
-        1074.4430484099933,
-        785.3299832284321
-      ]
-    },
-    {
-      "id": "036-knee_brake",
-      "meshId": "stl:036_knee_brake",
-      "name": "knee brake",
-      "partType": "knee_brake",
-      "role": "brake",
-      "cots": true,
-      "color": "#f1c40f",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -527.2322523216045,
-        1128.1930484099937,
-        785.329983228432
-      ]
-    },
-    {
-      "id": "037-tibia_frame",
-      "meshId": "stl:037_tibia_frame",
-      "name": "tibia frame",
-      "partType": "tibia_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#7a8a9a",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -547.6649916142177,
-        948.5835910025995,
-        412.6649916142154
-      ]
-    },
-    {
-      "id": "038-foot",
-      "meshId": "stl:038_foot",
-      "name": "foot",
-      "partType": "foot",
-      "role": "frame",
-      "cots": false,
-      "color": "#2b2b2b",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -474.99999999999983,
-        822.7241335952164,
-        20.000000000000004
-      ]
-    },
-    {
-      "id": "039-hip_yaw_actuator",
-      "meshId": "stl:039_hip_yaw_actuator",
-      "name": "hip yaw actuator",
-      "partType": "hip_yaw_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#3a5a80",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -519.9999999999998,
-        6.062528979358556e-14,
-        622.5000000000002
-      ]
-    },
-    {
-      "id": "040-coxa_frame",
-      "meshId": "stl:040_coxa_frame",
-      "name": "coxa frame",
-      "partType": "coxa_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#8b9bab",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -595.0000000000005,
-        7.21957896935389e-14,
-        622.4999999999986
-      ]
-    },
-    {
-      "id": "041-hip_pitch_actuator",
-      "meshId": "stl:041_hip_pitch_actuator",
-      "name": "hip pitch actuator",
-      "partType": "hip_pitch_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#2e2e33",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -670.0,
-        52.50000000000009,
-        600.0000000000003
-      ]
-    },
-    {
-      "id": "042-hip_secondary",
-      "meshId": "stl:042_hip_secondary",
-      "name": "hip secondary",
-      "partType": "hip_secondary",
-      "role": "drivetrain",
-      "cots": true,
-      "color": "#95a5a6",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -670.0000000000001,
-        8.230845707316566e-14,
-        599.9999999999999
-      ]
-    },
-    {
-      "id": "043-femur_frame",
-      "meshId": "stl:043_femur_frame",
-      "name": "femur frame",
-      "partType": "femur_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#8b9bab",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -955.329983228436,
-        1.0902578028731207e-13,
-        692.6649916142147
-      ]
-    },
-    {
-      "id": "044-knee_actuator",
-      "meshId": "stl:044_knee_actuator",
-      "name": "knee actuator",
-      "partType": "knee_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#2e2e33",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -1240.6599664568637,
-        52.500000000000135,
-        785.3299832284318
-      ]
-    },
-    {
-      "id": "045-knee_secondary",
-      "meshId": "stl:045_knee_secondary",
-      "name": "knee secondary",
-      "partType": "knee_secondary",
-      "role": "drivetrain",
-      "cots": true,
-      "color": "#95a5a6",
-      "transform": [
-        1.0,
-        0.0,
         0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -1240.6599664568637,
-        1.5343283463107041e-13,
-        785.3299832284322
-      ]
-    },
-    {
-      "id": "046-knee_brake",
-      "meshId": "stl:046_knee_brake",
-      "name": "knee brake",
-      "partType": "knee_brake",
-      "role": "brake",
-      "cots": true,
-      "color": "#f1c40f",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -1240.6599664568641,
-        107.50000000000018,
-        785.3299832284318
-      ]
-    },
-    {
-      "id": "047-tibia_frame",
-      "meshId": "stl:047_tibia_frame",
-      "name": "tibia frame",
-      "partType": "tibia_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#7a8a9a",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -1095.3299832284351,
-        1.37761014257558e-13,
-        412.66499161421524
-      ]
-    },
-    {
-      "id": "048-foot",
-      "meshId": "stl:048_foot",
-      "name": "foot",
-      "partType": "foot",
-      "role": "frame",
-      "cots": false,
-      "color": "#2b2b2b",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -949.9999999999998,
-        1.2158152499686258e-13,
-        20.00000000000001
-      ]
-    },
-    {
-      "id": "049-hip_yaw_actuator",
-      "meshId": "stl:049_hip_yaw_actuator",
-      "name": "hip yaw actuator",
-      "partType": "hip_yaw_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#3a5a80",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -260.00000000000006,
-        -450.3332099679077,
-        622.4999999999999
-      ]
-    },
-    {
-      "id": "050-coxa_frame",
-      "meshId": "stl:050_coxa_frame",
-      "name": "coxa frame",
-      "partType": "coxa_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#8b9bab",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -297.50000000000057,
-        -515.2851152517408,
-        622.4999999999992
-      ]
-    },
-    {
-      "id": "051-hip_pitch_actuator",
-      "meshId": "stl:051_hip_pitch_actuator",
-      "name": "hip pitch actuator",
-      "partType": "hip_pitch_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#2e2e33",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -380.46633369868334,
-        -553.9870205355737,
-        600.0000000000003
-      ]
-    },
-    {
-      "id": "052-hip_secondary",
-      "meshId": "stl:052_hip_secondary",
-      "name": "hip secondary",
-      "partType": "hip_secondary",
-      "role": "drivetrain",
-      "cots": true,
-      "color": "#95a5a6",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -335.0000000000002,
-        -580.2370205355735,
-        599.9999999999995
-      ]
-    },
-    {
-      "id": "053-femur_frame",
-      "meshId": "stl:053_femur_frame",
-      "name": "femur frame",
-      "partType": "femur_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#8b9bab",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -477.664991614218,
-        -827.3400344727862,
-        692.6649916142143
-      ]
-    },
-    {
-      "id": "054-knee_actuator",
-      "meshId": "stl:054_knee_actuator",
-      "name": "knee actuator",
-      "partType": "knee_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#2e2e33",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -665.7963169271154,
-        -1048.1930484099933,
-        785.3299832284318
-      ]
-    },
-    {
-      "id": "055-knee_secondary",
-      "meshId": "stl:055_knee_secondary",
-      "name": "knee secondary",
-      "partType": "knee_secondary",
-      "role": "drivetrain",
-      "cots": true,
-      "color": "#95a5a6",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -620.3299832284323,
-        -1074.4430484099921,
-        785.3299832284323
-      ]
-    },
-    {
-      "id": "056-knee_brake",
-      "meshId": "stl:056_knee_brake",
-      "name": "knee brake",
-      "partType": "knee_brake",
-      "role": "brake",
-      "cots": true,
-      "color": "#f1c40f",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -713.4277141352601,
-        -1020.6930484099933,
-        785.329983228432
-      ]
-    },
-    {
-      "id": "057-tibia_frame",
-      "meshId": "stl:057_tibia_frame",
-      "name": "tibia frame",
-      "partType": "tibia_frame",
-      "role": "frame",
-      "cots": false,
-      "color": "#7a8a9a",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -547.6649916142176,
-        -948.5835910026004,
-        412.6649916142157
-      ]
-    },
-    {
-      "id": "058-foot",
-      "meshId": "stl:058_foot",
-      "name": "foot",
-      "partType": "foot",
-      "role": "frame",
-      "cots": false,
-      "color": "#2b2b2b",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "centroid": [
-        -475.0000000000003,
-        -822.7241335952162,
-        20.000000000000004
-      ]
-    },
-    {
-      "id": "059-hip_yaw_actuator",
-      "meshId": "stl:059_hip_yaw_actuator",
-      "name": "hip yaw actuator",
-      "partType": "hip_yaw_actuator",
-      "role": "motor",
-      "cots": true,
-      "color": "#3a5a80",
-      "transform": [
         1.0,
-        0.0,
         0.0,
         0.0,
+        -1.0,
         0.0,
-        1.0,
         0.0,
         0.0,
         0.0,
         0.0,
         1.0,
-        0.0,
-        0.0,
-        0.0,
         0.0,
+        259.9999999999999,
+        450.3332099679083,
+        674.9999999999997,
         1.0
       ],
       "centroid": [
         259.9999999999999,
-        -450.33320996790815,
-        622.5000000000003
-      ]
+        450.3332099679083,
+        674.9999999999997
+      ],
+      "leg": "L1"
     },
     {
-      "id": "060-coxa_frame",
-      "meshId": "stl:060_coxa_frame",
-      "name": "coxa frame",
+      "id": "025-coxa_frame",
+      "meshId": "stl:025_coxa_frame",
+      "name": "coxa frame L1",
       "partType": "coxa_frame",
       "role": "frame",
       "cots": false,
@@ -2429,15 +1418,16 @@
         1.0
       ],
       "centroid": [
-        297.50000000000045,
-        -515.2851152517427,
-        622.4999999999984
-      ]
+        235.6974362868191,
+        421.7847332534765,
+        606.2424202972315
+      ],
+      "leg": "L1"
     },
     {
-      "id": "061-hip_pitch_actuator",
-      "meshId": "stl:061_hip_pitch_actuator",
-      "name": "hip pitch actuator",
+      "id": "026-hip_pitch_actuator",
+      "meshId": "stl:026_hip_pitch_actuator",
+      "name": "hip pitch actuator L1",
       "partType": "hip_pitch_actuator",
       "role": "motor",
       "cots": true,
@@ -2461,15 +1451,82 @@
         1.0
       ],
       "centroid": [
-        289.5336663013168,
-        -606.4870205355738,
-        600.0
-      ]
+        312.58330249197695,
+        281.4101615137756,
+        599.9999999999995
+      ],
+      "leg": "L1"
     },
     {
-      "id": "062-hip_secondary",
-      "meshId": "stl:062_hip_secondary",
-      "name": "hip secondary",
+      "id": "027-hip_brake",
+      "meshId": "stl:027_hip_brake",
+      "name": "hip brake L1",
+      "partType": "hip_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        360.1713984299318,
+        253.93516151377537,
+        600.0000000000001
+      ],
+      "leg": "L1"
+    },
+    {
+      "id": "028-hip_pivot_pin",
+      "meshId": "fasteners:028_hip_pivot_pin",
+      "name": "hip pivot pin L1",
+      "partType": "hip_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        -0.5000000000000001,
+        -0.8660254037844386,
+        -0.0,
+        0.0,
+        -0.8660254037844386,
+        0.5000000000000001,
+        0.0,
+        0.0,
+        319.84455543377226,
+        588.987020535574,
+        600.0,
+        1.0
+      ],
+      "centroid": [
+        319.84455543377226,
+        588.987020535574,
+        600.0
+      ],
+      "leg": "L1"
+    },
+    {
+      "id": "029-hip_secondary",
+      "meshId": "stl:029_hip_secondary",
+      "name": "hip secondary L1",
       "partType": "hip_secondary",
       "role": "drivetrain",
       "cots": true,
@@ -2493,15 +1550,16 @@
         1.0
       ],
       "centroid": [
-        335.0000000000002,
-        -580.2370205355737,
-        600.0
-      ]
+        395.57847699472177,
+        545.2620205355737,
+        599.9999999999999
+      ],
+      "leg": "L1"
     },
     {
-      "id": "063-femur_frame",
-      "meshId": "stl:063_femur_frame",
-      "name": "femur frame",
+      "id": "030-femur_frame",
+      "meshId": "stl:030_femur_frame",
+      "name": "femur frame L1",
       "partType": "femur_frame",
       "role": "frame",
       "cots": false,
@@ -2525,15 +1583,16 @@
         1.0
       ],
       "centroid": [
-        477.66499161421496,
-        -827.3400344727842,
-        692.6649916142142
-      ]
+        460.35907426036414,
+        800.1470789010483,
+        679.4358722993283
+      ],
+      "leg": "L1"
     },
     {
-      "id": "064-knee_actuator",
-      "meshId": "stl:064_knee_actuator",
-      "name": "knee actuator",
+      "id": "031-knee_actuator",
+      "meshId": "stl:031_knee_actuator",
+      "name": "knee actuator L1",
       "partType": "knee_actuator",
       "role": "motor",
       "cots": true,
@@ -2557,47 +1616,16 @@
         1.0
       ],
       "centroid": [
-        574.8636495297488,
-        -1100.6930484099942,
-        785.3299832284324
-      ]
-    },
-    {
-      "id": "065-knee_secondary",
-      "meshId": "stl:065_knee_secondary",
-      "name": "knee secondary",
-      "partType": "knee_secondary",
-      "role": "drivetrain",
-      "cots": true,
-      "color": "#95a5a6",
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0
+        566.4707955038235,
+        721.1561988165819,
+        677.22082634518
       ],
-      "centroid": [
-        620.3299832284322,
-        -1074.4430484099933,
-        785.3299832284323
-      ]
+      "leg": "L1"
     },
     {
-      "id": "066-knee_brake",
-      "meshId": "stl:066_knee_brake",
-      "name": "knee brake",
+      "id": "032-knee_brake",
+      "meshId": "stl:032_knee_brake",
+      "name": "knee brake L1",
       "partType": "knee_brake",
       "role": "brake",
       "cots": true,
@@ -2621,15 +1649,82 @@
         1.0
       ],
       "centroid": [
-        527.2322523216051,
-        -1128.1930484099944,
-        785.3299832284321
-      ]
+        614.058891441779,
+        693.6811988165821,
+        677.2208263451802
+      ],
+      "leg": "L1"
     },
     {
-      "id": "067-tibia_frame",
-      "meshId": "stl:067_tibia_frame",
-      "name": "tibia frame",
+      "id": "033-knee_pivot_pin",
+      "meshId": "fasteners:033_knee_pivot_pin",
+      "name": "knee pivot pin L1",
+      "partType": "knee_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        -0.5000000000000001,
+        -0.8660254037844386,
+        -0.0,
+        0.0,
+        -0.8660254037844386,
+        0.5000000000000001,
+        0.0,
+        0.0,
+        605.1745386622042,
+        1083.1930484099933,
+        785.3299832284322,
+        1.0
+      ],
+      "centroid": [
+        605.1745386622042,
+        1083.1930484099933,
+        785.3299832284322
+      ],
+      "leg": "L1"
+    },
+    {
+      "id": "034-knee_secondary",
+      "meshId": "stl:034_knee_secondary",
+      "name": "knee secondary L1",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        680.9084602231535,
+        1039.4680484099945,
+        785.3299832284321
+      ],
+      "leg": "L1"
+    },
+    {
+      "id": "035-tibia_frame",
+      "meshId": "stl:035_tibia_frame",
+      "name": "tibia frame L1",
       "partType": "tibia_frame",
       "role": "frame",
       "cots": false,
@@ -2653,15 +1748,16 @@
         1.0
       ],
       "centroid": [
-        547.6649916142176,
-        -948.5835910025999,
-        412.6649916142153
-      ]
+        545.1034068730983,
+        943.709358016697,
+        399.56342838414076
+      ],
+      "leg": "L1"
     },
     {
-      "id": "068-foot",
-      "meshId": "stl:068_foot",
-      "name": "foot",
+      "id": "036-foot",
+      "meshId": "stl:036_foot",
+      "name": "foot L1",
       "partType": "foot",
       "role": "frame",
       "cots": false,
@@ -2685,10 +1781,2347 @@
         1.0
       ],
       "centroid": [
-        475.0000000000002,
-        -822.724133595216,
+        474.99999999999983,
+        822.7241335952169,
+        20.000000000000014
+      ],
+      "leg": "L1"
+    },
+    {
+      "id": "037-hip_yaw_actuator",
+      "meshId": "stl:037_hip_yaw_actuator",
+      "name": "hip yaw actuator L2",
+      "partType": "hip_yaw_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#3a5a80",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -259.99999999999994,
+        450.33320996790803,
+        710.0500000000001
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "038-yaw_pivot_pin",
+      "meshId": "fasteners:038_yaw_pivot_pin",
+      "name": "yaw pivot pin L2",
+      "partType": "yaw_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -259.99999999999994,
+        450.333209967908,
+        674.9999999999995,
+        1.0
+      ],
+      "centroid": [
+        -259.99999999999994,
+        450.333209967908,
+        674.9999999999995
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "039-coxa_frame",
+      "meshId": "stl:039_coxa_frame",
+      "name": "coxa frame L2",
+      "partType": "coxa_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -247.42757578254424,
+        415.0123340579876,
+        606.2424202972315
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "040-hip_pitch_actuator",
+      "meshId": "stl:040_hip_pitch_actuator",
+      "name": "hip pitch actuator L2",
+      "partType": "hip_pitch_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -87.4166975080228,
+        411.41016151377556,
+        599.9999999999995
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "041-hip_brake",
+      "meshId": "stl:041_hip_brake",
+      "name": "hip brake L2",
+      "partType": "hip_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -39.82860157006801,
+        438.8851615137752,
+        600.0000000000001
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "042-hip_pivot_pin",
+      "meshId": "fasteners:042_hip_pivot_pin",
+      "name": "hip pivot pin L2",
+      "partType": "hip_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        -0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.49999999999999983,
+        0.8660254037844387,
+        -0.0,
+        0.0,
+        -0.8660254037844387,
+        -0.49999999999999983,
+        0.0,
+        0.0,
+        -350.15544456622746,
+        571.4870205355743,
+        599.9999999999999,
+        1.0
+      ],
+      "centroid": [
+        -350.15544456622746,
+        571.4870205355743,
+        599.9999999999999
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "043-hip_secondary",
+      "meshId": "stl:043_hip_secondary",
+      "name": "hip secondary L2",
+      "partType": "hip_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -274.4215230052783,
+        615.2120205355739,
+        600.0000000000002
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "044-femur_frame",
+      "meshId": "stl:044_femur_frame",
+      "name": "femur frame L2",
+      "partType": "femur_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -462.7681599620381,
+        798.7561926226851,
+        679.4358722993286
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "045-knee_actuator",
+      "meshId": "stl:045_knee_actuator",
+      "name": "knee actuator L2",
+      "partType": "knee_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -341.3041905198695,
+        851.1561988165826,
+        677.2208263451798
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "046-knee_brake",
+      "meshId": "stl:046_knee_brake",
+      "name": "knee brake L2",
+      "partType": "knee_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -293.7160945819144,
+        878.6311988165825,
+        677.2208263451802
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "047-knee_pivot_pin",
+      "meshId": "fasteners:047_knee_pivot_pin",
+      "name": "knee pivot pin L2",
+      "partType": "knee_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        -0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.49999999999999983,
+        0.8660254037844387,
+        -0.0,
+        0.0,
+        -0.8660254037844387,
+        -0.49999999999999983,
+        0.0,
+        0.0,
+        -635.4854277946595,
+        1065.6930484099942,
+        785.3299832284317,
+        1.0
+      ],
+      "centroid": [
+        -635.4854277946595,
+        1065.6930484099942,
+        785.3299832284317
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "048-knee_secondary",
+      "meshId": "stl:048_knee_secondary",
+      "name": "knee secondary L2",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -559.7515062337103,
+        1109.4180484099936,
+        785.3299832284315
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "049-tibia_frame",
+      "meshId": "stl:049_tibia_frame",
+      "name": "tibia frame L2",
+      "partType": "tibia_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#7a8a9a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -544.7245743950143,
+        943.9280770498997,
+        399.5634283841404
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "050-foot",
+      "meshId": "stl:050_foot",
+      "name": "foot L2",
+      "partType": "foot",
+      "role": "frame",
+      "cots": false,
+      "color": "#2b2b2b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -474.9999999999997,
+        822.7241335952166,
+        20.00000000000001
+      ],
+      "leg": "L2"
+    },
+    {
+      "id": "051-hip_yaw_actuator",
+      "meshId": "stl:051_hip_yaw_actuator",
+      "name": "hip yaw actuator L3",
+      "partType": "hip_yaw_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#3a5a80",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -519.9999999999995,
+        6.62702318451527e-14,
+        710.0499999999998
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "052-yaw_pivot_pin",
+      "meshId": "fasteners:052_yaw_pivot_pin",
+      "name": "yaw pivot pin L3",
+      "partType": "yaw_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -519.9999999999999,
+        6.287604442863845e-14,
+        674.9999999999994,
+        1.0
+      ],
+      "centroid": [
+        -519.9999999999999,
+        6.287604442863845e-14,
+        674.9999999999994
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "053-coxa_frame",
+      "meshId": "stl:053_coxa_frame",
+      "name": "coxa frame L3",
+      "partType": "coxa_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -483.1250120693631,
+        -6.772399195488842,
+        606.2424202972313
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "054-hip_pitch_actuator",
+      "meshId": "stl:054_hip_pitch_actuator",
+      "name": "hip pitch actuator L3",
+      "partType": "hip_pitch_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -399.99999999999955,
+        130.0,
+        599.9999999999992
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "055-hip_brake",
+      "meshId": "stl:055_hip_brake",
+      "name": "hip brake L3",
+      "partType": "hip_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -399.9999999999999,
+        184.94999999999996,
+        600.0000000000003
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "056-hip_pivot_pin",
+      "meshId": "fasteners:056_hip_pivot_pin",
+      "name": "hip pivot pin L3",
+      "partType": "hip_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        -0.0,
+        0.0,
+        1.0,
+        0.0,
+        -1.0,
+        1.2246467991473532e-16,
+        -0.0,
+        0.0,
+        -1.2246467991473532e-16,
+        -1.0,
+        0.0,
+        0.0,
+        -669.9999999999995,
+        -17.499999999999922,
+        599.9999999999994,
+        1.0
+      ],
+      "centroid": [
+        -669.9999999999995,
+        -17.499999999999922,
+        599.9999999999994
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "057-hip_secondary",
+      "meshId": "stl:057_hip_secondary",
+      "name": "hip secondary L3",
+      "partType": "hip_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -669.9999999999998,
+        69.95000000000016,
+        600.0000000000003
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "058-femur_frame",
+      "meshId": "stl:058_femur_frame",
+      "name": "femur frame L3",
+      "partType": "femur_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -923.1272342224033,
+        -1.3908862783612537,
+        679.4358722993288
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "059-knee_actuator",
+      "meshId": "stl:059_knee_actuator",
+      "name": "knee actuator L3",
+      "partType": "knee_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -907.7749860236936,
+        130.00000000000014,
+        677.2208263451803
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "060-knee_brake",
+      "meshId": "stl:060_knee_brake",
+      "name": "knee brake L3",
+      "partType": "knee_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -907.774986023693,
+        184.9500000000001,
+        677.2208263451805
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "061-knee_pivot_pin",
+      "meshId": "fasteners:061_knee_pivot_pin",
+      "name": "knee pivot pin L3",
+      "partType": "knee_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        -0.0,
+        0.0,
+        1.0,
+        0.0,
+        -1.0,
+        1.2246467991473532e-16,
+        -0.0,
+        0.0,
+        -1.2246467991473532e-16,
+        -1.0,
+        0.0,
+        0.0,
+        -1240.6599664568625,
+        -17.499999999999847,
+        785.3299832284313,
+        1.0
+      ],
+      "centroid": [
+        -1240.6599664568625,
+        -17.499999999999847,
+        785.3299832284313
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "062-knee_secondary",
+      "meshId": "stl:062_knee_secondary",
+      "name": "knee secondary L3",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -1240.6599664568632,
+        69.9500000000002,
+        785.329983228432
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "063-tibia_frame",
+      "meshId": "stl:063_tibia_frame",
+      "name": "tibia frame L3",
+      "partType": "tibia_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#7a8a9a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -1089.82798126812,
+        0.21871903320040273,
+        399.5634283841413
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "064-foot",
+      "meshId": "stl:064_foot",
+      "name": "foot L3",
+      "partType": "foot",
+      "role": "frame",
+      "cots": false,
+      "color": "#2b2b2b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -950.0000000000001,
+        1.220725632125901e-13,
+        20.000000000000014
+      ],
+      "leg": "L3"
+    },
+    {
+      "id": "065-hip_yaw_actuator",
+      "meshId": "stl:065_hip_yaw_actuator",
+      "name": "hip yaw actuator L4",
+      "partType": "hip_yaw_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#3a5a80",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -260.0000000000003,
+        -450.3332099679076,
+        710.05
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "066-yaw_pivot_pin",
+      "meshId": "fasteners:066_yaw_pivot_pin",
+      "name": "yaw pivot pin L4",
+      "partType": "yaw_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -260.0000000000001,
+        -450.3332099679082,
+        674.9999999999995,
+        1.0
+      ],
+      "centroid": [
+        -260.0000000000001,
+        -450.3332099679082,
+        674.9999999999995
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "067-coxa_frame",
+      "meshId": "stl:067_coxa_frame",
+      "name": "coxa frame L4",
+      "partType": "coxa_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -235.69743628681923,
+        -421.7847332534762,
+        606.2424202972314
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "068-hip_pitch_actuator",
+      "meshId": "stl:068_hip_pitch_actuator",
+      "name": "hip pitch actuator L4",
+      "partType": "hip_pitch_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -312.5833024919772,
+        -281.41016151377545,
+        599.9999999999993
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "069-hip_brake",
+      "meshId": "stl:069_hip_brake",
+      "name": "hip brake L4",
+      "partType": "hip_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -360.1713984299321,
+        -253.9351615137754,
+        600.0000000000002
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "070-hip_pivot_pin",
+      "meshId": "fasteners:070_hip_pivot_pin",
+      "name": "hip pivot pin L4",
+      "partType": "hip_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        -0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.5000000000000004,
+        -0.8660254037844384,
+        0.0,
+        0.0,
+        0.8660254037844384,
+        -0.5000000000000004,
+        0.0,
+        0.0,
+        -319.8445554337729,
+        -588.9870205355736,
+        599.9999999999999,
+        1.0
+      ],
+      "centroid": [
+        -319.8445554337729,
+        -588.9870205355736,
+        599.9999999999999
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "071-hip_secondary",
+      "meshId": "stl:071_hip_secondary",
+      "name": "hip secondary L4",
+      "partType": "hip_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -395.5784769947219,
+        -545.2620205355738,
+        600.0000000000001
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "072-femur_frame",
+      "meshId": "stl:072_femur_frame",
+      "name": "femur frame L4",
+      "partType": "femur_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -460.3590742603649,
+        -800.1470789010483,
+        679.4358722993285
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "073-knee_actuator",
+      "meshId": "stl:073_knee_actuator",
+      "name": "knee actuator L4",
+      "partType": "knee_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -566.470795503824,
+        -721.1561988165818,
+        677.22082634518
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "074-knee_brake",
+      "meshId": "stl:074_knee_brake",
+      "name": "knee brake L4",
+      "partType": "knee_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -614.0588914417793,
+        -693.6811988165821,
+        677.2208263451802
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "075-knee_pivot_pin",
+      "meshId": "fasteners:075_knee_pivot_pin",
+      "name": "knee pivot pin L4",
+      "partType": "knee_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        -0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.5000000000000004,
+        -0.8660254037844384,
+        0.0,
+        0.0,
+        0.8660254037844384,
+        -0.5000000000000004,
+        0.0,
+        0.0,
+        -605.1745386622049,
+        -1083.193048409993,
+        785.3299832284315,
+        1.0
+      ],
+      "centroid": [
+        -605.1745386622049,
+        -1083.193048409993,
+        785.3299832284315
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "076-knee_secondary",
+      "meshId": "stl:076_knee_secondary",
+      "name": "knee secondary L4",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -680.9084602231538,
+        -1039.468048409994,
+        785.329983228432
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "077-tibia_frame",
+      "meshId": "stl:077_tibia_frame",
+      "name": "tibia frame L4",
+      "partType": "tibia_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#7a8a9a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -545.1034068730987,
+        -943.7093580166954,
+        399.5634283841404
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "078-foot",
+      "meshId": "stl:078_foot",
+      "name": "foot L4",
+      "partType": "foot",
+      "role": "frame",
+      "cots": false,
+      "color": "#2b2b2b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -475.0000000000001,
+        -822.7241335952159,
+        20.000000000000018
+      ],
+      "leg": "L4"
+    },
+    {
+      "id": "079-hip_yaw_actuator",
+      "meshId": "stl:079_hip_yaw_actuator",
+      "name": "hip yaw actuator L5",
+      "partType": "hip_yaw_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#3a5a80",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        260.0000000000001,
+        -450.33320996790815,
+        710.0500000000002
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "080-yaw_pivot_pin",
+      "meshId": "fasteners:080_yaw_pivot_pin",
+      "name": "yaw pivot pin L5",
+      "partType": "yaw_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        260.00000000000006,
+        -450.3332099679079,
+        674.9999999999997,
+        1.0
+      ],
+      "centroid": [
+        260.00000000000006,
+        -450.3332099679079,
+        674.9999999999997
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "081-coxa_frame",
+      "meshId": "stl:081_coxa_frame",
+      "name": "coxa frame L5",
+      "partType": "coxa_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        247.42757578254438,
+        -415.0123340579875,
+        606.2424202972314
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "082-hip_pitch_actuator",
+      "meshId": "stl:082_hip_pitch_actuator",
+      "name": "hip pitch actuator L5",
+      "partType": "hip_pitch_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        87.41669750802302,
+        -411.4101615137757,
+        599.9999999999992
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "083-hip_brake",
+      "meshId": "stl:083_hip_brake",
+      "name": "hip brake L5",
+      "partType": "hip_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        39.82860157006815,
+        -438.8851615137752,
+        599.9999999999999
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "084-hip_pivot_pin",
+      "meshId": "fasteners:084_hip_pivot_pin",
+      "name": "hip pivot pin L5",
+      "partType": "hip_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        -0.5000000000000001,
+        0.8660254037844386,
+        0.0,
+        0.0,
+        0.8660254037844386,
+        0.5000000000000001,
+        0.0,
+        0.0,
+        350.1554445662278,
+        -571.4870205355743,
+        600.0000000000001,
+        1.0
+      ],
+      "centroid": [
+        350.1554445662278,
+        -571.4870205355743,
+        600.0000000000001
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "085-hip_secondary",
+      "meshId": "stl:085_hip_secondary",
+      "name": "hip secondary L5",
+      "partType": "hip_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        274.4215230052784,
+        -615.2120205355739,
+        599.9999999999997
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "086-femur_frame",
+      "meshId": "stl:086_femur_frame",
+      "name": "femur frame L5",
+      "partType": "femur_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#8b9bab",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        462.7681599620381,
+        -798.7561926226851,
+        679.4358722993288
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "087-knee_actuator",
+      "meshId": "stl:087_knee_actuator",
+      "name": "knee actuator L5",
+      "partType": "knee_actuator",
+      "role": "motor",
+      "cots": true,
+      "color": "#2e2e33",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        341.30419051986996,
+        -851.1561988165822,
+        677.22082634518
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "088-knee_brake",
+      "meshId": "stl:088_knee_brake",
+      "name": "knee brake L5",
+      "partType": "knee_brake",
+      "role": "brake",
+      "cots": true,
+      "color": "#f1c40f",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        293.71609458191494,
+        -878.6311988165825,
+        677.2208263451803
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "089-knee_pivot_pin",
+      "meshId": "fasteners:089_knee_pivot_pin",
+      "name": "knee pivot pin L5",
+      "partType": "knee_pivot_pin",
+      "role": "bearing",
+      "cots": true,
+      "color": "#b8860b",
+      "transform": [
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        -0.5000000000000001,
+        0.8660254037844386,
+        0.0,
+        0.0,
+        0.8660254037844386,
+        0.5000000000000001,
+        0.0,
+        0.0,
+        635.4854277946596,
+        -1065.6930484099942,
+        785.3299832284315,
+        1.0
+      ],
+      "centroid": [
+        635.4854277946596,
+        -1065.6930484099942,
+        785.3299832284315
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "090-knee_secondary",
+      "meshId": "stl:090_knee_secondary",
+      "name": "knee secondary L5",
+      "partType": "knee_secondary",
+      "role": "drivetrain",
+      "cots": true,
+      "color": "#95a5a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        559.7515062337109,
+        -1109.4180484099936,
+        785.3299832284321
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "091-tibia_frame",
+      "meshId": "stl:091_tibia_frame",
+      "name": "tibia frame L5",
+      "partType": "tibia_frame",
+      "role": "frame",
+      "cots": false,
+      "color": "#7a8a9a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        544.7245743950151,
+        -943.9280770498998,
+        399.56342838413985
+      ],
+      "leg": "L5"
+    },
+    {
+      "id": "092-foot",
+      "meshId": "stl:092_foot",
+      "name": "foot L5",
+      "partType": "foot",
+      "role": "frame",
+      "cots": false,
+      "color": "#2b2b2b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        474.99999999999966,
+        -822.7241335952172,
         20.000000000000007
-      ]
+      ],
+      "leg": "L5"
+    }
+  ],
+  "joints": [
+    {
+      "id": "L0-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        520.0,
+        0.0,
+        680.05
+      ],
+      "instances": [
+        "011-coxa_frame",
+        "010-yaw_pivot_pin",
+        "012-hip_pitch_actuator",
+        "013-hip_brake"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L0 hip yaw"
+    },
+    {
+      "id": "L0-hip",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "origin": [
+        670.0,
+        0.0,
+        600.0
+      ],
+      "parent": "L0-yaw",
+      "instances": [
+        "016-femur_frame",
+        "015-hip_secondary",
+        "014-hip_pivot_pin",
+        "017-knee_actuator",
+        "018-knee_brake"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L0 hip pitch"
+    },
+    {
+      "id": "L0-knee",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "origin": [
+        1240.659966456864,
+        0.0,
+        785.3299832284321
+      ],
+      "parent": "L0-hip",
+      "instances": [
+        "021-tibia_frame",
+        "020-knee_secondary",
+        "019-knee_pivot_pin",
+        "022-foot"
+      ],
+      "limits": {
+        "min": -40.0,
+        "max": 40.0
+      },
+      "home": 0,
+      "label": "L0 knee"
+    },
+    {
+      "id": "L1-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        260.00000000000006,
+        450.3332099679081,
+        680.05
+      ],
+      "instances": [
+        "025-coxa_frame",
+        "024-yaw_pivot_pin",
+        "026-hip_pitch_actuator",
+        "027-hip_brake"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L1 hip yaw"
+    },
+    {
+      "id": "L1-hip",
+      "type": "revolute",
+      "axis": [
+        -0.8660254037844386,
+        0.5000000000000001,
+        0.0
+      ],
+      "origin": [
+        335.00000000000006,
+        580.2370205355738,
+        600.0
+      ],
+      "parent": "L1-yaw",
+      "instances": [
+        "030-femur_frame",
+        "029-hip_secondary",
+        "028-hip_pivot_pin",
+        "031-knee_actuator",
+        "032-knee_brake"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L1 hip pitch"
+    },
+    {
+      "id": "L1-knee",
+      "type": "revolute",
+      "axis": [
+        -0.8660254037844386,
+        0.5000000000000001,
+        0.0
+      ],
+      "origin": [
+        620.3299832284321,
+        1074.4430484099937,
+        785.3299832284321
+      ],
+      "parent": "L1-hip",
+      "instances": [
+        "035-tibia_frame",
+        "034-knee_secondary",
+        "033-knee_pivot_pin",
+        "036-foot"
+      ],
+      "limits": {
+        "min": -40.0,
+        "max": 40.0
+      },
+      "home": 0,
+      "label": "L1 knee"
+    },
+    {
+      "id": "L2-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        -259.9999999999999,
+        450.33320996790815,
+        680.05
+      ],
+      "instances": [
+        "039-coxa_frame",
+        "038-yaw_pivot_pin",
+        "040-hip_pitch_actuator",
+        "041-hip_brake"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L2 hip yaw"
+    },
+    {
+      "id": "L2-hip",
+      "type": "revolute",
+      "axis": [
+        -0.8660254037844387,
+        -0.49999999999999983,
+        0.0
+      ],
+      "origin": [
+        -334.9999999999999,
+        580.237020535574,
+        600.0
+      ],
+      "parent": "L2-yaw",
+      "instances": [
+        "044-femur_frame",
+        "043-hip_secondary",
+        "042-hip_pivot_pin",
+        "045-knee_actuator",
+        "046-knee_brake"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L2 hip pitch"
+    },
+    {
+      "id": "L2-knee",
+      "type": "revolute",
+      "axis": [
+        -0.8660254037844387,
+        -0.49999999999999983,
+        0.0
+      ],
+      "origin": [
+        -620.3299832284317,
+        1074.4430484099937,
+        785.3299832284321
+      ],
+      "parent": "L2-hip",
+      "instances": [
+        "049-tibia_frame",
+        "048-knee_secondary",
+        "047-knee_pivot_pin",
+        "050-foot"
+      ],
+      "limits": {
+        "min": -40.0,
+        "max": 40.0
+      },
+      "home": 0,
+      "label": "L2 knee"
+    },
+    {
+      "id": "L3-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        -520.0,
+        6.368163355566237e-14,
+        680.05
+      ],
+      "instances": [
+        "053-coxa_frame",
+        "052-yaw_pivot_pin",
+        "054-hip_pitch_actuator",
+        "055-hip_brake"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L3 hip yaw"
+    },
+    {
+      "id": "L3-hip",
+      "type": "revolute",
+      "axis": [
+        -1.2246467991473532e-16,
+        -1.0,
+        0.0
+      ],
+      "origin": [
+        -670.0,
+        8.205133554287266e-14,
+        600.0
+      ],
+      "parent": "L3-yaw",
+      "instances": [
+        "058-femur_frame",
+        "057-hip_secondary",
+        "056-hip_pivot_pin",
+        "059-knee_actuator",
+        "060-knee_brake"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L3 hip pitch"
+    },
+    {
+      "id": "L3-knee",
+      "type": "revolute",
+      "axis": [
+        -1.2246467991473532e-16,
+        -1.0,
+        0.0
+      ],
+      "origin": [
+        -1240.659966456864,
+        1.5193702567516609e-13,
+        785.3299832284321
+      ],
+      "parent": "L3-hip",
+      "instances": [
+        "063-tibia_frame",
+        "062-knee_secondary",
+        "061-knee_pivot_pin",
+        "064-foot"
+      ],
+      "limits": {
+        "min": -40.0,
+        "max": 40.0
+      },
+      "home": 0,
+      "label": "L3 knee"
+    },
+    {
+      "id": "L4-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        -260.0000000000002,
+        -450.333209967908,
+        680.05
+      ],
+      "instances": [
+        "067-coxa_frame",
+        "066-yaw_pivot_pin",
+        "068-hip_pitch_actuator",
+        "069-hip_brake"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L4 hip yaw"
+    },
+    {
+      "id": "L4-hip",
+      "type": "revolute",
+      "axis": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0.0
+      ],
+      "origin": [
+        -335.0000000000003,
+        -580.2370205355737,
+        600.0
+      ],
+      "parent": "L4-yaw",
+      "instances": [
+        "072-femur_frame",
+        "071-hip_secondary",
+        "070-hip_pivot_pin",
+        "073-knee_actuator",
+        "074-knee_brake"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L4 hip pitch"
+    },
+    {
+      "id": "L4-knee",
+      "type": "revolute",
+      "axis": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0.0
+      ],
+      "origin": [
+        -620.3299832284325,
+        -1074.4430484099933,
+        785.3299832284321
+      ],
+      "parent": "L4-hip",
+      "instances": [
+        "077-tibia_frame",
+        "076-knee_secondary",
+        "075-knee_pivot_pin",
+        "078-foot"
+      ],
+      "limits": {
+        "min": -40.0,
+        "max": 40.0
+      },
+      "home": 0,
+      "label": "L4 knee"
+    },
+    {
+      "id": "L5-yaw",
+      "type": "revolute",
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "origin": [
+        260.00000000000006,
+        -450.3332099679081,
+        680.05
+      ],
+      "instances": [
+        "081-coxa_frame",
+        "080-yaw_pivot_pin",
+        "082-hip_pitch_actuator",
+        "083-hip_brake"
+      ],
+      "limits": {
+        "min": -35.0,
+        "max": 35.0
+      },
+      "home": 0,
+      "label": "L5 hip yaw"
+    },
+    {
+      "id": "L5-hip",
+      "type": "revolute",
+      "axis": [
+        0.8660254037844386,
+        0.5000000000000001,
+        0.0
+      ],
+      "origin": [
+        335.00000000000006,
+        -580.2370205355738,
+        600.0
+      ],
+      "parent": "L5-yaw",
+      "instances": [
+        "086-femur_frame",
+        "085-hip_secondary",
+        "084-hip_pivot_pin",
+        "087-knee_actuator",
+        "088-knee_brake"
+      ],
+      "limits": {
+        "min": -45.0,
+        "max": 30.0
+      },
+      "home": 0,
+      "label": "L5 hip pitch"
+    },
+    {
+      "id": "L5-knee",
+      "type": "revolute",
+      "axis": [
+        0.8660254037844386,
+        0.5000000000000001,
+        0.0
+      ],
+      "origin": [
+        620.3299832284321,
+        -1074.4430484099937,
+        785.3299832284321
+      ],
+      "parent": "L5-hip",
+      "instances": [
+        "091-tibia_frame",
+        "090-knee_secondary",
+        "089-knee_pivot_pin",
+        "092-foot"
+      ],
+      "limits": {
+        "min": -40.0,
+        "max": 40.0
+      },
+      "home": 0,
+      "label": "L5 knee"
     }
   ]
 }

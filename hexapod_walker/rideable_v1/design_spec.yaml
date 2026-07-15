@@ -13,7 +13,12 @@
 # SOURCE OF TRUTH: README.md §2 "Design basis (decided)" and the per-subsystem
 # docs.  Every dimension below cites where it comes from; values that the docs
 # leave open are marked `assumption:` and chosen to be consistent with a
-# ~380 kg rideable machine (README.md §2) with a ~1.5–2.5 m footprint.
+# ~460 kg rideable machine (README.md §2) with a ~1.5–2.5 m footprint.
+#
+# The `design_basis` and `mass_budget` blocks are MACHINE-CHECKED:
+# tools/design_consistency_check.py (run by `make check`) re-derives the
+# loads/torques/power from these numbers + the leg geometry and fails if the
+# docs and spec drift apart.
 #
 # UNITS: millimetres, degrees.  Frame: right-handed, +Z up, leg 0 built along
 # +X (radially outward), legs 1–5 are leg 0 rotated by i*60° about +Z.  The
@@ -24,20 +29,58 @@ units: mm
 design_basis:                       # README.md §2 (decided — do not silently change)
   purpose: "Carry 1 adult rider (~100 kg), private property, slow walk"
   cruise_speed_m_s: 0.4
-  total_operating_mass_kg: 380      # 100 kg rider + ~280 kg vehicle dry
-  vehicle_dry_mass_kg: 280
-  ground_weight_kN: 3.73
+  rider_mass_kg: 100
+  total_operating_mass_kg: 460      # 100 kg rider + ~360 kg vehicle dry
+  vehicle_dry_mass_kg: 360
+  ground_weight_kN: 4.5
   gait: "alternating tripod (3 legs support at all times)"
   legs: 6
   dof_per_leg: 3                    # hip-yaw, hip-pitch, knee
   actuators_total: 18
-  stance: "tucked — foot ~0.5–0.6 m directly under the hip"
-  nominal_per_leg_foot_load_kN: 1.3
-  design_per_leg_foot_load_kN: 2.0  # 1.3 kN × 1.5 SF
-  hip_pitch_torque_kNm: {nominal: 0.8, design: 1.2}
-  knee_torque_kNm: {holding: 0.85, band: [0.5, 0.85]}
+  stance: "tucked — foot ~0.28 m outboard of / ~0.56 m below the hip-pitch joint"
+  nominal_per_leg_foot_load_kN: 1.5
+  design_per_leg_foot_load_kN: 2.25 # 1.5 kN × 1.5 SF
+  foot_load_safety_factor: 1.5
+  # Horizontal foot→axis moment arms (m): static from the solved tucked pose;
+  # worst adds the ~±0.17 m fore-aft stride excursion.
+  hip_moment_arm_m: {static: 0.28, worst_in_stride: 0.45}
+  knee_moment_arm_m: {static: 0.29, worst_in_stride: 0.46}
+  hip_pitch_torque_kNm: {nominal: 0.7, design: 1.2}   # nominal at the worst arm
+  knee_torque_kNm: {holding_nominal: 0.45, holding_worst: 0.7, brake_bound: 0.85}
   hip_yaw_torque_kNm: {min: 0.05, max: 0.08}
   gait_joint_speed_deg_s: 82
+  # Deliverable joint peak is CHAIN-limited, not motor-limited (DRIVETRAIN.md §3):
+  joint_peak_deliverable_kNm: 1.6   # duplex #40 @ SF 2.5 × Ø291 sprocket; software torque limit
+  joint_cont_Nm: 783                # 145 N·m × 6 × 0.9
+
+mass_budget:                        # README.md §6 (kg) — rows must sum to subtotal
+  actuators_x15: 42                 # 12 × 3.5
+  actuators_x8: 8                   # 6 × 1.4 (rounded)
+  secondary_reductions: 78          # 12 × ~6.5 (duplex #40 72T sprocket + shaft + brgs + housing)
+  brakes: 6                         # 12 × 0.5
+  legs: 60                          # 6 × ~10 (welded 4130 truss + hubs + clevises)
+  feet: 9
+  chassis_deck: 48
+  rider_interface: 12
+  battery: 20
+  power_electronics: 15
+  compute_sensors: 4
+  hardware: 26
+  finishing: 8
+  subtotal: 336
+  contingency: 24
+  total_dry: 360                    # must equal vehicle_dry_mass_kg
+
+power_budget:                       # POWER_SYSTEM.md §2/§4
+  bus_V: 72
+  pack_kWh: 3.0
+  cruise_kW: 1.8
+  peak_kW: 3.0
+  standup_transient_A: [70, 85]
+  main_fuse_A: 100
+  rail_24V_W: 400                   # ≥ 12 brake coils (~25 W each) + logic
+  brake_coil_W_each: 25
+  brake_coils: 12
 
 # ---------------------------------------------------------------------------
 # Leg kinematics (the tucked stance).  README.md §3 + STRUCTURE.md §9.
@@ -49,13 +92,19 @@ leg_kinematics:
   coxa_length_mm: 150               # brief: coxa/hip link ~150 mm (hip-yaw → hip-pitch)
   femur_length_mm: 600              # brief: femur ~600 mm (hip-pitch → knee)
   tibia_length_mm: 800              # brief: tibia ~800 mm (knee → foot)
-  # Tucked target: foot directly under the hip-pitch joint.  README.md §2/§3:
-  # foot ~0.5–0.6 m under the hip; DRIVETRAIN.md §5: knee holding arm ~0.65 m.
+  hip_drop_mm: 80                   # hip-pitch axis below the yaw mount plane, so the
+                                    # Ø300 driven sprocket clears the chassis ring
+  # Tucked target rel. the hip-pitch joint (README.md §2/§3).  These 280/560 mm
+  # ARE the moment-arm source of truth: horizontal hip arm = out = 0.28 m; the
+  # solved knee sits 0.29 m outboard of the foot (DRIVETRAIN.md §5).
   foot_target_under_hip_mm: {out: 280, down: 560}   # rel. hip-pitch joint
   femur_pitch_deg: "solved (~+18° above horizontal, knee-up branch)"
   # Derived (see tools/rideable_viz_build.py): knee interior angle ~51° (deeply
   # folded — README.md §3 "deeper knee bend"); foot stance radius from body
   # centre ~0.95 m → footprint diameter ~1.9 m (README.md: 1.5–2.5 m target).
+  # Declared joint travel (scene joints[]; assumptions consistent with the
+  # tucked stance + stride):
+  joint_limits_deg: {hip_yaw: [-35, 35], hip_pitch: [-45, 30], knee: [-40, 40]}
 
 # ---------------------------------------------------------------------------
 # Actuator lineup (DRIVETRAIN.md §2, BOM.md §A).  Bodies are drawn as cylinders
@@ -67,9 +116,10 @@ actuators:
     qty: 6
     rated_torque_Nm: 145
     peak_torque_Nm: 450
+    rated_speed_rpm: 98
     internal_ratio: "20.25:1"
-    secondary_reduction: "6:1 (HTD-14M belt, η≈0.9)"
-    joint_peak_Nm: 2430
+    secondary_reduction: "6:1 (duplex #40 chain, η≈0.9)"
+    joint_peak_Nm: 1600              # chain-limited (software torque limit); motor-limited would be 2430
     joint_cont_Nm: 783
     mass_kg: 3.5
     bus_V: 72
@@ -94,15 +144,24 @@ actuators:
     viz_body: {shape: cylinder, diameter_mm: 80, thickness_mm: 45}   # assumption: smaller than X15
 
 secondary_reduction:                # DRIVETRAIN.md §3, BOM.md §B
-  type: "HTD-14M timing belt, ~6:1 (recommended default)"
-  driven_pulley_teeth: 72
-  driven_pulley_pitch_dia_mm: 321   # 72 × 14 mm / π  → drawn as a large disc on the joint axis
-  drive_pulley_teeth: 12
-  viz_body: {shape: disc_on_joint_axis, diameter_mm: 300, thickness_mm: 45}
+  type: "duplex #40 roller chain, 6:1 (decided default; see DRIVETRAIN.md §3)"
+  driven_sprocket_teeth: 72
+  driven_sprocket_pitch_dia_mm: 291 # 72 × 12.7 mm / π → drawn as a disc ON the joint axis
+  drive_sprocket_teeth: 12
+  ratio: 6.0
+  efficiency: 0.9
+  chain_ultimate_kN: 27.8           # 2 × 13.9 kN (ANSI #40 single-strand minimum ultimate)
+  chain_dynamic_sf: 2.5             # working tension = ultimate / SF → the 1.6 kN·m joint peak
+  mass_kg_per_set: 6.5
+  # Articulable layout (verified by the BuildViz joint checks): the driven
+  # sprocket is coaxial with the joint and BOLTED TO THE MOVING LINK; the
+  # actuator + brake are offset-mounted on the PARENT link and reach the
+  # sprocket through the chain run (not modelled as geometry).
+  viz_body: {shape: disc_on_joint_axis, diameter_mm: 300, thickness_mm: 50}
 
 brake:                              # DRIVETRAIN.md §4, BOM.md §C
   type: "spring-applied / electrically-released electromagnetic (power-off = engaged)"
-  qty: 12                           # 6 knee (required) + 6 hip (optional, funded)
+  qty: 12                           # 6 knee + 6 hip-pitch — ALL mandatory (DRIVETRAIN.md §7)
   holding_torque_fast_shaft_Nm: 160
   static_rating_Nm: 240             # buy ≥1.5× working torque
   mass_kg: 0.5
@@ -116,9 +175,9 @@ brake:                              # DRIVETRAIN.md §4, BOM.md §C
 # ---------------------------------------------------------------------------
 structure:
   material: "4130 chromoly, normalised (yield ~435 MPa, UTS ~670 MPa, E=200 GPa)"
-  leg_mass_kg_each: 3.3
+  leg_mass_kg_each: 10              # incl. hubs/clevises; ~3 kg was not achievable in steel
   frame_depth_mm: 150               # STRUCTURE.md §3/§9: h≈150 mm sets the chord force M/h
-  main_chord: {section: "38 mm OD × 2.4 mm wall", od_mm: 38, role: "bending-couple axial ~9.3 kN"}
+  main_chord: {section: "38 mm OD × 2.4 mm wall", od_mm: 38, role: "bending-couple axial ~10.7 kN"}
   diagonal: {section: "25 mm OD × 1.6 mm wall", od_mm: 25, role: "triangulate; carry shear as axial"}
   foot: {type: "urethane pad + 6 mm steel disc", viz_body: {shape: cylinder, diameter_mm: 120, thickness_mm: 40}}
   chassis:
@@ -131,8 +190,9 @@ structure:
 # ---------------------------------------------------------------------------
 power:
   pack: "72 V (20S) Li-ion, ~3 kWh, ~42 Ah, ~20 kg"
-  peak_walking_kW: 2.5
+  peak_walking_kW: 3.0
   yaw_rail: "72→48 V DC-DC for the six RMD-X8"
+  brake_logic_rail: "72→24 V DC-DC, ≥400 W (12 simultaneously-held brake coils + logic)"
   viz_body: {battery: {shape: box, mm: [420, 300, 150]}, e_bay: {shape: box, mm: [240, 200, 120]}}
 
 # ---------------------------------------------------------------------------
@@ -158,37 +218,61 @@ parts:
     role: frame
     cots: false
     qty: 6
-    description: "Welded 4130 chromoly truss linking hip-yaw output → hip-pitch (~150 mm).  Space-frame (not solid beam) to hit the leg mass budget (~3.3 kg/leg) while carrying the bending couple through the 150 mm frame depth."
+    description: "Welded 4130 chromoly coxa: yaw hub + box beam linking hip-yaw output → hip-pitch (~150 mm), plus the hip-pitch clevis (crossbar + bearing plate) and the offset mount plate that carries the hip-pitch actuator + brake.  The moving femur connects only through the hip pivot pin."
+  yaw_pivot_pin:
+    label: "Hip-yaw output shaft"
+    role: bearing
+    cots: true
+    qty: 6
+    description: "Coaxial output shaft/pin on the hip-yaw axis: the only part bridging the RMD-X8 output to the coxa yaw hub, so the yaw DOF stays free (verified by the joint-articulation check)."
+  hip_pivot_pin:
+    label: "Hip-pitch pivot pin"
+    role: bearing
+    cots: true
+    qty: 6
+    description: "Coaxial pivot pin/axle on the hip-pitch axis: grips the femur hub and the coxa clevis bearing plate.  Being the joint's own axle it is exempt from the joint-fastener lock check."
+  knee_pivot_pin:
+    label: "Knee pivot pin"
+    role: bearing
+    cots: true
+    qty: 6
+    description: "Coaxial pivot pin/axle on the knee axis: grips the tibia hub and the femur clevis bearing plate."
+  hip_brake:
+    label: "Hip fail-safe brake"
+    role: brake
+    cots: true
+    qty: 6
+    description: "Spring-applied, electrically-released e-brake on the hip-pitch actuator's fast (input) shaft (~160 N·m holding).  MANDATORY (like the knee brake): the hip static hold while standing is a large fraction of the actuator's continuous rating."
   hip_pitch_actuator:
     label: "Hip-pitch actuator"
     role: motor
     cots: true
     qty: 6
-    description: "RMD-X15-450 hip-pitch on the horizontal pitch axis, with a 6:1 HTD-14M secondary (joint peak ~2.4 kN·m).  Sized for the ~1.2 kN·m design hip-pitch torque with margin."
+    description: "RMD-X15-450 hip-pitch, offset-mounted on the coxa (parent link) with its axis parallel to the joint; drives the joint through the 6:1 secondary (deliverable peak ~1.6 kN·m, chain-limited).  Sized for the ~1.2 kN·m design hip-pitch torque with margin."
   hip_secondary:
     label: "Hip-pitch secondary reduction"
     role: drivetrain
     cots: true
     qty: 6
-    description: "6:1 HTD-14M driven pulley on the hip-pitch joint axis (Ø321 mm PCD).  Belt secondary chosen over another gearstage to keep the joint back-drivable-ish and cheap to service."
+    description: "6:1 driven sprocket (duplex #40, 72T, Ø291 mm PCD) ON the hip-pitch joint axis, bolted to the FEMUR hub so it rotates with the joint.  Chain secondary chosen over another gearstage to keep the joint back-drivable-ish and cheap to service."
   femur_frame:
     label: "Femur frame"
     role: frame
     cots: false
     qty: 6
-    description: "Welded 4130 space-frame femur (hip-pitch → knee, ~600 mm).  Triangulated 3-chord truss so shear is carried as axial in the diagonals."
+    description: "Welded 4130 space-frame femur (hip-pitch → knee, ~600 mm): hip pivot hub (which the hip driven sprocket bolts to) + collar + triangulated 3-chord truss + knee clevis (crossbar + bearing plate) + the mid-femur mount plate carrying the knee actuator + brake.  The truss stops clear of both Ø300 sprocket discs so no member crosses a joint."
   knee_actuator:
     label: "Knee actuator"
     role: motor
     cots: true
     qty: 6
-    description: "RMD-X15-450 knee on the horizontal pitch axis with a 6:1 HTD-14M secondary.  Same actuator as hip-pitch to standardize spares."
+    description: "RMD-X15-450 knee, offset-mounted mid-femur (parent link) with its axis parallel to the knee; drives the knee through the 6:1 secondary.  Same actuator as hip-pitch to standardize spares."
   knee_secondary:
     label: "Knee secondary reduction"
     role: drivetrain
     cots: true
     qty: 6
-    description: "6:1 HTD-14M driven pulley on the knee joint axis (Ø321 mm PCD)."
+    description: "6:1 driven sprocket (duplex #40, 72T, Ø291 mm PCD) ON the knee joint axis, bolted to the TIBIA hub so it rotates with the knee."
   knee_brake:
     label: "Knee fail-safe brake"
     role: brake
@@ -200,13 +284,13 @@ parts:
     role: frame
     cots: false
     qty: 6
-    description: "Welded 4130 space-frame tibia (knee → foot, ~800 mm)."
+    description: "Welded 4130 space-frame tibia (knee → foot, ~800 mm): knee pivot hub (which the driven sprocket bolts to) + collar + triangulated truss + ankle strut down to the foot boss.  Connects to the femur ONLY through the knee pivot pin — the actuator/secondary/brake stack lives on the femur side."
   foot:
     label: "Foot pad"
     role: frame
     cots: false
     qty: 6
-    description: "Urethane pad on a 6 mm steel disc.  Urethane for ground compliance/grip; steel disc spreads the ~2 kN design foot load into the pad."
+    description: "Urethane pad on a 6 mm steel disc.  Urethane for ground compliance/grip; steel disc spreads the ~2.25 kN design foot load into the pad."
   # --- body (×1 unless noted) ---
   chassis_frame:
     label: "Chassis frame"
@@ -258,6 +342,7 @@ parts:
     description: "Compute / power-electronics enclosure (motor controllers + 72→48 V DC-DC for the hip-yaw rail)."
 
 notes:
-  - "This scene is a mechanical-design DRAFT visualization built from primitives — it is not verified CAD and carries no fastener/print data."
-  - "Assumptions (not fixed by the docs) are tagged `assumption:` above: hip-yaw ring radius 520 mm, actuator envelope diameters, chassis/deck/saddle sizes."
+  - "This scene is a mechanical-design DRAFT visualization built from primitives — it is not verified CAD.  The pivot pins are modelled as coaxial fasteners; the chain/belt run between each actuator and its driven sprocket is NOT modelled."
+  - "The scene declares an additive joints[] block (6 hip-yaw + 6 hip-pitch + 6 knee revolute DOF) so the BuildViz joint-articulation checks (joint_fused / joint_fastener / joint_articulation) verify every declared DOF is actually free to move."
+  - "Assumptions (not fixed by the docs) are tagged `assumption:` above: hip-yaw ring radius 520 mm, hip drop 80 mm, actuator envelope diameters, chassis/deck/saddle sizes, joint travel limits."
   - "Leg link lengths (coxa 150, femur 600, tibia 800) and the tucked foot target (0.28 m out / 0.56 m down) come from the rideable brief + README.md §2/§3; final leg lengths are flagged open in STRUCTURE.md §9."

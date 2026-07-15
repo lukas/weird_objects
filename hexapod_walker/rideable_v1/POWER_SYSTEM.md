@@ -19,14 +19,14 @@
 ```
    [ 72 V (20S) Li-ion pack, ~3 kWh ]
         │  84 V full / 72 V nom / 60 V empty
-        ├─ main fuse (Class-T / MIDI ~80 A) ─ pre-charge ─ MAIN CONTACTOR
+        ├─ main fuse (Class-T / MIDI ~100 A) ─ pre-charge ─ MAIN CONTACTOR
         │
         ├──────────────► 72 V bus ──► 12 × RMD-X15-450  (hip-pitch + knee)   ◄─ the big loads
         │
         ├── 72→48 V DC-DC (~300 W) ──► 6 × RMD-X8-120   (hip-yaw)            ◄─ small load
         │
-        └── 72→24 V DC-DC ──► logic + compute + contactor coil
-                            └► 12 × brake-release coils (fail-safe, defaults OFF)
+        └── 72→24 V DC-DC (≥400 W) ──► logic + compute + contactor coil
+                                     └► 12 × brake-release coils (fail-safe, defaults OFF)
 ```
 
 * **72 V main pack** runs the twelve RMD-X15-450s (the hip-pitch + knee
@@ -38,6 +38,9 @@
 * **24 V rail** for logic, compute, the contactor coil, and — critically —
   the **brake-release coils**. Because the brakes are power-off-engaged,
   this rail is what *releases* them; losing it re-engages every brake.
+  **Size it for all twelve coils held at once**: 12 × ~20–25 W ≈ 250–300 W
+  of coil load during walking, plus logic — hence **≥ 400 W**, not the
+  ~150 W a logic-only rail would need.
 
 ---
 
@@ -49,17 +52,17 @@ load, not the motors ([`DRIVETRAIN.md` §4](DRIVETRAIN.md#4-the-knee-brake-load-
 | Operating state | What's happening | Bus power | Bus current (@72 V) |
 |---|---|---:|---:|
 | **Standing (braked)** | brakes hold; motors idle | ~50–100 W (logic/compute only) | ~1 A |
-| **Walking, cruise** | tripod gait, 0.4 m/s, dynamic torque well under continuous | **~1.5 kW** | ~21 A |
-| **Walking, peak** | worst stride phase / small incline | **~2.5 kW** | **~35 A** |
-| **Stand-up transient** | lifting the chassis + rider from a low pose, several joints near peak briefly | ~4–5 kW (~1–2 s) | ~55–70 A |
-| **Absolute fault bound** | multiple X15s at peak current simultaneously | — | size hardware ≥ ~80 A, fuse to trip on *sustained* overload |
+| **Walking, cruise** | tripod gait, 0.4 m/s, dynamic torque well under continuous; brake coils held | **~1.8 kW** | ~25 A |
+| **Walking, peak** | worst stride phase / small incline | **~3 kW** | **~42 A** |
+| **Stand-up transient** | lifting the chassis + rider from a low pose, several joints near peak briefly | ~5–6 kW (~1–2 s) | ~70–85 A |
+| **Absolute fault bound** | multiple X15s at peak current simultaneously | — | size hardware ≥ ~100 A, fuse to trip on *sustained* overload |
 
 ### Design figures
 
-* **Continuous design load: ~1.5–2.0 kW (~21–28 A).**
-* **Peak walking: ~2.5 kW (~35 A).**
-* **Size wiring/contactor/BMS to the ~55–70 A stand-up transient**, fuse
-  the main lead at **~80 A** (above transient, below wire ampacity), and
+* **Continuous design load: ~1.8–2.2 kW (~25–31 A).**
+* **Peak walking: ~3 kW (~42 A).**
+* **Size wiring/contactor/BMS to the ~70–85 A stand-up transient**, fuse
+  the main lead at **~100 A** (above transient, below wire ampacity), and
   sequence stand-up in the controller so not all legs push at once.
 
 ---
@@ -72,13 +75,13 @@ load, not the motors ([`DRIVETRAIN.md` §4](DRIVETRAIN.md#4-the-knee-brake-load-
 | Voltage | 60 V empty / **72 V nom** / 84 V full | 20 × (3.0 / 3.6 / 4.2) V |
 | Energy | **~3 kWh** | target 30–60 min duty |
 | Capacity | **~42 Ah** | 3 kWh ÷ 72 V |
-| Continuous discharge | ≥ **80 A** (BMS + cells) | covers peak + transient |
-| Mass | **~15–30 kg** (use ~20 kg) | see [mass budget](README.md#6-mass-budget-280-kg-dry) |
+| Continuous discharge | ≥ **100 A** (BMS + cells) | covers peak + transient |
+| Mass | **~15–30 kg** (use ~20 kg) | see [mass budget](README.md#6-mass-budget-360-kg-dry) |
 
 ### Run time
 
 ```
-    cruise:  3 kWh / 1.5 kW  ≈  2.0 h   (theoretical, continuous walking)
+    cruise:  3 kWh / 1.8 kW  ≈  1.7 h   (theoretical, continuous walking)
     derated: usable ~80% DoD, higher-power maneuvers, standing gaps
              →  plan for  ~30–60 min of real walking per charge
 ```
@@ -95,13 +98,13 @@ wire, not the load** — fuse rating ≤ wire ampacity, ~125% of continuous.
 
 | Item | Spec | Why |
 |---|---|---|
-| **Main fuse** | Class-T (preferred) or MIDI, **~80 A**, at the pack + | High interrupt rating for a lithium pack; sized above the stand-up transient, below the main-lead ampacity. |
-| **Main lead** | 8 AWG silicone (or larger) | ~80 A path from pack to contactor/bus. |
-| **Main contactor** | ≥ 100 A DC, with **pre-charge resistor + relay** | Soft-charges the actuator bus caps, then closes; opened by the e-stop. |
+| **Main fuse** | Class-T (preferred) or MIDI, **~100 A**, at the pack + | High interrupt rating for a lithium pack; sized above the stand-up transient, below the main-lead ampacity. |
+| **Main lead** | 6 AWG silicone (or larger) | ~100 A path from pack to contactor/bus. |
+| **Main contactor** | ≥ 120 A DC, with **pre-charge resistor + relay** | Soft-charges the actuator bus caps, then closes; opened by the e-stop. |
 | **Branch wiring** | 12 AWG per actuator pair | Each RMD-X15 branch. |
 | **Bus bar** | +/− distribution, don't neck all current through one terminal | Same lesson as the prototype's burned PCA trace. |
 | **DC-DC 72→48 V** | ≥ ~300 W | six yaw actuators. |
-| **DC-DC 72→24 V** | ~150 W | logic + contactor + brake coils. |
+| **DC-DC 72→24 V** | **≥ 400 W** | logic + contactor + **12 simultaneously-held brake coils** (~250–300 W of coil load alone — a 150 W logic-class converter browns out and re-engages the brakes mid-walk). |
 
 ---
 
@@ -148,13 +151,13 @@ This is the safety heart of the electrical system and ties directly to
 
 ## 7. Assumptions & open questions
 
-1. **~1.5 kW cruise / ~2.5 kW peak** are estimates for 0.4 m/s on level,
-   prepared ground; slopes and rougher terrain raise both.
-2. **Stand-up transient (~55–70 A)** assumes an un-sequenced lift; a
+1. **~1.8 kW cruise / ~3 kW peak** are estimates for 0.4 m/s at ~460 kg on
+   level, prepared ground; slopes and rougher terrain raise both.
+2. **Stand-up transient (~70–85 A)** assumes an un-sequenced lift; a
    two-group stand-up roughly halves the peak. Size hardware to the
    un-sequenced peak regardless.
 3. **~3 kWh / ~20 kg pack** balances endurance against mass; a bigger pack
-   buys run time at the cost of the [mass budget](README.md#6-mass-budget-280-kg-dry).
+   buys run time at the cost of the [mass budget](README.md#6-mass-budget-360-kg-dry).
 4. **Brake coil voltage (24 V vs 48 V)** must match the brakes ordered in
    [`BOM.md`](BOM.md); the interlock logic is identical either way.
 5. **CAN bus** carries actuator comms; keep it electrically isolated from
