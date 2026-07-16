@@ -914,7 +914,17 @@ def _build_motion(instances_json, chassis_lift, legs):
         leg = inst.get("leg")
         if leg is None:
             continue
-        link = _MOTION_LINK_OF_PARTTYPE.get(inst["partType"])
+        part = inst["partType"]
+        # Foot-hinge hardware (the M3x16 hinge bolt + nyloc nut) comes out of
+        # the registry with joint=None, so it lands in the generic
+        # "screw_chassis" bucket -- but it is LEG-tagged and rides the tibia's
+        # foot fitting, so it must swing with the knee link.  Without this the
+        # 2 bolts/leg stayed at their static stance position and floated in
+        # mid-air whenever a pose or the walk clip moved the leg (the Jul 2026
+        # "floating foot screws" bug; every OTHER leg-tagged screw_chassis is
+        # also foot hardware, so the blanket mapping is safe).
+        link = ("knee" if part == "screw_chassis"
+                else _MOTION_LINK_OF_PARTTYPE.get(part))
         if link is None:
             continue
         ids_by.setdefault((leg, link), []).append(inst["id"])

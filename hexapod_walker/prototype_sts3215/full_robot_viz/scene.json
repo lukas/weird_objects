@@ -17657,6 +17657,8 @@
         "160-screw_knee",
         "162-screw_knee",
         "165-screw_knee",
+        "166-screw_chassis",
+        "167-screw_chassis",
         "478-disc_horn_knee",
         "496-passive_horn_knee",
         "497-passive_adapter_knee"
@@ -17796,6 +17798,8 @@
         "210-screw_knee",
         "212-screw_knee",
         "215-screw_knee",
+        "216-screw_chassis",
+        "217-screw_chassis",
         "479-disc_horn_knee",
         "498-passive_horn_knee",
         "499-passive_adapter_knee"
@@ -17935,6 +17939,8 @@
         "260-screw_knee",
         "262-screw_knee",
         "265-screw_knee",
+        "266-screw_chassis",
+        "267-screw_chassis",
         "480-disc_horn_knee",
         "500-passive_horn_knee",
         "501-passive_adapter_knee"
@@ -18074,6 +18080,8 @@
         "310-screw_knee",
         "312-screw_knee",
         "315-screw_knee",
+        "316-screw_chassis",
+        "317-screw_chassis",
         "481-disc_horn_knee",
         "502-passive_horn_knee",
         "503-passive_adapter_knee"
@@ -18213,6 +18221,8 @@
         "360-screw_knee",
         "362-screw_knee",
         "365-screw_knee",
+        "366-screw_chassis",
+        "367-screw_chassis",
         "482-disc_horn_knee",
         "504-passive_horn_knee",
         "505-passive_adapter_knee"
@@ -18352,6 +18362,8 @@
         "410-screw_knee",
         "412-screw_knee",
         "415-screw_knee",
+        "416-screw_chassis",
+        "417-screw_chassis",
         "483-disc_horn_knee",
         "506-passive_horn_knee",
         "507-passive_adapter_knee"
