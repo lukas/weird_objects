@@ -875,7 +875,7 @@ def make_env(**kwargs) -> HexapodWalkerEnv:
 
 
 # ---------------------------------------------------------------------------
-# Smoke test (run directly with `./run.sh hexapod_walker/hexapod_env.py`).
+# Smoke test (run directly with `./run.sh hexapod_walker/fullsize_v1/hexapod_env.py`).
 # ---------------------------------------------------------------------------
 
 def _smoke_test():

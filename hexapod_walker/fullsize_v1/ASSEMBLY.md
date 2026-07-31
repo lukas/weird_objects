@@ -72,7 +72,7 @@ Total build cost (typical, 2026 USD): **$45,000 – $110,000.** See §10.
 
 ## 3. STL files in `stl/`
 
-Run `./run.sh hexapod_walker/hexapod_walker.py` to (re)generate every
+Run `./run.sh hexapod_walker/fullsize_v1/hexapod_walker.py` to (re)generate every
 file. All dimensions are in millimetres. All STLs are watertight
 manifolds suitable for CAM, casting investment, or 3D-printing slicers.
 

@@ -27,18 +27,20 @@ venv/
 **/fasteners/*.cache.source.txt
 
 # CAD validation-workflow outputs (rebuild via
-# `make -C hexapod_walker/prototype check-cad`).  Contains cad_report.md
-# plus per-part PNG renders under views/.
-hexapod_walker/prototype/artifacts/
+# `make -C hexapod_walker/prototype_sts3215 check-cad`).  Contains
+# cad_report.md plus per-part PNG renders under views/.  (Path updated
+# Jul 2026 -- the project dir was renamed prototype -> prototype_sts3215
+# and the stale rule was silently matching nothing.)
+hexapod_walker/prototype_sts3215/artifacts/
 
 # Per-check sqlite cache populated by _verify_prototype.py; key is
 # sha1(check source + hp / fr module source + STL bytes), evicted
 # after 30 days.  Safe to delete by hand (forces a cold run).  Bust
 # via --no-cache.
-hexapod_walker/prototype/.verify_cache.sqlite
-hexapod_walker/prototype/.verify_cache.sqlite-journal
-hexapod_walker/prototype/.verify_cache.sqlite-wal
-hexapod_walker/prototype/.verify_cache.sqlite-shm
+hexapod_walker/prototype_sts3215/.verify_cache.sqlite
+hexapod_walker/prototype_sts3215/.verify_cache.sqlite-journal
+hexapod_walker/prototype_sts3215/.verify_cache.sqlite-wal
+hexapod_walker/prototype_sts3215/.verify_cache.sqlite-shm
 
 # Cursor / editor / OS
 .DS_Store
@@ -52,7 +54,7 @@ test_*.png
 *.bak
 
 # RL training artefacts (large, regeneratable)
-hexapod_walker/policies/
+hexapod_walker/fullsize_v1/policies/
 MUJOCO_LOG.TXT
 
 # Local Netlify folder

@@ -51,7 +51,7 @@ def parse_args():
     p.add_argument("--assets", default="assembly",
                    help="Directory containing the category STL files.")
     p.add_argument("--out", default="renders/walker.png",
-                   help="Output PNG (resolves relative to hexapod_walker/).")
+                   help="Output PNG (resolves relative to hexapod_walker/fullsize_v1/).")
     p.add_argument("--samples", type=int, default=96,
                    help="Cycles render samples (higher = less noise, slower).")
     p.add_argument("--width",  type=int, default=1600)
@@ -178,7 +178,7 @@ def main():
         if not (assets / r).exists():
             raise SystemExit(
                 f"Missing {assets/r} -- run "
-                f"`./run.sh hexapod_walker/build_full_assembly.py` first."
+                f"`./run.sh hexapod_walker/fullsize_v1/build_full_assembly.py` first."
             )
     has_rider = (assets / "rider.stl").exists()
     if not has_rider:

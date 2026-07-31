@@ -192,7 +192,7 @@ Welded steel doesn't fail in the middle of a clean tube; it fails at
 * **Normalise the weldment** after welding to relieve residual stress.
 * **Dye-penetrant or MPI inspect** every primary weld before first ride,
   and re-inspect after any fall (mirrors the maintenance rule in the
-  parent [`../ASSEMBLY.md`](../ASSEMBLY.md)).
+  parent [`../fullsize_v1/ASSEMBLY.md`](../fullsize_v1/ASSEMBLY.md)).
 * Avoid piling welds on top of each other at a node (multiple HAZ
   overlaps embrittle the steel); design the node so members meet with
   space to lay clean, separated beads.

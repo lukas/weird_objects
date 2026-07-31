@@ -17,7 +17,7 @@ import os
 import sys
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-WALKER_DIR = os.path.dirname(THIS_DIR)
+WALKER_DIR = os.path.join(os.path.dirname(THIS_DIR), "fullsize_v1")
 sys.path.insert(0, THIS_DIR)
 sys.path.insert(0, WALKER_DIR)
 

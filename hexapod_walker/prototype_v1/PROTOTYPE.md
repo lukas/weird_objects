@@ -1,6 +1,6 @@
 # Hexapod Walker — Tabletop Prototype Build Guide
 
-> A scaled-down sibling of the [full-size walker](../ASSEMBLY.md) intended
+> A scaled-down sibling of the [full-size walker](../fullsize_v1/ASSEMBLY.md) intended
 > for proving out the geometry, kinematics, and gait controller before
 > you commit to industrial servomotors. Same architecture: regular hex
 > chassis, six identical 3-DOF legs, alternating-tripod gait — but

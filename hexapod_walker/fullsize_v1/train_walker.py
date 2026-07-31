@@ -8,18 +8,18 @@ Examples
 --------
 
   # quick smoke train (~ 30 s on CPU)
-  ./.venv/bin/python hexapod_walker/train_walker.py --steps 5000
+  ./.venv/bin/python hexapod_walker/fullsize_v1/train_walker.py --steps 5000
 
   # ~ 10-30 min, multi-env vectorised
-  ./.venv/bin/python hexapod_walker/train_walker.py \
+  ./.venv/bin/python hexapod_walker/fullsize_v1/train_walker.py \
       --steps 250000 --n-envs 8
 
   # then watch a trained policy
-  ./.venv/bin/mjpython hexapod_walker/rollout_walker.py \
-      --policy hexapod_walker/policies/walker_ppo.zip --vx 0.4
+  ./.venv/bin/mjpython hexapod_walker/fullsize_v1/rollout_walker.py \
+      --policy hexapod_walker/fullsize_v1/policies/walker_ppo.zip --vx 0.4
 
 The script saves (policy, vec_normalize, training-curve CSV) under
-hexapod_walker/policies/<run_tag>/.
+hexapod_walker/fullsize_v1/policies/<run_tag>/.
 """
 
 from __future__ import annotations

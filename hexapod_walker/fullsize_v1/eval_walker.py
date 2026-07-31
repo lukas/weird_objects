@@ -15,11 +15,11 @@ Usage
 -----
 
     # zero-residual baseline (= the bare IK gait)
-    ./.venv/bin/python hexapod_walker/eval_walker.py --baseline
+    ./.venv/bin/python hexapod_walker/fullsize_v1/eval_walker.py --baseline
 
     # a saved PPO policy
-    ./.venv/bin/python hexapod_walker/eval_walker.py \\
-        --policy hexapod_walker/policies/walker_v1/walker_v1.zip
+    ./.venv/bin/python hexapod_walker/fullsize_v1/eval_walker.py \\
+        --policy hexapod_walker/fullsize_v1/policies/walker_v1/walker_v1.zip
 
 The same set of (command, terrain_seed, obstacle_seed) triples is used
 for every run, so two evaluations are directly comparable.

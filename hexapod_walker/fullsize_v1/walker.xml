@@ -1,5 +1,5 @@
 <mujoco model="hexapod_walker">
-  <compiler angle="radian" coordinate="local" autolimits="true" meshdir="/Users/lukas/weird_objects/hexapod_walker/stl"/>
+  <compiler angle="radian" coordinate="local" autolimits="true" meshdir="/Users/lukas/weird_objects/hexapod_walker/fullsize_v1/stl"/>
   <option gravity="0 0 -9.81" timestep="0.002" iterations="50" solver="Newton" cone="elliptic"/>
 
   <default>

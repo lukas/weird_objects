@@ -6,7 +6,7 @@
 #      or build_full_assembly.py is newer than them.
 #   3. Runs render_blender.py inside Blender to produce a Cycles render.
 #
-# Usage (from anywhere -- the script cd's into hexapod_walker/ first):
+# Usage (from anywhere -- the script cd's into hexapod_walker/fullsize_v1/ first):
 #   ./render_blender.sh                                   # default render
 #   ./render_blender.sh --samples 256                     # higher quality
 #   ./render_blender.sh --device METAL                    # GPU (Apple Silicon)
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 WALKER_DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT_DIR="$(cd "$WALKER_DIR/.." && pwd)"
+ROOT_DIR="$(cd "$WALKER_DIR/../.." && pwd)"
 cd "$WALKER_DIR"
 
 # ---- locate Blender --------------------------------------------------------
@@ -69,7 +69,7 @@ done
 
 if [[ $REBUILD -eq 1 ]]; then
     echo "[render_blender] (re)building assembly STLs ..."
-    "$ROOT_DIR/run.sh" hexapod_walker/build_full_assembly.py
+    "$ROOT_DIR/run.sh" hexapod_walker/fullsize_v1/build_full_assembly.py
 else
     echo "[render_blender] reusing cached $ASSETS/*.stl"
 fi

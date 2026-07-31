@@ -8,13 +8,13 @@ Usage
 -----
 
     # interactive viewer
-    ./.venv/bin/mjpython hexapod_walker/rollout_walker.py \\
-        --policy hexapod_walker/policies/walker_ppo/walker_ppo.zip \\
+    ./.venv/bin/mjpython hexapod_walker/fullsize_v1/rollout_walker.py \\
+        --policy hexapod_walker/fullsize_v1/policies/walker_ppo/walker_ppo.zip \\
         --vx 0.4
 
     # headless (prints scoreboard)
-    ./.venv/bin/python hexapod_walker/rollout_walker.py \\
-        --policy hexapod_walker/policies/walker_ppo/walker_ppo.zip \\
+    ./.venv/bin/python hexapod_walker/fullsize_v1/rollout_walker.py \\
+        --policy hexapod_walker/fullsize_v1/policies/walker_ppo/walker_ppo.zip \\
         --headless --episodes 5
 
 The policy receives observations from the *real* environment and outputs

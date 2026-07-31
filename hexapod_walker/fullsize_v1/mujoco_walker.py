@@ -10,16 +10,16 @@ Usage
 
     # interactive 3D viewer (macOS: launch from main thread, this script
     # uses ``mujoco.viewer.launch_passive`` so it works on macOS too)
-    ./run.sh hexapod_walker/mujoco_walker.py
+    ./run.sh hexapod_walker/fullsize_v1/mujoco_walker.py
 
     # headless: simulate for N seconds, print body trajectory + save MJCF
-    ./run.sh hexapod_walker/mujoco_walker.py --headless --duration 6.0
+    ./run.sh hexapod_walker/fullsize_v1/mujoco_walker.py --headless --duration 6.0
 
     # just dump the generated XML and exit
-    ./run.sh hexapod_walker/mujoco_walker.py --dump-xml hexapod_walker/walker.xml
+    ./run.sh hexapod_walker/fullsize_v1/mujoco_walker.py --dump-xml hexapod_walker/fullsize_v1/walker.xml
 
     # play with the gait
-    ./run.sh hexapod_walker/mujoco_walker.py --stride 0.45 --period 1.6 --lift 0.10
+    ./run.sh hexapod_walker/fullsize_v1/mujoco_walker.py --stride 0.45 --period 1.6 --lift 0.10
 
 The model uses the same hexagonal chassis with 6 × 3 = 18 actuators that
 the build guide describes.  Geometry is mirrored from

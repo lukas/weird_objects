@@ -3,7 +3,7 @@
 > A one-rider, six-legged walking vehicle sized to carry a ~100 kg adult
 > at a slow, statically-stable walk (~0.4 m/s). This directory is a
 > **fresh design iteration** distinct from the earlier full-size draft in
-> [`../ASSEMBLY.md`](../ASSEMBLY.md): it swaps the $6–8 k harmonic-drive
+> [`../fullsize_v1/ASSEMBLY.md`](../fullsize_v1/ASSEMBLY.md): it swaps the $6–8 k harmonic-drive
 > servomotors for a **quasi-direct-drive (QDD) actuator + secondary
 > reduction** lineup, adopts a **tucked leg stance** that pulls the hip
 > torque down into off-the-shelf actuator territory, and centres the
@@ -86,7 +86,7 @@ excursion (~±0.17 m at the chosen stride), so ≤ ~0.45 m worst-in-stride:
 
 Cutting the moment arm to a third cuts the hip torque to a third. That is
 the difference between needing a **$6–8 k harmonic-drive servo** at every
-hip (the old [`../ASSEMBLY.md`](../ASSEMBLY.md) approach) and being able
+hip (the old [`../fullsize_v1/ASSEMBLY.md`](../fullsize_v1/ASSEMBLY.md) approach) and being able
 to use a **~$1,515 QDD actuator behind a modest 6:1 reduction** (this
 design). The knee benefits the same way: a near-vertical tibia keeps the
 foot's horizontal offset from the knee small (~0.29 m static), so the
