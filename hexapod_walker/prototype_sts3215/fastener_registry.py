@@ -115,9 +115,10 @@ to clamp through the chassis plates.)
     target, like the chassis standoffs in 18.).  Emitted by
     ``_emit_deck_fasteners``.
 
-11. ``4 x M3 nyloc nuts`` -- captive UNDER chassis_top retaining the
-    lowest (level-1) deck standoff columns' male threads at the 4
-    ``DECK_COLUMN_XY`` positions (see 10.).
+11. ``4 x M3 x 8 SHCS`` -- UP from below chassis_top into the lowest
+    (level-1) F-F deck standoff columns' female bottom threads at the
+    4 ``DECK_COLUMN_XY`` positions (see 10.).  Jul 2026 F/F switch:
+    replaces the old male-stud + nyloc retention.
 
 12. ``2 x M3 x 8 SHCS`` -- switch_holster mount bolts.  Threads
     DOWN through 2 printed clearance holes in chassis_top into an
@@ -149,21 +150,23 @@ to clamp through the chassis plates.)
     gone with the electronics_tray.
 
 18. ``4 x M3 x 10 SHCS`` -- chassis_top -> brass-standoff bolts.
-    Threads DOWN from above chassis_top into the M-F brass
+    Threads DOWN from above chassis_top into the F-F brass
     standoff's female top threads.  4 sites at
-    ``HP.CHASSIS_STANDOFF_HOLES_XY`` = (+/-35, 0) and (0, +/-35) mm
-    -- the rotated-45-deg 35-mm-radius pattern, INTENTIONALLY
-    different from the tray-mount pattern in (16.) so the brass
-    standoff body doesn't conflict with the tray-mount insert
-    pocket.  Modeled engagement target is a VIRTUAL
-    SPEC_M3_HEATSET_INSERT entry at the top of the standoff (=
-    chassis_top bottom face) so the verifier's engagement check
-    pairs the bolt correctly -- the actual brass standoff hardware
-    is unmodeled.
+    ``HP.CHASSIS_STANDOFF_HOLES_XY`` = (+/-31.1, +/-31.1) mm -- the
+    44-mm-radius diagonal pattern (Jul 2026 battery-fit rework:
+    moved off (+/-35, 0)/(0, +/-35) so the real 138 x 46 mm LiPo
+    has a clear lane through the inter-plate bay).  Modeled
+    engagement target is a VIRTUAL SPEC_M3_HEATSET_INSERT entry at
+    the top of the standoff (= chassis_top bottom face) so the
+    verifier's engagement check pairs the bolt correctly -- the
+    actual brass standoff hardware is unmodeled.
 
-19. ``4 x M3 nyloc nuts`` -- captive UNDER chassis_bottom retaining
-   the brass standoff's male threads at the same 4 standoff XY
-   positions (see 18.).  Accessible from below the robot.
+19. ``4 x M3 x 14 SHCS`` -- UP from below chassis_bottom (head on the
+    -6 mm floor face, through the 8 mm plate + floor stack) into the
+    F-F brass standoff's female BOTTOM threads at the same 4 standoff
+    XY positions (see 18.).  Jul 2026 F/F switch: replaces the old
+    M-F male stud + nyloc, which could not span the 8 mm-thick
+    merged chassis_bottom.  Accessible from below the robot.
 """
 
 from __future__ import annotations
@@ -202,12 +205,17 @@ PN_M25_HEATSET_INSERT = "94459A106"  # M2.5 brass heat-set insert, knurled
                                       # depth 4.5 mm.  4 of these mount the
                                       # Raspberry Pi 4 / Pi 5 onto the
                                       # electronics_tray (May 2026).
-PN_M3X10_SHCS    = "91290A114"   # M3 x 10 socket-head cap screw, black-oxide steel
-                                  # (battery_holder foot bolts: head bears on
-                                  # the UNDER face of chassis_bottom, threads
-                                  # UP through the plate into a heat-set
-                                  # insert in the holder foot above)
+PN_M3X10_SHCS    = "91290A114"   # M3 x 10 socket-head cap screw, black-oxide
+                                  # steel (chassis_top -> standoff-top bolts,
+                                  # deck-tray column bolts, driven disc-horn
+                                  # bolts; the battery_holder foot bolts that
+                                  # used this stock are retired)
 PN_M3_HEATSET_INSERT = "94459A130"   # M3 brass heat-set insert, knurled (McMaster)
+PN_M3X14_SHCS    = "91290A115"   # M3 x 14 socket-head cap screw (Jul 2026 F/F
+                                  # standoff switch: enters chassis_bottom's -6
+                                  # bottom face, spans the 8 mm plate + floor
+                                  # stack and threads ~6 mm into the brass F-F
+                                  # standoff's bottom female thread)
 PN_M3X32_SHCS    = "91290A123"   # M3 x 30 socket-head cap screw (closest stock to 32 mm)
 PN_M3_NYLOC      = "90576A102"   # M3 nylon-insert lock nut, A2 stainless
 PN_M3X16_PAN     = "92010A130"   # M3 x 16 pan-head Phillips, A2 stainless (foot hinge)
@@ -233,9 +241,9 @@ PN_M3X6_SHCS     = "91290A111"   # M3 x 6 socket-head cap screw (ships with disc
 
 # Human-readable spec labels (used by the inspector and the BOM script).
 SPEC_M3X8_SHCS   = "M3x8 SHCS"
-SPEC_M3X10_SHCS  = "M3x10 SHCS"   # battery_holder foot bolts (4); threads
-                                   # into M3 brass heat-set insert in the
-                                   # holder foot above chassis_bottom.
+SPEC_M3X10_SHCS  = "M3x10 SHCS"   # chassis-standoff top bolts + deck-column
+                                   # tray bolts (the retired battery_holder
+                                   # foot bolts also used this spec).
 # RETIRED (Jun 2026): the chassis_bottom HIGH/LOW print split was re-merged
 # into one part, so the 12 M3 x 10 self-tap cradle-plate join screws are gone.
 # The spec string is kept (no longer emitted) so the driver dispatcher / BOM
@@ -268,6 +276,10 @@ SPEC_M3X8_SHCS_SELFTAP = "M3x8 SHCS self-tap"
 # Phi 4.0 mm pilot, Phi 5.7 mm OD, 5.0 mm length.  Installed with a
 # soldering iron at ~220 deg C; the bolt threads into it from above.
 SPEC_M3_HEATSET_INSERT = "M3 heat-set insert"
+# Jul 2026 F/F standoff switch: bottom chassis-standoff bolt.  "SHCS"
+# substring preserved so the screwdriver-envelope dispatcher picks the
+# HEX_KEY driver envelope.
+SPEC_M3X14_SHCS  = "M3x14 SHCS"
 SPEC_M3X32_SHCS  = "M3x32 SHCS"
 SPEC_M3_NYLOC    = "M3 nyloc nut"
 SPEC_M3X16_PAN   = "M3x16 pan-head"
@@ -308,11 +320,12 @@ SPEC_M3X10_DISC_HORN = "M3x10 disc-horn SHCS"
 # 6 legs = 72) was REMOVED -- the dia-20 disc horn covers the output
 # face.  POSITIVE body retention is now provided on the servo's REAL
 # END-face M2.5 holes (measured Waveshare ST3215: a 10 x 10 mm square
-# centred on each +/-X end face).  Each cradle bolts the servo's -X end
-# face to the cradle's -X wall with 4 x M2.5 x 8 SHCS that thread into
-# the servo's own metal case (the case IS the thread; no printed boss /
-# insert).  Same exempt spec string as before so the engagement check's
-# clearance-bore air-span exemption still applies.
+# centred on each +/-X end face).  The HIP cradle bolts the servo's -X
+# end face to the cradle's -X wall with 4 x M2.5 x 8 SHCS that thread
+# into the servo's own metal case (the case IS the thread; no printed
+# boss / insert); yaw + knee cradles take none (see
+# _emit_end_face_fasteners).  Same exempt spec string as before so the
+# engagement check's clearance-bore air-span exemption still applies.
 SPEC_M25_BODY_SCREW = "M2.5 SHCS into servo case"
 # Shallow SELF-TAPPING M2.5 into the STS3215 FIXED REAR (back) CASE FACE.  The 4
 # yaw anti-rotation saddle screws drive vertically UP into the standard STS3215
@@ -350,8 +363,8 @@ class FastenerInstance:
     # needs a wrench).
     skip_screwdriver_reason: str | None = None
     # ``True`` marks the entry as a VIRTUAL engagement target that
-    # represents unmodeled mating hardware (e.g. the brass M-F standoff's
-    # female top threads, modelled as an M3 heat-set insert so the
+    # represents unmodeled mating hardware (e.g. the brass F-F standoff's
+    # female threads, modelled as an M3 heat-set insert so the
     # verifier's ``check_fastener_engagement`` can pair a bolt with a
     # plausible engagement medium).  Virtual entries are SKIPPED by
     # ``fastener_bom_rows`` so they don't inflate the BOM count, but
@@ -542,7 +555,7 @@ def _hip_cradle_T(leg_index: int) -> np.ndarray:
     in the coxa_link).  Bearing-sandwich refit (Jun 2026): the hip servo
     is placed by ``hexapod_prototype._joint_place`` so its disc-horn-top
     lands on the hip joint axis (COXA_LENGTH, 0, COXA_HIP_DROP) -- the
-    same anchor make_coxa_link / make_femur_hip_yoke use, guaranteeing
+    same anchor make_coxa_link / make_femur_link_part use, guaranteeing
     the case-screw + disc-horn-bolt sites match the geometry."""
     M = HP._joint_place(HP.COXA_HIP_ANCHOR,
                         (1, 0, 0), HP.LEG_PITCH_AXIS)
@@ -578,12 +591,13 @@ def _emit_end_face_fasteners(
     POSITIVE retention (Jun 2026): measured from the authoritative
     Waveshare ST3215 brackets, each +/-X END face of the servo carries a
     10 x 10 mm square of 4 M2.5 threaded case holes centred on the face.
-    Each cradle (yaw chassis_bottom, hip coxa_link, knee femur_link)
-    bolts the servo's -X end face to its -X wall: the head is recessed in
-    a wall counterbore and the M2.5 x 8 SHCS threads +X (well-local) into
-    the servo's own metal case.  Geometry is cut by
-    ``hexapod_prototype._servo_well_solid`` (hip/knee) and
-    ``_chassis_yaw_cradle_solid`` (yaw) at ``servo_end_face_bolt_centres``.
+    Only the HIP cradle (coxa_link) uses them now: it bolts the servo's -X
+    end face to its -X wall -- the head is recessed in a wall counterbore
+    and the M2.5 x 8 SHCS threads +X (well-local) into the servo's own
+    metal case.  Geometry is cut by ``hexapod_prototype._servo_well_solid``
+    at ``servo_end_face_bolt_centres``.  The YAW cradle takes none (Jun
+    2026 flush-horn refit) and the KNEE cradle takes none either (Jul 2026
+    one-piece femur -- the fused spar covers that wall).
 
     ``upper_row_only`` (yaw cradle, Jun 2026 single-part merge): the merged
     chassis_bottom keeps the yaw cradle's -X WELL wall only down to its -6
@@ -1030,7 +1044,7 @@ def _emit_horn_fasteners_knee(leg_index: int) -> list[FastenerInstance]:
 # disc horn on the rear idler boss.  Head bears on the bottom-arm OUTER face
 # (joint-local z = JOINT_HORN_BOT_Z - _YOKE_ARM_T), axis +Z UP into the disc's
 # M3 tapped hole; plus one central M2.5 retention screw (mirrors the driven
-# spline screw) through the horn + adapter into the rear boss so the passive
+# spline screw) through the stock horn's centre hole into the rear boss so the passive
 # horn can't work loose on the smooth boss.
 
 
@@ -1038,9 +1052,10 @@ def _passive_horn_T(leg_index: int, joint: str) -> np.ndarray:
     """World transform that maps PASSIVE-disc-horn-LOCAL coords (origin at the
     horn's spline-mating face, +Z = output-shaft axis toward the servo) into
     the world frame.  Mirror of the verifier's ``_passive_horn_world_transform``
-    (and of the driven ``_horn_world_transform``): the horn rides the servo's
-    rear idler boss, flipped 180 deg about X so its flat mating face points
-    AWAY from the servo, seated REAR_BOSS_H below the back face and rotated with
+    (and of the driven ``_horn_world_transform``): the STOCK metal passive horn
+    slides over the rear idler boss and seats FLUSH on the servo back face
+    (Jul 2026 stock-horn refit -- no printed adapter/standoff), flipped 180 deg
+    about X so its flat mating face points AWAY from the servo and rotated with
     the driven link's stance.  Placing the bolts in this (correctly located)
     frame keeps them co-located with the passive horn AND the yoke bottom arm
     on BOTH the hip and the knee, regardless of the link-pad frame offsets."""
@@ -1053,7 +1068,7 @@ def _passive_horn_T(leg_index: int, joint: str) -> np.ndarray:
     else:
         raise ValueError(f"joint {joint!r} has no passive horn")
     return (T_well
-            @ _T(HP.SERVO_OUTPUT_X, 0.0, -HP.REAR_BOSS_H)
+            @ _T(HP.SERVO_OUTPUT_X, 0.0, 0.0)
             @ _Rz(p_link)
             @ _Rx(np.pi))
 
@@ -1100,7 +1115,8 @@ def _emit_passive_center_screw(leg_index: int, joint: str
                                ) -> list[FastenerInstance]:
     """One M2.5 x 8 central retention screw per passive horn: head in the
     horn's collar recess on the mating face (horn-local z = DISC_HORN_H),
-    axis -Z through the horn + centering adapter into the rear idler boss.
+    axis -Z through the stock horn's centre hole into the rear idler boss
+    (Jul 2026 stock-horn refit: no printed adapter in the stack).
     Mirrors the driven spline screw; keeps the passive horn from loosening."""
     T = _passive_horn_T(leg_index, joint)
     head_local = np.array([0.0, 0.0, HP.DISC_HORN_H])
@@ -1358,14 +1374,16 @@ def _emit_deck_fasteners() -> list[FastenerInstance]:
           column boss into the brass standoff's female top thread
           (modelled as a virtual M3 heat-set insert engagement target,
           same convention as the chassis_top brass-standoff bolts).
-        * 4 M3 nyloc nuts UNDER chassis_top capture the lowest (level-1)
-          standoff's male stud that drops through the chassis_top
-          DECK_COLUMN_XY clearance holes.
+        * 4 M3 x 8 SHCS UP from below chassis_top thread into the lowest
+          (level-1) F-F standoff column's female bottom threads through
+          the chassis_top DECK_COLUMN_XY clearance holes (Jul 2026 F/F
+          switch -- replaces the old male-stud + nyloc retention).
     """
     out: list[FastenerInstance] = []
 
     deck_top_face = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T
     chassis_top_bot_z = HP.CHASSIS_GAP + 0.5 * HP.CHASSIS_PLATE_T
+    chassis_top_top_z = deck_top_face
 
     board_skip_reason = (
         "captive sub-assembly fastener: the board is screwed down onto "
@@ -1489,31 +1507,63 @@ def _emit_deck_fasteners() -> list[FastenerInstance]:
                 is_virtual=True,
             ))
 
-        # M3 nyloc nut UNDER chassis_top capturing the level-1 standoff's
-        # male stud dropping through the DECK_COLUMN_XY clearance hole.
+        # M3 x 8 SHCS UP from below chassis_top into the level-1 F-F
+        # standoff column's female BOTTOM threads (Jul 2026 F/F
+        # switch: replaces the old male-stud + nyloc retention --
+        # same fix as the chassis-standoff path; the F-F column is
+        # bolted from both ends).  Head seats on chassis_top's +34
+        # bottom face; the 8 mm screw spans the 4 mm plate and bites
+        # ~4 mm of female thread.
         out.append(FastenerInstance(
-            part_number=PN_M3_NYLOC,
-            spec=SPEC_M3_NYLOC,
+            part_number=PN_M3X8_SHCS,
+            spec=SPEC_M3X8_SHCS,
             head_world_xyz=np.array([cx, cy, chassis_top_bot_z]),
             axis_world=np.array([0.0, 0.0, 1.0]),
             role=(
-                f"chassis_top standoff column {corner} "
-                f"retention M3 nyloc nut"
+                f"chassis_top standoff column {corner} bottom "
+                f"M3 x 8 SHCS into column female thread"
             ),
             leg_index=None,
             joint=None,
-            length_mm=None,
-            cache_stl=f"{PN_M3_NYLOC}.cache.stl",
+            length_mm=8.0,
+            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
             skip_screwdriver_reason=(
                 "captive sub-assembly fastener: the standoff columns + "
                 "decks are bolted onto chassis_top as a SEPARATE top "
-                "sub-assembly (column nuts torqued on the open underside "
+                "sub-assembly (column bolts torqued on the open underside "
                 "of chassis_top) BEFORE that sub-assembly is lowered "
                 "onto the chassis_bottom brass standoffs.  In the "
-                "assembled robot chassis_bottom sits below this nut, so "
-                "the socket cannot reach it -- but it is never driven "
-                "in the assembled state"
+                "assembled robot the inter-plate bay sits below this "
+                "bolt head, so the hex key cannot reach it -- but it is "
+                "never driven in the assembled state"
             ),
+        ))
+
+        # Synthetic engagement target: the level-1 F-F column's female
+        # bottom threads at the chassis_top TOP face (+38 = column
+        # bottom face).
+        out.append(FastenerInstance(
+            part_number=PN_M3_HEATSET_INSERT,
+            spec=SPEC_M3_HEATSET_INSERT,
+            head_world_xyz=np.array([cx, cy, chassis_top_top_z]),
+            axis_world=np.array([0.0, 0.0, 1.0]),
+            role=(
+                f"chassis_top standoff column {corner} bottom "
+                f"M3 column female thread "
+                f"(modelled as heat-set insert for engagement check)"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=HP.INSERT_M3_INSERT_LENGTH,
+            cache_stl="",
+            skip_screwdriver_reason=(
+                "virtual engagement target representing the brass "
+                "F-F standoff column's female bottom thread; no "
+                "separate fastener is installed at this site -- the "
+                "column hardware supplies the threads.  No driver "
+                "cone applies."
+            ),
+            is_virtual=True,
         ))
 
     return out
@@ -1625,7 +1675,7 @@ def _emit_switch_holster_fasteners() -> list[FastenerInstance]:
         bolt tip min z       = +35 mm
 
     Total bolt run from head to tip: 45 - 35 = 10 mm.  M3 x 10
-    SHCS (PN 91290A114) -- same stock as the battery_holder feet
+    SHCS (PN 91290A114) -- same stock as the chassis-standoff top
     bolts so the BOM stays compact.
 
     Deck redesign (Jun 2026): the Uno Q tray now sits 16 mm above
@@ -1845,9 +1895,10 @@ def _emit_imu_pad_fasteners() -> list[FastenerInstance]:
 
 
 def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
-    """The 4 chassis_top -> brass-standoff bolts + their (synthetic)
-    engagement targets, and the 4 chassis_bottom retention nyloc nuts
-    that capture the brass standoff male threads under the bottom plate.
+    """The 4 chassis_top -> brass-standoff bolts and the 4
+    chassis_bottom -> brass-standoff bolts (Jul 2026 F/F switch), each
+    with a (synthetic) engagement target for the standoff's female
+    thread.
 
     Deck redesign (Jun 2026): the in-gap electronics_tray is retired, so
     the former 4 tray-to-chassis_bottom mount bolts + heat-set inserts
@@ -1855,14 +1906,18 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
     plates together) remains here.
 
     Geometry summary (design frame, z = 0 = chassis_bottom mesh centre
-    plane; chassis_bottom spans z in [-2, +2], chassis_top spans z in
-    [+34, +38]):
+    plane; chassis_bottom spans z in [-6, +2] (plate + merged floor),
+    chassis_top spans z in [+34, +38]):
 
       Brass-standoff path (4 sites at HP.CHASSIS_STANDOFF_HOLES_XY =
-      (+/-35, 0) and (0, +/-35)):
+      (+/-31.1, +/-31.1); Jul 2026 battery-fit rework moved the
+      pattern to the diagonals so the 138 x 46 mm pack has a clear
+      lane through the inter-plate bay, and the M-F standoffs became
+      F-F -- the 8 mm-thick chassis_bottom buried the old 6 mm male
+      stud, so the plate is now BOLTED to the standoff from below):
 
         * M3 x 10 SHCS, head at z = chassis_top_top = +38, axis -Z,
-          length 10 mm.  Tip at z = +28.  Engages the M-F brass
+          length 10 mm.  Tip at z = +28.  Engages the F-F brass
           standoff's female top threads.  We model the engagement
           target as a synthetic ``M3 heat-set insert`` at z = +34
           (= top of standoff = chassis_top bottom face) so the
@@ -1872,20 +1927,21 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
           target is brass standoff thread, NOT a printed-part
           insert; the role string makes this explicit.
 
-        * M3 nyloc nut, outer face at z = -2 (chassis_bottom bottom
-          face), axis +Z (driver approaches from below the robot,
-          nut threads onto the male stud projecting DOWN through
-          chassis_bottom).  Length None (nuts are not probed as
-          bolts).  No paired bolt -- the brass standoff's male
-          thread is unmodeled hardware.
+        * M3 x 14 SHCS, head at z = -6 (chassis_bottom bottom face),
+          axis +Z, length 14 mm.  Passes UP through the 8 mm plate
+          stack; tip at z = +8 -> ~6 mm into the standoff's female
+          BOTTOM threads (standoff bottom face seats on the plate
+          top face at +2).  Same synthetic-insert pairing trick,
+          target at z = +2.
     """
     out: list[FastenerInstance] = []
 
     # Jun 2026 single-part merge: chassis_bottom's bottom face stepped down from
-    # the old -2 plate underside to -6 (the folded-in flat floor slab), so the
-    # standoff nyloc nut now seats on the -6 face (and its stud passes through
-    # the floor via the clearance hole make_chassis_bottom cuts there).
+    # the old -2 plate underside to -6 (the folded-in flat floor slab).  Jul
+    # 2026: the bottom fastener is an M3 x 14 SHCS entering at that -6 face
+    # (the old M-F stud + nyloc could not span the 8 mm plate stack).
     chassis_bottom_bot_z = HP.CHASSIS_SPLIT_Z - HP.CHASSIS_BOTTOM_FLOOR_T  # = -6
+    chassis_bottom_top_z = 0.5 * HP.CHASSIS_PLATE_T                        # = +2
     chassis_top_top_z = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T  # = +38
     chassis_top_bot_z = HP.CHASSIS_GAP + 0.5 * HP.CHASSIS_PLATE_T  # = +34
 
@@ -1896,44 +1952,35 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
 
     # ---- Chassis-top -> brass-standoff -> chassis_bottom path ---------
     #
-    # The +X standoff at (+35, 0) sits UNDER the switch_holster
-    # (which spans chassis-x in [+34, +85], chassis-y in [-11, +11])
-    # so the chassis_top bolt's hex key driver from ABOVE intrudes
-    # into the holster body once the holster is dropped onto its 2
-    # chassis_top bosses.  Deck redesign (Jun 2026): ALL 4 brass
-    # standoff heads at CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) /
-    # (0, +/-35) now also sit UNDER the Uno Q tray (96 x 80 mm, deck-
-    # local (0,0), 16 mm above chassis_top), so the vertical hex-key
-    # approach to every standoff bolt head is blocked by the lower
-    # deck.  The natural assembly order bolts chassis_top DOWN onto
-    # the brass standoff tops BEFORE the standoff-column + deck stack
-    # is fitted above, so all 4 are captive-sub-assembly serviceable.
+    # Deck redesign (Jun 2026): all 4 brass standoff heads at
+    # CHASSIS_STANDOFF_HOLES_XY sit UNDER the Uno Q tray (96 x 80 mm,
+    # deck-local (0,0), 16 mm above chassis_top), so the vertical
+    # hex-key approach to every chassis_top standoff bolt head is
+    # blocked by the lower deck.  The natural assembly order bolts
+    # chassis_top DOWN onto the brass standoff tops BEFORE the
+    # standoff-column + deck stack is fitted above, so all 4 are
+    # captive-sub-assembly serviceable.  (Jul 2026: the diagonal
+    # pattern also moved the +X site out from under the
+    # switch_holster's y in [-11, +11] band.)
     standoff_skip_reason = (
         "captive sub-assembly fastener: torqued during chassis-"
         "stack closure BEFORE the standoff-column + electronics-deck "
         "stack (Uno Q tray 16 mm above chassis_top) is fitted.  Once "
         "the lower deck is on, it sits in the 2.5 mm hex key's "
-        "vertical approach path to this standoff bolt head (the +X "
-        "head is additionally under the switch_holster) -- see "
+        "vertical approach path to this standoff bolt head -- see "
         "PROTOTYPE.md section 6 for the explicit assembly order"
     )
     for (sx, sy) in HP.CHASSIS_STANDOFF_HOLES_XY:
-        if sx > 0:
-            label = "+X"
-        elif sx < 0:
-            label = "-X"
-        elif sy > 0:
-            label = "+Y"
-        else:
-            label = "-Y"
+        x_label = "+X" if sx > 0 else "-X"
+        y_label = "+Y" if sy > 0 else "-Y"
+        label = f"{x_label}{y_label}"
 
-        # All 4 standoff bolt heads are now under the lower deck (and
-        # the +X head is also under the switch_holster), so each is a
-        # captive sub-assembly fastener.
+        # All 4 standoff bolt heads are under the lower deck, so each
+        # is a captive sub-assembly fastener.
         bolt_skip = standoff_skip_reason
 
         # M3 x 10 SHCS dropped DOWN from above chassis_top into the
-        # brass M-F standoff's female top threads.
+        # brass F-F standoff's female top threads.
         head_world = np.array([sx, sy, chassis_top_top_z])
         axis_world = np.array([0.0, 0.0, -1.0])
         out.append(FastenerInstance(
@@ -1952,19 +1999,19 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
             skip_screwdriver_reason=bolt_skip,
         ))
 
-        # Synthetic engagement target: the brass M-F standoff's female
+        # Synthetic engagement target: the brass F-F standoff's female
         # top threads modeled as an M3 heat-set insert at the chassis_
         # top bottom face = top of standoff.  The role string makes
         # the actual hardware (brass standoff) explicit; we re-use
         # SPEC_M3_HEATSET_INSERT so the verifier's
         # ``_find_paired_engagement_target`` pairs it with the bolt
         # above (5 mm of brass thread engagement is equivalent to the
-        # cradle / battery / tray heat-set inserts the verifier was
-        # designed for).
+        # cradle / tray heat-set inserts the verifier was designed
+        # for).
         #
         # ``is_virtual=True`` marks this entry as NOT REAL HARDWARE so
         # ``fastener_bom_rows`` doesn't count it toward the BOM total
-        # (the brass M-F standoff is the actual part on the order; see
+        # (the brass F-F standoff is the actual part on the order; see
         # the "M3 standoffs" BOM row).
         target_head_world = np.array([sx, sy, chassis_top_bot_z])
         out.append(FastenerInstance(
@@ -1983,7 +2030,7 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
             cache_stl="",
             skip_screwdriver_reason=(
                 "virtual engagement target representing the brass "
-                "M-F standoff's female top thread; no separate "
+                "F-F standoff's female top thread; no separate "
                 "fastener is installed at this site -- the brass "
                 "standoff hardware supplies the threads.  No driver "
                 "cone applies."
@@ -1991,26 +2038,55 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
             is_virtual=True,
         ))
 
-        # M3 nyloc nut UNDER chassis_bottom retaining the standoff's
-        # male thread coming DOWN through the plate's Phi 3.4 mm
-        # clearance hole.  Driver approaches from below the robot
-        # (-Z); the nut's outer (visible) face sits flush against
-        # chassis_bottom's bottom face.
-        nut_head_world = np.array([sx, sy, chassis_bottom_bot_z])
-        nut_axis_world = np.array([0.0, 0.0, 1.0])  # axis INTO the wall above
+        # M3 x 14 SHCS UP from below chassis_bottom into the F-F
+        # standoff's female BOTTOM threads (Jul 2026 F/F switch: the
+        # old M-F stud + nyloc could not span the 8 mm plate + floor
+        # stack).  Head seats on chassis_bottom's -6 bottom face;
+        # driver approaches from below the robot (-Z), in open
+        # sub-plate air between the 6 hanging yaw-servo bodies.
+        bottom_head_world = np.array([sx, sy, chassis_bottom_bot_z])
+        bottom_axis_world = np.array([0.0, 0.0, 1.0])
         out.append(FastenerInstance(
-            part_number=PN_M3_NYLOC,
-            spec=SPEC_M3_NYLOC,
-            head_world_xyz=nut_head_world,
-            axis_world=nut_axis_world,
+            part_number=PN_M3X14_SHCS,
+            spec=SPEC_M3X14_SHCS,
+            head_world_xyz=bottom_head_world,
+            axis_world=bottom_axis_world,
             role=(
-                f"chassis_bottom brass standoff {label} "
-                f"retention M3 nyloc nut"
+                f"chassis_bottom brass standoff {label} bottom "
+                f"M3 x 14 SHCS into standoff female thread"
             ),
             leg_index=None,
             joint=None,
-            length_mm=None,
-            cache_stl=f"{PN_M3_NYLOC}.cache.stl",
+            length_mm=14.0,
+            cache_stl=f"{PN_M3X14_SHCS}.cache.stl",
+        ))
+
+        # Synthetic engagement target: the F-F standoff's female
+        # BOTTOM threads, modeled as an M3 heat-set insert opening at
+        # the chassis_bottom TOP face (+2 = standoff bottom face).
+        # Same convention as the top-thread target above.
+        out.append(FastenerInstance(
+            part_number=PN_M3_HEATSET_INSERT,
+            spec=SPEC_M3_HEATSET_INSERT,
+            head_world_xyz=np.array([sx, sy, chassis_bottom_top_z]),
+            axis_world=np.array([0.0, 0.0, 1.0]),
+            role=(
+                f"chassis_bottom brass standoff {label} bottom "
+                f"M3 standoff female thread "
+                f"(modelled as heat-set insert for engagement check)"
+            ),
+            leg_index=None,
+            joint=None,
+            length_mm=HP.INSERT_M3_INSERT_LENGTH,
+            cache_stl="",
+            skip_screwdriver_reason=(
+                "virtual engagement target representing the brass "
+                "F-F standoff's female bottom thread; no separate "
+                "fastener is installed at this site -- the brass "
+                "standoff hardware supplies the threads.  No driver "
+                "cone applies."
+            ),
+            is_virtual=True,
         ))
 
     return out
@@ -2047,8 +2123,8 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
 
         # POSITIVE servo body retention: M2.5 end-face bolts per cradle into
         # the servo's real -X END-face 10x10 case-hole square, so the printed
-        # cradle bolts the servo instead of only gripping it.  The deep hip/
-        # knee cradles take all 4.
+        # cradle bolts the servo instead of only gripping it.  Only the deep
+        # HIP cradle takes them now.
         #
         # The YAW cradle takes NONE (Jun 2026 flush-horn refit): both bearings
         # moving above the flush horn lowered the yaw output 5.5 mm
@@ -2058,18 +2134,19 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         # servo is retained instead by the ``make_yaw_servo_retainer`` strap +
         # anchor bolts + the output-face seat + open-bottom pocket.  (The
         # retired screws reacted X-translation, not yaw torque.)
-        # 0 yaw + 4 hip + 4 knee = 8 per leg x 6 = 48.
+        #
+        # The KNEE cradle also takes NONE (Jul 2026 one-piece femur): the
+        # fused Phi 14 spar covers the knee cradle's -X wall from outside, so
+        # the end-face screws could never be driven there -- the empty holes
+        # only weakened the spar junction and were removed from the geometry
+        # (``_servo_well_solid(end_face_bolts=False)``).  The knee servo is
+        # retained by the clamp cap + retaining lip.
+        # 0 yaw + 4 hip + 0 knee = 4 per leg x 6 = 24.
         out.extend(_emit_end_face_fasteners(
             T_well_to_world=_hip_cradle_T(leg_index),
             leg_index=leg_index,
             joint="hip",
             location=f"coxa_link L{leg_index} hip cradle",
-        ))
-        out.extend(_emit_end_face_fasteners(
-            T_well_to_world=_knee_cradle_T(leg_index),
-            leg_index=leg_index,
-            joint="knee",
-            location=f"femur_link L{leg_index} knee cradle",
         ))
 
         # Sandwich-joint clamp-cap self-tap bolts (2 per hip + knee
@@ -2125,16 +2202,15 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     # Stacked-deck board-mount + standoff-column fasteners (Jun 2026
     # redesign): M3 x 8 SHCS board bolts into the Uno Q / buck tray
     # bosses, M3 x 10 column bolts into the brass standoff female tops,
-    # and 4 retention nyloc nuts under chassis_top.  Replaces the retired
+    # and 4 M3 x 8 SHCS up from below chassis_top into the level-1 F-F
+    # columns (Jul 2026 F/F switch).  Replaces the retired
     # electronics_tray board-mount bolts.
     out.extend(_emit_deck_fasteners())
 
     # Switch-holster mount bolts (May 2026 "essentials" pass).  2 x
     # M3 x 10 SHCS thread UP from BELOW chassis_top into 2 x M3
-    # heat-set inserts captive in the holster's mounting ear --
-    # same captive-insert pattern as the battery_holder feet.  Bolts
-    # are user-serviceable from inside the chassis cavity (before
-    # the battery is dropped into the holder).
+    # heat-set inserts captive in the holster's mounting ear.  Bolts
+    # are user-serviceable from inside the chassis cavity.
     out.extend(_emit_switch_holster_fasteners())
 
     # IMU pad mount bolts (May 2026: MPU-6050 promoted from optional
@@ -2145,13 +2221,10 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     # chassis_top.
     out.extend(_emit_imu_pad_fasteners())
 
-    # Chassis-stack standoff fasteners (May 2026 tray-mount fix).
-    # 4 x M3 x 8 SHCS into chassis_bottom tray-mount heat-set inserts
-    # + 4 x M3 x 10 SHCS into brass standoff female tops (chassis_top
-    # side) + 4 x M3 nyloc nuts UNDER chassis_bottom (capturing the
-    # standoff's male thread).  Replaces the previous "Chassis-stack
-    # standoff bolts" entry in the "NOT enumerated yet" docstring
-    # list.
+    # Chassis-stack standoff fasteners.  4 x M3 x 10 SHCS into the F-F
+    # brass standoff female tops (chassis_top side) + 4 x M3 x 14 SHCS
+    # up from below chassis_bottom into the standoff female bottoms
+    # (Jul 2026 F/F switch).
     out.extend(_emit_chassis_stack_fasteners())
 
     # Jun 2026: the chassis_bottom HIGH/LOW print split has been re-merged into
@@ -2204,6 +2277,7 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
         SPEC_M3X10_SHCS:            7,
         SPEC_M3X10_DISC_HORN:       7,
         SPEC_M3X10_SHCS_SELFTAP:    7,
+        SPEC_M3X14_SHCS:            7,
         SPEC_M3_HEATSET_INSERT:     8,
         SPEC_M3X32_SHCS:            9,
         SPEC_M3X16_PAN:            10,
@@ -2219,18 +2293,19 @@ def _usage_bucket(fi: FastenerInstance) -> str:
         if "M3 x 10 SHCS" in role or "M3x10 SHCS" in role:
             return ("chassis_top brass standoff bolts "
                     "(M3 x 10 SHCS into standoff female thread)")
-        if "retention" in role and "nyloc" in role:
-            return "chassis_bottom brass standoff retention nuts"
-        return ("chassis_top brass standoff female threads "
+        if "M3 x 14 SHCS" in role or "M3x14 SHCS" in role:
+            return ("chassis_bottom brass standoff bolts "
+                    "(M3 x 14 SHCS up into standoff female thread)")
+        return ("brass standoff female threads "
                 "(virtual heat-set insert engagement targets)")
     if "standoff column" in role:
         # Stacked-deck standoff-column hardware (Jun 2026 redesign).
         if "M3 x 10 SHCS" in role or "M3x10 SHCS" in role:
             return ("deck standoff column bolts "
                     "(M3 x 10 SHCS into standoff female thread)")
-        if "retention" in role and "nyloc" in role:
-            return ("deck standoff column retention nuts "
-                    "(M3 nyloc under chassis_top)")
+        if "M3 x 8 SHCS" in role or "M3x8 SHCS" in role:
+            return ("deck standoff column bottom bolts "
+                    "(M3 x 8 SHCS up through chassis_top)")
         return ("deck standoff column female threads "
                 "(virtual heat-set insert engagement targets)")
     if "board-mount" in role:

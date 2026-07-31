@@ -83,7 +83,6 @@ SCENE_ASSET_BASE = "stl"
 FASTENER_JOINT_COLOR = {"yaw": "#bdbdbd", "hip": "#ffd000", "knee": "#9ad0ff"}
 FASTENER_CHASSIS_COLOR = "#9a9a9a"          # steel hardware (standoffs/foot/deck)
 DISC_HORN_COLOR = "#b8b8c0"                  # silver-anodised aluminium disc horn
-PASSIVE_ADAPTER_COLOR = "#caa46a"            # printed rear-boss centering adapter
 
 # Non-printed COTS roles: every instance with one of these roles is hardware we
 # BUY (servos, bearings, disc horns, fasteners) and tag ``cots: true`` so the
@@ -99,16 +98,13 @@ PALETTE = {
     "coxa_yaw_hub": "#9467bd", "coxa_hip_bracket": "#b08fd6",
     "yaw_bearing_cap": "#6b4fa0",
     "yaw_bearing_lower": "#d4af37", "yaw_bearing_upper": "#ffd966",
-    "femur_hip_yoke": "#2ca02c", "femur_knee_bracket": "#7fce5a",
+    "femur_link": "#2ca02c",
     "tibia_knee_yoke": "#1f77b4", "tibia_foot_fitting": "#17becf",
-    "femur_strut": "#5a9e3a",                            # printed PA12 strut
     "tibia_tube": "#2b2b2b",                             # carbon fibre
     "foot_pad": "#3a3a3a",                               # TPU pad
     "disc_horn_yaw": DISC_HORN_COLOR, "disc_horn_hip": DISC_HORN_COLOR,
     "disc_horn_knee": DISC_HORN_COLOR,
     "passive_horn_hip": DISC_HORN_COLOR, "passive_horn_knee": DISC_HORN_COLOR,
-    "passive_adapter_hip": PASSIVE_ADAPTER_COLOR,
-    "passive_adapter_knee": PASSIVE_ADAPTER_COLOR,
     "yaw_servo": "#2e2e33", "hip_servo": "#3a3a40", "knee_servo": "#46464d",
     "chassis_bottom": "#79b0e1",
     "chassis_top": "#5b8fc7",
@@ -125,12 +121,11 @@ ROLE = {
     "coxa_yaw_hub": "frame", "coxa_hip_bracket": "frame",
     "yaw_bearing_cap": "chassis",
     "yaw_bearing_lower": "bearing", "yaw_bearing_upper": "bearing",
-    "femur_hip_yoke": "frame", "femur_knee_bracket": "frame",
+    "femur_link": "frame",
     "tibia_knee_yoke": "frame", "tibia_foot_fitting": "frame",
-    "femur_strut": "spar", "tibia_tube": "spar", "foot_pad": "frame",
+    "tibia_tube": "spar", "foot_pad": "frame",
     "disc_horn_yaw": "horn", "disc_horn_hip": "horn", "disc_horn_knee": "horn",
     "passive_horn_hip": "horn", "passive_horn_knee": "horn",
-    "passive_adapter_hip": "frame", "passive_adapter_knee": "frame",
     "yaw_servo": "motor", "hip_servo": "motor", "knee_servo": "motor",
     "chassis_bottom": "chassis",
     "chassis_top": "chassis",
@@ -159,20 +154,16 @@ DESCRIPTIONS = {
     "yaw_bearing_cap": "Printed cap that closes the top of each chassis yaw-bearing tower, capturing the upper yaw bearing.",
     "yaw_bearing_lower": "Lower ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
     "yaw_bearing_upper": "Upper ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
-    "femur_hip_yoke": "Printed femur hip-end yoke: straddles the hip servo, top arm bolts to the driven disc horn, bottom stub rides the 688 passive bearing; sockets the Ø8 femur strut.",
-    "femur_knee_bracket": "Printed femur knee-end bracket that mounts the knee servo and sockets the femur strut.",
+    "femur_link": "The WHOLE femur as ONE printed part (Jul 2026 merge #2 of the old hip yoke + knee bracket): the hip-end yoke straddles the hip servo (top arm bolts the driven disc horn, bottom arm the passive horn), a SOLID Ø14 spar bridges the full 90 mm hip-to-knee span, and the knee-end cradle mounts the knee servo + 688 bearing housing. No sockets, no slip fits, no retention pins anywhere in the femur.",
     "tibia_knee_yoke": "Printed tibia knee-end yoke driven off the knee disc horn (bearing-sandwich passive side on the opposite face); sockets the Ø8 tibia tube.",
     "tibia_foot_fitting": "Printed tibia foot-end fitting that sockets the tibia tube and carries the compliant foot pad.",
-    "femur_strut": "Printed PA12 femur strut (90 mm hip->knee segment). Printed (not CF tube) here so the hip yoke/knee bracket integrate as one stiff member.",
     "tibia_tube": "Ø8 carbon-fibre tibia segment (130 mm knee->foot). Retained by epoxy bond + a transverse pin. CF for stiffness/weight at the longest, most-loaded segment.",
     "foot_pad": "Compliant TPU foot pad at each tibia tip for ground grip + shock absorption.",
     "disc_horn_yaw": "Driven Ø20 25T aluminium disc horn on the yaw servo output; the coxa hub bolts to it (Ø14 / 4x M3). COTS.",
     "disc_horn_hip": "Driven Ø20 25T aluminium disc horn on the hip servo output; the femur hip yoke bolts to it. COTS.",
     "disc_horn_knee": "Driven Ø20 25T aluminium disc horn on the knee servo output; the tibia knee yoke bolts to it. COTS.",
-    "passive_horn_hip": "Passive-side disc horn of the hip bearing sandwich (mirrors the driven horn so the yoke is symmetric across the servo).",
-    "passive_horn_knee": "Passive-side disc horn of the knee bearing sandwich.",
-    "passive_adapter_hip": "Printed rear-boss centering adapter that seats the hip 688 passive bearing to the yoke's passive stub.",
-    "passive_adapter_knee": "Printed rear-boss centering adapter that seats the knee 688 passive bearing.",
+    "passive_horn_hip": "Stock passive-side metal disc horn of the hip sandwich (mirrors the driven horn so the yoke is symmetric across the servo); its centre bore rides the servo's rear idler boss directly, seating flush on the back face (Jul 2026: printed centering adapter retired).",
+    "passive_horn_knee": "Stock passive-side metal disc horn of the knee sandwich; centre bore rides the rear idler boss directly (no printed adapter).",
     "yaw_servo": "FEETECH STS3215 serial-bus servo driving the hip-yaw axis (real FEETECH envelope). COTS.",
     "hip_servo": "FEETECH STS3215 serial-bus servo driving the hip-pitch axis. COTS.",
     "knee_servo": "FEETECH STS3215 serial-bus servo driving the knee axis. COTS.",
@@ -184,7 +175,7 @@ DESCRIPTIONS = {
     "uno_q": "Arduino Uno Q compute board (high-level control host). COTS.",
     "buck_converter": "DC-DC buck converter stepping the LiPo down to the servo-bus/logic rail. COTS.",
     "lipo_battery": "LiPo battery pack, mounted low + central for stance stability. COTS.",
-    "hip_clamp_cap": "Printed clamp cap that closes the hip yoke's tube socket, clamping the Ø8 femur strut.",
+    "hip_clamp_cap": "Printed clamp cap that clamshells the hip servo cradle (bolts to the cradle wall ends), capturing the servo body.",
     "knee_clamp_cap": "Printed clamp cap that closes the knee yoke's tube socket, clamping the Ø8 tibia tube.",
     "yaw_servo_retainer": "Printed stirrup that bolts under each chassis yaw cradle to capture the STS3215 servo body from below.",
     "switch_holster": "Printed holster for the anti-spark XT60 on/off switch, bolted to 2 bosses on chassis_top's +X edge (2x M3x10 SHCS into heat-set inserts).",
@@ -287,7 +278,7 @@ INTENDED_OVERLAP_PAIRS = frozenset(
         # Servo body fills its cradle / bracket.
         ("chassis_bottom", "yaw_servo"),
         ("coxa_hip_bracket", "hip_servo"),
-        ("femur_knee_bracket", "knee_servo"),
+        ("femur_link", "knee_servo"),
         # Clamp cap PRESS-FIT onto its own servo body: the centre tongue
         # reaches CLAMP_TONGUE_INTERF = 1 mm PAST the seated body +Y face for a
         # snug press fit (user request, Jun 2026; ~1.5 k mm^3 designed
@@ -299,10 +290,9 @@ INTENDED_OVERLAP_PAIRS = frozenset(
         ("yaw_servo", "disc_horn_yaw"),
         ("hip_servo", "disc_horn_hip"),
         ("knee_servo", "disc_horn_knee"),
-        # Femur: printed strut pinned into the yoke / bracket sockets.
-        # Tibia: carbon-fibre spar epoxied into the yoke / fitting sockets.
-        ("femur_hip_yoke", "femur_strut"),
-        ("femur_knee_bracket", "femur_strut"),
+        # Femur: ONE printed part since the Jul 2026 merge #2 (no pair
+        # needed).  Tibia: carbon-fibre spar epoxied into the yoke /
+        # fitting sockets.
         ("tibia_knee_yoke", "tibia_tube"),
         ("tibia_foot_fitting", "tibia_tube"),
         # Bolt-together printed stacks sharing a flush/bonded interface.
@@ -522,14 +512,9 @@ def _leg0_local_link_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
     T_tibia = _trans(edge) @ Rz @ _trans(knee_local) @ rotation_matrix(pt, [0, 1, 0])
 
     xz = (1, 0, 0), HP.LEG_PITCH_AXIS
-    # Femur sub-part frames inside the femur-link-local frame (== make_femur_link).
+    # Femur frame inside the femur-link-local frame (== make_femur_link).
+    # Jul 2026 merge #2: the whole femur is ONE printed part (femur_link).
     Mh = HP._joint_place((0.0, 0.0, 0.0), *xz)
-    Mk = HP._joint_place((HP.FEMUR_LENGTH, 0.0, 0.0), *xz)
-    # Jun 2026: printed SOLID femur strut replaces the femur CF tube; place it
-    # in the hip-yoke joint-local frame (== make_femur_link) so it spans + pins
-    # to both sockets exactly where the tube did.
-    fstrut = HP._femur_strut_joint_local()
-    fstrut.apply_transform(Mh)
 
     # Tibia sub-part frames inside the tibia-link-local frame (== make_tibia_link).
     Mk0 = HP._joint_place((0.0, 0.0, 0.0), *xz)
@@ -552,11 +537,8 @@ def _leg0_local_link_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
         ("yaw_bearing_cap", HP.make_yaw_bearing_cap(), T_coxa),
         ("yaw_bearing_lower", HP.make_yaw_bearing_lower(), T_coxa),
         ("yaw_bearing_upper", HP.make_yaw_bearing_upper(), T_coxa),
-        # Femur sandwich (yoke + CF spar + knee bracket).  The CF tube has no
-        # make_* raw frame, so its local frame IS the femur-link frame.
-        ("femur_hip_yoke", HP.make_femur_hip_yoke(), T_femur @ Mh),
-        ("femur_knee_bracket", HP.make_femur_knee_bracket(), T_femur @ Mk),
-        ("femur_strut", fstrut, T_femur),
+        # Femur: ONE printed part (hip yoke + solid spar + knee cradle).
+        ("femur_link", HP.make_femur_link_part(), T_femur @ Mh),
         # Tibia sandwich (knee yoke + CF spar + foot fitting).
         ("tibia_knee_yoke", HP.make_tibia_knee_yoke(), T_tibia @ Mk0),
         ("tibia_tube", ttube, T_tibia),
@@ -718,20 +700,17 @@ def _disc_horn_instances(legs: list[int]):
 
 
 def _passive_horn_instances(legs: list[int]):
-    """Yield the PASSIVE rear-boss disc horn + its printed centering adapter
-    for each sandwich joint (hip/knee) of every leg -- the symmetric-yoke
-    refit.  Poses come from the SAME verifier transforms the passive-horn
-    fastener-engagement + adapter checks use, so the reused Phi20 disc horn
-    and the printed adapter land coaxial on the servo's rear idler boss."""
+    """Yield the PASSIVE rear-boss STOCK disc horn for each sandwich joint
+    (hip/knee) of every leg -- the symmetric-yoke refit.  Jul 2026 stock-horn
+    refit: the horn's centre bore rides the rear idler boss directly (flush
+    on the back face); the printed centering adapter is retired.  Poses come
+    from the SAME verifier transform the passive-horn fastener-engagement
+    check uses, so the horn lands coaxial on the servo's rear idler boss."""
     for joint in V._PASSIVE_HORN_JOINTS:
         for leg in legs:
             yield (f"passive_horn_{joint}", leg, joint, DISC_HORN_COLOR,
                    "disc_horn", HP.make_disc_horn(),
                    V._passive_horn_world_transform(joint, leg))
-            yield (f"passive_adapter_{joint}", leg, joint,
-                   PASSIVE_ADAPTER_COLOR, "passive_horn_adapter",
-                   HP.make_passive_horn_adapter(),
-                   V._passive_adapter_world_transform(joint, leg))
 
 
 def _body_local_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
@@ -754,13 +733,16 @@ def _body_local_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
 
     # LiPo velcro-strapped to chassis_bottom's top face (no holder); modelled as
     # a box centred on the origin so its local frame is its own centroid.
-    lipo = _box_mesh(extents=(105.0, 35.0, 25.0))
+    # Jul 2026: sized to the real user-measured pack (BATTERY_W/D/H =
+    # 138 x 46 x 24 mm).
+    lipo = _box_mesh(extents=(HP.BATTERY_W, HP.BATTERY_D, HP.BATTERY_H))
 
     return [
         ("chassis_bottom", HP.make_chassis_bottom(), np.eye(4)),
         ("chassis_top", HP.make_chassis_top(), _trans([0, 0, gap + plate])),
         ("lipo_battery", lipo,
-         _trans([HP.BATTERY_HOLDER_CENTRE_X, 0.0, plate / 2.0 + 25.0 / 2.0])),
+         _trans([HP.BATTERY_HOLDER_CENTRE_X, 0.0,
+                 plate / 2.0 + HP.BATTERY_H / 2.0])),
         ("uno_q_tray", HP.make_uno_q_tray(), _trans([0, 0, uno_tray_z])),
         ("buck_tray", HP.make_buck_tray(), _trans([0, 0, buck_tray_z])),
         ("uno_q", HP.make_uno_q_visual(), _trans([0, 0, uno_tray_z + boss])),
@@ -852,15 +834,15 @@ _MOTION_LINK_OF_PARTTYPE = {
     "yaw_bearing_upper": "yaw", "disc_horn_yaw": "yaw",
     "hip_servo": "yaw", "hip_clamp_cap": "yaw", "screw_yaw": "yaw",
     # --- hip link (femur swings in its vertical plane) ---
-    "femur_hip_yoke": "hip", "femur_strut": "hip", "femur_knee_bracket": "hip",
+    "femur_link": "hip",
     "disc_horn_hip": "hip", "passive_horn_hip": "hip",
-    "passive_adapter_hip": "hip", "knee_servo": "hip",
+    "knee_servo": "hip",
     "knee_clamp_cap": "hip", "screw_hip": "hip",
     # --- knee link (tibia + foot) ---
     "tibia_knee_yoke": "knee", "tibia_tube": "knee",
     "tibia_foot_fitting": "knee", "foot_pad": "knee",
     "disc_horn_knee": "knee", "passive_horn_knee": "knee",
-    "passive_adapter_knee": "knee", "screw_knee": "knee",
+    "screw_knee": "knee",
 }
 
 # Slider clamps in DEGREES of offset from the home stance (home = 0).  Kept
@@ -1085,22 +1067,21 @@ def _route_budget_mm(extension_required: str) -> float:
 
 # Per-leg intermediate waypoints (chassis frame) inserted between the drop
 # slot and the bus landing where a STRAIGHT drop->landing segment would clip a
-# solid in the routing_reach ray test.  Filled from the `buildviz check
-# --checks routing_reach` obstruction report (Jul 2026): legs 2 + 3 (the -X
-# pair) aim straight through the LiPo (a 105 x 35 x 25 box at x centre -25,
-# spanning x in [-77.5, +27.5], |y| <= 17.5, z in [2, 27]), so their harness
-# instead hugs the battery's +/-Y flank (|y| ~ 24 > 17.5) along the
-# chassis_bottom top face until past the battery's +X face (x = 30 > 27.5),
-# then cuts over to the bus landing.  Legs whose straight segment is already
-# clear stay out of this table.
+# solid in the routing_reach ray test.  Legs 2 + 3 (the -X pair) aim straight
+# through the LiPo (Jul 2026 real pack: a 138 x 46 x 24 box at x centre -8,
+# spanning x in [-77, +61], |y| <= 23, z in [2, 26]), so their harness
+# instead hugs the battery's +/-Y flank (|y| = 26.5 > 23 + wire radius) along
+# the chassis_bottom top face until almost at the bus bar (x = 62, just past
+# the battery's +X face at 61), then cuts over to the bus landing.  Legs
+# whose straight segment is already clear stay out of this table.
 #
 # The corridor: rise off the drop slot to z ~ 6.5 (probed clear band between
-# the plate-top bosses, z <= 5, and the cradle overhangs, z >= 8.5) while
-# turning radially inward, run along the battery's flank at that height, then
-# cut over to the landing once past the battery's +X face.
+# the plate-top features and the cradle overhangs, z >= 8.5) while turning
+# radially inward, run along the battery's flank at that height, then cut
+# over to the landing once past the battery's +X face.
 _ROUTE_LEG_DOGLEGS: dict[int, list[tuple[float, float, float]]] = {
-    2: [(-38.0, 24.5, 6.5), (30.0, 24.0, 6.5)],
-    3: [(-38.0, -24.5, 6.5), (30.0, -24.0, 6.5)],
+    2: [(-45.0, 26.5, 6.5), (62.0, 26.5, 6.5)],
+    3: [(-45.0, -26.5, 6.5), (62.0, -26.5, 6.5)],
 }
 
 def _route_dogleg_points(entry: WHP.HarnessEntry) -> list[tuple[float, float, float]]:
@@ -1174,11 +1155,15 @@ _ROUTE_COLOR_I2C = "#22c55e"    # green: I2C sensor pigtail
 
 # Chassis-frame anchor nodes for the body harness (pre-lift z).  Derived from
 # the same constants ``_body_local_parts`` places the parts with.
-_LIPO_EXIT = (28.5, 0.0, 20.0)          # just past the LiPo +X face (x=27.5)
+_LIPO_EXIT = (63.0, 0.0, 20.0)          # just past the LiPo +X face (x=61;
+                                        # Jul 2026 real 138-mm pack)
 _SWITCH_SIDE = (52.0, -13.0, 46.0)      # outside the holster's -Y wall (|y|>11)
 _SWITCH_SIDE_OUT = (48.0, -13.0, 46.0)  # switch-side start of the fused leg
-_EDGE_DROP_XY = (64.0, -16.0)           # rise/drop corridor past the top-plate
-                                        # hex edge (|x| > 57.5), clear of the
+_EDGE_DROP_XY = (70.0, -16.0)           # rise/drop corridor past the top-plate
+                                        # disc edge (r > 57.5) AND past the
+                                        # 138-mm pack's +X face at x = 61
+                                        # (was x = 64, which the Jul 2026
+                                        # pack now reaches), clear of the
                                         # holster's |y| <= 11 band
 _BUS_BAR_MID = (64.0, 0.0, 13.1)        # wire_harness_plan bus-bar strip centre
 _BUS_BAR_BUCK_POST = (64.0, 8.0, 13.1)  # spare post feeding the buck
@@ -1322,10 +1307,11 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
     #    jumper cannot run straight (through the LiPo) nor outboard (through
     #    the leg 2/3 yaw cradles + servos), so it steps to the proven dogleg
     #    flank points and hops OVER the battery top (z 29.5, between the
-    #    battery's z=27 top and chassis_top's z=34 underside).
+    #    battery's z=26 top -- Jul 2026 24-mm-tall pack -- and chassis_top's
+    #    z=34 underside).
     _JUMPER_DETOURS: dict[tuple[int, int], list[tuple[float, float, float]]] = {
-        (2, 3): [(-38.0, 24.5, 6.5), (-38.0, 24.5, 29.5),
-                 (-38.0, -24.5, 29.5), (-38.0, -24.5, 6.5)],
+        (2, 3): [(-45.0, 26.5, 6.5), (-45.0, 26.5, 29.5),
+                 (-45.0, -26.5, 29.5), (-45.0, -26.5, 6.5)],
     }
     for a, b in zip(legs, legs[1:]):
         detour = _JUMPER_DETOURS.get((a, b), [])

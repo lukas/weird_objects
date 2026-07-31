@@ -528,7 +528,7 @@ def _chassis_visuals_xml() -> str:
     carapace_z = deck_z0 + (HP.DECK_LEVEL_1_STANDOFF_H
                             + HP.DECK_LEVEL_2_STANDOFF_H
                             + HP.DECK_LEVEL_3_STANDOFF_H) * M
-    lipo_h = 0.025
+    lipo_h = HP.BATTERY_H * M
     lipo_z = lipo_h / 2.0   # pack bottom on the bottom-plate top face (z=0)
     return (
         f'<geom class="visual" name="chassis_bottom_mesh" type="mesh" '
@@ -538,7 +538,8 @@ def _chassis_visuals_xml() -> str:
         f'mesh="chassis_top" pos="0 0 {gap:.5f}" '
         f'material="palette_chassis_top"/>\n'
         '      <geom class="visual" name="lipo_battery" type="box" '
-        f'size="0.0525 0.0175 {lipo_h / 2.0:.5f}" '
+        f'size="{HP.BATTERY_W * M / 2.0:.5f} {HP.BATTERY_D * M / 2.0:.5f} '
+        f'{lipo_h / 2.0:.5f}" '
         f'pos="{HP.BATTERY_HOLDER_CENTRE_X * M:.5f} 0 {lipo_z:.5f}" '
         'material="palette_uno_q_tray"/>\n'
         '      <geom class="visual" name="uno_q_tray_mesh" type="mesh" '

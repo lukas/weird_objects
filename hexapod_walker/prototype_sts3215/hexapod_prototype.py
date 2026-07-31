@@ -104,22 +104,20 @@ CHASSIS_FLAT_TO_FLAT  = 200.0   # mm -- distance between opposite hex edges
 CHASSIS_PLATE_T       =   4.0   # mm -- thickness of each 3D-printed plate
 CHASSIS_GAP           =  32.0   # mm -- vertical gap between top + bottom plates
                                 #     (room for battery, brain, wiring).
-                                #     Was 20 mm before the May 2026 audit:
-                                #     the BATTERY_H = 28 mm holder was
-                                #     visibly ramming through the 4 mm
-                                #     chassis_top deck (no clearance
-                                #     cutout existed).  32 mm leaves
-                                #     32 - 28 = 4 mm of headroom above
-                                #     the battery inside the plate-to-
-                                #     plate void; the brass standoffs in
-                                #     SHOPPING_LIST.md / PROTOTYPE_BOM.md
-                                #     bump to 32 mm to match.  IMPORTANT:
-                                #     any future change to CHASSIS_GAP
-                                #     MUST re-check the battery_holder
-                                #     and electronics_tray clearance + the
-                                #     standoff length (the
-                                #     CAD_AGENT_INSTRUCTIONS.md rule
-                                #     #9 enforces this).
+                                #     Was 20 mm before the May 2026 audit
+                                #     (the then-28-mm-tall battery holder
+                                #     rammed through the chassis_top deck).
+                                #     Jul 2026: the real pack is
+                                #     BATTERY_H = 24 mm, so 32 mm leaves
+                                #     8 mm of headroom above the pack
+                                #     inside the plate-to-plate void; the
+                                #     brass standoffs in SHOPPING_LIST.md
+                                #     / PROTOTYPE_BOM.md are 32 mm to
+                                #     match.  IMPORTANT: any future change
+                                #     to CHASSIS_GAP MUST re-check the
+                                #     battery headroom + the standoff
+                                #     length (the CAD_AGENT_INSTRUCTIONS.md
+                                #     rule #9 enforces this).
 # The TOP plate is intentionally smaller than the bottom plate.  The bottom
 # plate is the structural one: it sandwiches the coxa-bracket flanges (with
 # their four M3 bolts each) and also takes the per-leg servo body cutouts.
@@ -392,27 +390,21 @@ SERVO_MOUNT_SELFTAP_OD    = 2.6   # mm -- printed-plate clearance for M2/M2.5 se
 SERVO_CASE_HOLE_OD        = 2.5   # mm -- molded case hole the self-tapper bites (STEP)
 
 # --- Passive (rear-boss) horn stack -----------------------------------------
-# The back side mirrors the front about each face: the rear idler boss
-# protrudes REAR_BOSS_H off the back face, the passive disc horn seats on it,
-# and a reach-down pad on the yoke bottom arm bridges down to the real thin
-# horn -- exactly like the driven side.  (Derived constants that depend on the
-# disc-horn dimensions live in the JOINT_HORN block below, once those are
-# defined; see REAR_BOSS_OD / BACK_STACK_DEPTH / PASSIVE_ADAPTER_* there.)
+# Jul 2026 (user): the STS3215 ships with a STOCK METAL PASSIVE HORN that
+# looks just like the driven disc horn (same 4-hole pattern the yoke bolts
+# to).  Its centre bore slides OVER the rear idler boss, so the horn seats
+# FLUSH on the servo back face and does NOT protrude beyond the boss tip.
+# The boss itself centres the horn; the printed centering adapter
+# (make_passive_horn_adapter, retired here) and its 2 mm standoff base are
+# GONE, which pulls the yoke bottom-arm seat 2 mm closer to the servo (the
+# user measured the adapter-era yoke exactly 2 mm too wide on this stack).
+# (Derived constants that depend on the disc-horn dimensions live in the
+# JOINT_HORN block below, once those are defined; see BACK_STACK_DEPTH /
+# PASSIVE_HORN_FACE_Z there.)
 REAR_BOSS_H        = SERVO_OUTPUT_H               # 2 mm -- rear idler boss protrusion
 REAR_BOSS_OD       = 4.0                          # mm -- smooth rear boss/shaft dia (MEASURE
-                                                  #       on your unit; assumed ~Phi4 so the
-                                                  #       adapter spigot can pad it out to the
-                                                  #       horn's ~Phi5.9 spline bore).  Must be
-                                                  #       < the horn spline bore for the
-                                                  #       adapter to be one connected part.
-PASSIVE_ADAPTER_OD        = 12.0                  # mm -- base disc (> boss, < horn OD)
-PASSIVE_ADAPTER_BASE_T    = REAR_BOSS_H           # 2 mm -- base disc thickness
-PASSIVE_ADAPTER_BORE_OD   = REAR_BOSS_OD + 0.4    # slip-fit counterbore over rear boss
-PASSIVE_ADAPTER_SPIGOT_OD = SERVO_SPLINE_OD - 0.2 # ~5.7 mm spigot into the horn spline bore
-# Central retention screw that keeps the passive horn from working loose on
-# the smooth boss (the user's "screw through the middle").  M3 into the rear
-# boss's central hole, mirroring the driven side's central spline screw.
-PASSIVE_HORN_SCREW_LEN    = 8.0   # mm -- M3 x 8 through horn + adapter into boss
+                                                  #       on your unit); the stock passive
+                                                  #       horn's centre bore rides it directly.
 
 # ===== SPACED YAW BEARING PAIR (cantilever moment support) ===============
 # The coxa cantilevers the whole hip/femur/tibia ~COXA_LENGTH out to the
@@ -572,27 +564,12 @@ LEG_TUBE_SOCKET_DEPTH     = 14.0  # mm -- tube engagement depth into a socket
 LEG_TUBE_PIN_OD           = 2.6   # mm -- cross-hole dia (dia-2.5 roll pin / M2.5 screw)
 LEG_TUBE_PIN_INSET        = LEG_TUBE_SOCKET_DEPTH / 2.0  # mm -- pin axis from socket mouth
 
-# FEMUR-only short tube sockets (Jun 2026 sandwich-femur fit fix).  The femur
-# is only FEMUR_LENGTH = 90 mm hip-axis-to-knee-axis; once the hip moving yoke
-# (reaches +X to the spine end) and the bulky knee servo bracket (reaches -X to
-# its -WELL_W/2 face) are placed, only ~19 mm of clear span remains between the
-# two tube-socket MOUTHS.  The default LEG_TUBE_SOCKET_DEPTH+6 = 20 mm boss on
-# EACH side therefore drove the two Phi 14 socket bosses ~19 mm THROUGH each
-# other (~2.1k mm^3 of two-printed-solids-in-one-space -- the femur_hip_yoke
-# vs femur_knee_bracket clash the assembly gate flags).  The femur sockets are
-# shortened so the two bosses leave a clear exposed-tube gap; the dia-2.5
-# transverse retention pin (now at the shortened mid-engagement) is the primary
-# pull-out/rotation lock, with epoxy over the 9 mm bond.  The 130 mm tibia has
-# ample span, so its sockets keep the full LEG_TUBE_SOCKET_DEPTH.
-FEMUR_TUBE_SOCKET_LEN     = 7.0   # mm -- femur hip-yoke / knee-bracket boss length.
-                                  # Only ~19 mm of clear span exists between the
-                                  # two femur socket mouths, and each boss reaches
-                                  # a touch past its length, so a 7 mm boss leaves
-                                  # a ~2.3 mm exposed-tube gap between the two
-                                  # bosses (0 interpenetration) -- the most tube
-                                  # engagement the tight femur span allows.  The
-                                  # dia-2.5 transverse pin + epoxy retains the tube.
-FEMUR_TUBE_PIN_INSET      = 3.5   # mm -- pin axis from mouth (mid of the 7 mm boss)
+# FEMUR: no tube sockets at all (Jul 2026 one-piece femur).  The femur's
+# ~19 mm inter-well span is bridged by the SOLID Phi 14 fused spar of the
+# one-piece ``femur_link`` (see FEMUR_SPAR_OD / _femur_fused_spar), so the
+# short femur sockets + transverse retention pin of the earlier two-part
+# design are retired.  Only the 6 TIBIA sockets (x2 ends) remain, keeping
+# the full LEG_TUBE_SOCKET_DEPTH + pin above.
 
 # ---- Heat-set brass insert for cradle servo mounts (May 2026) -----------
 # McMaster 94459A130: M3 brass heat-set insert, knurled.  Pilot Phi 4.0 mm,
@@ -1470,8 +1447,9 @@ CLAMP_BOLT_CLEAR_OD    = 3.4    # M3 clearance through the cap flange
 CLAMP_BOLT_X           = WELL_W / 2.0 - WELL_WALL_X / 2.0   # +/-27.2 (wall centre)
 CLAMP_BOLT_Z           = SERVO_BODY_H / 2.0                 # ~17.15 (mid-body)
 # Jun 2026 head-inset fix: the 2 M3x8 SHCS heads (Phi 5.5, 3.0 mm tall) bore on
-# the flange OUTER (+Y) face and stood ~3 mm PROUD.  The femur_hip_yoke (user-
-# confirmed) and the tibia_knee_yoke sweep PAST that +Y face and clear the
+# the flange OUTER (+Y) face and stood ~3 mm PROUD.  The femur hip yoke (user-
+# confirmed; since Jul 2026 part of the one-piece femur_link) and the
+# tibia_knee_yoke sweep PAST that +Y face and clear the
 # flange itself by only ~3 mm at the closest ROM pose, so the proud head ate the
 # whole margin and BRUSHED.  A counterbore opens from the +Y outer face and runs
 # CLAMP_HEAD_CB_DEPTH inward (-Y) so the head recesses FLUSH with the face; the
@@ -2752,106 +2730,51 @@ FOOT_TANG_BELOW_PIN       = 5.0   # mm -- material below the pin axis in
                                   #        of plastic around the M3 hole
                                   #        on the bottom side)
 
-# ---- Battery / electronics enclosures ------------------------------------
-# Sized for a generic 3S 2200 mAh LiPo (105 x 35 x 25 mm) plus an
-# Arduino Nano or Mega + PCA9685 stack.
-BATTERY_W = 110.0   # mm
-BATTERY_D =  38.0
-BATTERY_H =  28.0
-BATTERY_WALL = 1.6
+# ---- Battery (velcro-strapped pack, no printed holder) --------------------
+# Jul 2026: BATTERY_W/D/H are the USER-MEASURED dimensions of the real
+# pack (138 x 46 x 24 mm) -- the model previously assumed a small
+# 110 x 38 x 28 mm 2200 mAh-class 3S and the real pack did not fit the
+# inter-plate bay.  The clip-in printed battery_holder is RETIRED (Jun
+# 2026); the pack velcro-straps directly onto chassis_bottom's TOP face
+# in the inter-plate gap, so these constants now describe the PACK
+# itself, not a holder shell.  Height check: 24 mm pack + 32 mm
+# CHASSIS_GAP leaves 8 mm of headroom under chassis_top.
+BATTERY_W = 138.0   # mm -- pack length (chassis X)
+BATTERY_D =  46.0   # mm -- pack width  (chassis Y)
+BATTERY_H =  24.0   # mm -- pack height (chassis Z)
 BATTERY_STRAP_W = 10.0   # velcro slot width
+# X offsets (relative to BATTERY_HOLDER_CENTRE_X) of the 3 velcro-strap
+# slot pairs cut through chassis_bottom.  +/-30 keeps the +X slot pair
+# (x extent 17..27 mm at centre -8) clear of the (+31.1, +/-31.1)
+# brass-standoff holes (inner hole edge at 31.1 - 1.7 = 29.4 mm) while
+# still gripping the 138 mm pack ~30 mm inboard of each end.
+BATTERY_STRAP_DX = (-30.0, 0.0, 30.0)
 
-# ---- Battery holder foot geometry ----------------------------------------
-# May 2026 fix (landed alongside the CHASSIS_GAP 20 -> 32 mm bump): the
-# battery_holder is now bolted to chassis_bottom from BELOW via 4 x M3
-# brass heat-set inserts in the foot bosses; the previous design left
-# the holder unbolted (4 Phi 3.2 mm clearance holes through the feet
-# that were never enumerated in fastener_registry, never matched by
-# holes in chassis_bottom, and never even called out in PROTOTYPE.md
-# beyond a single "bolt to the bottom plate" sentence).  Mirrors the
-# f03d59b cradle insert pattern: each foot is a small printed boss
-# that takes a Phi INSERT_M3_PILOT_OD = 4.0 mm x INSERT_M3_PILOT_DEPTH
-# = 6.0 mm-deep pocket cut from the foot's BOTTOM face; the bolt
-# enters from below (M3 x 10 SHCS through chassis_bottom), threads up
-# into the brass insert.  Foot geometry in battery-holder-local
-# (origin = centre of the holder's bottom face, +X = long axis,
-# +Z = up):
-#
-#     foot centre (X, Y) = (sx * BATTERY_FOOT_DX, sy * BATTERY_FOOT_DY)
-#     foot extents (X x Y x Z) = (BATTERY_FOOT_W x BATTERY_FOOT_D x
-#                                  BATTERY_FOOT_T)
-#     bottom face at z = 0; top face at z = BATTERY_FOOT_T
-#     heat-set insert pocket: Phi INSERT_M3_PILOT_OD = 4 mm,
-#         z in [0, INSERT_M3_PILOT_DEPTH] = [0, 6]
-#     pocket leaves 2 mm of plastic above the insert (z in [6, 8]).
-#
-# Foot Y dimension (BATTERY_FOOT_D) is 2 mm larger than the X
-# dimension so the foot's -Y face is COINCIDENT with the body's
-# +/- Y wall at y = +/- BATTERY_D/2 = +/- 19 mm.  Without this the
-# foot floats 1 mm clear of the body (sy * BATTERY_FOOT_DY = +/- 25
-# minus BATTERY_FOOT_D/2 = +/- 19 + 1 mm gap) -- the old layout
-# bonded the foot to the body via a 0 mm face which produced two
-# disconnected manifold components.  The new layout shares a
-# BATTERY_FOOT_W x BATTERY_FOOT_T = 10 x 8 mm face with the body
-# wall and unions cleanly into a single mesh.
-BATTERY_FOOT_W  = 10.0   # mm -- foot X dimension (footprint X)
-BATTERY_FOOT_D  = 12.0   # mm -- foot Y dimension (footprint Y; 2 mm
-                          #       larger than _W so the foot's -Y
-                          #       face bonds onto the BATTERY_D/2 =
-                          #       19 mm body wall in a 10 x 8 mm
-                          #       face).
-BATTERY_FOOT_T  =  8.0   # mm -- foot Z thickness (was BATTERY_WALL =
-                          #       1.6 mm; bumped to fit a
-                          #       Phi 4.0 mm x 6.0 mm-deep heat-set
-                          #       insert pocket from the foot's
-                          #       BOTTOM face with 2 mm of plastic
-                          #       above the insert and 3 mm of
-                          #       plastic radially around it).
-BATTERY_FOOT_DX = BATTERY_W / 2.0 - BATTERY_FOOT_W / 2.0  # 50.0 mm
-                          # foot centre X position; the foot's +X
-                          # face is flush with the holder body's +X
-                          # face at x = +BATTERY_W/2 = +55 mm.
-BATTERY_FOOT_DY = BATTERY_D / 2.0 + BATTERY_FOOT_D / 2.0 - 1.0
-                          # 24.0 mm; foot centre Y -- with
-                          # BATTERY_FOOT_D = 12 mm this puts the
-                          # foot's -Y face at y = sy * 18 mm, 1 mm
-                          # INSIDE the BATTERY_D/2 = 19 mm body
-                          # wall (the foot OVERLAPS the body wall
-                          # by 1 mm so the boolean union produces
-                          # a single connected mesh).
-BATTERY_FOOT_INSERT_RECESS = 0.5  # mm -- insert top face is
-                          # recessed this far INTO the foot from
-                          # the foot's BOTTOM face so the bolt
-                          # head's bearing ring clamps the
-                          # chassis_bottom plate onto plastic, not
-                          # brass (same convention as the cradle
-                          # heat-set inserts -- 0.5 mm of plastic
-                          # between bolt head and brass insert
-                          # face).
+# RETIRED (Jul 2026): the BATTERY_FOOT_* / BATTERY_WALL /
+# BATTERY_BOLT_ACCESS_OD constants and ``make_battery_holder`` are gone
+# along with the clip-in battery_holder itself (retired Jun 2026 when
+# the pack moved to velcro straps).  The chassis_bottom hole pattern
+# for the holder feet (``with_battery_holder_holes``) and the 4 hex-key
+# access bores through the leg-2/3 cradle shells were deleted with it.
 
-# The battery_holder is NOT centred on the chassis -- it sits at
-# X = BATTERY_HOLDER_CENTRE_X = -25 mm so the +X half of the
-# chassis stays clear for the electronics_tray (at X = +35).  This
-# constant is referenced from build_prototype_assembly.py,
-# inspect_build.py, _verify_prototype.py's chassis-frame builders,
-# fastener_registry's battery-holder bolt emitter, AND _hex_plate's
-# battery-holder hole pattern -- they all have to use the same X
-# offset or the chassis_bottom holes won't line up with the
-# holder's feet and check_fastener_engagement reports the bolts
-# "join only 1 part".
-BATTERY_HOLDER_CENTRE_X = -25.0   # mm
-
-# Bearing-sandwich refit (Jun 2026): the two -X battery feet at
-# (BATTERY_HOLDER_CENTRE_X - BATTERY_FOOT_DX, +/- BATTERY_FOOT_DY) =
-# (-75, +/-24) land directly under the leg-2 / leg-3 yaw cradles, whose
-# sub-plate shell (chassis-z in [-13.6, -2]) would otherwise bury the M3
-# x 10 SHCS head and block the hex key.  The 110 mm battery is wider than
-# the 74 mm inter-cradle gap, so the feet CANNOT clear the cradles by
-# repositioning -- instead make_chassis_bottom carves a vertical access
-# bore of this diameter up through the cradle to the plate bottom face so
-# the bolt head seats on the plate and the driver reaches from below.
-# Phi 9 mm clears the verifier's Phi 8 mm HEX_KEY driver envelope.
-BATTERY_BOLT_ACCESS_OD = 9.0   # mm
+# The pack is NOT centred on the chassis -- it sits at
+# X = BATTERY_HOLDER_CENTRE_X.  Jul 2026 (real 138 x 46 x 24 mm pack):
+# moved from -25 to -8 mm, balancing two constraints:
+#   * +X end (x = +61): the in-gap power bus-bar strip sits at
+#     chassis x = 64 (wire_harness_plan BUS_BAR_TRAY_X), so the pack
+#     face keeps a 3 mm gap to it.
+#   * -X end (x = -77): the governing clearance is corner-to-yaw-axis
+#     distance at the diagonal legs (yaw axes at (+/-86.6, +/-50)) --
+#     the rotating coxa_yaw_hub (Phi 51.6 -> r 25.8 about its yaw
+#     axis) stays clear of the pack corner at (-77, +/-23) by ~3 mm
+#     (dist sqrt(9.6^2 + 27^2) = 28.7 mm > 25.8).  At the old -25 mm
+#     centre the -X corner (-94, +/-23) came within 27.0 mm of the
+#     leg-2/3 yaw axes -- only 1.2 mm from the hub swing.
+# (The name keeps its historical "HOLDER" even though the holder is
+# retired, because the constant is referenced from
+# build_prototype_assembly.py, inspect_build.py, mujoco_prototype.py,
+# strength/load_cases.py and tools/full_robot_viz_build.py.)
+BATTERY_HOLDER_CENTRE_X = -8.0   # mm
 
 # ---- M2.5 brass heat-set insert (Raspberry Pi mount) ---------------------
 # McMaster 94459A106: M2.5 brass knurled heat-set insert.  Specs:
@@ -2991,31 +2914,13 @@ ELEC_CHASSIS_COUNTERBORE_DEPTH = 2.0   # mm -- counterbore depth from tray top.
                                         # full tray thickness, leaving NO rim
                                         # for the head to clamp against.
 
-# Tray-mount boss on chassis_bottom (May 2026 tray-mount fix).  Each
-# of the 4 ELEC_CHASSIS_MOUNT_HOLES_XY positions on chassis_bottom now
-# carries a Phi TRAY_MOUNT_BOSS_OD x TRAY_MOUNT_BOSS_H boss UNIONed
-# onto the plate's TOP face, with a Phi INSERT_M3_PILOT_OD heat-set
-# insert pocket cut DOWN from the boss top through the plate.  The
-# tray sits with its bottom face flush on the boss tops (boss_top_z
-# = chassis_bottom_top + TRAY_MOUNT_BOSS_H matches the tray-bottom
-# z used by build_prototype_assembly._body_battery_parts).  The 4
-# M3 SHCS thread DOWN from the tray's cbore floor (z = tray_top -
-# 2 = +6) into the brass insert (z = +5 .. 0) for the tray-to-
-# chassis_bottom fastener path.
-#
-# The boss OD is intentionally smaller than ELEC_CHASSIS_COUNTERBORE_OD
-# (5.5 mm) plus radial wall (~ 1.25 mm) = ~ 8 mm so that the boss top
-# is ENTIRELY UNDER the tray's chassis-mount hole (= cbore footprint);
-# the tray bottom can therefore land flat on the boss top without a
-# step.  6 mm OD = 4 mm pilot + 1 mm wall is the minimum that survives
-# a heat-set install without slumping (same rule that drove
-# ELEC_BOSS_OD_M25 = 6 mm above).
-TRAY_MOUNT_BOSS_OD = 6.0   # mm -- chassis_bottom tray-mount boss OD.
-TRAY_MOUNT_BOSS_H  = 3.0   # mm -- chassis_bottom tray-mount boss height
-                            # above the plate's TOP face.  3 mm matches
-                            # the inter-plate gap that build_prototype_
-                            # assembly leaves between chassis_bottom
-                            # top face and the tray's bottom face.
+# RETIRED (Jul 2026): the TRAY_MOUNT_BOSS_* constants and the tray-mount
+# bosses + insert pockets they described on chassis_bottom are deleted.
+# The in-gap electronics_tray they mounted was retired in the Jun 2026
+# deck redesign (electronics moved to the standoff-column deck trays
+# above chassis_top), and the leftover 3-mm-tall boss bodies at
+# (+/-24.75, +/-24.75) sat inside the real 138 x 46 mm battery's
+# footprint on the plate top face.
 
 # Mega 2560 R3 mounting holes (Arduino reference drawing).  Listed in
 # the BOARD'S OWN coordinate frame with origin at the PCB's bottom-left
@@ -3286,25 +3191,42 @@ ELEC_CHASSIS_MOUNT_HOLES_XY = tuple(
     for i in range(4)
 )
 
-# Brass-standoff column pattern (May 2026 tray-mount fix).  4 M3 M-F
-# brass standoffs span the inter-plate gap on a 35 mm radius / 45 deg
-# rotated-square pattern: (+/-35, 0) and (0, +/-35).  The pattern is
-# INTENTIONALLY rotated 45 deg from ELEC_CHASSIS_MOUNT_HOLES_XY so
-# the standoff columns and the tray-mount heat-set inserts in chassis_
-# bottom don't share an XY -- the brass standoff body would conflict
-# with the insert pocket if they did.  Each standoff is M3 M-F:
-#     * Male thread goes DOWN through chassis_bottom's Phi 3.4 mm
-#       clearance hole; an M3 nyloc on the under face captures it.
-#     * Female top accepts an M3 x 10 SHCS dropped DOWN from above
-#       chassis_top.
+# Brass-standoff column pattern.  4 M3 F-F brass standoffs span the
+# inter-plate gap on a 44 mm radius square pattern at the diagonals:
+# (+/-31.1, +/-31.1).
+#
+# Jul 2026 battery-fit rework: the pattern moved OFF the old
+# (+/-35, 0) / (0, +/-35) rotated-45-deg layout because the real
+# 138 x 46 mm pack (see BATTERY_W/D) needs a clear straight lane
+# through the inter-plate bay along Y in [-23, +23] -- the old +/-X
+# standoffs at (+/-35, 0) sat dead inside that lane.  At the
+# diagonals the standoff bodies (hex AF 5.5 -> circumradius ~3.2 mm)
+# clear the pack's long edge by 31.1 - 23 - 3.2 = 4.9 mm, stay 10 mm
+# from the DECK_COLUMN_XY (+/-41, +/-33) clearance holes in
+# chassis_top, and remain well inside chassis_top's 57.5 mm
+# circumradius.  (The original May 2026 reason for the rotated-45
+# pattern -- dodging the in-gap electronics_tray insert pockets at
+# (+/-24.75, +/-24.75) -- is gone: that tray and its chassis_bottom
+# bosses are retired.)
+#
+# Hardware (Jul 2026 F/F switch): the user's M-F studs cannot work
+# here -- chassis_bottom is 8 mm thick (plate + merged floor) so a
+# standard 6 mm male stud can't reach a nut on the -6 mm face.  Each
+# standoff is now FEMALE-FEMALE and is bolted from BOTH faces:
+#     * An M3 x 14 SHCS enters from BELOW chassis_bottom (head on the
+#       -6 mm floor face), passes through the 8 mm plate stack and
+#       threads ~6 mm into the standoff's bottom female thread.
+#     * An M3 x 10 SHCS drops DOWN from above chassis_top into the
+#       standoff's top female thread (unchanged).
 # Both chassis_top and chassis_bottom carry these 4 clearance holes
 # via ``_hex_plate(with_chassis_standoffs=True)``.
-CHASSIS_STANDOFF_R          = 35.0
+CHASSIS_STANDOFF_R          = 44.0
+_STANDOFF_D                 = CHASSIS_STANDOFF_R / np.sqrt(2.0)  # 31.11 mm
 CHASSIS_STANDOFF_HOLES_XY   = (
-    (+CHASSIS_STANDOFF_R, 0.0),
-    (0.0, +CHASSIS_STANDOFF_R),
-    (-CHASSIS_STANDOFF_R, 0.0),
-    (0.0, -CHASSIS_STANDOFF_R),
+    (+_STANDOFF_D, +_STANDOFF_D),
+    (-_STANDOFF_D, +_STANDOFF_D),
+    (-_STANDOFF_D, -_STANDOFF_D),
+    (+_STANDOFF_D, -_STANDOFF_D),
 )
 
 # Chassis-frame translation applied to the tray mesh by
@@ -3704,11 +3626,12 @@ os.makedirs(STL_DIR, exist_ok=True)
 # Some meshes are emitted into stl_prototype/ purely for SIMULATION, FIT-CHECK
 # or RENDER purposes and must never be sent to a slicer / print service:
 #
-#   * Assembled-link sim meshes -- ``femur_link`` / ``tibia_link`` are each
-#     really two printed fittings (yoke + bracket/fitting) bonded onto a
-#     bought Ø8 carbon-fibre tube; the one-piece STL fuses a SOLID plastic
-#     tube and would print as a useless solid rod.  The real printables are
-#     femur_hip_yoke / femur_knee_bracket / tibia_knee_yoke / tibia_foot_fitting.
+#   * Assembled-link sim mesh -- ``tibia_link`` is really two printed
+#     fittings (yoke + foot fitting) bonded onto a bought Ø8 carbon-fibre
+#     tube; the one-piece STL fuses a SOLID plastic tube and would print as
+#     a useless solid rod.  The real tibia printables are tibia_knee_yoke /
+#     tibia_foot_fitting.  (``femur_link`` is NOT in this category since the
+#     Jul 2026 merge #2 -- the femur genuinely IS one printed part.)
 #   * Commodity-hardware visuals -- the servo body, the aluminium disc horn,
 #     the MPU-6050 / Raspberry Pi / bus adapter / anti-spark switch / LiPo
 #     battery: these are BOUGHT, not printed; the meshes exist only so the
@@ -3722,7 +3645,9 @@ os.makedirs(STL_DIR, exist_ok=True)
 NOPRINT_SUFFIX = "_DO_NOT_PRINT"
 
 NOT_PRINTED_MESHES = frozenset({
-    "femur_link", "tibia_link", "assembly_preview",
+    # femur_link left OUT deliberately: since the Jul 2026 merge #2 the
+    # femur IS one printed part, so femur_link.stl is a real printable.
+    "tibia_link", "assembly_preview",
     "servo_body", "servo_horn", "disc_horn", "yaw_bearing", "mpu6050",
     "uno_q", "buck_converter",
     "antispark_switch_body", "antispark_switch_toggle",
@@ -4135,9 +4060,17 @@ def _servo_cradle_insert_pockets(
     return trimesh.Trimesh(), _union(*pocket_parts)
 
 
-def _servo_well_solid(*, remove_floor: bool = False) -> trimesh.Trimesh:
+def _servo_well_solid(*, remove_floor: bool = False,
+                      end_face_bolts: bool = True) -> trimesh.Trimesh:
     """STS3215 front-face mount cradle, returned as one watertight mesh
     in the well's local frame.
+
+    ``end_face_bolts=False`` skips the 4x M2.5 end-face bolt holes +
+    counterbores through the -X wall (Jul 2026 one-piece femur: the fused
+    Phi 14 spar covers the knee cradle's -X wall from outside, so those
+    screws are impossible to install there and the empty holes only
+    weakened the spar-to-wall junction; the knee servo is retained by the
+    clamp cap + retaining lip alone, like the yaw cradle).
 
     Local frame (matches `_servo_envelope` *body* axes):
         Origin: centre of the body's BACK face.
@@ -4224,21 +4157,23 @@ def _servo_well_solid(*, remove_floor: bool = False) -> trimesh.Trimesh:
     # mouth and the disc horn, so it stays accessible.  The bus harness
     # window (y in [-3.5, 3.5]) does not reach these y = +/-5 holes.  The
     # head is recessed in a counterbore so a stock M2.5 x 8 still reaches
-    # the case through the thick wall.
-    body_face_x = -SERVO_BODY_W / 2.0           # servo -X end face plane
-    wall_outer_x = -WELL_W / 2.0                # -X wall outer face
-    head_plane_x = body_face_x - SERVO_BODY_BOLT_STANDOFF  # counterbore floor
-    cl_outer = wall_outer_x - 1.0
-    cl_inner = body_face_x + SERVO_MOUNT_THREAD_DEPTH       # into the case
-    for (by, bz) in servo_end_face_bolt_centres():
-        hole = _cyl(SERVO_BODY_BOLT_OD / 2.0, cl_inner - cl_outer)
-        hole.apply_transform(rotation_matrix(np.pi / 2.0, [0, 1, 0]))   # axis -> X
-        hole.apply_translation([0.5 * (cl_outer + cl_inner), by, bz])
-        cuts.append(hole)
-        cbore = _cyl(SERVO_BODY_BOLT_HEAD_OD / 2.0, head_plane_x - cl_outer)
-        cbore.apply_transform(rotation_matrix(np.pi / 2.0, [0, 1, 0]))
-        cbore.apply_translation([0.5 * (cl_outer + head_plane_x), by, bz])
-        cuts.append(cbore)
+    # the case through the thick wall.  (Skipped when ``end_face_bolts``
+    # is False -- one-piece femur knee cradle, see docstring.)
+    if end_face_bolts:
+        body_face_x = -SERVO_BODY_W / 2.0           # servo -X end face plane
+        wall_outer_x = -WELL_W / 2.0                # -X wall outer face
+        head_plane_x = body_face_x - SERVO_BODY_BOLT_STANDOFF  # counterbore floor
+        cl_outer = wall_outer_x - 1.0
+        cl_inner = body_face_x + SERVO_MOUNT_THREAD_DEPTH       # into the case
+        for (by, bz) in servo_end_face_bolt_centres():
+            hole = _cyl(SERVO_BODY_BOLT_OD / 2.0, cl_inner - cl_outer)
+            hole.apply_transform(rotation_matrix(np.pi / 2.0, [0, 1, 0]))   # axis -> X
+            hole.apply_translation([0.5 * (cl_outer + cl_inner), by, bz])
+            cuts.append(hole)
+            cbore = _cyl(SERVO_BODY_BOLT_HEAD_OD / 2.0, head_plane_x - cl_outer)
+            cbore.apply_transform(rotation_matrix(np.pi / 2.0, [0, 1, 0]))
+            cbore.apply_translation([0.5 * (cl_outer + head_plane_x), by, bz])
+            cuts.append(cbore)
 
     return _diff(outer, *cuts)
 
@@ -5226,9 +5161,6 @@ def servo_end_face_bolt_centres():
 # PASSIVE_BACK_PLATE_T.
 BACK_STACK_DEPTH     = REAR_BOSS_H + HORN_STACK_H                      # 7 mm
 PASSIVE_BACK_PLATE_T = BACK_STACK_DEPTH                                # 7 mm
-# Passive-horn centering-adapter spigot length = the reused disc horn's true
-# thickness (defined here now that DISC_HORN_H is available).
-PASSIVE_ADAPTER_SPIGOT_T = DISC_HORN_H                                 # 2 mm
 
 # Joint-local Z of the disc-horn TOP plane on the output axis (the moving
 # link / yoke top arm seats here).  The disc horn seats on the servo OUTPUT
@@ -5262,17 +5194,22 @@ YOKE_ARM_PAD = DRIVEN_HORN_REACH_DOWN                                  # 5 mm (b
 # light squeeze instead of dead-flush.  ~0.13 mm/side = ~0.26 mm off the inner
 # span -- well inside the +/-0.5 mm mating-face tolerance.
 YOKE_SEAT_INTERF = 0.13                                               # mm per side
-# Real PASSIVE disc mating face (joint-local): the rear idler boss protrudes
-# REAR_BOSS_H below the back face, the passive disc (DISC_HORN_H) rides it.
-PASSIVE_HORN_FACE_Z = -(REAR_BOSS_H + DISC_HORN_H)                    # -4 mm
+# Real PASSIVE disc mating face (joint-local).  Jul 2026 stock-horn refit
+# (user): the STOCK metal passive horn's centre bore slides OVER the rear
+# idler boss, so the horn seats FLUSH on the servo back face -- its mating
+# face is only DISC_HORN_H below the back face (flush with the boss tip),
+# NOT (REAR_BOSS_H + DISC_HORN_H) as in the retired printed-adapter stack.
+# This narrows the yoke clevis opening by exactly REAR_BOSS_H = 2 mm (the
+# user measured the adapter-era yoke 2 mm too wide on the stock horn).
+PASSIVE_HORN_FACE_Z = -DISC_HORN_H                                    # -2 mm
 
 # Joint-local Z of the PASSIVE disc-horn seat plane (the yoke BOTTOM arm body's
 # inner face).  Symmetric refit: the bottom arm is a true MIRROR of the top arm
 # about the real disc-stack mid-plane -- it carries the SAME YOKE_ARM_PAD (5 mm)
 # down onto the real passive disc face, so the seat is PASSIVE_HORN_FACE_Z minus
 # one pad depth.  (BACK_STACK_DEPTH / COXA_HIP_ANCHOR_Y / the joint envelope stay
-# FROZEN -- only the printed bottom-arm body grows 2 mm deeper to match the top.)
-JOINT_HORN_BOT_Z = PASSIVE_HORN_FACE_Z - YOKE_ARM_PAD                 # -9 mm
+# FROZEN -- the stock-horn refit only pulls the printed bottom arm 2 mm closer.)
+JOINT_HORN_BOT_Z = PASSIVE_HORN_FACE_Z - YOKE_ARM_PAD                 # -7 mm
 
 # Hip-bracket centering on the yaw axis (see the big note next to
 # COXA_HIP_DROP for the rationale + kinematic consequence).  With the hip
@@ -5292,41 +5229,13 @@ def _disc_horn_bolt_centres():
             for t in DISC_HORN_BOLT_ANGLES_RAD]
 
 
-def make_passive_horn_adapter() -> trimesh.Trimesh:
-    """Printed centering adapter for the PASSIVE disc horn on the servo's
-    smooth rear idler boss (joint-local frame: origin = servo back face,
-    +Z = output, output axis at x = SERVO_OUTPUT_X).
-
-    The rear boss protrudes REAR_BOSS_H below the back face (z in
-    [-REAR_BOSS_H, 0]).  This stepped bushing adapts that short smooth boss
-    into a proper centred seat for the reused aluminium disc horn:
-      * a base disc (Phi PASSIVE_ADAPTER_OD, z in [-REAR_BOSS_H, 0]) seats on
-        the back face, with a Phi PASSIVE_ADAPTER_BORE_OD counterbore that
-        slips over the rear boss (centres the adapter on the boss);
-      * a Phi PASSIVE_ADAPTER_SPIGOT_OD spigot (z in
-        [-REAR_BOSS_H - PASSIVE_ADAPTER_SPIGOT_T, -REAR_BOSS_H]) fills the
-        horn's central spline bore (centres the horn on the adapter);
-      * a central Phi DISC_HORN_BOLT_OD bore passes the M3 retention screw
-        through into the rear boss.
-    Prints flat on its base-disc face.  6 per robot (one per hip + knee)."""
-    x = SERVO_OUTPUT_X
-    base = _cyl(PASSIVE_ADAPTER_OD / 2.0, PASSIVE_ADAPTER_BASE_T)
-    base.apply_translation([x, 0.0, -PASSIVE_ADAPTER_BASE_T / 2.0])
-    spig = _cyl(PASSIVE_ADAPTER_SPIGOT_OD / 2.0, PASSIVE_ADAPTER_SPIGOT_T)
-    spig.apply_translation([x, 0.0,
-                            -REAR_BOSS_H - PASSIVE_ADAPTER_SPIGOT_T / 2.0])
-    body = _union(base, spig)
-    # Counterbore over the rear boss (opens at the back face, z = 0).
-    cbore = _cyl(PASSIVE_ADAPTER_BORE_OD / 2.0, REAR_BOSS_H * 2.0)
-    cbore.apply_translation([x, 0.0, 0.0])
-    # Central retention-screw clearance through the whole adapter.
-    scr = _cyl(DISC_HORN_BOLT_OD / 2.0,
-               (PASSIVE_ADAPTER_BASE_T + PASSIVE_ADAPTER_SPIGOT_T) * 3.0)
-    scr.apply_translation([x, 0.0, -PASSIVE_ADAPTER_BASE_T])
-    return _diff(body, cbore, scr)
+# make_passive_horn_adapter is RETIRED (Jul 2026 stock-horn refit): the
+# STS3215's stock metal passive horn centres itself directly on the rear
+# idler boss (its bore rides the boss, seating flush on the back face), so
+# no printed centering/standoff bushing is needed.
 
 
-def _sandwich_fixed_side() -> trimesh.Trimesh:
+def _sandwich_fixed_side(*, end_face_bolts: bool = True) -> trimesh.Trimesh:
     """The FIXED printed side of a sandwich joint: JUST the STS3215
     front-face mount cradle (4 walls + output-face mount lip + end-face body
     bolts).  The back is now OPEN -- the PASSIVE disc horn rides the servo's
@@ -5335,11 +5244,16 @@ def _sandwich_fixed_side() -> trimesh.Trimesh:
     wraps the DRIVEN horn on the front (+Z) and the PASSIVE horn on the back
     (-Z), bolting to both identically.
 
+    ``end_face_bolts=False`` drops the 4x M2.5 end-face bolt holes through
+    the -X wall (one-piece femur knee cradle -- the fused spar covers that
+    wall; see ``_servo_well_solid``).
+
     The serial-bus harness exits the body's +X bottom-outboard corner via
     the L-shaped wire-exit corridor + boot-clearance channel (well-local,
     shared with every cradle) so ``check_wire_slot`` finds a clear exit
     and the molded boot has a pocket to seat in."""
-    return _diff(_servo_well_solid(), _wire_exit_slot())
+    return _diff(_servo_well_solid(end_face_bolts=end_face_bolts),
+                 _wire_exit_slot())
 
 
 def make_servo_clamp_cap() -> trimesh.Trimesh:
@@ -5358,8 +5272,8 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
       * a top LIP that laps the body's +Y front-face edge to stop +Z
         pull-out, matching the cradle's -Y / corner lip.
 
-    Same part for the hip-pitch (coxa_link) and knee (femur_knee_bracket)
-    joints -- 2 per leg, 12 per robot.  Prints flat on its +Z face.
+    Same part for the hip-pitch (coxa_link) and knee (femur_link's knee
+    cradle) joints -- 2 per leg, 12 per robot.  Prints flat on its +Z face.
 
     Jun 2026 clamp-fit fix: the sandwich cradle's -Y wall sits right at the
     body's -Y face (the WELL_BODY_CL clearance is on the OPEN +Y / cap side
@@ -5449,11 +5363,10 @@ def _leg_tube_socket_x(x_mouth: float, sock_z: float, *, direction: int = 1,
     the boss into the part, then diff the bore + transverse retention-pin
     cross-hole (epoxy bond + dia-2.5 pin retains the tube).
 
-    ``length`` overrides the default boss length (used by the short FEMUR
-    sockets so the hip-yoke + knee-bracket bosses don't interpenetrate across
-    the femur's tight ~19 mm tube span -- see FEMUR_TUBE_SOCKET_LEN).  When a
-    shorter ``length`` is given, pass the matching ``pin_inset`` so the
-    transverse pin still lands at the boss mid-engagement (not past its end)."""
+    ``length`` overrides the default boss length; pass the matching
+    ``pin_inset`` so the transverse pin still lands at the boss
+    mid-engagement (not past its end).  (Since the Jul 2026 one-piece femur
+    only the TIBIA uses tube sockets, at the default size.)"""
     sock_len = length if length is not None else (LEG_TUBE_SOCKET_DEPTH + 6.0)
     inset = pin_inset if pin_inset is not None else LEG_TUBE_PIN_INSET
     s = float(direction)
@@ -5502,9 +5415,9 @@ _YOKE_ARM_X0, _YOKE_ARM_X1 = 2.0, 46.0
 _YOKE_SOCKET_X = 42.0                       # CF-tube socket mouth (femur span frozen)
 _YOKE_SPINE_X0, _YOKE_SPINE_X1 = 42.0, 46.0
 # Socket height = mid-plane of the yoke (between the top + bottom arms).
-_YOKE_BOT_Z0 = JOINT_HORN_BOT_Z - _YOKE_ARM_T                          # -13
+_YOKE_BOT_Z0 = JOINT_HORN_BOT_Z - _YOKE_ARM_T                          # -11
 _YOKE_TOP_Z1 = JOINT_HORN_TOP_Z + _YOKE_ARM_T                          # 45.3
-JOINT_SOCKET_Z = 0.5 * (_YOKE_BOT_Z0 + _YOKE_TOP_Z1)                   # ~16.15
+JOINT_SOCKET_Z = 0.5 * (_YOKE_BOT_Z0 + _YOKE_TOP_Z1)                   # ~17.15
 
 
 def _sandwich_moving_yoke(*, tube_socket: bool = True,
@@ -5514,9 +5427,9 @@ def _sandwich_moving_yoke(*, tube_socket: bool = True,
     the fixed servo/housing stack.
 
     ``socket_length`` / ``socket_pin_inset`` override the CF-tube socket size
-    (the FEMUR hip yoke uses a SHORT socket so it doesn't collide with the
-    femur knee bracket across the tight 90 mm femur span -- see
-    FEMUR_TUBE_SOCKET_LEN; the long-span tibia knee yoke keeps the default).
+    (historical: the two-part femur used SHORT sockets; since the Jul 2026
+    one-piece femur only the tibia knee yoke sockets a tube, at the default
+    size).
 
     - TOP arm seats on the DRIVEN disc-horn top (z = JOINT_HORN_TOP_Z) and
       bolts to it with 4x M3 on the Phi DISC_HORN_BOLT_PCD circle.
@@ -5589,69 +5502,50 @@ def _sandwich_moving_yoke(*, tube_socket: bool = True,
 
 
 # ---------------------------------------------------------------------------
-# Printed FEMUR strut (Jun 2026) -- 3D-printed drop-in for the femur CF tube
+# ONE-PIECE printed femur (Jul 2026) -- yoke + spar + knee bracket, one body
 # ---------------------------------------------------------------------------
-# User: "the femur tube is so ridiculously short and cutting the carbon fiber
-# is kind of a pain, would you make a 3d print version of the tube (probably
-# should be solid with the screw holes built in to save me time)?"
-#
-# The femur CF segment is only the mouth-to-mouth span between the hip-yoke
-# socket (_YOKE_SOCKET_X) and the knee-bracket socket (-WELL_W/2) -- the two
-# facing sockets nearly meet, so the exposed tube is tiny (~16 mm) and fiddly to
-# cut + drill.  make_femur_strut() prints a SOLID rod that replaces ONLY the
-# femur tube: it slides into the SAME two Phi (LEG_TUBE_OD + 2*clear) sockets and
-# is retained by the SAME 2 transverse pins, but with the Phi LEG_TUBE_PIN_OD pin
-# cross-holes already PRINTED IN (no CF to cut, no holes to drill).  The longer
-# 130 mm tibia stays CF (its span is ample and cutting one long tube is easy).
-#
-# It is a TRUE drop-in: the hip-yoke / knee-bracket socket geometry and the
-# transverse-pin pattern are UNCHANGED -- only the tube material/part changes.
-FEMUR_STRUT_LEN       = FEMUR_LENGTH - _YOKE_SOCKET_X - WELL_W / 2.0
-                        # mouth-to-mouth span the tube occupied (~16.3 mm); the
-                        # strut engages FEMUR_TUBE_SOCKET_LEN of each socket.
-FEMUR_STRUT_FIT_CLEAR = 0.1   # mm radial slip UNDER the socket bore so the
-                              # printed rod drops into the printed socket (the
-                              # CF tube used a 0.05 mm epoxy-film fit; a dry
-                              # printed-printed pair wants a touch more).
-FEMUR_STRUT_OD        = LEG_TUBE_OD - 2 * FEMUR_STRUT_FIT_CLEAR
-                        # Phi 7.8 -> ~0.15 mm radial gap in the Phi 8.1 bore;
-                        # the transverse pins locate + lock it (as on the tube).
+# History: the femur segment started as a cut Phi 8 CF tube, then became a
+# separate printed Phi 7.8 drop-in strut (Jun 2026, user: "the femur tube is
+# so ridiculously short and cutting the carbon fiber is kind of a pain"),
+# then the strut was fused into the hip yoke leaving a slip-fit + single-pin
+# joint at the knee bracket (Jul 2026 merge #1, user: "combine femur hip yoke
+# and femur strut into one stronger femur hip yoke part").  Jul 2026 merge #2
+# (user: "combine the femur knee bracket with the femur hip yoke and make
+# that connection very solid (cylinder size of our diameter)"): the knee
+# bracket is fused in too, so the WHOLE FEMUR is one printed part --
+# ``femur_link`` -- and the yoke-to-bracket connection is a SOLID
+# Phi FEMUR_SPAR_OD cylinder (the old boss outer diameter) spanning the
+# full inter-well gap.  No socket bore, no slip fit, no retention pin:
+# the printed cross-section between the joints is solid Phi 14 everywhere.
+# Assembly is unaffected -- both ends still attach via bolted disc horns
+# (hip) and the drop-in servo + clamp caps (knee).  The longer 130 mm
+# tibia stays a CF tube between two separate printed fittings.
+FEMUR_SPAR_LEN = FEMUR_LENGTH - _YOKE_SOCKET_X - WELL_W / 2.0
+                 # yoke-spine face to knee-bracket well wall (~19 mm).
+FEMUR_SPAR_OD  = LEG_TUBE_OD + 6.0
+                 # = the old socket-boss OD (Phi 14): the "cylinder size of
+                 # our diameter" the user asked for -- full boss-OD solid.
+_FEMUR_SPAR_WALL_BITE = 1.0   # mm the spar extends INTO the knee well wall
+                              # so the boolean union is volumetric (not a
+                              # coincident-face contact); stays well clear of
+                              # the servo cavity behind the 6 mm wall.
 
 
-def make_femur_strut() -> trimesh.Trimesh:
-    """SOLID printed replacement for the femur Phi 8 mm CF tube (Jun 2026).
+def _femur_fused_spar() -> trimesh.Trimesh:
+    """The solid femur spar of the one-piece femur (hip-joint-local frame).
 
-    A Phi FEMUR_STRUT_OD rod of length FEMUR_STRUT_LEN with the 2 transverse
-    Phi LEG_TUBE_PIN_OD retention-pin cross-holes printed in at
-    FEMUR_TUBE_PIN_INSET from each end -- so it drops into the existing
-    femur_hip_yoke / femur_knee_bracket sockets and is pinned exactly like the
-    CF tube it replaces, with NO cutting + NO drilling.
-
-    Canonical local frame: rod AXIS along X, centred at the origin; the two
-    pin holes run along Y.  Placed in the femur via ``_femur_strut_joint_local``
-    so the pins land coaxial with BOTH socket pins.  Prints standing on a flat
-    Phi FEMUR_STRUT_OD end cap (see prepare_xometry_upload reorient)."""
-    L = FEMUR_STRUT_LEN
-    rod = _cyl(FEMUR_STRUT_OD / 2.0, L)
-    rod.apply_transform(rotation_matrix(np.pi / 2.0, [0, 1, 0]))   # axis Z -> X
-    cuts = []
-    for sx in (-1, 1):
-        hx = sx * (L / 2.0 - FEMUR_TUBE_PIN_INSET)
-        pin = _cyl(LEG_TUBE_PIN_OD / 2.0, FEMUR_STRUT_OD * 2.0)
-        pin.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))   # axis -> Y
-        pin.apply_translation([hx, 0.0, 0.0])
-        cuts.append(pin)
-    return _diff(rod, *cuts)
-
-
-def _femur_strut_joint_local() -> trimesh.Trimesh:
-    """``make_femur_strut`` translated into the HIP-YOKE joint-local frame so it
-    spans the two socket mouths: applying the hip-yoke ``_joint_place`` matrix
-    then lands its rod axis on the femur tube line and its pin holes coaxial
-    with BOTH the hip-yoke (+X) and knee-bracket (-X) socket retention pins."""
-    s = make_femur_strut()
-    s.apply_translation([_YOKE_SOCKET_X + FEMUR_STRUT_LEN / 2.0, 0.0, JOINT_SOCKET_Z])
-    return s
+    A Phi FEMUR_SPAR_OD solid cylinder at z = JOINT_SOCKET_Z running from
+    the hip yoke's spine face (x = _YOKE_SOCKET_X, embedding into the
+    x[42,46] spine) to _FEMUR_SPAR_WALL_BITE past the knee bracket's well
+    wall face (x = _YOKE_SOCKET_X + FEMUR_SPAR_LEN), fusing yoke and
+    bracket into one printed body."""
+    Rx = rotation_matrix(np.pi / 2.0, [0, 1, 0])   # cyl axis Z -> X
+    length = FEMUR_SPAR_LEN + _FEMUR_SPAR_WALL_BITE
+    spar = _cyl(FEMUR_SPAR_OD / 2.0, length)
+    spar.apply_transform(Rx)
+    spar.apply_translation([_YOKE_SOCKET_X + length / 2.0, 0.0,
+                            JOINT_SOCKET_Z])
+    return spar
 
 
 def _servo_envelope() -> trimesh.Trimesh:
@@ -6057,7 +5951,6 @@ def _leg_chassis_frames():
 def _hex_plate(flat_to_flat: float, thickness: float,
                with_centre_holes: bool = False,
                with_leg_features: bool = True,
-               with_battery_holder_holes: bool = False,
                with_leg_harness_drops: bool = False,
                with_chassis_standoffs: bool = False) -> trimesh.Trimesh:
     """Return a flat hexagonal plate, centred on origin, axis = +Z.
@@ -6073,38 +5966,23 @@ def _hex_plate(flat_to_flat: float, thickness: float,
     Optional inboard hole patterns:
         ``with_centre_holes``: 4 vertical M3 clearance holes on a
             35-mm-radius / 45-deg square (= ELEC_CHASSIS_MOUNT_HOLES_XY
-            = (+/-24.75, +/-24.75) mm).  Used by the electronics_tray
-            chassis-mount bolts which thread DOWN through the tray's
-            cbore floor into M3 heat-set inserts on chassis_bottom (see
-            ``make_chassis_bottom`` for the boss + pocket cut at the
-            same XY).  chassis_top carries the same 4 clearance holes
-            but they are redundant under the May 2026 tray-mount fix
-            (the tray-mount bolts stop in the chassis_bottom insert and
-            never reach chassis_top); they are kept for retrofit
-            compatibility with users who already printed an older
-            chassis_top.
+            = (+/-24.75, +/-24.75) mm).  Only chassis_top still carries
+            this pattern: the holes were used by the retired in-gap
+            electronics_tray's chassis-mount bolts and are kept on the
+            top plate for retrofit compatibility with older prints.
+            (Jul 2026: chassis_bottom no longer carries the pattern --
+            its tray-mount bosses + insert pockets were vestigial after
+            the tray's retirement and their boss bodies sat inside the
+            real 138 x 46 mm battery's footprint.)
         ``with_chassis_standoffs``: 4 vertical M3 clearance holes on
-            the rotated-45-deg 35-mm-radius pattern
-            (= CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) and (0, +/-35)).
+            the 44-mm-radius diagonal pattern
+            (= CHASSIS_STANDOFF_HOLES_XY = (+/-31.1, +/-31.1)).
             chassis_top + chassis_bottom both carry this pattern.  The
-            4 M3 M-F brass standoffs span the inter-plate gap on this
-            pattern: the standoff's male thread drops DOWN through
-            chassis_bottom's clearance hole (captured by an M3 nyloc
-            on the under face) and the female top accepts an M3 x 10
-            SHCS DROPPED DOWN from above chassis_top.
-        ``with_battery_holder_holes``: 4 vertical M3 clearance holes
-            at (+/- BATTERY_FOOT_DX, +/- BATTERY_FOOT_DY) =
-            (+/- 50, +/- 24) mm.  Matches the 4 mounting feet on
-            battery_holder so the holder bolts to chassis_bottom
-            FROM BELOW (M3 x 10 SHCS through this hole, threads up
-            into the foot's heat-set insert).  ONLY chassis_bottom
-            carries this pattern -- chassis_top sits ABOVE the
-            battery and is not bolted to it.  The pattern is
-            INTENTIONALLY separate from ``with_centre_holes``: the
-            35-mm-radius square is far inboard (24.75 mm from
-            origin) of the holder's 110 mm x 38 mm footprint, so
-            moving the holder's feet onto the existing pattern
-            would put them INSIDE the holder body.
+            4 M3 F-F brass standoffs span the inter-plate gap on this
+            pattern: an M3 x 14 SHCS enters from BELOW chassis_bottom
+            into the standoff's bottom female thread and an M3 x 10
+            SHCS drops DOWN from above chassis_top into its top
+            female thread (see the CHASSIS_STANDOFF_R block).
     """
     apothem = flat_to_flat / 2.0
     circum = apothem / np.cos(np.pi / 6)
@@ -6177,55 +6055,26 @@ def _hex_plate(flat_to_flat: float, thickness: float,
                     holes.append(drop)
 
     if with_centre_holes:
-        # 4 holes for the electronics tray's chassis-mount bolts on
-        # the 35 mm radius / 45 deg square pattern (= ELEC_CHASSIS_
-        # MOUNT_HOLES_XY = (+/-24.75, +/-24.75) mm).  IMPORTANT: this
-        # is NOT the battery-holder bolt pattern -- see
-        # ``with_battery_holder_holes`` below for that.  The battery-
-        # holder feet sit at (+/- 50, +/- 24) mm, far outside this
-        # 35-mm-radius square.  This pattern is ALSO not the brass-
-        # standoff column pattern -- see ``with_chassis_standoffs``
-        # below.  May 2026 tray-mount fix moved the brass standoffs
-        # OFF this pattern so chassis_bottom could carry an M3 heat-
-        # set insert at each of these 4 XY positions without
-        # conflicting with the brass standoff body.
+        # 4 holes on the 35 mm radius / 45 deg square pattern
+        # (= ELEC_CHASSIS_MOUNT_HOLES_XY = (+/-24.75, +/-24.75) mm).
+        # Only chassis_top requests these (retrofit-compat holes for
+        # the retired in-gap electronics_tray's mount bolts).
         for (cx, cy) in ELEC_CHASSIS_MOUNT_HOLES_XY:
             h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
             h.apply_translation([cx, cy, 0])
             holes.append(h)
 
     if with_chassis_standoffs:
-        # 4 holes for the brass M3 M-F standoff columns on the
-        # rotated-45-deg 35-mm-radius pattern (= CHASSIS_STANDOFF_
-        # HOLES_XY = (+/-35, 0) and (0, +/-35) mm).  chassis_top +
-        # chassis_bottom both carry this pattern; the brass standoff's
-        # male thread drops DOWN through chassis_bottom's hole
-        # (captured by an M3 nyloc on the under face) and the female
-        # top accepts an M3 x 10 SHCS from above chassis_top.
+        # 4 holes for the brass M3 F-F standoff columns on the
+        # 44-mm-radius diagonal pattern (= CHASSIS_STANDOFF_HOLES_XY =
+        # (+/-31.1, +/-31.1) mm).  chassis_top + chassis_bottom both
+        # carry this pattern; an M3 x 14 SHCS enters from below
+        # chassis_bottom into the standoff's bottom female thread, an
+        # M3 x 10 SHCS from above chassis_top into its top thread.
         for (cx, cy) in CHASSIS_STANDOFF_HOLES_XY:
             h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
             h.apply_translation([cx, cy, 0])
             holes.append(h)
-
-    if with_battery_holder_holes:
-        # 4 holes aligned with battery_holder's mounting feet at
-        # (BATTERY_HOLDER_CENTRE_X +/- BATTERY_FOOT_DX,
-        #  +/- BATTERY_FOOT_DY).  Each takes an M3 x 10 SHCS driven
-        # from BELOW that threads up into the heat-set insert in
-        # the foot above.  Phi BRACKET_BOLT_HOLE = 3.4 mm clearance
-        # for an M3 shank.  The holder is OFFSET in X relative to
-        # the chassis centre (BATTERY_HOLDER_CENTRE_X = -25 mm)
-        # because the +X half of the chassis carries the
-        # electronics_tray; the chassis_bottom hole pattern has
-        # to apply the same offset or the bolts miss the feet.
-        for sx in (-1, 1):
-            for sy in (-1, 1):
-                h = _cyl(BRACKET_BOLT_HOLE / 2.0, thickness * 4)
-                h.apply_translation([BATTERY_HOLDER_CENTRE_X
-                                       + sx * BATTERY_FOOT_DX,
-                                      sy * BATTERY_FOOT_DY,
-                                      0])
-                holes.append(h)
 
     return _diff(plate, *holes)
 
@@ -6394,24 +6243,16 @@ def _chassis_bottom_full_solid() -> trimesh.Trimesh:
     ``check_flat_bottom`` (the deep buckets MUST be rejected by the guard --
     see ``_flatbottom_check.py``).
 
-    Structural carrier for the coxa-bracket
-    flanges, the electronics tray (4 tray-mount inserts at the 35-mm-
-    radius / 45-deg-square pattern via ``with_centre_holes`` PLUS
-    the tray-mount bosses + heat-set insert pockets unioned onto the
-    top face below), the brass standoff columns (rotated-45-deg 35-mm-
-    radius pattern via ``with_chassis_standoffs``), and the
-    battery_holder feet (BATTERY_FOOT_DX / DY pattern via
-    ``with_battery_holder_holes``).  May 2026 tray-mount fix: the tray
-    bolts now thread DOWN into M3 heat-set inserts captive in 4
-    printed bosses on this plate (one per ELEC_CHASSIS_MOUNT_HOLES_XY
-    position); the brass M-F standoffs have been MOVED OFF that
-    pattern onto CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0), (0, +/-35)
-    so the standoff body doesn't conflict with the heat-set insert.
-    Battery_holder fix (earlier May 2026): the holder used to be
-    unbolted (no chassis-side hole pattern; the holder's feet drilled
-    clearance holes that mated to nothing); now 4 x M3 x 10 SHCS
-    pass UP through this plate into heat-set inserts in the
-    battery_holder feet.
+    Structural carrier for the coxa-bracket flanges and the brass
+    standoff columns (44-mm-radius diagonal pattern via
+    ``with_chassis_standoffs``).  Jul 2026 battery-fit rework: the
+    tray-mount bosses + heat-set insert pockets + centre holes at
+    ELEC_CHASSIS_MOUNT_HOLES_XY and the battery_holder foot-bolt
+    pattern + hex-key access bores are all DELETED -- the in-gap
+    electronics_tray and the clip-in battery_holder are both retired,
+    and the boss bodies at (+/-24.75, +/-24.75) sat inside the real
+    138 x 46 mm pack's footprint (the pack corner would have rested
+    on them instead of lying flat on the plate).
 
     Cable management (Part A + Part B, May 2026):
 
@@ -6431,52 +6272,13 @@ def _chassis_bottom_full_solid() -> trimesh.Trimesh:
       CABLE_ANCHOR_TAB_* constants block above.)
     """
     plate = _hex_plate(CHASSIS_FLAT_TO_FLAT, CHASSIS_PLATE_T,
-                       with_centre_holes=True,
                        with_chassis_standoffs=True,
-                       with_battery_holder_holes=True,
                        with_leg_harness_drops=True)
 
-    # Tray-mount bosses + heat-set insert pockets (May 2026 tray-mount
-    # fix).  At each of the 4 ELEC_CHASSIS_MOUNT_HOLES_XY positions,
-    # UNION a Phi TRAY_MOUNT_BOSS_OD x TRAY_MOUNT_BOSS_H boss onto the
-    # plate's TOP face (boss top at plate-z = +CHASSIS_PLATE_T/2 +
-    # TRAY_MOUNT_BOSS_H = +5 mm, which is where the tray's bottom face
-    # lands per build_prototype_assembly._body_battery_parts).  Then
-    # DIFF a Phi INSERT_M3_PILOT_OD heat-set insert pocket extending
-    # DOWN from the boss top by INSERT_M3_PILOT_DEPTH.  The pocket
-    # eats through the boss and into the plate, with ~ 1 mm of
-    # plastic plate-bottom material remaining below the pocket bottom
-    # (boss height 3 mm + pocket depth 6 mm = 9 mm of cut; from boss
-    # top z=+5 down to z=-1; chassis_bottom's bottom face is at z=-2
-    # so 1 mm of plate plastic survives below the insert pocket).  The
-    # ``with_centre_holes`` pattern (above) already drilled a Phi 3.4
-    # mm clearance hole through the plate at the same XY; the 4 mm
-    # insert pocket cleanly supersedes it (the 4 mm cylinder cuts a
-    # 4 mm hole through the plate at the boss XY).  Together: a
-    # closed insert pocket at z in [-1, +5], with a 1 mm Phi 3.4 mm
-    # cleared section at the bottom face (z in [-2, -1]) so any
-    # printer slumping above the pocket has a vent.
-    tray_bosses: list[trimesh.Trimesh] = []
-    tray_pockets: list[trimesh.Trimesh] = []
-    boss_top_z = CHASSIS_PLATE_T / 2.0 + TRAY_MOUNT_BOSS_H
-    boss_bot_z = -0.2   # 0.2 mm below plate top for clean union
-    pocket_h = INSERT_M3_PILOT_DEPTH + 0.4   # 0.4 mm overdrill at the
-                                              # OPEN end of the pocket
-                                              # (same convention as
-                                              # the cradle / battery /
-                                              # tray heat-set pockets).
-    for (mx, my) in ELEC_CHASSIS_MOUNT_HOLES_XY:
-        boss = _cyl(TRAY_MOUNT_BOSS_OD / 2.0, boss_top_z - boss_bot_z)
-        boss.apply_translation([mx, my,
-                                 (boss_top_z + boss_bot_z) / 2.0])
-        tray_bosses.append(boss)
-
-        pocket = _cyl(INSERT_M3_PILOT_OD / 2.0, pocket_h)
-        pocket_top_z = boss_top_z + 0.2
-        pocket_centre_z = pocket_top_z - pocket_h / 2.0
-        pocket.apply_translation([mx, my, pocket_centre_z])
-        tray_pockets.append(pocket)
-    plate = _diff(_union(plate, *tray_bosses), *tray_pockets)
+    # (Jul 2026: the May 2026 tray-mount bosses + heat-set insert
+    # pockets at ELEC_CHASSIS_MOUNT_HOLES_XY are deleted -- see the
+    # docstring above.  The battery must lie FLAT on the plate top
+    # face; the 3-mm-tall boss bodies sat inside its footprint.)
 
     # Per-leg integrated yaw-servo cradles (May 2026 redesign).
     # ``_chassis_yaw_cradle_solid`` returns the cradle for ONE leg in
@@ -6529,25 +6331,8 @@ def _chassis_bottom_full_solid() -> trimesh.Trimesh:
             drops.append(drop)
     plate = _diff(plate, *drops)
 
-    # Battery-bolt driver access (Jun 2026).  Carve a vertical hex-key
-    # bore up through the yaw-cradle shell below each battery foot bolt so
-    # the M3 x 10 SHCS head seats on the plate bottom face and the driver
-    # reaches it from below.  The -X feet (-75, +/-24) sit under the leg-2
-    # / leg-3 cradles; the +X feet sit in open sub-plate air, so the cut
-    # is a harmless no-op there.  See BATTERY_BOLT_ACCESS_OD.
-    bolt_access: list[trimesh.Trimesh] = []
-    access_top_z = -CHASSIS_PLATE_T / 2.0          # plate bottom face
-    access_bot_z = -(COXA_HIP_DROP + 4.0)          # below cradle bottom
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            bx = BATTERY_HOLDER_CENTRE_X + sx * BATTERY_FOOT_DX
-            by = sy * BATTERY_FOOT_DY
-            bore = _cyl(BATTERY_BOLT_ACCESS_OD / 2.0,
-                        access_top_z - access_bot_z)
-            bore.apply_translation([bx, by,
-                                    0.5 * (access_top_z + access_bot_z)])
-            bolt_access.append(bore)
-    plate = _diff(plate, *bolt_access)
+    # (Jul 2026: the 4 battery-bolt hex-key access bores are deleted
+    # along with the retired battery_holder's foot-bolt pattern.)
 
     # Cable-corridor relief (Jun 2026).  The Pi4 / bus-adapter connector
     # cable corridors (defined in cable_keepouts.py, the same airspaces
@@ -6579,12 +6364,12 @@ def _chassis_bottom_full_solid() -> trimesh.Trimesh:
     # battery footprint along its short (Y) axis, so each strap loops
     # OVER the pack, down both long sides, through the 2 slots and back
     # under the plate.  The battery body is centred at
-    # BATTERY_HOLDER_CENTRE_X (= -25 mm) with footprint
-    # BATTERY_W x BATTERY_D (110 x 38 mm); the slot pairs sit just
+    # BATTERY_HOLDER_CENTRE_X (= -8 mm) with footprint
+    # BATTERY_W x BATTERY_D (138 x 46 mm); the slot pairs sit just
     # outside the +/- BATTERY_D/2 long edges.
     velcro_slots: list[trimesh.Trimesh] = []
     strap_y = BATTERY_D / 2.0 + 3.0   # 3 mm outboard of the pack's long edge
-    for strap_dx in (-35.0, 0.0, 35.0):
+    for strap_dx in BATTERY_STRAP_DX:
         sx_centre = BATTERY_HOLDER_CENTRE_X + strap_dx
         for sy in (-1, 1):
             slot = _box((BATTERY_STRAP_W, 4.0, CHASSIS_PLATE_T * 4.0),
@@ -6647,7 +6432,7 @@ def make_chassis_bottom() -> trimesh.Trimesh:
     Three steps:
 
       1. take the full integrated solid (``_chassis_bottom_full_solid``: the
-         flat hex plate + tray-mount bosses + the upward yaw-bearing tower +
+         flat hex plate + the upward yaw-bearing tower +
          ``yaw_bearing_cap`` interface + the 6 yaw cradles + velcro/battery
          cutouts) and cut away everything BELOW the plate underside
          (``CHASSIS_SPLIT_Z`` = -2 mm).  That removes the deep cradle buckets
@@ -6687,21 +6472,22 @@ def make_chassis_bottom() -> trimesh.Trimesh:
     # off-centre / 4-fold features punch through the merged part.
     through_cuts: list[trimesh.Trimesh] = []
 
-    # (a) 3 pairs of battery velcro-strap slots (BATTERY_HOLDER_CENTRE_X +/- 35
-    #     mm, straddling the pack's long edges) so a strap can loop UNDER the
-    #     plate.
+    # (a) 3 pairs of battery velcro-strap slots (BATTERY_HOLDER_CENTRE_X +
+    #     BATTERY_STRAP_DX, straddling the pack's long edges) so a strap can
+    #     loop UNDER the plate.
     strap_y = BATTERY_D / 2.0 + 3.0
-    for strap_dx in (-35.0, 0.0, 35.0):
+    for strap_dx in BATTERY_STRAP_DX:
         sx_centre = BATTERY_HOLDER_CENTRE_X + strap_dx
         for sy in (-1, 1):
             through_cuts.append(
                 _box((BATTERY_STRAP_W, 4.0, CHASSIS_PLATE_T * 8.0),
                      center=(sx_centre, sy * strap_y, 0.0)))
 
-    # (b) the 4 brass-standoff male-stud clearance holes (CHASSIS_STANDOFF_
-    #     HOLES_XY = (+/-35, 0), (0, +/-35)).  ``with_chassis_standoffs`` only
-    #     drilled them through the z[-2,+2] plate; extend them through the floor
-    #     so the standoff stud reaches its M3 nyloc nut on the -6 bottom face.
+    # (b) the 4 brass-standoff bolt clearance holes (CHASSIS_STANDOFF_
+    #     HOLES_XY = (+/-31.1, +/-31.1)).  ``with_chassis_standoffs`` only
+    #     drilled them through the z[-2,+2] plate; extend them through the
+    #     floor so the M3 x 14 SHCS entering from the -6 bottom face reaches
+    #     the F-F standoff's bottom female thread on the +2 top face.
     for (cx, cy) in CHASSIS_STANDOFF_HOLES_XY:
         h = _cyl(BRACKET_BOLT_HOLE / 2.0, CHASSIS_PLATE_T * 8.0)
         h.apply_translation([cx, cy, 0.0])
@@ -6852,100 +6638,12 @@ def _chassis_bottom_floor_solid() -> trimesh.Trimesh:
     return _diff(plate, *cutters)
 
 
-def make_battery_holder() -> trimesh.Trimesh:
-    """Open-top tray for one 3S 2200 mAh LiPo (105 x 38 x 28 mm).
-
-    Two velcro slots cut through the long walls let the user strap the
-    pack down.  Four mounting feet at (+/- BATTERY_FOOT_DX,
-    +/- BATTERY_FOOT_DY) each carry an M3 brass heat-set insert
-    (McMaster ``94459A130``) pressed into a
-    Phi INSERT_M3_PILOT_OD = 4.0 mm x INSERT_M3_PILOT_DEPTH = 6.0 mm
-    pocket cut from the foot's BOTTOM face; the holder bolts to
-    chassis_bottom FROM BELOW via 4 x M3 x 10 SHCS that pass through
-    the chassis_bottom plate and thread UP into the inserts.
-
-    See the BATTERY_FOOT_* constants block above for the geometry
-    rationale (Y-overlap with the body wall for boolean-union
-    bonding; recessed insert top so the bolt head clamps the
-    chassis plate against plastic, not brass; ditto the f03d59b
-    cradle insert pattern this fix mirrors).
-    """
-    outer = _box((BATTERY_W, BATTERY_D, BATTERY_H),
-                 center=(0, 0, BATTERY_H / 2.0))
-    inner = _box((BATTERY_W - 2 * BATTERY_WALL,
-                  BATTERY_D - 2 * BATTERY_WALL,
-                  BATTERY_H - BATTERY_WALL + 5.0),
-                 center=(0, 0, (BATTERY_H - BATTERY_WALL) / 2.0
-                                 + BATTERY_WALL))
-
-    # Velcro slots through both long walls
-    velcro = []
-    for s in (-1, 1):
-        slot = _box((BATTERY_STRAP_W, BATTERY_WALL * 6, BATTERY_H * 0.5),
-                    center=(s * (BATTERY_W * 0.25), 0, BATTERY_H * 0.55))
-        velcro.append(slot)
-
-    # 4 mounting feet, each with a Phi 4 mm x 6 mm heat-set insert
-    # pocket cut from the bottom face.  Foot footprint is
-    # BATTERY_FOOT_W x BATTERY_FOOT_D x BATTERY_FOOT_T mm; pocket is
-    # centred on the foot, opens at z = 0 (foot bottom = holder
-    # bottom face = chassis_bottom top face mating plane).
-    feet = []
-    insert_pockets = []
-    pocket_radius = INSERT_M3_PILOT_OD / 2.0
-    pocket_overdrill_h = INSERT_M3_PILOT_DEPTH + 0.4   # 0.4 mm slop so
-                                                       # the cut clears
-                                                       # the foot's
-                                                       # bottom face
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            fx = sx * BATTERY_FOOT_DX
-            fy = sy * BATTERY_FOOT_DY
-            ft = _box((BATTERY_FOOT_W, BATTERY_FOOT_D, BATTERY_FOOT_T),
-                      center=(fx, fy, BATTERY_FOOT_T / 2.0))
-            feet.append(ft)
-            pocket = _cyl(pocket_radius, pocket_overdrill_h)
-            # Pocket extends from z = -0.2 (slightly below the foot's
-            # bottom face so the boolean diff cuts cleanly through it)
-            # up to z = INSERT_M3_PILOT_DEPTH + 0.2; the resulting
-            # void inside the foot is z in [0, INSERT_M3_PILOT_DEPTH]
-            # = [0, 6], leaving BATTERY_FOOT_T - INSERT_M3_PILOT_DEPTH
-            # = 2 mm of plastic above the insert and ~ 3 mm of
-            # plastic radially around it.
-            pocket.apply_translation([fx, fy,
-                                       pocket_overdrill_h / 2.0 - 0.2])
-            insert_pockets.append(pocket)
-
-    # +X-end cable-clearance notch.  The Pi 4 / Pi 5's USB-A 3.0
-    # PAIR (blue) plug envelope at chassis (x in [+22.5, +44.5],
-    # y in [-20, -8], z in [+22, +30]) overlaps the
-    # battery_holder's -Y cradle wall AND its +X end wall at the
-    # holder's +X corner -- a known geometry conflict introduced
-    # in the May 2026 "essentials" pass when the secondary PCA9685
-    # forced the Pi's +X edge to butt up against the battery_holder
-    # extent.  We carve a single 14 x 12 x 10 mm notch out of the
-    # holder's +X -Y corner (local x in [+43, +57], y in [-20, -8],
-    # z in [+18, +28]) so the plug-airspace check passes and a
-    # standard USB-A cable can be plugged into the Pi.  The lower
-    # 18 mm of the cradle wall + the entire +Y cradle wall + 75 %
-    # of the +X end wall remain intact, so the BATTERY_FOOT and
-    # velcro-strap retention are unaffected (notch volume ~ 1700
-    # mm^3 vs. the holder's ~ 6.5 cm^3 wall mass).
-    notch_x_lo = BATTERY_W / 2.0 - 12.0      # local +43
-    notch_x_hi = BATTERY_W / 2.0 + 2.0       # local +57
-    notch_y_lo = -BATTERY_D / 2.0 - 1.0      # local -20
-    notch_y_hi = -BATTERY_D / 2.0 + 11.0     # local  -8
-    notch_z_lo = 18.0                         # local +18
-    notch_z_hi = BATTERY_H + 2.0              # local +30
-    cable_notch = _box((notch_x_hi - notch_x_lo,
-                         notch_y_hi - notch_y_lo,
-                         notch_z_hi - notch_z_lo),
-                        center=((notch_x_lo + notch_x_hi) / 2.0,
-                                (notch_y_lo + notch_y_hi) / 2.0,
-                                (notch_z_lo + notch_z_hi) / 2.0))
-
-    body = _union(outer, *feet)
-    return _diff(body, inner, *velcro, *insert_pockets, cable_notch)
+# RETIRED (Jul 2026): ``make_battery_holder`` (the clip-in open-top LiPo
+# tray) is deleted.  The holder was already out of the build list since
+# the Jun 2026 deck redesign (the pack velcro-straps directly onto
+# chassis_bottom); the dead builder and its BATTERY_FOOT_* / BATTERY_WALL
+# constants went stale when BATTERY_W/D/H were re-pointed at the real
+# 138 x 46 x 24 mm pack.
 
 
 def _board_standoff_boss_and_pocket(
@@ -7945,19 +7643,20 @@ def make_antispark_switch_toggle_visual() -> trimesh.Trimesh:
 
 
 def make_lipo_battery_body_visual() -> trimesh.Trimesh:
-    """Visual mesh for the 3S 2200 mAh LiPo pack BODY (NOT FOR PRINTING).
+    """Visual mesh for the 3S LiPo pack BODY (NOT FOR PRINTING).
 
-    Shrink-wrap slab (~ 105 x 35 x 25 mm).  The XT60 connector +
-    balance plug are a SEPARATE mesh (``make_lipo_xt60_visual``) so
-    the inspector can paint the XT60 housing safety-yellow against
-    the body's "lipo red".
+    Shrink-wrap slab (BATTERY_W x BATTERY_D x BATTERY_H = the real
+    user-measured 138 x 46 x 24 mm pack, Jul 2026).  The XT60
+    connector + balance plug are a SEPARATE mesh
+    (``make_lipo_xt60_visual``) so the inspector can paint the XT60
+    housing safety-yellow against the body's "lipo red".
 
     Mesh frame: origin = body geometric centre.  +X = long axis
-    (chassis +X after placement -- BATTERY_HOLDER_CENTRE_X = -25
-    centres the pack near the chassis -X half).  +Y = short axis.
-    +Z = up.
+    (chassis +X after placement -- BATTERY_HOLDER_CENTRE_X = -8
+    keeps the pack ends clear of the diagonal legs' yaw hubs and the
+    +X bus bar).  +Y = short axis.  +Z = up.
     """
-    return _box((105.0, 35.0, 25.0),
+    return _box((BATTERY_W, BATTERY_D, BATTERY_H),
                 center=(0.0, 0.0, 0.0))
 
 
@@ -9741,16 +9440,15 @@ def make_foot_pad() -> trimesh.Trimesh:
 #
 #   coxa_link        : yaw-driven pad + arm + HIP fixed side (servo bracket
 #                      + 688 bearing housing).
-#   femur_hip_yoke   : HIP moving yoke (-> hip disc horn + hip bearing) with
-#                      the femur CF-tube socket toward the knee.
-#   femur_knee_bracket: KNEE fixed side (servo bracket + bearing housing)
-#                      with the femur CF-tube socket toward the hip.
+#   femur_link       : the WHOLE femur as ONE printed part (Jul 2026 merge
+#                      #2): HIP moving yoke + solid Phi 14 fused spar + KNEE
+#                      fixed side (servo bracket + bearing housing).
 #   tibia_knee_yoke  : KNEE moving yoke with the tibia CF-tube socket toward
 #                      the foot.
 #   tibia_foot_fitting: tibia CF-tube socket + the foot-hinge tang.
 #   foot_pad         : unchanged compliant TPU pad.
 #
-# Femur = femur_hip_yoke + dia-8 CF tube + femur_knee_bracket.
+# Femur = femur_link, one printed body (no pins, no sockets).
 # Tibia = tibia_knee_yoke + dia-8 CF tube + tibia_foot_fitting + foot_pad.
 
 
@@ -10152,39 +9850,47 @@ def make_coxa_link() -> trimesh.Trimesh:  # noqa: F811  (sandwich override)
     return _union(make_coxa_yaw_hub(), make_coxa_hip_bracket())
 
 
-def make_femur_hip_yoke() -> trimesh.Trimesh:
-    """Femur's HIP end: the moving yoke (driven by the hip disc horn) with the
-    femur CF-tube socket toward the knee.  Joint-local frame.
+def _femur_knee_fixed_solid() -> trimesh.Trimesh:
+    """The knee joint FIXED side (servo bracket + 688 bearing housing) as a
+    SUB-SOLID of the one-piece femur (see make_femur_link_part).  Knee
+    joint-local frame (+Z = knee output).  Jul 2026 merge #2: the old femur
+    spar socket boss, bore and transverse retention pin are RETIRED -- the
+    fused Phi 14 spar arrives from the hip and buries into this side's well
+    wall, so no socket geometry exists here at all.  NOT an emitted printed
+    part on its own (kept as a builder for the verifier's targeted knee
+    cradle / clamp-cap checks).
 
-    Uses the SHORT femur tube socket (FEMUR_TUBE_SOCKET_LEN) so it does not
-    interpenetrate the femur knee bracket's facing socket across the femur's
-    tight ~19 mm tube span (caught by the assembly-interference gate).
-
-    Jun 2026 ROM-clearance refit: the two hip-pitch spine reliefs (a +Y/-25 deg
-    corner pocket and a -Y/+30 deg shave) are RETIRED -- moving the connecting
-    web +4 mm outboard (see _YOKE_SPINE_X0/X1) lifts the whole swept web clear of
-    BOTH the fixed clamp cap and the coxa across the full femur ROM, so no local
-    pocketing is needed (verified 0 mm^3 overlap, femur -80..+30, by the
-    clamp-cap-augmented workspace sweep)."""
-    return _sandwich_moving_yoke(tube_socket=True,
-                                 socket_length=FEMUR_TUBE_SOCKET_LEN,
-                                 socket_pin_inset=FEMUR_TUBE_PIN_INSET)
+    ``end_face_bolts=False`` (Jul 2026, user: "theres four holes in the one
+    piece femur link where you added the connection which serve no purpose
+    and weaken the connection"): the spar covers this cradle's -X wall from
+    outside, so the 4x M2.5 end-face screws could never be installed at the
+    knee anyway -- the empty holes + counterbores just punched through the
+    spar-to-wall junction.  The knee servo is retained by the clamp cap +
+    retaining lip (the hip cradle on coxa_link keeps its 4 bolts)."""
+    return _sandwich_fixed_side(end_face_bolts=False)
 
 
-def make_femur_knee_bracket() -> trimesh.Trimesh:
-    """Femur's KNEE end: the knee joint FIXED side (servo bracket + 688
-    bearing housing) plus the femur CF-tube socket pointing back toward
-    the hip (-X).  Joint-local frame (+Z = knee output).
+def make_femur_link_part() -> trimesh.Trimesh:
+    """The ONE-PIECE printed femur ``femur_link`` (Jul 2026 merge #2, user:
+    "combine the femur knee bracket with the femur hip yoke and make that
+    connection very solid (cylinder size of our diameter)").  HIP
+    joint-local frame; the knee fixed side sits FEMUR_LENGTH out along +X
+    (same relative placement make_femur_link always used).
 
-    Uses the SHORT femur tube socket (FEMUR_TUBE_SOCKET_LEN) -- see
-    make_femur_hip_yoke -- so the two femur tube-socket bosses leave a clear
-    exposed-tube gap instead of driving through one another."""
-    fixed = _sandwich_fixed_side()
-    boss, bore, pin = _leg_tube_socket_x(-WELL_W / 2.0, JOINT_SOCKET_Z,
-                                         direction=-1,
-                                         length=FEMUR_TUBE_SOCKET_LEN,
-                                         pin_inset=FEMUR_TUBE_PIN_INSET)
-    return _diff(_union(fixed, boss), bore, pin)
+    One printed body =
+      hip moving yoke (bolts the driven + passive hip disc horns)
+      + SOLID Phi FEMUR_SPAR_OD spar bridging the full inter-well gap
+      + knee fixed side (servo cradle + 688 bearing housing).
+    No socket bore, no slip fit, no retention pin anywhere in the femur.
+
+    Jun 2026 ROM-clearance refit (unchanged): the connecting web sits +4 mm
+    outboard (see _YOKE_SPINE_X0/X1), keeping the swept web clear of the
+    fixed clamp cap and the coxa across the full femur ROM."""
+    yoke = _sandwich_moving_yoke(tube_socket=False)
+    spar = _femur_fused_spar()
+    kb = _femur_knee_fixed_solid()
+    kb.apply_translation([FEMUR_LENGTH, 0.0, 0.0])
+    return _union(yoke, spar, kb)
 
 
 def make_tibia_knee_yoke() -> trimesh.Trimesh:
@@ -10239,30 +9945,26 @@ def tibia_foot_hinge_local() -> np.ndarray:
 # ``make_femur_link`` / ``make_tibia_link`` keep their legacy names and
 # legacy LOCAL FRAMES so the verifier's / inspector's transform chains
 # (origin = pad mating face; joint axis at (0, -HORN_STACK_H, 0) along +Y;
-# next joint / foot at +X * length) keep working -- but now they return
-# the NEW bearing-sandwich rigid body (the two printed fittings + the CF
-# tube) instead of the old solid link.  The PRINTED parts are emitted
-# separately by main() (femur_hip_yoke / femur_knee_bracket / ...).
+# next joint / foot at +X * length) keep working.  Since the Jul 2026 merge
+# #2 the femur rigid body IS the single printed part (make_femur_link_part);
+# the tibia is still the two printed fittings + the CF tube.  The PRINTED
+# parts are emitted separately by main() (femur_link / tibia_knee_yoke / ...).
 
-def _femur_socket_world(M):  # mouth of the hip-yoke / knee-bracket socket
+def _femur_socket_world(M):  # spar line at the old socket-mouth station
     return M @ np.array([_YOKE_SOCKET_X, 0.0, JOINT_SOCKET_Z, 1.0])
 
 
 def make_femur_link() -> trimesh.Trimesh:  # noqa: F811  (sandwich override)
-    """Assembled femur: hip yoke + dia-8 CF tube + knee bracket.  Local
-    frame: origin = hip disc-horn-top (the moving-link mating face) ON the
-    hip-pitch axis (+Y); the knee disc-horn-top sits at (FEMUR_LENGTH,0,0).
-    The servo/horn/bearing stacks extend toward -Y (body side)."""
+    """Assembled femur = the ONE-PIECE printed femur (make_femur_link_part),
+    re-anchored.  Local frame: origin = hip disc-horn-top (the moving-link
+    mating face) ON the hip-pitch axis (+Y); the knee disc-horn-top sits at
+    (FEMUR_LENGTH,0,0).  The servo/horn/bearing stacks extend toward -Y
+    (body side)."""
     xz = (1, 0, 0), LEG_PITCH_AXIS
     Mh = _joint_place((0.0, 0.0, 0.0), *xz)
-    Mk = _joint_place((FEMUR_LENGTH, 0.0, 0.0), *xz)
-    hy = make_femur_hip_yoke();     hy.apply_transform(Mh)
-    kb = make_femur_knee_bracket(); kb.apply_transform(Mk)
-    # Jun 2026: the femur CF tube is replaced by a printed SOLID strut (see
-    # make_femur_strut); place it in the hip-yoke joint-local frame so it spans
-    # the two sockets exactly where the tube did.
-    strut = _femur_strut_joint_local(); strut.apply_transform(Mh)
-    return _union(hy, kb, strut)
+    fl = make_femur_link_part()
+    fl.apply_transform(Mh)
+    return fl
 
 
 def make_tibia_link() -> trimesh.Trimesh:  # noqa: F811  (sandwich override)
@@ -10342,16 +10044,11 @@ def leg_named_parts_in_body_frame(
     # ----- Coxa (yaw-driven; carries the hip fixed side) --------------
     named.append(("coxa_link", _placed(make_coxa_link(), np.eye(4))))
 
-    # ----- Femur: hip yoke + CF tube + knee bracket -------------------
-    M_hipyoke   = _joint_place(H, femur_dir, ty)
-    M_kneebrack = _joint_place(K, femur_dir, ty)
-    named.append(("femur_hip_yoke",     _placed(make_femur_hip_yoke(),     M_hipyoke)))
-    named.append(("femur_knee_bracket", _placed(make_femur_knee_bracket(), M_kneebrack)))
+    # ----- Femur: ONE printed part (Jul 2026 merge #2) ------------------
+    M_femur = _joint_place(H, femur_dir, ty)
+    named.append(("femur_link", _placed(make_femur_link_part(), M_femur)))
 
     sock_pt = np.array([_YOKE_SOCKET_X, 0.0, JOINT_SOCKET_Z, 1.0])
-    # Jun 2026: printed SOLID femur strut in place of the CF tube (placed in the
-    # hip-yoke joint-local frame so it spans + pins to both sockets).
-    named.append(("femur_strut", _placed(_femur_strut_joint_local(), M_hipyoke)))
 
     # ----- Tibia: knee yoke + CF tube + foot fitting ------------------
     M_tibyoke = _joint_place(K, tibia_dir, ty)
@@ -10414,9 +10111,10 @@ def make_assembly_preview() -> trimesh.Trimesh:
     # inter-plate gap (the clip-in battery_holder is retired).
     # ``BATTERY_HOLDER_CENTRE_X`` is the single source of truth for the
     # pack's X offset; the velcro slots in chassis_bottom straddle it.
-    lipo = _box((105.0, 35.0, 25.0),
+    lipo = _box((BATTERY_W, BATTERY_D, BATTERY_H),
                 center=(BATTERY_HOLDER_CENTRE_X, 0,
-                         chassis_lift + CHASSIS_PLATE_T / 2.0 + 25.0 / 2.0))
+                         chassis_lift + CHASSIS_PLATE_T / 2.0
+                         + BATTERY_H / 2.0))
     parts.append(lipo)
 
     # Stacked electronics decks (Uno Q lower + buck upper) on 4 standoff
@@ -10483,33 +10181,34 @@ def stl_export_groups() -> "list[tuple[str, list[tuple[str, object]]]]":
             ("yaw_bearing_cap.stl",    make_yaw_bearing_cap),
         ]),
         ("Leg parts (one of each -- print 6 sets):", [
-            # Bearing-sandwich design: femur + tibia are each a printed yoke +
-            # bracket/fitting joined by a dia-8 CF tube.  Coxa prints as TWO
-            # parts -- the yaw turntable hub (rides the spaced bearing pair) and
-            # the hip bracket that stacks coaxially on top.
+            # Bearing-sandwich design: the femur is ONE printed part (hip
+            # yoke + solid Phi 14 fused spar + knee bracket, Jul 2026 merge
+            # #2); the tibia is a printed yoke + fitting joined by a dia-8
+            # CF tube.  Coxa prints as TWO parts -- the yaw turntable hub
+            # (rides the spaced bearing pair) and the hip bracket stacked
+            # coaxially on top.
             ("coxa_link.stl",          make_coxa_link),
             ("coxa_yaw_hub.stl",       make_coxa_yaw_hub),
             ("coxa_hip_bracket.stl",   make_coxa_hip_bracket),
-            ("femur_hip_yoke.stl",     make_femur_hip_yoke),
-            # Printed SOLID femur strut -- 3D-printed drop-in for the femur CF
-            # tube (slides into the same 2 sockets, pin holes printed in).
-            ("femur_strut.stl",        make_femur_strut),
-            ("femur_knee_bracket.stl", make_femur_knee_bracket),
+            # NOTE femur_link.stl keeps the ASSEMBLED-link frame (origin =
+            # hip disc-horn-top on the hip axis) so MuJoCo's visual mesh
+            # loader keeps working -- it is the same single solid either way.
+            ("femur_link.stl",         make_femur_link),
             ("tibia_knee_yoke.stl",    make_tibia_knee_yoke),
             ("tibia_foot_fitting.stl", make_tibia_foot_fitting),
             ("foot_pad.stl",           make_foot_pad),
             # Clamshell clamp cap closing each sandwich-joint servo cradle
             # (hip + knee = 2 per leg, 12 per robot).
             ("servo_clamp_cap.stl",    make_servo_clamp_cap),
-            # Passive-horn centering adapter on the rear idler boss
-            # (symmetric-yoke refit; hip + knee = 2 per leg, 12 per robot).
-            ("passive_horn_adapter.stl", make_passive_horn_adapter),
+            # passive_horn_adapter.stl RETIRED (Jul 2026): the stock metal
+            # passive horn centres directly on the rear idler boss.
         ]),
-        # Assembled-link visual/sim meshes (NOT printed as single parts -- each
-        # is two printed fittings + a CF tube).  Emitted so MuJoCo's visual
+        # Assembled-link visual/sim mesh (NOT printed as a single part --
+        # two printed fittings + a CF tube).  Emitted so MuJoCo's visual
         # mesh loader and any mesh consumers show the real sandwich geometry.
+        # (femur_link moved UP to the printed list -- it IS one printed part
+        # since the Jul 2026 merge #2.)
         ("Assembled-link visual/sim meshes (not printed as single parts):", [
-            (stl_filename("femur_link"), make_femur_link),
             (stl_filename("tibia_link"), make_tibia_link),
         ]),
         # June 2026: the servo joints drive a 20 mm aluminum 25T DISC horn, not

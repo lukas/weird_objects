@@ -365,13 +365,12 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
         ),
     ]
 
-    # Bearing-sandwich leg (Jun 2026): the femur and tibia SEGMENTS are
-    # bought Ø8 carbon-fibre tubes (cut to length and epoxied into the
-    # printed sockets), NOT printed.  The retired one-piece femur_link /
-    # tibia_link were assembled visual/sim meshes (yoke + SOLID tube +
-    # bracket) and printing them would have produced a solid plastic rod.
-    # We now print only the socket fittings:
-    #   femur  = femur_hip_yoke  + Ø8 CF tube + femur_knee_bracket
+    # Bearing-sandwich leg: the tibia SEGMENT is a bought Ø8 carbon-fibre
+    # tube (cut to length and epoxied into the printed sockets), NOT
+    # printed.  The femur is ONE printed part (Jul 2026 merge #2: hip yoke
+    # + solid Ø14 spar + knee bracket -- femur_link.stl genuinely prints
+    # now; only the assembled tibia_link visual mesh must not).
+    #   femur  = femur_link (one printed body, no pins, no sockets)
     #   tibia  = tibia_knee_yoke + Ø8 CF tube + tibia_foot_fitting + foot_pad
     # Each fitting is small and blocky, so it bottom-left packs onto a
     # shared plate per leg segment rather than getting a one-per-row plate.
@@ -388,11 +387,10 @@ def build_plate_plans(cfg: TrayPrinterConfig) -> list[PlatePlan]:
         ],
     ))
     plans.extend(_hardware_plates(
-        cfg, parts, "plate_04_rigid_femur_sockets", "PLA/PETG rigid",
+        cfg, parts, "plate_04_rigid_femurs", "PLA/PETG rigid",
         requests=[
-            ("femur_hip_yoke.stl", 6),
-            ("femur_knee_bracket.stl", 6),
-            # 6 knee clamp caps (pairs with each femur_knee_bracket cradle).
+            ("femur_link.stl", 6),
+            # 6 knee clamp caps (pairs with each femur_link knee cradle).
             ("servo_clamp_cap.stl", 6),
         ],
     ))

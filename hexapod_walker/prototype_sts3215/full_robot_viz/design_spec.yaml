@@ -64,24 +64,12 @@ parts:
     cots: true
     qty: 6
     description: "Driven \u00d820 25T aluminium disc horn on the yaw servo output; the coxa hub bolts to it (\u00d814 / 4x M3). COTS."
-  femur_hip_yoke:
-    label: "femur hip yoke"
+  femur_link:
+    label: "femur link"
     role: "frame"
     cots: false
     qty: 6
-    description: "Printed femur hip-end yoke: straddles the hip servo, top arm bolts to the driven disc horn, bottom stub rides the 688 passive bearing; sockets the \u00d88 femur strut."
-  femur_knee_bracket:
-    label: "femur knee bracket"
-    role: "frame"
-    cots: false
-    qty: 6
-    description: "Printed femur knee-end bracket that mounts the knee servo and sockets the femur strut."
-  femur_strut:
-    label: "femur strut"
-    role: "spar"
-    cots: false
-    qty: 6
-    description: "Printed PA12 femur strut (90 mm hip->knee segment). Printed (not CF tube) here so the hip yoke/knee bracket integrate as one stiff member."
+    description: "The WHOLE femur as ONE printed part (Jul 2026 merge #2 of the old hip yoke + knee bracket): the hip-end yoke straddles the hip servo (top arm bolts the driven disc horn, bottom arm the passive horn), a SOLID \u00d814 spar bridges the full 90 mm hip-to-knee span, and the knee-end cradle mounts the knee servo + 688 bearing housing. No sockets, no slip fits, no retention pins anywhere in the femur."
   foot_pad:
     label: "foot pad"
     role: "frame"
@@ -93,7 +81,7 @@ parts:
     role: "frame"
     cots: false
     qty: 6
-    description: "Printed clamp cap that closes the hip yoke's tube socket, clamping the \u00d88 femur strut."
+    description: "Printed clamp cap that clamshells the hip servo cradle (bolts to the cradle wall ends), capturing the servo body."
   hip_servo:
     label: "hip servo"
     role: "motor"
@@ -124,30 +112,18 @@ parts:
     cots: true
     qty: 1
     description: "LiPo battery pack, mounted low + central for stance stability. COTS."
-  passive_adapter_hip:
-    label: "passive adapter hip"
-    role: "frame"
-    cots: false
-    qty: 6
-    description: "Printed rear-boss centering adapter that seats the hip 688 passive bearing to the yoke's passive stub."
-  passive_adapter_knee:
-    label: "passive adapter knee"
-    role: "frame"
-    cots: false
-    qty: 6
-    description: "Printed rear-boss centering adapter that seats the knee 688 passive bearing."
   passive_horn_hip:
     label: "passive horn hip"
     role: "horn"
     cots: true
     qty: 6
-    description: "Passive-side disc horn of the hip bearing sandwich (mirrors the driven horn so the yoke is symmetric across the servo)."
+    description: "Stock passive-side metal disc horn of the hip sandwich (mirrors the driven horn so the yoke is symmetric across the servo); its centre bore rides the servo's rear idler boss directly, seating flush on the back face (Jul 2026: printed centering adapter retired)."
   passive_horn_knee:
     label: "passive horn knee"
     role: "horn"
     cots: true
     qty: 6
-    description: "Passive-side disc horn of the knee bearing sandwich."
+    description: "Stock passive-side metal disc horn of the knee sandwich; centre bore rides the rear idler boss directly (no printed adapter)."
   screw_chassis:
     label: "screw chassis"
     role: "fastener"
@@ -164,7 +140,7 @@ parts:
     label: "screw knee"
     role: "fastener"
     cots: true
-    qty: 96
+    qty: 72
     description: "Fasteners around the knee joint / bearing sandwich (rendered set)."
   screw_yaw:
     label: "screw yaw"

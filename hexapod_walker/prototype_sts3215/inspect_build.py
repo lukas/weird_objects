@@ -316,9 +316,9 @@ def _build_assembly_instances() -> list[Instance]:
     # LiPo battery BODY velcro-strapped to chassis_bottom's TOP face
     # (Jun 2026 deck redesign; the clip-in battery_holder is retired).
     # The pack's BOTTOM face rests directly on the chassis_bottom top
-    # face at z = plate_t/2, so its centre sits plate_t/2 + 25/2 up.
-    # Mirrors the lipo box placed in build_prototype_assembly.
-    lipo_z = plate_t / 2.0 + 25.0 / 2.0
+    # face at z = plate_t/2, so its centre sits plate_t/2 + BATTERY_H/2
+    # up.  Mirrors the lipo box placed in build_prototype_assembly.
+    lipo_z = plate_t / 2.0 + HP.BATTERY_H / 2.0
     instances.append(Instance(
         "lipo_battery", "lipo_battery_body_DO_NOT_PRINT.stl", None, None,
         _trans(HP.BATTERY_HOLDER_CENTRE_X, 0.0, lipo_z),
@@ -326,7 +326,7 @@ def _build_assembly_instances() -> list[Instance]:
     # XT60 + balance plug at the LiPo's +X short face (toward chassis
     # centre, so the lead routes to the anti-spark switch / BEC
     # cluster).  XT60 centre 7 mm past the LiPo's +X face.
-    xt60_x = HP.BATTERY_HOLDER_CENTRE_X + 105.0 / 2.0 + 14.0 / 2.0
+    xt60_x = HP.BATTERY_HOLDER_CENTRE_X + HP.BATTERY_W / 2.0 + 14.0 / 2.0
     instances.append(Instance(
         "lipo_xt60", "lipo_xt60_DO_NOT_PRINT.stl", None, None,
         _trans(xt60_x, 0.0, lipo_z),
@@ -455,7 +455,7 @@ def _build_assembly_instances() -> list[Instance]:
         ))
 
         # Knee sandwich-joint clamp cap: closes the OPEN +Y face of the
-        # femur_knee_bracket cradle around the STS3215 body.  Same
+        # femur_link knee cradle around the STS3215 body.  Same
         # well-local frame as the knee servo body.
         instances.append(Instance(
             "servo_clamp_cap", "servo_clamp_cap.stl", i, "knee", T_knee_body,

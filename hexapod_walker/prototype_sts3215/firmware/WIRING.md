@@ -493,10 +493,16 @@ with stall headroom).
    leg already has its own V+ feed from the bus bar, so power never
    bridges between legs and no pin ever carries more than one leg.
 
-The bus bar can be a small brass/copper distribution bus bar, a
-fused distribution block, or a simple set of paralleled ring-terminal
-posts (one V+, one GND). The optional per-branch fuses (5–7 A) protect
-each leg's thin harness against a multi-servo stall in that leg.
+The "bus bar" is best implemented as a **drone power-distribution
+board** — the spec'd part is the **Matek PDB-XT60** (36 × 50 mm, 11 g,
+XT60 input, 6 output pad pairs at 15 A continuous each + 1 VCC/GND
+pair for the buck feed; ~4× margin over the ~3.7 A worst-case branch).
+A brass/copper bus bar, a fused distribution block, or paralleled
+ring-terminal posts also work electrically but weigh 10–30× more
+(Jul 2026 weight fix).  Ignore the PDB's small on-board 5 V/12 V BECs;
+the Uno Q stays on the XINGYHENG buck.  The optional per-branch fuses
+(5–7 A) protect each leg's thin harness against a multi-servo stall
+in that leg.
 
 ### 6.3 Per-branch current budget
 
@@ -541,6 +547,46 @@ prevent anyway).
 > goes silent/garbled. (USB already shares GND between the Uno Q and the
 > adapter's logic side; the point here is the adapter's **12 V servo
 > terminal GND** must also tie to the bus-bar GND.)
+
+### 6.5 Simulated stand-up draw (MuJoCo, Jul 2026)
+
+`../standup_current_sim.py` simulates the robot standing up from a
+belly-down, legs-folded pose in the `mujoco_prototype.py` model and
+converts net joint torques to bus current with the STS3215 electrical
+model at 12 V (`I = 0.2 A idle + 2.5 A × |τ|/2.94 N·m`, capped at the
+2.7 A stall).  Realistic-mass case = 2.89 kg total (1.30 kg chassis
+subtree: plates + yaw servos + the 300 g / 138 × 46 × 24 mm LiPo +
+PDB/buck/Uno Q deck), servo gains ×5 to approximate the real PID.
+
+| Quantity | Gentle stand-up (1.5 s) | Fast stand-up (0.4 s) | Budget limit |
+|---|---|---|---|
+| Trunk peak (instantaneous) | 12.5 A | 16.7 A | — (≪100 ms spike; fuses ignore it) |
+| Trunk peak (100 ms avg)    | 12.5 A | 12.2 A | 15–20 A main fuse |
+| Standing hold (steady)     | 10.3 A | 10.3 A | ~9–13 A walking budget (§6.3) |
+| Worst leg branch peak      | 2.1 A  | 3.0 A  | 5–7 A branch fuse, 15 A PDB pad |
+| Worst single-servo torque  | 1.1 N·m| 2.1 N·m| 2.94 N·m stall |
+
+Verdict (all within budget):
+
+- The robot stands and stays upright in every mass case; the stiff-gain
+  case reaches ~81 % of stance height (remaining sag is pure-P droop in
+  the sim — the real servo's integral term closes it).
+- Branch fuses, 16–18 AWG branch wire, and the Matek PDB pads all carry
+  ≥2× margin over the worst simulated leg (3.0 A).
+- **Fit a 20 A main fuse** (top of the §6.3 range): a fast stand-up
+  spikes to 16.7 A for ~50 ms.  Blade fuses need sustained ~135 % of
+  rating for seconds to open, so even 15 A survives it, but 20 A means
+  a hard stand-up plus a stumble never nuisance-blows the trunk.
+- Ramp the stand-up over ≥1 s in firmware: it halves the worst knee
+  torque (2.1 → 1.1 N·m) and keeps every servo far from stall.
+- Runtime at the ~10.3 A hold: ~13 min on a 2200 mAh 3S, ~29 min on a
+  5000 mAh pack (the 138 × 46 × 24 mm envelope class).
+- Caveat: the linear torque→current model is conservative for static
+  holds — a geared STS3215 parked inside its deadband draws less, so
+  real standing draw should land at or below these figures.
+
+Re-run `PYTHONPATH=. python standup_current_sim.py --fast` and refresh
+this table whenever masses, servo gains, or leg geometry change.
 
 ---
 

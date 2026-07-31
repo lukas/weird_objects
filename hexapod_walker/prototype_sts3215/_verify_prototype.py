@@ -128,12 +128,10 @@ _MESH_BUILDERS = {
     "buck_tray":        hp.make_buck_tray,
     "spider_carapace":  hp.make_spider_carapace,
     "servo_clamp_cap":  hp.make_servo_clamp_cap,
-    "passive_horn_adapter": hp.make_passive_horn_adapter,
     "switch_holster":   hp.make_switch_holster,
     "imu_pad":          hp.make_imu_pad,
     "coxa_link":        hp.make_coxa_link,
     "femur_link":       hp.make_femur_link,
-    "femur_strut":      hp.make_femur_strut,
     "tibia_link":       hp.make_tibia_link,
     "foot_pad":         hp.make_foot_pad,
     "servo_body":       hp.make_servo_body,
@@ -923,9 +921,7 @@ _PRINTED_SINGLE_BODY_BUILDERS = (
     ("yaw_bearing_cap",      hp.make_yaw_bearing_cap),
     ("coxa_yaw_hub",         hp.make_coxa_yaw_hub),
     ("coxa_hip_bracket",     hp.make_coxa_hip_bracket),
-    ("femur_hip_yoke",       hp.make_femur_hip_yoke),
-    ("femur_strut",          hp.make_femur_strut),
-    ("femur_knee_bracket",   hp.make_femur_knee_bracket),
+    ("femur_link",           hp.make_femur_link_part),
     ("tibia_knee_yoke",      hp.make_tibia_knee_yoke),
     ("tibia_foot_fitting",   hp.make_tibia_foot_fitting),
     ("foot_pad",             hp.make_foot_pad),
@@ -1888,11 +1884,12 @@ def check_clamp_cap_interference():
     cases.append(("hip  coxa_hip_bracket vs hip_clamp_cap",
                   hip_bracket, hip_cap))
 
-    # KNEE: make_femur_knee_bracket() is in joint-local; the knee cap shares
-    # the identical knee _joint_place, so their RELATIVE pose is identity.
-    knee_bracket = hp.make_femur_knee_bracket()
+    # KNEE: the knee cradle is the femur_link's knee fixed side
+    # (_femur_knee_fixed_solid, joint-local); the knee cap shares the
+    # identical knee _joint_place, so their RELATIVE pose is identity.
+    knee_bracket = hp._femur_knee_fixed_solid()
     knee_cap = hp.make_servo_clamp_cap()
-    cases.append(("knee femur_knee_bracket vs knee_clamp_cap",
+    cases.append(("knee femur_link knee cradle vs knee_clamp_cap",
                   knee_bracket, knee_cap))
 
     all_ok = True
@@ -1920,9 +1917,9 @@ def check_clamp_cap_interference():
 #
 # This gate assembles the ENTIRE static robot from EVERY printed part, in its
 # nominal assembled pose, DECOMPOSED into the real printed parts (coxa_yaw_hub
-# + coxa_hip_bracket, femur_hip_yoke + femur_knee_bracket, tibia_knee_yoke +
+# + coxa_hip_bracket, the ONE-PIECE femur_link, tibia_knee_yoke +
 # tibia_foot_fitting, foot_pad, the two chassis halves, both clamp caps, both
-# decks, the dome) -- not the merged link proxies -- using the SAME
+# decks, the dome) -- not merged link proxies -- using the SAME
 # authoritative scene placement that ``tools/full_robot_viz_build.py`` lays
 # the buildviz scene out with (so poses are never re-invented and stay locked
 # to the disc-horn / bearing world frame the rest of the verifier uses).  It
@@ -1948,7 +1945,7 @@ ASSEMBLY_INTERFERENCE_NOISE_MM3 = 5.0
 # disc horns, lipo, PCBs -- are excluded; they are not printed).
 _ASSEMBLY_PRINTED_PARTS = frozenset({
     "coxa_yaw_hub", "coxa_hip_bracket", "yaw_bearing_cap",
-    "femur_hip_yoke", "femur_strut", "femur_knee_bracket",
+    "femur_link",
     "tibia_knee_yoke", "tibia_foot_fitting", "foot_pad",
     "hip_clamp_cap", "knee_clamp_cap",
     "chassis_bottom", "chassis_top",
@@ -1979,15 +1976,11 @@ ASSEMBLY_INTERFERENCE_ALLOW = {
     # printed bracket); guarded tightly by check_clamp_cap_interference too.
     frozenset({"coxa_hip_bracket", "hip_clamp_cap"}):
         (25.0, "hip clamp cap clamshells its cradle bracket on flush faces"),
-    frozenset({"femur_knee_bracket", "knee_clamp_cap"}):
-        (25.0, "knee clamp cap clamshells its cradle bracket on flush faces"),
-    # Printed femur strut is a SLIP FIT in both femur sockets (Phi 7.8 rod in a
-    # Phi 8.1 bore -> ~0.15 mm radial gap); any reported overlap is facet noise
-    # at the bore contact, not a real clash (it replaces the CF tube, same fit).
-    frozenset({"femur_strut", "femur_hip_yoke"}):
-        (10.0, "femur strut slip-fits the hip-yoke socket (0.15 mm radial gap)"),
-    frozenset({"femur_strut", "femur_knee_bracket"}):
-        (10.0, "femur strut slip-fits the knee-bracket socket (0.15 mm radial gap)"),
+    # Jul 2026 merge #2: the knee cradle is part of the ONE-PIECE femur_link,
+    # so the knee clamp cap clamshells femur_link directly (flush faces, same
+    # mate the separate femur_knee_bracket had).
+    frozenset({"femur_link", "knee_clamp_cap"}):
+        (25.0, "knee clamp cap clamshells the femur_link knee cradle on flush faces"),
 }
 
 
@@ -2168,7 +2161,7 @@ def _place_servo_bodies():
     hip.apply_translation(yaw_output_world)
 
     # ----- Knee servo: front-face mounted in the femur's knee FIXED side
-    # (femur_knee_bracket).  That bracket is placed in femur-local by
+    # (the femur_link's knee cradle).  That cradle is placed in femur-local by
     # hp._joint_place((FEMUR_LENGTH, -HORN_STACK_H, 0), x=+X, z=+Y); the
     # femur itself is then carried into the world by the same chain the
     # femur_link uses (pitch about Y, translate to hip axis + pad offset,
@@ -2728,7 +2721,7 @@ def check_disc_horn_fit():
 
       * chassis_bottom yaw cradle (mapped via the cradle->well helper),
       * coxa_hip_bracket   (hip fixed side; un-does its joint placement),
-      * femur_knee_bracket (knee fixed side; already well-local).
+      * femur_link's knee cradle (knee fixed side; already well-local).
     """
     R = hp.DISC_HORN_OD / 2.0
     # The disc rides on the servo output boss (SERVO_OUTPUT_H proud of the
@@ -2756,8 +2749,8 @@ def check_disc_horn_fit():
     # so build them directly.  coxa_hip_bracket is in coxa-local frame
     # (its fixed side is placed by _joint_place(COXA_HIP_ANCHOR, +X,
     # LEG_PITCH_AXIS)); invert that so the disc-horn axis lands back on
-    # the well-local output axis.  femur_knee_bracket is already
-    # well-local (make_femur_knee_bracket applies no joint transform).
+    # the well-local output axis.  The femur_link's knee cradle
+    # (_femur_knee_fixed_solid) is already well-local (no joint transform).
     M_hip = hp._joint_place(hp.COXA_HIP_ANCHOR, (1, 0, 0), hp.LEG_PITCH_AXIS)
     hip = hp.make_coxa_hip_bracket()
     hip.apply_transform(np.linalg.inv(M_hip))
@@ -2766,7 +2759,7 @@ def check_disc_horn_fit():
         ("chassis_bottom yaw cradle",
          _chassis_yaw_cradle_to_well_local(_load_mesh("chassis_assembled"))),
         ("coxa_hip_bracket  (hip cradle)", hip),
-        ("femur_knee_bracket (knee cradle)", hp.make_femur_knee_bracket()),
+        ("femur_link knee cradle", hp._femur_knee_fixed_solid()),
     ]
 
     all_ok = True
@@ -2780,35 +2773,32 @@ def check_disc_horn_fit():
 
 
 # ---------------------------------------------------------------------------
-# 5e.  Back bearing-HOUSING symmetry + pocket OD guard
+# 5e.  Passive (stock-horn) back-stack guard
 # ---------------------------------------------------------------------------
 #
 # Symmetric-yoke refit (Jun 2026): the external 688 ball bearing + its back
-# housing are RETIRED.  The passive (idler) side is now a SECOND disc horn
-# riding the servo's own rear-bearing-supported boss, located by a printed
-# centering ADAPTER (``make_passive_horn_adapter``) and held by a central
-# retention screw.  This guard replaces the old back-housing-symmetry check:
-# it asserts the adapter is one clean watertight body spanning the rear boss
-# -> horn, and that the back-side stack keeps the yoke bottom-arm seat FROZEN
-# at JOINT_HORN_BOT_Z = -(REAR_BOSS_H + HORN_STACK_H) so the joint envelope /
-# COXA_HIP_ANCHOR_Y are unchanged from the bearing era (kinematics frozen).
-PASSIVE_ADAPTER_Z_TOL_MM = 0.6   # mm -- adapter z-span tolerance
+# housing are RETIRED.  Stock-horn refit (Jul 2026): the printed centering
+# ADAPTER is retired too -- the STS3215's STOCK metal passive horn slides
+# over the rear idler boss, seats FLUSH on the servo back face (mating face
+# at -DISC_HORN_H) and is held by the central retention screw.  This guard
+# pins the passive-stack invariants: the yoke bottom-arm seat derives from
+# the flush stock-horn face, the yoke clevis opening matches the real
+# horn-face-to-horn-face span (with the YOKE_SEAT_INTERF preload), and
+# BACK_STACK_DEPTH stays FROZEN so the joint envelope / COXA_HIP_ANCHOR_Y
+# are unchanged from the bearing era (kinematics frozen).
 
 
-def check_passive_horn_adapter():
-    """Guard for the symmetric-yoke refit: the passive-horn centering adapter
-    is one clean watertight body spanning the rear boss -> horn, and the
-    back-side stack keeps the yoke bottom-arm seat frozen at JOINT_HORN_BOT_Z
-    = -(REAR_BOSS_H + HORN_STACK_H)."""
-    print("\n[5e] Passive-horn adapter + frozen back-stack:")
+def check_passive_horn_stack():
+    """Guard for the stock-horn passive stack: the passive horn seats flush
+    on the servo back face (no printed adapter), the yoke bottom-arm seat
+    derives from that face, and the frozen back-stack envelope holds."""
+    print("\n[5e] Passive stock-horn stack + frozen back-stack:")
 
-    a = hp.make_passive_horn_adapter()
     all_ok = True
-    all_ok &= _label("adapter watertight", bool(a.is_watertight),
-                     str(bool(a.is_watertight)))
-    n_bodies = len(a.split(only_watertight=False))
-    all_ok &= _label("adapter is ONE connected body", n_bodies == 1,
-                     f"{n_bodies} body(ies)")
+    # Stock horn seats FLUSH on the back face: mating face one horn below it.
+    all_ok &= _label("PASSIVE_HORN_FACE_Z = -DISC_HORN_H (flush stock horn)",
+                     abs(hp.PASSIVE_HORN_FACE_Z + hp.DISC_HORN_H) < 1e-6,
+                     f"{hp.PASSIVE_HORN_FACE_Z:.2f} == {-hp.DISC_HORN_H:.2f}")
 
     # Frozen kinematics: BACK_STACK_DEPTH (-> COXA_HIP_ANCHOR_Y / joint envelope)
     # stays at -(REAR_BOSS_H + HORN_STACK_H) regardless of the printed bottom-arm
@@ -2825,14 +2815,16 @@ def check_passive_horn_adapter():
                      abs(hp.JOINT_HORN_BOT_Z - expect_seat) < 1e-6,
                      f"{hp.JOINT_HORN_BOT_Z:.2f} == {expect_seat:.2f}")
 
-    # Adapter spans z in [-(REAR_BOSS_H + DISC_HORN_H), 0] on the output axis.
-    b = a.bounds
-    z_lo_expect = -(hp.REAR_BOSS_H + hp.DISC_HORN_H)
-    z_ok = (abs(float(b[0][2]) - z_lo_expect) < PASSIVE_ADAPTER_Z_TOL_MM
-            and abs(float(b[1][2]) - 0.0) < PASSIVE_ADAPTER_Z_TOL_MM)
-    all_ok &= _label("adapter z-span boss->horn", z_ok,
-                     f"z[{b[0][2]:.1f},{b[1][2]:.1f}] vs "
-                     f"[{z_lo_expect:.1f},0.0]")
+    # Clevis opening = real horn-face-to-horn-face span minus the 2-sided
+    # clamp preload (the user-measured fit: stock horn stack, snug squeeze).
+    reach = hp.YOKE_ARM_PAD + hp.YOKE_SEAT_INTERF
+    opening = (hp.JOINT_HORN_TOP_Z - reach) - (hp.JOINT_HORN_BOT_Z + reach)
+    real_span = ((hp.SERVO_BODY_H + hp.DISC_HORN_H)      # driven horn top
+                 - hp.PASSIVE_HORN_FACE_Z)               # passive horn face
+    expect_opening = real_span - 2 * hp.YOKE_SEAT_INTERF
+    all_ok &= _label("yoke clevis opening = horn span - 2*preload",
+                     abs(opening - expect_opening) < 1e-6,
+                     f"{opening:.2f} == {expect_opening:.2f}")
     return all_ok
 
 
@@ -6508,11 +6500,17 @@ FASTENER_ENGAGEMENT_SPEC = {
     # bottom, so engagement_mm = 3 mm probes precisely that floor bite (a wider
     # window would dip into the flange clearance hole below -6 and falsely fail).
     "M3x6 SHCS self-tap":              dict(head_od=5.5, shaft_od=3.0, engagement_mm=3.0),
-    # ``M3x10 SHCS`` -- battery_holder foot bolts (4) into M3 heat-set
-    # inserts.  Same engagement target as M3 x 8 into insert (= the
-    # 5 mm insert body length) since both rely on the brass thread,
-    # not the printed plastic.
+    # ``M3x10 SHCS`` -- chassis-standoff top bolts + deck-column tray
+    # bolts into brass female threads (modelled as heat-set inserts).
+    # Same engagement target as M3 x 8 into insert (= the 5 mm insert
+    # body length) since both rely on the brass thread, not the
+    # printed plastic.
     "M3x10 SHCS":                      dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
+    # ``M3x14 SHCS`` -- Jul 2026 F/F standoff switch: the 4 chassis_bottom
+    # bolts enter at the -6 floor face, span the 8 mm plate + floor stack
+    # and thread into the brass F-F standoff's bottom female thread
+    # (modelled as a virtual heat-set insert at the +2 plate top face).
+    "M3x14 SHCS":                      dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x32 SHCS":                      dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x16 pan-head":                  dict(head_od=6.0, shaft_od=3.2, engagement_mm=5.0),
     "M2.5x8 spline screw":             dict(head_od=4.5, shaft_od=2.7, engagement_mm=3.0),
@@ -6701,11 +6699,13 @@ def _passive_link_angle(joint: str) -> float:
 
 def _passive_horn_world_transform(joint: str, leg_index: int):
     """World transform for the PASSIVE disc horn on the servo's rear idler
-    boss.  Mirror of ``_horn_world_transform``: the horn is flipped 180 deg
-    about X so its flat mating face points AWAY from the servo (-Z), seated at
-    well-z in [-(REAR_BOSS_H + DISC_HORN_H), -REAR_BOSS_H].  The 4-hole cross
-    is symmetric under the flip, so the bottom-arm bolts engage it exactly as
-    the driven horn's bolts engage the top arm."""
+    boss.  Mirror of ``_horn_world_transform``: the STOCK metal passive horn
+    slides over the rear boss and seats FLUSH on the servo back face (Jul 2026
+    stock-horn refit -- no printed adapter), flipped 180 deg about X so its
+    flat mating face points AWAY from the servo (-Z), spanning well-z in
+    [-DISC_HORN_H, 0].  The 4-hole cross is symmetric under the flip, so the
+    bottom-arm bolts engage it exactly as the driven horn's bolts engage the
+    top arm."""
     import fastener_registry as _fr  # noqa: WPS433
     if joint == "hip":
         T_well = _fr._hip_cradle_T(leg_index)
@@ -6715,22 +6715,9 @@ def _passive_horn_world_transform(joint: str, leg_index: int):
         raise ValueError(f"joint {joint!r} has no passive horn")
     flip = rotation_matrix(np.pi, [1, 0, 0])
     return (T_well
-            @ _fr._T(hp.SERVO_OUTPUT_X, 0.0, -hp.REAR_BOSS_H)
+            @ _fr._T(hp.SERVO_OUTPUT_X, 0.0, 0.0)
             @ _fr._Rz(_passive_link_angle(joint))
             @ flip)
-
-
-def _passive_adapter_world_transform(joint: str, leg_index: int):
-    """World transform for the passive-horn centering adapter.  The adapter
-    is built in well-local coords (already at x = SERVO_OUTPUT_X, z < 0) and
-    is axisymmetric about the output axis, so the well-to-world transform
-    places it directly."""
-    import fastener_registry as _fr  # noqa: WPS433
-    if joint == "hip":
-        return _fr._hip_cradle_T(leg_index)
-    if joint == "knee":
-        return _fr._knee_cradle_T(leg_index)
-    raise ValueError(f"joint {joint!r} has no passive adapter")
 
 
 def _build_world_assembly_parts(leg_index: int = 0) -> dict:
@@ -6760,18 +6747,15 @@ def _build_world_assembly_parts(leg_index: int = 0) -> dict:
         body = _load_mesh("servo_body")
         body.apply_transform(_servo_body_world_transform(joint, leg_index))
         parts[f"servo_body({joint})"] = body
-    # PASSIVE (rear-boss) disc horns + centering adapters on the hip + knee
-    # sandwich joints (the symmetric-yoke refit; yaw uses the 6706 pair, no
-    # passive horn).  The yoke's bottom arm bolts to these exactly like its
-    # top arm bolts to the driven horns above.
+    # PASSIVE (rear-boss) STOCK disc horns on the hip + knee sandwich joints
+    # (the symmetric-yoke refit; yaw uses the 6706 pair, no passive horn).
+    # Jul 2026 stock-horn refit: the horn centres directly on the rear idler
+    # boss (no printed adapter).  The yoke's bottom arm bolts to these exactly
+    # like its top arm bolts to the driven horns above.
     for joint in _PASSIVE_HORN_JOINTS:
         ph = _load_mesh("servo_horn")
         ph.apply_transform(_passive_horn_world_transform(joint, leg_index))
         parts[f"passive_horn({joint})"] = ph
-
-        ad = hp.make_passive_horn_adapter()
-        ad.apply_transform(_passive_adapter_world_transform(joint, leg_index))
-        parts[f"passive_horn_adapter({joint})"] = ad
     return parts
 
 
@@ -7794,7 +7778,7 @@ CHECKS = (
     ("Horn-stack clearance",      "check_horn_stack_clearance"),
     ("Horn-sweep clearance",      "check_horn_sweep_clearance"),
     ("Disc-horn fit",             "check_disc_horn_fit"),
-    ("Passive-horn adapter",      "check_passive_horn_adapter"),
+    ("Passive-horn stack",        "check_passive_horn_stack"),
     ("Horn pattern in pads",      "check_horn_pattern_in_pad"),
     ("Cradle insert pockets",     "check_cradle_insert_pockets"),
     ("Servo insertion path",      "check_servo_insertion_path"),
@@ -7956,7 +7940,7 @@ ALL_PRINTED_PARTS = frozenset({
     "uno_q_tray", "buck_tray",
     "servo_clamp_cap", "switch_holster", "imu_pad",
     "coxa_link",
-    "femur_link", "femur_strut", "tibia_link", "foot_pad",
+    "femur_link", "tibia_link", "foot_pad",
     # Visual-only meshes that some checks place to test interfaces:
     "servo_body", "servo_horn",
 })
@@ -8021,9 +8005,9 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Horn-sweep clearance":      frozenset({"chassis_bottom",
                                              "servo_horn"}),
     "Horn pattern in pads":      _PAD_PARTS,
-    # Builds make_passive_horn_adapter directly from hexapod_prototype; the
-    # hip/knee cradle STL footprints stand in for the joints that carry it.
-    "Passive-horn adapter":      _CRADLE_PARTS,
+    # Pure constants check on the passive stock-horn stack; the hip/knee
+    # cradle STL footprints stand in for the joints that carry it.
+    "Passive-horn stack":        _CRADLE_PARTS,
     "Cradle insert pockets":     _CRADLE_PARTS,
     "Servo insertion path":      _CRADLE_PARTS,
     # Builds make_coxa_yaw_hub directly from hexapod_prototype; the coxa_link

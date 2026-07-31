@@ -413,13 +413,14 @@ def _body_battery_parts(chassis_lift):
     bh_z0 = chassis_lift + HP.CHASSIS_PLATE_T / 2.0   # chassis_bottom top face
 
     # The LiPo pack velcro-strapped directly to chassis_bottom's TOP
-    # face (no holder).  Standard 3S 2200 mAh pack: ~105 x 35 x 25 mm.
-    # ``HP.BATTERY_HOLDER_CENTRE_X`` (= -25 mm) is the single source of
+    # face (no holder).  Real user-measured pack (Jul 2026):
+    # BATTERY_W x BATTERY_D x BATTERY_H = 138 x 46 x 24 mm.
+    # ``HP.BATTERY_HOLDER_CENTRE_X`` (= -8 mm) is the single source of
     # truth for the pack's X offset; the velcro slots in chassis_bottom
     # straddle it.
-    lipo = _box((105.0, 35.0, 25.0),
+    lipo = _box((HP.BATTERY_W, HP.BATTERY_D, HP.BATTERY_H),
                 center=(HP.BATTERY_HOLDER_CENTRE_X, 0,
-                         bh_z0 + 25.0 / 2.0))
+                         bh_z0 + HP.BATTERY_H / 2.0))
     parts.append(lipo)
 
     # Stacked electronics decks on 4 standoff columns rising above

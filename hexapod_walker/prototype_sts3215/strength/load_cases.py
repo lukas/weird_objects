@@ -96,9 +96,11 @@ NON_PRINTED_MASS_DETAIL = {
     "Wiring + heatshrink + ziptie misc":  0.080,
 }
 
-# Battery sits on chassis_bottom (held in battery_holder), not on
-# chassis_top.  Pull it out for the chassis_top load case.
-BATTERY_MASS_ON_BOTTOM = 0.185
+# Battery sits on chassis_bottom (velcro-strapped; the printed holder
+# is retired), not on chassis_top.  Pull it out for the chassis_top
+# load case.  Jul 2026: bumped 0.185 -> 0.300 kg for the real
+# 138 x 46 x 24 mm pack (3300 mAh-class 3S).
+BATTERY_MASS_ON_BOTTOM = 0.300
 
 
 # Printed parts handled by the strength pipeline.  Subset of the

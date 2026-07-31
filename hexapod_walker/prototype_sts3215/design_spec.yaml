@@ -102,24 +102,30 @@ coordinate_systems:
   # SANDWICH joint at every pivot -- a fixed printed side (STS3215
   # front-face servo bracket, OPEN at the back) straddled by a moving
   # printed C-yoke.  The hip + knee are now SYMMETRIC: the driven disc
-  # horn sits on the front spline and a SECOND reused disc horn rides the
-  # servo's own rear idler boss (centred by the printed
-  # passive_horn_adapter + one M2.5 retention screw), and BOTH yoke arms
-  # bolt to a disc horn the same way -- no external 688 ball bearing or
-  # back housing anymore.  Carbon-fibre tubes (Phi 8 mm OD)
-  # epoxy + transverse-pin bond into the yoke / bracket sockets to form
-  # the slender link spans.  The printed parts are therefore:
+  # horn sits on the front spline and the servo's STOCK metal passive
+  # horn rides the rear idler boss (Jul 2026 stock-horn refit: its centre
+  # bore slides over the boss so it seats FLUSH on the back face; the
+  # printed passive_horn_adapter is RETIRED; one M2.5 retention screw
+  # holds it), and BOTH yoke arms bolt to a disc horn the same way -- no
+  # external 688 ball bearing or back housing anymore.  The TIBIA span is a
+  # carbon-fibre tube (Phi 8 mm OD) epoxy + transverse-pin bonded into the
+  # yoke / fitting sockets; the FEMUR is ONE PRINTED PART (Jul 2026 merge
+  # #2, user: "combine the femur knee bracket with the femur hip yoke and
+  # make that connection very solid (cylinder size of our diameter)" --
+  # supersedes both the separate femur strut AND the two-part
+  # yoke-pinned-into-bracket femur).  The printed parts are therefore:
   #   coxa_link          -- yaw pad + HIP fixed side (one piece)
-  #   femur_hip_yoke     -- femur's hip-end moving yoke (+ femur tube socket)
-  #   femur_knee_bracket -- femur's knee-end fixed side (+ femur tube socket)
+  #   femur_link         -- the WHOLE femur, one printed body: hip-end
+  #                         moving yoke + SOLID Phi 14 spar + knee-end
+  #                         fixed side (no sockets, no retention pins)
   #   tibia_knee_yoke    -- tibia's knee-end moving yoke (+ tibia tube socket)
   #   tibia_foot_fitting -- tibia's foot-end tube socket + foot-hinge tang
   #   foot_pad           -- compliant TPU foot with hinge fork
-  # All five sandwich sub-parts are modelled in the SHARED joint-local
-  # frame (see below); femur_link / tibia_link still exist as ASSEMBLY
-  # meshes (yoke + CF tube + bracket/fitting fused for BuildViz / MuJoCo /
-  # the verifier) but are NOT single printable solids, so they are not in
-  # the validated `parts:` registry.
+  # The sandwich sub-parts are modelled in the SHARED joint-local frame
+  # (see below).  tibia_link still exists as an ASSEMBLY mesh (yoke + CF
+  # tube + fitting, for BuildViz / MuJoCo / the verifier) and is NOT a
+  # printable solid, so it is not in the validated `parts:` registry;
+  # femur_link IS printable and IS registered.
   joint_local_frame:
     origin: "Centre of the STS3215 servo BACK (idler) face.  Shared by every sandwich primitive (fixed side + moving yoke)."
     x_axis: "Servo body long axis; the output shaft is OFFSET to x = SERVO_OUTPUT_X = 12.5 mm (NOT at x=0), so every disc-horn bolt circle (front driven + rear passive) is centred at x = 12.5."
@@ -130,18 +136,12 @@ coordinate_systems:
     x_axis: "Outboard (toward the hip) at neutral pose; the hip fixed side is anchored at (COXA_LENGTH, 0, COXA_HIP_DROP)."
     y_axis: "Hip-pitch joint axis (the hip servo's output-shaft direction after the fixed side's in-place rotation)."
     z_axis: "Yaw axis (UP, away from the yaw disc horn)."
-  femur_hip_yoke:
-    origin: "Joint-local frame (shared, see joint_local_frame) of the HIP joint -- servo back-face centre.  The moving yoke straddles the coxa_link's hip fixed side."
-    x_axis: "Servo long axis; CF-tube socket exits toward +X (toward the knee).  Output/disc-horn axis at x=12.5."
-    y_axis: "Hip-pitch pivot axis."
-    z_axis: "Output-shaft direction; top arm bolts to the driven disc horn at z = JOINT_HORN_TOP_Z, bottom arm bolts to the passive rear-boss disc horn at z = JOINT_HORN_BOT_Z (below z=0)."
-  femur_knee_bracket:
-    origin: "Joint-local frame (shared) of the KNEE joint -- servo back-face centre.  The femur CF-tube socket exits toward -X (back toward the hip)."
-    x_axis: "Servo long axis; tube socket toward -X.  Output/servo-mount axis at x=12.5."
-    y_axis: "Knee pivot axis."
-    z_axis: "Knee output-shaft direction; the servo mount plate caps z = WELL_RIM_Z..WELL_RIM_Z+WELL_PLATE_T, the OPEN rear boss (passive disc horn) sits at z < 0."
+  # Jul 2026 merge #2: femur_hip_yoke + femur_knee_bracket are RETIRED as
+  # separate parts -- the whole femur is the one-piece ``femur_link``
+  # (see its frame entry below; the sub-solids are still modelled in the
+  # shared joint-local frame inside hexapod_prototype.py).
   tibia_knee_yoke:
-    origin: "Joint-local frame (shared) of the KNEE joint -- servo back-face centre.  Geometrically identical to femur_hip_yoke (same _sandwich_moving_yoke helper); the tibia CF-tube socket exits +X toward the foot."
+    origin: "Joint-local frame (shared) of the KNEE joint -- servo back-face centre.  Geometrically identical to the femur_link's hip-end yoke (same _sandwich_moving_yoke helper); the tibia CF-tube socket exits +X toward the foot."
     x_axis: "Servo long axis; tube socket toward +X.  Disc-horn axis at x=12.5."
     y_axis: "Knee pivot axis."
     z_axis: "Output-shaft direction; top arm bolts the driven knee disc horn, bottom arm bolts the passive rear-boss knee disc horn."
@@ -151,10 +151,10 @@ coordinate_systems:
     y_axis: "Foot-hinge pin axis (= knee axis direction); the LINK_THICKNESS-thin tang seats in the foot_pad fork slot."
     z_axis: "Perpendicular, in the leg's plane of motion."
   femur_link:
-    origin: "ASSEMBLY mesh only (NOT a single printed part): femur_hip_yoke + Phi 8 CF tube + femur_knee_bracket fused for BuildViz / MuJoCo / verifier.  Frame is the hip joint-local frame; the knee bracket is placed FEMUR_LENGTH out along +X."
-    x_axis: "Hip end near x=0 region; knee end out at +X."
-    y_axis: "Hip-pitch / knee pivot axis."
-    z_axis: "Output-shaft direction."
+    origin: "ONE-PIECE printed femur (Jul 2026 merge #2) AND the assembled femur rigid body -- same solid.  The STL frame is the ASSEMBLED-LINK frame (kept so MuJoCo's mesh loader works unchanged): origin = hip disc-horn-top ON the hip-pitch axis; from joint-local coords (x,y,z) the STL coords are (x - 12.5, 41.3 - z, y)."
+    x_axis: "Along the femur: hip disc-horn axis at x=0, knee axis at x = FEMUR_LENGTH = 90.  (= joint-local x - SERVO_OUTPUT_X.)"
+    y_axis: "MINUS the joint-local output-shaft direction, offset so the disc-horn-top plane is y=0 (y = 41.3 - z_joint); the servo/horn stacks extend toward +Y."
+    z_axis: "Hip-pitch / knee pivot axis (= joint-local +Y)."
   tibia_link:
     origin: "ASSEMBLY mesh only (NOT a single printed part): tibia_knee_yoke + Phi 8 CF tube + tibia_foot_fitting fused for BuildViz / MuJoCo / verifier."
     x_axis: "Knee end near x=0 region; foot end out at +X."
@@ -172,16 +172,11 @@ coordinate_systems:
   # disc horn (Amazon B07D56FVK5), and the old Phi 16 mm horn-hub
   # recess is replaced by a small Phi 9 x 2 mm spline-collar bore so
   # the flat disc seats face-to-face on the pad.
-  battery_holder:
-    origin: "Centre of the bottom face of the open-top tray."
-    x_axis: "Long axis of the LiPo (length direction)."
-    y_axis: "Short axis (depth direction)."
-    z_axis: "Up (tray opens +Z)."
-  electronics_tray:
-    origin: "Centre of the bottom face of the flat plate (= chassis origin after assembly)."
-    x_axis: "Long axis (chassis +X; Mega 2560 + Pi 4 long axes lie along this)."
-    y_axis: "Short axis (chassis +Y)."
-    z_axis: "Up (boards mount on +Z face via 5 mm standoff bosses)."
+  # Jul 2026: the battery_holder and electronics_tray frame entries are
+  # gone -- both parts were retired (the LiPo velcro-straps directly to
+  # chassis_bottom; the electronics live on the stacked deck trays) and
+  # their spec entries removed along with the vestigial chassis_bottom
+  # tray-mount bosses + battery-holder hole pattern.
   switch_holster:
     origin: "Midpoint of the holster's X extent on chassis_top's TOP face."
     x_axis: "Toggle-exit direction (toggle pokes out the +X face)."
@@ -244,18 +239,18 @@ target_setup:
 print_orientations:
   chassis_top:        {rotation_deg: [0, 0, 0],   note: "Flat plate, already correct."}
   chassis_bottom:     {rotation_deg: [0, 0, 0],   note: "Flat plate with integrated yaw cradles, already correct (cradles open +Z)."}
-  battery_holder:     {rotation_deg: [0, 0, 0],   note: "Open top is +Z; drop to bed."}
-  electronics_tray:   {rotation_deg: [0, 0, 0],   note: "Flat plate, already correct."}
+  # (Jul 2026: battery_holder + electronics_tray retired -- no
+  # orientation entries.)
   coxa_link:          {rotation_deg: [90, 0, 0],  note: "Rotate +90 about X so the hip servo well opens +Z (open back, no printed housing); yaw pad lays flat."}
-  femur_hip_yoke:     {rotation_deg: [0, 0, 0],   note: "Print spine-down so both (symmetric) disc-horn arms bridge cleanly; the open C-mouth faces sideways."}
-  femur_knee_bracket: {rotation_deg: [90, 0, 0],  note: "Rotate +90 about X so the servo mount plate faces up (open back, no printed housing); CF-tube socket lays horizontal."}
-  tibia_knee_yoke:    {rotation_deg: [0, 0, 0],   note: "Same as femur_hip_yoke (identical part); spine-down."}
+  femur_link:         {rotation_deg: [-90, 0, 0], note: "Rotate -90 about X (the femur_link.stl is in the ASSEMBLED-link frame) to recover the joint-local as-modelled pose: yoke spine-down so both disc-horn arms bridge cleanly, the solid Phi 14 spar horizontal, knee servo mount plate on top.  The knee mount plate bridges its servo well on FDM -- use supports in the well (removable through the open back); MJF is orientation-insensitive."}
+  tibia_knee_yoke:    {rotation_deg: [0, 0, 0],   note: "Same clevis as the femur_link hip yoke; spine-down."}
   tibia_foot_fitting: {rotation_deg: [0, 0, 0],   note: "Tang + tube socket print with the hinge bore as a horizontal Y through-cut."}
   foot_pad:           {rotation_deg: [0, 0, 0],   note: "TPU disk on bed, hinge fork up."}
   switch_holster:     {rotation_deg: [0, 0, 0],   note: "Ear + socket floor on bed, cavity opens +Z."}
   imu_pad:            {rotation_deg: [0, 0, 0],   note: "Pad floor on bed, bosses point +Z."}
-  # femur_link / tibia_link are ASSEMBLY meshes (yoke + CF tube +
-  # bracket/fitting), not printable solids -- no print orientation.
+  # tibia_link is an ASSEMBLY mesh (yoke + CF tube + foot fitting), not
+  # a printable solid -- no print orientation.  (femur_link IS printable
+  # since the Jul 2026 merge #2 -- see its entry above.)
   # Design B (May 2026): servo_horn_adapter retired -- no separate
   # part to orient.
   # Design F (May 2026): coxa_bracket retired -- the yaw cradle is
@@ -279,23 +274,23 @@ bounds_tol_mm: 2.0
 parts:
 
   chassis_bottom:
-    description: "Structural 200 mm flat-to-flat hex plate with 6 integrated STS3215 yaw-servo cradles (one per leg, Jun 2026 bearing-sandwich refit -- SUPERSEDES the May 2026 DS3225 'Design F' open-top tab-shelf bucket).  Each cradle is a FRONT-FACE-MOUNT TOWER bonded into the plate at a chassis hex-edge midpoint: the STS3215 (no mounting tabs) is inserted from BELOW, output pointing UP, and bolts via 4x M2.5 through the tower's front mount plate; the dia-20 25T disc horn rides FLUSH on the output face and the coxa_link bolts straight onto the horn at CHASSIS_YAW_OUTPUT_Z (pinned to the old value so kinematics are unchanged).  The servo body hangs DOWN through a body cutout and is captured from below by the bolt-on yaw_servo_retainer stirrup, which bolts UP into 2 M3 self-tap pilots per leg in the floor.  Jun 2026 the temporary HIGH/LOW print split was re-MERGED into ONE part: a solid flat 4 mm FLOOR slab (CHASSIS_BOTTOM_FLOOR_T) is folded onto the plate underside (z in [-6,-2]) giving a flat -6 mm print-bed face (perimeter ~8 mm thick).  Jun 2026 FLUSH-BOTTOM fix: the per-leg floor servo cutout was shrunk from the WELL_W+2 x WELL_D+2 well footprint to the servo BODY cavity (SERVO_BODY+2*WELL_BODY_CL = 46.8 x 26.2), and a cradle-footprint pad was unioned under each leg, so the cradle walls + their outboard overhangs (which used to float 4 mm proud at the -2 split plane / world +23.5) are grounded flush to the -6 bed for support-free FDM printing.  Each leg's yaw axis carries an upward yaw-bearing tower (yaw_bearing_cap interface) extended DOWN to the deck (-CHASSIS_PLATE_T) for structural grounding, plus a radial 12 x 6 mm wire drop slot inboard of its body cutout.  Plate also carries 4 x M3 tray-mount bosses + heat-set inserts at (+/-24.75, +/-24.75) (= ELEC_CHASSIS_MOUNT_HOLES_XY); 4 x M3 clearance holes for the brass M-F standoffs at (+/-35, 0) and (0, +/-35) (= CHASSIS_STANDOFF_HOLES_XY); and 4 x M3 clearance holes for the battery_holder feet at (+/-50, +/-24) mm."
+    description: "Structural 200 mm flat-to-flat hex plate with 6 integrated STS3215 yaw-servo cradles (one per leg, Jun 2026 bearing-sandwich refit -- SUPERSEDES the May 2026 DS3225 'Design F' open-top tab-shelf bucket).  Each cradle is a FRONT-FACE-MOUNT TOWER bonded into the plate at a chassis hex-edge midpoint: the STS3215 (no mounting tabs) is inserted from BELOW, output pointing UP, and bolts via 4x M2.5 through the tower's front mount plate; the dia-20 25T disc horn rides FLUSH on the output face and the coxa_link bolts straight onto the horn at CHASSIS_YAW_OUTPUT_Z (pinned to the old value so kinematics are unchanged).  The servo body hangs DOWN through a body cutout and is captured from below by the bolt-on yaw_servo_retainer stirrup, which bolts UP into 2 M3 self-tap pilots per leg in the floor.  Jun 2026 the temporary HIGH/LOW print split was re-MERGED into ONE part: a solid flat 4 mm FLOOR slab (CHASSIS_BOTTOM_FLOOR_T) is folded onto the plate underside (z in [-6,-2]) giving a flat -6 mm print-bed face (perimeter ~8 mm thick).  Jun 2026 FLUSH-BOTTOM fix: the per-leg floor servo cutout was shrunk from the WELL_W+2 x WELL_D+2 well footprint to the servo BODY cavity (SERVO_BODY+2*WELL_BODY_CL = 46.8 x 26.2), and a cradle-footprint pad was unioned under each leg, so the cradle walls + their outboard overhangs (which used to float 4 mm proud at the -2 split plane / world +23.5) are grounded flush to the -6 bed for support-free FDM printing.  Each leg's yaw axis carries an upward yaw-bearing tower (yaw_bearing_cap interface) extended DOWN to the deck (-CHASSIS_PLATE_T) for structural grounding, plus a radial 12 x 6 mm wire drop slot inboard of its body cutout.  Jul 2026 battery-fit rework: the plate's only inboard hole pattern is now the 4 x M3 clearance holes for the brass F-F standoffs at (+/-31.1, +/-31.1) (= CHASSIS_STANDOFF_HOLES_XY, 44-mm-radius diagonals) -- the tray-mount bosses/inserts at (+/-24.75, +/-24.75) and the battery_holder foot holes at (+/-50, +/-24) were DELETED with their retired parts so the real 138 x 46 x 24 mm LiPo can lie flat on the plate top face (it velcro-straps through 3 slot pairs straddling its long edges)."
     qty: 1
     bounds_mm: [229.2, 249.7, 25.75]    # measured (Jun 2026, on disk): X = 2*114.603 (hex apothem 100 + the 2 cradles whose long axis lies along X overhang to radial 118.5), Y = 2*124.852 (the cradles at azimuth 90/270 deg overhang furthest in Y), Z = 25.75 spanning z in [-6.0, +19.75].  PART-LOCAL Z FRAME (single source of truth -- stop re-measuring): z=0 is the plate MID-PLANE; the flat printed BOTTOM (print-bed face) is the MIN Z at z=-6, and the MAX Z at z=+19.75 is the yaw-bearing tower top / yaw_bearing_cap seat.  In the full_robot_viz STANDING scene the part is lifted +25.55 mm so the bed face reads world z=+19.55 mm (the chassis underside sits 19.55 mm above the ground plane) -- that "19.55" seen in BuildViz == this -6 part-local bottom.
     # PART-LOCAL Z-LEVELS (chassis_bottom's own STL frame; world = +25.55 in the standing scene):
     z_levels_mm:
       flat_bottom_min_z: -6.0          # print-bed face (MIN Z); world +19.55.  = CHASSIS_SPLIT_Z - CHASSIS_BOTTOM_FLOOR_T.  ~29,000 mm^2 of down-facing area -- the chassis prints flat on this face, tower-up, no supports.
       floor_plate_join_z: -2.0         # = CHASSIS_SPLIT_Z (= -CHASSIS_PLATE_T/2); the 4 mm flat FLOOR slab [-6,-2] folds onto the 4 mm plate underside here.  Jun 2026 flush-bottom fix grounded the cradle walls/overhangs that used to float at THIS plane (world +23.55, the "23.5 mm" seen in BuildViz) down to the -6 bed; only the ~180 mm^2 servo-through-hole rim still faces down at -2.
-      plate_top_z: +2.0                # = +CHASSIS_PLATE_T/2; the broad hex deck TOP face (~21,000 mm^2 up-facing), where the cradle towers + tray/standoff bosses rise from.
+      plate_top_z: +2.0                # = +CHASSIS_PLATE_T/2; the broad hex deck TOP face (~21,000 mm^2 up-facing), where the cradle towers rise from and the battery + brass standoffs sit.
       cradle_boss_rim_z: +10.25        # cradle dust-shroud rim / swing-relief re-cover band (up-facing ~8,800 mm^2).
       cap_interface_shoulder_z: +15.75 # yaw_bearing_cap mating shoulder on the tower (up-facing ~1,000 mm^2).
       yaw_bearing_tower_top_z: +19.75  # MAX Z; world +45.3.  Top of the 6 upward yaw-bearing towers (the cap seats here).
     holes:
-      - name: centre_mount_NE
+      - name: standoff_NE
         diameter_mm: 3.4                # = BRACKET_BOLT_HOLE
-        position_mm: [24.75, 24.75, 0.0]
+        position_mm: [31.11, 31.11, 0.0]
         axis: z
-        note: "Battery / electronics tray + arm-baseplate M3 standoffs (4 holes on a 35-mm-radius square)."
+        note: "Brass F-F chassis standoff bolt clearance (4 holes on the 44-mm-radius diagonal pattern = CHASSIS_STANDOFF_HOLES_XY; Jul 2026 battery-fit rework)."
     wire_channels:
       # Per-leg cable pass-through, one GROUP per leg.  Each group is a
       # PRIMARY radial drop slot at bracket-local (LEG_HARNESS_DROP_X_CENTRE,
@@ -354,27 +349,14 @@ parts:
           thickness_mm: 4.0          # = HP.CHASSIS_PLATE_T
           axis: z
           notes: "Hex is oriented so its 6 vertices fall at azimuth 30/90/.../330 deg (the leg directions); apothem = 100 mm, circumradius = 100 / cos(30 deg) = 115.47 mm.  Plate thickness is symmetric about z = 0 so the plate spans z in [-2, +2] mm."
-        - name: centre_mount_pattern
-          type: slot
-          description: "4 vertical M3 clearance holes on a 35-mm-radius / 45-deg square (= ELEC_CHASSIS_MOUNT_HOLES_XY = (+/-24.75, +/-24.75) pattern).  Each hole is UNIONed with a Phi TRAY_MOUNT_BOSS_OD = 6 mm x TRAY_MOUNT_BOSS_H = 3 mm boss on the plate's TOP face and a Phi INSERT_M3_PILOT_OD = 4 mm heat-set insert pocket cut DOWN from the boss top.  The electronics_tray bolts onto these inserts via 4 x M3 x 8 SHCS (May 2026 tray-mount fix; the brass standoff columns moved OFF this pattern -- see ``standoff_pattern`` below)."
-          centre_mm: [0.0, 0.0, 0.0]
-          diameter_mm: 3.4           # = HP.BRACKET_BOLT_HOLE
-          axis: z
-          holes_on_feature: [centre_mount_NE]
-          notes: "Only one of the 4 holes is enumerated in `holes:` above as a regression-check seed; the other 3 are at the symmetric (-24.75, +24.75), (+24.75, -24.75), (-24.75, -24.75) positions."
         - name: standoff_pattern
           type: slot
-          description: "4 vertical M3 clearance holes on the rotated-45-deg 35-mm-radius pattern (= CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) and (0, +/-35)).  Brass M-F standoffs thread DOWN through chassis_top + this hole pattern + chassis_bottom; an M3 nyloc on the UNDER face captures the standoff's male thread.  May 2026 tray-mount fix: the standoffs MOVED off the (+/-24.75, +/-24.75) pattern (= ``centre_mount_pattern`` above) so the brass standoff body wouldn't conflict with the tray-mount heat-set insert pocket in chassis_bottom."
+          description: "4 vertical M3 clearance holes on the 44-mm-radius diagonal pattern (= CHASSIS_STANDOFF_HOLES_XY = (+/-31.1, +/-31.1)).  Jul 2026 F/F switch: the brass standoffs are FEMALE-FEMALE and the plate is bolted to them from below -- an M3 x 14 SHCS enters at the -6 mm floor face, passes through the 8 mm plate + floor stack and threads into the standoff's bottom female thread (the old M-F male stud + nyloc could not span the merged 8 mm plate).  Jul 2026 battery-fit rework: the pattern moved off the old (+/-35, 0)/(0, +/-35) layout, whose +/-X sites sat inside the real 138 x 46 mm battery's straight lane through the inter-plate bay."
           centre_mm: [0.0, 0.0, 0.0]
           diameter_mm: 3.4           # = HP.BRACKET_BOLT_HOLE
           axis: z
-        - name: battery_holder_bolt_pattern
-          type: slot
-          description: "4 vertical M3 clearance holes at (+/-50, +/-24) mm in chassis frame -- the 4 mounting feet of the battery_holder thread their M3 heat-set inserts onto these from above.  Bolts pass UP through the plate from below."
-          centre_mm: [-25.0, 0.0, 0.0]     # = HP.BATTERY_HOLDER_CENTRE_X, centred on the holder
-          diameter_mm: 3.4                  # = HP.BRACKET_BOLT_HOLE
-          axis: z
-          notes: "Pattern is offset by HP.BATTERY_HOLDER_CENTRE_X = -25 mm so the holder sits on the -X half of the chassis, leaving the +X half clear for the electronics_tray."
+          holes_on_feature: [standoff_NE]
+          notes: "Only one of the 4 holes is enumerated in `holes:` above as a regression-check seed; the other 3 are at the symmetric (-31.11, +31.11), (+31.11, -31.11), (-31.11, -31.11) positions.  (Jul 2026: the former centre_mount_pattern tray bosses and battery_holder_bolt_pattern are deleted -- their parts are retired and the bosses intruded into the battery footprint.)"
         - name: yaw_cradle_x6
           type: rectangular_well
           description: "Six identical STS3215 yaw cradles, one at each hex edge midpoint (apothem 100 mm).  Jun 2026 bearing-sandwich refit: each cradle is a FRONT-FACE-MOUNT TOWER (NOT the retired DS3225 open-top tab-shelf bucket).  The STS3215 has no mounting tabs -- it is inserted from BELOW, output UP, and bolts via 4x M2.5 through the tower's elevated front mount plate; the dia-20 disc horn rides flush on the output face and the coxa_link bolts onto the horn.  The body hangs DOWN through the body cutout and is held by the bolt-on yaw_servo_retainer stirrup (anchored into 2 M3 floor pilots).  Cradle long-axis (cradle +X) points OUTBOARD; cradle origin = yaw axis = chassis hex edge midpoint.  Authoritative geometry lives in _chassis_yaw_cradle_solid (tower) + _chassis_bottom_floor_solid (floor body cutout, drop slot, retainer pilots)."
@@ -453,7 +435,7 @@ parts:
               height_mm: 8.0                   # = HP.CABLE_POST_Z
             - name: leg_harness_drop_slot
               type: slot
-              description: "Per-leg cable pass-through band just inboard of the body cutout so the 3-cable bus daisy-chain drops into the inter-plate volume.  Jun 2026 wire-room pass: a PRIMARY 18 x 8 mm through-slot on the radial axis PLUS two tangential FLANKING ports (18 x 6 mm at bracket-y = +/-11), giving a ~26 mm-wide opening (3 ports separated by ~3 mm ribs) instead of the old single 12 x 6 mm hole.  All ports stay inboard of the body cutout (radial 45-64), clear of the standoff holes (radial 35) and the yaw retainer pilots (tangential +/-21).  Cradle's -X bond-strip overhang crosses the outboard 1 mm of the primary slot but the boolean diff in make_chassis_bottom re-cuts every port so the openings are clean.  All ports enumerated by HP.leg_harness_drop_slots()."
+              description: "Per-leg cable pass-through band just inboard of the body cutout so the 3-cable bus daisy-chain drops into the inter-plate volume.  Jun 2026 wire-room pass: a PRIMARY 18 x 8 mm through-slot on the radial axis PLUS two tangential FLANKING ports (18 x 6 mm at bracket-y = +/-11), giving a ~26 mm-wide opening (3 ports separated by ~3 mm ribs) instead of the old single 12 x 6 mm hole.  All ports stay inboard of the body cutout (radial 45-64), clear of the standoff holes (radial 44, Jul 2026 diagonal pattern) and the yaw retainer pilots (tangential +/-21).  Cradle's -X bond-strip overhang crosses the outboard 1 mm of the primary slot but the boolean diff in make_chassis_bottom re-cuts every port so the openings are clean.  All ports enumerated by HP.leg_harness_drop_slots()."
               centre_mm: [-46.0, 0.0, 0.0]     # PRIMARY slot bracket-local = (LEG_HARNESS_DROP_X_CENTRE, 0, plate centre)
               length_mm: 18.0                  # = HP.LEG_HARNESS_DROP_X_EXTENT (primary)
               width_mm: 8.0                    # = HP.LEG_HARNESS_DROP_Y_EXTENT (primary)
@@ -463,7 +445,7 @@ parts:
                 - [-46.0, -11.0, 18.0, 6.0]
 
   chassis_top:
-    description: "Smaller 140 mm hex deck for battery + electronics + optional arm; legs sweep clear of it (70 mm apothem leaves the legs' hip-pitch wells outside the deck).  May 2026: 2 x switch_holster mounting bosses (Phi 8 mm, 3 mm above the plate top) on the +X half of the plate carry M3 brass heat-set inserts so the anti-spark switch can be bolted on from above.  Also carries 6 x Phi 12 mm yaw-shaft pass-through cutouts at each leg's yaw axis (currently a geometric no-op because the 6 yaw axes are 30 mm OUTSIDE the 70 mm-apothem hex perimeter, kept as an active diff for forward compatibility)."
+    description: "Smaller 140 mm hex deck carrying the stacked electronics-deck columns + switch holster + IMU pad; legs sweep clear of it (70 mm apothem leaves the legs' hip-pitch wells outside the deck).  May 2026: 2 x switch_holster mounting bosses (Phi 8 mm, 3 mm above the plate top) on the +X half of the plate carry M3 brass heat-set inserts so the anti-spark switch can be bolted on from above.  Also carries 6 x Phi 12 mm yaw-shaft pass-through cutouts at each leg's yaw axis (currently a geometric no-op because the 6 yaw axes are 30 mm OUTSIDE the 70 mm-apothem hex perimeter, kept as an active diff for forward compatibility)."
     qty: 1
     bounds_mm: [140.0, 161.7, 7.0]      # = CHASSIS_TOP_FLAT_TO_FLAT (X apothem*2), 2*circumradius (Y vertex*2 = 140/cos(30 deg) = 161.66), CHASSIS_PLATE_T + SWITCH_HOLSTER_BOSS_H = 4 + 3 = 7
     holes:
@@ -479,7 +461,7 @@ parts:
       features:
         - name: hex_plate
           type: hex_plate
-          description: "The structural hexagonal deck.  Smaller than chassis_bottom (140 mm vs 200 mm flat-to-flat) so the leg sweep clears it.  Takes the entire upper-deck stack (battery_holder + electronics_tray + optional arm) plus the 4 chassis bolts that clamp the deck to the bottom plate via brass M-F standoffs on the rotated-45-deg 35-mm-radius pattern (= CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) and (0, +/-35); May 2026 tray-mount fix moved the standoffs OFF the (+/-24.75, +/-24.75) tray-mount pattern so chassis_bottom could carry M3 heat-set inserts at the tray-mount XYs without conflicting with the standoff bodies)."
+          description: "The structural hexagonal deck.  Smaller than chassis_bottom (140 mm vs 200 mm flat-to-flat) so the leg sweep clears it.  Takes the stacked electronics-deck columns plus the 4 chassis bolts that clamp the deck to the bottom plate via brass F-F standoffs on the 44-mm-radius diagonal pattern (= CHASSIS_STANDOFF_HOLES_XY = (+/-31.1, +/-31.1); Jul 2026 battery-fit rework moved the standoffs off the old (+/-35, 0)/(0, +/-35) pattern so the 138 x 46 mm LiPo has a clear lane through the inter-plate bay)."
           centre_mm: [0.0, 0.0, 0.0]
           flat_to_flat_mm: 140.0      # = HP.CHASSIS_TOP_FLAT_TO_FLAT
           thickness_mm: 4.0           # = HP.CHASSIS_PLATE_T
@@ -487,14 +469,14 @@ parts:
           notes: "Same hex orientation as chassis_bottom (vertices at 30/90/.../330 deg).  Plate spans z in [-2, +2] mm; apothem = 70 mm, circumradius = 70 / cos(30 deg) = 80.83 mm."
         - name: centre_mount_pattern
           type: slot
-          description: "4 vertical M3 clearance holes on the 35-mm-radius / 45-deg square pattern shared with chassis_bottom and electronics_tray (= ELEC_CHASSIS_MOUNT_HOLES_XY = (+/-24.75, +/-24.75)).  These holes are REDUNDANT under the May 2026 tray-mount fix (the tray-mount M3 x 8 SHCS bolts stop in chassis_bottom's heat-set insert; they don't reach chassis_top); kept for retrofit compatibility with pre-fix prints."
+          description: "4 vertical M3 clearance holes on the 35-mm-radius / 45-deg square pattern (= ELEC_CHASSIS_MOUNT_HOLES_XY = (+/-24.75, +/-24.75)).  Historical: they served the retired in-gap electronics_tray's mount bolts and are REDUNDANT (Jul 2026: chassis_bottom no longer carries this pattern at all); kept on chassis_top only for retrofit compatibility with pre-fix prints."
           centre_mm: [0.0, 0.0, 0.0]
           diameter_mm: 3.4            # = HP.BRACKET_BOLT_HOLE
           axis: z
           holes_on_feature: [centre_mount_NE]
         - name: standoff_pattern
           type: slot
-          description: "4 vertical M3 clearance holes on the rotated-45-deg 35-mm-radius pattern (= CHASSIS_STANDOFF_HOLES_XY = (+/-35, 0) and (0, +/-35)).  Brass M-F standoffs span the inter-plate gap on this pattern; an M3 x 10 SHCS drops DOWN through chassis_top into the standoff female top.  May 2026 tray-mount fix introduced this rotated-45-deg pattern -- the standoffs used to live on the (+/-24.75, +/-24.75) tray-mount pattern and conflicted with chassis_bottom's heat-set insert pockets."
+          description: "4 vertical M3 clearance holes on the 44-mm-radius diagonal pattern (= CHASSIS_STANDOFF_HOLES_XY = (+/-31.1, +/-31.1)).  Brass F-F standoffs span the inter-plate gap on this pattern; an M3 x 10 SHCS drops DOWN through chassis_top into the standoff female top (and an M3 x 14 SHCS enters the standoff's bottom thread from below chassis_bottom -- Jul 2026 F/F switch).  Jul 2026 battery-fit rework moved the pattern off (+/-35, 0)/(0, +/-35), whose +/-X sites sat inside the real 138 x 46 mm battery's inter-plate lane."
           centre_mm: [0.0, 0.0, 0.0]
           diameter_mm: 3.4            # = HP.BRACKET_BOLT_HOLE
           axis: z
@@ -517,123 +499,18 @@ parts:
           diameter_mm: 12.0            # = SERVO_OUTPUT_OD + 2 mm radial clearance = 10 + 2
           axis: z
 
-  battery_holder:
-    description: "Open-top tray for one 3S 2200 mAh LiPo (110 x 38 x 28 mm).  Two velcro slots cut through the long walls let the user strap the pack down.  4 mounting feet at (+/-50, +/-24) mm each carry an M3 brass heat-set insert (McMaster 94459A130) opening DOWNWARD from the foot bottom; the holder bolts to chassis_bottom FROM BELOW via 4 x M3 x 10 SHCS that thread UP into the inserts."
-    qty: 1
-    bounds_mm: [110.0, 60.0, 28.0]      # = BATTERY_W (long), BATTERY_D + 2 * BATTERY_FOOT_DY-overhang = 38 + 22 = 60 mm (Y including foot tabs), BATTERY_H (28 mm) -- foot Z = BATTERY_FOOT_T = 8 mm < holder body H so the body sets Z extent
-    holes: []                            # foot M3 holes are tangential to the outer envelope; skip
-    wire_channels: []
-    keep_out_volumes: []
-    shape:
-      overall_form: "Open-top rectangular tray with 4 mounting feet on its long-axis ends.  Body is a hollow 5-walled box (110 x 38 x 28 mm outer, BATTERY_WALL = 1.6 mm walls all around with the +Z face open) that snugs the LiPo.  Feet protrude OUTWARD from the +/-Y walls in 4 corners as 10 x 12 x 8 mm rectangular pads; each foot's -Y face is COINCIDENT with the body's +/-Y wall so the boolean union produces a single connected mesh.  Two rectangular velcro slots cut through the long walls roughly at mid-height let a 10-mm-wide velcro strap loop over the pack."
-      print_orientation_rationale: "Drop the closed bottom face to the bed (no rotation).  Tray opens +Z so the LiPo cavity prints empty; foot insert pockets open DOWNWARD from the foot bottoms but the cavities print as recessed pockets in the bottom face so the slicer handles them with the natural bridges across the pocket mouth (rare 1-2 layer bridge over Phi 4 mm holes -- well within FDM tolerance)."
-      features:
-        - name: body
-          type: rectangular_well
-          description: "5-walled open-top tray.  Inner cavity is BATTERY_W - 2*BATTERY_WALL = 106.8 mm long, BATTERY_D - 2*BATTERY_WALL = 34.8 mm wide, and opens upward with no top face.  Walls all around are BATTERY_WALL = 1.6 mm thick."
-          centre_mm: [0.0, 0.0, 14.0]
-          length_mm: 110.0          # = HP.BATTERY_W
-          width_mm: 38.0            # = HP.BATTERY_D
-          height_mm: 28.0           # = HP.BATTERY_H
-          wall_thickness_mm: 1.6    # = HP.BATTERY_WALL
-        - name: velcro_strap_slot_pair
-          type: slot
-          description: "2 rectangular through-slots cut through the long (+/-Z) walls (one near each end of the body) so a single 10-mm-wide velcro strap can loop around the LiPo from outside the holder.  Slots sit at roughly Z = 0.55 * BATTERY_H = 15.4 mm above the foot plane and span +/-X at 27.5 mm from the holder centre."
-          centre_mm: [27.5, 0.0, 15.4]   # one of two; symmetric pair at +/-X
-          length_mm: 10.0             # = HP.BATTERY_STRAP_W (along holder X = LiPo length)
-          width_mm: 9.6                # = BATTERY_WALL * 6 (cuts entirely through the +/-Y wall)
-          height_mm: 14.0              # = BATTERY_H * 0.5
-        - name: mounting_foot_x4
-          type: cylindrical_boss
-          description: "4 rectangular mounting feet at (+/-50, +/-24) mm.  Each foot is a 10 x 12 x 8 mm rectangular pad sharing its -Y face with the body wall.  Each foot has a Phi 4 mm heat-set insert pocket centred on (sx*50, sy*24, 0) opening DOWNWARD from the foot bottom face; pocket depth = INSERT_M3_PILOT_DEPTH = 6 mm leaves 2 mm of plastic above the insert top."
-          centre_mm: [50.0, 24.0, 4.0]
-          length_mm: 10.0              # = HP.BATTERY_FOOT_W (foot X dimension)
-          width_mm: 12.0               # = HP.BATTERY_FOOT_D (foot Y dimension)
-          height_mm: 8.0               # = HP.BATTERY_FOOT_T
-          inner_diameter_mm: 4.0       # = HP.INSERT_M3_PILOT_OD (heat-set pocket)
-          mating_face:
-            normal: -z
-            mates_to: "chassis_bottom top face at battery_holder bolt pattern (+/-50, +/-24)"
-            mating_plane_z_local_mm: 0.0
-          notes: "Foot Y dimension is 2 mm larger than X so the foot's -Y face is COINCIDENT with the body's +/-Y wall (sharing a 10 x 8 mm bond face for clean boolean union, see HP.BATTERY_FOOT_DX / DY commentary)."
-
-  electronics_tray:
-    description: "Flat 3 mm deck (160 x 135 mm) carrying Arduino Mega 2560 + Raspberry Pi 4 / 5 + 2 x PCA9685.  4 x M3 + 4 x M2.5 + 4 x M3 + 4 x M3 board-mount sites use printed Phi 8 mm (M3) / Phi 6 mm (M2.5) bosses with brass heat-set insert pockets; 5 mm standoff between board bottoms and tray top.  4 chassis-mount holes on the 35 mm-radius / 45 deg square pattern with Phi 5.5 x 3 mm counterbores so the chassis bolt heads sit flush with the tray top.  May 2026 'Pi cantilever' pass grew Y from 130 to 135 mm (asymmetric, -Y only) and shifted the tray centre from chassis y=0 to y=-2.5 so the Pi can cantilever 2.5 mm past the chassis_top -Y apothem at y=-70 -- the USB-A/Ethernet bank now sits outside the chassis_top silhouette in plan view."
-    qty: 1
-    bounds_mm: [160.0, 137.0, 8.0]      # = ELEC_TRAY_W, ELEC_TRAY_D + a sliver of asymmetric boss bulk on -Y (measured 137 mm), ELEC_TRAY_T + ELEC_STANDOFF_H = 3 + 5
-    holes: []                            # board-mount + chassis-mount holes verified by `_verify_prototype.check_fastener_engagement`
-    wire_channels: []
-    keep_out_volumes: []
-    shape:
-      overall_form: "Flat 160 x 135 mm rectangular plate (3 mm thick) with 16 short standoff bosses on its +Z face.  Broad face lies in the XY plane; Z extent is plate (3 mm) + boss height (5 mm) = 8 mm.  Bosses cluster in 4 regions: the Mega 2560 footprint on the +Y / -X quadrant, the Pi 4 footprint on the -Y / -X quadrant, the primary PCA9685 footprint on +Y / +X, and the secondary PCA9685 footprint on -Y / +X."
-      print_orientation_rationale: "Lay the broad XY face on the bed (no rotation).  All 16 bosses point +Z so each heat-set insert pocket prints as a recessed cavity opening upward; the 4 chassis-mount counterbores ALSO open upward (so the chassis bolt heads end up flush with the tray top after assembly, leaving the 5 mm boss-top air gap free for board screw heads).  The plate's BOTTOM face is fully flat for clean bed adhesion."
-      features:
-        - name: plate
-          type: extruded_rectangle
-          description: "The base deck.  Spans tray-local +/-80 mm in X and +/-67.5 mm in Y (note the asymmetric Y centre: chassis-frame tray centre is at y = -2.5, so the tray's +Y edge is at chassis y = +65 and -Y edge at chassis y = -70 -- the Pi cantilevers 2.5 mm past the chassis_top -Y apothem)."
-          centre_mm: [0.0, 0.0, 1.5]
-          length_mm: 160.0           # = HP.ELEC_TRAY_W
-          width_mm: 135.0            # = HP.ELEC_TRAY_D
-          thickness_mm: 3.0          # = HP.ELEC_TRAY_T
-        - name: mega_boss_x4
-          type: cylindrical_boss
-          description: "4 Phi 8 mm bosses on the Mega 2560 mounting-hole pattern (MEGA_CENTRE = (-28, +30.5), MEGA_HOLES asymmetric).  Each boss rises 5 mm above the plate top and carries a Phi 4 mm x 6 mm M3 heat-set insert pocket opening UPWARD."
-          centre_mm: [-28.0, 30.5, 5.5]
-          diameter_mm: 8.0           # = HP.ELEC_BOSS_OD_M3 (= HP.CRADLE_BOSS_OD)
-          inner_diameter_mm: 4.0     # = HP.INSERT_M3_PILOT_OD
-          height_mm: 5.0             # = HP.ELEC_STANDOFF_H
-          axis: z
-          mating_face:
-            normal: +z
-            mates_to: "Arduino Mega 2560 PCB bottom face (4 boss tops carry the PCB)"
-            mating_plane_z_local_mm: 8.0
-        - name: pi_boss_x4
-          type: cylindrical_boss
-          description: "4 Phi 6 mm bosses on the Raspberry Pi 4/5 mounting-hole pattern (PI_CENTRE = (-20, -42), PI_HOLES on the 49 x 58 mm pattern).  Each boss rises 5 mm above the plate top and carries a Phi 3 mm x 4.5 mm M2.5 heat-set insert pocket (McMaster 94459A106)."
-          centre_mm: [-20.0, -42.0, 5.5]
-          diameter_mm: 6.0           # = HP.ELEC_BOSS_OD_M25
-          inner_diameter_mm: 3.0     # = HP.INSERT_M25_PILOT_OD
-          height_mm: 5.0             # = HP.ELEC_STANDOFF_H
-          axis: z
-          mating_face:
-            normal: +z
-            mates_to: "Raspberry Pi 4 / 5 PCB bottom face"
-            mating_plane_z_local_mm: 8.0
-          notes: "Pi cantilevers 2.5 mm past chassis_top's -Y apothem at chassis y = -70 -- USB-A + Ethernet bank pokes out beyond the chassis silhouette so cables plug in WITHOUT removing the top plate."
-        - name: pca1_boss_x4
-          type: cylindrical_boss
-          description: "4 Phi 8 mm bosses on the primary PCA9685 mounting-hole pattern (PCA_CENTRE = (+64, +22.5), PCA_HOLES on the 54 x 16 mm pattern, rotated 90 deg so the board's long axis runs +Y).  Each boss carries a Phi 4 mm x 6 mm M3 heat-set insert pocket."
-          centre_mm: [64.0, 22.5, 5.5]
-          diameter_mm: 8.0           # = HP.ELEC_BOSS_OD_M3
-          inner_diameter_mm: 4.0     # = HP.INSERT_M3_PILOT_OD
-          height_mm: 5.0             # = HP.ELEC_STANDOFF_H
-          axis: z
-          mating_face:
-            normal: +z
-            mates_to: "Adafruit PCA9685 (I2C 0x40) PCB bottom face"
-            mating_plane_z_local_mm: 8.0
-        - name: pca2_boss_x4
-          type: cylindrical_boss
-          description: "4 Phi 8 mm bosses on the secondary PCA9685 mounting-hole pattern (PCA2_CENTRE = (+64, -17.5)).  Same geometry as the primary PCA, daisy-chained over I2C from PCA1 (0x40 -> 0x41).  Only 2 channels used (L5 hip_pitch + L5 knee, joints 16 + 17)."
-          centre_mm: [64.0, -17.5, 5.5]
-          diameter_mm: 8.0
-          inner_diameter_mm: 4.0
-          height_mm: 5.0
-          axis: z
-          mating_face:
-            normal: +z
-            mates_to: "Adafruit PCA9685 (I2C 0x41) PCB bottom face"
-            mating_plane_z_local_mm: 8.0
-        - name: chassis_mount_pattern
-          type: slot
-          description: "4 Phi 3.4 mm chassis-mount through-holes on the 35-mm-radius / 45-deg square pattern (the same (+/-24.75, +/-24.75) pattern shared with chassis_top + chassis_bottom).  Each hole has a Phi 5.5 mm x 3 mm counterbore from the tray's TOP face so the chassis bolt head sits flush with the tray top -- the 5 mm boss height above the tray then leaves an unobstructed air gap for the M3 / M2.5 SHCS heads that clamp the boards onto the heat-set inserts."
-          centre_mm: [24.75, 27.25, 1.5]    # one of 4; offset by ELEC_TRAY_CENTRE_Y = -2.5 in tray-local so chassis-frame (+24.75, +24.75) maps to tray-local (+24.75, +27.25)
-          diameter_mm: 3.4              # = HP.BRACKET_BOLT_HOLE
-          axis: z
-          notes: "Counterbore Phi 5.5 mm = HP.ELEC_CHASSIS_COUNTERBORE_OD, depth 3 mm = HP.ELEC_CHASSIS_COUNTERBORE_DEPTH; head TOP sits at tray-local z = 0 (= tray bottom face) which means the head BOTTOM is at z = -3 mm.  Wait -- counterbore opens from the TOP face, so head TOP at z = 3 (tray top) and head BOTTOM at z = 0 (i.e. coincident with tray bottom)."
+  # Jul 2026: the ``battery_holder`` and ``electronics_tray`` part
+  # entries are REMOVED.  Both parts were retired earlier (Jun 2026 deck
+  # redesign: the LiPo velcro-straps directly onto chassis_bottom and
+  # the electronics live on the stacked deck trays above chassis_top),
+  # but their spec entries had lingered and kept failing the stl-present
+  # check.  The real pack is now modelled as unprinted hardware:
+  # BATTERY_W x BATTERY_D x BATTERY_H = 138 x 46 x 24 mm (user-measured)
+  # at chassis (BATTERY_HOLDER_CENTRE_X, 0) = (-8, 0), lying on the
+  # chassis_bottom top face.
 
   coxa_link:
-    description: "Yaw-driven coxa carrying the HIP joint's FIXED side (Jun 2026 bearing-sandwich refit + symmetric-yoke update).  A Phi 30 x 4 mm yaw mount pad bolts down onto the yaw servo's 20 mm aluminum 25T disc horn (Amazon B07D56FVK5) via 4 x M3 SHCS on a 14 mm BCD + 1 central M3 spline screw; a structural bridge ties the pad to the hip fixed side -- an STS3215 front-face servo bracket (4 walls + output-face mount plate), OPEN at the back so the passive disc horn can ride the servo's rear idler boss -- anchored so its disc-horn-top lands on the hip joint point (COXA_LENGTH, 0, COXA_HIP_DROP).  The femur_hip_yoke straddles this fixed side, bolting to the driven disc horn on the front and the passive disc horn on the back (no 688 bearing)."
+    description: "Yaw-driven coxa carrying the HIP joint's FIXED side (Jun 2026 bearing-sandwich refit + symmetric-yoke update).  A Phi 30 x 4 mm yaw mount pad bolts down onto the yaw servo's 20 mm aluminum 25T disc horn (Amazon B07D56FVK5) via 4 x M3 SHCS on a 14 mm BCD + 1 central M3 spline screw; a structural bridge ties the pad to the hip fixed side -- an STS3215 front-face servo bracket (4 walls + output-face mount plate), OPEN at the back so the passive disc horn can ride the servo's rear idler boss -- anchored so its disc-horn-top lands on the hip joint point (COXA_LENGTH, 0, COXA_HIP_DROP).  The femur_link's hip yoke straddles this fixed side, bolting to the driven disc horn on the front and the passive disc horn on the back (no 688 bearing)."
     qty: 6
     bounds_mm: [65.4, 51.6, 63.3]       # measured (Jun 2026 symmetric-yoke refit, on disk): x in [-32.7, 32.7], y in [-25.8, 25.8], z in [-7.0, 56.3].  Supersedes the 688-era [63.4, 63.3, 35.0]: removing the printed 688 back housing + opening the rear for the passive disc horn reshaped the hip fixed side's envelope.
     # Jun 2026 bearing-sandwich refit: the yaw disc bolts onto the yaw
@@ -682,7 +559,7 @@ parts:
       # horn sweep below the pad still applies in the coxa-local frame.
       - name: link_hub_horn_sweep
     shape:
-      overall_form: "Yaw-driven coxa = a flat yaw mount pad at the bottom (z in [0, +4]) tied by a short structural bridge to the HIP joint's FIXED side at the outboard +X end.  The fixed side (Jun 2026 bearing-sandwich refit + symmetric-yoke update) is an STS3215 front-face servo bracket -- 4 walls + an output-face mount plate, OPEN at the back -- anchored so its disc-horn-top plane lands on the hip joint point (COXA_LENGTH, 0, COXA_HIP_DROP) = (25, 0, 16.1).  The fixed side is rotated in place so the hip-pitch output axis runs along coxa +/-Y; the servo well therefore HANGS in coxa -Y (the hip-pitch axis direction).  The femur_hip_yoke straddles this fixed side: its top arm bolts to the driven hip disc horn (coxa +Y top, on the front spline) and its bottom arm bolts to the PASSIVE disc horn on the servo's rear idler boss (coxa -Y back) -- no 688 bearing.  An inboard-bottom corner relief is carved at -X so the well clears the chassis_top plate at extreme yaw."
+      overall_form: "Yaw-driven coxa = a flat yaw mount pad at the bottom (z in [0, +4]) tied by a short structural bridge to the HIP joint's FIXED side at the outboard +X end.  The fixed side (Jun 2026 bearing-sandwich refit + symmetric-yoke update) is an STS3215 front-face servo bracket -- 4 walls + an output-face mount plate, OPEN at the back -- anchored so its disc-horn-top plane lands on the hip joint point (COXA_LENGTH, 0, COXA_HIP_DROP) = (25, 0, 16.1).  The fixed side is rotated in place so the hip-pitch output axis runs along coxa +/-Y; the servo well therefore HANGS in coxa -Y (the hip-pitch axis direction).  The femur_link's hip yoke straddles this fixed side: its top arm bolts to the driven hip disc horn (coxa +Y top, on the front spline) and its bottom arm bolts to the PASSIVE disc horn on the servo's rear idler boss (coxa -Y back) -- no 688 bearing.  An inboard-bottom corner relief is carved at -X so the well clears the chassis_top plate at extreme yaw."
       print_orientation_rationale: "Rotate +90 deg about X so the hip servo well's open back faces +Z and the yaw mount pad lays flat against the bed.  The yaw disc-horn counter-bores print as upward-opening pockets; the wire-exit slot becomes a side feature on a wall.  The open rear (no printed back housing) needs no support."
       features:
         - name: yaw_mount_pad
@@ -716,15 +593,15 @@ parts:
           axis: y                          # the well's MOUTH NORMAL (servo back face) points along coxa +Y after the in-place rotation
           mating_face:
             normal: -y
-            mates_to: "hip STS3215 servo front (output) face -- the servo bolts to the mount plate with 4 x M2.5 into its own metal case; the femur_hip_yoke's top arm + disc horn sit just beyond the plate on coxa -Y"
+            mates_to: "hip STS3215 servo front (output) face -- the servo bolts to the mount plate with 4 x M2.5 into its own metal case; the femur_link hip yoke's top arm + disc horn sit just beyond the plate on coxa -Y"
             mating_plane_z_local_mm: 0.0
           notes: "Frame mapping: joint-local +Z (output) -> coxa +/-Y, joint-local X (WELL_W) -> coxa X, joint-local Y (WELL_D) -> coxa Z."
         - name: passive_horn_rear_boss
           type: open_clearance
-          description: "Symmetric-yoke refit: the old +X-half 688 ball-bearing back housing is RETIRED.  The back of the servo well is now OPEN so the PASSIVE 20 mm disc horn rides the STS3215's own internal rear idler boss (centred by the printed passive_horn_adapter + one M2.5 retention screw); the femur_hip_yoke's bottom arm bolts to that passive disc horn exactly as the top arm bolts to the driven horn.  Nothing printed lives behind the body -- this entry documents the kept-clear rear volume."
+          description: "Symmetric-yoke refit: the old +X-half 688 ball-bearing back housing is RETIRED.  The back of the servo well is now OPEN so the STOCK metal PASSIVE horn rides the STS3215's own rear idler boss (Jul 2026 stock-horn refit: its centre bore slides over the boss, seating FLUSH on the back face -- printed passive_horn_adapter retired; one M2.5 retention screw holds it); the femur_link hip yoke's bottom arm bolts to that passive disc horn exactly as the top arm bolts to the driven horn.  Nothing printed lives behind the body -- this entry documents the kept-clear rear volume."
           centre_mm: [25.0, 3.5, 16.0]     # rear-boss / passive-horn region, coxa +Y side of the fixed stack
           diameter_mm: 20.0                # = DISC_HORN_OD (passive disc horn swept envelope)
-          thickness_mm: 7.0                # = BACK_STACK_DEPTH (REAR_BOSS_H + DISC_HORN_H + adapter), kinematics frozen
+          thickness_mm: 7.0                # = BACK_STACK_DEPTH (FROZEN envelope; the real stock-horn stack is only DISC_HORN_H = 2 mm deep)
           axis: y
         - name: inboard_bottom_relief
           type: recess
@@ -741,158 +618,123 @@ parts:
           width_mm: 7.0                    # = HP.WIRE_SLOT_W
           height_mm: 12.5
 
-  femur_hip_yoke:
-    description: "Femur's HIP-end MOVING yoke (Jun 2026 bearing-sandwich + symmetric-yoke update).  A C-clevis that straddles the coxa_link's hip fixed side: the TOP arm bolts to the DRIVEN hip disc horn (4 x M3 on the Phi 14 BCD, front spline) and the BOTTOM arm bolts IDENTICALLY to the PASSIVE disc horn on the servo's rear idler boss (4 x M3 on the same Phi 14 BCD), and the +X spine sockets the femur Phi 8 mm carbon-fibre tube (epoxy + transverse Phi 2.6 retention pin) toward the knee.  No 688 stub/bearing.  Shared joint-local frame (origin = servo back-face centre; output axis at x = SERVO_OUTPUT_X = 12.5)."
+  femur_link:
+    description: "The WHOLE FEMUR as ONE printed part (Jul 2026 merge #2, user: 'combine the femur knee bracket with the femur hip yoke and make that connection very solid (cylinder size of our diameter)' -- supersedes the two-part yoke-pinned-into-bracket femur).  Three fused regions: (1) the HIP-end MOVING C-clevis yoke straddling the coxa_link's hip fixed side -- TOP arm bolts the DRIVEN hip disc horn (4 x M3 on the Phi 14 BCD), BOTTOM arm bolts IDENTICALLY to the PASSIVE disc horn on the servo's rear idler boss; (2) a SOLID Phi 14 spar (the old socket-boss OUTER diameter -- no bore, no slip fit, no retention pin) bridging the full inter-well gap and burying 1 mm into the knee well wall; (3) the KNEE-end FIXED side -- an STS3215 front-face servo bracket (4 walls + output plate), OPEN at the back so the passive knee disc horn rides the servo's rear idler boss.  FRAME: the STL is in the ASSEMBLED-link frame (kept so MuJoCo's mesh loader works unchanged): origin = hip disc-horn-top ON the hip-pitch axis, +X along the femur (knee axis at x = FEMUR_LENGTH = 90), +Z = pivot axis; from shared joint-local coords (x,y,z), STL coords = (x - 12.5, 41.3 - z, y).  Hip yoke features live near x=0 (joint-local values quoted in feature text); knee features near x=90 (their joint-local values are knee-joint-local + 90 in x)."
     qty: 6
-    bounds_mm: [47.0, 24.0, 57.3]       # measured (Jun 2026 symmetric-yoke refit, on disk).  Supersedes the 688-era [60.0, 24.0, 57.3]: the bottom arm now bolts to the passive disc horn (no stub), and the shortened FEMUR_TUBE_SOCKET_LEN trims the +X spine boss.
+    bounds_mm: [119.7, 56.3, 33.8]      # measured (Jul 2026 merge #2, on disk, STL frame): x in [-10.5, 109.2] (hip yoke arm tip to knee well +X wall), y in [-4.0, 52.3] (top-arm outer face to bottom-arm outer face), z in [-16.9, 16.9] (well depth WELL_D = 33.8).
     holes:
+      # -- Hip yoke: 4 x M3 disc-horn bolts through the TOP arm (probed at
+      #    arm mid-thickness; joint-local z = 43.3 -> STL y = -2.0).  The
+      #    bottom arm carries the mirrored 4 (not separately probed).
       - name: horn_bolt_+X
         diameter_mm: 3.4                # = DISC_HORN_BOLT_OD (M3 clearance into the disc-horn tap)
-        position_mm: [19.5, 0.0, 43.3]  # on the Phi 14 BCD about the output axis (x=12.5); through the top arm (z in [41.3, 45.3])
-        axis: z
+        position_mm: [7.0, -2.0, 0.0]   # joint-local (19.5, 0, 43.3): on the Phi 14 BCD about the hip output axis
+        axis: y
       - name: horn_bolt_+Y
         diameter_mm: 3.4
-        position_mm: [12.5, 7.0, 43.3]
-        axis: z
+        position_mm: [0.0, -2.0, 7.0]   # joint-local (12.5, 7, 43.3)
+        axis: y
       - name: horn_bolt_-X
         diameter_mm: 3.4
-        position_mm: [5.5, 0.0, 43.3]
-        axis: z
+        position_mm: [-7.0, -2.0, 0.0]  # joint-local (5.5, 0, 43.3)
+        axis: y
       - name: horn_bolt_-Y
         diameter_mm: 3.4
-        position_mm: [12.5, -7.0, 43.3]
-        axis: z
-    wire_channels: []                    # the moving yoke carries no servo
-    keep_out_volumes: []                 # sandwich straddle clearance is verified in assembled poses by _verify_prototype
+        position_mm: [0.0, -2.0, -7.0]  # joint-local (12.5, -7, 43.3)
+        axis: y
+      # -- Knee cradle: the output coupling bore through the mount plate
+      #    (knee-local z = 36.3 -> STL y = 5.0; knee-local x + 90 - 12.5 ->
+      #    STL x).  NO case screws anywhere on the femur (Jul 2026): the
+      #    front-face 4 x M2.5 square was retired with the Jun 2026
+      #    clamshell redesign (the Phi 24 horn opening swallowed it -- the
+      #    old spec entries here were phantom holes that failed every
+      #    probe), and the -X end-face bolt row was removed in merge #2
+      #    because the fused spar covers that wall (user: 'four holes ...
+      #    which serve no purpose and weaken the connection').  The knee
+      #    servo is retained by the clamp cap + retaining lip.
+      - name: output_coupling_bore
+        diameter_mm: 10.0               # = SERVO_OUTPUT_BORE_OD (output-coupling clearance through the mount plate)
+        position_mm: [90.0, 5.0, 0.0]   # knee-local (12.5, 0, 36.3) = ON the knee axis
+        axis: y
+    wire_channels:
+      - name: knee_wire_exit_L
+        note: "L-corridor + boot pocket at the knee fixed side's bottom-outboard corner (inherited from _sandwich_fixed_side); routes the knee STS3215 harness outboard.  Verified by _verify_prototype.check_wire_slot (which probes the knee cradle sub-solid in its own well-local frame)."
+    keep_out_volumes: []                 # assembled-pose clearance verified by _verify_prototype
     shape:
-      overall_form: "SYMMETRIC C-clevis straddling the hip fixed stack.  Two parallel arms (each _YOKE_ARM_T = 4 mm thick) joined by a +X spine.  Each arm carries the SAME YOKE_ARM_PAD = 5 mm reach-down pad onto its disc and bolts with the SAME 4 x M3 x 10 SHCS (symmetric refit, user: 'same screw on each side').  TOP arm body inner face at z = JOINT_HORN_TOP_Z = 41.3, pad reaching down onto the DRIVEN disc top (real face 36.3).  BOTTOM arm is a TRUE MIRROR: body inner face at z = JOINT_HORN_BOT_Z = -9, pad reaching up onto the PASSIVE disc face (-4, on the servo's rear idler boss; no stub/688).  Each pad reaches YOKE_SEAT_INTERF = 0.13 mm PAST its disc for a snug clamp.  The spine (x in [42, 46]) is set +4 mm OUTBOARD of the old web so the swept arm clears the fixed clamp cap + coxa through the full femur ROM; it carries a Phi 8 CF-tube socket boss whose mouth stays at x = _YOKE_SOCKET_X = 42 (femur span frozen), extending toward +X (toward the knee)."
-      print_orientation_rationale: "Print spine-down so both arms bridge to the spine cleanly and the open C-mouth faces sideways; the (symmetric) disc-horn bolt holes become horizontal features, the tube socket a horizontal bore."
+      overall_form: "One printed body, ~120 mm end to end: SYMMETRIC hip C-clevis (two 4 mm arms + reach-down disc pads joined by an outboard spine) -> SOLID Phi 14 spar on the femur line -> STS3215 knee servo bracket (4 walls + output-face mount plate, outer envelope 63.4 x 33.8 x 38.3, OPEN at the back).  Both joints keep their frozen axes: hip disc-horn-top at STL origin, knee axis at STL x = 90.  Each hip arm carries the SAME YOKE_ARM_PAD = 5 mm reach-down pad onto its disc and bolts with the SAME 4 x M3 x 10 SHCS; the spine (joint-local x in [42, 46]) is set +4 mm outboard (Jun 2026 ROM-clearance fix) so the swept web clears the fixed clamp cap + coxa through the full femur ROM.  The spar replaces every prior femur joint: no socket bore, no Phi 7.8 rod, no transverse pins -- the printed cross-section between the joints is solid Phi 14 (the user's 'cylinder size of our diameter' = the old boss OD)."
+      print_orientation_rationale: "Rotate -90 about X (STL is in the assembled-link frame) to print in the joint-local as-modelled pose: yoke spine-down so both disc-horn arms bridge cleanly, spar horizontal, knee mount plate on top.  The knee plate bridges its servo well on FDM -- support the well through its open back; MJF is orientation-insensitive."
       features:
-        - name: top_arm
+        - name: hip_top_arm
           type: extruded_rectangle
-          description: "Driven top arm; underside seats on the disc-horn top (z = JOINT_HORN_TOP_Z = 41.3) and bolts to it with 4 x M3 on the Phi DISC_HORN_BOLT_PCD = 14 mm BCD about the output axis (x = 12.5)."
-          centre_mm: [22.0, 0.0, 43.3]
+          description: "Driven hip top arm; underside seats on the disc-horn top (joint-local z = JOINT_HORN_TOP_Z = 41.3 -> STL y = 0) and bolts with 4 x M3 on the Phi DISC_HORN_BOLT_PCD = 14 mm BCD about the hip output axis (STL x = 0)."
+          centre_mm: [9.5, -2.0, 0.0]   # joint-local (22, 0, 43.3)
           length_mm: 40.0               # = _YOKE_ARM_X1 - _YOKE_ARM_X0 (42 - 2)
           width_mm: 24.0                # = 2 * _YOKE_ARM_Y
           thickness_mm: 4.0             # = _YOKE_ARM_T
-          axis: z
+          axis: y
           mating_face:
-            normal: -z
-            mates_to: "hip disc horn top face (4 x M3 SHCS thread into the aluminum disc's tapped holes on the Phi 14 BCD)"
-            mating_plane_z_local_mm: 41.3
+            normal: +y
+            mates_to: "hip disc horn top face (4 x M3 SHCS thread into the aluminum disc's tapped holes on the Phi 14 BCD); horn plane at STL y = 0"
           holes_on_feature: [horn_bolt_+X, horn_bolt_+Y, horn_bolt_-X, horn_bolt_-Y]
-        - name: bottom_arm
+        - name: hip_bottom_arm
           type: extruded_rectangle
-          description: "PASSIVE bottom arm -- a TRUE mirror of the top arm.  Body inner face at z = JOINT_HORN_BOT_Z = -9, with the SAME 5 mm pad reaching UP onto the passive disc face (-4) on the servo's rear idler boss; bolts with 4 x M3 x 10 on the same Phi 14 BCD about the output axis (x = 12.5).  Replaces the retired 688 stub."
-          centre_mm: [24.0, 0.0, -11.0]
+          description: "PASSIVE hip bottom arm -- a TRUE mirror of the top arm.  Body inner face at joint-local z = JOINT_HORN_BOT_Z = -7 (STL y = 48.3), with the SAME 5 mm pad reaching onto the STOCK passive horn face (joint-local -2 -> STL y = 43.3, flush on the servo back face; Jul 2026 stock-horn refit); bolts with 4 x M3 x 10 on the same Phi 14 BCD.  Replaces the retired 688 stub."
+          centre_mm: [11.5, 50.3, 0.0]  # joint-local (24, 0, -9)
           length_mm: 44.0
           width_mm: 24.0
           thickness_mm: 4.0             # = _YOKE_ARM_T
-          axis: z
+          axis: y
           mating_face:
-            normal: +z
-            mates_to: "passive 20 mm aluminum 25T disc horn (on the STS3215 rear idler boss, centred by passive_horn_adapter); 4 x M3 x 10 SHCS thread into the disc's tapped holes -- identical to the top-arm interface"
-            mating_plane_z_local_mm: -4.0
-        - name: spine
+            normal: -y
+            mates_to: "STOCK passive 20 mm metal disc horn (centre bore over the STS3215 rear idler boss, flush on the back face -- no printed adapter); 4 x M3 x 10 SHCS -- identical to the top-arm interface"
+        - name: hip_spine
           type: extruded_rectangle
-          description: "Outboard +X web (x in [42, 46]) tying the two arms together in Z and carrying the tube socket.  Set +4 mm outboard (Jun 2026 ROM-clearance fix) so the swept web clears the fixed clamp cap + coxa through the full femur ROM, while still sitting OUTBOARD of the disc-horn sweep."
-          centre_mm: [44.0, 0.0, 16.15]
+          description: "Outboard web (joint-local x in [42, 46]) tying the two hip arms together and rooting the fused spar.  Set +4 mm outboard (Jun 2026 ROM-clearance fix) so the swept web clears the fixed clamp cap + coxa through the full femur ROM, while still sitting OUTBOARD of the disc-horn sweep."
+          centre_mm: [31.5, 24.15, 0.0] # joint-local (44, 0, 17.15)
           length_mm: 4.0                # = _YOKE_SPINE_X1 - _YOKE_SPINE_X0
           width_mm: 24.0
-          height_mm: 58.3               # spans bottom arm (-13) to top arm (45.3)
-          axis: z
-        - name: femur_tube_socket
+          height_mm: 56.3               # spans bottom arm to top arm (joint-local z in [-11, 45.3])
+          axis: y
+        - name: fused_femur_spar
           type: cylindrical_boss
-          description: "Phi 14 mm OD socket boss (radius LEG_TUBE_OD/2 + 3 = 7) whose MOUTH stays at x = _YOKE_SOCKET_X = 42 (femur tube span frozen) at z = JOINT_SOCKET_Z = 16.15.  A Phi 8.3 bore (LEG_TUBE_OD + 2 * LEG_TUBE_SOCKET_CLEAR) accepts the femur Phi 8 CF tube (epoxy bond); a transverse Phi LEG_TUBE_PIN_OD = 2.6 retention-pin cross-hole runs along Y at x = mouth + LEG_TUBE_PIN_INSET = 45.5."
-          centre_mm: [45.5, 0.0, 16.15]
-          length_mm: 20.0               # = LEG_TUBE_SOCKET_DEPTH + 6
-          diameter_mm: 14.0             # = LEG_TUBE_OD + 6 (boss OD)
-          inner_diameter_mm: 8.3        # = LEG_TUBE_OD + 2 * LEG_TUBE_SOCKET_CLEAR (tube bore -- not centreline-probeable through the thin boss wall, documented here)
+          description: "The SOLID femur spar (Jul 2026 merge #2; = hexapod_prototype._femur_fused_spar).  A solid Phi FEMUR_SPAR_OD = 14 cylinder (the old socket-boss OUTER diameter) on the femur line (joint-local z = JOINT_SOCKET_Z = 17.15 -> STL y = 24.15), running from the hip spine face (joint-local x = _YOKE_SOCKET_X = 42) to 1 mm PAST the knee well wall face at 58.3 (= FEMUR_LENGTH - WELL_W/2), i.e. buried volumetrically into the wall so the boolean union is one body.  NOTHING is cut from it: the old Phi 8.1 socket bore, Phi 7.8 rod tail and both transverse Phi 2.6 retention pins are RETIRED."
+          centre_mm: [38.15, 24.15, 0.0] # joint-local (50.65, 0, 17.15); spans joint-local x in [42, 59.3]
+          length_mm: 17.3               # = FEMUR_SPAR_LEN (16.3) + 1 mm wall bite
+          diameter_mm: 14.0             # = FEMUR_SPAR_OD = LEG_TUBE_OD + 6 (solid, full length)
           axis: x
-          mating_face:
-            normal: +x
-            mates_to: "femur Phi 8 mm carbon-fibre tube (epoxy + transverse Phi 2.6 retention pin); the tube spans to the femur_knee_bracket's -X socket"
-            mating_plane_z_local_mm: 16.65
-
-  femur_knee_bracket:
-    description: "Femur's KNEE-end FIXED side (Jun 2026 bearing-sandwich + symmetric-yoke update): an STS3215 front-face servo bracket (4 walls + output plate), OPEN at the back so the passive disc horn rides the servo's rear idler boss, with the femur Phi 8 CF-tube socket pointing back toward the hip (-X).  The tibia_knee_yoke straddles this side, bolting to the driven horn on the front and the passive horn on the back (no 688 bearing).  Shared joint-local frame (origin = servo back-face centre; output/knee axis at x = SERVO_OUTPUT_X = 12.5, +Z = knee output direction)."
-    qty: 6
-    bounds_mm: [70.4, 33.8, 38.3]       # measured (Jun 2026 symmetric-yoke refit, on disk).  Supersedes the 688-era [83.4, 33.8, 45.3]: removing the printed 688 back housing trims z to [0, 38.3], and the shortened FEMUR_TUBE_SOCKET_LEN trims the -X socket.
-    holes:
-      - name: servo_case_screw_+X+Y
-        diameter_mm: 2.7                # = SERVO_MOUNT_SCREW_OD (M2.5 clearance into the servo's metal case)
-        position_mm: [17.4, 4.9, 36.3]  # SERVO_MOUNT_SQUARE about the output axis; probed at mid-plate (plate z in [34.3, 38.3])
-        axis: z
-      - name: servo_case_screw_-X+Y
-        diameter_mm: 2.7
-        position_mm: [7.6, 4.9, 36.3]
-        axis: z
-      - name: servo_case_screw_+X-Y
-        diameter_mm: 2.7
-        position_mm: [17.4, -4.9, 36.3]
-        axis: z
-      - name: servo_case_screw_-X-Y
-        diameter_mm: 2.7
-        position_mm: [7.6, -4.9, 36.3]
-        axis: z
-      - name: output_coupling_bore
-        diameter_mm: 10.0               # = SERVO_OUTPUT_BORE_OD (output-coupling clearance through the mount plate)
-        position_mm: [12.5, 0.0, 36.3]
-        axis: z
-    wire_channels:
-      - name: knee_wire_exit_L
-        note: "L-corridor + boot pocket at the knee fixed side's +X bottom-outboard corner (inherited from _sandwich_fixed_side); routes the knee STS3215 harness outboard.  Verified by _verify_prototype.check_wire_slot."
-    keep_out_volumes: []                 # assembled-pose clearance verified by _verify_prototype
-    shape:
-      overall_form: "Knee fixed side = STS3215 front-face mount bracket (4 walls + output-face plate, outer envelope WELL_W x WELL_D x WELL_H = 63.4 x 33.8 x 38.3), OPEN at the back (no printed housing) so the passive disc horn rides the servo's rear idler boss, plus a Phi 8 CF-tube socket boss extending toward -X (back toward the hip).  The servo's output (knee) axis points +Z; the tibia_knee_yoke straddles the driven disc horn (front) + the passive disc horn (back)."
-      print_orientation_rationale: "Rotate +90 about X so the mount plate faces up and the CF-tube socket lays horizontal; the servo cavity + its open back face the side; no printed back housing means no recessed bearing pocket to bridge."
-      features:
-        - name: servo_mount_plate
+        - name: knee_servo_mount_plate
           type: extruded_rectangle
-          description: "Output-face mount plate capping the well top (z in [WELL_RIM_Z, WELL_RIM_Z + WELL_PLATE_T] = [34.3, 38.3]).  Carries the central output-coupling bore (Phi 10) and 4 x M2.5 case-screw clearance holes on the 9.8 mm SERVO_MOUNT_SQUARE about the output axis (x = 12.5).  The knee servo bolts to it from its front face."
-          centre_mm: [12.5, 0.0, 36.3]
+          description: "Knee output-face retaining lip capping the well top (knee-local z in [WELL_RIM_Z, WELL_RIM_Z + WELL_PLATE_T] = [34.3, 38.3] -> STL y in [3.0, 7.0]).  Carries the central output-coupling opening about the knee axis (STL x = 90) so the disc horn seats + spins; NO case screws (Jun 2026 clamshell redesign -- the servo front face just seats against the lip underside; retention = clamp cap + lip)."
+          centre_mm: [90.0, 5.0, 0.0]   # knee-local (12.5, 0, 36.3)
           length_mm: 63.4               # = HP.WELL_W
           width_mm: 33.8                # = HP.WELL_D
           thickness_mm: 4.0             # = HP.WELL_PLATE_T
-          axis: z
+          axis: y
           mating_face:
-            normal: +z
-            mates_to: "knee STS3215 servo front (output) face -- 4 x M2.5 into the servo's own metal case"
-            mating_plane_z_local_mm: 34.3
-          holes_on_feature: [servo_case_screw_+X+Y, servo_case_screw_-X+Y, servo_case_screw_+X-Y, servo_case_screw_-X-Y, output_coupling_bore]
-        - name: servo_well_walls
+            normal: -y
+            mates_to: "knee STS3215 servo front (output) face -- seats flush against the lip underside (no fasteners; the clamp cap + lip retain the body)"
+          holes_on_feature: [output_coupling_bore]
+        - name: knee_servo_well_walls
           type: rectangular_well
-          description: "4 side walls (z in [0, WELL_RIM_Z = 34.3]) locating the servo body with WELL_BODY_CL = 0.7 mm clearance; open at the back (-Z) for slide-in."
-          centre_mm: [12.5, 0.0, 17.15]
+          description: "4 side walls (knee-local z in [0, WELL_RIM_Z = 34.3]) locating the knee servo body with WELL_BODY_CL = 0.7 mm clearance; open at the back for slide-in.  The fused spar arrives through the -X wall (1 mm bury)."
+          centre_mm: [90.0, 24.15, 0.0] # knee-local (12.5, 0, 17.15)
           length_mm: 63.4               # = HP.WELL_W
           width_mm: 33.8                # = HP.WELL_D
           height_mm: 34.3               # = HP.WELL_RIM_Z
           wall_thickness_mm: 9.0        # = HP.WELL_WALL_X (the +/-X walls; +/-Y per WELL_WALL_Y)
-          axis: z
-        - name: passive_horn_rear_boss
+          axis: y
+        - name: knee_passive_horn_rear_boss
           type: open_clearance
-          description: "Symmetric-yoke refit: the old +X-half 688 back housing is RETIRED.  The back of the well is OPEN so the PASSIVE 20 mm disc horn rides the STS3215's internal rear idler boss (centred by the printed passive_horn_adapter + one M2.5 retention screw); the tibia_knee_yoke's bottom arm bolts to that passive disc horn just like its top arm bolts to the driven horn.  This entry documents the kept-clear rear volume below z=0."
-          centre_mm: [12.5, 0.0, -3.5]
+          description: "The back of the knee well is OPEN so the STOCK metal PASSIVE horn rides the STS3215's rear idler boss (Jul 2026 stock-horn refit: centre bore over the boss, flush on the back face; one M2.5 retention screw); the tibia_knee_yoke's bottom arm bolts to that passive disc horn just like its top arm bolts to the driven horn.  This entry documents the kept-clear rear volume behind the well (knee-local z < 0 -> STL y > 41.3)."
+          centre_mm: [90.0, 44.8, 0.0]  # knee-local (12.5, 0, -3.5)
           diameter_mm: 20.0             # = DISC_HORN_OD (passive disc horn swept envelope)
-          thickness_mm: 7.0             # = BACK_STACK_DEPTH (kinematics frozen vs the retired PASSIVE_BACK_PLATE_T)
-          axis: z
-        - name: femur_tube_socket
-          type: cylindrical_boss
-          description: "Phi 14 OD socket boss extending toward -X (mouth at x = -WELL_W/2 = -31.7) at z = JOINT_SOCKET_Z = 16.65.  A Phi 8.3 bore accepts the femur Phi 8 CF tube (epoxy); a transverse Phi 2.6 retention pin runs along Y at x = -31.7 - LEG_TUBE_PIN_INSET = -38.7."
-          centre_mm: [-41.7, 0.0, 16.65]   # boss centre = mouth (-31.7) - sock_len/2 (10) toward -X
-          length_mm: 20.0               # = LEG_TUBE_SOCKET_DEPTH + 6
-          diameter_mm: 14.0             # = LEG_TUBE_OD + 6
-          inner_diameter_mm: 8.3        # tube bore (not centreline-probeable through the thin boss wall)
-          axis: x
-          mating_face:
-            normal: -x
-            mates_to: "femur Phi 8 mm carbon-fibre tube (epoxy + transverse Phi 2.6 retention pin); other end sockets into femur_hip_yoke's +X spine"
-            mating_plane_z_local_mm: 16.65
+          thickness_mm: 7.0             # = BACK_STACK_DEPTH (FROZEN envelope; the real stock-horn stack is only DISC_HORN_H = 2 mm deep)
+          axis: y
 
   tibia_knee_yoke:
-    description: "Tibia's KNEE-end MOVING yoke (Jun 2026 bearing-sandwich).  GEOMETRICALLY IDENTICAL to femur_hip_yoke (same _sandwich_moving_yoke helper): a C-clevis whose top arm bolts to the knee disc horn (4 x M3 on the Phi 14 BCD) and whose bottom-arm stub rides the knee 688 inner race; the +X spine sockets the tibia Phi 8 CF tube toward the foot.  Shared joint-local frame."
+    description: "Tibia's KNEE-end MOVING yoke (Jun 2026 bearing-sandwich).  GEOMETRICALLY IDENTICAL to the femur_link's hip yoke (same _sandwich_moving_yoke helper): a C-clevis whose top arm bolts to the knee disc horn (4 x M3 on the Phi 14 BCD) and whose bottom arm bolts to the STOCK passive knee horn flush on the servo back face (Jul 2026 stock-horn refit); the +X spine sockets the tibia Phi 8 CF tube toward the foot.  Shared joint-local frame."
     qty: 6
-    bounds_mm: [60.0, 24.0, 57.3]       # identical part to femur_hip_yoke: x in [2.0, 62.0], y in [-12.0, 12.0], z in [-12.0, 45.3]
+    bounds_mm: [60.0, 24.0, 56.3]       # identical clevis to the femur_link hip yoke (longer default tube socket): z in [-11.0, 45.3] (Jul 2026 stock-horn refit)
     holes:
       - name: horn_bolt_+X
         diameter_mm: 3.4                # = DISC_HORN_BOLT_OD
@@ -913,8 +755,8 @@ parts:
     wire_channels: []
     keep_out_volumes: []
     shape:
-      overall_form: "Identical to femur_hip_yoke (same helper): SYMMETRIC C-clevis with a driven top arm (disc-horn bolts, underside at z = JOINT_HORN_TOP_Z = 41.3), a passive bottom arm that bolts to the passive knee disc horn (4 x M3, at z = JOINT_HORN_BOT_Z, on the servo's rear idler boss -- no stub/688), a +X spine, and a Phi 8 CF-tube socket toward +X (toward the foot)."
-      print_orientation_rationale: "Same as femur_hip_yoke: spine-down."
+      overall_form: "Identical to the femur_link hip yoke (same helper): SYMMETRIC C-clevis with a driven top arm (disc-horn bolts, underside at z = JOINT_HORN_TOP_Z = 41.3), a passive bottom arm that bolts to the STOCK passive knee horn (4 x M3, seat at z = JOINT_HORN_BOT_Z = -7; horn flush on the back face at -2 -- no printed adapter, no stub/688), a +X spine, and a Phi 8 CF-tube socket toward +X (toward the foot)."
+      print_orientation_rationale: "Same as the femur_link hip yoke: spine-down."
       features:
         - name: top_arm
           type: extruded_rectangle
@@ -931,20 +773,20 @@ parts:
           holes_on_feature: [horn_bolt_+X, horn_bolt_+Y, horn_bolt_-X, horn_bolt_-Y]
         - name: bottom_arm
           type: extruded_rectangle
-          description: "PASSIVE bottom arm -- a mirror of the top arm.  Seats on the passive knee disc horn (on the servo's rear idler boss, centred by passive_horn_adapter) at z = JOINT_HORN_BOT_Z and bolts to it with 4 x M3 on the same Phi 14 BCD about the output axis (x = 12.5).  Replaces the retired 688 stub."
-          centre_mm: [22.0, 0.0, -10.0]
+          description: "PASSIVE bottom arm -- a mirror of the top arm.  Seats on the STOCK passive knee horn (flush on the servo back face over the rear idler boss; Jul 2026 stock-horn refit -- no printed adapter) at z = JOINT_HORN_BOT_Z = -7 and bolts to it with 4 x M3 on the same Phi 14 BCD about the output axis (x = 12.5).  Replaces the retired 688 stub."
+          centre_mm: [22.0, 0.0, -9.0]
           length_mm: 40.0
           width_mm: 24.0
           thickness_mm: 4.0             # = _YOKE_ARM_T
           axis: z
           mating_face:
             normal: +z
-            mates_to: "passive 20 mm aluminum 25T disc horn (on the STS3215 rear idler boss); 4 x M3 SHCS into the disc's tapped holes -- identical to the top-arm interface"
-            mating_plane_z_local_mm: -8.0
+            mates_to: "STOCK passive 20 mm metal disc horn (centre bore over the STS3215 rear idler boss, flush on the back face); 4 x M3 SHCS into the disc's tapped holes -- identical to the top-arm interface"
+            mating_plane_z_local_mm: -2.0
         - name: tibia_tube_socket
           type: cylindrical_boss
-          description: "Phi 14 OD socket boss extending toward +X at z = JOINT_SOCKET_Z = 16.65; Phi 8.3 bore accepts the tibia Phi 8 CF tube (epoxy + Phi 2.6 transverse pin at x = mouth + 7 = 49) running to the tibia_foot_fitting."
-          centre_mm: [52.0, 0.0, 16.65]
+          description: "Phi 14 OD socket boss extending toward +X at z = JOINT_SOCKET_Z = 17.15 (yoke mid-plane; moved +1 mm by the Jul 2026 stock-horn refit); Phi 8.3 bore accepts the tibia Phi 8 CF tube (epoxy + Phi 2.6 transverse pin at x = mouth + 7 = 49) running to the tibia_foot_fitting."
+          centre_mm: [52.0, 0.0, 17.15]
           length_mm: 20.0
           diameter_mm: 14.0
           inner_diameter_mm: 8.3
@@ -952,7 +794,7 @@ parts:
           mating_face:
             normal: +x
             mates_to: "tibia Phi 8 mm carbon-fibre tube (epoxy + transverse Phi 2.6 retention pin); other end sockets into tibia_foot_fitting"
-            mating_plane_z_local_mm: 16.65
+            mating_plane_z_local_mm: 17.15
 
   tibia_foot_fitting:
     description: "Tibia's FOOT-end fitting (Jun 2026 bearing-sandwich): the tibia Phi 8 CF-tube socket (tube enters from -X) plus a single LINK_THICKNESS-thin foot-hinge TANG projecting +X.  The tang seats in the foot_pad's 2-cheek fork and is captured by an M3 x 16 pan-head + nyloc hinge pin (axis Y).  Local frame: origin at the tube-socket mouth; +X to the tang tip, +Y = hinge axis."
@@ -996,14 +838,15 @@ parts:
           holes_on_feature: [hinge_pin]
 
   # June 2026 bearing-sandwich refit: the single-piece pad-mating
-  # femur_link / tibia_link parts were REPLACED by the printed
-  # sandwich sub-parts above (femur_hip_yoke, femur_knee_bracket,
-  # tibia_knee_yoke, tibia_foot_fitting) joined by Phi 8 mm carbon-
-  # fibre tubes.  femur_link / tibia_link still exist as ASSEMBLY
-  # meshes (yoke + CF tube + bracket/fitting fused) for BuildViz /
-  # MuJoCo / the verifier, but are NOT single printable solids, so
-  # they are intentionally absent from this validated parts registry.
-  # See coordinate_systems above for their assembly frames.
+  # femur_link / tibia_link parts were REPLACED by printed sandwich
+  # sub-parts.  Jul 2026 merge #2 brought the femur back to ONE printed
+  # part -- femur_link above (hip yoke + solid Phi 14 spar + knee
+  # cradle; the interim femur_hip_yoke / femur_knee_bracket / separate
+  # femur_strut are all retired).  The tibia span is still a Phi 8 mm
+  # carbon-fibre tube: tibia_link exists only as an ASSEMBLY mesh
+  # (yoke + CF tube + fitting) for BuildViz / MuJoCo / the verifier and
+  # is NOT a printable solid, so it is intentionally absent from this
+  # validated parts registry.  See coordinate_systems above for frames.
 
 
   foot_pad:

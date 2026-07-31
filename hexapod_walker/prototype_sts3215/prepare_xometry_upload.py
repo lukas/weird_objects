@@ -19,10 +19,10 @@ Output:
         # servo now drops INTO an integrated cradle inside
         # chassis_bottom (see make_chassis_bottom).
         coxa_link.stl              -- qty 6
-        # Bearing-sandwich leg: femur/tibia SEGMENTS are bought Ø8 CF
-        # tubes; only the sockets below are printed.
-        femur_hip_yoke.stl         -- qty 6
-        femur_knee_bracket.stl     -- qty 6
+        # Bearing-sandwich leg: the WHOLE femur is ONE printed part
+        # (Jul 2026 merge #2 of hip yoke + solid spar + knee bracket);
+        # the tibia SEGMENT is a bought Ø8 CF tube.
+        femur_link.stl             -- qty 6
         tibia_knee_yoke.stl        -- qty 6
         tibia_foot_fitting.stl     -- qty 6
         foot_pad.stl               -- qty 6  (TPU 95A, separate quote)
@@ -53,11 +53,8 @@ from hexapod_prototype import (
     make_chassis_top,
     make_coxa_hip_bracket,
     make_coxa_yaw_hub,
-    make_femur_hip_yoke,
-    make_femur_knee_bracket,
-    make_femur_strut,
+    make_femur_link_part,
     make_foot_pad,
-    make_passive_horn_adapter,
     make_servo_clamp_cap,
     make_tibia_foot_fitting,
     make_spider_carapace,
@@ -149,15 +146,6 @@ def _lay_flat(mesh):
     return _drop_to_bed(best[1])
 
 
-def _reorient_femur_strut(mesh):
-    """Printed femur strut: a short Phi 7.8 rod (axis +X in its local frame).
-    Stand it on an end cap (rotate axis X -> Z) so it prints on a FULL flat
-    circular bed face -- zero overhang, max bed contact.  The 2 transverse pin
-    holes end up horizontal (fine on MJF; small Phi 2.6 bridges on FDM)."""
-    out = _rotate(mesh, np.pi / 2, [0, 1, 0])   # rod axis X -> Z (stand upright)
-    return _drop_to_bed(out)
-
-
 def _reorient_foot_pad(mesh):
     """Cylindrical disc with hub, hub up. Already in correct orientation."""
     return _drop_to_bed(mesh)
@@ -242,30 +230,20 @@ PART_REGISTRY: list[tuple[str,
      "disc horn rides the servo's rear idler boss, no 688 bearing). Oriented "
      "so the cradle opens +Z."),
 
-    # Bearing-sandwich leg (Jun 2026): the femur and tibia SEGMENTS are
-    # bought Ø8 carbon-fibre tubes (cut to length, epoxied into the
-    # printed sockets below) -- NOT printed.  The old one-piece
-    # femur_link / tibia_link were assembled visual/sim meshes (yoke +
-    # SOLID tube + bracket) and must not be printed.
-    ("femur_hip_yoke.stl",       make_femur_hip_yoke,      _lay_flat,
+    # Bearing-sandwich leg (Jun 2026): the tibia SEGMENT is a bought Ø8
+    # carbon-fibre tube (cut to length, epoxied into the printed sockets
+    # below) -- NOT printed.  The assembled tibia_link visual/sim mesh
+    # (yoke + SOLID tube + fitting) must not be printed.
+    # Jul 2026 merge #2 (user: "combine the femur knee bracket with the
+    # femur hip yoke and make that connection very solid"): the WHOLE femur
+    # is ONE printed part -- hip yoke + solid Ø14 spar + knee bracket.  Two
+    # parts fewer per leg vs the original design, no slip fits, no pins.
+    ("femur_link.stl",           make_femur_link_part,     _lay_flat,
      6, "MJF PA12",      "white", "as-printed",
-     "Femur hip moving-yoke: bolts to the hip disc horn, sockets the "
-     "printed femur strut. Pair with femur_knee_bracket + femur_strut."),
-
-    # Jun 2026: printed SOLID femur strut REPLACES the Ø8 CF femur tube (user:
-    # the femur tube is tiny + cutting CF is a pain).  Drops into the SAME two
-    # sockets and is retained by the SAME 2 transverse pins, with the pin
-    # cross-holes printed in -- no CF to cut, no holes to drill.  Stand on end.
-    ("femur_strut.stl",          make_femur_strut,         _reorient_femur_strut,
-     6, "MJF PA12",      "white", "as-printed",
-     "Printed femur strut: solid Ø7.8 rod replacing the Ø8 CF femur segment. "
-     "Slip-fits both femur sockets; the 2 transverse Ø2.6 retention-pin holes "
-     "are printed in (no cutting/drilling). 1 per leg, 6 per robot."),
-
-    ("femur_knee_bracket.stl",   make_femur_knee_bracket,  _lay_flat,
-     6, "MJF PA12",      "white", "as-printed",
-     "Femur knee FIXED side: carries the knee servo cradle and sockets "
-     "the far end of the printed femur strut (snug-fit cradle, Jun 2026)."),
+     "ONE-PIECE femur: hip moving-yoke (bolts to the hip disc horn), "
+     "SOLID Ø14 spar bridging the 90 mm hip-to-knee span, and the knee "
+     "servo cradle + 688 bearing housing -- a single printed body with "
+     "no sockets or retention pins."),
 
     ("tibia_knee_yoke.stl",      make_tibia_knee_yoke,     _lay_flat,
      6, "MJF PA12",      "white", "as-printed",
@@ -304,19 +282,17 @@ PART_REGISTRY: list[tuple[str,
     ("servo_clamp_cap.stl",      make_servo_clamp_cap,     _lay_flat,
      12, "MJF PA12",     "white", "as-printed",
      "Clamshell cap closing the OPEN +Y face of each sandwich-joint servo "
-     "cradle (hip-pitch coxa_link + knee femur_knee_bracket = 2/leg). Bolts "
+     "cradle (hip-pitch coxa_link + the femur_link knee cradle = 2/leg). Bolts "
      "-Y with 2 x M3 into the cradle's +/-X wall ends to clamp the STS3215 "
      "body; the tongue now seats FLUSH on the body's +Y face so the bolts "
      "trap it with no slop; centre is bored so the disc horn spins free. The "
      "2 bolt heads RECESS into Phi 6 mm counterbores (flush with the +Y face) "
      "so the swept femur/tibia yoke clears them."),
 
-    ("passive_horn_adapter.stl", make_passive_horn_adapter, _drop_to_bed,
-     12, "MJF PA12",     "white", "as-printed",
-     "Symmetric-yoke refit centering adapter (1 per hip + knee sandwich "
-     "joint = 2/leg). Press-fits the STS3215's rear idler boss and centres "
-     "the reused 20 mm aluminium 25T disc horn on the PASSIVE side; a central "
-     "M2.5 screw retains it. Replaces the retired 688 passive ball bearing."),
+    # Jul 2026 stock-horn refit: passive_horn_adapter.stl removed -- the
+    # STS3215's STOCK metal passive horn centres itself on the rear idler
+    # boss (its bore rides the boss, seating flush on the back face), so no
+    # printed centering/standoff bushing is quoted.
 
     ("spider_carapace.stl",      make_spider_carapace,     _reorient_carapace,
      1, "PLA/PETG rigid", "black", "as-printed",
@@ -330,7 +306,7 @@ PART_REGISTRY: list[tuple[str,
     # moving yoke now bolts directly onto the 20 mm aluminum 25T disc horn
     # that seats on the servo spline (DISC_HORN_COLLAR_OD recess + 4 x
     # DISC_HORN_BOLT_PCD = 14 mm pattern cut into the yoke pad in
-    # make_coxa_link / make_femur_hip_yoke / make_tibia_knee_yoke).  No
+    # make_coxa_link / make_femur_link_part / make_tibia_knee_yoke).  No
     # 18 x adapter discs to quote.
 ]
 

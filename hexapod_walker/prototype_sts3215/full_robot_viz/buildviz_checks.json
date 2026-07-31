@@ -1,39 +1,3535 @@
 {
-  "scene": "scene.json",
-  "generatedBy": "buildviz_checks.py (generic prototype)",
-  "config": {
-    "overlapMm3": 80.0,
-    "pitchMm": 2.0
+  "generatedAt": "2026-07-30T22:56:51.629765+00:00",
+  "build": {
+    "id": "prototype_sts3215",
+    "name": "Hexapod STS3215 \u2014 full robot"
   },
-  "results": [
+  "generatedBy": "full_robot_viz_build.py (precomputed offline)",
+  "checksConfig": {
+    "overlapMm3": 80.0,
+    "pitchMm": 2.0,
+    "ignoreOverlapPairs": [
+      [
+        "chassis_bottom",
+        "lipo_battery"
+      ],
+      [
+        "chassis_bottom",
+        "yaw_servo"
+      ],
+      [
+        "coxa_hip_bracket",
+        "coxa_yaw_hub"
+      ],
+      [
+        "coxa_hip_bracket",
+        "hip_servo"
+      ],
+      [
+        "coxa_hip_bracket",
+        "yaw_bearing_cap"
+      ],
+      [
+        "coxa_yaw_hub",
+        "yaw_bearing_cap"
+      ],
+      [
+        "disc_horn_hip",
+        "hip_servo"
+      ],
+      [
+        "disc_horn_knee",
+        "knee_servo"
+      ],
+      [
+        "disc_horn_yaw",
+        "yaw_servo"
+      ],
+      [
+        "femur_link",
+        "knee_servo"
+      ],
+      [
+        "hip_clamp_cap",
+        "hip_servo"
+      ],
+      [
+        "knee_clamp_cap",
+        "knee_servo"
+      ],
+      [
+        "tibia_foot_fitting",
+        "tibia_tube"
+      ],
+      [
+        "tibia_knee_yoke",
+        "tibia_tube"
+      ]
+    ]
+  },
+  "summary": {
+    "total": 84,
+    "pass": 44,
+    "warn": 0,
+    "fail": 40,
+    "byKind": {
+      "scene_meta": {
+        "pass": 1,
+        "warn": 0,
+        "fail": 0
+      },
+      "mesh_overlap": {
+        "pass": 43,
+        "warn": 0,
+        "fail": 40
+      }
+    }
+  },
+  "checks": [
     {
-      "check": "scene_meta",
-      "pass": true,
-      "detail": "manifest OK",
-      "offenders": []
+      "id": "scene_meta-unique-ids",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "460 instances, ids unique"
     },
     {
-      "check": "placement",
-      "pass": true,
-      "detail": "508 instances placed sanely",
-      "offenders": []
+      "id": "mesh_overlap-0",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 knee_servo = 20637 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "015-femur_link",
+        "022-knee_servo"
+      ],
+      "point": [
+        164.36193359398567,
+        88.81623469281762,
+        118.88554492585145
+      ],
+      "region": {
+        "min": [
+          140.44832136630265,
+          66.42369523337977,
+          99.2044285522404
+        ],
+        "max": [
+          187.8747502610261,
+          115.77331694950408,
+          136.70140049168907
+        ]
+      }
     },
     {
-      "check": "mesh_overlap",
-      "pass": true,
-      "detail": "no solids interpenetrate above 80 mm^3",
-      "offenders": []
+      "id": "mesh_overlap-1",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 knee_servo = 16357 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "031-femur_link",
+        "038-knee_servo"
+      ],
+      "point": [
+        4.776665069249057,
+        184.44026215267994,
+        115.86374605655796
+      ],
+      "region": {
+        "min": [
+          -15.044117691937577,
+          158.99277689726568,
+          99.2044285522404
+        ],
+        "max": [
+          16.544116928998207,
+          206.5470511973934,
+          136.70140049168907
+        ]
+      }
     },
     {
-      "check": "fastener_attach",
-      "pass": true,
-      "detail": "348 fasteners all touch a solid (within 1 mm)",
-      "offenders": []
+      "id": "mesh_overlap-2",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_hip_bracket \u2229 hip_servo = 13122 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "059-coxa_hip_bracket",
+        "069-hip_servo"
+      ],
+      "point": [
+        -82.54127408393924,
+        -41.432748810915406,
+        82.42930335159862
+      ],
+      "region": {
+        "min": [
+          -113.56961895675609,
+          -72.88773366407999,
+          74.86666622161866
+        ],
+        "max": [
+          -61.13546141866196,
+          -24.514190785291618,
+          95.53333225250245
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-3",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 knee_servo = 11461 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "047-femur_link",
+        "054-knee_servo"
+      ],
+      "point": [
+        -153.5067383364223,
+        97.07950947774687,
+        113.78515748105386
+      ],
+      "region": {
+        "min": [
+          -186.37475064249577,
+          77.2467077366956,
+          99.2044285522404
+        ],
+        "max": [
+          -128.63822850978897,
+          118.37139250013252,
+          136.70140049168907
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-4",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_hip_bracket \u2229 hip_servo = 10493 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "027-coxa_hip_bracket",
+        "037-hip_servo"
+      ],
+      "point": [
+        5.440395311112421,
+        106.68759013665341,
+        82.12426979431291
+      ],
+      "region": {
+        "min": [
+          -14.57352909761315,
+          79.3759992980957,
+          74.86666622161866
+        ],
+        "max": [
+          16.57352871614347,
+          127.1240007019043,
+          95.53333225250245
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-5",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_hip_bracket \u2229 hip_servo = 10079 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "011-coxa_hip_bracket",
+        "021-hip_servo"
+      ],
+      "point": [
+        99.73691463649658,
+        53.93883422273741,
+        82.80367122303414
+      ],
+      "region": {
+        "min": [
+          81.30244508715968,
+          32.57644793175635,
+          74.86666622161866
+        ],
+        "max": [
+          113.56961895675607,
+          72.88773366408,
+          95.53333225250245
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-6",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_hip_bracket \u2229 hip_servo = 10041 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "043-coxa_hip_bracket",
+        "053-hip_servo"
+      ],
+      "point": [
+        -78.79952887528256,
+        54.80611963402669,
+        82.49561836787439
+      ],
+      "region": {
+        "min": [
+          -115.66392556255558,
+          27.11226633592002,
+          74.86666622161866
+        ],
+        "max": [
+          -59.62032074808442,
+          75.48580921470841,
+          95.53333225250245
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-7",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 knee_servo = 7732 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "063-femur_link",
+        "070-knee_servo"
+      ],
+      "point": [
+        -156.75396933191655,
+        -81.2619825074156,
+        111.21699485884241
+      ],
+      "region": {
+        "min": [
+          -187.8747502610261,
+          -113.7170827113322,
+          99.2044285522404
+        ],
+        "max": [
+          -134.26226542351264,
+          -64.36746099520792,
+          136.70140049168907
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-8",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_hip_bracket \u2229 hip_servo = 7438 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "075-coxa_hip_bracket",
+        "085-hip_servo"
+      ],
+      "point": [
+        -3.7727967900079467,
+        -86.98174650965841,
+        82.86981189241337
+      ],
+      "region": {
+        "min": [
+          -16.573528716143517,
+          -127.1240007019043,
+          74.86666622161866
+        ],
+        "max": [
+          14.573529097613118,
+          -79.3759992980957,
+          95.53333225250245
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-9",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 3506 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "020-yaw_servo"
+      ],
+      "point": [
+        68.12633560679114,
+        36.787929661940936,
+        35.261299606256536
+      ],
+      "region": {
+        "min": [
+          51.95293491013106,
+          23.66934994724155,
+          26.581249141693114
+        ],
+        "max": [
+          100.78067606747945,
+          63.830650052758436,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-10",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 knee_servo = 3504 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "079-femur_link",
+        "086-knee_servo"
+      ],
+      "point": [
+        -2.7142306502657325,
+        -168.76509218530137,
+        108.42920677600856
+      ],
+      "region": {
+        "min": [
+          -16.5441169289983,
+          -208.6146283408772,
+          99.2044285522404
+        ],
+        "max": [
+          15.04411769193749,
+          -158.99277689726568,
+          134.61823538394194
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-11",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 lipo_battery = 3432 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "002-lipo_battery"
+      ],
+      "point": [
+        -17.372616632860137,
+        3.9318704284221497,
+        36.778375673842156
+      ],
+      "region": {
+        "min": [
+          -74.97058823529412,
+          -20.90909090909091,
+          34.76874923706055
+        ],
+        "max": [
+          58.970588235294116,
+          20.909090909090907,
+          39.20624923706055
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-12",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 3200 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "052-yaw_servo"
+      ],
+      "point": [
+        -71.21794955643091,
+        35.72626679420571,
+        35.5170236690787
+      ],
+      "region": {
+        "min": [
+          -100.7806760674794,
+          23.669349947241578,
+          26.581249141693114
+        ],
+        "max": [
+          -51.95293491013105,
+          63.830650052758486,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-13",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 3119 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "100-yaw_servo"
+      ],
+      "point": [
+        66.04808894792707,
+        -43.50063245032519,
+        35.56034730400118
+      ],
+      "region": {
+        "min": [
+          51.95293491013105,
+          -63.83065005275845,
+          26.581249141693114
+        ],
+        "max": [
+          100.78067606747942,
+          -23.669349947241543,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-14",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 knee_servo = 3085 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "095-femur_link",
+        "102-knee_servo"
+      ],
+      "point": [
+        173.5041864120766,
+        -103.75277046081408,
+        122.0609373171404
+      ],
+      "region": {
+        "min": [
+          159.56850822373912,
+          -118.37139250013246,
+          111.7034191987233
+        ],
+        "max": [
+          186.37475064249583,
+          -87.52787892755477,
+          136.70140049168907
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-15",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "yaw_servo \u2229 yaw_servo_retainer = 2972 mm\u00b3 interpenetration",
+      "instances": [
+        "100-yaw_servo",
+        "105-yaw_servo_retainer"
+      ],
+      "point": [
+        71.94028068710224,
+        -37.114438658308785,
+        13.748032790415838
+      ],
+      "region": {
+        "min": [
+          53.98742412502056,
+          -53.79032502637922,
+          7.172221459282772
+        ],
+        "max": [
+          92.64271920792136,
+          -23.669349947241543,
+          22.377777014838326
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-16",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 2711 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "068-yaw_servo"
+      ],
+      "point": [
+        -73.68474702506664,
+        -45.01321883790534,
+        35.78550936118091
+      ],
+      "region": {
+        "min": [
+          -100.78067606747943,
+          -63.830650052758436,
+          26.581249141693114
+        ],
+        "max": [
+          -51.952934910131056,
+          -23.66934994724153,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-17",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "yaw_servo \u2229 yaw_servo_retainer = 2685 mm\u00b3 interpenetration",
+      "instances": [
+        "052-yaw_servo",
+        "057-yaw_servo_retainer"
+      ],
+      "point": [
+        -67.39833111412848,
+        42.165554187618,
+        13.790060119861115
+      ],
+      "region": {
+        "min": [
+          -86.5392515632528,
+          23.669349947241578,
+          7.172221459282772
+        ],
+        "max": [
+          -51.95293491013105,
+          57.80645503693095,
+          22.377777014838326
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-18",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 2626 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "036-yaw_servo"
+      ],
+      "point": [
+        -2.023385627107469,
+        77.39186348161174,
+        35.78036520193996
+      ],
+      "region": {
+        "min": [
+          -10.333333015441877,
+          66.8759992980957,
+          28.612499046325684
+        ],
+        "max": [
+          10.333333015441921,
+          108.39600051879883,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-19",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 2193 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "084-yaw_servo"
+      ],
+      "point": [
+        -2.222152491722016,
+        -85.02635719849401,
+        36.18988897269788
+      ],
+      "region": {
+        "min": [
+          -10.333333015441964,
+          -108.39600051879883,
+          28.612499046325684
+        ],
+        "max": [
+          10.333333015441848,
+          -66.87599929809568,
+          38.76874856948853
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-20",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 tibia_knee_yoke = 1780 mm\u00b3 interpenetration",
+      "instances": [
+        "063-femur_link",
+        "064-tibia_knee_yoke"
+      ],
+      "point": [
+        -185.9894928047314,
+        -86.59702338668143,
+        117.72477921284359
+      ],
+      "region": {
+        "min": [
+          -198.60239259659855,
+          -96.30088594802918,
+          107.85147301778139
+        ],
+        "max": [
+          -169.9677011772237,
+          -73.82878317438178,
+          132.84071052905819
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-21",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 knee_clamp_cap = 1698 mm\u00b3 interpenetration",
+      "instances": [
+        "015-femur_link",
+        "024-knee_clamp_cap"
+      ],
+      "point": [
+        170.00084948364488,
+        94.39514039198188,
+        138.75358839897123
+      ],
+      "region": {
+        "min": [
+          156.06152190226751,
+          76.5126436156621,
+          132.6366891502072
+        ],
+        "max": [
+          184.44929608247924,
+          111.58984883075108,
+          144.66225277969255
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-22",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "coxa_hip_bracket \u2229 femur_link = 1632 mm\u00b3 interpenetration",
+      "instances": [
+        "011-coxa_hip_bracket",
+        "015-femur_link"
+      ],
+      "point": [
+        116.59384495763396,
+        46.76948728038578,
+        91.07247369063182
+      ],
+      "region": {
+        "min": [
+          100.13172456738477,
+          33.54473645719909,
+          75.92678612492672
+        ],
+        "max": [
+          124.69927563027738,
+          56.13040829355169,
+          100.08667444725998
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-23",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "yaw_servo \u2229 yaw_servo_retainer = 1317 mm\u00b3 interpenetration",
+      "instances": [
+        "068-yaw_servo",
+        "073-yaw_servo_retainer"
+      ],
+      "point": [
+        -59.136159400690524,
+        -41.62975259219471,
+        13.009310224025171
+      ],
+      "region": {
+        "min": [
+          -86.53925156325283,
+          -49.774195015827516,
+          7.172221459282772
+        ],
+        "max": [
+          -51.952934910131056,
+          -23.66934994724153,
+          22.377777014838326
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-24",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1226 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "054-knee_servo",
+        "056-knee_clamp_cap"
+      ],
+      "point": [
+        -152.8750293390983,
+        89.96876167436507,
+        128.59074456042396
+      ],
+      "region": {
+        "min": [
+          -176.74929951266347,
+          66.97667783004849,
+          120.62463498417048
+        ],
+        "max": [
+          -130.59005703423,
+          112.45893932249587,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-25",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1226 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "102-knee_servo",
+        "104-knee_clamp_cap"
+      ],
+      "point": [
+        152.87502933909818,
+        -89.96876167436506,
+        128.5907445604239
+      ],
+      "region": {
+        "min": [
+          130.59005703423006,
+          -112.45893932249581,
+          120.62463498417048
+        ],
+        "max": [
+          176.74929951266353,
+          -66.97667783004843,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-26",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1222 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "022-knee_servo",
+        "024-knee_clamp_cap"
+      ],
+      "point": [
+        154.03470061271267,
+        87.56538058420703,
+        128.50910068482534
+      ],
+      "region": {
+        "min": [
+          130.0900296447739,
+          64.36527876084453,
+          120.62463498417048
+        ],
+        "max": [
+          178.4217135820037,
+          109.55442284463032,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-27",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1222 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "070-knee_servo",
+        "072-knee_clamp_cap"
+      ],
+      "point": [
+        -154.03470061271278,
+        -87.565380584207,
+        128.50910068482548
+      ],
+      "region": {
+        "min": [
+          -178.4217135820037,
+          -109.5544228446303,
+          120.62463498417048
+        ],
+        "max": [
+          -130.0900296447739,
+          -64.36527876084452,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-28",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1137 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "086-knee_servo",
+        "088-knee_clamp_cap"
+      ],
+      "point": [
+        -0.9999996185303957,
+        -179.3893238727669,
+        129.5028232849671
+      ],
+      "region": {
+        "min": [
+          -16.573528693704183,
+          -196.08284730063642,
+          120.62463498417048
+        ],
+        "max": [
+          14.573529456643382,
+          -161.04705739029288,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-29",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1137 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "038-knee_servo",
+        "040-knee_clamp_cap"
+      ],
+      "point": [
+        0.9999996185303102,
+        179.3893238727669,
+        129.50282328496706
+      ],
+      "region": {
+        "min": [
+          -14.573529456643467,
+          161.04705739029288,
+          120.62463498417048
+        ],
+        "max": [
+          16.573528693704084,
+          196.08284730063642,
+          136.76679553107337
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-30",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "tibia_knee_yoke \u2229 knee_servo = 1132 mm\u00b3 interpenetration",
+      "instances": [
+        "080-tibia_knee_yoke",
+        "086-knee_servo"
+      ],
+      "point": [
+        12.799690495186805,
+        -199.66153820468244,
+        119.40564808394632
+      ],
+      "region": {
+        "min": [
+          6.620588459687948,
+          -206.66989069032235,
+          111.7034191987233
+        ],
+        "max": [
+          15.04411769193749,
+          -188.61447411714823,
+          128.36874006070047
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-31",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "yaw_servo \u2229 yaw_servo_retainer = 1081 mm\u00b3 interpenetration",
+      "instances": [
+        "020-yaw_servo",
+        "025-yaw_servo_retainer"
+      ],
+      "point": [
+        60.077051707002745,
+        46.208855108501076,
+        12.80226681075671
+      ],
+      "region": {
+        "min": [
+          51.95293491013106,
+          37.725804984172456,
+          7.172221459282772
+        ],
+        "max": [
+          82.4702731334738,
+          61.82258504748259,
+          22.377777014838326
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-32",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 knee_clamp_cap = 1073 mm\u00b3 interpenetration",
+      "instances": [
+        "031-femur_link",
+        "040-knee_clamp_cap"
+      ],
+      "point": [
+        7.7489254124823095,
+        194.90779496711667,
+        139.54934307327858
+      ],
+      "region": {
+        "min": [
+          -14.581578987523098,
+          159.13324738143956,
+          120.61112552072184
+        ],
+        "max": [
+          20.581578224583716,
+          202.27232097401213,
+          144.66225277969255
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-33",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "coxa_hip_bracket \u2229 femur_link = 956 mm\u00b3 interpenetration",
+      "instances": [
+        "027-coxa_hip_bracket",
+        "031-femur_link"
+      ],
+      "point": [
+        -7.819558609233165,
+        127.32837807895433,
+        95.17179520521674
+      ],
+      "region": {
+        "min": [
+          -14.63499965667723,
+          116.32934115460408,
+          85.99340625923224
+        ],
+        "max": [
+          21.634999656677273,
+          130.65366831189755,
+          100.08667444725998
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-34",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "yaw_servo \u2229 yaw_servo_retainer = 847 mm\u00b3 interpenetration",
+      "instances": [
+        "084-yaw_servo",
+        "089-yaw_servo_retainer"
+      ],
+      "point": [
+        -6.559420088063199,
+        -70.81146176341956,
+        12.461110348171674
+      ],
+      "region": {
+        "min": [
+          -10.333333015441964,
+          -89.56363591280851,
+          7.172221459282772
+        ],
+        "max": [
+          10.333333015441848,
+          -66.8636356267062,
+          20.205554792616105
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-35",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 tibia_knee_yoke = 821 mm\u00b3 interpenetration",
+      "instances": [
+        "079-femur_link",
+        "080-tibia_knee_yoke"
+      ],
+      "point": [
+        10.274453246363207,
+        -207.88299995938073,
+        114.56779961615754
+      ],
+      "region": {
+        "min": [
+          -21.607142203194854,
+          -216.60968759533606,
+          107.85147301778139
+        ],
+        "max": [
+          14.585714449201184,
+          -198.59737158641178,
+          124.51096469196591
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-36",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "yaw_servo \u2229 yaw_servo_retainer = 817 mm\u00b3 interpenetration",
+      "instances": [
+        "036-yaw_servo",
+        "041-yaw_servo_retainer"
+      ],
+      "point": [
+        8.154954704078479,
+        72.21793544848953,
+        13.043092330153655
+      ],
+      "region": {
+        "min": [
+          2.066666603088402,
+          66.86363562670621,
+          7.172221459282772
+        ],
+        "max": [
+          10.333333015441921,
+          95.75454508174549,
+          20.205554792616105
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-37",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 tibia_tube = 731 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "016-tibia_knee_yoke",
+        "017-tibia_tube"
+      ],
+      "point": [
+        197.10634580519556,
+        112.02373528663199,
+        100.45507790983663
+      ],
+      "region": {
+        "min": [
+          189.06691612968797,
+          106.24316899126377,
+          93.20598512716374
+        ],
+        "max": [
+          206.19530938090003,
+          118.65617450973882,
+          107.54352597710361
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-38",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_hip_bracket \u2229 hip_servo = 710 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "091-coxa_hip_bracket",
+        "101-hip_servo"
+      ],
+      "point": [
+        105.1911307234878,
+        -63.087034966736105,
+        82.4444437662759
+      ],
+      "region": {
+        "min": [
+          95.64835241453018,
+          -75.48580921470838,
+          74.86666622161866
+        ],
+        "max": [
+          115.66392556255559,
+          -53.314602061930366,
+          95.53333225250245
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-39",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 tibia_tube = 709 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "096-tibia_knee_yoke",
+        "097-tibia_tube"
+      ],
+      "point": [
+        195.48231012993963,
+        -114.60890417599205,
+        100.50923465101499
+      ],
+      "region": {
+        "min": [
+          189.70796534966772,
+          -121.25425043202503,
+          93.20598512716374
+        ],
+        "max": [
+          202.55426047881164,
+          -108.84124516132184,
+          107.54352597710361
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-40",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_tube \u2229 tibia_foot_fitting = 690 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "017-tibia_tube",
+        "018-tibia_foot_fitting"
+      ],
+      "point": [
+        269.3890010109244,
+        153.75191646264258,
+        41.95790562496299
+      ],
+      "region": {
+        "min": [
+          261.5591171373866,
+          147.2654587588397,
+          35.110424630804026
+        ],
+        "max": [
+          276.91773550471066,
+          159.40525115861792,
+          49.44796548074391
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-41",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 tibia_tube = 674 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "048-tibia_knee_yoke",
+        "049-tibia_tube"
+      ],
+      "point": [
+        -195.51613070061057,
+        114.60757030480454,
+        100.35296597637407
+      ],
+      "region": {
+        "min": [
+          -202.5542604788116,
+          108.84124516132186,
+          93.20598512716374
+        ],
+        "max": [
+          -187.56691616147705,
+          119.18541622024121,
+          107.54352597710361
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-42",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_tube \u2229 tibia_foot_fitting = 670 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "097-tibia_tube",
+        "098-tibia_foot_fitting"
+      ],
+      "point": [
+        268.1262702192134,
+        -156.46480255458437,
+        41.855068666995074
+      ],
+      "region": {
+        "min": [
+          260.0591171373865,
+          -162.0033273699713,
+          35.110424630804026
+        ],
+        "max": [
+          275.4177355047106,
+          -149.8635349701931,
+          49.44796548074391
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-43",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_tube \u2229 tibia_foot_fitting = 656 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "049-tibia_tube",
+        "050-tibia_foot_fitting"
+      ],
+      "point": [
+        -268.06640859840684,
+        156.55919366491617,
+        41.846323792999605
+      ],
+      "region": {
+        "min": [
+          -275.4177355047106,
+          151.88683370348951,
+          35.110424630804026
+        ],
+        "max": [
+          -260.05911713738647,
+          162.00332736997134,
+          49.44796548074391
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-44",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "tibia_knee_yoke \u2229 knee_servo = 635 mm\u00b3 interpenetration",
+      "instances": [
+        "064-tibia_knee_yoke",
+        "070-knee_servo"
+      ],
+      "point": [
+        -181.550237917901,
+        -85.53656758404018,
+        118.54110231709333
+      ],
+      "region": {
+        "min": [
+          -187.9116122773405,
+          -91.72585924764849,
+          111.7034191987233
+        ],
+        "max": [
+          -173.73551585836478,
+          -79.67800142917432,
+          128.36874006070047
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-45",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_tube \u2229 tibia_foot_fitting = 563 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "033-tibia_tube",
+        "034-tibia_foot_fitting"
+      ],
+      "point": [
+        1.4800000000000586,
+        310.3344872815304,
+        41.78762222663317
+      ],
+      "region": {
+        "min": [
+          -0.4999999999999436,
+          301.89704718205115,
+          35.110424630804026
+        ],
+        "max": [
+          3.5000000000000635,
+          318.4005974988812,
+          49.44796548074391
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-46",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 hip_servo = 556 mm\u00b3 interpenetration",
+      "instances": [
+        "031-femur_link",
+        "037-hip_servo"
+      ],
+      "point": [
+        -13.190941260842692,
+        118.63172731073435,
+        86.19199920654289
+      ],
+      "region": {
+        "min": [
+          -15.044117691937592,
+          110.42740976231185,
+          78.99999942779542
+        ],
+        "max": [
+          -8.726470767750435,
+          127.11415731842527,
+          93.46666564941407
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-47",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 tibia_tube = 530 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "032-tibia_knee_yoke",
+        "033-tibia_tube"
+      ],
+      "point": [
+        1.5000000000000584,
+        226.42866902666003,
+        100.61444088549149
+      ],
+      "region": {
+        "min": [
+          -0.4999999999999436,
+          218.00132418402336,
+          93.20598512716374
+        ],
+        "max": [
+          3.5000000000000635,
+          234.50487450085342,
+          107.54352597710361
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-48",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_yaw_hub \u2229 yaw_bearing_cap = 499 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "010-coxa_yaw_hub",
+        "012-yaw_bearing_cap"
+      ],
+      "point": [
+        94.58887611961599,
+        61.603986016418474,
+        54.4481473852087
+      ],
+      "region": {
+        "min": [
+          68.75906215266076,
+          27.21936912079142,
+          52.96666590372721
+        ],
+        "max": [
+          106.16775824273378,
+          70.70966372204819,
+          55.63333257039388
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-49",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_yaw_hub \u2229 yaw_bearing_cap = 499 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "042-coxa_yaw_hub",
+        "044-yaw_bearing_cap"
+      ],
+      "point": [
+        -78.6162046372718,
+        61.60398676399522,
+        54.4481473852087
+      ],
+      "region": {
+        "min": [
+          -104.44601860422696,
+          27.219369868368183,
+          52.96666590372721
+        ],
+        "max": [
+          -67.03732251415394,
+          70.70966446962495,
+          55.63333257039388
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-50",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_yaw_hub \u2229 yaw_bearing_cap = 499 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "074-coxa_yaw_hub",
+        "076-yaw_bearing_cap"
+      ],
+      "point": [
+        7.986334925112455,
+        -88.39601364842167,
+        54.4481473852087
+      ],
+      "region": {
+        "min": [
+          -17.84347832721219,
+          -122.78063042958577,
+          52.96666590372721
+        ],
+        "max": [
+          19.565216727878678,
+          -79.29033597310385,
+          55.63333257039388
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-51",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_yaw_hub \u2229 yaw_bearing_cap = 459 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "090-coxa_yaw_hub",
+        "092-yaw_bearing_cap"
+      ],
+      "point": [
+        95.41633334110585,
+        -36.43159975927479,
+        54.345976248554805
+      ],
+      "region": {
+        "min": [
+          64.95906162026104,
+          -70.70966446962493,
+          52.96666590372721
+        ],
+        "max": [
+          106.52427949811994,
+          -29.29033627795181,
+          55.63333257039388
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-52",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_yaw_hub \u2229 yaw_bearing_cap = 459 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "058-coxa_yaw_hub",
+        "060-yaw_bearing_cap"
+      ],
+      "point": [
+        -77.78874741578181,
+        -36.43159901169802,
+        54.345976248554805
+      ],
+      "region": {
+        "min": [
+          -108.24601913662671,
+          -70.70966372204818,
+          52.96666590372721
+        ],
+        "max": [
+          -66.68080125876781,
+          -29.290335530375067,
+          55.63333257039388
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-53",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_yaw_hub \u2229 yaw_bearing_cap = 459 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "026-coxa_yaw_hub",
+        "028-yaw_bearing_cap"
+      ],
+      "point": [
+        8.813793313914358,
+        113.56840056934574,
+        54.345976248554805
+      ],
+      "region": {
+        "min": [
+          -21.64347756427265,
+          79.29033597310384,
+          52.96666590372721
+        ],
+        "max": [
+          19.92173916360609,
+          120.70966402689615,
+          55.63333257039388
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-54",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_tube \u2229 tibia_foot_fitting = 377 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "081-tibia_tube",
+        "082-tibia_foot_fitting"
+      ],
+      "point": [
+        -1.2014925373136143,
+        -312.27334654169977,
+        40.613105554021885
+      ],
+      "region": {
+        "min": [
+          -3.5000000000001954,
+          -318.4005974988812,
+          35.110424630804026
+        ],
+        "max": [
+          0.4999999999998348,
+          -303.9599909716549,
+          49.44796548074391
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-55",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 tibia_knee_yoke = 364 mm\u00b3 interpenetration",
+      "instances": [
+        "047-femur_link",
+        "048-tibia_knee_yoke"
+      ],
+      "point": [
+        -174.10860513847132,
+        122.12074172611793,
+        116.8015190767848
+      ],
+      "region": {
+        "min": [
+          -178.72514017012347,
+          112.73810309080882,
+          112.01634593632751
+        ],
+        "max": [
+          -154.16168962435188,
+          126.89814029730742,
+          132.84071052905819
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-56",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 knee_clamp_cap = 353 mm\u00b3 interpenetration",
+      "instances": [
+        "063-femur_link",
+        "072-knee_clamp_cap"
+      ],
+      "point": [
+        -137.9812133470136,
+        -74.19135797642825,
+        121.98905468660041
+      ],
+      "region": {
+        "min": [
+          -170.2554089923734,
+          -90.95619870422813,
+          120.61112552072184
+        ],
+        "max": [
+          -125.64604956632641,
+          -60.005723514443744,
+          132.6366891502072
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-57",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "coxa_hip_bracket \u2229 hip_clamp_cap = 342 mm\u00b3 interpenetration",
+      "instances": [
+        "011-coxa_hip_bracket",
+        "023-hip_clamp_cap"
+      ],
+      "point": [
+        107.60728474161806,
+        59.24843060386099,
+        99.34999866485587
+      ],
+      "region": {
+        "min": [
+          97.48809783346388,
+          42.35264818970553,
+          99.34999866485596
+        ],
+        "max": [
+          117.55921236203417,
+          73.22818965719775,
+          99.34999866485596
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-58",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_tube \u2229 tibia_foot_fitting = 338 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "065-tibia_tube",
+        "066-tibia_foot_fitting"
+      ],
+      "point": [
+        -272.26626822774966,
+        -154.26607237604517,
+        40.353868141639175
+      ],
+      "region": {
+        "min": [
+          -276.91773550471066,
+          -159.40525115861786,
+          35.110424630804026
+        ],
+        "max": [
+          -265.9472938137649,
+          -149.28875749213603,
+          49.44796548074391
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-59",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 knee_clamp_cap = 338 mm\u00b3 interpenetration",
+      "instances": [
+        "095-femur_link",
+        "104-knee_clamp_cap"
+      ],
+      "point": [
+        169.26069492593993,
+        -102.33356883300785,
+        141.1765821624504
+      ],
+      "region": {
+        "min": [
+          160.44461598798603,
+          -116.59770087699542,
+          138.64947096494987
+        ],
+        "max": [
+          178.6938993895507,
+          -87.71059069986333,
+          142.65799217477831
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-60",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 hip_servo = 334 mm\u00b3 interpenetration",
+      "instances": [
+        "015-femur_link",
+        "021-hip_servo"
+      ],
+      "point": [
+        110.87820719356998,
+        44.64669012450678,
+        88.29999914169318
+      ],
+      "region": {
+        "min": [
+          105.55978649112197,
+          39.798450294790996,
+          78.99999942779542
+        ],
+        "max": [
+          113.58101115710909,
+          48.05841444912163,
+          95.53333225250245
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-61",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 tibia_tube = 321 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "080-tibia_knee_yoke",
+        "081-tibia_tube"
+      ],
+      "point": [
+        -1.5350877192984298,
+        -224.9501874753202,
+        101.00359506309601
+      ],
+      "region": {
+        "min": [
+          -3.5000000000001954,
+          -232.44193071124965,
+          93.20598512716374
+        ],
+        "max": [
+          0.4999999999998348,
+          -218.00132418402336,
+          107.54352597710361
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-62",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 knee_clamp_cap = 301 mm\u00b3 interpenetration",
+      "instances": [
+        "047-femur_link",
+        "056-knee_clamp_cap"
+      ],
+      "point": [
+        -157.52670888583876,
+        101.95284188475603,
+        135.37421583009004
+      ],
+      "region": {
+        "min": [
+          -178.69389938955064,
+          85.64722568721109,
+          120.61112552072184
+        ],
+        "max": [
+          -128.00144549631543,
+          116.59770087699548,
+          142.65799217477831
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-63",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "tibia_knee_yoke \u2229 disc_horn_knee = 300 mm\u00b3 interpenetration",
+      "instances": [
+        "064-tibia_knee_yoke",
+        "445-disc_horn_knee"
+      ],
+      "point": [
+        -179.1031425081907,
+        -80.63048868307276,
+        123.02420401395977
+      ],
+      "region": {
+        "min": [
+          -185.01079014686815,
+          -83.53321117770572,
+          115.46526763740847
+        ],
+        "max": [
+          -172.8081081391084,
+          -76.49969128686425,
+          131.0060179500385
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-64",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "coxa_hip_bracket \u2229 hip_clamp_cap = 300 mm\u00b3 interpenetration",
+      "instances": [
+        "059-coxa_hip_bracket",
+        "071-hip_clamp_cap"
+      ],
+      "point": [
+        -68.81507707836349,
+        -34.80529360876297,
+        99.34999866485589
+      ],
+      "region": {
+        "min": [
+          -79.42409475775064,
+          -50.586125914370115,
+          99.34999866485596
+        ],
+        "max": [
+          -57.345868776323314,
+          -21.76895387804405,
+          99.34999866485596
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-65",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "chassis_bottom \u2229 coxa_yaw_hub = 282 mm\u00b3 interpenetration",
+      "instances": [
+        "000-chassis_bottom",
+        "074-coxa_yaw_hub"
+      ],
+      "point": [
+        8.147368180124321,
+        -92.59452637120296,
+        44.97368344758688
+      ],
+      "region": {
+        "min": [
+          -9.287999725341862,
+          -102.56489242553711,
+          41.099999237060544
+        ],
+        "max": [
+          17.543999481201105,
+          -82.30425552368165,
+          47.99999923706055
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-66",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "chassis_bottom \u2229 coxa_yaw_hub = 257 mm\u00b3 interpenetration",
+      "instances": [
+        "000-chassis_bottom",
+        "058-coxa_yaw_hub"
+      ],
+      "point": [
+        -80.9568932001495,
+        -40.40847038526337,
+        45.02352864882527
+      ],
+      "region": {
+        "min": [
+          -91.76254048763762,
+          -53.096000065516236,
+          41.099999237060544
+        ],
+        "max": [
+          -69.05854000718514,
+          -32.45599962874125,
+          47.99999923706055
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-67",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 knee_clamp_cap = 255 mm\u00b3 interpenetration",
+      "instances": [
+        "079-femur_link",
+        "088-knee_clamp_cap"
+      ],
+      "point": [
+        -3.502330435846206,
+        -156.02253867340372,
+        121.64188811753492
+      ],
+      "region": {
+        "min": [
+          -20.581578224583804,
+          -157.07900578179326,
+          120.61112552072184
+        ],
+        "max": [
+          14.581578987523017,
+          -155.02476418214695,
+          122.61538612563606
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-68",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "coxa_hip_bracket \u2229 hip_clamp_cap = 250 mm\u00b3 interpenetration",
+      "instances": [
+        "075-coxa_hip_bracket",
+        "087-hip_clamp_cap"
+      ],
+      "point": [
+        -3.5023306217050822,
+        -77.53244185557567,
+        99.3499986648559
+      ],
+      "region": {
+        "min": [
+          -20.58157824466111,
+          -78.52580593478295,
+          99.34999866485596
+        ],
+        "max": [
+          14.581578626130707,
+          -76.48064459523847,
+          99.34999866485596
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-69",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 disc_horn_hip = 214 mm\u00b3 interpenetration",
+      "instances": [
+        "015-femur_link",
+        "436-disc_horn_hip"
+      ],
+      "point": [
+        109.76118697682503,
+        40.56115455928329,
+        83.94193851247935
+      ],
+      "region": {
+        "min": [
+          102.16840714654177,
+          35.71584090598054,
+          77.42962417347094
+        ],
+        "max": [
+          114.37108901663997,
+          42.749360725291,
+          92.97037430065016
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-70",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "coxa_hip_bracket \u2229 hip_clamp_cap = 186 mm\u00b3 interpenetration",
+      "instances": [
+        "027-coxa_hip_bracket",
+        "039-hip_clamp_cap"
+      ],
+      "point": [
+        4.909311494557023,
+        122.73275488955208,
+        99.34999866485595
+      ],
+      "region": {
+        "min": [
+          -14.581578626130742,
+          121.47419406521705,
+          99.34999866485596
+        ],
+        "max": [
+          20.58157824466106,
+          123.51935540476153,
+          99.34999866485596
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-71",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "chassis_bottom \u2229 coxa_yaw_hub = 185 mm\u00b3 interpenetration",
+      "instances": [
+        "000-chassis_bottom",
+        "026-coxa_yaw_hub"
+      ],
+      "point": [
+        4.334399871826192,
+        110.18289190063477,
+        45.69999923706055
+      ],
+      "region": {
+        "min": [
+          -7.2239997863769325,
+          98.51276504516602,
+          41.099999237060544
+        ],
+        "max": [
+          17.54399948120119,
+          118.77340194702148,
+          47.99999923706055
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-72",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "coxa_hip_bracket \u2229 disc_horn_hip = 171 mm\u00b3 interpenetration",
+      "instances": [
+        "059-coxa_hip_bracket",
+        "439-disc_horn_hip"
+      ],
+      "point": [
+        -104.3716691508651,
+        -37.76728418661273,
+        88.7151689086844
+      ],
+      "region": {
+        "min": [
+          -112.33730870495695,
+          -42.74936072529099,
+          79.64973133449654
+        ],
+        "max": [
+          -100.13462683485875,
+          -35.71584090598053,
+          92.97037430065016
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-73",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "chassis_bottom \u2229 coxa_yaw_hub = 166 mm\u00b3 interpenetration",
+      "instances": [
+        "000-chassis_bottom",
+        "042-coxa_yaw_hub"
+      ],
+      "point": [
+        -77.6898129171092,
+        57.03636378526423,
+        45.69999923706055
+      ],
+      "region": {
+        "min": [
+          -91.7625404876376,
+          46.90399993448378,
+          41.099999237060544
+        ],
+        "max": [
+          -69.05854000718512,
+          67.54400037125876,
+          47.99999923706055
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-74",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 disc_horn_knee = 164 mm\u00b3 interpenetration",
+      "instances": [
+        "015-femur_link",
+        "442-disc_horn_knee"
+      ],
+      "point": [
+        175.10716416955597,
+        78.64032777538127,
+        119.51937641461629
+      ],
+      "region": {
+        "min": [
+          170.77432780448183,
+          76.49969128686429,
+          115.46526763740847
+        ],
+        "max": [
+          182.97700981224153,
+          83.53321117770578,
+          128.78591076251993
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-75",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 disc_horn_knee = 164 mm\u00b3 interpenetration",
+      "instances": [
+        "063-femur_link",
+        "445-disc_horn_knee"
+      ],
+      "point": [
+        -175.1955894014962,
+        -78.64032777538117,
+        126.85538277337331
+      ],
+      "region": {
+        "min": [
+          -182.97700981224153,
+          -83.53321117770572,
+          117.68537482492705
+        ],
+        "max": [
+          -170.7743278044818,
+          -76.49969128686425,
+          131.0060179500385
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-76",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "coxa_hip_bracket \u2229 disc_horn_hip = 164 mm\u00b3 interpenetration",
+      "instances": [
+        "011-coxa_hip_bracket",
+        "436-disc_horn_hip"
+      ],
+      "point": [
+        105.61699115330865,
+        38.36615272195259,
+        80.61499531755113
+      ],
+      "region": {
+        "min": [
+          100.13462683485874,
+          35.71584090598054,
+          77.42962417347094
+        ],
+        "max": [
+          114.37108901663997,
+          42.749360725291,
+          86.31005281757335
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-77",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "chassis_bottom \u2229 coxa_yaw_hub = 151 mm\u00b3 interpenetration",
+      "instances": [
+        "000-chassis_bottom",
+        "090-coxa_yaw_hub"
+      ],
+      "point": [
+        96.61294059027975,
+        -43.70479986678363,
+        45.814999237060555
+      ],
+      "region": {
+        "min": [
+          81.44254026925013,
+          -53.09600006551625,
+          41.099999237060544
+        ],
+        "max": [
+          104.14654074970261,
+          -32.45599962874127,
+          47.99999923706055
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-78",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "chassis_bottom \u2229 coxa_yaw_hub = 136 mm\u00b3 interpenetration",
+      "instances": [
+        "000-chassis_bottom",
+        "010-coxa_yaw_hub"
+      ],
+      "point": [
+        96.23454058227222,
+        56.306666800125676,
+        45.69999923706055
+      ],
+      "region": {
+        "min": [
+          81.44254026925013,
+          46.90399993448374,
+          41.099999237060544
+        ],
+        "max": [
+          104.14654074970261,
+          67.54400037125872,
+          47.99999923706055
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-79",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "tibia_foot_fitting \u2229 foot_pad = 135 mm\u00b3 interpenetration",
+      "instances": [
+        "050-tibia_foot_fitting",
+        "051-foot_pad"
+      ],
+      "point": [
+        -286.4052902701342,
+        167.2887079318321,
+        26.82822865079494
+      ],
+      "region": {
+        "min": [
+          -291.5588386862877,
+          163.61179142218867,
+          25.961556439969268
+        ],
+        "max": [
+          -282.9296413383095,
+          170.0167427615676,
+          28.561573072446272
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-80",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "tibia_foot_fitting \u2229 foot_pad = 135 mm\u00b3 interpenetration",
+      "instances": [
+        "098-tibia_foot_fitting",
+        "099-foot_pad"
+      ],
+      "point": [
+        285.92589041746874,
+        -166.33982625192405,
+        26.82822865079494
+      ],
+      "region": {
+        "min": [
+          280.7723420013151,
+          -170.0167427615675,
+          25.961556439969268
+        ],
+        "max": [
+          289.4015393492932,
+          -163.61179142218856,
+          28.561573072446272
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-81",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link \u2229 hip_clamp_cap = 105 mm\u00b3 interpenetration",
+      "instances": [
+        "015-femur_link",
+        "023-hip_clamp_cap"
+      ],
+      "point": [
+        118.44461026037189,
+        52.718973663971504,
+        102.50624885559084
+      ],
+      "region": {
+        "min": [
+          113.55920728600361,
+          49.33645368396416,
+          98.69999885559082
+        ],
+        "max": [
+          121.57627883368494,
+          57.354278821759365,
+          104.99999885559083
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-82",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 tibia_tube = 86 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "064-tibia_knee_yoke",
+        "065-tibia_tube"
+      ],
+      "point": [
+        -197.27427122922708,
+        -112.277268896078,
+        99.52133050154202
+      ],
+      "region": {
+        "min": [
+          -201.913211068097,
+          -118.65617450973879,
+          93.20598512716374
+        ],
+        "max": [
+          -193.34901444249098,
+          -106.24316899126373,
+          105.49530585568364
+        ]
+      }
     }
   ],
   "highlights": {
-    "parts": [],
-    "points": []
-  },
-  "allPass": true
+    "parts": [
+      {
+        "instanceId": "100-yaw_servo",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 2972 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "105-yaw_servo_retainer",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 2972 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "052-yaw_servo",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 2685 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "057-yaw_servo_retainer",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 2685 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "063-femur_link",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 1780 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "064-tibia_knee_yoke",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 1780 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "015-femur_link",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 1698 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "024-knee_clamp_cap",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 1698 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "011-coxa_hip_bracket",
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 femur_link = 1632 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "068-yaw_servo",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 1317 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "073-yaw_servo_retainer",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 1317 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "080-tibia_knee_yoke",
+        "color": "#ff3b30",
+        "annotation": "tibia_knee_yoke \u2229 knee_servo = 1132 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "086-knee_servo",
+        "color": "#ff3b30",
+        "annotation": "tibia_knee_yoke \u2229 knee_servo = 1132 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "020-yaw_servo",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 1081 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "025-yaw_servo_retainer",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 1081 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "031-femur_link",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 1073 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "040-knee_clamp_cap",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 1073 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "027-coxa_hip_bracket",
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 femur_link = 956 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "084-yaw_servo",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 847 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "089-yaw_servo_retainer",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 847 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "079-femur_link",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 821 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "036-yaw_servo",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 817 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "041-yaw_servo_retainer",
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 817 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "070-knee_servo",
+        "color": "#ff3b30",
+        "annotation": "tibia_knee_yoke \u2229 knee_servo = 635 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "037-hip_servo",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 hip_servo = 556 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "047-femur_link",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 364 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "048-tibia_knee_yoke",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 364 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "072-knee_clamp_cap",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 353 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "023-hip_clamp_cap",
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 342 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "095-femur_link",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 338 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "104-knee_clamp_cap",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 338 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "021-hip_servo",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 hip_servo = 334 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "056-knee_clamp_cap",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 301 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "445-disc_horn_knee",
+        "color": "#ff3b30",
+        "annotation": "tibia_knee_yoke \u2229 disc_horn_knee = 300 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "059-coxa_hip_bracket",
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 300 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "071-hip_clamp_cap",
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 300 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "000-chassis_bottom",
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 282 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "074-coxa_yaw_hub",
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 282 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "058-coxa_yaw_hub",
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 257 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "088-knee_clamp_cap",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 255 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "075-coxa_hip_bracket",
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 250 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "087-hip_clamp_cap",
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 250 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "436-disc_horn_hip",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 disc_horn_hip = 214 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "039-hip_clamp_cap",
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 186 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "026-coxa_yaw_hub",
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 185 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "439-disc_horn_hip",
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 disc_horn_hip = 171 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "042-coxa_yaw_hub",
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 166 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "442-disc_horn_knee",
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 disc_horn_knee = 164 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "090-coxa_yaw_hub",
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 151 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "010-coxa_yaw_hub",
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 136 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "050-tibia_foot_fitting",
+        "color": "#ff3b30",
+        "annotation": "tibia_foot_fitting \u2229 foot_pad = 135 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "051-foot_pad",
+        "color": "#ff3b30",
+        "annotation": "tibia_foot_fitting \u2229 foot_pad = 135 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "098-tibia_foot_fitting",
+        "color": "#ff3b30",
+        "annotation": "tibia_foot_fitting \u2229 foot_pad = 135 mm\u00b3 interpenetration"
+      },
+      {
+        "instanceId": "099-foot_pad",
+        "color": "#ff3b30",
+        "annotation": "tibia_foot_fitting \u2229 foot_pad = 135 mm\u00b3 interpenetration"
+      }
+    ],
+    "points": [
+      {
+        "point": [
+          71.94028068710224,
+          -37.114438658308785,
+          13.748032790415838
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 2972 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -67.39833111412848,
+          42.165554187618,
+          13.790060119861115
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 2685 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -185.9894928047314,
+          -86.59702338668143,
+          117.72477921284359
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 1780 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          170.00084948364488,
+          94.39514039198188,
+          138.75358839897123
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 1698 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          116.59384495763396,
+          46.76948728038578,
+          91.07247369063182
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 femur_link = 1632 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -59.136159400690524,
+          -41.62975259219471,
+          13.009310224025171
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 1317 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          12.799690495186805,
+          -199.66153820468244,
+          119.40564808394632
+        ],
+        "color": "#ff3b30",
+        "annotation": "tibia_knee_yoke \u2229 knee_servo = 1132 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          60.077051707002745,
+          46.208855108501076,
+          12.80226681075671
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 1081 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          7.7489254124823095,
+          194.90779496711667,
+          139.54934307327858
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 1073 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -7.819558609233165,
+          127.32837807895433,
+          95.17179520521674
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 femur_link = 956 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -6.559420088063199,
+          -70.81146176341956,
+          12.461110348171674
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 847 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          10.274453246363207,
+          -207.88299995938073,
+          114.56779961615754
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 821 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          8.154954704078479,
+          72.21793544848953,
+          13.043092330153655
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 817 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -181.550237917901,
+          -85.53656758404018,
+          118.54110231709333
+        ],
+        "color": "#ff3b30",
+        "annotation": "tibia_knee_yoke \u2229 knee_servo = 635 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -13.190941260842692,
+          118.63172731073435,
+          86.19199920654289
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 hip_servo = 556 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -174.10860513847132,
+          122.12074172611793,
+          116.8015190767848
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 364 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -137.9812133470136,
+          -74.19135797642825,
+          121.98905468660041
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 353 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          107.60728474161806,
+          59.24843060386099,
+          99.34999866485587
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 342 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          169.26069492593993,
+          -102.33356883300785,
+          141.1765821624504
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 338 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          110.87820719356998,
+          44.64669012450678,
+          88.29999914169318
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 hip_servo = 334 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -157.52670888583876,
+          101.95284188475603,
+          135.37421583009004
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 301 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -179.1031425081907,
+          -80.63048868307276,
+          123.02420401395977
+        ],
+        "color": "#ff3b30",
+        "annotation": "tibia_knee_yoke \u2229 disc_horn_knee = 300 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -68.81507707836349,
+          -34.80529360876297,
+          99.34999866485589
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 300 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          8.147368180124321,
+          -92.59452637120296,
+          44.97368344758688
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 282 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -80.9568932001495,
+          -40.40847038526337,
+          45.02352864882527
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 257 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -3.502330435846206,
+          -156.02253867340372,
+          121.64188811753492
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 255 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -3.5023306217050822,
+          -77.53244185557567,
+          99.3499986648559
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 250 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          109.76118697682503,
+          40.56115455928329,
+          83.94193851247935
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 disc_horn_hip = 214 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          4.909311494557023,
+          122.73275488955208,
+          99.34999866485595
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 186 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          4.334399871826192,
+          110.18289190063477,
+          45.69999923706055
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 185 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -104.3716691508651,
+          -37.76728418661273,
+          88.7151689086844
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 disc_horn_hip = 171 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -77.6898129171092,
+          57.03636378526423,
+          45.69999923706055
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 166 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          175.10716416955597,
+          78.64032777538127,
+          119.51937641461629
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 disc_horn_knee = 164 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -175.1955894014962,
+          -78.64032777538117,
+          126.85538277337331
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 disc_horn_knee = 164 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          105.61699115330865,
+          38.36615272195259,
+          80.61499531755113
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 disc_horn_hip = 164 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          96.61294059027975,
+          -43.70479986678363,
+          45.814999237060555
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 151 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          96.23454058227222,
+          56.306666800125676,
+          45.69999923706055
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 136 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          -286.4052902701342,
+          167.2887079318321,
+          26.82822865079494
+        ],
+        "color": "#ff3b30",
+        "annotation": "tibia_foot_fitting \u2229 foot_pad = 135 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          285.92589041746874,
+          -166.33982625192405,
+          26.82822865079494
+        ],
+        "color": "#ff3b30",
+        "annotation": "tibia_foot_fitting \u2229 foot_pad = 135 mm\u00b3 interpenetration"
+      },
+      {
+        "point": [
+          118.44461026037189,
+          52.718973663971504,
+          102.50624885559084
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 hip_clamp_cap = 105 mm\u00b3 interpenetration"
+      }
+    ],
+    "regions": [
+      {
+        "min": [
+          53.98742412502056,
+          -53.79032502637922,
+          7.172221459282772
+        ],
+        "max": [
+          92.64271920792136,
+          -23.669349947241543,
+          22.377777014838326
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 2972 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -86.5392515632528,
+          23.669349947241578,
+          7.172221459282772
+        ],
+        "max": [
+          -51.95293491013105,
+          57.80645503693095,
+          22.377777014838326
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 2685 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -198.60239259659855,
+          -96.30088594802918,
+          107.85147301778139
+        ],
+        "max": [
+          -169.9677011772237,
+          -73.82878317438178,
+          132.84071052905819
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 1780 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          156.06152190226751,
+          76.5126436156621,
+          132.6366891502072
+        ],
+        "max": [
+          184.44929608247924,
+          111.58984883075108,
+          144.66225277969255
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 1698 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          100.13172456738477,
+          33.54473645719909,
+          75.92678612492672
+        ],
+        "max": [
+          124.69927563027738,
+          56.13040829355169,
+          100.08667444725998
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 femur_link = 1632 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -86.53925156325283,
+          -49.774195015827516,
+          7.172221459282772
+        ],
+        "max": [
+          -51.952934910131056,
+          -23.66934994724153,
+          22.377777014838326
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 1317 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          6.620588459687948,
+          -206.66989069032235,
+          111.7034191987233
+        ],
+        "max": [
+          15.04411769193749,
+          -188.61447411714823,
+          128.36874006070047
+        ],
+        "color": "#ff3b30",
+        "annotation": "tibia_knee_yoke \u2229 knee_servo = 1132 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          51.95293491013106,
+          37.725804984172456,
+          7.172221459282772
+        ],
+        "max": [
+          82.4702731334738,
+          61.82258504748259,
+          22.377777014838326
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 1081 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -14.581578987523098,
+          159.13324738143956,
+          120.61112552072184
+        ],
+        "max": [
+          20.581578224583716,
+          202.27232097401213,
+          144.66225277969255
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 1073 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -14.63499965667723,
+          116.32934115460408,
+          85.99340625923224
+        ],
+        "max": [
+          21.634999656677273,
+          130.65366831189755,
+          100.08667444725998
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 femur_link = 956 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -10.333333015441964,
+          -89.56363591280851,
+          7.172221459282772
+        ],
+        "max": [
+          10.333333015441848,
+          -66.8636356267062,
+          20.205554792616105
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 847 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -21.607142203194854,
+          -216.60968759533606,
+          107.85147301778139
+        ],
+        "max": [
+          14.585714449201184,
+          -198.59737158641178,
+          124.51096469196591
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 821 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          2.066666603088402,
+          66.86363562670621,
+          7.172221459282772
+        ],
+        "max": [
+          10.333333015441921,
+          95.75454508174549,
+          20.205554792616105
+        ],
+        "color": "#ff3b30",
+        "annotation": "yaw_servo \u2229 yaw_servo_retainer = 817 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -187.9116122773405,
+          -91.72585924764849,
+          111.7034191987233
+        ],
+        "max": [
+          -173.73551585836478,
+          -79.67800142917432,
+          128.36874006070047
+        ],
+        "color": "#ff3b30",
+        "annotation": "tibia_knee_yoke \u2229 knee_servo = 635 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -15.044117691937592,
+          110.42740976231185,
+          78.99999942779542
+        ],
+        "max": [
+          -8.726470767750435,
+          127.11415731842527,
+          93.46666564941407
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 hip_servo = 556 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -178.72514017012347,
+          112.73810309080882,
+          112.01634593632751
+        ],
+        "max": [
+          -154.16168962435188,
+          126.89814029730742,
+          132.84071052905819
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 tibia_knee_yoke = 364 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -170.2554089923734,
+          -90.95619870422813,
+          120.61112552072184
+        ],
+        "max": [
+          -125.64604956632641,
+          -60.005723514443744,
+          132.6366891502072
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 353 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          97.48809783346388,
+          42.35264818970553,
+          99.34999866485596
+        ],
+        "max": [
+          117.55921236203417,
+          73.22818965719775,
+          99.34999866485596
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 342 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          160.44461598798603,
+          -116.59770087699542,
+          138.64947096494987
+        ],
+        "max": [
+          178.6938993895507,
+          -87.71059069986333,
+          142.65799217477831
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 338 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          105.55978649112197,
+          39.798450294790996,
+          78.99999942779542
+        ],
+        "max": [
+          113.58101115710909,
+          48.05841444912163,
+          95.53333225250245
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 hip_servo = 334 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -178.69389938955064,
+          85.64722568721109,
+          120.61112552072184
+        ],
+        "max": [
+          -128.00144549631543,
+          116.59770087699548,
+          142.65799217477831
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 301 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -185.01079014686815,
+          -83.53321117770572,
+          115.46526763740847
+        ],
+        "max": [
+          -172.8081081391084,
+          -76.49969128686425,
+          131.0060179500385
+        ],
+        "color": "#ff3b30",
+        "annotation": "tibia_knee_yoke \u2229 disc_horn_knee = 300 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -79.42409475775064,
+          -50.586125914370115,
+          99.34999866485596
+        ],
+        "max": [
+          -57.345868776323314,
+          -21.76895387804405,
+          99.34999866485596
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 300 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -9.287999725341862,
+          -102.56489242553711,
+          41.099999237060544
+        ],
+        "max": [
+          17.543999481201105,
+          -82.30425552368165,
+          47.99999923706055
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 282 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -91.76254048763762,
+          -53.096000065516236,
+          41.099999237060544
+        ],
+        "max": [
+          -69.05854000718514,
+          -32.45599962874125,
+          47.99999923706055
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 257 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -20.581578224583804,
+          -157.07900578179326,
+          120.61112552072184
+        ],
+        "max": [
+          14.581578987523017,
+          -155.02476418214695,
+          122.61538612563606
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 knee_clamp_cap = 255 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -20.58157824466111,
+          -78.52580593478295,
+          99.34999866485596
+        ],
+        "max": [
+          14.581578626130707,
+          -76.48064459523847,
+          99.34999866485596
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 250 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          102.16840714654177,
+          35.71584090598054,
+          77.42962417347094
+        ],
+        "max": [
+          114.37108901663997,
+          42.749360725291,
+          92.97037430065016
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 disc_horn_hip = 214 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -14.581578626130742,
+          121.47419406521705,
+          99.34999866485596
+        ],
+        "max": [
+          20.58157824466106,
+          123.51935540476153,
+          99.34999866485596
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 hip_clamp_cap = 186 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -7.2239997863769325,
+          98.51276504516602,
+          41.099999237060544
+        ],
+        "max": [
+          17.54399948120119,
+          118.77340194702148,
+          47.99999923706055
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 185 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -112.33730870495695,
+          -42.74936072529099,
+          79.64973133449654
+        ],
+        "max": [
+          -100.13462683485875,
+          -35.71584090598053,
+          92.97037430065016
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 disc_horn_hip = 171 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -91.7625404876376,
+          46.90399993448378,
+          41.099999237060544
+        ],
+        "max": [
+          -69.05854000718512,
+          67.54400037125876,
+          47.99999923706055
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 166 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          170.77432780448183,
+          76.49969128686429,
+          115.46526763740847
+        ],
+        "max": [
+          182.97700981224153,
+          83.53321117770578,
+          128.78591076251993
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 disc_horn_knee = 164 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -182.97700981224153,
+          -83.53321117770572,
+          117.68537482492705
+        ],
+        "max": [
+          -170.7743278044818,
+          -76.49969128686425,
+          131.0060179500385
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 disc_horn_knee = 164 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          100.13462683485874,
+          35.71584090598054,
+          77.42962417347094
+        ],
+        "max": [
+          114.37108901663997,
+          42.749360725291,
+          86.31005281757335
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_hip_bracket \u2229 disc_horn_hip = 164 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          81.44254026925013,
+          -53.09600006551625,
+          41.099999237060544
+        ],
+        "max": [
+          104.14654074970261,
+          -32.45599962874127,
+          47.99999923706055
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 151 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          81.44254026925013,
+          46.90399993448374,
+          41.099999237060544
+        ],
+        "max": [
+          104.14654074970261,
+          67.54400037125872,
+          47.99999923706055
+        ],
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom \u2229 coxa_yaw_hub = 136 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          -291.5588386862877,
+          163.61179142218867,
+          25.961556439969268
+        ],
+        "max": [
+          -282.9296413383095,
+          170.0167427615676,
+          28.561573072446272
+        ],
+        "color": "#ff3b30",
+        "annotation": "tibia_foot_fitting \u2229 foot_pad = 135 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          280.7723420013151,
+          -170.0167427615675,
+          25.961556439969268
+        ],
+        "max": [
+          289.4015393492932,
+          -163.61179142218856,
+          28.561573072446272
+        ],
+        "color": "#ff3b30",
+        "annotation": "tibia_foot_fitting \u2229 foot_pad = 135 mm\u00b3 interpenetration"
+      },
+      {
+        "min": [
+          113.55920728600361,
+          49.33645368396416,
+          98.69999885559082
+        ],
+        "max": [
+          121.57627883368494,
+          57.354278821759365,
+          104.99999885559083
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link \u2229 hip_clamp_cap = 105 mm\u00b3 interpenetration"
+      }
+    ]
+  }
 }

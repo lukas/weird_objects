@@ -68,7 +68,6 @@ def _build(verbose: bool) -> bool:
 
     needed = [
         "chassis_top", "chassis_bottom",
-        "battery_holder", "electronics_tray",
         "coxa_bracket", "coxa_link",
         "femur_link", "tibia_link",
         "foot_pad",

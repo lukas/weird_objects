@@ -1,5 +1,5 @@
 """Throwaway diagnostic: render a sandwich-joint FIXED side (the servo
-bracket used by coxa_link / femur_knee_bracket) with the STS3215 body
+bracket used by coxa_link / the femur_link knee cradle) with the STS3215 body
 seated and the dia-20 disc horn placed on the output spline, so we can
 SEE (1) how the servo inserts and (2) whether the horn fits the plate
 opening.  A y=0 cross-section shows the horn-vs-plate collision."""

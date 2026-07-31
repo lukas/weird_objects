@@ -6,10 +6,10 @@ Generated for a **256 x 256 x 256 mm** build volume.
 
 - `plate_01_chassis_top.stl` (PLA/PETG rigid): 1 x `chassis_top.stl`
 - `plate_02_chassis_bottom.stl` (PLA/PETG rigid): 1 x `chassis_bottom.stl`
-- `plate_03_rigid_coxa_links_a.stl` (PLA/PETG rigid): 6 x `coxa_hip_bracket.stl`, 4 x `coxa_yaw_hub.stl`, 6 x `servo_clamp_cap.stl`
-- `plate_03_rigid_coxa_links_b.stl` (PLA/PETG rigid): 2 x `coxa_yaw_hub.stl`, 6 x `yaw_bearing_cap.stl`, 6 x `yaw_servo_retainer.stl`
-- `plate_04_rigid_femur_sockets_a.stl` (PLA/PETG rigid): 6 x `femur_knee_bracket.stl`, 6 x `servo_clamp_cap.stl`
-- `plate_04_rigid_femur_sockets_b.stl` (PLA/PETG rigid): 6 x `femur_hip_yoke.stl`
+- `plate_03_rigid_coxa_links_a.stl` (PLA/PETG rigid): 6 x `coxa_hip_bracket.stl`, 6 x `servo_clamp_cap.stl`, 4 x `yaw_servo_retainer.stl`
+- `plate_03_rigid_coxa_links_b.stl` (PLA/PETG rigid): 6 x `coxa_yaw_hub.stl`, 6 x `yaw_bearing_cap.stl`, 2 x `yaw_servo_retainer.stl`
+- `plate_04_rigid_femurs_a.stl` (PLA/PETG rigid): 4 x `femur_link.stl`
+- `plate_04_rigid_femurs_b.stl` (PLA/PETG rigid): 2 x `femur_link.stl`, 6 x `servo_clamp_cap.stl`
 - `plate_05_rigid_tibia_sockets.stl` (PLA/PETG rigid): 6 x `tibia_foot_fitting.stl`, 6 x `tibia_knee_yoke.stl`
 - `plate_06_rigid_uno_q_trays_a.stl` (PLA/PETG rigid): 4 x `uno_q_tray.stl`
 - `plate_06_rigid_uno_q_trays_b.stl` (PLA/PETG rigid): 2 x `uno_q_tray.stl`

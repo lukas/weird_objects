@@ -1,6 +1,6 @@
 # Hexapod Walker — Tabletop Prototype Build Guide
 
-> A scaled-down sibling of the [full-size walker](../ASSEMBLY.md) intended
+> A scaled-down sibling of the [full-size walker](../fullsize_v1/ASSEMBLY.md) intended
 > for proving out the geometry, kinematics, and gait controller before
 > you commit to industrial servomotors. Same architecture: regular hex
 > chassis, six identical 3-DOF legs, alternating-tripod gait — but
@@ -51,7 +51,7 @@ when you graduate to the big version — just re-tune the gains.
 | Vehicle dry mass | ~ 1.3 kg |
 | Per-leg static load (tripod stance) | ~ 4.3 N (~ 0.43 kg) |
 | Peak knee torque | ~ 0.6 N·m (~ 6 kg·cm) |
-| Battery | 1 × 3S 2200 mAh LiPo (11.1 V nom / 12.6 V full) |
+| Battery | 1 × 3S LiPo (11.1 V nom / 12.6 V full), up to 138 × 46 × 24 mm |
 | Servo rail | Raw 3S (12 V) via distributed fused power bus; see [`firmware/WIRING.md`](firmware/WIRING.md) §6 |
 | Logic rail | 5 V from a XINGYHENG 12→5 V buck (Uno Q only) |
 | Continuous draw (cruise) | ~ 9 A @ 12 V (all 18 servos walking), ~ 0.3 A @ 5 V (logic) |
@@ -295,7 +295,7 @@ in `hexapod_prototype.py` and an inferred 2.15 kg assembled mass):
 | `tibia_link`    | foot tip -Z impact = `robot_weight / 3 * 2g` | `FEMUR_LENGTH`, `TIBIA_LENGTH`, `XHORN_BOLT_PCD` |
 | `femur_link`    | knee-end -Z impact = same `2g` foot load           | same + `FEMUR_LENGTH` |
 | `coxa_link`     | DS3225 stall = 2.5 N-m about the yaw axis          | `COXA_LENGTH` + `DS3225_STALL_TORQUE` |
-| `chassis_bottom`| dead load (battery + tray + 6 cradle/leg masses)   | `BATTERY_HOLDER_CENTRE_X`, yaw cradle XY |
+| `chassis_bottom`| dead load (battery + 6 cradle/leg masses)          | `BATTERY_HOLDER_CENTRE_X`, yaw cradle XY |
 | `chassis_top`   | dead load minus battery                            | same supports |
 | `foot_pad`      | foot-strike pressure on the disk floor             | `FOOT_PAD_OD`, `FOOT_HINGE_PIN_HOLE_D` |
 
@@ -367,30 +367,40 @@ The leg is a **disc-horn sandwich joint** design (Jun 2026): each hip
 and knee joint drives a 20 mm aluminium 25T disc horn on the servo's
 output spline and reuses a SECOND disc horn on the servo's rear idler
 boss for passive support, with the yoke bolting identically to both.
-The femur and tibia segments are Ø8 mm carbon-fibre tubes epoxy-bonded
-into printed end-fittings, NOT single printed spars.
+The tibia segment is a Ø8 mm carbon-fibre tube epoxy-bonded into printed
+end-fittings.  The femur is ONE printed part, `femur_link` (Jul 2026 —
+the separate printed `femur_strut`, the femur CF tube, and the two-part
+yoke + knee bracket are all retired): hip moving yoke, a SOLID Ø14 spar
+(the old socket-boss outer diameter) and the knee servo bracket printed
+as a single body — no socket, no slip fit, no retention pin.
 
 | File | Function | Print orientation |
 |---|---|---|
 | `coxa_link.stl` | Yaw pad + arm + hip fixed side (symmetric servo cradle; the passive disc horn rides the servo's own rear idler boss, so there is no separate bearing housing). | Yaw-pad face down, bracket opening up |
 | `yaw_bearing_cap.stl` | TOP half of the SPLIT yaw-bearing tower; bolts onto each `chassis_bottom` tower with 3 x M3 x 8 SHCS to capture the spaced 6706 bearing pair.  Print flat, ring face down (no supports). | Ring face down |
-| `femur_hip_yoke.stl` | Hip moving yoke (symmetric clevis — both arms bolt to a disc horn, driven on the front, passive on the rear boss) + Ø8 CF-tube socket. | Spine down |
-| `femur_knee_bracket.stl` | Knee fixed side (symmetric servo cradle) + Ø8 CF-tube socket. | CF socket up |
+| `femur_link.stl` | The WHOLE femur, one printed part (Jul 2026): hip moving yoke (symmetric clevis — both arms bolt to a disc horn, driven on the front, passive on the rear boss) + SOLID Ø14 spar + knee fixed side (symmetric servo cradle). | Yoke spine down, spar horizontal, knee mount plate up (support the knee well through its open back) |
 | `tibia_knee_yoke.stl` | Knee moving yoke (symmetric clevis — driven + passive disc horns) + Ø8 CF-tube socket. | Spine down |
 | `tibia_foot_fitting.stl` | Ø8 CF-tube socket + single foot-hinge TANG (M3 pin). | CF socket up |
 | `foot_pad.stl` | Compliant foot with a 2-cheek FORK at +Z (May 2026 inversion: foot now carries the fork, tibia carries the tang). M3 x 16 pan-head pin + M3 nylock captures the joint. Print in TPU 95A for grip and ankle compliance. | Disk on bed, fork up. Fork cheeks are 3.5 mm thick TPU walls and the 6.4 mm slot between them prints in air -- no supports needed (vertical features only). |
 
-> **Femur** = `femur_hip_yoke` + Ø8 CF tube + `femur_knee_bracket`.
+> **Femur** = `femur_link`, one printed body — nothing to join (no CF,
+> no epoxy, no pins; the Jul 2026 merge fused the old hip yoke and knee
+> bracket across a solid Ø14 cylinder).
 > **Tibia** = `tibia_knee_yoke` + Ø8 CF tube + `tibia_foot_fitting` +
-> `foot_pad`.  Cut each tube to length, epoxy into the printed sockets,
-> and drive a transverse Ø2.5 mm roll pin through the cross-hole.
+> `foot_pad`.  Cut the tube to length, epoxy into the printed sockets,
+> and drive a transverse Ø2.5 mm roll pin through each cross-hole.
 
 ### 3.2a Per-joint parts (print 12 of each — 1 per hip + knee joint)
 
 | File | Function | Print orientation |
 |---|---|---|
 | `servo_clamp_cap.stl` | Sandwich-joint clamp cap that traps the hip/knee servo body; 2 x M3 x 8 SHCS self-tap into the cradle ±X wall-end pilots. | Flat |
-| `passive_horn_adapter.stl` | Press-fits the servo's rear idler boss and centres the reused 25T disc horn on the passive side; a central M2.5 screw retains it. | Collar down |
+
+> **`passive_horn_adapter.stl` retired (Jul 2026 stock-horn refit):** the
+> passive side now uses the STS3215's own stock metal rear horn — its
+> centre bore slides over the rear idler boss so it seats flush on the
+> servo back face (retained by one M2.5 screw).  Nothing printed is
+> needed on the passive side.
 
 ### 3.3 Visualization (do not print)
 
@@ -432,10 +442,10 @@ printer.
 
 | Item | Spec | Qty | Cost |
 |---|---|---|---|
-| LiPo battery | 3S 2200 mAh 25C+, XT60 connector.  Velcro-strapped to the top of `chassis_bottom` (no clip-in holder). | 1 | $20 |
+| LiPo battery | 3S 25C+, XT60 connector, up to 138 × 46 × 24 mm (the reserved CAD envelope).  Velcro-strapped to the top of `chassis_bottom` (no clip-in holder). | 1 | $25 |
 | Velcro cinch straps | Hook-and-loop straps (~15–20 mm) through the chassis_bottom strap slots; retain the LiPo on the plate. | 1 set | $5 |
 | XINGYHENG 12→5 V buck | 12 V→5 V step-down (3 A+); drops the 3S rail to 5 V for the Uno Q logic only (servos run on raw 12 V).  Mounts on `buck_tray`. | 1 | $8 |
-| Power distribution bus bar | 12 V DC bus bar / fused distribution block (V+ + GND); the 6 per-leg power branches + the buck tap off it. | 1 | $10 |
+| Power distribution board ("bus bar") | Matek PDB-XT60 drone PDB (36 × 50 mm, 11 g, XT60 input, 6 × 15 A output pads + VCC/GND pair); the 6 per-leg power branches + the buck tap off it. | 1 | $8 |
 | Main fuse + holder | 15–20 A blade/ANL fuse + inline holder between the anti-spark switch and the bus bar. | 1 | $8 |
 | Per-branch fuse + holder (optional) | 5–7 A mini-blade fuse + holder, one per leg branch. | 6 | $1.50 each |
 | 16–18 AWG silicone wire | Red + black, ~5 m each; the six per-leg V+/GND branches from the bus bar to each leg's 5264 injection pigtail. | 1 | $10 |
@@ -473,15 +483,16 @@ key items:
 |---|---|---|
 | M3 × 10 SHCS disc-horn bolts (`91290A114`) | 48 | DRIVEN hip + knee front-horn bolts on a 14 mm bolt circle into the disc's M3 tapped holes (2 mm longer because the flush output seats the driven disc 2 mm lower). |
 | M3 × 8 SHCS disc-horn bolts (`91290A113`) | 72 | Yaw front horn + the two passive rear-boss horns, same 14 mm bolt circle into the disc's M3 tapped holes. |
-| M2.5 × 8 SHCS, servo body retention (`91290A104`) | 48 | HIP + KNEE cradles only — 4 per cradle into the servo's real END-face 10×10 mm M2.5 hole square; the YAW cradle takes none (held by the `yaw_servo_retainer` strap instead). |
+| M2.5 × 8 SHCS, servo body retention (`91290A104`) | 24 | HIP cradles only — 4 per hip cradle into the servo's real END-face 10×10 mm M2.5 hole square. The YAW cradle takes none (held by the `yaw_servo_retainer` strap) and the KNEE cradle takes none either (Jul 2026 one-piece femur — the fused spar covers that wall; clamp cap + lip hold the body). |
 | M2.5 × 8 spline / passive-horn screws (`91290A104`) | 30 | Passive-horn retention + servo spline center screws (ship with the servos). |
-| M3 × 8 SHCS (`91290A113`) | 54 | 8 deck board mounts (Uno Q + buck) + 4 imu_pad into heat-set inserts; 24 `servo_clamp_cap` + 18 `yaw_bearing_cap` self-tap. |
+| M3 × 8 SHCS (`91290A113`) | 58 | 8 deck board mounts (Uno Q + buck) + 4 imu_pad into heat-set inserts; 24 `servo_clamp_cap` + 18 `yaw_bearing_cap` self-tap; 4 UP through chassis_top into the lowest F-F deck columns (Jul 2026 F/F switch). |
 | M3 × 10 SHCS (`91290A114`) | 14 | chassis_top → brass-standoff bolts + deck standoff-column bolts + 2 switch_holster mount bolts. |
+| M3 × 14 SHCS (`91290A115`) | 4 | Chassis-standoff bottom bolts, UP through chassis_bottom's 8 mm plate + floor stack into the F-F standoffs' bottom female threads (Jul 2026 F/F switch). |
 | M3 × 16 mm pan-head (`92010A130`) | 6 | Foot hinge pins (one per leg). |
-| M3 nyloc nuts (`90576A102`) | 14 | 6 foot hinge pins + 4 under chassis_bottom (chassis standoffs) + 4 under chassis_top (deck columns). |
+| M3 nyloc nuts (`90576A102`) | 6 | Foot hinge pins only (Jul 2026 F/F switch retired the 8 standoff-retention nylocs). |
 | M3 brass heat-set inserts (McMaster `94459A130`) | 18 | 8 deck trays + 4 imu_pad + 2 chassis_top (switch_holster) + 4 `spider_carapace` feet.  Soldering-iron installed at ~220 °C. |
-| M3 × 32 mm M-F brass standoffs | 4 | chassis_top ↔ chassis_bottom across `CHASSIS_GAP` = 32 mm on the rotated-45° 35-mm-radius pattern. |
-| M3 deck standoff columns, M-F brass | 12 | Stacked deck: 4 × 16 mm (chassis_top → uno_q_tray) + 4 × 22 mm (uno_q_tray → buck_tray) + 4 × ~24 mm (buck_tray → spider_carapace). |
+| M3 × 32 mm F-F brass standoffs | 4 | chassis_top ↔ chassis_bottom across `CHASSIS_GAP` = 32 mm on the 44-mm-radius diagonal pattern (±31.1, ±31.1) — moved off (±35, 0)/(0, ±35) in the Jul 2026 battery-fit rework so the 138 × 46 mm LiPo has a clear lane. |
+| M3 deck standoff columns, brass | 12 | Stacked deck: 4 × 16 mm F-F (chassis_top → uno_q_tray) + 4 × 22 mm (uno_q_tray → buck_tray) + 4 × ~24 mm (buck_tray → spider_carapace). |
 | 6706-2RS ball bearings | 12 | Yaw joint spaced pair (2 per leg), Ø30 × Ø37 × 4 mm; captured by the split tower + `yaw_bearing_cap`. |
 | Ø8 mm carbon-fibre tube | ~1 m | Femur + tibia leg segments (epoxy-bonded into the printed sockets). |
 | Ø2.5 mm roll pins | 12 | Transverse CF-tube retention (2 per leg). |
@@ -523,9 +534,9 @@ A single Ender 3-class printer runs the whole BOM in roughly **22 hours**
 | Pass | Parts | Time |
 |---|---|---|
 | 1 | 6 × `coxa_link` + 6 × `yaw_bearing_cap` | ~ 4 h |
-| 2 | 6 × `femur_hip_yoke` + 6 × `femur_knee_bracket` | ~ 8 h |
+| 2 | 6 × `femur_link` (one-piece femur) | ~ 8 h |
 | 3 | 6 × `tibia_knee_yoke` + 6 × `tibia_foot_fitting` | ~ 6 h |
-| 4 | 12 × `passive_horn_adapter` + 12 × `servo_clamp_cap` (MJF PA12 or PLA) | ~ 5 h |
+| 4 | 12 × `servo_clamp_cap` (MJF PA12 or PLA) | ~ 3 h |
 | 5 | `chassis_top` + `chassis_bottom` + `uno_q_tray` + `buck_tray` + `switch_holster` + `imu_pad` + `spider_carapace` | ~ 12 h |
 | 6 | 6 × `foot_pad` (TPU) | ~ 1 h |
 
@@ -555,29 +566,35 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 > joint drives a 20 mm aluminium 25T disc horn on the servo's output
 > spline and reuses a SECOND disc horn on the servo's rear idler boss
 > for passive support, so the moving yoke bolts identically to a disc on
-> BOTH faces — no external ball bearing on the hip/knee. The femur and
-> tibia are Ø8 mm carbon-fibre tubes epoxy-bonded into the printed
-> end-fittings (with a transverse Ø2.5 mm roll pin), NOT single printed
-> spars. Full joint detail is in the **Bench Test Order** of
+> BOTH faces — no external ball bearing on the hip/knee. The tibia is a
+> Ø8 mm carbon-fibre tube epoxy-bonded into the printed end-fittings
+> (with a transverse Ø2.5 mm roll pin); the femur is ONE printed part
+> (`femur_link`, Jul 2026) — nothing to join at all.
+> Full joint detail is in the **Bench Test Order** of
 > [`PROTOTYPE_BOM.md`](PROTOTYPE_BOM.md).
 
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
-> **Servo body retention (hip + knee cradles).** Each hip and knee
-> cradle bolts the servo's real **END-face 10 × 10 mm M2.5 hole square**
-> with 4 × M2.5 × 8 SHCS driven through the cradle's −X wall (head
-> recessed in a wall counterbore, threading into the servo's own metal
-> case), plus the printed `servo_clamp_cap` seated flush against the
-> body's +Y face and retained by 2 × M3 × 8 SHCS self-tapping into the
-> cradle's ±X wall-end pilots.  The YAW servo uses no cradle bolts (see
-> the chassis_bottom note above).  There are **no heat-set inserts and
-> no vertical tab bolts** anywhere on the leg — the servo threads bolt
-> straight into the servo's own steel case.
+> **Servo body retention.** The HIP cradle bolts the servo's real
+> **END-face 10 × 10 mm M2.5 hole square** with 4 × M2.5 × 8 SHCS driven
+> through the cradle's −X wall (head recessed in a wall counterbore,
+> threading into the servo's own metal case), plus the printed
+> `servo_clamp_cap` seated flush against the body's +Y face and retained
+> by 2 × M3 × 8 SHCS self-tapping into the cradle's ±X wall-end pilots.
+> The KNEE cradle takes **no end-face bolts** (Jul 2026 one-piece femur:
+> the fused Ø14 spar covers that wall from outside, so the screws were
+> impossible to drive and their empty holes only weakened the spar
+> junction — removed); the knee servo is held by the clamp cap + the
+> retaining lip alone.  The YAW servo also uses no cradle bolts (see the
+> chassis_bottom note above).  There are **no heat-set inserts and
+> no vertical tab bolts** anywhere on the leg — where servo threads are
+> used they bolt straight into the servo's own steel case.
 
-1. **Bond the CF leg segments first.** Cut the Ø8 mm carbon-fibre tube
-   to the femur and tibia lengths, epoxy each into its printed socket
-   (`femur_hip_yoke` ↔ `femur_knee_bracket` for the femur,
-   `tibia_knee_yoke` ↔ `tibia_foot_fitting` for the tibia), and drive a
+1. **Join the leg segments first.**  FEMUR: nothing to do — `femur_link`
+   comes off the printer as one finished part (Jul 2026 one-piece merge;
+   no CF, no epoxy, no pins).  TIBIA:
+   cut the Ø8 mm carbon-fibre tube to length, epoxy it into the printed
+   sockets (`tibia_knee_yoke` ↔ `tibia_foot_fitting`), and drive a
    transverse Ø2.5 mm roll pin through each socket cross-hole.  Let the
    slow-cure epoxy fully set before loading the joints.
 2. **Hip-pitch servo into the coxa link's hip cradle:** seat the servo
@@ -587,19 +604,21 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    self-tapping into the cradle wall-end pilots.
 3. **Disc horns on the hip servo:** push a 20 mm aluminium 25T disc
    horn onto the output spline at 0° and retain it with the servo's
-   M2.5 spline screw; centre the SECOND (passive) disc horn on the
-   servo's rear idler boss with a `passive_horn_adapter` and retain it
-   with one M2.5 screw.
-4. **Femur onto the hip joint:** seat the `femur_hip_yoke`'s two clevis
+   M2.5 spline screw; slide the STOCK metal passive horn (ships with
+   the servo) over the rear idler boss — its centre bore rides the
+   boss so it seats flush on the back face — and retain it with one
+   M2.5 screw (Jul 2026 stock-horn refit: no printed adapter).
+4. **Femur onto the hip joint:** seat the `femur_link`'s two hip clevis
    arms onto the driven (front) and passive (rear) disc horns and bolt
    each arm to its disc on the Ø14 cross — the **driven** front horn
    takes 4 × M3 × 10 SHCS (the flush output seats it 2 mm lower); the
    **passive** rear horn takes 4 × M3 × 8 SHCS — into the discs' M3
    tapped holes.  Use a 2.5 mm hex key.
-5. **Knee servo into the femur knee bracket:** repeat step 2 on the
-   `femur_knee_bracket`'s knee cradle (4 × M2.5 × 8 into the END-face
-   square + the `servo_clamp_cap`), then fit the driven + passive disc
-   horns as in step 3.
+5. **Knee servo into the femur's knee cradle:** drop the servo into the
+   `femur_link`'s knee cradle, snap on the `servo_clamp_cap` and secure
+   it with 2 × M3 × 8 SHCS into the wall-end pilots (NO end-face bolts
+   at the knee — the fused spar covers that wall; the cap + lip hold the
+   body), then fit the driven + passive disc horns as in step 3.
 6. **Tibia onto the knee joint:** seat the `tibia_knee_yoke`'s clevis
    arms onto the driven + passive knee disc horns and bolt each arm to
    its disc (driven = 4 × M3 × 10, passive = 4 × M3 × 8) as in step 4.
@@ -631,18 +650,19 @@ times.
    pad to its yaw driven disc horn with 4 × M3 × 8 SHCS on the Ø14
    cross into the disc's M3 tapped holes.  Each completed leg now hangs
    from its yaw axis.
-3. **Battery:** velcro-strap the 3S LiPo to the top face of
-   chassis_bottom, looping the cinch straps through the chassis_bottom
-   strap slots (there is no clip-in `battery_holder` any more).
-4. **Chassis standoffs + top plate:** screw 4 × M3 × 32 mm M-F brass
-   standoffs into the rotated-45° 35-mm-radius pattern
-   (`CHASSIS_STANDOFF_HOLES_XY` = (±35, 0) and (0, ±35)).  Each
-   standoff's MALE thread drops DOWN through chassis_bottom's clearance
-   hole; capture it from below with 4 × M3 nyloc nuts.  Drop
-   `chassis_top.stl` onto the standoff tops and drive **4 × M3 × 10 mm
-   SHCS** DOWN from above into the standoffs' female top threads.
-   Install this **before** the switch_holster — the +X standoff sits
-   under the holster's footprint.
+3. **Battery:** velcro-strap the LiPo (up to 138 × 46 × 24 mm) to the
+   top face of chassis_bottom, looping the cinch straps through the
+   chassis_bottom strap slots (there is no clip-in `battery_holder`
+   any more).
+4. **Chassis standoffs + top plate:** stand 4 × M3 × 32 mm F-F brass
+   standoffs on the 44-mm-radius diagonal pattern
+   (`CHASSIS_STANDOFF_HOLES_XY` = (±31.1, ±31.1); Jul 2026 battery-fit
+   rework — the old (±35, 0)/(0, ±35) sites sat in the battery's lane).
+   Drive **4 × M3 × 14 mm SHCS** UP from below chassis_bottom's floor
+   face, through the 8 mm plate + floor stack, into each standoff's
+   bottom female thread.  Drop `chassis_top.stl` onto the standoff tops
+   and drive **4 × M3 × 10 mm SHCS** DOWN from above into the
+   standoffs' female top threads.
 5. **Switch holster + IMU on chassis_top:** soldering-iron-install the
    2 chassis_top boss inserts and the 4 imu_pad inserts (McMaster
    `94459A130`, ~220 °C).  Bolt the `switch_holster.stl` to chassis_top's
@@ -654,11 +674,12 @@ times.
    vibration damper.  Route the 4 IMU wires (VCC→3V3, GND, SDA, SCL) to
    the Uno Q's I²C pins (see `firmware/WIRING.md` Stage F).
 6. **Electronics deck (Arduino Uno Q + buck):** the stack rises on M3
-   M-F brass standoff columns at the `DECK_COLUMN_XY` (±41, ±33)
+   brass standoff columns at the `DECK_COLUMN_XY` (±41, ±33)
    pattern above chassis_top.  Soldering-iron-install the 8 deck-tray
-   board-mount inserts (4 `uno_q_tray` + 4 `buck_tray`).  Thread the
-   level-1 columns (16 mm) through chassis_top — retained by M3 nyloc
-   nuts underneath — bolt the **Arduino Uno Q** onto `uno_q_tray` with
+   board-mount inserts (4 `uno_q_tray` + 4 `buck_tray`).  Stand the
+   level-1 F-F columns (16 mm) on chassis_top and bolt them from below
+   with 4 × M3 × 8 SHCS (Jul 2026 F/F switch — replaces the old male
+   studs + nylocs) — bolt the **Arduino Uno Q** onto `uno_q_tray` with
    4 × M3 × 8 SHCS, and drop the populated tray onto the columns with
    4 × M3 × 10 SHCS.  Repeat for the level-2 columns (22 mm) →
    `buck_tray` carrying the **XINGYHENG 12→5 V buck converter**.
@@ -787,7 +808,7 @@ harmless, a deficit fights the kinematics):
   `coxa_link`'s WELL_Z_DROP_EXTRA = 4 mm vertical hop).
 * Knee axis: ~20 mm slack loop (largest single-axis sweep, but the
   bundle only crosses it on the knee cable, anchored close to the
-  joint by the `femur_knee_bracket` knee-cradle zip-tie post).
+  joint by the `femur_link` knee-cradle zip-tie post).
 
 ---
 
