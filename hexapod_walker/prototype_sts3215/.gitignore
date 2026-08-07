@@ -16,9 +16,24 @@ node_modules/
 # Large regenerable / unrelated artifacts (rebuilt from source by the
 # build + verify + viz scripts; not tracked by convention)
 policies_prototype/
+rl_move/sim/policies/
+
+# W&B credentials (placeholder template lives in git history only via
+# docs; the real file must never be committed)
+rl_move/sim/wandb.env
+
+# Robot runtime log streams (regenerated every run). The calibration
+# artifacts logs/motor_model.json + logs/motor_dyn_* ARE tracked — they
+# are the hardware ground truth for rl_move/sim fitting.
+linux_control/logs/recv_stdout.txt
+linux_control/logs/robot_events.jsonl
+linux_control/logs/events.jsonl
 joint_viz/
 stl_prototype/
 full_robot_viz/stl/
+
+# stl_reference/*.stl is covered by the repo-root *.stl rule; keep the
+# directory's README.md trackable.
 
 # Stray top-level scene dump (the canonical scene is full_robot_viz/scene.json)
 /scene.json

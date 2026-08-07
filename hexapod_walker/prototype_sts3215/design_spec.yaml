@@ -1005,9 +1005,9 @@ parts:
 # Wire harness (per-leg, per-servo)
 # ---------------------------------------------------------------------
 # High-level shape ONLY; the per-joint numeric BOM lives in
-# ``pi_control/wire_harness_plan.py::WIRE_HARNESS_PLAN`` (18 dict
+# ``motor_setup/wire_harness_plan.py::WIRE_HARNESS_PLAN`` (18 dict
 # entries) and is regenerated from the CAD geometry on every
-# ``python -m hexapod_walker.prototype.pi_control.wire_harness_plan``
+# ``python -m motor_setup.wire_harness_plan``
 # invocation.  The reach verifier
 # ``_verify_prototype.check_harness_reach`` asserts the predicted
 # extension-cable counts cover the actual Manhattan path lengths.

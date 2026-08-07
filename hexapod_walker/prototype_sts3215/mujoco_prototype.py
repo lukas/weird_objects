@@ -103,20 +103,18 @@ FOOT_R = HP.FOOT_PAD_OD / 2.0 * M
 # -- MuJoCo's convex-hull collision would only report false positives on
 # parts like the C-shaped coxa_bracket.
 
-_SERVO_BODY_STL = os.path.join(HP.STL_DIR, HP.stl_filename("servo_body"))
-_SERVO_HORN_STL = os.path.join(HP.STL_DIR, HP.stl_filename("servo_horn"))
+_SERVO_BODY_STL = HP.stl_path("servo_body")
+_SERVO_HORN_STL = HP.stl_path("servo_horn")
 USE_SERVO_MESHES = (os.path.isfile(_SERVO_BODY_STL)
                      and os.path.isfile(_SERVO_HORN_STL))
 
 # Printed-part STLs, in the same scaled-mm-to-m convention as the servo
-# meshes.  All ten are emitted by ``hexapod_prototype.main`` and are
+# meshes.  All are emitted by ``hexapod_prototype.main`` and are
 # what the assembly preview + STL bundles consume.
+# Aug 2026: uno_q_tray / buck_tray / spider_carapace RETIRED from print.
 _PART_STL_NAMES = (
     "chassis_top",
     "chassis_bottom",
-    "uno_q_tray",
-    "buck_tray",
-    "spider_carapace",
     "coxa_link",
     "femur_link",
     "tibia_link",
@@ -124,7 +122,7 @@ _PART_STL_NAMES = (
     "servo_clamp_cap",
 )
 USE_PART_MESHES = all(
-    os.path.isfile(os.path.join(HP.STL_DIR, HP.stl_filename(name)))
+    os.path.isfile(HP.stl_path(name))
     for name in _PART_STL_NAMES
 )
 
@@ -390,23 +388,23 @@ def build_xml(obstacles_xml: str = "") -> str:
     mesh_asset_xml = ""
     compiler_attrs = 'angle="radian" coordinate="local" autolimits="true"'
     if USE_SERVO_MESHES or USE_PART_MESHES:
-        compiler_attrs += f' meshdir="{HP.STL_DIR}"'
+        # Absolute paths: printables live in stl_prototype/, reference
+        # visuals (servos, tibia_link, …) in stl_reference/.
         mesh_lines: list[str] = []
         if USE_SERVO_MESHES:
             mesh_lines.append(
-                f'<mesh name="servo_body" file="{HP.stl_filename("servo_body")}" '
+                f'<mesh name="servo_body" file="{_SERVO_BODY_STL}" '
                 f'scale="0.001 0.001 0.001"/>'
             )
             mesh_lines.append(
-                f'<mesh name="servo_horn" file="{HP.stl_filename("servo_horn")}" '
+                f'<mesh name="servo_horn" file="{_SERVO_HORN_STL}" '
                 f'scale="0.001 0.001 0.001"/>'
             )
         if USE_PART_MESHES:
             for name in _PART_STL_NAMES:
-                # Logical mesh name stays plain (geoms reference mesh="femur_link");
-                # only the on-disk file carries the _DO_NOT_PRINT marker.
+                # Logical mesh name stays plain (geoms reference mesh="femur_link").
                 mesh_lines.append(
-                    f'<mesh name="{name}" file="{HP.stl_filename(name)}" '
+                    f'<mesh name="{name}" file="{HP.stl_path(name)}" '
                     f'scale="0.001 0.001 0.001"/>'
                 )
         mesh_asset_xml = "\n    ".join(mesh_lines)
@@ -499,35 +497,18 @@ def _chassis_visuals_xml() -> str:
             f'size="{flat_to_flat / math.cos(math.pi / 6):.5f} 0.004" '
             f'euler="0 0 {math.pi / 6:.5f}" material="palette_chassis_top"/>\n'
             '      <geom class="visual" type="box" size="0.0525 0.0175 0.0125" '
-            'pos="-0.025 0 0.0125" material="palette_uno_q_tray"/>\n'
+            'pos="-0.025 0 0.0125" material="palette_chassis_top"/>\n'
             '      <geom class="visual" type="box" size="0.048 0.040 0.0015" '
-            'pos="0 0 0.040" material="palette_buck_tray"/>'
+            'pos="0 0 0.040" material="palette_chassis_top"/>'
         )
 
     plate_t = HP.CHASSIS_PLATE_T * M
     gap = HP.CHASSIS_GAP * M
-    # Match build_prototype_assembly placements (in mm) converted to m:
-    #   bottom plate at z=0 (its TOP face is at z=PLATE_T -> bracket
-    #     bottom face is at chassis z=PLATE_T, but the bracket itself
-    #     bolts ONTO the top of the bottom plate which we treat as
-    #     chassis z=0; so the bottom plate mesh sits at z=-PLATE_T).
-    #   top plate at z=GAP+PLATE_T (its bottom face is GAP above the
-    #     bottom plate top face = chassis z=GAP).
-    #   battery holder at (-0.025, 0, 0) -- sits ON the bottom plate.
-    #   electronics tray at ( 0.035, 0, +0.001) -- sits ON the bottom
-    #     plate with 1 mm clearance.
-    # Jun 2026 deck redesign: the clip-in battery_holder + in-gap
-    # electronics_tray are retired.  The LiPo velcro-straps to the
-    # bottom plate's top face; the Uno Q + buck stacked decks bolt onto
-    # 4 columns above chassis_top.  chassis_top's top face (deck z0)
-    # sits at chassis-local z = gap + plate_t/2.
-    deck_z0 = gap + plate_t / 2.0
-    uno_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H * M
-    buck_tray_z = deck_z0 + (HP.DECK_LEVEL_1_STANDOFF_H
-                             + HP.DECK_LEVEL_2_STANDOFF_H) * M
-    carapace_z = deck_z0 + (HP.DECK_LEVEL_1_STANDOFF_H
-                            + HP.DECK_LEVEL_2_STANDOFF_H
-                            + HP.DECK_LEVEL_3_STANDOFF_H) * M
+    # Jun 2026 deck redesign retired the clip-in battery_holder + in-gap
+    # electronics_tray.  Aug 2026 as-built stack retires the printed
+    # uno_q_tray / buck_tray / spider_carapace too — electronics live on
+    # the magnet hex board (extra_stl), not MuJoCo mesh assets here.
+    # chassis_top's top face sits at chassis-local z = gap + plate_t/2.
     lipo_h = HP.BATTERY_H * M
     lipo_z = lipo_h / 2.0   # pack bottom on the bottom-plate top face (z=0)
     return (
@@ -541,16 +522,7 @@ def _chassis_visuals_xml() -> str:
         f'size="{HP.BATTERY_W * M / 2.0:.5f} {HP.BATTERY_D * M / 2.0:.5f} '
         f'{lipo_h / 2.0:.5f}" '
         f'pos="{HP.BATTERY_HOLDER_CENTRE_X * M:.5f} 0 {lipo_z:.5f}" '
-        'material="palette_uno_q_tray"/>\n'
-        '      <geom class="visual" name="uno_q_tray_mesh" type="mesh" '
-        f'mesh="uno_q_tray" pos="0 0 {uno_tray_z:.5f}" '
-        'material="palette_uno_q_tray"/>\n'
-        '      <geom class="visual" name="buck_tray_mesh" type="mesh" '
-        f'mesh="buck_tray" pos="0 0 {buck_tray_z:.5f}" '
-        'material="palette_buck_tray"/>\n'
-        '      <geom class="visual" name="spider_carapace_mesh" type="mesh" '
-        f'mesh="spider_carapace" pos="0 0 {carapace_z:.5f}" '
-        'material="palette_spider_carapace"/>'
+        'material="palette_chassis_top"/>'
     )
 
 

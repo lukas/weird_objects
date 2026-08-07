@@ -1,0 +1,100 @@
+# Phase-1 stationary balance — see RL_PLAN.md
+
+control:
+  # 50 Hz is the plan target; measured SyncWrite+sense often >20 ms, so
+  # start HW motion tests at 25 Hz until the tick is slimmed.
+  hz: 25
+
+episode:
+  seconds: 5
+  settle_seconds: 2.5          # unused unless allow_stand_blend
+  # Abort before any SyncWrite if |roll| or |pitch| exceeds this.
+  preflight_max_tilt_deg: 12.0
+  # Always hold current pose — never yank to default +20/+80.
+  hold_current_pose: true
+  allow_stand_blend: false     # autonomous stand later; not Phase 1
+  # Require plant_pose.json with joints_deg from capture_plant.
+  require_captured_plant: true
+  max_plant_delta_deg: 15.0    # refuse start if farther than this from plant
+
+actions:
+  max_roll_deg: 3.0
+  max_pitch_deg: 3.0
+  max_height_mm: 5.0
+  max_x_mm: 5.0
+  max_y_mm: 5.0
+
+# Goal-conditioned lean / weight-shift task (sim/goal_task.py).
+goal:
+  p_hold: 0.15                 # episode-mode sampling probabilities
+  p_lean: 0.30
+  p_track: 0.35
+  p_unload: 0.20
+  max_ref_deg: 2.5             # capped to actions.max_roll/pitch_deg
+  track_period_s: [2.5, 8.0]   # slow enough to follow through latency
+  ramp_s: 0.75                 # ease references in from zero
+
+safety:
+  max_roll_deg: 10.0           # tighter after tip/brownout
+  max_pitch_deg: 10.0
+  max_delta_q_deg: 0.5         # per 20 ms — was 2° (too aggressive)
+  imu_stale_ms: 100
+  enable_soft_torque_limit: false
+  soft_torque_limit: 600
+  max_temp_c: 65.0
+  max_current_a: 2.5
+  over_current_trip_s: 0.8     # must be SUSTAINED this long to terminate
+  max_load_pct: 90.0
+  limp_on_terminate: true      # torque-off on tilt/estop (stop fighting)
+
+reward:
+  alive: 0.0
+  k_roll: 5.0
+  k_pitch: 5.0
+  k_gyro: 0.1
+  k_action: 0.01
+  k_action_delta: 0.01
+  # Effort penalty: sum of squared servo currents (A²). Quiet hold
+  # (~0.2 A × 18) costs ~0.01/step; three servos fighting at 2 A costs
+  # ~0.24/step (~60/episode). "Don't cook motors" — see 2026-08-06.
+  k_current: 0.02
+  # Weight-shift goal: mean |A| of the target leg's 3 servos. A loaded
+  # hip holds ~0.2 A → ~0.1/step until the leg is unloaded.
+  k_unload: 0.5
+  safety_termination_penalty: 10.0
+
+velocity_filter:
+  alpha: 0.3
+  max_jump_rad: 0.5          # reject single-frame Δq above this
+
+sensing:
+  full_feedback_hz: 10
+
+plant:
+  hip_deg: null              # null → standing_pose / plant_pose.json
+  knee_deg: null
+
+obs:
+  q_scale: 1.0               # rad → obs (tune from logs)
+  qd_scale: 2.0              # rad/s
+  tilt_scale: 0.2            # ~11° → unit scale
+  gyro_scale: 1.0            # rad/s
+
+pd:
+  kp_roll: 1.5
+  kd_roll: 0.15
+  kp_pitch: 1.5
+  kd_pitch: 0.15
+
+bus:
+  port: null                 # null → open_feetech_bus default
+  # Default OFF after 2026-08-06 cooked-knee incident. Explicit opt-in only.
+  enable_motion: false
+  write_speed: 400           # gentler after tip event
+  write_acc: 20
+  hold_speed: 250
+  stand_speed: 200           # even slower during stand blend
+
+logging:
+  dir: logs/rl_move
+  format: csv                # csv | jsonl

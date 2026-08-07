@@ -1,0 +1,1343 @@
+"""JSON bench helpers for the web UI: status, wiggle, demos.
+
+Uses the same Feetech bus as ``DriveController`` (shared lock).
+"""
+from __future__ import annotations
+
+import json
+import threading
+import time
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from feetech_bus import N_JOINTS, joint_to_servo_id
+
+if TYPE_CHECKING:
+    from drive_controller import DriveController
+
+AXIS = ("yaw", "hip", "knee")
+REGISTRY_CANDIDATES = (
+    Path(__file__).resolve().parent / "urt2_setup" / "motor_setup_registry.json",
+    Path(__file__).resolve().parent.parent / "motor_setup" / "motor_setup_registry.json",
+    Path(__file__).resolve().parent / "motor_setup_registry.json",
+    Path.home() / "hexapod_sts" / "urt2_setup" / "motor_setup_registry.json",
+)
+
+# Air demos must start near logical 0°. Planted/rise demos start from a stand.
+AIR_DEMO_NAMES = frozenset({
+    "breathe", "breathe_v", "heartbeat", "twinkle", "shimmy", "ripple",
+    "conductor", "arms_up",
+})
+ZERO_TOL_DEG = 6.0
+
+
+def _load_names() -> dict[int, str]:
+    for path in REGISTRY_CANDIDATES:
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        out: dict[int, str] = {}
+        for entry in (data.get("servos") or {}).values():
+            try:
+                out[int(entry["id"])] = str(entry.get("name") or f"ID{entry['id']}")
+            except (KeyError, TypeError, ValueError):
+                continue
+        if out:
+            return out
+    return {}
+
+
+def joint_label(joint: int, names: dict[int, str]) -> str:
+    sid = joint_to_servo_id(joint)
+    if sid in names:
+        return names[sid]
+    leg, axis = divmod(joint, 3)
+    return f"L{leg} {AXIS[axis]}"
+
+
+class BenchAPI:
+    def __init__(self, drive: "DriveController"):
+        self.drive = drive
+        self.names = _load_names()
+        self._demo_thread: threading.Thread | None = None
+        self._demo_abort = threading.Event()
+        self._demo_gen = 0  # bumps on each new demo/zero so stale workers exit
+        self._demo_name: str | None = None
+        self._demo_status = "idle"
+        self._demo_params: dict = {}
+        # What the robot is *trying* to do (UI-facing intent).
+        # idle | limp | armed | demo | zeroing | stopping | calibrating
+        self._activity = "idle"
+        self._activity_detail = ""
+        self._lock = threading.Lock()
+        # Last / in-progress step-calibrate report (web Calibrate tab).
+        self._cal_result: dict | None = None
+        self._cal_progress: dict = {}
+        # Last demo cmd-vs-actual telemetry (auto-logged from web demos).
+        self._demo_telemetry: dict | None = None
+        self._status_display = None
+
+    def start_status_display(self) -> None:
+        """Mirror web status + Σ motor current onto the MCU ST7789."""
+        if self._status_display is not None:
+            return
+        try:
+            from status_display import StatusDisplay
+        except ImportError:
+            return
+
+        def _bus():
+            return self.drive.bus
+
+        self._status_display = StatusDisplay(
+            _bus, lambda: self.robot_state(), period_s=1.8)
+        self._status_display.start()
+        if self._status_display._recovered:
+            print("[web] TFT recovered (hard reinit OK)")
+        else:
+            err = self._status_display._last_err or "unknown"
+            print(f"[web] TFT recover FAILED: {err}")
+
+    def stop_status_display(self) -> None:
+        if self._status_display is not None:
+            self._status_display.stop()
+            self._status_display = None
+
+    # -- robot / demo state --------------------------------------------------
+    def _set_activity(self, activity: str, detail: str = "") -> None:
+        with self._lock:
+            self._activity = activity
+            self._activity_detail = detail
+
+    def demo_state(self) -> dict:
+        with self._lock:
+            return {
+                "name": self._demo_name,
+                "status": self._demo_status,
+                "running": bool(self._demo_thread and self._demo_thread.is_alive()),
+                "params": dict(self._demo_params),
+                # Live worker progress (msg + optional joint/index/total) —
+                # the TFT job panel renders counts/percent from this.
+                "progress": dict(self._cal_progress)
+                if self._cal_progress else None,
+                "telemetry": dict(self._demo_telemetry)
+                if self._demo_telemetry else None,
+            }
+
+    def robot_state(self, *, check_zero: bool = False) -> dict:
+        """Global intent + drive mode (+ optional near-zero probe)."""
+        d = self.drive
+        with d._lock:
+            armed = d.armed
+            mode = d.mode
+            dry = d.dry_run
+            drive_status = d.status
+        demo = self.demo_state()
+        with self._lock:
+            activity = self._activity
+            detail = self._activity_detail
+        # Derive a clearer activity if the worker hasn't set one yet.
+        if demo["running"] and activity not in ("demo", "zeroing", "stopping"):
+            activity = "demo"
+        elif not demo["running"] and activity in ("demo", "zeroing", "stopping"):
+            # Stale — worker finished without clearing (shouldn't happen).
+            if demo["status"] in ("done", "aborted", "idle", "skipped"):
+                activity = "armed" if armed else "limp"
+                detail = demo["status"]
+        if not armed and activity in ("idle", "armed"):
+            activity = "limp"
+
+        out = {
+            "activity": activity,
+            "detail": detail,
+            "armed": armed,
+            "mode": mode,
+            "dry_run": dry,
+            "drive_status": drive_status,
+            "demo": demo,
+            "air_demos_need_zero": True,
+            "zero_tol_deg": ZERO_TOL_DEG,
+        }
+        if check_zero:
+            out["zero"] = self.check_near_zero()
+        return out
+
+    def check_near_zero(self, tol_deg: float = ZERO_TOL_DEG) -> dict:
+        """Read present pose; ``at_zero`` if all live joints within tol of 0°."""
+        d = self.drive
+        if d.dry_run:
+            return {"at_zero": True, "max_err_deg": 0.0, "live": 0, "tol_deg": tol_deg}
+        if not d.bus:
+            return {"at_zero": False, "max_err_deg": None, "live": 0,
+                    "tol_deg": tol_deg, "error": "no bus"}
+        # Avoid fighting an active demo thread on the serial bus.
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"at_zero": False, "max_err_deg": None, "live": 0,
+                    "tol_deg": tol_deg, "error": "busy", "busy": True}
+        max_err = 0.0
+        n = 0
+        try:
+            with d._lock:
+                bus = d.bus
+                for joint in range(N_JOINTS):
+                    deg = bus.read_position_deg(joint)
+                    if deg is None:
+                        continue
+                    n += 1
+                    max_err = max(max_err, abs(float(deg)))
+        except Exception as e:
+            return {"at_zero": False, "max_err_deg": None, "live": n,
+                    "tol_deg": tol_deg, "error": str(e)}
+        if n == 0:
+            return {"at_zero": False, "max_err_deg": None, "live": 0,
+                    "tol_deg": tol_deg, "error": "no feedback"}
+        return {
+            "at_zero": max_err <= float(tol_deg),
+            "max_err_deg": round(max_err, 2),
+            "live": n,
+            "tol_deg": float(tol_deg),
+        }
+
+    # -- status (motors table) -----------------------------------------------
+    def status(self) -> dict:
+        d = self.drive
+        with d._lock:
+            port = d.port
+            dry = d.dry_run
+            armed = d.armed
+            mode = d.mode
+            bus = d.bus
+            drive_status = d.status
+        motors = []
+        live: list[int] = []
+        if bus is not None and not (self._demo_thread and self._demo_thread.is_alive()):
+            try:
+                from urt2_bench import read_servo_health
+                live = sorted(bus.scan(range(1, 31)))
+                for sid in live:
+                    try:
+                        h = read_servo_health(bus, sid)
+                    except Exception as e:
+                        motors.append({
+                            "id": sid, "ok": False, "error": str(e),
+                        })
+                        continue
+                    joint = sid - 2 if 2 <= sid <= 19 else None
+                    motors.append({
+                        "id": sid,
+                        "ok": True,
+                        "joint": joint,
+                        "name": (joint_label(joint, self.names)
+                                 if joint is not None
+                                 else self.names.get(sid, f"ID{sid}")),
+                        "deg": round(float(h.get("deg", 0.0)), 2),
+                        "load_pct": round(float(h.get("load_pct", 0.0)), 1),
+                        "current_a": round(float(h.get("current_a", 0.0)), 3),
+                        "volt": round(float(h.get("volt", 0.0)), 2),
+                        "temp_c": int(h.get("temp_c") or 0),
+                        "moving": int(h.get("moving") or 0),
+                        "torque": int(h.get("torque_enable") or 0),
+                        "alarm": bool(h.get("alarm")),
+                        "status_bits": [n for n, _ in (h.get("status_bits") or [])],
+                        "volt_limit_max": h.get("volt_limit_max"),
+                    })
+            except Exception as e:
+                return {
+                    "port": port, "dry_run": dry, "armed": armed, "mode": mode,
+                    "status": drive_status, "error": str(e),
+                    "live_ids": [], "motors": [],
+                    "demo": self.demo_state(),
+                    "robot": self.robot_state(),
+                }
+        return {
+            "port": port,
+            "dry_run": dry,
+            "armed": armed,
+            "mode": mode,
+            "status": drive_status,
+            "live_ids": live,
+            "motors": motors,
+            "demo": self.demo_state(),
+            "robot": self.robot_state(),
+        }
+
+    def pose(self) -> dict:
+        """Fast present-angle snapshot for the live schematic (no health scan).
+
+        Returns 18 logical joint degrees (yaw/hip/knee × 6).  Missing servos
+        are ``null``.  Does **not** hold the drive lock across the whole scan
+        (that starved stand/rise SyncWrites when Live was open).
+        """
+        d = self.drive
+        with d._lock:
+            dry = d.dry_run
+            armed = d.armed
+            mode = d.mode
+            bus = d.bus
+        geom = {
+            "coxa_mm": 12.5,
+            "femur_mm": 90.0,
+            "tibia_mm": 128.0,
+            "body_r_mm": 55.0,
+        }
+        demo = self.demo_state()
+        if dry:
+            # Sit-ish default so the page still draws something offline.
+            deg = []
+            for _ in range(6):
+                deg.extend([0.0, 0.0, 0.0])
+            return {
+                "ok": True, "dry_run": True, "armed": armed, "mode": mode,
+                "degrees": deg, "live": 0, "ts": time.time(), "geom": geom,
+                "demo": demo,
+            }
+        if not bus:
+            return {
+                "ok": False, "error": "no bus", "degrees": [None] * N_JOINTS,
+                "live": 0, "ts": time.time(), "geom": geom,
+                "demo": demo,
+            }
+        degrees: list[float | None] = [None] * N_JOINTS
+        live = 0
+        try:
+            # Bus has its own lock; avoid holding drive._lock here.
+            for joint in range(N_JOINTS):
+                try:
+                    v = bus.read_position_deg(joint)
+                except Exception:
+                    v = None
+                if v is None:
+                    continue
+                degrees[joint] = round(float(v), 2)
+                live += 1
+        except Exception as e:
+            return {
+                "ok": False, "error": str(e), "degrees": degrees,
+                "live": live, "ts": time.time(), "geom": geom,
+                "demo": demo,
+            }
+        return {
+            "ok": True, "dry_run": False, "armed": armed, "mode": mode,
+            "degrees": degrees, "live": live, "ts": time.time(), "geom": geom,
+            "demo": demo,
+        }
+
+    def _enter_stand_hold(self) -> None:
+        """Keep re-holding walk-plant after stand zero / planted demos."""
+        d = self.drive
+        try:
+            from feetech_bus import standing_pose_degrees
+            stand = standing_pose_degrees()
+        except Exception:
+            stand = None
+        # Full torque for weight-bearing hold (demos leave soft limits on).
+        try:
+            from inplace_demos import (STAND_TORQUE_LIMIT, _live_robot_ids,
+                                       _set_torque_limit)
+            if d.bus is not None:
+                _set_torque_limit(d.bus, _live_robot_ids(d.bus),
+                                  STAND_TORQUE_LIMIT)
+        except Exception:
+            pass
+        with d._lock:
+            d.armed = True
+            d.mode = "stand"
+            d.gait.stop()
+            if stand is not None:
+                d._last_pose = list(stand)
+            d.status = "standing"
+
+    def list_demos(self) -> list[dict]:
+        try:
+            from inplace_demos import DEMOS
+        except ImportError:
+            return []
+        out = []
+        for n, (t, _) in DEMOS.items():
+            # breathe+ kept as alias; UI uses size slider on breathe.
+            if n == "breathe+":
+                continue
+            out.append({
+                "name": n,
+                "title": t,
+                "air": n in AIR_DEMO_NAMES,
+                "has_size": n in ("breathe", "breathe_v"),
+            })
+        return out
+
+    # -- actions -------------------------------------------------------------
+    def wiggle(self, joint: int, amp: float = 8.0) -> dict:
+        if not (0 <= joint < N_JOINTS):
+            return {"ok": False, "error": "bad joint"}
+        if self.drive.dry_run:
+            return {"ok": True, "dry_run": True}
+        if not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the demo first"}
+        msg = self.drive.handle(f"Q {joint} {amp}")
+        if msg == "need ARM":
+            return {"ok": False, "error": "need ARM"}
+        return {"ok": True, "result": msg, "joint": joint, "amp": amp}
+
+    def _preempt_demo_thread(self, *, reason: str = "stop",
+                             timeout: float = 5.0) -> bool:
+        """Abort any running demo/zero worker. True if bus is free afterward."""
+        t = self._demo_thread
+        if t is None or not t.is_alive():
+            return True
+        self._demo_abort.set()
+        with self._lock:
+            self._demo_status = "stopping"
+        self._set_activity("stopping", reason)
+        t.join(timeout=float(timeout))
+        still = bool(self._demo_thread and self._demo_thread.is_alive())
+        if still:
+            with self._lock:
+                self._demo_status = "aborted"
+                self._activity = "idle"
+                self._activity_detail = "stop timed out — use E-STOP if stuck"
+            return False
+        with self.drive._lock:
+            if self.drive.mode == "demo":
+                self.drive.mode = "idle"
+        return True
+
+    def stop_demo(self) -> dict:
+        """Abort the demo thread. Do NOT touch the bus here — concurrent
+        SyncWrite + HOLD was hanging the MCU bridge and leaving status at
+        ``stopping`` forever."""
+        prev = self._demo_name or ""
+        ok = self._preempt_demo_thread(reason=prev or "stop", timeout=4.0)
+        with self._lock:
+            if self._demo_status in ("stopping",):
+                self._demo_status = "aborted"
+            if ok and self._activity == "stopping":
+                self._activity = "armed" if self.drive.armed else "limp"
+                self._activity_detail = "aborted"
+        return {"ok": True, "demo": self.demo_state(), "robot": self.robot_state()}
+
+    def run_demo(self, name: str, *, speed: float = 1.0,
+                 size: float = 1.0, rate: float | None = None,
+                 torque: int | None = None, softness: float = 1.0) -> dict:
+        try:
+            from inplace_demos import (DEMOS, go_to_stand_pose, go_to_zero_pose,
+                                       run_demo)
+        except ImportError as e:
+            return {"ok": False, "error": f"inplace_demos missing: {e}"}
+        # Alias: breathe+ → breathe at size 2.
+        if name == "breathe+":
+            name = "breathe"
+            size = max(float(size), 2.0)
+        if name not in DEMOS:
+            return {"ok": False, "error": f"unknown demo {name!r}",
+                    "demos": [n for n in DEMOS if n != "breathe+"]}
+        if self.drive.dry_run:
+            return {"ok": False, "error": "dry-run — no bus"}
+        if not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+
+        def _f(val, default, lo, hi):
+            try:
+                x = float(val)
+            except (TypeError, ValueError):
+                x = default
+            return max(lo, min(hi, x))
+
+        speed = _f(speed, 1.0, 0.25, 3.0)
+        size = _f(size, 1.0, 0.5, 3.0)
+        softness = _f(softness, 1.0, 0.5, 3.0)
+        if rate is not None:
+            rate = _f(rate, 0.28, 0.08, 0.60)
+        if torque is not None:
+            try:
+                torque = int(round(float(torque)))
+            except (TypeError, ValueError):
+                torque = None
+            if torque is not None:
+                torque = max(150, min(1000, torque))
+
+        home = "sit" if name in AIR_DEMO_NAMES else "stand"
+        switched_from = None
+        if self._demo_thread and self._demo_thread.is_alive():
+            switched_from = self._demo_name
+            if not self._preempt_demo_thread(
+                    reason=f"{switched_from or '?'} → {name}", timeout=5.0):
+                return {"ok": False,
+                        "error": "previous demo did not stop — try Stop / E-STOP",
+                        "demo": self.demo_state(), "robot": self.robot_state()}
+
+        params = {"speed": speed, "home": home}
+        if name in ("breathe", "breathe_v"):
+            params.update({"size": size, "softness": softness})
+            if rate is not None:
+                params["rate"] = rate
+        if torque is not None and name in AIR_DEMO_NAMES:
+            params["torque"] = torque
+        if switched_from:
+            params["switched_from"] = switched_from
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = name
+            self._demo_status = "starting"
+            self._demo_params = dict(params)
+        bits = [f"{name} @ {speed:.2f}×"]
+        if switched_from:
+            bits.insert(0, f"switch←{switched_from}")
+        if name in ("breathe", "breathe_v"):
+            bits.append(f"size {size:.2f}×")
+            if rate is not None:
+                bits.append(f"{rate:.2f} Hz")
+            bits.append(f"soft {softness:.2f}×")
+        if torque is not None:
+            bits.append(f"τ {torque}")
+        detail = " ".join(bits)
+        self._set_activity("demo", detail)
+
+        def _worker():
+            d = self.drive
+            with d._lock:
+                d.mode = "demo"
+                d.gait.stop()
+                if not d.armed:
+                    d._torque_all(True)
+                    d.armed = True
+            try:
+                # Always home first (sit for air, stand for planted) so a
+                # mid-demo switch — or starting from the wrong pose — just works.
+                with self._lock:
+                    self._demo_status = f"homing {home}"
+                self._set_activity("zeroing", f"{home} zero → {name}")
+                if home == "sit":
+                    ok_home = go_to_zero_pose(
+                        d.bus, abort_check=self._demo_abort.is_set,
+                        seconds=3.5)
+                else:
+                    ok_home = go_to_stand_pose(
+                        d.bus, abort_check=self._demo_abort.is_set,
+                        seconds=3.5)
+                if gen != self._demo_gen:
+                    return
+                if self._demo_abort.is_set() or not ok_home:
+                    with self._lock:
+                        self._demo_status = "aborted"
+                    return
+
+                with self._lock:
+                    self._demo_status = f"running @ {speed:.2f}×"
+                self._set_activity("demo", detail)
+                # Every web demo is also a calibrate run: cmd vs encoder CSV.
+                log_dir = Path(__file__).resolve().parent / "logs"
+                log_dir.mkdir(parents=True, exist_ok=True)
+                stamp = time.strftime("%Y%m%d_%H%M%S")
+                log_path = log_dir / f"demo_{name}_{stamp}.csv"
+                with self._lock:
+                    self._demo_params = {
+                        **dict(self._demo_params),
+                        "log": log_path.name,
+                    }
+                status = run_demo(
+                    d.bus, name,
+                    speed=speed,
+                    size=size,
+                    rate=rate,
+                    torque=torque,
+                    softness=softness,
+                    abort_check=self._demo_abort.is_set,
+                    log_path=log_path,
+                )
+                telem = None
+                summary_path = log_path.with_name(
+                    log_path.stem + "_summary.json")
+                if summary_path.is_file():
+                    try:
+                        telem = json.loads(summary_path.read_text())
+                    except (OSError, ValueError):
+                        telem = None
+                if telem is None and log_path.is_file():
+                    telem = {
+                        "ok": True,
+                        "log": str(log_path),
+                        "log_name": log_path.name,
+                        "hint": "CSV written; summary pending",
+                    }
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._demo_telemetry = telem
+                    if self._demo_abort.is_set():
+                        self._demo_status = "aborted"
+                    else:
+                        self._demo_status = status or "done"
+                        if telem and telem.get("counts"):
+                            c = telem["counts"]
+                            self._demo_status = (
+                                f"{status or 'done'} · "
+                                f"{c.get('green', 0)}g/"
+                                f"{c.get('yellow', 0)}y/"
+                                f"{c.get('red', 0)}r"
+                            )
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._demo_status = f"error: {e}"
+            finally:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    st = self._demo_status
+                if st == "stopping":
+                    st = "aborted"
+                    with self._lock:
+                        self._demo_status = st
+                # Planted / rise demos finish at stand zero — keep re-holding.
+                if st == "done" and name not in AIR_DEMO_NAMES:
+                    self._enter_stand_hold()
+                else:
+                    with d._lock:
+                        if d.mode == "demo":
+                            d.mode = "idle"
+                self._set_activity(
+                    "armed" if d.armed else "limp",
+                    st if st in ("done", "aborted", "skipped") else st)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "params": params, "home": home,
+                "switched": bool(switched_from),
+                "switched_from": switched_from,
+                "demo": self.demo_state(), "robot": self.robot_state()}
+
+    def go_zero(self, pose: str = "sit", *, force: bool = False) -> dict:
+        """Ease to sit zero (legs out) or stand zero (walk plant).
+
+        ``pose``: ``sit`` | ``stand``.  Stand keeps torque on (no limp).
+
+        Refuses if any live joint would move more than ~25° from its
+        present angle unless ``force=True`` (wrong logical zero must be
+        fixed with ``/api/set_zero``, not a violent centre).
+        """
+        try:
+            from inplace_demos import go_to_stand_pose, go_to_zero_pose
+            from feetech_bus import N_JOINTS, standing_pose_degrees
+            from drive_controller import MAX_SAFE_DELTA_DEG
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        pose = (pose or "sit").strip().lower()
+        if pose in ("stand", "standing", "plant"):
+            pose = "stand"
+        else:
+            pose = "sit"
+        if self.drive.dry_run:
+            return {"ok": True, "dry_run": True, "pose": pose}
+        if not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            if not self._preempt_demo_thread(
+                    reason=f"→ {pose} zero", timeout=5.0):
+                return {"ok": False,
+                        "error": "previous demo did not stop — try Stop / E-STOP",
+                        "robot": self.robot_state()}
+
+        goal = (standing_pose_degrees() if pose == "stand"
+                else [0.0] * N_JOINTS)
+        if not force:
+            with self.drive._lock:
+                worst, j = self.drive._max_delta_vs_present(goal)
+            if worst > MAX_SAFE_DELTA_DEG:
+                return {
+                    "ok": False,
+                    "error": (
+                        f"refused {pose} zero: j{j} would move {worst:.1f}° "
+                        f"(>{MAX_SAFE_DELTA_DEG:.0f}°). "
+                        f"POST /api/set_zero at the real pose, or pass force=true"
+                    ),
+                    "max_delta_deg": round(worst, 2),
+                    "joint": j,
+                    "hint": "set-zero-here — do not FORCE unless watching",
+                }
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = f"zero_{pose}"
+            self._demo_status = "zeroing"
+            self._demo_params = {"pose": pose, "force": bool(force)}
+        self._set_activity("zeroing", f"go to {pose} zero")
+
+        def _worker():
+            d = self.drive
+            with d._lock:
+                d.mode = "demo"
+                if not d.armed:
+                    d._torque_all(True)
+                    d.armed = True
+            stand_info: dict = {}
+            try:
+                if pose == "stand":
+                    ok = go_to_stand_pose(
+                        d.bus, abort_check=self._demo_abort.is_set,
+                        seconds=4.5, result=stand_info)
+                else:
+                    ok = go_to_zero_pose(
+                        d.bus, abort_check=self._demo_abort.is_set,
+                        seconds=4.0)
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    if ok:
+                        self._demo_status = "done"
+                    elif stand_info.get("error"):
+                        self._demo_status = f"error: {stand_info['error']}"
+                    else:
+                        self._demo_status = "aborted"
+                    if stand_info:
+                        self._demo_params = {
+                            **dict(self._demo_params or {}),
+                            "stand_check": stand_info,
+                        }
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._demo_status = f"error: {e}"
+            finally:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    st = self._demo_status
+                # Stand home must keep mode=stand so the drive loop re-holds
+                # plant (otherwise stance droops after the one-shot glide).
+                if st == "done" and pose == "stand":
+                    self._enter_stand_hold()
+                    detail = "at stand zero"
+                    if stand_info.get("max_err_deg") is not None:
+                        detail += f" (err {stand_info['max_err_deg']:.1f}°)"
+                    self._set_activity("armed", detail)
+                else:
+                    with d._lock:
+                        if d.mode == "demo":
+                            d.mode = "idle"
+                    if str(st).startswith("error"):
+                        self._set_activity("armed" if d.armed else "limp", st)
+                    else:
+                        self._set_activity(
+                            "armed" if d.armed else "limp",
+                            f"at {pose} zero" if st == "done" else st)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "pose": pose, "demo": self.demo_state(),
+                "robot": self.robot_state()}
+
+    def set_zero_here(self) -> dict:
+        """Feetech middle-calibrate: current pose becomes logical 0° (no move)."""
+        try:
+            from urt2_bench import redefine_zero_here
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        if self.drive.dry_run:
+            return {"ok": True, "dry_run": True}
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the demo first"}
+        if not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+
+        d = self.drive
+        with d._lock:
+            d.mode = "idle"
+            d.gait.stop()
+            d.armed = False
+            try:
+                d._torque_all(False)
+            except Exception:
+                pass
+            try:
+                result = redefine_zero_here(d.bus)
+            except Exception as e:
+                return {"ok": False, "error": str(e)}
+            d.status = (f"zero-here {result.get('ok_n', 0)}/"
+                        f"{result.get('count', 0)} (limp)")
+        self._set_activity("limp", "zero redefined here")
+        return result
+
+    # -- step calibrate (cmd vs encoder) -------------------------------------
+    def calibrate_state(self) -> dict:
+        with self._lock:
+            result = dict(self._cal_result) if self._cal_result else None
+            progress = dict(self._cal_progress)
+        running = bool(self._demo_thread and self._demo_thread.is_alive()
+                       and (self._demo_name or "").startswith("calibrate"))
+        plant = self.plant_state()
+        imu = self.imu_state()
+        return {
+            "running": running,
+            "progress": progress,
+            "result": result,
+            "plant": plant,
+            "imu": imu,
+            "demo": self.demo_state(),
+            "robot": self.robot_state(),
+        }
+
+    def plant_state(self) -> dict:
+        try:
+            from plant_calibrate import plant_state
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        return plant_state()
+
+    def imu_state(self) -> dict:
+        try:
+            from imu_calibrate import imu_state
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        return imu_state()
+
+    def reset_plant(self) -> dict:
+        try:
+            from plant_calibrate import reset_plant_pose
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        out = reset_plant_pose()
+        out["ok"] = True
+        return out
+
+    def reset_imu(self) -> dict:
+        try:
+            from imu_calibrate import reset_imu_calib
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        out = reset_imu_calib()
+        out["ok"] = True
+        bus = getattr(self.drive, "bus", None)
+        reload = getattr(bus, "reload_imu_calib", None) if bus else None
+        if callable(reload):
+            try:
+                reload()
+            except Exception:
+                pass
+        return out
+
+    def run_calibrate(self, *, mode: str = "step",
+                      step_deg: float = 10.0,
+                      nudge_deg: float = 2.0,
+                      axis: str = "all",
+                      clearance_mm: float = 40.0,
+                      force: bool = False) -> dict:
+        """Background step, shake/hold, plant-height, geometry plant, or IMU."""
+        mode = (mode or "step").strip().lower()
+        if mode in ("hold", "hunt"):
+            mode = "shake"
+        if mode in ("plant", "plant_height", "height", "stand_height"):
+            mode = "plant"
+        if mode in ("geometry", "geometry_plant", "geo_plant", "rl_plant"):
+            mode = "geometry"
+        if mode in ("imu", "mpu", "gyro", "accel"):
+            mode = "imu"
+
+        if mode == "plant":
+            try:
+                from plant_calibrate import run_plant_calibrate
+            except ImportError as e:
+                return {"ok": False, "error": f"plant_calibrate missing: {e}"}
+        elif mode == "geometry":
+            if not force:
+                return {
+                    "ok": False,
+                    "error": (
+                        "geometry plant disabled without force=true "
+                        "(2026-08-06 incident). Prefer capture_plant."
+                    ),
+                }
+            try:
+                from geometry_plant import run_geometry_plant
+            except ImportError as e:
+                return {"ok": False, "error": f"geometry_plant missing: {e}"}
+        elif mode == "imu":
+            try:
+                from imu_calibrate import run_imu_calibrate
+            except ImportError as e:
+                return {"ok": False, "error": f"imu_calibrate missing: {e}"}
+        else:
+            try:
+                from joint_calibrate import run_calibrate
+            except ImportError as e:
+                return {"ok": False, "error": f"joint_calibrate missing: {e}"}
+
+        if self.drive.dry_run:
+            return {"ok": False, "error": "dry-run — no bus"}
+        if not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            if not self._preempt_demo_thread(
+                    reason="→ calibrate", timeout=5.0):
+                return {"ok": False,
+                        "error": "previous demo did not stop — try Stop",
+                        "calibrate": self.calibrate_state()}
+
+        try:
+            step_deg = float(step_deg)
+        except (TypeError, ValueError):
+            step_deg = 10.0
+        try:
+            nudge_deg = float(nudge_deg)
+        except (TypeError, ValueError):
+            nudge_deg = 2.0
+        axis = (axis or "all").strip().lower()
+        if mode not in ("step", "shake", "plant", "geometry", "imu"):
+            mode = "step"
+        try:
+            clearance_mm = float(clearance_mm)
+        except (TypeError, ValueError):
+            clearance_mm = 40.0
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        if mode == "plant":
+            label = "plant height (contact reach)"
+        elif mode == "geometry":
+            label = f"geometry plant (hip≈0 / knee≈90, +{clearance_mm:.0f}mm)"
+        elif mode == "imu":
+            label = "IMU rest (hold still)"
+        elif mode == "shake":
+            label = f"shake +{nudge_deg:.1f}° hold ({axis})"
+        else:
+            label = f"step +{step_deg:.0f}° ({axis})"
+        with self._lock:
+            self._demo_name = f"calibrate:{mode}:{axis}"
+            self._demo_status = "calibrating"
+            self._demo_params = {
+                "mode": mode, "step_deg": step_deg,
+                "nudge_deg": nudge_deg, "axis": axis,
+                "clearance_mm": clearance_mm,
+            }
+            self._cal_result = None
+            self._cal_progress = {"msg": "starting…"}
+        self._set_activity("calibrating", label)
+
+        def _worker():
+            d = self.drive
+            with d._lock:
+                d.mode = "demo"
+                d.gait.stop()
+                # IMU rest calib does not need torque; leave limp alone.
+                if mode != "imu" and not d.armed:
+                    d._torque_all(True)
+                    d.armed = True
+
+            def _on_progress(p: dict) -> None:
+                with self._lock:
+                    self._cal_progress = dict(p)
+                    self._demo_status = str(p.get("msg") or "calibrating")
+
+            try:
+                if mode == "plant":
+                    result = run_plant_calibrate(
+                        d.bus,
+                        names=self.names,
+                        abort_check=self._demo_abort.is_set,
+                        on_progress=_on_progress,
+                    )
+                elif mode == "geometry":
+                    result = run_geometry_plant(
+                        d.bus,
+                        abort_check=self._demo_abort.is_set,
+                        on_progress=_on_progress,
+                        clearance_mm=clearance_mm,
+                    )
+                elif mode == "imu":
+                    result = run_imu_calibrate(
+                        d.bus,
+                        abort_check=self._demo_abort.is_set,
+                        on_progress=_on_progress,
+                    )
+                else:
+                    result = run_calibrate(
+                        d.bus,
+                        mode=mode,
+                        step_deg=step_deg,
+                        nudge_deg=nudge_deg,
+                        axis=axis,
+                        names=self.names,
+                        abort_check=self._demo_abort.is_set,
+                        on_progress=_on_progress,
+                    )
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = result
+                    if self._demo_abort.is_set() or result.get("aborted"):
+                        self._demo_status = "aborted"
+                    elif result.get("ok") and mode == "plant":
+                        if result.get("saved"):
+                            self._demo_status = (
+                                f"done · plant hip {result.get('hip_deg')}° / "
+                                f"knee {result.get('knee_deg')}°"
+                            )
+                        else:
+                            self._demo_status = (
+                                "done · no contact (plant not saved)"
+                            )
+                    elif result.get("ok") and mode == "geometry":
+                        self._demo_status = (
+                            f"done · geo plant hip {result.get('hip_deg')}° / "
+                            f"knee {result.get('knee_deg')}°"
+                        )
+                    elif result.get("ok") and mode == "imu":
+                        g = result.get("grade") or "?"
+                        if result.get("saved"):
+                            self._demo_status = f"done · IMU {g} (saved)"
+                        else:
+                            self._demo_status = f"done · IMU {g} (not saved)"
+                    elif result.get("ok"):
+                        c = result.get("counts") or {}
+                        self._demo_status = (
+                            f"done · {c.get('green', 0)}g/"
+                            f"{c.get('yellow', 0)}y/{c.get('red', 0)}r"
+                        )
+                    else:
+                        self._demo_status = (
+                            f"error: {result.get('error') or 'failed'}"
+                        )
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = {"ok": False, "error": str(e)}
+                    self._demo_status = f"error: {e}"
+            finally:
+                if gen != self._demo_gen:
+                    return
+                with d._lock:
+                    if d.mode == "demo":
+                        d.mode = "idle"
+                with self._lock:
+                    st = self._demo_status
+                self._set_activity(
+                    "armed" if d.armed else "limp",
+                    st if st else "calibrate done")
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "calibrate": self.calibrate_state()}
+
+    def stop_calibrate(self) -> dict:
+        """Alias for stop_demo (same worker slot)."""
+        out = self.stop_demo()
+        out["calibrate"] = self.calibrate_state()
+        return out
+
+    # -- RL / agent HTTP surface (prefer this over SSH) ---------------------
+    def rl_state(self) -> dict:
+        """Pose + plant + activity in one JSON blob for agents / UI."""
+        return {
+            "ok": True,
+            "service": "hexapod-web",
+            "pose": self.pose(),
+            "plant": self.plant_state(),
+            "imu": self.imu_state(),
+            "calibrate": self.calibrate_state(),
+            "robot": self.robot_state(),
+        }
+
+    def rl_find_plant(self, *, clearance_mm: float = 40.0,
+                      force: bool = False) -> dict:
+        """Start geometry+contact plant finder (async). Poll ``rl_state``.
+
+        Disabled unless ``force=true`` — 2026-08-06 unsupervised plant
+        blends tipped/browned-out and cooked a knee servo.
+        """
+        if not force:
+            return {
+                "ok": False,
+                "error": (
+                    "find_plant disabled without force=true. "
+                    "Hand-set a low stance, set-zero-here if needed, "
+                    "capture_plant — do not auto-stand."
+                ),
+            }
+        return self.run_calibrate(mode="geometry", clearance_mm=clearance_mm)
+
+    def rl_capture_plant(self) -> dict:
+        """Save current 18-joint pose as plant (no motion)."""
+        from feetech_bus import save_plant_pose
+        import statistics as _stats
+
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+        d = self.drive
+        if d.dry_run or not d.bus:
+            return {"ok": False, "error": "no bus"}
+        samples: list[list[float]] = []
+        for _ in range(6):
+            row: list[float] = []
+            ok = True
+            with d._lock:
+                bus = d.bus
+            for j in range(18):
+                try:
+                    v = bus.read_position_deg(j)
+                except Exception:
+                    v = None
+                if v is None:
+                    ok = False
+                    break
+                row.append(float(v))
+            if ok:
+                samples.append(row)
+            time.sleep(0.04)
+        if not samples:
+            return {"ok": False, "error": "could not read joints"}
+        q = []
+        for j in range(18):
+            q.append(float(_stats.median([s[j] for s in samples])))
+        hips = [q[i] for i in range(1, 18, 3)]
+        knees = [q[i] for i in range(2, 18, 3)]
+        path = save_plant_pose(
+            float(_stats.median(hips)), float(_stats.median(knees)),
+            extra={
+                "joints_deg": [round(x, 3) for x in q],
+                "source": "api_capture",
+                "contact_found": True,
+            },
+        )
+        return {
+            "ok": True,
+            "path": str(path),
+            "hip_deg": round(float(_stats.median(hips)), 3),
+            "knee_deg": round(float(_stats.median(knees)), 3),
+            "joints_deg": [round(x, 3) for x in q],
+            "plant": self.plant_state(),
+        }
+
+    def rl_stop(self) -> dict:
+        """Abort calibrate / find_plant / demo worker."""
+        return self.stop_calibrate()
+
+    def rl_probe_dynamics(self, *, amp_deg: float = 10.0,
+                          axis: str = "all",
+                          soft_torque: int = 350) -> dict:
+        """Air-only per-joint step probe → motor_model.json (async)."""
+        try:
+            from motor_dynamics import run_motor_dynamics
+        except ImportError as e:
+            return {"ok": False, "error": f"motor_dynamics missing: {e}"}
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            if not self._preempt_demo_thread(reason="→ dynamics", timeout=5.0):
+                return {"ok": False, "error": "previous job still running"}
+
+        try:
+            amp_deg = float(amp_deg)
+        except (TypeError, ValueError):
+            amp_deg = 10.0
+        try:
+            soft_torque = int(soft_torque)
+        except (TypeError, ValueError):
+            soft_torque = 450
+        axis = (axis or "all").strip().lower()
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = "rl_probe_dynamics"
+            self._demo_status = f"dynamics ±{amp_deg:.0f}° ({axis})"
+            self._demo_params = {
+                "amp_deg": amp_deg, "axis": axis,
+                "soft_torque": soft_torque,
+            }
+            self._cal_result = None
+            self._cal_progress = {"msg": self._demo_status}
+        self._set_activity("calibrating", self._demo_status)
+
+        def _worker():
+            d = self.drive
+            with d._lock:
+                d.mode = "demo"
+                d.gait.stop()
+                if not d.armed:
+                    d._torque_all(True)
+                    d.armed = True
+
+            def _on_progress(p: dict) -> None:
+                with self._lock:
+                    self._cal_progress = dict(p)
+                    self._demo_status = str(p.get("msg") or "dynamics")
+
+            try:
+                result = run_motor_dynamics(
+                    d.bus,
+                    amp_deg=amp_deg,
+                    axis=axis,
+                    soft_torque=soft_torque,
+                    names=self.names,
+                    abort_check=self._demo_abort.is_set,
+                    on_progress=_on_progress,
+                )
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = result
+                    if self._demo_abort.is_set() or result.get("aborted"):
+                        self._demo_status = "aborted"
+                    elif result.get("ok"):
+                        self._demo_status = (
+                            f"done · {result.get('joints_ok')}/"
+                            f"{result.get('joints_tested')} ok"
+                        )
+                    else:
+                        self._demo_status = (
+                            f"error: {result.get('error') or result.get('msg')}"
+                        )
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = {"ok": False, "error": str(e),
+                                       "mode": "dynamics"}
+                    self._demo_status = f"error: {e}"
+            finally:
+                if gen != self._demo_gen:
+                    return
+                # Probe limp's the bus; keep drive disarmed.
+                with d._lock:
+                    d.armed = False
+                    if d.mode == "demo":
+                        d.mode = "idle"
+                with self._lock:
+                    st = self._demo_status
+                self._set_activity("limp", st or "dynamics done")
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "calibrate": self.calibrate_state()}
+
+    def rl_set_stance(self, *, hip_deg: float = -20.0, knee_deg: float = 55.0,
+                      seconds: float = 10.0, yaw_deg: float = 0.0,
+                      force: bool = False) -> dict:
+        """Slow ease to a shared hip/knee stance (async).
+
+        Refuses large Δq from present unless ``force``. Hip≈0°+knee≈80° is
+        stilts — not a low plant.
+        """
+        try:
+            from inplace_demos import (
+                _enable_torque, _live_robot_ids, _set_torque_limit, ease_to_pose,
+            )
+            from drive_controller import MAX_SAFE_DELTA_DEG
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            if not self._preempt_demo_thread(reason="→ set_stance", timeout=5.0):
+                return {"ok": False, "error": "previous job still running"}
+
+        hip_deg = max(-80.0, min(30.0, float(hip_deg)))
+        knee_deg = max(-20.0, min(80.0, float(knee_deg)))
+        yaw_deg = max(-35.0, min(35.0, float(yaw_deg)))
+        seconds = max(2.0, min(30.0, float(seconds)))
+        goal: list[float] = []
+        for _ in range(6):
+            goal.extend([yaw_deg, hip_deg, knee_deg])
+        if not force:
+            with self.drive._lock:
+                worst, j = self.drive._max_delta_vs_present(goal)
+            if worst > MAX_SAFE_DELTA_DEG:
+                return {
+                    "ok": False,
+                    "error": (
+                        f"refused set_stance: j{j} Δq={worst:.1f}° "
+                        f"(>{MAX_SAFE_DELTA_DEG:.0f}°). Smaller step or force"
+                    ),
+                    "max_delta_deg": round(worst, 2),
+                    "joint": j,
+                }
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = "rl_set_stance"
+            self._demo_status = (
+                f"stance hip {hip_deg:+.0f}° / knee {knee_deg:+.0f}°")
+            self._demo_params = {
+                "hip_deg": hip_deg, "knee_deg": knee_deg,
+                "yaw_deg": yaw_deg, "seconds": seconds,
+            }
+            self._cal_result = None
+            self._cal_progress = {"msg": self._demo_status}
+        self._set_activity("calibrating", self._demo_status)
+
+        def _worker():
+            d = self.drive
+            with d._lock:
+                d.mode = "demo"
+                d.gait.stop()
+                if not d.armed:
+                    d._torque_all(True)
+                    d.armed = True
+            live = _live_robot_ids(d.bus)
+            try:
+                _set_torque_limit(d.bus, live, 550)
+                _enable_torque(d.bus, live)
+                ok = ease_to_pose(
+                    d.bus, goal, abort_check=self._demo_abort.is_set,
+                    seconds=seconds, label="rl_stance")
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    if self._demo_abort.is_set() or not ok:
+                        self._demo_status = "aborted"
+                        self._cal_result = {
+                            "ok": False, "aborted": True,
+                            "mode": "set_stance",
+                        }
+                    else:
+                        self._demo_status = (
+                            f"done · hip {hip_deg:+.0f}° / knee {knee_deg:+.0f}°")
+                        self._cal_result = {
+                            "ok": True, "mode": "set_stance",
+                            "hip_deg": hip_deg, "knee_deg": knee_deg,
+                            "yaw_deg": yaw_deg, "goal": goal,
+                        }
+                        self._cal_progress = {"msg": self._demo_status}
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._demo_status = f"error: {e}"
+                    self._cal_result = {"ok": False, "error": str(e),
+                                       "mode": "set_stance"}
+            finally:
+                if gen != self._demo_gen:
+                    return
+                try:
+                    _set_torque_limit(d.bus, live, 1000)
+                except Exception:
+                    pass
+                with d._lock:
+                    if d.mode == "demo":
+                        d.mode = "idle"
+                with self._lock:
+                    st = self._demo_status
+                self._set_activity(
+                    "armed" if d.armed else "limp", st or "stance done")
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "calibrate": self.calibrate_state(),
+                "target": {"hip_deg": hip_deg, "knee_deg": knee_deg,
+                           "seconds": seconds}}

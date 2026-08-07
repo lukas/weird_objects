@@ -58,7 +58,7 @@ fall back to the parametric placeholder?".
 
 ## Source-priority chain
 
-For each unique McMaster part number, `make_fastener_meshes.py`
+For each unique McMaster part number, `scripts/make_fastener_meshes.py`
 looks in priority order:
 
 1. `fasteners/<part_number>.step` -- a real McMaster STEP download
@@ -174,7 +174,7 @@ in the BOM.
   material (the direction the bolt is driven in; for a nut, INTO
   the wall that holds the nut pocket).
 
-`inspect_build.py`'s `_axis_to_transform()` then builds a 4 x 4 that
+`scripts/inspect_build.py`'s `_axis_to_transform()` then builds a 4 x 4 that
 maps the **mesh's local +Z axis** onto `axis_world` and puts the
 mesh origin at `head_world_xyz`.  Every cached STL in this directory
 must therefore obey:
@@ -186,7 +186,7 @@ must therefore obey:
 (see its top-of-file docstring).  NopSCADlib does NOT: its
 `screw(type, length)` module puts the head at +Z and the shank at
 -Z, and `nut(type, nyloc=true)` puts the steel body at z = [0, t]
-with the nyloc collar above it.  `make_fastener_meshes.py` therefore
+with the nyloc collar above it.  `scripts/make_fastener_meshes.py` therefore
 reflects the OpenSCAD-rendered mesh across the XY plane (negate Z,
 invert face winding) before writing the cache, so the cached STL
 matches the parametric convention exactly.  After this fix:
@@ -202,7 +202,7 @@ matches the parametric convention exactly.  After this fix:
 
 If you author a new `.scad` recipe under `scad/`, follow the
 NopSCADlib convention there (it's the natural one for OpenSCAD);
-`_orient_for_registry()` in `make_fastener_meshes.py` is the single
+`_orient_for_registry()` in `scripts/make_fastener_meshes.py` is the single
 point of conversion.
 
 ## Override with a real STEP
@@ -220,7 +220,7 @@ the manual download:
 > 3. Click **3-D STEP**.  (If you want STL instead, pick **3-D STL**.)
 > 4. Save the file as `fasteners/91290A113.step` (or `.stl`).
 > 5. Run `make -C hexapod_walker/prototype regen-fasteners` to
->    refresh the cache.  `make_fastener_meshes.py` will pick up the
+>    refresh the cache.  `scripts/make_fastener_meshes.py` will pick up the
 >    STEP at priority 1 and the breadcrumb will read `step:91290A113.step`.
 > 6. Run `make -C hexapod_walker/prototype check-cad-fast` to
 >    revalidate.

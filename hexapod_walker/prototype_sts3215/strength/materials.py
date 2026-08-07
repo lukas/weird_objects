@@ -171,8 +171,7 @@ def isotropic_equivalent(mat: Material) -> "Material":
 # Numbers below are the as-printed, 100 %-infill, 0.2 mm-layer values
 # from the named TDS.  No annealing.  No fiber alignment.  Print
 # orientation assumes the spar's long axis lies along the bed X axis
-# (which is what we do for the link STLs -- see the Bambu tray
-# packer's per-part orientation in ``bambu_x1_trays.py``).
+# (typical for the link STLs when laid flat on the print bed).
 # ---------------------------------------------------------------------------
 
 PLA = Material(

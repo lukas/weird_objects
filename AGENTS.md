@@ -63,3 +63,25 @@ open `http://127.0.0.1:5183/`.
 - Do not touch the physical robot, SSH into it, or flash firmware.
 - Do not modify firmware `.ino` files or CAD geometry as a side effect of an
   unrelated task.
+
+## Hexapod STS3215 (`prototype_sts3215`) — hardware
+
+**2026-08-06 incident:** agents drove stand/plant with wrong logical zeros
+(straight-out legs already read knee ≈ −80°). That caused tip/brownout,
+~7 A stilt holds, and a cooked L5 knee (ID 19). Hard rules:
+
+1. **No motion** unless the user explicitly asks in the current turn.
+2. **HTTP over SSH** for control (`:8080` `/api/*`, `/cmd`). SSH = deploy
+   only when asked.
+3. **Set-zero-here before absolute poses.** If encoders disagree with the
+   photo, remap zero — do not command software 0°/stand/plant.
+4. **Basic controls first — not standing.** Dead IDs, zeros, single-joint
+   air moves, predict↔encoder. Do not push stand/plant/balance until those
+   are solid and the operator asks.
+5. **No unsupervised stand-up / plant blends.** Hip0+knee80 is stilts, not
+   a low plant.
+6. **Stop after tip, brownout, hot motor, or missing servo ID.** Do not retry
+   blends. Limp and wait for the operator.
+
+Details: `.cursor/rules/hexapod-sts-hardware-safety.mdc`,
+`hexapod_walker/prototype_sts3215/rl_move/API.md`.

@@ -83,7 +83,9 @@ import cProfile
 import threading
 from contextlib import redirect_stdout
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_PROTO_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _PROTO_DIR)
+sys.path.insert(0, os.path.join(_PROTO_DIR, "scripts"))
 
 import numpy as np
 import trimesh
@@ -124,12 +126,8 @@ _MESH_BUILDERS = {
     # that actually prints.
     "chassis_assembled":    hp.make_chassis_bottom,
     "yaw_bearing_cap":  hp.make_yaw_bearing_cap,
-    "uno_q_tray":       hp.make_uno_q_tray,
-    "buck_tray":        hp.make_buck_tray,
-    "spider_carapace":  hp.make_spider_carapace,
     "servo_clamp_cap":  hp.make_servo_clamp_cap,
     "switch_holster":   hp.make_switch_holster,
-    "imu_pad":          hp.make_imu_pad,
     "coxa_link":        hp.make_coxa_link,
     "femur_link":       hp.make_femur_link,
     "tibia_link":       hp.make_tibia_link,
@@ -698,8 +696,8 @@ def check_watertight():
     # horn).  ``make_servo_horn_adapter`` is preserved for
     # backwards-compat but is no longer in the printable-output set.
     items_names = (
-        "chassis_top", "chassis_bottom", "uno_q_tray",
-        "buck_tray", "spider_carapace", "servo_clamp_cap", "coxa_link",
+        "chassis_top", "chassis_bottom", 
+        "servo_clamp_cap", "coxa_link",
         "femur_link", "tibia_link", "foot_pad",
     )
     all_ok = True
@@ -912,11 +910,7 @@ CONNECTIVITY_MIN_BODY_VOL = 1.0   # mm^3 -- below this is a meshing artifact
 _PRINTED_SINGLE_BODY_BUILDERS = (
     ("chassis_top",          hp.make_chassis_top),
     ("chassis_bottom",       hp.make_chassis_bottom),
-    ("uno_q_tray",           hp.make_uno_q_tray),
-    ("buck_tray",            hp.make_buck_tray),
-    ("spider_carapace",      hp.make_spider_carapace),
     ("switch_holster",       hp.make_switch_holster),
-    ("imu_pad",              hp.make_imu_pad),
     ("yaw_servo_retainer",   hp.make_yaw_servo_retainer),
     ("yaw_bearing_cap",      hp.make_yaw_bearing_cap),
     ("coxa_yaw_hub",         hp.make_coxa_yaw_hub),
@@ -1949,7 +1943,7 @@ _ASSEMBLY_PRINTED_PARTS = frozenset({
     "tibia_knee_yoke", "tibia_foot_fitting", "foot_pad",
     "hip_clamp_cap", "knee_clamp_cap",
     "chassis_bottom", "chassis_top",
-    "uno_q_tray", "buck_tray", "spider_carapace",
+    
 })
 
 # NAMED allow-list of DESIGNED flush / slip-fit mates.  Each entry is a pair of
@@ -2082,8 +2076,7 @@ def check_assembly_interference():
         _judge(*a, *b)
     # Leg-leg adjacency: leg-0 LEG parts vs the +60 deg neighbour leg's parts
     # (chassis is shared, so skip body parts here -- already in core).
-    leg0_legparts = [p for p in core if p[1] not in _CHASSIS_PARTS
-                     and p[1] != "spider_carapace"]
+    leg0_legparts = [p for p in core if p[1] not in _CHASSIS_PARTS]
     for a, b in product(leg0_legparts, neighbour):
         _judge(*a, *b)
 
@@ -3307,8 +3300,8 @@ def check_flimsy_joints():
           f"budget={MAX_FLIMSY_BUDGET_VOX} vox):")
 
     items_names = (
-        "chassis_top", "chassis_bottom", "uno_q_tray",
-        "buck_tray", "servo_clamp_cap", "coxa_link",
+        "chassis_top", "chassis_bottom", 
+        "servo_clamp_cap", "coxa_link",
         "femur_link", "tibia_link", "foot_pad",
         # Design B (May 2026): servo_horn_adapter dropped from the
         # flimsy-cluster sweep -- no longer in the printable-output set.
@@ -3757,8 +3750,7 @@ def _build_chassis_world(reference_leg_az_rad):
         chassis_bottom centre   z = 0
         chassis_top centre      z = CHASSIS_GAP + CHASSIS_PLATE_T = 36
         chassis_top top face     z = CHASSIS_GAP + 1.5 * CHASSIS_PLATE_T
-        uno_q_tray base         = top face + DECK_LEVEL_1_STANDOFF_H
-        buck_tray base          = top face + DECK_LEVEL_1 + DECK_LEVEL_2
+        (printed decks retired Aug 2026 — magnet hex stack is visual-only)
 
     Also includes a NEIGHBOUR coxa_bracket at azimuth a + pi/3 so the
     sweep can detect tibia / femur swing into the next leg's bracket
@@ -3773,27 +3765,8 @@ def _build_chassis_world(reference_leg_az_rad):
     top.apply_translation([0.0, 0.0, hp.CHASSIS_GAP + hp.CHASSIS_PLATE_T])
     parts["chassis_top"] = top
 
-    deck_top_face = hp.CHASSIS_GAP + 1.5 * hp.CHASSIS_PLATE_T
-    uno = _load_mesh("uno_q_tray")
-    uno.apply_translation([0.0, 0.0, deck_top_face + hp.DECK_LEVEL_1_STANDOFF_H])
-    parts["uno_q_tray"] = uno
-
-    buck = _load_mesh("buck_tray")
-    buck.apply_translation([0.0, 0.0, deck_top_face
-                            + hp.DECK_LEVEL_1_STANDOFF_H
-                            + hp.DECK_LEVEL_2_STANDOFF_H])
-    parts["buck_tray"] = buck
-
-    # Spider carapace dome (Jun 2026): bolts on as a THIRD deck level above
-    # the buck tray.  Its local z = 0 (rim/seat plane) lands at deck_top +
-    # L1 + L2 + L3 so its clearance over the electronics stack AND against
-    # the full leg swing is checked by the workspace sweep.
-    carapace = _load_mesh("spider_carapace")
-    carapace.apply_translation([0.0, 0.0, deck_top_face
-                                + hp.DECK_LEVEL_1_STANDOFF_H
-                                + hp.DECK_LEVEL_2_STANDOFF_H
-                                + hp.DECK_LEVEL_3_STANDOFF_H])
-    parts["spider_carapace"] = carapace
+    # Aug 2026: printed deck trays / carapace RETIRED (magnet hex stack).
+    # Workspace sweep only needs the chassis plates as fixed obstacles here.
 
     apothem = hp.CHASSIS_FLAT_TO_FLAT / 2.0
     a_n = reference_leg_az_rad + np.pi / 3.0
@@ -3958,9 +3931,6 @@ _WS_INTRA_LEG_STATIC = ()  # no chassis-fixed leg-static parts after Design F
 _WS_CHASSIS_STATIC = (
     "chassis_top",
     "chassis_bottom",
-    "uno_q_tray",
-    "buck_tray",
-    "spider_carapace",
 )
 
 
@@ -5972,8 +5942,8 @@ DRIVER_HEAD_STANDOFF_MM      = 0.5
 # symmetric chassis layout means the leg 0 fastener vs leg 0 parts
 # intrusion pattern is identical to all 6 legs.
 _DRIVER_PRINTED_PART_NAMES = (
-    "chassis_bottom", "chassis_top", "uno_q_tray", "buck_tray",
-    "hip_clamp_cap", "knee_clamp_cap", "switch_holster", "imu_pad",
+    "chassis_bottom", "chassis_top", 
+    "hip_clamp_cap", "knee_clamp_cap", "switch_holster", 
     "coxa_link", "femur_link", "tibia_link", "foot_pad",
 )
 
@@ -6022,22 +5992,8 @@ def _build_world_leg0_printed_parts() -> dict:
     cb_top.apply_translation([0.0, 0.0, gap + plate_t])
     parts["chassis_top"] = cb_top
 
-    # Deck redesign (Jun 2026): the in-gap electronics_tray (Pi + bus
-    # adapter) and clip-in battery_holder are retired.  Two stacked
-    # decks bolt onto 4 standoff columns ABOVE chassis_top: the Uno Q
-    # tray (lower) then the buck tray (upper).  Both are centred on the
-    # chassis Z axis at deck-local (0, 0).  Deck top face of chassis_top
-    # = gap + 1.5 * plate_t.
-    deck_top_face = gap + 1.5 * plate_t
-    uno = _load_mesh("uno_q_tray")
-    uno.apply_translation([0.0, 0.0, deck_top_face + hp.DECK_LEVEL_1_STANDOFF_H])
-    parts["uno_q_tray"] = uno
-
-    buck = _load_mesh("buck_tray")
-    buck.apply_translation([0.0, 0.0, deck_top_face
-                            + hp.DECK_LEVEL_1_STANDOFF_H
-                            + hp.DECK_LEVEL_2_STANDOFF_H])
-    parts["buck_tray"] = buck
+    # Aug 2026: printed uno_q_tray / buck_tray RETIRED (as-built magnet hex).
+    # Fastener / screwdriver checks no longer require those meshes.
 
     # Hip + knee sandwich-joint clamp caps on leg 0 (same world frame as
     # the servo bodies).  Keyed separately so both survive in the dict.
@@ -6065,17 +6021,7 @@ def _build_world_leg0_printed_parts() -> dict:
     ])
     parts["switch_holster"] = sh
 
-    # imu_pad: vibration-isolated MPU-6050 mounting plate, glued to
-    # chassis_top with a 3 mm strip of double-sided foam tape (no
-    # fasteners between the pad and chassis_top).  Pad bottom face
-    # at z = chassis_top_top + IMU_PAD_TAPE_T = 38 + 3 = 41.
-    ip = _load_mesh("imu_pad")
-    ip.apply_translation([
-        hp.IMU_PAD_CENTRE_X,
-        hp.IMU_PAD_CENTRE_Y,
-        chassis_top_top_z + hp.IMU_PAD_TAPE_T,
-    ])
-    parts["imu_pad"] = ip
+    # Aug 2026: imu_pad RETIRED — MPU sits under the raised platform top.
 
     # Leg-0 printed parts -- mirrors ``_build_standing_leg`` so the
     # legged-part transforms exactly match the registry's leg_index=0
@@ -6477,6 +6423,9 @@ FASTENER_ENGAGEMENT_SPEC = {
     # 2 mm), but 2 mm longer because the DRIVEN (flush-output) yoke top-arm pad
     # bridges DRIVEN_HORN_REACH_DOWN = 5 mm before reaching the disc.
     "M3x10 disc-horn SHCS":            dict(head_od=5.5, shaft_od=3.2, engagement_mm=2.0),
+    # ``M3x20 disc-horn SHCS`` -- Aug 2026: coxa_yaw_hub tall stack (bench).
+    # Same aluminium-disc thread target (engagement_mm = DISC_HORN_H = 2).
+    "M3x20 disc-horn SHCS":            dict(head_od=5.5, shaft_od=3.2, engagement_mm=2.0),
     "M3x8 SHCS":                       dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     "M3x8 SHCS into heat-set insert":  dict(head_od=5.5, shaft_od=3.2, engagement_mm=5.0),
     # ``M3x8 SHCS self-tap`` -- Design E mixed-mode, May 2026.  The 2 +X
@@ -7667,7 +7616,7 @@ def check_mating_face_contact():
 
 def check_harness_reach():
     """Verify the per-joint extension-cable counts in
-    ``pi_control.wire_harness_plan.WIRE_HARNESS_PLAN`` are NOT
+    ``motor_setup.wire_harness_plan.WIRE_HARNESS_PLAN`` are NOT
     optimistic relative to the actual Manhattan path lengths.
 
     For each of the 18 entries, asserts::
@@ -7690,11 +7639,11 @@ def check_harness_reach():
     import re
     print("\n[18] Harness reach (Part D, wire_harness_plan):")
 
-    # Lazy import so the verifier still loads if the pi_control
-    # package has a syntax error.
+    # Lazy import so the verifier still loads if motor_setup
+    # has a syntax error.
     try:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from pi_control import wire_harness_plan as whp
+        from motor_setup import wire_harness_plan as whp
     finally:
         if (os.path.dirname(os.path.abspath(__file__))
                 in sys.path):
@@ -7937,8 +7886,8 @@ ESSENTIAL_CHECK_NAMES = (
 # bottom of this module enforces that.
 ALL_PRINTED_PARTS = frozenset({
     "chassis_top", "chassis_bottom",
-    "uno_q_tray", "buck_tray",
-    "servo_clamp_cap", "switch_holster", "imu_pad",
+    
+    "servo_clamp_cap", "switch_holster", 
     "coxa_link",
     "femur_link", "tibia_link", "foot_pad",
     # Visual-only meshes that some checks place to test interfaces:
@@ -7957,11 +7906,11 @@ _CRADLE_PARTS = frozenset({"chassis_bottom",
 _PAD_PARTS = frozenset({"coxa_link", "femur_link", "tibia_link"})
 _CHASSIS_PARTS = frozenset({
     "chassis_top", "chassis_bottom",
-    "uno_q_tray", "buck_tray",
+    
 })
 _PRINTED_WATERTIGHT_SET = frozenset({
     "chassis_top", "chassis_bottom",
-    "uno_q_tray", "buck_tray", "servo_clamp_cap",
+    "servo_clamp_cap",
     "coxa_link",
     "femur_link", "tibia_link", "foot_pad",
 })
@@ -8033,24 +7982,24 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Screwdriver access":        (
         _LEG_PARTS | _CHASSIS_PARTS
         | frozenset({"servo_clamp_cap", "switch_holster",
-                     "imu_pad", "foot_pad"})
+                     "foot_pad"})
     ),
     "Fastener engagement":       (
         _LEG_PARTS | _CHASSIS_PARTS
         | frozenset({"servo_clamp_cap", "switch_holster",
-                     "imu_pad", "foot_pad",
+                     "foot_pad",
                      "servo_horn", "servo_body"})
     ),
     "Mating-face contact":       (
         _LEG_PARTS | _CHASSIS_PARTS
         | frozenset({"servo_clamp_cap", "switch_holster",
-                     "imu_pad", "foot_pad",
+                     "foot_pad",
                      "servo_horn", "servo_body"})
     ),
     "Cable clearance":           (
         _LEG_PARTS | _CHASSIS_PARTS
         | frozenset({"servo_clamp_cap", "switch_holster",
-                     "imu_pad", "foot_pad"})
+                     "foot_pad"})
     ),
     # check_harness_reach reads WIRE_HARNESS_PLAN, which is built
     # from hexapod_prototype constants only; it doesn't touch
@@ -8289,15 +8238,17 @@ def _cache_format_ago(timestamp_unix: float) -> str:
 # to find which printed parts actually changed) versus those that
 # only affect a few checks (we propagate via CHECK_SOURCE_DEPS).
 _STL_PRODUCING_SOURCES = frozenset({
-    "hexapod_walker/prototype/hexapod_prototype.py",
+    "hexapod_walker/prototype_sts3215/hexapod_prototype.py",
 })
 _REGISTRY_SOURCES = {
-    "hexapod_walker/prototype/fastener_registry.py":   "fastener_registry",
-    "hexapod_walker/prototype/cable_keepouts.py":      "cable_keepouts",
-    "hexapod_walker/prototype/build_prototype_assembly.py":
+    "hexapod_walker/prototype_sts3215/fastener_registry.py":
+        "fastener_registry",
+    "hexapod_walker/prototype_sts3215/cable_keepouts.py":
+        "cable_keepouts",
+    "hexapod_walker/prototype_sts3215/scripts/build_prototype_assembly.py":
         "build_prototype_assembly",
 }
-_VERIFIER_SOURCE = "hexapod_walker/prototype/_verify_prototype.py"
+_VERIFIER_SOURCE = "hexapod_walker/prototype_sts3215/_verify_prototype.py"
 
 
 def _git_changed_files(base_ref: str = "origin/main") -> list[str]:

@@ -257,8 +257,8 @@ def _write_report(validation_report, render_results,
                  "`_verify_prototype.main()` output below.")
     lines.append("- Re-run with `make -C hexapod_walker/prototype "
                  "check-cad` after each geometry edit.")
-    lines.append("- See `CAD_AGENT_INSTRUCTIONS.md` and "
-                 "`CAD_WORKFLOW.md` for the design-spec contract.")
+    lines.append("- See `docs/CAD_AGENT_INSTRUCTIONS.md` and "
+                 "`docs/CAD_WORKFLOW.md` for the design-spec contract.")
     lines.append("")
 
     text = "\n".join(lines)

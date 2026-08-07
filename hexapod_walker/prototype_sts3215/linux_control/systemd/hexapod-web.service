@@ -1,0 +1,36 @@
+[Unit]
+Description=Hexapod STS3215 web control (web_drive)
+Documentation=file:///home/arduino/hexapod_sts/linux_control/README.md
+# No network-online dependency: the server binds 0.0.0.0 and the UDP log
+# sender is tolerant, but NetworkManager-wait-online can stall boot for
+# 30+ s when WiFi is slow/absent. Order after arduino-router (the real MCU
+# manager — arduino-router-serial is only a socat proxy) so our
+# "systemctl stop arduino-router" claim cannot race its startup, and after
+# hexapod-mcu-ready so the MCU is out of reset before we HELLO it.
+After=arduino-router.service hexapod-mcu-ready.service
+Wants=hexapod-mcu-ready.service
+# Claims /dev/ttyHS1 from arduino-router; bridge firmware is on the MCU.
+
+[Service]
+Type=simple
+User=arduino
+Group=arduino
+SupplementaryGroups=dialout
+WorkingDirectory=/home/arduino/hexapod_sts/linux_control
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=vendor:urt2_setup:../motor_setup:.
+# mcu_feetech_bus uses sudo -S to stop arduino-router when claiming ttyHS1.
+Environment=HEXAPOD_SUDO_PASSWORD=arduino
+# Timestamped command/log stream → laptop(s). Auto-discovers via
+# subnet broadcast + laptop beacons on :9378 (no HEXAPOD_LOG_HOST needed).
+Environment=HEXAPOD_LOG_PORT=9377
+Environment=HEXAPOD_LOG_BEACON_PORT=9378
+Environment=HEXAPOD_LOG_MCU=cmds
+# No ExecStartPre sleep: the bus claim settles and retries HELLO itself.
+ExecStart=/usr/bin/python3 /home/arduino/hexapod_sts/linux_control/web_drive.py --port mcu --http-port 8080 --https-port 8443
+Restart=always
+RestartSec=2
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

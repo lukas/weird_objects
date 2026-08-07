@@ -6,8 +6,8 @@ the Makefile as ``make bom-fasteners``.  ``make check-cad-fast``
 appends the same table to the end of its report.
 
 The BOM table is intentionally a SINGLE source of truth: edit the
-registry, NOT the markdown file.  ``hexapod_walker/prototype/PROTOTYPE_BOM.md``
-and ``SHOPPING_LIST.md`` carry a Fasteners section bracketed by
+registry, NOT the markdown file.  ``hexapod_walker/prototype_sts3215/docs/PROTOTYPE_BOM.md``
+and ``docs/SHOPPING_LIST.md`` carry a Fasteners section bracketed by
 ``<!-- BEGIN FASTENERS -->`` / ``<!-- END FASTENERS -->`` markers
 that the ``--inject PATH`` mode rewrites in place.
 """

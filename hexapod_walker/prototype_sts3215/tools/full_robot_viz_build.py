@@ -58,7 +58,8 @@ sys.path.insert(0, str(_HERE.parent))
 import hexapod_prototype as HP  # noqa: E402
 import _verify_prototype as V  # noqa: E402
 import fastener_registry as FR  # noqa: E402
-from pi_control import wire_harness_plan as WHP  # noqa: E402
+from motor_setup import wire_harness_plan as WHP  # noqa: E402
+from motor_setup.feetech_bus import joint_to_servo_id  # noqa: E402
 
 OUT_DIR = _HERE.parent / "full_robot_viz"
 STL_DIR = OUT_DIR / "stl"
@@ -108,13 +109,17 @@ PALETTE = {
     "yaw_servo": "#2e2e33", "hip_servo": "#3a3a40", "knee_servo": "#46464d",
     "chassis_bottom": "#79b0e1",
     "chassis_top": "#5b8fc7",
-    "uno_q_tray": "#9467bd", "buck_tray": "#bcbd22",
-    "spider_carapace": "#23232a",
-    "uno_q": "#1b7a3d", "buck_converter": "#b5651d",
+    "hex_mount_plate": "#94a3b8", "hex_raised_platform": "#64748b",
+    "hex_post_standoff": "#a8a29e", "hex_post_thumb_nut": "#78716c",
+    "hex_post_magnet": "#1e293b",
+    "uno_q": "#1b7a3d", "breakout": "#0d9488",
+    "pdb": "#ea580c", "motor_controller": "#b45309",
+    "screen": "#2563eb", "mpu6050": "#7a5cc4",
+    "wago_power": "#ef4444", "wago_data": "#22c55e",
     "lipo_battery": "#d62728",
     "hip_clamp_cap": "#4a90d9", "knee_clamp_cap": "#4a90d9",
     "yaw_servo_retainer": "#e377c2",
-    "switch_holster": "#c46a1f", "imu_pad": "#7a5cc4",
+    "switch_holster": "#c46a1f",
 }
 ROLE = {
     "coxa_link": "frame",
@@ -129,20 +134,24 @@ ROLE = {
     "yaw_servo": "motor", "hip_servo": "motor", "knee_servo": "motor",
     "chassis_bottom": "chassis",
     "chassis_top": "chassis",
-    "uno_q_tray": "electronics", "buck_tray": "electronics",
-    "spider_carapace": "chassis",
-    "uno_q": "electronics", "buck_converter": "electronics",
+    "hex_mount_plate": "electronics", "hex_raised_platform": "electronics",
+    "hex_post_standoff": "electronics", "hex_post_thumb_nut": "electronics",
+    "hex_post_magnet": "electronics",
+    "uno_q": "electronics", "breakout": "electronics",
+    "pdb": "electronics", "motor_controller": "electronics",
+    "screen": "electronics", "mpu6050": "electronics",
+    "wago_power": "electronics", "wago_data": "electronics",
     "lipo_battery": "electronics",
     "hip_clamp_cap": "frame", "knee_clamp_cap": "frame",
     "yaw_servo_retainer": "frame",
-    "switch_holster": "electronics", "imu_pad": "electronics",
+    "switch_holster": "electronics",
 }
 
 # Per-partType design intent / rationale.  This is the semantic source of truth
 # that `tools/full_robot_viz_build.py` writes into full_robot_viz/design_spec.yaml
 # so the file ALWAYS covers every partType the scene emits (BuildViz `compat`
 # fails on any scene part with no entry).  Kinematics are FROZEN: 6 legs, COXA 25
-# / FEMUR 90 / TIBIA 130 mm; only joint/segment CONSTRUCTION changes.  Joint
+# / FEMUR 90 / TIBIA 128 mm; only joint/segment CONSTRUCTION changes.  Joint
 # architecture: YAW = cantilevered (coxa 25 mm < ~50 mm rule, no passive
 # bearing); HIP + KNEE = bearing sandwich (driven Ø20 25T disc horn on one side,
 # 688 passive bearing on the other).  When you add/rename a partType in PALETTE,
@@ -168,18 +177,25 @@ DESCRIPTIONS = {
     "hip_servo": "FEETECH STS3215 serial-bus servo driving the hip-pitch axis. COTS.",
     "knee_servo": "FEETECH STS3215 serial-bus servo driving the knee axis. COTS.",
     "chassis_bottom": "Structural 200 mm flat-to-flat hex deck (single merged print) with 6 integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing towers, one per leg at each hex-edge midpoint. Each STS3215 inserts from BELOW (output UP), bolts via 4x M2.5 through the cradle front plate, body hangs DOWN through a body cutout; the bolt-on yaw_servo_retainer stirrup captures it. A folded 4 mm floor makes the printed bottom one flush flat face so it prints flat, tower-up, no supports (Jun 2026 flush-bottom fix; check_flat_bottom overhang = 0.00 mm).",
-    "chassis_top": "Hex top plate that closes the chassis over the electronics stack.",
-    "uno_q_tray": "Printed tray that mounts the Arduino Uno Q compute board on the chassis.",
-    "buck_tray": "Printed tray that mounts the buck converter on the chassis.",
-    "spider_carapace": "Cosmetic domed carapace shell over the chassis (jumping-spider styling); vented, lifts off as one piece.",
-    "uno_q": "Arduino Uno Q compute board (high-level control host). COTS.",
-    "buck_converter": "DC-DC buck converter stepping the LiPo down to the servo-bus/logic rail. COTS.",
-    "lipo_battery": "LiPo battery pack, mounted low + central for stance stability. COTS.",
+    "chassis_top": "Hex top plate that closes the chassis; carries PDB + motor controller + power Wagos, and the 4 magnet posts for the hex board.",
+    "hex_mount_plate": "Ø110 mm hex board (2 mm) held by 4 magnets on 20 mm posts; carries Uno Q + breakout (extra_stl / xTool).",
+    "hex_raised_platform": "Raised hex platform (62 mm screen-stand legs) bolted to the hex mount plate; screen on top face (MPU is glued on chassis_bottom, not under this plate).",
+    "hex_post_standoff": "20 mm M3 brass standoff at CHASSIS_STANDOFF_HOLES_XY (±31.1); bottom of each magnet post stack.",
+    "hex_post_thumb_nut": "~2.5 mm M3 knurled thumb nut between standoff and magnet.",
+    "hex_post_magnet": "Ø8×8 mm disc magnet that holds the hex mount plate.",
+    "uno_q": "Arduino Uno Q compute board on the hex mount plate (high-level control host). COTS.",
+    "breakout": "Generic shield / breakout next to the Uno Q on the hex plate. COTS.",
+    "pdb": "Matek-class power distribution board on chassis_top; battery → PDB → servo power via Wagos. COTS.",
+    "motor_controller": "USB/TTL bus-servo adapter brick beside the PDB. COTS.",
+    "screen": "63×35 mm display panel centered on the raised platform top. COTS.",
+    "mpu6050": "GY-521 MPU-6050 IMU glued on chassis_bottom (inter-plate bay), inboard of physical leg 1 (clockwise from tape-marked leg 0). I²C. COTS.",
+    "wago_power": "Wago 221-style lever nut on chassis-top periphery for a per-leg 12 V + G motor branch.",
+    "wago_data": "Wago 221-style lever nut under chassis near a yaw retainer for the shared data bus.",
+    "lipo_battery": "LiPo battery pack, velcro-strapped under chassis_bottom for stance stability. COTS.",
     "hip_clamp_cap": "Printed clamp cap that clamshells the hip servo cradle (bolts to the cradle wall ends), capturing the servo body.",
     "knee_clamp_cap": "Printed clamp cap that closes the knee yoke's tube socket, clamping the Ø8 tibia tube.",
-    "yaw_servo_retainer": "Printed stirrup that bolts under each chassis yaw cradle to capture the STS3215 servo body from below.",
+    "yaw_servo_retainer": "Anti-rotation saddle under each yaw cradle with a permanent 38 mm open-cage ground stand (replaces belly stilts; stays on while walking).",
     "switch_holster": "Printed holster for the anti-spark XT60 on/off switch, bolted to 2 bosses on chassis_top's +X edge (2x M3x10 SHCS into heat-set inserts).",
-    "imu_pad": "Printed vibration-isolated MPU-6050 mounting pad, foam-taped to chassis_top at the chassis CG; the IMU bolts to 4 heat-set inserts in its bosses.",
     "screw_yaw": "Fasteners around the yaw joint / servo mount (rendered set; count is the summed per-leg joint hardware).",
     "screw_hip": "Fasteners around the hip joint / bearing sandwich (rendered set).",
     "screw_knee": "Fasteners around the knee joint / bearing sandwich (rendered set).",
@@ -187,14 +203,17 @@ DESCRIPTIONS = {
 }
 
 
-def _write_design_spec(instances_json: list[dict]) -> None:
+def _write_design_spec(instances_json: list[dict],
+                       routes: list[dict] | None = None) -> None:
     """Write full_robot_viz/design_spec.yaml keyed by every scene partType.
 
     BuildViz's compatibility contract (see ~/buildviz/BUILDVIZ_COMPATIBILITY.md)
     requires the design_spec's ``parts:`` mapping to cover every ``partType`` the
     scene emits.  We derive it from the instances we just placed so the spec can
     never silently drift out of coverage: qty + role + cots come from the scene,
-    the rationale from DESCRIPTIONS above.
+    the rationale from DESCRIPTIONS above.  A ``wiring:`` entry per published
+    route (purpose = the route label) keeps the hub's published-wire spec
+    audit green the same way.
     """
     counts: dict[str, int] = {}
     role_of: dict[str, str] = {}
@@ -228,8 +247,15 @@ def _write_design_spec(instances_json: list[dict]) -> None:
         lines.append(f"    cots: {'true' if cots_of[pt] else 'false'}")
         lines.append(f"    qty: {counts[pt]}")
         lines.append(f"    description: {json.dumps(desc)}")
+    if routes:
+        lines.append("")
+        lines.append("wiring:")
+        for route in routes:
+            lines.append(f"  {route['id']}:")
+            lines.append(f"    purpose: {json.dumps(route.get('label', ''))}")
     (OUT_DIR / "design_spec.yaml").write_text("\n".join(lines) + "\n")
-    print(f"Wrote {OUT_DIR/'design_spec.yaml'}  ({len(counts)} part types)")
+    print(f"Wrote {OUT_DIR/'design_spec.yaml'}  ({len(counts)} part types, "
+          f"{len(routes or [])} wiring routes)")
 
 
 def _trans(v) -> np.ndarray:
@@ -480,6 +506,8 @@ _SCENE_MESH_KEY = {
     "knee_servo": "servo_body",
     "hip_clamp_cap": "servo_clamp_cap",
     "knee_clamp_cap": "servo_clamp_cap",
+    "wago_power": "wago",
+    "wago_data": "wago",
 }
 
 
@@ -547,15 +575,17 @@ def _leg0_local_link_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
     ]
 
 
-def _servo_local_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
-    """``(name, local_mesh, M0)`` for the leg-0 servo bodies, sandwich clamp
-    caps, and the yaw capture stirrup.
+def _servo_M0s() -> dict[str, np.ndarray]:
+    """Well-frame -> leg-0 frame placement matrices for the three STS3215
+    servo bodies (+ the yaw retainer frame).
 
     Mirrors the authoritative placement chains in
-    ``_verify_prototype._place_servo_bodies`` / ``_place_servo_clamp_caps`` /
-    ``_place_yaw_retainers`` but keeps the local-mesh + matrix split.  ``main``
-    asserts ``M0 @ local`` matches those functions exactly, so any drift in the
-    duplicated math is caught at build time."""
+    ``_verify_prototype._place_servo_bodies`` / ``_place_yaw_retainers``;
+    ``main`` asserts the resulting poses match those functions exactly, so
+    any drift in the duplicated math is caught at build time.  Shared by
+    ``_servo_local_parts`` (instance placement) and the wire-attach route
+    builder (the servo boot / cradle exit-slot waypoints live in this same
+    well frame)."""
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
     a = 0.5 * np.pi / 3.0
     edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
@@ -573,14 +603,21 @@ def _servo_local_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
     M0_knee = _trans(yaw_output_world) @ R_a @ _trans(hip_local) \
         @ rotation_matrix(p, [0, 1, 0]) @ M_knee
     M0_ret = _trans(edge_mid) @ R_a
+    return {"yaw": M0_yaw, "hip": M0_hip, "knee": M0_knee, "retainer": M0_ret}
 
+
+def _servo_local_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
+    """``(name, local_mesh, M0)`` for the leg-0 servo bodies, sandwich clamp
+    caps, and the yaw capture stirrup (placement matrices from
+    ``_servo_M0s``)."""
+    M0 = _servo_M0s()
     return [
-        ("yaw_servo", V._load_mesh("servo_body"), M0_yaw),
-        ("hip_servo", V._load_mesh("servo_body"), M0_hip),
-        ("knee_servo", V._load_mesh("servo_body"), M0_knee),
-        ("hip_clamp_cap", HP.make_servo_clamp_cap(), M0_hip),
-        ("knee_clamp_cap", HP.make_servo_clamp_cap(), M0_knee),
-        ("yaw_servo_retainer", HP.make_yaw_servo_retainer(), M0_ret),
+        ("yaw_servo", V._load_mesh("servo_body"), M0["yaw"]),
+        ("hip_servo", V._load_mesh("servo_body"), M0["hip"]),
+        ("knee_servo", V._load_mesh("servo_body"), M0["knee"]),
+        ("hip_clamp_cap", HP.make_servo_clamp_cap(), M0["hip"]),
+        ("knee_clamp_cap", HP.make_servo_clamp_cap(), M0["knee"]),
+        ("yaw_servo_retainer", HP.make_yaw_servo_retainer(), M0["retainer"]),
     ]
 
 
@@ -719,50 +756,31 @@ def _body_local_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
     Each ``local_mesh`` is the raw ``make_*()`` part (matching its
     ``stl_prototype`` STL) and ``M0`` is its PRE-LIFT stack offset along Z (the
     standing-pose lift is added in ``main``).  Mirrors ``make_assembly_preview``
-    so the body sits exactly as the printed stack assembles."""
+    so the body sits exactly as the printed stack assembles.
+
+    Aug 2026 as-built: trays / carapace / imu_pad retired; electronics come
+    from ``HP.asbuilt_electronics_local_parts``.
+    """
     from trimesh.creation import box as _box_mesh
     gap = HP.CHASSIS_GAP
     plate = HP.CHASSIS_PLATE_T
-    deck0 = gap + 1.5 * plate
-    l1 = HP.DECK_LEVEL_1_STANDOFF_H
-    l2 = HP.DECK_LEVEL_2_STANDOFF_H
-    l3 = HP.DECK_LEVEL_3_STANDOFF_H
-    boss = HP.DECK_TRAY_T + HP.DECK_STANDOFF_BOSS_H
-    uno_tray_z = deck0 + l1
-    buck_tray_z = deck0 + l1 + l2
 
     # LiPo velcro-strapped to chassis_bottom's top face (no holder); modelled as
     # a box centred on the origin so its local frame is its own centroid.
-    # Jul 2026: sized to the real user-measured pack (BATTERY_W/D/H =
-    # 138 x 46 x 24 mm).
     lipo = _box_mesh(extents=(HP.BATTERY_W, HP.BATTERY_D, HP.BATTERY_H))
 
-    return [
+    parts: list[tuple[str, trimesh.Trimesh, np.ndarray]] = [
         ("chassis_bottom", HP.make_chassis_bottom(), np.eye(4)),
         ("chassis_top", HP.make_chassis_top(), _trans([0, 0, gap + plate])),
         ("lipo_battery", lipo,
          _trans([HP.BATTERY_HOLDER_CENTRE_X, 0.0,
                  plate / 2.0 + HP.BATTERY_H / 2.0])),
-        ("uno_q_tray", HP.make_uno_q_tray(), _trans([0, 0, uno_tray_z])),
-        ("buck_tray", HP.make_buck_tray(), _trans([0, 0, buck_tray_z])),
-        ("uno_q", HP.make_uno_q_visual(), _trans([0, 0, uno_tray_z + boss])),
-        ("buck_converter", HP.make_buck_converter_visual(),
-         _trans([0, 0, buck_tray_z + boss])),
-        ("spider_carapace", HP.make_spider_carapace(),
-         _trans([0, 0, deck0 + l1 + l2 + l3])),
-        # May 2026 "essentials" printed parts on chassis_top's TOP face.
-        # These were in the verifier's world assembly + fastener registry all
-        # along but MISSING from this scene list, so their screw_chassis
-        # fasteners rendered floating in air (the Jul 2026 "floating
-        # screw_chassis" bug).  Placement mirrors
-        # _verify_prototype._build_world_assembly_parts exactly.
         ("switch_holster", HP.make_switch_holster(),
          _trans([HP.SWITCH_HOLSTER_CENTRE_X, HP.SWITCH_HOLSTER_CENTRE_Y,
                  gap + 1.5 * plate + HP.SWITCH_HOLSTER_BOSS_H])),
-        ("imu_pad", HP.make_imu_pad(),
-         _trans([HP.IMU_PAD_CENTRE_X, HP.IMU_PAD_CENTRE_Y,
-                 gap + 1.5 * plate + HP.IMU_PAD_TAPE_T])),
     ]
+    parts.extend(HP.asbuilt_electronics_local_parts())
+    return parts
 
 
 def _body_parts(chassis_lift: float) -> list[tuple[str, trimesh.Trimesh]]:
@@ -1039,31 +1057,34 @@ def _build_motion_animations(legs):
 # Cable/harness routes (BuildViz ``routes[]`` -> the routing_reach gate)
 # ---------------------------------------------------------------------------
 #
-# One route per joint, straight from the SOURCE OF TRUTH for cable reach --
-# ``pi_control/wire_harness_plan.py`` (WIRE_HARNESS_PLAN).  Each route is the
-# polyline the joint's 3-pin bus lead follows in CHASSIS frame: cradle wire-exit
-# -> the leg's chassis_bottom drop slot -> (inter-plate dogleg, below) -> the
-# leg's bus-bar landing post.  The scene builder only lifts those chassis-frame
-# waypoints by the standing-pose ``chassis_lift`` -- no new geometry is derived
-# here, so the routes[] can never drift from the harness plan.
+# Per-leg servo leads = PHYSICAL daisy chain of WIRING.md §6.2 rule 1.
+# Every servo-end waypoint lands on the REAL STS3215 dual 5264 port cluster
+# (BACK / idler face, centre/−X half — see WIRING.md + HP.STS3215_PORT_*).
 #
-# The length BUDGET per route is the plan's cable build: the 300 mm stock lead
-# plus any 30 cm extensions its ``extension_required`` string calls for
-# (currently none -- all 18 joints fit the stock lead).  BuildViz's
-# ``routing_reach`` check then gates BOTH polyline length <= budget AND
-# "no segment passes through a solid part".
+# Drawn as short leads that ride the structure (Aug 2026):
+#   * TAIL: drop slot -> STRAIGHT DOWN through the yaw retainer window
+#     (world z ≈ −34 / yaw-local z ≈ −10 — BELOW the hanging body; the old
+#     "under floor" z=−9 was mid-body and pierced the servo) -> BACK ports
+#   * yaw -> hip: yaw BACK ports -> under the yaw body -> around the −X
+#     face (away from the output) -> up outside the coxa -> hip BACK ports
+#   * hip -> knee: hip BACK ports -> service loop near the hip pitch axis ->
+#     zip-tie path along the femur spar TOP (waypoints anchored to
+#     ``femur_link`` so they pitch with the femur — not the hip servo body)
+#     -> knee BACK ports.  Crossing near the hip axis avoids the floating
+#     free-space run that the femur cradle would pinch when hip pitches.
+# Leg-to-leg jumpers stay in ``_build_body_routes`` only.
 
-_ROUTE_COLOR_DATA = "#eab308"   # amber: these are the serial-bus DATA leads
+_ROUTE_COLOR_DATA = "#eab308"   # amber: serial-bus leads (V+/GND/S or S+GND)
 
-def _route_budget_mm(extension_required: str) -> float:
-    """Stock lead + n x 30 cm extensions, parsed from the plan's BOM string
-    ("STS3215 stock bus lead" / "+ 30 cm extension" / "+ N x 30 cm ...")."""
-    import re
-    if not extension_required.startswith("+"):
-        return WHP.STOCK_PIGTAIL_MM
-    m = re.match(r"\+ (\d+) x", extension_required)
-    n_ext = int(m.group(1)) if m else 1
-    return WHP.STOCK_PIGTAIL_MM + n_ext * WHP.EXTENSION_LENGTH_MM
+# Stock FEETECH 3-pin bus lead: ~2.8 mm bundle OD.  The bend gate is set WELL
+# below the physical ~3 x OD comfort bend because the drawn polylines corner
+# schematically at connector entries (the molded boot's strain relief, the
+# wire-exit slot lip) where the real lead is captive anyway -- the 2.5 mm gate
+# only guards against accidental hairpins in the drawn path, not the free
+# cable's service loops (which the +30 mm/joint slack budget of
+# wire_harness_plan covers).
+_BUS_LEAD_OD_MM = 2.8
+_BUS_LEAD_MIN_BEND_MM = 2.5
 
 # Per-leg intermediate waypoints (chassis frame) inserted between the drop
 # slot and the bus landing where a STRAIGHT drop->landing segment would clip a
@@ -1084,37 +1105,166 @@ _ROUTE_LEG_DOGLEGS: dict[int, list[tuple[float, float, float]]] = {
     3: [(-45.0, -26.5, 6.5), (62.0, -26.5, 6.5)],
 }
 
-def _route_dogleg_points(entry: WHP.HarnessEntry) -> list[tuple[float, float, float]]:
-    """Intermediate inter-plate waypoints for one plan entry (may be [])."""
-    return _ROUTE_LEG_DOGLEGS.get(entry["leg_idx"], [])
 
-def _build_routes(chassis_lift: float, legs: list[int]) -> list[dict]:
-    """BuildViz ``routes[]`` for every WIRE_HARNESS_PLAN joint on ``legs``.
-
-    Waypoints are the plan's chassis-frame source / drop-slot / bus-landing
-    nodes (plus the inter-plate dogleg of ``_route_dogleg_points``), lifted to
-    the scene's standing-pose world frame; the budget is the plan's cable
-    build (stock lead + extensions)."""
-    routes: list[dict] = []
+def _plan_entry(leg: int, axis: str) -> WHP.HarnessEntry:
     for entry in WHP.WIRE_HARNESS_PLAN:
-        if entry["leg_idx"] not in legs:
-            continue
-        axis_label = {"hip_pitch": "hip_pitch"}.get(entry["axis"], entry["axis"])
-        chassis_pts = [
-            entry["source_xyz_chassis"],
-            entry["via_chassis_drop_xyz"],
-            *_route_dogleg_points(entry),
-            entry["destination_xyz_chassis"],
-        ]
+        if entry["leg_idx"] == leg and entry["axis"] == axis:
+            return entry
+    raise KeyError((leg, axis))
+
+
+def _servo_attach_paths() -> dict[str, list[tuple[str, list[float]]]]:
+    """Leg-0 waypoint chains for the intra-leg servo wiring.
+
+    Each waypoint is ``(anchor, local_xyz)`` where ``anchor`` is one of
+    ``yaw`` / ``hip`` / ``knee`` (servo well frame) or ``femur`` (femur_link
+    part frame).  Spar midpoints MUST be femur-anchored: the hip servo body
+    stays with the coxa, so hip-anchored "spar" points would float and get
+    pinched when hip pitches.
+
+    Attach = real BACK-face 5264 cluster (``HP.STS3215_PORT_*``).
+    """
+    M0 = _servo_M0s()
+    Mf = next(M for n, _m, M in _leg0_local_link_parts() if n == "femur_link")
+    inv = {ax: np.linalg.inv(M0[ax]) for ax in ("yaw", "hip", "knee")}
+    inv["femur"] = np.linalg.inv(Mf)
+
+    port_l = np.array([HP.STS3215_PORT_X_MM, HP.STS3215_PORT_Y_MM,
+                       HP.STS3215_PORT_Z_MM, 1.0])
+    ports = {ax: (M0[ax] @ port_l)[:3] for ax in ("yaw", "hip", "knee")}
+
+    def axis(ax: str, basis: str) -> np.ndarray:
+        i = {"x": 0, "y": 1, "z": 2}[basis]
+        e = np.zeros(4); e[i] = 1.0
+        return (M0[ax] @ e)[:3]
+
+    hip_y, hip_z = axis("hip", "y"), axis("hip", "z")
+    leave_hip = ports["hip"] - 4.0 * hip_z
+    leave_knee = ports["knee"] - 4.0 * axis("knee", "z")
+    leave_yaw = ports["yaw"] - 6.0 * axis("yaw", "z")
+    # Hip pitch axis (output face) — service loop crosses here (~12 mm radius).
+    hip_axis = (M0["hip"] @ np.array(
+        [HP.SERVO_OUTPUT_X, 0.0, HP.SERVO_BODY_H, 1.0]))[:3]
+    pre_axis = hip_axis + 12.0 * hip_y
+
+    src = np.array(_plan_entry(0, "yaw")["source_xyz_chassis"])
+    drop = np.array(_plan_entry(0, "yaw")["via_chassis_drop_xyz"])
+
+    def L(anchor: str, w) -> tuple[str, list[float]]:
+        p = (inv[anchor] @ np.array([w[0], w[1], w[2], 1.0]))[:3]
+        return (anchor, [float(c) for c in p])
+
+    def Wy(xyz) -> np.ndarray:
+        return (M0["yaw"] @ np.array([xyz[0], xyz[1], xyz[2], 1.0]))[:3]
+
+    def Wf(xyz) -> np.ndarray:
+        return (Mf @ np.array([xyz[0], xyz[1], xyz[2], 1.0]))[:3]
+
+    # Yaw hangs output-UP: body occupies roughly local z∈[-4, 34].  Ports sit
+    # on the BACK at z=−3; the retainer drop window opens straight down.
+    # Waypoints at local z≤−10 stay below the body (never world z=−9).
+    drop_l = (inv["yaw"] @ np.array([drop[0], drop[1], drop[2], 1.0]))[:3]
+    drop_down = Wy([drop_l[0], drop_l[1], -10.0])
+    under_yaw = Wy([HP.STS3215_PORT_X_MM, HP.STS3215_PORT_Y_MM, -10.0])
+    # yaw→hip: under the body, around the −X face (away from output), then
+    # rise outside the coxa toward the hip back ports (probed clear).
+    yaw_under_corner = Wy([-28.0, -22.0, -14.0])
+    yaw_rise_outboard = Wy([-28.0, 18.0, 20.0])
+
+    # Femur spar TOP zip-tie channel (femur-local x along length, z above
+    # the printed spar surface — probed clear of clamp/coxa/yoke solids).
+    def spar_z(x: float) -> float:
+        return (45.3 if x < 55.0 else 38.6) + 6.0
+
+    spar_world = [Wf((x, 0.0, spar_z(x))) for x in (28.0, 42.0, 56.0, 70.0, 82.0)]
+    knee_appr = Wf((90.0, 0.0, 39.6))
+
+    paths = {
+        "tail": [
+            L("yaw", src), L("yaw", drop), L("yaw", drop_down),
+            L("yaw", under_yaw), L("yaw", leave_yaw), L("yaw", ports["yaw"]),
+        ],
+        "yaw_hip": [
+            L("yaw", ports["yaw"]), L("yaw", leave_yaw), L("yaw", under_yaw),
+            L("yaw", yaw_under_corner), L("yaw", yaw_rise_outboard),
+            L("hip", leave_hip), L("hip", ports["hip"]),
+        ],
+        "hip_knee": [
+            L("hip", ports["hip"]),
+            L("hip", leave_hip),
+            L("hip", pre_axis),
+            *[L("femur", p) for p in spar_world],
+            L("femur", knee_appr),
+            L("knee", leave_knee),
+            L("knee", ports["knee"]),
+        ],
+    }
+    return paths
+
+
+def _build_routes(chassis_lift: float, legs: list[int],
+                  leg_part_ids: dict[tuple[int | None, str], str]) -> list[dict]:
+    """BuildViz ``routes[]`` for the per-leg servo wiring: bundle tail and
+    yaw->hip / hip->knee daisy segments (see the section comment above).
+    ``leg_part_ids`` maps (leg, partType) -> scene instance id.
+
+    Servo-end and femur-spar waypoints are instance-anchored so they ride
+    the gait; chassis drop/bus nodes stay in chassis frame."""
+    paths = _servo_attach_paths()
+    routes: list[dict] = []
+
+    _ANCHOR_PART = {
+        "yaw": "yaw_servo", "hip": "hip_servo", "knee": "knee_servo",
+        "femur": "femur_link",
+    }
+
+    def wp_anchored(leg: int, chain: list[tuple[str, list[float]]]) -> list[dict]:
+        out = []
+        for anchor, loc in chain:
+            part = _ANCHOR_PART[anchor]
+            out.append({"instanceId": leg_part_ids[(leg, part)], "local": loc})
+        return out
+
+    def ids(leg, *names):
+        return [leg_part_ids[k] for k in
+                (((None, n) if n == "chassis_bottom" else (leg, n))
+                 for n in names) if k in leg_part_ids]
+
+    common = dict(kind="data", color=_ROUTE_COLOR_DATA,
+                  diameterMm=_BUS_LEAD_OD_MM, radiusMm=_BUS_LEAD_OD_MM / 2.0,
+                  minBendRadiusMm=_BUS_LEAD_MIN_BEND_MM,
+                  maxLengthMm=WHP.STOCK_PIGTAIL_MM)
+
+    for leg in legs:
+        sid_yaw = joint_to_servo_id(3 * leg)
+        sid_hip = joint_to_servo_id(3 * leg + 1)
+        sid_knee = joint_to_servo_id(3 * leg + 2)
+
         routes.append({
-            "id": f"route-j{entry['joint_idx']:02d}",
-            "points": [[float(x), float(y), float(z) + chassis_lift]
-                       for x, y, z in chassis_pts],
-            "maxLengthMm": _route_budget_mm(entry["extension_required"]),
-            "label": (f"L{entry['leg_idx']} {axis_label} bus lead "
-                      f"(servo ID {entry['servo_id']}, data)"),
-            "color": _ROUTE_COLOR_DATA,
-            "radiusMm": 1.2,
+            "id": f"route-j{3 * leg:02d}",
+            **common,
+            "waypoints": wp_anchored(leg, paths["tail"]),
+            "label": (f"L{leg} leg bundle: drop slot -> down retainer window "
+                      f"-> YAW ID {sid_yaw} BACK-face 5264 ports"),
+            "instances": ids(leg, "chassis_bottom", "yaw_servo_retainer"),
+        })
+        routes.append({
+            "id": f"route-j{3 * leg + 1:02d}",
+            **common,
+            "waypoints": wp_anchored(leg, paths["yaw_hip"]),
+            "label": (f"L{leg} daisy: YAW ID {sid_yaw} -> HIP ID {sid_hip} "
+                      f"(BACK ports, under yaw / around −X face)"),
+            "instances": ids(leg, "chassis_bottom", "yaw_servo_retainer"),
+        })
+        routes.append({
+            "id": f"route-j{3 * leg + 2:02d}",
+            **common,
+            "waypoints": wp_anchored(leg, paths["hip_knee"]),
+            "label": (f"L{leg} daisy: HIP ID {sid_hip} -> KNEE ID {sid_knee} "
+                      f"(BACK ports, zip-tied on femur spar top, crosses "
+                      f"near hip axis)"),
+            "instances": ids(leg, "femur_link", "hip_clamp_cap",
+                             "knee_clamp_cap"),
         })
     return routes
 
@@ -1125,48 +1275,29 @@ def _build_routes(chassis_lift: float, legs: list[int]) -> list[dict]:
 #
 # The 18 per-joint bus leads above cover only the servo DATA chains.  The
 # routes below document the REST of the harness -- power trunk, per-leg power
-# branches, leg-to-leg data jumpers, buck feed, Uno Q logic supply, the data
-# head to servo ID 1, and the IMU I2C pigtail -- with waypoints derived from
-# the MODELED parts placed by ``_body_local_parts`` (LiPo box, switch_holster
-# on chassis_top's +X edge, buck/uno trays, imu_pad).  Two nodes are NOT
-# modeled parts and use their DOCUMENTED planned locations instead:
-#
-#   * bus bar: the electronics-tray "+X strip" landing posts of
-#     wire_harness_plan (chassis x = +64, y = -20..+20, post tips z = 13.1) --
-#     the same node the 18 bus leads already terminate on;
-#   * main fuse + USB bus-servo adapter: inline devices with no CAD part; the
-#     trunk/data-head routes pass through their planned neighbourhood and say
-#     so in their labels.
+# branches (via PDB + peripheral Wagos), leg-to-leg data jumpers (via
+# underside data Wagos), battery→Uno Q (no buck), the data head to servo
+# ID 1, and the IMU I2C pigtail -- with waypoints derived from the MODELED
+# as-built parts (LiPo, switch_holster, PDB, Uno Q on hex plate, MPU under
+# raised platform).  Inline fuse / adapter neighbourhoods are labelled
+# even when no CAD part exists.
 #
 # These are DOCUMENTATION routes (which wire goes where, at what gauge), not
 # reach-critical cable builds, so budgets are generous -- but every route must
-# still clear the routing_reach obstruction ray test, hence the explicit
-# inter-plate corridors (z ~ 5-20 between the plates, rises past the top
-# plate's hex edge at |x| > 58, deck crossings above the tray tops).
-#
-# ``radiusMm`` is a per-route DISPLAY thickness hint for the viewer (mm), used
-# to render the 12 AWG trunk visibly fatter than a 28 AWG I2C pigtail.  The
-# routing_reach check ignores it (centreline ray test only).
+# still clear the routing_reach obstruction ray test.
 
 _ROUTE_COLOR_POWER = "#ef4444"  # bright red: 12 V V+/GND power pairs
 _ROUTE_COLOR_GND = "#1f2937"    # near-black: GND-only / no-V+ jumpers
-_ROUTE_COLOR_LOGIC = "#3b82f6"  # blue: 5 V logic supply (buck -> Uno Q)
+_ROUTE_COLOR_LOGIC = "#3b82f6"  # blue: battery → Uno Q (no buck)
 _ROUTE_COLOR_I2C = "#22c55e"    # green: I2C sensor pigtail
 
-# Chassis-frame anchor nodes for the body harness (pre-lift z).  Derived from
-# the same constants ``_body_local_parts`` places the parts with.
-_LIPO_EXIT = (63.0, 0.0, 20.0)          # just past the LiPo +X face (x=61;
-                                        # Jul 2026 real 138-mm pack)
-_SWITCH_SIDE = (52.0, -13.0, 46.0)      # outside the holster's -Y wall (|y|>11)
-_SWITCH_SIDE_OUT = (48.0, -13.0, 46.0)  # switch-side start of the fused leg
-_EDGE_DROP_XY = (70.0, -16.0)           # rise/drop corridor past the top-plate
-                                        # disc edge (r > 57.5) AND past the
-                                        # 138-mm pack's +X face at x = 61
-                                        # (was x = 64, which the Jul 2026
-                                        # pack now reaches), clear of the
-                                        # holster's |y| <= 11 band
-_BUS_BAR_MID = (64.0, 0.0, 13.1)        # wire_harness_plan bus-bar strip centre
-_BUS_BAR_BUCK_POST = (64.0, 8.0, 13.1)  # spare post feeding the buck
+# Chassis-frame anchor nodes for the body harness (pre-lift z).
+_LIPO_EXIT = (63.0, 0.0, 20.0)          # just past the LiPo +X face
+_SWITCH_SIDE = (52.0, -13.0, 46.0)      # outside the holster's -Y wall
+_SWITCH_SIDE_OUT = (48.0, -13.0, 46.0)
+_EDGE_DROP_XY = (70.0, -16.0)
+_PDB_NODE = (HP.PDB_CENTRE[0], HP.PDB_CENTRE[1],
+             HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T + HP.PDB_H)
 
 
 def _leg_src(leg: int) -> tuple[float, float, float]:
@@ -1200,9 +1331,12 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
     ``part_ids`` maps body partType -> scene instance id so each route can
     declare its termination instances (exempt from the obstruction ray test,
     exactly like connector seating)."""
-    # Deck heights (chassis frame): trays at deck0+l1 / deck0+l1+l2, boards on
-    # 7 mm tray bosses.  Uno Q top ~ z 71.6, buck body z 83..104.
     ex, ey = _EDGE_DROP_XY
+    deck0 = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T
+    hex_top = deck0 + HP.HEX_POST_STACK_H + HP.HEX_MOUNT_PLATE_T
+    uno_z = hex_top + 5.0
+    raised_top = hex_top + HP.HEX_RAISED_TOTAL_H
+    mpu_z = raised_top - HP.HEX_RAISED_TOP_T - HP.IMU_PCB_T / 2.0
 
     def pts(*chassis_pts):
         return [[float(x), float(y), float(z) + chassis_lift]
@@ -1212,8 +1346,7 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
         return [part_ids[n] for n in names if n in part_ids]
 
     routes: list[dict] = [
-        # -- power trunk (split at the switch so the polyline never doubles
-        #    back through the same point, which the tube render dislikes) -----
+        # -- power trunk → PDB ----------------------------------------------
         {
             "id": "route-trunk-lipo-switch",
             "points": pts(_LIPO_EXIT, (ex, ey, 20.0), (ex, ey, 46.0),
@@ -1226,89 +1359,86 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
             "instances": ids("lipo_battery", "switch_holster"),
         },
         {
-            "id": "route-trunk-switch-busbar",
-            "points": pts(_SWITCH_SIDE_OUT, (ex, ey, 46.0), (ex, ey, 13.1),
-                          _BUS_BAR_MID),
+            "id": "route-trunk-switch-pdb",
+            "points": pts(_SWITCH_SIDE_OUT, (ex, ey, 46.0),
+                          (HP.PDB_CENTRE[0], HP.PDB_CENTRE[1], 46.0),
+                          _PDB_NODE),
             "maxLengthMm": 200.0,
             "label": ("power trunk 12-14 AWG: switch -> 15-20 A main fuse "
-                      "(inline, not modeled) -> bus bar"),
+                      "(inline) -> PDB on chassis_top"),
             "color": _ROUTE_COLOR_POWER,
             "radiusMm": 2.6,
-            "instances": ids("switch_holster"),
+            "instances": ids("switch_holster", "pdb"),
         },
-        # -- buck feed + 5 V logic supply -----------------------------------
+        # -- battery → Uno Q (no buck) --------------------------------------
         {
-            "id": "route-pwr-buck",
-            # Shares the trunk's proven (+X edge, y=-16) rise corridor: the +Y
-            # side is blocked by leg 0's coxa_hip_bracket / hip_clamp_cap,
-            # which reach down to (64, 26, z~34) (routing_reach probe).
-            "points": pts(_BUS_BAR_BUCK_POST, (ex, ey, 13.1),
-                          (ex, ey, 88.0), (36.0, 16.0, 88.0)),
+            "id": "route-logic-battery-uno",
+            "points": pts(_PDB_NODE,
+                          (HP.UNO_Q_ON_HEX_CENTRE[0], HP.UNO_Q_ON_HEX_CENTRE[1],
+                           deck0 + 8.0),
+                          (HP.UNO_Q_ON_HEX_CENTRE[0], HP.UNO_Q_ON_HEX_CENTRE[1],
+                           uno_z)),
             "maxLengthMm": 300.0,
-            "label": "bus bar -> buck converter 12 V feed (20 AWG V+/GND pair)",
-            "color": _ROUTE_COLOR_POWER,
-            "radiusMm": 1.8,
-            "instances": ids("buck_converter", "buck_tray"),
-        },
-        {
-            "id": "route-logic-5v",
-            "points": pts((34.5, 8.0, 90.0), (56.0, 8.0, 90.0),
-                          (56.0, 8.0, 67.0), (36.0, 8.0, 67.0)),
-            "maxLengthMm": 200.0,
-            "label": "buck 5 V out -> Uno Q logic supply (20 AWG, 5 V/GND)",
+            "label": ("battery/PDB tap -> Uno Q (no buck; 20 AWG V+/GND; "
+                      "Uno Q accepts the 3S rail via its own regulator)"),
             "color": _ROUTE_COLOR_LOGIC,
             "radiusMm": 1.5,
-            "instances": ids("buck_converter", "uno_q"),
+            "instances": ids("pdb", "uno_q"),
         },
-        # -- data head: Uno Q -> USB bus-servo adapter -> servo ID 1 ---------
+        # -- data head: Uno Q -> motor controller -> servo bus --------------
         {
             "id": "route-data-head",
-            "points": pts((36.0, -8.0, 67.0), (60.0, -20.0, 67.0),
+            "points": pts((HP.UNO_Q_ON_HEX_CENTRE[0], HP.UNO_Q_ON_HEX_CENTRE[1],
+                           uno_z),
+                          (HP.MOTOR_CTRL_CENTRE[0], HP.MOTOR_CTRL_CENTRE[1],
+                           deck0 + HP.MOTOR_CTRL_H),
                           (60.0, -20.0, 18.0), _leg_src(0)),
             "maxLengthMm": 400.0,
-            "label": ("Uno Q USB-C -> USB bus-servo adapter (inline, not "
-                      "modeled) -> servo ID 1 bus head (data)"),
+            "label": ("Uno Q USB-C -> motor controller / USB bus-servo adapter "
+                      "-> servo ID 2 bus head (L0 yaw, data)"),
             "color": _ROUTE_COLOR_DATA,
             "radiusMm": 1.4,
-            "instances": ids("uno_q"),
+            "instances": ids("uno_q", "motor_controller"),
         },
-        # -- IMU I2C: Uno Q -> imu_pad under the uno tray --------------------
+        # -- IMU I2C: Uno Q -> MPU on chassis_bottom bay (behind phys. leg 1) --
         {
             "id": "route-i2c-imu",
-            "points": pts((-36.0, 0.0, 67.0), (-54.0, 0.0, 67.0),
-                          (-54.0, 0.0, 45.0), (-15.0, 0.0, 45.0)),
-            "maxLengthMm": 200.0,
-            "label": ("Uno Q I2C -> GY-521 IMU on imu_pad "
-                      "(28 AWG: 3V3/GND/SCL/SDA -- 3V3, NOT 5 V)"),
+            "points": pts((HP.UNO_Q_ON_HEX_CENTRE[0], HP.UNO_Q_ON_HEX_CENTRE[1],
+                           uno_z),
+                          (HP.MPU_ASBUILT_R * np.cos(np.deg2rad(HP.MPU_ASBUILT_AZ_DEG)),
+                           HP.MPU_ASBUILT_R * np.sin(np.deg2rad(HP.MPU_ASBUILT_AZ_DEG)),
+                           deck0 + 4.0),
+                          (HP.MPU_ASBUILT_R * np.cos(np.deg2rad(HP.MPU_ASBUILT_AZ_DEG)),
+                           HP.MPU_ASBUILT_R * np.sin(np.deg2rad(HP.MPU_ASBUILT_AZ_DEG)),
+                           HP.CHASSIS_PLATE_T / 2.0 + HP.IMU_PCB_T)),
+            "maxLengthMm": 300.0,
+            "label": ("Uno Q I2C -> GY-521 MPU glued on chassis_bottom "
+                      "(behind phys. leg 1; 28 AWG 3V3/GND/SCL/SDA -- 3V3)"),
             "color": _ROUTE_COLOR_I2C,
             "radiusMm": 1.4,
-            "instances": ids("uno_q", "imu_pad"),
+            "instances": ids("uno_q", "mpu6050"),
         },
     ]
 
-    # -- 6x power branches: bus-bar post -> leg drop slot (Molex 5264
-    #    injection near the leg's first servo).  Reuses the SAME inter-plate
-    #    doglegs the bus leads needed (legs 2/3 hug the battery flank), just
-    #    walked in reverse.
+    # -- 6x power branches: PDB -> peripheral Wago -> leg drop --------------
     for leg in legs:
+        a = np.pi / 6.0 + leg * np.pi / 3.0
+        wago = (HP.WAGO_POWER_R * np.cos(a),
+                HP.WAGO_POWER_R * np.sin(a),
+                deck0 + HP.WAGO_H / 2.0)
         dogleg = list(reversed(_ROUTE_LEG_DOGLEGS.get(leg, [])))
         routes.append({
             "id": f"route-pwr-L{leg}",
-            "points": pts(_leg_bus_post(leg), *dogleg, _leg_drop(leg)),
+            "points": pts(_PDB_NODE, wago, *dogleg, _leg_drop(leg)),
             "maxLengthMm": 250.0,
-            "label": (f"L{leg} power branch 16-18 AWG: bus bar -> 5264 "
-                      f"injection at leg {leg} drop slot (V+/GND)"),
+            "label": (f"L{leg} power 16-18 AWG: PDB -> peripheral Wago "
+                      f"-> leg {leg} drop (V+/GND)"),
             "color": _ROUTE_COLOR_POWER,
             "radiusMm": 2.0,
+            "instances": ids("pdb", "wago_power"),
         })
 
-    # -- 5x leg-to-leg data jumpers: last servo of leg N -> first servo of
-    #    leg N+1 (signal+GND only, NO V+ -- power injects per leg).  The 2->3
-    #    jumper cannot run straight (through the LiPo) nor outboard (through
-    #    the leg 2/3 yaw cradles + servos), so it steps to the proven dogleg
-    #    flank points and hops OVER the battery top (z 29.5, between the
-    #    battery's z=26 top -- Jul 2026 24-mm-tall pack -- and chassis_top's
-    #    z=34 underside).
+    # -- 5x leg-to-leg data jumpers via underside data Wagos ----------------
     _JUMPER_DETOURS: dict[tuple[int, int], list[tuple[float, float, float]]] = {
         (2, 3): [(-45.0, 26.5, 6.5), (-45.0, 26.5, 29.5),
                  (-45.0, -26.5, 29.5), (-45.0, -26.5, 6.5)],
@@ -1319,13 +1449,15 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
             "id": f"route-data-L{a}L{b}",
             "points": pts(_leg_src(a), *detour, _leg_src(b)),
             "maxLengthMm": 300.0,
-            "label": (f"leg {a} -> leg {b} data jumper "
-                      f"(signal+GND only, NO V+)"),
+            "label": (f"leg {a} -> leg {b} data jumper via underside data "
+                      f"Wagos (signal+GND only, NO V+)"),
             "color": _ROUTE_COLOR_GND,
             "radiusMm": 1.3,
+            "instances": ids("wago_data"),
         })
 
     return routes
+
 
 def main(single_leg: bool = False, motion: bool = True) -> None:
     if STL_DIR.exists():
@@ -1448,12 +1580,14 @@ def main(single_leg: bool = False, motion: bool = True) -> None:
         scene["animations"] = animations
 
     # ADDITIVE cable/harness routes (BuildViz routing_reach gate + tube render):
-    # one per WIRE_HARNESS_PLAN joint (waypoints straight from the plan), plus
-    # the body-harness nets of WIRING.md §1/§6 (power trunk/branches, jumpers,
-    # buck feed, 5 V logic, data head, IMU I2C).
+    # the per-leg servo daisy chain, servo-boot attached (see the routes
+    # section comment), plus the body-harness nets of WIRING.md §1/§6 (power
+    # trunk/branches, jumpers, buck feed, 5 V logic, data head, IMU I2C).
     body_part_ids = {inst["partType"]: inst["id"]
                      for inst in instances_json if inst["leg"] is None}
-    scene["routes"] = (_build_routes(chassis_lift, legs)
+    leg_part_ids = {(inst["leg"], inst["partType"]): inst["id"]
+                    for inst in instances_json}
+    scene["routes"] = (_build_routes(chassis_lift, legs, leg_part_ids)
                        + _build_body_routes(chassis_lift, legs, body_part_ids))
 
     (OUT_DIR / "scene.json").write_text(json.dumps(scene, indent=2))
@@ -1470,14 +1604,15 @@ def main(single_leg: bool = False, motion: bool = True) -> None:
     print(msg)
 
     # BuildViz-compatibility contract (see ~/buildviz/BUILDVIZ_COMPATIBILITY.md):
-    # write a design_spec.yaml that covers every scene partType, and copy the
-    # project-authored assembly guide + BOM in under the contract's expected
-    # names so full_robot_viz/ is a self-contained, compat-clean build dir.
-    _write_design_spec(instances_json)
+    # write a design_spec.yaml that covers every scene partType (and a
+    # ``wiring:`` entry per published route), and copy the project-authored
+    # assembly guide + BOM in under the contract's expected names so
+    # full_robot_viz/ is a self-contained, compat-clean build dir.
+    _write_design_spec(instances_json, scene["routes"])
     project_dir = _HERE.parent
     for source_name, dest_name in (
         ("PROTOTYPE.md", "ASSEMBLY.md"),
-        ("PROTOTYPE_BOM.md", "BOM.md"),
+        ("docs/PROTOTYPE_BOM.md", "BOM.md"),
     ):
         source = project_dir / source_name
         if source.exists():

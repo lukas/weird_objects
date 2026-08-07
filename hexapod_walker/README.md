@@ -9,6 +9,7 @@ subdirectory with its own README / build guide:
 | [`fullsize_v1/`](fullsize_v1/) | The original human-carrying walker (18 harmonic-drive servos, ~4 m foot-to-foot). Parametric STL generator, MuJoCo simulation, RL gait training, Blender renders. See [`fullsize_v1/README.md`](fullsize_v1/README.md) and [`fullsize_v1/ASSEMBLY.md`](fullsize_v1/ASSEMBLY.md). |
 | [`prototype_v1/`](prototype_v1/) | First tabletop prototype for hobby servos (DS3225 / MG996R class) and FDM printing. See [`prototype_v1/PROTOTYPE.md`](prototype_v1/PROTOTYPE.md). |
 | [`prototype_sts3215/`](prototype_sts3215/) | **Current tabletop prototype** — Feetech STS3215 serial-bus servos, Arduino UNO Q brain, full CAD validation pipeline. See [`prototype_sts3215/PROTOTYPE.md`](prototype_sts3215/PROTOTYPE.md) and [`prototype_sts3215/CAD_WORKFLOW.md`](prototype_sts3215/CAD_WORKFLOW.md). |
+| [`sts/`](sts/) | **Walking stack for the STS3215 robot** — MuJoCo + RL trained on real motor feedback (load / current / voltage / temp), with stall detection and safe-stop. See [`sts/README.md`](sts/README.md). |
 | [`rideable_v1/`](rideable_v1/) | Design study for an affordable rideable walker (cheaper actuators than `fullsize_v1`). See [`rideable_v1/README.md`](rideable_v1/README.md). |
 
 Also here: [`hex`](hex) — one-shot command CLI for the physical

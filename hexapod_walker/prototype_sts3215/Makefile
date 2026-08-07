@@ -32,7 +32,7 @@ help:
 	@echo "                    Not wired into check-cad.  Example:  make check-strength MATERIAL=petg"
 	@echo "  validate          Run scripts/validate_geometry.py only (no renders, no report)."
 	@echo "  render            Run scripts/render_views.py only."
-	@echo "  build             Re-run prototype_sts3215/build_all.py to regenerate stl_prototype/*.stl (CURRENT design)."
+	@echo "  build             Re-run build_all.py → stl_prototype/ + stl_reference/ (CURRENT design)."
 	@echo "  verify-prototype  Run the legacy _verify_prototype.main() directly (full suite, ~95-270 s)."
 	@echo "  verify-fast       Run _verify_prototype.py --fast (5 essential checks, ~5-15 s)."
 	@echo "  verify-changed    Run _verify_prototype.py --changed (only checks affected by git diff vs origin/main)."
@@ -44,7 +44,7 @@ help:
 	@echo "                    verifier + cheap validate, and BUMP a new versioned snapshot into the hub cache"
 	@echo "                    (buildviz push --bump; keep BUILDVIZ_KEEP).  Pass SWEEP=1 for the ~13 s swept motion test."
 	@echo "  regen-fasteners   Regenerate fasteners/<P/N>.cache.stl from real STEPs or parametric fallback."
-	@echo "  bom-fasteners     Inject the auto-derived fastener BOM into PROTOTYPE_BOM.md and SHOPPING_LIST.md."
+	@echo "  bom-fasteners     Inject the auto-derived fastener BOM into docs/PROTOTYPE_BOM.md and docs/SHOPPING_LIST.md."
 	@echo "  clean-artifacts   Delete artifacts/ (renders + cad_report.md)."
 
 check-cad:
@@ -128,7 +128,7 @@ view-static:
 # mjpython.  Forward ARGS=... for things like
 #   make view-build ARGS="--screenshot /tmp/build.png --explode 0.8"
 view-build:
-	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(REPO_ROOT)/.venv/bin/python hexapod_walker/prototype_sts3215/inspect_build.py $(ARGS)
+	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(REPO_ROOT)/.venv/bin/python hexapod_walker/prototype_sts3215/scripts/inspect_build.py $(ARGS)
 
 # Browser-based build inspector (https://github.com/lukas/buildviz).  To VIEW
 # the sts3215 full robot, publish it into the ONE machine-wide BuildViz hub
@@ -209,7 +209,7 @@ verify-buildviz:
 # file, or upgrade NopSCADlib.  See fasteners/README.md for the
 # install commands (openscad CLI + NopSCADlib clone).
 regen-fasteners:
-	$(RUN) hexapod_walker/prototype_sts3215/make_fastener_meshes.py
+	$(RUN) hexapod_walker/prototype_sts3215/scripts/make_fastener_meshes.py
 
 # Auto-derive the fastener BOM table from fastener_registry and inject
 # it (between the BEGIN FASTENERS / END FASTENERS markers) into the
@@ -217,13 +217,13 @@ regen-fasteners:
 #
 # Paths must be absolute because run.sh cd's into the script's own
 # directory before executing -- a path relative to the repo root
-# (e.g. ``hexapod_walker/prototype_sts3215/PROTOTYPE_BOM.md``) would then
-# resolve against ``prototype_sts3215/scripts/``, where the BOM file does
-# not live.
+# (e.g. ``hexapod_walker/prototype_sts3215/docs/PROTOTYPE_BOM.md``) would
+# then resolve against ``prototype_sts3215/scripts/``, where the BOM
+# file does not live.
 bom-fasteners:
 	$(RUN) hexapod_walker/prototype_sts3215/scripts/render_fastener_bom.py \
-		--inject $(CURDIR)/PROTOTYPE_BOM.md \
-		--inject $(CURDIR)/SHOPPING_LIST.md
+		--inject $(CURDIR)/docs/PROTOTYPE_BOM.md \
+		--inject $(CURDIR)/docs/SHOPPING_LIST.md
 
 clean-artifacts:
 	rm -rf $(CURDIR)/artifacts

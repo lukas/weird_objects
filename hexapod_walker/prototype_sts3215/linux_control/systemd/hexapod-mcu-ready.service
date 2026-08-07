@@ -1,0 +1,20 @@
+[Unit]
+Description=Boot the Uno Q MCU early (feetech_bridge + TFT splash ASAP)
+# After an SoC boot the STM32 (feetech_bridge + ST7789 panel) does NOT
+# auto-run its flashed sketch — stock images rely on arduino-router to
+# bring it up ~80 s into boot. Resetting it ourselves via SWD right after
+# local-fs means the hexapod splash + "linux Ns" boot ticker appear a few
+# seconds after power, and hexapod-web's first HELLO succeeds.
+DefaultDependencies=no
+After=local-fs.target
+Before=arduino-router.service hexapod-web.service basic.target
+ConditionPathExists=/dev/gpiochip1
+
+[Service]
+Type=oneshot
+ExecStart=/home/arduino/hexapod_sts/linux_control/systemd/mcu_boot.sh
+RemainAfterExit=yes
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target

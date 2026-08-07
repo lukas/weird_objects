@@ -9,7 +9,7 @@
 > servo** instead of a $5000 harmonic-drive servomotor.
 >
 > Total parts cost: **~$615 – $1000** in 2026 USD (see
-> [`PROTOTYPE_BOM.md`](PROTOTYPE_BOM.md)). A motivated builder can have
+> [`docs/PROTOTYPE_BOM.md`](docs/PROTOTYPE_BOM.md)). A motivated builder can have
 > it walking on a tabletop in a weekend.
 
 ![Cycles render of the prototype hexapod](renders/prototype.png)
@@ -52,9 +52,9 @@ when you graduate to the big version — just re-tune the gains.
 | Per-leg static load (tripod stance) | ~ 4.3 N (~ 0.43 kg) |
 | Peak knee torque | ~ 0.6 N·m (~ 6 kg·cm) |
 | Battery | 1 × 3S LiPo (11.1 V nom / 12.6 V full), up to 138 × 46 × 24 mm |
-| Servo rail | Raw 3S (12 V) via distributed fused power bus; see [`firmware/WIRING.md`](firmware/WIRING.md) §6 |
-| Logic rail | 5 V from a XINGYHENG 12→5 V buck (Uno Q only) |
-| Continuous draw (cruise) | ~ 9 A @ 12 V (all 18 servos walking), ~ 0.3 A @ 5 V (logic) |
+| Servo rail | Raw 3S (12 V) via PDB → peripheral power Wagos → per-leg branches; see [`firmware/WIRING.md`](firmware/WIRING.md) §6 |
+| Logic rail | Raw 3S straight to Uno Q (on-board regulator; **no external buck**) |
+| Continuous draw (cruise) | ~ 9 A @ 12 V (all 18 servos walking) + Uno Q on its own battery feed |
 | Run time, level ground | ~ 30 min |
 
 **Knee torque margin:** the actuator is a FEETECH STS3215
@@ -191,8 +191,8 @@ make -C hexapod_walker/prototype check-cad-fast   # inner-loop variant
 
 Both targets rebuild `stl_prototype/`, run the validators, render
 4-view PNGs per part under `artifacts/views/`, and write
-`artifacts/cad_report.md`. See [`CAD_WORKFLOW.md`](CAD_WORKFLOW.md) for
-the full pipeline and [`CAD_AGENT_INSTRUCTIONS.md`](CAD_AGENT_INSTRUCTIONS.md)
+`artifacts/cad_report.md`. See [`docs/CAD_WORKFLOW.md`](docs/CAD_WORKFLOW.md) for
+the full pipeline and [`docs/CAD_AGENT_INSTRUCTIONS.md`](docs/CAD_AGENT_INSTRUCTIONS.md)
 for the rules LLM coding agents should follow when editing CAD.
 
 The legacy verifier `_verify_prototype.py` is parallelised via a
@@ -353,13 +353,18 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 
 | File | Function | Suggested print settings |
 |---|---|---|
-| `chassis_top.stl` | Top hex deck (4 mm PLA, 200 mm flat-to-flat).  Carries 2 x Phi 8 mm printed bosses near the +X edge for the `switch_holster` heat-set inserts, plus the 4 `DECK_COLUMN_XY` standoff sites that carry the stacked electronics deck. | 0.2 mm layer, 25% gyroid infill, 4 walls |
-| `chassis_bottom.stl` | Single merged bottom plate (Jun 2026): a flat 200 mm hex with a ~8 mm floor that carries the 6 yaw-servo cradles, the split yaw-bearing tower bases, and the velcro-strap slots that retain the LiPo on the plate top face.  Prints face-DOWN, no supports. | same as top |
-| `uno_q_tray.stl` | Lower electronics deck — carries the **Arduino Uno Q** (the brain + direct STS3215 TTL-bus driver).  Stacks on 4 M3 standoff columns above `chassis_top` at `DECK_LEVEL_1_STANDOFF_H` (16 mm). | 0.2 mm, 20% gyroid, 3 walls |
-| `buck_tray.stl` | Upper electronics deck — carries the **XINGYHENG 12→5 V buck converter** that powers the Uno Q's logic.  Stacks on the `uno_q_tray` columns at `DECK_LEVEL_2_STANDOFF_H` (22 mm). | 0.2 mm, 20% gyroid, 2 walls |
-| `spider_carapace.stl` | Domed cephalothorax shell (~141 x 124 x 34 mm) with the classic 8-eye spider face.  Bolts on as the 3rd deck level on 4 M3 standoffs above `buck_tray`; the open skirt + rear window keep every wire exit and the buck vented. | 0.2 mm, 10–15% gyroid, 3 walls, print rim-down |
+| `chassis_top.stl` | Top hex deck (4 mm PLA, 200 mm flat-to-flat).  Carries 2 × Φ 8 mm printed bosses near the +X edge for the `switch_holster` heat-set inserts, plus the 4 `CHASSIS_STANDOFF_HOLES_XY` (±31.1) sites that take the sandwich standoffs below and the magnet-post stack above (20 mm standoff + thumb nut + Ø8×8 mm magnet). | 0.2 mm layer, 25% gyroid infill, 4 walls |
+| `chassis_bottom.stl` | Single merged bottom plate (Jun 2026): a flat 200 mm hex with a ~8 mm floor that carries the 6 yaw-servo cradles, the split yaw-bearing tower bases, and the velcro-strap slots that retain the LiPo under the chassis.  Prints face-DOWN, no supports. | same as top |
 | `switch_holster.stl` | Snap-in holster for one ~ 32 x 17 x 17 mm anti-spark on/off switch (the e-stop).  Bolted to chassis_top's +X edge via 2 x M3 x 10 SHCS that thread DOWN into M3 brass heat-set inserts captive in chassis_top's 2 printed bosses.  Toggle protrudes +X past the chassis edge for user access; XT60 pigtails exit the +/- Y end faces. | 0.2 mm, 25% infill, 3 walls |
-| `imu_pad.stl` | 25 x 20 x 2 mm pad with 4 x Phi 8 mm bosses (3 mm tall) carrying M3 brass heat-set inserts on the GY-521 15 x 11 mm pattern (4 x Phi 3.0 mm clearance holes).  Bolts the MPU-6050 IMU breakout via 4 x M3 x 8 SHCS.  **No fasteners between the pad and chassis_top** -- the pad's flat smooth underside is bonded to chassis_top's centre with 3 mm double-sided foam tape, which serves AS the mount AND the vibration damper.  Sits at chassis (0, 0, chassis_top_top_z + 3 mm) -- the chassis centre of gravity, so gyro rates are not contaminated by linear-acceleration cross-coupling from body swing. | 0.2 mm, 25% infill, 3 walls |
+
+> **Aug 2026 as-built electronics deck** (from `extra_stl/`, not `stl_prototype/`):
+> four posts at `CHASSIS_STANDOFF_HOLES_XY` hold a Ø110 **`hex_mount_plate_110`**
+> (Uno Q + breakout) on magnets; above it sits **`hex_raised_platform_110`**
+> (screen variant, 62 mm legs) with the display on the top face and the
+> MPU-6050 glued on chassis_bottom behind phys. leg 1.  Generate / refresh with
+> `tools/make_xtool_hex_raised_platform.py`.  Printed trays
+> (`uno_q_tray`, `buck_tray`), `spider_carapace`, and chassis-top
+> `imu_pad` are retired.
 
 ### 3.2 Per-leg parts (print 6 sets)
 
@@ -410,7 +415,7 @@ as a single body — no socket, no slip fit, no retention pin.
 
 ### 3.4 Don't have a 3D printer? Order from a print service
 
-Run `./run.sh hexapod_walker/prototype/prepare_xometry_upload.py` to build a
+Run `./run.sh hexapod_walker/prototype_sts3215/scripts/prepare_xometry_upload.py` to build a
 self-contained order package in `xometry_upload/`. The script
 re-orients each part for printing (hollow servo pockets opening
 toward +Z, broadest flat face on the build plate), consolidates the
@@ -435,21 +440,22 @@ printer.
 
 ### 4.2 Power
 
-> Power architecture (3S → distributed fused bus → per-leg branches +
-> a separate 5 V logic buck) is documented in full in
+> Power architecture (Aug 2026 as-built): **two battery domains, no
+> external buck** — `battery → PDB → power Wagos → servos` and
+> `battery → Uno Q` (share ground only).  Full detail in
 > [`firmware/WIRING.md`](firmware/WIRING.md) §6.  There is **no servo
 > BEC** — the STS3215 run directly off the raw 3S (12 V) rail.
 
 | Item | Spec | Qty | Cost |
 |---|---|---|---|
-| LiPo battery | 3S 25C+, XT60 connector, up to 138 × 46 × 24 mm (the reserved CAD envelope).  Velcro-strapped to the top of `chassis_bottom` (no clip-in holder). | 1 | $25 |
-| Velcro cinch straps | Hook-and-loop straps (~15–20 mm) through the chassis_bottom strap slots; retain the LiPo on the plate. | 1 set | $5 |
-| XINGYHENG 12→5 V buck | 12 V→5 V step-down (3 A+); drops the 3S rail to 5 V for the Uno Q logic only (servos run on raw 12 V).  Mounts on `buck_tray`. | 1 | $8 |
-| Power distribution board ("bus bar") | Matek PDB-XT60 drone PDB (36 × 50 mm, 11 g, XT60 input, 6 × 15 A output pads + VCC/GND pair); the 6 per-leg power branches + the buck tap off it. | 1 | $8 |
+| LiPo battery | 3S 25C+, XT60 connector, up to 138 × 46 × 24 mm (the reserved CAD envelope).  Velcro-strapped under the chassis on `chassis_bottom` (no clip-in holder). | 1 | $25 |
+| Velcro cinch straps | Hook-and-loop straps (~15–20 mm) through the chassis_bottom strap slots; retain the LiPo. | 1 set | $5 |
+| Power distribution board ("bus bar") | Matek PDB-XT60 drone PDB (36 × 50 mm, 11 g, XT60 input, 6 × 15 A output pads); feeds the six per-leg power branches via chassis-top peripheral Wagos. | 1 | $8 |
 | Main fuse + holder | 15–20 A blade/ANL fuse + inline holder between the anti-spark switch and the bus bar. | 1 | $8 |
 | Per-branch fuse + holder (optional) | 5–7 A mini-blade fuse + holder, one per leg branch. | 6 | $1.50 each |
-| 16–18 AWG silicone wire | Red + black, ~5 m each; the six per-leg V+/GND branches from the bus bar to each leg's 5264 injection pigtail. | 1 | $10 |
-| XT60 pigtails | Male/female, 12–14 AWG silicone (battery cable + bus-bar feed). | 2 | $4 |
+| Wago 221 lever-nuts | Compact splices: **power** (12 V+G) on chassis-top periphery for the six motor branches; **data** under chassis near the yaw retainers. | 1 pack (~20) | $15 |
+| 16–18 AWG silicone wire | Red + black, ~5 m each; the six per-leg V+/GND branches from the PDB / power Wagos to each leg's 5264 injection pigtail. | 1 | $10 |
+| XT60 pigtails | Male/female, 12–14 AWG silicone (battery cable + bus-bar feed + Uno Q battery tap). | 2–3 | $4 |
 | Molex 5264 connector + crimp kit | 3-pin 2.5 mm kit (~20 sets) for the per-leg injection pigtails and the leg-to-leg signal+GND-only data jumpers. | 1 | $10 |
 | Anti-spark on/off switch | XT60 in/out pigtails (the e-stop).  Snaps into `switch_holster.stl` on chassis_top's +X edge; toggle protrudes outside the chassis for user access. | 1 | $10 |
 | LiPo charger | iSDT D2, B6AC, or any decent 3S balance charger | 1 | $30 |
@@ -465,19 +471,19 @@ printer.
 
 | Item | Spec | Qty | Cost |
 |---|---|---|---|
-| Arduino Uno Q | On-board Linux SoC + MCU; runs Python gait/RL/teleop and drives the STS3215 bus directly.  Mounts on `uno_q_tray` via 4 x M3 brass heat-set inserts (McMaster 94459A130) + 4 x M3x8 SHCS. | 1 | $50 |
+| Arduino Uno Q | On-board Linux SoC + MCU; runs Python gait/RL/teleop and drives the STS3215 bus.  Mounts on the Ø110 `hex_mount_plate_110` (with breakout) held by the four magnet posts.  Powered directly from the 3S battery (no external buck). | 1 | $50 |
 | microSD card | 32–64 GB, A1/A2 rated (OS/storage if not using on-board eMMC). | 1 | $10 |
 | USB-C cable | Flashing / powering / console access to the Uno Q. | 1 | $8 |
-| MPU-6050 IMU (GY-521) | 6-DOF gyro + accel, I²C, powered from 3V3.  Bolts to `imu_pad.stl` via 4 x M3x8 SHCS into M3 heat-set inserts. | 1 | $4 |
+| MPU-6050 IMU (GY-521) | 6-DOF gyro + accel, I²C, powered from 3V3.  Glued on `chassis_bottom` inboard of physical leg 1 (screen stays on `hex_raised_platform_110` top). | 1 | $4 |
+| ST7789 / GMT020 display (optional) | Status screen on the raised-platform top face. | 1 | $10 |
 | FEETECH 3-pin serial-bus cables | DATA daisy-chain (servos ship with one each; buy a spare pack for the chassis-to-first-servo runs). | 1 pack | $8 |
 | Dupont jumper wires + heat-shrink | I²C / logic wiring cleanup | — | $10 |
 
 ### 4.4 Fasteners
 
 The authoritative, auto-generated fastener counts live in the
-**Fasteners** table of [`PROTOTYPE_BOM.md`](PROTOTYPE_BOM.md) (300
-total fasteners; edit `fastener_registry.py`, not the table).  The
-key items:
+**Fasteners** table of [`docs/PROTOTYPE_BOM.md`](docs/PROTOTYPE_BOM.md)
+(edit `fastener_registry.py`, not the table).  The key items:
 
 | Item | Qty | Notes |
 |---|---|---|
@@ -485,19 +491,20 @@ key items:
 | M3 × 8 SHCS disc-horn bolts (`91290A113`) | 72 | Yaw front horn + the two passive rear-boss horns, same 14 mm bolt circle into the disc's M3 tapped holes. |
 | M2.5 × 8 SHCS, servo body retention (`91290A104`) | 24 | HIP cradles only — 4 per hip cradle into the servo's real END-face 10×10 mm M2.5 hole square. The YAW cradle takes none (held by the `yaw_servo_retainer` strap) and the KNEE cradle takes none either (Jul 2026 one-piece femur — the fused spar covers that wall; clamp cap + lip hold the body). |
 | M2.5 × 8 spline / passive-horn screws (`91290A104`) | 30 | Passive-horn retention + servo spline center screws (ship with the servos). |
-| M3 × 8 SHCS (`91290A113`) | 58 | 8 deck board mounts (Uno Q + buck) + 4 imu_pad into heat-set inserts; 24 `servo_clamp_cap` + 18 `yaw_bearing_cap` self-tap; 4 UP through chassis_top into the lowest F-F deck columns (Jul 2026 F/F switch). |
-| M3 × 10 SHCS (`91290A114`) | 14 | chassis_top → brass-standoff bolts + deck standoff-column bolts + 2 switch_holster mount bolts. |
+| M3 × 8 SHCS (`91290A113`) | ~42 | 24 `servo_clamp_cap` + 18 `yaw_bearing_cap` self-tap (Aug 2026: deck-board / imu_pad / deck-column bolts retired). |
+| M3 × 10 SHCS (`91290A114`) | 6 | 4 chassis_top → brass-standoff bolts + 2 switch_holster mount bolts. |
 | M3 × 14 SHCS (`91290A115`) | 4 | Chassis-standoff bottom bolts, UP through chassis_bottom's 8 mm plate + floor stack into the F-F standoffs' bottom female threads (Jul 2026 F/F switch). |
 | M3 × 16 mm pan-head (`92010A130`) | 6 | Foot hinge pins (one per leg). |
 | M3 nyloc nuts (`90576A102`) | 6 | Foot hinge pins only (Jul 2026 F/F switch retired the 8 standoff-retention nylocs). |
-| M3 brass heat-set inserts (McMaster `94459A130`) | 18 | 8 deck trays + 4 imu_pad + 2 chassis_top (switch_holster) + 4 `spider_carapace` feet.  Soldering-iron installed at ~220 °C. |
+| M3 brass heat-set inserts (McMaster `94459A130`) | 2 | chassis_top bosses for `switch_holster` only (Aug 2026: deck-tray / imu_pad / carapace inserts retired).  Soldering-iron installed at ~220 °C. |
 | M3 × 32 mm F-F brass standoffs | 4 | chassis_top ↔ chassis_bottom across `CHASSIS_GAP` = 32 mm on the 44-mm-radius diagonal pattern (±31.1, ±31.1) — moved off (±35, 0)/(0, ±35) in the Jul 2026 battery-fit rework so the 138 × 46 mm LiPo has a clear lane. |
-| M3 deck standoff columns, brass | 12 | Stacked deck: 4 × 16 mm F-F (chassis_top → uno_q_tray) + 4 × 22 mm (uno_q_tray → buck_tray) + 4 × ~24 mm (buck_tray → spider_carapace). |
+| M3 × 20 mm brass standoffs | 4 | Magnet-post bases at the same `CHASSIS_STANDOFF_HOLES_XY` (±31.1), rising above chassis_top. |
+| M3 knurled thumb nuts (~2.5 mm) | 4 | Sit on the 20 mm posts under the magnets. |
+| Ø8 × 8 mm disc magnets | 4 | Top of each post; hold the Ø110 hex mount plate. |
 | 6706-2RS ball bearings | 12 | Yaw joint spaced pair (2 per leg), Ø30 × Ø37 × 4 mm; captured by the split tower + `yaw_bearing_cap`. |
 | Ø8 mm carbon-fibre tube | ~1 m | Femur + tibia leg segments (epoxy-bonded into the printed sockets). |
 | Ø2.5 mm roll pins | 12 | Transverse CF-tube retention (2 per leg). |
 | Two-part epoxy | 1 | Bonds the CF tubes into the printed sockets. |
-| 3M VHB / 3 mm foam tape | ~25 × 20 mm | Bonds `imu_pad.stl` to chassis_top centre; doubles as the IMU vibration damper.  See §B.6 of `SHOPPING_LIST.md`. |
 
 ### 4.5 3D-printed material
 
@@ -510,18 +517,17 @@ key items:
 ### 4.6 Total
 
 Cost buckets mirror the **Rough Cost** table in
-[`PROTOTYPE_BOM.md`](PROTOTYPE_BOM.md):
+[`docs/PROTOTYPE_BOM.md`](docs/PROTOTYPE_BOM.md):
 
 | Bucket | STS3215 build |
 |---|---:|
 | STS3215 serial-bus servos (20) | ~$360 – $500 |
 | Arduino Uno Q + microSD + USB-C | ~$60 – $100 |
-| XINGYHENG buck converter | ~$8 – $15 |
 | Battery + charger + bag + switch + velcro | ~$70 – $120 |
-| Power distribution (bus bar + fuses + silicone wire + 5264 kit) | ~$25 – $45 |
+| Power distribution (PDB + fuses + Wagos + silicone wire + 5264 kit) | ~$40 – $60 |
 | Disc horns (30) + CF tube + roll pins + epoxy | ~$30 – $55 |
-| Fasteners / standoffs / deck columns / wiring | ~$30 – $55 |
-| Filament + MJF clamp caps | ~$30 – $55 |
+| Fasteners / standoffs / magnet posts / wiring | ~$30 – $55 |
+| Filament + MJF clamp caps + hex plate / raised platform | ~$30 – $55 |
 | **Total** | **~ $615 – $1000** |
 
 ---
@@ -529,7 +535,7 @@ Cost buckets mirror the **Rough Cost** table in
 ## 5. Print plan
 
 A single Ender 3-class printer runs the whole BOM in roughly **22 hours**
-(see the print queue in [`SHOPPING_LIST.md`](SHOPPING_LIST.md) §D):
+(see the print queue in [`docs/SHOPPING_LIST.md`](docs/SHOPPING_LIST.md) §D):
 
 | Pass | Parts | Time |
 |---|---|---|
@@ -537,7 +543,7 @@ A single Ender 3-class printer runs the whole BOM in roughly **22 hours**
 | 2 | 6 × `femur_link` (one-piece femur) | ~ 8 h |
 | 3 | 6 × `tibia_knee_yoke` + 6 × `tibia_foot_fitting` | ~ 6 h |
 | 4 | 12 × `servo_clamp_cap` (MJF PA12 or PLA) | ~ 3 h |
-| 5 | `chassis_top` + `chassis_bottom` + `uno_q_tray` + `buck_tray` + `switch_holster` + `imu_pad` + `spider_carapace` | ~ 12 h |
+| 5 | `chassis_top` + `chassis_bottom` + `switch_holster` (+ `extra_stl` hex plate / raised platform) | ~ 6 h |
 | 6 | 6 × `foot_pad` (TPU) | ~ 1 h |
 
 Tip: use 4 walls and 30–40 % gyroid infill for the yokes, brackets and
@@ -560,7 +566,7 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 > bolt-on `yaw_servo_retainer` strap + anchor bolts + the output-face
 > seat on the mount plate (the yaw cradle takes **no** M2.5 end-face
 > bolts — the flush-horn refit dropped the yaw output ~5.5 mm so the
-> servo hangs below the chassis floor; see `PROTOTYPE_BOM.md`).
+> servo hangs below the chassis floor; see `docs/PROTOTYPE_BOM.md`).
 
 > **The joint is a disc-horn sandwich (Jun 2026).** Each hip and knee
 > joint drives a 20 mm aluminium 25T disc horn on the servo's output
@@ -571,7 +577,7 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 > (with a transverse Ø2.5 mm roll pin); the femur is ONE printed part
 > (`femur_link`, Jul 2026) — nothing to join at all.
 > Full joint detail is in the **Bench Test Order** of
-> [`PROTOTYPE_BOM.md`](PROTOTYPE_BOM.md).
+> [`docs/PROTOTYPE_BOM.md`](docs/PROTOTYPE_BOM.md).
 
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
@@ -650,10 +656,9 @@ times.
    pad to its yaw driven disc horn with 4 × M3 × 8 SHCS on the Ø14
    cross into the disc's M3 tapped holes.  Each completed leg now hangs
    from its yaw axis.
-3. **Battery:** velcro-strap the LiPo (up to 138 × 46 × 24 mm) to the
-   top face of chassis_bottom, looping the cinch straps through the
-   chassis_bottom strap slots (there is no clip-in `battery_holder`
-   any more).
+3. **Battery:** velcro-strap the LiPo (up to 138 × 46 × 24 mm) under
+   the chassis on `chassis_bottom`, looping the cinch straps through
+   the strap slots (there is no clip-in `battery_holder` any more).
 4. **Chassis standoffs + top plate:** stand 4 × M3 × 32 mm F-F brass
    standoffs on the 44-mm-radius diagonal pattern
    (`CHASSIS_STANDOFF_HOLES_XY` = (±31.1, ±31.1); Jul 2026 battery-fit
@@ -663,35 +668,25 @@ times.
    bottom female thread.  Drop `chassis_top.stl` onto the standoff tops
    and drive **4 × M3 × 10 mm SHCS** DOWN from above into the
    standoffs' female top threads.
-5. **Switch holster + IMU on chassis_top:** soldering-iron-install the
-   2 chassis_top boss inserts and the 4 imu_pad inserts (McMaster
-   `94459A130`, ~220 °C).  Bolt the `switch_holster.stl` to chassis_top's
-   +X edge with **2 × M3 × 10 mm SHCS**.  Bolt the MPU-6050 (GY-521) to
-   `imu_pad.stl` with **4 × M3 × 8 mm SHCS**, peel a ~25 × 20 mm square
-   of 3 mm foam tape onto the pad's flat underside, and press the pad
-   down onto chassis_top centred at (0, 0) — placing the IMU at the
-   chassis centre of gravity and using the foam as both adhesive AND
-   vibration damper.  Route the 4 IMU wires (VCC→3V3, GND, SDA, SCL) to
-   the Uno Q's I²C pins (see `firmware/WIRING.md` Stage F).
-6. **Electronics deck (Arduino Uno Q + buck):** the stack rises on M3
-   brass standoff columns at the `DECK_COLUMN_XY` (±41, ±33)
-   pattern above chassis_top.  Soldering-iron-install the 8 deck-tray
-   board-mount inserts (4 `uno_q_tray` + 4 `buck_tray`).  Stand the
-   level-1 F-F columns (16 mm) on chassis_top and bolt them from below
-   with 4 × M3 × 8 SHCS (Jul 2026 F/F switch — replaces the old male
-   studs + nylocs) — bolt the **Arduino Uno Q** onto `uno_q_tray` with
-   4 × M3 × 8 SHCS, and drop the populated tray onto the columns with
-   4 × M3 × 10 SHCS.  Repeat for the level-2 columns (22 mm) →
-   `buck_tray` carrying the **XINGYHENG 12→5 V buck converter**.
-7. **Wire it up:** see §7 and `firmware/WIRING.md`.  Bench-test all 18
-   joints on a current-limited supply BEFORE the LiPo (WIRING.md
-   Stages A–F).
-8. **Spider carapace:** as the 3rd deck level, run 4 more standoff
-   columns (~24 mm) up from `buck_tray` to the `spider_carapace` feet
-   (which carry M3 heat-set inserts opening down) and drive an M3 screw
-   UP from each standoff into the dome foot so the shell lifts off for
-   service.  The open skirt + rear window keep every wire exit and the
-   buck vented.
+5. **Switch holster on chassis_top:** soldering-iron-install the 2
+   chassis_top boss inserts (McMaster `94459A130`, ~220 °C).  Bolt the
+   `switch_holster.stl` to chassis_top's +X edge with **2 × M3 × 10 mm
+   SHCS**.
+6. **Electronics deck (magnet hex + raised platform):** at the four
+   `CHASSIS_STANDOFF_HOLES_XY` (±31.1) sites above chassis_top, stack
+   a **20 mm M3 standoff + ~2.5 mm M3 thumb nut + Ø8×8 mm magnet**.
+   Seat the Ø110 **`hex_mount_plate_110`** (from `extra_stl/`) on the
+   magnets and mount the **Arduino Uno Q + breakout** on that plate.
+   Place **`hex_raised_platform_110`** (screen variant) on the hex
+   plate: status screen on the top face, **MPU-6050 on chassis_bottom (behind phys. leg 1); screen on the top
+   plate**.  Route IMU I²C (VCC→3V3, GND, SDA, SCL) to the Uno Q
+   (see `firmware/WIRING.md` Stage F).  Affix **power Wagos** (12 V+G)
+   on the chassis-top periphery for the motor branches; park **data
+   Wagos** under the chassis near the yaw retainers.
+7. **Wire it up:** see §7 and `firmware/WIRING.md`.  Two battery
+   domains, no buck: `battery → PDB → power Wagos → servos` and
+   `battery → Uno Q`.  Bench-test all 18 joints on a current-limited
+   supply BEFORE the LiPo (WIRING.md Stages A–F).
 
 ---
 
@@ -701,8 +696,8 @@ times.
 > That doc is the buildable, step-by-step plan (two power domains, the
 > half-duplex serial bus, the distributed fused power harness, and the
 > bench bring-up checklist). This section is only a summary; when the
-> two disagree, `firmware/WIRING.md` wins. See also `PROTOTYPE_BOM.md`
-> and `SHOPPING_LIST.md` for the parts.
+> two disagree, `firmware/WIRING.md` wins. See also `docs/PROTOTYPE_BOM.md`
+> and `docs/SHOPPING_LIST.md` for the parts.
 
 The robot is **18× FEETECH STS3215** (ST-3215-C018, 12 V / 30 kg·cm)
 **serial-bus** smart servos driven **directly by an Arduino Uno Q**
@@ -726,10 +721,10 @@ half-duplex convention) and 12 V on the bus V+ rail, common ground:
 
 ```bash
 python -m pip install feetech-servo-sdk pyserial
-python pi_control/feetech_bus.py --port /dev/ttyACM0 scan          # expect [1] (factory ID)
-python pi_control/feetech_bus.py --port /dev/ttyACM0 setid --from 1 --to 1
-python pi_control/feetech_bus.py --port /dev/ttyACM0 joint 0 15 --sweep
-python pi_control/feetech_bus.py --port /dev/ttyACM0 feedback      # reads back angle, volts, temp
+python motor_setup/feetech_bus.py --port /dev/ttyACM0 scan          # expect [1] (factory ID)
+python motor_setup/feetech_bus.py --port /dev/ttyACM0 setid --from 1 --to 1
+python motor_setup/feetech_bus.py --port /dev/ttyACM0 joint 0 15 --sweep
+python motor_setup/feetech_bus.py --port /dev/ttyACM0 feedback      # reads back angle, volts, temp
 ```
 
 On the Uno Q's Linux side the port is usually `/dev/ttyACM0` or
@@ -745,26 +740,24 @@ There are exactly **two domains** that share only ground (full detail
 
 ```
   DATA (one half-duplex TTL bus, daisy-chained, low current):
-  Uno Q UART ─sig+GND─► ID1─►ID2─►ID3 ─┊─► ID4─►ID5─►ID6 ─┊─► … ─► ID18
-                        └── leg 0 ──┘       └── leg 1 ──┘
+  Uno Q ─sig+GND─► (underside data Wagos) ─► yaw→hip→knee per leg …
                         leg-to-leg jumper = SIGNAL + GND only (no V+)
-  Uno Q I²C (separate bus) ─► MPU-6050 IMU
+  Uno Q MCU Wire SDA/SCL (D20/D21) ─► MPU-6050 (chassis_bottom, phys. leg 1)
 
-  POWER (12 V, DISTRIBUTED — never daisy-chained leg-to-leg):
-  3S LiPo ─XT60─► anti-spark switch ─► MAIN FUSE 15–20 A ─► BUS BAR
-       BUS BAR ├─► leg 0 branch (16–18 AWG, opt 5–7 A fuse) ─► leg 0 V+/GND
-               ├─► … one branch per leg …                  ─► leg 5 V+/GND
-               └─► XINGYHENG 12→5 V buck ─► Uno Q 5 V logic
+  POWER — two battery domains (share ground only; NO external buck):
+  3S LiPo ─┬─XT60─► anti-spark switch ─► MAIN FUSE 15–20 A ─► PDB
+           │         PDB ─► chassis-top power Wagos (12V+G) ─► per-leg branches
+           └─► Uno Q VIN (on-board regulator)
 ```
 
 Why the power bus is **distributed** and not chained: the FEETECH
 3-pin bus connector (Molex 5264) is rated ~3 A/pin, but all-18 walking
 current is ~9 A and would melt the first upstream connector. So **DATA
-stays chained, POWER is injected per-leg from the bus bar** — no single
-5264 pin ever carries more than one leg (~1.5 A walking). The
-leg-to-leg data jumper carries **signal + GND only (V+ omitted)**. The
-Uno Q's 5 V comes from a 12→5 V buck off the bus bar — **never** from
-the raw 12 V servo rail. The anti-spark switch is the e-stop. See
+stays chained, POWER is injected per-leg from the PDB via peripheral
+Wagos** — no single 5264 pin ever carries more than one leg (~1.5 A
+walking). The leg-to-leg data jumper carries **signal + GND only
+(V+ omitted)**. The Uno Q takes its own battery tap (no buck on the
+servo rail). The anti-spark switch is the e-stop. See
 `firmware/WIRING.md` §6 for the per-branch current budget, wire gauges
 and fuse sizing.
 
@@ -781,13 +774,13 @@ printed strain-relief features (zip-tie posts at each cradle wire-exit
 cradle post and the full 3-cable bundle at the drop slot so a leg snag
 mid-walk can't yank a connector.
 
-The cable lengths are modelled by `pi_control/wire_harness_plan.py`
+The cable lengths are modelled by `motor_setup/wire_harness_plan.py`
 (per-joint serial-bus reach budget: cradle wire-exit → leg drop slot →
 electronics-tray bus landing, plus a +30 mm slack loop per joint axis
 the harness crosses). Print the BOM with:
 
 ```bash
-python -m hexapod_walker.prototype.pi_control.wire_harness_plan
+python -m motor_setup.wire_harness_plan
 ```
 
 It emits one row per servo (joint, leg + axis, servo ID, cradle exit,
@@ -816,20 +809,20 @@ harmless, a deficit fights the kinematics):
 
 There is no PWM pulse-width layer: the **Arduino Uno Q** runs Python on
 its Linux side and drives the half-duplex STS3215 TTL bus directly at
-1 Mbps via the host-side driver `pi_control/feetech_bus.py`. Each servo
+1 Mbps via the host-side driver `motor_setup/feetech_bus.py`. Each servo
 takes an absolute **position command** (12-bit, count 2048 = 0°) and
 reports position/load/voltage/current/temperature back over the same
 bus, so the joint loop is closed inside each servo — you command angles,
 not microseconds.
 
-The driver maps the 18 logical joints to servo IDs 1..18
+The driver maps the 18 logical joints to servo IDs 2..19 (ID 1 left free)
 (`ID = leg*3 + axis + 1`), enforces the safe per-axis angle limits
 (yaw ±35°, hip −80…+30°, knee −20…+80°), applies per-joint trims from
-`pi_control/feetech_trims.json`, and sync-writes goal positions while
+`motor_setup/feetech_trims.json`, and sync-writes goal positions while
 reading back live feedback:
 
 ```python
-from pi_control.feetech_bus import FeetechBus
+from motor_setup.feetech_bus import FeetechBus
 
 bus = FeetechBus(port="/dev/ttyACM0")   # Uno Q UART → TTL bus
 bus.centre()                            # all joints → 0°
@@ -877,12 +870,13 @@ full command set (`scan`, `centre`, `joint`, `stance`, `relax`,
 * **Power supply sag:** if the robot collapses momentarily during
   swing-to-stance transitions, a per-leg power branch or the bus-bar
   feed is undersized. Verify the distributed harness against
-  `firmware/WIRING.md` §6 — heavier 16–18 AWG branches, solid bus-bar
-  crimps, and the 15–20 A main fuse — and watch each servo's reported
-  voltage with `feetech_bus.py … feedback --watch` under load (the
-  STS3215 run on the raw 3S rail, so a sag shows up directly in the
-  per-servo voltage). The Uno Q's logic is on its own 12→5 V buck and
-  is unaffected by servo-rail sag.
+  `firmware/WIRING.md` §6 — heavier 16–18 AWG branches, solid PDB /
+  Wago joins, and the 15–20 A main fuse — and watch each servo's
+  reported voltage with `feetech_bus.py … feedback --watch` under load
+  (the STS3215 run on the raw 3S rail, so a sag shows up directly in
+  the per-servo voltage). The Uno Q is on its own battery tap (separate
+  from the PDB→servo path) so servo-rail sag is less likely to brown it
+  out.
 
 ---
 

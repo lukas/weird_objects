@@ -1,0 +1,48 @@
+{
+  "source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json",
+  "timestamp": "2026-08-07T08:28:37",
+  "speed_counts_s": 350.0,
+  "axes": {
+    "yaw": {
+      "kp": 51.274440767548064,
+      "kv": 0.35,
+      "frictionloss": 0.02,
+      "latency_ms": 29.7,
+      "vel_max_deg_s": 30.76171875,
+      "deadband_deg": 0.432,
+      "torque_limit_nm": 2.2
+    },
+    "hip": {
+      "kp": 574.885279474555,
+      "kv": 0.28125,
+      "frictionloss": 0.02,
+      "latency_ms": 25.6125,
+      "vel_max_deg_s": 30.76171875,
+      "deadband_deg": 0.353,
+      "torque_limit_nm": 2.2
+    },
+    "knee": {
+      "kp": 43.83903019590311,
+      "kv": 0.7952707287670507,
+      "frictionloss": 0.02,
+      "latency_ms": 8.587500000000006,
+      "vel_max_deg_s": 30.76171875,
+      "deadband_deg": 0.494,
+      "torque_limit_nm": 2.2
+    }
+  },
+  "spread": {
+    "yaw": {
+      "delay_ms_pct": 0.043,
+      "rise_ms_pct": 0.108
+    },
+    "hip": {
+      "delay_ms_pct": 0.146,
+      "rise_ms_pct": 0.104
+    },
+    "knee": {
+      "delay_ms_pct": 0.114,
+      "rise_ms_pct": 0.088
+    }
+  }
+}

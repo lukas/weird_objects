@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generic, project-AGNOSTIC viewer-side validation for BuildViz scenes.
 
-This is a prototype of the "checks driven by scene metadata" idea (see
-BUILDVIZ_VALIDATION_PROPOSAL.md).  It reads ANY BuildViz ``scene.json``
+This is the generic BuildViz scene validator (mesh overlap, clearance,
+placement, fastener attach).  It reads ANY BuildViz ``scene.json``
 (the same manifest the viewer renders -- meshes[] + instances[] with
 transforms), loads the referenced meshes, and computes a set of
 GENERIC, build-independent checks:

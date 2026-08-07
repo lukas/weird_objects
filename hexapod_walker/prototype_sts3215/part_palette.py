@@ -36,17 +36,21 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "chassis_top":         (0.122, 0.467, 0.706),
     # Chassis "B" (bottom plate) - lighter sibling of chassis_top
     "chassis_bottom":      (0.475, 0.690, 0.882),
-    # Uno Q tray (lower electronics deck) - tab:purple
-    "uno_q_tray":          (0.580, 0.404, 0.741),
-    # Buck-converter tray (upper electronics deck) - tab:olive
-    "buck_tray":           (0.737, 0.741, 0.133),
-    # Spider carapace dome (cephalothorax shell over the stack) - near-black
-    # so it reads as a dark spider body distinct from the colored decks.
-    "spider_carapace":     (0.130, 0.130, 0.150),
+    # As-built hex board + raised platform
+    "hex_mount_plate":     (0.580, 0.639, 0.722),
+    "hex_raised_platform": (0.392, 0.455, 0.545),
+    "hex_post_standoff":   (0.659, 0.635, 0.620),
+    "hex_post_thumb_nut":  (0.471, 0.443, 0.424),
+    "hex_post_magnet":     (0.118, 0.161, 0.231),
     # Arduino Uno Q board visual - muted green PCB
     "uno_q":               (0.106, 0.478, 0.239),
-    # XINGYHENG buck converter board visual - copper/orange
-    "buck_converter":      (0.710, 0.396, 0.114),
+    "breakout":            (0.051, 0.580, 0.533),
+    "pdb":                 (0.918, 0.345, 0.047),
+    "motor_controller":    (0.706, 0.325, 0.035),
+    "screen":              (0.145, 0.388, 0.922),
+    "mpu6050":             (0.478, 0.361, 0.769),
+    "wago_power":          (0.937, 0.267, 0.267),
+    "wago_data":           (0.133, 0.773, 0.369),
     # Sandwich-joint servo clamp cap - tab:gray-blue
     "servo_clamp_cap":     (0.290, 0.565, 0.851),
     # Coxa link - tab:green
@@ -108,8 +112,10 @@ PART_COLORS["chassis_plate_b"] = PART_COLORS["chassis_bottom"]
 _CHASSIS_LEVEL = frozenset({
     "chassis_top", "chassis_bottom",
     "chassis_plate_a", "chassis_plate_b",
-    "uno_q_tray", "buck_tray", "uno_q", "buck_converter",
-    "spider_carapace",
+    "hex_mount_plate", "hex_raised_platform",
+    "hex_post_standoff", "hex_post_thumb_nut", "hex_post_magnet",
+    "uno_q", "breakout", "pdb", "motor_controller",
+    "screen", "mpu6050", "wago_power", "wago_data",
 })
 
 

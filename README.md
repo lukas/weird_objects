@@ -19,6 +19,7 @@ designed for cast aluminium + frosted acrylic + LED COB modules.
 | [`candle_holder/`](candle_holder/) | Spiral-shadow candle holder design |
 | [`gyroid_sphere/`](gyroid_sphere/) | Graded-density gyroid spheres extracted via marching cubes |
 | [`ice_tray/`](ice_tray/) | Parametric icosahedron-cell ice tray |
+| [`nesting_dolls/`](nesting_dolls/) | Printable Russian nesting (matryoshka) dolls for Bambu H2D — classic split halves, nestability sizing |
 | [`constellation/`](constellation/) | 14-node polyhedral constellation (Platonic + Archimedean + Catalan icosahedral family) |
 | [`hexapod_walker/`](hexapod_walker/) | Family of six-legged walker designs: full-size human-carrying vehicle (`fullsize_v1/`), tabletop 3D-printed prototypes (`prototype_v1/`, `prototype_sts3215/`), and a rideable redesign study (`rideable_v1/`) |
 | [`infill_lattices/`](infill_lattices/) | 16 cube specimens of mathematically interesting infill: six TPMS (gyroid, Schwarz P/D, Neovius, I-WP, Lidinoid), four strut lattices (BCC/FCC/octet/diamond cubic), three atomic crystals (NaCl rock salt, CaF₂ fluorite, C diamond ball-and-stick), two icosahedral quasicrystals (density-wave + cut-and-project ball-and-stick), and a Menger sponge — plus a free-standing rhombic-triacontahedron of the cut-and-project quasicrystal (icosahedral envelope, no chopped struts) |

@@ -1,0 +1,61 @@
+---
+description: Hard safety rules for prototype_sts3215 physical robot control
+alwaysApply: true
+---
+
+# Hexapod STS3215 — hardware safety (non-negotiable)
+
+Incident 2026-08-06: wrong logical zeros + unsupervised stand/plant blends
+tipped the robot, browned out the Uno Q, held stilts at ~7 A, and cooked
+L5 knee (bus ID 19 missing / overheated). Do not repeat.
+
+## Default: do not touch the robot
+
+- No SSH, no motion, no `systemctl restart`, no sit-zero/stand/plant unless
+  the user **explicitly** asks for that exact action in the current message.
+- Prefer **HTTP** `http://192.168.4.44:8080` (`/api/rl/*`, `/api/pose`, `/cmd`)
+  over SSH. SSH is deploy/recovery only when the user asks.
+- After any brownout, tip, hot motor, or missing servo ID: **stop**. Do not
+  “try again” with another blend.
+
+## Zero frame before any absolute pose
+
+1. Hand-set or limp to a **known visual pose** (usually legs straight out).
+2. `POST /api/set_zero` (“zero here”) so **that** pose is logical 0°.
+3. Only then may absolute angles be trusted.
+4. If present angles already disagree with the photo by tens of degrees,
+   **do not** command software 0° / stand / plant — remap zero first.
+
+Never assume hip +20° / knee +80° is a safe stand. Knee +80° with hip ~0 is
+a **tall stilt** pose (~tibia length), not “1–2 inches off the ground.”
+
+## Motion rules when the user allows motion
+
+- Air / single-joint / small Δq only until encoders match visuals.
+- Predict → move → read. Max **~15°** per step unless the user asks bigger.
+- Before multi-joint SyncWrite: HOLD/read **present** for all joints; never
+  write a stale `_last_pose` that yanks other legs toward 0 or plant.
+- No autonomous stand-up, `stand_to_plant`, geometry plant, or `go_zero stand`
+  unless the user explicitly orders that script **and** is watching.
+- On tip, overcurrent, missing ID, or hot motor: limp (`X`) and stop.
+- Do not leave torque on a fighting/stilt pose to “wait for the job.”
+
+## Priority: basic controls first — not standing
+
+Do **not** steer the session toward stand/plant/balance until:
+
+1. All expected servo IDs answer (currently L5 knee / ID 19 was missing).
+2. Logical zero matches a known visual pose (`set_zero`).
+3. Single-joint and small air moves predictably match encoders.
+4. Operator asks to move on to plant/hold.
+
+Obsession with standing caused the 2026-08-06 damage. Default topic is
+**bus + joints + signs + safety**, not body IK or RL.
+
+## RL Phase 1 (only after basics)
+
+- Captured `joints_deg` plant or hold-current only. No PPO until quiet hold
+  works on a real plant the operator accepts.
+- 25 Hz is fine; do not chase 50 Hz during hardware bring-up.
+
+See `hexapod_walker/prototype_sts3215/rl_move/API.md` and `RL_PLAN.md`.

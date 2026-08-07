@@ -51,9 +51,9 @@ above the floor with the standard prototype legs in stance.  At full
 "reach down" pose (J2 = -90 deg, J3 = J4 = 0) the gripper tip sits
 below the chassis edge, low enough to pick objects off the floor.
 
-Outputs (in ./stl_arm/):
+Outputs:
 
-    Body parts (one each)
+    stl_arm/           -- slicer-ready printables only
         arm_base_bracket.stl
         arm_shoulder_link.stl     (re-export of leg's coxa_link)
         arm_upper.stl             (re-export of leg's femur_link)
@@ -62,8 +62,8 @@ Outputs (in ./stl_arm/):
         gripper_base.stl
         gripper_jaw_left.stl
         gripper_jaw_right.stl
-    Assembly preview
-        arm_assembly_preview.stl
+    stl_reference/     -- not for printing
+        arm_assembly_preview_DO_NOT_PRINT.stl
 
 The arm subdirectory is fully self-contained: nothing in the prototype
 directory imports anything from here, so the user can simply choose
@@ -97,8 +97,10 @@ import hexapod_prototype as HP   # noqa: E402  (sys.path tweak above)
 # ---------------------------------------------------------------------------
 
 STL_DIR = os.path.join(_THIS_DIR, "stl_arm")
+REF_STL_DIR = os.path.join(_THIS_DIR, "stl_reference")
 RENDER_DIR = os.path.join(_THIS_DIR, "renders")
 os.makedirs(STL_DIR, exist_ok=True)
+os.makedirs(REF_STL_DIR, exist_ok=True)
 os.makedirs(RENDER_DIR, exist_ok=True)
 
 
@@ -186,12 +188,14 @@ J4_HORN_STACK_Z      = (HP.SERVO_BODY_H - HP.WELL_RIM_Z      # ~10.75
 # Common save helper
 # ---------------------------------------------------------------------------
 
-def _save(mesh: trimesh.Trimesh, name: str) -> str:
-    path = os.path.join(STL_DIR, name)
+def _save(mesh: trimesh.Trimesh, name: str, *, reference: bool = False) -> str:
+    out_dir = REF_STL_DIR if reference else STL_DIR
+    path = os.path.join(out_dir, name)
     mesh.export(path)
     n_faces = len(mesh.faces)
     extents = mesh.extents
-    print(f"  wrote stl_arm/{name:32s}"
+    rel = "stl_reference" if reference else "stl_arm"
+    print(f"  wrote {rel}/{name:32s}"
           f"  {n_faces:>6d} faces"
           f"  envelope {extents[0]:5.1f} x {extents[1]:5.1f} x {extents[2]:5.1f} mm")
     return path
@@ -825,14 +829,15 @@ def main() -> None:
 
     print("Assembly preview (arm in neutral pose on top of chassis):")
     preview = make_arm_assembly_preview()
-    _save(preview, "arm_assembly_preview.stl")
+    _save(preview, "arm_assembly_preview_DO_NOT_PRINT.stl", reference=True)
 
     metrics = reach_summary()
     new_count = 5
     reused_count = 3
     tip = metrics["neutral_tip"]
     print()
-    print(f"OK -- wrote {len(parts) + 1} STL files under stl_arm/.")
+    print(f"OK -- wrote {len(parts)} printables under stl_arm/ "
+          f"+ 1 preview under stl_reference/.")
     print(f"  New printable parts:        {new_count}")
     print(f"  Re-exported leg parts:      {reused_count}")
     print(f"  Neutral-pose gripper tip:   "

@@ -1,25 +1,20 @@
 """Optional-arm integration helpers for the prototype build / verify flow.
 
 This module is loaded ONLY when the user opts in via the ``--with-arm``
-flag on ``prototype/build_all.py`` or ``prototype/_verify_prototype.py``.
-None of the prototype's default codepaths touch it, so a developer who
-doesn't print the arm never pays for its imports or its STLs.
+flag on ``build_all.py`` or ``_verify_prototype.py``.  None of the
+prototype's default codepaths touch it, so a developer who doesn't
+print the arm never pays for its imports or its STLs.
 
 Two surfaces:
 
-* :func:`build_with_arm` -- regenerates ``stl_arm/*.stl`` via
-  :func:`arm.main`, then asks the bambu-plate scripts to lay out their
-  plates.  Called from ``build_all.py --with-arm``.
-* :func:`verify_arm_parts` and :func:`check_arm_interference` -- run
-  the flimsy-joints check on the 5 new arm parts and a voxel-overlap
-  collision check between the arm in its neutral pose and the
-  prototype chassis-top + standing-pose legs.  Called from
-  ``_verify_prototype.py --with-arm``.
-
-Keeping all this here (rather than scattering it across the three
-files the concurrent leg-edit subagent is also touching) means the
-opt-in additions to those files are a single argparse flag + a single
-delegated function call each, which is the smallest possible change.
+    * :func:`build_with_arm` -- regenerates ``stl_arm/*.stl`` via
+      :func:`arm.main` (and optionally an assembly-preview PNG).
+      Called from ``build_all.py --with-arm``.
+    * :func:`verify_arm_parts` and :func:`check_arm_interference` -- run
+      the flimsy-joints check on the 5 new arm parts and a voxel-overlap
+      collision check between the arm in its neutral pose and the
+      prototype chassis-top + standing-pose legs.  Called from
+      ``_verify_prototype.py --with-arm``.
 """
 
 from __future__ import annotations
@@ -53,18 +48,17 @@ def _import_arm():
 # ---------------------------------------------------------------------------
 
 def build_with_arm(*, render_preview: bool = True,
-                   build_bambu: bool = True) -> None:
+                   build_bambu: bool = False) -> None:
     """Regenerate everything the optional arm needs.
 
-    1. Run :func:`arm.main` to rebuild the 5 new + 3 re-exported STLs
-       and the assembly preview into ``prototype/arm/stl_arm/``.
+    1. Run :func:`arm.main` to rebuild printable STLs into ``stl_arm/``
+       and the assembly preview into ``stl_reference/``.
     2. If ``render_preview`` is True (and PyVista imports succeed),
-       render ``prototype/arm/renders/arm_assembly_preview.png``.  The
-       render is OFF-SCREEN and may fail in headless CI without
-       libGL; we treat that as a soft warning, not a hard failure.
-    3. If ``build_bambu`` is True, regenerate the H2D and X1 Bambu
-       plate bundles for the arm (each writes its own
-       ``prototype/arm/bambu_*_plates/`` directory).
+       render ``renders/arm_assembly_preview.png``.  The render is
+       OFF-SCREEN and may fail in headless CI without libGL; we treat
+       that as a soft warning, not a hard failure.
+    3. ``build_bambu`` is retained only for CLI compatibility; Bambu
+       plate packing was removed — print individuals from ``stl_arm/``.
     """
     arm_mod = _import_arm()
 
@@ -86,17 +80,9 @@ def build_with_arm(*, render_preview: bool = True,
             print(f"  WARN: skipping arm preview render: {exc!r}")
 
     if build_bambu:
-        for label, modname in [
-            ("Bambu H2D arm plate", "make_bambu_h2d_plates"),
-            ("Bambu X1 / X1 Carbon arm plate", "make_bambu_x1_plates"),
-        ]:
-            print()
-            print("=" * 72)
-            print(f"Optional arm: {label}")
-            print("=" * 72)
-            mod = importlib.import_module(modname)
-            mod.main()
-
+        print()
+        print("Optional arm: Bambu plate packing was removed — "
+              "print individuals from arm/stl_arm/.")
 
 # ---------------------------------------------------------------------------
 # Verification: flimsy joints + chassis / leg interference

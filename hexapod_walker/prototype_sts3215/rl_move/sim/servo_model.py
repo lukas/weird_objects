@@ -1,0 +1,307 @@
+"""STS3215 servo model for the MuJoCo twin.
+
+Two halves:
+
+- ``SimServoParams`` — per-axis actuator parameters. Ships with defaults;
+  ``fit_motor_model.py`` overwrites them from hardware measurements and
+  saves ``sim_model.json`` next to this file.
+- ``ServoProfile`` — reproduces how the real bus drives the joints: each
+  commanded target is delayed by the measured latency, then the servo's
+  internal profile slews the position setpoint toward it at the commanded
+  speed, ignoring errors smaller than the deadband. MuJoCo's position
+  actuator (kp) + velocity actuator (kv) then track that profile target.
+
+The MuJoCo model itself comes from ``mujoco_prototype.build_xml()``;
+``apply_params_to_model`` pushes kp / kv / frictionloss into a loaded
+model in place (no XML rebuild), which is what the fitting loop and the
+domain-randomization reset both need.
+"""
+from __future__ import annotations
+
+import json
+import math
+import sys
+import time
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
+import numpy as np
+
+_PROTO = Path(__file__).resolve().parents[2]
+if str(_PROTO) not in sys.path:
+    sys.path.insert(0, str(_PROTO))
+
+N_JOINTS = 18
+AXES = ("yaw", "hip", "knee")
+DEG2RAD = math.pi / 180.0
+RAD2DEG = 180.0 / math.pi
+
+# Feetech position counts per degree (4096 counts / 360°); the bus commands
+# profile speed in counts/s.
+COUNTS_PER_DEG = 4096.0 / 360.0
+
+SIM_MODEL_PATH = Path(__file__).resolve().parent / "sim_model.json"
+
+
+@dataclass
+class AxisParams:
+    """Fitted per-axis actuator parameters."""
+    kp: float                     # MuJoCo position-actuator gain
+    kv: float                     # MuJoCo velocity-actuator damping gain
+    frictionloss: float           # joint dof frictionloss (N·m)
+    latency_ms: float             # command → first motion (measured delay)
+    vel_max_deg_s: float          # servo velocity ceiling at test speed
+    deadband_deg: float           # profile ignores errors below this
+    torque_limit_nm: float = 2.2
+
+
+@dataclass
+class SimServoParams:
+    axes: dict[str, AxisParams] = field(default_factory=dict)
+    # Per-axis relative spread across joints (for DR ranges), e.g.
+    # {"yaw": {"rise_ms_pct": 0.15, "delay_ms_pct": 0.2}, ...}
+    spread: dict[str, dict] = field(default_factory=dict)
+    source: str = "defaults"
+    timestamp: str = ""
+    speed_counts_s: float = 350.0
+
+    # -- vectorized (18,) views used by the env ---------------------------
+    def per_joint(self, attr: str) -> np.ndarray:
+        out = np.zeros(N_JOINTS, dtype=float)
+        for j in range(N_JOINTS):
+            out[j] = getattr(self.axes[AXES[j % 3]], attr)
+        return out
+
+    @classmethod
+    def defaults(cls) -> "SimServoParams":
+        """Pre-hardware guesses (mujoco_prototype constants + STS datasheet)."""
+        import mujoco_prototype as MP
+        mk = lambda kp, kv: AxisParams(  # noqa: E731
+            kp=kp, kv=kv, frictionloss=0.02,
+            latency_ms=60.0,
+            vel_max_deg_s=350.0 / COUNTS_PER_DEG,   # profile speed 350 counts/s
+            deadband_deg=0.35,
+            torque_limit_nm=MP.TORQUE_LIMIT,
+        )
+        return cls(axes={
+            "yaw": mk(MP.KP_YAW, MP.DAMP_YAW),
+            "hip": mk(MP.KP_PITCH, MP.DAMP_PITCH),
+            "knee": mk(MP.KP_KNEE, MP.DAMP_KNEE),
+        }, source="defaults", timestamp=time.strftime("%Y-%m-%dT%H:%M:%S"))
+
+    def save(self, path: Path | str = SIM_MODEL_PATH) -> Path:
+        path = Path(path)
+        blob = {
+            "source": self.source,
+            "timestamp": self.timestamp,
+            "speed_counts_s": self.speed_counts_s,
+            "axes": {ax: asdict(p) for ax, p in self.axes.items()},
+            "spread": self.spread,
+        }
+        path.write_text(json.dumps(blob, indent=2))
+        return path
+
+    @classmethod
+    def load(cls, path: Path | str = SIM_MODEL_PATH) -> "SimServoParams":
+        """Load fitted params; fall back to defaults if never fitted."""
+        path = Path(path)
+        if not path.is_file():
+            return cls.defaults()
+        blob = json.loads(path.read_text())
+        return cls(
+            axes={ax: AxisParams(**p) for ax, p in blob["axes"].items()},
+            spread=blob.get("spread", {}),
+            source=blob.get("source", str(path)),
+            timestamp=blob.get("timestamp", ""),
+            speed_counts_s=float(blob.get("speed_counts_s", 350.0)),
+        )
+
+
+# ---------------------------------------------------------------------------
+# MuJoCo model plumbing
+# ---------------------------------------------------------------------------
+
+def build_model(*, fixed_base: bool = False, flat_terrain: bool = True):
+    """Load the hexapod MJCF. ``fixed_base`` welds the chassis (bench/air
+    tests); ``flat_terrain`` zeroes the random hfield so the floor is flat."""
+    import mujoco
+    import mujoco_prototype as MP
+    xml = MP.build_xml()
+    if fixed_base:
+        xml = xml.replace('<freejoint name="root"/>', '')
+    model = mujoco.MjModel.from_xml_string(xml)
+    if flat_terrain:
+        model.hfield_data[:] = 0.0
+    return model
+
+
+def _act_id(model, name: str) -> int:
+    import mujoco
+    aid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
+    if aid < 0:
+        raise KeyError(f"actuator {name!r} not in model")
+    return aid
+
+
+def joint_names() -> list[str]:
+    return [f"L{j // 3}_{('yaw', 'pitch', 'knee')[j % 3]}"
+            for j in range(N_JOINTS)]
+
+
+def apply_params_to_model(model, params: SimServoParams,
+                          *, kp_scale: np.ndarray | None = None,
+                          kv_scale: np.ndarray | None = None,
+                          torque_scale: float = 1.0) -> None:
+    """Push kp/kv/frictionloss/torque limits into a loaded model in place.
+
+    ``kp_scale`` / ``kv_scale`` are optional per-joint (18,) DR multipliers;
+    ``torque_scale`` models battery sag / servo unit spread.
+    """
+    import mujoco
+    for j, jname in enumerate(joint_names()):
+        ax = params.axes[AXES[j % 3]]
+        kp = ax.kp * (1.0 if kp_scale is None else float(kp_scale[j]))
+        kv = ax.kv * (1.0 if kv_scale is None else float(kv_scale[j]))
+        tl = ax.torque_limit_nm * torque_scale
+
+        pa = _act_id(model, jname)
+        model.actuator_gainprm[pa, 0] = kp
+        model.actuator_biasprm[pa, 1] = -kp
+        model.actuator_forcerange[pa] = (-tl, tl)
+
+        va = _act_id(model, jname + "_d")
+        model.actuator_gainprm[va, 0] = kv
+        model.actuator_biasprm[va, 2] = -kv
+        model.actuator_forcerange[va] = (-tl, tl)
+
+        jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jname)
+        model.dof_frictionloss[model.jnt_dofadr[jid]] = ax.frictionloss
+
+
+def joint_qpos_addrs(model) -> np.ndarray:
+    import mujoco
+    return np.array([
+        model.jnt_qposadr[
+            mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, n)]
+        for n in joint_names()], dtype=int)
+
+
+def joint_qvel_addrs(model) -> np.ndarray:
+    import mujoco
+    return np.array([
+        model.jnt_dofadr[
+            mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, n)]
+        for n in joint_names()], dtype=int)
+
+
+def position_actuator_ids(model) -> np.ndarray:
+    return np.array([_act_id(model, n) for n in joint_names()], dtype=int)
+
+
+# ---------------------------------------------------------------------------
+# Profiled target — the servo's internal motion profile + bus latency
+# ---------------------------------------------------------------------------
+
+# Feetech acc register unit: 100 counts/s² = 8.789 °/s².
+ACC_UNIT_DEG_S2 = 100.0 * 360.0 / 4096.0
+
+
+class ServoProfile:
+    """Latency + trapezoidal profile + deadband for all 18 joints.
+
+    The real loop SyncWrites goal positions with a profile speed AND
+    acceleration; the servo slews its internal setpoint toward the goal
+    along a trapezoid (accelerate at ``acc`` up to ``speed``, cruise,
+    decelerate to stop at the goal). MuJoCo's position actuator should
+    track this *profile target*, not the raw goal — the 2026-08-07
+    hardware battery showed the acceleration ramp alone stretches a 12°
+    step's rise time by ~60 ms (ACC=15 ≈ 132 °/s² takes ~0.23 s to reach
+    the 31 °/s cruise speed).
+    """
+
+    def __init__(self, params: SimServoParams, q0_rad: np.ndarray, *,
+                 latency_scale: float = 1.0,
+                 deadband_scale: float = 1.0,
+                 vel_scale: float = 1.0):
+        self._latency_s = params.per_joint("latency_ms") / 1000.0 * latency_scale
+        self._deadband = params.per_joint("deadband_deg") * DEG2RAD * deadband_scale
+        self._vel_default = params.per_joint("vel_max_deg_s") * DEG2RAD * vel_scale
+        self._acc_default = np.full(N_JOINTS, 15.0 * ACC_UNIT_DEG_S2 * DEG2RAD)
+        self.reset(q0_rad)
+
+    def reset(self, q0_rad: np.ndarray) -> None:
+        q0 = np.asarray(q0_rad, dtype=float).reshape(N_JOINTS)
+        self.goal = q0.copy()
+        self.target = q0.copy()
+        self._vel_now = self._vel_default.copy()
+        self._acc_now = self._acc_default.copy()
+        self._v = np.zeros(N_JOINTS, dtype=float)  # profile velocity
+        self._queue: list[tuple[float, np.ndarray, np.ndarray, np.ndarray]] = []
+        self._t = 0.0
+
+    def command(self, q_rad: np.ndarray, *,
+                speed_deg_s: float | np.ndarray | None = None,
+                acc_units: float | np.ndarray | None = None) -> None:
+        """Queue a goal write (arrives after per-joint latency).
+
+        ``acc_units`` is in Feetech register units (×100 counts/s²), the
+        same number the real bus writes (e.g. write_acc / ACC).
+        """
+        q = np.asarray(q_rad, dtype=float).reshape(N_JOINTS).copy()
+        if speed_deg_s is None:
+            vel = self._vel_default.copy()
+        else:
+            vel = np.minimum(
+                np.broadcast_to(
+                    np.asarray(speed_deg_s, dtype=float) * DEG2RAD,
+                    (N_JOINTS,)).astype(float),
+                self._vel_default)
+        if acc_units is None:
+            acc = self._acc_default.copy()
+        else:
+            acc = np.broadcast_to(
+                np.asarray(acc_units, dtype=float) * ACC_UNIT_DEG_S2
+                * DEG2RAD, (N_JOINTS,)).astype(float)
+        self._queue.append((self._t, q, vel, acc))
+
+    def tick(self, dt: float) -> np.ndarray:
+        """Advance one physics step; returns the (18,) profile target."""
+        self._t += dt
+        # Apply, oldest → newest, every write whose per-joint latency has
+        # matured; the newest matured write wins per joint. Entries are
+        # dropped only once matured for ALL joints (idempotent re-apply).
+        keep_from = 0
+        for i, (t_w, q, vel, acc) in enumerate(self._queue):
+            matured = (self._t - t_w) >= self._latency_s
+            if not np.any(matured):
+                break
+            self.goal = np.where(matured, q, self.goal)
+            self._vel_now = np.where(matured, vel, self._vel_now)
+            self._acc_now = np.where(matured, acc, self._acc_now)
+            if np.all(matured):
+                keep_from = i + 1
+        if keep_from:
+            self._queue = self._queue[keep_from:]
+
+        err = self.goal - self.target
+        active = np.abs(err) > self._deadband
+        acc = np.maximum(self._acc_now, 1e-6)
+
+        # Trapezoid: decelerate when the stopping distance reaches the
+        # remaining error, else accelerate toward the cruise speed (in the
+        # direction of the error).
+        direction = np.sign(err)
+        stop_dist = self._v ** 2 / (2.0 * acc)
+        toward = self._v * direction > 0  # moving toward the goal
+        decel = toward & (stop_dist >= np.abs(err))
+        dv = np.where(decel, -np.sign(self._v) * acc, direction * acc) * dt
+        v_new = np.clip(self._v + dv, -self._vel_now, self._vel_now)
+
+        step = v_new * dt
+        # Never step past the goal; arriving (or inside deadband) stops.
+        arrive = np.abs(step) >= np.abs(err)
+        move = active & ~arrive
+        self.target = np.where(move, self.target + step,
+                               np.where(active, self.goal, self.target))
+        self._v = np.where(move, v_new, 0.0)
+        return self.target

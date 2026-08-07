@@ -4,20 +4,19 @@ This is an **optional** anthropomorphic arm + parallel-jaw gripper that
 bolts on top of the hexapod's chassis using the 4 centre M3 holes that
 otherwise hold the electronics tray.
 
-The arm now lives at `prototype/arm/` (was `hexapod_walker/arm/`) so it
-ships next to the prototype it bolts onto.  It is **off by default**:
+The arm lives at `prototype_sts3215/arm/`.  It is **off by default**:
 
-* `./run.sh hexapod_walker/prototype/build_all.py` -- builds the
+* `./run.sh hexapod_walker/prototype_sts3215/build_all.py` -- builds the
   hexapod prototype as before, ignores this directory.
-* `./run.sh hexapod_walker/prototype/build_all.py --with-arm` --
-  additionally regenerates `prototype/arm/stl_arm/`, the arm Bambu
-  plates, and an arm-inclusive assembly preview.
-* `./run.sh hexapod_walker/prototype/_verify_prototype.py --with-arm`
+* `./run.sh hexapod_walker/prototype_sts3215/build_all.py --with-arm` --
+  additionally regenerates `arm/stl_arm/` printables and an arm
+  assembly preview under `arm/stl_reference/`.
+* `./run.sh hexapod_walker/prototype_sts3215/_verify_prototype.py --with-arm`
   -- additionally runs the arm-vs-chassis / arm-vs-leg interference
   check (`[4b]`) and the flimsy-joint check on the 5 new arm parts
   (`[6b]`).
 
-The arm is otherwise fully self-contained: nothing in `prototype/`
+The arm is otherwise fully self-contained: nothing in `prototype_sts3215/`
 imports anything from this directory unless the `--with-arm` flag is
 set, so a hexapod build with no arm pays nothing for these files.
 
@@ -170,16 +169,13 @@ map to include the arm's PCA9685 outputs.
 ## Files
 
 ```
-prototype/arm/
+prototype_sts3215/arm/
 ├── ARM.md                          this file
 ├── arm.py                          part-generator (run via ./run.sh)
 ├── render_arm_preview.py           PyVista preview render
-├── bambu_arm_common.py             shared Bambu-plate packing logic
-├── make_bambu_h2d_plates.py        H2D plate generator (one full arm)
-├── make_bambu_x1_plates.py         X1 / X1 Carbon plate generator
 ├── integrate.py                    opt-in glue for build_all.py /
 │                                   _verify_prototype.py --with-arm
-├── stl_arm/                        output STLs
+├── stl_arm/                        printable STLs
 │   ├── arm_base_bracket.stl
 │   ├── arm_shoulder_link.stl
 │   ├── arm_upper.stl
@@ -187,10 +183,9 @@ prototype/arm/
 │   ├── wrist_adapter.stl
 │   ├── gripper_base.stl
 │   ├── gripper_jaw_left.stl
-│   ├── gripper_jaw_right.stl
-│   └── arm_assembly_preview.stl
-├── bambu_h2d_plates/               H2D Carbon arm plate bundle
-├── bambu_x1_plates/                X1 / X1 Carbon arm plate bundle
+│   └── gripper_jaw_right.stl
+├── stl_reference/                  not for printing
+│   └── arm_assembly_preview_DO_NOT_PRINT.stl
 └── renders/
     └── arm_assembly_preview.png
 ```
@@ -199,12 +194,12 @@ prototype/arm/
 
 ```
 # Just the arm STLs / preview:
-./run.sh hexapod_walker/prototype/arm/arm.py                # rebuild STLs
-./run.sh hexapod_walker/prototype/arm/render_arm_preview.py # rebuild PNG
+./run.sh hexapod_walker/prototype_sts3215/arm/arm.py                # rebuild STLs
+./run.sh hexapod_walker/prototype_sts3215/arm/render_arm_preview.py # rebuild PNG
 
-# Or, opt in via build_all to rebuild prototype + arm + arm Bambu plates:
-./run.sh hexapod_walker/prototype/build_all.py --with-arm
+# Or, opt in via build_all to rebuild prototype + arm:
+./run.sh hexapod_walker/prototype_sts3215/build_all.py --with-arm
 
 # And run the optional-arm verification suite:
-./run.sh hexapod_walker/prototype/_verify_prototype.py --with-arm
+./run.sh hexapod_walker/prototype_sts3215/_verify_prototype.py --with-arm
 ```

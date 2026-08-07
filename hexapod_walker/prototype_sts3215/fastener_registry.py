@@ -206,6 +206,7 @@ PN_M25_HEATSET_INSERT = "94459A106"  # M2.5 brass heat-set insert, knurled
                                       # Raspberry Pi 4 / Pi 5 onto the
                                       # electronics_tray (May 2026).
 PN_M3X10_SHCS    = "91290A114"   # M3 x 10 socket-head cap screw, black-oxide
+PN_M3X20_SHCS    = "91290A120"   # M3 x 20 socket-head cap screw (yaw hub stack)
                                   # steel (chassis_top -> standoff-top bolts,
                                   # deck-tray column bolts, driven disc-horn
                                   # bolts; the battery_holder foot bolts that
@@ -315,6 +316,10 @@ SPEC_M3X8_DISC_HORN = "M3x8 disc-horn SHCS"
 # the 2 mm disc, so it grows to M3 x 10 (the passive bolts stay M3 x 8).  Distinct
 # spec so the engagement check still reserves engagement_mm = DISC_HORN_H = 2 mm.
 SPEC_M3X10_DISC_HORN = "M3x10 disc-horn SHCS"
+# Aug 2026: coxa_yaw_hub is tall (horn at YAW_HUB_BOSS_BOT_Z, heads in a
+# mid-boss counterbore).  Bench uses M3 x 20; engagement_mm still
+# DISC_HORN_H = 2 mm into the aluminium disc.
+SPEC_M3X20_DISC_HORN = "M3x20 disc-horn SHCS"
 # STS3215 reconciliation (Jun 2026): the invented "front-face 4-bolt
 # case-screw mount" on the servo OUTPUT face (4 per cradle x 3 cradles x
 # 6 legs = 72) was REMOVED -- the dia-20 disc horn covers the output
@@ -713,15 +718,12 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
     # yaw_output_z, which is exactly the disc horn's top face per
     # check_mating_face_contact's "coxa_link bottom <-> yaw disc-horn
     # top" probe (gap = +0.00 mm).
-    # Jun 2026 flush-horn fix: the real disc is only DISC_HORN_H = 2 mm and
-    # the hub boss now reaches DOWN to YAW_HUB_BOSS_BOT_Z to seat on it, so the
-    # M3 x 8 bolt drops the bolt TIP to the disc BOTTOM (full 2 mm thread bite).
-    # Head sits in a shallow counter-bore one bolt-length above the disc bottom
-    # (= link-local z = YAW_HUB_BOSS_BOT_Z - DISC_HORN_H + 8).  The OVERSIZED
-    # Phi 4.2 torque-only clearance bore lets the shaft float between the head
-    # and the disc by design (concentricity set by the spaced bearings).
-    horn_bolt_len = 8.0
-    head_local_z = (HP.YAW_HUB_BOSS_BOT_Z - HP.DISC_HORN_H) + horn_bolt_len
+    # Aug 2026: M3 x 20 (bench-confirmed).  Hub boss at YAW_HUB_BOSS_BOT_Z;
+    # tip at disc bottom; head underside on shared YAW_HUB_HORN_HEAD_SEAT_Z
+    # (~z=+9; 4 drive + centre).  Clearance Phi 3.7 (was 4.2; Aug 2026
+    # slop trim).  Older CAD M3 x 8 / M3 x 10 was undersized for this tall hub.
+    horn_bolt_len = HP.YAW_HUB_HORN_BOLT_LEN
+    head_local_z = HP.YAW_HUB_HORN_HEAD_SEAT_Z
     T_link_to_world = _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a)
     out: list[FastenerInstance] = []
     for ang in HP.DISC_HORN_BOLT_ANGLES_RAD:
@@ -733,8 +735,8 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
         head = _apply_point(T_link_to_world, p_local)
         axis = _apply_dir(T_link_to_world, np.array([0.0, 0.0, -1.0]))
         out.append(FastenerInstance(
-            part_number=PN_M3X8_SHCS,
-            spec=SPEC_M3X8_DISC_HORN,
+            part_number=PN_M3X20_SHCS,
+            spec=SPEC_M3X20_DISC_HORN,
             head_world_xyz=head,
             axis_world=axis,
             role=(
@@ -744,16 +746,12 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             leg_index=leg_index,
             joint="yaw",
             length_mm=horn_bolt_len,
-            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
-            # COMPLIANT torque-only clamp: the coxa_yaw_hub's Phi 4.2 mm
-            # disc-horn bolt holes are deliberately OVERSIZED so the
-            # SPACED 6706 bearing pair -- not these bolts -- sets the
-            # turntable concentricity (avoids the over-constraint
-            # Waveshare warns spikes servo current).  The bolt head
-            # clamps the rotating yaw stack DOWN and the thread bites the
-            # aluminium disc horn; the shaft floats in the torque-only
-            # clearance by design.  (Hip/knee disc-horn bolts use TIGHT
-            # Phi 3.4 holes and stay rigid, so they are NOT flagged.)
+            cache_stl=f"{PN_M3X20_SHCS}.cache.stl",
+            # Mostly-compliant clamp: coxa_yaw_hub disc-horn holes are
+            # Phi 3.7 (Aug 2026; was 4.2) so the 6706 pair still leads on
+            # concentricity while screw-hole slop is reduced.  Bolt head
+            # clamps the stack DOWN; thread bites the aluminium disc.
+            # (Hip/knee disc-horn bolts use tight Phi 3.4 and stay rigid.)
             compliant_torque_only=True,
             # Captive sub-assembly fastener.  Per PROTOTYPE.md
             # section 6.1 the 4 yaw M3 x 6 SHCS are driven in step 3
@@ -1355,221 +1353,20 @@ def _emit_foot_hinge_fastener(leg_index: int) -> list[FastenerInstance]:
 
 
 def _emit_deck_fasteners() -> list[FastenerInstance]:
-    """Board-mount + standoff-column fasteners for the two stacked decks.
+    """RETIRED (Aug 2026 as-built stack) — no printed trays / carapace.
 
-    Geometry (chassis design frame, z = 0 = chassis_bottom mesh centre
-    plane; chassis_top top face = CHASSIS_GAP + 1.5 * CHASSIS_PLATE_T).
-    Both trays are centred on the chassis Z axis at deck-local (0, 0);
-    each tray mesh has its plate BOTTOM at local z = 0.
-
-      Board-mount path (Uno Q on the lower tray's UNO_Q_HOLES, buck on
-      the upper tray's BUCK_HOLES):
-        * M3 x 8 SHCS DOWN into an M3 heat-set insert in the tray's
-          DECK_BOSS_OD_M3 board-standoff boss.  Head bears on the boss
-          top (= board underside); captive sub-assembly (the board is
-          screwed down during the electronics install).
-
-      Standoff-column path (4 columns at DECK_COLUMN_XY, per deck):
-        * M3 x 10 SHCS DOWN through each tray's DECK_COLUMN_BOSS_OD
-          column boss into the brass standoff's female top thread
-          (modelled as a virtual M3 heat-set insert engagement target,
-          same convention as the chassis_top brass-standoff bolts).
-        * 4 M3 x 8 SHCS UP from below chassis_top thread into the lowest
-          (level-1) F-F standoff column's female bottom threads through
-          the chassis_top DECK_COLUMN_XY clearance holes (Jul 2026 F/F
-          switch -- replaces the old male-stud + nyloc retention).
+    Magnets hold the Ø110 hex board; chassis sandwich standoffs remain
+    in ``_emit_chassis_stack_fasteners``.
     """
-    out: list[FastenerInstance] = []
-
-    deck_top_face = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T
-    chassis_top_bot_z = HP.CHASSIS_GAP + 0.5 * HP.CHASSIS_PLATE_T
-    chassis_top_top_z = deck_top_face
-
-    board_skip_reason = (
-        "captive sub-assembly fastener: the board is screwed down onto "
-        "its tray bosses during the electronics install, before the "
-        "tray stack is closed up; a hex key cannot reach the heads once "
-        "the upper deck / board sit above"
-    )
-
-    # (label, tray plate-bottom world z, board hole pattern)
-    uno_plate_bottom = deck_top_face + HP.DECK_LEVEL_1_STANDOFF_H
-    buck_plate_bottom = (deck_top_face + HP.DECK_LEVEL_1_STANDOFF_H
-                         + HP.DECK_LEVEL_2_STANDOFF_H)
-    board_decks = (
-        ("uno_q_tray", uno_plate_bottom, HP.UNO_Q_HOLES),
-        ("buck_tray",  buck_plate_bottom, HP.BUCK_HOLES),
-    )
-
-    for (deck_label, plate_bottom_z, holes) in board_decks:
-        boss_top_z = (plate_bottom_z + HP.DECK_TRAY_T
-                      + HP.DECK_STANDOFF_BOSS_H)
-        insert_top_z = boss_top_z - (HP.INSERT_M3_PILOT_DEPTH
-                                     - HP.INSERT_M3_INSERT_LENGTH)
-        for (hx, hy) in holes:
-            head_world = np.array([hx, hy, boss_top_z])
-            axis_world = np.array([0.0, 0.0, -1.0])
-            out.append(FastenerInstance(
-                part_number=PN_M3X8_SHCS,
-                spec=SPEC_M3X8_SHCS_INTO_INSERT,
-                head_world_xyz=head_world,
-                axis_world=axis_world,
-                role=(
-                    f"{deck_label} board-mount "
-                    f"M3 x 8 SHCS into heat-set insert"
-                ),
-                leg_index=None,
-                joint=None,
-                length_mm=8.0,
-                cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
-                skip_screwdriver_reason=board_skip_reason,
-            ))
-
-            out.append(FastenerInstance(
-                part_number=PN_M3_HEATSET_INSERT,
-                spec=SPEC_M3_HEATSET_INSERT,
-                head_world_xyz=np.array([hx, hy, insert_top_z]),
-                axis_world=np.array([0.0, 0.0, -1.0]),
-                role=(
-                    f"{deck_label} board-mount "
-                    f"M3 heat-set insert"
-                ),
-                leg_index=None,
-                joint=None,
-                length_mm=HP.INSERT_M3_INSERT_LENGTH,
-                cache_stl=f"{PN_M3_HEATSET_INSERT}.cache.stl",
-                skip_screwdriver_reason=(
-                    "heat-set insert installed with a soldering iron "
-                    "BEFORE the board is screwed onto the tray boss; "
-                    "no driver cone applies to the brass insert"
-                ),
-            ))
-
-    # ---- Standoff-column path -----------------------------------------
-    column_skip_reason = (
-        "captive sub-assembly fastener: torqued as each deck is added "
-        "to the standoff-column stack; once the deck above is fitted a "
-        "hex key cannot reach the column-bolt heads"
-    )
-    for (cx, cy) in HP.DECK_COLUMN_XY:
-        x_label = "+X" if cx > 0 else "-X"
-        y_label = "+Y" if cy > 0 else "-Y"
-        corner = f"{x_label}{y_label}"
-
-        for (deck_label, plate_bottom_z) in (
-            ("uno_q_tray", uno_plate_bottom),
-            ("buck_tray",  buck_plate_bottom),
-        ):
-            boss_top_z = (plate_bottom_z + HP.DECK_TRAY_T
-                          + HP.DECK_STANDOFF_BOSS_H)
-            # Bolt DOWN through the column boss into the brass standoff
-            # female top thread sitting directly under the tray plate.
-            head_world = np.array([cx, cy, boss_top_z])
-            axis_world = np.array([0.0, 0.0, -1.0])
-            out.append(FastenerInstance(
-                part_number=PN_M3X10_SHCS,
-                spec=SPEC_M3X10_SHCS,
-                head_world_xyz=head_world,
-                axis_world=axis_world,
-                role=(
-                    f"{deck_label} standoff column {corner} "
-                    f"M3 x 10 SHCS into standoff female thread"
-                ),
-                leg_index=None,
-                joint=None,
-                length_mm=10.0,
-                cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
-                skip_screwdriver_reason=column_skip_reason,
-            ))
-
-            # Virtual engagement target: the brass standoff's female top
-            # thread (real hardware is the standoff; not counted in BOM).
-            out.append(FastenerInstance(
-                part_number=PN_M3_HEATSET_INSERT,
-                spec=SPEC_M3_HEATSET_INSERT,
-                head_world_xyz=np.array([cx, cy, plate_bottom_z]),
-                axis_world=np.array([0.0, 0.0, -1.0]),
-                role=(
-                    f"{deck_label} standoff column {corner} "
-                    f"M3 standoff female thread "
-                    f"(modelled as heat-set insert for engagement check)"
-                ),
-                leg_index=None,
-                joint=None,
-                length_mm=HP.INSERT_M3_INSERT_LENGTH,
-                cache_stl="",
-                skip_screwdriver_reason=(
-                    "virtual engagement target representing the brass "
-                    "standoff's female top thread; no separate fastener "
-                    "is installed at this site -- the standoff hardware "
-                    "supplies the threads.  No driver cone applies."
-                ),
-                is_virtual=True,
-            ))
-
-        # M3 x 8 SHCS UP from below chassis_top into the level-1 F-F
-        # standoff column's female BOTTOM threads (Jul 2026 F/F
-        # switch: replaces the old male-stud + nyloc retention --
-        # same fix as the chassis-standoff path; the F-F column is
-        # bolted from both ends).  Head seats on chassis_top's +34
-        # bottom face; the 8 mm screw spans the 4 mm plate and bites
-        # ~4 mm of female thread.
-        out.append(FastenerInstance(
-            part_number=PN_M3X8_SHCS,
-            spec=SPEC_M3X8_SHCS,
-            head_world_xyz=np.array([cx, cy, chassis_top_bot_z]),
-            axis_world=np.array([0.0, 0.0, 1.0]),
-            role=(
-                f"chassis_top standoff column {corner} bottom "
-                f"M3 x 8 SHCS into column female thread"
-            ),
-            leg_index=None,
-            joint=None,
-            length_mm=8.0,
-            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
-            skip_screwdriver_reason=(
-                "captive sub-assembly fastener: the standoff columns + "
-                "decks are bolted onto chassis_top as a SEPARATE top "
-                "sub-assembly (column bolts torqued on the open underside "
-                "of chassis_top) BEFORE that sub-assembly is lowered "
-                "onto the chassis_bottom brass standoffs.  In the "
-                "assembled robot the inter-plate bay sits below this "
-                "bolt head, so the hex key cannot reach it -- but it is "
-                "never driven in the assembled state"
-            ),
-        ))
-
-        # Synthetic engagement target: the level-1 F-F column's female
-        # bottom threads at the chassis_top TOP face (+38 = column
-        # bottom face).
-        out.append(FastenerInstance(
-            part_number=PN_M3_HEATSET_INSERT,
-            spec=SPEC_M3_HEATSET_INSERT,
-            head_world_xyz=np.array([cx, cy, chassis_top_top_z]),
-            axis_world=np.array([0.0, 0.0, 1.0]),
-            role=(
-                f"chassis_top standoff column {corner} bottom "
-                f"M3 column female thread "
-                f"(modelled as heat-set insert for engagement check)"
-            ),
-            leg_index=None,
-            joint=None,
-            length_mm=HP.INSERT_M3_INSERT_LENGTH,
-            cache_stl="",
-            skip_screwdriver_reason=(
-                "virtual engagement target representing the brass "
-                "F-F standoff column's female bottom thread; no "
-                "separate fastener is installed at this site -- the "
-                "column hardware supplies the threads.  No driver "
-                "cone applies."
-            ),
-            is_virtual=True,
-        ))
-
-    return out
+    return []
 
 
-# ---------------------------------------------------------------------------
+def _emit_imu_pad_fasteners() -> list[FastenerInstance]:
+    """RETIRED (Aug 2026) — MPU sits under the raised platform top."""
+    return []
+
+
+
 # Sandwich-joint clamp-cap fasteners (2 x M3 self-tap per hip + knee cradle)
 # ---------------------------------------------------------------------------
 
@@ -1763,130 +1560,6 @@ def _emit_switch_holster_fasteners() -> list[FastenerInstance]:
 # ---------------------------------------------------------------------------
 
 
-def _emit_imu_pad_fasteners() -> list[FastenerInstance]:
-    """The 4 IMU-pad mount bolts + their captive heat-set inserts.
-
-    The MPU-6050 / GY-521 IMU breakout is bolted to the printed
-    ``imu_pad`` via 4 x M3 x 8 SHCS threading DOWN through the IMU's
-    Phi 3.0 mm clearance holes into 4 x M3 brass heat-set inserts
-    (McMaster ``94459A130``) captive in the pad's 4 printed bosses.
-    The pad ITSELF is glued to chassis_top with double-sided foam
-    tape (3 mm) so the IMU is mechanically decoupled from the
-    chassis-side servo vibration -- NO fasteners between the pad
-    and chassis_top.
-
-    Length budget (design frame, z = 0 = chassis_bottom centre plane):
-
-        chassis_top_top z    = CHASSIS_GAP + 1.5 * CHASSIS_PLATE_T = +38
-        pad bottom z         = chassis_top_top + IMU_PAD_TAPE_T   = +41
-        pad floor top z      = pad_bottom + IMU_PAD_T             = +43
-        boss top z           = pad_floor_top + IMU_PAD_BOSS_H     = +48
-        PCB bottom z         = boss_top                            = +48
-        PCB top z            = boss_top + IMU_PCB_T               = +49.6
-        insert top z         = boss_top - (pilot_depth - insert_len)
-                             = +48 - 1                            = +47
-        insert bottom z      = insert_top - INSERT_M3_INSERT_LENGTH
-                             = +47 - 5                            = +42
-        bolt tip min z       = head - L = +48 - 8                  = +40
-
-    The PHYSICAL bolt head bears on the IMU PCB's top face at
-    z = +49.6, but to match the convention used for the
-    electronics_tray board-mount bolts (see
-    ``_emit_electronics_tray_fasteners``: "conservative: place head
-    face at the boss top (matches inspect_build's bolt rendering and
-    avoids leaking a per-board PCB-thickness constant)") we put the
-    REGISTRY head_world_xyz at the BOSS top instead of the PCB top.
-    The 8 mm bolt length still reaches deep into the insert
-    (z=40-48) and the engagement check probes material at the
-    boss-top ring rather than at the PCB-top ring -- which only
-    works if the world frame contains a printed part with material
-    just below the head, exactly what the boss provides.  M3 x 8
-    SHCS (PN 91290A113), same stock as the cradle / electronics_
-    tray board-mount bolts.
-
-    Why ``skip_screwdriver_reason``: although the IMU PCB's bolt
-    heads ARE physically reachable from above (the pad sits at the
-    chassis CG, not under the holster or arm), in practice the
-    PROTOTYPE.md sequence has the user torque these BEFORE the
-    chassis_top + (optional) arm baseplate close the chassis stack.
-    Once those upper layers are on, a 2.5 mm hex key can swing down
-    onto the bolt heads, but the operator would have to remove the
-    arm baseplate first if it's installed.  Mark SKIP with the same
-    rationale as the other tray fasteners so the verifier doesn't
-    flag them as access-blocked.
-    """
-    out: list[FastenerInstance] = []
-
-    # chassis_top top face z in the design frame.
-    chassis_top_top_z = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T
-    pad_bottom_z = chassis_top_top_z + HP.IMU_PAD_TAPE_T
-    boss_top_z = pad_bottom_z + HP.IMU_PAD_T + HP.IMU_PAD_BOSS_H
-    # Bolt head placement: see docstring for why we use boss_top_z
-    # (= the boss top, NOT the PCB top) -- mirrors the convention
-    # used by ``_emit_electronics_tray_fasteners`` so the head ring
-    # probe lands inside the boss material rather than in the air
-    # above the (un-modelled-as-printed) MPU-6050 PCB.
-    head_z = boss_top_z
-    # Insert top face sits ``pilot_depth - insert_len`` mm below the
-    # boss top (same debris-overdrill convention as the
-    # electronics_tray / switch_holster inserts).
-    debris_overdrill = HP.INSERT_M3_PILOT_DEPTH - HP.INSERT_M3_INSERT_LENGTH
-    insert_top_z = boss_top_z - debris_overdrill
-
-    skip_reason = (
-        "captive sub-assembly fastener: torqued during electronics "
-        "install before chassis_top stack closes.  The IMU pad sits "
-        "on the chassis CG on chassis_top; once chassis_top + "
-        "(optional) arm baseplate close the chassis stack from "
-        "above, the IMU bolt heads are reachable in principle but "
-        "the sequence has them torqued first (same convention as "
-        "the electronics_tray + switch_holster fasteners)"
-    )
-
-    for (bx, by), corner in zip(
-        HP.IMU_PAD_BOLT_CHASSIS_XY,
-        ("-X-Y", "-X+Y", "+X-Y", "+X+Y"),
-    ):
-        head_world = np.array([bx, by, head_z])
-        axis_world = np.array([0.0, 0.0, -1.0])  # DOWN into the pad
-        out.append(FastenerInstance(
-            part_number=PN_M3X8_SHCS,
-            spec=SPEC_M3X8_SHCS_INTO_INSERT,
-            head_world_xyz=head_world,
-            axis_world=axis_world,
-            role=(
-                f"imu_pad mount bolt {corner} "
-                f"M3 x 8 SHCS into heat-set insert"
-            ),
-            leg_index=None,
-            joint=None,
-            length_mm=8.0,
-            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
-            skip_screwdriver_reason=skip_reason,
-        ))
-
-        insert_head_world = np.array([bx, by, insert_top_z])
-        out.append(FastenerInstance(
-            part_number=PN_M3_HEATSET_INSERT,
-            spec=SPEC_M3_HEATSET_INSERT,
-            head_world_xyz=insert_head_world,
-            axis_world=np.array([0.0, 0.0, -1.0]),
-            role=(
-                f"imu_pad {corner} "
-                f"M3 heat-set insert"
-            ),
-            leg_index=None,
-            joint=None,
-            length_mm=HP.INSERT_M3_INSERT_LENGTH,
-            cache_stl=f"{PN_M3_HEATSET_INSERT}.cache.stl",
-            skip_screwdriver_reason=(
-                "heat-set insert installed with a soldering iron "
-                "BEFORE the MPU-6050 IMU is bolted to the imu_pad "
-                "(PROTOTYPE.md section 6.1 step 12); no driver "
-                "cone applies to the brass insert"
-            ),
-        ))
-    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1964,11 +1637,11 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
     # switch_holster's y in [-11, +11] band.)
     standoff_skip_reason = (
         "captive sub-assembly fastener: torqued during chassis-"
-        "stack closure BEFORE the standoff-column + electronics-deck "
-        "stack (Uno Q tray 16 mm above chassis_top) is fitted.  Once "
-        "the lower deck is on, it sits in the 2.5 mm hex key's "
-        "vertical approach path to this standoff bolt head -- see "
-        "PROTOTYPE.md section 6 for the explicit assembly order"
+        "stack closure BEFORE the magnet hex posts + electronics "
+        "board are fitted above chassis_top.  Once the 20 mm posts "
+        "and hex plate are on, they sit in the hex key's vertical "
+        "approach path to this standoff bolt head -- see "
+        "PROTOTYPE.md for the explicit assembly order"
     )
     for (sx, sy) in HP.CHASSIS_STANDOFF_HOLES_XY:
         x_label = "+X" if sx > 0 else "-X"
@@ -2199,27 +1872,16 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     # chassis_bottom -- no bolts), so there are no battery-mount
     # fasteners.
 
-    # Stacked-deck board-mount + standoff-column fasteners (Jun 2026
-    # redesign): M3 x 8 SHCS board bolts into the Uno Q / buck tray
-    # bosses, M3 x 10 column bolts into the brass standoff female tops,
-    # and 4 M3 x 8 SHCS up from below chassis_top into the level-1 F-F
-    # columns (Jul 2026 F/F switch).  Replaces the retired
-    # electronics_tray board-mount bolts.
-    out.extend(_emit_deck_fasteners())
+    # Aug 2026: stacked-deck + imu_pad fasteners RETIRED with the as-built
+    # magnet hex stack (no printed trays / carapace / imu_pad).
+    # out.extend(_emit_deck_fasteners())
+    # out.extend(_emit_imu_pad_fasteners())
 
     # Switch-holster mount bolts (May 2026 "essentials" pass).  2 x
     # M3 x 10 SHCS thread UP from BELOW chassis_top into 2 x M3
     # heat-set inserts captive in the holster's mounting ear.  Bolts
     # are user-serviceable from inside the chassis cavity.
     out.extend(_emit_switch_holster_fasteners())
-
-    # IMU pad mount bolts (May 2026: MPU-6050 promoted from optional
-    # to standard kit).  4 x M3 x 8 SHCS thread DOWN through the IMU
-    # PCB into 4 x M3 heat-set inserts captive in the printed pad's
-    # 4 corner bosses.  The pad itself is glued to chassis_top with
-    # double-sided foam tape -- no fasteners between the pad and
-    # chassis_top.
-    out.extend(_emit_imu_pad_fasteners())
 
     # Chassis-stack standoff fasteners.  4 x M3 x 10 SHCS into the F-F
     # brass standoff female tops (chassis_top side) + 4 x M3 x 14 SHCS
@@ -2277,6 +1939,7 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
         SPEC_M3X10_SHCS:            7,
         SPEC_M3X10_DISC_HORN:       7,
         SPEC_M3X10_SHCS_SELFTAP:    7,
+        SPEC_M3X20_DISC_HORN:       7,
         SPEC_M3X14_SHCS:            7,
         SPEC_M3_HEATSET_INSERT:     8,
         SPEC_M3X32_SHCS:            9,

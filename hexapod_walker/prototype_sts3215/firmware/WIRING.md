@@ -4,13 +4,13 @@ Buildable wiring plan for the **18× FEETECH STS3215** serial-bus
 hexapod, plus a bench bring-up checklist so you test everything **on a
 current-limited bench supply first**, before the LiPo is ever
 connected. Pair this with the host-side driver in
-`../pi_control/feetech_bus.py`.
+`../motor_setup/feetech_bus.py`.
 
 > **Rendered harness diagram:** the full connector-by-connector WireViz
 > diagram (with wire colors, gauges and the auto-generated BOM) lives at
 > [`harness.svg`](harness.svg) / `harness.png` / `harness.html` next to
 > this file. Regenerate it (after editing this doc's topology or the
-> geometry in `../pi_control/wire_harness_plan.py`) with
+> geometry in `../motor_setup/wire_harness_plan.py`) with
 > `../scripts/render_harness_diagram.py` (repo venv).
 
 **June 2026 redesign.** The prototype uses **18× FEETECH STS3215**
@@ -21,42 +21,38 @@ the bus, so the robot has closed-loop joint feedback with **no external
 sensors**. This deletes most of the old stack: **no Arduino Mega, no
 PCA9685 PWM boards, no servo BECs, and no AS5600 encoders.**
 
-The controller is now an **Arduino Uno Q** (on-board Linux SoC + MCU).
-It runs the Python gait/RL/teleop on its **Linux** side and drives the
-half-duplex STS3215 TTL bus through a small **USB bus-servo adapter**
-plugged into the Uno Q's USB-C — it replaces the Raspberry Pi. The
-adapter does the half-duplex direction-switching in hardware and
-enumerates on Linux as **`/dev/ttyUSB0`**, so `feetech_bus.py` runs
-unchanged (only `--port` changes). A **XINGYHENG 12 V→5 V buck** on the
-upper deck powers the Uno Q's logic from the 3S rail.
+The controller is an **Arduino Uno Q** (on-board Linux SoC + MCU).
+Python gait / teleop / demos run on the **Linux** side.
 
-> **Buy one USB bus-servo adapter** — either:
-> - **FEETECH FE-URT-2** (`FE-URT2-C001`) — the Type-C successor to the
->   FE-URT-1; native **USB-C**, a **TTL-BUS** port for STS/SCS servos, a
->   separate RS485 port for SMS servos, a **3.3 V / 5 V logic-level
->   slide switch** (set **5 V** — see §2), and a 5.08 screw terminal for
->   servo power. Because the Uno Q is USB-C, this is the tidiest pick: a
->   single **USB-C-to-C** cable. *(The older FE-URT-1 also works but is
->   mini-USB, so you'd need a C-to-mini cable / OTG adapter.)*
-> - **Waveshare Bus Servo Adapter (A)** (SKU **25514**) — also native
->   USB-C, **D/V/G** servo header, `9–12.6 V` power input; instead of a
->   voltage switch it has an **A/B mode jumper** (A = UART to an MCU,
->   **B = USB** to a host — use **B**). CH343 USB-serial chip.
+**Preferred bus path (live):** the STM32 MCU sketch
+[`feetech_bridge`](feetech_bridge/) owns **D0/D1 → FE-URT UART at 1 Mbps**.
+Linux talks to the sketch over **`/dev/ttyHS1` @ 921600**
+(`linux_control/mcu_feetech_bus.py`).
+
+**Power (Aug 2026 as-built):** **no external buck**. The 3S battery feeds
+two domains that share ground only — `battery → PDB → power Wagos →
+servos` and `battery → Uno Q` (on-board regulator). Electronics deck =
+magnet-held Ø110 hex plate (Uno Q + breakout) + raised platform (screen
+on top; MPU glued on chassis_bottom behind phys. leg 1).
+
+**Fallback:** a **USB bus-servo adapter** (FE-URT-2 or Waveshare) on the Uno Q
+USB-C OTG port, enumerated as `/dev/ttyUSB*`, driven directly by
+`feetech_bus.py` at 1 Mbps — useful when the MCU bridge is not flashed.
+
+> **Buy one USB/TTL bus-servo adapter** (needed for either UART or USB mode):
+> - **FEETECH FE-URT-2** (`FE-URT2-C001`) — Type-C, TTL-BUS for STS/SCS,
+>   RS485 for SMS, **3.3 V / 5 V** logic switch (set **5 V** for USB host
+>   mode; MCU UART path is 3.3 V-safe via the Uno Q pins — follow the
+>   bridge wiring).  Screw terminal for servo power.
+> - **Waveshare Bus Servo Adapter (A)** (SKU **25514**) — USB-C, D/V/G
+>   header; jumper **A = UART to MCU**, **B = USB to host**.
 >
-> **USB-C host note:** the Uno Q's *only* USB is a single Type-C port,
-> so the adapter hangs off it in **USB-host / OTG** mode. Use a USB-C
-> OTG adapter or a small **USB-C hub** (ideally one with power
-> passthrough so the Uno Q can still be powered while hosting the
-> adapter).
+> **USB-C host note:** when using the USB fallback, the Uno Q's single
+> Type-C is in **OTG / host** mode — use a hub with power passthrough if
+> you still need to power/debug the board over USB.
 
-> **Do NOT wire the servo bus to the Uno Q's D0/D1 header.** That UART
-> is the Uno Q's **STM32 MCU** side (`Serial1`, **3.3 V**, sketch-owned)
-> and is **not** exposed to the Linux side as a `/dev/tty*`, so the
-> Python driver cannot reach it. The servo bus reaches Linux **only**
-> through the USB adapter above.
-
-Your first built arm is **leg 0 = joints 0 / 1 / 2 = servo IDs 1 / 2 /
-3**. This doc gets that leg moving safely, then scales to all 18 with a
+Your first built arm is **leg 0 = joints 0 / 1 / 2 = servo IDs 2 / 3 /
+4**. This doc gets that leg moving safely, then scales to all 18 with a
 **distributed-power harness** (§6) that keeps any one connector from
 melting.
 
@@ -77,50 +73,53 @@ supply is strongly preferred for bring-up.
 
 > **Voltage note:** the STS3215-30kg is the **12 V** variant (range
 > 6–12.6 V). Run the bus at **12 V** (bench supply, later a 3S LiPo at
-> 11.1 V nominal / 12.6 V full). There is **no servo BEC** — the raw 3S
-> rail goes straight to the servos. The Uno Q logic runs on **5 V from
-> the buck**; it is **never** powered from the 12 V servo rail.
+> 11.1 V nominal / 12.6 V full). There is **no servo BEC** and **no
+> external buck** — the raw 3S rail goes to the PDB→servo path, and a
+> separate battery tap feeds the Uno Q (its on-board regulator).
 
 ---
 
 ## 1. Two power domains (share ground only)
 
+Aug 2026 as-built: **no external buck**. Battery → PDB → servos, and
+battery → Uno Q, are separate feeds that share ground only.
+
 ```
    BENCH SUPPLY (set 12.0 V, limit 2 A for one leg)   ← swap in 3S LiPo later
-            │  12 V servo rail
-            ▼
-   POWER DISTRIBUTION BUS BAR  (see §6 for the full LiPo harness)
-            │  per-leg branches (16–18 AWG silicone)
-            ├─► leg 0 V+/GND ──┐
-            ├─► leg 1 V+/GND   │  (V+/GND injected per leg, NOT chained
-            └─► …              │   leg-to-leg through the servo pins)
-                               │
- Uno Q ─USB-C─► USB bus-servo adapter ─TTL signal─► ID1 ─► ID2 ─► … ─► ID18
-   │           (FE-URT-2 / Waveshare A;          (signal+GND chained;
-   │            half-duplex dir-switch, 1 Mbps)   V+ fed per leg)
-   │
-   └──I²C (its OWN bus)──► MPU-6050 IMU  (Stage F)
-                               │
-                          ground common (LiPo −, bus-bar GND, Uno Q GND,
-                                         adapter GND)
+            │
+            ├─► PDB ─► chassis-top POWER Wagos (12V+G) ─► per-leg branches
+            │         (V+/GND injected per leg, NOT chained leg-to-leg)
+            │
+            └─► Uno Q VIN (on-board regulator; own battery tap)
+
+   DATA:  Uno Q ─sig+GND─► underside DATA Wagos (near yaw retainers)
+              ─► yaw→hip→knee … (signal+GND chained; V+ fed per leg)
+
+   DECK:  magnet hex plate (Uno Q + breakout)
+          + raised platform (screen on top)
+          + MPU glued on chassis_bottom (behind phys. leg 1)
+          MPU ──I²C──► Uno Q  (Stage F)
+
+   ground common (LiPo −, PDB GND, Uno Q GND, adapter GND, IMU GND)
 ```
 
-- **Servo power** (12 V) comes from a **power distribution bus bar**,
-  split into **per-leg branches** in heavy silicone wire. Power is
-  **not** passed leg-to-leg through the thin servo connector pins
-  (see §6 for why that melts the upstream connector).
+- **Servo power** (12 V) comes from the **PDB**, then **power Wagos**
+  on the chassis-top periphery, then **per-leg branches** in heavy
+  silicone. Power is **not** passed leg-to-leg through the thin servo
+  connector pins (see §6).
+- **Uno Q power** is a **separate battery tap** (no buck on the servo
+  rail). On the bench you can still USB-power the board.
 - **Data** is one half-duplex TTL signal, daisy-chained servo to servo.
-  The Uno Q drives it over USB through the **USB bus-servo adapter** at
-  **1 Mbps**; the adapter handles the half-duplex direction switching.
-- **All grounds common**: bench-supply − (or LiPo −), bus-bar GND,
-  Uno Q GND, adapter GND, IMU GND. Verify with a continuity beep.
-- The adapter carries **DATA** (its `D`/`G` pins → bus signal + GND).
-  Servo **12 V** comes from the rail, not the Uno Q and not "5 V/3 V":
-  on the bench (one leg) you may feed 12 V into the adapter's power
-  terminal; on the full robot the adapter is **data-only** and each leg
-  gets 12 V per-leg from the bus bar (see §2 and §6).
-- **The IMU is on the Uno Q's I²C bus**, totally separate from the
-  servo bus. It plays no part in the arm test; see Stage F.
+  On the robot, data jumpers land at **underside data Wagos** near the
+  yaw retainers. Preferred path is the MCU `feetech_bridge`; USB adapter
+  is the fallback (§ intro / §2).
+- **All grounds common**: bench-supply − (or LiPo −), PDB GND, Uno Q
+  GND, adapter GND, IMU GND. Verify with a continuity beep.
+- On the bench (one leg) you may feed 12 V into the adapter's power
+  terminal; on the full robot the adapter (if used) is **data-only**
+  and each leg gets 12 V from the PDB / power Wagos (see §2 and §6).
+- **The IMU is on the Uno Q's I²C bus**, glued on chassis_bottom
+  behind physical leg 1 (not under the raised platform). Totally separate from the servo bus; see Stage F.
 
 ---
 
@@ -179,31 +178,37 @@ python -m pip install feetech-servo-sdk pyserial
 
 ### Assign servo IDs (once per servo — CRITICAL)
 
-Every servo ships as **ID 1**. A bus needs unique IDs, so you set each
-one **with only that single servo connected** (otherwise every ID-1
-servo answers at once and you brick the address):
+Every servo ships as **ID 1**. A bus needs unique IDs, so you re-ID each
+one as you add it. **ID 1 is never assigned to a robot joint** — leaving
+the factory default free means a fresh servo can always join a live
+daisy-chain without colliding. Prefer the naming wizard
+(`motor_setup/urt2_motor_setup.py`) — plug in a servo, watch it wiggle,
+then assign any open joint (`L2 knee`, menu pick, …).
 
 ```bash
-# Connect ONE new servo. It is ID 1 from the factory. Give it its ID:
-python ../pi_control/feetech_bus.py --port /dev/ttyUSB0 setid --from 1 --to 3   # joint 2 (knee), leg 0
+# Free-form labeling (any order):
+python ../motor_setup/urt2_motor_setup.py
+
+# Or by hand: connect a factory servo (ID 1) and give it its robot ID:
+python ../motor_setup/feetech_bus.py --port /dev/ttyUSB0 setid --from 1 --to 4   # joint 2 (knee), leg 0
 ```
 
-Logical joint → servo ID is simply **ID = joint + 1**
-(`joint = leg*3 + axis`, axis 0=yaw, 1=hip, 2=knee):
+Logical joint → servo ID is **ID = joint + 2** (IDs 2..19;
+`joint = leg*3 + axis`, axis 0=yaw, 1=hip, 2=knee):
 
 | Leg | yaw (axis0) | hip (axis1) | knee (axis2) |
 |----:|:-----------:|:-----------:|:------------:|
-| 0   | ID 1        | ID 2        | ID 3         |
-| 1   | ID 4        | ID 5        | ID 6         |
-| 2   | ID 7        | ID 8        | ID 9         |
-| 3   | ID 10       | ID 11       | ID 12        |
-| 4   | ID 13       | ID 14       | ID 15        |
-| 5   | ID 16       | ID 17       | ID 18        |
+| 0   | ID 2        | ID 3        | ID 4         |
+| 1   | ID 5        | ID 6        | ID 7         |
+| 2   | ID 8        | ID 9        | ID 10        |
+| 3   | ID 11       | ID 12       | ID 13        |
+| 4   | ID 14       | ID 15       | ID 16        |
+| 5   | ID 17       | ID 18       | ID 19        |
 
 Label each servo as you ID it. After all are chained, verify:
 
 ```bash
-python ../pi_control/feetech_bus.py --port /dev/ttyUSB0 scan   # expect IDs 1..18
+python ../motor_setup/feetech_bus.py --port /dev/ttyUSB0 scan   # expect IDs 2..19 (not 1)
 ```
 
 ---
@@ -215,10 +220,10 @@ in the loop. The only thing between it and the servos is the passive
 **USB bus-servo adapter** (a USB↔half-duplex-TTL converter, no CPU). Its
 Linux side runs `feetech_bus.py`, which:
 
-- maps the 18 logical joints to servo IDs 1..18,
+- maps the 18 logical joints to servo IDs 2..19 (ID 1 left free),
 - enforces the same safe per-axis angle limits in software,
 - applies per-joint **trims** (stored in
-  `../pi_control/feetech_trims.json`, since there's no EEPROM),
+  `../motor_setup/feetech_trims.json`, since there's no EEPROM),
 - sync-writes goal positions and reads back live feedback.
 
 Everything below works identically whether the host is your laptop
@@ -231,21 +236,35 @@ adapter**, so only `--port` changes.
 
 | Joint | Axis      | Servo ID | Limit (deg) |
 |------:|-----------|:--------:|-------------|
-| 0     | yaw       | 1        | ±35         |
-| 1     | hip pitch | 2        | −80 … +30   |
-| 2     | knee      | 3        | −20 … +80   |
+| 0     | yaw       | 2        | ±35         |
+| 1     | hip pitch | 3        | −80 … +30   |
+| 2     | knee      | 4        | −20 … +80   |
 
-STS3215 3-pin bus connector (both ports identical — chain in or out of
-either). The connector is a **Molex 5264 / Mini-SPOX 2.5 mm**, 3-pin:
+### Where the wires leave an STS3215 (physical)
 
-- **black → GND**
-- **red → V+ (12 V)**
-- **white/yellow → Signal**
+Feetech’s STS3215 is **not** a classic hobby-servo with a molded boot on
+one short end (that was the old DS3225). On the real part (FEETECH STEP
+`STS3215_03a`, Waveshare/SO-ARM mounts, and this project’s retainer /
+test-cradle notes):
 
-Match the connector keying; the two ports on each servo are wired in
-parallel, so "in" vs "out" doesn't matter electrically — pick whichever
-makes the harness tidy. **But note (§6): the red V+ pin is rated only
-~3 A, so do not let it carry more than one leg's current.**
+| Item | Fact |
+|------|------|
+| Ports | **Two** identical 3-pin bus sockets (daisy in / out) |
+| Connector | **Molex 5264 / Mini-SPOX 2.5 mm** (often casually called “JST”) |
+| Face | Recessed in the **BACK (idler) face** — opposite the output / disc-horn face |
+| Side of that face | **Centre / −X half** of the back (away from the output-offset shaft at +X); the +X half of the back carries the idler hub |
+| Exit direction | Cables plug into the back and leave **out the back** (when the servo hangs output-up under the chassis, that is **straight down** through the yaw retainer drop window) |
+| Pinout | black → GND · red → V+ (12 V) · white/yellow → Signal |
+
+Both ports are wired in parallel — “in” vs “out” is only harness
+tidiness. **But note (§6): the red V+ pin is rated only ~3 A, so do not
+let it carry more than one leg’s current.**
+
+BuildViz / CAD note: `hexapod_prototype.WIRE_BOOT_*` and the little box on
+`make_servo_body` are a **legacy DS3225-shaped stand-in** kept so some
+cradle clearance channels still have a probe target. **Harness routes in
+`tools/full_robot_viz_build.py` attach at the real back-face port cluster
+above**, not at that +X stub.
 
 ---
 
@@ -272,18 +291,20 @@ straight out from the body**, with coxa, femur, tibia and foot colinear:
 
 ### Which way each axis moves (so you mount horns the right way round)
 
-| Axis (joint)   | `+` angle moves the link…        | `−` angle moves it… | Range      | Stance |
-|----------------|----------------------------------|---------------------|------------|-------:|
-| yaw (j0)       | swings horizontally one way      | the other way       | ±35°       | 0°     |
-| hip pitch (j1) | femur tip **down**               | femur tip **up**    | −80 … +30° | −25°   |
-| knee pitch (j2)| tibia tip **down** (folds under) | tibia tip **up**    | −20 … +80° | +60°   |
+| Axis (joint)   | `+` angle moves the link…        | `−` angle moves it… | Range      | Stand plant |
+|----------------|----------------------------------|---------------------|------------|------------:|
+| yaw (j0)       | swings horizontally one way      | the other way       | ±35°       | 0°          |
+| hip pitch (j1) | femur tip **down**               | femur tip **up**    | −80 … +30° | **+20°**    |
+| knee pitch (j2)| tibia tip **down** (folds under) | tibia tip **up**    | −20 … +80° | **+80°**    |
 
-So the **standing stance (0, −25, +60)** is "femur lifted ~25°, knee
-folded ~60°," planting the foot below the body.
+So the **default hardware stand plant (0, +20, +80)** is femur angled
+toward the floor with tibia steep (or a learned plant from Calibrate →
+Plant height).  CAD / MuJoCo / `sts` RL still use the older crouch
+**(0, −25, +60)** — see `../RL_PLAN.md` Appendix A.
 
 ### Mounting each horn against zero
 
-1. `python ../pi_control/feetech_bus.py --port /dev/ttyUSB0 centre` —
+1. `python ../motor_setup/feetech_bus.py --port /dev/ttyUSB0 centre` —
    the servo holds at count 2048 (its 0° centre).
 2. With the servo powered and held at 0°, fit the FEETECH POM horn /
    link so the link sits in the straight-out zero pose above, then bolt
@@ -331,9 +352,9 @@ Bench supply set to **12.0 V, current limit 2.0 A**. No servos.
 - [ ] Supply OFF.
 
 ### Stage B — Uno Q + USB adapter on the bus, no servos
-Uno Q powered (USB-C or buck); **USB bus-servo adapter plugged into the
-Uno Q's USB-C** (mode set per §2: FE-URT-2 level switch → 5 V, or
-Waveshare jumper → B); 12 V rail still OFF.
+Uno Q powered (USB-C or its battery tap); **USB bus-servo adapter
+plugged into the Uno Q's USB-C** (mode set per §2: FE-URT-2 level
+switch → 5 V, or Waveshare jumper → B); 12 V rail still OFF.
 
 - [ ] `ls /dev/ttyUSB* /dev/ttyACM*` shows the adapter's port (note it,
       that's your `--port`).
@@ -356,7 +377,7 @@ feetech_bus.py --port /dev/ttyUSB0 feedback      # reads back ~ -15 deg, volts, 
 - [ ] `feedback` shows sane volts (~12 V), low load, reasonable temp.
 - [ ] Idle/move current well under the 2 A limit.
 
-### Stage D — Leg 0 servos (IDs 1/2/3), one joint at a time
+### Stage D — Leg 0 servos (IDs 2/3/4), one joint at a time
 ID the three leg-0 servos (1, 2, 3), chain them, plug into one **per-leg
 branch** of the rail. **Clamp the arm, foot in the air.** Current limit
 ~**3 A**.
@@ -384,26 +405,41 @@ feetech_bus.py --port /dev/ttyUSB0 feedback --watch
 - [ ] Hold 30–60 s watching `feedback`: temp climbs modestly, load
       sane, supply not pinned at its limit.
 
-### Stage F — IMU (Uno Q I²C, separate from the servo bus)
-The MPU-6050 is **4 wires** from the GY-521 breakout to the Uno Q's
-I²C pins — nothing to do with the servo bus.
+### Stage F — IMU (MCU Wire I²C on SDA/SCL, separate from the servo bus)
+The MPU-6050 is **4 wires** from the GY-521 breakout to the Uno Q
+**header SDA/SCL (D20/D21)** — STM32 `Wire`, **not** Linux SoC I²C.
+Linux `i2cdetect` on `/dev/i2c-*` will **never** show `0x68` for this
+wiring; the MCU sketch owns the bus. As-built (Aug 2026): the breakout
+is **glued on `chassis_bottom`** in the inter-plate bay, inboard of
+physical leg 1 (clockwise from the tape-marked leg 0 cradle).
 
 | GY-521 pin | → Uno Q                | What it is        |
 |------------|------------------------|-------------------|
 | `VCC`      | **3V3** power          | power — 3V3, **not** 5V |
 | `GND`      | **GND**                | ground            |
-| `SCL`      | **I²C SCL**            | I²C clock         |
-| `SDA`      | **I²C SDA**            | I²C data          |
+| `SCL`      | **SCL (D21)**          | MCU Wire clock    |
+| `SDA`      | **SDA (D20)**          | MCU Wire data     |
 | `AD0`      | leave unconnected      | sets address `0x68` |
 | `XDA`,`XCL`,`INT` | leave unconnected | not used          |
 
 > ⚠ **Power the GY-521 from 3V3, never 5V** — its SDA/SCL pull-ups go
 > to VCC and 5V would over-drive the 3.3 V I²C lines.
+>
+> Do **not** use A4/A5 for this board's main `Wire` — on Uno Q those are
+> not the labeled SDA/SCL header. Qwiic is a second MCU bus (`Wire1`).
+
+Flash / keep [`feetech_bridge`](feetech_bridge/) (commands `I2CSCAN`,
+`IMU`, `IMUR`), then on the Uno Q Linux side:
 
 ```bash
-sudo apt install -y i2c-tools
-i2cdetect -y 1           # expect 0x68
+# after flash_feetech_bridge.sh — probe over /dev/ttyHS1
+cd ~/linux_control   # or wherever mpu_probe.py + mcu_feetech_bus.py live
+python3 mpu_probe.py
+# expect: I2CSCAN → OK 0x68   IMU → OK 0x68   IMUR → OK <ax> ...
 ```
+
+If `IMU` returns `ERR no_ack`: confirm VCC=**3V3**, GND common, and
+SDA→SDA / SCL→SCL (not swapped, not on high-speed 1.8 V headers).
 
 ---
 
@@ -413,9 +449,10 @@ Only after Stages A–F pass, build the §6 power harness and then:
 
 1. Bench supply OFF and disconnected.
 2. Wire the full §6 harness:
-   `3S LiPo XT60 → anti-spark switch → main fuse (15–20 A) → bus bar →
-   per-leg branches`, plus the **buck** for the Uno Q's 5 V.
-3. **Verify common ground** across LiPo −, bus-bar GND, Uno Q, IMU.
+   `3S LiPo XT60 → anti-spark switch → main fuse (15–20 A) → PDB →
+   power Wagos → per-leg branches`, plus a **separate battery tap to
+   the Uno Q** (no buck).
+3. **Verify common ground** across LiPo −, PDB GND, Uno Q, IMU.
 4. The **anti-spark switch is your e-stop** — keep a hand near it for
    the first powered run.
 
@@ -429,7 +466,7 @@ all 18 servos to one rail.**
 > This whole section is also rendered as a WireViz diagram —
 > [`harness.svg`](harness.svg) (regenerate with
 > `../scripts/render_harness_diagram.py`). The per-leg branch lengths in
-> it come from the geometry-derived `../pi_control/wire_harness_plan.py`.
+> it come from the geometry-derived `../motor_setup/wire_harness_plan.py`.
 
 ### 6.1 Why you cannot daisy-chain power
 
@@ -456,6 +493,7 @@ with stall headroom).
 ```
   3S LiPo (11.1 V nom / 12.6 V full)
      │  XT60
+     ├──────────────────────────────────────► Uno Q VIN  (own tap; no buck)
      ▼
   ANTI-SPARK SWITCH  (precharge + on/off = e-stop)
      │  XT60 → 12–14 AWG silicone
@@ -463,46 +501,120 @@ with stall headroom).
   MAIN FUSE  15–20 A  (blade/ANL in holder)
      │  12–14 AWG silicone
      ▼
-  ┌──────────────  POWER DISTRIBUTION BUS BAR  ──────────────┐
-  │  (V+ bar)                                       (GND bar) │
-  │   ├─[opt 5–7 A]─► leg 0 branch  16–18 AWG ──► 5264 → leg 0 servos (V+/GND)
-  │   ├─[opt 5–7 A]─► leg 1 branch  16–18 AWG ──► 5264 → leg 1 servos
-  │   ├─[opt 5–7 A]─► leg 2 branch  16–18 AWG ──► 5264 → leg 2 servos
-  │   ├─[opt 5–7 A]─► leg 3 branch  16–18 AWG ──► 5264 → leg 3 servos
-  │   ├─[opt 5–7 A]─► leg 4 branch  16–18 AWG ──► 5264 → leg 4 servos
-  │   ├─[opt 5–7 A]─► leg 5 branch  16–18 AWG ──► 5264 → leg 5 servos
-  │   └──────────────► XINGYHENG 12→5 V BUCK ──► Uno Q 5 V (logic)
-  └──────────────────────────────────────────────────────────┘
+  ┌──────────────────  PDB (bus bar)  ──────────────────┐
+  │  (V+ bar)                                  (GND bar) │
+  │   ├─► chassis-top POWER Wago (12V+G) ─► leg 0 branch …
+  │   ├─► chassis-top POWER Wago (12V+G) ─► leg 1 branch …
+  │   ├─► … one Wago + branch per leg …
+  │   └─► chassis-top POWER Wago (12V+G) ─► leg 5 branch …
+  └─────────────────────────────────────────────────────┘
 
-  DATA (separate, low current):
-  Uno Q ─USB─► adapter ─sig+GND─► ID1─►ID2─►ID3 ─┊─► ID4─►ID5─►ID6 ─┊─► … ─► ID18
-                                 └── leg 0 ──┘    ▲   └── leg 1 ──┘
-                        leg-to-leg jumper = SIGNAL + GND only (no V+)
+  DECK (magnet hex + raised platform):
+      4× posts at CHASSIS_STANDOFF_HOLES_XY (±31.1):
+         20 mm standoff + ~2.5 mm M3 thumb nut + Ø8×8 mm magnet
+      → hex_mount_plate_110 (Uno Q + breakout)
+      → hex_raised_platform_110 (screen on top)
+      → MPU-6050 glued on chassis_bottom (behind phys. leg 1)
+
+  DATA (separate, low current) — underside DATA Wagos near yaw retainers;
+  **as-built entry is at each yaw**:
+  Uno Q ─sig+GND─► data Wagos ─►
+      ┌─► L0 yaw ─► L0 hip ─► L0 knee ─┐
+      │   (leg 0 data through the leg)  │  leg-to-leg = SIGNAL+GND only
+      ├─► L1 yaw ─► L1 hip ─► L1 knee ─┤  (no V+ between legs)
+      ├─► …                            │
+      └─► L5 yaw ─► L5 hip ─► L5 knee ─┘
+
+  POWER (per-leg PDB / Wago branch) — **as-built inject at each hip**:
+      power Wago ─V+/GND─► L? hip ─┬─► L? yaw
+                                  └─► L? knee
+      (hip is the power tee; yaw/knee take V+ from the hip, not from
+       the chassis branch directly)
+
+  LiPo velcro under chassis; data Wagos under chassis near yaw retainers.
 ```
+
+**As-built per-leg topology (Aug 2026 bench build):**
+
+| Rail | Enters the leg at | Then goes |
+|------|-------------------|-----------|
+| **DATA** (signal + GND) | **yaw** first | yaw → hip → knee (out through the leg), then leg-to-leg jumper to the next yaw |
+| **POWER** (V+ / GND) | **hip** (bus-bar branch) | hip → yaw and hip → knee |
+
+Diagnostic consequence: a yaw that **blinks (has V+)** but **does not answer** usually still has power via the hip tee, while its **DATA in** (chassis → yaw) or the yaw UART is dead. Hip/knee on that leg may still answer if they remain on the data chain past a deaf yaw — or drop off entirely if the chain is broken at that yaw.
 
 **The two rules that prevent the melt:**
 
-1. **Within a leg** (3 servos): keep the stock 3-pin chain
-   (V+/GND/Signal). The leg's first 5264 pin carries only that leg's
-   3 servos (~1.5 A walking) — under the 3 A rating. **Inject that
-   leg's V+/GND from its own bus-bar branch** at the leg's first servo
-   (or, for extra margin, at the middle/hip servo so no internal pin
-   carries more than 2 servos).
+1. **Within a leg** (3 servos): keep the stock 3-pin chain for DATA
+   (and local V+ after the hip inject). The leg's bus-bar branch
+   injects **at the hip** so the chassis 5264 only feeds that tee;
+   yaw and knee draw through the hip's second port / harness tee
+   (still one leg's current on the branch — under the 3 A rating).
 2. **Leg-to-leg**: the cable that continues the DATA chain to the next
    leg carries **Signal + GND only** — **cut/omit the V+ wire**. Each
-   leg already has its own V+ feed from the bus bar, so power never
-   bridges between legs and no pin ever carries more than one leg.
+   leg already has its own V+ feed from the PDB / power Wago at the hip,
+   so power never bridges between legs and no pin ever carries more than
+   one leg.
+
+### 6.2.1 Fat power wires vs DATA (signal integrity)
+
+The STS bus is **1 Mbps half-duplex TTL** — easy to upset. Thick V+/GND
+leads are fine electrically for current, but if they **run parallel /
+bundled** with the thin DATA line for more than a short hop they can
+couple switching noise (motor PWM / load steps) into the signal and
+make one servo look “deaf” (LED still blinks from V+, scan misses it)
+or flaky.
+
+Practical rules for this as-built topology:
+
+- Keep the **hip power branch** (thick wire) **physically apart** from
+  the **yaw data in** lead; cross at ~90° if they must meet, don’t
+  zip-tie them side-by-side along the coxa.
+- DATA should travel as **signal + its own GND pair** (twisted if you
+  extend it). Do **not** rely on the fat power GND alone as the UART
+  return over a long run — motor return current on that GND shifts the
+  logic reference.
+- Short stock 3-pin pigtails yaw↔hip↔knee are usually OK even with
+  local V+ in the same plug; trouble shows up on **long chassis→yaw
+  data runs** laid next to the bus-bar branch.
+- Quick A/B test: temporarily route a **short, separate** signal+GND
+  only into that yaw (power still from the hip). If it suddenly
+  answers, the thick parallel power run was the culprit — not the
+  servo.
+- Optional: try `--baud 500000` (or 115200) once; if a “missing” yaw
+  appears only at lower baud, treat it as noise/edge-rate until the
+  layout is cleaned up, then return to 1 Mbps.
+
+### 6.2.2 Adding legs one at a time (bring-up)
+
+The bus often looks fine with 1–3 legs and then misbehaves when the
+**4th** data stub goes on: extra cable capacitance + another yaw tap at
+1 Mbps, or a bad **leg-to-leg** jumper (especially if V+ was left
+connected on a “data-only” cable).
+
+Bring-up rule:
+
+1. Confirm scan with N legs.
+2. Add leg N+1 **data** only after its power branch is sane; prefer not
+   hot-plugging the data jumper under a heavy load.
+3. If something that used to answer goes offline (e.g. L0 yaw LED blinks
+   but scan misses it): **unplug the newest leg’s data jumper first**.
+   If the old motors return, the newest stub/jumper is guilty — not the
+   yaw servo itself.
+4. Test the newest leg **alone** on the URT-2; then 3 good legs; then
+   add the 4th.
+5. Interactive checklist: `urt2_motor_setup.py --debug` → “new leg broke
+   the bus” bring-up.
 
 The "bus bar" is best implemented as a **drone power-distribution
 board** — the spec'd part is the **Matek PDB-XT60** (36 × 50 mm, 11 g,
-XT60 input, 6 output pad pairs at 15 A continuous each + 1 VCC/GND
-pair for the buck feed; ~4× margin over the ~3.7 A worst-case branch).
-A brass/copper bus bar, a fused distribution block, or paralleled
-ring-terminal posts also work electrically but weigh 10–30× more
-(Jul 2026 weight fix).  Ignore the PDB's small on-board 5 V/12 V BECs;
-the Uno Q stays on the XINGYHENG buck.  The optional per-branch fuses
-(5–7 A) protect each leg's thin harness against a multi-servo stall
-in that leg.
+XT60 input, 6 output pad pairs at 15 A continuous each; ~4× margin over
+the ~3.7 A worst-case branch).  From the PDB, land each motor branch on
+a **chassis-top peripheral power Wago** (12 V+G) before the leg harness.
+Ignore the PDB's small on-board 5 V/12 V BECs — the Uno Q takes a
+**direct battery tap** (no external buck).  The optional per-branch
+fuses (5–7 A) protect each leg's thin harness against a multi-servo
+stall in that leg.
 
 ### 6.3 Per-branch current budget
 
@@ -511,13 +623,13 @@ STS3215 @ 12 V: idle ~0.2 A, walking ~0.3–0.7 A/servo, peak/loaded
 
 | Branch                | Servos | Idle  | Walking (typ) | Walking (high) | 1 servo stall* | Wire        | Fuse        |
 |-----------------------|:------:|------:|--------------:|---------------:|---------------:|-------------|-------------|
-| Leg 0 (ID 1/2/3)      | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
-| Leg 1 (ID 4/5/6)      | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
-| Leg 2 (ID 7/8/9)      | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
-| Leg 3 (ID 10/11/12)   | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
-| Leg 4 (ID 13/14/15)   | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
-| Leg 5 (ID 16/17/18)   | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
-| Logic (Uno Q via buck)| —      | ~0.3 A (5 V side) |     |                |                | per buck    | (buck-int.) |
+| Leg 0 (ID 2/3/4)      | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
+| Leg 1 (ID 5/6/7)      | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
+| Leg 2 (ID 8/9/10)     | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
+| Leg 3 (ID 11/12/13)   | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
+| Leg 4 (ID 14/15/16)   | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
+| Leg 5 (ID 17/18/19)   | 3      | 0.6 A | ~1.5 A        | ~2.1 A         | ~3.7 A         | 16–18 AWG   | opt 5–7 A   |
+| Logic (Uno Q battery tap)| —   | ~0.3–0.5 A (board) |   |                |                | 20–22 AWG   | (board)     |
 | **Main trunk (sum)**  | **18** | ~3.6 A| **~9 A**      | **~12.6 A**    | (stalls add)   | 12–14 AWG   | **15–20 A** |
 
 \* "1 servo stall" = one servo of the leg at 2.7 A stall while the
@@ -532,21 +644,21 @@ prevent anyway).
 
 | Run                              | Gauge / part                              | Carries            |
 |----------------------------------|-------------------------------------------|--------------------|
-| LiPo → switch → fuse → bus bar   | **12–14 AWG silicone** (XT60 pigtails)    | full robot ~9–13 A |
-| Bus bar → per-leg branch         | **16–18 AWG silicone**                    | one leg ~1.5–3.7 A |
+| LiPo → switch → fuse → PDB       | **12–14 AWG silicone** (XT60 pigtails)    | full robot ~9–13 A |
+| PDB → power Wago → per-leg branch| **16–18 AWG silicone** + Wago 221         | one leg ~1.5–3.7 A |
 | Branch → leg first servo         | **Molex 5264 3-pin pigtail** (crimped)    | one leg            |
 | Within-leg servo-to-servo        | stock FEETECH 3-pin (22–24 AWG, 5264)     | one leg            |
-| Leg-to-leg (DATA only)           | 2-wire signal+GND (22–24 AWG) — **no V+** | signal (mA)        |
-| Uno Q USB-C → USB adapter        | USB-C-to-C cable + **USB-C OTG/hub**      | USB data + 5 V log.|
+| Leg-to-leg (DATA only)           | 2-wire signal+GND via underside data Wagos — **no V+** | signal (mA) |
+| LiPo → Uno Q VIN                 | 20–22 AWG (separate battery tap)          | Uno Q (~0.3–0.5 A) |
+| Uno Q USB-C → USB adapter (fallback) | USB-C-to-C + **USB-C OTG/hub**        | USB data           |
 | USB adapter `D`/`G` → bus        | 2-wire signal+GND (22–24 AWG) — **no V+** | signal (mA)        |
-| Bus bar → buck → Uno Q           | 20–22 AWG (low current)                   | logic (~0.3 A @5V) |
 
-> **Common ground is mandatory.** The bus-bar GND, the Uno Q GND, the
-> buck output GND, and the **USB adapter's servo-power GND** must all be
-> bonded, or the half-duplex signal has no return reference and the bus
-> goes silent/garbled. (USB already shares GND between the Uno Q and the
+> **Common ground is mandatory.** The PDB GND, the Uno Q GND, and the
+> **USB adapter's servo-power GND** (if used) must all be bonded, or the
+> half-duplex signal has no return reference and the bus goes
+> silent/garbled. (USB already shares GND between the Uno Q and the
 > adapter's logic side; the point here is the adapter's **12 V servo
-> terminal GND** must also tie to the bus-bar GND.)
+> terminal GND** must also tie to the PDB GND.)
 
 ### 6.5 Simulated stand-up draw (MuJoCo, Jul 2026)
 
@@ -556,7 +668,7 @@ converts net joint torques to bus current with the STS3215 electrical
 model at 12 V (`I = 0.2 A idle + 2.5 A × |τ|/2.94 N·m`, capped at the
 2.7 A stall).  Realistic-mass case = 2.89 kg total (1.30 kg chassis
 subtree: plates + yaw servos + the 300 g / 138 × 46 × 24 mm LiPo +
-PDB/buck/Uno Q deck), servo gains ×5 to approximate the real PID.
+PDB/Uno Q/hex deck), servo gains ×5 to approximate the real PID.
 
 | Quantity | Gentle stand-up (1.5 s) | Fast stand-up (0.4 s) | Budget limit |
 |---|---|---|---|

@@ -10,18 +10,12 @@
 units: mm
 
 parts:
-  buck_converter:
-    label: "buck converter"
+  breakout:
+    label: "breakout"
     role: "electronics"
     cots: true
     qty: 1
-    description: "DC-DC buck converter stepping the LiPo down to the servo-bus/logic rail. COTS."
-  buck_tray:
-    label: "buck tray"
-    role: "electronics"
-    cots: true
-    qty: 1
-    description: "Printed tray that mounts the buck converter on the chassis."
+    description: "Generic shield / breakout next to the Uno Q on the hex plate. COTS."
   chassis_bottom:
     label: "chassis bottom"
     role: "chassis"
@@ -33,7 +27,7 @@ parts:
     role: "chassis"
     cots: false
     qty: 1
-    description: "Hex top plate that closes the chassis over the electronics stack."
+    description: "Hex top plate that closes the chassis; carries PDB + motor controller + power Wagos, and the 4 magnet posts for the hex board."
   coxa_hip_bracket:
     label: "coxa hip bracket"
     role: "frame"
@@ -76,6 +70,36 @@ parts:
     cots: false
     qty: 6
     description: "Compliant TPU foot pad at each tibia tip for ground grip + shock absorption."
+  hex_mount_plate:
+    label: "hex mount plate"
+    role: "electronics"
+    cots: true
+    qty: 1
+    description: "\u00d8110 mm hex board (2 mm) held by 4 magnets on 20 mm posts; carries Uno Q + breakout (extra_stl / xTool)."
+  hex_post_magnet:
+    label: "hex post magnet"
+    role: "electronics"
+    cots: true
+    qty: 4
+    description: "\u00d88\u00d78 mm disc magnet that holds the hex mount plate."
+  hex_post_standoff:
+    label: "hex post standoff"
+    role: "electronics"
+    cots: true
+    qty: 4
+    description: "20 mm M3 brass standoff at CHASSIS_STANDOFF_HOLES_XY (\u00b131.1); bottom of each magnet post stack."
+  hex_post_thumb_nut:
+    label: "hex post thumb nut"
+    role: "electronics"
+    cots: true
+    qty: 4
+    description: "~2.5 mm M3 knurled thumb nut between standoff and magnet."
+  hex_raised_platform:
+    label: "hex raised platform"
+    role: "electronics"
+    cots: true
+    qty: 1
+    description: "Raised hex platform (62 mm screen-stand legs) bolted to the hex mount plate; screen on top face (MPU is glued on chassis_bottom, not under this plate)."
   hip_clamp_cap:
     label: "hip clamp cap"
     role: "frame"
@@ -88,12 +112,6 @@ parts:
     cots: true
     qty: 6
     description: "FEETECH STS3215 serial-bus servo driving the hip-pitch axis. COTS."
-  imu_pad:
-    label: "imu pad"
-    role: "electronics"
-    cots: true
-    qty: 1
-    description: "Printed vibration-isolated MPU-6050 mounting pad, foam-taped to chassis_top at the chassis CG; the IMU bolts to 4 heat-set inserts in its bosses."
   knee_clamp_cap:
     label: "knee clamp cap"
     role: "frame"
@@ -111,7 +129,19 @@ parts:
     role: "electronics"
     cots: true
     qty: 1
-    description: "LiPo battery pack, mounted low + central for stance stability. COTS."
+    description: "LiPo battery pack, velcro-strapped under chassis_bottom for stance stability. COTS."
+  motor_controller:
+    label: "motor controller"
+    role: "electronics"
+    cots: true
+    qty: 1
+    description: "USB/TTL bus-servo adapter brick beside the PDB. COTS."
+  mpu6050:
+    label: "mpu6050"
+    role: "electronics"
+    cots: true
+    qty: 1
+    description: "GY-521 MPU-6050 IMU glued on chassis_bottom (inter-plate bay), inboard of physical leg 1 (clockwise from tape-marked leg 0). I\u00b2C. COTS."
   passive_horn_hip:
     label: "passive horn hip"
     role: "horn"
@@ -124,11 +154,23 @@ parts:
     cots: true
     qty: 6
     description: "Stock passive-side metal disc horn of the knee sandwich; centre bore rides the rear idler boss directly (no printed adapter)."
+  pdb:
+    label: "pdb"
+    role: "electronics"
+    cots: true
+    qty: 1
+    description: "Matek-class power distribution board on chassis_top; battery \u2192 PDB \u2192 servo power via Wagos. COTS."
+  screen:
+    label: "screen"
+    role: "electronics"
+    cots: true
+    qty: 1
+    description: "63\u00d735 mm display panel centered on the raised platform top. COTS."
   screw_chassis:
     label: "screw chassis"
     role: "fastener"
     cots: true
-    qty: 60
+    qty: 24
     description: "Chassis-level / foot / deck fasteners (rendered set)."
   screw_hip:
     label: "screw hip"
@@ -148,12 +190,6 @@ parts:
     cots: true
     qty: 96
     description: "Fasteners around the yaw joint / servo mount (rendered set; count is the summed per-leg joint hardware)."
-  spider_carapace:
-    label: "spider carapace"
-    role: "chassis"
-    cots: false
-    qty: 1
-    description: "Cosmetic domed carapace shell over the chassis (jumping-spider styling); vented, lifts off as one piece."
   switch_holster:
     label: "switch holster"
     role: "electronics"
@@ -183,13 +219,19 @@ parts:
     role: "electronics"
     cots: true
     qty: 1
-    description: "Arduino Uno Q compute board (high-level control host). COTS."
-  uno_q_tray:
-    label: "uno q tray"
+    description: "Arduino Uno Q compute board on the hex mount plate (high-level control host). COTS."
+  wago_data:
+    label: "wago data"
     role: "electronics"
     cots: true
-    qty: 1
-    description: "Printed tray that mounts the Arduino Uno Q compute board on the chassis."
+    qty: 6
+    description: "Wago 221-style lever nut under chassis near a yaw retainer for the shared data bus."
+  wago_power:
+    label: "wago power"
+    role: "electronics"
+    cots: true
+    qty: 6
+    description: "Wago 221-style lever nut on chassis-top periphery for a per-leg 12 V + G motor branch."
   yaw_bearing_cap:
     label: "yaw bearing cap"
     role: "chassis"
@@ -219,4 +261,74 @@ parts:
     role: "frame"
     cots: false
     qty: 6
-    description: "Printed stirrup that bolts under each chassis yaw cradle to capture the STS3215 servo body from below."
+    description: "Anti-rotation saddle under each yaw cradle with a permanent 38 mm open-cage ground stand (replaces belly stilts; stays on while walking)."
+
+wiring:
+  route-j00:
+    purpose: "L0 leg bundle: drop slot -> down retainer window -> YAW ID 2 BACK-face 5264 ports"
+  route-j01:
+    purpose: "L0 daisy: YAW ID 2 -> HIP ID 3 (BACK ports, under yaw / around \u2212X face)"
+  route-j02:
+    purpose: "L0 daisy: HIP ID 3 -> KNEE ID 4 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
+  route-j03:
+    purpose: "L1 leg bundle: drop slot -> down retainer window -> YAW ID 5 BACK-face 5264 ports"
+  route-j04:
+    purpose: "L1 daisy: YAW ID 5 -> HIP ID 6 (BACK ports, under yaw / around \u2212X face)"
+  route-j05:
+    purpose: "L1 daisy: HIP ID 6 -> KNEE ID 7 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
+  route-j06:
+    purpose: "L2 leg bundle: drop slot -> down retainer window -> YAW ID 8 BACK-face 5264 ports"
+  route-j07:
+    purpose: "L2 daisy: YAW ID 8 -> HIP ID 9 (BACK ports, under yaw / around \u2212X face)"
+  route-j08:
+    purpose: "L2 daisy: HIP ID 9 -> KNEE ID 10 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
+  route-j09:
+    purpose: "L3 leg bundle: drop slot -> down retainer window -> YAW ID 11 BACK-face 5264 ports"
+  route-j10:
+    purpose: "L3 daisy: YAW ID 11 -> HIP ID 12 (BACK ports, under yaw / around \u2212X face)"
+  route-j11:
+    purpose: "L3 daisy: HIP ID 12 -> KNEE ID 13 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
+  route-j12:
+    purpose: "L4 leg bundle: drop slot -> down retainer window -> YAW ID 14 BACK-face 5264 ports"
+  route-j13:
+    purpose: "L4 daisy: YAW ID 14 -> HIP ID 15 (BACK ports, under yaw / around \u2212X face)"
+  route-j14:
+    purpose: "L4 daisy: HIP ID 15 -> KNEE ID 16 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
+  route-j15:
+    purpose: "L5 leg bundle: drop slot -> down retainer window -> YAW ID 17 BACK-face 5264 ports"
+  route-j16:
+    purpose: "L5 daisy: YAW ID 17 -> HIP ID 18 (BACK ports, under yaw / around \u2212X face)"
+  route-j17:
+    purpose: "L5 daisy: HIP ID 18 -> KNEE ID 19 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
+  route-trunk-lipo-switch:
+    purpose: "power trunk 12-14 AWG: LiPo XT60 -> anti-spark switch (rises past the top-plate +X edge)"
+  route-trunk-switch-pdb:
+    purpose: "power trunk 12-14 AWG: switch -> 15-20 A main fuse (inline) -> PDB on chassis_top"
+  route-logic-battery-uno:
+    purpose: "battery/PDB tap -> Uno Q (no buck; 20 AWG V+/GND; Uno Q accepts the 3S rail via its own regulator)"
+  route-data-head:
+    purpose: "Uno Q USB-C -> motor controller / USB bus-servo adapter -> servo ID 2 bus head (L0 yaw, data)"
+  route-i2c-imu:
+    purpose: "Uno Q I2C -> GY-521 MPU glued on chassis_bottom (behind phys. leg 1; 28 AWG 3V3/GND/SCL/SDA -- 3V3)"
+  route-pwr-L0:
+    purpose: "L0 power 16-18 AWG: PDB -> peripheral Wago -> leg 0 drop (V+/GND)"
+  route-pwr-L1:
+    purpose: "L1 power 16-18 AWG: PDB -> peripheral Wago -> leg 1 drop (V+/GND)"
+  route-pwr-L2:
+    purpose: "L2 power 16-18 AWG: PDB -> peripheral Wago -> leg 2 drop (V+/GND)"
+  route-pwr-L3:
+    purpose: "L3 power 16-18 AWG: PDB -> peripheral Wago -> leg 3 drop (V+/GND)"
+  route-pwr-L4:
+    purpose: "L4 power 16-18 AWG: PDB -> peripheral Wago -> leg 4 drop (V+/GND)"
+  route-pwr-L5:
+    purpose: "L5 power 16-18 AWG: PDB -> peripheral Wago -> leg 5 drop (V+/GND)"
+  route-data-L0L1:
+    purpose: "leg 0 -> leg 1 data jumper via underside data Wagos (signal+GND only, NO V+)"
+  route-data-L1L2:
+    purpose: "leg 1 -> leg 2 data jumper via underside data Wagos (signal+GND only, NO V+)"
+  route-data-L2L3:
+    purpose: "leg 2 -> leg 3 data jumper via underside data Wagos (signal+GND only, NO V+)"
+  route-data-L3L4:
+    purpose: "leg 3 -> leg 4 data jumper via underside data Wagos (signal+GND only, NO V+)"
+  route-data-L4L5:
+    purpose: "leg 4 -> leg 5 data jumper via underside data Wagos (signal+GND only, NO V+)"
