@@ -622,3 +622,26 @@ config until something wins — judge asym-AC on `cw-walk-aac-s1b` and
 the LP curriculum on `cw-walk-lp-s1b`. W&B will show the primaries
 crashed; ledger says KILLED_BY_OPERATOR. Walk pod is now free — use it
 solo (56-core). Do not relaunch the primaries.
+
+## OPERATOR 2026-08-08 ~20:25Z — phase-reward experiment: add a basin-escape arm
+
+Pattern across ALL walk refutations (5 shaping levers, speed pressure,
+nv continuation): every run warm-starts from the same converged shuffle
+(dr04b lineage). A converged low-entropy policy + a value function
+calibrated to the exploit is a deep basin; every excursion toward
+stepping pays immediate return cost, so PPO returns to the shuffle.
+The refutations are consistent with "basin too deep", not only "lever
+wrong" — and the periodic-reward literature (Siekmann/Cassie) trains
+from scratch WITH the phase reward, not by fine-tuning a shuffle.
+
+Directive for the phase-based tripod reward experiment: run TWO arms
+(capacity exists): (a) warm from dr04b as planned; (b) a basin-escape
+arm — fresh init (or stance-champion init `ppo_goal_cw_stance_dr10`,
+which stands/rises but never learned the shuffle) with the phase
+reward from step 0, higher initial log_std, walk-heavy goal mix but
+keep rise/lower/hold in the mix + canaries so the stance skills either
+survive or the erosion is caught immediately. Record both as one
+falsifiable comparison: if (b) steps and (a) shuffles, the basin is
+the story and warm-start-by-default gets an exception for behavior-
+class changes (note in guardrails already permits fresh init when the
+log records it as the hypothesis).
