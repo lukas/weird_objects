@@ -116,6 +116,10 @@ class GoalGenerator:
         # a fixed hold made early height commands fail outright.
         self.rise_hold_min_s = float(g.get("rise_hold_min_s",
                                            self.rise_hold_s))
+        # Canary hook (not a cfg key): fixed-seed canary probes set this
+        # to "flat"/"bridge"/"crouch" to pin the rise start kind for an
+        # isolated eval episode. None (default) = normal random draw.
+        self.force_rise_start: str | None = None
         self.rise_ramp_s = float(g.get("rise_ramp_s", 4.0))
         raise_mm = g.get("raise_height_mm", [10.0, 30.0])
         self.raise_m = (min(float(raise_mm[0]), max_h) * 0.001,
@@ -211,6 +215,11 @@ class GoalGenerator:
             # end and never reached flat — the bottom rung was too far
             # off the floor and the rungs too sparse to consolidate.
             r = rng.random()
+            force = getattr(self, "force_rise_start", None)
+            if force is not None:
+                # rng.random() above is still drawn so the stream is
+                # identical whether or not the hook is armed.
+                r = {"flat": 0.0, "bridge": 0.5, "crouch": 1.0}[force]
             rise = rng.uniform(*self.rise_m)
             hold_hi = self.rise_hold_s
             hold_lo = min(self.rise_hold_min_s, hold_hi)

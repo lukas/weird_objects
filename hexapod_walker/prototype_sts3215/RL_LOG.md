@@ -408,3 +408,65 @@ pod ~1090 fps; two sharing it ~240 each; two on 30-core lower ~75 each
    pod each as slots free; friction/lower are smoke/eval pods now.
 3. The speed-range diagnostic (plan queue #1) still deserves its slot —
    sequence it against the rebalance as capacity allows.
+
+## Cycle 9 — spurious trigger #3; infra cycle: canaries+auto-stop, gait gate, ledger, node-topology correction (2026-08-08 ~19:0x)
+
+OBSERVATIONS. Watcher named cw-walk-flag-s1 + cw-walk-nv "just finished";
+W&B IDs (swtus1fa, 8g6mggws) match the runs verdicted in round 8 — no new
+runs exist by those names. Third re-fire on already-handled runs. Root
+cause found in /workspace/orchestrator.log: the 18:08 cycle for this pair
+was interrupted by the operator's manual capacity cycle and the watcher
+restarted at 18:40:56 with its state file never updated (cw-walk-flag is
+in `processed`, -s1 and nv are not). No evals, no verdicts, no champion
+changes this cycle.
+
+All 8 in-flight runs verified alive and advancing (W&B state running +
+on-pod process/log checks + 60 s and 2 min growth windows): flagw 27.6M,
+flagw-s1 27.8M, nv2 30.7M, raisemix 21.0M, aac 25.3M, aac-s1 24.8M,
+lp 24.9M, lp-s1 24.8M cum.
+
+INFRA FINDING — the 6 pods sit on TWO physical ~128-core nodes, not six:
+g142d86 (friction, long5m, s3; load ~92) and g129004 (lower, s4, walk;
+load ~230 — identical loadavg across pods = host-wide). The hot node runs
+5 experiments ≈ 1.8x oversubscribed: the four newest runs progress at
+only ~100–410 fps (2-min W&B deltas) vs ~570 fps for flagw on the quiet
+node. Slow, not stalled — left alone per "never touch training pods";
+plan's compute section corrected (slots are launch slots, not
+throughput; ~4–5 fast runs total). Sizing/ETA math must use nodes.
+
+CODE LANDED (review §5a/§5c/§5b/§8b, all default-off or eval-side for
+in-flight runs; tests 21→25 pass; smoke below):
+- `goal_task.py`: `force_rise_start` canary hook (None default = no
+  behavior change; rng stream identical either way).
+- `train_ppo_sim.py`: fixed-seed canaries (rise flat/bridge/crouch +
+  lower, seeds 1001–4002) ride the existing bg-eval worker; parent
+  baseline at warm start; groups the parent passed 2/2 are protected;
+  regression AUTO-STOP after 3 consecutive full-group (0/2) failures.
+  Default-ON for every `--init-from` run (`--no-canary` opts out,
+  `--canary-stop-after 0` = monitor only). Smoke (WANDB_MODE=disabled,
+  6k steps warm from dr04b): baseline rise_flat 2/2, rise_crouch 2/2,
+  rise_bridge 0/2, lower 1/2 — matches dr04b's known bridge hole — and
+  the mid-run probe reproduced it exactly (fixed-seed determinism holds
+  in the production path). Would have caught cw-walk-flag's rise
+  collapse millions of steps early.
+- `eval_checkpoint.py`: GAIT-VALIDITY GATE — walk episodes now report
+  `sacrificed_legs` (duty <0.10 = parked flag leg, or duty >0.95 with 0
+  swings = dragged anchor) and walk `success` requires `gait_valid`.
+  Validated on champion dr04b @ DR 0.4: leg 3 duty 0.04–0.06 in all 3
+  episodes → walk 0/3. That is the honest number — the walk champion
+  has never been walking. Applies to all future gates incl. flagw's.
+- `orchestrator/experiments.json` (NEW): structured ledger, backfilled
+  with 8 RUNNING + 3 FINISHED (flag, flag-s1, nv) entries.
+- `orchestrator/watch_loop.py`: dedupe now also skips runs whose ledger
+  status is FINISHED/FAILED (exception-safe; tested). Takes effect on
+  the next watcher restart; meanwhile this cycle exiting rc=0 marks the
+  two re-firing names processed, so both paths close the loop.
+
+DECISION — no launches. (a) The binding review required regression
+auto-stop BEFORE the next warm-start launch; it landed this cycle.
+(b) Capacity: total demand already ~1.4x the two nodes; adding runs
+slows everyone. (c) flagw (~1.2M to go), raisemix (~1.2M), nv2 (~2M)
+finish within the hour on the quiet node — the next real cycle evals
+them and launches the speed-range diagnostic (queue #1) on genuinely
+freed slots, with canaries armed and predictions recorded in the
+ledger per the two-phase INTENT/RUNNING protocol.

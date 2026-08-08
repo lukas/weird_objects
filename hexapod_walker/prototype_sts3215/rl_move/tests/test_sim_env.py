@@ -472,3 +472,110 @@ def test_walk_lp_curriculum_bucket_sampling():
         seen.add(env._walk_bucket)
     assert len(seen) >= 4, f"uniform sampling too narrow: {seen}"
     env.close()
+
+
+def test_canary_force_rise_start_and_seed_determinism():
+    """Fixed-seed canaries (review §5a): force_rise_start pins the rise
+    start kind, and reset(seed=N) makes the episode draw repeatable."""
+    from rl_move.sim.goal_task import SimHexapodGoalEnv
+
+    env = SimHexapodGoalEnv(randomize=True, seed=7)
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_rise = 1.0
+    for force, check in (
+            ("flat", lambda t: t.start_at == "zero" and t.start_curl == 0),
+            ("bridge", lambda t: t.start_at == "zero" and t.start_curl > 0),
+            ("crouch", lambda t: t.start_at == "crouch")):
+        g.force_rise_start = force
+        for seed in (1001, 2002):
+            env.reset(seed=seed)
+            assert check(env._goal_traj), \
+                f"force={force} gave {env._goal_traj.start_at}" \
+                f"/{env._goal_traj.start_curl}"
+    # Same seed twice = identical episode (obs stream + goal heights).
+    g.force_rise_start = "bridge"
+    obs_a, _ = env.reset(seed=1001)
+    h_a = env._goal_traj.height.copy()
+    curl_a = env._goal_traj.start_curl
+    obs_b, _ = env.reset(seed=1001)
+    assert np.allclose(obs_a, obs_b)
+    assert np.allclose(h_a, env._goal_traj.height)
+    assert curl_a == env._goal_traj.start_curl
+    # Hook off = normal random draw still works.
+    g.force_rise_start = None
+    env.reset()
+    env.close()
+
+
+def test_canary_runner_and_protected_groups():
+    """_run_canaries covers every case on a rise+lower env; the
+    protected set is exactly the groups the baseline passed 2/2."""
+    from rl_move.sim.goal_task import SimHexapodGoalEnv
+    from rl_move.sim.train_ppo_sim import (
+        CANARY_CASES, _protected_groups, _run_canaries)
+
+    # Full-length episodes: the goal generator's hold+ramp windows must
+    # fit inside the episode (canaries always run at the training
+    # episode length in production).
+    env = SimHexapodGoalEnv(seed=9)
+    res = _run_canaries(env, lambda obs: np.zeros(env.n_act))
+    assert set(res) == {c[0] for c in CANARY_CASES}
+    assert all(isinstance(v, bool) for v in res.values())
+    assert env._goal_gen.force_rise_start is None  # hook disarmed after
+    env.close()
+
+    assert _protected_groups({c[0]: True for c in CANARY_CASES}) == \
+        ["lower", "rise_bridge", "rise_crouch", "rise_flat"]
+    partial = {c[0]: c[0] != "rise_flat_b" for c in CANARY_CASES}
+    assert "rise_flat" not in _protected_groups(partial)  # 1/2 ≠ protected
+
+
+def test_canary_stop_callback_streak_logic():
+    """Auto-stop (review §5c): 3 consecutive FULL-group failures of a
+    protected skill stop training; partial failures reset nothing."""
+    from rl_move.sim.train_ppo_sim import _make_canary_stop_callback
+
+    class FakeBg:
+        def __init__(self):
+            self.queue = []
+
+        def pop_canaries(self):
+            out, self.queue = self.queue, []
+            return out
+
+    def probe(flat_a, flat_b):
+        return {"rise_flat_a": flat_a, "rise_flat_b": flat_b,
+                "lower_a": True, "lower_b": True}
+
+    bg = FakeBg()
+    cb = _make_canary_stop_callback(bg, ["rise_flat", "lower"],
+                                    stop_after=3)
+    cb.num_timesteps = 0
+    bg.queue = [probe(False, False), probe(False, False)]
+    assert cb._on_step() is True          # streak 2 < 3
+    bg.queue = [probe(False, True)]
+    assert cb._on_step() is True          # 1/2 pass resets the streak
+    assert cb.streak["rise_flat"] == 0
+    bg.queue = [probe(False, False)] * 3
+    assert cb._on_step() is False         # 3 consecutive full failures
+    # monitor-only mode never stops
+    bg2 = FakeBg()
+    cb2 = _make_canary_stop_callback(bg2, ["rise_flat"], stop_after=0)
+    cb2.num_timesteps = 0
+    bg2.queue = [probe(False, False)] * 5
+    assert cb2._on_step() is True
+
+
+def test_walk_success_requires_gait_validity():
+    """Gait-validity gate (review §5b): perfect tracking with a
+    sacrificed leg is NOT a successful walk episode."""
+    from rl_move.sim.eval_checkpoint import _success
+
+    good = {"vel_err_mean": 0.01, "gait_valid": True}
+    assert _success("walk", False, good)
+    flagged = {"vel_err_mean": 0.01, "gait_valid": False,
+               "sacrificed_legs": [4]}
+    assert not _success("walk", False, flagged)

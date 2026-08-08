@@ -81,7 +81,10 @@ def _success(mode: str, term: bool, ep: dict) -> bool:
         return ep["height_err_end_mm"] is not None \
             and ep["height_err_end_mm"] <= 5.0
     if mode == "walk":
-        return ep.get("vel_err_mean", 1e9) <= 0.03
+        # gait_valid: no persistently sacrificed leg (see gait-validity
+        # gate below); tracking alone has repeatedly hidden the exploit.
+        return (ep.get("vel_err_mean", 1e9) <= 0.03
+                and ep.get("gait_valid", True))
     if mode in ("lean", "track", "hold"):
         return ep.get("track_err_mean_deg", 1e9) <= 1.5
     if mode == "unload":
@@ -214,6 +217,17 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     if vel_errs:
         ep["vel_err_mean"] = round(float(np.mean(vel_errs)), 3)
         ep["speed_mean_m_s"] = round(float(np.mean(speeds)), 3)
+    if mode == "walk":
+        # Gait-validity gate (guardrails, external review §5b): a walking
+        # checkpoint is INVALID if any leg is persistently sacrificed,
+        # regardless of velocity error. Sacrificed = airborne essentially
+        # the whole episode (parked flag leg) or grounded the whole
+        # episode with zero swings (dragged anchor). Permanent eval-side
+        # detection, independent of any reward term.
+        ep["sacrificed_legs"] = [
+            f for f in range(6)
+            if duty[f] < 0.10 or (duty[f] > 0.95 and swings[f] == 0)]
+        ep["gait_valid"] = not ep["sacrificed_legs"]
     ep["success"] = _success(mode, term, ep)
     return ep, frames
 
@@ -340,6 +354,12 @@ def main() -> None:
                       if "speed_mean_m_s" in e]
                 extra = (f" | vel_err {np.mean(ve):.3f} "
                          f"speed {np.mean(sp):.3f} m/s")
+            if mode == "walk":
+                n_valid = sum(bool(e.get("gait_valid")) for e in eps)
+                sac = sorted({f for e in eps
+                              for f in e.get("sacrificed_legs", [])})
+                extra += (f" | gait_valid {n_valid}/{len(eps)}"
+                          + (f" sacrificed legs {sac}" if sac else ""))
             print(f"[{tag}] {mode:6s}: {n_ok}/{len(eps)}{kinds} | "
                   f"Imax {hot:.2f}A | imbal "
                   f"{max(e['cur_leg_imbalance'] for e in eps):.2f}"

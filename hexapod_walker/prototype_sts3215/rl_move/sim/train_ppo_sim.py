@@ -713,6 +713,13 @@ def _bg_eval_child(jobs, results, task, args) -> None:
                     obs, deterministic=True)[0]
                 payload, brief = _run_periodic_eval(
                     eval_env, act, args, env_cls, step)
+                if getattr(args, "canary", False):
+                    can = _run_canaries(eval_env, act)
+                    for case, ok in can.items():
+                        payload[f"canary/{case}"] = int(ok)
+                    out["canary"] = can
+                    brief += " | canary " + " ".join(
+                        f"{c}={int(v)}" for c, v in can.items())
                 out.update(payload=payload, brief=brief)
             else:
                 if render_env is None:
@@ -752,6 +759,7 @@ class _BgEval:
         self._jobs = ctx.Queue()
         self._results = ctx.Queue()
         self._busy = {"eval": 0, "video": 0}
+        self._canaries: list[dict] = []  # drained canary probe results
         self._proc = ctx.Process(
             target=_bg_eval_child,
             args=(self._jobs, self._results, task, args),
@@ -784,6 +792,8 @@ class _BgEval:
                 print(f"[bg-{out['kind']}] skipped ({out['error']})")
             elif out["kind"] == "eval":
                 wandb.log(out["payload"])
+                if "canary" in out:
+                    self._canaries.append(out["canary"])
                 print(f"[periodic-eval] {out['step']:,}: {out['brief']}")
             else:
                 wandb.log({"video/rollout": wandb.Video(
@@ -791,6 +801,12 @@ class _BgEval:
                                caption=out["caption"]),
                            "global_step": out["step"]})
                 print(f"[video] logged reel ({out['caption']})")
+
+    def pop_canaries(self) -> list[dict]:
+        """Hand any drained canary probe results to the stop callback."""
+        self.drain()
+        out, self._canaries = self._canaries, []
+        return out
 
     def wait(self, timeout_s: float = 1800.0) -> None:
         """Block until all in-flight jobs are logged (end of training)."""
@@ -866,6 +882,120 @@ def _make_video_callback(bg: "_BgEval", every: int, args):
             bg.submit("video", self.model, self.num_timesteps, tag="final")
 
     return VideoCallback()
+
+
+# ---------------------------------------------------------------------------
+# Fixed-seed canaries + regression auto-stop (external review §5a/§5c).
+#
+# Identical cases every probe: the mid-run question becomes "did this
+# checkpoint LOSE a behavior it previously demonstrated on identical
+# cases?" — 2-episode random draws are binomial noise and hid the
+# cw-walk-flag rise collapse for millions of steps.
+
+CANARY_CASES: tuple[tuple[str, str, str | None, int], ...] = (
+    # (case, goal mode, forced rise start kind, reset seed)
+    ("rise_flat_a", "rise", "flat", 1001),
+    ("rise_flat_b", "rise", "flat", 1002),
+    ("rise_bridge_a", "rise", "bridge", 2001),
+    ("rise_bridge_b", "rise", "bridge", 2002),
+    ("rise_crouch_a", "rise", "crouch", 3001),
+    ("rise_crouch_b", "rise", "crouch", 3002),
+    ("lower_a", "lower", None, 4001),
+    ("lower_b", "lower", None, 4002),
+)
+CANARY_GROUPS: dict[str, tuple[str, ...]] = {
+    "rise_flat": ("rise_flat_a", "rise_flat_b"),
+    "rise_bridge": ("rise_bridge_a", "rise_bridge_b"),
+    "rise_crouch": ("rise_crouch_a", "rise_crouch_b"),
+    "lower": ("lower_a", "lower_b"),
+}
+
+
+def _run_canaries(env, act_fn) -> dict[str, bool]:
+    """Run the fixed-seed canary cases; success per case.
+
+    reset(seed=N) reseeds env.rng, which drives the DR draw, the goal
+    draw and the start pose — so with a deterministic policy each case
+    is a repeatable episode. Mode is isolated via the generator's p_*
+    (same pattern as _run_periodic_eval); the rise start kind is pinned
+    through GoalGenerator.force_rise_start.
+    """
+    gen = getattr(env, "_goal_gen", None)
+    if gen is None:
+        return {}
+    results: dict[str, bool] = {}
+    for case, mode, force, seed in CANARY_CASES:
+        if not hasattr(gen, f"p_{mode}"):
+            continue
+        for attr in [a for a in vars(gen) if a.startswith("p_")]:
+            setattr(gen, attr, 0.0)
+        setattr(gen, f"p_{mode}", 1.0)
+        gen.force_rise_start = force
+        obs, _ = env.reset(seed=seed)
+        done = term = False
+        h_err = None
+        while not done:
+            obs, _r, term, trunc, info = env.step(act_fn(obs))
+            h_err = abs(float(info.get("height_err_mm", 1e9)))
+            done = term or trunc
+        results[case] = bool(
+            not term and h_err is not None and h_err <= 15.0)
+    gen.force_rise_start = None
+    return results
+
+
+def _protected_groups(baseline: dict[str, bool]) -> list[str]:
+    """Groups the parent passed in FULL at launch — the protected set."""
+    return sorted(
+        g for g, cases in CANARY_GROUPS.items()
+        if cases and all(baseline.get(c, False) for c in cases))
+
+
+def _make_canary_stop_callback(bg: "_BgEval", protected: list[str],
+                               stop_after: int = 3):
+    """Auto-terminate when a protected skill fully collapses.
+
+    A probe "fails" a group only when EVERY case in the group fails
+    (conservative: 0/2, not 1/2 — single-case misses are noise).
+    stop_after consecutive failing probes of any protected group stops
+    training; the normal end-of-run save path still runs, so the last
+    checkpoint survives for diagnosis. stop_after=0 monitors only.
+    """
+    from stable_baselines3.common.callbacks import BaseCallback
+
+    class CanaryStopCallback(BaseCallback):
+        def __init__(self):
+            super().__init__()
+            self.streak = {g: 0 for g in protected}
+
+        def _on_step(self) -> bool:
+            for can in bg.pop_canaries():
+                for g in protected:
+                    cases = CANARY_GROUPS[g]
+                    seen = [can[c] for c in cases if c in can]
+                    if not seen:
+                        continue
+                    if not any(seen):
+                        self.streak[g] += 1
+                    else:
+                        self.streak[g] = 0
+                bad = [g for g, s in self.streak.items()
+                       if stop_after > 0 and s >= stop_after]
+                if bad:
+                    print(f"[canary] AUTO-STOP at {self.num_timesteps:,}: "
+                          f"protected skill(s) {bad} failed "
+                          f"{stop_after} consecutive probes "
+                          f"(streaks {self.streak})")
+                    try:
+                        import wandb
+                        wandb.log({"canary/auto_stop": 1,
+                                   "global_step": self.num_timesteps})
+                    except Exception:
+                        pass
+                    return False
+            return True
+
+    return CanaryStopCallback()
 
 
 def train(args) -> int:
@@ -1008,6 +1138,28 @@ def train(args) -> int:
     # overwrite the same checkpoint prefix and final .zip (2026-08-07:
     # two concurrent warm-starts were both writing ppo_goal.zip).
     name = args.out_name or f"ppo_{args.task}"
+    # Fixed-seed canaries + regression auto-stop (review §5a/§5c): on by
+    # default for every warm start — the failure class is a warm-started
+    # run silently destroying a parent skill (cw-walk-flag's rise).
+    args.canary = bool(args.init_from) and not args.no_canary
+    canary_protected: list[str] = []
+    if args.canary:
+        cenv = _build_env(env_cls, params, args, seed=args.seed + 77777)
+        act0 = lambda o: model.policy.predict(  # noqa: E731
+            o, deterministic=True)[0]
+        baseline = _run_canaries(cenv, act0)
+        cenv.close()
+        canary_protected = _protected_groups(baseline)
+        print(f"[canary] parent baseline: "
+              + " ".join(f"{c}={int(v)}" for c, v in baseline.items()))
+        print(f"[canary] protected groups (parent passed 2/2): "
+              f"{canary_protected or 'none'}")
+        if run:
+            run.config.update({
+                "canary_baseline": {k: int(v) for k, v in baseline.items()},
+                "canary_protected": canary_protected,
+                "canary_stop_after": args.canary_stop_after,
+            }, allow_val_change=True)
     callbacks = [CheckpointCallback(
         save_freq=max(10_000 // args.n_envs, 1000),
         save_path=str(POLICY_DIR), name_prefix=name)]
@@ -1024,6 +1176,13 @@ def train(args) -> int:
         if args.eval_every > 0:
             callbacks.append(_make_periodic_eval_callback(
                 bg, every=args.eval_every))
+            if args.canary and canary_protected:
+                callbacks.append(_make_canary_stop_callback(
+                    bg, canary_protected,
+                    stop_after=args.canary_stop_after))
+                print("[canary] regression auto-stop armed "
+                      f"(stop after {args.canary_stop_after} consecutive "
+                      "full-group failures)")
         if args.video_every > 0:
             callbacks.append(_make_video_callback(
                 bg, args.video_every, args))
@@ -1276,6 +1435,14 @@ def main(argv: list[str] | None = None) -> int:
                     help="override the entropy coefficient (0 lets "
                          "exploration noise anneal away instead of "
                          "being propped up)")
+    ap.add_argument("--no-canary", action="store_true",
+                    help="disable the fixed-seed canary probes + "
+                         "regression auto-stop that warm starts get by "
+                         "default (review §5a/§5c)")
+    ap.add_argument("--canary-stop-after", type=int, default=3,
+                    help="consecutive full-group canary failures of a "
+                         "parent-passed skill before auto-stop "
+                         "(0 = monitor only)")
     ap.add_argument("--asym-critic", action="store_true",
                     help="asymmetric actor-critic: mask the privileged "
                          "measured-velocity obs (last 2 dims) on the "
