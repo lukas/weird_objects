@@ -130,7 +130,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 dtype=np.float32)
 
     def _append_vel(self, obs: np.ndarray) -> np.ndarray:
-        v = self._body_vel_xy() / VEL_SCALE
+        # goal.walk_obs_body_vel=0 zeroes the privileged measured-velocity
+        # entries (deployable-obs experiment: hardware has no velocity
+        # sensor). Obs WIDTH is unchanged so checkpoints stay warm-start
+        # compatible; the policy must infer body velocity from joint
+        # velocities / gyro instead. Default 1.0 = original behavior.
+        if float(cfg_get(self.cfg, "goal", "walk_obs_body_vel",
+                         default=1.0)) == 0.0:
+            v = np.zeros(N_VEL_OBS)
+        else:
+            v = self._body_vel_xy() / VEL_SCALE
         return np.concatenate([obs, v]).astype(np.float32)
 
     def reset(self, *args, **kwargs):
