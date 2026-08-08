@@ -353,3 +353,39 @@ actually reach the workers via env_method. Smoke checkpoints deleted.
 
 RL_PLAN.md: compute section updated to 6 pods; queue rewritten (items
 1+2 now in flight; temporal actor and lower end-posture remain).
+
+Launches (snapshot 4daf7ee474bed44826db19201a7e258679a9dd63, tag
+exp/cw-walk-aac; code synced to lower+walk pods, init_dr04b.zip md5-
+verified on both; per-run logs; eval/video-every 200k). All four
+verified: W&B run present, state running, global_step advancing past
+the warm-start count.
+
+### LAUNCH cw-walk-aac (pod walk, W&B 1emfi5i5, seed 0, 4M, DR 0.4)
+Warm from ppo_goal_cw_walk_dr04b via --asym-critic transplant. One
+variable vs parent: actor masked to hardware obs (measured-velocity
+dims zeroed on the actor path only), critic keeps them. Hypothesis:
+the privileged critic preserves the value signal the fully-blinded
+baseline (cw-walk-nv, 1/6 @ 4M) lost, so a deployable actor learns
+tracking. Gate: sto walk ≥4/6 @ vel_err ≤0.035 AND beat nv's 4M mark;
+final comparison vs nv2 @ 8M. Blunt video verdict required.
+
+### LAUNCH cw-walk-aac-s1 (pod lower, W&B cajod2qc, seed 1, 4M, DR 0.4)
+Twin of cw-walk-aac (run variance + best-of-2). Same gate.
+
+### LAUNCH cw-walk-lp (pod walk, W&B 0ff8idlz, seed 0, 5M, DR 0.4)
+Warm from ppo_goal_cw_walk_dr04b. One variable vs parent:
+goal.walk_lp_curriculum=1 (8 speed buckets 0.02–0.12 m/s, LP-weighted
+sampling every 100k, eps floor 0.05) replaces the fixed 0.02–0.06
+range. Hypothesis: sampling the improving frontier widens tracked
+speed without the manual-widening regressions (w07/w08). Gate:
+retention sto walk ≥4/6 @ vel_err ≤0.030 on 0.02–0.06 AND sto mean
+vel_err ≤0.045 over uniform 0.02–0.12 AND blunt video review;
+lp/vel_err_b* command-speed→performance curve logged.
+
+### LAUNCH cw-walk-lp-s1 (pod lower, W&B tf16wr6y, seed 1, 5M, DR 0.4)
+Twin of cw-walk-lp. Same gate.
+
+State after this cycle: 8 experiments in flight (flagw, flagw-s1, nv2,
+raisemix + the four above) on 6 pods; 4 slots free of which 2 reserved
+for smokes. Next decisions wait on finishes: temporal actor keys off
+the best of aac/nv2; lower end-posture keys off flagw.
