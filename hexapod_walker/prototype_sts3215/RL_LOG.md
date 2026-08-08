@@ -922,3 +922,53 @@ clean). In flight after this cycle: aac-s1b (s3), lp-s1b (s4), phase
 (long5m), phase-stance (walk). friction + lower free = smoke/eval
 capacity. Next cycle: eval aac-s1b vs the called nv 8M baseline when it
 finishes (~28.76M cum), lp-s1b at ~29.76M, then the phase arms.
+
+## Cycle 11b (same session) — aac-s1b + lp-s1b finished mid-cycle; evals done now
+
+### cw-walk-aac-s1b — FAIL on walk at 4M; retention half strongly supported; continuation to complete the 8M fixed-budget comparison
+OBSERVATIONS. W&B gmbwrp4v, 3.72M steps (28.77M cum = 4M asym training from
+dr04b), finished ~20:20 @ ~1600 fps. Harness on s3 (ckpt md5 0642955c, DR
+0.4, own cfg-sets, 6 eps/mode det+sto): walk det 0/6 gait-valid @ vel_err
+0.036, sto 0/6 @ 0.036 — leg 3 parked (duty 0.04–0.08) in 12/12 episodes,
+no tripod flips. Retention: rise det 5/6 / sto 6/6 (flat 5/5 across
+passes), raise det 4/6 / sto 5/6, track 5/4, lower det 2/6 / sto 0/6.
+Baseline deltas: vs nv @4M (sto 1/6 @ 0.035) tracking is EQUAL within eval
+noise (0.036 vs 0.035); vs nv's rise (det 1/6 / sto 2/6) retention is
+DRAMATICALLY better (11/12 vs 3/12) — the privileged critic prevents the
+forgetting the blind baseline suffered, but does not improve tracking.
+Frames reviewed (10 each): walk_det_0 77280d78, walk_det_3 4aedf3c8,
+rise_det_0 4cd15c43, contact_sheet 76c4ab4c.
+INTERPRETATION. Videos: NOT WALKING — same 5-leg scoot with leg 3 curled
+in the air, body held a bit higher than the parent's version; rise reaches
+a real stand with transient flag legs on the way up (lineage trait).
+VERDICT: FAIL vs its walk gate. hardware-ready: NO — no six-foot gait.
+HYPOTHESIS STATUS: tracking half REFUTED at 4M (deployable actor tracks no
+better than blind at matched steps); retention half SUPPORTED (rise 11/12
+vs 3/12). The fixed-budget comparison point is 8M (review §6, nv2 already
+ran its 8M): launching continuation cw-walk-aac-s1c (+4M, same settings)
+so the deployable-obs question is answered at matched budget, not called
+early on a half-budget tie. Champion unchanged.
+
+### cw-walk-lp-s1b — FAIL both gate halves; LP speed curriculum REFUTED; line closed
+OBSERVATIONS. W&B 4qe1gv3z, 4.57M steps (29.76M cum), finished ~20:35.
+Harness on s4 (ckpt md5 972966be, DR 0.4): retention pass (fixed
+0.02–0.06): walk det 0/6 gait-valid @ vel_err 0.034, sto 0/6 @ 0.032; leg 3
+parked det, tripod anchor [1,3,5] sto. Wide pass (uniform LP buckets
+0.02–0.12): det 0/6 @ 0.045, sto 0/6 @ 0.059 (gate ≤0.045 MISS), tripod
+anchor both passes, speed pinned at 0.030–0.033 m/s regardless of command.
+Retention modes: rise det 3/6 (bridge 0/1, flat 2/4) / sto 6/6; raise det
+2/6; track det 3/6 / sto 5/6; lower det 4/6 / sto 3/6 — oddly the best
+lower in the walk lineage (noted, unexplained, still below stance-line
+12/12). Frames reviewed: walk_det_0 0049bd93, walk_det_3 14ce7e6b,
+rise_det_0 299eb101, lower_det_0 5726d28f, wide walk_det_0 fae93726,
+contact_sheet 0fd31418.
+INTERPRETATION. Videos: NOT WALKING — under wide commands the robot rears
+into a 2–3-leg tower with front legs waving in the air. LP reweighting
+cannot widen tracked speed when no bucket above the shuffle's ~3 cm/s
+ceiling ever improves — exactly what speedhi predicted (FALSE branch). Det
+rise erosion (3/6) also makes this checkpoint strictly worse than aac-s1b
+as a lineage artifact.
+VERDICT: FAIL. hardware-ready: NO. HYPOTHESIS STATUS: REFUTED (both
+halves). LP line closed (primary torched by operator, twin refuted);
+walk_lp_curriculum stays available as infrastructure for a future gait
+that can actually go faster. Champion unchanged.

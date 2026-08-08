@@ -204,7 +204,7 @@
       "--subproc"
     ],
     "created": "2026-08-08T19:38:59+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 56,
       "existing_trainers": [],
@@ -248,7 +248,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "FAIL on walk at 4M (cycle 11b): det/sto 0/6 gait-valid @ vel_err 0.036, leg 3 parked 12/12 - tracking EQUAL to blind nv at matched steps (0.036 vs 0.035, within eval noise); retention half SUPPORTED: rise 11/12 vs nv 3/12, raise 4-5/6. Video: same 5-leg scoot, NOT WALKING, NOT HARDWARE-READY. Fixed-budget comparison completes at 8M via continuation cw-walk-aac-s1c. ckpt md5 0642955c07b2d2e59dc81dd4f8eb5c8c."
   },
   {
     "run": "cw-walk-speedhi",
@@ -362,7 +363,7 @@
       "--subproc"
     ],
     "created": "2026-08-08T19:46:52+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 56,
       "existing_trainers": [],
@@ -395,7 +396,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "FAIL both halves (cycle 11b): retention sto 0/6 gait-valid @ 0.032 (leg 3 parked / tripod anchor); uniform 0.02-0.12 sto vel_err 0.059 (gate <=0.045), speed pinned ~0.03 m/s at all commands, tripod tower in video. det rise eroded to 3/6. LP curriculum REFUTED - no bucket above the shuffle ceiling improves, matching speedhi FALSE branch. Line closed. NOT HARDWARE-READY. ckpt md5 972966bee997cd722bc24083a693d416."
   },
   {
     "run": "cw-walk-phase",
@@ -610,5 +612,65 @@
         "problems": []
       }
     ]
+  },
+  {
+    "run": "cw-walk-aac-s1c",
+    "pod": "hexapod-sweep-s3",
+    "steps": 4000000,
+    "smoke": false,
+    "hypothesis": "Continuation of cw-walk-aac-s1b to complete the fixed-budget deployable-obs comparison at 8M (review 6): nv baseline ran its full 8M and was called (sto 0/6 gait-valid @ 0.035, rise 3/12); aac at 4M ties on tracking (0.036) but retains rise 11/12. If-true (asym critic matters): at 8M aac tracking pulls ahead of the called nv numbers or retention gap persists at matched budget -> temporal actor builds on aac. If-false: aac at 8M identical to nv at 8M on all axes -> critic obs was not the binding constraint, temporal actor builds on whichever ckpt retains rise better. Same settings as aac-s1b, plain warm start of the asym ckpt.",
+    "gate": "at 32.77M cum (8M asym): beat called nv 8M baseline (sto walk 0/6 gait-valid @ 0.035, rise sto 3/6) on tracking OR retention at matched budget; gait-validity gate + blunt video; sto rise >=4/6 retained",
+    "parent": "ppo_goal_cw_walk_aac_s1b.zip (md5 0642955c, in place on s3)",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_aac_s1b.zip",
+      "--asym-critic",
+      "--dr-scale",
+      "0.4",
+      "--eval-every",
+      "200000",
+      "--video-every",
+      "200000",
+      "--seed",
+      "1",
+      "--cfg-set",
+      "reward.k_walk_swing=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.02",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--out-name",
+      "ppo_goal_cw_walk_aac_s1c",
+      "--notes",
+      "\"Continuation of cw-walk-aac-s1b (gmbwrp4v) to 8M asym budget for the fixed-budget comparison vs the called nv baseline. Parent ckpt md5 0642955c (lineage dr04b 87hevk27). Same settings: asym critic, 0.02-0.06, k_walk_swing=1.0, DR 0.4, seed 1. Gate: at 32.77M cum beat nv 8M (sto 0/6 gait-valid @ 0.035, rise 3/12) on tracking or retention; gait-validity + blunt video. Snapshot: 92d75cdf60a2e778300e11d3d33ec194e4df0cf1.\"",
+      "--n-envs",
+      "48",
+      "--subproc"
+    ],
+    "created": "2026-08-08T21:00:40+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 56,
+      "existing_trainers": [],
+      "free_cores_estimate": 56,
+      "running_experiments_before": 2,
+      "pid": "4052197",
+      "log_growth_bytes": [
+        12405,
+        20156
+      ],
+      "wandb_id": "ij6xowjy",
+      "global_step_window": [
+        28988544,
+        29172864
+      ],
+      "fps_estimate": 2048.0
+    },
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-aac-s1c --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_aac_s1b.zip --asym-critic --dr-scale 0.4 --eval-every 200000 --video-every 200000 --seed 1 --cfg-set reward.k_walk_swing=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --out-name ppo_goal_cw_walk_aac_s1c --notes \"Continuation of cw-walk-aac-s1b (gmbwrp4v) to 8M asym budget for the fixed-budget comparison vs the called nv baseline. Parent ckpt md5 0642955c (lineage dr04b 87hevk27). Same settings: asym critic, 0.02-0.06, k_walk_swing=1.0, DR 0.4, seed 1. Gate: at 32.77M cum beat nv 8M (sto 0/6 gait-valid @ 0.035, rise 3/12) on tracking or retention; gait-validity + blunt video. Snapshot: 92d75cdf60a2e778300e11d3d33ec194e4df0cf1.\" --n-envs 48 --subproc > /tmp/train_cw-walk-aac-s1c.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-aac-s1c.log",
+    "wandb_id": "ij6xowjy",
+    "verified": "2026-08-08T21:04:18+00:00"
   }
 ]
