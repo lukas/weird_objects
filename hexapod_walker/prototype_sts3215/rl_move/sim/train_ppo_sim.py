@@ -79,6 +79,24 @@ def _parse_cfg_set(specs: list[str] | None) -> dict[str, float]:
     return out
 
 
+def _privileged_idx(args, n_obs: int) -> tuple[int, ...]:
+    """Obs indices of the privileged measured-velocity dims (asym critic).
+
+    Frame layout (walk task): [.., 2 measured-vel, (2 phase if
+    goal.walk_phase_obs)]. With obs.history_frames=K the frame repeats K
+    times (newest first), so the vel dims recur once per frame. The old
+    hardcoded (-2, -1) is the K=1, phase-off special case.
+    """
+    ov = _parse_cfg_set(getattr(args, "cfg_set", None))
+    k = max(1, int(ov.get("obs.history_frames", 1)))
+    off = 4 if ov.get("goal.walk_phase_obs", 0.0) == 1.0 else 2
+    if n_obs % k:
+        raise SystemExit(f"obs width {n_obs} not divisible by "
+                         f"history_frames {k}")
+    w = n_obs // k
+    return tuple(i * w + w - off + j for i in range(k) for j in (0, 1))
+
+
 def _build_env(env_cls, params, args, **extra):
     """Construct an env honoring --friction-range, --goal-mix, --cfg-set."""
     kw = dict(params=params, randomize=not args.no_dr,
@@ -1135,7 +1153,9 @@ def train(args) -> int:
                                else None),
                     policy_kwargs=dict(net_arch=[128, 128],
                                        log_std_init=-1.0,
-                                       privileged_idx=(-2, -1)),
+                                       privileged_idx=_privileged_idx(
+                                           args,
+                                           venv.observation_space.shape[0])),
                     seed=args.seed, verbose=1, device="cpu",
                     tensorboard_log=(str(POLICY_DIR / "tb")
                                      if run else None),
@@ -1145,7 +1165,8 @@ def train(args) -> int:
                 model.num_timesteps = old.num_timesteps
                 del old
                 print("[train] asym-critic transplant: champion weights "
-                      f"loaded ({res}); actor masks obs dims (-2,-1)")
+                      f"loaded ({res}); actor masks obs dims "
+                      f"{model.policy.privileged_idx}")
         # PPO.load runs _setup_model(), which calls
         # set_random_seed(self.seed) with the ANCESTOR's stored seed —
         # so warm-started "different seed" runs were bit-identical
@@ -1204,7 +1225,8 @@ def train(args) -> int:
         if args.asym_critic:
             from .asym_policy import AsymActorCriticPolicy
             policy_cls = AsymActorCriticPolicy
-            extra_pk = dict(privileged_idx=(-2, -1))
+            extra_pk = dict(privileged_idx=_privileged_idx(
+                args, venv.observation_space.shape[0]))
         model = PPO(
             policy_cls, venv,
             n_steps=256,

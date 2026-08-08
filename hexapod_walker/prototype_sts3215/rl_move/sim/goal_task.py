@@ -254,8 +254,7 @@ class SimHexapodGoalEnv(SimHexapodBalanceEnv):
         super().__init__(*args, **kwargs)
         self._goal_gen = GoalGenerator(self.cfg)
         if _gym is not None:
-            self.observation_space = _gym.spaces.Box(
-                -np.inf, np.inf, shape=(N_OBS + GOAL_DIM,), dtype=np.float32)
+            self.observation_space = self._obs_space_box(N_OBS + GOAL_DIM)
 
     def _sample_goal(self) -> GoalTrajectory:
         # +1: _current_goal is also read at step index == episode_steps.

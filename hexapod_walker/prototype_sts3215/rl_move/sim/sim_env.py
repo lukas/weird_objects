@@ -131,6 +131,16 @@ class SimHexapodBalanceEnv(_GymBase):
         self.render_mode = render_mode
         self.rng = np.random.default_rng(seed)
 
+        # Temporal actor (plan §Architecture): obs.history_frames > 1
+        # stacks the last K single-tick observations NEWEST-FIRST, so a
+        # parent trained on width W transplants via --obs-pad-transplant
+        # (its weights read frame 0 = the current tick; frames 1..K-1
+        # start as zero columns). History is built ENV-SIDE so trainer,
+        # eval harness, and the hardware bridge see the identical obs.
+        self._hist_n = max(1, int(cfg_get(self.cfg, "obs",
+                                          "history_frames", default=1)))
+        self._hist_buf: list | None = None
+
         self.dt = 1.0 / float(cfg_get(self.cfg, "control", "hz", default=25))
         ep_s = (episode_seconds if episode_seconds is not None
                 else float(cfg_get(self.cfg, "episode", "seconds", default=5)))
@@ -228,10 +238,41 @@ class SimHexapodBalanceEnv(_GymBase):
         self._z0 = 0.0
 
         if _gym is not None:
-            self.observation_space = _gym.spaces.Box(
-                -np.inf, np.inf, shape=(N_OBS,), dtype=np.float32)
+            self.observation_space = self._obs_space_box(N_OBS)
             self.action_space = _gym.spaces.Box(
                 -1.0, 1.0, shape=(self.n_act,), dtype=np.float32)
+
+    # ------------------------------------------------------------------
+    # observation finalization: subclass augmentation + history stacking
+    # ------------------------------------------------------------------
+
+    def _obs_space_box(self, width: int):
+        """Box obs space for a single-frame width, times history depth."""
+        return _gym.spaces.Box(-np.inf, np.inf,
+                               shape=(width * self._hist_n,),
+                               dtype=np.float32)
+
+    def _augment_obs(self, obs: np.ndarray, *,
+                     reset: bool = False) -> np.ndarray:
+        """Subclass hook: append extra per-tick dims (walk vel/phase).
+
+        Runs BEFORE history stacking so appended dims are part of every
+        stacked frame. Base env: identity.
+        """
+        return obs
+
+    def _final_obs(self, obs: np.ndarray, *, reset: bool) -> np.ndarray:
+        """Apply the augment hook, then the obs-history stack."""
+        obs = self._augment_obs(obs, reset=reset).astype(np.float32)
+        if self._hist_n <= 1:
+            return obs
+        if reset or self._hist_buf is None:
+            self._hist_buf = [obs.copy() for _ in range(self._hist_n)]
+        else:
+            self._hist_buf.pop()
+            self._hist_buf.insert(0, obs.copy())
+        # newest first: frame 0 is the current tick (transplant prefix).
+        return np.concatenate(self._hist_buf).astype(np.float32)
 
     # ------------------------------------------------------------------
     # state readout (sim → RobotState, with DR sensor corruption)
@@ -609,9 +650,10 @@ class SimHexapodBalanceEnv(_GymBase):
         goal = self._current_goal()
         if goal is not None:
             info["goal_mode"] = self._goal_traj.mode
-        return build_obs(self.cfg, self._state, self._q_nom,
-                         self._prev_action, goal=goal,
-                         tilt_ref=self._tilt_ref0), info
+        return self._final_obs(
+            build_obs(self.cfg, self._state, self._q_nom,
+                      self._prev_action, goal=goal,
+                      tilt_ref=self._tilt_ref0), reset=True), info
 
     def _curl_dist(self) -> float:
         """Mean XY distance (m) from each foot to its plant anchor,
@@ -647,9 +689,11 @@ class SimHexapodBalanceEnv(_GymBase):
         if clipped is None:
             self._step_i += 1
             parts = {"reward_termination": -pen}
-            return (build_obs(self.cfg, self._state, self._q_nom,
-                              self._prev_action, goal=self._current_goal(),
-                              tilt_ref=self._tilt_ref0),
+            return (self._final_obs(
+                        build_obs(self.cfg, self._state, self._q_nom,
+                                  self._prev_action,
+                                  goal=self._current_goal(),
+                                  tilt_ref=self._tilt_ref0), reset=False),
                     -pen, True, False, {"termination_reason": bad, **parts})
 
         if self._ep_rand is not None and self._ep_rand.action_noise > 0:
@@ -963,9 +1007,10 @@ class SimHexapodBalanceEnv(_GymBase):
             info["height_err_mm"] = h_err * 1000.0
             if unload_f is not None:
                 info["unload_force_n"] = unload_f
-        return (build_obs(self.cfg, self._state, self._q_nom,
-                          self._prev_action, goal=goal,
-                          tilt_ref=self._tilt_ref0),
+        return (self._final_obs(
+                    build_obs(self.cfg, self._state, self._q_nom,
+                              self._prev_action, goal=goal,
+                              tilt_ref=self._tilt_ref0), reset=False),
                 float(reward), terminated, truncated, info)
 
     def render(self):

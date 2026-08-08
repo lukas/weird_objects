@@ -772,3 +772,75 @@ def test_posture_reward_terms_smoke():
     assert -1.0 <= parts_seen["reward_load_even"] <= 0.0
     assert all(np.isfinite(v) for v in parts_seen.values())
     env.close()
+
+
+# ---------------------------------------------------------------------------
+# Temporal actor: env-side obs history (plan §Architecture, cycle 13)
+
+
+def test_obs_history_stack_newest_first_and_parity():
+    """obs.history_frames=K: width xK, frame 0 == the single-frame env's
+    obs bit-exactly every tick (refactor parity), frame i is the obs
+    from i ticks ago, reset seeds the buffer with the reset obs."""
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    ref = SimHexapodJointWalkEnv(load_config(), seed=5)
+    w = ref.observation_space.shape[0]
+
+    cfg = load_config()
+    cfg.setdefault("obs", {})["history_frames"] = 4
+    env = SimHexapodJointWalkEnv(cfg, seed=5)
+    assert env.observation_space.shape[0] == 4 * w
+
+    o_ref, _ = ref.reset()
+    o, _ = env.reset()
+    frames = o.reshape(4, w)
+    for i in range(4):
+        assert np.array_equal(frames[i], o_ref), "reset must seed buffer"
+
+    prev_frame0 = frames[0].copy()
+    for _ in range(6):
+        a = np.zeros(env.n_act, dtype=np.float32)
+        o_ref = ref.step(a)[0]
+        o, _, term, trunc, _ = env.step(a)
+        frames = o.reshape(4, w)
+        assert np.array_equal(frames[0], o_ref), \
+            "frame 0 must equal the history-free env's obs (parity)"
+        assert np.array_equal(frames[1], prev_frame0), \
+            "frame 1 must be last tick's frame 0 (newest first)"
+        prev_frame0 = frames[0].copy()
+        if term or trunc:
+            break
+    ref.close()
+    env.close()
+
+
+def test_obs_history_stance_env_width():
+    """joint_goal (stance line) honors obs.history_frames too."""
+    from rl_move.config import load_config
+    from rl_move.sim.joint_task import SimHexapodJointGoalEnv
+
+    cfg = load_config()
+    cfg.setdefault("obs", {})["history_frames"] = 8
+    env = SimHexapodJointGoalEnv(cfg, seed=0)
+    obs, _ = env.reset()
+    assert obs.shape == (8 * 68,)
+    assert env.observation_space.shape == (8 * 68,)
+    env.close()
+
+
+def test_privileged_idx_history_frames():
+    """asym-critic mask indices: (-2,-1) special case generalizes to one
+    vel pair per stacked frame; phase obs shifts the pair by 2."""
+    from types import SimpleNamespace
+    from rl_move.sim.train_ppo_sim import _privileged_idx
+
+    a = SimpleNamespace(cfg_set=None)
+    assert _privileged_idx(a, 72) == (70, 71)
+    a = SimpleNamespace(cfg_set=["obs.history_frames=4"])
+    assert _privileged_idx(a, 288) == (70, 71, 142, 143, 214, 215,
+                                       286, 287)
+    a = SimpleNamespace(cfg_set=["obs.history_frames=2",
+                                 "goal.walk_phase_obs=1"])
+    assert _privileged_idx(a, 148) == (70, 71, 144, 145)

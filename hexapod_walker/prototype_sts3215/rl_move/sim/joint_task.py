@@ -69,10 +69,8 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
         if _gym is not None:
             self.action_space = _gym.spaces.Box(
                 -1.0, 1.0, shape=(self.n_act,), dtype=np.float32)
-            self.observation_space = _gym.spaces.Box(
-                -np.inf, np.inf,
-                shape=(N_OBS - 6 + self.n_act + GOAL_DIM,),
-                dtype=np.float32)
+            self.observation_space = self._obs_space_box(
+                N_OBS - 6 + self.n_act + GOAL_DIM)
 
     def _act_to_q(self, clipped: np.ndarray):
         return action_to_q_rad(clipped), True, ""

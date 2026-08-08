@@ -157,19 +157,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                         default=0.0)) == 1.0
         self._phase = 0.0
         if _gym is not None:
-            self.observation_space = _gym.spaces.Box(
-                -np.inf, np.inf,
-                shape=(N_OBS - 6 + self.n_act + WALK_GOAL_DIM
-                       + N_VEL_OBS
-                       + (N_PHASE_OBS if self._phase_obs else 0),),
-                dtype=np.float32)
+            self.observation_space = self._obs_space_box(
+                N_OBS - 6 + self.n_act + WALK_GOAL_DIM + N_VEL_OBS
+                + (N_PHASE_OBS if self._phase_obs else 0))
 
-    def _append_vel(self, obs: np.ndarray) -> np.ndarray:
-        # goal.walk_obs_body_vel=0 zeroes the privileged measured-velocity
-        # entries (deployable-obs experiment: hardware has no velocity
-        # sensor). Obs WIDTH is unchanged so checkpoints stay warm-start
-        # compatible; the policy must infer body velocity from joint
-        # velocities / gyro instead. Default 1.0 = original behavior.
+    def _augment_obs(self, obs: np.ndarray, *,
+                     reset: bool = False) -> np.ndarray:
+        # Per-tick walk extras, applied via the base-env hook so the
+        # obs-history stack (obs.history_frames) includes them in every
+        # frame. goal.walk_obs_body_vel=0 zeroes the privileged
+        # measured-velocity entries (deployable-obs experiment: hardware
+        # has no velocity sensor). Obs WIDTH is unchanged so checkpoints
+        # stay warm-start compatible; the policy must infer body velocity
+        # from joint velocities / gyro instead. Default 1.0 = original.
         if float(cfg_get(self.cfg, "goal", "walk_obs_body_vel",
                          default=1.0)) == 0.0:
             v = np.zeros(N_VEL_OBS)
@@ -177,16 +177,31 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             v = self._body_vel_xy() / VEL_SCALE
         obs = np.concatenate([obs, v])
         if self._phase_obs:
+            # Phase clock advance lives here (post-physics, pre-obs) so
+            # obs and the phase-agreement reward in step() see the same
+            # value — behavior identical to the pre-hook code for the
+            # legacy walk_phase_obs=1 runs (all refuted/retired).
+            if not reset:
+                goal = self._current_goal()
+                s_ref = (float(np.hypot(goal.vx_ref, goal.vy_ref))
+                         if goal is not None else 0.0)
+                if s_ref > 1e-3:
+                    hz = float(cfg_get(self.cfg, "goal", "walk_phase_hz",
+                                       default=PHASE_HZ_DEFAULT))
+                    self._phase = (self._phase
+                                   + 2.0 * math.pi * hz * self.dt) \
+                        % (2.0 * math.pi)
             obs = np.concatenate(
                 [obs, [math.sin(self._phase), math.cos(self._phase)]])
         return obs.astype(np.float32)
 
     def reset(self, *args, **kwargs):
-        obs, info = super().reset(*args, **kwargs)
+        # State the obs hook reads must be reset BEFORE super().reset()
+        # builds the first observation.
         self._foot_on = [True] * 6
         self._liftoff_xy = [None] * 6
         self._phase = 0.0
-        return self._append_vel(obs), info
+        return super().reset(*args, **kwargs)
 
     # ------------------------------------------------------------------
 
@@ -293,11 +308,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # average 50% agreement = zero net reward; only stepping in
             # sync with the clock pays.
             if self._phase_obs and s_ref > 1e-3:
-                hz = float(cfg_get(self.cfg, "goal", "walk_phase_hz",
-                                   default=PHASE_HZ_DEFAULT))
-                self._phase = (self._phase
-                               + 2.0 * math.pi * hz * self.dt) \
-                    % (2.0 * math.pi)
+                # clock already advanced in _augment_obs (same tick)
                 k_phase = float(cfg_get(self.cfg, "reward",
                                         "k_phase_contact", default=0.0))
                 if k_phase > 0.0:
@@ -346,4 +357,4 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if r_swing:
                     reward += r_swing
                 info["reward_swing"] = r_swing
-        return self._append_vel(obs), reward, term, trunc, info
+        return obs, reward, term, trunc, info

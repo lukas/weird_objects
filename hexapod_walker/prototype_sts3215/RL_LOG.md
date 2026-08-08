@@ -1234,3 +1234,46 @@ run, so the new headroom stays idle one cycle rather than get filled
 with another refuted-class shaping variant. Next cycle: implement
 temporal actor, probe it, and launch staggered on the enlarged fleet
 alongside the cw-stance-posture verdict.
+
+## Cycle 13 (2026-08-08 ~23:00Z) — temporal actor lands (code); posture verdict; walk rung 1 launched
+
+### Note on "This cycle" handoff
+The watcher named cw-walk-aac-s1c and cw-walk-phase-stance2 as newly
+finished; both were already fully verdicted in the cycle 12 entry
+(harness + frame review + ledger FINISHED: aac-s1c SPLIT
+retention-only, phase-stance2 FAIL/refuted). No re-eval; no double
+entry. cw-stance-posture (s4) was ~1.4M from its 4M budget at cycle
+start — verdict below, this cycle.
+
+### CODE — temporal deployable actor: env-side obs history (plan §Walk rung 1)
+Rationale (recorded per guardrails before launch): the walk line's next
+rung is CAPABILITY, not another coefficient — ~300 ms of obs history
+(8 frames @ 25 Hz) is implicit system ID (literature review priority
+#3; ranked above model size). Implementation, one mechanism:
+- `obs.history_frames` (cfg, default 1 = legacy width everywhere):
+  the env stacks the last K per-tick observations NEWEST-FIRST and
+  seeds the buffer with the reset obs. Lives in `SimHexapodBalanceEnv`
+  (`_final_obs`), so trainer, canaries, bg-eval, harness, and any
+  future hardware bridge share the exact code path (env-side by
+  design; a VecFrameStack wrapper would not exist on hardware).
+- Newest-first ordering makes the parent's obs a bit-exact PREFIX of
+  frame 0, so the EXISTING `--obs-pad-transplant` machinery does the
+  tail transplant unchanged (zero columns for frames 1..K-1 and the
+  walk extras).
+- Refactor detail: walk extras (measured vel / phase clock) moved from
+  post-hoc appends in `walk_task.reset/step` into an `_augment_obs`
+  hook that runs BEFORE stacking, so every frame carries them.
+  Parity proven by test: frame 0 of a K=4 env equals the K=1 env's
+  obs bit-exactly tick-for-tick; the pre-existing phase-clock test
+  (exact obs tail values) still passes on the refactored path.
+- `_privileged_idx` helper in the trainer: the asym-critic mask was
+  hardcoded (-2,-1) — wrong for stacked obs (would mask the OLDEST
+  frame's tail) and silently wrong for phase runs; now computed
+  per-frame (also fixes the latent phase+asym bug). asym+transplant
+  remains refused (unchanged SystemExit), so this cycle's run is
+  plain MlpPolicy; asym+history is a later, separate step.
+- Tests: 3 added (stack parity/newest-first, stance-env width,
+  privileged idx) — 33 pass. Real-checkpoint check: cw_stance_dr10
+  (68-dim, md5 da1d912a) transplanted into joint_walk + history8
+  (576-dim, pad 508): max action diff 0.0 over random obs with
+  arbitrary history/extras content. Bit-identical warm start.
