@@ -579,3 +579,144 @@ def test_walk_success_requires_gait_validity():
     flagged = {"vel_err_mean": 0.01, "gait_valid": False,
                "sacrificed_legs": [4]}
     assert not _success("walk", False, flagged)
+
+
+def test_walk_phase_obs_clock_and_routing():
+    """goal.walk_phase_obs=1: obs +2 (sin/cos), clock advances at
+    goal.walk_phase_hz only while a walk velocity is commanded; default
+    off leaves the legacy width untouched."""
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    cfg = load_config()
+    env0 = SimHexapodJointWalkEnv(cfg, seed=0)
+    w_legacy = env0.observation_space.shape[0]
+    obs, _ = env0.reset()
+    assert obs.shape[0] == w_legacy
+    env0.close()
+
+    cfg = load_config()
+    cfg.setdefault("goal", {})["walk_phase_obs"] = 1.0
+    cfg["goal"]["walk_phase_hz"] = 1.0
+    env = SimHexapodJointWalkEnv(cfg, seed=0)
+    assert env.observation_space.shape[0] == w_legacy + 2
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_walk = 1.0
+    obs, _ = env.reset()
+    assert env._goal_traj.mode == "walk"
+    assert obs.shape[0] == w_legacy + 2
+    # settle hold: no command yet -> clock frozen at 0 -> [sin,cos]=[0,1]
+    obs, _, _, _, _ = env.step(np.zeros(env.n_act))
+    assert abs(obs[-2] - 0.0) < 1e-6 and abs(obs[-1] - 1.0) < 1e-6
+    # run past the 1 s hold: clock must advance (2*pi*hz*dt per tick)
+    for _ in range(int(2.0 / env.dt)):
+        obs, _, _, _, info = env.step(np.zeros(env.n_act))
+    assert env._phase > 0.0
+    assert abs(obs[-2] - np.sin(env._phase)) < 1e-6
+    assert abs(obs[-1] - np.cos(env._phase)) < 1e-6
+    env.close()
+
+    # hold mode: phase never advances, obs tail stays [0, 1]
+    cfg = load_config()
+    cfg.setdefault("goal", {})["walk_phase_obs"] = 1.0
+    env = SimHexapodJointWalkEnv(cfg, seed=1)
+    g = env._goal_gen
+    for m in ("lean", "track", "unload", "raise", "rise", "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_hold, g.p_walk = 1.0, 0.0
+    obs, _ = env.reset()
+    assert env._goal_traj.mode == "hold"
+    for _ in range(10):
+        obs, _, _, _, info = env.step(np.zeros(env.n_act))
+    assert env._phase == 0.0
+    assert abs(obs[-2]) < 1e-6 and abs(obs[-1] - 1.0) < 1e-6
+    assert "reward_phase_contact" not in info
+    env.close()
+
+
+def test_phase_contact_reward_pays_agreement():
+    """reward.k_phase_contact: walk-only by construction, value equals
+    k * (agreement - 0.5) * 2 recomputed from the touch sensors, and a
+    static all-feet-down stance nets ~zero (agreement 3/6)."""
+    import math as _math
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import (SimHexapodJointWalkEnv,
+                                       PHASE_TRIPOD_A)
+
+    cfg = load_config()
+    cfg.setdefault("goal", {})["walk_phase_obs"] = 1.0
+    cfg.setdefault("reward", {})["k_phase_contact"] = 1.0
+    env = SimHexapodJointWalkEnv(cfg, seed=0)
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_walk = 1.0
+    env.reset()
+    seen = False
+    for _ in range(int(3.0 / env.dt)):
+        _, _, term, trunc, info = env.step(np.zeros(env.n_act))
+        if "reward_phase_contact" in info:
+            seen = True
+            stance_a = _math.sin(env._phase) >= 0.0
+            agree = 0
+            for f in range(6):
+                adr = env._touch_adr[f]
+                on = (adr >= 0
+                      and float(env.data.sensordata[adr]) > 0.5)
+                agree += int(on == ((f in PHASE_TRIPOD_A) == stance_a))
+            expect = 1.0 * (agree / 6.0 - 0.5) * 2.0
+            assert abs(info["reward_phase_contact"] - expect) < 1e-9
+            assert abs(info["phase_agreement"] - agree / 6.0) < 1e-9
+        if term or trunc:
+            break
+    assert seen, "phase reward never fired during a commanded walk"
+    # zero-action = all feet planted -> agreement 3/6 -> zero net reward
+    assert abs(info["reward_phase_contact"]) < 1e-9
+    env.close()
+
+
+def test_obs_pad_transplant_preserves_parent_behavior():
+    """pad_obs_transplant: outputs bit-identical to the parent for any
+    value of the appended dims (zero first-layer columns)."""
+    torch = pytest.importorskip("torch")
+    import gymnasium as gym
+    from stable_baselines3 import PPO
+    from rl_move.sim.train_ppo_sim import pad_obs_transplant
+
+    class _Tiny(gym.Env):
+        def __init__(self, n):
+            self.observation_space = gym.spaces.Box(
+                -np.inf, np.inf, (n,), dtype=np.float32)
+            self.action_space = gym.spaces.Box(
+                -1.0, 1.0, (3,), dtype=np.float32)
+            self._n = n
+
+        def reset(self, *, seed=None, options=None):
+            return np.zeros(self._n, dtype=np.float32), {}
+
+        def step(self, action):
+            return (np.zeros(self._n, dtype=np.float32),
+                    0.0, False, False, {})
+
+    old = PPO("MlpPolicy", _Tiny(8), n_steps=32, seed=0, device="cpu",
+              policy_kwargs=dict(net_arch=[128, 128], log_std_init=-1.0))
+    new = PPO("MlpPolicy", _Tiny(10), n_steps=32, seed=1, device="cpu",
+              policy_kwargs=dict(net_arch=[128, 128], log_std_init=-1.0))
+    pad_obs_transplant(old, new, 2)
+    obs8 = np.random.RandomState(3).randn(5, 8).astype(np.float32)
+    pad = np.random.RandomState(4).randn(5, 2).astype(np.float32) * 10
+    obs10 = np.concatenate([obs8, pad], axis=1)
+    a_old, _ = old.predict(obs8, deterministic=True)
+    a_new, _ = new.predict(obs10, deterministic=True)
+    assert np.allclose(a_old, a_new, atol=0), \
+        "padded dims must be invisible until trained"
+    v_old = old.policy.predict_values(torch.as_tensor(obs8))
+    v_new = new.policy.predict_values(torch.as_tensor(obs10))
+    assert torch.allclose(v_old, v_new)

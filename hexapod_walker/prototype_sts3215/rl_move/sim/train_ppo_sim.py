@@ -152,6 +152,49 @@ def _parent_record(init_from: Path | None) -> dict | None:
     return None
 
 
+def pad_obs_transplant(old_model, new_model, n_pad: int) -> None:
+    """Transplant policy weights across an obs WIDENING of ``n_pad`` dims.
+
+    The new dims must be appended at the END of the obs vector (walk
+    phase clock, +2). Every tensor whose shape matches copies exactly;
+    the first-layer weights of the policy/value MLPs gain ``n_pad``
+    zero columns, so the transplanted policy's outputs are bit-identical
+    to the parent for ANY value of the new dims until training moves
+    the zero columns. Optimizer state is fresh (architecture changed).
+    """
+    import torch
+    n_new = int(new_model.observation_space.shape[0])
+    n_old = int(old_model.observation_space.shape[0])
+    if n_new - n_old != n_pad:
+        raise SystemExit(
+            f"--obs-pad-transplant {n_pad} but obs widened by "
+            f"{n_new - n_old} ({n_old} -> {n_new}); check cfg-sets")
+    sd_old = old_model.policy.state_dict()
+    sd_new = new_model.policy.state_dict()
+    if set(sd_old) != set(sd_new):
+        raise SystemExit("state_dict key mismatch; transplant needs the "
+                         "same net_arch as the parent")
+    widened = []
+    with torch.no_grad():
+        for k, v_new in sd_new.items():
+            v_old = sd_old[k]
+            if v_new.shape == v_old.shape:
+                v_new.copy_(v_old)
+            elif (v_new.dim() == 2 and v_new.shape[0] == v_old.shape[0]
+                  and v_new.shape[1] == n_new
+                  and v_old.shape[1] == n_old):
+                v_new.zero_()
+                v_new[:, :n_old].copy_(v_old)
+                widened.append(k)
+            else:
+                raise SystemExit(f"unexpected shape change for {k}: "
+                                 f"{tuple(v_old.shape)} -> "
+                                 f"{tuple(v_new.shape)}")
+    new_model.policy.load_state_dict(sd_new, strict=True)
+    print(f"[train] obs-pad transplant: {n_old} -> {n_new} dims; "
+          f"zero-padded first-layer columns in {widened}")
+
+
 def _warn_if_defaults(params: SimServoParams) -> None:
     if params.source == "defaults":
         print("[train] WARNING: sim_model.json is defaults (no hardware "
@@ -1041,8 +1084,31 @@ def train(args) -> int:
     if args.init_from:
         # Warm start. Only works if obs/action spaces still match the
         # checkpoint (the 2026-08-07 redesign changed both, so runs from
-        # before it must start fresh).
-        model = PPO.load(args.init_from, env=venv, device="cpu")
+        # before it must start fresh) — unless --obs-pad-transplant
+        # bridges an obs WIDENING (new dims appended at the end).
+        if args.obs_pad_transplant:
+            if args.asym_critic:
+                raise SystemExit("--obs-pad-transplant + --asym-critic "
+                                 "is not implemented (privileged_idx "
+                                 "would shift); do one at a time")
+            old = PPO.load(args.init_from, device="cpu")
+            model = PPO(
+                "MlpPolicy", venv,
+                n_steps=256,
+                batch_size=min(2048, 256 * args.n_envs),
+                learning_rate=3e-4, gamma=0.99, gae_lambda=0.95,
+                ent_coef=1e-3, clip_range=0.2,
+                policy_kwargs=dict(net_arch=[128, 128],
+                                   log_std_init=-1.0),
+                seed=args.seed, verbose=1, device="cpu",
+                tensorboard_log=(str(POLICY_DIR / "tb")
+                                 if run else None),
+            )
+            pad_obs_transplant(old, model, args.obs_pad_transplant)
+            model.num_timesteps = old.num_timesteps
+            del old
+        else:
+            model = PPO.load(args.init_from, env=venv, device="cpu")
         model.verbose = 1  # checkpoints saved with verbose=0 stay silent
         if args.asym_critic:
             from .asym_policy import AsymActorCriticPolicy
@@ -1237,7 +1303,8 @@ def train(args) -> int:
     # Quick post-train eval (DR on) so the run ends with a number.
     stats = evaluate(out, episodes=10, no_dr=args.no_dr,
                      dr_scale=args.dr_scale,
-                     episode_seconds=args.episode_seconds, task=args.task)
+                     episode_seconds=args.episode_seconds, task=args.task,
+                     cfg_set=getattr(args, "cfg_set", None))
     if run:
         import wandb
         for k, v in stats.items():
@@ -1342,7 +1409,8 @@ def _rollout_stats(env, act_fn, episodes: int) -> dict:
 def evaluate(policy_path: Path, *, episodes: int = 10, no_dr: bool = False,
              dr_scale: float = 1.0,
              episode_seconds: float | None = None,
-             task: str = "balance") -> dict:
+             task: str = "balance",
+             cfg_set: list[str] | None = None) -> dict:
     """Smoke-gate evaluation: policy vs zero-action baseline, same seeds.
 
     The gate (see RL_PLAN): the run passes only if tracking error clearly
@@ -1357,9 +1425,25 @@ def evaluate(policy_path: Path, *, episodes: int = 10, no_dr: bool = False,
     model = PPO.load(policy_path, device="cpu")
 
     def make_env():
-        return env_cls(params=params, randomize=not no_dr,
-                       dr_scale=dr_scale,
-                       episode_seconds=episode_seconds, seed=1234)
+        kw = dict(params=params, randomize=not no_dr,
+                  dr_scale=dr_scale,
+                  episode_seconds=episode_seconds, seed=1234)
+        # Honor --cfg-set: overrides can change obs WIDTH (e.g.
+        # goal.walk_phase_obs) — an env built from the default cfg
+        # crashed the post-train eval of any such run (found in the
+        # cw-walk-phase smoke, cycle 11).
+        overrides = _parse_cfg_set(cfg_set)
+        if overrides:
+            from rl_move.config import load_config
+            cfg = load_config()
+            for dotted, val in overrides.items():
+                node = cfg
+                *path, leaf = dotted.split(".")
+                for k in path:
+                    node = node.setdefault(k, {})
+                node[leaf] = val
+            kw["cfg"] = cfg
+        return env_cls(**kw)
 
     env = make_env()
     stats = _rollout_stats(
@@ -1462,6 +1546,14 @@ def main(argv: list[str] | None = None) -> int:
                     help="asymmetric actor-critic: mask the privileged "
                          "measured-velocity obs (last 2 dims) on the "
                          "actor path only; critic sees them (walk task)")
+    ap.add_argument("--obs-pad-transplant", type=int, default=0,
+                    help="warm start from a checkpoint whose obs space "
+                         "is N dims NARROWER than the current env (new "
+                         "dims appended at the end, e.g. the walk phase "
+                         "clock): parent weights are transplanted with "
+                         "zero first-layer columns for the new dims, so "
+                         "behavior is bit-identical until training "
+                         "learns to use them")
     ap.add_argument("--run-name", type=str, default=None,
                     help="W&B run display name (e.g. 04-200k-warm-...)")
     ap.add_argument("--notes", type=str, default=None,
@@ -1496,7 +1588,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.eval:
         evaluate(args.eval, no_dr=args.no_dr, dr_scale=args.dr_scale,
-                 episode_seconds=args.episode_seconds, task=args.task)
+                 episode_seconds=args.episode_seconds, task=args.task,
+                 cfg_set=getattr(args, "cfg_set", None))
         return 0
     if args.smoke:
         args.steps, args.n_envs = 10_000, 2

@@ -623,6 +623,7 @@ the LP curriculum on `cw-walk-lp-s1b`. W&B will show the primaries
 crashed; ledger says KILLED_BY_OPERATOR. Walk pod is now free — use it
 solo (56-core). Do not relaunch the primaries.
 
+<<<<<<< Updated upstream
 ## OPERATOR 2026-08-08 ~20:25Z — phase-reward experiment: add a basin-escape arm
 
 Pattern across ALL walk refutations (5 shaping levers, speed pressure,
@@ -645,3 +646,142 @@ falsifiable comparison: if (b) steps and (a) shuffles, the basin is
 the story and warm-start-by-default gets an exception for behavior-
 class changes (note in guardrails already permits fresh init when the
 log records it as the hypothesis).
+=======
+## Cycle 11 — nv baseline CALLED at 8M; flagw-s1 confirms refutation; walk-line `lower` found long-broken; speedhi answered (2026-08-08 ~20:0x)
+
+Watcher also named cw-walk-aac-s1 + cw-walk-lp-s1 "finished": those are cycle
+10's rebalance kill and silent death (W&B crashed states), already ledgered
+and continued as -s1b runs — nothing to eval. Real work: flagw-s1 + nv2, and
+speedhi finished mid-cycle (20:06) so its diagnostic is answered here too.
+Harness evals ran on the freed lower/long5m pods (code synced first so the
+gait-validity gate applies); controls as noted.
+
+### cw-walk-flagw-s1 — FAIL (twin confirms: walk-only flag penalty does not fix the gait)
+OBSERVATIONS. W&B jsjc65dd, 4M steps (28.76M cum), finished 19:36. Harness
+(ckpt md5 04864399, DR 0.4, own cfg-sets, 6 eps/mode det+sto, modes
+walk/rise/raise/lower/track): walk det 0/6 gait-valid @ vel_err 0.036, sto
+0/6 @ 0.033. Leg 3 parked (duty 0.03–0.05) in 10/12 walk episodes; 2 sto
+episodes flip to the static tripod anchor (duty [.97,.04,.96,.07,.94,.05],
+legs 1/3/5 airborne) — the exact two exploit modes of seed-0. Retention:
+rise det 5/6 / sto 6/6 (sto flat 4/4), raise 4/6 det+sto, track 5/6 both;
+lower det 0/6 / sto 1/6 (see lineage finding). Frames reviewed (10 each):
+walk_det_0 b8c2fc7b, walk_det_3 beb7e8cd, rise_det_0 590ed2a4, lower_det_0
+3c0d464e, contact_sheet d35e2195.
+INTERPRETATION. Videos: NOT WALKING — body scoots on five legs while leg 3
+hangs curled in the air; a rear leg flags to full vertical mid-episode;
+two episodes give up into a static tripod with three legs waving. Rise
+reaches height but ends propped with 1–2 legs flagged skyward (lineage
+trait). Lower does not lower: stays elevated, flags a leg, ends 14–42 mm
+high.
+VERDICT: FAIL. hardware-ready: NO — no six-foot gait; flag legs in walk,
+rise end-state, and lower.
+HYPOTHESIS STATUS: REFUTED (both seeds agree; best-of-2 buys nothing).
+Flag-leg penalty closed as a gait lever at any routing. Champion unchanged.
+
+### cw-walk-nv2 — FAIL at 8M (deployable-obs baseline CALLED; do not extend)
+OBSERVATIONS. W&B e58w8dos, +4M (32.77M cum = 8M on the nv line), finished
+19:15. Harness (ckpt md5 97a7e553, DR 0.4, own cfg-sets): walk det 0/6
+gait-valid @ vel_err 0.034, sto 0/6 @ 0.035, mean speed 0.029 m/s. Leg 3
+parked (duty 0.02–0.07) in 11/12 walk episodes, one sto tripod-anchor
+episode. rise det 4/6 (flat 0/1) / sto 3/6 (flat 1/4); raise 5/6 both;
+lower 0/6 both; track 5/6 both. Frames reviewed (10 each): walk_det_0
+5a3f9bc0, walk_det_3 62454c0d, rise_det_0 0576d35d, rise_det_3 5b04537b,
+lower_det_0 8c4cff8d, contact_sheet c5f44795.
+INTERPRETATION. Videos: NOT WALKING — the same antenna leg parked vertical
+for entire episodes over a low five-leg shuffle; both recorded rise
+episodes stay in a low sprawl and never stand. The extra 4M changed
+nothing visible. Baseline delta: vs its own 4M mark (sto 1/6 @ 0.035) no
+metric moved beyond eval noise; vs parent dr04b (sto 4/6 @ 0.030
+pre-gait-gate) still clearly worse.
+VERDICT: FAIL. hardware-ready: NO — flag-leg pathology plus eroded rise.
+HYPOTHESIS STATUS: REFUTED. The proprioception-only baseline is CALLED at
+8M per the fixed-budget rule: sto walk 0/6 gait-valid @ vel_err 0.035.
+That is the number cw-walk-aac(-s1b) must beat at 28.76M cum. Champion
+unchanged.
+
+### Lineage finding — walk-line `lower` has been broken all along
+This cycle added lower to the walk-line eval modes (first time it was ever
+measured on this lineage): flagw-s1 0/6 det + 1/6 sto, nv2 0/6 + 0/6. Control:
+parent champion dr04b is ALSO lower 0/6 det + 0/6 sto (ends 5–36 mm above
+belly, zero terminations) — inherited erosion, not a new regression; every
+prior walk-line eval simply never looked. Consequence: reward-interference
+erosion covers rise AND lower; the deployable end-state policy must come from
+the stance line or a later merge/distillation, and lower stays in walk-line
+evals as a tripwire. Stance line unaffected (cycle-10 re-check: lower 12/12
+@ DR 1.0).
+
+### cw-walk-speedhi — diagnostic ANSWERED: FALSE branch (speed does not force stepping)
+OBSERVATIONS. W&B g30vnbvl, 1.39M steps (26.27M cum), finished 20:06 (1466 s
+on friction). Harness local on friction (ckpt md5 0c3ea0bd, DR 0.4, commands
+0.10–0.15, 6 eps/mode det+sto, walk+rise): walk det 0/6 gait-valid @ vel_err
+0.099, sto 0/6 @ 0.084; mean speed 0.033–0.034 m/s — the policy did NOT get
+faster than the parent shuffle (gate needed ≥0.08 m/s + ≥3/6 gait-valid).
+Leg 3 sacrificed (duty 0.03–0.07) in 12/12 episodes; one sto over_current
+termination; rise det 3/6 / sto 4/6 (flat 0/3 across passes). Frames
+reviewed (10 each): walk_det_0 f5e25a18, walk_det_3 99dc3e37, rise_det_0
+c781b868, contact_sheet 4c3f8247.
+INTERPRETATION. Videos: NOT WALKING, and worse than the parent to look at —
+under fast commands the shuffle keeps its ~3 cm/s drag and by mid-episode
+parks TWO legs straight up (rear + front antenna) while four legs scoot the
+body. PPO answered the fast commands by absorbing tracking error, not by
+stepping. 1.5M steps is the caveat (a gait might emerge with more budget or
+a fresh init), but as a frontier-seeding diagnostic the answer is clean.
+VERDICT: FALSE branch. hardware-ready: NO (diagnostic ckpt, never promotable).
+HYPOTHESIS STATUS: REFUTED (speed pressure alone does not force stepping
+from this lineage). Consequences per plan §Walk escalation: curriculum
+frontier stays slow→fast (in-flight lp runs unaffected), and the
+phase-based alternating-tripod reward (item c) is NEXT — launching this
+cycle.
+>>>>>>> Stashed changes
+
+### Cycle 11 code changes (snapshotted with cw-walk-phase)
+- `walk_task.py`: phase-based alternating-tripod reward (plan §Walk item c,
+  Siekmann-style periodic reward composition). `goal.walk_phase_obs=1`
+  (default 0 = legacy width) appends sin/cos of an internal clock
+  (`goal.walk_phase_hz`, default 1.0) to the obs (+2 dims); the clock
+  advances only while a walk velocity is commanded. `reward.k_phase_contact`
+  (default 0) pays contact states agreeing with alternating tripods
+  ({0,2,4} stance while sin>=0, complement otherwise): r = k*(agree/6-0.5)*2.
+  Walk-routed by construction; settle hold never charged. Key property: a
+  parked or dragged leg averages 50% agreement = ZERO net reward — only
+  clock-synchronized stepping pays. This is a payment for stepping, not a
+  fine for not stepping: three fines failed because PPO paid them
+  (flag/flagw/speedhi). No joint targets, no trajectories, no constraint.
+- `train_ppo_sim.py`: `--obs-pad-transplant N` + `pad_obs_transplant()` —
+  warm start across an obs WIDENING (new dims appended at end): all tensors
+  copy exactly except the two first-layer weights, which get zero columns
+  for the new dims → transplanted policy bit-identical to the parent until
+  training moves the zero columns (unit-tested). Refuses --asym-critic combo
+  (privileged_idx would shift).
+- BUGFIX `train_ppo_sim.py` evaluate(): post-train quick eval built its env
+  WITHOUT --cfg-set overrides — crashes any run whose cfg changes obs width
+  (found in the phase smoke; harmless historically because no prior cfg-set
+  changed width). Now honors cfg_set.
+- BUGFIX `eval_checkpoint.py`: --cfg-set was applied by mutating env.cfg
+  AFTER construction — silently wrong for anything baked in __init__ (obs
+  width). Overrides now go into the cfg BEFORE env construction. Legacy
+  path regression-checked (dr04b walk ep: vel_err 0.029, leg 3 sacrificed,
+  matches known behavior).
+- Tests 25→28 (phase clock/routing, phase reward value vs touch sensors,
+  transplant behavior-preservation). 6k smoke train end-to-end clean (exit
+  0, transplant exact, canaries armed, parent baseline rise_flat 2/2
+  rise_crouch 2/2 rise_bridge 0/2 lower 1/2 — matches dr04b's known holes);
+  harness smoke on the wider ckpt clean. Smoke ckpts deleted, W&B disabled.
+
+### LAUNCH cw-walk-phase (pod long5m, seed 0, 4M, DR 0.4)
+Warm from champion ppo_goal_cw_walk_dr04b (in place on long5m) via
+--obs-pad-transplant 2. Changes vs parent (one mechanism: clock obs +
+agreement reward are useless separately): goal.walk_phase_obs=1,
+goal.walk_phase_hz=1.0, reward.k_phase_contact=1.0; walk range 0.02–0.06,
+k_walk_swing=1.0 as parent. HYPOTHESIS: paying for clock-synchronized
+alternating-tripod contacts (dense, every tick) breaks the drag-shuffle
+that survived three penalty levers, because stepping becomes the paid
+behavior rather than the fined-but-cheaper alternative.
+Prediction-if-true: phase_agreement rises >0.6, swing counts ≥3/ep on ALL
+six legs (leg 3 included), sacrificed_legs empty in most harness episodes.
+Prediction-if-false: agreement pins ~0.5 (term ignored, shuffle persists)
+OR agreement high while vel_err >0.05 (steps in place, tracking
+sacrificed). Strongest alternative: stepping emerges but clock-locked and
+jerky — fluidity judged in video. GATE: sto walk ≥4/6 gait-valid @
+vel_err ≤0.035 AND video shows all six feet cycling contact/swing AND sto
+rise ≥4/6 retained (canaries armed, auto-stop default).

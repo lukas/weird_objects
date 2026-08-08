@@ -60,7 +60,7 @@
   },
   {
     "run": "cw-walk-flagw-s1",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "wandb_id": "jsjc65dd",
     "pod": "hexapod-sweep-s4",
     "seed": 1,
@@ -69,11 +69,13 @@
     "git": "c858587abef4 (exp/cw-walk-flagw)",
     "hypothesis": "seed twin of cw-walk-flagw (run variance + best-of-2)",
     "gate": "same as cw-walk-flagw",
-    "launch_verified": "round 8; re-verified cycle 9 at 27.75M cum (slowed ~3x by node g129004 oversubscription)"
+    "launch_verified": "round 8; re-verified cycle 9 at 27.75M cum (slowed ~3x by node g129004 oversubscription)",
+    "verdict": "FAIL (cycle 11): walk det 0/6 gait-valid @ vel_err 0.036, sto 0/6 @ 0.033; leg 3 parked (duty 0.03-0.05) in 10/12 episodes, 2 sto episodes flip to the tripod anchor (legs 1/3/5 airborne) - same two exploit modes as seed-0. Retention: rise 5/6 det + 6/6 sto, raise 4/6, track 5/6; lower 0/6 det (inherited lineage defect, see dr04b control). Video: NOT WALKING; rise ends propped with flagged legs; lower never descends. NOT HARDWARE-READY. Twin agreement closes the flag-leg penalty at any routing. Champion unchanged.",
+    "checkpoint": "pod s4: rl_move/sim/policies/ppo_goal_cw_walk_flagw_s1.zip (md5 048643996f3eb4406965d6ba2b8619f7)"
   },
   {
     "run": "cw-walk-nv2",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "wandb_id": "e58w8dos",
     "pod": "hexapod-sweep-long5m",
     "seed": 0,
@@ -82,7 +84,9 @@
     "git": "c858587abef4 (exp/cw-walk-flagw)",
     "hypothesis": "deployable-obs baseline needs its full fixed 8M budget (review section 6: do not extend past 8M unless aac fails to dominate)",
     "gate": "sto walk >=4/6 @ vel_err <=0.035 at 8M cum; second miss calls the baseline at whatever 8M gives",
-    "launch_verified": "round 8; re-verified cycle 9 at 30.74M cum"
+    "launch_verified": "round 8; re-verified cycle 9 at 30.74M cum",
+    "verdict": "FAIL at 8M (cycle 11): walk det 0/6 gait-valid @ vel_err 0.034, sto 0/6 @ 0.035, speed 0.029 m/s; leg 3 parked (duty 0.02-0.07) 11/12 episodes + one sto tripod anchor. rise det 4/6 / sto 3/6 (flat weak); raise 5/6; lower 0/6 (inherited); track 5/6. Video: NOT WALKING - antenna leg parked entire episodes; recorded rises never stand. No metric moved vs the 4M mark beyond eval noise. Baseline CALLED per fixed-budget rule: sto walk 0/6 gait-valid @ 0.035 is the bar aac must beat at 28.76M cum. NOT HARDWARE-READY. nv line closed.",
+    "checkpoint": "pod long5m: rl_move/sim/policies/ppo_goal_cw_walk_nv2.zip (md5 97a7e553bf060f5b420a8c87d8bf1bb2)"
   },
   {
     "run": "cw-stance-raisemix",
@@ -222,7 +226,29 @@
     "log": "/tmp/train_cw-walk-aac-s1b.log",
     "wandb_id": "gmbwrp4v",
     "verified": "2026-08-08T19:44Z (manual, launcher hang)",
-    "git": "d62d476 (exp/cw-walk-aac-s1b)"
+    "git": "d62d476 (exp/cw-walk-aac-s1b)",
+    "checkups": [
+      {
+        "time": "2026-08-08T19:50:53+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5596,
+        "fps": 1365.3,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      },
+      {
+        "time": "2026-08-08T20:00:04+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4672,
+        "fps": 1638.4,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-speedhi",
@@ -262,7 +288,7 @@
       "--subproc"
     ],
     "created": "2026-08-08T19:42:09+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 30,
       "existing_trainers": [],
@@ -286,7 +312,21 @@
     "log": "/tmp/train_cw-walk-speedhi.log",
     "wandb_id": "g30vnbvl",
     "verified": "2026-08-08T19:48Z (manual, launcher hang)",
-    "git": "d62d476 (exp/cw-walk-aac-s1b)"
+    "git": "d62d476 (exp/cw-walk-aac-s1b)",
+    "checkups": [
+      {
+        "time": "2026-08-08T20:01:43+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3938,
+        "fps": 1092.3,
+        "placement": "solo on 30-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "verdict": "DIAGNOSTIC ANSWERED: FALSE branch (cycle 11). 1.39M steps, finished 20:06. Harness @ DR 0.4, commands 0.10-0.15: walk det 0/6 gait-valid @ vel_err 0.099, sto 0/6 @ 0.084, mean speed 0.033-0.034 m/s (gate needed >=0.08 + >=3/6 gait-valid). Leg 3 sacrificed 12/12; one over_current termination; video shows the same ~3 cm/s drag-shuffle now flagging TWO legs vertically. Speed pressure does not force stepping; curriculum frontier stays slow->fast; phase-based tripod reward launched (cw-walk-phase). Ckpt never promotable (diagnostic).",
+    "checkpoint": "pod friction: rl_move/sim/policies/ppo_goal_cw_walk_speedhi.zip (md5 0c3ea0bd14bcb7af1f4b57ef8f88f6b4)"
   },
   {
     "run": "cw-walk-lp-s1b",
@@ -343,6 +383,18 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-lp-s1b --steps 4570000 --task joint_walk --init-from rl_move/sim/policies/init_lp_s1_25188096.zip --dr-scale 0.4 --eval-every 200000 --video-every 200000 --seed 1 --cfg-set reward.k_walk_swing=1.0 --cfg-set goal.walk_lp_curriculum=1 --out-name ppo_goal_cw_walk_lp_s1b --notes \"Continuation of cw-walk-lp-s1 (tf16wr6y), which died silently on lower @25.19M cum (no traceback, no OOM record) - also rebalances it off the starving 30-core pod per operator note. Parent ckpt: ppo_goal_cw_walk_lp_s1_25188096_steps.zip md5 12d2ddd5 (lineage dr04b 87hevk27). One variable vs dr04b: goal.walk_lp_curriculum=1 (LP bucket weights reset on relaunch, re-adapt in ~100k). Gate: retention sto walk >=4/6 @ vel_err <=0.030 on 0.02-0.06 AND sto mean vel_err <=0.045 over uniform 0.02-0.12 AND blunt video + gait-validity gate. Snapshot: d62d47670477fa95e2df9bbd89b1933e9f7c2ed3.\" --n-envs 48 --subproc > /tmp/train_cw-walk-lp-s1b.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-lp-s1b.log",
     "wandb_id": "4qe1gv3z",
-    "verified": "2026-08-08T19:50:31+00:00"
+    "verified": "2026-08-08T19:50:31+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-08T20:00:53+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3652,
+        "fps": 2699.7,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

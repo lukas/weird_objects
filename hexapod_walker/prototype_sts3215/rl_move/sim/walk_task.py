@@ -71,6 +71,22 @@ K_PROG = 1.0
 # global widenings to 0.07/0.08 both regressed). Default off = legacy.
 LP_BUCKETS = ((0.02, 0.03), (0.03, 0.04), (0.04, 0.05), (0.05, 0.06),
               (0.06, 0.07), (0.07, 0.08), (0.08, 0.10), (0.10, 0.12))
+# Phase-based alternating-tripod reward (Siekmann-style periodic reward
+# composition, plan §Walk item c; enabled by goal.walk_phase_obs=1 +
+# reward.k_phase_contact>0). An internal clock at goal.walk_phase_hz
+# advances while a walk velocity is commanded; the policy SEES the clock
+# (sin/cos appended to obs, +2 dims) and a modest reward pays contact
+# states that agree with alternating tripods: PHASE_TRIPOD_A expected in
+# stance while sin(phase) >= 0, the complement otherwise. NO joint
+# targets, NO trajectories, NO hard constraint — a parked or dragged leg
+# scores 50% agreement = zero net reward; only clock-synchronized
+# stepping pays. Rationale: three penalty-style levers failed because
+# PPO paid the fine rather than restructure the gait (flag, flagw,
+# speedhi); this term makes stepping itself the paid behavior, densely,
+# every tick.
+N_PHASE_OBS = 2
+PHASE_TRIPOD_A = (0, 2, 4)      # alternating tripod around the body
+PHASE_HZ_DEFAULT = 1.0          # ~stride rate of the 0.02-0.06 lineage
 
 
 @dataclass
@@ -135,11 +151,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # walk episode (surfaced in step info for the LP callback).
         self._lp_weights = None
         self._walk_bucket = None
+        # Tripod phase clock (default OFF = legacy obs width; see module
+        # docstring on the phase reward). Obs order: [base, vel, phase].
+        self._phase_obs = float(cfg_get(self.cfg, "goal", "walk_phase_obs",
+                                        default=0.0)) == 1.0
+        self._phase = 0.0
         if _gym is not None:
             self.observation_space = _gym.spaces.Box(
                 -np.inf, np.inf,
                 shape=(N_OBS - 6 + self.n_act + WALK_GOAL_DIM
-                       + N_VEL_OBS,),
+                       + N_VEL_OBS
+                       + (N_PHASE_OBS if self._phase_obs else 0),),
                 dtype=np.float32)
 
     def _append_vel(self, obs: np.ndarray) -> np.ndarray:
@@ -153,12 +175,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             v = np.zeros(N_VEL_OBS)
         else:
             v = self._body_vel_xy() / VEL_SCALE
-        return np.concatenate([obs, v]).astype(np.float32)
+        obs = np.concatenate([obs, v])
+        if self._phase_obs:
+            obs = np.concatenate(
+                [obs, [math.sin(self._phase), math.cos(self._phase)]])
+        return obs.astype(np.float32)
 
     def reset(self, *args, **kwargs):
         obs, info = super().reset(*args, **kwargs)
         self._foot_on = [True] * 6
         self._liftoff_xy = [None] * 6
+        self._phase = 0.0
         return self._append_vel(obs), info
 
     # ------------------------------------------------------------------
@@ -260,6 +287,32 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             info["walk_speed"] = float(np.hypot(*v))
             if self._walk_bucket is not None:
                 info["walk_bucket"] = self._walk_bucket
+            # Tripod phase clock + contact-agreement reward (walk-routed
+            # by construction; runs only while a velocity is commanded so
+            # the settle hold is never charged). Parked/dragged legs
+            # average 50% agreement = zero net reward; only stepping in
+            # sync with the clock pays.
+            if self._phase_obs and s_ref > 1e-3:
+                hz = float(cfg_get(self.cfg, "goal", "walk_phase_hz",
+                                   default=PHASE_HZ_DEFAULT))
+                self._phase = (self._phase
+                               + 2.0 * math.pi * hz * self.dt) \
+                    % (2.0 * math.pi)
+                k_phase = float(cfg_get(self.cfg, "reward",
+                                        "k_phase_contact", default=0.0))
+                if k_phase > 0.0:
+                    stance_a = math.sin(self._phase) >= 0.0
+                    agree = 0
+                    for f in range(6):
+                        adr = self._touch_adr[f]
+                        on = (adr >= 0 and
+                              float(self.data.sensordata[adr]) > 0.5)
+                        expect_on = ((f in PHASE_TRIPOD_A) == stance_a)
+                        agree += int(on == expect_on)
+                    r_phase = k_phase * (agree / 6.0 - 0.5) * 2.0
+                    reward = float(reward) + r_phase
+                    info["reward_phase_contact"] = r_phase
+                    info["phase_agreement"] = agree / 6.0
             # Swing touchdown bonus (default OFF): both cw-walk and
             # cw-walk2 plateaued at a ~0.04 m/s skate — nothing in the
             # reward ever pays for LIFTING a foot, and the smoothness

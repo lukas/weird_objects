@@ -294,14 +294,24 @@ def main() -> None:
     from .train_ppo_sim import _annotate_frame
 
     env_cls = ENV_CLASSES[args.task]
+    # Apply --cfg-set BEFORE construction: overrides can change obs
+    # WIDTH (e.g. goal.walk_phase_obs), which is baked in __init__ —
+    # post-hoc env.cfg mutation silently kept the legacy width (found
+    # evaluating the cw-walk-phase smoke, cycle 11).
+    cfg_kw = {}
+    if args.cfg_set:
+        from rl_move.config import load_config
+        cfg = load_config()
+        for spec in args.cfg_set:
+            key, val = spec.split("=", 1)
+            sect, name = key.split(".", 1)
+            cfg.setdefault(sect, {})[name] = float(val)
+        cfg_kw["cfg"] = cfg
     env = env_cls(params=SimServoParams.load(),
                   randomize=args.dr_scale > 0, dr_scale=args.dr_scale,
                   episode_seconds=args.episode_seconds, seed=args.seed,
-                  render_mode=None if args.no_video else "rgb_array")
-    for spec in args.cfg_set or []:
-        key, val = spec.split("=", 1)
-        sect, name = key.split(".", 1)
-        env.cfg.setdefault(sect, {})[name] = float(val)
+                  render_mode=None if args.no_video else "rgb_array",
+                  **cfg_kw)
     model = PPO.load(args.checkpoint, device="cpu")
     std = float(np.exp(model.policy.log_std.detach().numpy().mean()))
 
