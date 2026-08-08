@@ -908,3 +908,17 @@ to ledger), symmetry (mirror) augmentation queued post-phase-verdict,
 tick-jitter DR + observation-delay verification, and a probe-env rule:
 every new mechanism (phase reward, asym critic) gets a trivial probe
 smoke that must pass before any 4M-step run uses it.
+
+### Cycle 11 close — launch verification
+Both arms launcher-verified (INTENT→RUNNING, kexec-hang recovery path both
+times) and +5-min checkups HEALTHY: cw-walk-phase (W&B o6a2x0u2, long5m
+solo, ~1900 fps, warm dr04b @ DR 0.4) and cw-walk-phase-stance (W&B
+o6m4zig3, walk pod solo, ~2400 fps, stance init @ DR 0.2). Launcher
+gotcha for next cycles: passthrough string values (--notes) are NOT
+shell-quoted by launch_run.py — pass them pre-quoted (\"...\") or the
+remote bash -c dies with exit 2 before the trainer starts (attempt 1 of
+cw-walk-phase, recorded FAILED in the ledger; no process/W&B leaked, retry
+clean). In flight after this cycle: aac-s1b (s3), lp-s1b (s4), phase
+(long5m), phase-stance (walk). friction + lower free = smoke/eval
+capacity. Next cycle: eval aac-s1b vs the called nv 8M baseline when it
+finishes (~28.76M cum), lp-s1b at ~29.76M, then the phase arms.

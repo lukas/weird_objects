@@ -517,7 +517,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-phase --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_dr04b.zip --obs-pad-transplant 2 --dr-scale 0.4 --eval-every 200000 --video-every 200000 --seed 0 --cfg-set reward.k_walk_swing=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.0 --cfg-set reward.k_phase_contact=1.0 --out-name ppo_goal_cw_walk_phase --notes \"Phase tripod reward, warm arm a. Parent: ppo_goal_cw_walk_dr04b 87hevk27 md5 52220b24 via --obs-pad-transplant 2 - zero columns preserve parent behavior. One mechanism vs parent: goal.walk_phase_obs=1 + goal.walk_phase_hz=1.0 + reward.k_phase_contact=1.0, walk-routed; parked or dragged legs net zero. Gate: sto walk >=4/6 gait-valid @ vel_err <=0.035 AND six-foot video AND sto rise >=4/6. Twin arm b: cw-walk-phase-stance, stance init, DR 0.2. Snapshot: 92d75cdf60a2e778300e11d3d33ec194e4df0cf1 tag exp/cw-walk-phase-stance.\" --n-envs 48 --subproc > /tmp/train_cw-walk-phase.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-phase.log",
     "wandb_id": "o6a2x0u2",
-    "verified": "2026-08-08T20:41:31+00:00"
+    "verified": "2026-08-08T20:41:31+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-08T20:50:40+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5596,
+        "fps": 1365.3,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-phase-stance",
@@ -585,6 +597,18 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-phase-stance --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/init_stance_dr10.zip --obs-pad-transplant 6 --reset-log-std --dr-scale 0.2 --eval-every 200000 --video-every 200000 --seed 0 --cfg-set reward.k_walk_swing=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.0 --cfg-set reward.k_phase_contact=1.0 --out-name ppo_goal_cw_walk_phase_stance --notes \"Phase tripod reward, basin-escape arm b. Init: ppo_goal_cw_stance_dr10 md5 da1d912a via --obs-pad-transplant 6 - stance obs 68 to walk 74, vel refs + measured vel + phase all at obs tail, zero columns; --reset-log-std reopens exploration. Same phase cfg as arm a; DR 0.2 start per operator addendum, anneal after stepping exists. Canary parent baseline 8/8 in smoke, all four groups protected. Gate: sto walk >=4/6 gait-valid @ vel_err <=0.035 @ DR 0.2 AND six-foot video AND sto rise >=4/6. Twin arm a: cw-walk-phase on long5m. Snapshot: 92d75cdf60a2e778300e11d3d33ec194e4df0cf1.\" --n-envs 48 --subproc > /tmp/train_cw-walk-phase-stance.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-phase-stance.log",
     "wandb_id": "o6m4zig3",
-    "verified": "2026-08-08T20:45:29+00:00"
+    "verified": "2026-08-08T20:45:29+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-08T20:51:29+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8566,
+        "fps": 2457.6,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
