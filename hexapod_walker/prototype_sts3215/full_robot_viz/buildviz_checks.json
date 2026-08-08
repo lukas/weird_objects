@@ -15,7 +15,7 @@
     {
       "check": "placement",
       "pass": true,
-      "detail": "444 instances placed sanely",
+      "detail": "439 instances placed sanely",
       "offenders": []
     },
     {
@@ -27,7 +27,7 @@
     {
       "check": "fastener_attach",
       "pass": true,
-      "detail": "288 fasteners all touch a solid (within 1 mm)",
+      "detail": "276 fasteners all touch a solid (within 1 mm)",
       "offenders": []
     }
   ],

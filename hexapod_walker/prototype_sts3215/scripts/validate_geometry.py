@@ -148,8 +148,8 @@ def _stl_path_for(part_name: str) -> str:
 
 def _ensure_stls_built(needed: list[str]) -> None:
     """If any required STL is missing, regenerate the bundle via
-    ``build_all.py --skip-assembly --skip-xometry`` (only the per-part
-    STLs are needed for validation, so we skip the heavier sub-steps).
+    ``build_all.py --skip-assembly`` (only the per-part STLs are needed
+    for validation, so we skip the heavier sub-steps).
     """
     missing = [n for n in needed if not os.path.isfile(_stl_path_for(n))]
     if not missing:
@@ -160,7 +160,6 @@ def _ensure_stls_built(needed: list[str]) -> None:
         sys.executable,
         os.path.join(PROTO_DIR, "build_all.py"),
         "--skip-assembly",
-        "--skip-xometry",
     ]
     subprocess.check_call(cmd, cwd=PROTO_DIR)
 

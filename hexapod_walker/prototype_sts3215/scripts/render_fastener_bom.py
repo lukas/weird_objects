@@ -6,8 +6,8 @@ the Makefile as ``make bom-fasteners``.  ``make check-cad-fast``
 appends the same table to the end of its report.
 
 The BOM table is intentionally a SINGLE source of truth: edit the
-registry, NOT the markdown file.  ``hexapod_walker/prototype_sts3215/docs/PROTOTYPE_BOM.md``
-and ``docs/SHOPPING_LIST.md`` carry a Fasteners section bracketed by
+registry, NOT the markdown file.  ``hexapod_walker/prototype_sts3215/docs/BOM.md``
+carries a Fasteners section bracketed by
 ``<!-- BEGIN FASTENERS -->`` / ``<!-- END FASTENERS -->`` markers
 that the ``--inject PATH`` mode rewrites in place.
 """
@@ -79,22 +79,18 @@ def render_section() -> str:
         "  aluminum 25T disc horn's M3 TAPPED holes on a 14 mm bolt\n"
         "  circle (cross pattern at 0/90/180/270 deg); the aluminum is\n"
         "  the thread-engagement medium -- no self-tap, no heat-set.\n"
-        "  Two lengths (Jun 2026 flush-output refit): the DRIVEN hip +\n"
-        "  knee front-horn bolts are **48 x M3x10 SHCS (`91290A114`)**\n"
-        "  -- 2 mm longer because the flush output seats the driven\n"
-        "  disc horn 2 mm lower, so the bolt traverses an extra pad\n"
-        "  before the disc -- while the yaw front horn + the two\n"
-        "  passive rear-boss horns stay **72 x M3x8 SHCS (`91290A113`)**.\n"
-        "  (June 2026 disc-horn switch, retiring the now-retired plastic\n"
-        "  4-arm X-horn's M2x8 self-tap scheme.)  See\n"
-        "  `fasteners/README.md` for the full rationale.\n"
-        "- Captive nyloc nuts are used at the foot-pad hinge pins (6 total,\n"
-        "  one per leg); the through-hole bolt is captured by the nyloc on\n"
-        "  the opposite side of the foot.  The previous 24 x M3 x 14\n"
-        "  coxa-bracket-to-chassis nyloc'd through-bolts were retired in\n"
-        "  the May 2026 chassis_bottom-integrated yaw cradle redesign --\n"
-        "  the printed bracket flange they clamped is gone, replaced by\n"
-        "  per-leg cradle bosses inside chassis_bottom.\n"
+        "  Two lengths (Aug 2026 coxa-merge era): the hip + knee horns\n"
+        "  (driven front + passive rear-boss) all take **96 x M3x10 SHCS\n"
+        "  (`91290A114`)**, while the 6 yaw horns take **24 x M3x20 SHCS\n"
+        "  (`91290A120`)** through the taller coxa yaw-hub stack.  (June\n"
+        "  2026 disc-horn switch, retiring the plastic 4-arm X-horn's\n"
+        "  M2x8 self-tap scheme.)  See `fasteners/README.md` for the\n"
+        "  full rationale.\n"
+        "- NO nuts and NO Phillips anywhere (late-Aug 2026): the last\n"
+        "  nyloc + pan-head pair (the foot hinge pin) left with the\n"
+        "  pressed-on TPU `foot_boot`.  Every screw above is hex-socket\n"
+        "  except the M2.5 rear-case self-taps; add the 4 off-registry\n"
+        "  M2 self-tappers that hold the screen to its stand.\n"
         "- The M2.5 spline center screw ships with each STS3215 servo --\n"
         "  it's listed here so the screwdriver-access verifier check knows the\n"
         "  fastener exists, but you do NOT order it separately.\n"

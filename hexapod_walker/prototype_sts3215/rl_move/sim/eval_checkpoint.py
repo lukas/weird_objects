@@ -1,4 +1,5 @@
-"""Exact-path checkpoint evaluation — RL_PLAN_NEXT.md §2 harness.
+"""Exact-path checkpoint evaluation — the exact-path eval harness
+(spec: archive/RL_PLAN_NEXT.md §2; current plan: RL_PLAN.md §11).
 
 Loads a checkpoint through the IDENTICAL env/reset path automated eval
 uses and runs per-mode deterministic episodes with:
@@ -283,7 +284,7 @@ def _save_contact_sheet(strip_paths: list[Path], out: Path) -> None:
     One glance answers 'what is this checkpoint actually doing' across
     every skill — the unit of systematic video review (VIDEO_REVIEW.md).
     """
-    import imageio
+    import imageio.v2 as imageio
     rows = [imageio.imread(p) for p in strip_paths if p.exists()]
     if not rows:
         return

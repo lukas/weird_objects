@@ -1,7 +1,7 @@
 """Read-only flat-bottom audit for chassis_bottom + yaw_bearing_cap.
 
 Builds each part, applies the SAME print-orientation reorient used by
-prepare_xometry_upload.PART_REGISTRY, then measures whether the part rests
+print_orientation.PART_REGISTRY, then measures whether the part rests
 on a genuine flat face at min-Z or whether features protrude below the main
 bottom plane (support-needing overhangs).
 """
@@ -20,7 +20,7 @@ for _p in (PROTO_DIR, SCRIPT_DIR):
         sys.path.insert(0, _p)
 
 import hexapod_prototype as hp  # noqa: E402
-import prepare_xometry_upload as px  # noqa: E402
+import print_orientation as px  # noqa: E402
 
 
 def _down_face_area_by_z(mesh, z_tol=0.20, nz_tol=-0.90):

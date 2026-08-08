@@ -9,24 +9,31 @@ WireViz to render ``firmware/harness.svg`` / ``harness.png`` (plus the
 auto-generated BOM as ``harness.bom.tsv`` and an ``harness.html`` page
 that embeds diagram + BOM together).
 
-Topology encoded here (source of truth: firmware/WIRING.md):
+Topology encoded here (source of truth: firmware/WIRING.md, Aug 2026
+as-built — NO PDB, NO external buck):
 
   * POWER trunk: 3S LiPo -> XT60 -> anti-spark switch -> 15-20 A main
-    fuse -> distribution bus bar (12 AWG silicone).
-  * Bus bar: per-leg V+/GND branch posts (L0..L5) + a buck feed + a
-    data-GND bond post, fed by two trunk input studs.
-  * Six per-leg 16 AWG power branches to Molex 5264 injection pigtails
-    (one per leg; the pigtail mates the leg's first servo's spare
-    port).  Branch lengths come from WIRE_HARNESS_PLAN (that leg's YAW
-    entry — the injection point is at the leg's first/yaw servo).
+    fuse -> CENTRAL TRUNK WAGO pair (two 5-port Wago 221-415 at the
+    chassis_top centre, one for V+, one for GND; 12 AWG silicone).
+  * Trunk Wagos fan out six per-leg 16 AWG branches, each landing on a
+    CORNER POWER Wago pair (two 3-port 221-413 between the tray walls
+    integrated into the chassis_bottom top face at the leg's hex corner
+    flat) and then a Molex 5264
+    injection pigtail.  As-built the pigtail mates the leg's HIP
+    servo's spare port (the hip is the power tee; yaw/knee draw V+
+    through the within-leg leads).  Branch lengths come from
+    WIRE_HARNESS_PLAN.
   * Within-leg data chain: stock FEETECH 3-pin (V+/GND/SIG) leads,
-    yaw -> hip -> knee.
+    yaw -> hip -> knee.  Servo bus IDs are 2..19 (leg 0 = 2/3/4 …
+    leg 5 = 17/18/19).
   * Leg-to-leg data jumpers: SIGNAL + GND ONLY (V+ omitted so power
     never bridges legs through a 3 A-rated 5264 pin).
-  * Logic: bus bar -> XINGYHENG buck (12->5 V) -> Uno Q; Uno Q USB-C
+  * Logic: Uno Q VIN takes its OWN battery tap at the LiPo XT60 (the
+    on-board regulator handles the 3S rail; no buck).  Uno Q USB-C
     -> OTG hub -> USB bus-servo adapter (FE-URT-2 / Waveshare A,
-    level switch 5 V) whose D/G pins drive the servo bus; GY-521 IMU
-    on the Uno Q's own I2C (3V3!).
+    level switch 5 V) whose D/G pins drive the servo bus (fallback
+    path; the preferred path is the MCU feetech_bridge over D0/D1);
+    GY-521 IMU on the Uno Q's own I2C (3V3!).
 
 Run (repo venv):
     ../../run.sh hexapod_walker/prototype_sts3215/scripts/render_harness_diagram.py
@@ -77,8 +84,9 @@ def _plan_by(leg: int, axis: str) -> dict:
 
 def _branch_length_m(leg: int) -> float:
     """Per-leg 16 AWG power-branch length (m), from the geometry-derived
-    plan: the branch runs bus-bar post -> drop slot -> the leg's first
-    (yaw) servo's injection point, i.e. that leg's YAW path length."""
+    plan: the branch runs trunk Wago -> corner Wago pair -> drop slot ->
+    the leg's injection point (budget value; the plan's YAW entry is the
+    conservative full chassis-to-leg run)."""
     return round(_plan_by(leg, "yaw")["path_length_mm_min"] * 1e-3, 2)
 
 
@@ -107,26 +115,29 @@ def build_harness() -> dict:
         "pinlabels": ["IN", "OUT"],
         "notes": "sized above ~9-12.6 A walking draw",
     }
-    # Distribution bus bar: two trunk input studs + the 15 distribution
-    # posts of WIRING.md §6 (V+ L0-L5 + buck; GND L0-L5 + buck + data).
-    connectors["BUSBAR"] = {
-        "type": "Power distribution bus bar",
+    # Central trunk Wago splice pair (as-built Aug 2026: no PDB): two
+    # 5-port Wago 221-415 side by side at the chassis_top centre -- one
+    # splices the fused V+ trunk into the branch feeds, the other
+    # splices GND (+ the data-GND bond).  Wago 221 = 32 A / 4 mm².
+    # Pinlabels show the LOGICAL per-leg feeds; each nut has 5 physical
+    # ports (1 trunk in + 4 free), so branches share ports as wired.
+    connectors["TRUNK_WAGO"] = {
+        "type": "Central trunk pair (2x 5-port Wago 221-415)",
         "pinlabels": (
             ["V+ IN", "GND IN"]
-            + [f"V+ L{i}" for i in range(N_LEGS)] + ["V+ BUCK"]
-            + [f"GND L{i}" for i in range(N_LEGS)] + ["GND BUCK", "GND DATA"]
+            + [f"V+ L{i}" for i in range(N_LEGS)]
+            + [f"GND L{i}" for i in range(N_LEGS)] + ["GND DATA"]
         ),
-        "notes": "per-leg branch posts; optional 5-7 A branch fuses",
-    }
-    connectors["BUCK"] = {
-        "type": "XINGYHENG 12 V → 5 V buck",
-        "pinlabels": ["VIN+", "VIN-", "VOUT+", "VOUT-"],
-        "notes": "Uno Q logic supply; never the servo rail",
+        "notes": "chassis_top centre; logical per-leg feeds shown (5 "
+                 "physical ports per nut); optional 5-7 A branch fuses; "
+                 "no PDB — all lever nuts",
     }
     connectors["UNOQ"] = {
         "type": "Arduino Uno Q",
-        "pinlabels": ["USB-C", "5V IN", "GND", "3V3", "SCL", "SDA"],
-        "notes": "gait/RL host (Linux side); drives bus via USB adapter",
+        "pinlabels": ["USB-C", "VIN", "GND", "3V3", "SCL", "SDA"],
+        "notes": "gait/RL host (Linux side); own battery tap on VIN "
+                 "(on-board regulator, no buck); drives bus via MCU "
+                 "bridge (preferred) or USB adapter (fallback)",
     }
     connectors["ADAPTER"] = {
         "type": "USB bus-servo adapter",
@@ -138,11 +149,12 @@ def build_harness() -> dict:
     connectors["IMU"] = {
         "type": "GY-521 (MPU-6050)",
         "pinlabels": ["VCC", "GND", "SCL", "SDA"],
-        "notes": "I2C addr 0x68; POWER FROM 3V3, NEVER 5 V",
+        "notes": ("I2C addr 0x68; POWER FROM 3V3, NEVER 5 V; glued on "
+                  "chassis_top beside the central trunk Wagos"),
     }
 
-    # 12 AWG trunk: LiPo -> switch -> fuse -> bus bar.  The fuse sits in
-    # the V+ line only; trunk GND runs switch -> bus bar directly.
+    # 12 AWG trunk: LiPo -> switch -> fuse -> trunk Wagos.  The fuse sits
+    # in the V+ line only; trunk GND runs switch -> GND Wago directly.
     cables["W_TRUNK_LIPO"] = {
         "gauge": "12 AWG", "length": 0.15, "colors": ["RD", "BK"],
         "notes": "silicone XT60 pigtail",
@@ -163,41 +175,34 @@ def build_harness() -> dict:
     ])
     cables["W_TRUNK_FUSED"] = {
         "gauge": "12 AWG", "length": 0.1, "colors": ["RD"],
-        "notes": "fused V+ trunk into the bus bar",
+        "notes": "fused V+ trunk into the V+ trunk Wago",
     }
     connections.append([
         {"FUSE": ["OUT"]},
         {"W_TRUNK_FUSED": [1]},
-        {"BUSBAR": ["V+ IN"]},
+        {"TRUNK_WAGO": ["V+ IN"]},
     ])
     cables["W_TRUNK_GND"] = {
         "gauge": "12 AWG", "length": 0.2, "colors": ["BK"],
-        "notes": "trunk GND, switch → bus bar",
+        "notes": "trunk GND, switch → GND trunk Wago",
     }
     connections.append([
         {"SWITCH": ["OUT GND"]},
         {"W_TRUNK_GND": [1]},
-        {"BUSBAR": ["GND IN"]},
+        {"TRUNK_WAGO": ["GND IN"]},
     ])
 
     # ---------------------------------------------------- logic + data spine
-    cables["W_BUCK_IN"] = {
-        "gauge": "20 AWG", "length": 0.1, "colors": ["RD", "BK"],
-        "notes": "bus bar → buck input (12 V)",
+    # Uno Q battery tap: straight from the LiPo XT60 (before the servo
+    # switch), 20-22 AWG.  No buck — the Uno Q regulates the 3S rail.
+    cables["W_UNOQ_TAP"] = {
+        "gauge": "20 AWG", "length": 0.25, "colors": ["RD", "BK"],
+        "notes": "Uno Q own battery tap (share ground only; no buck)",
     }
     connections.append([
-        {"BUSBAR": ["V+ BUCK", "GND BUCK"]},
-        {"W_BUCK_IN": [1, 2]},
-        {"BUCK": ["VIN+", "VIN-"]},
-    ])
-    cables["W_BUCK_OUT"] = {
-        "gauge": "20 AWG", "length": 0.1, "colors": ["RD", "BK"],
-        "notes": "buck 5 V → Uno Q logic",
-    }
-    connections.append([
-        {"BUCK": ["VOUT+", "VOUT-"]},
-        {"W_BUCK_OUT": [1, 2]},
-        {"UNOQ": ["5V IN", "GND"]},
+        {"LIPO": ["V+", "GND"]},
+        {"W_UNOQ_TAP": [1, 2]},
+        {"UNOQ": ["VIN", "GND"]},
     ])
     cables["W_USB"] = {
         "category": "bundle", "length": 0.3, "colors": ["BK"],
@@ -208,7 +213,7 @@ def build_harness() -> dict:
         {"W_USB": [1]},
         {"ADAPTER": ["USB-C"]},
     ])
-    # Adapter D/G -> head of the servo bus (leg 0's yaw servo, ID 1).
+    # Adapter D/G -> head of the servo bus (leg 0's yaw servo, ID 2).
     cables["W_BUS_HEAD"] = {
         "gauge": "24 AWG", "length": STOCK_LEAD_M, "colors": ["WH", "BK"],
         "notes": "adapter D/G → bus signal + GND (V+ OMITTED)",
@@ -216,9 +221,9 @@ def build_harness() -> dict:
     connections.append([
         {"ADAPTER": ["D", "G"]},
         {"W_BUS_HEAD": [1, 2]},
-        {"SERVO1": ["SIG", "GND"]},
+        {"SERVO2": ["SIG", "GND"]},
     ])
-    # Mandatory ground bond: adapter servo-terminal GND <-> bus-bar GND.
+    # Mandatory ground bond: adapter servo-terminal GND <-> trunk GND Wago.
     cables["W_GND_BOND"] = {
         "gauge": "22 AWG", "length": 0.1, "colors": ["BK"],
         "notes": "common-ground bond (bus has no return without it)",
@@ -226,7 +231,7 @@ def build_harness() -> dict:
     connections.append([
         {"ADAPTER": ["G"]},
         {"W_GND_BOND": [1]},
-        {"BUSBAR": ["GND DATA"]},
+        {"TRUNK_WAGO": ["GND DATA"]},
     ])
     cables["W_I2C"] = {
         "gauge": "28 AWG", "length": 0.15,
@@ -241,7 +246,9 @@ def build_harness() -> dict:
 
     # ------------------------------------------------------------- per leg
     for leg in range(N_LEGS):
-        ids = [leg * 3 + 1, leg * 3 + 2, leg * 3 + 3]  # yaw, hip, knee
+        # As-built bus IDs run 2..19: leg 0 = 2/3/4 … leg 5 = 17/18/19
+        # (WIRING.md § intro; L5 knee = ID 19).
+        ids = [leg * 3 + 2, leg * 3 + 3, leg * 3 + 4]  # yaw, hip, knee
 
         # 18x STS3215 (Molex 5264 3-pin: black GND, red V+, white SIG).
         for sid, axis in zip(ids, ("yaw", "hip_pitch", "knee")):
@@ -256,15 +263,36 @@ def build_harness() -> dict:
                           f"({entry['extension_required']})"),
             }
 
-        # Power injection pigtail (branch terminal -> leg's first servo).
+        # Corner power Wago pair in the tray walls integrated into the
+        # chassis_bottom top face at this leg's hex corner flat
+        # (az = leg*60 deg).
+        connectors[f"L{leg}_WAGO"] = {
+            "type": "Power Wago pair (2x Wago 221-413)",
+            "pinlabels": ["V+", "GND"],
+            "notes": f"leg {leg} 12 V+G 3-port lever nuts in the integrated "
+                     "chassis corner tray, entries facing inward",
+        }
+        # Power injection pigtail — as-built it mates the leg's HIP
+        # servo's spare port (the hip is the power tee; yaw + knee take
+        # V+ through the within-leg leads).
         connectors[f"L{leg}_INJ"] = {
             "type": "Molex 5264 pigtail",
             "subtype": "crimped 3-pin",
             "pinlabels": ["GND", "V+", "SIG"],
-            "notes": f"leg {leg} V+/GND injection (mates SERVO{ids[0]}'s "
-                     "spare port; ~3 A/pin limit = one leg max)",
+            "notes": f"leg {leg} V+/GND injection at the HIP "
+                     f"(mates SERVO{ids[1]}'s spare port; ~3 A/pin "
+                     "limit = one leg max)",
         }
         cables[f"W_PWR_L{leg}"] = {
+            "gauge": "16 AWG", "length": 0.1, "colors": ["RD", "BK"],
+            "notes": f"trunk Wagos → leg {leg} corner power Wago pair",
+        }
+        connections.append([
+            {"TRUNK_WAGO": [f"V+ L{leg}", f"GND L{leg}"]},
+            {f"W_PWR_L{leg}": [1, 2]},
+            {f"L{leg}_WAGO": ["V+", "GND"]},
+        ])
+        cables[f"W_BR_L{leg}"] = {
             "gauge": "16 AWG",
             "length": _branch_length_m(leg),
             "colors": ["RD", "BK"],
@@ -272,18 +300,18 @@ def build_harness() -> dict:
                      "wire_harness_plan geometry)",
         }
         connections.append([
-            {"BUSBAR": [f"V+ L{leg}", f"GND L{leg}"]},
-            {f"W_PWR_L{leg}": [1, 2]},
+            {f"L{leg}_WAGO": ["V+", "GND"]},
+            {f"W_BR_L{leg}": [1, 2]},
             {f"L{leg}_INJ": ["V+", "GND"]},
         ])
-        # The pigtail's mate onto the first servo's spare 5264 port
+        # The pigtail's mate onto the hip servo's spare 5264 port
         # (WireViz "direct connection" arrow, no cable in between).
         # NB: mate arrows need NUMERIC pins in WireViz 0.4.1 — its mate
         # renderer indexes connector.pins (ints), not pinlabels.
         connections.append([
             {f"L{leg}_INJ": [1, 2, 3]},
             "-->",
-            {f"SERVO{ids[0]}": [1, 2, 3]},
+            {f"SERVO{ids[1]}": [1, 2, 3]},
         ])
 
         # Within-leg stock 3-pin chain: yaw -> hip -> knee.

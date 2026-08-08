@@ -122,7 +122,7 @@ class SimServoParams:
 # ---------------------------------------------------------------------------
 
 def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
-                mesh_visuals: bool = True):
+                mesh_visuals: bool = True, mjx_compat: bool = False):
     """Load the hexapod MJCF. ``fixed_base`` welds the chassis (bench/air
     tests); ``flat_terrain`` zeroes the random hfield so the floor is flat.
 
@@ -133,6 +133,12 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
     ~44 mm longer than the kinematic link), so primitives are the
     truthful choice for RL rollout videos. Physics is identical either
     way — visual geoms are contype=0, density=0.
+
+    ``mjx_compat=True`` swaps the hfield terrain for an equivalent flat
+    plane (same z=0 surface, friction and condim) so ``mjx.put_model``
+    accepts the model — MJX has no height-field collisions. Training
+    always runs ``flat_terrain=True``, so the physics is unchanged;
+    combining ``mjx_compat`` with ``flat_terrain=False`` is an error.
     """
     import mujoco
     import mujoco_prototype as MP
@@ -145,8 +151,29 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
         MP.USE_PART_MESHES, MP.USE_SERVO_MESHES = saved
     if fixed_base:
         xml = xml.replace('<freejoint name="root"/>', '')
+    if mjx_compat:
+        if not flat_terrain:
+            raise ValueError("mjx_compat requires flat_terrain=True "
+                             "(MJX cannot collide with hfields)")
+        import re
+        xml = re.sub(r'<hfield name="terrain"[^/]*/>', "", xml)
+        xml, n = re.subn(
+            r'<geom name="terrain" type="hfield" hfield="terrain" ([^/]*)/>',
+            r'<geom name="terrain" type="plane" size="8 8 0.05" \1/>',
+            xml)
+        if n != 1 or "hfield" in xml:
+            raise RuntimeError("mjx_compat terrain rewrite failed — "
+                               "mujoco_prototype terrain XML changed?")
+        # Drop the backup grid plane 1 mm under the terrain: it can never
+        # win a contact in C MuJoCo, but MJX evaluates every plane×geom
+        # pair every substep, so the duplicate doubles ground-contact
+        # work on the GPU.
+        xml, n = re.subn(r'<geom name="floor" type="plane"[^/]*/>', "", xml)
+        if n != 1:
+            raise RuntimeError("mjx_compat floor removal failed — "
+                               "mujoco_prototype floor XML changed?")
     model = mujoco.MjModel.from_xml_string(xml)
-    if flat_terrain:
+    if flat_terrain and model.hfield_data.size:
         model.hfield_data[:] = 0.0
     return model
 

@@ -70,7 +70,7 @@ def _build(verbose: bool) -> bool:
         "chassis_top", "chassis_bottom",
         "coxa_bracket", "coxa_link",
         "femur_link", "tibia_link",
-        "foot_pad",
+        "foot_boot",
     ]
     _heading("[1/4] Ensure per-part STLs are present")
     _ensure_stls_built(needed)
@@ -233,7 +233,7 @@ def _write_report(validation_report, render_results,
             lines.append("")
     lines.append("")
 
-    # ----- Auto-derived fastener table (mirrors PROTOTYPE_BOM.md
+    # ----- Auto-derived fastener table (mirrors docs/BOM.md
     # "Fasteners" section; kept in sync via scripts/render_fastener_bom.py).
     try:
         import render_fastener_bom  # type: ignore  # noqa: WPS433

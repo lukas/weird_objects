@@ -29,15 +29,29 @@ Python gait / teleop / demos run on the **Linux** side.
 Linux talks to the sketch over **`/dev/ttyHS1` @ 921600**
 (`linux_control/mcu_feetech_bus.py`).
 
-**Power (Aug 2026 as-built):** **no external buck**. The 3S battery feeds
-two domains that share ground only — `battery → PDB → power Wagos →
-servos` and `battery → Uno Q` (on-board regulator). Electronics deck =
-magnet-held Ø110 hex plate (Uno Q + breakout) + raised platform (screen
-on top; MPU glued on chassis_bottom behind phys. leg 1).
+**Power (Aug 2026 as-built):** **no external buck, no PDB**. The 3S
+battery feeds two domains that share ground only — `battery → trunk
+Wagos → power Wagos → servos` (the whole distribution is Wago 221 lever
+nuts) and `battery → Uno Q` (on-board regulator). Electronics deck =
+magnet-held round Ø115 mount plate (Uno Q + breakout on top, 3.3 V Wago
+underneath) + raised platform (screen
+on top; MPU glued on chassis_top beside the central trunk Wagos).
 
-**Fallback:** a **USB bus-servo adapter** (FE-URT-2 or Waveshare) on the Uno Q
-USB-C OTG port, enumerated as `/dev/ttyUSB*`, driven directly by
-`feetech_bus.py` at 1 Mbps — useful when the MCU bridge is not flashed.
+**Fallback (bench only):** a **USB bus-servo adapter** (FE-URT-2 or
+Waveshare) on the Uno Q USB-C OTG port, enumerated as `/dev/ttyUSB*`,
+driven directly by `feetech_bus.py` at 1 Mbps — useful when the MCU
+bridge is not flashed.
+
+> ⚠ **The USB fallback does NOT work when the Uno Q is VIN-powered**
+> (i.e. on-robot, battery → VIN).  Two documented Uno Q issues: with no
+> USB-C cable at boot there is no CC negotiation, so the USB controller
+> comes up in **device** mode (fixed in newer OS images; older ones need
+> `echo host | sudo tee /sys/kernel/debug/usb/4e00000.usb/mode`, see
+> [arduino/linux-qcom#2](https://github.com/arduino/linux-qcom/issues/2));
+> and the board **never sources 5 V out of the USB-C jack from VIN** (a
+> diode isolates VBUS from 5V_SYS), so the adapter stays unpowered
+> unless it hangs off a powered PD hub.  This is why the robot uses the
+> **D0/D1 UART path** — it is the only practical link under VIN power.
 
 > **Buy one USB/TTL bus-servo adapter** (needed for either UART or USB mode):
 > - **FEETECH FE-URT-2** (`FE-URT2-C001`) — Type-C, TTL-BUS for STS/SCS,
@@ -74,20 +88,20 @@ supply is strongly preferred for bring-up.
 > **Voltage note:** the STS3215-30kg is the **12 V** variant (range
 > 6–12.6 V). Run the bus at **12 V** (bench supply, later a 3S LiPo at
 > 11.1 V nominal / 12.6 V full). There is **no servo BEC** and **no
-> external buck** — the raw 3S rail goes to the PDB→servo path, and a
+> external buck** — the raw 3S rail goes to the Wago→servo path, and a
 > separate battery tap feeds the Uno Q (its on-board regulator).
 
 ---
 
 ## 1. Two power domains (share ground only)
 
-Aug 2026 as-built: **no external buck**. Battery → PDB → servos, and
-battery → Uno Q, are separate feeds that share ground only.
+Aug 2026 as-built: **no external buck, no PDB**. Battery → trunk Wagos →
+servos, and battery → Uno Q, are separate feeds that share ground only.
 
 ```
    BENCH SUPPLY (set 12.0 V, limit 2 A for one leg)   ← swap in 3S LiPo later
             │
-            ├─► PDB ─► chassis-top POWER Wagos (12V+G) ─► per-leg branches
+            ├─► central trunk Wagos (V+/GND pair of 5-port 221-415) ─► corner POWER Wago pairs (12V+G) ─► per-leg branches
             │         (V+/GND injected per leg, NOT chained leg-to-leg)
             │
             └─► Uno Q VIN (on-board regulator; own battery tap)
@@ -97,14 +111,19 @@ battery → Uno Q, are separate feeds that share ground only.
 
    DECK:  magnet hex plate (Uno Q + breakout)
           + raised platform (screen on top)
-          + MPU glued on chassis_bottom (behind phys. leg 1)
+          + MPU glued on chassis_top (beside the trunk Wagos, near centre)
           MPU ──I²C──► Uno Q  (Stage F)
 
-   ground common (LiPo −, PDB GND, Uno Q GND, adapter GND, IMU GND)
+   ground common (LiPo −, trunk-Wago GND, Uno Q GND, adapter GND, IMU GND)
 ```
 
-- **Servo power** (12 V) comes from the **PDB**, then **power Wagos**
-  on the chassis-top periphery, then **per-leg branches** in heavy
+- **Servo power** (12 V) comes from the **central trunk Wago splice
+  pair** — two **5-port Wago 221-415** side by side at the chassis_top
+  centre (one V+, one GND) — then the **corner power Wago pairs** — one V+/GND pair of 3-port
+  221-413 seated between tray walls printed into the chassis_bottom
+  top face at each hex corner flat (between adjacent yaw cradles,
+  entries facing inward; late-Aug 2026 — no separate tray part) —
+  then **per-leg branches** in heavy
   silicone. Power is **not** passed leg-to-leg through the thin servo
   connector pins (see §6).
 - **Uno Q power** is a **separate battery tap** (no buck on the servo
@@ -113,27 +132,34 @@ battery → Uno Q, are separate feeds that share ground only.
   On the robot, data jumpers land at **underside data Wagos** near the
   yaw retainers. Preferred path is the MCU `feetech_bridge`; USB adapter
   is the fallback (§ intro / §2).
-- **All grounds common**: bench-supply − (or LiPo −), PDB GND, Uno Q
-  GND, adapter GND, IMU GND. Verify with a continuity beep.
+- **All grounds common**: bench-supply − (or LiPo −), trunk-Wago GND,
+  Uno Q GND, adapter GND, IMU GND. Verify with a continuity beep.
 - On the bench (one leg) you may feed 12 V into the adapter's power
   terminal; on the full robot the adapter (if used) is **data-only**
-  and each leg gets 12 V from the PDB / power Wagos (see §2 and §6).
-- **The IMU is on the Uno Q's I²C bus**, glued on chassis_bottom
-  behind physical leg 1 (not under the raised platform). Totally separate from the servo bus; see Stage F.
+  and each leg gets 12 V from the trunk / power Wagos (see §2 and §6).
+- **The IMU is on the Uno Q's I²C bus**, glued on chassis_top just
+  south of the central trunk Wagos (inboard, header row facing the
+  open -X deck so its wires have room; not under the raised platform).
+  Totally separate from the servo bus; see Stage F.
 
 ---
 
-## 2. The serial bus — Uno Q ↔ USB adapter ↔ servos (DATA)
+## 2. The serial bus — Uno Q ↔ bus-servo adapter ↔ servos (DATA)
 
 There is exactly **one** data signal on the robot: the half-duplex TTL
-bus, daisy-chained servo to servo. It reaches the Uno Q's Linux side
-through a **USB bus-servo adapter** (§ intro). No I²C on the servos, no
-per-servo PWM lines.
+bus, daisy-chained servo to servo. As-built it reaches the Uno Q over a
+**3-wire TX/RX/GND pigtail** from the MCU's **D0/D1** pins to the
+adapter's UART/MCU header (`feetech_bridge` sketch, § intro); the USB
+OTG hookup is a bench-only fallback (and does not work on VIN power —
+see the ⚠ note in § intro). No I²C on the servos, no per-servo PWM
+lines.
 
 ```
-  Uno Q ─USB-C─► USB adapter ─TTL (1 Mbps)─► ID1 ─► ID2 ─► ID3 ─► … ─► ID18
-       │  (USB-C OTG/hub)   half-duplex, single signal line + common GND
+  Uno Q ─D1/D0 TX/RX+GND─► adapter ─TTL (1 Mbps)─► ID1 ─► ID2 ─► … ─► ID18
+       │  (feetech_bridge MCU UART)  half-duplex, single signal + common GND
        └──I²C (separate bus)──► MPU-6050 IMU
+
+  (bench fallback: Uno Q ─USB-C OTG/powered hub─► adapter, jumper B)
 ```
 
 - The STS3215 bus is **half-duplex** (one signal wire, TX and RX
@@ -147,8 +173,9 @@ per-servo PWM lines.
     set the switch to **5 V**. Plug the servo chain into the **TTL-BUS**
     port (not the RS485 port, which is for SMS servos).
   - **Waveshare Bus Servo Adapter (A)** has no voltage switch; it has an
-    **A/B mode jumper** — set it to **B (USB)** since the host is the
-    Uno Q over USB.
+    **A/B mode jumper** — as-built set it to **A (UART)**: the Uno Q's
+    D0/D1 pigtail lands on the UART/MCU header.  **B (USB)** is only for
+    the bench USB fallback.
   - **Neither switch sets the servo supply.** The 3.3/5 V logic level is
     the *signal* voltage only. Servo **power** is a separate **12 V**
     rail (matched to the STS3215's 9–12.6 V range), **never** 5 V or 3 V.
@@ -352,9 +379,11 @@ Bench supply set to **12.0 V, current limit 2.0 A**. No servos.
 - [ ] Supply OFF.
 
 ### Stage B — Uno Q + USB adapter on the bus, no servos
-Uno Q powered (USB-C or its battery tap); **USB bus-servo adapter
-plugged into the Uno Q's USB-C** (mode set per §2: FE-URT-2 level
-switch → 5 V, or Waveshare jumper → B); 12 V rail still OFF.
+Uno Q powered **over USB-C** (NOT VIN/battery tap — a VIN-powered Uno Q
+gives no USB host mode and no VBUS, § intro ⚠ note); **USB bus-servo
+adapter plugged into the Uno Q's USB-C** (mode set per §2: FE-URT-2
+level switch → 5 V, or Waveshare jumper → B); 12 V rail still OFF.
+On-robot / VIN power, skip the USB stages and use the D0/D1 UART bridge.
 
 - [ ] `ls /dev/ttyUSB* /dev/ttyACM*` shows the adapter's port (note it,
       that's your `--port`).
@@ -410,12 +439,13 @@ The MPU-6050 is **4 wires** from the GY-521 breakout to the Uno Q
 **header SDA/SCL (D20/D21)** — STM32 `Wire`, **not** Linux SoC I²C.
 Linux `i2cdetect` on `/dev/i2c-*` will **never** show `0x68` for this
 wiring; the MCU sketch owns the bus. As-built (Aug 2026): the breakout
-is **glued on `chassis_bottom`** in the inter-plate bay, inboard of
-physical leg 1 (clockwise from the tape-marked leg 0 cradle).
+is **glued on `chassis_top`** just south of the central trunk Wago pair
+(inboard, r = 43), right-angle header row facing the open -X deck so
+the four jumpers have clear exit room; short run up to the Uno Q.
 
 | GY-521 pin | → Uno Q                | What it is        |
 |------------|------------------------|-------------------|
-| `VCC`      | **3V3** power          | power — 3V3, **not** 5V |
+| `VCC`      | **3V3** power (via the 3.3 V Wago under the mount plate) | power — 3V3, **not** 5V |
 | `GND`      | **GND**                | ground            |
 | `SCL`      | **SCL (D21)**          | MCU Wire clock    |
 | `SDA`      | **SDA (D20)**          | MCU Wire data     |
@@ -424,6 +454,19 @@ physical leg 1 (clockwise from the tape-marked leg 0 cradle).
 
 > ⚠ **Power the GY-521 from 3V3, never 5V** — its SDA/SCL pull-ups go
 > to VCC and 5V would over-drive the 3.3 V I²C lines.
+>
+> As-built (Aug 2026): the 3.3 V loads splice at a **5-port Wago 221-415
+> VHB'd under the round mount plate** (south rim, entries facing the
+> rim), fed ONCE from the Uno Q 3V3 pin through the plate's east Ø8 wire
+> port — one lever nut is the whole 3.3 V rail.  Current load = GY-521
+> VCC only (3 spares): the **screen does NOT tap this Wago** — its whole
+> 8-wire pigtail (VCC GND SCL SDA RES DC CS BLK) runs from the Uno Q up
+> the az-330 platform leg and through the 24×5 wire slot in the
+> platform's top plate; the panel is held by 4× M2 self-tappers in the
+> top plate's corner pilot holes.  Screen pin map (Uno layout, SPI):
+> VCC → **3V3**, GND → **GND** (power header), SCL → **D13** (SCK),
+> SDA → **D11** (MOSI), CS → **D10**, DC → **D9**, RES → **D8**,
+> BLK → **D7**.
 >
 > Do **not** use A4/A5 for this board's main `Wire` — on Uno Q those are
 > not the labeled SDA/SCL header. Qwiic is a second MCU bus (`Wire1`).
@@ -449,10 +492,10 @@ Only after Stages A–F pass, build the §6 power harness and then:
 
 1. Bench supply OFF and disconnected.
 2. Wire the full §6 harness:
-   `3S LiPo XT60 → anti-spark switch → main fuse (15–20 A) → PDB →
-   power Wagos → per-leg branches`, plus a **separate battery tap to
-   the Uno Q** (no buck).
-3. **Verify common ground** across LiPo −, PDB GND, Uno Q, IMU.
+   `3S LiPo XT60 → anti-spark switch → main fuse (15–20 A) → trunk
+   Wagos → power Wagos → per-leg branches`, plus a **separate battery
+   tap to the Uno Q** (no buck).
+3. **Verify common ground** across LiPo −, trunk-Wago GND, Uno Q, IMU.
 4. The **anti-spark switch is your e-stop** — keep a hand near it for
    the first powered run.
 
@@ -501,20 +544,21 @@ with stall headroom).
   MAIN FUSE  15–20 A  (blade/ANL in holder)
      │  12–14 AWG silicone
      ▼
-  ┌──────────────────  PDB (bus bar)  ──────────────────┐
-  │  (V+ bar)                                  (GND bar) │
+  ┌──────────  TRUNK WAGOS (V+ nut + GND nut, chassis_top)  ──────────┐
+  │  (V+ splice)                                        (GND splice)  │
   │   ├─► chassis-top POWER Wago (12V+G) ─► leg 0 branch …
   │   ├─► chassis-top POWER Wago (12V+G) ─► leg 1 branch …
   │   ├─► … one Wago + branch per leg …
   │   └─► chassis-top POWER Wago (12V+G) ─► leg 5 branch …
-  └─────────────────────────────────────────────────────┘
+  └────────────────────────────────────────────────────────────────────┘
+  (as-built Aug 2026: no PDB — the whole distribution is Wago 221 lever nuts)
 
   DECK (magnet hex + raised platform):
       4× posts at CHASSIS_STANDOFF_HOLES_XY (±31.1):
          20 mm standoff + ~2.5 mm M3 thumb nut + Ø8×8 mm magnet
-      → hex_mount_plate_110 (Uno Q + breakout)
+      → round_mount_plate_115 (Uno Q + breakout on top; 3.3 V Wago under)
       → hex_raised_platform_110 (screen on top)
-      → MPU-6050 glued on chassis_bottom (behind phys. leg 1)
+      → MPU-6050 glued on chassis_top (beside trunk Wagos, near centre)
 
   DATA (separate, low current) — underside DATA Wagos near yaw retainers;
   **as-built entry is at each yaw**:
@@ -525,7 +569,7 @@ with stall headroom).
       ├─► …                            │
       └─► L5 yaw ─► L5 hip ─► L5 knee ─┘
 
-  POWER (per-leg PDB / Wago branch) — **as-built inject at each hip**:
+  POWER (per-leg trunk-Wago branch) — **as-built inject at each hip**:
       power Wago ─V+/GND─► L? hip ─┬─► L? yaw
                                   └─► L? knee
       (hip is the power tee; yaw/knee take V+ from the hip, not from
@@ -552,7 +596,7 @@ Diagnostic consequence: a yaw that **blinks (has V+)** but **does not answer** u
    (still one leg's current on the branch — under the 3 A rating).
 2. **Leg-to-leg**: the cable that continues the DATA chain to the next
    leg carries **Signal + GND only** — **cut/omit the V+ wire**. Each
-   leg already has its own V+ feed from the PDB / power Wago at the hip,
+   leg already has its own V+ feed from the trunk / power Wago at the hip,
    so power never bridges between legs and no pin ever carries more than
    one leg.
 
@@ -606,15 +650,24 @@ Bring-up rule:
 5. Interactive checklist: `urt2_motor_setup.py --debug` → “new leg broke
    the bus” bring-up.
 
-The "bus bar" is best implemented as a **drone power-distribution
-board** — the spec'd part is the **Matek PDB-XT60** (36 × 50 mm, 11 g,
-XT60 input, 6 output pad pairs at 15 A continuous each; ~4× margin over
-the ~3.7 A worst-case branch).  From the PDB, land each motor branch on
-a **chassis-top peripheral power Wago** (12 V+G) before the leg harness.
-Ignore the PDB's small on-board 5 V/12 V BECs — the Uno Q takes a
-**direct battery tap** (no external buck).  The optional per-branch
-fuses (5–7 A) protect each leg's thin harness against a multi-servo
-stall in that leg.
+The "bus bar" is implemented as a **central trunk Wago splice pair**
+(as-built Aug 2026 — an earlier revision spec'd a Matek PDB-XT60 drone
+power-distribution board; the build dropped it): two **5-port Wago
+221-415** side by side at the chassis_top centre — one splices the
+fused V+ trunk into the branch feeds, the other splices GND (each nut:
+1 trunk port in + 4 branch ports; share ports across the six branches
+as wired).  **Polarity convention: V+ = the SOUTH nut (−Y, nearest the
+switch), GND = the NORTH nut.**  At each corner tray the convention is
+**V+ = the nut clockwise of the corner's outward ray, GND =
+counterclockwise** (viewed from above; same at every corner, so a
+red/black pair never crosses inside a tray).  A Wago 221 is rated 32 A / 4 mm² — well above the ~13 A
+walking trunk.  From the trunk pair, land each motor branch on its leg's
+**corner power Wago pair** (12 V+G; two 3-port 221-413 seated in the
+tray walls printed into chassis_bottom at the hex corner) before the leg
+harness.  The Uno Q
+takes a **direct battery tap** (no external buck).  The optional
+per-branch fuses (5–7 A) protect each leg's thin harness against a
+multi-servo stall in that leg.
 
 ### 6.3 Per-branch current budget
 
@@ -644,8 +697,8 @@ prevent anyway).
 
 | Run                              | Gauge / part                              | Carries            |
 |----------------------------------|-------------------------------------------|--------------------|
-| LiPo → switch → fuse → PDB       | **12–14 AWG silicone** (XT60 pigtails)    | full robot ~9–13 A |
-| PDB → power Wago → per-leg branch| **16–18 AWG silicone** + Wago 221         | one leg ~1.5–3.7 A |
+| LiPo → switch → fuse → trunk Wagos | **12–14 AWG silicone** (XT60 pigtails)  | full robot ~9–13 A |
+| Trunk Wagos → power Wago → per-leg branch | **16–18 AWG silicone** + Wago 221 | one leg ~1.5–3.7 A |
 | Branch → leg first servo         | **Molex 5264 3-pin pigtail** (crimped)    | one leg            |
 | Within-leg servo-to-servo        | stock FEETECH 3-pin (22–24 AWG, 5264)     | one leg            |
 | Leg-to-leg (DATA only)           | 2-wire signal+GND via underside data Wagos — **no V+** | signal (mA) |
@@ -653,12 +706,12 @@ prevent anyway).
 | Uno Q USB-C → USB adapter (fallback) | USB-C-to-C + **USB-C OTG/hub**        | USB data           |
 | USB adapter `D`/`G` → bus        | 2-wire signal+GND (22–24 AWG) — **no V+** | signal (mA)        |
 
-> **Common ground is mandatory.** The PDB GND, the Uno Q GND, and the
-> **USB adapter's servo-power GND** (if used) must all be bonded, or the
-> half-duplex signal has no return reference and the bus goes
+> **Common ground is mandatory.** The trunk-Wago GND, the Uno Q GND, and
+> the **USB adapter's servo-power GND** (if used) must all be bonded, or
+> the half-duplex signal has no return reference and the bus goes
 > silent/garbled. (USB already shares GND between the Uno Q and the
 > adapter's logic side; the point here is the adapter's **12 V servo
-> terminal GND** must also tie to the PDB GND.)
+> terminal GND** must also tie to the trunk-Wago GND.)
 
 ### 6.5 Simulated stand-up draw (MuJoCo, Jul 2026)
 
@@ -667,15 +720,16 @@ belly-down, legs-folded pose in the `mujoco_prototype.py` model and
 converts net joint torques to bus current with the STS3215 electrical
 model at 12 V (`I = 0.2 A idle + 2.5 A × |τ|/2.94 N·m`, capped at the
 2.7 A stall).  Realistic-mass case = 2.89 kg total (1.30 kg chassis
-subtree: plates + yaw servos + the 300 g / 138 × 46 × 24 mm LiPo +
-PDB/Uno Q/hex deck), servo gains ×5 to approximate the real PID.
+subtree: plates + yaw servos + the battery — now 2 × 137 g shorty
+LiPos under the belly, ~same mass as the retired 300 g bay pack —
++ Wagos/Uno Q/hex deck), servo gains ×5 to approximate the real PID.
 
 | Quantity | Gentle stand-up (1.5 s) | Fast stand-up (0.4 s) | Budget limit |
 |---|---|---|---|
 | Trunk peak (instantaneous) | 12.5 A | 16.7 A | — (≪100 ms spike; fuses ignore it) |
 | Trunk peak (100 ms avg)    | 12.5 A | 12.2 A | 15–20 A main fuse |
 | Standing hold (steady)     | 10.3 A | 10.3 A | ~9–13 A walking budget (§6.3) |
-| Worst leg branch peak      | 2.1 A  | 3.0 A  | 5–7 A branch fuse, 15 A PDB pad |
+| Worst leg branch peak      | 2.1 A  | 3.0 A  | 5–7 A branch fuse, 32 A Wago joint |
 | Worst single-servo torque  | 1.1 N·m| 2.1 N·m| 2.94 N·m stall |
 
 Verdict (all within budget):
@@ -683,16 +737,16 @@ Verdict (all within budget):
 - The robot stands and stays upright in every mass case; the stiff-gain
   case reaches ~81 % of stance height (remaining sag is pure-P droop in
   the sim — the real servo's integral term closes it).
-- Branch fuses, 16–18 AWG branch wire, and the Matek PDB pads all carry
-  ≥2× margin over the worst simulated leg (3.0 A).
+- Branch fuses, 16–18 AWG branch wire, and the 32 A Wago 221 joints all
+  carry ≥2× margin over the worst simulated leg (3.0 A).
 - **Fit a 20 A main fuse** (top of the §6.3 range): a fast stand-up
   spikes to 16.7 A for ~50 ms.  Blade fuses need sustained ~135 % of
   rating for seconds to open, so even 15 A survives it, but 20 A means
   a hard stand-up plus a stumble never nuisance-blows the trunk.
 - Ramp the stand-up over ≥1 s in firmware: it halves the worst knee
   torque (2.1 → 1.1 N·m) and keeps every servo far from stall.
-- Runtime at the ~10.3 A hold: ~13 min on a 2200 mAh 3S, ~29 min on a
-  5000 mAh pack (the 138 × 46 × 24 mm envelope class).
+- Runtime at the ~10.3 A hold: ~13 min on one 2200 mAh 3S, ~26 min on
+  the as-built pair of paralleled 2200 mAh shorty packs (4400 mAh).
 - Caveat: the linear torque→current model is conservative for static
   holds — a geared STS3215 parked inside its deadband draws less, so
   real standing draw should land at or below these figures.

@@ -8,12 +8,9 @@ This writes:
     - stl_prototype/   slicer-ready printables only
     - stl_reference/   bought-part / fused-link visuals (MuJoCo, BuildViz)
     - artifacts/assembly/  visual category STLs (optional)
-    - xometry_upload/  upload-ready per-part STLs and manifest
-      (OPT-IN via ``--xometry``; the bundle is no longer checked in --
-      Aug 2026 cleanup -- and is only generated when ordering prints)
 
 Bambu tray / test-plate packing was removed — print individuals from
-``stl_prototype/`` (or run ``--xometry`` for a service order bundle).
+``stl_prototype/``.  Print poses live in ``scripts/print_orientation.py``.
 """
 
 from __future__ import annotations
@@ -29,7 +26,7 @@ from collections.abc import Callable
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.join(HERE, "scripts")
 if SCRIPTS not in sys.path:
-    # build_prototype_assembly / prepare_xometry_upload live under scripts/
+    # build_prototype_assembly / print_orientation live under scripts/
     sys.path.insert(0, SCRIPTS)
 
 
@@ -56,16 +53,9 @@ def main() -> None:
         action="store_true",
         help="Skip artifacts/assembly/*.stl visual exports.",
     )
-    parser.add_argument(
-        "--xometry",
-        action="store_true",
-        help=(
-            "ALSO build the xometry_upload/*.stl order bundle "
-            "(opt-in since Aug 2026; only needed when ordering prints)."
-        ),
-    )
-    # Deprecated: xometry is now opt-in, so --skip-xometry is a no-op.
-    # Kept so old Makefile / muscle-memory commands don't crash.
+    # Deprecated: the Xometry order-bundle pipeline was removed entirely
+    # (Aug 2026); flag kept so old Makefile / muscle-memory commands
+    # don't crash.
     parser.add_argument("--skip-xometry", action="store_true",
                         help=argparse.SUPPRESS)
     parser.add_argument(
@@ -96,8 +86,6 @@ def main() -> None:
             _run("Prototype assembly STLs", "build_prototype_assembly")
         finally:
             os.environ.pop("HEXAPOD_PROTOTYPE_WITH_ARM", None)
-    if args.xometry:
-        _run("Xometry upload STLs", "prepare_xometry_upload")
     if args.with_arm:
         import importlib.util  # noqa: WPS433
         _arm_dir = os.path.join(HERE, "arm")

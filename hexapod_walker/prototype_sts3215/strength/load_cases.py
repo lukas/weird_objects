@@ -68,7 +68,7 @@ IMPACT_G_FACTOR = 2.0
 DS3225_STALL_TORQUE = 2.5  # N-m
 
 # Non-printed mass budget (kg) -- everything that ISN'T in the
-# printed-part list.  Sourced from PROTOTYPE_BOM.md / SHOPPING_LIST.md:
+# printed-part list.  Sourced from docs/BOM.md:
 #   18 x DS3225 servo bodies ~ 60 g each            = 1.08 kg
 #   1 x 3S 2200 mAh LiPo ~ 185 g (Turnigy spec)    = 0.185 kg
 #   1 x Raspberry Pi 4 / 5 + microSD + heatsink     = 0.050 kg
@@ -96,11 +96,11 @@ NON_PRINTED_MASS_DETAIL = {
     "Wiring + heatshrink + ziptie misc":  0.080,
 }
 
-# Battery sits on chassis_bottom (velcro-strapped; the printed holder
-# is retired), not on chassis_top.  Pull it out for the chassis_top
-# load case.  Jul 2026: bumped 0.185 -> 0.300 kg for the real
-# 138 x 46 x 24 mm pack (3300 mAh-class 3S).
-BATTERY_MASS_ON_BOTTOM = 0.300
+# Battery hangs off chassis_bottom (two shorty packs velcro'd UNDER the
+# flat belly, Aug 2026 -- was one 0.300 kg bay pack on the top face),
+# not on chassis_top.  Pull it out for the chassis_top load case.
+# 2 x Zeee 3S 2200 mAh shorty at ~137 g each.
+BATTERY_MASS_ON_BOTTOM = 0.274
 
 
 # Printed parts handled by the strength pipeline.  Subset of the
@@ -108,18 +108,20 @@ BATTERY_MASS_ON_BOTTOM = 0.300
 # the small visual-only meshes (servo_body, servo_horn, IMU pad, etc.)
 # out because they're either not load-bearing or their failure mode is
 # bond-line shear rather than bulk yield.
+# Aug 2026: foot_pad dropped -- the TPU foot_boot is elastomeric (its
+# "failure" mode is compression set, not bulk yield) and it is already
+# included in the tibia_link assembled mesh for mass purposes.
 PRINTED_PARTS_FOR_STRENGTH = (
     "tibia_link",
     "femur_link",
     "coxa_link",
     "chassis_bottom",
     "chassis_top",
-    "foot_pad",
 )
 
 # Per-leg copies of the printed parts.  6 legs x 3 leg-side parts +
-# 1 foot pad each.
-PER_LEG_PARTS = ("coxa_link", "femur_link", "tibia_link", "foot_pad")
+# 1 TPU foot boot each.
+PER_LEG_PARTS = ("coxa_link", "femur_link", "tibia_link", "foot_boot")
 NUM_LEGS = 6
 
 # Tibia / femur orientation in their STL frames.  Per the
@@ -134,10 +136,6 @@ NUM_LEGS = 6
 # 4-bolt disc-horn pattern on DISC_HORN_BOLT_PCD = 14 mm (June 2026 disc-horn
 # switch; DISC_HORN_BOLT_PCD is the retained legacy name for the disc PCD).
 
-# Foot-pad load axis: the foot pad's STL origin is at the disk floor
-# centre; +Z points UP (toward the tibia tang); +X / +Y in the disk
-# plane.  Foot-tip load is applied as a pressure on the entire bottom
-# face of the disk (= z = 0 face, radius FOOT_PAD_OD / 2).
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +218,7 @@ def build_mass_report(material: Material,
         "chassis_top", "chassis_bottom",
         "battery_holder", "electronics_tray",
         "bec_cradle", "switch_holster", "imu_pad",
-        "coxa_link", "femur_link", "tibia_link", "foot_pad",
+        "coxa_link", "femur_link", "tibia_link", "foot_boot",
     )
     for part in all_printed:
         stl_path = os.path.join(stl_dir, f"{part}.stl")
@@ -338,10 +336,8 @@ def tibia_link_case(total_mass_kg: float) -> LoadCase:
 
     The tibia STL has the knee bolt circle at link-local (x = 0,
     y = 0, z = 0) with the 4 disc-horn bolts on DISC_HORN_BOLT_PCD =
-    14 mm.  The foot tip is at link-local x = TIBIA_LENGTH +
-    FOOT_HINGE_FORK_X / 2 (the tang end).  We simplify to
-    x = TIBIA_LENGTH because the spar carries the bending; the
-    tang adds < 5 mm to the moment arm.
+    14 mm.  The foot tip (TPU boot face, Aug 2026) is at link-local
+    x = TIBIA_LENGTH exactly.
     """
     F = per_leg_impact_load_N(total_mass_kg)   # downward foot load (N)
     L_m = _mm_to_m(hp.TIBIA_LENGTH)
@@ -483,7 +479,10 @@ def coxa_link_case(total_mass_kg: float) -> LoadCase:
 
 
 def _battery_holder_chassis_xy_m() -> tuple[float, float]:
-    return (_mm_to_m(hp.BATTERY_HOLDER_CENTRE_X), 0.0)
+    # Aug 2026: the under-belly pack block is centred on the origin
+    # (BATTERY_UNDER_CENTRE), no longer on the old strap-slot datum.
+    return (_mm_to_m(hp.BATTERY_UNDER_CENTRE[0]),
+            _mm_to_m(hp.BATTERY_UNDER_CENTRE[1]))
 
 
 def _electronics_tray_chassis_xy_m() -> tuple[float, float]:
@@ -515,13 +514,13 @@ def chassis_bottom_case(mass: MassReport) -> LoadCase:
     """Distributed dead load on chassis_bottom; supported at the 4 standoffs."""
     # Items that hang off chassis_bottom in the assembled robot:
     items = []
-    # Battery holder + LiPo: full battery mass + the holder itself.
+    # Two under-belly shorty LiPos (velcro'd; no printed holder).
     holder_m = mass.printed_mass_per_part.get("battery_holder", 0.0)
     bat_total = holder_m + BATTERY_MASS_ON_BOTTOM
     items.append((
         _battery_holder_chassis_xy_m(),
         bat_total * G_ACCEL,
-        f"battery_holder + 3S LiPo ({bat_total*1000:.0f} g)",
+        f"2x under-belly 3S shorty LiPo ({bat_total*1000:.0f} g)",
     ))
     # Electronics tray + boards.  Tray + Mega + Pi + 2 x PCA9685 + BECs.
     tray_m = mass.printed_mass_per_part.get("electronics_tray", 0.0)
@@ -558,7 +557,7 @@ def chassis_bottom_case(mass: MassReport) -> LoadCase:
     # leg below the yaw output = femur + tibia + foot pad + 2 servos.
     femur_m = mass.printed_mass_per_part.get("femur_link", 0.0)
     tibia_m = mass.printed_mass_per_part.get("tibia_link", 0.0)
-    foot_m = mass.printed_mass_per_part.get("foot_pad", 0.0)
+    foot_m = mass.printed_mass_per_part.get("foot_boot", 0.0)
     per_leg_dead_load = (
         (femur_m + tibia_m + foot_m + 2 * 0.060) * G_ACCEL
     )
@@ -674,44 +673,8 @@ def chassis_top_case(mass: MassReport) -> LoadCase:
     )
 
 
-def foot_pad_case(total_mass_kg: float) -> LoadCase:
-    """Foot tip load as a pressure on the ground-contact disk."""
-    F = per_leg_impact_load_N(total_mass_kg)
-    # Disk area = pi * (FOOT_PAD_OD / 2)^2 (mm^2 -> m^2).
-    disk_area_m2 = math.pi * (_mm_to_m(hp.FOOT_PAD_OD / 2.0)) ** 2
-    pressure_Pa = F / disk_area_m2
-    # Foot hinge in foot-pad-local frame: FOOT_HINGE_FOOT_Z above the
-    # disk floor.  The fork cheeks pinch the tibia tang with a Phi
-    # 3.4 mm pin.  Clamp at a small bolt-circle around the pin axis.
-    pin_z = _mm_to_m(hp.FOOT_HINGE_FOOT_Z)
-    pin_radius = _mm_to_m(hp.FOOT_HINGE_PIN_HOLE_D / 2.0)
-    return LoadCase(
-        name="foot_pad_impact",
-        part="foot_pad",
-        description=(
-            f"Foot-strike impact = {F:.1f} N applied as a uniform "
-            f"{pressure_Pa/1.0e6:.2f} MPa pressure on the disk bottom "
-            f"(OD {hp.FOOT_PAD_OD:.0f} mm); reacted at the foot hinge "
-            f"pin axis ({hp.FOOT_HINGE_PIN_HOLE_D:.1f} mm pin)."
-        ),
-        loads=(),
-        tractions=(
-            FaceTraction(
-                axis="z", sign=-1,
-                pressure_Pa=pressure_Pa,
-                label="ground reaction on disk bottom",
-            ),
-        ),
-        clamps=(
-            ClampedRegion(
-                kind="bolt_circle",
-                centre_m=(0.0, 0.0, pin_z),
-                radius_m=pin_radius,
-                axis="y",
-                label="foot hinge pin",
-            ),
-        ),
-    )
+# ``foot_pad_case`` RETIRED (Aug 2026): the TPU foot_boot replaced the
+# hinged pad; an elastomer bulk-yield FEA case is not meaningful.
 
 
 # ---------------------------------------------------------------------------
@@ -723,7 +686,6 @@ _CASE_BUILDERS = {
     "tibia_link":     tibia_link_case,
     "femur_link":     femur_link_case,
     "coxa_link":      coxa_link_case,
-    "foot_pad":       foot_pad_case,
 }
 
 _CASE_BUILDERS_MASS_REPORT = {

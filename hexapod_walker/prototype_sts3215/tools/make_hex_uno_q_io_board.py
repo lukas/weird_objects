@@ -16,7 +16,7 @@ New edge fixtures (all walls rise from the plate top; prints flat):
     8.4 H x 18.6 D (WAGO datasheet) -- too wide to lie flat between the
     raised platform's corner legs (each edge channel is only ~24.7 mm), so
     the Wago stands VERTICALLY: wire-entry face DOWN over a 5-wire slot
-    through the plate (power comes up from the PDB/chassis below), levers
+    through the plate (power comes up from the trunk Wagos/chassis below), levers
     facing sideways.  Snug pocket, open top; lift the unit out to work the
     levers, drop it back in.
   * 2x Molex 5264 4-circuit cups (E outboard + W edges) and 1x 5264

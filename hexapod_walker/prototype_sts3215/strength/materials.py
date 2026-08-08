@@ -59,16 +59,16 @@ ABS   -- Bambu Generic ABS TDS rev 2024-11; SD3D / MatterHackers
          (Roberson et al. 2017, J. Mater. Eng. Perform.).  E_XY ~
          2.0 GPa, yield ~ 30 MPa, density 1.04 g/cm^3.  Z drop
          ~ 55 %.  ABS is the WEAKEST of the four bulk values but
-         remains in scope because the prototype's TPU foot pad
+         remains in scope because the prototype's TPU foot boot
          (separate material) is not in this list.
 
-TPU 95A (foot pad) is intentionally absent.  TPU at 95A shore is so
+TPU 95A (foot boot) is intentionally absent.  TPU at 95A shore is so
 flexible (E ~ 30 MPa) that any of the FEA cases below would print
 "deflection > 10 mm, peak stress << 1 MPa", which is not actionable
-strength data -- it's a *spring*.  The foot pad is checked by the
-foam-pad / impact load case using PETG / PLA as the surrogate
-material; if the user prints it in TPU the result is "intentionally
-compliant" rather than "fails".
+strength data -- it's a *spring*.  Aug 2026: the boot has no FEA case
+at all (the old hinged foot_pad's surrogate-material impact case is
+retired with the part); the boot's only structural job is the press
+fit on the Ø8 tube, which TPU handles by design.
 
 Notes on the orthotropic block
 ------------------------------
@@ -161,9 +161,9 @@ def isotropic_equivalent(mat: Material) -> "Material":
 # Material library
 # ---------------------------------------------------------------------------
 #
-# Filament choice for the prototype is documented in PROTOTYPE_BOM.md
-# under "3D-printed material": 1 kg of PLA or PETG (structural) and
-# 250 g of TPU 95A (foot pad).  PETG is the recommended structural
+# Filament choice for the prototype is documented in docs/BOM.md
+# (filament rows): 1 kg of PLA or PETG (structural) and
+# 250 g of TPU 95A (foot boots).  PETG is the recommended structural
 # default; PLA is the easier-to-print backup.  Onyx + ABS are listed
 # here for "what if I had a Markforged" / "what if I had to use the
 # only filament I have left" comparison runs.

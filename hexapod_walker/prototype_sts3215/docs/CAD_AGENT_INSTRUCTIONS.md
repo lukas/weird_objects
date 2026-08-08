@@ -67,10 +67,10 @@ The pipeline they refer to is documented in `CAD_WORKFLOW.md`.
 
 7. **If a requested change is ambiguous, encode the assumption in
    `design_spec.yaml`, not in a code comment.**  Example: the user
-   asks "make the foot bigger".  Add (or update) the `foot_pad`
-   entry's `bounds_mm` / `holes` to capture exactly how much bigger,
-   in which axes, with what hinge clearance; the validator can then
-   detect drift on future runs.  A comment in `make_foot_pad()` does
+   asks "make the foot bigger".  Add (or update) the `foot_boot`
+   entry's `bounds_mm` / `features` to capture exactly how much bigger,
+   in which axes, with what bore interference; the validator can then
+   detect drift on future runs.  A comment in `make_foot_boot()` does
    not survive a refactor; a `design_spec.yaml` entry does, and it
    shows up in the report's "Discovered dimensions" table.
 
@@ -78,7 +78,7 @@ The pipeline they refer to is documented in `CAD_WORKFLOW.md`.
    re-check every part that lives between the two chassis plates.**
    At minimum: `battery_holder` (currently 28 mm tall -- needs >=
    28 mm gap with headroom), `electronics_tray` (~ 3 mm thick),
-   and the brass standoffs in `SHOPPING_LIST.md` / `PROTOTYPE_BOM.md`
+   and the brass standoffs in `BOM.md`
    (their physical length MUST equal `CHASSIS_GAP`).  The May 2026
    audit caught the 28 mm holder ramming through a 4 mm
    `chassis_top` deck with CHASSIS_GAP = 20 mm; the fix bumped

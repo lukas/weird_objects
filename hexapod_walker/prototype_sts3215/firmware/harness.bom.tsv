@@ -2,19 +2,19 @@ Id	Description	Qty	Unit	Designators
 1	Cable, 1 x 12 AWG	0.4	m	W_TRUNK_FUSED, W_TRUNK_GND, W_TRUNK_VPLUS
 2	Cable, 1 x 22 AWG	0.1	m	W_GND_BOND
 3	Cable, 2 x 12 AWG	0.15	m	W_TRUNK_LIPO
-4	Cable, 2 x 16 AWG	0.78	m	W_PWR_L0, W_PWR_L1, W_PWR_L2, W_PWR_L3, W_PWR_L4, W_PWR_L5
-5	Cable, 2 x 20 AWG	0.2	m	W_BUCK_IN, W_BUCK_OUT
+4	Cable, 2 x 16 AWG	1.34	m	W_BR_L0, W_BR_L1, W_BR_L2, W_BR_L3, W_BR_L4, W_BR_L5, W_PWR_L0, W_PWR_L1, W_PWR_L2, W_PWR_L3, W_PWR_L4, W_PWR_L5
+5	Cable, 2 x 20 AWG	0.25	m	W_UNOQ_TAP
 6	Cable, 2 x 24 AWG	1.8	m	W_BUS_HEAD, W_DATA_L0L1, W_DATA_L1L2, W_DATA_L2L3, W_DATA_L3L4, W_DATA_L4L5
 7	Cable, 3 x 22 AWG	3.6	m	W_CHAIN_L0A, W_CHAIN_L0B, W_CHAIN_L1A, W_CHAIN_L1B, W_CHAIN_L2A, W_CHAIN_L2B, W_CHAIN_L3A, W_CHAIN_L3B, W_CHAIN_L4A, W_CHAIN_L4B, W_CHAIN_L5A, W_CHAIN_L5B
 8	Cable, 4 x 28 AWG	0.15	m	W_I2C
 9	Connector, 3S LiPo (11.1 V nom), XT60 female, 2 pins	1		LIPO
 10	Connector, Anti-spark switch, XT60 in/out, 4 pins	1		SWITCH
 11	Connector, Arduino Uno Q, 6 pins	1		UNOQ
-12	Connector, FEETECH STS3215, Molex 5264 3-pin, 3 pins	18		SERVO1, SERVO10, SERVO11, SERVO12, SERVO13, SERVO14, SERVO15, SERVO16, SERVO17, SERVO18, SERVO2, SERVO3, SERVO4, SERVO5, SERVO6, SERVO7, SERVO8, SERVO9
-13	Connector, GY-521 (MPU-6050), 4 pins	1		IMU
-14	Connector, Main fuse 15-20 A, blade/ANL in holder, 2 pins	1		FUSE
-15	Connector, Molex 5264 pigtail, crimped 3-pin, 3 pins	6		L0_INJ, L1_INJ, L2_INJ, L3_INJ, L4_INJ, L5_INJ
-16	Connector, Power distribution bus bar, 17 pins	1		BUSBAR
-17	Connector, USB bus-servo adapter, FE-URT-2 / Waveshare A, 3 pins	1		ADAPTER
-18	Connector, XINGYHENG 12 V → 5 V buck, 4 pins	1		BUCK
+12	Connector, Central trunk pair (2x 5-port Wago 221-415), 15 pins	1		TRUNK_WAGO
+13	Connector, FEETECH STS3215, Molex 5264 3-pin, 3 pins	18		SERVO10, SERVO11, SERVO12, SERVO13, SERVO14, SERVO15, SERVO16, SERVO17, SERVO18, SERVO19, SERVO2, SERVO3, SERVO4, SERVO5, SERVO6, SERVO7, SERVO8, SERVO9
+14	Connector, GY-521 (MPU-6050), 4 pins	1		IMU
+15	Connector, Main fuse 15-20 A, blade/ANL in holder, 2 pins	1		FUSE
+16	Connector, Molex 5264 pigtail, crimped 3-pin, 3 pins	6		L0_INJ, L1_INJ, L2_INJ, L3_INJ, L4_INJ, L5_INJ
+17	Connector, Power Wago pair (2x Wago 221-413), 2 pins	6		L0_WAGO, L1_WAGO, L2_WAGO, L3_WAGO, L4_WAGO, L5_WAGO
+18	Connector, USB bus-servo adapter, FE-URT-2 / Waveshare A, 3 pins	1		ADAPTER
 19	Wire, BK	0.3	m	W_USB

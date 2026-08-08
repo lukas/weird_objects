@@ -22,18 +22,24 @@ parts:
     cots: false
     qty: 1
     description: "Structural 200 mm flat-to-flat hex deck (single merged print) with 6 integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing towers, one per leg at each hex-edge midpoint. Each STS3215 inserts from BELOW (output UP), bolts via 4x M2.5 through the cradle front plate, body hangs DOWN through a body cutout; the bolt-on yaw_servo_retainer stirrup captures it. A folded 4 mm floor makes the printed bottom one flush flat face so it prints flat, tower-up, no supports (Jun 2026 flush-bottom fix; check_flat_bottom overhang = 0.00 mm)."
+  chassis_standoff:
+    label: "chassis standoff"
+    role: "electronics"
+    cots: true
+    qty: 4
+    description: "32 mm M3 brass standoff between chassis_bottom and chassis_top at CHASSIS_STANDOFF_HOLES_XY (\u00b131.1) \u2014 the inter-plate structure. COTS."
   chassis_top:
     label: "chassis top"
     role: "chassis"
     cots: false
     qty: 1
-    description: "Hex top plate that closes the chassis; carries PDB + motor controller + power Wagos, and the 4 magnet posts for the hex board."
+    description: "Hex top plate that closes the chassis; carries the trunk power Wagos + motor controller and the 4 magnet posts for the hex board (per-leg power Wago pairs live below, on the chassis_bottom corner flats)."
   coxa_link:
     label: "coxa link"
     role: "frame"
     cots: false
     qty: 6
-    description: "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven \u00d820 disc horn on the \u00d814 / 4x M3 circle, rides the spaced 6706 pair) fused to the hip servo cradle. 5 vertical head-access shafts through the foot plate reach the horn screws from the (empty) hip servo well."
+    description: "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven \u00d820 disc horn on the \u00d814 / 4x M3 circle, rides the touching 6805 pair (25x37x7, Aug 2026 thick-section swap) on a \u00d824.95 boss) fused to the hip servo cradle. 5 vertical head-access shafts through the foot plate reach the horn screws from the (empty) hip servo well."
   disc_horn_hip:
     label: "disc horn hip"
     role: "horn"
@@ -58,18 +64,18 @@ parts:
     cots: false
     qty: 6
     description: "The WHOLE femur as ONE printed part (Jul 2026 merge #2 of the old hip yoke + knee bracket): the hip-end yoke straddles the hip servo (top arm bolts the driven disc horn, bottom arm the passive horn), a SOLID \u00d814 spar bridges the full 90 mm hip-to-knee span, and the knee-end cradle mounts the knee servo + 688 bearing housing. No sockets, no slip fits, no retention pins anywhere in the femur."
-  foot_pad:
-    label: "foot pad"
+  foot_boot:
+    label: "foot boot"
     role: "frame"
     cots: false
     qty: 6
-    description: "Compliant TPU foot pad at each tibia tip for ground grip + shock absorption."
+    description: "TPU 95A boot pressed over the tibia tube end -- flat chamfer-rimmed tip is the ground contact (Aug 2026; replaces the hinged foot fitting + pad + M3x16 pin)."
   hex_mount_plate:
     label: "hex mount plate"
     role: "electronics"
     cots: true
     qty: 1
-    description: "\u00d8110 mm hex board (2 mm) held by 4 magnets on 20 mm posts; carries Uno Q + breakout (extra_stl / xTool)."
+    description: "Round \u00d8115 mm board (2 mm, matches the chassis_top disc) held by 4 magnets on 20 mm posts; carries Uno Q + breakout on top and the 3.3 V Wago underneath. Late-Aug 2026: 4 underside registration bosses socket the magnet tops (shear goes to plastic, magnets only carry pull) and the legacy 49.5 mm bolt square is dropped -- keeps the live +/-31.1 square, the 6 platform leg holes, 2 \u00d88 wire ports at the south rim and E/W zip-tie slot pairs (extra_stl / xTool)."
   hex_post_magnet:
     label: "hex post magnet"
     role: "electronics"
@@ -93,7 +99,7 @@ parts:
     role: "electronics"
     cots: true
     qty: 1
-    description: "Raised hex platform (62 mm screen-stand legs) bolted to the hex mount plate; screen on top face (MPU is glued on chassis_bottom, not under this plate)."
+    description: "Raised hex platform (28 mm screen-stand legs, shortened from 72 in the late-Aug 2026 design review to cut the lever arm on the magnet-held plate) bolted to the round mount plate; screen on the top face, held by 4x M2 self-tappers in corner pilot holes, its 8-wire Uno pigtail entering through the 24x5 slot behind the panel's +X edge (MPU is glued on chassis_top, not under this plate)."
   hip_clamp_cap:
     label: "hip clamp cap"
     role: "frame"
@@ -122,20 +128,20 @@ parts:
     label: "lipo battery"
     role: "electronics"
     cots: true
-    qty: 1
-    description: "LiPo battery pack, velcro-strapped under chassis_bottom for stance stability. COTS."
+    qty: 2
+    description: "3S 2200 mAh shorty LiPo (Zeee 75x34x26.5 mm), one of a PARALLEL pair velcro'd side by side under chassis_bottom's flat belly (block yawed 30 deg; XT60 Y-harness). Replaces the single bay pack -- lower CG and a clear inter-plate wiring bay. COTS."
   motor_controller:
     label: "motor controller"
     role: "electronics"
     cots: true
     qty: 1
-    description: "USB/TTL bus-servo adapter brick beside the PDB. COTS."
+    description: "Waveshare Bus Servo Adapter (A), 42x33 mm, on the chassis_top west band. Servo/UART plugs exit its +X face, screw terminal + USB-C its -X face; both faces keep clear wire zones (connector_clearance check). As-built the Uno Q drives it over the D0/D1 TX/RX/GND UART pigtail (jumper A); USB-C is bench-only since a VIN-powered Uno Q gives no USB host mode / no VBUS. COTS."
   mpu6050:
     label: "mpu6050"
     role: "electronics"
     cots: true
     qty: 1
-    description: "GY-521 MPU-6050 IMU glued on chassis_bottom (inter-plate bay), inboard of physical leg 1 (clockwise from tape-marked leg 0). I\u00b2C. COTS."
+    description: "GY-521 MPU-6050 IMU glued on chassis_top just south of the central trunk Wago pair (inboard, r=43). Right-angle header row faces -X with a clear wire zone (connector_clearance check). I\u00b2C to the Uno Q above. COTS."
   passive_horn_hip:
     label: "passive horn hip"
     role: "horn"
@@ -148,12 +154,6 @@ parts:
     cots: true
     qty: 6
     description: "Stock passive-side metal disc horn of the knee sandwich; centre bore rides the rear idler boss directly (no printed adapter)."
-  pdb:
-    label: "pdb"
-    role: "electronics"
-    cots: true
-    qty: 1
-    description: "Matek-class power distribution board on chassis_top; battery \u2192 PDB \u2192 servo power via Wagos. COTS."
   screen:
     label: "screen"
     role: "electronics"
@@ -164,7 +164,7 @@ parts:
     label: "screw chassis"
     role: "fastener"
     cots: true
-    qty: 24
+    qty: 12
     description: "Chassis-level / foot / deck fasteners (rendered set)."
   screw_hip:
     label: "screw hip"
@@ -178,11 +178,17 @@ parts:
     cots: true
     qty: 72
     description: "Fasteners around the knee joint / bearing sandwich (rendered set)."
+  screw_retainer:
+    label: "screw retainer"
+    role: "fastener"
+    cots: true
+    qty: 48
+    description: "Yaw saddle hardware: the 4 M3 chassis anchors + 4 M2.5 rear-case capture screws per retainer \u2014 chassis-static (the saddle and servo case never rotate)."
   screw_yaw:
     label: "screw yaw"
     role: "fastener"
     cots: true
-    qty: 96
+    qty: 48
     description: "Fasteners around the yaw joint / servo mount (rendered set; count is the summed per-leg joint hardware)."
   switch_holster:
     label: "switch holster"
@@ -190,12 +196,6 @@ parts:
     cots: true
     qty: 1
     description: "Printed holster for the anti-spark XT60 on/off switch, bolted to 2 bosses on chassis_top's +X edge (2x M3x10 SHCS into heat-set inserts)."
-  tibia_foot_fitting:
-    label: "tibia foot fitting"
-    role: "frame"
-    cots: false
-    qty: 6
-    description: "Printed tibia foot-end fitting that sockets the tibia tube and carries the compliant foot pad."
   tibia_knee_yoke:
     label: "tibia knee yoke"
     role: "frame"
@@ -224,8 +224,20 @@ parts:
     label: "wago power"
     role: "electronics"
     cots: true
-    qty: 6
-    description: "Wago 221-style lever nut on chassis-top periphery for a per-leg 12 V + G motor branch."
+    qty: 12
+    description: "3-port Wago 221-413 lever nut for a per-leg 12 V + G motor branch: one V+/GND pair per chassis_bottom hex corner flat (between adjacent yaw cradles), wire entries facing the chassis centre, seated between the two-bay tray walls integrated into the chassis_bottom top face (late-Aug 2026; was a separate printed wago_mount tray). Polarity convention (same at every corner, viewed from above): V+ = the nut CLOCKWISE of the corner's outward ray, GND = counterclockwise. COTS."
+  wago_trunk:
+    label: "wago trunk"
+    role: "electronics"
+    cots: true
+    qty: 2
+    description: "Central trunk splice pair: two 5-port Wago 221-415 side by side near the chassis_top centre (nudged +X for adapter wire clearance), wire entries facing +X toward the switch. Polarity: V+ = the SOUTH nut at (16, -16) nearest the switch, GND = the NORTH nut at (16, +16). The fused battery trunk lands here and fans out the six 16 AWG branches to the corner power Wago pairs (as-built Aug 2026: no PDB \u2014 power distribution is all lever nuts). COTS."
+  wago_v33:
+    label: "wago v33"
+    role: "electronics"
+    cots: true
+    qty: 1
+    description: "3.3 V rail splice: one 5-port Wago 221-415 VHB-taped flat under the round mount plate near its south rim, wire entries facing -Y. Feed = Uno Q 3V3 pin (down through the east \u00d88 wire port); load = MPU VCC (straight down to the deck), 3 spare ports (Aug 2026: the screen's VCC rides its own 8-wire Uno pigtail instead). Pull the plate off its magnets to work the levers. COTS."
   yaw_bearing_cap:
     label: "yaw bearing cap"
     role: "chassis"
@@ -258,71 +270,213 @@ parts:
     description: "Anti-rotation saddle under each yaw cradle (Aug 2026 flat-belly rework: the 38 mm ground stand is removed; the belly is flat except the hanging servos + saddles)."
 
 wiring:
-  route-j00:
-    purpose: "L0 leg bundle: drop slot -> down retainer window -> YAW ID 2 BACK-face 5264 ports"
-  route-j01:
-    purpose: "L0 daisy: YAW ID 2 -> HIP ID 3 (BACK ports, under yaw / around \u2212X face)"
-  route-j02:
-    purpose: "L0 daisy: HIP ID 3 -> KNEE ID 4 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
-  route-j03:
-    purpose: "L1 leg bundle: drop slot -> down retainer window -> YAW ID 5 BACK-face 5264 ports"
-  route-j04:
-    purpose: "L1 daisy: YAW ID 5 -> HIP ID 6 (BACK ports, under yaw / around \u2212X face)"
-  route-j05:
-    purpose: "L1 daisy: HIP ID 6 -> KNEE ID 7 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
-  route-j06:
-    purpose: "L2 leg bundle: drop slot -> down retainer window -> YAW ID 8 BACK-face 5264 ports"
-  route-j07:
-    purpose: "L2 daisy: YAW ID 8 -> HIP ID 9 (BACK ports, under yaw / around \u2212X face)"
-  route-j08:
-    purpose: "L2 daisy: HIP ID 9 -> KNEE ID 10 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
-  route-j09:
-    purpose: "L3 leg bundle: drop slot -> down retainer window -> YAW ID 11 BACK-face 5264 ports"
-  route-j10:
-    purpose: "L3 daisy: YAW ID 11 -> HIP ID 12 (BACK ports, under yaw / around \u2212X face)"
-  route-j11:
-    purpose: "L3 daisy: HIP ID 12 -> KNEE ID 13 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
-  route-j12:
-    purpose: "L4 leg bundle: drop slot -> down retainer window -> YAW ID 14 BACK-face 5264 ports"
-  route-j13:
-    purpose: "L4 daisy: YAW ID 14 -> HIP ID 15 (BACK ports, under yaw / around \u2212X face)"
-  route-j14:
-    purpose: "L4 daisy: HIP ID 15 -> KNEE ID 16 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
-  route-j15:
-    purpose: "L5 leg bundle: drop slot -> down retainer window -> YAW ID 17 BACK-face 5264 ports"
-  route-j16:
-    purpose: "L5 daisy: YAW ID 17 -> HIP ID 18 (BACK ports, under yaw / around \u2212X face)"
-  route-j17:
-    purpose: "L5 daisy: HIP ID 18 -> KNEE ID 19 (BACK ports, zip-tied on femur spar top, crosses near hip axis)"
-  route-trunk-lipo-switch:
-    purpose: "power trunk 12-14 AWG: LiPo XT60 -> anti-spark switch (rises past the top-plate +X edge)"
-  route-trunk-switch-pdb:
-    purpose: "power trunk 12-14 AWG: switch -> 15-20 A main fuse (inline) -> PDB on chassis_top"
-  route-logic-battery-uno:
-    purpose: "battery/PDB tap -> Uno Q (no buck; 20 AWG V+/GND; Uno Q accepts the 3S rail via its own regulator)"
-  route-data-head:
-    purpose: "Uno Q USB-C -> motor controller / USB bus-servo adapter -> servo ID 2 bus head (L0 yaw, data)"
-  route-i2c-imu:
-    purpose: "Uno Q I2C -> GY-521 MPU glued on chassis_bottom (behind phys. leg 1; 28 AWG 3V3/GND/SCL/SDA -- 3V3)"
-  route-pwr-L0:
-    purpose: "L0 power 16-18 AWG: PDB -> peripheral Wago -> leg 0 drop (V+/GND)"
-  route-pwr-L1:
-    purpose: "L1 power 16-18 AWG: PDB -> peripheral Wago -> leg 1 drop (V+/GND)"
-  route-pwr-L2:
-    purpose: "L2 power 16-18 AWG: PDB -> peripheral Wago -> leg 2 drop (V+/GND)"
-  route-pwr-L3:
-    purpose: "L3 power 16-18 AWG: PDB -> peripheral Wago -> leg 3 drop (V+/GND)"
-  route-pwr-L4:
-    purpose: "L4 power 16-18 AWG: PDB -> peripheral Wago -> leg 4 drop (V+/GND)"
-  route-pwr-L5:
-    purpose: "L5 power 16-18 AWG: PDB -> peripheral Wago -> leg 5 drop (V+/GND)"
-  route-data-L0L1:
-    purpose: "leg 0 -> leg 1 data jumper via underside data Wagos (signal+GND only, NO V+)"
-  route-data-L1L2:
-    purpose: "leg 1 -> leg 2 data jumper via underside data Wagos (signal+GND only, NO V+)"
-  route-data-L2L3:
-    purpose: "leg 2 -> leg 3 data jumper via underside data Wagos (signal+GND only, NO V+)"
-  route-data-L3L4:
-    purpose: "leg 3 -> leg 4 data jumper via underside data Wagos (signal+GND only, NO V+)"
-  route-data-L4L5:
-    purpose: "leg 4 -> leg 5 data jumper via underside data Wagos (signal+GND only, NO V+)"
+  route-j00-gnd:
+    purpose: "L0 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 2 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [GND]"
+  route-j00-sig:
+    purpose: "L0 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 2 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [S]"
+  route-j01-gnd:
+    purpose: "L0 daisy: YAW ID 2 -> HIP ID 3 (BACK ports, out the saddle's open +X end, up past the bearing cap) [GND]"
+  route-j01-vp:
+    purpose: "L0 daisy: YAW ID 2 -> HIP ID 3 (BACK ports, out the saddle's open +X end, up past the bearing cap) [V+]"
+  route-j01-sig:
+    purpose: "L0 daisy: YAW ID 2 -> HIP ID 3 (BACK ports, out the saddle's open +X end, up past the bearing cap) [S]"
+  route-j02-gnd:
+    purpose: "L0 daisy: HIP ID 3 -> KNEE ID 4 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [GND]"
+  route-j02-vp:
+    purpose: "L0 daisy: HIP ID 3 -> KNEE ID 4 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [V+]"
+  route-j02-sig:
+    purpose: "L0 daisy: HIP ID 3 -> KNEE ID 4 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [S]"
+  route-pwr-tee-l0-vp:
+    purpose: "L0 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 3 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [V+]"
+  route-pwr-tee-l0-gnd:
+    purpose: "L0 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 3 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [GND]"
+  route-j03-gnd:
+    purpose: "L1 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 5 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [GND]"
+  route-j03-sig:
+    purpose: "L1 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 5 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [S]"
+  route-j04-gnd:
+    purpose: "L1 daisy: YAW ID 5 -> HIP ID 6 (BACK ports, out the saddle's open +X end, up past the bearing cap) [GND]"
+  route-j04-vp:
+    purpose: "L1 daisy: YAW ID 5 -> HIP ID 6 (BACK ports, out the saddle's open +X end, up past the bearing cap) [V+]"
+  route-j04-sig:
+    purpose: "L1 daisy: YAW ID 5 -> HIP ID 6 (BACK ports, out the saddle's open +X end, up past the bearing cap) [S]"
+  route-j05-gnd:
+    purpose: "L1 daisy: HIP ID 6 -> KNEE ID 7 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [GND]"
+  route-j05-vp:
+    purpose: "L1 daisy: HIP ID 6 -> KNEE ID 7 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [V+]"
+  route-j05-sig:
+    purpose: "L1 daisy: HIP ID 6 -> KNEE ID 7 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [S]"
+  route-pwr-tee-l1-vp:
+    purpose: "L1 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 6 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [V+]"
+  route-pwr-tee-l1-gnd:
+    purpose: "L1 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 6 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [GND]"
+  route-j06-gnd:
+    purpose: "L2 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 8 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [GND]"
+  route-j06-sig:
+    purpose: "L2 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 8 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [S]"
+  route-j07-gnd:
+    purpose: "L2 daisy: YAW ID 8 -> HIP ID 9 (BACK ports, out the saddle's open +X end, up past the bearing cap) [GND]"
+  route-j07-vp:
+    purpose: "L2 daisy: YAW ID 8 -> HIP ID 9 (BACK ports, out the saddle's open +X end, up past the bearing cap) [V+]"
+  route-j07-sig:
+    purpose: "L2 daisy: YAW ID 8 -> HIP ID 9 (BACK ports, out the saddle's open +X end, up past the bearing cap) [S]"
+  route-j08-gnd:
+    purpose: "L2 daisy: HIP ID 9 -> KNEE ID 10 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [GND]"
+  route-j08-vp:
+    purpose: "L2 daisy: HIP ID 9 -> KNEE ID 10 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [V+]"
+  route-j08-sig:
+    purpose: "L2 daisy: HIP ID 9 -> KNEE ID 10 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [S]"
+  route-pwr-tee-l2-vp:
+    purpose: "L2 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 9 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [V+]"
+  route-pwr-tee-l2-gnd:
+    purpose: "L2 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 9 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [GND]"
+  route-j09-gnd:
+    purpose: "L3 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 11 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [GND]"
+  route-j09-sig:
+    purpose: "L3 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 11 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [S]"
+  route-j10-gnd:
+    purpose: "L3 daisy: YAW ID 11 -> HIP ID 12 (BACK ports, out the saddle's open +X end, up past the bearing cap) [GND]"
+  route-j10-vp:
+    purpose: "L3 daisy: YAW ID 11 -> HIP ID 12 (BACK ports, out the saddle's open +X end, up past the bearing cap) [V+]"
+  route-j10-sig:
+    purpose: "L3 daisy: YAW ID 11 -> HIP ID 12 (BACK ports, out the saddle's open +X end, up past the bearing cap) [S]"
+  route-j11-gnd:
+    purpose: "L3 daisy: HIP ID 12 -> KNEE ID 13 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [GND]"
+  route-j11-vp:
+    purpose: "L3 daisy: HIP ID 12 -> KNEE ID 13 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [V+]"
+  route-j11-sig:
+    purpose: "L3 daisy: HIP ID 12 -> KNEE ID 13 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [S]"
+  route-pwr-tee-l3-vp:
+    purpose: "L3 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 12 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [V+]"
+  route-pwr-tee-l3-gnd:
+    purpose: "L3 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 12 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [GND]"
+  route-j12-gnd:
+    purpose: "L4 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 14 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [GND]"
+  route-j12-sig:
+    purpose: "L4 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 14 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [S]"
+  route-j13-gnd:
+    purpose: "L4 daisy: YAW ID 14 -> HIP ID 15 (BACK ports, out the saddle's open +X end, up past the bearing cap) [GND]"
+  route-j13-vp:
+    purpose: "L4 daisy: YAW ID 14 -> HIP ID 15 (BACK ports, out the saddle's open +X end, up past the bearing cap) [V+]"
+  route-j13-sig:
+    purpose: "L4 daisy: YAW ID 14 -> HIP ID 15 (BACK ports, out the saddle's open +X end, up past the bearing cap) [S]"
+  route-j14-gnd:
+    purpose: "L4 daisy: HIP ID 15 -> KNEE ID 16 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [GND]"
+  route-j14-vp:
+    purpose: "L4 daisy: HIP ID 15 -> KNEE ID 16 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [V+]"
+  route-j14-sig:
+    purpose: "L4 daisy: HIP ID 15 -> KNEE ID 16 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [S]"
+  route-pwr-tee-l4-vp:
+    purpose: "L4 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 15 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [V+]"
+  route-pwr-tee-l4-gnd:
+    purpose: "L4 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 15 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [GND]"
+  route-j15-gnd:
+    purpose: "L5 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 17 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [GND]"
+  route-j15-sig:
+    purpose: "L5 DATA entry: data Wago -> drop slot -> down retainer window -> YAW ID 17 BACK-face 5264 ports (S+GND only; V+ arrives via the hip tee) [S]"
+  route-j16-gnd:
+    purpose: "L5 daisy: YAW ID 17 -> HIP ID 18 (BACK ports, out the saddle's open +X end, up past the bearing cap) [GND]"
+  route-j16-vp:
+    purpose: "L5 daisy: YAW ID 17 -> HIP ID 18 (BACK ports, out the saddle's open +X end, up past the bearing cap) [V+]"
+  route-j16-sig:
+    purpose: "L5 daisy: YAW ID 17 -> HIP ID 18 (BACK ports, out the saddle's open +X end, up past the bearing cap) [S]"
+  route-j17-gnd:
+    purpose: "L5 daisy: HIP ID 18 -> KNEE ID 19 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [GND]"
+  route-j17-vp:
+    purpose: "L5 daisy: HIP ID 18 -> KNEE ID 19 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [V+]"
+  route-j17-sig:
+    purpose: "L5 daisy: HIP ID 18 -> KNEE ID 19 (BACK ports, festooned across the femur's inboard face, under the passive-horn yoke arm) [S]"
+  route-pwr-tee-l5-vp:
+    purpose: "L5 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 18 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [V+]"
+  route-pwr-tee-l5-gnd:
+    purpose: "L5 POWER tee: corner power-Wago branch -> drop slot -> up the yaw corridor -> HIP ID 18 ports (V+/GND; the hip tees 12 V to yaw + knee -- WIRING.md \u00a76.2) [GND]"
+  route-trunk-vp-lipo-switch:
+    purpose: "power trunk V+ 12-14 AWG: under-belly LiPo pair (XT60 Y-harness) -> UP through the 14 x 22 battery pass-through at (48, 0) -> over the deck rim at az 0 -> anti-spark switch"
+  route-trunk-vp-switch-wago:
+    purpose: "power trunk V+ 12-14 AWG: switch -> 15-20 A main fuse (inline) -> central trunk V+ nut = the SOUTH 5-port Wago 221-415 at (16, -16), nearest the switch"
+  route-trunk-gnd-lipo-wago:
+    purpose: "power trunk GND 12-14 AWG: under-belly LiPo pair -> UP through the (48, 0) battery pass-through -> out the az-0 bay to the corner tray, climbing PAST the switch holster's +X face (x 85) -> back west along the deck SOUTH of the holster (y <= -14) -> around the WEST side of the V+ nut -> central trunk GND nut = the NORTH 5-port Wago at (16, +16) (no switch/fuse in the GND leg)"
+  route-logic-battery-uno-vp:
+    purpose: "battery tap at the trunk nuts (V+ = south, GND = north) -> over the round plate's az-60 rim (between the raised-platform legs, r ~ 59) -> EAST of the breakout (x > 23) -> over the board's east end -> Uno Q power header: V+ on VIN, GND on the adjacent GND pin (no buck; 20 AWG; Uno Q accepts the 3S rail via its own regulator) [V+]"
+  route-logic-battery-uno-gnd:
+    purpose: "battery tap at the trunk nuts (V+ = south, GND = north) -> over the round plate's az-60 rim (between the raised-platform legs, r ~ 59) -> EAST of the breakout (x > 23) -> over the board's east end -> Uno Q power header: V+ on VIN, GND on the adjacent GND pin (no buck; 20 AWG; Uno Q accepts the 3S rail via its own regulator) [GND]"
+  route-uart-uno-adapter-tx:
+    purpose: "Uno Q MCU UART from the digital-header pins D1(TX)/D0(RX)/GND (feetech_bridge, 1 Mbps bus / 921600 to Linux) -> over the round plate's -X rim -> south around the adapter -> UART/MCU header on the adapter's +X servo face (jumper A; USB-C is bench-only -- VIN power gives no USB host mode / no VBUS) [TX]"
+  route-uart-uno-adapter-rx:
+    purpose: "Uno Q MCU UART from the digital-header pins D1(TX)/D0(RX)/GND (feetech_bridge, 1 Mbps bus / 921600 to Linux) -> over the round plate's -X rim -> south around the adapter -> UART/MCU header on the adapter's +X servo face (jumper A; USB-C is bench-only -- VIN power gives no USB host mode / no VBUS) [RX]"
+  route-uart-uno-adapter-gnd:
+    purpose: "Uno Q MCU UART from the digital-header pins D1(TX)/D0(RX)/GND (feetech_bridge, 1 Mbps bus / 921600 to Linux) -> over the round plate's -X rim -> south around the adapter -> UART/MCU header on the adapter's +X servo face (jumper A; USB-C is bench-only -- VIN power gives no USB host mode / no VBUS) [GND]"
+  route-data-head-sig:
+    purpose: "bus head: adapter servo plug -> over the switch holster (top deck0+26.5; the hex-plate underside leaves a 4 mm lane) -> down SOUTH of the az-0 corner Wago mount (mount spans y +/-22.3, x 79-102) -> inboard of the L0 yaw tower -> L0 drop slot -> L0 data Wago (S+GND only; adapter is data-only on the robot) [S]"
+  route-data-head-gnd:
+    purpose: "bus head: adapter servo plug -> over the switch holster (top deck0+26.5; the hex-plate underside leaves a 4 mm lane) -> down SOUTH of the az-0 corner Wago mount (mount spans y +/-22.3, x 79-102) -> inboard of the L0 yaw tower -> L0 drop slot -> L0 data Wago (S+GND only; adapter is data-only on the robot) [GND]"
+  route-i2c-imu-gnd:
+    purpose: "Uno Q I2C from the digital-header pins SCL/SDA/GND -> diagonally over the board -> over the round plate's SE rim (r ~ 59, between the raised-platform legs) -> GY-521 MPU glued on chassis_top beside the trunk Wagos (28 AWG; MPU VCC comes off the 3.3 V Wago instead, route-3v3-mpu) [GND]"
+  route-i2c-imu-scl:
+    purpose: "Uno Q I2C from the digital-header pins SCL/SDA/GND -> diagonally over the board -> over the round plate's SE rim (r ~ 59, between the raised-platform legs) -> GY-521 MPU glued on chassis_top beside the trunk Wagos (28 AWG; MPU VCC comes off the 3.3 V Wago instead, route-3v3-mpu) [SCL]"
+  route-i2c-imu-sda:
+    purpose: "Uno Q I2C from the digital-header pins SCL/SDA/GND -> diagonally over the board -> over the round plate's SE rim (r ~ 59, between the raised-platform legs) -> GY-521 MPU glued on chassis_top beside the trunk Wagos (28 AWG; MPU VCC comes off the 3.3 V Wago instead, route-3v3-mpu) [SDA]"
+  route-3v3-feed:
+    purpose: "3.3 V feed 28 AWG: Uno Q 3V3 pin -> down through the round plate's EAST \u00d88 wire port (19, -44) -> the 5-port 3.3 V Wago under the plate's south rim"
+  route-3v3-mpu:
+    purpose: "3.3 V branch 28 AWG: under-plate Wago -> straight down to the GY-521 MPU VCC on chassis_top (the nut hangs almost directly above the MPU)"
+  route-screen-vcc:
+    purpose: "screen pigtail 8x 28 AWG: Uno Q pins (3V3+GND on the power header; D13/D11/D10/D9/D8/D7 = SCK/MOSI/CS/DC/RES/BLK on the digital header) -> bundles over the board's east end -> rises just inboard of the az-330 platform leg (r 36; blade starts r 42) -> under the top plate -> UP through the 24x5 wire slot behind the panel's +X edge (panel held by 4x M2 self-tappers in the top-plate pilot holes) [VCC]"
+  route-screen-gnd:
+    purpose: "screen pigtail 8x 28 AWG: Uno Q pins (3V3+GND on the power header; D13/D11/D10/D9/D8/D7 = SCK/MOSI/CS/DC/RES/BLK on the digital header) -> bundles over the board's east end -> rises just inboard of the az-330 platform leg (r 36; blade starts r 42) -> under the top plate -> UP through the 24x5 wire slot behind the panel's +X edge (panel held by 4x M2 self-tappers in the top-plate pilot holes) [GND]"
+  route-screen-scl:
+    purpose: "screen pigtail 8x 28 AWG: Uno Q pins (3V3+GND on the power header; D13/D11/D10/D9/D8/D7 = SCK/MOSI/CS/DC/RES/BLK on the digital header) -> bundles over the board's east end -> rises just inboard of the az-330 platform leg (r 36; blade starts r 42) -> under the top plate -> UP through the 24x5 wire slot behind the panel's +X edge (panel held by 4x M2 self-tappers in the top-plate pilot holes) [SCL]"
+  route-screen-sda:
+    purpose: "screen pigtail 8x 28 AWG: Uno Q pins (3V3+GND on the power header; D13/D11/D10/D9/D8/D7 = SCK/MOSI/CS/DC/RES/BLK on the digital header) -> bundles over the board's east end -> rises just inboard of the az-330 platform leg (r 36; blade starts r 42) -> under the top plate -> UP through the 24x5 wire slot behind the panel's +X edge (panel held by 4x M2 self-tappers in the top-plate pilot holes) [SDA]"
+  route-screen-res:
+    purpose: "screen pigtail 8x 28 AWG: Uno Q pins (3V3+GND on the power header; D13/D11/D10/D9/D8/D7 = SCK/MOSI/CS/DC/RES/BLK on the digital header) -> bundles over the board's east end -> rises just inboard of the az-330 platform leg (r 36; blade starts r 42) -> under the top plate -> UP through the 24x5 wire slot behind the panel's +X edge (panel held by 4x M2 self-tappers in the top-plate pilot holes) [RES]"
+  route-screen-dc:
+    purpose: "screen pigtail 8x 28 AWG: Uno Q pins (3V3+GND on the power header; D13/D11/D10/D9/D8/D7 = SCK/MOSI/CS/DC/RES/BLK on the digital header) -> bundles over the board's east end -> rises just inboard of the az-330 platform leg (r 36; blade starts r 42) -> under the top plate -> UP through the 24x5 wire slot behind the panel's +X edge (panel held by 4x M2 self-tappers in the top-plate pilot holes) [DC]"
+  route-screen-cs:
+    purpose: "screen pigtail 8x 28 AWG: Uno Q pins (3V3+GND on the power header; D13/D11/D10/D9/D8/D7 = SCK/MOSI/CS/DC/RES/BLK on the digital header) -> bundles over the board's east end -> rises just inboard of the az-330 platform leg (r 36; blade starts r 42) -> under the top plate -> UP through the 24x5 wire slot behind the panel's +X edge (panel held by 4x M2 self-tappers in the top-plate pilot holes) [CS]"
+  route-screen-blk:
+    purpose: "screen pigtail 8x 28 AWG: Uno Q pins (3V3+GND on the power header; D13/D11/D10/D9/D8/D7 = SCK/MOSI/CS/DC/RES/BLK on the digital header) -> bundles over the board's east end -> rises just inboard of the az-330 platform leg (r 36; blade starts r 42) -> under the top plate -> UP through the 24x5 wire slot behind the panel's +X edge (panel held by 4x M2 self-tappers in the top-plate pilot holes) [BLK]"
+  route-pwr-L0-vp:
+    purpose: "L0 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 0 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 0 drop [V+]"
+  route-pwr-L0-gnd:
+    purpose: "L0 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 0 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 0 drop [GND]"
+  route-pwr-L1-vp:
+    purpose: "L1 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 60 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 1 drop [V+]"
+  route-pwr-L1-gnd:
+    purpose: "L1 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 60 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 1 drop [GND]"
+  route-pwr-L2-vp:
+    purpose: "L2 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 120 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 2 drop [V+]"
+  route-pwr-L2-gnd:
+    purpose: "L2 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 120 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 2 drop [GND]"
+  route-pwr-L3-vp:
+    purpose: "L3 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 180 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 3 drop [V+]"
+  route-pwr-L3-gnd:
+    purpose: "L3 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 180 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 3 drop [GND]"
+  route-pwr-L4-vp:
+    purpose: "L4 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 240 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 4 drop [V+]"
+  route-pwr-L4-gnd:
+    purpose: "L4 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 240 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 4 drop [GND]"
+  route-pwr-L5-vp:
+    purpose: "L5 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 300 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 5 drop [V+]"
+  route-pwr-L5-gnd:
+    purpose: "L5 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 300 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 5 drop [GND]"
+  route-data-L0L1-sig:
+    purpose: "leg 0 -> leg 1 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [S]"
+  route-data-L0L1-gnd:
+    purpose: "leg 0 -> leg 1 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [GND]"
+  route-data-L1L2-sig:
+    purpose: "leg 1 -> leg 2 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [S]"
+  route-data-L1L2-gnd:
+    purpose: "leg 1 -> leg 2 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [GND]"
+  route-data-L2L3-sig:
+    purpose: "leg 2 -> leg 3 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [S]"
+  route-data-L2L3-gnd:
+    purpose: "leg 2 -> leg 3 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [GND]"
+  route-data-L3L4-sig:
+    purpose: "leg 3 -> leg 4 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [S]"
+  route-data-L3L4-gnd:
+    purpose: "leg 3 -> leg 4 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [GND]"
+  route-data-L4L5-sig:
+    purpose: "leg 4 -> leg 5 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [S]"
+  route-data-L4L5-gnd:
+    purpose: "leg 4 -> leg 5 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [GND]"

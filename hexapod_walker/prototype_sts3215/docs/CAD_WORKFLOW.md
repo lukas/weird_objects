@@ -53,7 +53,7 @@ committing).
 
 | Goal                         | Make target            | Equivalent direct invocation                                                                          |
 |------------------------------|------------------------|-------------------------------------------------------------------------------------------------------|
-| Regenerate STLs              | `make build`           | `./run.sh hexapod_walker/prototype/build_all.py --skip-assembly --skip-xometry --skip-bambu --skip-test-plate` |
+| Regenerate STLs              | `make build`           | `./run.sh hexapod_walker/prototype/build_all.py --skip-assembly` |
 | Run spec validator only      | `make validate`        | `./run.sh hexapod_walker/prototype/scripts/validate_geometry.py`                                      |
 | Render PNG views only        | `make render`          | `./run.sh hexapod_walker/prototype/scripts/render_views.py`                                            |
 | Legacy verify only           | `make verify-prototype`| `./run.sh hexapod_walker/prototype/_verify_prototype.py`                                              |

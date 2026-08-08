@@ -12,8 +12,7 @@ where it meets the leg's **power branch from the distributed bus bar**
 full, buildable wiring plan — the DATA daisy-chain plus the
 DISTRIBUTED-POWER bus-bar / per-leg branch harness that keeps any one
 Molex 5264 pin under its ~3 A rating — lives in
-``../firmware/WIRING.md`` (§6).  See also ``../docs/SHOPPING_LIST.md`` and
-``../docs/PROTOTYPE_BOM.md``.
+``../firmware/WIRING.md`` (§6).  See also ``../docs/BOM.md``.
 
 This module is the SOURCE OF TRUTH for the per-joint **cable reach
 budget**: "starting from each servo's cradle wire-exit, how long a
@@ -79,8 +78,8 @@ Stock bus lead + extension assumption:
 
     STS3215 stock bus lead = STOCK_PIGTAIL_MM (declared below).
     Each STS3215 ships with one 3-pin serial-bus cable, and
-    SHOPPING_LIST.md calls for a pack of "FEETECH 3-pin serial-bus
-    cables, assorted lengths".  We treat the stock lead as
+    docs/BOM.md calls for a spare pack of "FEETECH 3-pin serial-bus
+    servo cables".  We treat the stock lead as
     300 mm = STOCK_PIGTAIL_MM (the longest assorted length), the
     reach available before a leg needs an extra/longer cable.
 
@@ -134,13 +133,12 @@ import hexapod_prototype as hp  # noqa: E402
 
 STOCK_PIGTAIL_MM = 300.0
 """mm.  STS3215 stock 3-pin serial-bus lead.  See the module
-docstring for the SHOPPING_LIST.md citation; treated as 300 mm,
+docstring for the docs/BOM.md citation; treated as 300 mm,
 the reach available before a leg needs an extra/longer cable."""
 
 EXTENSION_LENGTH_MM = 300.0
 """mm.  Standard 30 cm 3-pin serial-bus extension; matches the
-"FEETECH 3-pin serial-bus cables, assorted lengths" line in
-SHOPPING_LIST.md."""
+"Bus servo cables" line in docs/BOM.md."""
 
 SLACK_PER_JOINT_CROSSING_MM = 30.0
 """mm of slack loop the harness needs at every joint axis it
@@ -216,7 +214,7 @@ def _cradle_source_bracket_xyz(axis: str) -> tuple[float, float, float]:
                     bundle thickness.
 
     The drop-slot centre is at bracket-x = LEG_HARNESS_DROP_X_CENTRE
-    = -46 mm, only 5 mm INBOARD of the new wire-exit mouth -- the
+    = -47.5 mm, only ~6 mm INBOARD of the new wire-exit mouth -- the
     redesigned cradle shortens the per-leg yaw-cable run by
     ~ |old - new| = |+21 - (-41)| = 62 mm of horizontal Manhattan
     distance compared to the legacy +X bracket exit.  The path-length

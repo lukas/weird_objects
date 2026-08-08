@@ -117,12 +117,8 @@ def _fastener_role_patterns(part_type: str, leg_index: int | None) -> list[str]:
         ]
     if part_type == "tibia_link" and leg_tag:
         return [f"tibia_link {leg_tag}", f"{leg_tag} knee horn"]
-    if part_type == "foot_pad" and leg_tag:
-        # The hinge pin and its nut are the only fasteners through the
-        # foot pad in the current enumeration.  Their roles begin with
-        # ``"foot L<i> hinge"``, so the bare ``"foot L<i>"`` substring
-        # is sufficient.
-        return [f"foot {leg_tag}"]
+    # foot_pad relation RETIRED (Aug 2026): the TPU foot_boot has no
+    # fasteners (pressed onto the tube).
     if part_type in (
         "chassis_top", "chassis_bottom",
         "chassis_plate_a", "chassis_plate_b",
@@ -285,8 +281,6 @@ def _self_test_summary() -> str:
         SimpleNamespace(part_type="femur_link",   leg_index=3, joint=None,
                         fastener_role=None),
         SimpleNamespace(part_type="tibia_link",   leg_index=5, joint=None,
-                        fastener_role=None),
-        SimpleNamespace(part_type="foot_pad",     leg_index=2, joint=None,
                         fastener_role=None),
         SimpleNamespace(part_type="chassis_top",  leg_index=None, joint=None,
                         fastener_role=None),

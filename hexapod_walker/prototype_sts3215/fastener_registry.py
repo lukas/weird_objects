@@ -82,9 +82,14 @@ Enumerated categories (Design B + Design C, May 2026 revert)
    pad holes are an access-from-above improvement, not a sequence
    change.
 
-4. ``6 x M3 x 16 pan-head bolts`` -- foot hinge pins.  1 per leg.
+4. (retired Aug 2026) -- the 6 M3 x 16 pan-head foot-hinge pins are gone
+   with the hinged foot: the TPU ``foot_boot`` presses straight onto the
+   tibia CF tube (see ``make_foot_boot``).  No fastener.
 
-5. ``6 x M3 nyloc nuts`` -- one per foot hinge bolt.
+5. (retired Aug 2026) -- the 6 M3 nyloc nuts went with the hinge pins
+   (4.).  With them gone the build needs NO nut driver and NO Phillips:
+   every remaining screw is hex-socket except the M2.5 rear-case
+   self-taps and the 4 M2 screen self-taps (off-registry, screen stand).
 
 (May 2026 Design F: the previous categories 4 + 5 -- ``24 x M3 x 32 SHCS``
 coxa-bracket-to-chassis bolts and 24 matching M3 nyloc nuts -- have been
@@ -167,6 +172,43 @@ to clamp through the chassis plates.)
     XY positions (see 18.).  Jul 2026 F/F switch: replaces the old
     M-F male stud + nyloc, which could not span the 8 mm-thick
     merged chassis_bottom.  Accessible from below the robot.
+
+LATE-AUG 2026 SKU AUDIT (design-review "fastener diet")
+--------------------------------------------------------
+Live census from ``build_all_fastener_instances()`` after the TPU-boot
+and integrated-tray changes -- 284 fasteners, 8 purchased SKUs:
+
+  ===  =================================  ==========  =====================
+  qty  spec                               McMaster    why this length
+  ===  =================================  ==========  =====================
+   96  M3x10 disc-horn SHCS               91290A114   driven-horn stack
+   24  M3x20 disc-horn SHCS               91290A120   yaw hub stack
+   42  M3x8 SHCS self-tap                 91290A113   clamp caps + bearing
+                                                      caps (wall pilots)
+    4  M3x8 SHCS                          91290A113   chassis_top ->
+                                                      standoff top thread
+    2  M3x10 SHCS                         91290A114   switch holster (ear +
+                                                      boss + insert stack)
+    4  M3x14 SHCS                         91290A115   spans the 8 mm merged
+                                                      chassis_bottom into
+                                                      the standoff bottom
+   24  M3x6 SHCS self-tap                 91290A111   retainer anchors: an
+                                                      x8 tip would stand
+                                                      1 mm proud of the
+                                                      plate (pilot bottoms
+                                                      at -3); ships free
+                                                      with the disc kits
+   54  M2.5x8 SHCS (spline + case)        91290A104   servo case threads
+   24  M2.5x6 self-tap (rear case)        96877A150   4 mm rear-shell bite
+   10  M3 heat-set insert                 94459A130   holster + deck bosses
+  ===  =================================  ==========  =====================
+
+Verdict: no further merges are free.  Every remaining length is pinned
+by an engagement geometry the verifier checks (M3x6 tip clearance,
+M3x14 plate span, M3x20 hub stack); the only same-thread pair that
+COULD merge (2 x M3x10 holster -> M3x8) saves zero SKUs because
+91290A114 stays for the 96 disc-horn bolts.  The foot hinge's pan-head
++ nyloc (the last non-hex-key hardware) left with the Aug 2026 boot.
 """
 
 from __future__ import annotations
@@ -241,8 +283,11 @@ PN_M3X6_SHCS     = "91290A111"   # M3 x 6 socket-head cap screw (ships with disc
 # M3 x 8 stock used as servo cradle mount bolts.
 
 # Human-readable spec labels (used by the inspector and the BOM script).
-SPEC_M3X8_SHCS   = "M3x8 SHCS"
-SPEC_M3X10_SHCS  = "M3x10 SHCS"   # chassis-standoff top bolts + deck-column
+SPEC_M3X8_SHCS   = "M3x8 SHCS"    # also the chassis-standoff top bolts (Aug
+                                   # 2026: were M3x10 through the 4 mm plate;
+                                   # the 2 mm plate needs x8 or the tip
+                                   # bottoms out in the brass standoff).
+SPEC_M3X10_SHCS  = "M3x10 SHCS"   # switch-holster ear + deck-column
                                    # tray bolts (the retired battery_holder
                                    # foot bolts also used this spec).
 # RETIRED (Jun 2026): the chassis_bottom HIGH/LOW print split was re-merged
@@ -379,7 +424,7 @@ class FastenerInstance:
     # ``True`` marks a COMPLIANT, TORQUE-ONLY clamp bolt whose clearance
     # hole is intentionally OVERSIZED so the shaft never grips its
     # near-side part -- concentricity is set by a separate feature (e.g.
-    # the spaced 6706 yaw bearings) and the bolt only PRELOADS the stack
+    # the touching 6805 yaw bearings) and the bolt only PRELOADS the stack
     # (head clamps the near part, thread bites the far part).  The yaw
     # ``hub-to-disc-horn`` bolts are the canonical case: the hub's Phi 4.2
     # torque-only holes let the bearings -- not the bolts -- locate the
@@ -748,7 +793,7 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             length_mm=horn_bolt_len,
             cache_stl=f"{PN_M3X20_SHCS}.cache.stl",
             # Mostly-compliant clamp: the coxa_link hub disc-horn holes are
-            # Phi 3.7 (Aug 2026; was 4.2) so the 6706 pair still leads on
+            # Phi 3.7 (Aug 2026; was 4.2) so the bearing pair still leads on
             # concentricity while screw-hole slop is reduced.  Bolt head
             # clamps the stack DOWN; thread bites the aluminium disc.
             # (Hip/knee disc-horn bolts use tight Phi 3.4 and stay rigid.)
@@ -781,7 +826,7 @@ def _emit_yaw_cap_join_fasteners(leg_index: int) -> list[FastenerInstance]:
     the head bears in the cap ear's counter-bore at
     ``YAW_CAP_EAR_TOP_Z - (INSERT_M3_BOLT_HEAD_H + 0.3)`` and the shank threads
     DOWN (-Z) into the tower's Phi 2.5 mm self-tap pilot below the split plane.
-    These capture the spaced 6706 pair after each race is dropped onto its open
+    These capture the touching 6805 pair after each race is dropped onto its open
     face.  3 bolts x 6 legs = 18.
     """
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
@@ -1248,85 +1293,11 @@ def _emit_spline_fastener(leg_index: int, joint: str) -> list[FastenerInstance]:
     ]
 
 
-def _emit_foot_hinge_fastener(leg_index: int) -> list[FastenerInstance]:
-    """The single M3 x 16 pan-head hinge pin that captures the tibia's
-    TANG in the foot pad's FORK.  Bolt axis is parallel to the knee
-    Y axis.  Head sits on one fork cheek (foot-pad +Y face), nut on
-    the other.
-
-    May 2026 inversion: the OLD design had the fork on the tibia and
-    the tongue on the foot; the bolt then went head -> tibia +Y cheek
-    -> foot tongue -> tibia -Y cheek -> nut.  The NEW design swaps
-    fork and tang -- the bolt now goes head -> foot pad +Y cheek ->
-    tibia tang -> foot pad -Y cheek -> nut.  The hinge axis, pin
-    length (M3 x 16 pan-head), and nylock are identical; only the
-    cheek-bearing surfaces have moved from the tibia to the foot.
-    For the BOM auto-derivation that's a no-op: head_world_xyz and
-    nut_head world positions are unchanged because the fork outer
-    faces sit at the SAME world y as the old clevis outer faces
-    (cheek_outer_y formula goes from GAP/2+CHEEK_T = 5/2+3.5 = 6 mm
-    to SLOT_W/2+CHEEK_T = 6.4/2+3.5 = 6.7 mm -- a 0.7 mm outboard
-    shift per side, well within the pan-head + nylock engagement
-    range; the M3 x 16 pin still spans 13.4 mm of plastic + ~2.6 mm
-    of nylock threads).
-    """
-    apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0
-    a = (leg_index + 0.5) * np.pi / 3.0
-    edge_mid = np.array([apothem * np.cos(a), apothem * np.sin(a), 0.0])
-    yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z
-    hip_drop = HP.COXA_HIP_DROP
-    p = np.deg2rad(HP.STANCE_FEMUR_DEG)
-    pt = np.deg2rad(HP.STANCE_FEMUR_DEG + HP.STANCE_TIBIA_DEG)
-    Ry_p_3 = _Ry(p)[:3, :3]
-    knee_joint_local = np.array(HP.COXA_HIP_ANCHOR) + Ry_p_3 @ np.array(
-        [HP.FEMUR_LENGTH, 0.0, 0.0]
-    )
-    # Bearing-sandwich refit (Jun 2026): tibia-link origin is the knee
-    # disc-horn-top ON the joint axis -- no axial pad offset.
-    PAD_AXIS_OFFSET = np.array([0.0, 0.0, 0.0])
-    T_tibia_in_link = _T(*(knee_joint_local + PAD_AXIS_OFFSET)) @ _Ry(pt)
-    T_tibia_to_world = (
-        _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a) @ T_tibia_in_link
-    )
-    # Bearing-sandwich refit (Jun 2026): the foot-hinge tang now sits at
-    # the foot fitting on the end of the CF tube, not on a tibia spar.  Its
-    # pin centre in tibia-local coordinates comes straight from the geometry
-    # (HP.tibia_foot_hinge_local) so the pan-head/nyloc track the as-built
-    # tang.  Pin axis is tibia-local +Y; the foot fork's +Y cheek outer face
-    # sits at tang centreline + FOOT_HINGE_SLOT_W/2 + FOOT_HINGE_CHEEK_T.
-    hinge_local = HP.tibia_foot_hinge_local()
-    cheek_outer_y = (HP.FOOT_HINGE_SLOT_W / 2.0
-                     + HP.FOOT_HINGE_CHEEK_T)
-    head_local = hinge_local + np.array([0.0, +cheek_outer_y, 0.0])
-    head = _apply_point(T_tibia_to_world, head_local)
-    axis = _apply_dir(T_tibia_to_world, np.array([0.0, -1.0, 0.0]))
-    nut_local = hinge_local + np.array([0.0, -cheek_outer_y, 0.0])
-    nut_head = _apply_point(T_tibia_to_world, nut_local)
-    nut_axis = _apply_dir(T_tibia_to_world, np.array([0.0, +1.0, 0.0]))
-    return [
-        FastenerInstance(
-            part_number=PN_M3X16_PAN,
-            spec=SPEC_M3X16_PAN,
-            head_world_xyz=head,
-            axis_world=axis,
-            role=f"foot L{leg_index} hinge pin pan-head",
-            leg_index=leg_index,
-            joint=None,
-            length_mm=16.0,
-            cache_stl=f"{PN_M3X16_PAN}.cache.stl",
-        ),
-        FastenerInstance(
-            part_number=PN_M3_NYLOC,
-            spec=SPEC_M3_NYLOC,
-            head_world_xyz=nut_head,
-            axis_world=nut_axis,
-            role=f"foot L{leg_index} hinge pin nyloc nut",
-            leg_index=leg_index,
-            joint=None,
-            length_mm=None,
-            cache_stl=f"{PN_M3_NYLOC}.cache.stl",
-        ),
-    ]
+# ``_emit_foot_hinge_fastener`` RETIRED (Aug 2026): the hinged foot
+# (tibia_foot_fitting tang + foot_pad fork + M3 x 16 pan-head + nyloc)
+# is replaced by a pressed-on TPU ``foot_boot`` -- zero fasteners at
+# the foot.  That removes the M3 x 16 pan-head and the M3 nyloc nut
+# from the robot entirely (6 of each).
 
 
 # ---------------------------------------------------------------------------
@@ -1478,14 +1449,10 @@ def _emit_switch_holster_fasteners() -> list[FastenerInstance]:
     """
     out: list[FastenerInstance] = []
     # ``inspect_build._build_assembly_instances`` and the verifier's
-    # ``_build_world_leg0_printed_parts`` BOTH translate chassis_top
-    # by [0, 0, gap + plate_t] (with the mesh's local z = 0 at the
-    # plate's mid-thickness), so chassis_top's top face in the design
-    # frame is at z = gap + plate_t + plate_t / 2 = 38 (not gap +
-    # 1.5 * plate_t = 38 -- those are the same number anyway, but
-    # be explicit so the math matches the verifier exactly).
-    chassis_top_centre_z = HP.CHASSIS_GAP + HP.CHASSIS_PLATE_T
-    chassis_top_top_z    = chassis_top_centre_z + HP.CHASSIS_PLATE_T / 2.0
+    # ``_build_world_leg0_printed_parts`` BOTH translate chassis_top by
+    # [0, 0, CHASSIS_TOP_CENTRE_Z] (mesh local z = 0 at mid-thickness);
+    # Aug 2026 half-thickness plate: use the authoritative constants.
+    chassis_top_top_z = HP.CHASSIS_TOP_TOP_Z
     # Bolt head bears on the holster ear's TOP face.
     boss_top_z = chassis_top_top_z + HP.SWITCH_HOLSTER_BOSS_H
     ear_top_z  = boss_top_z + HP.SWITCH_HOLSTER_FLOOR
@@ -1611,8 +1578,8 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
     # (the old M-F stud + nyloc could not span the 8 mm plate stack).
     chassis_bottom_bot_z = HP.CHASSIS_SPLIT_Z - HP.CHASSIS_BOTTOM_FLOOR_T  # = -6
     chassis_bottom_top_z = 0.5 * HP.CHASSIS_PLATE_T                        # = +2
-    chassis_top_top_z = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T  # = +38
-    chassis_top_bot_z = HP.CHASSIS_GAP + 0.5 * HP.CHASSIS_PLATE_T  # = +34
+    chassis_top_top_z = HP.CHASSIS_TOP_TOP_Z   # = +36 (2 mm plate, Aug 2026)
+    chassis_top_bot_z = HP.CHASSIS_TOP_BOT_Z   # = +34
 
     # Deck redesign (Jun 2026): the in-gap electronics_tray is retired,
     # so its 4 tray-to-chassis_bottom mount bolts + heat-set inserts are
@@ -1648,23 +1615,26 @@ def _emit_chassis_stack_fasteners() -> list[FastenerInstance]:
         # is a captive sub-assembly fastener.
         bolt_skip = standoff_skip_reason
 
-        # M3 x 10 SHCS dropped DOWN from above chassis_top into the
-        # brass F-F standoff's female top threads.
+        # M3 x 8 SHCS dropped DOWN from above chassis_top into the
+        # brass F-F standoff's female top threads.  (Aug 2026: was
+        # M3 x 10 through the 4 mm plate; the half-thickness 2 mm plate
+        # would push a x10 tip 8 mm into the standoff and bottom out --
+        # x8 keeps the same 6 mm of brass engagement.)
         head_world = np.array([sx, sy, chassis_top_top_z])
         axis_world = np.array([0.0, 0.0, -1.0])
         out.append(FastenerInstance(
-            part_number=PN_M3X10_SHCS,
-            spec=SPEC_M3X10_SHCS,
+            part_number=PN_M3X8_SHCS,
+            spec=SPEC_M3X8_SHCS,
             head_world_xyz=head_world,
             axis_world=axis_world,
             role=(
                 f"chassis_top brass standoff {label} top "
-                f"M3 x 10 SHCS into standoff female thread"
+                f"M3 x 8 SHCS into standoff female thread"
             ),
             leg_index=None,
             joint=None,
-            length_mm=10.0,
-            cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
+            length_mm=8.0,
+            cache_stl=f"{PN_M3X8_SHCS}.cache.stl",
             skip_screwdriver_reason=bolt_skip,
         ))
 
@@ -1860,8 +1830,8 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         out.extend(_emit_spline_fastener(leg_index, "hip"))
         out.extend(_emit_spline_fastener(leg_index, "knee"))
 
-        # Foot hinge pin (M3 x 16 pan-head + nyloc nut).
-        out.extend(_emit_foot_hinge_fastener(leg_index))
+        # Foot hinge pin RETIRED (Aug 2026): pressed-on TPU foot_boot,
+        # zero fasteners at the foot.
 
     # Chassis-level fasteners (no leg index).  Deck redesign (Jun 2026):
     # the clip-in battery_holder is retired (LiPo is velcro-strapped to
@@ -1979,7 +1949,7 @@ def _usage_bucket(fi: FastenerInstance) -> str:
         return "cradle servo body-retention bolts (M2.5 into servo end face)"
     if "cap-to-tower" in role:
         # Jun 2026 split yaw-bearing tower: the 18 M3 x 8 SHCS that pull each
-        # yaw_bearing_cap down onto chassis_bottom to capture the 6706 pair.
+        # yaw_bearing_cap down onto chassis_bottom to capture the 6805 pair.
         return ("yaw_bearing_cap join screws "
                 "(cap -> chassis_bottom tower, M3 x 8 SHCS self-tap)")
     if "clamp-cap" in role:

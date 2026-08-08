@@ -69,7 +69,6 @@ PART_DEFAULT_SIZES_MM: dict[str, tuple[float, float]] = {
     "femur_link":     (3.0, 1.5),
     "tibia_link":     (2.5, 1.2),
     "coxa_link":      (2.5, 1.2),
-    "foot_pad":       (2.5, 1.5),
 }
 
 

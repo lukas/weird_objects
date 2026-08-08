@@ -131,7 +131,9 @@ _MESH_BUILDERS = {
     "coxa_link":        hp.make_coxa_link,
     "femur_link":       hp.make_femur_link,
     "tibia_link":       hp.make_tibia_link,
-    "foot_pad":         hp.make_foot_pad,
+    # Aug 2026: TPU foot boot pressed over the tibia tube end (replaces
+    # the hinged tibia_foot_fitting + foot_pad + M3x16/nyloc pin).
+    "foot_boot":        hp.make_foot_boot,
     "servo_body":       hp.make_servo_body,
     # June 2026: the servo joints drive a 20 mm aluminum 25T DISC horn
     # (Amazon B07D56FVK5), so the "servo_horn" mating part IS the disc.
@@ -698,7 +700,7 @@ def check_watertight():
     items_names = (
         "chassis_top", "chassis_bottom", 
         "servo_clamp_cap", "coxa_link",
-        "femur_link", "tibia_link", "foot_pad",
+        "femur_link", "tibia_link", "foot_boot",
     )
     all_ok = True
     for name in items_names:
@@ -790,7 +792,7 @@ def check_export_manifold():
 # That makes the suite correct about the parametric SOURCE but BLIND to a
 # real, recurring foot-gun: edit a ``make_*`` factory, forget to re-run
 # ``build_all.py``, and the verifier still reports a clean pass while the
-# actual STLs handed to the slicer / Xometry are a build behind.  (Jun 2026:
+# actual STLs handed to the slicer are a build behind.  (Jun 2026:
 # this bit us on coxa_yaw_hub + yaw_bearing_cap after the dual-bearing
 # rework -- the source was right, the .stl files on disk were stale.)
 #
@@ -921,11 +923,12 @@ _PRINTED_SINGLE_BODY_BUILDERS = (
     ("switch_holster",       hp.make_switch_holster),
     ("yaw_servo_retainer",   hp.make_yaw_servo_retainer),
     ("yaw_bearing_cap",      hp.make_yaw_bearing_cap),
+    # wago_mount RETIRED late-Aug 2026: the corner power-Wago tray walls
+    # are integrated into chassis_bottom (checked as part of that solid).
     ("coxa_link",            hp.make_coxa_link_part),
     ("femur_link",           hp.make_femur_link_part),
     ("tibia_knee_yoke",      hp.make_tibia_knee_yoke),
-    ("tibia_foot_fitting",   hp.make_tibia_foot_fitting),
-    ("foot_pad",             hp.make_foot_pad),
+    ("foot_boot",            hp.make_foot_boot),
     ("servo_clamp_cap",      hp.make_servo_clamp_cap),
 )
 
@@ -1746,11 +1749,23 @@ def _build_standing_leg():
 def _pair_overlap_volume(a_mesh, b_mesh, pitch=1.5):
     """Estimate the overlap volume between mesh A and mesh B by voxel
     sampling A inside its AABB intersection with B, then counting how
-    many of those voxel centres fall inside both meshes."""
+    many of those voxel centres fall inside both meshes.
+
+    The sample grid is INSET slightly from the AABB-intersection faces:
+    ``linspace`` endpoints otherwise land EXACTLY on a designed flush-
+    contact plane (e.g. the hip servo bottom resting on the coxa foot
+    plate), where ``points_inside`` reads the shared boundary as inside
+    BOTH bodies and inflates a zero-penetration rest plane into a full
+    voxel slab of phantom "overlap" (knife-edge behaviour: the Aug 2026
+    6805 bearing swap moved that plane 4 mm and flipped a stable PASS
+    into a 2136 mm^3 FAIL with a true boolean intersection of 0 mm^3).
+    Real interpenetrations are >= a few tenths of a mm deep, far beyond
+    the 0.05 mm inset, so detection is unaffected."""
     a_min, a_max = a_mesh.bounds
     b_min, b_max = b_mesh.bounds
-    lo = np.maximum(a_min, b_min)
-    hi = np.minimum(a_max, b_max)
+    eps = 0.05  # mm -- keep samples off exact coplanar contact faces
+    lo = np.maximum(a_min, b_min) + eps
+    hi = np.minimum(a_max, b_max) - eps
     if np.any(hi <= lo):
         return 0.0
     n = np.maximum(2, np.ceil((hi - lo) / pitch).astype(int))
@@ -1920,7 +1935,7 @@ def check_clamp_cap_interference():
 # This gate assembles the ENTIRE static robot from EVERY printed part, in its
 # nominal assembled pose, DECOMPOSED into the real printed parts (the
 # ONE-PIECE coxa_link and femur_link, tibia_knee_yoke +
-# tibia_foot_fitting, foot_pad, the two chassis halves, both clamp caps, both
+# TPU foot_boot, the two chassis halves, both clamp caps, both
 # decks, the dome) -- not merged link proxies -- using the SAME
 # authoritative scene placement that ``tools/full_robot_viz_build.py`` lays
 # the buildviz scene out with (so poses are never re-invented and stay locked
@@ -1948,7 +1963,7 @@ ASSEMBLY_INTERFERENCE_NOISE_MM3 = 5.0
 _ASSEMBLY_PRINTED_PARTS = frozenset({
     "coxa_link", "yaw_bearing_cap",
     "femur_link",
-    "tibia_knee_yoke", "tibia_foot_fitting", "foot_pad",
+    "tibia_knee_yoke", "foot_boot",
     "hip_clamp_cap", "knee_clamp_cap",
     "chassis_bottom", "chassis_top",
     
@@ -3307,7 +3322,7 @@ def check_flimsy_joints():
     items_names = (
         "chassis_top", "chassis_bottom", 
         "servo_clamp_cap", "coxa_link",
-        "femur_link", "tibia_link", "foot_pad",
+        "femur_link", "tibia_link", "foot_boot",
         # Design B (May 2026): servo_horn_adapter dropped from the
         # flimsy-cluster sweep -- no longer in the printable-output set.
     )
@@ -3753,8 +3768,8 @@ def _build_chassis_world(reference_leg_az_rad):
     Z stack mirrors ``build_prototype_assembly._body_frame_parts`` and
     ``_body_battery_parts``:
         chassis_bottom centre   z = 0
-        chassis_top centre      z = CHASSIS_GAP + CHASSIS_PLATE_T = 36
-        chassis_top top face     z = CHASSIS_GAP + 1.5 * CHASSIS_PLATE_T
+        chassis_top centre      z = CHASSIS_TOP_CENTRE_Z = 35
+        chassis_top top face     z = CHASSIS_TOP_TOP_Z = 36 (2 mm plate)
         (printed decks retired Aug 2026 — magnet hex stack is visual-only)
 
     Also includes a NEIGHBOUR coxa_bracket at azimuth a + pi/3 so the
@@ -3767,7 +3782,7 @@ def _build_chassis_world(reference_leg_az_rad):
     parts["chassis_bottom"] = bot
 
     top = _load_mesh("chassis_top")
-    top.apply_translation([0.0, 0.0, hp.CHASSIS_GAP + hp.CHASSIS_PLATE_T])
+    top.apply_translation([0.0, 0.0, hp.CHASSIS_TOP_CENTRE_Z])
     parts["chassis_top"] = top
 
     # Aug 2026: printed deck trays / carapace RETIRED (magnet hex stack).
@@ -5956,7 +5971,9 @@ DRIVER_HEAD_STANDOFF_MM      = 0.5
 _DRIVER_PRINTED_PART_NAMES = (
     "chassis_bottom", "chassis_top", 
     "hip_clamp_cap", "knee_clamp_cap", "switch_holster", 
-    "coxa_link", "femur_link", "tibia_link", "foot_pad",
+    # tibia_link already includes the pressed-on TPU foot boot
+    # (make_tibia_link unions it) -- no separate foot part any more.
+    "coxa_link", "femur_link", "tibia_link",
 )
 
 
@@ -6001,7 +6018,7 @@ def _build_world_leg0_printed_parts() -> dict:
     parts["chassis_bottom"] = cb_bottom
 
     cb_top = _load_mesh("chassis_top")
-    cb_top.apply_translation([0.0, 0.0, gap + plate_t])
+    cb_top.apply_translation([0.0, 0.0, hp.CHASSIS_TOP_CENTRE_Z])
     parts["chassis_top"] = cb_top
 
     # Aug 2026: printed uno_q_tray / buck_tray RETIRED (as-built magnet hex).
@@ -6021,10 +6038,10 @@ def _build_world_leg0_printed_parts() -> dict:
     parts["yaw_servo_retainer"] = _place_yaw_retainers()["yaw_servo_retainer"]
 
     # switch_holster: sits ON TOP of 2 printed bosses on chassis_top's
-    # TOP face.  Ear bottom rests on the boss tops at z = chassis_top_top
-    # + SWITCH_HOLSTER_BOSS_H = gap + plate_t + plate_t/2 + BOSS_H =
-    # 32 + 4 + 2 + 3 = 41 in the chassis design frame.
-    chassis_top_top_z = gap + plate_t + plate_t / 2.0  # = 38 (design)
+    # TOP face.  Ear bottom rests on the boss tops at z =
+    # CHASSIS_TOP_TOP_Z + SWITCH_HOLSTER_BOSS_H = 36 + 5 = 41 in the
+    # chassis design frame (2 mm top plate, Aug 2026).
+    chassis_top_top_z = hp.CHASSIS_TOP_TOP_Z  # = 36 (design)
     sh = _load_mesh("switch_holster")
     sh.apply_translation([
         hp.SWITCH_HOLSTER_CENTRE_X,
@@ -6068,23 +6085,8 @@ def _build_world_leg0_printed_parts() -> dict:
     tl.apply_translation(edge_mid + yaw_output_z * z_hat)
     parts["tibia_link"] = tl
 
-    # Foot pad world location.  Bearing-sandwich refit (Jun 2026): the
-    # foot-hinge tang lives on the foot fitting at the end of the CF tube;
-    # its pin centre in tibia-local coordinates is the single source of
-    # truth ``hp.tibia_foot_hinge_local()``.  Add PAD_AXIS_OFFSET to keep
-    # the world position correct.
-    Ry_pt = rotation_matrix(pt, [0, 1, 0])[:3, :3]
-    hinge_local = (knee_joint_local + PAD_AXIS_OFFSET
-                   + Ry_pt @ hp.tibia_foot_hinge_local())
-    R_a = rotation_matrix(a, [0, 0, 1])[:3, :3]
-    hinge_world = R_a @ hinge_local + edge_mid + yaw_output_z * z_hat
-    foot = _load_mesh("foot_pad")
-    foot.apply_transform(rotation_matrix(a, [0, 0, 1]))
-    foot.apply_translation([
-        hinge_world[0], hinge_world[1],
-        hinge_world[2] - hp.FOOT_HINGE_FOOT_Z,
-    ])
-    parts["foot_pad"] = foot
+    # Aug 2026: no separate foot part -- the TPU foot_boot is unioned
+    # into the tibia_link mesh placed above (and carries no fasteners).
 
     return parts
 
@@ -6206,7 +6208,7 @@ def check_flat_bottom():
     """Flat-bottom printability guard (Jun 2026).
 
     Mirrors ``_flatbottom_check.py``: build each PRINTED part, apply the SAME
-    print-orientation reorient that ``prepare_xometry_upload.PART_REGISTRY``
+    print-orientation reorient that ``print_orientation.PART_REGISTRY``
     uses, and FAIL if any downward face hangs more than
     ``FLAT_BOTTOM_MAX_PROTRUSION_MM`` below the part's largest downward (bed)
     plane.  A large protrusion means the part rests on small feet with a big
@@ -6223,7 +6225,7 @@ def check_flat_bottom():
     genuinely flat-bottom rather than re-introducing the overhang.
     """
     import _flatbottom_check as fb        # noqa: WPS433
-    import prepare_xometry_upload as px    # noqa: WPS433
+    import print_orientation as px         # noqa: WPS433
 
     print(f"\n[6c] Flat-bottom printability "
           f"(max overhang below bed plane <= "
@@ -6393,7 +6395,7 @@ def check_screwdriver_access():
 # * ``check_mating_face_contact`` -- a small explicit list of mating
 #   faces (coxa_link bottom <-> yaw disc-horn top, femur_link hip pad
 #   <-> hip disc horn, tibia_link knee pad <-> knee disc horn,
-#   coxa_bracket flange <-> chassis_bottom, foot_pad tongue <-> tibia
+#   coxa_bracket flange <-> chassis_bottom, boot <-> tibia tube
 #   clevis).  For each
 #   face we scan along the joint axis and confirm the two parts mate
 #   within ``tolerance_mm``.  The hollowed-out coxa_link pedestal shows
@@ -7389,7 +7391,7 @@ def _build_electronics_body_meshes() -> dict:
     the chassis Z axis at deck-local (0, 0).
     """
     from trimesh.creation import box as _box_mesh
-    deck_top_face = hp.CHASSIS_GAP + 1.5 * hp.CHASSIS_PLATE_T
+    deck_top_face = hp.CHASSIS_TOP_TOP_Z
     uno_base_z = (deck_top_face + hp.DECK_LEVEL_1_STANDOFF_H
                   + hp.DECK_TRAY_T + hp.DECK_STANDOFF_BOSS_H)
     buck_base_z = (deck_top_face + hp.DECK_LEVEL_1_STANDOFF_H
@@ -7419,7 +7421,7 @@ def _build_electronics_body_meshes() -> dict:
     )
     # MPU-6050 / GY-521 PCB visual on top of the IMU pad's 4 bosses
     # (chassis CG; pad bottom at chassis_top_top + IMU_PAD_TAPE_T).
-    chassis_top_top_z = hp.CHASSIS_GAP + 1.5 * hp.CHASSIS_PLATE_T
+    chassis_top_top_z = hp.CHASSIS_TOP_TOP_Z
     mpu_z_base = (chassis_top_top_z + hp.IMU_PAD_TAPE_T
                   + hp.IMU_PAD_T + hp.IMU_PAD_BOSS_H)
     out["MPU-6050"] = _board(
@@ -7901,7 +7903,7 @@ ALL_PRINTED_PARTS = frozenset({
     
     "servo_clamp_cap", "switch_holster", 
     "coxa_link",
-    "femur_link", "tibia_link", "foot_pad",
+    "femur_link", "tibia_link", "foot_boot",
     # Visual-only meshes that some checks place to test interfaces:
     "servo_body", "servo_horn",
 })
@@ -7924,7 +7926,7 @@ _PRINTED_WATERTIGHT_SET = frozenset({
     "chassis_top", "chassis_bottom",
     "servo_clamp_cap",
     "coxa_link",
-    "femur_link", "tibia_link", "foot_pad",
+    "femur_link", "tibia_link", "foot_boot",
 })
 
 # Per-check dependency map.  Keys MUST match the display-name strings
@@ -7993,25 +7995,21 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     # consulted by the fastener / mating tests.
     "Screwdriver access":        (
         _LEG_PARTS | _CHASSIS_PARTS
-        | frozenset({"servo_clamp_cap", "switch_holster",
-                     "foot_pad"})
+        | frozenset({"servo_clamp_cap", "switch_holster"})
     ),
     "Fastener engagement":       (
         _LEG_PARTS | _CHASSIS_PARTS
         | frozenset({"servo_clamp_cap", "switch_holster",
-                     "foot_pad",
                      "servo_horn", "servo_body"})
     ),
     "Mating-face contact":       (
         _LEG_PARTS | _CHASSIS_PARTS
         | frozenset({"servo_clamp_cap", "switch_holster",
-                     "foot_pad",
                      "servo_horn", "servo_body"})
     ),
     "Cable clearance":           (
         _LEG_PARTS | _CHASSIS_PARTS
-        | frozenset({"servo_clamp_cap", "switch_holster",
-                     "foot_pad"})
+        | frozenset({"servo_clamp_cap", "switch_holster"})
     ),
     # check_harness_reach reads WIRE_HARNESS_PLAN, which is built
     # from hexapod_prototype constants only; it doesn't touch

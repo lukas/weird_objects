@@ -137,7 +137,10 @@ def main() -> int:
 
     for part in parts:
         case = cases[part]
-        stl_path = os.path.join(hp.STL_DIR, f"{part}.stl")
+        # hp.stl_path resolves reference-mesh parts (e.g. the fused
+        # tibia_link, which lives in stl_reference/ with a _DO_NOT_PRINT
+        # suffix) as well as the plain stl_prototype/ printables.
+        stl_path = hp.stl_path(part)
         if not os.path.exists(stl_path):
             print(f"[strength] WARN: {stl_path} missing; skipping {part}")
             continue
@@ -224,7 +227,7 @@ def main() -> int:
         )
         top3 = fea_rows_with_frd[:3]
         for row, frd_path in top3:
-            stl_path = os.path.join(hp.STL_DIR, f"{row.part}.stl")
+            stl_path = hp.stl_path(row.part)
             png_path = os.path.join(
                 ARTIFACT_DIR,
                 f"{row.part}_{material.short_name}_{row.case_name}.png",

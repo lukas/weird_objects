@@ -36,5 +36,18 @@ pip install --quiet --no-cache-dir \
     rtree==1.4.1 \
     manifold3d==3.5.2
 
+# Optional MJX (JAX) physics backend — opt-in (HEXAPOD_MJX=1), the
+# default PPO path never imports it. See rl_move/sim/MJX_PORT.md.
+# mujoco-mjx must match the mujoco pin above EXACTLY; jax[cuda12] ships
+# its own CUDA runtime wheels, so the slim image works on GPU nodes.
+if [ "${HEXAPOD_MJX:-0}" = "1" ]; then
+    if command -v nvidia-smi > /dev/null 2>&1; then
+        pip install --quiet --no-cache-dir mujoco-mjx==3.11.0 "jax[cuda12]"
+    else
+        pip install --quiet --no-cache-dir mujoco-mjx==3.11.0 jax
+    fi
+    python -c "from mujoco import mjx; import jax; print('mjx ok', jax.devices())"
+fi
+
 python -c "import mujoco, stable_baselines3, torch; print('deps ok')"
 echo "SETUP_DONE"

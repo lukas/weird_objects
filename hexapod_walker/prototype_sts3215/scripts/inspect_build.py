@@ -192,13 +192,13 @@ def _build_assembly_instances() -> list[Instance]:
     # back into chassis_bottom).
     instances.append(Instance(
         "chassis_top", "chassis_top.stl", None, None,
-        _trans(0, 0, gap + plate_t),
+        _trans(0, 0, HP.CHASSIS_TOP_CENTRE_Z),
     ))
     # Jun 2026 deck redesign: the clip-in battery_holder + the in-gap
     # electronics_tray (Pi + bus adapter) are retired.  The two stacked
     # electronics decks (Uno Q lower + buck upper) bolt onto 4 standoff
     # columns rising ABOVE chassis_top's top face.
-    deck_z0 = gap + 1.5 * plate_t                      # chassis_top top face
+    deck_z0 = HP.CHASSIS_TOP_TOP_Z                     # chassis_top top face
     uno_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H
     buck_tray_z = deck_z0 + HP.DECK_LEVEL_1_STANDOFF_H + HP.DECK_LEVEL_2_STANDOFF_H
     instances.append(Instance(
@@ -225,7 +225,7 @@ def _build_assembly_instances() -> list[Instance]:
     # z = chassis_top_top + SWITCH_HOLSTER_BOSS_H = gap + 1.5 *
     # plate_t + BOSS_H.  Bolts thread DOWN from above the ear into
     # the brass heat-set insert in each boss.
-    sw_z = gap + 1.5 * plate_t + HP.SWITCH_HOLSTER_BOSS_H
+    sw_z = HP.CHASSIS_TOP_TOP_Z + HP.SWITCH_HOLSTER_BOSS_H
     instances.append(Instance(
         "switch_holster", "switch_holster.stl", None, None,
         _trans(HP.SWITCH_HOLSTER_CENTRE_X, HP.SWITCH_HOLSTER_CENTRE_Y,
@@ -236,7 +236,7 @@ def _build_assembly_instances() -> list[Instance]:
     # chassis_top's TOP face (the gap holds the double-sided foam tape
     # that doubles as the mount AND the vibration damper).  No
     # fasteners between the pad and chassis_top.
-    chassis_top_top_z = gap + 1.5 * plate_t
+    chassis_top_top_z = HP.CHASSIS_TOP_TOP_Z
     imu_z = chassis_top_top_z + HP.IMU_PAD_TAPE_T
     instances.append(Instance(
         "imu_pad", "imu_pad.stl", None, None,
@@ -315,23 +315,23 @@ def _build_assembly_instances() -> list[Instance]:
         _trans(toggle_x, HP.SWITCH_HOLSTER_CENTRE_Y, switch_body_z),
     ))
 
-    # LiPo battery BODY velcro-strapped to chassis_bottom's TOP face
-    # (Jun 2026 deck redesign; the clip-in battery_holder is retired).
-    # The pack's BOTTOM face rests directly on the chassis_bottom top
-    # face at z = plate_t/2, so its centre sits plate_t/2 + BATTERY_H/2
-    # up.  Mirrors the lipo box placed in build_prototype_assembly.
-    lipo_z = plate_t / 2.0 + HP.BATTERY_H / 2.0
-    instances.append(Instance(
-        "lipo_battery", "lipo_battery_body_DO_NOT_PRINT.stl", None, None,
-        _trans(HP.BATTERY_HOLDER_CENTRE_X, 0.0, lipo_z),
-    ))
-    # XT60 + balance plug at the LiPo's +X short face (toward chassis
-    # centre, so the lead routes to the anti-spark switch / BEC
-    # cluster).  XT60 centre 7 mm past the LiPo's +X face.
-    xt60_x = HP.BATTERY_HOLDER_CENTRE_X + HP.BATTERY_W / 2.0 + 14.0 / 2.0
+    # Two shorty LiPo pack BODIES velcro'd UNDER chassis_bottom's flat
+    # belly (Aug 2026; the single bay pack is retired).  Placement comes
+    # from HP.battery_pack_transforms() (block yawed 30 deg, packs offset
+    # +/- half the width+gap).
+    for k, M_pack in enumerate(HP.battery_pack_transforms()):
+        instances.append(Instance(
+            f"lipo_battery_{k}", "lipo_battery_body_DO_NOT_PRINT.stl",
+            None, None, M_pack,
+        ))
+    # XT60s + Y-harness node at the pack block's +axis end (az 30,
+    # ~2 mm past the 75 mm pack ends), below the belly.
+    yaw = np.deg2rad(HP.BATTERY_UNDER_YAW_DEG)
+    xt60_r = HP.BATTERY_W / 2.0 + 14.0 / 2.0
+    lipo_cz = -(plate_t / 2.0 + 4.0) - HP.BATTERY_H / 2.0
     instances.append(Instance(
         "lipo_xt60", "lipo_xt60_DO_NOT_PRINT.stl", None, None,
-        _trans(xt60_x, 0.0, lipo_z),
+        _trans(xt60_r * np.cos(yaw), xt60_r * np.sin(yaw), lipo_cz),
     ))
 
     yaw_output_z = HP.CHASSIS_YAW_OUTPUT_Z   # = +29.75 mm; disc-horn top
@@ -492,22 +492,8 @@ def _build_assembly_instances() -> list[Instance]:
         # tibia-local is at (TIBIA_LENGTH, +LINK_THICKNESS/2,
         # FOOT_HINGE_TIBIA_Z); tang moved with the spar so the hinge
         # axis is now at the spar centreline (was 0 pre-refactor).
-        Ry_pt_3 = _rot_y(pt)[:3, :3]
-        hinge_local = (knee_joint_local + pad_axis_offset
-                        + Ry_pt_3 @ np.array(
-                            [HP.TIBIA_LENGTH,
-                             HP.LINK_THICKNESS / 2.0,
-                             HP.FOOT_HINGE_TIBIA_Z]))
-        R_a_3 = R_a[:3, :3]
-        hinge_world = R_a_3 @ hinge_local + yaw_output_world
-        T_foot = (
-            _trans(hinge_world[0], hinge_world[1],
-                   hinge_world[2] - HP.FOOT_HINGE_FOOT_Z)
-            @ R_a
-        )
-        instances.append(Instance(
-            "foot_pad", "foot_pad.stl", i, None, T_foot,
-        ))
+        # Aug 2026: the TPU foot_boot is unioned into tibia_link.stl
+        # (make_tibia_link), so no separate foot instance is placed.
 
     instances.extend(_build_fastener_instances())
     return instances

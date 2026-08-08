@@ -1,0 +1,13 @@
+# Optional MJX (MuJoCo-XLA / JAX) physics backend — see MJX_PORT.md.
+# Nothing in the default training path imports these; install only to
+# use rl_move.sim.mjx_backend / bench_mjx / the MJX parity tests.
+#
+# HARD RULE: mujoco-mjx must match the installed mujoco version exactly
+# (laptop venv: mujoco 3.9.0 -> mujoco-mjx==3.9.0; CoreWeave pods:
+# mujoco 3.11.0 -> mujoco-mjx==3.11.0). Keep this pin in sync with
+# requirements.txt / coreweave_pod_setup.sh.
+mujoco-mjx==3.9.0
+
+# CPU JAX (laptop / smoke tests). On a CUDA pod install instead:
+#   pip install "jax[cuda12]"
+jax>=0.11

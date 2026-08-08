@@ -68,7 +68,8 @@ CHASSIS_MASS = 0.55
 # solid PLA spars.
 COXA_MASS = 0.110    # PLA coxa (pad+arm+hip bracket+bearing housing) + hip STS3215
 FEMUR_MASS = 0.105   # hip yoke + knee bracket + Ø8 CF tube + knee STS3215
-TIBIA_MASS = 0.050   # knee yoke + foot fitting + Ø8 CF tube + foot pad (no servo)
+TIBIA_MASS = 0.040   # knee yoke + Ø8 CF tube + TPU foot boot (no servo;
+                     # Aug 2026: hinged fitting+pad retired, ~15 g lighter)
 
 # DS3225-class hobby servos are around 25 kg-cm ~= 2.45 N*m.  Keep a little
 # below that so the sim does not assume impossible torque.
@@ -81,7 +82,11 @@ DAMP_PITCH = 0.45
 DAMP_KNEE = 0.40
 ARMATURE = 0.0004
 
-FOOT_R = HP.FOOT_PAD_OD / 2.0 * M
+# Aug 2026 TPU boot: ground contact is the boot's chamfer-rimmed flat tip
+# on the tibia centerline, modelled as a sphere of the boot's outer radius
+# whose surface reaches exactly tibia-local x = TIBIA (the kinematic tip).
+FOOT_R = HP.FOOT_BOOT_OD / 2.0 * M
+BOOT_TIP_CTR = HP.TIBIA_LENGTH * M - FOOT_R   # sphere centre along tibia +X
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +123,7 @@ _PART_STL_NAMES = (
     "coxa_link",
     "femur_link",
     "tibia_link",
-    "foot_pad",
+    "foot_boot",
     "servo_clamp_cap",
 )
 USE_PART_MESHES = all(
@@ -344,22 +349,17 @@ def make_obstacles_xml(
     return "\n      ".join(snippets)
 
 
-# Foot pad hinge pin: FOOT_HINGE_TIBIA_Z below the tibia centerline. The
-# ground-contact sphere is centred on the pin (the pad pivots around it)
-# with radius FOOT_R = FOOT_HINGE_FOOT_Z = pin-to-pad-bottom, so the
-# contact surface lands exactly at the real pad bottom -- 24 mm below the
-# centerline, not the 14 mm the old centerline-mounted sphere gave.
-PAD_HINGE_Z = HP.FOOT_HINGE_TIBIA_Z * M
+# Aug 2026 TPU boot: the contact sphere sits ON the tibia centerline at
+# BOOT_TIP_CTR from the knee (surface tangent at the TIBIA_LENGTH tip).
+# The old hinged pad's PAD_HINGE_Z below-centerline drop is retired.
 
 
 def stance_foot_z_relative_to_hip() -> float:
-    """Contact-sphere-centre z relative to the hip at the stance pose,
-    including the pad-hinge drop rotated by the stance tibia angle."""
+    """Contact-sphere-centre z relative to the hip at the stance pose."""
     p = STANCE_FEMUR
     pt = STANCE_FEMUR + STANCE_TIBIA
     knee_z = -FEMUR * math.sin(p)
-    foot_z = knee_z - TIBIA * math.sin(pt)
-    return foot_z + PAD_HINGE_Z * math.cos(pt)
+    return knee_z - BOOT_TIP_CTR * math.sin(pt)
 
 
 def stance_chassis_height() -> float:
@@ -541,20 +541,36 @@ def _chassis_visuals_xml() -> str:
     # uno_q_tray / buck_tray / spider_carapace too — electronics live on
     # the magnet hex board (extra_stl), not MuJoCo mesh assets here.
     # chassis_top's top face sits at chassis-local z = gap + plate_t/2.
+    # Aug 2026: TWO shorty packs under the belly (block yawed 30 deg),
+    # replacing the single bay pack.  This frame's z = 0 is the bottom
+    # plate's TOP face, so the belly is at -plate_t - 4 mm (floor band)
+    # and the pack centres hang BATTERY_H/2 below that.
     lipo_h = HP.BATTERY_H * M
-    lipo_z = lipo_h / 2.0   # pack bottom on the bottom-plate top face (z=0)
+    lipo_cz = -(plate_t + 4.0 * M) - lipo_h / 2.0
+    yaw = HP.BATTERY_UNDER_YAW_DEG
+    off = (HP.BATTERY_D + HP.BATTERY_PACK_GAP) / 2.0
+    a = np.deg2rad(yaw)
+    lipo_geoms = ""
+    for k, s in enumerate((-1.0, 1.0)):
+        cx = (HP.BATTERY_UNDER_CENTRE[0] - s * off * np.sin(a)) * M
+        cy = (HP.BATTERY_UNDER_CENTRE[1] + s * off * np.cos(a)) * M
+        lipo_geoms += (
+            f'\n      <geom class="visual" name="lipo_battery_{k}" '
+            f'type="box" '
+            f'size="{HP.BATTERY_W * M / 2.0:.5f} '
+            f'{HP.BATTERY_D * M / 2.0:.5f} {lipo_h / 2.0:.5f}" '
+            f'pos="{cx:.5f} {cy:.5f} {lipo_cz:.5f}" '
+            f'euler="0 0 {yaw:.1f}" '
+            'material="palette_chassis_top"/>'
+        )
     return (
         f'<geom class="visual" name="chassis_bottom_mesh" type="mesh" '
         f'mesh="chassis_bottom" pos="0 0 {-plate_t:.5f}" '
         f'material="palette_chassis_bottom"/>\n'
         '      <geom class="visual" name="chassis_top_mesh" type="mesh" '
         f'mesh="chassis_top" pos="0 0 {gap:.5f}" '
-        f'material="palette_chassis_top"/>\n'
-        '      <geom class="visual" name="lipo_battery" type="box" '
-        f'size="{HP.BATTERY_W * M / 2.0:.5f} {HP.BATTERY_D * M / 2.0:.5f} '
-        f'{lipo_h / 2.0:.5f}" '
-        f'pos="{HP.BATTERY_HOLDER_CENTRE_X * M:.5f} 0 {lipo_z:.5f}" '
-        'material="palette_chassis_top"/>'
+        f'material="palette_chassis_top"/>'
+        + lipo_geoms
     )
 
 
@@ -719,100 +735,57 @@ def _femur_link_visual_xml(i: int) -> str:
 
 
 def _tibia_link_visual_xml(i: int) -> str:
-    """Tibia-link + foot-pad visuals in the L{i}_tibia body's local frame.
+    """Tibia-link visuals in the L{i}_tibia body's local frame.
 
-    May 2026 collinear-pad refactor: tibia_link.stl's NEW local origin
-    is the knee pad MATING FACE = HORN_STACK_H above the knee joint
-    axis along link +Y (= L{i}_tibia body +Y at HORN_STACK_H), not
-    the joint axis itself.  Mesh is shifted (0, +HORN_STACK_H, 0) to
-    land its NEW origin on the disc-horn-top plane.  The tang at the
-    foot end is in-plane with the spar (centred at tibia y =
-    +LINK_THICKNESS / 2), so the foot's hinge hole now lives at
-    tibia-local (TIBIA_LENGTH, +LINK_THICKNESS / 2, FOOT_HINGE_TIBIA_Z)
-    in mesh-local, or body-local (TIBIA_LENGTH, +HORN_STACK_H +
-    LINK_THICKNESS / 2, FOOT_HINGE_TIBIA_Z); shift the foot_pad
-    mesh's pos accordingly so the foot's bottom-face centre lands at
-    body-local (TIBIA_LENGTH, +HORN_STACK_H + LINK_THICKNESS / 2,
-    FOOT_HINGE_TIBIA_Z - FOOT_HINGE_FOOT_Z).  The L{i}_foot ground-
-    contact sphere stays at (TIBIA, 0, 0) -- this is the same
-    "simulation pretends the kinematic chain is centerline"
-    decorative-vs-physics shortcut the pad mating face uses.
+    May 2026 collinear-pad refactor: tibia_link.stl's local origin is the
+    knee pad MATING FACE = HORN_STACK_H above the knee joint axis along
+    link +Y (= L{i}_tibia body +Y at HORN_STACK_H), not the joint axis
+    itself.  Mesh is shifted (0, +HORN_STACK_H, 0) to land its origin on
+    the disc-horn-top plane.  Aug 2026: the tibia_link mesh already
+    includes the pressed-on TPU foot boot (make_tibia_link unions it), so
+    no separate foot mesh is placed here.
     """
     if USE_PART_MESHES:
-        foot_z = (HP.FOOT_HINGE_TIBIA_Z - HP.FOOT_HINGE_FOOT_Z) * M
         pad_y = HP.HORN_STACK_H * M
-        foot_y = (HP.HORN_STACK_H + HP.LINK_THICKNESS / 2.0) * M
         return (
             f'            <geom class="visual" name="L{i}_tibia_link_mesh" '
             f'type="mesh" mesh="tibia_link" '
             f'pos="0 {pad_y:.5f} 0" '
-            f'material="palette_tibia_link"/>\n'
-            f'            <geom class="visual" name="L{i}_foot_pad_mesh" '
-            f'type="mesh" mesh="foot_pad" '
-            f'pos="{TIBIA:.5f} {foot_y:.5f} {foot_z:.5f}" '
-            f'material="palette_foot_pad"/>'
+            f'material="palette_tibia_link"/>'
         )
-    # As built: red knee yoke -> Ø8 carbon-fibre tube -> red foot fitting.
-    # (The hinged foot pad itself is a separate body — _foot_pad_body_xml.)
+    # As built: red knee yoke -> Ø8 carbon-fibre tube -> black TPU boot.
+    boot_l = (HP.FOOT_BOOT_SOCKET_DEPTH + HP.FOOT_BOOT_TIP_L) * M
     return (
         f'            <geom class="visual" type="box" '
         f'pos="0.016 0 0" size="0.018 0.006 0.011" rgba="{_RED} 1"/>\n'
         f'            <geom class="visual" type="cylinder" '
-        f'fromto="0.030 0 0 {TIBIA - 0.016:.5f} 0 0" size="0.004" '
+        f'fromto="0.030 0 0 {TIBIA - boot_l:.5f} 0 0" size="0.004" '
         f'rgba="{_BLACK} 1"/>\n'
-        f'            <geom class="visual" type="box" '
-        f'pos="{TIBIA - 0.008:.5f} 0 -0.003" size="0.010 0.004 0.008" '
-        f'rgba="{_RED} 1"/>'
+        f'            <geom class="visual" type="cylinder" '
+        f'fromto="{TIBIA - boot_l:.5f} 0 0 {TIBIA:.5f} 0 0" '
+        f'size="{FOOT_R:.5f}" rgba="{_BLACK} 1"/>'
     )
 
 
-def _foot_pad_body_xml(i: int) -> str:
-    """Hinged foot pad, straight from the CAD: a Ø FOOT_PAD_OD disc on a
-    passive hinge pin at tibia-local (TIBIA, 0, FOOT_HINGE_TIBIA_Z), pin
-    axis parallel to the knee. The pad pivots to conform to the ground
-    (fork slop limits the swing); a light spring re-centres it to the
-    stance-flat angle when airborne. Replaces the old rigid contact
-    sphere — a flat pad has a real contact patch and resists rolling.
+def _foot_boot_body_xml(i: int) -> str:
+    """Fixed TPU-boot ground contact (Aug 2026 -- replaces the passive
+    hinged foot pad body).  The body KEEPS the legacy name ``L{i}_pad``
+    (and geom ``L{i}_foot`` / site ``L{i}_foot_site``) because the RL sim
+    stack (sim_env / walk_task / domain_rand / eval) looks all three up
+    by name for contact sensing and randomization.  No joint any more:
+    the boot is pressed rigidly onto the tube; TPU compliance is
+    approximated by the soft foot-contact solref (sim_env softens it 3x).
+    Contact = sphere of the boot's outer radius on the tibia centerline,
+    surface tangent at the kinematic tip x = TIBIA.
     """
-    # Neutral pad angle = flat for the RL plant pose (~80° near-vertical
-    # shins). A rigid disc doesn't self-flatten when the pin is directly
-    # above the contact (no lever arm), so the spring holds it flat and
-    # contact torque handles deviations; the ±52° swing still covers the
-    # ~35° gait-stance regime.
-    pt = math.radians(80.0)
-    pad_r = HP.FOOT_PAD_OD / 2.0 * M
-    pad_h = HP.FOOT_PAD_BASE_H / 2.0 * M
-    drop = HP.FOOT_HINGE_FOOT_Z * M - pad_h     # pin -> disc centre
-    dx, dz = drop * math.sin(pt), -drop * math.cos(pt)
-    visual = ""
-    if not USE_PART_MESHES:
-        visual = (
-            f'\n              <geom class="visual" type="cylinder" '
-            f'pos="{dx:.5f} 0 {dz:.5f}" euler="0 {-pt:.5f} 0" '
-            f'size="{pad_r:.5f} {pad_h:.5f}" rgba="{_RED} 1"/>'
-            f'\n              <geom class="visual" type="cylinder" '
-            f'pos="{dx * 0.45:.5f} 0 {dz * 0.45:.5f}" euler="0 {-pt:.5f} 0" '
-            f'size="{HP.FOOT_PAD_BOSS_OD / 2.0 * M:.5f} '
-            f'{HP.FOOT_PAD_BOSS_H / 2.0 * M:.5f}" rgba="{_RED} 1"/>'
-        )
     return (
         f'            <body name="L{i}_pad" '
-        f'pos="{TIBIA:.5f} 0 {PAD_HINGE_Z:.5f}">\n'
-        # Mass/inertia at the printed part's real values, NOT smaller: a
-        # near-zero-inertia body squeezed between a hard hinge stop and
-        # ground contact is numerically unstable at the 2 ms timestep —
-        # at belly-rest poses (pad jammed on its stop) it vibrated the
-        # tibia at ~4.5 rad/s and read as phantom over-current.
-        f'              <inertial pos="{dx:.5f} 0 {dz:.5f}" mass="0.012" '
-        f'diaginertia="0.000003 0.000003 0.000003"/>\n'
-        f'              <joint name="L{i}_pad_hinge" type="hinge" '
-        f'axis="0 1 0" range="-0.9 0.9" damping="0.05" '
-        f'stiffness="0.08" springref="0"/>\n'
-        f'              <geom class="foot" name="L{i}_foot" type="cylinder" '
-        f'pos="{dx:.5f} 0 {dz:.5f}" euler="0 {-pt:.5f} 0" '
-        f'size="{pad_r:.5f} {pad_h:.5f}"/>'
-        f'{visual}\n'
-        f'              <site name="L{i}_foot_site" pos="{dx:.5f} 0 {dz:.5f}" '
+        f'pos="{BOOT_TIP_CTR:.5f} 0 0">\n'
+        f'              <inertial pos="0 0 0" mass="0.004" '
+        f'diaginertia="0.000001 0.000001 0.000001"/>\n'
+        f'              <geom class="foot" name="L{i}_foot" type="sphere" '
+        f'size="{FOOT_R:.5f}"/>\n'
+        f'              <site name="L{i}_foot_site" pos="0 0 0" '
         f'size="0.018" group="4" rgba="1 1 1 0.05"/>\n'
         f'            </body>'
     )
@@ -859,7 +832,7 @@ def _leg_xml(i: int, x: float, y: float, z: float, qw: float, qz: float) -> str:
             <inertial pos="{TIBIA / 2:.5f} 0 0" mass="{TIBIA_MASS}" diaginertia="0.00006 0.00022 0.00022"/>
             <joint name="L{i}_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
 {tibia_link_xml}
-{_foot_pad_body_xml(i)}
+{_foot_boot_body_xml(i)}
           </body>
         </body>
       </body>

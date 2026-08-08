@@ -18,7 +18,7 @@ Outputs (in ./artifacts/assembly/):
     frame.stl       printed PLA / PETG structural parts
     motors.stl      18 black plastic hobby servo bodies
     battery.stl     LiPo pack + Arduino + PCA9685
-    soft.stl        rubber foot pads + cable jackets
+    soft.stl        (empty since Aug 2026 -- TPU boots live in frame.stl)
     full.stl        single-mesh dump for non-Blender viewers
 
 All output is rotated to Y-up so it matches the convention used by
@@ -164,8 +164,8 @@ def _build_leg(leg_index: int):
     #   servo body top         z = body_bottom + SERVO_BODY_H = +18.75
     #   output-gear top        z = body_top + SERVO_OUTPUT_H = +24.75
     #   disc-horn top (yaw_output_z): z = gear_top + HORN_STACK_H = +29.75
-    #   chassis_top bottom     z = +CHASSIS_GAP + CHASSIS_PLATE_T/2
-    #                                - CHASSIS_PLATE_T/2 = +CHASSIS_GAP = +32
+    #   chassis_top bottom     z = +CHASSIS_TOP_BOT_Z = +34
+    #                                (2 mm plate, Aug 2026; deck face +36)
     #     (= 32 - 29.75 = 2.25 mm clearance from disc-horn top to top
     #      plate; only relevant at the yaw axis which sits outside
     #      chassis_top's 70-mm apothem hex anyway, so no XY overlap)
@@ -342,26 +342,8 @@ def _build_leg(leg_index: int):
     frame_parts.append(tl)
 
     # ------------- Foot at tibia tip ----------------------------------
-    # The foot now hangs on the tibia's clevis-hinge pin at
-    # (TIBIA_LENGTH, 0, FOOT_HINGE_TIBIA_Z) in tibia-local; the foot
-    # pad's hinge hole at foot-local (0, 0, FOOT_HINGE_FOOT_Z) lands
-    # on that same world point.  Foot is NOT pitched to follow the
-    # tibia (passive hinge keeps the disk on the ground); only the
-    # leg azimuth ``a`` is applied so the tongue's broad faces (foot
-    # +/-Y) align with the knee axis (tibia +/-Y).
-    Ry_pt_3 = rotation_matrix(pt, [0, 1, 0])[:3, :3]
-    hinge_local = (knee_joint_local + PAD_AXIS_OFFSET
-                    + Ry_pt_3 @ np.array(
-                        [HP.TIBIA_LENGTH,
-                         HP.LINK_THICKNESS / 2.0,
-                         HP.FOOT_HINGE_TIBIA_Z]))
-    hinge_world = R_a_3 @ hinge_local + yaw_output_world
-
-    foot = HP.make_foot_pad()
-    foot.apply_transform(rotation_matrix(a, [0, 0, 1]))
-    foot.apply_translation([hinge_world[0], hinge_world[1],
-                             hinge_world[2] - HP.FOOT_HINGE_FOOT_Z])
-    soft_parts.append(foot)
+    # Aug 2026: the TPU foot_boot is unioned into make_tibia_link above
+    # (pressed over the tube end), so no separate foot part is placed.
 
     return frame_parts, motor_parts, soft_parts
 
@@ -380,8 +362,7 @@ def _body_frame_parts(chassis_lift):
     # print split is folded back into make_chassis_bottom).
 
     top = HP.make_chassis_top()
-    top.apply_translation([0, 0, chassis_lift + HP.CHASSIS_GAP
-                                + HP.CHASSIS_PLATE_T])
+    top.apply_translation([0, 0, chassis_lift + HP.CHASSIS_TOP_CENTRE_Z])
     parts.append(top)
 
     # 4 stand-off posts between the plates on the rotated-45-deg 35-mm-
@@ -391,7 +372,7 @@ def _body_frame_parts(chassis_lift):
     # the chassis_bottom plate could carry an M3 heat-set insert at
     # each of those 4 XY positions for the tray-mount bolts without
     # the brass standoff body conflicting with the insert pocket.
-    # Each standoff is M3 M-F, length HP.CHASSIS_GAP = 32 mm.
+    # Each standoff is M3 F-F, length HP.CHASSIS_GAP = 20 mm.
     for (sx, sy) in HP.CHASSIS_STANDOFF_HOLES_XY:
         post = _cyl(2.5, HP.CHASSIS_GAP)
         post.apply_translation([sx, sy,
@@ -403,8 +384,8 @@ def _body_frame_parts(chassis_lift):
 
 
 def _body_battery_parts(chassis_lift):
-    """LiPo pack (velcro-strapped to chassis_bottom) + as-built electronics
-    stack (Aug 2026): PDB + motor ctrl on chassis_top, 4 magnet posts,
+    """Two under-belly shorty LiPo packs + as-built electronics
+    stack (Aug 2026): trunk Wagos + motor ctrl on chassis_top, 4 magnet posts,
     hex mount plate + Uno Q / breakout, raised platform with screen / MPU,
     power Wagos on top periphery + data Wagos under chassis.
 
@@ -412,17 +393,10 @@ def _body_battery_parts(chassis_lift):
     uno_q_tray / buck_tray / spider_carapace / chassis-top imu_pad.
     """
     parts = []
-    bh_z0 = chassis_lift + HP.CHASSIS_PLATE_T / 2.0   # chassis_bottom top face
 
-    # The LiPo pack velcro-strapped directly to chassis_bottom's TOP
-    # face (no holder).  Real user-measured pack (Jul 2026):
-    # BATTERY_W x BATTERY_D x BATTERY_H = 138 x 46 x 24 mm.
-    lipo = _box((HP.BATTERY_W, HP.BATTERY_D, HP.BATTERY_H),
-                center=(HP.BATTERY_HOLDER_CENTRE_X, 0,
-                         bh_z0 + HP.BATTERY_H / 2.0))
-    parts.append(lipo)
-
-    # As-built electronics (posts, hex board, raised platform, Wagos…).
+    # As-built electronics (posts, hex board, raised platform, Wagos,
+    # and the two under-belly shorty LiPo packs -- Aug 2026: no bay
+    # battery; HP.asbuilt_electronics_local_parts places the packs).
     Tlift = np.eye(4)
     Tlift[2, 3] = chassis_lift
     for _name, mesh, M0 in HP.asbuilt_electronics_local_parts():
@@ -432,8 +406,7 @@ def _body_battery_parts(chassis_lift):
 
     # Switch holster: anti-spark on/off switch.  Sits on 2 printed
     # bosses on chassis_top's top face.
-    chassis_top_top_z = (chassis_lift + HP.CHASSIS_PLATE_T
-                          + HP.CHASSIS_GAP + HP.CHASSIS_PLATE_T / 2.0)
+    chassis_top_top_z = chassis_lift + HP.CHASSIS_TOP_TOP_Z
     holster_z = chassis_top_top_z + HP.SWITCH_HOLSTER_BOSS_H
     holster = HP.make_switch_holster()
     holster.apply_translation([HP.SWITCH_HOLSTER_CENTRE_X,
@@ -445,9 +418,9 @@ def _body_battery_parts(chassis_lift):
 
 
 def _body_soft_parts(chassis_lift):
-    """No saddle/grips on the prototype.  The 6 foot pads come in via
-    `_build_leg` so `soft.stl` is non-empty without us adding
-    anything here."""
+    """No saddle/grips on the prototype.  Aug 2026: the TPU foot boots
+    are unioned into each tibia_link (frame.stl), so soft.stl is now
+    legitimately empty (cat() skips writing empty groups)."""
     return []
 
 
@@ -477,14 +450,9 @@ def _optional_arm_meshes(chassis_lift: float) -> list[trimesh.Trimesh]:
         print(f"  WARN: optional arm import failed ({exc!r}); skipping arm.")
         return []
 
-    # Chassis-top plate centre in assembly frame:
-    #   z_centre = chassis_lift + CHASSIS_GAP + CHASSIS_PLATE_T
-    # so its TOP face (where the arm bracket lands) is half a plate
-    # thickness above that:
-    chassis_top_face_z = (chassis_lift
-                          + HP.CHASSIS_GAP
-                          + HP.CHASSIS_PLATE_T
-                          + HP.CHASSIS_PLATE_T / 2.0)
+    # Chassis-top TOP face in assembly frame (where the arm bracket
+    # lands); CHASSIS_TOP_TOP_Z is the authoritative deck-face height.
+    chassis_top_face_z = chassis_lift + HP.CHASSIS_TOP_TOP_Z
     arm_parts = ARM_MOD._arm_in_chassis_frame(  # noqa: SLF001
         chassis_top_z=chassis_top_face_z,
     )
@@ -551,6 +519,9 @@ def main(argv: list[str] | None = None) -> None:
                   f"assembly preview.")
 
     def cat(name, meshes_list):
+        if not meshes_list:
+            print(f"  skip artifacts/assembly/{name:18s} (empty group)")
+            return None
         mesh = trimesh.util.concatenate(meshes_list)
         _yup(mesh)
         path = os.path.join(OUT_DIR, name)
@@ -566,7 +537,8 @@ def main(argv: list[str] | None = None) -> None:
     battery = cat("battery.stl", battery_meshes)
     soft    = cat("soft.stl",    soft_meshes)
 
-    full = trimesh.util.concatenate([frame, motors, battery, soft])
+    full = trimesh.util.concatenate(
+        [m for m in (frame, motors, battery, soft) if m is not None])
     full.export(os.path.join(OUT_DIR, "full.stl"))
     print(f"  wrote artifacts/assembly/full.stl              "
           f"{len(full.faces):>6d} faces")

@@ -45,7 +45,7 @@ PART_COLORS: dict[str, str] = {
     "coxa_link":         "#16a34a",
     "femur_link":        "#ea580c",
     "tibia_link":        "#9333ea",
-    "foot_pad":          "#0f172a",
+    "foot_boot":         "#0f172a",
     "yaw_horn_adapter":  "#facc15",
     "hip_horn_adapter":  "#facc15",
     "knee_horn_adapter": "#facc15",
@@ -220,29 +220,13 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
     to_world(tl)
     parts["tibia_link"] = tl
 
-    # ---- foot pad (hangs on the clevis pin; NOT pitched with tibia)
-    # NEW (May 2026 collinear-pad refactor): hinge axis in NEW
-    # tibia-local at (TIBIA_LENGTH, +LINK_THICKNESS/2,
-    # FOOT_HINGE_TIBIA_Z) -- tang in-plane with spar.
-    hinge_local = (knee_joint_local + PAD_AXIS_OFFSET
-                    + Ry_pt_3 @ np.array(
-                        [HP.TIBIA_LENGTH,
-                         HP.LINK_THICKNESS / 2.0,
-                         HP.FOOT_HINGE_TIBIA_Z]))
-    hinge_world = R_a_3 @ hinge_local + yaw_output_world
-
-    foot = HP.make_foot_pad()
-    foot.apply_transform(rotation_matrix(a, [0, 0, 1]))
-    foot.apply_translation([hinge_world[0], hinge_world[1],
-                            hinge_world[2] - HP.FOOT_HINGE_FOOT_Z])
-    parts["foot_pad"] = foot
-
-    # ---- M3 x 16 hinge bolt at the foot-tibia clevis (the visible pin)
-    bolt_axis_world = R_a_3 @ np.array([0.0, 1.0, 0.0])
-    bolt = trimesh.creation.cylinder(radius=1.6, height=18.0, sections=28)
-    bolt.apply_transform(_align_z_to(bolt_axis_world))
-    bolt.apply_translation(hinge_world)
-    parts["hinge_bolt"] = bolt
+    # ---- foot boot (Aug 2026: pressed over the tube end; already part
+    # of the tibia_link mesh above, so no separate part or hinge bolt).
+    # Keep a label anchor at the boot tip for the callout.
+    boot_tip_local = (knee_joint_local + PAD_AXIS_OFFSET
+                       + Ry_pt_3 @ np.array(
+                           [HP.TIBIA_LENGTH, 0.0, 0.0]))
+    boot_tip_world = R_a_3 @ boot_tip_local + yaw_output_world
 
     # ---------- Landmarks for label leader anchors --------------------
     landmarks: dict[str, np.ndarray] = {}
@@ -270,7 +254,7 @@ def build_leg_parts(leg_index: int = 0) -> tuple[dict[str, trimesh.Trimesh],
     landmarks["hip_joint"] = (R_a_3 @ np.array(HP.COXA_HIP_ANCHOR)
                               + yaw_output_world)
     landmarks["knee_joint"] = R_a_3 @ knee_joint_local + yaw_output_world
-    landmarks["hinge_pin"] = hinge_world
+    landmarks["foot_boot_tip"] = boot_tip_world
 
     # "tibia clearance" callout anchor: the gap between the femur's knee
     # well rim (+Y) and the tibia hip pad.  In leg-local that gap lives
@@ -612,10 +596,8 @@ def main() -> None:
              text_color="#14532d", fontsize=12),
         dict(key="tibia", text="tibia_link",
              anchor=centers["tibia_link"]),
-        dict(key="foot", text="foot_pad (TPU)",
-             anchor=centers["foot_pad"]),
-        dict(key="bolt", text="M3\u00d716 hinge bolt",
-             anchor=landmarks["hinge_pin"]),
+        dict(key="foot", text="foot_boot (TPU)",
+             anchor=landmarks["foot_boot_tip"]),
     ]
     iso_out = os.path.join(OUT_DIR, "leg_assembly_labeled_iso.png")
     render_view(parts, iso_labels, "iso", iso_out, floor_z=0.0)
@@ -639,8 +621,8 @@ def main() -> None:
              anchor=centers["knee_servo"]),
         dict(key="tibia", text="tibia_link",
              anchor=centers["tibia_link"]),
-        dict(key="foot", text="foot_pad",
-             anchor=centers["foot_pad"]),
+        dict(key="foot", text="foot_boot",
+             anchor=landmarks["foot_boot_tip"]),
     ]
     top_out = os.path.join(OUT_DIR, "leg_assembly_labeled_top.png")
     render_view(parts, top_labels, "top", top_out, floor_z=None)
@@ -664,10 +646,8 @@ def main() -> None:
              anchor=centers["knee_servo"]),
         dict(key="tibia", text="tibia_link",
              anchor=centers["tibia_link"]),
-        dict(key="foot", text="foot_pad",
-             anchor=centers["foot_pad"]),
-        dict(key="bolt", text="M3\u00d716 hinge bolt",
-             anchor=landmarks["hinge_pin"]),
+        dict(key="foot", text="foot_boot",
+             anchor=landmarks["foot_boot_tip"]),
         dict(key="tibia_clear", text="tibia clearance \u2713",
              anchor=landmarks["tibia_clearance"], side="right",
              box_fc="#dcfce7", box_ec="#15803d",

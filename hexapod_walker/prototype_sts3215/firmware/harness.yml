@@ -31,8 +31,8 @@ connectors:
     - IN
     - OUT
     notes: sized above ~9-12.6 A walking draw
-  BUSBAR:
-    type: Power distribution bus bar
+  TRUNK_WAGO:
+    type: Central trunk pair (2x 5-port Wago 221-415)
     pinlabels:
     - V+ IN
     - GND IN
@@ -42,34 +42,26 @@ connectors:
     - V+ L3
     - V+ L4
     - V+ L5
-    - V+ BUCK
     - GND L0
     - GND L1
     - GND L2
     - GND L3
     - GND L4
     - GND L5
-    - GND BUCK
     - GND DATA
-    notes: per-leg branch posts; optional 5-7 A branch fuses
-  BUCK:
-    type: XINGYHENG 12 V → 5 V buck
-    pinlabels:
-    - VIN+
-    - VIN-
-    - VOUT+
-    - VOUT-
-    notes: Uno Q logic supply; never the servo rail
+    notes: chassis_top centre; logical per-leg feeds shown (5 physical ports per
+      nut); optional 5-7 A branch fuses; no PDB — all lever nuts
   UNOQ:
     type: Arduino Uno Q
     pinlabels:
     - USB-C
-    - 5V IN
+    - VIN
     - GND
     - 3V3
     - SCL
     - SDA
-    notes: gait/RL host (Linux side); drives bus via USB adapter
+    notes: gait/RL host (Linux side); own battery tap on VIN (on-board regulator,
+      no buck); drives bus via MCU bridge (preferred) or USB adapter (fallback)
   ADAPTER:
     type: USB bus-servo adapter
     subtype: FE-URT-2 / Waveshare A
@@ -86,15 +78,8 @@ connectors:
     - GND
     - SCL
     - SDA
-    notes: I2C addr 0x68; POWER FROM 3V3, NEVER 5 V
-  SERVO1:
-    type: FEETECH STS3215
-    subtype: Molex 5264 3-pin
-    pinlabels:
-    - GND
-    - V+
-    - SIG
-    notes: L0 yaw — joint 0, bus ID 1; lead budget 81 mm (STS3215 stock bus lead)
+    notes: I2C addr 0x68; POWER FROM 3V3, NEVER 5 V; glued on chassis_top beside
+      the central trunk Wagos
   SERVO2:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -102,7 +87,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L0 hip — joint 1, bus ID 2; lead budget 111 mm (STS3215 stock bus lead)
+    notes: L0 yaw — joint 0, bus ID 2; lead budget 80 mm (STS3215 stock bus lead)
   SERVO3:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -110,16 +95,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L0 knee — joint 2, bus ID 3; lead budget 141 mm (STS3215 stock bus lead)
-  L0_INJ:
-    type: Molex 5264 pigtail
-    subtype: crimped 3-pin
-    pinlabels:
-    - GND
-    - V+
-    - SIG
-    notes: leg 0 V+/GND injection (mates SERVO1's spare port; ~3 A/pin limit = one
-      leg max)
+    notes: L0 hip — joint 1, bus ID 3; lead budget 110 mm (STS3215 stock bus lead)
   SERVO4:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -127,7 +103,23 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L1 yaw — joint 3, bus ID 4; lead budget 146 mm (STS3215 stock bus lead)
+    notes: L0 knee — joint 2, bus ID 4; lead budget 140 mm (STS3215 stock bus lead)
+  L0_WAGO:
+    type: Power Wago pair (2x Wago 221-413)
+    pinlabels:
+    - V+
+    - GND
+    notes: leg 0 12 V+G 3-port lever nuts in the integrated chassis corner tray,
+      entries facing inward
+  L0_INJ:
+    type: Molex 5264 pigtail
+    subtype: crimped 3-pin
+    pinlabels:
+    - GND
+    - V+
+    - SIG
+    notes: leg 0 V+/GND injection at the HIP (mates SERVO3's spare port; ~3 A/pin
+      limit = one leg max)
   SERVO5:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -135,7 +127,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L1 hip — joint 4, bus ID 5; lead budget 176 mm (STS3215 stock bus lead)
+    notes: L1 yaw — joint 3, bus ID 5; lead budget 143 mm (STS3215 stock bus lead)
   SERVO6:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -143,16 +135,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L1 knee — joint 5, bus ID 6; lead budget 206 mm (STS3215 stock bus lead)
-  L1_INJ:
-    type: Molex 5264 pigtail
-    subtype: crimped 3-pin
-    pinlabels:
-    - GND
-    - V+
-    - SIG
-    notes: leg 1 V+/GND injection (mates SERVO4's spare port; ~3 A/pin limit = one
-      leg max)
+    notes: L1 hip — joint 4, bus ID 6; lead budget 173 mm (STS3215 stock bus lead)
   SERVO7:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -160,7 +143,23 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L2 yaw — joint 6, bus ID 7; lead budget 159 mm (STS3215 stock bus lead)
+    notes: L1 knee — joint 5, bus ID 7; lead budget 203 mm (STS3215 stock bus lead)
+  L1_WAGO:
+    type: Power Wago pair (2x Wago 221-413)
+    pinlabels:
+    - V+
+    - GND
+    notes: leg 1 12 V+G 3-port lever nuts in the integrated chassis corner tray,
+      entries facing inward
+  L1_INJ:
+    type: Molex 5264 pigtail
+    subtype: crimped 3-pin
+    pinlabels:
+    - GND
+    - V+
+    - SIG
+    notes: leg 1 V+/GND injection at the HIP (mates SERVO6's spare port; ~3 A/pin
+      limit = one leg max)
   SERVO8:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -168,7 +167,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L2 hip — joint 7, bus ID 8; lead budget 189 mm (STS3215 stock bus lead)
+    notes: L2 yaw — joint 6, bus ID 8; lead budget 155 mm (STS3215 stock bus lead)
   SERVO9:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -176,16 +175,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L2 knee — joint 8, bus ID 9; lead budget 219 mm (STS3215 stock bus lead)
-  L2_INJ:
-    type: Molex 5264 pigtail
-    subtype: crimped 3-pin
-    pinlabels:
-    - GND
-    - V+
-    - SIG
-    notes: leg 2 V+/GND injection (mates SERVO7's spare port; ~3 A/pin limit = one
-      leg max)
+    notes: L2 hip — joint 7, bus ID 9; lead budget 185 mm (STS3215 stock bus lead)
   SERVO10:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -193,7 +183,23 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L3 yaw — joint 9, bus ID 10; lead budget 159 mm (STS3215 stock bus lead)
+    notes: L2 knee — joint 8, bus ID 10; lead budget 215 mm (STS3215 stock bus lead)
+  L2_WAGO:
+    type: Power Wago pair (2x Wago 221-413)
+    pinlabels:
+    - V+
+    - GND
+    notes: leg 2 12 V+G 3-port lever nuts in the integrated chassis corner tray,
+      entries facing inward
+  L2_INJ:
+    type: Molex 5264 pigtail
+    subtype: crimped 3-pin
+    pinlabels:
+    - GND
+    - V+
+    - SIG
+    notes: leg 2 V+/GND injection at the HIP (mates SERVO9's spare port; ~3 A/pin
+      limit = one leg max)
   SERVO11:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -201,7 +207,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L3 hip — joint 10, bus ID 11; lead budget 189 mm (STS3215 stock bus lead)
+    notes: L3 yaw — joint 9, bus ID 11; lead budget 155 mm (STS3215 stock bus lead)
   SERVO12:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -209,17 +215,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L3 knee — joint 11, bus ID 12; lead budget 219 mm (STS3215 stock bus
-      lead)
-  L3_INJ:
-    type: Molex 5264 pigtail
-    subtype: crimped 3-pin
-    pinlabels:
-    - GND
-    - V+
-    - SIG
-    notes: leg 3 V+/GND injection (mates SERVO10's spare port; ~3 A/pin limit =
-      one leg max)
+    notes: L3 hip — joint 10, bus ID 12; lead budget 185 mm (STS3215 stock bus lead)
   SERVO13:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -227,7 +223,24 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L4 yaw — joint 12, bus ID 13; lead budget 146 mm (STS3215 stock bus lead)
+    notes: L3 knee — joint 11, bus ID 13; lead budget 215 mm (STS3215 stock bus
+      lead)
+  L3_WAGO:
+    type: Power Wago pair (2x Wago 221-413)
+    pinlabels:
+    - V+
+    - GND
+    notes: leg 3 12 V+G 3-port lever nuts in the integrated chassis corner tray,
+      entries facing inward
+  L3_INJ:
+    type: Molex 5264 pigtail
+    subtype: crimped 3-pin
+    pinlabels:
+    - GND
+    - V+
+    - SIG
+    notes: leg 3 V+/GND injection at the HIP (mates SERVO12's spare port; ~3 A/pin
+      limit = one leg max)
   SERVO14:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -235,7 +248,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L4 hip — joint 13, bus ID 14; lead budget 176 mm (STS3215 stock bus lead)
+    notes: L4 yaw — joint 12, bus ID 14; lead budget 143 mm (STS3215 stock bus lead)
   SERVO15:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -243,17 +256,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L4 knee — joint 14, bus ID 15; lead budget 206 mm (STS3215 stock bus
-      lead)
-  L4_INJ:
-    type: Molex 5264 pigtail
-    subtype: crimped 3-pin
-    pinlabels:
-    - GND
-    - V+
-    - SIG
-    notes: leg 4 V+/GND injection (mates SERVO13's spare port; ~3 A/pin limit =
-      one leg max)
+    notes: L4 hip — joint 13, bus ID 15; lead budget 173 mm (STS3215 stock bus lead)
   SERVO16:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -261,7 +264,24 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L5 yaw — joint 15, bus ID 16; lead budget 81 mm (STS3215 stock bus lead)
+    notes: L4 knee — joint 14, bus ID 16; lead budget 203 mm (STS3215 stock bus
+      lead)
+  L4_WAGO:
+    type: Power Wago pair (2x Wago 221-413)
+    pinlabels:
+    - V+
+    - GND
+    notes: leg 4 12 V+G 3-port lever nuts in the integrated chassis corner tray,
+      entries facing inward
+  L4_INJ:
+    type: Molex 5264 pigtail
+    subtype: crimped 3-pin
+    pinlabels:
+    - GND
+    - V+
+    - SIG
+    notes: leg 4 V+/GND injection at the HIP (mates SERVO15's spare port; ~3 A/pin
+      limit = one leg max)
   SERVO17:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -269,7 +289,7 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L5 hip — joint 16, bus ID 17; lead budget 111 mm (STS3215 stock bus lead)
+    notes: L5 yaw — joint 15, bus ID 17; lead budget 80 mm (STS3215 stock bus lead)
   SERVO18:
     type: FEETECH STS3215
     subtype: Molex 5264 3-pin
@@ -277,8 +297,23 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: L5 knee — joint 17, bus ID 18; lead budget 141 mm (STS3215 stock bus
+    notes: L5 hip — joint 16, bus ID 18; lead budget 110 mm (STS3215 stock bus lead)
+  SERVO19:
+    type: FEETECH STS3215
+    subtype: Molex 5264 3-pin
+    pinlabels:
+    - GND
+    - V+
+    - SIG
+    notes: L5 knee — joint 17, bus ID 19; lead budget 140 mm (STS3215 stock bus
       lead)
+  L5_WAGO:
+    type: Power Wago pair (2x Wago 221-413)
+    pinlabels:
+    - V+
+    - GND
+    notes: leg 5 12 V+G 3-port lever nuts in the integrated chassis corner tray,
+      entries facing inward
   L5_INJ:
     type: Molex 5264 pigtail
     subtype: crimped 3-pin
@@ -286,8 +321,8 @@ connectors:
     - GND
     - V+
     - SIG
-    notes: leg 5 V+/GND injection (mates SERVO16's spare port; ~3 A/pin limit =
-      one leg max)
+    notes: leg 5 V+/GND injection at the HIP (mates SERVO18's spare port; ~3 A/pin
+      limit = one leg max)
 cables:
   W_TRUNK_LIPO:
     gauge: 12 AWG
@@ -307,27 +342,20 @@ cables:
     length: 0.1
     colors:
     - RD
-    notes: fused V+ trunk into the bus bar
+    notes: fused V+ trunk into the V+ trunk Wago
   W_TRUNK_GND:
     gauge: 12 AWG
     length: 0.2
     colors:
     - BK
-    notes: trunk GND, switch → bus bar
-  W_BUCK_IN:
+    notes: trunk GND, switch → GND trunk Wago
+  W_UNOQ_TAP:
     gauge: 20 AWG
-    length: 0.1
+    length: 0.25
     colors:
     - RD
     - BK
-    notes: bus bar → buck input (12 V)
-  W_BUCK_OUT:
-    gauge: 20 AWG
-    length: 0.1
-    colors:
-    - RD
-    - BK
-    notes: buck 5 V → Uno Q logic
+    notes: Uno Q own battery tap (share ground only; no buck)
   W_USB:
     category: bundle
     length: 0.3
@@ -357,6 +385,13 @@ cables:
     - GN
     notes: Uno Q I2C (own bus, separate from servo bus); 3V3!
   W_PWR_L0:
+    gauge: 16 AWG
+    length: 0.1
+    colors:
+    - RD
+    - BK
+    notes: trunk Wagos → leg 0 corner power Wago pair
+  W_BR_L0:
     gauge: 16 AWG
     length: 0.08
     colors:
@@ -388,7 +423,14 @@ cables:
     notes: leg-to-leg DATA jumper — V+ OMITTED (power never bridges legs)
   W_PWR_L1:
     gauge: 16 AWG
-    length: 0.15
+    length: 0.1
+    colors:
+    - RD
+    - BK
+    notes: trunk Wagos → leg 1 corner power Wago pair
+  W_BR_L1:
+    gauge: 16 AWG
+    length: 0.14
     colors:
     - RD
     - BK
@@ -418,7 +460,14 @@ cables:
     notes: leg-to-leg DATA jumper — V+ OMITTED (power never bridges legs)
   W_PWR_L2:
     gauge: 16 AWG
-    length: 0.16
+    length: 0.1
+    colors:
+    - RD
+    - BK
+    notes: trunk Wagos → leg 2 corner power Wago pair
+  W_BR_L2:
+    gauge: 16 AWG
+    length: 0.15
     colors:
     - RD
     - BK
@@ -448,7 +497,14 @@ cables:
     notes: leg-to-leg DATA jumper — V+ OMITTED (power never bridges legs)
   W_PWR_L3:
     gauge: 16 AWG
-    length: 0.16
+    length: 0.1
+    colors:
+    - RD
+    - BK
+    notes: trunk Wagos → leg 3 corner power Wago pair
+  W_BR_L3:
+    gauge: 16 AWG
+    length: 0.15
     colors:
     - RD
     - BK
@@ -478,7 +534,14 @@ cables:
     notes: leg-to-leg DATA jumper — V+ OMITTED (power never bridges legs)
   W_PWR_L4:
     gauge: 16 AWG
-    length: 0.15
+    length: 0.1
+    colors:
+    - RD
+    - BK
+    notes: trunk Wagos → leg 4 corner power Wago pair
+  W_BR_L4:
+    gauge: 16 AWG
+    length: 0.14
     colors:
     - RD
     - BK
@@ -507,6 +570,13 @@ cables:
     - BK
     notes: leg-to-leg DATA jumper — V+ OMITTED (power never bridges legs)
   W_PWR_L5:
+    gauge: 16 AWG
+    length: 0.1
+    colors:
+    - RD
+    - BK
+    notes: trunk Wagos → leg 5 corner power Wago pair
+  W_BR_L5:
     gauge: 16 AWG
     length: 0.08
     colors:
@@ -549,31 +619,22 @@ connections:
     - OUT
   - W_TRUNK_FUSED:
     - 1
-  - BUSBAR:
+  - TRUNK_WAGO:
     - V+ IN
 - - SWITCH:
     - OUT GND
   - W_TRUNK_GND:
     - 1
-  - BUSBAR:
+  - TRUNK_WAGO:
     - GND IN
-- - BUSBAR:
-    - V+ BUCK
-    - GND BUCK
-  - W_BUCK_IN:
-    - 1
-    - 2
-  - BUCK:
-    - VIN+
-    - VIN-
-- - BUCK:
-    - VOUT+
-    - VOUT-
-  - W_BUCK_OUT:
+- - LIPO:
+    - V+
+    - GND
+  - W_UNOQ_TAP:
     - 1
     - 2
   - UNOQ:
-    - 5V IN
+    - VIN
     - GND
 - - UNOQ:
     - USB-C
@@ -587,14 +648,14 @@ connections:
   - W_BUS_HEAD:
     - 1
     - 2
-  - SERVO1:
+  - SERVO2:
     - SIG
     - GND
 - - ADAPTER:
     - G
   - W_GND_BOND:
     - 1
-  - BUSBAR:
+  - TRUNK_WAGO:
     - GND DATA
 - - UNOQ:
     - 3V3
@@ -611,10 +672,19 @@ connections:
     - GND
     - SCL
     - SDA
-- - BUSBAR:
+- - TRUNK_WAGO:
     - V+ L0
     - GND L0
   - W_PWR_L0:
+    - 1
+    - 2
+  - L0_WAGO:
+    - V+
+    - GND
+- - L0_WAGO:
+    - V+
+    - GND
+  - W_BR_L0:
     - 1
     - 2
   - L0_INJ:
@@ -625,27 +695,15 @@ connections:
     - 2
     - 3
   - -->
-  - SERVO1:
+  - SERVO3:
     - 1
     - 2
     - 3
-- - SERVO1:
-    - GND
-    - V+
-    - SIG
-  - W_CHAIN_L0A:
-    - 1
-    - 2
-    - 3
-  - SERVO2:
-    - GND
-    - V+
-    - SIG
 - - SERVO2:
     - GND
     - V+
     - SIG
-  - W_CHAIN_L0B:
+  - W_CHAIN_L0A:
     - 1
     - 2
     - 3
@@ -654,18 +712,39 @@ connections:
     - V+
     - SIG
 - - SERVO3:
+    - GND
+    - V+
+    - SIG
+  - W_CHAIN_L0B:
+    - 1
+    - 2
+    - 3
+  - SERVO4:
+    - GND
+    - V+
+    - SIG
+- - SERVO4:
     - SIG
     - GND
   - W_DATA_L0L1:
     - 1
     - 2
-  - SERVO4:
+  - SERVO5:
     - SIG
     - GND
-- - BUSBAR:
+- - TRUNK_WAGO:
     - V+ L1
     - GND L1
   - W_PWR_L1:
+    - 1
+    - 2
+  - L1_WAGO:
+    - V+
+    - GND
+- - L1_WAGO:
+    - V+
+    - GND
+  - W_BR_L1:
     - 1
     - 2
   - L1_INJ:
@@ -676,27 +755,15 @@ connections:
     - 2
     - 3
   - -->
-  - SERVO4:
+  - SERVO6:
     - 1
     - 2
     - 3
-- - SERVO4:
-    - GND
-    - V+
-    - SIG
-  - W_CHAIN_L1A:
-    - 1
-    - 2
-    - 3
-  - SERVO5:
-    - GND
-    - V+
-    - SIG
 - - SERVO5:
     - GND
     - V+
     - SIG
-  - W_CHAIN_L1B:
+  - W_CHAIN_L1A:
     - 1
     - 2
     - 3
@@ -705,18 +772,39 @@ connections:
     - V+
     - SIG
 - - SERVO6:
+    - GND
+    - V+
+    - SIG
+  - W_CHAIN_L1B:
+    - 1
+    - 2
+    - 3
+  - SERVO7:
+    - GND
+    - V+
+    - SIG
+- - SERVO7:
     - SIG
     - GND
   - W_DATA_L1L2:
     - 1
     - 2
-  - SERVO7:
+  - SERVO8:
     - SIG
     - GND
-- - BUSBAR:
+- - TRUNK_WAGO:
     - V+ L2
     - GND L2
   - W_PWR_L2:
+    - 1
+    - 2
+  - L2_WAGO:
+    - V+
+    - GND
+- - L2_WAGO:
+    - V+
+    - GND
+  - W_BR_L2:
     - 1
     - 2
   - L2_INJ:
@@ -727,27 +815,15 @@ connections:
     - 2
     - 3
   - -->
-  - SERVO7:
+  - SERVO9:
     - 1
     - 2
     - 3
-- - SERVO7:
-    - GND
-    - V+
-    - SIG
-  - W_CHAIN_L2A:
-    - 1
-    - 2
-    - 3
-  - SERVO8:
-    - GND
-    - V+
-    - SIG
 - - SERVO8:
     - GND
     - V+
     - SIG
-  - W_CHAIN_L2B:
+  - W_CHAIN_L2A:
     - 1
     - 2
     - 3
@@ -756,18 +832,39 @@ connections:
     - V+
     - SIG
 - - SERVO9:
+    - GND
+    - V+
+    - SIG
+  - W_CHAIN_L2B:
+    - 1
+    - 2
+    - 3
+  - SERVO10:
+    - GND
+    - V+
+    - SIG
+- - SERVO10:
     - SIG
     - GND
   - W_DATA_L2L3:
     - 1
     - 2
-  - SERVO10:
+  - SERVO11:
     - SIG
     - GND
-- - BUSBAR:
+- - TRUNK_WAGO:
     - V+ L3
     - GND L3
   - W_PWR_L3:
+    - 1
+    - 2
+  - L3_WAGO:
+    - V+
+    - GND
+- - L3_WAGO:
+    - V+
+    - GND
+  - W_BR_L3:
     - 1
     - 2
   - L3_INJ:
@@ -778,27 +875,15 @@ connections:
     - 2
     - 3
   - -->
-  - SERVO10:
+  - SERVO12:
     - 1
     - 2
     - 3
-- - SERVO10:
-    - GND
-    - V+
-    - SIG
-  - W_CHAIN_L3A:
-    - 1
-    - 2
-    - 3
-  - SERVO11:
-    - GND
-    - V+
-    - SIG
 - - SERVO11:
     - GND
     - V+
     - SIG
-  - W_CHAIN_L3B:
+  - W_CHAIN_L3A:
     - 1
     - 2
     - 3
@@ -807,18 +892,39 @@ connections:
     - V+
     - SIG
 - - SERVO12:
+    - GND
+    - V+
+    - SIG
+  - W_CHAIN_L3B:
+    - 1
+    - 2
+    - 3
+  - SERVO13:
+    - GND
+    - V+
+    - SIG
+- - SERVO13:
     - SIG
     - GND
   - W_DATA_L3L4:
     - 1
     - 2
-  - SERVO13:
+  - SERVO14:
     - SIG
     - GND
-- - BUSBAR:
+- - TRUNK_WAGO:
     - V+ L4
     - GND L4
   - W_PWR_L4:
+    - 1
+    - 2
+  - L4_WAGO:
+    - V+
+    - GND
+- - L4_WAGO:
+    - V+
+    - GND
+  - W_BR_L4:
     - 1
     - 2
   - L4_INJ:
@@ -829,27 +935,15 @@ connections:
     - 2
     - 3
   - -->
-  - SERVO13:
+  - SERVO15:
     - 1
     - 2
     - 3
-- - SERVO13:
-    - GND
-    - V+
-    - SIG
-  - W_CHAIN_L4A:
-    - 1
-    - 2
-    - 3
-  - SERVO14:
-    - GND
-    - V+
-    - SIG
 - - SERVO14:
     - GND
     - V+
     - SIG
-  - W_CHAIN_L4B:
+  - W_CHAIN_L4A:
     - 1
     - 2
     - 3
@@ -858,18 +952,39 @@ connections:
     - V+
     - SIG
 - - SERVO15:
+    - GND
+    - V+
+    - SIG
+  - W_CHAIN_L4B:
+    - 1
+    - 2
+    - 3
+  - SERVO16:
+    - GND
+    - V+
+    - SIG
+- - SERVO16:
     - SIG
     - GND
   - W_DATA_L4L5:
     - 1
     - 2
-  - SERVO16:
+  - SERVO17:
     - SIG
     - GND
-- - BUSBAR:
+- - TRUNK_WAGO:
     - V+ L5
     - GND L5
   - W_PWR_L5:
+    - 1
+    - 2
+  - L5_WAGO:
+    - V+
+    - GND
+- - L5_WAGO:
+    - V+
+    - GND
+  - W_BR_L5:
     - 1
     - 2
   - L5_INJ:
@@ -880,11 +995,11 @@ connections:
     - 2
     - 3
   - -->
-  - SERVO16:
+  - SERVO18:
     - 1
     - 2
     - 3
-- - SERVO16:
+- - SERVO17:
     - GND
     - V+
     - SIG
@@ -892,11 +1007,11 @@ connections:
     - 1
     - 2
     - 3
-  - SERVO17:
+  - SERVO18:
     - GND
     - V+
     - SIG
-- - SERVO17:
+- - SERVO18:
     - GND
     - V+
     - SIG
@@ -904,7 +1019,7 @@ connections:
     - 1
     - 2
     - 3
-  - SERVO18:
+  - SERVO19:
     - GND
     - V+
     - SIG

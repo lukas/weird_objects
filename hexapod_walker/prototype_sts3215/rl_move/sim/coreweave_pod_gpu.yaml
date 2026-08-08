@@ -1,0 +1,38 @@
+# GPU pod for the MJX physics-backend benchmark (see MJX_PORT.md).
+# The CPU training pods stay the production path; this pod exists to
+# answer ONE question with rl_move.sim.bench_mjx: at what batch size
+# (if any) does batched MJX on an H200 beat 48-env subproc C MuJoCo?
+#
+# Workflow (from prototype_sts3215/, kubeconfig ~/.kube/coreweave.yaml):
+#   kubectl apply -f rl_move/sim/coreweave_pod_gpu.yaml
+#   tar --exclude logs --exclude '*.stl' --exclude __pycache__ -czf /tmp/code.tgz .
+#   kubectl cp /tmp/code.tgz hexapod-mjx-bench:/tmp/code.tgz
+#   kubectl exec hexapod-mjx-bench -- env HEXAPOD_MJX=1 bash /workspace/setup.sh
+#   kubectl exec hexapod-mjx-bench -- bash -c \
+#     "cd /workspace/prototype_sts3215 && python -m rl_move.sim.bench_mjx --batch 256 1024 4096 8192"
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hexapod-mjx-bench
+  namespace: default
+  labels:
+    app: hexapod-mjx-bench
+spec:
+  restartPolicy: Never
+  containers:
+    - name: bench
+      image: python:3.11-slim
+      command: ["sleep", "infinity"]
+      workingDir: /workspace
+      env:
+        - name: MUJOCO_GL
+          value: osmesa
+      resources:
+        requests:
+          cpu: "16"
+          memory: 64Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "16"
+          memory: 96Gi
+          nvidia.com/gpu: "1"

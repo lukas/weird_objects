@@ -11,7 +11,7 @@ Arduino Uno Q.  Design entry point: [`PROTOTYPE.md`](PROTOTYPE.md).
 | `design_spec.yaml` | Human-readable geometry contract |
 | `build_all.py` / `Makefile` | Regenerate STLs + common targets |
 | `docs/` | BOM, shopping list, CAD workflow, BuildViz notes |
-| `scripts/` | CLI helpers (verify helpers, renders, Xometry, inspect) |
+| `scripts/` | CLI helpers (verify helpers, renders, print orientation, inspect) |
 | `tools/` | BuildViz / diagnostic utilities |
 | `stl_prototype/` | Slicer-ready printables |
 | `stl_reference/` | Sim / viz meshes (not for printing) |

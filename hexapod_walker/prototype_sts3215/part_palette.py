@@ -49,8 +49,12 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "motor_controller":    (0.706, 0.325, 0.035),
     "screen":              (0.145, 0.388, 0.922),
     "mpu6050":             (0.478, 0.361, 0.769),
+    "wago_trunk":          (0.918, 0.345, 0.047),
     "wago_power":          (0.937, 0.267, 0.267),
     "wago_data":           (0.133, 0.773, 0.369),
+    # Legacy alias: the corner power-Wago tray was a separate print
+    # until late Aug 2026; its walls are now part of chassis_bottom.
+    "wago_mount":          (0.961, 0.620, 0.043),
     # Sandwich-joint servo clamp cap - tab:gray-blue
     "servo_clamp_cap":     (0.290, 0.565, 0.851),
     # Coxa link - tab:green
@@ -59,7 +63,11 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     "femur_link":          (0.839, 0.153, 0.157),
     # Tibia link - tab:pink
     "tibia_link":          (0.890, 0.467, 0.761),
-    # Foot pad - tab:brown (TPU pad)
+    # Foot boot - tab:brown (TPU boot over the tibia tube end, Aug 2026;
+    # replaces the hinged foot_pad + tibia_foot_fitting).
+    "foot_boot":           (0.549, 0.337, 0.294),
+    "foot_boot_plus4":     (0.549, 0.337, 0.294),
+    # Legacy alias kept so old scenes / labels still resolve a color.
     "foot_pad":            (0.549, 0.337, 0.294),
     # Servo horn adapter - tab:cyan
     "servo_horn_adapter":  (0.090, 0.745, 0.812),
@@ -115,7 +123,8 @@ _CHASSIS_LEVEL = frozenset({
     "hex_mount_plate", "hex_raised_platform",
     "hex_post_standoff", "hex_post_thumb_nut", "hex_post_magnet",
     "uno_q", "breakout", "pdb", "motor_controller",
-    "screen", "mpu6050", "wago_power", "wago_data",
+    "screen", "mpu6050", "wago_trunk", "wago_power", "wago_data",
+    "wago_mount",
 })
 
 
@@ -191,7 +200,7 @@ def instance_role(
         return "hip-pitch -> knee"
     if part_type == "tibia_link":
         return "knee -> foot"
-    if part_type == "foot_pad":
+    if part_type in ("foot_pad", "foot_boot", "foot_boot_plus4"):
         return "foot"
     if part_type == "servo_horn_adapter":
         suffix = _JOINT_ROLE.get(joint or "", "joint")

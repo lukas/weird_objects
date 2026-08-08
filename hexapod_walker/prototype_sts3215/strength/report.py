@@ -142,12 +142,8 @@ _STRUCTURAL_CONCERNS: dict[str, str] = {
         "flat-to-flat (smaller than bottom) so the cantilever overhang "
         "to the IMU pad is shorter; we expect very low stress."
     ),
-    "foot_pad": (
-        "fork cheeks around the M3 hinge pin (FOOT_HINGE_CHEEK_T = 3.5 mm "
-        "each).  The cheeks bear the entire impact-shear load on the pin "
-        "and have a single perimeter at 0.4 mm nozzle; FEA should "
-        "quantify pin-bearing stress here."
-    ),
+    # foot_pad concern RETIRED (Aug 2026): the hinged pad is replaced by
+    # the pressed-on TPU foot_boot, which is not FEA'd (elastomer).
 }
 
 

@@ -44,7 +44,7 @@ help:
 	@echo "                    verifier + cheap validate, and BUMP a new versioned snapshot into the hub cache"
 	@echo "                    (buildviz push --bump; keep BUILDVIZ_KEEP).  Pass SWEEP=1 for the ~13 s swept motion test."
 	@echo "  regen-fasteners   Regenerate fasteners/<P/N>.cache.stl from real STEPs or parametric fallback."
-	@echo "  bom-fasteners     Inject the auto-derived fastener BOM into docs/PROTOTYPE_BOM.md and docs/SHOPPING_LIST.md."
+	@echo "  bom-fasteners     Inject the auto-derived fastener BOM into docs/BOM.md."
 	@echo "  clean-artifacts   Delete artifacts/ (renders + cad_report.md)."
 
 check-cad:
@@ -84,7 +84,7 @@ render:
 	$(RUN) hexapod_walker/prototype_sts3215/scripts/render_views.py
 
 build:
-	$(RUN) hexapod_walker/prototype_sts3215/build_all.py --skip-assembly --skip-xometry --skip-bambu --skip-test-plate
+	$(RUN) hexapod_walker/prototype_sts3215/build_all.py --skip-assembly
 
 verify-prototype:
 	$(RUN) hexapod_walker/prototype_sts3215/_verify_prototype.py
@@ -217,13 +217,12 @@ regen-fasteners:
 #
 # Paths must be absolute because run.sh cd's into the script's own
 # directory before executing -- a path relative to the repo root
-# (e.g. ``hexapod_walker/prototype_sts3215/docs/PROTOTYPE_BOM.md``) would
+# (e.g. ``hexapod_walker/prototype_sts3215/docs/BOM.md``) would
 # then resolve against ``prototype_sts3215/scripts/``, where the BOM
 # file does not live.
 bom-fasteners:
 	$(RUN) hexapod_walker/prototype_sts3215/scripts/render_fastener_bom.py \
-		--inject $(CURDIR)/docs/PROTOTYPE_BOM.md \
-		--inject $(CURDIR)/docs/SHOPPING_LIST.md
+		--inject $(CURDIR)/docs/BOM.md
 
 clean-artifacts:
 	rm -rf $(CURDIR)/artifacts

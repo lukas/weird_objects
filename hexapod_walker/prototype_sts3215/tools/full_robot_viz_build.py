@@ -99,9 +99,9 @@ PALETTE = {
     "yaw_bearing_cap": "#6b4fa0",
     "yaw_bearing_lower": "#d4af37", "yaw_bearing_upper": "#ffd966",
     "femur_link": "#2ca02c",
-    "tibia_knee_yoke": "#1f77b4", "tibia_foot_fitting": "#17becf",
+    "tibia_knee_yoke": "#1f77b4",
     "tibia_tube": "#2b2b2b",                             # carbon fibre
-    "foot_pad": "#3a3a3a",                               # TPU pad
+    "foot_boot": "#3a3a3a",                              # TPU boot
     "disc_horn_yaw": DISC_HORN_COLOR, "disc_horn_hip": DISC_HORN_COLOR,
     "disc_horn_knee": DISC_HORN_COLOR,
     "passive_horn_hip": DISC_HORN_COLOR, "passive_horn_knee": DISC_HORN_COLOR,
@@ -110,11 +110,12 @@ PALETTE = {
     "chassis_top": "#5b8fc7",
     "hex_mount_plate": "#94a3b8", "hex_raised_platform": "#64748b",
     "hex_post_standoff": "#a8a29e", "hex_post_thumb_nut": "#78716c",
+    "chassis_standoff": "#b5952f",
     "hex_post_magnet": "#1e293b",
     "uno_q": "#1b7a3d", "breakout": "#0d9488",
     "motor_controller": "#b45309",
     "screen": "#2563eb", "mpu6050": "#7a5cc4",
-    "wago_trunk": "#ea580c",
+    "wago_trunk": "#ea580c", "wago_v33": "#f97316",
     "wago_power": "#ef4444", "wago_data": "#22c55e",
     "lipo_battery": "#d62728",
     "hip_clamp_cap": "#4a90d9", "knee_clamp_cap": "#4a90d9",
@@ -126,8 +127,8 @@ ROLE = {
     "yaw_bearing_cap": "chassis",
     "yaw_bearing_lower": "bearing", "yaw_bearing_upper": "bearing",
     "femur_link": "frame",
-    "tibia_knee_yoke": "frame", "tibia_foot_fitting": "frame",
-    "tibia_tube": "spar", "foot_pad": "frame",
+    "tibia_knee_yoke": "frame",
+    "tibia_tube": "spar", "foot_boot": "frame",
     "disc_horn_yaw": "horn", "disc_horn_hip": "horn", "disc_horn_knee": "horn",
     "passive_horn_hip": "horn", "passive_horn_knee": "horn",
     "yaw_servo": "motor", "hip_servo": "motor", "knee_servo": "motor",
@@ -135,11 +136,12 @@ ROLE = {
     "chassis_top": "chassis",
     "hex_mount_plate": "electronics", "hex_raised_platform": "electronics",
     "hex_post_standoff": "electronics", "hex_post_thumb_nut": "electronics",
+    "chassis_standoff": "electronics",
     "hex_post_magnet": "electronics",
     "uno_q": "electronics", "breakout": "electronics",
     "motor_controller": "electronics",
     "screen": "electronics", "mpu6050": "electronics",
-    "wago_trunk": "electronics",
+    "wago_trunk": "electronics", "wago_v33": "electronics",
     "wago_power": "electronics", "wago_data": "electronics",
     "lipo_battery": "electronics",
     "hip_clamp_cap": "frame", "knee_clamp_cap": "frame",
@@ -157,15 +159,15 @@ ROLE = {
 # 688 passive bearing on the other).  When you add/rename a partType in PALETTE,
 # add its rationale here too — a missing key makes the build non-compat.
 DESCRIPTIONS = {
-    "coxa_link": "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven Ø20 disc horn on the Ø14 / 4x M3 circle, rides the spaced 6706 pair) fused to the hip servo cradle. 5 vertical head-access shafts through the foot plate reach the horn screws from the (empty) hip servo well.",
+    "coxa_link": "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven Ø20 disc horn on the Ø14 / 4x M3 circle, rides the touching 6805 pair (25x37x7, Aug 2026 thick-section swap) on a Ø24.95 boss) fused to the hip servo cradle. 5 vertical head-access shafts through the foot plate reach the horn screws from the (empty) hip servo well.",
     "yaw_bearing_cap": "Printed cap that closes the top of each chassis yaw-bearing tower, capturing the upper yaw bearing.",
     "yaw_bearing_lower": "Lower ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
     "yaw_bearing_upper": "Upper ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
     "femur_link": "The WHOLE femur as ONE printed part (Jul 2026 merge #2 of the old hip yoke + knee bracket): the hip-end yoke straddles the hip servo (top arm bolts the driven disc horn, bottom arm the passive horn), a SOLID Ø14 spar bridges the full 90 mm hip-to-knee span, and the knee-end cradle mounts the knee servo + 688 bearing housing. No sockets, no slip fits, no retention pins anywhere in the femur.",
     "tibia_knee_yoke": "Printed tibia knee-end yoke driven off the knee disc horn (bearing-sandwich passive side on the opposite face); sockets the Ø8 tibia tube.",
-    "tibia_foot_fitting": "Printed tibia foot-end fitting that sockets the tibia tube and carries the compliant foot pad.",
+
     "tibia_tube": "Ø8 carbon-fibre tibia segment (130 mm knee->foot). Retained by epoxy bond + a transverse pin. CF for stiffness/weight at the longest, most-loaded segment.",
-    "foot_pad": "Compliant TPU foot pad at each tibia tip for ground grip + shock absorption.",
+    "foot_boot": "TPU 95A boot pressed over the tibia tube end -- flat chamfer-rimmed tip is the ground contact (Aug 2026; replaces the hinged foot fitting + pad + M3x16 pin).",
     "disc_horn_yaw": "Driven Ø20 25T aluminium disc horn on the yaw servo output; the coxa hub bolts to it (Ø14 / 4x M3). COTS.",
     "disc_horn_hip": "Driven Ø20 25T aluminium disc horn on the hip servo output; the femur hip yoke bolts to it. COTS.",
     "disc_horn_knee": "Driven Ø20 25T aluminium disc horn on the knee servo output; the tibia knee yoke bolts to it. COTS.",
@@ -175,21 +177,23 @@ DESCRIPTIONS = {
     "hip_servo": "FEETECH STS3215 serial-bus servo driving the hip-pitch axis. COTS.",
     "knee_servo": "FEETECH STS3215 serial-bus servo driving the knee axis. COTS.",
     "chassis_bottom": "Structural 200 mm flat-to-flat hex deck (single merged print) with 6 integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing towers, one per leg at each hex-edge midpoint. Each STS3215 inserts from BELOW (output UP), bolts via 4x M2.5 through the cradle front plate, body hangs DOWN through a body cutout; the bolt-on yaw_servo_retainer stirrup captures it. A folded 4 mm floor makes the printed bottom one flush flat face so it prints flat, tower-up, no supports (Jun 2026 flush-bottom fix; check_flat_bottom overhang = 0.00 mm).",
-    "chassis_top": "Hex top plate that closes the chassis; carries the trunk power Wagos + motor controller + peripheral power Wagos, and the 4 magnet posts for the hex board.",
-    "hex_mount_plate": "Ø110 mm hex board (2 mm) held by 4 magnets on 20 mm posts; carries Uno Q + breakout (extra_stl / xTool).",
-    "hex_raised_platform": "Raised hex platform (62 mm screen-stand legs) bolted to the hex mount plate; screen on top face (MPU is glued on chassis_bottom, not under this plate).",
+    "chassis_top": "Hex top plate that closes the chassis; carries the trunk power Wagos + motor controller and the 4 magnet posts for the hex board (per-leg power Wago pairs live below, on the chassis_bottom corner flats).",
+    "hex_mount_plate": "Round Ø115 mm board (2 mm, matches the chassis_top disc) held by 4 magnets on 20 mm posts; carries Uno Q + breakout on top and the 3.3 V Wago underneath. Late-Aug 2026: 4 underside registration bosses socket the magnet tops (shear goes to plastic, magnets only carry pull) and the legacy 49.5 mm bolt square is dropped -- keeps the live +/-31.1 square, the 6 platform leg holes, 2 Ø8 wire ports at the south rim and E/W zip-tie slot pairs (extra_stl / xTool).",
+    "hex_raised_platform": "Raised hex platform (28 mm screen-stand legs, shortened from 72 in the late-Aug 2026 design review to cut the lever arm on the magnet-held plate) bolted to the round mount plate; screen on the top face, held by 4x M2 self-tappers in corner pilot holes, its 8-wire Uno pigtail entering through the 24x5 slot behind the panel's +X edge (MPU is glued on chassis_top, not under this plate).",
     "hex_post_standoff": "20 mm M3 brass standoff at CHASSIS_STANDOFF_HOLES_XY (±31.1); bottom of each magnet post stack.",
+    "chassis_standoff": "32 mm M3 brass standoff between chassis_bottom and chassis_top at CHASSIS_STANDOFF_HOLES_XY (±31.1) — the inter-plate structure. COTS.",
     "hex_post_thumb_nut": "~2.5 mm M3 knurled thumb nut between standoff and magnet.",
     "hex_post_magnet": "Ø8×8 mm disc magnet that holds the hex mount plate.",
     "uno_q": "Arduino Uno Q compute board on the hex mount plate (high-level control host). COTS.",
     "breakout": "Generic shield / breakout next to the Uno Q on the hex plate. COTS.",
-    "wago_trunk": "Wago 221 trunk splice pair (one V+ nut + one GND nut) on chassis_top; the battery trunk lands here and fans out to the 6 peripheral power Wagos (as-built Aug 2026: no PDB — power distribution is all lever nuts). COTS.",
-    "motor_controller": "USB/TTL bus-servo adapter brick beside the trunk Wagos. COTS.",
+    "wago_trunk": "Central trunk splice pair: two 5-port Wago 221-415 side by side near the chassis_top centre (nudged +X for adapter wire clearance), wire entries facing +X toward the switch. Polarity: V+ = the SOUTH nut at (16, -16) nearest the switch, GND = the NORTH nut at (16, +16). The fused battery trunk lands here and fans out the six 16 AWG branches to the corner power Wago pairs (as-built Aug 2026: no PDB — power distribution is all lever nuts). COTS.",
+    "wago_v33": "3.3 V rail splice: one 5-port Wago 221-415 VHB-taped flat under the round mount plate near its south rim, wire entries facing -Y. Feed = Uno Q 3V3 pin (down through the east Ø8 wire port); load = MPU VCC (straight down to the deck), 3 spare ports (Aug 2026: the screen's VCC rides its own 8-wire Uno pigtail instead). Pull the plate off its magnets to work the levers. COTS.",
+    "motor_controller": "Waveshare Bus Servo Adapter (A), 42x33 mm, on the chassis_top west band. Servo/UART plugs exit its +X face, screw terminal + USB-C its -X face; both faces keep clear wire zones (connector_clearance check). As-built the Uno Q drives it over the D0/D1 TX/RX/GND UART pigtail (jumper A); USB-C is bench-only since a VIN-powered Uno Q gives no USB host mode / no VBUS. COTS.",
     "screen": "63×35 mm display panel centered on the raised platform top. COTS.",
-    "mpu6050": "GY-521 MPU-6050 IMU glued on chassis_bottom (inter-plate bay), inboard of physical leg 1 (clockwise from tape-marked leg 0). I²C. COTS.",
-    "wago_power": "Wago 221-style lever nut on chassis-top periphery for a per-leg 12 V + G motor branch.",
+    "mpu6050": "GY-521 MPU-6050 IMU glued on chassis_top just south of the central trunk Wago pair (inboard, r=43). Right-angle header row faces -X with a clear wire zone (connector_clearance check). I²C to the Uno Q above. COTS.",
+    "wago_power": "3-port Wago 221-413 lever nut for a per-leg 12 V + G motor branch: one V+/GND pair per chassis_bottom hex corner flat (between adjacent yaw cradles), wire entries facing the chassis centre, seated between the two-bay tray walls integrated into the chassis_bottom top face (late-Aug 2026; was a separate printed wago_mount tray). Polarity convention (same at every corner, viewed from above): V+ = the nut CLOCKWISE of the corner's outward ray, GND = counterclockwise. COTS.",
     "wago_data": "Wago 221-style lever nut under chassis near a yaw retainer for the shared data bus.",
-    "lipo_battery": "LiPo battery pack, velcro-strapped under chassis_bottom for stance stability. COTS.",
+    "lipo_battery": "3S 2200 mAh shorty LiPo (Zeee 75x34x26.5 mm), one of a PARALLEL pair velcro'd side by side under chassis_bottom's flat belly (block yawed 30 deg; XT60 Y-harness). Replaces the single bay pack -- lower CG and a clear inter-plate wiring bay. COTS.",
     "hip_clamp_cap": "Printed clamp cap that clamshells the hip servo cradle (bolts to the cradle wall ends), capturing the servo body.",
     "knee_clamp_cap": "Printed clamp cap that closes the knee yoke's tube socket, clamping the Ø8 tibia tube.",
     "yaw_servo_retainer": "Anti-rotation saddle under each yaw cradle (Aug 2026 flat-belly rework: the 38 mm ground stand is removed; the belly is flat except the hanging servos + saddles).",
@@ -198,6 +202,7 @@ DESCRIPTIONS = {
     "screw_hip": "Fasteners around the hip joint / bearing sandwich (rendered set).",
     "screw_knee": "Fasteners around the knee joint / bearing sandwich (rendered set).",
     "screw_chassis": "Chassis-level / foot / deck fasteners (rendered set).",
+    "screw_retainer": "Yaw saddle hardware: the 4 M3 chassis anchors + 4 M2.5 rear-case capture screws per retainer — chassis-static (the saddle and servo case never rotate).",
 }
 
 
@@ -318,11 +323,11 @@ INTENDED_OVERLAP_PAIRS = frozenset(
         # needed).  Tibia: carbon-fibre spar epoxied into the yoke /
         # fitting sockets.
         ("tibia_knee_yoke", "tibia_tube"),
-        ("tibia_foot_fitting", "tibia_tube"),
+        ("foot_boot", "tibia_tube"),
         # Printed stacks sharing a flush/running interface (the one-piece
         # coxa_link's hub boss runs inside the stationary bearing cap).
         ("coxa_link", "yaw_bearing_cap"),
-        # LiPo velcro-strapped onto the chassis bottom plate.
+        # LiPo packs velcro'd flush against chassis_bottom's flat belly.
         ("chassis_bottom", "lipo_battery"),
     ]
 )
@@ -370,7 +375,83 @@ def _pair_overlap(a_mesh, b_mesh, *, pitch, skip_below):
     return n_overlap * voxel_vol, centroid, rmin, rmax
 
 
-def _build_checks_sidecar(tagged, instances_json):
+def _connector_clearance_checks(items, chassis_lift: float):
+    """Verify the deck electronics' wire-exit faces have free air.
+
+    The motor controller (Waveshare Bus Servo Adapter A) has connectors on
+    BOTH 42 mm edges (servo/UART plugs one side, screw terminal + USB-C the
+    other) and the GY-521 has a right-angle header row on one long edge --
+    if anything sits inside those zones the wires cannot be plugged in
+    (user, Aug 2026).  Each zone is an on-deck prism off the connector face
+    (constants in hexapod_prototype.py); zones must also stay inside the
+    chassis_top disk so wires never dangle into the leg-sweep airspace.
+
+    ``items`` = [(id, partType, world_mesh)] non-fastener solids; the
+    meshes are in WORLD frame (standing pose), so the deck height gets
+    ``chassis_lift`` added on top of the chassis-local deck z.
+    """
+    from trimesh.creation import box as _box_mesh
+
+    deck0 = HP.CHASSIS_TOP_TOP_Z + chassis_lift
+    checks: list[dict] = []
+
+    mcx, mcy = HP.MOTOR_CTRL_CENTRE
+    # After the 90-deg yaw the board's world X extent = D, Y extent = W.
+    mhx, mhy = HP.MOTOR_CTRL_D / 2.0, HP.MOTOR_CTRL_W / 2.0
+    ix, iy = HP.MPU_ASBUILT_CENTRE
+    ihx, ihy = HP.IMU_PCB_D / 2.0, HP.IMU_PCB_W / 2.0
+
+    # (label, owner partType, x-range, y-range, zone height above deck)
+    zones = [
+        ("motor_controller servo/UART face (+X)", "motor_controller",
+         (mcx + mhx, mcx + mhx + HP.MOTOR_CTRL_SERVO_CLEAR),
+         (mcy - mhy, mcy + mhy), HP.MOTOR_CTRL_H + 4.0),
+        ("motor_controller terminal/USB face (-X)", "motor_controller",
+         (mcx - mhx - HP.MOTOR_CTRL_PWR_CLEAR, mcx - mhx),
+         (mcy - mhy, mcy + mhy), HP.MOTOR_CTRL_H + 4.0),
+        ("mpu6050 header row (-X)", "mpu6050",
+         (ix - ihx - HP.MPU_WIRE_CLEAR, ix - ihx),
+         (iy - ihy, iy + ihy), 12.0),
+    ]
+
+    for k, (label, owner, (x0, x1), (y0, y1), zh) in enumerate(zones):
+        ext = (x1 - x0, y1 - y0, zh)
+        zone = _box_mesh(extents=ext)
+        # start 0.2 above the deck surface so resting on the plate never
+        # counts as an obstruction
+        zone.apply_translation([(x0 + x1) / 2.0, (y0 + y1) / 2.0,
+                                deck0 + 0.2 + zh / 2.0])
+        offenders = []
+        for iid, ptype, mesh in items:
+            if ptype in (owner, "chassis_top"):
+                continue
+            vol, _c, _rmin, _rmax = _pair_overlap(
+                zone, mesh, pitch=CHECK_PITCH_MM, skip_below=40.0)
+            if vol > 40.0:
+                offenders.append((iid, ptype, vol))
+        # containment: wires must stay over the plate, out of leg airspace
+        corner_r = max(np.hypot(x, y) for x in (x0, x1) for y in (y0, y1))
+        on_plate = corner_r <= HP.CHASSIS_TOP_RADIUS + 0.5
+        ok = not offenders and on_plate
+        detail = "clear" if ok else (
+            "; ".join(f"{pt} intrudes {v:.0f} mm\u00b3"
+                      for _i, pt, v in offenders)
+            + ("" if on_plate else
+               f" zone reaches r={corner_r:.1f} > disk {HP.CHASSIS_TOP_RADIUS}"))
+        rec = {
+            "id": f"connector_clearance-{k}",
+            "kind": "connector_clearance",
+            "status": "pass" if ok else "fail",
+            "label": f"{label}: {detail}",
+            "region": {"min": [x0, y0, deck0], "max": [x1, y1, deck0 + zh]},
+        }
+        if offenders:
+            rec["instances"] = [i for i, _p, _v in offenders]
+        checks.append(rec)
+    return checks
+
+
+def _build_checks_sidecar(tagged, instances_json, chassis_lift: float):
     """Compute the generic ``mesh_overlap`` + ``scene_meta`` checks over the
     placed scene and return the BuildViz sidecar dict (its exact schema)."""
     # tagged[idx] world mesh is aligned 1:1 with instances_json[idx].
@@ -429,6 +510,10 @@ def _build_checks_sidecar(tagged, instances_json):
         if rmin is not None and rmax is not None:
             rec["region"] = {"min": rmin, "max": rmax}
         checks.append(rec)
+
+    # connector_clearance: wire-exit faces of the deck electronics must
+    # have free air (and stay over the plate).
+    checks.extend(_connector_clearance_checks(items, chassis_lift))
 
     # summary + highlights, mirroring buildvizChecks.summarizeChecks /
     # checksToHighlights so the panel badge + overlays match a CLI --emit run.
@@ -503,8 +588,9 @@ _SCENE_MESH_KEY = {
     "knee_servo": "servo_body",
     "hip_clamp_cap": "servo_clamp_cap",
     "knee_clamp_cap": "servo_clamp_cap",
-    "wago_trunk": "wago",
-    "wago_power": "wago",
+    "wago_trunk": "wago5",
+    "wago_v33": "wago5",
+    "wago_power": "wago3",
     "wago_data": "wago",
 }
 
@@ -545,18 +631,12 @@ def _leg0_local_link_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
     # Tibia sub-part frames inside the tibia-link-local frame (== make_tibia_link).
     Mk0 = HP._joint_place((0.0, 0.0, 0.0), *xz)
     ta = (Mk0 @ np.array([HP._YOKE_SOCKET_X, 0.0, HP.JOINT_SOCKET_Z, 1.0]))[:3]
-    foot_sock = ta + np.array([HP.TIBIA_LENGTH - 8.0, 0.0, 0.0])
-    foot_frame = HP._frame(foot_sock, (1, 0, 0), (0, 0, 1))
-    ttube = HP._tube_between(ta, foot_sock, HP.LEG_TUBE_OD / 2.0)
-
-    # Foot pad: hinge at local x=16 on the foot fitting; the foot stays flat
-    # on the ground (yaw-only orientation), dropped by FOOT_HINGE_FOOT_Z.
-    hinge_w = (T_tibia @ foot_frame @ np.array([16.0, 0.0, 0.0, 1.0]))[:3]
-    foot_M0 = _trans([hinge_w[0], hinge_w[1], hinge_w[2] - HP.FOOT_HINGE_FOOT_Z]) \
-        @ rotation_matrix(a, [0, 0, 1])
+    tube_end = ta + np.array([HP.TIBIA_LENGTH - 8.0, 0.0, 0.0])
+    foot_frame = HP._frame(tube_end, (1, 0, 0), (0, 0, 1))
+    ttube = HP._tube_between(ta, tube_end, HP.LEG_TUBE_OD / 2.0)
 
     return [
-        # Coxa: ONE printed part (Aug 2026 merge), plus the SPACED 6706
+        # Coxa: ONE printed part (Aug 2026 merge), plus the TOUCHING 6805
         # bearing pair (visual, NOT printed) so the bearing-supported yaw
         # joint shows.
         ("coxa_link", HP.make_coxa_link_part(), T_coxa),
@@ -565,11 +645,11 @@ def _leg0_local_link_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
         ("yaw_bearing_upper", HP.make_yaw_bearing_upper(), T_coxa),
         # Femur: ONE printed part (hip yoke + solid spar + knee cradle).
         ("femur_link", HP.make_femur_link_part(), T_femur @ Mh),
-        # Tibia sandwich (knee yoke + CF spar + foot fitting).
+        # Tibia sandwich (knee yoke + CF spar + pressed-on TPU boot,
+        # Aug 2026 -- the hinged foot fitting + pad are retired).
         ("tibia_knee_yoke", HP.make_tibia_knee_yoke(), T_tibia @ Mk0),
         ("tibia_tube", ttube, T_tibia),
-        ("tibia_foot_fitting", HP.make_tibia_foot_fitting(), T_tibia @ foot_frame),
-        ("foot_pad", HP.make_foot_pad(), foot_M0),
+        ("foot_boot", HP.make_foot_boot(), T_tibia @ foot_frame),
     ]
 
 
@@ -711,6 +791,17 @@ def _fastener_instances():
             mesh_key = (f"fastener_prim_{getattr(fi, 'nominal_dia_mm', 3.0)}"
                         f"_{getattr(fi, 'length_mm', 8.0)}")
         M = _axis_to_transform(fi.axis_world, fi.head_world_xyz)
+        # The yaw saddle's chassis anchors + rear-case capture screws hold
+        # the STATIC yaw_servo_retainer / servo case (only the output spins),
+        # but the registry tags them joint="yaw" -- the blanket
+        # screw_yaw->yaw-link motion mapping made them swing away from the
+        # stationary saddle in every pose / walk clip (mirror image of the
+        # Jul 2026 "floating foot screws" bug).  Route them to their own
+        # partType, which no motion link claims, so they stay put.
+        if "yaw_servo_retainer" in fi.role:
+            yield ("screw_retainer", fi.leg_index, "chassis",
+                   FASTENER_CHASSIS_COLOR, mesh_key, mesh, M)
+            continue
         joint_key = fi.joint if fi.joint in FASTENER_JOINT_COLOR else "chassis"
         color = FASTENER_JOINT_COLOR.get(fi.joint, FASTENER_CHASSIS_COLOR)
         yield f"screw_{joint_key}", fi.leg_index, joint_key, color, mesh_key, mesh, M
@@ -759,23 +850,15 @@ def _body_local_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
     Aug 2026 as-built: trays / carapace / imu_pad retired; electronics come
     from ``HP.asbuilt_electronics_local_parts``.
     """
-    from trimesh.creation import box as _box_mesh
-    gap = HP.CHASSIS_GAP
-    plate = HP.CHASSIS_PLATE_T
-
-    # LiPo velcro-strapped to chassis_bottom's top face (no holder); modelled as
-    # a box centred on the origin so its local frame is its own centroid.
-    lipo = _box_mesh(extents=(HP.BATTERY_W, HP.BATTERY_D, HP.BATTERY_H))
-
+    # The two under-belly LiPo packs come from
+    # HP.asbuilt_electronics_local_parts (Aug 2026: no bay battery).
     parts: list[tuple[str, trimesh.Trimesh, np.ndarray]] = [
         ("chassis_bottom", HP.make_chassis_bottom(), np.eye(4)),
-        ("chassis_top", HP.make_chassis_top(), _trans([0, 0, gap + plate])),
-        ("lipo_battery", lipo,
-         _trans([HP.BATTERY_HOLDER_CENTRE_X, 0.0,
-                 plate / 2.0 + HP.BATTERY_H / 2.0])),
+        ("chassis_top", HP.make_chassis_top(),
+         _trans([0, 0, HP.CHASSIS_TOP_CENTRE_Z])),
         ("switch_holster", HP.make_switch_holster(),
          _trans([HP.SWITCH_HOLSTER_CENTRE_X, HP.SWITCH_HOLSTER_CENTRE_Y,
-                 gap + 1.5 * plate + HP.SWITCH_HOLSTER_BOSS_H])),
+                 HP.CHASSIS_TOP_TOP_Z + HP.SWITCH_HOLSTER_BOSS_H])),
     ]
     parts.extend(HP.asbuilt_electronics_local_parts())
     return parts
@@ -856,7 +939,7 @@ _MOTION_LINK_OF_PARTTYPE = {
     "knee_clamp_cap": "hip", "screw_hip": "hip",
     # --- knee link (tibia + foot) ---
     "tibia_knee_yoke": "knee", "tibia_tube": "knee",
-    "tibia_foot_fitting": "knee", "foot_pad": "knee",
+    "foot_boot": "knee",
     "disc_horn_knee": "knee", "passive_horn_knee": "knee",
     "screw_knee": "knee",
 }
@@ -1055,53 +1138,108 @@ def _build_motion_animations(legs):
 # Cable/harness routes (BuildViz ``routes[]`` -> the routing_reach gate)
 # ---------------------------------------------------------------------------
 #
-# Per-leg servo leads = PHYSICAL daisy chain of WIRING.md §6.2 rule 1.
-# Every servo-end waypoint lands on the REAL STS3215 dual 5264 port cluster
+# Per-leg servo leads = the AS-BUILT topology of WIRING.md §6.2 (Aug 2026
+# bench build): DATA (S+GND) enters the leg at the YAW; POWER (V+/GND)
+# enters at the HIP, which is the power tee feeding yaw + knee.  Every
+# servo-end waypoint lands on the REAL STS3215 dual 5264 port cluster
 # (BACK / idler face, centre/−X half — see WIRING.md + HP.STS3215_PORT_*).
 #
 # Drawn as short leads that ride the structure (Aug 2026):
-#   * TAIL: drop slot -> STRAIGHT DOWN through the yaw retainer window
-#     (world z ≈ −34 / yaw-local z ≈ −10 — BELOW the hanging body; the old
-#     "under floor" z=−9 was mid-body and pierced the servo) -> BACK ports
-#   * yaw -> hip: yaw BACK ports -> under the yaw body -> around the −X
-#     face (away from the output) -> up outside the coxa -> hip BACK ports
-#   * hip -> knee: hip BACK ports -> service loop near the hip pitch axis ->
-#     zip-tie path along the femur spar TOP (waypoints anchored to
-#     ``femur_link`` so they pitch with the femur — not the hip servo body)
-#     -> knee BACK ports.  Crossing near the hip axis avoids the floating
-#     free-space run that the femur cradle would pinch when hip pitches.
+#   * TAIL (data entry, S+GND only): data Wago at the drop slot -> STRAIGHT
+#     DOWN through the yaw retainer window (below the hanging body) -> yaw
+#     BACK ports.
+#   * yaw -> hip (S+GND+V+): yaw BACK ports -> under the case, out the
+#     saddle's OPEN +X end -> up past the bearing cap between its ear
+#     lugs -> hip BACK ports.
+#   * POWER TEE (V+/GND): corner power-Wago branch at the drop slot ->
+#     same climb corridor -> hip BACK ports (offset to ride beside the
+#     data ribbon).
+#   * hip -> knee (S+GND+V+): both port clusters face INBOARD on the same
+#     femur-frame plane (z ≈ −3), so the lead festoons straight across the
+#     femur's inboard face, sagging just past the passive-horn yoke arm
+#     and coxa plate (both end at z −11) — no wrap over either clamp cap
+#     (Aug 2026: the old spar-top run looped the whole way around the
+#     knee servo, user-flagged as unrealistic).
 # Leg-to-leg jumpers stay in ``_build_body_routes`` only.
 
 _ROUTE_COLOR_DATA = "#eab308"   # amber: serial-bus leads (V+/GND/S or S+GND)
 
-# Stock FEETECH 3-pin bus lead: ~2.8 mm bundle OD.  The bend gate is set WELL
-# below the physical ~3 x OD comfort bend because the drawn polylines corner
-# schematically at connector entries (the molded boot's strain relief, the
-# wire-exit slot lip) where the real lead is captive anyway -- the 2.5 mm gate
-# only guards against accidental hairpins in the drawn path, not the free
+# Stock FEETECH 3-pin bus lead: ~2.8 mm bundle envelope.  The bend gate is set
+# WELL below the physical ~3 x OD comfort bend because the drawn polylines
+# corner schematically at connector entries (the molded boot's strain relief,
+# the wire-exit slot lip) where the real lead is captive anyway -- the 2.5 mm
+# gate only guards against accidental hairpins in the drawn path, not the free
 # cable's service loops (which the +30 mm/joint slack budget of
 # wire_harness_plan covers).
-_BUS_LEAD_OD_MM = 2.8
 _BUS_LEAD_MIN_BEND_MM = 2.5
 
-# Per-leg intermediate waypoints (chassis frame) inserted between the drop
-# slot and the bus landing where a STRAIGHT drop->landing segment would clip a
-# solid in the routing_reach ray test.  Legs 2 + 3 (the -X pair) aim straight
-# through the LiPo (Jul 2026 real pack: a 138 x 46 x 24 box at x centre -8,
-# spanning x in [-77, +61], |y| <= 23, z in [2, 26]), so their harness
-# instead hugs the battery's +/-Y flank (|y| = 26.5 > 23 + wire radius) along
-# the chassis_bottom top face until almost at the bus bar (x = 62, just past
-# the battery's +X face at 61), then cuts over to the bus landing.  Legs
-# whose straight segment is already clear stay out of this table.
-#
-# The corridor: rise off the drop slot to z ~ 6.5 (probed clear band between
-# the plate-top features and the cradle overhangs, z >= 8.5) while turning
-# radially inward, run along the battery's flank at that height, then cut
-# over to the landing once past the battery's +X face.
-_ROUTE_LEG_DOGLEGS: dict[int, list[tuple[float, float, float]]] = {
-    2: [(-45.0, 26.5, 6.5), (62.0, 26.5, 6.5)],
-    3: [(-45.0, -26.5, 6.5), (62.0, -26.5, 6.5)],
+# Aug 2026 realistic conductors: each 5264 bus lead is drawn as its THREE
+# real side-by-side 28 AWG conductors (flat ribbon, 5264 pin order
+# GND / V+ / SIGNAL), not one fat bundle tube.  ~1.3 mm insulated OD each,
+# 1.35 mm centre spacing; the ribbon plane comes from a parallel-transported
+# path normal (the real ribbon twists freely -- this is visual, not a twist
+# model).  Same waypoints, budget, and bend gate per conductor, so the
+# routing_reach maths is unchanged -- there are just 3 thin wires per lead.
+_LEAD_COND_OD_MM = 1.3
+_LEAD_COND_SPACING_MM = 1.35
+# (suffix, color, label tag, ribbon offset mm)
+_LEAD_CONDUCTORS = (
+    ("gnd", "#1f2937", "GND", -_LEAD_COND_SPACING_MM),
+    ("vp",  "#ef4444", "V+",  0.0),
+    ("sig", _ROUTE_COLOR_DATA, "S", +_LEAD_COND_SPACING_MM),
+)
+# Chassis -> yaw data entry carries S+GND ONLY (WIRING.md §6.2: V+ arrives
+# via the hip tee, never through the chassis 5264 into the yaw).
+_LEAD_DATA_ENTRY = (
+    ("gnd", "#1f2937", "GND", -0.7),
+    ("sig", _ROUTE_COLOR_DATA, "S", +0.7),
+)
+# Per-leg power branch continuing from the corner Wago up to the HIP tee
+# (16-18 AWG silicone twisted pair).  Tight ±0.7 offsets keep its envelope
+# no wider than the proven data ribbon through the yaw climb corridor
+# (larger side offsets grazed the coxa skirt/plate at bends).
+_LEAD_POWER_TEE = (
+    ("vp", "#ef4444", "V+", -0.7),
+    ("gnd", "#1f2937", "GND", +0.7),
+)
+_POWER_TEE_OD_MM = 2.4
+# Which conductor set each intra-leg chain uses (chain name -> conductors).
+_CHAIN_CONDUCTORS = {
+    "tail": _LEAD_DATA_ENTRY,
+    "yaw_hip": _LEAD_CONDUCTORS,
+    "hip_knee": _LEAD_CONDUCTORS,
+    "pwr_tee": _LEAD_POWER_TEE,
 }
+
+
+def _offset_polyline(points, offset_mm: float) -> list[np.ndarray]:
+    """Offset a world polyline sideways by ``offset_mm`` along a
+    parallel-transported normal (stable frame, no flips), for drawing the
+    individual conductors of a flat ribbon side by side."""
+    P = [np.asarray(p, dtype=float) for p in points]
+    if abs(offset_mm) < 1e-9 or len(P) < 2:
+        return P
+    tangents = []
+    for i in range(len(P)):
+        t = P[min(i + 1, len(P) - 1)] - P[max(i - 1, 0)]
+        n = np.linalg.norm(t)
+        tangents.append(t / n if n > 1e-9 else np.array([1.0, 0.0, 0.0]))
+    ref = (np.array([0.0, 0.0, 1.0]) if abs(tangents[0][2]) < 0.9
+           else np.array([1.0, 0.0, 0.0]))
+    nrm = np.cross(tangents[0], ref)
+    nrm /= np.linalg.norm(nrm)
+    out = []
+    for p, t in zip(P, tangents):
+        nrm = nrm - np.dot(nrm, t) * t
+        n = np.linalg.norm(nrm)
+        if n > 1e-9:
+            nrm = nrm / n
+        out.append(p + offset_mm * nrm)
+    return out
+
+# (Aug 2026: the per-leg _ROUTE_LEG_DOGLEGS battery-flank detours are gone --
+# each power branch now lands on its leg's CORNER Wago pair right beside the
+# drop slot, so no branch crosses the LiPo anymore.)
 
 
 def _plan_entry(leg: int, axis: str) -> WHP.HarnessEntry:
@@ -1111,16 +1249,19 @@ def _plan_entry(leg: int, axis: str) -> WHP.HarnessEntry:
     raise KeyError((leg, axis))
 
 
-def _servo_attach_paths() -> dict[str, list[tuple[str, list[float]]]]:
-    """Leg-0 waypoint chains for the intra-leg servo wiring.
+def _servo_attach_paths() -> dict[str, dict[str, list[tuple[str, list[float]]]]]:
+    """Leg-0 waypoint chains for the intra-leg servo wiring, one chain per
+    CONDUCTOR: ``{route: {conductor_suffix: [(anchor, local_xyz), ...]}}``.
 
-    Each waypoint is ``(anchor, local_xyz)`` where ``anchor`` is one of
-    ``yaw`` / ``hip`` / ``knee`` (servo well frame) or ``femur`` (femur_link
-    part frame).  Spar midpoints MUST be femur-anchored: the hip servo body
-    stays with the coxa, so hip-anchored "spar" points would float and get
-    pinched when hip pitches.
+    ``anchor`` is one of ``yaw`` / ``hip`` / ``knee`` (servo well frame) or
+    ``femur`` (femur_link part frame).  Spar midpoints MUST be femur-anchored:
+    the hip servo body stays with the coxa, so hip-anchored "spar" points
+    would float and get pinched when hip pitches.
 
-    Attach = real BACK-face 5264 cluster (``HP.STS3215_PORT_*``).
+    Attach = real BACK-face 5264 cluster (``HP.STS3215_PORT_*``).  Every
+    chain wraps AROUND the servo cases (probed clear of every leg-0 solid by
+    tools/_wire_probe_diag.py -- the pre-Aug-2026 paths cut straight through
+    the hip + knee bodies and the v4 retainer foot poles).
     """
     M0 = _servo_M0s()
     Mf = next(M for n, _m, M in _leg0_local_link_parts() if n == "femur_link")
@@ -1136,24 +1277,21 @@ def _servo_attach_paths() -> dict[str, list[tuple[str, list[float]]]]:
         e = np.zeros(4); e[i] = 1.0
         return (M0[ax] @ e)[:3]
 
-    hip_y, hip_z = axis("hip", "y"), axis("hip", "z")
-    leave_hip = ports["hip"] - 4.0 * hip_z
+    leave_hip = ports["hip"] - 4.0 * axis("hip", "z")
     leave_knee = ports["knee"] - 4.0 * axis("knee", "z")
     leave_yaw = ports["yaw"] - 6.0 * axis("yaw", "z")
-    # Hip pitch axis (output face) — service loop crosses here (~12 mm radius).
-    hip_axis = (M0["hip"] @ np.array(
-        [HP.SERVO_OUTPUT_X, 0.0, HP.SERVO_BODY_H, 1.0]))[:3]
-    pre_axis = hip_axis + 12.0 * hip_y
 
     src = np.array(_plan_entry(0, "yaw")["source_xyz_chassis"])
     drop = np.array(_plan_entry(0, "yaw")["via_chassis_drop_xyz"])
 
-    def L(anchor: str, w) -> tuple[str, list[float]]:
-        p = (inv[anchor] @ np.array([w[0], w[1], w[2], 1.0]))[:3]
-        return (anchor, [float(c) for c in p])
-
     def Wy(xyz) -> np.ndarray:
         return (M0["yaw"] @ np.array([xyz[0], xyz[1], xyz[2], 1.0]))[:3]
+
+    def Wh(xyz) -> np.ndarray:
+        return (M0["hip"] @ np.array([xyz[0], xyz[1], xyz[2], 1.0]))[:3]
+
+    def Wk(xyz) -> np.ndarray:
+        return (M0["knee"] @ np.array([xyz[0], xyz[1], xyz[2], 1.0]))[:3]
 
     def Wf(xyz) -> np.ndarray:
         return (Mf @ np.array([xyz[0], xyz[1], xyz[2], 1.0]))[:3]
@@ -1164,46 +1302,94 @@ def _servo_attach_paths() -> dict[str, list[tuple[str, list[float]]]]:
     drop_l = (inv["yaw"] @ np.array([drop[0], drop[1], drop[2], 1.0]))[:3]
     drop_down = Wy([drop_l[0], drop_l[1], -10.0])
     under_yaw = Wy([HP.STS3215_PORT_X_MM, HP.STS3215_PORT_Y_MM, -10.0])
-    # yaw→hip: under the body, around the −X face (away from output), then
-    # rise outside the coxa toward the hip back ports (probed clear).
-    yaw_under_corner = Wy([-28.0, -22.0, -14.0])
-    yaw_rise_outboard = Wy([-28.0, 18.0, 20.0])
+    # yaw→hip (Aug 2026 rework): the OLD −X swing at yaw (−28, −22, −14) now
+    # lands inside the v4 retainer's rear corner FOOT POLE, so the lead
+    # instead slides under the case and out the saddle channel's OPEN +X end
+    # (walls are on ±Y/−X only), then rises past the Ø50 bearing cap at
+    # r ≈ 27 / azimuth ≈ 63° -- outside the cap rim AND between its 90°/330°
+    # ear lugs -- up to the hip back ports.
+    yaw_slide_open_end = Wy([5.0, 8.0, -10.0])
+    yaw_exit_open_end = Wy([26.0, 12.0, -10.0])
+    yaw_rise_low = Wy([24.5, 24.0, 2.0])
+    yaw_rise_by_cap = Wy([25.0, 25.0, 34.0])
+    # ...stay OUTSIDE the hub-platform / skirt rim (r ≈ 28) until above the
+    # platform top, then duck in to the hip back ports.
+    yaw_over_platform = Wy([12.5, 29.5, 64.0])
 
-    # Femur spar TOP zip-tie channel (femur-local x along length, z above
-    # the printed spar surface — probed clear of clamp/coxa/yoke solids).
-    def spar_z(x: float) -> float:
-        return (45.3 if x < 55.0 else 38.6) + 6.0
+    # Power-tee approach: at OD 2.4 the direct over_platform -> leave_hip
+    # crossing grazes the coxa passive-side plate corner (probe: ~0.2-0.4 mm
+    # at hip (7, -30, -10)); dip INBOARD of the plate (nothing solid past
+    # hip z -11) before rising to the ports.
+    tee_under_plate = Wh([4.0, -33.0, -14.0])
+    # ...stay below the plate (z <= -13) until past its y band (-27.7..-7.8),
+    # then rise to the wire slot at x -10 (clear of the yoke arm's x 2..46).
+    tee_inboard = Wh([-4.0, -8.0, -13.0])
 
-    spar_world = [Wf((x, 0.0, spar_z(x))) for x in (28.0, 42.0, 56.0, 70.0, 82.0)]
-    knee_appr = Wf((90.0, 0.0, 39.6))
+    # hip→knee: BOTH back-port clusters sit on the femur-frame INBOARD
+    # plane (z ≈ −3, y 0 -- hip ports at femur (−10,0,−3), knee ports at
+    # (80,0,−3)), so the lead simply festoons across the femur's inboard
+    # face.  Nothing is solid inboard of femur z −11 (the passive-horn yoke
+    # arm ends at z −11, the coxa's passive-side plate at z −11 too), so
+    # the run sags to z −13.5 and passes under BOTH -- probed clear.
+    femur_dip_inboard = Wf((-4.0, 0.0, -13.5))
+    femur_run_inboard = Wf((68.0, 0.0, -13.5))
 
-    paths = {
+    chains = {
         "tail": [
-            L("yaw", src), L("yaw", drop), L("yaw", drop_down),
-            L("yaw", under_yaw), L("yaw", leave_yaw), L("yaw", ports["yaw"]),
+            ("yaw", src), ("yaw", drop), ("yaw", drop_down),
+            ("yaw", under_yaw), ("yaw", leave_yaw), ("yaw", ports["yaw"]),
         ],
         "yaw_hip": [
-            L("yaw", ports["yaw"]), L("yaw", leave_yaw), L("yaw", under_yaw),
-            L("yaw", yaw_under_corner), L("yaw", yaw_rise_outboard),
-            L("hip", leave_hip), L("hip", ports["hip"]),
+            ("yaw", ports["yaw"]), ("yaw", leave_yaw), ("yaw", under_yaw),
+            ("yaw", yaw_slide_open_end), ("yaw", yaw_exit_open_end),
+            ("yaw", yaw_rise_low), ("yaw", yaw_rise_by_cap),
+            ("yaw", yaw_over_platform),
+            ("hip", leave_hip), ("hip", ports["hip"]),
         ],
         "hip_knee": [
-            L("hip", ports["hip"]),
-            L("hip", leave_hip),
-            L("hip", pre_axis),
-            *[L("femur", p) for p in spar_world],
-            L("femur", knee_appr),
-            L("knee", leave_knee),
-            L("knee", ports["knee"]),
+            ("hip", ports["hip"]),
+            ("hip", leave_hip),
+            ("femur", femur_dip_inboard),
+            ("femur", femur_run_inboard),
+            ("knee", leave_knee),
+            ("knee", ports["knee"]),
+        ],
+        # Power branch continuing from the drop slot (where the body-route
+        # corner-Wago branch ends), up the SAME yaw climb corridor, to the
+        # hip tee ports.
+        "pwr_tee": [
+            ("yaw", drop), ("yaw", drop_down),
+            ("yaw", yaw_slide_open_end), ("yaw", yaw_exit_open_end),
+            ("yaw", yaw_rise_low), ("yaw", yaw_rise_by_cap),
+            ("yaw", yaw_over_platform),
+            ("hip", tee_under_plate), ("hip", tee_inboard),
+            ("hip", leave_hip), ("hip", ports["hip"]),
         ],
     }
+
+    # Fan each chain out into its ribbon conductors (3 for full bus leads,
+    # 2 for the S+GND data entry and the V+/GND power tee): offset the WORLD
+    # polyline sideways, then express every offset waypoint back in its own
+    # anchor's local frame so the conductors still ride the gait.
+    paths: dict[str, dict[str, list[tuple[str, list[float]]]]] = {}
+    for name, chain in chains.items():
+        world = [w for _a, w in chain]
+        paths[name] = {}
+        for suffix, _color, _tag, off in _CHAIN_CONDUCTORS[name]:
+            pts = _offset_polyline(world, off)
+            paths[name][suffix] = [
+                (a, [float(c) for c in (inv[a] @ np.array([*p, 1.0]))[:3]])
+                for (a, _w), p in zip(chain, pts)]
     return paths
 
 
 def _build_routes(chassis_lift: float, legs: list[int],
-                  leg_part_ids: dict[tuple[int | None, str], str]) -> list[dict]:
-    """BuildViz ``routes[]`` for the per-leg servo wiring: bundle tail and
-    yaw->hip / hip->knee daisy segments (see the section comment above).
+                  leg_part_ids: dict[tuple[int | None, str], str],
+                  wago_data_by_leg: dict[int, str] | None = None) -> list[dict]:
+    """BuildViz ``routes[]`` for the per-leg servo wiring: data-entry tail
+    (S+GND), yaw->hip / hip->knee daisy segments (GND/V+/S ribbon), and the
+    corner-Wago->hip power tee (V+/GND) -- see the section comment above.
+    Each drawn as its individual conductors (``_CHAIN_CONDUCTORS``).
     ``leg_part_ids`` maps (leg, partType) -> scene instance id.
 
     Servo-end and femur-spar waypoints are instance-anchored so they ride
@@ -1228,42 +1414,61 @@ def _build_routes(chassis_lift: float, legs: list[int],
                 (((None, n) if n == "chassis_bottom" else (leg, n))
                  for n in names) if k in leg_part_ids]
 
-    common = dict(kind="data", color=_ROUTE_COLOR_DATA,
-                  diameterMm=_BUS_LEAD_OD_MM, radiusMm=_BUS_LEAD_OD_MM / 2.0,
+    common = dict(kind="data",
+                  diameterMm=_LEAD_COND_OD_MM, radiusMm=_LEAD_COND_OD_MM / 2.0,
                   minBendRadiusMm=_BUS_LEAD_MIN_BEND_MM,
                   maxLengthMm=WHP.STOCK_PIGTAIL_MM)
+
+    def add(leg: int, route_id: str, chain_name: str, label: str,
+            instances: list, od_mm: float | None = None) -> None:
+        chains = paths[chain_name]
+        od = od_mm if od_mm is not None else _LEAD_COND_OD_MM
+        for suffix, color, tag, _off in _CHAIN_CONDUCTORS[chain_name]:
+            routes.append({
+                "id": f"{route_id}-{suffix}",
+                **common,
+                "diameterMm": od, "radiusMm": od / 2.0,
+                "color": color,
+                "waypoints": wp_anchored(leg, chains[suffix]),
+                "label": f"{label} [{tag}]",
+                "instances": instances,
+            })
 
     for leg in legs:
         sid_yaw = joint_to_servo_id(3 * leg)
         sid_hip = joint_to_servo_id(3 * leg + 1)
         sid_knee = joint_to_servo_id(3 * leg + 2)
 
-        routes.append({
-            "id": f"route-j{3 * leg:02d}",
-            **common,
-            "waypoints": wp_anchored(leg, paths["tail"]),
-            "label": (f"L{leg} leg bundle: drop slot -> down retainer window "
-                      f"-> YAW ID {sid_yaw} BACK-face 5264 ports"),
-            "instances": ids(leg, "chassis_bottom", "yaw_servo_retainer"),
-        })
-        routes.append({
-            "id": f"route-j{3 * leg + 1:02d}",
-            **common,
-            "waypoints": wp_anchored(leg, paths["yaw_hip"]),
-            "label": (f"L{leg} daisy: YAW ID {sid_yaw} -> HIP ID {sid_hip} "
-                      f"(BACK ports, under yaw / around −X face)"),
-            "instances": ids(leg, "chassis_bottom", "yaw_servo_retainer"),
-        })
-        routes.append({
-            "id": f"route-j{3 * leg + 2:02d}",
-            **common,
-            "waypoints": wp_anchored(leg, paths["hip_knee"]),
-            "label": (f"L{leg} daisy: HIP ID {sid_hip} -> KNEE ID {sid_knee} "
-                      f"(BACK ports, zip-tied on femur spar top, crosses "
-                      f"near hip axis)"),
-            "instances": ids(leg, "femur_link", "hip_clamp_cap",
-                             "knee_clamp_cap"),
-        })
+        # The tail lead's SOURCE is the leg's underside data-Wago splice, so
+        # that Wago is a terminal (declared pass-through), not an obstruction.
+        tail_wagos = ([wago_data_by_leg[leg]] if wago_data_by_leg
+                      and leg in wago_data_by_leg else [])
+        # Terminal servos are declared per route: the lead SEATS into the
+        # recessed 5264 cluster, so endpoint contact with the case is
+        # intended (same exemption as connector seating).
+        add(leg, f"route-j{3 * leg:02d}", "tail",
+            (f"L{leg} DATA entry: data Wago -> drop slot -> down retainer "
+             f"window -> YAW ID {sid_yaw} BACK-face 5264 ports "
+             f"(S+GND only; V+ arrives via the hip tee)"),
+            ids(leg, "chassis_bottom", "yaw_servo_retainer", "yaw_servo")
+            + tail_wagos)
+        add(leg, f"route-j{3 * leg + 1:02d}", "yaw_hip",
+            (f"L{leg} daisy: YAW ID {sid_yaw} -> HIP ID {sid_hip} "
+             f"(BACK ports, out the saddle's open +X end, up past the "
+             f"bearing cap)"),
+            ids(leg, "chassis_bottom", "yaw_servo_retainer", "yaw_servo",
+                "hip_servo"))
+        add(leg, f"route-j{3 * leg + 2:02d}", "hip_knee",
+            (f"L{leg} daisy: HIP ID {sid_hip} -> KNEE ID {sid_knee} "
+             f"(BACK ports, festooned across the femur's inboard face, "
+             f"under the passive-horn yoke arm)"),
+            ids(leg, "femur_link", "hip_servo", "knee_servo"))
+        add(leg, f"route-pwr-tee-l{leg}", "pwr_tee",
+            (f"L{leg} POWER tee: corner power-Wago branch -> drop slot -> "
+             f"up the yaw corridor -> HIP ID {sid_hip} ports (V+/GND; the "
+             f"hip tees 12 V to yaw + knee -- WIRING.md §6.2)"),
+            ids(leg, "chassis_bottom", "yaw_servo_retainer", "hip_servo"),
+            od_mm=_POWER_TEE_OD_MM)
     return routes
 
 
@@ -1285,20 +1490,85 @@ def _build_routes(chassis_lift: float, legs: list[int],
 # reach-critical cable builds, so budgets are generous -- but every route must
 # still clear the routing_reach obstruction ray test.
 
-_ROUTE_COLOR_POWER = "#ef4444"  # bright red: 12 V V+/GND power pairs
-_ROUTE_COLOR_GND = "#1f2937"    # near-black: GND-only / no-V+ jumpers
-_ROUTE_COLOR_LOGIC = "#3b82f6"  # blue: battery → Uno Q (no buck)
-_ROUTE_COLOR_I2C = "#22c55e"    # green: I2C sensor pigtail
+_ROUTE_COLOR_POWER = "#ef4444"  # bright red: 12 V V+ conductors
+_ROUTE_COLOR_GND = "#1f2937"    # near-black: GND conductors / no-V+ jumpers
+_ROUTE_COLOR_LOGIC = "#3b82f6"  # blue: logic (SCL / USB head)
+_ROUTE_COLOR_I2C = "#22c55e"    # green: I2C SDA
+
+# Aug 2026 realistic conductors for the body nets (same idea as
+# _LEAD_CONDUCTORS): a V+/GND pair is TWO wires, the I2C pigtail is FOUR.
+# (suffix, color, tag, ribbon offset mm) per net; OD passed separately.
+_PAIR_POWER = (("vp", _ROUTE_COLOR_POWER, "V+", -1.3),
+               ("gnd", _ROUTE_COLOR_GND, "GND", +1.3))
+_PAIR_LOGIC = (("vp", _ROUTE_COLOR_POWER, "V+", -1.0),
+               ("gnd", _ROUTE_COLOR_GND, "GND", +1.0))
+_PAIR_JUMPER = (("sig", _ROUTE_COLOR_DATA, "S", -0.7),
+                ("gnd", _ROUTE_COLOR_GND, "GND", +0.7))
+# Aug 2026: the MPU's 3V3 now comes off the under-plate 3.3 V Wago (see
+# route-3v3-*), so the Uno -> MPU pigtail is a TRIPLE (GND/SCL/SDA).
+_TRI_I2C = (("gnd", _ROUTE_COLOR_GND, "GND", -1.1),
+            ("scl", _ROUTE_COLOR_LOGIC, "SCL", 0.0),
+            ("sda", _ROUTE_COLOR_I2C, "SDA", +1.1))
+# Aug 2026 as-built data head: the Uno Q talks to the bus-servo adapter
+# over its D0/D1 MCU UART (feetech_bridge, jumper A) -- a TX/RX/GND
+# jumper triple, NOT the USB-C cable.  VIN-powered Uno Qs neither source
+# 5 V from the USB-C jack nor boot the USB controller in host mode
+# (arduino/linux-qcom#2), so USB is bench-only (WIRING.md intro note).
+_TRI_UART = (("tx", _ROUTE_COLOR_LOGIC, "TX", -1.1),
+             ("rx", _ROUTE_COLOR_I2C, "RX", 0.0),
+             ("gnd", _ROUTE_COLOR_GND, "GND", +1.1))
+# ST7789 SPI screen pigtail: 8 conductors bundled Uno Q -> top-plate slot.
+# Tight 0.5 mm pitch (wires overlap = round bundle look, ~4.5 mm wide
+# incl. wire OD) so the bundle fits the 5 mm-deep slot opening whatever
+# way the parallel-transport ribbon plane twists at the crossing.
+_SCREEN_8 = (("vcc", _ROUTE_COLOR_POWER, "VCC", -1.75),
+             ("gnd", _ROUTE_COLOR_GND, "GND", -1.25),
+             ("scl", _ROUTE_COLOR_LOGIC, "SCL", -0.75),
+             ("sda", _ROUTE_COLOR_I2C, "SDA", -0.25),
+             ("res", "#f59e0b", "RES", +0.25),
+             ("dc", "#8b5cf6", "DC", +0.75),
+             ("cs", "#06b6d4", "CS", +1.25),
+             ("blk", "#ec4899", "BLK", +1.75))
+
+
+def _fan_points_route(route: dict, conductors, od_mm: float,
+                      overrides: dict | None = None) -> list[dict]:
+    """Split a world-polyline body route into its parallel conductors
+    (offset sideways via ``_offset_polyline``); same waypoint shape, budget,
+    and instances per conductor -- just N thin wires instead of one tube.
+
+    ``overrides`` maps conductor suffix -> {point_index: world_xyz} and
+    pins individual conductors to their REAL terminals (the V+ vs GND
+    Wago nut, a specific Uno header pin) instead of the shared fanned
+    polyline.  Negative indices address from the end (-1 = endpoint)."""
+    out = []
+    for suffix, color, tag, off in conductors:
+        r = dict(route)
+        r["id"] = f"{route['id']}-{suffix}"
+        r["label"] = f"{route['label']} [{tag}]"
+        r["color"] = color
+        r["radiusMm"] = od_mm / 2.0
+        r["diameterMm"] = od_mm
+        points = [[float(c) for c in p]
+                  for p in _offset_polyline(route["points"], off)]
+        for idx, pt in ((overrides or {}).get(suffix) or {}).items():
+            points[idx] = [float(c) for c in pt]
+        r["points"] = points
+        out.append(r)
+    return out
 
 # Chassis-frame anchor nodes for the body harness (pre-lift z).
-_LIPO_EXIT = (63.0, 0.0, 20.0)          # just past the LiPo +X face
-_SWITCH_SIDE = (52.0, -13.0, 46.0)      # outside the holster's -Y wall
-_SWITCH_SIDE_OUT = (48.0, -13.0, 46.0)
+# _LIPO_EXIT: the under-belly pack block's +axis end (az 30, r ~ 37.5)
+# where both packs' XT60 leads + the Y-harness live, below the belly.
+_LIPO_EXIT = (36.0, 21.0, -19.0)
+_SWITCH_SIDE = (52.0, -13.0, HP.CHASSIS_TOP_TOP_Z + 10.0)   # holster -Y wall
+_SWITCH_SIDE_OUT = (48.0, -13.0, HP.CHASSIS_TOP_TOP_Z + 10.0)
 _EDGE_DROP_XY = (70.0, -16.0)
-# Trunk Wago splice pair (V+/GND) on chassis_top -- the battery trunk lands
-# here (as-built Aug 2026: no PDB).
+# Central trunk Wago splice pair (two 5-port 221-415, V+/GND) at the
+# chassis_top centre -- the battery trunk lands here (as-built Aug 2026:
+# no PDB).
 _WAGO_TRUNK_NODE = (HP.WAGO_TRUNK_CENTRE[0], HP.WAGO_TRUNK_CENTRE[1],
-                    HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T + HP.WAGO_H)
+                    HP.CHASSIS_TOP_TOP_Z + HP.WAGO5_H)
 
 
 def _leg_src(leg: int) -> tuple[float, float, float]:
@@ -1326,138 +1596,476 @@ def _leg_bus_post(leg: int) -> tuple[float, float, float]:
 
 
 def _build_body_routes(chassis_lift: float, legs: list[int],
-                       part_ids: dict[str, str]) -> list[dict]:
+                       part_ids: dict[str, str],
+                       wago_data_by_leg: dict[int, str] | None = None,
+                       part_ids_all: dict[str, list[str]] | None = None,
+                       ) -> list[dict]:
     """BuildViz ``routes[]`` for the non-servo-lead nets of WIRING.md §1/§6.
 
     ``part_ids`` maps body partType -> scene instance id so each route can
     declare its termination instances (exempt from the obstruction ray test,
-    exactly like connector seating)."""
+    exactly like connector seating).  ``wago_data_by_leg`` maps a leg to its
+    underside data-Wago instance (terminal of the bus head + jumpers).
+    ``part_ids_all`` maps partType -> ALL instance ids (for multi-instance
+    terminals like the trunk nut pair, corner Wago pairs, and data Wagos --
+    ``part_ids`` keeps only one id per type)."""
     ex, ey = _EDGE_DROP_XY
-    deck0 = HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T
+    deck0 = HP.CHASSIS_TOP_TOP_Z
     hex_top = deck0 + HP.HEX_POST_STACK_H + HP.HEX_MOUNT_PLATE_T
     uno_z = hex_top + 5.0
     raised_top = hex_top + HP.HEX_RAISED_TOTAL_H
-    mpu_z = raised_top - HP.HEX_RAISED_TOP_T - HP.IMU_PCB_T / 2.0
 
     def pts(*chassis_pts):
         return [[float(x), float(y), float(z) + chassis_lift]
                 for x, y, z in chassis_pts]
 
+    def w(p):
+        """One chassis-frame point -> world (for _fan_points_route
+        overrides)."""
+        return pts(p)[0]
+
+    # --- Arduino Uno R3 header map (the Uno Q keeps the Uno form factor).
+    # dx along the board's long axis from the board centre (USB-C end =
+    # -X), 2.54 mm pitch, per the official Uno mechanical drawing.  The
+    # DIGITAL row rides the +Y long edge, power/analog the -Y edge; the
+    # visual's header strips sit at y = centre +/- 23.67, top z = pcb
+    # 1.6 + 9 mm pins.
+    _UNO_DIG = {"SCL": -16.51, "SDA": -13.97, "GND_D": -8.89,
+                "D13": -6.35, "D12": -3.81, "D11": -1.27, "D10": 1.27,
+                "D9": 3.81, "D8": 6.35, "D7": 10.16,
+                "D1": 25.4, "D0": 27.94}
+    _UNO_PWR = {"3V3": 0.0, "5V": 2.54, "GND_P1": 5.08, "GND_P2": 7.62,
+                "VIN": 10.16}
+
+    def uno_pin(name: str) -> tuple[float, float, float]:
+        ux, uy = HP.UNO_Q_ON_HEX_CENTRE
+        if name in _UNO_DIG:
+            return (ux + _UNO_DIG[name], uy + 23.67, hex_top + 10.6)
+        return (ux + _UNO_PWR[name], uy - 23.67, hex_top + 10.6)
+
+    # --- Central trunk nut pair: V+ = SOUTH nut (toward the switch at
+    # -Y), GND = NORTH nut.  (Two 5-port 221-415 at (16, -/+16).)
+    _nut_z = HP.CHASSIS_TOP_TOP_Z + HP.WAGO5_H
+    trunk_vp_nut = (HP.WAGO_TRUNK_CENTRE[0],
+                    HP.WAGO_TRUNK_CENTRE[1] - HP.WAGO_TRUNK_DY / 2.0, _nut_z)
+    trunk_gnd_nut = (HP.WAGO_TRUNK_CENTRE[0],
+                     HP.WAGO_TRUNK_CENTRE[1] + HP.WAGO_TRUNK_DY / 2.0, _nut_z)
+
     def ids(*names):
         return [part_ids[n] for n in names if n in part_ids]
 
+    def ids_all(*names):
+        if not part_ids_all:
+            return ids(*names)
+        return [i for n in names for i in part_ids_all.get(n, [])]
+
     routes: list[dict] = [
-        # -- power trunk → trunk Wagos ---------------------------------------
+        # -- power trunk V+: LiPo -> switch -> fuse -> trunk Wago ------------
+        # The anti-spark switch + inline fuse interrupt V+ ONLY; battery GND
+        # runs straight to the trunk GND nut (separate route below).
+        # Aug 2026 under-belly packs: both XT60s + the parallel Y-harness
+        # live BELOW the belly at the pack block's +axis end.  Both packs'
+        # terminated XT60 leads climb through the DEDICATED 14 x 22 mm
+        # battery-trunk pass-through at (48, 0) (HP.BATTERY_TRUNK_HOLE_*,
+        # sized to pass an XT60 nose-first), surface in the inter-plate
+        # bay, and hop the deck rim at az 0 to reach the switch / main
+        # XT60 on chassis_top.
         {
-            "id": "route-trunk-lipo-switch",
-            "points": pts(_LIPO_EXIT, (ex, ey, 20.0), (ex, ey, 46.0),
+            "id": "route-trunk-vp-lipo-switch",
+            "points": pts(_LIPO_EXIT,
+                          (HP.BATTERY_TRUNK_HOLE_CENTRE[0], 4.0, -16.0),
+                          (HP.BATTERY_TRUNK_HOLE_CENTRE[0], 0.0, 6.0),
+                          (63.0, -6.0, 10.0),
+                          (63.0, -10.0, deck0 + 8.0),
                           _SWITCH_SIDE),
-            "maxLengthMm": 200.0,
-            "label": ("power trunk 12-14 AWG: LiPo XT60 -> anti-spark switch "
-                      "(rises past the top-plate +X edge)"),
+            "maxLengthMm": 220.0,
+            "label": ("power trunk V+ 12-14 AWG: under-belly LiPo pair "
+                      "(XT60 Y-harness) -> UP through the 14 x 22 battery "
+                      "pass-through at (48, 0) -> over the deck rim at "
+                      "az 0 -> anti-spark switch"),
             "color": _ROUTE_COLOR_POWER,
-            "radiusMm": 2.6,
-            "instances": ids("lipo_battery", "switch_holster"),
+            "radiusMm": 1.8,
+            "instances": ids("lipo_battery", "switch_holster")
+            + ids_all("wago_power"),
         },
         {
-            "id": "route-trunk-switch-wago",
-            "points": pts(_SWITCH_SIDE_OUT, (ex, ey, 46.0),
-                          (HP.WAGO_TRUNK_CENTRE[0], HP.WAGO_TRUNK_CENTRE[1],
-                           46.0),
-                          _WAGO_TRUNK_NODE),
+            "id": "route-trunk-vp-switch-wago",
+            "points": pts(_SWITCH_SIDE_OUT, (34.0, -13.0, deck0 + 14.0),
+                          (20.0, -14.0, deck0 + 14.0), trunk_vp_nut),
             "maxLengthMm": 200.0,
-            "label": ("power trunk 12-14 AWG: switch -> 15-20 A main fuse "
-                      "(inline) -> trunk Wago splice pair on chassis_top"),
+            "label": ("power trunk V+ 12-14 AWG: switch -> 15-20 A main fuse "
+                      "(inline) -> central trunk V+ nut = the SOUTH 5-port "
+                      "Wago 221-415 at (16, -16), nearest the switch"),
             "color": _ROUTE_COLOR_POWER,
-            "radiusMm": 2.6,
-            "instances": ids("switch_holster", "wago_trunk"),
+            "radiusMm": 1.8,
+            "instances": ids("switch_holster") + ids_all("wago_trunk"),
         },
-        # -- battery → Uno Q (no buck) --------------------------------------
         {
-            "id": "route-logic-battery-uno",
-            "points": pts(_WAGO_TRUNK_NODE,
-                          (HP.UNO_Q_ON_HEX_CENTRE[0], HP.UNO_Q_ON_HEX_CENTRE[1],
-                           deck0 + 8.0),
-                          (HP.UNO_Q_ON_HEX_CENTRE[0], HP.UNO_Q_ON_HEX_CENTRE[1],
-                           uno_z)),
-            "maxLengthMm": 300.0,
-            "label": ("battery tap at the trunk Wagos -> Uno Q (no buck; "
-                      "20 AWG V+/GND; Uno Q accepts the 3S rail via its "
-                      "own regulator)"),
-            "color": _ROUTE_COLOR_LOGIC,
-            "radiusMm": 1.5,
-            "instances": ids("wago_trunk", "uno_q"),
+            "id": "route-trunk-gnd-lipo-wago",
+            "points": pts(_LIPO_EXIT,
+                          (HP.BATTERY_TRUNK_HOLE_CENTRE[0], 4.0, -16.0),
+                          (HP.BATTERY_TRUNK_HOLE_CENTRE[0], -4.0, 6.0),
+                          (63.0, -8.0, 8.0),
+                          (84.0, -6.0, 9.0),
+                          (87.0, -5.0, 12.0),
+                          (87.0, -14.0, deck0 + 17.0),
+                          (60.0, -16.0, deck0 + 17.0),
+                          (34.0, -17.0, deck0 + 17.0),
+                          (10.0, -14.0, deck0 + 17.0),
+                          (8.0, 2.0, deck0 + 17.0),
+                          trunk_gnd_nut),
+            "maxLengthMm": 360.0,
+            "label": ("power trunk GND 12-14 AWG: under-belly LiPo pair -> "
+                      "UP through the (48, 0) battery pass-through -> out "
+                      "the az-0 bay to the corner tray, climbing PAST the "
+                      "switch holster's +X face (x 85) -> back west along "
+                      "the deck SOUTH of the holster (y <= -14) -> around "
+                      "the WEST side of the V+ nut -> central trunk GND "
+                      "nut = the NORTH 5-port Wago at (16, +16) (no "
+                      "switch/fuse in the GND leg)"),
+            "color": _ROUTE_COLOR_GND,
+            "radiusMm": 1.8,
+            "instances": ids("lipo_battery")
+            + ids_all("wago_trunk", "wago_power"),
         },
-        # -- data head: Uno Q -> motor controller -> servo bus --------------
+    ]
+    # -- battery → Uno Q (no buck): 20 AWG V+/GND pair ----------------------
+    # The Uno sits ON the round Ø115 mount plate, so anything from the deck
+    # below must come OVER the plate's rim (straight verticals pierce the
+    # plate).  The raised platform's six legs occupy az 15-45 (mod 60) at
+    # r 43-50; cross the rim (r 57.5) in the FREE az-60 corridor, hopping
+    # at r ~ 59.
+    routes += _fan_points_route({
+        "id": "route-logic-battery-uno",
+        "points": pts(_WAGO_TRUNK_NODE,
+                      (29.5, 51.1, deck0 + 13.0),
+                      (29.5, 51.1, hex_top + 4.0),
+                      (26.5, 18.0, hex_top + 4.5),
+                      # Climb OVER the board's east end (header strips top
+                      # out at hex_top+10.6), then land on the -Y power
+                      # header from above.
+                      (24.0, -24.0, hex_top + 12.5),
+                      (8.0, -35.0, hex_top + 11.0)),
+        "maxLengthMm": 300.0,
+        "label": ("battery tap at the trunk nuts (V+ = south, GND = north) "
+                  "-> over the round plate's az-60 rim (between the "
+                  "raised-platform legs, r ~ 59) -> EAST of the breakout "
+                  "(x > 23) -> over the board's east end -> Uno Q power "
+                  "header: V+ on VIN, GND on the adjacent GND pin (no "
+                  "buck; 20 AWG; Uno Q accepts the 3S rail via its own "
+                  "regulator)"),
+        "instances": ids("uno_q") + ids_all("wago_trunk"),
+    }, _PAIR_LOGIC, od_mm=1.8, overrides={
+        "vp": {0: w(trunk_vp_nut), -1: w(uno_pin("VIN"))},
+        "gnd": {0: w(trunk_gnd_nut), -1: w(uno_pin("GND_P1"))},
+    })
+    # -- data head 1/2: Uno Q D0/D1 -> adapter UART header (TX/RX/GND) ------
+    # As-built: feetech_bridge owns the MCU UART (adapter jumper A); the
+    # USB-C hookup is bench-only (no VBUS / device-mode USB when the Uno Q
+    # is VIN-powered).  The adapter is on the deck UNDER the round mount
+    # plate: drape over the plate's -X rim (r 57.5; hop at r ~ 60.5), run
+    # SOUTH around the adapter body (y < -21), and land on its +X
+    # servo/UART face from the east.
+    adapter_uart_face = (HP.MOTOR_CTRL_CENTRE[0] + HP.MOTOR_CTRL_D / 2.0,
+                         HP.MOTOR_CTRL_CENTRE[1])
+    routes += _fan_points_route({
+        "id": "route-uart-uno-adapter",
+        # Starts on the D0/D1 end of the +Y digital header; hop WEST above
+        # the header strips (top hex_top+10.6) and descend past the -X
+        # board edge (x -34.3) before diving for the plate rim.
+        "points": pts((26.0, -12.0 + 23.67, hex_top + 10.6),
+                      (-10.0, 8.0, hex_top + 12.5),
+                      (-40.0, -4.0, hex_top + 6.0),
+                      (-60.0, -8.0, hex_top + 3.0),
+                      (-60.0, -8.0, deck0 + 14.0),
+                      # y ~ -24.5 threads between the (-31.1, -31.1) magnet
+                      # post (Ø5) and the adapter's south face (y -21); the
+                      # mid waypoint pins the rendered spline at the post so
+                      # it cannot sag south into it.
+                      (-48.0, -25.0, deck0 + 10.0),
+                      (-31.0, -24.5, deck0 + 9.0),
+                      (-14.0, -25.0, deck0 + 8.0),
+                      (-4.0, -20.0, deck0 + 8.0),
+                      (-4.0, -2.0, deck0 + 8.0),
+                      (adapter_uart_face[0] + 1.0, adapter_uart_face[1],
+                       deck0 + 8.0)),
+        "maxLengthMm": 300.0,
+        "label": ("Uno Q MCU UART from the digital-header pins D1(TX)/"
+                  "D0(RX)/GND (feetech_bridge, 1 Mbps bus / 921600 to "
+                  "Linux) -> over the round plate's -X rim -> south around "
+                  "the adapter -> UART/MCU header on the adapter's +X "
+                  "servo face (jumper A; USB-C is bench-only -- VIN power "
+                  "gives no USB host mode / no VBUS)"),
+        "instances": ids("uno_q", "motor_controller"),
+    }, _TRI_UART, od_mm=1.0, overrides={
+        "tx": {0: w(uno_pin("D1"))},
+        "rx": {0: w(uno_pin("D0"))},
+        "gnd": {0: w(uno_pin("GND_D"))},
+    })
+    # -- data head 2/2: adapter -> L0 data Wago (S+GND -- on the full robot
+    # the adapter is DATA-ONLY; V+ never rides this pigtail, WIRING.md §1).
+    # Hops OVER the switch holster (top z deck0+21.5; hex plate bottom
+    # leaves a ~4 mm lane), descends into the inter-plate bay in the az-0
+    # corridor (outside the top plate r 57.5, clear of the az-30 yaw
+    # towers), then arcs INBOARD of the tower base (r < 52; the towers'
+    # inboard face is at r ~ 54) to the L0 drop slot.
+    routes += _fan_points_route({
+        "id": "route-data-head",
+        "points": pts((HP.MOTOR_CTRL_CENTRE[0], HP.MOTOR_CTRL_CENTRE[1],
+                       deck0 + HP.MOTOR_CTRL_H),
+                      (16.0, -10.0, deck0 + 19.0),
+                      (32.0, -10.0, deck0 + 28.0),
+                      (66.0, -10.0, deck0 + 28.0),
+                      (84.0, -22.0, deck0 + 28.0),
+                      (84.0, -22.0, 14.0),
+                      (84.0, -27.0, 10.0),
+                      (75.0, -25.0, 7.0),
+                      (48.0, -4.0, 6.0),
+                      (44.0, 12.0, 5.0),
+                      (44.0, 25.0, 4.0),
+                      _leg_drop(0), _leg_src(0)),
+        "maxLengthMm": 450.0,
+        "label": ("bus head: adapter servo plug -> over the switch holster "
+                  "(top deck0+26.5; the hex-plate underside leaves a 4 mm "
+                  "lane) -> down SOUTH of the az-0 corner Wago mount "
+                  "(mount spans y +/-22.3, x 79-102) -> inboard of the "
+                  "L0 yaw tower -> L0 drop slot -> L0 data Wago (S+GND "
+                  "only; adapter is data-only on the robot)"),
+        "instances": ids("motor_controller", "chassis_bottom") + (
+            [wago_data_by_leg[0]] if wago_data_by_leg
+            and 0 in wago_data_by_leg else []),
+    }, _PAIR_JUMPER, od_mm=1.3)
+    # -- IMU I2C: 3-wire 28 AWG pigtail (GND/SCL/SDA; 3V3 via the wago) -----
+    routes += _fan_points_route({
+        "id": "route-i2c-imu",
+        # SCL/SDA/GND live at the WEST end of the +Y digital header;
+        # cross the board diagonally ABOVE both header strips (top
+        # hex_top+10.6) and drop past its SE corner.
+        "points": pts((-14.0, -12.0 + 23.67, hex_top + 10.6),
+                      (-6.0, 4.0, hex_top + 12.5),
+                      (16.0, -28.0, hex_top + 12.0),
+                      (24.0, -38.0, hex_top + 4.0),
+                      (31.0, -50.0, hex_top + 1.2),
+                      (31.0, -50.0, deck0 + 15.0),
+                      (HP.MPU_ASBUILT_CENTRE[0], HP.MPU_ASBUILT_CENTRE[1],
+                       deck0 + HP.IMU_PCB_T)),
+        "maxLengthMm": 300.0,
+        "label": ("Uno Q I2C from the digital-header pins SCL/SDA/GND -> "
+                  "diagonally over the board -> over the round plate's SE "
+                  "rim (r ~ 59, between the raised-platform legs) -> "
+                  "GY-521 MPU glued on chassis_top beside the trunk Wagos "
+                  "(28 AWG; MPU VCC comes off the 3.3 V Wago instead, "
+                  "route-3v3-mpu)"),
+        "instances": ids("uno_q", "mpu6050"),
+    }, _TRI_I2C, od_mm=1.0, overrides={
+        "gnd": {0: w(uno_pin("GND_D"))},
+        "scl": {0: w(uno_pin("SCL"))},
+        "sda": {0: w(uno_pin("SDA"))},
+    })
+
+    # -- 3.3 V rail: Uno Q 3V3 pin -> under-plate 5-port Wago -> loads ------
+    # The 3.3 V splice nut is VHB'd flat to the UNDERSIDE of the round
+    # mount plate near its south rim (HP.WAGO_V33_CENTRE = (0, -36)), wire
+    # entries facing -Y.  The plate carries two dedicated Ø8 wire ports at
+    # (+/-19, -44) (HP.MOUNT_PLATE_WIRE_PORT_XY): feed drops through the
+    # EAST port.  (Aug 2026: the screen no longer taps this Wago -- its
+    # whole 8-wire pigtail comes straight off the Uno Q, route-screen.)
+    plate_under = hex_top - HP.HEX_MOUNT_PLATE_T
+    v33_entry = (HP.WAGO_V33_CENTRE[0], HP.WAGO_V33_CENTRE[1] - 11.0,
+                 plate_under - HP.WAGO5_H / 2.0)
+    port_e, port_w = HP.MOUNT_PLATE_WIRE_PORT_XY
+    routes += [
         {
-            "id": "route-data-head",
-            "points": pts((HP.UNO_Q_ON_HEX_CENTRE[0], HP.UNO_Q_ON_HEX_CENTRE[1],
-                           uno_z),
-                          (HP.MOTOR_CTRL_CENTRE[0], HP.MOTOR_CTRL_CENTRE[1],
-                           deck0 + HP.MOTOR_CTRL_H),
-                          (60.0, -20.0, 18.0), _leg_src(0)),
-            "maxLengthMm": 400.0,
-            "label": ("Uno Q USB-C -> motor controller / USB bus-servo adapter "
-                      "-> servo ID 2 bus head (L0 yaw, data)"),
-            "color": _ROUTE_COLOR_DATA,
-            "radiusMm": 1.4,
-            "instances": ids("uno_q", "motor_controller"),
+            "id": "route-3v3-feed",
+            "points": pts(uno_pin("3V3"),
+                          (12.0, -34.0, hex_top + 2.5),
+                          (port_e[0], port_e[1], hex_top + 1.5),
+                          (port_e[0], port_e[1], plate_under - 2.0),
+                          (10.0, -48.0, v33_entry[2]),
+                          v33_entry),
+            "maxLengthMm": 200.0,
+            "label": ("3.3 V feed 28 AWG: Uno Q 3V3 pin -> down through the "
+                      "round plate's EAST Ø8 wire port (19, -44) -> the "
+                      "5-port 3.3 V Wago under the plate's south rim"),
+            "color": _ROUTE_COLOR_POWER,
+            "radiusMm": 0.5,
+            "instances": ids("uno_q", "wago_v33", "hex_mount_plate"),
         },
-        # -- IMU I2C: Uno Q -> MPU on chassis_bottom bay (behind phys. leg 1) --
         {
-            "id": "route-i2c-imu",
-            "points": pts((HP.UNO_Q_ON_HEX_CENTRE[0], HP.UNO_Q_ON_HEX_CENTRE[1],
-                           uno_z),
-                          (HP.MPU_ASBUILT_R * np.cos(np.deg2rad(HP.MPU_ASBUILT_AZ_DEG)),
-                           HP.MPU_ASBUILT_R * np.sin(np.deg2rad(HP.MPU_ASBUILT_AZ_DEG)),
-                           deck0 + 4.0),
-                          (HP.MPU_ASBUILT_R * np.cos(np.deg2rad(HP.MPU_ASBUILT_AZ_DEG)),
-                           HP.MPU_ASBUILT_R * np.sin(np.deg2rad(HP.MPU_ASBUILT_AZ_DEG)),
-                           HP.CHASSIS_PLATE_T / 2.0 + HP.IMU_PCB_T)),
-            "maxLengthMm": 300.0,
-            "label": ("Uno Q I2C -> GY-521 MPU glued on chassis_bottom "
-                      "(behind phys. leg 1; 28 AWG 3V3/GND/SCL/SDA -- 3V3)"),
-            "color": _ROUTE_COLOR_I2C,
-            "radiusMm": 1.4,
-            "instances": ids("uno_q", "mpu6050"),
+            "id": "route-3v3-mpu",
+            "points": pts(v33_entry,
+                          (2.0, -46.0, deck0 + 12.0),
+                          (HP.MPU_ASBUILT_CENTRE[0],
+                           HP.MPU_ASBUILT_CENTRE[1],
+                           deck0 + HP.IMU_PCB_T)),
+            "maxLengthMm": 150.0,
+            "label": ("3.3 V branch 28 AWG: under-plate Wago -> straight "
+                      "down to the GY-521 MPU VCC on chassis_top (the nut "
+                      "hangs almost directly above the MPU)"),
+            "color": _ROUTE_COLOR_POWER,
+            "radiusMm": 0.5,
+            "instances": ids("wago_v33", "mpu6050"),
         },
     ]
 
-    # -- 6x power branches: trunk Wagos -> peripheral Wago -> leg drop ------
+    # -- screen pigtail: Uno Q -> up through the top-plate wire slot --------
+    # Aug 2026 (user): ALL screen wires come from the Uno Q and enter
+    # through the 24x5 slot in the platform's top plate (outer edge at the
+    # panel's +X edge, x 26.5..31.5, y +/-12).  The ST7789 SPI panel takes
+    # an 8-wire pigtail (VCC GND SCL SDA RES DC CS BLK); the bundle is
+    # zip-tied up the az-330 platform leg (foot at r 54, (47, -27)).
+    # The az-330 leg blade occupies r 42..49 (LEG_T 7 radial, foot centre
+    # r 45.5), so the climb rises just INBOARD of it at r ~ 36 -- the
+    # ribbon fans +/-3.5 mm, leaving ~2.5 mm to the blade's inner face.
+    # Only the endpoints (Uno, screen) are exempt: the polyline threads
+    # the top plate's 24x5 slot opening, so the platform itself is
+    # checked for real.
+    # The 8 conductors start on their REAL Uno pins (overrides below):
+    # power pair on the -Y power header (3V3 + GND), the six SPI/control
+    # lines on the +Y digital header (SCK=D13, MOSI=D11, DC=D9, RES=D8,
+    # CS=D10, BLK=D7).  Both groups converge over the board's east end
+    # ABOVE the header strips (top hex_top+10.6) before the climb.
+    routes += _fan_points_route({
+        "id": "route-screen",
+        "points": pts((10.0, -12.0, hex_top + 11.5),
+                      (22.0, -16.0, hex_top + 12.5),
+                      (31.0, -18.0, hex_top + 26.0),
+                      (31.0, -18.0, raised_top - 16.0),
+                      (30.0, -9.0, raised_top - 4.0),
+                      (29.0, -3.0, raised_top - 3.0),
+                      (29.0, 0.0, raised_top + 1.0),
+                      (30.5, 0.0, raised_top + 2.0)),
+        "maxLengthMm": 250.0,
+        "label": ("screen pigtail 8x 28 AWG: Uno Q pins (3V3+GND on the "
+                  "power header; D13/D11/D10/D9/D8/D7 = SCK/MOSI/CS/DC/"
+                  "RES/BLK on the digital header) -> bundles over the "
+                  "board's east end -> rises just inboard of the az-330 "
+                  "platform leg (r 36; blade starts r 42) -> under the top "
+                  "plate -> UP through the 24x5 wire slot behind the "
+                  "panel's +X edge (panel held by 4x M2 self-tappers in "
+                  "the top-plate pilot holes)"),
+        "instances": ids("uno_q", "screen"),
+    }, _SCREEN_8, od_mm=1.0, overrides={
+        "vcc": {0: w(uno_pin("3V3"))},
+        "gnd": {0: w(uno_pin("GND_P2"))},
+        "scl": {0: w(uno_pin("D13"))},
+        "sda": {0: w(uno_pin("D11"))},
+        "res": {0: w(uno_pin("D8"))},
+        "dc": {0: w(uno_pin("D9"))},
+        "cs": {0: w(uno_pin("D10"))},
+        "blk": {0: w(uno_pin("D7"))},
+    })
+
+    # -- 6x power branches: trunk Wagos -> corner Wago pair -> leg drop -----
+    # As-built Aug 2026: each leg's V+/GND splice pair (two 3-port Wago
+    # 221-413 between the tray walls integrated into the chassis_bottom
+    # top face) sits at the chassis_bottom hex CORNER FLAT at az =
+    # leg*60 deg (30 deg clockwise of the leg's yaw axis), wire entries
+    # facing the chassis centre.  The branch hops off
+    # the chassis_top edge, descends into the inter-plate bay outside the
+    # top plate, lands on the corner pair, then runs to the leg drop slot.
+    wago_r = (HP.WAGO_MOUNT_EDGE_R - HP.WAGO_MOUNT_WALL_T
+              - (HP.WAGO3_D + HP.WAGO_MOUNT_BAY_CLEAR) / 2.0)
+    # Nuts sit directly on the plate top face (integrated tray, no floor).
+    wago_top_z = HP.CHASSIS_PLATE_T / 2.0 + HP.WAGO3_H
+    # Tangential half-spacing of the two 3-port nuts in a corner tray
+    # (tray local +Y = world tangential (-sin a, cos a)).  Polarity
+    # convention: V+ = the nut CLOCKWISE of the corner ray (s = -1),
+    # GND = counterclockwise (s = +1) -- same at every corner.
+    nut_dt = (HP.WAGO3_W + HP.WAGO_MOUNT_BAY_CLEAR
+              + HP.WAGO_MOUNT_WALL_T) / 2.0
     for leg in legs:
-        a = np.pi / 6.0 + leg * np.pi / 3.0
-        wago = (HP.WAGO_POWER_R * np.cos(a),
-                HP.WAGO_POWER_R * np.sin(a),
-                deck0 + HP.WAGO_H / 2.0)
-        dogleg = list(reversed(_ROUTE_LEG_DOGLEGS.get(leg, [])))
-        routes.append({
+        a = leg * np.pi / 3.0
+        ca, sa = np.cos(a), np.sin(a)
+        # ...and the drop slot sits at az = corner + 30 deg.
+        a2 = a + np.pi / 6.0
+        ca2, sa2 = np.cos(a2), np.sin(a2)
+        # Leg 3's corner (az 180) is straight across the motor controller
+        # from the trunk node -- hop OVER the board (top z = deck0 + 12)
+        # instead of through it.  Leg 0's corner (az 0) is straight across
+        # the SWITCH HOLSTER (x 34..85, y +/-11, top deck0+26.5): no lane
+        # exists beside it on the deck, so ride the 4 mm gap between the
+        # holster top and the hex-plate underside (deck0+30.5), then drop
+        # past the holster's +X face (x 85) to the corner tray.
+        if leg == 0:
+            head = [(20.0, 4.0, deck0 + 28.5),
+                    (45.0, 3.0, deck0 + 28.5),
+                    (70.0, 2.0, deck0 + 28.5),
+                    (87.0, 1.0, deck0 + 28.5),
+                    (88.0, 0.0, deck0 + 6.0)]
+        else:
+            detour = ([(-10.0, 0.0, deck0 + 19.0),
+                       (-48.0, 0.0, deck0 + 19.0)] if leg == 3 else [])
+            # Legs 2/4: starting from the offset trunk nuts (y -/+16) the
+            # straight run to the NW/SW corner cuts the adapter's east
+            # corner (board top deck0+12) -- hop it at deck0+14.5.
+            if leg in (2, 4):
+                detour = [(-8.0, 22.0 if leg == 2 else -22.0, deck0 + 14.5)]
+            head = [*detour,
+                    (62.0 * ca, 62.0 * sa, deck0 + 6.0),
+                    (72.0 * ca, 72.0 * sa, 20.0)]
+        # From the corner tray, come back INBOARD of the yaw-bearing tower
+        # base (inboard face r ~ 54, tower band az corner+18..+42) before
+        # turning to the drop slot -- the direct tray -> drop diagonal cuts
+        # the tower base ~3.7 mm deep.  Legs 2 and 5 have a chassis
+        # standoff at exactly corner+45 deg az mirrored onto the r~47 arc
+        # (az 135 / 315, r 44): swing inboard of the post there.
+        dodge = ([(38.0 * np.cos(a + np.pi / 12.0),
+                   38.0 * np.sin(a + np.pi / 12.0), 7.0)]
+                 if leg in (2, 5) else [])
+        # Pin each conductor to its REAL nuts: trunk (V+ = south,
+        # GND = north) and the corner tray's own V+/GND 3-port pair
+        # (V+ = clockwise nut).  The tray via sits at points index
+        # 1 + len(head).
+        def corner_nut(s: float) -> tuple[float, float, float]:
+            return (wago_r * ca - s * nut_dt * sa,
+                    wago_r * sa + s * nut_dt * ca, wago_top_z)
+
+        via_idx = 1 + len(head)
+        routes += _fan_points_route({
             "id": f"route-pwr-L{leg}",
-            "points": pts(_WAGO_TRUNK_NODE, wago, *dogleg, _leg_drop(leg)),
-            "maxLengthMm": 250.0,
-            "label": (f"L{leg} power 16-18 AWG: trunk Wagos -> peripheral "
-                      f"Wago -> leg {leg} drop (V+/GND)"),
-            "color": _ROUTE_COLOR_POWER,
-            "radiusMm": 2.0,
-            "instances": ids("wago_trunk", "wago_power"),
+            "points": pts(_WAGO_TRUNK_NODE, *head,
+                          (wago_r * ca, wago_r * sa, wago_top_z),
+                          (49.0 * ca, 49.0 * sa, 9.0),
+                          *dodge,
+                          (50.0 * ca2, 50.0 * sa2, 5.0),
+                          _leg_drop(leg)),
+            "maxLengthMm": 320.0,
+            "label": (f"L{leg} power 16-18 AWG: trunk nuts (V+ = south, "
+                      f"GND = north) -> corner Wago pair at az "
+                      f"{leg * 60} deg (V+ = the clockwise nut of the "
+                      f"integrated chassis tray) -> inboard of the yaw "
+                      f"tower -> leg {leg} drop"),
+            "instances": ids("chassis_bottom")
+            + ids_all("wago_trunk", "wago_power"),
+        }, _PAIR_POWER, od_mm=2.4, overrides={
+            "vp": {0: w(trunk_vp_nut), via_idx: w(corner_nut(-1.0))},
+            "gnd": {0: w(trunk_gnd_nut), via_idx: w(corner_nut(+1.0))},
         })
 
     # -- 5x leg-to-leg data jumpers via underside data Wagos ----------------
-    _JUMPER_DETOURS: dict[tuple[int, int], list[tuple[float, float, float]]] = {
-        (2, 3): [(-45.0, 26.5, 6.5), (-45.0, 26.5, 29.5),
-                 (-45.0, -26.5, 29.5), (-45.0, -26.5, 6.5)],
-    }
+    # Each jumper dips UNDER the belly at the chord midpoint: the straight
+    # src-to-src chord passes r ~ 44 where the inter-plate chassis
+    # standoffs stand (Aug 2026; the old L2L3 bay-battery detour is gone
+    # with the bay pack).  z -12 clears the belly (-6) and stays beside
+    # the under-belly pack block (block corners r ~ 52 at az 74 + k*60,
+    # the chords pass r ~ 46 there).
     for a, b in zip(legs, legs[1:]):
-        detour = _JUMPER_DETOURS.get((a, b), [])
-        routes.append({
+        sa_, sb_ = _leg_src(a), _leg_src(b)
+        mx, my = (sa_[0] + sb_[0]) / 2.0, (sa_[1] + sb_[1]) / 2.0
+        mr = float(np.hypot(mx, my))
+        # Bow the midpoint OUT to r 58: the under-belly pack block reaches
+        # r 52.0 at its corners, and the chassis standoffs stand at r 44.
+        mid = (mx / mr * 58.0, my / mr * 58.0, -12.0)
+        routes += _fan_points_route({
             "id": f"route-data-L{a}L{b}",
-            "points": pts(_leg_src(a), *detour, _leg_src(b)),
+            "points": pts(sa_, mid, sb_),
             "maxLengthMm": 300.0,
             "label": (f"leg {a} -> leg {b} data jumper via underside data "
-                      f"Wagos (signal+GND only, NO V+)"),
-            "color": _ROUTE_COLOR_GND,
-            "radiusMm": 1.3,
-            "instances": ids("wago_data"),
-        })
+                      f"Wagos, dipping under the belly around the LiPo "
+                      f"packs (signal+GND only, NO V+)"),
+            "instances": ids("chassis_bottom") + ids_all("wago_data"),
+        }, _PAIR_JUMPER, od_mm=1.3)
 
     return routes
 
@@ -1588,10 +2196,29 @@ def main(single_leg: bool = False, motion: bool = True) -> None:
     # trunk/branches, jumpers, buck feed, 5 V logic, data head, IMU I2C).
     body_part_ids = {inst["partType"]: inst["id"]
                      for inst in instances_json if inst["leg"] is None}
+    body_part_ids_all: dict[str, list[str]] = {}
+    for inst in instances_json:
+        if inst["leg"] is None:
+            body_part_ids_all.setdefault(inst["partType"], []).append(
+                inst["id"])
     leg_part_ids = {(inst["leg"], inst["partType"]): inst["id"]
                     for inst in instances_json}
-    scene["routes"] = (_build_routes(chassis_lift, legs, leg_part_ids)
-                       + _build_body_routes(chassis_lift, legs, body_part_ids))
+    # Each leg's tail lead terminates on its underside data Wago; the wagos
+    # are body instances (leg=None), so match each leg's nearest one.
+    wago_data_pos = [(inst["id"], np.array(inst["transform"][12:15]))
+                     for inst in instances_json
+                     if inst["partType"] == "wago_data"]
+    wago_data_by_leg = {}
+    for leg in legs:
+        src = np.array([*_leg_src(leg)[:2], _leg_src(leg)[2] + chassis_lift])
+        if wago_data_pos:
+            wago_data_by_leg[leg] = min(
+                wago_data_pos, key=lambda p: np.linalg.norm(p[1] - src))[0]
+    scene["routes"] = (_build_routes(chassis_lift, legs, leg_part_ids,
+                                     wago_data_by_leg)
+                       + _build_body_routes(chassis_lift, legs, body_part_ids,
+                                            wago_data_by_leg,
+                                            body_part_ids_all))
 
     (OUT_DIR / "scene.json").write_text(json.dumps(scene, indent=2))
     msg = f"Wrote {OUT_DIR/'scene.json'}  ({len(instances_json)} instances, "
@@ -1615,14 +2242,14 @@ def main(single_leg: bool = False, motion: bool = True) -> None:
     project_dir = _HERE.parent
     for source_name, dest_name in (
         ("PROTOTYPE.md", "ASSEMBLY.md"),
-        ("docs/PROTOTYPE_BOM.md", "BOM.md"),
+        ("docs/BOM.md", "BOM.md"),
     ):
         source = project_dir / source_name
         if source.exists():
             shutil.copy2(source, OUT_DIR / dest_name)
 
     # Precompute the BuildViz checks sidecar (read on scene load).
-    sidecar = _build_checks_sidecar(tagged, instances_json)
+    sidecar = _build_checks_sidecar(tagged, instances_json, chassis_lift)
     (OUT_DIR / "buildviz_checks.json").write_text(json.dumps(sidecar, indent=2))
     s = sidecar["summary"]
     print(f"Wrote {OUT_DIR/'buildviz_checks.json'}  "

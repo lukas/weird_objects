@@ -49,3 +49,4 @@ xometry_upload/
 
 # RL eval/preflight artifacts (videos, reports) — regenerable
 /logs/
+rl_move/sim/logs/

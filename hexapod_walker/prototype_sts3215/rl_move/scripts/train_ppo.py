@@ -14,7 +14,7 @@ def main() -> int:
     print(
         "train_ppo (hardware): not enabled yet.\n"
         "Complete balance_test, balance_sine, and balance_pd first "
-        "(see RL_PLAN.md Steps G–I / Milestone 2).\n"
+        "(see archive/RL_PLAN.md Steps G-I / Milestone 2).\n"
         "For sim training run: python -m rl_move.sim.train_ppo_sim",
         file=sys.stderr,
     )
