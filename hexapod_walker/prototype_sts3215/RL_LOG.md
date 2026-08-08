@@ -1012,3 +1012,28 @@ Cycle 11 totals: 4 experiment launches (phase, phase-stance†, aac-s1c,
 phase-stance2) = at the 4/cycle cap; 16M new steps = at the 16M cap
 (†killed for the audit; its steps counted). Pods: phase (long5m),
 phase-stance2 (walk), aac-s1c (s3) training; s4/friction/lower free.
+
+### cw-walk-phase (warm arm) — FAIL: the shuffle basin beats the phase reward under inherited low noise
+OBSERVATIONS. W&B o6a2x0u2, 4M steps (28.76M cum), finished 21:23 (2745 s
+solo on long5m). Harness (ckpt md5 80c09111, DR 0.4, own cfg-sets incl.
+phase obs): walk det 0/6 gait-valid @ vel_err 0.033, sto 0/6 @ 0.029 —
+leg 3 parked (duty 0.02–0.09) in 12/12 episodes, identical duty signature
+to the parent (legs 1/4 anchored ~0.8/0.95, legs 0/2 skating ~0.25).
+Retention: rise det 2/6 (flat 0/3, REGRESSED vs parent det 4/6) / sto 5/6;
+raise 4-5/6; lower 0/6 (inherited); track 5/6. Frames reviewed (10 each):
+walk_det_0 ac843895, walk_det_3 4dc74c71, rise_det_0 12b5f96e,
+contact_sheet 5edca4b0.
+INTERPRETATION. Videos: NOT WALKING — same scoot with one leg flagged
+fully vertical mid-episode and another splayed horizontally by the end;
+the recorded det rise stays in a low sprawl and never stands. The phase
+term did not restructure the gait: PPO under the annealed policy noise
+(std ~0.28) treats a zero-mean agreement reward as noise and keeps the
+exploit — exactly the operator's basin diagnosis, and the exact opposite
+of the probe result where the SAME mechanism at std 1.0 from the stance
+init drove all-six-leg cycling within 96k steps.
+VERDICT: FAIL. hardware-ready: NO. HYPOTHESIS STATUS: warm-arm variant
+REFUTED (dense payment alone does not escape a converged shuffle at low
+noise); the basin-escape half of the comparison rides on
+cw-walk-phase-stance2 (in flight, std 1.0). No relaunch on long5m this
+cycle — launch and step caps are both exactly consumed (4/4, 16M/16M).
+Champion unchanged.

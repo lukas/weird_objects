@@ -498,7 +498,7 @@
       "--subproc"
     ],
     "created": "2026-08-08T20:37:54+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 56,
       "existing_trainers": [],
@@ -530,8 +530,19 @@
         "placement": "solo on 56-core pod",
         "verdict": "HEALTHY",
         "problems": []
+      },
+      {
+        "time": "2026-08-08T21:23:33+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 121,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
       }
-    ]
+    ],
+    "verdict": "FAIL (cycle 11c): walk det 0/6 gait-valid @ 0.033 / sto 0/6 @ 0.029, leg 3 parked 12/12, duty signature identical to parent; det rise regressed to 2/6 (flat 0/3); video shows the same flag-leg scoot. Phase reward did NOT restructure the converged shuffle at inherited low noise (std ~0.28) - matches the operator basin diagnosis; the same mechanism at std 1.0 from stance init drove six-leg cycling in the 96k probe. Warm-arm variant REFUTED; basin comparison completes with cw-walk-phase-stance2. NOT HARDWARE-READY. ckpt md5 80c091115f38d8b822251a3bb5273d86."
   },
   {
     "run": "cw-walk-phase-stance",
@@ -672,7 +683,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-aac-s1c --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_aac_s1b.zip --asym-critic --dr-scale 0.4 --eval-every 200000 --video-every 200000 --seed 1 --cfg-set reward.k_walk_swing=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --out-name ppo_goal_cw_walk_aac_s1c --notes \"Continuation of cw-walk-aac-s1b (gmbwrp4v) to 8M asym budget for the fixed-budget comparison vs the called nv baseline. Parent ckpt md5 0642955c (lineage dr04b 87hevk27). Same settings: asym critic, 0.02-0.06, k_walk_swing=1.0, DR 0.4, seed 1. Gate: at 32.77M cum beat nv 8M (sto 0/6 gait-valid @ 0.035, rise 3/12) on tracking or retention; gait-validity + blunt video. Snapshot: 92d75cdf60a2e778300e11d3d33ec194e4df0cf1.\" --n-envs 48 --subproc > /tmp/train_cw-walk-aac-s1c.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-aac-s1c.log",
     "wandb_id": "ij6xowjy",
-    "verified": "2026-08-08T21:04:18+00:00"
+    "verified": "2026-08-08T21:04:18+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-08T21:24:21+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5920,
+        "fps": 1365.3,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "probe-phase-agree",
@@ -803,6 +826,18 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-phase-stance2 --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/init_stance_dr10.zip --obs-pad-transplant 6 --set-log-std 0.0 --ent-coef 0.01 --dr-scale 0.2 --eval-every 200000 --video-every 200000 --seed 0 --cfg-set reward.k_walk_swing=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.0 --cfg-set reward.k_phase_contact=1.0 --out-name ppo_goal_cw_walk_phase_stance2 --notes \"Basin-escape phase arm, audited settings: std 1.0 (--set-log-std 0.0), ent_coef 0.01, target_kl 0.02 (new default), DR 0.2 per operator addendum. Init ppo_goal_cw_stance_dr10 md5 da1d912a via --obs-pad-transplant 6. Probe-phase-agree PASSED: mechanism drives six-leg cycling in 96k steps at DR 0. Gate: sto walk >=4/6 gait-valid @ vel_err <=0.035 @ DR 0.2 AND six-foot video AND sto rise >=4/6. Predecessor killed at 2M for pre-audit under-exploration. Snapshot: 92d75cd + operator 02ea8cc (audit flags).\" --n-envs 48 --subproc > /tmp/train_cw-walk-phase-stance2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-phase-stance2.log",
     "wandb_id": "wjm6lrgy",
-    "verified": "2026-08-08T21:17:25+00:00"
+    "verified": "2026-08-08T21:17:25+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-08T21:22:44+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6564,
+        "fps": 1911.5,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
