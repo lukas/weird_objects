@@ -1277,3 +1277,117 @@ rung is CAPABILITY, not another coefficient — ~300 ms of obs history
   (68-dim, md5 da1d912a) transplanted into joint_walk + history8
   (576-dim, pad 508): max action diff 0.0 over random obs with
   arbitrary history/extras content. Bit-identical warm start.
+
+### probe-walk-hist8 — PROBE PASS (mechanical)
+150k in 89s on the lower pod (W&B-off smoke, snapshot f1824ed).
+obs-pad transplant 68->576 fired on-pod; canary parent baseline all 8
+cases pass with all four groups protected — on-pod confirmation the
+history transplant is behavior-identical at init. Zero tracebacks;
+fps ~1900 on the 30-core pod (history stacking cost negligible).
+Mechanical gate met; no behavioral claim. Ledger FINISHED (the
+post-exit checkup's DEAD is the process having completed its budget —
+final save line + checkpoint present).
+
+### cw-stance-posture — FAIL on the headline (lower posture unmoved at the flag leg); pricing PARTIALLY effective; raise heights incidentally best-ever
+OBSERVATIONS. W&B q7797l60, 4M steps (23.19M cum, 2359 s solo, ~1700
+fps), final ckpt md5 7c2ab2f5 (pulled, kept append-only). No canary
+auto-stop fired. Harness (posture-strict, DR 1.0, own cfg-sets, 6
+eps/mode det+sto, two draws: seed-0 default-modes + seed-0 gate-modes):
+- lower: 0/6 det AND 0/6 sto end-posture (gate needed >=5/6 both).
+  Heights PERFECT 12/12 (h_err 0.4-6.2 mm). Per-foot end clearances
+  are the finding: legs 0/2 pulled DOWN to 58-91 mm (parent: >100-200
+  mm); leg 4 UNMOVED at 229-264 mm, fully vertical, every episode.
+- rise: sto 4/6 posture-strict (= gate), det 3/6 and 1/6 across the
+  two draws (draw-dependent start kinds; crouch starts 0/6 in both:
+  legs 2/4 left at 102-327 mm). Flat starts clean, heights all fine.
+- hold: det 5/6 (one marginal 24 mm vs 20 mm), sto 6/6 both draws
+  (gate said 6/6 — marginal miss).
+- raise (canary tripwire, no compute owed): height-only det 6/6, sto
+  5/6 — BEST EVER (raisemix peaked 3-4/6) — but posture-strict 0/12,
+  standing on 3-4 legs with legs 1/2/4 at 22-120 mm.
+Frames reviewed: lower_det_0 7c4762a2 (lowers to commanded height,
+then a partial crouch with legs 0/2 half-tucked and leg 4 pointing
+straight up — never a belly rest), raise_det_0 f1f49232 (hits target
+height standing tall on ~4 legs, 2-3 legs held clear of the ground),
+hold_det_0 da1d054b (clean six-foot quiet stance), rise_det_0 gate
+35aa7f2e + first-draw 2a7fc153 (crouch start rises then ends with one
+leg splayed horizontal in the air, a 4-5 leg stand).
+INTERPRETATION — root-cause chain (required before any further reward
+work): the pricing WORKS where it has gradient and is dead where the
+pathology lives. k_load_even's HHI has ~zero gradient w.r.t. an
+UNLOADED airborne leg (zero force contributes nothing until contact);
+k_support_margin counts only LOADED feet; k_stance_clearance routes
+to hold/lean/track/unload only (deliberate — rise needs >50 mm
+transients). So legs near the ground (0/2, partially loaded) were
+pulled down 40-130 mm — a real dose-response — while leg 4's vertical
+flag sits in a zero-gradient pocket that std 0.195 exploration never
+bridges (~90 deg of coordinated hip travel to first contact). The
+raise height jump (11/12) is consistent: load-evenness recruits the
+loaded legs better even though it cannot reach the parked ones.
+VERDICT: FAIL (headline lower gate 0/12; rise sto met at 4/6; hold
+marginal miss). hardware-ready: NO — lower still ends with a ~25 cm
+vertical flag leg and crouch-start rise ends on 4-5 legs; nobody
+should put that on the robot.
+HYPOTHESIS STATUS: SPLIT, exactly along the pre-registered if-false
+branch: "pricing suffices at inherited std" REFUTED for the flagged
+leg; pricing-as-gradient SUPPORTED where the leg is near contact.
+The strongest-alternative clause ("flag ending is a local optimum a
+warm start cannot leave at inherited std") is now the live
+hypothesis, sharpened: the priced landscape pays leg-4-down at the
+ENDPOINT (park tripod pays ~0.25/step evenness, measured cycle 12)
+but has no path gradient to it; only exploration can bridge.
+Champion UNCHANGED (cw_stance_dr10 stays stance champion; posture
+ckpt kept as ppo_goal_cw_stance_posture.zip for the exploration arm).
+Consequence for the walk line: the stance flag and the walk tripod
+park are the SAME defect (unpriced airborne legs); cw-walk-hist8
+therefore inits from cw_stance_dr10 (posture ckpt did not pass; also
+keeps the phase-stance2 control comparison clean).
+
+### LAUNCH cw-walk-hist8 (4M, DR 0.2, seed 0) — temporal actor, walk rung 1
+HYPOTHESIS: the walk failures are a CAPABILITY gap, not (only) a
+pricing gap — a memoryless MLP cannot coordinate swing timing or do
+implicit system ID, so PPO converges to static exploits (shuffle,
+tripod park). ~300 ms of env-side obs history (8 frames @ 25 Hz)
+supplies the temporal state a gait needs. One-variable swap against
+the recorded control cw-walk-phase-stance2 (same init, same audited
+basin-escape settings std 1.0 / ent 0.01 / target_kl 0.02, same walk
+cfg, phase package OUT, history IN).
+Prediction-if-true: six-foot alternating contacts appear AND survive
+optimization (unlike the phase probe's transient), sto walk >=4/6
+gait-valid @ vel_err <=0.035 @ DR 0.2, video shows all six feet
+cycling. Prediction-if-false: converges to the same tripod park
+(duty signature one tripod ~1.0 / other <=0.3) — refutes "capability
+alone suffices" and promotes rung 2 (time-averaged per-leg load
+pricing, on top of history). Strongest alternative: the park is
+optimal regardless of capability because it is unpriced.
+Parent: ppo_goal_cw_stance_dr10.zip (md5 da1d912a; posture ckpt NOT
+used — failed its gate, and this keeps the control comparison clean).
+Transplant: --obs-pad-transplant 508 (68->576, bit-parity proven in
+test + on-pod probe). No --asym-critic (refused with transplant;
+retention monitored by canaries instead). GATE: sto walk >=4/6
+gait-valid @ vel_err <=0.035 on 0.02-0.06 @ DR 0.2 AND video shows
+all six feet cycling contact/swing AND sto rise >=4/6 (canaries
+armed from stance parent). Budget 4M. Probe probe-walk-hist8 PASSED.
+
+### LAUNCH cw-stance-posture2 (4M, DR 1.0, seed 0) — pre-registered exploration branch
+HYPOTHESIS (from cw-stance-posture's if-false branch, verbatim
+consequence): the posture-priced landscape pays a planted leg 4 at
+the endpoint (~0.25/step evenness saving, measured cycle 12) but has
+zero path gradient to first contact; the flag ending is a local
+optimum unreachable at std 0.195. Re-opened exploration (std 1.0,
+audited basin-escape setting; ent 0.01) lets sampled excursions reach
+contact, after which the dense terms take over. NOT a coefficient
+change: identical reward config to cw-stance-posture; the one
+variable is exploration noise.
+Prediction-if-true: lower end-posture >=5/6 at least sto (leg 4
+plants), rise crouch endings improve, heights recover by run end.
+Prediction-if-false: std re-anneals with leg 4 still parked
+(evenness charge paid, never escaped) — refutes exploration-suffices
+and leaves only structural options (terminal-posture pricing or
+belly-rest reference states), to be DESIGNED, not coefficient-tuned.
+Risk: std 1.0 transiently wrecks hold/heights — canaries (all four
+protected groups from the posture parent) + auto-stop bound it.
+Parent: ppo_goal_cw_stance_posture.zip (md5 7c2ab2f5). GATE
+(posture-strict, DR 1.0, 6 eps/mode det+sto): lower end-posture
+>=5/6 sto AND >=4/6 det AND heights rise/lower >=5/6 both AND hold
+sto 6/6. Budget 4M.
