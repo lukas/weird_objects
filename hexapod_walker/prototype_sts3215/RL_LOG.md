@@ -835,3 +835,22 @@ six-foot stepping visibly exists). Its gate is evaluated at its own DR
 operator instruction — the basin comparison reads: stance-init@0.2
 stepping while dr04b@0.4 shuffles ⇒ escalate the winner up the DR ladder
 before any cross-arm conclusion beyond "basin matters".
+
+## OPERATOR ~20:40Z — end-posture validity for rise/lower (operator caught a flagged leg in the 12/12 lower)
+
+Reviewing today's stance-champion strips: lower_det_0 ends with a rear
+leg pointed straight up while the eval scores it a success — the lower
+gate checks height/quiescence only. Same blind-spot class as the walk
+scalars. Directives:
+1. Add an eval-side END-POSTURE check for rise and lower (and any mode
+   that terminates in a stance or a belly rest): at episode end, all
+   six feet within a small height of their support surface (belly rest:
+   legs down/tucked, none elevated above body top; stand: six feet in
+   contact). Report per-episode like gait_valid; wire into success for
+   these modes after baselining how often the current champions
+   actually pass (report the baseline first — if the stance champion
+   fails often, that is a finding, not a reason to soften the check).
+2. The queued routed flag-leg reward for the stance line's lower is now
+   justified (routing safety was proven by flagw's retention half).
+   Schedule it as a stance-line run when a slot frees, gated on the new
+   end-posture eval + full crown-jewel canaries.
