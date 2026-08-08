@@ -389,3 +389,22 @@ State after this cycle: 8 experiments in flight (flagw, flagw-s1, nv2,
 raisemix + the four above) on 6 pods; 4 slots free of which 2 reserved
 for smokes. Next decisions wait on finishes: temporal actor keys off
 the best of aac/nv2; lower end-posture keys off flagw.
+
+## OPERATOR NOTE 2026-08-08 ~19:00 — pod capacity was wrong; launcher now mandatory
+
+Guardrails claimed 128 cores/pod; real cgroup limits are 56 (s3/s4/
+long5m/walk) and 30 (friction/lower). Measured: 1 run alone on a 56-core
+pod ~1090 fps; two sharing it ~240 each; two on 30-core lower ~75 each
+(a 5M run ≈ 18 h). Consequences for the agent, next cycle:
+
+1. ALL launches now go through `rl_move/orchestrator/launch_run.py`
+   (live capacity check, duplicate/concurrency gates, experiments.json
+   ledger, INTENT→RUNNING verification). Raw nohup launches are a
+   guardrail violation. `launch_run.py status` shows live placement.
+2. REBALANCE: cw-walk-aac-s1 + cw-walk-lp-s1 are starving on lower
+   (~75 fps). When flagw/-s1 free s3/s4, kill the twins and relaunch
+   each from its own latest checkpoint on a fast pod (log it). Prefer
+   cw-walk-aac + cw-walk-lp (sharing walk @ ~240 fps) getting a solo
+   pod each as slots free; friction/lower are smoke/eval pods now.
+3. The speed-range diagnostic (plan queue #1) still deserves its slot —
+   sequence it against the rebalance as capacity allows.
