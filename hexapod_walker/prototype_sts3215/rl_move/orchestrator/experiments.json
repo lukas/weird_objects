@@ -103,7 +103,7 @@
   },
   {
     "run": "cw-walk-aac",
-    "status": "RUNNING",
+    "status": "KILLED_BY_OPERATOR",
     "wandb_id": "1emfi5i5",
     "pod": "hexapod-sweep-walk",
     "seed": 0,
@@ -114,7 +114,8 @@
     "prediction_if_true": "beats cw-walk-nv's 4M mark (sto walk 1/6 @ 0.035); approaches parent tracking by 4M",
     "prediction_if_false": "no better than nv at matched steps -> critic obs was not the binding constraint (points to temporal actor)",
     "gate": "sto walk >=4/6 @ vel_err <=0.035 AND beat nv 4M; final comparison vs nv2 at 8M (fixed budget)",
-    "launch_verified": "capacity cycle: W&B running + step advancing; re-verified cycle 9 at 25.3M cum (~300 fps, node oversubscribed)"
+    "launch_verified": "capacity cycle: W&B running + step advancing; re-verified cycle 9 at 25.3M cum (~300 fps, node oversubscribed)",
+    "killed_reason": "redundant: same config as its s1b twin now running solo at 3-4x fps (twin overtook or was about to); plan rule = one run per config. Killed ~20:07Z at ~27.05M steps; last autosave checkpoints remain valid."
   },
   {
     "run": "cw-walk-aac-s1",
@@ -133,7 +134,7 @@
   },
   {
     "run": "cw-walk-lp",
-    "status": "RUNNING",
+    "status": "KILLED_BY_OPERATOR",
     "wandb_id": "0ff8idlz",
     "pod": "hexapod-sweep-walk",
     "seed": 0,
@@ -144,7 +145,8 @@
     "prediction_if_true": "retention on 0.02-0.06 AND uniform-range vel_err <=0.045; lp/vel_err_b* shows a moving frontier",
     "prediction_if_false": "frontier stalls at low buckets or retention breaks like w07/w08; note review section 3 - bucket seeding may need to start FAST, re-seed after the speed diagnostic",
     "gate": "sto walk >=4/6 @ vel_err <=0.030 on 0.02-0.06 AND sto mean vel_err <=0.045 uniform 0.02-0.12 AND blunt video review",
-    "launch_verified": "capacity cycle; re-verified cycle 9 at 24.94M cum"
+    "launch_verified": "capacity cycle; re-verified cycle 9 at 24.94M cum",
+    "killed_reason": "redundant: same config as its s1b twin now running solo at 3-4x fps (twin overtook or was about to); plan rule = one run per config. Killed ~20:07Z at ~27.05M steps; last autosave checkpoints remain valid."
   },
   {
     "run": "cw-walk-lp-s1",

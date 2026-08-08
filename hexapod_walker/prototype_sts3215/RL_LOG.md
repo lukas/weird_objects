@@ -612,3 +612,13 @@ aac-s1b (s3), lp-s1b (s4), speedhi (friction), none on lower/long5m
 (free; smoke capacity restored). Next cycle: eval flagw-s1 + nv2
 (nv2 @8M is the aac-comparison baseline), then speedhi's answer
 decides the phase-reward launch.
+
+## OPERATOR 2026-08-08 ~20:07Z — torched redundant slow primaries
+
+Killed `cw-walk-aac` + `cw-walk-lp` (shared walk pod, 418 fps each) at
+~27.05M steps: their s1b twins run the SAME configs solo at 1587/1053
+fps and aac-s1b had already overtaken the primary in steps. One run per
+config until something wins — judge asym-AC on `cw-walk-aac-s1b` and
+the LP curriculum on `cw-walk-lp-s1b`. W&B will show the primaries
+crashed; ledger says KILLED_BY_OPERATOR. Walk pod is now free — use it
+solo (56-core). Do not relaunch the primaries.
