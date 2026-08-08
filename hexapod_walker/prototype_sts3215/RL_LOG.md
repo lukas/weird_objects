@@ -795,3 +795,34 @@ up in stages exactly like the stance line (0.2 → 0.4 → 1.0). Do not
 start it at 0.4 just because the walk lineage lives there. The warm
 arm can stay at 0.4 (its question is basin escape at parity with the
 lineage). Gait-validity gate + canaries apply at every DR rung.
+
+### Cycle 11 addendum — operator directives absorbed mid-cycle (rebase at snapshot)
+Two operator commits landed while this cycle ran: (1) aac/lp primaries
+torched (walk pod free, judge on the -s1b twins — acknowledged, nothing
+relaunched); (2) the phase experiment must include a basin-escape arm.
+Implemented as `cw-walk-phase-stance` below. Fresh init is the weaker
+basin-escape variant (round 1: cw-walk-fresh-gait converged to the
+identical skate), so the arm uses the STANCE champion init, which stands,
+rises and lowers at DR 1.0 and has never learned the shuffle. This is a
+sanctioned fresh-basin exception to warm-start-by-default, recorded here
+as the hypothesis. Stance→walk crosses obs 68→74; the new
+--obs-pad-transplant 6 bridges it (all six added dims — vel refs,
+measured vel, phase clock — sit at the obs tail; verified in smoke:
+transplant exact, canary parent baseline 8/8 with ALL FOUR groups
+protected, rise f2/2 b2/2 c2/2 on the walk env, exploration reopened via
+--reset-log-std against the annealed champion std).
+
+### LAUNCH cw-walk-phase-stance (pod walk, seed 0, 4M, DR 0.4)
+Basin-escape arm (operator directive 20:25Z). Init: ppo_goal_cw_stance_dr10
+via --obs-pad-transplant 6 + --reset-log-std; identical cfg to
+cw-walk-phase otherwise (walk_phase_obs=1, phase_hz=1.0,
+k_phase_contact=1.0, k_walk_swing=1.0, 0.02–0.06, default walk-heavy mix
+with rise/lower/hold retained; canaries armed, all four groups protected).
+The two arms are ONE falsifiable comparison — single differing variable:
+starting basin. If stance-init steps while dr04b-init shuffles, the basin
+(converged shuffle + value function calibrated to it) is the story and
+behavior-class changes get fresh-basin inits from now on. If both shuffle,
+the phase reward is refuted independent of basin. If both step, take the
+better gait. GATE (same as arm a): sto walk ≥4/6 gait-valid @ vel_err
+≤0.035 AND video shows all six feet cycling AND sto rise ≥4/6 retained
+(auto-stop protects the imported crown jewels).
