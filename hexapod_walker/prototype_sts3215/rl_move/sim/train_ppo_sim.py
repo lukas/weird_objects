@@ -334,13 +334,15 @@ def _init_wandb(args, params: SimServoParams, parent: dict | None = None):
         "sim_model_source": params.source,
         "sim_model_timestamp": params.timestamp,
         "net_arch": [128, 128],
-        "log_std_init": -1.0,
+        "log_std_init": args.log_std_init,
         "n_steps": 256,
         "learning_rate": 3e-4,
         "gamma": 0.99,
         "gae_lambda": 0.95,
-        "ent_coef": 1e-3,
+        "ent_coef": (args.ent_coef if args.ent_coef is not None
+                     else 1e-3),
         "clip_range": 0.2,
+        "target_kl": (args.target_kl if args.target_kl > 0 else None),
     }
     for axis, ax in params.axes.items():
         config[f"servo_{axis}"] = {
@@ -1098,6 +1100,8 @@ def train(args) -> int:
                 batch_size=min(2048, 256 * args.n_envs),
                 learning_rate=3e-4, gamma=0.99, gae_lambda=0.95,
                 ent_coef=1e-3, clip_range=0.2,
+                target_kl=(args.target_kl if args.target_kl > 0
+                           else None),
                 policy_kwargs=dict(net_arch=[128, 128],
                                    log_std_init=-1.0),
                 seed=args.seed, verbose=1, device="cpu",
@@ -1125,6 +1129,8 @@ def train(args) -> int:
                     batch_size=min(2048, 256 * args.n_envs),
                     learning_rate=3e-4, gamma=0.99, gae_lambda=0.95,
                     ent_coef=1e-3, clip_range=0.2,
+                    target_kl=(args.target_kl if args.target_kl > 0
+                               else None),
                     policy_kwargs=dict(net_arch=[128, 128],
                                        log_std_init=-1.0,
                                        privileged_idx=(-2, -1)),
@@ -1148,8 +1154,12 @@ def train(args) -> int:
         # torch/numpy/action-space/env here instead.
         model.seed = args.seed
         model.set_random_seed(args.seed)
+        # Checkpoints from before the 08-08 audit store target_kl=None;
+        # apply the current flag regardless of what the parent had.
+        model.target_kl = (args.target_kl if args.target_kl > 0
+                           else None)
         print(f"[train] warm-started from {args.init_from} "
-              f"(seed {args.seed})")
+              f"(seed {args.seed}, target_kl {model.target_kl})")
         if args.reset_log_std:
             # Re-open exploration: the checkpoint's per-channel action
             # noise has annealed around its learned behavior — e.g. the
@@ -1186,9 +1196,6 @@ def train(args) -> int:
                 model.policy.log_std.fill_(float(args.set_log_std))
             print(f"[train] log_std set to {args.set_log_std:+.2f} "
                   f"(std {float(np.exp(args.set_log_std)):.2f})")
-        if args.ent_coef is not None:
-            model.ent_coef = float(args.ent_coef)
-            print(f"[train] ent_coef overridden to {args.ent_coef}")
     else:
         policy_cls = "MlpPolicy"
         extra_pk = {}
@@ -1205,16 +1212,24 @@ def train(args) -> int:
             gae_lambda=0.95,
             ent_coef=1e-3,
             clip_range=0.2,
-            # log_std_init=-1: start exploring with ~1° body commands, not
-            # full ±3° swings 25×/s — σ≈1 flailing physically tips the
-            # robot and every episode dies before the policy sees signal.
-            policy_kwargs=dict(net_arch=[128, 128], log_std_init=-1.0,
+            target_kl=(args.target_kl if args.target_kl > 0 else None),
+            # Historic default -1.0 protected the body-IK line from
+            # flailing; the 08-08 audit directs 0.0 (std 1.0, field
+            # standard) for from-scratch raw-joint gait arms via
+            # --log-std-init.
+            policy_kwargs=dict(net_arch=[128, 128],
+                               log_std_init=args.log_std_init,
                                **extra_pk),
             seed=args.seed,
             verbose=1,
             device="cpu",  # MLP this small is faster on CPU than MPS
             tensorboard_log=str(POLICY_DIR / "tb") if run else None,
         )
+    if args.ent_coef is not None:
+        # Applies to fresh inits too (audit 08-08: from-scratch gait
+        # arms use 0.005-0.01, not the historic 1e-3).
+        model.ent_coef = float(args.ent_coef)
+        print(f"[train] ent_coef overridden to {args.ent_coef}")
     # Output name: overridable so parallel experiments don't race to
     # overwrite the same checkpoint prefix and final .zip (2026-08-07:
     # two concurrent warm-starts were both writing ppo_goal.zip).
@@ -1534,6 +1549,16 @@ def main(argv: list[str] | None = None) -> int:
                     help="override the entropy coefficient (0 lets "
                          "exploration noise anneal away instead of "
                          "being propped up)")
+    ap.add_argument("--log-std-init", type=float, default=-1.0,
+                    help="fresh-init exploration log_std (best-practices "
+                         "audit 08-08: from-scratch gait arms should use "
+                         "0.0 = std 1.0, the locomotion field standard; "
+                         "the historic -1.0 default protected the old "
+                         "body-IK line from flailing)")
+    ap.add_argument("--target-kl", type=float, default=0.02,
+                    help="PPO epoch early-stop KL threshold (audit "
+                         "08-08: destructive-update guard, on for all "
+                         "runs; <=0 disables)")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop that warm starts get by "
