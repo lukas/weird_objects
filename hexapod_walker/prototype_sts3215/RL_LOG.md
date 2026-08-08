@@ -623,7 +623,6 @@ the LP curriculum on `cw-walk-lp-s1b`. W&B will show the primaries
 crashed; ledger says KILLED_BY_OPERATOR. Walk pod is now free — use it
 solo (56-core). Do not relaunch the primaries.
 
-<<<<<<< Updated upstream
 ## OPERATOR 2026-08-08 ~20:25Z — phase-reward experiment: add a basin-escape arm
 
 Pattern across ALL walk refutations (5 shaping levers, speed pressure,
@@ -646,7 +645,6 @@ falsifiable comparison: if (b) steps and (a) shuffles, the basin is
 the story and warm-start-by-default gets an exception for behavior-
 class changes (note in guardrails already permits fresh init when the
 log records it as the hypothesis).
-=======
 ## Cycle 11 — nv baseline CALLED at 8M; flagw-s1 confirms refutation; walk-line `lower` found long-broken; speedhi answered (2026-08-08 ~20:0x)
 
 Watcher also named cw-walk-aac-s1 + cw-walk-lp-s1 "finished": those are cycle
@@ -732,7 +730,6 @@ from this lineage). Consequences per plan §Walk escalation: curriculum
 frontier stays slow→fast (in-flight lp runs unaffected), and the
 phase-based alternating-tripod reward (item c) is NEXT — launching this
 cycle.
->>>>>>> Stashed changes
 
 ### Cycle 11 code changes (snapshotted with cw-walk-phase)
 - `walk_task.py`: phase-based alternating-tripod reward (plan §Walk item c,
@@ -1171,3 +1168,18 @@ det+sto): lower ≥5/6 end-posture both passes AND rise ≥4/6
 posture-strict sto AND hold stays 6/6 AND crown-jewel heights intact
 (rise/lower height-only ≥5/6 both passes). Budget 4M. Cycle 12 totals:
 2 launches, 4.15M steps (caps 4 / 16M).
+## OPERATOR ~22:10Z — launcher was pod-aware, not node-aware; fixed mechanically
+
+The 8-run clump (everything finishing 20:06–21:49Z, fleet then idle
+through a long verdict cycle) was a scheduling failure MINE, not yours:
+`launch_run.py` checked free cores per POD, but the six pods share two
+~128-core nodes and the kernel schedules host-wide. 8 experiments
+"within pod limits" starved each other 4-5x, converged, and finished
+together. The plan text knew this ("budget ~4-5 fast runs"); the CHECK
+didn't — the exact patch-vs-check failure class the guardrails preach
+about. Landed now: `pod_node()` live lookup, refusal at
+`max_heavy_per_node: 2`, experiment cap 8→4, `status` prints per-node
+totals. Also: prefer staggered launches — 4 runs finishing hours apart
+beat 4 finishing together. Relaunch cadence: verdict the two big
+finishes (phase-stance2, aac-s1c) FIRST and get their successors
+launched before working through the remaining backlog verdicts.
