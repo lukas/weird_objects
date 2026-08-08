@@ -972,3 +972,43 @@ VERDICT: FAIL. hardware-ready: NO. HYPOTHESIS STATUS: REFUTED (both
 halves). LP line closed (primary torched by operator, twin refuted);
 walk_lp_curriculum stays available as infrastructure for a future gait
 that can actually go faster. Champion unchanged.
+
+## Cycle 11c (same session) — operator audit absorbed: basin-escape arm relaunched on audited settings after a PASSING mechanism probe
+
+Operator commit 02ea8cc (best-practices audit, BINDING) landed minutes
+after the phase arms launched: basin-escape/from-scratch arms must use
+std 1.0 (log_std 0.0) + ent_coef 0.005–0.01; ALL runs get target_kl 0.02;
+new mechanisms need a probe smoke. Actions taken, in order:
+
+1. KILLED cw-walk-phase-stance @ ~22.74M cum (~2M/4M in): it ran std
+   0.37 / ent 1e-3 / no target_kl — precisely the under-exploration taint
+   the audit says contaminates from-scratch refutations. Restarted from
+   the ORIGINAL stance init, not continued (the 2M trained steps carry
+   the taint). Ledger: KILLED_RELAUNCH, not a scientific verdict.
+2. Left cw-walk-phase (long5m) and cw-walk-aac-s1c (s3) RUNNING: both
+   are warm-refinement runs where low inherited noise is deliberate and
+   sanctioned by the audit ("may keep lower noise — but say so": said
+   here). They miss only the target_kl guard; killing mid-run to add a
+   safety net costs more than it protects. All future launches get
+   target_kl 0.02 by default from the operator's trainer change.
+3. PROBE (audit §6, launcher smoke probe-phase-agree on lower, 100k @
+   DR 0, stance init, audited exploration): PASS — after 96k steps ALL
+   SIX legs cycle (det swings 6–21/leg vs ~0 for the stance parent and
+   a parked leg 3 for the whole shuffle lineage; duties 0.24–0.95; det
+   gait_valid 2/3; speed ~0.023 m/s, tracking not yet converged, as
+   expected at 96k). The phase-contact mechanism is learnable and drives
+   phase-synchronized stepping. First all-six-leg cycling ever observed
+   in this campaign. Two launcher lessons recorded in the ledger: the
+   verifier kills runs that FINISH inside its window (sub-2-min smokes
+   always "fail"); readout taken from the surviving periodic ckpt.
+4. RELAUNCHED as cw-walk-phase-stance2 (walk pod, 4M, DR 0.2, seed 0):
+   stance init via --obs-pad-transplant 6, --set-log-std 0.0 (std 1.00
+   confirmed in log), --ent-coef 0.01, target_kl 0.02 (confirmed), phase
+   cfg unchanged, canaries armed with all four groups protected. Gate
+   unchanged (sto walk ≥4/6 gait-valid @ vel_err ≤0.035 @ DR 0.2 AND
+   six-foot video AND sto rise ≥4/6). Launcher-verified RUNNING.
+
+Cycle 11 totals: 4 experiment launches (phase, phase-stance†, aac-s1c,
+phase-stance2) = at the 4/cycle cap; 16M new steps = at the 16M cap
+(†killed for the audit; its steps counted). Pods: phase (long5m),
+phase-stance2 (walk), aac-s1c (s3) training; s4/friction/lower free.
