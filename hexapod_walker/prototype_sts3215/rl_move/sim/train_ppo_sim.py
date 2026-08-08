@@ -1067,14 +1067,17 @@ def main(argv: list[str] | None = None) -> int:
                     help="evaluate a saved policy instead of training")
     ap.add_argument("--no-wandb", action="store_true",
                     help="disable Weights & Biases logging")
-    ap.add_argument("--eval-every", type=int, default=20_000,
+    ap.add_argument("--eval-every", type=int, default=200_000,
                     help="per-mode deterministic eval every N timesteps; "
-                         "eval runs serially in the main process, so raise "
-                         "this when env stepping is fast (e.g. --subproc "
-                         "on many cores)")
-    ap.add_argument("--video-every", type=int, default=25_000,
+                         "eval runs serially in the main process and blocks "
+                         "all rollout workers. Measured 2026-08-08: the old "
+                         "20k default cost ~65%% of wall clock on 128-core "
+                         "pods (1.3k fps observed vs 3.6k fps with eval "
+                         "off). Keep >=200k for --subproc runs.")
+    ap.add_argument("--video-every", type=int, default=250_000,
                     help="log a rendered rollout video to W&B every N "
-                         "timesteps (0 disables)")
+                         "timesteps (0 disables); rendering also blocks "
+                         "training, keep sparse on long runs")
     ap.add_argument("--video-episodes", type=int, default=4,
                     help="episodes per W&B video reel; cycles through the "
                          "active goal modes so one video covers the whole "
