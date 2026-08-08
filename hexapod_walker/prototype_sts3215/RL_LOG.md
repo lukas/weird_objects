@@ -1195,3 +1195,42 @@ is now eight. Use the extra headroom for the queue, and stagger the
 launches. Also deleted the dead kimi serving leftovers (deployment,
 service, 6 TB of model PVCs) — none of it touched our nodes' CPU, it
 was just cost.
+
+### Cycle 12 close — launch verification
+probe-posture-price v1 KILLED at ~30k (self-inflicted: trainer W&B
+callback lacked the new reward-part keys, so the probe's own gate was
+unverifiable; callback patched, commit 88cd50a) — ledger
+KILLED_RELAUNCH, not a scientific verdict. probe-posture-price2
+(smoke, lower pod): 150k in 178 s, canary baseline healthy
+(protected groups lower/rise_crouch/rise_flat all passing), no
+auto-stop, no traceback; terms verified firing on-pod (margin +0.30
+at cap, evenness −0.086 in a plant stance) → PROBE PASS. First
+cw-stance-posture launch attempt FAILED at argparse (my `--wandb`
+flag doesn't exist; W&B is default-on) — retry clean.
+cw-stance-posture VERIFIED RUNNING on s4 (W&B q7797l60, solo,
+~2200–3140 fps), +5-min checkup HEALTHY; W&B history shows
+env/reward_support_margin +0.259 and env/reward_load_even −0.304 per
+step at 19.2M cum — inside the k=1.5 expectation band (0.28–0.42).
+Note: the probe entry's "even<=0.25 typical" band was the k=1.0
+number; the correct k=1.5 band is 0.28–0.42 — observed value is
+in-band, no action.
+Pods after this cycle: s4 = cw-stance-posture (finishes ~fast, eval
+next cycle, posture-strict gate). s3/long5m/walk/friction idle BY
+DECISION: the walk line's next rung (temporal actor) is a CODE task
+(env-side obs history + transplant + probe) that must land before any
+launch, the dr04b lineage is retired, and burning steps on another
+shaping variant would violate the no-coefficient-iteration rule. An
+idle pod is cheaper than a confounded campaign.
+Cycle 12 ledger: launches = probe v1 (killed), probe v2 (pass),
+cw-stance-posture (running) — 4.3M new steps of 16M cap.
+
+### Cycle 12 addendum — operator commits a4201e7/d9b63c3 absorbed at close
+Node-aware launcher + fleet grown to 8 pods / 3 nodes (s5/s6 new), cap
+6, stagger directive noted. The two big finishes (phase-stance2,
+aac-s1c) were verdicted FIRST this cycle as directed; their successor
+on both lines is the SAME item — the temporal actor — and it is a code
+task (env-side obs history + transplant + probe), not a launchable
+run, so the new headroom stays idle one cycle rather than get filled
+with another refuted-class shaping variant. Next cycle: implement
+temporal actor, probe it, and launch staggered on the enlarged fleet
+alongside the cw-stance-posture verdict.
