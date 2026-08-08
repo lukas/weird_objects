@@ -106,3 +106,36 @@ warm-start parents verified present on/for each pod):
 | cw-stance-raisemix | friction | ppo_goal_cw_stance_dr10 (in place) | raise stalls (3-4/6 @ DR 1.0) because the mix under-trains it; raise=0.4,rise=0.2,lower=0.2, same cfg, DR 1.0, 3M, seed 0 | raise ≥5/6 det+sto AND rise/lower ≥5/6 all starts retained |
 
 W&B notes for each must include the post-push snapshot hash.
+
+## Round 6.5 — spurious cycle: no new experiments existed (2026-08-08 ~16:1x)
+
+The watcher triggered a cycle on five "finished" W&B runs (fallen-sun-71,
+honest-durian-74, radiant-water-71, revived-microwave-71, worldly-frog-75).
+Investigated all five: they are round-6's OWN verification artifacts, not
+experiments — 4–6k-step smoke/seed-check trainings (seeds 0/1/0-repeat,
+warm-started from ppo_goal_cw_walk_slow2, ~2–3 min wall clock each, run
+locally on the controller pod = hexapod-sweep-friction) used to verify the
+set_random_seed fix and smoke the k_flag_leg / walk_obs_body_vel=0 code.
+No harness eval, no verdicts, no champion changes apply. Process note for
+future cycles: run smoke trainings with WANDB_MODE=disabled (or offline,
+never synced) so they cannot masquerade as finished experiments.
+
+Verified state: all four pods idle (no train_ppo processes); round-6
+champions in place on their pods (ppo_goal_cw_stance_dr10 on friction,
+ppo_goal_cw_walk_dr04b on long5m). RL_PLAN.md reviewed — no new evidence
+since round 6, no changes made.
+
+## NEEDS OPERATOR — still blocked, second consecutive cycle (2026-08-08)
+
+git push STILL fails: ~/.git-credentials is a zero-byte file; no PAT in
+env, no .netrc, no gh CLI. Read access to origin works (ls-remote OK) but
+local main is 2 commits ahead of origin and cannot be pushed. Per
+guardrails (snapshot push must succeed before any launch) NO runs were
+launched; all four pods remain idle. The round-7 launch plan from the
+previous entry is unchanged, tested, and ready — restore the token, push
+main, and the next cycle can launch immediately.
+
+Also for the operator's awareness: two pods outside the guardrails compute
+list exist in the namespace (hexapod-sweep-lower, hexapod-sweep-walk, both
+~17 h old). I did not create, use, or touch them; if they are meant to be
+part of this campaign, add them to guardrails.yaml.
