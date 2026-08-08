@@ -341,6 +341,75 @@ def _init_wandb(args, params: SimServoParams, parent: dict | None = None):
     return run
 
 
+def _make_lp_curriculum_callback(every: int = 100_000,
+                                 min_count: int = 500,
+                                 eps: float = 0.05,
+                                 lp_cap: float = 0.5):
+    """Learning-progress curriculum over walk-speed buckets.
+
+    Accumulates per-bucket mean walk_vel_err over each `every`-step
+    window, converts the RELATIVE improvement vs the previous window
+    into a learning-progress score |ΔE|/E_prev (capped at lp_cap; both
+    improving and regressing buckets get samples — regression needs
+    rehearsal), and re-weights env-side bucket sampling to
+    eps + LP per bucket (normalized). Buckets that are solved or
+    currently impossible have ~zero LP and decay to the eps floor.
+    Weights broadcast via env_method("set_walk_bucket_weights").
+    Command-speed→performance curve is logged as lp/vel_err_b*,
+    lp/weight_b* (first-class W&B metrics per the plan).
+    """
+    from stable_baselines3.common.callbacks import BaseCallback
+    from .walk_task import LP_BUCKETS
+
+    class LPCurriculumCallback(BaseCallback):
+        def __init__(self):
+            super().__init__()
+            self.n_b = len(LP_BUCKETS)
+            self.sums = np.zeros(self.n_b)
+            self.counts = np.zeros(self.n_b)
+            self.prev = [None] * self.n_b
+            self.next_update = None
+
+        def _on_step(self) -> bool:
+            if self.next_update is None:
+                self.next_update = self.num_timesteps + every
+            for info in self.locals.get("infos", ()):
+                b = info.get("walk_bucket")
+                if b is not None and "walk_vel_err" in info:
+                    self.sums[b] += float(info["walk_vel_err"])
+                    self.counts[b] += 1
+            if self.num_timesteps >= self.next_update:
+                self.next_update += every
+                w = np.full(self.n_b, eps)
+                payload = {"lp/steps": self.num_timesteps}
+                for b in range(self.n_b):
+                    if self.counts[b] < min_count:
+                        continue
+                    cur = self.sums[b] / self.counts[b]
+                    payload[f"lp/vel_err_b{b}"] = cur
+                    if self.prev[b] is not None:
+                        rel = abs(self.prev[b] - cur) / max(
+                            abs(self.prev[b]), 1e-6)
+                        w[b] += min(rel, lp_cap)
+                    self.prev[b] = cur
+                w = w / w.sum()
+                for b in range(self.n_b):
+                    payload[f"lp/weight_b{b}"] = float(w[b])
+                self.sums[:] = 0.0
+                self.counts[:] = 0.0
+                self.training_env.env_method(
+                    "set_walk_bucket_weights", w)
+                try:
+                    import wandb
+                    if wandb.run is not None:
+                        wandb.log(payload)
+                except Exception:
+                    pass
+            return True
+
+    return LPCurriculumCallback()
+
+
 def _make_reward_parts_callback():
     """Log per-rollout means of the env's reward components and tilt."""
     from stable_baselines3.common.callbacks import BaseCallback
@@ -830,6 +899,34 @@ def train(args) -> int:
         # before it must start fresh).
         model = PPO.load(args.init_from, env=venv, device="cpu")
         model.verbose = 1  # checkpoints saved with verbose=0 stay silent
+        if args.asym_critic:
+            from .asym_policy import AsymActorCriticPolicy
+            if not isinstance(model.policy, AsymActorCriticPolicy):
+                # Transplant a stock-MlpPolicy champion into the
+                # asymmetric policy: state_dict keys are identical (the
+                # actor mask is a non-persistent buffer), so the load is
+                # exact. Optimizer state is fresh (architecture change);
+                # num_timesteps continues the lineage as usual.
+                old = model
+                model = PPO(
+                    AsymActorCriticPolicy, venv,
+                    n_steps=256,
+                    batch_size=min(2048, 256 * args.n_envs),
+                    learning_rate=3e-4, gamma=0.99, gae_lambda=0.95,
+                    ent_coef=1e-3, clip_range=0.2,
+                    policy_kwargs=dict(net_arch=[128, 128],
+                                       log_std_init=-1.0,
+                                       privileged_idx=(-2, -1)),
+                    seed=args.seed, verbose=1, device="cpu",
+                    tensorboard_log=(str(POLICY_DIR / "tb")
+                                     if run else None),
+                )
+                res = model.policy.load_state_dict(
+                    old.policy.state_dict(), strict=True)
+                model.num_timesteps = old.num_timesteps
+                del old
+                print("[train] asym-critic transplant: champion weights "
+                      f"loaded ({res}); actor masks obs dims (-2,-1)")
         # PPO.load runs _setup_model(), which calls
         # set_random_seed(self.seed) with the ANCESTOR's stored seed —
         # so warm-started "different seed" runs were bit-identical
@@ -882,8 +979,14 @@ def train(args) -> int:
             model.ent_coef = float(args.ent_coef)
             print(f"[train] ent_coef overridden to {args.ent_coef}")
     else:
+        policy_cls = "MlpPolicy"
+        extra_pk = {}
+        if args.asym_critic:
+            from .asym_policy import AsymActorCriticPolicy
+            policy_cls = AsymActorCriticPolicy
+            extra_pk = dict(privileged_idx=(-2, -1))
         model = PPO(
-            "MlpPolicy", venv,
+            policy_cls, venv,
             n_steps=256,
             batch_size=min(2048, 256 * args.n_envs),
             learning_rate=3e-4,
@@ -894,7 +997,8 @@ def train(args) -> int:
             # log_std_init=-1: start exploring with ~1° body commands, not
             # full ±3° swings 25×/s — σ≈1 flailing physically tips the
             # robot and every episode dies before the policy sees signal.
-            policy_kwargs=dict(net_arch=[128, 128], log_std_init=-1.0),
+            policy_kwargs=dict(net_arch=[128, 128], log_std_init=-1.0,
+                               **extra_pk),
             seed=args.seed,
             verbose=1,
             device="cpu",  # MLP this small is faster on CPU than MPS
@@ -908,6 +1012,11 @@ def train(args) -> int:
         save_freq=max(10_000 // args.n_envs, 1000),
         save_path=str(POLICY_DIR), name_prefix=name)]
     bg = None
+    if _parse_cfg_set(getattr(args, "cfg_set", None)).get(
+            "goal.walk_lp_curriculum") == 1.0:
+        callbacks.append(_make_lp_curriculum_callback())
+        print("[train] learning-progress speed curriculum active "
+              "(8 buckets 0.02-0.12 m/s, reweigh every 100k)")
     if run:
         callbacks.append(_make_reward_parts_callback())
         if args.eval_every > 0 or args.video_every > 0:
@@ -1167,6 +1276,10 @@ def main(argv: list[str] | None = None) -> int:
                     help="override the entropy coefficient (0 lets "
                          "exploration noise anneal away instead of "
                          "being propped up)")
+    ap.add_argument("--asym-critic", action="store_true",
+                    help="asymmetric actor-critic: mask the privileged "
+                         "measured-velocity obs (last 2 dims) on the "
+                         "actor path only; critic sees them (walk task)")
     ap.add_argument("--run-name", type=str, default=None,
                     help="W&B run display name (e.g. 04-200k-warm-...)")
     ap.add_argument("--notes", type=str, default=None,

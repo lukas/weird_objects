@@ -395,3 +395,80 @@ def test_flag_leg_penalty_walk_only_routing():
     info = make_env(walk_only=1.0, walk_mode=True)
     assert info.get("reward_flag_leg", 0.0) < -0.5, \
         "walk-only routing must charge walk mode"
+
+
+def test_asym_policy_actor_masked_critic_full():
+    """AsymActorCriticPolicy: privileged dims invisible to the actor,
+    visible to the critic; state_dict transplant-compatible with the
+    stock MlpPolicy (same net_arch)."""
+    torch = pytest.importorskip("torch")
+    from gymnasium import spaces
+    from stable_baselines3.common.policies import ActorCriticPolicy
+    from rl_move.sim.asym_policy import AsymActorCriticPolicy
+
+    obs_n = 10
+    obs_space = spaces.Box(-np.inf, np.inf, (obs_n,), dtype=np.float32)
+    act_space = spaces.Box(-1.0, 1.0, (3,), dtype=np.float32)
+    pol = AsymActorCriticPolicy(obs_space, act_space, lambda _: 3e-4,
+                                net_arch=[16, 16],
+                                privileged_idx=(-2, -1))
+    pol.set_training_mode(False)
+    obs = torch.zeros(1, obs_n)
+    obs_priv = obs.clone()
+    obs_priv[0, -2:] = 5.0          # perturb privileged dims only
+    obs_reg = obs.clone()
+    obs_reg[0, 0] = 5.0             # perturb a hardware-visible dim
+    with torch.no_grad():
+        a0 = pol._predict(obs, deterministic=True)
+        a_priv = pol._predict(obs_priv, deterministic=True)
+        a_reg = pol._predict(obs_reg, deterministic=True)
+        v0 = pol.predict_values(obs)
+        v_priv = pol.predict_values(obs_priv)
+    assert torch.allclose(a0, a_priv), \
+        "actor must be blind to privileged dims"
+    assert not torch.allclose(a0, a_reg), \
+        "actor must still see hardware dims (mask too broad?)"
+    assert not torch.allclose(v0, v_priv), \
+        "critic must see privileged dims"
+    stock = ActorCriticPolicy(obs_space, act_space, lambda _: 3e-4,
+                              net_arch=[16, 16])
+    assert set(pol.state_dict()) == set(stock.state_dict()), \
+        "state_dict keys must match stock MlpPolicy for transplant"
+    pol.load_state_dict(stock.state_dict(), strict=True)
+
+
+def test_walk_lp_curriculum_bucket_sampling():
+    """goal.walk_lp_curriculum=1: commands come from LP_BUCKETS per the
+    broadcast weights; bucket id surfaces in step info; default off is
+    untouched elsewhere (covered by legacy tests)."""
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv, LP_BUCKETS
+
+    cfg = load_config()
+    cfg.setdefault("goal", {})["walk_lp_curriculum"] = 1.0
+    env = SimHexapodJointWalkEnv(cfg, seed=0)
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise",
+              "rise", "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_walk = 1.0
+    one_hot = np.zeros(len(LP_BUCKETS))
+    one_hot[5] = 1.0                      # bucket 5 = 0.07-0.08 m/s
+    env.set_walk_bucket_weights(one_hot)
+    for _ in range(5):
+        env.reset()
+        traj = env._goal_traj
+        speed = float(np.hypot(traj.vx[-1], traj.vy[-1]))
+        lo, hi = LP_BUCKETS[5]
+        assert lo <= speed <= hi + 1e-9
+        assert env._walk_bucket == 5
+    _, _, _, _, info = env.step(np.zeros(env.n_act))
+    assert info.get("walk_bucket") == 5
+    env.set_walk_bucket_weights(np.zeros(len(LP_BUCKETS)))  # → uniform
+    seen = set()
+    for _ in range(40):
+        env.reset()
+        seen.add(env._walk_bucket)
+    assert len(seen) >= 4, f"uniform sampling too narrow: {seen}"
+    env.close()

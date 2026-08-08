@@ -296,3 +296,60 @@ window; W&B state running): cw-walk-flagw 25.86M cum (~1.1M/4M in),
 cw-walk-flagw-s1 25.75M, cw-walk-nv2 29.1M (~0.35M/4M), cw-stance-raisemix
 19.44M (~0.24M/3M). No freed pods → no launches. RL_PLAN.md reviewed: no new
 evidence since round 8, no changes. No eval, no verdicts, no champion changes.
+
+## Capacity cycle — operator expanded to 6 pods; queue items 1+2 implemented and launched (2026-08-08 ~18:5x)
+
+Operator-initiated cycle: guardrails now list six pods (added
+hexapod-sweep-lower, hexapod-sweep-walk; 12 slots, cap 10 experiments,
+2 reserved smoke slots). No run finished — no evals, no verdicts, no
+champion changes. All four in-flight runs verified healthy on-pod
+before touching anything (train_ppo process + per-run log present on
+s3/s4/long5m/friction); their slots untouched. New pods verified idle.
+Launch targets: 2 experiments per new pod = 8 concurrent total, under
+the 10 cap, smoke slots preserved.
+
+Decision: the only launchable queue items are #1 (learning-progress
+speed curriculum) and #2 (asymmetric actor–critic) — #3 (temporal
+actor) is defined on the best of aac/nv which are both still open, and
+#4 (lower end-posture flag term) waits on cw-walk-flagw. Each new
+config gets a genuine seed twin: run-to-run variance is proven large
+(flagw twins: raise 0/6 vs 4/6), the slots are otherwise idle, and a
+false negative on either architecture question is expensive. (Plan's
+"multi-seed after a config wins" noted; deviation is deliberate and
+capacity-driven, same as the flagw pair.)
+
+Code changes (this cycle, snapshotted):
+- `rl_move/sim/asym_policy.py` (new): `AsymActorCriticPolicy` — stock
+  ActorCriticPolicy except the ACTOR path multiplies features by a
+  fixed mask zeroing the privileged measured-velocity obs (last 2
+  dims); the critic sees the full obs. Mask is a non-persistent buffer
+  so state_dict keys match MlpPolicy exactly → champion weights
+  transplant 1:1 (verified: transplanted actor == parent actor on
+  velocity-zeroed obs; reloaded checkpoint actor provably blind to the
+  privileged dims, critic provably not). Saved checkpoints reload via
+  PPO.load unchanged (policy_kwargs stored in the zip).
+- `train_ppo_sim.py`: `--asym-critic` flag; warm start from a stock
+  champion does the transplant (fresh optimizer state, num_timesteps
+  continues the lineage), continuing an already-asym checkpoint is a
+  plain warm start.
+- `walk_task.py`: `goal.walk_lp_curriculum=1` (default 0 = legacy, no
+  behavior change) samples commanded speed from 8 buckets 0.02–0.12
+  m/s per broadcastable weights (`set_walk_bucket_weights`); bucket id
+  surfaced in step info.
+- `train_ppo_sim.py`: LP callback — every 100k steps computes
+  per-bucket mean walk_vel_err, scores buckets by relative |Δerr| vs
+  the previous window (capped 0.5, floor eps=0.05 so no bucket
+  starves), renormalizes, broadcasts to workers, and logs
+  lp/vel_err_b* + lp/weight_b* (the command-speed→performance curve
+  the plan asks for). Solved and impossible buckets both decay to the
+  floor; improving/regressing frontiers get the samples.
+
+Validation: unit tests 21/21 (2 new: actor-mask/critic-sight/
+transplant-keys; bucket sampling + info routing). Smokes on the
+controller (WANDB_MODE=disabled, per round-6.5 rule): 6k-step
+--asym-critic transplant train clean; 6k-step LP CLI train clean;
+separate SubprocVecEnv smoke confirmed reweighed bucket weights
+actually reach the workers via env_method. Smoke checkpoints deleted.
+
+RL_PLAN.md: compute section updated to 6 pods; queue rewritten (items
+1+2 now in flight; temporal actor and lower end-posture remain).

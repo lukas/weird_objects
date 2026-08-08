@@ -63,6 +63,14 @@ SIGMA_V = 0.05            # m/s; kernel width
 # paid ~nothing until tracking was already good. Every cm/s toward the
 # goal now pays immediately; moving against the command costs.
 K_PROG = 1.0
+# Learning-progress curriculum (goal.walk_lp_curriculum=1): commanded
+# speed is drawn from one of these buckets instead of a single global
+# uniform range. Bucket weights start uniform and are re-weighted during
+# training by the LP callback in train_ppo_sim (sample where tracking is
+# IMPROVING, not where it is solved or currently impossible — the manual
+# global widenings to 0.07/0.08 both regressed). Default off = legacy.
+LP_BUCKETS = ((0.02, 0.03), (0.03, 0.04), (0.04, 0.05), (0.05, 0.06),
+              (0.06, 0.07), (0.07, 0.08), (0.08, 0.10), (0.10, 0.12))
 
 
 @dataclass
@@ -122,6 +130,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._foot_on = [True] * 6
         self._liftoff_xy = [None] * 6
         self._liftoff_step = [0] * 6
+        # Learning-progress curriculum state: sampling weights over
+        # LP_BUCKETS (None = uniform) and the bucket of the current
+        # walk episode (surfaced in step info for the LP callback).
+        self._lp_weights = None
+        self._walk_bucket = None
         if _gym is not None:
             self.observation_space = _gym.spaces.Box(
                 -np.inf, np.inf,
@@ -150,6 +163,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
 
     # ------------------------------------------------------------------
 
+    def set_walk_bucket_weights(self, w) -> None:
+        """LP-curriculum hook (called via VecEnv.env_method)."""
+        w = np.clip(np.asarray(w, dtype=float), 0.0, None)
+        s = float(w.sum())
+        self._lp_weights = (w / s) if s > 0 else None
+
     def _sample_walk(self) -> WalkTrajectory:
         n = self.episode_steps + 1
         rng = self.rng
@@ -161,7 +180,20 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                              default=0.03))
         s_hi = float(cfg_get(self.cfg, "goal", "walk_speed_max_m_s",
                              default=0.12))
-        speed = float(rng.uniform(s_lo, s_hi))
+        self._walk_bucket = None
+        if float(cfg_get(self.cfg, "goal", "walk_lp_curriculum",
+                         default=0.0)) == 1.0:
+            # Bucketed command sampling; weights come from the LP
+            # callback via set_walk_bucket_weights (uniform until the
+            # first update, and always uniform in the eval harness).
+            w = self._lp_weights
+            if w is None:
+                w = np.full(len(LP_BUCKETS), 1.0 / len(LP_BUCKETS))
+            b = int(rng.choice(len(LP_BUCKETS), p=w))
+            self._walk_bucket = b
+            speed = float(rng.uniform(*LP_BUCKETS[b]))
+        else:
+            speed = float(rng.uniform(s_lo, s_hi))
         r = rng.random()
         if r < 0.60:
             ang = 0.0                                   # forward
@@ -226,6 +258,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             info["reward_walk_prog"] = r_prog
             info["walk_vel_err"] = err
             info["walk_speed"] = float(np.hypot(*v))
+            if self._walk_bucket is not None:
+                info["walk_bucket"] = self._walk_bucket
             # Swing touchdown bonus (default OFF): both cw-walk and
             # cw-walk2 plateaued at a ~0.04 m/s skate — nothing in the
             # reward ever pays for LIFTING a foot, and the smoothness
