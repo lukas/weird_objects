@@ -28,13 +28,13 @@ exactly as the generator writes them.
 | 3b | `extra_stl/hex_mount_plate_110_with_leg_holes.stl` (+ `.svg`) | **1** | PLA / PETG or laser-cut | 0.2 mm | 20% gyroid | 3 | ~ 0.5 h | Ø110 magnet-held board for Uno Q + breakout. Generate with `tools/make_xtool_hex_raised_platform.py`. |
 | 3c | `extra_stl/hex_raised_platform_110_h72_screen.stl` | **1** | PLA / PETG | 0.2 mm | 15% gyroid | 3 | ~ 2 h | Raised platform on hex plate: screen on top face, MPU under top plate (72 mm legs). |
 | 4 | `servo_clamp_cap.stl` | **12** | MJF PA12 (PLA OK) | 0.2 mm | solid | 3 | ~ 0.2 h ea | Sandwich-joint clamp cap — 1 per hip + knee joint (2 per leg x 6 legs). Bolts to the cradle ±X wall ends with 2 x M3 x 8 SHCS self-tapping into the cradle pilots. |
-| 5 | `coxa_link.stl` | **6** | PLA / PETG | 0.2 mm | 30% gyroid | 4 | ~ 4 h total | Yaw pad + arm + hip fixed side (symmetric servo cradle — the passive disc horn rides the servo's own rear idler boss, so there is NO 688 bearing or back housing). Yaw-pad face down on the bed; the bracket opens UP. |
+| 5 | `coxa_link.stl` | **6** | PLA / PETG | 0.2 mm | 30% gyroid | 4 | ~ 4 h total | ONE piece (Aug 2026 merge): yaw turntable hub (rides the spaced 6706 pair) + hip fixed side (symmetric servo cradle — the passive disc horn rides the servo's own rear idler boss, NO 688 bearing). 5 head-access shafts reach the yaw horn screws through the empty hip well. Print on its SIDE (yaw axis horizontal, cradle end wall on the bed). |
 | 5b | `yaw_bearing_cap.stl` | **6** | PLA / PETG | 0.2 mm | 40% gyroid | 4 | ~ 0.3 h ea | TOP half of the SPLIT yaw-bearing tower (Jun 2026 insertion fix). Bolts onto each `chassis_bottom` tower with 3 x M3 x 8 SHCS self-tapping into the tower pilots (3 outboard ear lugs); a clean Ø37 through-bore holds the upper 6706 race. Print **flat, ring face down** on the bed (no supports). One per leg. |
 | 6 | `femur_link.stl` | **6** | PLA / PETG | 0.2 mm | 35% gyroid | 4 | ~ 8 h total | The WHOLE femur, ONE printed part (Jul 2026 merge): hip moving yoke (SYMMETRIC clevis — driven horn on the front, passive horn on the rear boss) + SOLID Ø14 spar + knee fixed side (symmetric servo cradle, no 688 bearing). No CF tube, no socket, no roll pin. Print yoke spine-down / spar horizontal; support the knee servo well through its open back. |
 | 8 | `tibia_knee_yoke.stl` | **6** | PLA / PETG | 0.2 mm | 35% gyroid | 4 | ~ 4 h total | Knee moving yoke — SYMMETRIC clevis: both arms bolt to a disc horn (driven + passive). + Ø8 CF-tube socket. |
 | 8b | `tibia_foot_fitting.stl` | **6** | PLA / PETG | 0.2 mm | 30% gyroid | 4 | ~ 1.5 h total | Ø8 CF-tube socket + single foot-hinge tang (M3 pin). |
 | 9 | `foot_pad.stl` | **6** | TPU 95A (PLA OK) | 0.25 mm | 100% (TPU) | 3 | ~ 1 h | TPU = grip; PLA = slips.  Foot carries the 2-cheek FORK (3.5 mm cheeks + 6.4 mm slot) straddling the tibia tang.  Print disk-on-bed, fork pointing UP. |
-| 9b | `yaw_servo_retainer.stl` | **6** | PLA / PETG | 0.2 mm | 20% gyroid | 3 | ~ 0.6 h ea | Anti-rotation saddle under each yaw servo **+ permanent 38 mm ground stand** (replaces belly stilts). Open wire shaft; print **foot-down**. Stay on while walking. |
+| 9b | `yaw_servo_retainer.stl` | **6** | PLA / PETG | 0.2 mm | 20% gyroid | 3 | ~ 0.4 h ea | Anti-rotation saddle under each yaw servo (Aug 2026 flat-belly rework: the 38 mm ground stand is REMOVED — belly is flat except the hanging servos + saddles; use an external bench support). Central wire drop window. |
 
 > **Leg segments.** The TIBIA is two printed end-fittings bonded onto an
 > Ø8 mm CF tube (epoxy + a transverse Ø2.5 mm roll pin): cut the tube to
@@ -71,11 +71,12 @@ exactly as the generator writes them.
 machine time, spread across 6 – 7 print sessions (Aug 2026: trays /
 carapace / imu_pad retired).
 
-> **Don't have a printer?** The same files (re-oriented for MJF) live
-> in `hexapod_walker/prototype/xometry_upload/` with a `manifest.csv` and a
+> **Don't have a printer?** Run
+> `scripts/prepare_xometry_upload.py` to generate an order bundle in
+> `xometry_upload/` (re-oriented for MJF, with a `manifest.csv` and a
 > README that takes you through the Xometry / Shapeways / JLCPCB
-> upload flow. Total there is ~ $580 in MJF PA12, vs ~ $20 in
-> filament if you self-print.
+> upload flow; not checked in — generated on demand). Total there is
+> ~ $580 in MJF PA12, vs ~ $20 in filament if you self-print.
 
 If you only have a 220 × 220 mm printer (Ender 3), every part fits
 the bed individually. The chassis plates (200 × 230 mm in their

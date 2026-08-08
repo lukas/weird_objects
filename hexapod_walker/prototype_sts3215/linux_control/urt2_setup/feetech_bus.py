@@ -85,7 +85,9 @@ N_JOINTS = 18
 AXIS_LIMITS_DEG = {
     0: (-35.0, 35.0),    # yaw
     1: (-80.0, 30.0),    # hip pitch
-    2: (-20.0, 80.0),    # knee pitch
+    2: (-20.0, 150.0),   # knee pitch (Aug 2026: operator raised from 80 —
+                         # the 80° cap made the plant pose the bottom of
+                         # the envelope, no crouch possible)
 }
 TRIM_LIMIT_DEG = 30.0
 

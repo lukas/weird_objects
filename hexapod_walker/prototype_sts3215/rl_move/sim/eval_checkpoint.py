@@ -1,0 +1,356 @@
+"""Exact-path checkpoint evaluation — RL_PLAN_NEXT.md §2 harness.
+
+Loads a checkpoint through the IDENTICAL env/reset path automated eval
+uses and runs per-mode deterministic episodes with:
+
+- telemetry-overlay videos (MP4 @ 25 fps) + 8-frame PNG strips
+- per-servo current stats: max, p95, time above soft threshold,
+  cross-leg imbalance, hottest servo (RL_PLAN_NEXT §4)
+- gait metrics for walk episodes: per-foot duty cycle, swing count/
+  duration, stride length, slip-while-loaded, forward distance
+  (RL_PLAN_NEXT §5)
+- rise/lower stats split by start kind (pooled numbers lie)
+- optional stochastic pass at the checkpoint's own std (the IK-line
+  lesson: a skill that only works deterministically erodes in any
+  future fine-tune)
+
+Usage:
+  python -m rl_move.sim.eval_checkpoint POLICY.zip --task joint_goal \
+      --per-mode 6 --dr-scale 0.2 --seed 0 [--modes rise lower] \
+      [--stochastic] [--no-video]
+
+Output: logs/ckpt_eval/<ckpt>_<ts>/ with report.json, videos, strips.
+A checkpoint that scores well but LOOKS wrong is a failed checkpoint —
+fix the metric before training anything else.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import sys
+import time
+from pathlib import Path
+
+import numpy as np
+
+_RL = Path(__file__).resolve().parents[1]
+_PROTO = _RL.parent
+for p in (_PROTO, _PROTO / "linux_control"):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+from .servo_model import SimServoParams  # noqa: E402
+from .goal_task import SimHexapodGoalEnv  # noqa: E402
+from .joint_task import SimHexapodJointGoalEnv  # noqa: E402
+from .walk_task import SimHexapodJointWalkEnv  # noqa: E402
+
+ENV_CLASSES = {"goal": SimHexapodGoalEnv,
+               "joint_goal": SimHexapodJointGoalEnv,
+               "joint_walk": SimHexapodJointWalkEnv}
+
+ALL_MODES = ("hold", "lean", "track", "unload", "raise", "rise",
+             "lower", "walk")
+SOFT_CURRENT_A = 1.5      # sustained above this = hot-servo flag
+CONTACT_N = 0.5           # touch-sensor force that counts as contact
+FPS = 25
+
+
+# ---------------------------------------------------------------------------
+# per-episode collection
+
+
+def _start_kind(traj) -> str:
+    start_at = getattr(traj, "start_at", "plant")
+    if start_at == "crouch":
+        return "crouch"
+    if getattr(traj, "start_curl", 0.0) > 0:
+        return "bridge"
+    if start_at == "zero":
+        return "flat"
+    return "plant"
+
+
+def _success(mode: str, term: bool, ep: dict) -> bool:
+    if term:
+        return False
+    if mode in ("rise", "lower"):
+        return ep["height_err_end_mm"] is not None \
+            and ep["height_err_end_mm"] <= 15.0
+    if mode == "raise":
+        return ep["height_err_end_mm"] is not None \
+            and ep["height_err_end_mm"] <= 5.0
+    if mode == "walk":
+        return ep.get("vel_err_mean", 1e9) <= 0.03
+    if mode in ("lean", "track", "hold"):
+        return ep.get("track_err_mean_deg", 1e9) <= 1.5
+    if mode == "unload":
+        return True   # survival; force stats reported separately
+    return True
+
+
+def run_episode(env, model, *, deterministic: bool, video: bool,
+                annotate) -> tuple[dict, list]:
+    obs, info0 = env.reset()
+    mode = info0.get("goal_mode", "?")
+    kind = _start_kind(env._goal_traj) if env._goal_traj else "plant"
+    pads = [env.model.body(f"L{i}_pad").id for i in range(6)]
+
+    frames = []
+    cur_hist = []            # (T, 18) per-servo current
+    contact_hist = []        # (T, 6) bool
+    pad_xy_hist = []         # (T, 6, 2) world
+    track_errs, vel_errs, speeds = [], [], []
+    h_err = None
+    chassis0 = env.data.xpos[env._chassis_bid, :2].copy()
+    ret, safety_flags, term = 0.0, 0, False
+
+    done = False
+    while not done:
+        a, _ = model.predict(obs, deterministic=deterministic)
+        obs, r, term, trunc, info = env.step(a)
+        ret += float(r)
+        done = term or trunc
+
+        st = env._state
+        if st.servo_current is not None:
+            cur_hist.append(st.servo_current.copy())
+        contact_hist.append([
+            float(env.data.sensordata[adr]) > CONTACT_N
+            for adr in env._touch_adr])
+        pad_xy_hist.append(
+            [env.data.xpos[b, :2].copy() for b in pads])
+        if not info.get("safety_ok", True):
+            safety_flags += 1
+        if "track_err_deg" in info:
+            track_errs.append(abs(float(info["track_err_deg"])))
+        if "height_err_mm" in info:
+            h_err = abs(float(info["height_err_mm"]))
+        if "walk_vel_err" in info:
+            vel_errs.append(float(info["walk_vel_err"]))
+            speeds.append(float(info["walk_speed"]))
+
+        if video:
+            frame = env.render()
+            if frame is not None:
+                cur = cur_hist[-1] if cur_hist else np.zeros(18)
+                hot = int(np.argmax(cur))
+                lines = [
+                    f"{mode} ({kind})  t={env._step_i * env.dt:5.2f}s  "
+                    f"R={ret:+.1f}",
+                    f"tilt {info.get('roll_deg', 0):+.1f}/"
+                    f"{info.get('pitch_deg', 0):+.1f}deg  "
+                    f"h_err {info.get('height_err_mm', 0):+.0f}mm",
+                    f"I max {cur.max():.2f}A (servo {hot})  "
+                    f"mean {cur.mean():.2f}A",
+                    "feet " + "".join(
+                        "#" if c else "." for c in contact_hist[-1]),
+                ]
+                if vel_errs:
+                    g = env._current_goal()
+                    lines.append(
+                        f"v {speeds[-1]:.3f} vs ref "
+                        f"{math.hypot(g.vx_ref, g.vy_ref):.3f} m/s "
+                        f"(err {vel_errs[-1]:.3f})")
+                if term:
+                    lines.append(
+                        f"TERMINATED: {info.get('termination_reason')}")
+                frames.append(annotate(frame, lines))
+
+    cur = np.asarray(cur_hist) if cur_hist else np.zeros((1, 18))
+    leg_mean = cur.reshape(len(cur), 6, 3).mean(axis=(0, 2))  # per leg
+    contact = np.asarray(contact_hist, dtype=bool)
+    pad_xy = np.asarray(pad_xy_hist)
+
+    # Gait metrics: swing = contiguous no-contact run; slip = XY motion
+    # of a pad while in contact.
+    duty = contact.mean(axis=0)
+    swings, swing_len_s, strides, slips = [], [], [], []
+    for f in range(6):
+        c = contact[:, f]
+        d = np.diff(c.astype(int))
+        lifts = np.where(d == -1)[0]
+        downs = np.where(d == 1)[0]
+        swings.append(len(lifts))
+        for lo in lifts:
+            hi_c = downs[downs > lo]
+            if len(hi_c):
+                hi = int(hi_c[0])
+                swing_len_s.append((hi - lo) * env.dt)
+                strides.append(float(np.linalg.norm(
+                    pad_xy[hi, f] - pad_xy[lo, f])))
+        moved = np.linalg.norm(np.diff(pad_xy[:, f], axis=0), axis=1)
+        slips.append(float(moved[c[:-1]].sum()))
+
+    ep = {
+        "mode": mode, "start_kind": kind,
+        "return": round(ret, 2),
+        "terminated": bool(term),
+        "term_reason": info.get("termination_reason", ""),
+        "safety_flags": int(safety_flags),
+        "height_err_end_mm": None if h_err is None else round(h_err, 1),
+        "track_err_mean_deg": (round(float(np.mean(track_errs)), 2)
+                               if track_errs else None),
+        # currents (RL_PLAN_NEXT §4)
+        "cur_max_a": round(float(cur.max()), 2),
+        "cur_p95_a": round(float(np.percentile(cur, 95)), 2),
+        "cur_hot_servo": int(np.argmax(cur.max(axis=0))),
+        "cur_s_above_soft": round(
+            float((cur > SOFT_CURRENT_A).any(axis=1).mean()
+                  * len(cur) * env.dt), 2),
+        "cur_leg_imbalance": round(
+            float(leg_mean.max() / max(leg_mean.mean(), 1e-6)), 2),
+        # gait (RL_PLAN_NEXT §5)
+        "duty_cycle": [round(float(x), 2) for x in duty],
+        "swing_count": swings,
+        "swing_s_mean": (round(float(np.mean(swing_len_s)), 2)
+                         if swing_len_s else 0.0),
+        "stride_m_mean": (round(float(np.mean(strides)), 3)
+                          if strides else 0.0),
+        "slip_m_total": round(float(np.sum(slips)), 3),
+        "forward_dist_m": round(float(np.linalg.norm(
+            env.data.xpos[env._chassis_bid, :2] - chassis0)), 3),
+    }
+    if vel_errs:
+        ep["vel_err_mean"] = round(float(np.mean(vel_errs)), 3)
+        ep["speed_mean_m_s"] = round(float(np.mean(speeds)), 3)
+    ep["success"] = _success(mode, term, ep)
+    return ep, frames
+
+
+# ---------------------------------------------------------------------------
+
+
+STRIP_FRAMES = 10
+
+
+def _save_video(frames: list, path: Path) -> None:
+    if not frames:
+        return
+    import imageio
+    imageio.mimsave(path.with_suffix(".mp4"), frames, fps=FPS,
+                    macro_block_size=1)
+    # Film strip for quick embedding in reports/chat.
+    idx = np.linspace(0, len(frames) - 1, STRIP_FRAMES).astype(int)
+    strip = np.concatenate([frames[i] for i in idx], axis=1)
+    imageio.imwrite(path.with_suffix(".png"), strip)
+
+
+def _save_contact_sheet(strip_paths: list[Path], out: Path) -> None:
+    """Stack one strip per mode into a single review image.
+
+    One glance answers 'what is this checkpoint actually doing' across
+    every skill — the unit of systematic video review (VIDEO_REVIEW.md).
+    """
+    import imageio
+    rows = [imageio.imread(p) for p in strip_paths if p.exists()]
+    if not rows:
+        return
+    w = max(r.shape[1] for r in rows)
+    rows = [np.pad(r, ((0, 0), (0, w - r.shape[1]), (0, 0)))
+            for r in rows]
+    imageio.imwrite(out / "contact_sheet.png",
+                    np.concatenate(rows, axis=0))
+    print(f"[eval_checkpoint] contact sheet → {out / 'contact_sheet.png'}")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("checkpoint", type=Path)
+    ap.add_argument("--task", choices=sorted(ENV_CLASSES),
+                    default="joint_goal")
+    ap.add_argument("--modes", nargs="*", default=None,
+                    help="default: env's EVAL_MODES")
+    ap.add_argument("--per-mode", type=int, default=6)
+    ap.add_argument("--dr-scale", type=float, default=0.2)
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--episode-seconds", type=float, default=10.0)
+    ap.add_argument("--stochastic", action="store_true",
+                    help="add a pass sampling at the checkpoint's std")
+    ap.add_argument("--no-video", action="store_true")
+    ap.add_argument("--video-every", type=int, default=3,
+                    help="record every Nth episode per mode (1st always)")
+    ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--cfg-set", action="append", default=None,
+                    help="config override, e.g. "
+                         "goal.walk_speed_max_m_s=0.06 (repeatable)")
+    args = ap.parse_args()
+
+    from stable_baselines3 import PPO
+    from .train_ppo_sim import _annotate_frame
+
+    env_cls = ENV_CLASSES[args.task]
+    env = env_cls(params=SimServoParams.load(),
+                  randomize=args.dr_scale > 0, dr_scale=args.dr_scale,
+                  episode_seconds=args.episode_seconds, seed=args.seed,
+                  render_mode=None if args.no_video else "rgb_array")
+    for spec in args.cfg_set or []:
+        key, val = spec.split("=", 1)
+        sect, name = key.split(".", 1)
+        env.cfg.setdefault(sect, {})[name] = float(val)
+    model = PPO.load(args.checkpoint, device="cpu")
+    std = float(np.exp(model.policy.log_std.detach().numpy().mean()))
+
+    modes = args.modes or list(getattr(env_cls, "EVAL_MODES",
+                                       ("hold", "track", "rise")))
+    gen = env._goal_gen
+    out = args.out or (_PROTO / "logs" / "ckpt_eval" /
+                       f"{args.checkpoint.stem}_{time.strftime('%H%M%S')}")
+    out.mkdir(parents=True, exist_ok=True)
+
+    passes = [("det", True)] + ([("sto", False)] if args.stochastic else [])
+    report = {"checkpoint": str(args.checkpoint), "task": args.task,
+              "dr_scale": args.dr_scale, "seed": args.seed,
+              "policy_std": round(std, 3), "episodes": {}}
+    sheet_strips: list[Path] = []
+
+    for tag, det in passes:
+        for mode in modes:
+            for m in ALL_MODES:
+                if hasattr(gen, f"p_{m}"):
+                    setattr(gen, f"p_{m}", 1.0 if m == mode else 0.0)
+            eps = []
+            for k in range(args.per_mode):
+                video = (not args.no_video and det
+                         and (k == 0 or k % args.video_every == 0))
+                ep, frames = run_episode(
+                    env, model, deterministic=det, video=video,
+                    annotate=_annotate_frame)
+                eps.append(ep)
+                if frames:
+                    _save_video(frames, out / f"{mode}_{tag}_{k}")
+                    if det and k == 0:
+                        sheet_strips.append(
+                            (out / f"{mode}_{tag}_{k}").with_suffix(".png"))
+            report["episodes"][f"{mode}/{tag}"] = eps
+            n_ok = sum(e["success"] for e in eps)
+            hot = max(e["cur_max_a"] for e in eps)
+            kinds = ""
+            if mode in ("rise", "lower"):
+                by = {}
+                for e in eps:
+                    ok, tot = by.get(e["start_kind"], (0, 0))
+                    by[e["start_kind"]] = (ok + e["success"], tot + 1)
+                kinds = " [" + " ".join(
+                    f"{k}:{a}/{b}" for k, (a, b) in sorted(by.items())) + "]"
+            extra = ""
+            if any("vel_err_mean" in e for e in eps):
+                ve = [e["vel_err_mean"] for e in eps if "vel_err_mean" in e]
+                sp = [e["speed_mean_m_s"] for e in eps
+                      if "speed_mean_m_s" in e]
+                extra = (f" | vel_err {np.mean(ve):.3f} "
+                         f"speed {np.mean(sp):.3f} m/s")
+            print(f"[{tag}] {mode:6s}: {n_ok}/{len(eps)}{kinds} | "
+                  f"Imax {hot:.2f}A | imbal "
+                  f"{max(e['cur_leg_imbalance'] for e in eps):.2f}"
+                  f"{extra}")
+
+    if sheet_strips:
+        _save_contact_sheet(sheet_strips, out)
+    (out / "report.json").write_text(json.dumps(report, indent=2))
+    print(f"[eval_checkpoint] artifacts → {out}")
+    env.close()
+
+
+if __name__ == "__main__":
+    main()

@@ -821,17 +821,24 @@ def _stl_signature(mesh):
 
 
 def check_exported_stl_freshness():
-    """Assert every STL in ``stl_prototype/`` matches what the CURRENT
-    parametric source would export -- i.e. nobody edited a ``make_*`` factory
-    and forgot to re-run ``build_all.py``.  Closes the gap that lets the rest
-    of the suite pass on stale on-disk geometry (it all builds from source and
-    never reads the files)."""
+    """Assert every exported STL matches what the CURRENT parametric source
+    would export -- i.e. nobody edited a ``make_*`` factory and forgot to
+    re-run ``build_all.py``.  Closes the gap that lets the rest of the suite
+    pass on stale on-disk geometry (it all builds from source and never reads
+    the files).
+
+    Files are resolved with ``hp.stl_dir_for`` -- printables live in
+    ``stl_prototype/`` and the ``_DO_NOT_PRINT`` reference/visual meshes in
+    ``stl_reference/`` (this check used to hardcode ``stl_prototype/`` and
+    reported every visual mesh MISSING after build_all.py started routing
+    them to ``stl_reference/``)."""
     print("\n[1b2] Exported-STL freshness (on-disk STL == parametric source; "
           "re-run `make build` if any are stale):")
     all_ok = True
     for _section, builders in hp.stl_export_groups():
         for name, build in builders:
-            path = os.path.join(STL_DIR, name)
+            base = name[:-4].replace(hp.NOPRINT_SUFFIX, "")
+            path = os.path.join(hp.stl_dir_for(base), name)
             if not os.path.isfile(path):
                 all_ok &= _label(name, False,
                                  "MISSING on disk -- run `make build`")
@@ -902,19 +909,19 @@ def check_exported_stl_freshness():
 CONNECTIVITY_MIN_BODY_VOL = 1.0   # mm^3 -- below this is a meshing artifact
 
 # Every part that ships as its OWN printed STL (one connected piece).  The
-# assembled-link meshes (coxa_link / femur_link / tibia_link) are NOT printed
-# as single parts -- each is two printed fittings + a CF tube -- so they are
-# intentionally excluded; their constituent printed fittings are listed
-# instead.  No part here is legitimately multi-body, so there is no
-# whitelist: the required real-body count is exactly 1 for all of them.
+# assembled tibia_link mesh is NOT printed as a single part (two printed
+# fittings + a CF tube), so it is intentionally excluded; its constituent
+# printed fittings are listed instead.  coxa_link and femur_link ARE single
+# printed parts (Aug 2026 coxa merge / Jul 2026 femur merge #2).  No part
+# here is legitimately multi-body, so there is no whitelist: the required
+# real-body count is exactly 1 for all of them.
 _PRINTED_SINGLE_BODY_BUILDERS = (
     ("chassis_top",          hp.make_chassis_top),
     ("chassis_bottom",       hp.make_chassis_bottom),
     ("switch_holster",       hp.make_switch_holster),
     ("yaw_servo_retainer",   hp.make_yaw_servo_retainer),
     ("yaw_bearing_cap",      hp.make_yaw_bearing_cap),
-    ("coxa_yaw_hub",         hp.make_coxa_yaw_hub),
-    ("coxa_hip_bracket",     hp.make_coxa_hip_bracket),
+    ("coxa_link",            hp.make_coxa_link_part),
     ("femur_link",           hp.make_femur_link_part),
     ("tibia_knee_yoke",      hp.make_tibia_knee_yoke),
     ("tibia_foot_fitting",   hp.make_tibia_foot_fitting),
@@ -1869,13 +1876,14 @@ def check_clamp_cap_interference():
     print("\n[4a] Clamp-cap <-> bracket printed-part interpenetration:")
 
     cases = []
-    # HIP: make_coxa_hip_bracket() already applies the hip _joint_place to
-    # its fixed side, so the cap must get the SAME transform.
-    hip_bracket = hp.make_coxa_hip_bracket()
+    # HIP: the hip cradle is part of the ONE-PIECE coxa_link (Aug 2026
+    # merge); the builder already applies the hip _joint_place to its fixed
+    # side, so the cap must get the SAME transform.
+    hip_bracket = hp.make_coxa_link_part()
     hip_cap = hp.make_servo_clamp_cap()
     hip_cap.apply_transform(
         hp._joint_place(hp.COXA_HIP_ANCHOR, (1, 0, 0), hp.LEG_PITCH_AXIS))
-    cases.append(("hip  coxa_hip_bracket vs hip_clamp_cap",
+    cases.append(("hip  coxa_link hip cradle vs hip_clamp_cap",
                   hip_bracket, hip_cap))
 
     # KNEE: the knee cradle is the femur_link's knee fixed side
@@ -1910,8 +1918,8 @@ def check_clamp_cap_interference():
 # papered over until it bit during assembly.
 #
 # This gate assembles the ENTIRE static robot from EVERY printed part, in its
-# nominal assembled pose, DECOMPOSED into the real printed parts (coxa_yaw_hub
-# + coxa_hip_bracket, the ONE-PIECE femur_link, tibia_knee_yoke +
+# nominal assembled pose, DECOMPOSED into the real printed parts (the
+# ONE-PIECE coxa_link and femur_link, tibia_knee_yoke +
 # tibia_foot_fitting, foot_pad, the two chassis halves, both clamp caps, both
 # decks, the dome) -- not merged link proxies -- using the SAME
 # authoritative scene placement that ``tools/full_robot_viz_build.py`` lays
@@ -1938,7 +1946,7 @@ ASSEMBLY_INTERFERENCE_NOISE_MM3 = 5.0
 # Printed parts assembled by the gate (COTS -- bearings, CF tubes, servos,
 # disc horns, lipo, PCBs -- are excluded; they are not printed).
 _ASSEMBLY_PRINTED_PARTS = frozenset({
-    "coxa_yaw_hub", "coxa_hip_bracket", "yaw_bearing_cap",
+    "coxa_link", "yaw_bearing_cap",
     "femur_link",
     "tibia_knee_yoke", "tibia_foot_fitting", "foot_pad",
     "hip_clamp_cap", "knee_clamp_cap",
@@ -1954,22 +1962,20 @@ ASSEMBLY_INTERFERENCE_ALLOW = {
     # split face (YAW_SPLIT_Z); the 3 join bolts/ear bosses are coaxial.
     frozenset({"yaw_bearing_cap", "chassis_bottom"}):
         (25.0, "yaw tower split: flush split face (coaxial bolted join)"),
-    # Yaw turntable hub seats in the chassis tower bore on the 6706 bearing
-    # stack -- a running slip fit (coaxial), only facet noise at the seat.
-    frozenset({"coxa_yaw_hub", "chassis_bottom"}):
+    # Yaw turntable hub (now the hub end of the ONE-PIECE coxa_link, Aug 2026
+    # merge) seats in the chassis tower bore on the 6706 bearing stack -- a
+    # running slip fit (coaxial), only facet noise at the seat.
+    frozenset({"coxa_link", "chassis_bottom"}):
         (15.0, "yaw bearing seat: hub boss is a running slip fit in the tower"),
     # Hub rides the cap-captured upper 6706 inner race; the rotating hub has
     # running clearance to the stationary cap (flush at the race face only).
-    frozenset({"coxa_yaw_hub", "yaw_bearing_cap"}):
+    frozenset({"coxa_link", "yaw_bearing_cap"}):
         (15.0, "yaw joint: hub runs against the cap-captured race, flush face"),
-    # The two coxa printed parts (yaw hub + hip bracket) bolt together flush.
-    frozenset({"coxa_yaw_hub", "coxa_hip_bracket"}):
-        (15.0, "coxa two-part join: flush bolt face between hub and bracket"),
     # Sandwich-joint clamp caps clamshell their cradle bracket on flush faces
     # (the 0.2 mm tongue interference is against the COTS servo body, not the
     # printed bracket); guarded tightly by check_clamp_cap_interference too.
-    frozenset({"coxa_hip_bracket", "hip_clamp_cap"}):
-        (25.0, "hip clamp cap clamshells its cradle bracket on flush faces"),
+    frozenset({"coxa_link", "hip_clamp_cap"}):
+        (25.0, "hip clamp cap clamshells the coxa_link hip cradle on flush faces"),
     # Jul 2026 merge #2: the knee cradle is part of the ONE-PIECE femur_link,
     # so the knee clamp cap clamshells femur_link directly (flush faces, same
     # mate the separate femur_knee_bracket had).
@@ -2713,7 +2719,7 @@ def check_disc_horn_fit():
     x = +SERVO_OUTPUT_X) for all three driven joints:
 
       * chassis_bottom yaw cradle (mapped via the cradle->well helper),
-      * coxa_hip_bracket   (hip fixed side; un-does its joint placement),
+      * coxa_link's hip cradle (hip fixed side; un-does its joint placement),
       * femur_link's knee cradle (knee fixed side; already well-local).
     """
     R = hp.DISC_HORN_OD / 2.0
@@ -2737,21 +2743,20 @@ def check_disc_horn_fit():
     cyl = hp._cyl(R, H, sections=hp.CYL_SECTIONS)
     cyl.apply_translation([yaw_x, 0.0, 0.5 * (z_lo + z_hi)])
 
-    # The hip/knee fixed cradles are emitted as standalone printed parts
-    # by main() but are not in the verifier's assembled-link mesh cache,
-    # so build them directly.  coxa_hip_bracket is in coxa-local frame
+    # The hip/knee fixed cradles live inside one-piece printed parts, so
+    # build them directly.  The coxa_link hip cradle is in coxa-local frame
     # (its fixed side is placed by _joint_place(COXA_HIP_ANCHOR, +X,
     # LEG_PITCH_AXIS)); invert that so the disc-horn axis lands back on
     # the well-local output axis.  The femur_link's knee cradle
     # (_femur_knee_fixed_solid) is already well-local (no joint transform).
     M_hip = hp._joint_place(hp.COXA_HIP_ANCHOR, (1, 0, 0), hp.LEG_PITCH_AXIS)
-    hip = hp.make_coxa_hip_bracket()
+    hip = hp.make_coxa_link_part()
     hip.apply_transform(np.linalg.inv(M_hip))
 
     cases = [
         ("chassis_bottom yaw cradle",
          _chassis_yaw_cradle_to_well_local(_load_mesh("chassis_assembled"))),
-        ("coxa_hip_bracket  (hip cradle)", hip),
+        ("coxa_link (hip cradle)", hip),
         ("femur_link knee cradle", hp._femur_knee_fixed_solid()),
     ]
 
@@ -5555,13 +5560,17 @@ def check_hub_inner_race_insertion_path():
         f"{HUB_RACE_INSERTION_PATH_TOL_MM3:.0f} mm^3 (probe is sensitive)")
 
     # ---- Live hub MUST pass for BOTH inner races ---------------------------
-    hub = hp.make_coxa_yaw_hub()
+    # Aug 2026 one-piece merge: the hub is now the bottom end of the merged
+    # printed coxa_link, so the sweep runs against the WHOLE printed part --
+    # the fused hip bracket (z >= +18) is present while the races slide on
+    # from below and must not intrude into the boss path.
+    hub = hp.make_coxa_link_part()
     cases = [
         # (label, z_seat_top -- the race's retain shoulder; swept up to a step
         #  below it).  Both races load from the boss-bottom open end.
-        ("coxa_yaw_hub UPPER inner race (slides up to the uflange seat)",
+        ("coxa_link (hub end) UPPER inner race (slides up to the uflange seat)",
          hp.YAW_BEARING_UPPER_TOP_Z),    # +6 (uflange bottom is the seat stop)
-        ("coxa_yaw_hub LOWER inner race (slides up to its z=-1 seat)",
+        ("coxa_link (hub end) LOWER inner race (slides up to its z=-1 seat)",
          hp.YAW_BEARING_LOWER_TOP_Z),    # -1 (floating race; no over-boss lip)
     ]
     for name, z_seat_top in cases:
@@ -5812,9 +5821,12 @@ def check_bearing_assembly_sequence():
     # NB: kept as a LIST (never boolean-unioned) -- the hub, cap and tower are
     # coaxial running-clearance fits, and unioning them yields degenerate
     # near-coincident facets that make point-in-mesh non-deterministic.
-    hub = hp.make_coxa_yaw_hub()
+    # Aug 2026 one-piece merge: the "hub" obstacle is the whole printed
+    # coxa_link (the hip bracket is fused on and PRESENT while each race
+    # slides onto the boss from below).
+    hub = hp.make_coxa_link_part()
     cap = hp.make_yaw_bearing_cap()
-    if "coxa_yaw_hub" in _BEARING_ASSY_POST_INSTALL_RETAINERS:
+    if "coxa_link" in _BEARING_ASSY_POST_INSTALL_RETAINERS:
         hub = None
     if "yaw_bearing_cap" in _BEARING_ASSY_POST_INSTALL_RETAINERS:
         cap = None
@@ -7929,7 +7941,7 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     # and its cache key already mixes the full hp source + all STL bytes).
     "Exported-STL freshness":    ALL_PRINTED_PARTS,
     # Builds every printed single-body part directly from hexapod_prototype
-    # (incl. the split coxa_yaw_hub / coxa_hip_bracket fittings), so any
+    # (incl. the one-piece coxa_link, Aug 2026 merge), so any
     # printed-STL change can flip a connectivity verdict -> gate on all parts.
     "Single-body connectivity":  ALL_PRINTED_PARTS,
     # Builds the merged chassis_bottom's floor slab directly and asserts C6.
@@ -7959,12 +7971,12 @@ CHECK_INPUTS: dict[str, frozenset[str]] = {
     "Passive-horn stack":        _CRADLE_PARTS,
     "Cradle insert pockets":     _CRADLE_PARTS,
     "Servo insertion path":      _CRADLE_PARTS,
-    # Builds make_coxa_yaw_hub directly from hexapod_prototype; the coxa_link
-    # STL footprint stands in for the per-leg coxa parts that gate it.
+    # Builds the one-piece coxa_link directly from hexapod_prototype; its
+    # STL footprint gates it.
     "Hub inner-race insertion":  frozenset({"coxa_link"}),
-    # Models the rigid 6706 vs make_coxa_yaw_hub + make_yaw_bearing_cap +
-    # the chassis bottom tower; gate on the coxa + chassis parts so any change
-    # to the hub boss / cap / tower geometry re-runs it.
+    # Models the rigid 6706 vs the one-piece coxa_link + make_yaw_bearing_cap
+    # + the chassis bottom tower; gate on the coxa + chassis parts so any
+    # change to the hub boss / cap / tower geometry re-runs it.
     "Bearing assembly sequence": frozenset({"coxa_link", "chassis_bottom"}),
     # Builds make_yaw_bearing_cap directly; its own STL + the coxa parts gate it.
     "Bearing-cap descent path":  frozenset({"yaw_bearing_cap", "coxa_link"}),

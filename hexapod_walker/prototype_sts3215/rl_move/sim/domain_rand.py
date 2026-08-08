@@ -92,6 +92,52 @@ class RandRanges:
     gyro_noise_deg_s: float = 0.5
     action_noise: float = 0.02
 
+    def scaled(self, s: float) -> "RandRanges":
+        """Curriculum knob: shrink every range toward nominal by ``s``.
+
+        s=1 is full randomization, s=0 is the calibrated nominal sim.
+        Sensor NOISE floors (encoder, tilt, gyro noise) are kept at full
+        strength even at s=0 — real sensors are always noisy; it's the
+        structural/bias randomization that makes early learning hard.
+        """
+        s = max(0.0, min(1.0, float(s)))
+
+        def pair(lo: float, hi: float) -> tuple[float, float]:
+            return (1.0 + (lo - 1.0) * s, 1.0 + (hi - 1.0) * s)
+
+        return RandRanges(
+            mass_scale=pair(*self.mass_scale),
+            com_offset_m=self.com_offset_m * s,
+            leg_mass_jitter_pct=self.leg_mass_jitter_pct * s,
+            link_len_scale_pct=self.link_len_scale_pct * s,
+            link_len_leg_pct=self.link_len_leg_pct * s,
+            friction_scale=pair(*self.friction_scale),
+            contact_stiff_scale=pair(*self.contact_stiff_scale),
+            ground_tilt_deg=self.ground_tilt_deg * s,
+            kp_scale_pct=self.kp_scale_pct * s,
+            kv_scale_pct=self.kv_scale_pct * s,
+            torque_scale=pair(*self.torque_scale),
+            latency_scale=pair(*self.latency_scale),
+            deadband_scale=pair(*self.deadband_scale),
+            vel_scale=pair(*self.vel_scale),
+            cmd_drop_prob_max=self.cmd_drop_prob_max * s,
+            placement_noise_deg=self.placement_noise_deg * s,
+            bad_start_prob=self.bad_start_prob * s,
+            bad_start_max_joints=self.bad_start_max_joints,
+            bad_start_deg=(self.bad_start_deg[0] * s,
+                           self.bad_start_deg[1] * s),
+            joint_zero_bias_deg=self.joint_zero_bias_deg * s,
+            encoder_noise_deg=self.encoder_noise_deg,
+            imu_mount_deg=self.imu_mount_deg * s,
+            imu_pos_xy_m=self.imu_pos_xy_m * s,
+            imu_pos_z_m=(self.imu_pos_z_m[0] * s, self.imu_pos_z_m[1] * s),
+            imu_bias_deg=self.imu_bias_deg * s,
+            tilt_noise_deg=self.tilt_noise_deg,
+            gyro_bias_deg_s=self.gyro_bias_deg_s * s,
+            gyro_noise_deg_s=self.gyro_noise_deg_s,
+            action_noise=self.action_noise * s,
+        )
+
 
 @dataclass
 class EpisodeRandomization:
@@ -142,19 +188,17 @@ class EpisodeRandomization:
 
         # Leg geometry + per-link mass. Link lengths in the MJCF are just
         # attachment offsets: coxa length = L{i}_femur body x, femur length
-        # = L{i}_tibia body x, tibia length = foot geom/site x.
+        # = L{i}_tibia body x, tibia length = pad-hinge body x.
         for i in range(N_LEGS):
             b_yaw = bid(f"L{i}_yaw")
             b_fem = bid(f"L{i}_femur")
             b_tib = bid(f"L{i}_tibia")
-            g_foot = gid(f"L{i}_foot")
-            s_foot = sid(f"L{i}_foot_site")
+            b_pad = bid(f"L{i}_pad")
             s_coxa, s_femur, s_tibia = self.link_scale[i]
 
             model.body_pos[b_fem, 0] *= s_coxa
             model.body_pos[b_tib, 0] *= s_femur
-            model.geom_pos[g_foot, 0] *= s_tibia
-            model.site_pos[s_foot, 0] *= s_tibia
+            model.body_pos[b_pad, 0] *= s_tibia
             # CoM of each link moves with its length.
             model.body_ipos[b_yaw, 0] *= s_coxa
             model.body_ipos[b_fem, 0] *= s_femur
@@ -194,11 +238,14 @@ class EpisodeRandomization:
 
 
 class DomainRandomizer:
-    def __init__(self, ranges: RandRanges | None = None):
-        self.ranges = ranges or RandRanges()
+    def __init__(self, ranges: RandRanges | None = None, *,
+                 scale: float = 1.0):
+        self.scale = float(scale)
+        self.ranges = (ranges or RandRanges()).scaled(self.scale)
 
     @classmethod
-    def from_params(cls, params: SimServoParams) -> "DomainRandomizer":
+    def from_params(cls, params: SimServoParams, *,
+                    scale: float = 1.0) -> "DomainRandomizer":
         """Widen ranges with the measured joint-to-joint spread, if fitted."""
         r = RandRanges()
         spreads = [params.spread.get(ax, {}) for ax in AXES]
@@ -213,7 +260,7 @@ class DomainRandomizer:
             hi = 1.0 + 2.0 * max(delay)
             r.latency_scale = (max(0.3, min(r.latency_scale[0], 2.0 - hi)),
                                max(r.latency_scale[1], hi))
-        return cls(r)
+        return cls(r, scale=scale)
 
     def sample(self, rng: np.random.Generator) -> EpisodeRandomization:
         r = self.ranges

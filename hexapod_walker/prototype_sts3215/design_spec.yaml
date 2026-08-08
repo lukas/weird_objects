@@ -45,7 +45,10 @@
 #                             extruded_rectangle, hex_plate,
 #                             rectangular_well, cylindrical_boss,
 #                             rectangular_tang, cylindrical_tang,
-#                             fork, gusset_rib, slot, recess).
+#                             fork, gusset_rib, slot, recess,
+#                             open_clearance -- a deliberately EMPTY
+#                             volume the part must keep open, e.g. the
+#                             open back over a passive rear-boss horn).
 #       - description:        plain-English call-out of the round
 #                             part, the long straight part, the depth,
 #                             the mating face, the wall.
@@ -182,11 +185,10 @@ coordinate_systems:
     x_axis: "Toggle-exit direction (toggle pokes out the +X face)."
     y_axis: "Tangential (along the chassis +X hex edge)."
     z_axis: "Up (ear bottom at z = 0; socket cavity opens +Z above SWITCH_HOLSTER_FLOOR)."
-  imu_pad:
-    origin: "Pad floor centre on its BOTTOM face (chassis centre after assembly)."
-    x_axis: "IMU long axis (PCB long edge, = 8-pin header edge)."
-    y_axis: "IMU short axis."
-    z_axis: "Up (pad floor z in [0, IMU_PAD_T]; boss tops at z = IMU_PAD_T + IMU_PAD_BOSS_H)."
+  # Aug 2026: ``imu_pad`` retired (as-built: the MPU-6050 is glued
+  # directly to chassis_bottom inboard of physical leg 1 -- no printed
+  # pad).  Its frames / print-orientation / parts entries are removed so
+  # the stl-present check stops demanding a file for a part nobody prints.
 
 # ---------------------------------------------------------------------
 # Printability rules
@@ -247,7 +249,7 @@ print_orientations:
   tibia_foot_fitting: {rotation_deg: [0, 0, 0],   note: "Tang + tube socket print with the hinge bore as a horizontal Y through-cut."}
   foot_pad:           {rotation_deg: [0, 0, 0],   note: "TPU disk on bed, hinge fork up."}
   switch_holster:     {rotation_deg: [0, 0, 0],   note: "Ear + socket floor on bed, cavity opens +Z."}
-  imu_pad:            {rotation_deg: [0, 0, 0],   note: "Pad floor on bed, bosses point +Z."}
+  # (Aug 2026: imu_pad retired -- no orientation entry.)
   # tibia_link is an ASSEMBLY mesh (yoke + CF tube + foot fitting), not
   # a printable solid -- no print orientation.  (femur_link IS printable
   # since the Jul 2026 merge #2 -- see its entry above.)
@@ -445,9 +447,9 @@ parts:
                 - [-46.0, -11.0, 18.0, 6.0]
 
   chassis_top:
-    description: "Smaller 140 mm hex deck carrying the stacked electronics-deck columns + switch holster + IMU pad; legs sweep clear of it (70 mm apothem leaves the legs' hip-pitch wells outside the deck).  May 2026: 2 x switch_holster mounting bosses (Phi 8 mm, 3 mm above the plate top) on the +X half of the plate carry M3 brass heat-set inserts so the anti-spark switch can be bolted on from above.  Also carries 6 x Phi 12 mm yaw-shaft pass-through cutouts at each leg's yaw axis (currently a geometric no-op because the 6 yaw axes are 30 mm OUTSIDE the 70 mm-apothem hex perimeter, kept as an active diff for forward compatibility)."
+    description: "Smaller top deck (a 140 mm hex CLIPPED to a Phi 2*CHASSIS_TOP_RADIUS = 115 mm disk for coaxial-coxa clearance) carrying the electronics + switch holster; legs sweep clear of it (the disk edge keeps the yaw-centred hip servo bodies, which reach inward to ~60 mm, outside the deck).  May 2026: 2 x switch_holster mounting bosses (Phi 8 mm, 3 mm above the plate top) on the +X half of the plate carry M3 brass heat-set inserts so the anti-spark switch can be bolted on from above.  Also carries 6 x Phi 12 mm yaw-shaft pass-through cutouts at each leg's yaw axis (currently a geometric no-op because the 6 yaw axes are 30 mm OUTSIDE the 70 mm-apothem hex perimeter, kept as an active diff for forward compatibility)."
     qty: 1
-    bounds_mm: [140.0, 161.7, 7.0]      # = CHASSIS_TOP_FLAT_TO_FLAT (X apothem*2), 2*circumradius (Y vertex*2 = 140/cos(30 deg) = 161.66), CHASSIS_PLATE_T + SWITCH_HOLSTER_BOSS_H = 4 + 3 = 7
+    bounds_mm: [115.0, 115.0, 7.0]      # = 2*CHASSIS_TOP_RADIUS (the 140 hex is CLIPPED to a Phi 115 disk for coaxial-coxa clearance -- the yaw-centred hip servo body sweep reaches inward to ~60 mm in the chassis_top z-band), CHASSIS_PLATE_T + SWITCH_HOLSTER_BOSS_H = 4 + 3 = 7.  Supersedes the unclipped hex [140, 161.7, 7].
     holes:
       - name: centre_mount_NE
         diameter_mm: 3.4
@@ -546,7 +548,7 @@ parts:
     wire_channels:
       - name: hip_wire_exit_L
         note: "L-corridor + boot pocket at the hip fixed side's +X bottom-outboard corner (inherited from _sandwich_fixed_side / _wire_exit_slot).  Routes the hip STS3215's serial-bus harness outboard; verified by _verify_prototype.check_wire_slot."
-    keep_out_volumes:
+    keep_out_volumes: []
       # Jun 2026 bearing-sandwich refit: the old `hip_pad_sweep` and
       # `hip_pitch_servo_body` keep-outs are RETIRED for the coxa.  In the
       # sandwich design the hip fixed side is INTENTIONALLY coaxial with
@@ -555,9 +557,18 @@ parts:
       # check no longer maps to a real interference.  Assembled-pose hip
       # clearance (yoke straddle, disc-horn sweep, 688 stub, self-collision
       # over the full pitch range, plus the passive rear-boss horn) is
-      # verified authoritatively by _verify_prototype.  Only the yaw-side
-      # horn sweep below the pad still applies in the coxa-local frame.
-      - name: link_hub_horn_sweep
+      # verified authoritatively by _verify_prototype.
+      #
+      # Aug 2026: `link_hub_horn_sweep` is retired too.  It reserved the
+      # old X-horn's swing volume BELOW the hub face (z < 0) from the era
+      # when the coxa was a flat pad seated ON TOP of a protruding horn.
+      # Since the Jun 2026 flush-horn depth fix the hub INTENTIONALLY
+      # reaches down to z = YAW_HUB_BOSS_BOT_Z = -9 (Phi 20 drive nub
+      # through the mount-plate bore onto the recessed disc), and the hub
+      # is BOLTED to the horn -- they rotate together, so "keep clear of
+      # the horn sweep" cannot apply to the driven hub itself.  Horn
+      # clearance against STATIONARY parts is verified authoritatively by
+      # _verify_prototype (horn-sweep / disc-horn-fit / airspace probes).
     shape:
       overall_form: "Yaw-driven coxa = a flat yaw mount pad at the bottom (z in [0, +4]) tied by a short structural bridge to the HIP joint's FIXED side at the outboard +X end.  The fixed side (Jun 2026 bearing-sandwich refit + symmetric-yoke update) is an STS3215 front-face servo bracket -- 4 walls + an output-face mount plate, OPEN at the back -- anchored so its disc-horn-top plane lands on the hip joint point (COXA_LENGTH, 0, COXA_HIP_DROP) = (25, 0, 16.1).  The fixed side is rotated in place so the hip-pitch output axis runs along coxa +/-Y; the servo well therefore HANGS in coxa -Y (the hip-pitch axis direction).  The femur_link's hip yoke straddles this fixed side: its top arm bolts to the driven hip disc horn (coxa +Y top, on the front spline) and its bottom arm bolts to the PASSIVE disc horn on the servo's rear idler boss (coxa -Y back) -- no 688 bearing.  An inboard-bottom corner relief is carved at -X so the well clears the chassis_top plate at extreme yaw."
       print_orientation_rationale: "Rotate +90 deg about X so the hip servo well's open back faces +Z and the yaw mount pad lays flat against the bed.  The yaw disc-horn counter-bores print as upward-opening pockets; the wire-exit slot becomes a side feature on a wall.  The open rear (no printed back housing) needs no support."
@@ -961,36 +972,11 @@ parts:
           height_mm: 16.0               # = SWITCH_HOLSTER_FLOOR * 4
           axis: z
 
-  imu_pad:
-    description: "Vibration-isolated mounting pad for the MPU-6050 / GY-521 IMU breakout (May 2026 'essentials' pass).  The pad is a thin 25 x 20 x 2 mm flat plate with 4 short Phi 8 mm bosses at the IMU's 15.0 x 11.0 mm hole pattern.  Each boss carries a Phi 4 mm M3 brass heat-set insert in a 6 mm-deep pocket opening DOWNWARD from the boss top.  No fasteners between the pad and chassis_top -- the pad is GLUED to chassis_top with a 3 mm-thick strip of 3M VHB / generic double-sided mounting foam tape; the foam tape doubles as the mount AND the vibration damper."
-    qty: 1
-    bounds_mm: [25.0, 20.0, 7.2]        # = IMU_PAD_W, IMU_PAD_D, IMU_PAD_T + IMU_PAD_BOSS_H + 0.2 (overdrill chamfer on boss top) = 2 + 5 + 0.2
-    holes: []
-    wire_channels: []
-    keep_out_volumes: []
-    shape:
-      overall_form: "Small rectangular plate (25 x 20 x 2 mm) with 4 short Phi 8 mm bosses on its +Z face arranged in a 15 x 11 mm rectangular pattern centred on the pad.  Bottom face is deliberately FLAT and free of features (foam-tape adhesion).  Each boss is 5 mm tall and carries an M3 heat-set insert pocket on its top face."
-      print_orientation_rationale: "Drop the flat bottom face to the bed (no rotation).  Bosses point +Z so each insert pocket prints as a recessed cavity opening upward.  No supports needed; the part is small enough that the 8 mm boss diameter on a 2 mm floor prints reliably with a 5 mm brim."
-      features:
-        - name: floor
-          type: extruded_rectangle
-          description: "The flat base plate.  Foam-tape adhesion side faces -Z (chassis_top); IMU bosses sit on +Z face."
-          centre_mm: [0.0, 0.0, 1.0]
-          length_mm: 25.0             # = HP.IMU_PAD_W
-          width_mm: 20.0              # = HP.IMU_PAD_D
-          thickness_mm: 2.0           # = HP.IMU_PAD_T
-        - name: boss_x4
-          type: cylindrical_boss
-          description: "4 Phi 8 mm bosses at the IMU's 4-hole pattern (offsets +/-7.5 mm in X, +/-5.5 mm in Y).  Each boss rises 5 mm above the pad's TOP face and carries a Phi 4 mm x 6 mm M3 heat-set insert pocket opening UPWARD from the boss top; pocket bottom sits at z = +0.8 mm, leaving 0.8 mm of pad floor below the pocket so the BOTTOM face stays flat for foam-tape adhesion."
-          centre_mm: [7.5, 5.5, 4.5]     # one of 4; centre = (sx*IMU_HOLE_PCD_X/2, sy*IMU_HOLE_PCD_Y/2, IMU_PAD_T + IMU_PAD_BOSS_H/2)
-          diameter_mm: 8.0             # = HP.IMU_PAD_BOSS_OD
-          inner_diameter_mm: 4.0       # = HP.INSERT_M3_PILOT_OD
-          height_mm: 5.0               # = HP.IMU_PAD_BOSS_H above pad top
-          axis: z
-          mating_face:
-            normal: +z
-            mates_to: "MPU-6050 / GY-521 IMU PCB bottom face"
-            mating_plane_z_local_mm: 7.0    # = HP.IMU_PAD_T + HP.IMU_PAD_BOSS_H
+  # Aug 2026: the ``imu_pad`` parts entry is REMOVED -- the printed pad was
+  # retired in the as-built electronics pass (the MPU-6050 is glued directly
+  # to chassis_bottom inboard of physical leg 1, no printed pad, no inserts)
+  # but its spec entry had lingered and kept failing the stl-present check
+  # for a file nobody prints or emits.
 
   # June 2026 disc-horn switch: the printed servo_horn_adapter has
   # been retired.  The 4 x M3 bolt-circle (Phi 3.4 mm on a 14 mm PCD)

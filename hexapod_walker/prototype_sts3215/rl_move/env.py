@@ -34,39 +34,49 @@ def _standing_q_rad() -> np.ndarray:
 
 @dataclass
 class TaskGoal:
-    """Commanded target for the goal-conditioned lean / weight-shift task.
+    """Commanded target for the goal-conditioned lean / rise / weight-shift
+    task.
 
     ``roll_ref``/``pitch_ref`` are the desired body attitude (rad); the
-    plain balance task is the special case where both are 0. ``unload_leg``
+    plain balance task is the special case where both are 0.
+    ``height_ref`` is the desired body height offset from the nominal
+    stance (m; rise episodes ramp it from a crouch to 0). ``unload_leg``
     (0-5 or None) asks the policy to drive that leg's servo currents to
     zero — i.e. shift the body until the leg carries no weight.
     """
     roll_ref: float = 0.0
     pitch_ref: float = 0.0
+    height_ref: float = 0.0
     unload_leg: int | None = None
 
     def as_obs(self, cfg: dict) -> np.ndarray:
-        """8-dim goal observation: scaled refs + unload one-hot."""
+        """9-dim goal observation: scaled refs + unload one-hot."""
         ts = float(cfg_get(cfg, "obs", "tilt_scale", default=0.2))
+        hs = float(cfg_get(cfg, "obs", "height_scale_m", default=0.05))
         onehot = np.zeros(6, dtype=float)
         if self.unload_leg is not None:
             onehot[int(self.unload_leg)] = 1.0
         return np.concatenate([
-            [self.roll_ref / max(ts, 1e-6), self.pitch_ref / max(ts, 1e-6)],
+            [self.roll_ref / max(ts, 1e-6), self.pitch_ref / max(ts, 1e-6),
+             self.height_ref / max(hs, 1e-6)],
             onehot])
 
 
-GOAL_DIM = 8
+GOAL_DIM = 9
 
 
 def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
               prev_action: np.ndarray,
-              goal: "TaskGoal | None" = None) -> np.ndarray:
-    """46-dim observation (54 with a goal appended).
+              goal: "TaskGoal | None" = None,
+              tilt_ref: tuple[float, float] = (0.0, 0.0)) -> np.ndarray:
+    """47-dim observation (56 with a goal appended).
 
-    Shared by the hardware env and the sim twin. The goal refs use the
-    same tilt scaling as the measured roll/pitch entries, so the policy
-    sees reference and measurement in identical units.
+    Shared by the hardware env and the sim twin. Tilt is reported
+    RELATIVE to ``tilt_ref`` — the attitude measured at episode start —
+    because the raw reading can carry a large constant bias (IMU mounted
+    at an angle, sloped floor) that neither the policy nor the goal refs
+    could ever null out. The goal refs use the same tilt scaling, so the
+    policy sees reference and measurement in identical units.
     """
     qs = float(cfg_get(cfg, "obs", "q_scale", default=1.0))
     qds = float(cfg_get(cfg, "obs", "qd_scale", default=2.0))
@@ -74,7 +84,9 @@ def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
     gs = float(cfg_get(cfg, "obs", "gyro_scale", default=1.0))
     q_rel = (state.joint_position - q_nom) / max(qs, 1e-6)
     qd = state.joint_velocity / max(qds, 1e-6)
-    tilt = np.array([state.imu_roll, state.imu_pitch], dtype=float) / max(ts, 1e-6)
+    tilt = np.array([state.imu_roll - tilt_ref[0],
+                     state.imu_pitch - tilt_ref[1]],
+                    dtype=float) / max(ts, 1e-6)
     gyro = state.imu_gyro / max(gs, 1e-6)
     parts = [q_rel, qd, tilt, gyro, prev_action]
     if goal is not None:
@@ -84,65 +96,158 @@ def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
 
 def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
                    prev_action: np.ndarray,
-                   goal: "TaskGoal | None" = None) -> tuple[float, dict]:
-    """Balance / goal-tracking reward. Shared by hardware env and sim twin.
+                   goal: "TaskGoal | None" = None,
+                   tilt_ref: tuple[float, float] = (0.0, 0.0),
+                   height_err: float | None = None,
+                   unload_force_n: float | None = None,
+                   ref_quiet: bool = False
+                   ) -> tuple[float, dict]:
+    """Task-tracking reward. Shared by hardware env and sim twin.
 
-    With no goal this is the plain balance reward (track zero tilt). With
-    a goal, roll/pitch track the commanded reference and an unload term
-    pushes the target leg's servo currents to zero.
+    Structure (post 2026-08-07 redesign): the ONLY substantial positive
+    term is a Gaussian tracking kernel — near +1/tick for following the
+    commanded roll/pitch (and height / leg-unload when the goal asks),
+    near 0 for ignoring it. There is deliberately NO unconditional alive
+    bonus: paying one taught PPO that freezing in place collects ~96% of
+    the achievable reward. Penalties (gyro, action, current) are kept
+    weak — learn the task first, optimize effort later. Small quadratic
+    tilt/height terms supply gradient far from the reference where the
+    kernel is flat.
+
+    Tilt is measured relative to ``tilt_ref`` (episode-start attitude): a
+    lean goal means "lean this far from where you settled", which stays
+    achievable no matter how the IMU is mounted. ``height_err`` =
+    measured body height minus (start + height_ref); the sim supplies it
+    from privileged chassis state, hardware passes None.
     """
-    kr = float(cfg_get(cfg, "reward", "k_roll", default=5.0))
-    kp = float(cfg_get(cfg, "reward", "k_pitch", default=5.0))
-    kg = float(cfg_get(cfg, "reward", "k_gyro", default=0.1))
-    ka = float(cfg_get(cfg, "reward", "k_action", default=0.01))
+    kt = float(cfg_get(cfg, "reward", "k_track", default=1.0))
+    kr = float(cfg_get(cfg, "reward", "k_roll", default=10.0))
+    kp = float(cfg_get(cfg, "reward", "k_pitch", default=10.0))
+    kh = float(cfg_get(cfg, "reward", "k_height", default=100.0))
+    kg = float(cfg_get(cfg, "reward", "k_gyro", default=0.05))
+    ka = float(cfg_get(cfg, "reward", "k_action", default=0.005))
     kad = float(cfg_get(cfg, "reward", "k_action_delta", default=0.01))
-    kc = float(cfg_get(cfg, "reward", "k_current", default=0.02))
-    ku = float(cfg_get(cfg, "reward", "k_unload", default=0.5))
+    kc = float(cfg_get(cfg, "reward", "k_current", default=0.005))
+    # Peak-load penalty (default OFF): squared max |current| over all
+    # servos. The sum-square term barely distinguishes "18 motors at
+    # 0.6 A" from "3 motors at 2.4 A doing all the work"; this term does,
+    # pushing the policy to recruit every leg instead of riding a few
+    # motors near the 2.5 A breaker.
+    kcm = float(cfg_get(cfg, "reward", "k_current_max", default=0.0))
+    # Quiet-stance bonus (default OFF): pay for being MOTIONLESS while
+    # AT the goal pose with a STATIONARY reference. Gaussian on mean
+    # squared joint speed, MULTIPLIED by the task kernel so a frozen
+    # belly-rest earns nothing (kernel ~0 off-target — no revival of
+    # the freeze shortcut the alive-bonus removal killed). Targets the
+    # "3-leg stand while the free legs thrash" artifact: thrashing
+    # zeroes this bonus even though it never moves the body.
+    ks = float(cfg_get(cfg, "reward", "k_still", default=0.0))
+    sig_qd = float(cfg_get(cfg, "reward", "still_sigma_rad_s", default=0.3))
+    ku = float(cfg_get(cfg, "reward", "k_unload", default=0.2))
     alive = float(cfg_get(cfg, "reward", "alive", default=0.0))
+    sig_t = math.radians(float(cfg_get(
+        cfg, "reward", "track_sigma_deg", default=1.5)))
+    sig_h = float(cfg_get(
+        cfg, "reward", "height_sigma_mm", default=10.0)) * 0.001
+    sig_c = float(cfg_get(cfg, "reward", "unload_sigma_a", default=0.15))
+    sig_f = float(cfg_get(cfg, "reward", "unload_sigma_n", default=1.0))
+
     roll_ref = goal.roll_ref if goal is not None else 0.0
     pitch_ref = goal.pitch_ref if goal is not None else 0.0
-    r_roll = -kr * float((state.imu_roll - roll_ref) ** 2)
-    r_pitch = -kp * float((state.imu_pitch - pitch_ref) ** 2)
+    e_roll = float(state.imu_roll - tilt_ref[0] - roll_ref)
+    e_pitch = float(state.imu_pitch - tilt_ref[1] - pitch_ref)
+
+    # Unload episodes NEED to lean: with position-controlled pinned feet
+    # the only way to open a foot's contact is tipping the body so that
+    # foot's target rises (measured: shift alone leaves ~2.4 N, shift +
+    # 4° lean reaches ~1.3 N). Widen the tilt tolerance there so the
+    # mechanism isn't punished away; the safety tilt trip still applies.
+    if goal is not None and goal.unload_leg is not None:
+        sig_t = math.radians(float(cfg_get(
+            cfg, "reward", "unload_tilt_sigma_deg", default=4.0)))
+
+    # --- the task kernel: product of per-objective Gaussians in [0, 1] ---
+    kernel = math.exp(-(e_roll ** 2 + e_pitch ** 2) / (2.0 * sig_t ** 2))
+    r_height = 0.0
+    if height_err is not None:
+        kernel *= math.exp(-height_err ** 2 / (2.0 * sig_h ** 2))
+        r_height = -kh * height_err ** 2
+    unload_cur = None
+    if goal is not None and goal.unload_leg is not None:
+        if unload_force_n is not None:
+            # Preferred: the leg's ground-reaction force (sim touch
+            # sensor). Quiet stance = ~3.5 N per foot → kernel ≈ 0, so
+            # freezing earns nothing; a truly unloaded leg (<1 N) pays.
+            # Servo current CANNOT see this — quiet-stand currents are
+            # ~0.1 A on every leg, loaded or not.
+            kernel *= math.exp(-unload_force_n ** 2 / (2.0 * sig_f ** 2))
+        elif state.servo_current is not None:
+            j0 = 3 * int(goal.unload_leg)
+            unload_cur = float(
+                np.mean(np.abs(state.servo_current[j0:j0 + 3])))
+            kernel *= math.exp(-unload_cur ** 2 / (2.0 * sig_c ** 2))
+    r_task = kt * kernel
+
+    # --- weak shaping / regularization ---
+    r_roll = -kr * e_roll ** 2
+    r_pitch = -kp * e_pitch ** 2
     r_gyro = -kg * float(np.sum(state.imu_gyro ** 2))
     r_act = -ka * float(np.sum(action ** 2))
     r_dad = -kad * float(np.sum((action - prev_action) ** 2))
-    # Effort: penalize fighting (sum of squared servo currents, A²). This
-    # is the "don't cook motors" signal — sustained stall on the hardware
-    # (2026-08-06: ~7 A holds) must read as a bad outcome, not neutral.
-    # Sim fills servo_current from actuator torque; hardware from the
-    # ~10 Hz full-feedback read (held between reads, None before first).
+    # Effort: penalize fighting (sum of squared servo currents, A²) —
+    # the "don't cook motors" signal (2026-08-06: ~7 A holds). Kept weak
+    # so moving toward the goal is never more expensive than tracking
+    # pays. Sim fills servo_current from actuator torque; hardware from
+    # the ~10 Hz full-feedback read.
     r_cur = 0.0
+    r_cur_max = 0.0
     if state.servo_current is not None:
         r_cur = -kc * float(np.sum(np.square(state.servo_current)))
-    # Weight-shift goal: mean |current| of the target leg's 3 servos → 0.
-    # Only measurable signal for "this leg carries no weight" that exists
-    # on both hardware (10 Hz feedback) and sim (torque-derived).
+        if kcm > 0.0:
+            r_cur_max = -kcm * float(
+                np.max(np.abs(state.servo_current))) ** 2
+    # Weight-shift goal: weak linear gradient toward zero load (the
+    # kernel above pays the actual success but is flat far from it).
     r_unload = 0.0
-    if (goal is not None and goal.unload_leg is not None
-            and state.servo_current is not None):
-        j0 = 3 * int(goal.unload_leg)
-        leg_cur = np.abs(state.servo_current[j0:j0 + 3])
-        r_unload = -ku * float(np.mean(leg_cur))
+    if unload_force_n is not None:
+        r_unload = -ku * 0.1 * unload_force_n
+    elif unload_cur is not None:
+        r_unload = -ku * unload_cur
+
+    # still_factor is exported via parts so the sim's curl-window
+    # repricing can rescale reward_still with the swapped-in kernel.
+    still_factor = 0.0
+    r_still = 0.0
+    if ks > 0.0 and ref_quiet:
+        qd2 = float(np.mean(np.square(state.joint_velocity)))
+        still_factor = math.exp(-qd2 / (2.0 * sig_qd ** 2))
+        r_still = ks * kernel * still_factor
+
     parts = {
+        "reward_task": r_task,
         "reward_roll": r_roll,
         "reward_pitch": r_pitch,
+        "reward_height": r_height,
         "reward_gyro": r_gyro,
         "reward_action": r_act,
         "reward_action_delta": r_dad,
         "reward_current": r_cur,
+        "reward_current_max": r_cur_max,
         "reward_unload": r_unload,
+        "reward_still": r_still,
+        "still_factor": still_factor,
         "reward_alive": alive,
         "reward_termination": 0.0,
     }
-    return (alive + r_roll + r_pitch + r_gyro + r_act + r_dad + r_cur
-            + r_unload, parts)
+    return (r_task + alive + r_roll + r_pitch + r_height + r_gyro + r_act
+            + r_dad + r_cur + r_cur_max + r_unload + r_still, parts)
 
 
 class HexapodBalanceEnv:
-    """50 Hz balance env. Observation dim 46, action dim 5."""
+    """50 Hz balance env. Observation dim 47, action dim 6."""
 
-    OBS_DIM = 46
-    ACT_DIM = 5
+    OBS_DIM = 47
+    ACT_DIM = 6
 
     def __init__(self, bus: Any, cfg: dict | None = None, *,
                  log: bool = True):
@@ -159,6 +264,7 @@ class HexapodBalanceEnv:
         self.safety = SafetyLayer(self.cfg)
         self._q_nom = _standing_q_rad()
         self._prev_action = np.zeros(self.ACT_DIM, dtype=float)
+        self._tilt_ref0 = (0.0, 0.0)
         self._step = 0
         self._episode = 0
         self._state: RobotState | None = None
@@ -222,11 +328,13 @@ class HexapodBalanceEnv:
                 f"will not auto-stand.")
 
     def _obs(self, state: RobotState) -> np.ndarray:
-        return build_obs(self.cfg, state, self._q_nom, self._prev_action)
+        return build_obs(self.cfg, state, self._q_nom, self._prev_action,
+                         tilt_ref=self._tilt_ref0)
 
     def _reward(self, state: RobotState, action: np.ndarray
                 ) -> tuple[float, dict]:
-        return compute_reward(self.cfg, state, action, self._prev_action)
+        return compute_reward(self.cfg, state, action, self._prev_action,
+                              tilt_ref=self._tilt_ref0)
 
     def _command_deg(self, q_rad: np.ndarray, *, speed: int | None = None) -> None:
         self.estimator.set_commanded(q_rad)
@@ -303,7 +411,7 @@ class HexapodBalanceEnv:
         if self.hold_current or not self.allow_stand_blend:
             # Freeze at *current* pose — command exactly what we read.
             self._q_nom = self._state.joint_position.copy()
-            self.ik.reset(self._q_nom)
+            self.ik.reset(self._q_nom, plant_q_rad=_standing_q_rad())
             self.safety.set_nominal(self._q_nom)
             if self.enable_motion:
                 try:
@@ -318,7 +426,7 @@ class HexapodBalanceEnv:
             # Opt-in only; requires captured plant (checked above).
             self._q_nom = _standing_q_rad()
             self._smooth_to_stand()
-            self.ik.reset(self._q_nom)
+            self.ik.reset(self._q_nom, plant_q_rad=self._q_nom)
             self.safety.set_nominal(self._q_nom)
             self._command_deg(self._q_nom, speed=self.stand_speed)
 
@@ -326,11 +434,12 @@ class HexapodBalanceEnv:
         for _ in range(5):
             self._state = self.estimator.update()
             time.sleep(self.dt)
-        # Tipping is a CHANGE in tilt: anchor the trip to the attitude the
-        # episode actually started with, so IMU mount bias / a sloped floor
-        # doesn't silently consume the safety budget.
-        self.safety.set_tilt_reference(self._state.imu_roll,
-                                       self._state.imu_pitch)
+        # Tipping is a CHANGE in tilt: anchor the trip, the obs, and the
+        # reward to the attitude the episode actually started with, so IMU
+        # mount bias / a sloped floor doesn't silently consume the safety
+        # budget or make goals unsatisfiable.
+        self._tilt_ref0 = (self._state.imu_roll, self._state.imu_pitch)
+        self.safety.set_tilt_reference(*self._tilt_ref0)
         if self._logger:
             self._logger.start_episode(self._episode)
         info = {

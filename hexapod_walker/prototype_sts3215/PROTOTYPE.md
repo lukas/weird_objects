@@ -52,7 +52,7 @@ when you graduate to the big version — just re-tune the gains.
 | Per-leg static load (tripod stance) | ~ 4.3 N (~ 0.43 kg) |
 | Peak knee torque | ~ 0.6 N·m (~ 6 kg·cm) |
 | Battery | 1 × 3S LiPo (11.1 V nom / 12.6 V full), up to 138 × 46 × 24 mm |
-| Servo rail | Raw 3S (12 V) via PDB → peripheral power Wagos → per-leg branches; see [`firmware/WIRING.md`](firmware/WIRING.md) §6 |
+| Servo rail | Raw 3S (12 V) via trunk Wago splice pair → peripheral power Wagos → per-leg branches (as-built: no PDB, all lever nuts); see [`firmware/WIRING.md`](firmware/WIRING.md) §6 |
 | Logic rail | Raw 3S straight to Uno Q (on-board regulator; **no external buck**) |
 | Continuous draw (cruise) | ~ 9 A @ 12 V (all 18 servos walking) + Uno Q on its own battery feed |
 | Run time, level ground | ~ 30 min |
@@ -416,7 +416,8 @@ as a single body — no socket, no slip fit, no retention pin.
 ### 3.4 Don't have a 3D printer? Order from a print service
 
 Run `./run.sh hexapod_walker/prototype_sts3215/scripts/prepare_xometry_upload.py` to build a
-self-contained order package in `xometry_upload/`. The script
+self-contained order package in `xometry_upload/` (generated on
+demand; the bundle is not checked in). The script
 re-orients each part for printing (hollow servo pockets opening
 toward +Z, broadest flat face on the build plate), consolidates the
 two identical chassis plates into a single file with `qty=2`, and
@@ -441,7 +442,8 @@ printer.
 ### 4.2 Power
 
 > Power architecture (Aug 2026 as-built): **two battery domains, no
-> external buck** — `battery → PDB → power Wagos → servos` and
+> external buck, no PDB** — `battery → trunk Wagos → power Wagos →
+> servos` (all Wago 221 lever nuts) and
 > `battery → Uno Q` (share ground only).  Full detail in
 > [`firmware/WIRING.md`](firmware/WIRING.md) §6.  There is **no servo
 > BEC** — the STS3215 run directly off the raw 3S (12 V) rail.
@@ -450,11 +452,10 @@ printer.
 |---|---|---|---|
 | LiPo battery | 3S 25C+, XT60 connector, up to 138 × 46 × 24 mm (the reserved CAD envelope).  Velcro-strapped under the chassis on `chassis_bottom` (no clip-in holder). | 1 | $25 |
 | Velcro cinch straps | Hook-and-loop straps (~15–20 mm) through the chassis_bottom strap slots; retain the LiPo. | 1 set | $5 |
-| Power distribution board ("bus bar") | Matek PDB-XT60 drone PDB (36 × 50 mm, 11 g, XT60 input, 6 × 15 A output pads); feeds the six per-leg power branches via chassis-top peripheral Wagos. | 1 | $8 |
-| Main fuse + holder | 15–20 A blade/ANL fuse + inline holder between the anti-spark switch and the bus bar. | 1 | $8 |
+| Main fuse + holder | 15–20 A blade/ANL fuse + inline holder between the anti-spark switch and the trunk Wagos. | 1 | $8 |
 | Per-branch fuse + holder (optional) | 5–7 A mini-blade fuse + holder, one per leg branch. | 6 | $1.50 each |
-| Wago 221 lever-nuts | Compact splices: **power** (12 V+G) on chassis-top periphery for the six motor branches; **data** under chassis near the yaw retainers. | 1 pack (~20) | $15 |
-| 16–18 AWG silicone wire | Red + black, ~5 m each; the six per-leg V+/GND branches from the PDB / power Wagos to each leg's 5264 injection pigtail. | 1 | $10 |
+| Wago 221 lever-nuts | Compact splices — the whole power distribution (as-built: no PDB): a **trunk** V+/GND pair on chassis_top where the battery feed lands, **power** (12 V+G) on chassis-top periphery for the six motor branches, and **data** under chassis near the yaw retainers. | 1 pack (~20) | $15 |
+| 16–18 AWG silicone wire | Red + black, ~5 m each; the six per-leg V+/GND branches from the trunk / power Wagos to each leg's 5264 injection pigtail. | 1 | $10 |
 | XT60 pigtails | Male/female, 12–14 AWG silicone (battery cable + bus-bar feed + Uno Q battery tap). | 2–3 | $4 |
 | Molex 5264 connector + crimp kit | 3-pin 2.5 mm kit (~20 sets) for the per-leg injection pigtails and the leg-to-leg signal+GND-only data jumpers. | 1 | $10 |
 | Anti-spark on/off switch | XT60 in/out pigtails (the e-stop).  Snaps into `switch_holster.stl` on chassis_top's +X edge; toggle protrudes outside the chassis for user access. | 1 | $10 |
@@ -603,11 +604,15 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    sockets (`tibia_knee_yoke` ↔ `tibia_foot_fitting`), and drive a
    transverse Ø2.5 mm roll pin through each socket cross-hole.  Let the
    slow-cure epoxy fully set before loading the joints.
-2. **Hip-pitch servo into the coxa link's hip cradle:** seat the servo
-   into the `coxa_link` hip cradle and drive 4 × M2.5 × 8 SHCS through
-   the cradle's −X wall into the servo's END-face hole square, then
-   snap on the `servo_clamp_cap` and secure it with 2 × M3 × 8 SHCS
-   self-tapping into the cradle wall-end pilots.
+2. **Hip-pitch servo into the coxa link's hip cradle** — *but only
+   AFTER the coxa is bolted to its yaw disc horn* (Aug 2026 one-piece
+   coxa: the 5 yaw horn screws drop down head-access shafts that open
+   into this well, so the well must still be empty in final-assembly
+   step 2 below; do steps 6.2-1/6.2-2 for this leg first).  Then seat
+   the servo into the `coxa_link` hip cradle and drive 4 × M2.5 × 8
+   SHCS through the cradle's −X wall into the servo's END-face hole
+   square, then snap on the `servo_clamp_cap` and secure it with
+   2 × M3 × 8 SHCS self-tapping into the cradle wall-end pilots.
 3. **Disc horns on the hip servo:** push a 20 mm aluminium 25T disc
    horn onto the output spline at 0° and retain it with the servo's
    M2.5 spline screw; slide the STOCK metal passive horn (ships with
@@ -648,14 +653,18 @@ times.
    bolts (no M2.5 end-face bolts on the yaw cradle).  Fit the yaw
    driven disc horn on the output spline.  Assemble the **spaced
    6706 bearing pair**: drop the LOWER 6706 race into chassis_bottom's
-   open-top Ø37 pocket, set the `coxa_yaw_hub` boss, drop the UPPER
-   6706 into the `yaw_bearing_cap`, then pull the cap down with **3 ×
-   M3 × 8 SHCS** self-tapping into the tower pilots to capture both
-   races at the correct spacing.
-2. **Coxa links onto the yaw joints:** bolt each leg's `coxa_link` yaw
-   pad to its yaw driven disc horn with 4 × M3 × 8 SHCS on the Ø14
-   cross into the disc's M3 tapped holes.  Each completed leg now hangs
-   from its yaw axis.
+   open-top Ø37 pocket, slide both inner races + the loose
+   `yaw_bearing_cap` onto the one-piece `coxa_link`'s hub boss from
+   below, set the boss into the tower, then pull the cap down with
+   **3 × M3 × 8 SHCS** self-tapping into the tower pilots to capture
+   both races at the correct spacing.
+2. **Coxa horn bolts (Aug 2026 one-piece coxa):** with the hip servo
+   NOT yet in its cradle, drop the **4 × M3 × 20 SHCS + 1 central M3
+   spline screw** down the five head-access shafts that open into the
+   empty hip-servo well, and torque them into the yaw disc horn with a
+   long 2.5 mm hex key.  Then lower the hip servo into the cradle
+   (its body covers the shaft mouths) and clamp it.  Each completed
+   leg now hangs from its yaw axis.
 3. **Battery:** velcro-strap the LiPo (up to 138 × 46 × 24 mm) under
    the chassis on `chassis_bottom`, looping the cinch straps through
    the strap slots (there is no clip-in `battery_holder` any more).

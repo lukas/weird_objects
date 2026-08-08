@@ -21,9 +21,11 @@ The pipeline they refer to is documented in `CAD_WORKFLOW.md`.
    rule.  Common offenders:
    - `pad_sweep_clear` (a cylinder along Y inside the coxa link's
      pedestal + hub; the femur hip pad sweeps through it).
-   - `yaw_horn_sweep` / `link_hub_horn_sweep` (cylinders above /
-     below the horn-bolt circle; the disc horn rotates inside
-     them).
+   - `yaw_horn_sweep` (cylinder above the chassis cradle's horn-bolt
+     circle; the disc horn rotates inside it).  (`link_hub_horn_sweep`
+     was retired Aug 2026: the coxa hub is bolted to and rotates WITH
+     its horn, so a horn-sweep keep-out on the hub itself was
+     meaningless.)
    - `*_servo_body` (rectangular pockets that hold each servo body —
      the body must drop in cleanly).
    - The L-shaped wire-exit corridor at the +X bottom-outboard

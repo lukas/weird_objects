@@ -184,7 +184,7 @@ def test_action_moves_body_reward_worsens():
     env = SimHexapodBalanceEnv(seed=2)
     env.reset()
     # Constant max roll command should tilt the body measurably.
-    a = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
+    a = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     roll = 0.0
     for _ in range(60):
         _, r, term, trunc, info = env.step(a)
@@ -209,14 +209,20 @@ def test_imu_position_lever_arm_corrupts_tilt_during_motion():
         env.reset()
         env._ep_rand.imu_pos_m = np.asarray(imu_pos, dtype=float)
         env._ep_rand.imu_mount_rot = np.eye(3)   # isolate position
-        env._imu_prev_p = env._imu_prev_v = None
+        env._imu_prev_v = None
         env._att_rp = None
+        # Re-anchor the episode tilt reference to the overridden IMU —
+        # otherwise the safety layer sees the removed mount bias as a
+        # giant instantaneous "tilt change" and trips.
+        st = env._read_state()
+        env._tilt_ref0 = (st.imu_roll, st.imu_pitch)
+        env.safety.set_tilt_reference(*env._tilt_ref0)
         rolls = []
         for i in range(50):
             # Gentle 1 Hz body-roll sine — sustained rotation without
             # physically walking the robot over.
             a = np.array([math.sin(2 * math.pi * i / 25),
-                          0.0, 0.0, 0.0, 0.0])
+                          0.0, 0.0, 0.0, 0.0, 0.0])
             _, _, term, trunc, info = env.step(a)
             rolls.append(info["roll_deg"])
             if term or trunc:
@@ -276,3 +282,75 @@ def test_goal_reward_tracks_reference_and_unload():
     _, p_unload = compute_reward(env.cfg, st, zeros, zeros,
                                  goal=TaskGoal(unload_leg=leg))
     assert p_unload["reward_unload"] < 0.0
+
+
+def test_kernel_reward_pays_tracking_not_freezing():
+    """The 2026-08-07 redesign: ignoring the goal must earn ~nothing."""
+    from rl_move.env import TaskGoal, compute_reward
+
+    env = SimHexapodBalanceEnv(seed=23)
+    env.reset()
+    st = env._read_state()
+    zeros = np.zeros(N_ACT)
+    ref = 0.06  # ~3.4° — several kernel sigmas away
+
+    # Frozen at level while commanded to lean: task reward ≈ 0.
+    _, p_ignore = compute_reward(env.cfg, st, zeros, zeros,
+                                 goal=TaskGoal(roll_ref=ref),
+                                 tilt_ref=(st.imu_roll, st.imu_pitch))
+    # Tracking the same reference: task reward ≈ k_track.
+    _, p_track = compute_reward(env.cfg, st, zeros, zeros,
+                                goal=TaskGoal(roll_ref=ref),
+                                tilt_ref=(st.imu_roll - ref, st.imu_pitch))
+    assert p_track["reward_task"] > 5 * max(p_ignore["reward_task"], 1e-9)
+    assert p_ignore["reward_task"] < 0.1
+    assert p_track["reward_task"] > 0.8
+
+
+def test_curl_channel_enables_rise_from_zero_pose():
+    """From the zero pose, height-only IK must fail (legs fully extended)
+    but curl + height must succeed — that is the whole point of the 6th
+    action channel."""
+    from rl_move.body_ik import BodyOffset, FixedFootBodyIK
+
+    ik = FixedFootBodyIK()
+    q_zero = np.zeros(18)
+    q_plant = np.array([0.0, 20.0, 80.0] * 6) * DEG
+    ik.reset(q_zero, plant_q_rad=q_plant)
+
+    up = ik.solve(BodyOffset(height=0.05, curl=0.0))
+    assert not up.ok, "raising the body with fully extended pinned feet " \
+                      "should be unreachable"
+    # Curl is a RATE with a ratchet: hold curl=1 across ticks and the
+    # anchors walk to the plant footprint (~2.5 s at 25 Hz), after which
+    # the same height command is comfortably reachable.
+    for _ in range(80):
+        up_curl = ik.solve(BodyOffset(height=0.05, curl=1.0))
+    assert ik.curl_frac == 1.0, f"ratchet did not saturate: {ik.curl_frac}"
+    assert up_curl.ok, f"curl+rise IK failed: {up_curl.reason}"
+    knees = up_curl.q_rad.reshape(6, 3)[:, 2] / DEG
+    assert np.all(knees > 20.0), f"knees did not bend: {knees}"
+    assert np.all(knees < 150.0), f"knees exceed the 150° cap: {knees}"
+    # Ratchet: dropping curl back to 0 must NOT slide the anchors out.
+    frac = ik.curl_frac
+    ik.solve(BodyOffset(height=0.05, curl=0.0))
+    assert ik.curl_frac == frac, "curl ratchet slid back"
+
+
+def test_rise_episode_starts_on_belly():
+    from rl_move.sim.goal_task import SimHexapodGoalEnv
+
+    env = SimHexapodGoalEnv(seed=24)
+    g = env._goal_gen
+    g.p_hold = g.p_lean = g.p_track = g.p_unload = 0.0
+    g.p_rise = 1.0
+    obs, info = env.reset()
+    assert info["goal_mode"] == "rise"
+    assert np.all(np.isfinite(obs))
+    # Belly rest is ~40 mm; the plant stance is ~160 mm.
+    z = float(env.data.xpos[env._chassis_bid, 2])
+    assert z < 0.09, f"rise episode started standing (chassis z={z:.3f} m)"
+    for _ in range(10):
+        obs, r, term, trunc, info = env.step(np.zeros(N_ACT))
+        assert np.all(np.isfinite(obs))
+        assert not term, info.get("termination_reason")

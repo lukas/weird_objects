@@ -22,6 +22,8 @@ from tripod_gait import (  # noqa: E402
 
 N_JOINTS = 18
 N_LEGS = 6
+# roll, pitch, height, x, y, curl
+N_ACT = 6
 
 
 def leg_azimuths() -> list[float]:
@@ -50,13 +52,32 @@ class BodyOffset:
     height: float = 0.0  # m (body +Z)
     x: float = 0.0       # m
     y: float = 0.0       # m
+    # 0..1: curl-in RATE. Positive values ratchet the foot anchors from
+    # where they started toward the plant footprint (full travel in
+    # ~2.5 s at curl=1); the anchors NEVER slide back out within an
+    # episode. From a zero pose (legs straight out) raising the body
+    # with pinned feet is geometrically impossible — the hip-foot
+    # distance would exceed full leg extension — so standing up REQUIRES
+    # dragging the feet inward first. Feet are nearly unloaded when the
+    # belly rests on the ground, so the drag is physically cheap.
+    #
+    # Rate-with-ratchet instead of direct position (changed after run
+    # 04): when the anchor tracked the INSTANTANEOUS curl value, a brief
+    # exploratory curl pulse yanked the feet in for one tick and
+    # snapped them back the next — pure jerk, punished by action-delta/
+    # gyro penalties, zero lasting progress — so PPO learned to pin the
+    # channel negative exactly on the starts that needed it (measured:
+    # curl −0.5 on belly starts, +0.9 where curl is a no-op). With the
+    # ratchet, every pulse leaves permanent progress that the curl-
+    # progress reward pays immediately.
+    curl: float = 0.0
 
 
 def body_offset_from_action(action: np.ndarray, *,
                             max_roll: float, max_pitch: float,
                             max_h: float, max_x: float, max_y: float
                             ) -> BodyOffset:
-    a = np.asarray(action, dtype=float).reshape(5)
+    a = np.asarray(action, dtype=float).reshape(N_ACT)
     a = np.clip(a, -1.0, 1.0)
     return BodyOffset(
         roll=float(a[0]) * max_roll,
@@ -64,6 +85,10 @@ def body_offset_from_action(action: np.ndarray, *,
         height=float(a[2]) * max_h,
         x=float(a[3]) * max_x,
         y=float(a[4]) * max_y,
+        # Only positive action curls: action 0 must stay "hold current
+        # stance" (zero-action baselines, safety holds, PPO's initial
+        # near-zero policy all rely on that convention).
+        curl=max(float(a[5]), 0.0),
     )
 
 
@@ -142,31 +167,69 @@ class IKResult:
 
 
 class FixedFootBodyIK:
-    """Freeze world feet at reset; map body offsets → joint targets."""
+    """Freeze world feet at reset; map body offsets → joint targets.
+
+    If a plant pose is supplied at reset, the ``curl`` channel of the
+    offset RATCHETS the foot anchors (XY only — Z stays on the ground
+    where each foot started) from their start positions toward the plant
+    footprint: each solve() advances the internal curl fraction by
+    ``CURL_RATE_PER_TICK * curl`` and it never decreases. curl=1 held
+    for ~2.5 s reaches the footprint. When the robot already starts at
+    the plant, the channel is close to inert.
+    """
+
+    # Fraction of the start→plant travel per solve() at curl=1.
+    # solve() runs once per 40 ms control tick → full curl in ~2.5 s,
+    # matching the rise task's 3 s hold phase.
+    CURL_RATE_PER_TICK = 0.016
 
     def __init__(self):
         self.q_nominal = np.zeros(N_JOINTS, dtype=float)
         self.feet_world = np.zeros((N_LEGS, 3), dtype=float)
+        self.feet_plant_xy: np.ndarray | None = None
+        self.curl_frac = 0.0
         self._ready = False
 
     @property
     def ready(self) -> bool:
         return self._ready
 
-    def reset(self, q_nominal_rad: np.ndarray) -> None:
+    def reset(self, q_nominal_rad: np.ndarray,
+              plant_q_rad: np.ndarray | None = None) -> None:
         self.q_nominal = np.asarray(q_nominal_rad, dtype=float).reshape(N_JOINTS).copy()
         # At nominal body (= identity offset), body frame == world frame.
         self.feet_world = fk_all_feet(self.q_nominal)
+        if plant_q_rad is not None:
+            plant_feet = fk_all_feet(
+                np.asarray(plant_q_rad, dtype=float).reshape(N_JOINTS))
+            self.feet_plant_xy = plant_feet[:, :2].copy()
+        else:
+            self.feet_plant_xy = None
+        self.curl_frac = 0.0
         self._ready = True
+
+    def _anchor(self, i: int) -> np.ndarray:
+        p = self.feet_world[i].copy()
+        if self.feet_plant_xy is not None and self.curl_frac > 0.0:
+            c = self.curl_frac
+            p[:2] = (1.0 - c) * p[:2] + c * self.feet_plant_xy[i]
+        return p
 
     def solve(self, offset: BodyOffset) -> IKResult:
         if not self._ready:
             return IKResult(False, self.q_nominal.copy(), "ik_not_reset")
+        # Ratchet: positive curl advances the anchors toward the plant
+        # footprint; nothing ever slides them back out.
+        if offset.curl > 0.0 and self.feet_plant_xy is not None:
+            self.curl_frac = min(
+                self.curl_frac
+                + self.CURL_RATE_PER_TICK * min(offset.curl, 1.0), 1.0)
         az = leg_azimuths()
         q = np.zeros(N_JOINTS, dtype=float)
         for i in range(N_LEGS):
-            # Feet frozen in world; express in the *moved* body frame.
-            p_body = _world_to_body(self.feet_world[i], offset)
+            # Anchors (frozen or curled) in world; express in the *moved*
+            # body frame.
+            p_body = _world_to_body(self._anchor(i), offset)
             sol = ik_leg_from_foot_body(p_body, az[i])
             if sol is None:
                 return IKResult(

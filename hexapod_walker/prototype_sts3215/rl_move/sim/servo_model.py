@@ -121,12 +121,28 @@ class SimServoParams:
 # MuJoCo model plumbing
 # ---------------------------------------------------------------------------
 
-def build_model(*, fixed_base: bool = False, flat_terrain: bool = True):
+def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
+                mesh_visuals: bool = True):
     """Load the hexapod MJCF. ``fixed_base`` welds the chassis (bench/air
-    tests); ``flat_terrain`` zeroes the random hfield so the floor is flat."""
+    tests); ``flat_terrain`` zeroes the random hfield so the floor is flat.
+
+    ``mesh_visuals=False`` renders the primitive geometry (capsules /
+    spheres built from the same kinematic constants the physics uses)
+    instead of the decorative STL meshes. The June 2026 STL re-export
+    broke the mesh placement offsets in mujoco_prototype (tibia mesh is
+    ~44 mm longer than the kinematic link), so primitives are the
+    truthful choice for RL rollout videos. Physics is identical either
+    way — visual geoms are contype=0, density=0.
+    """
     import mujoco
     import mujoco_prototype as MP
-    xml = MP.build_xml()
+    saved = (MP.USE_PART_MESHES, MP.USE_SERVO_MESHES)
+    try:
+        if not mesh_visuals:
+            MP.USE_PART_MESHES = MP.USE_SERVO_MESHES = False
+        xml = MP.build_xml()
+    finally:
+        MP.USE_PART_MESHES, MP.USE_SERVO_MESHES = saved
     if fixed_base:
         xml = xml.replace('<freejoint name="root"/>', '')
     model = mujoco.MjModel.from_xml_string(xml)
@@ -169,13 +185,22 @@ def apply_params_to_model(model, params: SimServoParams,
         model.actuator_biasprm[pa, 1] = -kp
         model.actuator_forcerange[pa] = (-tl, tl)
 
+        # kv lives in DOF damping, NOT the velocity actuator: actuator
+        # damping is integrated EXPLICITLY and with the torque clamp it
+        # goes bang-bang at the 2 ms timestep (Δv per step = tl·h/I ≈
+        # 3 rad/s for the tibia) — belly-rest poses vibrated at ±4 rad/s
+        # forever and read as phantom 2.2 A knee current. DOF damping is
+        # implicit and unconditionally stable. The old velocity actuator
+        # is zeroed but kept in the XML for compatibility.
         va = _act_id(model, jname + "_d")
-        model.actuator_gainprm[va, 0] = kv
-        model.actuator_biasprm[va, 2] = -kv
+        model.actuator_gainprm[va, 0] = 0.0
+        model.actuator_biasprm[va, 2] = 0.0
         model.actuator_forcerange[va] = (-tl, tl)
 
         jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jname)
-        model.dof_frictionloss[model.jnt_dofadr[jid]] = ax.frictionloss
+        dadr = model.jnt_dofadr[jid]
+        model.dof_damping[dadr] = kv
+        model.dof_frictionloss[dadr] = ax.frictionloss
 
 
 def joint_qpos_addrs(model) -> np.ndarray:
@@ -225,6 +250,9 @@ class ServoProfile:
                  vel_scale: float = 1.0):
         self._latency_s = params.per_joint("latency_ms") / 1000.0 * latency_scale
         self._deadband = params.per_joint("deadband_deg") * DEG2RAD * deadband_scale
+        # Exposed so the env can apply the same dead-zone at the physics
+        # level (real firmware outputs no torque inside the deadband).
+        self.deadband_rad = self._deadband
         self._vel_default = params.per_joint("vel_max_deg_s") * DEG2RAD * vel_scale
         self._acc_default = np.full(N_JOINTS, 15.0 * ACC_UNIT_DEG_S2 * DEG2RAD)
         self.reset(q0_rad)

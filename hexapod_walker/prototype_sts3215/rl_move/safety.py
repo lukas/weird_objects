@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 
-from .body_ik import BodyOffset, N_JOINTS
+from .body_ik import BodyOffset, N_ACT, N_JOINTS
 from .config import cfg_get
 from .robot_state import RobotState, DEG2RAD, RAD2DEG
 
@@ -26,7 +26,7 @@ except Exception:  # pragma: no cover
     AXIS_LIMITS_DEG = {
         0: (-35.0, 35.0),
         1: (-80.0, 30.0),
-        2: (-20.0, 80.0),
+        2: (-20.0, 150.0),
     }
 
 
@@ -95,9 +95,10 @@ class SafetyLayer:
     def estopped(self) -> bool:
         return self._estop
 
-    def validate_action(self, action: Any) -> tuple[np.ndarray | None, str]:
+    def validate_action(self, action: Any,
+                        n_act: int = N_ACT) -> tuple[np.ndarray | None, str]:
         try:
-            a = np.asarray(action, dtype=float).reshape(5)
+            a = np.asarray(action, dtype=float).reshape(n_act)
         except Exception:
             return None, "bad_action_shape"
         if not np.all(np.isfinite(a)):
@@ -117,8 +118,13 @@ class SafetyLayer:
             return self._last_safe.copy(), status
 
         if not ik_ok:
+            # Unreachable target ≠ emergency: HOLD the last safe pose and
+            # keep the episode alive. With the curl channel many action
+            # combinations are legitimately unreachable (e.g. body up
+            # while legs are uncurled); terminating would kill nearly
+            # every exploratory rollout of the rise task. The gated task
+            # reward already makes a held (non-tracking) pose unrewarding.
             status.ok = False
-            status.terminate = True
             status.reason = ik_reason or "ik_fail"
             status.held = True
             return self._last_safe.copy(), status

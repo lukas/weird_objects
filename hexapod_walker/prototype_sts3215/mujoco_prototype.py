@@ -344,12 +344,22 @@ def make_obstacles_xml(
     return "\n      ".join(snippets)
 
 
+# Foot pad hinge pin: FOOT_HINGE_TIBIA_Z below the tibia centerline. The
+# ground-contact sphere is centred on the pin (the pad pivots around it)
+# with radius FOOT_R = FOOT_HINGE_FOOT_Z = pin-to-pad-bottom, so the
+# contact surface lands exactly at the real pad bottom -- 24 mm below the
+# centerline, not the 14 mm the old centerline-mounted sphere gave.
+PAD_HINGE_Z = HP.FOOT_HINGE_TIBIA_Z * M
+
+
 def stance_foot_z_relative_to_hip() -> float:
+    """Contact-sphere-centre z relative to the hip at the stance pose,
+    including the pad-hinge drop rotated by the stance tibia angle."""
     p = STANCE_FEMUR
     pt = STANCE_FEMUR + STANCE_TIBIA
     knee_z = -FEMUR * math.sin(p)
     foot_z = knee_z - TIBIA * math.sin(pt)
-    return foot_z
+    return foot_z + PAD_HINGE_Z * math.cos(pt)
 
 
 def stance_chassis_height() -> float:
@@ -371,6 +381,7 @@ def build_xml(obstacles_xml: str = "") -> str:
     actuator_blocks = []
     sensor_blocks = []
     yaw_chassis_blocks = []
+    yaw_col_blocks = []
     for i in range(6):
         a = (i + 0.5) * math.pi / 3.0
         x = LEG_RADIAL * math.cos(a)
@@ -381,8 +392,10 @@ def build_xml(obstacles_xml: str = "") -> str:
         actuator_blocks.append(_leg_actuators(i))
         sensor_blocks.append(_leg_sensors(i))
         yaw_chassis_blocks.append(_yaw_servo_chassis_xml(i, a, x, y, qw, qz))
+        yaw_col_blocks.append(_yaw_servo_collision_xml(i, a, qw, qz))
 
     yaw_chassis_xml = "\n      ".join(yaw_chassis_blocks) if USE_SERVO_MESHES else ""
+    yaw_col_xml = "\n      ".join(yaw_col_blocks)
     chassis_visuals_xml = _chassis_visuals_xml()
 
     mesh_asset_xml = ""
@@ -458,6 +471,7 @@ def build_xml(obstacles_xml: str = "") -> str:
       <inertial pos="0 0 0.018" mass="{CHASSIS_MASS}" diaginertia="0.006 0.006 0.010"/>
       {chassis_visuals_xml}
       <geom class="collision" name="chassis_box" type="box" pos="0 0 0.014" size="0.115 0.105 0.020"/>
+      {yaw_col_xml}
       {yaw_chassis_xml}
 
 {''.join(leg_blocks)}
@@ -479,6 +493,13 @@ def build_xml(obstacles_xml: str = "") -> str:
 """
 
 
+# Fallback-visual colors matched to the printed robot (red PETG, blue PETG
+# brackets, black STS3215 bodies / carbon-fibre tube).
+_RED = "0.72 0.11 0.10"
+_BLUE = "0.15 0.33 0.72"
+_BLACK = "0.10 0.10 0.11"
+
+
 def _chassis_visuals_xml() -> str:
     """Visual geoms attached to the chassis body.  Chassis origin (z=0)
     = bottom-plate TOP face = bracket-chassis bolt plane = same plane
@@ -491,15 +512,26 @@ def _chassis_visuals_xml() -> str:
     anyone has run ``hexapod_prototype.py``.
     """
     if not USE_PART_MESHES:
+        # Photo-faithful placeholders: two red hex plates, red electronics
+        # tower between/above them, dark display on the tower top.
         flat_to_flat = HP.CHASSIS_FLAT_TO_FLAT / 2.0 * M
+        hex_r = flat_to_flat / math.cos(math.pi / 6)
+        gap = HP.CHASSIS_GAP * M
+        plate_t = HP.CHASSIS_PLATE_T * M
         return (
             '<geom class="visual" type="cylinder" '
-            f'size="{flat_to_flat / math.cos(math.pi / 6):.5f} 0.004" '
-            f'euler="0 0 {math.pi / 6:.5f}" material="palette_chassis_top"/>\n'
-            '      <geom class="visual" type="box" size="0.0525 0.0175 0.0125" '
-            'pos="-0.025 0 0.0125" material="palette_chassis_top"/>\n'
-            '      <geom class="visual" type="box" size="0.048 0.040 0.0015" '
-            'pos="0 0 0.040" material="palette_chassis_top"/>'
+            f'size="{hex_r:.5f} {plate_t / 2:.5f}" '
+            f'pos="0 0 {-plate_t / 2:.5f}" '
+            f'euler="0 0 {math.pi / 6:.5f}" rgba="{_RED} 1"/>\n'
+            '      <geom class="visual" type="cylinder" '
+            f'size="{hex_r * 0.92:.5f} {plate_t / 2:.5f}" '
+            f'pos="0 0 {gap + plate_t / 2:.5f}" '
+            f'euler="0 0 {math.pi / 6:.5f}" rgba="{_RED} 1"/>\n'
+            '      <geom class="visual" type="box" size="0.032 0.032 0.030" '
+            f'pos="0 0 {gap + plate_t + 0.030:.5f}" '
+            f'euler="0 0 {math.pi / 6:.5f}" rgba="{_RED} 1"/>\n'
+            '      <geom class="visual" type="box" size="0.017 0.013 0.0012" '
+            f'pos="0 0 {gap + plate_t + 0.0615:.5f}" rgba="0.05 0.08 0.10 1"/>'
         )
 
     plate_t = HP.CHASSIS_PLATE_T * M
@@ -524,6 +556,34 @@ def _chassis_visuals_xml() -> str:
         f'pos="{HP.BATTERY_HOLDER_CENTRE_X * M:.5f} 0 {lipo_z:.5f}" '
         'material="palette_chassis_top"/>'
     )
+
+
+def _yaw_servo_collision_xml(i: int, a: float, qw: float, qz: float) -> str:
+    """Collision box for the under-slung yaw servo + bracket.
+
+    The six yaw servo assemblies hang below the bottom plate (chassis-frame
+    z ≈ -38 mm → 0, measured from the reference servo mesh) and are what
+    the real robot rests on when it sits down — without them the sim
+    chassis sinks ~35 mm through the 'belly' until the plate box catches
+    it. In the primitive render they also get a visual so the support is
+    visible.
+    """
+    cx = (LEG_RADIAL + YAW_BODY_DX) * math.cos(a)
+    cy = (LEG_RADIAL + YAW_BODY_DX) * math.sin(a)
+    col = (f'<geom class="collision" name="L{i}_yaw_servo_col" type="box" '
+           f'pos="{cx:.5f} {cy:.5f} -0.0192" '
+           f'quat="{qw:.6f} 0 0 {qz:.6f}" size="0.026 0.013 0.019"/>')
+    if USE_SERVO_MESHES:
+        return col
+    return (col + '\n      '
+            f'<geom class="visual" type="box" '
+            f'pos="{cx:.5f} {cy:.5f} -0.0192" '
+            f'quat="{qw:.6f} 0 0 {qz:.6f}" size="0.027 0.014 0.020" '
+            f'rgba="{_BLUE} 1"/>\n      '
+            f'<geom class="visual" type="box" '
+            f'pos="{cx:.5f} {cy:.5f} -0.0192" '
+            f'quat="{qw:.6f} 0 0 {qz:.6f}" size="0.026 0.015 0.019" '
+            f'rgba="{_BLACK} 1"/>')
 
 
 def _yaw_servo_chassis_xml(i: int, a: float, x_leg: float, y_leg: float,
@@ -561,10 +621,11 @@ def _yaw_servo_chassis_xml(i: int, a: float, x_leg: float, y_leg: float,
 def _hip_servo_visual_xml(i: int) -> str:
     """Mesh hip-pitch servo body + horn in L{i}_yaw (coxa-link) local frame."""
     if not USE_SERVO_MESHES:
-        # Old placeholder box.
+        # Black servo body in a blue bracket shell (as printed).
         return ('        <geom class="visual" type="box" '
-                'pos="0 -0.026 -0.017" size="0.020 0.010 0.019" '
-                'material="palette_servo_body"/>')
+                f'pos="0 -0.026 -0.017" size="0.021 0.011 0.020" rgba="{_BLUE} 1"/>\n'
+                '        <geom class="visual" type="box" '
+                f'pos="0 -0.026 -0.017" size="0.020 0.012 0.019" rgba="{_BLACK} 1"/>')
     body_offset = (COXA + HIP_BODY_DX, HIP_BODY_DY + HIP_ANCHOR_Y, HIP_BODY_DZ)
     horn_offset = (COXA, HIP_ANCHOR_Y, HIP_DROP)
     body = _servo_body_geom_xml(
@@ -587,8 +648,11 @@ def _knee_servo_visual_xml(i: int) -> str:
     """Mesh knee servo body + horn in L{i}_femur local frame."""
     if not USE_SERVO_MESHES:
         return ('          <geom class="visual" type="box" '
-                f'pos="{FEMUR - 0.010:.5f} -0.026 0" size="0.020 0.010 0.019" '
-                'material="palette_servo_body"/>')
+                f'pos="{FEMUR - 0.010:.5f} -0.026 0" size="0.021 0.011 0.020" '
+                f'rgba="{_BLUE} 1"/>\n'
+                '          <geom class="visual" type="box" '
+                f'pos="{FEMUR - 0.010:.5f} -0.026 0" size="0.020 0.012 0.019" '
+                f'rgba="{_BLACK} 1"/>')
     body_offset = (FEMUR + HIP_BODY_DX, HIP_BODY_DY, 0.0)
     horn_offset = (FEMUR, 0.0, 0.0)
     body = _servo_body_geom_xml(
@@ -622,7 +686,7 @@ def _coxa_link_visual_xml(i: int) -> str:
                 f'type="mesh" mesh="coxa_link" material="palette_coxa_link"/>')
     return (f'        <geom class="visual" type="box" '
             f'pos="{COXA / 2:.5f} 0 0" '
-            f'size="{COXA / 2:.5f} 0.010 0.004" material="palette_coxa_link"/>')
+            f'size="{COXA / 2:.5f} 0.010 0.004" rgba="{_RED} 1"/>')
 
 
 def _femur_link_visual_xml(i: int) -> str:
@@ -647,9 +711,11 @@ def _femur_link_visual_xml(i: int) -> str:
                 f'type="mesh" mesh="femur_link" '
                 f'pos="0 {pad_y:.5f} 0" '
                 f'material="palette_femur_link"/>')
-    return (f'          <geom class="visual" type="capsule" '
-            f'fromto="0 0 0 {FEMUR:.5f} 0 0" size="0.009" '
-            f'material="palette_femur_link"/>')
+    # Printed femur spar: thin red plate (LINK_THICKNESS x TIBIA_SPAR_H
+    # cross-section), not a fat capsule.
+    return (f'          <geom class="visual" type="box" '
+            f'pos="{FEMUR / 2:.5f} 0 0" '
+            f'size="{FEMUR / 2:.5f} 0.003 0.009" rgba="{_RED} 1"/>')
 
 
 def _tibia_link_visual_xml(i: int) -> str:
@@ -686,13 +752,69 @@ def _tibia_link_visual_xml(i: int) -> str:
             f'pos="{TIBIA:.5f} {foot_y:.5f} {foot_z:.5f}" '
             f'material="palette_foot_pad"/>'
         )
+    # As built: red knee yoke -> Ø8 carbon-fibre tube -> red foot fitting.
+    # (The hinged foot pad itself is a separate body — _foot_pad_body_xml.)
     return (
-        f'            <geom class="visual" type="capsule" '
-        f'fromto="0 0 0 {TIBIA - FOOT_R:.5f} 0 0" size="0.007" '
-        f'material="palette_tibia_link"/>\n'
+        f'            <geom class="visual" type="box" '
+        f'pos="0.016 0 0" size="0.018 0.006 0.011" rgba="{_RED} 1"/>\n'
         f'            <geom class="visual" type="cylinder" '
-        f'pos="{TIBIA:.5f} 0 -0.006" size="{FOOT_R:.5f} 0.006" '
-        f'material="palette_foot_pad"/>'
+        f'fromto="0.030 0 0 {TIBIA - 0.016:.5f} 0 0" size="0.004" '
+        f'rgba="{_BLACK} 1"/>\n'
+        f'            <geom class="visual" type="box" '
+        f'pos="{TIBIA - 0.008:.5f} 0 -0.003" size="0.010 0.004 0.008" '
+        f'rgba="{_RED} 1"/>'
+    )
+
+
+def _foot_pad_body_xml(i: int) -> str:
+    """Hinged foot pad, straight from the CAD: a Ø FOOT_PAD_OD disc on a
+    passive hinge pin at tibia-local (TIBIA, 0, FOOT_HINGE_TIBIA_Z), pin
+    axis parallel to the knee. The pad pivots to conform to the ground
+    (fork slop limits the swing); a light spring re-centres it to the
+    stance-flat angle when airborne. Replaces the old rigid contact
+    sphere — a flat pad has a real contact patch and resists rolling.
+    """
+    # Neutral pad angle = flat for the RL plant pose (~80° near-vertical
+    # shins). A rigid disc doesn't self-flatten when the pin is directly
+    # above the contact (no lever arm), so the spring holds it flat and
+    # contact torque handles deviations; the ±52° swing still covers the
+    # ~35° gait-stance regime.
+    pt = math.radians(80.0)
+    pad_r = HP.FOOT_PAD_OD / 2.0 * M
+    pad_h = HP.FOOT_PAD_BASE_H / 2.0 * M
+    drop = HP.FOOT_HINGE_FOOT_Z * M - pad_h     # pin -> disc centre
+    dx, dz = drop * math.sin(pt), -drop * math.cos(pt)
+    visual = ""
+    if not USE_PART_MESHES:
+        visual = (
+            f'\n              <geom class="visual" type="cylinder" '
+            f'pos="{dx:.5f} 0 {dz:.5f}" euler="0 {-pt:.5f} 0" '
+            f'size="{pad_r:.5f} {pad_h:.5f}" rgba="{_RED} 1"/>'
+            f'\n              <geom class="visual" type="cylinder" '
+            f'pos="{dx * 0.45:.5f} 0 {dz * 0.45:.5f}" euler="0 {-pt:.5f} 0" '
+            f'size="{HP.FOOT_PAD_BOSS_OD / 2.0 * M:.5f} '
+            f'{HP.FOOT_PAD_BOSS_H / 2.0 * M:.5f}" rgba="{_RED} 1"/>'
+        )
+    return (
+        f'            <body name="L{i}_pad" '
+        f'pos="{TIBIA:.5f} 0 {PAD_HINGE_Z:.5f}">\n'
+        # Mass/inertia at the printed part's real values, NOT smaller: a
+        # near-zero-inertia body squeezed between a hard hinge stop and
+        # ground contact is numerically unstable at the 2 ms timestep —
+        # at belly-rest poses (pad jammed on its stop) it vibrated the
+        # tibia at ~4.5 rad/s and read as phantom over-current.
+        f'              <inertial pos="{dx:.5f} 0 {dz:.5f}" mass="0.012" '
+        f'diaginertia="0.000003 0.000003 0.000003"/>\n'
+        f'              <joint name="L{i}_pad_hinge" type="hinge" '
+        f'axis="0 1 0" range="-0.9 0.9" damping="0.05" '
+        f'stiffness="0.08" springref="0"/>\n'
+        f'              <geom class="foot" name="L{i}_foot" type="cylinder" '
+        f'pos="{dx:.5f} 0 {dz:.5f}" euler="0 {-pt:.5f} 0" '
+        f'size="{pad_r:.5f} {pad_h:.5f}"/>'
+        f'{visual}\n'
+        f'              <site name="L{i}_foot_site" pos="{dx:.5f} 0 {dz:.5f}" '
+        f'size="0.018" group="4" rgba="1 1 1 0.05"/>\n'
+        f'            </body>'
     )
 
 
@@ -712,14 +834,15 @@ def _leg_xml(i: int, x: float, y: float, z: float, qw: float, qz: float) -> str:
     #   yaw:   -0.61 .. +0.61 rad  (= +/-35 deg; was +/-0.90 = +/-51.6 deg)
     #   hip:   -1.40 .. +0.52 rad  (= -80.2 .. +30 deg; was -1.40 .. +0.85
     #                               = -80.2 .. +48.7 deg)
-    #   knee:  -0.35 .. +1.40 rad  (= -20.1 .. +80.2 deg; was -0.35 .. +1.85
-    #                               = -20.1 .. +106 deg -- the tighter upper
-    #                               bound keeps the tibia clear of the
-    #                               coxa_link during full retraction; the
-    #                               original ceiling was never reached
-    #                               by check_workspace_self_collision but
-    #                               is tightened here for consistency with
-    #                               the audit workspace)
+    #   knee:  -0.35 .. +2.62 rad  (= -20.1 .. +150 deg; Aug 2026: operator
+    #                               widened from +80.2 deg — the tight cap
+    #                               made the plant pose the bottom of the
+    #                               fixed-feet envelope so the robot could
+    #                               not crouch at all. Self-collision risk
+    #                               above ~106 deg is at large |yaw| + full
+    #                               hip retraction only; firmware limits
+    #                               must be updated to match before any
+    #                               hardware deploy of a crouching policy.)
     return f"""      <body name="L{i}_yaw" pos="{x:.5f} {y:.5f} {z:.5f}" quat="{qw:.6f} 0 0 {qz:.6f}">
         <inertial pos="{COXA / 2:.5f} 0 0" mass="{COXA_MASS}" diaginertia="0.00005 0.00006 0.00006"/>
         <joint name="L{i}_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
@@ -734,10 +857,9 @@ def _leg_xml(i: int, x: float, y: float, z: float, qw: float, qz: float) -> str:
 
           <body name="L{i}_tibia" pos="{FEMUR:.5f} 0 0">
             <inertial pos="{TIBIA / 2:.5f} 0 0" mass="{TIBIA_MASS}" diaginertia="0.00006 0.00022 0.00022"/>
-            <joint name="L{i}_knee" type="hinge" axis="0 1 0" range="-0.35 1.40"/>
+            <joint name="L{i}_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
 {tibia_link_xml}
-            <geom class="foot" name="L{i}_foot" type="sphere" pos="{TIBIA:.5f} 0 0" size="{FOOT_R:.5f}"/>
-            <site name="L{i}_foot_site" pos="{TIBIA:.5f} 0 0" size="0.004"/>
+{_foot_pad_body_xml(i)}
           </body>
         </body>
       </body>

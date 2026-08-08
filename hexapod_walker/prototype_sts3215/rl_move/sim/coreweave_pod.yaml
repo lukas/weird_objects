@@ -1,0 +1,33 @@
+# CPU training pod for rl_move sim PPO on the CoreWeave CKS cluster.
+# The [128,128] MLP trains fastest on CPU (see train_ppo_sim.py device="cpu"),
+# so no GPU is requested even though the pool nodes carry H200s.
+#
+# Workflow (from prototype_sts3215/, kubeconfig ~/.kube/coreweave.yaml):
+#   kubectl apply -f rl_move/sim/coreweave_pod.yaml
+#   tar --exclude logs --exclude '*.stl' --exclude __pycache__ -czf /tmp/code.tgz .
+#   kubectl cp /tmp/code.tgz hexapod-train:/tmp/code.tgz
+#   kubectl exec hexapod-train -- bash /workspace/setup.sh   (see chat/RL_PLAN)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hexapod-train
+  namespace: default
+  labels:
+    app: hexapod-train
+spec:
+  restartPolicy: Never
+  containers:
+    - name: train
+      image: python:3.11-slim
+      command: ["sleep", "infinity"]
+      workingDir: /workspace
+      env:
+        - name: MUJOCO_GL
+          value: osmesa
+      resources:
+        requests:
+          cpu: "32"
+          memory: 64Gi
+        limits:
+          cpu: "48"
+          memory: 96Gi

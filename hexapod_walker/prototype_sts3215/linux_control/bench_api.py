@@ -79,6 +79,7 @@ class BenchAPI:
         # Last demo cmd-vs-actual telemetry (auto-logged from web demos).
         self._demo_telemetry: dict | None = None
         self._status_display = None
+        self._servo_watch = None
 
     def start_status_display(self) -> None:
         """Mirror web status + Σ motor current onto the MCU ST7789."""
@@ -105,6 +106,25 @@ class BenchAPI:
         if self._status_display is not None:
             self._status_display.stop()
             self._status_display = None
+
+    def start_servo_watch(self) -> None:
+        """Liveness + over-temp watchdog (TFT error panel, 65C cutoff)."""
+        if self._servo_watch is not None or self.drive.dry_run:
+            return
+        try:
+            from servo_watch import ServoWatch
+        except ImportError:
+            return
+        self._servo_watch = ServoWatch(
+            lambda: self.drive.bus,
+            lambda: bool(self._demo_thread and self._demo_thread.is_alive()),
+            lambda j: joint_label(j, self.names))
+        self._servo_watch.start()
+
+    def stop_servo_watch(self) -> None:
+        if self._servo_watch is not None:
+            self._servo_watch.stop()
+            self._servo_watch = None
 
     # -- robot / demo state --------------------------------------------------
     def _set_activity(self, activity: str, detail: str = "") -> None:
@@ -161,6 +181,8 @@ class BenchAPI:
             "air_demos_need_zero": True,
             "zero_tol_deg": ZERO_TOL_DEG,
         }
+        if self._servo_watch is not None:
+            out["servo"] = self._servo_watch.state()
         if check_zero:
             out["zero"] = self.check_near_zero()
         return out
@@ -774,12 +796,17 @@ class BenchAPI:
         with self._lock:
             result = dict(self._cal_result) if self._cal_result else None
             progress = dict(self._cal_progress)
+        # rl_policy_* and rl_probe_* jobs share the same worker slot and
+        # progress/result plumbing — report them as running too, or their
+        # pollers see running=false mid-job and give up.
         running = bool(self._demo_thread and self._demo_thread.is_alive()
-                       and (self._demo_name or "").startswith("calibrate"))
+                       and (self._demo_name or "").startswith(
+                           ("calibrate", "rl_")))
         plant = self.plant_state()
         imu = self.imu_state()
         return {
             "running": running,
+            "name": self._demo_name,
             "progress": progress,
             "result": result,
             "plant": plant,
@@ -1223,6 +1250,124 @@ class BenchAPI:
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
         return {"ok": True, "calibrate": self.calibrate_state()}
+
+    def rl_preflight(self, *, mode: str = "stand") -> dict:
+        """Read-only readiness check for the RL stand/lower buttons."""
+        mode = (mode or "stand").strip().lower()
+        if mode not in ("stand", "lower"):
+            return {"ok": False, "error": f"bad mode {mode!r}"}
+        try:
+            from rl_policy import preflight
+        except ImportError as e:
+            return {"ok": False, "error": f"rl_policy missing: {e}"}
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        ok, reason, details = preflight(self.drive.bus, mode)
+        out = {"ok": ok, "mode": mode, **details}
+        if not ok:
+            out["error"] = reason
+        return out
+
+    def rl_policy_info(self) -> dict:
+        """Metadata of the deployed policy weights (no bus traffic)."""
+        try:
+            from rl_policy import WEIGHTS_PATH
+            meta = json.loads(Path(WEIGHTS_PATH).read_text())["meta"]
+            return {"ok": True, **meta}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def rl_policy_move(self, *, mode: str = "stand") -> dict:
+        """Run the trained RL policy: stand up from belly / lower to belly.
+
+        Async (demo-thread slot, poll ``rl_state``, abort via ``rl_stop``).
+        Read-only preflight refuses to move unless all 18 servos answer,
+        the IMU is alive, and the present pose matches the expected start
+        (belly/zero for stand, captured plant for lower). Safety layer
+        trips (tilt / sustained over-current / temp) limp immediately.
+        The OPERATOR MUST BE WATCHING — this is the explicit order.
+        """
+        mode = (mode or "stand").strip().lower()
+        if mode not in ("stand", "lower"):
+            return {"ok": False, "error": f"bad mode {mode!r}"}
+        try:
+            from rl_policy import preflight, run_policy_move
+        except ImportError as e:
+            return {"ok": False, "error": f"rl_policy missing: {e}"}
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+
+        # Preflight before claiming the worker slot so refusals are
+        # instant and motion-free.
+        ok, reason, details = preflight(self.drive.bus, mode)
+        if not ok:
+            return {"ok": False, "error": f"preflight: {reason}", **details}
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        label = "RL stand up" if mode == "stand" else "RL lower"
+        with self._lock:
+            self._demo_name = f"rl_policy_{mode}"
+            self._demo_status = f"{label} starting"
+            self._demo_params = {"mode": mode}
+            self._cal_result = None
+            self._cal_progress = {"msg": self._demo_status}
+        self._set_activity("rl_policy", label)
+
+        def _worker():
+            d = self.drive
+
+            def _on_progress(p: dict) -> None:
+                with self._lock:
+                    self._cal_progress = dict(p)
+                    self._demo_status = str(p.get("msg") or label)
+
+            try:
+                result = run_policy_move(
+                    d, mode, on_progress=_on_progress,
+                    abort_check=self._demo_abort.is_set)
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = result
+                    if result.get("ok"):
+                        self._demo_status = (
+                            f"{label} done · maxI "
+                            f"{result.get('max_current_a', 0):.2f}A")
+                    else:
+                        self._demo_status = (
+                            f"{label}: {result.get('error')}")
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                try:
+                    d.bus.enable_all_torque(False)
+                except Exception:
+                    pass
+                with self._lock:
+                    self._cal_result = {"ok": False, "error": str(e),
+                                        "mode": mode}
+                    self._demo_status = f"error: {e}"
+            finally:
+                if gen != self._demo_gen:
+                    return
+                res = self._cal_result or {}
+                limped = bool(res.get("limped"))
+                with d._lock:
+                    d.armed = not limped
+                    if d.mode == "demo":
+                        d.mode = "idle"
+                with self._lock:
+                    st = self._demo_status
+                self._set_activity("limp" if limped else "holding",
+                                   st or f"{label} done")
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "mode": mode, "calibrate": self.calibrate_state()}
 
     def rl_set_stance(self, *, hip_deg: float = -20.0, knee_deg: float = 55.0,
                       seconds: float = 10.0, yaw_deg: float = 0.0,

@@ -1,0 +1,40 @@
+#!/bin/bash
+# One-time setup inside a hexapod training pod (python:3.11-slim):
+# system GL lib + pinned Python deps matching the laptop venv, then
+# unpack the code tarball copied to /tmp/code.tgz.
+set -euo pipefail
+
+apt-get update -qq
+# libosmesa6: headless software GL for MuJoCo rendering (MUJOCO_GL=osmesa).
+apt-get install -y -qq libosmesa6 libglib2.0-0 > /dev/null
+
+mkdir -p /workspace/prototype_sts3215
+tar -xzf /tmp/code.tgz -C /workspace/prototype_sts3215
+
+# Pins mirror the laptop venv (rebuilt 2026-08-07 on Python 3.14 /
+# MuJoCo 3.11 — physics A/B against 2.3.7 in RL_PLAN). Keep both sides
+# on the SAME mujoco version or local evals disagree with training.
+# numpy is 2.4.6 here (2.5.x needs py>=3.12; image is python:3.11) —
+# laptop runs 2.5.1, which is fine: numpy is glue, mujoco is physics.
+pip install --quiet --no-cache-dir torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+pip install --quiet --no-cache-dir \
+    mujoco==3.11.0 \
+    stable_baselines3==2.9.0 \
+    gymnasium==1.3.0 \
+    numpy==2.4.6 \
+    scipy==1.17.1 \
+    wandb==0.28.1 \
+    pillow==11.3.0 \
+    moviepy==2.2.1 \
+    imageio==2.37.4 \
+    imageio-ffmpeg==0.6.0 \
+    tensorboard==2.21.0 \
+    PyYAML==6.0.3 \
+    trimesh==5.0.0 \
+    shapely==2.1.2 \
+    networkx==3.6.1 \
+    rtree==1.4.1 \
+    manifold3d==3.5.2
+
+python -c "import mujoco, stable_baselines3, torch; print('deps ok')"
+echo "SETUP_DONE"

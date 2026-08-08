@@ -243,19 +243,13 @@ def _tibia_horn_stack_void() -> trimesh.Trimesh:
     )
 
 
-def _link_hub_horn_sweep() -> trimesh.Trimesh:
-    """Disc horn living BELOW the coxa_link's hub face
-    (coxa_link-local frame).  Stays clear of the underside of the hub.
-    Radius is the now-retired plastic X-horn's tip radius, kept as a
-    CONSERVATIVE keep-out envelope.
-    """
-    radius = hp.PLASTIC_HORN_X_TIP_R + 0.6
-    return _cyl_axis(
-        radius=radius,
-        height=hp.PLASTIC_HORN_H,
-        axis="z",
-        centre=(0.0, 0.0, -(hp.PLASTIC_HORN_H / 2.0)),
-    )
+# Aug 2026: ``_link_hub_horn_sweep`` DELETED.  It reserved the retired
+# X-horn's swing volume below coxa-local z = 0, from the era when the coxa
+# was a flat pad seated on top of a protruding horn.  Since the Jun 2026
+# flush-horn depth fix the hub deliberately reaches down to
+# YAW_HUB_BOSS_BOT_Z = -9 (drive nub through the mount-plate bore onto the
+# recessed disc) and is BOLTED to the horn -- hub and horn rotate together,
+# so the keep-out could only ever flag the design working as intended.
 
 
 # ---------------------------------------------------------------------------
@@ -268,10 +262,9 @@ KEEP_OUT_VOLUMES: dict[str, Callable[[], trimesh.Trimesh]] = {
     "yaw_horn_sweep":           _yaw_horn_sweep,
     "yaw_servo_body":           _yaw_servo_body_pocket,
     "yaw_wire_exit_corridor":   _yaw_wire_exit_corridor,
-    # coxa_link-local
+    # coxa_link-local (Aug 2026: link_hub_horn_sweep deleted -- see above)
     "hip_pad_sweep":            _hip_pad_sweep,
     "hip_pitch_servo_body":     _hip_pitch_servo_body_pocket,
-    "link_hub_horn_sweep":      _link_hub_horn_sweep,
     # femur-local
     "femur_horn_stack_void":    _femur_horn_stack_void,
     "knee_servo_body":          _knee_servo_body_pocket,
@@ -287,7 +280,6 @@ PART_KEEPOUTS: dict[str, list[str]] = {
     "coxa_link": [
         "hip_pad_sweep",
         "hip_pitch_servo_body",
-        "link_hub_horn_sweep",
     ],
     "femur_link": [
         "femur_horn_stack_void",

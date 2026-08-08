@@ -28,18 +28,12 @@ parts:
     cots: false
     qty: 1
     description: "Hex top plate that closes the chassis; carries PDB + motor controller + power Wagos, and the 4 magnet posts for the hex board."
-  coxa_hip_bracket:
-    label: "coxa hip bracket"
+  coxa_link:
+    label: "coxa link"
     role: "frame"
     cots: false
     qty: 6
-    description: "Printed coxa outboard bracket that carries the hip joint (hip servo cradle + disc-horn / passive-bearing sandwich)."
-  coxa_yaw_hub:
-    label: "coxa yaw hub"
-    role: "frame"
-    cots: false
-    qty: 6
-    description: "Printed coxa inboard hub that bolts to the driven yaw disc horn (\u00d814 / 4x M3 circle) and takes the yaw servo's output."
+    description: "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven \u00d820 disc horn on the \u00d814 / 4x M3 circle, rides the spaced 6706 pair) fused to the hip servo cradle. 5 vertical head-access shafts through the foot plate reach the horn screws from the (empty) hip servo well."
   disc_horn_hip:
     label: "disc horn hip"
     role: "horn"
@@ -261,7 +255,7 @@ parts:
     role: "frame"
     cots: false
     qty: 6
-    description: "Anti-rotation saddle under each yaw cradle with a permanent 38 mm open-cage ground stand (replaces belly stilts; stays on while walking)."
+    description: "Anti-rotation saddle under each yaw cradle (Aug 2026 flat-belly rework: the 38 mm ground stand is removed; the belly is flat except the hanging servos + saddles)."
 
 wiring:
   route-j00:

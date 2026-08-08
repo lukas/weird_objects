@@ -316,8 +316,8 @@ SPEC_M3X8_DISC_HORN = "M3x8 disc-horn SHCS"
 # the 2 mm disc, so it grows to M3 x 10 (the passive bolts stay M3 x 8).  Distinct
 # spec so the engagement check still reserves engagement_mm = DISC_HORN_H = 2 mm.
 SPEC_M3X10_DISC_HORN = "M3x10 disc-horn SHCS"
-# Aug 2026: coxa_yaw_hub is tall (horn at YAW_HUB_BOSS_BOT_Z, heads in a
-# mid-boss counterbore).  Bench uses M3 x 20; engagement_mm still
+# Aug 2026: the coxa_link's yaw hub end is tall (horn at YAW_HUB_BOSS_BOT_Z,
+# heads in a mid-boss counterbore).  Bench uses M3 x 20; engagement_mm still
 # DISC_HORN_H = 2 mm into the aluminium disc.
 SPEC_M3X20_DISC_HORN = "M3x20 disc-horn SHCS"
 # STS3215 reconciliation (Jun 2026): the invented "front-face 4-bolt
@@ -747,31 +747,27 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             joint="yaw",
             length_mm=horn_bolt_len,
             cache_stl=f"{PN_M3X20_SHCS}.cache.stl",
-            # Mostly-compliant clamp: coxa_yaw_hub disc-horn holes are
+            # Mostly-compliant clamp: the coxa_link hub disc-horn holes are
             # Phi 3.7 (Aug 2026; was 4.2) so the 6706 pair still leads on
             # concentricity while screw-hole slop is reduced.  Bolt head
             # clamps the stack DOWN; thread bites the aluminium disc.
             # (Hip/knee disc-horn bolts use tight Phi 3.4 and stay rigid.)
             compliant_torque_only=True,
-            # Captive sub-assembly fastener.  Per PROTOTYPE.md
-            # section 6.1 the 4 yaw M3 x 6 SHCS are driven in step 3
-            # (coxa_link dropped onto yaw disc horn, bolts torqued from
-            # above through the pedestal-cap counter-bore) BEFORE the
-            # femur is mounted on the hip disc horn in step 5.  At
-            # standing pose the +X yaw bolt (ang = 0 deg) is then
-            # blocked from above by the femur's hip pad which tilts
-            # up and back over the coxa_link hub when p_femur =
-            # -25 deg; the other 3 yaw bolts happen to retain driver
-            # access in the assembled state but are all driven at
-            # the same assembly step before the femur is in place,
-            # so the explicit allow-list applies uniformly.
+            # Captive sub-assembly fastener.  Aug 2026 one-piece coxa
+            # merge: each M3 x 20 drops down a vertical head-access
+            # shaft (Phi YAW_HUB_HORN_HEAD_CB_OD) that opens into the
+            # hip servo well, and is torqued with a long 2.5 mm hex
+            # key BEFORE the hip servo is lowered into its cradle
+            # (PROTOTYPE.md section 6.2 step 2).  Once the servo is
+            # seated its body covers the shaft mouths, so no driver
+            # envelope exists in the assembled state -- by design.
             skip_screwdriver_reason=(
-                "captive sub-assembly fastener: the M3 x 6 SHCS is "
-                "torqued through the pedestal-cap counter-bore "
-                "BEFORE the femur is mounted on the hip disc horn "
-                "(PROTOTYPE.md section 6.1 step 3 vs step 5).  At "
-                "standing pose (p_femur = -25 deg) the +X yaw bolt "
-                "is blocked from above by the femur hip pad."
+                "captive sub-assembly fastener: the M3 x 20 SHCS is "
+                "dropped down the coxa_link's head-access shaft and "
+                "torqued through the EMPTY hip servo well BEFORE the "
+                "hip servo is installed (PROTOTYPE.md section 6.2 "
+                "step 2); the seated servo then covers the shaft "
+                "mouths."
             ),
         ))
     return out

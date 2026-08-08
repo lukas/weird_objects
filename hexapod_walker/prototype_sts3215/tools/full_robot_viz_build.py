@@ -96,7 +96,6 @@ PALETTE = {
     # sandwich: yoke + dia-8 CF tube + bracket/fitting) instead of the merged
     # femur_link / tibia_link proxies.
     "coxa_link": "#9467bd",
-    "coxa_yaw_hub": "#9467bd", "coxa_hip_bracket": "#b08fd6",
     "yaw_bearing_cap": "#6b4fa0",
     "yaw_bearing_lower": "#d4af37", "yaw_bearing_upper": "#ffd966",
     "femur_link": "#2ca02c",
@@ -113,8 +112,9 @@ PALETTE = {
     "hex_post_standoff": "#a8a29e", "hex_post_thumb_nut": "#78716c",
     "hex_post_magnet": "#1e293b",
     "uno_q": "#1b7a3d", "breakout": "#0d9488",
-    "pdb": "#ea580c", "motor_controller": "#b45309",
+    "motor_controller": "#b45309",
     "screen": "#2563eb", "mpu6050": "#7a5cc4",
+    "wago_trunk": "#ea580c",
     "wago_power": "#ef4444", "wago_data": "#22c55e",
     "lipo_battery": "#d62728",
     "hip_clamp_cap": "#4a90d9", "knee_clamp_cap": "#4a90d9",
@@ -123,7 +123,6 @@ PALETTE = {
 }
 ROLE = {
     "coxa_link": "frame",
-    "coxa_yaw_hub": "frame", "coxa_hip_bracket": "frame",
     "yaw_bearing_cap": "chassis",
     "yaw_bearing_lower": "bearing", "yaw_bearing_upper": "bearing",
     "femur_link": "frame",
@@ -138,8 +137,9 @@ ROLE = {
     "hex_post_standoff": "electronics", "hex_post_thumb_nut": "electronics",
     "hex_post_magnet": "electronics",
     "uno_q": "electronics", "breakout": "electronics",
-    "pdb": "electronics", "motor_controller": "electronics",
+    "motor_controller": "electronics",
     "screen": "electronics", "mpu6050": "electronics",
+    "wago_trunk": "electronics",
     "wago_power": "electronics", "wago_data": "electronics",
     "lipo_battery": "electronics",
     "hip_clamp_cap": "frame", "knee_clamp_cap": "frame",
@@ -157,9 +157,7 @@ ROLE = {
 # 688 passive bearing on the other).  When you add/rename a partType in PALETTE,
 # add its rationale here too — a missing key makes the build non-compat.
 DESCRIPTIONS = {
-    "coxa_link": "Short (25 mm) coxa link driven by the yaw disc horn; carries the hip joint at its outboard end. Cantilevered (no passive bearing) because 25 mm < the ~50 mm span where a passive bearing earns its complexity.",
-    "coxa_yaw_hub": "Printed coxa inboard hub that bolts to the driven yaw disc horn (Ø14 / 4x M3 circle) and takes the yaw servo's output.",
-    "coxa_hip_bracket": "Printed coxa outboard bracket that carries the hip joint (hip servo cradle + disc-horn / passive-bearing sandwich).",
+    "coxa_link": "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven Ø20 disc horn on the Ø14 / 4x M3 circle, rides the spaced 6706 pair) fused to the hip servo cradle. 5 vertical head-access shafts through the foot plate reach the horn screws from the (empty) hip servo well.",
     "yaw_bearing_cap": "Printed cap that closes the top of each chassis yaw-bearing tower, capturing the upper yaw bearing.",
     "yaw_bearing_lower": "Lower ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
     "yaw_bearing_upper": "Upper ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
@@ -177,7 +175,7 @@ DESCRIPTIONS = {
     "hip_servo": "FEETECH STS3215 serial-bus servo driving the hip-pitch axis. COTS.",
     "knee_servo": "FEETECH STS3215 serial-bus servo driving the knee axis. COTS.",
     "chassis_bottom": "Structural 200 mm flat-to-flat hex deck (single merged print) with 6 integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing towers, one per leg at each hex-edge midpoint. Each STS3215 inserts from BELOW (output UP), bolts via 4x M2.5 through the cradle front plate, body hangs DOWN through a body cutout; the bolt-on yaw_servo_retainer stirrup captures it. A folded 4 mm floor makes the printed bottom one flush flat face so it prints flat, tower-up, no supports (Jun 2026 flush-bottom fix; check_flat_bottom overhang = 0.00 mm).",
-    "chassis_top": "Hex top plate that closes the chassis; carries PDB + motor controller + power Wagos, and the 4 magnet posts for the hex board.",
+    "chassis_top": "Hex top plate that closes the chassis; carries the trunk power Wagos + motor controller + peripheral power Wagos, and the 4 magnet posts for the hex board.",
     "hex_mount_plate": "Ø110 mm hex board (2 mm) held by 4 magnets on 20 mm posts; carries Uno Q + breakout (extra_stl / xTool).",
     "hex_raised_platform": "Raised hex platform (62 mm screen-stand legs) bolted to the hex mount plate; screen on top face (MPU is glued on chassis_bottom, not under this plate).",
     "hex_post_standoff": "20 mm M3 brass standoff at CHASSIS_STANDOFF_HOLES_XY (±31.1); bottom of each magnet post stack.",
@@ -185,8 +183,8 @@ DESCRIPTIONS = {
     "hex_post_magnet": "Ø8×8 mm disc magnet that holds the hex mount plate.",
     "uno_q": "Arduino Uno Q compute board on the hex mount plate (high-level control host). COTS.",
     "breakout": "Generic shield / breakout next to the Uno Q on the hex plate. COTS.",
-    "pdb": "Matek-class power distribution board on chassis_top; battery → PDB → servo power via Wagos. COTS.",
-    "motor_controller": "USB/TTL bus-servo adapter brick beside the PDB. COTS.",
+    "wago_trunk": "Wago 221 trunk splice pair (one V+ nut + one GND nut) on chassis_top; the battery trunk lands here and fans out to the 6 peripheral power Wagos (as-built Aug 2026: no PDB — power distribution is all lever nuts). COTS.",
+    "motor_controller": "USB/TTL bus-servo adapter brick beside the trunk Wagos. COTS.",
     "screen": "63×35 mm display panel centered on the raised platform top. COTS.",
     "mpu6050": "GY-521 MPU-6050 IMU glued on chassis_bottom (inter-plate bay), inboard of physical leg 1 (clockwise from tape-marked leg 0). I²C. COTS.",
     "wago_power": "Wago 221-style lever nut on chassis-top periphery for a per-leg 12 V + G motor branch.",
@@ -194,7 +192,7 @@ DESCRIPTIONS = {
     "lipo_battery": "LiPo battery pack, velcro-strapped under chassis_bottom for stance stability. COTS.",
     "hip_clamp_cap": "Printed clamp cap that clamshells the hip servo cradle (bolts to the cradle wall ends), capturing the servo body.",
     "knee_clamp_cap": "Printed clamp cap that closes the knee yoke's tube socket, clamping the Ø8 tibia tube.",
-    "yaw_servo_retainer": "Anti-rotation saddle under each yaw cradle with a permanent 38 mm open-cage ground stand (replaces belly stilts; stays on while walking).",
+    "yaw_servo_retainer": "Anti-rotation saddle under each yaw cradle (Aug 2026 flat-belly rework: the 38 mm ground stand is removed; the belly is flat except the hanging servos + saddles).",
     "switch_holster": "Printed holster for the anti-spark XT60 on/off switch, bolted to 2 bosses on chassis_top's +X edge (2x M3x10 SHCS into heat-set inserts).",
     "screw_yaw": "Fasteners around the yaw joint / servo mount (rendered set; count is the summed per-leg joint hardware).",
     "screw_hip": "Fasteners around the hip joint / bearing sandwich (rendered set).",
@@ -303,7 +301,7 @@ INTENDED_OVERLAP_PAIRS = frozenset(
     frozenset(p) for p in [
         # Servo body fills its cradle / bracket.
         ("chassis_bottom", "yaw_servo"),
-        ("coxa_hip_bracket", "hip_servo"),
+        ("coxa_link", "hip_servo"),
         ("femur_link", "knee_servo"),
         # Clamp cap PRESS-FIT onto its own servo body: the centre tongue
         # reaches CLAMP_TONGUE_INTERF = 1 mm PAST the seated body +Y face for a
@@ -321,10 +319,9 @@ INTENDED_OVERLAP_PAIRS = frozenset(
         # fitting sockets.
         ("tibia_knee_yoke", "tibia_tube"),
         ("tibia_foot_fitting", "tibia_tube"),
-        # Bolt-together printed stacks sharing a flush/bonded interface.
-        ("coxa_yaw_hub", "coxa_hip_bracket"),
-        ("coxa_yaw_hub", "yaw_bearing_cap"),
-        ("coxa_hip_bracket", "yaw_bearing_cap"),
+        # Printed stacks sharing a flush/running interface (the one-piece
+        # coxa_link's hub boss runs inside the stationary bearing cap).
+        ("coxa_link", "yaw_bearing_cap"),
         # LiPo velcro-strapped onto the chassis bottom plate.
         ("chassis_bottom", "lipo_battery"),
     ]
@@ -506,6 +503,7 @@ _SCENE_MESH_KEY = {
     "knee_servo": "servo_body",
     "hip_clamp_cap": "servo_clamp_cap",
     "knee_clamp_cap": "servo_clamp_cap",
+    "wago_trunk": "wago",
     "wago_power": "wago",
     "wago_data": "wago",
 }
@@ -558,10 +556,10 @@ def _leg0_local_link_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
         @ rotation_matrix(a, [0, 0, 1])
 
     return [
-        # Coxa: yaw turntable hub + hip bracket, plus the SPACED 688 bearing
-        # pair (visual, NOT printed) so the bearing-supported yaw joint shows.
-        ("coxa_yaw_hub", HP.make_coxa_yaw_hub(), T_coxa),
-        ("coxa_hip_bracket", HP.make_coxa_hip_bracket(), T_coxa),
+        # Coxa: ONE printed part (Aug 2026 merge), plus the SPACED 6706
+        # bearing pair (visual, NOT printed) so the bearing-supported yaw
+        # joint shows.
+        ("coxa_link", HP.make_coxa_link_part(), T_coxa),
         ("yaw_bearing_cap", HP.make_yaw_bearing_cap(), T_coxa),
         ("yaw_bearing_lower", HP.make_yaw_bearing_lower(), T_coxa),
         ("yaw_bearing_upper", HP.make_yaw_bearing_upper(), T_coxa),
@@ -847,7 +845,7 @@ def _col_major(M: np.ndarray) -> list[float]:
 # body/electronics parts -- they map to None and never move.
 _MOTION_LINK_OF_PARTTYPE = {
     # --- yaw link (rotates the whole leg about vertical Z) ---
-    "coxa_yaw_hub": "yaw", "coxa_hip_bracket": "yaw",
+    "coxa_link": "yaw",
     "yaw_bearing_cap": "yaw", "yaw_bearing_lower": "yaw",
     "yaw_bearing_upper": "yaw", "disc_horn_yaw": "yaw",
     "hip_servo": "yaw", "hip_clamp_cap": "yaw", "screw_yaw": "yaw",
@@ -1275,12 +1273,13 @@ def _build_routes(chassis_lift: float, legs: list[int],
 #
 # The 18 per-joint bus leads above cover only the servo DATA chains.  The
 # routes below document the REST of the harness -- power trunk, per-leg power
-# branches (via PDB + peripheral Wagos), leg-to-leg data jumpers (via
-# underside data Wagos), battery→Uno Q (no buck), the data head to servo
-# ID 1, and the IMU I2C pigtail -- with waypoints derived from the MODELED
-# as-built parts (LiPo, switch_holster, PDB, Uno Q on hex plate, MPU under
-# raised platform).  Inline fuse / adapter neighbourhoods are labelled
-# even when no CAD part exists.
+# branches (via the trunk Wago splice pair + peripheral Wagos; as-built
+# Aug 2026: NO PDB), leg-to-leg data jumpers (via underside data Wagos),
+# battery→Uno Q (no buck), the data head to servo ID 1, and the IMU I2C
+# pigtail -- with waypoints derived from the MODELED as-built parts (LiPo,
+# switch_holster, trunk Wagos, Uno Q on hex plate, MPU under raised
+# platform).  Inline fuse / adapter neighbourhoods are labelled even when
+# no CAD part exists.
 #
 # These are DOCUMENTATION routes (which wire goes where, at what gauge), not
 # reach-critical cable builds, so budgets are generous -- but every route must
@@ -1296,8 +1295,10 @@ _LIPO_EXIT = (63.0, 0.0, 20.0)          # just past the LiPo +X face
 _SWITCH_SIDE = (52.0, -13.0, 46.0)      # outside the holster's -Y wall
 _SWITCH_SIDE_OUT = (48.0, -13.0, 46.0)
 _EDGE_DROP_XY = (70.0, -16.0)
-_PDB_NODE = (HP.PDB_CENTRE[0], HP.PDB_CENTRE[1],
-             HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T + HP.PDB_H)
+# Trunk Wago splice pair (V+/GND) on chassis_top -- the battery trunk lands
+# here (as-built Aug 2026: no PDB).
+_WAGO_TRUNK_NODE = (HP.WAGO_TRUNK_CENTRE[0], HP.WAGO_TRUNK_CENTRE[1],
+                    HP.CHASSIS_GAP + 1.5 * HP.CHASSIS_PLATE_T + HP.WAGO_H)
 
 
 def _leg_src(leg: int) -> tuple[float, float, float]:
@@ -1346,7 +1347,7 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
         return [part_ids[n] for n in names if n in part_ids]
 
     routes: list[dict] = [
-        # -- power trunk → PDB ----------------------------------------------
+        # -- power trunk → trunk Wagos ---------------------------------------
         {
             "id": "route-trunk-lipo-switch",
             "points": pts(_LIPO_EXIT, (ex, ey, 20.0), (ex, ey, 46.0),
@@ -1359,31 +1360,33 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
             "instances": ids("lipo_battery", "switch_holster"),
         },
         {
-            "id": "route-trunk-switch-pdb",
+            "id": "route-trunk-switch-wago",
             "points": pts(_SWITCH_SIDE_OUT, (ex, ey, 46.0),
-                          (HP.PDB_CENTRE[0], HP.PDB_CENTRE[1], 46.0),
-                          _PDB_NODE),
+                          (HP.WAGO_TRUNK_CENTRE[0], HP.WAGO_TRUNK_CENTRE[1],
+                           46.0),
+                          _WAGO_TRUNK_NODE),
             "maxLengthMm": 200.0,
             "label": ("power trunk 12-14 AWG: switch -> 15-20 A main fuse "
-                      "(inline) -> PDB on chassis_top"),
+                      "(inline) -> trunk Wago splice pair on chassis_top"),
             "color": _ROUTE_COLOR_POWER,
             "radiusMm": 2.6,
-            "instances": ids("switch_holster", "pdb"),
+            "instances": ids("switch_holster", "wago_trunk"),
         },
         # -- battery → Uno Q (no buck) --------------------------------------
         {
             "id": "route-logic-battery-uno",
-            "points": pts(_PDB_NODE,
+            "points": pts(_WAGO_TRUNK_NODE,
                           (HP.UNO_Q_ON_HEX_CENTRE[0], HP.UNO_Q_ON_HEX_CENTRE[1],
                            deck0 + 8.0),
                           (HP.UNO_Q_ON_HEX_CENTRE[0], HP.UNO_Q_ON_HEX_CENTRE[1],
                            uno_z)),
             "maxLengthMm": 300.0,
-            "label": ("battery/PDB tap -> Uno Q (no buck; 20 AWG V+/GND; "
-                      "Uno Q accepts the 3S rail via its own regulator)"),
+            "label": ("battery tap at the trunk Wagos -> Uno Q (no buck; "
+                      "20 AWG V+/GND; Uno Q accepts the 3S rail via its "
+                      "own regulator)"),
             "color": _ROUTE_COLOR_LOGIC,
             "radiusMm": 1.5,
-            "instances": ids("pdb", "uno_q"),
+            "instances": ids("wago_trunk", "uno_q"),
         },
         # -- data head: Uno Q -> motor controller -> servo bus --------------
         {
@@ -1420,7 +1423,7 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
         },
     ]
 
-    # -- 6x power branches: PDB -> peripheral Wago -> leg drop --------------
+    # -- 6x power branches: trunk Wagos -> peripheral Wago -> leg drop ------
     for leg in legs:
         a = np.pi / 6.0 + leg * np.pi / 3.0
         wago = (HP.WAGO_POWER_R * np.cos(a),
@@ -1429,13 +1432,13 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
         dogleg = list(reversed(_ROUTE_LEG_DOGLEGS.get(leg, [])))
         routes.append({
             "id": f"route-pwr-L{leg}",
-            "points": pts(_PDB_NODE, wago, *dogleg, _leg_drop(leg)),
+            "points": pts(_WAGO_TRUNK_NODE, wago, *dogleg, _leg_drop(leg)),
             "maxLengthMm": 250.0,
-            "label": (f"L{leg} power 16-18 AWG: PDB -> peripheral Wago "
-                      f"-> leg {leg} drop (V+/GND)"),
+            "label": (f"L{leg} power 16-18 AWG: trunk Wagos -> peripheral "
+                      f"Wago -> leg {leg} drop (V+/GND)"),
             "color": _ROUTE_COLOR_POWER,
             "radiusMm": 2.0,
-            "instances": ids("pdb", "wago_power"),
+            "instances": ids("wago_trunk", "wago_power"),
         })
 
     # -- 5x leg-to-leg data jumpers via underside data Wagos ----------------

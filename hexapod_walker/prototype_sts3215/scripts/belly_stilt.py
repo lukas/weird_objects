@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""RETIRED — belly stilts replaced by yaw_servo_retainer stands.
+"""RETIRED — no printed belly stand exists any more.
 
-Aug 2026: each ``yaw_servo_retainer`` carries a permanent 38 mm open-cage
-ground stand (tip at chassis underside − 38 mm).  Print 6×
-``yaw_servo_retainer.stl`` instead of these velcro props.
+The velcro belly stilts were first replaced by ground stands on the
+``yaw_servo_retainer`` (Aug 2026), and those stands were then removed in
+the flat-belly rework (also Aug 2026): the chassis underside is flat
+except the hanging yaw servos + their retainer saddles.  Use an external
+bench support when the robot must be held off its feet.
 
 This module remains only so old commands fail with a clear message.
 """
@@ -14,10 +16,9 @@ import sys
 
 def main() -> None:
     print(
-        "belly_stilt is retired.\n"
-        "  Use hexapod_prototype.make_yaw_servo_retainer() / "
-        "stl_prototype/yaw_servo_retainer.stl\n"
-        "  (6× footed saddles, 38 mm tip, stay on while walking).",
+        "belly_stilt is retired, and the retainer ground stands that "
+        "replaced it were\nremoved in the Aug 2026 flat-belly rework.  "
+        "There is no printed belly stand;\nuse an external bench support.",
         file=sys.stderr,
     )
     raise SystemExit(1)

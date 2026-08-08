@@ -56,8 +56,7 @@ import hexapod_prototype as hp  # noqa: E402
 from hexapod_prototype import (
     make_chassis_bottom,
     make_chassis_top,
-    make_coxa_hip_bracket,
-    make_coxa_yaw_hub,
+    make_coxa_link_part,
     make_femur_link_part,
     make_foot_pad,
     make_servo_clamp_cap,
@@ -70,7 +69,11 @@ from hexapod_prototype import (
 
 HERE = PROTO_DIR
 OUT_DIR = os.path.join(HERE, "xometry_upload")
-os.makedirs(OUT_DIR, exist_ok=True)
+# NOTE: OUT_DIR is only created inside main().  This module is ALSO
+# imported purely for PART_REGISTRY (the canonical print poses used by
+# the verifier's flat-bottom check), and a module-level makedirs kept
+# resurrecting an empty xometry_upload/ on every verify run after the
+# bundle was removed from the repo (Aug 2026 cleanup).
 
 
 # ---------------------------------------------------------------------------
@@ -115,18 +118,13 @@ def _reorient_deck_tray(mesh):
     return _drop_to_bed(mesh)
 
 
-def _reorient_coxa_hip_bracket(mesh):
-    """The hip-pitch cradle hangs in -Z below the arm, with its open
-    face pointing -Y. Rotate +90 deg about X to put the open face up
-    (-Y -> +Z)."""
-    out = _rotate(mesh, np.pi / 2, [1, 0, 0])
-    return _drop_to_bed(out)
-
-
-def _reorient_coxa_yaw_hub(mesh):
-    """Yaw turntable hub: a flat disc.  Print platform-up so the disc-horn
-    clamp counterbores + Part B join pilots open +Z; boss points down."""
-    out = _rotate(mesh, np.pi, [1, 0, 0])   # flip so the boss faces -Z (down)
+def _reorient_coxa_link(mesh):
+    """One-piece coxa (Aug 2026 merge of the yaw turntable hub + hip
+    bracket).  Lay it on its SIDE (rotate -90 deg about Y: the yaw axis
+    goes horizontal, the cradle's outboard end wall becomes the bed face)
+    -- the flattest stable pose; both the boss-down and cradle-down
+    uprights leave 20+ mm of overhang hanging below the main plane."""
+    out = _rotate(mesh, -np.pi / 2, [0, 1, 0])
     return _drop_to_bed(out)
 
 
@@ -206,22 +204,20 @@ PART_REGISTRY: list[tuple[str,
 
 
 
-    # Yaw joint split into TWO printed parts (Jun 2026): the turntable HUB
-    # bolts to the disc horn + rides the SPACED 6706 bearing pair; the hip
-    # BRACKET bolts on top (4x M3) and carries the hip-pitch cradle.  The hub
-    # is bolted to the chassis-borne bearing tower BEFORE the bracket goes on.
-    ("coxa_yaw_hub.stl",         make_coxa_yaw_hub,        _reorient_coxa_yaw_hub,
+    # Aug 2026 merge: the coxa is ONE printed part again -- the Jun 2026
+    # hub/bracket split (4x M3 join bolts) is retired.  Five vertical
+    # head-access shafts through the foot plate let the 4x M3x20 disc-horn
+    # bolts + centre spline screw be dropped in and torqued from above
+    # (through the still-empty hip servo well) after the part rides the
+    # spaced 6706 pair in the chassis tower.
+    ("coxa_link.stl",            make_coxa_link_part,      _reorient_coxa_link,
      6, "MJF PA12",      "white", "as-printed",
-     "Yaw turntable hub: bolts DOWN onto the 20 mm disc horn (4x M3 "
-     "clamp-through, oversized/torque-only holes) and rides the inner races "
-     "of the spaced 6706-2RS pair; Part B bolts onto its top platform."),
-
-    ("coxa_hip_bracket.stl",     make_coxa_hip_bracket,    _reorient_coxa_hip_bracket,
-     6, "MJF PA12",      "white", "as-printed",
-     "Hip bracket: bolts onto the yaw hub top (4x M3) and carries the "
-     "hip-pitch servo cradle (symmetric disc-horn sandwich -- the passive "
-     "disc horn rides the servo's rear idler boss, no 688 bearing). Oriented "
-     "so the cradle opens +Z."),
+     "One-piece coxa (Aug 2026 merge): yaw turntable hub (bolts DOWN onto "
+     "the 20 mm disc horn, 4x M3 clamp-through torque-only holes; rides the "
+     "inner races of the spaced 6706-2RS pair) fused to the hip-pitch servo "
+     "cradle (symmetric disc-horn sandwich; passive horn on the rear idler "
+     "boss, no 688 bearing).  5 head-access shafts reach the horn screws "
+     "through the hip servo well."),
 
     # Bearing-sandwich leg (Jun 2026): the tibia SEGMENT is a bought Ø8
     # carbon-fibre tube (cut to length, epoxied into the printed sockets
@@ -256,11 +252,11 @@ PART_REGISTRY: list[tuple[str,
 
     ("yaw_servo_retainer.stl",   make_yaw_servo_retainer,  _drop_to_bed,
      6, "MJF PA12",      "white", "as-printed",
-     "Anti-rotation saddle under each yaw servo + permanent 38 mm ground "
-     "stand (Aug 2026; replaces belly stilts).  U-channel open on +X, "
-     "central wire drop into an open-cage shaft, Ø28 foot.  4× M3 chassis "
-     "anchors + 4× M2.5 rear-case self-taps, all drivvable from below "
-     "through stand reliefs.  Print foot-down.  Stay on while walking."),
+     "Anti-rotation saddle under each yaw servo (Aug 2026 flat-belly "
+     "rework: the permanent 38 mm ground stand is removed -- the belly is "
+     "flat except the hanging servos + saddles).  U-channel open on +X, "
+     "central wire drop window.  4× M3 chassis anchors + 4× M2.5 rear-case "
+     "self-taps, all drivvable straight up from the open air below."),
 
     ("yaw_bearing_cap.stl",      make_yaw_bearing_cap,     _reorient_yaw_bearing_cap,
      6, "MJF PA12",      "white", "as-printed",
@@ -301,6 +297,7 @@ PART_REGISTRY: list[tuple[str,
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    os.makedirs(OUT_DIR, exist_ok=True)
     print(f"Preparing Xometry upload bundle in {OUT_DIR} ...")
     print()
 

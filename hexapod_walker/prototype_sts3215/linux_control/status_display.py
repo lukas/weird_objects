@@ -104,11 +104,42 @@ def format_job_screen(robot: dict) -> tuple[int, list[str]] | None:
     return pct, [title] + body[:4] + [footer]
 
 
+def servo_alert(robot: dict) -> list[str] | None:
+    """Two panel lines for missing / over-hot servos, or None when healthy.
+
+    Fed by the ``servo`` block ServoWatch publishes into robot_state().
+    Missing servos outrank heat (a hot servo still answers; a missing one
+    is power/bus/failure), and both outrank ordinary activity detail.
+    """
+    sv = robot.get("servo") or {}
+    if not sv.get("ok"):
+        return None
+    missing = sv.get("missing") or []
+    exp = int(sv.get("expected") or 0)
+    if missing and exp and len(missing) >= exp:
+        return ["ALL SERVOS", "DOWN"]
+    if missing:
+        n = len(missing)
+        names = sv.get("missing_names") or []
+        first = str(names[0] if names else f"j{missing[0]}")
+        more = f" +{n - 1}" if n > 1 else ""
+        return [f"{n} SVO DOWN" if n > 1 else "SERVO DOWN",
+                (first + more)[:20]]
+    hot = sv.get("hot") or []
+    if hot:
+        worst = max(hot, key=lambda h: int(h.get("temp_c") or 0))
+        off = " OFF" if worst.get("tripped") else ""
+        return [f"HOT {worst.get('temp_c')}C{off}"[:20],
+                str(worst.get("name") or "")[:20]]
+    return None
+
+
 def format_status_lines(robot: dict, net: str | None = None) -> list[str]:
     """Activity lines only (≤20 chars). Power footer is MCU-side.
 
-    The MCU shows the first 3 lines in 11-char edge slots. A finished
-    job that died with ``status = "error: ..."`` takes priority (it used
+    The MCU shows the first 3 lines in 11-char edge slots. Servo alerts
+    (missing / over-temperature) take the two free slots first; then a
+    finished job that died with ``status = "error: ..."`` (it used
     to vanish from the panel the moment the worker stopped); otherwise
     the last free slot carries the WiFi/IP line, so a headless robot
     still tells you how to reach it — or that it has NO WIFI.
@@ -123,7 +154,10 @@ def format_status_lines(robot: dict, net: str | None = None) -> list[str]:
 
     lines = ["ARMED" if armed else "limp"]
 
-    if not running and demo_status.startswith("error"):
+    alert = servo_alert(robot)
+    if alert is not None:
+        lines += alert
+    elif not running and demo_status.startswith("error"):
         msg = demo_status.split(":", 1)[-1].strip() or "job failed"
         short = demo_name.replace("rl_", "").replace("_", " ") or "job"
         # ERR first — the MCU edge slot truncates to 11 chars.

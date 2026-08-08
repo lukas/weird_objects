@@ -50,8 +50,18 @@ adb push "$SRC/plant_calibrate.py" "$REMOTE/linux_control/"
 adb push "$SRC/imu_calibrate.py" "$REMOTE/linux_control/"
 adb push "$SRC/event_log.py" "$REMOTE/linux_control/"
 adb push "$SRC/status_display.py" "$REMOTE/linux_control/"
+adb push "$SRC/servo_watch.py" "$REMOTE/linux_control/"
 adb push "$SRC/mpu_probe.py" "$REMOTE/linux_control/"
+adb push "$SRC/rl_policy.py" "$REMOTE/linux_control/"
+adb push "$SRC/rl_policy_weights.json" "$REMOTE/linux_control/"
 adb push "$SRC/vendor" "$REMOTE/linux_control/"
+# rl_move core (numpy-only): obs builder, state estimator, safety layer —
+# imported by rl_policy.py for the RL stand/lower buttons.
+adb shell "mkdir -p '$REMOTE/rl_move'"
+for f in __init__.py env.py robot_state.py attitude.py safety.py \
+         config.py config.yaml body_ik.py control_loop.py logger.py; do
+  adb push "$SRC/../rl_move/$f" "$REMOTE/rl_move/"
+done
 # Full setup bundle (demos + bench helpers) for Motors/Demos tabs.
 adb push "$SRC/urt2_setup/." "$REMOTE/urt2_setup/"
 adb push "$SRC/urt2_setup/." "$REMOTE/linux_control/urt2_setup/"

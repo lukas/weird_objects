@@ -257,6 +257,7 @@ PAGE = r"""<!doctype html>
     <button id="tab-live" class="tab">Live</button>
     <button id="tab-motors" class="tab">Motors</button>
     <button id="tab-demos" class="tab">Demos</button>
+    <button id="tab-rl" class="tab">RL</button>
     <button id="tab-calibrate" class="tab">Calibrate</button>
     <button id="tab-debug" class="tab">Debug</button>
   </nav>
@@ -450,6 +451,51 @@ PAGE = r"""<!doctype html>
     </div>
   </div>
   </div><!-- /view-demos -->
+
+  <div id="view-rl" class="view">
+  <div class="row">
+    <div class="pad" style="flex:1 1 340px">
+      <h2>Policy moves</h2>
+      <div class="hint"><b>Stand up</b>: place the robot <b>belly-down,
+        legs straight out</b> (logical zero). It curls its feet under
+        for ~5&nbsp;s (this is deliberate, not a stall), then rises over
+        ~4&nbsp;s and holds. <b>Lower</b>: from the standing plant
+        stance it descends gently over ~5&nbsp;s to the belly, then goes
+        limp. <b>Stop</b> holds the pose; <b>X</b> (Drive tab) limps.
+        <b>Watch the robot the whole time.</b></div>
+      <div class="btns" style="margin-top:12px">
+        <button id="rlstand" class="on">⬆ Stand up</button>
+        <button id="rllower">⬇ Lower</button>
+        <button id="rlstop" class="danger">■ Stop</button>
+      </div>
+      <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
+    </div>
+    <div class="pad" style="flex:1 1 340px">
+      <h2>Readiness (no motion)</h2>
+      <div class="hint">Runs the same read-only preflight the buttons
+        use: all 18 servo IDs answering, IMU alive, tilt &lt; 12°, and
+        the present pose near the expected start. Refusals show the
+        exact reason.</div>
+      <div class="btns" style="margin-top:12px">
+        <button id="rlcheckstand">Check: stand</button>
+        <button id="rlchecklower">Check: lower</button>
+      </div>
+      <div class="hint" id="rlpreflight" style="margin-top:10px">—</div>
+    </div>
+    <div class="pad" style="flex:1 1 340px">
+      <h2>Policy</h2>
+      <div class="hint" id="rlpolicyinfo">loading…</div>
+      <div class="hint" style="margin-top:10px">Trained in the MuJoCo
+        twin (PPO, raw 18-joint actions, domain randomization) and
+        exported to plain numpy — no torch on the board. Every command
+        passes the safety layer: 1.5°/tick rate clamp, joint limits,
+        10° tilt trip, sustained &gt;2.5&nbsp;A trip → instant limp.
+        Swap the policy by re-running
+        <code>rl_move/sim/export_policy_np.py</code> and pushing
+        <code>rl_policy_weights.json</code>.</div>
+    </div>
+  </div>
+  </div><!-- /view-rl -->
 
   <div id="view-calibrate" class="view">
   <div class="row">
@@ -1067,7 +1113,7 @@ $('dbgrelax').onclick  = disarmServos;   // Relax (limp) = disarm / e-stop, alwa
 // --- tab switching ----------------------------------------------------------
 function showView(which){
   activeView = which;
-  ['drive','live','motors','demos','calibrate','debug'].forEach(v=>{
+  ['drive','live','motors','demos','rl','calibrate','debug'].forEach(v=>{
     const el = $('view-'+v); if(el) el.classList.toggle('active', v===which);
     const tab = $('tab-'+v); if(tab) tab.classList.toggle('on', v===which);
   });
@@ -1088,11 +1134,13 @@ function showView(which){
   else stopCalPoll();
   if(which === 'live'){ startLivePose(); }
   else stopLivePose();
+  if(which === 'rl'){ refreshRlTab(); }
 }
 $('tab-drive').onclick = ()=> showView('drive');
 $('tab-live').onclick = ()=> showView('live');
 $('tab-motors').onclick = ()=> showView('motors');
 $('tab-demos').onclick = ()=> showView('demos');
+$('tab-rl').onclick = ()=> showView('rl');
 $('tab-calibrate').onclick = ()=> showView('calibrate');
 $('tab-debug').onclick = ()=> showView('debug');
 dbgRefresh();
@@ -1377,6 +1425,93 @@ $('calstop').onclick = async ()=>{
   refreshCalibrate();
 };
 $('calrefresh').onclick = ()=> refreshCalibrate();
+let rlTimer = null;
+function startRlPoll(){
+  if(rlTimer) clearInterval(rlTimer);
+  rlTimer = setInterval(async ()=>{
+    try{
+      const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
+      const d = await r.json();
+      const p = d.progress || {};
+      if(d.running){
+        $('rlstatus').textContent = p.msg || 'running…';
+      } else {
+        clearInterval(rlTimer); rlTimer = null;
+        $('rlstand').disabled = false; $('rllower').disabled = false;
+        const res = d.result || {};
+        $('rlstatus').textContent = res.ok
+          ? `Done · max ${res.max_current_a ?? '?'} A`
+             + (res.limped ? ' · limped' : ' · holding')
+          : (res.error || 'done');
+      }
+    }catch(e){ /* keep polling */ }
+  }, 500);
+}
+async function rlMove(mode){
+  const what = mode==='stand'
+    ? 'STAND UP (robot must be belly-down, legs straight out)'
+    : 'LOWER to belly (robot must be in the plant stance)';
+  if(!confirm('Robot will MOVE: '+what+'. Are you watching it?')) return;
+  $('rlstatus').textContent = 'Preflight…';
+  $('rlstand').disabled = true; $('rllower').disabled = true;
+  try{
+    const r = await fetch('/api/rl/'+mode, {method:'POST'});
+    const d = await r.json();
+    if(!d.ok){
+      $('rlstatus').textContent = 'Refused: '+(d.error || 'unknown');
+      $('rlstand').disabled = false; $('rllower').disabled = false;
+      return;
+    }
+    $('rlstatus').textContent = 'Running…';
+    startRlPoll();
+  }catch(e){
+    $('rlstatus').textContent = 'Start failed (link?)';
+    $('rlstand').disabled = false; $('rllower').disabled = false;
+  }
+}
+$('rlstand').onclick = ()=> rlMove('stand');
+$('rllower').onclick = ()=> rlMove('lower');
+$('rlstop').onclick = async ()=>{
+  await fetch('/api/rl/stop', {method:'POST'});
+  $('rlstatus').textContent = 'Stopping (holds pose; X to limp)…';
+};
+async function rlCheck(mode){
+  $('rlpreflight').textContent = 'Checking '+mode+'…';
+  try{
+    const r = await fetch('/api/rl/preflight?mode='+mode, {cache:'no-store'});
+    const d = await r.json();
+    const det = [];
+    if(d.roll_deg!=null) det.push(`roll ${d.roll_deg}°`);
+    if(d.pitch_deg!=null) det.push(`pitch ${d.pitch_deg}°`);
+    if(d.max_pose_delta_deg!=null)
+      det.push(`pose Δ ${d.max_pose_delta_deg}° (tol ${d.pose_tol_deg}°)`);
+    $('rlpreflight').innerHTML = d.ok
+      ? `<b style="color:#5fd08a">READY for ${mode}</b> · ${det.join(' · ')}`
+      : `<b style="color:#ff7b72">NOT ready</b>: ${d.error||'?'}`
+        + (det.length ? ` · ${det.join(' · ')}` : '');
+  }catch(e){ $('rlpreflight').textContent = 'check failed (link?)'; }
+}
+$('rlcheckstand').onclick = ()=> rlCheck('stand');
+$('rlchecklower').onclick = ()=> rlCheck('lower');
+async function refreshRlTab(){
+  try{
+    const r = await fetch('/api/rl/policy', {cache:'no-store'});
+    const d = await r.json();
+    $('rlpolicyinfo').innerHTML = d.ok
+      ? `<b>${(d.source||'?').split('/').pop()}</b><br>`
+        + `obs ${d.obs_dim} → [${(d.hidden||[]).join(', ')}] → `
+        + `${d.act_dim} joints · ${d.activation}`
+      : (d.error || 'no policy');
+  }catch(e){ $('rlpolicyinfo').textContent = 'policy info unavailable'; }
+  try{
+    const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
+    const d = await r.json();
+    if(d.running && (d.name||'').startsWith('rl_policy')){
+      $('rlstatus').textContent = (d.progress||{}).msg || 'running…';
+      startRlPoll();
+    }
+  }catch(e){}
+}
 $('calplantreset').onclick = async ()=>{
   if(!confirm('Reset stand home to default hip +20° / knee +80°?')) return;
   try{
@@ -2269,7 +2404,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             pass
         if path in ("/", "/index.html", "/debug", "/motors", "/demos",
-                    "/live", "/calibrate"):
+                    "/live", "/rl", "/calibrate"):
             page = PAGE.replace("__HTTPS_PORT__", str(HTTPS_PORT or 8443))
             self._send(200, page, "text/html; charset=utf-8")
         elif path == "/cal":
@@ -2278,6 +2413,16 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/ping":
             # Lightweight heartbeat — no bus traffic.
             self._json(200, {"ok": True, "service": "hexapod-web"})
+        elif path == "/api/rl/preflight":
+            mode = "stand"
+            qs = self.path.split("?", 1)
+            if len(qs) == 2 and "mode=" in qs[1]:
+                mode = qs[1].split("mode=")[1].split("&")[0]
+            self._json(200, BENCH.rl_preflight(mode=mode) if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/rl/policy":
+            self._json(200, BENCH.rl_policy_info() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/events":
             try:
                 from event_log import recent, events_path
@@ -2436,6 +2581,12 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/rl/stop":
             self._json(200, BENCH.rl_stop() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path in ("/api/rl/stand", "/api/rl/lower"):
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            else:
+                self._json(200, BENCH.rl_policy_move(
+                    mode=path.rsplit("/", 1)[-1]))
         elif path == "/api/rl/set_stance":
             try:
                 data = json.loads(body or "{}") if body else {}
@@ -2554,6 +2705,8 @@ def _main_after_bus(args) -> None:
         # reseat while MCU still thinks the panel is up).
         BENCH.start_status_display()
         print("[web] TFT status display started (MCU ST7789)")
+        BENCH.start_servo_watch()
+        print("[web] servo watch started (liveness + 65C cutoff)")
 
     if ensure_cert():
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)

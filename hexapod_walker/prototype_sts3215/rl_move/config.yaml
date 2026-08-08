@@ -18,49 +18,145 @@ episode:
   max_plant_delta_deg: 15.0    # refuse start if farther than this from plant
 
 actions:
-  max_roll_deg: 3.0
-  max_pitch_deg: 3.0
-  max_height_mm: 5.0
-  max_x_mm: 5.0
-  max_y_mm: 5.0
+  max_roll_deg: 5.0
+  max_pitch_deg: 5.0
+  # Height channel must span the rise task's crouch (knee cap raised to
+  # 150 deg, so the body-IK can genuinely crouch now).
+  max_height_mm: 80.0
+  # X/Y must move the CoM a meaningful fraction of the ~120 mm support
+  # polygon or the unload (weight-shift) task is physically impossible.
+  max_x_mm: 40.0
+  max_y_mm: 40.0
 
-# Goal-conditioned lean / weight-shift task (sim/goal_task.py).
+# Goal-conditioned lean / rise / weight-shift task (sim/goal_task.py).
 goal:
-  p_hold: 0.15                 # episode-mode sampling probabilities
-  p_lean: 0.30
-  p_track: 0.35
+  p_hold: 0.10                 # episode-mode sampling probabilities
+  p_lean: 0.15
+  p_track: 0.15
   p_unload: 0.20
-  max_ref_deg: 2.5             # capped to actions.max_roll/pitch_deg
+  # Rise is the one unsolved skill (belly-start 0/6 after run 3) —
+  # overweight it until it lands, then rebalance.
+  p_rise: 0.35                 # start at ZERO pose (belly down), stand up
+  # Canary task: from the plant stance, follow a height ramp UP. The
+  # single simplest goal in the set — if the policy can't hit ~100% on
+  # this quickly, the height pathway (obs/reward/IK) is broken, not
+  # under-trained.
+  p_raise: 0.15
+  raise_height_mm: [10.0, 30.0]
+  max_ref_deg: 4.0             # capped to actions.max_roll/pitch_deg
   track_period_s: [2.5, 8.0]   # slow enough to follow through latency
   ramp_s: 0.75                 # ease references in from zero
+  rise_height_mm: [30.0, 70.0] # lift the body this far off the belly
+  # Curl window: a full curl takes ~5-6 s through the real servo profile
+  # (measured: forced curl=0.6 needs 4 s for 60% of the distance). At
+  # hold 3 s the ramp outran any honest curl attempt and the height-
+  # progress term CHARGED the robot while it was still preparing.
+  rise_hold_s: 5.0             # height ref stays 0 while legs curl in
+  rise_ramp_s: 4.0             # then ramps 0 -> rise this fast
 
 safety:
   max_roll_deg: 10.0           # tighter after tip/brownout
   max_pitch_deg: 10.0
-  max_delta_q_deg: 0.5         # per 20 ms — was 2° (too aggressive)
+  # Per-tick joint rate limit. 0.5°/tick (12.5°/s at 25 Hz) made standing
+  # up from the zero pose take >10 s (the knee travels ~135°); 1.5°/tick
+  # = 37.5°/s matches the bus write_speed cap (400 units ≈ 35°/s) so the
+  # limit is the servo profile, not this clamp. Still far below the
+  # incident speeds.
+  max_delta_q_deg: 1.5
   imu_stale_ms: 100
   enable_soft_torque_limit: false
   soft_torque_limit: 600
   max_temp_c: 65.0
   max_current_a: 2.5
-  over_current_trip_s: 0.8     # must be SUSTAINED this long to terminate
+  # Trip only on SUSTAINED over-current: STS3215s tolerate ~3 A for a few
+  # seconds harmlessly (damage takes minutes — see 2026-08-06); the
+  # per-tick effort penalty already punishes every over-current step,
+  # and the policy needs a real window to unload a bad start.
+  over_current_trip_s: 2.0
   max_load_pct: 90.0
   limp_on_terminate: true      # torque-off on tilt/estop (stop fighting)
 
 reward:
+  # 2026-08-07 redesign: the only substantial POSITIVE term is the task
+  # kernel — k_track * exp(-err²/2σ²), a product of Gaussians over every
+  # objective the goal specifies (tilt, height, leg unload). Perfect
+  # tracking ≈ +1/tick; ignoring the goal ≈ 0/tick; termination is an
+  # explicit -10. There is deliberately NO unconditional alive bonus:
+  # the previous run proved PPO will freeze in place and collect it
+  # (survival paid ~96% of achievable reward with zero tracking).
   alive: 0.0
-  k_roll: 5.0
-  k_pitch: 5.0
-  k_gyro: 0.1
-  k_action: 0.01
+  k_track: 1.0
+  track_sigma_deg: 1.5         # tilt-error width of the kernel
+  # Wide enough that PARTIAL rises earn partial credit — at 10 mm the
+  # kernel paid nothing until the last centimeter of a 50 mm rise and
+  # PPO never found the skill (300k smoke: rise 0/2).
+  height_sigma_mm: 20.0        # height-error width (rise task)
+  # Unload task kernel uses the leg's ground-reaction force (sim touch
+  # sensor): a quiet stance carries ~3.5 N per foot (kernel ≈ 0, freezing
+  # earns nothing), a genuinely unloaded leg <1 N. Servo current can't
+  # measure this — quiet-stand currents are ~0.1 A everywhere.
+  unload_sigma_n: 1.0          # foot-force width (N)
+  unload_sigma_a: 0.15         # legacy current width (hardware fallback)
+  # Unload episodes may lean — tipping the body is how a pinned-feet
+  # position-controlled hexapod opens a foot contact.
+  unload_tilt_sigma_deg: 4.0
+  # Rise decomposed into scored steps (sim-only; needs privileged body
+  # height). Progress: potential-based +k*Δ|height_err| per step — every
+  # millimeter gained toward the target pays, regressing (or freezing
+  # while the ref ramps away) charges. A full 50 mm rise sums to ~+5.
+  # Milestones: one-time bonuses when the body first reaches 25/50/75/90%
+  # of the episode's height target (belly-off, half-way, nearly-there) —
+  # +2 each, ~+8 for reaching the top. Both are small next to the kernel
+  # (~+250 for tracking a full episode), so they steer exploration
+  # without redefining success.
+  k_rise_progress: 100.0
+  k_rise_milestone: 2.0
+  # Feet-under-body ("curl") scores for rise episodes. The curl phase is
+  # the one step of standing with NO height change (belly stays on the
+  # ground), so none of the height terms pay it — measured: warm-started
+  # policy solves crouch-rise 6/6, zero-rise 0/6, curl channel never
+  # fires. Progress: +k per meter of mean foot-XY distance closed toward
+  # the plant footprint (full curl ~0.08 m ≈ +4). Milestones: one-time
+  # +k_rise_milestone when the mean distance first drops below each
+  # threshold.
+  # 50 paid ~+4 for a full curl — invisible next to the kernel's ~+150
+  # for the completed stand, so the value chain from curl to payoff was
+  # long. 120 makes the preparatory step worth ~+10 on its own.
+  k_curl_progress: 120.0
+  curl_milestone_mm: [40.0, 15.0]
+  # During the rise HOLD window (height ref still 0) the tracking kernel
+  # pays curl distance instead of tilt/height stillness — otherwise
+  # lying frozen earns ~1/tick and preparation is priced as a loss
+  # (that math kept curl pinned negative through runs 03-05). Width of
+  # that curl kernel; flat-start distance is ~50-55 mm so freeze pays
+  # ~0.03/tick, full curl ~1/tick.
+  rise_hold_curl_sigma_mm: 20.0
+  # Finish bonus: once the height ref has fully ramped to target, a
+  # narrow kernel pays only for actually arriving. The 20 mm tracking
+  # kernel alone pays 61% for parking 20 mm low — run 07 regressed into
+  # exactly that discount (same banked curl as run 06, stopped 43-62 mm
+  # short). At 8 mm width: 20 mm low pays 0.04, 5 mm low pays 0.82.
+  k_rise_finish: 1.0
+  rise_finish_sigma_mm: 8.0
+  # Small quadratic shaping: gives a gradient far from the reference
+  # where the kernel is flat. Sized well below the kernel so it cannot
+  # dominate (4° off ref ≈ -0.05/step from each of these).
+  k_roll: 10.0
+  k_pitch: 10.0
+  k_height: 100.0
+  # Regularizers kept deliberately WEAK for now — learn the task first,
+  # optimize smoothness/effort later (they can be raised for fine-tuning).
+  k_gyro: 0.05
+  k_action: 0.005
   k_action_delta: 0.01
   # Effort penalty: sum of squared servo currents (A²). Quiet hold
-  # (~0.2 A × 18) costs ~0.01/step; three servos fighting at 2 A costs
-  # ~0.24/step (~60/episode). "Don't cook motors" — see 2026-08-06.
-  k_current: 0.02
-  # Weight-shift goal: mean |A| of the target leg's 3 servos. A loaded
-  # hip holds ~0.2 A → ~0.1/step until the leg is unloaded.
-  k_unload: 0.5
+  # (~0.2 A × 18) costs ~0.004/step. "Don't cook motors" — see 2026-08-06
+  # — but weak enough that moving toward the goal always pays more than
+  # it costs.
+  k_current: 0.005
+  # Weight-shift goal: weak gradient toward zero leg current (the kernel
+  # pays the success itself).
+  k_unload: 0.2
   safety_termination_penalty: 10.0
 
 velocity_filter:
@@ -79,6 +175,7 @@ obs:
   qd_scale: 2.0              # rad/s
   tilt_scale: 0.2            # ~11° → unit scale
   gyro_scale: 1.0            # rad/s
+  height_scale_m: 0.05       # goal height_ref → unit scale
 
 pd:
   kp_roll: 1.5

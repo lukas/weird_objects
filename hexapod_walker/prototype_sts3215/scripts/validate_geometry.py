@@ -302,6 +302,9 @@ _SHAPE_PRIMITIVE_KINDS = frozenset({
     "gusset_rib",
     "slot",
     "recess",
+    # A deliberately EMPTY volume the part must keep open (e.g. the open
+    # back over a passive rear-boss disc horn).  Documented in RULE 7.
+    "open_clearance",
 })
 
 _SHAPE_AXIS_NORMALS = frozenset({

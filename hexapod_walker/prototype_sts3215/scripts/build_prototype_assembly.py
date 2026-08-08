@@ -238,7 +238,7 @@ def _build_leg(leg_index: int):
     # Yaw disc horn -- bottom (spline side) seats FLUSH on the servo front face
     # (the output does NOT protrude), RECESSED inside the mount-plate bore.  Its
     # base lands at yaw_face_z so its top sits DISC_HORN_H above the face, where
-    # the coxa_yaw_hub's necked drive nub reaches it.  Drives the coxa link via
+    # the coxa_link's necked drive nub reaches it.  Drives the coxa link via
     # the 4 link-to-disc-horn M3 bolts.
     yaw_horn = _horn_visual()
     yaw_horn.apply_translation(

@@ -22,6 +22,10 @@ rl_move/sim/policies/
 # docs; the real file must never be committed)
 rl_move/sim/wandb.env
 
+# CoreWeave CKS credentials (server + API token for remote training);
+# the real file must never be committed
+rl_move/sim/coreweave.env
+
 # Robot runtime log streams (regenerated every run). The calibration
 # artifacts logs/motor_model.json + logs/motor_dyn_* ARE tracked — they
 # are the hardware ground truth for rl_move/sim fitting.
@@ -32,8 +36,16 @@ joint_viz/
 stl_prototype/
 full_robot_viz/stl/
 
+# Xometry order bundle: generated ON DEMAND by
+# scripts/prepare_xometry_upload.py (or build_all.py --xometry) and no
+# longer checked in (Aug 2026 cleanup).
+xometry_upload/
+
 # stl_reference/*.stl is covered by the repo-root *.stl rule; keep the
 # directory's README.md trackable.
 
 # Stray top-level scene dump (the canonical scene is full_robot_viz/scene.json)
 /scene.json
+
+# RL eval/preflight artifacts (videos, reports) — regenerable
+/logs/

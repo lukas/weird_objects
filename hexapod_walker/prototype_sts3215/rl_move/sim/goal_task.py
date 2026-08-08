@@ -1,4 +1,4 @@
-"""Goal-conditioned lean / weight-shift task on the MuJoCo twin.
+"""Goal-conditioned lean / rise / weight-shift task on the MuJoCo twin.
 
 One policy, one command interface: each episode gets a goal —
 
@@ -10,11 +10,20 @@ One policy, one command interface: each episode gets a goal —
               (150-200 ms latency, deadband, acceleration ramp)
 - ``unload``: drive one leg's servo currents to zero by shifting the
               body weight off it (the atomic prerequisite of stepping)
+- ``raise``:  from the plant stance, follow a height ramp 10-30 mm UP —
+              the deliberately trivial canary goal: a healthy setup
+              should learn it to ~100% almost immediately
+- ``rise``:   the episode STARTS in a crouch (body 30-70 mm below
+              nominal); the height reference ramps up to nominal and the
+              policy must stand the body up, then hold. Nothing pays
+              until it moves — the anti-"freeze and collect alive" task.
 
 The goal is appended to the observation (see ``TaskGoal.as_obs``), and
-the shared ``compute_reward`` tracks the reference instead of zero.
-References stay inside the body-IK action envelope (max_roll/pitch_deg)
-so every goal is physically reachable with all six feet planted.
+the shared ``compute_reward`` tracks the reference instead of zero. The
+alive bonus is gated on tracking error so ignoring the goal doesn't pay.
+References stay inside the body-IK action envelope (max_roll/pitch_deg,
+max_height_mm) so every goal is physically reachable with all six feet
+planted.
 """
 from __future__ import annotations
 
@@ -37,16 +46,37 @@ except ImportError:
 
 @dataclass
 class GoalTrajectory:
-    """Per-step references for one episode."""
+    """Per-step references for one episode.
+
+    ``height`` is relative to the EPISODE-START body height (same
+    convention as the tilt refs, which are relative to start attitude).
+    ``start_at`` tells the env which pose to reset in: "plant" (standing
+    stance), "zero" (legs straight out, belly on the ground — how the
+    operator places the robot), or "crouch" (feet at the plant footprint
+    but body lowered by ``crouch_dz``).
+    """
     mode: str
     roll: np.ndarray                 # (n_steps,) rad
     pitch: np.ndarray                # (n_steps,) rad
+    height: np.ndarray               # (n_steps,) m, offset from start
     unload_leg: int | None
+    start_at: str = "plant"
+    crouch_dz: float = 0.0           # m below plant, for start_at="crouch"
+    # Bridge starts (start_at="zero" only): 0 = flat belly pose, 1 = the
+    # full crouch. Intermediate values start the robot partially curled
+    # on its belly — a reverse curriculum from the solved crouch states
+    # back toward the unsolved flat-belly start.
+    start_curl: float = 0.0
+    # For start_at="zero": fraction of the crouch pose to blend into the
+    # start joints (0 = belly-flat zero pose, 1 = full crouch). Bridge
+    # starts for the rise reverse-curriculum.
+    start_curl: float = 0.0
 
     def at(self, step: int) -> TaskGoal:
         i = min(max(step, 0), len(self.roll) - 1)
         return TaskGoal(roll_ref=float(self.roll[i]),
                         pitch_ref=float(self.pitch[i]),
+                        height_ref=float(self.height[i]),
                         unload_leg=self.unload_leg)
 
 
@@ -55,10 +85,16 @@ class GoalGenerator:
 
     def __init__(self, cfg: dict):
         g = cfg.get("goal", {}) if isinstance(cfg, dict) else {}
-        self.p_hold = float(g.get("p_hold", 0.15))
-        self.p_lean = float(g.get("p_lean", 0.30))
-        self.p_track = float(g.get("p_track", 0.35))
+        self.p_hold = float(g.get("p_hold", 0.10))
+        self.p_lean = float(g.get("p_lean", 0.20))
+        self.p_track = float(g.get("p_track", 0.20))
         self.p_unload = float(g.get("p_unload", 0.20))
+        self.p_raise = float(g.get("p_raise", 0.15))
+        self.p_rise = float(g.get("p_rise", 0.25))
+        # "lower" (default OFF): the reverse of rise — from the standing
+        # plant, follow a slow height ramp DOWN to belly rest without
+        # banging. Enabled per-run via --goal-mix lower=<p>.
+        self.p_lower = float(g.get("p_lower", 0.0))
         # References must be reachable through the body IK action limits.
         max_roll = float(cfg_get(cfg, "actions", "max_roll_deg", default=3.0))
         max_pitch = float(cfg_get(cfg, "actions", "max_pitch_deg", default=3.0))
@@ -68,6 +104,33 @@ class GoalGenerator:
         period = g.get("track_period_s", [2.5, 8.0])
         self.period_s = (float(period[0]), float(period[1]))
         self.ramp_s = float(g.get("ramp_s", 0.75))
+        rise = g.get("rise_height_mm", [30.0, 70.0])
+        max_h = float(cfg_get(cfg, "actions", "max_height_mm", default=5.0))
+        self.rise_m = (min(float(rise[0]), max_h) * 0.001,
+                       min(float(rise[1]), max_h) * 0.001)
+        self.rise_hold_s = float(g.get("rise_hold_s", 3.0))
+        # Jitter floor for the pre-ramp hold (default = rise_hold_s, i.e.
+        # no jitter). Setting it lower samples hold ~ U(min, rise_hold_s)
+        # per episode so the policy learns to rise whenever the ramp
+        # starts, instead of memorizing one curl-window choreography —
+        # a fixed hold made early height commands fail outright.
+        self.rise_hold_min_s = float(g.get("rise_hold_min_s",
+                                           self.rise_hold_s))
+        self.rise_ramp_s = float(g.get("rise_ramp_s", 4.0))
+        raise_mm = g.get("raise_height_mm", [10.0, 30.0])
+        self.raise_m = (min(float(raise_mm[0]), max_h) * 0.001,
+                        min(float(raise_mm[1]), max_h) * 0.001)
+        # Lower targets stay slightly shy of the full plant->belly drop
+        # (~60 mm) so the commanded end height is physically reachable
+        # without resting ON the ref error.
+        lower_mm = g.get("lower_height_mm", [25.0, 55.0])
+        self.lower_m = (min(float(lower_mm[0]), max_h) * 0.001,
+                        min(float(lower_mm[1]), max_h) * 0.001)
+        self.lower_hold_s = float(g.get("lower_hold_s", 1.0))
+        # Slow on purpose: "gently, without banging" is the task. The
+        # tracking kernel penalizes running ahead of the ramp, so a
+        # 5 s descent IS the gentleness constraint.
+        self.lower_ramp_s = float(g.get("lower_ramp_s", 5.0))
 
     def _ramp(self, n_steps: int, dt: float) -> np.ndarray:
         """Ease references in from 0 so episodes never start with a step
@@ -93,12 +156,16 @@ class GoalGenerator:
     def sample(self, rng: np.random.Generator, n_steps: int,
                dt: float) -> GoalTrajectory:
         probs = np.array([self.p_hold, self.p_lean, self.p_track,
-                          self.p_unload])
-        mode = str(rng.choice(["hold", "lean", "track", "unload"],
-                              p=probs / probs.sum()))
+                          self.p_unload, self.p_raise, self.p_rise,
+                          self.p_lower])
+        mode = str(rng.choice(
+            ["hold", "lean", "track", "unload", "raise", "rise", "lower"],
+            p=probs / probs.sum()))
         roll = np.zeros(n_steps)
         pitch = np.zeros(n_steps)
+        height = np.zeros(n_steps)
         unload_leg: int | None = None
+        start_at = "plant"
         ramp = self._ramp(n_steps, dt)
         if mode == "lean":
             roll = rng.uniform(-self.max_roll, self.max_roll) * ramp
@@ -109,12 +176,70 @@ class GoalGenerator:
                                         self.max_pitch) * ramp
         elif mode == "unload":
             unload_leg = int(rng.integers(0, 6))
+        elif mode == "raise":
+            # Canary: from the plant stance, ramp the height ref up and
+            # hold. Slower than the tilt ramp (the servos travel farther)
+            # but comfortably within the profile speed.
+            target = rng.uniform(*self.raise_m)
+            ramp_n = max(1, int(round(2.0 / dt)))
+            height = np.full(n_steps, target)
+            height[:ramp_n] = np.linspace(0.0, target, ramp_n,
+                                          endpoint=False)
+        elif mode == "lower":
+            # Gentle descent: from the standing plant, follow a SLOW
+            # ramp down to belly rest and stay there quietly. The height
+            # kernel pays staying ON the ramp (not beating it down), the
+            # gyro/action penalties price out banging, and the tilt trip
+            # still terminates a topple.
+            target = -rng.uniform(*self.lower_m)
+            hold_n = max(1, int(round(self.lower_hold_s / dt)))
+            ramp_n = max(1, int(round(self.lower_ramp_s / dt)))
+            height = np.full(n_steps, target)
+            height[:hold_n] = 0.0
+            end = min(hold_n + ramp_n, n_steps)
+            height[hold_n:end] = np.linspace(0.0, target, end - hold_n)
+        crouch_dz = 0.0
+        start_curl = 0.0
+        if mode == "rise":
+            # Reverse curriculum over the start pose: 35% belly-flat ZERO
+            # (the real operator placement — must curl before any height
+            # is reachable), 40% PARTIAL curl (start joints blended
+            # 10-90% toward the crouch — a near-continuum from almost
+            # flat to almost crouched), 25% full CROUCH (feet under
+            # body, pure height-following). Run 03 (bridge 25-85% at
+            # 30%) solved bridge states mid-run then regressed by the
+            # end and never reached flat — the bottom rung was too far
+            # off the floor and the rungs too sparse to consolidate.
+            r = rng.random()
+            rise = rng.uniform(*self.rise_m)
+            hold_hi = self.rise_hold_s
+            hold_lo = min(self.rise_hold_min_s, hold_hi)
+            if r < 0.35:
+                start_at = "zero"
+                hold_s = float(rng.uniform(hold_lo, hold_hi))
+            elif r < 0.75:
+                start_at = "zero"
+                start_curl = float(rng.uniform(0.10, 0.90))
+                crouch_dz = rise
+                hold_s = float(rng.uniform(hold_lo, hold_hi))
+            else:
+                start_at = "crouch"
+                crouch_dz = rise
+                hold_s = 1.0
+            hold_n = max(1, int(round(hold_s / dt)))
+            ramp_n = max(1, int(round(self.rise_ramp_s / dt)))
+            height = np.full(n_steps, rise)
+            height[:hold_n] = 0.0
+            end = min(hold_n + ramp_n, n_steps)
+            height[hold_n:end] = np.linspace(0.0, rise, end - hold_n)
         return GoalTrajectory(mode=mode, roll=roll, pitch=pitch,
-                              unload_leg=unload_leg)
+                              height=height, unload_leg=unload_leg,
+                              start_at=start_at, crouch_dz=crouch_dz,
+                              start_curl=start_curl)
 
 
 class SimHexapodGoalEnv(SimHexapodBalanceEnv):
-    """Goal-conditioned twin: 54-dim obs (46 + 8 goal), same 5-dim action."""
+    """Goal-conditioned twin: 56-dim obs (47 + 9 goal), same 6-dim action."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

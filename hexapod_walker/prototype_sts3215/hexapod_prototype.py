@@ -1431,18 +1431,18 @@ SADDLE_CASE_LEN_FIX  = 3.0  # mm -- extra case-bottom drop for the yaw saddle wa
 # would LOCK the yaw DOF -- the case-keyed walls give the anti-rotation instead.)
 SADDLE_FLOOR_RIM    = 5.0   # mm -- backstop-frame ledge width on the -X / +-Y edges
 
-# ---- Permanent ground STAND (Aug 2026; replaces removable belly stilts) ----
-# Tip sits RETAINER_STAND_H below the chassis underside (plate_bot = -6 →
-# tip z = -44), matching the old belly_stilt height.  All six retainers
-# carry the same footed cage so the separate velcro stilts go away; stilts
-# stay on while walking.  Open corner posts + central shaft keep the
-# harness drop free and leave clear driver cones under every M3 / M2.5.
-RETAINER_STAND_H        = 38.0  # mm -- chassis underside → ground tip
-RETAINER_STAND_FOOT_OD  = 28.0  # mm -- ground disk (matches old belly stilt)
-RETAINER_STAND_FOOT_H   =  4.0  # mm -- foot disk thickness
-RETAINER_STAND_FOOT_CHAMFER = 1.2  # mm -- bottom edge break
-RETAINER_STAND_POST_W   =  6.0  # mm -- corner post square section
-RETAINER_STAND_DRIVER_R =  5.0  # mm -- clearance cylinder under each screw head
+# ---- Aug 2026 flat-belly rework ---------------------------------------------
+# The Aug 2026 "permanent ground stand" (38 mm open-cage foot on every
+# retainer, which itself replaced the removable belly stilts) is REMOVED
+# (user: flat base except the yaw-motor saddles).  The retainer is again a
+# pure anti-rotation saddle; nothing printed protrudes below its backstop
+# floor / flange pads, and the chassis belly is flat except the six hanging
+# yaw servos + their saddles.  The stand's Φ10 driver-relief cylinders are
+# DELETED with it: they were only needed to punch driver access through the
+# stand's cage, and they were in fact defective (relief Φ10 > head-cb Φ6
+# removed the M3 head seats -> "head bearing in air", and severed the M2.5
+# case bosses' floor-rim weld -> 4 floating islands).  With the stand gone
+# every screw head has open air straight below it.
 
 # Jun 2026 STEP-driven rear case-mount capture (CORRECTED, 3rd pass; the prior two
 # passes wrongly bolted the HORN bolt circle).  Re-parsed STS3215_c.step and
@@ -3183,13 +3183,14 @@ SCREEN_PCB_W = 63.0                     # GMT020 / ST7789 long axis (X)
 SCREEN_PCB_D = 35.0
 SCREEN_PCB_T = 4.0
 
-# Matek-class PDB footprint on chassis_top (visual placeholder).
-PDB_W = 36.0
-PDB_D = 50.0
-PDB_H = 8.0
-PDB_CENTRE = (-22.0, 18.0)              # chassis XY on chassis_top
+# As-built power distribution (Aug 2026): NO PDB.  The battery trunk
+# lands on a chassis-top cluster of Wago 221 lever nuts -- one V+
+# splice + one GND splice, side by side where the PDB used to sit --
+# which feed the 6 peripheral per-leg power Wagos.
+WAGO_TRUNK_CENTRE = (-22.0, 18.0)       # chassis XY on chassis_top
+WAGO_TRUNK_DY = 14.0                    # V+/GND splice pair spacing (Y)
 
-# USB/TTL motor-controller brick beside the PDB (visual placeholder).
+# USB/TTL motor-controller brick beside the trunk Wagos (visual placeholder).
 MOTOR_CTRL_W = 40.0
 MOTOR_CTRL_D = 22.0
 MOTOR_CTRL_H = 12.0
@@ -3806,8 +3807,9 @@ NOT_PRINTED_MESHES = frozenset({
     "uno_q", "buck_converter",
     "antispark_switch_body", "antispark_switch_toggle",
     "lipo_battery_body", "lipo_xt60",
-    # As-built electronics stack visuals (Aug 2026).
-    "pdb", "motor_controller", "breakout", "screen",
+    # As-built electronics stack visuals (Aug 2026; "pdb" retired --
+    # power distribution is all Wago lever nuts now).
+    "motor_controller", "breakout", "screen",
     "hex_post_standoff", "hex_post_thumb_nut", "hex_post_magnet",
     "wago",
 })
@@ -5005,27 +5007,27 @@ def yaw_rear_screw_centres():
 
 
 def make_yaw_servo_retainer() -> trimesh.Trimesh:
-    """Printed ANTI-ROTATION SADDLE + permanent ground STAND for each yaw STS3215.
+    """Printed ANTI-ROTATION SADDLE for each yaw STS3215.
 
-    Keys the yaw CASE to the chassis (Jun 2026 saddle) and carries a
-    RETAINER_STAND_H (= 38 mm below chassis underside) open-cage foot that
-    replaces the separate belly stilts (Aug 2026).  Stilts stay on while
-    walking.
+    Keys the yaw CASE to the chassis (Jun 2026 saddle).  Aug 2026 flat-belly
+    rework (user: nothing protruding from the chassis underside except the
+    yaw-motor hardware): the short-lived permanent ground STAND (38 mm
+    open-cage foot, which had replaced the removable belly stilts) is
+    REMOVED again -- the saddle now ends at its backstop floor and the
+    robot's belly is flat apart from the six hanging servos + saddles.
+    All mounting HOLES are unchanged.
 
     Geometry -- a U-channel open on +X, with a clear central wire drop:
         * +/-Y SIDE WALLS + a -X END WALL snugly hug the hanging lower case;
         * a BACKSTOP FRAME under the case BACK face with a central DROP
           WINDOW so the harness falls straight down;
         * 4 REAR-CASE CAPTURE SCREWS (M2.5 self-tap up into the case);
-        * 4 TOP-FLANGE M3 chassis anchors (driven up from below);
-        * an OPEN-CAGE STAND from the backstop down to a Ø28 foot at
-          tip z = plate_bot - RETAINER_STAND_H: four corner posts, open
-          +X / ±Y for wire run-out, plus Φ10 driver reliefs under every
-          screw so M3/M2.5 stay drivvable from below.
+        * 4 TOP-FLANGE M3 chassis anchors (driven up from below; every
+          head has open air straight below it, so no driver reliefs).
 
     Frame: cradle-local XY (origin on the yaw/output axis, +X = outboard
-    radial, +Y = tangential) and WORLD Z.  Prints foot-down (largest
-    downward face is the ground disk; ``_drop_to_bed``).
+    radial, +Y = tangential) and WORLD Z.  Prints on the largest downward
+    face (``_drop_to_bed``).
     """
     plate_bot = CHASSIS_SPLIT_Z - CHASSIS_BOTTOM_FLOOR_T         # -6 (merged floor face)
     # Real seated yaw case (SAME placement _place_servo_bodies uses): the
@@ -5088,47 +5090,10 @@ def make_yaw_servo_retainer() -> trimesh.Trimesh:
         pad.apply_translation([ax, ay, 0.5 * (flange_z0 + flange_z1)])
         parts.append(pad)
 
-    # ---- Permanent ground stand (open cage + foot) -----------------------
-    tip_z = plate_bot - RETAINER_STAND_H                         # -44
-    foot_h = RETAINER_STAND_FOOT_H
-    foot_top_z = tip_z + foot_h
-    # Foot disk centered under the case body; largest downward face → bed.
-    foot = _cyl(RETAINER_STAND_FOOT_OD / 2.0, foot_h)
-    foot.apply_translation([bx_c, 0.0, tip_z + foot_h / 2.0])
-    # Bottom chamfer (same idea as belly_stilt).
-    ch = RETAINER_STAND_FOOT_CHAMFER
-    cham_ring = _cyl(RETAINER_STAND_FOOT_OD / 2.0 + 0.2, ch)
-    cham_ring.apply_translation([bx_c, 0.0, tip_z + ch / 2.0])
-    cham_keep = _cyl(RETAINER_STAND_FOOT_OD / 2.0 - ch, ch + 0.2)
-    cham_keep.apply_translation([bx_c, 0.0, tip_z + ch / 2.0])
-    foot = _diff(foot, _diff(cham_ring, cham_keep))
-    parts.append(foot)
-
-    # Four corner posts: floor corners of the backstop, open +X and ±Y so
-    # the harness can exit laterally.  Posts sit at |y| = yo (wall outer),
-    # clear of case-screw |y|=10.2 and of M3 anchors at |y|=21.
-    post_w = RETAINER_STAND_POST_W
-    post_h = fl_z0 - foot_top_z
-    if post_h < 1.0:
-        raise RuntimeError(
-            f"retainer stand posts too short ({post_h:.2f} mm): "
-            f"fl_z0={fl_z0:.2f} foot_top={foot_top_z:.2f}")
-    post_z_c = 0.5 * (fl_z0 + foot_top_z)
-    # Inset posts slightly so they weld into the floor rim, not the window.
-    post_x_out = xo + post_w / 2.0 + 0.5
-    post_x_in = SADDLE_FLOOR_X_OUT - post_w / 2.0 - 0.5
-    post_y = yo - post_w / 2.0
-    for px in (post_x_out, post_x_in):
-        for sgn in (-1.0, +1.0):
-            post = _box((post_w, post_w, post_h),
-                        center=(px, sgn * post_y, post_z_c))
-            parts.append(post)
-    # Thin -X skirt between the two outboard posts for stiffness (still
-    # open toward +X / centre for the wire shaft).
-    skirt_t = 2.0
-    skirt = _box((skirt_t, 2.0 * post_y - post_w, post_h),
-                 center=(xo + skirt_t / 2.0, 0.0, post_z_c))
-    parts.append(skirt)
+    # (Aug 2026 flat-belly rework: the permanent ground stand -- open-cage
+    # corner posts + skirt down to a Ø28 foot disk at tip z = -44 -- is
+    # REMOVED.  The saddle's lowest solid is now the backstop floor / case
+    # bosses; nothing printed reaches below them.)
 
     saddle = _union(*parts)
 
@@ -5143,18 +5108,9 @@ def make_yaw_servo_retainer() -> trimesh.Trimesh:
     window = _box((win_x1 - win_x0, 2 * win_y, SADDLE_FLOOR_T + 2.0),
                   center=(0.5 * (win_x0 + win_x1), 0.0, 0.5 * (fl_z0 + fl_z1)))
     cuts.append(window)
-    # Continue the wire shaft down through the stand (open corridor above
-    # the foot) so the bundle is not pinched between posts.
-    shaft_h = fl_z0 - foot_top_z + 1.0
-    shaft = _box((win_x1 - win_x0, 2 * win_y, shaft_h),
-                 center=(0.5 * (win_x0 + win_x1), 0.0,
-                         foot_top_z + shaft_h / 2.0 - 0.5))
-    cuts.append(shaft)
-    # +X lateral wire exit slot through the stand (between inboard posts).
-    exit_slot = _box((30.0, 2 * win_y, shaft_h),
-                     center=(SADDLE_FLOOR_X_OUT + 10.0, 0.0,
-                             foot_top_z + shaft_h / 2.0 - 0.5))
-    cuts.append(exit_slot)
+    # (Aug 2026: the wire-shaft + lateral exit-slot cuts through the ground
+    # stand are gone with the stand itself -- below the backstop floor the
+    # harness now drops into open air.)
 
     # 4x M3 anchor-bolt clearance holes through the flange tabs (axis Z) + a
     # head COUNTERBORE opening downward from the boss bottom so the M3 SHCS head
@@ -5169,18 +5125,13 @@ def make_yaw_servo_retainer() -> trimesh.Trimesh:
         cbore.apply_translation([ax, ay, flange_z0 + SADDLE_HEAD_CB_DEPTH - cb_h / 2.0])
         cuts.append(cbore)
 
-    # Driver relief cones: clear Φ 2*RETAINER_STAND_DRIVER_R cylinders from
-    # tip up past every M3 flange and M2.5 case boss so screws stay drivvable
-    # with the stand in place (no material under the head plane).
-    driver_h = plate_bot - tip_z + 2.0
-    for (ax, ay) in chassis_lower_retainer_anchor_centres():
-        relief = _cyl(RETAINER_STAND_DRIVER_R, driver_h)
-        relief.apply_translation([ax, ay, tip_z + driver_h / 2.0])
-        cuts.append(relief)
-    for (rx, ry) in yaw_rear_screw_centres():
-        relief = _cyl(RETAINER_STAND_DRIVER_R, driver_h)
-        relief.apply_translation([rx, ry, tip_z + driver_h / 2.0])
-        cuts.append(relief)
+    # (Aug 2026: the stand's Φ10 driver-relief cylinders are DELETED along
+    # with the stand.  They only existed to open driver paths through the
+    # stand's cage, and they were defective: taller than the head planes,
+    # they shaved the M3 counterbore seats out of the flange pads ("head
+    # bearing in air") and severed the M2.5 case bosses' weld to the
+    # backstop floor rim (4 floating islands).  With no stand, every head
+    # already has open air straight below its seat.)
 
     body = _diff(saddle, *cuts)
 
@@ -7325,12 +7276,9 @@ def make_buck_converter_visual() -> trimesh.Trimesh:
 # As-built electronics visuals (Aug 2026)
 # ---------------------------------------------------------------------------
 
-def make_pdb_visual() -> trimesh.Trimesh:
-    """Matek-class PDB placeholder (NOT printed).  Origin = PCB bottom."""
-    pcb = _box((PDB_W, PDB_D, 1.6), center=(0, 0, 0.8))
-    caps = _box((PDB_W - 4.0, PDB_D - 8.0, PDB_H - 1.6),
-                center=(0, 0, 1.6 + (PDB_H - 1.6) / 2.0))
-    return _union(pcb, caps)
+# Aug 2026: ``make_pdb_visual`` DELETED -- the as-built robot has no
+# PDB.  The battery trunk splices straight into Wago 221 lever nuts
+# (see ``WAGO_TRUNK_CENTRE`` and ``asbuilt_electronics_local_parts``).
 
 
 def make_motor_controller_visual() -> trimesh.Trimesh:
@@ -7431,10 +7379,13 @@ def asbuilt_electronics_local_parts(
 
     out: list[tuple[str, trimesh.Trimesh, np.ndarray]] = []
 
-    # PDB + motor controller on chassis_top.
-    pdb = make_pdb_visual()
-    out.append(("pdb", pdb,
-                _T([PDB_CENTRE[0], PDB_CENTRE[1], deck0])))
+    # Trunk power Wagos (V+ / GND splice pair) + motor controller on
+    # chassis_top.  As-built Aug 2026: no PDB -- the battery trunk lands
+    # on these two lever nuts, which feed the 6 peripheral power Wagos.
+    for dy in (-WAGO_TRUNK_DY / 2.0, WAGO_TRUNK_DY / 2.0):
+        out.append(("wago_trunk", make_wago_visual(),
+                    _T([WAGO_TRUNK_CENTRE[0], WAGO_TRUNK_CENTRE[1] + dy,
+                        deck0 + WAGO_H / 2.0])))
     mc = make_motor_controller_visual()
     out.append(("motor_controller", mc,
                 _T([MOTOR_CTRL_CENTRE[0], MOTOR_CTRL_CENTRE[1], deck0])))
@@ -7692,15 +7643,18 @@ def make_switch_holster() -> trimesh.Trimesh:
 
 
 def make_belly_stilt() -> trimesh.Trimesh:
-    """RETIRED — use ``make_yaw_servo_retainer`` stands (38 mm tip).
+    """RETIRED — no printed belly stand exists any more.
 
     Kept only so old scripts that import the name fail loudly with a
-    pointer rather than silently regenerating velcro stilts.
+    pointer rather than silently regenerating velcro stilts.  (The Aug 2026
+    retainer ground stands that briefly replaced the stilts were themselves
+    removed in the flat-belly rework -- the chassis underside is flat except
+    the hanging yaw servos + their retainer saddles.)
     """
     raise RuntimeError(
-        "belly_stilt is retired: each yaw_servo_retainer now includes a "
-        f"{RETAINER_STAND_H:.0f} mm permanent ground stand.  Print 6× "
-        "yaw_servo_retainer.stl instead.")
+        "belly_stilt is retired, and the yaw_servo_retainer ground stands "
+        "that replaced it were removed in the Aug 2026 flat-belly rework.  "
+        "There is no printed belly stand; use an external bench support.")
 
 
 def make_imu_pad() -> trimesh.Trimesh:
@@ -10034,12 +9988,20 @@ assert abs(YAW_HUB_PLATFORM_Z1 - _YAW_HUB_PLATFORM_TOP_EARLY) < 1e-9, (
     "COXA_COAXIAL_FOOT_RAISE -- keep the two formulas in sync")
 
 
-def make_coxa_yaw_hub() -> trimesh.Trimesh:
+def make_coxa_yaw_hub(*, one_piece: bool = False) -> trimesh.Trimesh:
     """Part A -- the yaw 'turntable' hub that sits RIGHT ON TOP of the yaw
     servo.  Bolts DOWN onto the yaw disc horn (drive) and rides BOTH inner
     races of the SPACED 6706 pair (support), so the cantilevered hip load
     reacts as an axial couple through the bearings into chassis_bottom, not
     through the servo spline.
+
+    Aug 2026 one-piece merge (user: "the hip bracket and coxa yaw hub are
+    linked together and theres no reason for them not to be one piece"):
+    with ``one_piece=True`` this is a SUB-SOLID of the merged printed
+    ``coxa_link`` (see ``make_coxa_link_part``) -- the 4 Part-B join pilots
+    are skipped because there is no separate Part B to bolt on.  With the
+    default ``one_piece=False`` the standalone Part-A geometry (with join
+    pilots) is kept for the verifier's targeted bearing/insertion checks.
 
     Coxa-local: origin = yaw axis at the disc-horn top; +Z up, +X outboard,
     +Y = hip-pitch axis.  Vertical stack:
@@ -10160,10 +10122,15 @@ def make_coxa_yaw_hub() -> trimesh.Trimesh:
     centre.apply_translation(
         [0.0, 0.0, 0.5 * (YAW_HUB_BOSS_BOT_Z + YAW_HUB_PLATFORM_Z1)])
     cuts.append(centre)
-    # Head counterbore from the platform top down to the shared seat plane
-    # (boolean overshoot 1 mm below the seat).
+    # Head counterbore from the platform top down to the shared seat plane.
+    # Aug 2026 seat fix: the old cut was shifted 0.5 mm LOW ("overshoot below
+    # the seat"), so the physical counterbore floor sat 0.5 mm below the
+    # declared YAW_HUB_HORN_HEAD_SEAT_Z -- the fastener registry places the
+    # M3x20 head undersides exactly AT the seat constant, so the engagement
+    # probe found 0.5 mm of air under every head ("head bearing in air").
+    # The bore now bottoms exactly at the seat plane (overshoot upward only).
     cb_h = (YAW_HUB_PLATFORM_Z1 - YAW_HUB_HORN_HEAD_SEAT_Z) + 1.0
-    cb_z = YAW_HUB_HORN_HEAD_SEAT_Z + cb_h / 2.0 - 0.5
+    cb_z = YAW_HUB_HORN_HEAD_SEAT_Z + cb_h / 2.0
     centre_head = _cyl(YAW_HUB_HORN_HEAD_CB_OD / 2.0, cb_h)
     centre_head.apply_translation([0.0, 0.0, cb_z])
     cuts.append(centre_head)
@@ -10182,10 +10149,13 @@ def make_coxa_yaw_hub() -> trimesh.Trimesh:
         cb.apply_translation([cx, cy, cb_z])
         cuts.append(cb)
     # Part B join pilots: M3 self-tap into the platform from its top face.
-    for (jx, jy) in _coxa_join_bolt_centres():
-        p = _cyl(COXA_JOIN_PILOT_OD / 2.0, YAW_HUB_PAD_T)
-        p.apply_translation([jx, jy, YAW_HUB_PLATFORM_Z1 - YAW_HUB_PAD_T / 2.0])
-        cuts.append(p)
+    # Skipped in the one-piece coxa_link (no separate Part B any more).
+    if not one_piece:
+        for (jx, jy) in _coxa_join_bolt_centres():
+            p = _cyl(COXA_JOIN_PILOT_OD / 2.0, YAW_HUB_PAD_T)
+            p.apply_translation([jx, jy,
+                                 YAW_HUB_PLATFORM_Z1 - YAW_HUB_PAD_T / 2.0])
+            cuts.append(p)
     return _diff(hub, *cuts)
 
 
@@ -10202,15 +10172,26 @@ def _coxa_partA_envelope() -> trimesh.Trimesh:
     return _union(env, lip)
 
 
-def make_coxa_hip_bracket() -> trimesh.Trimesh:
+def make_coxa_hip_bracket(*, one_piece: bool = False) -> trimesh.Trimesh:
     """Part B -- the hip bracket that bolts onto the yaw hub (Part A) and
     carries the HIP joint's FIXED side (servo cradle + 688 bearing
     housing).  Coxa-local frame, identical to Part A; its foot seats on the
     hub PLATFORM top (z = YAW_HUB_PLATFORM_Z1) and bolts down with 4 x M3.
     Part B is carved against the Part A envelope so the two printed parts
-    mate flush without interpenetrating."""
-    foot_z0 = YAW_HUB_PLATFORM_Z1
-    foot_z1 = foot_z0 + COXA_JOIN_FOOT_T
+    mate flush without interpenetrating.
+
+    Aug 2026 one-piece merge: with ``one_piece=True`` this is a SUB-SOLID of
+    the merged printed ``coxa_link`` (see ``make_coxa_link_part``):
+      * the foot plate dips 1 mm INTO the hub platform (volumetric weld --
+        never a coplanar kiss for the boolean kernel; nothing else lives in
+        the z [+18, +19] band inside the platform footprint: dust-lip top is
+        +13, tower top +12.5, cap top +7);
+      * the Part-A envelope carve is skipped (interpenetrating the hub is
+        the whole point of a union);
+      * the 4 M3 join clearance holes + head counterbores are skipped (the
+        joint no longer exists)."""
+    foot_z0 = YAW_HUB_PLATFORM_Z1 - (1.0 if one_piece else 0.0)
+    foot_z1 = YAW_HUB_PLATFORM_Z1 + COXA_JOIN_FOOT_T
 
     # Hip fixed side, anchored so its disc-horn-top -> COXA_HIP_ANCHOR =
     # (COXA_LENGTH, COXA_HIP_ANCHOR_Y, DROP).  COXA_HIP_ANCHOR_Y slides the
@@ -10249,7 +10230,9 @@ def make_coxa_hip_bracket() -> trimesh.Trimesh:
     else:
         body = _union(foot, fixed)
     # Carve away anything that would interpenetrate Part A (turntable/lip).
-    body = _diff(body, _coxa_partA_envelope())
+    # One-piece merge: skipped -- the foot welds straight into the platform.
+    if not one_piece:
+        body = _diff(body, _coxa_partA_envelope())
 
     # Femur-swing clearance: at the top of the femur up-pitch workspace
     # (fem=+30) the femur swings DOWN-and-OUTBOARD past the hip and clips
@@ -10286,6 +10269,9 @@ def make_coxa_hip_bracket() -> trimesh.Trimesh:
     body = _diff(body, wedge)
 
     # Join clearance holes + head counterbores (driven from the foot top).
+    # One-piece merge: no hub<->bracket joint, so no join hardware.
+    if one_piece:
+        return body
     cuts = []
     for (jx, jy) in _coxa_join_bolt_centres():
         h = _cyl(COXA_JOIN_BOLT_OD / 2.0, (foot_z1 - foot_z0) * 3)
@@ -10297,14 +10283,62 @@ def make_coxa_hip_bracket() -> trimesh.Trimesh:
     return _diff(body, *cuts)
 
 
+def make_coxa_link_part() -> trimesh.Trimesh:
+    """The ONE-PIECE printed coxa ``coxa_link`` (Aug 2026 merge, user: "the
+    hip bracket and coxa yaw hub are linked together and theres no reason
+    for them not to be one piece if theres screw holes to get the screws
+    all the way down to yaw motor horn").
+
+    One printed body =
+      yaw turntable hub (bolts the disc horn, rides the spaced 6706 pair)
+      + hip bracket (foot plate + hip servo cradle + 688 housing),
+    with the foot plate welded 1 mm into the hub platform.  The 4 M3
+    hub<->bracket join bolts (and their pilots / counterbores) are GONE.
+
+    The split had existed only so the hub could be bolted to the disc horn
+    before the bracket went on.  The merged part instead carries 5 vertical
+    HEAD-ACCESS SHAFTS (Phi YAW_HUB_HORN_HEAD_CB_OD, same as the head
+    counterbores they extend): from the shared M3x20 head-seat plane
+    (YAW_HUB_HORN_HEAD_SEAT_Z) straight up through the foot plate, pedestal
+    and the hip cradle's solid back, opening into the (still empty) hip
+    servo well.  Assembly: drop the 4 drive bolts + centre spline screw
+    down the shafts and torque them with a long hex key BEFORE the hip
+    servo is lowered into its cradle -- same "captive sub-assembly
+    fastener" order the registry already documents.  The seated hip servo
+    then covers the shaft mouths (screw heads live ~10+ mm below the well
+    floor, so nothing touches the servo body).
+
+    Bearing assembly is unchanged: both 6706 inner races and the loose
+    yaw_bearing_cap all slide onto the hub boss from BELOW (the cap's
+    Phi 37 bore could never pass the Phi 48 platform anyway, split or not),
+    then the whole stack drops into the chassis tower."""
+    body = _union(make_coxa_yaw_hub(one_piece=True),
+                  make_coxa_hip_bracket(one_piece=True))
+    # Head-access shafts: extend the 5 shared head counterbores (4 drive
+    # bolts on DISC_HORN_BOLT_PCD + the centre spline screw) up through
+    # everything the bracket stacked over the platform top.  Bottom lands
+    # exactly on the head-seat plane so the seat annulus is untouched.
+    shaft_top_z = 80.0   # safely above the cradle's open clamp face
+    shaft_h = shaft_top_z - YAW_HUB_HORN_HEAD_SEAT_Z
+    stations = [(0.0, 0.0)]
+    r = DISC_HORN_BOLT_PCD / 2.0
+    stations += [(r * np.cos(t), r * np.sin(t))
+                 for t in DISC_HORN_BOLT_ANGLES_RAD]
+    cuts = []
+    for (sx, sy) in stations:
+        s = _cyl(YAW_HUB_HORN_HEAD_CB_OD / 2.0, shaft_h)
+        s.apply_translation([sx, sy, YAW_HUB_HORN_HEAD_SEAT_Z + shaft_h / 2.0])
+        cuts.append(s)
+    return _diff(body, *cuts)
+
+
 def make_coxa_link() -> trimesh.Trimesh:  # noqa: F811  (sandwich override)
-    """Yaw-driven coxa = ASSEMBLED union of the yaw turntable hub (Part A)
-    + the hip bracket (Part B).  Kinematics are identical to the old
-    one-piece part (hip fixed side at (COXA_LENGTH, 0, COXA_HIP_DROP));
-    the two parts are split at the hub-platform top so the hub can be bolted
-    to the disc horn and ride the SPACED 6706 bearing pair BEFORE the hip
-    bracket goes on.  See make_coxa_yaw_hub / make_coxa_hip_bracket."""
-    return _union(make_coxa_yaw_hub(), make_coxa_hip_bracket())
+    """Yaw-driven coxa.  Aug 2026 merge: the assembled link IS the single
+    printed part ``coxa_link`` (see make_coxa_link_part) -- the old
+    two-part split (coxa_yaw_hub Part A + coxa_hip_bracket Part B, 4 x M3
+    join bolts) is retired.  Kinematics are identical to every prior
+    revision (hip fixed side at (COXA_LENGTH, 0, COXA_HIP_DROP))."""
+    return make_coxa_link_part()
 
 
 def _femur_knee_fixed_solid() -> trimesh.Trimesh:
@@ -10644,8 +10678,8 @@ def stl_export_groups() -> "list[tuple[str, list[tuple[str, object]]]]":
             ("chassis_top.stl",        make_chassis_top),
             ("chassis_bottom.stl",     make_chassis_bottom),
             ("switch_holster.stl",     make_switch_holster),
-            # Yaw-servo retainer saddle + permanent 38 mm ground stand
-            # (print 6) -- anti-rotation + belly prop; replaces belly stilts.
+            # Yaw-servo retainer saddle (print 6) -- anti-rotation only;
+            # Aug 2026 flat-belly rework removed the 38 mm ground stand.
             ("yaw_servo_retainer.stl", make_yaw_servo_retainer),
             # Yaw-bearing cap -- TOP half of the SPLIT bearing tower (print 6).
             ("yaw_bearing_cap.stl",    make_yaw_bearing_cap),
@@ -10654,12 +10688,11 @@ def stl_export_groups() -> "list[tuple[str, list[tuple[str, object]]]]":
             # Bearing-sandwich design: the femur is ONE printed part (hip
             # yoke + solid Phi 14 fused spar + knee bracket, Jul 2026 merge
             # #2); the tibia is a printed yoke + fitting joined by a dia-8
-            # CF tube.  Coxa prints as TWO parts -- the yaw turntable hub
-            # (rides the spaced bearing pair) and the hip bracket stacked
-            # coaxially on top.
+            # CF tube.  Aug 2026 merge: the coxa is ONE printed part again
+            # (yaw turntable hub + hip bracket welded; 5 head-access shafts
+            # reach the disc-horn screws) -- coxa_yaw_hub.stl and
+            # coxa_hip_bracket.stl are RETIRED.
             ("coxa_link.stl",          make_coxa_link),
-            ("coxa_yaw_hub.stl",       make_coxa_yaw_hub),
-            ("coxa_hip_bracket.stl",   make_coxa_hip_bracket),
             # NOTE femur_link.stl keeps the ASSEMBLED-link frame (origin =
             # hip disc-horn-top on the hip axis) so MuJoCo's visual mesh
             # loader keeps working -- it is the same single solid either way.
@@ -10694,7 +10727,8 @@ def stl_export_groups() -> "list[tuple[str, list[tuple[str, object]]]]":
         ]),
         ("Electronics visuals (NOT FOR PRINTING -- BuildViz / inspector only):", [
             (stl_filename("uno_q"),                   make_uno_q_visual),
-            (stl_filename("pdb"),                     make_pdb_visual),
+            # pdb RETIRED (Aug 2026): power distribution is Wago lever
+            # nuts only -- see the "wago" mesh below.
             (stl_filename("motor_controller"),        make_motor_controller_visual),
             (stl_filename("breakout"),                make_breakout_visual),
             (stl_filename("screen"),                  make_screen_visual),

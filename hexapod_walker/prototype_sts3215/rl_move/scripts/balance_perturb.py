@@ -32,7 +32,7 @@ def main() -> int:
     print(f"[perturb] ep={info.get('episode')} — nudge gently for {args.seconds}s")
     hz = float(cfg_get(cfg, "control", "hz", default=50))
     dt = 1.0 / hz
-    zeros = np.zeros(5)
+    zeros = np.zeros(HexapodBalanceEnv.ACT_DIM)
     peak_r = peak_p = 0.0
     t_end = time.monotonic() + args.seconds
     t_next = time.monotonic()

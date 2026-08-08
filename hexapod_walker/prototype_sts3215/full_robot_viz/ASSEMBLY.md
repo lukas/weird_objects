@@ -416,7 +416,8 @@ as a single body — no socket, no slip fit, no retention pin.
 ### 3.4 Don't have a 3D printer? Order from a print service
 
 Run `./run.sh hexapod_walker/prototype_sts3215/scripts/prepare_xometry_upload.py` to build a
-self-contained order package in `xometry_upload/`. The script
+self-contained order package in `xometry_upload/` (generated on
+demand; the bundle is not checked in). The script
 re-orients each part for printing (hollow servo pockets opening
 toward +Z, broadest flat face on the build plate), consolidates the
 two identical chassis plates into a single file with `qty=2`, and
@@ -603,11 +604,15 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    sockets (`tibia_knee_yoke` ↔ `tibia_foot_fitting`), and drive a
    transverse Ø2.5 mm roll pin through each socket cross-hole.  Let the
    slow-cure epoxy fully set before loading the joints.
-2. **Hip-pitch servo into the coxa link's hip cradle:** seat the servo
-   into the `coxa_link` hip cradle and drive 4 × M2.5 × 8 SHCS through
-   the cradle's −X wall into the servo's END-face hole square, then
-   snap on the `servo_clamp_cap` and secure it with 2 × M3 × 8 SHCS
-   self-tapping into the cradle wall-end pilots.
+2. **Hip-pitch servo into the coxa link's hip cradle** — *but only
+   AFTER the coxa is bolted to its yaw disc horn* (Aug 2026 one-piece
+   coxa: the 5 yaw horn screws drop down head-access shafts that open
+   into this well, so the well must still be empty in final-assembly
+   step 2 below; do steps 6.2-1/6.2-2 for this leg first).  Then seat
+   the servo into the `coxa_link` hip cradle and drive 4 × M2.5 × 8
+   SHCS through the cradle's −X wall into the servo's END-face hole
+   square, then snap on the `servo_clamp_cap` and secure it with
+   2 × M3 × 8 SHCS self-tapping into the cradle wall-end pilots.
 3. **Disc horns on the hip servo:** push a 20 mm aluminium 25T disc
    horn onto the output spline at 0° and retain it with the servo's
    M2.5 spline screw; slide the STOCK metal passive horn (ships with
@@ -648,14 +653,18 @@ times.
    bolts (no M2.5 end-face bolts on the yaw cradle).  Fit the yaw
    driven disc horn on the output spline.  Assemble the **spaced
    6706 bearing pair**: drop the LOWER 6706 race into chassis_bottom's
-   open-top Ø37 pocket, set the `coxa_yaw_hub` boss, drop the UPPER
-   6706 into the `yaw_bearing_cap`, then pull the cap down with **3 ×
-   M3 × 8 SHCS** self-tapping into the tower pilots to capture both
-   races at the correct spacing.
-2. **Coxa links onto the yaw joints:** bolt each leg's `coxa_link` yaw
-   pad to its yaw driven disc horn with 4 × M3 × 8 SHCS on the Ø14
-   cross into the disc's M3 tapped holes.  Each completed leg now hangs
-   from its yaw axis.
+   open-top Ø37 pocket, slide both inner races + the loose
+   `yaw_bearing_cap` onto the one-piece `coxa_link`'s hub boss from
+   below, set the boss into the tower, then pull the cap down with
+   **3 × M3 × 8 SHCS** self-tapping into the tower pilots to capture
+   both races at the correct spacing.
+2. **Coxa horn bolts (Aug 2026 one-piece coxa):** with the hip servo
+   NOT yet in its cradle, drop the **4 × M3 × 20 SHCS + 1 central M3
+   spline screw** down the five head-access shafts that open into the
+   empty hip-servo well, and torque them into the yaw disc horn with a
+   long 2.5 mm hex key.  Then lower the hip servo into the cradle
+   (its body covers the shaft mouths) and clamp it.  Each completed
+   leg now hangs from its yaw axis.
 3. **Battery:** velcro-strap the LiPo (up to 138 × 46 × 24 mm) under
    the chassis on `chassis_bottom`, looping the cinch straps through
    the strap slots (there is no clip-in `battery_holder` any more).
