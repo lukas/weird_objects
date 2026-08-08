@@ -889,3 +889,22 @@ Prompt lesson (also added to ORCHESTRATOR_PROMPT): when a blind spot is
 found in one mode, ask "which other modes share this failure class?"
 and extend the CHECK there in the same cycle — checks generalize,
 patches don't.
+
+## OPERATOR ~20:55Z — best-practices audit vs field standard (read archive/BEST_PRACTICES_AUDIT_2026-08-08.md)
+
+Audited our PPO config against RSL-RL/Isaac locomotion standards +
+current sim-to-real practice. Two HIGH findings, both plausibly load-
+bearing for the shuffle lock-in:
+1. **Exploration 3–10x low for from-scratch gait learning:** ours
+   std 0.37 / ent_coef 0.001 vs field-standard std 1.0 / 0.005–0.01.
+   Directive: fresh/basin-escape arms use log_std_init 0.0 +
+   ent_coef 0.005–0.01; log entropy; entropy collapse = health alarm.
+   If the in-flight phase-stance arm launched with old exploration
+   settings, launch a corrected sibling rather than waiting.
+2. **No KL control:** add SB3 `target_kl≈0.02` to every run now (one
+   line); destructive-update protection standard everywhere else.
+Also directed (MED): reward/obs scale audit script (numbers attached
+to ledger), symmetry (mirror) augmentation queued post-phase-verdict,
+tick-jitter DR + observation-delay verification, and a probe-env rule:
+every new mechanism (phase reward, asym critic) gets a trivial probe
+smoke that must pass before any 4M-step run uses it.
