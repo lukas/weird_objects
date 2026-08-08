@@ -197,10 +197,13 @@ out. The regressions below are real training effects.
 ### cw-walk-flag — MISS (k_flag_leg=5.0 all-modes routing refuted)
 W&B 2r0jj2qq, 4M steps (28.74M cum). Harness @ DR 0.4, 0.02–0.06: sto
 walk 2/6 @ vel_err 0.032 (gate ≥4/6 @ ≤0.030), det 2/6; rise det 1/6 /
-sto 3/6 (bridge 0/5 across passes); raise 0/6 det+sto. Video: flag leg
-still there — a rear leg swings to full vertical mid-walk and only comes
-down late; rise episodes stay in a low sprawl and never stand. Verdict:
-MISS/refuted. The all-modes charge fights the >50 mm transient swings
+sto 3/6 (bridge 0/5 across passes); raise 0/6 det+sto. Video: still not
+walking — a 5-leg shuffle with a rear leg swung to full vertical
+mid-walk that only comes down late; rise episodes stay in a low sprawl
+and never stand, one ends with a leg flagged skyward.
+Hardware-ready: NO — no six-foot gait, and it can no longer stand up
+from its belly. Verdict: MISS/refuted.
+The all-modes charge fights the >50 mm transient swings
 rise needs from belly starts — the same interference that collapsed
 raise under k_stance_clearance until it was mode-exempted. The term
 fires (reward_flag_leg ≈ −0.5/step) but PPO pays it rather than
@@ -208,18 +211,22 @@ restructure the gait, and rise pays the collateral.
 
 ### cw-walk-flag-s1 — MISS (twin; first real seed divergence in prod)
 W&B swtus1fa, same config, seed 1. Sto walk 2/6 @ 0.033, det 1/6; rise
-sto 4/6 / det 3/6; raise 4/6 both passes. Video: same transient vertical
-flag leg in walk ep0, but ep3 is genuinely flag-free with all six feet
-low. Twins now truly diverge (raise 0/6 vs 4/6) — the set_random_seed
-fix works in production. Verdict: MISS on the walk gate; but evidence
-the penalty CAN suppress the flag leg in some rollouts.
+sto 4/6 / det 3/6; raise 4/6 both passes. Video: still a shuffle, not a
+gait — walk ep0 has the same transient vertical flag leg; ep3 keeps all
+six feet low but the feet skate rather than visibly stepping.
+Hardware-ready: NO — shuffle/skate locomotion, tracking below gate.
+Verdict: MISS on the walk gate; but evidence the penalty CAN suppress
+the flag leg in some rollouts. Twins now truly diverge (raise 0/6 vs
+4/6) — the set_random_seed fix works in production.
 
 ### cw-walk-nv — MISS at 4M (deployable-obs baseline; one continuation)
 W&B 8g6mggws, 4M steps. Sto walk 1/6 @ vel_err 0.035, det 1/6 @ 0.042
 (gate ≥4/6 @ ≤0.035); rise det 1/6 / sto 2/6; raise det 5/6 + sto 6/6 —
-best raise the walk line has ever shown, unexplained, noted. Video: the
-full lineage flag leg, parked vertical for the entire walk. Verdict:
-MISS — proprioception-only tracking is not re-learned in 4M. Train-time
+best raise the walk line has ever shown, unexplained, noted. Video: a
+leg parked straight up for the ENTIRE walk while the other five shuffle;
+rise stays in a low sprawl and never stands.
+Hardware-ready: NO — full lineage flag-leg pathology plus broken rise.
+Verdict: MISS — proprioception-only tracking is not re-learned in 4M. Train-time
 vel_err (0.030) looks fine but the harness disagrees. One
 consolidate-in-place continuation (cw-walk-nv2 → 8M cum) before calling
 the baseline; asymmetric AC must beat whatever nv reaches.
