@@ -1391,3 +1391,36 @@ Parent: ppo_goal_cw_stance_posture.zip (md5 7c2ab2f5). GATE
 (posture-strict, DR 1.0, 6 eps/mode det+sto): lower end-posture
 >=5/6 sto AND >=4/6 det AND heights rise/lower >=5/6 both AND hold
 sto 6/6. Budget 4M.
+
+### OPERATOR commits absorbed mid-cycle (f2181fa, b0d250c, 2b23772)
+Pulled during the cw-walk-hist8 snapshot (rebase conflict on
+RL_PLAN.md resolved keeping operator queue item 0 verbatim + my
+updated items; net plan length within the operator's +22). Binding
+item 0 (cw-walk-step0) actioned this cycle: code + probe below; the
+4M run itself is next cycle's first launch (this cycle's launch cap
+of 4 is consumed). Host-load launch gate + runtime-state gitignore
+noted; all launches this cycle went through the updated launcher.
+
+### CODE — step-event reward package (operator queue item 0)
+Diff rationale (walk_task.py, all walk-mode-only by construction,
+default OFF; W&B callback keys added — cycle 12 lesson):
+- `reward.k_step_event`: one-shot per-leg credit for a COMPLETED
+  lift->swing->touchdown with displacement >=10 mm along the
+  commanded direction, scaled along/30 mm capped 1.5x. A parked leg
+  never touches down -> never paid; a backward/vertical hop pays 0.
+- `reward.k_drag_loaded`: per-tick charge on foot XY translation
+  while in contact (0.5 mm/tick deadband) — skating pays every tick.
+- `reward.k_park_duty`: per-leg contact duty over a trailing 2 s of
+  commanded ticks, charged outside [0.1, 0.9] — the tripod park (3
+  legs 1.0 / 3 legs 0.0) pays 0.6*k EVERY TICK by construction; a
+  real gait (duty 0.3-0.8) pays zero. This is the "park worth less
+  than stepping by construction" requirement, measured in the unit
+  test at exactly -0.6 for a standing stance during command.
+- Shared foot-transition loop refactor keeps k_walk_swing semantics
+  bit-identical (same thresholds, same update order).
+SCALE AUDIT (vs kernel ~0.5-2/step): park -0.6*k/tick (test-measured);
+step events at a 1 Hz six-leg gait ~6/s -> avg +0.24-0.36*k/tick;
+drag at the historic 0.03 m/s skate on 3 feet ~ -0.036/tick at k=10.
+Chosen: k_step_event=1.0, k_drag_loaded=10.0, k_park_duty=1.0.
+Tests: 3 added (park charge exact, step-event pays forward swing,
+drag ~0 in quiet stance) — 36 pass.

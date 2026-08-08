@@ -146,6 +146,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._foot_on = [True] * 6
         self._liftoff_xy = [None] * 6
         self._liftoff_step = [0] * 6
+        self._foot_prev_xy = [None] * 6
+        self._duty_hist: list = []
         # Learning-progress curriculum state: sampling weights over
         # LP_BUCKETS (None = uniform) and the bucket of the current
         # walk episode (surfaced in step info for the LP callback).
@@ -200,6 +202,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # builds the first observation.
         self._foot_on = [True] * 6
         self._liftoff_xy = [None] * 6
+        self._foot_prev_xy = [None] * 6
+        self._duty_hist = []
         self._phase = 0.0
         return super().reset(*args, **kwargs)
 
@@ -333,28 +337,93 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # Enable with --cfg-set reward.k_walk_swing=<k>.
             k_swing = float(cfg_get(self.cfg, "reward", "k_walk_swing",
                                     default=0.0))
-            if k_swing > 0.0 and s_ref > 1e-3:
+            # Step-event reward package (operator directive 08-08
+            # ~23:00Z, queue item 0 — cw-walk-step0). Walk-mode ONLY by
+            # construction (this block). Three cfg-gated terms, all
+            # default OFF:
+            #   k_step_event: one-shot per-leg credit for a COMPLETED
+            #     lift->swing->touchdown whose displacement projects
+            #     >=10 mm along the commanded direction; scaled by
+            #     along/30 mm, capped at 1.5x. A parked leg never
+            #     touches down -> never paid, by construction.
+            #   k_drag_loaded: per-tick charge on foot XY translation
+            #     while IN CONTACT (skating), 0.5 mm/tick deadband for
+            #     compliance jitter.
+            #   k_park_duty: per-tick charge on per-leg contact duty
+            #     pinned outside [0.1, 0.9] over a trailing 2 s window
+            #     of COMMANDED ticks — a tripod park (3 legs at 1.0,
+            #     3 at 0.0) pays ~0.6*k every tick; a real gait
+            #     (duty ~0.3-0.8) pays nothing.
+            k_step = float(cfg_get(self.cfg, "reward", "k_step_event",
+                                   default=0.0))
+            k_drag = float(cfg_get(self.cfg, "reward", "k_drag_loaded",
+                                   default=0.0))
+            k_park = float(cfg_get(self.cfg, "reward", "k_park_duty",
+                                   default=0.0))
+            if (k_swing > 0.0 or k_step > 0.0 or k_drag > 0.0
+                    or k_park > 0.0) and s_ref > 1e-3:
                 r_swing = 0.0
+                r_step = 0.0
+                r_drag = 0.0
+                contacts = [False] * 6
                 for f in range(6):
                     adr = self._touch_adr[f]
                     on = (adr >= 0 and
                           float(self.data.sensordata[adr]) > 0.5)
+                    contacts[f] = on
                     xy = self.data.xpos[self._pad_bids[f], :2]
                     if self._foot_on[f] and not on:
                         self._liftoff_xy[f] = xy.copy()
                         self._liftoff_step[f] = self._step_i
                     elif on and not self._foot_on[f] \
                             and self._liftoff_xy[f] is not None:
-                        stride = float(np.linalg.norm(
-                            xy - self._liftoff_xy[f]))
+                        d = xy - self._liftoff_xy[f]
+                        stride = float(np.linalg.norm(d))
+                        air = self._step_i - self._liftoff_step[f]
                         # >=2 ticks airborne filters contact chatter /
                         # settle wobble (zero-action probe scored one
                         # phantom swing without this).
-                        if stride >= 0.015 \
-                                and self._step_i - self._liftoff_step[f] >= 2:
+                        if k_swing > 0.0 and stride >= 0.015 and air >= 2:
                             r_swing += k_swing
+                        if k_step > 0.0 and air >= 2:
+                            along = float(
+                                d[0] * goal.vx_ref + d[1] * goal.vy_ref
+                            ) / s_ref
+                            if along >= 0.010:
+                                r_step += k_step * min(along / 0.030, 1.5)
+                    elif on and self._foot_on[f] and k_drag > 0.0 \
+                            and self._foot_prev_xy[f] is not None:
+                        slip = float(np.linalg.norm(
+                            xy - self._foot_prev_xy[f]))
+                        if slip > 0.0005:
+                            r_drag -= k_drag * slip
+                    self._foot_prev_xy[f] = xy.copy()
                     self._foot_on[f] = on
                 if r_swing:
                     reward += r_swing
-                info["reward_swing"] = r_swing
+                if k_swing > 0.0:
+                    info["reward_swing"] = r_swing
+                if k_step > 0.0:
+                    reward += r_step
+                    info["reward_step_event"] = r_step
+                if k_drag > 0.0:
+                    reward += r_drag
+                    info["reward_drag"] = r_drag
+                if k_park > 0.0:
+                    self._duty_hist.append(
+                        [1.0 if c else 0.0 for c in contacts])
+                    n_win = int(round(float(cfg_get(
+                        self.cfg, "goal", "park_duty_window_s",
+                        default=2.0)) / self.dt))
+                    if len(self._duty_hist) > n_win:
+                        self._duty_hist = self._duty_hist[-n_win:]
+                    r_park = 0.0
+                    if len(self._duty_hist) >= n_win:
+                        duty = np.mean(self._duty_hist, axis=0)
+                        over = float(np.sum(
+                            np.maximum(0.0, duty - 0.9)
+                            + np.maximum(0.0, 0.1 - duty)))
+                        r_park = -k_park * over
+                        reward += r_park
+                    info["reward_park_duty"] = r_park
         return obs, reward, term, trunc, info

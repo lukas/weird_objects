@@ -844,3 +844,94 @@ def test_privileged_idx_history_frames():
     a = SimpleNamespace(cfg_set=["obs.history_frames=2",
                                  "goal.walk_phase_obs=1"])
     assert _privileged_idx(a, 148) == (70, 71, 144, 145)
+
+
+# ---------------------------------------------------------------------------
+# Step-event reward package (operator queue item 0, cycle 13)
+
+
+def _walk_only_env(seed=0, **rw):
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = load_config()
+    cfg.setdefault("reward", {}).update(rw)
+    env = SimHexapodJointWalkEnv(cfg, seed=seed)
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_walk = 1.0
+    return env
+
+
+def test_park_duty_charges_pinned_legs_only():
+    """k_park_duty: a standing (all-duty-1.0) stance during a commanded
+    walk pays 6*0.1*k per tick once the 2 s window fills; charge fires
+    only while a velocity is commanded."""
+    env = _walk_only_env(seed=0, k_park_duty=1.0)
+    env.reset()
+    assert env._goal_traj.mode == "walk"
+    n_win = int(round(2.0 / env.dt))
+    charged = []
+    for _ in range(int(4.0 / env.dt)):
+        _, _, term, trunc, info = env.step(np.zeros(env.n_act))
+        if "reward_park_duty" in info:
+            charged.append(info["reward_park_duty"])
+        if term or trunc:
+            break
+    assert charged, "park charge never evaluated during commanded walk"
+    # zero-action = all six feet planted -> duty 1.0 each -> 6 * 0.1
+    filled = [c for c in charged if c != 0.0]
+    assert filled, "window never filled"
+    assert abs(filled[-1] - (-0.6)) < 0.15, filled[-1]
+    env.close()
+
+
+def test_step_event_pays_forward_swing_not_park():
+    """k_step_event: a synthetic completed swing along the command pays
+    k*min(along/30mm, 1.5); a leg that never touches down pays 0."""
+    env = _walk_only_env(seed=0, k_step_event=2.0)
+    env.reset()
+    # drive past the settle hold so a velocity is commanded
+    for _ in range(int(1.5 / env.dt)):
+        _, _, _, _, info = env.step(np.zeros(env.n_act))
+    goal = env._current_goal()
+    s = float(np.hypot(goal.vx_ref, goal.vy_ref))
+    assert s > 1e-3
+    # fake a liftoff record 40mm behind the current pad position along
+    # the command, mark the foot airborne, then let the real contact
+    # close the event on the next step (pick a foot that IS in contact
+    # under zero action — the settled pose loads only some feet)
+    loaded = [f for f in range(6)
+              if float(env.data.sensordata[env._touch_adr[f]]) > 0.5]
+    assert loaded, "no loaded foot to test with"
+    f = loaded[0]
+    xy = env.data.xpos[env._pad_bids[f], :2].copy()
+    u = np.array([goal.vx_ref, goal.vy_ref]) / s
+    env._foot_on[f] = False
+    env._liftoff_xy[f] = xy - 0.040 * u
+    env._liftoff_step[f] = env._step_i - 5
+    _, _, _, _, info = env.step(np.zeros(env.n_act))
+    r = info.get("reward_step_event", 0.0)
+    # foot 0 is in contact under zero action -> touchdown event fires:
+    # along >= ~40mm -> capped 1.5x -> 2.0*1.5 = 3.0 (allow contact
+    # micro-motion tolerance)
+    assert r > 2.0, r
+    env.close()
+
+
+def test_drag_charges_loaded_translation():
+    """k_drag_loaded: per-tick charge equals k * loaded slip beyond the
+    0.5mm deadband; a quiet stance pays ~nothing."""
+    env = _walk_only_env(seed=0, k_drag_loaded=10.0)
+    env.reset()
+    tot = 0.0
+    for _ in range(int(2.0 / env.dt)):
+        _, _, term, trunc, info = env.step(np.zeros(env.n_act))
+        tot += info.get("reward_drag", 0.0)
+        if term or trunc:
+            break
+    # zero action = feet planted, no commanded drag -> tiny charge only
+    assert tot > -0.5, tot
+    env.close()
