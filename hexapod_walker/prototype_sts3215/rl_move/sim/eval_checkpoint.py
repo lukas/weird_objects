@@ -71,8 +71,24 @@ def _start_kind(traj) -> str:
     return "plant"
 
 
-def _success(mode: str, term: bool, ep: dict) -> bool:
+# End-posture check (operator directive 2026-08-08 ~20:40Z): a rise/lower
+# "success" that ends with a leg flagged in the air is the same blind-spot
+# class as the walk shuffle. Stand-ending modes must finish with all six
+# feet at the support surface; lower must finish with no leg elevated
+# (tucked is fine, a vertical flag leg ~130+ mm is not). Eval-side only,
+# independent of reward terms. Gate wiring is behind --end-posture-gate
+# until the champions are baselined (report the baseline first).
+STAND_END_MODES = ("rise", "raise", "hold", "lean", "track")
+END_CLEAR_STAND_MM = 20.0
+END_CLEAR_BELLY_MM = 60.0
+
+
+def _success(mode: str, term: bool, ep: dict,
+             end_posture_gate: bool = False) -> bool:
     if term:
+        return False
+    if end_posture_gate and mode in STAND_END_MODES + ("lower",) \
+            and ep.get("end_posture_ok") is False:
         return False
     if mode in ("rise", "lower"):
         return ep["height_err_end_mm"] is not None \
@@ -93,7 +109,7 @@ def _success(mode: str, term: bool, ep: dict) -> bool:
 
 
 def run_episode(env, model, *, deterministic: bool, video: bool,
-                annotate) -> tuple[dict, list]:
+                annotate, end_posture_gate: bool = False) -> tuple[dict, list]:
     obs, info0 = env.reset()
     mode = info0.get("goal_mode", "?")
     kind = _start_kind(env._goal_traj) if env._goal_traj else "plant"
@@ -122,7 +138,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             float(env.data.sensordata[adr]) > CONTACT_N
             for adr in env._touch_adr])
         pad_xy_hist.append(
-            [env.data.xpos[b, :2].copy() for b in pads])
+            [env.data.xpos[b].copy() for b in pads])
         if not info.get("safety_ok", True):
             safety_flags += 1
         if "track_err_deg" in info:
@@ -163,7 +179,8 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     cur = np.asarray(cur_hist) if cur_hist else np.zeros((1, 18))
     leg_mean = cur.reshape(len(cur), 6, 3).mean(axis=(0, 2))  # per leg
     contact = np.asarray(contact_hist, dtype=bool)
-    pad_xy = np.asarray(pad_xy_hist)
+    pad_xyz = np.asarray(pad_xy_hist)          # (T, 6, 3) world
+    pad_xy = pad_xyz[:, :, :2]
 
     # Gait metrics: swing = contiguous no-contact run; slip = XY motion
     # of a pad while in contact.
@@ -228,7 +245,17 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             f for f in range(6)
             if duty[f] < 0.10 or (duty[f] > 0.95 and swings[f] == 0)]
         ep["gait_valid"] = not ep["sacrificed_legs"]
-    ep["success"] = _success(mode, term, ep)
+    if mode in STAND_END_MODES + ("lower",) \
+            and getattr(env, "_pad_z_ref", None) is not None:
+        # Mean pad clearance over the final 0.5 s (single-frame contact
+        # flicker lies; a parked flag leg does not).
+        tail = max(1, int(round(0.5 / env.dt)))
+        clear_mm = (pad_xyz[-tail:, :, 2].mean(axis=0)
+                    - env._pad_z_ref) * 1000.0
+        thr = END_CLEAR_BELLY_MM if mode == "lower" else END_CLEAR_STAND_MM
+        ep["end_clear_mm"] = [round(float(c), 1) for c in clear_mm]
+        ep["end_posture_ok"] = bool((clear_mm <= thr).all())
+    ep["success"] = _success(mode, term, ep, end_posture_gate)
     return ep, frames
 
 
@@ -281,6 +308,14 @@ def main() -> None:
     ap.add_argument("--episode-seconds", type=float, default=10.0)
     ap.add_argument("--stochastic", action="store_true",
                     help="add a pass sampling at the checkpoint's std")
+    # Default ON since 2026-08-08 (champion baseline recorded first, per
+    # directive: stance champ lower 0/12, rise 5/12, hold 12/12). All
+    # rise/lower success counts after this date are posture-strict;
+    # earlier logged numbers are height-only and NOT comparable.
+    ap.add_argument("--end-posture-gate", action=argparse.BooleanOptionalAction,
+                    default=True,
+                    help="wire end_posture_ok into success for stand/"
+                         "belly-ending modes")
     ap.add_argument("--no-video", action="store_true")
     ap.add_argument("--video-every", type=int, default=3,
                     help="record every Nth episode per mode (1st always)")
@@ -339,7 +374,8 @@ def main() -> None:
                          and (k == 0 or k % args.video_every == 0))
                 ep, frames = run_episode(
                     env, model, deterministic=det, video=video,
-                    annotate=_annotate_frame)
+                    annotate=_annotate_frame,
+                    end_posture_gate=args.end_posture_gate)
                 eps.append(ep)
                 if frames:
                     _save_video(frames, out / f"{mode}_{tag}_{k}")
@@ -370,6 +406,12 @@ def main() -> None:
                               for f in e.get("sacrificed_legs", [])})
                 extra += (f" | gait_valid {n_valid}/{len(eps)}"
                           + (f" sacrificed legs {sac}" if sac else ""))
+            if any("end_posture_ok" in e for e in eps):
+                n_ep = sum(bool(e.get("end_posture_ok")) for e in eps)
+                worst = max(max(e["end_clear_mm"]) for e in eps
+                            if "end_clear_mm" in e)
+                extra += (f" | end_posture {n_ep}/{len(eps)}"
+                          f" worst_clear {worst:.0f}mm")
             print(f"[{tag}] {mode:6s}: {n_ok}/{len(eps)}{kinds} | "
                   f"Imax {hot:.2f}A | imbal "
                   f"{max(e['cur_leg_imbalance'] for e in eps):.2f}"

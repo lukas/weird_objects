@@ -1037,3 +1037,137 @@ noise); the basin-escape half of the comparison rides on
 cw-walk-phase-stance2 (in flight, std 1.0). No relaunch on long5m this
 cycle — launch and step caps are both exactly consumed (4/4, 16M/16M).
 Champion unchanged.
+
+## Cycle 12 (2026-08-08 ~21:30–22:30Z) — end-posture gate lands (crown jewel caveated), pricing diagnosis, phase line closed, aac called at 8M
+
+### Operator directives implemented (eval-side check + first-principles diagnosis + generic terms)
+1. **End-posture eval check** in `eval_checkpoint.py`: per-foot clearance
+   (mean of final 0.5 s) vs the episode-start grounded pad z; stand-ending
+   modes (rise/raise/hold/lean/track) need all six feet ≤20 mm, lower ≤60 mm
+   (tucked ok, vertical flag ~130+ mm fails). Reported per episode like
+   gait_valid; wired into success by DEFAULT after baselining
+   (`--no-end-posture-gate` opts out). **All rise/lower/hold success counts
+   from here on are posture-strict; earlier logged numbers are height-only
+   and not comparable.**
+2. **BASELINE (stance champion `cw_stance_dr10` @ DR 1.0, 6 eps/mode
+   det+sto):** hold 12/12 pass (≤16 mm). rise 5/12 — fails are crouch/bridge
+   starts with legs 2/4 left at 100–199 mm (two flat-sto fails marginal,
+   22–27 mm). **lower 0/12 — every single episode ends as a tripod on the
+   odd legs with legs 0/2/4 hoisted and leg 4 fully vertical (244–281 mm).**
+   Frames confirm: the policy drops the commanded 25–55 mm then hoists three
+   legs skyward; it never approaches a belly rest posture. CROWN-JEWEL
+   CAVEAT: "stand↔belly solved at DR 1.0" means height+quiescence only;
+   the lower END STATE is a posture disaster the scalar never saw.
+   hardware-ready (lower): NO.
+3. **Static-hold pricing diagnosis: operator's underpricing hypothesis
+   REFUTED with numbers.** Leg 0 held horizontal in the air: the actuator
+   carries the FULL gravity torque (hip |qfrc_actuator| 0.1489 N·m vs
+   gravity 0.1488; deadband only shifts equilibrium ~0.7°), filtered
+   current = 1.2×|τ| = 0.179 A exactly as designed. Static holds are NOT
+   free. The real defect: the linear per-servo charge is invariant to load
+   distribution — the flagged leg (0.24 A total) draws LESS than each
+   supporting leg (0.28–0.44 A), so concentration is unpriced and flagging
+   is energy-OPTIMAL under the current reward. Root-cause chain: behavior
+   (flag legs/tripods) ← incentive (support costs more than parking) ←
+   pricing (linear current sum is distribution-blind) — not a servo-model
+   defect.
+4. **New GLOBAL reward terms implemented** (sim_env.py, default OFF, per
+   operator ~20:45Z #2): `reward.k_support_margin` (CoM depth inside the
+   support polygon of loaded feet, ≥3 contacts, saturates at 40 mm; belly
+   rest exempt by the contact gate) and `reward.k_load_even` (Herfindahl
+   concentration of foot normal forces; even=0 charge, one-foot=max).
+   Scale audit @ k=1 vs kernel ~0.5–0.9/step: margin 0.83–0.96 (saturated →
+   use k=0.3), evenness 0.18–0.28 (→ use k=1.5; park-tripod ending then
+   pays ~0.25/step). Unit tests added (hull geometry + smoke; 30 pass).
+   **Routing caution discovered in analysis: the INSTANTANEOUS forms cannot
+   distinguish a tripod GAIT from a tripod PARK (same polygon, same HHI) —
+   enabling them in walk mode would fight legitimate swing phases. Stance
+   line (joint_goal has no walk mode) is unambiguous; a walk-mode version
+   needs time-averaged per-leg load. Declared routing: global within the
+   stance line only, for now.**
+
+### cw-walk-phase-stance2 — FAIL; phase-contact reward REFUTED in BOTH basins
+OBSERVATIONS. W&B wjm6lrgy, 4M steps (23.20M cum, 1084 s solo). Harness
+(ckpt md5 d077f694, DR 0.2, own cfg, posture-strict): walk det 0/6
+gait-valid @ vel_err 0.049, sto 0/6 @ 0.046, speed 0.030 m/s; duty
+signature in 12/12 walk eps: legs 1/3/5 at 0.83–1.0, legs 0/2/4 at
+0.02–0.38. Retention: rise height-only sto 4/6 (the gate as written was
+met; auto-stop rightly never fired) but end_posture 1/12; hold height 6/6
+with end_posture 0/12 (worst 89–105 mm). std GREW 1.0→1.47. Frames
+reviewed: walk_det_0, hold_det_0, per-episode duty tables.
+INTERPRETATION. NOT WALKING — a phase-locked TRIPOD PARK: the policy
+plants the odd tripod group and holds the even group permanently airborne,
+in walk AND hold AND rise; the stance parent's six-footed hold was
+destroyed in 4M steps. The "parked legs average 50% agreement = zero net"
+design was true and irrelevant: the park doesn't collect phase reward, it
+avoids the smoothness/current/stability costs of stepping, and a zero-mean
+bonus cannot outbid a cost saving. The probe's all-six-leg cycling at 96k
+was transient exploration that collapsed as PPO optimized.
+VERDICT: FAIL. hardware-ready: NO. HYPOTHESIS STATUS: weak alternating-
+tripod phase reward REFUTED in both basins (warm arm: shuffle unchanged;
+basin arm at audited std 1.0: tripod park). Escalation level (c) CLOSED.
+Champion unchanged. New structural fact: **the tripod park is THE shared
+attractor of the walk task** (lp-s1b tower, aac-s1c det, phase-stance2) —
+it is stable, cheap, and unpriced; any future walk reward must price it.
+
+### cw-walk-aac-s1c — 8M fixed-budget point: retention SUPPORTED, tracking REFUTED; lineage posture-broken everywhere
+OBSERVATIONS. W&B ij6xowjy, 32.76M cum (8M asym from dr04b). Harness (ckpt
+md5 f7ed9a6c, DR 0.4, own cfg, posture-strict): walk det 0/6 gait-valid @
+vel_err 0.038 — det collapsed to a FULL tripod park (legs 1/3/5 duty
+0.02–0.06); sto 0/6 @ 0.031 (mixed shuffle). vs nv 8M (0/6 @ 0.035):
+inside the calibrated twin-noise band (0.026–0.043) → no evidence of
+tracking change. Retention height-only: rise det 6/6 / sto 5/6 vs nv 3/12
+— the asym-critic retention gap PERSISTS at matched budget. End-posture:
+0/6 in EVERY stance-ending mode, worst clearance 342–385 mm both passes.
+Frames reviewed: walk_det_0 (three-leg tower scoot with one leg pointing
+straight up), rise_det_0 (raises the body, then stands with a permanent
+vertical antenna leg), contact sheet.
+INTERPRETATION. The gate as written ("beat nv on tracking OR retention")
+passes on retention — recorded as such — but this checkpoint ends every
+skill with a ~35 cm vertical flag leg and its deterministic walk is a
+static tripod. NOT WALKING. hardware-ready: NO.
+VERDICT: gate PASS on the retention half only; walk champion UNCHANGED;
+checkpoint not promoted beyond baseline duty.
+HYPOTHESIS STATUS: SPLIT — asymmetric critic is a real retention tool
+(SUPPORTED, 11/12 vs 3/12 twice), not a gait fix (tracking REFUTED at 4M
+and 8M). Keep `--asym-critic` default for warm walk continuations.
+DECISION: the dr04b lineage is 0-for-9 on gait validity across every lever
+(widen ×2, 3× progress, flag ×2, speed, LP, phase, asym, 8M budget) and
+carries lower 0/6 + universal end-posture failure. **Lineage RETIRED as a
+warm-start source for gait experiments** (retention/architecture studies
+may still reference it). Future gait attempts: stance-basin or fresh inits
++ architecture (temporal actor next), never another shaping coefficient.
+
+### LAUNCH probe-posture-price (lower pod, smoke, 150k @ DR 1.0)
+Probe rule (audit §6): new mechanism (support-margin + load-evenness
+terms) gets a smoke before any 4M run. Stance-champ init, exact
+cw-stance-dr10 recipe + `reward.k_support_margin=0.3`,
+`reward.k_load_even=1.5`. Mechanical gate: both new reward parts appear
+and stay within the audited band (margin ≤0.3/step, evenness ≤0.25/step
+typical), no canary group failure, trainer healthy. No behavioral claim
+at 150k.
+
+### LAUNCH cw-stance-posture (s4, 4M, DR 1.0, seed 0)
+Operator-directed (~20:45Z #2, root-cause chain in cycle 12 entry).
+HYPOTHESIS: the stance champion's flag-leg endings (lower 0/12, rise
+5/12 posture-strict) exist because load concentration and support-
+polygon shrinkage are unpriced; pricing the physics directly
+(k_support_margin=0.3 + k_load_even=1.5, GLOBAL within the no-walk
+joint_goal task) gives a dense gradient that pulls hoisted legs down.
+Prediction-if-true: lower ends with legs down/tucked (end_posture
+≥5/6 det+sto) and rise crouch/bridge endings plant legs 2/4, with
+height metrics retained (canaries all four groups protected).
+Prediction-if-false: heights retained but end-posture unchanged (terms
+too weak vs kernel at audited scale — would falsify "pricing suffices"
+and point at exploration, NOT at coefficient iteration) OR canary
+regression (terms fight the rise kernel; auto-stop fires).
+Strongest alternative: the flag-leg ending is a stable local optimum
+that a warm start cannot leave at inherited std ~0.29 (deliberate:
+posture is a dense LOCAL gradient, not a basin escape; saying so per
+audit). Parent: ppo_goal_cw_stance_dr10.zip (md5 da1d912a). One
+variable: the posture-pricing package (declared as such; ablate only
+if it fails). GATE (posture-strict harness @ DR 1.0, 6 eps/mode
+det+sto): lower ≥5/6 end-posture both passes AND rise ≥4/6
+posture-strict sto AND hold stays 6/6 AND crown-jewel heights intact
+(rise/lower height-only ≥5/6 both passes). Budget 4M. Cycle 12 totals:
+2 launches, 4.15M steps (caps 4 / 16M).

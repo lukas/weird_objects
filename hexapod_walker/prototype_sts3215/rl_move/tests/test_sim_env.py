@@ -720,3 +720,55 @@ def test_obs_pad_transplant_preserves_parent_behavior():
     v_old = old.policy.predict_values(torch.as_tensor(obs8))
     v_new = new.policy.predict_values(torch.as_tensor(obs10))
     assert torch.allclose(v_old, v_new)
+
+
+# ---------------------------------------------------------------------------
+# First-principles posture terms (operator directive 2026-08-08 ~20:45Z)
+
+
+def test_support_margin_geometry():
+    from rl_move.sim.sim_env import support_margin_m
+    import numpy as np
+    sq = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=float)
+    # center of unit square: 0.5 from every edge
+    assert abs(support_margin_m(sq, np.array([0.5, 0.5])) - 0.5) < 1e-9
+    # near an edge
+    assert abs(support_margin_m(sq, np.array([0.1, 0.5])) - 0.1) < 1e-9
+    # outside: negative
+    assert support_margin_m(sq, np.array([-0.2, 0.5])) < 0
+    # degenerate: <3 points or collinear -> 0
+    assert support_margin_m(sq[:2], np.array([0.5, 0.5])) == 0.0
+    line = np.array([[0, 0], [1, 0], [2, 0]], dtype=float)
+    assert support_margin_m(line, np.array([1.0, 0.5])) == 0.0
+
+
+def test_posture_reward_terms_smoke():
+    """k_support_margin / k_load_even produce finite, correctly-signed
+    parts on a standing robot and stay absent when disabled (default)."""
+    import numpy as np
+    from rl_move.config import load_config
+    from rl_move.sim.servo_model import SimServoParams
+    from rl_move.sim.joint_task import SimHexapodJointGoalEnv, q_rad_to_action
+
+    cfg = load_config()
+    cfg.setdefault("reward", {})
+    cfg["reward"]["k_support_margin"] = 1.0
+    cfg["reward"]["k_load_even"] = 1.0
+    env = SimHexapodJointGoalEnv(params=SimServoParams.load(), cfg=cfg,
+                                 randomize=False, episode_seconds=2.0,
+                                 seed=0)
+    obs, _ = env.reset()
+    a = q_rad_to_action(env._cmd.copy())
+    parts_seen = {}
+    for _ in range(10):
+        obs, r, term, trunc, info = env.step(a)
+        for k in ("reward_support_margin", "reward_load_even"):
+            if k in info:
+                parts_seen[k] = info[k]
+    assert "reward_support_margin" in parts_seen, "margin term never fired"
+    assert "reward_load_even" in parts_seen, "evenness term never fired"
+    # standing plant: CoM well inside, load roughly even
+    assert 0.0 < parts_seen["reward_support_margin"] <= 1.0
+    assert -1.0 <= parts_seen["reward_load_even"] <= 0.0
+    assert all(np.isfinite(v) for v in parts_seen.values())
+    env.close()

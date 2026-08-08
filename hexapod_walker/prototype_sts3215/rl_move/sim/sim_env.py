@@ -55,6 +55,47 @@ except Exception:  # pragma: no cover
     _GymBase = object
 
 
+def support_margin_m(feet_xy: np.ndarray, com_xy: np.ndarray) -> float:
+    """Signed distance (m) from com_xy to the support-polygon boundary.
+
+    Positive = inside (min distance to any edge), negative = outside.
+    feet_xy: (N, 2) contact-foot positions. Needs N >= 3 non-collinear
+    points; degenerate inputs return 0.0 (caller gates on contact count).
+    Small-N convex hull via Andrew's monotone chain — no scipy.
+    """
+    pts = np.unique(np.round(np.asarray(feet_xy, dtype=float), 6), axis=0)
+    if len(pts) < 3:
+        return 0.0
+    pts = pts[np.lexsort((pts[:, 1], pts[:, 0]))]
+    cross = lambda o, a, b: ((a[0] - o[0]) * (b[1] - o[1])  # noqa: E731
+                             - (a[1] - o[1]) * (b[0] - o[0]))
+    lo, up = [], []
+    for p in pts:
+        while len(lo) >= 2 and cross(lo[-2], lo[-1], p) <= 0:
+            lo.pop()
+        lo.append(tuple(p))
+    for p in pts[::-1]:
+        while len(up) >= 2 and cross(up[-2], up[-1], p) <= 0:
+            up.pop()
+        up.append(tuple(p))
+    hull = lo[:-1] + up[:-1]          # CCW
+    if len(hull) < 3:
+        return 0.0                    # collinear feet: no polygon
+    d = np.inf
+    inside = True
+    for i in range(len(hull)):
+        a, b = np.array(hull[i]), np.array(hull[(i + 1) % len(hull)])
+        e = b - a
+        n = np.linalg.norm(e)
+        if n < 1e-9:
+            continue
+        s = cross(a, b, com_xy) / n   # >0 = left of edge = inside (CCW)
+        if s < 0:
+            inside = False
+        d = min(d, abs(s))
+    return float(d if inside else -d)
+
+
 def _default_plant_deg() -> np.ndarray:
     """Standing plant in hardware convention (learned plant or +20/+80)."""
     try:
@@ -770,6 +811,52 @@ class SimHexapodBalanceEnv(_GymBase):
             r_hot = -k_hot * float(np.sum(over ** 2))
             parts["reward_current_hot"] = r_hot
             reward += r_hot
+        # --- First-principles posture terms (operator 08-08 ~20:45Z,
+        # default OFF). WHY a waving leg is bad: smaller support polygon
+        # (tips), load concentration (hot knees), wasted hold torque.
+        # Static-hold pricing was measured CORRECT (hip 0.149 Nm -> 0.179 A,
+        # actuator carries full gravity torque; diagnosis 08-08 cycle 12):
+        # the defect is that the LINEAR current charge is invariant to load
+        # distribution, so concentration is free. These two GLOBAL terms
+        # price the physics directly, in every mode (declared routing:
+        # GLOBAL - they encode "don't tip / don't concentrate heat", not
+        # gait morphology). The unload target leg is skipped like the
+        # other stance terms.
+        k_margin = float(cfg_get(self.cfg, "reward", "k_support_margin",
+                                 default=0.0))
+        k_even = float(cfg_get(self.cfg, "reward", "k_load_even",
+                               default=0.0))
+        if (k_margin > 0.0 or k_even > 0.0):
+            skip = int(goal.unload_leg) if (
+                goal is not None and goal.unload_leg is not None) else -1
+            forces, feet_xy = [], []
+            for i in range(6):
+                if i == skip or self._touch_adr[i] < 0:
+                    continue
+                f = max(float(self.data.sensordata[self._touch_adr[i]]), 0.0)
+                forces.append(f)
+                if f > 0.5 and self._pad_bids[i] >= 0:
+                    feet_xy.append(self.data.xpos[self._pad_bids[i], :2])
+            if k_margin > 0.0 and len(feet_xy) >= 3:
+                # Reward CoM depth inside the support polygon, saturating
+                # at 40 mm: centered stances earn the cap, near-edge or
+                # outside-CoM poses earn ~0/negative. Belly rest (<3 foot
+                # contacts, chassis supported) is exempt by the gate.
+                m = support_margin_m(np.asarray(feet_xy),
+                                     self.data.subtree_com[0, :2])
+                r_margin = k_margin * float(np.clip(m, -0.04, 0.04)) / 0.04
+                parts["reward_support_margin"] = r_margin
+                reward += r_margin
+            ftot = float(np.sum(forces))
+            if k_even > 0.0 and ftot > 1.0:
+                # Load concentration: Herfindahl index of foot normal
+                # forces. Even 6-leg load = 1/6 (charge 0); everything on
+                # one foot = 1 (max charge). Dense, mode-independent.
+                fr = np.asarray(forces) / ftot
+                hhi = float(np.sum(fr ** 2))
+                r_even = -k_even * (hhi - 1.0 / len(forces))
+                parts["reward_load_even"] = r_even
+                reward += r_even
         # Stance-contact shaping (default OFF): during stance modes the
         # kernel is blind to how many feet carry the body, so a 3-leg
         # tripod scores like a 6-leg stance (and cooks servos). Pay a
