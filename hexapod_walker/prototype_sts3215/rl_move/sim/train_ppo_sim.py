@@ -623,13 +623,20 @@ def _render_reel(env, policy, args, step,
                          "raise", "rise", "lower", "walk")
                if gen is not None and hasattr(gen, f"p_{m}")}
     reel = _reel_modes(env, args.video_episodes)
-    path = Path(tempfile.gettempdir()) / f"reel_{step}.mp4"
+    # Path MUST be unique per process: two runs sharing a pod (warm-started
+    # twins hit identical step counts simultaneously) once interleaved
+    # writes into the same /tmp/reel_<step>.mp4 and shipped corrupt video
+    # to W&B. Write to a .part name and rename only when complete, so a
+    # crash mid-render can never leave a plausible-looking file.
+    path = (Path(tempfile.gettempdir())
+            / f"reel_{os.getpid()}_{step}.mp4")
+    part = path.with_name(path.name + ".part.mp4")
     # Stream to disk: a 4-episode reel held as one uint8 array
     # would be ~1 GB and OOM the process.
     # faststart + yuv420p: without leading moov metadata the W&B web
     # player misreads the duration (42 s reels showed as ~10 s).
     writer = imageio.get_writer(
-        path, fps=25, macro_block_size=1, pixelformat="yuv420p",
+        part, fps=25, macro_block_size=1, pixelformat="yuv420p",
         output_params=["-movflags", "+faststart"])
     outcomes = []
     try:
@@ -680,6 +687,7 @@ def _render_reel(env, policy, args, step,
         writer.close()
         for m, p in saved_p.items():
             setattr(gen, f"p_{m}", p)
+    part.rename(path)
     caption = (f"{tag or f'{step:,} steps'} | " + " ".join(outcomes))
     return str(path), caption
 
@@ -801,6 +809,13 @@ class _BgEval:
                                caption=out["caption"]),
                            "global_step": out["step"]})
                 print(f"[video] logged reel ({out['caption']})")
+                # wandb.Video copies the file into the run dir on log;
+                # drop the /tmp original (unique names no longer overwrite
+                # each other, so they'd otherwise accumulate).
+                try:
+                    Path(out["path"]).unlink()
+                except OSError:
+                    pass
 
     def pop_canaries(self) -> list[dict]:
         """Hand any drained canary probe results to the stop callback."""

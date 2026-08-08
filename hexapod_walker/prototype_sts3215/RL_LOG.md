@@ -534,3 +534,21 @@ HYPOTHESIS STATUS: REFUTED. Per prediction-if-false + review §7:
 **raise is demoted to canary status** — it stays in the fixed-seed
 canaries and eval suite as a regression tripwire, but no more stance
 pods are spent chasing 5/6. Plan updated.
+
+## OPERATOR 2026-08-08 ~19:40Z — starved twins killed; reel-collision video bug fixed
+
+- Killed `cw-walk-aac-s1` + `cw-walk-lp-s1` (only ~300k steps past warm
+  start at ~80 fps on the 30-core lower pod; W&B will show them crashed —
+  that is expected, see ledger status KILLED_BY_OPERATOR). Do NOT
+  relaunch the twins now: plan rule is multi-seed only after a config
+  wins. Judge aac and lp on the primaries.
+- Root-caused corrupt W&B videos (e.g. lp-s1 rollout_23): every run wrote
+  reels to the shared `/tmp/reel_<step>.mp4`; co-hosted twins hit
+  identical steps simultaneously and interleaved writes. Fixed in
+  train_ppo_sim.py: per-pid unique reel names + write-to-.part-then-
+  rename + unlink after W&B upload. RUNNING trainers still carry the old
+  code — `cw-walk-aac` and `cw-walk-lp` share the walk pod at identical
+  video steps, so treat any further corrupt reels from them as this bug,
+  not policy behavior. When you rebalance them to solo pods (per the
+  earlier note), relaunch from their own latest checkpoints AFTER
+  `snapshot.sh --sync` so they pick up this fix.
