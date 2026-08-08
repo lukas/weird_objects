@@ -470,3 +470,67 @@ finish within the hour on the quiet node — the next real cycle evals
 them and launches the speed-range diagnostic (queue #1) on genuinely
 freed slots, with canaries armed and predictions recorded in the
 ledger per the two-phase INTENT/RUNNING protocol.
+
+## Cycle 10 — flagw + raisemix verdicts; raise demoted to canary; rebalance + speed diagnostic launched (2026-08-08 ~19:4x)
+
+### cw-walk-flagw — FAIL (walk-only flag routing does NOT fix the gait; retention half of the hypothesis held)
+OBSERVATIONS. W&B 8n5eo6zj, 4M steps (28.76M cum), fps 1042, finished
+19:07. Harness (ckpt md5 c99d9be2, DR 0.4, own cfg-sets, 6 eps/mode
+det+sto): walk det 0/6 @ vel_err 0.040, sto 0/6 @ 0.032 — 0/6 is the
+new gait-validity gate: every episode has sacrificed legs. Two distinct
+exploit modes in the same eval: (i) literal tripod anchor — legs 0/2/4
+planted at duty ~1.0 with ~1 swing, legs 1/3/5 airborne all episode
+(sacrificed [1,3,5]); (ii) the old 5-leg shuffle with leg 3 parked
+(duty 0.04). Retention: rise det 6/6 (flat/bridge/crouch all), sto 6/6;
+raise det 6/6 / sto 5/6; track 4/6. env/reward_flag_leg still −0.75/step
+at 4M — PPO pays the fine rather than step. Frames reviewed:
+walk_det_0 (79bc0cec), walk_det_3 (a5b55e35), rise_det_0 (5a4d29d0),
+rise_det_3 (c653c561), 10 frames each.
+INTERPRETATION. Videos: walk is NOT WALKING — the body scoots while
+2–3 legs are held curled or pointing straight up like antennas; one
+eval flips to a static tripod with three legs waving in the air. The
+"successful" rises reach height but end propped on ~3 legs with 2–3
+legs flagged vertically — scalar success, degenerate end posture (a
+lineage trait, parent dr04b rises look the same). Routing worked as
+routing: rise/raise did not collapse (vs cw-walk-flag's all-modes
+collapse). The penalty itself is refuted as a gait fix at k=5.0 — and
+per review §0 we do not iterate the coefficient.
+VERDICT: FAIL. hardware-ready: NO — no six-foot gait exists anywhere in
+this policy; flag legs in walk AND rise end-states.
+HYPOTHESIS STATUS: REFUTED (suppression half); SUPPORTED (retention
+half: walk-only routing protects rise/raise, matching prediction-if-false).
+Champion: unchanged (ppo_goal_cw_walk_dr04b, itself honestly 0/N under
+the gait gate — "tracking champion", not a walking one).
+
+### cw-stance-raisemix — FAIL (raise-heavy mix refuted; crown jewels intact; raise DEMOTED to canary)
+OBSERVATIONS. W&B bl11do1r, 3M steps (22.20M cum), fps 139 (30-core
+friction pod), finished 19:07. Harness (ckpt md5 7162ee62, DR 1.0, own
+six cfg-sets): raise det 3/6 / sto 4/6 (gate ≥5/6 both — MISS, same
+2–5/6 band as every prior lineage). Retention: rise det 17/18
+aggregate (first pass 5/6 with flat 1/2; dedicated 12-ep pass 12/12),
+sto 18/18; lower 6/6 det + 6/6 sto; hold 6/6. Failure classification
+from trajectories (plan item): all 5 raise failures are NEAR-MISS
+UNDER-LIFT — end height 6.0–8.2 mm short (one 18.5 mm), zero
+terminations, tilt ≤1.22°, currents under breaker. Not lost-contact,
+not saturation, not tilt, not hot legs. Additional pathology: legs 2
+and 4 are near-unloaded (duty 0.00–0.30) in ALL 12 raise episodes,
+pass and fail — raise executes on ~4 legs. Frames reviewed:
+raisemix/rise_det_0 (a0b8180a) clean bridge rise to a real stand;
+rise_det_3 (2a90bb50) flat start stays sprawled the whole episode —
+that is the det-flat miss; raisemix2/raise_det_0 (ec341f35) +
+raise_det_3 (82b9d1ee) stable quiet stand with a barely visible lift,
+pass and fail look identical to the eye.
+INTERPRETATION. 2× raise samples moved raise from 2–5/6 noise band to…
+the same band. Mix is not the cause. The failure mode is consistent
+(stops a few mm short of target height on 4 supporting legs), but the
+remaining lever is another reward-coefficient iteration near the
+target, which the external review forbids. Rise/lower at DR 1.0 are
+NOT eroded — checkpoint is safe as a stand-line artifact, but it does
+not beat the champion (dr10: 6/6 everywhere incl. det flat).
+VERDICT: FAIL vs gate. hardware-ready: NO for raise (misses its own
+bar); rise/lower remain champion-grade but champion unchanged
+(ppo_goal_cw_stance_dr10).
+HYPOTHESIS STATUS: REFUTED. Per prediction-if-false + review §7:
+**raise is demoted to canary status** — it stays in the fixed-seed
+canaries and eval suite as a regression tripwire, but no more stance
+pods are spent chasing 5/6. Plan updated.
