@@ -354,3 +354,44 @@ def test_rise_episode_starts_on_belly():
         obs, r, term, trunc, info = env.step(np.zeros(N_ACT))
         assert np.all(np.isfinite(obs))
         assert not term, info.get("termination_reason")
+
+
+def test_flag_leg_penalty_walk_only_routing():
+    """reward.flag_leg_walk_only=1 must gate the charge to walk mode.
+
+    cw-walk-flag (08-08) refuted the all-modes routing: the global
+    charge collapsed rise/raise. Fake a flagged leg by shifting the
+    episode-start pad reference down 0.2 m and check the term fires
+    per routing flag and mode.
+    """
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    def make_env(walk_only: float, walk_mode: bool):
+        cfg = load_config()
+        cfg.setdefault("reward", {})["k_flag_leg"] = 5.0
+        cfg["reward"]["flag_leg_walk_only"] = walk_only
+        env = SimHexapodJointWalkEnv(cfg, seed=3)
+        g = env._goal_gen
+        for m in ("hold", "lean", "track", "unload", "raise",
+                  "rise", "lower", "walk"):
+            if hasattr(g, f"p_{m}"):
+                setattr(g, f"p_{m}", 0.0)
+        setattr(g, "p_walk" if walk_mode else "p_hold", 1.0)
+        env.reset()
+        assert env._goal_traj.mode == ("walk" if walk_mode else "hold")
+        # Fake >allowance clearance on every pad.
+        env._pad_z_ref = env._pad_z_ref - 0.2
+        _, _, _, _, info = env.step(np.zeros(env.n_act))
+        env.close()
+        return info
+
+    info = make_env(walk_only=1.0, walk_mode=False)
+    assert "reward_flag_leg" not in info, \
+        "walk-only routing must not charge hold mode"
+    info = make_env(walk_only=0.0, walk_mode=False)
+    assert info.get("reward_flag_leg", 0.0) < -0.5, \
+        "legacy all-modes routing must still charge"
+    info = make_env(walk_only=1.0, walk_mode=True)
+    assert info.get("reward_flag_leg", 0.0) < -0.5, \
+        "walk-only routing must charge walk mode"

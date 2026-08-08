@@ -184,3 +184,58 @@ Housekeeping: stray leftover forkserver process observed on s4
 (references linux_control/urt2_setup, hours old, no training) — harmless,
 left alone. Smoke/verification trainings this cycle: none needed (no new
 code).
+
+## Round 8 — global flag-leg penalty refuted; route it walk-only (2026-08-08 ~17:35)
+
+Watcher triggered on cw-walk-flag; by cycle time cw-walk-flag-s1 and
+cw-walk-nv had also finished (staggered by minutes), so all three are
+handled here. Control first: re-ran the harness on parent
+ppo_goal_cw_walk_dr04b under today's code (walk+rise, DR 0.4): sto walk
+4/6 @ vel_err 0.030, sto rise 6/6 — matches round 6, eval drift ruled
+out. The regressions below are real training effects.
+
+### cw-walk-flag — MISS (k_flag_leg=5.0 all-modes routing refuted)
+W&B 2r0jj2qq, 4M steps (28.74M cum). Harness @ DR 0.4, 0.02–0.06: sto
+walk 2/6 @ vel_err 0.032 (gate ≥4/6 @ ≤0.030), det 2/6; rise det 1/6 /
+sto 3/6 (bridge 0/5 across passes); raise 0/6 det+sto. Video: flag leg
+still there — a rear leg swings to full vertical mid-walk and only comes
+down late; rise episodes stay in a low sprawl and never stand. Verdict:
+MISS/refuted. The all-modes charge fights the >50 mm transient swings
+rise needs from belly starts — the same interference that collapsed
+raise under k_stance_clearance until it was mode-exempted. The term
+fires (reward_flag_leg ≈ −0.5/step) but PPO pays it rather than
+restructure the gait, and rise pays the collateral.
+
+### cw-walk-flag-s1 — MISS (twin; first real seed divergence in prod)
+W&B swtus1fa, same config, seed 1. Sto walk 2/6 @ 0.033, det 1/6; rise
+sto 4/6 / det 3/6; raise 4/6 both passes. Video: same transient vertical
+flag leg in walk ep0, but ep3 is genuinely flag-free with all six feet
+low. Twins now truly diverge (raise 0/6 vs 4/6) — the set_random_seed
+fix works in production. Verdict: MISS on the walk gate; but evidence
+the penalty CAN suppress the flag leg in some rollouts.
+
+### cw-walk-nv — MISS at 4M (deployable-obs baseline; one continuation)
+W&B 8g6mggws, 4M steps. Sto walk 1/6 @ vel_err 0.035, det 1/6 @ 0.042
+(gate ≥4/6 @ ≤0.035); rise det 1/6 / sto 2/6; raise det 5/6 + sto 6/6 —
+best raise the walk line has ever shown, unexplained, noted. Video: the
+full lineage flag leg, parked vertical for the entire walk. Verdict:
+MISS — proprioception-only tracking is not re-learned in 4M. Train-time
+vel_err (0.030) looks fine but the harness disagrees. One
+consolidate-in-place continuation (cw-walk-nv2 → 8M cum) before calling
+the baseline; asymmetric AC must beat whatever nv reaches.
+
+### Correction: cw-stance-raisemix was never launched
+Round 7 logged a LAUNCH entry and claimed W&B verification, but there is
+no W&B run, no /tmp/train log was ever created on friction, no process,
+no checkpoints. The launch command was evidently never executed (the
+other three runs went out fine). Friction sat idle ~1.2 h. Bookkeeping
+error, not infra; relaunching this cycle exactly as specified.
+
+Code change (sim_env.py): `reward.flag_leg_walk_only` (float, default
+0 = legacy all-modes) gates the flag-leg charge to walk mode only —
+declared routing per the plan's reward-routing rules. New unit test
+`test_flag_leg_penalty_walk_only_routing` (hold not charged / legacy
+still charges / walk still charged); 19/19 pass. 6k-step smoke train
+warm from cw-walk-flag with the new flag: clean (WANDB_MODE=disabled).
+No champion changes: ppo_goal_cw_walk_dr04b remains the walk champion
+(and re-validated today); crown-jewel stance line untouched.

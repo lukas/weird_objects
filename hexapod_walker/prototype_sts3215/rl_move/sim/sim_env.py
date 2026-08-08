@@ -823,9 +823,18 @@ class SimHexapodBalanceEnv(_GymBase):
         # allowance (default 50 mm over the episode-start pad z), so
         # normal swing (~10-20 mm) and rise/lower repositioning stay
         # free while a vertical flag leg (~150 mm) pays every step.
-        # Active in every mode; the unload target leg is skipped.
+        # Default: every mode; the unload target leg is skipped.
+        # cw-walk-flag (08-08) refuted the all-modes routing: rise needs
+        # >50 mm transient swings from belly starts, and the global
+        # charge collapsed rise/raise while only making the walk flag
+        # leg transient. reward.flag_leg_walk_only=1 routes the charge
+        # to walk mode alone (declared routing per RL_PLAN.md).
         k_flag = float(cfg_get(self.cfg, "reward", "k_flag_leg",
                                default=0.0))
+        if k_flag > 0.0 and float(cfg_get(
+                self.cfg, "reward", "flag_leg_walk_only",
+                default=0.0)) > 0.0 and mode_now != "walk":
+            k_flag = 0.0
         if k_flag > 0.0 and self._pad_z_ref is not None:
             allow = float(cfg_get(self.cfg, "reward", "flag_leg_allow_m",
                                   default=0.05))
