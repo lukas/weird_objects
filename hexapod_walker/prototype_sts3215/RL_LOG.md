@@ -785,3 +785,13 @@ sacrificed). Strongest alternative: stepping emerges but clock-locked and
 jerky — fluidity judged in video. GATE: sto walk ≥4/6 gait-valid @
 vel_err ≤0.035 AND video shows all six feet cycling contact/swing AND sto
 rise ≥4/6 retained (canaries armed, auto-stop default).
+
+## OPERATOR addendum ~20:35Z — DR schedule for the phase-reward arms
+
+The basin-escape (fresh/stance-init) phase arm starts at LOW DR
+(0.1–0.2), per the plan's skill-first rule — a from-scratch gait gets
+friendly physics until six-foot stepping visibly exists, then anneal
+up in stages exactly like the stance line (0.2 → 0.4 → 1.0). Do not
+start it at 0.4 just because the walk lineage lives there. The warm
+arm can stay at 0.4 (its question is basin escape at parity with the
+lineage). Gait-validity gate + canaries apply at every DR rung.
