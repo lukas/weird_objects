@@ -854,3 +854,38 @@ scalars. Directives:
    justified (routing safety was proven by flagw's retention half).
    Schedule it as a stance-line run when a slot frees, gated on the new
    end-posture eval + full crown-jewel canaries.
+
+## OPERATOR ~20:45Z — SUPERSEDES the flag-reward part of the previous note: first-principles, not patches
+
+Operator question that reframes it: WHY is a waving leg bad? (1)
+smaller support polygon = less stability margin = tips (the hardware
+incident); (2) load re-routes through fewer legs = hot knees (the
+no-hot-leg problem is the SAME problem); (3) sustained gravity torque
+on the hip for zero contribution = wasted energy. A flag-leg penalty
+treats the symptom; three generic physics terms cover every version of
+this pathology in every mode.
+
+1. **FIRST, diagnose the sim's pricing (root-cause hypothesis):** on a
+   real STS3215, holding a leg horizontal draws continuous current; in
+   our servo model the dead-zone may make static gravity holds nearly
+   FREE, so the existing effort penalty never charges for flag legs in
+   sim. Measure: sim per-servo current for a leg held horizontal in the
+   air vs the motor-dynamics data / stall-torque expectations. If
+   underpriced, fix the torque→current model so static holds cost what
+   they cost. This makes the EXISTING energy term do the work
+   everywhere at once. Report the before/after current numbers.
+2. **Then, generic GLOBAL reward terms (replace the queued stance
+   flag-leg run):** (a) stability margin — distance of CoM ground
+   projection to the support-polygon edge (reward margin, penalize
+   near-edge); (b) per-leg load evenness — penalize variance /
+   concentration of foot normal forces. Both mode-independent and
+   legitimately GLOBAL under the routing rules (they encode "don't
+   tip, don't concentrate heat", not gait morphology). Retire
+   k_flag_leg if these subsume it (keep the eval-side detection
+   forever).
+3. End-posture eval check from the previous note still stands.
+
+Prompt lesson (also added to ORCHESTRATOR_PROMPT): when a blind spot is
+found in one mode, ask "which other modes share this failure class?"
+and extend the CHECK there in the same cycle — checks generalize,
+patches don't.
