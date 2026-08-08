@@ -246,3 +246,38 @@ still charges / walk still charged); 19/19 pass. 6k-step smoke train
 warm from cw-walk-flag with the new flag: clean (WANDB_MODE=disabled).
 No champion changes: ppo_goal_cw_walk_dr04b remains the walk champion
 (and re-validated today); crown-jewel stance line untouched.
+
+Launches (snapshot c858587abef49d8fc9bc74279686d37e3c3cb8f7, tag
+exp/cw-walk-flagw; code synced to all four pods; per-run logs used;
+eval/video-every 200k, background eval worker active). NOTE: upstream
+had two operator commits (blunt-video-verdict directive + faststart
+reels; seed-twin history correction) — rebased onto them, verdicts
+above restated to comply, plan conflict resolved keeping the
+operator's wording.
+
+### LAUNCH cw-walk-flagw (pod s3, W&B 8n5eo6zj, seed 0, 4M, DR 0.4)
+Warm from ppo_goal_cw_walk_dr04b (init_dr04b.zip). One variable vs
+round 7: **reward.flag_leg_walk_only=1** (k_flag_leg=5.0 kept).
+Hypothesis: walk-only routing suppresses the flag leg without the
+rise/raise collapse of the all-modes version. Gate: sto walk ≥4/6 @
+vel_err ≤0.030 AND video shows a six-foot gait with no flag leg AND
+sto rise ≥4/6.
+
+### LAUNCH cw-walk-flagw-s1 (pod s4, W&B jsjc65dd, seed 1, 4M, DR 0.4)
+Twin of cw-walk-flagw (genuine divergence verified in prod this
+round). Run variance + best-of-2. Same gate.
+
+### LAUNCH cw-walk-nv2 (pod long5m, W&B e58w8dos, seed 0, 4M, DR 0.4)
+Consolidate-in-place continuation of cw-walk-nv (warm from
+ppo_goal_cw_walk_nv → 8M cum). Deployable-obs baseline gets its full
+budget before the asymmetric-AC comparison. Gate: sto walk ≥4/6 @
+vel_err ≤0.035. Second miss ⇒ baseline is called at whatever 8M
+gives; move to asymmetric AC either way.
+
+### LAUNCH cw-stance-raisemix (pod friction, W&B bl11do1r, seed 0, 3M, DR 1.0)
+The round-7 plan, actually executed this time (verified: process,
+per-run log advancing, W&B run). Warm from ppo_goal_cw_stance_dr10;
+single change goal-mix raise=0.4,rise=0.2,lower=0.2 (dr10 default was
+rise=0.25,lower=0.2,raise=0.2); all six dr10 cfg-sets retained. Gate:
+raise ≥5/6 det+sto AND rise/lower ≥5/6 all start kinds (crown-jewel
+guard).
