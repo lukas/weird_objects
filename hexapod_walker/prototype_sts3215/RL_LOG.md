@@ -139,3 +139,48 @@ Also for the operator's awareness: two pods outside the guardrails compute
 list exist in the namespace (hexapod-sweep-lower, hexapod-sweep-walk, both
 ~17 h old). I did not create, use, or touch them; if they are meant to be
 part of this campaign, add them to guardrails.yaml.
+
+## Round 7 — push restored, planned launches executed (2026-08-08, idle-kick cycle)
+
+Blocker cleared: the operator restored the GitHub token and pushed local
+main (origin now at the same head we were stuck on; `git push --dry-run`
+succeeds, `~/.git-credentials` repopulated). No runs finished since round
+6 — nothing to eval. All four pods verified idle via /proc scan (`ps`/
+`pgrep` are not installed on the pods; earlier "IDLE" echoes were the
+fallback branch of a failed command, now checked properly). Unit tests
+re-run on the committed round-6 code: 18/18 pass. RL_PLAN.md reviewed
+again: §9 priorities 1–3 are exactly the round-7 table; no changes.
+
+Launched the four runs exactly as planned in the round-6 NEEDS OPERATOR
+entry (hypotheses/gates unchanged, reproduced here for the record):
+
+### LAUNCH cw-walk-flag (pod s3, seed 0, 4M steps, DR 0.4)
+Warm from `ppo_goal_cw_walk_dr04b` (copied from long5m → init.zip).
+Args: joint_walk, 0.02–0.06 m/s, k_walk_swing=1.0, **reward.k_flag_leg=5.0**
+(50 mm default allowance). Hypothesis: the flag-leg penalty removes the
+lineage-wide vertical flag leg without losing tracking. Gate: sto walk
+≥4/6 @ vel_err ≤0.030 AND video shows no foot >50 mm except swing AND
+sto rise ≥4/6.
+
+### LAUNCH cw-walk-flag-s1 (pod s4, seed 1, 4M steps, DR 0.4)
+Identical to cw-walk-flag except seed 1 — the first REAL seed twin post
+`set_random_seed` fix. Question: run-to-run variance + best-of-2. Same gate.
+
+### LAUNCH cw-walk-nv (pod long5m, seed 0, 4M steps, DR 0.4)
+Warm from `ppo_goal_cw_walk_dr04b` (in place). Single change:
+**goal.walk_obs_body_vel=0** (privileged measured-velocity obs zeroed,
+width unchanged). Hypothesis: tracking is re-learnable from
+proprioception+IMU only — the deployable obs path. Gate: sto walk ≥4/6 @
+vel_err ≤0.035. NOTE: no k_flag_leg here (one variable per run).
+
+### LAUNCH cw-stance-raisemix (pod friction, seed 0, 3M steps, DR 1.0)
+Warm from `ppo_goal_cw_stance_dr10` (in place). Single change: goal mix
+**raise=0.4,rise=0.2,lower=0.2** (all round-6 stance cfg-sets retained).
+Hypothesis: raise stalls (3–4/6 @ DR 1.0) because the default mix
+under-trains it. Gate: raise ≥5/6 det+sto AND rise/lower ≥5/6 all start
+kinds retained (crown-jewel guard).
+
+Housekeeping: stray leftover forkserver process observed on s4
+(references linux_control/urt2_setup, hours old, no training) — harmless,
+left alone. Smoke/verification trainings this cycle: none needed (no new
+code).
