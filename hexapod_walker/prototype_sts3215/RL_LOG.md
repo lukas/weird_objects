@@ -826,3 +826,12 @@ the phase reward is refuted independent of basin. If both step, take the
 better gait. GATE (same as arm a): sto walk ≥4/6 gait-valid @ vel_err
 ≤0.035 AND video shows all six feet cycling AND sto rise ≥4/6 retained
 (auto-stop protects the imported crown jewels).
+
+### Correction to the cw-walk-phase-stance entry (operator addendum 20:35Z)
+The basin-escape arm launches at **DR 0.2, not 0.4** (skill-first rule: a
+from-scratch gait gets friendly physics; anneal 0.2 → 0.4 → 1.0 once
+six-foot stepping visibly exists). Its gate is evaluated at its own DR
+(0.2). The warm arm stays at DR 0.4. Arms now differ in init AND DR by
+operator instruction — the basin comparison reads: stance-init@0.2
+stepping while dr04b@0.4 shuffles ⇒ escalate the winner up the DR ladder
+before any cross-arm conclusion beyond "basin matters".
