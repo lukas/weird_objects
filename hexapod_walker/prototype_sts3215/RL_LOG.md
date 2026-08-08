@@ -1,8 +1,9 @@
-# Experiment log — autonomous campaign
+# RL_LOG — autonomous campaign log
 
-Append-only. One entry per finished run (results) and per launched run
-(hypothesis + gate). The orchestrator agent reads this top to bottom each
-cycle; keep entries short and factual.
+Append-only. One short entry per finished run (W&B results + harness eval
++ what the motion VIDEOS showed) and one per launched run (hypothesis +
+gate). The orchestrator agent reads this top to bottom each cycle; keep
+entries short and factual.
 
 Prior history (20 runs, rounds 1–5, manual orchestration):
 see `../../archive/RL_CAMPAIGN_REVIEW_2026-08-08.md`. Champions as of handover:
