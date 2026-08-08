@@ -1299,7 +1299,7 @@
    "--subproc"
   ],
   "created": "2026-08-08T23:01:14+00:00",
-  "status": "RUNNING",
+  "status": "FINISHED",
   "checks": {
    "cpu_limit": 56,
    "existing_trainers": [],
@@ -1339,7 +1339,8 @@
      "W&B no longer reports the run as running"
     ]
    }
-  ]
+  ],
+  "verdict": "AUTO-STOPPED 1.24M/4M (canary 'lower' 3-streak) \u2014 by design. Harness: walk 0/12 gait-valid (tripod park legs 1/3/5 duty ~0.9+), rise/lower/hold 0/12 posture-strict, std 1.0->1.31. Control phase-stance2 survived 4M: 576-wide fresh-Adam first layer drifts ~3x faster. Capability question INCONCLUSIVE (under-dosed); retention risk of wide transplant at std 1.0 CONFIRMED. ckpt md5 eddfc2d0. Next: history as one-variable arm on the walk-only step0 baseline (no retention tension)."
  },
  {
   "run": "cw-stance-posture2",
@@ -1434,5 +1435,76 @@
     "problems": []
    }
   ]
+ },
+ {
+  "run": "probe-walk-step0",
+  "pod": "hexapod-sweep-lower",
+  "steps": 150000,
+  "smoke": true,
+  "hypothesis": "MECHANICAL+DIRECTIONAL PROBE (audit sec6) for operator queue item 0: step-event reward package (k_step_event=1.0, k_drag_loaded=10.0, k_park_duty=1.0) on walk-ONLY joint_walk, from scratch, DR 0, audited exploration (std 1.0 via log_std_init 0, ent 0.01, target_kl 0.02). If-true: all three reward parts appear in W&B-off trainer logs within audited bands (park ~-0.6/tick when parked during command, step events fire, drag <=0), no traceback, healthy fps. If-false: fix code before the 4M cw-walk-step0 launch next cycle. Directional bonus signal (no claim): step-event count trending up by 150k, as the phase probe showed six-leg cycling by 96k. Snapshot 9ccb3c8.",
+  "gate": "mechanical only: healthy to 150k, reward_step_event/reward_drag/reward_park_duty present and in audited bands, no traceback",
+  "parent": "none (from scratch \u2014 operator-directed exception to warm-start default)",
+  "extra_args": [
+   "--task",
+   "joint_walk",
+   "--no-dr",
+   "--log-std-init",
+   "0.0",
+   "--ent-coef",
+   "0.01",
+   "--eval-every",
+   "200000",
+   "--video-every",
+   "200000",
+   "--seed",
+   "0",
+   "--goal-mix",
+   "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+   "--cfg-set",
+   "reward.k_step_event=1.0",
+   "--cfg-set",
+   "reward.k_drag_loaded=10.0",
+   "--cfg-set",
+   "reward.k_park_duty=1.0",
+   "--cfg-set",
+   "goal.walk_speed_min_m_s=0.02",
+   "--cfg-set",
+   "goal.walk_speed_max_m_s=0.06",
+   "--out-name",
+   "ppo_goal_probe_walk_step0",
+   "--no-wandb",
+   "--n-envs",
+   "48",
+   "--subproc"
+  ],
+  "created": "2026-08-08T23:15:48+00:00",
+  "status": "FINISHED",
+  "checks": {
+   "cpu_limit": 30,
+   "existing_trainers": [],
+   "free_cores_estimate": 30,
+   "host_load": {
+    "load1": 8.02,
+    "load5": 7.01,
+    "cores": 128
+   },
+   "pid": "2672968",
+   "log_growth_bytes": [
+    10601,
+    11954
+   ]
+  },
+  "command": "cd /workspace/prototype_sts3215 && WANDB_MODE=disabled nohup python -m rl_move.sim.train_ppo_sim --run-name probe-walk-step0 --steps 150000 --task joint_walk --no-dr --log-std-init 0.0 --ent-coef 0.01 --eval-every 200000 --video-every 200000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --out-name ppo_goal_probe_walk_step0 --no-wandb --n-envs 48 --subproc > /tmp/train_probe-walk-step0.log 2>&1 < /dev/null & echo $!",
+  "log": "/tmp/train_probe-walk-step0.log",
+  "verified": "2026-08-08T23:17:53+00:00",
+  "checkups": [
+   {
+    "time": "2026-08-08T23:19:15+00:00",
+    "process_alive": false,
+    "verdict": "DEAD",
+    "log_tail": " |\n|    policy_gradient_loss | -0.0137     |\n|    std                  | 1.03        |\n|    value_loss           | 99.1        |\n-----------------------------------------\n[train] 150000 steps in 76s \u2192 /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_probe_walk_step0.zip\n[eval] ppo_goal_probe_walk_step0.zip: return +27.162 \u00b1 145.222 | max tilt 3.46\u00b0 | survived 10/10 | track err 3.57\u00b0 (median 3.45\u00b0, within 1\u00b0: 6%) | raise 0/2\n[eval] zero-action baseline: return -136.379 \u00b1 170.672 | max tilt 0.00\u00b0 | survived 10/10 | track err 0.38\u00b0 (median 0.00\u00b0, within 1\u00b0: 90%) | raise 0/2\n"
+   }
+  ],
+  "verdict": "PROBE PASS mechanical (cycle 13): 159,744 steps, 0 tracebacks, parts in audited bands via local rollout of the ckpt (park_duty mean -0.306/tick floor -0.600 exact, drag -0.0004, step_event present). ZERO step events at 150k det \u2014 no directional signal, no claim. cw-walk-step0 4M is next cycle's first launch."
  }
 ]

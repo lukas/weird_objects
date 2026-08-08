@@ -1424,3 +1424,69 @@ drag at the historic 0.03 m/s skate on 3 feet ~ -0.036/tick at k=10.
 Chosen: k_step_event=1.0, k_drag_loaded=10.0, k_park_duty=1.0.
 Tests: 3 added (park charge exact, step-event pays forward swing,
 drag ~0 in quiet stance) — 36 pass.
+
+### cw-walk-hist8 — AUTO-STOPPED at 1.24M by the canary gate; park attractor again; history not refuted (run under-dosed)
+OBSERVATIONS. W&B 4chv0m83, launched on s3 from stance champ
+(transplant 68->576, std 1.0, DR 0.2, snapshot e85a290), verified
+running ~2320 fps solo. Canary AUTO-STOP at 20.43M cum (1.24M of 4M):
+protected group 'lower' failed 3 consecutive probes; trainer saved
+final ckpt (md5 eddfc2d0, pulled) and exited — total wall 677 s. The
+control run (cw-walk-phase-stance2: same init, same std 1.0, phase
+instead of history) survived its full 4M without a canary trip.
+Harness (DR 0.2, own cfg incl. history_frames=8, posture-strict, 6
+eps/mode det+sto): walk det 0/6 @ vel_err 0.046 / sto 0/6 @ 0.044,
+gait_valid 0/12 — duty signature legs 1/3/5 at 0.75-1.0, legs 0/2/4
+at 0.01-0.47; rise 0/12, lower 0/12 (worst 262-273 mm), hold 0/12
+end-posture (66-95 mm). std GREW 1.0 -> 1.31. Frames reviewed:
+walk_det_0 99a7c71c (tripod-park scoot, three legs held clear the
+whole strip, no six-leg cycling), rise_det_0 eb4b8668.
+INTERPRETATION. NOT WALKING — the shared tripod-park attractor, again,
+reached within 1.24M from the stance basin. At std 1.0 the fresh-Adam
+first layer (576 inputs vs the control's 74) drifts much faster per
+update, so retention broke ~3x earlier than the phase control; the
+auto-stop did exactly its job (bounded the damage at 1.24M instead of
+burning 4M). The run answered the RETENTION dynamics of the transplant
+but NOT the capability question: 1.24M steps with the policy already
+parked is not a dose at which history could have restructured a gait
+(the phase probe needed only 96k to show cycling, but that was DR 0
+walk-only).
+VERDICT: FAIL (gate untested at dose; run terminated by design).
+hardware-ready: NO — tripod scoot with the stance line destroyed.
+HYPOTHESIS STATUS: INCONCLUSIVE on capability (under-dosed by
+auto-stop); transplant-at-std-1.0 retention risk CONFIRMED and now a
+known cost of wide-obs transplants. Champion unchanged.
+DECISION: do NOT simply relaunch with --no-canary (jewel protection
+stays). The capability question moves to the operator's step0 line:
+cw-walk-step0 is walk-ONLY from scratch (no retention constraint at
+all, so no canary tension), and once its reward baseline exists,
+history-8 becomes a clean one-variable arm ON TOP of it (walk-only
+also removes the retention/exploration conflict that killed this
+run). A stance-basin history retry, if ever, needs a slower first
+layer (e.g. reduced LR or partial-freeze) — a designed change, not a
+coefficient bump; deferred behind step0.
+
+### probe-walk-step0 — PROBE PASS (mechanical); no step events yet at 150k
+159,744 steps on lower (W&B-off smoke, snapshot 9ccb3c8), zero
+tracebacks, saved cleanly. Parts verified by rolling the probe ckpt
+locally in the exact cfg (300 ticks det, 3 eps): reward_park_duty
+mean -0.306/tick, floor -0.600 (exact audited park/stand value);
+reward_drag -0.0004/tick; reward_step_event present, ZERO events —
+at 150k from scratch the policy stands and pays the park charge
+rather than stepping. Mechanical gate MET; the hoped-for directional
+signal (events trending up, like the phase probe's 96k cycling) did
+NOT appear — recorded as-is, no claim either way at this dose. The
+4M cw-walk-step0 run (operator gate: 10 cm forward, six legs cycling,
+duty ~[0.2,0.9], >=2 swings/leg, no drag/park, det AND sto) is next
+cycle's FIRST launch — this cycle's launch cap (4) is consumed.
+
+### Cycle 13 close — caps and fleet
+Launches: probe-walk-hist8 (pass), cw-walk-hist8 (auto-stopped,
+verdicted), cw-stance-posture2 (running s5, checkup HEALTHY ~1640
+fps), probe-walk-step0 (pass) = 4/4 cap. New steps: 8.3M of 16M.
+Champions: unchanged (stance = cw_stance_dr10; no walk champion).
+Crown-jewel watch: posture-strict lower remains 0/12 on every line —
+the jewel's height claim holds, its posture claim does not.
+Pods after cycle: s5 = cw-stance-posture2 (4M, ~overnight); all
+others idle pending next cycle (step0 launch + posture2/step0
+verdicts). Code landed this cycle: obs history (temporal actor),
+step-event reward package, _privileged_idx fix; 36 tests pass.
