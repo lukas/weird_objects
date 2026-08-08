@@ -81,3 +81,28 @@ skipped. Unit tests pass; smoke: penalty fires on lifted legs, exactly 0 in
 quiet stance. Adopted the prepared `goal.walk_obs_body_vel=0` switch in
 walk_task.py (zeroes privileged measured-velocity obs, width unchanged →
 warm-start compatible); smoke-trained OK.
+
+## NEEDS OPERATOR — cycle aborted before launch (2026-08-08 ~15:50)
+
+`git push` to origin fails: "Invalid username or token". The credential
+store (`~/.git-credentials`) is EMPTY on the controller pod — no PAT
+anywhere (no .netrc, no env token, no gh). Likely the fine-grained token
+expired or was wiped. Per guardrails (escalation: git push rejected) NO new
+runs were launched; all four pods are idle. Everything else in the cycle
+completed and is committed locally on main (commit 4dad783, "orchestrator
+snapshot before cw-walk-flag" — the exp/cw-walk-flag tag was created
+locally, never pushed, and deleted again so a retried snapshot won't
+collide). Restore the GitHub token, push main, and the next cycle can
+launch immediately.
+
+Planned round-7 launches, ready to go (code changes are committed & tested;
+warm-start parents verified present on/for each pod):
+
+| Run | Pod | Warm start | Hypothesis | Gate |
+|---|---|---|---|---|
+| cw-walk-flag | s3 | ppo_goal_cw_walk_dr04b (copy from long5m) | `reward.k_flag_leg=5.0` (50 mm allowance) removes the lineage-wide vertical flag leg without losing tracking; DR 0.4, 0.02–0.06, 4M, seed 0 | sto walk ≥4/6 @ vel_err ≤0.030 AND video: no foot >50 mm except swing AND sto rise ≥4/6 |
+| cw-walk-flag-s1 | s4 | same | first REAL seed twin (post set_random_seed fix) — run variance + best-of-2; seed 1 | same |
+| cw-walk-nv | long5m | ppo_goal_cw_walk_dr04b (in place) | `goal.walk_obs_body_vel=0`: policy re-learns tracking from proprioception+IMU only (deployable obs); DR 0.4, 0.02–0.06, 4M, seed 0 | sto walk ≥4/6 @ vel_err ≤0.035 |
+| cw-stance-raisemix | friction | ppo_goal_cw_stance_dr10 (in place) | raise stalls (3-4/6 @ DR 1.0) because the mix under-trains it; raise=0.4,rise=0.2,lower=0.2, same cfg, DR 1.0, 3M, seed 0 | raise ≥5/6 det+sto AND rise/lower ≥5/6 all starts retained |
+
+W&B notes for each must include the post-push snapshot hash.
