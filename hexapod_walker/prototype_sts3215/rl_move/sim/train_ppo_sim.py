@@ -557,7 +557,11 @@ def _render_reel(env, policy, args, step,
     path = Path(tempfile.gettempdir()) / f"reel_{step}.mp4"
     # Stream to disk: a 4-episode reel held as one uint8 array
     # would be ~1 GB and OOM the process.
-    writer = imageio.get_writer(path, fps=25, macro_block_size=1)
+    # faststart + yuv420p: without leading moov metadata the W&B web
+    # player misreads the duration (42 s reels showed as ~10 s).
+    writer = imageio.get_writer(
+        path, fps=25, macro_block_size=1, pixelformat="yuv420p",
+        output_params=["-movflags", "+faststart"])
     outcomes = []
     try:
         for k, want in enumerate(reel):
