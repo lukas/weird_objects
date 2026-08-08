@@ -469,7 +469,9 @@ def _make_reward_parts_callback():
                 "reward_walk", "reward_walk_prog", "reward_swing",
                 "reward_current_hot", "reward_stance",
                 "reward_clearance", "reward_flag_leg",
-                "reward_current_max", "reward_termination")
+                "reward_current_max", "reward_termination",
+                "reward_phase_contact",
+                "reward_support_margin", "reward_load_even")
 
         def __init__(self):
             super().__init__()
