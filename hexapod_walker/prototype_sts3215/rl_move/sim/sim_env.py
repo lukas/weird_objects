@@ -815,6 +815,31 @@ class SimHexapodBalanceEnv(_GymBase):
             r_clear = -k_clear * clear
             parts["reward_clearance"] = r_clear
             reward += r_clear
+        # Flag-leg penalty (default OFF): the 08-08 video review found
+        # every walk-lineage policy (and the stance line's lower endings)
+        # parking one leg straight up in the air — modes exempt from the
+        # stance-clearance penalty (walk/rise/lower/raise) have no
+        # gradient against it. Charge only clearance ABOVE a generous
+        # allowance (default 50 mm over the episode-start pad z), so
+        # normal swing (~10-20 mm) and rise/lower repositioning stay
+        # free while a vertical flag leg (~150 mm) pays every step.
+        # Active in every mode; the unload target leg is skipped.
+        k_flag = float(cfg_get(self.cfg, "reward", "k_flag_leg",
+                               default=0.0))
+        if k_flag > 0.0 and self._pad_z_ref is not None:
+            allow = float(cfg_get(self.cfg, "reward", "flag_leg_allow_m",
+                                  default=0.05))
+            skip = int(goal.unload_leg) if (
+                goal is not None and goal.unload_leg is not None) else -1
+            over = 0.0
+            for i in range(6):
+                if i == skip or self._pad_bids[i] < 0:
+                    continue
+                over += max(float(self.data.xpos[self._pad_bids[i], 2])
+                            - self._pad_z_ref[i] - allow, 0.0)
+            r_flag = -k_flag * over
+            parts["reward_flag_leg"] = r_flag
+            reward += r_flag
         if terminated:
             parts["reward_termination"] = -pen
             reward -= pen

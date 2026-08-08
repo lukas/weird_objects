@@ -354,7 +354,7 @@ def _make_reward_parts_callback():
                 "reward_curl_progress", "reward_curl_milestone",
                 "reward_walk", "reward_walk_prog", "reward_swing",
                 "reward_current_hot", "reward_stance",
-                "reward_clearance",
+                "reward_clearance", "reward_flag_leg",
                 "reward_current_max", "reward_termination")
 
         def __init__(self):
@@ -723,11 +723,16 @@ def train(args) -> int:
         # before it must start fresh).
         model = PPO.load(args.init_from, env=venv, device="cpu")
         model.verbose = 1  # checkpoints saved with verbose=0 stay silent
-        # PPO.load restores the ANCESTOR's seed, and learn() re-seeds
-        # torch + env from model.seed — so warm-started "different seed"
-        # runs were bit-identical clones (cw-walk-w08 vs -s1 proved it:
-        # max weight diff 0.0 after 5M steps). Honor --seed for real.
+        # PPO.load runs _setup_model(), which calls
+        # set_random_seed(self.seed) with the ANCESTOR's stored seed —
+        # so warm-started "different seed" runs were bit-identical
+        # clones (cw-walk-w08 vs -s1, and AGAIN cw-walk-w07 vs -s1:
+        # max weight diff 0.0 after 5M steps). The 08-08 fix
+        # (`model.seed = args.seed` AFTER load) was a no-op: nothing
+        # re-seeds later — learn() never touches RNG. Actively re-seed
+        # torch/numpy/action-space/env here instead.
         model.seed = args.seed
+        model.set_random_seed(args.seed)
         print(f"[train] warm-started from {args.init_from} "
               f"(seed {args.seed})")
         if args.reset_log_std:

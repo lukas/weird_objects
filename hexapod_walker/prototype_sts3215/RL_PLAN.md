@@ -18,17 +18,18 @@ Two lines ran today:
   (run 10 at std 0.05: erosion slowed — flat 1–2/6 — but not stopped).
   **Line concluded.** Champion archived
   (`policies/best_flat_rise_run06_1540704.zip`).
-- **Raw-joint line (18-dim actions, CoreWeave, from scratch):**
-  belly-rise 5/5 at 2M steps; robust to full-range friction
-  randomization (`cw-friction`, every gate 1.0) and dr 0.4
-  (`cw-long5m`); stand↔belly round trip solved (`cw-lower`, and
-  `cw-lower-smooth2` currently evals 1.0 on rise flat/bridge/crouch +
-  lower + raise). BC warm-start from the IK teacher was **net
-  negative** (anti-curl prior is a liability). Walking v1 stalled at a
-  0.04 m/s shuffle (velocity-blind policy, no gradient from stand to
-  walk); v2 (`cw-walk2`, 10M, running) adds measured body vx/vy to obs
-  + a velocity progress term — current evals still weak (0.047 m/s,
-  survived 0.5, rise erosion inside the walk run).
+- **Raw-joint line (18-dim actions, CoreWeave):** the main line, six
+  rounds in (see RL_LOG.md + archive/RL_CAMPAIGN_REVIEW_2026-08-08.md).
+  Stand↔belly is SOLVED at full DR 1.0, twice over: plain
+  (`cw-stand-dr10`) and even-stance (`cw-stance-dr10`, six-footed
+  hold, imbalance ~1.4–1.9). Walk tracks 0.02–0.06 m/s commands at
+  DR 0.4 (`cw-walk-dr04b`, sto 4/6 @ vel_err 0.028) but the whole
+  walk lineage carries a **vertical flag leg** (5-leg shuffle, one
+  hind leg parked overhead) that scalars never surfaced — reward gap:
+  the clearance penalty skipped walk/rise/lower/raise. Both range
+  widenings (0.08, 0.07) failed. Raise is stuck at 2–5/6 everywhere.
+  NOTE: every warm-started "seed twin" before round 7 was a bit-identical
+  clone (PPO.load re-seeds from the ancestor; fixed for real 08-08).
 
 Decision (agreed with external review): **the 18-joint raw action
 space is the main RL line.** Body-IK survives only as the human/teleop
@@ -121,19 +122,21 @@ gate as hardware-meaningful.
 
 ## 5. Locomotion — real stepping, not exploits
 
-Goal for `cw-walk2` and successors, stated bluntly: commanded forward
-motion with visibly alternating foot contacts. Velocity error alone
-cannot verify that, so add gait metrics to eval: per-foot contact
-timing/duty cycle, airborne duration, swing distance, slip-while-
-loaded, stride consistency, forward distance per episode, current
-distribution. Reject policies that make speed via dragging, slipping,
-or body oscillation.
+Goal, stated bluntly: commanded forward motion with visibly
+alternating foot contacts ON ALL SIX LEGS. Velocity error alone
+cannot verify that (proven again: the flag-leg shuffle passed its
+scalar gates). Judge by the harness gait metrics AND video: duty
+cycles, stride, slip, swing count, current distribution — and reject
+any policy that makes speed via dragging, slipping, oscillation, or
+sacrificing a leg. `reward.k_flag_leg` (clearance above a 50 mm
+allowance, all modes) is the current lever; walk-quality gates from
+here on include "no foot above allowance except during swing".
 
-Command ladder: 0 / 0.03 / 0.06 / 0.10 m/s forward only; lateral/yaw
-only after forward walking is clearly real. Watch the current
-`cw-walk2` risk: its rise metrics are degrading inside the walk run
-(flat/bridge 0.5) — if that persists, train walk separately and merge
-later rather than letting one mix erode the flagship skill.
+Command ladder: consolidate 0.02–0.06 with a clean gait BEFORE any
+re-widening (two widen failures say range is not the bottleneck);
+lateral/yaw only after forward walking is clearly real. Rise erosion
+inside walk runs persists (flat-rise flaps 0–5/6 across walk evals) —
+if it survives the gait fix, train walk separately and merge later.
 
 **Privileged velocity:** measured vx/vy in obs is fine for a
 teacher/proof-of-concept, unusable on hardware (no velocity sensor).
@@ -190,23 +193,20 @@ rise, then walk. Not before `cw` champions pass the full gate.
 ## 9. CoreWeave allocation (next runs, in priority order)
 
 Use pods for architecture-level questions, not micro reward tweaks;
-multi-seed only after a config wins.
+multi-seed only after a config wins (and only post seed-fix — earlier
+twins were clones).
 
-1. **Visual eval pass** (no training): §2 harness over the four
-   champions. Cheapest, highest information.
-2. **Stand/recovery consolidation:** `cw-lower-smooth2` successor
-   with full anti-choreography randomization (§3) + `k_current_max`
-   + current-distribution eval; 24–48 envs, 3M, dr 0.2→0.4.
-3. **Walk teacher:** continue `cw-walk2`; add gait metrics to its
-   eval; judge by §5 standards at ~7M and kill early if it's still a
-   shuffle (don't ride a 10M run to zero like the IK line did).
-4. **Walk student (deployable obs):** frame-stack, no measured
-   velocity; from scratch and distilled variants.
-5. **Ablation (attribution):** one run answering what made raw joints
-   win — IK-line reward stack on raw joints at 2M from scratch vs the
-   400k warm-start pattern. Settles action space vs training regime
-   vs reward density for the record.
-6. Seeds ×3 on whichever of (2)–(4) produces a champion.
+1. **Gait quality:** kill the flag leg (`k_flag_leg`) on the walk
+   champion at DR 0.4, slow range, seed twin alongside; gate = scalar
+   tracking AND no-flag-leg video AND rise retention.
+2. **Walk student (deployable obs):** `goal.walk_obs_body_vel=0`
+   (zeroed privileged velocity, warm-start compatible); frame-stack
+   or distillation only if the zeroed-obs run fails.
+3. **Raise diagnosis:** raise-heavy goal mix on the even-stance
+   DR 1.0 champion; the skill has hovered 2–5/6 in every lineage.
+4. **Lower end-posture:** apply `k_flag_leg` to the stance line (its
+   lower ends with legs aloft) once (1) proves the term safe.
+5. Seeds ×3 on whichever of (1)–(3) produces a champion.
 
 ## 10. Definition of done for this phase
 
