@@ -797,8 +797,9 @@ def train(args) -> int:
         save_path=str(POLICY_DIR), name_prefix=name)]
     if run:
         callbacks.append(_make_reward_parts_callback())
-        callbacks.append(_make_periodic_eval_callback(
-            env_cls, params, args, every=args.eval_every))
+        if args.eval_every > 0:
+            callbacks.append(_make_periodic_eval_callback(
+                env_cls, params, args, every=args.eval_every))
         if args.video_every > 0:
             callbacks.append(_make_video_callback(env_cls, params, args))
     t0 = time.monotonic()
