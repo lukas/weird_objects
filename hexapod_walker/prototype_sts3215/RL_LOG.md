@@ -552,3 +552,63 @@ pods are spent chasing 5/6. Plan updated.
   not policy behavior. When you rebalance them to solo pods (per the
   earlier note), relaunch from their own latest checkpoints AFTER
   `snapshot.sh --sync` so they pick up this fix.
+### Cycle 10 infra + launches
+
+INFRA. (1) `launch_run.py` had a fatal flaw on first real use: `kubectl
+exec ... nohup & echo $!` hangs until the trainer exits (stream stays
+attached), so the launcher timed out at 60 s AFTER starting the
+trainer and left a healthy run stuck at INTENT. Fixed twice: stdin
+from /dev/null on the remote command, and a TimeoutExpired recovery
+path that rediscovers the trainer pid via /proc scan and continues
+mechanical verification (validated live on the lp-s1b launch:
+"kexec timed out; recovering... VERIFIED RUNNING"). aac-s1b and
+speedhi were verified manually with the same evidence (process alive,
+log growth, W&B step window) and promoted INTENT→RUNNING in the
+ledger with the checks recorded. (2) **cw-walk-lp-s1 DIED SILENTLY**
+on lower at ~19:39 @25.22M cum (0.46M/5M): process gone, log ends
+mid-table with no traceback, cgroup oom_kill=0. Cause unknown; it
+survived the deliberate aac-s1 kill by 2+ minutes. Watch for a
+repeat — two silent deaths on lower would point at that pod.
+(3) flagw-s1 (28.76M) and nv2 (32.77M) finished during this cycle —
+their evals belong to the next cycle; long5m + lower left free (also
+restores smoke capacity; launch cap respected at 3/4).
+
+REBALANCE per operator note: cw-walk-aac-s1 killed on lower @25.04M
+(was ~75 fps sharing a 30-core pod; ledger marked, not a scientific
+verdict) and continued on 56-core s3. lp-s1's death converted its
+planned rebalance into a restart on s4.
+
+### LAUNCH cw-walk-aac-s1b (pod s3, W&B gmbwrp4v, seed 1, 3.72M→28.76M cum, DR 0.4)
+Continuation of cw-walk-aac-s1 from its own ckpt
+ppo_goal_cw_walk_aac_s1_25044096_steps.zip (md5 f60427de), all
+settings identical (asym critic, 0.02–0.06, k_walk_swing=1.0).
+Gate unchanged: sto walk ≥4/6 @ vel_err ≤0.035 with hardware-legal
+actor AND beat nv 4M mark; vs nv2 @ 8M; gait-validity gate applies.
+Verified: log 21159→38143 B, step 25.29M→25.52M.
+
+### LAUNCH cw-walk-speedhi (pod friction, W&B g30vnbvl, seed 0, 1.5M, DR 0.4)
+Plan queue #1 / review §2a, triggered by flagw's refutation. Warm from
+init_dr04b (md5 52220b24). One variable vs dr04b: command speed
+0.10–0.15 m/s (was 0.02–0.06). Hypothesis: at 2–6 cm/s the
+drag-shuffle is near-optimal; at speed, stepping is forced. TRUE
+branch: ≥3/6 sto gait-valid AND mean speed ≥0.08 @1.5M → curriculum
+goes fast→slow. FALSE branch: shuffle/falls persist → slow→fast and
+phase reward is next. Canaries monitor-only (--canary-stop-after 0):
+diagnostic ckpt will never be promoted; want full 1.5M of gait
+evidence. On the 30-core smoke pod deliberately (--allow-slow,
+guardrails sanction short diagnostics there); early fps ~1090.
+Verified: log 9906→18274 B, step 24.88M→24.98M.
+
+### LAUNCH cw-walk-lp-s1b (pod s4, W&B via launcher, seed 1, 4.57M→29.76M cum, DR 0.4)
+Restart of the silently-dead lp-s1 from its last ckpt
+ppo_goal_cw_walk_lp_s1_25188096_steps.zip (md5 12d2ddd5), settings
+identical (walk_lp_curriculum=1; LP bucket weights reset, re-adapt in
+~100k). Gate unchanged: retention sto walk ≥4/6 @ vel_err ≤0.030 on
+0.02–0.06 AND sto mean vel_err ≤0.045 over uniform 0.02–0.12 AND
+blunt video + gait-validity. Launcher-verified (fps est 1365).
+
+State after cycle 10: 6 experiments in flight — aac + lp (walk),
+aac-s1b (s3), lp-s1b (s4), speedhi (friction), none on lower/long5m
+(free; smoke capacity restored). Next cycle: eval flagw-s1 + nv2
+(nv2 @8M is the aac-comparison baseline), then speedhi's answer
+decides the phase-reward launch.
