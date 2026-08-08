@@ -1183,3 +1183,15 @@ totals. Also: prefer staggered launches — 4 runs finishing hours apart
 beat 4 finishing together. Relaunch cadence: verdict the two big
 finishes (phase-stance2, aac-s1c) FIRST and get their successors
 launched before working through the remaining backlog verdicts.
+
+## OPERATOR ~22:25Z — fleet grown: +2 pods on a third node; experiment cap 4→6
+
+Third 128-core node (g12ba48) was idle. Added `hexapod-sweep-s5` and
+`hexapod-sweep-s6` (56-core pods like s3/s4), provisioned with the
+standard dep stack (mujoco 3.11.0 pins), code synced, W&B creds in
+place; `launch_run.py status` confirms 8 pods / 3 nodes / node caps.
+Guardrails updated: cap 6 experiments (2 heavy per node x 3), pod list
+is now eight. Use the extra headroom for the queue, and stagger the
+launches. Also deleted the dead kimi serving leftovers (deployment,
+service, 6 TB of model PVCs) — none of it touched our nodes' CPU, it
+was just cost.
