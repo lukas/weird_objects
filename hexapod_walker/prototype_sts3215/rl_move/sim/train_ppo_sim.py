@@ -449,9 +449,9 @@ def _rise_split_stats(env, act_fn, per_kind: int = 2) -> dict[str, tuple]:
     return {k: (v[0], v[1]) for k, v in counts.items()}
 
 
-def _make_periodic_eval_callback(env_cls, params, args, every: int = 20_000,
-                                 per_mode: int = 2):
-    """Deterministic PER-MODE eval every N steps, logged as eval/<mode>/*.
+def _run_periodic_eval(env, act, args, env_cls, step,
+                       per_mode: int = 2) -> tuple[dict, str]:
+    """Deterministic PER-MODE eval, returning (wandb payload, log brief).
 
     Training-rollout metrics are drowned in exploration noise (σ≈0.37 per
     action channel ≈ 1.8° of commanded tilt), and a mixed-mode eval hides
@@ -459,237 +459,340 @@ def _make_periodic_eval_callback(env_cls, params, args, every: int = 20_000,
     Isolating each goal mode gives one clean improvement curve per skill:
     rise completion, raise success, per-mode tracking error.
     """
+    gen = getattr(env, "_goal_gen", None)
+    payload = {"global_step": step}
+    brief = []
+    # Env classes can override which modes get isolated (e.g.
+    # the walk env adds "walk"); runs that enable an extra mode
+    # via --goal-mix get it evaluated too.
+    modes = list(getattr(env_cls, "EVAL_MODES", EVAL_MODES))
+    for m in _parse_goal_mix(getattr(args, "goal_mix", None)):
+        if m not in modes and m != "lean":
+            modes.append(m)
+    if gen is None:
+        modes = ["balance"]
+    for mode in modes:
+        if gen is not None:
+            # Zero every p_* the generator carries (including
+            # injected ones like p_walk), then isolate the mode.
+            for attr in [a for a in vars(gen) if a.startswith("p_")]:
+                setattr(gen, attr, 0.0)
+            setattr(gen, f"p_{mode}", 1.0)
+        if mode == "rise" and gen is not None:
+            # Split by start kind — the pooled number mostly
+            # reports which kinds were drawn, not learning.
+            split = _rise_split_stats(env, act)
+            bits = []
+            for kind, (done_n, tot) in split.items():
+                if tot:
+                    payload[f"eval/rise_{kind}_frac"] = done_n / tot
+                bits.append(f"{kind[0]}{done_n}/{tot}")
+            brief.append("rise " + " ".join(bits))
+            continue
+        stats = _rollout_stats(env, act, per_mode)
+        payload[f"eval/{mode}/return"] = stats["return_mean"]
+        payload[f"eval/{mode}/survived_frac"] = (
+            stats["survived"] / stats["episodes"])
+        if "track_err_deg_mean" in stats:
+            payload[f"eval/{mode}/track_err_deg"] = (
+                stats["track_err_deg_mean"])
+        if "height_err_end_mm" in stats:
+            payload[f"eval/{mode}/height_err_end_mm"] = (
+                stats["height_err_end_mm"])
+        if "raise_episodes" in stats:
+            payload["eval/raise_success_frac"] = (
+                stats["raise_completed"] / stats["raise_episodes"])
+            brief.append(
+                f"raise {stats['raise_completed']}"
+                f"/{stats['raise_episodes']}")
+        elif "lower_episodes" in stats:
+            payload["eval/lower_success_frac"] = (
+                stats["lower_completed"] / stats["lower_episodes"])
+            brief.append(
+                f"lower {stats['lower_completed']}"
+                f"/{stats['lower_episodes']}")
+        elif "walk_vel_err_mean" in stats:
+            payload["eval/walk/vel_err_m_s"] = stats["walk_vel_err_mean"]
+            payload["eval/walk/speed_m_s"] = stats["walk_speed_mean"]
+            brief.append(f"walk err {stats['walk_vel_err_mean']:.3f} m/s")
+        else:
+            brief.append(
+                f"{mode} {stats.get('track_err_deg_mean', 0.0):.2f}°")
+    return payload, ", ".join(brief)
+
+
+def _reel_modes(env, video_episodes: int) -> list[str]:
+    """Modes for the video reel: every mode with sampling weight > 0,
+    in a fixed priority order, cycled up to --video-episodes.
+
+    Cycling matters for rise: its start kind (flat/bridge/crouch)
+    is drawn per-episode, so repeats show different starts."""
+    all_modes = ("rise", "walk", "lower", "raise",
+                 "hold", "track", "lean", "unload")
+    gen = getattr(env, "_goal_gen", None)
+    active = [m for m in all_modes
+              if gen is not None
+              and getattr(gen, f"p_{m}", 0.0) > 0.0]
+    if not active:
+        return ["balance"] * max(1, video_episodes)
+    return [active[i % len(active)] for i in range(max(1, video_episodes))]
+
+
+def _render_reel(env, policy, args, step,
+                 tag: str | None = None) -> tuple[str, str]:
+    """Render a deterministic multi-episode reel; returns (path, caption).
+
+    Frames carry a telemetry overlay (goal refs vs actual, reward, task)
+    because return can improve while the behavior exploits a shortcut —
+    the video is the audit.
+    """
+    import tempfile
+    import imageio
+    gen = getattr(env, "_goal_gen", None)
+    saved_p = {m: getattr(gen, f"p_{m}")
+               for m in ("hold", "lean", "track", "unload",
+                         "raise", "rise", "lower", "walk")
+               if gen is not None and hasattr(gen, f"p_{m}")}
+    reel = _reel_modes(env, args.video_episodes)
+    path = Path(tempfile.gettempdir()) / f"reel_{step}.mp4"
+    # Stream to disk: a 4-episode reel held as one uint8 array
+    # would be ~1 GB and OOM the process.
+    writer = imageio.get_writer(path, fps=25, macro_block_size=1)
+    outcomes = []
+    try:
+        for k, want in enumerate(reel):
+            for m in saved_p:
+                setattr(gen, f"p_{m}", 1.0 if m == want else 0.0)
+            obs, info = env.reset()
+            mode = info.get("goal_mode", want)
+            header = f"[{k + 1}/{len(reel)}] task: {mode}"
+            title = _annotate_frame(env.render(), [header])
+            for _ in range(12):  # ~0.5 s title card per episode
+                writer.append_data(title)
+            done = term = False
+            ret = 0.0
+            while not done:
+                action, _ = policy.predict(obs, deterministic=True)
+                obs, r, term, trunc, info = env.step(action)
+                ret += float(r)
+                lines = [f"{header}   return: {ret:+.1f}"]
+                if "roll_ref_deg" in info:
+                    lines.append(
+                        f"roll  ref {info['roll_ref_deg']:+5.2f}  "
+                        f"act {info['roll_deg']:+5.2f}")
+                    lines.append(
+                        f"pitch ref {info['pitch_ref_deg']:+5.2f}  "
+                        f"act {info['pitch_deg']:+5.2f}")
+                    lines.append(
+                        f"track err {info['track_err_deg']:.2f} deg")
+                if "height_ref_mm" in info:
+                    lines.append(
+                        f"height ref {info['height_ref_mm']:+5.1f}  "
+                        f"act {info['height_mm']:+5.1f} mm")
+                if "walk_vel_err" in info:
+                    lines.append(
+                        f"vel err {info['walk_vel_err']:.3f}  "
+                        f"speed {info.get('walk_speed', 0):.3f} m/s")
+                if term:
+                    lines.append(
+                        f"TERMINATED: {info.get('termination_reason')}")
+                writer.append_data(
+                    _annotate_frame(env.render(), lines))
+                done = term or trunc
+            outcomes.append(
+                f"{mode}:"
+                + (f"TERM({info.get('termination_reason')})"
+                   if term else "ok"))
+    finally:
+        writer.close()
+        for m, p in saved_p.items():
+            setattr(gen, f"p_{m}", p)
+    caption = (f"{tag or f'{step:,} steps'} | " + " ".join(outcomes))
+    return str(path), caption
+
+
+def _bg_eval_child(jobs, results, task, args) -> None:
+    """Worker-process loop for background eval/video.
+
+    Each job is a frozen checkpoint snapshot: load it, run the per-mode
+    eval or render a reel, ship the result back over the queue. The
+    training process does all wandb logging (single W&B writer).
+    """
+    from stable_baselines3 import PPO
+    env_cls = ENV_CLASSES[task]
+    params = SimServoParams.load()  # same file the trainer loaded from
+    eval_env = None
+    render_env = None
+    while True:
+        job = jobs.get()
+        if job is None:
+            return
+        kind, ckpt, step, tag = job
+        out = {"kind": kind, "step": step}
+        try:
+            policy = PPO.load(ckpt, device="cpu").policy
+            policy.set_training_mode(False)
+            if kind == "eval":
+                if eval_env is None:
+                    eval_env = _build_env(env_cls, params, args,
+                                          seed=args.seed + 9999)
+                act = lambda obs: policy.predict(  # noqa: E731
+                    obs, deterministic=True)[0]
+                payload, brief = _run_periodic_eval(
+                    eval_env, act, args, env_cls, step)
+                out.update(payload=payload, brief=brief)
+            else:
+                if render_env is None:
+                    # mesh_visuals=False: STL visual offsets are stale
+                    # (June 2026 re-export), so render the primitive
+                    # geometry that matches what physics simulates.
+                    render_env = _build_env(
+                        env_cls, params, args, seed=args.seed + 4242,
+                        render_mode="rgb_array", mesh_visuals=False)
+                path, caption = _render_reel(
+                    render_env, policy, args, step, tag)
+                out.update(path=path, caption=caption)
+        except Exception as e:  # report, never crash the worker
+            out["error"] = repr(e)
+        finally:
+            Path(ckpt).unlink(missing_ok=True)
+        results.put(out)
+
+
+class _BgEval:
+    """Background eval/video in a separate PROCESS.
+
+    A worker thread was tried first and cost ~60% of training
+    throughput: eval rollouts, frame annotation, and mp4 encoding are
+    GIL-heavy, and at any realistic cadence the worker is busy most of
+    the time (the blocking in-process version before that cost ~65%).
+    A process sidesteps the GIL entirely.
+
+    submit() saves the live model to a temp zip (a snapshot — training
+    keeps mutating the policy); the child loads it and evals/renders;
+    drain() logs finished results to W&B from the training process.
+    """
+
+    def __init__(self, task: str, args):
+        import multiprocessing as mp
+        ctx = mp.get_context("spawn")  # fork is unsafe under wandb threads
+        self._jobs = ctx.Queue()
+        self._results = ctx.Queue()
+        self._busy = {"eval": 0, "video": 0}
+        self._proc = ctx.Process(
+            target=_bg_eval_child,
+            args=(self._jobs, self._results, task, args),
+            daemon=True)
+        self._proc.start()
+
+    def submit(self, kind: str, model, step: int,
+               tag: str | None = None) -> None:
+        import tempfile
+        ckpt = Path(tempfile.gettempdir()) / f"bgeval_{kind}_{step}.zip"
+        model.save(ckpt)  # few MB; <1 s
+        self._busy[kind] += 1
+        self._jobs.put((kind, str(ckpt), step, tag))
+
+    def busy(self, kind: str) -> bool:
+        self.drain()
+        return self._busy[kind] > 0
+
+    def drain(self) -> None:
+        """Log any finished background results; never blocks."""
+        import queue as _queue
+        import wandb
+        while True:
+            try:
+                out = self._results.get_nowait()
+            except _queue.Empty:
+                return
+            self._busy[out["kind"]] -= 1
+            if "error" in out:
+                print(f"[bg-{out['kind']}] skipped ({out['error']})")
+            elif out["kind"] == "eval":
+                wandb.log(out["payload"])
+                print(f"[periodic-eval] {out['step']:,}: {out['brief']}")
+            else:
+                wandb.log({"video/rollout": wandb.Video(
+                               out["path"], format="mp4",
+                               caption=out["caption"]),
+                           "global_step": out["step"]})
+                print(f"[video] logged reel ({out['caption']})")
+
+    def wait(self, timeout_s: float = 1800.0) -> None:
+        """Block until all in-flight jobs are logged (end of training)."""
+        deadline = time.monotonic() + timeout_s
+        while sum(self._busy.values()) > 0:
+            self.drain()
+            if time.monotonic() > deadline:
+                print("[bg-eval] timed out waiting for background jobs")
+                return
+            time.sleep(0.5)
+
+    def shutdown(self) -> None:
+        self.wait()
+        self._jobs.put(None)
+        self._proc.join(timeout=30)
+        if self._proc.is_alive():
+            self._proc.terminate()
+
+
+def _make_periodic_eval_callback(bg: "_BgEval", every: int = 200_000):
+    """Trigger a background per-mode eval every N steps.
+
+    If the previous eval is still in flight, the round is skipped —
+    a late eval of a stale checkpoint is worthless.
+    """
     from stable_baselines3.common.callbacks import BaseCallback
 
     class PeriodicEvalCallback(BaseCallback):
         def __init__(self):
             super().__init__()
             self._next = every  # skip step 0 (untrained; video covers it)
-            self._env = None
 
         def _on_step(self) -> bool:
             if self.num_timesteps >= self._next:
                 self._next = self.num_timesteps + every
-                try:
-                    self._eval()
-                except Exception as e:  # never kill the run
-                    print(f"[periodic-eval] skipped ({e})")
-            return True
-
-        def _eval(self) -> None:
-            import wandb
-            if self._env is None:
-                self._env = _build_env(env_cls, params, args,
-                                       seed=args.seed + 9999)
-            gen = getattr(self._env, "_goal_gen", None)
-            act = lambda obs: self.model.predict(  # noqa: E731
-                obs, deterministic=True)[0]
-            payload = {"global_step": self.num_timesteps}
-            brief = []
-            # Env classes can override which modes get isolated (e.g.
-            # the walk env adds "walk"); runs that enable an extra mode
-            # via --goal-mix get it evaluated too.
-            modes = list(getattr(env_cls, "EVAL_MODES", EVAL_MODES))
-            for m in _parse_goal_mix(getattr(args, "goal_mix", None)):
-                if m not in modes and m != "lean":
-                    modes.append(m)
-            if gen is None:
-                modes = ["balance"]
-            for mode in modes:
-                if gen is not None:
-                    # Zero every p_* the generator carries (including
-                    # injected ones like p_walk), then isolate the mode.
-                    for attr in [a for a in vars(gen)
-                                 if a.startswith("p_")]:
-                        setattr(gen, attr, 0.0)
-                    setattr(gen, f"p_{mode}", 1.0)
-                if mode == "rise" and gen is not None:
-                    # Split by start kind — the pooled number mostly
-                    # reports which kinds were drawn, not learning.
-                    split = _rise_split_stats(self._env, act)
-                    bits = []
-                    for kind, (done_n, tot) in split.items():
-                        if tot:
-                            payload[f"eval/rise_{kind}_frac"] = done_n / tot
-                        bits.append(f"{kind[0]}{done_n}/{tot}")
-                    brief.append("rise " + " ".join(bits))
-                    continue
-                stats = _rollout_stats(self._env, act, per_mode)
-                payload[f"eval/{mode}/return"] = stats["return_mean"]
-                payload[f"eval/{mode}/survived_frac"] = (
-                    stats["survived"] / stats["episodes"])
-                if "track_err_deg_mean" in stats:
-                    payload[f"eval/{mode}/track_err_deg"] = (
-                        stats["track_err_deg_mean"])
-                if "height_err_end_mm" in stats:
-                    payload[f"eval/{mode}/height_err_end_mm"] = (
-                        stats["height_err_end_mm"])
-                if "raise_episodes" in stats:
-                    payload["eval/raise_success_frac"] = (
-                        stats["raise_completed"] / stats["raise_episodes"])
-                    brief.append(
-                        f"raise {stats['raise_completed']}"
-                        f"/{stats['raise_episodes']}")
-                elif "lower_episodes" in stats:
-                    payload["eval/lower_success_frac"] = (
-                        stats["lower_completed"] / stats["lower_episodes"])
-                    brief.append(
-                        f"lower {stats['lower_completed']}"
-                        f"/{stats['lower_episodes']}")
-                elif "walk_vel_err_mean" in stats:
-                    payload["eval/walk/vel_err_m_s"] = (
-                        stats["walk_vel_err_mean"])
-                    payload["eval/walk/speed_m_s"] = (
-                        stats["walk_speed_mean"])
-                    brief.append(
-                        f"walk err {stats['walk_vel_err_mean']:.3f} m/s")
+                if bg.busy("eval"):
+                    print("[periodic-eval] previous eval still running; "
+                          "skipping this round")
                 else:
-                    brief.append(
-                        f"{mode} {stats.get('track_err_deg_mean', 0.0):.2f}°")
-            wandb.log(payload)
-            print(f"[periodic-eval] {self.num_timesteps:,}: "
-                  + ", ".join(brief))
+                    bg.submit("eval", self.model, self.num_timesteps)
+            bg.drain()
+            return True
 
     return PeriodicEvalCallback()
 
 
-def _make_video_callback(env_cls, params, args):
-    """Periodically render one deterministic rollout and log it to W&B.
+def _make_video_callback(bg: "_BgEval", every: int, args):
+    """Trigger a background telemetry-overlay video reel every N steps.
 
-    Runs in-process on a dedicated render env (DR on, fresh draw each
-    time) so the video shows the same distribution the policy trains on.
-    Frames carry a telemetry overlay (goal refs vs actual, reward, task)
-    because return can improve while the behavior exploits a shortcut —
-    the video is the audit.
+    The render env lives in the worker process (DR on, fresh draw each
+    time) so the video shows the distribution the policy trains on.
     """
     from stable_baselines3.common.callbacks import BaseCallback
 
     class VideoCallback(BaseCallback):
-        def __init__(self, every: int):
+        def __init__(self):
             super().__init__()
-            self.every = every
             self._next = 0  # first video = untrained policy, for contrast
-            self._env = None
 
         def _on_step(self) -> bool:
             if self.num_timesteps >= self._next:
-                self._next = self.num_timesteps + self.every
-                try:
-                    self._record()
-                except Exception as e:  # rendering must never kill a run
-                    print(f"[video] skipped ({e})")
+                self._next = self.num_timesteps + every
+                if bg.busy("video"):
+                    print("[video] previous reel still rendering; "
+                          "skipping this round")
+                else:
+                    bg.submit("video", self.model, self.num_timesteps)
             return True
 
         def _on_training_end(self) -> None:
-            try:
-                self._record(tag="final")
-            except Exception as e:
-                print(f"[video] final render skipped ({e})")
-            if self._env is not None:
-                self._env.close()
+            # Final reel must make it out before the W&B run closes.
+            bg.wait()
+            bg.submit("video", self.model, self.num_timesteps, tag="final")
 
-        def _reel_modes(self, env) -> list[str]:
-            """Modes for the reel: every mode with sampling weight > 0,
-            in a fixed priority order, cycled up to --video-episodes.
-
-            Cycling matters for rise: its start kind (flat/bridge/crouch)
-            is drawn per-episode, so repeats show different starts."""
-            all_modes = ("rise", "walk", "lower", "raise",
-                         "hold", "track", "lean", "unload")
-            gen = getattr(env, "_goal_gen", None)
-            active = [m for m in all_modes
-                      if gen is not None
-                      and getattr(gen, f"p_{m}", 0.0) > 0.0]
-            if not active:
-                return ["balance"] * max(1, args.video_episodes)
-            return [active[i % len(active)]
-                    for i in range(max(1, args.video_episodes))]
-
-        def _record(self, tag: str | None = None) -> None:
-            import tempfile
-            import imageio
-            import wandb
-            if self._env is None:
-                # mesh_visuals=False: STL visual offsets are stale (June
-                # 2026 re-export), so render the primitive geometry that
-                # matches what physics actually simulates.
-                self._env = _build_env(
-                    env_cls, params, args,
-                    seed=args.seed + 4242, render_mode="rgb_array",
-                    mesh_visuals=False)
-            env = self._env
-            gen = getattr(env, "_goal_gen", None)
-            saved_p = {m: getattr(gen, f"p_{m}")
-                       for m in ("hold", "lean", "track", "unload",
-                                 "raise", "rise", "lower", "walk")
-                       if gen is not None and hasattr(gen, f"p_{m}")}
-            reel = self._reel_modes(env)
-            path = Path(tempfile.gettempdir()) / (
-                f"reel_{self.num_timesteps}.mp4")
-            # Stream to disk: a 4-episode reel held as one uint8 array
-            # would be ~1 GB and OOM the trainer.
-            writer = imageio.get_writer(path, fps=25, macro_block_size=1)
-            outcomes = []
-            try:
-                for k, want in enumerate(reel):
-                    for m in saved_p:
-                        setattr(gen, f"p_{m}",
-                                1.0 if m == want else 0.0)
-                    obs, info = env.reset()
-                    mode = info.get("goal_mode", want)
-                    header = f"[{k + 1}/{len(reel)}] task: {mode}"
-                    title = _annotate_frame(env.render(), [header])
-                    for _ in range(12):  # ~0.5 s title card per episode
-                        writer.append_data(title)
-                    done = term = False
-                    ret = 0.0
-                    while not done:
-                        action, _ = self.model.predict(
-                            obs, deterministic=True)
-                        obs, r, term, trunc, info = env.step(action)
-                        ret += float(r)
-                        lines = [f"{header}   return: {ret:+.1f}"]
-                        if "roll_ref_deg" in info:
-                            lines.append(
-                                f"roll  ref {info['roll_ref_deg']:+5.2f}  "
-                                f"act {info['roll_deg']:+5.2f}")
-                            lines.append(
-                                f"pitch ref {info['pitch_ref_deg']:+5.2f}  "
-                                f"act {info['pitch_deg']:+5.2f}")
-                            lines.append(
-                                f"track err {info['track_err_deg']:.2f} deg")
-                        if "height_ref_mm" in info:
-                            lines.append(
-                                f"height ref {info['height_ref_mm']:+5.1f}  "
-                                f"act {info['height_mm']:+5.1f} mm")
-                        if "walk_vel_err" in info:
-                            lines.append(
-                                f"vel err {info['walk_vel_err']:.3f}  "
-                                f"speed {info.get('walk_speed', 0):.3f} m/s")
-                        if term:
-                            lines.append(
-                                f"TERMINATED: "
-                                f"{info.get('termination_reason')}")
-                        writer.append_data(
-                            _annotate_frame(env.render(), lines))
-                        done = term or trunc
-                    outcomes.append(
-                        f"{mode}:"
-                        + (f"TERM({info.get('termination_reason')})"
-                           if term else "ok"))
-            finally:
-                writer.close()
-                for m, p in saved_p.items():
-                    setattr(gen, f"p_{m}", p)
-            caption = (f"{tag or f'{self.num_timesteps:,} steps'} | "
-                       + " ".join(outcomes))
-            wandb.log({"video/rollout": wandb.Video(str(path),
-                                                    format="mp4",
-                                                    caption=caption),
-                       "global_step": self.num_timesteps})
-            print(f"[video] logged reel ({caption})")
-
-    return VideoCallback(every=args.video_every)
+    return VideoCallback()
 
 
 def train(args) -> int:
@@ -800,13 +903,17 @@ def train(args) -> int:
     callbacks = [CheckpointCallback(
         save_freq=max(10_000 // args.n_envs, 1000),
         save_path=str(POLICY_DIR), name_prefix=name)]
+    bg = None
     if run:
         callbacks.append(_make_reward_parts_callback())
+        if args.eval_every > 0 or args.video_every > 0:
+            bg = _BgEval(args.task, args)
         if args.eval_every > 0:
             callbacks.append(_make_periodic_eval_callback(
-                env_cls, params, args, every=args.eval_every))
+                bg, every=args.eval_every))
         if args.video_every > 0:
-            callbacks.append(_make_video_callback(env_cls, params, args))
+            callbacks.append(_make_video_callback(
+                bg, args.video_every, args))
     t0 = time.monotonic()
     # Warm starts CONTINUE the step count (checkpoint num_timesteps →
     # checkpoint filenames, W&B x-axis and fork_from all line up across
@@ -820,6 +927,10 @@ def train(args) -> int:
     model.learn(total_timesteps=args.steps,
                 callback=callbacks, progress_bar=False,
                 reset_num_timesteps=not args.init_from)
+    if bg is not None:
+        # Waits for the final video/eval to be logged, then reaps the
+        # worker process.
+        bg.shutdown()
     out = POLICY_DIR / f"{name}.zip"
     model.save(out)
     print(f"[train] {args.steps} steps in {time.monotonic() - t0:.0f}s → "
@@ -1068,16 +1179,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-wandb", action="store_true",
                     help="disable Weights & Biases logging")
     ap.add_argument("--eval-every", type=int, default=200_000,
-                    help="per-mode deterministic eval every N timesteps; "
-                         "eval runs serially in the main process and blocks "
-                         "all rollout workers. Measured 2026-08-08: the old "
-                         "20k default cost ~65%% of wall clock on 128-core "
-                         "pods (1.3k fps observed vs 3.6k fps with eval "
-                         "off). Keep >=200k for --subproc runs.")
+                    help="per-mode deterministic eval every N timesteps "
+                         "(0 disables). Runs on a background thread on a "
+                         "frozen policy copy, so training does not stall "
+                         "(the old blocking version cost ~65%% of wall "
+                         "clock); rounds are skipped if the previous eval "
+                         "is still running.")
     ap.add_argument("--video-every", type=int, default=250_000,
                     help="log a rendered rollout video to W&B every N "
-                         "timesteps (0 disables); rendering also blocks "
-                         "training, keep sparse on long runs")
+                         "timesteps (0 disables); renders on the same "
+                         "background thread as eval")
     ap.add_argument("--video-episodes", type=int, default=4,
                     help="episodes per W&B video reel; cycles through the "
                          "active goal modes so one video covers the whole "
