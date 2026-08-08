@@ -1490,3 +1490,45 @@ Pods after cycle: s5 = cw-stance-posture2 (4M, ~overnight); all
 others idle pending next cycle (step0 launch + posture2/step0
 verdicts). Code landed this cycle: obs history (temporal actor),
 step-event reward package, _privileged_idx fix; 36 tests pass.
+
+## Cycle 14 (2026-08-08 ~23:55Z) — posture2 verdict + cw-walk-step0 (operator queue item 0)
+
+### LAUNCH cw-walk-step0 (4M, DR 0, seed 0) — walk-only from-scratch step-event baseline
+OPERATOR-DIRECTED (binding queue item 0). HYPOTHESIS: with the park
+priced BY CONSTRUCTION (k_park_duty charges duty outside [0.1,0.9]
+every commanded tick, test-measured -0.6/tick for a standing park),
+dragging charged while loaded (k_drag_loaded), and a completed
+lift->swing->touchdown paying a one-shot per-leg credit
+(k_step_event), a from-scratch walk-ONLY policy at DR 0 with audited
+exploration (std 1.0, ent 0.01, target_kl 0.02) discovers real
+stepping — the first reward landscape in this campaign where the
+tripod park is strictly worth less than stepping.
+Prediction-if-true: step events appear and trend up (unlike the
+150k probe where events were zero and the policy stood paying the
+park charge), and by 4M the harness shows >=10 cm forward with all
+six legs cycling, per-leg duty in ~[0.2,0.9], >=2 swings/leg, no
+drag/park — det AND sto. Prediction-if-false: policy still parks or
+shuffles while paying the duty charge (charge absorbed as a constant,
+gradient to first step never found) — that refutes "pricing the park
+suffices from scratch" and promotes rung 1 (history-8 ON TOP of this
+exact reward, one variable) since capability, not pricing, would be
+the remaining gap. Strongest alternative: exploration never produces
+a single completed step event, so the credit stays invisible (probe
+saw zero events at 150k) — distinguishable in W&B via
+reward_step_event staying exactly zero vs rising.
+Root-cause chain (required): park <- avoids stepping costs <- per-leg
+load/duty unpriced + step never explicitly paid <- current model
+dead-zone underprices static holds (sim defect, cycle 13) — this run
+prices the behavior at the reward level because the deeper current-
+model fix is a physics recalibration queued for hardware-validation
+time (RL_PLAN hardware gate 3), inaccessible this cycle.
+Fresh init is the operator's explicit exception to warm-start
+default; walk-only mix removes retention concerns (no canaries — no
+parent to protect). No asym-critic, no history, no curriculum: the
+embarrassingly narrow baseline.
+GATE (operator, deliberately narrow, DR 0): from normal stance move
+FORWARD >=10 cm with ALL SIX legs repeatedly cycling
+lift/swing/touchdown; per-leg duty ~[0.2,0.9]; >=2 swings per leg;
+no drag, no parked leg; det AND sto; video verdict pathology-first.
+Budget 4M. Probe probe-walk-step0 PASSED mechanically (cycle 13).
+Pod: hexapod-sweep-walk (56-core, node g129004 empty at check).
