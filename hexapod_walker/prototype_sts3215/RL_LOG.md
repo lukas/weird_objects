@@ -281,3 +281,18 @@ single change goal-mix raise=0.4,rise=0.2,lower=0.2 (dr10 default was
 rise=0.25,lower=0.2,raise=0.2); all six dr10 cfg-sets retained. Gate:
 raise ≥5/6 det+sto AND rise/lower ≥5/6 all start kinds (crown-jewel
 guard).
+
+## Round 8.5 — spurious cycle: watcher re-fired on already-handled runs (2026-08-08 ~18:1x)
+
+Watcher named cw-walk-flag-s1 (swtus1fa) and cw-walk-nv (8g6mggws) as newly
+finished, but both were evaluated and verdicted (MISS, videos reviewed) in
+round 8, which absorbed their staggered finishes alongside cw-walk-flag.
+Confirmed via W&B: no new runs by those names; both IDs match round 8. Second
+dedupe failure of this kind (round 6.5 was smoke runs; this is finish-event
+lag) — watcher should skip runs that already have an RL_LOG verdict.
+
+Verified all four in-flight runs healthy (per-run logs growing over a 60 s
+window; W&B state running): cw-walk-flagw 25.86M cum (~1.1M/4M in),
+cw-walk-flagw-s1 25.75M, cw-walk-nv2 29.1M (~0.35M/4M), cw-stance-raisemix
+19.44M (~0.24M/3M). No freed pods → no launches. RL_PLAN.md reviewed: no new
+evidence since round 8, no changes. No eval, no verdicts, no champion changes.
