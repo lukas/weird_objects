@@ -19,13 +19,19 @@ existing config knobs, [CODE] needs an implementation cycle first,
    reverse, hard strafe, spin of the stick — must never fall the
    robot. Two workstreams: (a) envelope coverage — walk in every
    direction (heading ladder: `cw-walk-head90` off wander30, then
-   ±135/±180); (b) transition hardening — train with FAST abrupt
-   command resampling, not just gentle 5 s changes
+   ±135/±180); (b) transition hardening — train with RANDOMIZED
+   abrupt resampling (`goal.walk_cmd_resample_jitter`,
+   `walk_cmd_blend_s_min/max` — intervals AND blend times vary,
+   flips down to ~0.1 s), not just gentle fixed 5 s changes
    (`cw-walk-joystick45`). **JOYSTICK GATE (use for every driving
-   candidate): own-cfg eval with resample 1.5 s, stop_frac 0.2,
-   full trained envelope, 12/12 episodes ZERO terminations.** A
-   policy that walks beautifully but falls on a command flip is
-   not a driving candidate.
+   candidate): `python3 -m rl_move.sim.eval_drive <ckpt> --dr-scale
+   0.2 [--cfg-set ...]` — scripted fwd/back/strafe/diag/stop-go
+   panel + randomized instant-flip stress episodes; ZERO in-envelope
+   falls = PASS (exit code enforces it).** The generic harness
+   samples the training distribution and proves nothing about
+   direction coverage or flips (that's how backforth slipped
+   through). A policy that walks beautifully but falls on a command
+   flip is not a driving candidate.
 
 1. [RUNNING] **Longer distances** — 30 s+ horizons, sustained gait
    without degradation (`cw-walk-longdist`). Extend to 60 s if it

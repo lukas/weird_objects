@@ -332,10 +332,32 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     return float(rng.uniform(-math.pi / 4, math.pi / 4))
                 return float(rng.uniform(-math.pi, math.pi))
 
-            seg_n = max(1, int(round(rs_s / self.dt)))
-            blend_n = max(1, int(round(1.0 / self.dt)))
+            # Joystick realism (operator, 08-09): a human on a stick flips
+            # commands at IRREGULAR intervals with near-INSTANT transitions.
+            # walk_cmd_resample_jitter j draws each segment length uniform
+            # in [rs_s*(1-j), rs_s*(1+j)]; walk_cmd_blend_s_min/max draw
+            # each transition's blend time (default 1.0/1.0 = legacy fixed
+            # 1 s ramp; set min 0.1 for flick-like flips). Defaults leave
+            # every existing lineage's rng stream unchanged.
+            jit = float(cfg_get(self.cfg, "goal", "walk_cmd_resample_jitter",
+                                default=0.0))
+            bl_lo = float(cfg_get(self.cfg, "goal", "walk_cmd_blend_s_min",
+                                  default=1.0))
+            bl_hi = float(cfg_get(self.cfg, "goal", "walk_cmd_blend_s_max",
+                                  default=1.0))
+
+            def seg_len() -> int:
+                s = rs_s if jit <= 0.0 \
+                    else rs_s * float(rng.uniform(1.0 - jit, 1.0 + jit))
+                return max(1, int(round(max(s, self.dt) / self.dt)))
+
+            def blend_len() -> int:
+                b = bl_lo if bl_hi <= bl_lo \
+                    else float(rng.uniform(bl_lo, bl_hi))
+                return max(1, int(round(max(b, self.dt) / self.dt)))
+
             cvx, cvy = vx_t, vy_t
-            i = hold_n + ramp_n + seg_n
+            i = hold_n + ramp_n + seg_len()
             while i < n:
                 if rng.random() < stop_frac:
                     nvx = nvy = 0.0
@@ -343,13 +365,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     s2 = float(rng.uniform(s_lo, s_hi))
                     a2 = draw_heading()
                     nvx, nvy = s2 * math.cos(a2), s2 * math.sin(a2)
-                end_b = min(i + blend_n, n)
+                end_b = min(i + blend_len(), n)
                 vx[i:end_b] = np.linspace(cvx, nvx, end_b - i)
                 vy[i:end_b] = np.linspace(cvy, nvy, end_b - i)
                 vx[end_b:] = nvx
                 vy[end_b:] = nvy
                 cvx, cvy = nvx, nvy
-                i += seg_n
+                i += seg_len()
         # Commanded gait height (operator wishlist 2026-08-09: walk in a
         # HIGHER or LOWER stance; default 0 = today's nominal walk).
         # goal.walk_height_off_mm ramps the height ref alongside the

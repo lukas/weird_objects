@@ -98,6 +98,12 @@ leave the next agent to rediscover it.
    --dr-scale F --seed N --episode-seconds S --stochastic
    [--end-posture-gate] [--no-video|--video-every N] --out DIR
    --cfg-set k=v (repeatable)`.
+   **Driving candidates additionally need the JOYSTICK GATE**
+   (`python3 -m rl_move.sim.eval_drive <ckpt> --dr-scale 0.2 --out
+   FILE.json [--cfg-set …]`): scripted direction panel + randomized
+   instant-flip stress; zero in-envelope falls = exit 0. The generic
+   harness only samples the training distribution — it can't prove
+   direction coverage or flip robustness (backforth lesson, 08-09).
 2. **Launch ONLY via `launch_run.py launch`.** Raw `kubectl exec …
    nohup train_ppo…` hits the 2-minute exec timeout (looks dead,
    actually launched → ledger drift; this caused a real incident).
@@ -137,11 +143,16 @@ leave the next agent to rediscover it.
     08-09 and their runs got re-triaged from scratch (and the
     operator's assistant repeated the exact mistake later the same
     day — READ THIS LIST before touching infrastructure).
-11. **Verdicts auto-mirror to W&B notes.** `launch_run.py update
-    --set verdict=…` pushes the verdict under the `--- OUTCOME ---`
-    marker on the run's W&B page. `ops.sh wandbnote` can replace it
-    with a richer human paragraph, but no verdicted run should ever
-    look "unanalyzed" on W&B again.
+11. **Verdicts auto-mirror to W&B notes AND package the analysis
+    artifact.** `launch_run.py update --set verdict=…` pushes the
+    verdict under the `--- OUTCOME ---` marker on the run's W&B page
+    and attaches `analysis-<run>` (type run-analysis) to the run:
+    ledger entry, `rl_docs/runs/<run>.md`, and every
+    `logs/ckpt_eval/<run>_*` + `logs/experiments/<run>/` file
+    (report.json, contact sheets, videos). So run your harness evals
+    BEFORE setting the verdict — files that exist at verdict time are
+    what gets archived. `ops.sh wandbnote` can still replace the note
+    with a richer paragraph.
 12. **Checkpoint lineage lives in W&B artifacts** (08-09): every
     training run publishes `ckpt-<out-name>` (type
     policy-checkpoint, md5 + parent in metadata) and declares its
