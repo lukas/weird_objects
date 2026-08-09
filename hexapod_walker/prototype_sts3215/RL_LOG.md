@@ -1900,3 +1900,19 @@ ent 0.001, same lineage) runs beside it — the pair is a clean A/B on
 the entropy hypothesis. s5 freed while this cycle ran
 (cw-stance-endpost-r1 finished) — endpost-r1's verdict belongs to the
 watcher-triggered cycle for it, not this one; s5 left free.
+
+### Cycle 15 close — caps and fleet
+cw-walk-step0-lowent LAUNCH VERIFIED (launcher exit 0): s6, pid 1086,
+W&B vkrvueqg (ent 0.001, seed 0, init-from md5-verified ea1685a4 on
+pod), ~3550 fps solo, global_step advancing 4.41M->4.73M in the
+verification window. Launched this cycle: 1 of 4 cap; new steps 4M of
+16M. Champions: stance unchanged (cw_stance_dr10); walk-line
+reference/champion recorded = ppo_goal_cw_walk_step0.zip md5 ea1685a4
+(first gait_valid 12/12 walk; NOT hardware-ready — DR 0, skating,
+no speed tracking). Fleet after cycle: walk = c2 (operator's
+identical-config arm), s6 = lowent (the ent A/B against it), s5
+freed (endpost-r1 finished — verdict belongs to its own
+watcher-triggered cycle), all others idle. Evals archived:
+logs/ckpt_eval/cw_walk_step0_4M_gate + cw_walk_step0_c1_gate.
+Ledger: step0 FINISHED+verdict, c1 reconstructed+verdict, c2
+reconstructed RUNNING (operator raw launch), lowent RUNNING.
