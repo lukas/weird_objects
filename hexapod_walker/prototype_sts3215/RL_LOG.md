@@ -1916,3 +1916,18 @@ watcher-triggered cycle), all others idle. Evals archived:
 logs/ckpt_eval/cw_walk_step0_4M_gate + cw_walk_step0_c1_gate.
 Ledger: step0 FINISHED+verdict, c1 reconstructed+verdict, c2
 reconstructed RUNNING (operator raw launch), lowent RUNNING.
+
+## OPERATOR CORRECTION (2026-08-09 ~01:15Z) — ledger clobbering root cause
+
+The cycle above mis-verdicted the ops story: c1 and c2 were NOT raw
+launches. Both went through `launch_run.py` (c1 verified 00:34Z, c2
+verified 00:57:40Z, each printed "VERIFIED RUNNING ... ledger
+updated"). Their entries vanished because cycles were HAND-EDITING
+`experiments.json` (read whole file -> modify -> dump, no lock, stale
+copy): each manual "reconstruction" erased whatever concurrent
+launches had landed since the stale read — c1's entry, then lowent's
+(operator re-backfilled it 01:05Z). Fix landed this commit:
+`launch_run.py update --run <name> --set k=v [--create]` does locked
+single-entry edits, and the prompt now forbids hand-editing the
+ledger. Prompt change requires watcher restart (prompt is cached at
+watcher start) — operator handling it.
