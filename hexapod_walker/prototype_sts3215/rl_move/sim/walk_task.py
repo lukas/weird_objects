@@ -308,6 +308,60 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         vx[hold_n:end] = np.linspace(0.0, vx_t, end - hold_n)
         vy[hold_n:end] = np.linspace(0.0, vy_t, end - hold_n)
         zeros = np.zeros(n)
+        # Mid-episode command resampling (operator wishlist 2026-08-09:
+        # "walking around and changing direction"; default 0 = off, rng
+        # stream unchanged). Every walk_cmd_resample_s seconds draw a
+        # new (speed, heading) within the same scope and blend to it
+        # over 1 s; with walk_stop_frac probability a segment is a full
+        # stop — the policy learns start/steer/stop transitions instead
+        # of one frozen command per episode.
+        rs_s = float(cfg_get(self.cfg, "goal", "walk_cmd_resample_s",
+                             default=0.0))
+        if rs_s > 0.0:
+            stop_frac = float(cfg_get(self.cfg, "goal", "walk_stop_frac",
+                                      default=0.15))
+
+            def draw_heading() -> float:
+                if h_max >= 0.0:
+                    return 0.0 if h_max == 0.0 \
+                        else float(rng.uniform(-h_max, h_max))
+                r = rng.random()
+                if r < 0.60:
+                    return 0.0
+                if r < 0.80:
+                    return float(rng.uniform(-math.pi / 4, math.pi / 4))
+                return float(rng.uniform(-math.pi, math.pi))
+
+            seg_n = max(1, int(round(rs_s / self.dt)))
+            blend_n = max(1, int(round(1.0 / self.dt)))
+            cvx, cvy = vx_t, vy_t
+            i = hold_n + ramp_n + seg_n
+            while i < n:
+                if rng.random() < stop_frac:
+                    nvx = nvy = 0.0
+                else:
+                    s2 = float(rng.uniform(s_lo, s_hi))
+                    a2 = draw_heading()
+                    nvx, nvy = s2 * math.cos(a2), s2 * math.sin(a2)
+                end_b = min(i + blend_n, n)
+                vx[i:end_b] = np.linspace(cvx, nvx, end_b - i)
+                vy[i:end_b] = np.linspace(cvy, nvy, end_b - i)
+                vx[end_b:] = nvx
+                vy[end_b:] = nvy
+                cvx, cvy = nvx, nvy
+                i += seg_n
+        # Commanded gait height (operator wishlist 2026-08-09: walk in a
+        # HIGHER or LOWER stance; default 0 = today's nominal walk).
+        # goal.walk_height_off_mm ramps the height ref alongside the
+        # velocity ramp; the shared height kernel already rewards
+        # tracking it (same machinery as raise/rise/lower).
+        h_off = float(cfg_get(self.cfg, "goal", "walk_height_off_mm",
+                              default=0.0)) / 1000.0
+        height = zeros
+        if h_off != 0.0:
+            height = np.full(n, h_off)
+            height[:hold_n] = 0.0
+            height[hold_n:end] = np.linspace(0.0, h_off, end - hold_n)
         # Park-basin reset diversity (goal.walk_park_start_frac, default
         # 0.0 = feature off): with probability f the episode STARTS in
         # a tripod-park posture (three hips lifted; pose built env-side
@@ -324,7 +378,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                   default=0.0))
         start_at = "park" if rng.random() < park_frac else "plant"
         return WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
-                              height=zeros, unload_leg=None,
+                              height=height, unload_leg=None,
                               start_at=start_at, vx=vx, vy=vy)
 
     def _sample_goal(self):
