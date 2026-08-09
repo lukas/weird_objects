@@ -64,3 +64,6 @@ MUJOCO_LOG.TXT
 # Local board credentials / secrets -- NEVER commit
 **/.board_secrets.env
 .secrets/
+
+# W&B local run logs (never commit; they poison the snapshot dirty check)
+hexapod_walker/prototype_sts3215/wandb/
