@@ -442,6 +442,20 @@ def build_xml(obstacles_xml: str = "") -> str:
       <geom group="3" rgba="0.02 0.02 0.02 1" condim="6" friction="2.0 0.1 0.001"
             solref="0.01 1" solimp="0.95 0.99 0.001"/>
     </default>
+    <default class="legcol">
+      <!-- Leg-segment ground collision (Aug 2026). Before this class,
+           only the foot spheres / chassis box / yaw servo boxes collided:
+           femur, knee servo and tibia were visual-only, so rise/lower
+           policies learned to sweep shins THROUGH the floor (operator
+           spotted it in MuJoCo; on hardware that motion jams the leg and
+           strips a servo). Bitmask contype=4 / conaffinity=0 pairs these
+           ONLY with the floor plane (conaffinity=5): no leg-leg or
+           leg-chassis contacts, so the convex-hull false-positive problem
+           that made leg links visual-only in the first place (see the
+           mesh comment above) stays avoided. -->
+      <geom contype="4" conaffinity="0" group="3" rgba="1 0.55 0 0.25"
+            condim="3" friction="1.0 0.02 0.0001"/>
+    </default>
   </default>
 
   <asset>
@@ -461,7 +475,7 @@ def build_xml(obstacles_xml: str = "") -> str:
 
   <worldbody>
     <light name="sun" pos="2 -1.5 2.2" dir="-0.6 0.4 -1" castshadow="true"/>
-    <geom name="floor" type="plane" size="8 8 0.05" pos="0 0 -0.001" material="grid" friction="1.5 0.05 0.0001"/>
+    <geom name="floor" type="plane" size="8 8 0.05" pos="0 0 -0.001" material="grid" friction="1.5 0.05 0.0001" conaffinity="5"/>
     <geom name="terrain" type="hfield" hfield="terrain" material="terrain_mat" friction="1.5 0.05 0.0001" condim="4"/>
       {obstacles_xml}
 
@@ -792,6 +806,9 @@ def _foot_boot_body_xml(i: int) -> str:
 
 
 def _leg_xml(i: int, x: float, y: float, z: float, qw: float, qz: float) -> str:
+    # Tibia ground-collision capsule runs knee yoke -> boot socket; the
+    # boot itself is already the L{i}_foot contact sphere.
+    tibia_col_end = TIBIA - (HP.FOOT_BOOT_SOCKET_DEPTH + HP.FOOT_BOOT_TIP_L) * M
     hip_servo_xml = _hip_servo_visual_xml(i)
     knee_servo_xml = _knee_servo_visual_xml(i)
     coxa_link_xml = _coxa_link_visual_xml(i)
@@ -825,12 +842,15 @@ def _leg_xml(i: int, x: float, y: float, z: float, qw: float, qz: float) -> str:
         <body name="L{i}_femur" pos="{COXA:.5f} {HIP_ANCHOR_Y:.5f} 0">
           <inertial pos="{FEMUR / 2:.5f} 0 0" mass="{FEMUR_MASS}" diaginertia="0.00008 0.00022 0.00022"/>
           <joint name="L{i}_pitch" type="hinge" axis="0 1 0" range="-1.40 0.52"/>
+          <geom class="legcol" name="L{i}_femur_col" type="capsule" fromto="0 0 0 {FEMUR:.5f} 0 0" size="0.010"/>
+          <geom class="legcol" name="L{i}_knee_servo_col" type="box" pos="{FEMUR - 0.010:.5f} -0.026 0" size="0.021 0.011 0.020"/>
 {femur_link_xml}
 {knee_servo_xml}
 
           <body name="L{i}_tibia" pos="{FEMUR:.5f} 0 0">
             <inertial pos="{TIBIA / 2:.5f} 0 0" mass="{TIBIA_MASS}" diaginertia="0.00006 0.00022 0.00022"/>
             <joint name="L{i}_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <geom class="legcol" name="L{i}_tibia_col" type="capsule" fromto="0 0 0 {tibia_col_end:.5f} 0 0" size="0.008"/>
 {tibia_link_xml}
 {_foot_boot_body_xml(i)}
           </body>
