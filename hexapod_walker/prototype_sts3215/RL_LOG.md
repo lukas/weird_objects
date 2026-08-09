@@ -4655,3 +4655,92 @@ Cycle totals: 2 launches (1 GPU smoke probe PASS, 1 experiment),
 2 controller probes (anchor scale audit 3 eps + gate on/off
 functional check); 6 strips + 2 dense filmstrips watched
 (provenance in verdict).
+
+## Cycle 31 (2026-08-09 ~09:0xZ) — cw-walk-anchorgate verdict: gate FAIL (slip det 1.240 / sto 1.245 vs ≤1.0) but the anchor gate is the FIRST of four levers to actually move slip — det −20% vs champion beyond per-ep noise, at unchanged speed and HIGHER forward distance. anchor_frac 0.767→0.837 still climbing at run end. Near-miss → consolidate-in-place c1 + pre-registered fresh-init basin test launched in parallel.
+
+### VERDICT cw-walk-anchorgate (20M GPU steps, mjx-train-1, W&B jiwhh0qd)
+OBSERVATIONS (mechanical). Run finished: 20,000,000 steps in 1302 s
+(~15.4k fps), W&B state finished, ckpt
+ppo_goal_cw_walk_anchorgate.zip md5 35234ddc151ac6f7e05350b7c550efb7
+pulled to controller (pod copy identical). Training quartiles (W&B):
+env/walk_anchor_frac 0.767→0.803→0.826→0.837 (last 0.836; monotone,
+slope shallowing, NOT plateaued); env/reward_walk 1.20→1.22 (income
+held while gated — earned, not forfeited); ep_rew_mean 664→862→867→861
+(last 896); train/std 1.375→1.306 still annealing; mean_current_a
+FLAT 0.481→0.492 (contrast phaseprior +12%); walk_speed 0.049→0.052
+in band all run; 0 tracebacks.
+Gate harness (own cfg minus park_start_frac, 6+6, seed 0, 15 s,
+videos every ep):
+- DR 1.0 (logs/ckpt_eval/cw_walk_anchorgate_dr10): agg slip/m det
+  1.240 / sto 1.245 vs gate ≤1.0 — FAIL. Named baseline champion
+  parkstart_mjx det 1.543 / sto 1.295. det per-ep
+  [0.986, 1.001, 1.272, 1.342, 1.353, 1.504] vs champion
+  [1.315, 1.421, 1.447, 1.566, 1.750, 1.821]: 4/6 eps BELOW the
+  champion's per-ep minimum, two eps under 1.0 (first sub-1.0 DR1.0
+  episodes in lineage history) — beyond the per-ep noise band, real.
+  sto per-ep ranges overlap (1.131–1.366 vs 1.071–1.669), agg delta
+  −0.05 — NO EVIDENCE of sto change. Speed det 0.048–0.056 vs
+  champion 0.044–0.054 (same band — slip drop NOT bought with
+  slowness); det fwd mean 0.681 vs champion 0.618 (higher). gv
+  12/12, 0 term, imbal 1.26–1.31.
+- DR 0 15 s (logs/ckpt_eval/cw_walk_anchorgate_15s): det fwd mean
+  0.736 ≥0.55 ✓ (champion 0.745 — parity); det agg slip/m 1.144
+  (champion 1.180 — inside noise); gv 12/12 ✓; fwd-hemisphere sto
+  fwd ≥0.40 5/5 ✓ (0.739/0.668/0.731/0.737/0.665); backward draw
+  sto[5] fwd 0.272, slip/m 3.53 recorded-excluded per pending
+  operator ruling (rear-hemisphere hole unchanged). 0 term ✓.
+FRAMES WATCHED (md5/frames): dr10 walk_det_0
+b1fff33d44d41ca6e7d0b8929e924980/375, walk_det_3 (best ep, slip
+0.986) adbc44a1b12dabcbbac10358849f4dab/375, walk_sto_0
+77578c2878788fc9c67441faff90b698/375; 15s walk_det_0
+9fc9370b69f6ab3d1af226fa543099bf/375, walk_sto_5 (backward)
+acf4648a84bf77f2406ddb3d2bc1cf99/375; strip PNGs e6b5f8ff/57aae90a/
+98176e5b/a3e6b098/7f9f7df5; plus dense 5 fps 3.2 s filmstrips of
+dr10 det_3 vs champion dr10 det_0 side-by-side. Remaining eps
+scalars only (unwatched).
+Pathologies first: the posture is STILL the wide sprawly low creep;
+in the dense filmstrips the best-slip episode is NOT visually
+distinguishable from the champion's paddling at this resolution —
+I cannot claim visible stance anchoring from frames; the improvement
+is scalar-only. Backward-command ep (15s sto[5]) still churns
+near-in-place (duty pinned 0.72/0.65/0.68 on one tripod, slip 3.5).
+Achievements: six legs cycling everywhere (gv 24/24), body level, 0
+falls/terminations in 24 eps, currents flat vs champion.
+Exploits looked for and not found: unload-sweep (pre-registered
+watch: duty drop + swing spike with slip high) — duty 0.36–0.63
+balanced, swing counts 6–12, champion-like, absent; slip-via-slowness
+— speed band unchanged, fwd distances UP; collapse-to-stand — absent;
+park — absent (0 park eps in 24).
+INTERPRETATION. The gate ENGAGED and pulled in the intended
+direction: anchor_frac rose monotonically all 20M steps, income was
+earned back (reward_walk held ~1.2 while gated), and det slip fell
+past the champion's per-ep envelope — the FIRST slip movement after
+three refuted levers (park-income gating c24, effort pricing c29,
+phase prior c30). But the run ended mid-gradient: frac 0.837 just
+under the 0.85 if-true mark, slip 1.24 vs the 1.0 gate, and sto slip
+(sampling at std 1.31) unmoved. NONE of the pre-registered if-false
+shapes fired ((b) frac was not flat and income not forfeited; (c)
+frac not >0.85; (d) no collapse). This is a textbook near-miss with
+the mechanism trace consistent (frac↑ ↔ det slip↓ at fixed speed).
+Two open questions split cleanly: (1) does the same gradient finish
+the job (consolidate-in-place), and (2) is the residual paddle a
+warm-start legacy basin or the sim's globally preferred transport
+(fresh-init WITH the gate — the pre-registered escalation, run in
+parallel since GPU capacity is otherwise idle and the answer is
+independent of (1)).
+VERDICT: FAIL against the recorded gate (DR1.0 slip clause both
+passes; all retention clauses met). NOT HARDWARE-READY: feet still
+grind 1.24 m per meter walked at DR 1.0 — that motion stalls and
+heats servos on carpet (a motor has already cooked). CHAMPION
+UPDATED: ppo_goal_cw_walk_anchorgate.zip md5 35234ddc is the new
+walk champion — beats parkstart_mjx on the named blocker metric
+(DR1.0 det slip 1.240 vs 1.543, beyond per-ep noise) with fwd
+distance up (0.681 vs 0.618 DR1.0; 0.736 vs 0.745 DR0 parity), sto
+slip/gv/term parity, currents flat. Champion is append-only; both
+files retained.
+HYPOTHESIS STATUS: INCONCLUSIVE — directionally supported (income
+conditioning moved the gated quantity where charging and timing
+references did not; frac climbed and was earned) but the if-true
+prediction (frac >0.85 AND slip ≤1.0 both passes) was not reached
+and sto slip shows no evidence of change. No if-false branch fired.
+Continuation c1 is the discriminating experiment.

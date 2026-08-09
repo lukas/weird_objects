@@ -5435,7 +5435,7 @@
       "24"
     ],
     "created": "2026-08-09T08:25:31+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -5460,6 +5460,23 @@
     "log": "/tmp/train_cw-walk-anchorgate.log",
     "wandb_id": "jiwhh0qd",
     "verified": "2026-08-09T08:29:10+00:00",
-    "verify_agent": "process alive pid 2588626; log +11KB/60s; pod SHA 51859c8 = snapshot; W&B jiwhh0qd advancing 3.2M+, no duplicate, notes open with human paragraph; env/walk_anchor_frac LIVE at 0.77-0.80 with env/reward_walk 1.15-1.22/tick (ungated parent ~2.0+ => gate biting as designed); deferred probe W&B key check now closed"
+    "verify_agent": "process alive pid 2588626; log +11KB/60s; pod SHA 51859c8 = snapshot; W&B jiwhh0qd advancing 3.2M+, no duplicate, notes open with human paragraph; env/walk_anchor_frac LIVE at 0.77-0.80 with env/reward_walk 1.15-1.22/tick (ungated parent ~2.0+ => gate biting as designed); deferred probe W&B key check now closed",
+    "checkups": [
+      {
+        "time": "2026-08-09T08:34:33+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 12247,
+        "fps": 18932.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "final_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip",
+    "checkpoint_md5": "35234ddc151ac6f7e05350b7c550efb7",
+    "verdict": "FAIL on gate (DR1.0 agg slip/m det 1.240 / sto 1.245 vs <=1.0) BUT first lever of four to move slip: det -20% vs champion parkstart_mjx 1.543, 4/6 eps below champion per-ep min, at unchanged speed and higher fwd (0.681 vs 0.618); sto 1.245 vs 1.295 no evidence; DR0 retention passes (det fwd 0.736, gv 24/24, 0 term, fwd-hemi sto 5/5). anchor_frac 0.767->0.837 monotone still climbing, income earned (reward_walk ~1.2), current flat. No if-false shape fired; hypothesis INCONCLUSIVE; NOT HARDWARE-READY (slip 1.24 m/m). CHAMPION UPDATED to this ckpt. Continuation c1 launched.",
+    "hypothesis_status": "INCONCLUSIVE",
+    "eval_artifacts": "logs/ckpt_eval/cw_walk_anchorgate_dr10 + cw_walk_anchorgate_15s (videos md5 b1fff33d/adbc44a1/77578c28/9fc9370b/acf4648a, 375 frames each, watched)"
   }
 ]
