@@ -1657,3 +1657,54 @@ det+sto, unchanged from posture line): lower end-posture >=5/6 sto
 AND >=4/6 det AND rise/lower height-only >=5/6 both AND hold sto
 6/6. Budget 4M. Canaries default-on (warm start). New mechanism ->
 probe-endpost smoke first (audit §6). Pod: s5.
+
+### Cycle 14 launches — what actually happened (three launcher findings)
+1. cw-walk-step0: first launcher attempt CRASHED before any process
+   started — the --notes value reached the remote shell UNQUOTED and
+   ">=10cm" parsed as a redirect (argparse exit 2; verified no
+   process, no log on walk pod; stale INTENT marked FAILED). Retry
+   with quote-wrapped notes: VERIFIED RUNNING, W&B wfcg6ues, ~2730
+   fps solo on walk. (It has since FINISHED at 4M in 1766 s — verdict
+   belongs to the watcher-triggered next cycle, not this one.)
+2. probe-endpost (smoke, friction): the 150k probe ran so fast
+   (~2430 fps) that it FINISHED before the launcher's log-growth
+   check; the launcher read the stopped log as dead and its cleanup
+   pkill killed the trainer mid final-save (no ckpt saved; log shows
+   exactly 150,000 steps consumed, 0 tracebacks, std 0.198 sane).
+   Probe evidence completed LOCALLY instead (cycle-13 pattern):
+   champion ckpt rolled in the exact endpost cfg — lower flag-leg
+   ending pays -0.82..-1.20/tick over the 30-39-tick terminal window
+   (scale audit predicted -0.95 for ~250 mm), raise -0.15..-0.47
+   (predicted -0.50 at 120 mm), planted rise endings ~0.00, zero
+   charge outside terminal windows. Mechanical probe gate MET on
+   combined evidence (150k integration + exact bands); ledger status
+   FAILED per launcher-exit-code-is-truth, verdict carries the facts.
+3. cw-stance-endpost: first attempt died at init — parent
+   ppo_goal_cw_stance_dr10.zip MISSING on the new s5 pod (snapshot
+   --sync carries code, not gitignored policies/). Fixed by kubectl
+   cp (md5 verified da1d912a on pod), but the crashed W&B run blocks
+   the name; relaunched as cw-stance-endpost-r1 — VERIFIED RUNNING,
+   W&B no0ihywt, ~4779 fps solo on s5, std 0.197 at start (inherited,
+   as designed). All hypothesis/gate/one-variable details as in the
+   LAUNCH entry above (name suffix only).
+LAUNCHER NOTES FOR OPERATOR (non-blocking, no orchestrator code
+touched mid-cycle): (a) quote/escape extra args containing shell
+metacharacters before building the remote command; (b) fast smokes
+finish inside the verification window — treat "log stopped growing
+AND budget reached in log" as SUCCESS, and don't pkill on cleanup
+before checking for a completed run; (c) the /proc-scan pid recovery
+can match its own scan shell (pattern contains the needle) — bracket
+a character ([m]) or exclude self.
+
+### Cycle 14 close — caps and fleet
+Launched this cycle (started processes): cw-walk-step0 (4M, walk pod,
+FINISHED already), probe-endpost (150k smoke, friction, ran to budget),
+cw-stance-endpost-r1 (4M, s5, RUNNING) = 3-4 of 4 cap counting the
+seconds-long endpost init crash. New steps: 8.15M of 16M. Champions:
+unchanged (stance = cw_stance_dr10; no walk champion). Crown-jewel
+watch: posture-strict lower still 0/12 on every line — the height
+claim holds, the posture claim does not; endpost-r1 is the live fix.
+Pods after cycle: s5 = cw-stance-endpost-r1 (~30-60 min at solo fps),
+walk pod free (step0 done, next cycle's verdict), all others idle.
+Code landed: reward.k_end_posture terminal pricing + 2 tests (38
+pass); entropy-RUNAWAY health alarm recorded (posture2 finding).
