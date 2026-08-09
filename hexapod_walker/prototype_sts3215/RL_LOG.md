@@ -5073,3 +5073,170 @@ verdict, minutes away), not deliberation idle.
 Cycle totals: 0 launches (0 GPU steps), 1 harness eval (12 eps),
 4 strips + contact sheet + 1 dense tile watched (provenance in
 verdict), champion unchanged, 2 ledger updates, plan net 0 lines.
+
+## Cycle 34 (2026-08-09 ~11:0xZ) — cw-walk-anchortol5 verdict: gate FAIL (slip det 1.222 / sto 1.283 vs ≤1.0), tolerance correction REFUTED, TOLERANCE RUNG CLOSED (one correction, else closed — per pre-registration). New failure shape: at a BINDING tol=5 stake the policy neither anchored nor floor-rode — it PAID the gate (−18% walk income accepted, frac stuck 0.74) and kept creeping. Income gating has hit its price ceiling. Pre-registered escalation launched: displacement-gated step-event credit (0-c.2).
+
+### VERDICT cw-walk-anchortol5 (20M GPU steps, mjx-train-1, W&B wn7pl2c4)
+OBSERVATIONS (mechanical). Run finished: 20,054,016 steps, W&B state
+finished, 0 tracebacks, ckpt ppo_goal_cw_walk_anchortol5.zip md5
+a4580acd71e9be9e5e3aeeddf223f05e pulled (pod copy identical).
+Training quartiles (W&B, scan_history): env/walk_anchor_frac
+0.629→0.700→0.723→0.738 (last 0.731) — re-dropped from parent's
+0.906 at the tol change as predicted, then re-climbed to only ~0.74
+and PLATEAUED (never re-reached 0.85); env/reward_walk
+0.92→0.99→1.02→1.06 — EARNED (positive, climbing) but −18% vs
+parent's 1.29/tick at tol=10: the policy settled for the discounted
+income; env/reward_step_event 0.159→0.192→0.200→0.210 (+32%, vs
+c1's +24% at tol=10) — cadence income STILL rising;
+walk_speed pinned 0.050 in band; train/std 1.30→1.24 annealing
+normally; approx_kl ~0.01; mean_current_a 0.479→0.453; ep_len 375
+after Q1, 0 terminations.
+Gate harness (own cfg minus park_start_frac, 6+6 per DR, seed 0,
+15 s, video every ep):
+- DR 1.0 (logs/ckpt_eval/cw_walk_anchortol5_dr10): agg slip/m det
+  1.222 / sto 1.283 vs gate ≤1.0 — FAIL. Named baselines: champion
+  anchorgate det 1.240 / sto 1.245, c1 det 1.283 / sto 1.326. det
+  per-ep [1.021,1.072,1.246,1.248,1.259,1.497] vs champion
+  [0.986,1.001,1.272,1.342,1.353,1.504] — ranges overlap heavily:
+  NO EVIDENCE of slip change from the tol 10→5 correction. Speed
+  det 0.048–0.054 in band (slip not bought with slowness); det fwd
+  mean 0.636 vs champion 0.681 (slightly worse, inside noise); gv
+  12/12, 0 term, imbal 1.11–1.34, Imax 2.73 A, duty 0.38–0.64.
+- CADENCE (required exploit-watch): det stances 65.7 mean
+  [58,60,63,65,67,81] vs champion 47.2 [44–51] and c1 58.2 [55–62]
+  — the ≤~65 gate clause is breached (marginally on the mean, ep0
+  at 81). BUT the policy did NOT ride the tol=5 floor: per-stance
+  creep is 11.8 mm ≫ 5 mm tol (tol=5 floor would be ~0.52 slip/m;
+  measured 1.22). It kept c1-like creep and simply collected the
+  discounted a_factor ≈ 0.74. Per-leg swing max/min det 1.1–1.7
+  (ep0 1.7 — mild drummer-leg asymmetry, below c33's 3–4x).
+- DR 0 15 s (logs/ckpt_eval/cw_walk_anchortol5_15s): det fwd mean
+  0.724 ≥0.55 ✓ (champion 0.736 parity); det agg slip/m 1.028
+  (champion 1.144 — direction good, inside noise); gv 12/12 ✓,
+  0 term ✓; fwd-hemisphere sto fwd ≥0.40 5/5 ✓
+  (0.724/0.645/0.644/0.736/0.565); backward draw sto[5] fwd 0.17,
+  slip/m 5.79, 84 stances — rear-hemisphere hole unchanged,
+  recorded-excluded per pending operator ruling.
+FRAMES WATCHED (md5/frames): dr10 walk_det_0 (worst, 1.497, 81
+stances) 0ccfe41f/375, walk_det_3 (best, 1.021) 38b61e64/375,
+walk_sto_0 (worst sto, 1.677) f0d60dbb/375; 15s walk_det_0
+8f09585e/375, walk_sto_5 (backward) 05c07272/375; strip PNGs +
+both contact sheets viewed. Remaining eps scalars only (unwatched).
+Pathologies first: the SAME wide sprawly low creep as champion, c1
+and step0-anchor — body low, six legs splayed, feet mostly
+grounded making small displacements, NO crisp swing/stance cycling
+visible at strip resolution; tol=5 is NOT visually distinguishable
+from tol=10. Backward sto churns near-in-place. Achievements: six
+legs cycling per gait metrics (gv 24/24), 0 falls in 24 eps, body
+level, currents flat vs parent.
+Exploits looked for: floor-ride at tol=5 (per-stance creep ≤5 mm +
+cadence spike) — ABSENT (creep 11.8 mm, cadence +13% vs c1, not
+the 2x a floor-ride needs); slip-via-slowness — ABSENT (speed in
+band); park — ABSENT (0/24); unload-sweep — ABSENT (duty
+0.38–0.64); forfeit (income collapse) — ABSENT (reward_walk
+climbed). FOUND: discount-eating — the policy pays an 18% income
+haircut rather than anchor (frac plateaued 0.74), plus continued
+mild cadence inflation (+13% vs c1, step_event income +32%).
+INTERPRETATION. The tolerance-correction hypothesis is refuted on
+its own terms: the stake WAS restored (frac dropped to 0.63 at the
+change, income visibly gated all run — the audit's 0.53–0.63
+prediction landed), and slip still did not move. This is a THIRD
+failure shape, sharper than the pre-registered if-false: not
+allowance-riding (tol=5 floor never approached), not starvation
+(DR0 fwd 0.724) — the anchored-income gate at full strength
+(g=1.0) is simply outbid by whatever makes creeping cheap. Together
+with c31 (gate moved slip once, 1.543→1.240, when it first bound),
+c32 (tol=10 optimized to non-binding via cadence), and c33 (fresh
+init re-derives the ride), the arc reads: income gating buys
+exactly one reorganization and then the policy prices the gate as
+a tax and pays it. ROOT-CAUSE CHAIN (required): residual slip ←
+creeping transport is cheaper than stepping even at −18% income ←
+sliding friction costs ~nothing in-sim (drag charge k_drag=10 ≈
+0.01/tick vs walk income ~1.06/tick; sliding draws only 1.38x
+planted current, effort ~4% of income) ← sim contact/current
+pricing defect — the DEEPEST link, with the OPERATOR since cycle
+28 (recorded reason it is inaccessible to me). Reachable next
+link per the pre-registration: the CADENCE INCOME channel —
+step-event credit pays per touchdown with no displacement
+accounting (income +24%/+32%/2x across three arms), the one
+income term that still pays for the exploit-side behavior.
+VERDICT: FAIL against the recorded gate (DR1.0 slip both passes;
+cadence clause breached; all DR0 retention clauses met). NOT
+HARDWARE-READY: feet grind 1.22 m per meter walked at DR 1.0 and
+the motion is the same sprawly creep — stalls and heats servos on
+carpet (a motor has already cooked). CHAMPION UNCHANGED:
+ppo_goal_cw_walk_anchorgate.zip md5 35234ddc remains walk champion
+(tol5 det 1.222 vs 1.240 inside noise, fwd 0.636 vs 0.681, no
+metric beaten beyond noise). TOLERANCE RUNG CLOSED (pre-registered:
+one correction, else closed). tol5 ckpt retained append-only.
+HYPOTHESIS STATUS: REFUTED — prediction-if-true (det slip ≤1.0 at
+stances ≤65) failed; neither pre-registered if-false shape fired
+verbatim (cadence 65.7 < 75; no starvation); observed shape is
+discount-eating, which subsumes if-false-1's conclusion: the
+allowance structure is not the binding defect — the PRICE of
+sliding is. Escalation per pre-registration: displacement-gated
+step-event credit (0-c.2) — the last unpriced income channel that
+pays cadence — while the sim-pricing ruling stays with the
+operator.
+
+### CODE — cycle 34: displacement-gated step-event credit (walk_task.py + MJX logging)
+The pre-registered 0-c.2 escalation, implemented as an income
+CONDITION (step0 "worth less by construction" mandate), not a new
+charge. ROOT-CAUSE CHAIN (required): cadence inflation ← step-event
+credit pays PER TOUCHDOWN with no displacement accounting (income
++24% c1, +32% tol5, 2x from scratch c33) ← credit was sized for a
+honest gait's touchdown rate ← deepest link (sliding priced ~free)
+is with the OPERATOR (cycle 28; recorded inaccessible). DESIGN:
+each tick banks the body's net along-command displacement
+(max(along,0)·dt); each PAID step credit CONSUMES
+reward.step_disp_budget_mm of bank; empty bank ⇒ credit denied
+(logged walk_step_denied / walk_step_bank_m, new AUX keys in
+train_ppo_mjx). Total step income ≤ k_step·1.5·distance/budget BY
+CONSTRUCTION: stride-in-place banks nothing, marginal cadence at
+fixed distance earns nothing; the gate removes income only, never
+shrinks a penalty. Default 0 = off, legacy exact; walk-mode only;
+_step_disp_bank added to MJX_SNAPSHOT_EXTRA (pooled resets).
+PROBE SMOKE: budget=0 legacy-exact (champion seed-0 det return
+1046.586 identical OFF/ON-at-0, info keys absent); zero-action
+probe pays 0, banks 0; reset clears bank; pytest test_sim_env +
+test_mjx_vec_env 35 passed.
+SCALE AUDIT (probe_step_disp.py, DR0 det 15 s, champion cfg):
+champion seeds 0/1 denial 0.000 at ≤15 mm (natural 14.5 mm/step
+clears the gate — retention safe); seed 2 (slow-command draw)
+16% of step income at 12 mm = ~0.4% of return (intended pricing:
+slow commands need fewer steps); c1 ckpt (58 stances) denial 2%
+at 12 mm / 11% at 15 mm; tol5 ckpt 1% / 16%. CONSEQUENCE, stated
+plainly: as a SLIP arm this stake is VACUOUS (step income ~7% of
+total; denial ≤2% of that at current cadences — an order of
+magnitude below the refuted 18% effort charge). The arm is
+therefore launched as a CADENCE-ATTRIBUTION experiment, gated on
+cadence, with slip recorded as a secondary observation expected
+flat. Budget 12 mm chosen to sit exactly at c1's drift endpoint
+(11.3 mm/step marginal steps unpaid) while champion behavior at
+normal draws pays nothing.
+
+### LAUNCH cw-walk-stepdisp12 (20M GPU steps) — which income channel pays for cadence inflation?
+One variable off champion ppo_goal_cw_walk_anchorgate.zip md5
+35234ddc, config = anchorgate-c1's EXACT config (tol=10, seed 0)
+plus reward.step_disp_budget_mm=12.0 — c1 is the named
+identical-config control (it drifted 47→58 stances/ep, step
+income +24%, over 20M steps). HYPOTHESIS: cadence inflation is
+sustained by step-event income. If-true: with marginal touchdowns
+unpaid, det DR1.0 stance count stays ≤~55/ep (vs c1's 58.2),
+walk_step_denied transient→~0, slip expected flat (~1.24, NOT a
+gate); DR0 retention holds. If-false: cadence drifts to ≥~58
+anyway with walk_step_denied climbing (the policy eats denial
+because extra touchdowns protect the anchor a_factor, worth ~10x
+more) ⇒ the two income channels are fully mapped and BOTH
+exhausted ⇒ walk slip line goes to NEEDS OPERATOR whole (cycle 28
+pricing ruling), no further walk reward arms. Strongest
+alternative: c1's drift was stochastic, not income-driven —
+addressed by same seed + identical config, one variable. Gate
+(recorded): DR1.0 15 s own-cfg 6+6: det stances ≤~55/ep AND
+walk_step_denied end-of-run ≈0, gv 12/12, 0 term; DR0: det fwd
+≥0.55, gv 12/12, fwd-hemi sto ≥0.40 5/5 (backward draw
+recorded-excluded); slip det/sto recorded vs champion 1.240/1.245
+as observation. Frames: same-creep expected; watch for cadence
+change. NOTE this arm cannot PASS into a champion (slip is the
+champion metric and is expected flat) — it selects between two
+terminal dispositions of the walk income line.

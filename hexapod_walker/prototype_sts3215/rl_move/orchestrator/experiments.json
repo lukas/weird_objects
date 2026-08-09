@@ -5736,7 +5736,7 @@
       "24"
     ],
     "created": "2026-08-09T09:44:19+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -5773,7 +5773,12 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "final_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_anchortol5.zip",
+    "final_checkpoint_md5": "a4580acd71e9be9e5e3aeeddf223f05e",
+    "final_steps": 20054016,
+    "verdict": "FAIL \u2014 DR1.0 agg slip/m det 1.222 / sto 1.283 vs gate <=1.0 (champion anchorgate 1.240/1.245, c1 1.283/1.326 \u2014 deltas inside per-ep noise, NO EVIDENCE of slip change). Cadence det 65.7 stances/ep mean (one ep 81) vs champion 47.2 / c1 58.2 \u2014 clause <=~65 breached marginally; per-stance creep 11.8mm >> 5mm tol, so the policy did NOT floor-ride tol=5; instead it ATE the discount: training anchor_frac only regained 0.74 (vs 0.906 at tol=10), reward_walk 1.06/tick vs 1.29 (-18% income accepted over anchoring); reward_step_event +32% (cadence income still rising). DR0 retention PASS (det fwd 0.724, gv 12/12, 0 term, fwd-hemi sto 5/5; backward draw sto5 recorded-excluded). NOT HARDWARE-READY: feet grind 1.22 m per meter at DR1.0, same sprawly creep in frames. Hypothesis REFUTED (if-true failed); failure shape HYBRID between if-false-1 (cadence up but <75) and a third shape: binding gate + policy pays it. Tolerance rung CLOSED per pre-registration (one correction, else closed). Champion UNCHANGED (35234ddc). Escalation: displacement-gated step-event credit (0-c.2) per pre-registration.",
+    "eval_artifacts": "logs/ckpt_eval/cw_walk_anchortol5_dr10 + _15s; frames watched dr10 det_0 0ccfe41f/375, det_3 38b61e64/375, sto_0 f0d60dbb/375; 15s det_0 8f09585e/375, sto_5 05c07272/375 + both contact sheets"
   },
   {
     "run": "cw-walk-step0-anchor-c1",

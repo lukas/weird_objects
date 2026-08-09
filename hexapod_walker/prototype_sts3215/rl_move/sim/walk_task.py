@@ -138,7 +138,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     MJX_SNAPSHOT_EXTRA = ("_foot_on", "_liftoff_xy", "_liftoff_step",
                           "_foot_prev_xy", "_duty_hist", "_phase",
                           "_anchor_xy", "_anchor_prev_on",
-                          "_walk_bucket")
+                          "_walk_bucket", "_step_disp_bank")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -163,6 +163,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # initial stance feet where they stand.
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
+        # Displacement budget for step-event credit (cycle 34, 0-c.2):
+        # net body displacement (m) accrued along the commanded
+        # direction and not yet spent on step credits.
+        self._step_disp_bank = 0.0
         # Learning-progress curriculum state: sampling weights over
         # LP_BUCKETS (None = uniform) and the bucket of the current
         # walk episode (surfaced in step info for the LP callback).
@@ -223,6 +227,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._duty_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
+        self._step_disp_bank = 0.0
         self._phase = 0.0
         return super()._reset_begin(seed)
 
@@ -467,8 +472,34 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                    default=0.0))
             k_park = float(cfg_get(self.cfg, "reward", "k_park_duty",
                                    default=0.0))
+            # Displacement-gated step-event credit (cycle 34; operator
+            # 0-c.2 "so stride-in-place can't collect", pre-registered
+            # escalation from the closed tolerance rung). Root cause: the
+            # step-event credit pays PER TOUCHDOWN with no body-
+            # displacement accounting, so cadence inflation is the one
+            # income channel that still pays for creeping transport
+            # (step income +24% at c1, +32% at tol5, 2x cadence from
+            # scratch at c33). Mechanism: each tick banks the body's net
+            # displacement along the commanded direction; each PAID step
+            # credit CONSUMES reward.step_disp_budget_mm of bank; a
+            # touchdown with an empty bank earns 0. Total step income is
+            # therefore <= k_step*1.5*(ground covered)/budget BY
+            # CONSTRUCTION — extra cadence at fixed distance is worth
+            # nothing, stride-in-place (no net body motion) collects
+            # nothing. Backward motion never banks (max(along,0)); the
+            # gate removes income only, never shrinks a penalty. Default
+            # 0 = off, legacy exact. Walk-mode only by construction.
+            budget_m = float(cfg_get(self.cfg, "reward",
+                                     "step_disp_budget_mm",
+                                     default=0.0)) / 1000.0
             if (k_swing > 0.0 or k_step > 0.0 or k_drag > 0.0
                     or k_park > 0.0) and s_ref > 1e-3:
+                if budget_m > 0.0:
+                    # `along` here is still the BODY along-command
+                    # velocity (m/s) from the r_prog block above (the
+                    # foot-displacement loop below shadows it).
+                    self._step_disp_bank += max(along, 0.0) * self.dt
+                r_step_denied = 0.0
                 r_swing = 0.0
                 r_step = 0.0
                 r_drag = 0.0
@@ -493,11 +524,18 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         if k_swing > 0.0 and stride >= 0.015 and air >= 2:
                             r_swing += k_swing
                         if k_step > 0.0 and air >= 2:
-                            along = float(
+                            along_f = float(
                                 d[0] * goal.vx_ref + d[1] * goal.vy_ref
                             ) / s_ref
-                            if along >= 0.010:
-                                r_step += k_step * min(along / 0.030, 1.5)
+                            if along_f >= 0.010:
+                                credit = k_step * min(along_f / 0.030, 1.5)
+                                if budget_m > 0.0:
+                                    if self._step_disp_bank >= budget_m:
+                                        self._step_disp_bank -= budget_m
+                                    else:
+                                        r_step_denied += credit
+                                        credit = 0.0
+                                r_step += credit
                     elif on and self._foot_on[f] and k_drag > 0.0 \
                             and self._foot_prev_xy[f] is not None:
                         slip = float(np.linalg.norm(
@@ -513,6 +551,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if k_step > 0.0:
                     reward += r_step
                     info["reward_step_event"] = r_step
+                    if budget_m > 0.0:
+                        info["walk_step_denied"] = r_step_denied
+                        info["walk_step_bank_m"] = self._step_disp_bank
                 if k_drag > 0.0:
                     reward += r_drag
                     info["reward_drag"] = r_drag
