@@ -1911,7 +1911,20 @@
     "parent": "ppo_goal_cw_walk_step0_c1.zip (md5 e4314fa2)",
     "created": "2026-08-09T00:55:00+00:00",
     "status": "RUNNING",
-    "wandb_id": "c1oyg4j6"
+    "wandb_id": "c1oyg4j6",
+    "log": "/tmp/train_cw-walk-step0-c2.log",
+    "checkups": [
+      {
+        "time": "2026-08-09T01:07:47+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 11329,
+        "fps": 3276.8,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-step0-lowent",
@@ -1983,6 +1996,18 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-step0-lowent --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_step0.zip --no-dr --ent-coef 0.001 --no-canary --eval-every 200000 --video-every 200000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --out-name ppo_goal_cw_walk_step0_lowent --n-envs 48 --subproc > /tmp/train_cw-walk-step0-lowent.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-step0-lowent.log",
     "wandb_id": "vkrvueqg",
-    "verified": "2026-08-09T01:01:20+00:00"
+    "verified": "2026-08-09T01:01:20+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T01:06:55+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 12143,
+        "fps": 8404.3,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

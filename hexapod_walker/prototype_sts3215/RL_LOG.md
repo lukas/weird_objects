@@ -1931,3 +1931,41 @@ launches had landed since the stale read — c1's entry, then lowent's
 single-entry edits, and the prompt now forbids hand-editing the
 ledger. Prompt change requires watcher restart (prompt is cached at
 watcher start) — operator handling it.
+
+## Cycle 16 (2026-08-09 ~01:2xZ) — watcher checkup crash on cw-walk-step0-c2: tooling, not the run
+
+Trigger: watcher checkup rc=1 for cw-walk-step0-c2 at 01:00:55Z —
+`KeyError: 'log'` inside `cmd_checkup` (tool crash, NOT a DEAD/SUSPECT
+verdict on the trainer).
+
+**OBSERVATIONS.** (a) Root-cause chain: checkup KeyError 'log' ← c2's
+ledger entry lacks the `log` field ← that entry is a post-clobber
+backfill (see operator correction above; the original launcher-written
+entry, which had `log`, was erased by a hand-edit) ← unlocked
+read-modify-write of experiments.json (already fixed upstream via
+`launch_run.py update` + prompt ban). (b) Manual health check before
+touching anything: trainer process alive on hexapod-sweep-walk
+(pid 3831261, cmdline matches c2 config: joint_walk, no-dr,
+log_std_init 0.0, ent 0.01, seed 0), /tmp/train_cw-walk-step0-c2.log
+present and fresh (195,679 B at 01:07Z, n_updates 6350). (c) Fixes:
+ledger `log` field added via the locked path
+(`launch_run.py update --run cw-walk-step0-c2 --set
+log=/tmp/train_cw-walk-step0-c2.log`); `cmd_checkup` hardened to fall
+back to the guardrails pattern `/tmp/train_<run>.log` when `log` is
+absent, so any future backfilled entry degrades to a working checkup
+instead of crashing the watcher. (d) Re-ran checkup after the fix:
+**HEALTHY**, solo on 56-core pod, fps 3276.8, rc=0, recorded in
+ledger. No kill, no relaunch, no new experiments this cycle.
+
+Side observation (hypothesis, not verdict — c2's cycle owns the
+verdict): c2's log tail shows train/std 5.89 at ~6350 updates,
+continuing the lineage's monotone std runaway (1.0 → 2.30 → 3.21 →
+now 5.89 under ent 0.01). This is exactly the A-arm behavior the
+lowent A/B (ent 0.001, s6) predicts if the entropy-runaway hypothesis
+is true; noted here so the eventual c2/lowent verdicts check final
+std against it.
+
+cw-walk-step0-lowent untouched (RUNNING, s6, verified 01:01:20Z;
+its own watcher checkup is separate). cw-stance-endpost-r1 untouched
+(owned by the concurrent cycle). No plan change: RL_PLAN.md is not
+affected by a tooling fix.
