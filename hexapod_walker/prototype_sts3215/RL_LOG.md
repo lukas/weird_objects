@@ -4938,3 +4938,138 @@ Cycle totals: 1 launch (20M GPU steps, cap 80M), 0 CPU steps,
 2 harness evals (24 eps, parallel), 1 controller scale-audit probe
 (3 eps), 5 strips + 2 contact sheets watched (provenance in
 verdict), champion unchanged, plan net 0 lines.
+
+## Cycle 33 (2026-08-09 ~10:4xZ) — cw-walk-step0-anchor verdict: gate FAIL, basin hypothesis REFUTED (if-false shape (a), and worse): a fresh learner under the anchor gate from the FIRST gradient step still converges to the paddle — and discovers the cadence-inflation allowance-ride ON ITS OWN (~101 stances/ep vs champion 47–58). Paddling is the sim's preferred transport under current pricing, not a warm-start legacy. Auto-continuation KILLED (it had already been REFUSED on a sync miss — recorded below).
+
+### VERDICT cw-walk-step0-anchor (40M GPU steps, mjx-train-0, W&B g248pl2a)
+OBSERVATIONS (mechanical). Run finished: 40,000,000 steps in 2661 s
+(~15.0k fps), W&B state finished, 0 tracebacks, ckpt
+ppo_goal_cw_walk_step0_anchor.zip md5 b38873630d11ec3ce3432c286cde8194
+pulled (identical to pod copy). Training quartiles (W&B):
+env/walk_anchor_frac 0.662→0.800→0.862→0.879 (last 0.892) — crossed
+0.85 in Q3, EARNED (env/reward_walk 0.56→1.00/tick positive, vs
+champion lineage 1.29 at the same tol); rollout/ep_rew
+92→549→675→754 (last 763, still climbing — the watcher's
+auto-continue trigger was legitimate); env/reward_step_event
+0.029→0.186; env/walk_speed 0.038→0.059 (TOP of the 0.02–0.06
+band); train/std ROSE 1.05→1.15→1.34→1.68 (last 1.86, still
+rising) on a FRESH init at ent 0.005 — the lineage's std≈2
+attractor reproduced at half the entropy coefficient that produced
+it before (health note: noise-as-brake hypothesis stands);
+approx_kl pinned 0.007; ep_len full 369 after Q1 (0 terminations).
+Gate harness (own cfg minus park_start_frac, DR 0, 15 s, 6 det + 6
+sto, seed 0, video every ep; logs/ckpt_eval/cw_walk_step0_anchor_15s):
+- gv 12/12 ✓, ≥2 swings/leg ✓ (min 4), 0 terminations ✓, 0 safety
+  flags, Imax 2.63 A, imbal 1.15–1.40.
+- det agg slip/m 1.479 (per-ep 1.401–1.552) vs gate ≤1.0 — FAIL.
+  Named baselines: walk champion anchorgate DR0 det 1.144 /
+  anchorgate-c1 1.133 (cycle 32 panels) — the fresh policy is
+  WORSE by ~0.34 slip/m, outside their per-ep spread; step0-lowent
+  det slip band 0.68–0.79 (10 s metric, older harness scale).
+- sto agg slip/m 1.805 vs ≤1.2 — FAIL; excluding the fixed panel's
+  known backward draw (sto[5]: fwd 0.083, slip/m 13.3,
+  rear-hemisphere hole unchanged, recorded-excluded per pending
+  operator ruling) it is 1.545 — still FAIL.
+- det fwd mean 0.913 m ≥0.55 ✓ — but bought with OVERSPEED: det
+  speed 0.069–0.074 m/s, ABOVE the 0.02–0.06 command band the run
+  trained on; harness success 0/12, every miss vel_err
+  (0.038–0.050). The cycle-27 overspeed defect (43% over via
+  paddling) reproduced from scratch at +15–23% over band top.
+- anchor_frac clause ✓ marginal (0.879 Q4, 0.892 last, earned).
+- CADENCE (required exploit-watch column since cycle 32): det
+  stance count 96–107/ep (mean ~101) — 2.1x the warm champion's
+  47–58 under the SAME tol=10 gate. Tol-floor: 101 × 10 mm ≈
+  1.01 m free slip over 0.91 m fwd ⇒ floor ≈1.11 slip/m; measured
+  1.48 sits above even that. The fresh learner discovered the
+  allowance-reset ride independently, without a warm-started
+  paddle to inherit it from.
+- NEW pathology, named: DRUMMER LEG + starved leg. Per-leg swing
+  counts det: leg4 30–43 swings vs 9–13 on legs 0–2 (3–4x); leg1
+  duty 0.26–0.33 (lightest loading) while others sit 0.4–0.6.
+  gait_valid PASSES this — the gv gate detects sacrificed
+  (under-active) legs, not hyper-active ones. Check generalized:
+  per-leg swing-count max/min ratio joins cadence as a required
+  reading column in every walk verdict (data already in the
+  harness report; no code change).
+FRAMES WATCHED (md5/frames): walk_det_0 5e707ac6/375, walk_det_5
+5a877752/375, walk_sto_0 07aed7c3/375, walk_sto_5 (backward)
+5855125e/375, all four strip PNGs, contact sheet, plus a dense
+20-tile det_0 filmstrip. Pathologies first: the SAME wide sprawly
+low creep as the champion lineage — body low, all six legs
+splayed, feet mostly grounded making small displacements; NO crisp
+swing/stance cycling visible at strip resolution; front-right foot
+hovers repeatedly across frames (visual signature of drummer
+leg4); sto_5 churns near-in-place. NOT WALKING in the
+operator's sense — no visible alternating ground-contact/swing
+cycle, whatever the gait metrics count. Achievements (after
+pathologies): level body, zero falls in 12 eps, currents flat, six
+legs nominally cycling per metrics.
+Exploits looked for and not found: park (0/12), unload-sweep
+(duty spread present but no swing-spike+slip-drop signature),
+slip-via-slowness (speed HIGH, not low), forfeit (income earned).
+FOUND: cadence inflation (above) and drummer leg (above).
+INTERPRETATION. Clean refutation with a bonus finding. The basin
+test asked: does pricing paddling at 0.5–0.7x from the first
+gradient step steer a fresh learner into anchored stepping? No —
+the learner walked straight into the allowance-riding paddle and
+pushed it FURTHER than the warm lineage (2x cadence), because at
+tol=10 the per-touchdown reset makes high-cadence creep the
+best-paying transport in this sim, full stop. This independently
+corroborates cycle 32's structural diagnosis (free slip = cadence
+× tol) from a second, unrelated initialization — the exploit is
+not lineage folklore, it is the optimum. Overspeed reproduced too:
+nothing charges above-band speed and step credit scales with
+stride/cadence (defect iii, cycle 27, still with the operator).
+Per the pre-registration, shape (a) means: root is the sim's
+contact/current pricing (operator rulings, cycles 27/28) or
+distillation; the WARM-START lineage remains the vehicle; no
+anneal-in follow-up (that was reserved for shape (b) no-gait).
+Cross-reference for the anchortol5 verdict (not mine to write):
+if tol=5 shows cadence inflating toward its own floor
+(~2x stances), this run is the second independent witness that
+the PER-TOUCHDOWN RESET, not the tolerance size, is the defect.
+VERDICT: FAIL against the recorded gate (both slip clauses; fwd
+clause passes only via out-of-band overspeed). NOT HARDWARE-READY:
+feet grind 1.48 m per meter, speed ignores its command band, one
+leg drums 3–4x cadence while another carries 0.26 duty — on
+hardware this is heat, wear, and a stumble, not a gait. CHAMPION
+UNCHANGED: ppo_goal_cw_walk_anchorgate.zip md5 35234ddc (this run
+worse on det slip 1.479 vs 1.144 DR0; its fwd 0.913 vs 0.731 is
+overspeed income, not tracking). Checkpoint retained append-only
+as the from-scratch anchor-gate reference policy.
+HYPOTHESIS STATUS: REFUTED — if-false shape (a) verbatim, with
+the sharper corollary that the allowance-ride is independently
+discoverable. Fresh-init basin rung CLOSED.
+
+### KILL cw-walk-step0-anchor-c1 (auto-continuation) — never started; do not relaunch
+The watcher's 0-a continuation was REFUSED by the launcher at
+09:55Z (pod code marker 1002f7a ≠ HEAD 038235f — cycle 32's
+snapshot was never synced to mjx-train-0; the refusal worked as
+designed). This cycle KILLS the continuation on the merits
+regardless of the sync miss: the parent fired if-false (a) at its
+full 40M budget, frames show the paddle + drummer-leg pathology,
+and identical-config steps from here optimize income inside a
+refuted basin. Ledger updated (KILLED_BY_VERDICT). Process note
+for future cycles: a cycle that snapshots AFTER launching on a pod
+leaves that pod one commit behind and silently blocks the
+watcher's auto-continue — sync freed/active lineage pods at
+snapshot time or expect this refusal.
+
+FLEET NOTE (cycle 33): NO new launches; mjx-train-0/2/3 left idle
+with recorded reasons. (1) cw-walk-anchortol5 was at 18.2M/20M
+during this cycle — its verdict (a concurrent/next cycle's job)
+selects the next walk rung via its pre-registration (tol rung
+closes vs escalates to displacement-gated step-event credit 0-c.2
+/ operator pricing); any walk arm launched now would pre-empt that
+rung selection with a 20-minute-stale confound. (2) Stance line
+BLOCKED on operator pricing ruling (cycle 28); rear-hemisphere arm
+BLOCKED on operator scope ruling (cycle 27); raise is a no-compute
+canary. (3) Mirror-symmetry (plan item 2) remains UNIMPLEMENTED
+and needs its dedicated implementation cycle (obs/action mirror
+maps + trainer support + probe); starting it 10 minutes before the
+tol5 verdict cycle spawns would hand that cycle a half-landed
+mechanism. This is a deliberate hold on a named event (tol5
+verdict, minutes away), not deliberation idle.
+Cycle totals: 0 launches (0 GPU steps), 1 harness eval (12 eps),
+4 strips + contact sheet + 1 dense tile watched (provenance in
+verdict), champion unchanged, 2 ledger updates, plan net 0 lines.
