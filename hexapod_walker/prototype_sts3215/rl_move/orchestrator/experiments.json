@@ -5936,6 +5936,18 @@
     "log": "/tmp/train_cw-walk-stepdisp12.log",
     "wandb_id": "xj6ehawo",
     "verified": "2026-08-09T10:33:05+00:00",
-    "verify_agent": "two-phase re-verify ~11:5xZ: pid 154901 cmdline matches run-name + init-from champion + step_disp_budget_mm=12.0 cfg-set chain, single trainer (no duplicate); log +15.2KB/60s; pod .code_sha 573297c = snapshot; W&B xj6ehawo unique+running, seed 0, global_step 5.11M->5.83M/45s (~16k fps); notes open with human paragraph; MECHANISM LIVE: env/walk_step_denied ~0.003/tick (~2% of step income, matches cycle-34 scale audit), walk_step_bank_m 0.07-0.12, anchor_frac 0.83-0.86 champion-like at tol=10. Watcher owns the checkup."
+    "verify_agent": "two-phase re-verify ~11:5xZ: pid 154901 cmdline matches run-name + init-from champion + step_disp_budget_mm=12.0 cfg-set chain, single trainer (no duplicate); log +15.2KB/60s; pod .code_sha 573297c = snapshot; W&B xj6ehawo unique+running, seed 0, global_step 5.11M->5.83M/45s (~16k fps); notes open with human paragraph; MECHANISM LIVE: env/walk_step_denied ~0.003/tick (~2% of step income, matches cycle-34 scale audit), walk_step_bank_m 0.07-0.12, anchor_frac 0.83-0.86 champion-like at tol=10. Watcher owns the checkup.",
+    "checkups": [
+      {
+        "time": "2026-08-09T10:38:46+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 11301,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
