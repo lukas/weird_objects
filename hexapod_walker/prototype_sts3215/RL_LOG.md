@@ -441,3 +441,34 @@ a file under `archive/` and link it.
   0.4-1.6 off champion; torque axis taken by concurrent torquedroop). [CODE]
   mirror-symmetry now has TWO independent motivations (head90 L/R asym +
   strafe-dr10 flag legs) — flagged as the next implementation cycle's pick.
+
+- Cycle 53 (08-09 ~17:0x): 3 triages. `cw-walk-joyjit-dr05-c1` PASS — flip
+  hardening COMPOSES with DR0.5 (JOYSTICK GATE @DR0.2 0 falls incl. flip
+  stress; own-cfg DR0.5 gv 12/12, prog 0.94/0.98) → best driving candidate,
+  SKILLS row added, joyhead90 (±90° abrupt-resample rung) queued off it.
+  `cw-walk-longdist-s2` PASS — champion recipe 3/3 seed-robust (det slip
+  1.07 ≤1.10); same fixed sto draw churns (lineage canary); champion stays r2.
+  `cw-walk-longdist-dr10` FAIL (if-false) — full-DR retrain of champion buys
+  zero reliability (bad draws unchanged) and erodes nominal quality (DR1.0
+  det slip 1.28 vs r2's 1.06 same panel) → full-DR retrain lever CLOSED, plan
+  updated. Refills (3 of 4-cap, 60M GPU): torquedroop (13b torque axis, ran on
+  train-0), speedband (dup-dropped by dedupe — speedband-r1/speedband2 already
+  cover 8b), joyhead90 (queued+drained). Remaining free slots owned by
+  concurrent cycles' refills (speedband2 INTENT landed mid-cycle).
+
+- Cycle 55 (08-09 ~16:2x-17:1x): 1 triage. `cw-walk-wander-dr10` FAIL on
+  pre-registered if-false (gv clause): own-DR1.0 gv 11/12 — one det draw
+  sacrifices leg 5 (prog 0.37, slip/m 4.6, near-stationary on frames), two
+  more det draws degraded; DR0 retention clean (gv 6/6, slip 1.53 = parent).
+  DR 0.5 stays the steering line's ceiling (SKILLS updated); concordant with
+  longdist-dr10's full-DR-lever FAIL. Refills (3 of 4-cap, 60M): friclow
+  (13b slippery-half friction 0.3-1.0 — OVERLAPS concurrent fricvar 0.4-1.6,
+  flagged in both ledgers: triage as ONE axis study), wander-dr05-s1 (seed
+  panel for the steering-DR champion, ruling 7), slowband (KILLED by me at
+  ~3M same cycle: dedupe scan missed speedband-r1's "no requeue" FAIL which
+  already covers the 0.02-0.06 band; 8b stays closed on pricing root);
+  latjit25 re-queue dup-dropped (concurrent cycle already ran it). FLAG for
+  next free-slot cycle: READY wishlist arms are EXHAUSTED (3 cycles collided
+  on 8b/friction within the hour) — the quadruped feasibility sweep [CODE]
+  (readiness P1, deferred c46/c52/here) is now the correct use of a slot, not
+  another walk variant.
