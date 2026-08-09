@@ -185,7 +185,14 @@ report.json, and the W&B API for exactly these questions.
     (report.json, contact sheets, videos). So run your harness evals
     BEFORE setting the verdict — files that exist at verdict time are
     what gets archived. `ops.sh wandbnote` can still replace the note
-    with a richer paragraph.
+    with a richer paragraph. History: all 87 pre-existing verdicted
+    runs were backfilled 08-09 ~15:20Z — DON'T re-backfill. Early-
+    campaign artifacts legitimately hold 0 eval files (outputs were
+    already deleted); probe-*/smoke-* runs have no artifact at all
+    (no W&B run to attach to). Mechanism note: the public API can't
+    create artifacts on a finished run, so the code briefly
+    `wandb.init(id=…, resume="allow")`s it — the extra short resume
+    blip on a run's timeline is this, not a training restart.
 12. **Checkpoint lineage lives in W&B artifacts** (08-09): every
     training run publishes `ckpt-<out-name>` (type
     policy-checkpoint, md5 + parent in metadata) and declares its
