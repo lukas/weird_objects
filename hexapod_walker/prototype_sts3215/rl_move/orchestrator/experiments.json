@@ -8453,7 +8453,7 @@
       "OPERATOR WISHLIST + rulings s2/s5 command-steering promotion scope: forward-diagonal competence. Champion retrained with heading cap pi/4 (100% of episodes fwd-diagonal vs legacy 60% pure-fwd mix). If-true: det tracking of +-45deg headings matches pure-forward within noise; if-false: diagonal commands collapse to forward drift (steering needs dedicated curriculum). Parent: cw-walk-anchorgate. Gate: DR0 det 6/6 at |heading|<=45deg: gait_valid, zero terminations, vel tracking err within 2x pure-forward baseline"
     ],
     "created": "2026-08-09T12:22:36+00:00",
-    "status": "RUNNING",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -8491,7 +8491,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "No verdict - killed by operator at 11.2M/20M (08-09): near-duplicate of cw-steer-fdiag, whose eval already refuted the class (diag tracking within noise, sto worse); class stopped, GPU freed."
   },
   {
     "run": "cw-walk-highgait",
@@ -9414,7 +9415,8 @@
           "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "checkup_resolution": "SUSPECT fps=4369 was a startup-window transient (compile+first eval/video): instantaneous fps 10.9k at 10M/20M steps (12:5x), well above the 5000 solo floor. No starvation, no rebalance."
   },
   {
     "run": "cw-walk-lowgait",
@@ -9757,7 +9759,22 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-highgait --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --eval-every 1000000 --video-every 2000000 --seed 0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --no-canary --cfg-set goal.walk_height_off_mm=20.0 --out-name ppo_goal_cw_walk_highgait --notes 'OPERATOR WISHLIST: walk in a HIGHER stance. Height ref +20 mm during walk (goal.walk_height_off_mm=20, tracked by the existing height kernel). If-true: gait_valid walking at +20 mm with tracking comparable to nominal; if-false: raised stance destabilizes the gait (knees run out of travel or slip rises). Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6 at +20mm: gait_valid, zero terminations, mean height err <= 8 mm' > /tmp/train_cw-walk-highgait.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-highgait.log",
     "wandb_id": "bej1tm54",
-    "verified": "2026-08-09T12:39:43+00:00"
+    "verified": "2026-08-09T12:39:43+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T12:46:04+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1848,
+        "fps": 2912.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 2913 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ],
+    "checkup_resolution": "SUSPECT fps=2913 was a startup-window transient: instantaneous fps 7.3k at 4.6M/20M steps (12:5x), above the 5000 solo floor and climbing (cumulative avg 4.3k->4.6k). Node g142d86 hosts 4 trainers by design. No starvation, no rebalance."
   },
   {
     "run": "cw-walk-loadslip-s1",
@@ -9979,7 +9996,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-fwdband-r1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.0 --out-name ppo_goal_cw_walk_fwdband_r1 --n-envs 4096 --impl warp --host-workers 24 --notes 'RETRY of cw-walk-fwdband (r1 launch died at INTENT when its cycle was killed; 0 steps, infra fault). The robot is only ever graded on walking straight ahead (operator ruling 4), yet 40% of practice commands point sideways/backward. 100% forward scope off champion 35234ddc: if focused practice matters, det prog_ratio moves into 0.75-1.25 (champ 1.43 overspeed) without slip worsening; if nothing moves beyond noise, command mix is not a lever. A/B partner: cw-steer-fdiag (pi/4). Parent: rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip. Gate: own-cfg DR1.0 harness 15s 6+6 fwd: det prog_ratio median 0.75-1.25 (champ 1.43), det slip_per_m <=1.11 (not worse beyond noise), gait_valid 12/12, 0 term; DR0 det fwd >=0.55 6/6; frames watched det+sto' > /tmp/train_cw-walk-fwdband-r1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-fwdband-r1.log",
     "wandb_id": "bkq9o0uy",
-    "verified": "2026-08-09T12:41:01+00:00"
+    "verified": "2026-08-09T12:41:01+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T12:47:55+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3652,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-pose-track",
@@ -10388,7 +10417,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-dr05-tilt50 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_dr05_r1.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_roll=50.0 --cfg-set reward.k_pitch=50.0 --out-name ppo_goal_cw_walk_dr05_tilt50 --notes 'Why does the walker sometimes fall apart when physics is randomized? One suspect: tipping the body is almost free in the reward \u2014 the robot loses income only in the first ~3 degrees of tilt; beyond that a 10-degree lean costs pocket change. This run takes the randomization-trained walker and multiplies the body-tilt price by 5, so leaning far actually hurts, while normal level walking (~1.5 deg) is unaffected. If tilt is what lets episodes degenerate, the occasional broken/dragging-leg episodes under randomization should vanish; if they persist, tilt is a symptom of the leg failure, not its cause, and we look elsewhere (its twin run prices falling instead). One variable off cw-walk-dr05-r1 (md5 13a668ea): reward.k_roll/k_pitch 10 -> 50. Gate: DR0.5 12/12 clean episodes, no slip blowouts, straight-world retention. Snapshot 59f0b4a.' --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-walk-dr05-tilt50.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-dr05-tilt50.log",
     "wandb_id": "4blvzgkw",
-    "verified": "2026-08-09T12:45:01+00:00"
+    "verified": "2026-08-09T12:45:01+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T12:50:47+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3827,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-dr05-fall300",
@@ -10476,7 +10517,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-dr05-fall300 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_dr05_r1.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.safety_termination_penalty=300.0 --out-name ppo_goal_cw_walk_dr05_fall300 --notes 'Does the robot avoid falling over just because falling barely costs anything? Today a fall ends the episode with a penalty worth about 1% of what a good episode earns, so the learner has little reason to care \u2014 and in recent tests the robot did occasionally topple when physics was randomized and commands were noisy. This run takes the randomization-trained walker and raises the price of a fall to about a third of an episode'\"'\"'s earnings. If the learner can trade a little caution for not toppling, falls in the hardest test setting should disappear without slowing the walk; if nothing changes, falls are too rare during training for this price to teach anything, and stability work must price body tilt directly instead (its twin run does exactly that). One variable off cw-walk-dr05-r1 (md5 13a668ea): reward.safety_termination_penalty 10 -> 300. Gate: zero falls at full randomization, gait and speed no worse. Snapshot 59f0b4a.' --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-walk-dr05-fall300.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-dr05-fall300.log",
     "wandb_id": "0wcr51t3",
-    "verified": "2026-08-09T12:46:14+00:00"
+    "verified": "2026-08-09T12:46:14+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T12:52:38+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5566,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-strafe",
@@ -10539,7 +10592,7 @@
       "OPERATOR WISHLIST 5: omnidirectional walking. Heading commands widened to +-90deg (full lateral strafing) with resampling; the champion only ever saw +-45deg. If-true: lateral tracking with gait_valid (omnidirectional base for the driving demo); if-false: sideways gait degenerates (hexapod kinematics may prefer crab-diagonal over pure strafe). Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6 incl pure-lateral commands: gait_valid, zero terminations, lateral tracking err <= 2x forward err"
     ],
     "created": "2026-08-09T12:43:39+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -10548,11 +10601,36 @@
       "code_sha_local": "59f0b4abc07456d0b413f269e51cef60885d7227",
       "code_sha_pod": "59f0b4abc07456d0b413f269e51cef60885d7227",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "6240",
+      "log_growth_bytes": [
+        4932,
+        8736
+      ],
+      "wandb_id": "vb3hg2bu",
+      "global_step_window": [
+        262144,
+        786432
+      ],
+      "fps_estimate": 5825.4
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-strafe --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --cfg-set goal.walk_speed_min_m_s=0.03 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=1.5708 --cfg-set goal.walk_cmd_resample_s=5.0 --out-name ppo_goal_cw_walk_strafe --notes 'OPERATOR WISHLIST 5: omnidirectional walking. Heading commands widened to +-90deg (full lateral strafing) with resampling; the champion only ever saw +-45deg. If-true: lateral tracking with gait_valid (omnidirectional base for the driving demo); if-false: sideways gait degenerates (hexapod kinematics may prefer crab-diagonal over pure strafe). Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6 incl pure-lateral commands: gait_valid, zero terminations, lateral tracking err <= 2x forward err' > /tmp/train_cw-walk-strafe.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-strafe.log"
+    "log": "/tmp/train_cw-walk-strafe.log",
+    "wandb_id": "vb3hg2bu",
+    "verified": "2026-08-09T12:47:28+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T12:53:29+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3854,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-speedband",
@@ -10620,5 +10698,83 @@
     },
     "stack": "gpu-mjx",
     "refused_reason": "hexapod-mjx-train-10 already runs cw-walk-dr05-fall300 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+  },
+  {
+    "run": "cw-walk-backforth",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "OPERATOR WISHLIST 4: back and forth. Full-circle heading commands (+-180deg) with resampling and 15% stops \u2014 walk out, stop, walk BACK. Backward walking is the new behavior; the champion never saw heading beyond +-45deg. If-true: reverse tracking with gait_valid; if-false: backward gait fails (leg geometry asymmetry) and backward needs its own reward shaping.",
+    "gate": "DR0 det+sto 6/6 incl reverse commands: gait_valid, zero terminations, reverse tracking err <= 2x forward err",
+    "parent": "cw-walk-anchorgate",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip",
+      "--no-dr",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.03",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=3.1416",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=5.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.15",
+      "--out-name",
+      "ppo_goal_cw_walk_backforth",
+      "--notes",
+      "OPERATOR WISHLIST 4: back and forth. Full-circle heading commands (+-180deg) with resampling and 15% stops \u2014 walk out, stop, walk BACK. Backward walking is the new behavior; the champion never saw heading beyond +-45deg. If-true: reverse tracking with gait_valid; if-false: backward gait fails (leg geometry asymmetry) and backward needs its own reward shaping. Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6 incl reverse commands: gait_valid, zero terminations, reverse tracking err <= 2x forward err"
+    ],
+    "created": "2026-08-09T12:51:53+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 12,
+      "code_sha_local": "c3742f741282a5c5a9d73df7f4cd968de3fd28eb",
+      "code_sha_pod": "c3742f741282a5c5a9d73df7f4cd968de3fd28eb",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-backforth --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --cfg-set goal.walk_speed_min_m_s=0.03 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=3.1416 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --out-name ppo_goal_cw_walk_backforth --notes 'OPERATOR WISHLIST 4: back and forth. Full-circle heading commands (+-180deg) with resampling and 15% stops \u2014 walk out, stop, walk BACK. Backward walking is the new behavior; the champion never saw heading beyond +-45deg. If-true: reverse tracking with gait_valid; if-false: backward gait fails (leg geometry asymmetry) and backward needs its own reward shaping. Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6 incl reverse commands: gait_valid, zero terminations, reverse tracking err <= 2x forward err' > /tmp/train_cw-walk-backforth.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-backforth.log"
   }
 ]

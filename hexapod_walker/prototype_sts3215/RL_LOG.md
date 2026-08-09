@@ -198,3 +198,12 @@ a file under `archive/` and link it.
   ledger REFUSED) — 2 more attempts refused on moving HEAD, normal
   concurrent traffic. 40M GPU steps, 2 launches this cycle
   (+1 aborted), caps respected.
+- Cycle 41 (08-09 ~13:2x, checkup-triggered): SUSPECT flags on
+  cw-walk-wander (t4, fps 4369) and cw-walk-highgait (t7, fps 2913)
+  are FALSE ALARMS — instantaneous fps from log deltas: wander 10.9k
+  @10M steps, highgait 7.3k @4.6M and climbing; the checkup window
+  caught startup transients (compile + first eval/video). No kill, no
+  rebalance; resolutions in ledger. 0 free slots (drain placed
+  backforth on t3), no launches. Fixed ops.sh entry_field to prefer
+  live entries over REFUSED/KILLED husks (loadslip-s1 trainlog had
+  pointed at the wrong pod).
