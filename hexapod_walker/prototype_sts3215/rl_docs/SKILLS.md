@@ -24,6 +24,7 @@ Demo any row locally:
 | Strafe ±90°, robust to physics variation (DR 0.5) | `ppo_goal_cw_walk_strafe_dr05` (md5 cb178b91) | this cycle PASS: own-cfg DR0.5 gv 12/12, 0 term, prog med 0.92–0.97, slip/m med 1.89–2.00; DR0 retention prog 1.09, slip 1.80 (< parent 2.20) | lateral paddle; fixed commands (no resampling trained); not hardware-ready |
 | Drive anywhere in the front half-circle (±90°, resampled cmds + stops) | `ppo_goal_cw_walk_head90` (md5 bcf474ff) | c49 PASS: own-cfg DR0 gv 12/12, 0 term, lateral err ≤1.6× fwd; JOYSTICK GATE PASS @DR0.2 (0 falls incl. instant-flip stress) | prog ~0.84 on mixed headings (lateral costs progress); left strafe ~½ the displacement of right (L/R asymmetry); paddle gait, not hardware-ready |
 | Crouch walking (−20/−30/−40 mm height) | `ppo_goal_cw_walk_lowgait` / `_lowgait30` / `_lowgait40` | c45/c47/c48 PASS at each rung: gv 12/12, 0 term, end-height err ≤7 mm, det agg slip/m 0.92–0.96 (≤ champion band) | envelope verified to −40 mm (−50 mm rung queued); one sto in-place-paddle ep per panel (lineage brittleness) |
+| 60 s endurance walking | `ppo_goal_cw_walk_endur60` | c47 PASS + c48 seed twin: both seeds ~3 m @ 60 s, gv 12/12, 0 term, NO gait decay — endurance is seed-robust (endur60's low slip 0.887 was seed luck; s1: 1.13) | anchorgate lineage (not champion); slip ~0.9–1.1/m; 1/6 sto draw-stall; champion-60s fold queued (endur60-r2) |
 
 ## Stance / posture (older line — see archive for full state)
 
@@ -32,10 +33,10 @@ Demo any row locally:
 
 ## Pending verdicts that would add rows
 
-wander30/lowgait30/lowgait40 (envelope extensions), endur60(+s1)
-(60 s endurance), backforth (reverse), terrain05/10
+wander30 (envelope extension), backforth (reverse), terrain05/10
 (rough ground), standwalksit (skill chaining), pose-track.
-(strafe ±90° landed — see DR 0.5 row above.)
+(strafe ±90° landed — see DR 0.5 row above; lowgait30/40 and
+endur60+s1 landed — rows above.)
 
 ## Consolidation status (single deployable policy)
 

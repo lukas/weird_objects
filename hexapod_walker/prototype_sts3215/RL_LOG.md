@@ -328,6 +328,23 @@ a file under `archive/` and link it.
   drained; remaining free slots left to the concurrent cycle's refills
   (endur60-s1/longdist-tilt05/lowgait40 triage).
 
+
+- Cycle 50 (08-09 ~15:2x-16:0x): 3 triages. `cw-walk-lowgait40` PASS (-40mm
+  crouch rung: gv 12/12, 0 term, height err <=7mm, det agg slip 0.96) — SKILLS
+  crouch row extended, -50mm rung queued. `cw-walk-longdist-tilt05` FAIL/
+  NO-EFFECT (vs A/B partner longdist-dr05 all deltas inside noise; same sto
+  draw degrades both) — 0-c(i) tilt lever CLOSED on champion line, stability
+  rides on DR training (plan updated). `cw-walk-endur60-s1` FAIL on det slip
+  clause (1.13 vs gate <=1.0; seed-0's 0.887 = seed luck, ranges disjoint) but
+  endurance CONFIRMED seed-robust (3m @60s, no decay, both seeds) — SKILLS
+  endurance row added; champion stands. Prestage missing for endur60-s1+tilt05
+  (pre-fix specs lacked --out-name); pulled+evaled manually. Checkup SUSPECT
+  longdist-dr10 fps 4369: transient, log now ~6970 fps, healthy, no action.
+  Refills: queued+drained cw-walk-lowgait50 (envelope rung 4) and
+  cw-walk-endur60-r2 (champion 60s fold), 40M GPU steps, 2 lines; remaining
+  idle slots belong to the 3 fresh finishes' (stallfix/head90/joystick45)
+  triage cycles' refills. [CODE] impl (mirror-symmetry/quadruped) deferred
+  again: concurrent cycles actively launching (SHA-flip risk, c46 reason).
 ## ASSUMPTION (operator to review)
 
 - Cycle 44 champion promotion: adopted longdist-r2 as walk champion
