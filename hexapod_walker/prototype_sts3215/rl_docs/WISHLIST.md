@@ -13,6 +13,24 @@ existing config knobs, [CODE] needs an implementation cycle first,
 
 ## Locomotion (walking around the room)
 
+-1. **UNIFIED JOYSTICK POLICY — ONE CHECKPOINT (operator, 08-09
+   evening; outranks everything below).** "I can't have different
+   models for standing up, sitting down, walking" — the deliverable
+   the operator runs on the hexapod is a SINGLE policy that, from
+   joystick-shaped commands, can: stand up (rise), walk/steer inside
+   the trained envelope, stop, and sit down (lower). The env is
+   already goal-conditioned (goal-mix modes walk/hold/rise/lower —
+   same obs); champions have just been trained walk=1.0. Line:
+   `cw-uni-blend1` = driving champion warm start + goal-mix blend
+   (walk-heavy, some hold/rise/lower), gate = JOYSTICK GATE retention
+   AND rise/lower >= 5/6 AND quiet hold. Known risk: multi-skill
+   warm-start erosion (external review §12) — protect walk with the
+   canary/regression rules; if blends erode walk repeatedly, ladder
+   the mix (0.9 -> 0.7) instead of abandoning. When a blend passes,
+   wire mode keys into `drive_policy.py` (rise/sit on keypress) so
+   the operator can drive stand->walk->sit in MuJoCo, then hardware
+   per safety rules.
+
 0. **JOYSTICK OPERABILITY — the binding operability target
    (operator, 08-09).** The operator will drive this robot with a
    joystick: ANY sudden command change — forward to instant
