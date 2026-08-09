@@ -131,6 +131,12 @@ class GoalGenerator:
         self.lower_m = (min(float(lower_mm[0]), max_h) * 0.001,
                         min(float(lower_mm[1]), max_h) * 0.001)
         self.lower_hold_s = float(g.get("lower_hold_s", 1.0))
+        # Fraction of lower episodes that start AT the belly-rest target
+        # pose with a flat height ref ("rest here quietly") instead of
+        # descending from the plant — reset-side basin injection, cycle
+        # 24. Default 0.0 = feature off (legacy lower behavior).
+        self.lower_belly_start_frac = float(
+            g.get("lower_belly_start_frac", 0.0))
         # Slow on purpose: "gently, without banging" is the task. The
         # tracking kernel penalizes running ahead of the ramp, so a
         # 5 s descent IS the gentleness constraint.
@@ -195,13 +201,36 @@ class GoalGenerator:
             # kernel pays staying ON the ramp (not beating it down), the
             # gyro/action penalties price out banging, and the tilt trip
             # still terminates a topple.
-            target = -rng.uniform(*self.lower_m)
-            hold_n = max(1, int(round(self.lower_hold_s / dt)))
-            ramp_n = max(1, int(round(self.lower_ramp_s / dt)))
-            height = np.full(n_steps, target)
-            height[:hold_n] = 0.0
-            end = min(hold_n + ramp_n, n_steps)
-            height[hold_n:end] = np.linspace(0.0, target, end - hold_n)
+            # Belly-rest reference states (goal.lower_belly_start_frac,
+            # default 0.0 = feature off): with probability f the
+            # episode instead STARTS flat on the belly (the zero pose —
+            # which IS the lower target posture, all feet planted) with
+            # height ref 0 throughout: "rest here quietly". Rationale
+            # (cycle 24, endpost-c1 plateau): the terminal end-posture
+            # charge stalled on a constant-cost manifold (leg 0/leg 4
+            # clearance redistributed, sum ~unchanged ~130-150 mm over
+            # two 4M segments) because planted-belly states are never
+            # VISITED — the policy only approaches from above and stops
+            # at its hover equilibrium; std 0.19 exploration cannot
+            # reach contact. Putting the planted basin into the start
+            # distribution teaches the posture (and its ~zero charge)
+            # directly. The extra rng draw is unconditional so the
+            # stream is identical between frac=0 and frac>0 runs of
+            # THIS code (it does shift episode draws vs pre-cycle-24
+            # code — same class of shift as any new sampled feature).
+            belly = rng.random() < float(getattr(
+                self, "lower_belly_start_frac", 0.0))
+            if belly:
+                start_at = "zero"
+                height = np.zeros(n_steps)
+            else:
+                target = -rng.uniform(*self.lower_m)
+                hold_n = max(1, int(round(self.lower_hold_s / dt)))
+                ramp_n = max(1, int(round(self.lower_ramp_s / dt)))
+                height = np.full(n_steps, target)
+                height[:hold_n] = 0.0
+                end = min(hold_n + ramp_n, n_steps)
+                height[hold_n:end] = np.linspace(0.0, target, end - hold_n)
         crouch_dz = 0.0
         start_curl = 0.0
         if mode == "rise":

@@ -258,9 +258,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         vx[hold_n:end] = np.linspace(0.0, vx_t, end - hold_n)
         vy[hold_n:end] = np.linspace(0.0, vy_t, end - hold_n)
         zeros = np.zeros(n)
+        # Park-basin reset diversity (goal.walk_park_start_frac, default
+        # 0.0 = feature off): with probability f the episode STARTS in
+        # a tripod-park posture (three hips lifted; pose built env-side
+        # in sim_env reset). Rationale (cycle 24): the sto park persisted
+        # at the SAME seed index through lowent->h15b->c1->kgate even
+        # after kernel gating cut the park's return ~1250 -> 274/ep —
+        # pricing is refuted; park-adjacent states are simply too RARE
+        # (1/6 episodes, entered at t~1 s) for PPO's gradient to teach an
+        # exit. Making them common at reset densifies exactly that
+        # gradient. The draw is taken unconditionally so the rng stream
+        # shifts identically whether or not the feature is enabled at
+        # the same frac.
+        park_frac = float(cfg_get(self.cfg, "goal", "walk_park_start_frac",
+                                  default=0.0))
+        start_at = "park" if rng.random() < park_frac else "plant"
         return WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
                               height=zeros, unload_leg=None,
-                              start_at="plant", vx=vx, vy=vy)
+                              start_at=start_at, vx=vx, vy=vy)
 
     def _sample_goal(self):
         gen = self._goal_gen

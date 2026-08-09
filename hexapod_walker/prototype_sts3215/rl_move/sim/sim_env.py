@@ -562,6 +562,23 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._ep_rand is not None:
                 q_start = self._clip_to_joint_limits(
                     q_start + self._ep_rand.start_offset_rad)
+        elif start_at == "park":
+            # Tripod-park start (walk reset diversity, cycle 24): plant
+            # pose with one alternating tripod's hips lifted 10-25 deg
+            # (feet hover ~15-45 mm — the park attractor observed on
+            # camera, duty ~[0.9,0.1,0.9,0.1,0.9,0.1]) plus small knee
+            # jitter. The policy must step OUT of the park to earn; see
+            # walk_task._sample_walk for the rationale.
+            q_start = (self._plant_deg * DEG2RAD).copy()
+            tripod = (1, 3, 5) if self.rng.random() < 0.5 else (0, 2, 4)
+            for leg in tripod:
+                q_start[3 * leg + 1] -= float(
+                    self.rng.uniform(10.0, 25.0)) * DEG2RAD
+                q_start[3 * leg + 2] += float(
+                    self.rng.uniform(-5.0, 10.0)) * DEG2RAD
+            if self._ep_rand is not None:
+                q_start = q_start + self._ep_rand.start_offset_rad
+            q_start = self._clip_to_joint_limits(q_start)
         else:
             q_start = self._start_pose_rad()
         self._place_at_plant(q_start)

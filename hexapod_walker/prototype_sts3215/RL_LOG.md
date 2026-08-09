@@ -3208,3 +3208,279 @@ cw_walk_h15b_dr03_ev_{dr03_15s,dr0_15s,dr0_5s,h15b_dr03_15s,
 dr03ck_dr06,dr03ck_dr10,h15b_dr06,h15b_dr10} (8 dirs, 60 eps).
 Cycle totals: 0 launches, 0 steps of the 16M cap; 8 harness evals
 (6 eps/mode) + 1 DR-sanity probe, all controller-side.
+
+## Cycle 24 (2026-08-09 ~05:3xZ) — cw-walk-kgate + cw-stance-endpost-c1 verdicts: BOTH pre-registered if-false branches fired. Walk: pricing is REFUTED for the park (income cut ~1250→274/ep, park unchanged at the same seed index) — the basin is state-visitation-starved, not income-rational. Stance: the terminal charge PLATEAUED by redistribution (leg0↔leg4 traded clearance, sum unchanged). Both lines escalate to the SAME mechanism, reset-state diversity, designed once and routed per mode (plan item 3 honored): parked starts for walk, belly-rest starts for lower. Phantom cw-walk-lowent-h15 closed in the ledger (never trained).
+
+### cw-walk-lowent-h15 — PHANTOM (no verdict owed)
+W&B rsut0epw state=failed, 0 steps: this is the 01:35Z attempt that
+crashed at init (parent ckpt absent on walk pod, ledger 01:35Z
+FAILED entry); the relaunch was REFUSED for the duplicate name and
+the lineage continued as cw-walk-lowent-h15b (verdicted cycle 19).
+No checkpoint exists; nothing to eval. Ledger: latest h15 entry set
+status=FAILED with an explanatory verdict via launch_run.py update,
+so ledger_verdicted() dedupes the name permanently (the watcher saw
+the W&B failed run but no terminal LATEST ledger entry — same
+failure class as the endpost-c1 orphan, closed the same way).
+
+### cw-walk-kgate — progress-gated kernel income: the gate ran, the money moved, the park did not
+OBSERVATIONS (mechanical). W&B q1ip6y7k FINISHED, 4M steps (16.02M→
+20.03M cum, 1043 s solo walk pod). Final ckpt ppo_goal_cw_walk_kgate
+.zip md5 b703f7b03c4f7749a1333e0c045a7b1e (pod + controller match).
+Train: ep_rew_mean Q 1109/1112/1115/1133; env/walk_prog_factor Q
+0.831/0.834/0.854/0.845 (NOT →1.0 as if-true predicted); env/
+reward_walk Q 1.456/1.457/1.485/1.474; step_event Q 0.135/0.134/
+0.132/0.126 (mild decline); train/std 1.51→1.41 (harness policy_std
+1.342, lineage low); approx_kl ~0.017; 0 terminations.
+Gate harness 15 s DR 0 own-cfg incl. walk_kernel_prog_gate=1.0
+(logs/ckpt_eval/cw_walk_kgate_15s, 6 eps/mode det+sto, --video-every
+1): fwd ≥0.40 m det 5/6 + sto 5/6 = 10/12 (gate 12/12 FAIL);
+gait_valid 11/12; terminations 0/12 ✓; det fwd mean 0.651 ≥0.50 ✓
+(c1 baseline 0.610 — inside scatter); ≥2 swings/leg ✓ in all gv eps.
+THE SAME TWO FAILURE INDICES AS h15b AND c1: det[2] duty-skew churn
+(fwd 0.361 vs c1 0.285, duty [0.75,0.25,0.82,0.31,0.62,0.29], slip/m
+3.26) and sto[4] tripod park (fwd 0.052 vs c1 0.037, duty
+[0.92,0.10,0.95,0.07,0.93,0.08] — bitwise-near c1's park duty).
+INCOME CHECK (the run's whole point): sto[4] return 274 vs passing
+sto eps 798–1273 and c1-era park parity — the progress gate removed
+~1000/ep of park income exactly as designed. The policy parks
+anyway. Park rate 1/6 sto, FOURTH consecutive segment (lowent, h15b,
+c1, kgate). New texture: the park now PAWS — unloaded legs flick
+(sw [4,7,4,5,10,5]) and the loaded tripod skates in place (slip
+0.902 at fwd 0.052) vs c1's frozen park; consistent with stillness
+now being maximally unpaid, without an exit being learned.
+Retention 5 s (cw_walk_kgate_5s): det slip/m 1.84 vs gate ≤1.8 —
+FAIL as written (c1 1.50, champion 1.53); the miss is driven by the
+det[2] churn ep (slip 0.428/fwd 0.096); excluding it 1.58 ≈
+champion. 5 s det fwd mean 0.178 (c1 0.183) — the slow-start trait
+of the annealed-std lineage persists, previously flagged cycles
+21/23. 15 s slip/m: det agg 1.39 (c1 1.33, champion 1.58), sto agg
+1.50 — no evidence of change either direction.
+FRAMES WATCHED (provenance; ALL 12 gated 15 s eps on camera): det_0
+d4dd07b3, det_1 894e09cb, det_2 73eba8e0, det_3 a6902416, det_4
+3d2d51ba, det_5 058eb278, sto_0 ad9fda6c, sto_1 ed7e3579, sto_2
+76c2a25b, sto_3 1580d808, sto_4 9449eea2, sto_5 ce4b68ed — 375 f
+each; 5 s det_0 8e252409, sto_4 0dd3bb06, 125 f each (remaining 5 s
+eps scalars only, unwatched). Pathologies first: sto_4 park on
+camera — posture locks by ~tile 3, checkerboard never shifts, legs
+1/3/5 hover; det_2 churn — legs 1/3/5 flick in air while 0/2/4 stay
+loaded, body creeps; ALL strips keep the lineage's sprawly-wide
+stance and stance-foot creep (slip 0.75–0.96/ep passing); cadence
+irregular. Achievements (numbers behind each): 9 passing eps show
+all six feet cycling contact/short-swing, body level, checkerboard
+advancing through the final tiles (no final-third decay), fwd
+0.655–0.777 det / 0.719–0.762 sto; zero falls, zero safety flags in
+24 eps.
+Exploits looked for: crawl-to-pass-the-anti-crawl-clause — NOT
+found (det fwd mean 0.651 > c1's 0.610); phantom step credit in the
+park (pawing collecting step_event) — PRESENT in-episode (sw 4–10
+while fwd 0.052) but unpaid at scale (return 274; step_event income
+~0.13/tick can't offset the kernel loss); sacrificed leg in passing
+eps — none (gv 11/12, min duty 0.45 in passes).
+INTERPRETATION. Prediction-if-false fired to the letter: the park
+persisted at ~1/6, same seed index, despite a strongly disadvantaged
+return. The income story is DEAD — kernel gating moved the money and
+did not move the behavior. What remains is the pre-registered
+attractor-mechanical reading, sharpened: the park is entered in the
+first ~1 s and park-adjacent states are visited in only ~1/6 of
+episodes, so the exit gradient is starved relative to the abundant
+walking data (PPO had 4M steps of park trajectories at −1000/ep and
+did not price them out — that IS the mechanical-attractor result the
+launch entry said this experiment would distinguish). Root-cause
+chain for the next arm (required): park persists ← exit never
+sampled where it matters ← park states rare at reset and entered
+under momentum ← state-distribution defect, not pricing.
+walk_prog_factor stabilizing at ~0.84 (not 1.0) also shows training
+carried a persistent tail of low-progress ticks all run.
+VERDICT: FAIL against the recorded gate (fwd 10/12, gv 11/12,
+retention slip/m 1.84 > 1.8; det-fwd-mean and 0-term clauses met).
+NOT HARDWARE-READY: 1-in-6 chance of freezing in a pawing tripod
+park, feet skate ~1.4–1.5 m per meter walked, DR 0 only. CHAMPION:
+UNCHANGED — h15b (md5 d0a12a94). kgate ckpt (md5 b703f7b0) becomes
+the preferred WARM-START parent for walk arms: passing-ep behavior
+within noise of c1/champion (det fwd 0.651 vs 0.610, slip/m 1.39 vs
+1.33), lowest std of the lineage (1.342), and it already carries the
+prog-gated income that plan 0-c.2 wants long-term.
+HYPOTHESIS STATUS: REFUTED (if-false branch). Pricing arms for the
+park are CLOSED (income routing + k_park_duty both tested; neither
+flips behavior). Escalation per pre-registration: reset-state
+diversity — parked starts — launched below.
+
+### cw-stance-endpost-c1 — +4M consolidation: the terminal charge plateaus by REDISTRIBUTION, not descent
+OBSERVATIONS (mechanical). W&B v5t38fee FINISHED, 4M steps (23.19M→
+27.20M cum, 2182 s on s3 sharing with dr03's tail). Final ckpt
+ppo_goal_cw_stance_endpost_c1.zip md5
+d6e909af87c1b229d83b5bd721b17f58 (pod + controller match). train/std
+0.197 flat (inherited, no runaway). env/reward_end_posture quarters
+−0.4958/−0.4445/−0.4256/−0.4681: Q4−Q1 = +0.028 < 0.05 → the
+PRE-REGISTERED PLATEAU RULE FIRES (and the curve is non-monotonic:
+improved to Q3 then gave half back). Segment-over-segment: r1 ended
+−0.518, c1 ended −0.468 — 0.05 over 4M vs the ≥0.12 if-true bar.
+Gate harness (posture-strict, DR 1.0, own cfg, explicit --modes
+lower rise hold raise track per the cycle-18 footgun,
+logs/ckpt_eval/cw_stance_endpost_c1_gate, 6 eps/mode det+sto):
+- lower posture: det 0/6, sto 0/6 (gate ≥4/6 det, ≥5/6 sto — FAIL;
+  r1 was also 0/12). Heights PERFECT 12/12 (h_err ≤3.1 det, ≤12.7
+  sto). Per-leg end clearances vs r1 NAMED baseline: leg4 IMPROVED
+  133–207 → 82–135 mm; leg0 WORSENED 89–135 → 128–181 mm; leg2
+  36–56 mm (inside the 60 mm allowance). Summed det over-allowance
+  123–156 mm (r1 ~147; if-true bar was <80) — the optimizer TRADED
+  leg0 against leg4 on a constant-cost manifold instead of planting.
+- rise posture: det 1/6, sto 0/6 (r1: 0/6, 1/6 — within the ±1–2 ep
+  band, no change). Heights 12/12 (h_err ≤13.7) → rise/lower
+  height-only clause ≥5/6 both ✓.
+- hold: det 6/6, sto 6/6 — gate clause MET (r1 5/6 det, within
+  noise).
+- raise (canary, no compute owed): 0/12, leg2 hovers 79–146 mm —
+  unchanged. track: det 6/6, sto 4/6 (scalars, unwatched; not a
+  gate clause; sto misses are end-posture-strict, r1 was 6/6 — at
+  the edge of the noise band, watch next segment).
+- Current: Imax 2.75 A (rise det), 2.72 A (hold det) — above the
+  2.5 A soft breaker, same band as r1 (2.67–2.70) under the MuJoCo
+  3.11 reading shift; pre-existing, recalibration caveat stands.
+  Safety flags 0/60.
+FRAMES WATCHED (provenance): lower_det_0.mp4 29cd5683 250 f — body
+descends on schedule, ends with SPEAR LEGS 0 and 4 extended
+straight out, feet hovering (~160/92 mm per telemetry); never a
+belly rest. lower_sto_0 8dee5f64 250 f — same pathology, spears at
+~140/130 mm. rise_det_3 df4976f5 250 f — the −98/−117 mm telemetry
+episode: ends SPRAWLED, legs splayed with feet jammed under the
+body line, not a clean stand (height met by geometry, posture
+visibly wrong). hold_sto_0 99c167cd 250 f — clean quiet six-foot
+stance. raise_det_0 a114eccb 250 f — quiet stance, leg2 held out
+horizontally (the permanent canary posture). Remaining eps: scalars
+only, unwatched (all lower/rise fails announce themselves in the
+watched strips; hold/track passes are the watched-clause modes).
+Exploits looked for, not found: height-collapse shortcut (h_err
+≤3.1 mm det lower), safety-layer reliance (0 flags/60), schedule
+dodge (window is time-based), hidden charge compensation (residual
+−0.47/tick matches the visible hover exactly).
+INTERPRETATION. Prediction-if-false fired: the charge plateaued
+(0.028 < 0.05) with clearances at r1 magnitudes — worse, the 8M-step
+trajectory of this term is now visibly a constant-cost MANIFOLD
+(legs trade clearance; the sum does not descend). The reachability
+hypothesis — "hover is optimization-incomplete, gradient will reach
+contact" — is REFUTED. Root-cause chain for the next arm (required):
+spear-leg hover ← end-posture gradient stalls on a redistribution
+manifold ← planted-belly states are NEVER VISITED (the policy only
+approaches from above and stops at its equilibrium; std 0.19 cannot
+sample down to contact) ← exploration/state-distribution defect at
+the root, same defect class as the walk park (plan item 3 called
+this: same defect, design the fix once).
+VERDICT: FAIL (lower posture 0/12; heights and hold clauses met).
+NOT HARDWARE-READY: lower still ends with two spear legs in the
+air; rise sprawl endings persist. Champion UNCHANGED
+(cw_stance_dr10). Crown-jewel watch: rise/lower HEIGHTS intact
+24/24 across both passes — no erosion.
+HYPOTHESIS STATUS: REFUTED (plateau branch). Per pre-registration:
+NO third pricing arm; belly-rest reference states launched below.
+
+### CODE — reset-state diversity, one mechanism, two routings (snapshot this cycle)
+Both if-false branches above converge on state-visitation, and the
+fix reuses the PROVEN rise reverse-curriculum machinery (start_at/
+start_curl, goal_task.py) rather than inventing anything new:
+1. walk_task.py + sim_env.py: `goal.walk_park_start_frac` (default
+   0.0 = feature off). With prob f a walk episode STARTS in a
+   tripod-park pose: plant with one alternating tripod's hips lifted
+   10–25° (feet hover ~15–45 mm pre-settle) + small knee jitter,
+   tripod drawn 50/50. Functional check: park resets produce the
+   observed park's load skew (contact forces ~[5.4,1.9,4.3,2.7,4.6,
+   1.8] N seed 3, mirrored tripod seed 101); frac=0 → start_at
+   plant, legacy path. CAVEAT recorded as the strongest alternative:
+   the synthetic park is SOFTER than the policy's own (lifted legs
+   sag to a few mm hover in the limp settle, loads 1.5–2.8 N not 0)
+   — if the arm teaches synthetic-park exits without touching
+   sto[4], that mismatch is the suspect, and the next iteration
+   harvests start states from the policy's own park rollouts.
+2. goal_task.py: `goal.lower_belly_start_frac` (default 0.0). With
+   prob f a lower episode STARTS flat on the belly (the zero pose —
+   which IS the lower target posture, all feet planted) with height
+   ref 0 throughout: "rest here quietly". The end-posture charge is
+   ~0 there by construction; the policy learns the planted basin
+   exists and its states overlap the ideal descent ending exactly
+   (MLP, no history — generalization is forced through shared
+   states). Flat-only on purpose (partial-curl starts need
+   elevation-matched refs; that is a second rung, not this one).
+Both draws are unconditional so frac=0 and frac>0 runs of this code
+share rng streams (episode draws DO shift vs pre-cycle-24 code —
+noted, harmless). rl_move/tests/test_sim_env.py 35/35 pass; lower
+frac=0 legacy behavior verified; no reward-term change anywhere so
+no scale audit owed. New mechanisms ⇒ probe smokes before the 4M
+runs (audit §6).
+
+### LAUNCH cw-walk-parkstart (4M, DR 0, ep 15 s, seed 0, walk pod) — park-basin reset diversity
+Basis: kgate's if-false branch (pre-registered escalation:
+reset-state diversity). Warm start ppo_goal_cw_walk_kgate.zip md5
+b703f7b0 (rationale in kgate verdict). ONE variable vs the kgate
+segment: --cfg-set goal.walk_park_start_frac=0.25 (cfg otherwise
+identical, incl. walk_kernel_prog_gate=1.0).
+HYPOTHESIS: the park persists because park-adjacent states are
+sampled in only ~1/6 of episodes and entered under momentum at
+~t=1 s, so the exit gradient is starved — the income side is
+already solved (kgate: park return 274 vs ~1250 walking, behavior
+unchanged). Starting 25% of episodes IN a jittered tripod park
+densifies exactly the missing gradient.
+Prediction-if-true: park-exit eval (harness at
+walk_park_start_frac=1.0, 6 eps/mode det+sto) shows exit-and-walk
+≥10/12 fwd ≥0.30 m; standard 15 s harness park rate 1/6 sto → 0/12
+(same seed); det[2] churn converts (same basin family); gate
+clauses fwd+gv 12/12.
+Prediction-if-false, two informative shapes: (a) policy exits
+SYNTHETIC parks ≥10/12 but sto[4] still parks → start-distribution
+mismatch (the recorded caveat) → harvest start states from the
+policy's own park rollouts next; (b) policy cannot even exit
+synthetic parks → the exit is motorically hard (needs load shift
+before any swing) → plan rung-2 time-averaged load evenness. NOT a
+coefficient retry in either shape.
+Strongest alternative: park starts merely teach a new "settle from
+weird pose" competence without touching walking — distinguished by
+the standard-start harness being unchanged AND the park-exit eval
+passing (shape (a)).
+GATE (ledger): standard 15 s DR 0 harness 6 eps/mode det+sto: fwd
+≥0.40 m 12/12 AND gait_valid 12/12 AND ≥2 swings/leg AND 0 term AND
+no final-third degradation AND det fwd mean ≥0.50 m (kgate 0.651)
+AND park-exit eval (frac=1.0) ≥10/12 [fwd ≥0.30 m AND gait_valid].
+Retention: 5 s det slip/m ≤1.8. Budget 4M, ent 0.001, --no-canary
+(lineage exemption), seed 0. Probe smoke probe-walk-parkstart
+(150k, smoke pod, W&B off) first: park starts visible in reset
+(start_at draws logged/verified), no tracebacks, ep_rew in the
+lineage band.
+
+### LAUNCH cw-stance-bellyrest (4M, DR 1.0, seed 0, pod s5) — belly-rest reference states for lower
+Basis: endpost-c1's if-false branch (pre-registered fallback:
+belly-rest reference states, the reset-side structural option).
+Warm start ppo_goal_cw_stance_endpost_c1.zip md5 d6e909af (most
+consolidated stance ckpt; hold 12/12, heights 24/24 intact). ONE
+variable vs the c1 segment: --cfg-set
+goal.lower_belly_start_frac=0.35 (cfg otherwise identical, incl.
+k_end_posture=5.0).
+HYPOTHESIS: the spear-leg hover survives because planted-belly
+states are never visited (approach-from-above stalls on a
+redistribution manifold; std 0.197 cannot sample to contact).
+Starting 35% of lower episodes AT the planted belly pose ("rest
+here quietly", height ref 0) makes the zero-charge basin visited
+and learned; descents then have somewhere to go.
+Prediction-if-true: env/reward_end_posture resumes descending
+(≥0.12 over the segment, r1's own delta) AND lower det summed
+over-allowance <80 mm (c1: 123–156) AND lower posture ≥1/6 any
+pass; gate pass possible.
+Prediction-if-false: belly-start episodes rest planted (their
+charge ~0 — observable as a bimodal end_posture split in W&B) but
+plant-start descents STILL end at ~130–150 mm over-allowance with
+spear legs 0/4 → the hover is preferred under DESCENT dynamics
+(e.g. spears guard tilt during the ramp), not ignorance of the
+basin → next is a descent-posture reference during the ramp or an
+operator review of the 60 mm allowance; terminal pricing stays
+closed.
+Strongest alternative: the policy CONTEXT-SPLITS (rests planted
+when started planted, hovers when descending) despite shared
+states — that IS prediction-if-false's signature; the shared-state
+overlap at episode end is what makes this experiment distinguish
+learning-the-basin from preferring-the-hover.
+GATE (ledger): posture-strict harness @ DR 1.0, 6 eps/mode det+sto,
+explicit --modes: lower end-posture ≥5/6 sto AND ≥4/6 det AND
+rise/lower height-only ≥5/6 both AND hold sto 6/6. Rise-regression
+stop rule: rise HEIGHTS <5/6 anywhere = stop the line. Canaries ON
+(multi-skill). Budget 4M, seed 0. Probe smoke
+probe-stance-bellyrest (150k, smoke pod, W&B off) first: belly
+starts appear (start_at zero on lower draws), no tracebacks,
+canaries green at baseline.
