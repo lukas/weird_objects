@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-09T18:38:57+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-comshift30
+
+**wandb_id**: o6rhyyvg
 
 **hypothesis**: Composition rung off the fresh comshift30 PASS (same move class as payload-dr05/lowgait-dr05): off-center-payload competence was proven at dr-scale 0.0 only. One variable off comshift30: dr-scale 0.0 -> 0.5 while keeping the absolute dr.com_offset_m=0.03 override. Plain: carrying weight on one side must survive real-world physics spread, not just nominal sim. If-true: own-cfg DR0.5+offset harness gv 12/12, 0 term, det median fwd >=1.1m @30s and DR0 nominal retention stays in champion band - asymmetric payload becomes a deployable robustness rung. If-false: DR draws plus offset mass tip the gait (terminations or the half-speed shuffle spreads from worst draw to median) - comshift stays a nominal-sim skill; note the compose ceiling. Strongest alternative: holds but slip creeps past champion band under DR like other composes - then the caveat is slip, not gait.
 

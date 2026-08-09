@@ -18123,7 +18123,7 @@
       "OPERATOR WISHLIST 13b (richer physics, one axis per run) + readiness review reliability-via-targeted-axes: floor slope is the 'terrain-lite' axis every real room has (ramps, thresholds, carpet edges). ISOLATED axis via dr.<field> overrides: dr-scale 0.0 with ONLY dr.ground_tilt_deg=5.0 (tilt u(0,5deg), random azimuth; full-DR default is 2deg, champion trained at 0) - one variable off the no-DR champion. Plain: the robot should walk across a mildly sloped floor without stalling uphill or sliding downhill. Prediction-if-true: gait holds across the slope spread (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - slope robustness is trainable by exposure and joins the transfer recipe. Prediction-if-false: uphill draws collapse progress or downhill draws slide/fall - slopes need a curriculum or explicit incline estimation, not plain exposure. Strongest alternative: policy survives by crabbing across-slope or slowing cadence - check heading err + cadence vs champion. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.ground_tilt_deg=5.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; frames watched det"
     ],
     "created": "2026-08-09T17:43:26+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -18161,7 +18161,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "PASS - floor-slope axis lands by exposure: own-cfg (tilt u(0,5deg), random azimuth) gv 12/12, 0 term, det med fwd 1.40m; DR0 retention det 6/6 gv, slip/m med 1.03, prog 0.96 (= champion band). Honest tail: 2/6 steepest det draws slow to a shuffle (fwd 0.52-0.67m, slip/m 3.4-4.5) without falling - solid to ~3-4deg, 5deg marginal; no crabbing (track err <2deg). Frames watched det 6/6: level body, six legs cycling, lineage paddle-slide.",
+    "hardware_ready": "no"
   },
   {
     "run": "cw-walk-velsag30",
@@ -18437,7 +18439,7 @@
       "Latency jitter (0.5-2.5x, validated by latjit25) composed onto the best driving candidate joyjit-dr05-c1 - one variable: the dr.latency_scale override. Real joystick driving = abrupt commands + bus timing jitter together. Gate: joystick gate zero falls + own-cfg gv 12/12, prog >=0.85."
     ],
     "created": "2026-08-09T17:47:10+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -18475,7 +18477,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": "no",
+    "verdict": "PASS. All 3 gate parts: JOYSTICK GATE @DR0.2 own cfg 0 in-envelope falls (left 0.197/right 0.275 m >=0.15; flip-stress trk_err 0.029-0.035 vs parent joyjit-dr05-c1 0.025-0.056). Own-cfg DR0.5+latency 0.5-2.5x det+sto: gv 12/12, 0 term, prog med 0.93/0.94 (gate >=0.85), slip/m 1.48/1.51 (steering-DR band). DR0 retention gv 12/12, prog 0.95/0.94 = parent (0.97/0.95). Frames det: level, six legs cycling, no flag leg; paddle foot-slide persists. Latency jitter and abrupt-flip driving COMPOSE - joylat25 supersedes joyjit-dr05-c1 as strongest driving candidate. Not hardware-ready (contact-pricing slip root)."
   },
   {
     "run": "cw-walk-lowgait70",
@@ -19229,7 +19233,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-imumount10 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.imu_mount_deg=10.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_imumount10 --notes 'OPERATOR WISHLIST 13c-class sensor axis via the 13b one-axis recipe: IMU MOUNT MISCALIBRATION. The policy'\"'\"'s only orientation signal is the IMU; a mount rotated a few degrees biases every tilt/gyro reading the same way all episode - the classic cheap-robot calibration residual. ISOLATED: dr-scale 0.0 with ONLY dr.imu_mount_deg=10.0 (per-episode mount rotation up to 10deg, the full-DR default; champion trained at 0) - one variable off the no-DR champion. Plain: keep walking straight even when the robot'\"'\"'s sense of '\"'\"'level'\"'\"' is rotated a few degrees. Prediction-if-true: gait holds under biased tilt (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - sensor-bias robustness is trainable by exposure. Prediction-if-false: biased tilt corrupts balance responses (veer, tilt terminations, prog craters) - IMU calibration error needs explicit estimation, not exposure. Strongest alternative: policy learns to ignore tilt obs entirely - check DR0 retention and any tilt-canary erosion. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.imu_mount_deg=10.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-imumount10.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-imumount10.log",
     "wandb_id": "xq79idv3",
-    "verified": "2026-08-09T18:38:51+00:00"
+    "verified": "2026-08-09T18:38:51+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T18:44:49+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5630,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-badstart",
@@ -19319,7 +19335,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-badstart --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.bad_start_prob=0.25 --cfg-set dr.bad_start_deg=8,35 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_badstart --notes 'OPERATOR WISHLIST 13b next isolated axis: BAD START POSES. On real power-up the legs are wherever the last session left them - the sim always starts from the clean nominal plant. ISOLATED: dr-scale 0.0 with ONLY the bad-start mechanism on at its full-DR values (dr.bad_start_prob=0.25, dr.bad_start_deg=8,35; up to 3 joints start 8-35deg off; champion trained with 0). One mechanism = one variable (prob+magnitude enable the same event; magnitudes are zeroed at dr-scale 0 so both must be set). Plain: recover from a sloppy starting pose and walk off cleanly instead of tripping on the first step. Prediction-if-true: bad-start episodes recover in the first ~2s and gate holds (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) with DR0 retention clean - boot-pose robustness is trainable by exposure. Prediction-if-false: off-pose starts cause first-second falls or the policy learns a lurching recovery that contaminates the nominal gait (retention slip/prog erodes). Strongest alternative: recovery works but costs distance only in bad-start draws - per-episode spread will show a bimodal fwd distribution, judge median + frames. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.bad_start_prob=0.25 + dr.bad_start_deg=8,35, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-badstart.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-badstart.log",
     "wandb_id": "mpyvrdq1",
-    "verified": "2026-08-09T18:40:13+00:00"
+    "verified": "2026-08-09T18:40:13+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T18:46:42+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5544,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-deadband-dr05",
@@ -19405,7 +19433,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-deadband-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_deadband30.zip --dr-scale 0.5 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.deadband_scale=1.0,3.0 --n-envs 4096 --impl warp --host-workers 24 --notes 'Composition rung off the fresh deadband30 PASS: deadband tolerance was proven at dr-scale 0.0 only. One variable off deadband30: dr-scale 0.0 -> 0.5 while keeping dr.deadband_scale=1.0,3.0. Plain: tolerating sloppy servos must survive real-world physics spread too. If-true: own-cfg DR0.5+deadband harness gv 12/12, 0 term, det median fwd >=1.1m @30s and DR0 retention stays in champion band - deadband becomes a deployable robustness rung. If-false: DR draws plus wide deadband break the fine-correction paddle (terminations, or jerky overdrive appears in frames that nominal deadband30 avoided) - deadband stays a nominal-sim skill; note the compose ceiling. Strongest alternative: passes scalars with slip creep past champion band - caveat is slip, not gait. Parent: cw-walk-deadband30. Gate: Own-cfg harness at --dr-scale 0.5 + dr.deadband_scale=1.0,3.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1 m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; frames watched det for lurching' > /tmp/train_cw-walk-deadband-dr05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-deadband-dr05.log",
     "wandb_id": "f1ra5y09",
-    "verified": "2026-08-09T18:41:31+00:00"
+    "verified": "2026-08-09T18:41:31+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T18:47:36+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8448,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-comshift-dr05",
@@ -19465,7 +19505,7 @@
       "Composition rung off the fresh comshift30 PASS (same move class as payload-dr05/lowgait-dr05): off-center-payload competence was proven at dr-scale 0.0 only. One variable off comshift30: dr-scale 0.0 -> 0.5 while keeping the absolute dr.com_offset_m=0.03 override. Plain: carrying weight on one side must survive real-world physics spread, not just nominal sim. If-true: own-cfg DR0.5+offset harness gv 12/12, 0 term, det median fwd >=1.1m @30s and DR0 nominal retention stays in champion band - asymmetric payload becomes a deployable robustness rung. If-false: DR draws plus offset mass tip the gait (terminations or the half-speed shuffle spreads from worst draw to median) - comshift stays a nominal-sim skill; note the compose ceiling. Strongest alternative: holds but slip creeps past champion band under DR like other composes - then the caveat is slip, not gait. Parent: cw-walk-comshift30. Gate: Own-cfg harness at --dr-scale 0.5 + dr.com_offset_m=0.03, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1 m; plus DR0 no-offset retention det 6/6 gv, det slip/m <=1.24; frames watched det"
     ],
     "created": "2026-08-09T18:38:57+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -19474,11 +19514,36 @@
       "code_sha_local": "3fe39f80a37dc809a07f06ba27da1c17dc0d7742",
       "code_sha_pod": "3fe39f80a37dc809a07f06ba27da1c17dc0d7742",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "478935",
+      "log_growth_bytes": [
+        9678,
+        14298
+      ],
+      "wandb_id": "o6rhyyvg",
+      "global_step_window": [
+        655360,
+        1310720
+      ],
+      "fps_estimate": 7281.8
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-comshift-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_comshift30.zip --dr-scale 0.5 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.com_offset_m=0.03 --n-envs 4096 --impl warp --host-workers 24 --notes 'Composition rung off the fresh comshift30 PASS (same move class as payload-dr05/lowgait-dr05): off-center-payload competence was proven at dr-scale 0.0 only. One variable off comshift30: dr-scale 0.0 -> 0.5 while keeping the absolute dr.com_offset_m=0.03 override. Plain: carrying weight on one side must survive real-world physics spread, not just nominal sim. If-true: own-cfg DR0.5+offset harness gv 12/12, 0 term, det median fwd >=1.1m @30s and DR0 nominal retention stays in champion band - asymmetric payload becomes a deployable robustness rung. If-false: DR draws plus offset mass tip the gait (terminations or the half-speed shuffle spreads from worst draw to median) - comshift stays a nominal-sim skill; note the compose ceiling. Strongest alternative: holds but slip creeps past champion band under DR like other composes - then the caveat is slip, not gait. Parent: cw-walk-comshift30. Gate: Own-cfg harness at --dr-scale 0.5 + dr.com_offset_m=0.03, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1 m; plus DR0 no-offset retention det 6/6 gv, det slip/m <=1.24; frames watched det' > /tmp/train_cw-walk-comshift-dr05.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-comshift-dr05.log"
+    "log": "/tmp/train_cw-walk-comshift-dr05.log",
+    "wandb_id": "o6rhyyvg",
+    "verified": "2026-08-09T18:42:53+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T18:49:28+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5663,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-fric50",
@@ -19600,7 +19665,7 @@
       "Envelope refinement after friclow's marginal PASS (grip 0.3-1.0x: transports but slick draws SKATE, slip/m med 1.73, and nominal fwd paid ~9%). One variable off the champion: dr.friction_scale=0.5,1.0 - the realistic tile/hardwood band, cutting the extreme 0.3x draws that forced skating. Plain: find the grip floor where walking stays CLEAN, not just survivable. If-true: moderate slip trains clean - own-cfg gv 12/12, 0 term, det med fwd >=1.3m AND own-cfg det slip/m med <=1.3 (near champion band, the clean-walking claim friclow failed) with DR0 retention at full champion speed (no 9% tax). If-false: even 0.5x grip forces the skating trade (own-cfg slip >1.5 or nominal cost repeats) - the paddle gait needs the contact-pricing fix for ANY reduced grip; close the friction axis until then. Strongest alternative: clean own-cfg but the nominal tax persists - then the tax is exposure-width-independent and worth flagging. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.friction_scale=0.5,1.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.3 m, det slip/m med <=1.3; plus DR0 nominal retention det 6/6 gv, det med fwd >=1.5 m, slip/m <=1.24; frames watched det"
     ],
     "created": "2026-08-09T18:41:10+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -19609,10 +19674,405 @@
       "code_sha_local": "3fe39f80a37dc809a07f06ba27da1c17dc0d7742",
       "code_sha_pod": "3fe39f80a37dc809a07f06ba27da1c17dc0d7742",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2309884",
+      "log_growth_bytes": [
+        10693,
+        18215
+      ],
+      "wandb_id": "gg3z5m2e",
+      "global_step_window": [
+        917504,
+        2097152
+      ],
+      "fps_estimate": 13107.2
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-fric50 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.friction_scale=0.5,1.0 --n-envs 4096 --impl warp --host-workers 24 --notes 'Envelope refinement after friclow'\"'\"'s marginal PASS (grip 0.3-1.0x: transports but slick draws SKATE, slip/m med 1.73, and nominal fwd paid ~9%). One variable off the champion: dr.friction_scale=0.5,1.0 - the realistic tile/hardwood band, cutting the extreme 0.3x draws that forced skating. Plain: find the grip floor where walking stays CLEAN, not just survivable. If-true: moderate slip trains clean - own-cfg gv 12/12, 0 term, det med fwd >=1.3m AND own-cfg det slip/m med <=1.3 (near champion band, the clean-walking claim friclow failed) with DR0 retention at full champion speed (no 9% tax). If-false: even 0.5x grip forces the skating trade (own-cfg slip >1.5 or nominal cost repeats) - the paddle gait needs the contact-pricing fix for ANY reduced grip; close the friction axis until then. Strongest alternative: clean own-cfg but the nominal tax persists - then the tax is exposure-width-independent and worth flagging. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.friction_scale=0.5,1.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.3 m, det slip/m med <=1.3; plus DR0 nominal retention det 6/6 gv, det med fwd >=1.5 m, slip/m <=1.24; frames watched det' > /tmp/train_cw-walk-fric50.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-fric50.log"
+    "log": "/tmp/train_cw-walk-fric50.log",
+    "wandb_id": "gg3z5m2e",
+    "verified": "2026-08-09T18:45:05+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T18:51:21+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8535,
+        "fps": 17476.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-fricvar-dr05",
+    "pod": "hexapod-mjx-train-10",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Composition rung off today's fricvar PASS (same move class as payload-dr05/comshift-dr05/deadband-dr05, pattern 'widen-then-harden composes' proven by head90-dr05): friction 0.4-1.6x competence was proven at dr-scale 0.0 only. One variable off fricvar: dr-scale 0.0 -> 0.5 (model DR at half strength) while keeping the absolute dr.friction_scale=0.4,1.6 override. Plain: grip-level robustness must survive general physics spread, not just nominal sim. If-true: the axes stack - own-cfg DR0.5+friction harness gv 12/12, 0 term, det median prog >=0.75, and DR0 nominal retention stays in the champion band (slip/m <=1.15) - friction joins the deployable robustness recipe. If-false: DR draws plus slick floors compound (terminations, or the slick-draw churn spreads from the 2/6 tail to median draws) - friction stays a nominal-sim skill and we note the compose ceiling. Strongest alternative: passes with slip creeping past the champion band under DR like other DR composes - then the caveat is slip, not gait.",
+    "gate": "Own-cfg harness at --dr-scale 0.5 + dr.friction_scale=0.4,1.6, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median prog_ratio >=0.75; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.15; frames watched det",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_fricvar.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_fricvar.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.friction_scale=0.4,1.6",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_fricvar_dr05"
+    ],
+    "created": "2026-08-09T18:42:33+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-12d45224-745e-3c94-0817-b7685322bad4)",
+      "running_experiments_before": 11,
+      "code_sha_local": "56d6e942b5444c297acf2e04abdd4e8975e3ff6d",
+      "code_sha_pod": "3fe39f80a37dc809a07f06ba27da1c17dc0d7742"
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-10 code marker 3fe39f80a37dc809a07f06ba27da1c17dc0d7742 != local HEAD 56d6e942b5444c297acf2e04abdd4e8975e3ff6d. Sync first: snapshot.sh --sync hexapod-mjx-train-10 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "cw-walk-fricvar-dr05",
+    "pod": "hexapod-mjx-train-10",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Composition rung off today's fricvar PASS (same move class as payload-dr05/comshift-dr05/deadband-dr05, pattern 'widen-then-harden composes' proven by head90-dr05): friction 0.4-1.6x competence was proven at dr-scale 0.0 only. One variable off fricvar: dr-scale 0.0 -> 0.5 (model DR at half strength) while keeping the absolute dr.friction_scale=0.4,1.6 override. Plain: grip-level robustness must survive general physics spread, not just nominal sim. If-true: the axes stack - own-cfg DR0.5+friction harness gv 12/12, 0 term, det median prog >=0.75, and DR0 nominal retention stays in the champion band (slip/m <=1.15) - friction joins the deployable robustness recipe. If-false: DR draws plus slick floors compound (terminations, or the slick-draw churn spreads from the 2/6 tail to median draws) - friction stays a nominal-sim skill and we note the compose ceiling. Strongest alternative: passes with slip creeping past the champion band under DR like other DR composes - then the caveat is slip, not gait.",
+    "gate": "Own-cfg harness at --dr-scale 0.5 + dr.friction_scale=0.4,1.6, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median prog_ratio >=0.75; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.15; frames watched det",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_fricvar.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_fricvar.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.friction_scale=0.4,1.6",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_fricvar_dr05",
+      "--notes",
+      "Composition rung off today's fricvar PASS (same move class as payload-dr05/comshift-dr05/deadband-dr05, pattern 'widen-then-harden composes' proven by head90-dr05): friction 0.4-1.6x competence was proven at dr-scale 0.0 only. One variable off fricvar: dr-scale 0.0 -> 0.5 (model DR at half strength) while keeping the absolute dr.friction_scale=0.4,1.6 override. Plain: grip-level robustness must survive general physics spread, not just nominal sim. If-true: the axes stack - own-cfg DR0.5+friction harness gv 12/12, 0 term, det median prog >=0.75, and DR0 nominal retention stays in the champion band (slip/m <=1.15) - friction joins the deployable robustness recipe. If-false: DR draws plus slick floors compound (terminations, or the slick-draw churn spreads from the 2/6 tail to median draws) - friction stays a nominal-sim skill and we note the compose ceiling. Strongest alternative: passes with slip creeping past the champion band under DR like other DR composes - then the caveat is slip, not gait. Parent: rl_move/sim/policies/ppo_goal_cw_walk_fricvar.zip. Gate: Own-cfg harness at --dr-scale 0.5 + dr.friction_scale=0.4,1.6, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median prog_ratio >=0.75; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.15; frames watched det"
+    ],
+    "created": "2026-08-09T18:45:11+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-12d45224-745e-3c94-0817-b7685322bad4)",
+      "running_experiments_before": 10,
+      "code_sha_local": "56d6e942b5444c297acf2e04abdd4e8975e3ff6d",
+      "code_sha_pod": "56d6e942b5444c297acf2e04abdd4e8975e3ff6d",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2329717",
+      "log_growth_bytes": [
+        11552,
+        17052
+      ],
+      "wandb_id": "40xnv2in",
+      "global_step_window": [
+        851968,
+        1966080
+      ],
+      "fps_estimate": 12379.0
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-fricvar-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_fricvar.zip --dr-scale 0.5 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.friction_scale=0.4,1.6 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_fricvar_dr05 --notes 'Composition rung off today'\"'\"'s fricvar PASS (same move class as payload-dr05/comshift-dr05/deadband-dr05, pattern '\"'\"'widen-then-harden composes'\"'\"' proven by head90-dr05): friction 0.4-1.6x competence was proven at dr-scale 0.0 only. One variable off fricvar: dr-scale 0.0 -> 0.5 (model DR at half strength) while keeping the absolute dr.friction_scale=0.4,1.6 override. Plain: grip-level robustness must survive general physics spread, not just nominal sim. If-true: the axes stack - own-cfg DR0.5+friction harness gv 12/12, 0 term, det median prog >=0.75, and DR0 nominal retention stays in the champion band (slip/m <=1.15) - friction joins the deployable robustness recipe. If-false: DR draws plus slick floors compound (terminations, or the slick-draw churn spreads from the 2/6 tail to median draws) - friction stays a nominal-sim skill and we note the compose ceiling. Strongest alternative: passes with slip creeping past the champion band under DR like other DR composes - then the caveat is slip, not gait. Parent: rl_move/sim/policies/ppo_goal_cw_walk_fricvar.zip. Gate: Own-cfg harness at --dr-scale 0.5 + dr.friction_scale=0.4,1.6, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median prog_ratio >=0.75; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.15; frames watched det' > /tmp/train_cw-walk-fricvar-dr05.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-fricvar-dr05.log",
+    "wandb_id": "40xnv2in",
+    "verified": "2026-08-09T18:49:08+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T18:54:15+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8517,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-latjit-dr05",
+    "pod": "hexapod-mjx-train-11",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Compose rung off the latjit25 PASS (same widen-then-harden pattern as payload-dr05/comshift-dr05/deadband-dr05/fricvar-dr05): latency-jitter competence was proven at dr-scale 0.0 only. One variable off latjit25: dr-scale 0.0 -> 0.5 (model DR at half strength) while keeping dr.latency_scale=0.5,2.5. Plain: tolerating slow/erratic servo timing must survive general physics spread, not just nominal sim. If-true: own-cfg DR0.5+latjit harness gv 12/12, 0 term, det median fwd >=1.1m @30s and DR0 no-jitter retention stays in the champion band - latency joins the deployable robustness stack. If-false: DR draws plus 2.5x latency overload the gait (terminations or the known 2.5x-tail progress halving spreads to median draws) - latency stays a nominal-sim skill, estimator rung inherits it. Strongest alternative: it holds but slip creeps past the champion band under DR like other composes - then the caveat is slip, not gait.",
+    "gate": "Own-cfg harness at --dr-scale 0.5 + dr.latency_scale=0.5,2.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1 m; plus DR0 no-jitter retention det 6/6 gv, det slip/m <=1.24; frames watched det",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_latjit25.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_latjit25.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.latency_scale=0.5,2.5",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_latjit_dr05",
+      "--notes",
+      "Compose rung off the latjit25 PASS (same widen-then-harden pattern as payload-dr05/comshift-dr05/deadband-dr05/fricvar-dr05): latency-jitter competence was proven at dr-scale 0.0 only. One variable off latjit25: dr-scale 0.0 -> 0.5 (model DR at half strength) while keeping dr.latency_scale=0.5,2.5. Plain: tolerating slow/erratic servo timing must survive general physics spread, not just nominal sim. If-true: own-cfg DR0.5+latjit harness gv 12/12, 0 term, det median fwd >=1.1m @30s and DR0 no-jitter retention stays in the champion band - latency joins the deployable robustness stack. If-false: DR draws plus 2.5x latency overload the gait (terminations or the known 2.5x-tail progress halving spreads to median draws) - latency stays a nominal-sim skill, estimator rung inherits it. Strongest alternative: it holds but slip creeps past the champion band under DR like other composes - then the caveat is slip, not gait. Parent: rl_move/sim/policies/ppo_goal_cw_walk_latjit25.zip. Gate: Own-cfg harness at --dr-scale 0.5 + dr.latency_scale=0.5,2.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1 m; plus DR0 no-jitter retention det 6/6 gv, det slip/m <=1.24; frames watched det"
+    ],
+    "created": "2026-08-09T18:55:22+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-570e6615-ff09-beeb-779f-b2da29edf3bb)",
+      "running_experiments_before": 11,
+      "code_sha_local": "eb06389aaada781cca278036159e6a44c32ae562",
+      "code_sha_pod": "eb06389aaada781cca278036159e6a44c32ae562",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1211272",
+      "log_growth_bytes": [
+        7727,
+        9575
+      ],
+      "wandb_id": "dujb0tue",
+      "global_step_window": [
+        262144,
+        786432
+      ],
+      "fps_estimate": 5825.4
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-latjit-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_latjit25.zip --dr-scale 0.5 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.latency_scale=0.5,2.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_latjit_dr05 --notes 'Compose rung off the latjit25 PASS (same widen-then-harden pattern as payload-dr05/comshift-dr05/deadband-dr05/fricvar-dr05): latency-jitter competence was proven at dr-scale 0.0 only. One variable off latjit25: dr-scale 0.0 -> 0.5 (model DR at half strength) while keeping dr.latency_scale=0.5,2.5. Plain: tolerating slow/erratic servo timing must survive general physics spread, not just nominal sim. If-true: own-cfg DR0.5+latjit harness gv 12/12, 0 term, det median fwd >=1.1m @30s and DR0 no-jitter retention stays in the champion band - latency joins the deployable robustness stack. If-false: DR draws plus 2.5x latency overload the gait (terminations or the known 2.5x-tail progress halving spreads to median draws) - latency stays a nominal-sim skill, estimator rung inherits it. Strongest alternative: it holds but slip creeps past the champion band under DR like other composes - then the caveat is slip, not gait. Parent: rl_move/sim/policies/ppo_goal_cw_walk_latjit25.zip. Gate: Own-cfg harness at --dr-scale 0.5 + dr.latency_scale=0.5,2.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1 m; plus DR0 no-jitter retention det 6/6 gv, det slip/m <=1.24; frames watched det' > /tmp/train_cw-walk-latjit-dr05.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-latjit-dr05.log",
+    "wandb_id": "dujb0tue",
+    "verified": "2026-08-09T18:59:25+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T19:05:08+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3891,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-zerobias3",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "OPERATOR WISHLIST 13b/13c (richer physics, one axis per run): per-servo set_zero calibration error is a REAL defect class (the 2026-08-06 incident was exactly this). ISOLATED axis via dr.<field> override: dr-scale 0.0 with ONLY dr.joint_zero_bias_deg=3.0 (per-joint zero offset u(-3,3) deg per episode; full-DR default is 1.0, champion trained at 0) - one variable off the no-DR champion. Plain: the robot should keep walking even when each servo's zero point is calibrated a few degrees wrong. Prediction-if-true: gait holds across the bias spread (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - miscalibration robustness is trainable by exposure. Prediction-if-false: biased draws destabilize (tilted stance, veering, falls, progress collapse) - zero error needs online estimation, not exposure. Strongest alternative (torquedroop lesson): champion ALREADY tolerates 3deg zero bias for free - triage MUST eval parent longdist-r2 under the same bias spread BEFORE verdicting. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.joint_zero_bias_deg=3.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det",
+    "parent": "cw-walk-longdist-r2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.joint_zero_bias_deg=3.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_zerobias3",
+      "--notes",
+      "OPERATOR WISHLIST 13b/13c (richer physics, one axis per run): per-servo set_zero calibration error is a REAL defect class (the 2026-08-06 incident was exactly this). ISOLATED axis via dr.<field> override: dr-scale 0.0 with ONLY dr.joint_zero_bias_deg=3.0 (per-joint zero offset u(-3,3) deg per episode; full-DR default is 1.0, champion trained at 0) - one variable off the no-DR champion. Plain: the robot should keep walking even when each servo's zero point is calibrated a few degrees wrong. Prediction-if-true: gait holds across the bias spread (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - miscalibration robustness is trainable by exposure. Prediction-if-false: biased draws destabilize (tilted stance, veering, falls, progress collapse) - zero error needs online estimation, not exposure. Strongest alternative (torquedroop lesson): champion ALREADY tolerates 3deg zero bias for free - triage MUST eval parent longdist-r2 under the same bias spread BEFORE verdicting. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.joint_zero_bias_deg=3.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det"
+    ],
+    "created": "2026-08-09T18:59:53+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+      "running_experiments_before": 11,
+      "code_sha_local": "949c9e5316f61586791a7089a222fd7e53bb82f0",
+      "code_sha_pod": "949c9e5316f61586791a7089a222fd7e53bb82f0",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2850341",
+      "log_growth_bytes": [
+        4873,
+        6807
+      ],
+      "wandb_id": "tdantwa2",
+      "global_step_window": [
+        131072,
+        393216
+      ],
+      "fps_estimate": 2912.7
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-zerobias3 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.joint_zero_bias_deg=3.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_zerobias3 --notes 'OPERATOR WISHLIST 13b/13c (richer physics, one axis per run): per-servo set_zero calibration error is a REAL defect class (the 2026-08-06 incident was exactly this). ISOLATED axis via dr.<field> override: dr-scale 0.0 with ONLY dr.joint_zero_bias_deg=3.0 (per-joint zero offset u(-3,3) deg per episode; full-DR default is 1.0, champion trained at 0) - one variable off the no-DR champion. Plain: the robot should keep walking even when each servo'\"'\"'s zero point is calibrated a few degrees wrong. Prediction-if-true: gait holds across the bias spread (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - miscalibration robustness is trainable by exposure. Prediction-if-false: biased draws destabilize (tilted stance, veering, falls, progress collapse) - zero error needs online estimation, not exposure. Strongest alternative (torquedroop lesson): champion ALREADY tolerates 3deg zero bias for free - triage MUST eval parent longdist-r2 under the same bias spread BEFORE verdicting. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.joint_zero_bias_deg=3.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det' > /tmp/train_cw-walk-zerobias3.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-zerobias3.log",
+    "wandb_id": "tdantwa2",
+    "verified": "2026-08-09T19:03:49+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T19:09:00+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3696,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

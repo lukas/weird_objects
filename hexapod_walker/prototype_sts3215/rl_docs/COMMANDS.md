@@ -120,6 +120,15 @@ report.json, and the W&B API for exactly these questions.
    Requeue after fixing: move items backlog_failed→backlog under
    `backlog.json.lock` with attempts reset, then `ops.sh drain`.
 
+0b. **A controller eval can DEADLOCK on a corrupt ffmpeg pipe**
+   (log shows `corrupt input packet` / `Invalid buffer size`, then
+   the python's utime freezes with no children — hit the groundtilt5
+   dr0ret pass, 08-09 c60, under heavy concurrent-eval load). Detect:
+   output dir stops growing AND `cat /proc/<pid>/stat` utime is
+   static across 5 s. Fix: kill the pid and rerun the pass with
+   `--no-video` (metrics JSON is what gates need; frame strips from
+   the hung run remain usable).
+
 1. **`eval_checkpoint` runs ONLY as a module** from the PROTO dir:
    `python3 -m rl_move.sim.eval_checkpoint …`. Running the .py path
    dies on relative imports. Flags (stop re-running --help):

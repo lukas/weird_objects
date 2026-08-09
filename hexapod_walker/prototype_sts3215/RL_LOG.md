@@ -137,3 +137,16 @@ the W&B OUTCOME note — if it matters, it lives there, not here.
   requeueing).
 
 ## Cycle log (one line per cycle via `ops.sh logline` — no exceptions)
+- 08-09 18:46 OPERATOR process pass: triage = ops.sh review; RL_LOG writes = ops.sh logline ONLY (598->143 trim, full text archived); snapshot dirty-check hardened; backlog add warns on same-axis dupes. 
+
+- Cycle 60 (08-09 ~18:3x-19:3x): 1 triage. `cw-walk-groundtilt5` PASS — floor-
+  slope axis (13b) lands by exposure: own-cfg tilt u(0,5deg) gv 12/12, 0 term,
+  det med fwd 1.40m; DR0 retention slip 1.03/prog 0.96 = champion band; honest
+  tail 2/6 steepest det draws shuffle at ~1/3 speed (slip 3.4-4.5, no falls) —
+  solid to ~3-4deg, 5deg marginal; SKILLS row added; paddle lineage, not
+  hardware-ready. Infra: watcher's dr0ret eval deadlocked on a corrupt ffmpeg
+  pipe mid-sto-video (utime frozen, no children) — killed, det-only --no-video
+  rerun recovered the retention numbers (gotcha added to COMMANDS.md). Refills
+  (2, 40M GPU, backlog->drained to t0/t1 within the hour): imumount10 (13c-class
+  sensor axis, IMU mount miscalibration 10deg) + badstart (13b boot-pose axis,
+  bad_start_prob 0.25 @8-35deg) — both isolated off the no-DR champion.
