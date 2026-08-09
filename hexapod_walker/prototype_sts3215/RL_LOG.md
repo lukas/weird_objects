@@ -1708,3 +1708,195 @@ Pods after cycle: s5 = cw-stance-endpost-r1 (~30-60 min at solo fps),
 walk pod free (step0 done, next cycle's verdict), all others idle.
 Code landed: reward.k_end_posture terminal pricing + 2 tests (38
 pass); entropy-RUNAWAY health alarm recorded (posture2 finding).
+
+## Cycle 15 (2026-08-09 ~00:45Z) — step0 + step0-c1 verdicts (first real gait; lineage plateau), lowent consolidation arm
+
+### PROVENANCE NOTE — cw-walk-step0-c1 was OPERATOR-LAUNCHED outside the launcher
+c1 has no INTENT ledger entry and no launcher record: the operator
+(directive 0-a commit 4bde19b, Cursor co-authored) launched it by hand
+at ~00:31Z, per "relaunch first". Reconstructed ledger entry added
+post-hoc from /tmp/train_cw-walk-step0-c1.log + W&B 9sdboq3u. Because
+it was launched raw, nothing added `--no-canary`: `--init-from`
+auto-armed the canary system, the parent (a walk-only policy) happened
+to pass rise_flat 2/2 at baseline probe, and the run was AUTO-STOPPED
+at 5,265,024 cum (~1.26M of its 4M segment) when rise_flat — a skill
+this lineage NEVER trained — failed 3 consecutive probes. Root cause
+of the truncation: canary auto-arm keys on warm-start, not on whether
+the protected skill is in the goal mix. Infra note, not policy
+pathology. Future walk-only continuations must pass `--no-canary`.
+
+### cw-walk-step0 — the step-event baseline WALKS (first six-leg cycling gait of the campaign); gate FAILS on the drag clause only
+OBSERVATIONS. W&B wfcg6ues finished, 4,005,888/4M in 1766 s, final
+ckpt md5 ea1685a4 (pulled; copied to policies/). train/std GREW
+1.00 -> 2.30 monotonically over 4M (same runaway shape as posture2);
+ep_rew_mean 54 -> 587, plateaued ~3.1M (581 @ 3.08M, band 554-610
+thereafter). env/reward_step_event +0.096/tick at end (nonzero from
+~0.3M; the 150k probe's zero-event stand was escaped); park_duty
+residual -0.035/tick, drag -0.023/tick.
+Gate harness (DR 0, own cfg, 6 eps/mode det+sto, default modes,
+logs/ckpt_eval/cw_walk_step0_4M_gate): walk det 0/6, sto 1/6 on the
+harness bar (vel_err<=0.03 AND gait_valid). Against the OPERATOR gate
+clause by clause, det AND sto (12/12 eps unless noted):
+- forward >=10 cm: PASS 12/12 (0.25-0.53 m).
+- all six legs cycling: PASS 12/12 — swing_count per leg 3-14, no
+  zero-swing leg anywhere.
+- per-leg duty ~[0.2,0.9]: PASS 12/12 (range 0.20-0.79).
+- >=2 swings/leg: PASS 12/12 (min 3).
+- no parked leg: PASS — sacrificed_legs [] in all 12; gait_valid
+  12/12; safety_flags 0; terminations 0.
+- no drag: FAIL — slip_m_total 0.87-0.98 m det (0.69-0.82 sto) per
+  ~10 s episode vs ~0.5 m body travel: stance feet slide at roughly
+  HALF of body speed on average. This is real skating, mechanically
+  measured, not frame-guesswork.
+Also visible in scalars: NO speed-command tracking — det speed
+0.054-0.066 m/s regardless of command drawn from [0.02,0.06] (vel_err
+0.04-0.07); the sto pass (sampling at std 2.29!) runs SLOWER and
+closer to command (0.041-0.055, vel_err 0.030-0.037, 1/6 passes).
+Frames watched (provenance): walk_det_0.mp4 md5 6d66d09a, 250 frames,
+full strip + 2 zoomed 10-frame tiles (0.12 s spacing); walk_det_3.mp4
+md5 510fbefc, 250 frames, zoom tile. Pathologies first: stance is
+sprawly/wide, feet placed far out; individual stance feet visibly
+creep during body motion (consistent with the slip numbers); gait has
+no clean tripod rhythm — cadence is irregular. Achievements: body
+level and upright the whole episode, all six legs show genuine
+lift -> airborne swing -> touchdown (shadow separation visible), no
+flag leg, no belly drag, no lurch-and-slide episodes, no falls.
+Exploit checked and not found: no parked/sacrificed leg (12/12), no
+safety-layer reliance (0 flags), no height-collapse; step events are
+NOT phantom (real swings on video match swing_count 3-14).
+INTERPRETATION. The operator's pricing thesis worked where five
+reward-shaping generations failed: paying the completed step directly
+plus pricing park/drag produced the campaign's first genuine six-leg
+gait from scratch. Two defects remain. (1) Skating: k_drag_loaded=10
+charges ~-0.036/tick at observed slip while step events pay
++0.09/tick — skating that speeds up stepping is net-profitable at
+current prices (pricing link; deeper sim-friction link untouched).
+(2) Overspeed/no tracking: step-event credit scales with along-stride
+(cap 1.5x) and r_prog caps at 1.25x with no overspeed charge, so
+cadence/stride maximization beats tracking (pricing link). Both are
+recorded, NOT patched this cycle — review §0 bans coefficient
+iteration; escalation order applies if consolidation doesn't move
+them. std runaway (1.0->2.30 with reward plateaued from 3.1M) says
+the entropy bonus outran the saturated task gradient — third
+occurrence (hist8, posture2, now step0); this one is from-scratch, so
+the audit's "from-scratch arms use ent 0.01" prescription bought the
+exploration that found stepping AND then kept inflating std after the
+find. The missing piece is consolidation, not more exploration.
+VERDICT: FAIL against the recorded gate — the "no drag" clause is
+unambiguous and slip at ~half body speed fails it (5 of 6 clauses
+pass, det AND sto). NOT HARDWARE-READY: DR 0 only, ignores speed
+commands (always ~max speed), stance-foot skating would grind real
+servos/feet, irregular cadence. It is, however, the first checkpoint
+in this campaign a roboticist would call "attempting to walk" rather
+than shuffling — walk-line reference checkpoint (see champion note).
+HYPOTHESIS STATUS: SUPPORTED — pre-registered if-true predictions
+(step events rise from zero; >=10 cm forward; six legs cycling; duty
+[0.2,0.9]; >=2 swings/leg; det AND sto) ALL held; the park/shuffle
+if-false branch did not occur. The gate fails only on drag, which the
+hypothesis did not claim to eliminate. "Pricing the park suffices
+from scratch to produce stepping": yes. Skating and tracking are the
+next, different, problems.
+CHAMPION NOTE: no walk champion existed (all prior walk lines were
+shuffle/skate with flag legs — gait-invalid). ppo_goal_cw_walk_step0
+.zip (md5 ea1685a4) is recorded as the walk-line reference/champion
+checkpoint at DR 0, on gait validity 12/12 + 0.25-0.53 m travel;
+append-only, copied to policies/ on controller and retained on pod.
+
+### cw-walk-step0-c1 — canary-truncated continuation; NO evidence of improvement; lineage plateau confirmed
+OBSERVATIONS. W&B 9sdboq3u finished; segment 4.006M -> 5.265M cum
+(~1.26M of 4M budget) then canary AUTO-STOP (see provenance note);
+final ckpt md5 e4314fa2 (pulled). train/std 2.32 -> 3.21, still
+monotone rising; ep_rew_mean flat: segment band 554-610, last ~0.3M
+avg ~583 vs prior ~0.3M ~580 (inside noise); env/reward_step_event
+0.088/tick vs parent-end 0.096 (flat); walk err 0.047 -> 0.053 m/s
+across segment (flat).
+Gate harness (same setup, logs/ckpt_eval/cw_walk_step0_c1_gate),
+deltas vs cw-walk-step0 named baseline: walk det 0/6 vs 0/6; sto 2/6
+vs 1/6 (+1, inside the +-1-2 ep noise band — NOT evidence); det slip
+mean 0.83 vs 0.93 m (-0.10, direction only, inside noise); forward
+dist 0.39-0.50 vs 0.32-0.53 m (same); swing_count 3-13 all legs, 0
+sacrificed, 0 terminations (same); harness policy_std 3.195 vs 2.294
+(WORSE for any deterministic-deployment story).
+Frames watched (provenance): walk_det_0.mp4 md5 ad604ff3, 250 frames,
+full strip + zoomed 10-frame tile — same sprawly six-leg crawl as the
+parent, real airborne swings, no flag legs, no park, no falls;
+visually indistinguishable from the parent segment.
+Exploit checked and not found: same checks as parent (no sacrificed
+legs, no safety flags, real swings on video).
+INTERPRETATION. 1.26M further steps at std 2.3->3.2 bought nothing
+measurable: every delta is inside eval noise. Directive 0-a's own
+stop rule — "stop the lineage on plateau (last quarter no better than
+the prior quarter)" — is met on ep_rew_mean, step-event rate, walk
+err, and harness numbers simultaneously. On top of that, the lineage
+std is in the exact runaway regime cycle 14 canonized as destructive
+(posture2). Continuing identical config (c2) would train at std >3.2.
+VERDICT: FAIL (same gate as parent: drag clause; harness walk det
+0/6) — and, for the 0-a decision, PLATEAU CONFIRMED: no c2. NOT
+HARDWARE-READY (same reasons as parent, plus std 3.2 policy).
+HYPOTHESIS STATUS (0-a continue-while-improving): REFUTED for this
+segment — the trend did not continue; the lineage's identical-config
+continuation is closed per the directive's own rule. The sanctioned
+follow-up is a one-variable tweak arm (below), not c2.
+NO-RELAUNCH JUSTIFICATION (directive 0-a says relaunch FIRST): the
+directive conditions relaunch on the trend still improving. Checking
+its own stop rule took ~3 min of log reads before any eval (rew flat,
+std runaway, spurious auto-stop) — the plateau branch, not the
+relaunch branch, applied. Recorded here so the operator can audit the
+call: walk pod idled ~20 min during eval instead of hosting a c2 that
+the directive itself says not to run.
+
+### LAUNCH cw-walk-step0-lowent (4M, DR 0, seed 0, walk pod) — consolidation: does the plateau break when the entropy bonus stops inflating std?
+HYPOTHESIS: the step0 lineage plateau (~590) is entropy-driven: with
+the task gradient saturated, flat ent_coef 0.01 keeps inflating std
+(1.0->2.30->3.21) and PPO optimizes returns under ever-noisier
+sampling; cutting the entropy bonus lets std anneal down and converts
+the discovered gait into a consolidated, lower-noise policy that
+clears the plateau.
+Root-cause chain (required): plateau + std growth <- entropy bonus
+outruns saturated task gradient <- flat ent 0.01 prescribed for
+exploration is left on after exploration has succeeded <- objective
+defect (no anneal), directly accessible as a hyperparameter — no
+reward change, no coefficient iteration on reward terms.
+ONE VARIABLE vs the c1 continuation (same parent ppo_goal_cw_walk_
+step0.zip md5 ea1685a4, same cfg, same seed 0, same 4M budget):
+ent_coef 0.01 -> 0.001. Plus --no-canary (infra, not a variable: see
+provenance note — canaries protect skills this lineage never had and
+already truncated c1 spuriously).
+Prediction-if-true: train/std falls from ~2.3 toward <=1.0;
+ep_rew_mean climbs out of the 554-610 plateau band (>=620 sustained);
+harness det keeps gait_valid 6/6, >=0.10 m forward, >=2 swings/leg,
+det slip mean <= parent's 0.93 m (no worse).
+Prediction-if-false, three diagnostic branches: (a) std stays >=2.0
+-> entropy bonus was not the driver (KL/clipping dynamics instead);
+(b) std falls but rew collapses <500 with step events dying -> the
+"gait" was noise-dependent dither, the det gait on video was riding
+stochastic kicks — the step-event income cannot be earned at low std,
+which would be MAJOR (reward mispricing, back to walk escalation
+order); (c) std falls, rew stays flat 554-610 -> plateau is a reward
+ceiling (overspeed cap + step-event cap saturated), pointing at the
+tracking/pricing defects recorded above, NOT at exploration.
+Strongest alternative explanation: (c) — distinguishable because std
+and reward move independently in the three branches; this experiment
+separates exploration-side from reward-side causes before any reward
+surgery. GATE: DR 0 harness, 6 eps/mode det+sto: gait_valid 12/12 AND
+forward >=0.10 m 12/12 AND >=2 swings/leg 12/12 AND det slip mean <=
+0.93 m AND final train/std <=1.2 AND ep_rew_mean(last 0.5M) >= 620.
+Budget 4M. No new mechanism -> no probe needed (audit §6: ent_coef is
+an existing knob; --no-canary is an existing flag).
+Pod: hexapod-sweep-s6 (56-core, node g12ba48 empty at status check) —
+walk pod was taken by c2 between my status checks (below).
+
+### CONCURRENT EVENT — operator launched cw-walk-step0-c2 by hand (~00:55Z)
+Live status re-check before placing lowent found cw-walk-step0-c2
+RUNNING on the walk pod (W&B c1oyg4j6, warm-start from
+ppo_goal_cw_walk_step0_c1.zip, ent 0.01, no canary-arm lines in the
+log head — launched raw again, no ledger entry; reconstructed entry
+added). My "PLATEAU CONFIRMED: no c2" above records THIS cycle's
+decision under directive 0-a; the operator's hand-launch overrides it
+for the identical-config lineage, which is their prerogative. Not
+killed: it is the operator's own run, it is cheap (walk pod solo),
+and it extends the identical-config arm while lowent (one variable:
+ent 0.001, same lineage) runs beside it — the pair is a clean A/B on
+the entropy hypothesis. s5 freed while this cycle ran
+(cw-stance-endpost-r1 finished) — endpost-r1's verdict belongs to the
+watcher-triggered cycle for it, not this one; s5 left free.

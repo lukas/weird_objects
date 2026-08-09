@@ -1614,7 +1614,7 @@
    "--subproc"
   ],
   "created": "2026-08-08T23:56:30+00:00",
-  "status": "RUNNING",
+  "status": "FINISHED",
   "checks": {
    "cpu_limit": 56,
    "existing_trainers": [],
@@ -1654,7 +1654,10 @@
     "verdict": "HEALTHY",
     "problems": []
    }
-  ]
+  ],
+  "final_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_step0.zip (on walk pod)",
+  "final_checkpoint_md5": "ea1685a48e85e6ddf1a1f2525713e52a",
+  "finished_note": "4,005,888/4M steps in 1766s; W&B finished. Verdict pending this cycle (cycle 15)."
  },
  {
   "run": "probe-endpost",
@@ -1867,6 +1870,47 @@
   "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-stance-endpost-r1 --steps 4000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip --dr-scale 1.0 --eval-every 200000 --video-every 200000 --seed 0 --goal-mix rise=0.25,lower=0.2,raise=0.2 --cfg-set reward.k_current_max=0.05 --cfg-set reward.k_still=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.k_current_hot=0.2 --cfg-set reward.k_stance_contact=0.5 --cfg-set reward.k_stance_clearance=10.0 --cfg-set reward.k_support_margin=0.3 --cfg-set reward.k_load_even=1.5 --cfg-set reward.k_end_posture=5.0 --out-name ppo_goal_cw_stance_endpost --notes \"Terminal end-posture pricing on the stance champion: +reward.k_end_posture=5.0, one variable vs cw-stance-posture (parent ppo_goal_cw_stance_dr10 md5 da1d912a, same cfg/seed, inherited std - NO basin escape after posture2 std runaway). Gate: posture-strict lower >=5/6 sto and >=4/6 det, heights >=5/6 both, hold sto 6/6. Canaries armed. Retry of cw-stance-endpost (init crash: parent ckpt missing on new pod). Snapshot 5589bc4.\" --n-envs 48 --subproc > /tmp/train_cw-stance-endpost-r1.log 2>&1 < /dev/null & echo $!",
   "log": "/tmp/train_cw-stance-endpost-r1.log",
   "wandb_id": "no0ihywt",
-  "verified": "2026-08-09T00:29:08+00:00"
+  "verified": "2026-08-09T00:29:08+00:00",
+  "checkups": [
+   {
+    "time": "2026-08-09T00:35:07+00:00",
+    "process_alive": true,
+    "tracebacks_in_tail": 0,
+    "log_growth_bytes": 11729,
+    "fps": 3276.8,
+    "placement": "solo on 56-core pod",
+    "verdict": "HEALTHY",
+    "problems": []
+   }
+  ]
+ },
+ {
+  "run": "cw-walk-step0-c1",
+  "pod": "hexapod-sweep-walk",
+  "steps": 4000000,
+  "smoke": false,
+  "launched_by": "OPERATOR (Cursor, directive 0-a) at ~00:31Z outside launch_run.py \u2014 no INTENT entry existed; this entry is a post-hoc reconstruction from /tmp/train_cw-walk-step0-c1.log and W&B 9sdboq3u",
+  "hypothesis": "Directive 0-a continue-while-improving: identical config continuation of cw-walk-step0 from its 4M final checkpoint; continue while ep_rew_mean and step/gait metrics rise segment-over-segment.",
+  "gate": "same as cw-walk-step0 (operator item 0): DR 0, det AND sto, >=10cm forward, all six legs cycling, duty [0.2,0.9], >=2 swings/leg, no drag/park",
+  "parent": "ppo_goal_cw_walk_step0.zip (md5 ea1685a4)",
+  "created": "2026-08-09T00:31:00+00:00",
+  "status": "FINISHED",
+  "wandb_id": "9sdboq3u",
+  "final_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_step0_c1.zip (on walk pod)",
+  "final_checkpoint_md5": "e4314fa287d2e5e677c50c8c4e438c23",
+  "finished_note": "CANARY AUTO-STOP at 5,265,024 cum (~1.26M of 4M segment): protected group rise_flat failed 3 consecutive probes. Canaries auto-armed by --init-from; parent (walk-only policy) coincidentally passed rise_flat 2/2 at baseline, arming protection for a skill this lineage never trained. train/std 2.32->3.21 during segment; ep_rew_mean flat 583->~590."
+ },
+ {
+  "run": "cw-walk-step0-c2",
+  "pod": "hexapod-sweep-walk",
+  "steps": 4000000,
+  "smoke": false,
+  "launched_by": "OPERATOR raw launch ~00:55Z (no launcher, no INTENT) \u2014 reconstructed by cycle 15 from /tmp/train_cw-walk-step0-c2.log + W&B c1oyg4j6",
+  "hypothesis": "Directive 0-a identical-config continuation c2 from c1 ckpt (operator's call; cycle 15's log records the plateau evidence against it).",
+  "gate": "same operator walk gate as step0/c1",
+  "parent": "ppo_goal_cw_walk_step0_c1.zip (md5 e4314fa2)",
+  "created": "2026-08-09T00:55:00+00:00",
+  "status": "RUNNING",
+  "wandb_id": "c1oyg4j6"
  }
 ]
