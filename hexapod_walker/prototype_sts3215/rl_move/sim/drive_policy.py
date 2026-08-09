@@ -95,6 +95,10 @@ def main() -> None:
         if term or trunc:
             msg = f"[{info.get('termination_reason') or 'episode end'}] reset"
             print(msg)
+            # Zero the command on reset: re-applying a held command to a
+            # fresh standing start caused fall -> instant re-fall cascades
+            # (17 consecutive tilt_roll resets, 2026-08-09 drive session).
+            vx = vy = 0.0
             obs, _ = env.reset()
             apply_cmd()
 
@@ -108,6 +112,14 @@ def main() -> None:
             cv2.putText(img, line, (10, 24 + 22 * i),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.55,
                         (40, 240, 40), 1, cv2.LINE_AA)
+        # Most checkpoints train forward-hemisphere only (heading <= ~45
+        # deg, speed <= ~0.06): sustained reverse tips them (tilt_roll,
+        # 2026-08-09). Warn instead of silently extrapolating.
+        if vx < -0.01 or abs(vy) > abs(vx) + 0.02 or np.hypot(vx, vy) > 0.085:
+            cv2.putText(img, "OUTSIDE TRAINED ENVELOPE (fwd <=0.06,"
+                        " heading <=45deg) - may fall",
+                        (10, 96), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
+                        (0, 60, 255), 1, cv2.LINE_AA)
         if msg:
             cv2.putText(img, msg, (10, 100), cv2.FONT_HERSHEY_SIMPLEX,
                         0.55, (0, 200, 255), 1, cv2.LINE_AA)
