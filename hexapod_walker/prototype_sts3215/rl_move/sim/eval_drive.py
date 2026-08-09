@@ -24,6 +24,15 @@ Exit code 0 = gate passed (no in-envelope falls), 1 = failed.
 """
 from __future__ import annotations
 
+import os
+
+# Cap math threads before numpy import (same reason as
+# eval_checkpoint: unbounded per-process pools thrashed the
+# controller's node, 08-09).
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+           "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(_v, "2")
+
 import argparse
 import json
 import math

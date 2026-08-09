@@ -26,6 +26,18 @@ fix the metric before training anything else.
 """
 from __future__ import annotations
 
+import os
+
+# Cap math-library thread pools BEFORE numpy/torch import them.
+# Default OpenBLAS/OMP pools size to VISIBLE cores (70+ on CoreWeave
+# nodes) per process; 20 concurrent gate evals on the controller =
+# ~1400 spinning threads, node load 300, and the four trainers
+# co-located on g142d86 ran 5x slow (2026-08-09 evening incident).
+# Eval is MuJoCo-stepping bound; 2 threads is plenty.
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+           "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(_v, "2")
+
 import argparse
 import json
 import math
