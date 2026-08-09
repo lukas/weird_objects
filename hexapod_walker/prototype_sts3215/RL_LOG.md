@@ -2937,3 +2937,28 @@ this cycle's confound catch). Budget 4M (park rate is measurable at
 probe-walk-kgate (150k, smoke pod, W&B off) must show
 walk_prog_factor logged, reward_walk reduced vs c1-era scale, no
 tracebacks.
+
+### Cycle 21 close
+probe-walk-kgate PASS mechanical (lower, 150k/68 s, 8 envs, W&B off):
+zero tracebacks, ep_rew ~1060 vs c1-era 1177 — the kernel income cut
+is visible at matching config; std 1.52, kl 0.0197. Logging tweak
+after the first snapshot (env/walk_prog_factor added to the trainer's
+reward-parts whitelist) → second snapshot 19e97f8 (tag
+exp/cw-walk-kgate-b), walk pod re-synced; run code_sha 19e97f8
+verified both sides by the launcher.
+cw-walk-kgate VERIFIED RUNNING on walk pod: pid 801381, W&B q1ip6y7k,
+~4506 fps solo (node g129004 load1 0.94), parent c1 md5 ed71b6f4 on
+pod, no duplicates. Early W&B history confirms the mechanism live:
+env/walk_prog_factor ~0.83, env/reward_walk 1.44–1.48 (vs c1 ~1.66 —
+the ~0.2/tick income now conditional on progress), reward_step_event
+~0.14 unchanged. Watcher owns the +5 min checkup.
+Cycle totals: 1 experiment launch + 1 smoke (4M of 16M step cap).
+Fleet after: walk = kgate, long5m = h15b-dr03 (concurrent cycle's),
+s6 FREED mid-cycle (step0-hist8 finished — verdict belongs to the
+watcher's next cycle, NOT claimed here), s3/s4/s5/friction/lower
+idle. Champions: walk = h15b md5 d0a12a94 (unchanged this cycle);
+stance = cw_stance_dr10. Evals archived:
+logs/ckpt_eval/cw_walk_lowent_h15b_c1_{15s,5s} (all 24 eps on video).
+Eval-practice note (generalizes): retention/slip comparisons must be
+distance-normalized (slip/m) — raw slip rewards crawling; caught in
+this cycle's own delta claim before it shipped.
