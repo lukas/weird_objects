@@ -1,0 +1,52 @@
+# What we are doing, in plain English
+
+We have a real six-legged robot (hexapod, STS3215 servos) sitting in
+the operator's house. We are training neural-network controllers for
+it in a physics simulator (MuJoCo), on cloud GPUs, with an
+autonomous loop of AI agents that design experiments, watch them
+train, judge the results honestly, and launch the next one.
+
+**The end goal: the real robot walks around the room — smoothly,
+reliably, without falling over or cooking its motors.** Sim numbers
+only matter insofar as they get us there.
+
+## What "good" means (operator's own words)
+
+Distance, stability, reliability. The robot should cover real
+ground, stay level, and never fall. A policy that walks 0.6 m every
+time beats one that walks 1 m or falls at 50/50. Speed targets are
+a means, not the objective.
+
+## Where we are (update this when it changes — keep it plain)
+
+As of 2026-08-09 (~cycle 34):
+
+- The simulated robot has a REAL walking gait — all six legs
+  stepping in rhythm. That took ~30 experiments to get.
+- The gait's feet SLIDE along the ground while "stepping"
+  (paddling/skating). On the real robot that would go nowhere and
+  grind the servos, so this is THE blocker to hardware deployment.
+  We measure it as "slip per meter traveled" (want ≤1.0; best 1.24).
+- We proved (cycles 24–34) that no reward bonus/penalty tweak fixes
+  the sliding — the simulator makes sliding physically FREE, so the
+  optimizer always prefers it. Fixing this needs a change to how the
+  sim prices ground contact and servo current — an OPERATOR decision
+  (two such rulings are pending: walk slip and stance lowering).
+- Standing up and lying down (heights) are solved under full
+  randomization; the "posture" detail (one leg finishing in the
+  air) is stuck behind the same pricing issue.
+- Party-trick wishlist once walking is reliable: fall recovery
+  (get up after tipping over) and quadruped mode (walk on four
+  legs, front two free as claws).
+
+## The cast
+
+- **The loop:** a watcher script polls training; each finished run
+  triggers an agent "cycle" that evaluates it (with video, not just
+  scalars), writes a verdict, and launches the next experiment.
+- **Runs** are named `cw-<line>-<idea>` (e.g. `cw-walk-anchortol5`);
+  continuations get `-c1`, `-c2`. Everything is recorded in the
+  ledger (`rl_move/orchestrator/experiments.json`) and W&B
+  (`l2k2/hexapod-balance`).
+- **Compute:** CoreWeave pods; 2 GPU pods train 20–40M-step runs in
+  ~20–40 min (MJX), CPU pods handle probes and small runs.

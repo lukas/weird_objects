@@ -1,8 +1,17 @@
-# Agent notes — read this FIRST every cycle (60 seconds, saves 20 minutes)
+# COMMANDS — how to run everything (60 seconds, saves 20 minutes)
 
 Distilled from mining every prior cycle transcript (2026-08-09): the
 same commands were re-derived, and the same mistakes re-made, dozens
-of times. `ops.sh` implements the common operations — use it.
+of times. `rl_move/orchestrator/ops.sh` implements the common
+operations — use it. Sibling docs: `rl_docs/README.md` (index),
+`rl_docs/GOAL.md` (plain-English mission), `rl_docs/EXPERIMENT_LOGS.md`
+(per-run summary.md convention).
+
+**STANDING RULE — promote what you figure out:** if a command failed,
+was slow, or took several tries before you got it right, add it as an
+`ops.sh` subcommand (or a snippet below) IN THE SAME CYCLE, and note
+it in `rl_docs/README.md` if it changes what a file covers. Never
+leave the next agent to rediscover it.
 
 ## Where things are (the #1 recurring failure: wrong paths)
 
@@ -34,6 +43,10 @@ of times. `ops.sh` implements the common operations — use it.
   with the run's own `--cfg-set`s pulled from the ledger.
 - `ops.sh waitlog <file> <regex> [timeout]` — poll for completion.
   **`sleep 60; tail …` is BLOCKED by the harness** — use this.
+- `ops.sh expdir <run>` — create `logs/experiments/<run>/` with the
+  summary.md template (see `EXPERIMENT_LOGS.md`; REQUIRED per run).
+- `ops.sh wandbdump <run>` — cache the run's W&B summary/config/
+  history into its experiment dir (query the cache, not the API).
 
 ## Hard-won gotchas (each cost a cycle at least once)
 
