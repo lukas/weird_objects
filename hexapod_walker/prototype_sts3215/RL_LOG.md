@@ -230,6 +230,14 @@ a file under `archive/` and link it.
   busy), speed/steer/current arms operator-blocked, payload needs a
   DR-range cfg hook = [CODE]; next cycle facing idle pods should run
   the mirror-symmetry implementation cycle (plan #3).
+- OPERATOR (08-09 ~09:5x): killed `cw-walk-diag45` at 11.2M (near-
+  duplicate of the refuted fdiag class; ledger updated). Landed the
+  rough-terrain training hook (`env.terrain_amp`/`terrain_seed`, all
+  env paths, warp-only guard; amp 0 = legacy exact). Local preview:
+  champion paddles across even amp-1.0 bumps unimpeded — terrain is
+  a ROBUSTNESS lever, NOT a slip fix; queued `cw-walk-terrain05`
+  (backlog) framed accordingly. Slip exits stay: current-pricing
+  calibration (operator) + the longdist task-pressure line.
 - Cycle 43 (close): t4 freed mid-cycle (wander finished; its verdict
   = watcher's next cycle). Idle-slot HARD reason on t4: backlog
   empty + zero sound unblocked one-variable arms (READY wishlist all
