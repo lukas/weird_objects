@@ -165,6 +165,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--init-from", type=Path, default=None,
                     help="warm-start from a train_ppo_sim checkpoint "
                          "(same task/obs config)")
+    ap.add_argument("--obs-pad-transplant", type=int, default=0,
+                    help="warm-start across an obs WIDENING of N dims "
+                         "appended at the obs tail (e.g. walk phase "
+                         "clock, +2); zero-pads first-layer columns so "
+                         "the parent policy is bit-identical until "
+                         "training moves them (port of the "
+                         "train_ppo_sim mechanism)")
     ap.add_argument("--eval-every", type=int, default=1_000_000,
                     help="background per-mode eval on a C-MuJoCo env every "
                          "N steps (0 = off). Doubles as a continuous "
@@ -253,13 +260,39 @@ def main(argv: list[str] | None = None) -> int:
 
     tb_dir = None if run is None else str(POLICY_DIR / "tb")
     if args.init_from is not None:
-        model = PPO.load(args.init_from, env=venv, device=args.device,
-                         n_steps=args.n_steps, batch_size=args.batch_size,
-                         n_epochs=args.n_epochs, learning_rate=args.lr,
-                         ent_coef=args.ent_coef,
-                         target_kl=(args.target_kl or None),
-                         tensorboard_log=tb_dir)
-        print(f"[mjx-train] warm start from {args.init_from}")
+        if args.obs_pad_transplant:
+            # Obs-widening warm start (port of train_ppo_sim's
+            # --obs-pad-transplant): parent weights copy exactly, the
+            # policy/value first layers gain N zero columns for the new
+            # tail dims. Optimizer state is fresh (architecture changed).
+            from .train_ppo_sim import pad_obs_transplant
+            old = PPO.load(args.init_from, device="cpu")
+            model = PPO(
+                "MlpPolicy", venv,
+                n_steps=args.n_steps, batch_size=args.batch_size,
+                n_epochs=args.n_epochs, learning_rate=args.lr,
+                gamma=0.99, gae_lambda=0.95, ent_coef=args.ent_coef,
+                clip_range=0.2,
+                target_kl=(args.target_kl if args.target_kl > 0
+                           else None),
+                policy_kwargs=dict(net_arch=[128, 128],
+                                   log_std_init=args.log_std_init),
+                seed=args.seed, verbose=1, device=args.device,
+                tensorboard_log=tb_dir)
+            pad_obs_transplant(old, model, args.obs_pad_transplant)
+            model.num_timesteps = old.num_timesteps
+            del old
+            print(f"[mjx-train] warm start from {args.init_from} "
+                  f"(+{args.obs_pad_transplant} obs-pad transplant)")
+        else:
+            model = PPO.load(args.init_from, env=venv, device=args.device,
+                             n_steps=args.n_steps,
+                             batch_size=args.batch_size,
+                             n_epochs=args.n_epochs, learning_rate=args.lr,
+                             ent_coef=args.ent_coef,
+                             target_kl=(args.target_kl or None),
+                             tensorboard_log=tb_dir)
+            print(f"[mjx-train] warm start from {args.init_from}")
     else:
         model = PPO(
             "MlpPolicy", venv,
@@ -299,7 +332,8 @@ def main(argv: list[str] | None = None) -> int:
             "reward_park_duty", "reward_end_posture", "reward_effort")
         AUX_ABS = ("roll_deg", "pitch_deg")       # logged as abs_<k>
         AUX = ("track_err_deg", "height_err_mm", "mean_current_a",
-               "walk_vel_err", "walk_speed")      # logged under own name
+               "walk_vel_err", "walk_speed",
+               "phase_agreement")                 # logged under own name
         SAMPLE = 256      # envs sampled per step for the means
 
         def __init__(self):

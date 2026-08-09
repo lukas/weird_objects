@@ -4318,3 +4318,119 @@ Cycle totals: 3 launches (2 smoke attempts, 1 experiment), 20M GPU
 steps (cap 80M), 0.12M CPU smoke steps (cap 16M), 4 harness evals +
 ~1100 controller probe episodes; 9 strips + 10 full-res frames
 watched (provenance in verdict).
+
+## Cycle 29 (2026-08-09 ~07:4xZ) — cw-walk-effort verdict: effort/CoT pricing REFUTED on pre-registered if-false branch (i) — the policy paid an 18%-of-income charge for 20M steps without moving current, drag, or slip; paddling is not effort-reachable. Escalating to the review's phase-prior rung (its own escalation order), with a scale-audit-designed clock and a new MJX obs-transplant port.
+
+### cw-walk-effort — the charge was simply paid: every effort channel flat over 20M steps, slip unmoved, one new over_current termination
+OBSERVATIONS (mechanical). W&B 9rtpws1h FINISHED, 20,054,016 steps
+(GPU-MJX, mjx-train-1, 1305 s, ~15.3k fps incl. setup). Final ckpt
+ppo_goal_cw_walk_effort.zip md5 4505fa1d8f8986bb0f6ce5fb02683e27
+(pod + controller match). Train quarters: ep_rew 686/847/848/870;
+env/reward_effort per-tick −0.6014/−0.6034/−0.6055/−0.5946 — FLAT
+(launch verification saw −0.605; audit predicted −0.583; the term
+was live and priced as designed). reward_current −0.041 flat,
+reward_drag −0.0174 flat, std 1.388→1.412, KL ~0.009. The policy
+recovered income while paying ~−225/ep effort; it never reduced
+the electricity.
+Gate harness (both at own cfg incl. k_walk_effort, minus
+park_start_frac = normal starts, 6+6, seed 0, videos every ep):
+- DR 1.0 (logs/ckpt_eval/cw_walk_effort_dr10): agg slip/m det
+  1.484 vs champion NAMED baseline 1.543 (Δ −0.06, ~4% — no
+  evidence of change) — gate ≤1.0 FAIL. sto 1.753 vs champion
+  1.295 — WORSE, driven by the fixed panel's hard draws: sto[1]
+  partial stall (fwd 0.378, slip/m 3.36, duty leg0 0.80), sto[5]
+  backward draw churn (fwd 0.161, slip/m 5.91, leg1 duty 0.07 →
+  SACRIFICED flag, gv FAIL). gv 11/12 vs gate 12/12 FAIL. sto[0]
+  over_current TERMINATION (champion baseline had 0 term) — 0-term
+  clause FAIL. det fwd mean 0.648 (champion 0.618), Imax 2.66
+  (champion 2.73).
+- DR 0 15 s (logs/ckpt_eval/cw_walk_effort_15s): det fwd mean
+  0.722 ≥0.55 ✓ (champion 0.745, inside noise); fwd-hemisphere sto
+  ≥0.40 5/5 ✓ (0.789/0.663/0.660/0.741/0.658); backward draw
+  sto[5] fwd 0.276 recorded-excluded per operator ruling pending,
+  leg1 duty 0.08 sacrificed → gv 11/12 (champion 12/12, but its
+  sto[5] partial park was a known gv blind spot — same episode
+  family, now flagged). det agg slip/m 1.282 vs champion 1.180 —
+  no improvement. 0 term.
+FRAMES WATCHED (md5/frames): dr10 walk_det_0 c9e23c36/375,
+walk_sto_0 b7a74db3/317 (over_current term on camera at ~12.7 s),
+walk_sto_1 398aabd3/375, walk_sto_5 36b03fc1/375; 15s walk_det_0
+0ce5382c/375, walk_det_4 9e52f80e/375, walk_sto_0 63254494/375,
+walk_sto_5 4bcee5be/375. Remaining eps scalars only (unwatched).
+Pathologies first: the gait is IDENTICAL to the champion's
+paddling — sprawly wide stance, stance feet creeping with the body
+in every strip including passes; sto_1/sto_5 near-stationary churn
+with semi-parked front legs; NO visible stance anchoring anywhere.
+Achievements: six legs cycling with real swings in passing eps,
+body level, boards advance (det strips), 0 falls.
+Exploits looked for: collapse-to-stand (none — speeds 0.045–0.057
+in band); slip reduction via slower speed (none — speed unchanged);
+strongest-alternative "current drops without slip dropping" (did
+NOT fire — current never dropped either).
+INTERPRETATION. Clean refutation on pre-registered if-false branch
+(i): slip ≥1.2 with the charge simply paid. The effort channels
+were live, correctly scaled (18% of income), and completely inert
+as gradients — 20M steps moved NONE of them. Together with cycle
+24 (park income cut 1250→274, park persisted) this is now two
+demonstrations that ECONOMIC pressure alone does not reorganize
+this gait: anchored stance is likely not reachable by local
+gradient from paddling (any partial anchoring loses velocity
+income immediately; the intermediate states are all worse). That
+is precisely the case for a structural prior (timing scaffold)
+over pricing. The sto worsening (1.753, over_current term) is on a
+fixed 6-draw panel — single-episode effects, not calibrated
+evidence of harm, but certainly not improvement.
+VERDICT: FAIL (DR1.0 slip clause, gv, 0-term all missed; DR0
+retention clauses met). NOT HARDWARE-READY: skating unchanged
+(feet grind 1.3–1.5 m per m walked at DR 1.0), one over_current
+termination on camera. CHAMPION UNCHANGED
+(ppo_goal_cw_walk_parkstart_mjx.zip md5 01d9ab60).
+HYPOTHESIS STATUS: REFUTED (if-false branch (i) exactly as
+pre-registered). Effort/CoT pricing rung CLOSED; per
+pre-registration the next rung is the review's phase prior.
+Ledger updated via launch_run.py update (status FINISHED, ckpt
+md5, verdict).
+
+### Cycle 29 phase-prior design — why this is NOT the refuted cycle-12 arm, and the scale audit
+Cycle 12 refuted the weak tripod phase reward as a BASIN-ESCAPE
+tool: in the shuffle basin it couldn't outbid the park's cost
+savings; in the stance basin it phase-locked a tripod PARK. Both
+parents had NO gait. Today's parent has a genuine six-leg gait
+whose defect is timing/anchoring; the hypothesis is different in
+kind: a stationary observable clock plus agreement income gives
+the existing gait a reference to regularize against, making
+anchored stance reachable where pure pricing (effort, cycle 29;
+park income, cycle 24) provably was not. Root-cause chain
+(required artifact): paddling ← velocity income collectible
+without anchoring ← no term pays for anchoring itself and effort
+charges are paid not avoided (2 refutations) ← the objective gives
+the policy no coordination REFERENCE to reorganize toward —
+structural defect, addressed by the review's pre-ordered phase
+prior (rung 4), not another price.
+SCALE AUDIT (controller probe /tmp/probe_phase_scale.py, champion
+det eps, DR0 own-cfg, seeds 0–2, per-tick contacts vs best-offset
+fixed clocks): champion cadence is IRREGULAR — best-offset tripod
+agreement at 0.4 Hz = 0.838/0.532/0.751 by seed (near chance at
+0.5–1.0 Hz: 0.51–0.62). So (a) natural cadence ≈0.4 Hz where
+periodic at all → goal.walk_phase_hz=0.4 (cycle-11's 1.0 Hz would
+fight the gait); (b) the clock's income is NOT freely collectible
+by the current behavior (seed1 would earn ~0.06/tick of the max
+1.0) — locking requires actual timing reorganization, which is
+the mechanism under test. k_phase_contact=1.0: max +1.0/tick vs
+kernel+prog +2.7/tick (27% add-on), zero-mean at chance, parked
+legs zero-net (cycle-11 machinery, unchanged since; MJX applies it
+in _post_step, reward_phase_contact already in the MJX W&B key
+list).
+
+### CODE — cycle 29: MJX obs-pad transplant port + phase_agreement logging
+1. train_ppo_mjx.py: --obs-pad-transplant N (port of the
+   train_ppo_sim mechanism, same pad_obs_transplant function
+   imported): warm start across an obs widening, parent weights
+   bit-identical until training moves the zero-padded first-layer
+   columns; fresh optimizer; num_timesteps continued. Needed
+   because the champion has no phase dims (+2 at the obs tail) —
+   and by any later obs-widening arm (estimator ladder).
+2. train_ppo_mjx.py: phase_agreement added to the AUX logged keys
+   (the if-false branches of the phase arm are read off its trend).
+rl_move/tests: 38 passed, 5 skipped. GPU probe of the new path
+(probe-walk-phase-mjx, 2M steps) gates the main launch.
