@@ -38,6 +38,13 @@ existing config knobs, [CODE] needs an implementation cycle first,
    segments; split into its own arm if transitions look bad.
 8. [READY] **Smooth speed transitions** — accelerate/decelerate
    within an episode without gait breakdown.
+8b. [READY] **Operator-tunable speed** (08-09) — one policy tracking
+   the full 0.02–0.12 m/s band so speed is a runtime knob, not a
+   retrain. Train wide-band with command resampling; gate on
+   tracking error across the band. Feeds the driving demo.
+8c. [CODE] **Rotate in place** (08-09) — spin left/right on the
+   spot on command. Same yaw-rate machinery as item 3 (turning);
+   vx=vy=0, wz=±ref. First deliverable of the yaw-rate line.
 
 ## Robustness (survives the real world)
 
@@ -53,6 +60,18 @@ existing config knobs, [CODE] needs an implementation cycle first,
     more than one that assumes six.
 13. [READY] **Quiet gait** — minimize mean/peak servo current at
     fixed distance; hardware-friendliness as an explicit objective.
+13b. [READY] **Richer physics variation** (08-09) — beyond the
+    current DR fields: per-leg friction, latency jitter, torque
+    droop under load, foot-geometry perturbation. One new axis per
+    run; keep what transfers.
+13c. [CODE] **Sim2real noise research** (08-09) — dedicated study
+    cycle: survey what noise/DR others inject for cheap-servo
+    robots (backlash, deadband, encoder quantization, voltage sag,
+    IMU bias walk), write up in rl_docs, then queue the top 2 as
+    runs. Research first, then experiments.
+13d. [CODE] **Obstacles** (08-09) — clutter on the floor: small
+    blocks/ramps the robot must step over or around. Needs MJX
+    scene work (see item 24, Terrain) — same implementation cycle.
 
 ## Skills and party tricks
 
@@ -80,6 +99,16 @@ existing config knobs, [CODE] needs an implementation cycle first,
     `goal.walk_height_off_mm` landed 08-09 (`cw-walk-highgait`
     +20 mm, `cw-walk-lowgait` −20 mm). Everything that works
     becomes a runtime command via the height ref, like rise/lower.
+18c. [LATER — needs 2+ solid skills] **Motion sequences** (08-09) —
+    chain skills in arbitrary orders on command: stand → walk →
+    turn → sit → stand → strafe. First as scripted goal schedules
+    in eval (no retrain), then as a trained mixed-goal policy if
+    scripted chaining breaks at transitions.
+18d. [CODE] **Jumping** (08-09) — flag: likely NOT hardware-safe
+    with STS3215s (peak current at hop takeoff vs the 2026-08-06
+    cooked-servo incident). Sim-only exploration allowed: small
+    hop in place, price current hard. Never deploy without an
+    explicit operator ruling.
 
 ## Learning machinery (makes everything above easier)
 
@@ -92,6 +121,11 @@ existing config knobs, [CODE] needs an implementation cycle first,
     contact from joint/current/IMU history.
 22. [CODE] **DreamWaQ-style concurrent estimator** — next
     architecture rung (post-0-c per plan).
+22b. [READY] **Better actor architectures** (08-09) — temporal
+    actor first: ~300 ms obs/action history stack vs a modest GRU,
+    per the binding review's ranking (history as online system
+    identification). Controlled comparison against the MLP
+    champion, same reward/steps/seeds.
 23. [LATER — needs 2+ per-skill champions] **Distillation** — merge
     per-skill champions into one deployable policy.
 24. [CODE] **Terrain** — ramps/uneven ground if the MJX scene can
@@ -102,9 +136,11 @@ existing config knobs, [CODE] needs an implementation cycle first,
 - A free GPU pod with no sound main-line arm takes the topmost
   [READY] item not already running; [CODE] items get a dedicated
   implementation cycle when 2+ pods would otherwise idle.
-- One wishlist line per pod; don't start five half-lines at once.
-  Prefer finishing/iterating a line over grazing.
+- **More than 2 free slots = queue MULTIPLE experiments in one
+  cycle** (operator, 08-09). Pull several distinct [READY] items —
+  diverse lines, not five variants of one idea — until the free
+  slots are covered. Idle GPUs are the failure mode.
 - Wishlist runs use the same rigor: `cw-<line>-<idea>` names,
   launcher-only launches, pre-registered gates, video verdicts,
-  ledger + summary.md. "It's exploratory" is not an excuse for an
-  unwatched success.
+  ledger (which auto-renders `rl_docs/runs/<run>.md`).
+  "It's exploratory" is not an excuse for an unwatched success.

@@ -10,6 +10,7 @@ it is for; keep them SHORT when you edit them.
 | `WISHLIST.md` | Operator's backlog of things to learn — pull from it whenever pods would idle | Every cycle, when deciding launches |
 | `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, hard-won gotchas | Every cycle, before running commands |
 | `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/summary.md` convention + cached W&B data | When finishing or investigating a run |
+| `runs/` | One GENERATED summary per run (status, hypothesis, gate, verdict) — rendered from `experiments.json` by `launch_run.py`; never hand-edit | Browsing past runs; `launch_run.py runsmd` refreshes |
 | `../RL_PLAN.md` | The current plan, gates, and queue (~120 lines) | Every cycle |
 | `../RL_LOG.md` | Condensed campaign history, 1–3 lines per cycle | Every cycle |
 | `../rl_move/orchestrator/guardrails.yaml` | Hard limits you must obey | Every cycle |
