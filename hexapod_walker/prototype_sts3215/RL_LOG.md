@@ -2035,3 +2035,18 @@ the c2/lowent verdicts.
 No evals, no launches, no plan change (tooling + ledger hygiene only).
 cw-stance-endpost-r1 untouched (concurrent cycle owns it); c2 and
 lowent untouched and training.
+
+### Cycle 17 amendment — attribution correction (read post-push)
+The rebase that landed cycle 17 pulled in the operator's 01:25Z
+correction: the duplicate/stale-RUNNING entries came from the
+SHADOW-LEDGER import (launcher run from the stale non-git tree
+/workspace/prototype_sts3215; original entries imported into the real
+ledger at 01:20Z with their at-launch RUNNING status), NOT from
+hand-edit clobbering. Corrected root-cause chain for the c1 false
+DEAD: watcher DEAD ← imported launcher entry still RUNNING ← import
+preserved at-launch status while the completion had been recorded on
+the reconstruction entry ← two-trees/shadow-ledger defect (fixed by
+operator via symlink). Every cycle-17 action is unchanged by this:
+the completion-marker checkup, the --created selector, and the
+DUPLICATE marking address the residue class regardless of how the
+duplicates arose.
