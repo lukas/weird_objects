@@ -514,8 +514,10 @@ def cmd_scan(args):
     try:
         found = bus.scan()
         print(f"Found {len(found)} servo(s): {found}")
-        if found != list(range(1, N_JOINTS + 1)):
-            print(f"  expected IDs 1..{N_JOINTS} for a fully-built robot.")
+        expected = [joint_to_servo_id(j) for j in range(N_JOINTS)]
+        if found != expected:
+            print(f"  expected IDs {expected[0]}..{expected[-1]} for a fully-built "
+                  f"robot (ID {FACTORY_SERVO_ID} = un-ID'd factory-fresh servo).")
     finally:
         bus.close()
 

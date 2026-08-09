@@ -7,7 +7,10 @@ alwaysApply: true
 
 Incident 2026-08-06: wrong logical zeros + unsupervised stand/plant blends
 tipped the robot, browned out the Uno Q, held stilts at ~7 A, and cooked
-L5 knee (bus ID 19 missing / overheated). Do not repeat.
+L5 knee (bus ID 19). Do not repeat. (Resolved 2026-08-09: the dead servo
+had failed as a V+→GND short on the 12 V rail; operator removed and
+replaced it. The replacement may still ship as factory ID 1 until re-ID'd
+to 19 with `setid`.)
 
 ## Default: do not touch the robot
 
@@ -44,7 +47,7 @@ a **tall stilt** pose (~tibia length), not “1–2 inches off the ground.”
 
 Do **not** steer the session toward stand/plant/balance until:
 
-1. All expected servo IDs answer (currently L5 knee / ID 19 was missing).
+1. All expected servo IDs (2..19) answer on a full-power scan.
 2. Logical zero matches a known visual pose (`set_zero`).
 3. Single-joint and small air moves predictably match encoders.
 4. Operator asks to move on to plant/hold.
