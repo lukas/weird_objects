@@ -414,11 +414,27 @@ def build_xml(obstacles_xml: str = "") -> str:
                 f'scale="0.001 0.001 0.001"/>'
             )
         if USE_PART_MESHES:
+            # tibia_link.stl is drawn ~29.5 mm LONGER than the kinematic
+            # tibia: hexapod_prototype's sandwich make_tibia_link measures
+            # the tube run from the yoke SOCKET (x ≈ +29.5) instead of the
+            # knee axis, so the boot tip lands at x ≈ 157.5 while physics,
+            # IK and firmware all put the foot tip at x = TIBIA_LENGTH =
+            # 128 (design intent per the foot-boot docstring). Rendered
+            # raw, the extra 29.5 mm of boot pokes through the floor in
+            # every stance ("legs through the ground", operator 08-09) even
+            # though the contact sphere sits exactly at the 128 mm tip.
+            # Until the CAD builder / physical part is reconciled
+            # (OPERATOR: measure knee axis -> foot tip on the bench robot),
+            # squash the VISUAL along its long axis so the drawn tip
+            # coincides with the physics tip. Origin is the knee mating
+            # face, so the yoke end stays anchored at the knee.
+            tibia_fix = TIBIA / 0.1575   # kinematic tip / measured mesh tip
             for name in _PART_STL_NAMES:
+                sx = 0.001 * tibia_fix if name == "tibia_link" else 0.001
                 # Logical mesh name stays plain (geoms reference mesh="femur_link").
                 mesh_lines.append(
                     f'<mesh name="{name}" file="{HP.stl_path(name)}" '
-                    f'scale="0.001 0.001 0.001"/>'
+                    f'scale="{sx:.7f} 0.001 0.001"/>'
                 )
         mesh_asset_xml = "\n    ".join(mesh_lines)
 
