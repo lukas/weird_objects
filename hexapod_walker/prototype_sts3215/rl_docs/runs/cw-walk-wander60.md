@@ -2,19 +2,17 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: INTENT
 
-**created**: 2026-08-09T16:05:52+00:00
+**created**: 2026-08-09T16:12:41+00:00
 
-**pod**: hexapod-mjx-train-10
+**pod**: hexapod-mjx-train-1
 
 **steps**: 20000000
 
-**parent**: cw-walk-wander30
+**parent**: rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip
 
-**hypothesis**: Driving endurance rung 2: wander30 PASSED 30 s drives (~6 command changes/ep, prog 0.94-1.02, zero stalls) and straight-line endurance holds at 60 s (endur60 PASS, no decay). One variable off wander30: horizon 30→60 s (~12 changes/ep). Plain: prove command-following doesn't decay over long joystick sessions. If-true: 60 s eps hold prog ~1.0 with gv and no term through all changes — drive duration is a non-issue. If-false: degradation accumulates only under steering (transition fatigue) — height sag/slip growth/parked segments after later changes.
+**hypothesis**: Driving endurance ladder rung 3: 30s->60s horizon (~12 command changes/ep), one variable off wander30 (PASS at 30s). Plain: prove drive-it-around competence does not decay over minute-long drives — the operator's joystick sessions are minutes, not seconds. Prediction-if-true: 60s eps hold prog_ratio median 0.85-1.15, gv, 0 term, no late-episode height sag or slip growth (first-half vs second-half slip/m within noise). Prediction-if-false: degradation accumulates with change count (parked segments after later changes, slip/m rising ep-half over ep-half) -> transition robustness is horizon-limited and the wander line needs recovery-focused training, not longer horizons. Strongest alternative: passes but change-segment slip stays ~2x straight-line (contact-pricing root, unaffected by horizon).
 
-**gate**: own-cfg DR0 60s det+sto 6/6: gait_valid 12/12, zero terminations, prog_ratio median 0.85-1.15, no ep prog<0.5; frames watched det
-
-**refused_reason**: hexapod-mjx-train-10 code marker 920e6331c810f772b2bf80090ad921361f7d86de-dirty != local HEAD 920e6331c810f772b2bf80090ad921361f7d86de. Sync first: snapshot.sh --sync hexapod-mjx-train-10 (and snapshot/commit before that if the tree is dirty).
+**gate**: own-cfg DR0 60s 6+6: gv 12/12, 0 term, prog_ratio median 0.85-1.15, no ep prog<0.5, second-half slip/m not worse than first-half beyond noise and worst-ep slip/m <=2.1; frames watched det
 
