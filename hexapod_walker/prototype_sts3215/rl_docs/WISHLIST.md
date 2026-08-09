@@ -13,6 +13,20 @@ existing config knobs, [CODE] needs an implementation cycle first,
 
 ## Locomotion (walking around the room)
 
+0. **JOYSTICK OPERABILITY — the binding operability target
+   (operator, 08-09).** The operator will drive this robot with a
+   joystick: ANY sudden command change — forward to instant
+   reverse, hard strafe, spin of the stick — must never fall the
+   robot. Two workstreams: (a) envelope coverage — walk in every
+   direction (heading ladder: `cw-walk-head90` off wander30, then
+   ±135/±180); (b) transition hardening — train with FAST abrupt
+   command resampling, not just gentle 5 s changes
+   (`cw-walk-joystick45`). **JOYSTICK GATE (use for every driving
+   candidate): own-cfg eval with resample 1.5 s, stop_frac 0.2,
+   full trained envelope, 12/12 episodes ZERO terminations.** A
+   policy that walks beautifully but falls on a command flip is
+   not a driving candidate.
+
 1. [RUNNING] **Longer distances** — 30 s+ horizons, sustained gait
    without degradation (`cw-walk-longdist`). Extend to 60 s if it
    holds.
