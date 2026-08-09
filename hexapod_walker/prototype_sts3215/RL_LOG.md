@@ -2474,3 +2474,127 @@ gate incl. 5 s retention slip ≤0.93). ent 0.001, --no-canary
 (lineage exemption), parent ckpt already on walk pod (md5 d0a12a94
 verified this cycle). Walk pod solo on node g129004 (0 trainers at
 status check).
+
+## Cycle 19-concurrent (2026-08-09 ~02:2xZ) — cw-walk-step0-lowent-c1 verdict: PASS on its gate, but every delta vs parent is at/inside noise — identical-config lineage CLOSED (no c2); hist8 rejoins from scratch on the step0 recipe
+
+### cw-walk-step0-lowent-c1 — directive 0-a continuation: +42 reward, eval deltas inside noise, park attractor still 1/6 at 15 s
+OBSERVATIONS (mechanical). W&B uwi188rd FINISHED, 4M steps (8.01M→
+12.01M cum, 1073 s solo s6, ~1750→4096 fps). Final ckpt
+ppo_goal_cw_walk_step0_lowent_c1.zip md5
+104ba8cf300d979e1c97979df794a0d9 (pod s6 + controller copy match).
+ep_rew_mean quarter means 697.0 / 711.1 / 725.2 / 728.5 — Q4−Q3 =
++3.3, INSIDE the ±15 W&B scatter (Q1→Q2 and Q2→Q3 were +14.1 each):
+the climb decelerated to noise. train/std 2.08→1.94 (slow anneal, no
+runaway). env/reward_step_event 0.113→0.115 quarters (flat; parent
+ended 0.110).
+Gate harness 5 s DR 0 own-cfg (logs/ckpt_eval/cw_walk_step0_lowent_
+c1_gate, 6 eps/mode det+sto in ONE invocation — first use of the sto-
+video harness for a gate): walk det gv 6/6, fwd 0.23–0.47 m (all
+≥0.10), swings ≥3/leg, slip 0.580–0.777 mean 0.674, vel_err
+0.025–0.059 with succ 2/6; walk sto succ 6/6, gv 6/6, slip mean
+0.578. Terminations 0, safety flags 0. One det ep (ep5) duty
+[0.79,0.20,0.83,0.18,0.80,0.22] — leg 3 at 0.18, marginally outside
+the ~[0.2,0.9] clause (parent verdict recorded 0.18–0.83 and passed;
+same treatment).
+Named-baseline deltas: det slip mean 0.674 vs parent lowent
+0.746/0.717 (ranges 0.58–0.78 vs 0.68–0.79: OVERLAP — direction
+right, not evidence). det succ 2/6 vs parent 0/12 pooled (p≈0.08
+under parent rate — borderline, NOT decisive). sto 6/6 vs parent
+pooled 10/12 — inside the ±1–2 ep band, no evidence of change.
+15 s sustain (logs/ckpt_eval/cw_walk_step0_lowent_c1_15s, + _v2
+rerun after the harness fix below; scalars reproduced bit-exact):
+det gv 6/6, fwd 0.34–0.71 m (5/6 ≥0.40 vs parent 6/6 — within 1-ep
+noise; det ep2 slowed to 0.338 m at vel_err 0.061, duty skewed
+0.84/0.17). sto 5/6 gv with ONE HARD TRIPOD PARK: sto ep4 duty
+[0.99,0.00,1.00,0.01,0.99,0.01], swings [2,1,0,1,2,1], fwd 0.014 m
+— same 1/6 invalid rate as parent (whose invalid ep was a wander)
+and same class as h15b's park ep (concurrent verdict).
+FRAMES WATCHED (provenance): gate walk_det_0.mp4 md5 cee8b197 250f,
+walk_sto_0.mp4 f6ca4f63 250f; 15 s walk_det_0.mp4 cd11ba81 375f,
+walk_sto_3.mp4 921a5a60 375f; park ep walk_sto_4.mp4 (from _v2
+rerun) md5 a5ecadfc 375f; hold_det_0 + unload_det_0 strips (quiet
+six-foot stances, no hoisted legs). Pathologies first: (1) det
+OVERSPEED on camera — gate det ep0 overlay reads v 0.078 vs ref
+0.020 (err 0.059), ~4x command; the pricing defect is visible, not
+inferred. (2) The park ep on camera: quiet stand on loaded tripod
+0/2/4, feet 1/3/5 barely hovering, v ~0.01 m/s for 15 s; its return
+(+519) is ~40% of a walking ep (~+1220) — the park is priced UNDER
+walking but remains a live basin under sampling noise. (3) Stance
+sprawly-wide, cadence irregular, stance feet creep in every strip
+(matches slip 0.58–0.78). Achievements: level body (tilt ≤1.3°,
+h_err ≤14 mm) and all six legs cycling in all 11/12 valid 15 s eps;
+no final-third decay (t=11.6 s and t=15 s tiles); zero falls in 24
+harness eps.
+Exploits looked for, not found: no sacrificed leg in any passing ep,
+no phantom step events (swing counts match strips), no safety-layer
+reliance (0 flags), no height collapse.
+Non-walk canary scalars (walk-only lineage, expected rubble): hold
+det 6/6 sto 4/6, unload 12/12 (both watched, quiet stances), track/
+raise/rise 0/6 everywhere — unchanged; no crown-jewel claim on this
+line.
+INTERPRETATION. The continuation bought +42 reward and zero
+eval-visible change outside noise. Both remaining defects are the
+already-recorded PRICING defects (overspeed uncharged; park basin
+persists at 1/6 sto), and 4M identical steps demonstrably did not
+move them (step_event flat, park rate unchanged). Identical-config
+segments are exhausted — the auto-continue criterion (Q4>Q3 by
++3.3) is technically true but inside scatter; a third segment
+predicts <+10 reward and no defect movement.
+VERDICT: PASS against the recorded step0 gate (det AND sto, all
+clauses; one marginal duty 0.18 noted, same treatment as parent).
+NOT HARDWARE-READY: DR 0 only, det runs ~4x command speed, feet
+skate 0.6–0.8 m/ep, 1/6 sto park risk, policy std 1.94. CHAMPION:
+NOT updated — c1 ≥ lowent only within noise, and the concurrent
+h15b verdict beats c1 outright (5 s det slip 0.584 vs 0.674
+non-overlapping, det succ 4/6 vs 2/6, std 1.705 vs 1.94). Walk
+champion = ppo_goal_cw_walk_lowent_h15b.zip md5 d0a12a94 (cycle 19).
+HYPOTHESIS STATUS (launch prediction "reward keeps rising with
+stable std"): SUPPORTED — 697→728.5 with std 2.08→1.94 — but the
+rise decelerated to noise by Q4; the practically-relevant reading is
+that this lineage's identical-config direction is DONE. Lineage
+decision: NO c2 (watcher's mechanical relaunch also did not fire;
+concurring).
+Eval-side check landed (generalizes the park blind spot): walk-mode
+episodes now render EVERY episode and additionally SAVE video for
+any gait-invalid episode (eval_checkpoint.py) — a park/wander can
+never again be a scalar-only event. Validated by rerunning the 15 s
+eval at the same seed: draws reproduced bit-exact, park ep now on
+camera (_15s_v2). Complements the concurrent cycle's --video-every 1
+rerun practice with an automatic guarantee.
+
+### LAUNCH cw-walk-step0-hist8 (4M, DR 0, from scratch, seed 0, pod s6) — temporal-actor rung on the step0 recipe
+Plan rung (Skill notes → Walk → rung 1; lit review priority): history
+rejoins on a consolidated baseline as a FROM-SCRATCH arm (obs change
+⇒ new baseline; the cycle-13 warm-start hist8 died of transplant
+drift, capability question INCONCLUSIVE). ONE variable vs the
+archived cw-walk-step0 4M run: --cfg-set obs.history_frames=8
+(≈300 ms obs/action history), everything else identical (walk-only
+joint_walk, DR 0, step-event reward package, std 1.0 / ent 0.01 /
+target_kl 0.02, seed 0, 4M).
+HYPOTHESIS: an 8-frame temporal actor provides the substrate for
+rhythmic gait (internal phase/clock) that the reactive MLP lacks;
+on the identical step0 recipe it yields a gait with more REGULAR
+cadence at the same budget.
+Prediction-if-true: step0 gate clauses met at 4M AND cadence
+regularity beats the archived step0-4M baseline outside noise —
+per-leg swing-count spread tightens (step0 det rows e.g.
+[7,6,5,7,13,3]) and duty split narrows; det vel_err may or may not
+improve (see alternative).
+Prediction-if-false: (a) no gait by 4M (reward_step_event fails to
+rise; wider first layer slows from-scratch PPO) → history hurts
+sample efficiency at DR 0, retry only as warm start AFTER pricing
+work; (b) gait forms but cadence/tracking indistinguishable from
+step0-4M → capability is not the binding constraint → all-in on
+pricing (ii)/(iii).
+Strongest alternative: skating/overspeed/park are pure pricing
+defects history cannot touch — distinguished because if-true is
+claimed on CADENCE regularity (swing CV, duty spread), not on
+tracking; a tracking-only null does not refute the pricing story
+and a cadence null does.
+GATE: step0 gate at 4M (DR 0, det AND sto, ≥10 cm fwd, six legs
+cycling, duty ~[0.2,0.9], ≥2 swings/leg, no drag/park, video
+pathology-first) vs archived logs/ckpt_eval/cw_walk_step0_4M_gate as
+named baseline. Budget 4M, canaries irrelevant (from scratch,
+walk-only) but left default. Probe smoke first (audit §6: history ×
+step-event package never ran together): probe-walk-step0-hist8,
+150k, --no-wandb, smoke pod.
