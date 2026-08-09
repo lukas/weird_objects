@@ -11510,7 +11510,7 @@
       "Crouch envelope: cw-walk-lowgait PASSED -20mm (mean end-height err ~4mm, gait intact). One variable off it: height ref -20 -> -30mm. Plain: how low can it walk before leg workspace/clearance runs out, so stance height becomes a wide runtime knob. Prediction-if-true: same gait quality at -30mm, height err <=8mm, slip ~parent. Prediction-if-false: clearance/knee workspace runs out -> height err stays >8mm or drag/slip rises markedly = -30mm is outside the envelope (also a useful answer). Strongest alternative: height tracks but sto brittleness worsens in the deeper crouch. Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait.zip. Gate: own-cfg DR0 15s 6+6 at -30mm: gv 12/12, 0 term, mean end-height err <=8mm, det agg slip/m <=1.35 (parent 1.14 + noise); frames watched det+sto"
     ],
     "created": "2026-08-09T13:49:22+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -11519,11 +11519,24 @@
       "code_sha_local": "d8ed19d0541088f1c82226f4410389f22e829657",
       "code_sha_pod": "d8ed19d0541088f1c82226f4410389f22e829657",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "745638",
+      "log_growth_bytes": [
+        13255,
+        24551
+      ],
+      "wandb_id": "un01yho8",
+      "global_step_window": [
+        1245184,
+        2949120
+      ],
+      "fps_estimate": 18932.6
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-lowgait30 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --eval-every 1000000 --video-every 2000000 --seed 0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --no-canary --cfg-set goal.walk_height_off_mm=-30.0 --out-name ppo_goal_cw_walk_lowgait30 --notes 'Crouch envelope: cw-walk-lowgait PASSED -20mm (mean end-height err ~4mm, gait intact). One variable off it: height ref -20 -> -30mm. Plain: how low can it walk before leg workspace/clearance runs out, so stance height becomes a wide runtime knob. Prediction-if-true: same gait quality at -30mm, height err <=8mm, slip ~parent. Prediction-if-false: clearance/knee workspace runs out -> height err stays >8mm or drag/slip rises markedly = -30mm is outside the envelope (also a useful answer). Strongest alternative: height tracks but sto brittleness worsens in the deeper crouch. Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait.zip. Gate: own-cfg DR0 15s 6+6 at -30mm: gv 12/12, 0 term, mean end-height err <=8mm, det agg slip/m <=1.35 (parent 1.14 + noise); frames watched det+sto' > /tmp/train_cw-walk-lowgait30.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-lowgait30.log"
+    "log": "/tmp/train_cw-walk-lowgait30.log",
+    "wandb_id": "un01yho8",
+    "verified": "2026-08-09T13:53:04+00:00"
   },
   {
     "run": "cw-walk-wander30",
@@ -11588,7 +11601,7 @@
       "Driving endurance: cw-walk-wander PASSED start/steer/stop transitions over 15s (~3 command changes). One variable off it: horizon 15->30s (~6 changes/ep). Plain: prove the drive-it-around skill doesn't decay over longer drives. Prediction-if-true: 30s eps hold prog_ratio ~1.0 with gv and no term across all command changes. Prediction-if-false: degradation accumulates late-episode (height sag, slip growth, parked segments after later changes) -> transitions are only locally stable. Strongest alternative: fine at 30s but slip on change-segments stays ~2x straight-line (contact-pricing root, not fixable here). Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander.zip. Gate: own-cfg DR0 30s 6+6: gv 12/12, 0 term, prog_ratio median 0.85-1.15, no ep prog<0.5; change-segment slip no worse than parent (~2.1 slip/m ep-level); frames watched det+sto"
     ],
     "created": "2026-08-09T13:50:30+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -11597,10 +11610,23 @@
       "code_sha_local": "d8ed19d0541088f1c82226f4410389f22e829657",
       "code_sha_pod": "d8ed19d0541088f1c82226f4410389f22e829657",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1621010",
+      "log_growth_bytes": [
+        9535,
+        16165
+      ],
+      "wandb_id": "e4wuad6b",
+      "global_step_window": [
+        786432,
+        1507328
+      ],
+      "fps_estimate": 8010.0
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-wander30 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander.zip --no-dr --episode-seconds 30 --ent-coef 0.001 --eval-every 1000000 --video-every 2000000 --seed 0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --no-canary --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --out-name ppo_goal_cw_walk_wander30 --notes 'Driving endurance: cw-walk-wander PASSED start/steer/stop transitions over 15s (~3 command changes). One variable off it: horizon 15->30s (~6 changes/ep). Plain: prove the drive-it-around skill doesn'\"'\"'t decay over longer drives. Prediction-if-true: 30s eps hold prog_ratio ~1.0 with gv and no term across all command changes. Prediction-if-false: degradation accumulates late-episode (height sag, slip growth, parked segments after later changes) -> transitions are only locally stable. Strongest alternative: fine at 30s but slip on change-segments stays ~2x straight-line (contact-pricing root, not fixable here). Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander.zip. Gate: own-cfg DR0 30s 6+6: gv 12/12, 0 term, prog_ratio median 0.85-1.15, no ep prog<0.5; change-segment slip no worse than parent (~2.1 slip/m ep-level); frames watched det+sto' > /tmp/train_cw-walk-wander30.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-wander30.log"
+    "log": "/tmp/train_cw-walk-wander30.log",
+    "wandb_id": "e4wuad6b",
+    "verified": "2026-08-09T13:54:14+00:00"
   }
 ]

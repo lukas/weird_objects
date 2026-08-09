@@ -261,6 +261,25 @@ a file under `archive/` and link it.
   ~10 runs that finished mid-cycle; terrain05 INTENT+live on t1 left
   to watcher checkup.
 
+- Cycle 45 (08-09 ~14:0x): 4 triages. `cw-walk-lowgait` PASS (−20mm
+  crouch: gv 12/12, 0 term, mean end-height err ~4mm; slip ~champ;
+  one sto in-place-paddle ep = known lineage brittleness).
+  `cw-walk-wander` PASS (±45°/5s resample/15% stops: gv 12/12,
+  0 term, prog ~1.0 through changes; change-eps slip ~2x straight).
+  `cw-walk-fwdband-r1` FAIL/refuted — DR1.0 det prog median 1.40 vs
+  champ 1.43: command MIX is not a lever; with fdiag this closes the
+  command-scope line. `cw-walk-dr05-fall300` NO-EFFECT on its
+  if-false: new parent baseline dr05-r1@DR1.0
+  (logs/ckpt_eval/cw_walk_dr05_r1_dr10) is ALSO 0-term with
+  identical slip/prog — falls too rare to price; 0-c(i) now rides on
+  tilt50 (reuse that baseline for its verdict). Refills:
+  `cw-walk-wander30` (30s driving endurance, t3) + `cw-walk-lowgait30`
+  (−30mm envelope, t4), 40M. t8/t10 idle HARD reason: no sound
+  unblocked arms left (READY items all running/blocked/[CODE]);
+  tilt50/loadslip-s1/highgait land within the hour and 0-c(ii)
+  parents on tilt50's outcome; mirror-symmetry (plan #3) still needs
+  its dedicated implementation cycle — next quiet cycle takes it.
+
 ## ASSUMPTION (operator to review)
 
 - Cycle 44 champion promotion: adopted longdist-r2 as walk champion
