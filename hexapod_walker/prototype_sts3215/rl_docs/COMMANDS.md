@@ -43,6 +43,12 @@ leave the next agent to rediscover it.
   both sides. **`snapshot.sh --sync` EXCLUDES policies/** — a
   warm-start parent must be pushed explicitly or the run dies at
   init with FileNotFoundError (killed cw-walk-longdist, 08-09).
+  If `kubectl cp`/exec-stdin streams keep dropping (websocket
+  close/broken pipe — hit train-2/3, 08-09 c35): HTTP-serve from
+  the controller (`python3 -m http.server 8765` in policies/) and
+  on the pod `python3 -c "import urllib.request; urllib.request.
+  urlretrieve('http://10.0.0.46:8765/<zip>', '<dest>')"` — pods
+  have no curl/wget. Always md5 after.
 - `ops.sh evalcmd <run>` — prints the exact-path harness eval command
   with the run's own `--cfg-set`s pulled from the ledger.
 - `ops.sh waitlog <file> <regex> [timeout]` — poll for completion.

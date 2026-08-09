@@ -178,3 +178,11 @@ a file under `archive/` and link it.
   ruling. (3) `cw-walk-longdist` retried under the DEAD-retry rule
   (0 steps trained, pure infra fault) instead of waiting for its
   queued watcher cycle.
+- Cycle 36 (08-09 ~11:2x): `cw-walk-stepdisp12` FAIL/REFUTED — with
+  step credit displacement-gated (denials real, climbing), cadence
+  STILL inflated (det DR1.0 61.5 swings/ep vs c1 58.2, champ 47.2):
+  step credit does NOT pay the cadence ride; income channels now
+  fully mapped/exhausted, confirming c35's rulings-(5)/(6) arms as
+  the right escalation (no contradiction with its ASSUMPTION (1)).
+  Champion unchanged; frames = same paddle-creep, NOT HARDWARE-READY.
+  Launched `cw-steer-fdiag` (train-1, c35's deferred steering arm).
