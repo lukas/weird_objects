@@ -4119,3 +4119,162 @@ overspeed. Propose command-scaled distance (e.g. along-command
 displacement >= 0.75 x commanded) or gating on the harness's own
 vel_err success. Also: the sto pass is a FIXED 6-draw panel (point
 2) — consider multi-seed panels for gate decisions.
+
+## Cycle 28 (2026-08-09 ~07:0xZ) — cw-stance-lowerdense verdict: dense charging REFUTED on both pre-registered if-false shapes — the hover pays the (economically trivial) charge AND deepens its allowance-riding — and the arm ERODED RISE (stop rule tripped: heights 4/24, one fall + one over-current termination on camera). Opposing gradients NAMED by controller probe: the current model prices a feet-planted descent HOT (Imax 2.63 A, current_hot 4x the hover's) and support_margin pays the tripod hover MORE than a planted stance. Stance line BLOCKED on the operator allowance/pricing ruling per pre-registration. Concurrent with the walk cycle (parkstart/harvest line, hands off per prompt).
+
+### cw-stance-lowerdense — charging the whole descent bought nothing: the hover is INCOME-POSITIVE, not under-priced at the margin
+OBSERVATIONS (mechanical). W&B 7iyhg21d FINISHED, 20,054,016 steps
+(GPU-MJX, mjx-train-0, 1388 s, ~14.4k fps incl. setup). Final ckpt
+ppo_goal_cw_stance_lowerdense.zip md5
+a52db745e054fe2906e8d67a87279691 (pod + controller match). Train:
+ep_rew quarters 239/269/261/252; std 0.163→0.150; KL ~0.02 at
+target. env/reward_end_posture quarters −0.306/−0.336/−0.342/−0.339
+— WORSENED ~0.03 under the 5x-wider charge window (if-true needed
+improvement): the policy pays. Canaries: lower_a/b, rise_flat_a/b,
+rise_bridge_a, rise_crouch_b green throughout; rise_bridge_b RED
+from ~mid-run (mean 0.55, last 5 all 0), rise_crouch_a last probe 0.
+Internal eval/rise_bridge_frac 1.0→0.667→0.0→0.25 — auto-stop never
+fired because bridge_a stayed green (group rule needs the full
+group down; single-member persistent failure is a blind spot, watch
+item, no code change this cycle). terminations/tilt_roll crept
+1.0→2.0 (last 3.0).
+Gate harness (posture-strict, DR 1.0, own cfg MINUS
+lower_belly_start_frac, 6 eps/mode det+sto, explicit --modes lower
+rise hold raise track; logs/ckpt_eval/cw_stance_lowerdense_gate):
+- lower posture det 0/6 sto 0/6 (gate ≥4/6 det ≥5/6 sto — FAIL;
+  bellyrest baseline 0/12, no change). Heights 12/12 (h_err ≤3.4
+  det, ≤6.8 sto) → lower height clause ✓. Per-leg det end
+  clearances vs bellyrest NAMED baseline: leg0 98–129 (br 112–145,
+  overlap), leg2 69–86 (br 58–82, no better), leg4 54–64 (br
+  46–72) with endings 54/59/64/61/61/60 mm — clustered ON the
+  60 mm boundary (the eyeball clause's 40–60 signature). Summed det
+  over-allowance 68–81 mm (br 80–107; if-true bar <80): fell by
+  riding the boundary, not by planting — posture is 0/12 and the
+  training charge worsened, so the if-true conjunction fails.
+- RISE — STOP RULE TRIPPED: heights (h_err ≤15, no term) det 2/6
+  (19.9+tilt_roll TERMINATION, 33.5, 18.8, 1.4✓, 6.2✓, 23.0), sto
+  2/6 (3.7✓, 18.9, 43.9, over_current TERMINATION, 15.2, 5.8✓) vs
+  parent 12/12 — 4/24 heights, 2 safety terminations vs parent
+  0/60, far outside the ±1–2 ep band. Posture 0/12 (parent 1/12).
+  leg2 ends speared at 175–188 mm in 5/12 rise eps (parent's worst
+  rise clearances were ~181 in 2 eps) — the lower-mode spear
+  pattern has propagated into rise endings.
+- hold det 6/6 sto 6/6 ✓ (parent 12/12). track 12/12 (parent
+  11/12, inside noise). raise 0/12, worst_clear 235–239 —
+  unchanged canary. Imax band 2.30–2.69 A (recalibration caveat
+  stands). Safety flags outside terminations 0.
+FRAMES WATCHED (md5/frames): lower_det_0 6924fb95/250,
+lower_sto_0 db630fb9/250 — descent proceeds on schedule, then the
+right-front leg SPEARS straight out horizontally by mid-episode
+and holds to the end, other feet visibly airborne; never a flat
+rest; same pathology as parent. rise_det_0 24b8629c/186 (tilt_roll
+term) — NEVER stands: stays sprawled/splayed the whole strip and
+tips over on camera in the final frames — a genuine fall.
+rise_det_3 de088dda/250 (best height, 1.4 mm) — reaches height but
+ends WIDE/SPLAYED, feet at 18/26/42 mm. rise_sto_2 d1817f6f/250 —
+partial rise with a leg speared out, ends 43.9 mm low, leg2 at
+188 mm. rise_sto_0 478933cb/250 (height pass) — splayed stand,
+legs 0/4 at 26/38 mm. hold_det_0 33ca386c/250 + hold_sto_0
+8c39ffa4/250 — clean quiet six-foot stance, genuine passes.
+track_det_0 7ca9fe9b/250 — quiet stance, small corrections, fine.
+raise_det_0 8e61b287/250 — the permanent leg2-horizontal canary
+posture. Remaining eps scalars only (unwatched).
+Exploits looked for: height shortcut (none, lower h_err ≤6.8);
+safety-layer reliance (none); schedule dodge (none). FOUND:
+allowance-riding deepened (leg4 det endings pinned at 54–64 mm,
+four of six within 1 mm of the boundary) — the summed-clearance
+"improvement" (68–81 vs 80–107) is relabeling into the free zone.
+OPPOSING-GRADIENT DIAGNOSIS (pre-registered branch (a) follow-up;
+controller probe /tmp/diag_lower_gradient.py, DR 0, forced lower,
+plant starts, own cfg, seeds 0–2; per-term reward integrals for
+(A) this policy det, (B) scripted feet-planted descent — joint
+targets plant→zero paced by the episode's own height ramp,
+(C) hold-at-plant control):
+- The dense charge is TRIVIAL money: full-hover descents pay
+  reward_end_posture −4.5/−5.9/−11.3 per ep against ~216–227 of
+  task+finish income (~2–5%). k=5.0 with a 60 mm allowance and
+  per-leg clamp cannot bind.
+- The planted descent is priced HOT by the current model: (B) pays
+  current_hot −17.7 every seed vs (A)'s −2.2..−4.3, Imax 2.63 A
+  (over the 2.5 A soft threshold) vs (A)'s 1.8–2.0 A; (C) hold
+  draws 0.65 A. Slow lowering with loaded knees costs real sim
+  current; unloading three legs RELIEVES it — the current terms
+  pay for the hover.
+- support_margin pays the hover MORE: (A) +34.1..+35.4 vs (B)
+  +23.7 — the tripod out-earns a planted configuration on the
+  margin term. load_even charges the hover −36 vs −16 but is
+  outweighed (net hover advantage on the three physics terms
+  ≈ +5..+9/ep BEFORE the task streams, which also favor the
+  policy's precise height tracking).
+- Caveat, honestly owned: the script is an imperfect "correct
+  lower" (ends h_err 54–78 mm; zero-pose pads sit 29 mm above
+  their plant refs), so task/finish-stream comparisons are
+  confounded; the current/support/load comparisons are the
+  informative ones. One script, 3 seeds — magnitudes are
+  estimates, signs are consistent 3/3.
+INTERPRETATION. Both pre-registered if-false shapes fired at once:
+(a) the spears persist and PAY the dense charge (training integral
+worsened; leg0 unchanged vs parent), and (b) the threshold-riding
+generalized (leg4 pinned to the boundary; the summed metric fell
+without any planting). The diagnosis then NAMES the stronger
+opposing gradient branch (a) demanded: the hover is held up by
+current-relief (~+13/ep) plus support-margin income (~+12/ep),
+against which the posture charge (−5..−11/ep) is noise. Root-cause
+chain: hover ← paid by current-relief + margin income ← the servo
+current model prices a loaded slow descent at 2.6 A while the gate
+DEMANDS that descent, and support_margin's shape rewards a tripod
+at least as well as six planted feet ← either the current model
+mispricess loaded descents (sim-fidelity defect) or the gate is
+demanding a behavior the physics genuinely makes expensive
+(objective conflict). Deciding which — and the 60 mm allowance —
+changes the eval-gate definition and the reward economy together:
+operator territory, not another shaping arm (pre-registration
+already binds this). COLLATERAL: dense lower charging eroded RISE
+through shared weights (the strongest-alternative predicted
+destabilized DESCENT; descent survived, rise broke — mode-routed
+rewards do not prevent weight-sharing interference; 4th
+interference instance for the routing ledger).
+VERDICT: FAIL (lower posture 0/12; rise-heights stop rule tripped
+det 2/6 sto 2/6; lower heights 12/12, hold 12/12, track 12/12
+met). NOT HARDWARE-READY: lower ends three feet airborne with a
+~130 mm spear; rise falls over on camera (det[0]) and trips
+over_current (sto[3]). CHAMPION UNCHANGED (cw_stance_dr10). Crown
+jewels: ERODED IN THIS CHECKPOINT (rise heights 4/24 < 5/6) —
+ppo_goal_cw_stance_lowerdense.zip is quarantined as a warm-start
+source; the last stance ckpt with heights 24/24 remains
+ppo_goal_cw_stance_bellyrest.zip (itself gate-FAILED on posture).
+HYPOTHESIS STATUS: REFUTED (both if-false shapes; opposing
+gradient named and quantified). Dense-window shaping is CLOSED.
+Per pre-registration: NO further stance shaping arms; the stance
+line is BLOCKED pending the operator ruling below.
+
+## NEEDS OPERATOR (stance line blocked): the lower allowance ruling now includes a PRICING conflict
+Cycle 26 flagged the 60 mm allowance (threshold-riding, free-zone
+relabeling, negative-clearance blind spot). This cycle adds the
+deeper half: a feet-planted descent — the exact behavior the
+posture gate demands — is priced at Imax 2.63 A / current_hot 4x
+the hover's by the servo current model, and support_margin pays a
+tripod hover MORE than a planted stance (+35 vs +24/ep). Questions
+needing a ruling before any further stance arm: (1) allowance
+magnitude (60 mm vs ~25–30 mm) and |c| pricing (cycle 26); (2) is
+2.6 A for a slow loaded descent physically right on the STS3215s?
+If yes, the gate and the current economy are in direct conflict
+and the income structure (not a coefficient) must change; if no,
+the current model needs recalibration (same defect class as the
+dead-zone static-hold mispricing, 2026-08-08 canon). (3)
+support_margin term shape review (tripod ≥ planted is suspect).
+Evidence: logs/ckpt_eval/cw_stance_lowerdense_gate + the probe
+numbers above. Meanwhile the stance line launches NOTHING.
+
+### Cycle 28 launch decision: no launches — recorded reasoning
+All four GPU pods were free at status time, but: the stance line is
+blocked on the operator ruling (pre-registered by cycle 26's launch
+entry and confirmed by this verdict — both if-false branches fired);
+the walk line and its follow-ups (own-park harvest arm) belong to
+the CONCURRENT cycle per this cycle's prompt; raise is a no-compute
+canary; mirror-symmetry augmentation is queued behind the walk
+line's item (1). Launching a stance arm anyway would be exactly the
+"try another coefficient" pattern the external review forbids.
+Cycle totals: 0 launches, 0 steps, 1 harness eval (60 eps; 10
+strips watched, provenance above), 1 controller diagnosis probe (9
+episodes, script recorded in-log).
