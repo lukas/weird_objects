@@ -4037,7 +4037,7 @@
       "'Park-basin reset diversity: 25 percent of walk episodes start IN a jittered tripod park, one tripods hips lifted 10-25 deg. Cycle 24 showed pricing cannot break the park - kgate cut its income by ~1000/ep and the same-seed park persisted, 4th segment - so the basin is state-visitation-starved and this arm makes park states common at reset instead. One variable vs the kgate segment: goal.walk_park_start_frac=0.25, kernel prog-gate kept at 1.0. Parent ppo_goal_cw_walk_kgate.zip md5 b703f7b0, lowest lineage std 1.342. Gate: standard 15s DR0 12/12 clauses plus park-exit eval at frac=1.0 needing 10/12 fwd 0.30m with gait_valid, plus retention 5s det slip/m at most 1.8. If-false shapes pre-registered: distribution mismatch vs no-exit. Snapshot 1594ef7.'"
     ],
     "created": "2026-08-09T04:42:51+00:00",
-    "status": "RUNNING",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 56,
       "existing_trainers": [],
@@ -4079,7 +4079,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "KILLED by operator switch-over 2026-08-09: last CPU-stack training run; arm relaunched as cw-walk-parkstart-mjx on hexapod-mjx-train-1 (GPU-MJX stack, identical config). No training verdict; see the -mjx run."
   },
   {
     "run": "cw-stance-bellyrest",
