@@ -28,6 +28,7 @@ leave the next agent to rediscover it.
 | Are results being lost/ignored? | `ops.sh triage [hours]` |
 | Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |
 | Frames from a video | harness already wrote `*.png` sheets; else `ops.sh frames <mp4> [n]` |
+| Operator wants an overview in a browser | status page: `status_server.py` in tmux `statusweb` on the controller (port 8090); laptop: `kubectl port-forward hexapod-sweep-friction 8090:8090` → http://127.0.0.1:8090 |
 
 **DO NOT hand-write python for any row above.** Transcript mining
 (08-09) found >500 ad-hoc snippets re-parsing experiments.json,
