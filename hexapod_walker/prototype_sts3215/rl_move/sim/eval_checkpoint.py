@@ -371,7 +371,9 @@ def main() -> None:
                     setattr(gen, f"p_{m}", 1.0 if m == mode else 0.0)
             eps = []
             for k in range(args.per_mode):
-                video = (not args.no_video and det
+                # sto passes get video too: an unwatched success cannot
+                # support a PASS (guardrails: watched_modes=all_verdict_modes)
+                video = (not args.no_video
                          and (k == 0 or k % args.video_every == 0))
                 ep, frames = run_episode(
                     env, model, deterministic=det, video=video,

@@ -2050,3 +2050,270 @@ operator via symlink). Every cycle-17 action is unchanged by this:
 the completion-marker checkup, the --created selector, and the
 DUPLICATE marking address the residue class regardless of how the
 duplicates arose.
+
+## Cycle 18 (2026-08-09 ~01:5xZ) — c2/lowent A/B verdicts: entropy runaway CONFIRMED as the plateau driver; lowent is the new walk-line champion
+
+### cw-walk-step0-c2 — the ent-0.01 A-arm is actively destructive: std 3.24→8.73, rew flat, det FALLS appeared
+OBSERVATIONS. W&B c1oyg4j6 finished, 5.27M→9.27M cum (full 4M
+segment); ckpt md5 f7d0a61a27a257bfc4e3ef168fc742df (pulled, matches
+pod). train/std 3.24→8.73, monotone the whole segment (lineage:
+1.0→2.30→3.21→8.73 under flat ent 0.01). ep_rew_mean last0.5M 572.4
+vs prev0.5M 577.9 — flat, still inside the parent plateau band
+554–610 (segment band 550–621). env/reward_step_event 0.087 at end
+vs parent-end 0.096 — flat. Trainer's own final eval: survived 6/10
+with 4 tilt_pitch terminations (parent step0: 10/10); final W&B video
+reel 2/4 walk episodes TERM(tilt_pitch).
+Gate harness ×2 (DR 0, own cfg, 6 eps/mode det+sto;
+logs/ckpt_eval/cw_walk_step0_c2_gate + _gate_sto rerun): walk det 0/6
+AND 0/6; sto 3/6 and 1/6 — pooled 4/12 vs c1 2/6 and step0 1/6, all
+inside the ±1–2 ep noise band: NO evidence of change. det slip mean
+0.818 / 0.865 vs step0 0.93 (direction only, ranges overlap). NEW
+FAILURE CLASS: det tilt_pitch falls 2/12 + 1 safety flag — this
+lineage had ZERO terminations in step0 (12/12) and c1. Harness
+policy_std 8.48.
+Frames watched (provenance): walk_det_0.mp4 md5 ca313fb8 250f (zoom
+tile); walk_det_3.mp4 md5 361977f9 189f — the fall is ON CAMERA:
+rear sinks, front-right leg extends stiff, body pitches back until
+the tilt trip; walk_sto_0.mp4 md5 43086355 250f (zoom tile). Motion
+pathologies first: leg excursions visibly wilder than parent/lowent —
+legs flung into extreme extensions mid-crawl; cadence irregular;
+stance feet creep. Still six-leg cycling, no flag leg, no park.
+Exploit checked, not found: no sacrificed leg (12/12 gait_valid), no
+phantom steps (swings on video match counts 2–12).
+INTERPRETATION. The identical-config continuation didn't just
+plateau — at std 8.7 the deterministic policy now FALLS. Entropy
+income at ent 0.01 outruns the saturated task gradient without bound;
+4M more steps bought degradation, not progress.
+VERDICT: FAIL (drag clause persists; det falls are new damage). NOT
+HARDWARE-READY: std-8.5 policy, deterministic falls, skating.
+HYPOTHESIS STATUS (continued improvement under identical config):
+REFUTED — rew flat, std runaway, new det falls. The identical-config
+ent-0.01 arm is CLOSED, now by its own A-arm evidence, not just the
+plateau rule.
+
+### cw-walk-step0-lowent — ent 0.001 breaks the plateau: rew 583→688, sto 10/12, slip down ~20%; gate FAILS on the std clause only. NEW WALK-LINE CHAMPION
+OBSERVATIONS. W&B vkrvueqg finished, 4.01M→8.01M (full 4M); ckpt md5
+923ee55cac222957428d9de70b3bec23 (pulled, matches pod). train/std
+2.31→2.075: the runaway STOPPED (A-arm c2 hit 8.73 over the same
+window) but std does NOT anneal — floor ~2.07, gate clause ≤1.2
+FAILS. ep_rew_mean 583→688; last0.5M 681.0 ≥ 620 ✓ — clean breakout
+from the 554–610 plateau band while the concurrent one-variable A-arm
+(c2, ent 0.01, same lineage/seed) sat at 572. env/reward_step_event
+0.092→0.110 (+20% vs c2's 0.087 and parent-end 0.096).
+Gate harness ×2 (DR 0, own cfg, 6 eps/mode det+sto;
+logs/ckpt_eval/cw_walk_step0_lowent_gate + _gate_sto): gait_valid
+24/24, terminations 0, safety flags 0, forward 0.23–0.47 m (all
+≥0.10), min swings/leg 3, duty 0.18–0.83. det slip mean 0.746 /
+0.717 vs step0 baseline 0.93 — det ranges NON-overlapping (0.68–0.79
+vs 0.87–0.98): real ~20% skating reduction, NOT elimination (feet
+still creep ~0.7 m per ~10 s ep vs ~0.4 m body travel). walk sto
+success 6/6 then 4/6 — pooled 10/12 vs step0 1/6: far outside the
+±1–2 ep noise band, real. walk det 0/6 both — every det failure is
+vel_err (0.032–0.066): det speed 0.043–0.057 m/s REGARDLESS of
+command; speed tracking remains absent.
+15 s sustain probe (0-b rung 1, eval-first;
+logs/ckpt_eval/cw_walk_step0_lowent_15s): det 6/6 ≥0.40 m (0.46–0.72
+m), gait_valid 6/6, zero falls/flags over 15 s; sto 5/6 ≥0.40 m with
+ONE gait-invalid wander ep (0.15 m, gv False). Final-third frames
+(walk_det_0.mp4 md5 fab22425, 375f, tiles of frames 250–375): body
+level, six legs still cycling, no wind-up, no posture decay — THE
+GAIT SUSTAINS.
+Frames watched (provenance): walk_det_0.mp4 md5 0dc73ec5 250f (strip
++ zoom tile), walk_sto_0.mp4 md5 86d83fc5 250f (zoom tile; sto video
+capability added to the harness THIS cycle — it could never record
+sto before, an unwatchable-success blind spot now closed), 15 s
+walk_det_0 md5 fab22425 375f. Motion pathologies first: stance still
+sprawly-wide; cadence still irregular (no clean tripod rhythm);
+stance feet visibly creep (matches slip 0.68–0.79). Achievements:
+level body throughout, all six legs genuine lift→swing→touchdown, no
+flag leg, no park, zero falls in 36 episodes total.
+Exploit checked, not found: no sacrificed leg (24/24 + 11/12 at 15
+s), no safety-layer reliance (0 flags), no phantom step events, no
+height collapse. Noted for honesty: sto's tracking advantage over det
+(vel_err 0.026–0.030 vs 0.032–0.066) on EVERY checkpoint of this
+lineage means part of the sto success count rides on action noise
+braking the robot toward command — the underlying tracking defect is
+untouched.
+INTERPRETATION. The A/B is decisive: same parent lineage, same seed,
+one variable (ent 0.01 vs 0.001) → runaway+flat+falls vs
+stable-std+plateau-breakout+cleaner gait. Entropy over-injection was
+the plateau driver. But std floors at ~2.07, not ≤1.2: either 0.001
+still pays enough to hold it, or std ~2 is REWARD-OPTIMAL because
+noise functions as the missing speed regulator (sto tracks better
+than det everywhere). That is a HYPOTHESIS, labeled as such; the
+mechanical fact is det ignores speed commands, which is the pricing
+defect already recorded (overspeed uncharged, step credit scales
+with stride).
+VERDICT: FAIL against the recorded gate — std clause (2.075 > 1.2);
+the other five clauses PASS (gait_valid 12/12 ✓, forward ✓, swings ✓,
+det slip 0.746 ≤ 0.93 ✓, rew 681 ≥ 620 ✓). NOT HARDWARE-READY: DR 0
+only, skating persists, no det speed tracking, deploy-relevant std
+still 2.1. CHAMPION UPDATE: ppo_goal_cw_walk_step0_lowent.zip (md5
+923ee55c) is the new walk-line champion — beats step0 (sto 10/12 vs
+1/6, det slip 0.75 vs 0.93 non-overlapping, zero falls, rew +100)
+— append-only, step0 checkpoint retained.
+HYPOTHESIS STATUS: SUPPORTED on the core claim (plateau was
+entropy-driven; the clean A/B against c2 is the evidence). REFUTED on
+the anneal sub-claim (std ≤1.2 did not happen; floors at 2.07). None
+of the three pre-registered if-false branches occurred (std under 2.0
+band question is moot: it stopped rising and rew climbed — the
+diagnosis branch that matters, exploration-side, is answered).
+
+## Cycle 18 (2026-08-09) — cw-stance-endpost-r1 verdict: gate FAIL, but the flag leg MOVED for the first time; continuation c1 launched
+
+### cw-stance-endpost-r1 — FAIL on the lower-posture gate; dense terminal gradient acts on every priced leg (unique in lineage); endings hover instead of planting
+OBSERVATIONS (mechanical). W&B no0ihywt FINISHED, 4M steps (23.19M
+cum, 1368 s solo s5, ~2925 fps). Final ckpt ppo_goal_cw_stance_endpost
+.zip md5 b78c1b6ab41f51cc2753a44ff828aecb (pod s5 + controller copy).
+train/std 0.193-0.197 whole run (inherited, NO runaway — as designed).
+env/reward_end_posture (per charged tick): Q1 mean -0.640 -> Q4 mean
+-0.518 (~19% down, still paid at run end). No canary auto-stop (one
+transient rise_bridge_a=0 at 23.19M periodic eval).
+HARNESS FOOTGUN (record for every future joint_goal eval): with
+--modes omitted, eval_checkpoint.py falls back to (hold, track, rise)
+for joint_goal — the env class has no EVAL_MODES — so the gate eval
+took TWO draws: draw A default modes, draw B `--modes lower raise`.
+ALWAYS pass --modes explicitly for gate evals.
+Harness (posture-strict, DR 1.0, own cfg-sets incl. k_end_posture=5.0,
+6 eps/mode det+sto):
+- lower: det 0/6, sto 0/6 posture (gate needed >=4/6 det, >=5/6 sto).
+  Heights PERFECT 12/12 (h_err 1.1-5.5 mm). Per-leg end clearances,
+  stable across episodes: leg 0 at 89-135 mm, leg 2 at 22-48 mm
+  (INSIDE the 60 mm allowance), leg 4 at 133-207 mm. Named-baseline
+  deltas: vs cw-stance-posture (same parent/cfg/seed minus
+  k_end_posture) leg 4 moved 229-264 -> 133-207 mm — the FIRST
+  movement of the flag leg in this lineage; leg 2 planted-adjacent
+  (was ~58-91 on legs 0/2); leg 0 WORSE 58-91 -> 89-135. Summed
+  over-allowance ~200 -> ~147 mm (~26% down, matches the W&B trend).
+- rise: det 0/6, sto 1/6 posture (comparator: det 3/6 & 1/6 across
+  draws, sto 4/6). Sto count -3 is OUTSIDE the +-1-2 ep noise band =
+  honest REGRESSION on rise posture counts. But failure MAGNITUDE
+  collapsed: fails are feet hovering 24-64 mm (one crouch keeps
+  114/143 mm legs) vs comparator's 102-327 mm flags. Heights all
+  fine (h_err <=16.5 mm) — height-only ~12/12.
+- hold: det 5/6 (one 22 mm marginal), sto 6/6 — gate clause MET,
+  unchanged vs comparator (5/6, 6/6).
+- track: 6/6 det + 6/6 sto.
+- raise (canary tripwire, no compute owed): posture 0/12, leg 2
+  hovers 53-110 mm; heights 12/12 (h_err <=5.3) — best-ever heights
+  retained from the posture line (11/12, within noise).
+- Current note (hardware-relevant): hold det Imax 2.67 A, rise sto
+  2.70 A — above the 2.5 A breaker under the MuJoCo 3.11 reading
+  shift (plan already requires recalibration before trusting current
+  gates).
+VIDEO PROVENANCE (all reviewed as frame strips; det only, harness
+saves no sto video): lower_det_0.mp4 md5 2cd2d82f 250 fr — body
+descends on schedule but ends with TWO SPEAR LEGS (0 and 4) extended
+straight out, feet at ~114/150 mm; never a belly rest. raise_det_0.mp4
+md5 d7a53139 250 fr — quiet stance, leg 2 held just off the ground.
+rise_det_0.mp4 md5 308d2472 250 fr — crouch start rises, two left
+legs end extended outward horizontally, feet hovering (the 114/143
+episode). rise_det_1/rise_det_4 strips — wide sprawled stand, feet
+just off the ground (24-44 mm), no skyward flags anywhere.
+hold_det_0.mp4 md5 9e2e0d2c 250 fr + track_det_0 strip — clean quiet
+six-foot stances.
+Exploits looked for, not found: window is schedule/time-based so no
+dodge-by-slamming exists; no height-collapse shortcut (h_err <=5.5 mm
+lower); no safety-layer reliance (safety_flags 0 in all 48 eps); the
+residual charge (-0.52/tick) matches the visible hover exactly — no
+hidden compensation.
+INTERPRETATION. NEITHER pre-registered branch occurred. If-true
+(lower posture >=4/6) missed at 0/12. If-false (worst_clear ~250+ mm,
+charge absorbed) also missed: every priced leg moved down, including
+the flag leg that k_load_even/k_support_margin/exploration never
+touched, and worst_clear fell 264 -> 176-207 mm. The dense terminal
+gradient demonstrably ACTS; what 4M did not produce is contact. Two
+readings: (a) optimization incomplete — the W&B charge was still
+declining at run end; (b) airborne-hover equilibrium — descent slope
+(~19%/4M) too shallow to ever plant. The rise sto regression (sprawl
+endings with hovering feet where the comparator's flat starts
+planted) is a caution that the term reshapes endings globally, not
+only where legs were flagged.
+VERDICT: FAIL (lower posture 0/12 vs gate; heights clause and hold
+clause MET). hardware-ready: NO — lower still ends with two spear
+legs in the air and rise ends sprawled on hovering feet; nobody puts
+that on the robot. Champion UNCHANGED (cw_stance_dr10). Crown-jewel
+watch: rise/lower HEIGHTS remain intact on this branch (24/24).
+HYPOTHESIS STATUS: INCONCLUSIVE — "dense terminal gradient makes the
+planted ending reachable at inherited std" is neither supported
+(no contact at 4M) nor refuted (unique dose-response on every priced
+leg, charge still declining). Per near-miss practice: ONE
+consolidate-in-place continuation with pre-registered plateau
+criteria; plateau = refuted -> belly-rest reference states
+(reset-side, the remaining pre-registered structural option). No
+coefficient change (a k bump with this evidence would be exactly the
+banned "another coefficient" move).
+
+### LAUNCH cw-stance-endpost-c1 (4M, DR 1.0, seed 0, pod s4) — consolidate-in-place continuation
+HYPOTHESIS: the hover is optimization-incomplete, not an equilibrium
+— the terminal charge's descent (r1: Q1 -0.640 -> Q4 -0.518)
+continues in c1 and reaches planted endings.
+One variable vs endpost-r1: +4M steps (same cfg, same seed, init from
+r1's final ckpt md5 b78c1b6a).
+Prediction-if-true: env/reward_end_posture improves segment-over-
+segment by >= r1's own Q1->Q4 delta (0.12) AND lower det summed
+over-allowance drops below ~80 mm (r1: ~147 mm) AND lower posture
+gets off 0 (>=1/6 any pass); gate pass possible.
+Prediction-if-false: the charge PLATEAUS (c1 last-quarter mean within
+0.05 of c1 first-quarter) with per-leg clearances at r1 values (leg 0
+~114, leg 4 ~150 mm) — that refutes the reachability hypothesis and
+promotes belly-rest reference states; no third pricing arm.
+Strongest alternative: slow nonzero descent that neither plateaus nor
+plants — distinguished by the slope rule above (below 0.12/4M at 8M
+cum = call it plateaued; two misses in a row = change hypothesis).
+Gate (unchanged): posture-strict @ DR 1.0, 6 eps/mode det+sto: lower
+end-posture >=5/6 sto AND >=4/6 det AND rise/lower height-only >=5/6
+both AND hold sto 6/6.
+Canaries ON (multi-skill warm start; step0's --no-canary exemption is
+lineage-specific). Rise-regression watch: if rise heights (not
+posture) erode below 5/6 anywhere, stop the line.
+Pod s4 (empty node g129004, host load 0.4 at status check); parent
+ckpt copied controller -> s4 with md5 verification BEFORE launch (the
+endpost init-crash lesson).
+
+### LAUNCH cw-walk-lowent-h15 (4M, DR 0, ep 15 s, seed 0) — 0-b rung 1: consolidate the sustained walk at the horizon it must survive
+HYPOTHESIS: the lowent gait is horizon-robust in behavior but the 5 s
+training horizon leaves long-horizon regulation unlearned (value
+function never sees past 5 s); the 15 s eval's 1/6 sto lazy-leg
+wander ep is the symptom. Training at --episode-seconds 15 (ONE
+variable vs parent lowent) consolidates sustained walking.
+Prediction-if-true: 15 s harness det AND sto ≥0.40 m 12/12,
+gait_valid 12/12, no final-third frame degradation; 5 s numbers no
+worse than parent (det slip ≤ ~0.75, sto success within noise of
+10/12). Prediction-if-false: (a) 15 s numbers match parent's
+eval-only 15 s result (det 6/6, sto ~5/6) → 5 s training already
+sufficient, horizon rung closed as redundant — cheap, useful null;
+(b) reward balance shifts with horizon (step-event income scales per
+episode, termination pricing dilutes) and the gait degrades →
+horizon-dependent pricing sensitivity, stop and record before DR.
+Strongest alternative: the sto wander was binomial noise —
+distinguished because if-true predicts 12/12 at 15 s across both
+passes, clear of the 5/6-with-one-invalid baseline. GATE: 15 s DR 0
+harness 6 eps/mode det+sto: forward ≥0.40 m 12/12 AND gait_valid
+12/12 AND ≥2 swings/leg AND 0 terminations AND no final-third
+degradation (frames); retention: 5 s det slip mean ≤ 0.93. Budget
+4M. ent 0.001, --no-canary (lineage exemption). Pod: s5.
+
+### LAUNCH cw-walk-lowent-dr03 (4M, DR 0.3, seed 0) — 0-b rung 2: first DR ladder rung off the champion
+HYPOTHESIS: the step0-lineage gait survives moderate DR introduced
+one rung at a time (0.3, warm start from lowent md5 923ee55c) — DR
+at this scale robustifies rather than destroys (hist8's destruction
+came from jumping straight to wide distribution). ONE variable vs
+parent: --no-dr → --dr-scale 0.3. Prediction-if-true: DR 0.3 harness
+gait_valid 12/12, forward ≥0.10 m 12/12, zero falls; DR 0 retention
+eval no worse than parent. Prediction-if-false: park/flag/falls
+return at DR 0.3 (gait_valid <10/12 or terminations) → rung too big,
+drop to 0.15 next segment; OR DR 0.3 passes but DR 0 retention
+erodes → warm-start interference, revisit budget/LR not DR size.
+Strongest alternative: gait "survives" via DR-specific slop without
+real robustness — distinguished by video + slip/duty at BOTH DR 0.3
+and DR 0. GATE: DR 0.3 harness (own DR) 6 eps/mode det+sto:
+gait_valid 12/12 AND forward ≥0.10 m 12/12 AND ≥2 swings/leg AND 0
+terminations AND det slip mean ≤ 0.93; plus DR 0 retention check.
+Budget 4M. ent 0.001, --no-canary (lineage exemption). Pod: walk.
+
+Also this cycle (eval-side check, generalizes): eval_checkpoint.py
+recorded video ONLY for det passes — every sto scalar in every past
+verdict was structurally unwatchable. Fixed: sto episodes now record
+under the same every-Nth rule (walk_sto_*.mp4). lowent/c2 sto strips
+this cycle are the first sto footage of the campaign.

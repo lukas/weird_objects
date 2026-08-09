@@ -1970,7 +1970,7 @@
       "--subproc"
     ],
     "created": "2026-08-09T00:57:41+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 56,
       "existing_trainers": [],
@@ -2010,7 +2010,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_step0_lowent.zip",
+    "checkpoint_md5": "923ee55cac222957428d9de70b3bec23",
+    "verdict": "FAIL on gate std clause only (train/std final 2.075 > 1.2); other 5 clauses PASS: gait_valid 24/24 (two evals), forward 0.23-0.47m, min 3 swings/leg, det slip mean 0.746/0.717 vs 0.93 baseline (non-overlapping ranges), ep_rew_mean last0.5M 681 >= 620. sto success pooled 10/12 vs step0 1/6 (outside noise). Zero falls/flags. NEW WALK-LINE CHAMPION (beats step0). NOT hardware-ready: DR 0, skating ~0.7m/ep persists, speed commands ignored at det. Hypothesis SUPPORTED on plateau-driver claim (clean A/B vs c2), REFUTED on std-anneal-to-1.2 sub-claim: std floors at ~2.07."
   },
   {
     "run": "cw-walk-step0-c1",
@@ -2152,7 +2155,7 @@
       "--subproc"
     ],
     "created": "2026-08-09T00:54:00+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 56,
       "existing_trainers": [],
@@ -2189,6 +2192,95 @@
         "tracebacks_in_tail": 0,
         "log_growth_bytes": 9459,
         "fps": 2730.7,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_step0_c2.zip",
+    "checkpoint_md5": "f7d0a61a27a257bfc4e3ef168fc742df",
+    "verdict": "FAIL \u2014 drag clause persists (det slip mean 0.818/0.865 across two 6-ep harness evals) PLUS new degradation: det tilt_pitch falls 2/12 (one on camera, walk_det_3.mp4 189f), policy_std 8.48, train/std runaway 3.24->8.73, rew flat (last0.5M 572 vs prev 578). NOT HARDWARE-READY. Hypothesis (continued improvement) REFUTED: identical-config ent-0.01 arm is actively destructive; lineage arm closed. A/B vs lowent decisive for entropy-runaway hypothesis."
+  },
+  {
+    "run": "cw-walk-step0-lowent-c1",
+    "pod": "hexapod-sweep-s6",
+    "steps": 4000000,
+    "smoke": false,
+    "hypothesis": "Operator directive 0-a continuation of the A/B WINNER. lowent (ent 0.001) finished its 4M segment at ep_rew_mean 688 vs sibling c2 (ent 0.01) at 580, and c2 declined vs its own parent (591->580) with std runaway to ~5.9 \u2014 preliminary support for the entropy-runaway hypothesis. Continue the winner unchanged: init-from lowent final ckpt, identical config, +4M. Predict: reward keeps rising with stable std. Trailing verdict cycle owns the formal A/B verdict and may kill this run on video pathology.",
+    "gate": "Same as step0: DR 0, det AND sto, >=10cm forward, all six legs cycling lift/swing/touchdown, duty [0.2,0.9], >=2 swings/leg, no drag, no park; video pathology-first",
+    "parent": "cw-walk-step0-lowent",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--no-dr",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "200000",
+      "--video-every",
+      "200000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.02",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_step0_lowent.zip",
+      "--out-name",
+      "ppo_goal_cw_walk_step0_lowent_c1",
+      "--notes",
+      "'Continuation of A/B winner lowent (688 vs 580) per directive 0-a; identical config, init-from lowent final ckpt.'",
+      "--n-envs",
+      "48",
+      "--subproc"
+    ],
+    "created": "2026-08-09T01:22:51+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 56,
+      "existing_trainers": [],
+      "free_cores_estimate": 56,
+      "node": "g12ba48",
+      "node_trainers": [],
+      "host_load": {
+        "load1": 1.95,
+        "load5": 21.87,
+        "cores": 128
+      },
+      "running_experiments_before": 0,
+      "pid": "660707",
+      "log_growth_bytes": [
+        24633,
+        38717
+      ],
+      "wandb_id": "uwi188rd",
+      "global_step_window": [
+        8454144,
+        8611872
+      ],
+      "fps_estimate": 1752.5
+    },
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-step0-lowent-c1 --steps 4000000 --task joint_walk --no-dr --ent-coef 0.001 --no-canary --eval-every 200000 --video-every 200000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --init-from rl_move/sim/policies/ppo_goal_cw_walk_step0_lowent.zip --out-name ppo_goal_cw_walk_step0_lowent_c1 --notes 'Continuation of A/B winner lowent (688 vs 580) per directive 0-a; identical config, init-from lowent final ckpt.' --n-envs 48 --subproc > /tmp/train_cw-walk-step0-lowent-c1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-step0-lowent-c1.log",
+    "wandb_id": "uwi188rd",
+    "verified": "2026-08-09T01:26:30+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T01:31:33+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 14872,
+        "fps": 4096.0,
         "placement": "solo on 56-core pod",
         "verdict": "HEALTHY",
         "problems": []
