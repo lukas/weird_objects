@@ -596,3 +596,16 @@ a file under `archive/` and link it.
   deadband-dr05 (compose rungs, parents pushed to all 12 pods) + fric50 (grip
   0.5–1.0 refinement: find the CLEAN-walk grip floor friclow's letter-pass hides).
   Mirror-symmetry + quad-hold [CODE] cycles remain the flagged next implementation work.
+
+- Cycle 59 (08-09 ~18:4x): 2 triages + 1 dup closeout. `cw-walk-fricvar` PASS —
+  friction 0.4–1.6x trainable by exposure (own-cfg gv 12/12, 0 term, det prog med
+  0.87; DR0 retention slip 1.09 = champion band); honest tail: 2/6 slickest det
+  draws churn near-in-place (prog 0.36–0.56, slip 2.4–4.2); SKILLS row; fricvar-dr05
+  compose queued. `cw-walk-speedband2-r1` FAIL — speed pinned 0.05–0.06 across the
+  0.02–0.12 band (det prog med 0.65), confirming the ALREADY-CLOSED c42/c43 gait
+  ceiling; spec was a stale c54 reissue of a refuted class (name-dedupe missed the
+  class AGAIN, cf. slowband — check run docs for the CLASS before requeueing). 8b
+  speed-knob stays CLOSED pending contact pricing. `cw-walk-velsag` = c58 KILLED dup
+  of velsag30, corrected steps in verdict (~4.2M not ~0), no hypothesis verdict;
+  killed its wasted pre-staged eval. Fleet 12/12 busy, no free slots; refill = 1
+  backlog spec (20M GPU). Mirror-symmetry + quad-hold [CODE] cycles still flagged.
