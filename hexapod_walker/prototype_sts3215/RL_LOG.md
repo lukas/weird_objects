@@ -426,3 +426,18 @@ a file under `archive/` and link it.
   rebalanced as cw-walk-stopgo35-c1 (same config, ckpt 1fc1f2d4) → train-2 (g131eec).
   head90-dr05/head135 on same node slow (6.9k/9.1k fps) but progressing — left in
   place; freed cores should help. No verdicts; refill = the rebalance launch only.
+
+- Cycle 54 (08-09 ~16:5x): 3 triages. `cw-walk-lowgait50` PASS (crouch rung 4:
+  -50mm, height err 4.6/4.7mm, det slip/m 1.04, gv 12/12; knob now -20..-50mm,
+  SKILLS updated). `cw-walk-terrain10` PASS + TERRAIN LINE CLOSED as SATURATED
+  (amp1.0 ≡ flat: prog 1.06/slip 0.94 both; SKILLS row added; harder ground =
+  [CODE] scene work). `cw-walk-strafe-dr10` FAIL on gate (det ep sacrifices legs
+  4+5, slip med 2.49/2.59 > 2.4; NOT a collapse — DR0.5 stays the strafe ceiling,
+  fix is mirror-symmetry not more DR; verdict applies to this run only, strafe-dr05
+  skill row unchanged). Watcher prestage for terrain10 failed (spec pre-dated
+  --out-name fix) — pulled ckpt manually (md5 57cea2dc). Refills (4 = cap, 80M =
+  GPU-step cap): lowgait60 (envelope rung 5), lowgait-dr05 (crouch DR rung),
+  speedband (wishlist 8b, 0.02-0.12 m/s off wander30), fricvar (13b friction axis
+  0.4-1.6 off champion; torque axis taken by concurrent torquedroop). [CODE]
+  mirror-symmetry now has TWO independent motivations (head90 L/R asym +
+  strafe-dr10 flag legs) — flagged as the next implementation cycle's pick.
