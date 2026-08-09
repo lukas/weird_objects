@@ -16074,7 +16074,7 @@
       "OPERATOR WISHLIST 13b, friction axis, slippery-floor half: real homes have tile/hardwood well below the sim's nominal grip, and the champion's DR band only reaches friction 0.6x. ISOLATED axis via dr.<field> overrides: dr-scale 0.0 with ONLY dr.friction_scale=0.3,1.0 randomized - one variable off the no-DR champion. If-true: the gait keeps transporting on slick ground (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - slippery floors join the envelope. If-false: propulsion collapses below ~0.6x grip (prog craters, slip/m explodes, feet skate in place on frames) - the paddle gait NEEDS grip, and slippery floors wait on the contact-pricing gait change like everything else. Strongest alternative: policy survives by slowing/parking rather than walking - fwd distance will show it. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.friction_scale=0.3,1.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2 m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24 (champion band); frames watched det"
     ],
     "created": "2026-08-09T16:53:17+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -16113,7 +16113,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "PASS on the letter, blunt caveats: grip 0.3-1.0x own-cfg gv 12/12, 0 term, det med fwd 1.23m (gate 1.2 \u2014 scrapes past); slip/m med 1.73 = heavy skating on slick draws, worst det draw 0.69m @ slip 3.79 / prog 0.37. DR0 retention gv 6/6 slip 1.01 BUT nominal det fwd eased 1.57->1.43 (ranges disjoint \u2014 real ~9% nominal cost, the only axis of today's three that charged one). Envelope: transports without falls down to 0.3x grip, but lowest-grip transport is skating, not walking-quality. NOT hardware-ready."
   },
   {
     "run": "cw-walk-wander-dr05-s1",
@@ -17146,7 +17148,7 @@
       "OPERATOR WISHLIST 13b/13c: servo DEADBAND, the classic cheap-servo sim2real gap (13c names backlash/deadband first). STS3215 deadband widens with wear and load; the champion trained at nominal only. ISOLATED axis via dr overrides: dr-scale 0.0 with ONLY dr.deadband_scale=1.0,3.0 randomized - worse-than-nominal only (narrower deadband is free), one variable off the no-DR champion. Plain: keep walking when the servos ignore small corrections. Prediction-if-true: gait absorbs up to 3x deadband (own-cfg gv 12/12, 0 term, det med fwd >=1.2m @30s) with DR0 nominal retention - deadband tolerance is a keeper rung. Prediction-if-false: wide deadband kills the small-amplitude paddle strokes (prog craters or jitter/limit-cycling as the policy overdrives to punch through) - the paddle gait depends on fine corrections real servos won't deliver, a concrete hardware-readiness defect to record. Strongest alternative: policy compensates with larger, jerkier strokes - passes scalars but frames show lurching (verdict must lead with it). Parent: cw-walk-longdist-r2. Gate: own-cfg harness at --dr-scale 0.0 + dr.deadband_scale=1.0,3.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det"
     ],
     "created": "2026-08-09T17:11:27+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -17184,7 +17186,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "PASS \u2014 servo deadband 1-3x absorbed: own-cfg gv 12/12, 0 term, det med fwd 1.41m@30s; DR0 retention clean (det fwd 1.58 / slip 1.00). The feared compensation mode (larger jerkier strokes) is absent in frames \u2014 gait stays smooth. Honest tail: worst det draw 0.68m @ slip 2.86 half-speed shuffle. NOT hardware-ready (paddle lineage)."
   },
   {
     "run": "cw-walk-comshift30",
@@ -17459,7 +17463,7 @@
       "OPERATOR WISHLIST 11, second half (payload 'mass pushed ASYMMETRICALLY'): payload50 (in triage) tests symmetric extra mass; real payloads (battery pack, camera, claw cargo) sit OFF-CENTER. ISOLATED axis via dr overrides: dr-scale 0.0 with ONLY dr.com_offset_m=0.03 randomized (30mm chassis CoM shift each of x/y, 2.5x the standard 12mm envelope), one variable off the no-DR champion. Plain: walk straight while carrying weight on one side. Prediction-if-true: gait absorbs CoM shift (own-cfg gv 12/12, 0 term, det med fwd >=1.2m @30s, heading holds) and DR0 nominal retention holds - asymmetric payload becomes a keeper rung and a demo capability. Prediction-if-false: offset mass induces veer/tilt terminations or per-leg loading collapses gait_valid on the heavy side - asymmetric load needs explicit adaptation, not exposure. Strongest alternative: passes by crabbing/slowing (prog low, track_err high) - frames + heading error will show it. Parent: cw-walk-longdist-r2. Gate: own-cfg harness at --dr-scale 0.0 + dr.com_offset_m=0.03, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det"
     ],
     "created": "2026-08-09T17:15:28+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -17497,7 +17501,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "PASS \u2014 30mm asymmetric CoM absorbed: own-cfg (DR0 + dr.com_offset_m=0.03) gv 12/12, 0 term, det med fwd 1.44m@30s; DR0 retention = champion (det fwd 1.58 / slip 0.95 vs champ 1.57/0.96). Honest tail: worst det draw 0.69m @ slip/m 2.87 \u2014 level six-leg shuffle at half speed, no falls, no flag leg. Paddle lineage -> NOT hardware-ready."
   },
   {
     "run": "cw-walk-stiffvar",
@@ -19015,6 +19021,185 @@
     "log": "/tmp/train_cw-walk-cmddrop20.log",
     "wandb_id": "m5z03wmc",
     "verified": "2026-08-09T18:04:19+00:00",
-    "note": "OVERLAP FLAG (c59): same dr.cmd_drop_prob_max axis as cw-walk-cmddrop10 (c57, max 0.10 vs this 0.20) \u2014 3 concurrent refill cycles drew from the same dry READY well. Triage the pair as ONE intensity-ladder study. LESSON FROM torquedroop (c59): before verdicting, run the PARENT (longdist-r2) under the same own-cfg drop spread \u2014 the champion may already tolerate command drops for free, and the gate letter cannot distinguish that from a training effect."
+    "note": "OVERLAP FLAG (c59): same dr.cmd_drop_prob_max axis as cw-walk-cmddrop10 (c57, max 0.10 vs this 0.20) \u2014 3 concurrent refill cycles drew from the same dry READY well. Triage the pair as ONE intensity-ladder study. LESSON FROM torquedroop (c59): before verdicting, run the PARENT (longdist-r2) under the same own-cfg drop spread \u2014 the champion may already tolerate command drops for free, and the gate letter cannot distinguish that from a training effect.",
+    "checkups": [
+      {
+        "time": "2026-08-09T18:10:04+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5609,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-wander60-dr05",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Steering line convergence rung: minute-long drives (wander60 c56 PASS at DR0: no endurance decay over ~12 changes/ep) x physics robustness (wander-dr05 c50 PASS at 15s, seed-robust via s1 c56). One variable off the wander-dr05 checkpoint: episode-seconds 15 -> 60 at the same DR 0.5. Plain: the operator's joystick sessions are minutes long on a real, imperfect robot - this is the closest sim rung to that. Prediction-if-true: 60s eps at DR0.5 hold gv 12/12, 0 term, prog med >=0.85 with no ep <0.5, slip/m med <=2.4 and no second-half degradation - minute-long robust driving banked. Prediction-if-false: DR-induced errors accumulate over long horizons (late-episode stalls/parks or slip growth) - robustness IS horizon-limited and the line needs recovery-focused training, a distinct finding neither parent shows. Strongest alternative: passes but with the known 1/6 sto brittleness worsening (>2/12 low-prog eps) - report the corner, keep wander-dr05 as line champion.",
+    "gate": "own-cfg DR0.5 60s 6+6 resampled cmds: gv 12/12, 0 term, prog_ratio med >=0.85, no ep prog <0.5, slip/m med <=2.4, worst-ep <=2.6; DR0 det retention 6 eps gv 6/6; frames watched det full horizon",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "60",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=5.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.15",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_wander60_dr05",
+      "--notes",
+      "Steering line convergence rung: minute-long drives (wander60 c56 PASS at DR0: no endurance decay over ~12 changes/ep) x physics robustness (wander-dr05 c50 PASS at 15s, seed-robust via s1 c56). One variable off the wander-dr05 checkpoint: episode-seconds 15 -> 60 at the same DR 0.5. Plain: the operator's joystick sessions are minutes long on a real, imperfect robot - this is the closest sim rung to that. Prediction-if-true: 60s eps at DR0.5 hold gv 12/12, 0 term, prog med >=0.85 with no ep <0.5, slip/m med <=2.4 and no second-half degradation - minute-long robust driving banked. Prediction-if-false: DR-induced errors accumulate over long horizons (late-episode stalls/parks or slip growth) - robustness IS horizon-limited and the line needs recovery-focused training, a distinct finding neither parent shows. Strongest alternative: passes but with the known 1/6 sto brittleness worsening (>2/12 low-prog eps) - report the corner, keep wander-dr05 as line champion. Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip. Gate: own-cfg DR0.5 60s 6+6 resampled cmds: gv 12/12, 0 term, prog_ratio med >=0.85, no ep prog <0.5, slip/m med <=2.4, worst-ep <=2.6; DR0 det retention 6 eps gv 6/6; frames watched det full horizon"
+    ],
+    "created": "2026-08-09T18:28:50+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 11,
+      "code_sha_local": "7c81c130b0c60a87d499a62a193dbdba3e591d61",
+      "code_sha_pod": "7c81c130b0c60a87d499a62a193dbdba3e591d61",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "207848",
+      "log_growth_bytes": [
+        15327,
+        25721
+      ],
+      "wandb_id": "g83cguon",
+      "global_step_window": [
+        1376256,
+        2949120
+      ],
+      "fps_estimate": 17476.3
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-wander60-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip --dr-scale 0.5 --episode-seconds 60 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_wander60_dr05 --notes 'Steering line convergence rung: minute-long drives (wander60 c56 PASS at DR0: no endurance decay over ~12 changes/ep) x physics robustness (wander-dr05 c50 PASS at 15s, seed-robust via s1 c56). One variable off the wander-dr05 checkpoint: episode-seconds 15 -> 60 at the same DR 0.5. Plain: the operator'\"'\"'s joystick sessions are minutes long on a real, imperfect robot - this is the closest sim rung to that. Prediction-if-true: 60s eps at DR0.5 hold gv 12/12, 0 term, prog med >=0.85 with no ep <0.5, slip/m med <=2.4 and no second-half degradation - minute-long robust driving banked. Prediction-if-false: DR-induced errors accumulate over long horizons (late-episode stalls/parks or slip growth) - robustness IS horizon-limited and the line needs recovery-focused training, a distinct finding neither parent shows. Strongest alternative: passes but with the known 1/6 sto brittleness worsening (>2/12 low-prog eps) - report the corner, keep wander-dr05 as line champion. Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip. Gate: own-cfg DR0.5 60s 6+6 resampled cmds: gv 12/12, 0 term, prog_ratio med >=0.85, no ep prog <0.5, slip/m med <=2.4, worst-ep <=2.6; DR0 det retention 6 eps gv 6/6; frames watched det full horizon' > /tmp/train_cw-walk-wander60-dr05.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-wander60-dr05.log",
+    "wandb_id": "g83cguon",
+    "verified": "2026-08-09T18:32:43+00:00"
+  },
+  {
+    "run": "cw-walk-imumount10",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "OPERATOR WISHLIST 13c-class sensor axis via the 13b one-axis recipe: IMU MOUNT MISCALIBRATION. The policy's only orientation signal is the IMU; a mount rotated a few degrees biases every tilt/gyro reading the same way all episode - the classic cheap-robot calibration residual. ISOLATED: dr-scale 0.0 with ONLY dr.imu_mount_deg=10.0 (per-episode mount rotation up to 10deg, the full-DR default; champion trained at 0) - one variable off the no-DR champion. Plain: keep walking straight even when the robot's sense of 'level' is rotated a few degrees. Prediction-if-true: gait holds under biased tilt (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - sensor-bias robustness is trainable by exposure. Prediction-if-false: biased tilt corrupts balance responses (veer, tilt terminations, prog craters) - IMU calibration error needs explicit estimation, not exposure. Strongest alternative: policy learns to ignore tilt obs entirely - check DR0 retention and any tilt-canary erosion. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.imu_mount_deg=10.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det",
+    "parent": "cw-walk-longdist-r2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.imu_mount_deg=10.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_imumount10",
+      "--notes",
+      "OPERATOR WISHLIST 13c-class sensor axis via the 13b one-axis recipe: IMU MOUNT MISCALIBRATION. The policy's only orientation signal is the IMU; a mount rotated a few degrees biases every tilt/gyro reading the same way all episode - the classic cheap-robot calibration residual. ISOLATED: dr-scale 0.0 with ONLY dr.imu_mount_deg=10.0 (per-episode mount rotation up to 10deg, the full-DR default; champion trained at 0) - one variable off the no-DR champion. Plain: keep walking straight even when the robot's sense of 'level' is rotated a few degrees. Prediction-if-true: gait holds under biased tilt (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - sensor-bias robustness is trainable by exposure. Prediction-if-false: biased tilt corrupts balance responses (veer, tilt terminations, prog craters) - IMU calibration error needs explicit estimation, not exposure. Strongest alternative: policy learns to ignore tilt obs entirely - check DR0 retention and any tilt-canary erosion. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.imu_mount_deg=10.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det"
+    ],
+    "created": "2026-08-09T18:35:00+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 8,
+      "code_sha_local": "7c81c130b0c60a87d499a62a193dbdba3e591d61",
+      "code_sha_pod": "7c81c130b0c60a87d499a62a193dbdba3e591d61",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-imumount10 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.imu_mount_deg=10.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_imumount10 --notes 'OPERATOR WISHLIST 13c-class sensor axis via the 13b one-axis recipe: IMU MOUNT MISCALIBRATION. The policy'\"'\"'s only orientation signal is the IMU; a mount rotated a few degrees biases every tilt/gyro reading the same way all episode - the classic cheap-robot calibration residual. ISOLATED: dr-scale 0.0 with ONLY dr.imu_mount_deg=10.0 (per-episode mount rotation up to 10deg, the full-DR default; champion trained at 0) - one variable off the no-DR champion. Plain: keep walking straight even when the robot'\"'\"'s sense of '\"'\"'level'\"'\"' is rotated a few degrees. Prediction-if-true: gait holds under biased tilt (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - sensor-bias robustness is trainable by exposure. Prediction-if-false: biased tilt corrupts balance responses (veer, tilt terminations, prog craters) - IMU calibration error needs explicit estimation, not exposure. Strongest alternative: policy learns to ignore tilt obs entirely - check DR0 retention and any tilt-canary erosion. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.imu_mount_deg=10.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-imumount10.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-imumount10.log"
   }
 ]

@@ -578,3 +578,21 @@ a file under `archive/` and link it.
   cross-flagged in both ledgers, triage as ONE intensity-ladder study and run
   the parent baseline FIRST (torquedroop lesson: gate letter can't tell
   exposure effect from pre-existing champion tolerance).
+
+- Cycle 58 (08-09 ~18:4x): 3 triages, 3 PASSes — the last isolated 13b/wishlist-11
+  axes all land off the champion. `cw-walk-comshift30` PASS (30mm off-center CoM:
+  own-cfg gv 12/12, 0 term, det med fwd 1.44m; DR0 retention = champion 1.58/0.95)
+  and `cw-walk-deadband30` PASS (deadband 1–3x: 1.41m; retention 1.58/1.00; NO
+  jerky-overdrive compensation in frames) — both share payload50's honest tail
+  (worst det draw ~0.68m @ slip ~2.9, half-speed shuffle, no falls). `cw-walk-friclow`
+  PASS on the letter ONLY (grip 0.3–1.0x: det med fwd 1.23 scrapes gate 1.2; slick
+  draws SKATE, own-cfg slip/m med 1.73; only axis charging a nominal tax, DR0 det fwd
+  1.57→1.43 disjoint ranges) — slippery floors survivable, not solved. SKILLS +3 rows.
+  Checkup: head90-s1 SUSPECT (1.9k fps) = g142d86 node contention (4 trainers +
+  controller evals co-located; train-6 equally slow, run healthy/reward climbing,
+  0 free slots -> no rebalance possible, HARD reason recorded; will finish ~2h) +
+  cleaned 40M leaked hexmjx shm on train-7 (uid-checked vs live fds). g12ba48 still
+  SchedulingDisabled — no scale-out. Refills (backlog, 60M GPU): comshift-dr05 +
+  deadband-dr05 (compose rungs, parents pushed to all 12 pods) + fric50 (grip
+  0.5–1.0 refinement: find the CLEAN-walk grip floor friclow's letter-pass hides).
+  Mirror-symmetry + quad-hold [CODE] cycles remain the flagged next implementation work.
