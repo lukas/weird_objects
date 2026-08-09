@@ -12,17 +12,19 @@ ledger, and the cycle log; do NOT reproduce it here. One `##` line
 per cycle. If an entry needs more than ~5 lines, put the detail in
 a file under `archive/` and link it.
 
-## State (as of cycle 40, 2026-08-09 ~13:00Z)
+## State (as of cycle 34, 2026-08-09 ~11:30Z)
 
-- **WALK CHAMPION: ppo_goal_cw_walk_anchorgate.zip md5 35234ddc**
-  (DR1.0 det slip 1.240; NOT hardware-ready — paddle-creep).
-  Reward side of skating CLOSED pending loadslip-s1 concordance;
-  slip root = sim contact/current pricing (operator calibration).
-- **Stance:** heights 12/12 at DR 1.0; lower-line rework authorized
-  per 08-09 rulings; current-economy arms operator-blocked.
-- Compute: 16 GPU pods (train-0..15; 12 ready), backlog-drained
-  automatically. capacity.py = live truth.
-- Per-run summaries: rl_docs/runs/<run>.md (generated; do not edit).
+- **WALK CHAMPION: `ppo_goal_cw_walk_anchorgate.zip` md5 35234ddc**
+  (cycle 31; DR1.0 det slip 1.240, best ever; NOT hardware-ready —
+  sprawly paddle-creep, slip gate ≤1.0 unmet).
+- **Stance champion:** `cw-stance-dr10` line — heights 12/12 at
+  DR 1.0; lower posture still flag-leg. **Stance line BLOCKED on
+  operator pricing ruling** (cycle 28: hover is income-positive).
+- In flight: `cw-walk-stepdisp12` (displacement-gated step credit —
+  the LAST income-side walk arm; if it fails, walk slip goes to the
+  operator whole, alongside the stance pricing ruling).
+- Compute: 2 GPU MJX pods (20–40M-step runs, ~15k fps) + CPU pods.
+
 ## Walk line — what was tried and learned (chronological)
 
 - **dr04b lineage** (pre-08-08): scalar champion, 0/9 gait-valid on
@@ -121,6 +123,90 @@ a file under `archive/` and link it.
 - Eval: fixed-draw sto panel can pin a "failure" to one command
   draw (cycle 27) — check WHICH episode fails before theorizing.
 
+## Cycle log (append below, 1–3 lines each)
+
+- Cycle 33 (08-09 ~10:4x): `cw-walk-step0-anchor` FAIL/refuted —
+  fresh init re-derives paddle + allowance-ride; auto-continuation
+  killed on the merits. `anchortol5` verdict is next; its if-false
+  closes the tolerance rung and escalates to displacement-gated
+  step credit (0-c.2) or operator pricing.
+- Cycle 34 (08-09 ~11:0x): `cw-walk-anchortol5` FAIL — policy PAID
+  the binding tol=5 gate (−18% income) and kept creeping; tolerance
+  rung CLOSED, income gating at its price ceiling. Launched
+  `cw-walk-stepdisp12` (displacement-gated step credit, 12 mm) —
+  a cadence-ATTRIBUTION arm, not a slip arm; its if-false sends the
+  walk slip line to the operator whole. Champion unchanged.
+  Launch verified two-phase (W&B xj6ehawo, ~16k fps, mechanism live
+  at the audited ~2% denial; checks in ledger). mjx-train-0/2/3
+  idle: all remaining walk levers route through stepdisp12's
+  outcome or the operator rulings (c27/c28); mirror-symmetry gets
+  its own implementation cycle.
+- OPERATOR (08-09 ~10:5x): design rulings LANDED — binding, full
+  text `archive/OPERATOR_RULINGS_2026-08-09.md`, condensed block in
+  RL_PLAN. Resolves cycle 26/27/28 NEEDS-OPERATOR items: stance
+  allowance/support_margin (rework authorized), rear hemisphere
+  (deferred), distance gate (progress_ratio; prefer narrow forward
+  band), loaded-slip metric (never touchdown-reset), multi-seed
+  promotion panels. Still operator-owned: hardware current
+  calibration — NO robot contact by the orchestrator.
+- OPERATOR (08-09 ~10:5x): ASSUME-AND-GO + parallel lines landed
+  (guardrails `operator_unblock_policy`): plausible-recommendation
+  questions get an "## ASSUMPTION (operator to review)" entry and
+  work CONTINUES; operator-only blockers ⇒ fill idle GPUs with
+  command-steering / QUADRUPED (pulled forward) / mirror-symmetry /
+  contact-aux arms. Cycle cap 12→48 (watch_loop synced). Idle GPU
+  pods now require a ledger-recorded HARD reason.
+- Cycle 35 (08-09 ~11:1x, findings/directive cycle): landed rulings
+  code — `goal.walk_heading_max_rad` (fwd/fwd-diag command scope),
+  `reward.walk_loadslip_gate` (episode-accumulated loaded slip/m
+  income gate, never touchdown-reset) + harness progress_ratio /
+  slip_per_m (champion reads prog_ratio 1.43 — ruled overspeed
+  confirmed; slip/m 1.11 on the along-command denominator). Retried
+  operator arms `cw-walk-longdist`+`cw-walk-dr05` DEAD at init
+  (champion ckpt absent on pods — `snapshot.sh --sync` excludes
+  policies/; `ops.sh pushckpt` + ckpt pushed to train-0/2/3, md5
+  35234ddc; c36 took the longdist retry as -r2). Launched:
+  `cw-walk-dr05-r1` (train-3, operator DR-0.5 arm retried),
+  probe-walk-rulings-mjx → `cw-walk-loadslip` (train-2).
+  `cw-walk-fwdband` deferred — HARD reason: 4-launch cap +
+  no free pod (c36's steer-fdiag covers the heading knob at π/4).
+  NOTE for next cycle: WISHLIST tags `cw-walk-fast` +
+  `cw-chain-standwalksit` [RUNNING] but neither was ever launched
+  (no W&B run, no ledger entry) — they are READY pickups.
+- ## ASSUMPTION (operator to review) (c35): (1) rulings-(5)/(6) walk
+  arms launched BEFORE the stepdisp12 verdict lands — the rulings
+  make loaded-slip accounting + forward scope binding regardless of
+  its cadence-attribution outcome; revisit if that verdict
+  contradicts. (2) loadslip thresholds ok=0.75/max=1.5 slip-per-m
+  from controller scale audit (champion paddle ep keeps ~11% of
+  velocity income, clean ep ~75%); tune only as gate tolerances per
+  ruling. (3) `cw-walk-longdist` retried under the DEAD-retry rule
+  (0 steps trained, pure infra fault) instead of waiting for its
+  queued watcher cycle.
+- Cycle 36 (08-09 ~11:2x): `cw-walk-stepdisp12` FAIL/REFUTED — with
+  step credit displacement-gated (denials real, climbing), cadence
+  STILL inflated (det DR1.0 61.5 swings/ep vs c1 58.2, champ 47.2):
+  step credit does NOT pay the cadence ride; income channels now
+  fully mapped/exhausted, confirming c35's rulings-(5)/(6) arms as
+  the right escalation (no contradiction with its ASSUMPTION (1)).
+  Champion unchanged; frames = same paddle-creep, NOT HARDWARE-READY.
+  Launched `cw-steer-fdiag` (train-1, c35's deferred steering arm).
+- Cycle 37 (08-09 ~11:4x, trailing cycle for cw-walk-longdist):
+  run FAILED at init, 0 steps (parent ckpt absent on pod — infra,
+  not policy); already retried by c35 as `-r2` (RUNNING, ~17M/20M).
+  No eval possible; hypothesis NOT TESTED, carried by -r2. Fixed:
+  launcher `pod_trainers` scan matched cycle-agent cmdlines (371
+  phantom trainers on the controller node would refuse all smokes);
+  watcher prestage now skips gate eval when pullckpt fails.
+  Scale-out pods train-4..11 came up Running mid-cycle: launched 4
+  (cycle cap; 80M GPU steps = cap): `cw-walk-fwdband` (t4, rulings-5
+  fwd-only scope, c35's deferred arm), `cw-walk-fast` (t5, wishlist
+  #2, 0.08-0.12 band — does real stepping emerge), `cw-chain-
+  standwalksit` (t8, wishlist #14, walk+rise+lower mix), `cw-walk-
+  loadslip-s1` (t9, seed-1 panel per ruling-7). Turning skipped:
+  needs yaw-command code ([CODE], not [READY]). train-10/11 idle —
+  HARD reason: max_new_launches_per_cycle=4 + GPU-step cap reached;
+  train-12..15 Pending (unreachable).
 - Cycle 38 (08-09 ~12:1x): `cw-walk-longdist-r2` NEAR-MISS (strict
   gate FAIL, sto 5/6: one draw stalled 0.62m/slip 6.1) but det 6/6
   is CAMPAIGN-BEST: 1.57m@30s, det slip/m 0.96 (first <1.0; champ
