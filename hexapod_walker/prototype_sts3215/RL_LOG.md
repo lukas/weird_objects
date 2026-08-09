@@ -191,3 +191,19 @@ a file under `archive/` and link it.
   the right escalation (no contradiction with its ASSUMPTION (1)).
   Champion unchanged; frames = same paddle-creep, NOT HARDWARE-READY.
   Launched `cw-steer-fdiag` (train-1, c35's deferred steering arm).
+- Cycle 37 (08-09 ~11:4x, trailing cycle for cw-walk-longdist):
+  run FAILED at init, 0 steps (parent ckpt absent on pod — infra,
+  not policy); already retried by c35 as `-r2` (RUNNING, ~17M/20M).
+  No eval possible; hypothesis NOT TESTED, carried by -r2. Fixed:
+  launcher `pod_trainers` scan matched cycle-agent cmdlines (371
+  phantom trainers on the controller node would refuse all smokes);
+  watcher prestage now skips gate eval when pullckpt fails.
+  Scale-out pods train-4..11 came up Running mid-cycle: launched 4
+  (cycle cap; 80M GPU steps = cap): `cw-walk-fwdband` (t4, rulings-5
+  fwd-only scope, c35's deferred arm), `cw-walk-fast` (t5, wishlist
+  #2, 0.08-0.12 band — does real stepping emerge), `cw-chain-
+  standwalksit` (t8, wishlist #14, walk+rise+lower mix), `cw-walk-
+  loadslip-s1` (t9, seed-1 panel per ruling-7). Turning skipped:
+  needs yaw-command code ([CODE], not [READY]). train-10/11 idle —
+  HARD reason: max_new_launches_per_cycle=4 + GPU-step cap reached;
+  train-12..15 Pending (unreachable).
