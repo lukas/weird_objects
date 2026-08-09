@@ -3563,3 +3563,36 @@ cw_stance_dr10. Evals archived: logs/ckpt_eval/cw_walk_kgate_{15s,
 eps, 5 modes det+sto, 5 strips reviewed). Cycle totals: 4 launches
 (2 smokes, 2 experiments), 24.3M steps of the 16M cap (breach
 flagged above), 3 harness evals controller-side.
+
+### Operator switch-over close-out (2026-08-09, laptop-side)
+GPU-MJX switch-over is COMPLETE and mechanical. Facts:
+- Validation run mjx-dr-canary-check2 (mjx-train-0, joint_goal, parent
+  ppo_goal_cw_stance_endpost_c1, 4M steps): canary parent baseline 8/8,
+  all 4 groups protected, auto-stop armed; all 8 canary/* stayed 1
+  through training WITH per-world model DR on; full eval suite + video
+  logged (caption rise:ok raise:ok hold:ok track:ok). Model-field DR,
+  canaries/auto-stop, and evals/videos are feature-complete on the GPU
+  stack (MJX_PORT.md).
+- launch_run.py now REFUSES non-smoke CPU launches (commit c51b3e2);
+  observed working live: cycle 24's CPU retry of cw-stance-bellyrest
+  was REFUSED and the cycle re-placed it on mjx-train-0 itself.
+- cw-walk-parkstart (CPU, sweep-walk) was KILLED by the operator
+  switch-over ~90% through its 4M budget (ledger verdict notes this;
+  no training verdict taken) and relaunched clean as
+  cw-walk-parkstart-mjx on mjx-train-1 via the launcher: VERIFIED
+  RUNNING, fps ~16k, same config/parent (kgate), eval/video cadence at
+  GPU minimums. Its gate is unchanged; harness comparisons vs the kgate
+  segment remain stack-clean (CPU exact-path evaluator).
+- Launcher bug found+fixed during the relaunch (fd0a99b): passthrough
+  args were spliced unquoted into the remote bash -c, so parens in
+  --notes killed launches (this is what burned the first parkstart and
+  bellyrest attempts, NOT capacity). Notes no longer need shell-safe
+  wording.
+- Cycle 24's flagged conflict (GPU 40M/run vs 16M/cycle) resolved in
+  guardrails: max_new_steps_per_cycle 16M now applies to CPU smokes
+  only; new max_new_gpu_steps_per_cycle: 80M governs GPU launches.
+- Watcher restarted (was stale, auto-continue inactive per cycle 22's
+  flag) with the new prompt; PAUSE removed after verification.
+Going forward: ALL training runs are GPU-MJX (train_ppo_mjx on
+mjx-train-0..3, one run per pod); sweep pods serve the controller,
+harness evals, and W&B-disabled smokes only.
