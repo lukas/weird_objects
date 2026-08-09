@@ -434,6 +434,13 @@ class MjxTickStepper:
         self.n_envs = int(n_envs)
         self.mj_model = mj_model
         self.impl = impl
+        # Rough terrain requires Warp: the XLA impl has no hfield
+        # collisions and would silently walk on the flat backup plane.
+        if (impl != "warp" and mj_model.hfield_data.size
+                and float(abs(mj_model.hfield_data).max()) > 0.0):
+            raise RuntimeError(
+                "rough terrain (env.terrain_amp > 0) needs --impl warp; "
+                f"impl={impl!r} has no heightfield collisions")
         self._nacon_per_env = int(nacon_per_env)
         self._njmax = int(njmax)
         self._slip_mu = slip_mu

@@ -57,6 +57,7 @@ from .mjx_backend import MODEL_DR_FIELDS, MjxTickStepper, mjx_is_available
 from .mjx_host import (
     CommandStub, ModelDrScratch, make_shim_class, place_env,
     prepare_shared_model, push_output_row, restore_env, snap_attrs_for,
+    terrain_from_cfg,
     snapshot_env, tp_rows,
 )
 from .servo_model import N_JOINTS, SimServoParams
@@ -94,9 +95,11 @@ class MjxVecEnv(VecEnv):
         env_kwargs = dict(env_kwargs or {})
         params = env_kwargs.setdefault("params", SimServoParams.load())
 
+        t_amp, t_seed = terrain_from_cfg(env_kwargs.get("cfg"))
         self.mj_model = prepare_shared_model(
             params, iterations=mjx_iterations,
-            ls_iterations=mjx_ls_iterations)
+            ls_iterations=mjx_ls_iterations,
+            terrain_amp=t_amp, terrain_seed=t_seed)
 
         # Model-field DR (mass/geometry/friction/gravity/gains): per-world
         # device model rows, refreshed from each env's _ep_rand draw at

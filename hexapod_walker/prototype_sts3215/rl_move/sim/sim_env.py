@@ -181,7 +181,17 @@ class SimHexapodBalanceEnv(_GymBase):
         if model is not None:
             self.model = model
         else:
-            self.model = build_model(fixed_base=False, flat_terrain=True,
+            # Rough terrain (cfg env.terrain_amp > 0) reaches the private
+            # C-env model here, so eval-harness / local-viewer episodes run
+            # on the same ground the batched trainer used.
+            _t_amp = float(cfg_get(self.cfg, "env", "terrain_amp",
+                                   default=0.0))
+            _t_seed = int(cfg_get(self.cfg, "env", "terrain_seed",
+                                  default=0))
+            self.model = build_model(fixed_base=False,
+                                     flat_terrain=_t_amp <= 0.0,
+                                     terrain_amp=_t_amp,
+                                     terrain_seed=_t_seed,
                                      mesh_visuals=mesh_visuals)
         self.data = mujoco.MjData(self.model)
         self._substeps = max(1, int(round(self.dt / self.model.opt.timestep)))

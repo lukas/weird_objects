@@ -46,16 +46,29 @@ def restore_env(env, snap: dict) -> None:
         setattr(env, n, v)
 
 
+def terrain_from_cfg(cfg) -> tuple[float, int]:
+    """(amp, seed) from cfg env.terrain_amp / env.terrain_seed; amp 0 =
+    flat (legacy exact). Shared by both vec envs so parent and worker
+    processes build the identical terrain."""
+    from rl_move.config import cfg_get, load_config
+    if cfg is None:
+        cfg = load_config()
+    return (float(cfg_get(cfg, "env", "terrain_amp", default=0.0)),
+            int(cfg_get(cfg, "env", "terrain_seed", default=0)))
+
+
 def prepare_shared_model(params: SimServoParams, *, iterations: int,
-                         ls_iterations: int, flat_terrain: bool = True):
+                         ls_iterations: int, terrain_amp: float = 0.0,
+                         terrain_seed: int = 0):
     """The ONE model every shim (and the device stepper) uses: MJX-compat
     terrain, the C env's contact softening, fitted servo params, reduced
     solver iterations. Deterministic, so parent and worker processes
     build identical copies independently.
 
-    ``flat_terrain=False`` keeps the hfield (rough-terrain experiments;
-    Warp impl only — see build_model)."""
-    model = build_model(fixed_base=False, flat_terrain=flat_terrain,
+    ``terrain_amp > 0`` keeps and populates the hfield (rough-terrain
+    experiments; Warp impl only — see build_model)."""
+    model = build_model(fixed_base=False, flat_terrain=terrain_amp <= 0.0,
+                        terrain_amp=terrain_amp, terrain_seed=terrain_seed,
                         mesh_visuals=False, mjx_compat=True)
     soften_contacts(model)
     apply_params_to_model(model, params)

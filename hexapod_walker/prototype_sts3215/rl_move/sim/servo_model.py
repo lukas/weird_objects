@@ -122,9 +122,16 @@ class SimServoParams:
 # ---------------------------------------------------------------------------
 
 def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
-                mesh_visuals: bool = True, mjx_compat: bool = False):
+                mesh_visuals: bool = True, mjx_compat: bool = False,
+                terrain_amp: float = 1.0, terrain_seed: int = 0):
     """Load the hexapod MJCF. ``fixed_base`` welds the chassis (bench/air
     tests); ``flat_terrain`` zeroes the random hfield so the floor is flat.
+
+    With ``flat_terrain=False`` the hfield is POPULATED with
+    ``make_terrain_heightmap(terrain_seed) * terrain_amp`` (amp 1.0 =
+    the full 18 mm indoor bumps; the map is flat within 0.32 m of the
+    spawn and fades in from there). Cfg knobs ``env.terrain_amp`` /
+    ``env.terrain_seed`` reach here from every training/eval env.
 
     ``mesh_visuals=False`` renders the primitive geometry (capsules /
     spheres built from the same kinematic constants the physics uses)
@@ -178,6 +185,10 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
     model = mujoco.MjModel.from_xml_string(xml)
     if flat_terrain and model.hfield_data.size:
         model.hfield_data[:] = 0.0
+    elif not flat_terrain and model.hfield_data.size:
+        heights = MP.make_terrain_heightmap(seed=int(terrain_seed))
+        heights = heights * float(np.clip(terrain_amp, 0.0, 1.0))
+        MP._populate_hfield(model, heights)
     return model
 
 
