@@ -4606,3 +4606,52 @@ with slip still high.
 2. train_ppo_mjx.py: walk_anchor_frac added to AUX logged keys.
 rl_move/tests: 38 passed, 5 skipped. GPU probe smoke gates the
 launch (new mechanism, audit §6).
+
+### PROBE probe-walk-anchor-mjx (1M GPU smoke, mjx-train-1) — PASS
+New-mechanism probe gating the anchor arm: 1M steps in 202 s, 0
+tracebacks/NaN; anchor state survived the MJX host-half snapshots
+(MJX_SNAPSHOT_EXTRA addition exercised for the full run); gate
+visibly live — ep_rew_mean 438→555 vs ungated parent band
+~1100–1400 (income cut to ~0.5, matching the scale audit) and
+already climbing, i.e. the gradient is being followed within 1M
+steps. periodic eval ran (walk err 0.032). walk_anchor_frac W&B key
+check deferred to the main launch (smokes run WANDB_MODE=disabled);
+closed there. Ledger updated FINISHED/PASS.
+
+### LAUNCH cw-walk-anchorgate (20M GPU steps, mjx-train-1) — anchored-stance income gate vs the paddling gait
+The dense-decomposition rung's stance-no-slip component, entered per
+the phase arm's pre-registration, implemented as INCOME GATING (the
+step0 "worth less by construction" mandate + operator 0-c.2), not as
+the refuted charge form. One lever off walk champion
+ppo_goal_cw_walk_parkstart_mjx.zip md5 01d9ab60:
+reward.walk_anchor_gate=1.0 + anchor_tol_mm=10 — kernel + positive
+progress income multiplied per tick by the anchored fraction of
+loaded feet (anchored = within 10 mm of own touchdown point).
+Tolerance from the scale audit (design section above): paddling
+collects 0.53–0.70, anchored gait ~1.0. Gate: the phaseprior gate
+verbatim (DR1.0 slip det/sto ≤1.0, gv 12/12, 0 term; DR0 retention;
+frames for anchoring) plus the walk_anchor_frac trend against three
+pre-registered if-false shapes ((b) frac flat/income forfeited ⇒
+anchoring not locally reachable even at a 30–47% stake ⇒ fresh-init
+WITH the gate (plan item 0) or distillation; (c) frac >0.85 unearned
+without slip falling ⇒ one audit-driven tolerance correction, else
+rung closed; (d) collapse/degradation ⇒ kill). VERIFIED RUNNING:
+pid 2588626, W&B jiwhh0qd advancing (3.2M in first minutes, ~18k
+fps), pod code at snapshot 51859c8, walk_anchor_frac LIVE 0.77–0.80
+with reward_walk 1.15–1.22/tick (ungated parent ~2.0+ — the gate is
+biting). Watcher owns the checkup.
+FLEET NOTE: mjx-train-0/2/3 idle deliberately — stance line BLOCKED
+on the operator pricing/allowance ruling (cycle 28), rear-hemisphere
+exposure BLOCKED on the operator scope ruling (cycle 27), raise is a
+no-compute canary, and mirror-symmetry (plan item 2, unblocked by
+this cycle's phase verdict) is UNIMPLEMENTED — it needs obs/action
+mirror index maps + trainer support + its own probe, and shipping a
+second new mechanism in the same cycle as the anchor gate is the
+confounded-multi-change failure mode; it gets the next
+implementation cycle (recorded as the reason, not deliberation
+idle).
+Cycle totals: 2 launches (1 GPU smoke probe PASS, 1 experiment),
+21M GPU steps (cap 80M), 0 CPU steps, 2 harness evals (24 eps),
+2 controller probes (anchor scale audit 3 eps + gate on/off
+functional check); 6 strips + 2 dense filmstrips watched
+(provenance in verdict).
