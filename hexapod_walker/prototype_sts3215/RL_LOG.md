@@ -3596,3 +3596,117 @@ GPU-MJX switch-over is COMPLETE and mechanical. Facts:
 Going forward: ALL training runs are GPU-MJX (train_ppo_mjx on
 mjx-train-0..3, one run per pod); sweep pods serve the controller,
 harness evals, and W&B-disabled smokes only.
+
+## Cycle 25 (2026-08-09 ~05:3xZ) — cw-walk-parkstart-mjx verdict: reset-state diversity MOVED the park for the first time in five segments — det churn CONVERTED (6/6 det, all six seeds beat the champion seed-wise), park-exit competence learned (10/12 at the bar), retention slip fixed (1.58 vs kgate's 1.84) — but the sto park survives in WEAKENED form (1/6, partial, new seed index), so the 12/12 clause fails by one episode. Update-parity confound named (this segment got ~61 PPO updates vs the pre-registered ~325); consolidate-in-place continuation launched at update parity. WALK CHAMPION PROMOTED to parkstart-mjx.
+
+### cw-walk-parkstart — KILLED (operator switch-over), no verdict owed
+Ledger already closed by the operator: last CPU-stack training run,
+killed ~90% through its 4M budget during the 2026-08-09 GPU switch-
+over, relaunched clean as cw-walk-parkstart-mjx (identical config,
+same parent kgate md5 b703f7b0). No checkpoint evaluated, no
+training verdict taken; the arm's verdict lives in the -mjx entry
+below. Nothing else to close.
+
+### cw-walk-parkstart-mjx — 25% tripod-park starts off kgate: every metric the hypothesis touched moved in its direction; one weakened park survives
+OBSERVATIONS (mechanical). W&B su9yi1wc FINISHED, 4.06M steps, 482 s
+on mjx-train-1 (GPU-MJX, 4096 envs). Final ckpt
+ppo_goal_cw_walk_parkstart_mjx.zip md5
+01d9ab60dd872856df1bbf6a8dc163e5 (pulled from pod). Train curves:
+ep_rew_mean Q 360/1008/1075/1063 (deep Q1 dip = adapting to park
+starts, then plateau); walk_prog Q 0.753/0.896/0.915/0.884 (kgate
+ended ~0.845); std flat 1.389; approx_kl ~0.0075; entropy stable.
+UPDATE-PARITY CAVEAT: 4M steps at 4096 envs is ~61 PPO updates vs
+~325 in the pre-registered 4M CPU segment (the same disparity cycle
+24 corrected for bellyrest, 4M->20M); the operator relaunch kept
+step parity. All deltas below happened on ~1/5 the optimizer work.
+Gate harness 15 s DR 0 own-cfg, normal starts (logs/ckpt_eval/
+cw_walk_parkstart_mjx_15s, 6 eps/mode det+sto, --video-every 1):
+- fwd >=0.40 m: det 6/6 + sto 5/6 = 11/12 (gate 12/12 FAIL by one;
+  kgate baseline 10/12). gait_valid 12/12 (kgate 11/12). 0 term.
+- det fwd mean 0.745 (>=0.50 clause MET; kgate 0.651, champion h15b
+  0.576). Det is same-seed: parkstart-mjx beats h15b on ALL SIX det
+  seeds (0.688/0.624, 0.793/0.664, 0.781/0.243, 0.764/0.711,
+  0.673/0.569, 0.771/0.642) — sign-test 6/6, outside the +-1-2 ep
+  noise band. Det agg slip/m 1.18 (h15b 1.58, kgate 1.39).
+- THE TWO LINEAGE DEFECT EPISODES: det[2] churn CONVERTED (fwd
+  0.781, duty [0.57,0.44,0.57,0.45,0.54,0.47], watched — board
+  advances steadily, six legs cycling; kgate det[2] was 0.361 with
+  duty [0.75,0.25,0.82,0.31,0.62,0.29]). sto[4] full park GONE (fwd
+  0.607 passing); a WEAKENED park appears at sto[5] instead: fwd
+  0.192, duty [0.79,0.13,0.91,0.15,0.77,0.33], slip/m 5.31, return
+  184 — partial stall, 3.7x the forward of kgate's 0.052 full
+  freeze, and leg0 paws (19 swings). Park rate still 1/6 sto.
+  NOTE (check-generalization): the gait-valid detector did NOT flag
+  this partial park (kgate's full park was flagged); the fwd clause
+  is what catches it. Recorded as a known blind spot of gv on
+  partial parks — binding clause remains fwd, no detector patch
+  taken this cycle.
+Park-exit eval, walk_park_start_frac=1.0 (cw_walk_parkstart_mjx_
+parkexit, 6+6): fwd >=0.30 m det 6/6 (0.665-0.796) + sto 4/6 =
+10/12 with gait_valid 12/12 — clause MET exactly at the bar.
+Failures sto[2] fwd 0.125 (never exits, watched: board frozen after
+first tiles, tripod hold with hovering feet) and sto[4] 0.285 (just
+under the bar; partial exit then stall). The kgate parent had ZERO
+demonstrated park-exit competence (park episodes ran to horizon).
+Retention 5 s (cw_walk_parkstart_mjx_5s): det agg slip/m 1.58 —
+clause MET (gate <=1.8; kgate FAILED at 1.84; champion 1.53, ~equal).
+5 s det fwd mean 0.210 vs kgate 0.178 BUT champion h15b 0.382 — the
+annealed-std lineage's slow start persists and is a real regression
+vs h15b off the line. 5 s sto[5] is a from-the-start park (fwd
+0.033) — same seed-index family as the 15 s partial park.
+Currents: max 2.31-2.64 A across 24 gated eps (soft breaker 2.5;
+same band as kgate/endpost era under the MuJoCo 3.11 reading shift,
+recalibration caveat stands); servo 7 is the hot servo in 12/24
+eps — watch item, not new; leg imbalance <=1.59. Safety flags 0/36.
+FRAMES WATCHED (provenance, md5/frames): 15s det_0 cf291736/375,
+det_2 cf447410/375, sto_0 c50ec571/375, sto_5 e51e0184/375;
+parkexit det_0 3bedddb1/375, sto_1 216b791b/375, sto_2 89f3e0f3/375,
+sto_4 fabdc901/375; 5s det_0 7a01187b/125, sto_5 cd21779c/125.
+Remaining eps: scalars only (det passes share seeds/configuration
+with watched det strips; recorded as N/6-consistent, unwatched).
+Pathologies first: sto_5 partial park on camera (board near-frozen
+10 tiles, tripod-ish posture, unloaded legs twitching); parkexit
+sto_2 never exits; the lineage's sprawly-wide stance and stance-foot
+creep (skating ~1.2-1.5 m slip per m walked) is in EVERY strip
+including passes; cadence still irregular. Achievements (numbers
+behind each): passing eps show all six feet cycling contact/short
+swing, body level, no final-third decay (det_0/det_2/sto_0 boards
+advance through the last tiles); park-exit det 6/6 walks out of a
+full synthetic park into sustained gait (sto_1 watched doing it).
+Exploits looked for and not found: crawl-to-pass (det fwd mean
+0.745, speed 0.051 in band); overspeed harvesting (speed <=0.051 vs
+cap 0.06); sacrificed leg in passes (min duty 0.42, sac=[] 36/36);
+park pawing collecting net step income (sto[5] return 184 — pawing
+present, unpaid at scale, same as kgate).
+INTERPRETATION. Every quantity the state-visitation hypothesis
+touches moved in the predicted direction, on 1/5 the optimizer work
+of the pre-registered segment: exit competence from synthetic parks
+(0 -> 10/12), det churn conversion (the 4-segment det[2] defect),
+park weakening (full freeze -> partial stall, displaced seed index),
+retention slip fix. Neither pre-registered branch fired CLEANLY:
+if-true wanted 12/12 + park 0/12 (got 11/12 + 1/12 partial);
+if-false(a)'s signature was sto[4] persisting UNCHANGED (it
+vanished; the residual is weaker and elsewhere). The most economical
+reading: the mechanism is right and the dose was short — 61 updates
+vs 325. The alternative (synthetic-park distribution mismatch,
+if-false(a)) is disfavored but not dead: parkexit sto[2] failed to
+exit a SYNTHETIC park, which is a training-dose signature, not a
+distribution-mismatch signature (mismatch predicts synthetic exits
+succeed while own-parks persist).
+VERDICT: FAIL against the recorded gate (fwd 11/12 vs 12/12; park-
+exit clause PASS 10/12; retention clause PASS 1.58<=1.8; det-mean,
+gv, swings, 0-term clauses MET). NOT HARDWARE-READY: ~1/6 sto
+chance of stalling in a partial park, feet skate ~1.2-1.5 m per
+meter walked, DR 0 only, currents peak over the 2.5 A soft breaker
+pending recalibration. CHAMPION: PROMOTED —
+ppo_goal_cw_walk_parkstart_mjx.zip md5 01d9ab60 is the new walk
+champion (beats h15b seed-wise 6/6 on det fwd, gv 12/12 vs 11/12,
+det slip/m 1.18 vs 1.58, sto fwd mean 0.615 vs 0.513; named
+regression: 5 s det fwd 0.210 vs h15b 0.382 — slow start). h15b
+stays archived (append-only).
+HYPOTHESIS STATUS: INCONCLUSIVE, leaning SUPPORTED — all four
+if-true predictions moved toward truth, two hit outright, none of
+if-false's signatures appeared; the segment was under-dosed by 5x
+in optimizer updates (stack-switch artifact). The consolidate-in-
+place continuation at update parity (below) is the discriminator:
+same config, no new variables, 20M steps ~= 305 updates.

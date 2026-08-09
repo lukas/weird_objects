@@ -4233,7 +4233,29 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stance-bellyrest --steps 20000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stance_endpost_c1.zip --dr-scale 1.0 --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix rise=0.25,lower=0.2,raise=0.2 --cfg-set reward.k_current_max=0.05 --cfg-set reward.k_still=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.k_current_hot=0.2 --cfg-set reward.k_stance_contact=0.5 --cfg-set reward.k_stance_clearance=10.0 --cfg-set reward.k_support_margin=0.3 --cfg-set reward.k_load_even=1.5 --cfg-set reward.k_end_posture=5.0 --cfg-set goal.lower_belly_start_frac=0.35 --out-name ppo_goal_cw_stance_bellyrest --n-envs 4096 --ent-coef 0.001 --notes 'Belly-rest reference states for lower: 35 percent of lower episodes START flat on the belly - the zero pose, which IS the lower target posture with all feet planted - with height ref 0, rest here quietly. Cycle 24: endpost-c1 REFUTED reachability - the terminal charge plateaued by leg0-leg4 clearance redistribution over 8M steps - so per pre-registration this arm injects the planted basin into the start distribution instead of pricing it again, the same reset-side mechanism as the walk park fix, routed per mode. One variable vs the c1 segment: goal.lower_belly_start_frac=0.35, plus the FORCED stack change to GPU-MJX per operator switch-over c51b3e2, confound recorded; harness stays the CPU exact-path evaluator. Budget 20M steps = ~305 large-batch updates, matching the c1 segment in optimizer work, not wall steps. Parent ppo_goal_cw_stance_endpost_c1.zip md5 d6e909af with hold 12/12 and heights 24/24 intact. Gate: lower end-posture 5/6 sto and 4/6 det minimum, rise/lower height-only 5/6 both, hold sto 6/6, canaries ON, rise-heights stop rule. Snapshot c2af9cb.' --impl warp --host-workers 24 > /tmp/train_cw-stance-bellyrest.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stance-bellyrest.log",
     "wandb_id": "sfkdjvil",
-    "verified": "2026-08-09T04:53:17+00:00"
+    "verified": "2026-08-09T04:53:17+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T04:58:49+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10414,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      },
+      {
+        "time": "2026-08-09T05:05:32+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 11187,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-parkstart-mjx",
@@ -4361,5 +4383,100 @@
     },
     "stack": "gpu-mjx",
     "refused_reason": "hexapod-mjx-train-1 code marker fd0a99b04b4f81a74017d9973d701808ce039d2a-dirty != local HEAD fd0a99b04b4f81a74017d9973d701808ce039d2a. Sync first: snapshot.sh --sync hexapod-mjx-train-1 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "cw-walk-parkstart-mjx",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 4000000,
+    "smoke": false,
+    "hypothesis": "STACK SWITCH-OVER relaunch of cw-walk-parkstart (killed on CPU 2026-08-09, ~0.5M steps in, no verdict). Same arm, same hypothesis: park-basin is state-visitation-starved, so 25% of walk episodes start IN a jittered tripod park (goal.walk_park_start_frac=0.25); kernel prog-gate kept at 1.0. If-true: env/reward_end distribution shows park-exit learning, walk gate passes with gait_valid. If-false: belly-start distribution mismatch vs no-exit, park persists. One variable vs the kgate segment (plus the trainer stack, validated behaviorally equivalent: MJX_PORT.md A/B + mjx-dr-canary-check2).",
+    "gate": "standard 15s DR0 12/12 clauses plus park-exit eval at frac=1.0 needing 10/12 fwd 0.30m with gait_valid, plus retention 5s det slip/m at most 1.8",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_kgate.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_kgate.zip",
+      "--no-dr",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.02",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--out-name",
+      "ppo_goal_cw_walk_parkstart_mjx",
+      "--notes",
+      "Park-basin reset diversity, GPU-MJX relaunch of cw-walk-parkstart (the CPU original was killed mid-run in the 2026-08-09 stack switch-over; no training verdict was taken). 25 percent of walk episodes start IN a jittered tripod park. Cycle 24 showed pricing cannot break the park (kgate cut its income ~1000/ep, same-seed park persisted), so this arm makes park states common at reset instead. One variable vs the kgate segment: goal.walk_park_start_frac=0.25, kernel prog-gate kept at 1.0. Parent ppo_goal_cw_walk_kgate.zip md5 b703f7b0, lowest lineage std 1.342. Gate: standard 15s DR0 12/12 clauses plus park-exit eval at frac=1.0 needing 10/12 fwd 0.30m with gait_valid, plus retention 5s det slip/m at most 1.8. Trainer stack: train_ppo_mjx (Warp, 4096 envs) - behavioral equivalence validated in MJX_PORT.md A/B and run mjx-dr-canary-check2. Snapshot f1461f9.",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24"
+    ],
+    "created": "2026-08-09T04:59:02+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 2,
+      "code_sha_local": "edbd1bbb983927103acc61e21bacd3498f6ffd13",
+      "code_sha_pod": "edbd1bbb983927103acc61e21bacd3498f6ffd13",
+      "pid": "602869",
+      "log_growth_bytes": [
+        11409,
+        20023
+      ],
+      "wandb_id": "su9yi1wc",
+      "global_step_window": [
+        1048576,
+        2490368
+      ],
+      "fps_estimate": 16019.9
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-parkstart-mjx --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_kgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --out-name ppo_goal_cw_walk_parkstart_mjx --notes 'Park-basin reset diversity, GPU-MJX relaunch of cw-walk-parkstart (the CPU original was killed mid-run in the 2026-08-09 stack switch-over; no training verdict was taken). 25 percent of walk episodes start IN a jittered tripod park. Cycle 24 showed pricing cannot break the park (kgate cut its income ~1000/ep, same-seed park persisted), so this arm makes park states common at reset instead. One variable vs the kgate segment: goal.walk_park_start_frac=0.25, kernel prog-gate kept at 1.0. Parent ppo_goal_cw_walk_kgate.zip md5 b703f7b0, lowest lineage std 1.342. Gate: standard 15s DR0 12/12 clauses plus park-exit eval at frac=1.0 needing 10/12 fwd 0.30m with gait_valid, plus retention 5s det slip/m at most 1.8. Trainer stack: train_ppo_mjx (Warp, 4096 envs) - behavioral equivalence validated in MJX_PORT.md A/B and run mjx-dr-canary-check2. Snapshot f1461f9.' --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-walk-parkstart-mjx.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-parkstart-mjx.log",
+    "wandb_id": "su9yi1wc",
+    "verified": "2026-08-09T05:02:41+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T05:04:43+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "verdict": "SUSPECT",
+        "problems": [
+          "log stopped growing",
+          "W&B global_step stalled at 3010560"
+        ]
+      }
+    ],
+    "checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_parkstart_mjx.zip",
+    "checkpoint_md5": "01d9ab60dd872856df1bbf6a8dc163e5",
+    "verdict": "FAIL vs recorded gate: standard 15s fwd 11/12 (needs 12/12; sto[5] partial park fwd 0.192), gv 12/12, det fwd mean 0.745; park-exit clause PASS 10/12 at the bar; retention det slip/m 1.58 PASS. det[2] churn CONVERTED; kgate sto[4] full park gone; residual park weakened 4x and displaced. NOT HARDWARE-READY (1/6 sto partial park, skating 1.2-1.5 m/m, DR0). HYPOTHESIS INCONCLUSIVE leaning SUPPORTED - segment under-dosed ~61 vs ~325 PPO updates (stack-switch step-parity artifact). CHAMPION PROMOTED to this ckpt (beats h15b seed-wise 6/6 det fwd; named regression: 5s slow start 0.210 vs 0.382). Continuation cw-walk-parkstart-mjx-c1 at update parity is the discriminator. Evals logs/ckpt_eval/cw_walk_parkstart_mjx_{15s,parkexit,5s}, 36 eps, 10 strips watched."
   }
 ]
