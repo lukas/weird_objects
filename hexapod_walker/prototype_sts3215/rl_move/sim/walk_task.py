@@ -137,6 +137,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # its pooled reset-state snapshots (see mjx_vec_env.py).
     MJX_SNAPSHOT_EXTRA = ("_foot_on", "_liftoff_xy", "_liftoff_step",
                           "_foot_prev_xy", "_duty_hist", "_phase",
+                          "_anchor_xy", "_anchor_prev_on",
                           "_walk_bucket")
 
     def __init__(self, *args, **kwargs):
@@ -154,6 +155,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._liftoff_step = [0] * 6
         self._foot_prev_xy = [None] * 6
         self._duty_hist: list = []
+        # Anchored-stance income gate bookkeeping (cycle 30): per-foot
+        # world XY at touchdown ("anchor point") and its own prev-contact
+        # state, kept SEPARATE from the step-event vars above so the two
+        # mechanisms cannot perturb each other. prev_on starts False so
+        # the first loaded tick registers as a touchdown and anchors the
+        # initial stance feet where they stand.
+        self._anchor_xy = [None] * 6
+        self._anchor_prev_on = [False] * 6
         # Learning-progress curriculum state: sampling weights over
         # LP_BUCKETS (None = uniform) and the bucket of the current
         # walk episode (surfaced in step info for the LP callback).
@@ -212,6 +221,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._liftoff_xy = [None] * 6
         self._foot_prev_xy = [None] * 6
         self._duty_hist = []
+        self._anchor_xy = [None] * 6
+        self._anchor_prev_on = [False] * 6
         self._phase = 0.0
         return super()._reset_begin(seed)
 
@@ -347,6 +358,54 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 factor = min(max(along / s_ref, 0.0), 1.0)
                 r_walk *= (1.0 - g_kernel) + g_kernel * factor
                 info["walk_prog_factor"] = factor
+            # Anchored-stance income gate (cycle 30; the dense-
+            # decomposition rung's stance-no-slip component, implemented
+            # as INCOME GATING per operator 0-c.2 / step0 "worth less by
+            # construction" — additive charging of slip is refuted 2x
+            # (kernel-gating c24, effort c29) and a timing reference is
+            # refuted (phase prior c30: agreement locked 0.93, slip
+            # unmoved). A foot is ANCHORED while loaded and within
+            # reward.anchor_tol_mm (default 10 mm) of its own touchdown
+            # point; velocity income (kernel + positive progress) is
+            # multiplied by the anchored fraction of loaded feet.
+            # Paddling (all six feet creeping ~24 mm per stance) collects
+            # ~0.53-0.70 of income at tol=10 (measured, controller scale
+            # audit 2026-08-09); an anchored gait collects ~1.0. Negative
+            # progress (moving against command) is NOT gated - the gate
+            # must never shrink a penalty. Zero loaded feet => factor
+            # (1-g): ballistic ticks earn no anchored income. Walk-mode
+            # only by construction (this block); default OFF = legacy
+            # exact. cfg: reward.walk_anchor_gate in [0,1],
+            # reward.anchor_tol_mm.
+            g_anchor = float(cfg_get(self.cfg, "reward",
+                                     "walk_anchor_gate", default=0.0))
+            if g_anchor > 0.0 and s_ref > 1e-3:
+                tol_m = float(cfg_get(self.cfg, "reward",
+                                      "anchor_tol_mm",
+                                      default=10.0)) / 1000.0
+                loaded = 0
+                anchored = 0
+                for f in range(6):
+                    adr = self._touch_adr[f]
+                    on = (adr >= 0 and
+                          float(self.data.sensordata[adr]) > 0.5)
+                    xy = self.data.xpos[self._pad_bids[f], :2]
+                    if on and not self._anchor_prev_on[f]:
+                        self._anchor_xy[f] = xy.copy()
+                    elif not on:
+                        self._anchor_xy[f] = None
+                    self._anchor_prev_on[f] = on
+                    if on and self._anchor_xy[f] is not None:
+                        loaded += 1
+                        if float(np.linalg.norm(
+                                xy - self._anchor_xy[f])) <= tol_m:
+                            anchored += 1
+                frac = (anchored / loaded) if loaded > 0 else 0.0
+                a_factor = (1.0 - g_anchor) + g_anchor * frac
+                r_walk *= a_factor
+                if r_prog > 0.0:
+                    r_prog *= a_factor
+                info["walk_anchor_frac"] = frac
             reward = float(reward) + r_walk + r_prog
             info["reward_walk"] = r_walk
             info["reward_walk_prog"] = r_prog

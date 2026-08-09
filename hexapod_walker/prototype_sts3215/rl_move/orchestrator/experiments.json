@@ -5260,7 +5260,7 @@
       "24"
     ],
     "created": "2026-08-09T07:33:30+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -5285,6 +5285,21 @@
     "log": "/tmp/train_cw-walk-phaseprior.log",
     "wandb_id": "ia5x7piz",
     "verified": "2026-08-09T07:37:09+00:00",
-    "verify_agent": "process alive pid 1958285; log +16KB/60s; transplant line 72->74 dims present; pod SHA 76c41c0 = snapshot; W&B ia5x7piz advancing 4.65M; no duplicate; env/phase_agreement live 0.512 (chance at init, term active); env/reward_phase_contact +0.024"
+    "verify_agent": "process alive pid 1958285; log +16KB/60s; transplant line 72->74 dims present; pod SHA 76c41c0 = snapshot; W&B ia5x7piz advancing 4.65M; no duplicate; env/phase_agreement live 0.512 (chance at init, term active); env/reward_phase_contact +0.024",
+    "checkups": [
+      {
+        "time": "2026-08-09T07:42:45+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 13323,
+        "fps": 18932.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_phaseprior.zip",
+    "checkpoint_md5": "9a08670287c8bd7db19004429b91d45f",
+    "verdict": "FAIL (gate: DR1.0 agg slip/m det 1.786 / sto 1.523 vs <=1.0; gv 12/12 and 0-term met; DR0 retention met). HYPOTHESIS REFUTED on pre-registered if-false branch (a): phase_agreement locked 0.47->0.93 with clean tripod duty at eval, slip unmoved (worse +16-18% vs champion 1.543/1.295, at/just beyond panel noise, consistent direction). Timing orthogonal to anchoring; phase rung CLOSED. NOT HARDWARE-READY: paddling unchanged. Champion unchanged (parkstart_mjx md5 01d9ab60). Frames: dr10 det_0/sto_0/sto_5 + 15s det_0/sto_0/sto_5 watched (md5s in RL_LOG) + dense filmstrip vs effort baseline."
   }
 ]

@@ -4477,3 +4477,132 @@ Cycle totals: 2 launches (1 GPU smoke probe PASS, 1 experiment),
 21M GPU steps (cap 80M), 0 CPU steps, 2 harness evals (24 eps),
 1 controller scale-audit probe (3 eps); 8 strips watched
 (provenance in verdict).
+
+## Cycle 30 (2026-08-09 ~08:1xZ) — cw-walk-phaseprior verdict: phase prior REFUTED on if-false branch (a) — the clock LOCKED (agreement 0.47→0.93, clean tripod duty at eval) and slip did not move (worse if anything). Timing is orthogonal to anchoring. Phase rung CLOSED.
+
+### VERDICT cw-walk-phaseprior (20M GPU steps, mjx-train-1, W&B ia5x7piz)
+OBSERVATIONS (mechanical). Run finished: 20,000,000 steps in 1302 s
+(~15.4k fps), W&B state finished, ckpt
+ppo_goal_cw_walk_phaseprior.zip md5 9a086702 pulled to controller
+(pod copy identical). Training: env/phase_agreement 0.47 (chance,
+launch verification) → 0.93 by ~8M, plateau 0.92–0.93 to the end;
+reward_phase_contact 0 → +0.86/tick of max +1.0; mean_current_a
+0.49→0.55 A (UP ~12%); periodic walk err flat 0.028–0.036 m/s all
+run; std 1.33, no entropy alarm; 0 tracebacks.
+Gate harness (own cfg minus park_start_frac = normal starts, 6+6,
+seed 0, videos every ep):
+- DR 1.0 (logs/ckpt_eval/cw_walk_phaseprior_dr10): agg slip/m det
+  1.786 / sto 1.523 vs gate ≤1.0 — FAIL, and vs champion NAMED
+  baseline det 1.543 / sto 1.295 both passes are +16–18% WORSE
+  (champion per-ep det spread 1.32–1.82, so the delta is at/just
+  beyond the panel's noise scale — fair reading: no improvement,
+  possibly slight worsening; direction consistent across passes).
+  gv 12/12 ✓ (effort arm was 11/12). 0 terminations ✓ (effort had 1
+  over_current). det 5/6, sto 5/6; det fwd mean 0.593 vs champion
+  0.618 (inside noise); speeds 0.043–0.055 in band. Duty cycles:
+  clean tripod split — legs {0,2,4} 0.54–0.66, legs {1,3,5}
+  0.36–0.51, swings 6–12/leg/15s ≈ 0.4–0.5 Hz = the clock. Champion
+  same-panel duty (parkstart_mjx_dr10 report): 0.53–0.61 vs
+  0.38–0.53 — already tripod-ish; the phase arm sharpened timing
+  regularity, visible mostly in swing-count consistency.
+- DR 0 15 s (logs/ckpt_eval/cw_walk_phaseprior_15s): det fwd mean
+  0.681 ≥0.55 ✓ (champion 0.745, effort 0.722 — low end, inside
+  noise); gv 12/12 ✓; fwd-hemisphere sto fwd ≥0.40 5/5 ✓
+  (0.693/0.616/0.685/0.678/0.618); backward draw sto[5] fwd 0.300
+  recorded-excluded per pending operator ruling (slip/m 3.91 —
+  rear-hemisphere hole unchanged). det agg slip/m 1.581 (champion
+  1.180 — worse here too). 0 term ✓.
+FRAMES WATCHED (md5/frames): dr10 walk_det_0 31e02cab/375,
+walk_sto_0 09ca5dec/375, walk_sto_5 b0520214/375; 15s walk_det_0
+547eab55/375, walk_sto_0 b8f437d1/375, walk_sto_5 0d6c4221/375;
+plus dense 5 fps 3.2 s filmstrips of dr10 det_0 vs the effort
+baseline det_0 side-by-side. Remaining eps scalars only (unwatched).
+Pathologies first: the motion is the SAME sprawly paddling creep as
+the champion — wide splayed stance, body low, stance feet visibly
+sweeping with the body in every strip including passing episodes; NO
+stance anchoring anywhere; the dense filmstrip is nearly
+indistinguishable from the effort arm's. Achievements: six legs
+cycling with regular tripod timing, body level (tilt overlays <1°),
+0 falls, 0 terminations in all 24 episodes.
+Exploits looked for and not found: collapse-to-stand (speeds in
+band); slip reduction via slower speed (speed unchanged — and slip
+didn't reduce anyway); phase income farmed by a tripod PARK
+(cycle-12 pathology: duty pinned 0/1) — duty 0.36–0.66, real swings,
+not present.
+INTERPRETATION. The mechanism ENGAGED and the hypothesis still
+failed: agreement income was not collectible at init (0.47 chance,
+as the scale audit predicted), the policy genuinely reorganized its
+timing to the 0.4 Hz clock (0.93 sustained, tripod duty split at
+eval), i.e. the "coordination reference" was delivered and adopted —
+and the gated quantity (loaded-foot slip) did not move in either
+panel. Locked timing pays the clock while the feet still sweep;
+anchoring is a FORCE-TRANSMISSION property, not a timing property.
+Current going UP 12% while cadence regularized is consistent with
+"same paddling, now metronomic". This is if-false branch (a) VERBATIM
+as pre-registered at launch: agreement >0.7, slip ≥1.2 — timing lock
+orthogonal to stance anchoring. Third independent lever that failed
+to move slip (park-income gating c24, effort pricing c29, timing
+reference c30) — the income structure itself still pays full
+velocity income for friction-sweep propulsion.
+VERDICT: FAIL (DR1.0 slip clause det 1.786/sto 1.523 vs ≤1.0; DR0
+retention clauses met; gv 12/12 and 0-term clauses met). NOT
+HARDWARE-READY: skating unchanged — feet grind 1.5–1.8 m per meter
+walked at DR 1.0; that motion on carpet stalls servos (a motor has
+already cooked). CHAMPION UNCHANGED
+(ppo_goal_cw_walk_parkstart_mjx.zip md5 01d9ab60).
+HYPOTHESIS STATUS: REFUTED (if-false branch (a) exactly as
+pre-registered). Phase-prior rung CLOSED. Per pre-registration the
+remaining review rung is the dense step-component decomposition;
+plan item 2 (mirror-symmetry) also unblocks on this verdict — see
+decision section below.
+
+### Cycle 30 anchor-gate design — root-cause chain and scale audit
+ROOT-CAUSE CHAIN (required artifact): paddling ← full velocity
+income (kernel 2.0 + prog, ~2.7/tick) is collectible while stance
+feet sweep ← income is conditioned only on BODY velocity, never on
+HOW force is transmitted (no term distinguishes anchored push from
+friction-sweep; charging the sweep is paid — 2 refutations — and a
+timing reference locks without anchoring — cycle 30) ← at root the
+sim prices sliding friction cheaply (drag ticks draw only 1.38x
+planted current, cycle 27; real servos dragging on carpet stall and
+heat). The DEEPEST link (current-model pricing) is with the OPERATOR
+(cycle 28 stance ruling covers the same defect — recorded reason it
+is inaccessible today). The deepest reachable link is the income
+CONDITIONING — structural, "worth less by construction" (operator
+0-c.2: gate income so non-walking can't collect; step0 mandate
+verbatim). NOT a reward patch in the refuted sense: no new charge,
+no coefficient on a penalty; the existing income becomes conditional
+on the property it was always meant to pay for.
+DESIGN: foot ANCHORED = loaded AND within reward.anchor_tol_mm of
+its own touchdown point (anchor resets at liftoff). Per tick,
+r_walk and POSITIVE r_prog are multiplied by
+(1-g) + g * anchored_frac_of_loaded_feet, g=walk_anchor_gate.
+Negative prog is never gated (a gate must not shrink a penalty);
+zero loaded feet ⇒ factor (1-g). Walk-mode only by construction.
+SCALE AUDIT (controller probe /tmp/probe_anchor_scale.py, champion
+det eps DR0 own-cfg seeds 0–2, income-weighted collectible factor):
+tol=5mm 0.29/0.42/0.42; tol=10mm 0.70/0.53/0.54; tol=15mm
+0.88/0.75/0.58; tol=20mm 0.84–0.96 (too loose, gate never binds).
+CHOSEN tol=10 mm, g=1.0: champion paddling keeps only 0.53–0.70 of
+velocity income — a ~2x bigger stake than the refuted 18% effort
+charge, DENSE and MULTIPLICATIVE (each additional anchored foot-tick
+raises income), while champion creep is ~24 mm/stance so honest
+anchoring (<10 mm) is a real reorganization, and an anchored gait
+collects ~1.0. Functional probe (/tmp/probe_anchor_gate.py, champion
+seed-0 det ep): gate OFF = legacy exact (return 1219.3, info key
+absent); gate ON return 964.3, mean anchor_frac 0.731, income ratio
+0.749 ≈ audit prediction 0.70. Exploit pre-registered: unload-sweep
+(feet below contact threshold while sweeping → uncounted) — but
+unloaded feet cannot transmit propulsive friction, so exploiting the
+gate this way IS stepping; residual watch: duty drop + swing spike
+with slip still high.
+
+### CODE — cycle 30: anchored-stance income gate (walk_task.py) + MJX logging
+1. walk_task.py: reward.walk_anchor_gate / reward.anchor_tol_mm
+   (default 0 = off, legacy exact — verified by probe). New per-foot
+   anchor bookkeeping (_anchor_xy/_anchor_prev_on) kept SEPARATE
+   from step-event state; added to MJX_SNAPSHOT_EXTRA for host-half
+   parity; reset in _reset_begin. walk_anchor_frac in step info.
+2. train_ppo_mjx.py: walk_anchor_frac added to AUX logged keys.
+rl_move/tests: 38 passed, 5 skipped. GPU probe smoke gates the
+launch (new mechanism, audit §6).

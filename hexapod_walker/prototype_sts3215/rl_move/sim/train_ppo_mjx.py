@@ -333,7 +333,8 @@ def main(argv: list[str] | None = None) -> int:
         AUX_ABS = ("roll_deg", "pitch_deg")       # logged as abs_<k>
         AUX = ("track_err_deg", "height_err_mm", "mean_current_a",
                "walk_vel_err", "walk_speed",
-               "phase_agreement")                 # logged under own name
+               "phase_agreement",
+               "walk_anchor_frac")                # logged under own name
         SAMPLE = 256      # envs sampled per step for the means
 
         def __init__(self):
