@@ -141,3 +141,11 @@ a file under `archive/` and link it.
   idle: all remaining walk levers route through stepdisp12's
   outcome or the operator rulings (c27/c28); mirror-symmetry gets
   its own implementation cycle.
+- OPERATOR (08-09 ~10:5x): design rulings LANDED — binding, full
+  text `archive/OPERATOR_RULINGS_2026-08-09.md`, condensed block in
+  RL_PLAN. Resolves cycle 26/27/28 NEEDS-OPERATOR items: stance
+  allowance/support_margin (rework authorized), rear hemisphere
+  (deferred), distance gate (progress_ratio; prefer narrow forward
+  band), loaded-slip metric (never touchdown-reset), multi-seed
+  promotion panels. Still operator-owned: hardware current
+  calibration — NO robot contact by the orchestrator.
