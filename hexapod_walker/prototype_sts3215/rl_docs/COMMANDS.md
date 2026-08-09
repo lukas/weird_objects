@@ -78,6 +78,12 @@ leave the next agent to rediscover it.
   recent W&B run × ledger verdict × OUTCOME note × watcher processed
   flag. Run it whenever the operator asks if results are being
   dropped (they asked twice on 08-09; this answers in 5 s).
+- `ops.sh drain` — place backlog onto free pods, detached + creds
+  sourced. Raw `launch_run.py drain` needs W&B creds (dedupe check)
+  and takes minutes PER LAUNCH by design (two-phase verify waits out
+  the pod's JAX/Warp compile) — never run it attached to a terminal
+  you might close. The watcher auto-drains too, but NOT while PAUSEd
+  (e.g. during restart_watcher.sh).
 - `ops.sh killrun <run>` — kill a run's procs on its pod. Pods have
   no pkill, and a naive /proc scan KILLS ITSELF (your scan's cmdline
   contains the run name — a kill command suicided this way 08-09).
