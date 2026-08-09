@@ -13,6 +13,17 @@ was slow, or took several tries before you got it right, add it as an
 it in `rl_docs/README.md` if it changes what a file covers. Never
 leave the next agent to rediscover it.
 
+## Which question → which command (don't mix these up)
+
+| Question | The ONE command |
+|---|---|
+| What is actually training right now? | `ops.sh census` (/proc truth; W&B lags launches ~8 min) |
+| How many slots are free / where? | `python3 rl_move/orchestrator/capacity.py` |
+| Ledger + procs + watcher, one screen | `ops.sh status` |
+| One run's metrics/state | `ops.sh wandb <run>` (ledger: `ops.sh entry <run>`) |
+| What's queued to launch? | `launch_run.py backlog list` |
+| A past run's story | `rl_docs/runs/<run>.md` |
+
 ## Where things are (the #1 recurring failure: wrong paths)
 
 - Controller repo root: `/workspace/weird_objects`. Cycles start HERE.
