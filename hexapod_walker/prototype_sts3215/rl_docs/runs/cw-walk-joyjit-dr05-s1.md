@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-09T20:32:26+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 18000000
 
 **parent**: cw-walk-joyjit-dr05
+
+**wandb_id**: 1602jw5x
 
 **hypothesis**: Seed-1 replication of the joystick-gate PASS (joyjit-dr05-c1). If-true: gate pass is seed-robust - promote the config to driving champion. If-false: c1 was a lucky seed - promotion blocked, panel verdict goes to the plan.
 
