@@ -156,3 +156,25 @@ a file under `archive/` and link it.
   command-steering / QUADRUPED (pulled forward) / mirror-symmetry /
   contact-aux arms. Cycle cap 12→48 (watch_loop synced). Idle GPU
   pods now require a ledger-recorded HARD reason.
+- Cycle 35 (08-09 ~11:1x, findings/directive cycle): landed rulings
+  code — `goal.walk_heading_max_rad` (fwd/fwd-diag command scope),
+  `reward.walk_loadslip_gate` (episode-accumulated loaded slip/m
+  income gate, never touchdown-reset) + harness progress_ratio /
+  slip_per_m (champion reads prog_ratio 1.43 — ruled overspeed
+  confirmed; slip/m 1.11 on the along-command denominator). Retried
+  operator's `cw-walk-longdist` (DEAD at init: champion ckpt absent
+  on mjx-train-0 — `snapshot.sh --sync` excludes policies/;
+  `ops.sh pushckpt` added). Launched: longdist retry (train-0),
+  probe-walk-rulings-mjx → `cw-walk-loadslip` (train-2),
+  `cw-walk-fwdband` (train-3). `cw-steer-fdiag` deferred — HARD
+  reason: max_new_launches_per_cycle=4 reached.
+- ## ASSUMPTION (operator to review) (c35): (1) rulings-(5)/(6) walk
+  arms launched BEFORE the stepdisp12 verdict lands — the rulings
+  make loaded-slip accounting + forward scope binding regardless of
+  its cadence-attribution outcome; revisit if that verdict
+  contradicts. (2) loadslip thresholds ok=0.75/max=1.5 slip-per-m
+  from controller scale audit (champion paddle ep keeps ~11% of
+  velocity income, clean ep ~75%); tune only as gate tolerances per
+  ruling. (3) `cw-walk-longdist` retried under the DEAD-retry rule
+  (0 steps trained, pure infra fault) instead of waiting for its
+  queued watcher cycle.

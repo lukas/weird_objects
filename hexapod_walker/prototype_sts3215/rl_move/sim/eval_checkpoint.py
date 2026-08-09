@@ -121,6 +121,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     contact_hist = []        # (T, 6) bool
     pad_xy_hist = []         # (T, 6, 2) world
     track_errs, vel_errs, speeds = [], [], []
+    cmd_dist_m, along_dist_m = 0.0, 0.0
     h_err = None
     chassis0 = env.data.xpos[env._chassis_bid, :2].copy()
     ret, safety_flags, term = 0.0, 0, False
@@ -149,6 +150,19 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         if "walk_vel_err" in info:
             vel_errs.append(float(info["walk_vel_err"]))
             speeds.append(float(info["walk_speed"]))
+        if mode == "walk":
+            # progress_ratio bookkeeping (operator ruling 2026-08-09
+            # WALK-DISTANCE-GATE): along-command body displacement vs
+            # commanded displacement, integrated over commanded ticks.
+            g = env._current_goal()
+            if g is not None:
+                s_ref = math.hypot(g.vx_ref, g.vy_ref)
+                if s_ref > 1e-3:
+                    v = env._body_vel_xy()
+                    cmd_dist_m += s_ref * env.dt
+                    along_dist_m += ((v[0] * g.vx_ref
+                                      + v[1] * g.vy_ref)
+                                     / s_ref) * env.dt
 
         if video:
             frame = env.render()
@@ -246,6 +260,18 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             f for f in range(6)
             if duty[f] < 0.10 or (duty[f] > 0.95 and swings[f] == 0)]
         ep["gait_valid"] = not ep["sacrificed_legs"]
+        # Ruled walk metrics (operator rulings 2026-08-09 §3/§6):
+        # progress_ratio = along-command displacement / commanded
+        # displacement (promotion band 0.75-1.25; >1.25 = overspeed);
+        # slip_per_m = episode loaded foot-XY travel per meter of
+        # along-command progress (primary skating metric, never
+        # touchdown-reset by construction of slip_m_total).
+        ep["along_dist_m"] = round(along_dist_m, 3)
+        ep["cmd_dist_m"] = round(cmd_dist_m, 3)
+        ep["progress_ratio"] = (round(along_dist_m / cmd_dist_m, 3)
+                                if cmd_dist_m > 1e-6 else None)
+        ep["slip_per_m"] = round(
+            float(np.sum(slips)) / max(along_dist_m, 0.05), 3)
     if mode in STAND_END_MODES + ("lower",) \
             and getattr(env, "_pad_z_ref", None) is not None:
         # Mean pad clearance over the final 0.5 s (single-frame contact
@@ -418,6 +444,13 @@ def main() -> None:
                               for f in e.get("sacrificed_legs", [])})
                 extra += (f" | gait_valid {n_valid}/{len(eps)}"
                           + (f" sacrificed legs {sac}" if sac else ""))
+                pr = [e["progress_ratio"] for e in eps
+                      if e.get("progress_ratio") is not None]
+                spm = [e["slip_per_m"] for e in eps
+                       if e.get("slip_per_m") is not None]
+                if pr:
+                    extra += (f" | prog_ratio {np.mean(pr):.2f} "
+                              f"slip/m {np.mean(spm):.2f}")
             if any("end_posture_ok" in e for e in eps):
                 n_ep = sum(bool(e.get("end_posture_ok")) for e in eps)
                 worst = max(max(e["end_clear_mm"]) for e in eps

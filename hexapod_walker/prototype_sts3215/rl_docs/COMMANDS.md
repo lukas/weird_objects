@@ -39,6 +39,10 @@ leave the next agent to rediscover it.
 - `ops.sh entry <run>` — the run's ledger entries.
 - `ops.sh wandb <run>` — state, steps, reward-quarters trend, std, URL.
 - `ops.sh pullckpt <run>` — fetch checkpoint from its pod + md5.
+- `ops.sh pushckpt <pod> <ckpt>` — copy a checkpoint TO a pod + md5
+  both sides. **`snapshot.sh --sync` EXCLUDES policies/** — a
+  warm-start parent must be pushed explicitly or the run dies at
+  init with FileNotFoundError (killed cw-walk-longdist, 08-09).
 - `ops.sh evalcmd <run>` — prints the exact-path harness eval command
   with the run's own `--cfg-set`s pulled from the ledger.
 - `ops.sh waitlog <file> <regex> [timeout]` — poll for completion.

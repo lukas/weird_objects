@@ -138,7 +138,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     MJX_SNAPSHOT_EXTRA = ("_foot_on", "_liftoff_xy", "_liftoff_step",
                           "_foot_prev_xy", "_duty_hist", "_phase",
                           "_anchor_xy", "_anchor_prev_on",
-                          "_walk_bucket", "_step_disp_bank")
+                          "_walk_bucket", "_step_disp_bank",
+                          "_ls_prev_xy", "_ls_prev_on",
+                          "_ls_slip_m", "_ls_prog_m")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -167,6 +169,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # net body displacement (m) accrued along the commanded
         # direction and not yet spent on step credits.
         self._step_disp_bank = 0.0
+        # Loaded-slip income gate bookkeeping (operator ruling 2026-08-09
+        # §3/WALK-SLIP): episode-accumulated loaded foot-XY travel and
+        # along-command body progress. NEVER reset by touchdown — only
+        # at episode reset — so cadence cannot re-buy an allowance.
+        self._ls_prev_xy = [None] * 6
+        self._ls_prev_on = [False] * 6
+        self._ls_slip_m = 0.0
+        self._ls_prog_m = 0.0
         # Learning-progress curriculum state: sampling weights over
         # LP_BUCKETS (None = uniform) and the bucket of the current
         # walk episode (surfaced in step info for the LP callback).
@@ -228,6 +238,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
         self._step_disp_bank = 0.0
+        self._ls_prev_xy = [None] * 6
+        self._ls_prev_on = [False] * 6
+        self._ls_slip_m = 0.0
+        self._ls_prog_m = 0.0
         self._phase = 0.0
         return super()._reset_begin(seed)
 
@@ -264,13 +278,25 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             speed = float(rng.uniform(*LP_BUCKETS[b]))
         else:
             speed = float(rng.uniform(s_lo, s_hi))
-        r = rng.random()
-        if r < 0.60:
-            ang = 0.0                                   # forward
-        elif r < 0.80:
-            ang = float(rng.uniform(-math.pi / 4, math.pi / 4))
+        # Command-heading scope (operator rulings 2026-08-09 §2/§5:
+        # rear hemisphere DEFERRED; current phase is forward /
+        # forward-diagonal only). goal.walk_heading_max_rad >= 0 caps
+        # |heading| at that angle (0 = pure forward; pi/4 = the ruled
+        # fwd-diagonal promotion scope). Default -1 = legacy 60% fwd /
+        # 20% +-45deg / 20% anywhere mix, draw-stream exact.
+        h_max = float(cfg_get(self.cfg, "goal", "walk_heading_max_rad",
+                              default=-1.0))
+        if h_max >= 0.0:
+            ang = 0.0 if h_max == 0.0 \
+                else float(rng.uniform(-h_max, h_max))
         else:
-            ang = float(rng.uniform(-math.pi, math.pi))  # anywhere
+            r = rng.random()
+            if r < 0.60:
+                ang = 0.0                               # forward
+            elif r < 0.80:
+                ang = float(rng.uniform(-math.pi / 4, math.pi / 4))
+            else:
+                ang = float(rng.uniform(-math.pi, math.pi))  # anywhere
         vx_t, vy_t = speed * math.cos(ang), speed * math.sin(ang)
         hold_n = max(1, int(round(1.0 / self.dt)))
         ramp_n = max(1, int(round(1.0 / self.dt)))
@@ -411,6 +437,56 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if r_prog > 0.0:
                     r_prog *= a_factor
                 info["walk_anchor_frac"] = frac
+            # Loaded-slip income gate (operator ruling 2026-08-09
+            # WALK-SLIP; the structural fix for the cadence-reset
+            # exploit). The anchor gate's per-touchdown allowance is an
+            # accounting identity the policy exploited (free slip =
+            # cadence x tol; c1 +23% stances, tol5 paid the gate).
+            # This gate multiplies velocity income (kernel + positive
+            # progress) by a factor of the EPISODE-ACCUMULATED loaded
+            # slip per meter of along-command body progress — the same
+            # quantity the eval harness scores — which no touchdown can
+            # reset: factor = clip((ls_max - ratio)/(ls_max - ls_ok),
+            # 0, 1); ratio = slip_m / max(progress_m, ls_floor_m).
+            # Slip accumulates while a foot was in contact on the prior
+            # tick (harness definition, no deadband); progress banks
+            # max(along,0)*dt; both only while a velocity is commanded.
+            # Never shrinks a penalty; zero-slip gait factor 1; default
+            # 0 = off, legacy exact. cfg: reward.walk_loadslip_gate in
+            # [0,1], reward.loadslip_ok, reward.loadslip_max,
+            # reward.loadslip_floor_m.
+            g_ls = float(cfg_get(self.cfg, "reward",
+                                 "walk_loadslip_gate", default=0.0))
+            if g_ls > 0.0 and s_ref > 1e-3:
+                for f in range(6):
+                    adr = self._touch_adr[f]
+                    on = (adr >= 0 and
+                          float(self.data.sensordata[adr]) > 0.5)
+                    xy = self.data.xpos[self._pad_bids[f], :2]
+                    if self._ls_prev_on[f] \
+                            and self._ls_prev_xy[f] is not None:
+                        self._ls_slip_m += float(np.linalg.norm(
+                            xy - self._ls_prev_xy[f]))
+                    self._ls_prev_xy[f] = xy.copy()
+                    self._ls_prev_on[f] = on
+                self._ls_prog_m += max(along, 0.0) * self.dt
+                floor_m = float(cfg_get(self.cfg, "reward",
+                                        "loadslip_floor_m",
+                                        default=0.05))
+                ls_ok = float(cfg_get(self.cfg, "reward",
+                                      "loadslip_ok", default=0.75))
+                ls_max = float(cfg_get(self.cfg, "reward",
+                                       "loadslip_max", default=1.50))
+                ratio = self._ls_slip_m / max(self._ls_prog_m, floor_m)
+                factor = min(max(
+                    (ls_max - ratio) / max(ls_max - ls_ok, 1e-6),
+                    0.0), 1.0)
+                ls_factor = (1.0 - g_ls) + g_ls * factor
+                r_walk *= ls_factor
+                if r_prog > 0.0:
+                    r_prog *= ls_factor
+                info["walk_loadslip_ratio"] = ratio
+                info["walk_loadslip_factor"] = factor
             reward = float(reward) + r_walk + r_prog
             info["reward_walk"] = r_walk
             info["reward_walk_prog"] = r_prog
