@@ -2797,3 +2797,143 @@ logs/ckpt_eval/cw_walk_lowent_dr03_{gate,ret0}. Sweep note recorded:
 walk_task.py md5 matched current code on all pods EXCEPT long5m at
 discovery time (698ae6cf everywhere; long5m was de427bb7, now synced
 + marked). No pod other than long5m ran stale code this campaign leg.
+
+## Cycle 21 (2026-08-09 ~04:0xZ) — cw-walk-lowent-h15b-c1 verdict: gate FAIL, park basin is STRUCTURAL (persists with std at 1.485, below the pre-registered 1.5 threshold) — exploration-gating REFUTED; pricing arm next (progress-gated kernel income)
+
+### cw-walk-lowent-h15b-c1 — +4M identical config: std fell through 1.5, the same two failure eps recurred at the same indices
+OBSERVATIONS (mechanical). W&B 0858yqoz FINISHED, 4M steps
+(12.02M→16.02M cum, 1088 s solo walk pod). Final ckpt
+ppo_goal_cw_walk_lowent_h15b_c1.zip md5
+ed71b6f47ed6e68c7e942ef08f132366 (pod + controller copies match).
+Train: ep_rew_mean quarters 1148.6/1160.3/1166.7/1173.9 (Q4−Q3
++7.2, decelerating toward the ±15 scatter band); train/std
+1.716→1.526, harness policy_std 1.485 (parent 1.705); approx_kl
+~0.016 flat; env/reward_step_event 0.125→0.135.
+Gate harness 15 s DR 0 own-cfg (logs/ckpt_eval/cw_walk_lowent_
+h15b_c1_15s, 6 eps/mode det+sto, --video-every 1 so every gated ep
+is on camera): det fwd ≥0.40 m 5/6 (det[2]=0.285 FAIL), sto 5/6
+(sto[4]=0.037 FAIL), gait_valid 11/12 (sto[4] invalid), terminations
+0/12, safety flags 0. SAME failure classes at the SAME episode
+indices as parent h15b (det[2] duty-skew churn, sto[4] hard tripod
+park) — park rate unchanged at 1/6 sto across lowent → h15b → c1.
+Retention 5 s (…_c1_5s): det slip mean 0.275 ≤ 0.93 gate ✓ (but see
+confound below); det succ 5/6, sto 4/6, sto[4] park again (fwd
+0.028, gv False, duty [0.96,0.12,0.90,0.09,0.99,0.06]).
+Named-baseline deltas vs h15b: 15 s det slip 0.812 (0.687–0.944) vs
+0.912 (0.801–1.102) — OVERLAP, direction right, not evidence. 15 s
+fwd det 0.610 vs 0.576, sto 0.556 vs 0.513 — inside scatter. 5 s det
+slip 0.275 vs 0.584 non-overlapping BUT CONFOUNDED: 5 s det fwd
+0.183 vs 0.382, so slip PER METER is 1.50 vs 1.53 — identical; the
+"halved slip" is walking less in the first 5 s, not cleaner contact.
+(15 s slip/m 1.33 vs 1.58 — suggestive only, ep ranges overlap.)
+Only outside-noise change: std 1.705→1.485 with a slower, less
+overspeedy start (5 s fwd non-overlapping lower; 15 s fwd equal).
+FRAMES WATCHED (provenance; every gated ep had video, 8 strips
+reviewed): 15 s walk_det_0.mp4 md5 701ee803 375f, det_1 fb8b063f
+375f, det_2 3db5e8d1 375f, sto_1 58593054 375f, sto_3 d6e027dd 375f,
+sto_4 2bbd2b04 375f; 5 s det_0 59dbc61c 125f, sto_4 4b45047d 125f.
+Pathologies first: (1) sto[4] is a hard tripod park from ~t=1 s —
+identical posture across tiles 2–10, legs 1/3/5 hovering just off
+ground, background checkerboard never shifts. (2) det[2] is
+duty-skew churn — legs 1/3/5 flick (duty 0.12/0.18/0.22) while 0/2/4
+stay loaded (0.84/0.90/0.75), body creeps 0.285 m in 15 s. (3) All
+strips: sprawly-wide stance, stance-foot creep (slip 0.69–0.94/ep at
+15 s), irregular cadence. Achievements (numbered): passing eps show
+all six feet cycling contact/short-swing with the body advancing and
+level through the final third (det fwd 0.644–0.713, tilt small, no
+wind-up); zero falls and zero safety flags in 24 harness eps.
+Exploits looked for, not found: no sacrificed leg in any passing ep,
+swing counts match strips (no phantom step credit), no safety-layer
+reliance, no height collapse. Exploit FOUND in the eval metric
+itself: the 5 s slip retention clause is passable by walking slower
+— caught via distance-normalized slip; future retention comparisons
+should use slip/m alongside raw slip.
+INTERPRETATION. Pre-registered if-false branch fired exactly: std
+annealed through the ~1.5 threshold and the seed-0 sto park draw
+persisted at the same 1/6 rate (and the det churn cousin recurred).
+Exploration-gating is REFUTED; the park basin is STRUCTURAL. Root-
+cause chain (required before the reward change below): tripod park
+← park trajectories still NET POSITIVE (+519/ep measured cycle 19c)
+← r_walk kernel pays ABSOLUTE velocity error: at commands 0.02–0.06
+m/s a parked robot (v=0) collects 0.97–1.85/tick — measured 1.77
+mean via zero-action unit check this cycle — vs park charge only
+0.6/tick (k_park_duty 1.0), so k_park_duty DISCOUNTS the park but
+cannot flip its sign ← objective defect: the income channel rewards
+small |v−ref|, not ground covered; operator 0-c defines the
+objective as DISTANCE/stability/reliability. Deepest reachable fix:
+re-route the income (0-c.2), not another penalty coefficient
+(banned class, review §0).
+VERDICT: FAIL against the recorded gate (fwd 10/12 vs 12/12,
+gait_valid 11/12 vs 12/12; 0 terminations ✓, no final-third
+degradation ✓, retention slip ✓ with the confound noted). NOT
+HARDWARE-READY: a 1-in-6 chance of freezing in a tripod park, feet
+skating ~1.3–1.6 m per meter walked, DR 0 only. CHAMPION: UNCHANGED
+— h15b (md5 d0a12a94) keeps it; c1's eval deltas are inside noise
+once the slip/distance confound is removed. c1 (md5 ed71b6f4) is
+recorded as the preferred WARM-START parent for pricing arms:
+behavior within noise of champion, +4M consolidation, lowest std of
+the lineage (1.485) — the pricing arm should not have to redo the
+anneal.
+HYPOTHESIS STATUS: REFUTED (the park is not exploration-gated).
+Consequence per pre-registration: NO third identical-config segment
+anywhere in the lowent line (3rd confirmation: lowent-c1 PASS-inside-
+noise, h15b-c1 same-indices repeat), escalate to pricing.
+
+### CODE cw-walk-kgate — progress-gated kernel income (walk_task.py, cfg-gated, default OFF)
+Change (snapshotted this cycle): `reward.walk_kernel_prog_gate` ∈
+[0,1], default 0.0 = bit-identical old path. When g>0 and a velocity
+is commanded, r_walk *= (1−g) + g·clip(along/s_ref, 0, 1). Effects
+at g=1: parked robot earns ~0 kernel income on commanded ticks
+(unit check: ≤0.00007/tick vs 1.77 before, 95 commanded ticks,
+zero-action env, seed 0); uncommanded settle hold untouched (still
+2.0/tick — settling is not walking); perfect tracking unchanged
+(factor 1); overspeed unaffected (clip at 1, kernel err term already
+symmetric). Scale audit (analytic + unit check, per audit
+directive): park net/tick flips +1.1 → −0.6 (income gone, park_duty
+charge remains); walking income unchanged ~2.0 kernel + 0.85 prog +
+0.13 step_event; kernel stays bounded [0,2]; no obs change. This
+implements 0-c.2's "shift income toward ground actually covered" as
+ONE variable and makes the park worth less than stepping BY
+CONSTRUCTION (the step0 directive's own requirement) via income
+routing, not a new penalty. Routing: walk-mode only by construction
+(lives in the walk-goal block). New mechanism ⇒ probe smoke before
+the 4M run (below).
+
+### LAUNCH cw-walk-kgate (4M, DR 0, ep 15 s, seed 0, walk pod) — park pricing via progress-gated kernel income
+Basis: plan 0-c.1/0-c.2 + the structural-park verdict above; the
+pre-registered escalation from h15b-c1's if-false branch. Warm start
+from c1 (md5 ed71b6f4, rationale in verdict); ONE variable vs the
+c1 segment: --cfg-set reward.walk_kernel_prog_gate=1.0.
+HYPOTHESIS: the park basin survives because parked trajectories
+still collect near-full kernel income at low commands; zeroing that
+income (park return +519 → ≈−225 over 15 s) flips their advantage
+strongly negative and PPO prices the park out.
+Prediction-if-true: 15 s harness (same seed) park rate 1/6 sto →
+0/12, det duty-skew churn converts or disappears (det[2]-class fwd
+rises toward ≥0.40), gate clauses fwd+gv reach 12/12; W&B
+env/reward_walk dips at segment start then recovers as
+walk_prog_factor → 1.
+Prediction-if-false: park persists at ~1/6 despite strongly negative
+returns → the basin is attractor-MECHANICAL (a t=0 commitment the
+policy cannot re-decide), pricing refuted for this defect class →
+next escalation is reset-state diversity (episodes starting FROM the
+parked posture) or plan rung 2 time-averaged load evenness — NOT a
+coefficient retry.
+Strongest alternative: the park eps are rare-draw noise PPO barely
+sees — rejected in advance: 1/6 of sto walk episodes is common under
+training sampling, and three segments reproduced it at the same
+rate; if PPO cannot price a 1/6-frequency, large-negative-return
+trajectory out, that IS the mechanical-attractor result, which this
+experiment distinguishes from the income story.
+GATE (recorded in ledger): 15 s DR 0 harness 6 eps/mode det AND sto:
+fwd ≥0.40 m 12/12 AND gait_valid 12/12 AND ≥2 swings/leg AND 0
+terminations AND no final-third frame degradation AND 15 s det fwd
+mean ≥0.50 m (anti-crawl guard: income gating must not pass by
+slowing down; c1 baseline 0.610, champion 0.576). Retention: 5 s det
+slip/m ≤ 1.8 (c1 1.50, champion 1.53 — raw slip clause retired after
+this cycle's confound catch). Budget 4M (park rate is measurable at
+1/6 per segment; defect movement visible well before 4M). ent 0.001,
+--no-canary (lineage exemption), seed 0. Probe smoke first:
+probe-walk-kgate (150k, smoke pod, W&B off) must show
+walk_prog_factor logged, reward_walk reduced vs c1-era scale, no
+tracebacks.
