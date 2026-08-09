@@ -1842,7 +1842,7 @@
       "--subproc"
     ],
     "created": "2026-08-09T00:25:29+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 56,
       "existing_trainers": [],
@@ -1882,7 +1882,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "checkpoint": "pod s5: rl_move/sim/policies/ppo_goal_cw_stance_endpost.zip (md5 b78c1b6ab41f51cc2753a44ff828aecb; controller copy /tmp/ckpts)",
+    "verdict": "FAIL (cycle 18): lower posture 0/6 det + 0/6 sto vs gate >=4/6 / >=5/6; heights clause MET (rise/lower 24/24), hold sto 6/6 MET. Dose-response unique in lineage: flag leg 4 moved 229-264 -> 133-207 mm, leg 2 into allowance (22-48 mm), summed over-allowance ~200 -> ~147 mm; endings HOVER (lower two spear legs ~114/150 mm; rise sprawl 24-64 mm, sto posture regressed 4/6 -> 1/6 outside noise). std 0.193-0.197 no runaway; end_posture charge Q1 -0.640 -> Q4 -0.518, still declining. NOT HARDWARE-READY. Champion unchanged. HYPOTHESIS INCONCLUSIVE -> one consolidate-in-place continuation (c1) with pre-registered plateau slope rule; plateau => belly-rest reference states. Videos: lower_det_0 2cd2d82f, raise_det_0 d7a53139, rise_det_0 308d2472, hold_det_0 9e2e0d2c (250 fr each). Harness footgun recorded: joint_goal default modes = (hold,track,rise); always pass --modes for gate evals."
   },
   {
     "run": "cw-walk-step0-c1",
@@ -2286,5 +2288,77 @@
         "problems": []
       }
     ]
+  },
+  {
+    "run": "cw-stance-endpost-c1",
+    "pod": "hexapod-sweep-s4",
+    "steps": 4000000,
+    "smoke": false,
+    "hypothesis": "Consolidate-in-place continuation of cw-stance-endpost-r1 (one variable: +4M steps). The r1 hover is optimization-incomplete, not an airborne equilibrium: the terminal charge's descent (r1 Q1 -0.640 -> Q4 -0.518 per charged tick) continues and reaches planted endings. If-true: end_posture improves segment-over-segment by >= r1's 0.12 delta AND lower det summed over-allowance <80 mm (r1 ~147) AND lower posture >=1/6 any pass. If-false: charge plateaus (c1 last-quarter within 0.05 of c1 first-quarter) with per-leg clearances at r1 values (leg0 ~114, leg4 ~150 mm) -> refutes reachability -> belly-rest reference states, no third pricing arm. Strongest alt: slow nonzero descent that neither plateaus nor plants -> slope rule (<0.12/4M at 8M cum = plateaued). Rise-regression watch: rise HEIGHTS <5/6 anywhere = stop the line. Canaries ON.",
+    "gate": "posture-strict harness @ DR 1.0, 6 eps/mode det+sto (explicit --modes): lower end-posture >=5/6 sto AND >=4/6 det AND rise/lower height-only >=5/6 both AND hold sto 6/6",
+    "parent": "ppo_goal_cw_stance_endpost.zip (md5 b78c1b6ab41f51cc2753a44ff828aecb)",
+    "created": "2026-08-09T01:35:46+00:00",
+    "status": "INTENT"
+  },
+  {
+    "run": "cw-walk-lowent-h15",
+    "pod": "hexapod-sweep-walk",
+    "steps": 4000000,
+    "smoke": false,
+    "hypothesis": "0-b rung 1: 5s training horizon leaves long-horizon regulation unlearned; training at 15s consolidates sustained walking. One variable vs parent lowent (episode-seconds 5->15). If-true: 15s harness det+sto >=0.40m 12/12, gait_valid 12/12, no final-third decay, 5s retention (det slip <=0.93). If-false: (a) matches parent's eval-only 15s (det 6/6, sto ~5/6) -> horizon rung redundant; (b) gait degrades -> horizon-dependent reward pricing sensitivity, stop before DR. Alt: sto wander ep was binomial noise - distinguished by 12/12 at 15s. Parent ppo_goal_cw_walk_step0_lowent.zip md5 923ee55c. Snapshot e5f0c3e.",
+    "gate": "15s DR0 harness 6eps/mode det AND sto: forward >=0.40m 12/12 AND gait_valid 12/12 AND >=2 swings/leg AND 0 terminations AND no final-third frame degradation; retention: 5s det slip mean <=0.93",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_step0_lowent.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_step0_lowent.zip",
+      "--no-dr",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "200000",
+      "--video-every",
+      "200000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.02",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--out-name",
+      "ppo_goal_cw_walk_lowent_h15",
+      "--n-envs",
+      "48",
+      "--subproc"
+    ],
+    "created": "2026-08-09T01:35:45+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 56,
+      "existing_trainers": [],
+      "free_cores_estimate": 56,
+      "node": "g129004",
+      "node_trainers": [],
+      "host_load": {
+        "load1": 1.37,
+        "load5": 1.68,
+        "cores": 128
+      },
+      "running_experiments_before": 1
+    },
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-lowent-h15 --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_step0_lowent.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 200000 --video-every 200000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --out-name ppo_goal_cw_walk_lowent_h15 --n-envs 48 --subproc > /tmp/train_cw-walk-lowent-h15.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-lowent-h15.log"
   }
 ]
