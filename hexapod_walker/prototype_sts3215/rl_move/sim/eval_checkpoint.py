@@ -341,7 +341,11 @@ def main() -> None:
         for spec in args.cfg_set:
             key, val = spec.split("=", 1)
             sect, name = key.split(".", 1)
-            cfg.setdefault(sect, {})[name] = float(val)
+            try:
+                parsed: float | str = float(val)
+            except ValueError:
+                parsed = val.strip()   # e.g. goal.walk_park_bank=PATH
+            cfg.setdefault(sect, {})[name] = parsed
         cfg_kw["cfg"] = cfg
     env = env_cls(params=SimServoParams.load(),
                   randomize=args.dr_scale > 0, dr_scale=args.dr_scale,

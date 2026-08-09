@@ -296,7 +296,7 @@ def main(argv: list[str] | None = None) -> int:
             "reward_current_max", "reward_termination",
             "reward_phase_contact", "reward_support_margin",
             "reward_load_even", "reward_step_event", "reward_drag",
-            "reward_park_duty", "reward_end_posture")
+            "reward_park_duty", "reward_end_posture", "reward_effort")
         AUX_ABS = ("roll_deg", "pitch_deg")       # logged as abs_<k>
         AUX = ("track_err_deg", "height_err_mm", "mean_current_a",
                "walk_vel_err", "walk_speed")      # logged under own name

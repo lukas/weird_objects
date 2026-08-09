@@ -71,11 +71,17 @@ def _parse_goal_mix(spec: str | None) -> dict[str, float]:
 
 
 def _parse_cfg_set(specs: list[str] | None) -> dict[str, float]:
-    """Parse --cfg-set 'reward.k_current_max=0.05' overrides."""
+    """Parse --cfg-set 'reward.k_current_max=0.05' overrides.
+
+    Values parse as float; non-numeric values stay strings (cycle 27:
+    goal.walk_park_bank is an npz PATH). Numeric behavior unchanged."""
     out = {}
     for part in (specs or []):
         k, _, v = part.partition("=")
-        out[k.strip()] = float(v)
+        try:
+            out[k.strip()] = float(v)
+        except ValueError:
+            out[k.strip()] = v.strip()
     return out
 
 

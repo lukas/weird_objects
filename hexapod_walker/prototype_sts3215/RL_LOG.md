@@ -4023,3 +4023,99 @@ Cycle totals: 3 launches (2 smokes: 1 failed on missing ckpt +
 1 pass; 1 experiment), 20M GPU steps (cap 80M), 0.3M CPU smoke
 steps (cap 16M), 2 harness evals (72 eps; 7 strips watched,
 provenance in verdict).
+
+### Cycle 27 INVESTIGATION — the pre-registered harvest arm died pre-launch and took the park narrative with it: there is no park attractor; there is a REAR-HEMISPHERE capability hole, a fixed-draw eval, and an overspeed-selected gate clause
+All numbers below are from controller-side probes of the CHAMPION
+ppo_goal_cw_walk_parkstart_mjx.zip md5 01d9ab60 (scripts inline in
+this cycle's commits; harvest tool rl_move/sim/harvest_park_states.py).
+1. OWN-PARK RATE IS ~0.15%, NOT 1/6. 660 stochastic 15 s episodes
+   from normal starts (11 env seeds far from the eval stream): ONE
+   episode with a brief 6-tick stall (cmd −0.022,+0.052 — rear-
+   lateral). The pre-registered own-park-harvest arm (cycle 25
+   if-false(a)) is DEAD PRE-LAUNCH: nothing to harvest. The bank
+   mechanism (sim_env goal.walk_park_bank, tested, off by default)
+   ships unused.
+2. THE HARNESS STO PASS IS A FIXED DRAW SET. Re-running the harness
+   pipeline reproduced cycle 25's parent numbers EXACTLY, including
+   stochastic fwd per episode (sto[5]=0.192) — "sto 1/6" across the
+   whole lineage has been 6 fixed (command, noise-sequence) draws,
+   not a sample. Eval-blind-spot flagged: sto results carry binomial
+   noise on a FIXED panel; they measure those 6 draws only.
+3. THE "PARK" IS THE BACKWARD COMMAND. Post-ramp commands of the
+   seed-0 eval panel: sto[5] = (−0.028,−0.011) m/s, −159 deg. 360-ep
+   command survey (6 fresh seeds): along-command displacement
+   fraction by hemisphere — fwd |ang|<=30: mean 1.43 (n=279, min
+   0.94); diag 30-90: 1.20 (n=49); rear 90-150: 0.28 (n=23, p10
+   0.05); backward >150: −0.01 (n=9). The champion CANNOT walk
+   backward or rear-lateral AT ALL — it churns in place (speed
+   without displacement, which also evaded the survey's speed-based
+   stall detector). kgate's old sto[4] was a slow −37 deg diagonal
+   (since fixed); det[2] was forward churn (fixed). The lineage
+   defect ladder was command-direction difficulty all along.
+4. THE fwd>=0.40 CLAUSE SELECTS FOR OVERSPEED. At sto[5]'s |s|=0.030
+   perfect tracking yields ~0.030x13.5 s = 0.40 m — the bar equals
+   PERFECT, and slower draws (s_min 0.02 -> 0.27 m) cannot pass at
+   all without ignoring the command. The lineage's det passes ride
+   43% overspeed (survey, point 3). The gate clause and the
+   overspeed defect (0-a iii) are the same object.
+5. DR 1.0 CHAMPION BASELINE (logs/ckpt_eval/cw_walk_parkstart_mjx_
+   dr10, 6+6, watched: none — scalar baseline only, no verdict taken
+   on it): fwd 12/12, gv 12/12, 0 term, Imax <=2.73 — but agg slip/m
+   det 1.543 / sto 1.295 vs the historical DR1.0 clause <=1.0.
+   STABILITY IS NOT THE BINDING DEFECT (0-c.1 premise stale for this
+   champion: 0 falls in 48 gated eps at DR0+DR1.0 today); SKATING is.
+6. SKATING ROOT CAUSE (review-sanctioned checks, both passed):
+   slip attribution — 91% of loaded-foot slip is MID-STANCE (not
+   touchdown edges), spread evenly over all six legs, total ~= body
+   displacement: the gait is PADDLING (swings are real, stance never
+   anchors). Effort check — drag ticks draw 1.38x planted current
+   (2.76 vs 2.01 A summed/leg). Objective-side price of all that
+   effort: reward_current −13.3, reward_drag −4.4, reward_action
+   −28.7 vs +1250 income = ~4%. Friction is NOT mispriced physically
+   (floor mu 1.5, feet mu 2.0; the policy overpowers it and the
+   objective barely charges the electricity). Root-cause chain:
+   paddling <- velocity income pays for body translation however
+   achieved <- physical effort priced at 4% of income <- objective
+   defect (effort scale), NOT sim physics. Deepest reachable link:
+   the effort price. This is the external review's pre-adopted
+   "walk-routed effort/CoT term" lever, entered per its own
+   escalation order (speed diagnostic -> effort check -> term).
+
+### CODE — cycle 27: park-bank reset support (shipped, OFF) + walk-routed effort term (the new arm)
+1. sim_env.py start_at=="park": optional harvested-pose bank (cfg
+   goal.walk_park_bank npz path + walk_park_bank_frac), legacy rng
+   stream untouched when unset (short-circuit; probe: bank draws
+   8/8, frac=0 synthetic, no-bank determinism, frac=0.5 -> 10/20).
+   Kept despite the dead arm: the mechanism is generic reset-state
+   injection, tested, zero-cost when off. harvest_park_states.py is
+   the bank builder (also the park-rate survey tool).
+2. _parse_cfg_set (train_ppo_sim, shared with MJX trainer) and
+   eval_checkpoint --cfg-set now fall back to STRING values for
+   non-numeric overrides (bank paths). Numeric behavior unchanged.
+3. walk_task.py: reward.k_walk_effort (default 0 = off, legacy
+   exact) — walk-routed per-tick charge k x mean(servo_current_A),
+   in _post_step so the MJX stack applies it identically; logged as
+   reward_effort (added to MJX W&B key list). Root-cause chain in
+   INVESTIGATION point 6. SCALE AUDIT (champion det ep, seed-0
+   panel): k=1.2 realizes −218.6/ep = 18% of the +1219 legacy
+   income, per-tick −0.583 vs kernel+prog +2.7; quiet stand pays
+   −0.48/tick but earns ~0 (prog-gated kernel) — walking stays
+   strictly dominant, collapse-to-stand is not the cheap exit.
+   k=0 parity: episode total matches pre-change decomposition run.
+   rl_move/tests 38/38 pass.
+
+## NEEDS OPERATOR (non-blocking, walk line) — two gate-definition findings from cycle 27
+(a) REAR-HEMISPHERE SCOPE: the champion has zero backward/rear-
+lateral competence (INVESTIGATION point 3); commands there are ~10%
+of training episodes. 0-c names DISTANCE/STABILITY/RELIABILITY and
+"lateral/yaw only after forward is real" — please rule whether rear-
+hemisphere command competence is in scope now (a command-exposure
+arm is ready to design) or explicitly deferred (then walk gates
+should draw forward-hemisphere commands only, and the standing
+12/12-including-backward-draw clause is retired).
+(b) GATE CLAUSE: fwd>=0.40 m is unpassable at perfect tracking for
+commands below ~0.030 m/s (point 4) — the clause has been selecting
+overspeed. Propose command-scaled distance (e.g. along-command
+displacement >= 0.75 x commanded) or gating on the harness's own
+vel_err success. Also: the sto pass is a FIXED 6-draw panel (point
+2) — consider multi-seed panels for gate decisions.

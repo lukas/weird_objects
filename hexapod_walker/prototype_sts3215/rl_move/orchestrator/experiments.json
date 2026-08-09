@@ -4813,6 +4813,18 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stance-lowerdense --steps 20000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stance_bellyrest.zip --dr-scale 1.0 --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix rise=0.25,lower=0.2,raise=0.2 --cfg-set reward.k_current_max=0.05 --cfg-set reward.k_still=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.k_current_hot=0.2 --cfg-set reward.k_stance_contact=0.5 --cfg-set reward.k_stance_clearance=10.0 --cfg-set reward.k_support_margin=0.3 --cfg-set reward.k_load_even=1.5 --cfg-set reward.k_end_posture=5.0 --cfg-set goal.lower_belly_start_frac=0.35 --cfg-set reward.end_posture_lower_dense=1 --out-name ppo_goal_cw_stance_lowerdense --n-envs 4096 --ent-coef 0.001 --notes 'Dense lower end-posture window: the charge that previously fired only in the last 1.5s of a lower episode now covers the WHOLE episode (reward.end_posture_lower_dense=1) - one variable vs the bellyrest segment, same term, same k=5.0, same per-tick magnitude; a correct feet-planted descent pays exactly 0 (verified in a controller probe: 125/125 ticks charged vs 26/125 terminal-only, zero-action lower total 0.0). Basis, cycle 26: bellyrest REFUTED reset-state diversity for the stance spear leg - the policy rests planted when STARTED planted (frac=1.0 eval 12/12) yet still ends every plant-start descent with three feet airborne, and it THRESHOLD-RIDES the 60mm allowance (leg4 relocated under it, belly-start leg0 parked at 42-60mm). Root cause chain: hover free below 60mm + charged only terminally <- window exempts the descent where the hover is actually used (rise-transient exemption wrongly inherited by lower, which has no legitimate leg lift) <- objective never says feet stay planted while lowering. The window is the deepest link reachable without touching the eval gate definition; the 60mm allowance itself is flagged NEEDS OPERATOR. Parent ppo_goal_cw_stance_bellyrest.zip md5 6212b44f (heights 24/24, hold 12/12, canaries 8/8). Budget 20M GPU steps ~= 305 updates = segment parity. Gate: lower end-posture >=5/6 sto and >=4/6 det, rise/lower height-only >=5/6 both, hold sto 6/6, canaries ON, rise-heights stop rule, per-leg end-clearance eyeball clause. Probe probe-stance-lowerdense-b PASS. Snapshot cafd213.' --impl warp --host-workers 24 > /tmp/train_cw-stance-lowerdense.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stance-lowerdense.log",
     "wandb_id": "7iyhg21d",
-    "verified": "2026-08-09T06:01:29+00:00"
+    "verified": "2026-08-09T06:01:29+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T06:07:09+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 11393,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
