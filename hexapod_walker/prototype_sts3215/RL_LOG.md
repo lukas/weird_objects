@@ -136,3 +136,36 @@ a file under `archive/` and link it.
   `cw-walk-stepdisp12` (displacement-gated step credit, 12 mm) —
   a cadence-ATTRIBUTION arm, not a slip arm; its if-false sends the
   walk slip line to the operator whole. Champion unchanged.
+
+VERIFIED RUNNING (two-phase, cycle 34): launcher exit 0, ledger
+RUNNING; pid 154901 cmdline has step_disp_budget_mm=12.0 +
+init-from champion, single trainer; log +15.2KB/60 s; pod
+.code_sha 573297c = snapshot; W&B xj6ehawo unique + advancing
+5.11M→5.83M/45 s (~16k fps); MECHANISM LIVE at the audited scale:
+env/walk_step_denied ~0.003/tick (~2% of step income — exactly the
+c34 audit's prediction for champion-like behavior),
+walk_step_bank_m 0.07–0.12 banked, anchor_frac 0.83–0.86
+(champion-like at tol=10, no warm-start disruption). Watcher owns
+the checkup.
+
+FLEET NOTE (cycle 34): 1 launch (mjx-train-1). mjx-train-0/2/3
+left idle with recorded reasons: (1) stance line BLOCKED on
+operator pricing/allowance ruling (cycle 28); rear-hemisphere +
+overspeed gate clauses BLOCKED on operator scope ruling (cycle
+27); raise is a no-compute canary. (2) Mirror-symmetry (plan item
+2) remains UNIMPLEMENTED and is a separate NEW mechanism — the
+one-new-mechanism-per-cycle rule (plan item 2) is spent on the
+step-displacement budget this cycle; symmetry gets the next free
+implementation cycle. (3) No second walk arm: every remaining walk
+lever routes through either the stepdisp12 outcome (which selects
+between "cadence solved income-side" and "NEEDS OPERATOR whole")
+or the operator rulings — a speculative sibling would pre-empt
+that selection, the same confound cycle 33 declined. This is a
+recorded hold on named blockers, not deliberation idle.
+Cycle totals: 1 launch (20M GPU steps, cap 80M), 0 CPU steps, 2
+harness evals (24 eps, parallel), 3 controller probes (champion
+seeds 0–2 + c1 + tol5 scale audit, ~25 CPU-min), 5 strips + 1
+contact sheet watched (provenance in verdict), 1 reward mechanism
+landed (displacement-gated step credit, default-off, legacy-exact
+probe + 35 unit tests passed), champion unchanged, plan net 0
+lines, tolerance rung CLOSED.
