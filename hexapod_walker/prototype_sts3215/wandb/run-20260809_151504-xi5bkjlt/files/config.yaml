@@ -1,0 +1,90 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            nvswevgo7xyfnu9kjuieqnhptmrxvrkf:
+                args:
+                    - update
+                    - --run
+                    - cw-walk-backforth
+                    - --set
+                    - 'verdict=FAIL / refuted on if-false. Rear-hemisphere (±180°) commands do not transport: 0/12 success, det prog med 0.59, slip/m med 3.9-4.5, sacrificed leg [3] both passes; frames show BOTH front legs held airborne while the body creeps on four legs. Reward declined over training. Matches steer-explore/fdiag: backward walking blocked on the same contact-pricing root + own shaping; operator ruling 4 (rear hemisphere deferred) stands. No requeue.'
+                codePath: hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                codePathLocal: rl_move/orchestrator/launch_run.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                disk:
+                    /:
+                        total: "30723257925632"
+                        used: "682303598592"
+                executable: /usr/local/bin/python3
+                git:
+                    commit: 66147c747d9df7b714469aae1c530bcddd24dc43
+                    remote: https://github.com/lukas/weird_objects.git
+                host: hexapod-sweep-friction
+                memory:
+                    total: "2162529849344"
+                os: Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41
+                program: /workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                python: CPython 3.11.15
+                root: /workspace/weird_objects/hexapod_walker/prototype_sts3215
+                startedAt: "2026-08-09T15:15:04.719264Z"
+                writerId: nvswevgo7xyfnu9kjuieqnhptmrxvrkf
+        m: []
+        python_version: 3.11.15
+        t:
+            "3":
+                - 2
+                - 5
+                - 14
+                - 62
+            "4": 3.11.15
+            "5": 0.28.1
+            "10":
+                - 20
+            "12": 0.28.1
+            "13": linux-x86_64
+batch_size:
+    value: 8192
+cfg_set:
+    value:
+        - reward.k_step_event=1.0
+        - reward.k_drag_loaded=10.0
+        - reward.k_park_duty=1.0
+        - reward.walk_kernel_prog_gate=1.0
+        - goal.walk_park_start_frac=0.25
+        - reward.walk_anchor_gate=1.0
+        - reward.anchor_tol_mm=10.0
+        - goal.walk_speed_min_m_s=0.03
+        - goal.walk_speed_max_m_s=0.06
+        - goal.walk_heading_max_rad=3.1416
+        - goal.walk_cmd_resample_s=5.0
+        - goal.walk_stop_frac=0.15
+dr_scale:
+    value: 1
+episode_seconds:
+    value: 15
+impl:
+    value: warp
+learning_rate:
+    value: 0.0003
+mjx_iterations:
+    value: null
+mjx_ls_iterations:
+    value: null
+model_dr:
+    value: false
+n_envs:
+    value: 4096
+n_steps:
+    value: 16
+no_dr:
+    value: true
+seed:
+    value: 0
+sim_model_source:
+    value: /Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json
+task:
+    value: joint_walk
+trainer:
+    value: train_ppo_mjx

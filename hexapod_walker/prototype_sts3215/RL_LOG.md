@@ -301,6 +301,19 @@ a file under `archive/` and link it.
   max_concurrent_cycles 2→4 (12 simultaneous finishes had idled 14
   GPUs behind 2 cycles).
 
+- Cycle 47 (08-09 ~15:1x): 4 triages. `cw-walk-terrain05` PASS (18mm bumps:
+  terrain det 6/6 + flat retention slip 1.01, no destabilization). `cw-walk-wander30`
+  PASS (30s driving, prog ~1.0, zero stalls — resampling breaks stall draws).
+  `cw-walk-longdist-dr05` FAIL/refuted (DR1.0 sto 3/6 = parent; DR is not the
+  stall lever). `cw-walk-endur60` PASS (3.17m det median @60s, no decay).
+  `cw-walk-speedband` was in this cycle's finished list but already KILLED+
+  verdicted by c43 — no verdict issued here. Direction: stalls = command-
+  conditioning (three-run convergence) → launched `cw-walk-stallfix` (resample-
+  trained champion, gated on fixed-command panels) + `cw-walk-terrain10` (amp
+  1.0 rung). Remaining idle slots: concurrent cycles' refills landing live
+  (longdist-s2/dr10, head90, joystick45 queued); killed 4 duplicate gate evals
+  from a defunct double-spawned 14:37 cycle (same --out dirs, zombie-safe).
+
 ## ASSUMPTION (operator to review)
 
 - Cycle 44 champion promotion: adopted longdist-r2 as walk champion

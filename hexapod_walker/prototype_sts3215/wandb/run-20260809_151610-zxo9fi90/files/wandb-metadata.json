@@ -1,0 +1,34 @@
+{
+  "os":  "Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-08-09T15:16:10.396032Z",
+  "args":  [
+    "update",
+    "--run",
+    "cw-walk-fast",
+    "--set",
+    "verdict=FAIL (gate: tracking) / hypothesis REFUTED on if-false: policy ignored the 0.08-0.12 band and kept the champion's ~0.065 m/s paddle gait for all 20M steps (det speed 0.065-0.066 all 6 eps, prog_ratio 0.53-0.72 < 0.75). Gait retained: 12/12 gait_valid, 0 term, det slip/m 1.14 ~ champion. One sto blowout (prog 0, slip/m 17) = known sto brittleness (c39). Speed ceiling is gait-limited, not command-limited — faster walking blocked on the same contact-pricing root as skating."
+  ],
+  "program":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePath":  "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePathLocal":  "rl_move/orchestrator/launch_run.py",
+  "git":  {
+    "remote":  "https://github.com/lukas/weird_objects.git",
+    "commit":  "66147c747d9df7b714469aae1c530bcddd24dc43"
+  },
+  "root":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215",
+  "host":  "hexapod-sweep-friction",
+  "executable":  "/usr/local/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "30723257925632",
+      "used":  "682896891904"
+    }
+  },
+  "memory":  {
+    "total":  "2162529849344"
+  },
+  "writerId":  "hnm3gv3dyq7ej913ypmf0k2dg1fgqmip"
+}

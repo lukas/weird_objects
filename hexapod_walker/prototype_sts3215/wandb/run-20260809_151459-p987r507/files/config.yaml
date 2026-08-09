@@ -1,0 +1,99 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            fjp91ij9v2xvwgcdn4a9t121chwrwyi2:
+                args:
+                    - update
+                    - --run
+                    - cw-pose-track
+                    - --set
+                    - 'verdict=FAIL. 10M with a dedicated 0.6 pose mix (hold/lean/track) moved track/lean tracking err from baseline 3.1° to det 2.74°(track)/3.37°(lean), sto 3.2/3.45 — gate ≤2.0 unmet and the delta is inside eval noise → no evidence the mix helps. Frames: pose modes are not a quiet hold — feet keep fidgeting/stepping. Walk retention OK-ish (gv 12/12, 0 term, slip/m det med 1.29 just above champion band; two slow-command overspeed eps prog 1.76/2.22). Pose precision is not practice-limited; parks behind the same pricing/actuation roots. No requeue.'
+                codePath: hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                codePathLocal: rl_move/orchestrator/launch_run.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                disk:
+                    /:
+                        total: "30723257925632"
+                        used: "682281881600"
+                executable: /usr/local/bin/python3
+                git:
+                    commit: 66147c747d9df7b714469aae1c530bcddd24dc43
+                    remote: https://github.com/lukas/weird_objects.git
+                host: hexapod-sweep-friction
+                memory:
+                    total: "2162529849344"
+                os: Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41
+                program: /workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                python: CPython 3.11.15
+                root: /workspace/weird_objects/hexapod_walker/prototype_sts3215
+                startedAt: "2026-08-09T15:14:59.372475Z"
+                writerId: fjp91ij9v2xvwgcdn4a9t121chwrwyi2
+        m: []
+        python_version: 3.11.15
+        t:
+            "3":
+                - 2
+                - 5
+                - 14
+                - 62
+            "4": 3.11.15
+            "5": 0.28.1
+            "10":
+                - 20
+            "12": 0.28.1
+            "13": linux-x86_64
+batch_size:
+    value: 8192
+canary_baseline:
+    value:
+        lower_a: 0
+        lower_b: 0
+        rise_bridge_a: 0
+        rise_bridge_b: 0
+        rise_crouch_a: 0
+        rise_crouch_b: 0
+        rise_flat_a: 0
+        rise_flat_b: 0
+canary_protected:
+    value: []
+canary_stop_after:
+    value: 3
+cfg_set:
+    value:
+        - reward.k_step_event=1.0
+        - reward.k_drag_loaded=10.0
+        - reward.k_park_duty=1.0
+        - goal.walk_speed_min_m_s=0.02
+        - goal.walk_speed_max_m_s=0.06
+        - reward.walk_kernel_prog_gate=1.0
+        - goal.walk_park_start_frac=0.25
+dr_scale:
+    value: 1
+episode_seconds:
+    value: 15
+impl:
+    value: warp
+learning_rate:
+    value: 0.0003
+mjx_iterations:
+    value: null
+mjx_ls_iterations:
+    value: null
+model_dr:
+    value: false
+n_envs:
+    value: 4096
+n_steps:
+    value: 16
+no_dr:
+    value: true
+seed:
+    value: 0
+sim_model_source:
+    value: /Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json
+task:
+    value: joint_walk
+trainer:
+    value: train_ppo_mjx

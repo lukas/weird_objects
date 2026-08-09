@@ -1,0 +1,89 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            7c2ykulh7oab2ah6bcpfu0jdz0va8vw8:
+                args:
+                    - update
+                    - --run
+                    - cw-walk-loadslip-s1
+                    - --set
+                    - 'verdict=FAIL, CONCORDANT with seed 0 — hypothesis refuted seed-robustly. DR1.0 own-cfg det slip/m med 1.67 (s0: 1.94; champion longdist-r2: 1.06; gate ≤1.0), overspeed prog med 1.40, gv 24/24, 0 term, frames = same paddle-creep. Episode-accumulated loaded-slip stake does not stop sliding in either seed → reward side of skating CLOSED with two seeds; slip root stays sim contact/current pricing (operator calibration class).'
+                codePath: hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                codePathLocal: rl_move/orchestrator/launch_run.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                disk:
+                    /:
+                        total: "30723257925632"
+                        used: "682559508480"
+                executable: /usr/local/bin/python3
+                git:
+                    commit: 66147c747d9df7b714469aae1c530bcddd24dc43
+                    remote: https://github.com/lukas/weird_objects.git
+                host: hexapod-sweep-friction
+                memory:
+                    total: "2162529849344"
+                os: Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41
+                program: /workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                python: CPython 3.11.15
+                root: /workspace/weird_objects/hexapod_walker/prototype_sts3215
+                startedAt: "2026-08-09T15:15:34.648191Z"
+                writerId: 7c2ykulh7oab2ah6bcpfu0jdz0va8vw8
+        m: []
+        python_version: 3.11.15
+        t:
+            "3":
+                - 2
+                - 5
+                - 14
+                - 62
+            "4": 3.11.15
+            "5": 0.28.1
+            "10":
+                - 20
+            "12": 0.28.1
+            "13": linux-x86_64
+batch_size:
+    value: 8192
+cfg_set:
+    value:
+        - reward.k_step_event=1.0
+        - reward.k_drag_loaded=10.0
+        - reward.k_park_duty=1.0
+        - goal.walk_speed_min_m_s=0.02
+        - goal.walk_speed_max_m_s=0.06
+        - reward.walk_kernel_prog_gate=1.0
+        - goal.walk_park_start_frac=0.25
+        - reward.walk_loadslip_gate=1.0
+        - reward.loadslip_ok=0.75
+        - reward.loadslip_max=1.5
+        - reward.loadslip_floor_m=0.05
+dr_scale:
+    value: 1
+episode_seconds:
+    value: 15
+impl:
+    value: warp
+learning_rate:
+    value: 0.0003
+mjx_iterations:
+    value: null
+mjx_ls_iterations:
+    value: null
+model_dr:
+    value: false
+n_envs:
+    value: 4096
+n_steps:
+    value: 16
+no_dr:
+    value: true
+seed:
+    value: 1
+sim_model_source:
+    value: /Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json
+task:
+    value: joint_walk
+trainer:
+    value: train_ppo_mjx

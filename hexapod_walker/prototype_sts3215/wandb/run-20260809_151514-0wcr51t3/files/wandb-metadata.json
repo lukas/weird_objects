@@ -1,0 +1,34 @@
+{
+  "os":  "Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-08-09T15:15:14.567485Z",
+  "args":  [
+    "update",
+    "--run",
+    "cw-walk-dr05-fall300",
+    "--set",
+    "verdict=NO-EFFECT / refuted on pre-registered if-false — gate scalars technically met (0 term in all 36 eps incl. DR1.0 sto; DR0.5 det slip 1.40 <= 1.6; DR0 retention 6/6) BUT parent dr05-r1 measured at DR1.0 for baseline is ALSO 0-term with near-identical per-ep slip/prog (sto blowout eps 25.7 vs 27.7 slip/m etc). Falls are too rare in training/eval for a terminal charge to generate gradient; sto slip blowouts unchanged. Conclusion per if-false: stability pricing must target TILT, not termination -> twin cw-walk-dr05-tilt50 decides 0-c(i)."
+  ],
+  "program":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePath":  "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePathLocal":  "rl_move/orchestrator/launch_run.py",
+  "git":  {
+    "remote":  "https://github.com/lukas/weird_objects.git",
+    "commit":  "66147c747d9df7b714469aae1c530bcddd24dc43"
+  },
+  "root":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215",
+  "host":  "hexapod-sweep-friction",
+  "executable":  "/usr/local/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "30723257925632",
+      "used":  "682396090368"
+    }
+  },
+  "memory":  {
+    "total":  "2162529849344"
+  },
+  "writerId":  "2aw8nr8u7gfnsvkxq8i4eec8qb6fd950"
+}

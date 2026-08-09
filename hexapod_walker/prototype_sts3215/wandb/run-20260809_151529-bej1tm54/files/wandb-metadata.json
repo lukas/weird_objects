@@ -1,0 +1,34 @@
+{
+  "os":  "Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-08-09T15:15:29.889370Z",
+  "args":  [
+    "update",
+    "--run",
+    "cw-walk-highgait",
+    "--set",
+    "verdict=FAIL. +20mm stance ref largely ignored: det end-height err med 20.4mm (gate ≤8) ≈ the full offset; gait itself unharmed (gv 12/12, 0 term, slip/m med 1.29 ≈ champ). Not the destabilization branch — the height reference channel is too weak to move the stance (lineage-wide height sloppiness, cf. ruling 1 rework). Stance-height arms should wait for the height-economy rework, not more steps."
+  ],
+  "program":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePath":  "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePathLocal":  "rl_move/orchestrator/launch_run.py",
+  "git":  {
+    "remote":  "https://github.com/lukas/weird_objects.git",
+    "commit":  "66147c747d9df7b714469aae1c530bcddd24dc43"
+  },
+  "root":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215",
+  "host":  "hexapod-sweep-friction",
+  "executable":  "/usr/local/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "30723257925632",
+      "used":  "682510012416"
+    }
+  },
+  "memory":  {
+    "total":  "2162529849344"
+  },
+  "writerId":  "vcvkxqh2lxsdgxnxts89isehdt23jy1f"
+}

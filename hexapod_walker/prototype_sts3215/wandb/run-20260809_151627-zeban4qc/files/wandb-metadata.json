@@ -1,0 +1,34 @@
+{
+  "os":  "Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-08-09T15:16:27.297870Z",
+  "args":  [
+    "update",
+    "--run",
+    "cw-walk-dr05-r1",
+    "--set",
+    "verdict=FAIL (gate): DR0.5 det slip/m 1.56 agg vs gate <=1.24 (one 3.66 blowout ep; median ~1.25) and sto gait_valid 5/6 (leg-5 sacrifice, slip/m 23). BUT 0 terminations at DR0.5 and 10/12 clean eps — gait largely survives DR0.5; DR0 retention PASS (det 6/6, prog_ratio 1.00, slip/m 1.06, along 0.74-0.79). Robustness mostly real, stochastically brittle; paddle transport persists. Frames watched (DR0.5 det): level body, all six feet cycling, champion-style creep. Not hardware-ready."
+  ],
+  "program":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePath":  "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePathLocal":  "rl_move/orchestrator/launch_run.py",
+  "git":  {
+    "remote":  "https://github.com/lukas/weird_objects.git",
+    "commit":  "66147c747d9df7b714469aae1c530bcddd24dc43"
+  },
+  "root":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215",
+  "host":  "hexapod-sweep-friction",
+  "executable":  "/usr/local/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "30723257925632",
+      "used":  "683053744128"
+    }
+  },
+  "memory":  {
+    "total":  "2162529849344"
+  },
+  "writerId":  "cs4hgul49lvt0hr6r0llcp36pa1i31go"
+}

@@ -1,0 +1,34 @@
+{
+  "os":  "Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-08-09T15:17:21.073768Z",
+  "args":  [
+    "update",
+    "--run",
+    "cw-walk-phaseprior",
+    "--set",
+    "verdict=FAIL (gate: DR1.0 agg slip/m det 1.786 / sto 1.523 vs <=1.0; gv 12/12 and 0-term met; DR0 retention met). HYPOTHESIS REFUTED on pre-registered if-false branch (a): phase_agreement locked 0.47->0.93 with clean tripod duty at eval, slip unmoved (worse +16-18% vs champion 1.543/1.295, at/just beyond panel noise, consistent direction). Timing orthogonal to anchoring; phase rung CLOSED. NOT HARDWARE-READY: paddling unchanged. Champion unchanged (parkstart_mjx md5 01d9ab60). Frames: dr10 det_0/sto_0/sto_5 + 15s det_0/sto_0/sto_5 watched (md5s in RL_LOG) + dense filmstrip vs effort baseline."
+  ],
+  "program":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePath":  "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePathLocal":  "rl_move/orchestrator/launch_run.py",
+  "git":  {
+    "remote":  "https://github.com/lukas/weird_objects.git",
+    "commit":  "66147c747d9df7b714469aae1c530bcddd24dc43"
+  },
+  "root":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215",
+  "host":  "hexapod-sweep-friction",
+  "executable":  "/usr/local/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "30723257925632",
+      "used":  "683370287104"
+    }
+  },
+  "memory":  {
+    "total":  "2162529849344"
+  },
+  "writerId":  "k96c99xa49vfp0sj8aix3hadyj75g24o"
+}

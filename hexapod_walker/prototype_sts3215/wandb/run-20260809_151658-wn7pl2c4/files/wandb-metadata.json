@@ -1,0 +1,34 @@
+{
+  "os":  "Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-08-09T15:16:58.954035Z",
+  "args":  [
+    "update",
+    "--run",
+    "cw-walk-anchortol5",
+    "--set",
+    "verdict=FAIL — DR1.0 agg slip/m det 1.222 / sto 1.283 vs gate <=1.0 (champion anchorgate 1.240/1.245, c1 1.283/1.326 — deltas inside per-ep noise, NO EVIDENCE of slip change). Cadence det 65.7 stances/ep mean (one ep 81) vs champion 47.2 / c1 58.2 — clause <=~65 breached marginally; per-stance creep 11.8mm >> 5mm tol, so the policy did NOT floor-ride tol=5; instead it ATE the discount: training anchor_frac only regained 0.74 (vs 0.906 at tol=10), reward_walk 1.06/tick vs 1.29 (-18% income accepted over anchoring); reward_step_event +32% (cadence income still rising). DR0 retention PASS (det fwd 0.724, gv 12/12, 0 term, fwd-hemi sto 5/5; backward draw sto5 recorded-excluded). NOT HARDWARE-READY: feet grind 1.22 m per meter at DR1.0, same sprawly creep in frames. Hypothesis REFUTED (if-true failed); failure shape HYBRID between if-false-1 (cadence up but <75) and a third shape: binding gate + policy pays it. Tolerance rung CLOSED per pre-registration (one correction, else closed). Champion UNCHANGED (35234ddc). Escalation: displacement-gated step-event credit (0-c.2) per pre-registration."
+  ],
+  "program":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePath":  "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePathLocal":  "rl_move/orchestrator/launch_run.py",
+  "git":  {
+    "remote":  "https://github.com/lukas/weird_objects.git",
+    "commit":  "66147c747d9df7b714469aae1c530bcddd24dc43"
+  },
+  "root":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215",
+  "host":  "hexapod-sweep-friction",
+  "executable":  "/usr/local/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "30723257925632",
+      "used":  "683215511552"
+    }
+  },
+  "memory":  {
+    "total":  "2162529849344"
+  },
+  "writerId":  "p60gr3bvqrtmzj96t761i7fen9oitbyz"
+}

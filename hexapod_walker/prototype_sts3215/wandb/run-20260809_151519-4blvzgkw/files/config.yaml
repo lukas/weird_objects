@@ -1,0 +1,89 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            hic3xl4exfiqlzb1jvi68z47yx6t4vow:
+                args:
+                    - update
+                    - --run
+                    - cw-walk-dr05-tilt50
+                    - --set
+                    - 'verdict=DIG-IN (0-c(i) fork decider). OBSERVATIONS: own-cfg DR0.5 6+6 vs named baseline dr05-r1@DR0.5 (logs/ckpt_eval/cw_walk_dr05_r1_dr05): det slip/m per-ep [1.17,1.06,1.24,0.89,0.98,2.95] vs parent [1.27,1.23,1.33,0.95,0.94,3.66] — det blowout (>3) eliminated, median 1.12 vs 1.25; gv 12/12 + no sacrificed leg vs parent 11/12 with flag leg [5]; 0 term both. BUT sto blowouts persist on the SAME fixed draws as the parent (ep0 5.06/prog 0.30, ep1 27.84/prog 0.04 vs parent 3.74/23.3) — these are in-place stalls, not tip-overs. DR0 retention strong: det gv 6/6, slip/m med 1.066 (best of today''s batch), along med 0.75. Frames det DR0.5+DR0: level six-leg cycling, no flag legs. Gate legs: 0-term PASS, gv PASS, DR0 retention PASS; ''no ep slip/m>3'' FAIL (2 sto eps), det agg ≤1.3 FAIL (1.38, driven by one 2.95 ep). INTERPRETATION: pricing tilt 5x fixed the tilt-mediated degeneration (det blowout + flag leg gone) but the sto blowout metric is dominated by draw-specific stalls, which are not tipping-driven — the same two command draws stall parent and child, both seeds of the champion lineage too. Root cause chain: blowout metric <- stalls <- specific command draws <- policy, NOT tilt pricing. VERDICT: FAIL on pre-registered gate (prediction-if-true ''blowouts disappear'' not met); genuine partial win on the tilt axis. hardware-ready: no. HYPOTHESIS STATUS: partially refuted — tilt pricing hardens deterministic behavior under DR but cannot remove draw-stalls; 0-c(i) tilt lever is worth folding into the champion line, stalls move to 0-c(iii) RELIABILITY as their own front.'
+                codePath: hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                codePathLocal: rl_move/orchestrator/launch_run.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                disk:
+                    /:
+                        total: "30723257925632"
+                        used: "682439880704"
+                executable: /usr/local/bin/python3
+                git:
+                    commit: 66147c747d9df7b714469aae1c530bcddd24dc43
+                    remote: https://github.com/lukas/weird_objects.git
+                host: hexapod-sweep-friction
+                memory:
+                    total: "2162529849344"
+                os: Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41
+                program: /workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                python: CPython 3.11.15
+                root: /workspace/weird_objects/hexapod_walker/prototype_sts3215
+                startedAt: "2026-08-09T15:15:19.999745Z"
+                writerId: hic3xl4exfiqlzb1jvi68z47yx6t4vow
+        m: []
+        python_version: 3.11.15
+        t:
+            "3":
+                - 2
+                - 5
+                - 14
+                - 62
+            "4": 3.11.15
+            "5": 0.28.1
+            "10":
+                - 20
+            "12": 0.28.1
+            "13": linux-x86_64
+batch_size:
+    value: 8192
+cfg_set:
+    value:
+        - reward.k_step_event=1.0
+        - reward.k_drag_loaded=10.0
+        - reward.k_park_duty=1.0
+        - goal.walk_speed_min_m_s=0.05
+        - goal.walk_speed_max_m_s=0.06
+        - reward.walk_kernel_prog_gate=1.0
+        - goal.walk_park_start_frac=0.25
+        - reward.walk_anchor_gate=1.0
+        - reward.anchor_tol_mm=10.0
+        - reward.k_roll=50.0
+        - reward.k_pitch=50.0
+dr_scale:
+    value: 0.5
+episode_seconds:
+    value: 15
+impl:
+    value: warp
+learning_rate:
+    value: 0.0003
+mjx_iterations:
+    value: null
+mjx_ls_iterations:
+    value: null
+model_dr:
+    value: false
+n_envs:
+    value: 4096
+n_steps:
+    value: 16
+no_dr:
+    value: false
+seed:
+    value: 0
+sim_model_source:
+    value: /Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json
+task:
+    value: joint_walk
+trainer:
+    value: train_ppo_mjx

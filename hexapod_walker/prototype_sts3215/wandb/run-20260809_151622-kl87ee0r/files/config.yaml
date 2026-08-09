@@ -1,0 +1,88 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            hl3s0nf5dbondmyfbcym6k73chmn6j3k:
+                args:
+                    - update
+                    - --run
+                    - cw-steer-fdiag
+                    - --set
+                    - 'verdict=FAIL (hypothesis REFUTED per pre-registration): DR1.0 fdiag panel det diag-draw prog_ratio mean 1.47 vs champ baseline 1.64 — right direction but within the 1-2ep noise band; sto DEGRADED vs baseline: 1 tilt_pitch termination + 2 sacrificed-leg eps (gv 4/6, slip/m to 13.4) vs baseline gv 5/6 no falls. DR0 forward retention PASS (along 0.58-0.71, gv 6/6) — NOT dilution. Paddle gait itself, not the command distribution, blocks steering; scope-only steering arms STOP pending contact/current pricing. Frames watched (DR1.0 det): body tilts to ~11 deg on diag draws, feet cycling but sliding. Not hardware-ready.'
+                codePath: hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                codePathLocal: rl_move/orchestrator/launch_run.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                disk:
+                    /:
+                        total: "30723257925632"
+                        used: "682985570304"
+                executable: /usr/local/bin/python3
+                git:
+                    commit: 66147c747d9df7b714469aae1c530bcddd24dc43
+                    remote: https://github.com/lukas/weird_objects.git
+                host: hexapod-sweep-friction
+                memory:
+                    total: "2162529849344"
+                os: Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41
+                program: /workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                python: CPython 3.11.15
+                root: /workspace/weird_objects/hexapod_walker/prototype_sts3215
+                startedAt: "2026-08-09T15:16:22.116130Z"
+                writerId: hl3s0nf5dbondmyfbcym6k73chmn6j3k
+        m: []
+        python_version: 3.11.15
+        t:
+            "3":
+                - 2
+                - 5
+                - 14
+                - 62
+            "4": 3.11.15
+            "5": 0.28.1
+            "10":
+                - 20
+            "12": 0.28.1
+            "13": linux-x86_64
+batch_size:
+    value: 8192
+cfg_set:
+    value:
+        - reward.k_step_event=1.0
+        - reward.k_drag_loaded=10.0
+        - reward.k_park_duty=1.0
+        - goal.walk_speed_min_m_s=0.02
+        - goal.walk_speed_max_m_s=0.06
+        - reward.walk_kernel_prog_gate=1.0
+        - goal.walk_park_start_frac=0.25
+        - reward.walk_anchor_gate=1.0
+        - reward.anchor_tol_mm=10.0
+        - goal.walk_heading_max_rad=0.7853981633974483
+dr_scale:
+    value: 1
+episode_seconds:
+    value: 15
+impl:
+    value: warp
+learning_rate:
+    value: 0.0003
+mjx_iterations:
+    value: null
+mjx_ls_iterations:
+    value: null
+model_dr:
+    value: false
+n_envs:
+    value: 4096
+n_steps:
+    value: 16
+no_dr:
+    value: true
+seed:
+    value: 0
+sim_model_source:
+    value: /Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json
+task:
+    value: joint_walk
+trainer:
+    value: train_ppo_mjx

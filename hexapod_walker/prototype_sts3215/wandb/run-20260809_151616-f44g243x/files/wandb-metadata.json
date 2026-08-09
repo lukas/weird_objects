@@ -1,0 +1,34 @@
+{
+  "os":  "Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-08-09T15:16:16.742058Z",
+  "args":  [
+    "update",
+    "--run",
+    "cw-walk-loadslip",
+    "--set",
+    "verdict=FAIL / hypothesis REFUTED — pre-registered if-false fired. OBSERVATIONS: W&B f44g243x 20.05M steps; income forfeited during training (env/reward_walk quarters 0.76/0.77/0.63/0.52, walk_prog 0.38->0.216) with walk_speed flat ~0.052 — policy pays the near-total loadslip stake rather than anchor. Harness own-cfg 15s: DR0 det 3/6, slip/m mean 1.54 (all 6 eps 1.31-1.81); DR1.0 (gated condition) det 2/6 slip/m 2.39 vs champion 1.240 same condition — WORSE than parent; sto 2/6, one draw prog -0.21 slip 24.6. gait_valid 24/24, 0 terminations. Frames (det+sto watched, DR0+DR1.0): same paddle-creep as champion — six legs cycling, feet sweeping while loaded, no flag leg, no falls. INTERPRETATION: the episode-accumulated, touchdown-proof slip gate cannot be evaded by cadence, and the policy STILL chose sliding + forfeited income; the gate also degraded slip vs parent. With anchor-gate (moved slip once then price-ceiling), tol5 stake (paid 18%), stepdisp (refuted), and now a ~50-90% episode-level stake all exhausted, no reward-side lever outbids in-sim-free sliding. VERDICT: reward side of skating CLOSED pending seed-1 twin concordance (ruling-7); slip root = sim contact/current pricing (cycle-28 class, operator hardware calibration). NOT hardware-ready. HYPOTHESIS STATUS: refuted exactly along the pre-registered if-false shape."
+  ],
+  "program":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePath":  "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePathLocal":  "rl_move/orchestrator/launch_run.py",
+  "git":  {
+    "remote":  "https://github.com/lukas/weird_objects.git",
+    "commit":  "66147c747d9df7b714469aae1c530bcddd24dc43"
+  },
+  "root":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215",
+  "host":  "hexapod-sweep-friction",
+  "executable":  "/usr/local/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "30723257925632",
+      "used":  "682986348544"
+    }
+  },
+  "memory":  {
+    "total":  "2162529849344"
+  },
+  "writerId":  "tkl10rarwblu5y5obme9ymhn83pmlxjd"
+}

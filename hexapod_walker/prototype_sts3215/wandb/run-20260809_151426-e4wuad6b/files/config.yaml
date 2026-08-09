@@ -1,0 +1,90 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            2gpbytonvghzfxczx9p4hp1c2qedrkkf:
+                args:
+                    - update
+                    - --run
+                    - cw-walk-wander30
+                    - --set
+                    - 'verdict=PASS. 30s driving endurance (±45° resample/5s, 15% stops): own-cfg DR0 gv 12/12, 0 term, prog 0.94-1.02 (gate 0.85-1.15, no ep <0.5), worst-ep slip/m 1.93 vs parent change-segment ~2.1 — no late-episode degradation across ~6 command changes/ep. Frames det+sto: level six-leg cycling through heading changes, no flag leg. Notably zero draw-stall eps in this panel (command resampling appears to break stall draws). hardware-ready: no (contact-pricing slip root still open).'
+                codePath: hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                codePathLocal: rl_move/orchestrator/launch_run.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                disk:
+                    /:
+                        total: "30723257925632"
+                        used: "682006446080"
+                executable: /usr/local/bin/python3
+                git:
+                    commit: 66147c747d9df7b714469aae1c530bcddd24dc43
+                    remote: https://github.com/lukas/weird_objects.git
+                host: hexapod-sweep-friction
+                memory:
+                    total: "2162529849344"
+                os: Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41
+                program: /workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                python: CPython 3.11.15
+                root: /workspace/weird_objects/hexapod_walker/prototype_sts3215
+                startedAt: "2026-08-09T15:14:26.684910Z"
+                writerId: 2gpbytonvghzfxczx9p4hp1c2qedrkkf
+        m: []
+        python_version: 3.11.15
+        t:
+            "3":
+                - 2
+                - 5
+                - 14
+                - 62
+            "4": 3.11.15
+            "5": 0.28.1
+            "10":
+                - 20
+            "12": 0.28.1
+            "13": linux-x86_64
+batch_size:
+    value: 8192
+cfg_set:
+    value:
+        - reward.k_step_event=1.0
+        - reward.k_drag_loaded=10.0
+        - reward.k_park_duty=1.0
+        - goal.walk_speed_min_m_s=0.05
+        - goal.walk_speed_max_m_s=0.06
+        - reward.walk_kernel_prog_gate=1.0
+        - goal.walk_park_start_frac=0.25
+        - reward.walk_anchor_gate=1.0
+        - reward.anchor_tol_mm=10.0
+        - goal.walk_heading_max_rad=0.7854
+        - goal.walk_cmd_resample_s=5.0
+        - goal.walk_stop_frac=0.15
+dr_scale:
+    value: 1
+episode_seconds:
+    value: 30
+impl:
+    value: warp
+learning_rate:
+    value: 0.0003
+mjx_iterations:
+    value: null
+mjx_ls_iterations:
+    value: null
+model_dr:
+    value: false
+n_envs:
+    value: 4096
+n_steps:
+    value: 16
+no_dr:
+    value: true
+seed:
+    value: 0
+sim_model_source:
+    value: /Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json
+task:
+    value: joint_walk
+trainer:
+    value: train_ppo_mjx

@@ -1,0 +1,87 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            3wsihq6b4526cd6752fqg0advnuptu9i:
+                args:
+                    - update
+                    - --run
+                    - cw-walk-anchorgate-c1
+                    - --set
+                    - 'verdict=FAIL on gate (DR1.0 agg slip/m det 1.283 / sto 1.326 vs <=1.0; parent 1.240/1.245 — no improvement, delta inside per-ep noise). anchor_frac 0.906 EARNED (>0.85) => parent shape (c) fired: tolerance mis-set. Mechanism: cadence inflation exploit — det stances 47->58 (+23%), reward_step_event +24%; per-touchdown allowance reset makes free slip = cadence x tol; tol=10 floor 0.80-0.94/m at c1 cadence >= the 1.0 gate. DR0 retention passes (det fwd 0.731, gv 24/24, 0 term, fwd-hemi sto 5/5). CHAMPION UNCHANGED (anchorgate 35234ddc). Consolidation hypothesis REFUTED: frac gradient live, slip did not follow. Pre-registered audit-driven tolerance correction (tol 10->5) is the follow-up; NOT HARDWARE-READY (slip 1.28 m/m).'
+                codePath: hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                codePathLocal: rl_move/orchestrator/launch_run.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                disk:
+                    /:
+                        total: "30723257925632"
+                        used: "683281711104"
+                executable: /usr/local/bin/python3
+                git:
+                    commit: 66147c747d9df7b714469aae1c530bcddd24dc43
+                    remote: https://github.com/lukas/weird_objects.git
+                host: hexapod-sweep-friction
+                memory:
+                    total: "2162529849344"
+                os: Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41
+                program: /workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                python: CPython 3.11.15
+                root: /workspace/weird_objects/hexapod_walker/prototype_sts3215
+                startedAt: "2026-08-09T15:17:09.008344Z"
+                writerId: 3wsihq6b4526cd6752fqg0advnuptu9i
+        m: []
+        python_version: 3.11.15
+        t:
+            "3":
+                - 2
+                - 5
+                - 14
+                - 62
+            "4": 3.11.15
+            "5": 0.28.1
+            "10":
+                - 20
+            "12": 0.28.1
+            "13": linux-x86_64
+batch_size:
+    value: 8192
+cfg_set:
+    value:
+        - reward.k_step_event=1.0
+        - reward.k_drag_loaded=10.0
+        - reward.k_park_duty=1.0
+        - goal.walk_speed_min_m_s=0.02
+        - goal.walk_speed_max_m_s=0.06
+        - reward.walk_kernel_prog_gate=1.0
+        - goal.walk_park_start_frac=0.25
+        - reward.walk_anchor_gate=1.0
+        - reward.anchor_tol_mm=10.0
+dr_scale:
+    value: 1
+episode_seconds:
+    value: 15
+impl:
+    value: warp
+learning_rate:
+    value: 0.0003
+mjx_iterations:
+    value: null
+mjx_ls_iterations:
+    value: null
+model_dr:
+    value: false
+n_envs:
+    value: 4096
+n_steps:
+    value: 16
+no_dr:
+    value: true
+seed:
+    value: 0
+sim_model_source:
+    value: /Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json
+task:
+    value: joint_walk
+trainer:
+    value: train_ppo_mjx

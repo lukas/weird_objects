@@ -1,0 +1,87 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            p60gr3bvqrtmzj96t761i7fen9oitbyz:
+                args:
+                    - update
+                    - --run
+                    - cw-walk-anchortol5
+                    - --set
+                    - 'verdict=FAIL — DR1.0 agg slip/m det 1.222 / sto 1.283 vs gate <=1.0 (champion anchorgate 1.240/1.245, c1 1.283/1.326 — deltas inside per-ep noise, NO EVIDENCE of slip change). Cadence det 65.7 stances/ep mean (one ep 81) vs champion 47.2 / c1 58.2 — clause <=~65 breached marginally; per-stance creep 11.8mm >> 5mm tol, so the policy did NOT floor-ride tol=5; instead it ATE the discount: training anchor_frac only regained 0.74 (vs 0.906 at tol=10), reward_walk 1.06/tick vs 1.29 (-18% income accepted over anchoring); reward_step_event +32% (cadence income still rising). DR0 retention PASS (det fwd 0.724, gv 12/12, 0 term, fwd-hemi sto 5/5; backward draw sto5 recorded-excluded). NOT HARDWARE-READY: feet grind 1.22 m per meter at DR1.0, same sprawly creep in frames. Hypothesis REFUTED (if-true failed); failure shape HYBRID between if-false-1 (cadence up but <75) and a third shape: binding gate + policy pays it. Tolerance rung CLOSED per pre-registration (one correction, else closed). Champion UNCHANGED (35234ddc). Escalation: displacement-gated step-event credit (0-c.2) per pre-registration.'
+                codePath: hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                codePathLocal: rl_move/orchestrator/launch_run.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                disk:
+                    /:
+                        total: "30723257925632"
+                        used: "683215511552"
+                executable: /usr/local/bin/python3
+                git:
+                    commit: 66147c747d9df7b714469aae1c530bcddd24dc43
+                    remote: https://github.com/lukas/weird_objects.git
+                host: hexapod-sweep-friction
+                memory:
+                    total: "2162529849344"
+                os: Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41
+                program: /workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py
+                python: CPython 3.11.15
+                root: /workspace/weird_objects/hexapod_walker/prototype_sts3215
+                startedAt: "2026-08-09T15:16:58.954035Z"
+                writerId: p60gr3bvqrtmzj96t761i7fen9oitbyz
+        m: []
+        python_version: 3.11.15
+        t:
+            "3":
+                - 2
+                - 5
+                - 14
+                - 62
+            "4": 3.11.15
+            "5": 0.28.1
+            "10":
+                - 20
+            "12": 0.28.1
+            "13": linux-x86_64
+batch_size:
+    value: 8192
+cfg_set:
+    value:
+        - reward.k_step_event=1.0
+        - reward.k_drag_loaded=10.0
+        - reward.k_park_duty=1.0
+        - goal.walk_speed_min_m_s=0.02
+        - goal.walk_speed_max_m_s=0.06
+        - reward.walk_kernel_prog_gate=1.0
+        - goal.walk_park_start_frac=0.25
+        - reward.walk_anchor_gate=1.0
+        - reward.anchor_tol_mm=5.0
+dr_scale:
+    value: 1
+episode_seconds:
+    value: 15
+impl:
+    value: warp
+learning_rate:
+    value: 0.0003
+mjx_iterations:
+    value: null
+mjx_ls_iterations:
+    value: null
+model_dr:
+    value: false
+n_envs:
+    value: 4096
+n_steps:
+    value: 16
+no_dr:
+    value: true
+seed:
+    value: 0
+sim_model_source:
+    value: /Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json
+task:
+    value: joint_walk
+trainer:
+    value: train_ppo_mjx

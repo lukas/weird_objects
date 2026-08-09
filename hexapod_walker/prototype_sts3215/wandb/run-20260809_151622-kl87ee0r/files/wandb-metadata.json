@@ -1,0 +1,34 @@
+{
+  "os":  "Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-08-09T15:16:22.116130Z",
+  "args":  [
+    "update",
+    "--run",
+    "cw-steer-fdiag",
+    "--set",
+    "verdict=FAIL (hypothesis REFUTED per pre-registration): DR1.0 fdiag panel det diag-draw prog_ratio mean 1.47 vs champ baseline 1.64 — right direction but within the 1-2ep noise band; sto DEGRADED vs baseline: 1 tilt_pitch termination + 2 sacrificed-leg eps (gv 4/6, slip/m to 13.4) vs baseline gv 5/6 no falls. DR0 forward retention PASS (along 0.58-0.71, gv 6/6) — NOT dilution. Paddle gait itself, not the command distribution, blocks steering; scope-only steering arms STOP pending contact/current pricing. Frames watched (DR1.0 det): body tilts to ~11 deg on diag draws, feet cycling but sliding. Not hardware-ready."
+  ],
+  "program":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePath":  "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePathLocal":  "rl_move/orchestrator/launch_run.py",
+  "git":  {
+    "remote":  "https://github.com/lukas/weird_objects.git",
+    "commit":  "66147c747d9df7b714469aae1c530bcddd24dc43"
+  },
+  "root":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215",
+  "host":  "hexapod-sweep-friction",
+  "executable":  "/usr/local/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "30723257925632",
+      "used":  "682985570304"
+    }
+  },
+  "memory":  {
+    "total":  "2162529849344"
+  },
+  "writerId":  "hl3s0nf5dbondmyfbcym6k73chmn6j3k"
+}

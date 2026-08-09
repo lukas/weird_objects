@@ -1,0 +1,34 @@
+{
+  "os":  "Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-08-09T15:15:59.287327Z",
+  "args":  [
+    "update",
+    "--run",
+    "cw-walk-longdist-s1",
+    "--set",
+    "verdict=OBSERVATIONS: DR0 det 6/6 (median fwd 1.63m@30s, slip/m 0.94, prog 1.03, gv 6/6, 0 term, swing counts balanced 17-22 all legs); DR0 sto 5/6 - single miss is THE SAME fixed draw r2 missed (ep4: churn-in-place 0.37m, slip 6.68, swings inflated 25-34, no fall). DR1.0 own-cfg: det slip/m 0.98 agg (r2 1.06, champion 1.240), sto 3/6 identical to r2 with the same worst draw (ep3). Frames: level six-leg alternating gait at both DR levels, no flag leg/sacrifice. INTERPRETATION: seed-1 reproduces r2 on every axis - det slip/m <=1.1 met at both seeds and both DR levels; sto weakness is draw-specific (same fixed commands fail in both seeds), a lineage trait not seed luck. VERDICT: hypothesis CONFIRMED (seed-robust); strict gate NEAR-MISS on the known single sto draw. hardware-ready: NO (still ~0.94m slide per meter). HYPOTHESIS STATUS: if-true branch holds -> longdist line promoted, r2 checkpoint becomes walk champion (ASSUMPTION logged, cycle 43)."
+  ],
+  "program":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePath":  "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePathLocal":  "rl_move/orchestrator/launch_run.py",
+  "git":  {
+    "remote":  "https://github.com/lukas/weird_objects.git",
+    "commit":  "66147c747d9df7b714469aae1c530bcddd24dc43"
+  },
+  "root":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215",
+  "host":  "hexapod-sweep-friction",
+  "executable":  "/usr/local/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "30723257925632",
+      "used":  "682762592256"
+    }
+  },
+  "memory":  {
+    "total":  "2162529849344"
+  },
+  "writerId":  "q01ut8gny3kk300iuagnl2caj62665wr"
+}

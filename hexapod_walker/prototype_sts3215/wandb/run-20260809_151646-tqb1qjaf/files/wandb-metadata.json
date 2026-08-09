@@ -1,0 +1,34 @@
+{
+  "os":  "Linux-6.8.12-680-6063-coreweave-amd64-f81899c8-x86_64-with-glibc2.41",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-08-09T15:16:46.327070Z",
+  "args":  [
+    "update",
+    "--run",
+    "cw-walk-dr05",
+    "--set",
+    "verdict=DEAD at init (0 steps): FileNotFoundError on parent ckpt ppo_goal_cw_walk_anchorgate.zip on mjx-train-2 (snapshot.sh --sync excludes policies/). W&B tqb1qjaf state=failed. Retried once as cw-walk-dr05-r1 in cycle 35 after pushckpt + md5 verify."
+  ],
+  "program":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePath":  "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py",
+  "codePathLocal":  "rl_move/orchestrator/launch_run.py",
+  "git":  {
+    "remote":  "https://github.com/lukas/weird_objects.git",
+    "commit":  "66147c747d9df7b714469aae1c530bcddd24dc43"
+  },
+  "root":  "/workspace/weird_objects/hexapod_walker/prototype_sts3215",
+  "host":  "hexapod-sweep-friction",
+  "executable":  "/usr/local/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "30723257925632",
+      "used":  "683302387712"
+    }
+  },
+  "memory":  {
+    "total":  "2162529849344"
+  },
+  "writerId":  "8x8ux552i6hnllnppao1oryqvp7csi3k"
+}
