@@ -42,7 +42,9 @@ pip install --quiet --no-cache-dir \
 # its own CUDA runtime wheels, so the slim image works on GPU nodes.
 if [ "${HEXAPOD_MJX:-0}" = "1" ]; then
     if command -v nvidia-smi > /dev/null 2>&1; then
-        pip install --quiet --no-cache-dir mujoco-mjx==3.11.0 "jax[cuda12]"
+        # mujoco-warp: the fast impl="warp" backend (~30x the XLA impl
+        # on the hexapod — see MJX_PORT.md benchmark table).
+        pip install --quiet --no-cache-dir mujoco-mjx==3.11.0 "jax[cuda12]" mujoco-warp
     else
         pip install --quiet --no-cache-dir mujoco-mjx==3.11.0 jax
     fi

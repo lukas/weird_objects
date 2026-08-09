@@ -96,6 +96,22 @@ def support_margin_m(feet_xy: np.ndarray, com_xy: np.ndarray) -> float:
     return float(d if inside else -d)
 
 
+def soften_contacts(model) -> None:
+    """3x-softer foot/pad/belly solref (see the __init__ comment).
+
+    Module-level so the batched MJX vec env can prepare its SHARED model
+    with exactly the same contact softening the C env applies.
+    """
+    import mujoco
+    for i in range(6):
+        for gname in (f"L{i}_foot", f"L{i}_pad_col",
+                      f"L{i}_yaw_servo_col"):
+            fid = mujoco.mj_name2id(
+                model, mujoco.mjtObj.mjOBJ_GEOM, gname)
+            if fid >= 0:
+                model.geom_solref[fid, 0] *= 3.0
+
+
 def _default_plant_deg() -> np.ndarray:
     """Standing plant in hardware convention (learned plant or +20/+80)."""
     try:
@@ -109,6 +125,10 @@ class SimHexapodBalanceEnv(_GymBase):
     """Gymnasium env; obs/action/reward identical to the hardware env."""
 
     metadata = {"render_modes": ["rgb_array"]}
+    # Extra per-episode attributes a task subclass needs included in the
+    # batched MJX vec env's pooled reset-state snapshots (see
+    # mjx_vec_env.py). Base env: none.
+    MJX_SNAPSHOT_EXTRA: tuple = ()
     # Sliding friction during the reset slip-settle (see reset()): low
     # enough to relieve tangential preload from placement/geometry error,
     # high enough that the plant stance doesn't splay outward under load.
@@ -123,7 +143,8 @@ class SimHexapodBalanceEnv(_GymBase):
                  episode_seconds: float | None = None,
                  seed: int | None = None,
                  render_mode: str | None = None,
-                 mesh_visuals: bool = True):
+                 mesh_visuals: bool = True,
+                 model=None):
         import mujoco
         self._mujoco = mujoco
         self.cfg = cfg if cfg is not None else load_config()
@@ -151,8 +172,17 @@ class SimHexapodBalanceEnv(_GymBase):
         self.write_acc_units = float(
             cfg_get(self.cfg, "bus", "write_acc", default=20))
 
-        self.model = build_model(fixed_base=False, flat_terrain=True,
-                                 mesh_visuals=mesh_visuals)
+        # ``model``: a pre-built, fully PREPARED (contact-softened) MjModel
+        # shared with other envs — the batched MJX vec env owns physics
+        # and passes one model to all its per-env shims. A shared model
+        # must never be mutated per episode, so the shim path runs with
+        # model DR disabled. Default (None): private model, as always.
+        self._owns_model = model is None
+        if model is not None:
+            self.model = model
+        else:
+            self.model = build_model(fixed_base=False, flat_terrain=True,
+                                     mesh_visuals=mesh_visuals)
         self.data = mujoco.MjData(self.model)
         self._substeps = max(1, int(round(self.dt / self.model.opt.timestep)))
         self._qadr = joint_qpos_addrs(self.model)
@@ -184,13 +214,10 @@ class SimHexapodBalanceEnv(_GymBase):
         # the stiff servos read 2-3 A standing still. Real rubber feet +
         # PLA leg flex compress ~1-2 mm and spread the load; ~3x softer
         # timeconst gives that. DR's contact_stiff_scale still varies it.
-        for i in range(6):
-            for gname in (f"L{i}_foot", f"L{i}_pad_col",
-                          f"L{i}_yaw_servo_col"):
-                fid = mujoco.mj_name2id(
-                    self.model, mujoco.mjtObj.mjOBJ_GEOM, gname)
-                if fid >= 0:
-                    self.model.geom_solref[fid, 0] *= 3.0
+        # (A shared model arrives already softened — soften ONCE, or
+        # every env would multiply solref by another 3x.)
+        if self._owns_model:
+            soften_contacts(self.model)
 
         # Pristine copies for DR restore at every reset.
         self._base_body_mass = self.model.body_mass.copy()
@@ -493,8 +520,14 @@ class SimHexapodBalanceEnv(_GymBase):
     # gym API
     # ------------------------------------------------------------------
 
-    def reset(self, *, seed: int | None = None, options: dict | None = None):
-        del options
+    def _reset_begin(self, seed: int | None = None) -> np.ndarray:
+        """Pre-physics half of reset: bookkeeping, this episode's DR
+        sample, goal sample, and the start pose. Touches NO model or
+        physics state, so the batched MJX vec env can drive it for a
+        shim env and run the settle choreography itself. Returns
+        q_start (rad, 18). RNG draw order (DR sample, then goal) is
+        identical to the historical inline code.
+        """
         if seed is not None:
             self.rng = np.random.default_rng(seed)
         self._episode += 1
@@ -502,28 +535,8 @@ class SimHexapodBalanceEnv(_GymBase):
         self._prev_action[:] = 0.0
         self.safety.clear_estop()
 
-        # Restore pristine model, then apply this episode's randomization.
-        self.model.body_mass[:] = self._base_body_mass
-        self.model.body_inertia[:] = self._base_body_inertia
-        self.model.body_ipos[:] = self._base_body_ipos
-        self.model.body_pos[:] = self._base_body_pos
-        self.model.geom_pos[:] = self._base_geom_pos
-        self.model.site_pos[:] = self._base_site_pos
-        self.model.geom_friction[:] = self._base_geom_friction
-        self.model.geom_solref[:] = self._base_geom_solref
-        self.model.opt.gravity[:] = self._base_gravity
-        if self.randomizer is not None:
-            self._ep_rand = self.randomizer.sample(self.rng)
-            self._ep_rand.apply_to_model(
-                self.model, chassis_bid=self._chassis_bid)
-            apply_params_to_model(
-                self.model, self.params,
-                kp_scale=self._ep_rand.kp_scale,
-                kv_scale=self._ep_rand.kv_scale,
-                torque_scale=self._ep_rand.torque_scale)
-        else:
-            self._ep_rand = None
-            apply_params_to_model(self.model, self.params)
+        self._ep_rand = (self.randomizer.sample(self.rng)
+                         if self.randomizer is not None else None)
 
         # Goal first: it decides the reset pose. Rise episodes start at
         # the ZERO pose — legs straight out, belly resting on the yaw
@@ -581,6 +594,33 @@ class SimHexapodBalanceEnv(_GymBase):
             q_start = self._clip_to_joint_limits(q_start)
         else:
             q_start = self._start_pose_rad()
+        return q_start
+
+    def reset(self, *, seed: int | None = None, options: dict | None = None):
+        del options
+        q_start = self._reset_begin(seed)
+
+        # Restore pristine model, then apply this episode's randomization.
+        self.model.body_mass[:] = self._base_body_mass
+        self.model.body_inertia[:] = self._base_body_inertia
+        self.model.body_ipos[:] = self._base_body_ipos
+        self.model.body_pos[:] = self._base_body_pos
+        self.model.geom_pos[:] = self._base_geom_pos
+        self.model.site_pos[:] = self._base_site_pos
+        self.model.geom_friction[:] = self._base_geom_friction
+        self.model.geom_solref[:] = self._base_geom_solref
+        self.model.opt.gravity[:] = self._base_gravity
+        if self._ep_rand is not None:
+            self._ep_rand.apply_to_model(
+                self.model, chassis_bid=self._chassis_bid)
+            apply_params_to_model(
+                self.model, self.params,
+                kp_scale=self._ep_rand.kp_scale,
+                kv_scale=self._ep_rand.kv_scale,
+                torque_scale=self._ep_rand.torque_scale)
+        else:
+            apply_params_to_model(self.model, self.params)
+
         self._place_at_plant(q_start)
         er = self._ep_rand
         self._profile = ServoProfile(
@@ -610,6 +650,15 @@ class SimHexapodBalanceEnv(_GymBase):
         self._profile.reset(self._q_nom)
         self._cmd = self._q_nom.copy()
         self._settle(0.3)
+        return self._reset_finalize()
+
+    def _reset_finalize(self):
+        """Post-settle half of reset: episode references, filter resets,
+        first state read, first obs. Reads physics only through
+        ``self.data`` (the vec env feeds a shim env a batched-tick data
+        view), with ``self._q_nom`` already captured by the caller.
+        Returns the (obs, info) reset tuple.
+        """
         # Curl channel target: the ideal plant footprint (foot anchors can
         # slide from wherever they started toward it — required to stand
         # up from the zero pose, useful to fix a badly-placed leg).
@@ -661,6 +710,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # / slope isn't tipping, and goals mean "lean from here".
         self._tilt_ref0 = (self._state.imu_roll, self._state.imu_pitch)
         self.safety.set_tilt_reference(*self._tilt_ref0)
+        er = self._ep_rand
         info = {
             "episode": self._episode,
             "q_nominal_deg": (self._q_nom * RAD2DEG).tolist(),
@@ -702,7 +752,15 @@ class SimHexapodBalanceEnv(_GymBase):
         ik = self.ik.solve(offset)
         return ik.q_rad, ik.ok, ik.reason
 
-    def step(self, action):
+    def _step_begin(self, action):
+        """Pre-physics half of step: action validation, IK, safety
+        filter, and the servo command. Returns ``(early, ctx)`` —
+        ``early`` is a full step tuple when the action was rejected
+        outright (no physics runs in that case), else None with ``ctx``
+        for :meth:`_step_finish` after physics has advanced one tick.
+        Split so the batched MJX vec env can run all envs' pre-physics
+        halves, one batched tick, then all post-physics halves.
+        """
         assert self._state is not None and self._profile is not None
         clipped, bad = self.safety.validate_action(action, n_act=self.n_act)
         pen = float(cfg_get(self.cfg, "reward",
@@ -715,7 +773,8 @@ class SimHexapodBalanceEnv(_GymBase):
                                   self._prev_action,
                                   goal=self._current_goal(),
                                   tilt_ref=self._tilt_ref0), reset=False),
-                    -pen, True, False, {"termination_reason": bad, **parts})
+                    -pen, True, False,
+                    {"termination_reason": bad, **parts}), None
 
         if self._ep_rand is not None and self._ep_rand.action_noise > 0:
             clipped = np.clip(
@@ -738,8 +797,24 @@ class SimHexapodBalanceEnv(_GymBase):
                 self._profile.command(
                     q_safe, speed_deg_s=self.write_speed_deg_s,
                     acc_units=self.write_acc_units)
-        self._advance()
+        return None, (clipped, terminated, status, pen)
 
+    def step(self, action):
+        early, ctx = self._step_begin(action)
+        if early is not None:
+            return self._post_step(early)
+        self._advance()
+        return self._post_step(self._step_finish(ctx))
+
+    def _post_step(self, result):
+        """Subclass hook applied to EVERY completed step tuple (both the
+        normal path and the rejected-action early return) — walk-mode
+        shaping lives here so the batched vec env inherits it."""
+        return result
+
+    def _step_finish(self, ctx):
+        """Post-physics half of step: state read, reward, obs."""
+        clipped, terminated, status, pen = ctx
         self._state = self._read_state()
         self._step_i += 1
         goal = self._current_goal()

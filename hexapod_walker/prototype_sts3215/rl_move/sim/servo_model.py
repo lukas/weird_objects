@@ -134,11 +134,15 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
     truthful choice for RL rollout videos. Physics is identical either
     way — visual geoms are contype=0, density=0.
 
-    ``mjx_compat=True`` swaps the hfield terrain for an equivalent flat
-    plane (same z=0 surface, friction and condim) so ``mjx.put_model``
-    accepts the model — MJX has no height-field collisions. Training
-    always runs ``flat_terrain=True``, so the physics is unchanged;
-    combining ``mjx_compat`` with ``flat_terrain=False`` is an error.
+    ``mjx_compat=True`` prepares the model for ``mjx.put_model``: with
+    ``flat_terrain=True`` (the training default) the hfield terrain is
+    swapped for an equivalent flat plane (same z=0 surface, friction and
+    condim) — cheapest ground contact on GPU; with ``flat_terrain=False``
+    the hfield is KEPT: MuJoCo-Warp collides with height fields
+    (verified on H200, mujoco-mjx 3.11 — the ccd_hfield kernel), so
+    rough-terrain experiments can run under ``impl="warp"``. The XLA
+    impl still has no hfield collisions. Either way the backup floor
+    plane is removed (redundant contact work on GPU).
     """
     import mujoco
     import mujoco_prototype as MP
@@ -152,18 +156,17 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
     if fixed_base:
         xml = xml.replace('<freejoint name="root"/>', '')
     if mjx_compat:
-        if not flat_terrain:
-            raise ValueError("mjx_compat requires flat_terrain=True "
-                             "(MJX cannot collide with hfields)")
         import re
-        xml = re.sub(r'<hfield name="terrain"[^/]*/>', "", xml)
-        xml, n = re.subn(
-            r'<geom name="terrain" type="hfield" hfield="terrain" ([^/]*)/>',
-            r'<geom name="terrain" type="plane" size="8 8 0.05" \1/>',
-            xml)
-        if n != 1 or "hfield" in xml:
-            raise RuntimeError("mjx_compat terrain rewrite failed — "
-                               "mujoco_prototype terrain XML changed?")
+        if flat_terrain:
+            xml = re.sub(r'<hfield name="terrain"[^/]*/>', "", xml)
+            xml, n = re.subn(
+                r'<geom name="terrain" type="hfield" hfield="terrain" '
+                r'([^/]*)/>',
+                r'<geom name="terrain" type="plane" size="8 8 0.05" \1/>',
+                xml)
+            if n != 1 or "hfield" in xml:
+                raise RuntimeError("mjx_compat terrain rewrite failed — "
+                                   "mujoco_prototype terrain XML changed?")
         # Drop the backup grid plane 1 mm under the terrain: it can never
         # win a contact in C MuJoCo, but MJX evaluates every plane×geom
         # pair every substep, so the duplicate doubles ground-contact

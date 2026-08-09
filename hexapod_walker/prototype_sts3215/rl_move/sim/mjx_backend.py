@@ -24,10 +24,15 @@ What this module provides today:
   firmware dead-zone → ``mjx.step`` → IMU specific-force and gyro
   accumulation at the physics rate.
 
-Not here yet (phase 2+): batched reset/settle, per-env DR model fields
-(MJX supports vmapping model arrays), touch-sensor reward inputs, and a
-VecEnv that plugs into train_ppo_sim. Nothing in the default training
-path imports this module — it is opt-in.
+Phase 2 lives in ``mjx_vec_env.py``: the SB3 ``MjxVecEnv`` drives this
+stepper (batched reset choreography via the in-tick slip override,
+pooled resets via ``snapshot_state``/``inject_env_states``). Per-env
+MODEL-field DR (mass/geometry/friction/gravity/actuator gains) is
+supported via ``model_dr=True`` + ``set_model_fields`` — the
+``MODEL_DR_FIELDS`` get a leading (B,) world dim, which both the warp
+and XLA impls batch correctly (probed on H200, mujoco-mjx 3.11).
+Nothing in the default training path imports this module — it is
+opt-in.
 """
 from __future__ import annotations
 
@@ -50,6 +55,18 @@ DEG2RAD = math.pi / 180.0
 # so K * dt_ctrl must comfortably exceed the largest latency
 # (fitted ~60 ms × DR latency_scale ≤ 1.8 ⇒ ~110 ms; 8 × 40 ms = 320 ms).
 PENDING_SLOTS = 8
+
+# The MjModel fields per-episode model DR writes (domain_rand
+# EpisodeRandomization.apply_to_model + servo_model.apply_params_to_model
+# with kp/kv/torque scales). Under ``model_dr`` these become PER-WORLD
+# device arrays with a leading (B,) dim — verified supported by both the
+# warp and XLA impls on mujoco-mjx 3.11 (see MJX_PORT.md).
+MODEL_DR_FIELDS = (
+    "body_mass", "body_inertia", "body_ipos", "body_pos",
+    "geom_friction", "geom_solref",
+    "actuator_gainprm", "actuator_biasprm", "actuator_forcerange",
+    "dof_damping", "opt.gravity",
+)
 
 
 def mjx_is_available() -> bool:
@@ -133,10 +150,13 @@ class TickOutput(NamedTuple):
     """Everything host-side obs/reward code needs, one control tick."""
     q: Any            # (18,)   joint positions
     qd: Any           # (18,)   joint velocities
+    qpos_all: Any     # (nq,)   full qpos incl. root free joint (resets)
+    qvel_all: Any     # (nv,)   full qvel (root twist + joints)
     qfrc_actuator: Any  # (18,) net actuator torque (current estimate)
     chassis_xpos: Any   # (3,)
     chassis_xmat: Any   # (3,3)
     subtree_com: Any    # (3,)  whole-robot CoM (root subtree)
+    pad_xpos: Any       # (6,3) foot-pad body positions (walk shaping)
     pad_z: Any          # (6,)  foot-pad body heights
     f_imu: Any          # (3,)  mean specific force at the IMU point (world)
     gyro: Any           # (3,)  mean gyro (site frame)
@@ -282,14 +302,29 @@ def _imu_point_velocity(jnp, dx, adr: _Addrs, r_off):
         omega, p - dx.subtree_com[adr.chassis_rootid])
 
 
-def _make_tick_fn(mjx_model, adr: _Addrs, substeps: int, gravity):
-    """Build the single-env control-tick function (to be vmapped+jitted)."""
+def _make_tick_fn(base_model, adr: _Addrs, substeps: int,
+                  dr_fields: tuple[str, ...] = ()):
+    """Build the single-env control-tick function (to be vmapped+jitted).
+
+    ``base_model`` is a CLOSURE CONSTANT (compile-time), which is what
+    keeps Warp fast: passing the model (or any of its fields) as
+    runtime data measurably slows the compiled step (whole model as
+    argument: ~1.65x on H200). The slip-settle therefore stays a
+    SECOND compiled variant closing over the slip-friction model, as
+    before, never a runtime friction select.
+
+    Model DR enters through the tick's ``dr_vals`` argument: per-world
+    arrays for exactly ``dr_fields``, tree_replaced over the base
+    inside the trace (empty = no model DR, dr_vals must be None).
+    Gravity for the IMU specific force comes from ``model.opt.gravity``
+    — the DR'd, possibly tilted vector, exactly like sim_env._advance.
+    """
     jax, jnp, mjx = _require_mjx()
-    h = float(mjx_model.opt.timestep)
-    gravity = jnp.asarray(gravity, jnp.float32)
+    h = float(base_model.opt.timestep)
 
     def substep(carry, _):
-        dx, prof, imu, params, limp = carry
+        model, dx, prof, imu, params, limp = carry
+        gravity = model.opt.gravity
         prof, target = _profile_tick(jnp, prof, params, h)
         q = dx.qpos[adr.qadr]
         # Firmware dead-zone at the physics level (see sim_env._advance);
@@ -299,7 +334,7 @@ def _make_tick_fn(mjx_model, adr: _Addrs, substeps: int, gravity):
             jnp.abs(err) - params.deadband, 0.0)
         eff = jnp.where(limp, q, eff)
         dx = dx.replace(ctrl=dx.ctrl.at[adr.pos_act].set(eff))
-        dx = mjx.step(mjx_model, dx)
+        dx = mjx.step(model, dx)
 
         omega, R, v_pt = _imu_point_velocity(jnp, dx, adr, params.imu_off)
         a_pt = (v_pt - imu.prev_v) / h
@@ -316,14 +351,18 @@ def _make_tick_fn(mjx_model, adr: _Addrs, substeps: int, gravity):
             + dx.site_xmat[adr.gyro_site].reshape(3, 3).T @ omega,
             gyro_n=imu.gyro_n + 1,
         )
-        return (dx, prof, imu, params, limp), None
+        return (model, dx, prof, imu, params, limp), None
 
-    def tick(dx, prof, imu, params, cmd, limp):
+    def tick(dr_vals, dx, prof, imu, params, cmd, limp):
+        model = base_model
+        if dr_fields:
+            model = model.tree_replace(dict(zip(dr_fields, dr_vals)))
         prof = _profile_enqueue(jnp, prof, params, cmd)
-        (dx, prof, imu, _, _), _ = jax.lax.scan(
-            substep, (dx, prof, imu, params, limp), None, length=substeps)
+        (_, dx, prof, imu, _, _), _ = jax.lax.scan(
+            substep, (model, dx, prof, imu, params, limp), None,
+            length=substeps)
         f_imu = jnp.where(imu.f_n > 0, imu.f_accum / jnp.maximum(imu.f_n, 1),
-                          -gravity)
+                          -model.opt.gravity)
         gyro = imu.gyro_accum / jnp.maximum(imu.gyro_n, 1)
         # Accumulators reset per tick (read), prev_v persists (_read_state).
         imu = imu._replace(
@@ -331,10 +370,12 @@ def _make_tick_fn(mjx_model, adr: _Addrs, substeps: int, gravity):
             gyro_accum=jnp.zeros(3, jnp.float32), gyro_n=jnp.int32(0))
         out = TickOutput(
             q=dx.qpos[adr.qadr], qd=dx.qvel[adr.vadr],
+            qpos_all=dx.qpos, qvel_all=dx.qvel,
             qfrc_actuator=dx.qfrc_actuator[adr.vadr],
             chassis_xpos=dx.xpos[adr.chassis_bid],
             chassis_xmat=dx.xmat[adr.chassis_bid].reshape(3, 3),
             subtree_com=dx.subtree_com[adr.chassis_rootid],
+            pad_xpos=dx.xpos[adr.pad_bids],
             pad_z=dx.xpos[adr.pad_bids, 2],
             f_imu=f_imu, gyro=gyro,
             sensordata=dx.sensordata, time=dx.time)
@@ -352,28 +393,113 @@ class MjxTickStepper:
     MuJoCo, hand it to ``reset_envs``), commands (from the SafetyLayer /
     IK / policy), and obs/reward (from the returned ``TickOutput``).
 
-    Phase-1 limits: one shared ``mjx.Model`` — per-env DR of model
-    fields (mass, friction, gravity …) is NOT applied yet; per-env
-    actuation DR (latency/deadband/vel scales, IMU mount) IS supported
-    via per-env ``TickParams``.
+    Per-env DR: actuation DR (latency/deadband/vel scales, IMU mount)
+    via per-env ``TickParams``; MODEL-field DR (mass, geometry,
+    friction, compliance, gravity, actuator gains) via ``model_dr=True``
+    — the ``MODEL_DR_FIELDS`` become per-world device arrays written
+    with ``set_model_fields``.
     """
 
     def __init__(self, mj_model, n_envs: int, *,
                  params: SimServoParams | None = None,
-                 device=None):
+                 device=None, impl: str | None = None,
+                 nacon_per_env: int = 64, njmax: int = 256,
+                 slip_mu: float | None = None,
+                 model_dr: bool = False):
+        """``impl``: None = mjx default, "jax" = XLA, "warp" = MuJoCo-Warp
+        (needs mujoco-warp installed; ~2 orders of magnitude faster on
+        GPU for this model). ``nacon_per_env``/``njmax`` size Warp's
+        fixed contact/constraint buffers — Warp WARNS on overflow and
+        silently drops contacts, so keep headroom (the settled hexapod
+        uses ~11 contacts/env).
+
+        ``slip_mu``: also compile a tick variant closing over a model
+        with every geom's sliding friction set to this value — the
+        reset slip-settle (SimHexapodBalanceEnv.SLIP_MU), selected per
+        tick with ``tick(..., slip=True)``. Two static models instead
+        of a runtime friction write keeps friction a compile-time
+        constant (a runtime select measurably slows Warp).
+
+        ``model_dr``: give every world its own copy of the
+        ``MODEL_DR_FIELDS`` (leading (B,) dim on device). Rows start at
+        the base model's values; write per-episode draws with
+        ``set_model_fields`` (the vec envs do this on reset). The slip
+        variant applies every DR field EXCEPT ``geom_friction`` (the
+        slip write overrides the DR'd sliding friction, exactly like
+        the C env's temporary ``geom_friction[:, 0] = SLIP_MU``).
+        """
+        import copy as _copy
         jax, jnp, mjx = _require_mjx()
         self._jax, self._jnp, self._mjx = jax, jnp, mjx
         self.n_envs = int(n_envs)
         self.mj_model = mj_model
-        self.model = mjx.put_model(mj_model, device=device)
+        self.impl = impl
+        self._nacon_per_env = int(nacon_per_env)
+        self._njmax = int(njmax)
+        self._slip_mu = slip_mu
+        self.model_dr = bool(model_dr)
+        kw = {} if impl is None else {"impl": impl}
+        self.model = mjx.put_model(mj_model, device=device, **kw)
+        self.model_slip = None
+        if slip_mu is not None:
+            m_slip = _copy.deepcopy(mj_model)
+            m_slip.geom_friction[:, 0] = float(slip_mu)
+            self.model_slip = mjx.put_model(m_slip, device=device, **kw)
+        if self.model_dr:
+            B = self.n_envs
+            # Per-world copies of the DR'able fields only — the rest of
+            # the model stays a shared compile-time constant.
+            self._dr_fields = {
+                name: jnp.broadcast_to(
+                    (v := self._get_model_field(self.model, name)),
+                    (B,) + v.shape)
+                for name in MODEL_DR_FIELDS}
+        else:
+            self._dr_fields = None
         self.adr = _model_addrs(mj_model)
         self.substeps = None  # set per dt at first reset
         self.params_src = params if params is not None else SimServoParams.load()
         self._tick_jit = None
+        self._tick_jit_slip = None
+        self._fwd_jit = None
         self._dx = None
         self._prof = None
         self._imu = None
         self._tick_params = None
+        self._acc_units0 = 15.0
+
+    @staticmethod
+    def _get_model_field(model, name):
+        if name.startswith("opt."):
+            return getattr(model.opt, name[4:])
+        return getattr(model, name)
+
+    # Slip variant: friction comes from the slip model, not DR rows.
+    _SLIP_DR_FIELDS = tuple(f for f in MODEL_DR_FIELDS
+                            if f != "geom_friction")
+
+    def _dr_vals(self, fields=MODEL_DR_FIELDS):
+        """Tuple the compiled fns take for model DR (None when off)."""
+        if not self.model_dr:
+            return None
+        return tuple(self._dr_fields[n] for n in fields)
+
+    def set_model_fields(self, fields: dict, idx=None) -> None:
+        """Write per-env MODEL_DR_FIELDS rows (host numpy) into the
+        per-world device copies. ``fields`` maps field name → (k, ...)
+        rows; ``idx`` selects the worlds (None = full batch, rows must
+        then be (B, ...)). Requires ``model_dr=True``."""
+        assert self.model_dr, "stepper built without model_dr"
+        jnp = self._jnp
+        for name, rows in fields.items():
+            cur = self._dr_fields[name]
+            rows = jnp.asarray(np.asarray(rows), dtype=cur.dtype)
+            if idx is None:
+                self._dr_fields[name] = jnp.broadcast_to(
+                    rows, cur.shape)
+            else:
+                ii = jnp.asarray(np.asarray(idx, np.int32))
+                self._dr_fields[name] = cur.at[ii].set(rows)
 
     # -- host-side helpers -------------------------------------------------
 
@@ -437,7 +563,52 @@ class MjxTickStepper:
                              (B, N_JOINTS))
 
         substeps = max(1, int(round(dt_ctrl / self.mj_model.opt.timestep)))
+        self._acc_units0 = float(acc_units0)
         tp = tick_params or self.default_tick_params()
+        self.set_tick_params(tp, dt_ctrl=dt_ctrl)
+
+        if self.substeps != substeps or self._tick_jit is None:
+            self.substeps = substeps
+            dr_ax = 0 if self.model_dr else None
+            dr_f = MODEL_DR_FIELDS if self.model_dr else ()
+            tick = _make_tick_fn(self.model, self.adr, substeps,
+                                 dr_fields=dr_f)
+            self._tick_jit = jax.jit(jax.vmap(
+                tick, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0)))
+            self._tick_jit_slip = None
+            if self.model_slip is not None:
+                dr_fs = self._SLIP_DR_FIELDS if self.model_dr else ()
+                tick_s = _make_tick_fn(self.model_slip, self.adr,
+                                       substeps, dr_fields=dr_fs)
+                self._tick_jit_slip = jax.jit(jax.vmap(
+                    tick_s, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0)))
+
+            def fwd(dr_vals, dx):
+                m = self.model
+                if self.model_dr:
+                    m = m.tree_replace(dict(zip(MODEL_DR_FIELDS, dr_vals)))
+                return self._mjx.forward(m, dx)
+            self._fwd_jit = jax.jit(jax.vmap(fwd, in_axes=(dr_ax, 0)))
+
+        if self.impl == "warp":
+            # Warp builds Data from the raw MjModel and uses fixed-size
+            # batch-total contact / per-env constraint-row buffers.
+            dx0 = self._mjx.make_data(
+                self.mj_model, impl="warp",
+                naconmax=self._nacon_per_env * B, njmax=self._njmax)
+        else:
+            dx0 = self._mjx.make_data(self.model)
+        dx = jax.vmap(lambda q, v: dx0.replace(
+            qpos=q, qvel=v, ctrl=dx0.ctrl.at[self.adr.pos_act].set(
+                q[self.adr.qadr])))(jnp.asarray(qpos), jnp.asarray(qvel))
+        self._dx = self._fwd_jit(self._dr_vals(), dx)
+
+        self.reset_profiles(q0)
+        self._imu = jax.vmap(lambda _: init_imu_state(jnp))(jnp.arange(B))
+
+    def set_tick_params(self, tp: dict, *, dt_ctrl: float) -> None:
+        """Upload per-env TickParams (full batch; small arrays)."""
+        jnp = self._jnp
         max_lat = float(np.max(tp["latency_s"]))
         if PENDING_SLOTS * dt_ctrl < 2.0 * max_lat:
             raise ValueError(
@@ -449,37 +620,89 @@ class MjxTickStepper:
             vel_max=jnp.asarray(tp["vel_max"], jnp.float32),
             imu_off=jnp.asarray(tp["imu_off"], jnp.float32))
 
-        if self.substeps != substeps or self._tick_jit is None:
-            self.substeps = substeps
-            tick = _make_tick_fn(self.model, self.adr, substeps,
-                                 self.mj_model.opt.gravity)
-            self._tick_jit = jax.jit(jax.vmap(tick, in_axes=0))
-
-        dx0 = self._mjx.make_data(self.model)
-        dx = jax.vmap(lambda q, v: dx0.replace(
-            qpos=q, qvel=v, ctrl=dx0.ctrl.at[self.adr.pos_act].set(
-                q[self.adr.qadr])))(jnp.asarray(qpos), jnp.asarray(qvel))
-        self._dx = jax.jit(jax.vmap(
-            partial(self._mjx.forward, self.model)))(dx)
-
-        vel0 = self._tick_params.vel_max
-        acc0 = jnp.full((B, N_JOINTS),
-                        acc_units0 * ACC_UNIT_DEG_S2 * DEG2RAD, jnp.float32)
+    def reset_profiles(self, q0: np.ndarray) -> None:
+        """Re-initialize EVERY env's servo profile at q0 (B, 18) — the
+        reset choreography's capture-nominal stage (ServoProfile.reset).
+        """
+        jax, jnp = self._jax, self._jnp
+        q0 = np.broadcast_to(np.asarray(q0, np.float32),
+                             (self.n_envs, N_JOINTS))
+        acc0 = jnp.full((self.n_envs, N_JOINTS),
+                        self._acc_units0 * ACC_UNIT_DEG_S2 * DEG2RAD,
+                        jnp.float32)
         self._prof = jax.vmap(partial(init_profile_state, jnp))(
-            jnp.asarray(q0), vel0, acc0)
-        self._imu = jax.vmap(lambda _: init_imu_state(jnp))(jnp.arange(B))
+            jnp.asarray(q0), self._tick_params.vel_max, acc0)
 
-    def tick(self, cmd: Command, *,
-             limp: np.ndarray | bool = False) -> TickOutput:
+    def tick(self, cmd: Command, *, limp: np.ndarray | bool = False,
+             slip: bool = False) -> TickOutput:
         """Advance every env one control tick; returns device arrays
-        (np.asarray() them host-side)."""
+        (np.asarray() them host-side). ``slip=True`` uses the low-
+        friction model variant (reset slip-settle; needs slip_mu)."""
         assert self._dx is not None, "call reset_envs() first"
         jnp = self._jnp
+        if slip:
+            fn = self._tick_jit_slip
+            if fn is None:
+                raise RuntimeError("slip tick requested but slip_mu not set")
+            dr = self._dr_vals(self._SLIP_DR_FIELDS)
+        else:
+            fn = self._tick_jit
+            dr = self._dr_vals()
         limp_b = jnp.asarray(
             np.broadcast_to(np.asarray(limp, bool), (self.n_envs,)))
-        self._dx, self._prof, self._imu, out = self._tick_jit(
-            self._dx, self._prof, self._imu, self._tick_params, cmd, limp_b)
+        self._dx, self._prof, self._imu, out = fn(
+            dr, self._dx, self._prof, self._imu, self._tick_params, cmd,
+            limp_b)
         return out
+
+    # -- state surgery (pooled resets) ---------------------------------------
+
+    def snapshot_state(self):
+        """Reference-snapshot of all device state (jax arrays are
+        immutable, so no copies are needed). Includes the per-world DR
+        fields under model_dr — a pool-refill choreography overwrites
+        them and must not leak new draws into the live episodes."""
+        return (self._dx, self._prof, self._imu, self._tick_params,
+                dict(self._dr_fields) if self.model_dr else None)
+
+    def restore_state(self, snap) -> None:
+        (self._dx, self._prof, self._imu, self._tick_params, dr) = snap
+        if self.model_dr:
+            self._dr_fields = dict(dr)
+
+    def inject_env_states(self, idx, qpos, qvel, q_nom) -> None:
+        """Overwrite envs ``idx`` with settled reset states (pooled
+        resets): full qpos/qvel, servo profile re-initialized at q_nom,
+        IMU accumulators cleared — then one batched forward to refresh
+        derived quantities (pure function of state, so live envs are
+        unchanged by it). Update tick params rows via set_tick_params
+        BEFORE calling if the pooled episode carries different DR."""
+        jax, jnp = self._jax, self._jnp
+        k = len(idx)
+        idx = jnp.asarray(np.asarray(idx, np.int32))
+        qpos = jnp.asarray(np.asarray(qpos, np.float32).reshape(
+            k, self.mj_model.nq))
+        qvel = jnp.asarray(np.asarray(qvel, np.float32).reshape(
+            k, self.mj_model.nv))
+        q0 = jnp.asarray(np.asarray(q_nom, np.float32).reshape(k, N_JOINTS))
+
+        dx = self._dx
+        ctrl = dx.ctrl.at[idx[:, None],
+                          jnp.asarray(self.adr.pos_act)[None, :]].set(q0)
+        dx = dx.replace(qpos=dx.qpos.at[idx].set(qpos),
+                        qvel=dx.qvel.at[idx].set(qvel), ctrl=ctrl)
+        self._dx = self._fwd_jit(self._dr_vals(), dx)
+
+        acc0 = jnp.full((k, N_JOINTS),
+                        self._acc_units0 * ACC_UNIT_DEG_S2 * DEG2RAD,
+                        jnp.float32)
+        prof_new = jax.vmap(partial(init_profile_state, jnp))(
+            q0, self._tick_params.vel_max[idx], acc0)
+        self._prof = jax.tree_util.tree_map(
+            lambda full, new: full.at[idx].set(new), self._prof, prof_new)
+        imu_new = jax.vmap(lambda _: init_imu_state(jnp))(jnp.arange(k))
+        self._imu = jax.tree_util.tree_map(
+            lambda full, new: full.at[idx].set(new), self._imu, imu_new)
 
     @property
     def data(self):

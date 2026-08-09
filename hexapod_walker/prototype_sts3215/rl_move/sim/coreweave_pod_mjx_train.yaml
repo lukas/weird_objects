@@ -1,0 +1,53 @@
+# MJX training-experiment pod (see MJX_PORT.md phase 2 + train_ppo_mjx.py).
+# One SPEED-configured experiment = 1 H200 + ~26 CPU cores: the host
+# halves are sharded across worker processes (--host-workers, MJX_PORT.md
+# item 7), so cores buy throughput almost linearly until Warp's 60-74k
+# env-steps/s tick becomes the bound (~24-32 workers at B=4096).
+# Size --host-workers ≈ (cpu request − 2 for trainer/JAX/copies).
+#
+# Do NOT raise CPU requests casually: g129004/g142d86 are ~98% CPU-
+# requested by the campaign; GPU-pod cores must come from the slack
+# (g12ba48 ~29 free cores, g131eec ~124 once CoreWeave's health-check
+# releases it). With 26 requested cores, ONE speed pod fits g12ba48;
+# for breadth instead, drop requests to cpu 4-6 / --host-workers 4 and
+# stack up to 8 pods per node (slower each, GPU pool is the limit).
+#
+# Launch:
+#   kubectl apply -f rl_move/sim/coreweave_pod_mjx_train.yaml
+#   tar --exclude logs --exclude '*.stl' --exclude __pycache__ -czf /tmp/code.tgz .
+#   kubectl cp /tmp/code.tgz hexapod-mjx-train-0:/tmp/code.tgz
+#   kubectl exec hexapod-mjx-train-0 -- env HEXAPOD_MJX=1 bash /workspace/setup.sh
+#   kubectl exec hexapod-mjx-train-0 -- bash -c "cd /workspace/prototype_sts3215 && \
+#     python -u -m rl_move.sim.train_ppo_mjx --task joint_walk --n-envs 4096 \
+#       --impl warp --host-workers 24 --steps 20000000 --run-name mjx-trial-0"
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hexapod-mjx-train-0
+  namespace: default
+  labels:
+    app: hexapod-mjx-train
+spec:
+  restartPolicy: Never
+  containers:
+    - name: train
+      image: python:3.11-slim
+      command: ["sleep", "infinity"]
+      workingDir: /workspace
+      env:
+        - name: MUJOCO_GL
+          value: osmesa
+        # Don't let XLA grab 75% of the 141 GB H200 by default; the
+        # hexapod batch needs a fraction of that and modest allocation
+        # keeps the door open to stacking runs per GPU later.
+        - name: XLA_PYTHON_CLIENT_MEM_FRACTION
+          value: "0.30"
+      resources:
+        requests:
+          cpu: "26"
+          memory: 48Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "28"
+          memory: 96Gi
+          nvidia.com/gpu: "1"

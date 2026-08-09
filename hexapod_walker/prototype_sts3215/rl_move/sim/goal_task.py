@@ -290,6 +290,14 @@ class SimHexapodGoalEnv(SimHexapodBalanceEnv):
         return self._goal_gen.sample(self.rng, self.episode_steps + 1,
                                      self.dt)
 
+    def set_goal_mix(self, mix: dict) -> None:
+        """Set p_<mode> sampling probabilities on the goal generator.
+        VecEnv ``env_method`` hook — needed because the sharded MJX vec
+        env's env objects live in worker processes, where in-process
+        attribute pokes can't reach (train_ppo_mjx --goal-mix)."""
+        for mode, p in mix.items():
+            setattr(self._goal_gen, f"p_{mode}", float(p))
+
 
 def make_goal_env(**kwargs):
     """Factory for SB3 ``make_vec_env``."""

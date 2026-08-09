@@ -93,10 +93,11 @@ def bench_c(model, data0, ticks: int) -> float:
     return time.perf_counter() - t0
 
 
-def bench_mjx(model, data0, batch: int, ticks: int) -> tuple[float, float]:
+def bench_mjx(model, data0, batch: int, ticks: int,
+              impl: str | None = None) -> tuple[float, float]:
     """Returns (compile_s, run_s) for `ticks` ticks at batch size."""
     params = SimServoParams.load()
-    st = MjxTickStepper(model, batch, params=params)
+    st = MjxTickStepper(model, batch, params=params, impl=impl)
     qadr = joint_qpos_addrs(model)
     q0 = data0.qpos[qadr].copy()
     st.reset_envs(np.tile(data0.qpos, (batch, 1)),
@@ -126,6 +127,10 @@ def main() -> None:
                     help="solver iterations for the MJX copy "
                          "(0 = keep the XML's 50; C baseline always "
                          "runs the production model untouched)")
+    ap.add_argument("--mjx-ls-iterations", type=int, default=8)
+    ap.add_argument("--impl", default=None, choices=["jax", "warp"],
+                    help="mjx backend implementation (warp needs "
+                         "mujoco-warp installed; much faster on GPU)")
     args = ap.parse_args()
 
     # C baseline: the exact production model (hfield, iterations=50).
@@ -154,12 +159,15 @@ def main() -> None:
                             mesh_visuals=False, mjx_compat=True)
     apply_params_to_model(model_mjx, SimServoParams.load())
     if args.mjx_iterations > 0:
-        tune_for_mjx(model_mjx, iterations=args.mjx_iterations)
+        tune_for_mjx(model_mjx, iterations=args.mjx_iterations,
+                     ls_iterations=args.mjx_ls_iterations)
         print(f"MJX solver: iterations={model_mjx.opt.iterations} "
               f"ls_iterations={model_mjx.opt.ls_iterations} "
+              f"impl={args.impl or 'default'} "
               f"(C baseline keeps {model.opt.iterations})")
     for b in args.batch:
-        comp, run = bench_mjx(model_mjx, data0, b, args.ticks)
+        comp, run = bench_mjx(model_mjx, data0, b, args.ticks,
+                              impl=args.impl)
         eps = args.ticks * b / run
         line = (f"MJX batch {b:5d}: {eps:8.1f} env-steps/s "
                 f"({eps * substeps:9.0f} phys steps/s, "

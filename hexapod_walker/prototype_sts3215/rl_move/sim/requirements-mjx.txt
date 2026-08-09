@@ -11,3 +11,8 @@ mujoco-mjx==3.9.0
 # CPU JAX (laptop / smoke tests). On a CUDA pod install instead:
 #   pip install "jax[cuda12]"
 jax>=0.11
+
+# GPU pods only: the Warp backend (impl="warp") is what actually beats
+# the CPU pods — the XLA impl is ~30x slower on this model (MJX_PORT.md).
+# Not installable on macOS; laptop runs impl default (jax).
+#   pip install mujoco-warp

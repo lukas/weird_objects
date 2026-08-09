@@ -133,6 +133,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # lean is a subset of track).
     EVAL_MODES = ("hold", "track", "unload", "raise", "rise", "walk")
 
+    # Per-episode walk bookkeeping the batched MJX vec env must carry in
+    # its pooled reset-state snapshots (see mjx_vec_env.py).
+    MJX_SNAPSHOT_EXTRA = ("_foot_on", "_liftoff_xy", "_liftoff_step",
+                          "_foot_prev_xy", "_duty_hist", "_phase",
+                          "_walk_bucket")
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Walk probability lives on the generator so the eval callback's
@@ -197,15 +203,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 [obs, [math.sin(self._phase), math.cos(self._phase)]])
         return obs.astype(np.float32)
 
-    def reset(self, *args, **kwargs):
-        # State the obs hook reads must be reset BEFORE super().reset()
-        # builds the first observation.
+    def _reset_begin(self, seed: int | None = None):
+        # State the obs hook reads must be reset BEFORE _reset_finalize
+        # builds the first observation. Done in the pre-physics reset
+        # hook so both the C path (reset()) and the batched MJX vec env
+        # (which drives _reset_begin directly) get it.
         self._foot_on = [True] * 6
         self._liftoff_xy = [None] * 6
         self._foot_prev_xy = [None] * 6
         self._duty_hist = []
         self._phase = 0.0
-        return super().reset(*args, **kwargs)
+        return super()._reset_begin(seed)
 
     # ------------------------------------------------------------------
 
@@ -296,8 +304,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         R = self.data.xmat[self._chassis_bid].reshape(3, 3)
         return (R.T @ v_world)[:2]
 
-    def step(self, action):
-        obs, reward, term, trunc, info = super().step(action)
+    def _post_step(self, result):
+        # Walk-mode shaping — in the _post_step hook (not a step()
+        # wrapper) so the batched MJX vec env, which drives the
+        # begin/tick/finish halves directly, applies it too. Behavior
+        # identical to the historical step() override, including on the
+        # rejected-action early return.
+        obs, reward, term, trunc, info = super()._post_step(result)
         if (self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "") == "walk"):
             goal = self._current_goal()
