@@ -6106,7 +6106,8 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_walk_dr05 --n-envs 4096 --impl warp --host-workers 24 --notes 'OPERATOR LAUNCH (parallel-lines directive): HIGHER DR. The champion lineage trains at DR 0 and is only EVALED at DR 1.0; training under domain randomization 0.5 (mass/geometry/friction/compliance/gravity/gains per MJX model-field DR) tests whether the gait is robust or brittle-tuned. One config change off champion ppo_goal_cw_walk_anchorgate.zip md5 35234ddc: --no-dr -> --dr-scale 0.5. If-true: DR0.5 det 6/6 gait_valid zero-term with slip/m <= 1.24, and DR0 retention holds. If-false (gait collapses under DR): the paddle is DR-fragile and robustness must precede more income shaping. Snapshot 98c7fb7. Parent: cw-walk-anchorgate. Gate: DR0.5 det+sto 6/6: zero terminations, gait_valid, det slip/m <= 1.24; DR0 det retention 6/6' > /tmp/train_cw-walk-dr05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-dr05.log",
-    "failed_reason": "run never appeared as 'running' in W&B within 240s"
+    "failed_reason": "run never appeared as 'running' in W&B within 240s",
+    "verdict": "DEAD at init (0 steps): FileNotFoundError on parent ckpt ppo_goal_cw_walk_anchorgate.zip on mjx-train-2 (snapshot.sh --sync excludes policies/). W&B tqb1qjaf state=failed. Retried once as cw-walk-dr05-r1 in cycle 35 after pushckpt + md5 verify."
   },
   {
     "run": "cw-chain-standwalksit",
@@ -6307,7 +6308,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-longdist-r2 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_walk_longdist_r2 --n-envs 4096 --impl warp --host-workers 24 --notes 'OPERATOR LAUNCH retry (r1 crashed: init-from checkpoint was missing on pod, now pushed + launcher preflight added). LONGER DISTANCE: 30 s horizons, narrow forward band, off champion 35234ddc. If-true: det median fwd distance >=1.2 m @ 30 s, gait_valid, zero terminations. Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6: median fwd distance >=1.2 m @ 30 s, zero terminations, gait_valid, det slip/m <= 1.24' > /tmp/train_cw-walk-longdist-r2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-longdist-r2.log",
     "wandb_id": "mga4l25v",
-    "verified": "2026-08-09T11:22:46+00:00"
+    "verified": "2026-08-09T11:22:46+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T11:28:46+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 11230,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "probe-walk-rulings-mjx",
@@ -6630,7 +6643,7 @@
       "MJX-stack probe (not a science arm) of the two cycle-35 rulings mechanisms before 20M runs use them: goal.walk_heading_max_rad=0 (forward-only command draws) and reward.walk_loadslip_gate (episode-accumulated loaded-slip/m income gate). Pass = 1M steps, zero tracebacks, walk_loadslip factor/ratio sane in logs, ep_rew positive, fps >= 10k. Parent: rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip. Gate: 1M steps complete, 0 tracebacks, loadslip factor sane, fps>=10k"
     ],
     "created": "2026-08-09T11:23:50+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -6647,7 +6660,8 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && WANDB_MODE=disabled nohup python -m rl_move.sim.train_ppo_mjx --run-name probe-walk-rulings-mjx --steps 1000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set reward.walk_loadslip_gate=1.0 --cfg-set reward.loadslip_ok=0.75 --cfg-set reward.loadslip_max=1.5 --out-name ppo_goal_probe_walk_rulings_mjx --n-envs 4096 --impl warp --host-workers 24 --notes 'MJX-stack probe (not a science arm) of the two cycle-35 rulings mechanisms before 20M runs use them: goal.walk_heading_max_rad=0 (forward-only command draws) and reward.walk_loadslip_gate (episode-accumulated loaded-slip/m income gate). Pass = 1M steps, zero tracebacks, walk_loadslip factor/ratio sane in logs, ep_rew positive, fps >= 10k. Parent: rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip. Gate: 1M steps complete, 0 tracebacks, loadslip factor sane, fps>=10k' > /tmp/train_probe-walk-rulings-mjx.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_probe-walk-rulings-mjx.log",
-    "verified": "2026-08-09T11:25:56+00:00"
+    "verified": "2026-08-09T11:25:56+00:00",
+    "verdict": "PASS: 1M steps in 257s, 0 tracebacks, both mechanisms live in MJX stack (loadslip gate binding: ep_rew 26->214 vs ~1100+ ungated lineage, climbing; periodic eval walk err 0.034 at 1M = gait intact). Cleared cw-walk-loadslip + heading-scope arms."
   },
   {
     "run": "cw-walk-dr05-r1",
@@ -6707,7 +6721,7 @@
       "24"
     ],
     "created": "2026-08-09T11:26:21+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -6715,10 +6729,178 @@
       "running_experiments_before": 1,
       "code_sha_local": "3f8f84bf770aac56b8e18c0641b0e12f940e31b5",
       "code_sha_pod": "3f8f84bf770aac56b8e18c0641b0e12f940e31b5",
-      "init_from_on_pod": true
+      "init_from_on_pod": true,
+      "pid": "2301",
+      "log_growth_bytes": [
+        4932,
+        10584
+      ],
+      "wandb_id": "zeban4qc",
+      "global_step_window": [
+        393216,
+        1638400
+      ],
+      "fps_estimate": 13835.4
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-dr05-r1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_walk_dr05_r1 --notes 'Can the walking gait survive a randomized world? Until now the walker trained in ONE fixed simulated physics and was only tested under randomization; a real robot'\"'\"'s mass, friction and motor strength never match the simulator exactly, so a gait that only works in one physics is not deployable. This run (an operator-requested arm, relaunched after its first copy died on a missing checkpoint file) retrains the champion walker WHILE the simulator randomizes mass/geometry/friction/gravity/motor gains at half intensity (DR 0.5). If the gait is genuinely robust it keeps walking with zero falls under randomization; if it is brittle-tuned to one physics it will degrade, telling us robustness needs its own training ladder before hardware. Off champion ppo_goal_cw_walk_anchorgate.zip md5 35234ddc, one variable: --no-dr -> --dr-scale 0.5. Gate: DR0.5 det+sto zero terminations + gait_valid + det slip/m <= 1.24, DR0 retention. Snapshot 3f8f84b.' --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-walk-dr05-r1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-dr05-r1.log"
+    "log": "/tmp/train_cw-walk-dr05-r1.log",
+    "wandb_id": "zeban4qc",
+    "verified": "2026-08-09T11:30:01+00:00"
+  },
+  {
+    "run": "cw-steer-fdiag",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Steering-competence arm (operator parallel line; A/B scope partner to cw-walk-fwdband). Plain: the robot mostly practiced 'go straight ahead'; to drive it around a room it must follow diagonal commands too. This run trains the champion on commands drawn uniformly across the ruled forward-diagonal scope (+/-45deg, walk_heading_max_rad=pi/4) instead of the legacy 60% straight / 20% diag / 20% anywhere mix - one variable off champion 35234ddc. Prediction-if-true: diagonal-draw progress_ratio (harness, own cfg, DR1.0) improves vs the champion fdiag baseline (recorded this cycle in logs/ckpt_eval/champ_anchorgate_fdiag_dr10) beyond eval noise, with forward retention (DR0 det fwd>=0.55, gv 12/12) intact. Prediction-if-false: diag progress_ratio stays at baseline while forward holds - diagonal transport is limited by the paddle gait itself, not the training distribution; steering waits on the contact-pricing fix and scope-only arms stop. Strongest alternative: uniform +/-45deg merely DILUTES forward training - that shows as forward-retention FAIL with no diag gain, distinguishable from both predictions. Exploratory/non-promotion per rulings section 4; cannot displace the champion.",
+    "gate": "own-cfg DR1.0 harness 15s 6+6: diag-draw (|heading|>=15deg) mean prog_ratio improves vs champ fdiag baseline beyond +/-1-2ep noise; DR0 det fwd>=0.55; gv 12/12; 0 term; frames watched det+sto. Non-promotion arm.",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip",
+      "--no-dr",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.02",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7853981633974483",
+      "--out-name",
+      "ppo_goal_cw_steer_fdiag",
+      "--notes",
+      "The robot has only really practiced walking straight ahead; to drive it around a room it must follow diagonal 'steer that way' commands as well. This run takes the current walking champion and trains it on commands drawn evenly across the forward-diagonal fan (+/-45 degrees) that the operator ruled in, instead of the old mix that was 60% straight-ahead. If we are right, the robot's progress along diagonal commands improves without its straight-ahead walking getting worse; if diagonal progress stays flat, the sliding paddle gait itself - not lack of practice - is what blocks steering, and steering work waits for the physics-pricing fix. One variable off champion ppo_goal_cw_walk_anchorgate.zip (md5 35234ddc): goal.walk_heading_max_rad=pi/4. Exploratory, non-promotion (rulings sec.4). Baseline: champion evaluated under the same +/-45deg panel this cycle (logs/ckpt_eval/champ_anchorgate_fdiag_dr10). Gate: diag prog_ratio > baseline beyond noise + DR0 forward retention. Snapshot 30e8b89.",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24"
+    ],
+    "created": "2026-08-09T11:30:01+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 2,
+      "code_sha_local": "30e8b89ae65f4e98eea3b6bd0dff3a1afeb883be",
+      "code_sha_pod": "30e8b89ae65f4e98eea3b6bd0dff3a1afeb883be",
+      "init_from_on_pod": true,
+      "pid": "745524",
+      "log_growth_bytes": [
+        10516,
+        23688
+      ],
+      "wandb_id": "kl87ee0r",
+      "global_step_window": [
+        1179648,
+        2621440
+      ],
+      "fps_estimate": 16019.9
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-steer-fdiag --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7853981633974483 --out-name ppo_goal_cw_steer_fdiag --notes 'The robot has only really practiced walking straight ahead; to drive it around a room it must follow diagonal '\"'\"'steer that way'\"'\"' commands as well. This run takes the current walking champion and trains it on commands drawn evenly across the forward-diagonal fan (+/-45 degrees) that the operator ruled in, instead of the old mix that was 60% straight-ahead. If we are right, the robot'\"'\"'s progress along diagonal commands improves without its straight-ahead walking getting worse; if diagonal progress stays flat, the sliding paddle gait itself - not lack of practice - is what blocks steering, and steering work waits for the physics-pricing fix. One variable off champion ppo_goal_cw_walk_anchorgate.zip (md5 35234ddc): goal.walk_heading_max_rad=pi/4. Exploratory, non-promotion (rulings sec.4). Baseline: champion evaluated under the same +/-45deg panel this cycle (logs/ckpt_eval/champ_anchorgate_fdiag_dr10). Gate: diag prog_ratio > baseline beyond noise + DR0 forward retention. Snapshot 30e8b89.' --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-steer-fdiag.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-steer-fdiag.log",
+    "wandb_id": "kl87ee0r",
+    "verified": "2026-08-09T11:34:18+00:00"
+  },
+  {
+    "run": "cw-walk-loadslip",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "The ruled structural fix for the cadence-reset exploit (OPERATOR RULING 2026-08-09 WALK-SLIP) and the definitive reward-side slip test. Every anti-slip income lever so far could be evaded by stepping MORE OFTEN because each touchdown reset the anchor allowance (free slip = cadence x tol: c1 +23% stances, tol5 paid an 18% stake, stepdisp12/c36 proved step credit does NOT pay the ride \u2014 the allowance-reset protection does). This arm swaps the gating QUANTITY, one variable off champion 35234ddc: walk_anchor_gate 1->0, walk_loadslip_gate=1 \u2014 velocity income multiplied by factor of EPISODE-ACCUMULATED loaded slip per meter of along-command progress (ok=0.75, max=1.5, floor 0.05 m; same quantity the harness scores; no touchdown can reset it). Controller scale audit: champion paddle ep keeps ~11% of velocity income, clean ep ~75% \u2014 a near-total stake where tol5 was 18%. GPU probe PASS (1M, 0 tb, ep_rew 26->214 climbing). If-true: walk_loadslip_ratio falls / factor climbs EARNED, harness det DR1.0 slip_per_m <=1.0 (champion 1.11 along-command / 1.24 legacy denominator). If-false: factor parks ~0.1-0.3 with income forfeited and slip flat \u2014 the policy pays a ~70-90% stake rather than stop sliding, which CLOSES the reward side entirely: slip becomes purely a sim contact-pricing defect (cycle-28 class). Strongest alternative: slip ratio falls via speed/progress collapse, not anchoring \u2014 excluded by progress_ratio 0.75-1.25 + speed-band checks. Exploit watch: unloading feet below contact threshold while sweeping (uncounted slip) = duty drop + swing spike; income starvation collapse (terminations, speed under band) = kill per checkup.",
+    "gate": "DR1.0 harness 15s own-cfg 6+6: det slip_per_m <=1.0 AND sto <=1.1, gait_valid 12/12, 0 term, progress_ratio median 0.75-1.25, speed in band; DR0 det retention fwd >=0.55 6/6; frames watched det+sto for anchored stance vs paddle-creep; W&B walk_loadslip_factor trend read against if-false shape (factor parked low, income forfeited)",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip",
+      "--no-dr",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.02",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=1.0",
+      "--cfg-set",
+      "reward.loadslip_ok=0.75",
+      "--cfg-set",
+      "reward.loadslip_max=1.5",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.05",
+      "--out-name",
+      "ppo_goal_cw_walk_loadslip",
+      "--notes",
+      "The robot's feet slide along the ground while it walks \u2014 on real hardware that means going nowhere and grinding the motors, and it is THE blocker to putting this policy on the physical robot. Every fix so far could be dodged by taking MORE, smaller steps, because each new footfall reset the slip allowance (the operator-ruled accounting bug). This run makes sliding unprofitable in a way extra stepping cannot undo: walking income is scaled by the episode's TOTAL accumulated foot-sliding per meter actually traveled \u2014 the exact number our evaluations score. If we are right, sliding drops below 1.0 m per meter traveled for the first time. If instead the policy just accepts earning ~10-25% income and keeps sliding (it once accepted an 18% cut), that definitively proves NO reward change can fix sliding and the simulator's ground-contact pricing itself must change. One variable off walk champion ppo_goal_cw_walk_anchorgate.zip (md5 35234ddc): per-touchdown anchor gate -> episode-accumulated loaded-slip gate (ok 0.75, max 1.5 slip/m). Controller scale audit + 1M GPU probe PASS recorded in ledger. Gate: det DR1.0 slip_per_m <=1.0, gait_valid 12/12, 0 term, progress_ratio 0.75-1.25, DR0 retention. Snapshot 3f8f84b.",
+      "--n-envs",
+      "4096"
+    ],
+    "created": "2026-08-09T11:34:18+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 3,
+      "code_sha_local": "30e8b89ae65f4e98eea3b6bd0dff3a1afeb883be",
+      "code_sha_pod": "3f8f84bf770aac56b8e18c0641b0e12f940e31b5"
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-2 code marker 3f8f84bf770aac56b8e18c0641b0e12f940e31b5 != local HEAD 30e8b89ae65f4e98eea3b6bd0dff3a1afeb883be. Sync first: snapshot.sh --sync hexapod-mjx-train-2 (and snapshot/commit before that if the tree is dirty)."
   }
 ]

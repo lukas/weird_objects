@@ -162,12 +162,17 @@ a file under `archive/` and link it.
   income gate, never touchdown-reset) + harness progress_ratio /
   slip_per_m (champion reads prog_ratio 1.43 — ruled overspeed
   confirmed; slip/m 1.11 on the along-command denominator). Retried
-  operator's `cw-walk-longdist` (DEAD at init: champion ckpt absent
-  on mjx-train-0 — `snapshot.sh --sync` excludes policies/;
-  `ops.sh pushckpt` added). Launched: longdist retry (train-0),
-  probe-walk-rulings-mjx → `cw-walk-loadslip` (train-2),
-  `cw-walk-fwdband` (train-3). `cw-steer-fdiag` deferred — HARD
-  reason: max_new_launches_per_cycle=4 reached.
+  operator arms `cw-walk-longdist`+`cw-walk-dr05` DEAD at init
+  (champion ckpt absent on pods — `snapshot.sh --sync` excludes
+  policies/; `ops.sh pushckpt` + ckpt pushed to train-0/2/3, md5
+  35234ddc; c36 took the longdist retry as -r2). Launched:
+  `cw-walk-dr05-r1` (train-3, operator DR-0.5 arm retried),
+  probe-walk-rulings-mjx → `cw-walk-loadslip` (train-2).
+  `cw-walk-fwdband` deferred — HARD reason: 4-launch cap +
+  no free pod (c36's steer-fdiag covers the heading knob at π/4).
+  NOTE for next cycle: WISHLIST tags `cw-walk-fast` +
+  `cw-chain-standwalksit` [RUNNING] but neither was ever launched
+  (no W&B run, no ledger entry) — they are READY pickups.
 - ## ASSUMPTION (operator to review) (c35): (1) rulings-(5)/(6) walk
   arms launched BEFORE the stepdisp12 verdict lands — the rulings
   make loaded-slip accounting + forward scope binding regardless of
