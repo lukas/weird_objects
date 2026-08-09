@@ -491,7 +491,7 @@ def _make_reward_parts_callback():
                 "reward_phase_contact",
                 "reward_support_margin", "reward_load_even",
                 "reward_step_event", "reward_drag", "reward_park_duty",
-                "reward_end_posture")
+                "reward_end_posture", "walk_prog_factor")
 
         def __init__(self):
             super().__init__()

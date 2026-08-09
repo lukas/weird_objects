@@ -3282,5 +3282,76 @@
         "problems": []
       }
     ]
+  },
+  {
+    "run": "probe-walk-kgate",
+    "pod": "hexapod-sweep-lower",
+    "steps": 150000,
+    "smoke": true,
+    "hypothesis": "Mechanical probe of reward.walk_kernel_prog_gate=1.0 on the c1 warm start: walk_prog_factor present in logs, env/reward_walk reduced vs c1-era ~1.6-1.7 scale at matching factor, no tracebacks, fps sane",
+    "gate": "",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_lowent_h15b_c1.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowent_h15b_c1.zip",
+      "--no-dr",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "200000",
+      "--video-every",
+      "200000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.02",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--out-name",
+      "ppo_goal_probe_walk_kgate",
+      "--n-envs",
+      "8",
+      "--no-wandb",
+      "--subproc",
+      "--notes",
+      "'Mechanical probe of reward.walk_kernel_prog_gate=1.0 on the c1 warm start: walk_prog_factor present in logs, env/reward_walk reduced vs c1-era ~1.6-1.7 scale at matching factor, no tracebacks, fps sane Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowent_h15b_c1.zip.'"
+    ],
+    "created": "2026-08-09T02:54:44+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 30,
+      "existing_trainers": [],
+      "free_cores_estimate": 30,
+      "host_load": {
+        "load1": 0.61,
+        "load5": 1.24,
+        "cores": 128
+      },
+      "code_sha_local": "42ee8fd14e0e56f779fea131b83d3d9e7ea46f2f",
+      "code_sha_pod": "42ee8fd14e0e56f779fea131b83d3d9e7ea46f2f",
+      "pid": "2795562",
+      "log_growth_bytes": [
+        68499,
+        68929
+      ]
+    },
+    "command": "cd /workspace/prototype_sts3215 && WANDB_MODE=disabled nohup python -m rl_move.sim.train_ppo_sim --run-name probe-walk-kgate --steps 150000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowent_h15b_c1.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 200000 --video-every 200000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --out-name ppo_goal_probe_walk_kgate --n-envs 8 --no-wandb --subproc --notes 'Mechanical probe of reward.walk_kernel_prog_gate=1.0 on the c1 warm start: walk_prog_factor present in logs, env/reward_walk reduced vs c1-era ~1.6-1.7 scale at matching factor, no tracebacks, fps sane Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowent_h15b_c1.zip.' > /tmp/train_probe-walk-kgate.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_probe-walk-kgate.log",
+    "verified": "2026-08-09T02:56:49+00:00"
   }
 ]
