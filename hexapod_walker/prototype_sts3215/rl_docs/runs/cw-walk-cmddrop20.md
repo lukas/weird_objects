@@ -18,3 +18,5 @@
 
 **gate**: Own-cfg harness at --dr-scale 0.0 + dr.cmd_drop_prob_max=0.20, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; frames watched det
 
+**note**: OVERLAP FLAG (c59): same dr.cmd_drop_prob_max axis as cw-walk-cmddrop10 (c57, max 0.10 vs this 0.20) — 3 concurrent refill cycles drew from the same dry READY well. Triage the pair as ONE intensity-ladder study. LESSON FROM torquedroop (c59): before verdicting, run the PARENT (longdist-r2) under the same own-cfg drop spread — the champion may already tolerate command drops for free, and the gate letter cannot distinguish that from a training effect.
+

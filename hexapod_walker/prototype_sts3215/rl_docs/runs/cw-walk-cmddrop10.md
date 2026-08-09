@@ -18,3 +18,5 @@
 
 **gate**: Own-cfg harness at --dr-scale 0.0 + dr.cmd_drop_prob_max=0.10, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2 m; plus DR0 no-dropout retention det 6/6 gv, det slip/m <=1.24; frames watched det
 
+**note**: OVERLAP FLAG (c59): same dr.cmd_drop_prob_max axis as cw-walk-cmddrop20 (max 0.20, RUNNING t10) — concurrent refill collision from the dry READY well. Triage the pair as ONE intensity-ladder study, and run the PARENT (longdist-r2) under the same own-cfg drop spread first (torquedroop c59 lesson: champion may already cover the axis for free; the gate letter cannot tell exposure effect from pre-existing tolerance).
+

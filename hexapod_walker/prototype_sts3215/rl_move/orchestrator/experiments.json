@@ -18352,7 +18352,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "note": "OVERLAP FLAG (c59): same dr.cmd_drop_prob_max axis as cw-walk-cmddrop20 (max 0.20, RUNNING t10) \u2014 concurrent refill collision from the dry READY well. Triage the pair as ONE intensity-ladder study, and run the PARENT (longdist-r2) under the same own-cfg drop spread first (torquedroop c59 lesson: champion may already cover the axis for free; the gate letter cannot tell exposure effect from pre-existing tolerance)."
   },
   {
     "run": "cw-walk-joylat25",
@@ -19013,6 +19014,7 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-cmddrop20 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.cmd_drop_prob_max=0.20 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_cmddrop20 --notes 'OPERATOR WISHLIST 13b (richer physics, one axis per run): lost SyncWrite commands are a REAL defect of the robot'\"'\"'s serial servo bus (servos chase the stale goal for a tick when a write drops). ISOLATED axis via dr.<field> overrides: dr-scale 0.0 with ONLY dr.cmd_drop_prob_max=0.20 (per-episode drop prob u(0,0.20) per control tick; full-DR default max is 0.05, champion trained at 0) - one variable off the no-DR champion. Plain: the robot should keep walking smoothly even when up to a fifth of its commands never arrive. Prediction-if-true: gait holds across the drop spread (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - bus-drop robustness is trainable by exposure and joins the transfer recipe. Prediction-if-false: high-drop draws destabilize the gait (jitter, falls, or progress collapse) - command dropout needs smoother action targets or filtering, not exposure. Strongest alternative: policy compensates by moving slower / smaller strides on all draws - check cadence + stride vs champion on low-drop draws. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.cmd_drop_prob_max=0.20, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; frames watched det' > /tmp/train_cw-walk-cmddrop20.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-cmddrop20.log",
     "wandb_id": "m5z03wmc",
-    "verified": "2026-08-09T18:04:19+00:00"
+    "verified": "2026-08-09T18:04:19+00:00",
+    "note": "OVERLAP FLAG (c59): same dr.cmd_drop_prob_max axis as cw-walk-cmddrop10 (c57, max 0.10 vs this 0.20) \u2014 3 concurrent refill cycles drew from the same dry READY well. Triage the pair as ONE intensity-ladder study. LESSON FROM torquedroop (c59): before verdicting, run the PARENT (longdist-r2) under the same own-cfg drop spread \u2014 the champion may already tolerate command drops for free, and the gate letter cannot distinguish that from a training effect."
   }
 ]

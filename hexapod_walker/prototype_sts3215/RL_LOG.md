@@ -560,3 +560,21 @@ a file under `archive/` and link it.
   c57 velsag30; t10 shm cleaned) — 3 concurrent refill cycles drew from the
   same READY well within minutes; re-check census AFTER queueing, not only
   before.
+
+- Cycle 59 (08-09 ~17:2x-18:1x): 2 real triages of 3 finished. `cw-walk-stopgo35-c1`
+  PASS — 35% stop density handled (own-cfg DR0 gv 12/12, 0 term, prog med 0.97,
+  min ep 0.92; frames: quiet level parks, restarts re-track ~3s); stop
+  transitions need no shaping; SKILLS row added; slip/m 1.43 = lineage paddle,
+  not hardware-ready. `cw-walk-torquedroop` FAIL/NO-EFFECT (dig-in with named
+  baseline: parent longdist-r2 under the IDENTICAL 0.60-1.05x torque spread
+  matches everywhere, incl. the same 2 collapsing low-torque det draws) —
+  exposure lever for torque droop CLOSED; champion ALREADY covers ~0.75-1.05x
+  free (SKILLS envelope updated), <=0.7x = paddle-gait transport boundary ->
+  estimator rung. `cw-walk-speedband2` finish event = c54's 0-step shm infra
+  FAIL closing in W&B; verdict + OUTCOME already recorded c54, no new evidence
+  (-r1 training). Refills (2, 40M GPU): groundtilt5 (13b floor-slope axis,
+  RUNNING t3 after 3 dirty-tree refusals c58 fixed), cmddrop20 (13b bus-drop
+  axis, RUNNING t10) — cmddrop20 OVERLAPS c57's cmddrop10 (0.10 vs 0.20 max):
+  cross-flagged in both ledgers, triage as ONE intensity-ladder study and run
+  the parent baseline FIRST (torquedroop lesson: gate letter can't tell
+  exposure effect from pre-existing champion tolerance).
