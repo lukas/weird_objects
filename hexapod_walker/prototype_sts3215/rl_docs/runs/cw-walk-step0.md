@@ -18,3 +18,5 @@
 
 **gate**: DR 0, det AND sto: from normal stance move forward >=10 cm with ALL SIX legs repeatedly cycling lift/swing/touchdown; per-leg duty ~[0.2,0.9]; >=2 swings/leg; no drag, no parked leg; video verdict pathology-first
 
+**verdict**: LAUNCH ABORTED (cycle 14): launcher crashed passing unquoted --notes to remote shell (>= parsed as redirect); no process ever started on pod (verified /proc scan + no log file). Relaunched successfully same cycle (see RUNNING entry, wandb wfcg6ues).
+

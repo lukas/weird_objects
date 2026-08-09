@@ -314,6 +314,20 @@ a file under `archive/` and link it.
   (longdist-s2/dr10, head90, joystick45 queued); killed 4 duplicate gate evals
   from a defunct double-spawned 14:37 cycle (same --out dirs, zombie-safe).
 
+- Cycle 48 (08-09 ~15:2x-15:4x): 2 triages (cw-walk-speedband in the finished
+  list was already KILLED+verdicted by c43 — no verdict issued here, again).
+  `cw-walk-strafe-dr05` PASS (DR0.5: gv 12/12, 0 term, prog med 0.92-0.97,
+  slip med ≤2.0; DR0 retention slip 1.80 beats parent 2.20) and
+  `cw-walk-wander-dr05` PASS (DR0.5 steering: gv 12/12, 0 term, prog ~0.95,
+  slip med 1.39-1.70) — both SKILLS rows added; neither hardware-ready
+  (paddle-slip root). Watcher prestage pullckpt failed for both (specs lacked
+  --out-name → pods wrote ppo_mjx_joint_walk_* names); pulled manually,
+  md5-verified; all refill specs now carry explicit --out-name. Direction:
+  robustness ladders + joystick hardening → queued cw-walk-wander-dr10,
+  cw-walk-strafe-dr10, cw-walk-joyjit-dr05 (60M GPU steps, 3 lines) and
+  drained; remaining free slots left to the concurrent cycle's refills
+  (endur60-s1/longdist-tilt05/lowgait40 triage).
+
 ## ASSUMPTION (operator to review)
 
 - Cycle 44 champion promotion: adopted longdist-r2 as walk champion
