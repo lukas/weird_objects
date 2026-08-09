@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-09T16:15:07+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-wander30
+
+**wandb_id**: utc2kygs
 
 **hypothesis**: Stop-and-go hardening (wishlist 7, joystick operability: the stick gets released a LOT). wander30 handles 15% stop segments; one variable off it: stop_frac 0.15→0.35 — dense park→restart cycling. Park pricing unchanged, so parking still earns less than stepping by construction. If-true: restarts stay reliable at high stop density (stop transitions are solved, no shaping needed). If-false: policy rides parked segments or fails to restart cleanly (prog drop / stall after stops) — stop transitions need their own shaping arm.
 
