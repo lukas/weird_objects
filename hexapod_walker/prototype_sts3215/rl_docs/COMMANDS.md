@@ -24,6 +24,7 @@ leave the next agent to rediscover it.
 | Ledger + procs + watcher, one screen | `ops.sh status` |
 | One run's metrics/state | `ops.sh wandb <run>` (ledger: `ops.sh entry <run>`) |
 | What's queued to launch? | `launch_run.py backlog list` |
+| Queue a seed/rung/variant of an existing run | `launch_run.py respec --from <run> --run <new> [--seed N] [--arg='--flag=v'] [--cfg k=v] --hypothesis … --gate …` — clones the ledger args; never re-type them |
 | A past run's story | `rl_docs/runs/<run>.md` |
 | Are results being lost/ignored? | `ops.sh triage [hours]` |
 | Finished but not yet analyzed? | ledger `triage` field (watcher-stamped: `awaiting…` → `in-cycle…` → `done` on verdict); shown on the status page "Analysis pipeline" |
