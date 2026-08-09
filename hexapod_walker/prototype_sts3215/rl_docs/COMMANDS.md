@@ -226,6 +226,20 @@ report.json, and the W&B API for exactly these questions.
     refuses reuse. Eval completion marker is `artifacts` (the harness
     never prints WROTE) — `waitlog ... 'artifacts|Traceback'`.
 
+13b. **Launch-collision `EOFError` even with a CLEAN /dev/shm** (this
+    cycle, 22:1x-22:3x): under concurrent-cycle drain storms (2+
+    cycles draining into the same free-pod set within seconds of each
+    other), a worker can die with the SAME `EOFError` at first env
+    reset as gotcha 13 even when `df -h /dev/shm` shows single-digit
+    % used — this is a race between simultaneous launches on
+    neighboring GPU pods on the same node, not a shm leak. 3-for-3
+    crashed this way in one cycle (imupos15, gyrobias3, tiltnoise; a
+    concurrent cycle independently hit the same pattern on
+    joyhead90-lat25-s1 and placementnoise6). No science result (0
+    steps) — just relaunch under a `-r1` name once (W&B run names are
+    append-only) and move on; don't diagnose further unless it
+    recurs on a retry with no other drain active.
+
 14. **Batch-eval shell footgun (c60):** `CFG="..." && nohup A $CFG & nohup B $CFG &`
     puts the assignment INSIDE the first background job's subshell — B
     (and later jobs) run with an EMPTY $CFG, i.e. default cfg = silently

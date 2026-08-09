@@ -21290,7 +21290,7 @@
       "Driving endurance rung on the new best driving candidate: joylat25 trained/evaled at 15s episodes (~7 command changes); real joystick sessions run minutes. One variable off joylat25: episode-seconds 15->60 (same DR0.5 + latency 0.5-2.5 + abrupt 1.5s +-60% resample package) - ~40 command changes/episode. Plain: does flip-hardened driving hold up over long drives, or does gait quality decay as perturbations accumulate (wander60 held @DR0 with GENTLE resamples; abrupt+DR+latency is untested at this horizon). If-true: own-cfg @60s gv 12/12, 0 term, prog med >=0.85 with no first-half vs second-half decay, joystick gate still 0 falls - minute-scale joystick driving banked. If-false: late-episode degradation (prog/slip worsening in 2nd half, terminations late) - endurance needs its own exposure rung before demos. Strongest alternative: policy passes by parking more between commands - check stop-fraction vs joylat25. Parent: cw-walk-joylat25. Gate: Own-cfg (DR0.5 + dr.latency_scale=0.5,2.5) det+sto 6/6 @60s: gait_valid 12/12, 0 term, prog med >=0.85, no det first/second-half slip decay beyond noise; JOYSTICK GATE eval_drive @DR0.2 own cfg 0 in-envelope falls; frames watched det"
     ],
     "created": "2026-08-09T19:43:18+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -21329,7 +21329,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-joyjit-dr05-s2-cw-walk-joylat60-cw-walk-latjit-dr05- since 2026-08-09T21:38:34"
+    "triage": "done",
+    "verdict": "PASS (60s endurance rung on joylat25's abrupt-flip DR0.5+latency driving package, md5 821b694e). Own-cfg 60s panel det+sto: gv 12/12, 0 term, prog med 0.98/0.95 (own-DR0.5+latency: prog med 0.95/0.96, both >=0.85 gate); slip/m med 1.43-1.65 (higher than joylat25's 15s band 1.48-1.51 but not runaway, no term). No first/second-half decay: swing_count stays even (41-45 across all six legs) and full-episode frame strips (early vs late) show the same cycling gait throughout \u2014 no late-episode collapse. JOYSTICK GATE (pre-staged eval_drive DR0.2): 0 in-envelope falls (panel + 3 flip-stress). DR0 retention: gv 12/12, 0 term, prog med 0.98/0.95. Frames: level, all six legs cycling start to finish, known paddle foot-slide, no new pathology. Minute-scale joystick driving with abrupt flips + DR0.5 + latency now banked (complements wander60-dr05's gentle-resample 60s pass).",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-joycom30",
@@ -22024,7 +22026,7 @@
       "PROMOTION PANEL seed 2 (ruling 7): joyjit-dr05-c1 passed the joystick gate (0 in-envelope falls); promotion to driving champion requires independent-seed replication of the same config."
     ],
     "created": "2026-08-09T20:34:34+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -22063,7 +22065,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-joyjit-dr05-s2-cw-walk-joylat60-cw-walk-latjit-dr05- since 2026-08-09T21:38:34"
+    "triage": "done",
+    "verdict": "PASS (seed-2 replication of joyjit-dr05-c1, md5 93014cdd). JOYSTICK GATE (eval_drive DR0.2 own-cfg): 0 in-envelope falls (panel + 3 flip-stress eps, trk_err 0.025-0.058). Own-cfg DR0.5 harness det+sto: gv 12/12, 0 term, prog med 0.94/0.97, slip/m med 1.50/1.50 = same band as c1 (1.38/1.44, slightly higher but not degraded). DR0 retention: gv 12/12, 0 term, prog med 0.99/0.99. Frames (det worst-slip eps 1/4, sto ep 3): all six legs cycling, level, no flag leg/dragging \u2014 known paddle foot-slide, no new pathology. Gate MET; recipe is seed-robust (2nd confirmation after c1).",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-payload-dr05-s1",
@@ -22163,7 +22167,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-09T22:43:58"
   },
   {
     "run": "cw-walk-comshift-dr05-s1",
@@ -22382,7 +22387,8 @@
           "fps 1456 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walk-gyrobias3-cw-walk-joyfric-cw-walk-joyhead90-r1-s1 since 2026-08-09T22:38:56"
   },
   {
     "run": "cw-walk-joytilt3",
@@ -22498,7 +22504,8 @@
           "fps 1456 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-09T22:38:55"
   },
   {
     "run": "cw-walk-latjit-dr05-s1",
@@ -22560,7 +22567,7 @@
       "Ruling-7 seed twin of cw-walk-latjit-dr05 (this cycle's cleanest DR0.5 compose PASS: det fwd med 1.50m, det slip 1.04 = champion band under DR+latency, retention clean). Identical config, seed 0 -> 1. Plain: confirm the latency+DR robustness recipe is not a seed fluke before it feeds the multi-axis consolidation. If-true: same band (own-cfg gv 12/12, 0 term, det fwd med >=1.1m, DR0 retention slip <=1.24) - recipe is seed-robust, safe to stack. If-false: seed-specific (gate miss or retention erosion) - compose PASSes need panels before feeding multiaxis. Strongest alternative: passes but with fricvar-dr05-style sto slip creep - then the tail, not the median, is seed-varying. Parent: cw-walk-latjit25. Gate: Own-cfg harness at --dr-scale 0.5 + dr.latency_scale=0.5,2.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1 m; plus DR0 no-jitter retention det 6/6 gv, det slip/m <=1.24; frames watched det"
     ],
     "created": "2026-08-09T20:44:57+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -22599,7 +22606,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-joyjit-dr05-s2-cw-walk-joylat60-cw-walk-latjit-dr05- since 2026-08-09T21:38:35"
+    "triage": "done",
+    "verdict": "FAIL on retention (seed twin of latjit-dr05, md5 6a28e5e0). Own-DR0.5+latency panel replicates the parent CLEANLY: gv 12/12, 0 term, det fwd med 1.52m (gate >=1.1m), det/sto slip med 1.08/1.31 (parent 1.04/-) \u2014 own-cfg performance is seed-robust. BUT the DR0 no-jitter retention gate (det slip/m <=1.24) is MISSED: det slip med 1.26, driven by a REAL seed-specific tail \u2014 episodes 3-5 (same fixed command draws the harness gives every checkpoint at eval seed 0) shuffle at half/third speed (prog 0.62/0.48, slip 2.45/3.16) where the PARENT's identical draws were fully clean (prog 0.90-1.07, slip 0.99-1.19, 6/6 ok). This is not eval noise \u2014 it is the exact seed-fluke risk the ruling-7 panel exists to catch: seed 0's clean nominal retention did NOT generalize to seed 1. Frames (det eps 4/5): normal paddle shuffle, all six legs still cycling, no flag leg/dragging \u2014 a speed/slip regression, not a new pathology. Conclusion: the latjit-dr05 recipe's OWN-DR competence is seed-robust, but its DR0 retention is NOT \u2014 treat seed 0 (parent cw-walk-latjit-dr05) as the compose input for multiaxis/consolidation, not this seed. No requeue; this is the informative outcome the panel was designed to produce.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-legmass25",
@@ -23130,7 +23139,7 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-09T21:43:37"
+    "triage": "in-cycle cw-walk-gyrobias3-cw-walk-joyfric-cw-walk-joyhead90-r1-s1 since 2026-08-09T22:38:56"
   },
   {
     "run": "cw-walk-joyhead90-lat25",
@@ -24739,7 +24748,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-09T22:28:51"
+    "triage": "in-cycle cw-uni-blend1-cw-walk-fricvar-dr05-s1-cw-walk-groundtilt-dr0 since 2026-08-09T22:38:55"
   },
   {
     "run": "cw-uni-blend1",
@@ -24952,7 +24961,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-09T22:33:53"
+    "triage": "in-cycle cw-uni-blend1-cw-walk-fricvar-dr05-s1-cw-walk-groundtilt-dr0 since 2026-08-09T22:38:55"
   },
   {
     "run": "cw-uni-blend1-r2",
@@ -25164,7 +25173,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walk-encodernoise-cw-walk-imupos15-r1-cw-walk-joyhead90-l since 2026-08-09T22:43:59"
   },
   {
     "run": "cw-walk-imupos15",
@@ -25610,7 +25620,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-deadband30-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.deadband_scale=1.0,3.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_deadband30_s1 --notes 'respec of cw-walk-deadband30: Seed twin of PASSED cw-walk-deadband30 (servo deadband 1-3x nominal, DR0, isolated 13b/13c axis off champion). Promotion-panel completeness (ruling-7) -- same config, seed 1. If-true: own-cfg gv 12/12, DR0 retention matches seed0'\"'\"'s champion band, same worst-draw pattern (0.68m/slip 2.86-ish) -- recipe confirmed, not luck. If-false: seed-sensitive, deadband30'\"'\"'s PASS was seed luck.' > /tmp/train_cw-walk-deadband30-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-deadband30-s1.log",
     "wandb_id": "2q8xd8j7",
-    "verified": "2026-08-09T22:30:48+00:00"
+    "verified": "2026-08-09T22:30:48+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T22:36:24+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10666,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-fricvar-s1",
@@ -25698,7 +25720,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-fricvar-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.friction_scale=0.4,1.6 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_fricvar_s1 --notes 'respec of cw-walk-fricvar: Seed twin of PASSED cw-walk-fricvar (0.4-1.6x floor grip, DR0, isolated 13b axis off champion). Promotion-panel completeness (ruling-7) -- same config, seed 1. If-true: own-cfg gv 12/12, DR0 retention matches seed0'\"'\"'s champion band, same slickest-tail churn pattern -- recipe confirmed, not luck (mirrors comshift-dr05-s1'\"'\"'s seed-robustness method). If-false: seed-sensitive, fricvar'\"'\"'s PASS was seed luck.' > /tmp/train_cw-walk-fricvar-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-fricvar-s1.log",
     "wandb_id": "617y9ouq",
-    "verified": "2026-08-09T22:32:04+00:00"
+    "verified": "2026-08-09T22:32:04+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T22:38:14+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10315,
+        "fps": 14563.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-lowgait-dr035-s1",
@@ -25830,7 +25864,7 @@
       "OPERATOR WISHLIST 13c untested axis (gyro RATE bias, distinct from imu_bias_deg=attitude bias already landed via imubias3): a cheap IMU's gyroscope has a residual rate bias after calibration (drifts the integrated angle if ever used, and corrupts any rate-feedback term). ISOLATED axis: dr-scale 0.0 with ONLY dr.gyro_bias_deg_s=3.0 (per-episode constant rate bias u(-3,3) deg/s on all 3 axes; full-DR default 0.5). Plain: does a miscalibrated gyro reading (roll/pitch/yaw RATE, not angle) perturb the gait? Prediction-if-true: gait holds (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - closes as another free axis like torquedroop. Prediction-if-false: biased rate feedback destabilizes recovery reflexes under perturbation. Strongest alternative: champion already tolerates this free at this magnitude - triage MUST eval parent longdist-r2 under the same spread BEFORE verdicting (c59 rule). Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.gyro_bias_deg_s=3.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det"
     ],
     "created": "2026-08-09T22:29:31+00:00",
-    "status": "INTENT",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -25839,12 +25873,17 @@
       "code_sha_local": "fb84e33c370ec4558cb900b187c1b69104e6491a",
       "code_sha_pod": "fb84e33c370ec4558cb900b187c1b69104e6491a",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3786990",
+      "log_growth_bytes": [
+        7381,
+        7381
+      ]
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-gyrobias3 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.gyro_bias_deg_s=3.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_gyrobias3 --notes 'OPERATOR WISHLIST 13c untested axis (gyro RATE bias, distinct from imu_bias_deg=attitude bias already landed via imubias3): a cheap IMU'\"'\"'s gyroscope has a residual rate bias after calibration (drifts the integrated angle if ever used, and corrupts any rate-feedback term). ISOLATED axis: dr-scale 0.0 with ONLY dr.gyro_bias_deg_s=3.0 (per-episode constant rate bias u(-3,3) deg/s on all 3 axes; full-DR default 0.5). Plain: does a miscalibrated gyro reading (roll/pitch/yaw RATE, not angle) perturb the gait? Prediction-if-true: gait holds (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - closes as another free axis like torquedroop. Prediction-if-false: biased rate feedback destabilizes recovery reflexes under perturbation. Strongest alternative: champion already tolerates this free at this magnitude - triage MUST eval parent longdist-r2 under the same spread BEFORE verdicting (c59 rule). Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.gyro_bias_deg_s=3.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det' > /tmp/train_cw-walk-gyrobias3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-gyrobias3.log",
-    "triage": "awaiting since 2026-08-09T22:33:52"
+    "failed_reason": "run never appeared as 'running' in W&B within 240s"
   },
   {
     "run": "cw-walk-tiltnoise",
@@ -25986,7 +26025,7 @@
       "ppo_goal_cw_walk_joyhead90_lat25_s1r"
     ],
     "created": "2026-08-09T22:30:11+00:00",
-    "status": "INTENT",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -26000,7 +26039,8 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-joyhead90-lat25-s1r --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joyhead90_r1.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=1.5708 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set dr.latency_scale=0.5,2.5 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-walk-joyhead90-lat25: Retry of cw-walk-joyhead90-lat25-s1 (lost a launch-placement race, worker EOFError at init, 0 steps \u2014 no science result). Same hypothesis: seed-1 replication of today'\"'\"'s joyhead90-lat25 PASS (widest driving package: +-90deg abrupt flips + DR0.5 + bus-latency 0.5-2.5x jitter) per ruling-7. If-true: JOYSTICK GATE @90 0 falls AND own-cfg DR0.5+latency harness gv 12/12, 0 term, prog med >=0.80 \u2014 matches seed0 (0.93/0.96). If-false: seed0 was lucky \u2014 widest package is seed-fragile.' --out-name ppo_goal_cw_walk_joyhead90_lat25_s1r > /tmp/train_cw-walk-joyhead90-lat25-s1r.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-joyhead90-lat25-s1r.log",
-    "triage": "awaiting since 2026-08-09T22:33:53"
+    "triage": "awaiting since 2026-08-09T22:33:53",
+    "failed_reason": "Launch-collision, not a science result: many concurrent cycles' drains fired near-simultaneously at the same handful of free GPU pods right now (observed ps aux: 3+ other cycles' launch_run.py launch processes targeting train-0/train-3/train-9 within the same ~2min window). Two different runs landed on train-0 back-to-back within seconds; worker EOFError at env reset (GPU/multiproc contention), 0 steps. Requeuing to backlog for the self-repairing drain to retry once the storm clears rather than fighting it directly."
   },
   {
     "run": "cw-walk-placementnoise6",
@@ -26062,7 +26102,7 @@
       "New 13b physics-variation axis (richer-DR wishlist item, unclaimed): per-joint hand-placement/assembly slop (dr.placement_noise_deg), off the champion at DR0. Champion-baseline-FIRST per c59 rule: measured on longdist_r2 at 3x the field default (6deg) \u2014 NOT free (det prog 0.72, slip/m 2.40 vs champion's clean 0.94-0.96 band; sto milder at 0.92/1.23). One variable off champion: add dr.placement_noise_deg=6.0 at dr-scale 0. If-true: own-cfg gv 12/12, 0 term, det med fwd >=1.1m, DR0 no-noise retention clean (slip<=1.24) \u2014 assembly-tolerance axis becomes a deployable rung (relevant: real servos get hand-assembled slightly off-center). If-false: terminations or the baseline's degraded-shuffle pattern persists even after training \u2014 axis needs a lower magnitude or isn't trainable at 6deg. Strongest alternative: passes by learning a generically slower/more conservative gait that isn't specific to the noise \u2014 compare per-episode vs a flat-noise DR0 retention pass. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.placement_noise_deg=6.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1m; plus DR0 no-noise retention det 6/6 gv, det slip/m med <=1.24; frames watched det"
     ],
     "created": "2026-08-09T22:30:50+00:00",
-    "status": "INTENT",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -26076,7 +26116,8 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-placementnoise6 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.placement_noise_deg=6.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_placementnoise6 --notes 'New 13b physics-variation axis (richer-DR wishlist item, unclaimed): per-joint hand-placement/assembly slop (dr.placement_noise_deg), off the champion at DR0. Champion-baseline-FIRST per c59 rule: measured on longdist_r2 at 3x the field default (6deg) \u2014 NOT free (det prog 0.72, slip/m 2.40 vs champion'\"'\"'s clean 0.94-0.96 band; sto milder at 0.92/1.23). One variable off champion: add dr.placement_noise_deg=6.0 at dr-scale 0. If-true: own-cfg gv 12/12, 0 term, det med fwd >=1.1m, DR0 no-noise retention clean (slip<=1.24) \u2014 assembly-tolerance axis becomes a deployable rung (relevant: real servos get hand-assembled slightly off-center). If-false: terminations or the baseline'\"'\"'s degraded-shuffle pattern persists even after training \u2014 axis needs a lower magnitude or isn'\"'\"'t trainable at 6deg. Strongest alternative: passes by learning a generically slower/more conservative gait that isn'\"'\"'t specific to the noise \u2014 compare per-episode vs a flat-noise DR0 retention pass. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.placement_noise_deg=6.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1m; plus DR0 no-noise retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-placementnoise6.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-placementnoise6.log",
-    "triage": "awaiting since 2026-08-09T22:33:53"
+    "triage": "awaiting since 2026-08-09T22:33:53",
+    "failed_reason": "Same launch-collision as joyhead90-lat25-s1r this cycle (concurrent-cycle drain storm on train-0/train-3/train-9): worker EOFError at env reset, 0 steps, no science result. Requeuing to backlog."
   },
   {
     "run": "cw-walk-gyronoise15",
@@ -26164,7 +26205,21 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-gyronoise15 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.gyro_noise_deg_s=1.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_gyronoise15 --notes 'New 13b/13c sensor-noise axis, distinct from the already-queued gyrobias3 (systematic gyro BIAS): this is gyro NOISE (dr.gyro_noise_deg_s), off the champion at DR0. Champion-baseline-FIRST per c59 rule: measured on longdist_r2 at 3x the field default (1.5deg/s) \u2014 NOT free (det prog 0.79, slip/m 2.08 vs champion'\"'\"'s clean 0.94-0.96 band; sto milder at 0.93/1.15). One variable off champion: add dr.gyro_noise_deg_s=1.5 at dr-scale 0. If-true: own-cfg gv 12/12, 0 term, det med fwd >=1.1m, DR0 no-noise retention clean (slip<=1.24) \u2014 IMU gyro-noise tolerance becomes a deployable rung. If-false: terminations or the baseline'\"'\"'s degraded pattern persists after training. Strongest alternative: passes via a generically slower gait, not noise-specific \u2014 compare per-episode vs flat retention. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.gyro_noise_deg_s=1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1m; plus DR0 no-noise retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-gyronoise15.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-gyronoise15.log",
     "wandb_id": "9n2bs9f8",
-    "verified": "2026-08-09T22:35:14+00:00"
+    "verified": "2026-08-09T22:35:14+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T22:41:04+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2935,
+        "fps": 4369.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-walk-tiltnoise",
@@ -26390,6 +26445,412 @@
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-lowgait-dr035-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_height_off_mm=-50.0 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-walk-lowgait-dr035: Seed twin of this cycle'\"'\"'s cw-walk-lowgait-dr035 PASS (ruling-7: seed-confirm before banking a DR ceiling). Identical config: -50mm crouch warm-start, dr-scale 0.35, seed 1 instead of 0. If-true: seed 1 matches -- own-cfg DR0.35 gv 12/12, 0 term, mean height err <=10mm, slip/m med <=1.6, DR0 retention clean. If-false: seed 1 charges nominal retention or breaks under DR0.35 -- the 0.35 ceiling is seed-fragile, panel required before folding into consolidation. Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr035.zip.' --out-name ppo_goal_cw_walk_lowgait_dr035_s1 > /tmp/train_cw-walk-lowgait-dr035-s1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-lowgait-dr035-s1.log"
+    "log": "/tmp/train_cw-walk-lowgait-dr035-s1.log",
+    "triage": "awaiting since 2026-08-09T22:38:55"
+  },
+  {
+    "run": "cw-walk-gyrobias3-r1",
+    "pod": "hexapod-mjx-train-7",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "RETRY (first attempt lost a launch-collision race amid a concurrent-cycle drain storm \u2014 worker EOFError at init, 0 steps, no science result; COMMANDS.md gotcha 13b). Same spec unchanged: isolated dr.gyro_bias_deg_s=3.0 axis off champion.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.gyro_bias_deg_s=3.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det",
+    "parent": "cw-walk-gyrobias3",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.gyro_bias_deg_s=3.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_gyrobias3_r1",
+      "--notes",
+      "respec of cw-walk-gyrobias3: RETRY (first attempt lost a launch-collision race amid a concurrent-cycle drain storm \u2014 worker EOFError at init, 0 steps, no science result; COMMANDS.md gotcha 13b). Same spec unchanged: isolated dr.gyro_bias_deg_s=3.0 axis off champion."
+    ],
+    "created": "2026-08-09T22:40:17+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-267bdffd-dd7f-13e3-8d8f-146232bfe703)",
+      "running_experiments_before": 7,
+      "code_sha_local": "38a9ea67546d03423ac48149c0dee5576a7f0dac",
+      "code_sha_pod": "38a9ea67546d03423ac48149c0dee5576a7f0dac",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3030940",
+      "log_growth_bytes": [
+        8734,
+        14300
+      ],
+      "wandb_id": "s5fcpoet",
+      "global_step_window": [
+        720896,
+        1638400
+      ],
+      "fps_estimate": 10194.5
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-gyrobias3-r1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.gyro_bias_deg_s=3.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_gyrobias3_r1 --notes 'respec of cw-walk-gyrobias3: RETRY (first attempt lost a launch-collision race amid a concurrent-cycle drain storm \u2014 worker EOFError at init, 0 steps, no science result; COMMANDS.md gotcha 13b). Same spec unchanged: isolated dr.gyro_bias_deg_s=3.0 axis off champion.' > /tmp/train_cw-walk-gyrobias3-r1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-gyrobias3-r1.log",
+    "wandb_id": "s5fcpoet",
+    "verified": "2026-08-09T22:44:04+00:00"
+  },
+  {
+    "run": "cw-walk-placementnoise6r",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Retry of cw-walk-placementnoise6 (lost a launch-collision race amid a concurrent-cycle drain storm, worker EOFError at init, 0 steps -- no science result). Same hypothesis: new 13b axis, per-joint hand-placement/assembly slop (dr.placement_noise_deg=6.0, 3x default) off champion at DR0. Champion baseline already measured (NOT free: det prog 0.72, slip 2.40 vs clean 0.94-0.96 band). If-true: own-cfg gv 12/12, 0 term, det med fwd >=1.1m, DR0 no-noise retention clean. If-false: axis not trainable at this magnitude.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.placement_noise_deg=6.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1m; plus DR0 no-noise retention det 6/6 gv, det slip/m med <=1.24; frames watched det",
+    "parent": "cw-walk-longdist-r2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.placement_noise_deg=6.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_placementnoise6",
+      "--notes",
+      "Retry of cw-walk-placementnoise6 (lost a launch-collision race amid a concurrent-cycle drain storm, worker EOFError at init, 0 steps -- no science result). Same hypothesis: new 13b axis, per-joint hand-placement/assembly slop (dr.placement_noise_deg=6.0, 3x default) off champion at DR0. Champion baseline already measured (NOT free: det prog 0.72, slip 2.40 vs clean 0.94-0.96 band). If-true: own-cfg gv 12/12, 0 term, det med fwd >=1.1m, DR0 no-noise retention clean. If-false: axis not trainable at this magnitude. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.placement_noise_deg=6.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1m; plus DR0 no-noise retention det 6/6 gv, det slip/m med <=1.24; frames watched det"
+    ],
+    "created": "2026-08-09T22:41:30+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 8,
+      "code_sha_local": "38a9ea67546d03423ac48149c0dee5576a7f0dac",
+      "code_sha_pod": "38a9ea67546d03423ac48149c0dee5576a7f0dac",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-placementnoise6r --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.placement_noise_deg=6.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_placementnoise6 --notes 'Retry of cw-walk-placementnoise6 (lost a launch-collision race amid a concurrent-cycle drain storm, worker EOFError at init, 0 steps -- no science result). Same hypothesis: new 13b axis, per-joint hand-placement/assembly slop (dr.placement_noise_deg=6.0, 3x default) off champion at DR0. Champion baseline already measured (NOT free: det prog 0.72, slip 2.40 vs clean 0.94-0.96 band). If-true: own-cfg gv 12/12, 0 term, det med fwd >=1.1m, DR0 no-noise retention clean. If-false: axis not trainable at this magnitude. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.placement_noise_deg=6.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.1m; plus DR0 no-noise retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-placementnoise6r.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-placementnoise6r.log",
+    "triage": "awaiting since 2026-08-09T22:43:58"
+  },
+  {
+    "run": "cw-walk-joyhead90-lat25-s1r2",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Second retry of joyhead90-lat25 seed-1 twin (first two attempts both lost launch-collision races amid a concurrent-cycle drain storm on train-0/train-3/train-9, worker EOFError at init, 0 steps each -- no science result either time). Same hypothesis: seed-1 replication of joyhead90-lat25 PASS (+-90deg abrupt flips + DR0.5 + latency 0.5-2.5x) per ruling-7. If-true: JOYSTICK GATE @90 0 falls AND own-cfg DR0.5+latency harness gv 12/12, 0 term, prog med >=0.80 (matches seed0 0.93/0.96). If-false: seed0 was lucky.",
+    "gate": "JOYSTICK GATE: eval_drive --dr-scale 0.2 --heading-max-deg 90 own cfg - ZERO in-envelope falls, left/right dist >=0.15m; own-cfg DR0.5+latency harness 6+6: gv 12/12, 0 term, prog_ratio med >=0.80; frames watched det",
+    "parent": "cw-walk-joyhead90-lat25",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_joyhead90_r1.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "1",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=1.5708",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.5",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.6",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.1",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.2",
+      "--cfg-set",
+      "dr.latency_scale=0.5,2.5",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_joyhead90_lat25_s1",
+      "--notes",
+      "Second retry of joyhead90-lat25 seed-1 twin (first two attempts both lost launch-collision races amid a concurrent-cycle drain storm on train-0/train-3/train-9, worker EOFError at init, 0 steps each -- no science result either time). Same hypothesis: seed-1 replication of joyhead90-lat25 PASS (+-90deg abrupt flips + DR0.5 + latency 0.5-2.5x) per ruling-7. If-true: JOYSTICK GATE @90 0 falls AND own-cfg DR0.5+latency harness gv 12/12, 0 term, prog med >=0.80 (matches seed0 0.93/0.96). If-false: seed0 was lucky. Parent: cw-walk-joyhead90-lat25. Gate: JOYSTICK GATE: eval_drive --dr-scale 0.2 --heading-max-deg 90 own cfg - ZERO in-envelope falls, left/right dist >=0.15m; own-cfg DR0.5+latency harness 6+6: gv 12/12, 0 term, prog_ratio med >=0.80; frames watched det"
+    ],
+    "created": "2026-08-09T22:42:11+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 8,
+      "code_sha_local": "38a9ea67546d03423ac48149c0dee5576a7f0dac",
+      "code_sha_pod": "38a9ea67546d03423ac48149c0dee5576a7f0dac",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-joyhead90-lat25-s1r2 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joyhead90_r1.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=1.5708 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set dr.latency_scale=0.5,2.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_joyhead90_lat25_s1 --notes 'Second retry of joyhead90-lat25 seed-1 twin (first two attempts both lost launch-collision races amid a concurrent-cycle drain storm on train-0/train-3/train-9, worker EOFError at init, 0 steps each -- no science result either time). Same hypothesis: seed-1 replication of joyhead90-lat25 PASS (+-90deg abrupt flips + DR0.5 + latency 0.5-2.5x) per ruling-7. If-true: JOYSTICK GATE @90 0 falls AND own-cfg DR0.5+latency harness gv 12/12, 0 term, prog med >=0.80 (matches seed0 0.93/0.96). If-false: seed0 was lucky. Parent: cw-walk-joyhead90-lat25. Gate: JOYSTICK GATE: eval_drive --dr-scale 0.2 --heading-max-deg 90 own cfg - ZERO in-envelope falls, left/right dist >=0.15m; own-cfg DR0.5+latency harness 6+6: gv 12/12, 0 term, prog_ratio med >=0.80; frames watched det' > /tmp/train_cw-walk-joyhead90-lat25-s1r2.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-joyhead90-lat25-s1r2.log",
+    "triage": "in-cycle cw-walk-encodernoise-cw-walk-imupos15-r1-cw-walk-joyhead90-l since 2026-08-09T22:44:00"
+  },
+  {
+    "run": "cw-walk-imupos15-r1",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "RETRY #2 (both prior attempts crashed: first likely resource contention, second lost a launch-collision race amid a concurrent-cycle drain storm \u2014 worker EOFError at init, 0 steps, no science result; COMMANDS.md gotcha 13b). Same spec unchanged: isolated dr.imu_pos_xy_m=0.015 + dr.imu_pos_z_m=0.0,0.02 axis off champion.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.imu_pos_xy_m=0.015 + dr.imu_pos_z_m=0.0,0.02, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det",
+    "parent": "cw-walk-imupos15",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.imu_pos_xy_m=0.015",
+      "--cfg-set",
+      "dr.imu_pos_z_m=0.0,0.02",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_imupos15_r1",
+      "--notes",
+      "respec of cw-walk-imupos15: RETRY #2 (both prior attempts crashed: first likely resource contention, second lost a launch-collision race amid a concurrent-cycle drain storm \u2014 worker EOFError at init, 0 steps, no science result; COMMANDS.md gotcha 13b). Same spec unchanged: isolated dr.imu_pos_xy_m=0.015 + dr.imu_pos_z_m=0.0,0.02 axis off champion."
+    ],
+    "created": "2026-08-09T22:42:51+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 8,
+      "code_sha_local": "38a9ea67546d03423ac48149c0dee5576a7f0dac",
+      "code_sha_pod": "38a9ea67546d03423ac48149c0dee5576a7f0dac",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-imupos15-r1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.imu_pos_xy_m=0.015 --cfg-set dr.imu_pos_z_m=0.0,0.02 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_imupos15_r1 --notes 'respec of cw-walk-imupos15: RETRY #2 (both prior attempts crashed: first likely resource contention, second lost a launch-collision race amid a concurrent-cycle drain storm \u2014 worker EOFError at init, 0 steps, no science result; COMMANDS.md gotcha 13b). Same spec unchanged: isolated dr.imu_pos_xy_m=0.015 + dr.imu_pos_z_m=0.0,0.02 axis off champion.' > /tmp/train_cw-walk-imupos15-r1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-imupos15-r1.log",
+    "triage": "in-cycle cw-walk-encodernoise-cw-walk-imupos15-r1-cw-walk-joyhead90-l since 2026-08-09T22:44:00"
+  },
+  {
+    "run": "cw-walk-tiltnoise-r1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "RETRY (first attempt lost a launch-collision race amid a concurrent-cycle drain storm \u2014 worker EOFError at init, 0 steps, no science result; COMMANDS.md gotcha 13b). Same spec unchanged: isolated dr.tilt_noise_deg=1.5 axis off champion.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.tilt_noise_deg=1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det",
+    "parent": "cw-walk-tiltnoise",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.tilt_noise_deg=1.5",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_tiltnoise_r1",
+      "--notes",
+      "respec of cw-walk-tiltnoise: RETRY (first attempt lost a launch-collision race amid a concurrent-cycle drain storm \u2014 worker EOFError at init, 0 steps, no science result; COMMANDS.md gotcha 13b). Same spec unchanged: isolated dr.tilt_noise_deg=1.5 axis off champion."
+    ],
+    "created": "2026-08-09T22:43:32+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 7,
+      "code_sha_local": "38a9ea67546d03423ac48149c0dee5576a7f0dac",
+      "code_sha_pod": "38a9ea67546d03423ac48149c0dee5576a7f0dac",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-tiltnoise-r1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.tilt_noise_deg=1.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_tiltnoise_r1 --notes 'respec of cw-walk-tiltnoise: RETRY (first attempt lost a launch-collision race amid a concurrent-cycle drain storm \u2014 worker EOFError at init, 0 steps, no science result; COMMANDS.md gotcha 13b). Same spec unchanged: isolated dr.tilt_noise_deg=1.5 axis off champion.' > /tmp/train_cw-walk-tiltnoise-r1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-tiltnoise-r1.log"
   }
 ]
