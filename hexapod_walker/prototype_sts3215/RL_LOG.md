@@ -2634,3 +2634,145 @@ auto-continue for cw-walk-step0* did not fire after lowent-c1 and
 this cycle concurs with not continuing (Q4−Q3 +3.3 inside scatter);
 if a mechanical c2 relaunch appears later it should be killed per
 the flat-trend rule, citing this entry.
+
+## Cycle 20 (2026-08-09 ~03:2xZ) — cw-walk-lowent-dr03 verdict: run INVALID as registered (long5m ran PRE-AUDIT code; the step-event/drag/park cfg-sets were silently ignored for all 4M steps) — yet the checkpoint mechanically passes the DR0.3 gate. Code-version gate landed in the launcher. DR rung relaunched off the h15b champion.
+
+### INFRA ROOT CAUSE FIRST (required artifact): the experiment that actually ran was not the experiment in the ledger
+OBSERVATIONS (mechanical). W&B xw5pdtum FINISHED, 4M steps (8.01M→
+12.02M cum, 2004 s solo long5m). Ckpt ppo_goal_cw_walk_lowent_dr03.zip
+md5 aa0cd31dad351da67695b024fc734c26 (pod + controller copy match).
+Anomalies that unraveled it, in discovery order: (1) W&B config
+target_kl=None (parent vkrvueqg: 0.02); (2) env/reward_step_event,
+reward_drag, reward_park_duty ABSENT from the run's W&B history
+(parent logs all three); (3) wandb-metadata.json on the pod shows the
+process DID receive every --cfg-set; (4) local probe of the trainer's
+own _build_env at DR0.3 with the same cfg-sets emits all three keys —
+code here is fine; (5) md5 of long5m's rl_move/sim/walk_task.py =
+de427bb7 vs 698ae6cf at snapshot e5f0c3e (which the run was launched
+under). Diff of the pod files: long5m's walk_task.py contains NO
+step-event package at all (k_step_event/k_drag_loaded/k_park_duty
+never read — silently ignored by cfg_get defaults=0), and its
+train_ppo_sim.py hardcodes log_std_init -1.0 / no target_kl support —
+PRE-AUDIT (pre-08-08) code. Every other pod checked matches current
+code (walk_task 698ae6cf on friction/s3/s4/s5/s6/lower/walk); long5m
+alone was stale — it had not hosted a run since before the audit and
+was never (successfully) synced before this launch.
+CAUSAL CHAIN: wrong-reward training ← cfg-set keys silently ignored ←
+pod code pre-audit ← code sync unverified — pods have no git and
+neither snapshot.sh nor launch_run.py ever recorded/checked a code
+version (the cycle protocol's "pod code at snapshot SHA" check was
+never mechanized; the dr03 ledger entry's checks contain no code
+field). Deepest reachable link fixed THIS cycle, eval-side patch
+refused: snapshot.sh --sync now writes /workspace/prototype_sts3215/
+.code_sha (local HEAD, -dirty suffixed if tree ≠ HEAD) and
+launch_run.py REFUSES any launch (smoke included) when the pod marker
+is missing or ≠ local HEAD. Failure class closed mechanically:
+unsynced pod → refusal with the sync command in the message, not a
+4M-step wrong-reward run. Silent-ignore of unknown --cfg-set keys is
+the second link; left open (cfg_get defaults are load-bearing
+everywhere) and now guarded upstream by the marker gate.
+Consequence for the ledger: cw-walk-lowent-dr03 actually trained
+"lowent + DR0.3 under the OLD reward (kernel+progress only, no
+step-event income, no drag/park pricing, no target_kl, walk-speed
+cfg-sets honored — old code does read those keys)". NOT one variable
+vs parent (DR + reward package + target_kl all changed).
+
+### cw-walk-lowent-dr03 — eval of what DID run: the gait survives 4M of DR0.3 fine-tuning even with the step-event package off
+OBSERVATIONS (harness, current code, own cfg-sets, 6 eps/mode det+sto).
+GATE eval at DR0.3 (logs/ckpt_eval/cw_walk_lowent_dr03_gate,
+policy_std 1.834 vs parent 2.044): gait_valid 12/12, forward
+0.340–0.483 m (all ≥0.10 gate floor), min swings/leg 3, duty spread
+0.31–0.74, terminations 0, safety flags 0, det slip mean 0.628
+(0.56–0.70) ≤0.93 ✓, Imax 2.45–2.67 A. Success-vs-command: det 5/6,
+sto 3/6 (all sto fails are vel_err 0.031–0.033, fwd 0.34–0.39 — slow,
+not broken). RETENTION at DR0 (…_dr03_ret0): det slip mean 0.640
+(0.57–0.74) vs parent 0.746/0.717 (0.68–0.79) — mostly-below,
+partially overlapping: direction right, borderline evidence. det
+succ 3/6 vs parent 0/12 — outside the ±1–2 ep band (det tracking
+partially appeared, vel_err 0.025–0.035 in passing eps; same
+unexpected side-effect h15b showed). sto 4/6 vs parent pooled 10/12 —
+inside noise. gait_valid 11/12: sto[4] is a HARD TRIPOD PARK from
+t≈0 (duty [1.0,0.02,1.0,0.01,1.0,0.01], swings [0,1,1,1,0,1], fwd
+0.030 m, on camera) — parent's 10 s gate eval was 24/24 gv, so this
+1-ep park at 10 s is new-at-this-horizon but within ±1 ep and the
+SAME park class h15b/lowent-c1 show at 15 s (~1/6 sto). det[2] at
+DR0 is the det churn cousin (duty [0.87,0.14,0.84,0.22,0.78,0.16],
+fwd 0.226, ve 0.057). The park basin was NOT worsened by 4M steps of
+unpriced training — rate still ~1/6 sto — and did not appear at
+DR0.3 at all in 12 eps.
+FRAMES WATCHED (provenance; every mode in this verdict): gate
+walk_det_0.mp4 4ef2db78 250f, walk_det_3.mp4 c3ad3dec 250f,
+walk_sto_0.mp4 4349fd1e 250f, walk_sto_3.mp4 9457f8dc 250f; ret0
+walk_det_0.mp4 6ed7555b 250f, walk_sto_0.mp4 91cc9c2b 250f, park ep
+walk_sto_4.mp4 1b6fca22 250f (auto-saved by the gait-invalid video
+rule landed cycle 19c — worked as designed). Pathologies first:
+stance sprawly-wide, cadence irregular (no tripod rhythm), stance
+feet visibly creep in every strip (slip 0.56–0.75 m/ep ≈ parent),
+park ep frozen from frame ~2 with three feet hovering. Achievements
+(numbers behind each): level body throughout all watched strips, six
+legs lift→swing→touchdown in all 23/24 valid eps, zero falls, zero
+safety flags, DR0.3 motion visually indistinguishable from DR0 —
+no new wobble/stagger under randomization.
+Exploits looked for, not found: no sacrificed leg outside the park
+ep, no phantom steps (swing counts match strips), no safety-layer
+reliance (0 flags), no height collapse; checked whether DR0.3
+success rides on DR-slop — slip at DR0.3 (0.628) is not worse than
+DR0 (0.640) and frames show the same gait, not a noisier one.
+INTERPRETATION. Two separable facts. (a) The registered hypothesis
+(DR rung 0.3 robustifies THE STEP0-RECIPE training) was never
+tested — invalid execution, no verdict possible on it. (b) The
+eval-only fact is still valuable: the lowent gait, once formed,
+SURVIVES 4M steps of DR0.3 fine-tuning with NO step-event income and
+NO drag/park pricing — it neither collapsed into the park basin
+(which stayed at its baseline ~1/6 sto rate at DR0) nor lost gait
+validity at DR0.3 (12/12). The gait is self-sustaining under the
+plain kernel+progress reward at this basin; the step-event package
+built it but is apparently not load-bearing for maintaining it, at
+least over 4M steps (labeled HYPOTHESIS — one lineage, one seed).
+DR0.3 as a single rung looks survivable, but the clean claim needs
+the redo below.
+VERDICT: gate clauses mechanically PASS (all six at DR0.3 + DR0
+retention within noise/better), but the RUN IS INVALID as the
+registered experiment — recorded as INCONCLUSIVE-INVALID, not PASS;
+a PASS here would bless a run whose training config the ledger
+misdescribes. NOT HARDWARE-READY: skating unchanged (0.56–0.75
+m/ep), park basin live at 1/6 sto (on camera), sto success 3/6 at
+own DR, std 1.83. NO champion update: h15b keeps it (no
+same-horizon comparison beats it; and this ckpt carries 4M of
+wrong-reward training — do not warm-start from it without citing
+this entry). Ledger updated: FINISHED, verdict, ckpt md5, invalid
+flag.
+HYPOTHESIS STATUS: INCONCLUSIVE (execution invalid — the arm never
+ran). The DR-rung question transfers to the relaunch below.
+
+### LAUNCH cw-walk-h15b-dr03 (4M, DR 0.3, ep 15 s, seed 0, long5m) — DR ladder rung 0.3, redo on the champion line with verified code
+Basis: 0-b.2 (operator, binding) says DR rungs off the best
+step0-lineage checkpoint; champion is h15b md5 d0a12a94 (cycle 19).
+ONE variable vs h15b: --no-dr → --dr-scale 0.3 (15 s horizon, ent
+0.001, step-event cfg-sets, seed 0 all inherited). Parallel-off-
+same-parent with h15b-c1 per the cycle-19 pattern (c1 finished;
+its verdict belongs to another cycle — if it takes the champion,
+the NEXT rung continues from there; this run still answers "does
+the h15b gait survive rung 0.3").
+HYPOTHESIS: the h15b gait survives DR 0.3 introduced as a single
+rung — fine-tuning at moderate DR robustifies rather than destroys
+(hist8's destruction came from jumping to the wide distribution).
+Prediction-if-true: 15 s DR0.3 harness matches h15b's DR0 baseline
+within the ±1–2 ep band (fwd ≥0.40 m ≥10/12, gait_valid ≥11/12 with
+any invalid ep being the known park class, 0 terminations, det slip
+mean ≤1.0 vs parent DR0 0.912) AND DR0 retention eval shows no
+erosion outside noise (parent baseline: fwd 10/12, gv 11/12, 5 s det
+slip 0.584). Prediction-if-false: (a) gv ≤9/12, terminations, or a
+NEW failure class on camera at DR0.3 → rung too big → drop to 0.15;
+(b) DR0.3 fine but DR0 retention erodes outside noise → warm-start
+interference, not DR difficulty. Strongest alternative: passes via
+DR-slop (noise-robust skating instead of stepping) — distinguished
+by det slip + frames at both DRs (the dr03 eval above shows what
+that check looks like when it's clean). Gate (recorded in ledger):
+the if-true block, det AND sto, frames watched pathology-first.
+Budget 4M (lineage segment size). --no-canary (lineage exemption,
+plan 0-a). Probe-smoke note: step-event package × DR0.3 never
+trained together on-pod before; the trainer's own _build_env was
+probed locally this cycle (125 steps, DR0.3, all three reward keys
+emitted — recorded above), and the pod code is now marker-verified;
+no separate on-pod smoke.
