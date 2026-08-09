@@ -6746,7 +6746,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-dr05-r1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_walk_dr05_r1 --notes 'Can the walking gait survive a randomized world? Until now the walker trained in ONE fixed simulated physics and was only tested under randomization; a real robot'\"'\"'s mass, friction and motor strength never match the simulator exactly, so a gait that only works in one physics is not deployable. This run (an operator-requested arm, relaunched after its first copy died on a missing checkpoint file) retrains the champion walker WHILE the simulator randomizes mass/geometry/friction/gravity/motor gains at half intensity (DR 0.5). If the gait is genuinely robust it keeps walking with zero falls under randomization; if it is brittle-tuned to one physics it will degrade, telling us robustness needs its own training ladder before hardware. Off champion ppo_goal_cw_walk_anchorgate.zip md5 35234ddc, one variable: --no-dr -> --dr-scale 0.5. Gate: DR0.5 det+sto zero terminations + gait_valid + det slip/m <= 1.24, DR0 retention. Snapshot 3f8f84b.' --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-walk-dr05-r1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-dr05-r1.log",
     "wandb_id": "zeban4qc",
-    "verified": "2026-08-09T11:30:01+00:00"
+    "verified": "2026-08-09T11:30:01+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T11:35:34+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6692,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-steer-fdiag",
@@ -6832,7 +6844,9 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-steer-fdiag --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7853981633974483 --out-name ppo_goal_cw_steer_fdiag --notes 'The robot has only really practiced walking straight ahead; to drive it around a room it must follow diagonal '\"'\"'steer that way'\"'\"' commands as well. This run takes the current walking champion and trains it on commands drawn evenly across the forward-diagonal fan (+/-45 degrees) that the operator ruled in, instead of the old mix that was 60% straight-ahead. If we are right, the robot'\"'\"'s progress along diagonal commands improves without its straight-ahead walking getting worse; if diagonal progress stays flat, the sliding paddle gait itself - not lack of practice - is what blocks steering, and steering work waits for the physics-pricing fix. One variable off champion ppo_goal_cw_walk_anchorgate.zip (md5 35234ddc): goal.walk_heading_max_rad=pi/4. Exploratory, non-promotion (rulings sec.4). Baseline: champion evaluated under the same +/-45deg panel this cycle (logs/ckpt_eval/champ_anchorgate_fdiag_dr10). Gate: diag prog_ratio > baseline beyond noise + DR0 forward retention. Snapshot 30e8b89.' --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-steer-fdiag.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-steer-fdiag.log",
     "wandb_id": "kl87ee0r",
-    "verified": "2026-08-09T11:34:18+00:00"
+    "verified": "2026-08-09T11:34:18+00:00",
+    "verify_agent": "c36 two-phase verify ~11:5xZ: pid 745524 alive on train-1; /tmp/train_cw-steer-fdiag.log +10.3KB/60s; pod .code_sha 30e8b89 = snapshot; W&B kl87ee0r unique+running, steps 3.34M advancing (~11-16k fps); parent champion ckpt present on pod md5 35234ddc verified pre-launch; no duplicate (launcher gate). Baseline for gate: champ fdiag panel logs/ckpt_eval/champ_anchorgate_fdiag_dr10 (recorded this cycle). Watcher owns the checkup.",
+    "baseline_fdiag_panel": "champ anchorgate (35234ddc) own-cfg+h_max=pi/4 DR1.0 seed0 15s 6+6 (logs/ckpt_eval/champ_anchorgate_fdiag_dr10): det fwd/cmd ratios [1.63,1.79,1.68,1.45,0.94,0.92] slip_per_m mean 1.55 gv 6/6; sto gv 5/6 with ep2 BROKEN on a diag draw (fwd 0.136, slip_per_m 6.29, sacrificed leg 2), sto slip/m agg 2.09, prog_ratio agg 1.17. Champion visibly degrades on diagonal commands - the deficit this arm targets. NOTE: per-episode prog_ratio was null in this report (harness emits aggregate only on this path); verdict cycle should compare fwd/cmd_dist_m per episode + the aggregate."
   },
   {
     "run": "cw-walk-loadslip",
@@ -6902,5 +6916,80 @@
     },
     "stack": "gpu-mjx",
     "refused_reason": "hexapod-mjx-train-2 code marker 3f8f84bf770aac56b8e18c0641b0e12f940e31b5 != local HEAD 30e8b89ae65f4e98eea3b6bd0dff3a1afeb883be. Sync first: snapshot.sh --sync hexapod-mjx-train-2 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "cw-walk-loadslip",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "The ruled structural fix for the cadence-reset exploit (OPERATOR RULING 2026-08-09 WALK-SLIP) and the definitive reward-side slip test. Every anti-slip income lever so far could be evaded by stepping MORE OFTEN because each touchdown reset the anchor allowance (free slip = cadence x tol: c1 +23% stances, tol5 paid an 18% stake, stepdisp12/c36 proved step credit does NOT pay the ride \u2014 the allowance-reset protection does). This arm swaps the gating QUANTITY, one variable off champion 35234ddc: walk_anchor_gate 1->0, walk_loadslip_gate=1 \u2014 velocity income multiplied by factor of EPISODE-ACCUMULATED loaded slip per meter of along-command progress (ok=0.75, max=1.5, floor 0.05 m; same quantity the harness scores; no touchdown can reset it). Controller scale audit: champion paddle ep keeps ~11% of velocity income, clean ep ~75% \u2014 a near-total stake where tol5 was 18%. GPU probe PASS (1M, 0 tb, ep_rew 26->214 climbing). If-true: walk_loadslip_ratio falls / factor climbs EARNED, harness det DR1.0 slip_per_m <=1.0 (champion 1.11 along-command / 1.24 legacy denominator). If-false: factor parks ~0.1-0.3 with income forfeited and slip flat \u2014 the policy pays a ~70-90% stake rather than stop sliding, which CLOSES the reward side entirely: slip becomes purely a sim contact-pricing defect (cycle-28 class). Strongest alternative: slip ratio falls via speed/progress collapse, not anchoring \u2014 excluded by progress_ratio 0.75-1.25 + speed-band checks. Exploit watch: unloading feet below contact threshold while sweeping (uncounted slip) = duty drop + swing spike; income starvation collapse (terminations, speed under band) = kill per checkup.",
+    "gate": "DR1.0 harness 15s own-cfg 6+6: det slip_per_m <=1.0 AND sto <=1.1, gait_valid 12/12, 0 term, progress_ratio median 0.75-1.25, speed in band; DR0 det retention fwd >=0.55 6/6; frames watched det+sto for anchored stance vs paddle-creep; W&B walk_loadslip_factor trend read against if-false shape (factor parked low, income forfeited)",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip",
+      "--no-dr",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.02",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=1.0",
+      "--cfg-set",
+      "reward.loadslip_ok=0.75",
+      "--cfg-set",
+      "reward.loadslip_max=1.5",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.05",
+      "--out-name",
+      "ppo_goal_cw_walk_loadslip",
+      "--notes",
+      "The robot's feet slide along the ground while it walks \u2014 on real hardware that means going nowhere and grinding the motors, and it is THE blocker to putting this policy on the physical robot. Every fix so far could be dodged by taking MORE, smaller steps, because each new footfall reset the slip allowance (the operator-ruled accounting bug). This run makes sliding unprofitable in a way extra stepping cannot undo: walking income is scaled by the episode's TOTAL accumulated foot-sliding per meter actually traveled \u2014 the exact number our evaluations score. If we are right, sliding drops below 1.0 m per meter traveled for the first time. If instead the policy just accepts earning ~10-25% income and keeps sliding (it once accepted an 18% cut), that definitively proves NO reward change can fix sliding and the simulator's ground-contact pricing itself must change. One variable off walk champion ppo_goal_cw_walk_anchorgate.zip (md5 35234ddc): per-touchdown anchor gate -> episode-accumulated loaded-slip gate (ok 0.75, max 1.5 slip/m). Controller scale audit + 1M GPU probe PASS recorded in ledger. Gate: det DR1.0 slip_per_m <=1.0, gait_valid 12/12, 0 term, progress_ratio 0.75-1.25, DR0 retention. Snapshot f7514e3.",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24"
+    ],
+    "created": "2026-08-09T11:35:03+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 3,
+      "code_sha_local": "f7514e3e66aa02b06b91e4ba647512a674484cd8",
+      "code_sha_pod": "f7514e3e66aa02b06b91e4ba647512a674484cd8",
+      "init_from_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-loadslip --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_loadslip_gate=1.0 --cfg-set reward.loadslip_ok=0.75 --cfg-set reward.loadslip_max=1.5 --cfg-set reward.loadslip_floor_m=0.05 --out-name ppo_goal_cw_walk_loadslip --notes 'The robot'\"'\"'s feet slide along the ground while it walks \u2014 on real hardware that means going nowhere and grinding the motors, and it is THE blocker to putting this policy on the physical robot. Every fix so far could be dodged by taking MORE, smaller steps, because each new footfall reset the slip allowance (the operator-ruled accounting bug). This run makes sliding unprofitable in a way extra stepping cannot undo: walking income is scaled by the episode'\"'\"'s TOTAL accumulated foot-sliding per meter actually traveled \u2014 the exact number our evaluations score. If we are right, sliding drops below 1.0 m per meter traveled for the first time. If instead the policy just accepts earning ~10-25% income and keeps sliding (it once accepted an 18% cut), that definitively proves NO reward change can fix sliding and the simulator'\"'\"'s ground-contact pricing itself must change. One variable off walk champion ppo_goal_cw_walk_anchorgate.zip (md5 35234ddc): per-touchdown anchor gate -> episode-accumulated loaded-slip gate (ok 0.75, max 1.5 slip/m). Controller scale audit + 1M GPU probe PASS recorded in ledger. Gate: det DR1.0 slip_per_m <=1.0, gait_valid 12/12, 0 term, progress_ratio 0.75-1.25, DR0 retention. Snapshot f7514e3.' --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-walk-loadslip.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-loadslip.log"
   }
 ]

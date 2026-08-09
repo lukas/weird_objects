@@ -27,11 +27,12 @@ As of 2026-08-09 (~cycle 34):
   (paddling/skating). On the real robot that would go nowhere and
   grind the servos, so this is THE blocker to hardware deployment.
   We measure it as "slip per meter traveled" (want ≤1.0; best 1.24).
-- We proved (cycles 24–34) that no reward bonus/penalty tweak fixes
+- We proved (cycles 24–36) that no reward bonus/penalty tweak fixes
   the sliding — the simulator makes sliding physically FREE, so the
-  optimizer always prefers it. Fixing this needs a change to how the
-  sim prices ground contact and servo current — an OPERATOR decision
-  (two such rulings are pending: walk slip and stance lowering).
+  optimizer always prefers it (cycle 36 closed the last income-side
+  lever). The operator's 08-09 design rulings landed (new metrics +
+  gates in flight); the servo-current hardware calibration — the
+  deepest fix — is still operator-owned.
 - Standing up and lying down (heights) are solved under full
   randomization; the "posture" detail (one leg finishing in the
   air) is stuck behind the same pricing issue.
