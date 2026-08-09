@@ -19,20 +19,23 @@ existing config knobs, [CODE] needs an implementation cycle first,
 2. [RUNNING] **Faster walking** — 0.08–0.12 m/s band
    (`cw-walk-fast`); does real stepping emerge when shuffling can't
    keep up?
-3. [READY] **Turning** — yaw-rate commands: turn in place, walk an
-   arc, figure-eight. Start with yaw-only, then yaw+forward.
+3. [CODE] **Turning** — TRUE body-yaw turning needs a yaw-rate
+   command the task doesn't have yet (was mislabeled READY). Spec
+   (operator, 08-09): add `wz_ref` to WalkGoal + trajectory (same
+   hold/ramp/resample pattern as vx/vy), a yaw-rate tracking kernel
+   beside the velocity kernel, and widen the goal obs by 1 — this
+   breaks warm-start obs width, so either pad checkpoints or train
+   the first turn arm from the champion via obs-padding shim. Turn
+   in place, walk an arc, figure-eight. Yaw-only first.
 4. [READY] **Back and forth** — walk forward N cm, reverse back to
    start. Includes backward walking (exploratory line; deferred
    from PROMOTION gates by the 08-09 ruling, not from training).
 5. [READY] **Omnidirectional** — lateral strafing, diagonals.
-6. [READY] **Driving / direction changes** — command changes
-   MID-episode (the proxy for a human steering it): random heading
-   switches every few seconds, smooth transitions, no stumble on
-   the switch.
-7. [READY] **Stop-and-go** — walk → halt on command → stand quietly
-   → resume. (Parking on command is the flip side of the parking
-   exploit; a policy that can do both on cue actually understands
-   the command.)
+6. [RUNNING] **Driving / direction changes** — command changes
+   MID-episode: `goal.walk_cmd_resample_s` landed 08-09
+   (`cw-walk-wander`, resample 5 s, ±45°, 15% stops).
+7. [RUNNING] **Stop-and-go** — covered by `cw-walk-wander`'s stop
+   segments; split into its own arm if transitions look bad.
 8. [READY] **Smooth speed transitions** — accelerate/decelerate
    within an episode without gait breakdown.
 
@@ -57,7 +60,13 @@ existing config knobs, [CODE] needs an implementation cycle first,
     on command (`cw-chain-standwalksit`).
 15. [CODE] **Quadruped mode** — stand/walk on four rear legs,
     fronts free as claws (authorized parallel line; design sketch
-    in `archive/RL_PLAN_FULL_2026-08-09.md`).
+    in `archive/RL_PLAN_FULL_2026-08-09.md`). Spec (operator,
+    08-09): cfg `goal.quad_legs=0,3` exempts the front pair from
+    six-leg participation terms (k_park_duty, duty/step credits)
+    and instead rewards them UNLOADED + lifted; gate on rear-four
+    gait_valid + fronts never load-bearing. Rungs: static quad
+    stance → weight shift → quad walk → quad turn → height up/down
+    (reuse walk_height_off_mm — it is mode-agnostic).
 16. [LATER — after 0-c stability gates] **Fall recovery** — start
     fallen, get up quietly (needs fallen-pose reset generator +
     orientation-complete obs; hard current pricing per the
@@ -67,6 +76,10 @@ existing config knobs, [CODE] needs an implementation cycle first,
 18. [READY] **Body pose control** — track body height/roll/pitch
     while standing (camera aiming, looking up/down); goal-mix
     lean/track modes exist.
+18b. [RUNNING] **High/low gait** — walk at commanded stance height:
+    `goal.walk_height_off_mm` landed 08-09 (`cw-walk-highgait`
+    +20 mm, `cw-walk-lowgait` −20 mm). Everything that works
+    becomes a runtime command via the height ref, like rise/lower.
 
 ## Learning machinery (makes everything above easier)
 
