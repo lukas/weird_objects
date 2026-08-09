@@ -13,7 +13,7 @@ it is for; keep them SHORT when you edit them.
 | `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/summary.md` convention + cached W&B data | When finishing or investigating a run |
 | `runs/` | One GENERATED summary per run (status, hypothesis, gate, verdict) — rendered from `experiments.json` by `launch_run.py`; never hand-edit | Browsing past runs; `launch_run.py runsmd` refreshes |
 | `../RL_PLAN.md` | The current plan, gates, and queue (~120 lines) | Every cycle |
-| `../RL_LOG.md` | Condensed campaign history, 1–3 lines per cycle | Every cycle |
+| `../RL_LOG.md` | Condensed campaign history; append ONE line per cycle via `ops.sh logline` only | Every cycle |
 | `../rl_move/orchestrator/guardrails.yaml` | Hard limits you must obey | Every cycle |
 | `../archive/` | Full history, reviews, audits (long; search, don't read) | Only when the condensed docs point there |
 

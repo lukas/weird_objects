@@ -3415,6 +3415,15 @@ MOTOR_CTRL_CENTRE = (-24.0, 0.0)
 MOTOR_CTRL_YAW_DEG = 90.0
 MOTOR_CTRL_SERVO_CLEAR = 14.0   # mm free air off the +X (servo-plug) face
 MOTOR_CTRL_PWR_CLEAR = 13.0     # mm free air off the -X (terminal/USB) face
+# Bench-plug corridor (Aug 2026, user): a laptop must be able to plug
+# into the adapter's USB-C on the -X face, so the port needs the full
+# plug-body depth of free air -- ~30 mm covers a USB-C overmold plus
+# strain relief.  Unlike the 13 mm PWR zone (permanent wiring, must
+# stay over the deck disc), this corridor is TEMPORARY-use: it may
+# extend past the chassis_top rim into leg-sweep airspace because the
+# robot is parked/limp whenever a bench cable is attached.  Enforced as
+# its own connector_clearance zone (no permanent part may intrude).
+MOTOR_CTRL_USB_CLEAR = 30.0     # mm bench USB-C plug corridor, -X face
 
 # Generic shield / breakout next to Uno Q on the hex plate.
 BREAKOUT_W = 45.0

@@ -17,6 +17,8 @@ leave the next agent to rediscover it.
 
 | Question | The ONE command |
 |---|---|
+| **Triage a finished run (START HERE)** | `ops.sh review <run>` — ledger+gate, W&B trend, eval table, video paths in one shot |
+| Eval numbers table from a report.json | `ops.sh report <run\|path>` (per-episode + medians + term counts) |
 | What is actually training right now? | `ops.sh census` (/proc truth; W&B lags launches ~8 min) |
 | How many slots are free / where? | `python3 rl_move/orchestrator/capacity.py` |
 | Ledger + procs + watcher, one screen | `ops.sh status` |
@@ -24,6 +26,12 @@ leave the next agent to rediscover it.
 | What's queued to launch? | `launch_run.py backlog list` |
 | A past run's story | `rl_docs/runs/<run>.md` |
 | Are results being lost/ignored? | `ops.sh triage [hours]` |
+| Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |
+| Frames from a video | harness already wrote `*.png` sheets; else `ops.sh frames <mp4> [n]` |
+
+**DO NOT hand-write python for any row above.** Transcript mining
+(08-09) found >500 ad-hoc snippets re-parsing experiments.json,
+report.json, and the W&B API for exactly these questions.
 
 ## Where things are (the #1 recurring failure: wrong paths)
 
@@ -39,7 +47,8 @@ leave the next agent to rediscover it.
 - Docs: `RL_PLAN.md` + `RL_LOG.md` are CONDENSED (~120 lines each,
   read them whole — no more sed windows). Full history:
   `archive/RL_LOG_FULL_2026-08-09.md`, `archive/RL_PLAN_FULL_*.md`.
-  Log append rule: 1–3 lines per entry; evidence goes to W&B/ledger.
+  Log append rule: ONE line per cycle via `ops.sh logline` — never
+  `cat >>`; evidence goes to the ledger verdict + W&B, not the log.
 
 ## ops.sh (rl_move/orchestrator/ops.sh) — use instead of hand-rolling
 
@@ -53,6 +62,16 @@ leave the next agent to rediscover it.
   (pod + log path come from the ledger; don't guess).
 - `ops.sh entry <run>` — the run's ledger entries.
 - `ops.sh wandb <run>` — state, steps, reward-quarters trend, std, URL.
+- `ops.sh review <run>` — the standard triage read in ONE command
+  (ledger, W&B, eval table, videos). If its output + one video answer
+  pass/fail, record the verdict and stop.
+- `ops.sh report <run|report.json>` — per-episode table + medians +
+  gait_valid/termination counts from a harness report.
+- `ops.sh logline "text"` — the only sanctioned RL_LOG write (one
+  timestamped line under the git lock).
+- `ops.sh frames <mp4> [n]` — contact sheet from any video (but the
+  harness already writes `walk_*.png` sheets next to eval videos —
+  check those first).
 - `ops.sh pullckpt <run>` — fetch checkpoint from its pod + md5.
 - `ops.sh pushckpt <pod> <ckpt>` — copy a checkpoint TO a pod + md5
   both sides. **`snapshot.sh --sync` EXCLUDES policies/** — a

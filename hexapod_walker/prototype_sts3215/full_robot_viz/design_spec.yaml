@@ -135,7 +135,7 @@ parts:
     role: "electronics"
     cots: true
     qty: 1
-    description: "Waveshare Bus Servo Adapter (A), 42x33 mm, on the chassis_top west band. Servo/UART plugs exit its +X face, screw terminal + USB-C its -X face; both faces keep clear wire zones (connector_clearance check). As-built the Uno Q drives it over the D0/D1 TX/RX/GND UART pigtail (jumper A); USB-C is bench-only since a VIN-powered Uno Q gives no USB host mode / no VBUS. COTS."
+    description: "Waveshare Bus Servo Adapter (A), 42x33 mm, on the chassis_top west band. Servo/UART plugs exit its +X face, screw terminal + USB-C its -X face; both faces keep clear wire zones, and the USB-C additionally keeps a 30 mm bench-plug corridor off the -X face so a laptop cable plugs straight in (connector_clearance checks; the corridor may pass the deck rim because the robot is parked when tethered). As-built the Uno Q drives it over the D0/D1 TX/RX/GND UART pigtail (jumper A); USB-C is bench-only since a VIN-powered Uno Q gives no USB host mode / no VBUS. COTS."
   mpu6050:
     label: "mpu6050"
     role: "electronics"

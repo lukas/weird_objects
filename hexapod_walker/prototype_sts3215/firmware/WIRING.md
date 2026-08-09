@@ -65,6 +65,17 @@ bridge is not flashed.
 > Type-C is in **OTG / host** mode — use a hub with power passthrough if
 > you still need to power/debug the board over USB.
 
+> **Laptop → adapter USB-C (bench):** you can also drive the bus
+> straight from a laptop plugged into the on-deck Waveshare adapter's
+> own USB-C (jumper **B**), bypassing the Uno Q entirely.  The CAD
+> guarantees this is physically possible without unstacking anything:
+> the adapter's -X (terminal/USB) face keeps a **30 mm bench-plug
+> corridor** of free air (`MOTOR_CTRL_USB_CLEAR`, enforced by the viz
+> `connector_clearance` check).  The corridor extends past the deck rim
+> into leg airspace, so it is **parked-robot only** — limp the servos
+> before tethering.  Insertion is a reach-under: the round mount plate
+> overhangs the port by ~17 mm with ~30 mm of vertical headroom.
+
 Your first built arm is **leg 0 = joints 0 / 1 / 2 = servo IDs 2 / 3 /
 4**. This doc gets that leg moving safely, then scales to all 18 with a
 **distributed-power harness** (§6) that keeps any one connector from

@@ -188,7 +188,7 @@ DESCRIPTIONS = {
     "breakout": "Generic shield / breakout next to the Uno Q on the hex plate. COTS.",
     "wago_trunk": "Central trunk splice pair: two 5-port Wago 221-415 side by side near the chassis_top centre (nudged +X for adapter wire clearance), wire entries facing +X toward the switch. Polarity: V+ = the SOUTH nut at (16, -16) nearest the switch, GND = the NORTH nut at (16, +16). The fused battery trunk lands here and fans out the six 16 AWG branches to the corner power Wago pairs (as-built Aug 2026: no PDB — power distribution is all lever nuts). COTS.",
     "wago_v33": "3.3 V rail splice: one 5-port Wago 221-415 VHB-taped flat under the round mount plate near its south rim, wire entries facing -Y. Feed = Uno Q 3V3 pin (down through the east Ø8 wire port); load = MPU VCC (straight down to the deck), 3 spare ports (Aug 2026: the screen's VCC rides its own 8-wire Uno pigtail instead). Pull the plate off its magnets to work the levers. COTS.",
-    "motor_controller": "Waveshare Bus Servo Adapter (A), 42x33 mm, on the chassis_top west band. Servo/UART plugs exit its +X face, screw terminal + USB-C its -X face; both faces keep clear wire zones (connector_clearance check). As-built the Uno Q drives it over the D0/D1 TX/RX/GND UART pigtail (jumper A); USB-C is bench-only since a VIN-powered Uno Q gives no USB host mode / no VBUS. COTS.",
+    "motor_controller": "Waveshare Bus Servo Adapter (A), 42x33 mm, on the chassis_top west band. Servo/UART plugs exit its +X face, screw terminal + USB-C its -X face; both faces keep clear wire zones, and the USB-C additionally keeps a 30 mm bench-plug corridor off the -X face so a laptop cable plugs straight in (connector_clearance checks; the corridor may pass the deck rim because the robot is parked when tethered). As-built the Uno Q drives it over the D0/D1 TX/RX/GND UART pigtail (jumper A); USB-C is bench-only since a VIN-powered Uno Q gives no USB host mode / no VBUS. COTS.",
     "screen": "63×35 mm display panel centered on the raised platform top. COTS.",
     "mpu6050": "GY-521 MPU-6050 IMU glued on chassis_top just south of the central trunk Wago pair (inboard, r=43). Right-angle header row faces -X with a clear wire zone (connector_clearance check). I²C to the Uno Q above. COTS.",
     "wago_power": "3-port Wago 221-413 lever nut for a per-leg 12 V + G motor branch: one V+/GND pair per chassis_bottom hex corner flat (between adjacent yaw cradles), wire entries facing the chassis centre, seated between the two-bay tray walls integrated into the chassis_bottom top face (late-Aug 2026; was a separate printed wago_mount tray). Polarity convention (same at every corner, viewed from above): V+ = the nut CLOCKWISE of the corner's outward ray, GND = counterclockwise. COTS.",
@@ -401,20 +401,29 @@ def _connector_clearance_checks(items, chassis_lift: float):
     ix, iy = HP.MPU_ASBUILT_CENTRE
     ihx, ihy = HP.IMU_PCB_D / 2.0, HP.IMU_PCB_W / 2.0
 
-    # (label, owner partType, x-range, y-range, zone height above deck)
+    # (label, owner partType, x-range, y-range, zone height above deck,
+    #  must_stay_on_plate) -- the last flag is False only for the bench
+    # USB-C plug corridor: a laptop cable is attached with the robot
+    # parked/limp, so unlike permanent wiring it MAY reach past the
+    # chassis_top rim into (momentarily unused) leg-sweep airspace.
     zones = [
         ("motor_controller servo/UART face (+X)", "motor_controller",
          (mcx + mhx, mcx + mhx + HP.MOTOR_CTRL_SERVO_CLEAR),
-         (mcy - mhy, mcy + mhy), HP.MOTOR_CTRL_H + 4.0),
+         (mcy - mhy, mcy + mhy), HP.MOTOR_CTRL_H + 4.0, True),
         ("motor_controller terminal/USB face (-X)", "motor_controller",
          (mcx - mhx - HP.MOTOR_CTRL_PWR_CLEAR, mcx - mhx),
-         (mcy - mhy, mcy + mhy), HP.MOTOR_CTRL_H + 4.0),
+         (mcy - mhy, mcy + mhy), HP.MOTOR_CTRL_H + 4.0, True),
         ("mpu6050 header row (-X)", "mpu6050",
          (ix - ihx - HP.MPU_WIRE_CLEAR, ix - ihx),
-         (iy - ihy, iy + ihy), 12.0),
+         (iy - ihy, iy + ihy), 12.0, True),
+        ("motor_controller USB-C bench-plug corridor (-X, robot parked)",
+         "motor_controller",
+         (mcx - mhx - HP.MOTOR_CTRL_USB_CLEAR, mcx - mhx),
+         (mcy - mhy, mcy + mhy), HP.MOTOR_CTRL_H + 4.0, False),
     ]
 
-    for k, (label, owner, (x0, x1), (y0, y1), zh) in enumerate(zones):
+    for k, (label, owner, (x0, x1), (y0, y1), zh, need_on_plate) in \
+            enumerate(zones):
         ext = (x1 - x0, y1 - y0, zh)
         zone = _box_mesh(extents=ext)
         # start 0.2 above the deck surface so resting on the plate never
@@ -430,8 +439,10 @@ def _connector_clearance_checks(items, chassis_lift: float):
             if vol > 40.0:
                 offenders.append((iid, ptype, vol))
         # containment: wires must stay over the plate, out of leg airspace
+        # (waived for the bench-plug corridor -- robot parked, see zones)
         corner_r = max(np.hypot(x, y) for x in (x0, x1) for y in (y0, y1))
-        on_plate = corner_r <= HP.CHASSIS_TOP_RADIUS + 0.5
+        on_plate = (not need_on_plate
+                    or corner_r <= HP.CHASSIS_TOP_RADIUS + 0.5)
         ok = not offenders and on_plate
         detail = "clear" if ok else (
             "; ".join(f"{pt} intrudes {v:.0f} mm\u00b3"
