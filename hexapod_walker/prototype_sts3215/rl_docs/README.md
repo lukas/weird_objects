@@ -7,6 +7,7 @@ it is for; keep them SHORT when you edit them.
 | File | What it answers | When to read |
 |------|-----------------|--------------|
 | `GOAL.md` | What are we doing and why, in plain English; where we are; what's blocked | Every cycle, first |
+| `SKILLS.md` | What the robot can DO today: passed skills + their checkpoints (W&B artifact per row) | On any PASS (update it!), or when the operator asks what works |
 | `WISHLIST.md` | Operator's backlog of things to learn — pull from it whenever pods would idle | Every cycle, when deciding launches |
 | `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, hard-won gotchas | Every cycle, before running commands |
 | `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/summary.md` convention + cached W&B data | When finishing or investigating a run |
