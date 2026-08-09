@@ -1978,3 +1978,60 @@ cw-walk-step0-lowent untouched (RUNNING, s6, verified 01:01:20Z;
 its own watcher checkup is separate). cw-stance-endpost-r1 untouched
 (owned by the concurrent cycle). No plan change: RL_PLAN.md is not
 affected by a tooling fix.
+
+## Cycle 17 (2026-08-09 ~01:3xZ) — watcher DEAD on cw-walk-step0-c1: false positive (run had FINISHED), no retry
+
+Trigger: watcher checkup rc=1 at 01:09:45Z — "DEAD: no cw-walk-step0-c1
+trainer process on hexapod-sweep-walk".
+
+**OBSERVATIONS (mechanical).** The run is not dead; it is FINISHED and
+already verdicted. (a) /tmp/train_cw-walk-step0-c1.log ends with the
+normal completion sequence: final video reel, "[train] 4000000 steps in
+464s → .../ppo_goal_cw_walk_step0_c1.zip", final eval, zero-action
+baseline. (b) Checkpoint on the walk pod: 704,405 B, mtime 00:38Z, md5
+e4314fa287d2e5e677c50c8c4e438c23 — matches the ledger. (c) W&B 9sdboq3u
+state=finished, global_step 5,265,024 — exactly the canary auto-stop
+point cycle 15 verdicted ("canary false-positive truncation, plateau
+confirmed"). (d) Successor c2 was init-from this checkpoint and is alive
+on the same pod (log advancing; W&B c1oyg4j6).
+
+Root-cause chain (required): watcher DEAD ← checkup matched a ledger
+entry for c1 still marked RUNNING ← that entry is the launcher-written
+original, clobbered by the 08-09 hand-edit incident and later restored
+WITHOUT the status transition (cycle 15's FINISHED+verdict landed on the
+duplicate reconstruction entry instead) ← unlocked read-modify-write of
+experiments.json (root already fixed via `launch_run.py update` + prompt
+ban). Secondary defect exposed: `cmd_checkup` treats ANY absent process
+as DEAD, but canary auto-stops and short runs legitimately complete
+before/within the checkup window — this false-positive class recurs
+unless checked at the tool.
+
+**ACTIONS.** (1) NO retry, NO cleanup: nothing is dead; a relaunch would
+duplicate a verdicted lineage already continued by c2 and would
+overwrite ppo_goal_cw_walk_step0_c1.zip (forbidden). (2) `cmd_checkup`
+hardened: on process-absent it now looks for the trainer completion
+marker ("[train] N steps in Ts → ckpt") in the log tail and reports
+FINISHED_BEFORE_CHECKUP (rc 0, status→FINISHED under the lock) instead
+of DEAD; genuinely dead tails (tracebacks, silence) still report DEAD —
+regex verified against c1's real tail (positive) and a crash tail
+(negative). Re-ran checkup on c1 through the new path: rc 0, ledger
+transitioned. (3) `update` gained a `--created` selector so stale
+DUPLICATES can be resolved through the locked path (previously only the
+newest entry per name was reachable). (4) Residue sweep for the same
+failure class (checks generalize): c2 had the identical stale pair — its
+reconstruction entry (created 00:55:00) is now marked DUPLICATE with a
+pointer to the authoritative launcher entry (created 00:54:00), so c2's
+eventual FINISHED cannot leave a second RUNNING ghost to trigger another
+false DEAD. Ledger now has exactly one RUNNING entry per live run
+(endpost-r1, c2, lowent).
+
+Side observation (hypothesis, not a verdict — c2's own cycle owns it):
+c2 log tail shows train/std 7.51, extending the lineage's monotone std
+runaway (1.0 → 2.30 → 3.21 → 5.89 at cycle 16 → 7.51 now, all under ent
+0.01). Still exactly the A-arm trajectory the lowent A/B predicts if
+entropy runaway is the plateau driver; final-std comparison belongs to
+the c2/lowent verdicts.
+
+No evals, no launches, no plan change (tooling + ledger hygiene only).
+cw-stance-endpost-r1 untouched (concurrent cycle owns it); c2 and
+lowent untouched and training.

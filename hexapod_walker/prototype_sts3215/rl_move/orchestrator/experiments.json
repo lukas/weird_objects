@@ -1910,7 +1910,7 @@
     "gate": "same operator walk gate as step0/c1",
     "parent": "ppo_goal_cw_walk_step0_c1.zip (md5 e4314fa2)",
     "created": "2026-08-09T00:55:00+00:00",
-    "status": "RUNNING",
+    "status": "DUPLICATE",
     "wandb_id": "c1oyg4j6",
     "log": "/tmp/train_cw-walk-step0-c2.log",
     "checkups": [
@@ -1924,7 +1924,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "resolution_note": "Stale duplicate from the 2026-08-09 clobbering incident: this is cycle 15's post-hoc reconstruction; the launcher-written entry (created 2026-08-09T00:54:00+00:00) was later restored and is authoritative. Marked DUPLICATE (run itself is alive and tracked there) so it cannot trigger a stale-RUNNING false DEAD after c2 finishes, as happened to c1's restored entry at 01:09:45Z."
   },
   {
     "run": "cw-walk-step0-lowent",
@@ -2004,6 +2005,188 @@
         "tracebacks_in_tail": 0,
         "log_growth_bytes": 12143,
         "fps": 8404.3,
+        "placement": "solo on 56-core pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-step0-c1",
+    "pod": "hexapod-sweep-walk",
+    "steps": 4000000,
+    "smoke": false,
+    "hypothesis": "Operator directive 0-a (RL_PLAN, binding): continue-while-improving. cw-walk-step0 finished 4M with ep_rew_mean 586 still climbing and final reel walk:ok x4; operator watched live and ordered continuation without waiting for verdict. Identical config, init-from final step0 checkpoint, +4M. If the trailing verdict on step0 finds park/drag/exploit, kill this run.",
+    "gate": "Same as step0: DR 0, det AND sto, >=10cm forward, all six legs cycling lift/swing/touchdown, duty [0.2,0.9], >=2 swings/leg, no drag, no park; video pathology-first",
+    "parent": "cw-walk-step0",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--no-dr",
+      "--log-std-init",
+      "0.0",
+      "--ent-coef",
+      "0.01",
+      "--eval-every",
+      "200000",
+      "--video-every",
+      "200000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.02",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--init-from",
+      "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_step0.zip",
+      "--out-name",
+      "ppo_goal_cw_walk_step0_c1",
+      "--notes",
+      "'Continuation c1 of cw-walk-step0 per operator directive 0-a: identical config, init-from final 4M checkpoint. Trailing verdict on step0 decides if this lineage lives.'",
+      "--n-envs",
+      "48",
+      "--subproc"
+    ],
+    "created": "2026-08-09T00:30:51+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 56,
+      "existing_trainers": [],
+      "free_cores_estimate": 56,
+      "node": "g129004",
+      "node_trainers": [],
+      "host_load": {
+        "load1": 1.01,
+        "load5": 10.59,
+        "cores": 128
+      },
+      "running_experiments_before": 1,
+      "pid": "3630434",
+      "log_growth_bytes": [
+        21420,
+        32681
+      ],
+      "wandb_id": "9sdboq3u",
+      "global_step_window": [
+        4374528,
+        4730880
+      ],
+      "fps_estimate": 3959.5
+    },
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-step0-c1 --steps 4000000 --task joint_walk --no-dr --log-std-init 0.0 --ent-coef 0.01 --eval-every 200000 --video-every 200000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --init-from /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_step0.zip --out-name ppo_goal_cw_walk_step0_c1 --notes 'Continuation c1 of cw-walk-step0 per operator directive 0-a: identical config, init-from final 4M checkpoint. Trailing verdict on step0 decides if this lineage lives.' --n-envs 48 --subproc > /tmp/train_cw-walk-step0-c1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-step0-c1.log",
+    "wandb_id": "9sdboq3u",
+    "verified": "2026-08-09T00:34:33+00:00",
+    "note": "IMPORTED 2026-08-09T01:20Z from the stale non-git copy at /workspace/prototype_sts3215 (operator ran the launcher from the wrong tree; this is the original launch record with checks/wandb_id). The cycle-written entry for the same run holds the verdict.",
+    "checkups": [
+      {
+        "time": "2026-08-09T01:09:44+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "logged reel (5,206,032 steps | walk:ok walk:TERM(tilt_pitch) walk:TERM(tilt_pitch) walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:TERM(tilt_roll))\n[train] 4000000 steps in 464s \u2192 /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_step0_c1.zip\n[eval] ppo_goal_cw_walk_step0_c1.zip: return +290.413 \u00b1 272.139 | max tilt 8.19\u00b0 | survived 10/10 | track err 2.50\u00b0 (median 1.81\u00b0, within 1\u00b0: 29%) | raise 0/2\n[eval] zero-action baseline: return -136.379 \u00b1 170.672 | max tilt 0.00\u00b0 | survived 10/10 | track err 0.38\u00b0 (median 0.00\u00b0, within 1\u00b0: 90%) | raise 0/2\n"
+      },
+      {
+        "time": "2026-08-09T01:15:19+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "logged reel (5,206,032 steps | walk:ok walk:TERM(tilt_pitch) walk:TERM(tilt_pitch) walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:TERM(tilt_roll))\n[train] 4000000 steps in 464s \u2192 /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_step0_c1.zip\n[eval] ppo_goal_cw_walk_step0_c1.zip: return +290.413 \u00b1 272.139 | max tilt 8.19\u00b0 | survived 10/10 | track err 2.50\u00b0 (median 1.81\u00b0, within 1\u00b0: 29%) | raise 0/2\n[eval] zero-action baseline: return -136.379 \u00b1 170.672 | max tilt 0.00\u00b0 | survived 10/10 | track err 0.38\u00b0 (median 0.00\u00b0, within 1\u00b0: 90%) | raise 0/2\n"
+      }
+    ],
+    "final_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_step0_c1.zip (on walk pod)",
+    "final_checkpoint_md5": "e4314fa287d2e5e677c50c8c4e438c23",
+    "resolution_note": "Watcher DEAD at 01:09:45Z was a FALSE POSITIVE: run finished 00:38Z via canary auto-stop at 5,265,024 cum steps (W&B 9sdboq3u state=finished, ckpt md5 verified on pod), verdicted by cycle 15. This launcher-written entry was clobbered then restored still-RUNNING while the verdict landed on the duplicate reconstruction entry (created 00:31:00). No retry: successor c2 already RUNNING from this ckpt. cmd_checkup now detects the completion marker instead of reporting DEAD."
+  },
+  {
+    "run": "cw-walk-step0-c2",
+    "pod": "hexapod-sweep-walk",
+    "steps": 4000000,
+    "smoke": false,
+    "hypothesis": "Operator directive 0-a continuation. c1 improved for real before a FALSE-POSITIVE canary auto-stop killed it at 1.26M/4M: canary protected rise_flat, a skill this walk-only from-scratch lineage never trained (parent baseline probe passed by accident); survived went 6/10 -> 10/10, rew 586 -> 591. c2 = identical config, init-from c1 final ckpt, --no-canary (nothing legitimate to protect; the walk gate harness is the real check). Predict: continued rise in ep_rew_mean and step-event metrics. If instead reward flattens or the gait degrades on video, the lineage has plateaued and stops per 0-a.",
+    "gate": "Same as step0: DR 0, det AND sto, >=10cm forward, all six legs cycling lift/swing/touchdown, duty [0.2,0.9], >=2 swings/leg, no drag, no park; video pathology-first",
+    "parent": "cw-walk-step0-c1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--no-dr",
+      "--log-std-init",
+      "0.0",
+      "--ent-coef",
+      "0.01",
+      "--eval-every",
+      "200000",
+      "--video-every",
+      "200000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.02",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--init-from",
+      "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_step0_c1.zip",
+      "--out-name",
+      "ppo_goal_cw_walk_step0_c2",
+      "--no-canary",
+      "--notes",
+      "'Continuation c2 per operator directive 0-a. c1 auto-stop was a canary false positive (rise_flat protected on a walk-only lineage); c2 runs --no-canary. Init-from c1 final ckpt.'",
+      "--n-envs",
+      "48",
+      "--subproc"
+    ],
+    "created": "2026-08-09T00:54:00+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 56,
+      "existing_trainers": [],
+      "free_cores_estimate": 56,
+      "node": "g129004",
+      "node_trainers": [],
+      "host_load": {
+        "load1": 4.52,
+        "load5": 5.47,
+        "cores": 128
+      },
+      "running_experiments_before": 0,
+      "pid": "3831261",
+      "log_growth_bytes": [
+        21900,
+        34099
+      ],
+      "wandb_id": "c1oyg4j6",
+      "global_step_window": [
+        5658240,
+        5965440
+      ],
+      "fps_estimate": 3413.3
+    },
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim --run-name cw-walk-step0-c2 --steps 4000000 --task joint_walk --no-dr --log-std-init 0.0 --ent-coef 0.01 --eval-every 200000 --video-every 200000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --init-from /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_step0_c1.zip --out-name ppo_goal_cw_walk_step0_c2 --no-canary --notes 'Continuation c2 per operator directive 0-a. c1 auto-stop was a canary false positive (rise_flat protected on a walk-only lineage); c2 runs --no-canary. Init-from c1 final ckpt.' --n-envs 48 --subproc > /tmp/train_cw-walk-step0-c2.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-step0-c2.log",
+    "wandb_id": "c1oyg4j6",
+    "verified": "2026-08-09T00:57:40+00:00",
+    "note": "IMPORTED 2026-08-09T01:20Z from the stale non-git copy at /workspace/prototype_sts3215 (operator ran the launcher from the wrong tree; this is the original launch record with checks/wandb_id). The cycle-written entry for the same run holds the verdict.",
+    "checkups": [
+      {
+        "time": "2026-08-09T01:09:45+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 9459,
+        "fps": 2730.7,
         "placement": "solo on 56-core pod",
         "verdict": "HEALTHY",
         "problems": []
