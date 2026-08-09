@@ -3710,3 +3710,31 @@ if-false's signatures appeared; the segment was under-dosed by 5x
 in optimizer updates (stack-switch artifact). The consolidate-in-
 place continuation at update parity (below) is the discriminator:
 same config, no new variables, 20M steps ~= 305 updates.
+
+### LAUNCH cw-walk-parkstart-mjx-c1 (20M GPU steps, mjx-train-1) — update-parity discriminator for the reset-diversity mechanism
+Consolidate-in-place continuation, zero new variables: identical
+config to parkstart-mjx (park_start_frac=0.25, prog-gated kernel,
+DR 0, 15 s, seed 0), --init-from ppo_goal_cw_walk_parkstart_mjx.zip
+md5 01d9ab60 (new champion). 20M steps at 4096 envs ~= 305 PPO
+updates = parity with the pre-registered 4M CPU segment the parent
+under-delivered by 5x. Budget: 20M of the 80M GPU cycle cap, run
+cap 40M — within limits. Gate unchanged (standard 15s 12/12 clauses
++ park-exit >=10/12 + retention slip <=1.8). Pre-registered:
+if-true park 0/12 + 12/12 fwd; if-false park persists ~1/6 at full
+parity -> harvest own-park resets or rung-2 load evenness.
+Strongest alternative (overfit to park starts eroding normal-start
+walking) is detectable as det fwd mean < parent 0.745. VERIFIED
+RUNNING by the launcher: pid 742380, W&B y8m62x7l advancing
+(1.38M->3.08M in the check window), fps ~18.9k, no duplicate, pod
+code at snapshot 1a33ef2. Watcher owns the 5-min checkup.
+FLEET NOTE / idle-pod rationale: mjx-train-0 freed mid-cycle when
+cw-stance-bellyrest finished — that run and its follow-ups belong
+to the concurrent cycle handling its verdict (my prompt lists it
+off-limits), so I am not placing anything for the stance line.
+mjx-train-2/3 stay idle deliberately: the walk line's next arm is
+pre-registered as verdict-DEPENDENT on c1 (own-park harvest vs load
+evenness vs skating root-cause off a confirmed champion), and c1
+lands in ~20 min of wall clock — launching a speculative arm now
+would prejudge it. Cycle totals: 1 launch, 20M GPU steps (cap 80M),
+0 CPU steps, 3 harness evals (36 eps, 10 strips watched)
+controller-side.
