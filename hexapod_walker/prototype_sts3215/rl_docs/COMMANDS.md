@@ -29,7 +29,7 @@ leave the next agent to rediscover it.
 | Finished but not yet analyzed? | ledger `triage` field (watcher-stamped: `awaiting…` → `in-cycle…` → `done` on verdict); shown on the status page "Analysis pipeline" |
 | Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |
 | Frames from a video | harness already wrote `*.png` sheets; else `ops.sh frames <mp4> [n]` |
-| Operator wants an overview in a browser | status page: `status_server.py` in tmux `statusweb` on the controller (port 8090); laptop: `kubectl port-forward hexapod-sweep-friction 8090:8090` → http://127.0.0.1:8090 |
+| Operator wants an overview in a browser | status page at http://127.0.0.1:8090 — full setup/restart runbook in "Operator status page" section below |
 
 **DO NOT hand-write python for any row above.** Transcript mining
 (08-09) found >500 ad-hoc snippets re-parsing experiments.json,
@@ -227,6 +227,47 @@ report.json, and the W&B API for exactly these questions.
     walk band in report.json. Assign the variable on its OWN line (or
     `export` it), THEN background the evals; always spot-check one
     `/proc/<pid>/cmdline` for the cfg-sets after launching a batch.
+
+## Operator status page (web) — setup & restart runbook
+
+One auto-refreshing HTML page for the human operator: watcher
+ON/PAUSED/OFF, in-flight cycles + what they're triaging, analysis
+pipeline (ledger `triage` field), per-pod fleet census, backlog,
+ledger runs, Claude token usage + est. spend, log tails. Code:
+`rl_move/orchestrator/status_server.py` (stdlib only, port 8090 —
+5183/5173 are BuildViz, 8080 is the robot).
+
+Two pieces, both must be up:
+
+1. **Server, on the controller pod** (`hexapod-sweep-friction`), in
+   tmux session `statusweb`:
+
+   ```sh
+   kubectl --kubeconfig=$HOME/.kube/coreweave.yaml exec hexapod-sweep-friction -- \
+     bash -c "tmux kill-session -t statusweb 2>/dev/null; \
+       tmux new-session -d -s statusweb 'source /root/orchestrator.env; \
+       cd /workspace/weird_objects/hexapod_walker/prototype_sts3215 && \
+       python3 rl_move/orchestrator/status_server.py 2>&1 | tee /tmp/status_server.log'"
+   ```
+
+2. **Port-forward, on the operator's laptop** (dies on sleep/network
+   blips — restart it freely, it's stateless):
+
+   ```sh
+   kubectl --kubeconfig=$HOME/.kube/coreweave.yaml \
+     port-forward hexapod-sweep-friction 8090:8090
+   ```
+
+Then open **http://127.0.0.1:8090** (raw data at `/json`).
+
+Health checks: `curl -s http://127.0.0.1:8090/ | head -c 100` on the
+laptop; on the pod, `tmux has-session -t statusweb` and
+`/tmp/status_server.log`. If the page loads but fleet/token sections
+are empty, the slow collector hasn't finished its first pass — wait
+~2 min. After editing `status_server.py`: commit, push, `git pull` on
+the controller, then re-run step 1 (kill+new tmux session). The
+server is read-only and safe to restart at any time — it never
+touches training, the watcher, or the ledger.
 
 ## Time budget guidance
 

@@ -174,6 +174,12 @@ python3 rl_move/orchestrator/launch_run.py backlog list
 tail -20 /workspace/orchestrator.log           # watcher alive?
 ```
 
+The operator watches a status webpage (http://127.0.0.1:8090 via
+port-forward). If they say it's down, the setup/restart runbook is in
+`COMMANDS.md` § "Operator status page" — two pieces: `statusweb` tmux
+session on the controller + `kubectl port-forward … 8090:8090` on
+their laptop.
+
 Then read RL_PLAN.md end to end (it's ~170 lines and every line is a
 ruling). Do not touch the physical robot, ever, without an explicit
 operator instruction in the current message (AGENTS.md, hardware
