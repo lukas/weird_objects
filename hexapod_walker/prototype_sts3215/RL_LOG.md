@@ -14,8 +14,9 @@ a file under `archive/` and link it.
 
 ## State (as of cycle 40, 2026-08-09 ~13:00Z)
 
-- **WALK CHAMPION: ppo_goal_cw_walk_anchorgate.zip md5 35234ddc**
-  (DR1.0 det slip 1.240; NOT hardware-ready — paddle-creep).
+- **WALK CHAMPION: ppo_goal_cw_walk_longdist_r2.zip md5 bcddc65c**
+  (promoted cycle 44, seed-confirmed; DR1.0 det slip 1.06; NOT
+  hardware-ready — paddle-creep persists, sto draw-stalls).
   Reward side of skating CLOSED pending loadslip-s1 concordance;
   slip root = sim contact/current pricing (operator calibration).
 - **Stance:** heights 12/12 at DR 1.0; lower-line rework authorized
@@ -245,3 +246,28 @@ a file under `archive/` and link it.
   DR-cfg hook). 0 launches this cycle. Next cycle with 2+ idle pods:
   mirror-symmetry implementation cycle (plan #3), or wander/tilt50/
   fall300 follow-ups once their verdicts land.
+- Cycle 44 (08-09 ~13:5x): `cw-walk-longdist-s1` seed twin CONFIRMED
+  r2 on every axis (DR0 det 6/6, slip/m 0.94, 1.63m@30s; DR1.0 det
+  slip 0.98 vs r2 1.06 vs champ 1.240; sto misses = the SAME fixed
+  draws in both seeds → lineage trait, not seed luck) → **champion
+  PROMOTED to ppo_goal_cw_walk_longdist_r2.zip md5 bcddc65c**; NOT
+  hardware-ready (slip ~1/m, DR1.0 sto 3/6). `cw-walk-diag45`
+  operator-killed (c43); W&B outcome notes added for both. Killed
+  drain-launched `cw-walk-speedband` at 6M: stale spec, its 0.11 m/s
+  gate pre-refuted by c42 fast (ceiling ~0.065) — requeued as
+  `speedband-r1` (0.02–0.06 band, resample kept). Queued
+  `cw-walk-longdist-dr05` (DR-harden new champion; drain→t2
+  verified). Idle slots = concurrent verdict cycles' refills for the
+  ~10 runs that finished mid-cycle; terrain05 INTENT+live on t1 left
+  to watcher checkup.
+
+## ASSUMPTION (operator to review)
+
+- Cycle 44 champion promotion: adopted longdist-r2 as walk champion
+  without an operator ruling. Question: does det slip −15%/−21%
+  (r2/s1 vs anchorgate 1.240 @DR1.0, two seeds concordant, video
+  clean) outweigh the unchanged sto draw-stalls (DR1.0 sto 3/6, same
+  as champion's own panel)? Evidence: pre-registered s1 gate hit its
+  if-true branch; anchorgate keeps its checkpoint (append-only).
+  Revisit if the operator prefers promotion to also require a sto
+  robustness gain; warm-starts since this cycle parent on r2.
