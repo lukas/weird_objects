@@ -2617,3 +2617,20 @@ Evals archived: logs/ckpt_eval/cw_walk_lowent_h15b_{15s,5s,
 15s_allvid}. Eval-side practice recorded: same-seed --video-every 1
 rerun reproduces harness draws bit-exact — use it to put any
 scalar-flagged pathology on camera.
+
+### Cycle 19-concurrent close — probe + launch outcomes, fleet
+probe-walk-step0-hist8 (lower, 150k, smoke): PASS mechanical — obs
+576 = 8×72 (history plumbing live, matches cycle-13 width), rew
+60→142, std 1.0, KL 0.012, zero tracebacks, 136 s. cw-walk-step0-hist8
+LAUNCH VERIFIED (launcher exit 0): s6, pid 914766, W&B wgba1l9o,
+global_step 233k→442k in the verify window, ~2321 fps solo on empty
+node g12ba48. Snapshot c50aadd (tag exp/cw-walk-step0-hist8). 1
+experiment launch + 1 smoke this cycle (4M of 16M step cap).
+Fleet: s3 = endpost-c1, walk = h15b-c1 (concurrent), s6 = hist8;
+long5m FREED (dr03 finished — its verdict belongs to the watcher's
+next cycle, NOT claimed here); s4/s5/friction/lower idle. Walk
+champion: h15b md5 d0a12a94 (cycle 19). s6 lineage note: the watcher
+auto-continue for cw-walk-step0* did not fire after lowent-c1 and
+this cycle concurs with not continuing (Q4−Q3 +3.3 inside scatter);
+if a mechanical c2 relaunch appears later it should be killed per
+the flat-trend rule, citing this entry.
