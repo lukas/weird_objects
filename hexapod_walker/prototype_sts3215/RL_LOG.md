@@ -523,3 +523,23 @@ a file under `archive/` and link it.
   driving candidate joyjit-dr05-c1), 38M. Distinct READY arms are thin again:
   next slots belong to the mirror-symmetry [CODE] cycle (3 motivations) and
   quadruped feasibility sweep (CPU-scripted, no GPU slot needed).
+
+- Cycle 57 (08-09 ~18:0x): 1 real triage of 3 finished. `cw-walk-payload50`
+  PASS — payload axis lands: mass 1.0–1.5x panel gv 12/12, 0 term, det med fwd
+  1.31m; DR0 retention clean (slip 1.15, prog 0.95). Honest tail: 2/6 heaviest
+  det draws squat-shuffle at ~half speed (slip 3.4–3.8) — solid to ~+40%, top
+  marginal; SKILLS row added; NOT hardware-ready (paddle lineage).
+  `cw-walk-lowgait-dr05`: NO hypothesis verdict — 0-step infra failure (shm
+  leak, already recorded c54), retry -r1 training; `cw-walk-slowband`: c55
+  KILLED-as-dup verdict stands, no new evidence. QUADRUPED FEASIBILITY SWEEP
+  (c55/c56 flag) implemented + run: rl_move/sim/quadruped_feasibility.py — GO
+  for static 4-leg stance (neutral CoM is 68–82mm OUTSIDE the 4-foot polygon,
+  but −20mm shift + 17° mid-leg splay gives 39mm margin @0.6A, push-robust;
+  11/18 configs robust; SKILLS section added; next rung = quad-hold goal mode
+  [CODE]). Infra: train-1 had a `-dirty` code marker starving the drain
+  (groundtilt5 burned 3 attempts into backlog_failed) — committed, re-synced 7
+  pods, requeued; placed. Refills (3 of 4-cap, 60M): cmddrop10 (13c command
+  dropout), velsag30 (13b servo speed sag 0.70–1.10), payload-dr05 (compose
+  rung off today's PASS, parent pushed to idle pods). READY well after these:
+  mirror-symmetry [CODE] + quad-hold [CODE] are the flagged next
+  implementation cycles.

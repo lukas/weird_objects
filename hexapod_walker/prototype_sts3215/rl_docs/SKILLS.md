@@ -30,6 +30,21 @@ Demo any row locally:
 | **Joystick flips + physics variation (DR 0.5) — best driving candidate** | `ppo_goal_cw_walk_joyjit_dr05_c1` (md5 7feaf4b9) | c53 PASS: eval_drive JOYSTICK GATE @DR0.2 0 in-envelope falls (panel + 3 flip-stress eps, trk_err 0.025–0.056); own-cfg DR0.5 harness gv 12/12, 0 term, prog med 0.94/0.98, slip/m med 1.38/1.44; DR0 retention gv 12/12 | envelope heading ≤±45°, speed ≤0.06 m/s; backward cmd parks (0.026 m), doesn't fall; paddle foot-slide, not hardware-ready; ±90° widening (joyhead90) queued |
 | 60 s endurance walking | `ppo_goal_cw_walk_endur60` | c47 PASS + c48 seed twin: both seeds ~3 m @ 60 s, gv 12/12, 0 term, NO gait decay — endurance is seed-robust (endur60's low slip 0.887 was seed luck; s1: 1.13) | anchorgate lineage (not champion); slip ~0.9–1.1/m; 1/6 sto draw-stall; champion-60s fold queued (endur60-r2) |
 | Walking under command-latency jitter (0.5–2.5× fitted servo delay) | `ppo_goal_cw_walk_latjit25` (md5 abd19461) | this cycle PASS: own-cfg jitter panel gv 12/12, 0 term, det med fwd 1.4 m; DR0 no-jitter retention det slip/m 0.96, prog 0.96 (= champion band, nothing forgotten) | isolated 13b axis off champion; extreme-delay draws degrade to a shuffle (2/6 det: ~40% distance, no fall) — median hardened, not the 2.5× tail; paddle slip, not hardware-ready |
+| Walking with payload (+0…+50% chassis mass) | `ppo_goal_cw_walk_payload50` (md5 f4619dc5) | c56 PASS: own-cfg mass 1.0–1.5× panel gv 12/12, 0 term, det med fwd 1.31 m @30 s; DR0 no-payload retention gv 6/6, slip/m 1.15, prog 0.95 | isolated axis off champion (dr.mass_scale only, DR0); heaviest draws (~1.4–1.5×) squat-shuffle at ~half speed, slip/m 3.4–3.8 (2/6 det) — solid to ~+40%, top of range marginal; DR0.5 compose queued (payload-dr05); paddle slip, not hardware-ready |
+
+## Quadruped mode (party-trick line, readiness review P1)
+
+- **Feasibility sweep PASSED (c56, `rl_move/sim/quadruped_feasibility.py`,
+  `logs/experiments/quadruped-feasibility/sweep.json`):** four-leg static
+  stance is geometrically comfortable. Neutral six-leg stance with fronts
+  (L0/L5) raised puts the CoM 68–82 mm OUTSIDE the 4-foot polygon (the
+  review's warning was real), but either −40 mm body shift or ~17–31°
+  middle-leg (L1/L4) forward splay fixes it: best config (−20 mm shift +
+  17° splay, fronts tucked) holds 39 mm margin at 0.6 A max servo current
+  (trip 2.5 A) and survives a 6 N forward push; 11 of 18 static passes
+  are push-robust. Next rung per review §4: static four-leg-stance RL
+  task ([CODE]: needs a quad-hold goal mode — front-feet-clear +
+  four-planted + level + low-current reward).
 
 ## Stance / posture (older line — see archive for full state)
 
