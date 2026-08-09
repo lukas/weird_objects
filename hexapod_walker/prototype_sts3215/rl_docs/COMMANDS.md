@@ -180,13 +180,18 @@ report.json, and the W&B API for exactly these questions.
    `/tmp/train_<run>.log`.
 10. **Restart the watcher ONLY via `restart_watcher.sh`** (in the
     orchestrator dir; deployed at `/workspace/restart_watcher.sh`).
-    It PAUSEs, waits for in-flight cycles, sanity-parses the new
-    code, then swaps the tmux session. Killing the watcher/tmux
-    directly murders in-flight cycles, which only write their
-    output at exit — 3 cycles' tokens were torched this way on
-    08-09 and their runs got re-triaged from scratch (and the
-    operator's assistant repeated the exact mistake later the same
-    day — READ THIS LIST before touching infrastructure).
+    It sets PAUSE + WRAPUP, waits for in-flight cycles, sanity-parses
+    the new code, then swaps the tmux session. WRAPUP (08-09 evening)
+    tells cycles to save work and exit at the next run boundary
+    (shutdown protocol in ORCHESTRATOR_PROMPT.md); stragglers are
+    killed at a 30-min deadline — verdicts already recorded survive,
+    unverdicted runs are re-assigned after the swap. The wait loop
+    also keeps draining the backlog so the fleet never idles during
+    an update. Killing the watcher/tmux directly still murders
+    in-flight cycles mid-thought — 3 cycles' tokens were torched
+    this way on 08-09 (and the operator's assistant repeated the
+    exact mistake later the same day — READ THIS LIST before
+    touching infrastructure).
 11. **Verdicts auto-mirror to W&B notes AND package the analysis
     artifact.** `launch_run.py update --set verdict=…` pushes the
     verdict under the `--- OUTCOME ---` marker on the run's W&B page
