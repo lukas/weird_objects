@@ -1,6 +1,12 @@
 # Per-experiment logs — `logs/experiments/<run>/`
 
-Every experiment gets ONE directory that tells its whole story:
+**Scope (08-09 lightweight process): this directory + summary.md is
+for DIG-IN runs only.** A clear pass/fail needs just the ledger
+verdict (`launch_run.py update`, which auto-renders
+`rl_docs/runs/<run>.md`) and an `ops.sh wandbnote` paragraph. The
+watcher's `wandbdump` cache still lands here for every run.
+
+Dig-in experiments get ONE directory that tells the whole story:
 `logs/experiments/<run>/` (under `prototype_sts3215/`; gitignored —
 this lives on the controller, not in GitHub).
 
@@ -8,7 +14,7 @@ this lives on the controller, not in GitHub).
 
 ```
 logs/experiments/cw-walk-anchortol5/
-  summary.md        <- REQUIRED. Written by the verdict cycle.
+  summary.md        <- dig-in runs only; written by the verdict cycle
   wandb_summary.json  <- cached W&B summary+config (ops.sh wandbdump)
   wandb_history.csv   <- cached scalar history    (ops.sh wandbdump)
   (optional: eval output dirs, frames you judged, scratch analysis)

@@ -34,6 +34,9 @@ leave the next agent to rediscover it.
 - `ops.sh status` — active runs + live procs per pod + watcher tail.
 - `ops.sh procs <pod>` — training/eval processes. **Pods have NO
   `ps`** — this scans /proc; agents rediscovered that trick 10+ times.
+- `ops.sh census` — every train pod's live trainer from /proc. THE
+  ground truth for "what is running": W&B lags fresh launches by up
+  to ~8 min (JAX compile) and looks empty when things are fine.
 - `ops.sh trainlog <run> [n]` — tail the run's train log on its pod
   (pod + log path come from the ledger; don't guess).
 - `ops.sh entry <run>` — the run's ledger entries.
@@ -54,7 +57,9 @@ leave the next agent to rediscover it.
 - `ops.sh waitlog <file> <regex> [timeout]` — poll for completion.
   **`sleep 60; tail …` is BLOCKED by the harness** — use this.
 - `ops.sh expdir <run>` — create `logs/experiments/<run>/` with the
-  summary.md template (see `EXPERIMENT_LOGS.md`; REQUIRED per run).
+  summary.md template. Only for DIG-IN runs (08-09 lightweight
+  process): clear pass/fail needs just the ledger verdict (which
+  auto-renders `rl_docs/runs/<run>.md`) + `wandbnote`.
 - `ops.sh wandbdump <run>` — cache the run's W&B summary/config/
   history into its experiment dir (query the cache, not the API).
 
@@ -97,6 +102,13 @@ leave the next agent to rediscover it.
    Watcher log: `/workspace/orchestrator.log`. Cycle logs:
    `/workspace/cycle_logs/`. Per-run train logs live ON THE POD at
    `/tmp/train_<run>.log`.
+10. **Restart the watcher ONLY via `restart_watcher.sh`** (in the
+    orchestrator dir; deployed at `/workspace/restart_watcher.sh`).
+    It PAUSEs, waits for in-flight cycles, sanity-parses the new
+    code, then swaps the tmux session. Killing the watcher/tmux
+    directly murders in-flight cycles, which only write their
+    output at exit — 3 cycles' tokens were torched this way on
+    08-09 and their runs got re-triaged from scratch.
 
 ## Time budget guidance
 
