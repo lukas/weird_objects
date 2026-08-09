@@ -453,8 +453,9 @@ a file under `archive/` and link it.
   det slip 1.28 vs r2's 1.06 same panel) → full-DR retrain lever CLOSED, plan
   updated. Refills (3 of 4-cap, 60M GPU): torquedroop (13b torque axis, ran on
   train-0), speedband (dup-dropped by dedupe — speedband-r1/speedband2 already
-  cover 8b), joyhead90 (queued+drained). Remaining free slots owned by
-  concurrent cycles' refills (speedband2 INTENT landed mid-cycle).
+  cover 8b), joyhead90 (drain launch lost a placement race with lowgait-dr05-r1
+  on train-4, worker EOF at init → retried once as joyhead90-r1 on train-5,
+  VERIFIED RUNNING). Remaining free slots owned by concurrent cycles' refills.
 
 - Cycle 55 (08-09 ~16:2x-17:1x): 1 triage. `cw-walk-wander-dr10` FAIL on
   pre-registered if-false (gv clause): own-DR1.0 gv 11/12 — one det draw
@@ -472,3 +473,20 @@ a file under `archive/` and link it.
   on 8b/friction within the hour) — the quadruped feasibility sweep [CODE]
   (readiness P1, deferred c46/c52/here) is now the correct use of a slot, not
   another walk variant.
+
+- Cycle 54 (08-09 ~17:1x): 1 triage. `cw-walk-endur60-r2` FAIL on the
+  pre-registered if-false: 60s off champion HOLDS endurance (det med fwd
+  2.91m, gv 12/12, 0 term, frames clean six-leg cycling full 60s) but gives
+  back slip — det slip/m 1.07 vs gate <=1.0 (parent 0.94-0.96 @30s); champion
+  stands at 30s, no continuation (plateaued + income side CLOSED).
+  `cw-walk-stopgo35` needed no verdict (c53 KILLED/rebalance stands); its
+  8.5M ckpt gate-evaled clean (gv 12/12, 0 term, prog ~1.0) → stopgo35-c1
+  continues from a healthy policy (W&B addendum only). Refills (4 = cap,
+  80M, backlog+drain): head90-s1 (seed panel for the ±90° envelope, ruling
+  7), stiffvar (13b contact compliance 0.5-2.5x), deadband30 (13b/13c servo
+  deadband 1-3x), comshift30 (wishlist 11 asymmetric CoM 30mm) — the last
+  fresh isolated axes; after these the READY well is dry (remaining dr
+  fields: cmd_drop/ground_tilt/vel_scale only). The c53 flag STANDS and
+  sharpens: next cycle with a triage-light prompt should BE the quadruped
+  feasibility sweep implementation cycle (readiness P1, scripted, no GPU) —
+  it is agent-time work and does not compete with pod refills.
