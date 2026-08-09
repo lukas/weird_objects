@@ -2598,3 +2598,22 @@ named baseline. Budget 4M, canaries irrelevant (from scratch,
 walk-only) but left default. Probe smoke first (audit §6: history ×
 step-event package never ran together): probe-walk-step0-hist8,
 150k, --no-wandb, smoke pod.
+
+### Cycle 19 close
+cw-walk-lowent-h15b-c1 VERIFIED RUNNING on walk pod: pid 556782, W&B
+0858yqoz, log advancing (13.55M cum at check), sole trainer, code at
+snapshot 6c579c5 (tag exp/cw-walk-lowent-h15b-c1), parent ckpt md5
+d0a12a94 verified on pod pre-launch. Cycle totals: 1 launch, 4M of
+16M step cap. Fleet after: walk = h15b-c1, long5m = dr03 (in
+flight), s3 = endpost-c1 (in flight), s6 = concurrent cycle's
+territory (lowent-c1 handling), s4/s5/friction/lower idle — left
+free deliberately: the plan's next walk item (pricing work ii/iii)
+is gated on h15b-c1's exploration-vs-structural answer, and stance's
+next move is gated on endpost-c1's slope rule; a speculative launch
+now would prejudge both. Champions: walk =
+ppo_goal_cw_walk_lowent_h15b.zip md5 d0a12a94 (NEW this cycle,
+append-only; lowent retained); stance unchanged (cw_stance_dr10).
+Evals archived: logs/ckpt_eval/cw_walk_lowent_h15b_{15s,5s,
+15s_allvid}. Eval-side practice recorded: same-seed --video-every 1
+rerun reproduces harness draws bit-exact — use it to put any
+scalar-flagged pathology on camera.
