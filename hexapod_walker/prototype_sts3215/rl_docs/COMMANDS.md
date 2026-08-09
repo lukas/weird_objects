@@ -23,6 +23,7 @@ leave the next agent to rediscover it.
 | One run's metrics/state | `ops.sh wandb <run>` (ledger: `ops.sh entry <run>`) |
 | What's queued to launch? | `launch_run.py backlog list` |
 | A past run's story | `rl_docs/runs/<run>.md` |
+| Are results being lost/ignored? | `ops.sh triage [hours]` |
 
 ## Where things are (the #1 recurring failure: wrong paths)
 
@@ -73,6 +74,14 @@ leave the next agent to rediscover it.
   auto-renders `rl_docs/runs/<run>.md`) + `wandbnote`.
 - `ops.sh wandbdump <run>` — cache the run's W&B summary/config/
   history into its experiment dir (query the cache, not the API).
+- `ops.sh triage [hours]` — "is anything lost/ignored?" table: every
+  recent W&B run × ledger verdict × OUTCOME note × watcher processed
+  flag. Run it whenever the operator asks if results are being
+  dropped (they asked twice on 08-09; this answers in 5 s).
+- `ops.sh killrun <run>` — kill a run's procs on its pod. Pods have
+  no pkill, and a naive /proc scan KILLS ITSELF (your scan's cmdline
+  contains the run name — a kill command suicided this way 08-09).
+  Then record it: `launch_run.py update … status=KILLED verdict=…`.
 
 ## Hard-won gotchas (each cost a cycle at least once)
 
@@ -119,7 +128,20 @@ leave the next agent to rediscover it.
     code, then swaps the tmux session. Killing the watcher/tmux
     directly murders in-flight cycles, which only write their
     output at exit — 3 cycles' tokens were torched this way on
-    08-09 and their runs got re-triaged from scratch.
+    08-09 and their runs got re-triaged from scratch (and the
+    operator's assistant repeated the exact mistake later the same
+    day — READ THIS LIST before touching infrastructure).
+11. **Verdicts auto-mirror to W&B notes.** `launch_run.py update
+    --set verdict=…` pushes the verdict under the `--- OUTCOME ---`
+    marker on the run's W&B page. `ops.sh wandbnote` can replace it
+    with a richer human paragraph, but no verdicted run should ever
+    look "unanalyzed" on W&B again.
+12. **Checkpoint lineage lives in W&B artifacts** (08-09): every
+    training run publishes `ckpt-<out-name>` (type
+    policy-checkpoint, md5 + parent in metadata) and declares its
+    `--init-from` parent via `use_artifact`. The W&B artifact DAG is
+    now the run/checkpoint family tree — pre-08-09 parents predate
+    this and appear rootless.
 
 ## Time budget guidance
 

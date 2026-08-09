@@ -258,6 +258,19 @@ def main(argv: list[str] | None = None) -> int:
 
     run = _init_wandb(args, params)
 
+    # Checkpoint lineage via W&B artifacts (operator, 08-09): declare
+    # the parent checkpoint as an input so the W&B artifact DAG shows
+    # run/checkpoint ancestry. Best-effort — parents trained before
+    # this feature have no artifact, and that must never block a run.
+    if run is not None and args.init_from is not None:
+        try:
+            import wandb
+            run.use_artifact(f"ckpt-{args.init_from.stem}:latest")
+            print(f"[wandb] lineage: consumes ckpt-{args.init_from.stem}")
+        except Exception:
+            print(f"[wandb] no artifact for parent {args.init_from.stem} "
+                  "(pre-artifact lineage) — continuing")
+
     tb_dir = None if run is None else str(POLICY_DIR / "tb")
     if args.init_from is not None:
         if args.obs_pad_transplant:
@@ -459,6 +472,23 @@ def main(argv: list[str] | None = None) -> int:
     print("[mjx-train] evaluate with the C-env harness before trusting "
           "anything (MJX_PORT.md phase-2 item 4).")
     if run is not None:
+        # Publish the final checkpoint as a W&B artifact so every future
+        # warm start (use_artifact above) links into the lineage DAG.
+        try:
+            import hashlib
+            import wandb
+            md5 = hashlib.md5(out_path.read_bytes()).hexdigest()[:8]
+            art = wandb.Artifact(
+                f"ckpt-{out_name}", type="policy-checkpoint",
+                metadata={"run": args.run_name, "md5": md5,
+                          "steps": args.steps, "task": args.task,
+                          "parent_ckpt": (args.init_from.stem
+                                          if args.init_from else None)})
+            art.add_file(str(out_path))
+            run.log_artifact(art, aliases=["latest", args.run_name])
+            print(f"[wandb] checkpoint artifact ckpt-{out_name} (md5 {md5})")
+        except Exception as ex:
+            print(f"[wandb] artifact publish failed (non-fatal): {ex}")
         run.finish()
     venv.close()
     return 0
