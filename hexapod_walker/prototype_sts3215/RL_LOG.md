@@ -419,3 +419,10 @@ a file under `archive/` and link it.
   champion, train-9/10. Remaining slots: concurrent cycles' triage
   refills (5 fresh finishes); [CODE] quadruped feasibility still flagged
   for next quiet cycle.
+
+- Cycle 53 (08-09 ~16:4x): checkup-triggered, no triage. SUSPECT cw-walk-stopgo35
+  confirmed starved: node g142d86 oversubscribed by a foreign tenant again (load
+  110-146/128, fps 4.4k vs 15.1k on healthy g129004, GPU 0%) → killed at ~8.5M/20M,
+  rebalanced as cw-walk-stopgo35-c1 (same config, ckpt 1fc1f2d4) → train-2 (g131eec).
+  head90-dr05/head135 on same node slow (6.9k/9.1k fps) but progressing — left in
+  place; freed cores should help. No verdicts; refill = the rebalance launch only.

@@ -14675,7 +14675,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-wander60 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip --no-dr --episode-seconds 60 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --notes 'Driving endurance ladder rung 3: 30s->60s horizon (~12 command changes/ep), one variable off wander30 (PASS at 30s). Plain: prove drive-it-around competence does not decay over minute-long drives \u2014 the operator'\"'\"'s joystick sessions are minutes, not seconds. Prediction-if-true: 60s eps hold prog_ratio median 0.85-1.15, gv, 0 term, no late-episode height sag or slip growth (first-half vs second-half slip/m within noise). Prediction-if-false: degradation accumulates with change count (parked segments after later changes, slip/m rising ep-half over ep-half) -> transition robustness is horizon-limited and the wander line needs recovery-focused training, not longer horizons. Strongest alternative: passes but change-segment slip stays ~2x straight-line (contact-pricing root, unaffected by horizon). Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip. Gate: own-cfg DR0 60s 6+6: gv 12/12, 0 term, prog_ratio median 0.85-1.15, no ep prog<0.5, second-half slip/m not worse than first-half beyond noise and worst-ep slip/m <=2.1; frames watched det' > /tmp/train_cw-walk-wander60.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-wander60.log",
     "wandb_id": "f2f2dikd",
-    "verified": "2026-08-09T16:16:23+00:00"
+    "verified": "2026-08-09T16:16:23+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T16:21:44+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 11356,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-head90-dr05",
@@ -14767,7 +14779,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-head90-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_head90.zip --dr-scale 0.5 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=1.5708 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_head90_dr05 --notes 'DR-robustness rung for the widest passed steering envelope: head90 (\u00b190\u00b0 resampled cmds) PASSED at DR0 + joystick gate at DR0.2; wander-dr05 and strafe-dr05 both showed DR0.5 hardening works on driving lines without gait loss. One variable off head90: --no-dr \u2192 --dr-scale 0.5. If-true: \u00b190 driving is robust to physics variation (deployment-relevant envelope; DR1.0 rung next). If-false: the heading-wide policy is more DR-fragile than narrow/fixed-command ones \u2014 widen-then-harden ordering is wrong, harden first. Parent: cw-walk-head90. Gate: own-DR0.5 det+sto 6/6: gait_valid 12/12, zero terminations, no sacrificed leg, prog_ratio median >= 0.75; DR0 retention det 6/6: gv 6/6, prog within 0.1 of parent (0.84); frames watched det' > /tmp/train_cw-walk-head90-dr05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-head90-dr05.log",
     "wandb_id": "zajjrji4",
-    "verified": "2026-08-09T16:17:33+00:00"
+    "verified": "2026-08-09T16:17:33+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T16:23:34+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2772,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-head135",
@@ -14905,7 +14929,7 @@
       "Stop-and-go hardening (wishlist 7, joystick operability: the stick gets released a LOT). wander30 handles 15% stop segments; one variable off it: stop_frac 0.15\u21920.35 \u2014 dense park\u2192restart cycling. Park pricing unchanged, so parking still earns less than stepping by construction. If-true: restarts stay reliable at high stop density (stop transitions are solved, no shaping needed). If-false: policy rides parked segments or fails to restart cleanly (prog drop / stall after stops) \u2014 stop transitions need their own shaping arm. Parent: cw-walk-wander30. Gate: own-cfg DR0 30s det+sto 6/6: gait_valid 12/12, zero terminations, prog_ratio median 0.85-1.15, no ep prog<0.5 (prog is vs commanded displacement so stops don't dilute it); frames watched det for post-stop restarts"
     ],
     "created": "2026-08-09T16:15:07+00:00",
-    "status": "RUNNING",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -14931,7 +14955,22 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-stopgo35 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip --no-dr --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.35 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_stopgo35 --notes 'Stop-and-go hardening (wishlist 7, joystick operability: the stick gets released a LOT). wander30 handles 15% stop segments; one variable off it: stop_frac 0.15\u21920.35 \u2014 dense park\u2192restart cycling. Park pricing unchanged, so parking still earns less than stepping by construction. If-true: restarts stay reliable at high stop density (stop transitions are solved, no shaping needed). If-false: policy rides parked segments or fails to restart cleanly (prog drop / stall after stops) \u2014 stop transitions need their own shaping arm. Parent: cw-walk-wander30. Gate: own-cfg DR0 30s det+sto 6/6: gait_valid 12/12, zero terminations, prog_ratio median 0.85-1.15, no ep prog<0.5 (prog is vs commanded displacement so stops don'\"'\"'t dilute it); frames watched det for post-stop restarts' > /tmp/train_cw-walk-stopgo35.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-stopgo35.log",
     "wandb_id": "utc2kygs",
-    "verified": "2026-08-09T16:18:50+00:00"
+    "verified": "2026-08-09T16:18:50+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T16:25:24+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3835,
+        "fps": 4369.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ],
+    "verdict": "REBALANCE, not a result: killed at ~8.5M/20M steps because node g142d86 is host-starved by a foreign tenant (host load 110-146/128 with only ~70 of ours; fps 4.4k at checkup vs 15.1k for a comparable run on healthy g129004; GPU util 0% sampled). No verdict on the stop_frac 0.35 hypothesis \u2014 continued unchanged as cw-walk-stopgo35-c1 from checkpoint md5 1fc1f2d4 on train-2 (g131eec)."
   },
   {
     "run": "cw-walk-head135",
@@ -15022,6 +15061,218 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-head135 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_head90.zip --no-dr --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=2.3562 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_head135 --notes 'Heading LADDER rung 2: rung 1 (head90, \u00b190\u00b0) PASSED with gv 12/12 + joystick gate zero falls, confirming gradual widening off a command-trained parent works where the abrupt \u00b1180 jump (backforth) failed. This run widens \u00b190\u2192\u00b1135 warm-started FROM head90, bringing rear-diagonal commands into the envelope. If-true: gait_valid tracking at \u00b1135 with joystick gate pass (final rung \u00b1180 next); if-false: rear-hemisphere commands break the warm-started gait even one rung at a time \u2014 rear coverage needs mirror-symmetry or from-scratch, and the ladder freezes at \u00b190. Parent: cw-walk-head90. Gate: own-cfg DR0 det+sto 6/6: gait_valid 12/12, zero terminations, no sacrificed leg, rear-diag tracking err <= 2x forward; plus JOYSTICK GATE eval_drive --dr-scale 0.2 --heading-max-deg 135: zero in-envelope falls' > /tmp/train_cw-walk-head135.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-head135.log",
     "wandb_id": "e6zrfhrm",
-    "verified": "2026-08-09T16:20:01+00:00"
+    "verified": "2026-08-09T16:20:01+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T16:26:17+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5784,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-payload50",
+    "pod": "hexapod-mjx-train-9",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "OPERATOR WISHLIST 11 (payload) via new dr.<field> cfg overrides (cycle 49, tag exp/cycle49-dr-overrides): champion walks while carrying up to +50% chassis mass. ISOLATED axis: dr-scale 0.0 (nominal sim + sensor noise floors) with ONLY dr.mass_scale=1.0,1.5 randomized - one variable off the no-DR champion. If-true: gait absorbs payload (own-cfg payload harness gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 no-payload retention holds - payload becomes a robustness rung to keep. If-false: mass shifts collapse height/gait (terminations or prog craters) - payload needs a curriculum or explicit height/effort adaptation, not exposure. Strongest alternative: policy survives by crouching/parking rather than walking loaded - frames + height_err/duty will show it.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.mass_scale=1.0,1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2 m; plus DR0 no-payload retention det 6/6 gv, det slip/m within champion band (<=1.24); frames watched det",
+    "parent": "cw-walk-longdist-r2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.mass_scale=1.0,1.5",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_payload50",
+      "--notes",
+      "OPERATOR WISHLIST 11 (payload) via new dr.<field> cfg overrides (cycle 49, tag exp/cycle49-dr-overrides): champion walks while carrying up to +50% chassis mass. ISOLATED axis: dr-scale 0.0 (nominal sim + sensor noise floors) with ONLY dr.mass_scale=1.0,1.5 randomized - one variable off the no-DR champion. If-true: gait absorbs payload (own-cfg payload harness gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 no-payload retention holds - payload becomes a robustness rung to keep. If-false: mass shifts collapse height/gait (terminations or prog craters) - payload needs a curriculum or explicit height/effort adaptation, not exposure. Strongest alternative: policy survives by crouching/parking rather than walking loaded - frames + height_err/duty will show it. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.mass_scale=1.0,1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2 m; plus DR0 no-payload retention det 6/6 gv, det slip/m within champion band (<=1.24); frames watched det"
+    ],
+    "created": "2026-08-09T16:22:18+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-a384d26d-b4f2-0e4c-b522-645acbc2b872)",
+      "running_experiments_before": 5,
+      "code_sha_local": "fee93a521a431f902bbbe42af2fb110615f19b2a",
+      "code_sha_pod": "fee93a521a431f902bbbe42af2fb110615f19b2a",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "599578",
+      "log_growth_bytes": [
+        14285,
+        22697
+      ],
+      "wandb_id": "kvhl6uv7",
+      "global_step_window": [
+        1179648,
+        2752512
+      ],
+      "fps_estimate": 17476.3
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-payload50 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.mass_scale=1.0,1.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_payload50 --notes 'OPERATOR WISHLIST 11 (payload) via new dr.<field> cfg overrides (cycle 49, tag exp/cycle49-dr-overrides): champion walks while carrying up to +50% chassis mass. ISOLATED axis: dr-scale 0.0 (nominal sim + sensor noise floors) with ONLY dr.mass_scale=1.0,1.5 randomized - one variable off the no-DR champion. If-true: gait absorbs payload (own-cfg payload harness gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 no-payload retention holds - payload becomes a robustness rung to keep. If-false: mass shifts collapse height/gait (terminations or prog craters) - payload needs a curriculum or explicit height/effort adaptation, not exposure. Strongest alternative: policy survives by crouching/parking rather than walking loaded - frames + height_err/duty will show it. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.mass_scale=1.0,1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2 m; plus DR0 no-payload retention det 6/6 gv, det slip/m within champion band (<=1.24); frames watched det' > /tmp/train_cw-walk-payload50.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-payload50.log",
+    "wandb_id": "kvhl6uv7",
+    "verified": "2026-08-09T16:26:02+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T16:31:10+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10455,
+        "fps": 14563.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-latjit25",
+    "pod": "hexapod-mjx-train-10",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "OPERATOR WISHLIST 13b (richer physics variation, one axis per run) via the cycle-49 dr.<field> overrides: command latency jitter is the cheap-servo sim2real axis most likely to bite on hardware (STS3215 bus timing varies). ISOLATED axis: dr-scale 0.0 with ONLY dr.latency_scale=0.5,2.5 randomized (0.5x-2.5x fitted servo latency, wider than the standard 0.7-1.8 envelope) - one variable off the no-DR champion. If-true: gait holds across the latency spread (own-cfg harness gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - latency robustness is trainable by exposure and joins the transfer recipe. If-false: high-latency draws destabilize the gait (terminations/prog craters) - latency needs history/estimator machinery (contact-aux or DreamWaQ rung), not exposure. Strongest alternative: policy slows cadence to survive latency, hiding as pass - check stride/cadence vs champion.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.latency_scale=0.5,2.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2 m; plus DR0 no-jitter retention det 6/6 gv, det slip/m within champion band (<=1.24); frames watched det",
+    "parent": "cw-walk-longdist-r2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.latency_scale=0.5,2.5",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_latjit25",
+      "--notes",
+      "OPERATOR WISHLIST 13b (richer physics variation, one axis per run) via the cycle-49 dr.<field> overrides: command latency jitter is the cheap-servo sim2real axis most likely to bite on hardware (STS3215 bus timing varies). ISOLATED axis: dr-scale 0.0 with ONLY dr.latency_scale=0.5,2.5 randomized (0.5x-2.5x fitted servo latency, wider than the standard 0.7-1.8 envelope) - one variable off the no-DR champion. If-true: gait holds across the latency spread (own-cfg harness gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - latency robustness is trainable by exposure and joins the transfer recipe. If-false: high-latency draws destabilize the gait (terminations/prog craters) - latency needs history/estimator machinery (contact-aux or DreamWaQ rung), not exposure. Strongest alternative: policy slows cadence to survive latency, hiding as pass - check stride/cadence vs champion. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.latency_scale=0.5,2.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2 m; plus DR0 no-jitter retention det 6/6 gv, det slip/m within champion band (<=1.24); frames watched det"
+    ],
+    "created": "2026-08-09T16:26:45+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-12d45224-745e-3c94-0817-b7685322bad4)",
+      "running_experiments_before": 6,
+      "code_sha_local": "fee93a521a431f902bbbe42af2fb110615f19b2a",
+      "code_sha_pod": "fee93a521a431f902bbbe42af2fb110615f19b2a",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "599267",
+      "log_growth_bytes": [
+        13512,
+        20151
+      ],
+      "wandb_id": "k26wfzbl",
+      "global_step_window": [
+        1048576,
+        2293760
+      ],
+      "fps_estimate": 13835.4
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-latjit25 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.latency_scale=0.5,2.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_latjit25 --notes 'OPERATOR WISHLIST 13b (richer physics variation, one axis per run) via the cycle-49 dr.<field> overrides: command latency jitter is the cheap-servo sim2real axis most likely to bite on hardware (STS3215 bus timing varies). ISOLATED axis: dr-scale 0.0 with ONLY dr.latency_scale=0.5,2.5 randomized (0.5x-2.5x fitted servo latency, wider than the standard 0.7-1.8 envelope) - one variable off the no-DR champion. If-true: gait holds across the latency spread (own-cfg harness gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - latency robustness is trainable by exposure and joins the transfer recipe. If-false: high-latency draws destabilize the gait (terminations/prog craters) - latency needs history/estimator machinery (contact-aux or DreamWaQ rung), not exposure. Strongest alternative: policy slows cadence to survive latency, hiding as pass - check stride/cadence vs champion. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.latency_scale=0.5,2.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2 m; plus DR0 no-jitter retention det 6/6 gv, det slip/m within champion band (<=1.24); frames watched det' > /tmp/train_cw-walk-latjit25.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-latjit25.log",
+    "wandb_id": "k26wfzbl",
+    "verified": "2026-08-09T16:30:41+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T16:36:03+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10498,
+        "fps": 14563.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
