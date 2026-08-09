@@ -8,7 +8,7 @@ start at the entry point for the one you're working on:
 |------------------|----------|
 | Design/print/assemble the robot (CAD, BOM) | [`PROTOTYPE.md`](PROTOTYPE.md) |
 | Run the physical robot (firmware, control, safety) | `firmware/`, `linux_control/`, `rl_move/API.md` — **read the hardware-safety rules in the repo root `AGENTS.md` first** |
-| Train it in simulation (RL campaign + autonomous agent loop) | [`rl_docs/README.md`](rl_docs/README.md) — index of GOAL / WISHLIST / COMMANDS; then `RL_PLAN.md`, `RL_LOG.md` |
+| Train it in simulation (RL campaign + autonomous agent loop) | [`rl_docs/AGENT.md`](rl_docs/AGENT.md) — how the agent works, learnings, future work; then [`rl_docs/README.md`](rl_docs/README.md) (doc index), `RL_PLAN.md`, `RL_LOG.md` |
 
 ## Layout
 

@@ -6,6 +6,7 @@ it is for; keep them SHORT when you edit them.
 
 | File | What it answers | When to read |
 |------|-----------------|--------------|
+| `AGENT.md` | How the autonomous agent works, what we learned works/fails, future work | Taking over the campaign (human or LLM) — read FIRST |
 | `GOAL.md` | What are we doing and why, in plain English; where we are; what's blocked | Every cycle, first |
 | `SKILLS.md` | What the robot can DO today: passed skills + their checkpoints (W&B artifact per row) | On any PASS (update it!), or when the operator asks what works |
 | `WISHLIST.md` | Operator's backlog of things to learn — pull from it whenever pods would idle | Every cycle, when deciding launches |
