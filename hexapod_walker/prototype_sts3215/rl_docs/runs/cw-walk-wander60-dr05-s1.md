@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-09T20:49:00+00:00
+**created**: 2026-08-09T21:10:35+00:00
 
-**pod**: hexapod-mjx-train-9
+**pod**: hexapod-mjx-train-2
 
 **steps**: 20000000
 
@@ -16,5 +16,5 @@
 
 **gate**: own-cfg DR0.5 60s 6+6 resampled cmds: gv 12/12, 0 term, prog_ratio med >=0.85, no ep prog <0.5, slip/m med <=2.4, worst-ep <=2.6; DR0 det retention 6 eps gv 6/6; frames watched det full horizon
 
-**refused_reason**: hexapod-mjx-train-9 already runs cw-walk-lowgait-dr035 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: hexapod-mjx-train-2 code marker 07a25a20d2642adb742ac20823d3c9907f33a1e8-dirty != local HEAD 07a25a20d2642adb742ac20823d3c9907f33a1e8. Sync first: snapshot.sh --sync hexapod-mjx-train-2 (and snapshot/commit before that if the tree is dirty).
 
