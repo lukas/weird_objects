@@ -91,6 +91,16 @@ leave the next agent to rediscover it.
 
 ## Hard-won gotchas (each cost a cycle at least once)
 
+0. **Any untracked NON-doc file under the prototype tree (e.g. a fresh
+   `rl_move/sim/park_banks/*.npz` from `harvest_park_states`) marks
+   every `snapshot.sh --sync` `-dirty` and the launcher then REFUSES
+   ALL drain launches** — 4 GPUs idled behind one uncommitted 26KB
+   npz while its specs burned 3 attempts each into `backlog_failed.json`
+   (08-09 c51). Commit (`snapshot.sh <name>`) right after generating
+   any training-input artifact, BEFORE queueing specs that need it.
+   Requeue after fixing: move items backlog_failed→backlog under
+   `backlog.json.lock` with attempts reset, then `ops.sh drain`.
+
 1. **`eval_checkpoint` runs ONLY as a module** from the PROTO dir:
    `python3 -m rl_move.sim.eval_checkpoint …`. Running the .py path
    dies on relative imports. Flags (stop re-running --help):

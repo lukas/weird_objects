@@ -247,6 +247,20 @@ class SimHexapodBalanceEnv(_GymBase):
                 self.params, scale=dr_scale)
         else:
             self.randomizer = None
+        # cfg-driven DR range overrides: --cfg-set dr.<field>=v or "lo,hi".
+        # ABSOLUTE values applied AFTER dr_scale scaling (an override is the
+        # experiment's exact range, e.g. payload dr.mass_scale=1.0,1.5).
+        # Unknown fields raise — a typo must fail the launch, not silently
+        # train the default DR. Covers CPU and MJX stacks (the MJX host
+        # applies this env's _ep_rand per world).
+        if self.randomizer is not None:
+            for _k, _v in (self.cfg.get("dr") or {}).items():
+                if not hasattr(self.randomizer.ranges, _k):
+                    raise ValueError(f"unknown DR override dr.{_k}")
+                if isinstance(_v, str):
+                    _parts = tuple(float(x) for x in _v.split(","))
+                    _v = _parts[0] if len(_parts) == 1 else _parts
+                setattr(self.randomizer.ranges, _k, _v)
         self._ep_rand: EpisodeRandomization | None = None
 
         self._plant_deg = (np.asarray(plant_deg, dtype=float).reshape(N_JOINTS)

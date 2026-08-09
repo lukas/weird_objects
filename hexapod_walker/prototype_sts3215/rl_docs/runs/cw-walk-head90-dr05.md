@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-09T16:13:50+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-head90
+
+**wandb_id**: zajjrji4
 
 **hypothesis**: DR-robustness rung for the widest passed steering envelope: head90 (±90° resampled cmds) PASSED at DR0 + joystick gate at DR0.2; wander-dr05 and strafe-dr05 both showed DR0.5 hardening works on driving lines without gait loss. One variable off head90: --no-dr → --dr-scale 0.5. If-true: ±90 driving is robust to physics variation (deployment-relevant envelope; DR1.0 rung next). If-false: the heading-wide policy is more DR-fragile than narrow/fixed-command ones — widen-then-harden ordering is wrong, harden first.
 

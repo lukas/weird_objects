@@ -345,6 +345,23 @@ a file under `archive/` and link it.
   idle slots belong to the 3 fresh finishes' (stallfix/head90/joystick45)
   triage cycles' refills. [CODE] impl (mirror-symmetry/quadruped) deferred
   again: concurrent cycles actively launching (SHA-flip risk, c46 reason).
+- Cycle 51 (08-09 ~16:1x): 0 verdicts owed — cw-walk-joyjit-dr05 (the
+  finished-list run) was already KILLED+verdicted by c49's rebalance (no
+  hypothesis verdict; continuation -c1 training on train-8); killed its
+  stale pre-staged gate eval. Real finding: the drain was DEAD — all 4
+  queued specs (wander60/stopgo35/head90-dr05/head135) burned 3 REFUSED
+  attempts each into backlog_failed on pod marker 920e633-dirty, caused by
+  ONE uncommitted harvest artifact (rl_move/sim/park_banks/longdist_r2_park
+  .npz, 16:04) dirtying every sync, 4 GPUs idle. Fix: committed+pushed
+  c47f0d5 (tag exp/cycle51-drain-unblock), synced idle pods 4/9/10/11
+  clean, pushed head90 parent to train-11 (md5 ok), requeued the 4 unique
+  specs (deduped double-queued wander60, attempts reset), drained;
+  wander60 + head90-dr05 verified RUNNING (train-1/5), stopgo35 + head135
+  placing. COMMANDS.md gotcha 0 added. Requeued total = 80M GPU steps =
+  the per-cycle cap (hard reason): remaining free slots belong to the 4
+  fresh finishes' (lowgait50/longdist-s2/longdist-dr10/terrain10) triage
+  cycles' refills.
+
 ## ASSUMPTION (operator to review)
 
 - Cycle 44 champion promotion: adopted longdist-r2 as walk champion
@@ -355,3 +372,22 @@ a file under `archive/` and link it.
   if-true branch; anchorgate keeps its checkpoint (append-only).
   Revisit if the operator prefers promotion to also require a sto
   robustness gain; warm-starts since this cycle parent on r2.
+
+- Cycle 52 (08-09 ~16:3x): 1 triage. `cw-walk-stallfix` FAIL on pre-registered
+  if-false: 5s cmd-resample training does NOT erase fixed-draw stalls — the
+  SAME DR0 sto draw that stalls champion r2 (prog 0.24) stalls stallfix DEEPER
+  (prog 0.04, slip/m 36.7, in-place churn on frames); helps only when resample
+  is on at eval (own-cfg 0 stalls, gv 12/12). Follow-up harvest for the
+  park-bank lever came back EMPTY (0/60 sto 30s eps parked, seed 1000) →
+  stall incidence <2%, a rare tail, not a front: stall lever class CLOSED
+  (3rd refusal: dr05, stallfix, park-bank unfundable), plan updated, panel
+  draw stays as regression canary. NEW champion evidence: joystick gate
+  (eval_drive) PASS at DR0.2 AND DR0.5, zero falls incl. instant-flip stress
+  (backward cmd parks, doesn't fall) — SKILLS + plan updated. Watcher prestage
+  had failed (pullckpt expected ppo_goal_* but MJX writes ppo_mjx_joint_walk_*);
+  pulled + ran 3 gate panels manually. Refill: queued+drained cw-walk-wander60
+  (driving endurance 30->60s, 20M); other slots owned by concurrent cycles'
+  refills (endur60-r2/head90-dr05/joyjit-dr05-c1 landed mid-cycle) + 4 fresh
+  finishes spawning their own triages. [CODE] impl (quadruped feasibility
+  sweep, mirror-symmetry, yaw-rate turning) deferred again — same c46 reason,
+  concurrent cycles actively launching; flag: next quiet cycle should take one.
