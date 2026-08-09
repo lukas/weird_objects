@@ -3484,3 +3484,45 @@ stop rule: rise HEIGHTS <5/6 anywhere = stop the line. Canaries ON
 probe-stance-bellyrest (150k, smoke pod, W&B off) first: belly
 starts appear (start_at zero on lower draws), no tracebacks,
 canaries green at baseline.
+
+### Cycle 24 addendum — GPU-MJX switch-over landed MID-CYCLE (operator commit c51b3e2); launch plan adjusted
+Sequence of events, for the record: both probes PASSED on the smoke
+pods (probe-walk-parkstart-b: 150k/188 s, 0 tracebacks; note the
+first attempt probe-walk-parkstart died when THIS CYCLE's tool
+timeout SIGTERMed the launcher mid-verification — ledger marked
+FAILED with reason, retried once per procedure, clean pass;
+probe-stance-bellyrest: 150k/152 s, canaries green rise 5/5).
+cw-walk-parkstart was then launched and VERIFIED RUNNING on the
+walk pod (pid 1044573, W&B verified, ~4096 fps) under snapshot
+1594ef7 — at which point the snapshot git pull brought in operator
+commit c51b3e2: ALL training now runs on the four H200 MJX pods
+(train_ppo_mjx, launcher mechanically refuses CPU training
+launches); CPU pods are controller/eval/smoke only.
+Decisions taken:
+1. cw-walk-parkstart LEFT RUNNING on the CPU stack: it was verified
+   under the pre-switch-over launcher minutes before the pull, it
+   completes in ~25 min, and killing it would trade a CLEAN
+   same-stack one-variable comparison against kgate for a
+   cross-stack confound. Its verdict cycle inherits it normally.
+   Two launcher footguns hit and recorded on the way: (a) --notes
+   is a TRAINER arg (after --), the launcher rejects it as its own;
+   (b) the launcher assembles the remote command UNQUOTED, so notes
+   text must avoid parens/apostrophes or embed its own quotes (the
+   c1/kgate entries' odd quoting was load-bearing; two launch
+   attempts died on this before the embedded-quote form worked).
+2. cw-stance-bellyrest REVISED to the GPU stack (its s5 CPU launch
+   was refused by the new launcher — correct behavior): pod
+   hexapod-mjx-train-0, train_ppo_mjx, n-envs 4096, eval/video
+   cadence 1M/2M (GPU minimums), canaries ON. BUDGET REVISED 4M →
+   20M steps: the large-batch regime updates every ~65k transitions
+   (4096 envs × 16 steps), so 4M steps would be ~61 PPO updates vs
+   the c1 segment's ~325 — steps parity is the WRONG parity across
+   stacks; 20M ≈ 305 updates matches the pre-registered segment in
+   optimizer work. All predictions (charge ≥0.12/segment,
+   over-allowance <80 mm, posture ≥1/6) unchanged. CONFOUND NAMED:
+   training stack changes alongside the belly-start variable (foisted
+   by the switch-over, operator-validated parity: pilot
+   mjx-walk-lowent-dr03 warm-started the champion and passed its
+   gait gate 6/6); the gate harness stays the CPU exact-path
+   evaluator, so the deliverable comparison (harness numbers vs c1)
+   is stack-clean even if training dynamics are not.
