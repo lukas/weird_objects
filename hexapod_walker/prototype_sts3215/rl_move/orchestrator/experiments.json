@@ -11866,7 +11866,7 @@
       "0-c(i) tilt lever folded into the CHAMPION line, A/B partner of cw-walk-longdist-dr05 (identical 30s/0.05-0.06 DR0.5 config, one variable: reward.k_roll=50,k_pitch=50). cw-walk-dr05-tilt50 showed tilt pricing eliminates det slip blowouts + flag legs at DR0.5 on the dr05-r1 line but cannot touch the draw-specific sto stalls. If-true: vs the A/B partner's same-eval baseline, det DR0.5 has no ep slip/m>3, gv 12/12, det slip median <= partner's minus noise, DR0 retention intact. If-false (no delta vs partner beyond noise, or det slip inflates): tilt pricing does not transfer to the champion line and the 0-c(i) tilt lever closes; stability then rides purely on DR training. Parent: cw-walk-longdist-r2. Gate: own-cfg DR0.5 6+6 vs cw-walk-longdist-dr05 same-eval baseline: 0 term, gv 12/12, det no ep slip/m>3, det slip/m median <= partner's; DR0 det retention gv 6/6 prog med 0.75-1.25; frames watched det"
     ],
     "created": "2026-08-09T14:28:29+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -11904,7 +11904,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": "no",
+    "verdict": "FAIL / NO-EFFECT on pre-registered if-false. Tilt pricing (k_roll=k_pitch=50) folded into the champion line does nothing vs the A/B partner longdist-dr05 at same-eval DR0.5: det slip/m med 1.051 vs 1.123 (per-ep ranges fully overlap = inside noise), agg 1.091 vs 1.088, attitude err med 0.96 vs 1.06 deg, same sto ep3 draw degrades both (2.84/0.55 vs 2.75/0.56). Gate scalars technically met (gv 12/12, 0 term, no det ep>3, DR0 retention gv 6/6 prog med 0.95) but the decision clause was 'median <= partner minus noise' \u2014 not met. Frames det watched: level six-leg cycling, indistinguishable from partner. 0-c(i) tilt lever CLOSED on the champion line; stability rides on DR training. hardware-ready: no."
   },
   {
     "run": "cw-walk-wander-dr05",
@@ -12166,7 +12168,7 @@
       "Seed twin of cw-walk-endur60 per operator ruling 7 (promotion needs multi-seed panels). endur60 PASSed its 60s endurance gate with the best DR0 det slip/m yet measured (med 0.887 vs champion longdist-r2's 0.96) and 3.17m median @60s, gv 12/12, 0 term \u2014 a champion-path candidate. Identical config except --seed 1. If both seeds land the same result the 60s-horizon effect is seed-robust and the endur60 line goes to a DR1.0/corner panel against longdist-r2 for possible promotion; if they diverge, the slip gain was seed luck and the champion stands. Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6: median fwd distance >=2.4 m @ 60 s, zero terminations, gait_valid 12/12, det slip/m median <=1.0; frames watched det"
     ],
     "created": "2026-08-09T14:35:01+00:00",
-    "status": "INTENT",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -12179,7 +12181,9 @@
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-endur60-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 60 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --notes 'Seed twin of cw-walk-endur60 per operator ruling 7 (promotion needs multi-seed panels). endur60 PASSed its 60s endurance gate with the best DR0 det slip/m yet measured (med 0.887 vs champion longdist-r2'\"'\"'s 0.96) and 3.17m median @60s, gv 12/12, 0 term \u2014 a champion-path candidate. Identical config except --seed 1. If both seeds land the same result the 60s-horizon effect is seed-robust and the endur60 line goes to a DR1.0/corner panel against longdist-r2 for possible promotion; if they diverge, the slip gain was seed luck and the champion stands. Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6: median fwd distance >=2.4 m @ 60 s, zero terminations, gait_valid 12/12, det slip/m median <=1.0; frames watched det' > /tmp/train_cw-walk-endur60-s1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-endur60-s1.log"
+    "log": "/tmp/train_cw-walk-endur60-s1.log",
+    "hardware_ready": "no",
+    "verdict": "FAIL on the det slip clause; endurance itself CONFIRMED seed-robust. DR0 60s panel: det med fwd 3.08m / sto 2.89m (gate >=2.4), gv 12/12, 0 term, no late-episode decay \u2014 matches seed-0 endur60 (3.17m). But det slip/m med 1.132 vs gate <=1.0 and vs seed-0's 0.887; per-ep ranges non-overlapping (1.07-1.18 vs 0.84-0.94) = real seed divergence, so endur60's best-ever slip was SEED LUCK per pre-registration; no promotion panel, champion longdist-r2 stands. One sto draw-stall ep (prog 0.17) = lineage trait. Frames det watched: level six-leg cycling for the full 60s, still paddling-class transport. hardware-ready: no."
   },
   {
     "run": "cw-walk-longdist-dr10",
@@ -12538,7 +12542,7 @@
       "Heading LADDER rung 1 (after cw-walk-backforth 0/12 FAIL confirmed abrupt +-180 widening breaks the gait, matching steer-explore/fdiag \u2014 binding review 9 said widen gradually, not abruptly). The robot already walks and changes direction within +-45deg (wander30); this run widens commands to +-90deg warm-started FROM wander30 itself, one rung not four. If-true: gait_valid tracking at +-90 (strafe-capable base, next rung +-135); if-false: even one rung of widening off a command-trained parent degrades gait, and omnidirectional needs from-scratch or mirror-symmetry, not warm-starts. Parent: cw-walk-wander30. Gate: DR0 det+sto 6/6 with resampled +-90deg commands: gait_valid 12/12, zero terminations, no sacrificed leg, lateral tracking err <= 2x forward err"
     ],
     "created": "2026-08-09T15:06:42+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -12576,7 +12580,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "PASS. Heading ladder rung 1 (\u00b190\u00b0): own-cfg DR0 gv 12/12, 0 term, 0 sacrificed legs, clean alternating tripod (duty ~0.6/0.4); lateral tracking err \u22641.6x forward (gate \u22642x); JOYSTICK GATE PASS at DR0.2 (0 falls incl. flip stress). Pathologies to watch: prog median 0.84 (parent wander30 0.94-1.02 at \u00b145 \u2014 lateral segments cost progress) and left-strafe covers half the distance of right (0.147 vs 0.274 m, L/R asymmetry \u2014 mirror-symmetry line target). Next rung \u00b1135.",
+    "hardware_ready": "no"
   },
   {
     "run": "cw-walk-stallfix",
@@ -12948,7 +12954,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-lowgait50 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait40.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --eval-every 1000000 --video-every 2000000 --seed 0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --no-canary --cfg-set goal.walk_height_off_mm=-50.0 --out-name ppo_goal_cw_walk_lowgait50 --notes 'Crouch envelope rung 4: -20/-30/-40mm all PASSED (height err <=7mm, det agg slip/m 0.92-0.96, gait intact). One variable off lowgait40: height ref -40 -> -50mm. Plain: keep lowering the body until leg workspace/clearance runs out, so stance height becomes a wide runtime knob. Prediction-if-true: gait intact at -50mm, mean end-height err <=8mm, det agg slip/m <=1.10. Prediction-if-false: knee/clearance workspace exhausts - height err stays >8mm or slip/drag rises markedly = envelope edge found (also a useful answer). Strongest alternative: height tracks but sto brittleness worsens in the deeper crouch (>1/6 stall eps). Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait40.zip. Gate: own-cfg DR0 15s 6+6 at -50mm: gv 12/12, 0 term, mean end-height err <=8mm, det agg slip/m <=1.10; frames watched det+sto' > /tmp/train_cw-walk-lowgait50.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-lowgait50.log",
     "wandb_id": "5tvk6qid",
-    "verified": "2026-08-09T15:42:06+00:00"
+    "verified": "2026-08-09T15:42:06+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T15:47:42+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6490,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-strafe-dr10",
@@ -13038,7 +13056,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-strafe-dr10 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_strafe_dr05.zip --dr-scale 1.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.03 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=1.5708 --cfg-set goal.walk_cmd_resample_s=5.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_strafe_dr10 --notes 'DR ladder rung for the lateral/omni line (wishlist 9+5): strafe-dr05 held \u00b190\u00b0 transport at DR 0.5 with slip better than its DR0 parent; one variable \u2014 train at model-DR 1.0 off the strafe-dr05 checkpoint. Brings the lateral base to the champion lineage'\"'\"'s robustness level for the joystick envelope (P2). If-true: own-eval DR1.0 keeps gv 12/12, 0 term, prog med >=0.8, slip/m med <=2.4 \u2014 the lateral paddle is DR-stable to full strength. If-false: lateral transport collapses at full DR (prog craters or falls) \u2014 DR 0.5 is the strafe ceiling; lateral needs gait change, not more exposure. Parent: cw-walk-strafe-dr05. Gate: own-cfg DR1.0 6+6: gv 12/12, 0 term, prog_ratio med >=0.8, slip/m med <=2.4; DR0 det retention prog med >=0.8 gv 6/6; frames watched det' > /tmp/train_cw-walk-strafe-dr10.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-strafe-dr10.log",
     "wandb_id": "g5tt9k6r",
-    "verified": "2026-08-09T15:43:43+00:00"
+    "verified": "2026-08-09T15:43:43+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T15:49:33+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8391,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-wander-dr10",
@@ -13130,7 +13160,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-wander-dr10 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip --dr-scale 1.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_wander_dr10 --notes 'DR ladder rung for the steering line (wishlist 9): wander-dr05 held everything at DR 0.5; one variable \u2014 train at model-DR 1.0 off the wander-dr05 checkpoint. Full-strength physics randomization is what the champion lineage trains at (longdist-dr10 in flight), and the driving demo needs the steering skill at the same robustness level. If-true: own-eval DR1.0 keeps gv 12/12, 0 term, prog med >=0.85, slip/m med <=2.4 \u2014 steering matches the champion'\"'\"'s DR envelope. If-false: transitions break at full DR (stalls/parks/falls at command changes) \u2014 DR 0.5 is the steering ceiling until the gait itself changes. Parent: cw-walk-wander-dr05. Gate: own-cfg DR1.0 6+6 resampled commands: gv 12/12, 0 term, prog_ratio med >=0.85, slip/m med <=2.4; DR0 det retention gv 6/6; frames watched det' > /tmp/train_cw-walk-wander-dr10.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-wander-dr10.log",
     "wandb_id": "urbzb061",
-    "verified": "2026-08-09T15:44:58+00:00"
+    "verified": "2026-08-09T15:44:58+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T15:51:24+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7639,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-joyjit-dr05",
@@ -13202,7 +13244,7 @@
       "OPERATOR BINDING TARGET (joystick operability) x robustness: wander-dr05 holds steering at DR 0.5 but only with GENTLE fixed 5s/1s-blend command changes; a joystick sends irregular instant flips. One move off the wander-dr05 checkpoint: adopt the randomized abrupt-resample package (interval 1.5s +-60% jitter, blend 0.1-1.0s, 20% stops \u2014 same package as joystick45, which tests it at DR0 off wander30) while KEEPING DR 0.5. Controlled pair with joystick45: this arm answers whether flip-hardening works under physics uncertainty. If-true: JOYSTICK GATE (eval_drive, DR 0.2) passes with zero in-envelope falls and own-cfg DR0.5 harness holds gv 12/12, 0 term \u2014 transition hardening and DR compose. If-false: abrupt resampling under DR degrades the base gait (falls or prog craters) \u2014 hardening needs a curriculum, not joint exposure. Parent: cw-walk-wander-dr05. Gate: JOYSTICK GATE: python3 -m rl_move.sim.eval_drive <ckpt> --dr-scale 0.2 with own cfg \u2014 ZERO in-envelope falls across panel + flip stress; plus own-cfg DR0.5 harness 6+6: gv 12/12, 0 term, prog_ratio med >=0.85; frames watched det"
     ],
     "created": "2026-08-09T15:42:23+00:00",
-    "status": "RUNNING",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -13228,6 +13270,21 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-joyjit-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_joyjit_dr05 --notes 'OPERATOR BINDING TARGET (joystick operability) x robustness: wander-dr05 holds steering at DR 0.5 but only with GENTLE fixed 5s/1s-blend command changes; a joystick sends irregular instant flips. One move off the wander-dr05 checkpoint: adopt the randomized abrupt-resample package (interval 1.5s +-60% jitter, blend 0.1-1.0s, 20% stops \u2014 same package as joystick45, which tests it at DR0 off wander30) while KEEPING DR 0.5. Controlled pair with joystick45: this arm answers whether flip-hardening works under physics uncertainty. If-true: JOYSTICK GATE (eval_drive, DR 0.2) passes with zero in-envelope falls and own-cfg DR0.5 harness holds gv 12/12, 0 term \u2014 transition hardening and DR compose. If-false: abrupt resampling under DR degrades the base gait (falls or prog craters) \u2014 hardening needs a curriculum, not joint exposure. Parent: cw-walk-wander-dr05. Gate: JOYSTICK GATE: python3 -m rl_move.sim.eval_drive <ckpt> --dr-scale 0.2 with own cfg \u2014 ZERO in-envelope falls across panel + flip stress; plus own-cfg DR0.5 harness 6+6: gv 12/12, 0 term, prog_ratio med >=0.85; frames watched det' > /tmp/train_cw-walk-joyjit-dr05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-joyjit-dr05.log",
     "wandb_id": "m7kthv1j",
-    "verified": "2026-08-09T15:46:13+00:00"
+    "verified": "2026-08-09T15:46:13+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T15:52:15+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1935,
+        "fps": 2912.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 2913 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ],
+    "verdict": "No verdict on hypothesis - REBALANCED at ~2M/20M: node g142d86 host-wide starved (loadavg 216/128, fps 2.1-2.9k vs 5k floor, GPU 26% util; g131eec carries 3 trainers at load 51, so likely a foreign tenant). Checkpoint pulled (md5 bbde2450), relaunched as cw-walk-joyjit-dr05-c1 on idle node g129004."
   }
 ]
