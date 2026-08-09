@@ -3876,3 +3876,106 @@ gap it protects. Suggest: allowance ~25–30 mm AND/OR pricing |c|
 (both signs) — BOTH change the eval gate definition, hence operator.
 Training proceeds meanwhile with the window fix, which is
 gate-neutral.
+
+## Cycle 27 (2026-08-09 ~06:3xZ) — cw-walk-parkstart-mjx-c1 verdict: at FULL update parity the partial park PERSISTS at the same seed index — the dose hypothesis is REFUTED, and the surviving evidence pattern (synthetic park-exits work, the policy's own park stays) is exactly the distribution-mismatch signature cycle 25 pre-registered. Next arm: harvest the policy's OWN park states as resets. Concurrent with the stance cycle (bellyrest/lowerdense line, hands off per prompt).
+
+### cw-walk-parkstart-mjx-c1 — 20M-step update-parity discriminator: 305 updates bought nothing the 61-update parent hadn't already bought
+OBSERVATIONS (mechanical). W&B y8m62x7l FINISHED, 20,054,016 steps
+(GPU-MJX, mjx-train-1, 1284 s, ~15.6k fps incl. setup). Final ckpt
+ppo_goal_cw_walk_parkstart_mjx_c1.zip md5
+53238fa00ff3890bc5fea56ec77e9684 (pod + controller match). Train
+curves: ep_rew_mean quarters 884/1099/1103/1105 — everything the run
+learned it learned in Q1; walk_prog 0.886/0.901/0.921/0.922 (slow
+creep); std 1.39->1.41 flat, KL ~0.009, entropy flat. No canaries
+(walk-only lineage, --no-canary per 0-a).
+Gate harness 15 s DR 0 own-cfg, normal starts, park_start_frac=0
+(logs/ckpt_eval/cw_walk_parkstart_mjx_c1_15s, 6 eps/mode det+sto,
+--video-every 1):
+- fwd >=0.40 m: det 6/6 + sto 5/6 = 11/12 (gate 12/12 FAIL by one —
+  IDENTICAL clause, IDENTICAL seed index as parent). gait_valid
+  12/12, 0 term, swings >=4/leg, safety flags 0/12.
+- det fwd mean 0.712 (>=0.50 clause MET) vs parent 0.745: per-seed
+  deltas -0.022/-0.092/-0.032/-0.040/+0.023/-0.032, 5/6 seeds DOWN.
+  Sign test 5/6 (p~0.11) — borderline, not conclusive erosion, but
+  the pre-registered overfit alarm (det mean < 0.745) technically
+  trips; recorded as a mild slide, direction consistent with long
+  consolidation flattening normal-start det. Det spread narrowed
+  (0.666-0.749 vs parent 0.673-0.793).
+- THE PARK: sto[5] fwd 0.203, duty [0.85,0.13,0.82,0.22,0.79,0.19],
+  slip/m 5.54, return 227, leg0 paws (16 swings) — the parent's
+  partial park at the SAME seed index, marginally more forward
+  (0.192->0.203, inside noise). gait_valid did NOT flag it (known gv
+  blind spot on partial parks, recorded cycle 25 — fwd clause is the
+  binding detector, still).
+Park-exit eval, walk_park_start_frac=1.0 (..._c1_parkexit, 6+6):
+fwd >=0.30 det 6/6 (0.689-0.849) + sto 5/6 = 11/12, gv 12/12 —
+clause MET (parent 10/12; +1 ep is inside the +-1-2 ep band, no
+evidence of change). Failure sto[2] fwd 0.142 (never exits, watched:
+board static t=0.84->13.64 s, tripod stance held, duty
+[0.89,0.19,0.89,0.14,0.89,0.12]). CLAUSE PASS WITH PATHOLOGY:
+sto[4] fwd 0.362 crosses the bar but the frames show exit ->
+RE-PARK (t=7.24 s v=0.061 walking; t=13.64 s v=0.012 stalled, duty
+[0.72,0.18,0.88,0.14,0.75,0.30]) — the park-exit clause counts an
+episode that ends parked. Flagged as an eval blind spot of the
+fwd-threshold clause; any future park-exit gate should also check
+final-2s speed.
+Retention 5 s (..._c1_5s): det agg slip/m 1.516 — clause MET
+(gate <=1.8; parent 1.58, champion-era h15b 1.53). Det fwd mean
+0.200 vs parent 0.210 (h15b 0.382 — the lineage slow start is
+UNCHANGED). 5 s sto[5] fwd 0.047, duty [0.82,0.21,0.77,0.27,...] —
+from-the-start park at the same seed index, on camera.
+Currents: Imax 2.63-2.64 A all 24 gated eps (soft breaker 2.5,
+recalibration caveat stands); hot servo 10 in 13/24, servo 7 in
+5/24 — same watch item as parent, not new. Leg imbalance <=1.67
+(park eps highest). Safety flags 0/36.
+FRAMES WATCHED (provenance, md5/frames): 15s det_0 6e38f268/375,
+det_2 40973e40/375, sto_0 961db309/375, sto_5 35f48d2f/375 (+3
+full-res frames each det_0/sto_5: sto_5 v decays 0.047->0.012->
+0.003 into tripod stall on camera); parkexit det_0 99139e4f/375,
+sto_2 4bf19473/375, sto_4 817ee1c2/375 (full-res frames: exit then
+re-park); 5s det_0 b1a4debe/125, sto_5 04d6e3cc/125. Remaining eps
+scalars only (unwatched). Pathologies first: the sprawly-wide
+stance and stance-foot creep/skating (slip/m 1.4-1.6 agg) is in
+EVERY strip including all passes; sto_5 partial park; parkexit
+sto_2 never exits; parkexit sto_4 re-parks; cadence irregular.
+Achievements (numbers behind each): det 6/6 with all six feet
+cycling (watched det_0/det_2, boards advance through final third,
+v=0.059 at t=13.64 s); park-exit det 6/6 walks out of synthetic
+parks into sustained gait (watched det_0).
+Exploits looked for and not found: crawl-to-pass (det mean 0.712,
+speeds 0.050-0.058 in band); overspeed harvest (max speed 0.062 vs
+cap 0.06 + prog cap 1.25 — parkexit det[1] rides the cap, watch
+item); sacrificed leg in passes (sac=[] 36/36, min duty 0.41).
+FOUND: parkexit sto[4] threshold-pass hiding a re-park (above).
+INTERPRETATION. The discriminator answered cleanly: 5x the
+optimizer work (61 -> ~305 updates) reproduced the parent's numbers
+almost exactly (11/12 same clause same seed, park-exit +1 ep inside
+noise, retention slip 1.58->1.52) and improved NOTHING about the
+park. Dose is NOT the binding factor. The evidence pattern is now
+precisely what cycle 25 named as the distribution-mismatch
+signature: exits from SYNTHETIC parks succeed (det 6/6 park-exit,
+sto 5/6), while the policy's OWN park — entered from its own
+dynamics under the sto[5] noise draw, and present from the start in
+the 5 s eval — survives all training. The synthetic tripod
+(plant pose + hips lifted 10-25 deg) evidently does not cover the
+real attractor (sprawled stance, pawing leg0, hover pattern
+[~0.85,~0.15] duty). Strongest alternative: the park is a
+noise-sequence artifact rather than a state-basin (a specific sto
+draw steers into it regardless of start state) — the own-park
+harvest arm distinguishes these: if the retrained policy exits
+harvested park STATES but still parks from normal starts at sto[5],
+the noise-sequence reading wins and reset diversity is closed
+entirely.
+VERDICT: FAIL (fwd 11/12 vs 12/12; all other clauses MET).
+NOT HARDWARE-READY: ~1/6 sto chance of stalling in a partial park,
+feet skate ~1.4-1.6 m per meter walked, DR 0 only, currents peak
+over the 2.5 A soft breaker pending recalibration. CHAMPION
+UNCHANGED: ppo_goal_cw_walk_parkstart_mjx.zip md5 01d9ab60 stays
+walk champion (c1 is 5/6 seeds lower on det fwd, park unchanged;
+retention slip 1.52 vs 1.58 is inside noise — no promotion case).
+c1 checkpoint archived append-only.
+HYPOTHESIS STATUS: REFUTED (if-false branch fires — park persists
+at ~1/6 at full update parity; dose was not binding). Two misses on
+the same gate in this lineage -> hypothesis changes, not step
+count: next arm is own-park-state harvesting per the cycle-25
+pre-registration, branch (a) exit-works-park-stays.
