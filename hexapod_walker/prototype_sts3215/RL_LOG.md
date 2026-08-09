@@ -1532,3 +1532,128 @@ lift/swing/touchdown; per-leg duty ~[0.2,0.9]; >=2 swings per leg;
 no drag, no parked leg; det AND sto; video verdict pathology-first.
 Budget 4M. Probe probe-walk-step0 PASSED mechanically (cycle 13).
 Pod: hexapod-sweep-walk (56-core, node g129004 empty at check).
+
+### cw-stance-posture2 — FAIL; exploration never re-annealed (std 1.0 -> 2.29) and the flag pathology SPREAD; skills eroded
+OBSERVATIONS. W&B 8qrvip34 finished, 4M/4M in 2682 s on s5 (solo),
+final ckpt md5 5d8c6d63 (pulled). No canary auto-stop: lower_a/b and
+rise_crouch_a/b passed EVERY one of 21 probes; rise_bridge/flat
+degraded intermittently but never 3 consecutive full-group failures.
+train/std GREW MONOTONICALLY 1.0 -> 2.287 over the whole run (sampled
+every ~12k: 1.06 @ 0.4M, 1.47 @ 2.3M, 2.13 @ 4.2M-cum window); it
+never re-annealed. Harness policy_std at eval: 2.258.
+Gate harness (DR 1.0, own cfg, posture-strict, 6 eps/mode det+sto,
+modes hold/rise/lower/raise; first pass with default modes archived at
+logs/ckpt_eval/cw_stance_posture2_4M_gate, gate pass at ..._gate2):
+- vs parent cw-stance-posture gate eval (named baseline, same
+  harness/modes, cycle 13): hold det 2/6 vs 5/6 (-3), sto 4/6 vs 6/6
+  (-2) — both outside the +-1-2 ep noise band; rise det 0/6 vs 1/6
+  (within noise), sto 0/6 vs 4/6 (-4, outside); lower posture 0/6 ->
+  0/6 all passes (unchanged) but worst_clear WORSE 256-264 -> 296-298
+  mm; raise 0/6 -> 0/6 with worst_clear 120 -> 329-331 mm (much
+  worse).
+- Heights largely retained: lower height_err_end 1-16 mm all 12 eps,
+  raise 1-27 mm, hold 1-10 mm; rise det 7-40 mm (3 eps <=13 mm).
+  Failures are END-POSTURE, not height. safety_flags 0 everywhere.
+Frames reviewed (provenance): rise_det_0.png md5 7f049305 (gate1) —
+by mid-strip the REAR LEG PAIR is pointed at the ceiling and stays
+there; TWO flag legs where the parent had one. lower_det_0.mp4 md5
+bbc341a2, 250 frames — body descends but the FRONT PAIR ends extended
+straight out horizontally at body height (~300 mm clearance).
+raise_det_0.mp4 md5 12e1646d, 250 frames — same horizontal spear-leg
+endings. hold_det_0.mp4 md5 961c85ca, 250 frames — stance holds but
+sloppy, 2/6 posture det. Sto passes have no videos (harness saves det
+strips only): hold sto 4/6 is (4/6 unwatched) and supports nothing.
+Exploit checked and not found: no safety-layer reliance (0 flags), no
+height-collapse shortcut (heights fine); the failure is exactly the
+visible one — airborne legs never come down.
+INTERPRETATION. The pre-registered if-false branch predicted "std
+re-anneals with leg 4 still parked". Reality was a THIRD path: std
+never annealed at all — with ent_coef 0.01 on an 18-dim Gaussian near
+a warm-start optimum, the entropy bonus outruns the task gradient and
+std runs away (1.0 -> 2.29). 4M steps of std >=1.0 exploration never
+produced a paid leg-4 contact, and training at std ~2 actively
+degraded the parent's hold/rise. Combined with cw-walk-hist8 (std 1.0
+-> 1.31 by 1.24M, canary kill), this is 2-for-2: FLAT ent 0.01 ON A
+WARM START IS A DESTRUCTIVE SETTING, distinct from the audit's
+from-scratch prescription (cw-walk-step0, from scratch, is at std
+~1.09 @ 0.5M — task gradient there still has something to push
+against; watch it, alarm if std >1.5 with step events still zero).
+Entropy RUNAWAY now joins entropy collapse as a run-health alarm.
+VERDICT: FAIL (gate: lower posture 0/6 everywhere vs >=5/6 sto
+required; hold sto 4/6 vs 6/6 required). NOT HARDWARE-READY: two leg
+pairs end airborne (rear pair skyward in rise, front pair horizontal
+in lower/raise) — worse than the parent's single flag leg; no
+roboticist would deploy this. Champion unchanged (cw_stance_dr10).
+Crown-jewel note: champion itself untouched; this branch is a dead
+end, do not warm-start from 5d8c6d63.
+HYPOTHESIS STATUS: REFUTED — "re-opened exploration bridges to first
+contact, then dense terms take over" is false as tested; the
+confound (std runaway instead of re-anneal) makes it possible a
+BOUNDED std 1.0 would behave differently, but 4M steps sampling at
+std >=1.0 never once won the leg-4 contact payoff, which refutes the
+load-bearing claim. Per pre-registration, remaining options are
+STRUCTURAL: terminal-posture pricing (charge airborne clearance only
+after the goal reference settles — dense gradient on the airborne
+leg, zero tax on transients) or belly-rest reference states. Designed
+this cycle: see cw-stance-endpost below.
+
+### CODE — terminal end-posture pricing (pre-registered structural option, stance line)
+Diff rationale (sim_env.py + trainer key + 2 tests; default OFF):
+Root-cause chain (required): flag-leg endings <- airborne legs free at
+episode end <- load_even/support_margin have ZERO gradient on an
+unloaded airborne leg; stance_clearance excludes rise/lower/raise
+(their transients need freedom); all-modes flag_leg REFUTED for
+taxing exactly those transients (cw-walk-flag) <- deepest link
+(current-model dead zone underpricing static holds) needs hardware
+current recalibration — not reachable in sim-only work this cycle.
+Reward-level pricing is therefore the deepest accessible link, same
+argument as the walk park_duty term, per RL_PLAN item 3 ("same
+defect, design once, route per mode").
+- `reward.k_end_posture`: per-tick charge on per-foot clearance above
+  the grounded pad reference, ONLY inside a terminal window that is a
+  pure function of the pre-sampled goal schedule (cannot be dodged by
+  avoiding the target): from where the height REFERENCE stays within
+  end_posture_ref_mm (15) of final, +0.25 s grace, clamped to the
+  last end_posture_window_s (1.5) of the episode (the clamp protects
+  the early rise curl transient — small-amplitude rise refs sit near
+  final almost immediately; measured windows: 36-38 charged ticks on
+  lower/rise/raise across seeds). Allowances mirror the EVAL gate: 20
+  mm stand-ending, 60 mm for belly-ending lower; per-leg contribution
+  capped at 0.30 m. Routed to rise/lower/raise (the modes
+  stance_clearance excludes); hold/lean/track/unload keep
+  stance_clearance. Eval defs unchanged (checks stay independent).
+SCALE AUDIT (kernel ~0.5-2/tick): horizontal flag leg 300 mm in lower
+= -5.0*(0.30-0.06) = -1.2/tick over ~38 ticks = -46/episode (episode
+returns ~100-350); grounded feet pay 0 (test-measured ~0 over a full
+held-plant lower); leg at 150 mm pays exactly -0.45/tick
+(test-asserted). k_end_posture=5.0 chosen.
+Tests: 2 added (schedule gating + exact magnitude; grounded/routing
+free) — 38 pass, 4 skipped.
+
+### LAUNCH cw-stance-endpost (4M, DR 1.0, seed 0) — terminal-posture pricing on the champion
+HYPOTHESIS: the flag ending survives because no term has gradient on
+an airborne leg during the ONLY phase that matters (the end).
+k_end_posture supplies a dense, schedule-gated gradient (every mm of
+descent pays immediately, transients untaxed), so the planted ending
+becomes reachable by plain gradient descent at inherited std —
+explicitly WITHOUT the basin-escape exploration that posture2 just
+showed to be destructive (std runaway 1.0->2.29).
+One variable vs cw-stance-posture (named comparator, same parent
+ppo_goal_cw_stance_dr10 md5 da1d912a, same cfg, same seed, same
+inherited std): + reward.k_end_posture=5.0.
+Prediction-if-true: lower end-posture climbs off 0/6 to >=4/6 det or
+sto (parent-line baseline: 0/6 everywhere, worst_clear 256-264 mm),
+rise/raise end postures improve, heights stay >=5/6 (canaries
+protect). Prediction-if-false: worst_clear stays ~250+ mm with the
+charge simply absorbed (-46/episode paid every lower episode) — that
+would refute "dense terminal gradient suffices at inherited std" and
+leave belly-rest reference states (reset-side, reward-free) as the
+remaining pre-registered option. Strongest alternative: the term
+works but k=5 also distorts the descent (e.g. body slams to cut the
+window short — the window is time-based so slamming does NOT shorten
+it, which is why this experiment distinguishes pricing from
+landscape-unreachability). Gate (posture-strict, DR 1.0, 6 eps/mode
+det+sto, unchanged from posture line): lower end-posture >=5/6 sto
+AND >=4/6 det AND rise/lower height-only >=5/6 both AND hold sto
+6/6. Budget 4M. Canaries default-on (warm start). New mechanism ->
+probe-endpost smoke first (audit §6). Pod: s5.

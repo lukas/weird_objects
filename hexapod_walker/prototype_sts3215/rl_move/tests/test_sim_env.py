@@ -935,3 +935,82 @@ def test_drag_charges_loaded_translation():
     # zero action = feet planted, no commanded drag -> tiny charge only
     assert tot > -0.5, tot
     env.close()
+
+
+# ---------------------------------------------------------------------------
+# Terminal end-posture pricing (cycle 14, pre-registered structural option)
+
+
+def _goal_only_env(mode, **rw):
+    from rl_move.config import load_config
+    from rl_move.sim.joint_task import SimHexapodJointGoalEnv
+    cfg = load_config()
+    cfg.setdefault("reward", {}).update(rw)
+    env = SimHexapodJointGoalEnv(cfg, seed=0)
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    setattr(g, f"p_{mode}", 1.0)
+    return env
+
+
+def test_end_posture_charges_hoisted_leg_only_after_settle():
+    """k_end_posture: a 150 mm hoisted leg pays k*(clear-20mm) per tick
+    strictly AFTER the goal height schedule settles (+0.5 s grace);
+    the motion phase pays nothing."""
+    env = _goal_only_env("lower", k_end_posture=5.0)
+    env.reset()
+    assert env._goal_traj.mode == "lower"
+    # Fake a hoisted leg: shift leg 4's grounded reference down 150 mm
+    # so its (actually grounded) pad reads as 150 mm clearance.
+    env._pad_z_ref[4] -= 0.150
+    before, after = [], []
+    from rl_move.sim.joint_task import q_rad_to_action
+    a = q_rad_to_action(env._cmd.copy())
+    for _ in range(env.episode_steps):
+        _, _, term, trunc, info = env.step(a)
+        part = info.get("reward_end_posture")
+        assert env._end_posture_from is not None
+        (after if env._step_i >= env._end_posture_from
+         else before).append(part)
+        if term or trunc:
+            break
+    assert all(p is None for p in before), \
+        "charged during the motion phase"
+    charged = [p for p in after if p is not None]
+    assert charged, "terminal window never charged"
+    # leg 4: clear 0.150 - lower allowance 0.060 = 0.090 -> -5*0.09 =
+    # -0.45 (other feet may add real clearance while lowering)
+    assert -1.4 < charged[-1] <= -0.40, charged[-1]
+    env.close()
+
+
+def test_end_posture_grounded_feet_and_routing_free():
+    """Grounded feet pay ~nothing in a charged mode; hold mode (covered
+    by stance_clearance instead) is never charged at all."""
+    from rl_move.sim.joint_task import q_rad_to_action
+    env = _goal_only_env("lower", k_end_posture=5.0)
+    env.reset()
+    a = q_rad_to_action(env._cmd.copy())
+    tot = 0.0
+    for _ in range(env.episode_steps):
+        _, _, term, trunc, info = env.step(a)
+        tot += info.get("reward_end_posture") or 0.0
+        if term or trunc:
+            break
+    # holding the plant keeps feet grounded; only real lowering motion
+    # may graze the 20 mm allowance briefly
+    assert tot > -2.0, tot
+    env.close()
+    env = _goal_only_env("hold", k_end_posture=5.0)
+    env.reset()
+    env._pad_z_ref[4] -= 0.150
+    a = q_rad_to_action(env._cmd.copy())
+    for _ in range(int(3.0 / env.dt)):
+        _, _, term, trunc, info = env.step(a)
+        assert "reward_end_posture" not in info
+        if term or trunc:
+            break
+    env.close()

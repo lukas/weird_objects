@@ -490,7 +490,8 @@ def _make_reward_parts_callback():
                 "reward_current_max", "reward_termination",
                 "reward_phase_contact",
                 "reward_support_margin", "reward_load_even",
-                "reward_step_event", "reward_drag", "reward_park_duty")
+                "reward_step_event", "reward_drag", "reward_park_duty",
+                "reward_end_posture")
 
         def __init__(self):
             super().__init__()
