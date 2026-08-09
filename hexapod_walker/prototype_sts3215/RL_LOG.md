@@ -230,3 +230,10 @@ a file under `archive/` and link it.
   busy), speed/steer/current arms operator-blocked, payload needs a
   DR-range cfg hook = [CODE]; next cycle facing idle pods should run
   the mirror-symmetry implementation cycle (plan #3).
+- Cycle 43 (close): t4 freed mid-cycle (wander finished; its verdict
+  = watcher's next cycle). Idle-slot HARD reason on t4: backlog
+  empty + zero sound unblocked one-variable arms (READY wishlist all
+  in flight; speed/steer/current operator-blocked; payload needs a
+  DR-cfg hook). 0 launches this cycle. Next cycle with 2+ idle pods:
+  mirror-symmetry implementation cycle (plan #3), or wander/tilt50/
+  fall300 follow-ups once their verdicts land.
