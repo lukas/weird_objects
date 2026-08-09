@@ -147,6 +147,10 @@ the W&B OUTCOME note — if it matters, it lives there, not here.
   hardware-ready. Infra: watcher's dr0ret eval deadlocked on a corrupt ffmpeg
   pipe mid-sto-video (utime frozen, no children) — killed, det-only --no-video
   rerun recovered the retention numbers (gotcha added to COMMANDS.md). Refills
-  (2, 40M GPU, backlog->drained to t0/t1 within the hour): imumount10 (13c-class
-  sensor axis, IMU mount miscalibration 10deg) + badstart (13b boot-pose axis,
-  bad_start_prob 0.25 @8-35deg) — both isolated off the no-DR champion.
+  (4 = cycle cap, 80M GPU): imumount10 (13c-class sensor axis, IMU mount
+  miscalib 10deg) + badstart (13b boot-pose axis, prob 0.25 @8-35deg), both
+  isolated off no-DR champion, drained+ALREADY FINISHED same hour (watcher
+  will cycle their triage); groundtilt-dr05 (compose rung off today's PASS,
+  RUNNING t8 after 2 drain-race REFUSEDs + pod code sync) + payload50-s1
+  (ruling-7-style seed twin of the c57 payload PASS, queued).
+- 08-09 19:31 c61: payload-dr05 FAIL (own-DR0.5+payload panel clean 12/12, det med 1.36m, but DR0 no-payload retention eroded: slip 1.38>1.24, prog 0.54 vs parent 0.95 — first dr05 compose to charge nominal; watch in-flight comshift/deadband/fricvar/latjit-dr05 retentions); refilled train-11 with latjit-dr05 compose (drain VERIFIED, checkup HEALTHY); note: 2 controller evals OOM/load-killed silently at load~212, relaunched via setsid. 

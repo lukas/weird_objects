@@ -218,6 +218,14 @@ report.json, and the W&B API for exactly these questions.
     refuses reuse. Eval completion marker is `artifacts` (the harness
     never prints WROTE) — `waitlog ... 'artifacts|Traceback'`.
 
+14. **Batch-eval shell footgun (c60):** `CFG="..." && nohup A $CFG & nohup B $CFG &`
+    puts the assignment INSIDE the first background job's subshell — B
+    (and later jobs) run with an EMPTY $CFG, i.e. default cfg = silently
+    voided verdicts (gotcha 3), detectable as cmd_dist/30s outside the
+    walk band in report.json. Assign the variable on its OWN line (or
+    `export` it), THEN background the evals; always spot-check one
+    `/proc/<pid>/cmdline` for the cfg-sets after launching a batch.
+
 ## Time budget guidance
 
 The operator's standing complaint is cycle latency. Read the two

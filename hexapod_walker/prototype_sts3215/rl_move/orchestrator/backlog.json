@@ -1,19 +1,19 @@
 [
   {
-    "run": "cw-walk-joylat25-s1",
-    "steps": 18000000,
-    "parent": "cw-walk-joyjit-dr05-c1",
-    "hypothesis": "Seed concordance for the new best driving candidate (ruling 7: promotion needs multi-seed panels): identical config to cw-walk-joylat25 (DR0.5 + dr.latency_scale=0.5,2.5 abrupt-resample driving package off joyjit-dr05-c1) with ONLY the seed changed 0->1. Plain: prove the latency-hardened driving result was not a lucky seed. If-true: joystick gate zero falls + own-cfg gv 12/12, prog med >=0.85, slip/m in steering band 1.3-1.8 - result seed-CONFIRMED, panel evidence banked. If-false (gate miss or slip/prog off-band): joylat25's PASS is seed-fragile, demote to single-seed evidence and investigate before composing further. Strongest alternative: both seeds pass but drift to different gaits - compare cadence/duty columns.",
-    "gate": "JOYSTICK GATE: eval_drive --dr-scale 0.2 own cfg - ZERO in-envelope falls, left/right dist >=0.15m; own-cfg (DR0.5 + dr.latency_scale=0.5,2.5) det+sto 6/6 @15s: gait_valid 12/12, 0 term, prog med >=0.85; DR0 retention det 6/6 gv; frames watched det",
+    "run": "cw-walk-payload50-s1",
+    "steps": 20000000,
+    "parent": "cw-walk-longdist-r2",
+    "hypothesis": "Seed twin of the c57 payload50 PASS (ruling-7 seed-panel practice): identical config, seed 1 instead of 0. The payload axis PASSed with a marginal heavy tail (2/6 det draws squat-shuffle at 1.4-1.5x mass) - a seed twin tells us whether 'solid to +40%' is the recipe or seed luck before we lean on it (payload-dr05 compose already in flight). Prediction-if-true: seed 1 matches - own-cfg mass 1.0-1.5x gv 12/12, 0 term, det med fwd >=1.2m, heavy-tail no worse. Prediction-if-false: seed 1 collapses on mid-range mass draws or retention erodes - payload exposure is seed-fragile, panel before promotion. Strongest alternative: both seeds pass but with different tail signatures - compare per-episode fwd spread. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.mass_scale=1.0,1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 no-payload retention det 6/6 gv, det slip/m med <=1.24; frames watched det",
     "extra_args": [
       "--task",
       "joint_walk",
       "--init-from",
-      "rl_move/sim/policies/ppo_goal_cw_walk_joyjit_dr05_c1.zip",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
       "--dr-scale",
-      "0.5",
+      "0.0",
       "--episode-seconds",
-      "15",
+      "30",
       "--ent-coef",
       "0.001",
       "--no-canary",
@@ -44,19 +44,7 @@
       "--cfg-set",
       "reward.anchor_tol_mm=10.0",
       "--cfg-set",
-      "goal.walk_heading_max_rad=0.7854",
-      "--cfg-set",
-      "goal.walk_cmd_resample_s=1.5",
-      "--cfg-set",
-      "goal.walk_cmd_resample_jitter=0.6",
-      "--cfg-set",
-      "goal.walk_cmd_blend_s_min=0.1",
-      "--cfg-set",
-      "goal.walk_cmd_blend_s_max=1.0",
-      "--cfg-set",
-      "goal.walk_stop_frac=0.2",
-      "--cfg-set",
-      "dr.latency_scale=0.5,2.5",
+      "dr.mass_scale=1.0,1.5",
       "--n-envs",
       "4096",
       "--impl",
@@ -64,9 +52,9 @@
       "--host-workers",
       "24",
       "--out-name",
-      "ppo_goal_cw_walk_joylat25_s1"
+      "ppo_goal_cw_walk_payload50_s1"
     ],
     "attempts": 0,
-    "added": "2026-08-09T19:02:58+00:00"
+    "added": "2026-08-09T19:34:09+00:00"
   }
 ]
