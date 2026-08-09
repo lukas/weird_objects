@@ -1,7 +1,14 @@
 # Hexapod STS3215 prototype
 
 Tabletop 3D-printed hexapod driven by Feetech STS3215 bus servos and an
-Arduino Uno Q.  Design entry point: [`PROTOTYPE.md`](PROTOTYPE.md).
+Arduino Uno Q. This directory holds THREE projects that share the robot;
+start at the entry point for the one you're working on:
+
+| You are here to… | Start at |
+|------------------|----------|
+| Design/print/assemble the robot (CAD, BOM) | [`PROTOTYPE.md`](PROTOTYPE.md) |
+| Run the physical robot (firmware, control, safety) | `firmware/`, `linux_control/`, `rl_move/API.md` — **read the hardware-safety rules in the repo root `AGENTS.md` first** |
+| Train it in simulation (RL campaign + autonomous agent loop) | [`rl_docs/README.md`](rl_docs/README.md) — index of GOAL / WISHLIST / COMMANDS; then `RL_PLAN.md`, `RL_LOG.md` |
 
 ## Layout
 
@@ -17,6 +24,11 @@ Arduino Uno Q.  Design entry point: [`PROTOTYPE.md`](PROTOTYPE.md).
 | `stl_reference/` | Sim / viz meshes (not for printing) |
 | `firmware/` / `linux_control/` / `motor_setup/` | On-robot software |
 | `full_robot_viz/` | BuildViz scene + local `buildviz` npm dep |
+| `rl_docs/` | RL campaign docs index: goal, operator wishlist, commands, log conventions |
+| `RL_PLAN.md` / `RL_LOG.md` | Current RL plan + condensed campaign history (full history in `archive/`) |
+| `rl_move/` | RL code: `sim/` (MuJoCo/MJX envs + training), `orchestrator/` (autonomous loop: watcher, launcher, guardrails), robot-side control |
+| `logs/` | Eval artifacts + per-experiment summaries (`logs/experiments/<run>/`) |
+| `archive/` | Dated reviews, rulings, full plan/log history — search, don't read |
 
 ## Quick commands
 

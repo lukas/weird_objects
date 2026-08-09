@@ -35,9 +35,9 @@ As of 2026-08-09 (~cycle 34):
 - Standing up and lying down (heights) are solved under full
   randomization; the "posture" detail (one leg finishing in the
   air) is stuck behind the same pricing issue.
-- Party-trick wishlist once walking is reliable: fall recovery
-  (get up after tipping over) and quadruped mode (walk on four
-  legs, front two free as claws).
+- The operator keeps a standing backlog of things to learn
+  (turning, back-and-forth, driving, quadruped mode, five-legged
+  walking, ...): `WISHLIST.md`. Idle pods pull from it.
 
 ## The cast
 

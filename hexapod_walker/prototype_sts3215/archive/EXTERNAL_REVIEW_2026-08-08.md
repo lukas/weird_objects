@@ -1,7 +1,7 @@
 # Hexapod RL — Integrated External Review & Action Plan (2026-08-08)
 
 Sources: GPT external review + Claude second-pass review of the same status
-brief (`GPT_STATUS_2026-08-08.md`). Where the two disagreed, the resolution
+brief (`archive/GPT_STATUS_2026-08-08.md`). Where the two disagreed, the resolution
 is stated explicitly and marked **[RESOLVED]**. This document has been
 merged into `RL_PLAN.md` (priorities, gates) and
 `orchestrator/ORCHESTRATOR_PROMPT.md` / guardrails YAML (autonomy
