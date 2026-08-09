@@ -207,3 +207,26 @@ a file under `archive/` and link it.
   needs yaw-command code ([CODE], not [READY]). train-10/11 idle —
   HARD reason: max_new_launches_per_cycle=4 + GPU-step cap reached;
   train-12..15 Pending (unreachable).
+- Cycle 38 (08-09 ~12:1x): `cw-walk-longdist-r2` NEAR-MISS (strict
+  gate FAIL, sto 5/6: one draw stalled 0.62m/slip 6.1) but det 6/6
+  is CAMPAIGN-BEST: 1.57m@30s, det slip/m 0.96 (first <1.0; champ
+  1.24), prog_ratio 0.98 (champ 1.43 overspeed), gait_valid 12/12,
+  frames show level six-leg gait holding the full 30s. NOT
+  hardware-ready (slip reduced, not gone). DR1.0 own-cfg eval
+  running + `cw-walk-longdist-s1` seed twin queued (ruling-7 panel)
+  — champion shift decided next cycle. `cw-walk-longdist` (r1):
+  FAILED infra at init, 0 steps, carried by -r2. INFRA: fixed the
+  fleet-stalling drain bug — snapshot.sh --sync marked pods
+  "-dirty" off the watcher's own ledger/backlog churn, so EVERY
+  drain launch was REFUSED while 9 GPUs idled; dirty-check now
+  excludes the two runtime state files (exp/drain-dirtyfix,
+  df10dbb). Synced+pushed champ ckpt to t4-11, ran
+  bootstrap_train_pod.sh on all 8 (nobody had). Cleaned orphaned
+  `cw-walk-fwdband` INTENT (authoring cycle zombied; 0 steps) ->
+  requeued -r1. My 4 launches (cap): fwdband-r1, standwalksit
+  (retry), loadslip-s1, longdist-s1 — 80M = cap. Drain verified
+  working again (fast->t0, endur60->t4).
+- Cycle 38 addendum: r2 DR1.0 own-cfg eval LANDED — det slip/m 1.06
+  vs champion 1.240 (same condition, −15%, first sub-champion slip),
+  prog 0.91, det 6/6/0-term; sto 3/6 (robustness = weak edge).
+  Champion NOT shifted yet — decided by `cw-walk-longdist-s1` panel.
