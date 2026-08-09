@@ -2317,3 +2317,29 @@ recorded video ONLY for det passes — every sto scalar in every past
 verdict was structurally unwatchable. Fixed: sto episodes now record
 under the same every-Nth rule (walk_sto_*.mp4). lowent/c2 sto strips
 this cycle are the first sto footage of the campaign.
+
+### Cycle 18 close — launches, fleet, and a launch failure worth recording
+LAUNCH RESULTS. cw-walk-lowent-h15 attempt 1 FAILED at init:
+FileNotFoundError on the parent checkpoint — lowent trained on s6,
+and code sync does NOT carry policies/, so the walk pod had no
+ppo_goal_cw_walk_step0_lowent.zip. Standing lesson: before any
+cross-pod warm start, copy the parent ckpt to the target pod and
+md5-verify it (done: walk + long5m both at 923ee55c). The crashed
+W&B run burned the name (append-only), so the retry is
+**cw-walk-lowent-h15b** — W&B y9jav0y4, walk pod, pid 308436,
+VERIFIED RUNNING at ~5052 fps. **cw-walk-lowent-dr03** — W&B
+xw5pdtum, long5m pod, pid 1834780, VERIFIED RUNNING at ~3413 fps.
+Both 4M, both off lowent md5 923ee55c, snapshot e5f0c3e (tag
+exp/cw-walk-lowent-h15). Launched 2 of 4 cap; 8M of 16M step cap.
+CONCURRENT TRAFFIC (not mine): cw-walk-step0-lowent-c1 (launcher
+entry 01:22:51Z, s6) — identical-config continuation of lowent per
+directive 0-a, running beside my two one-variable arms; distinct
+hypotheses, no duplication. cw-stance-endpost-r1 untouched (its own
+cycle owns it).
+Fleet after cycle: walk = h15b, long5m = dr03, s6 = lowent-c1
+(concurrent), s5/s3/s4/friction/lower idle. Champions: stance
+unchanged; walk = ppo_goal_cw_walk_step0_lowent.zip md5 923ee55c
+(NEW, this cycle). Evals archived: logs/ckpt_eval/
+cw_walk_step0_{c2,lowent}_gate{,_sto} + cw_walk_step0_lowent_15s.
+Harness change landed: sto passes now record video (previously
+structurally unwatchable — det-only videos).
