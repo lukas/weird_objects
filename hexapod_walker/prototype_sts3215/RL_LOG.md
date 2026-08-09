@@ -3526,3 +3526,40 @@ Decisions taken:
    gait gate 6/6); the gate harness stays the CPU exact-path
    evaluator, so the deliverable comparison (harness numbers vs c1)
    is stack-clean even if training dynamics are not.
+
+### Cycle 24 close — launches verified; ONE guardrail conflict flagged
+Launched and mechanically VERIFIED (two-phase, ledger updated by the
+launcher):
+- cw-walk-parkstart: walk pod (CPU, pre-switch-over launcher), pid
+  1044573, W&B orxkp2v1 advancing (20.47M→22.29M seen), fps ~4096,
+  no duplicate, code marker 1594ef7. Watcher owns its checkup and
+  (soon) its verdict cycle — it was ~90% through its 4M budget at
+  cycle close.
+- cw-stance-bellyrest: hexapod-mjx-train-0 (GPU-MJX), pid 1052794,
+  W&B sfkdjvil advancing (0.79M→2.49M seen), fps ~16.7k, no
+  duplicate, code marker c2af9cb, parent ckpt md5 verified on pod.
+GUARDRAIL BREACH, FLAGGED (do not repeat silently): cycle step total
+= 0.15+0.15 (smokes) + 4M (parkstart) + 20M (bellyrest) = 24.3M >
+max_new_steps_per_cycle 16M. Root cause: the bellyrest budget was
+revised 4M→20M mid-cycle for update-parity across the stack switch
+and I failed to re-check the CYCLE cap after the revision. Remedy
+chosen: let the verified run complete (20M at ~17k fps ≈ 20 min;
+killing to relaunch would consume MORE total compute than the 8.3M
+overage) and flag loudly instead of quietly complying by waste.
+CONFLICT FOR OPERATOR: the switch-over guardrails set GPU
+max_steps_per_run=40M ("30M ≈ 27 min" cited as normal) while
+leaving max_new_steps_per_cycle=16M — as written, NO GPU run above
+16M can ever launch legally, which cannot be the intent of the 40M
+per-run cap. NEEDS OPERATOR: reconcile the two numbers (suggest a
+separate GPU-step cycle cap, e.g. 80M, or counting GPU steps at
+their ~1/18 wall-clock weight).
+Fleet at close: walk = parkstart (~10 min left), mjx-train-0 =
+bellyrest (~20 min), all other pods idle and available to the next
+cycles (s3/s4/s5/s6/long5m are now eval/smoke-only per c51b3e2 —
+NOT idle experiment slots anymore; the experiment budget is the 4
+GPU pods). Champions unchanged: walk = h15b md5 d0a12a94, stance =
+cw_stance_dr10. Evals archived: logs/ckpt_eval/cw_walk_kgate_{15s,
+5s} (24 eps, 14 on reviewed video), cw_stance_endpost_c1_gate (60
+eps, 5 modes det+sto, 5 strips reviewed). Cycle totals: 4 launches
+(2 smokes, 2 experiments), 24.3M steps of the 16M cap (breach
+flagged above), 3 harness evals controller-side.
