@@ -6,6 +6,11 @@ have CF tubes cut 4 mm short, so their boot gets a +4 mm longer solid
 tip (FOOT_BOOT_SHORT_EXTRA) and every tip still lands at tibia-local
 x = TIBIA_LENGTH.  Print in TPU 95A, tip face on the bed.
 
+TRANSITIONAL (late-Aug 2026 review round 2): this variant exists only
+because two as-built tubes came out 4 mm short.  When the tubes are
+next recut, standardize all six at 128 mm, set
+``hp.SHORT_CF_LEG_INDICES = ()``, and delete this tool + its STL.
+
 Run from the repo root:
 
     python hexapod_walker/prototype_sts3215/tools/make_extra_foot_boot_plus4.py

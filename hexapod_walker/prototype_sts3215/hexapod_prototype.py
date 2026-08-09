@@ -183,6 +183,10 @@ FEMUR_LENGTH   =  90.0   # mm -- hip-pitch axis -> knee axis
 # legs 0/4 ≈ 124 mm.  Model uses 128 mm (was 130).  Short legs print
 # ``extra_stl/foot_boot_plus4.stl`` (+4 mm longer solid tip) so all six
 # reach the same 128 mm tip with the same tube-end press fit.
+# TRANSITIONAL (late-Aug 2026 review round 2): the plus4 variant only
+# exists to absorb an as-built tube-cutting error.  Next time tubes are
+# cut, make all six 128 mm, set SHORT_CF_LEG_INDICES = (), and retire
+# foot_boot_plus4 + its tool -- one boot SKU for the whole robot.
 TIBIA_LENGTH   = 128.0   # mm -- knee axis -> foot tip
 SHORT_CF_LEG_INDICES = (0, 4)   # 4 mm short CF; use foot_boot_plus4
 FOOT_BOOT_SHORT_EXTRA = 4.0     # mm -- longer boot tip for SHORT_CF_LEG_INDICES
@@ -3354,7 +3358,12 @@ HEX_MOUNT_PLATE_DIAM = 115.0
 # REGISTRATION -- 4 printed underside bosses (OD 14, bore Ø8.4, 2 mm)
 # that socket the top of each Ø8 post magnet so gait shake can't slide
 # the deck (magnets only carry pull); the legacy 49.5 mm bolt square is
-# dropped from the plate.  See tools/make_xtool_hex_raised_platform.py.
+# dropped from the plate.  Review round 2: the plate also carries the
+# Uno Q's 3-point UNO mount holes (M3x8 into thumb nuts; the separate
+# hex_uno_q_io_board is retired) and 3 stand-foot holes at az
+# 90/210/330 (M3x8 up into the screen stand's blind self-tap pilots).
+# Print-only -- the SVG cut file is retired with the bosses.
+# See tools/make_xtool_hex_raised_platform.py.
 HEX_RAISED_LEG_H = 28.0                 # screen-stand legs (single source
                                         # for the tool's LEG_H_SCREEN).
                                         # 62 -> 72 (Aug 2026) -> 28
@@ -3412,7 +3421,12 @@ BREAKOUT_W = 45.0
 BREAKOUT_D = 30.0
 BREAKOUT_H = 10.0
 BREAKOUT_CENTRE = (0.0, 36.0)           # north of Uno Q, inside hex
-UNO_Q_ON_HEX_CENTRE = (0.0, -12.0)      # south of centre under raised platform
+UNO_Q_ON_HEX_CENTRE = (0.0, -12.0)      # south of centre under the screen
+                                        # stand.  The plate's 3-point UNO
+                                        # mount holes are derived from this
+                                        # centre (make_xtool_hex_raised_
+                                        # platform._uno_hole_xy) -- move it
+                                        # and the holes follow.
 
 # As-built MPU-6050 (GY-521): glued to chassis_top's TOP face just SOUTH
 # of the central trunk Wago pair (Aug 2026; earlier near-centre spots
@@ -7792,10 +7806,13 @@ def wago_tray_corner_transforms() -> "list[np.ndarray]":
 
 
 def load_hex_mount_plate() -> trimesh.Trimesh:
-    """Round Ø115 mount plate from ``extra_stl/`` (raised-leg foot holes,
-    the live +/-31.1 standoff square, 3.3 V-Wago wire ports, zip-tie
-    slots, and -- late-Aug 2026 -- 4 underside magnet shear-registration
-    bosses; the legacy 49.5 mm bolt square is dropped).
+    """Round Ø115 mount plate from ``extra_stl/`` (3 raised-stand foot
+    holes, the live +/-31.1 standoff square, the Uno Q's 3-point
+    Arduino-UNO mount holes (late-Aug 2026 review round 2: the separate
+    hex_uno_q_io_board is retired; M3 x 8 down into thumb nuts), 3.3 V-
+    Wago wire ports, zip-tie slots, and 4 underside magnet shear-
+    registration bosses; the legacy 49.5 mm bolt square is dropped.
+    Print-only -- the SVG cut file is retired (bosses can't be cut).
 
     Plate midplane at local z = 0 (plate z in [-1, +1]; the registration
     bosses reach down to z = -3 and socket the magnet tops).
@@ -7811,9 +7828,12 @@ def load_hex_mount_plate() -> trimesh.Trimesh:
 
 
 def load_hex_raised_platform() -> trimesh.Trimesh:
-    """Screen-stand raised platform from ``extra_stl/``.
+    """Screen stand from ``extra_stl/`` ("hex" name is historical --
+    since the late-Aug 2026 review round 2 the top is a ROUND Ø115 disc
+    matching the plate below, on 3 legs at az 90/210/330 whose feet
+    carry blind self-tap pilots: 3x M3 x 8 drive UP through the plate).
 
-    Foot bottoms at local z = 0; top of upper plate at
+    Foot bottoms at local z = 0; top of upper disc at
     z = HEX_RAISED_TOTAL_H (30 since the late-Aug 2026 72 -> 28 mm
     leg shortening).
     """

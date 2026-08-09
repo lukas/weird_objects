@@ -358,15 +358,20 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 
 > **Aug 2026 as-built electronics deck** (from `extra_stl/`, not `stl_prototype/`):
 > four posts at `CHASSIS_STANDOFF_HOLES_XY` hold a round Ø115 **`round_mount_plate_115`**
-> (Uno Q + breakout) on magnets; above it sits **`hex_raised_platform_110`**
-> (screen variant, 28 mm legs — shortened from 72 in the late-Aug 2026
-> design review to cut the lever arm on the magnet-held plate; 24×5
-> pigtail slot + 4× M2 screen pilot
-> holes in the top plate) with the display on the top face and the
-> MPU-6050 glued on chassis_top beside the central trunk Wagos.  Generate / refresh with
+> on magnets; the Uno Q bolts to it three-point (3× M3×8 down into M3
+> thumb nuts — review round 2 folded the retired `hex_uno_q_io_board`'s
+> UNO hole pattern into the plate) with the breakout beside it.  Above
+> sits the **screen stand** (`hex_raised_platform_110_h28_screen` —
+> "hex" is historical: round Ø115 top disc on 3 legs, 28 mm, shortened
+> from 72 in the late-Aug 2026 design review to cut the lever arm on
+> the magnet-held plate; mounts by 3× M3×8 driven UP from under the
+> plate into blind self-tap pilots in the feet; 24×5 pigtail slot + 4×
+> M2 screen pilot holes in the top disc) with the display on the top
+> face and the MPU-6050 glued on chassis_top beside the central trunk
+> Wagos.  Generate / refresh with
 > `tools/make_xtool_hex_raised_platform.py`.  Printed trays
-> (`uno_q_tray`, `buck_tray`), `spider_carapace`, and chassis-top
-> `imu_pad` are retired.
+> (`uno_q_tray`, `buck_tray`), `spider_carapace`, chassis-top
+> `imu_pad`, and the separate `hex_uno_q_io_board` are retired.
 
 ### 3.2 Per-leg parts (print 6 sets)
 
@@ -488,13 +493,13 @@ The authoritative, auto-generated fastener counts live in the
 | M3 × 8 SHCS disc-horn bolts (`91290A113`) | 72 | Yaw front horn + the two passive rear-boss horns, same 14 mm bolt circle into the disc's M3 tapped holes. |
 | M2.5 × 8 SHCS, servo body retention (`91290A104`) | 24 | HIP cradles only — 4 per hip cradle into the servo's real END-face 10×10 mm M2.5 hole square. The YAW cradle takes none (held by the `yaw_servo_retainer` strap) and the KNEE cradle takes none either (Jul 2026 one-piece femur — the fused spar covers that wall; clamp cap + lip hold the body). |
 | M2.5 × 8 spline / passive-horn screws (`91290A104`) | 30 | Passive-horn retention + servo spline center screws (ship with the servos). |
-| M3 × 8 SHCS (`91290A113`) | ~46 | 24 `servo_clamp_cap` + 18 `yaw_bearing_cap` self-tap + 4 chassis_top → brass-standoff top bolts (moved from ×10 when the top plate was halved to 2 mm). |
+| M3 × 8 SHCS (`91290A113`) | ~52 | 24 `servo_clamp_cap` + 18 `yaw_bearing_cap` self-tap + 4 chassis_top → brass-standoff top bolts (moved from ×10 when the top plate was halved to 2 mm) + 3 screen-stand feet (up from under the round plate into Φ2.5 pilots) + 3 Uno Q mount (down into thumb nuts). |
 | M3 × 10 SHCS (`91290A114`) | 2 | switch_holster mount bolts. |
 | M3 × 14 SHCS (`91290A115`) | 4 | Chassis-standoff bottom bolts, UP through chassis_bottom's 8 mm plate + floor stack into the F-F standoffs' bottom female threads (Jul 2026 F/F switch). |
 | M3 brass heat-set inserts (McMaster `94459A130`) | 2 | chassis_top bosses for `switch_holster` only (Aug 2026: deck-tray / imu_pad / carapace inserts retired).  Soldering-iron installed at ~220 °C. |
 | M3 × 20 mm F-F brass standoffs | 4 | chassis_top ↔ chassis_bottom across `CHASSIS_GAP` = 20 mm (Aug 2026: was 32 mm; shrank when the battery moved under the belly) on the 44-mm-radius diagonal pattern (±31.1, ±31.1).  Same stock as the magnet-post bases below. |
 | M3 × 20 mm brass standoffs | 4 | Magnet-post bases at the same `CHASSIS_STANDOFF_HOLES_XY` (±31.1), rising above chassis_top. |
-| M3 knurled thumb nuts (~2.5 mm) | 4 | Sit on the 20 mm posts under the magnets. |
+| M3 knurled thumb nuts (~2.5 mm) | 7 | 4 sit on the 20 mm posts under the magnets; 3 hold the Uno Q's three-point mount under the round plate (finger-tight). |
 | Ø8 × 8 mm disc magnets | 4 | Top of each post; hold the round Ø115 mount plate. |
 | 6805-2RS ball bearings | 12 | Yaw joint touching pair (2 per leg), Ø25 × Ø37 × 7 mm (61805; Aug 2026 — was 6706-2RS 30×37×4); captured by the split tower + `yaw_bearing_cap`. |
 | Ø8 mm carbon-fibre tube | ~1 m | Femur + tibia leg segments (epoxy-bonded into the printed sockets). |
@@ -633,7 +638,9 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    over the Ø8 tube = 0.3 mm interference — a drop of isopropyl helps
    it slide, then grips when dry).  No fastener, no hinge (Aug 2026:
    the boot's compliance replaces the old passive hinge).  Legs 0/4
-   with the short CF tubes take `foot_boot_plus4` instead.
+   with the short CF tubes take `foot_boot_plus4` instead (transitional
+   — at the next tube recut, cut all six at 128 mm and retire the
+   plus4 variant).
 
 You now have a complete leg (yaw pad → hip → femur → knee → tibia →
 foot) ready to drop onto its `chassis_bottom` yaw cradle. Repeat 6
@@ -686,12 +693,16 @@ times.
    a **20 mm M3 standoff + ~2.5 mm M3 thumb nut + Ø8×8 mm magnet**.
    VHB-tape a **5-port 3.3 V Wago** flat to the UNDERSIDE of the round
    **`round_mount_plate_115`** (from `extra_stl/`) at (0, −36), wire
-   entries facing the south rim, then seat the plate on the magnets and
-   mount the **Arduino Uno Q + breakout** on top.  Feed the Wago from
+   entries facing the south rim.  While the plate is still off the
+   robot, bolt the **screen stand** to it — **3 × M3 × 8 SHCS driven UP
+   through the plate's three foot holes into the blind Φ2.5 pilots in
+   the stand feet** — and mount the **Arduino Uno Q** three-point:
+   **3 × M3 × 8 down through the board + plate into M3 thumb nuts**
+   (finger-tight; breakout beside it).  Seat the plate assembly on the
+   magnets.  Feed the Wago from
    the Uno Q **3V3 pin** down through the plate's **east Ø8 wire port**
    (19, −44); branch **MPU VCC** straight down and **screen VCC** back
-   up through the west port.  Place **`hex_raised_platform_110`**
-   (screen variant) on the plate: status screen on the top face; glue
+   up through the west port.  Status screen on the stand's top disc; glue
    the **MPU-6050 on chassis_top just south of the central trunk
    Wagos** (header row facing the open -X deck so the jumpers have
    room).  Route IMU I²C (GND, SDA, SCL; VCC comes off the 3.3 V Wago)

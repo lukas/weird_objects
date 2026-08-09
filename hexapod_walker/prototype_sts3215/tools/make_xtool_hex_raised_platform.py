@@ -34,39 +34,56 @@ Late-Aug 2026 design review:
     the magnets only carry pull and every gait cycle's sideways shake
     goes into the boss walls instead of sliding the deck.  The plate
     still seats directly on the magnet top faces -- stack height is
-    unchanged.  NOTE: the bosses exist only in the printed STL; the SVG
-    cut file is necessarily flat (laser-cut a plate and you give up the
-    registration, or glue 4 printed rings under it).
+    unchanged.
+  * Screen-stand legs dropped 72 -> 28 mm (the 72 mm tower put the
+    robot's highest mass on a magnet-held 2 mm plate).  Leg height
+    single source: ``hp.HEX_RAISED_LEG_H``.
 
-The raised platform itself keeps its hex Ø110 top + 6 corner legs, but
-the screen variant's legs dropped 72 -> 28 mm (design review: the 72 mm
-tower put the robot's highest mass on a magnet-held 2 mm plate; 28 mm
-still clears the Uno Q's shield headers below while cutting the lever
-arm and the CoG).  Leg height single source: ``hp.HEX_RAISED_LEG_H``.
+Late-Aug 2026 review, round 2 (this file's current form):
+  * The stand TOP is a ROUND Ø115 disc matching the plate and
+    chassis_top discs below (was a 110 hex -- the "hex" in the file /
+    part names is historical now, kept so the loader + viz partType
+    stay stable).
+  * THREE legs at az 90/210/330 (was 6): a 20 g screen does not need
+    six; the south rim (wire ports + underside 3.3 V Wago) stays clear
+    of feet.  Each foot carries a Φ2.5 BLIND SELF-TAP PILOT rising into
+    the leg blade, and the stand mounts with 3x M3x8 SHCS (the same
+    91290A113 stock as the clamp caps) driven UP from under the plate
+    -- this CLOSES the old spec gap where 6 M3 went through clearance
+    holes into nothing (6 unlisted nuts).
+  * The plate gains the Arduino-UNO mounting pattern for the Uno Q at
+    the as-built ``hp.UNO_Q_ON_HEX_CENTRE`` = (0, -12): THREE of the
+    four standard holes (the SE hole would land ~1.5 mm from the SE
+    registration boss, so it is dropped -- three-point mount, M3x8 down
+    through the board + plate into an M3 thumb nut below, same thumb
+    nut stock as the magnet posts).  This folds the one useful feature
+    of the retired ``make_hex_uno_q_io_board.py`` into the live plate.
+  * RETIRED outputs: the 42 mm base platform variant (nothing as-built
+    used it), the ``hex_uno_q_io_board_110`` board, and the plate's SVG
+    cut file (the underside registration bosses cannot be laser-cut;
+    shipping a boss-less cut file was a footgun).
 
 Geometry
 --------
   * Lower plate: ROUND Ø115 disc, 2 mm thick, matching the chassis_top
     disc below.  Coxa-sweep keep-out starts at r ≈ 59.6 so the 57.5
     radius keeps ≥2 mm (asserted at runtime).
-  * Upper plate: 110 mm hex, 2 mm thick, raised so its BOTTOM sits
-    ``LEG_H`` mm above the TOP of the lower plate (42 mm default; 72 mm
-    for the screen variant). Top face is planar (print top-down or
-    feet-down — no stubs).
-  * 6 legs: one at each hex corner (vertex azimuth), vertical.
-  * Feet: small pads at the bottom of each leg with Φ 3.4 M3 holes.
+  * Upper plate: ROUND Ø115 disc, 2 mm thick, raised so its BOTTOM sits
+    ``LEG_H_SCREEN`` mm above the TOP of the lower plate.  Top face is
+    planar (print top-down or feet-down — no stubs).
+  * 3 legs on vertex azimuths 90/210/330, vertical blades.
+  * Feet: 12 mm pads with Φ2.5 blind self-tap pilots (M3x8 from below
+    the plate).
   * Screen variant: solid top (no window) + 24×5 mm wire slot under the
     +X short edge of a centered 63×35 screen (GMT020 / ST7789) — outer
     X edge = screen +X edge, narrowed so the +X screw holes clear it —
     plus 4 Ø1.8 M2 self-tap pilot holes at the panel corner holes
     (2.5 mm inset) to hold the screen down.
 
-Outputs under ``extra_stl/`` (printables, not laser-cut xTool files):
-  * ``hex_raised_platform_110.stl`` -- one-piece print (feet + legs + top)
+Outputs under ``extra_stl/`` (printables only -- no cut files):
   * ``hex_raised_platform_110_h28_screen.stl`` -- 28 mm legs, wire slot
-  * ``hex_raised_platform_110_preview.png`` -- top + side views
-  * ``round_mount_plate_115_with_leg_holes.svg`` -- lower plate cut file
-  * ``round_mount_plate_115_with_leg_holes.stl`` -- same as 2 mm solid
+  * ``hex_raised_platform_110_h28_screen_preview.png`` -- top + side
+  * ``round_mount_plate_115_with_leg_holes.stl`` -- the magnet plate
 
 Run from the repo root:
 
@@ -80,32 +97,26 @@ import sys
 
 import numpy as np
 import trimesh
-from trimesh.transformations import rotation_matrix
-
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")))
 
 import hexapod_walker.prototype_sts3215.hexapod_prototype as hp  # noqa: E402
-from hexapod_walker.prototype_sts3215.tools.make_xtool_chassis_hex import (  # noqa: E402
-    _circle, _ring_to_path, _svg_header,
-)
 from hexapod_walker.prototype_sts3215.tools.make_xtool_hex_mount_plate import (  # noqa: E402
-    CIRCUMRADIUS, FLAT_TO_FLAT, MAX_DIAMETER, THICKNESS, _hex_coords,
-    _hole_xy_r,
+    CIRCUMRADIUS, THICKNESS,
 )
 
 OUT_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "extra_stl"))
 
-# Standoff: bottom of upper plate sits this far above top of lower plate.
-LEG_H = 42.0
-# Screen-variant leg height: single source = hexapod_prototype so the
+# Screen-stand leg height: single source = hexapod_prototype so the
 # as-built stack (HEX_RAISED_TOTAL_H) can never drift from the STL.
 # History: 62 -> 72 (Aug 2026, +10 mm) -> 28 (late-Aug 2026 design
 # review: shorter lever on the magnet-held plate, ~44 mm CoG drop;
 # still clears the Uno Q shield headers, ~12 mm tall, below the top).
+# (The old 42 mm LEG_H base variant is retired -- nothing as-built
+# used it.)
 LEG_H_SCREEN = hp.HEX_RAISED_LEG_H
 TOP_T = 2.0
 FOOT_T = 2.5
@@ -115,9 +126,14 @@ FOOT_PAD = 12.0       # square foot pad edge (mm) — grows with thicker legs
 # Pull foot centres inward from the vertex along the corner ray.  Small =
 # "very close to the corner" while leaving ≥2 mm past the M3 hole + pad.
 CORNER_INSET = 9.5    # mm from circumradius (vertex) to foot-hole centre
-APOTHEM = FLAT_TO_FLAT / 2.0
 FOOT_R = CIRCUMRADIUS - CORNER_INSET
 HOLE_R = hp.BRACKET_BOLT_HOLE / 2.0
+# Blind self-tap pilot in each stand foot (late-Aug 2026): an M3 x 8
+# SHCS self-taps UP from under the plate -- 2 mm plate + ~5.5 mm bite,
+# pilot 1 mm deeper than the thread reach.  Same Φ2.5 pilot bore the
+# yaw-retainer anchors and cradle wall-end pilots use.
+FOOT_PILOT_D = 2.5
+FOOT_PILOT_DEPTH = 7.5
 
 # Round lower plate (Aug 2026): Ø115 disc matching the chassis_top disc.
 PLATE_R = hp.HEX_MOUNT_PLATE_DIAM / 2.0
@@ -169,8 +185,30 @@ def _wire_slot_center_x() -> float:
     return screen_half_x - WIRE_SLOT_H / 2.0
 
 
-# Vertex azimuths: same as chassis / _hex_coords (30/90/150/…).
-CORNER_ANGLES_DEG = tuple(30.0 + i * 60.0 for i in range(6))
+# Leg azimuths (late-Aug 2026: 3 legs, was all 6 hex vertices).  90/210/
+# 330 keeps the plate's south rim -- the two Ø8 wire ports at (+/-19,
+# -44) and the underside 3.3 V Wago at (0, -36) -- free of feet, and
+# the 330 foot backs the screen's +X (wire-slot) edge.
+CORNER_ANGLES_DEG = (90.0, 210.0, 330.0)
+
+# Arduino-UNO mounting pattern for the Uno Q, on the plate at the
+# as-built board centre (hp.UNO_Q_ON_HEX_CENTRE = (0, -12), board long
+# axis along X -- same placement the viz + wiring routes use).  Corner
+# offsets are the official UNO mechanical drawing, from the board's
+# lower-left corner; board envelope 68.58 x 53.34.  Only THREE of the
+# four holes are cut: the SE hole (board-local (66.04, 17.78)) would
+# land ~1.5 mm from the SE magnet registration boss, and a three-point
+# mount holds a 25 g board fine.  Hardware: M3 x 8 down through board +
+# plate into an M3 thumb nut below (same thumb-nut stock as the magnet
+# posts, finger-tight).
+UNO_BOARD_W, UNO_BOARD_D = 68.58, 53.34
+UNO_HOLES_CORNER = ((13.97, 2.54), (15.24, 50.8), (66.04, 45.72))
+
+
+def _uno_hole_xy() -> list[tuple[float, float]]:
+    cx = hp.UNO_Q_ON_HEX_CENTRE[0] - UNO_BOARD_W / 2.0
+    cy = hp.UNO_Q_ON_HEX_CENTRE[1] - UNO_BOARD_D / 2.0
+    return [(cx + hx, cy + hy) for (hx, hy) in UNO_HOLES_CORNER]
 
 
 def _foot_xy() -> list[tuple[float, float]]:
@@ -244,12 +282,18 @@ def _assert_round_plate_features() -> None:
     for (cx, cy) in ZIP_SLOT_XY:
         check_feature(cx, cy, ZIP_SLOT_L / 2.0, ZIP_SLOT_W / 2.0,
                       "zip-tie slot")
+    # Uno Q mounting holes: same rim + keep-out policy as the slots
+    # (treated as tiny squares of the hole radius).
+    r = hp.BRACKET_BOLT_HOLE / 2.0
+    for (cx, cy) in _uno_hole_xy():
+        check_feature(cx, cy, r, r, "Uno Q mount hole")
 
 
-def _hex_plate(z0: float, thickness: float) -> trimesh.Trimesh:
+def _top_disc(z0: float, thickness: float) -> trimesh.Trimesh:
+    """Round Ø115 top disc (late-Aug 2026: was a 110 hex; now matches
+    the round plate and chassis_top discs below)."""
     plate = trimesh.creation.cylinder(
-        radius=CIRCUMRADIUS, height=thickness, sections=6)
-    plate.apply_transform(rotation_matrix(np.pi / 6.0, [0, 0, 1]))
+        radius=PLATE_R, height=thickness, sections=128)
     plate.apply_translation([0, 0, z0 + thickness / 2.0])
     return plate
 
@@ -274,11 +318,17 @@ def _leg_and_foot(cx: float, cy: float, *, leg_h: float) -> trimesh.Trimesh:
     foot = trimesh.creation.box(extents=[FOOT_PAD, FOOT_PAD, FOOT_T])
     foot.apply_translation([0.0, 0.0, FOOT_T / 2.0])
 
-    hole = trimesh.creation.cylinder(radius=HOLE_R, height=FOOT_T * 4)
-    hole.apply_translation([0.0, 0.0, FOOT_T / 2.0])
-    foot = trimesh.boolean.difference([foot, hole])
+    # Blind Φ2.5 self-tap pilot rising from the foot bottom into the leg
+    # blade: the mounting M3 x 8 drives UP through the plate into this.
+    # Cut AFTER the leg+foot union so the pilot is one clean bore.
+    part = trimesh.boolean.union([leg, foot])
+    pilot = trimesh.creation.cylinder(
+        radius=FOOT_PILOT_D / 2.0, height=FOOT_PILOT_DEPTH + 1.0,
+        sections=32)
+    # extend 0.5 mm below z=0 so the boolean never sees a coplanar face
+    pilot.apply_translation([0.0, 0.0, (FOOT_PILOT_DEPTH + 1.0) / 2.0 - 0.5])
+    part = trimesh.boolean.difference([part, pilot])
 
-    part = trimesh.util.concatenate([leg, foot])
     part.apply_transform(R)
     part.apply_translation([cx, cy, 0.0])
     return part
@@ -309,10 +359,12 @@ def _top_cutouts(*, leg_h: float, wire_slot: bool) -> list[trimesh.Trimesh]:
     return out
 
 
-def make_raised_platform(*, leg_h: float = LEG_H,
+def make_raised_platform(*, leg_h: float = None,
                          wire_slot: bool = False) -> trimesh.Trimesh:
-    """One solid: feet at z=0..FOOT_T, legs, top plate at z=leg_h..leg_h+TOP_T."""
-    top = _hex_plate(leg_h, TOP_T)
+    """One solid: feet at z=0..FOOT_T, legs, top disc at z=leg_h..leg_h+TOP_T."""
+    if leg_h is None:
+        leg_h = LEG_H_SCREEN
+    top = _top_disc(leg_h, TOP_T)
     parts = [top]
     for (x, y) in _foot_xy():
         parts.append(_leg_and_foot(x, y, leg_h=leg_h))
@@ -324,11 +376,9 @@ def make_raised_platform(*, leg_h: float = LEG_H,
     return solid
 
 
-def write_raised_stl(*, leg_h: float = LEG_H, wire_slot: bool = False,
-                     name: str | None = None) -> str:
+def write_raised_stl(*, leg_h: float = None, wire_slot: bool = False,
+                     name: str) -> str:
     solid = make_raised_platform(leg_h=leg_h, wire_slot=wire_slot)
-    if name is None:
-        name = "hex_raised_platform_110.stl"
     path = os.path.join(OUT_DIR, name)
     solid.export(path)
     return path
@@ -338,37 +388,24 @@ def _round_plate_hole_xy_r():
     """Every circular hole of the round lower plate: the LIVE +/-31.1
     standoff/magnet-post square (late-Aug 2026: the legacy 49.5 mm
     ``ELEC_CHASSIS_MOUNT_HOLES_XY`` square is dropped -- nothing has
-    bolted to it since the standoff-era chassis), the 6 raised-platform
-    foot holes, and the 2 wire ports for the underside 3.3 V Wago."""
+    bolted to it since the standoff-era chassis), the 3 raised-platform
+    foot holes (M3 x 8 UP into the foot pilots), the 3 Uno Q mounting
+    holes (M3 x 8 DOWN into thumb nuts), and the 2 wire ports for the
+    underside 3.3 V Wago."""
     r = hp.BRACKET_BOLT_HOLE / 2.0
     for (cx, cy) in hp.CHASSIS_STANDOFF_HOLES_XY:
         yield cx, cy, r
     for (cx, cy) in _foot_xy():
         yield cx, cy, HOLE_R
+    for (cx, cy) in _uno_hole_xy():
+        yield cx, cy, r
     for (cx, cy) in hp.MOUNT_PLATE_WIRE_PORT_XY:
         yield cx, cy, WIRE_PORT_R
 
 
-def _zip_slot_corners(cx: float, cy: float) -> list[tuple[float, float]]:
-    hx, hy = ZIP_SLOT_L / 2.0, ZIP_SLOT_W / 2.0
-    return [(cx - hx, cy - hy), (cx + hx, cy - hy),
-            (cx + hx, cy + hy), (cx - hx, cy + hy)]
-
-
-def write_lower_with_leg_holes_svg() -> str:
-    pad = 2.0
-    lim = PLATE_R + pad
-    svg = _svg_header(-lim, -lim, 2 * lim, 2 * lim)
-    svg += _circle(0.0, 0.0, PLATE_R)
-    for (cx, cy, r) in _round_plate_hole_xy_r():
-        svg += _circle(cx, cy, r)
-    for (cx, cy) in ZIP_SLOT_XY:
-        svg += _ring_to_path(_zip_slot_corners(cx, cy))
-    svg += "</svg>\n"
-    path = os.path.join(OUT_DIR, "round_mount_plate_115_with_leg_holes.svg")
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(svg)
-    return path
+# (The SVG cut-file writer is RETIRED, late-Aug 2026: the underside
+# magnet registration bosses cannot be laser-cut, so shipping a flat
+# cut file was a footgun.  The plate is print-only now.)
 
 
 def write_lower_with_leg_holes_stl() -> str:
@@ -389,6 +426,14 @@ def write_lower_with_leg_holes_stl() -> str:
         h = trimesh.creation.cylinder(radius=r, height=THICKNESS * 8)
         h.apply_translation([cx, cy, 0.0])
         cuts.append(h)
+    # E/W zip-tie slot pairs.  (Late-Aug 2026 fix: these were only ever
+    # cut in the retired SVG file -- the printed STL silently lacked
+    # them.  Now that the plate is print-only they are cut here.)
+    for (cx, cy) in ZIP_SLOT_XY:
+        s = trimesh.creation.box(
+            extents=[ZIP_SLOT_L, ZIP_SLOT_W, THICKNESS * 8])
+        s.apply_translation([cx, cy, 0.0])
+        cuts.append(s)
     # Registration bores: the top REG_BOSS_H mm of each Ø8 post magnet
     # nests here (plate underside still seats on the magnet top face --
     # the bore reaches 0.1 mm into the plate so the boolean never has a
@@ -406,15 +451,16 @@ def write_lower_with_leg_holes_stl() -> str:
     return path
 
 
-def write_preview(*, leg_h: float = LEG_H, wire_slot: bool = False,
+def write_preview(*, leg_h: float = None, wire_slot: bool = False,
                   show_screen: bool = False, name: str | None = None) -> str:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Circle, Polygon as MplPoly, Rectangle
+    from matplotlib.patches import Circle, Rectangle
     from matplotlib.transforms import Affine2D
 
-    coords = _hex_coords()
+    if leg_h is None:
+        leg_h = LEG_H_SCREEN
     feet = _foot_xy()
 
     fig, (ax_top, ax_side) = plt.subplots(
@@ -423,16 +469,21 @@ def write_preview(*, leg_h: float = LEG_H, wire_slot: bool = False,
 
     # --- top view ---
     ax_top.set_aspect("equal")
-    ax_top.set_title("top: feet at corners (on round Ø115 plate)",
+    ax_top.set_title("top: 3 feet at az 90/210/330 (on round Ø115 plate)",
                      fontsize=11)
     ax_top.add_patch(Circle((0, 0), PLATE_R, fill=True,
                             facecolor="#e0e7ff", edgecolor="#4338ca",
                             alpha=0.5, linewidth=1.2,
                             label="lower round plate (Ø115)"))
-    ax_top.add_patch(MplPoly(coords, closed=True, fill=True,
-                             facecolor="#bfdbfe", edgecolor="#1d4ed8",
-                             alpha=0.45, linewidth=1.4,
-                             label="upper hex (Ø110)"))
+    ax_top.add_patch(Circle((0, 0), PLATE_R, fill=True,
+                            facecolor="#bfdbfe", edgecolor="#1d4ed8",
+                            alpha=0.45, linewidth=1.4, linestyle="--",
+                            label="upper round disc (Ø115)"))
+    for j, (px, py) in enumerate(_uno_hole_xy()):
+        ax_top.add_patch(Circle((px, py), hp.BRACKET_BOLT_HOLE / 2.0,
+                                fill=False, edgecolor="#7c3aed",
+                                linewidth=1.2,
+                                label="Uno Q M3 (3-pt)" if j == 0 else None))
     for j, (px, py) in enumerate(hp.MOUNT_PLATE_WIRE_PORT_XY):
         ax_top.add_patch(Circle((px, py), WIRE_PORT_R, fill=True,
                                 facecolor="#fecaca", edgecolor="#991b1b",
@@ -447,11 +498,11 @@ def write_preview(*, leg_h: float = LEG_H, wire_slot: bool = False,
         pad = Rectangle((-FOOT_PAD / 2, -FOOT_PAD / 2), FOOT_PAD, FOOT_PAD,
                         fill=True, facecolor="#fde68a", edgecolor="#b45309",
                         alpha=0.9, linewidth=0.8,
-                        label="foot pad + M3" if i == 0 else None)
+                        label="foot pad + Φ2.5 pilot" if i == 0 else None)
         pad.set_transform(Affine2D().rotate_deg(a) +
                           Affine2D().translate(cx, cy) + ax_top.transData)
         ax_top.add_patch(pad)
-        ax_top.add_patch(Circle((cx, cy), HOLE_R, fill=False,
+        ax_top.add_patch(Circle((cx, cy), FOOT_PILOT_D / 2.0, fill=False,
                                 edgecolor="#111827", linewidth=1.0))
         ax_top.plot([0, cx], [0, cy], color="#94a3b8", linewidth=0.5)
     if show_screen:
@@ -483,12 +534,13 @@ def write_preview(*, leg_h: float = LEG_H, wire_slot: bool = False,
                                 facecolor="#93c5fd", edgecolor="#1d4ed8",
                                 label="lower round plate 2 mm"))
     # upper plate
-    ax_side.add_patch(Rectangle((-APOTHEM, leg_h), 2 * APOTHEM, TOP_T,
+    ax_side.add_patch(Rectangle((-PLATE_R, leg_h), 2 * PLATE_R, TOP_T,
                                 facecolor="#93c5fd", edgecolor="#1d4ed8",
-                                label="upper plate 2 mm"))
-    # Project the ±X-most corner feet (30° / 150°) onto the side view.
+                                label="upper disc 2 mm"))
+    # Project the 3 feet onto the side view: 210°/330° at ±|cos 30°|,
+    # the 90° foot at x = 0.
     x_proj = FOOT_R * np.cos(np.deg2rad(30.0))
-    for x in (-x_proj, x_proj):
+    for x in (-x_proj, 0.0, x_proj):
         ax_side.add_patch(Rectangle((x - LEG_T / 2, FOOT_T), LEG_T,
                                     leg_h + TOP_T - FOOT_T,
                                     facecolor="#fbbf24", edgecolor="#b45309",
@@ -507,13 +559,13 @@ def write_preview(*, leg_h: float = LEG_H, wire_slot: bool = False,
     ax_side.grid(True, linestyle=":", alpha=0.5)
     ax_side.legend(loc="upper right", fontsize=8)
 
-    bits = [f"Ø{MAX_DIAMETER:.0f}", f"legs {leg_h:.0f} mm",
+    bits = [f"Ø{2 * PLATE_R:.0f}", f"legs {leg_h:.0f} mm",
             f"foot r={FOOT_R:.1f}"]
     if show_screen:
         bits.append(f"screen {SCREEN_LONG:.0f}×{SCREEN_SHORT:.0f} centered")
     if wire_slot:
         bits.append(f"wire {WIRE_SLOT_W:.0f}×{WIRE_SLOT_H:.0f} @ +X")
-    fig.suptitle("hex raised platform  " + "  ".join(bits), fontsize=12)
+    fig.suptitle("round screen stand  " + "  ".join(bits), fontsize=12)
     fig.tight_layout()
     if name is None:
         name = "hex_raised_platform_110_preview.png"
@@ -524,46 +576,46 @@ def write_preview(*, leg_h: float = LEG_H, wire_slot: bool = False,
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--only-screen", action="store_true",
-                    help="only build the +20 mm / wire-slot variant")
-    ap.add_argument("--skip-base", action="store_true",
-                    help="skip regenerating the original 42 mm platform")
-    args = ap.parse_args()
+    argparse.ArgumentParser(description=__doc__).parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
     _assert_feet_inside()
     _assert_round_plate_features()
-    # Retire the old Ø110 hex plate artifacts (superseded by the round
-    # Ø115 plate written below) and the 72 mm screen-stand files
-    # (superseded by the 28 mm variant, late-Aug 2026).
+    # Retire superseded artifacts: the old Ø110 hex plate, the 72 mm
+    # screen-stand files (28 mm variant is live), and -- late-Aug 2026
+    # review round 2 -- the 42 mm base platform (nothing used it), the
+    # separate Uno Q io board (its UNO hole pattern lives in the round
+    # plate now), and the plate's SVG cut file (the underside
+    # registration bosses cannot be laser-cut).
     for stale in ("hex_mount_plate_110_with_leg_holes.stl",
                   "hex_mount_plate_110_with_leg_holes.svg",
                   "hex_raised_platform_110_h72_screen.stl",
-                  "hex_raised_platform_110_h72_screen_preview.png"):
+                  "hex_raised_platform_110_h72_screen_preview.png",
+                  "hex_raised_platform_110.stl",
+                  "hex_raised_platform_110_preview.png",
+                  "hex_uno_q_io_board_110.stl",
+                  "hex_uno_q_io_board_110_preview.png",
+                  "round_mount_plate_115_with_leg_holes.svg"):
         p = os.path.join(OUT_DIR, stale)
         if os.path.isfile(p):
             os.remove(p)
             print(f"removed stale {p}")
     feet = _foot_xy()
-    print(f"raised hex platform on round Ø{2 * PLATE_R:.0f} base")
-    print(f"  6 legs @ corners (30/90/…), foot centres r={FOOT_R:.1f} mm "
+    print(f"round screen stand on round Ø{2 * PLATE_R:.0f} plate")
+    print(f"  3 legs @ az 90/210/330, foot centres r={FOOT_R:.1f} mm "
           f"(R {CIRCUMRADIUS:.0f} − inset {CORNER_INSET:.0f})")
     print(f"  foot pads {FOOT_PAD:.0f}×{FOOT_PAD:.0f}×{FOOT_T:.1f} mm, "
-          f"M3 clearance Φ{hp.BRACKET_BOLT_HOLE:.1f}")
+          f"blind Φ{FOOT_PILOT_D:.1f}×{FOOT_PILOT_DEPTH:.1f} self-tap "
+          f"pilots (3x M3x8 SHCS up from under the plate)")
     for i, (x, y) in enumerate(feet):
         az = CORNER_ANGLES_DEG[i]
         print(f"    foot {i} @ {az:.0f}°: ({x:+.1f}, {y:+.1f})")
+    print("  Uno Q 3-pt mount holes (M3x8 down into thumb nuts): "
+          + ", ".join(f"({x:+.1f},{y:+.1f})" for x, y in _uno_hole_xy()))
 
     # The round lower plate is the live as-built part -- always regenerate.
-    print(f"\n[lower plate] round Ø{2 * PLATE_R:.0f}")
-    print(f"wrote {write_lower_with_leg_holes_svg()}")
+    print(f"\n[lower plate] round Ø{2 * PLATE_R:.0f} (print-only)")
     print(f"wrote {write_lower_with_leg_holes_stl()}")
-
-    if not args.only_screen and not args.skip_base:
-        print(f"\n[base] legs {LEG_H:.0f} mm")
-        print(f"wrote {write_raised_stl()}")
-        print(f"wrote {write_preview()}")
 
     slot_cx = _wire_slot_center_x()
     screen_edge = SCREEN_LONG / 2.0
@@ -576,13 +628,16 @@ def main() -> None:
     screen_stl = f"hex_raised_platform_110_h{LEG_H_SCREEN:.0f}_screen.stl"
     screen_png = (f"hex_raised_platform_110_h{LEG_H_SCREEN:.0f}"
                   f"_screen_preview.png")
-    print(f"wrote {write_raised_stl(leg_h=LEG_H_SCREEN, wire_slot=True, name=screen_stl)}")
-    print(f"wrote {write_preview(leg_h=LEG_H_SCREEN, wire_slot=True, show_screen=True, name=screen_png)}")
-    print("\nPrint the raised STL feet-down (top is flat).  Use the lower "
-          "plate WITH leg holes; M3 through each foot.  Screen variant: seat "
-          "the 63×35 panel centered (long axis along X); pigtail drops "
-          "through the 24×5 slot under the +X short edge; hold the panel "
-          "down with 4x M2 self-tappers in the corner pilot holes.")
+    print(f"wrote {write_raised_stl(wire_slot=True, name=screen_stl)}")
+    print(f"wrote {write_preview(wire_slot=True, show_screen=True, name=screen_png)}")
+    print("\nPrint the stand feet-down (top is flat; pilots print as "
+          "blind holes at the bed).  Mount: lift the plate off its "
+          "magnets, drive 3x M3x8 SHCS UP through the plate into the "
+          "foot pilots, set the assembly back on the magnets.  Screen: "
+          "seat the 63×35 panel centered (long axis along X); pigtail "
+          "drops through the 24×5 slot under the +X short edge; hold "
+          "down with 4x M2 self-tappers.  Uno Q: 3x M3x8 down through "
+          "board + plate into M3 thumb nuts.")
 
 
 if __name__ == "__main__":

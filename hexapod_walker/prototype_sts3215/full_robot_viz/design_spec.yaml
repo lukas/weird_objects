@@ -75,7 +75,7 @@ parts:
     role: "electronics"
     cots: true
     qty: 1
-    description: "Round \u00d8115 mm board (2 mm, matches the chassis_top disc) held by 4 magnets on 20 mm posts; carries Uno Q + breakout on top and the 3.3 V Wago underneath. Late-Aug 2026: 4 underside registration bosses socket the magnet tops (shear goes to plastic, magnets only carry pull) and the legacy 49.5 mm bolt square is dropped -- keeps the live +/-31.1 square, the 6 platform leg holes, 2 \u00d88 wire ports at the south rim and E/W zip-tie slot pairs (extra_stl / xTool)."
+    description: "Round \u00d8115 mm board (2 mm, matches the chassis_top disc) held by 4 magnets on 20 mm posts; carries Uno Q + breakout on top and the 3.3 V Wago underneath. Late-Aug 2026: 4 underside registration bosses socket the magnet tops (shear goes to plastic, magnets only carry pull); legacy 49.5 mm bolt square dropped. Review round 2: 3 stand-foot holes (M3x8 up into the stand's self-tap pilots), the Uno Q's 3-point UNO mount holes (M3x8 down into thumb nuts; the separate io board is retired), 2 \u00d88 wire ports at the south rim, E/W zip-tie slots. Print-only (SVG cut file retired)."
   hex_post_magnet:
     label: "hex post magnet"
     role: "electronics"
@@ -99,7 +99,7 @@ parts:
     role: "electronics"
     cots: true
     qty: 1
-    description: "Raised hex platform (28 mm screen-stand legs, shortened from 72 in the late-Aug 2026 design review to cut the lever arm on the magnet-held plate) bolted to the round mount plate; screen on the top face, held by 4x M2 self-tappers in corner pilot holes, its 8-wire Uno pigtail entering through the 24x5 slot behind the panel's +X edge (MPU is glued on chassis_top, not under this plate)."
+    description: "Screen stand ('hex' is historical): round \u00d8115 top disc matching the plate below, on 3 blade legs at az 90/210/330 (28 mm, shortened from 72 in the late-Aug 2026 design review to cut the lever arm on the magnet-held plate). Mounts with 3x M3x8 SHCS driven up from under the plate into blind self-tap pilots in the feet. Screen on the top face, held by 4x M2 self-tappers in corner pilot holes, its 8-wire Uno pigtail entering through the 24x5 slot behind the panel's +X edge (MPU is glued on chassis_top, not under this plate)."
   hip_clamp_cap:
     label: "hip clamp cap"
     role: "frame"

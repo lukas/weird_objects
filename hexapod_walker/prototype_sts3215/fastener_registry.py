@@ -90,6 +90,13 @@ Enumerated categories (Design B + Design C, May 2026 revert)
    (4.).  With them gone the build needs NO nut driver and NO Phillips:
    every remaining screw is hex-socket except the M2.5 rear-case
    self-taps and the 4 M2 screen self-taps (off-registry, screen stand).
+   Late-Aug 2026 review round 2 adds three more off-registry M3 x 8
+   uses on the electronics deck (same 91290A113 stock): 3 screen-stand
+   feet (driven UP through the round plate into blind Phi 2.5 self-tap
+   pilots -- this closed the old spec gap where the stand's 6 clearance
+   holes implied 6 unlisted nuts) and 3 Uno Q mount bolts (down into M3
+   thumb nuts, finger-tight; thumb nuts are hand hardware, not a new
+   driver).
 
 (May 2026 Design F: the previous categories 4 + 5 -- ``24 x M3 x 32 SHCS``
 coxa-bracket-to-chassis bolts and 24 matching M3 nyloc nuts -- have been
@@ -209,6 +216,11 @@ M3x14 plate span, M3x20 hub stack); the only same-thread pair that
 COULD merge (2 x M3x10 holster -> M3x8) saves zero SKUs because
 91290A114 stays for the 96 disc-horn bolts.  The foot hinge's pan-head
 + nyloc (the last non-hex-key hardware) left with the Aug 2026 boot.
+
+Off-registry (deck, not emitted by this module): 4 x M2 screen
+self-taps, and -- review round 2 -- 6 x M3x8 (3 screen-stand feet into
+blind pilots + 3 Uno Q bolts into M3 thumb nuts); all draw on stock
+already in the BOM, zero new SKUs.
 """
 
 from __future__ import annotations

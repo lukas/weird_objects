@@ -178,8 +178,8 @@ DESCRIPTIONS = {
     "knee_servo": "FEETECH STS3215 serial-bus servo driving the knee axis. COTS.",
     "chassis_bottom": "Structural 200 mm flat-to-flat hex deck (single merged print) with 6 integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing towers, one per leg at each hex-edge midpoint. Each STS3215 inserts from BELOW (output UP), bolts via 4x M2.5 through the cradle front plate, body hangs DOWN through a body cutout; the bolt-on yaw_servo_retainer stirrup captures it. A folded 4 mm floor makes the printed bottom one flush flat face so it prints flat, tower-up, no supports (Jun 2026 flush-bottom fix; check_flat_bottom overhang = 0.00 mm).",
     "chassis_top": "Hex top plate that closes the chassis; carries the trunk power Wagos + motor controller and the 4 magnet posts for the hex board (per-leg power Wago pairs live below, on the chassis_bottom corner flats).",
-    "hex_mount_plate": "Round Ø115 mm board (2 mm, matches the chassis_top disc) held by 4 magnets on 20 mm posts; carries Uno Q + breakout on top and the 3.3 V Wago underneath. Late-Aug 2026: 4 underside registration bosses socket the magnet tops (shear goes to plastic, magnets only carry pull) and the legacy 49.5 mm bolt square is dropped -- keeps the live +/-31.1 square, the 6 platform leg holes, 2 Ø8 wire ports at the south rim and E/W zip-tie slot pairs (extra_stl / xTool).",
-    "hex_raised_platform": "Raised hex platform (28 mm screen-stand legs, shortened from 72 in the late-Aug 2026 design review to cut the lever arm on the magnet-held plate) bolted to the round mount plate; screen on the top face, held by 4x M2 self-tappers in corner pilot holes, its 8-wire Uno pigtail entering through the 24x5 slot behind the panel's +X edge (MPU is glued on chassis_top, not under this plate).",
+    "hex_mount_plate": "Round Ø115 mm board (2 mm, matches the chassis_top disc) held by 4 magnets on 20 mm posts; carries Uno Q + breakout on top and the 3.3 V Wago underneath. Late-Aug 2026: 4 underside registration bosses socket the magnet tops (shear goes to plastic, magnets only carry pull); legacy 49.5 mm bolt square dropped. Review round 2: 3 stand-foot holes (M3x8 up into the stand's self-tap pilots), the Uno Q's 3-point UNO mount holes (M3x8 down into thumb nuts; the separate io board is retired), 2 Ø8 wire ports at the south rim, E/W zip-tie slots. Print-only (SVG cut file retired).",
+    "hex_raised_platform": "Screen stand ('hex' is historical): round Ø115 top disc matching the plate below, on 3 blade legs at az 90/210/330 (28 mm, shortened from 72 in the late-Aug 2026 design review to cut the lever arm on the magnet-held plate). Mounts with 3x M3x8 SHCS driven up from under the plate into blind self-tap pilots in the feet. Screen on the top face, held by 4x M2 self-tappers in corner pilot holes, its 8-wire Uno pigtail entering through the 24x5 slot behind the panel's +X edge (MPU is glued on chassis_top, not under this plate).",
     "hex_post_standoff": "20 mm M3 brass standoff at CHASSIS_STANDOFF_HOLES_XY (±31.1); bottom of each magnet post stack.",
     "chassis_standoff": "32 mm M3 brass standoff between chassis_bottom and chassis_top at CHASSIS_STANDOFF_HOLES_XY (±31.1) — the inter-plate structure. COTS.",
     "hex_post_thumb_nut": "~2.5 mm M3 knurled thumb nut between standoff and magnet.",
@@ -1732,9 +1732,9 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
     # -- battery → Uno Q (no buck): 20 AWG V+/GND pair ----------------------
     # The Uno sits ON the round Ø115 mount plate, so anything from the deck
     # below must come OVER the plate's rim (straight verticals pierce the
-    # plate).  The raised platform's six legs occupy az 15-45 (mod 60) at
-    # r 43-50; cross the rim (r 57.5) in the FREE az-60 corridor, hopping
-    # at r ~ 59.
+    # plate).  The screen stand's three legs occupy az ~82-98 / 202-218 /
+    # 322-338 at r 43-50 (late-Aug 2026: was six legs); cross the rim
+    # (r 57.5) in the wide free corridors between them, hopping at r ~ 59.
     routes += _fan_points_route({
         "id": "route-logic-battery-uno",
         "points": pts(_WAGO_TRUNK_NODE,
