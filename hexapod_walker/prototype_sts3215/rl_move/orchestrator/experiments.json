@@ -16647,7 +16647,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle manual pid 3342744 since 2026-08-09T19:59:21"
   },
   {
     "run": "cw-walk-speedband2-r1",
@@ -16985,7 +16986,8 @@
           "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle manual pid 3342744 since 2026-08-09T19:59:21"
   },
   {
     "run": "cw-walk-speedband2-r1",
@@ -18650,7 +18652,7 @@
       "Seed 2 twin of wander-dr05 (steering + DR0.5) for the ruling-7 multi-seed promotion panel. Same config, only the seed differs. Gate: own-DR0.5 gv 12/12, 0 term, prog med >=0.85, slip <=2.4."
     ],
     "created": "2026-08-09T17:49:37+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -18688,7 +18690,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": "no",
+    "verdict": "PASS \u2014 3-seed panel for the steering-DR recipe complete: own-cfg DR0.5 det+sto gv 12/12, 0 term, prog med 0.97/0.93 (gate >=0.85), slip/m med 1.46/1.88 (gate <=2.4) vs seed-0 wander-dr05 1.39/1.70 and s1 1.59/1.75 \u2014 all within the eval noise band; DR0 det retention gv 6/6, prog med 1.01, slip med 1.44 (partners 1.52/1.56). Frames det watched at DR0.5 and DR0: level six-leg cycling through command changes and stops, no flag leg, no stalls; weakest DR0.5 det draw (prog 0.73) transports slower with more slip but stays level. Steering-DR rung is seed-robust across seeds 0/1/2 (ruling 7 satisfied). hardware-ready: no (contact-pricing slip root)."
   },
   {
     "run": "cw-walk-payload-dr05",
@@ -19010,7 +19015,7 @@
       "OPERATOR WISHLIST 13b (richer physics, one axis per run): lost SyncWrite commands are a REAL defect of the robot's serial servo bus (servos chase the stale goal for a tick when a write drops). ISOLATED axis via dr.<field> overrides: dr-scale 0.0 with ONLY dr.cmd_drop_prob_max=0.20 (per-episode drop prob u(0,0.20) per control tick; full-DR default max is 0.05, champion trained at 0) - one variable off the no-DR champion. Plain: the robot should keep walking smoothly even when up to a fifth of its commands never arrive. Prediction-if-true: gait holds across the drop spread (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - bus-drop robustness is trainable by exposure and joins the transfer recipe. Prediction-if-false: high-drop draws destabilize the gait (jitter, falls, or progress collapse) - command dropout needs smoother action targets or filtering, not exposure. Strongest alternative: policy compensates by moving slower / smaller strides on all draws - check cadence + stride vs champion on low-drop draws. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.cmd_drop_prob_max=0.20, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; frames watched det"
     ],
     "created": "2026-08-09T18:00:27+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -19049,7 +19054,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": "no",
+    "verdict": "NO-EFFECT (gate letter passed, hypothesis refuted-as-unnecessary). Own-cfg drop<=0.20 panel: gv 12/12, 0 term, det med fwd 1.37m (gate >=1.2); DR0 retention clean (det fwd med 1.58, slip med 0.94, gv 6/6). BUT the named baseline \u2014 parent longdist-r2 under the IDENTICAL drop spread/seed \u2014 matches episode-by-episode (det fwd 1.51/1.56/1.51/1.35/0.67/0.65 vs 1.56/1.45/1.55/1.29/0.74/0.68; the SAME 2 highest-drop draws collapse to slip-3.6 churn in both). Command-drop exposure lever CLOSED at 0.20 as at 0.10 (c60 cmddrop10, same method): the champion already tolerates bus drops to ~0.20/tick FOR FREE; the high-drop churn boundary is not moved by exposure. Frames det watched: good draws level six-leg cycling; worst draw stays level, keeps cycling, transports in place. Cross-flag resolved: cmddrop10+cmddrop20 = one intensity-ladder study, both NO-EFFECT. hardware-ready: no."
   },
   {
     "run": "cw-walk-wander60-dr05",
@@ -19153,7 +19161,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle manual pid 3342744 since 2026-08-09T19:59:21"
   },
   {
     "run": "cw-walk-imumount10",
@@ -19253,7 +19262,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle manual pid 3342744 since 2026-08-09T19:59:21"
   },
   {
     "run": "cw-walk-badstart",
@@ -19355,7 +19365,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle manual pid 3342754 since 2026-08-09T19:59:22"
   },
   {
     "run": "cw-walk-deadband-dr05",
@@ -19453,7 +19464,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle manual pid 3342754 since 2026-08-09T19:59:22"
   },
   {
     "run": "cw-walk-comshift-dr05",
@@ -19551,7 +19563,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle manual pid 3342754 since 2026-08-09T19:59:22"
   },
   {
     "run": "cw-walk-fric50",
@@ -19711,7 +19724,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle manual pid 3342788 since 2026-08-09T19:59:22"
   },
   {
     "run": "cw-walk-fricvar-dr05",
@@ -19881,7 +19895,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle manual pid 3342788 since 2026-08-09T19:59:22"
   },
   {
     "run": "cw-walk-latjit-dr05",
@@ -19981,7 +19996,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle manual pid 3342788 since 2026-08-09T19:59:22"
   },
   {
     "run": "cw-walk-zerobias3",
@@ -21138,6 +21154,608 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-payload50-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.mass_scale=1.0,1.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_payload50_s1 --notes 'Seed twin of the c57 payload50 PASS (ruling-7 seed-panel practice): identical config, seed 1 instead of 0. The payload axis PASSed with a marginal heavy tail (2/6 det draws squat-shuffle at 1.4-1.5x mass) - a seed twin tells us whether '\"'\"'solid to +40%'\"'\"' is the recipe or seed luck before we lean on it (payload-dr05 compose already in flight). Prediction-if-true: seed 1 matches - own-cfg mass 1.0-1.5x gv 12/12, 0 term, det med fwd >=1.2m, heavy-tail no worse. Prediction-if-false: seed 1 collapses on mid-range mass draws or retention erodes - payload exposure is seed-fragile, panel before promotion. Strongest alternative: both seeds pass but with different tail signatures - compare per-episode fwd spread. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.mass_scale=1.0,1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 no-payload retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-payload50-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-payload50-s1.log",
     "wandb_id": "l5crlij0",
-    "verified": "2026-08-09T19:41:06+00:00"
+    "verified": "2026-08-09T19:41:06+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T19:46:57+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7589,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-joylat60",
+    "pod": "hexapod-mjx-train-5",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Driving endurance rung on the new best driving candidate: joylat25 trained/evaled at 15s episodes (~7 command changes); real joystick sessions run minutes. One variable off joylat25: episode-seconds 15->60 (same DR0.5 + latency 0.5-2.5 + abrupt 1.5s +-60% resample package) - ~40 command changes/episode. Plain: does flip-hardened driving hold up over long drives, or does gait quality decay as perturbations accumulate (wander60 held @DR0 with GENTLE resamples; abrupt+DR+latency is untested at this horizon). If-true: own-cfg @60s gv 12/12, 0 term, prog med >=0.85 with no first-half vs second-half decay, joystick gate still 0 falls - minute-scale joystick driving banked. If-false: late-episode degradation (prog/slip worsening in 2nd half, terminations late) - endurance needs its own exposure rung before demos. Strongest alternative: policy passes by parking more between commands - check stop-fraction vs joylat25.",
+    "gate": "Own-cfg (DR0.5 + dr.latency_scale=0.5,2.5) det+sto 6/6 @60s: gait_valid 12/12, 0 term, prog med >=0.85, no det first/second-half slip decay beyond noise; JOYSTICK GATE eval_drive @DR0.2 own cfg 0 in-envelope falls; frames watched det",
+    "parent": "cw-walk-joylat25",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_joylat25.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "60",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.5",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.6",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.1",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.2",
+      "--cfg-set",
+      "dr.latency_scale=0.5,2.5",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_joylat60",
+      "--notes",
+      "Driving endurance rung on the new best driving candidate: joylat25 trained/evaled at 15s episodes (~7 command changes); real joystick sessions run minutes. One variable off joylat25: episode-seconds 15->60 (same DR0.5 + latency 0.5-2.5 + abrupt 1.5s +-60% resample package) - ~40 command changes/episode. Plain: does flip-hardened driving hold up over long drives, or does gait quality decay as perturbations accumulate (wander60 held @DR0 with GENTLE resamples; abrupt+DR+latency is untested at this horizon). If-true: own-cfg @60s gv 12/12, 0 term, prog med >=0.85 with no first-half vs second-half decay, joystick gate still 0 falls - minute-scale joystick driving banked. If-false: late-episode degradation (prog/slip worsening in 2nd half, terminations late) - endurance needs its own exposure rung before demos. Strongest alternative: policy passes by parking more between commands - check stop-fraction vs joylat25. Parent: cw-walk-joylat25. Gate: Own-cfg (DR0.5 + dr.latency_scale=0.5,2.5) det+sto 6/6 @60s: gait_valid 12/12, 0 term, prog med >=0.85, no det first/second-half slip decay beyond noise; JOYSTICK GATE eval_drive @DR0.2 own cfg 0 in-envelope falls; frames watched det"
+    ],
+    "created": "2026-08-09T19:43:18+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-df802228-4aad-6a1a-fc20-a818f6961215)",
+      "running_experiments_before": 8,
+      "code_sha_local": "7b19880b2076e4b05cd07d234de82684dd510fb7",
+      "code_sha_pod": "7b19880b2076e4b05cd07d234de82684dd510fb7",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2570412",
+      "log_growth_bytes": [
+        12484,
+        19949
+      ],
+      "wandb_id": "tzjsyiht",
+      "global_step_window": [
+        1048576,
+        2031616
+      ],
+      "fps_estimate": 10922.7
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-joylat60 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joylat25.zip --dr-scale 0.5 --episode-seconds 60 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set dr.latency_scale=0.5,2.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_joylat60 --notes 'Driving endurance rung on the new best driving candidate: joylat25 trained/evaled at 15s episodes (~7 command changes); real joystick sessions run minutes. One variable off joylat25: episode-seconds 15->60 (same DR0.5 + latency 0.5-2.5 + abrupt 1.5s +-60% resample package) - ~40 command changes/episode. Plain: does flip-hardened driving hold up over long drives, or does gait quality decay as perturbations accumulate (wander60 held @DR0 with GENTLE resamples; abrupt+DR+latency is untested at this horizon). If-true: own-cfg @60s gv 12/12, 0 term, prog med >=0.85 with no first-half vs second-half decay, joystick gate still 0 falls - minute-scale joystick driving banked. If-false: late-episode degradation (prog/slip worsening in 2nd half, terminations late) - endurance needs its own exposure rung before demos. Strongest alternative: policy passes by parking more between commands - check stop-fraction vs joylat25. Parent: cw-walk-joylat25. Gate: Own-cfg (DR0.5 + dr.latency_scale=0.5,2.5) det+sto 6/6 @60s: gait_valid 12/12, 0 term, prog med >=0.85, no det first/second-half slip decay beyond noise; JOYSTICK GATE eval_drive @DR0.2 own cfg 0 in-envelope falls; frames watched det' > /tmp/train_cw-walk-joylat60.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-joylat60.log",
+    "wandb_id": "tzjsyiht",
+    "verified": "2026-08-09T19:47:04+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T19:52:47+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10530,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-joycom30",
+    "pod": "hexapod-mjx-train-11",
+    "steps": 18000000,
+    "smoke": false,
+    "hypothesis": "Driving with an off-center payload: the operator will strap batteries/cameras on the chassis and joystick it around; comshift30 proved the WALK champion handles +-30mm CoM shift on straight-line walking, but abrupt flips + DR + latency with a shifted CoM is untested (lateral flips against the offset are the risky case). One variable off joylat25: add dr.com_offset_m=0.03 to its DR0.5+latency abrupt-resample package. Plain: drive it around while it carries something off-center. If-true: joystick gate @DR0.2 zero falls AND own-cfg (com offset on) gv 12/12, 0 term, prog med >=0.80 - payload-tolerant driving banked. If-false: offset + flip interaction falls or craters progress on offset-against-turn draws - payload driving needs a dedicated exposure curriculum or stays a demo constraint (strap loads centered). Strongest alternative (0-for-3 lesson): joylat25 already covers it free - parent-baseline eval of joylat25 under the same offset runs BEFORE verdict and decides exposure-effect vs pre-existing tolerance.",
+    "gate": "JOYSTICK GATE eval_drive @DR0.2 own cfg 0 in-envelope falls; own-cfg (DR0.5 + latency + dr.com_offset_m=0.03) det+sto 6/6 @15s: gait_valid 12/12, 0 term, prog med >=0.80; parent joylat25 baseline under identical offset cfg evaled alongside; DR0 retention det 6/6 gv; frames watched det",
+    "parent": "cw-walk-joylat25",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_joylat25.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.5",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.6",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.1",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.2",
+      "--cfg-set",
+      "dr.latency_scale=0.5,2.5",
+      "--cfg-set",
+      "dr.com_offset_m=0.03",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_joycom30",
+      "--notes",
+      "Driving with an off-center payload: the operator will strap batteries/cameras on the chassis and joystick it around; comshift30 proved the WALK champion handles +-30mm CoM shift on straight-line walking, but abrupt flips + DR + latency with a shifted CoM is untested (lateral flips against the offset are the risky case). One variable off joylat25: add dr.com_offset_m=0.03 to its DR0.5+latency abrupt-resample package. Plain: drive it around while it carries something off-center. If-true: joystick gate @DR0.2 zero falls AND own-cfg (com offset on) gv 12/12, 0 term, prog med >=0.80 - payload-tolerant driving banked. If-false: offset + flip interaction falls or craters progress on offset-against-turn draws - payload driving needs a dedicated exposure curriculum or stays a demo constraint (strap loads centered). Strongest alternative (0-for-3 lesson): joylat25 already covers it free - parent-baseline eval of joylat25 under the same offset runs BEFORE verdict and decides exposure-effect vs pre-existing tolerance. Parent: cw-walk-joylat25. Gate: JOYSTICK GATE eval_drive @DR0.2 own cfg 0 in-envelope falls; own-cfg (DR0.5 + latency + dr.com_offset_m=0.03) det+sto 6/6 @15s: gait_valid 12/12, 0 term, prog med >=0.80; parent joylat25 baseline under identical offset cfg evaled alongside; DR0 retention det 6/6 gv; frames watched det"
+    ],
+    "created": "2026-08-09T19:44:30+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-570e6615-ff09-beeb-779f-b2da29edf3bb)",
+      "running_experiments_before": 9,
+      "code_sha_local": "7b19880b2076e4b05cd07d234de82684dd510fb7",
+      "code_sha_pod": "7b19880b2076e4b05cd07d234de82684dd510fb7",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1765897",
+      "log_growth_bytes": [
+        5768,
+        9550
+      ],
+      "wandb_id": "16n9ww3z",
+      "global_step_window": [
+        393216,
+        1114112
+      ],
+      "fps_estimate": 8010.0
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-joycom30 --steps 18000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joylat25.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set dr.latency_scale=0.5,2.5 --cfg-set dr.com_offset_m=0.03 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_joycom30 --notes 'Driving with an off-center payload: the operator will strap batteries/cameras on the chassis and joystick it around; comshift30 proved the WALK champion handles +-30mm CoM shift on straight-line walking, but abrupt flips + DR + latency with a shifted CoM is untested (lateral flips against the offset are the risky case). One variable off joylat25: add dr.com_offset_m=0.03 to its DR0.5+latency abrupt-resample package. Plain: drive it around while it carries something off-center. If-true: joystick gate @DR0.2 zero falls AND own-cfg (com offset on) gv 12/12, 0 term, prog med >=0.80 - payload-tolerant driving banked. If-false: offset + flip interaction falls or craters progress on offset-against-turn draws - payload driving needs a dedicated exposure curriculum or stays a demo constraint (strap loads centered). Strongest alternative (0-for-3 lesson): joylat25 already covers it free - parent-baseline eval of joylat25 under the same offset runs BEFORE verdict and decides exposure-effect vs pre-existing tolerance. Parent: cw-walk-joylat25. Gate: JOYSTICK GATE eval_drive @DR0.2 own cfg 0 in-envelope falls; own-cfg (DR0.5 + latency + dr.com_offset_m=0.03) det+sto 6/6 @15s: gait_valid 12/12, 0 term, prog med >=0.80; parent joylat25 baseline under identical offset cfg evaled alongside; DR0 retention det 6/6 gv; frames watched det' > /tmp/train_cw-walk-joycom30.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-joycom30.log",
+    "wandb_id": "16n9ww3z",
+    "verified": "2026-08-09T19:48:17+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T19:54:38+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4707,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-linklen",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "OPERATOR WISHLIST 13b geometry axis: LINK-LENGTH ASSEMBLY ERROR (print/CAD + per-leg assembly spread; nearest READY proxy for foot-geometry perturbation). ISOLATED: dr-scale 0.0 with ONLY dr.link_len_leg_pct=0.03 (2.5x the 0.012 full-DR default - beyond-envelope test, same pattern as comshift30). Champion baseline MEASURED FIRST per c59 lesson (c62, logs/ckpt_eval/champ_baseline_linklen): gv 12/12, 0 term, but hardest det draws collapse to fwd 0.61/0.66m at slip 3.3-3.9 (nominal 1.57m/0.96) - not covered free. Plain: walk the same even if every leg is built a few percent off. Prediction-if-true: exposure fixes the tail - det worst-2 draws >=1.0m, det med >=1.2m, gv 12/12, 0 term, DR0 retention in champion band. Prediction-if-false: >2% per-leg geometry error breaks the paddle's fine timing (tail stays <=0.8m) - record a buildable-tolerance envelope note instead. Strongest alternative: median holds while tail persists (partially trainable) - judge per-episode vs named baseline. Parent: cw-walk-longdist-r2.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.link_len_leg_pct=0.03, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det med fwd >=1.2m AND det worst-2 draws beat champ baseline 0.61/0.66m outside noise (>=1.0m); plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det",
+    "parent": "cw-walk-longdist-r2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.link_len_leg_pct=0.03",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_linklen",
+      "--notes",
+      "OPERATOR WISHLIST 13b geometry axis: LINK-LENGTH ASSEMBLY ERROR (print/CAD + per-leg assembly spread; nearest READY proxy for foot-geometry perturbation). ISOLATED: dr-scale 0.0 with ONLY dr.link_len_leg_pct=0.03 (2.5x the 0.012 full-DR default - beyond-envelope test, same pattern as comshift30). Champion baseline MEASURED FIRST per c59 lesson (c62, logs/ckpt_eval/champ_baseline_linklen): gv 12/12, 0 term, but hardest det draws collapse to fwd 0.61/0.66m at slip 3.3-3.9 (nominal 1.57m/0.96) - not covered free. Plain: walk the same even if every leg is built a few percent off. Prediction-if-true: exposure fixes the tail - det worst-2 draws >=1.0m, det med >=1.2m, gv 12/12, 0 term, DR0 retention in champion band. Prediction-if-false: >2% per-leg geometry error breaks the paddle's fine timing (tail stays <=0.8m) - record a buildable-tolerance envelope note instead. Strongest alternative: median holds while tail persists (partially trainable) - judge per-episode vs named baseline. Parent: cw-walk-longdist-r2. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.link_len_leg_pct=0.03, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det med fwd >=1.2m AND det worst-2 draws beat champ baseline 0.61/0.66m outside noise (>=1.0m); plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det"
+    ],
+    "created": "2026-08-09T20:09:16+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 6,
+      "code_sha_local": "77ac1cee8b08a4bb8efc0182591b490bd3a5da1d",
+      "code_sha_pod": "77ac1cee8b08a4bb8efc0182591b490bd3a5da1d",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3301026",
+      "log_growth_bytes": [
+        14328,
+        22782
+      ],
+      "wandb_id": "4p6affkv",
+      "global_step_window": [
+        1179648,
+        2490368
+      ],
+      "fps_estimate": 14563.6
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-linklen --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.link_len_leg_pct=0.03 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_linklen --notes 'OPERATOR WISHLIST 13b geometry axis: LINK-LENGTH ASSEMBLY ERROR (print/CAD + per-leg assembly spread; nearest READY proxy for foot-geometry perturbation). ISOLATED: dr-scale 0.0 with ONLY dr.link_len_leg_pct=0.03 (2.5x the 0.012 full-DR default - beyond-envelope test, same pattern as comshift30). Champion baseline MEASURED FIRST per c59 lesson (c62, logs/ckpt_eval/champ_baseline_linklen): gv 12/12, 0 term, but hardest det draws collapse to fwd 0.61/0.66m at slip 3.3-3.9 (nominal 1.57m/0.96) - not covered free. Plain: walk the same even if every leg is built a few percent off. Prediction-if-true: exposure fixes the tail - det worst-2 draws >=1.0m, det med >=1.2m, gv 12/12, 0 term, DR0 retention in champion band. Prediction-if-false: >2% per-leg geometry error breaks the paddle'\"'\"'s fine timing (tail stays <=0.8m) - record a buildable-tolerance envelope note instead. Strongest alternative: median holds while tail persists (partially trainable) - judge per-episode vs named baseline. Parent: cw-walk-longdist-r2. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.link_len_leg_pct=0.03, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det med fwd >=1.2m AND det worst-2 draws beat champ baseline 0.61/0.66m outside noise (>=1.0m); plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-linklen.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-linklen.log",
+    "wandb_id": "4p6affkv",
+    "verified": "2026-08-09T20:13:16+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T20:18:29+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10349,
+        "fps": 20389.0,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-contactstiff",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "OPERATOR WISHLIST 13b next isolated axis: CONTACT COMPLIANCE. Real foam/rubber feet and floor spread contact stiffness; the champion only ever felt nominal contact. ISOLATED: dr-scale 0.0 with ONLY dr.contact_stiff_scale=0.7,2.0 (the full-DR envelope). Champion baseline MEASURED FIRST per c59 lesson (c62, logs/ckpt_eval/champ_baseline_contactstiff): gv 12/12, 0 term, but the 2 hardest det draws collapse to fwd 0.72/0.77m at slip 3.4-3.7 (nominal band 1.57m/0.96) - the axis is NOT covered free. Plain: keep walking the same on squishy vs hard ground. Prediction-if-true: exposure fixes the tail - det worst-2 draws fwd >=1.0m, det med >=1.2m, gv 12/12, 0 term, DR0 nominal retention in champion band. Prediction-if-false: extreme stiffness draws are gait-breaking like ice (worst draws stay <=0.8m) - compliance joins the contact-pricing operator-calibration class. Strongest alternative: median improves but tail persists (partially trainable) - judge per-episode vs the named baseline. Parent: cw-walk-longdist-r2.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.contact_stiff_scale=0.7,2.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det med fwd >=1.2m AND det worst-2 draws beat champ baseline 0.72/0.77m outside noise (>=1.0m); plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det",
+    "parent": "cw-walk-longdist-r2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.contact_stiff_scale=0.7,2.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_contactstiff",
+      "--notes",
+      "OPERATOR WISHLIST 13b next isolated axis: CONTACT COMPLIANCE. Real foam/rubber feet and floor spread contact stiffness; the champion only ever felt nominal contact. ISOLATED: dr-scale 0.0 with ONLY dr.contact_stiff_scale=0.7,2.0 (the full-DR envelope). Champion baseline MEASURED FIRST per c59 lesson (c62, logs/ckpt_eval/champ_baseline_contactstiff): gv 12/12, 0 term, but the 2 hardest det draws collapse to fwd 0.72/0.77m at slip 3.4-3.7 (nominal band 1.57m/0.96) - the axis is NOT covered free. Plain: keep walking the same on squishy vs hard ground. Prediction-if-true: exposure fixes the tail - det worst-2 draws fwd >=1.0m, det med >=1.2m, gv 12/12, 0 term, DR0 nominal retention in champion band. Prediction-if-false: extreme stiffness draws are gait-breaking like ice (worst draws stay <=0.8m) - compliance joins the contact-pricing operator-calibration class. Strongest alternative: median improves but tail persists (partially trainable) - judge per-episode vs the named baseline. Parent: cw-walk-longdist-r2. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.contact_stiff_scale=0.7,2.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det med fwd >=1.2m AND det worst-2 draws beat champ baseline 0.72/0.77m outside noise (>=1.0m); plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det"
+    ],
+    "created": "2026-08-09T20:10:41+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 5,
+      "code_sha_local": "77ac1cee8b08a4bb8efc0182591b490bd3a5da1d",
+      "code_sha_pod": "77ac1cee8b08a4bb8efc0182591b490bd3a5da1d",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2171973",
+      "log_growth_bytes": [
+        11475,
+        19009
+      ],
+      "wandb_id": "8p7lt5t3",
+      "global_step_window": [
+        917504,
+        2162688
+      ],
+      "fps_estimate": 13835.4
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-contactstiff --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.contact_stiff_scale=0.7,2.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_contactstiff --notes 'OPERATOR WISHLIST 13b next isolated axis: CONTACT COMPLIANCE. Real foam/rubber feet and floor spread contact stiffness; the champion only ever felt nominal contact. ISOLATED: dr-scale 0.0 with ONLY dr.contact_stiff_scale=0.7,2.0 (the full-DR envelope). Champion baseline MEASURED FIRST per c59 lesson (c62, logs/ckpt_eval/champ_baseline_contactstiff): gv 12/12, 0 term, but the 2 hardest det draws collapse to fwd 0.72/0.77m at slip 3.4-3.7 (nominal band 1.57m/0.96) - the axis is NOT covered free. Plain: keep walking the same on squishy vs hard ground. Prediction-if-true: exposure fixes the tail - det worst-2 draws fwd >=1.0m, det med >=1.2m, gv 12/12, 0 term, DR0 nominal retention in champion band. Prediction-if-false: extreme stiffness draws are gait-breaking like ice (worst draws stay <=0.8m) - compliance joins the contact-pricing operator-calibration class. Strongest alternative: median improves but tail persists (partially trainable) - judge per-episode vs the named baseline. Parent: cw-walk-longdist-r2. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.contact_stiff_scale=0.7,2.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det med fwd >=1.2m AND det worst-2 draws beat champ baseline 0.72/0.77m outside noise (>=1.0m); plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-contactstiff.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-contactstiff.log",
+    "wandb_id": "8p7lt5t3",
+    "verified": "2026-08-09T20:14:41+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T20:20:23+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10403,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-wander120-dr05",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "2-minute continuous wandering (resample every ~5 s, 15% stops) trains through fatigue-horizon effects 60 s never sees. If-true: gait survives 120 s without drift/degradation (own-cfg gv 12/12, 0 term @120 s). If-false: long-horizon drift appears - endurance needs explicit anti-drift terms, not exposure.",
+    "gate": "own-cfg harness det+sto 6/6 @120 s: gait_valid 12/12, 0 term, det median fwd >=4.8 m; frames watched det",
+    "parent": "cw-walk-wander-dr05",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "120",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=5.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.15",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_wander120_dr05",
+      "--notes",
+      "ENDURANCE LADDER rung 2 (wishlist: longer walking): 120 s episodes with mid-episode command resampling + stops, off the validated wander_dr05 parent (independent of the wander60 verdict, which is still in triage)."
+    ],
+    "created": "2026-08-09T20:31:08+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+      "running_experiments_before": 2,
+      "code_sha_local": "77ac1cee8b08a4bb8efc0182591b490bd3a5da1d",
+      "code_sha_pod": "77ac1cee8b08a4bb8efc0182591b490bd3a5da1d",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-wander120-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip --dr-scale 0.5 --episode-seconds 120 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_wander120_dr05 --notes 'ENDURANCE LADDER rung 2 (wishlist: longer walking): 120 s episodes with mid-episode command resampling + stops, off the validated wander_dr05 parent (independent of the wander60 verdict, which is still in triage).' > /tmp/train_cw-walk-wander120-dr05.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-wander120-dr05.log"
+  },
+  {
+    "run": "cw-walk-joyjit-dr05-s1",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 18000000,
+    "smoke": false,
+    "hypothesis": "Seed-1 replication of the joystick-gate PASS (joyjit-dr05-c1). If-true: gate pass is seed-robust - promote the config to driving champion. If-false: c1 was a lucky seed - promotion blocked, panel verdict goes to the plan.",
+    "gate": "eval_drive own-cfg DR0.2: 0 in-envelope falls (panel + 3 flip-stress eps); generic own-cfg gate gv 12/12, 0 term",
+    "parent": "cw-walk-joyjit-dr05",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_joyjit_dr05.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "1",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.5",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.6",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.1",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.2",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_joyjit_dr05_s1",
+      "--notes",
+      "PROMOTION PANEL seed 1 (ruling 7): joyjit-dr05-c1 passed the joystick gate (0 in-envelope falls); promotion to driving champion requires independent-seed replication of the same config."
+    ],
+    "created": "2026-08-09T20:32:26+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 3,
+      "code_sha_local": "77ac1cee8b08a4bb8efc0182591b490bd3a5da1d",
+      "code_sha_pod": "77ac1cee8b08a4bb8efc0182591b490bd3a5da1d",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-joyjit-dr05-s1 --steps 18000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joyjit_dr05.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_joyjit_dr05_s1 --notes 'PROMOTION PANEL seed 1 (ruling 7): joyjit-dr05-c1 passed the joystick gate (0 in-envelope falls); promotion to driving champion requires independent-seed replication of the same config.' > /tmp/train_cw-walk-joyjit-dr05-s1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-joyjit-dr05-s1.log"
   }
 ]

@@ -227,6 +227,10 @@ report.json, and the W&B API for exactly these questions.
     walk band in report.json. Assign the variable on its OWN line (or
     `export` it), THEN background the evals; always spot-check one
     `/proc/<pid>/cmdline` for the cfg-sets after launching a batch.
+    Related (c60/c61): controller evals get load/OOM-killed SILENTLY
+    under heavy contention (empty log, no Traceback, no report.json,
+    partial video files) — verify the pid in /proc before trusting
+    `waitlog`, and relaunch (setsid helps).
 
 ## Operator status page (web) — setup & restart runbook
 

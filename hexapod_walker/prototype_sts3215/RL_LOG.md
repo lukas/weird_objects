@@ -155,3 +155,19 @@ the W&B OUTCOME note — if it matters, it lives there, not here.
   (ruling-7-style seed twin of the c57 payload PASS, queued).
 - 08-09 19:31 c61: payload-dr05 FAIL (own-DR0.5+payload panel clean 12/12, det med 1.36m, but DR0 no-payload retention eroded: slip 1.38>1.24, prog 0.54 vs parent 0.95 — first dr05 compose to charge nominal; watch in-flight comshift/deadband/fricvar/latjit-dr05 retentions); refilled train-11 with latjit-dr05 compose (drain VERIFIED, checkup HEALTHY); note: 2 controller evals OOM/load-killed silently at load~212, relaunched via setsid. 
 - 08-09 19:42 c60: 3 triages. joylat25 PASS - latency 0.5-2.5x composes onto the abrupt-flip DR0.5 driving package, NEW BEST DRIVING CANDIDATE (joystick gate 0 falls, own-DR gv 12/12; SKILLS updated; s1 seed run training). cmddrop10 NO-EFFECT + velsag30 FAIL(letter)/NO-EFFECT - parent baseline matches both per-episode: champion already covers 10% cmd dropout + servo-speed sag to ~0.8x FREE, deep sag ~0.7x = untrainable transport boundary (battery-calibration class); servo-imperfection single-axis exposure now 0-for-3, TEST CHAMPION FIRST before queueing this class (cmddrop20 verdict pending elsewhere, treat as one ladder). Infra: batch-eval shell footgun found+documented (CFG assignment swallowed by first bg job -> 4 evals silently ran default cfg, all rerun valid; COMMANDS.md gotcha 14). Refills: joylat25-s1 (running t0) + joylat60 (60s driving endurance) + joycom30 (off-center-payload driving) queued; ckpts pre-pushed to t5/t11. 
+
+- 08-09 20:3x c60b: 3 triages. `cw-walk-lowgait70` PASS — crouch envelope
+  extends to -70mm (gv 12/12, 0 term, mean end-height err 2.0/1.9mm, det agg
+  slip 1.07; SKILLS row -20..-70mm); lowgait80 rung launched. `cw-walk-wander-dr05-s2`
+  PASS — own-DR0.5 prog 0.97/0.93, slip 1.46/1.88 = seeds 0/1 noise band; ruling-7
+  3-seed panel COMPLETE for the steering-DR recipe. `cw-walk-cmddrop20` NO-EFFECT
+  (letter passed; parent longdist-r2 under identical 0.20 drop spread matches
+  episode-by-episode incl. the same 2 churn draws) — cmd-drop exposure lever CLOSED
+  0.10+0.20 as ONE ladder study with c60's cmddrop10; servo-imperfection exposure
+  0-for-4, champion envelope row updated. Refills (4 = cycle cap, 80M GPU, all
+  VERIFIED RUNNING): zerobias3 + gainvar + imubias3 (13b/13c servo/IMU calibration
+  axes, parent-baseline-at-triage pre-registered in each gate) + lowgait80; remaining
+  free slot left to concurrent cycles (HARD reason: max_new_launches_per_cycle=4).
+  Infra: hit the c60 batch-eval $CFG footgun + silent load-kills myself — 3 evals
+  relaunched with /proc-verified cfg (COMMANDS.md gotcha 14 extended); watcher PAUSE
+  present since ~19:03 (operator/restart window — not mine to clear).
