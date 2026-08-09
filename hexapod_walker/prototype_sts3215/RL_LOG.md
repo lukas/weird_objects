@@ -2962,3 +2962,122 @@ logs/ckpt_eval/cw_walk_lowent_h15b_c1_{15s,5s} (all 24 eps on video).
 Eval-practice note (generalizes): retention/slip comparisons must be
 distance-normalized (slip/m) — raw slip rewards crawling; caught in
 this cycle's own delta claim before it shipped.
+
+## Cycle 22 (2026-08-09 ~03:3xZ) — cw-walk-step0-hist8 verdict: step0 gate clauses PASS (a real six-leg gait forms from scratch WITH history-8), but the pre-registered cadence-regularity claim FAILS — temporal capability is NOT the binding constraint; if-false(b) fired, pricing stays the line (kgate already in flight). Two watcher gaps found and fixed at the root.
+
+### cw-walk-step0-hist8 — history-8 from scratch: gait indistinguishable from the reactive MLP at matched budget
+OBSERVATIONS (mechanical). W&B wgba1l9o FINISHED, 4,005,888 steps in
+1850 s solo on s6 (~2160 fps). Ckpt ppo_goal_cw_walk_step0_hist8.zip
+md5 6f45838aed4ee63d3e1dee49447495bc (pod and controller copies
+match). Train: ep_rew_mean quarters 257/477/552/586 (Q4−Q3 +34,
+still climbing at 4M); train/std 1.09→2.20, harness policy_std 2.201
+— named comparison: the step0-4M baseline itself ended at 2.294, so
+the std runaway is a trait of from-scratch ent 0.01 in this lineage,
+not new to history; approx_kl ~0.011 flat; env/reward_step_event
+quarters 0.031/0.070/0.085/0.088.
+Gate harness (6 eps/mode det AND sto, DR 0, seed 0, own cfg incl.
+obs.history_frames=8, 10 s eps, --video-every 1;
+logs/ckpt_eval/cw_walk_step0_hist8_4M_gate): det fwd 0.428–0.484 m
+(mean 0.454), sto 0.187–0.401 m (mean 0.324); gait_valid 12/12;
+sacrificed legs none; terminations 0; safety flags 0; min swings/leg
+3; all duties within [0.28,0.71]; Imax ≤2.64 A. Step0 gate clauses:
+fwd ≥10 cm 12/12 ✓, six legs cycling 12/12 ✓, duty in ~[0.2,0.9] ✓,
+≥2 swings/leg ✓, no drag/park on camera ✓.
+Cadence comparison vs NAMED baseline logs/ckpt_eval/
+cw_walk_step0_4M_gate (the registered question): det swing-count CV
+mean 0.299 (rows 0.259–0.378) vs 0.332 (0.191–0.450) — OVERLAP, no
+evidence; sto 0.271 vs 0.232 — overlap, direction WORSE. det
+duty-spread mean 0.135 (0.05–0.21) vs 0.345 (0.19–0.59) — nearly
+non-overlapping, tighter; sto duty-spread 0.25 vs 0.238 — no change.
+NEW det pattern: legs 1/3 double-time (11–12 swings vs 6–7 on the
+others) in 5/6 det eps — cadence is not more regular, it is
+DIFFERENTLY irregular. Skating: det slip/m 1.47–2.02 (mean 1.74) vs
+baseline det 1.77–3.08 (mean 2.10) — overlapping, direction right,
+not evidence. Two slow sto eps (fwd 0.187/0.208 m) show tripod duty
+skew (0.28–0.36 loaded-light vs 0.66–0.71 loaded-heavy) — the park
+attractor's soft cousin, but all six legs still swing 3–6x and
+overlay feet marks alternate .#.#.# → #.#.#. — slow stepping, NOT a
+park.
+FRAMES WATCHED (provenance; det and sto both gated): walk_det_0.mp4
+c172e73a 250f, det_2 080e6080 250f, det_3 71289650 250f, sto_1
+e472b692 250f, sto_2 1ca33dfa 250f, sto_4 0786ed1b 250f. Pathologies
+first: sprawly-wide stance (lineage trait unchanged), stance-foot
+creep visible in every strip (slip 0.57–0.86 m/ep), irregular
+cadence with double-timing legs, sto_1/sto_4 are slow tripod-skewed
+crawls. Achievements (numbers behind each): all six feet cycle
+contact/short-swing in every reviewed strip, body level throughout
+(tilt overlays ~1.3–1.5°, h_err ≤14 mm), checkerboard advances
+through the final tiles (t=10.0 s overlay confirms no late freeze),
+zero falls, zero safety flags in 12 eps.
+Exploits looked for, not found: parked/sacrificed leg (min duty
+0.28, gv 12/12), phantom step credit (swing counts match strips),
+safety-layer reliance (0 flags), height collapse (h_err small),
+final-third degradation (last-tile overlays + moving checkerboard).
+INTERPRETATION. History-8 neither hurt nor helped at DR 0 on the
+step0 recipe. If-false(a) — history slows from-scratch PPO — is
+rejected: the gait formed on budget and passed every gate clause.
+If-true — cadence regularity outside noise — is NOT met: swing-CV
+unchanged (det) / worse-inside-noise (sto), and the one
+outside-overlap delta (det duty-spread 0.135 vs 0.345) is a single
+metric, det-only, absent in sto → recorded as an unconfirmed HINT,
+not evidence of the claimed mechanism (and it coexists with the new
+double-time pattern, so "more regular" is not an honest summary).
+Pre-registered branch (b) fires: temporal capability is not the
+binding constraint; the binding defects are pricing — park income
+(kgate is testing exactly this), skating, overspeed.
+VERDICT: PASS against the recorded step0 gate (all clauses, det AND
+sto, 12/12 gait_valid) — but the run's registered question resolves
+NEGATIVE. NOT HARDWARE-READY: feet skate ~1.5–2.0 m per meter
+walked, sprawly stance, irregular double-time cadence, policy std
+2.2, DR 0 only, 10 s horizon. CHAMPION: UNCHANGED — walk champion
+stays ppo_goal_cw_walk_lowent_h15b.zip md5 d0a12a94; hist8 beats it
+on nothing outside noise and was evaluated at a shorter horizon.
+Lineage note: hist8 closes at 4M per pre-registration; reward was
+still climbing (+34/quarter) but more steps cannot change the
+matched-budget comparison, and the watcher's auto-continue did not
+fire (see infra below) — if a mechanical cw-walk-step0-hist8-c1
+appears later it should be killed citing this entry.
+HYPOTHESIS STATUS: REFUTED (branch b). History-8 stays in the
+architecture as an ingredient of the post-0-c estimator ladder
+(ARCHITECTURE_REVIEW 08-09); no more history-vs-MLP arms at DR 0.
+
+### INFRA — why auto-continue never fires, and an orphaned finished run (both root-caused)
+(1) STALE WATCHER PROCESS. The running watch_loop.py (tmux
+"orchestrator", started 23:21Z 08-08) predates commit e3b1bda
+(auto-continue, 01:25Z 08-09): try_auto_continue exists on disk but
+not in the live process — hence ZERO "auto-continue" lines in
+orchestrator.log ever, including hist8 (reward climbing, prefix
+matched, would have fired). Not restarting it myself: the watcher
+supervises my own cycle and a botched restart kills the whole loop —
+blast radius exceeds the benefit (cycles handle continuations
+manually meanwhile). NEEDS OPERATOR (non-urgent): restart the
+watcher tmux session to pick up e3b1bda+.
+(2) ORPHANED RUN cw-stance-endpost-c1 (W&B v5t38fee FINISHED, 27.2M
+cum): no verdict cycle will EVER fire for it. Causal chain: watcher
+skips it ← ledger_verdicted() counts a run "verdicted" if ANY ledger
+entry has status FINISHED/FAILED ← endpost-c1 carries stale FAILED
+entries from two dead launch attempts (01:37Z, 01:46Z) that preceded
+the successful 01:47Z launch ← launch retries append new entries but
+nothing reconciles the failed ones. Fixed at both layers: (a) the
+two stale FAILED launch-attempt entries are marked SUPERSEDED
+(status edit only, under ledger lock, entries preserved — same
+convention as the existing 01:35Z SUPERSEDED entry), which unblocks
+the LIVE watcher mechanically — it will now compute endpost-c1 as
+newly-finished and fire its verdict cycle, keeping ownership with
+the watcher instead of this cycle grabbing an unassigned run; (b)
+watch_loop.py ledger_verdicted() now keys on the LATEST entry per
+run (effective on watcher restart). Failure class closed: a refused/
+dead first attempt can no longer permanently orphan a run's verdict.
+
+### Cycle 22 close
+No launch. hist8's pre-registered consequence (all-in on pricing) is
+already in flight — cw-walk-kgate (cycle 21, concurrent) IS the
+pricing arm; the next walk arms are gated on kgate's and
+h15b-dr03's verdicts (dr03's cycle is live, its pod untouched), and
+stance's next move is gated on endpost-c1's verdict (cycle now
+mechanically unblocked by the ledger fix). s3/s4/s5/s6/friction/
+lower left idle deliberately — an idle pod is cheaper than
+prejudging three in-flight gates. Champions unchanged: walk = h15b
+md5 d0a12a94, stance = cw_stance_dr10. Evals archived:
+logs/ckpt_eval/cw_walk_step0_hist8_4M_gate (12/12 eps on video).
+Cycle totals: 0 launches, 0 steps of the 16M cap.
