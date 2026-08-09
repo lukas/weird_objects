@@ -276,3 +276,11 @@ a file under `archive/` and link it.
   slots; any residual idle slot = awaiting in-flight verdicts
   (fast/longdist-s1/loadslip-s1) + steering-scope stop (c39) +
   current-economy operator-block; rest [CODE].
+- Cycle 39 (close, ~13:1x): stability twins LAUNCHED + verified
+  two-phase: `cw-walk-dr05-tilt50` (t9, W&B ~10.9k fps) and
+  `cw-walk-dr05-fall300` (t10, ~10.2k fps), both 20M off dr05-r1
+  (13a668ea), snapshot 59f0b4a. First tilt50 attempt lost a pod
+  race to c38's wander on t4 (launcher aborted cleanly, 0 steps;
+  ledger REFUSED) — 2 more attempts refused on moving HEAD, normal
+  concurrent traffic. 40M GPU steps, 2 launches this cycle
+  (+1 aborted), caps respected.
