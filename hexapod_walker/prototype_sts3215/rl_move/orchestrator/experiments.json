@@ -4209,7 +4209,7 @@
       "24"
     ],
     "created": "2026-08-09T04:49:38+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -4255,7 +4255,12 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "final_checkpoint": "rl_move/sim/policies/ppo_goal_cw_stance_bellyrest.zip",
+    "final_checkpoint_md5": "6212b44ffc52b3f9c87527318e6189f5",
+    "eval_dir": "logs/ckpt_eval/cw_stance_bellyrest_gate",
+    "eval_dir_diag": "logs/ckpt_eval/cw_stance_bellyrest_bellystart_diag",
+    "verdict": "FAIL (lower posture 0/12 vs gate >=4/6 det >=5/6 sto; heights 24/24, hold 12/12 intact). HYPOTHESIS REFUTED (if-false): frac=1.0 belly-start eval 12/12 = basin visited/learned, plant-start descents unchanged (worst_clear 139-145mm, spear leg0 + leg2/leg4 riding the 60mm allowance). NEW: threshold-riding of the allowance in both contexts; reward_end_posture WORSENED 0.08 over run. NOT HARDWARE-READY. Champion unchanged. Next: reward.end_posture_lower_dense arm; 60mm allowance to operator review."
   },
   {
     "run": "cw-walk-parkstart-mjx",
@@ -4556,6 +4561,18 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-parkstart-mjx-c1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_parkstart_mjx.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --out-name ppo_goal_cw_walk_parkstart_mjx_c1 --notes 'Consolidate-in-place continuation of cw-walk-parkstart-mjx (park-basin reset diversity: 25% of walk episodes start in a jittered tripod park). The parent segment moved every metric the state-visitation hypothesis touches (det churn converted, park-exit 0 to 10/12, retention slip 1.84 to 1.58, sto park weakened 4x to a partial stall) but missed the 12/12 gate by that one partial-park episode - on only ~61 PPO updates versus the ~325 the pre-registered segment design assumed (GPU stack-switch kept step parity, not update parity). This run is the discriminator: identical config, zero new variables, 20M steps ~= 305 updates. If the park is gone at full parity the mechanism is confirmed; if it persists at ~1/6 the next arm harvests the policy'\"'\"'s own park states as resets or escalates to load evenness. Parent ppo_goal_cw_walk_parkstart_mjx.zip md5 01d9ab60 (NEW walk champion, cycle 25). Gate unchanged from parent. Snapshot 1a33ef2.' --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-walk-parkstart-mjx-c1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-parkstart-mjx-c1.log",
     "wandb_id": "y8m62x7l",
-    "verified": "2026-08-09T05:29:39+00:00"
+    "verified": "2026-08-09T05:29:39+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T05:35:20+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 12406,
+        "fps": 18932.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

@@ -3738,3 +3738,141 @@ lands in ~20 min of wall clock — launching a speculative arm now
 would prejudge it. Cycle totals: 1 launch, 20M GPU steps (cap 80M),
 0 CPU steps, 3 harness evals (36 eps, 10 strips watched)
 controller-side.
+
+## Cycle 26 (2026-08-09 ~05:5xZ) — cw-stance-bellyrest verdict: the basin is VISITED and the hover is still chosen — reset-state diversity is REFUTED for the stance spear leg (if-false branch, context split confirmed by a frac=1.0 belly-start eval passing 12/12 while plant-start descents are unchanged). New evidence: the policy THRESHOLD-RIDES the 60 mm allowance in both contexts (leg4 moved UNDER it, leg0 parks at 42–60 mm even when started planted) — the reward's dead zone + flat linear sum is the manifold generator. Escalation per pre-registration: descent-posture reference = dense grounded-feet charging over the whole lower episode (reward.end_posture_lower_dense, code this cycle); 60 mm allowance flagged for OPERATOR review. Concurrent with cycle 25 (walk line, hands off per prompt).
+
+### cw-stance-bellyrest — 35% belly starts: the policy learns to REST at the belly, and still refuses to DESCEND to it
+OBSERVATIONS (mechanical). W&B sfkdjvil FINISHED, 20,000,000 steps
+(GPU-MJX, mjx-train-0, 1457 s, ~13.7k fps incl. setup). Final ckpt
+ppo_goal_cw_stance_bellyrest.zip md5 6212b44ffc52b3f9c87527318e6189f5
+(pod + controller match). Canaries 8/8 green at end. train std
+0.197→0.162. env/reward_end_posture quarters −0.4585/−0.5317/
+−0.5962/−0.5385: WORSENED ~0.08 over the run (if-true bar: improve
+≥0.12) — and note 35% of lower eps were near-zero-charge belly
+starts, which should have pulled this mean UP; it went down anyway
+(mode-mixed metric, not decomposable — recorded as-is).
+Gate harness (posture-strict, DR 1.0, own cfg MINUS
+lower_belly_start_frac — deliberately zeroed for eval: letting 35%
+of eval lower eps start at the target would grade the gate on free
+passes; logs/ckpt_eval/cw_stance_bellyrest_gate, 6 eps/mode
+det+sto, explicit --modes lower rise hold raise track):
+- lower posture: det 0/6, sto 0/6 (gate ≥4/6 det ≥5/6 sto — FAIL;
+  c1 baseline 0/12, no change). Heights 12/12 (h_err ≤3.3 det,
+  ≤13.2 sto) → lower height-only clause ✓. Per-leg det end
+  clearances vs c1 NAMED baseline: leg0 112–145 (c1 128–181), leg2
+  58–82 (c1 36–56, WORSENED past the allowance), leg4 46–72 (c1
+  82–135, moved UNDER the 60 mm allowance = unpriced hover). Summed
+  det over-allowance 80–107 mm (c1 123–156; if-true bar <80) — the
+  sum fell by RELABELING charge into the free zone, not by planting:
+  three legs now hover, two of them hugging the 60 mm boundary.
+- rise: det 1/6 (posture 2/6), sto 0/6 (c1: 1/6, 0/6 — no change,
+  inside the ±1–2 ep band). Heights 12/12 (h_err ≤19.0 det, ≤13.0
+  sto) → rise height clause ✓, stop rule NOT triggered.
+- hold: det 6/6, sto 6/6 — clause ✓ (c1 12/12, intact).
+- raise (canary, no compute owed): 0/12, worst_clear 202–217 —
+  unchanged. track: det 5/6, sto 6/6 (c1: 6/6, 4/6 — both passes
+  inside the noise band; sto[+2] is NOT evidence).
+- Current: Imax 2.36–2.71 A, same band as c1 (2.67–2.75) under the
+  MuJoCo 3.11 reading shift; recalibration caveat stands. Safety
+  flags 0/60.
+BELLY-START DIAGNOSTIC (cheap second eval, frac=1.0 so ALL 12 lower
+eps start planted at the belly;
+logs/ckpt_eval/cw_stance_bellyrest_bellystart_diag): 12/12 success,
+end_posture 12/12, Imax ≤1.78 A, h_err ≤2 mm. BUT per-leg detail:
+leg0 ENDS at 45–60 mm det (45/50/48/54/58/60) — started planted, the
+policy LIFTS leg0 to just under the 60 mm allowance and holds it
+there; sto[3]/sto[5] end leg4 at −60/−41 mm (foot jammed below its
+grounded reference). "Resting planted" is therefore 5-legged resting
+plus one leg parked exactly on the free side of the price boundary.
+FRAMES WATCHED (provenance, all 250-frame strips): gate
+lower_det_0.mp4 f9b7c81d — body descends on schedule, ends with
+leg0 SPEARED straight out ~130 mm up plus two more feet airborne;
+never a flat rest. lower_sto_0.mp4 873046b3 — same pathology.
+rise_det_1.mp4 7a1bc739 (the single rise pass) — six feet grounded
+per telemetry (clear ≤20 mm) but the end stance is visibly WIDE/
+SPLAYED, legs extended outward, not the compact stance hold shows —
+borderline, counted by the gate, would not impress a roboticist.
+hold_sto_0.mp4 89468183 — clean quiet six-foot stance, genuine
+pass. track_sto_0.mp4 cd170b0f — quiet stance, small attitude
+corrections, fine. raise_det_0.mp4 408725d2 — quiet stance, the
+permanent leg2-horizontal canary posture. diag lower_det_0.mp4
+6505d8e4 — starts belly-planted, stays planted (leg0 hover not
+resolvable at strip scale; telemetry says 45 mm). Remaining eps
+scalars only (unwatched).
+Exploits looked for: height shortcut (none — h_err ≤3.3 det);
+safety-layer reliance (none — 0/60 flags); schedule dodge (none —
+window is schedule-based); FOUND: threshold-riding of the 60 mm
+allowance, in both start contexts, plus foot-below-reference
+endings in the sto diag (the charge clamps at max(c,0) so
+UNDER-shooting the reference is also free).
+INTERPRETATION. The pre-registered if-false branch fires, sharpened:
+the policy provably KNOWS the planted basin (frac=1.0 eval 12/12,
+rests quietly when started there) and still ends every plant-start
+descent with three feet airborne. This is a PREFERENCE under descent
+dynamics, not ignorance of the basin — reset-state diversity is
+REFUTED for this defect (contrast the walk park, where the same
+mechanism moved every metric — cycle 25). Caveat honestly owned: the
+"shared states" premise of the launch entry was approximate, not
+exact — lower commands only 25–55 mm of the ~60 mm plant→belly drop
+(goal_task.py), so belly-rest states (ref 0) and descent endings
+(5–35 mm above belly) are ADJACENT, not identical; a context split
+across that gap is the named strongest-alternative and it is what
+happened. What the run ADDED beyond pre-registration: the allowance
+dead zone is being actively exploited (leg4 relocated under it;
+belly-start leg0 parks at its edge), and the flat linear over-sum
+makes leg-to-leg charge trades exactly cost-free — the
+redistribution manifold c1 observed is a PROPERTY OF THE PRICE
+SHAPE, and the eval gate shares the same 60 mm blind spot (a
+six-leg 59 mm hover would pass posture-strict — flagged below).
+VERDICT: FAIL (lower posture 0/12 vs gate ≥4/6 det ≥5/6 sto; height
+clauses, hold clause met). NOT HARDWARE-READY: lower still ends
+with three feet airborne, one speared at ~130 mm; rise passes end
+splayed. Champion UNCHANGED (cw_stance_dr10). Crown jewels intact:
+rise/lower heights 24/24, hold 12/12.
+HYPOTHESIS STATUS: REFUTED (if-false branch — basin visited, hover
+preferred under descent dynamics). Reset-state diversity is CLOSED
+for the stance spear leg.
+
+### CODE — reward.end_posture_lower_dense (sim_env.py, this cycle): charge the WHOLE lower episode, not the last 1.5 s
+Root-cause chain (required): spear-leg/allowance-riding hover ←
+hover below 60 mm is FREE and above it costs a flat linear rate
+only in the terminal ~1.5 s window ← the end-posture charge window
+exempts the entire descent (the motion-phase exemption was designed
+for RISE, whose curl transients are legitimate lifts; a proper
+LOWER keeps all six feet planted throughout — there is no transient
+to protect) + the 60 mm dead zone creates a free hover shelf ←
+objective defect: nothing in the reward says "feet stay planted
+while lowering", which IS the physically wanted behavior. Deepest
+link reachable today: the WINDOW (env code, ours). The dead zone is
+the next link but it is also the EVAL GATE's definition (60 mm,
+guardrails evaluation section) — changing it unilaterally would
+move the gate mid-line, so it goes to the operator instead (below).
+Change: sim_env.py end-posture block gains cfg
+reward.end_posture_lower_dense (default 0 = off, legacy exact); when
+set and mode==lower, _end_posture_from=0. Same term, same k, same
+per-tick magnitude and 0.30 m clamp — ONLY the window changes.
+Functional probe (controller): dense lower charges 125/125 ticks vs
+26/125 terminal-only; zero-action plant-start lower pays 0.0 total
+in BOTH (feet never lift → a correct lower is untaxed, the charge
+prices exactly the spear/hover). rl_move/tests/test_sim_env.py
+35/35 pass. No scale change ⇒ no new scale-audit numbers owed (the
+per-tick magnitude is unchanged; the episode INTEGRAL grows ~5x for
+a held spear — that is the intervention).
+EVAL BLIND SPOT FLAGGED (checks generalize): posture-strict success
+tolerates a 59 mm six-foot hover for lower (and the charge clamps
+at 0 below the reference, so jamming a foot UNDER it is also free —
+seen in the sto diag). Until the operator rules on the allowance,
+every lower verdict in this line must eyeball per-leg end_clear_mm
+for clustering in the 40–60 mm band and negative outliers; the
+harness already emits both in report.json.
+## NEEDS OPERATOR (non-blocking): review the 60 mm lower allowance
+Evidence this cycle: leg4 relocated from 82–135 mm (priced) to
+46–72 mm (mostly free); belly-start leg0 parks at 42–60 mm despite
+starting planted; sto diag feet at −41/−60 mm also uncounted. The
+allowance exists because lower height refs stop 5–35 mm short of
+the full drop ("physically reachable without resting ON the ref
+error", goal_task.py) — but 60 mm of free hover per foot is 3x the
+gap it protects. Suggest: allowance ~25–30 mm AND/OR pricing |c|
+(both signs) — BOTH change the eval gate definition, hence operator.
+Training proceeds meanwhile with the window fix, which is
+gate-neutral.

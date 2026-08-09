@@ -1122,6 +1122,19 @@ class SimHexapodBalanceEnv(_GymBase):
                 self._end_posture_from = max(
                     start + int(round(grace_s / self.dt)),
                     self.episode_steps - int(round(win_s / self.dt)))
+                # Dense variant (cycle 25, lower only): a proper lower
+                # keeps all six feet planted THROUGHOUT the descent —
+                # there is no legitimate leg-lift transient to protect
+                # (the transient exemption exists for rise curls). With
+                # this flag the clearance charge covers the whole lower
+                # episode, pricing the spear-leg tilt-guard where it is
+                # used instead of only at the end. Same term, same k,
+                # same per-tick magnitude — only the window changes.
+                # Enable: --cfg-set reward.end_posture_lower_dense=1.
+                if mode_now == "lower" and float(cfg_get(
+                        self.cfg, "reward", "end_posture_lower_dense",
+                        default=0.0)) > 0.0:
+                    self._end_posture_from = 0
             if self._step_i >= self._end_posture_from:
                 # Mirror the eval gate's allowances: 20 mm for
                 # stand-ending modes, 60 mm for belly-ending lower.
