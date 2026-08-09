@@ -290,6 +290,17 @@ a file under `archive/` and link it.
   stands); mirror-symmetry impl deferred — a code snapshot mid-refill
   would flip the pod SHA gate under the concurrent cycle's launches.
 
+- OPERATOR (08-09 ~10:3x): c44 promotion ASSUMPTION **ACCEPTED**,
+  and promotion re-based by ruling (8): "closest to deployable
+  joystick robot" — physical metrics, det gain + sto parity is
+  enough. External readiness review ADOPTED (P0 calibration →
+  forward freeze → hardware ladder; P1 four-leg feasibility-first;
+  no new anti-slip coefficient arms) →
+  `archive/HEXAPOD_READINESS_RESEARCH_REVIEW_2026-08-09.md` +
+  RL_PLAN rulings block. Triage bottleneck fixed:
+  max_concurrent_cycles 2→4 (12 simultaneous finishes had idled 14
+  GPUs behind 2 cycles).
+
 ## ASSUMPTION (operator to review)
 
 - Cycle 44 champion promotion: adopted longdist-r2 as walk champion
