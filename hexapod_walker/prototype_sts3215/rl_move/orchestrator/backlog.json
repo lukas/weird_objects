@@ -1,55 +1,5 @@
 [
   {
-    "run": "cw-walk-lowgait-dr035",
-    "steps": 20000000,
-    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
-    "hypothesis": "Near-miss follow-up (one, per standing rules) to cw-walk-lowgait-dr05-r1 FAIL: at DR0.5 the -50mm crouch broke on the hardest draws (1 sto flag-leg skate ep, gv 11/12) while 10/12 were clean and DR0 retention held. One variable off the r1 checkpoint: dr-scale 0.5 -> 0.35. Plain: find the physics-variation level the crouch actually survives, like the strafe/wander lines found their DR ceilings. Prediction-if-true: own-cfg DR0.35 panel gv 12/12, 0 term, height err <=10mm, slip/m med <=1.6 with DR0 retention intact - crouch DR ceiling is between 0.35 and 0.5, banked as envelope knowledge. Prediction-if-false: flag-leg draws persist even at 0.35 - deep-crouch margins are brittle to any structural DR and the crouch stays a DR0 demo skill. Strongest alternative: passes but slip creeps toward 1.6 (DR-creep pattern).",
-    "gate": "own-cfg DR0.35 15s at -50mm 6+6: gv 12/12, 0 term, mean end-height err <=10mm, slip/m med <=1.6; DR0 det retention gv 6/6, height err <=8mm, slip/m <=1.15; frames watched det",
-    "extra_args": [
-      "--task",
-      "joint_walk",
-      "--init-from",
-      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
-      "--dr-scale",
-      "0.35",
-      "--episode-seconds",
-      "15",
-      "--ent-coef",
-      "0.001",
-      "--no-canary",
-      "--eval-every",
-      "1000000",
-      "--video-every",
-      "2000000",
-      "--seed",
-      "0",
-      "--goal-mix",
-      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
-      "--cfg-set",
-      "reward.k_step_event=1.0",
-      "--cfg-set",
-      "reward.k_drag_loaded=10.0",
-      "--cfg-set",
-      "reward.k_park_duty=1.0",
-      "--cfg-set",
-      "reward.walk_kernel_prog_gate=1.0",
-      "--cfg-set",
-      "goal.walk_park_start_frac=0.25",
-      "--cfg-set",
-      "reward.walk_anchor_gate=1.0",
-      "--cfg-set",
-      "reward.anchor_tol_mm=10.0",
-      "--cfg-set",
-      "goal.walk_speed_min_m_s=0.05",
-      "--cfg-set",
-      "goal.walk_speed_max_m_s=0.06",
-      "--cfg-set",
-      "goal.walk_height_off_mm=-50.0"
-    ],
-    "attempts": 0,
-    "added": "2026-08-09T20:45:27+00:00"
-  },
-  {
     "run": "cw-walk-joyhead90-lat25",
     "steps": 20000000,
     "parent": "rl_move/sim/policies/ppo_goal_cw_walk_joyhead90_r1.zip",
@@ -108,8 +58,9 @@
       "--cfg-set",
       "dr.latency_scale=0.5,2.5"
     ],
-    "attempts": 0,
-    "added": "2026-08-09T20:45:49+00:00"
+    "attempts": 1,
+    "added": "2026-08-09T20:45:49+00:00",
+    "last_error": "REFUSED: hexapod-mjx-train-10 code marker d285706807cd1b1a447c3cdbc6f7381a3c690b75 != local HEAD 6bfe059536e29612dfdbb4cebe19498f06dda700. Sync first: snapshot.sh --sync hexapod-mjx-train-10 (and snapshot/commit before that if the tree is dirty).\nwandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.\n"
   },
   {
     "run": "cw-walk-joyhead90-r1-s1",
@@ -168,8 +119,9 @@
       "--cfg-set",
       "goal.walk_stop_frac=0.2"
     ],
-    "attempts": 0,
-    "added": "2026-08-09T20:46:07+00:00"
+    "attempts": 1,
+    "added": "2026-08-09T20:46:07+00:00",
+    "last_error": "REFUSED: hexapod-mjx-train-11 code marker d285706807cd1b1a447c3cdbc6f7381a3c690b75 != local HEAD 6bfe059536e29612dfdbb4cebe19498f06dda700. Sync first: snapshot.sh --sync hexapod-mjx-train-11 (and snapshot/commit before that if the tree is dirty).\nwandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.\n"
   },
   {
     "run": "cw-walk-wander60-dr05-s1",
@@ -222,7 +174,8 @@
       "--cfg-set",
       "goal.walk_stop_frac=0.15"
     ],
-    "attempts": 0,
-    "added": "2026-08-09T20:46:16+00:00"
+    "attempts": 1,
+    "added": "2026-08-09T20:46:16+00:00",
+    "last_error": "REFUSED: hexapod-mjx-train-9 already runs cw-walk-lowgait-dr035 \u2014 GPU pods host exactly one run; pick a free GPU pod.\n"
   }
 ]

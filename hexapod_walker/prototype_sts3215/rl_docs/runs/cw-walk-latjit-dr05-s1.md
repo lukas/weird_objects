@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-09T20:44:57+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-latjit25
+
+**wandb_id**: deicmkfh
 
 **hypothesis**: Ruling-7 seed twin of cw-walk-latjit-dr05 (this cycle's cleanest DR0.5 compose PASS: det fwd med 1.50m, det slip 1.04 = champion band under DR+latency, retention clean). Identical config, seed 0 -> 1. Plain: confirm the latency+DR robustness recipe is not a seed fluke before it feeds the multi-axis consolidation. If-true: same band (own-cfg gv 12/12, 0 term, det fwd med >=1.1m, DR0 retention slip <=1.24) - recipe is seed-robust, safe to stack. If-false: seed-specific (gate miss or retention erosion) - compose PASSes need panels before feeding multiaxis. Strongest alternative: passes but with fricvar-dr05-style sto slip creep - then the tail, not the median, is seed-varying.
 

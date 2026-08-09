@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-09T20:43:46+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-joylat25
+
+**wandb_id**: r95a6tqc
 
 **hypothesis**: Driving-line compose off joylat25 (c60 best driving candidate), sibling of joyfric on a DIFFERENT axis. One variable: add dr.ground_tilt_deg=3.0 (the solid part of groundtilt5's c60 envelope - 5 deg was marginal, 3-4 deg clean). Plain: the operator will drive this across door thresholds and slightly sloped floors; steering with abrupt flips must not fall on a 3-degree slope. If-true: slope composes onto the driving package - joystick gate zero falls, own-cfg gv 12/12, prog med >=0.85, DR0 flat retention clean. If-false: downhill/uphill flips fall or crater progress - slope stays a straight-walk skill and the driving envelope is flat-floor only for now. Strongest alternative: no falls but heading drift downhill (lateral err grows vs parent) - check per-episode direction dists vs the parent joystick-gate baseline.
 
