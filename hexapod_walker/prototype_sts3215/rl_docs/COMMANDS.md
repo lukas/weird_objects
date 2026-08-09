@@ -126,7 +126,11 @@ leave the next agent to rediscover it.
    command died — check before re-running anything with side effects.
 5. **snapshot → sync → launch, in that order, same cycle.** The
    launcher refuses a pod whose `.code_sha` ≠ local HEAD (also
-   `-dirty`). Snapshotting AFTER launching leaves the pod a commit
+   `-dirty`). **Never `--sync` with a dirty tree**: it stamps the
+   pod marker `<sha>-dirty`, which can NEVER equal HEAD, so every
+   later launch on that pod is refused until you commit
+   (`snapshot.sh <name>`) and re-sync (cost cycle 51 four refused
+   drain launches, 08-09). Snapshotting AFTER launching leaves the pod a commit
    behind and blocks the watcher's auto-continue (cycle 33 incident).
    After `snapshot.sh <run>`, run `snapshot.sh --sync <pod>` for the
    pod you're about to launch on.

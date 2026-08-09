@@ -391,3 +391,31 @@ a file under `archive/` and link it.
   finishes spawning their own triages. [CODE] impl (quadruped feasibility
   sweep, mirror-symmetry, yaw-rate turning) deferred again — same c46 reason,
   concurrent cycles actively launching; flag: next quiet cycle should take one.
+
+- Cycle 51 (08-09 ~16:2x): 1 triage. `cw-walk-head90` PASS — heading rung 1
+  (±90°): gv 12/12, 0 term, clean tripod, lateral err ≤1.6× fwd, JOYSTICK
+  GATE 0 falls @DR0.2; pathologies logged: prog 0.84 vs wander30's 0.94-1.02
+  (lateral costs progress) + left-strafe half of right (mirror-symmetry
+  target). SKILLS row added. Refills (4 = cycle cap, 80M): head135 (ladder
+  rung 2), wander60 (dup-queued convergently with c50 — dedupe held, one
+  instance), stopgo35 (stop_frac 0.35), head90-dr05 (DR rung on ±90). Infra:
+  my dirty-tree `--sync` of train-4 stamped a `-dirty` marker that blocked 4
+  drain launches → snapshot cycle51-head90-refill + re-sync 4/9/10/11 fixed
+  it (lesson: never --sync with a dirty tree). Remaining idle slots: at
+  per-cycle launch cap; 5 fresh finishes (wander/strafe-dr10, lowgait50,
+  longdist-s2, terrain10) spawn their own triage cycles.
+
+- Cycle 49 (08-09 ~15:5x-16:1x): 1 triage. `cw-walk-joystick45` PASS
+  (JOYSTICK GATE 0 in-envelope falls panel+flip-stress; own-cfg DR0 gv
+  12/12, 0 term; paddle-slide persists, not hw-ready) — SKILLS row added;
+  abrupt-resample exposure hardens flips at DR0, DR pair joyjit-dr05-c1
+  answers composition. Checkup: joyjit-dr05 starved on g142d86 (load
+  216/128, fps 2.1k, foreign tenant suspected) → killed, ckpt bbde2450
+  rebalanced as joyjit-dr05-c1 -> train-8 (18.2k fps). Code: dr.<field>
+  cfg-set overrides for DR ranges (sim_env hook + eval harness fix,
+  smoke-tested; absolute values, post-scale) → unlocks wishlist 11/13b.
+  Refills (3 launches of 4-cap, 58M GPU): payload50 (mass 1.0-1.5x) +
+  latjit25 (latency 0.5-2.5x), both isolated-axis at dr-scale 0 off
+  champion, train-9/10. Remaining slots: concurrent cycles' triage
+  refills (5 fresh finishes); [CODE] quadruped feasibility still flagged
+  for next quiet cycle.

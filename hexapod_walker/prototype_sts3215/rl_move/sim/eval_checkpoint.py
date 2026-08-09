@@ -373,8 +373,14 @@ def main() -> None:
                 parsed = val.strip()   # e.g. goal.walk_park_bank=PATH
             cfg.setdefault(sect, {})[name] = parsed
         cfg_kw["cfg"] = cfg
+    # dr.<field> cfg overrides need the randomizer alive even at
+    # --dr-scale 0 (payload/latency-axis arms: scale 0 = nominal sim +
+    # ONLY the overridden field randomized). Without this the override
+    # silently evaluated as plain DR0 (cycle 49).
+    _has_dr_ov = bool(cfg_kw.get("cfg", {}).get("dr"))
     env = env_cls(params=SimServoParams.load(),
-                  randomize=args.dr_scale > 0, dr_scale=args.dr_scale,
+                  randomize=(args.dr_scale > 0 or _has_dr_ov),
+                  dr_scale=args.dr_scale,
                   episode_seconds=args.episode_seconds, seed=args.seed,
                   render_mode=None if args.no_video else "rgb_array",
                   **cfg_kw)

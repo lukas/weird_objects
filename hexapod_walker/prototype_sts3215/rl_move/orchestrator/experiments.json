@@ -12869,7 +12869,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "PASS. JOYSTICK GATE (eval_drive DR0.2, own cfg): 0 in-envelope falls across fwd/diag/stop-go panel + 3 flip-stress eps (trk_err 0.029-0.035). Own-cfg DR0 harness 6+6: gv 12/12, 0 term, no sacrificed legs, prog med ~1.04, slip/m med 1.44 det / 1.58 sto = steering-lineage band (wander-dr05 1.39-1.70). Frames (det, incl worst-slip ep): level, all six legs cycling, no flag leg - known paddle foot-slide persists. Abrupt randomized resampling (1.5s +-60%, blend 0.1-1.0s, 20% stops) hardens flips at DR0 without degrading the base gait; DR0.5 pair = joyjit-dr05(-c1) in flight.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-lowgait50",
@@ -14994,7 +14996,7 @@
       "Heading LADDER rung 2: rung 1 (head90, \u00b190\u00b0) PASSED with gv 12/12 + joystick gate zero falls, confirming gradual widening off a command-trained parent works where the abrupt \u00b1180 jump (backforth) failed. This run widens \u00b190\u2192\u00b1135 warm-started FROM head90, bringing rear-diagonal commands into the envelope. If-true: gait_valid tracking at \u00b1135 with joystick gate pass (final rung \u00b1180 next); if-false: rear-hemisphere commands break the warm-started gait even one rung at a time \u2014 rear coverage needs mirror-symmetry or from-scratch, and the ladder freezes at \u00b190. Parent: cw-walk-head90. Gate: own-cfg DR0 det+sto 6/6: gait_valid 12/12, zero terminations, no sacrificed leg, rear-diag tracking err <= 2x forward; plus JOYSTICK GATE eval_drive --dr-scale 0.2 --heading-max-deg 135: zero in-envelope falls"
     ],
     "created": "2026-08-09T16:16:17+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -15003,10 +15005,23 @@
       "code_sha_local": "2e8627df912f3b3152d9a3c196a245fe60231a3f",
       "code_sha_pod": "2e8627df912f3b3152d9a3c196a245fe60231a3f",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1359292",
+      "log_growth_bytes": [
+        13447,
+        19128
+      ],
+      "wandb_id": "e6zrfhrm",
+      "global_step_window": [
+        983040,
+        2228224
+      ],
+      "fps_estimate": 13835.4
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-head135 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_head90.zip --no-dr --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=2.3562 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_head135 --notes 'Heading LADDER rung 2: rung 1 (head90, \u00b190\u00b0) PASSED with gv 12/12 + joystick gate zero falls, confirming gradual widening off a command-trained parent works where the abrupt \u00b1180 jump (backforth) failed. This run widens \u00b190\u2192\u00b1135 warm-started FROM head90, bringing rear-diagonal commands into the envelope. If-true: gait_valid tracking at \u00b1135 with joystick gate pass (final rung \u00b1180 next); if-false: rear-hemisphere commands break the warm-started gait even one rung at a time \u2014 rear coverage needs mirror-symmetry or from-scratch, and the ladder freezes at \u00b190. Parent: cw-walk-head90. Gate: own-cfg DR0 det+sto 6/6: gait_valid 12/12, zero terminations, no sacrificed leg, rear-diag tracking err <= 2x forward; plus JOYSTICK GATE eval_drive --dr-scale 0.2 --heading-max-deg 135: zero in-envelope falls' > /tmp/train_cw-walk-head135.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-head135.log"
+    "log": "/tmp/train_cw-walk-head135.log",
+    "wandb_id": "e6zrfhrm",
+    "verified": "2026-08-09T16:20:01+00:00"
   }
 ]
