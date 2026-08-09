@@ -105,23 +105,69 @@ def main() -> None:
         frame = env.render()
         img = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         v = env.unwrapped._body_vel_xy()
-        for i, line in enumerate((
-                f"cmd  vx {vx:+.2f}  vy {vy:+.2f} m/s",
-                f"vel  vx {v[0]:+.2f}  vy {v[1]:+.2f} m/s",
-                "I/K fwd/back  J/L strafe  0 stop  R reset  Q quit")):
+
+        # --- HUD -----------------------------------------------------------
+        spd = float(np.hypot(vx, vy))
+        # Direction label: what the current command MEANS. Taps are +-0.01
+        # each, so e.g. one K tap from +0.05 fwd is +0.04 — STILL FORWARD;
+        # riders kept expecting one tap = reverse (2026-08-09 session).
+        if spd < 0.005:
+            direction = "STOP"
+        else:
+            parts = []
+            if vx > 0.005:
+                parts.append("FWD")
+            elif vx < -0.005:
+                parts.append("REVERSE")
+            if vy > 0.005:
+                parts.append("STRAFE-L")
+            elif vy < -0.005:
+                parts.append("STRAFE-R")
+            direction = "+".join(parts)
+        heading = float(np.degrees(np.arctan2(vy, vx))) if spd >= 0.005 else 0.0
+        in_env = (vx >= -0.005 and abs(heading) <= 50 and spd <= 0.075)
+        env_txt = ("IN trained envelope" if in_env else
+                   "OUTSIDE trained envelope (fwd<=0.06, heading<=45deg)"
+                   " - may stumble/fall")
+
+        for i, (line, color) in enumerate((
+                (f"CMD  {direction}   {spd:.3f} m/s @ {heading:+.0f} deg",
+                 (40, 240, 40)),
+                (f"     vx {vx:+.3f} (I/K +-0.01/tap)   "
+                 f"vy {vy:+.3f} (J/L)", (40, 240, 40)),
+                (f"ACTUAL  vx {v[0]:+.3f}  vy {v[1]:+.3f} m/s   "
+                 f"(tracking err {np.hypot(v[0]-vx, v[1]-vy):.3f})",
+                 (200, 200, 40)),
+                (env_txt, (40, 200, 40) if in_env else (0, 60, 255)),
+                ("I/K fwd/back  J/L strafe  0/space stop  R reset  Q quit",
+                 (180, 180, 180)))):
             cv2.putText(img, line, (10, 24 + 22 * i),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55,
-                        (40, 240, 40), 1, cv2.LINE_AA)
-        # Most checkpoints train forward-hemisphere only (heading <= ~45
-        # deg, speed <= ~0.06): sustained reverse tips them (tilt_roll,
-        # 2026-08-09). Warn instead of silently extrapolating.
-        if vx < -0.01 or abs(vy) > abs(vx) + 0.02 or np.hypot(vx, vy) > 0.085:
-            cv2.putText(img, "OUTSIDE TRAINED ENVELOPE (fwd <=0.06,"
-                        " heading <=45deg) - may fall",
-                        (10, 96), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
-                        (0, 60, 255), 1, cv2.LINE_AA)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1, cv2.LINE_AA)
+
+        # Top-down compass, top-right: thick arrow = command, thin = actual.
+        cx, cy, R = img.shape[1] - 90, 90, 70
+        cv2.circle(img, (cx, cy), R, (90, 90, 90), 1, cv2.LINE_AA)
+        cv2.putText(img, "fwd", (cx - 14, cy - R - 6),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (90, 90, 90), 1)
+        # 45deg trained wedge (forward hemisphere)
+        for a in (-45, 45):
+            ex = cx - int(R * np.sin(np.radians(a)))
+            ey = cy - int(R * np.cos(np.radians(a)))
+            cv2.line(img, (cx, cy), (ex, ey), (70, 120, 70), 1, cv2.LINE_AA)
+        def _arrow(wx, wy, color, thick):
+            n = np.hypot(wx, wy)
+            if n < 0.004:
+                return
+            scale = R * min(n / _SPEED_MAX, 1.0) / n
+            # env frame: +vx = forward = screen up; +vy = left = screen left
+            cv2.arrowedLine(img, (cx, cy),
+                            (cx - int(wy * scale), cy - int(wx * scale)),
+                            color, thick, cv2.LINE_AA, tipLength=0.25)
+        _arrow(vx, vy, (40, 240, 40) if in_env else (0, 60, 255), 3)
+        _arrow(float(v[0]), float(v[1]), (200, 200, 40), 1)
+
         if msg:
-            cv2.putText(img, msg, (10, 100), cv2.FONT_HERSHEY_SIMPLEX,
+            cv2.putText(img, msg, (10, 140), cv2.FONT_HERSHEY_SIMPLEX,
                         0.55, (0, 200, 255), 1, cv2.LINE_AA)
         cv2.imshow(win, img)
 
