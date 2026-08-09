@@ -4744,3 +4744,49 @@ references did not; frac climbed and was earned) but the if-true
 prediction (frac >0.85 AND slip ≤1.0 both passes) was not reached
 and sto slip shows no evidence of change. No if-false branch fired.
 Continuation c1 is the discriminating experiment.
+
+### LAUNCH cw-walk-anchorgate-c1 (20M GPU steps, mjx-train-1) — consolidate-in-place: does the live anchor gradient finish the job?
+Identical config, +20M steps off ppo_goal_cw_walk_anchorgate.zip
+md5 35234ddc (the new walk champion). Sanctioned by the near-miss
+rule: parent missed the gate with the trend in the predicted
+direction (frac monotone ↑ all 20M, det slip past champion per-ep
+envelope, std still annealing, no if-false shape fired). If-true:
+frac >0.85 earned, DR1.0 slip det AND sto ≤1.0, retention holds —
+gate PASS. If-false: frac/slip plateau ⇒ warm-start rung CLOSED
+(two misses = change hypothesis, NO c2); the fresh-init arm and the
+single pre-registered tolerance correction carry the question.
+Luck-alternative excluded by re-running the same fixed panel at 40M
+total. VERIFIED RUNNING (two-phase): pid 3173688, W&B rximxa7s
+unique + advancing 9.4M→10.2M/45 s, log +12KB/60 s, pod at snapshot
+1002f7a, parent ckpt on pod. Watcher owns the checkup.
+
+### LAUNCH cw-walk-step0-anchor (40M GPU steps, mjx-train-0) — fresh-init basin test: is paddling a warm-start legacy or the sim's preferred transport?
+Pre-registered in the anchorgate escalation tree; run in parallel
+(capacity idle, question independent of c1). Fresh init at DR0,
+15 s, audited from-scratch exploration (log_std_init 0.0, ent
+0.005, target_kl 0.02 trainer default), otherwise the anchorgate
+reward package VERBATIM — the anchor gate prices paddling at
+0.5–0.7x from the first gradient step. If-true: anchored gait from
+scratch (frac >0.85 earned, DR0 det agg slip/m ≤1.0 vs champion
+lineage 1.14–1.18, gv 12/12). If-false (a) same paddle ⇒ root is
+sim contact/current pricing (operator) or distillation; (b) no gait
+in 40M ⇒ gated income too sparse from scratch, one anneal-in
+curriculum follow-up allowed. Exploration-hyperparam alternative
+mitigated by using the exact audited package that produced step0's
+gait. Name joins the cw-walk-step0 auto-continue lineage (watcher
+extends while improving, per operator 0-a). VERIFIED RUNNING
+(two-phase): pid 2645667, cmdline confirms NO --init-from +
+log_std 0.0 + ent 0.005, W&B g248pl2a unique + advancing
+4.7M→5.4M/45 s, pod at snapshot 1002f7a. Watcher owns the checkup.
+
+FLEET NOTE (cycle 31): mjx-train-2/3 left idle with recorded
+reasons — stance line BLOCKED on operator pricing/allowance ruling
+(cycle 28), rear-hemisphere arm BLOCKED on operator scope ruling
+(cycle 27), raise is a no-compute canary, and mirror-symmetry (plan
+item 2) remains UNIMPLEMENTED and queued for its own implementation
+cycle (shipping it alongside two live walk arms repeats the
+multi-mechanism confound this campaign already paid for once).
+Cycle totals: 2 launches, 60M GPU steps (cap 80M), 0 CPU steps,
+2 harness evals (24 eps), 5 strips + 2 dense filmstrips watched
+(provenance in verdict), champion promoted (anchorgate), plan
+tightened net −1 line.
