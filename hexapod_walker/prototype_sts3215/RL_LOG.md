@@ -149,3 +149,10 @@ a file under `archive/` and link it.
   band), loaded-slip metric (never touchdown-reset), multi-seed
   promotion panels. Still operator-owned: hardware current
   calibration — NO robot contact by the orchestrator.
+- OPERATOR (08-09 ~10:5x): ASSUME-AND-GO + parallel lines landed
+  (guardrails `operator_unblock_policy`): plausible-recommendation
+  questions get an "## ASSUMPTION (operator to review)" entry and
+  work CONTINUES; operator-only blockers ⇒ fill idle GPUs with
+  command-steering / QUADRUPED (pulled forward) / mirror-symmetry /
+  contact-aux arms. Cycle cap 12→48 (watch_loop synced). Idle GPU
+  pods now require a ledger-recorded HARD reason.
