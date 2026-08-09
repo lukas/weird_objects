@@ -259,3 +259,20 @@ a file under `archive/` and link it.
   quadruped, mirror-sym — need a dedicated implementation cycle);
   scope-steering arms stopped by the fdiag verdict; concurrent c38
   holds 3 INTENTs.
+- Cycle 40 (08-09 ~12:5x): `cw-walk-loadslip` FAIL / hypothesis
+  REFUTED exactly on its pre-registered if-false: the policy paid
+  the episode-level slip stake (walk income −32%, walk_prog −43%,
+  speed flat) and KEPT sliding — DR1.0 own-cfg det slip/m 2.39 vs
+  champion 1.240 (WORSE than parent), DR0 det 1.54; gait_valid
+  24/24, 0 term; frames = the same paddle-creep. Takeaway: every
+  reward-side lever (anchor gate, tol5 stake, stepdisp, episode
+  loadslip) is now exhausted → reward side of skating CLOSED
+  pending seed-1 concordance (`cw-walk-loadslip-s1` RUNNING t6);
+  slip root = sim contact/current pricing (operator calibration
+  class, cycle-28). NOT hardware-ready. Refills: queued
+  `cw-pose-track` (wishlist #18, 10M, pose goal-mix off champion,
+  canaries ON) and recovered `cw-walk-endur60` from backlog_failed
+  (infra kill, wandb.env fix landed) → backlog depth 2 for 3 free
+  slots; any residual idle slot = awaiting in-flight verdicts
+  (fast/longdist-s1/loadslip-s1) + steering-scope stop (c39) +
+  current-economy operator-block; rest [CODE].
