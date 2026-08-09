@@ -218,3 +218,15 @@ a file under `archive/` and link it.
   from backlog_failed (parked on stale pod code markers, since
   synced) and dropped 2 stale parked entries for running runs;
   backlog depth 3, 0 free slots (hard reason: capacity).
+- Cycle 43 (08-09 ~13:2x, steer-explore): `cw-walk-steer-explore`
+  FAIL (exploratory, non-promotion) — full-heading (±π) training
+  left the forward gait intact (fwd DR0 det 6/6 gv, 0 term, dist
+  0.70 vs champ 0.73 m, slip/m 1.36 ~ champ 1.15) but NO omni base:
+  off-axis/rear draws don't transport (prog 0.22-0.37, slip/m 5-7,
+  body creeps forward instead of along command). Same contact-
+  pricing root as skating/speed; confirms rear-hemisphere deferral +
+  c39 steering stop; no requeue. Pipeline: backlog EMPTY (drain
+  placed speedband→t0); every sound READY arm is in flight (12
+  busy), speed/steer/current arms operator-blocked, payload needs a
+  DR-range cfg hook = [CODE]; next cycle facing idle pods should run
+  the mirror-symmetry implementation cycle (plan #3).
