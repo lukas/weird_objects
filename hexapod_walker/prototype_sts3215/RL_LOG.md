@@ -230,3 +230,32 @@ a file under `archive/` and link it.
   vs champion 1.240 (same condition, −15%, first sub-champion slip),
   prog 0.91, det 6/6/0-term; sto 3/6 (robustness = weak edge).
   Champion NOT shifted yet — decided by `cw-walk-longdist-s1` panel.
+- Cycle 39 (08-09 ~12:3x): `cw-walk-dr05-r1` FAIL (gate) — DR0.5:
+  0 term but det slip/m agg 1.56 (>1.24; one 3.66 blowout) + sto gv
+  5/6 (leg-5 sacrifice, slip 23); DR0 retention PASS (det 6/6, prog
+  1.00, slip/m 1.06). Gait largely survives DR0.5, stochastically
+  brittle. `cw-steer-fdiag` FAIL/REFUTED — det diag tracking within
+  noise of champ baseline, sto WORSE (tilt_pitch fall + 2 flag-leg
+  eps, gv 4/6); fwd retention held → not dilution. Pre-registered
+  consequence: paddle gait blocks steering; SCOPE-ONLY STEERING ARMS
+  STOP (note for requeues of diag45/steer-explore class). Both point
+  at sto instability → implementing plan rung 0-c(i) STABILITY
+  pricing this cycle.
+- Cycle 39 (cont): ROOT-CAUSE CHAIN for stability pricing (0-c(i),
+  coefficient change): behavior = sto/DR episodes degenerate (tilt
+  to ~11 deg, flag leg, slip/m 5-23, one tilt_pitch fall) <-
+  incentive = outside the 1.5-deg kernel tilt is nearly free
+  (k_roll/k_pitch=10 quad => ~0.3/tick at 10 deg vs ~2-3/tick walk
+  income) and a fall costs 10 of a ~900 return <- pricing = both
+  knobs sized in the balance-task era <- not a sim defect (frames +
+  safety-layer trip mirror hardware). Scale audit: k=50 => 1.5/tick
+  at 10 deg, 0.03/tick at 1.5 deg (normal gait unaffected); fall
+  charge 300 ~= 1/3 episode return. Launching split one-variable
+  arms off dr05-r1 (where the pathology lives): `cw-walk-dr05-tilt50`
+  (k_roll/k_pitch 10->50), `cw-walk-dr05-fall300`
+  (safety_termination_penalty 10->300). Idle-slot HARD reasons:
+  remaining sound arms await in-flight results (fast/loadslip/
+  longdist-s1) or are [CODE] (turning, payload, push-recovery,
+  quadruped, mirror-sym — need a dedicated implementation cycle);
+  scope-steering arms stopped by the fdiag verdict; concurrent c38
+  holds 3 INTENTs.
