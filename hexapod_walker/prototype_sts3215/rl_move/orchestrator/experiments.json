@@ -2247,7 +2247,7 @@
    "--subproc"
   ],
   "created": "2026-08-09T01:22:51+00:00",
-  "status": "RUNNING",
+  "status": "FINISHED",
   "checks": {
    "cpu_limit": 56,
    "existing_trainers": [],
@@ -2287,7 +2287,13 @@
     "verdict": "HEALTHY",
     "problems": []
    }
-  ]
+  ],
+  "checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_step0_lowent_c1.zip (md5 104ba8cf300d979e1c97979df794a0d9, pod s6 + controller copy)",
+  "verdict": "PASS vs recorded step0 gate (cycle 19): 5s DR0 harness det gv 6/6 fw 0.23-0.47m swings>=3, sto 6/6 succ gv 6/6; one det ep duty 0.18 marginal (same treatment as parent's 0.18-0.83). vs parent lowent (named baselines): det slip mean 0.674 vs 0.746/0.717 (ranges overlap), det succ 2/6 vs 0/12 pooled (p~0.08, borderline), sto 6/6 vs 10/12 (within noise), rew 688->~730 (+42, identical cfg). 15s probe: det gv 6/6, sto 5/6 with ONE TRIPOD PARK ep (duty 0.99/0.0/1.0/0.01/0.99/0.01, fw 0.014m) - park attractor still reachable under sampling noise, same 1/6 invalid rate as parent. Q4-Q3 rew delta +3.3 (inside W&B scatter +-15) = trend FLAT; identical-config continuation lineage CLOSED, no c2. CHAMPION: NOT updated - c1 >= lowent only within noise (det 2/6 vs 0/12 p~0.08 borderline; slip ranges overlap), and the concurrent h15b verdict (same wall-clock hour) beats c1 outright (5s det slip 0.584 vs 0.674 non-overlap, det succ 4/6 vs 2/6, std 1.705 vs 1.94). Walk champion = h15b md5 d0a12a94. NOT HARDWARE-READY: DR0 only, det overspeed ~4x command (v0.078 vs ref 0.020 on overlay), skating 0.58-0.78 m/ep, irregular cadence, policy std 1.94. HYPOTHESIS (reward keeps rising w/ stable std): SUPPORTED - 697->728.5 quarters, std 2.08->1.94; rise decelerated to noise by Q4.",
+  "harness": {
+   "gate_5s": "logs/ckpt_eval/cw_walk_step0_lowent_c1_gate",
+   "sustain_15s": "logs/ckpt_eval/cw_walk_step0_lowent_c1_15s (+_v2 with invalid-ep video fix)"
+  }
  },
  {
   "run": "cw-stance-endpost-c1",
@@ -2537,7 +2543,7 @@
    "--subproc"
   ],
   "created": "2026-08-09T01:38:30+00:00",
-  "status": "RUNNING",
+  "status": "FINISHED",
   "checks": {
    "cpu_limit": 56,
    "existing_trainers": [],
@@ -2577,7 +2583,12 @@
     "verdict": "HEALTHY",
     "problems": []
    }
-  ]
+  ],
+  "final_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_lowent_h15b.zip",
+  "final_checkpoint_md5": "d0a12a9454dfd5b9e5a1c9d16ad5250a",
+  "finished_steps": 4000000,
+  "verdict": "FAIL gate (fwd 10/12, gait_valid 11/12: recurring 1/6 sto tripod-park ep, on camera in _15s_allvid; 0 terminations, retention 5s det slip 0.584<=0.93 OK). Hypothesis REFUTED on core claim (if-false branch a: gate clauses match parent within noise). Real side-gains: det slip -20% non-overlap both horizons, det 5s success 0/12->4/6, std anneal resumed 2.08->1.74. NOT HARDWARE-READY (park ep + skating, DR0 only). CHAMPION UPDATE walk line: h15b supersedes lowent. Evals: logs/ckpt_eval/cw_walk_lowent_h15b_{15s,5s,15s_allvid}.",
+  "verdict_cycle": 19
  },
  {
   "run": "cw-stance-endpost-c1",
@@ -2884,6 +2895,31 @@
   "wandb_id": "v5t38fee",
   "verified": "2026-08-09T01:51:20+00:00",
   "wandb_id_expected": "v5t38fee",
-  "agent_verification": "cycle-18 stance agent re-verified: pid 2105951 cmdline carries all cfg-sets incl. k_end_posture=5.0; log +12KB/65s, 0 tracebacks; W&B v5t38fee running, steps 23.66M->23.83M; unique name; code at 5ca9a85. Two earlier attempts FAILED on the launcher notes-quoting bug (s4 also REFUSED on host load); fixed with embedded-quote notes per cycle-14 workaround."
+  "agent_verification": "cycle-18 stance agent re-verified: pid 2105951 cmdline carries all cfg-sets incl. k_end_posture=5.0; log +12KB/65s, 0 tracebacks; W&B v5t38fee running, steps 23.66M->23.83M; unique name; code at 5ca9a85. Two earlier attempts FAILED on the launcher notes-quoting bug (s4 also REFUSED on host load); fixed with embedded-quote notes per cycle-14 workaround.",
+  "checkups": [
+   {
+    "time": "2026-08-09T01:56:59+00:00",
+    "process_alive": true,
+    "tracebacks_in_tail": 0,
+    "log_growth_bytes": 6823,
+    "fps": 1638.4,
+    "placement": "solo on 56-core pod",
+    "verdict": "HEALTHY",
+    "problems": []
+   }
+  ]
+ },
+ {
+  "run": "cw-walk-lowent-h15b-c1",
+  "pod": "hexapod-sweep-walk",
+  "steps": 4000000,
+  "smoke": false,
+  "status": "INTENT",
+  "created": "2026-08-09T02:15:28+00:00",
+  "hypothesis": "Near-miss consolidate-in-place continuation of h15b (rew Q3 1110->Q4 1137 still climbing, std 2.08->1.74 still annealing at run end). HYPOTHESIS: the recurring 1/6 sto park-basin ep (hard tripod park from t=0, on camera in cw_walk_lowent_h15b_15s_allvid) and its det duty-skew churn cousin are exploration-gated - they vanish as std anneals below ~1.5. ONE variable vs h15b: +4M steps, identical config. Prediction-if-true: 15s harness det+sto fwd>=0.40 12/12 AND gait_valid 12/12 (park draw gone at same seed), std continues falling; gate pass. Prediction-if-false: std <1.5 but seed-0 sto park ep persists (~1/6) or det churn recurs -> basin is STRUCTURAL (pricing) -> escalate to plan 0-a (ii) skating-vs-step-income / (iii) overspeed pricing; NO third identical-config segment. Also false: rew last-quarter <= prior-quarter (plateau) with unchanged gate numbers -> continuation closed. Strongest alternative: 1/6 park is binomial noise independent of std - distinguished by the std-vs-park correlation clause (persistence below std 1.5 refutes exploration-gating). Parent ppo_goal_cw_walk_lowent_h15b.zip md5 d0a12a9454dfd5b9e5a1c9d16ad5250a (already on walk pod).",
+  "gate": "15s DR0 harness 6eps/mode det AND sto: forward >=0.40m 12/12 AND gait_valid 12/12 AND >=2 swings/leg AND 0 terminations AND no final-third frame degradation; retention: 5s det slip mean <=0.93",
+  "parent": "rl_move/sim/policies/ppo_goal_cw_walk_lowent_h15b.zip",
+  "parent_md5": "d0a12a9454dfd5b9e5a1c9d16ad5250a",
+  "seed": 0
  }
 ]

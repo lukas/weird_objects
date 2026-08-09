@@ -373,14 +373,19 @@ def main() -> None:
             for k in range(args.per_mode):
                 # sto passes get video too: an unwatched success cannot
                 # support a PASS (guardrails: watched_modes=all_verdict_modes)
-                video = (not args.no_video
-                         and (k == 0 or k % args.video_every == 0))
+                # walk mode renders EVERY episode so gait-invalid episodes
+                # (tripod park / wander) always leave watchable video —
+                # 2026-08-09: a 15 s sto tripod park landed between the
+                # every-Nth slots and was scalar-only. Non-scheduled valid
+                # episodes are rendered but not saved.
+                scheduled = (k == 0 or k % args.video_every == 0)
+                video = (not args.no_video and (scheduled or mode == "walk"))
                 ep, frames = run_episode(
                     env, model, deterministic=det, video=video,
                     annotate=_annotate_frame,
                     end_posture_gate=args.end_posture_gate)
                 eps.append(ep)
-                if frames:
+                if frames and (scheduled or not ep.get("gait_valid", True)):
                     _save_video(frames, out / f"{mode}_{tag}_{k}")
                     if det and k == 0:
                         sheet_strips.append(

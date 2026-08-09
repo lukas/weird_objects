@@ -2363,3 +2363,114 @@ pointer left; no ghost-RUNNING residue). Launcher note for operator
 Cycle totals: 1 experiment launched (4M steps of 16M cap), pods after
 cycle: s3 = endpost-c1, s6 = lowent-c1 (concurrent cycle's), rest
 idle. Champions unchanged.
+
+## Cycle 19 (2026-08-09 ~02:3xZ) — cw-walk-lowent-h15b verdict: gate FAIL on the recurring 1-ep sto park; horizon rung largely redundant for the GATE, but real slip/tracking/std side-gains. NEW walk champion (narrowly). Continuation launched.
+
+### cw-walk-lowent-h15b — 15s horizon training: gate clauses match parent-within-noise (if-false branch a), but det slip/tracking and std anneal genuinely improved
+OBSERVATIONS (mechanical). W&B y9jav0y4 FINISHED, 4M steps (8.01M→
+12.02M cum, 1069 s solo on walk pod). Final ckpt
+ppo_goal_cw_walk_lowent_h15b.zip md5 d0a12a9454dfd5b9e5a1c9d16ad5250a
+(pod + controller copy match). train/std 2.075→1.742 — the anneal
+RESUMED at the 15 s horizon (parent lowent floored at ~2.07 for a
+full 4M segment; ONE variable differs). ep_rew_mean Q1 1046 → Q4
+1137, still climbing at end (Q3 1110→Q4 1137; scale not comparable
+to parent's 688 — 3x episode length). env/reward_step_event
+0.110→0.134. Harness policy_std 1.705 (parent 2.044).
+Gate harness 15 s DR 0 own-cfg (logs/ckpt_eval/cw_walk_lowent_h15b_15s,
+6 eps/mode det+sto): det fwd ≥0.40 m 5/6 (0.569–0.711; det[2]=0.243
+FAIL), sto 5/6 (0.471–0.668; sto[4]=0.029 FAIL). gait_valid 11/12
+(sto[4] invalid, 5 legs sacrificed). Terminations 0/12, safety flags
+0. det slip mean 0.912 vs parent-15s 1.14 (ranges 0.801–1.102 vs
+1.089–1.202: 5/6 non-overlapping — real reduction, NOT elimination).
+Retention harness 5 s (logs/ckpt_eval/cw_walk_lowent_h15b_5s): det
+slip mean 0.584 ≤ 0.93 gate ✓ — vs parent 0.746/0.717, ranges
+0.528–0.654 vs 0.68–0.79 NON-overlapping: real. det success 4/6 vs
+parent 0/6+0/6 — outside the ±1–2 ep band: det speed tracking
+partially appeared (vel_err 0.022–0.031 in 5/6 eps vs parent
+0.032–0.066). 5 s sto 4/6 vs parent pooled 10/12 — inside noise, no
+evidence of change.
+FRAMES WATCHED (provenance). 15 s: walk_det_0.mp4 md5 b5702d8e 375f,
+walk_det_3.mp4 d9128d64 375f, walk_sto_0.mp4 ee652939 375f,
+walk_sto_3.mp4 ff725f99 375f. 5 s: walk_det_0.mp4 8bb50316 250f,
+walk_sto_0.mp4 f52a868a 250f. The two failing eps landed on
+unrecorded indices (harness records every 3rd ep) — reran the
+IDENTICAL seed-0 eval with --video-every 1 (draws reproduced
+bit-exact; logs/ckpt_eval/cw_walk_lowent_h15b_15s_allvid):
+walk_sto_4.mp4 md5 be0ba207 375f, walk_det_2.mp4 7e5a8946 375f.
+Pathologies first: (1) sto[4] at BOTH horizons is a hard TRIPOD PARK
+from t=0, on camera — legs 0/2/4 loaded at duty ~1.0, legs 1/3/5
+dangling just off the ground, body never advances a checker square
+in 15 s (duty [1.0,0.0,1.0,0.02,0.99,0.01], swings [0,1,0,1,2,1],
+fwd 0.029 m). Same failure class as parent's sto collapse ep
+(lowent gate_sto sto[4], sacr [1,3,5]) at the same 1/6 frequency —
+character SHARPER (hard park vs lazy wander), frequency unchanged.
+(2) det[2] 15 s is stumble-in-place churn on camera: legs 1/3/5
+rapid short flicks (swings 13/12/7) while 0/2/4 stay loaded (duty
+0.89/0.86/0.78), worst slip 1.102, fwd 0.243 — churning, not
+walking. (3) Skating: reduced ~20% but stance feet still creep in
+every strip. (4) Stance still sprawly-wide, cadence still irregular.
+Achievements (each with a number): passing eps show all six legs
+cycling with duty 0.42–0.63 and level body through the final third
+of all four reviewed 15 s strips — no wind-up, no posture decay.
+Zero falls in 24 harness eps.
+Exploits looked for, not found: no sacrificed leg in any PASSING ep
+(23/24 gv excl. the park ep), no phantom step events (swing counts
+match strips), no safety-layer reliance (0 flags), no height
+collapse. Honesty note carried from parent: sto still out-tracks det
+(vel_err 0.021–0.043 sto vs 0.022–0.054 det) — noise-as-brake is
+reduced but not gone.
+INTERPRETATION. For the GATE, pre-registered if-false branch (a) is
+what happened: 15 s clauses match the parent's eval-only 15 s result
+within the ±1–2 ep band (det 5/6 vs 6/6, sto 5/6 vs 5/6) — the
+horizon rung is redundant for gate success. But three side-effects
+are real (non-overlapping ranges or outside noise band): det slip
+down ~20% at both horizons, det 5 s success 0/12→4/6, and std anneal
+resumed (2.08→1.74, still falling at run end). Hypothesis (labeled):
+the longer return horizon weakened the value of noise-as-brake, so
+the policy relies less on stochasticity and std can fall. The
+remaining gate blocker is a single recurring failure class: a park
+basin (odd-tripod unload) that ~1/6 stochastic starts fall into and
+never leave, plus its det cousin (duty-skew churn).
+VERDICT: FAIL against the recorded gate (fwd 10/12 vs 12/12,
+gait_valid 11/12 vs 12/12, swings clause fails in the park ep; 0
+terminations ✓, no final-third degradation ✓, 5 s retention slip
+0.584 ≤ 0.93 ✓). NOT HARDWARE-READY: a robot that has a 1-in-6
+chance of standing frozen in a tripod park instead of walking, plus
+persistent foot-skating, does not go on the physical hexapod; DR 0
+only. CHAMPION UPDATE (walk line): ppo_goal_cw_walk_lowent_h15b.zip
+md5 d0a12a94 beats lowent — det slip non-overlapping better at both
+horizons, det 5 s success 0/12→4/6, harness std 1.705 vs 2.044,
+NO metric worse outside noise (5 s sto 4/6 vs pooled 10/12 is inside
+the band). Append-only; lowent checkpoint retained.
+HYPOTHESIS STATUS: REFUTED on the core claim (15 s training did NOT
+consolidate to 12/12; the sto wander/park ep was not a
+horizon-regulation symptom). The slip/tracking/std gains are
+recorded as unexpected secondary effects, explanation hypothesis
+labeled above. Eval-side note (generalizes): --video-every 1 rerun
+at the same seed reproduces harness draws bit-exact — cheap way to
+put any scalar-flagged pathology ON CAMERA; use it whenever a
+failing ep lands on an unrecorded index.
+
+### LAUNCH cw-walk-lowent-h15b-c1 (4M, DR 0, ep 15 s, seed 0, walk pod) — near-miss consolidate-in-place continuation
+Basis: h15b missed the gate on exactly one ep per pass (10/12 fwd,
+11/12 gv), rew still climbing (Q3 1110→Q4 1137) and std still
+annealing (1.74, falling) at run end — the one-continuation rule
+applies. This is NOT the closed c1/c2 identical-config class: that
+closure was the ent-0.01 plateau (rew flat, std runaway); here both
+trends are live.
+HYPOTHESIS: the park-basin failure class (1/6 sto hard tripod park
+from t=0 + det duty-skew churn) is exploration-gated — it vanishes
+as std anneals below ~1.5. ONE variable vs h15b: +4M steps.
+Prediction-if-true: 15 s harness det+sto fwd ≥0.40 12/12 AND
+gait_valid 12/12; std keeps falling; gate pass. Prediction-if-false:
+std <1.5 but the seed-0 park draw persists (~1/6 sto) or det churn
+recurs → basin is STRUCTURAL (pricing) → escalate to plan 0-a (ii)
+skating price vs step-event income / (iii) overspeed pricing; NO
+third segment. Also false: rew plateau (last quarter ≤ prior) with
+unchanged gate numbers → continuation closed. Strongest alternative:
+the 1/6 park is binomial noise independent of std — distinguished by
+the persistence-below-std-1.5 clause. Gate unchanged (h15b's 15 s
+gate incl. 5 s retention slip ≤0.93). ent 0.001, --no-canary
+(lineage exemption), parent ckpt already on walk pod (md5 d0a12a94
+verified this cycle). Walk pod solo on node g129004 (0 trainers at
+status check).
