@@ -4,6 +4,12 @@
 # keep their original 26-core spec).
 #   g142d86: train-4..7 (+ controller)   g129004: train-8..11
 #   g12ba48: train-12..15                g131eec: train-0..3
+#
+# 2026-08-09: g12ba48 was CORDONED by CoreWeave and train-12..15 were
+# deleted (Pending 3h+, no node fits 4 more 24-core pods). They are
+# also removed from guardrails gpu_pods. When a 4th node returns:
+# repoint the 12..15 nodeSelector below to it, kubectl apply this
+# file, run bootstrap_train_pod.sh for each, re-add to gpu_pods.
 # Fleet: 16 slots. Live truth: python3 rl_move/orchestrator/capacity.py
 # Pods may sit Pending while CoreWeave hpc-verification health checks
 # hold a node's GPUs; they schedule as soon as the check releases.
