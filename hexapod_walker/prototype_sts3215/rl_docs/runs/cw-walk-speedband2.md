@@ -16,5 +16,7 @@
 
 **gate**: own-cfg DR0 30s 6+6: gv 12/12, 0 term, prog_ratio med 0.8-1.2, no non-stall ep prog<0.5, per-ep speed tracks command across the band (fast eps prog >=0.6); frames watched det+sto
 
+**verdict**: INFRA FAILURE, no training happened (0 steps): same train-4 /dev/shm leak as cw-walk-lowgait-dr05's first attempt. Retried as cw-walk-speedband2-r1 (VERIFIED RUNNING on train-2). Not a hypothesis result.
+
 **refused_reason**: W&B already has a run named cw-walk-speedband2 (names are append-only; pick a new one)
 

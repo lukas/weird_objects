@@ -173,6 +173,15 @@ leave the next agent to rediscover it.
     `--init-from` parent via `use_artifact`. The W&B artifact DAG is
     now the run/checkpoint family tree — pre-08-09 parents predate
     this and appear rootless.
+13. **`killrun` leaks /dev/shm segments; the NEXT launch on that pod
+    dies at first env reset with worker `EOFError`** (c54: two 0-step
+    corpses on train-4 after c53's stopgo35 kill — /dev/shm 64M was
+    98% full of `hexmjx-*` segments). Diagnose: `kubectl exec <pod>
+    -- df -h /dev/shm`. Fix: confirm no live trainer (mind the
+    self-match gotcha), then `rm -f /dev/shm/hexmjx-*` and relaunch
+    under a NEW name (`-r1`): W&B names are append-only, the launcher
+    refuses reuse. Eval completion marker is `artifacts` (the harness
+    never prints WROTE) — `waitlog ... 'artifacts|Traceback'`.
 
 ## Time budget guidance
 

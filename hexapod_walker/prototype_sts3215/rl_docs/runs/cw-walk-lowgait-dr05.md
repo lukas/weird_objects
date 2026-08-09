@@ -16,5 +16,7 @@
 
 **gate**: own-cfg DR0.5 15s at -50mm 6+6: gv 12/12, 0 term, mean end-height err <=10mm, slip/m med <=1.6; DR0 det retention gv 6/6, height err <=8mm, slip/m <=1.15; frames watched det
 
+**verdict**: INFRA FAILURE, no training happened (0 steps): workers died at first env reset — train-4 /dev/shm was 98% full of hexmjx shm segments leaked by the c53 stopgo35 kill. shm cleaned, retried as cw-walk-lowgait-dr05-r1 (VERIFIED RUNNING on train-4). Not a hypothesis result.
+
 **refused_reason**: W&B already has a run named cw-walk-lowgait-dr05 (names are append-only; pick a new one)
 

@@ -490,3 +490,16 @@ a file under `archive/` and link it.
   sharpens: next cycle with a triage-light prompt should BE the quadruped
   feasibility sweep implementation cycle (readiness P1, scripted, no GPU) —
   it is agent-time work and does not compete with pod refills.
+
+- Cycle 54 addendum (~17:1x): refill placement fought two races + one real
+  infra bug. (a) Mid-drain snapshot moved HEAD -> fricvar/lowgait-dr05 REFUSED
+  once (lesson: snapshot BEFORE ops.sh drain, not between). (b) speedband name
+  collided with c43's killed run (W&B names append-only) -> reissued as
+  speedband2. (c) REAL BUG: train-4 /dev/shm 98% full of hexmjx-* segments
+  leaked by c53's stopgo35 killrun -> lowgait-dr05 AND speedband2 died 0-step
+  at first env reset (worker EOFError); cleaned shm, retried once each per
+  policy: lowgait-dr05-r1 -> train-4 (16.7k fps) + speedband2-r1 -> train-2,
+  both VERIFIED RUNNING. COMMANDS.md gotcha 13 added (shm leak + eval waitlog
+  marker is 'artifacts' not 'WROTE'; ops.sh/watch_loop hint strings fixed).
+  Final cycle-54 fleet adds: lowgait60(t1), speedband2-r1(t2), fricvar(t3),
+  lowgait-dr05-r1(t4).

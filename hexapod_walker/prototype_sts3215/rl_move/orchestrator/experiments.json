@@ -16453,7 +16453,8 @@
       "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)"
     },
     "stack": "gpu-mjx",
-    "refused_reason": "W&B already has a run named cw-walk-lowgait-dr05 (names are append-only; pick a new one)"
+    "refused_reason": "W&B already has a run named cw-walk-lowgait-dr05 (names are append-only; pick a new one)",
+    "verdict": "INFRA FAILURE, no training happened (0 steps): workers died at first env reset \u2014 train-4 /dev/shm was 98% full of hexmjx shm segments leaked by the c53 stopgo35 kill. shm cleaned, retried as cw-walk-lowgait-dr05-r1 (VERIFIED RUNNING on train-4). Not a hypothesis result."
   },
   {
     "run": "cw-walk-speedband2",
@@ -16523,7 +16524,8 @@
       "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-12d45224-745e-3c94-0817-b7685322bad4)"
     },
     "stack": "gpu-mjx",
-    "refused_reason": "W&B already has a run named cw-walk-speedband2 (names are append-only; pick a new one)"
+    "refused_reason": "W&B already has a run named cw-walk-speedband2 (names are append-only; pick a new one)",
+    "verdict": "INFRA FAILURE, no training happened (0 steps): same train-4 /dev/shm leak as cw-walk-lowgait-dr05's first attempt. Retried as cw-walk-speedband2-r1 (VERIFIED RUNNING on train-2). Not a hypothesis result."
   },
   {
     "run": "cw-walk-lowgait-dr05-r1",
@@ -16611,7 +16613,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-lowgait-dr05-r1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait50.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_height_off_mm=-50.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_lowgait_dr05_r1 --notes 'RETRY 1 of cw-walk-lowgait-dr05 (died at env reset: train-4 /dev/shm 98% full of hexmjx segments leaked by the c53 stopgo35 kill; shm cleaned, relaunched fresh \u2014 0 steps were trained). Robustness rung for the crouch line (same one-variable move that produced wander-dr05 and strafe-dr05 PASSes): the -50mm crouch is envelope-verified at DR0 only. One variable off lowgait50: --no-dr -> model-DR 0.5. Plain: the duck-and-walk height knob must survive real-world physics spread to be worth deploying. Prediction-if-true: own-cfg DR0.5 keeps the crouch (gv 12/12, 0 term, mean end-height err <=10mm, slip/m med <=1.6) with DR0 retention intact. Prediction-if-false: deep-crouch workspace margins are too thin for physics variation - crouch stays a DR0 demo skill. Strongest alternative: DR0.5 holds but slip inflates past 1.6 like strafe'\"'\"'s DR creep. Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait50.zip. Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait50.zip. Gate: own-cfg DR0.5 15s at -50mm 6+6: gv 12/12, 0 term, mean end-height err <=10mm, slip/m med <=1.6; DR0 det retention gv 6/6, height err <=8mm, slip/m <=1.15; frames watched det' > /tmp/train_cw-walk-lowgait-dr05-r1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-lowgait-dr05-r1.log",
     "wandb_id": "gd4ur7ti",
-    "verified": "2026-08-09T17:07:38+00:00"
+    "verified": "2026-08-09T17:07:38+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T17:12:54+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5566,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-speedband2-r1",
@@ -17000,7 +17014,7 @@
       "RETRY 1 of cw-walk-speedband2 (died at env reset on train-4: /dev/shm full of leaked segments \u2014 0 steps trained; fresh relaunch). OPERATOR WISHLIST 8b (operator-tunable speed), reissue of the c43-killed cw-walk-speedband. One policy tracking the whole 0.02-0.12 m/s band so speed is a runtime knob, not a retrain. One variable off wander30 (PASS: 30s driving, resample/5s, 15% stops): speed band 0.05-0.06 -> 0.02-0.12 m/s. Plain: the operator's joystick should set the pace, slow creep to double speed, without falls or parking. Prediction-if-true: own-cfg gv 12/12, 0 term, prog_ratio med 0.8-1.2, fast-command eps (>=0.09 m/s) keep prog >=0.6. Prediction-if-false: band edges break - fast commands trip the paddle gait or slow commands park = band needs splitting or a curriculum. Strongest alternative: policy averages the band (walks ~0.06 regardless of command) - check per-episode speed vs command correlation. Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip. Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip. Gate: own-cfg DR0 30s 6+6: gv 12/12, 0 term, prog_ratio med 0.8-1.2, no non-stall ep prog<0.5, per-ep speed tracks command across the band (fast eps prog >=0.6); frames watched det+sto"
     ],
     "created": "2026-08-09T17:09:42+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -17009,11 +17023,24 @@
       "code_sha_local": "a05d6a76a1bfe550fa37ca0b21381658579d85b3",
       "code_sha_pod": "a05d6a76a1bfe550fa37ca0b21381658579d85b3",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3616439",
+      "log_growth_bytes": [
+        10589,
+        16155
+      ],
+      "wandb_id": "tcip7dk0",
+      "global_step_window": [
+        786432,
+        1769472
+      ],
+      "fps_estimate": 10922.7
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-speedband2-r1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip --no-dr --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.12 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_speedband2_r1 --notes 'RETRY 1 of cw-walk-speedband2 (died at env reset on train-4: /dev/shm full of leaked segments \u2014 0 steps trained; fresh relaunch). OPERATOR WISHLIST 8b (operator-tunable speed), reissue of the c43-killed cw-walk-speedband. One policy tracking the whole 0.02-0.12 m/s band so speed is a runtime knob, not a retrain. One variable off wander30 (PASS: 30s driving, resample/5s, 15% stops): speed band 0.05-0.06 -> 0.02-0.12 m/s. Plain: the operator'\"'\"'s joystick should set the pace, slow creep to double speed, without falls or parking. Prediction-if-true: own-cfg gv 12/12, 0 term, prog_ratio med 0.8-1.2, fast-command eps (>=0.09 m/s) keep prog >=0.6. Prediction-if-false: band edges break - fast commands trip the paddle gait or slow commands park = band needs splitting or a curriculum. Strongest alternative: policy averages the band (walks ~0.06 regardless of command) - check per-episode speed vs command correlation. Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip. Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip. Gate: own-cfg DR0 30s 6+6: gv 12/12, 0 term, prog_ratio med 0.8-1.2, no non-stall ep prog<0.5, per-ep speed tracks command across the band (fast eps prog >=0.6); frames watched det+sto' > /tmp/train_cw-walk-speedband2-r1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-speedband2-r1.log"
+    "log": "/tmp/train_cw-walk-speedband2-r1.log",
+    "wandb_id": "tcip7dk0",
+    "verified": "2026-08-09T17:13:29+00:00"
   },
   {
     "run": "cw-walk-deadband30",
@@ -17229,5 +17256,78 @@
     },
     "stack": "gpu-mjx",
     "refused_reason": "hexapod-mjx-train-7 code marker a05d6a76a1bfe550fa37ca0b21381658579d85b3 != local HEAD dfa6fb996a3be84ea60f9edca249e6b6867aefb9. Sync first: snapshot.sh --sync hexapod-mjx-train-7 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "cw-walk-head90-s1",
+    "pod": "hexapod-mjx-train-6",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Seed twin of head90 (PASS c51, single-seed): promotion ruling 7 requires multi-seed panels, and the front-hemisphere envelope is the base every joystick arm composes on. IDENTICAL config to head90, one variable: seed 0->1. Plain: prove driving anywhere in the front half-circle is the recipe, not seed luck. Prediction-if-true: s1 reproduces the gate (gv 12/12, 0 term, lateral err <=2x fwd) - envelope is seed-robust, panel-ready. Prediction-if-false: s1 misses (flag leg, lateral collapse, or falls) - head90 was seed luck and the ladder needs re-evidence before wider rungs ride on it. Strongest alternative: passes but with a DIFFERENT left/right asymmetry signature than head90's (left strafe ~half of right) - asymmetry is seed-level noise and the mirror-symmetry [CODE] line gains urgency.",
+    "gate": "own-cfg DR0 30s det+sto 6/6 resampled +-90deg cmds: gait_valid 12/12, 0 term, no sacrificed leg, lateral tracking err <=2x forward err; compare L/R strafe displacement vs head90; frames watched det",
+    "parent": "cw-walk-wander30",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip",
+      "--no-dr",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "1",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=1.5708",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=5.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.15",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_head90_s1"
+    ],
+    "created": "2026-08-09T17:13:08+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-091fd187-5ef1-8187-1927-20faf428512c)",
+      "running_experiments_before": 9,
+      "code_sha_local": "76cf9a6532f0955d0fcc6f53131caf39b9c73de1",
+      "code_sha_pod": "a05d6a76a1bfe550fa37ca0b21381658579d85b3"
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-6 code marker a05d6a76a1bfe550fa37ca0b21381658579d85b3 != local HEAD 76cf9a6532f0955d0fcc6f53131caf39b9c73de1. Sync first: snapshot.sh --sync hexapod-mjx-train-6 (and snapshot/commit before that if the tree is dirty)."
   }
 ]
