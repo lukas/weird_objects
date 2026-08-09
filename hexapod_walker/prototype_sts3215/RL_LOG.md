@@ -4278,3 +4278,43 @@ line's item (1). Launching a stance arm anyway would be exactly the
 Cycle totals: 0 launches, 0 steps, 1 harness eval (60 eps; 10
 strips watched, provenance above), 1 controller diagnosis probe (9
 episodes, script recorded in-log).
+
+### LAUNCH cw-walk-effort (20M GPU steps, mjx-train-1) — walk-routed effort/CoT pricing vs the paddling gait (the DR1.0 skating blocker)
+The review's pre-adopted lever, entered per its own escalation order
+after BOTH sanctioned checks passed this cycle (speed diagnostic:
+43% forward overspeed via all-six-legs mid-stance paddling; effort
+check: drag ticks 1.38x planted current). One variable off champion
+01d9ab60: reward.k_walk_effort=1.2 (walk-routed per-tick charge on
+mean servo current; scale audit −218/ep = 18% of income; stand-
+still stays dominated). Config otherwise identical to the champion
+lineage (park_start_frac 0.25 retained, DR 0, 15 s, seed 0). Gate
+leads with the DR1.0 slip clause the champion FAILS today (agg
+slip/m det 1.543 / sto 1.295 vs <=1.0), plus DR0 gait retention
+(det fwd mean >=0.55, gv 12/12, fwd-hemisphere sto 5/5; the
+backward draw sto[5] is recorded but excluded pending the operator
+scope ruling above). Pre-registered if-false branches: charge paid
++ slip unmoved -> phase prior (review rung 3); gait collapse -> one
+scale-audit-recalibrated retry max, no blind k iteration.
+Strongest alternative (current drops without slip dropping —
+lighter paddling) distinguished by slip vs current trends moving
+independently. Mechanism smokes: controller probe (term value/
+parity) + smoke-walk-effort-r2 on sweep-lower (384 CPU updates with
+term active, reward shift matched audit, no NaN; CPU trainer hung
+at SHUTDOWN after training completed — pre-existing path, remnants
+killed, recorded in ledger; first smoke attempt failed verification
+on a missing init-from checkpoint, fixed by kubectl cp). VERIFIED
+RUNNING by the launcher: pid 1327749, W&B 9rtpws1h advancing
+(1.31M->2.88M in window), fps ~17.5k, pod code at snapshot 286200f,
+env/reward_effort live at −0.605/tick (audit predicted −0.583) —
+the term is demonstrably active in MJX training. Watcher owns the
+checkup.
+FLEET NOTE: mjx-train-0 runs the concurrent stance cycle's
+lowerdense arm (hands off). mjx-train-2/3 stay idle deliberately:
+the two candidate walk arms besides effort are BLOCKED — rear-
+hemisphere exposure on the operator scope ruling, and any further
+park/reset arm is closed by this cycle's investigation; launching a
+second speculative pricing arm would double-change the lineage.
+Cycle totals: 3 launches (2 smoke attempts, 1 experiment), 20M GPU
+steps (cap 80M), 0.12M CPU smoke steps (cap 16M), 4 harness evals +
+~1100 controller probe episodes; 9 strips + 10 full-res frames
+watched (provenance in verdict).

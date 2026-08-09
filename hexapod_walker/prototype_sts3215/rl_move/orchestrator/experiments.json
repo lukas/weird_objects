@@ -5017,17 +5017,30 @@
       "24"
     ],
     "created": "2026-08-09T06:47:25+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
       "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
       "running_experiments_before": 0,
       "code_sha_local": "286200f01fde77bb40602fed38c9def5a87043ae",
-      "code_sha_pod": "286200f01fde77bb40602fed38c9def5a87043ae"
+      "code_sha_pod": "286200f01fde77bb40602fed38c9def5a87043ae",
+      "pid": "1327749",
+      "log_growth_bytes": [
+        14282,
+        25575
+      ],
+      "wandb_id": "9rtpws1h",
+      "global_step_window": [
+        1310720,
+        2883584
+      ],
+      "fps_estimate": 17476.3
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-effort --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_parkstart_mjx.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.k_walk_effort=1.2 --out-name ppo_goal_cw_walk_effort --notes 'Walk-routed effort/CoT pricing arm (external review'\"'\"'s pre-adopted lever, entered per its escalation order: the speed diagnostic found 43% forward overspeed via PADDLING - 91% of loaded-foot slip is mid-stance on all six legs, slip ~= body travel - and the per-servo current check confirmed drag ticks draw 1.38x planted ticks, 2.76 vs 2.01 A/leg). One variable off walk champion ppo_goal_cw_walk_parkstart_mjx.zip md5 01d9ab60: reward.k_walk_effort=1.2 charges mean servo current per tick, walk-routed, realizing -218/ep = 18% of the champion'\"'\"'s +1219 income (scale audit, cycle 27; quiet standing pays -0.48/tick but earns ~0 under the prog-gated kernel, so collapse-to-stand stays dominated). Gate leads with the DR1.0 slip clause the champion fails today (agg slip/m 1.543 det / 1.295 sto vs <=1.0). Mechanism smoke: 384 CPU updates with the term active, reward shift matched the audit, no NaN (smoke-walk-effort-r2; the CPU trainer hung at shutdown AFTER training - pre-existing, not diff-related). Snapshot 286200f.' --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-walk-effort.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-effort.log"
+    "log": "/tmp/train_cw-walk-effort.log",
+    "wandb_id": "9rtpws1h",
+    "verified": "2026-08-09T06:51:04+00:00"
   }
 ]
