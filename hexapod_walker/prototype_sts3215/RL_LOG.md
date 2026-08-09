@@ -4790,3 +4790,110 @@ Cycle totals: 2 launches, 60M GPU steps (cap 80M), 0 CPU steps,
 2 harness evals (24 eps), 5 strips + 2 dense filmstrips watched
 (provenance in verdict), champion promoted (anchorgate), plan
 tightened net −1 line.
+
+## Cycle 32 (2026-08-09 ~09:5xZ) — cw-walk-anchorgate-c1 verdict: gate FAIL (slip det 1.283 / sto 1.326 vs ≤1.0), consolidation REFUTED. anchor_frac 0.906 EARNED ⇒ parent's pre-registered shape (c) fired: TOLERANCE MIS-SET — the policy inflated cadence (+23% stances) to re-buy the per-touchdown 10 mm allowance instead of anchoring. Audit-driven correction tol 10→5 launched (pre-registered, one variable).
+
+### VERDICT cw-walk-anchorgate-c1 (20M GPU steps, mjx-train-1, W&B rximxa7s)
+OBSERVATIONS (mechanical). Run finished: 20,000,000 steps in 1493 s
+(~13.4k fps), W&B state finished, ckpt
+ppo_goal_cw_walk_anchorgate_c1.zip md5
+68dee96f6155f69a7aee5e00cf2a0668 pulled (pod copy identical), 0
+tracebacks. Training quartiles (W&B): env/walk_anchor_frac
+0.847→0.875→0.900→0.903 (last 0.906) — crossed the 0.85 if-true
+mark, slope near-plateau in Q3→Q4 (0.9005→0.9029); env/reward_walk
+1.22→1.30 (income EARNED, not forfeited); ep_rew 654→898;
+train/std 1.303→1.262 (never reached the ~1.2 the sto prediction
+assumed); mean_current_a flat 0.486→0.477; walk_speed in band
+0.050 all run; 0 terminations. env/reward_step_event 0.152→0.189
+(+24%) — see below.
+Gate harness (own cfg minus park_start_frac, 6+6 per DR, seed 0,
+15 s, video every ep):
+- DR 1.0 (logs/ckpt_eval/cw_walk_anchorgate_c1_dr10): agg slip/m
+  det 1.283 / sto 1.326 vs gate ≤1.0 — FAIL. Named baseline parent
+  ppo_goal_cw_walk_anchorgate (current champion): det 1.240 / sto
+  1.245 — c1 is WORSE on both, delta inside the per-ep noise band
+  (det per-ep [1.022,1.170,1.267,1.409,1.412,1.413] vs parent
+  [0.986,1.001,1.272,1.342,1.353,1.504]; ranges overlap) — NO
+  EVIDENCE of slip change from +20M steps. Parent's two sub-1.0
+  eps did NOT recur (0/6 sub-1.0 det here). Both still beat old
+  champion parkstart_mjx 1.543 (c1 det max 1.413 < parkstart min
+  1.315 except overlap tail) — the anchor gate's original det gain
+  is stable across two independent panels; the FURTHER gain is
+  what failed. Speed det 0.049–0.053 in band; fwd mean 0.656
+  (parent 0.681); gv 12/12, 0 term, imbal 1.13–1.39, Imax 2.75 A.
+- DR 0 15 s (logs/ckpt_eval/cw_walk_anchorgate_c1_15s): det fwd
+  mean 0.731 ≥0.55 ✓ (parent 0.736 parity); det agg slip/m 1.133
+  (parent 1.144, inside noise); gv 12/12 ✓, 0 term ✓;
+  fwd-hemisphere sto fwd ≥0.40 5/5 ✓ (0.616–0.703); backward draw
+  sto[5] fwd 0.249, slip/m 4.34, 85 stances — rear-hemisphere hole
+  unchanged, recorded-excluded per pending operator ruling.
+- CADENCE INFLATION (the mechanism finding): det DR1.0 stance
+  count rose 47.2 mean (parent, [44–51]) → 58.2 ([55–62]), +23%,
+  matching reward_step_event +24%. Per-stance creep FELL 17→14.5 mm
+  (11.7–15.7) — i.e. each stance now creeps just above/below the
+  10 mm allowance, and each extra touchdown RESETS the allowance.
+  Tol-floor audit: free slip = cadence × tol; at c1's cadence the
+  tol=10 floor is 0.80–0.94 slip/m per ep — the ≤1.0 gate is
+  nearly unreachable BY CONSTRUCTION. Scale audit re-run on the
+  champion ckpt (probe_anchor_scale, DR0 det seeds 0–2,
+  income-weighted collectible factor): tol=10 now 0.82–0.93 (was
+  0.53–0.70 at launch — the gate stopped binding); tol=5 restores
+  0.53–0.63 (the stake size that produced cycle 31's real det
+  movement).
+FRAMES WATCHED (md5/frames): dr10 walk_det_3 (best, 1.022)
+e5d6afca/375, walk_det_0 (worst tie, 1.413) ad5f2fa9/375,
+walk_sto_0 acfe7984/375; 15s walk_det_0 cfaff2f3/375, walk_sto_5
+(backward) 6f5974e4/375; strip PNGs + both contact sheets viewed.
+Remaining eps scalars only (unwatched).
+Pathologies first: posture is the SAME wide sprawly low creep as
+parent and old champion — all six legs splayed, body low, feet
+mostly grounded with small displacements; no crisp swing/stance
+cycling visible at strip resolution; NOT visually distinguishable
+from paddling. Backward ep churns near-in-place. Achievements: six
+legs cycling per gait metrics (gv 24/24), 0 falls in 24 eps, body
+level, currents flat.
+Exploits looked for: unload-sweep (duty drop + swing spike, slip
+high) — duty 0.38–0.62 balanced, ABSENT; slip-via-slowness —
+speed in band, ABSENT; park — ABSENT (0/24). FOUND: cadence
+inflation (stances +23%, step_event income +24%, per-stance creep
+hugging the tolerance) — an allowance-riding exploit of the
+per-touchdown anchor reset, invisible to anchor_frac (which it
+INFLATES) and to all prior watches. Check generalized: stance
+count / cadence is now a named exploit-watch column for every walk
+verdict (it is already in the harness as swing_count — no code
+change needed, just required reading).
+INTERPRETATION. The consolidation hypothesis is refuted cleanly:
+the frac gradient stayed live (0.837→0.906 earned) but slip did
+not follow — the frac↔slip link the parent verdict leaned on broke
+exactly where the parent's shape (c) predicted it could: the
+tolerance, not the anchoring, absorbed the gradient. The policy
+found the cheaper reorganization: step more often so each stance's
+creep fits under the allowance. Physics note: more, shorter
+half-anchored stances still grind 1.28 m per meter — nothing real
+improved. ROOT-CAUSE CHAIN (required): residual slip ← creep
+priced free below tol per stance + touchdown resets the allowance
+(cadence × tol = free slip; income floor ~0.9/m at tol=10) ←
+allowance sized for the OLD champion's 24 mm/stance creep, now 2x
+too loose for the adapted lineage ← gate-parameter defect (shape
+(c) verbatim); deepest link (sim prices sliding friction at 1.38x
+planted current) remains with the OPERATOR (cycle 28 ruling
+pending — recorded reason it is inaccessible). Correction at the
+deepest REACHABLE link: re-size the allowance (tol 10→5), NOT a
+new term, NOT a coefficient on a charge.
+VERDICT: FAIL against the recorded gate (DR1.0 slip clause det AND
+sto; all retention clauses met). NOT HARDWARE-READY: feet grind
+1.28 m per meter walked at DR 1.0 and the gait is visually the
+same sprawly creep — on carpet this stalls and heats servos (a
+motor has already cooked). CHAMPION UNCHANGED:
+ppo_goal_cw_walk_anchorgate.zip md5 35234ddc remains walk champion
+(c1 worse-or-noise on det 1.283 vs 1.240 and sto 1.326 vs 1.245,
+fwd parity — no metric beaten). Warm-start consolidation rung
+CLOSED (two gate misses in a row on this lineage; no c2, per c1's
+own pre-registration).
+HYPOTHESIS STATUS: REFUTED — prediction-if-true (frac >0.85 AND
+slip ≤1.0 both passes) failed on the slip half despite the frac
+half landing; the pre-registered discriminator (fixed panel at 40M
+total) shows the parent's det improvement was real-but-complete:
+the tol=10 gate had already been optimized to non-binding
+(collectible factor 0.82–0.93). Parent shape (c) fired ⇒ the ONE
+pre-registered audit-driven tolerance correction proceeds (below).

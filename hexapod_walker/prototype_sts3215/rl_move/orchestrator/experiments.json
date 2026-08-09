@@ -5536,7 +5536,7 @@
       "24"
     ],
     "created": "2026-08-09T09:04:02+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -5573,7 +5573,12 @@
         "problems": []
       }
     ],
-    "verify_agent": "two-phase re-verify 09:2xZ: pid 3173688 cmdline run-name matches; log +12.3KB/60s; W&B rximxa7s unique+running, step 9.4M->10.2M/45s (~16k fps); notes open with human paragraph; pod synced at snapshot 1002f7a (snapshot.sh --sync receipt); parent ckpt md5 35234ddc on pod"
+    "verify_agent": "two-phase re-verify 09:2xZ: pid 3173688 cmdline run-name matches; log +12.3KB/60s; W&B rximxa7s unique+running, step 9.4M->10.2M/45s (~16k fps); notes open with human paragraph; pod synced at snapshot 1002f7a (snapshot.sh --sync receipt); parent ckpt md5 35234ddc on pod",
+    "final_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_anchorgate_c1.zip",
+    "checkpoint_md5": "68dee96f6155f69a7aee5e00cf2a0668",
+    "hypothesis_status": "REFUTED",
+    "verdict": "FAIL on gate (DR1.0 agg slip/m det 1.283 / sto 1.326 vs <=1.0; parent 1.240/1.245 \u2014 no improvement, delta inside per-ep noise). anchor_frac 0.906 EARNED (>0.85) => parent shape (c) fired: tolerance mis-set. Mechanism: cadence inflation exploit \u2014 det stances 47->58 (+23%), reward_step_event +24%; per-touchdown allowance reset makes free slip = cadence x tol; tol=10 floor 0.80-0.94/m at c1 cadence >= the 1.0 gate. DR0 retention passes (det fwd 0.731, gv 24/24, 0 term, fwd-hemi sto 5/5). CHAMPION UNCHANGED (anchorgate 35234ddc). Consolidation hypothesis REFUTED: frac gradient live, slip did not follow. Pre-registered audit-driven tolerance correction (tol 10->5) is the follow-up; NOT HARDWARE-READY (slip 1.28 m/m).",
+    "eval_artifacts": "logs/ckpt_eval/cw_walk_anchorgate_c1_dr10 + cw_walk_anchorgate_c1_15s (videos md5 e5d6afca/ad5f2fa9/acfe7984/cfaff2f3/6f5974e4, 375 frames each, watched)"
   },
   {
     "run": "cw-walk-step0-anchor",
@@ -5657,6 +5662,18 @@
     "log": "/tmp/train_cw-walk-step0-anchor.log",
     "wandb_id": "g248pl2a",
     "verified": "2026-08-09T09:11:44+00:00",
-    "verify_agent": "two-phase re-verify 09:2xZ: pid 2645667 cmdline run-name matches, NO --init-from (fresh init confirmed), --log-std-init 0.0 --ent-coef 0.005 confirmed on cmdline; log +12.5KB/60s; W&B g248pl2a unique+running, step 4.7M->5.4M/45s; notes open with human paragraph; pod synced at snapshot 1002f7a; auto-continue lineage prefix cw-walk-step0 noted"
+    "verify_agent": "two-phase re-verify 09:2xZ: pid 2645667 cmdline run-name matches, NO --init-from (fresh init confirmed), --log-std-init 0.0 --ent-coef 0.005 confirmed on cmdline; log +12.5KB/60s; W&B g248pl2a unique+running, step 4.7M->5.4M/45s; notes open with human paragraph; pod synced at snapshot 1002f7a; auto-continue lineage prefix cw-walk-step0 noted",
+    "checkups": [
+      {
+        "time": "2026-08-09T09:17:10+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10793,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
