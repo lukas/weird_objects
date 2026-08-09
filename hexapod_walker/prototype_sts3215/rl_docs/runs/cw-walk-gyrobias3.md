@@ -16,5 +16,7 @@
 
 **gate**: Own-cfg harness at --dr-scale 0.0 + dr.gyro_bias_deg_s=3.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det
 
+**verdict**: INFRA CRASH, no science result: worker EOFError at env reset before any training step (0 steps) -- launch-collision under concurrent-cycle drain storm (COMMANDS.md gotcha 13b, 3-for-3 same pattern this window incl. joyhead90-lat25-s1 and placementnoise6). Auto-retried as cw-walk-gyrobias3-r1 (RUNNING elsewhere on the fixed pod) -- no verdict on the gyro-rate-bias axis itself yet; that comes from -r1's triage.
+
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 

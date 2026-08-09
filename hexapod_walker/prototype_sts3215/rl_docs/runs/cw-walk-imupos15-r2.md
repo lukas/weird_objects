@@ -2,9 +2,9 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: FAILED
 
-**created**: 2026-08-09T22:48:13+00:00
+**created**: 2026-08-09T22:49:04+00:00
 
 **pod**: hexapod-mjx-train-3
 
@@ -16,5 +16,7 @@
 
 **gate**: Own-cfg harness at --dr-scale 0.0 + dr.imu_pos_xy_m=0.015 + dr.imu_pos_z_m=0.0,0.02, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det
 
-**refused_reason**: hexapod-mjx-train-3 code marker 38a9ea67546d03423ac48149c0dee5576a7f0dac != local HEAD 3801dbaf117e611ee1969294c91b06cbd44be212. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
+**verdict**: INFRA (not a science result): EOFError at env-reset again, 0 steps -- 4th consecutive failure for this axis. This attempt was a single direct launch_run.py launch to a specific idle pod (not a drain race), yet still crashed identically at the same moment a totally different concurrent cycles launch (cw-walk-joyfric-s1) also failed the same way on the same node -- confirms this is a live host-wide launch-collision storm (many simultaneous JAX/Warp compiles + ~9 concurrent eval_checkpoint procs at 300-470% CPU each), not something specific to this pod or spec. Not fighting it further this cycle; requeued to backlog for the self-repairing drain once contention clears.
+
+**failed_reason**: run never appeared as 'running' in W&B within 240s
 
