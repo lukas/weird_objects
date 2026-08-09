@@ -3979,3 +3979,47 @@ at ~1/6 at full update parity; dose was not binding). Two misses on
 the same gate in this lineage -> hypothesis changes, not step
 count: next arm is own-park-state harvesting per the cycle-25
 pre-registration, branch (a) exit-works-park-stays.
+
+### LAUNCH cw-stance-lowerdense (20M GPU steps ≈ 305 updates, DR 1.0, seed 0, mjx-train-0) — price the hover WHERE it is used
+Basis: bellyrest's if-false branch (pre-registered escalation:
+descent-posture reference during the ramp), implemented as the
+dense grounded-feet window — the reference for a correct lower IS
+"feet planted throughout", so extending the existing charge over
+the whole episode is the reference term with zero new machinery.
+Warm start ppo_goal_cw_stance_bellyrest.zip md5 6212b44f (most
+consolidated stance ckpt: heights 24/24, hold 12/12, canaries 8/8;
+carries the belly-basin competence this arm wants to connect to).
+ONE variable vs the bellyrest segment:
+--cfg-set reward.end_posture_lower_dense=1 (cfg otherwise
+identical, incl. lower_belly_start_frac=0.35). Same k=5.0, same
+per-tick price; a correct descent pays 0.0 (probe-verified).
+Predictions (ledger + W&B notes carry the full form): if-true —
+det summed over-allowance <80 mm, posture ≥1/6 any pass, frames
+show planted descents. If-false (a) spears pay the charge →
+opposing-gradient (tilt/current) diagnosis, no more shaping;
+(b) all-leg 40–60 mm hover → allowance dead zone proven binding,
+operator ruling blocks further stance arms. Strongest alternative:
+dense charge prices away a needed tilt guard → destabilized
+descents, visible as tilt terminations/height erosion (stop rule).
+Gate: bellyrest gate verbatim + the new per-leg end-clearance
+eyeball clause (eval cfg WITHOUT belly starts). Canaries ON.
+Probe smoke probe-stance-lowerdense-b PASS on sweep-lower (150k/
+160 s, 0 tracebacks, canary baseline 8/8 + green at end; first
+attempt probe-stance-lowerdense FAILED: parent ckpt absent on the
+smoke pod — GPU-born ckpts don't auto-propagate to CPU pods,
+copied + md5-verified, retried once per procedure). Snapshot
+cafd213 (tag exp/cw-stance-lowerdense at 144fca0 has the code; r2
+tag carries the ledger). VERIFIED RUNNING by the launcher: pid
+1849163, W&B 7iyhg21d advancing (0.85M→2.49M seen), fps ~16k, no
+duplicate, pod code cafd213, parent md5 verified on pod. Watcher
+owns the 5-min checkup.
+FLEET NOTE: mjx-train-1 freed mid-cycle (parkstart-mjx-c1
+finished); its verdict + follow-ups belong to the watcher cycle
+that owns the walk line — not placing anything there. mjx-train-2/3
+stay idle: the stance line has exactly one ready falsifiable arm
+(this one — (a)/(b) fork on ITS outcome), the walk line's next arm
+is verdict-dependent on c1, and raise is a no-compute canary.
+Cycle totals: 3 launches (2 smokes: 1 failed on missing ckpt +
+1 pass; 1 experiment), 20M GPU steps (cap 80M), 0.3M CPU smoke
+steps (cap 16M), 2 harness evals (72 eps; 7 strips watched,
+provenance in verdict).

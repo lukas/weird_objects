@@ -4537,7 +4537,7 @@
       "24"
     ],
     "created": "2026-08-09T05:26:01+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -4573,7 +4573,12 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "final_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_parkstart_mjx_c1.zip",
+    "final_checkpoint_md5": "53238fa00ff3890bc5fea56ec77e9684",
+    "wandb_state": "finished",
+    "final_steps": 20054016,
+    "verdict": "FAIL (15s fwd 11/12 vs 12/12 \u2014 sto[5] partial park PERSISTS at full update parity, fwd 0.203, duty [0.85,0.13,0.82,0.22,0.79,0.19]; park-exit clause MET 11/12; retention slip 1.516<=1.8 MET; det fwd mean 0.712 vs parent 0.745, 5/6 seeds lower \u2014 mild slide). NOT HARDWARE-READY (1/6 sto park, skating slip/m ~1.4-1.6, DR0 only). HYPOTHESIS REFUTED: dose is NOT the binding factor; if-false branch (a) fires \u2014 synthetic exits work, own park stays -> harvest own-park resets. Champion UNCHANGED (parkstart-mjx 01d9ab60)."
   },
   {
     "run": "probe-stance-lowerdense",
@@ -4724,5 +4729,90 @@
       }
     ],
     "verdict": "SMOKE PASS: 150k/160s, 0 tracebacks, canary parent baseline 8/8 green + 4 groups protected + green at 150k; dense window mechanics verified controller-side (125/125 ticks charged vs 26/125 terminal, zero-action lower pays 0.0)"
+  },
+  {
+    "run": "cw-stance-lowerdense",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Spear-leg/allowance-riding hover survives because the end-posture charge exempts the entire descent (terminal 1.5s window) and hovering below the 60mm allowance is free; the hover is USED during the ramp (tilt guard) where it is currently unpriced. Charging foot clearance over the WHOLE lower episode (reward.end_posture_lower_dense=1, same term/k/magnitude, window only; a correct feet-planted lower pays exactly 0) prices the behavior where it is chosen. If-true: lower det summed over-allowance <80mm (bellyrest: 80-107) AND lower posture >=1/6 any pass AND frames show feet staying planted through the descent; gate pass possible. If-false shapes: (a) spears persist and PAY the dense charge (reward_end_posture integral grows, clearances unchanged) -> hover is held by a stronger opposing gradient -> tilt/current interplay diagnosis, no more shaping arms; (b) all legs converge to 40-60mm hover throughout (threshold-riding generalizes; eval would PASS while frames show a hover) -> the allowance dead zone is proven the binding defect -> operator ruling on the 60mm allowance required before any further stance arm. Strongest alternative: dense charging prices away the tilt guard and destabilizes the descent -> visible as tilt terminations/height-clause erosion (stop rule covers). Parent ppo_goal_cw_stance_bellyrest.zip md5 6212b44f (heights 24/24, hold 12/12 intact). Probe probe-stance-lowerdense-b PASS. Snapshot cafd213.",
+    "gate": "posture-strict CPU harness @ DR 1.0, 6 eps/mode det+sto, explicit --modes lower rise hold raise track, eval cfg WITHOUT lower_belly_start_frac: lower end-posture >=5/6 sto AND >=4/6 det AND rise/lower height-only >=5/6 both AND hold sto 6/6; lower verdict must eyeball per-leg end_clear_mm for 40-60mm clustering and negatives; stop rule: rise HEIGHTS <5/6 anywhere",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_stance_bellyrest.zip",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_stance_bellyrest.zip",
+      "--dr-scale",
+      "1.0",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "rise=0.25,lower=0.2,raise=0.2",
+      "--cfg-set",
+      "reward.k_current_max=0.05",
+      "--cfg-set",
+      "reward.k_still=0.5",
+      "--cfg-set",
+      "goal.rise_hold_min_s=0.5",
+      "--cfg-set",
+      "reward.k_current_hot=0.2",
+      "--cfg-set",
+      "reward.k_stance_contact=0.5",
+      "--cfg-set",
+      "reward.k_stance_clearance=10.0",
+      "--cfg-set",
+      "reward.k_support_margin=0.3",
+      "--cfg-set",
+      "reward.k_load_even=1.5",
+      "--cfg-set",
+      "reward.k_end_posture=5.0",
+      "--cfg-set",
+      "goal.lower_belly_start_frac=0.35",
+      "--cfg-set",
+      "reward.end_posture_lower_dense=1",
+      "--out-name",
+      "ppo_goal_cw_stance_lowerdense",
+      "--n-envs",
+      "4096",
+      "--ent-coef",
+      "0.001",
+      "--notes",
+      "Dense lower end-posture window: the charge that previously fired only in the last 1.5s of a lower episode now covers the WHOLE episode (reward.end_posture_lower_dense=1) - one variable vs the bellyrest segment, same term, same k=5.0, same per-tick magnitude; a correct feet-planted descent pays exactly 0 (verified in a controller probe: 125/125 ticks charged vs 26/125 terminal-only, zero-action lower total 0.0). Basis, cycle 26: bellyrest REFUTED reset-state diversity for the stance spear leg - the policy rests planted when STARTED planted (frac=1.0 eval 12/12) yet still ends every plant-start descent with three feet airborne, and it THRESHOLD-RIDES the 60mm allowance (leg4 relocated under it, belly-start leg0 parked at 42-60mm). Root cause chain: hover free below 60mm + charged only terminally <- window exempts the descent where the hover is actually used (rise-transient exemption wrongly inherited by lower, which has no legitimate leg lift) <- objective never says feet stay planted while lowering. The window is the deepest link reachable without touching the eval gate definition; the 60mm allowance itself is flagged NEEDS OPERATOR. Parent ppo_goal_cw_stance_bellyrest.zip md5 6212b44f (heights 24/24, hold 12/12, canaries 8/8). Budget 20M GPU steps ~= 305 updates = segment parity. Gate: lower end-posture >=5/6 sto and >=4/6 det, rise/lower height-only >=5/6 both, hold sto 6/6, canaries ON, rise-heights stop rule, per-leg end-clearance eyeball clause. Probe probe-stance-lowerdense-b PASS. Snapshot cafd213.",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24"
+    ],
+    "created": "2026-08-09T05:57:51+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 0,
+      "code_sha_local": "cafd2132731fa8ca41fdff6e69ca61eee8d19833",
+      "code_sha_pod": "cafd2132731fa8ca41fdff6e69ca61eee8d19833",
+      "pid": "1849163",
+      "log_growth_bytes": [
+        9919,
+        18391
+      ],
+      "wandb_id": "7iyhg21d",
+      "global_step_window": [
+        851968,
+        2293760
+      ],
+      "fps_estimate": 16019.9
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stance-lowerdense --steps 20000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stance_bellyrest.zip --dr-scale 1.0 --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix rise=0.25,lower=0.2,raise=0.2 --cfg-set reward.k_current_max=0.05 --cfg-set reward.k_still=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.k_current_hot=0.2 --cfg-set reward.k_stance_contact=0.5 --cfg-set reward.k_stance_clearance=10.0 --cfg-set reward.k_support_margin=0.3 --cfg-set reward.k_load_even=1.5 --cfg-set reward.k_end_posture=5.0 --cfg-set goal.lower_belly_start_frac=0.35 --cfg-set reward.end_posture_lower_dense=1 --out-name ppo_goal_cw_stance_lowerdense --n-envs 4096 --ent-coef 0.001 --notes 'Dense lower end-posture window: the charge that previously fired only in the last 1.5s of a lower episode now covers the WHOLE episode (reward.end_posture_lower_dense=1) - one variable vs the bellyrest segment, same term, same k=5.0, same per-tick magnitude; a correct feet-planted descent pays exactly 0 (verified in a controller probe: 125/125 ticks charged vs 26/125 terminal-only, zero-action lower total 0.0). Basis, cycle 26: bellyrest REFUTED reset-state diversity for the stance spear leg - the policy rests planted when STARTED planted (frac=1.0 eval 12/12) yet still ends every plant-start descent with three feet airborne, and it THRESHOLD-RIDES the 60mm allowance (leg4 relocated under it, belly-start leg0 parked at 42-60mm). Root cause chain: hover free below 60mm + charged only terminally <- window exempts the descent where the hover is actually used (rise-transient exemption wrongly inherited by lower, which has no legitimate leg lift) <- objective never says feet stay planted while lowering. The window is the deepest link reachable without touching the eval gate definition; the 60mm allowance itself is flagged NEEDS OPERATOR. Parent ppo_goal_cw_stance_bellyrest.zip md5 6212b44f (heights 24/24, hold 12/12, canaries 8/8). Budget 20M GPU steps ~= 305 updates = segment parity. Gate: lower end-posture >=5/6 sto and >=4/6 det, rise/lower height-only >=5/6 both, hold sto 6/6, canaries ON, rise-heights stop rule, per-leg end-clearance eyeball clause. Probe probe-stance-lowerdense-b PASS. Snapshot cafd213.' --impl warp --host-workers 24 > /tmp/train_cw-stance-lowerdense.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-stance-lowerdense.log",
+    "wandb_id": "7iyhg21d",
+    "verified": "2026-08-09T06:01:29+00:00"
   }
 ]
