@@ -2343,3 +2343,23 @@ unchanged; walk = ppo_goal_cw_walk_step0_lowent.zip md5 923ee55c
 cw_walk_step0_{c2,lowent}_gate{,_sto} + cw_walk_step0_lowent_15s.
 Harness change landed: sto passes now record video (previously
 structurally unwatchable — det-only videos).
+
+### cw-stance-endpost-c1 launch outcome (cycle 18 close)
+Three attempts, all recorded in the ledger: (1) s4 attempt died at
+argparse — the launcher still passes --notes UNQUOTED to the remote
+shell (cycle-14 finding (a), unfixed); a `;` in my notes split the
+command, no process/W&B created, launcher marked FAILED. (2) s3 was
+chosen after a clean REFUSED on s4's node (host load1 76.9 — normal
+traffic, other tenants/launches). First s3 attempt hit the same
+quoting bug with space-splitting. (3) Embedded-quote workaround
+(r1's pattern): VERIFIED RUNNING on s3 — pid 2105951, W&B v5t38fee,
+~2458 fps solo, log advancing, 0 tracebacks, cmdline carries every
+cfg-set incl. reward.k_end_posture=5.0, canaries armed with all four
+protected groups, code at snapshot 5ca9a85, parent ckpt md5 verified
+b78c1b6a on pod before launch. Ledger: my pre-registration INTENT
+merged into the launcher's authoritative RUNNING entry (SUPERSEDED
+pointer left; no ghost-RUNNING residue). Launcher note for operator
+(still open): quote/escape --notes when building the remote command.
+Cycle totals: 1 experiment launched (4M steps of 16M cap), pods after
+cycle: s3 = endpost-c1, s6 = lowent-c1 (concurrent cycle's), rest
+idle. Champions unchanged.
