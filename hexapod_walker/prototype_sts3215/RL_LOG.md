@@ -2776,3 +2776,24 @@ trained together on-pod before; the trainer's own _build_env was
 probed locally this cycle (125 steps, DR0.3, all three reward keys
 emitted — recorded above), and the pod code is now marker-verified;
 no separate on-pod smoke.
+
+### Cycle 20 close
+cw-walk-h15b-dr03 VERIFIED RUNNING on long5m: pid 2195399, W&B
+bzvup62t, ~5188 fps solo, log advancing (+20 KB/60 s, 0 tracebacks),
+code marker 9c3bbae verified BOTH sides (first launch through the new
+.code_sha gate), parent ckpt md5 d0a12a94 verified on pod pre-launch,
+W&B config confirms dr_scale 0.3 / target_kl 0.02 / 15 s / seed 0,
+and — the check that would have caught dr03 — env/reward_step_event,
+reward_drag, reward_park_duty ALL present in the run's first logged
+history rows. No duplicate run name. Watcher owns the +5 min checkup.
+Cycle totals: 1 launch (4M of 16M cap). Fleet after: long5m =
+h15b-dr03, s6 = step0-hist8 (concurrent cycle's); walk/s3 freed by
+h15b-c1/endpost-c1 finishing — their verdicts belong to their own
+cycles, pods deliberately left for them (both will need
+snapshot.sh --sync before any launch under the new code gate).
+Champions unchanged: walk = ppo_goal_cw_walk_lowent_h15b.zip md5
+d0a12a94; stance = cw_stance_dr10. Evals archived:
+logs/ckpt_eval/cw_walk_lowent_dr03_{gate,ret0}. Sweep note recorded:
+walk_task.py md5 matched current code on all pods EXCEPT long5m at
+discovery time (698ae6cf everywhere; long5m was de427bb7, now synced
++ marked). No pod other than long5m ran stale code this campaign leg.

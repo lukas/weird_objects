@@ -294,11 +294,31 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # the command, capped so overspeeding isn't a strategy.
             r_prog = 0.0
             s_ref = float(np.hypot(goal.vx_ref, goal.vy_ref))
+            along = 0.0
             if s_ref > 1e-3:
                 along = (v[0] * goal.vx_ref + v[1] * goal.vy_ref) / s_ref
                 k_prog = float(cfg_get(self.cfg, "reward", "k_walk_prog",
                                        default=K_PROG))
                 r_prog = k_prog * min(along / s_ref, 1.25)
+            # Progress-gated kernel income (cycle 20, cw-walk-kgate;
+            # cfg reward.walk_kernel_prog_gate in [0,1], default 0=off):
+            # multiply the velocity-error kernel by
+            # clip(along/s_ref, 0, 1). Root cause: at commands
+            # 0.02-0.06 m/s the ABSOLUTE-error kernel pays a parked
+            # robot (v=0) 0.97-1.85/tick (up to 93% of peak income), so
+            # the tripod park stays a paid basin (return +519 vs +1220
+            # walking) that k_park_duty merely discounts. Gating income
+            # on achieved progress makes the park earn ~0 kernel income
+            # by construction while perfect tracking is unchanged
+            # (factor 1); overspeed unaffected (clip at 1). Walk-mode
+            # only by construction (this block).
+            g_kernel = float(cfg_get(self.cfg, "reward",
+                                     "walk_kernel_prog_gate",
+                                     default=0.0))
+            if g_kernel > 0.0 and s_ref > 1e-3:
+                factor = min(max(along / s_ref, 0.0), 1.0)
+                r_walk *= (1.0 - g_kernel) + g_kernel * factor
+                info["walk_prog_factor"] = factor
             reward = float(reward) + r_walk + r_prog
             info["reward_walk"] = r_walk
             info["reward_walk_prog"] = r_prog
