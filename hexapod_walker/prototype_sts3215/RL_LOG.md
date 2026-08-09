@@ -503,3 +503,7 @@ a file under `archive/` and link it.
   marker is 'artifacts' not 'WROTE'; ops.sh/watch_loop hint strings fixed).
   Final cycle-54 fleet adds: lowgait60(t1), speedband2-r1(t2), fricvar(t3),
   lowgait-dr05-r1(t4).
+  (c54 addendum: first drain hit stale .code_sha on train-6/7/11 after my
+  snapshot moved HEAD — re-synced 3 pods (one transient -dirty stamp from
+  concurrent ledger-write temp files, resolved on retry), requeued, all 4
+  placed: deadband30 RUNNING, head90-s1/stiffvar/comshift30 INTENT→verifying.)
