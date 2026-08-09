@@ -3081,3 +3081,130 @@ prejudging three in-flight gates. Champions unchanged: walk = h15b
 md5 d0a12a94, stance = cw_stance_dr10. Evals archived:
 logs/ckpt_eval/cw_walk_step0_hist8_4M_gate (12/12 eps on video).
 Cycle totals: 0 launches, 0 steps of the 16M cap.
+
+## Cycle 23 (2026-08-09 ~03:5xZ) — cw-walk-h15b-dr03 verdict: first walk-gate PASS at DR>0 — but baseline probes show the rung was VACUOUS (untrained h15b passes the same gate at DR0.3, 0.6, AND only misses det slip at 1.0). DR-ladder TRAINING arms closed; DR is not the walk bottleneck. No launch (next walk arm sequenced on kgate's verdict, owned elsewhere).
+
+### cw-walk-h15b-dr03 — DR 0.3 rung off the champion: gate PASS; zero measurable delta vs untrained parent at every DR scale
+OBSERVATIONS (mechanical). W&B bzvup62t FINISHED, 4M steps (12.02M→
+16.02M cum, 1059 s solo long5m, ~5188 fps verified at launch). Final
+ckpt ppo_goal_cw_walk_h15b_dr03.zip md5 15065551c2007cb40f560bed9c4
+08be9 (pod + controller copies match). Training curves FLAT all run:
+env/reward_walk quarters [1.645, 1.644, 1.639, 1.640], walk_speed
+[0.0462→0.0477], step_event [0.126→0.133]; train/std 1.744→1.519
+(harness policy_std 1.481 ≈ h15b-c1's 1.485). No terminations, no
+canary (lineage exemption).
+Gate harness DR0.3 15 s own-cfg (archived logs/ckpt_eval/
+cw_walk_h15b_dr03_ev_dr03_15s), 6 eps/mode det+sto, ALL 12 strips
+watched: fwd ≥0.40 m 12/12 (det 0.579–0.718, sto 0.478–0.700);
+gait_valid 12/12; terminations 0/12; det slip mean 0.899 ≤1.0
+(slip/m 1.41); sto slip 0.917 (slip/m 1.49). Speed-band "success"
+det 4/6, sto 5/6 — NOT a gate clause; misses are tracking
+(vel_err 0.031–0.043), all six legs cycling on camera.
+DR0 retention 15 s (ev_dr0_15s): fwd ≥0.40 10/12, gv 11/12 — EQUALS
+parent baseline (10/12, 11/12). det slip 0.916 vs parent 0.912 —
+identical. sto[4] is the KNOWN park, same index as h15b/c1: duty
+[0.99,0,1.0,0.02,0.99,0], fwd 0.035, frozen from ~tile 2 on camera.
+det[2] is the known churn cousin (duty skew 0.74/0.22/0.83/0.29/
+0.65/0.29, fwd 0.372, slip/m 3.16). The structural park basin is
+UNCHANGED by DR training.
+DR0 5 s (ev_dr0_5s): det slip 0.327 ≤0.93 gate clause ✓ mechanically
+— but slip/m 1.82 vs parent 1.53 and 5 s det fwd 0.180 vs parent
+0.382 (non-overlapping): the SAME distance-confound cycle 21 flagged
+on c1. The clause passes by walking less, not skating less. 5 s det
+success 2/6 vs parent 4/6 — the slow-start behavior correlates with
+the std anneal (c1 at std 1.485 showed it too; dr03 at 1.481 ditto).
+NAMED-BASELINE PROBES (eval-only, this cycle; parent h15b md5
+d0a12a94 evaluated at the run's own gate): h15b UNTRAINED at DR0.3
+15 s (ev_h15b_dr03_15s): fwd 12/12 ≥0.444, gv 12/12, 0 term, det
+slip 0.890 — PASSES the identical gate; det speed-success 6/6 vs
+dr03's 4/6. Ladder probes both ckpts (ev_{dr03ck,h15b}_{dr06,dr10}):
+  DR0.6: dr03ck det slip 0.947 / h15b 0.961, both fwd 12/12 gv 12/12
+  0 term — BOTH pass the full rung-0.6 gate untrained-vs-trained
+  indistinguishable.
+  DR1.0: dr03ck det slip 1.061 / h15b 1.008 — both fail ONLY the det
+  slip ≤1.0 clause (by 1–6%); fwd 12/12, gv 12/12, 0 term both.
+DR path verified live mechanically (suspicion: cycle-20 stale-code
+class): joint_walk eval env at dr 1.0 draws per-episode friction
+0.67–1.24, latency 1.05–1.72; at dr 0 no EpisodeRandomization.
+HARNESS FOOTGUN (record): RandRanges.scaled() CLAMPS s to [0,1] —
+`--dr-scale 3.0` silently evaluates at 1.0. Never cite a >1.0 DR
+eval as evidence of anything.
+Current note (all evals, both ckpts): Imax 2.53–2.64 A, above the
+2.5 A soft breaker — same band as parent (2.61 A); pre-existing,
+per-plan current recalibration caveat stands, not a new pathology.
+FRAMES WATCHED (provenance; md5/frame-count): DR0.3 all 12 —
+det 9f7bfcec/8fa66f11/29548ce2/8ac0c57b/8d8763d9/d396acd0, sto
+8ede834a/676bbddb/3c4fea0d/04cb9dc4/d84d6cad/cb1a4959, 375f each.
+DR0 15 s: det_0 aba2c167, det_1 854be1b0, det_2 816154bb, sto_0
+b88e0724, sto_4 eae98170 (park on camera), 375f each; unwatched DR0
+successes recorded as such (det_3/4/5, sto_1/2/3/5 — scalars only).
+5 s: det_0 d38e15ab, sto_4 3bb2207e (park on camera), 125f each.
+Probes: dr03ck@1.0 det_0 faf14ab2 + sto_3 fd2cd86b, dr03ck@0.6
+det_0 1fd82562, h15b@1.0 det_0 09fd4d43, 375f each — same sprawly
+six-leg gait, level body, checkerboard advancing; no new failure
+class at any DR; remaining probe eps unwatched (scalars only).
+Pathologies first, all watched strips: sprawly-wide stance
+unchanged; stance-foot skating in EVERY episode (slip/m 1.4–1.8
+at every DR — the robot skids ~1.5 m of foot-contact for every
+meter it gains); cadence irregular; DR0 sto park 1/6 and churn
+cousin persist. Achievements: all six feet cycle contact/short-swing
+in every non-park ep at every DR incl. 1.0; zero falls in 60 harness
+eps this cycle across DR 0/0.3/0.6/1.0.
+Exploits looked for: DR-slop pass (noise-robust skating instead of
+stepping) — NOT found: det slip at DR0.3 equals parent's DR0 value
+and frames show stepping. 5 s retention clause gamed by slow starts
+— FOUND again (pre-flagged cycle 21); retention judged on slip/m.
+Inert-DR harness — ruled out mechanically (draws above).
+INTERPRETATION. The rung PASSED but taught us the opposite of the
+plan's premise: this gait's DR robustness was already free. A
+statically-stable sprawled hexapod creeping at 5 cm/s is the
+easiest DR case there is — friction/latency/mass draws at s≤1.0 do
+not threaten it (0 falls in 24 DR≥0.6 eps, untrained parent). The
+0-b.2 ladder's remaining content at DR1.0 is ONE clause: det slip
+1.008–1.061 vs ≤1.0 — and that is the SKATING defect, not a DR
+defect; it fails marginally at every scale (slip/m 1.4–1.8
+everywhere). Training more DR rungs buys nothing measurable
+(rung 0.3 delta vs parent: slip +0.009, success −2 eps, both inside
+or at the edge of the 1–2 ep band, nothing outside noise in the
+right direction) — the h15b line's real blockers remain the park
+basin (kgate, in flight, owned elsewhere) and skating (pricing/
+sim-fidelity question, NOT a coefficient retry).
+VERDICT: PASS against the recorded gate — every clause met at
+DR0.3 det+sto, DR0 retention equal to parent, 5 s slip clause met
+(with the distance confound named; slip/m worse, inside the
+slow-start pattern). First walk-gate PASS at DR>0 in the campaign.
+NOT HARDWARE-READY: 1/6 DR0 sto park unchanged, feet skate ~1.5 m
+per meter walked at every DR, speed tracking det 4/6 — none of
+that goes on the physical robot. CHAMPION: UNCHANGED — h15b (md5
+d0a12a94) keeps it. dr03 matched its parent everywhere and was
+WORSE outside noise on one axis (5 s det fwd 0.180 vs 0.382,
+slow starts); the untrained parent already passes DR0.3 and 0.6.
+dr03 ckpt retained (append-only) as the DR-line record.
+HYPOTHESIS STATUS: SUPPORTED on the letter ("the gait survives DR
+0.3 as a single rung" — every if-true prediction landed), REFUTED
+on the spirit: "moderate-DR fine-tuning robustifies" is false for
+this gait — the named baseline (untrained h15b, same gates, same
+cycle) shows NO robustification was needed or delivered. The
+pre-registered alternative (DR-slop pass) was checked and excluded.
+CONSEQUENCE (pre-registered escalation logic): the DR ladder's
+training arms (0-b.2 dr06/dr10 segments) are CLOSED as vacuous —
+the ladder is satisfied eval-side through 0.6 and blocked at 1.0
+only by skating, which is a pricing/sim-fidelity defect owned by
+the kgate branch. Skating is now BOTH the fluidity blocker and the
+DR1.0 blocker — it is the single highest-value walk defect after
+the park.
+
+### Cycle 23 close
+No launch. long5m freed and left idle DELIBERATELY: the plan's next
+walk arms (overspeed pricing if kgate true; reset-state diversity /
+load evenness if false) are pre-registered on kgate's verdict, which
+belongs to its own cycle (kgate finished during this cycle; watcher
+will fire it — not mine to grab). Launching a DR rung would
+contradict this cycle's own evidence; launching a pricing arm would
+prejudge kgate. An idle pod is cheaper than a confounded campaign.
+Champions unchanged: walk = ppo_goal_cw_walk_lowent_h15b.zip md5
+d0a12a94; stance = cw_stance_dr10. Evals archived: logs/ckpt_eval/
+cw_walk_h15b_dr03_ev_{dr03_15s,dr0_15s,dr0_5s,h15b_dr03_15s,
+dr03ck_dr06,dr03ck_dr10,h15b_dr06,h15b_dr10} (8 dirs, 60 eps).
+Cycle totals: 0 launches, 0 steps of the 16M cap; 8 harness evals
+(6 eps/mode) + 1 DR-sanity probe, all controller-side.
