@@ -4434,3 +4434,46 @@ list).
    (the if-false branches of the phase arm are read off its trend).
 rl_move/tests: 38 passed, 5 skipped. GPU probe of the new path
 (probe-walk-phase-mjx, 2M steps) gates the main launch.
+
+### PROBE probe-walk-phase-mjx (1M GPU smoke, mjx-train-1) — PASS
+New-mechanism probe gating the phase arm: the train_ppo_mjx
+--obs-pad-transplant port (this cycle's code change) + phase package
+live on the warp stack. Transplant line "72 -> 74 dims; zero-padded
+first-layer columns in [policy_net.0, value_net.0]" present; 1M
+steps in 207 s; 0 tracebacks/NaN; periodic-eval walk err 0.029 m/s
+(parent band). Ledger updated FINISHED/PASS.
+
+### LAUNCH cw-walk-phaseprior (20M GPU steps, mjx-train-1) — observable tripod clock + agreement income vs the paddling gait
+The review's rung 4, entered per its own escalation order after the
+effort rung refuted (this cycle). One lever off walk champion
+ppo_goal_cw_walk_parkstart_mjx.zip md5 01d9ab60 (k_walk_effort
+DROPPED — refuted): goal.walk_phase_obs=1 + walk_phase_hz=0.4 +
+reward.k_phase_contact=1.0, warm-started across the +2 obs widening
+via the new MJX transplant (parent bit-identical at init). Clock
+rate and k from the scale audit (design section above): 0.4 Hz
+matches natural cadence where periodic; agreement income (max
++1.0/tick vs +2.7/tick kernel+prog) is NOT collectible by current
+behavior (champion best-offset agreement 0.53–0.84 by seed —
+irregular). Distinct from cycle-12's refuted basin-escape phase arm
+(recorded in the design section; plan updated to disambiguate).
+Gate: the effort arm's gate verbatim (DR1.0 slip det/sto ≤1.0, gv
+12/12, 0 term; DR0 retention; frames for anchoring + cadence),
+plus the env/phase_agreement trend read against three
+pre-registered if-false shapes ((a) agreement up/slip unmoved →
+phase rung closed, (b) agreement flat → prior can't engage warm,
+(c) gait degrades → kill). VERIFIED RUNNING: pid 1958285, W&B
+ia5x7piz advancing (4.65M in first minutes, ~19k fps), pod code at
+snapshot 76c41c0, transplant line in log, env/phase_agreement live
+at 0.512 = chance (term active, unearned at init — as designed).
+Watcher owns the checkup.
+FLEET NOTE: mjx-train-0/2/3 idle deliberately — stance line BLOCKED
+on the operator pricing/allowance ruling (cycle 28), rear-hemisphere
+exposure BLOCKED on the operator scope ruling (cycle 27), raise is a
+no-compute canary, mirror-symmetry is queued post-phase-verdict
+(plan item 2), and a parallel 0-c.2 distance-income arm would
+pre-empt the pending operator overspeed/gate ruling it directly
+interacts with (recorded as the reason, not deliberation idle).
+Cycle totals: 2 launches (1 GPU smoke probe PASS, 1 experiment),
+21M GPU steps (cap 80M), 0 CPU steps, 2 harness evals (24 eps),
+1 controller scale-audit probe (3 eps); 8 strips watched
+(provenance in verdict).
