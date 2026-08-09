@@ -43,6 +43,9 @@ hexapod_walker/prototype_sts3215/.verify_cache.sqlite-journal
 hexapod_walker/prototype_sts3215/.verify_cache.sqlite-wal
 hexapod_walker/prototype_sts3215/.verify_cache.sqlite-shm
 
+# direnv per-directory env (activates .venv; machine-local)
+.envrc
+
 # Cursor / editor / OS
 .DS_Store
 .vscode/
