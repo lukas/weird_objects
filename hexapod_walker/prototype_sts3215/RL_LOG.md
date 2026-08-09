@@ -4897,3 +4897,44 @@ total) shows the parent's det improvement was real-but-complete:
 the tol=10 gate had already been optimized to non-binding
 (collectible factor 0.82–0.93). Parent shape (c) fired ⇒ the ONE
 pre-registered audit-driven tolerance correction proceeds (below).
+
+### LAUNCH cw-walk-anchortol5 (20M GPU steps, mjx-train-1) — the ONE pre-registered audit-driven tolerance correction: tol 10→5 mm
+Sanctioned by parent anchorgate's shape (c) (fired by c1's frac
+0.906-earned + slip 1.283-flat) — NOT coefficient iteration: the
+correction is derived from two audits (tol-floor: free slip =
+cadence × tol, tol=10 floor 0.80–0.94/m ≥ the gate; collectible
+factor on current champion: tol=10 drifted to 0.82–0.93
+non-binding, tol=5 restores 0.53–0.63, the stake that produced the
+campaign's only real slip movement). One variable off champion
+ppo_goal_cw_walk_anchorgate.zip md5 35234ddc:
+reward.anchor_tol_mm=5.0. If-true: DR1.0 det slip ≤1.0 at det
+stances ≤~65/ep, retention holds. If-false: cadence inflates again
+(det stances ≥~75/ep, slip flat) ⇒ the PER-TOUCHDOWN ALLOWANCE
+RESET is the structural defect ⇒ tolerance rung CLOSED (one
+correction, else closed — per pre-registration); escalation is
+displacement-gated step-event credit (0-c.2) or the operator
+sim-pricing ruling. Starvation shape (DR0 det fwd <0.45) also
+closes the rung. VERIFIED RUNNING (two-phase): pid 3759171
+(cmdline has tol=5.0 + init-from champion, no duplicate), log
++12KB/60 s, pod .code_sha e0d34b8 = snapshot, W&B wn7pl2c4 unique
++ advancing 3.5M→4.2M/45 s; MECHANISM LIVE: anchor_frac 0.651 and
+reward_walk 0.94/tick (vs 0.906/1.29 at tol=10) — the re-sized
+gate is biting exactly at the audit-predicted stake. Watcher owns
+the checkup.
+
+FLEET NOTE (cycle 32): mjx-train-0 busy (cw-walk-step0-anchor,
+~19M/40M, off-limits). mjx-train-2/3 left idle with recorded
+reasons unchanged from cycle 31: stance line BLOCKED on operator
+pricing/allowance ruling (cycle 28), rear-hemisphere arm BLOCKED
+on operator scope ruling (cycle 27), raise is a no-compute canary,
+and mirror-symmetry (plan item 2) remains UNIMPLEMENTED — it needs
+obs/action mirror index maps + trainer support + its own probe and
+gets a dedicated implementation cycle rather than shipping beside
+a live gate-correction arm. A speculative second walk arm (e.g.
+displacement-gated step-event credit) would PRE-EMPT the tol5
+arm's pre-registered escalation and muddy the rung-closing logic —
+launching it now is the confound, not caution.
+Cycle totals: 1 launch (20M GPU steps, cap 80M), 0 CPU steps,
+2 harness evals (24 eps, parallel), 1 controller scale-audit probe
+(3 eps), 5 strips + 2 contact sheets watched (provenance in
+verdict), champion unchanged, plan net 0 lines.
