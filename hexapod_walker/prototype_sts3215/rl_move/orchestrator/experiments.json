@@ -18225,7 +18225,7 @@
       "WISHLIST 13b/13c axis (servo speed sag): STS3215 profile speed drops under load and battery voltage sag - the fitted sim speed is a fresh-battery bench number. ISOLATED axis off the no-DR champion: dr-scale 0.0 + ONLY dr.vel_scale=0.70,1.10 (default DR low side is 0.85; real sag can be deeper). Plain: the walk must survive servos up to 30% slower than calibrated. If-true: gait tolerates slow servos (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - voltage-sag robustness banked. If-false: slow servos break swing timing (feet land late, gait degrades to dragging or terminations) - deployment needs a battery-state input or conservative speed calibration. Strongest alternative: policy just walks slower and under-tracks the command band - prog_ratio will show it without gait damage. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Gate: Own-cfg harness at --dr-scale 0.0 + dr.vel_scale=0.70,1.10, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2 m; plus DR0 nominal-speed retention det 6/6 gv, det slip/m <=1.24; frames watched det"
     ],
     "created": "2026-08-09T17:44:41+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -18264,7 +18264,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": "no",
+    "verdict": "FAIL(letter) / HYPOTHESIS NO-EFFECT (torquedroop class, 3rd instance). Own-cfg (DR0 + vel_scale 0.70-1.10): gv 12/12, 0 term, but det med fwd 1.15 < gate 1.2 - the 2 deep-sag det draws crater transport (fwd 0.54-0.63, stride 0.029-0.038, slip/m 3.3-6.0). DECISIVE: parent longdist-r2 under the IDENTICAL spread matches per-episode (med fwd 1.15 = child; same craters) - exposure changed nothing; champion already tolerates moderate sag free and BOTH fail identically at ~0.70x. Deep voltage sag is a gait transport boundary (mirror of torquedroop's <=0.7x torque finding), not a trainable gap - deployment mitigation is battery-state speed calibration, not policy exposure. DR0 retention clean (gv 6/6, fwd med 1.54, slip/m 1.06, prog 0.95 - no forgetting). Servo-imperfection single-axis exposure now 0-for-3 (torquedroop, cmddrop10, velsag30): run the parent baseline eval BEFORE spending 20M steps on this class. Not hardware-ready."
   },
   {
     "run": "cw-walk-cmddrop10",
@@ -18326,7 +18328,7 @@
       "WISHLIST 13c axis (servo command dropout): the real Feetech bus loses SyncWrite commands; the sim champion has never trained against lost commands. ISOLATED axis off the no-DR champion: dr-scale 0.0 + ONLY dr.cmd_drop_prob_max=0.10 (2x the full-DR ceiling - each episode drops up to 10% of control ticks). Plain: the walk must not fall apart when some commands never arrive. If-true: gait absorbs dropouts (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 clean retention holds - dropout robustness is free, keep the axis. If-false: dropped ticks break the gait rhythm (terminations, prog craters, or slip blowup) - the deployment stack needs command-resend at the bus level instead of policy robustness. Strongest alternative: policy survives by stiffening into a slower shuffle - frames + stride/cadence will show it. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Gate: Own-cfg harness at --dr-scale 0.0 + dr.cmd_drop_prob_max=0.10, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2 m; plus DR0 no-dropout retention det 6/6 gv, det slip/m <=1.24; frames watched det"
     ],
     "created": "2026-08-09T17:45:56+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -18365,7 +18367,9 @@
         "problems": []
       }
     ],
-    "note": "OVERLAP FLAG (c59): same dr.cmd_drop_prob_max axis as cw-walk-cmddrop20 (max 0.20, RUNNING t10) \u2014 concurrent refill collision from the dry READY well. Triage the pair as ONE intensity-ladder study, and run the PARENT (longdist-r2) under the same own-cfg drop spread first (torquedroop c59 lesson: champion may already cover the axis for free; the gate letter cannot tell exposure effect from pre-existing tolerance)."
+    "note": "OVERLAP FLAG (c59): same dr.cmd_drop_prob_max axis as cw-walk-cmddrop20 (max 0.20, RUNNING t10) \u2014 concurrent refill collision from the dry READY well. Triage the pair as ONE intensity-ladder study, and run the PARENT (longdist-r2) under the same own-cfg drop spread first (torquedroop c59 lesson: champion may already cover the axis for free; the gate letter cannot tell exposure effect from pre-existing tolerance).",
+    "hardware_ready": "no",
+    "verdict": "GATE LETTERS PASS / HYPOTHESIS NO-EFFECT (torquedroop class, 2nd instance). Own-cfg (DR0 + cmd_drop 0.10): gv 12/12, 0 term, det med fwd 1.42 (gate >=1.2); 2 heavy-drop det draws degrade gracefully (fwd 0.60-0.75, slip/m 2.8-4.1, no term, body stays level). DR0-clean retention det gv 6/6, slip/m med 0.93 (<=1.24), prog med 0.97. DECISIVE: parent longdist-r2 under the IDENTICAL drop spread matches per-episode (med fwd 1.42 = child 1.42; same 2 craters at eps 4/5) - exposure taught nothing; champion already covers 10% command dropout free. Exposure lever at 0.10 CLOSED. Boundary question belongs to the cmddrop20 rung (finished, verdict owned by its own cycle - treat the pair as one intensity-ladder study). Not hardware-ready (lineage paddle)."
   },
   {
     "run": "cw-walk-joylat25",
@@ -20415,7 +20419,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-imubias3 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.imu_bias_deg=3.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_imubias3 --notes 'OPERATOR WISHLIST 13c top axis (IMU bias walk): roll/pitch calibration bias is a REAL defect (imu_calibrate leaves residual error; the IMU reads level when the body is not). ISOLATED axis: dr-scale 0.0 with ONLY dr.imu_bias_deg=3.0 (per-episode roll/pitch bias u(-3,3) deg; full-DR default 1.0, champion trained at 0). Plain: the robot should walk level even when its tilt sensor is calibrated a few degrees wrong. Prediction-if-true: gait holds across the bias spread (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - IMU bias robustness is trainable by exposure. Prediction-if-false: biased draws lean/veer or trip attitude terms (tilted stance, progress collapse) - tilt feedback is trusted too literally and needs bias estimation. Strongest alternative (torquedroop lesson): champion ALREADY tolerates 3deg IMU bias free - triage MUST eval parent longdist-r2 under the same spread BEFORE verdicting. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.imu_bias_deg=3.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det' > /tmp/train_cw-walk-imubias3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-imubias3.log",
     "wandb_id": "yu38zceq",
-    "verified": "2026-08-09T19:28:48+00:00"
+    "verified": "2026-08-09T19:28:48+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T19:34:44+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5703,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-lowgait80",
@@ -20502,7 +20518,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-lowgait80 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait70.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_height_off_mm=-80.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_lowgait80 --notes 'Crouch envelope rung 7: -20..-70mm all PASSED (-70mm c60: mean end-height err det 2.0/sto 1.9mm, det agg slip/m 1.07). One variable off lowgait70: height ref -70 -> -80mm. Plain: keep lowering the body until leg workspace/clearance runs out, so stance height becomes the widest possible runtime knob. Prediction-if-true: gait intact at -80mm, mean end-height err <=8mm, det agg slip/m <=1.15. Prediction-if-false: workspace/clearance exhausts (height err stays >8mm or slip/drag rises markedly) = envelope bottom found, a useful answer; -70mm stays the limit. Strongest alternative: height tracks but sto brittleness worsens (>1/6 stall eps). Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait70.zip. Parent: cw-walk-lowgait70. Gate: own-cfg DR0 15s 6+6 at -80mm: gv 12/12, 0 term, mean end-height err <=8mm, det agg slip/m <=1.15; frames watched det+sto' > /tmp/train_cw-walk-lowgait80.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-lowgait80.log",
     "wandb_id": "rdym5x9f",
-    "verified": "2026-08-09T19:30:06+00:00"
+    "verified": "2026-08-09T19:30:06+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T19:36:35+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6660,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-gainvar",
@@ -20592,7 +20620,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-gainvar --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.kp_scale_pct=0.40 --cfg-set dr.kv_scale_pct=0.50 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_gainvar --notes 'OPERATOR WISHLIST 13b (richer physics, one axis per run): unit-to-unit servo gain spread is a REAL property of cheap STS3215s (fit_motor_model measures joint-to-joint kp/kv scatter; a replacement servo will not match the fitted model). ISOLATED axis: dr-scale 0.0 with ONLY dr.kp_scale_pct=0.40 + dr.kv_scale_pct=0.50 (2x the full-DR defaults 0.20/0.25; champion trained at 0). One axis = servo gain spread (kp+kv are the same physical knob: unit variation). Plain: the robot should walk the same even if its 18 servos are individually stiffer or softer than the calibrated model. Prediction-if-true: gait holds across the spread (own-cfg gv 12/12, 0 term, det median fwd >=1.2m @30s) and DR0 retention holds - gain spread joins the transfer recipe. Prediction-if-false: soft-gain draws sag/oscillate (jitter, height loss, falls) - gain mismatch needs online adaptation, not exposure. Strongest alternative (torquedroop lesson): champion ALREADY tolerates 2x gain spread free - triage MUST eval parent longdist-r2 under the same spread BEFORE verdicting. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.kp_scale_pct=0.40 + dr.kv_scale_pct=0.50, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det' > /tmp/train_cw-walk-gainvar.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-gainvar.log",
     "wandb_id": "26pxylxx",
-    "verified": "2026-08-09T19:31:19+00:00"
+    "verified": "2026-08-09T19:31:19+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T19:37:26+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4779,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-groundtilt-dr05",
@@ -20892,7 +20932,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-groundtilt-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_groundtilt5.zip --dr-scale 0.5 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.ground_tilt_deg=5.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_groundtilt_dr05 --notes 'Compose rung off today'\"'\"'s groundtilt5 PASS, same recipe as payload-dr05/fricvar-dr05/latjit-dr05: does slope robustness survive general physics variation? Warm-start the slope-hardened policy (groundtilt5) and train at dr-scale 0.5 (the line'\"'\"'s validated DR ceiling) WITH dr.ground_tilt_deg=5.0 kept (override holds tilt at the isolated-run level instead of DR0.5'\"'\"'s scaled 1deg). Plain: walk on mild slopes AND with the usual body/servo/floor variation at the same time. Prediction-if-true: own-cfg (DR0.5+tilt5) gv 12/12, 0 term, det med fwd >=1.2m, and DR0 nominal retention holds - slope joins the composable transfer recipe. Prediction-if-false: DR variation plus slope overloads the paddle gait (terminations or prog craters beyond the isolated run'\"'\"'s 2/6 steep-draw tail) - axes must be trained jointly from scratch or slope needs a curriculum. Strongest alternative: it passes by shrinking to the shallow-tilt draws only - per-episode fwd spread vs the isolated run will show it. Parent: rl_move/sim/policies/ppo_goal_cw_walk_groundtilt5.zip. Parent: cw-walk-groundtilt5. Gate: Own-cfg harness at --dr-scale 0.5 + dr.ground_tilt_deg=5.0, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-groundtilt-dr05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-groundtilt-dr05.log",
     "wandb_id": "gh4trxa6",
-    "verified": "2026-08-09T19:33:47+00:00"
+    "verified": "2026-08-09T19:33:47+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T19:39:16+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7511,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-multiaxis1",
@@ -20960,7 +21012,7 @@
       "Compose rung (operator 08-09, fill idle slot): the four INDIVIDUALLY validated physics axes (payload 1.0-1.4x mass, latency 0.5-2.5x, deadband 1.0-3.0x, CoM +30mm) randomized TOGETHER at dr-scale 0 off the champion. If-true: axes compose without interference (multiaxis own-cfg gv 12/12, 0 term, det med fwd >=1.2m; DR0 nominal retention clean) - recipe becomes the robustness-champion base. If-false: interference collapses gait (terminations/prog craters) - compose needs staging (add one axis per rung) not all-at-once. Strongest alternative: policy passes by finding one conservative crouch gait that ignores the axes - height_err/duty/frames will show it. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at dr-scale 0 + all four dr overrides, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv; frames watched det"
     ],
     "created": "2026-08-09T19:31:13+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -20969,10 +21021,123 @@
       "code_sha_local": "8ffca832a7ca308354ce0834c496c8fdb3b8ed01",
       "code_sha_pod": "8ffca832a7ca308354ce0834c496c8fdb3b8ed01",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2864730",
+      "log_growth_bytes": [
+        10548,
+        17038
+      ],
+      "wandb_id": "jbnh5uvy",
+      "global_step_window": [
+        851968,
+        1966080
+      ],
+      "fps_estimate": 12379.0
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-multiaxis1 --steps 18000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.mass_scale=1.0,1.4 --cfg-set dr.latency_scale=0.5,2.5 --cfg-set dr.deadband_scale=1.0,3.0 --cfg-set dr.com_offset_m=0.03 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_multiaxis1 --notes 'Compose rung (operator 08-09, fill idle slot): the four INDIVIDUALLY validated physics axes (payload 1.0-1.4x mass, latency 0.5-2.5x, deadband 1.0-3.0x, CoM +30mm) randomized TOGETHER at dr-scale 0 off the champion. If-true: axes compose without interference (multiaxis own-cfg gv 12/12, 0 term, det med fwd >=1.2m; DR0 nominal retention clean) - recipe becomes the robustness-champion base. If-false: interference collapses gait (terminations/prog craters) - compose needs staging (add one axis per rung) not all-at-once. Strongest alternative: policy passes by finding one conservative crouch gait that ignores the axes - height_err/duty/frames will show it. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at dr-scale 0 + all four dr overrides, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv; frames watched det' > /tmp/train_cw-walk-multiaxis1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-multiaxis1.log"
+    "log": "/tmp/train_cw-walk-multiaxis1.log",
+    "wandb_id": "jbnh5uvy",
+    "verified": "2026-08-09T19:35:02+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T19:41:07+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7670,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-payload50-s1",
+    "pod": "hexapod-mjx-train-10",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Seed twin of the c57 payload50 PASS (ruling-7 seed-panel practice): identical config, seed 1 instead of 0. The payload axis PASSed with a marginal heavy tail (2/6 det draws squat-shuffle at 1.4-1.5x mass) - a seed twin tells us whether 'solid to +40%' is the recipe or seed luck before we lean on it (payload-dr05 compose already in flight). Prediction-if-true: seed 1 matches - own-cfg mass 1.0-1.5x gv 12/12, 0 term, det med fwd >=1.2m, heavy-tail no worse. Prediction-if-false: seed 1 collapses on mid-range mass draws or retention erodes - payload exposure is seed-fragile, panel before promotion. Strongest alternative: both seeds pass but with different tail signatures - compare per-episode fwd spread. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip.",
+    "gate": "Own-cfg harness at --dr-scale 0.0 + dr.mass_scale=1.0,1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 no-payload retention det 6/6 gv, det slip/m med <=1.24; frames watched det",
+    "parent": "cw-walk-longdist-r2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "1",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.mass_scale=1.0,1.5",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_payload50_s1",
+      "--notes",
+      "Seed twin of the c57 payload50 PASS (ruling-7 seed-panel practice): identical config, seed 1 instead of 0. The payload axis PASSed with a marginal heavy tail (2/6 det draws squat-shuffle at 1.4-1.5x mass) - a seed twin tells us whether 'solid to +40%' is the recipe or seed luck before we lean on it (payload-dr05 compose already in flight). Prediction-if-true: seed 1 matches - own-cfg mass 1.0-1.5x gv 12/12, 0 term, det med fwd >=1.2m, heavy-tail no worse. Prediction-if-false: seed 1 collapses on mid-range mass draws or retention erodes - payload exposure is seed-fragile, panel before promotion. Strongest alternative: both seeds pass but with different tail signatures - compare per-episode fwd spread. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.mass_scale=1.0,1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 no-payload retention det 6/6 gv, det slip/m med <=1.24; frames watched det"
+    ],
+    "created": "2026-08-09T19:37:18+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-12d45224-745e-3c94-0817-b7685322bad4)",
+      "running_experiments_before": 8,
+      "code_sha_local": "3ac12a030cd24a49e7821e59e3ae36810a4e6a81",
+      "code_sha_pod": "3ac12a030cd24a49e7821e59e3ae36810a4e6a81",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2859635",
+      "log_growth_bytes": [
+        9626,
+        16974
+      ],
+      "wandb_id": "l5crlij0",
+      "global_step_window": [
+        851968,
+        1966080
+      ],
+      "fps_estimate": 12379.0
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-payload50-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.mass_scale=1.0,1.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_payload50_s1 --notes 'Seed twin of the c57 payload50 PASS (ruling-7 seed-panel practice): identical config, seed 1 instead of 0. The payload axis PASSed with a marginal heavy tail (2/6 det draws squat-shuffle at 1.4-1.5x mass) - a seed twin tells us whether '\"'\"'solid to +40%'\"'\"' is the recipe or seed luck before we lean on it (payload-dr05 compose already in flight). Prediction-if-true: seed 1 matches - own-cfg mass 1.0-1.5x gv 12/12, 0 term, det med fwd >=1.2m, heavy-tail no worse. Prediction-if-false: seed 1 collapses on mid-range mass draws or retention erodes - payload exposure is seed-fragile, panel before promotion. Strongest alternative: both seeds pass but with different tail signatures - compare per-episode fwd spread. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Parent: cw-walk-longdist-r2. Gate: Own-cfg harness at --dr-scale 0.0 + dr.mass_scale=1.0,1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 no-payload retention det 6/6 gv, det slip/m med <=1.24; frames watched det' > /tmp/train_cw-walk-payload50-s1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-payload50-s1.log",
+    "wandb_id": "l5crlij0",
+    "verified": "2026-08-09T19:41:06+00:00"
   }
 ]
