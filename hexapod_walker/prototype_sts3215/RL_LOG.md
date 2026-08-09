@@ -543,3 +543,20 @@ a file under `archive/` and link it.
   rung off today's PASS, parent pushed to idle pods). READY well after these:
   mirror-symmetry [CODE] + quad-hold [CODE] are the flagged next
   implementation cycles.
+
+- Cycle 58 (08-09 ~18:1x): 3 triages, 3 PASS. `cw-walk-lowgait60` PASS (crouch
+  rung 5: −60mm, end-height err det 3.9/sto 4.5mm, det agg slip/m 1.00, gv
+  12/12 — height knob validated −20..−60mm). `cw-walk-wander-dr05-s1` PASS —
+  steering-DR rung seed-CONFIRMED (own-DR0.5 gv 12/12, 0 term, prog 0.99/0.94,
+  slip 1.59/1.75 ≈ seed-0; ruling-7 panel satisfied; SKILLS updated).
+  `cw-walk-wander60` PASS — 60s driving endurance holds (gv 12/12, 0 term,
+  worst slip 1.67 < wander30's 1.93; no decay over ~12 changes/ep). Checkup:
+  joyhead90-r1 SUSPECT fps dip self-recovered (5.8k in log) — no action.
+  Infra: wander60 was launched without --out-name → prestage pullckpt failed;
+  ckpt recovered from pod default name (md5 bcabaea0) — specs must ALWAYS pass
+  --out-name. Refills: lowgait70 (crouch rung 6, RUNNING t9) + wander60-dr05
+  (minute-long drives at DR0.5, queued for t10); my slope3 spec withdrawn
+  pre-launch (dup of c57 groundtilt5) and velsag KILLED at 0 steps (dup of
+  c57 velsag30; t10 shm cleaned) — 3 concurrent refill cycles drew from the
+  same READY well within minutes; re-check census AFTER queueing, not only
+  before.
