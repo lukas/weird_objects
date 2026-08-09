@@ -9279,7 +9279,7 @@
       "RETRY (two prior attempts REFUSED on code-marker churn, never trained). SKILL CHAIN stand->walk->sit: goal-mix walk=0.6,rise=0.2,lower=0.2 off champion 35234ddc, canaries ON so rise/lower regressions auto-stop. If-true: one policy holds walk gate while rise/lower stay >=5/6 (chain viable in one head); if-false: walk income collapses the stance skills (multi-skill needs per-skill heads or schedules). Parent: rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip. Gate: walk: DR0 det 6/6 gait_valid zero-term slip/m <= 1.24; rise/lower canaries green; heights >=5/6 det"
     ],
     "created": "2026-08-09T12:31:18+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -9317,7 +9317,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": "no",
+    "verdict": "FAIL on if-false. Walk retention passed (DR0 det gv 6/6, 0 term, slip/m med 1.13 \u22641.24) though walk height err doubled to ~64mm (crouch-creep). But RISE never appeared: eval/rise_*_frac = 0.0 from 1M to 20M, det heights rise 0/6 (frames: chassis flat on ground, legs splayed/waving), lower 3/6 <5/6 gate. Canary 'green' is vacuous \u2014 the walk-champion parent never had rise, so a 0.2 mix share cannot conjure it in 20M. Per pre-registration: per-skill champions + distillation/schedule is the route."
   },
   {
     "run": "cw-walk-wander",
@@ -9846,14 +9848,16 @@
       "24"
     ],
     "created": "2026-08-09T12:37:09+00:00",
-    "status": "REFUSED",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
       "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-ac821317-c75c-9d4b-94db-69607eac7849)"
     },
     "stack": "gpu-mjx",
-    "refused_reason": "a process for cw-walk-loadslip-s1 already exists on hexapod-mjx-train-6"
+    "refused_reason": "a process for cw-walk-loadslip-s1 already exists on hexapod-mjx-train-6",
+    "hardware_ready": "no",
+    "verdict": "FAIL, CONCORDANT with seed 0 \u2014 hypothesis refuted seed-robustly. DR1.0 own-cfg det slip/m med 1.67 (s0: 1.94; champion longdist-r2: 1.06; gate \u22641.0), overspeed prog med 1.40, gv 24/24, 0 term, frames = same paddle-creep. Episode-accumulated loaded-slip stake does not stop sliding in either seed \u2192 reward side of skating CLOSED with two seeds; slip root stays sim contact/current pricing (operator calibration class)."
   },
   {
     "run": "cw-walk-highgait",
@@ -9912,7 +9916,7 @@
       "ppo_goal_cw_walk_highgait"
     ],
     "created": "2026-08-09T12:37:14+00:00",
-    "status": "REFUSED",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [
@@ -9920,7 +9924,9 @@
       ]
     },
     "stack": "gpu-mjx",
-    "refused_reason": "hexapod-mjx-train-7 already runs cw-walk-highgait \u2014 GPU pods host exactly one run; pick a free GPU pod."
+    "refused_reason": "hexapod-mjx-train-7 already runs cw-walk-highgait \u2014 GPU pods host exactly one run; pick a free GPU pod.",
+    "hardware_ready": "no",
+    "verdict": "FAIL. +20mm stance ref largely ignored: det end-height err med 20.4mm (gate \u22648) \u2248 the full offset; gait itself unharmed (gv 12/12, 0 term, slip/m med 1.29 \u2248 champ). Not the destabilization branch \u2014 the height reference channel is too weak to move the stance (lineage-wide height sloppiness, cf. ruling 1 rework). Stance-height arms should wait for the height-economy rework, not more steps."
   },
   {
     "run": "cw-walk-fwdband-r1",
@@ -10404,7 +10410,7 @@
       "24"
     ],
     "created": "2026-08-09T12:41:13+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -10442,7 +10448,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": "no",
+    "verdict": "DIG-IN (0-c(i) fork decider). OBSERVATIONS: own-cfg DR0.5 6+6 vs named baseline dr05-r1@DR0.5 (logs/ckpt_eval/cw_walk_dr05_r1_dr05): det slip/m per-ep [1.17,1.06,1.24,0.89,0.98,2.95] vs parent [1.27,1.23,1.33,0.95,0.94,3.66] \u2014 det blowout (>3) eliminated, median 1.12 vs 1.25; gv 12/12 + no sacrificed leg vs parent 11/12 with flag leg [5]; 0 term both. BUT sto blowouts persist on the SAME fixed draws as the parent (ep0 5.06/prog 0.30, ep1 27.84/prog 0.04 vs parent 3.74/23.3) \u2014 these are in-place stalls, not tip-overs. DR0 retention strong: det gv 6/6, slip/m med 1.066 (best of today's batch), along med 0.75. Frames det DR0.5+DR0: level six-leg cycling, no flag legs. Gate legs: 0-term PASS, gv PASS, DR0 retention PASS; 'no ep slip/m>3' FAIL (2 sto eps), det agg \u22641.3 FAIL (1.38, driven by one 2.95 ep). INTERPRETATION: pricing tilt 5x fixed the tilt-mediated degeneration (det blowout + flag leg gone) but the sto blowout metric is dominated by draw-specific stalls, which are not tipping-driven \u2014 the same two command draws stall parent and child, both seeds of the champion lineage too. Root cause chain: blowout metric <- stalls <- specific command draws <- policy, NOT tilt pricing. VERDICT: FAIL on pre-registered gate (prediction-if-true 'blowouts disappear' not met); genuine partial win on the tilt axis. hardware-ready: no. HYPOTHESIS STATUS: partially refuted \u2014 tilt pricing hardens deterministic behavior under DR but cannot remove draw-stalls; 0-c(i) tilt lever is worth folding into the champion line, stalls move to 0-c(iii) RELIABILITY as their own front."
   },
   {
     "run": "cw-walk-dr05-fall300",
@@ -10607,7 +10615,7 @@
       "OPERATOR WISHLIST 5: omnidirectional walking. Heading commands widened to +-90deg (full lateral strafing) with resampling; the champion only ever saw +-45deg. If-true: lateral tracking with gait_valid (omnidirectional base for the driving demo); if-false: sideways gait degenerates (hexapod kinematics may prefer crab-diagonal over pure strafe). Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6 incl pure-lateral commands: gait_valid, zero terminations, lateral tracking err <= 2x forward err"
     ],
     "created": "2026-08-09T12:43:39+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -10645,7 +10653,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": "no",
+    "verdict": "PASS (exploratory, qualified). \u00b190\u00b0 lateral commands transport for real: prog_ratio 0.81-1.21 in all 12 eps, gv 12/12, 0 term, lateral vel_err 0.031-0.037 vs fwd ~0.028 (within the \u22642x gate). Frames: six feet cycling, level body, no flag legs \u2014 but it strafes by paddling at slip/m ~2.0 (2x fwd champion). Lateral omni base for the driving demo exists; rear hemisphere remains broken (see backforth). NOT hardware-ready (slip)."
   },
   {
     "run": "cw-walk-speedband",
@@ -10777,7 +10787,7 @@
       "OPERATOR WISHLIST 4: back and forth. Full-circle heading commands (+-180deg) with resampling and 15% stops \u2014 walk out, stop, walk BACK. Backward walking is the new behavior; the champion never saw heading beyond +-45deg. If-true: reverse tracking with gait_valid; if-false: backward gait fails (leg geometry asymmetry) and backward needs its own reward shaping. Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6 incl reverse commands: gait_valid, zero terminations, reverse tracking err <= 2x forward err"
     ],
     "created": "2026-08-09T12:51:53+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -10815,7 +10825,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": "no",
+    "verdict": "FAIL / refuted on if-false. Rear-hemisphere (\u00b1180\u00b0) commands do not transport: 0/12 success, det prog med 0.59, slip/m med 3.9-4.5, sacrificed leg [3] both passes; frames show BOTH front legs held airborne while the body creeps on four legs. Reward declined over training. Matches steer-explore/fdiag: backward walking blocked on the same contact-pricing root + own shaping; operator ruling 4 (rear hemisphere deferred) stands. No requeue."
   },
   {
     "run": "cw-walk-endur60",
@@ -10966,7 +10978,7 @@
       "Wishlist #18 [READY] body-pose control, pulled because steering-scope arms are stopped (c39 fdiag consequence), current-economy arms are operator-blocked, and remaining walk arms await in-flight verdicts. One variable off champion 35234ddc: goal-mix walk=1.0 -> walk=0.4,hold=0.2,lean=0.2,track=0.2 (modes already exist in the task; no new mechanism). Champion lineage currently scores track_err ~3.1 deg in trainer evals (walk-only training let pose skills sit). If-true: dedicated mix drops track/lean tracking error to <=2.0 deg det+sto with walk retention intact -> body pose becomes a runtime command like rise/lower. If-false: track err stays ~3 deg or walk erodes -> pose control needs its own line (height-ref approach) instead of a mix. Strongest alternative: mix dilution erodes walk without improving pose (both gates fail). Multi-skill arm: canaries ON per standing rules (rise/lower protected). Parent: rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip. Gate: DR0 harness 15s own-cfg: track+lean modes det+sto track_err_deg mean <=2.0 (baseline 3.1), survived 12/12, 0 term; walk retention det 6 eps gait_valid 6/6 prog_ratio 0.75-1.25 slip/m no worse than champion band; rise/lower canaries no regression; frames watched det for quiet pose hold (no jitter/hover)"
     ],
     "created": "2026-08-09T13:06:12+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -11004,7 +11016,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": "no",
+    "verdict": "FAIL. 10M with a dedicated 0.6 pose mix (hold/lean/track) moved track/lean tracking err from baseline 3.1\u00b0 to det 2.74\u00b0(track)/3.37\u00b0(lean), sto 3.2/3.45 \u2014 gate \u22642.0 unmet and the delta is inside eval noise \u2192 no evidence the mix helps. Frames: pose modes are not a quiet hold \u2014 feet keep fidgeting/stepping. Walk retention OK-ish (gv 12/12, 0 term, slip/m det med 1.29 just above champion band; two slow-command overspeed eps prog 1.76/2.22). Pose precision is not practice-limited; parks behind the same pricing/actuation roots. No requeue."
   },
   {
     "run": "cw-walk-speedband",
@@ -11165,7 +11179,7 @@
       "OPERATOR WISHLIST 8b (operator-tunable speed), REVISED after cw-walk-fast (cycle 42) refuted the fast end: the gait tops out ~0.065 m/s regardless of command, so the original 0.02-0.12 band was half-unreachable and its 0.11 gate leg failed by construction. One policy tracking the ACHIEVABLE 0.02-0.06 m/s band with mid-episode command resampling, so speed becomes a runtime knob within the gait's real envelope. If-true: tracking err flat across 0.03/0.045/0.06 with gait_valid and no parking at the slow end. If-false: slow commands collapse to parking or one head cannot serve the band - bucket into separate policies. Strongest alternative: mid-episode resampling itself destabilizes the gait (transition stalls). Parent: rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip. Gate: DR0 det+sto 6/6 at commanded 0.03/0.045/0.06 m/s incl mid-episode resample: gait_valid, zero terminations, per-speed tracking err within 25% of champion at 0.05; no park episodes at 0.03"
     ],
     "created": "2026-08-09T13:30:40+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -11203,7 +11217,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": "no",
+    "verdict": "FAIL (near-miss). Achievable-band (0.02-0.06) speed knob with 5s resample: no parking at the slow end, prog med ~1.1, gv 12/12, 0 term \u2014 speed IS commandable coarsely. But per-ep tracking err 0.029-0.042 with 4/12 eps >25% over champion's 0.029, and transition slip/m med 2.2 (2x champion). Same lesson as wander: command changes double slip. Precision speed tracking joins the contact-pricing queue; no requeue."
   },
   {
     "run": "cw-walk-terrain05",
@@ -11363,7 +11379,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-terrain05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set env.terrain_amp=0.5 --cfg-set env.terrain_seed=3 --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 15 --out-name ppo_goal_cw_walk_terrain05 --notes 'OPERATOR arm (08-09): rough-terrain ROBUSTNESS, explicitly NOT a slip arm. New cfg hook env.terrain_amp populates the warp-verified hfield (18mm smooth indoor bumps, flat 0.32m spawn patch, fade-in). Operator local preview: champion paddles across even amp 1.0 deterministically unimpeded (0.74m vs 0.76m flat), so do NOT expect slip movement. Tests whether training ON amp 0.5 terrain yields a gait that stays valid/upright on bumps without regressing flat performance \u2014 hardware floors are not billiard tables. Caveat: spawn patch is flat, bumps arrive ~6s into an episode. If-false: terrain training destabilizes the gait (tilt/falls) -> needs an amp ramp curriculum. Parent: cw-walk-anchorgate. Gate: non-promotion exploratory: flat DR0 det 6/6 retention (gv, 0 term, slip/m <= 1.35) AND own-cfg terrain det 6/6 gv 0 term; frames watched on terrain' > /tmp/train_cw-walk-terrain05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-terrain05.log",
     "wandb_id": "ahfhey55",
-    "verified": "2026-08-09T13:48:55+00:00"
+    "verified": "2026-08-09T13:48:55+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T13:54:35+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7595,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-longdist-dr05",
@@ -11449,7 +11477,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-longdist-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.5 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_walk_longdist_dr05 --n-envs 4096 --impl warp --host-workers 24 --notes 'DR ladder (wishlist #9) re-based onto the NEW walk champion cw-walk-longdist-r2 (promoted cycle 43, md5 bcddc65c): its only weak verified axis is stochastic robustness under full model DR (DR1.0 sto 3/6 in both seeds, draw-specific stalls, no falls). One variable: same longdist config (30s, 0.05-0.06 band) trained WITH model DR 0.5 instead of --no-dr. If-true: DR0.5-trained variant keeps det slip/m <=1.1 at DR0.5 own-eval AND lifts DR1.0 sto from 3/6 to >=5/6 without det slip regressing past champion 1.24 - DR training buys robustness the DR0 lineage lacks. If-false: slip re-inflates under uncertainty (paddle worsens, like cw-walk-dr05-r1 off the old champion: det slip 1.56 with blowouts) or sto stays ~3/6 - DR training does not fix the draw-stalls and the brittleness is command-conditioning, not physics exposure. Strongest alternative: stability-pricing arms (dr05-tilt50/fall300, verdicts pending) already fix this cheaper; if they pass, this run is the A/B against them. Parent: rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip. Gate: Own-DR(0.5) det+sto 6/6: gait_valid 12/12, 0 term, det slip/m <=1.1; plus DR1.0 panel sto >=5/6 with det slip/m <=1.24 (baselines: r2 DR1.0 det 1.06 sto 3/6)' > /tmp/train_cw-walk-longdist-dr05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-longdist-dr05.log",
     "wandb_id": "nyviw5wc",
-    "verified": "2026-08-09T13:50:05+00:00"
+    "verified": "2026-08-09T13:50:05+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T13:56:24+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8584,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-lowgait30",
@@ -11536,7 +11576,21 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-lowgait30 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --eval-every 1000000 --video-every 2000000 --seed 0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --no-canary --cfg-set goal.walk_height_off_mm=-30.0 --out-name ppo_goal_cw_walk_lowgait30 --notes 'Crouch envelope: cw-walk-lowgait PASSED -20mm (mean end-height err ~4mm, gait intact). One variable off it: height ref -20 -> -30mm. Plain: how low can it walk before leg workspace/clearance runs out, so stance height becomes a wide runtime knob. Prediction-if-true: same gait quality at -30mm, height err <=8mm, slip ~parent. Prediction-if-false: clearance/knee workspace runs out -> height err stays >8mm or drag/slip rises markedly = -30mm is outside the envelope (also a useful answer). Strongest alternative: height tracks but sto brittleness worsens in the deeper crouch. Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait.zip. Gate: own-cfg DR0 15s 6+6 at -30mm: gv 12/12, 0 term, mean end-height err <=8mm, det agg slip/m <=1.35 (parent 1.14 + noise); frames watched det+sto' > /tmp/train_cw-walk-lowgait30.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-lowgait30.log",
     "wandb_id": "un01yho8",
-    "verified": "2026-08-09T13:53:04+00:00"
+    "verified": "2026-08-09T13:53:04+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T13:58:14+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 9380,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "verdict": "PASS \u2014 gate met at -30mm crouch: own-cfg DR0 det+sto gv 12/12, 0 term, mean end-height err 4.8/4.2mm (gate <=8); det agg slip/m 0.95 vs parent lowgait 1.14 (per-ep ranges non-overlapping \u2014 deeper crouch slightly REDUCED slip). One sto draw-stall ep (prog 0.14, slip/m 9.58) = same known lineage sto brittleness as parent's 1/6 (0.18/6.98), not worse. Frames watched det+sto: crouched, level, six legs cycling; transport still paddling-class. Next rung: -40mm.",
+    "hardware_ready": "no"
   },
   {
     "run": "cw-walk-wander30",
@@ -11627,6 +11681,441 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-wander30 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander.zip --no-dr --episode-seconds 30 --ent-coef 0.001 --eval-every 1000000 --video-every 2000000 --seed 0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --no-canary --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --out-name ppo_goal_cw_walk_wander30 --notes 'Driving endurance: cw-walk-wander PASSED start/steer/stop transitions over 15s (~3 command changes). One variable off it: horizon 15->30s (~6 changes/ep). Plain: prove the drive-it-around skill doesn'\"'\"'t decay over longer drives. Prediction-if-true: 30s eps hold prog_ratio ~1.0 with gv and no term across all command changes. Prediction-if-false: degradation accumulates late-episode (height sag, slip growth, parked segments after later changes) -> transitions are only locally stable. Strongest alternative: fine at 30s but slip on change-segments stays ~2x straight-line (contact-pricing root, not fixable here). Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander.zip. Gate: own-cfg DR0 30s 6+6: gv 12/12, 0 term, prog_ratio median 0.85-1.15, no ep prog<0.5; change-segment slip no worse than parent (~2.1 slip/m ep-level); frames watched det+sto' > /tmp/train_cw-walk-wander30.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-wander30.log",
     "wandb_id": "e4wuad6b",
-    "verified": "2026-08-09T13:54:14+00:00"
+    "verified": "2026-08-09T13:54:14+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-09T14:00:07+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8579,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-strafe-dr05",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Robustness rung for the PASSed lateral base (cw-walk-strafe: \u00b190\u00b0 transport, prog 0.81-1.21 all 12, gv 12/12 at DR0). One variable off the strafe checkpoint: train at model-DR 0.5 instead of --no-dr (same recipe that produced dr05-r1 from the fwd champion). Feeds the driving demo on real hardware. If-true: DR0.5 own-eval keeps lateral transport (prog med >=0.8, gv 12/12, 0 term) with slip/m med <= 2.4 (DR0 value 2.0 + noise band). If-false: the lateral paddle collapses under physics uncertainty (prog craters or flag legs appear) \u2014 lateral robustness needs its own shaping, not just DR exposure.",
+    "gate": "own-cfg DR0.5 6+6: gv 12/12, 0 term, prog_ratio med >=0.8, slip/m med <=2.4; DR0 det retention prog med >=0.8 gv 6/6; frames watched det",
+    "parent": "cw-walk-strafe",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_strafe.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.03",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=1.5708",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=5.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "Robustness rung for the PASSed lateral base (cw-walk-strafe: \u00b190\u00b0 transport, prog 0.81-1.21 all 12, gv 12/12 at DR0). One variable off the strafe checkpoint: train at model-DR 0.5 instead of --no-dr (same recipe that produced dr05-r1 from the fwd champion). Feeds the driving demo on real hardware. If-true: DR0.5 own-eval keeps lateral transport (prog med >=0.8, gv 12/12, 0 term) with slip/m med <= 2.4 (DR0 value 2.0 + noise band). If-false: the lateral paddle collapses under physics uncertainty (prog craters or flag legs appear) \u2014 lateral robustness needs its own shaping, not just DR exposure. Parent: cw-walk-strafe. Gate: own-cfg DR0.5 6+6: gv 12/12, 0 term, prog_ratio med >=0.8, slip/m med <=2.4; DR0 det retention prog med >=0.8 gv 6/6; frames watched det"
+    ],
+    "created": "2026-08-09T14:27:21+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 0,
+      "code_sha_local": "433429c9bd45bcb0eb0e59e6be8b1b8b5ec0082c",
+      "code_sha_pod": "433429c9bd45bcb0eb0e59e6be8b1b8b5ec0082c",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2983810",
+      "log_growth_bytes": [
+        11365,
+        20847
+      ],
+      "wandb_id": "andpllw9",
+      "global_step_window": [
+        1048576,
+        2424832
+      ],
+      "fps_estimate": 15291.7
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-strafe-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_strafe.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.03 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=1.5708 --cfg-set goal.walk_cmd_resample_s=5.0 --n-envs 4096 --impl warp --host-workers 24 --notes 'Robustness rung for the PASSed lateral base (cw-walk-strafe: \u00b190\u00b0 transport, prog 0.81-1.21 all 12, gv 12/12 at DR0). One variable off the strafe checkpoint: train at model-DR 0.5 instead of --no-dr (same recipe that produced dr05-r1 from the fwd champion). Feeds the driving demo on real hardware. If-true: DR0.5 own-eval keeps lateral transport (prog med >=0.8, gv 12/12, 0 term) with slip/m med <= 2.4 (DR0 value 2.0 + noise band). If-false: the lateral paddle collapses under physics uncertainty (prog craters or flag legs appear) \u2014 lateral robustness needs its own shaping, not just DR exposure. Parent: cw-walk-strafe. Gate: own-cfg DR0.5 6+6: gv 12/12, 0 term, prog_ratio med >=0.8, slip/m med <=2.4; DR0 det retention prog med >=0.8 gv 6/6; frames watched det' > /tmp/train_cw-walk-strafe-dr05.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-strafe-dr05.log",
+    "wandb_id": "andpllw9",
+    "verified": "2026-08-09T14:31:02+00:00"
+  },
+  {
+    "run": "cw-walk-longdist-tilt05",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "0-c(i) tilt lever folded into the CHAMPION line, A/B partner of cw-walk-longdist-dr05 (identical 30s/0.05-0.06 DR0.5 config, one variable: reward.k_roll=50,k_pitch=50). cw-walk-dr05-tilt50 showed tilt pricing eliminates det slip blowouts + flag legs at DR0.5 on the dr05-r1 line but cannot touch the draw-specific sto stalls. If-true: vs the A/B partner's same-eval baseline, det DR0.5 has no ep slip/m>3, gv 12/12, det slip median <= partner's minus noise, DR0 retention intact. If-false (no delta vs partner beyond noise, or det slip inflates): tilt pricing does not transfer to the champion line and the 0-c(i) tilt lever closes; stability then rides purely on DR training.",
+    "gate": "own-cfg DR0.5 6+6 vs cw-walk-longdist-dr05 same-eval baseline: 0 term, gv 12/12, det no ep slip/m>3, det slip/m median <= partner's; DR0 det retention gv 6/6 prog med 0.75-1.25; frames watched det",
+    "parent": "cw-walk-longdist-r2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "reward.k_roll=50.0",
+      "--cfg-set",
+      "reward.k_pitch=50.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "0-c(i) tilt lever folded into the CHAMPION line, A/B partner of cw-walk-longdist-dr05 (identical 30s/0.05-0.06 DR0.5 config, one variable: reward.k_roll=50,k_pitch=50). cw-walk-dr05-tilt50 showed tilt pricing eliminates det slip blowouts + flag legs at DR0.5 on the dr05-r1 line but cannot touch the draw-specific sto stalls. If-true: vs the A/B partner's same-eval baseline, det DR0.5 has no ep slip/m>3, gv 12/12, det slip median <= partner's minus noise, DR0 retention intact. If-false (no delta vs partner beyond noise, or det slip inflates): tilt pricing does not transfer to the champion line and the 0-c(i) tilt lever closes; stability then rides purely on DR training. Parent: cw-walk-longdist-r2. Gate: own-cfg DR0.5 6+6 vs cw-walk-longdist-dr05 same-eval baseline: 0 term, gv 12/12, det no ep slip/m>3, det slip/m median <= partner's; DR0 det retention gv 6/6 prog med 0.75-1.25; frames watched det"
+    ],
+    "created": "2026-08-09T14:28:29+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 1,
+      "code_sha_local": "433429c9bd45bcb0eb0e59e6be8b1b8b5ec0082c",
+      "code_sha_pod": "433429c9bd45bcb0eb0e59e6be8b1b8b5ec0082c",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2012938",
+      "log_growth_bytes": [
+        11472,
+        17962
+      ],
+      "wandb_id": "1tnmspx7",
+      "global_step_window": [
+        917504,
+        1900544
+      ],
+      "fps_estimate": 10922.7
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-longdist-tilt05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.5 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_roll=50.0 --cfg-set reward.k_pitch=50.0 --n-envs 4096 --impl warp --host-workers 24 --notes '0-c(i) tilt lever folded into the CHAMPION line, A/B partner of cw-walk-longdist-dr05 (identical 30s/0.05-0.06 DR0.5 config, one variable: reward.k_roll=50,k_pitch=50). cw-walk-dr05-tilt50 showed tilt pricing eliminates det slip blowouts + flag legs at DR0.5 on the dr05-r1 line but cannot touch the draw-specific sto stalls. If-true: vs the A/B partner'\"'\"'s same-eval baseline, det DR0.5 has no ep slip/m>3, gv 12/12, det slip median <= partner'\"'\"'s minus noise, DR0 retention intact. If-false (no delta vs partner beyond noise, or det slip inflates): tilt pricing does not transfer to the champion line and the 0-c(i) tilt lever closes; stability then rides purely on DR training. Parent: cw-walk-longdist-r2. Gate: own-cfg DR0.5 6+6 vs cw-walk-longdist-dr05 same-eval baseline: 0 term, gv 12/12, det no ep slip/m>3, det slip/m median <= partner'\"'\"'s; DR0 det retention gv 6/6 prog med 0.75-1.25; frames watched det' > /tmp/train_cw-walk-longdist-tilt05.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-longdist-tilt05.log",
+    "wandb_id": "1tnmspx7",
+    "verified": "2026-08-09T14:32:11+00:00"
+  },
+  {
+    "run": "cw-walk-wander-dr05",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Robustness rung for the PASSed driving base (cw-walk-wander: \u00b145\u00b0/5s resample/15% stops, gv 12/12 at DR0, c45). One variable off the wander checkpoint: train at model-DR 0.5 instead of --no-dr. Direction-change transitions are where the paddle gait is weakest (change-eps slip ~2x straight) \u2014 DR exposure tests whether transition handling survives physics uncertainty. If-true: DR0.5 own-eval holds gv 12/12, 0 term, prog med ~1.0 through command changes with change-ep slip no worse than the DR0 value (~2.1) + noise. If-false: transitions break under DR (stalls/parks at command changes) \u2014 the driving demo needs transition-specific work before hardware.",
+    "gate": "own-cfg DR0.5 6+6 resampled commands: gv 12/12, 0 term, prog_ratio med >=0.85, slip/m med <=2.4; DR0 det retention gv 6/6; frames watched det",
+    "parent": "cw-walk-wander",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_wander.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=5.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.15",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "Robustness rung for the PASSed driving base (cw-walk-wander: \u00b145\u00b0/5s resample/15% stops, gv 12/12 at DR0, c45). One variable off the wander checkpoint: train at model-DR 0.5 instead of --no-dr. Direction-change transitions are where the paddle gait is weakest (change-eps slip ~2x straight) \u2014 DR exposure tests whether transition handling survives physics uncertainty. If-true: DR0.5 own-eval holds gv 12/12, 0 term, prog med ~1.0 through command changes with change-ep slip no worse than the DR0 value (~2.1) + noise. If-false: transitions break under DR (stalls/parks at command changes) \u2014 the driving demo needs transition-specific work before hardware. Parent: cw-walk-wander. Gate: own-cfg DR0.5 6+6 resampled commands: gv 12/12, 0 term, prog_ratio med >=0.85, slip/m med <=2.4; DR0 det retention gv 6/6; frames watched det"
+    ],
+    "created": "2026-08-09T14:29:39+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 2,
+      "code_sha_local": "433429c9bd45bcb0eb0e59e6be8b1b8b5ec0082c",
+      "code_sha_pod": "433429c9bd45bcb0eb0e59e6be8b1b8b5ec0082c",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2108659",
+      "log_growth_bytes": [
+        8624,
+        13266
+      ],
+      "wandb_id": "9x8kcuuo",
+      "global_step_window": [
+        589824,
+        1441792
+      ],
+      "fps_estimate": 9466.3
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-wander-dr05 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --notes 'Robustness rung for the PASSed driving base (cw-walk-wander: \u00b145\u00b0/5s resample/15% stops, gv 12/12 at DR0, c45). One variable off the wander checkpoint: train at model-DR 0.5 instead of --no-dr. Direction-change transitions are where the paddle gait is weakest (change-eps slip ~2x straight) \u2014 DR exposure tests whether transition handling survives physics uncertainty. If-true: DR0.5 own-eval holds gv 12/12, 0 term, prog med ~1.0 through command changes with change-ep slip no worse than the DR0 value (~2.1) + noise. If-false: transitions break under DR (stalls/parks at command changes) \u2014 the driving demo needs transition-specific work before hardware. Parent: cw-walk-wander. Gate: own-cfg DR0.5 6+6 resampled commands: gv 12/12, 0 term, prog_ratio med >=0.85, slip/m med <=2.4; DR0 det retention gv 6/6; frames watched det' > /tmp/train_cw-walk-wander-dr05.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-wander-dr05.log",
+    "wandb_id": "9x8kcuuo",
+    "verified": "2026-08-09T14:33:21+00:00"
+  },
+  {
+    "run": "cw-walk-lowgait40",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Crouch envelope rung 3: lowgait (-20mm) and lowgait30 (-30mm) both PASSED with height err ~4-5mm, and -30mm slightly REDUCED det slip (0.95 vs 1.14). One variable: height ref -30 -> -40mm. Plain: keep lowering the body until leg workspace/clearance runs out, so stance height becomes a wide runtime knob; also test whether the slip improvement continues with depth. Prediction-if-true: gait intact at -40mm, height err <=8mm, det slip/m <=1.10 (parent 0.95 + noise). Prediction-if-false: workspace/clearance runs out -> height err stays >8mm or slip/drag rises markedly = envelope edge found (also a useful answer). Strongest alternative: height tracks but sto draw-stall brittleness worsens in the deeper crouch.",
+    "gate": "own-cfg DR0 15s 6+6 at -40mm: gv 12/12, 0 term, mean end-height err <=8mm, det agg slip/m <=1.10; frames watched det+sto",
+    "parent": "rl_move/sim/policies/ppo_goal_cw_walk_lowgait30.zip",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait30.zip",
+      "--no-dr",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--no-canary",
+      "--cfg-set",
+      "goal.walk_height_off_mm=-40.0",
+      "--out-name",
+      "ppo_goal_cw_walk_lowgait40",
+      "--notes",
+      "Crouch envelope rung 3: lowgait (-20mm) and lowgait30 (-30mm) both PASSED with height err ~4-5mm, and -30mm slightly REDUCED det slip (0.95 vs 1.14). One variable: height ref -30 -> -40mm. Plain: keep lowering the body until leg workspace/clearance runs out, so stance height becomes a wide runtime knob; also test whether the slip improvement continues with depth. Prediction-if-true: gait intact at -40mm, height err <=8mm, det slip/m <=1.10 (parent 0.95 + noise). Prediction-if-false: workspace/clearance runs out -> height err stays >8mm or slip/drag rises markedly = envelope edge found (also a useful answer). Strongest alternative: height tracks but sto draw-stall brittleness worsens in the deeper crouch. Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait30.zip. Gate: own-cfg DR0 15s 6+6 at -40mm: gv 12/12, 0 term, mean end-height err <=8mm, det agg slip/m <=1.10; frames watched det+sto"
+    ],
+    "created": "2026-08-09T14:31:31+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 3,
+      "code_sha_local": "433429c9bd45bcb0eb0e59e6be8b1b8b5ec0082c",
+      "code_sha_pod": "433429c9bd45bcb0eb0e59e6be8b1b8b5ec0082c",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2145788",
+      "log_growth_bytes": [
+        9701,
+        13397
+      ],
+      "wandb_id": "z208fmwy",
+      "global_step_window": [
+        589824,
+        1507328
+      ],
+      "fps_estimate": 10194.5
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-lowgait40 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait30.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --eval-every 1000000 --video-every 2000000 --seed 0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --no-canary --cfg-set goal.walk_height_off_mm=-40.0 --out-name ppo_goal_cw_walk_lowgait40 --notes 'Crouch envelope rung 3: lowgait (-20mm) and lowgait30 (-30mm) both PASSED with height err ~4-5mm, and -30mm slightly REDUCED det slip (0.95 vs 1.14). One variable: height ref -30 -> -40mm. Plain: keep lowering the body until leg workspace/clearance runs out, so stance height becomes a wide runtime knob; also test whether the slip improvement continues with depth. Prediction-if-true: gait intact at -40mm, height err <=8mm, det slip/m <=1.10 (parent 0.95 + noise). Prediction-if-false: workspace/clearance runs out -> height err stays >8mm or slip/drag rises markedly = envelope edge found (also a useful answer). Strongest alternative: height tracks but sto draw-stall brittleness worsens in the deeper crouch. Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait30.zip. Gate: own-cfg DR0 15s 6+6 at -40mm: gv 12/12, 0 term, mean end-height err <=8mm, det agg slip/m <=1.10; frames watched det+sto' > /tmp/train_cw-walk-lowgait40.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-lowgait40.log",
+    "wandb_id": "z208fmwy",
+    "verified": "2026-08-09T14:35:13+00:00"
+  },
+  {
+    "run": "cw-walk-endur60-s1",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Seed twin of cw-walk-endur60 per operator ruling 7 (promotion needs multi-seed panels). endur60 PASSed its 60s endurance gate with the best DR0 det slip/m yet measured (med 0.887 vs champion longdist-r2's 0.96) and 3.17m median @60s, gv 12/12, 0 term \u2014 a champion-path candidate. Identical config except --seed 1. If both seeds land the same result the 60s-horizon effect is seed-robust and the endur60 line goes to a DR1.0/corner panel against longdist-r2 for possible promotion; if they diverge, the slip gain was seed luck and the champion stands.",
+    "gate": "DR0 det+sto 6/6: median fwd distance >=2.4 m @ 60 s, zero terminations, gait_valid 12/12, det slip/m median <=1.0; frames watched det",
+    "parent": "cw-walk-anchorgate",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip",
+      "--no-dr",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "1",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--episode-seconds",
+      "60",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--notes",
+      "Seed twin of cw-walk-endur60 per operator ruling 7 (promotion needs multi-seed panels). endur60 PASSed its 60s endurance gate with the best DR0 det slip/m yet measured (med 0.887 vs champion longdist-r2's 0.96) and 3.17m median @60s, gv 12/12, 0 term \u2014 a champion-path candidate. Identical config except --seed 1. If both seeds land the same result the 60s-horizon effect is seed-robust and the endur60 line goes to a DR1.0/corner panel against longdist-r2 for possible promotion; if they diverge, the slip gain was seed luck and the champion stands. Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6: median fwd distance >=2.4 m @ 60 s, zero terminations, gait_valid 12/12, det slip/m median <=1.0; frames watched det"
+    ],
+    "created": "2026-08-09T14:35:01+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+      "running_experiments_before": 4,
+      "code_sha_local": "433429c9bd45bcb0eb0e59e6be8b1b8b5ec0082c",
+      "code_sha_pod": "433429c9bd45bcb0eb0e59e6be8b1b8b5ec0082c",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-endur60-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 60 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --notes 'Seed twin of cw-walk-endur60 per operator ruling 7 (promotion needs multi-seed panels). endur60 PASSed its 60s endurance gate with the best DR0 det slip/m yet measured (med 0.887 vs champion longdist-r2'\"'\"'s 0.96) and 3.17m median @60s, gv 12/12, 0 term \u2014 a champion-path candidate. Identical config except --seed 1. If both seeds land the same result the 60s-horizon effect is seed-robust and the endur60 line goes to a DR1.0/corner panel against longdist-r2 for possible promotion; if they diverge, the slip gain was seed luck and the champion stands. Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6: median fwd distance >=2.4 m @ 60 s, zero terminations, gait_valid 12/12, det slip/m median <=1.0; frames watched det' > /tmp/train_cw-walk-endur60-s1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-endur60-s1.log"
   }
 ]

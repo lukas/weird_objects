@@ -280,6 +280,16 @@ a file under `archive/` and link it.
   parents on tilt50's outcome; mirror-symmetry (plan #3) still needs
   its dedicated implementation cycle — next quiet cycle takes it.
 
+- Cycle 46 (08-09 ~14:3x): `cw-walk-lowgait30` PASS — -30mm crouch: own-cfg
+  DR0 gv 12/12, 0 term, height err ~4-5mm; det slip/m 0.95 vs parent 1.14
+  (deeper crouch REDUCED slip, per-ep ranges non-overlapping); 1 sto
+  draw-stall ep = known lineage trait, not worse. Refill: `cw-walk-lowgait40`
+  (-40mm envelope rung, t3, 20M). Remaining free slots = the concurrent
+  cycle's refills for its 10 triages (it was actively launching, e.g.
+  wander-dr05); no other sound unblocked arms for this cycle (c45 reason
+  stands); mirror-symmetry impl deferred — a code snapshot mid-refill
+  would flip the pod SHA gate under the concurrent cycle's launches.
+
 ## ASSUMPTION (operator to review)
 
 - Cycle 44 champion promotion: adopted longdist-r2 as walk champion
