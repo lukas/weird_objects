@@ -207,3 +207,14 @@ a file under `archive/` and link it.
   backforth on t3), no launches. Fixed ops.sh entry_field to prefer
   live entries over REFUSED/KILLED husks (loadslip-s1 trainlog had
   pointed at the wrong pod).
+- Cycle 42 (08-09 ~13:3x): `cw-walk-fast` FAIL / REFUTED on its
+  if-false — commanded 0.08-0.12 m/s but walked its usual ~0.065 in
+  all 12 eps (prog 0.53-0.72 <0.75); gait fully retained (gv 12/12,
+  0 term, det slip/m 1.14, no sacrificed legs; one sto blowout =
+  known c39 brittleness). Speed ceiling is GAIT-limited → faster-
+  walking / band-scope speed arms join skating behind the operator
+  contact-pricing calibration; no follow-up queued. Pipeline: fixed
+  the drain stall — recovered `cw-walk-endur60` + `cw-pose-track`
+  from backlog_failed (parked on stale pod code markers, since
+  synced) and dropped 2 stale parked entries for running runs;
+  backlog depth 3, 0 free slots (hard reason: capacity).

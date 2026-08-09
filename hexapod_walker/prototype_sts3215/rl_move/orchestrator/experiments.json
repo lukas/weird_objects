@@ -7443,7 +7443,7 @@
       "OPERATOR WISHLIST: faster walking. Champion 35234ddc retrained on 0.08-0.12 m/s command band (vs 0.05-0.06). If-true: det tracking err <= champion band-relative, gait_valid at 0.08+; if-false: gait degrades to lurch/skate at higher speed (shows speed ceiling is gait-limited not command-limited). Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6 at 0.08-0.12 band: gait_valid, zero terminations, det slip/m <= 1.24"
     ],
     "created": "2026-08-09T12:01:04+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -7480,7 +7480,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": "no",
+    "verdict": "FAIL (gate: tracking) / hypothesis REFUTED on if-false: policy ignored the 0.08-0.12 band and kept the champion's ~0.065 m/s paddle gait for all 20M steps (det speed 0.065-0.066 all 6 eps, prog_ratio 0.53-0.72 < 0.75). Gait retained: 12/12 gait_valid, 0 term, det slip/m 1.14 ~ champion. One sto blowout (prog 0, slip/m 17) = known sto brittleness (c39). Speed ceiling is gait-limited, not command-limited \u2014 faster walking blocked on the same contact-pricing root as skating."
   },
   {
     "run": "cw-walk-endur60",
@@ -10762,7 +10764,7 @@
       "OPERATOR WISHLIST 4: back and forth. Full-circle heading commands (+-180deg) with resampling and 15% stops \u2014 walk out, stop, walk BACK. Backward walking is the new behavior; the champion never saw heading beyond +-45deg. If-true: reverse tracking with gait_valid; if-false: backward gait fails (leg geometry asymmetry) and backward needs its own reward shaping. Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6 incl reverse commands: gait_valid, zero terminations, reverse tracking err <= 2x forward err"
     ],
     "created": "2026-08-09T12:51:53+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -10771,10 +10773,23 @@
       "code_sha_local": "c3742f741282a5c5a9d73df7f4cd968de3fd28eb",
       "code_sha_pod": "c3742f741282a5c5a9d73df7f4cd968de3fd28eb",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1019859",
+      "log_growth_bytes": [
+        9594,
+        13312
+      ],
+      "wandb_id": "xi5bkjlt",
+      "global_step_window": [
+        655360,
+        1638400
+      ],
+      "fps_estimate": 10922.7
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-backforth --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --cfg-set goal.walk_speed_min_m_s=0.03 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=3.1416 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --out-name ppo_goal_cw_walk_backforth --notes 'OPERATOR WISHLIST 4: back and forth. Full-circle heading commands (+-180deg) with resampling and 15% stops \u2014 walk out, stop, walk BACK. Backward walking is the new behavior; the champion never saw heading beyond +-45deg. If-true: reverse tracking with gait_valid; if-false: backward gait fails (leg geometry asymmetry) and backward needs its own reward shaping. Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6 incl reverse commands: gait_valid, zero terminations, reverse tracking err <= 2x forward err' > /tmp/train_cw-walk-backforth.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-backforth.log"
+    "log": "/tmp/train_cw-walk-backforth.log",
+    "wandb_id": "xi5bkjlt",
+    "verified": "2026-08-09T12:55:42+00:00"
   }
 ]
