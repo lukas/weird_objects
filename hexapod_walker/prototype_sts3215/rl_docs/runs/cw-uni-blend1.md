@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-09T21:23:02+00:00
+**created**: 2026-08-09T21:43:35+00:00
 
-**pod**: hexapod-mjx-train-0
+**pod**: hexapod-mjx-train-11
 
 **steps**: 18000000
 
@@ -16,5 +16,5 @@
 
 **gate**: own-cfg: eval_drive joystick gate PASS retained (0 in-envelope falls, DR0.2); rise and lower det >=5/6 each; hold quiet (0 term, no drift); walk own-cfg gv 12/12, 0 term. Frames watched det for all modes
 
-**refused_reason**: hexapod-mjx-train-0 code marker 10411a53109b1f5e82c0c91ae627e2d93c573ab1-dirty != local HEAD 10411a53109b1f5e82c0c91ae627e2d93c573ab1. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-11 code marker 6c0b2d152813a18c0e5c28c21b0afdac9cbd7218-dirty != local HEAD 6c0b2d152813a18c0e5c28c21b0afdac9cbd7218. Sync first: snapshot.sh --sync hexapod-mjx-train-11 (and snapshot/commit before that if the tree is dirty).
 
