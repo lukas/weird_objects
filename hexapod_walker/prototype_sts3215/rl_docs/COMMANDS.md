@@ -302,6 +302,27 @@ report.json, and the W&B API for exactly these questions.
     partial video files) — verify the pid in /proc before trusting
     `waitlog`, and relaunch (setsid helps).
 
+15. **`--cfg-set dr.<field>=X` needs `lo,hi` (comma, no brackets) for
+    every RandRanges field that's typed as a `tuple[float,float]` —
+    a bare scalar crashes the worker at reset with `TypeError:
+    Generator.uniform() argument after * must be an iterable, not
+    float` (cost a launch attempt building `cw-dep-vref1-r1-megastack1`,
+    08-10). Scalar (single-float) fields take a bare number; tuple
+    fields need both ends. Check `class RandRanges` in
+    `rl_move/sim/domain_rand.py` before guessing, or grep an existing
+    sibling run's FULL `command` string (not just a `[0-9.]*` regex —
+    that silently eats the `,hi` half and looks like a scalar).
+    Tuple fields (need `lo,hi`): `mass_scale`, `friction_scale`,
+    `contact_stiff_scale`, `torque_scale`, `latency_scale`,
+    `deadband_scale`, `vel_scale`, `bad_start_deg`, `imu_pos_z_m`.
+    Scalar fields (bare number): `leg_mass_jitter_pct`,
+    `link_len_scale_pct`, `link_len_leg_pct`, `ground_tilt_deg`,
+    `kp_scale_pct`, `kv_scale_pct`, `placement_noise_deg`,
+    `joint_zero_bias_deg`, `encoder_noise_deg`, `imu_mount_deg`,
+    `imu_bias_deg`, `tilt_noise_deg`, `gyro_bias_deg_s`,
+    `gyro_noise_deg_s`, `com_offset_m`, `imu_pos_xy_m`,
+    `cmd_drop_prob_max`.
+
 ## Operator status page (web) — setup & restart runbook
 
 One auto-refreshing HTML page for the human operator: watcher

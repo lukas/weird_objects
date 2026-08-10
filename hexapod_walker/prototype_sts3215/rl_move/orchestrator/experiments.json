@@ -59622,7 +59622,7 @@
       "reward.k_current=0.0"
     ],
     "created": "2026-08-10T18:58:43+00:00",
-    "status": "REFUSED",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [
@@ -59631,7 +59631,9 @@
     },
     "stack": "gpu-mjx",
     "refused_reason": "hexapod-mjx-train-4 already runs cw-dep-vref1-r1-gyrobias \u2014 GPU pods host exactly one run; pick a free GPU pod.",
-    "triage": "in-cycle cw-dep-vref1-r1-gyrobias-cw-dep-vref1-r1-imupos-imubias since 2026-08-10T20:14:48"
+    "triage": "done",
+    "verdict": "PASS: gyro rate-bias (1.5deg/s), the last individually-untested IMU axis, composes free onto the hardware candidate. DR0-gate 12/12 gv, 0 term, slip in vref1-r1's own band, only the pre-allowed known catastrophic crater (det/4). Own-cfg DR0.35 12/12 gv, 0 term, in band; the 3 degraded episodes (det/5,sto/0,1) match the pre-registered lineage fixed-seed fingerprint exactly, no new pathology. Video clean six-leg creep throughout, no flag-leg.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-kpscale",
@@ -60257,7 +60259,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T19:03:35+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -60297,7 +60299,9 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-fric-s1-cw-dep-vref1-r1-groundtilt-cw-dep-vr since 2026-08-10T20:09:44"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- seed-12 twin of tonight's PASS-with-caveat friction compose (seed 11): reproduces cleanly, actually milder. DR0-gate det slip/m med 1.12 (sibling 1.23, -9%), sto med 1.02 (sibling 1.04) -- confirms the elevated slip was not a seed-11 high-side fluke. Own-cfg (DR0.35+dr.friction_scale=0.4,1.6) det+sto gv 6/6, 0 term, slip med 1.19 det/1.30 sto (within vref1-r1's own band w/ tolerance); det/5+sto/0+sto/1 crater cluster is the dig-in-resolved fixed-seed DR0.35 fingerprint (identical indices, sac=[], gv=True) shared by 7+ prior PASSed siblings -- not new. Video clean six-leg creep, no flag-leg/fall. Not independently hardware-ready (inherits vref1-r1's paddle-gait economics)."
   },
   {
     "run": "cw-dep-vref1-r1-tiltnoise-encnoise",
@@ -60702,7 +60706,7 @@
       "reward.k_current=0.0"
     ],
     "created": "2026-08-10T19:18:05+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -60741,7 +60745,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-fric-s1-cw-dep-vref1-r1-groundtilt-cw-dep-vr since 2026-08-10T20:09:45"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- floor slope (5deg) tested ALONE for the first time (previously only in PAIR composes fric+tilt, deadband+tilt, imumount+tilt), confirming those PASSes were not masking a real slope sensitivity. DR0-gate det slip/m med 1.09/sto med 0.99 (in vref1-r1's own band). Own-cfg (DR0.35+dr.ground_tilt_deg=5.0) det+sto gv 6/6, 0 term, slip med 1.06 det/1.13 sto (in band); det/5+sto/0+sto/1 crater cluster is the known dig-in-resolved fixed-seed DR0.35 fingerprint (sac=[], gv=True), not new. Video clean six-leg creep, no flag-leg/fall. Not independently hardware-ready."
   },
   {
     "run": "cw-dep-vref1-r1-legmass-linklenscale",
@@ -60813,7 +60819,7 @@
       "dr.link_len_scale_pct=0.02"
     ],
     "created": "2026-08-10T19:29:36+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -60852,7 +60858,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-fric-s1-cw-dep-vref1-r1-groundtilt-cw-dep-vr since 2026-08-10T20:09:45"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- stacks a NEW global link_len_scale axis (0.02) onto the already-PASSed per-leg legmass+linklen jitter compose (0.20/0.025), the first 2-in-family compose on this pairing. DR0-gate det slip/m med 1.03/sto med 0.98 (in vref1-r1's own band). Own-cfg (DR0.35+dr.leg_mass_jitter_pct=0.20+dr.link_len_leg_pct=0.025+dr.link_len_scale_pct=0.02) det+sto gv 6/6, 0 term, slip med 1.07 det/1.13 sto (in band); det/5+sto/0+sto/1 crater cluster is the known dig-in-resolved fixed-seed DR0.35 fingerprint (sac=[], gv=True), not new. Video clean six-leg creep, no flag-leg/fall. Not independently hardware-ready."
   },
   {
     "run": "cw-dep-vref1-r1-imupos-imubias",
@@ -60922,7 +60930,7 @@
       "dr.imu_bias_deg=3.0"
     ],
     "created": "2026-08-10T19:34:32+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -60961,7 +60969,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-gyrobias-cw-dep-vref1-r1-imupos-imubias since 2026-08-10T20:14:49"
+    "triage": "done",
+    "verdict": "PASS: IMU lever-arm offset AND calibration bias TOGETHER (realistic same-install pairing, both individually PASSed alone) compose free. DR0-gate 12/12 gv, 0 term, slip in band, only the pre-allowed known catastrophic crater (det/4). Own-cfg DR0.35 12/12 gv, 0 term, in band; the 3 degraded episodes (det/5,sto/0,1) match the pre-registered lineage fixed-seed fingerprint exactly, no new pathology. Video clean six-leg creep, no flag-leg.",
+    "hardware_ready": false
   },
   {
     "run": "cw-arch-hist16-dep1",
@@ -61967,6 +61977,16 @@
         "problems": [
           "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
+      },
+      {
+        "time": "2026-08-10T20:26:07+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3696,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
       }
     ]
   },
@@ -62238,7 +62258,7 @@
       "reward.k_current=0.0"
     ],
     "created": "2026-08-10T20:15:06+00:00",
-    "status": "INTENT",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -62247,11 +62267,17 @@
       "code_sha_local": "7bc58de02a4aea62a4908cc16df1cc6d17a810bc",
       "code_sha_pod": "7bc58de02a4aea62a4908cc16df1cc6d17a810bc",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1039219",
+      "log_growth_bytes": [
+        4558,
+        4558
+      ]
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-megastack1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_megastack1 --notes 'respec of cw-dep-vref1-r1: Plain English: does the hardware-attempt-#2 checkpoint still walk cleanly if EVERY sensor/actuator/assembly error we tested one-at-a-time tonight (14+ single/2-axis PASSes: session-start placement+zero-bias+CoM-shift, floor tilt, IMU mount/bias/position, gyro bias/noise, tilt-reading noise, encoder noise+bus latency, servo gain-spread+deadband+battery-sag, contact stiffness, floor friction, per-leg build/link-length tolerance, command-drop, velocity-ceiling widening) hit the SAME episode AT ONCE, instead of in isolated pairs? Real hardware has all of these simultaneously, not one at a time -- this is the logical endpoint of tonight'\"'\"'s protect-the-candidate sweep, not a new generic pair. Excludes the two known non-free axes (payload/mass-DR, elevated action-noise) and the currently-flagged kv-alone axis (uses the PASSED gainvar kp+kv combo instead). If-true: own-cfg det+sto gv >=5/6, 0 term, slip/m within vref1-r1'\"'\"'s own +-20% tolerance -- none of tonight'\"'\"'s individually-free margins compound when ALL stacked, closing the sweep and clearing vref1-r1 for hardware with high confidence. If-false: gv drops or slip blows past tolerance -- real evidence that combined real-world noise (not any single axis) is the actual hardware risk, worth flagging to the operator before the session.' --cfg-set dr.joint_zero_bias_deg=3.0 --cfg-set dr.placement_noise_deg=6.0 --cfg-set dr.com_offset_m=0.03 --cfg-set dr.ground_tilt_deg=5.0 --cfg-set dr.imu_mount_deg=10.0 --cfg-set dr.imu_bias_deg=3.0 --cfg-set dr.imu_pos_xy_m=0.07 --cfg-set dr.imu_pos_z_m=-0.02 --cfg-set dr.tilt_noise_deg=1.0 --cfg-set dr.gyro_noise_deg_s=1.5 --cfg-set dr.gyro_bias_deg_s=1.5 --cfg-set dr.torque_scale=0.5 --cfg-set dr.deadband_scale=1.0 --cfg-set dr.kp_scale_pct=0.40 --cfg-set dr.kv_scale_pct=0.50 --cfg-set dr.leg_mass_jitter_pct=0.20 --cfg-set dr.link_len_leg_pct=0.025 --cfg-set dr.link_len_scale_pct=0.02 --cfg-set dr.encoder_noise_deg=0.5 --cfg-set dr.latency_scale=0.5 --cfg-set dr.contact_stiff_scale=0.7 --cfg-set dr.friction_scale=0.4 --cfg-set dr.cmd_drop_prob_max=0.05 --cfg-set dr.vel_scale=0.6 --cfg-set reward.k_current=0.0 > /tmp/train_cw-dep-vref1-r1-megastack1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-megastack1.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-megastack1.log",
+    "failed_reason": "run never appeared as 'running' in W&B within 240s"
   },
   {
     "run": "cw-arch-hist16-dep1-s1r1",
@@ -62329,7 +62355,7 @@
       "safety.max_pitch_deg=25"
     ],
     "created": "2026-08-10T20:15:45+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -62337,10 +62363,120 @@
       "running_experiments_before": 9,
       "code_sha_local": "7bc58de02a4aea62a4908cc16df1cc6d17a810bc",
       "code_sha_pod": "7bc58de02a4aea62a4908cc16df1cc6d17a810bc",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1044113",
+      "log_growth_bytes": [
+        6656,
+        9428
+      ],
+      "wandb_id": "z1ic4485",
+      "global_step_window": [
+        245760,
+        638976
+      ],
+      "fps_estimate": 4369.1
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-dep1-s1r1 --steps 40000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist16_dep1_s1r1 --notes 'respec of cw-arch-hist16-dep1: Plain English: seed-twin confirmation of the temporal-arch line'\"'\"'s first hardware-contract rung (16-frame memory trained directly on the deployment obs contract) -- only tested at seed 0 so far, still mid-training, and this is the plan'\"'\"'s named next temporal-arch rung so it earns a 2nd pod per WISHLIST -0.5. Same recipe, seed 0->1, nothing else changed. If-true: seed 1 reaches a similar walk quality/gate-clearing trajectory as seed 0 -- the hist16-dep contract rung is a real recipe, not scratch-training luck. If-false: seed 1 fails to bootstrap a gait or lands well below seed 0'\"'\"'s trajectory -- flag the from-scratch hist16-dep recipe as seed-fragile before judging the 16-vs-8-frame question on a single seed.' --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 > /tmp/train_cw-arch-hist16-dep1-s1r1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-hist16-dep1-s1r1.log"
+    "log": "/tmp/train_cw-arch-hist16-dep1-s1r1.log",
+    "wandb_id": "z1ic4485",
+    "verified": "2026-08-10T20:19:46+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T20:25:37+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2750,
+        "fps": 3276.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 3277 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-contactstiff-groundtilt",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the hardware candidate still walk cleanly on a floor that is BOTH sloped AND has unknown squishiness (soft carpet vs hard tile) at the same time -- two floor-realism axes that both individually PASSED (contact compliance via cw-dep-vref1-r1-contactstiff, slope via cw-dep-vref1-r1-groundtilt) but never paired; the operator's real floor is both unknown-tilt and unknown-compliance simultaneously. Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + dr.contact_stiff_scale=0.7,2.0 + dr.ground_tilt_deg=5.0) det+sto 6/6 gv (or 5/6 allowing the known crater), 0 term, slip/m within vref1-r1's own band -- composes free like every other floor-realism pairing tonight (fric+groundtilt5 already PASSed). If-false: soft/stiff compliance on a slope compounds worse than either alone (plausible: reduced effective normal load on the downhill side interacting with variable contact stiffness) -- flag as a real pre-attempt-#2 floor risk.",
+    "gate": "own-cfg (DR0.35 + dr.contact_stiff_scale=0.7,2.0 + dr.ground_tilt_deg=5.0) det+sto @15s: gait_valid 12/12, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto) +-20%; known fixed-draw crater (det/4 or det/5) pre-allowed as baseline",
+    "parent": "cw-dep-vref1-r1-groundtilt",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_contactstiff_groundtilt",
+      "--notes",
+      "respec of cw-dep-vref1-r1-groundtilt: Plain English: does the hardware candidate still walk cleanly on a floor that is BOTH sloped AND has unknown squishiness (soft carpet vs hard tile) at the same time -- two floor-realism axes that both individually PASSED (contact compliance via cw-dep-vref1-r1-contactstiff, slope via cw-dep-vref1-r1-groundtilt) but never paired; the operator's real floor is both unknown-tilt and unknown-compliance simultaneously. Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + dr.contact_stiff_scale=0.7,2.0 + dr.ground_tilt_deg=5.0) det+sto 6/6 gv (or 5/6 allowing the known crater), 0 term, slip/m within vref1-r1's own band -- composes free like every other floor-realism pairing tonight (fric+groundtilt5 already PASSed). If-false: soft/stiff compliance on a slope compounds worse than either alone (plausible: reduced effective normal load on the downhill side interacting with variable contact stiffness) -- flag as a real pre-attempt-#2 floor risk.",
+      "--cfg-set",
+      "dr.ground_tilt_deg=5.0",
+      "--cfg-set",
+      "reward.k_current=0.0",
+      "--cfg-set",
+      "dr.contact_stiff_scale=0.7,2.0"
+    ],
+    "created": "2026-08-10T20:17:53+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+      "running_experiments_before": 10,
+      "code_sha_local": "64466c4c6844d36ec92c7627b4aba669d0a7bb6d",
+      "code_sha_pod": "64466c4c6844d36ec92c7627b4aba669d0a7bb6d",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-contactstiff-groundtilt --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_contactstiff_groundtilt --notes 'respec of cw-dep-vref1-r1-groundtilt: Plain English: does the hardware candidate still walk cleanly on a floor that is BOTH sloped AND has unknown squishiness (soft carpet vs hard tile) at the same time -- two floor-realism axes that both individually PASSED (contact compliance via cw-dep-vref1-r1-contactstiff, slope via cw-dep-vref1-r1-groundtilt) but never paired; the operator'\"'\"'s real floor is both unknown-tilt and unknown-compliance simultaneously. Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + dr.contact_stiff_scale=0.7,2.0 + dr.ground_tilt_deg=5.0) det+sto 6/6 gv (or 5/6 allowing the known crater), 0 term, slip/m within vref1-r1'\"'\"'s own band -- composes free like every other floor-realism pairing tonight (fric+groundtilt5 already PASSed). If-false: soft/stiff compliance on a slope compounds worse than either alone (plausible: reduced effective normal load on the downhill side interacting with variable contact stiffness) -- flag as a real pre-attempt-#2 floor risk.' --cfg-set dr.ground_tilt_deg=5.0 --cfg-set reward.k_current=0.0 --cfg-set dr.contact_stiff_scale=0.7,2.0 > /tmp/train_cw-dep-vref1-r1-contactstiff-groundtilt.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-contactstiff-groundtilt.log"
   }
 ]
