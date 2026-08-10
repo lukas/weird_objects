@@ -16,5 +16,7 @@
 
 **gate**: Own-cfg harness at DR0 + the tilt-noise spread, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; DR0 nominal retention det 6/6 gv, slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det
 
+**verdict**: Launch failure (gotcha 13b EOFError collision storm), 0 steps, no science result.
+
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 

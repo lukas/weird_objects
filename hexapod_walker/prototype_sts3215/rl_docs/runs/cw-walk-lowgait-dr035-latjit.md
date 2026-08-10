@@ -16,5 +16,7 @@
 
 **gate**: Own-cfg harness DR0.35 (lowgait-dr035 cfg) + dr.latency_scale=0.5,2.5 det+sto 6/6 @15s: gait_valid 12/12, 0 term, mean end-height err<=10mm, slip/m<=1.6; DR0 nominal (no latency, no DR) retention det 6/6 gv, height err<=8mm, slip/m<=1.15; frames watched det for lurching/height overshoot
 
+**verdict**: Launch failure (gotcha 13b EOFError collision storm), 0 steps, no science result.
+
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 

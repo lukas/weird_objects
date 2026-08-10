@@ -16,5 +16,5 @@
 
 **gate**: Own-cfg harness DR0.5+latency+ground_tilt3deg+dr.mass_scale=1.0,1.4 det+sto 6/6 @15s: gait_valid 12/12, 0 term, det prog median >=0.75; DR0 nominal retention det 6/6 gv, slip/m<=1.24, prog>=0.9; JOYSTICK GATE @DR0.2 heading<=45deg 0 in-envelope falls; frames watched det
 
-**failed_reason**: W&B run failed shortly after launch (fleet launch-collision storm, gotcha 13b) - 0 steps, no science result
+**failed_reason**: run never appeared as 'running' in W&B within 240s
 
