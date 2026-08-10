@@ -31,6 +31,29 @@ existing config knobs, [CODE] needs an implementation cycle first,
    the operator can drive stand->walk->sit in MuJoCo, then hardware
    per safety rules.
 
+-0.5. **TEMPORAL-ARCHITECTURE LINE — keep 1-2 GPU pods on it
+   (operator, 08-09 ~20:2x). [READY]** "Reserve one or two instances
+   for testing the more advanced architecture that captures more past
+   states — I feel like that could be helpful with more complicated
+   movements." NOT mechanically enforced (operator's explicit choice):
+   cycles should simply keep 1-2 pods running architecture arms
+   whenever they refill — treat an empty arch line like an empty
+   backlog, i.e. queue the next rung. Rationale = external review §8
+   (temporal history as online system identification; ranked ABOVE
+   bigger MLPs) + the complicated-movement needs (rise/sit, heading
+   flips, turns). Champions run obs.history_frames=8 (~320 ms at
+   25 Hz) into a 128x128 MLP. Ladder, one variable per rung, off the
+   current champion, joystick-gate retention + parent-delta as gate:
+   (1) history_frames 16 (~640 ms) — `--cfg-set obs.history_frames=16`
+   (warm start NOT possible across obs-width change: from-scratch
+   rules apply, ent 0.005-0.01, std 1.0); (2) history 24; (3) wider
+   net (256x256) at the winning history as the control for capacity
+   vs memory; (4) GRU/recurrent actor [CODE — sb3-contrib
+   RecurrentPPO or custom; needs an implementation cycle + probe].
+   Score each rung on the COMPLICATED movements, not just nominal
+   walk: joystick gate incl. flips, plus rise/lower fracs once the
+   unified line has a rise-capable parent to compare against.
+
 0. **JOYSTICK OPERABILITY — the binding operability target
    (operator, 08-09).** The operator will drive this robot with a
    joystick: ANY sudden command change — forward to instant
