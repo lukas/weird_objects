@@ -16,5 +16,7 @@
 
 **gate**: own-cfg (DR0.35 + all listed dr.* overrides) det+sto @15s: gait_valid >=5/6 each mode, 0 term, slip/m within vref1-r1's own band (det ~0.89-1.13, sto ~1.13-1.36) +-20%; DR0 retention (no overrides) matches vref1-r1 baseline; video clean six-leg gait, no flag-leg/drag
 
+**verdict**: Crashed on tuple-vs-scalar --cfg-set syntax (fixable), but do NOT retry: the underlying experiment (all-axes-stacked DR megastack) is now a CLOSED move (RL_PLAN CLOSED moves, 08-10 night) -- 20-for-20 individual/paired dep-line axes already PASS with the identical benign fixed-seed fingerprint; a megastack is the predictable terminal case, near-zero marginal information. Pruned from backlog twice (20:35, 20:36) after re-adds; do not requeue under any name.
+
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 
