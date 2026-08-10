@@ -32,9 +32,12 @@ ZERO_TOL_DEG = 6.0
 
 # Sit-from-stand exemption to the MAX_SAFE_DELTA_DEG guard: the present
 # pose counts as "at stand" when every live joint is within this many
-# degrees of the captured stand pose (generous vs STAND_OK_DEG=8 to
-# tolerate droop after walking, but nowhere near a wrong-zero pose).
-STAND_MATCH_DEG = 15.0
+# degrees of the captured stand pose. Must tolerate a gait stopped
+# mid-stride: the loaded tripod freezes in its push posture, measured
+# up to 17.4 deg from the captured plant (tape session 08-10, leg2b —
+# 15 deg refused the Sit button after EVERY walk). A wrong-zero pose
+# reads knees ~160 deg off the plant, so 30 deg is still unambiguous.
+STAND_MATCH_DEG = 30.0
 
 
 def _load_names() -> dict[int, str]:
