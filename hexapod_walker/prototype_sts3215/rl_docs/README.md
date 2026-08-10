@@ -8,6 +8,7 @@ it is for; keep them SHORT when you edit them.
 |------|-----------------|--------------|
 | `AGENT.md` | How the autonomous agent works, what we learned works/fails, future work | Taking over the campaign (human or LLM) — read FIRST |
 | `../RL_GOALS.md` | What are we doing and why, in plain English; where we are; what's blocked (moved from `GOAL.md` 08-10) | Every cycle, first |
+| `../STATUS.md` | How is it going: what the robot can do (real + sim), what's not working, big lessons learned — the operator-facing digest | Catching up after time away; after any hardware session or story-changing PASS (update it!) |
 | `SKILLS.md` | What the robot can DO today: passed skills + their checkpoints (W&B artifact per row) | On any PASS (update it!), or when the operator asks what works |
 | `WISHLIST.md` | Operator's backlog of things to learn — pull from it whenever pods would idle | Every cycle, when deciding launches |
 | `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, hard-won gotchas; § "Operator status page" = web dashboard runbook | Every cycle, before running commands; when the operator's status page is down |

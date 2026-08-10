@@ -32,6 +32,7 @@ rl_move/sim/coreweave.env
 linux_control/logs/recv_stdout.txt
 linux_control/logs/robot_events.jsonl
 linux_control/logs/events.jsonl
+linux_control/logs/errors.jsonl
 joint_viz/
 stl_prototype/
 full_robot_viz/stl/
