@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-10T16:54:40+00:00
+**created**: 2026-08-10T16:55:28+00:00
 
 **pod**: hexapod-mjx-train-3
 
@@ -16,5 +16,5 @@
 
 **gate**: Own-cfg (DR0.35+leg_mass_jitter_pct=0.20+link_len_leg_pct=0.025) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 baseline retention clean; frames watched det
 
-**refused_reason**: hexapod-mjx-train-3 code marker df21fbaba97c369c77e6865339e7631f49450976 != local HEAD 6721ad9d59ecb4653040a7557b7bf7fe4857b60e. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-3 code marker c05f11a1f111b6ed02e8e7b2ad5d576a45d4830a != local HEAD 6bb154f8a484d2bdb26e8252d06ce8fc0ceead61. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
 
