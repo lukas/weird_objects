@@ -43405,7 +43405,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T04:21:53"
   },
   {
     "run": "cw-walk-groundtilt5-deadband-rr1-rr1",
@@ -43507,7 +43508,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T04:21:53"
   },
   {
     "run": "cw-walk-joyheaddeadband-payload",
@@ -46270,19 +46272,7 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-placementnoise6-payload-rr1-rr1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_placementnoise6_r3.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.placement_noise_deg=6.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_placementnoise6_payload_rr1_rr1 --notes 'respec of cw-walk-placementnoise6-r3: Compose: payload (1.0-1.5x) onto placementnoise6 (hand-placement-slop 6deg). 2nd requeue -- first attempt died with no ledger trace under the fleet'\"'\"'s severe concurrent-drain launch-collision storm this window, 0 compute lost.' --cfg-set dr.mass_scale=1.0,1.5 > /tmp/train_cw-walk-placementnoise6-payload-rr1-rr1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-placementnoise6-payload-rr1-rr1.log",
     "wandb_id": "hisp0uc4",
-    "verified": "2026-08-10T04:13:55+00:00",
-    "checkups": [
-      {
-        "time": "2026-08-10T04:19:46+00:00",
-        "process_alive": true,
-        "tracebacks_in_tail": 0,
-        "log_growth_bytes": 6651,
-        "fps": 8738.1,
-        "placement": "solo on GPU-MJX pod",
-        "verdict": "HEALTHY",
-        "problems": []
-      }
-    ]
+    "verified": "2026-08-10T04:13:55+00:00"
   },
   {
     "run": "cw-walk-joyheadtilt3-deadband",
