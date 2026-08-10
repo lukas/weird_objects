@@ -97,11 +97,21 @@ END_CLEAR_BELLY_MM = 60.0
 
 
 def _success(mode: str, term: bool, ep: dict,
-             end_posture_gate: bool = False) -> bool:
+             end_posture_gate: bool = False,
+             valid_plant_gate: bool = False) -> bool:
     if term:
         return False
     if end_posture_gate and mode in STAND_END_MODES + ("lower",) \
             and ep.get("end_posture_ok") is False:
+        return False
+    # Valid-plant gate (operator spec 2026-08-10; PLANT_SPEC in
+    # sim_env.py): a rise/raise "success" must END in a geometrically
+    # valid stand — height AND attitude AND feet down AND CoM inside
+    # the support polygon AND walkable footprint. Off by default until
+    # the champions are baselined (report the numbers first, same
+    # rollout as end_posture_gate on 08-08).
+    if valid_plant_gate and mode in ("rise", "raise") \
+            and ep.get("valid_plant") is False:
         return False
     if mode in ("rise", "lower"):
         return ep["height_err_end_mm"] is not None \
@@ -122,7 +132,8 @@ def _success(mode: str, term: bool, ep: dict,
 
 
 def run_episode(env, model, *, deterministic: bool, video: bool,
-                annotate, end_posture_gate: bool = False) -> tuple[dict, list]:
+                annotate, end_posture_gate: bool = False,
+                valid_plant_gate: bool = False) -> tuple[dict, list]:
     obs, info0 = env.reset()
     mode = info0.get("goal_mode", "?")
     kind = _start_kind(env._goal_traj) if env._goal_traj else "plant"
@@ -314,7 +325,8 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             ep["plant_fail"] = [k[:-3] for k, v in det.items()
                                 if k.endswith("_ok") and not v]
             ep["plant_margin_mm"] = det["com_margin_mm"]
-    ep["success"] = _success(mode, term, ep, end_posture_gate)
+    ep["success"] = _success(mode, term, ep, end_posture_gate,
+                             valid_plant_gate)
     return ep, frames
 
 
@@ -355,14 +367,23 @@ def _save_contact_sheet(strip_paths: list[Path], out: Path) -> None:
 
 
 def _infer_run_name(ckpt: Path) -> str | None:
-    """ppo_mjx_<task>_<run>.zip -> <run> (training save convention)."""
+    """Map a checkpoint filename back to its W&B run display name.
+
+    Two conventions exist: the trainer's own default save
+    (ppo_mjx_<task>_<run>.zip, run name verbatim) and launch_run's
+    --out-name (ppo_goal_<run with dashes replaced by underscores>.zip
+    — run names are dash-only by campaign convention, so the reverse
+    map is unambiguous).
+    """
     stem = ckpt.stem
-    if not stem.startswith("ppo_mjx_"):
+    if stem.startswith("ppo_mjx_"):
+        rest = stem[len("ppo_mjx_"):]
+        for task in sorted(ENV_CLASSES, key=len, reverse=True):
+            if rest.startswith(task + "_"):
+                return rest[len(task) + 1:]
         return None
-    rest = stem[len("ppo_mjx_"):]
-    for task in sorted(ENV_CLASSES, key=len, reverse=True):
-        if rest.startswith(task + "_"):
-            return rest[len(task) + 1:]
+    if stem.startswith("ppo_goal_"):
+        return stem[len("ppo_goal_"):].replace("_", "-")
     return None
 
 
@@ -434,6 +455,9 @@ def _wandb_push(report: dict, out: Path, args) -> None:
             if any("end_posture_ok" in e for e in eps):
                 flat[f"{pre}/end_posture_ok"] = sum(
                     bool(e.get("end_posture_ok")) for e in eps)
+            if any("valid_plant" in e for e in eps):
+                flat[f"{pre}/valid_plant"] = sum(
+                    bool(e.get("valid_plant")) for e in eps)
             if mode in ("rise", "lower"):
                 by: dict[str, tuple[int, int]] = {}
                 for e in eps:
@@ -477,6 +501,13 @@ def main() -> None:
                     default=True,
                     help="wire end_posture_ok into success for stand/"
                          "belly-ending modes")
+    # valid_plant is always REPORTED for stand-ending modes; gating it
+    # into rise/raise success is opt-in until champions are baselined
+    # (operator spec 2026-08-10; see PLANT_SPEC in sim_env.py).
+    ap.add_argument("--valid-plant-gate",
+                    action=argparse.BooleanOptionalAction, default=False,
+                    help="require the geometric valid-plant criterion "
+                         "for rise/raise success")
     ap.add_argument("--no-video", action="store_true")
     ap.add_argument("--video-every", type=int, default=3,
                     help="record every Nth episode per mode (1st always)")
@@ -586,7 +617,8 @@ def main() -> None:
                     ep, frames = run_episode(
                         env, model, deterministic=det, video=video,
                         annotate=_annotate_frame,
-                        end_posture_gate=args.end_posture_gate)
+                        end_posture_gate=args.end_posture_gate,
+                        valid_plant_gate=args.valid_plant_gate)
                     eps.append(ep)
                     if frames and (scheduled
                                    or not ep.get("gait_valid", True)):
