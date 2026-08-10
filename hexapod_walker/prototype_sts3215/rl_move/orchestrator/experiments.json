@@ -62951,7 +62951,7 @@
       "rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1.zip"
     ],
     "created": "2026-08-10T22:05:25+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -62978,7 +62978,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verified": "2026-08-10T22:27:47+00:00",
+    "wandb_id": "2zle309u"
   },
   {
     "run": "cw-arch-hist16-r7-c4",
@@ -63052,7 +63054,7 @@
       "respec of cw-arch-hist16-r7-c3: Plain English: keep training the 16-frame architecture walker to see if the slip/economy gap to the deployment champion keeps closing or has plateaued. cw-arch-hist16-r7-c3's +40M continuation PASSED and was still improving (det slip/m 1.16, sto 1.27, both closer to the champion band 0.89-1.13 than c1's 1.14/1.33) with zero stability regression and a clean joystick gate. One variable vs c3: +40M more steps, same recipe, nothing else changed. If-true: slip/m moves fully inside the champion band and sto keeps closing -- the architecture line closes the gap by exposure alone, no reward change ever needed. If-false: slip/m plateaus outside the band despite the extra steps -- the gap is structural (contact-pricing/architecture), not a training-budget question, and the line should try a different lever before another blind continuation."
     ],
     "created": "2026-08-10T22:11:22+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -63067,6 +63069,20 @@
     "phase": "hardening",
     "evidence": "cw-arch-hist16-r7-c3 PASS (this cycle), slip/m still improving no plateau across c1->c3",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-r7-c4 --steps 40000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --n-envs 3072 --impl warp --host-workers 24 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_r7_c3.zip --out-name ppo_goal_cw_arch_hist16_r7_c4 --notes 'respec of cw-arch-hist16-r7-c3: Plain English: keep training the 16-frame architecture walker to see if the slip/economy gap to the deployment champion keeps closing or has plateaued. cw-arch-hist16-r7-c3'\"'\"'s +40M continuation PASSED and was still improving (det slip/m 1.16, sto 1.27, both closer to the champion band 0.89-1.13 than c1'\"'\"'s 1.14/1.33) with zero stability regression and a clean joystick gate. One variable vs c3: +40M more steps, same recipe, nothing else changed. If-true: slip/m moves fully inside the champion band and sto keeps closing -- the architecture line closes the gap by exposure alone, no reward change ever needed. If-false: slip/m plateaus outside the band despite the extra steps -- the gap is structural (contact-pricing/architecture), not a training-budget question, and the line should try a different lever before another blind continuation.' > /tmp/train_cw-arch-hist16-r7-c4.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-hist16-r7-c4.log"
+    "log": "/tmp/train_cw-arch-hist16-r7-c4.log",
+    "checkups": [
+      {
+        "time": "2026-08-10T22:25:50+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 9218,
+        "fps": 10922.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "verified": "2026-08-10T22:27:47+00:00",
+    "wandb_id": "d6rd9a1r"
   }
 ]
