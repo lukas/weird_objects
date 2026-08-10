@@ -62966,6 +62966,18 @@
     "phase": "hardening",
     "evidence": "cw-arch-hist16-dep1 bootstrap PASS (this cycle) + cw-arch-hist16-r7-c1/c3 pattern showing slip/m closes to the champion band via continuation alone with no reward change",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-dep1-c1 --steps 40000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist16_dep1_c1 --notes 'respec of cw-arch-hist16-dep1: Plain English: continue the hardware-deployment-contract 16-frame walker to close its efficiency gap. cw-arch-hist16-dep1 just proved the 16-frame temporal architecture bootstraps a clean, valid six-leg walking gait from scratch directly on the real robot'\"'\"'s sensing contract (0 falls, 0 terminations, 12/12 gait_valid) -- but its foot-slip (1.41-1.48/m) and speed-tracking are not yet inside the current hardware candidate vref1-r1'\"'\"'s own band (0.89-1.36). The sibling architecture line (cw-arch-hist16-r7) closed an identical gap (1.43 -> 1.13-1.16) purely through two +40M continuations, no reward change. One variable vs the parent: +40M more steps, same recipe, nothing else changed. If-true: slip/m moves into or near the vref1-r1 band and vel-tracking success improves -- the dep-contract candidate becomes a real hardware-ladder rung. If-false: slip/m plateaus outside the band despite the extra steps -- the gap is structural (contact-pricing/architecture), not a training-budget question, and the dep line needs a different lever before another blind continuation.' --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1.zip > /tmp/train_cw-arch-hist16-dep1-c1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-hist16-dep1-c1.log"
+    "log": "/tmp/train_cw-arch-hist16-dep1-c1.log",
+    "checkups": [
+      {
+        "time": "2026-08-10T22:09:54+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 9371,
+        "fps": 10922.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
