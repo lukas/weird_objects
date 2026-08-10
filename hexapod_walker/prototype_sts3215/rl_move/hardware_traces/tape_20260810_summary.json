@@ -146,7 +146,7 @@
    }
   }
  ],
- "floor": "operator to confirm (same runway all session)",
+ "floor": "hard unsurfaced garage floor (bare concrete, unsealed) \u2014 NOT the usual garage; different surface from the 08-09 session runs. Feet: stock rubber tips.",
  "finished": "2026-08-10T09:49:30",
  "findings": {
   "slip_ratio": "0.50-0.51 across 5 valid runs; invariant to speed (30/50 mm/s) and swing lift (25/40 mm)",
