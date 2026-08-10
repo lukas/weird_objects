@@ -981,9 +981,26 @@ class SimHexapodBalanceEnv(_GymBase):
                                  "rise_posture_gate", default=0.0))
             pf = 1.0
             if g_pf > 0.0 and self._pad_z_ref is not None:
-                allow_pf = float(cfg_get(
-                    self.cfg, "reward", "end_posture_allow_m",
-                    default=0.02))
+                # Mode-correct allowance (bug found 2026-08-10,
+                # cw-uni-rfix-postgate1 dig-in): the belly-ending lower
+                # pose legitimately leaves pads 20-45 mm up (measured on
+                # cw-uni-rfix-warm1's 6/6 harness-PASSING lowers:
+                # 16.9-43.4 mm), so gating lower at the 20 mm stand
+                # allowance made an HONEST lower earn pf 0.67-0.83 —
+                # indistinguishable from the legs-aloft outrigger cheat
+                # (pf 0.67), which then won on faster post-ramp income
+                # and eroded warm1's clean lower to 0/12. Use the same
+                # 60 mm lower allowance the harness end_posture_ok and
+                # the reward_end_posture penalty already use
+                # (self._h_target < 0 == lower episode).
+                if self._h_target < 0.0:
+                    allow_pf = float(cfg_get(
+                        self.cfg, "reward", "end_posture_allow_lower_m",
+                        default=0.06))
+                else:
+                    allow_pf = float(cfg_get(
+                        self.cfg, "reward", "end_posture_allow_m",
+                        default=0.02))
                 n_on, n_tot = 0, 0
                 for i in range(6):
                     if self._pad_bids[i] < 0:

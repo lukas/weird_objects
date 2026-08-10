@@ -354,7 +354,11 @@ def main(argv: list[str] | None = None) -> int:
             "reward_phase_contact", "reward_support_margin",
             "reward_load_even", "reward_step_event", "reward_drag",
             "reward_park_duty", "reward_end_posture", "reward_effort",
-            "reward_walk_yaw", "reward_quad_clear", "reward_quad_plant")
+            "reward_walk_yaw", "reward_quad_clear", "reward_quad_plant",
+            # Gate factors (08-10 postgate1 dig-in: rise_posture_factor
+            # was computed in-env but never logged, blinding triage to
+            # the gate's live value).
+            "rise_posture_factor", "rise_income_factor")
         AUX_ABS = ("roll_deg", "pitch_deg")       # logged as abs_<k>
         AUX = ("track_err_deg", "height_err_mm", "mean_current_a",
                "walk_vel_err", "walk_speed",
