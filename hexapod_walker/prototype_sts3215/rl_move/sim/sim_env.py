@@ -47,6 +47,27 @@ from .servo_model import (  # noqa: E402
 G0 = 9.80665
 N_OBS = 47
 
+# Rise-reference cache (reward.rise_ref_path): one load per process —
+# the MJX vec envs build thousands of shims that share this module.
+_RISE_REF_CACHE: dict[str, dict] = {}
+
+
+def load_rise_ref(path: str) -> dict:
+    """npz with ``q_rad`` (T,18) joint trajectory of a known-good rise,
+    ``dt`` (s/tick at recording) and ``ramp_i0`` (tick where the height
+    ref leaves zero). Built by ``extract_rise_ref.py`` from a champion
+    rollout (Stage-II reference, HumanUP/HoST style)."""
+    ref = _RISE_REF_CACHE.get(path)
+    if ref is None:
+        z = np.load(path)
+        q = np.asarray(z["q_rad"], dtype=float)
+        if q.ndim != 2 or q.shape[1] != 18 or len(q) == 0:
+            raise ValueError(
+                f"rise_ref {path}: expected (T,18) q_rad, got {q.shape}")
+        ref = {"q": q, "dt": float(z["dt"]), "ramp_i0": int(z["ramp_i0"])}
+        _RISE_REF_CACHE[path] = ref
+    return ref
+
 try:  # gymnasium is optional for pure scripted use
     import gymnasium as _gym
     _GymBase = _gym.Env
@@ -763,6 +784,15 @@ class SimHexapodBalanceEnv(_GymBase):
         # one step that makes standing possible has zero gradient.
         self._is_rise = (self._goal_traj is not None
                          and getattr(self._goal_traj, "mode", "") == "rise")
+        # First ramp tick of a rise schedule (hold window ends here) —
+        # the alignment anchor for the rise-reference tracking term:
+        # references are recorded ramp-relative so episodes with
+        # jittered hold lengths all join the same trajectory.
+        self._rise_ramp_i0 = 0
+        if self._is_rise:
+            nz = np.nonzero(
+                np.abs(np.asarray(self._goal_traj.height)) > 1e-12)[0]
+            self._rise_ramp_i0 = int(nz[0]) if len(nz) else 0
         self._plant_feet_xy = fk_all_feet(
             self._plant_deg * DEG2RAD)[:, :2]
         self._curl_dist_prev = self._curl_dist()
@@ -930,6 +960,41 @@ class SimHexapodBalanceEnv(_GymBase):
             e_abs = abs(h_err)
             r_prog = kpg * (self._prev_h_err_abs - e_abs)
             self._prev_h_err_abs = e_abs
+            # Posture gate on rise/lower INCOME (2026-08-10, cfg
+            # reward.rise_posture_gate in [0,1], default 0 = legacy
+            # exact). The rfix pair (cw-uni-rfix-warm1/fresh1) showed
+            # the height terms alone are gameable: fresh1 saturated the
+            # in-training height criterion (rise "6/6") while the
+            # posture-strict harness scored it 0/6 with a foot 273-313
+            # mm in the air — torso-at-height via bridge/flail, not
+            # standing. Height income (milestones, finish bonus, and
+            # the post-ramp tracking kernel) is scaled by the fraction
+            # of pads within end_posture_allow_m of their grounded z
+            # (GEOMETRIC clearance, matching the eval harness's
+            # end_posture_ok — NOT touch force: the champions' known
+            # load concentration leaves grounded feet under 0.5 N, and
+            # lightly-loaded is not the exploit; airborne is). "At
+            # height, on your feet" pays full; "at height, feet
+            # flying" earns ~(1-g). Progress and penalties are never
+            # scaled (same construction as rise_income_prog_gate).
+            g_pf = float(cfg_get(self.cfg, "reward",
+                                 "rise_posture_gate", default=0.0))
+            pf = 1.0
+            if g_pf > 0.0 and self._pad_z_ref is not None:
+                allow_pf = float(cfg_get(
+                    self.cfg, "reward", "end_posture_allow_m",
+                    default=0.02))
+                n_on, n_tot = 0, 0
+                for i in range(6):
+                    if self._pad_bids[i] < 0:
+                        continue
+                    n_tot += 1
+                    if (float(self.data.xpos[self._pad_bids[i], 2])
+                            - self._pad_z_ref[i]) <= allow_pf:
+                        n_on += 1
+                if n_tot:
+                    pf = (1.0 - g_pf) + g_pf * (n_on / n_tot)
+                parts["rise_posture_factor"] = pf
             r_mile = 0.0
             for frac in (0.25, 0.50, 0.75, 0.90):
                 # Fraction of the SIGNED target covered — works for rise
@@ -938,6 +1003,7 @@ class SimHexapodBalanceEnv(_GymBase):
                         and h_rel / self._h_target >= frac):
                     self._h_milestones.add(frac)
                     r_mile += kms
+            r_mile *= pf
             parts["reward_rise_progress"] = r_prog
             parts["reward_rise_milestone"] = r_mile
             reward += r_prog + r_mile
@@ -997,8 +1063,19 @@ class SimHexapodBalanceEnv(_GymBase):
                     -0.5 * (h_err / max(sfin, 1e-6)) ** 2)
                 if inc_f != 1.0:
                     r_fin *= inc_f
+                r_fin *= pf
                 parts["reward_rise_finish"] = r_fin
                 reward += r_fin
+                # Post-ramp tracking kernel is also height-only income
+                # — a torso parked at the target with feet flying would
+                # still collect ~1/tick for the rest of the episode.
+                # Gate it by the same loaded-feet factor, but only once
+                # the ramp is done: mid-rise transients stay untaxed.
+                if pf != 1.0:
+                    r_task = parts.get("reward_task", 0.0)
+                    if r_task > 0.0:
+                        reward += r_task * (pf - 1.0)
+                        parts["reward_task"] = r_task * pf
         # Curl scores (rise only): pay pulling the feet in toward the
         # plant footprint. Potential-based, so crouch starts (dist ~0)
         # and foot-parking exploits earn nothing net.
@@ -1050,6 +1127,39 @@ class SimHexapodBalanceEnv(_GymBase):
                                * parts.get("still_factor", 0.0))
                     reward += r_still - parts["reward_still"]
                     parts["reward_still"] = r_still
+        # Rise-reference tracking (default OFF; operator 08-10, the
+        # Stage-II route from the stand-up literature — HumanUP / HoST:
+        # discover the motion once, then train the deployable policy to
+        # TRACK it instead of rediscovering from a height reward). Our
+        # "discovery stage" already exists: the stance champion's
+        # learned belly-rise. This term pays a joint-space kernel on
+        # RMS error against that recorded trajectory, time-aligned at
+        # the RAMP START tick (episodes with jittered holds and
+        # crouch/bridge starts all join the same reference — pre-ramp
+        # ticks track the reference's own curl phase, clamped at its
+        # start). A scaffold, not the objective: run it at full weight
+        # to seed the skill, then anneal k to 0 across warm-started
+        # arms so the final policy is not trajectory-locked.
+        # Enable: --cfg-set reward.k_rise_ref_track=<k>
+        #         --cfg-set reward.rise_ref_path=<npz>.
+        k_ref = float(cfg_get(self.cfg, "reward", "k_rise_ref_track",
+                              default=0.0))
+        if k_ref > 0.0 and self._is_rise:
+            ref_path = cfg_get(self.cfg, "reward", "rise_ref_path",
+                               default=None)
+            if ref_path:
+                ref = load_rise_ref(str(ref_path))
+                t_rel = (self._step_i - self._rise_ramp_i0) * self.dt
+                j = ref["ramp_i0"] + int(round(t_rel / ref["dt"]))
+                j = min(max(j, 0), len(ref["q"]) - 1)
+                err = self.data.qpos[self._qadr] - ref["q"][j]
+                sig = float(cfg_get(
+                    self.cfg, "reward", "rise_ref_sigma_deg",
+                    default=12.0)) * DEG2RAD
+                rms = float(np.sqrt(np.mean(err ** 2)))
+                r_ref = k_ref * math.exp(-0.5 * (rms / max(sig, 1e-6)) ** 2)
+                parts["reward_rise_ref"] = r_ref
+                reward += r_ref
         # Per-servo hot-current penalty (archive/RL_PLAN_NEXT.md §4, default OFF).
         # The aggregate current penalty lets the policy park all load on
         # one knee; visual eval of the cw champions found tripod stances
