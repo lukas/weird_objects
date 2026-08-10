@@ -180,7 +180,19 @@ report.json, and the W&B API for exactly these questions.
    pod you're about to launch on.
 6. **Checkpoint naming:** run `cw-walk-foo-c1` ⇒
    `rl_move/sim/policies/ppo_goal_cw_walk_foo_c1.zip` (dashes→
-   underscores). Always record + compare md5 when pulling.
+   underscores). Always record + compare md5 when pulling. That
+   name is only guaranteed because the launch command carries
+   `--out-name`; `launch_run.py launch`/`respec` now always inject
+   it if missing (08-10 fix). A run launched BEFORE that fix (or by
+   hand, without going through the launcher) with no `--out-name`
+   saved under `train_ppo_mjx`'s own default instead:
+   `ppo_mjx_<task>_<run>.zip` (e.g. `--task joint_goal` ⇒
+   `ppo_mjx_joint_goal_cw-stance-riseproof1.zip`) — `ops.sh
+   pullckpt`'s `ppo_goal_...` guess 404s (`cw-stance-riseproof1`,
+   08-10: watcher's pre-stage `pullckpt rc=1`, pulled manually once
+   diagnosed). `ops.sh pullckpt` now falls back to the
+   `ppo_mjx_{joint_goal,joint_walk,goal}_<run>.zip` variants
+   automatically before giving up.
 7. **W&B:** project `l2k2/hexapod-balance`; creds already in the
    cycle env (elsewhere: source `rl_move/sim/wandb.env`). Prefer
    `ops.sh wandb <run>`; for ad-hoc queries use `wandb.Api()`
