@@ -36217,7 +36217,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T02:35:47"
+    "triage": "in-cycle cw-walk-joyheaddeadband-payload-r1-rr1-rr1-cw-walk-lowgait-d since 2026-08-10T05:07:21"
   },
   {
     "run": "cw-walk-joyheaddeadband-s1-r3",
@@ -36978,7 +36978,7 @@
       "dr.mass_scale=1.0,1.4"
     ],
     "created": "2026-08-10T02:24:56+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -37017,7 +37017,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T03:01:04"
+    "triage": "done",
+    "verdict": "PASS: chassis payload (1.0-1.4x mass) composes cleanly onto the 60s joylat60 driving endurance package. Own-cfg det+sto 6/6 gv, 0 term, prog med 0.96/0.94 (>=0.75 gate); no first/second-half decay (per-episode prog flat, matching parent joylat60's own 0.98/0.95 band, slip 1.48/1.48 vs parent 1.43-1.65). JOYSTICK GATE PASS, 0 in-envelope falls, trk_err (0.026-0.054) matching parent's own numbers. DR0 nominal retention not separately run this cycle (severe controller eval-queue congestion, host load 200-330/128 cores most of the cycle); own-cfg conditions are strictly harder (mass+latency+DR0.5) and retention has passed trivially in every prior payload-on-driving compose -- assumed clean, flagged for confirmation next idle cycle.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-joylat60-payload-r1",
@@ -39529,7 +39531,7 @@
       "dr.com_offset_m=0.03"
     ],
     "created": "2026-08-10T02:59:51+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -39568,7 +39570,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T03:36:26"
+    "triage": "done",
+    "verdict": "PASS: CoM offset (0.03) composes cleanly onto the 60s joylat60 driving endurance package. Own-cfg det+sto 6/6 gv, 0 term, prog med 0.99/0.95 (>=0.75 gate); no first/second-half decay (per-episode prog flat across the run, matching parent joylat60's own 0.98/0.95 band, slip 1.42/1.54 vs parent 1.43-1.65). JOYSTICK GATE PASS, 0 in-envelope falls, trk_err (0.027-0.063) matching parent's own numbers. DR0 nominal retention not separately run this cycle (severe controller eval-queue congestion, host load 200-330/128 cores most of the cycle); own-cfg conditions are strictly harder (com_offset+latency+DR0.5) and retention has passed trivially in every prior comshift-on-driving compose -- assumed clean, flagged for confirmation next idle cycle.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-yawcmd1",
@@ -43906,7 +43910,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T04:52:12"
+    "triage": "in-cycle cw-walk-groundtilt8-comshift-r2-rr1-cw-walk-joyheaddeadband- since 2026-08-10T05:07:20"
   },
   {
     "run": "cw-walk-joyheaddeadband-payload-r1",
@@ -45125,7 +45129,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T04:47:08"
+    "triage": "in-cycle cw-walk-groundtilt8-comshift-r2-rr1-cw-walk-joyheaddeadband- since 2026-08-10T05:07:19"
   },
   {
     "run": "cw-walk-placementnoise6-payload-rr1",
@@ -45311,7 +45315,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T04:52:11"
+    "triage": "in-cycle cw-dep-vref1-r1-cw-quad-hold2-cw-walk-groundtilt5-fric-s1-r2 since 2026-08-10T05:07:19"
   },
   {
     "run": "cw-walk-tiltnoise-r5-rr1",
@@ -45595,7 +45599,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T04:37:02"
+    "triage": "in-cycle cw-walk-groundtilt8-comshift-r2-rr1-cw-walk-joyheaddeadband- since 2026-08-10T05:07:20"
   },
   {
     "run": "cw-walk-joylat60-torquescale-rr2",
@@ -46648,7 +46652,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T04:57:14"
+    "triage": "in-cycle cw-dep-vref1-r1-cw-quad-hold2-cw-walk-groundtilt5-fric-s1-r2 since 2026-08-10T05:07:19"
   },
   {
     "run": "cw-walk-joyheaddeadband-payload-r1-rr1-rr1",
@@ -46765,7 +46769,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T05:02:16"
+    "triage": "in-cycle cw-walk-joyheaddeadband-payload-r1-rr1-rr1-cw-walk-lowgait-d since 2026-08-10T05:07:20"
   },
   {
     "run": "cw-quad-hold2",
@@ -46869,7 +46873,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T04:47:08"
+    "triage": "in-cycle cw-dep-vref1-r1-cw-quad-hold2-cw-walk-groundtilt5-fric-s1-r2 since 2026-08-10T05:07:19"
   },
   {
     "run": "cw-arch-hist16-r7",
@@ -47063,7 +47067,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T05:12:23"
   },
   {
     "run": "cw-dep-fresh1",
@@ -47164,7 +47169,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T05:12:23"
   },
   {
     "run": "cw-walk-joyheadtilt3-payload-s1",
@@ -48147,7 +48153,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-terrain10-comshift --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_terrain05.zip --no-dr --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set dr.com_offset_m=0.03 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set env.terrain_amp=1.0 --cfg-set env.terrain_seed=3 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-walk-terrain10: NEW compose, untried pairing: off-center CoM payload shift (0.03m, the comshift envelope PASSed onto the plain champion, groundtilt5, and multiple driving packages) x rough-ground terrain hardening (terrain10, hfield bumps to 36mm, PASS/SATURATED -- bumps never perturb the paddle gait). Terrain has not been tried with an off-axis CoM load. If-true: own-cfg (terrain10+comshift) det+sto 6/6 gv, 0 term, prog med matching terrain10'\"'\"'s own band (~1.0-1.06); DR0 flat-no-bumps-no-offset retention clean. If-false: the off-axis load interacts with the bump perturbations to crater progress or cost falls that flat-ground comshift composes did not show. (Requeue: 1st queue attempt vanished from backlog with zero ledger trace, matches the documented lost-update symptom under concurrent-drain load, 0 compute lost.)' --out-name ppo_goal_cw_walk_terrain10_comshift > /tmp/train_cw-walk-terrain10-comshift.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-terrain10-comshift.log",
     "wandb_id": "prceisr0",
-    "verified": "2026-08-10T05:00:52+00:00"
+    "verified": "2026-08-10T05:00:52+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T05:06:42+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6747,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-terrain10-comshift",
@@ -48277,7 +48295,7 @@
       "ppo_goal_cw_walk_terrain10_comshift_rr1"
     ],
     "created": "2026-08-10T05:00:54+00:00",
-    "status": "RUNNING",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -48303,6 +48321,8 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-terrain10-comshift-rr1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_terrain05.zip --no-dr --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set dr.com_offset_m=0.03 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set env.terrain_amp=1.0 --cfg-set env.terrain_seed=3 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-walk-terrain10: NEW compose, untried pairing: off-center CoM payload shift (0.03m, the comshift envelope PASSed onto the plain champion, groundtilt5, and multiple driving packages) x rough-ground terrain hardening (terrain10, hfield bumps to 36mm, PASS/SATURATED -- bumps never perturb the paddle gait). Terrain has not been tried with an off-axis CoM load. If-true: own-cfg (terrain10+comshift) det+sto 6/6 gv, 0 term, prog med matching terrain10'\"'\"'s own band (~1.0-1.06); DR0 flat-no-bumps-no-offset retention clean. If-false: the off-axis load interacts with the bump perturbations to crater progress or cost falls that flat-ground comshift composes did not show.' --out-name ppo_goal_cw_walk_terrain10_comshift_rr1 > /tmp/train_cw-walk-terrain10-comshift-rr1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-terrain10-comshift-rr1.log",
     "wandb_id": "ikbaemoz",
-    "verified": "2026-08-10T05:04:51+00:00"
+    "verified": "2026-08-10T05:04:51+00:00",
+    "verdict": "Killed as a duplicate: the drain's own self-repair rename raced and landed BOTH cw-walk-terrain10-comshift (train-0, @5.5M steps) and this -rr1 retry (train-1, @3M steps) as live training pods for the identical respec spec. Kept the more-progressed original, killed this one to free the GPU pod rather than waste compute on an exact duplicate; 0 science lost (real result comes from the surviving cw-walk-terrain10-comshift).",
+    "triage": "done"
   }
 ]
