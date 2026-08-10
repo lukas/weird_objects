@@ -59701,7 +59701,7 @@
       "reward.k_current=0.0"
     ],
     "created": "2026-08-10T18:59:21+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -59740,7 +59740,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-startvar1-seed12-noaxis-cw-dep-vref1-r1-kpscale since 2026-08-10T20:40:02"
+    "triage": "done",
+    "verdict": "kp-spread alone (2x nominal, dr.kp_scale_pct=0.40) composes free with vref1-r1: DR0 gate gv 6/6 both modes with only the pre-allowed det/4 crater; own-cfg (DR0.35+kp) det slip med 1.08 / sto slip med 1.17 land INSIDE vref1-r1's own band (0.89-1.13 det / 1.13-1.36 sto), not near gainvar's wide-margin edge. Kp-spread alone is NOT the driver of gainvar's widest-yet slip margin -- implicates kv-spread or the kp x kv interaction. Clean six-leg video both passes; part of the now-CLOSED dep-vref1-r1 DR-compose sweep (20-for-20+ no-effect).",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-fric-s1",
@@ -61755,7 +61757,7 @@
       "respec of cw-dep-startvar1-placementonly: Plain English: today's startvar1 failure line found that seed 12 (not any specific extra DR axis) might be the real reason 2/6 episodes degrade -- the noZDnoBS1 and placementonly isolation arms both showed the SAME det/3+det/4 degradation regardless of which axis was zeroed, but that pattern was ABSENT in the seed-11 standalone placement compose. This arm removes the LAST extra axis (placement_noise_deg 6->0), leaving nothing but seed=12 + the plain vref1-r1 recipe (18M steps, same warm start/eval panel as every isolation arm tonight). If-true: det/3+det/4 STILL degrade with zero extra axes -- confirms seed=12 itself (not any dep-line axis) drives this pattern, closing the startvar1 forensic question and clearing every already-PASSed axis of blame. If-false: seed=12 alone is clean (matches vref1-r1's own seed-11 band) -- an axis (or an axis x seed interaction) is still required, reopening the axis search."
     ],
     "created": "2026-08-10T20:03:49+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -61794,7 +61796,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-startvar1-seed12-noaxis-cw-dep-vref1-r1-kpscale since 2026-08-10T20:40:02"
+    "triage": "done",
+    "verdict": "Seed=12 alone (zero extra dep-line axes) does NOT reproduce the noZD1/noBS1/placementonly det/3+det/4 fingerprint (here det/3 prog 1.06 slip 0.97 clean, det/4 prog 0.80 slip 1.35 borderline-not-matching); instead shows the standard dep-vref1-r1-lineage own-cfg-DR0.35 fixed-eval fingerprint (det/5+sto/0,1,4 crater, prog 0.44-0.80, slip 1.35-3.44) seen identically in kpscale (seed 11) tonight \u2014 same episodes, clean six-leg video both. Closes the forensic question: training seed is NOT the startvar1 driver; corroborates RL_PLAN's existing zero-drift-frame-DR conclusion (this run zeroed that axis too and lost the det/3+4 pattern).",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-torquescale-velscale",
@@ -62666,7 +62670,7 @@
       "reward.rise_plant_polygon_gate=1.0"
     ],
     "created": "2026-08-10T20:42:45+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -62693,6 +62697,150 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-plantgate1 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_plantgate1 --impl warp --host-workers 24 --notes 'respec of cw-stand-b2p1: Plain English: does turning on the new geometric stand-detector (checks feet actually down + body over them + no legs left dangling, not just torso height) stop the walking/stance policy from cheating its way to a fake stand-up? Every rise/lower attempt so far (b2p1, rfix-fresh1, riseproof1) hit the height target with 1-2 legs left up in the air (flag-leg/tripod) because the reward only checked torso height. We just landed a geometric check (PLANT_SPEC/valid_plant) that a flag-leg pose fails and an honest stand passes, proved on a pre-training bank (replay beats the stilt cheat and the freeze exploit by a wide margin), and this run is the FIRST time that check prices the live reward (reward.rise_plant_polygon_gate=1) instead of just the bank. Same warm start (stance champion) and same full reward stack as b2p1 -- the ONE new variable is the polygon gate. DISCOVERY budget (2M steps, binary question) per RESEARCH_RULES -- do not extend this into a hardening run without a video showing genuine feet-down rise/lower first. If-true: video at 2M shows a materially more honest stand (fewer/no flag-leg episodes, valid_plant true on a real fraction of endings) -- worth a hardening budget next. If-false: the SAME flag-leg/tripod cheat persists even with the geometric price on it -- the gate isn'\"'\"'t strict enough (or the income structure elsewhere still out-prices honesty) and rise needs a different mechanism, not more steps on this one.' --cfg-set reward.rise_plant_polygon_gate=1.0 > /tmp/train_cw-stand-plantgate1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stand-plantgate1.log",
     "wandb_id": "goi0p4j9",
-    "verified": "2026-08-10T20:46:40+00:00"
+    "verified": "2026-08-10T20:46:40+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T20:52:12+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "verdict": "SUSPECT",
+        "problems": [
+          "log stopped growing",
+          "W&B global_step stalled at 2007040"
+        ]
+      }
+    ],
+    "verdict": "STOP -- reward/eval specification bug (KNOWN exploit): video shows the same flag-leg cheat as b2p1/fresh1/riseproof1 -- one leg held straight out horizontally for the entire rise while the other 5 lift the torso to the height target (height_err_end_mm 7-12mm, looks like a clean rise on the scalar). The new geometric PLANT_SPEC/polygon gate (reward.rise_plant_polygon_gate=1) did NOT stop it: rise 0/6 det, 0/6 sto, plant_fail=[feet_down,no_flag,footprint,current] on every episode, matching b2p1's 0/12 baseline exactly (if-false branch). No forensic dig-in per RUN_INTERPRETATION_RULES -- this is a known exploit, one-line stop.",
+    "hardware_ready": false,
+    "triage": "done"
+  },
+  {
+    "run": "cw-walk-turnfix1",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does a reward that can go NEGATIVE for turning the wrong way (instead of just paying less for turning the right way) finally stop the walking policy's fixed left-drift from swallowing every turn command? Every prior turn arm (yawcmd1, yawgate1, yawgate2 -- kernel-only, achieved-rotation gate, then a higher kernel price) failed because the reward SHAPE near zero-yaw was too flat to push against a small existing drift, and turning-in-place was <8% of training exposure. Today's landed fix is three parts used TOGETHER (signed rotation income reward.k_yaw_prog, a heading-hold drift charge reward.k_yaw_still, and a turn-in-place training curriculum goal.walk_turn_in_place_frac) -- all three passed a pre-training bank proving the combined stack prices honest turning above the drift. This is the FIRST time they train a real policy. DISCOVERY budget (2M steps, binary question) per RESEARCH_RULES. If-true: eval_yaw.py shows turn |wz_err| median dropping toward the 0.10 gate (from yawgate2's flat 0.236) in BOTH turn directions, with hold |wz| staying near the 0.05 gate -- worth a hardening budget. If-false: both directions still converge to the same drift despite the new mechanism -- turning needs the heavier structural fix (mirror-symmetry augmentation) held in reserve, not more reward tuning.",
+    "gate": "eval_yaw.py per-scenario: turn-segment |wz_err| median vs the 0.10 rad/s gate, hold |wz| median vs 0.05, BOTH turn directions (not just the one aligned with the drift) -- run it on this checkpoint AND the frozen parent (yawgate2/joyjit_dr05_c1) under the identical scripted-command panel (matched-parent control) so the delta is attributable. Early video at first eval (1M); kill on the behavioral-impossibility rule if both signs still converge to the ~+0.09 rad/s drift. JOYSTICK GATE (0 falls) + forward-band retention must hold.",
+    "parent": "cw-walk-yawgate2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_joyjit_dr05_c1.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.5",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.6",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.1",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.2",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_turnfix1",
+      "--notes",
+      "respec of cw-walk-yawgate2: Plain English: does a reward that can go NEGATIVE for turning the wrong way (instead of just paying less for turning the right way) finally stop the walking policy's fixed left-drift from swallowing every turn command? Every prior turn arm (yawcmd1, yawgate1, yawgate2 -- kernel-only, achieved-rotation gate, then a higher kernel price) failed because the reward SHAPE near zero-yaw was too flat to push against a small existing drift, and turning-in-place was <8% of training exposure. Today's landed fix is three parts used TOGETHER (signed rotation income reward.k_yaw_prog, a heading-hold drift charge reward.k_yaw_still, and a turn-in-place training curriculum goal.walk_turn_in_place_frac) -- all three passed a pre-training bank proving the combined stack prices honest turning above the drift. This is the FIRST time they train a real policy. DISCOVERY budget (2M steps, binary question) per RESEARCH_RULES. If-true: eval_yaw.py shows turn |wz_err| median dropping toward the 0.10 gate (from yawgate2's flat 0.236) in BOTH turn directions, with hold |wz| staying near the 0.05 gate -- worth a hardening budget. If-false: both directions still converge to the same drift despite the new mechanism -- turning needs the heavier structural fix (mirror-symmetry augmentation) held in reserve, not more reward tuning.",
+      "--obs-pad-transplant",
+      "1",
+      "--cfg-set",
+      "goal.walk_yaw_cmd=1",
+      "--cfg-set",
+      "reward.k_walk_yaw=1.0",
+      "--cfg-set",
+      "goal.walk_yaw_max_rad_s=0.3",
+      "--cfg-set",
+      "goal.walk_yaw_zero_frac=0.5",
+      "--cfg-set",
+      "reward.walk_yaw_kernel_gate=1.0",
+      "--cfg-set",
+      "goal.walk_turn_in_place_frac=0.30",
+      "--cfg-set",
+      "reward.k_yaw_prog=1.0",
+      "--cfg-set",
+      "reward.k_yaw_still=50"
+    ],
+    "created": "2026-08-10T20:48:45+00:00",
+    "status": "FAIL",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 9,
+      "code_sha_local": "3c207923fcbcb3f8bf9b9f9721ba291130615fb7",
+      "code_sha_pod": "3c207923fcbcb3f8bf9b9f9721ba291130615fb7",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3459678",
+      "log_growth_bytes": [
+        7004,
+        11580
+      ],
+      "wandb_id": "ei9h0nkw",
+      "global_step_window": [
+        524288,
+        1376256
+      ],
+      "fps_estimate": 9466.3
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-turnfix1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joyjit_dr05_c1.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_turnfix1 --notes 'respec of cw-walk-yawgate2: Plain English: does a reward that can go NEGATIVE for turning the wrong way (instead of just paying less for turning the right way) finally stop the walking policy'\"'\"'s fixed left-drift from swallowing every turn command? Every prior turn arm (yawcmd1, yawgate1, yawgate2 -- kernel-only, achieved-rotation gate, then a higher kernel price) failed because the reward SHAPE near zero-yaw was too flat to push against a small existing drift, and turning-in-place was <8% of training exposure. Today'\"'\"'s landed fix is three parts used TOGETHER (signed rotation income reward.k_yaw_prog, a heading-hold drift charge reward.k_yaw_still, and a turn-in-place training curriculum goal.walk_turn_in_place_frac) -- all three passed a pre-training bank proving the combined stack prices honest turning above the drift. This is the FIRST time they train a real policy. DISCOVERY budget (2M steps, binary question) per RESEARCH_RULES. If-true: eval_yaw.py shows turn |wz_err| median dropping toward the 0.10 gate (from yawgate2'\"'\"'s flat 0.236) in BOTH turn directions, with hold |wz| staying near the 0.05 gate -- worth a hardening budget. If-false: both directions still converge to the same drift despite the new mechanism -- turning needs the heavier structural fix (mirror-symmetry augmentation) held in reserve, not more reward tuning.' --obs-pad-transplant 1 --cfg-set goal.walk_yaw_cmd=1 --cfg-set reward.k_walk_yaw=1.0 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set goal.walk_turn_in_place_frac=0.30 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 > /tmp/train_cw-walk-turnfix1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-turnfix1.log",
+    "wandb_id": "ei9h0nkw",
+    "verified": "2026-08-10T20:52:40+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T20:58:02+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "logs\n[periodic-eval] 2,007,040: hold 0.66\u00b0, track 1.63\u00b0, unload 0.91\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.031 m/s, lower 0/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 472s (4,238 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_turnfix1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_walk_turnfix1 (md5 7803368b)\n"
+      }
+    ],
+    "verdict": "Matched-parent control (eval_yaw.py, identical scripted panel on turnfix1 vs frozen parent yawgate2): turn |wz_err| med 0.232 vs parent's 0.233, hold |wz| med 0.108 vs parent's 0.091 -- statistically the SAME as the already-failed parent, with the identical left/right asymmetry (arc-left ~0.07-0.21 near-drift-aligned, arc-right ~0.22-0.37 fighting the drift) that defines the structural left-yaw drift. The landed 3-part mechanism (signed rotation income k_yaw_prog, heading-hold drift charge k_yaw_still, turn-in-place curriculum) passed its pre-training bank but produced ZERO measurable behavior change in a real policy -- behavioral-impossibility kill per RESEARCH_RULES (yaw output stays command-invariant despite the reward separation existing on paper). Straight walk still clean (gv 6/6, 0 falls, normal 6-leg video) -- this is a turning-specific failure, not a training crash.",
+    "hardware_ready": false,
+    "triage": "done"
   }
 ]

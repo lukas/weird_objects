@@ -76,7 +76,37 @@ map joystick/policy yaw commands with the sign audit's result, or
 the first hardware turn will fight its own command. One bench check:
 command a small +wz through the bridge, read gyro sign.
 
-## Recommended first arm (DISCOVERY, ≤2M steps)
+## First arm result — FAILED (08-10, `cw-walk-turnfix1`)
+
+Trained exactly the recommended cfg below off `cw-walk-yawgate2`.
+Matched-parent control (`eval_yaw.py`, identical scripted panel,
+turnfix1 vs frozen yawgate2): turn |wz_err| med 0.232 vs parent's
+0.233; hold |wz| med 0.108 vs parent's 0.091 — statistically
+IDENTICAL to the already-failed parent, same left/right asymmetry
+(arc-left ~0.07–0.21 near the drift, arc-right ~0.22–0.37 fighting
+it). The reward-side mechanism set (signed rotation income +
+heading-hold drift charge + turn-in-place curriculum) passed its
+pre-training bank but produced ZERO measurable behavior change in a
+real policy. **Behavioral-impossibility kill — price tuning on this
+task is now doubly closed** (first the kernel-price family, now the
+signed-income/drift-charge/curriculum family). Straight walk stayed
+clean (gv 6/6, 0 falls). Do not re-attempt with more steps or a
+different k; the next move is the structural fix below.
+
+## Next move: mirror-symmetry augmentation (was "held in reserve")
+
+Reflect obs+actions about the sagittal plane (symmetry loss or data
+augmentation) — needs trainer surgery, [CODE] not a launchable spec
+yet. This is now the ONLY untried lever on the turning blocker;
+every reward-shape lever (kernel price, achieved-rotation gate,
+signed income, drift charge, turn-in-place exposure) has failed to
+move a real trained policy off the fixed left-drift. Root-cause
+reading: the drift is baked into the WALK GAIT itself (an asymmetric
+limb-phase pattern learned once, early, off-center), not into the
+turn reward's shape or price — no reward retuning can out-argue a
+structural asymmetry in the policy's default gait.
+
+## Recommended first arm (DISCOVERY, ≤2M steps) — SUPERSEDED, see above
 
 Parent: walk champion (or hist16 twin). Cfg:
 `goal.walk_yaw_cmd=1 goal.walk_turn_in_place_frac=0.30

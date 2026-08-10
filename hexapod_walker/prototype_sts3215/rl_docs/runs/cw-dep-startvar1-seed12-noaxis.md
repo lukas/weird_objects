@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: PASS
 
 **created**: 2026-08-10T20:03:49+00:00
 
@@ -14,7 +14,11 @@
 
 **wandb_id**: 81kgr7y3
 
+**hardware_ready**: False
+
 **hypothesis**: Plain English: today's startvar1 failure line found that seed 12 (not any specific extra DR axis) might be the real reason 2/6 episodes degrade -- the noZDnoBS1 and placementonly isolation arms both showed the SAME det/3+det/4 degradation regardless of which axis was zeroed, but that pattern was ABSENT in the seed-11 standalone placement compose. This arm removes the LAST extra axis (placement_noise_deg 6->0), leaving nothing but seed=12 + the plain vref1-r1 recipe (18M steps, same warm start/eval panel as every isolation arm tonight). If-true: det/3+det/4 STILL degrade with zero extra axes -- confirms seed=12 itself (not any dep-line axis) drives this pattern, closing the startvar1 forensic question and clearing every already-PASSed axis of blame. If-false: seed=12 alone is clean (matches vref1-r1's own seed-11 band) -- an axis (or an axis x seed interaction) is still required, reopening the axis search.
 
 **gate**: own-cfg (DR0.35, zero extra axes, seed=12) det+sto @15s: report whether det/3 and det/4 reproduce the isolation-arm fingerprint (prog <=0.8, slip >=1.5) or land clean like vref1-r1's own seed-11 band (slip 0.89-1.13 det); DR0 retention; frames watched det/3,4
+
+**verdict**: Seed=12 alone (zero extra dep-line axes) does NOT reproduce the noZD1/noBS1/placementonly det/3+det/4 fingerprint (here det/3 prog 1.06 slip 0.97 clean, det/4 prog 0.80 slip 1.35 borderline-not-matching); instead shows the standard dep-vref1-r1-lineage own-cfg-DR0.35 fixed-eval fingerprint (det/5+sto/0,1,4 crater, prog 0.44-0.80, slip 1.35-3.44) seen identically in kpscale (seed 11) tonight — same episodes, clean six-leg video both. Closes the forensic question: training seed is NOT the startvar1 driver; corroborates RL_PLAN's existing zero-drift-frame-DR conclusion (this run zeroed that axis too and lost the det/3+4 pattern).
 
