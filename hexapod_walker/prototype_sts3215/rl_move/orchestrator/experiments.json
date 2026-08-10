@@ -56860,7 +56860,7 @@
       "dr.contact_stiff_scale=0.7,2.0"
     ],
     "created": "2026-08-10T17:07:43+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -56902,7 +56902,9 @@
       }
     ],
     "checkup_note": "Watcher SUSPECT (fps 1456 < 5000 floor) triaged 17:2x UTC: trainer HEALTHY -- learning normally (ep_rew 618 @1.9M/20M, KL updates flowing), getting its full ~20-core allocation (2035% CPU), fps recovering 1456->2094 across last iterations. Root cause is node-wide contention on g142d86 (load ~260/128 vs ~80-110 on sibling nodes): our 4 trainers in-budget + controller running ~24 cores of watcher gate-evals (transient) + other-tenant load. Not killed/rebalanced: 0/12 GPU pods free, run not broken, guardrails forbid outbidding other tenants. Left running; at worst ~2k fps => 20M steps ~2.8h.",
-    "triage": "in-cycle cw-dep-vref1-r1-cmddrop-velscale-cw-dep-vref1-r1-contactstif since 2026-08-10T19:09:09"
+    "triage": "done",
+    "hardware_ready": true,
+    "verdict": "PASS -- ground/foot contact compliance (0.7-2.0x stiffness), a new physical axis never before varied on this checkpoint, does not erode the hardware candidate. Own-cfg det+sto 6/6 gait_valid, 0 term; slip/m med det 1.16 sto 1.01, comfortably inside the pre-registered vref1-r1 band (0.89-1.36). Known idx4 fixed-seed stall reproduces (prog 0.07 slip 23.8, clean halt, gait_valid True) same as every other lineage child -- not new. Contact sheet + frame strips show the standard six-leg creep gait, no timing/settling breakdown from softer or stiffer contact."
   },
   {
     "run": "cw-dep-quad1-c1",
@@ -58241,7 +58243,7 @@
       "dr.vel_scale=0.6,2.2"
     ],
     "created": "2026-08-10T18:08:13+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -58280,7 +58282,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-cmddrop-velscale-cw-dep-vref1-r1-contactstif since 2026-08-10T19:09:09"
+    "triage": "done",
+    "hardware_ready": true,
+    "verdict": "PASS -- dropped-command-ticks (5% prob) AND wrong loaded-speed-ceiling (0.6-2.2x) compose free on the hardware candidate, confirming if-true. Own-cfg det+sto 6/6 gait_valid, 0 term; slip/m med det 1.26 sto 1.09 -- within/better than either axis alone (cmddrop-alone det 1.08, velscale-alone det 1.30). One det episode (idx4: prog 0.12 slip 17.9) is the SAME fixed-seed-draw stall already documented on vref1-r1 and every single-axis child at the identical index (clean halt, no flag leg, gait_valid True) -- not a new pathology. DR0-no-override retention (det 6/6 gv, 0 term, prog 1.04 slip 1.02) reproduces vref1-r1's own clean band. Contact sheet + det/sto frame strips show the standard low-amplitude six-leg creep gait throughout, no dragging/skating beyond the known band."
   },
   {
     "run": "cw-dep-vref1-r1-gainvar-legmass",
@@ -58354,7 +58358,7 @@
       "dr.link_len_leg_pct=0.025"
     ],
     "created": "2026-08-10T18:15:57+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -58393,7 +58397,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-cmddrop-velscale-cw-dep-vref1-r1-contactstif since 2026-08-10T19:09:09"
+    "triage": "done",
+    "hardware_ready": true,
+    "verdict": "PASS -- combined per-unit manufacturing variation (2x kp/kv gain spread AND 2x leg-mass/link-length jitter) composes free on the hardware candidate. Own-cfg det+sto 6/6 gait_valid, 0 term; slip/m med det 1.33 sto 1.11 -- a modest bump over either axis alone (gainvar-alone det 1.27, legmass-alone det 1.17) but well inside noise, no new failure mode. Two soft episodes (idx4 prog 0.01, idx5 prog 0.36) show the same clean-halt signature as every other lineage child's fixed-seed-draw stall, not dragging/skating. DR0-no-override retention (det 6/6 gv, 0 term, prog med 0.95 slip med 1.11; sto 6/6 gv, 0 term, prog med 0.91 slip med 1.32) reproduces vref1-r1's own band. Contact sheet + frame strips confirm the standard six-leg creep gait."
   },
   {
     "run": "cw-dep-vref1-r1-placement-comshift-zerobias",
@@ -58465,7 +58471,7 @@
       "dr.joint_zero_bias_deg=3.0"
     ],
     "created": "2026-08-10T18:21:12+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -58504,7 +58510,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-imumount-groundtilt5-cw-dep-vref1-r1-imupos- since 2026-08-10T19:09:10"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS (dig-in, resolves the triage flag as a misread). OBSERVATIONS: own-cfg (DR0.35 + placement6deg + com0.03m + zerobias3deg) det gv 6/6 (prog med 0.97, slip/m med 1.26), sto gv 6/6 (prog med 0.91, slip 1.28), 0 term, 0 sacrificed \u2014 slip ~11% over vref1-r1's 1.13 det ceiling, inside the \u00b120% tolerance the parent itself passed at (1.28). DR0 retention: 11/12 clean (det prog med 0.95 slip 1.20, sto 1.01/1.09, 0 term); det/4 is the lineage's KNOWN fixed-draw march-in-place crater \u2014 the same seed-0 draw (cmd 0.694m) craters in EVERY sibling at DR0: parent placement-comshift prog -0.03/slip 29.7 (its own PASS verdict names it), zerobias -0.18/27.5, placement 0.05/25.8, comshift 0.02/29.0, comshift-deadband 0.08/27.1, THIS -0.09/25.3. INTERPRETATION: the triage claim 'failure absent from the parent on the same draw' is false \u2014 the parent fails the draw identically; only the STALL POSTURE differs: this ckpt idles with leg 3 mostly aloft (duty 0.06 vs parent 0.31/zerobias 0.20), flipping the sacrifice detector on an episode where no family member walks at all. Video (det/4): 15s level march-in-place at 0.014-0.033 m/s vs ref 0.051, tilt <=7deg, no fall, Imax 2.6A \u2014 the known low-speed-command creep-economics crater, not a flag-leg walk. All other 23 episodes across both evals are clean six-leg gait; the equivalent draw at own-DR passes (det/4 prog 0.89, gv True). Root cause chain: stall <- low-speed command draw <- contact-pricing creep economics (pre-existing lineage limitation, operator calibration) \u2014 NOT the zerobias axis stack. VERDICT: PASS \u2014 the THIRD assembly-tolerance axis (3deg per-joint zero-calibration bias) composes free onto the placement+CoM 2-axis bundle; gv=False on the DR0 crater is a stall-posture artifact, not gait erosion. hardware-ready: no (inherits vref1-r1's paddle-gait economics, like every sibling). Watch-item: on the DR0 idx4 stall this ckpt parks on 5 legs (leg 3 aloft) \u2014 benign stationary stance, but if any FUTURE dep compose shows a sacrificed leg while actually TRANSPORTING, that is a real fail, not this fingerprint. HYPOTHESIS STATUS: if-true confirmed."
   },
   {
     "run": "cw-dep-vref1-r1-deadband-groundtilt5",
@@ -58687,7 +58695,7 @@
       "dr.torque_scale=0.5,1.05"
     ],
     "created": "2026-08-10T18:37:05+00:00",
-    "status": "RUNNING",
+    "status": "EVALUATED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -58726,7 +58734,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-gainvar-torquescale-cw-dep-vref1-r1-imubias since 2026-08-10T19:14:14"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- stacking BOTH actuator-gain-spread (2x kp/kv, widest single-axis margin so far) AND widened battery-sag (0.5-1.05x) does NOT push the hardware candidate past a real limit. Own-cfg (DR0.35+both) det/sto gv 6/6 each, 0 term, prog med 1.02/0.88, slip med 1.28/1.23 (within +-20% of vref1-r1's own 0.89-1.13/1.13-1.36 band). DR0 retention det/sto gv 6/6, 0 term, prog med 0.92/1.00, slip med 1.25/1.06 (in-band). Degraded episodes (det/4,5 gate; det/5,sto/0,1 own-cfg) exactly match the pre-registered lineage fixed-seed fingerprint -- video-checked (det_0/4, sto_0/4 own-cfg): level body, all six legs cycling every frame, no flag-leg/drag/fall, march-in-place not new pathology. The pre-registered watch-item (gainvar's widest margin, stacked with torquescale) is resolved: margins do NOT compound. Not independently hardware-ready (inherits vref1-r1's paddle-gait economics); 12th protected axis-pair on this line."
   },
   {
     "run": "cw-dep-vref1-r1-imubias",
@@ -58796,7 +58806,7 @@
       "dr.imu_bias_deg=3.0"
     ],
     "created": "2026-08-10T18:39:20+00:00",
-    "status": "RUNNING",
+    "status": "EVALUATED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -58835,7 +58845,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-gainvar-torquescale-cw-dep-vref1-r1-imubias since 2026-08-10T19:14:14"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- residual IMU calibration bias (3deg, distinct from mount-rotation/gyro-noise already tested) composes free onto the contract-exact hardware candidate, same as it did on the older walk champion. Own-cfg (DR0.35+bias) det/sto gv 6/6 each, 0 term, prog med 1.04/0.91, slip med 1.10/1.14 (within vref1-r1's own 0.89-1.13/1.13-1.36 band). DR0 retention det/sto gv 6/6, 0 term, prog med 1.04/1.02, slip med 1.04/0.97 (in-band). Degraded episodes (det/5,sto/0,1 own-cfg; det/4 gate) match the pre-registered lineage fixed-seed fingerprint exactly -- video-checked (det_0/4 gate, sto_0 own-cfg): level body, all six legs cycling, no flag-leg/drag/fall. Does not interact badly with the 25deg tilt-termination safety threshold in any of the 24 episodes across both passes (0 unexpected trips). Not independently hardware-ready; clears attitude-bias as a safe axis for the hardware candidate."
   },
   {
     "run": "cw-arch-hist16-r7-c3",
@@ -59019,7 +59031,7 @@
       "dr.friction_scale=0.4,1.6"
     ],
     "created": "2026-08-10T18:49:19+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -59058,7 +59070,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T19:24:19"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS-with-caveat -- joint-sensing error (0.5deg encoder noise + 3deg zero-bias, already PASSed as a bundle) composes with floor-grip uncertainty (0.4-1.6x friction, already PASSed alone) at roughly the cost of the friction axis alone, not a new pathology, but this is the widest det degraded-fraction of any sibling pair so far. Own-cfg (DR0.35+all 3 axes) det 4/6 ok / sto 6/6 ok, gait_valid 12/12, 0 term. Det fails: idx4 is the lineage's known fixed-draw march-in-place crater (prog -0.04, slip 25.44); idx5 (prog 0.97, slip 1.55) is a mild tail episode matching the SAME degraded-episode envelope (prog 0.5-0.9, slip 1-2) parent cw-dep-vref1-r1-encbundle already documented at DR0.35 as a curriculum-DR artifact shared with torquescale/tiltnoise siblings, not new. Det median slip excl. crater ~1.09 (within vref1-r1's 0.89-1.13 band), sto med 1.13 (in-band). Video: clean six-leg march every episode watched, level body, no flag-leg/drag/fall. Not independently hardware-ready."
   },
   {
     "run": "cw-dep-vref1-r1-latency-comshift",
@@ -59128,7 +59142,7 @@
       "dr.com_offset_m=0.03"
     ],
     "created": "2026-08-10T18:54:12+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -59166,7 +59180,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- bus/comms latency jitter (0.5-2.5x) AND off-center CoM (0.03m) together, stressing the SAME feedback-timing pathway (delayed correction of a persistent lean), compose free onto the contract-exact hardware base, refuting the if-false interaction worry. Own-cfg (DR0.35+latency+comshift) det 5/6 ok / sto 6/6 ok, gait_valid 12/12, 0 term, slip/m med det 1.06 (excl crater)/sto 0.92 -- both within vref1-r1's own 0.89-1.13/1.13-1.36 band. The one det fail (idx4, prog 0.06 slip 29.02) is the lineage's known fixed-draw march-in-place crater seen identically across every prior sibling compose -- video-checked six-leg gait, level body, no flag-leg/fall. Not independently hardware-ready."
   },
   {
     "run": "cw-dep-vref1-r1-badstartdeg",
@@ -59234,7 +59251,7 @@
       "reward.k_current=0.0"
     ],
     "created": "2026-08-10T18:55:33+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -59272,7 +59289,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- widening the bad-start joint-placement-error ceiling from the nominal 8-35deg ambient to 8-50deg composes free onto the contract-exact hardware base, isolating placement MAGNITUDE from the zero-drift-frame mechanism blamed in today's startvar1 failure. Own-cfg (DR0.35+bad_start_deg=8,50) det 5/6 ok / sto 6/6 ok, gait_valid 12/12, 0 term, slip/m med det 1.08 (excl crater)/sto 0.97 -- both within vref1-r1's own 0.89-1.13/1.13-1.36 band. The one det fail (idx4, prog 0.16 slip 11.30) is the lineage's known fixed-draw march-in-place crater seen identically across every prior sibling compose -- video-checked six-leg gait, level body, no flag-leg/fall. Not independently hardware-ready (inherits vref1-r1's paddle-gait economics)."
   },
   {
     "run": "cw-dep-vref1-r1-gyrobias",
@@ -60054,7 +60074,8 @@
       ]
     },
     "stack": "gpu-mjx",
-    "refused_reason": "hexapod-mjx-train-2 already runs cw-dep-vref1-r1-badstart \u2014 GPU pods host exactly one run; pick a free GPU pod."
+    "refused_reason": "hexapod-mjx-train-2 already runs cw-dep-vref1-r1-badstart \u2014 GPU pods host exactly one run; pick a free GPU pod.",
+    "triage": "in-cycle cw-dep-vref1-r1-badstart-cw-dep-vref1-r1-encnoise-latency-s1 since 2026-08-10T19:49:33"
   },
   {
     "run": "cw-dep-vref1-r1-encnoise-latency-s1",
@@ -60162,7 +60183,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-vref1-r1-badstart-cw-dep-vref1-r1-encnoise-latency-s1 since 2026-08-10T19:49:33"
   },
   {
     "run": "cw-dep-vref1-r1-fric-s1",
@@ -60605,7 +60627,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-vref1-r1-kvscale since 2026-08-10T19:54:36"
   },
   {
     "run": "cw-dep-vref1-r1-groundtilt",
@@ -60707,6 +60730,224 @@
         "tracebacks_in_tail": 0,
         "log_growth_bytes": 5714,
         "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-legmass-linklenscale",
+    "pod": "hexapod-mjx-train-10",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1's per-leg manufacturing-tolerance axis (leg-mass jitter 0.20 + per-leg link-length spread 0.025, PASSED as -legmass) has never been stacked with a GLOBAL print-shrinkage scale (link_len_scale_pct=0.02, PASSED alone as -linklen) -- a real 3D-printed leg batch realistically has both a uniform shrinkage/scale error AND per-leg random variation AND mass jitter at once, not one at a time. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg (all 3 length/mass axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- the manufacturing-tolerance stack composes free like every other axis pairing tonight. If-false: global scale error compounds with per-leg jitter (both change effective leg length, unlike most other pairings which touch independent physical quantities) enough to break tracking -- flag as a real pre-attempt-#2 assembly-QA risk.",
+    "gate": "own-cfg (DR0.35 + dr.leg_mass_jitter_pct=0.20 + dr.link_len_leg_pct=0.025 + dr.link_len_scale_pct=0.02) det+sto 6/6 @15s: gait_valid 12/12, 0 term, slip/m within vref1-r1's own band (0.89-1.36); DR0 retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1-legmass",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_legmass_linklenscale",
+      "--notes",
+      "respec of cw-dep-vref1-r1-legmass: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1's per-leg manufacturing-tolerance axis (leg-mass jitter 0.20 + per-leg link-length spread 0.025, PASSED as -legmass) has never been stacked with a GLOBAL print-shrinkage scale (link_len_scale_pct=0.02, PASSED alone as -linklen) -- a real 3D-printed leg batch realistically has both a uniform shrinkage/scale error AND per-leg random variation AND mass jitter at once, not one at a time. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg (all 3 length/mass axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- the manufacturing-tolerance stack composes free like every other axis pairing tonight. If-false: global scale error compounds with per-leg jitter (both change effective leg length, unlike most other pairings which touch independent physical quantities) enough to break tracking -- flag as a real pre-attempt-#2 assembly-QA risk.",
+      "--cfg-set",
+      "dr.leg_mass_jitter_pct=0.20",
+      "--cfg-set",
+      "dr.link_len_leg_pct=0.025",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.link_len_scale_pct=0.02"
+    ],
+    "created": "2026-08-10T19:29:36+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-12d45224-745e-3c94-0817-b7685322bad4)",
+      "running_experiments_before": 10,
+      "code_sha_local": "3c71ec4d5d4ae84855246452e61f1cd0196853c2",
+      "code_sha_pod": "3c71ec4d5d4ae84855246452e61f1cd0196853c2",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1048379",
+      "log_growth_bytes": [
+        8843,
+        12605
+      ],
+      "wandb_id": "4porxyoa",
+      "global_step_window": [
+        524288,
+        1441792
+      ],
+      "fps_estimate": 10194.5
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-legmass-linklenscale --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_legmass_linklenscale --notes 'respec of cw-dep-vref1-r1-legmass: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1'\"'\"'s per-leg manufacturing-tolerance axis (leg-mass jitter 0.20 + per-leg link-length spread 0.025, PASSED as -legmass) has never been stacked with a GLOBAL print-shrinkage scale (link_len_scale_pct=0.02, PASSED alone as -linklen) -- a real 3D-printed leg batch realistically has both a uniform shrinkage/scale error AND per-leg random variation AND mass jitter at once, not one at a time. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg (all 3 length/mass axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- the manufacturing-tolerance stack composes free like every other axis pairing tonight. If-false: global scale error compounds with per-leg jitter (both change effective leg length, unlike most other pairings which touch independent physical quantities) enough to break tracking -- flag as a real pre-attempt-#2 assembly-QA risk.' --cfg-set dr.leg_mass_jitter_pct=0.20 --cfg-set dr.link_len_leg_pct=0.025 --cfg-set reward.k_current=0 --cfg-set dr.link_len_scale_pct=0.02 > /tmp/train_cw-dep-vref1-r1-legmass-linklenscale.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-legmass-linklenscale.log",
+    "wandb_id": "4porxyoa",
+    "verified": "2026-08-10T19:33:38+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:38:54+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8506,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-imupos-imubias",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the hardware checkpoint headed for tonight's attempt still walk cleanly if the IMU chip is BOTH mounted off-center/off-axis (imu_pos, already PASSed alone) AND has a residual calibration bias (imu_bias_deg 3deg, already PASSed alone) at the same time -- the realistic combination for a hand-installed IMU (position error and calibration error come from the same install, not independent events), never tested together. Per P0 rule 3, k_current=0 (inherited from imupos's args). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- IMU-mounting realism composes free like every other axis pairing tonight. If-false: the lever-arm position error and the calibration bias compound (plausible: position error affects the sensed angular accel term the bias-correction path also touches) -- flag as a real pre-flight IMU risk before the operator's hardware attempt.",
+    "gate": "own-cfg (DR0.35 + imu_pos_xy_m=0.07 + imu_pos_z_m + imu_bias_deg=3.0) det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1's own band +-20%; DR0-no-override retention det 6/6 gv reproducing vref1-r1's own band; video frames watched det+sto",
+    "parent": "cw-dep-vref1-r1-imupos",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_imupos_imubias",
+      "--notes",
+      "respec of cw-dep-vref1-r1-imupos: Plain English: does the hardware checkpoint headed for tonight's attempt still walk cleanly if the IMU chip is BOTH mounted off-center/off-axis (imu_pos, already PASSed alone) AND has a residual calibration bias (imu_bias_deg 3deg, already PASSed alone) at the same time -- the realistic combination for a hand-installed IMU (position error and calibration error come from the same install, not independent events), never tested together. Per P0 rule 3, k_current=0 (inherited from imupos's args). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- IMU-mounting realism composes free like every other axis pairing tonight. If-false: the lever-arm position error and the calibration bias compound (plausible: position error affects the sensed angular accel term the bias-correction path also touches) -- flag as a real pre-flight IMU risk before the operator's hardware attempt.",
+      "--cfg-set",
+      "dr.imu_pos_xy_m=0.07",
+      "--cfg-set",
+      "dr.imu_pos_z_m=-0.02,0.10",
+      "--cfg-set",
+      "dr.imu_bias_deg=3.0"
+    ],
+    "created": "2026-08-10T19:34:32+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 10,
+      "code_sha_local": "a3c66e11f0ebe0de19959c48dc8a116c5a8def00",
+      "code_sha_pod": "a3c66e11f0ebe0de19959c48dc8a116c5a8def00",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "416810",
+      "log_growth_bytes": [
+        6881,
+        11663
+      ],
+      "wandb_id": "oh8i5kpa",
+      "global_step_window": [
+        458752,
+        1310720
+      ],
+      "fps_estimate": 9466.3
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-imupos-imubias --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_imupos_imubias --notes 'respec of cw-dep-vref1-r1-imupos: Plain English: does the hardware checkpoint headed for tonight'\"'\"'s attempt still walk cleanly if the IMU chip is BOTH mounted off-center/off-axis (imu_pos, already PASSed alone) AND has a residual calibration bias (imu_bias_deg 3deg, already PASSed alone) at the same time -- the realistic combination for a hand-installed IMU (position error and calibration error come from the same install, not independent events), never tested together. Per P0 rule 3, k_current=0 (inherited from imupos'\"'\"'s args). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- IMU-mounting realism composes free like every other axis pairing tonight. If-false: the lever-arm position error and the calibration bias compound (plausible: position error affects the sensed angular accel term the bias-correction path also touches) -- flag as a real pre-flight IMU risk before the operator'\"'\"'s hardware attempt.' --cfg-set dr.imu_pos_xy_m=0.07 --cfg-set dr.imu_pos_z_m=-0.02,0.10 --cfg-set dr.imu_bias_deg=3.0 > /tmp/train_cw-dep-vref1-r1-imupos-imubias.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-imupos-imubias.log",
+    "wandb_id": "oh8i5kpa",
+    "verified": "2026-08-10T19:38:25+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:43:45+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6468,
+        "fps": 10194.5,
         "placement": "solo on GPU-MJX pod",
         "verdict": "HEALTHY",
         "problems": []
