@@ -99,10 +99,18 @@ existing config knobs, [CODE] needs an implementation cycle first,
    segments; split into its own arm if transitions look bad.
 8. [READY] **Smooth speed transitions** — accelerate/decelerate
    within an episode without gait breakdown.
-8b. [READY] **Operator-tunable speed** (08-09) — one policy tracking
-   the full 0.02–0.12 m/s band so speed is a runtime knob, not a
-   retrain. Train wide-band with command resampling; gate on
-   tracking error across the band. Feeds the driving demo.
+8b. [CLOSED 08-09, contact-pricing class] **Operator-tunable speed**
+   — 5 attempts (speedband, speedband-r1, slowband, speedband2,
+   speedband2-r1) all converged on the same gait-speed ceiling
+   ~0.05-0.065 m/s: below it the policy overshoots/idles, above it it
+   just pins at ceiling (prog 1.39 slow / 0.38-0.61 fast, no falls,
+   "survives commands it doesn't obey"). CLOSED pending operator
+   contact/current pricing calibration, same root as paddling — do
+   not requeue under `speedband*`/`slowband*` names (c73 08-10:
+   re-queued a stale `cw-walk-speedband` backlog spec, caught by the
+   drain's W&B-name dedupe before it launched — no compute lost, but
+   check RL_LOG/ledger history for a name before backlog-adding a
+   WISHLIST item marked done here).
 8c. [CODE] **Rotate in place** (08-09) — spin left/right on the
    spot on command. Same yaw-rate machinery as item 3 (turning);
    vx=vy=0, wz=±ref. First deliverable of the yaw-rate line.

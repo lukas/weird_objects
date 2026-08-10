@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-10T02:07:52+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-groundtilt8-s1
+
+**wandb_id**: 9yt8ia2y
 
 **hypothesis**: Retry of cw-walk-groundtilt8-s1 (died at init, gotcha 13b, W&B global_step 0->0, no science result). Same spec unchanged: seed twin of cw-walk-groundtilt8-r3 (this cycle's concurrent triage) testing whether the 8deg-tilt crater pattern (3/6 det draws) reproduces at similar severity or was seed luck.
 
