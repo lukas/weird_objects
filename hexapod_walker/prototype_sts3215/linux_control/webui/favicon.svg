@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Hexapod mark: accent-blue hexagon body with six bent legs on the UI's
+       dark background (#0f1115 / #2b6cff). Legible at 16x16. -->
+  <rect width="32" height="32" rx="6" fill="#0f1115"/>
+  <g stroke="#2b6cff" stroke-width="2.4" stroke-linecap="round" fill="none">
+    <path d="M12 10 L7 7 L4 3"/>
+    <path d="M10 16 L5 16 L2 13"/>
+    <path d="M12 22 L7 25 L4 29"/>
+    <path d="M20 10 L25 7 L28 3"/>
+    <path d="M22 16 L27 16 L30 13"/>
+    <path d="M20 22 L25 25 L28 29"/>
+  </g>
+  <path d="M16 7 L23 11.5 L23 20.5 L16 25 L9 20.5 L9 11.5 Z" fill="#2b6cff"/>
+</svg>

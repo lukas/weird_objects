@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Hexapod · Drive</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+<script>window.HEXAPOD_HTTPS_PORT = __HTTPS_PORT__;</script>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Hexapod STS3215</h1>
+    <div id="subtitle">STS3215 bench control · <span id="subhost">hexapod.local:8080</span></div>
+  </div>
+  <nav class="tabs">
+    <button id="tab-drive" class="tab on">Drive</button>
+    <span class="tabsep"></span>
+    <button id="tab-calibrate" class="tab">Calibrate</button>
+    <button id="tab-motors" class="tab">Motors</button>
+    <span class="tabsep"></span>
+    <button id="tab-demos" class="tab">Demos</button>
+    <button id="tab-rl" class="tab">RL</button>
+    <button id="tab-debug" class="tab">Debug</button>
+  </nav>
+  <span id="conn" class="warn">checking…</span>
+  <span id="robotact" class="act-limp" title="What the robot is trying to do">limp</span>
+  <span id="gp"></span>
+  <span style="flex:1"></span>
+  <span id="sent"></span>
+</header>
+<div class="wrap">
+  <div id="offlinebar">● Lost connection to Uno Q — retrying…</div>
+  <div id="armbar" class="armbar disarmed">
+    <span id="armstate" class="armstate">● SERVOS OFF (disarmed)</span>
+    <span class="hint" style="margin:0;flex:1 1 160px">Servos receive <b>no signal</b>
+      and sit limp. Press Enable to arm, then Stand.
+      <b>Disarm</b> lowers gently first, THEN cuts power; <b>EMERGENCY STOP</b>
+      cuts power instantly (drops).</span>
+    <button id="armbtn" class="armbtn">Enable servos (power on)</button>
+    <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ EMERGENCY STOP</button>
+  </div>
+  <div id="view-drive" class="view active">
+  <div class="pad telem">
+    <h2>Telemetry</h2>
+    <span>roll <b id="tmroll">—</b>°</span>
+    <span>pitch <b id="tmpitch">—</b>°</span>
+    <span>bus <b id="tmcur">—</b> A</span>
+    <span>servos <b id="tmlive">—</b>/18</span>
+    <span class="hint" style="margin:0; flex:1 1 auto" id="tmstamp">2 Hz while this tab is open</span>
+  </div>
+  <div class="row">
+    <div class="pad">
+      <h2>1 · Zero &amp; stand</h2>
+      <div class="hint" style="margin-top:0">
+        Bench order: <b>Limp</b>, hand-pose legs straight out →
+        <b>Set zero HERE</b> → <b>Enable servos</b> (top bar) →
+        <b>Stand</b> → <b>Preflight</b>, then walk.</div>
+      <div class="btns" style="margin-top:10px">
+        <button id="wlimp" title="Torque off (firmware X). Servos go limp NOW so you can hand-pose the legs.">Limp (torque off)</button>
+        <button id="wsetzero" class="danger" title="POST /api/set_zero — Feetech middle-calibrate on every live servo. No motion: the CURRENT hand pose becomes logical 0°.">Set zero HERE</button>
+      </div>
+      <div class="btns">
+        <button data-cmd="P" title="Verified glide to the captured plant stance (arms the bus itself). Controller: Y · keyboard: Space.">▲ Stand (plant)</button>
+        <button id="wpreflight" title="Read-only check (same as the tape script): all 18 servos answering, IMU alive, present pose near the plant stance.">Preflight</button>
+      </div>
+      <div class="hint" id="wpfout">Preflight result shows here.</div>
+    </div>
+    <div class="pad">
+      <h2>2 · Scripted gait walk</h2>
+      <div class="hint" style="margin-top:0">Known-good tripod gait — the same
+        commands the tape-measure session sent: <code>J vx vy ω</code> to walk,
+        <code>J 0 0 0</code> to stop and hold the planted stand.
+        Caps: |vx|≤60 · |vy|≤40 mm/s · |ω|≤0.5 rad/s · 3–60 s.</div>
+      <div class="fields">
+        <label class="field">vx mm/s<input id="wvx" type="number" value="30" min="-60" max="60" step="5"></label>
+        <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-40" max="40" step="5"></label>
+        <label class="field">ω rad/s (+CW)<input id="wom" type="number" value="0" min="-0.5" max="0.5" step="0.05"></label>
+        <label class="field">duration s<input id="wdur" type="number" value="20" min="3" max="60" step="1"></label>
+      </div>
+      <div class="btns" style="margin-top:12px">
+        <button id="wstart" class="on">▶ Start walk</button>
+      </div>
+      <button id="wstop" class="danger" style="margin-top:8px; width:100%; padding:14px; font-size:15px"
+        title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ STOP GAIT (hold stand)</button>
+      <label class="slab">Swing lift: <span id="klab">18</span> mm</label>
+      <input id="lift" type="range" min="4" max="40" value="18">
+      <div class="hint" id="wstatus">Idle.</div>
+    </div>
+    <div class="pad">
+      <h2>3 · Manual drive (left stick)</h2>
+      <canvas id="drive"></canvas>
+      <div class="turn"><h2 style="margin-top:12px">Turn</h2><canvas id="turn"></canvas></div>
+      <label class="slab">Max speed: <span id="vlab">40</span> mm/s</label>
+      <input id="vmax" type="range" min="10" max="100" value="40">
+      <div class="hint">
+        <b>Keyboard:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive,
+        <kbd>Q</kbd>/<kbd>E</kbd> turn, <kbd>Space</kbd> stand, <kbd>C</kbd> sit.<br>
+        <b>Xbox (https URL):</b> left stick walk · right stick turn.
+        Alone: <b>X</b>=sit · <b>Y</b>=stand · <b>A</b>=set HERE as zero · <b>B</b>=stop demo.
+        Demos: hold <b>LB / LT / RB / RT</b> then tap <b>X Y A B</b> (16 chords;
+        LB row easiest → RT row hardest). Enable servos first.
+      </div>
+    </div>
+    <div class="pad">
+      <h2>4 · Wind down</h2>
+      <div class="btns">
+        <button data-cmd="C" title="Glide back to sit zero (legs straight out). Controller: X · keyboard: C.">Center / Sit</button>
+      </div>
+      <button id="stop" class="danger" style="margin-top:10px"
+        title="Gently lower to the ground, then cut servo power (firmware SETTLE). Instant drop = EMERGENCY STOP.">▼ Sit &amp; power off (gentle)</button>
+      <div class="hint">E-STOP (header, red) cuts all servo power instantly — the robot
+        drops. Prefer Sit &amp; power off for a normal end of session.</div>
+    </div>
+  </div>
+  </div><!-- /view-drive -->
+
+  <div id="view-motors" class="view">
+  <div class="row">
+    <div class="pad" style="flex:2 1 420px">
+      <h2>Bus status</h2>
+      <div class="hint" style="margin-bottom:8px">
+        Port <code id="mport">—</code>
+        · <span id="mmode" class="pill">—</span>
+        · live <b id="mlive">0</b>
+        · <span id="mrefresh" class="hint" style="margin:0">auto 1.5s</span>
+      </div>
+      <div class="btns nowrap">
+        <button id="mscan" class="on">↻ Refresh</button>
+        <button id="mwiggle" title="Wiggle the selected servo ±amp around its present angle.">Wiggle</button>
+        <button id="mzero" title="Drive every joint slowly to logical 0°.">Go zero</button>
+        <button id="msetzero" class="danger" title="Feetech middle-calibrate on every live servo (IDs 2..19) — no motion; the current pose becomes 0°.">Set zero HERE</button>
+        <button id="mlimp" class="danger" title="Cut torque on all servos now.">Limp all</button>
+      </div>
+      <div class="hint" style="margin-top:6px">
+        <b>Set zero HERE</b> = Feetech middle-calibrate on every live servo
+        (IDs 2..19). Horns do <i>not</i> turn — limp, hand-pose first, then click.
+        Different from <b>Go zero</b>, which drives joints to logical 0°.
+      </div>
+      <div style="overflow:auto; margin-top:10px; max-height:420px">
+        <table class="motors" id="mtab">
+          <thead><tr>
+            <th>ID</th><th>Name</th><th>°</th><th>Load</th><th>I (A)</th>
+            <th>V</th><th>°C</th><th>Flags</th>
+          </tr></thead>
+          <tbody id="mbody"><tr><td colspan="8">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="pad" style="flex:1 1 220px">
+      <h2>Selected</h2>
+      <div class="hint">Click a row. Wiggle uses a small ±amp around the present angle (same as setup test).</div>
+      <label class="slab">Joint index: <span id="mseljoint">—</span></label>
+      <label class="slab">Wiggle amp: <span id="mwamplab">6</span>°</label>
+      <input id="mwamp" type="range" min="2" max="20" value="6">
+      <div class="hint" id="mselinfo">No motor selected.</div>
+      <div class="hint" style="margin-top:14px" id="merr"></div>
+    </div>
+  </div>
+  </div><!-- /view-motors -->
+
+  <div id="view-demos" class="view">
+  <div class="row">
+    <div class="pad">
+      <h2>In-place demos</h2>
+      <div class="hint">Same list as <code>inplace_demos.py</code> / motor_setup
+        <b>f</b>, sorted gentle → spicy. Soft air demos first; then planted
+        moves (<b>plant_*</b> / <b>rise_*</b>). Cords OK for planted.<br>
+        <b>Pad:</b> hold LB/LT/RB/RT then tap X·Y·A·B —
+        LB: breathe heartbeat twinkle shimmy ·
+        LT: ripple conductor arms_up <b>walk</b> ·
+        RB: <b>walk_spin</b> bounce gallop tripod ·
+        RT: <b>walk_oval</b> star stomp rise_show.</div>
+      <div class="btns" style="margin:10px 0">
+        <button id="dstop" class="danger">■ Stop demo</button>
+        <button id="dzero">Sit zero</button>
+        <button id="dstand">Stand zero</button>
+        <button id="dcheckz">Check sit zero</button>
+      </div>
+      <div class="hint">Homes: <b>sit zero</b> = legs out (0°) for air demos;
+        <b>stand zero</b> = plant height (Calibrate → Plant height, else +20°/+80°).
+        Planted demos end at stand zero and stay up.</div>
+      <label class="slab">Demo speed: <span id="dspeedlab">1.0</span>×
+        <span style="color:#8089a0;font-weight:400">(all demos · 0.25× → 2×)</span></label>
+      <input id="dspeed" type="range" min="25" max="200" value="100" step="5">
+      <label class="slab">Air torque limit: <span id="dtorquelab">45</span>%
+        <span style="color:#8089a0;font-weight:400">(lower = less shake/hunt · air demos)</span></label>
+      <input id="dtorque" type="range" min="15" max="100" value="45" step="5">
+      <div class="hint" style="margin-top:12px;color:#9aa3b2;font-weight:600;text-transform:uppercase;letter-spacing:.4px;font-size:11px">Breathe tunables <span style="font-weight:400;normal-case;letter-spacing:0;text-transform:none">(breathe + breathe_v)</span></div>
+      <label class="slab">Size: <span id="dsizelab">1.0</span>×
+        <span style="color:#8089a0;font-weight:400">(amplitude 0.5× → 3×)</span></label>
+      <input id="dsize" type="range" min="50" max="300" value="100" step="10">
+      <label class="slab">Rate: <span id="dratelab">0.20</span> Hz
+        <span style="color:#8089a0;font-weight:400">(breaths/sec · slower often smoother)</span></label>
+      <input id="drate" type="range" min="8" max="60" value="20" step="1">
+      <label class="slab">Softness: <span id="dsoftlab">1.5</span>×
+        <span style="color:#8089a0;font-weight:400">(higher = gentler accel, less bark)</span></label>
+      <input id="dsoft" type="range" min="50" max="300" value="150" step="10">
+      <div class="hint">Status: <span id="dstatus" class="pill">idle</span>
+        <span id="dstatusdetail" style="color:#8089a0"></span></div>
+      <div class="hint" id="dtelem" style="margin-top:6px;color:#5a6478">
+        Demos auto-log cmd vs encoder → <code>logs/demo_*.csv</code> (+ summary).</div>
+      <div class="hint" id="zerohint">Click any demo anytime — it aborts the current one, homes to sit (air) or stand (planted), then starts. Switching mid-demo is OK.</div>
+      <div class="demo-prev" id="dprev">
+        <canvas id="dprevcv" width="440" height="320"></canvas>
+        <div class="prev-meta">
+          <h3 id="dprevtitle">Hover a demo</h3>
+          <div id="dprevtags"></div>
+          <p id="dprevblurb">Schematic preview of the expected start pose and motion
+            (not a physics sim). Hover a card to scrub the idea; click to run.</p>
+        </div>
+      </div>
+      <div class="demo-grid" id="dgrid" style="margin-top:12px"></div>
+    </div>
+  </div>
+  </div><!-- /view-demos -->
+
+  <div id="view-rl" class="view">
+  <div class="row">
+    <div class="pad" style="flex:1 1 340px">
+      <h2>Policy moves</h2>
+      <div class="hint"><b>Stand up</b>: place the robot <b>belly-down,
+        legs straight out</b> (logical zero). It curls its feet under
+        for ~5&nbsp;s (this is deliberate, not a stall), then rises over
+        ~4&nbsp;s and holds. <b>Lower</b>: from the standing plant
+        stance it descends gently over ~5&nbsp;s to the belly, then goes
+        limp. <b>Stop</b> holds the pose; <b>X</b> (Drive tab) limps.
+        <b>Watch the robot the whole time.</b></div>
+      <div class="btns" style="margin-top:12px">
+        <button id="rlstand" class="on">⬆ Stand up</button>
+        <button id="rllower">⬇ Lower</button>
+        <button id="rlglide" title="Scripted 4.5 s glide to the captured
+plant stance (not RL — same as Drive tab ▲ Stand). Refuses if any joint
+is >25° away. Use it to square up before Capture plant or Walk.">▲ Stand
+(scripted)</button>
+        <button id="rlcapture" title="Save the current 18-joint pose as
+the plant stance (no motion). Lower and Walk start only from this pose —
+capture while the robot is standing well.">📌 Capture plant</button>
+        <button id="rlstop" class="danger">■ Stop</button>
+      </div>
+      <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
+      <h2 style="margin-top:16px">Walk (experimental)</h2>
+      <div class="hint">Sim walk champion — <b>NOT validated on
+        hardware</b> (known foot-slide in sim; no body-velocity sensor,
+        command runs open-loop). Starts <b>only from the captured plant
+        stance</b>. Command ramps in over 1&nbsp;s, walks, ramps out and
+        holds. <b>Stop</b> aborts and holds. Keep a hand near the 12 V
+        switch the first tries.</div>
+      <div class="btns" style="margin-top:12px">
+        <button id="rlwalkfwd">▲ Walk fwd</button>
+        <button id="rlwalkleft">◀ Strafe L</button>
+        <button id="rlwalkright">▶ Strafe R</button>
+      </div>
+      <div class="btns" style="margin-top:8px">
+        <label class="hint">speed
+          <select id="rlwalkspeed">
+            <option value="0.02">0.02 m/s</option>
+            <option value="0.03" selected>0.03 m/s</option>
+            <option value="0.04">0.04 m/s</option>
+          </select></label>
+        <label class="hint">for
+          <select id="rlwalkdur">
+            <option value="4">4 s</option>
+            <option value="6" selected>6 s</option>
+            <option value="10">10 s</option>
+          </select></label>
+      </div>
+    </div>
+    <div class="pad" style="flex:1 1 340px">
+      <h2>Readiness (no motion)</h2>
+      <div class="hint">Runs the same read-only preflight the buttons
+        use: all 18 servo IDs answering, IMU alive, tilt &lt; 12°, and
+        the present pose near the expected start. Refusals show the
+        exact reason.</div>
+      <div class="btns" style="margin-top:12px">
+        <button id="rlcheckstand">Check: stand</button>
+        <button id="rlchecklower">Check: lower</button>
+        <button id="rlcheckwalk">Check: walk</button>
+      </div>
+      <div class="hint" id="rlpreflight" style="margin-top:10px">—</div>
+    </div>
+    <div class="pad" style="flex:1 1 340px">
+      <h2>Policy</h2>
+      <div class="hint" id="rlpolicyinfo">loading…</div>
+      <div class="hint" style="margin-top:10px">Trained in the MuJoCo
+        twin (PPO, raw 18-joint actions, domain randomization) and
+        exported to plain numpy — no torch on the board. Every command
+        passes the safety layer: 1.5°/tick rate clamp, joint limits,
+        10° tilt trip, sustained &gt;2.5&nbsp;A trip → instant limp.
+        Swap a policy by re-running
+        <code>rl_move/sim/export_policy_np.py</code> and pushing
+        <code>rl_policy_weights.json</code> (stance) /
+        <code>rl_walk_weights.json</code> (walk).</div>
+    </div>
+  </div>
+  </div><!-- /view-rl -->
+
+  <div id="view-calibrate" class="view">
+  <div class="row">
+    <div class="pad" style="flex:1 1 320px">
+      <h2>Calibrate</h2>
+      <label class="slab">Mode</label>
+      <div class="btns seg" id="calmode">
+        <button data-mode="step" class="on">Step</button>
+        <button data-mode="shake">Shake / hold</button>
+        <button data-mode="plant">Plant height</button>
+        <button data-mode="geometry" title="Hips stay ~0° (straight), knees deepen toward +80–90° until contact, raise ~40 mm, save the full 18-joint plant.">Geo plant</button>
+        <button data-mode="imu">IMU rest</button>
+      </div>
+      <div class="hint" id="calhint-step">Glides to <b>sit zero</b>, then
+        <b>+step°</b> from 0° and scores tracking % + peak load.
+        Stuck / weak joints show red.</div>
+      <div class="hint" id="calhint-shake" style="display:none">Glides to
+        <b>sit zero</b>, nudges <b>+N°</b>, then <b>holds</b> and measures
+        position wobble (peak-to-peak / RMS). Catches hunt &amp; buzz that
+        a big step misses.</div>
+      <div class="hint" id="calhint-plant" style="display:none">From sit zero,
+        slowly reaches down (rise+ depth). When ≥3 hip/knee joints hit a
+        <b>current/load bump</b>, saves median hip/knee as <b>stand home</b>
+        for Stand zero + planted demos. Robot should be over its platform.</div>
+      <div class="hint" id="calhint-geometry" style="display:none">
+        <b>Preferred for RL.</b> Hip stays ~0° (straight), knees deepen toward
+        +80° (~90°) until force/current contact, then raises ~40&nbsp;mm and
+        saves full 18-joint plant. Same as <code>POST /api/rl/find_plant</code>.
+        Watch the robot — Stop if it tips.</div>
+      <div class="hint" id="calhint-imu" style="display:none">Hold the chassis
+        <b>still</b> (~2.5 s). Samples the MPU-6050, saves gyro bias + accel
+        sensor bias to <code>logs/imu_calib.json</code>. Motion logs then use
+        calibrated readings. No servo motion — limp is fine.</div>
+      <div id="calstepwrap">
+        <label class="slab">Step size: <span id="calsteplab">10</span>°</label>
+        <input id="calstep" type="range" min="5" max="15" step="1" value="10">
+      </div>
+      <div id="calnudgewrap" style="display:none">
+        <label class="slab">Nudge: <span id="calnudgelab">2.0</span>°</label>
+        <input id="calnudge" type="range" min="1" max="4" step="0.5" value="2">
+      </div>
+      <div id="calaxiswrap">
+        <label class="slab">Axis</label>
+        <div class="btns seg" id="calaxis">
+          <button data-axis="all" class="on">All</button>
+          <button data-axis="yaw">Yaw</button>
+          <button data-axis="hip">Hip</button>
+          <button data-axis="knee">Knee</button>
+        </div>
+      </div>
+      <div class="hint" id="calplantinfo" style="margin-top:10px;display:none">
+        Stand home: <b id="calplanthip">+20</b>° hip /
+        <b id="calplantknee">+80</b>° knee
+        <span id="calplantsrc" style="color:#8089a0">(default)</span>
+      </div>
+      <div class="hint" id="calimuinfo" style="margin-top:10px;display:none">
+        IMU: <b id="calimustatus">not calibrated</b>
+        <span id="calimudetail" style="color:#8089a0"></span>
+      </div>
+      <div class="btns" style="margin-top:12px">
+        <button id="calrun" class="on">▶ Run test</button>
+        <button id="calstop" class="danger">■ Stop</button>
+        <button id="calrefresh">↻ Refresh</button>
+        <button id="calplantreset" style="display:none">Reset plant default</button>
+        <button id="calimureset" style="display:none">Clear IMU calib</button>
+      </div>
+      <div class="hint" id="calstatus" style="margin-top:10px">Idle. Enable servos first.</div>
+      <div class="hint" id="callog" style="margin-top:6px;color:#5a6478">Log: —</div>
+      <div class="hint" id="callegend" style="margin-top:12px">
+        <span class="cal-pill green">green</span> tracked ·
+        <span class="cal-pill yellow">yellow</span> partial / high load ·
+        <span class="cal-pill red">red</span> barely moved
+      </div>
+    </div>
+    <div class="pad" style="flex:2 1 420px">
+      <h2>Results</h2>
+      <div class="hint" id="calcounts" style="margin:0 0 8px">No run yet.</div>
+      <div style="overflow:auto; max-height:480px">
+        <table class="cal-table" id="caltab">
+          <thead id="calhead"><tr>
+            <th>Joint</th><th>Name</th><th>Δcmd</th><th>Δact</th>
+            <th>Track%</th><th>Load</th><th>Vmin</th><th>Grade</th>
+          </tr></thead>
+          <tbody id="calbody"><tr><td colspan="8">Run a test to fill this table.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  </div><!-- /view-calibrate -->
+
+  <div id="view-debug" class="view">
+  <div class="row">
+    <div class="pad">
+      <h2>Per-servo control</h2>
+      <label class="slab">Leg</label>
+      <div class="btns seg" id="dbgleg">
+        <button data-leg="0" class="on">0</button>
+        <button data-leg="1">1</button>
+        <button data-leg="2">2</button>
+        <button data-leg="3">3</button>
+        <button data-leg="4">4</button>
+        <button data-leg="5">5</button>
+      </div>
+      <label class="slab">Joint</label>
+      <div class="btns seg" id="dbgaxis">
+        <button data-axis="0" class="on">Yaw</button>
+        <button data-axis="1">Hip</button>
+        <button data-axis="2">Knee</button>
+      </div>
+      <div class="hint">Selected: <b>servo index <span id="dbgidx">0</span></b>
+        (leg <span id="dbglegn">0</span> <span id="dbgaxisn">yaw</span>),
+        safe range <span id="dbglo">-35</span>..<span id="dbghi">35</span>°.</div>
+
+      <label class="slab">Angle: <span id="dbganglelab">0</span>°</label>
+      <input id="dbgangle" type="range" min="-35" max="35" step="1" value="0">
+      <div class="btns">
+        <button id="dbgneg">◀ −lim</button>
+        <button id="dbgdn">− 5°</button>
+        <button id="dbgctr" class="on">● center</button>
+        <button id="dbgup">+ 5°</button>
+        <button id="dbgpos">+lim ▶</button>
+      </div>
+      <div class="hint">Moves ONLY the selected servo (firmware
+        <code>#&lt;index&gt; &lt;deg&gt;</code>), clamped to its safe per-axis
+        range. Sends live as you drag (throttled &amp; de-duped like the drive
+        joystick).</div>
+    </div>
+
+    <div class="pad">
+      <h2>Movement test</h2>
+      <label class="slab">Wiggle amplitude: <span id="dbgamplab">8</span>°
+        &nbsp;<span style="color:#8089a0">(small = safe)</span></label>
+      <input id="dbgamp" type="range" min="3" max="20" step="1" value="8">
+      <div class="btns">
+        <button id="dbgtestone">Test this servo</button>
+        <button id="dbgtestall" class="on">Test ALL in sequence</button>
+        <button id="dbgteststop" class="danger">■ Stop test</button>
+      </div>
+      <div class="hint" id="dbgteststatus">Idle. <b>Test this servo</b> wiggles
+        the selected joint ±amplitude around its current angle (firmware
+        <code>Q&nbsp;&lt;j&gt;&nbsp;&lt;deg&gt;</code>). <b>Test ALL</b> centers
+        every joint, then wiggles each one in turn (0→17) with a pause between,
+        so you can watch each servo respond. Press <b>Stop test</b> to abort.
+        Stand / Center / limp live on the Drive tab and the header
+        (E-STOP = instant limp).</div>
+    </div>
+  </div>
+  </div><!-- /view-debug -->
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
