@@ -56670,7 +56670,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T17:53:23"
+    "triage": "in-cycle cw-dep-quad1-c2-cw-dep-vref1-r1-linklen-cw-dep-vref1-r1-plac since 2026-08-10T18:03:29"
   },
   {
     "run": "cw-dep-vref1-r1-linklen",
@@ -56777,7 +56777,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T17:58:26"
+    "triage": "in-cycle cw-dep-quad1-c2-cw-dep-vref1-r1-linklen-cw-dep-vref1-r1-plac since 2026-08-10T18:03:29"
   },
   {
     "run": "cw-dep-vref1-r1-contactstiff",
@@ -57238,7 +57238,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-quad1-c2-cw-dep-vref1-r1-linklen-cw-dep-vref1-r1-plac since 2026-08-10T18:03:29"
   },
   {
     "run": "cw-dep-vref1-r1-torquescale-gyronoise",
@@ -57901,7 +57902,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-imumount-groundtilt5 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_imumount_groundtilt5 --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1'\"'\"'s two individually-PASSed tilt-related axes -- IMU mount-rotation offset (10 deg residual from -imumount) and real floor slope (5 deg from -groundtilt5) -- have never been exposed TOGETHER. This pairing is safety-critical: both axes bias the SAME tilt reading the 25 deg deploy trip relies on, and a real install can plausibly have both a slightly-misaligned IMU mount AND an unlevel floor at once. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band, 0 spurious/missed 25 deg trips -- the two tilt-biasing axes don'\"'\"'t compound into an unsafe or broken tilt reading. If-false: combined mount+floor tilt bias pushes the effective reading enough to mistrigger or fail to trigger the safety trip, or breaks gait -- a real pre-attempt-#2 safety risk to flag before deployment.' --cfg-set dr.imu_mount_deg=10.0 --cfg-set dr.ground_tilt_deg=5.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-imumount-groundtilt5.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-imumount-groundtilt5.log",
     "wandb_id": "gp0slp1b",
-    "verified": "2026-08-10T17:57:59+00:00"
+    "verified": "2026-08-10T17:57:59+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T18:03:36+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5653,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-zerobias-placement",
@@ -57997,6 +58010,112 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-zerobias-placement --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_zerobias_placement --notes 'respec of cw-dep-vref1-r1-zerobias: Plain English: does the checkpoint headed for tonight'\"'\"'s hardware attempt still walk cleanly if we combine the two errors that happen at the START of every real session -- an imperfect hand set_zero (per-joint zero bias) AND imperfect hand placement of the robot on the floor -- instead of testing them one at a time? Both PASSed alone on vref1-r1 (zerobias 3deg, placement 6deg) but every real hardware session has BOTH simultaneously (the operator sets zero by hand, then places the robot by hand), unlike some other pairs already tested (e.g. comshift is a body property, not a session-start action) -- this is the natural real-world co-occurrence, not yet tested together. Per P0 rule 3, k_current=0 (already inherited from zerobias'\"'\"'s args). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- session-start noise composes free like every other axis pairing tonight. If-false: the two session-start errors interact badly (plausible: a zero-biased joint compounds with placement slop on the SAME joint) -- flag as a real pre-flight risk before the operator'\"'\"'s hardware attempt.' --cfg-set dr.joint_zero_bias_deg=3.0 --cfg-set reward.k_current=0 --cfg-set dr.placement_noise_deg=6.0 > /tmp/train_cw-dep-vref1-r1-zerobias-placement.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-zerobias-placement.log",
     "wandb_id": "qptzd9zp",
-    "verified": "2026-08-10T17:59:23+00:00"
+    "verified": "2026-08-10T17:59:23+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T18:05:28+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6602,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-tiltnoise-gyronoise",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Test whether the hardware candidate still walks cleanly when BOTH of its IMU readings are noisy at once -- a realistic cheap-IMU model: tilt-angle noise at 3x default (just PASSed alone as tiltnoise) plus gyro-rate noise at 1.5deg/s (PASSed alone as gyronoise). The two channels feed the same complementary attitude filter, which suppresses accel-tilt noise (~10x) but passes gyro noise into the integrated attitude -- their interaction is untested and bears directly on the deploy 25deg tilt-trip logic. Per P0 rule 3, k_current=0. If-true: composes free like every prior benign pair -- gv 6/6 det+sto own-cfg, 0 term, slip medians in vref1-r1's band. If-false: combined attitude noise degrades gait or produces spurious near-threshold tilt behavior -- flag before relying on a rate term in the hardware trip.",
+    "gate": "Own-cfg (DR0.35 + tilt_noise_deg=1.0 + gyro_noise_deg_s=1.5) det+sto @15s: gait_valid 6/6 both, 0 term, slip/m MEDIANS within vref1-r1's band (0.89-1.13 det / 1.13-1.36 sto); the lineage's KNOWN fixed-seed hard-draw episodes (det/5, sto/0, sto/1) are allowed to degrade no worse than the sibling family floor (prog >= 0.45, no term, no flag-leg on frames); DR0 no-noise retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1-tiltnoise",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "dr.gyro_noise_deg_s=1.5",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_tiltnoise_gyronoise",
+      "--notes",
+      "respec of cw-dep-vref1-r1-tiltnoise: Test whether the hardware candidate still walks cleanly when BOTH of its IMU readings are noisy at once -- a realistic cheap-IMU model: tilt-angle noise at 3x default (just PASSed alone as tiltnoise) plus gyro-rate noise at 1.5deg/s (PASSed alone as gyronoise). The two channels feed the same complementary attitude filter, which suppresses accel-tilt noise (~10x) but passes gyro noise into the integrated attitude -- their interaction is untested and bears directly on the deploy 25deg tilt-trip logic. Per P0 rule 3, k_current=0. If-true: composes free like every prior benign pair -- gv 6/6 det+sto own-cfg, 0 term, slip medians in vref1-r1's band. If-false: combined attitude noise degrades gait or produces spurious near-threshold tilt behavior -- flag before relying on a rate term in the hardware trip.",
+      "--cfg-set",
+      "dr.tilt_noise_deg=1.0",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T17:59:56+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 10,
+      "code_sha_local": "91207e364706b7c0997a5fa6a39cbb0db880fa57",
+      "code_sha_pod": "91207e364706b7c0997a5fa6a39cbb0db880fa57",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3226967",
+      "log_growth_bytes": [
+        7864,
+        11668
+      ],
+      "wandb_id": "wtyv7iyv",
+      "global_step_window": [
+        458752,
+        1048576
+      ],
+      "fps_estimate": 6553.6
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-tiltnoise-gyronoise --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set dr.gyro_noise_deg_s=1.5 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_tiltnoise_gyronoise --notes 'respec of cw-dep-vref1-r1-tiltnoise: Test whether the hardware candidate still walks cleanly when BOTH of its IMU readings are noisy at once -- a realistic cheap-IMU model: tilt-angle noise at 3x default (just PASSed alone as tiltnoise) plus gyro-rate noise at 1.5deg/s (PASSed alone as gyronoise). The two channels feed the same complementary attitude filter, which suppresses accel-tilt noise (~10x) but passes gyro noise into the integrated attitude -- their interaction is untested and bears directly on the deploy 25deg tilt-trip logic. Per P0 rule 3, k_current=0. If-true: composes free like every prior benign pair -- gv 6/6 det+sto own-cfg, 0 term, slip medians in vref1-r1'\"'\"'s band. If-false: combined attitude noise degrades gait or produces spurious near-threshold tilt behavior -- flag before relying on a rate term in the hardware trip.' --cfg-set dr.tilt_noise_deg=1.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-tiltnoise-gyronoise.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-tiltnoise-gyronoise.log",
+    "wandb_id": "wtyv7iyv",
+    "verified": "2026-08-10T18:03:54+00:00"
   }
 ]
