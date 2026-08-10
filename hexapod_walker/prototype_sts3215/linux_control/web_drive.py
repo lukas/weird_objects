@@ -164,7 +164,7 @@ PAGE = r"""<!doctype html>
   button:active { background:#27304a; }
   button.on { background:#2b6cff; border-color:#2b6cff; }
   button.danger { border-color:#7a2b2b; } button.danger:active { background:#5a2020; }
-  .seg button { flex:1; }
+  .seg button { flex:1 1 auto; min-width:0; }
   label.slab { display:block; font-size:12px; color:#9aa3b2; margin:10px 0 4px; }
   input[type=range] { width:100%; }
   .hint { font-size:12px; color:#8089a0; line-height:1.5; margin-top:8px; }
@@ -220,18 +220,14 @@ PAGE = r"""<!doctype html>
   .demo-prev .prev-meta .tag.sit { color:#7eb6ff; border-color:#2b6cff; }
   .demo-prev .prev-meta .tag.stand { color:#5fd08a; border-color:#2e7d47; }
   .demo-prev .prev-meta p { margin:0; font-size:12px; color:#9aa3b2; line-height:1.45; }
-  .live-wrap { display:flex; gap:14px; flex-wrap:wrap; align-items:stretch; }
-  .live-wrap .pad.live-main { flex:2 1 420px; }
-  .live-wrap .pad.live-side { flex:1 1 220px; }
-  #livecv { width:100%; height:420px; display:block; border-radius:10px;
-            background:#0a0c10; cursor:grab; touch-action:none; }
-  #livecv.dragging { cursor:grabbing; }
-  .live-angles { width:100%; border-collapse:collapse; font-size:11px; font-variant-numeric:tabular-nums; }
-  .live-angles th, .live-angles td { padding:4px 6px; border-bottom:1px solid #232733; text-align:right; }
-  .live-angles th:first-child, .live-angles td:first-child { text-align:left; }
-  .live-angles th { color:#9aa3b2; font-weight:600; }
-  .live-angles tr.off td { color:#5a6478; }
-  .live-angles tr.hi td { color:#7eb6ff; }
+  .telem { display:flex; gap:18px; flex-wrap:wrap; align-items:baseline;
+           margin-bottom:14px; padding:10px 14px; font-size:13px; color:#9aa3b2; }
+  .telem h2 { margin:0; }
+  .telem b { color:#e7eaf0; font-variant-numeric:tabular-nums; }
+  .fields { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+  .field { display:flex; flex-direction:column; gap:4px; font-size:12px; color:#9aa3b2; }
+  input[type=number] { width:88px; padding:8px; border-radius:8px; border:1px solid #2c3140;
+    background:#0c0e13; color:#e7eaf0; font-size:14px; }
   .cal-table { width:100%; border-collapse:collapse; font-size:12px;
     font-variant-numeric:tabular-nums; }
   .cal-table th, .cal-table td { padding:5px 7px; border-bottom:1px solid #232733;
@@ -254,7 +250,6 @@ PAGE = r"""<!doctype html>
   <h1>Hexapod STS3215</h1>
   <nav class="tabs">
     <button id="tab-drive" class="tab on">Drive</button>
-    <button id="tab-live" class="tab">Live</button>
     <button id="tab-motors" class="tab">Motors</button>
     <button id="tab-demos" class="tab">Demos</button>
     <button id="tab-rl" class="tab">RL</button>
@@ -279,78 +274,79 @@ PAGE = r"""<!doctype html>
     <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ EMERGENCY STOP</button>
   </div>
   <div id="view-drive" class="view active">
+  <div class="pad telem">
+    <h2>Telemetry</h2>
+    <span>roll <b id="tmroll">—</b>°</span>
+    <span>pitch <b id="tmpitch">—</b>°</span>
+    <span>bus <b id="tmcur">—</b> A</span>
+    <span>servos <b id="tmlive">—</b>/18</span>
+    <span class="hint" style="margin:0; flex:1 1 auto" id="tmstamp">2 Hz while this tab is open</span>
+  </div>
   <div class="row">
     <div class="pad">
-      <h2>Drive (left stick)</h2>
-      <canvas id="drive"></canvas>
-      <div class="turn"><h2 style="margin-top:12px">Turn</h2><canvas id="turn"></canvas></div>
+      <h2>1 · Zero &amp; stand</h2>
+      <div class="hint" style="margin-top:0">
+        Bench order: <b>Limp</b>, hand-pose legs straight out →
+        <b>Set zero HERE</b> → <b>Enable servos</b> (top bar) →
+        <b>Stand</b> → <b>Preflight</b>, then walk.</div>
+      <div class="btns" style="margin-top:10px">
+        <button id="wlimp" title="Torque off (firmware X). Servos go limp NOW so you can hand-pose the legs.">Limp (torque off)</button>
+        <button id="wsetzero" class="danger" title="POST /api/set_zero — Feetech middle-calibrate on every live servo. No motion: the CURRENT hand pose becomes logical 0°.">Set zero HERE</button>
+      </div>
+      <div class="btns">
+        <button data-cmd="P" title="Verified glide to the captured plant stance (arms the bus itself). Controller: Y · keyboard: Space.">▲ Stand (plant)</button>
+        <button id="wpreflight" title="Read-only check (same as the tape script): all 18 servos answering, IMU alive, present pose near the plant stance.">Preflight</button>
+      </div>
+      <div class="hint" id="wpfout">Preflight result shows here.</div>
     </div>
     <div class="pad">
-      <h2>Gait</h2>
-      <div class="btns seg" id="gaits">
-        <button data-gait="0" class="on">Tripod</button>
+      <h2>2 · Scripted gait walk</h2>
+      <div class="hint" style="margin-top:0">Known-good tripod gait — the same
+        commands the tape-measure session sent: <code>J vx vy ω</code> to walk,
+        <code>J 0 0 0</code> to stop and hold the planted stand.
+        Caps: |vx|≤60 · |vy|≤40 mm/s · |ω|≤0.5 rad/s · 3–60 s.</div>
+      <div class="fields">
+        <label class="field">vx mm/s<input id="wvx" type="number" value="30" min="-60" max="60" step="5"></label>
+        <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-40" max="40" step="5"></label>
+        <label class="field">ω rad/s (+CW)<input id="wom" type="number" value="0" min="-0.5" max="0.5" step="0.05"></label>
+        <label class="field">duration s<input id="wdur" type="number" value="20" min="3" max="60" step="1"></label>
       </div>
-      <h2 style="margin-top:14px">Pose</h2>
-      <div class="btns">
-        <button data-cmd="P" title="Controller: Y — planted stand (hip +20°, knee +80°, or learned plant).">▲ Stand</button>
-        <button data-cmd="C" title="Controller: X — sit zero (legs out).">Center / Sit</button>
+      <div class="btns" style="margin-top:12px">
+        <button id="wstart" class="on">▶ Start walk</button>
       </div>
-      <button id="stop" class="danger" style="margin-top:10px"
-        title="Gently lower, then limp. Instant drop = EMERGENCY STOP.">▼ Sit &amp; power off (gentle)</button>
-
-      <label class="slab">Max speed: <span id="vlab">40</span> mm/s</label>
-      <input id="vmax" type="range" min="10" max="100" value="40">
-
+      <button id="wstop" class="danger" style="margin-top:8px; width:100%; padding:14px; font-size:15px"
+        title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ STOP GAIT (hold stand)</button>
       <label class="slab">Swing lift: <span id="klab">18</span> mm</label>
       <input id="lift" type="range" min="4" max="40" value="18">
-
+      <div class="hint" id="wstatus">Idle.</div>
+    </div>
+    <div class="pad">
+      <h2>3 · Manual drive (left stick)</h2>
+      <canvas id="drive"></canvas>
+      <div class="turn"><h2 style="margin-top:12px">Turn</h2><canvas id="turn"></canvas></div>
+      <label class="slab">Max speed: <span id="vlab">40</span> mm/s</label>
+      <input id="vmax" type="range" min="10" max="100" value="40">
       <div class="hint">
-        STS3215 open-loop tripod gait on the Feetech bus.<br>
         <b>Keyboard:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive,
-        <kbd>Q</kbd>/<kbd>E</kbd> turn, <kbd>Space</kbd> stand.<br>
+        <kbd>Q</kbd>/<kbd>E</kbd> turn, <kbd>Space</kbd> stand, <kbd>C</kbd> sit.<br>
         <b>Xbox (https URL):</b> left stick walk · right stick turn.
         Alone: <b>X</b>=sit · <b>Y</b>=stand · <b>A</b>=set HERE as zero · <b>B</b>=stop demo.
         Demos: hold <b>LB / LT / RB / RT</b> then tap <b>X Y A B</b> (16 chords;
         LB row easiest → RT row hardest). Enable servos first.
       </div>
     </div>
+    <div class="pad">
+      <h2>4 · Wind down</h2>
+      <div class="btns">
+        <button data-cmd="C" title="Glide back to sit zero (legs straight out). Controller: X · keyboard: C.">Center / Sit</button>
+      </div>
+      <button id="stop" class="danger" style="margin-top:10px"
+        title="Gently lower to the ground, then cut servo power (firmware SETTLE). Instant drop = EMERGENCY STOP.">▼ Sit &amp; power off (gentle)</button>
+      <div class="hint">E-STOP (header, red) cuts all servo power instantly — the robot
+        drops. Prefer Sit &amp; power off for a normal end of session.</div>
+    </div>
   </div>
   </div><!-- /view-drive -->
-
-  <div id="view-live" class="view">
-    <div class="live-wrap">
-      <div class="pad live-main">
-        <h2>Live schematic</h2>
-        <div class="hint" style="margin-top:0;margin-bottom:8px">
-          Forward kinematics from motor feedback (coxa 12.5 / femur 90 / tibia 128 mm).
-          Drag to orbit · scroll to zoom · updates ~8 Hz.
-          <span id="livestamp" style="color:#5a6478">—</span>
-        </div>
-        <canvas id="livecv" width="880" height="520"></canvas>
-        <div class="btns" style="margin-top:10px">
-          <button id="livereset">Reset view</button>
-          <button id="livepause">Pause</button>
-          <button id="liverefresh">↻ Now</button>
-        </div>
-        <div class="hint" id="livehint">Waiting for pose…</div>
-      </div>
-      <div class="pad live-side">
-        <h2>Joint angles</h2>
-        <div class="hint" style="margin:0 0 8px">
-          Live <b id="livencount">0</b>/18 ·
-          <span id="livemode" class="pill">—</span>
-        </div>
-        <table class="live-angles" id="livetab">
-          <thead><tr><th>Leg</th><th>Yaw</th><th>Hip</th><th>Knee</th></tr></thead>
-          <tbody id="livebody"></tbody>
-        </table>
-        <div class="hint" style="margin-top:10px">
-          Sit zero = all ~0° (legs out). Stand zero ≈ hip +20° / knee +80° (femur down, tibia steep).
-          Offline joints shown dashed / grey.
-        </div>
-      </div>
-    </div>
-  </div><!-- /view-live -->
 
   <div id="view-motors" class="view">
   <div class="row">
@@ -364,15 +360,15 @@ PAGE = r"""<!doctype html>
       </div>
       <div class="btns nowrap">
         <button id="mscan" class="on">↻ Refresh</button>
-        <button id="mwiggle">Wiggle selected</button>
-        <button id="mzero">Go to zero (slow)</button>
-        <button id="msetzero" class="danger">Set HERE as zero</button>
-        <button id="mlimp" class="danger">Limp all</button>
+        <button id="mwiggle" title="Wiggle the selected servo ±amp around its present angle.">Wiggle</button>
+        <button id="mzero" title="Drive every joint slowly to logical 0°.">Go zero</button>
+        <button id="msetzero" class="danger" title="Feetech middle-calibrate on every live servo (IDs 2..19) — no motion; the current pose becomes 0°.">Set zero HERE</button>
+        <button id="mlimp" class="danger" title="Cut torque on all servos now.">Limp all</button>
       </div>
       <div class="hint" style="margin-top:6px">
-        <b>Set HERE as zero</b> = Feetech middle-calibrate on every live servo
+        <b>Set zero HERE</b> = Feetech middle-calibrate on every live servo
         (IDs 2..19). Horns do <i>not</i> turn — limp, hand-pose first, then click.
-        Different from <b>Go to zero</b>, which drives joints to logical 0°.
+        Different from <b>Go zero</b>, which drives joints to logical 0°.
       </div>
       <div style="overflow:auto; margin-top:10px; max-height:420px">
         <table class="motors" id="mtab">
@@ -541,7 +537,7 @@ capture while the robot is standing well.">📌 Capture plant</button>
         <button data-mode="step" class="on">Step</button>
         <button data-mode="shake">Shake / hold</button>
         <button data-mode="plant">Plant height</button>
-        <button data-mode="geometry">Geo plant (hip0/knee≈90)</button>
+        <button data-mode="geometry" title="Hips stay ~0° (straight), knees deepen toward +80–90° until contact, raise ~40 mm, save the full 18-joint plant.">Geo plant</button>
         <button data-mode="imu">IMU rest</button>
       </div>
       <div class="hint" id="calhint-step">Glides to <b>sit zero</b>, then
@@ -673,20 +669,9 @@ capture while the robot is standing well.">📌 Capture plant</button>
         the selected joint ±amplitude around its current angle (firmware
         <code>Q&nbsp;&lt;j&gt;&nbsp;&lt;deg&gt;</code>). <b>Test ALL</b> centers
         every joint, then wiggles each one in turn (0→17) with a pause between,
-        so you can watch each servo respond. Press <b>Stop test</b> to abort.</div>
-
-      <h2 style="margin-top:18px">Safety</h2>
-      <div class="btns">
-        <button id="dbgstand" class="on">Stand / Park</button>
-        <button id="dbgcenter">Center all</button>
-        <button id="dbgrelax" class="danger">Relax (limp)</button>
-      </div>
-      <div class="hint"><b>Relax</b> cuts PWM <i>instantly</i> so every servo goes
-        limp NOW (firmware <code>X</code>) — use it to recover a stalled/buzzing
-        servo. For a <i>gentle</i> power-off that lowers the robot to the ground
-        first, use <b>Sit &amp; power off</b> / <b>Disarm</b> on the Drive tab.
-        <b>Stand / Park</b> eases into the planted stance (<code>P</code>);
-        <b>Center all</b> sends every joint to 0° (<code>C</code>).</div>
+        so you can watch each servo respond. Press <b>Stop test</b> to abort.
+        Stand / Center / limp live on the Drive tab and the header
+        (E-STOP = instant limp).</div>
     </div>
   </div>
   </div><!-- /view-debug -->
@@ -696,7 +681,7 @@ const conn = document.getElementById('conn');
 const sentEl = document.getElementById('sent');
 const gpEl = document.getElementById('gp');
 let gait = 0, armed = false, dancePaused = false, lastInput = 0;
-let activeView = 'drive';  // drive | live | motors | demos | calibrate | debug
+let activeView = 'drive';  // drive | motors | demos | rl | calibrate | debug
 let calAxis = 'all';
 let calTimer = null;
 let selJoint = null, selSid = null;
@@ -991,9 +976,6 @@ function pollGamepad(){
   return {x:ax0, y:-ax1, t:ax2};
 }
 
-function setGait(g){ gait=g;
-  document.querySelectorAll('#gaits button').forEach(btn=>
-    btn.classList.toggle('on', +btn.dataset.gait===g)); }
 function disc(c){
   if(c==='X'){ settleServos(); return; }
   // Stand / Center: use verified glide, not the old one-shot /cmd P|C.
@@ -1003,8 +985,6 @@ function disc(c){
   cmd(c); forceResend();
 }
 
-document.querySelectorAll('#gaits button').forEach(btn=>
-  btn.onclick=()=>setGait(+btn.dataset.gait));
 document.querySelectorAll('button[data-cmd]').forEach(btn=>
   btn.onclick=()=> disc(btn.dataset.cmd));
 document.getElementById('stop').onclick=settleServos;
@@ -1015,6 +995,130 @@ vmax.oninput=()=>{ maxVx=+vmax.value; maxVy=Math.round(maxVx*0.73);
 lift.oninput=()=>{ document.getElementById('klab').textContent=lift.value; };
 lift.onchange=()=>cmd('K '+lift.value);
 maxVx = +vmax.value; maxVy = Math.round(maxVx*0.73);
+
+// --- Drive bench workflow ----------------------------------------------------
+// Mirrors rl_move/scripts/tape_measure_walk.py: the operator limps, hand-poses,
+// POST /api/set_zero, ARMs, Stands (P glide), preflights, then the gait gets
+// plain `J vx vy omega` and `J 0 0 0` over /cmd — nothing else.
+document.getElementById('wlimp').onclick = ()=>{
+  dbgTestAbort = true; cmd('X'); setArmed(false);
+  showSent('limp — torque off; hand-pose legs, then Set zero HERE');
+};
+async function setZeroHere(fromMotors){
+  const msg = [
+    'Set CURRENT pose as 0° on all live motors?',
+    '',
+    'Motors will NOT move — only the zero point is rewritten.',
+    'Limp and hand-pose first (usually legs straight out).',
+    '',
+    'Continue?'
+  ].join('\n');
+  if(!confirm(msg)) return;
+  showSent('set-here-as-zero…');
+  try{
+    const r = await fetch('/api/set_zero',{method:'POST'});
+    const j = await r.json();
+    setArmed(false);
+    if(j.ok) showSent('zero-here OK — '+j.ok_n+'/'+j.count+' (limp)');
+    else showSent('zero-here '+(j.error || ((j.ok_n||0)+'/'+(j.count||0)+' — check Motors table')));
+  }catch(e){ showSent('zero-here failed'); }
+  if(fromMotors) refreshMotors();
+}
+document.getElementById('wsetzero').onclick = ()=> setZeroHere(false);
+document.getElementById('wpreflight').onclick = async ()=>{
+  const out = document.getElementById('wpfout');
+  out.textContent = 'Preflight (read-only)…';
+  try{
+    const r = await fetch('/api/rl/preflight?mode=lower&t='+Date.now(), {cache:'no-store'});
+    const d = await r.json();
+    const det = [];
+    if(d.roll_deg!=null) det.push('roll '+d.roll_deg+'°');
+    if(d.pitch_deg!=null) det.push('pitch '+d.pitch_deg+'°');
+    if(d.max_pose_delta_deg!=null)
+      det.push('pose Δ '+d.max_pose_delta_deg+'° (tol '+d.pose_tol_deg+'°)');
+    out.innerHTML = d.ok
+      ? '<b style="color:#5fd08a">READY</b> — servos answering, pose near plant · '+det.join(' · ')
+      : '<b style="color:#ff7b72">NOT ready</b>: '+(d.error||'?')
+        + (det.length ? ' · '+det.join(' · ') : '')
+        + ' — fresh Set zero → Stand before walking.';
+  }catch(e){ out.textContent = 'preflight failed (link?)'; }
+};
+
+// --- scripted gait walk (exact tape_measure_walk.py commands) ---------------
+// Start = `J vx vy omega` (script run_leg), timed stop / STOP button =
+// `J 0 0 0` → planted stand, torque stays on (limp is the operator's call).
+let walkTimer = null, walkTick = null, walkEndT = 0, walkLine = '';
+function stopGaitWalk(msg){
+  if(walkTimer){ clearTimeout(walkTimer); walkTimer = null; }
+  if(walkTick){ clearInterval(walkTick); walkTick = null; }
+  cmd('J 0 0 0'); showSent('J 0 0 0'); forceResend();
+  document.getElementById('wstatus').textContent =
+    msg || 'stopped — planted stand, torque on (E-STOP / Limp to go limp)';
+}
+document.getElementById('wstop').onclick = ()=> stopGaitWalk();
+document.getElementById('wstart').onclick = async ()=>{
+  if(needArm()) return;
+  // Same caps as the tape script (teleop known-good envelope).
+  const vx = clamp(parseFloat($('wvx').value)||0, -60, 60);
+  const vy = clamp(parseFloat($('wvy').value)||0, -40, 40);
+  const om = clamp(parseFloat($('wom').value)||0, -0.5, 0.5);
+  const dur = clamp(parseFloat($('wdur').value)||20, 3, 60);
+  $('wvx').value = vx; $('wvy').value = vy; $('wom').value = om; $('wdur').value = dur;
+  if(!vx && !vy && !om){ showSent('walk: zero command — set vx/vy/ω first'); return; }
+  if(!confirm('Robot will WALK: vx '+vx+' mm/s, vy '+vy+' mm/s, ω '+om
+      +' rad/s for '+dur+'s.\n\nStanding at plant, room to move, and you are watching it?'))
+    return;
+  armed = false; dancePaused = false;   // keep the stick loop from streaming J over this
+  if(walkTimer) clearTimeout(walkTimer);
+  if(walkTick) clearInterval(walkTick);
+  walkLine = 'J '+vx.toFixed(1)+' '+vy.toFixed(1)+' '+om.toFixed(3);
+  await cmd(walkLine); showSent(walkLine); forceResend();
+  walkEndT = performance.now() + dur*1000;
+  walkTick = setInterval(()=>{
+    const left = Math.max(0, (walkEndT - performance.now())/1000);
+    document.getElementById('wstatus').textContent =
+      'walking ('+walkLine+') — '+left.toFixed(0)+' s left';
+  }, 250);
+  walkTimer = setTimeout(()=> stopGaitWalk(
+    'done — holding planted stand (torque on). Read the tape.'), dur*1000);
+};
+
+// --- Drive telemetry strip (2 Hz /api/feedback, Drive tab only) --------------
+let telemTimer = null, telemBusy = false;
+function startTelem(){
+  stopTelem();
+  refreshTelem();
+  telemTimer = setInterval(()=>{
+    if(activeView==='drive' && document.visibilityState==='visible') refreshTelem();
+  }, 500);
+}
+function stopTelem(){ if(telemTimer){ clearInterval(telemTimer); telemTimer=null; } }
+async function refreshTelem(){
+  if(telemBusy) return;
+  telemBusy = true;
+  try{
+    const r = await fetch('/api/feedback?t='+Date.now(), {cache:'no-store'});
+    const fb = await r.json();
+    const fmt = (v,d)=> (v==null || isNaN(v)) ? '—' : Number(v).toFixed(d);
+    if(fb && fb.ok){
+      $('tmroll').textContent = fmt(fb.roll_deg, 1);
+      $('tmpitch').textContent = fmt(fb.pitch_deg, 1);
+      let total = null;
+      for(const m of (fb.joints||[])){
+        if(m && m.cur_a!=null) total = (total||0) + Math.abs(+m.cur_a || 0);
+      }
+      $('tmcur').textContent = total==null ? '—' : total.toFixed(2);
+      $('tmlive').textContent = fb.live!=null ? fb.live : '—';
+      $('tmstamp').textContent = 'updated '+new Date().toLocaleTimeString()+' · 2 Hz';
+    } else {
+      $('tmstamp').textContent = (fb && fb.error) ? ('feedback: '+fb.error) : 'feedback unavailable';
+    }
+  }catch(e){
+    $('tmstamp').textContent = 'feedback failed (link?)';
+  }finally{
+    telemBusy = false;
+  }
+}
 
 // --- drive loop -------------------------------------------------------------
 // Runs at 20 Hz for responsive input, but only SENDS a J packet when the
@@ -1141,18 +1245,16 @@ async function dbgTestAll(){
 $('dbgtestall').onclick = dbgTestAll;
 $('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); dbgStatus('Stopping…'); };
 
-$('dbgstand').onclick  = ()=> goPoseZero('stand', '▲ Stand');
-$('dbgcenter').onclick = ()=> goPoseZero('sit', 'Center / Sit');
-$('dbgrelax').onclick  = disarmServos;   // Relax (limp) = disarm / e-stop, always allowed
-
 // --- tab switching ----------------------------------------------------------
 function showView(which){
   activeView = which;
-  ['drive','live','motors','demos','rl','calibrate','debug'].forEach(v=>{
+  ['drive','motors','demos','rl','calibrate','debug'].forEach(v=>{
     const el = $('view-'+v); if(el) el.classList.toggle('active', v===which);
     const tab = $('tab-'+v); if(tab) tab.classList.toggle('on', v===which);
   });
   if(which !== 'drive') armed = false;   // stop streaming J
+  if(which === 'drive') startTelem();
+  else stopTelem();
   if(which === 'motors'){
     // Freeze stand/walk re-hold so the Motors tab can wiggle without the
     // background loop yanking the body toward the plant/crouch pose.
@@ -1167,12 +1269,9 @@ function showView(which){
     refreshCalibrate(); startCalPoll();
   }
   else stopCalPoll();
-  if(which === 'live'){ startLivePose(); }
-  else stopLivePose();
   if(which === 'rl'){ refreshRlTab(); }
 }
 $('tab-drive').onclick = ()=> showView('drive');
-$('tab-live').onclick = ()=> showView('live');
 $('tab-motors').onclick = ()=> showView('motors');
 $('tab-demos').onclick = ()=> showView('demos');
 $('tab-rl').onclick = ()=> showView('rl');
@@ -1613,268 +1712,6 @@ $('calimureset').onclick = async ()=>{
   }catch(e){ showSent('IMU reset failed'); }
 };
 
-// --- Live schematic (FK from motor feedback) --------------------------------
-let liveTimer = null;
-let livePaused = false;
-let liveBusy = false;
-let livePose = null;   // last /api/pose payload
-let liveGeom = { coxa_mm:12.5, femur_mm:90, tibia_mm:128, body_r_mm:55 };
-let liveView = { yaw:0.55, pitch:0.55, zoom:1.0 };
-let liveDrag = null;
-const LEG_COLORS = ['#7eb6ff','#5fd08a','#e6b35a','#ff8a8a','#c59bff','#7fd7d0'];
-
-function startLivePose(){
-  stopLivePose();
-  refreshLivePose(true);
-  liveTimer = setInterval(()=>{
-    if(activeView==='live' && !livePaused) refreshLivePose(false);
-  }, 350);  // was 125ms — too chatty on the MCU bus during stand/rise
-  startLiveDraw();
-}
-function stopLivePose(){
-  if(liveTimer){ clearInterval(liveTimer); liveTimer=null; }
-}
-async function refreshLivePose(force){
-  if(liveBusy && !force) return;
-  liveBusy = true;
-  try{
-    const r = await fetch('/api/pose?t='+Date.now(), {cache:'no-store'});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const p = await r.json();
-    setLink(true);
-    livePose = p;
-    if(p.geom) liveGeom = p.geom;
-    paintLiveAngles(p);
-    const st = $('livestamp');
-    if(st) st.textContent = '· updated '+new Date().toLocaleTimeString();
-    const hint = $('livehint');
-    if(hint){
-      if(!p.ok) hint.textContent = p.error || 'pose failed';
-      else if(p.dry_run) hint.textContent = 'Dry-run — showing sit-zero placeholder.';
-      else if((p.live||0) < 3) hint.textContent = 'Few motors answering ('+(p.live||0)+'/18) — check bus/power.';
-      else hint.textContent = 'Drawing from present servo angles ('+p.live+'/18 live).';
-    }
-  }catch(e){
-    setLink(false, 'pose failed');
-    const hint = $('livehint');
-    if(hint) hint.textContent = 'Pose fetch failed — is the board reachable?';
-  }finally{
-    liveBusy = false;
-  }
-}
-function paintLiveAngles(p){
-  const deg = p.degrees || [];
-  $('livencount').textContent = String(p.live||0);
-  const mode = $('livemode');
-  if(mode){
-    mode.textContent = (p.armed?'ARMED':'limp')+' / '+(p.mode||'—');
-    mode.className = 'pill '+(p.armed?'ok':'bad');
-  }
-  const tb = $('livebody'); if(!tb) return;
-  let html = '';
-  for(let leg=0; leg<6; leg++){
-    const y = deg[leg*3], h = deg[leg*3+1], k = deg[leg*3+2];
-    const off = (y==null && h==null && k==null);
-    const fmt = v => (v==null||v===undefined) ? '—' : Number(v).toFixed(1);
-    html += '<tr class="'+(off?'off':'')+'"><td style="color:'+LEG_COLORS[leg]+'">L'+leg+
-      '</td><td>'+fmt(y)+'</td><td>'+fmt(h)+'</td><td>'+fmt(k)+'</td></tr>';
-  }
-  tb.innerHTML = html;
-}
-function liveFkLegs(degrees){
-  const coxa = liveGeom.coxa_mm||12.5;
-  const femur = liveGeom.femur_mm||90;
-  const tibia = liveGeom.tibia_mm||128;
-  const bodyR = liveGeom.body_r_mm||55;
-  const legs = [];
-  for(let i=0;i<6;i++){
-    const yaw = (degrees[i*3]==null)?0:degrees[i*3]*Math.PI/180;
-    const hip = (degrees[i*3+1]==null)?0:degrees[i*3+1]*Math.PI/180;
-    const knee = (degrees[i*3+2]==null)?0:degrees[i*3+2]*Math.PI/180;
-    const live = degrees[i*3]!=null || degrees[i*3+1]!=null || degrees[i*3+2]!=null;
-    // Leg root around hex: L0 at +X (east), CCW.
-    const baseAz = i * Math.PI/3;
-    const az = baseAz + yaw;
-    const hx = Math.cos(baseAz)*bodyR;
-    const hy = Math.sin(baseAz)*bodyR;
-    const hz = 0;
-    // Hip after coxa along yawed radial.
-    const cx = hx + Math.cos(az)*coxa;
-    const cy = hy + Math.sin(az)*coxa;
-    const cz = hz;
-    // Femur then tibia in the vertical plane of `az`.
-    // Matches plant FK: z = -F·sin(hip) - T·sin(hip+knee)
-    //                   r =  F·cos(hip) + T·cos(hip+knee)
-    const kx = cx + Math.cos(az)*femur*Math.cos(hip);
-    const ky = cy + Math.sin(az)*femur*Math.cos(hip);
-    const kz = cz - femur*Math.sin(hip);
-    const rOut = femur*Math.cos(hip) + tibia*Math.cos(hip+knee);
-    const fx = cx + Math.cos(az)*rOut;
-    const fy = cy + Math.sin(az)*rOut;
-    const fz = cz - femur*Math.sin(hip) - tibia*Math.sin(hip+knee);
-    legs.push({live, hip:[hx,hy,hz], coxa:[cx,cy,cz], knee:[kx,ky,kz], foot:[fx,fy,fz]});
-  }
-  return legs;
-}
-function liveProject(p, W, H){
-  // Orbit camera around origin; +Z up, ground toward bottom of screen.
-  const cy = Math.cos(liveView.yaw), sy = Math.sin(liveView.yaw);
-  const cp = Math.cos(liveView.pitch), sp = Math.sin(liveView.pitch);
-  let x = p[0], y = p[1], z = p[2];
-  // yaw about Z
-  let x1 = x*cy - y*sy, y1 = x*sy + y*cy, z1 = z;
-  // pitch about X' (look down from +Y toward −Z)
-  let y2 = y1*cp - z1*sp, z2 = y1*sp + z1*cp;
-  const scale = 1.15 * liveView.zoom * Math.min(W,H) / 420;
-  // Canvas Y grows downward — add y2 so world-down (feet) lands near the bottom.
-  return [W*0.52 + x1*scale, H*0.42 + y2*scale, z2]; // z2 retained for depth sort
-}
-let liveRaf = 0;
-function startLiveDraw(){
-  if(liveRaf) cancelAnimationFrame(liveRaf);
-  const tick = ()=>{
-    drawLiveSchematic();
-    if(activeView==='live') liveRaf = requestAnimationFrame(tick);
-    else liveRaf = 0;
-  };
-  liveRaf = requestAnimationFrame(tick);
-}
-function drawLiveSchematic(){
-  const cv = $('livecv'); if(!cv) return;
-  const ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
-  ctx.clearRect(0,0,W,H);
-  // backdrop
-  const g = ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#12151c'); g.addColorStop(1,'#0a0c10');
-  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-
-  const deg = (livePose && livePose.degrees) || Array(18).fill(0);
-  const legs = liveFkLegs(deg);
-  const bodyR = liveGeom.body_r_mm||55;
-
-  // ground grid (z = min foot or 0)
-  let groundZ = 0;
-  for(const L of legs){ if(L.live) groundZ = Math.min(groundZ, L.foot[2]); }
-  // snap soft ground under feet
-  const grid = [];
-  for(let i=-4;i<=4;i++){
-    for(let j=-4;j<=4;j++){
-      grid.push(liveProject([i*40, j*40, groundZ], W, H));
-    }
-  }
-  ctx.strokeStyle = '#1e2433'; ctx.lineWidth = 1;
-  for(let i=-4;i<=4;i++){
-    const a = liveProject([i*40, -160, groundZ], W, H);
-    const b = liveProject([i*40,  160, groundZ], W, H);
-    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
-    const c = liveProject([-160, i*40, groundZ], W, H);
-    const d = liveProject([ 160, i*40, groundZ], W, H);
-    ctx.beginPath(); ctx.moveTo(c[0],c[1]); ctx.lineTo(d[0],d[1]); ctx.stroke();
-  }
-
-  // body hex (top face + slight thickness)
-  const bodyTop = [], bodyBot = [];
-  for(let i=0;i<6;i++){
-    const a = i*Math.PI/3;
-    bodyTop.push(liveProject([Math.cos(a)*bodyR, Math.sin(a)*bodyR, 8], W, H));
-    bodyBot.push(liveProject([Math.cos(a)*bodyR, Math.sin(a)*bodyR, -6], W, H));
-  }
-  // bottom
-  ctx.beginPath();
-  bodyBot.forEach((p,i)=>{ if(i===0) ctx.moveTo(p[0],p[1]); else ctx.lineTo(p[0],p[1]); });
-  ctx.closePath(); ctx.fillStyle = '#151a24'; ctx.fill(); ctx.strokeStyle='#2a3348'; ctx.stroke();
-  // sides
-  for(let i=0;i<6;i++){
-    const j=(i+1)%6;
-    ctx.beginPath();
-    ctx.moveTo(bodyBot[i][0],bodyBot[i][1]);
-    ctx.lineTo(bodyBot[j][0],bodyBot[j][1]);
-    ctx.lineTo(bodyTop[j][0],bodyTop[j][1]);
-    ctx.lineTo(bodyTop[i][0],bodyTop[i][1]);
-    ctx.closePath();
-    ctx.fillStyle = (i%2)? '#1a2233':'#162033';
-    ctx.fill(); ctx.strokeStyle='#2b6cff55'; ctx.stroke();
-  }
-  // top
-  ctx.beginPath();
-  bodyTop.forEach((p,i)=>{ if(i===0) ctx.moveTo(p[0],p[1]); else ctx.lineTo(p[0],p[1]); });
-  ctx.closePath(); ctx.fillStyle='#1b2744'; ctx.fill();
-  ctx.strokeStyle='#2b6cff'; ctx.lineWidth=2; ctx.stroke();
-  // forward mark (between L0 and L5 → +X)
-  const nose = liveProject([bodyR*0.55, 0, 10], W, H);
-  const ctr = liveProject([0,0,10], W, H);
-  ctx.fillStyle='#e7eaf0'; ctx.beginPath();
-  ctx.arc(nose[0], nose[1], 4, 0, 7); ctx.fill();
-  ctx.strokeStyle='#8089a0'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(ctr[0],ctr[1]); ctx.lineTo(nose[0],nose[1]); ctx.stroke();
-
-  // legs (depth sort by mid z')
-  const order = legs.map((L,i)=>({i, z: liveProject(L.knee, W, H)[2]})).sort((a,b)=>a.z-b.z);
-  for(const {i} of order){
-    const L = legs[i];
-    const col = L.live ? LEG_COLORS[i] : '#3a4256';
-    const pts = [L.hip, L.coxa, L.knee, L.foot].map(p=>liveProject(p,W,H));
-    // shadow
-    const sh = liveProject([L.foot[0], L.foot[1], groundZ], W, H);
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath(); ctx.ellipse(sh[0], sh[1], 10, 4, 0, 0, 7); ctx.fill();
-    // segments
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = col; ctx.globalAlpha = L.live ? 1 : 0.45;
-    ctx.lineWidth = 7;
-    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); ctx.lineTo(pts[1][0],pts[1][1]); ctx.stroke();
-    ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.moveTo(pts[1][0],pts[1][1]); ctx.lineTo(pts[2][0],pts[2][1]); ctx.stroke();
-    ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(pts[2][0],pts[2][1]); ctx.lineTo(pts[3][0],pts[3][1]); ctx.stroke();
-    // joints
-    ctx.fillStyle = '#0c0e13';
-    for(const p of pts){ ctx.beginPath(); ctx.arc(p[0],p[1],3.2,0,7); ctx.fill();
-      ctx.strokeStyle = col; ctx.lineWidth=1.5; ctx.stroke(); }
-    // foot
-    ctx.fillStyle = L.live ? '#e7eaf0' : '#5a6478';
-    ctx.beginPath(); ctx.arc(pts[3][0],pts[3][1],4.5,0,7); ctx.fill();
-    ctx.globalAlpha = 1;
-    // label
-    ctx.fillStyle = col; ctx.font = '11px system-ui,sans-serif';
-    ctx.fillText('L'+i, pts[0][0]+6, pts[0][1]-6);
-  }
-
-  // HUD
-  ctx.fillStyle = '#5a6478'; ctx.font = '11px system-ui,sans-serif';
-  ctx.fillText('orbit drag · wheel zoom', 12, H-14);
-  ctx.fillText('FWD', nose[0]+8, nose[1]-6);
-}
-(function bindLiveCanvas(){
-  const cv = $('livecv'); if(!cv) return;
-  cv.addEventListener('pointerdown', e=>{
-    liveDrag = {x:e.clientX, y:e.clientY, yaw:liveView.yaw, pitch:liveView.pitch};
-    cv.classList.add('dragging');
-    cv.setPointerCapture(e.pointerId);
-  });
-  cv.addEventListener('pointermove', e=>{
-    if(!liveDrag) return;
-    const dx = e.clientX - liveDrag.x, dy = e.clientY - liveDrag.y;
-    liveView.yaw = liveDrag.yaw + dx*0.01;
-    liveView.pitch = Math.max(0.15, Math.min(1.35, liveDrag.pitch + dy*0.01));
-  });
-  const end = e=>{ liveDrag=null; cv.classList.remove('dragging'); };
-  cv.addEventListener('pointerup', end);
-  cv.addEventListener('pointercancel', end);
-  cv.addEventListener('wheel', e=>{
-    e.preventDefault();
-    liveView.zoom = Math.max(0.45, Math.min(2.4, liveView.zoom * (e.deltaY>0?0.92:1.08)));
-  }, {passive:false});
-})();
-$('livereset').onclick = ()=>{ liveView={yaw:0.55,pitch:0.55,zoom:1.0}; };
-$('livepause').onclick = ()=>{
-  livePaused = !livePaused;
-  $('livepause').textContent = livePaused ? 'Resume' : 'Pause';
-  $('livepause').classList.toggle('on', livePaused);
-};
-$('liverefresh').onclick = ()=> refreshLivePose(true);
-
 // --- Motors tab -------------------------------------------------------------
 function startMotorsPoll(){
   stopMotorsPoll();
@@ -1964,26 +1801,7 @@ $('mzero').onclick = async ()=>{
   if(needArm()) return;
   await fetch('/api/zero',{method:'POST'}); showSent('go zero');
 };
-$('msetzero').onclick = async ()=>{
-  const msg = [
-    'Set CURRENT pose as 0° on all live motors?',
-    '',
-    'Motors will NOT move — only the zero point is rewritten.',
-    'Limp and hand-pose first (usually legs straight out).',
-    '',
-    'Continue?'
-  ].join('\n');
-  if(!confirm(msg)) return;
-  showSent('set-here-as-zero…');
-  try{
-    const r = await fetch('/api/set_zero',{method:'POST'});
-    const j = await r.json();
-    setArmed(false);
-    if(j.ok) showSent('zero-here OK — '+j.ok_n+'/'+j.count+' (limp)');
-    else showSent('zero-here '+(j.error || ((j.ok_n||0)+'/'+(j.count||0)+' — check Motors table')));
-    refreshMotors();
-  }catch(e){ showSent('zero-here failed'); }
-};
+$('msetzero').onclick = ()=> setZeroHere(true);
 $('mlimp').onclick = ()=>{ cmd('X'); setArmed(false); };
 
 // --- Demos tab + global robot activity --------------------------------------
@@ -2391,11 +2209,11 @@ $('dcheckz').onclick = async ()=>{
 // Keep a light global activity poll even off the demos tab.
 setInterval(()=>{ if(activeView!=='demos') refreshRobotState(false); }, 2000);
 refreshRobotState(false);
+startTelem();   // Drive is the default view; showView() stops it on tab change
 
 // deep links
 const path = location.pathname.replace(/\/+$/,'');
-if(path.endsWith('/live') || location.hash==='#live') showView('live');
-else if(path.endsWith('/motors') || location.hash==='#motors') showView('motors');
+if(path.endsWith('/motors') || location.hash==='#motors') showView('motors');
 else if(path.endsWith('/demos') || location.hash==='#demos') showView('demos');
 else if(path.endsWith('/debug') || location.hash==='#debug') showView('debug');
 
@@ -2499,7 +2317,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             pass
         if path in ("/", "/index.html", "/debug", "/motors", "/demos",
-                    "/live", "/rl", "/calibrate"):
+                    "/rl", "/calibrate"):
             page = PAGE.replace("__HTTPS_PORT__", str(HTTPS_PORT or 8443))
             self._send(200, page, "text/html; charset=utf-8")
         elif path == "/cal":
