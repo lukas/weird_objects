@@ -53516,7 +53516,7 @@
       "RL_PLAN queue item 0 / RL_GOALS 'Standing up' plan step 3, first arm of the walkable-height rise line (operator ruling 08-10: the champion's ~70mm crouch-stand is not the deliverable, the ~142mm plant stance the walk line lives in is). Warm-starts the stance champion (ppo_goal_cw_stance_dr10, genuine feet-down rise/lower on today's post-273ebde sim) with: a plant-height target (goal.rise_height_mm=[108,114], actions.max_height_mm=115, vs the champion's native ~70mm crouch), the belly-to-plant reference track (reward.k_rise_ref_track=2.0 against rise_ref_belly2plant.npz), and the posture-pricing fixes landed for the walk-env line (reward.rise_posture_gate, rise_income_prog_gate, rise_finish_gate_signed=1 -- income/finish now require feet actually loaded, not just torso height). Also carries bus.servo_params=loaded (rise is the highest-load motion the loaded actuator fit exists for). Pre-validated by tmp_smoke_rise_ref.py: with this exact reward stack, replaying the demonstrated belly->plant path out-earns both a freeze exploit and a stilt/bridge exploit by a wide margin (+952 vs +225 vs -195) -- trying-well beats trying-badly beats not-trying, and not-trying is net negative. If-true (posture-strict rise/lower >=5/6 at the plant height): the unified deliverable's rise problem is solved by warm-start + this reward stack, no distillation needed; promote toward the crown-jewel rise/lower champions at plant height. If-false: check whether the SAME flag-leg/bridge cheat cw-stance-riseproof1 (this cycle, sibling control probe) just reproduced without these flags persists even WITH posture-gating -- if so the posture-gate mechanism itself needs a stronger geometric criterion (harness end_posture_ok uses per-foot ground clearance <20mm; training's gate may need tightening to match) before another plant-height attempt. Known risk (recorded, not yet mitigated): the height obs channel extrapolates to 2.2x its trained range (height_scale_m 0.05 unchanged for graft compatibility with the champion). Parent: ppo_goal_cw_stance_dr10.zip. Gate: posture-strict harness (default end-posture gate): rise AND lower success >=5/6 det each by 18M, h_err<=12mm of the +105-114mm plant target AND end_posture_ok; hold quiet (height_err_end<=8mm); VIDEO: no leg-through-floor, no flag-leg/bridge (worst pad clearance small, all feet genuinely loaded at finish); early call permitted if W&B rise/lower success flat 0 at 6M"
     ],
     "created": "2026-08-10T15:48:52+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -53525,11 +53525,36 @@
       "code_sha_local": "9ee6caed53664916b7855ac2e2ddf09f91c54d91",
       "code_sha_pod": "9ee6caed53664916b7855ac2e2ddf09f91c54d91",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1709610",
+      "log_growth_bytes": [
+        7702,
+        14256
+      ],
+      "wandb_id": "sara3uwi",
+      "global_step_window": [
+        589824,
+        1966080
+      ],
+      "fps_estimate": 15291.7
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-b2p1 --steps 18000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_b2p1 --impl warp --host-workers 24 --notes 'RL_PLAN queue item 0 / RL_GOALS '\"'\"'Standing up'\"'\"' plan step 3, first arm of the walkable-height rise line (operator ruling 08-10: the champion'\"'\"'s ~70mm crouch-stand is not the deliverable, the ~142mm plant stance the walk line lives in is). Warm-starts the stance champion (ppo_goal_cw_stance_dr10, genuine feet-down rise/lower on today'\"'\"'s post-273ebde sim) with: a plant-height target (goal.rise_height_mm=[108,114], actions.max_height_mm=115, vs the champion'\"'\"'s native ~70mm crouch), the belly-to-plant reference track (reward.k_rise_ref_track=2.0 against rise_ref_belly2plant.npz), and the posture-pricing fixes landed for the walk-env line (reward.rise_posture_gate, rise_income_prog_gate, rise_finish_gate_signed=1 -- income/finish now require feet actually loaded, not just torso height). Also carries bus.servo_params=loaded (rise is the highest-load motion the loaded actuator fit exists for). Pre-validated by tmp_smoke_rise_ref.py: with this exact reward stack, replaying the demonstrated belly->plant path out-earns both a freeze exploit and a stilt/bridge exploit by a wide margin (+952 vs +225 vs -195) -- trying-well beats trying-badly beats not-trying, and not-trying is net negative. If-true (posture-strict rise/lower >=5/6 at the plant height): the unified deliverable'\"'\"'s rise problem is solved by warm-start + this reward stack, no distillation needed; promote toward the crown-jewel rise/lower champions at plant height. If-false: check whether the SAME flag-leg/bridge cheat cw-stance-riseproof1 (this cycle, sibling control probe) just reproduced without these flags persists even WITH posture-gating -- if so the posture-gate mechanism itself needs a stronger geometric criterion (harness end_posture_ok uses per-foot ground clearance <20mm; training'\"'\"'s gate may need tightening to match) before another plant-height attempt. Known risk (recorded, not yet mitigated): the height obs channel extrapolates to 2.2x its trained range (height_scale_m 0.05 unchanged for graft compatibility with the champion). Parent: ppo_goal_cw_stance_dr10.zip. Gate: posture-strict harness (default end-posture gate): rise AND lower success >=5/6 det each by 18M, h_err<=12mm of the +105-114mm plant target AND end_posture_ok; hold quiet (height_err_end<=8mm); VIDEO: no leg-through-floor, no flag-leg/bridge (worst pad clearance small, all feet genuinely loaded at finish); early call permitted if W&B rise/lower success flat 0 at 6M' > /tmp/train_cw-stand-b2p1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-stand-b2p1.log"
+    "log": "/tmp/train_cw-stand-b2p1.log",
+    "wandb_id": "sara3uwi",
+    "verified": "2026-08-10T15:52:41+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T15:54:01+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4788,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-wander120-dr05-s1",
@@ -53671,7 +53696,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T15:50:09+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -53680,10 +53705,136 @@
       "code_sha_local": "9ee6caed53664916b7855ac2e2ddf09f91c54d91",
       "code_sha_pod": "9ee6caed53664916b7855ac2e2ddf09f91c54d91",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3109691",
+      "log_growth_bytes": [
+        6887,
+        11691
+      ],
+      "wandb_id": "p9uebkpc",
+      "global_step_window": [
+        458752,
+        1310720
+      ],
+      "fps_estimate": 9466.3
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-torquescale --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_torquescale --notes 'respec of cw-dep-vref1-r1: respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE. vref1-r1 has only ever seen the DEFAULT torque_scale range (0.80-1.05x, baked into every DR>0 run -- the prior '\"'\"'torque-droop'\"'\"' closed-axis composes on OTHER lineages tested exactly this same default range, not a widened one, so they are uninformative here). This arm widens the low end (0.5-1.05x) to represent real battery-sag/servo-spread under load, distinct from the already-closed default-range axis. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- deeper torque sag composes free like every other axis so far (comshift/deadband/gyronoise/imumount/latency/placement/zerobias/encnoise/groundtilt5/friction all PASSed; payload/mass is the one axis that FAILED). If-false: reduced available torque under the contract-exact obs breaks the gait (plausible: less margin to correct slip/stumbles with a weaker actuator) -- flag as a real hardware risk (battery voltage sags under load) before deployment.' --cfg-set dr.torque_scale=0.5,1.05 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-torquescale.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-torquescale.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-torquescale.log",
+    "wandb_id": "p9uebkpc",
+    "verified": "2026-08-10T15:53:58+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T15:54:52+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7780,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      },
+      {
+        "time": "2026-08-10T15:54:59+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7631,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-wander120-dr05-s1",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Seed-robustness check for the 120s endurance rung, one variable off wander120-dr05 (seed 0->1, identical wander_dr05 parent+recipe). Motivated by wander60-dr05-s1 (same seed-twin move at the 60s rung): det was clean but sto showed a genuine sacrificed leg (duty 0.08 vs siblings 0.37-0.89, slip/m 2.11) -- an 11/12 not 12/12, so seed-dependent sto fragility is a real pattern at this DR0.5 driving line, not noise. If-true: seed 1 at 120s reproduces r1's clean PASS (gv 12/12 det+sto, 0 term, along_dist_m>=4.87m every ep, prog_ratio med>=0.85) -- the 60s sto wobble does not compound over 2 minutes. If-false: sto shows the same or a worse sacrificed-leg/low-duty pattern at 120s -- seed-dependent sto fragility is real and compounds with horizon, and the wander line needs a duty-floor income term before being called seed-robust. Strongest alternative: a milder sto dip that still clears gv 12/12 (noise, not a defect) -- report per-leg duty either way.",
+    "gate": "own-cfg DR0.5 120s det+sto: gv 12/12, 0 term, along_dist_m>=4.87m every episode (matching r1's PASS criterion, not the mis-specified net-displacement literal gate), prog_ratio med>=0.85; DR0 det retention gv 6/6; frames watched det full horizon + worst sto episode for per-leg duty",
+    "parent": "cw-walk-wander120-dr05",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "120",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "1",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=5.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.15",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_wander120_dr05_s1",
+      "--notes",
+      "respec of cw-walk-wander120-dr05: Seed-robustness check for the 120s endurance rung, one variable off wander120-dr05 (seed 0->1, identical wander_dr05 parent+recipe). Motivated by wander60-dr05-s1 (same seed-twin move at the 60s rung): det was clean but sto showed a genuine sacrificed leg (duty 0.08 vs siblings 0.37-0.89, slip/m 2.11) -- an 11/12 not 12/12, so seed-dependent sto fragility is a real pattern at this DR0.5 driving line, not noise. If-true: seed 1 at 120s reproduces r1's clean PASS (gv 12/12 det+sto, 0 term, along_dist_m>=4.87m every ep, prog_ratio med>=0.85) -- the 60s sto wobble does not compound over 2 minutes. If-false: sto shows the same or a worse sacrificed-leg/low-duty pattern at 120s -- seed-dependent sto fragility is real and compounds with horizon, and the wander line needs a duty-floor income term before being called seed-robust. Strongest alternative: a milder sto dip that still clears gv 12/12 (noise, not a defect) -- report per-leg duty either way."
+    ],
+    "created": "2026-08-10T15:52:29+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 6,
+      "code_sha_local": "a3120b15f0b11c4ec9f982e459a4319550cd99fb",
+      "code_sha_pod": "a3120b15f0b11c4ec9f982e459a4319550cd99fb",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-wander120-dr05-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip --dr-scale 0.5 --episode-seconds 120 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_wander120_dr05_s1 --notes 'respec of cw-walk-wander120-dr05: Seed-robustness check for the 120s endurance rung, one variable off wander120-dr05 (seed 0->1, identical wander_dr05 parent+recipe). Motivated by wander60-dr05-s1 (same seed-twin move at the 60s rung): det was clean but sto showed a genuine sacrificed leg (duty 0.08 vs siblings 0.37-0.89, slip/m 2.11) -- an 11/12 not 12/12, so seed-dependent sto fragility is a real pattern at this DR0.5 driving line, not noise. If-true: seed 1 at 120s reproduces r1'\"'\"'s clean PASS (gv 12/12 det+sto, 0 term, along_dist_m>=4.87m every ep, prog_ratio med>=0.85) -- the 60s sto wobble does not compound over 2 minutes. If-false: sto shows the same or a worse sacrificed-leg/low-duty pattern at 120s -- seed-dependent sto fragility is real and compounds with horizon, and the wander line needs a duty-floor income term before being called seed-robust. Strongest alternative: a milder sto dip that still clears gv 12/12 (noise, not a defect) -- report per-leg duty either way.' > /tmp/train_cw-walk-wander120-dr05-s1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walk-wander120-dr05-s1.log",
+    "checkups": [
+      {
+        "time": "2026-08-10T15:56:20+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4620,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
