@@ -97,7 +97,12 @@ bootstrap doc).
   (reported always; `--valid-plant-gate` opt-in until champions
   baselined), and the rise bank (separates replay from all cheats).
   Working fallback: stance champion rises → scripted 1.5 s blend →
-  walk champion drives (sim-proven, key `7`). Plan: rl_docs/RISE.md.
+  walk champion drives (sim-proven, key `7`). Reward-income shaping
+  for rise is now CLOSED (three distinct mechanisms — detect/
+  discount, plant-gate, score re-route — all beaten by the same
+  flag-leg cheat, `cw-stand-score1` 08-10 even from an honest warm
+  start); next lever is reference tracking or a structural height-
+  contact coupling, not another income variant. Plan: rl_docs/RISE.md.
 - Yaw: price escalation on a command-invariant drift is CLOSED. The
   new mechanism set is landed and its TURN bank PASSES (08-10):
   signed rotation income (k_yaw_prog), heading-hold drift charge

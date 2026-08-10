@@ -127,18 +127,35 @@ runs the full stack the arm will train with.
 - `cw-stance-riseproof1` — control probe: stance-line joint_goal
   recipe from scratch on today's sim; decides whether the walk-env
   task construction or near-ground sim contact is implicated.
+- `cw-stand-score1` — FAILED (08-10 night): score-income routing
+  (income moved to a stand-score S = height-kernel x feet-down^2 x
+  no-flag x plant geometry, + airborne-feet rent) warm-started from
+  the HONEST stance champion (not a cheating checkpoint) — still
+  0/12 valid_plant / end_posture_ok at both DR0 and own-DR0.2, EVERY
+  start_kind (flat/bridge/crouch), every episode flagged
+  `feet_down`+`no_flag` with one leg 40–150 mm off the ground.
+  `env/rise_score` stayed flat ~0.01–0.02 for the full 2M steps (the
+  pre-registered early-call trigger). Same pathology class as b2p1
+  and plantgate1 — third distinct mechanism, same cheat. hold/track
+  unaffected.
 
-## Direction (binding, 08-10 evening — supersedes the morning entry)
+## Direction (binding, 08-10 night — supersedes the evening entry)
 
-`cw-stand-plantgate1` FAILED: pricing the PLANT_SPEC gate live did not
-stop the flag-leg cheat (rise 0/12 valid_plant, same video pathology as
-b2p1). Ruling: gates leak — a multiplicative discount on dishonest
-income still leaves the cheat the best-paying discoverable behavior.
-The income SOURCE moved instead: `reward.rise_score_income=1` (see
-Landed machinery). First arm `cw-stand-score1` (DISCOVERY, 2M, warm
-from the stance champion, plant band 108–114 mm, loaded servo params,
-NO reference tracking — operator: no waypoints unless data hardcore
-disagrees). Do NOT re-run gate-only or height-income recipes. Any new
-rise mechanism still goes through DISCOVERY (≤2M steps, early video)
-before any hardening budget, and its exploit must be pinned in the
-semantics bank FIRST (the flag-leg trajectory now is).
+Three distinct reward-restructuring mechanisms — detect-and-discount
+(b2p1's posture gate), a multiplicative PLANT_SPEC gate (plantgate1),
+and moving the income source itself (score1) — have now ALL been
+beaten by the identical flag-leg trick, the last one even from a
+clean honest base. Ruling: **reward-income shaping alone is CLOSED
+for rise** (three-strikes, RESEARCH_RULES "two misses in a behavioral
+class" — this is a third). Do not propose a fourth income-routing
+variant. The next lever must be outside pure income shape:
+(a) reference/trajectory tracking during the rise ramp (the landed
+`k_rise_ref_track` scaffold, currently annealed to 0 by operator
+request "no waypoints unless data hardcore disagrees" — this run IS
+that hardcore disagreement, re-open the waypoint option), or
+(b) a structural coupling between the commanded height goal and
+measured foot contact (e.g. the height *reference* itself refuses to
+rise on a leg the moment that leg loses contact, rather than paying/
+penalizing after the fact). Any next rise arm still goes through
+DISCOVERY (≤2M steps, early video) and its exploit must already be
+pinned in the semantics bank before training.
