@@ -366,11 +366,11 @@ TURN_CMD_WZ = 0.25       # rad/s, tested at BOTH signs
 DRIFT_WZ = 0.09          # the measured structural left drift
 
 
-def _make_turn_env(seed: int):
+def _make_turn_env(seed: int, overrides: dict | None = None):
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
     cfg = load_config()
-    for (sec, leaf), val in TURN_OVERRIDES.items():
+    for (sec, leaf), val in (overrides or TURN_OVERRIDES).items():
         cfg.setdefault(sec, {})[leaf] = val
     env = SimHexapodJointWalkEnv(
         params=SimServoParams.from_cfg(None), randomize=False,
@@ -383,10 +383,11 @@ def _make_turn_env(seed: int):
     return env
 
 
-def _turn_rollout(policy: str, wz_cmd: float, seed: int) -> float:
+def _turn_rollout(policy: str, wz_cmd: float, seed: int,
+                  overrides: dict | None = None) -> float:
     from tripod_gait import TripodGait
 
-    env = _make_turn_env(seed)
+    env = _make_turn_env(seed, overrides)
     env.reset()
     traj = env._goal_traj
     n = len(traj.vx)
@@ -473,11 +474,11 @@ def test_turn_command_signs_priced_symmetrically():
 # stack is optimizing against reality.
 
 
-def _make_walk_env(seed: int):
+def _make_walk_env(seed: int, overrides: dict | None = None):
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
     cfg = load_config()
-    for (sec, leaf), val in WALK_OVERRIDES.items():
+    for (sec, leaf), val in (overrides or WALK_OVERRIDES).items():
         cfg.setdefault(sec, {})[leaf] = val
     env = SimHexapodJointWalkEnv(
         params=SimServoParams.from_cfg(None), randomize=False,
@@ -490,22 +491,26 @@ def _make_walk_env(seed: int):
     return env
 
 
-def _walk_rollout(policy: str, seed: int) -> float:
+def _walk_rollout(policy: str, seed: int, *, vx: float = WALK_CMD_VX,
+                  vy: float = 0.0,
+                  overrides: dict | None = None) -> float:
     from tripod_gait import TripodGait
 
-    env = _make_walk_env(seed)
+    env = _make_walk_env(seed, overrides)
     env.reset()
-    # Pin the command deterministically: hold 1 s, ramp 1 s, then
-    # constant forward WALK_CMD_VX (overwrites the sampled trajectory
+    # Pin the command deterministically: hold 1 s, ramp 1 s, then a
+    # constant (vx, vy) command (overwrites the sampled trajectory
     # arrays in place — same shapes, same goal machinery).
     traj = env._goal_traj
     n = len(traj.vx)
     hold_n = ramp_n = int(round(1.0 / env.dt))
-    traj.vx[:] = WALK_CMD_VX
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = vx
     traj.vx[:hold_n] = 0.0
-    traj.vx[hold_n:hold_n + ramp_n] = np.linspace(
-        0.0, WALK_CMD_VX, ramp_n)
-    traj.vy[:] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = vx * ramp
+    traj.vy[:] = vy
+    traj.vy[:hold_n] = 0.0
+    traj.vy[hold_n:hold_n + ramp_n] = vy * ramp
     if traj.wz is not None:
         traj.wz[:] = 0.0
 
@@ -517,12 +522,12 @@ def _walk_rollout(policy: str, seed: int) -> float:
     total, step = 0.0, 0
     while True:
         t = step * env.dt
-        cmd_vx = float(traj.vx[min(step, n - 1)])
+        i = min(step, n - 1)
         if policy == "gait":
-            gait.set_velocity(vx=cmd_vx)
+            gait.set_velocity(vx=float(traj.vx[i]), vy=float(traj.vy[i]))
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         elif policy == "stall":       # march in place: steps, no stride
-            gait.set_velocity(vx=0.0)
+            gait.set_velocity(vx=0.0, vy=0.0)
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         else:                         # park: hold the plant, refuse
             act = q_rad_to_action(plant_rad)
@@ -560,3 +565,77 @@ def test_walk_stall_beats_refusal_park(walk_returns):
     refusal and must earn less (park-duty pricing does this today)."""
     assert walk_returns["stall"] > walk_returns["park"], (
         f"refusing to step out-earns trying: {walk_returns}")
+
+
+# --------------------------------------------------------------------------
+# OMNI bank — the cw-omni-mirror lineage stack (08-10): full-circle
+# velocity commands + the yaw command set + the deployment contract
+# (meas := ref, 25 deg tilt) + k_current=0 (hardware ruling: walking
+# measured CHEAPER than standing; sim current pricing untrusted).
+# MDP_PREFLIGHT for any arm that trains on "walk where the joystick
+# points": the hardware-proven gait must out-earn stall and park in
+# EVERY commanded direction, not just forward, and the turn ordering
+# must survive the re-priced stack. Start-pose diversity keys
+# (walk_park_start_frac, walk_turn_in_place_frac) and command-sampling
+# keys are deliberately NOT set here — the bank pins its own commands
+# and start pose; those keys do not touch per-tick pricing.
+
+OMNI_OVERRIDES = dict(TURN_OVERRIDES)
+OMNI_OVERRIDES.update({
+    ("reward", "k_current"): 0.0,
+    ("goal", "walk_obs_body_vel"): 2.0,
+    ("safety", "max_roll_deg"): 25.0,
+    ("safety", "max_pitch_deg"): 25.0,
+})
+
+# name -> (vx, vy) at the champion speed band; diag keeps |v| in band
+OMNI_CMDS = {
+    "forward": (WALK_CMD_VX, 0.0),
+    "backward": (-WALK_CMD_VX, 0.0),
+    "crab_left": (0.0, WALK_CMD_VX),
+    "diag_back_right": (-WALK_CMD_VX * 0.707, -WALK_CMD_VX * 0.707),
+}
+
+
+@pytest.fixture(scope="module")
+def omni_returns() -> dict[str, dict[str, float]]:
+    return {name: {p: float(np.mean(
+        [_walk_rollout(p, s, vx=vx, vy=vy, overrides=OMNI_OVERRIDES)
+         for s in SEEDS]))
+        for p in ("gait", "stall", "park")}
+        for name, (vx, vy) in OMNI_CMDS.items()}
+
+
+def test_omni_gait_beats_stall_and_park_in_every_direction(omni_returns):
+    """A full-circle arm is only launchable if honest locomotion
+    out-earns march-in-place AND refusal for every command direction —
+    otherwise PPO will find the direction where stalling pays and park
+    the rest (the walk park attractor, directionally)."""
+    for name, r in omni_returns.items():
+        assert r["gait"] > r["stall"] + 50.0, (
+            f"{name}: stall rivals the gait: {r}")
+        assert r["gait"] > r["park"] + 50.0, (
+            f"{name}: parking rivals the gait: {r}")
+
+
+def test_omni_directions_priced_comparably(omni_returns):
+    """No commanded direction may be structurally cheap or expensive:
+    the gait's income for the worst direction must stay within 45% of
+    the best (matches the CW/CCW turn-symmetry tolerance). A skewed
+    stack re-trains the drift/heading bias back in."""
+    gains = {n: r["gait"] for n, r in omni_returns.items()}
+    lo, hi = min(gains.values()), max(gains.values())
+    assert lo > 0.55 * hi, (
+        f"direction income skew: {gains} — full-circle commands are "
+        "not priced evenly; fix before training an omni arm.")
+
+
+def test_omni_turn_ordering_survives_repricing():
+    """The TURN bank ordering (turn > partial > drift > park) must hold
+    under the omni stack too (k_current=0 + dep contract could in
+    principle flip a margin)."""
+    t = {p: float(np.mean([_turn_rollout(p, s_wz * TURN_CMD_WZ, s,
+                                         overrides=OMNI_OVERRIDES)
+                           for s in SEEDS for s_wz in (+1.0, -1.0)]))
+         for p in ("turn", "partial", "drift", "park")}
+    assert t["turn"] > t["partial"] > t["drift"] > t["park"], t

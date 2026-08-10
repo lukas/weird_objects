@@ -249,6 +249,18 @@ def main(argv: list[str] | None = None) -> int:
     from stable_baselines3.common.callbacks import BaseCallback
     from stable_baselines3.common.vec_env import VecMonitor
 
+    # Mirror-symmetry regularizer (cfg-gated, default off — see
+    # rl_move/sim/mirror.py). Read via --cfg-set so respec --cfg can
+    # tune it; the key also rides into the env cfg dict, harmlessly.
+    mirror_coef = float(_parse_cfg_set(args.cfg_set).get(
+        "train.mirror_loss_coef", 0.0) or 0.0)
+    if mirror_coef > 0.0:
+        from .mirror import attach_mirror, make_mirror_ppo_class
+        algo_cls = make_mirror_ppo_class()
+        print(f"[mjx-train] mirror symmetry loss ON (coef={mirror_coef})")
+    else:
+        algo_cls = PPO
+
     print(f"[mjx-train] task={args.task} n_envs={args.n_envs} "
           f"impl={impl or 'jax(default)'} iterations={iters}/{ls_iters} "
           f"host_workers={args.host_workers or 'in-process'} "
@@ -298,7 +310,7 @@ def main(argv: list[str] | None = None) -> int:
             # tail dims. Optimizer state is fresh (architecture changed).
             from .train_ppo_sim import pad_obs_transplant
             old = PPO.load(args.init_from, device="cpu")
-            model = PPO(
+            model = algo_cls(
                 "MlpPolicy", venv,
                 n_steps=args.n_steps, batch_size=args.batch_size,
                 n_epochs=args.n_epochs, learning_rate=args.lr,
@@ -316,7 +328,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[mjx-train] warm start from {args.init_from} "
                   f"(+{args.obs_pad_transplant} obs-pad transplant)")
         else:
-            model = PPO.load(args.init_from, env=venv, device=args.device,
+            model = algo_cls.load(args.init_from, env=venv,
+                                  device=args.device,
                              n_steps=args.n_steps,
                              batch_size=args.batch_size,
                              n_epochs=args.n_epochs, learning_rate=args.lr,
@@ -325,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
                              tensorboard_log=tb_dir)
             print(f"[mjx-train] warm start from {args.init_from}")
     else:
-        model = PPO(
+        model = algo_cls(
             "MlpPolicy", venv,
             n_steps=args.n_steps, batch_size=args.batch_size,
             n_epochs=args.n_epochs, learning_rate=args.lr,
@@ -336,6 +349,11 @@ def main(argv: list[str] | None = None) -> int:
                                log_std_init=args.log_std_init),
             seed=args.seed, verbose=1, device=args.device,
             tensorboard_log=tb_dir)
+
+    if mirror_coef > 0.0:
+        attach_mirror(model, coef=mirror_coef, task=args.task,
+                      cfg=env_kw.get("cfg"),
+                      obs_dim=int(venv.observation_space.shape[0]))
 
     out_name = args.out_name or (
         f"ppo_mjx_{args.task}" + (f"_{args.run_name}" if args.run_name
