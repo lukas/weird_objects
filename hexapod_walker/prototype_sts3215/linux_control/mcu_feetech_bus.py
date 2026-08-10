@@ -14,6 +14,7 @@ Used by ``web_drive`` / ``DriveController`` and by ``urt2_motor_setup``.
 from __future__ import annotations
 
 import glob
+import json
 import os
 import struct
 import subprocess
@@ -327,6 +328,8 @@ class McuFeetechBus:
         self._pos_cache_mono = 0.0
         self._imu_calib: dict | None = None
         self.reload_imu_calib()
+        self._imu_mount: str = "normal"
+        self.reload_imu_mount()
         self._ser = None
         self.baud = MCU_BAUD
         last_hello = None
@@ -389,6 +392,31 @@ class McuFeetechBus:
         except Exception:
             self._imu_calib = None
         return self._imu_calib
+
+    def reload_imu_mount(self) -> str:
+        """Load the IMU mount orientation from ``logs/imu_mount.json``.
+
+        ``{"mount": "flip_y"}`` — how the GY-521 sits relative to the
+        chassis frame (X fwd, Z up; see rl_move/attitude.py). Applied to
+        RAW axes in read_imu, BEFORE bias calibration, so a rest calib
+        captured after a remount stays consistent. Options:
+        normal | flip_x (y,z negated) | flip_y (x,z) | flip_z (x,y).
+        History: 2026-08-09 the module was briefly remounted chip-down
+        (flip_y), then remounted right-side-up during the same-day
+        reassembly → back to "normal". This chip reads |g| ≈ 1.27 at
+        rest (scale quirk); the rest calib absorbs it as z bias.
+        """
+        mount = "normal"
+        try:
+            d = json.loads((Path(__file__).resolve().parent / "logs"
+                            / "imu_mount.json").read_text())
+            m = str(d.get("mount", "normal")).lower()
+            if m in ("normal", "flip_x", "flip_y", "flip_z"):
+                mount = m
+        except Exception:
+            pass
+        self._imu_mount = mount
+        return mount
 
     def _readline(self, timeout: float) -> str | None:
         deadline = time.monotonic() + timeout
@@ -741,6 +769,35 @@ class McuFeetechBus:
             temp_raw = int(parts[7])
         except ValueError:
             return None
+        if not any((ax, ay, az, gx, gy, gz, temp_raw)):
+            # All-zero frame = MPU asleep (power-glitch default state).
+            # "IMU" wakes it (PWR_MGMT_1) + WHO_AM_I; retry once. Still
+            # zeros -> report NOT ANSWERING rather than a fake flat
+            # reading (atan2(0,0)=0 false-passed the tilt gate once,
+            # 2026-08-09).
+            self._transact("IMU", timeout=max(timeout, 1.0))
+            time.sleep(0.05)
+            line = self._transact("IMUR", timeout=timeout)
+            parts = line.split() if line and line.startswith("OK") else []
+            if len(parts) < 8:
+                return None
+            try:
+                ax, ay, az = int(parts[1]), int(parts[2]), int(parts[3])
+                gx, gy, gz = int(parts[4]), int(parts[5]), int(parts[6])
+                temp_raw = int(parts[7])
+            except ValueError:
+                return None
+            if not any((ax, ay, az, gx, gy, gz, temp_raw)):
+                return None
+        # Mount orientation (chip frame -> chassis frame), before calib —
+        # see reload_imu_mount. Accel and gyro rotate together.
+        m = self._imu_mount
+        if m == "flip_x":
+            ay, az, gy, gz = -ay, -az, -gy, -gz
+        elif m == "flip_y":
+            ax, az, gx, gz = -ax, -az, -gx, -gz
+        elif m == "flip_z":
+            ax, ay, gx, gy = -ax, -ay, -gx, -gy
         sample = {
             "ax_g": ax / 16384.0,
             "ay_g": ay / 16384.0,
@@ -756,6 +813,7 @@ class McuFeetechBus:
             "gy_raw": gy,
             "gz_raw": gz,
             "temp_raw": temp_raw,
+            "mount": m,
             "calibrated": False,
         }
         if apply_calib and self._imu_calib:

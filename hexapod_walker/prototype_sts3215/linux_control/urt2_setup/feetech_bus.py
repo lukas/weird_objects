@@ -481,11 +481,9 @@ class FeetechBus:
         spd_raw, r_sp, _e = self.pkt.read2ByteTxRx(sid, ADDR_PRESENT_SPEED)
         # STS load: bit 10 = direction, lower 10 bits = magnitude (0.1%).
         load_pct = (load & 0x3FF) / 10.0
-        # Present speed unit is counts/s → deg/s = counts × 360/4096.
-        # (0.732 rpm/unit is the SCS-series convention, NOT STS3215 —
-        # using it inflated speeds exactly 50×; fixed 2026-08-07.)
+        # Present speed ≈ 0.732 RPM / count → deg/s ≈ count * 0.732 * 6.
         if r_sp == self.scs.COMM_SUCCESS:
-            speed_deg_s = _signed_speed_counts(spd_raw) * 360.0 / 4096.0
+            speed_deg_s = _signed_speed_counts(spd_raw) * 0.732 * 6.0
         else:
             speed_deg_s = 0.0
         return {

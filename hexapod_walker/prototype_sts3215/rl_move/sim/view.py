@@ -210,6 +210,8 @@ def _run_policy(args) -> None:
         # Letters are all claimed by MuJoCo's own vis/rnd toggles (D
         # hides the floor, S flips shadows, U draws actuators, ...), so
         # our bindings live on digits, - / = and the arrow keys only.
+        if 320 <= keycode <= 329:          # GLFW numpad 0-9 -> digits
+            keycode = ord("0") + keycode - 320
         g = env.traj.goal
         if keycode == 263:    g.roll_ref -= 0.5 * DEG      # left
         elif keycode == 262:  g.roll_ref += 0.5 * DEG      # right
@@ -258,12 +260,53 @@ def _run_policy(args) -> None:
               " | shove the robot: double-click a body, ctrl+drag. "
               "Close the window to quit.")
 
+    hud_status = [""]  # last event line, shown live in the window
+
+    _KEYS_HELP = ("7 stand up (auto ~9s)\n"
+                  "8 sit back down\n"
+                  "9 reset standing\n"
+                  "0 clear goals\n"
+                  "arrows lean\n"
+                  "= / -  height +/-5mm\n"
+                  "1..6 unload leg\n"
+                  "Ctrl+drag = shove")
+
+    def update_hud(viewer) -> None:
+        # In-window overlay: terminal output is invisible when the viewer
+        # has focus, so everything important is painted here every step.
+        set_texts = getattr(viewer, "set_texts", None)
+        if set_texts is None:      # older mujoco: no overlay API
+            return
+        import mujoco as _mj
+        texts = []
+        if interactive:
+            g = env.traj.goal
+            leg = "-" if g.unload_leg is None else f"L{g.unload_leg}"
+            goal_line = (f"goal  roll {g.roll_ref / DEG:+.1f}deg  "
+                         f"pitch {g.pitch_ref / DEG:+.1f}deg  "
+                         f"height {g.height_ref * 1000:+.0f}mm  "
+                         f"unload {leg}")
+            texts.append((_mj.mjtFontScale.mjFONTSCALE_150,
+                          _mj.mjtGridPos.mjGRID_BOTTOMLEFT,
+                          "KEYS (click window first)", _KEYS_HELP))
+            texts.append((_mj.mjtFontScale.mjFONTSCALE_150,
+                          _mj.mjtGridPos.mjGRID_TOPRIGHT,
+                          Path(args.policy).name,
+                          goal_line + ("\n" + hud_status[0]
+                                       if hud_status[0] else "")))
+        else:
+            texts.append((_mj.mjtFontScale.mjFONTSCALE_150,
+                          _mj.mjtGridPos.mjGRID_TOPRIGHT,
+                          Path(args.policy).name, hud_status[0]))
+        set_texts(texts)
+
     with mujoco.viewer.launch_passive(
             env.model, env.data,
             key_callback=key_cb if interactive else None) as viewer:
         t_next = time.monotonic()
         ret = 0.0
         while viewer.is_running():
+            update_hud(viewer)
             if reset_req:
                 start, h_goal = reset_req.pop()
                 env.traj.start_at = start
@@ -275,10 +318,11 @@ def _run_policy(args) -> None:
                 obs, info = env.reset()
                 ret = 0.0
                 if h_goal > 0:
-                    print(f"STAND: belly start, curl ~5 s, then rise to "
-                          f"+{h_goal * 1000:.0f} mm — hands off")
+                    hud_status[0] = (f"STAND: curl ~5s, then rise to "
+                                     f"+{h_goal * 1000:.0f}mm - hands off")
                 else:
-                    print(f"reset at {start} pose — goals cleared")
+                    hud_status[0] = f"reset at {start} pose - goals cleared"
+                print(hud_status[0])
                 viewer.sync()
                 t_next = time.monotonic()
                 continue
@@ -289,8 +333,9 @@ def _run_policy(args) -> None:
             if term or trunc:
                 end = (f"TERMINATED: {inf.get('termination_reason')}"
                        if term else "survived")
-                print(f"episode done: goal={inf.get('goal_mode')} "
-                      f"return={ret:+.1f} | {end}")
+                hud_status[0] = (f"episode done: goal={inf.get('goal_mode')} "
+                                 f"return={ret:+.1f} | {end}")
+                print(hud_status[0])
                 if interactive:
                     env.traj.reset_published()  # refs re-ramp from zero
                 if cycle:

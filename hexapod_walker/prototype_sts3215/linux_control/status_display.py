@@ -104,20 +104,58 @@ def format_job_screen(robot: dict) -> tuple[int, list[str]] | None:
     return pct, [title] + body[:4] + [footer]
 
 
-def servo_alert(robot: dict) -> list[str] | None:
-    """Two panel lines for missing / over-hot servos, or None when healthy.
+def format_error_screen(robot: dict) -> list[str] | None:
+    """Full-screen (``DJ``) rows for bus-level faults, or None.
 
-    Fed by the ``servo`` block ServoWatch publishes into robot_state().
-    Missing servos outrank heat (a hot servo still answers; a missing one
-    is power/bus/failure), and both outrank ordinary activity detail.
+    When the motor controller link is down, the normal schematic panel —
+    robot logo plus edge slots — is misleading: nothing it shows is real.
+    Take over the whole screen instead. Single-servo and over-temperature
+    problems keep the schematic (still useful) via ``servo_alert``.
     """
     sv = robot.get("servo") or {}
+    footer = "ARMED" if robot.get("armed") else "limp"
     if not sv.get("ok"):
-        return None
+        # Watchdog can't complete a bus transaction; ts == 0 is startup
+        # (no tick yet) — stay quiet for that.
+        if not sv.get("ts"):
+            return None
+        return ["NOT CONNECTED", "",
+                "motor controller bus",
+                "is not answering",
+                "check MCU/ctrl link", footer]
     missing = sv.get("missing") or []
     exp = int(sv.get("expected") or 0)
     if missing and exp and len(missing) >= exp:
-        return ["ALL SERVOS", "DOWN"]
+        return ["NOT CONNECTED", "",
+                "no motor controller",
+                "or 12V power is off",
+                f"0/{exp} servos answer", footer]
+    return None
+
+
+def servo_alert(robot: dict) -> list[str] | None:
+    """Two panel lines for bus-link / missing / over-hot servos, or None.
+
+    Fed by the ``servo`` block ServoWatch publishes into robot_state().
+    A dead motor-controller link outranks everything (zero servos or a
+    failing bus is the controller/12 V, not 18 simultaneous failures);
+    then missing servos (a hot servo still answers; a missing one is
+    power/bus/failure); then heat; then a dead IMU. All outrank
+    ordinary activity detail.
+    """
+    sv = robot.get("servo") or {}
+    if not sv.get("ok"):
+        # Watchdog can't complete a bus transaction. ts == 0 means it
+        # simply hasn't ticked yet (startup) — stay quiet for that.
+        if not sv.get("ts"):
+            return None
+        return ["NO MOTOR", "CONTROLLER"]
+    missing = sv.get("missing") or []
+    exp = int(sv.get("expected") or 0)
+    if missing and exp and len(missing) >= exp:
+        # Bus answers but zero servos do: controller unplugged from the
+        # servo bus, or the 12 V rail is off.
+        return ["NO MOTOR", "CTRL / 12V?"]
     if missing:
         n = len(missing)
         names = sv.get("missing_names") or []
@@ -131,6 +169,10 @@ def servo_alert(robot: dict) -> list[str] | None:
         off = " OFF" if worst.get("tripped") else ""
         return [f"HOT {worst.get('temp_c')}C{off}"[:20],
                 str(worst.get("name") or "")[:20]]
+    if sv.get("imu_ok") is False:
+        # None = watchdog can't probe the IMU (USB adapter mode) — only
+        # an explicit failed probe is an error.
+        return ["NO IMU", "GY-521 I2C?"]
     return None
 
 
@@ -269,11 +311,21 @@ class StatusDisplay:
                     self._net = net_status()
                     self._net_t = now
                 job = format_job_screen(robot)
+                err = None if job is not None else format_error_screen(robot)
                 if job is not None and hasattr(bus, "display_job"):
                     pct, lines = job
                     painted = (
                         {"job": True}
                         if bus.display_job(lines, pct=pct, timeout=10.0)
+                        else None)
+                elif err is not None and hasattr(bus, "display_job"):
+                    # Bus-level fault: full-screen error, not the happy
+                    # schematic. DJ does no servo reads, so keep it on
+                    # the job (no-throttle) path below.
+                    job = ("error", err)
+                    painted = (
+                        {"error": True}
+                        if bus.display_job(err, pct=-1, timeout=10.0)
                         else None)
                 else:
                     job = None

@@ -71,11 +71,21 @@ broadcasts on the LAN and learns your laptop from beacons on port 9378.
 cd hexapod_walker/prototype_sts3215/linux_control
 python3 receive_robot_logs.py
 # backup path if UDP is firewalled:
-python3 receive_robot_logs.py --ssh arduino@192.168.4.44
+python3 receive_robot_logs.py --ssh arduino@hexapod.local
 ```
 
 Robot side: `logs/events.jsonl`. Optional override only if you need it:
 `HEXAPOD_LOG_HOST=<ip>` in the systemd unit.
+
+### RL episode traces (automatic)
+
+Every RL stand / lower / walk run additionally writes per-tick telemetry
+on the robot: `logs/rl_<mode>_<stamp>.csv` (25 Hz — attitude, gyro, goal
+refs, measured + commanded q, raw action, per-servo current) and a
+matching `_summary.json` (params + result), with `rl_episode` start/end
+markers in `events.jsonl`. Full column list and analysis notes:
+`../rl_move/API.md` § "RL episode logging". Pull with
+`scp arduino@hexapod.local:hexapod_sts/linux_control/logs/rl_*.csv`.
 
 ## Quick start (Uno Q over USB adb)
 

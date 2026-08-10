@@ -2,10 +2,10 @@
 # Compile + flash feetech_bridge on the Uno Q over SSH (no USB needed).
 #
 #   ./flash_feetech_bridge.sh
-#   ./flash_feetech_bridge.sh arduino@192.168.4.44
+#   ./flash_feetech_bridge.sh arduino@hexapod.local
 set -euo pipefail
 
-BOARD="${1:-arduino@192.168.4.44}"
+BOARD="${1:-arduino@hexapod.local}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SKETCH="$HERE/feetech_bridge"
 REMOTE_DIR="~/feetech_bridge"

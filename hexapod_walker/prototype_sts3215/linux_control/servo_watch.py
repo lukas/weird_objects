@@ -50,6 +50,11 @@ class ServoWatch:
         self._thread: threading.Thread | None = None
         self._snap: dict = {"ok": False, "ts": 0.0}
         self._tripped: set[int] = set()   # joints we torqued off for heat
+        # Joints that read >= SHUTOFF_C on the LAST tick. A single hot read
+        # is not trusted: corrupted bytes on the shared bus produced four
+        # phantom 70-90 C trips on 2026-08-09 (each "cooled" to ~33 C within
+        # seconds — thermally impossible). Real heat survives two ticks.
+        self._hot_pending: set[int] = set()
 
     # -- public ---------------------------------------------------------
     def start(self) -> None:
@@ -95,6 +100,17 @@ class ServoWatch:
 
         fb = bus.read_all_feedback()  # {joint: {temp_c, current_a, ...}}
         now = time.time()
+
+        # IMU liveness piggybacks on the same tick: one cheap MCU round
+        # trip. None = bus can't probe it (USB adapter mode), not a fault.
+        imu_ok = None
+        read_imu = getattr(bus, "read_imu", None)
+        if callable(read_imu):
+            try:
+                imu_ok = read_imu(timeout=0.6, apply_calib=False) is not None
+            except Exception:
+                imu_ok = False
+
         missing = sorted(j for j in range(N_JOINTS) if j not in fb)
         hot: list[dict] = []
         max_t, max_j = -1, None
@@ -103,7 +119,12 @@ class ServoWatch:
             if t > max_t:
                 max_t, max_j = t, j
             if t >= SHUTOFF_C and j not in self._tripped:
-                self._trip(bus, j, t)
+                if j in self._hot_pending:      # 2nd consecutive hot read
+                    self._trip(bus, j, t)
+                else:
+                    self._hot_pending.add(j)
+            elif t < SHUTOFF_C:
+                self._hot_pending.discard(j)
             if j in self._tripped and t <= CLEAR_C:
                 self._tripped.discard(j)
                 self._emit("servo_cooled",
@@ -130,6 +151,7 @@ class ServoWatch:
                                   for j in sorted(self._tripped)],
                 "warn_c": WARN_C,
                 "shutoff_c": SHUTOFF_C,
+                "imu_ok": imu_ok,
             }
 
     def _trip(self, bus: Any, joint: int, temp_c: int) -> None:

@@ -1,6 +1,6 @@
 """HTTP client for hexapod-web — prefer this over SSH.
 
-Default base: ``http://192.168.4.44:8080`` (override with ``HEXAPOD_URL``).
+Default base: ``http://hexapod.local:8080`` (override with ``HEXAPOD_URL``).
 
 Examples
 --------
@@ -23,7 +23,7 @@ import urllib.request
 from typing import Any
 
 
-DEFAULT_BASE = os.environ.get("HEXAPOD_URL", "http://192.168.4.44:8080")
+DEFAULT_BASE = os.environ.get("HEXAPOD_URL", "http://hexapod.local:8080")
 
 
 class HexapodClient:

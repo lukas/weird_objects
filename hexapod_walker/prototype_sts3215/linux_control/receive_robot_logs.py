@@ -8,7 +8,7 @@ robot on :9378 so you never have to set ``HEXAPOD_LOG_HOST``.
     python3 receive_robot_logs.py
 
     # backup if UDP is firewalled:
-    python3 receive_robot_logs.py --ssh arduino@192.168.4.44
+    python3 receive_robot_logs.py --ssh arduino@hexapod.local
 
 Writes ``logs/robot_events.jsonl`` next to this script (or --out).
 """
@@ -29,7 +29,7 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_PORT = int(os.environ.get("HEXAPOD_LOG_PORT", "9377"))
 DEFAULT_BEACON_PORT = int(os.environ.get("HEXAPOD_LOG_BEACON_PORT", "9378"))
 DEFAULT_OUT = HERE / "logs" / "robot_events.jsonl"
-DEFAULT_BOARD = os.environ.get("HEXAPOD_BOARD", "192.168.4.44")
+DEFAULT_BOARD = os.environ.get("HEXAPOD_BOARD", "hexapod.local")
 
 
 def _utc() -> str:

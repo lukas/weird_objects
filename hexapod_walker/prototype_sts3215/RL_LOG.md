@@ -355,3 +355,27 @@ quad-hold1-r2's if-false result (50% eroded walk); cw-quad-hold2
 Operator-side: drive_policy.py key `4` toggles the quad command
 live (writes lift_legs=(0,5) into the running trajectory; HUD shows
 QUAD). RL_PLAN party-tricks section + WISHLIST 15 updated.
+
+## OPERATOR session 08-10 ~01:10 ET — GPT handoff landed, 8h window to hardware attempt #2
+
+GPT review archived (`archive/GPT_HANDOFF_2026-08-10.md`), rulings in
+RL_PLAN + ORCHESTRATOR_PROMPT (P0: verdict dep arms first; fresh1
+judged qualitatively; minimal effort shaping on hardware arms; no new
+generic composes tonight). Work landed this session: (1) NEW DR
+mechanism `dr.zero_drift_cmd_frame=1` — logical-zero drift as a FRAME
+shift (reads AND commands share the drifted frame; legacy obs-only
+bias left a 3.3° cmd-vs-read residual the policy could exploit, env
+smoke shows frame mode self-consistent at 1.2° settle error with the
+physical pose silently offset). (2) Prev-action semantics AUDIT:
+PASS — both training (`sim_env` echoes validated raw proposal) and
+runner (`rl_policy.py` same) pre-safety-filter, shared build_obs;
+Gate 0 item closed. (3) Loaded actuator quantified from step_ladder
+robot-side timestamps: 2° steps ~120 ms motion / 250-325 ms total
+settle vs sim tens of ms (air knee latency 8.6 ms); loaded peak vel
+48-67°/s vs sim ceiling 30.8°/s (air fit baked the commanded write
+speed as capability). Small corrections during weight transfer are
+~5x slower in reality — strongest quantified suspect for the
+deterministic liftoff +roll collapse. Fit task handed to agent.
+(4) `cw-dep-startvar1` queued (vref1-r1 warm-start + placement 6° +
+bad-start 0.4 + zero-drift frame 3° + k_current=0), gated behind
+vref1-r1's verdict, varied-start eval panel in its gate.

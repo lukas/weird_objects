@@ -11,9 +11,10 @@ it is for; keep them SHORT when you edit them.
 | `SKILLS.md` | What the robot can DO today: passed skills + their checkpoints (W&B artifact per row) | On any PASS (update it!), or when the operator asks what works |
 | `WISHLIST.md` | Operator's backlog of things to learn — pull from it whenever pods would idle | Every cycle, when deciding launches |
 | `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, hard-won gotchas; § "Operator status page" = web dashboard runbook | Every cycle, before running commands; when the operator's status page is down |
+| `HARDWARE.md` | Real-robot evidence (traces in `rl_move/hardware_traces/`), sim2real findings, operator experiment backlog | When a decision hinges on real-world data; after any hardware session |
 | `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/summary.md` convention + cached W&B data | When finishing or investigating a run |
 | `runs/` | One GENERATED summary per run (status, hypothesis, gate, verdict) — rendered from `experiments.json` by `launch_run.py`; never hand-edit | Browsing past runs; `launch_run.py runsmd` refreshes |
-| `../RL_PLAN.md` | The current plan, gates, and queue (~120 lines) | Every cycle |
+| `../RL_PLAN.md` | The current plan, gates, and queue (~400-line budget; single topics break out into rl_docs/) | Every cycle |
 | `../RL_LOG.md` | Condensed campaign history; append ONE line per cycle via `ops.sh logline` only | Every cycle |
 | `../rl_move/orchestrator/guardrails.yaml` | Hard limits you must obey | Every cycle |
 | `../archive/` | Full history, reviews, audits (long; search, don't read) | Only when the condensed docs point there |

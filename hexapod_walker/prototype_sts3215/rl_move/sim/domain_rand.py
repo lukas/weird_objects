@@ -77,6 +77,16 @@ class RandRanges:
     bad_start_max_joints: int = 3        # how many joints can be way off
     bad_start_deg: tuple[float, float] = (8.0, 35.0)  # offset magnitude
     joint_zero_bias_deg: float = 1.0     # per-joint set_zero error
+    # Logical-zero drift frame (operator directive 08-10, GPT handoff §7):
+    # 0 = legacy, zero bias corrupts only the ENCODER READS — but that
+    # leaves a permanent cmd-vs-read residual the policy can exploit,
+    # which hardware never shows. 1 = the bias is a FRAME SHIFT: position
+    # commands are translated into the same drifted frame the reads come
+    # from (set_zero done on a slumped pose shifts BOTH). Reads and
+    # commands stay self-consistent; the drift is only visible through
+    # physics (gravity/contacts/IMU) — exactly the failure that dropped
+    # the robot on 08-09. Flag, not a range: never scaled by dr-scale.
+    zero_drift_cmd_frame: float = 0.0
     encoder_noise_deg: float = 0.09      # ~1 LSB of the 12-bit encoder
     # IMU could be installed anywhere: gross orientation is canonicalized
     # once by imu_calibrate, so rotation DR covers the RESIDUAL error;
@@ -127,6 +137,7 @@ class RandRanges:
             bad_start_deg=(self.bad_start_deg[0] * s,
                            self.bad_start_deg[1] * s),
             joint_zero_bias_deg=self.joint_zero_bias_deg * s,
+            zero_drift_cmd_frame=self.zero_drift_cmd_frame,
             encoder_noise_deg=self.encoder_noise_deg,
             imu_mount_deg=self.imu_mount_deg * s,
             imu_pos_xy_m=self.imu_pos_xy_m * s,
@@ -159,6 +170,7 @@ class EpisodeRandomization:
     start_offset_rad: np.ndarray         # (18,) placement noise (+ bad start)
     bad_start_joints: list[int]          # joints that start way off
     joint_zero_bias_rad: np.ndarray      # (18,)
+    zero_drift_cmd_frame: bool           # bias shifts cmd frame too
     encoder_noise_rad: float
     imu_mount_rot: np.ndarray            # (3, 3) chassis → IMU frame
     imu_pos_m: np.ndarray                # (3,) IMU offset from chassis origin
@@ -231,6 +243,7 @@ class EpisodeRandomization:
             "imu_pos_mm": [round(v * 1000, 1) for v in self.imu_pos_m],
             "zero_bias_max_deg": round(
                 float(np.max(np.abs(self.joint_zero_bias_rad))) / DEG2RAD, 2),
+            "zero_drift_cmd_frame": bool(self.zero_drift_cmd_frame),
             "bad_start_joints": [int(j) for j in self.bad_start_joints],
             "start_offset_max_deg": round(
                 float(np.max(np.abs(self.start_offset_rad))) / DEG2RAD, 1),
@@ -322,6 +335,7 @@ class DomainRandomizer:
             joint_zero_bias_rad=u(
                 -r.joint_zero_bias_deg, r.joint_zero_bias_deg,
                 N_JOINTS) * DEG2RAD,
+            zero_drift_cmd_frame=bool(r.zero_drift_cmd_frame),
             encoder_noise_rad=r.encoder_noise_deg * DEG2RAD,
             imu_mount_rot=imu_mount_rot,
             imu_pos_m=np.array([

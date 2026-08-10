@@ -466,9 +466,42 @@ PAGE = r"""<!doctype html>
       <div class="btns" style="margin-top:12px">
         <button id="rlstand" class="on">⬆ Stand up</button>
         <button id="rllower">⬇ Lower</button>
+        <button id="rlglide" title="Scripted 4.5 s glide to the captured
+plant stance (not RL — same as Drive tab ▲ Stand). Refuses if any joint
+is >25° away. Use it to square up before Capture plant or Walk.">▲ Stand
+(scripted)</button>
+        <button id="rlcapture" title="Save the current 18-joint pose as
+the plant stance (no motion). Lower and Walk start only from this pose —
+capture while the robot is standing well.">📌 Capture plant</button>
         <button id="rlstop" class="danger">■ Stop</button>
       </div>
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
+      <h2 style="margin-top:16px">Walk (experimental)</h2>
+      <div class="hint">Sim walk champion — <b>NOT validated on
+        hardware</b> (known foot-slide in sim; no body-velocity sensor,
+        command runs open-loop). Starts <b>only from the captured plant
+        stance</b>. Command ramps in over 1&nbsp;s, walks, ramps out and
+        holds. <b>Stop</b> aborts and holds. Keep a hand near the 12 V
+        switch the first tries.</div>
+      <div class="btns" style="margin-top:12px">
+        <button id="rlwalkfwd">▲ Walk fwd</button>
+        <button id="rlwalkleft">◀ Strafe L</button>
+        <button id="rlwalkright">▶ Strafe R</button>
+      </div>
+      <div class="btns" style="margin-top:8px">
+        <label class="hint">speed
+          <select id="rlwalkspeed">
+            <option value="0.02">0.02 m/s</option>
+            <option value="0.03" selected>0.03 m/s</option>
+            <option value="0.04">0.04 m/s</option>
+          </select></label>
+        <label class="hint">for
+          <select id="rlwalkdur">
+            <option value="4">4 s</option>
+            <option value="6" selected>6 s</option>
+            <option value="10">10 s</option>
+          </select></label>
+      </div>
     </div>
     <div class="pad" style="flex:1 1 340px">
       <h2>Readiness (no motion)</h2>
@@ -479,6 +512,7 @@ PAGE = r"""<!doctype html>
       <div class="btns" style="margin-top:12px">
         <button id="rlcheckstand">Check: stand</button>
         <button id="rlchecklower">Check: lower</button>
+        <button id="rlcheckwalk">Check: walk</button>
       </div>
       <div class="hint" id="rlpreflight" style="margin-top:10px">—</div>
     </div>
@@ -490,9 +524,10 @@ PAGE = r"""<!doctype html>
         exported to plain numpy — no torch on the board. Every command
         passes the safety layer: 1.5°/tick rate clamp, joint limits,
         10° tilt trip, sustained &gt;2.5&nbsp;A trip → instant limp.
-        Swap the policy by re-running
+        Swap a policy by re-running
         <code>rl_move/sim/export_policy_np.py</code> and pushing
-        <code>rl_policy_weights.json</code>.</div>
+        <code>rl_policy_weights.json</code> (stance) /
+        <code>rl_walk_weights.json</code> (walk).</div>
     </div>
   </div>
   </div><!-- /view-rl -->
@@ -1437,7 +1472,7 @@ function startRlPoll(){
         $('rlstatus').textContent = p.msg || 'running…';
       } else {
         clearInterval(rlTimer); rlTimer = null;
-        $('rlstand').disabled = false; $('rllower').disabled = false;
+        rlButtons(false);
         const res = d.result || {};
         $('rlstatus').textContent = res.ok
           ? `Done · max ${res.max_current_a ?? '?'} A`
@@ -1447,30 +1482,67 @@ function startRlPoll(){
     }catch(e){ /* keep polling */ }
   }, 500);
 }
-async function rlMove(mode){
+function rlButtons(disabled){
+  for(const id of ['rlstand','rllower','rlglide','rlcapture','rlwalkfwd',
+                   'rlwalkleft','rlwalkright'])
+    $(id).disabled = disabled;
+}
+async function rlMove(mode, body){
   const what = mode==='stand'
     ? 'STAND UP (robot must be belly-down, legs straight out)'
-    : 'LOWER to belly (robot must be in the plant stance)';
+    : mode==='lower'
+    ? 'LOWER to belly (robot must be in the plant stance)'
+    : `WALK ${body.vx>0?'forward':body.vy>0?'strafe LEFT':'strafe RIGHT'} `
+      + `at ${Math.hypot(body.vx,body.vy).toFixed(2)} m/s for `
+      + `${body.duration_s}s — EXPERIMENTAL, robot must be in the plant `
+      + `stance with room to move`;
   if(!confirm('Robot will MOVE: '+what+'. Are you watching it?')) return;
   $('rlstatus').textContent = 'Preflight…';
-  $('rlstand').disabled = true; $('rllower').disabled = true;
+  rlButtons(true);
   try{
-    const r = await fetch('/api/rl/'+mode, {method:'POST'});
+    const r = await fetch('/api/rl/'+mode, {method:'POST',
+      body: body ? JSON.stringify(body) : undefined});
     const d = await r.json();
     if(!d.ok){
       $('rlstatus').textContent = 'Refused: '+(d.error || 'unknown');
-      $('rlstand').disabled = false; $('rllower').disabled = false;
+      rlButtons(false);
       return;
     }
     $('rlstatus').textContent = 'Running…';
     startRlPoll();
   }catch(e){
     $('rlstatus').textContent = 'Start failed (link?)';
-    $('rlstand').disabled = false; $('rllower').disabled = false;
+    rlButtons(false);
   }
 }
 $('rlstand').onclick = ()=> rlMove('stand');
 $('rllower').onclick = ()=> rlMove('lower');
+$('rlglide').onclick = async ()=>{
+  if(!confirm('Robot will MOVE: scripted glide to the captured plant '
+              + 'stance over ~4.5 s. Are you watching it?')) return;
+  $('rlstatus').textContent = 'Gliding to plant stance…';
+  await goPoseZero('stand', '▲ Stand (scripted)');
+  $('rlstatus').textContent = 'Glide finished — see toast for result.';
+};
+$('rlcapture').onclick = async ()=>{
+  $('rlstatus').textContent = 'Capturing plant pose (no motion)…';
+  try{
+    const r = await fetch('/api/rl/capture_plant', {method:'POST'});
+    const d = await r.json();
+    $('rlstatus').textContent = d.ok
+      ? `Plant captured: hip ${d.hip_deg}° knee ${d.knee_deg}° — `
+        + 'Lower & Walk now start from this pose.'
+      : 'Capture failed: '+(d.error || 'unknown');
+  }catch(e){ $('rlstatus').textContent = 'Capture failed (link?)'; }
+};
+function rlWalk(dx, dy){
+  const s = parseFloat($('rlwalkspeed').value);
+  rlMove('walk', {vx: dx*s, vy: dy*s,
+                  duration_s: parseFloat($('rlwalkdur').value)});
+}
+$('rlwalkfwd').onclick   = ()=> rlWalk(1, 0);
+$('rlwalkleft').onclick  = ()=> rlWalk(0, 1);   // +vy = strafe left
+$('rlwalkright').onclick = ()=> rlWalk(0, -1);
 $('rlstop').onclick = async ()=>{
   await fetch('/api/rl/stop', {method:'POST'});
   $('rlstatus').textContent = 'Stopping (holds pose; X to limp)…';
@@ -1493,14 +1565,21 @@ async function rlCheck(mode){
 }
 $('rlcheckstand').onclick = ()=> rlCheck('stand');
 $('rlchecklower').onclick = ()=> rlCheck('lower');
+$('rlcheckwalk').onclick = ()=> rlCheck('walk');
 async function refreshRlTab(){
   try{
     const r = await fetch('/api/rl/policy', {cache:'no-store'});
     const d = await r.json();
+    const w = d.walk || {};
     $('rlpolicyinfo').innerHTML = d.ok
-      ? `<b>${(d.source||'?').split('/').pop()}</b><br>`
+      ? `stance: <b>${(d.source||'?').split('/').pop()}</b><br>`
         + `obs ${d.obs_dim} → [${(d.hidden||[]).join(', ')}] → `
-        + `${d.act_dim} joints · ${d.activation}`
+        + `${d.act_dim} joints · ${d.activation}<br>`
+        + (w.source
+           ? `walk: <b>${w.source.split('/').pop()}</b><br>`
+             + `obs ${w.obs_dim} → [${(w.hidden||[]).join(', ')}] → `
+             + `${w.act_dim} joints · ${w.activation}`
+           : `walk: ${w.error || 'not deployed'}`)
       : (d.error || 'no policy');
   }catch(e){ $('rlpolicyinfo').textContent = 'policy info unavailable'; }
   try{
@@ -1508,6 +1587,7 @@ async function refreshRlTab(){
     const d = await r.json();
     if(d.running && (d.name||'').startsWith('rl_policy')){
       $('rlstatus').textContent = (d.progress||{}).msg || 'running…';
+      rlButtons(true);
       startRlPoll();
     }
   }catch(e){}
@@ -2587,6 +2667,19 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._json(200, BENCH.rl_policy_move(
                     mode=path.rsplit("/", 1)[-1]))
+        elif path == "/api/rl/walk":
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            else:
+                self._json(200, BENCH.rl_policy_move(
+                    mode="walk",
+                    vx=float(data.get("vx", 0.03)),
+                    vy=float(data.get("vy", 0.0)),
+                    duration_s=float(data.get("duration_s", 6.0))))
         elif path == "/api/rl/set_stance":
             try:
                 data = json.loads(body or "{}") if body else {}

@@ -1252,9 +1252,9 @@ class BenchAPI:
         return {"ok": True, "calibrate": self.calibrate_state()}
 
     def rl_preflight(self, *, mode: str = "stand") -> dict:
-        """Read-only readiness check for the RL stand/lower buttons."""
+        """Read-only readiness check for the RL stand/lower/walk buttons."""
         mode = (mode or "stand").strip().lower()
-        if mode not in ("stand", "lower"):
+        if mode not in ("stand", "lower", "walk"):
             return {"ok": False, "error": f"bad mode {mode!r}"}
         try:
             from rl_policy import preflight
@@ -1271,24 +1271,34 @@ class BenchAPI:
     def rl_policy_info(self) -> dict:
         """Metadata of the deployed policy weights (no bus traffic)."""
         try:
-            from rl_policy import WEIGHTS_PATH
+            from rl_policy import WEIGHTS_PATH, WALK_WEIGHTS_PATH
             meta = json.loads(Path(WEIGHTS_PATH).read_text())["meta"]
-            return {"ok": True, **meta}
+            out = {"ok": True, **meta}
+            try:
+                walk = json.loads(
+                    Path(WALK_WEIGHTS_PATH).read_text())["meta"]
+                out["walk"] = walk
+            except Exception as e:
+                out["walk"] = {"error": str(e)}
+            return out
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-    def rl_policy_move(self, *, mode: str = "stand") -> dict:
-        """Run the trained RL policy: stand up from belly / lower to belly.
+    def rl_policy_move(self, *, mode: str = "stand", vx: float = 0.03,
+                       vy: float = 0.0, duration_s: float = 6.0) -> dict:
+        """Run a trained RL policy: stand up / lower / walk.
 
         Async (demo-thread slot, poll ``rl_state``, abort via ``rl_stop``).
         Read-only preflight refuses to move unless all 18 servos answer,
         the IMU is alive, and the present pose matches the expected start
-        (belly/zero for stand, captured plant for lower). Safety layer
-        trips (tilt / sustained over-current / temp) limp immediately.
+        (belly/zero for stand, captured plant for lower AND walk).
+        Safety layer trips (tilt / sustained over-current / temp) limp
+        immediately. Walk extras: body-frame vx/vy (m/s, clamped to the
+        trained 0.06 band) and duration_s (clamped 3..20 s).
         The OPERATOR MUST BE WATCHING — this is the explicit order.
         """
         mode = (mode or "stand").strip().lower()
-        if mode not in ("stand", "lower"):
+        if mode not in ("stand", "lower", "walk"):
             return {"ok": False, "error": f"bad mode {mode!r}"}
         try:
             from rl_policy import preflight, run_policy_move
@@ -1308,11 +1318,16 @@ class BenchAPI:
         self._demo_gen += 1
         gen = self._demo_gen
         self._demo_abort.clear()
-        label = "RL stand up" if mode == "stand" else "RL lower"
+        label = {"stand": "RL stand up", "lower": "RL lower",
+                 "walk": "RL walk"}[mode]
         with self._lock:
             self._demo_name = f"rl_policy_{mode}"
             self._demo_status = f"{label} starting"
             self._demo_params = {"mode": mode}
+            if mode == "walk":
+                self._demo_params.update(
+                    vx=float(vx), vy=float(vy),
+                    duration_s=float(duration_s))
             self._cal_result = None
             self._cal_progress = {"msg": self._demo_status}
         self._set_activity("rl_policy", label)
@@ -1328,7 +1343,9 @@ class BenchAPI:
             try:
                 result = run_policy_move(
                     d, mode, on_progress=_on_progress,
-                    abort_check=self._demo_abort.is_set)
+                    abort_check=self._demo_abort.is_set,
+                    vx=float(vx), vy=float(vy),
+                    duration_s=float(duration_s))
                 if gen != self._demo_gen:
                     return
                 with self._lock:

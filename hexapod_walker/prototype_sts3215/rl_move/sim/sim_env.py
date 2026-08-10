@@ -853,8 +853,19 @@ class SimHexapodBalanceEnv(_GymBase):
             dropped = (self._ep_rand is not None
                        and self.rng.random() < self._ep_rand.cmd_drop_prob)
             if not dropped:
+                # Zero-drift FRAME mode (dr.zero_drift_cmd_frame=1): a
+                # drifted set_zero shifts reads AND commands together on
+                # hardware — logical target C drives physical C - bias
+                # (obs adds +bias, so the read converges back to C and
+                # the loop is self-consistent; only physics sees the
+                # offset). Legacy mode biased reads only, leaving a
+                # cmd-vs-read residual hardware never shows.
+                cmd_phys = q_safe
+                if (self._ep_rand is not None
+                        and self._ep_rand.zero_drift_cmd_frame):
+                    cmd_phys = q_safe - self._ep_rand.joint_zero_bias_rad
                 self._profile.command(
-                    q_safe, speed_deg_s=self.write_speed_deg_s,
+                    cmd_phys, speed_deg_s=self.write_speed_deg_s,
                     acc_units=self.write_acc_units)
         return None, (clipped, terminated, status, pen)
 
