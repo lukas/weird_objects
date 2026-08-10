@@ -437,6 +437,22 @@ class Handler(BaseHTTPRequestHandler):
                     yaw_deg=float(data.get("yaw_deg", 0)),
                     force=bool(data.get("force", False)),
                 ))
+        elif path == "/api/standup":
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            else:
+                self._json(200, BENCH.standup(
+                    mode=str(data.get("mode", "tuck")),
+                    speed=float(data.get("speed", 1.0)),
+                    force=bool(data.get("force", False)),
+                    torque=int(data.get("torque", 700))))
+        elif path == "/api/standup/stop":
+            self._json(200, BENCH.stop_demo() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/rl/probe_dynamics":
             try:
                 data = json.loads(body or "{}") if body else {}
