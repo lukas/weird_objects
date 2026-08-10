@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-09T23:09:51+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-placementnoise6r
+
+**wandb_id**: 0yrg0d82
 
 **hypothesis**: RETRY #3 of the hand-placement-slop axis (dr.placement_noise_deg=6): first two attempts both died to the same host-wide EOFError launch-collision storm (0 steps each, no science result). Same spec unchanged; queued to backlog for the self-repairing drain.
 
