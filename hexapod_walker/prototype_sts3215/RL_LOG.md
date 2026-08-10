@@ -394,3 +394,40 @@ vref1-r1's verdict, varied-start eval panel in its gate.
 - 08-10 07:06 c: 3 assigned triages all PASS/FAIL clean: groundtilt8-comshift-rr1 PASS-with-caveat (8deg tilt x comshift holds, own-cfg 2/6 crater, DR0 retention det lands a hair over cap 1.40 on the same fixed-draw stall its own siblings cleared -- lineage trait); multiaxis-dr05-r5 FAIL (4-axis-DR0.5 stack retry duplicates/confirms the already-FAILED multiaxis-dr05: own-cfg clean but DR0 retention det slip 1.58 vs cap 1.24, crater-driven, axis-stacking ceiling stays closed); placementnoise6-payload-rr1-rr1 PASS (payload composes free onto hand-placement-slop, DR0 retention clean 1.21). BONUS CRITICAL FINDING (unassigned, self-initiated after noticing both finished unverdicted): cw-dep-startvar1-r1 AND its seed twin -s1 both FAIL HARD -- the start-variation compose meant to warm-start tonight's hardware attempt #2 breaks the gait under its OWN training config (real sacrificed-leg episode, slip/m up to 22, reward quarters DECLINING through training, both seeds reproduce) -- flagged do-NOT-use, fall back to cw-dep-vref1-r1 if unresolved; queued+running two parallel one-axis-removed isolation arms (noZD1: zero_drift_cmd_frame->0; noBS1: bad_start_prob->0) to find the culprit before hardware time runs out. Refills: dep-line seed twin + arch-hist16 seed twin (each within operator's 1-2-pod cap) + the two isolation arms, all within launch-cap; drained 2 backlog items from a concurrent cycle (dep-vref1-r1-deadband/fric) into free slots along the way. 12/12 busy, backlog empty at exit. 
 - 08-10 07:06 c: 1 new triage (cw-walk-deadband30-comshift PASS: deadband 1-3x x off-center 3cm CoM shift compose clean, own-cfg+DR0 retention both in-band, known fixed-draw crater at idx4/5 not new; SKILLS updated). cw-dep-startvar1-r1/-s1 arrived already verdicted FAIL by a concurrent cycle (own-cfg gv 5-6/6, det slip/m 2.3-2.5 vs vref1-r1's 0.71-1.07 band, r1 has a real sacrificed-leg episode, reward quarters declining through training) -- independently cross-checked the eval numbers/frames myself, confirm-only, no re-verdict; root-cause isolation (zero_drift_cmd_frame prime suspect) already launched by that cycle as cw-dep-startvar1-noZD1/-noBS1. 0/12 free at exit (concurrent drains saturated capacity incl. the isolation arms) -- no refill action possible. 
 - 08-10 07:06 c: 3 triages. cw-walk-terrain10-deadband + cw-walk-terrain10-payload both PASS -- deadband and payload each compose free onto 36mm terrain (own-cfg+flat-DR0 medians match parent terrain10's own band; the one crater draw per run is an inherited seed-4 stall the untouched parent shows too, mechanically clean march-in-place, no fall/flag-leg), terrain line now composed with everything worth trying. cw-walk-torquescale-r2-rr1-rr1 FAIL: 3rd-attempt duplicate of the already-closed torque-droop axis, reproduces sibling cw-walk-torquescale-rr1-rr1's NO-EFFECT verdict episode-for-episode incl. its named champion-baseline comparison; axis stays closed. Refills: drained the pre-queued P0 dep-line item (cw-dep-startvar1-noZD1) into 1 free slot, then queued+launched 2 NEW hardware-candidate-protecting composes on the winning contract-exact checkpoint (cw-dep-vref1-r1 + deadband, + friction, k_current=0 per P0 rule 3) into the other 2 -- not generic pair-composes, direct protection of the checkpoint likely used for tonight's hardware attempt #2. 12/12 busy at exit. 
+
+## OPERATOR hardware session 4 (08-10 ~09:20-09:50 ET) — TAPE-MEASURE GROUND TRUTH: scripted gait delivers 51% of commanded distance
+
+Operator supervised throughout; agent drove over HTTP. Robot healthy at
+end (standing, torque on). Traces + per-leg tape numbers:
+`rl_move/hardware_traces/tape_20260810_*` (summary JSON has findings).
+
+**1. THE number for contact calibration: slip ratio 0.50-0.51,
+five clean runs** (fwd 30 mm/s x3 incl one at 40 mm lift, fwd 50 mm/s
+x2, 10 s each, fresh set_zero -> P stance, preflight-verified <1.5 deg
+from plant each time). Measured 152/301 mm at cmd 30 and 254/502 mm at
+cmd 50. True ground speed: cmd 30 -> ~15 mm/s, cmd 50 -> ~25 mm/s.
+
+**2. Mechanism isolated: loaded stance-foot slide, not swing drag.**
+Raising swing lift 25->40 mm changed the slip ratio by nothing (0.50 vs
+0.51) despite visibly higher steps — the planted tripod slides backward
+under load. Confirms "no reward can outbid sliding that costs nothing
+in sim" root cause with a measured magnitude: sim contact must charge
+~half the kinematic stride as slide on this floor.
+
+**3. Walk current flat vs speed:** 0.31-0.42 A mean / <=0.85 A peak at
+both speeds (18 servos) — matches session-3 walking-cheaper-than-
+standing economics.
+
+**4. Hardware: L5 (replaced knee servo ID19 leg) hip reads ~6 deg low
+vs its tripod-mates at stance** -> ~20 mm swing clearance lost, foot
+drags at default 25 mm lift (operator-observed). Not the slip driver
+(see 2) but costs gait quality: redo L5 zero / per-joint trim before
+attempt #2. Also live-demoed loaded sag: knees pull visibly under when
+the robot is lifted (unloaded servos snap to command) — the
+loaded-actuator gap in one gesture.
+
+**5. Process:** one contaminated run (leg1a: crooked stance from a
+rushed hand-set zero, front foot dragging, over-travel vs stale start
+mark) — logged invalid, excluded. Power-tether constraint: legs run as
+10 s halves. Plant-height calibrate mid-session ended "no contact /
+not saved" — stored plant unchanged (verified), robot re-planted via P.

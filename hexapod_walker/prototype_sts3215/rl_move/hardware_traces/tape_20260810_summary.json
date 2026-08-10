@@ -1,0 +1,159 @@
+{
+ "started": "2026-08-10T09:23:00",
+ "url": "http://hexapod.local:8080",
+ "purpose": "scripted-gait ground-truth distance for contact/current pricing calibration (HARDWARE.md backlog item 1)",
+ "operator_notes": "power-tethered, no extension cord: legs run as 10 s halves, robot repositioned between",
+ "legs": [
+  {
+   "leg": "nudge",
+   "vx_mm_s": 30,
+   "seconds": 2.5,
+   "commanded_mm": 75,
+   "purpose": "direction check",
+   "servo_csv": "tape_20260810_092352_nudge_servo.csv",
+   "imu_csv": "tape_20260810_092352_nudge_imu.csv",
+   "max_abs_roll_deg": 9.35,
+   "max_abs_pitch_deg": 19.07,
+   "bus_current_a": {
+    "mean": 0.3,
+    "max": 0.56
+   }
+  },
+  {
+   "leg": "leg1a",
+   "vx_mm_s": 30,
+   "vy_mm_s": 0,
+   "omega_rad_s": 0,
+   "seconds": 10.02,
+   "commanded_mm": 301,
+   "measured_mm": 356,
+   "measured_note": "operator estimate ~14 inches",
+   "valid_for_calibration": false,
+   "contamination": "crooked stance (bad logical zero), front foot dragging; start mark may predate the direction nudge (+~70mm)",
+   "servo_csv": "tape_20260810_092547_leg1a_servo.csv",
+   "imu_csv": "tape_20260810_092547_leg1a_imu.csv",
+   "max_abs_roll_deg": 12.43,
+   "max_abs_pitch_deg": 21.06,
+   "bus_current_a": {
+    "mean": 0.39,
+    "max": 0.68
+   }
+  },
+  {
+   "leg": "leg1a_r1",
+   "vx_mm_s": 30,
+   "vy_mm_s": 0,
+   "omega_rad_s": 0,
+   "seconds": 10.04,
+   "commanded_mm": 301,
+   "measured_mm": 152,
+   "measured_note": "operator tape ~6 inches",
+   "slip_ratio_measured_over_commanded": 0.51,
+   "valid_for_calibration": true,
+   "stance": "fresh hand-set zero -> ARM -> P; preflight 0.8 deg from plant, roll 1.1 pitch 3.1 at start",
+   "servo_csv": "tape_20260810_092936_leg1a_r1_servo.csv",
+   "imu_csv": "tape_20260810_092936_leg1a_r1_imu.csv",
+   "max_abs_roll_deg": 6.48,
+   "max_abs_pitch_deg": 11.65,
+   "bus_current_a": {
+    "mean": 0.35,
+    "max": 0.76
+   }
+  },
+  {
+   "leg": "leg1b",
+   "vx_mm_s": 30,
+   "vy_mm_s": 0,
+   "omega_rad_s": 0,
+   "seconds": 10.04,
+   "commanded_mm": 301,
+   "measured_mm": 152,
+   "measured_note": "operator tape ~6 inches",
+   "slip_ratio_measured_over_commanded": 0.51,
+   "valid_for_calibration": true,
+   "observation": "L5 swing foot not lifting enough - colliding/stuck on floor, blocking travel (operator)",
+   "servo_csv": "tape_20260810_093249_leg1b_servo.csv",
+   "imu_csv": "tape_20260810_093249_leg1b_imu.csv",
+   "max_abs_roll_deg": 6.5,
+   "max_abs_pitch_deg": 12.78,
+   "bus_current_a": {
+    "mean": 0.31,
+    "max": 0.85
+   }
+  },
+  {
+   "leg": "leg1c_lift40",
+   "vx_mm_s": 30,
+   "vy_mm_s": 0,
+   "omega_rad_s": 0,
+   "seconds": 10.05,
+   "commanded_mm": 302,
+   "lift_mm": 40,
+   "measured_mm": 152,
+   "measured_note": "operator tape ~6 inches",
+   "slip_ratio_measured_over_commanded": 0.5,
+   "valid_for_calibration": true,
+   "observation": "higher steps but feet sometimes not reaching ground (late/soft touchdown); L5 still dragging a bit (its ~6deg-low hip eats ~20mm of clearance). KEY: slip ratio unchanged vs 25mm lift -> distance loss dominated by loaded stance-foot slide, not swing drag",
+   "servo_csv": "tape_20260810_094051_leg1c_lift40_servo.csv",
+   "imu_csv": "tape_20260810_094051_leg1c_lift40_imu.csv",
+   "max_abs_roll_deg": 14.54,
+   "max_abs_pitch_deg": 13.79,
+   "bus_current_a": {
+    "mean": 0.37,
+    "max": 0.76
+   }
+  },
+  {
+   "leg": "leg2a",
+   "vx_mm_s": 50,
+   "vy_mm_s": 0,
+   "omega_rad_s": 0,
+   "seconds": 10.04,
+   "commanded_mm": 502,
+   "lift_mm": 25,
+   "measured_mm": 254,
+   "measured_note": "operator tape ~10 inches",
+   "slip_ratio_measured_over_commanded": 0.51,
+   "valid_for_calibration": true,
+   "servo_csv": "tape_20260810_094614_leg2a_servo.csv",
+   "imu_csv": "tape_20260810_094614_leg2a_imu.csv",
+   "max_abs_roll_deg": 6.16,
+   "max_abs_pitch_deg": 15.31,
+   "bus_current_a": {
+    "mean": 0.38,
+    "max": 0.73
+   }
+  },
+  {
+   "leg": "leg2b",
+   "vx_mm_s": 50,
+   "vy_mm_s": 0,
+   "omega_rad_s": 0,
+   "seconds": 10.04,
+   "commanded_mm": 502,
+   "lift_mm": 25,
+   "measured_mm": 254,
+   "measured_note": "operator tape ~10 inches",
+   "slip_ratio_measured_over_commanded": 0.51,
+   "valid_for_calibration": true,
+   "servo_csv": "tape_20260810_094830_leg2b_servo.csv",
+   "imu_csv": "tape_20260810_094830_leg2b_imu.csv",
+   "max_abs_roll_deg": 14.57,
+   "max_abs_pitch_deg": 13.19,
+   "bus_current_a": {
+    "mean": 0.42,
+    "max": 0.73
+   }
+  }
+ ],
+ "floor": "operator to confirm (same runway all session)",
+ "finished": "2026-08-10T09:49:30",
+ "findings": {
+  "slip_ratio": "0.50-0.51 across 5 valid runs; invariant to speed (30/50 mm/s) and swing lift (25/40 mm)",
+  "true_ground_speed": "cmd 30 -> ~15 mm/s; cmd 50 -> ~25 mm/s",
+  "mechanism": "distance loss dominated by loaded stance-foot slide (paddle), NOT swing-foot drag: lift 25->40mm changed nothing; L5 swing drag present but not the driver",
+  "walk_current": "0.31-0.42 A mean / 0.68-0.85 A peak, ~flat vs speed; consistent with 08-09 walking-cheaper-than-standing",
+  "hardware_notes": "L5 hip reads ~6 deg low vs tripod-mates (leg with the replaced knee servo ID19) -> ~20mm lost swing clearance, drags at default lift; fix L5 zero or per-joint trim. Loaded sag: knees pull under when robot lifted (load-dependent tracking error, matches loaded-actuator gap)",
+  "contaminated_runs": "leg1a only (crooked stance from bad hand-set zero; front foot dragging)"
+ }
+}
