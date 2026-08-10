@@ -2,11 +2,11 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: INTENT
 
-**created**: 2026-08-10T04:07:37+00:00
+**created**: 2026-08-10T05:23:49+00:00
 
-**pod**: hexapod-mjx-train-7
+**pod**: hexapod-mjx-train-11
 
 **steps**: 20000000
 
@@ -15,6 +15,4 @@
 **hypothesis**: 5th retry of cw-walk-tiltnoise (base+r1-r4 ALL died 0-step to the fleet launch-collision storm, gotcha 13b -- never got a science result on this axis, unlike its siblings imupos15/gyrobias3 which both closed NO-EFFECT). Same isolated axis unchanged: OPERATOR WISHLIST 13c untested IMU tilt-reading NOISE (dr.tilt_noise_deg=1.5, 5x the full-DR default) off the plain champion longdist-r2, dr-scale 0.0 otherwise.
 
 **gate**: Own-cfg harness at --dr-scale 0.0 + dr.tilt_noise_deg=1.5, det+sto 6/6 @30s: gait_valid 12/12, 0 term, det median fwd >=1.2m; plus DR0 nominal retention det 6/6 gv, det slip/m <=1.24; parent baseline under same spread compared at triage; frames watched det
-
-**refused_reason**: hexapod-mjx-train-7 already runs cw-walk-joylat60-torquescale-rr1-rr1 — GPU pods host exactly one run; pick a free GPU pod.
 

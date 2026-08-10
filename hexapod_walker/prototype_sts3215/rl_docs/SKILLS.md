@@ -77,6 +77,17 @@ Demo any row locally:
 
 ## Quadruped mode (party-trick line, readiness review P1)
 
+- **Four-leg hold learned + walk retained (30/60/10 quad/walk/hold mix)
+  PASSED: `ppo_goal_cw_quad_hold2`.** Quad-mode: eval/quad/survived_frac
+  1.0 at every logged checkpoint (1M-10M steps), height_err_end_mm
+  1-15mm (<=20mm gate), track_err ~1deg; video (rollout_118) shows a
+  clean, level 4-leg stance, both fronts lifted clear, no tipping.
+  Walk-mode retention recovered vs the 50% rung (`cw-quad-hold1-r2`
+  FAIL: det slip/m 1.42): own-cfg harness det gv 6/6, slip/m med 1.20
+  (<=1.25 cap), 0 term; sto gv 6/6, one isolated fixed-draw stall
+  (lineage trait, not new). Dose-response confirmed: 30% is the
+  workable mix. Not hardware-ready (walk leg still paddle-gait); base
+  for the joystick-mainline quad command `cw-walk-joyquad30`.
 - **Feasibility sweep PASSED (c56, `rl_move/sim/quadruped_feasibility.py`,
   `logs/experiments/quadruped-feasibility/sweep.json`):** four-leg static
   stance is geometrically comfortable. Neutral six-leg stance with fronts

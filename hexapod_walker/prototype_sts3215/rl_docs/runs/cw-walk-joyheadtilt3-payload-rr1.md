@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-10T03:02:47+00:00
+**created**: 2026-08-10T05:25:10+00:00
 
-**pod**: hexapod-mjx-train-0
+**pod**: hexapod-mjx-train-9
 
 **steps**: 20000000
 
@@ -16,5 +16,5 @@
 
 **gate**: Own-cfg (DR0.5+lat+dr.ground_tilt_deg=3.0+dr.mass_scale=1.0,1.4) det+sto 6/6 @15s: gait_valid 6/6, 0 term, det prog med>=0.80 (joyheadtilt3's own band minus noise); JOYSTICK GATE @90deg 0 in-envelope falls; DR0 TRUE FLAT no-payload retention det 6/6 gv, prog med>=0.85, slip within noise of joyheadtilt3's own flat-retention band (slip 1.51/1.70); frames watched det
 
-**refused_reason**: hexapod-mjx-train-0 already runs cw-walk-joylat60-comshift-rr1 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: hexapod-mjx-train-9 already runs cw-walk-groundtilt8-deadband — GPU pods host exactly one run; pick a free GPU pod.
 
