@@ -302,6 +302,17 @@ report.json, and the W&B API for exactly these questions.
     partial video files) — verify the pid in /proc before trusting
     `waitlog`, and relaunch (setsid helps).
 
+14b. **A backlog item silently VANISHES (no backlog_failed entry, no
+    error) if a W&B run with the same name already exists** — the
+    drain's dedupe check (`drain: <run> already exists in W&B —
+    dropping backlog item`) fires even when that prior run FAILED in
+    seconds (e.g. a bad `--cfg-set` crash) and never trained anything;
+    it only checks the NAME, not whether the prior attempt produced
+    real data. If a `--now` launch dies instantly, don't re-`respec`
+    onto the SAME run name — use a fresh one (`-r1` suffix) or the
+    backlog re-queue will queue-then-disappear with zero trace (cost
+    a queue-recheck cycle building `cw-dep-vref1-r1-megastack1`, 08-10).
+
 15. **`--cfg-set dr.<field>=X` needs `lo,hi` (comma, no brackets) for
     every RandRanges field that's typed as a `tuple[float,float]` —
     a bare scalar crashes the worker at reset with `TypeError:
