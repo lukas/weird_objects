@@ -74,7 +74,12 @@ Each entry: what open decision it settles → procedure → output.
    (`drive_controller`) already walks this robot. Procedure: drive
    scripted gait 20–30 s on the same floor; log per-servo currents
    (watchdog/event log) + video with a tape measure for true speed
-   and any foot slip. Replicate the same gait kinematics in MuJoCo;
+   and any foot slip. RUNNER (08-10): `python -m
+   rl_move.scripts.tape_measure_walk --go` — drives the timed legs,
+   logs ~3 Hz servo/imu CSVs via the new fast `/api/feedback` route,
+   prompts for the tape reading, writes commanded-vs-measured +
+   slip ratio to `hardware_traces/tape_<stamp>_summary.json`.
+   Replicate the same gait kinematics in MuJoCo;
    tune μ + current model until sim reproduces real speed AND real
    per-servo currents. Output: calibrated contact/current params —
    the single blocker named by both operator rulings and the

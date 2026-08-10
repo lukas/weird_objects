@@ -42,6 +42,7 @@ MCU_SKIP_PREFIXES = (
 
 _lock = threading.Lock()
 _fh = None
+_err_fh = None
 _path: Path | None = None
 _sock: socket.socket | None = None
 _targets: set[tuple[str, int]] = set()   # unicast + broadcast destinations
@@ -69,6 +70,11 @@ def log_dir() -> Path:
 
 def events_path() -> Path:
     return log_dir() / "events.jsonl"
+
+
+def errors_path() -> Path:
+    """Errors-only sidecar log (every level="error" event also lands here)."""
+    return log_dir() / "errors.jsonl"
 
 
 def _local_ipv4s() -> list[str]:
@@ -318,6 +324,7 @@ def emit(kind: str, msg: str = "", *, src: str = "robot",
 
     line = json.dumps(ev, default=str, separators=(",", ":"))
     payload = (line + "\n").encode("utf-8")
+    global _err_fh
     with _lock:
         try:
             if _fh is not None:
@@ -325,6 +332,16 @@ def emit(kind: str, msg: str = "", *, src: str = "robot",
                 _fh.flush()
         except Exception:
             pass
+        if ev["level"] == "error":
+            try:
+                if _err_fh is None:
+                    out = errors_path()
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    _err_fh = out.open("a", encoding="utf-8", buffering=1)
+                _err_fh.write(line + "\n")
+                _err_fh.flush()
+            except Exception:
+                pass
         _ring.append(ev)
         if len(_ring) > _RING_MAX:
             del _ring[: len(_ring) - _RING_MAX]
@@ -366,13 +383,54 @@ def emit_mcu(cmd: str, reply: str | None, *, ms: float | None = None) -> None:
     emit("mcu", cmd.split()[0] if cmd else "mcu", src="mcu", data=data)
 
 
+# Identical repeated errors (e.g. a poll loop hitting the same refusal)
+# only re-log every this many seconds.
+_ERR_DEDUPE_S = 10.0
+_err_last: dict[tuple, float] = {}
+
+
+def emit_api_error(method: str, path: str, *, code: int | None = None,
+                   error: str | None = None, peer: str | None = None,
+                   body: Any = None) -> None:
+    """Log one website/API error response (refusals, 4xx/5xx, ok:false).
+
+    Lands in events.jsonl AND logs/errors.jsonl. Deduped so a chatty
+    poll repeating the same failure logs at most every 10 s.
+    """
+    base = path.split("?", 1)[0]
+    msg = str(error) if error else f"HTTP {code}"
+    key = (method, base, msg[:200])
+    now = time.monotonic()
+    with _lock:
+        last = _err_last.get(key)
+        if last is not None and now - last < _ERR_DEDUPE_S:
+            return
+        if len(_err_last) > 200:
+            _err_last.clear()
+        _err_last[key] = now
+    data: dict[str, Any] = {"method": method, "path": path}
+    if code is not None:
+        data["code"] = code
+    if error:
+        data["error"] = str(error)[:500]
+    if peer:
+        data["peer"] = peer
+    if body not in (None, "", {}, []):
+        if isinstance(body, (dict, list)):
+            data["body"] = body
+        else:
+            data["body"] = str(body)[:300]
+    emit("error", f"{method} {base}: {msg}", src="http",
+         level="error", data=data)
+
+
 def emit_http(method: str, path: str, *, body: Any = None,
               code: int | None = None, peer: str | None = None) -> None:
     base = path.split("?", 1)[0]
     if method == "GET" and base in (
         "/api/ping", "/api/demo/status", "/api/robot", "/api/status",
         "/api/pose", "/api/calibrate", "/api/plant", "/api/imu",
-        "/api/events", "/", "/index.html",
+        "/api/events", "/api/errors", "/", "/index.html",
     ):
         return
     data: dict[str, Any] = {"method": method, "path": path}

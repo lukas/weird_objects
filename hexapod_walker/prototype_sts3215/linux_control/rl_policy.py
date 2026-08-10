@@ -15,7 +15,8 @@ constants below for its hardware caveats).
   rise  = hold 0 for 5 s (curl window), ramp to +50 mm over 4 s, hold.
   lower = hold 0 for 1 s, ramp to -45 mm over 5 s, hold, then limp.
 - every command goes through rl_move.safety.SafetyLayer: 1.5 deg/tick
-  rate clamp, joint limits, 10 deg tilt trip, sustained 2.5 A trip,
+  rate clamp, joint limits, relative-tilt trip (10 deg for stand/lower,
+  25 deg for walk — see WALK_MAX_TILT_DEG), sustained 2.5 A trip,
   temp/load trips. Trip => immediate limp (do not fight a fall).
 
 Post-2026-08-06 rules baked in: NO motion unless every preflight gate
@@ -68,23 +69,31 @@ PREFLIGHT_MAX_TILT_DEG = 12.0
 STAND_START_TOL_DEG = 30.0   # near flat belly pose (logical zero-ish)
 LOWER_START_TOL_DEG = 25.0   # near the captured plant stance
 
-# Walk mode (ppo_goal_cw_walk_longdist_r2, obs 72). The sim champion is
-# NOT hardware-ready (paddle-slide persists in sim; RL_LOG State) — this
-# is an operator-supervised experiment, tightly bounded:
+# Walk mode (ppo_goal_cw_dep_vref1_r1, obs 72) — the deployment-contract
+# champion: trained with goal.walk_obs_body_vel=2, i.e. vx/vy_meas := ref
+# IS the training contract, bit-identical to what this runner feeds
+# (verdict PASS 08-10, no erosion vs parent). Still an operator-supervised
+# experiment, tightly bounded:
 # - starts ONLY from the captured plant stance (same gate as lower);
 # - command ramps 0 -> v over 1 s after a 1 s settle (training profile),
 #   holds, then ramps back to 0 for the last second and HOLDS the pose;
 # - speed clamped to the trained band; duration clamped to 20 s;
-# - the 4 walk obs dims are [vx_ref, vy_ref, vx_meas, vy_meas]/0.15.
-#   The board has NO body-velocity estimate, so vx/vy_meas are fed the
-#   ref (open-loop, sim v1 style). The velocity-error feedback loop is
-#   therefore ABSENT on hardware — expect worse tracking than sim.
+# - the 4 walk obs dims are [vx_ref, vy_ref, vx_meas, vy_meas]/0.15,
+#   with meas := ref exactly as in training (contract-exact).
 WALK_VEL_SCALE = 0.15
-WALK_SPEED_MAX = 0.06        # trained command band tops out here
+WALK_SPEED_MAX = 0.06        # trained command band is 0.05-0.06 m/s
 WALK_HOLD_S = 1.0
 WALK_RAMP_S = 1.0
 WALK_MAX_TOTAL_S = 20.0
 WALK_START_TOL_DEG = 25.0    # near the captured plant stance
+# Walk-mode relative-tilt trip. A WORKING gait rocks +-10-20 deg in roll
+# and pitch (operator-measured, scripted gait, 08-09 night); the config's
+# 10 deg trip would terminate exactly the weight transfer a real gait
+# needs. Walk-mode arms train AND deploy with a 25 deg envelope
+# (cw-dep-vref1-r1: --cfg-set safety.max_roll_deg=25 / max_pitch_deg=25).
+# Stand/lower keep the config's 10 deg trip — the stance champion
+# (stance_dr10) trained with it, and its episodes should sit at +-1 deg.
+WALK_MAX_TILT_DEG = 25.0
 
 _CENTER_RAD = np.array([
     (AXIS_LIMITS_DEG[j % 3][0] + AXIS_LIMITS_DEG[j % 3][1]) * 0.5 * DEG2RAD
@@ -349,6 +358,12 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
 
     est = RobotStateEstimator(bus, cfg)
     safety = SafetyLayer(cfg)
+    if mode == "walk":
+        # Match the walk policy's trained tilt envelope (see
+        # WALK_MAX_TILT_DEG). The config's 10 deg stays for stand/lower.
+        safety.max_roll = math.radians(WALK_MAX_TILT_DEG)
+        safety.max_pitch = math.radians(WALK_MAX_TILT_DEG)
+    tilt_trip_deg = round(math.degrees(safety.max_roll), 1)
     write_speed = int(cfg_get(cfg, "bus", "write_speed", default=400))
     write_acc = int(cfg_get(cfg, "bus", "write_acc", default=20))
 
@@ -386,6 +401,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         "q_nom_deg": [round(float(q) * RAD2DEG, 2) for q in q_nom],
         "tilt_ref_deg": [round(tilt_ref0[0] * RAD2DEG, 2),
                          round(tilt_ref0[1] * RAD2DEG, 2)],
+        "tilt_trip_deg": tilt_trip_deg,
         "preflight": details,
         **({"vx": round(vx, 3), "vy": round(vy, 3)}
            if mode == "walk" else {}),

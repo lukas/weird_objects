@@ -169,8 +169,10 @@ report.json, and the W&B API for exactly these questions.
    `rl_move/sim/policies/ppo_goal_cw_walk_foo_c1.zip` (dashes→
    underscores). Always record + compare md5 when pulling.
 7. **W&B:** project `l2k2/hexapod-balance`; creds already in the
-   cycle env. Prefer `ops.sh wandb <run>`; for ad-hoc queries use
-   `wandb.Api()` filtered by `display_name`, newest match.
+   cycle env (elsewhere: source `rl_move/sim/wandb.env`). Prefer
+   `ops.sh wandb <run>`; for ad-hoc queries use `wandb.Api()`
+   filtered by `display_name`, newest match. Full picture (run-page
+   anatomy, OUTCOME notes, artifact lineage): `rl_docs/WANDB.md`.
 8. **git:** `snapshot.sh` serializes commit/tag/push under a lock —
    never raw `git push` for cycle edits; a brief wait on its lock is
    normal. Re-read RL_LOG/RL_PLAN right before editing (concurrent

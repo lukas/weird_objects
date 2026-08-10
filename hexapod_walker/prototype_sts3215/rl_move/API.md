@@ -37,16 +37,20 @@ browned out the board, held stilts at ~7 A, and cooked **L5 knee (ID 19)**.
 Drive `C` (centre) and `P` (stand) refuse if any live joint would move
 more than **25°** from present unless the command includes `FORCE`.
 
-## Deployed policies (2026-08-09)
+## Deployed policies (2026-08-10, hardware attempt #2)
 
 - stance = `ppo_goal_cw_stance_dr10` (`rl_policy_weights.json`, obs 68)
-  — drives BOTH stand and lower.
-- walk = `ppo_goal_cw_walk_longdist_r2` (`rl_walk_weights.json`,
-  obs 72). Caveats: the sim champion is NOT hardware-validated
-  (paddle-slide in sim), and the board has no body-velocity estimate so
-  the two measured-velocity obs dims are fed the command itself
-  (open-loop). Speed clamped to 0.06 m/s, duration to 20 s; starts only
-  from the captured plant stance.
+  — drives BOTH stand and lower. Tilt trip 10° (its trained envelope).
+- walk = `ppo_goal_cw_dep_vref1_r1` (`rl_walk_weights.json`, obs 72,
+  zip md5 `f9a466cfa7ae7213e48799a24032ac54`, verdict PASS 08-10) — the
+  deployment-contract champion: trained with `goal.walk_obs_body_vel=2`,
+  so the runner's vx/vy_meas := ref feed IS the training contract, and
+  with a 25° relative-tilt envelope; the runner widens its SafetyLayer
+  trip to 25° in walk mode to match (stand/lower stay 10°). Command in
+  the trained band **0.05–0.06 m/s** (below 0.05 is out-of-distribution);
+  duration clamped to 20 s; starts only from the captured plant stance.
+  Still gated `hardware_ready: false` pending contact/current pricing
+  calibration (tape-measure distance session).
 
 Swap weights: `python -m rl_move.sim.export_policy_np --policy <zip>
 --out linux_control/<weights>.json` → scp to

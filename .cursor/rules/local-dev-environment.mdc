@@ -1,0 +1,106 @@
+---
+description: Local Mac dev environment — venv, MuJoCo viewer, RL checkpoints
+alwaysApply: true
+---
+
+# Local dev environment (Lukas's Mac — NOT the CoreWeave RL agent)
+
+AGENTS.md is for the CoreWeave orchestrator agent. THIS file is the
+local-machine knowledge: venv, sim viewer, checkpoint pulling.
+
+## Python environment — repo root `.venv` (uv). DO NOT recreate it.
+
+One venv at `/Users/lukas/weird_objects/.venv`, managed with **uv**
+(`uv venv` / `uv pip install`, Python 3.14). direnv auto-activates it
+anywhere in the repo. It must contain BOTH stacks:
+
+- **Robot bench tools:** `ftservo-python-sdk` (provides `scservo_sdk`
+  + pyserial) — used by `motor_setup/feetech_bus.py` etc.
+- **Local MuJoCo sim:** `mujoco stable-baselines3 gymnasium pyyaml
+  opencv-python` — yes, **torch is required** (sb3 loads the PPO
+  checkpoints; there is no torch-free viewer path). One-time ~2 min
+  download; uv caches wheels after that, so reinstalls are seconds.
+
+Restore everything with:
+
+```sh
+cd ~/weird_objects && uv pip install ftservo-python-sdk \
+  mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh
+```
+
+(`trimesh` is needed by the sim's CAD geometry builder —
+`hexapod_prototype.py` — not just by CAD scripts.)
+
+**Never `rm -rf .venv` / recreate it without the user asking** — it was
+nuked once (2026-08-09) by an agent whose `ls` existence check silently
+aborted on a zsh no-match glob. Check with `ls -d ~/weird_objects/.venv`
+(no globs). `.venv-py39-bak` is an old backup; leave it.
+
+## Local MuJoCo viewer — trying RL policies on the Mac
+
+Champion checkpoints live on the CoreWeave pods, NOT in git. Pull with:
+
+```sh
+KUBECONFIG=~/.kube/coreweave.yaml kubectl cp \
+  <pod>:/workspace/prototype_sts3215/rl_move/sim/policies/<name>.zip \
+  hexapod_walker/prototype_sts3215/rl_move/sim/policies/<name>.zip
+# or: rl_move/orchestrator/ops.sh pullckpt <run>
+```
+
+Verify md5 against RL_LOG.md. Champions as of 2026-08-09 (both already
+pulled locally): walk = `ppo_goal_cw_walk_longdist_r2.zip` (bcddc65c…),
+stance/heights = `ppo_goal_cw_stance_dr10.zip` (da1d912a…). Not every
+pod has every zip — `train-0` and `hexapod-sweep-friction` are pack rats.
+
+**USE THE SCRIPTS — do not hand-assemble viewer commands.** They live
+in `hexapod_walker/prototype_sts3215/sim_viewer/` — **READ
+`sim_viewer/README.md` FIRST**, it documents the whole local-sim
+workflow (checkpoints, obs layouts, pose gap, interpreter rules):
+
+```sh
+sim_viewer/sim_play.sh     # THE ONE TO USE: both champions in one sim.
+                           # 7 = stand up (auto), I/K/J/L = walk,
+                           # Space = stop, 8 = sit, 9 = reset, Q = quit.
+sim_viewer/sim_stand.sh    # stance champion alone (mujoco.viewer window)
+sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
+```
+
+Key bindings are drawn IN the window (the user cannot see the terminal
+while a viewer has focus). `sim_play.sh` runs `rl_move/sim/play.py`, a
+cv2 window — cv2 has NO built-in key bindings, so there is no clash
+with MuJoCo's letter toggles (in `mujoco.viewer`, almost every letter
+is a display toggle; that's why view.py's bindings are digits-only).
+
+Gotchas encoded in the scripts (learned the hard way — don't re-derive):
+
+- Champion checkpoints are 18-action per-joint policies → `view.py`
+  needs **`--task joint_goal`** (obs 68). The default `--task goal` is
+  the 56-obs body-offset env and dies with "Unexpected observation
+  shape (56,)".
+- Walk env obs (72) = stance obs (68) + [vx_ref, vy_ref, vx_meas,
+  vy_meas] appended — so the stance policy can run inside the walk env
+  on `obs[:68]`. That's how play.py runs both in one sim.
+- **The two champions stand DIFFERENTLY**: stance's belly rise ends in
+  a ~72 mm crouch-stand; the walk champion lives around the ~142 mm
+  plant stance (joint gap to 104 deg). Handing straight from one to the
+  other collapses into a belly shuffle (measured). play.py's `7` key
+  bridges it: stance rise → scripted 1.5 s joint blend to the plant
+  pose → episode re-anchor in the plant frame.
+- `view.py` must run under **mjpython** (it self-re-execs on macOS; do
+  not "fix" that). `drive_policy`/`play` must run under **plain
+  python** — cv2 render path; mjpython segfaults intermittently.
+- The ~5 s belly curl before the stand-up ramp is the training profile,
+  not a hang.
+- Height refs are RELATIVE to the episode's start pose: belly-start
+  episodes stand at +45 mm; plant-start episodes crouch at −60 mm.
+
+## Robot on the bench (quick refs)
+
+- Robot web API / UI: `http://hexapod.local:8080` (mDNS; works on any
+  LAN). HTTP preferred over SSH; SSH `arduino@hexapod.local` (key auth)
+  for deploy only when asked. `linux_control/wifi_join.sh` joins the
+  board to a new WiFi over USB adb (auto mode matches the Mac's saved
+  networks via the System keychain).
+- Laptop → FE-URT USB serial: `/dev/tty.usbmodem*`, e.g.
+  `python motor_setup/feetech_bus.py --port /dev/tty.usbmodem5B790331181 scan`
+  (expect IDs 2..19; ID 1 = factory-fresh servo).

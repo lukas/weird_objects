@@ -30,6 +30,12 @@ AIR_DEMO_NAMES = frozenset({
 })
 ZERO_TOL_DEG = 6.0
 
+# Sit-from-stand exemption to the MAX_SAFE_DELTA_DEG guard: the present
+# pose counts as "at stand" when every live joint is within this many
+# degrees of the captured stand pose (generous vs STAND_OK_DEG=8 to
+# tolerate droop after walking, but nowhere near a wrong-zero pose).
+STAND_MATCH_DEG = 15.0
+
 
 def _load_names() -> dict[int, str]:
     for path in REGISTRY_CANDIDATES:
@@ -131,6 +137,16 @@ class BenchAPI:
         with self._lock:
             self._activity = activity
             self._activity_detail = detail
+        # Errors/refusals that only surface via status polling still get
+        # a line in the event log + logs/errors.jsonl.
+        low = (detail or "").lower()
+        if "error" in low or "refused" in low:
+            try:
+                from event_log import emit
+                emit("error", f"{activity}: {detail}", src="bench",
+                     level="error", data={"activity": activity})
+            except Exception:
+                pass
 
     def demo_state(self) -> dict:
         with self._lock:
@@ -642,9 +658,15 @@ class BenchAPI:
 
         ``pose``: ``sit`` | ``stand``.  Stand keeps torque on (no limp).
 
-        Refuses if any live joint would move more than ~25° from its
-        present angle unless ``force=True`` (wrong logical zero must be
-        fixed with ``/api/set_zero``, not a violent centre).
+        Refuses if any live joint would move more than MAX_SAFE_DELTA_DEG
+        from its present angle unless ``force=True`` (wrong logical zero
+        must be fixed with ``/api/set_zero``, not a violent centre).
+        Exception: sit FROM a recognized stand pose is always allowed —
+        the guard exists to catch wrong logical zeros, and a present pose
+        matching the captured stand proves the zeros are right even when
+        the knees have to travel >90° on the way down (2026-08-10: the
+        Sit button refused from stand and the operator had to limp the
+        robot and lower it by hand).
         """
         try:
             from inplace_demos import go_to_stand_pose, go_to_zero_pose
@@ -670,21 +692,42 @@ class BenchAPI:
 
         goal = (standing_pose_degrees() if pose == "stand"
                 else [0.0] * N_JOINTS)
+        from_stand = False
         if not force:
             with self.drive._lock:
                 worst, j = self.drive._max_delta_vs_present(goal)
             if worst > MAX_SAFE_DELTA_DEG:
-                return {
-                    "ok": False,
-                    "error": (
-                        f"refused {pose} zero: j{j} would move {worst:.1f}° "
-                        f"(>{MAX_SAFE_DELTA_DEG:.0f}°). "
-                        f"POST /api/set_zero at the real pose, or pass force=true"
-                    ),
-                    "max_delta_deg": round(worst, 2),
-                    "joint": j,
-                    "hint": "set-zero-here — do not FORCE unless watching",
-                }
+                if pose == "sit":
+                    # Sitting from a recognized stand: if every live joint
+                    # is near the captured stand pose the logical zeros are
+                    # provably right, so the slow eased descent is safe
+                    # even though knees travel >90°.
+                    with self.drive._lock:
+                        stand_err, _ = self.drive._max_delta_vs_present(
+                            standing_pose_degrees())
+                    from_stand = stand_err <= STAND_MATCH_DEG
+                if not from_stand:
+                    return {
+                        "ok": False,
+                        "error": (
+                            f"refused {pose} zero: j{j} would move {worst:.1f}° "
+                            f"(>{MAX_SAFE_DELTA_DEG:.0f}°). "
+                            f"POST /api/set_zero at the real pose, or pass force=true"
+                        ),
+                        "max_delta_deg": round(worst, 2),
+                        "joint": j,
+                        "hint": "set-zero-here — do not FORCE unless watching",
+                    }
+
+        # Sit-from-stand carries body weight down — take it slower.
+        sit_seconds = 6.0 if from_stand else 4.0
+        if from_stand:
+            try:
+                from event_log import emit
+                emit("log", "sit from recognized stand: >90° knee travel "
+                     f"allowed, {sit_seconds:.0f}s glide", src="bench")
+            except Exception:
+                pass
 
         self._demo_gen += 1
         gen = self._demo_gen
@@ -692,7 +735,8 @@ class BenchAPI:
         with self._lock:
             self._demo_name = f"zero_{pose}"
             self._demo_status = "zeroing"
-            self._demo_params = {"pose": pose, "force": bool(force)}
+            self._demo_params = {"pose": pose, "force": bool(force),
+                                 "from_stand": from_stand}
         self._set_activity("zeroing", f"go to {pose} zero")
 
         def _worker():
@@ -711,7 +755,7 @@ class BenchAPI:
                 else:
                     ok = go_to_zero_pose(
                         d.bus, abort_check=self._demo_abort.is_set,
-                        seconds=4.0)
+                        seconds=sit_seconds)
                 if gen != self._demo_gen:
                     return
                 with self._lock:
@@ -1266,6 +1310,51 @@ class BenchAPI:
         out = {"ok": ok, "mode": mode, **details}
         if not ok:
             out["error"] = reason
+        return out
+
+    def rl_feedback(self) -> dict:
+        """One-shot telemetry: 18-joint bulk feedback + IMU tilt. Read-only.
+
+        ONE MCU bulk transaction (``read_all_feedback``) + one IMU read —
+        a few Hz sustainable even while the drive loop walks, unlike
+        ``/api/status`` whose 1..31 scan takes seconds. Built for external
+        telemetry loggers (``rl_move/scripts/tape_measure_walk.py``).
+        ``joints`` is indexed 0..17; missing servos are null.
+        """
+        import math as _math
+
+        d = self.drive
+        if d.dry_run or not d.bus:
+            return {"ok": False, "error": "no bus"}
+        bus = d.bus
+        try:
+            fb = bus.read_all_feedback()
+        except Exception as e:
+            return {"ok": False, "error": f"feedback: {e}"}
+        joints: list[dict | None] = []
+        for j in range(N_JOINTS):
+            f = fb.get(j)
+            joints.append(None if f is None else {
+                "deg": round(float(f.get("deg", 0.0)), 2),
+                "cur_a": round(float(f.get("current_a", 0.0)), 3),
+                "temp_c": int(f.get("temp_c") or 0),
+                "load_pct": round(float(f.get("load_pct", 0.0)), 1),
+                "volt": round(float(f.get("volt", 0.0)), 2),
+            })
+        out: dict = {"ok": True, "t_unix": round(time.time(), 3),
+                     "live": len(fb), "joints": joints}
+        try:
+            imu = bus.read_imu(apply_calib=True)
+        except Exception:
+            imu = None
+        if isinstance(imu, dict) and "ax_g" in imu:
+            roll = _math.degrees(_math.atan2(imu["ay_g"], imu["az_g"]))
+            pitch = _math.degrees(_math.atan2(
+                -imu["ax_g"], _math.hypot(imu["ay_g"], imu["az_g"])))
+            out["roll_deg"] = round(roll, 2)
+            out["pitch_deg"] = round(pitch, 2)
+            out["gyro_dps"] = [round(float(imu.get(k, 0.0)), 2)
+                               for k in ("gx_dps", "gy_dps", "gz_dps")]
         return out
 
     def rl_policy_info(self) -> dict:

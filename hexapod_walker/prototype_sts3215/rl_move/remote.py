@@ -30,6 +30,21 @@ class HexapodClient:
     def __init__(self, base: str | None = None, *, timeout: float = 10.0):
         self.base = (base or DEFAULT_BASE).rstrip("/")
         self.timeout = float(timeout)
+        # Resolve mDNS names ONCE. macOS re-resolves .local per request at
+        # ~5 s each, which capped telemetry polling at 0.2 Hz; with the IP
+        # pinned the same requests take ~50 ms.
+        try:
+            import socket
+            from urllib.parse import urlsplit, urlunsplit
+            parts = urlsplit(self.base)
+            host = parts.hostname
+            if host and host.endswith(".local"):
+                ip = socket.gethostbyname(host)
+                netloc = ip + (f":{parts.port}" if parts.port else "")
+                self.base = urlunsplit(
+                    (parts.scheme, netloc, parts.path, "", "")).rstrip("/")
+        except Exception:
+            pass  # fall back to the name; requests still work, just slower
 
     def _req(self, method: str, path: str, body: dict | None = None) -> dict:
         url = f"{self.base}{path}"
@@ -58,8 +73,42 @@ class HexapodClient:
     def ping(self) -> dict:
         return self._req("GET", "/api/ping")
 
+    def cmd(self, line: str) -> str:
+        """Raw drive command over POST /cmd (plain text body, e.g. 'J 30 0 0').
+
+        Returns the response body ('ok' / 'link down' / error text).
+        """
+        url = f"{self.base}/cmd"
+        req = urllib.request.Request(
+            url, data=line.encode("utf-8"),
+            headers={"Content-Type": "text/plain"}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                return resp.read().decode("utf-8", "ignore").strip()
+        except Exception as e:
+            return f"error: {e}"
+
     def state(self) -> dict:
         return self._req("GET", "/api/rl/state")
+
+    def status(self) -> dict:
+        """Motors table: per-servo deg / current_a / temp_c (heavier scan)."""
+        return self._req("GET", "/api/status")
+
+    def robot(self) -> dict:
+        return self._req("GET", "/api/robot")
+
+    def feedback(self) -> dict:
+        """Fast bulk telemetry: 18-joint deg/cur/temp + roll/pitch/gyro.
+
+        One MCU round-trip on the robot — a few Hz sustainable during
+        walking (unlike /api/status, whose full scan takes seconds).
+        """
+        return self._req("GET", "/api/feedback")
+
+    def preflight(self, mode: str = "lower") -> dict:
+        """Read-only; details always carry live roll_deg / pitch_deg."""
+        return self._req("GET", f"/api/rl/preflight?mode={mode}")
 
     def pose(self) -> dict:
         return self._req("GET", "/api/pose")

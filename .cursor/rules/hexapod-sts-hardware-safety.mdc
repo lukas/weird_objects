@@ -16,7 +16,7 @@ to 19 with `setid`.)
 
 - No SSH, no motion, no `systemctl restart`, no sit-zero/stand/plant unless
   the user **explicitly** asks for that exact action in the current message.
-- Prefer **HTTP** `http://192.168.4.44:8080` (`/api/rl/*`, `/api/pose`, `/cmd`)
+- Prefer **HTTP** `http://hexapod.local:8080` (`/api/rl/*`, `/api/pose`, `/cmd`)
   over SSH. SSH is deploy/recovery only when the user asks.
 - After any brownout, tip, hot motor, or missing servo ID: **stop**. Do not
   “try again” with another blend.

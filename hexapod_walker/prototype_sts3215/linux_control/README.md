@@ -77,6 +77,17 @@ python3 receive_robot_logs.py --ssh arduino@hexapod.local
 Robot side: `logs/events.jsonl`. Optional override only if you need it:
 `HEXAPOD_LOG_HOST=<ip>` in the systemd unit.
 
+### Error log (website refusals / failures)
+
+Every error the web UI shows — API `ok:false` / `"error"` responses
+(e.g. `refused sit zero: …`), HTTP 4xx/5xx, and async demo/worker
+errors that only surface via status polling — is logged with
+`level="error"`: it lands in `events.jsonl`, is mirrored to a
+dedicated `logs/errors.jsonl`, and streams over the same UDP fanout.
+Identical repeats (a poll loop hitting the same failure) are deduped
+to once per 10 s. Browse the recent ones without SSH:
+`GET /api/errors?n=100`.
+
 ### RL episode traces (automatic)
 
 Every RL stand / lower / walk run additionally writes per-tick telemetry

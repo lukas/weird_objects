@@ -13,6 +13,7 @@ it is for; keep them SHORT when you edit them.
 | `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, hard-won gotchas; § "Operator status page" = web dashboard runbook | Every cycle, before running commands; when the operator's status page is down |
 | `HARDWARE.md` | Real-robot evidence (traces in `rl_move/hardware_traces/`), sim2real findings, operator experiment backlog | When a decision hinges on real-world data; after any hardware session |
 | `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/summary.md` convention + cached W&B data | When finishing or investigating a run |
+| `WANDB.md` | How W&B is wired in: project/creds, ops.sh readers, run-page anatomy (OUTCOME notes, artifact lineage), gotchas | First time touching W&B, or when an API call fails auth |
 | `runs/` | One GENERATED summary per run (status, hypothesis, gate, verdict) — rendered from `experiments.json` by `launch_run.py`; never hand-edit | Browsing past runs; `launch_run.py runsmd` refreshes |
 | `../RL_PLAN.md` | The current plan, gates, and queue (~400-line budget; single topics break out into rl_docs/) | Every cycle |
 | `../RL_LOG.md` | Condensed campaign history; append ONE line per cycle via `ops.sh logline` only | Every cycle |

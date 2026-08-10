@@ -2468,6 +2468,21 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
     def _json(self, code, obj):
+        # Any error response the website shows also lands in the event
+        # log + logs/errors.jsonl (refusals, ok:false, 4xx/5xx).
+        try:
+            err = None
+            if isinstance(obj, dict):
+                if obj.get("error"):
+                    err = str(obj["error"])
+                elif obj.get("ok") is False:
+                    err = "request failed (no error message)"
+            if err is not None or code >= 400:
+                from event_log import emit_api_error
+                emit_api_error(self.command, self.path, code=code,
+                               error=err, peer=self._peer())
+        except Exception:
+            pass
         self._send(code, json.dumps(obj), "application/json")
 
     def _peer(self) -> str:
@@ -2520,6 +2535,25 @@ class Handler(BaseHTTPRequestHandler):
                 })
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
+        elif path == "/api/errors":
+            try:
+                from event_log import errors_path, recent
+                n = 100
+                qs = self.path.split("?", 1)
+                if len(qs) == 2 and "n=" in qs[1]:
+                    try:
+                        n = int(qs[1].split("n=")[1].split("&")[0])
+                    except ValueError:
+                        n = 100
+                errs = [e for e in recent(500)
+                        if e.get("level") == "error"][-max(1, n):]
+                self._json(200, {
+                    "ok": True,
+                    "path": str(errors_path()),
+                    "errors": errs,
+                })
+            except Exception as e:
+                self._json(500, {"ok": False, "error": str(e)})
         elif path == "/api/demo/status":
             # Back-compat; prefer /api/robot.
             if BENCH:
@@ -2555,6 +2589,11 @@ class Handler(BaseHTTPRequestHandler):
                        else {"ok": False, "error": "no bench"})
         elif path == "/api/rl/state" or path == "/api/rl":
             self._json(200, BENCH.rl_state() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/feedback":
+            # Fast read-only bulk telemetry (one MCU round-trip + IMU) for
+            # external loggers — /api/status's full scan takes seconds.
+            self._json(200, BENCH.rl_feedback() if BENCH
                        else {"ok": False, "error": "no bench"})
         else:
             self._send(404, "not found")
