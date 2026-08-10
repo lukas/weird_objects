@@ -163,6 +163,18 @@ Parent `ppo_goal_cw_dep_vref1_r1` itself (contract-exact obs + 25° tilt, no sta
   are push-robust. Next rung per review §4: static four-leg-stance RL
   task ([CODE]: needs a quad-hold goal mode — front-feet-clear +
   four-planted + level + low-current reward).
+- **Quad-hold graft onto the hardware-contract-exact (no privileged
+  velocity) base FAILED: `ppo_goal_cw_dep_quad1`.** Identical 30/60/10
+  mix + reward recipe as the PASSing `quad-hold2` above, warm-started
+  from `cw-dep-vref1-r1` instead. survived_frac stays 1.0 (no falls)
+  but height_err_end_mm plateaus at 31-60mm across training (never
+  reaches the ≤20mm gate quad-hold2 hit at 1-15mm) and track_err_deg
+  gets worse, not better (1.0→2.67°) — the height-control precision
+  looks like it leans on velocity feedback the honest obs contract
+  removes. Walk-mode retention unaffected (own-cfg det gv 6/6 slip
+  med 1.18, DR0 det gv 6/6 slip 1.08). Quad line stays on the
+  privileged-velocity `quad-hold2` checkpoint for now; a contract-exact
+  quad graft is deferred behind the P0 walk hardware ladder.
 
 ## Architecture (temporal-arch line)
 
