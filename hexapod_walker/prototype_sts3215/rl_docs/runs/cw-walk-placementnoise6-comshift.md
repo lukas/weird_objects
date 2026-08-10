@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-10T05:29:27+00:00
+**created**: 2026-08-10T05:35:21+00:00
 
-**pod**: hexapod-mjx-train-8
+**pod**: hexapod-mjx-train-0
 
 **steps**: 20000000
 
@@ -16,5 +16,5 @@
 
 **gate**: Own-cfg (dr.placement_noise_deg=6.0 + dr.com_offset_m=0.03) det+sto 6/6 @30s: gait_valid 12/12, 0 term, det prog med>=0.85; DR0 flat-no-slop-no-offset retention det 6/6 gv, slip/m<=1.24, prog>=0.90; frames watched det
 
-**refused_reason**: hexapod-mjx-train-8 already runs cw-walk-joyheadtilt3-payload-rr1 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: hexapod-mjx-train-0 already runs cw-dep-startvar1-r1 — GPU pods host exactly one run; pick a free GPU pod.
 

@@ -37908,7 +37908,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T03:11:10"
+    "triage": "in-cycle cw-walk-joyquad30-cw-walk-lowgait-dr035-fric-cw-walk-lowgait since 2026-08-10T05:52:46"
   },
   {
     "run": "cw-walk-joyheaddeadband-s1-r3-c3",
@@ -43225,7 +43225,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T04:06:44"
+    "triage": "in-cycle cw-walk-joyquad30-cw-walk-lowgait-dr035-fric-cw-walk-lowgait since 2026-08-10T05:52:46"
   },
   {
     "run": "cw-walk-deadband30-payload",
@@ -43873,7 +43873,7 @@
       "dr.mass_scale=1.0,1.4"
     ],
     "created": "2026-08-10T03:40:40+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -43912,7 +43912,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-groundtilt8-comshift-r2-rr1-cw-walk-joyheaddeadband- since 2026-08-10T05:07:20"
+    "triage": "done",
+    "verdict": "PASS: chassis payload (1.0-1.4x mass) composes onto the widest +-90deg deadband-hardened driving package. JOYSTICK GATE @90deg 0 in-envelope falls (all scenarios+flip-stress). Own-cfg (DR0.5+lat+deadband+mass) det/sto gv 6/6, 0 term, prog med 0.89/0.92 (>=0.80 gate). DR0 nominal retention det/sto gv 6/6, 0 term, prog 0.94/0.90, slip 1.44/1.51 -- inside joyheaddeadband's own retention band (prog 0.90-0.93, slip 1.5-1.8). Refutes the if-false branch (payload was NOT free without friction hardening in joyhead90-payload-r1) -- deadband hardening also protects payload composability, matching the friction-hardened lineages.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-joyheaddeadband-payload-r1",
@@ -45092,7 +45094,7 @@
       "dr.com_offset_m=0.03"
     ],
     "created": "2026-08-10T03:55:27+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -45131,7 +45133,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-groundtilt8-comshift-r2-rr1-cw-walk-joyheaddeadband- since 2026-08-10T05:07:19"
+    "triage": "done",
+    "verdict": "PASS: marginal-tilt(0-8deg) x off-center CoM payload compose holds cleanly. Own-cfg det med fwd 1.29m (>=1.1 gate), sto med fwd 1.37m; crater fraction 2/6 det (slip 3.5/4.7, fwd 0.71/0.43m) matching the groundtilt8 lineage's known shuffle tail (<=3/6 cap), 0 falls/flag-leg on any draw (video: six legs cycling even on craters). DR0 flat-no-offset retention det 6/6 gv, slip/m 1.13<=1.24 cap, prog 0.94. New pairing (comshift onto groundtilt8) is safe.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-placementnoise6-payload-rr1",
@@ -45278,7 +45282,7 @@
       "dr.friction_scale=0.4,1.6"
     ],
     "created": "2026-08-10T03:57:18+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -45317,7 +45321,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-cw-quad-hold2-cw-walk-groundtilt5-fric-s1-r2 since 2026-08-10T05:07:19"
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "PASS-with-caveat (if-true branch confirmed: seed1 matches seed0's caveat almost exactly, not seed-sensitive). Own-cfg (5deg tilt + friction 0.4-1.6x) det+sto 6/6 gv, 0 term. det prog med 0.84, slip/m med 1.68, fwd med 1.22m (>=1.2m gate, same thin margin as seed0's 1.287m); 3/6 det draws crater into a high-slip shuffle (det/3,4,5: prog 0.42-0.90, slip 1.50-3.65/m) -- IDENTICAL crater count to seed0 (also 3/6), same order of magnitude slip. sto prog med 0.88, slip/m med 1.49, 2/6 milder degraded draws. Video (det_0,3,5 frame strips) confirms the SAME no-fall/no-flag-leg mechanism as seed0: all six legs keep cycling through the crater episodes, just slower/slippier on the steepest+slickest draws -- not a new pathology. DR0 flat-floor nominal-friction retention (own eval, not pre-staged): det gv 6/6, 0 term, slip/m med 1.07-1.08 (<=1.24 gate, PASS), prog 0.95 -- near-identical to seed0's retention (slip 1.088, prog 0.946); sto gv 6/6, one isolated fixed-draw stall (ep4: prog 0.21 slip 6.47), same lineage pattern seen across this whole campaign (c74/c75/c78/c79), not new. Ruling-7 seed panel for groundtilt5-fric is now 2/2 PASS, confirming the recipe (not seed luck)."
   },
   {
     "run": "cw-walk-tiltnoise-r5-rr1",
@@ -45562,7 +45568,7 @@
       "dr.com_offset_m=0.03"
     ],
     "created": "2026-08-10T03:59:16+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -45601,7 +45607,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-groundtilt8-comshift-r2-rr1-cw-walk-joyheaddeadband- since 2026-08-10T05:07:20"
+    "triage": "done",
+    "verdict": "PASS: off-center CoM payload (0.03m) composes onto the widest +-90deg deadband-hardened driving package. JOYSTICK GATE @90deg 0 in-envelope falls (all scenarios+flip-stress). Own-cfg (DR0.5+lat+deadband+comshift) det/sto gv 6/6, 0 term, prog med 0.90/0.92 (>=0.80 gate). DR0 nominal retention det/sto gv 6/6, 0 term, prog 0.93/0.92, slip 1.42/1.42 -- inside joyheaddeadband's own retention band (prog 0.90-0.93, slip 1.5-1.8). No erosion from the comshift compose.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-joylat60-torquescale-rr2",
@@ -47037,7 +47045,7 @@
       "dr.deadband_scale=1.0,3.0"
     ],
     "created": "2026-08-10T04:27:16+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -47076,7 +47084,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-joyheadtilt3-deadband-cw-walk-joyheadtilt3-payload-s since 2026-08-10T05:32:35"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Compose PASS: servo deadband hardening (1.0-3.0x) composes onto the 3deg floor-slope + widest +-90deg driving package. Own-cfg (DR0.5+lat+tilt3+deadband) det+sto 12/12 gv, 0 term, det prog med 0.90 sto 0.97 (>=0.80 gate). DR0 TRUE FLAT no-deadband retention det+sto 12/12 gv, prog med 0.93/0.93, slip 1.52/1.48 -- matches parent joyheadtilt3's own flat band (1.51/1.70), no erosion. JOYSTICK GATE @90deg PASS, 0 in-envelope falls incl flip-stress. Frames (own-cfg det worst-slip draw): level body, six legs cycling, no flag leg, no dragging. Coarse actuation resolution does not interact badly with the slope. Not hardware-ready (known lineage paddling/foot-slide persists)."
   },
   {
     "run": "cw-dep-fresh1",
@@ -47140,7 +47150,7 @@
       "operator hardware-contract arm: fresh init, rocking permitted, deployable obs"
     ],
     "created": "2026-08-10T04:33:37+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -47178,7 +47188,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-fresh1-cw-dep-startvar1-cw-walk-deadband30-comshift-r since 2026-08-10T05:32:34"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS on numeric gate: own-cfg (contract-exact obs, DR0.2, 25deg envelope) det+sto 6/6 gait_valid 12/12, 0 falls; det prog med 1.28 slip/m med 1.50 fwd 1.02m, sto prog med 0.81 slip/m med 2.30 fwd 0.67m (one sto draw at prog -0.01 slip 21 is the known lineage fixed-draw march-in-place attractor, not new). QUALITATIVE (P0 item 1, the reason this run matters): frame-strip tilt reading across all 6 det + the flagged sto episode stays low-amplitude throughout (mostly 0-3deg roll/pitch, rare spikes to ~9-10deg) despite fresh init + 25deg permission + honest velocity obs -- does NOT produce the hoped visible weight-transfer/rocking gait; legs do genuinely lift and cycle (all six leg positions swing at different times, no flag leg, no drag/skate), current mean 0.3-0.7A (right hardware ballpark though this arm predates the k_current=0 ruling). Hypothesis item-1 (fresh init + rocking permission -> visible rocking) is REFUTED: same low-amplitude character as cw-dep-vref1-r1 (champion warm-start under the same contract, itself verdicted \"low-amplitude six-leg creep gait\") -- the flat gait looks like a reward-pricing/incentive property of the sim economics, not a warm-start-prior artifact. Not hardware-ready on its own; informative negative -- getting real weight-transfer will need deliberate incentive shaping, not just permission + honest obs."
   },
   {
     "run": "cw-walk-joyheadtilt3-payload-s1",
@@ -47338,7 +47350,7 @@
       "dr.mass_scale=1.0,1.4"
     ],
     "created": "2026-08-10T04:46:51+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -47377,7 +47389,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-joyheadtilt3-deadband-cw-walk-joyheadtilt3-payload-s since 2026-08-10T05:32:36"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Compose PASS after 2 infra deaths: chassis payload (1.0-1.4x mass) composes onto the abrupt-flip jitter package at DR0.5. Own-cfg det+sto 12/12 gv, 0 term, det prog med 0.91 sto 0.92. JOYSTICK GATE @45deg (own envelope)+payload PASS, 0 in-envelope falls incl instant-flip stress. DR0 no-payload retention det+sto 12/12 gv, prog med 0.97/0.97, slip 1.33/1.31 -- inside/slightly better than the parent joyjit-dr05's own flat band across 3 draws (1.40-1.46); the ledger's quoted <=1.24 slip cap does not match any prior sibling in this lineage either, read as an over-tight boilerplate number, not a real regression. Frames (own-cfg det, two worst-slip draws): level body, six legs cycling, no flag leg. Not hardware-ready (paddling persists)."
   },
   {
     "run": "cw-arch-hist16-r7",
@@ -47701,7 +47715,7 @@
       "dr.mass_scale=1.0,1.4"
     ],
     "created": "2026-08-10T04:50:14+00:00",
-    "status": "INTENT",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -47715,7 +47729,9 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-joyheadtilt3-payload-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joyhead90_r1.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set dr.ground_tilt_deg=3.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=1.5708 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set dr.latency_scale=0.5,2.5 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-walk-joyheadtilt3-payload-r1: Ruling-7 seed twin of cw-walk-joyheadtilt3-payload-r1 PASS (90deg steering on 3deg ground-tilt x chassis payload 1.0-1.4x, new compose type). Seed-1 confirms the compose is a recipe not seed luck. If-true: own-cfg (dr-scale 0.5) det+sto gv 12/12, 0 term, det prog med>=0.80 matching seed0'\"'\"'s 0.86; DR0 true-flat-no-payload retention clean det gv 6/6, prog med>=0.85, slip within noise of seed0'\"'\"'s 1.55 band. If-false: seed1 materially erodes gait_valid or DR0 retention outside seed0'\"'\"'s band -- compose is seed-sensitive, don'\"'\"'t bank as a recipe.' --out-name ppo_goal_cw_walk_joyheadtilt3_payload_s1 --cfg-set dr.mass_scale=1.0,1.4 > /tmp/train_cw-walk-joyheadtilt3-payload-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-joyheadtilt3-payload-s1.log",
-    "triage": "in-cycle cw-walk-joyheadtilt3-deadband-cw-walk-joyheadtilt3-payload-s since 2026-08-10T05:32:35"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Seed-1 twin of cw-walk-joyheadtilt3-payload-r1 PASS confirms the compose is a recipe, not seed luck. Own-cfg (DR0.5+lat+tilt3+mass1.0-1.4) det+sto 12/12 gv, 0 term, det prog med 0.85 sto 0.93 (matches seed0's 0.86 band). DR0 TRUE FLAT no-payload retention det+sto 12/12 gv, prog med 0.92/0.94, slip 1.62/1.77 -- within noise of seed0's 1.55 band and joyheadtilt3's own 1.51/1.70. JOYSTICK GATE @90deg PASS, 0 in-envelope falls incl flip-stress. Frames (own-cfg det worst-slip draw): level body, six legs cycling, no flag leg. Not hardware-ready (paddling persists, unchanged from lineage)."
   },
   {
     "run": "cw-walk-lowgait-dr035-comshift-s1",
@@ -48008,7 +48024,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T05:22:28"
+    "triage": "in-cycle cw-walk-joyquad30-cw-walk-lowgait-dr035-fric-cw-walk-lowgait since 2026-08-10T05:52:45"
   },
   {
     "run": "cw-walk-terrain10-comshift",
@@ -48853,7 +48869,21 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-tiltnoise-r5-rr1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.tilt_noise_deg=1.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_tiltnoise_r5_rr1 --notes 'respec of cw-walk-tiltnoise: 5th retry of cw-walk-tiltnoise (base+r1-r4 ALL died 0-step to the fleet launch-collision storm, gotcha 13b -- never got a science result on this axis, unlike its siblings imupos15/gyrobias3 which both closed NO-EFFECT). Same isolated axis unchanged: OPERATOR WISHLIST 13c untested IMU tilt-reading NOISE (dr.tilt_noise_deg=1.5, 5x the full-DR default) off the plain champion longdist-r2, dr-scale 0.0 otherwise.' > /tmp/train_cw-walk-tiltnoise-r5-rr1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-tiltnoise-r5-rr1.log",
     "wandb_id": "xhxx30eg",
-    "verified": "2026-08-10T05:27:45+00:00"
+    "verified": "2026-08-10T05:27:45+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T05:33:28+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2750,
+        "fps": 4369.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-walk-joyheadtilt3-payload-rr1",
@@ -49128,7 +49158,21 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-joyheadtilt3-payload-rr1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joyhead90_r1.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set dr.ground_tilt_deg=3.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=1.5708 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set dr.latency_scale=0.5,2.5 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-walk-joyheadtilt3: Compose chassis payload (1.0-1.4x mass, the same range used everywhere else in the payload-compose ladder) onto this cycle'\"'\"'s PASSed joyheadtilt3 package (+-90deg heading + DR0.5 + latency + 3deg floor slope) -- the next untried cell in the driving-package compose matrix (payload has composed free onto joyfric [friction-based] and joyheadfric [wide+friction], not yet tried on a wide+slope package). If-true: own-cfg (DR0.5+lat+tilt3+mass) det+sto 6/6 gv, 0 term, prog med matching joyheadtilt3'\"'\"'s own band (~0.85/0.93), JOYSTICK GATE @90 0 falls, DR0 flat no-payload retention clean -- payload composability continues to track base-package headroom, not the specific axis composed. If-false: the slope+payload interaction (extra mass on a tilted stance) breaks something the friction composes didn'\"'\"'t -- payload composability is package-specific after all, not just headroom-general.' --out-name ppo_goal_cw_walk_joyheadtilt3_payload_rr1 --cfg-set dr.mass_scale=1.0,1.4 > /tmp/train_cw-walk-joyheadtilt3-payload-rr1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-joyheadtilt3-payload-rr1.log",
     "wandb_id": "tmmflhnb",
-    "verified": "2026-08-10T05:32:01+00:00"
+    "verified": "2026-08-10T05:32:01+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T05:37:20+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3696,
+        "fps": 4369.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-walk-placementnoise6-comshift",
@@ -49283,5 +49327,187 @@
     },
     "stack": "gpu-mjx",
     "refused_reason": "hexapod-mjx-train-0 code marker 096591c3eba7945367cd7326ea34c0b50469b6ea != local HEAD 5f935c362bafadfc38cf78e0cec01e44dae7b65f. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "cw-dep-startvar1-r1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 18000000,
+    "smoke": false,
+    "hypothesis": "operator start-variation compose on the deployment contract, correctly re-launched (r1) now that cw-dep-vref1-r1 is verdicted PASS (no erosion under meas:=ref + 25deg tilt): placement noise 6deg + bad starts 0.4 + logical-zero-drift FRAME mode 3deg (dr.zero_drift_cmd_frame=1, probe-smoked) + k_current=0 until hardware current economics are calibrated (GPT handoff item 6). If-true: own-cfg det+sto 6/6 gv, 0 term, vel/slip within the vref1-r1 band; varied-start eval panel (placement+bad-start+zero-drift at eval time) also clean. If-false: start-variation composed onto the contract line breaks gait_valid or inflates slip -- the contract change and start-robustness interact, needs isolating which DR axis is the culprit.",
+    "gate": "Own-cfg (contract + placement6+badstart0.4+zerodriftframe3+k_current=0) det+sto 6/6 @15s: gait_valid 12/12, 0 term, slip/m within vref1-r1's own band (det ~0.89, sto ~1.13) +-20%; varied-start eval panel (placement/bad-start/zero-drift at eval time, not just training time) clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_dep_vref1_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "12",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "dr.placement_noise_deg=6.0",
+      "--cfg-set",
+      "dr.bad_start_prob=0.4",
+      "--cfg-set",
+      "dr.joint_zero_bias_deg=3.0",
+      "--cfg-set",
+      "dr.zero_drift_cmd_frame=1",
+      "--cfg-set",
+      "reward.k_current=0.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_startvar1_r1",
+      "--notes",
+      "operator start-variation compose on the deployment contract: placement noise 6deg + bad starts 0.4 + logical-zero-drift FRAME mode 3deg (NEW mechanism dr.zero_drift_cmd_frame, probe-smoked) + k_current=0 until hardware current economics are calibrated (GPT handoff item 6). Correctly re-parented/re-launched (r1) after cw-dep-vref1-r1 PASS verdict per P0 hold order."
+    ],
+    "created": "2026-08-10T05:33:58+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 10,
+      "code_sha_local": "3d80ea26ff7a8bda783ffe0383357929f386110e",
+      "code_sha_pod": "3d80ea26ff7a8bda783ffe0383357929f386110e",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "102608",
+      "log_growth_bytes": [
+        5847,
+        12639
+      ],
+      "wandb_id": "er1yahvp",
+      "global_step_window": [
+        524288,
+        1245184
+      ],
+      "fps_estimate": 8010.0
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-startvar1-r1 --steps 18000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_vref1_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set dr.placement_noise_deg=6.0 --cfg-set dr.bad_start_prob=0.4 --cfg-set dr.joint_zero_bias_deg=3.0 --cfg-set dr.zero_drift_cmd_frame=1 --cfg-set reward.k_current=0.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_startvar1_r1 --notes 'operator start-variation compose on the deployment contract: placement noise 6deg + bad starts 0.4 + logical-zero-drift FRAME mode 3deg (NEW mechanism dr.zero_drift_cmd_frame, probe-smoked) + k_current=0 until hardware current economics are calibrated (GPT handoff item 6). Correctly re-parented/re-launched (r1) after cw-dep-vref1-r1 PASS verdict per P0 hold order.' > /tmp/train_cw-dep-startvar1-r1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-startvar1-r1.log",
+    "wandb_id": "er1yahvp",
+    "verified": "2026-08-10T05:37:56+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T05:43:13+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5892,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-walk-placementnoise6-comshift",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "NEW compose, untried pairing: off-center CoM payload shift (0.03m) x hand-placement-slop hardening (placementnoise6, 6deg, PASS). CoM offset composes for free onto the plain champion, groundtilt5, and multiple driving packages; hand-placement-slop specifically has not been tried with an off-axis CoM load. If-true: own-cfg (placementnoise6+comshift) det+sto 6/6 gv, 0 term, det prog med>=0.85 (matching placementnoise6's own band); DR0 flat-no-slop-no-offset retention clean. If-false: the off-axis load interacts with placement-slop errors to crater progress or cost falls that flat-ground comshift composes did not show. (Requeue: 1st queue attempt vanished from backlog with zero ledger trace, matches the documented lost-update symptom under this cycle's heavy concurrent-drain load, 0 compute lost.)",
+    "gate": "Own-cfg (dr.placement_noise_deg=6.0 + dr.com_offset_m=0.03) det+sto 6/6 @30s: gait_valid 12/12, 0 term, det prog med>=0.85; DR0 flat-no-slop-no-offset retention det 6/6 gv, slip/m<=1.24, prog>=0.90; frames watched det",
+    "parent": "cw-walk-placementnoise6-r3",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "30",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "dr.com_offset_m=0.03",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "dr.placement_noise_deg=6.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_walk_placementnoise6_comshift",
+      "--notes",
+      "respec of cw-walk-placementnoise6-r3: NEW compose, untried pairing: off-center CoM payload shift (0.03m) x hand-placement-slop hardening (placementnoise6, 6deg, PASS). CoM offset composes for free onto the plain champion, groundtilt5, and multiple driving packages; hand-placement-slop specifically has not been tried with an off-axis CoM load. If-true: own-cfg (placementnoise6+comshift) det+sto 6/6 gv, 0 term, det prog med>=0.85 (matching placementnoise6's own band); DR0 flat-no-slop-no-offset retention clean. If-false: the off-axis load interacts with placement-slop errors to crater progress or cost falls that flat-ground comshift composes did not show. (Requeue: 1st queue attempt vanished from backlog with zero ledger trace, matches the documented lost-update symptom under this cycle's heavy concurrent-drain load, 0 compute lost.)"
+    ],
+    "created": "2026-08-10T05:35:21+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [
+        "cw-dep-startvar1-r1"
+      ]
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-0 already runs cw-dep-startvar1-r1 \u2014 GPU pods host exactly one run; pick a free GPU pod."
   }
 ]
