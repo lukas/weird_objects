@@ -885,6 +885,10 @@ class SimHexapodBalanceEnv(_GymBase):
             self._h_target = 0.0
         self._h_milestones: set[float] = set()
         self._prev_h_err_abs = 0.0
+        # Stand-score ratchet baseline (reward.rise_score_income): seeded
+        # with the episode's FIRST score so crouch/near-plant starts don't
+        # collect their starting posture as free income.
+        self._score_best: float | None = None
         # Feet-under-body ("curl") scores, rise episodes only: mean XY
         # distance from each foot to its plant-footprint anchor. Curling
         # changes NO height term (belly stays down), so without this the
@@ -1159,7 +1163,24 @@ class SimHexapodBalanceEnv(_GymBase):
             g_poly = float(cfg_get(self.cfg, "reward",
                                    "rise_plant_polygon_gate",
                                    default=0.0))
-            if (g_poly > 0.0 and self._h_target > 0.0
+            # Stand-score income routing (operator, 08-10 evening, after
+            # cw-stand-plantgate1 STOP): multiplicative gates LEAK — the
+            # flag-leg cheat still collected ~60% of the height income
+            # (5/6 feet down -> pf .83; footprint fade at ~50 mm -> .75)
+            # and out-earned the harder honest stand, even warm-started
+            # FROM the honest champion. Detection is not enough; the
+            # income itself must come from standing correctly. Under
+            # reward.rise_score_income=1 (RISE episodes only; lower keeps
+            # its solved legacy stack) all height income is zeroed and
+            # replaced by two terms on a single stand-score S — see the
+            # block after the milestone code below.
+            score_mode = (self._h_target > 0.0
+                          and self._pad_z_ref is not None
+                          and float(cfg_get(self.cfg, "reward",
+                                            "rise_score_income",
+                                            default=0.0)) == 1.0)
+            clear = down = plant_f = None
+            if ((g_poly > 0.0 or score_mode) and self._h_target > 0.0
                     and self._pad_z_ref is not None):
                 clear = np.array(
                     [float(self.data.xpos[b, 2]) - self._pad_z_ref[i]
@@ -1184,7 +1205,8 @@ class SimHexapodBalanceEnv(_GymBase):
                                / PLANT_SPEC["footprint_err_mm"],
                                0.0), 1.0)
                 plant_f = margin_f * att_f * fp_f
-                pf *= (1.0 - g_poly) + g_poly * plant_f
+                if g_poly > 0.0:
+                    pf *= (1.0 - g_poly) + g_poly * plant_f
                 parts["rise_plant_factor"] = plant_f
             r_mile = 0.0
             for frac in (0.25, 0.50, 0.75, 0.90):
@@ -1195,9 +1217,84 @@ class SimHexapodBalanceEnv(_GymBase):
                     self._h_milestones.add(frac)
                     r_mile += kms
             r_mile *= pf
+            if score_mode:
+                # Height progress + milestones are exactly the streams
+                # that bankrolled every flag-leg/tripod cheat — zeroed
+                # here; the stand-score below is the only rise income.
+                r_prog, r_mile = 0.0, 0.0
             parts["reward_rise_progress"] = r_prog
             parts["reward_rise_milestone"] = r_mile
             reward += r_prog + r_mile
+            if score_mode and clear is not None:
+                # The tracking kernel pays torso-at-ref-height with no
+                # posture opinion — the stream every cheat lived on.
+                # Strip it for the whole rise episode (the curl-window
+                # repricing below re-installs its own curl-priced kernel
+                # during the pre-ramp hold, which is honest shaping).
+                r_task = parts.get("reward_task", 0.0)
+                if r_task > 0.0:
+                    reward -= r_task
+                    parts["reward_task"] = 0.0
+                # Stand-score S in [0,1]: height kernel x (feet-down
+                # fraction)^2 x HARD no-flag x plant factor (attitude,
+                # CoM-in-polygon, footprint at the walkable anchors).
+                # Conjunction of the full PLANT_SPEC — anything scoring
+                # high on all factors at once IS the stand. The no-flag
+                # factor is a hard zero (not a fade): a flag-leg pose
+                # earns nothing, not a 60% consolation.
+                sig_s = float(cfg_get(self.cfg, "reward",
+                                      "rise_score_sigma_mm",
+                                      default=15.0)) * 0.001
+                err_t = h_rel - self._h_target
+                h_f = math.exp(-0.5 * (err_t / max(sig_s, 1e-6)) ** 2)
+                n_down = float(down.sum()) / max(float(len(clear)), 1.0)
+                noflag = (1.0 if float(np.max(clear))
+                          <= PLANT_SPEC["flag_leg_mm"] * 0.001 else 0.0)
+                p_now = n_down ** 2 * noflag * float(plant_f)
+                s_now = h_f * p_now
+                parts["rise_score"] = s_now
+                if self._score_best is None:
+                    self._score_best = s_now
+                ksp = float(cfg_get(self.cfg, "reward",
+                                    "k_rise_score_prog", default=30.0))
+                r_sp = ksp * max(0.0, s_now - self._score_best)
+                self._score_best = max(self._score_best, s_now)
+                parts["reward_rise_score_prog"] = r_sp
+                reward += r_sp
+                # Hold pay: only once the commanded ramp has arrived —
+                # holding the true plant quietly is the only way to keep
+                # earning. S^2 sharpens the top (5/6 feet at height with
+                # perfect geometry otherwise caps at ~0.48).
+                if goal is not None \
+                        and goal.height_ref >= self._h_target - 1e-9:
+                    ksh = float(cfg_get(self.cfg, "reward",
+                                        "k_rise_score_hold",
+                                        default=1.0))
+                    r_sh = ksh * s_now ** 2
+                    parts["reward_rise_score_hold"] = r_sh
+                    reward += r_sh
+                # Airborne-feet rent, ramp-weighted (bank finding,
+                # 08-10: with the income fixed, the CHEATS won on the
+                # penalty side — reward_height charges "torso not at
+                # ref", so flag-leg DODGED ~120/ep of it by getting the
+                # torso up on 5 legs while the honest partial rise paid
+                # in full). Once the commanded ramp is up you owe rent
+                # on FEET IN THE AIR (feet-down^2 x no-flag), exactly
+                # as you already owe it on missing height. Deliberately
+                # NOT the geometric plant factor: the honest reference
+                # itself moves through wide-footprint poses mid-rise
+                # (measured: charging plant_f rents the demonstration
+                # ~100/ep and prices honest-but-parked below the
+                # flag-leg cheat). Grounded-but-imperfect = unfinished,
+                # charged via height + zero income; airborne = cheat.
+                kpp = float(cfg_get(self.cfg, "reward",
+                                    "k_rise_posture_pen", default=1.0))
+                if kpp > 0.0 and goal is not None:
+                    w = min(max(goal.height_ref / self._h_target,
+                                0.0), 1.0)
+                    r_pp = -kpp * w * (1.0 - n_down ** 2 * noflag)
+                    parts["reward_rise_posture_pen"] = r_pp
+                    reward += r_pp
             # Income prog-gate (2026-08-10 rise/lower freeze audit; cfg
             # reward.rise_income_prog_gate in [0,1], default 0 = legacy
             # exact). Measured: in lower episodes a robot that FREEZES at
@@ -1214,7 +1311,7 @@ class SimHexapodBalanceEnv(_GymBase):
             g_inc = float(cfg_get(self.cfg, "reward",
                                   "rise_income_prog_gate", default=0.0))
             inc_f = 1.0
-            if g_inc > 0.0 and goal is not None \
+            if g_inc > 0.0 and not score_mode and goal is not None \
                     and abs(goal.height_ref) > 1e-9:
                 covered = min(max(h_rel / self._h_target, 0.0), 1.0)
                 inc_f = (1.0 - g_inc) + g_inc * covered
@@ -1244,7 +1341,7 @@ class SimHexapodBalanceEnv(_GymBase):
                         self.cfg, "reward", "rise_finish_gate_signed",
                         default=0.0)) == 1.0):
                 ramp_done = goal.height_ref <= self._h_target + 1e-9
-            if ramp_done:
+            if ramp_done and not score_mode:
                 kfin = float(cfg_get(self.cfg, "reward", "k_rise_finish",
                                      default=1.0))
                 sfin = float(cfg_get(

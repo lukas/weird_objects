@@ -71,9 +71,9 @@ RISE_OVERRIDES = {
 SEEDS = (0, 1, 2)
 
 
-def _make_rise_env(seed: int) -> SimHexapodJointGoalEnv:
+def _make_rise_env(seed: int, overrides=None) -> SimHexapodJointGoalEnv:
     cfg = load_config()
-    for (sec, leaf), val in RISE_OVERRIDES.items():
+    for (sec, leaf), val in (overrides or RISE_OVERRIDES).items():
         cfg.setdefault(sec, {})[leaf] = val
     env = SimHexapodJointGoalEnv(
         params=SimServoParams.from_cfg(None), randomize=False,
@@ -87,8 +87,8 @@ def _make_rise_env(seed: int) -> SimHexapodJointGoalEnv:
     return env
 
 
-def _rise_rollout(policy: str, seed: int) -> dict:
-    env = _make_rise_env(seed)
+def _rise_rollout(policy: str, seed: int, overrides=None) -> dict:
+    env = _make_rise_env(seed, overrides)
     env.reset()
     ref = np.load(ROOT / RISE_REF)
     q_ref, ramp_ref = ref["q_rad"], int(ref["ramp_i0"])
@@ -107,6 +107,14 @@ def _rise_rollout(policy: str, seed: int) -> dict:
         elif policy == "partial":
             j = min(ramp_ref + (step - env._rise_ramp_i0), j_half)
             act = q_rad_to_action(q_ref[min(max(j, 0), len(q_ref) - 1)])
+        elif policy == "flagleg":
+            # The cw-stand-b2p1 / cw-stand-plantgate1 video cheat: five
+            # legs execute the honest rise, one leg stays flagged
+            # straight out and never takes load.
+            j = ramp_ref + (step - env._rise_ramp_i0)
+            q = q_ref[min(max(j, 0), len(q_ref) - 1)].copy()
+            q[0:3] = q0[0:3]
+            act = q_rad_to_action(q)
         elif policy == "freeze":
             act = q_rad_to_action(q0)
         elif policy == "thrash":
@@ -197,6 +205,111 @@ def test_rise_valid_plant_separates_stand_from_cheats(rise_bank):
             assert not r["plant"], (
                 f"'{p}' passes the valid-plant spec: {r['detail']} — "
                 f"the geometric criterion has a hole.")
+
+
+# --------------------------------------------------------------------------
+# RISE bank, STAND-SCORE stack (cw-stand-score1 lineage, operator 08-10
+# evening). cw-stand-plantgate1 proved multiplicative gates LEAK: the
+# flag-leg cheat still collected ~60% of the height income and won even
+# warm-started from the honest champion. reward.rise_score_income=1
+# zeroes the height income streams and pays ONLY a progress ratchet +
+# post-ramp hold on the stand-score S (height x feet-down^2 x hard
+# no-flag x plant geometry) — so the cheat's income is ~0 by
+# construction, not a discounted consolation. No reference tracking:
+# the score must carry the ordering on its own.
+
+SCORE_OVERRIDES = {
+    ("actions", "max_height_mm"): 115.0,
+    ("goal", "rise_height_mm"): [108.0, 114.0],
+    ("goal", "rise_ramp_s"): 6.0,
+    ("reward", "rise_score_income"): 1.0,
+    # The solved lower-line fixes ride along in the real run cfg; under
+    # score mode they are no-ops for rise by construction (they scale
+    # streams the score switch zeroes) — bank under the EXACT stack.
+    ("reward", "rise_posture_gate"): 1.0,
+    ("reward", "rise_income_prog_gate"): 1.0,
+    ("reward", "rise_finish_gate_signed"): 1.0,
+}
+
+SCORE_POLICIES = ("replay", "partial", "freeze", "stilt", "flagleg",
+                  "thrash")
+
+
+@pytest.fixture(scope="module")
+def score_bank() -> dict[str, list[dict]]:
+    return {p: [_rise_rollout(p, s, SCORE_OVERRIDES) for s in SEEDS]
+            for p in SCORE_POLICIES}
+
+
+@pytest.fixture(scope="module")
+def score_returns(score_bank) -> dict[str, float]:
+    return {p: float(np.mean([r["ret"] for r in rolls]))
+            for p, rolls in score_bank.items()}
+
+
+def test_score_correct_dominates_all_cheats(score_returns):
+    """Same dominance margin as the legacy bank, but now the flag-leg
+    cheat — the one that actually beat the gates in training — is in
+    the comparison set."""
+    replay = score_returns["replay"]
+    best_cheat = max(score_returns["freeze"], score_returns["stilt"],
+                     score_returns["flagleg"])
+    assert replay > 2.0 * best_cheat and replay > best_cheat + 50.0, (
+        f"stand-score stack prefers a known cheat: {score_returns}")
+
+
+def test_score_flagleg_earns_scraps(score_returns):
+    """The point of the whole redesign: torso-at-height with a flagged
+    leg must earn approximately NOTHING (hard no-flag zero), not a 60%
+    consolation, and must lose to honest partial progress."""
+    assert score_returns["flagleg"] < 0.1 * score_returns["replay"], (
+        f"flag-leg still collects real income: {score_returns}")
+    assert score_returns["flagleg"] < score_returns["partial"], (
+        f"flag-leg out-earns honest partial rise: {score_returns}")
+
+
+def test_score_freeze_net_negative(score_returns):
+    assert score_returns["freeze"] < 0.0, (
+        f"freezing earns {score_returns['freeze']:+.1f} under the "
+        "stand-score stack — refusal is being paid again.")
+
+
+def test_score_honest_ordering(score_returns):
+    """replay > partial > airborne cheats and refusal.
+
+    stilt is deliberately NOT in the partial comparison here: under the
+    score stack it is grounded, level, unpaid (income ~ +5 vs replay's
+    ~ +125) and score-adjacent to the true stand — pull the footprint
+    in ~10 mm and drop ~30 mm and hold pay jumps from S^2 ~ 0.01/tick
+    to ~1/tick, so the ratchet gradient from stilt points INTO the
+    stand. The hazard it posed under height income (a PAID terminal
+    plateau, +225/ep) is what test_score_stilt_is_not_a_paid_plateau
+    pins instead."""
+    assert score_returns["replay"] > score_returns["partial"], score_returns
+    for p in ("freeze", "flagleg", "thrash"):
+        assert score_returns["partial"] > score_returns[p], (
+            f"'{p}' out-earns honest partial progress: {score_returns}")
+
+
+def test_score_stilt_is_not_a_paid_plateau(score_returns):
+    """The stilt pop earned +225/ep under height income (rfix-fresh1's
+    gamed 6/6). Under the score stack parking there must be a net LOSS
+    and must trail the honest rise by a wide margin."""
+    assert score_returns["stilt"] < 0.0, score_returns
+    assert score_returns["replay"] > score_returns["stilt"] + 50.0, (
+        f"stilt is competitive with the honest rise: {score_returns}")
+
+
+def test_score_replay_ends_in_valid_plant(score_bank):
+    """The demonstrated rise must still end PLANT_SPEC-valid under the
+    score stack (reward changes must not have bent the sim), and every
+    cheat must fail the spec."""
+    for r in score_bank["replay"]:
+        assert r["plant"], f"replay fails PLANT_SPEC: {r['detail']}"
+    for p in ("stilt", "freeze", "partial", "flagleg"):
+        for r in score_bank[p]:
+            assert not r["plant"], (
+                f"'{p}' passes the valid-plant spec: {r['detail']}")
 
 
 # --------------------------------------------------------------------------
