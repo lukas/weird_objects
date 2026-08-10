@@ -341,3 +341,17 @@ placementnoise6+bad-start compose onto the cw-dep line, NEW obs-side
 zero-drift DR axis [CODE], varied-start eval panel for hardware
 candidates, park-bank walk starts). Status at directive time:
 cw-dep-vref1-r1 RUNNING 12.9M/20M, cw-dep-fresh1 RUNNING 2.5M/20M.
+
+OPERATOR (08-10 00:4x): QUAD -> MAINLINE. "Four leg trick in the
+main line so I can hit that with the joystick in sim to real." Quad
+is now a joystick COMMAND of the driving lineage, not a party trick.
+Queued cw-walk-joyquad30: quad=0.3/walk=0.7 mix composed onto
+driving champion joylat25 (full DR0.5+latency+abrupt-flip spec, warm
+start joylat25.zip); gate = JOYSTICK GATE @DR0.2 retained + quad
+hold metrics (fronts_off>=0.9, clear>=20mm, planted>=0.95 final
+10s, level) + walk slip <=1.55 (parent band). Mix informed by
+quad-hold1-r2's if-false result (50% eroded walk); cw-quad-hold2
+(30% on walk champion) still mid-flight as the parallel arm.
+Operator-side: drive_policy.py key `4` toggles the quad command
+live (writes lift_legs=(0,5) into the running trajectory; HUD shows
+QUAD). RL_PLAN party-tricks section + WISHLIST 15 updated.

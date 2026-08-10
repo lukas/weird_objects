@@ -166,6 +166,18 @@ existing config knobs, [CODE] needs an implementation cycle first,
     four-planted fraction; `goal.quad_grace_s` (1.5 s) keeps the
     lift transient unpaid. Level kernel / current charge / tilt trip
     inherited. Probe probe-quad-scale: MJX clean, 300k steps.
+    **MAINLINE PROMOTION (operator 08-10 00:4x: "four leg trick in
+    the main line so I can hit that with the joystick in sim to
+    real"):** quad is now a JOYSTICK COMMAND of the driving
+    lineage, not a standalone trick. cw-quad-hold1-r2 proved the
+    hold (survived 1.0, video clean) but 50% mix eroded walk (the
+    if-false branch); cw-quad-hold2 (30% mix, walk champion) and
+    **cw-walk-joyquad30 (30% mix composed onto DRIVING champion
+    joylat25 — the sim-to-real candidate line)** are queued/running.
+    Operator-facing: `drive_policy.py` key `4` toggles the quad
+    command live (writes lift_legs=(0,5) into the running
+    trajectory). Any future hardware candidate carries the quad
+    command through the deployment-equivalence (cw-dep) contract.
     Remaining rungs [CODE]: weight shift → quad walk (exempt fronts
     from six-leg participation terms) → quad turn → height up/down
     (reuse walk_height_off_mm — it is mode-agnostic).

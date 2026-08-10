@@ -12,6 +12,11 @@ Controls (the "hexapod drive" window must have focus):
     I / Up      more forward speed      K / Down    less / backward
     J / Left    strafe left             L / Right   strafe right
     0 / Space   full stop               R           reset episode
+    4           toggle QUAD mode (lift both fronts, stand on four —
+                only meaningful on a quad-trained checkpoint, e.g. the
+                cw-walk-joyquad* / cw-quad-hold* lineages; on older
+                checkpoints the command bits are out-of-distribution
+                inputs and the gait may wobble)
     Q / Esc     quit
     (policy has NO yaw command — steering = changing crab direction)
 
@@ -67,6 +72,7 @@ def main() -> None:
         f"vs env {env.observation_space.shape} — wrong cfg for this ckpt?")
 
     vx = vy = 0.0
+    quad = False          # QUAD mode: lift fronts 0+5, stand on four
 
     def clamp(v: float) -> float:
         return float(np.clip(v, -_SPEED_MAX, _SPEED_MAX))
@@ -76,6 +82,9 @@ def main() -> None:
         if traj is not None and hasattr(traj, "vx"):
             traj.vx[:] = vx
             traj.vy[:] = vy
+            # Quad command rides the goal one-hot (TaskGoal.lift_legs),
+            # exactly the training-time encoding: both front bits hot.
+            traj.lift_legs = (0, 5) if quad else None
 
     obs, _ = env.reset()
     apply_cmd()
@@ -99,6 +108,7 @@ def main() -> None:
             # fresh standing start caused fall -> instant re-fall cascades
             # (17 consecutive tilt_roll resets, 2026-08-09 drive session).
             vx = vy = 0.0
+            quad = False
             obs, _ = env.reset()
             apply_cmd()
 
@@ -111,7 +121,9 @@ def main() -> None:
         # Direction label: what the current command MEANS. Taps are +-0.01
         # each, so e.g. one K tap from +0.05 fwd is +0.04 — STILL FORWARD;
         # riders kept expecting one tap = reverse (2026-08-09 session).
-        if spd < 0.005:
+        if quad:
+            direction = "QUAD (fronts up)"
+        elif spd < 0.005:
             direction = "STOP"
         else:
             parts = []
@@ -139,7 +151,8 @@ def main() -> None:
                  f"(tracking err {np.hypot(v[0]-vx, v[1]-vy):.3f})",
                  (200, 200, 40)),
                 (env_txt, (40, 200, 40) if in_env else (0, 60, 255)),
-                ("I/K fwd/back  J/L strafe  0/space stop  R reset  Q quit",
+                ("I/K fwd/back  J/L strafe  0/space stop  4 quad  "
+                 "R reset  Q quit",
                  (180, 180, 180)))):
             cv2.putText(img, line, (10, 24 + 22 * i),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1, cv2.LINE_AA)
@@ -182,6 +195,13 @@ def main() -> None:
             vy = clamp(vy - _STEP); msg = ""
         elif k in (ord("0"), ord(" ")):
             vx = vy = 0.0; msg = ""
+        elif k == ord("4"):
+            quad = not quad
+            if quad:
+                vx = vy = 0.0   # quad-hold trains at zero velocity
+                msg = "QUAD: lifting fronts (0+5), standing on four"
+            else:
+                msg = "quad off - back on six"
         elif k in (ord("r"), ord("R")):
             obs, _ = env.reset()
             apply_cmd()
