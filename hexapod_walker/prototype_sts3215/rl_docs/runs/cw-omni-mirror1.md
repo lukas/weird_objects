@@ -18,3 +18,5 @@
 
 **gate**: Mechanism health at 2M, NOT behavior (from-scratch gaits do not exist at 2M — dep1 precedent): (1) train/mirror_sym_loss at end < 0.5x its early value and trending down; (2) W&B reward quarters within the cw-arch-hist16-dep1 first-2M band (no collapse, no NaN, std sane); (3) fps within pod norms (aux step adds <15 pct). Behavioral verdict (eval_yaw both signs, joystick panel, drift at zero command) belongs to the 40M hardening follow-up.
 
+**verdict**: PASS (mechanism health, discovery gate). MirrorPPO aux symmetry step works as designed on the full omni stack: train/mirror_sym_loss started near 0 (random init is symmetric), rose to 0.00199 as PPO injected gait asymmetry, then the regularizer won -- 0.0009 at 2M (0.45x peak, gate <0.5x) and trending down, while ep_rew climbed 34->227 (quarters 34.5/61.3/117.6/227.3, std 0.39, 0 NaN) and fps held 6560 vs the recipe ~7100 (-8 pct, gate <15). Operator session (08-10 eve): hardening 40M relaunched as cw-omni-mirror1-r1 continuing this checkpoint -- behavioral verdict (eval_yaw both signs, joystick panel incl. backward/lateral, drift at zero command) belongs there.
+
