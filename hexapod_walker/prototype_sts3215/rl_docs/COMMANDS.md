@@ -240,6 +240,27 @@ report.json, and the W&B API for exactly these questions.
     append-only) and move on; don't diagnose further unless it
     recurs on a retry with no other drain active.
 
+13c. **RESOLVED (08-10 deep dig-in): the 13/13b `EOFError` class was
+    /dev/shm SIGBUS, and it is now self-healing + diagnosable.** Train
+    pods have the 64M k8s-default /dev/shm; a normal 4096-env sharded
+    layout maps ~58M (measured live), so ANY leaked segments poison
+    every later launch on the pod: workers SIGBUS on first page touch
+    (POSIX shm is sparse) and the parent saw only a bare `EOFError`.
+    Since snapshot `bcf46be`: (a) workers run `faulthandler` and the
+    parent prints per-worker exit codes (`-7` = SIGBUS) instead of the
+    bare EOFError — read the train log tail, it now names the killer;
+    (b) each trainer start GCs orphaned `hexmjx-*` segments (keeps
+    live-mapped ones), so poisoned pods self-heal on next launch — no
+    more manual `rm`. LIMIT: `obs.history_frames=16` at 4096 envs maps
+    >64M and can NEVER boot on a default pod (the 8x arch-hist16 death
+    chain) — either run it at `--n-envs 3072` (~50M) or recreate the
+    pod (WHILE IDLE) with the dshm-4Gi manifests
+    (`coreweave_pod*_mjx_*.yaml`, patched 08-10):
+    `kubectl delete pod <pod>` → `kubectl apply -f
+    rl_move/sim/coreweave_pods_mjx_scaleout.yaml` →
+    `orchestrator/bootstrap_train_pod.sh <pod>` → `snapshot.sh --sync
+    <pod>`. Verify with `df -h /dev/shm` (should say 4.0G).
+
 14. **Batch-eval shell footgun (c60):** `CFG="..." && nohup A $CFG & nohup B $CFG &`
     puts the assignment INSIDE the first background job's subshell — B
     (and later jobs) run with an EMPTY $CFG, i.e. default cfg = silently

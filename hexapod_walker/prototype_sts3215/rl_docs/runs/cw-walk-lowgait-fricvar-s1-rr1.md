@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-10T04:05:01+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-lowgait-fricvar
+
+**wandb_id**: hbj84lj2
 
 **hypothesis**: Seed twin of cw-walk-lowgait-fricvar (PASS this cycle, dig-in verified): friction 0.4-1.6x composes onto the -20mm crouch, and the pinned-0.4 dead-skate draw was proven INHERITED from the parent (not a fricvar defect). Ruling-7 seed panel: if the compose is a recipe not seed-luck, seed 1 reproduces it. If-true: own-cfg det+sto gv 12/12, 0 term, mean end-height err <=8mm; DR0 retention det gv 6/6 slip/m <=1.24 — same band as seed 0. If-false: seed 1 erodes crouch height tracking or slick-end medians fall below the upright fricvar band (prog med <0.8).
 

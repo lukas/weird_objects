@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-10T04:06:17+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-joylat60
+
+**wandb_id**: 2fl29hy7
 
 **hypothesis**: Compose: torque-droop (0.80-1.05x) onto joylat60 driving package. 2nd requeue -- first 2 attempts (cw-walk-joylat60-torquescale, twice) vanished/died with no ledger trace under the fleet's severe concurrent-drain launch-collision storm this window, 0 compute lost either time.
 
