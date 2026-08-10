@@ -57930,7 +57930,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T18:48:57"
   },
   {
     "run": "cw-dep-vref1-r1-zerobias-placement",
@@ -58038,7 +58039,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T18:48:58"
   },
   {
     "run": "cw-dep-vref1-r1-tiltnoise-gyronoise",
@@ -58255,7 +58257,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T18:48:57"
   },
   {
     "run": "cw-dep-vref1-r1-gainvar-legmass",
@@ -58684,7 +58687,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-gainvar-torquescale --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_gainvar_torquescale --notes 'respec of cw-dep-vref1-r1-gainvar: Check that the hardware-candidate walker still walks when its servos are BOTH weaker than expected AND inconsistently tuned at the same time -- the two actuator-strength uncertainties it will actually face on battery power tonight. The gainvar single-axis PASS carried the widest margin of any axis (det slip ~12% over the band edge) with an explicit pre-registered watch-item: '\"'\"'worth a second look if stacked with another actuator axis'\"'\"'; torquescale (battery-sag 0.5-1.05x) PASSed cleanly solo. This 2-axis compose (2x kp/kv gain spread + widened torque sag) on the contract-exact base cw-dep-vref1-r1 tests whether those margins stack or compound. Prediction-if-true: own-cfg det+sto gv 12/12, 0 term, slip medians within +-20% of vref1-r1'\"'\"'s band, fingerprint episodes no worse than the worst PASSed sibling (torquescale, prog 0.47-0.57). Prediction-if-false: weak-AND-mistuned servo draws push beyond the fingerprint into new craters or falls -- flags a real battery-day actuator envelope limit. Strongest alternative: creep/park to dodge weak-servo draws -- check videos, not just scalars. k_current=0 per P0 rule 3 (inherited).' --cfg-set dr.kp_scale_pct=0.40 --cfg-set dr.kv_scale_pct=0.50 --cfg-set reward.k_current=0 --cfg-set dr.torque_scale=0.5,1.05 > /tmp/train_cw-dep-vref1-r1-gainvar-torquescale.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-gainvar-torquescale.log",
     "wandb_id": "axahh2hg",
-    "verified": "2026-08-10T18:41:03+00:00"
+    "verified": "2026-08-10T18:41:03+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T18:46:41+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8431,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-imubias",
@@ -58781,5 +58796,92 @@
     "log": "/tmp/train_cw-dep-vref1-r1-imubias.log",
     "wandb_id": "ctvcavvt",
     "verified": "2026-08-10T18:43:15+00:00"
+  },
+  {
+    "run": "cw-arch-hist16-r7-c3",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 40000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the 16-frame temporal-arch walker keep closing the slip/economy gap to the deployment-contract champion with more training, or has it plateaued? c1's +40M continuation PASSED and was STILL improving (slip/m det 1.14, within one eval-noise step of the champion's 0.89-1.13 band, up from r7's 1.43) with no stability regression -- one variable vs c1: +40M more steps warm-started from c1's own checkpoint, same recipe, nothing else changed. If-true: slip/m det moves fully inside the champion band (<=1.13) and sto keeps pace (not flat/regressing) -- the architecture line closes the gap by exposure alone. If-false: slip/m plateaus outside the band despite the extra steps -- the gap is structural (contact-pricing/architecture), not a training-budget question, and the line should try a different lever (e.g. reward shaping) before another blind continuation.",
+    "gate": "own-cfg DR0.5 det+sto 6/6 gv, 0 term, prog med >=1.05; slip/m det improves or holds vs c1's 1.14 (not regressing), sto does not regress vs c1's 1.38; DR0 gate det+sto 6/6 gv, 0 term; JOYSTICK GATE (eval_drive DR0.2) 0 falls; video clean six-leg cycling, no flag leg",
+    "parent": "cw-arch-hist16-r7-c1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.01",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.5",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.6",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.1",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.2",
+      "--cfg-set",
+      "obs.history_frames=16",
+      "--n-envs",
+      "3072",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_arch_hist16_r7.zip",
+      "--out-name",
+      "ppo_goal_cw_arch_hist16_r7_c3",
+      "--notes",
+      "respec of cw-arch-hist16-r7-c1: Plain English: does the 16-frame temporal-arch walker keep closing the slip/economy gap to the deployment-contract champion with more training, or has it plateaued? c1's +40M continuation PASSED and was STILL improving (slip/m det 1.14, within one eval-noise step of the champion's 0.89-1.13 band, up from r7's 1.43) with no stability regression -- one variable vs c1: +40M more steps warm-started from c1's own checkpoint, same recipe, nothing else changed. If-true: slip/m det moves fully inside the champion band (<=1.13) and sto keeps pace (not flat/regressing) -- the architecture line closes the gap by exposure alone. If-false: slip/m plateaus outside the band despite the extra steps -- the gap is structural (contact-pricing/architecture), not a training-budget question, and the line should try a different lever (e.g. reward shaping) before another blind continuation."
+    ],
+    "created": "2026-08-10T18:47:00+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 6,
+      "code_sha_local": "23e2a8ee40d114b7e767689a0519e6c97d770258",
+      "code_sha_pod": "23e2a8ee40d114b7e767689a0519e6c97d770258",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-r7-c3 --steps 40000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --n-envs 3072 --impl warp --host-workers 24 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_r7.zip --out-name ppo_goal_cw_arch_hist16_r7_c3 --notes 'respec of cw-arch-hist16-r7-c1: Plain English: does the 16-frame temporal-arch walker keep closing the slip/economy gap to the deployment-contract champion with more training, or has it plateaued? c1'\"'\"'s +40M continuation PASSED and was STILL improving (slip/m det 1.14, within one eval-noise step of the champion'\"'\"'s 0.89-1.13 band, up from r7'\"'\"'s 1.43) with no stability regression -- one variable vs c1: +40M more steps warm-started from c1'\"'\"'s own checkpoint, same recipe, nothing else changed. If-true: slip/m det moves fully inside the champion band (<=1.13) and sto keeps pace (not flat/regressing) -- the architecture line closes the gap by exposure alone. If-false: slip/m plateaus outside the band despite the extra steps -- the gap is structural (contact-pricing/architecture), not a training-budget question, and the line should try a different lever (e.g. reward shaping) before another blind continuation.' > /tmp/train_cw-arch-hist16-r7-c3.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-arch-hist16-r7-c3.log"
   }
 ]
