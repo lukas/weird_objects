@@ -12,6 +12,7 @@ it is for; keep them SHORT when you edit them.
 | `WISHLIST.md` | Operator's backlog of things to learn — pull from it whenever pods would idle | Every cycle, when deciding launches |
 | `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, hard-won gotchas; § "Operator status page" = web dashboard runbook | Every cycle, before running commands; when the operator's status page is down |
 | `HARDWARE.md` | Real-robot evidence (traces in `rl_move/hardware_traces/`), sim2real findings, operator experiment backlog | When a decision hinges on real-world data; after any hardware session |
+| `SIM.md` | What the physics sim models, where every actuator number came from, which uncertain params are covered by DR instead of point estimates | Before touching sim params/DR, launching a `bus.servo_params` arm, or judging sim-vs-real gaps |
 | `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/summary.md` convention + cached W&B data | When finishing or investigating a run |
 | `WANDB.md` | How W&B is wired in: project/creds, ops.sh readers, run-page anatomy (OUTCOME notes, artifact lineage), gotchas | First time touching W&B, or when an API call fails auth |
 | `runs/` | One GENERATED summary per run (status, hypothesis, gate, verdict) — rendered from `experiments.json` by `launch_run.py`; never hand-edit | Browsing past runs; `launch_run.py runsmd` refreshes |

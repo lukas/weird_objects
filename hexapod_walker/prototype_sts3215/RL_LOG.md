@@ -480,3 +480,12 @@ carrying the flag in its cfg package evals under it automatically.
 MJX `PENDING_SLOTS` 8→12 (ring must hold ~106 ms × DR 1.8). Suggested
 next: liftoff-reproduction fixture on loaded params, and one dep-line
 arm respec'd with `bus.servo_params=loaded` vs its air twin.
+
+FOLLOW-UP (operator ruling, ~10:40 ET): uncertain sim params — servo
+reaction times above all — go into DR ranges, not pretended-exact
+nominals. Mechanized: the loaded file now carries `delay_ms_pct=0.45`
+fit-uncertainty spread → `from_params` widens latency DR to ×0.3–1.9
+(knee 26–162 ms at scale 1; MJX ring verified). Sim documentation
+landed at `rl_docs/SIM.md` (chain, param provenance, confidence
+table, DR philosophy, known gaps) — linked from RL_PLAN pointers and
+open problem 3, indexed in rl_docs/README.

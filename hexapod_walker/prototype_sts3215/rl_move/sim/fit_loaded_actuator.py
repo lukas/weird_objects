@@ -554,7 +554,19 @@ def main(argv: list[str] | None = None) -> int:
     print("[validate] rl_stand multi-step replay:")
     replay = validate_stand_replay(params)
 
-    params.spread = SimServoParams.load().spread   # keep air DR spreads
+    # DR POLICY (operator, 08-10): parameters we are NOT sure about go
+    # into domain randomization rather than a pretended-exact nominal.
+    # Latency is the least-identified number here — the ladder's
+    # cmd->motion includes the HTTP hop (upper bound ~160 ms) while the
+    # direct-bus path could be far quicker (air knee measured 8.6 ms),
+    # and the fit sat on its cap. Writing delay_ms_pct=0.45 makes
+    # DomainRandomizer.from_params widen latency DR to x0.3-1.9
+    # (~25-160 ms about the knee nominal) on every run that trains with
+    # this file. rise_ms_pct keeps the air joint-to-joint spread
+    # (drives kp/kv spread — the loaded fit has no per-joint data).
+    air_spread = SimServoParams.load().spread
+    params.spread = {ax: {**air_spread.get(ax, {}), "delay_ms_pct": 0.45}
+                     for ax in ("yaw", "hip", "knee")}
     path = params.save(args.out)
     # Append the evidence trail to the JSON for provenance.
     blob = json.loads(path.read_text())
