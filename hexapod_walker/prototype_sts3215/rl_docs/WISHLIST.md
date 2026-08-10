@@ -80,19 +80,24 @@ existing config knobs, [CODE] needs an implementation cycle first,
 2. [RUNNING] **Faster walking** — 0.08–0.12 m/s band
    (`cw-walk-fast`); does real stepping emerge when shuffling can't
    keep up?
-3. [READY — code LANDED c086a22, 08-09 late] **Turning** — yaw-rate
-   command channel implemented: `goal.walk_yaw_cmd=1` samples a wz
-   per command segment (`walk_yaw_max_rad_s`, `walk_yaw_zero_frac`),
-   resampled/blended like vx/vy; `reward.k_walk_yaw` Gaussian kernel
-   (sigma `reward.yaw_sigma_rad_s`, default 0.15) pays every walk
-   tick INCLUDING wz_ref=0 — heading-hold income prices the champion
-   drift (~+10 deg/20 s). wz_ref is appended at the obs TAIL so
-   `--obs-pad-transplant 1` warm-starts from any non-yaw champion.
-   Probe probe-yawcmd-scale: obs 73, MJX clean, 300k steps.
-   KNOWN RISK: like the pre-kgate walk kernel, a parked robot at
-   wz=0 still collects partial yaw kernel when |wz_ref| is small —
-   if turning doesn't emerge, gate yaw income on achieved |wz|
-   (analog of walk_kernel_prog_gate).
+3. [CODE — 3 pricing attempts FAILED 08-10, next step needs code]
+   **Turning** — yaw-rate command channel implemented:
+   `goal.walk_yaw_cmd=1` samples a wz per command segment
+   (`walk_yaw_max_rad_s`, `walk_yaw_zero_frac`), resampled/blended
+   like vx/vy; `reward.k_walk_yaw` Gaussian kernel pays every walk
+   tick. Turning does NOT emerge under any pricing tried: free income
+   (yawcmd1, turn err 0.24), income-gated on achieved wz (yawgate1,
+   0.236), 2.5x income (yawgate2, 0.233) — all ~unchanged, and the
+   per-scenario pattern (yawgate2) shows a fixed left-yaw drift from
+   walk training that the price never touched: commands near the
+   drift track, commands against it don't, even in pure turn-in-
+   place. Root cause is structural (gait bias / lack of a
+   turn-specific regime), not kernel economics — STOP tuning
+   `k_walk_yaw`/gates. NEXT (code task): decouple linear-speed
+   sampling from yaw-rate sampling in `_sample_walk` (walk_task.py)
+   so commanded turns are trained without competing walk-kernel
+   pressure — the "linear speed forced toward 0 during commanded
+   turns" curriculum.
 4. [READY] **Back and forth** — walk forward N cm, reverse back to
    start. Includes backward walking (exploratory line; deferred
    from PROMOTION gates by the 08-09 ruling, not from training).

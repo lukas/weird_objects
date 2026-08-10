@@ -52653,7 +52653,8 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-r7-c1 --steps 40000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --n-envs 3072 --impl warp --host-workers 24 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_r7.zip --out-name ppo_goal_cw_arch_hist16_r7_c1 --notes 'CONTINUATION OF THE 16-FRAME TEMPORAL ARCHITECTURE RUN, ORDERED BY THE OPERATOR (08-10). Plain English: cw-arch-hist16-r7 was the first 16-frame-history policy to actually boot and train (after the /dev/shm root-cause fix) and it PASSED its gate: it walks cleanly from scratch, all six legs cycling, zero falls, joystick gate clean, progress at or above the walk champion. Its one gap is foot economy: slip/m 1.3-1.6 vs the deployment-contract champion at 0.89-1.13, roughly 40 pct worse. External review (08-10) says that gap is measured against contact physics the tape-measure session showed sim gets wrong, so the call is: keep training this line now, and re-baseline the slip caps once the actuator/contact calibration lands. This run warm-starts from the r7 final checkpoint (md5 32269a363d8dc8e4b9dbb2d9faabca05) with an IDENTICAL config and 40M more steps on the same pod (train-2, 3072 envs to fit the 64M /dev/shm). Success looks like: r7 gates still pass with no regression, and slip and progress drifting toward the champion band. Failure looks like: a plateau at r7 levels, which would mean more steps do not buy economy under current contact pricing and this line should wait for the recalibration.' > /tmp/train_cw-arch-hist16-r7-c1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist16-r7-c1.log",
     "wandb_id": "ehwaukw6",
-    "verified": "2026-08-10T14:59:57+00:00"
+    "verified": "2026-08-10T14:59:57+00:00",
+    "triage": "awaiting since 2026-08-10T16:52:51"
   },
   {
     "run": "cw-stance-riseproof1",
@@ -53857,7 +53858,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T16:52:50"
   },
   {
     "run": "cw-dep-vref1-r1-comshift-deadband",
@@ -54036,7 +54038,7 @@
       "reward.walk_yaw_kernel_gate=1.0"
     ],
     "created": "2026-08-10T16:06:50+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -54097,7 +54099,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-yawgate2 since 2026-08-10T16:37:42"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL on yaw-tracking clauses, same signature as yawgate1 despite raising reward.k_walk_yaw 1.0->2.5 (income ceiling was NOT the binding constraint). eval_yaw.py own-cfg: turn |wz_err| med 0.233 rad/s (gate <=0.10, yawgate1 was 0.236 -- no improvement), hold |wz| med 0.091 (gate <=0.05, yawgate1 0.104), 0 falls. Per-scenario breakdown shows a directional bias, not a price problem: arc-left err 0.07-0.21 (small, command near the policys own ~+0.1 rad/s left drift) vs arc-right/tip-right err 0.23-0.37 (command fights the drift) -- error scales with distance from a fixed left-yaw bias in EVERY scenario including pure turn-in-place (tip-left/right), so the 2.5x income raise did not change behavior at all. Retention clean: JOYSTICK GATE (eval_drive DR0.2) PASS 0 falls; DR0 own-cfg gv 12/12 det+sto, prog med 0.98-1.00, slip 1.23-1.26; DR0.5 own-cfg det gv 6/6, prog med 0.95, slip med 1.56 (vs yawgate1 1.42 -- within eval noise, single-seed 6ep). Video (det, gated mode): clean six-leg creep, no flag leg, no new pathology. ROOT CAUSE: confirms yawgate1s own predicted if-false -- turning is blocked by something structural (a directional gait/actuation bias), not by kernel economics; raising the price further is not expected to help. NEXT (per yawgate1s pre-registered escalation, RL_PLAN queue-0): stop tuning k_walk_yaw, move to WISHLIST item 3s dedicated turn-in-place curriculum (decouple linear-speed sampling from yaw-rate sampling so turning is trained without competing walk-kernel pressure) -- this needs a small CODE change to _sample_walk goal generator (correlate vx draw with |wz| draw), not a launchable knob; flagging as a CODE backlog item rather than rushing a patch mid-hardware-window."
   },
   {
     "run": "cw-dep-startvar1-noZDnoBS1",
@@ -54402,7 +54406,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T16:52:50"
   },
   {
     "run": "cw-dep-vref1-r1-cmddrop",
@@ -54510,7 +54515,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T16:52:50"
   },
   {
     "run": "cw-dep-quad1",
@@ -55064,5 +55070,186 @@
     },
     "stack": "gpu-mjx",
     "refused_reason": "hexapod-mjx-train-0 already runs cw-dep-vref1-r1-tiltnoise \u2014 GPU pods host exactly one run; pick a free GPU pod."
+  },
+  {
+    "run": "cw-dep-vref1-r1-imubundle",
+    "pod": "hexapod-mjx-train-6",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: test whether the hardware candidate still walks cleanly if the real IMU has several realistic quirks AT ONCE instead of one at a time. vref1-r1 already PASSED latency drift (0.5-2.5x), a tilted IMU mount (10deg), and gyro noise (1.5deg/s) INDIVIDUALLY (3 separate PASSed respecs tonight) -- the real IMU chip will have all three simultaneously (a slightly crooked mount, sensor noise, AND some read/transport delay), so this bundles the three already-PASSED sensor-realism axes onto the same base recipe as its siblings (respec of cw-dep-vref1-r1, not a warm start from any single-axis checkpoint, to avoid compounding a single lineage's drift). Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + all 3 axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- individually-benign sensor axes stay benign combined, same as the already-PASSED comshift+deadband and fric+groundtilt5 bundles. If-false: the combined sensor uncertainty (mount offset shifting the noise's effective bias, on top of latency) breaks tracking in a way no single axis did -- flag as a real pre-attempt-#2 sensor risk, not assume single-axis DR passes compose for free.",
+    "gate": "own-cfg (DR0.35 + dr.latency_scale=0.5,2.5 + dr.imu_mount_deg=10.0 + dr.gyro_noise_deg_s=1.5) det+sto 6/6 @15s: gait_valid 12/12, 0 term, slip/m within vref1-r1 own band; DR0 no-sensor-DR retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_imubundle",
+      "--notes",
+      "respec of cw-dep-vref1-r1-latency: Plain English: test whether the hardware candidate still walks cleanly if the real IMU has several realistic quirks AT ONCE instead of one at a time. vref1-r1 already PASSED latency drift (0.5-2.5x), a tilted IMU mount (10deg), and gyro noise (1.5deg/s) INDIVIDUALLY (3 separate PASSed respecs tonight) -- the real IMU chip will have all three simultaneously (a slightly crooked mount, sensor noise, AND some read/transport delay), so this bundles the three already-PASSED sensor-realism axes onto the same base recipe as its siblings (respec of cw-dep-vref1-r1, not a warm start from any single-axis checkpoint, to avoid compounding a single lineage's drift). Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + all 3 axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- individually-benign sensor axes stay benign combined, same as the already-PASSED comshift+deadband and fric+groundtilt5 bundles. If-false: the combined sensor uncertainty (mount offset shifting the noise's effective bias, on top of latency) breaks tracking in a way no single axis did -- flag as a real pre-attempt-#2 sensor risk, not assume single-axis DR passes compose for free.",
+      "--cfg-set",
+      "dr.latency_scale=0.5,2.5",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.imu_mount_deg=10.0",
+      "--cfg-set",
+      "dr.gyro_noise_deg_s=1.5"
+    ],
+    "created": "2026-08-10T16:50:16+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-091fd187-5ef1-8187-1927-20faf428512c)",
+      "running_experiments_before": 8,
+      "code_sha_local": "df21fbaba97c369c77e6865339e7631f49450976",
+      "code_sha_pod": "df21fbaba97c369c77e6865339e7631f49450976",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3728163",
+      "log_growth_bytes": [
+        4920,
+        6854
+      ],
+      "wandb_id": "wrfkvges",
+      "global_step_window": [
+        196608,
+        458752
+      ],
+      "fps_estimate": 2912.7
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-imubundle --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_imubundle --notes 'respec of cw-dep-vref1-r1-latency: Plain English: test whether the hardware candidate still walks cleanly if the real IMU has several realistic quirks AT ONCE instead of one at a time. vref1-r1 already PASSED latency drift (0.5-2.5x), a tilted IMU mount (10deg), and gyro noise (1.5deg/s) INDIVIDUALLY (3 separate PASSed respecs tonight) -- the real IMU chip will have all three simultaneously (a slightly crooked mount, sensor noise, AND some read/transport delay), so this bundles the three already-PASSED sensor-realism axes onto the same base recipe as its siblings (respec of cw-dep-vref1-r1, not a warm start from any single-axis checkpoint, to avoid compounding a single lineage'\"'\"'s drift). Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + all 3 axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- individually-benign sensor axes stay benign combined, same as the already-PASSED comshift+deadband and fric+groundtilt5 bundles. If-false: the combined sensor uncertainty (mount offset shifting the noise'\"'\"'s effective bias, on top of latency) breaks tracking in a way no single axis did -- flag as a real pre-attempt-#2 sensor risk, not assume single-axis DR passes compose for free.' --cfg-set dr.latency_scale=0.5,2.5 --cfg-set reward.k_current=0 --cfg-set dr.imu_mount_deg=10.0 --cfg-set dr.gyro_noise_deg_s=1.5 > /tmp/train_cw-dep-vref1-r1-imubundle.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-imubundle.log",
+    "wandb_id": "wrfkvges",
+    "verified": "2026-08-10T16:54:07+00:00"
+  },
+  {
+    "run": "cw-dep-vref1-r1-gainvar",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: today's loaded-actuator finding (P0 rule 6) shows loaded settling time and gain response are less certain than sim's air-fitted defaults; this line has never tested wider per-joint kp/kv gain spread. Widens dr.kp_scale_pct 0.20->0.40 and dr.kv_scale_pct 0.25->0.50 (2x the baseline jitter, still inside the existing dr-scale=0.35 curriculum framework) as an isolated axis on the contract-exact checkpoint. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- extra gain spread composes free like the other single-axis tests. If-false: wider gain variation degrades the gait -- names an actuator-uncertainty axis worth tightening before the loaded-actuator model lands in servo_model.py. Per P0 rule 3, k_current=0.",
+    "gate": "Own-cfg (DR0.35+kp_scale_pct=0.40+kv_scale_pct=0.50) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 baseline-gain retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_gainvar",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: today's loaded-actuator finding (P0 rule 6) shows loaded settling time and gain response are less certain than sim's air-fitted defaults; this line has never tested wider per-joint kp/kv gain spread. Widens dr.kp_scale_pct 0.20->0.40 and dr.kv_scale_pct 0.25->0.50 (2x the baseline jitter, still inside the existing dr-scale=0.35 curriculum framework) as an isolated axis on the contract-exact checkpoint. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- extra gain spread composes free like the other single-axis tests. If-false: wider gain variation degrades the gait -- names an actuator-uncertainty axis worth tightening before the loaded-actuator model lands in servo_model.py. Per P0 rule 3, k_current=0.",
+      "--cfg-set",
+      "dr.kp_scale_pct=0.40",
+      "--cfg-set",
+      "dr.kv_scale_pct=0.50",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T16:51:34+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 7,
+      "code_sha_local": "df21fbaba97c369c77e6865339e7631f49450976",
+      "code_sha_pod": "df21fbaba97c369c77e6865339e7631f49450976",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-gainvar --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_gainvar --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: today'\"'\"'s loaded-actuator finding (P0 rule 6) shows loaded settling time and gain response are less certain than sim'\"'\"'s air-fitted defaults; this line has never tested wider per-joint kp/kv gain spread. Widens dr.kp_scale_pct 0.20->0.40 and dr.kv_scale_pct 0.25->0.50 (2x the baseline jitter, still inside the existing dr-scale=0.35 curriculum framework) as an isolated axis on the contract-exact checkpoint. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- extra gain spread composes free like the other single-axis tests. If-false: wider gain variation degrades the gait -- names an actuator-uncertainty axis worth tightening before the loaded-actuator model lands in servo_model.py. Per P0 rule 3, k_current=0.' --cfg-set dr.kp_scale_pct=0.40 --cfg-set dr.kv_scale_pct=0.50 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-gainvar.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-gainvar.log"
   }
 ]
