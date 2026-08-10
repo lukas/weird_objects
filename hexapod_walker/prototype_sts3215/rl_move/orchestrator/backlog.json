@@ -1,15 +1,15 @@
 [
   {
-    "run": "cw-walk-deadband30-comshift-r1",
+    "run": "cw-walk-groundtilt8-deadband",
     "steps": 20000000,
-    "parent": "cw-walk-deadband30",
-    "hypothesis": "Retry of cw-walk-deadband30-comshift (self-repair PARKED it after 3 launch attempts, all failing on a transient /tmp/proto_sync.tgz write-race on the target pod during a concurrent sync -- confirmed both pods can write fine now, not a real permission fault). Same spec unchanged: off-center CoM payload shift (0.03m) x servo deadband hardening (1.0-3.0x) -- untried pairing off the isolated walk-only deadband30 package.",
-    "gate": "Own-cfg (dr.deadband_scale=1.0,3.0 + dr.com_offset_m=0.03) det+sto 6/6 @30s: gait_valid 12/12, 0 term, det prog med>=0.85; DR0 flat-nominal retention det 6/6 gv, slip/m<=1.24; frames watched det",
+    "parent": "cw-walk-groundtilt8-r3",
+    "hypothesis": "NEW compose, untried pairing: steeper-slope ladder rung (8deg, marginal/degraded per groundtilt8_r3 PASS-with-caveat) x servo deadband (1.0-3.0x, the deadband axis PASSed on groundtilt5, plain walk, and multiple driving packages). Deadband has composed cleanly onto every axis tried so far including the 5deg slope; 8deg is already the marginal envelope edge (3/6 crater fraction vs groundtilt5's 2/6) so this tests whether deadband pushes an already-marginal rung over into a new failure mode (falls/flag-leg) rather than just a slower shuffle. One variable off groundtilt8_r3: add dr.deadband_scale=1.0,3.0. If-false: crater fraction grows past 3/6 or a fall/flag-leg appears -- 8deg+deadband is a harder combination than either alone.",
+    "gate": "Own-cfg (tilt=8deg + dr.deadband_scale=1.0,3.0) det+sto 6/6 @30s: gait_valid 12/12, 0 term, det med fwd>=1.1m; DR0 flat no-deadband retention det 6/6 gv, slip/m<=1.24, prog>=0.90; frames watched det",
     "extra_args": [
       "--task",
       "joint_walk",
       "--init-from",
-      "rl_move/sim/policies/ppo_goal_cw_walk_deadband30.zip",
+      "rl_move/sim/policies/ppo_goal_cw_walk_groundtilt5.zip",
       "--dr-scale",
       "0.0",
       "--episode-seconds",
@@ -44,9 +44,7 @@
       "--cfg-set",
       "reward.anchor_tol_mm=10.0",
       "--cfg-set",
-      "dr.deadband_scale=1.0,3.0",
-      "--cfg-set",
-      "dr.com_offset_m=0.03",
+      "dr.ground_tilt_deg=8.0",
       "--n-envs",
       "4096",
       "--impl",
@@ -54,10 +52,14 @@
       "--host-workers",
       "24",
       "--out-name",
-      "ppo_goal_cw_walk_deadband30_comshift_r1"
+      "ppo_goal_cw_walk_groundtilt8_deadband",
+      "--notes",
+      "respec of cw-walk-groundtilt8-r3: NEW compose, untried pairing: steeper-slope ladder rung (8deg, marginal/degraded per groundtilt8_r3 PASS-with-caveat) x servo deadband (1.0-3.0x, the deadband axis PASSed on groundtilt5, plain walk, and multiple driving packages). Deadband has composed cleanly onto every axis tried so far including the 5deg slope; 8deg is already the marginal envelope edge (3/6 crater fraction vs groundtilt5's 2/6) so this tests whether deadband pushes an already-marginal rung over into a new failure mode (falls/flag-leg) rather than just a slower shuffle. One variable off groundtilt8_r3: add dr.deadband_scale=1.0,3.0. If-false: crater fraction grows past 3/6 or a fall/flag-leg appears -- 8deg+deadband is a harder combination than either alone.",
+      "--cfg-set",
+      "dr.deadband_scale=1.0,3.0"
     ],
     "attempts": 2,
-    "added": "2026-08-10T05:12:24+00:00",
+    "added": "2026-08-10T05:01:31+00:00",
     "last_error": "sync hexapod-mjx-train-1: tar (child): /tmp/proto_sync.tgz: Cannot open: Permission denied\ntar (child): Error is not recoverable: exiting now\ntar: /tmp/proto_sync.tgz: Cannot write: Broken pipe\ntar: Child returned status 2\ntar: Error is not recoverable: exiting now\n"
   }
 ]
