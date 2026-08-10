@@ -5,7 +5,9 @@ Base URL: `http://hexapod.local:8080` (or `HEXAPOD_URL`).
 ## 2026-08-06 incident — read this
 
 Wrong logical zeros + unsupervised stand/plant blends tipped the robot,
-browned out the board, held stilts at ~7 A, and cooked **L5 knee (ID 19)**.
+browned out the board, held stilts at ~7 A, and cooked a knee servo
+(hardware fully resolved 2026-08-09 — servo replaced, all 18 healthy;
+the process rules below are what remain).
 
 **Safe sequence only:**
 

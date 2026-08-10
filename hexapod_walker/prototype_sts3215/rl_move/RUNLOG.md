@@ -79,8 +79,9 @@ Append-only diary of hardware sessions. Newest entries at the bottom.
 ### HTTP API + geometry plant (prefer over SSH)
 - Added `GET/POST /api/rl/*` on hexapod-web + `rl_move/remote.py` client.
 - **Incident:** unsupervised stand/plant with wrong zeros → tip/brownout /
-  ~7 A stilts / **L5 knee ID 19 dead/hot**. set-zero-here later fixed the
+  ~7 A stilts / one knee servo dead/hot (since replaced 08-09; bus 18/18
+  healthy — RESOLVED, not an open issue). set-zero-here later fixed the
   frame (straight-out → logical 0°). Air ±15° nudges then matched encoders
-  on live joints; L0 knee deaf to `#`; L5 knee absent from bus.
+  on live joints.
 - Hardening: cursor rule + AGENTS.md; drive `C`/`P`/`#` Δq>25° refuse;
   `find_plant`/geometry require `force`; `enable_motion` default false.

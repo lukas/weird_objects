@@ -7,10 +7,9 @@ alwaysApply: true
 
 Incident 2026-08-06: wrong logical zeros + unsupervised stand/plant blends
 tipped the robot, browned out the Uno Q, held stilts at ~7 A, and cooked
-L5 knee (bus ID 19). Do not repeat. (Resolved 2026-08-09: the dead servo
-had failed as a V+→GND short on the 12 V rail; operator removed and
-replaced it. The replacement may still ship as factory ID 1 until re-ID'd
-to 19 with `setid`.)
+a knee servo. Do not repeat. (Hardware fully resolved 2026-08-09: servo
+replaced, bus verified 18/18 healthy — never resurface it as an open
+issue; only the process lessons below remain.)
 
 ## Default: do not touch the robot
 

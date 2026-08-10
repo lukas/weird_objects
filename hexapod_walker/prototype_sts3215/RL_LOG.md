@@ -204,8 +204,8 @@ the W&B OUTCOME note — if it matters, it lives there, not here.
 
 ## OPERATOR hardware session 2 (08-09 ~22:30 ET) — bus verified, zero locked, dynamics probe rerun; GPT walk-attempt review landed as BINDING
 
-Robot hand-set at zero by operator. Bus: 18/18 IDs (2-19) live incl.
-L5 knee, temps 30-33°C, 12.1V. Encoders vs visual zero: max |0.3°| →
+Robot hand-set at zero by operator. Bus: 18/18 IDs (2-19) live,
+temps 30-33°C, 12.1V. Encoders vs visual zero: max |0.3°| →
 set_zero locked (robot reports zero-here 18/18). rl_probe_dynamics
 ±10° all joints running (fresh motor_model.json for the actuator-ID
 build). GPT's deep review of the failed walk attempt is archived at
@@ -420,12 +420,9 @@ in sim" root cause with a measured magnitude: sim contact must charge
 both speeds (18 servos) — matches session-3 walking-cheaper-than-
 standing economics.
 
-**4. Hardware: L5 (replaced knee servo ID19 leg) hip reads ~6 deg low
-vs its tripod-mates at stance** -> ~20 mm swing clearance lost, foot
-drags at default 25 mm lift (operator-observed). Not the slip driver
-(see 2) but costs gait quality: redo L5 zero / per-joint trim before
-attempt #2. Also live-demoed loaded sag: knees pull visibly under when
-the robot is lifted (unloaded servos snap to command) — the
+**4. [WITHDRAWN — operator ruling 08-10: all servos/zeros are fine,
+not an open issue.]** Also live-demoed loaded sag: knees pull visibly
+under when the robot is lifted (unloaded servos snap to command) — the
 loaded-actuator gap in one gesture.
 
 **5. Process:** one contaminated run (leg1a: crooked stance from a

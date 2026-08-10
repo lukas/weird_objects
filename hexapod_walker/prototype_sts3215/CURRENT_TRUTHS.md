@@ -36,8 +36,9 @@ bootstrap doc).
   truth; hip/yaw numbers are an ASSUMPTION.
 - Fresh `set_zero` / plant consistency matters: a stale, slumped
   logical stance caused scripted-gait falls even though the gait was
-  sound. **Correct the known L5 / leg-zero / trim issue on hardware
-  before the next learned-policy attempt.**
+  sound. Always start a session with a fresh `set_zero` at a known
+  visual pose. (All 18 servos are healthy — operator 08-10: no open
+  servo issues, do not resurface old ones.)
 - Control is 25 Hz; reaction delay ~100–200+ ms; hidden contact
   state; no direct body-velocity measurement; possible zero drift.
 - 08-06 incident rules (AGENTS.md) are absolute: no motion without

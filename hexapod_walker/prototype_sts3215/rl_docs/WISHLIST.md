@@ -136,9 +136,9 @@ existing config knobs, [CODE] needs an implementation cycle first,
 11. [READY] **Payload** — walk with extra chassis mass (DR mass
     field pushed asymmetrically, or a fixed +20–50% payload).
 12. [CODE] **Five-legged walking** — one leg limp/locked, gait
-    adapts. Directly practical: the real robot has a cooked L5 knee
-    (ID 19) right now. A policy that tolerates a dead leg is worth
-    more than one that assumes six.
+    adapts. A policy that tolerates a dead leg is worth more than
+    one that assumes six (a servo failure mid-session shouldn't end
+    the demo).
 13. [READY] **Quiet gait** — minimize mean/peak servo current at
     fixed distance; hardware-friendliness as an explicit objective.
 13b. [READY] **Richer physics variation** (08-09) — beyond the

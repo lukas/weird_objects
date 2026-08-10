@@ -64,6 +64,40 @@ are velocity obs source, tilt envelope, prev-action semantics, and
 contact/current pricing. STILL MISSING: measured walk distance (true
 ground speed for slip calibration).
 
+## Models to try on the real robot (bench list, 2026-08-10)
+
+Operator-supervised, fresh `set_zero` at a known visual pose first,
+kill switch handy. Ordered by payoff-vs-risk. Verified staged on the
+Mac in `rl_move/sim/policies/` unless noted; pull missing ones with
+`ops.sh pullckpt <run>` and verify md5 against RL_LOG.
+
+1. **`ppo_goal_cw_dep_vref1_r1` — RL walk attempt #2 (the headliner).**
+   STAGED, md5 f9a466cf verified. Trained contract-exact for this
+   robot: `vx/vy_meas := ref`, 25° tilt envelope, 1.5°/tick slew,
+   k_current=0 — the exact gaps that killed attempt #1 — and ~20
+   hardware-imperfection axes verified free on it. Start with 6–10 s
+   forward walks at 0.03 m/s; watch for the attempt-#1 signature
+   (roll ramping over ~2 s). Any walk it does makes it the first
+   learned policy to drive this robot.
+2. **Scripted stand-up modes — `/api/standup` (new today).**
+   `standup_modes.json` modes, sim-validated 10/10 under full DR and
+   friction 0.8–2.0. Low risk (scripted, slow, `/api/standup/stop`
+   aborts). Doubles as science: a real stand-up trace for the rise
+   line, which has no hardware reference at all.
+3. **`cw-dep-quad1-c2` — four-leg stand on the deployment base.**
+   NOT staged yet (`ops.sh pullckpt cw-dep-quad1-c2`). Passed the
+   ≤20 mm height gate today after the +12M continuation; same
+   deployment contract as vref1-r1. Try only after item 1 behaves:
+   walk → stop → lift the front pair. Party trick #1 on real legs.
+4. **`ppo_goal_cw_stance_dr10` — stance champion holds/leans.**
+   STAGED. Quiet plant holds, lean/track following. Its belly RISE
+   is the risky part (stand-up is the incident class — only with
+   hands ready, after everything else looks good).
+5. **While the robot is out (10 min each, unblocks sim work):**
+   hover-vs-planted current log (feeds the holding-current model —
+   the one sim effort gap left) and a commanded-turn sign check
+   (+wz vs actual rotation direction — closes the TURN sign audit).
+
 ## Experiment backlog (operator-run; highest decision-value first)
 
 Each entry: what open decision it settles → procedure → output.

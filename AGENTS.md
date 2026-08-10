@@ -68,9 +68,10 @@ open `http://127.0.0.1:5183/`.
 
 **2026-08-06 incident:** agents drove stand/plant with wrong logical zeros
 (straight-out legs already read knee ≈ −80°). That caused tip/brownout,
-~7 A stilt holds, and a cooked L5 knee (ID 19). The dead servo later
-shorted the 12 V rail; operator replaced it 2026-08-09 (replacement may
-need `setid` → 19). Hard rules:
+~7 A stilt holds, and a cooked knee servo. Hardware is FULLY RESOLVED
+(servo replaced 2026-08-09, bus verified 18/18 healthy — do NOT
+resurface it as an open issue); the process lessons are what remain.
+Hard rules:
 
 1. **No motion** unless the user explicitly asks in the current turn.
 2. **HTTP over SSH** for control (`:8080` `/api/*`, `/cmd`). SSH = deploy
