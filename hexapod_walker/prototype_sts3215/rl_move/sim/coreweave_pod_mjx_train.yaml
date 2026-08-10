@@ -34,6 +34,13 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # k8s default /dev/shm is 64M; a 4096-env sharded trainer maps
+        # ~58M and obs.history_frames>=16 layouts exceed 64M outright —
+        # workers die of SIGBUS (the 08-10 arch-hist16 0-step chain).
+        # 4Gi counts against the pod memory limit (96Gi): fine.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -51,3 +58,8 @@ spec:
           cpu: "28"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi

@@ -30,6 +30,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -44,6 +50,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -62,6 +73,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -76,6 +93,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -94,6 +116,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -108,6 +136,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -126,6 +159,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -140,6 +179,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -158,6 +202,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -172,6 +222,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -190,6 +245,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -204,6 +265,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -222,6 +288,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -236,6 +308,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -254,6 +331,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -268,6 +351,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -286,6 +374,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -300,6 +394,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -318,6 +417,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -332,6 +437,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -350,6 +460,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -364,6 +480,11 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi
 
 ---
 apiVersion: v1
@@ -382,6 +503,12 @@ spec:
       image: python:3.11-slim
       command: ["sleep", "infinity"]
       workingDir: /workspace
+      volumeMounts:
+        # 64M default /dev/shm SIGBUS-kills sharded-trainer workers
+        # (~58M/normal run; hist16+ layouts exceed 64M) — see
+        # coreweave_pod_mjx_train.yaml note, 08-10.
+        - name: dshm
+          mountPath: /dev/shm
       env:
         - name: MUJOCO_GL
           value: osmesa
@@ -396,3 +523,8 @@ spec:
           cpu: "26"
           memory: 96Gi
           nvidia.com/gpu: "1"
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi

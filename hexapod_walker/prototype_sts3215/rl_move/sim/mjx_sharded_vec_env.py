@@ -32,6 +32,7 @@ Split of responsibilities:
 from __future__ import annotations
 
 import multiprocessing as mp
+import os
 import traceback
 from dataclasses import dataclass
 from multiprocessing import shared_memory
@@ -112,6 +113,46 @@ def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
         for i, (field, shape) in enumerate(sorted(dr_shapes.items())):
             layout[f"dr_{field}"] = s(f"dr{i}", (B,) + shape, "float64")
     return layout
+
+
+def _gc_orphaned_shm(root: str = "/dev/shm", prefix: str = "hexmjx-") -> int:
+    """Unlink hexmjx-* shm segments no live process has mapped.
+
+    Crashed trainers leak their segments (tags are random, so the
+    same-name unlink in _ShmArrays never matches them). On the 64M
+    default /dev/shm of the train pods that poisons the pod for every
+    subsequent launch (workers SIGBUS on first touch). Best-effort: a
+    segment is kept if any /proc/<pid>/maps references it.
+    """
+    import glob
+    try:
+        segs = glob.glob(os.path.join(root, prefix + "*"))
+        if not segs:
+            return 0
+        live: set[str] = set()
+        for maps in glob.glob("/proc/[0-9]*/maps"):
+            try:
+                with open(maps) as fh:
+                    txt = fh.read()
+            except OSError:
+                continue
+            for seg in segs:
+                if seg in txt:
+                    live.add(seg)
+        n = 0
+        for seg in segs:
+            if seg not in live:
+                try:
+                    os.unlink(seg)
+                    n += 1
+                except OSError:
+                    pass
+        if n:
+            print(f"[mjx-shard] GC'd {n} orphaned shm segment(s) "
+                  f"(leaked by crashed runs)", flush=True)
+        return n
+    except Exception:
+        return 0
 
 
 class _ShmArrays:
@@ -397,6 +438,12 @@ class MjxShardedVecEnv(VecEnv):
 
         B = int(n_envs)
         n_workers = max(1, min(int(host_workers), B))
+        # GC leaked shm from crashed runs BEFORE allocating ours. Train
+        # pods default to a 64M /dev/shm and a 4096-env layout uses ~58M,
+        # so one crashed run's leaked segments (random tag, never
+        # unlinked) make every later launch on the pod die of SIGBUS on
+        # first page touch — the 08-10 "0-step EOFError" launch plague.
+        _gc_orphaned_shm()
         layout = _shm_layout(
             B, act_space.shape[0], obs_space.shape[0], self.mj_model.nq,
             self.mj_model.nv, self.mj_model.nsensordata,
