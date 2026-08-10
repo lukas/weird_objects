@@ -1,6 +1,6 @@
 {
   "source": "loaded fit from step_ladder_20260810.csv (base: air fit)",
-  "timestamp": "2026-08-10T10:28:24",
+  "timestamp": "2026-08-10T10:42:05",
   "speed_counts_s": 350.0,
   "axes": {
     "yaw": {
@@ -33,15 +33,15 @@
   },
   "spread": {
     "yaw": {
-      "delay_ms_pct": 0.043,
+      "delay_ms_pct": 0.45,
       "rise_ms_pct": 0.108
     },
     "hip": {
-      "delay_ms_pct": 0.146,
+      "delay_ms_pct": 0.45,
       "rise_ms_pct": 0.104
     },
     "knee": {
-      "delay_ms_pct": 0.114,
+      "delay_ms_pct": 0.45,
       "rise_ms_pct": 0.088
     }
   },
