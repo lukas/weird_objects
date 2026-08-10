@@ -214,14 +214,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                      reset: bool = False) -> np.ndarray:
         # Per-tick walk extras, applied via the base-env hook so the
         # obs-history stack (obs.history_frames) includes them in every
-        # frame. goal.walk_obs_body_vel=0 zeroes the privileged
-        # measured-velocity entries (deployable-obs experiment: hardware
-        # has no velocity sensor). Obs WIDTH is unchanged so checkpoints
-        # stay warm-start compatible; the policy must infer body velocity
-        # from joint velocities / gyro instead. Default 1.0 = original.
-        if float(cfg_get(self.cfg, "goal", "walk_obs_body_vel",
-                         default=1.0)) == 0.0:
+        # frame. goal.walk_obs_body_vel selects the source of the
+        # "measured" velocity entries (obs WIDTH unchanged in all modes,
+        # so checkpoints stay warm-start compatible):
+        #   1.0 (default) — privileged simulator body velocity;
+        #   0.0 — zeroed (policy infers velocity from qdot/gyro);
+        #   2.0 — meas := ref, EXACTLY what the hardware runner feeds
+        #         (board has no velocity estimate; 08-09 walk deploy).
+        #         Required for deployment-equivalence arms — zeroing is
+        #         a DIFFERENT contract than the robot's ref-copy.
+        vel_mode = float(cfg_get(self.cfg, "goal", "walk_obs_body_vel",
+                                 default=1.0))
+        if vel_mode == 0.0:
             v = np.zeros(N_VEL_OBS)
+        elif vel_mode == 2.0:
+            goal = self._current_goal()
+            v = (np.array([float(getattr(goal, "vx_ref", 0.0)),
+                           float(getattr(goal, "vy_ref", 0.0))])
+                 / VEL_SCALE) if goal is not None else np.zeros(N_VEL_OBS)
         else:
             v = self._body_vel_xy() / VEL_SCALE
         obs = np.concatenate([obs, v])

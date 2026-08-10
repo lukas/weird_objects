@@ -258,3 +258,63 @@ Robot end state: belly-down at zero (max Δ 0.5°), LIMP, temps ≤33°C,
 - 08-10 02:32 c71: 3 assigned triages (groundtilt5-payload-r4, groundtilt8-s1r1, joyheaddeadband-s1-r1) were pure INFRA FAILURES not science -- all 3 died at 0 steps to the launch-collision EOFError (gotcha 13b) during an extraordinarily severe multi-cycle drain-storm (01:00-02:30, every single pod handoff drew 2+ simultaneous claimants); no verdict possible, ledger entries stand as FAILED. Found+fixed a real self-repair bug while recovering them: launch_run.py's backlog requeue() re-tried a crashed-after-wandb-init item under the SAME name, which the dedup guard then silently DROPPED (no requeue, no park, no trace) instead of retrying -- patched to rename-on-collision before requeue (snapshot 178fc8a); groundtilt5-payload-r5 and (via concurrent cycles building on my retries) groundtilt8-s1-r1 are now genuinely training. joyheaddeadband-s1 lineage died 6 total times across 5 differently-named attempts (mine + concurrent cycles') even post-fix -- matches the c67 joyhead90-lat25-s1 isolated-spec precedent, not generic storm; DIG-IN flagged. Refills: joylat60-payload (payload compose onto the 60s endurance driving package, RUNNING) + arch-hist16-r5 (temporal-arch directive, 6th mechanical retry, ALSO died identically -- DIG-IN flagged, not re-tried further myself). Left remaining free slots (1,4,7,11) to concurrent cycles' churn this cycle -- HARD reason: 5 launch attempts this cycle alone hit the same collision storm, diminishing returns on more manual retries during an active multi-cycle race; my GPU-step commitment (38M of 80M cap) and 2-refill count already reflect real placed science. 
 - 08-10 02:48 c73: 3 triages. cw-uni-mix0-r1 FAIL (walk=0.0 zero-competition isolation still misses rise/lower gate: rise 0/6 the ENTIRE run incl. crouch-start which other lineages call solved, lower ended 3/6, hold got LESS quiet over training 3mm->33mm; walk retention ok on video but slip degraded some; completes the mix-ratio ladder — walk=.7/.4/.2/0 ALL fail rise/lower, cleanly refutes income-scale-vs-walk-competition as the lever, root-cause stays with mix20's DIG-IN). cw-walk-joyfric-payload-s1 PASS (seed-1 twin of payload-onto-driving-package compose, reproduces cleanly: JOYSTICK GATE 0 falls, own-cfg+DR0-retention clean, 2/2 seeds). cw-walk-joyheadtilt3 PASS (3deg slope composes onto the WIDEST +-90deg+latency package: JOYSTICK GATE @90 0 falls, own-cfg prog 0.85/0.93, true-flat DR0 retention clean — ran my own DR0.5 harness+flat-retention+joystick evals since the pre-staged gate eval only covered DR0-walk-mode). SKILLS updated x2 (extended joyfric-payload row, new joyheadtilt3 row). Caught+killed 2 of my own duplicate launches before wasting real compute: torquescale/torquescale-r1 duplicated the already-CLOSED torquedroop axis (fixed the mental note); a stale cw-walk-speedband backlog re-add was caught by the drain's own W&B-name dedupe (0 compute lost) — marked WISHLIST 8b CLOSED so it stops recurring. Checkup: jointtiltpayload-r5 SUSPECT(fps2913) was transient, now healthy ~5300fps, no action. Refills: cw-walk-torquescale-r1(killed,dup) + speedband(dropped,dup) + joyheadtilt3-payload x2 attempts (1 vanished from backlog with zero ledger trace — possible lost-update race distinct from the 178fc8a fix, flagging; 2nd died 0-step collision storm) -> requeued as -r1 for the mechanical drain, not fought a 3rd time by hand. 
 - 08-10 03:17 c72: 3 assigned triages. groundtilt5-fric PASS-with-caveat (friction 0.4-1.6x composes onto the 5deg-slope axis: own-cfg det+sto gv 12/12, 0 term, det med fwd 1.29m>=1.2m gate, DR0 retention clean slip 1.09<=1.24; but HALF the own-cfg det draws (3/6) crater to a high-slip shuffle vs groundtilt5-alone's 2/6 -- video confirms same no-fall/no-flag-leg mechanism, not a new pathology; SKILLS updated). joyheaddeadband-s1-r3 KILLED-infra (host-starved at 3.87M/20M, no gate result) + its -c2 continuation FAILED-infra (0-step launch-collision EOFError) -- both recorded, deadband-seed1 hypothesis still unverified, matches the c67/c71-flagged joyheaddeadband-s1 isolated-spec pattern. Checkup: groundtilt8-s1-r1 SUSPECT (fps 1456 at checkup) reviewed -- fps recovered to 4408+ by this cycle, node g142d86 shares 3 trainers (host-wide contention, not starvation-to-death), left running, no action needed. Infra: hit + fixed a fleet-wide pod code-sync gap this window -- 6 train pods (0,1,3,7,10,11) were stale vs local HEAD after the operator's hardware-session commit landed, causing REFUSED launches misread as collision-storm; ran snapshot.sh --sync on all 6, unblocking several concurrent cycles' drains too. Also resolved a leftover git stash/rebase conflict in RL_LOG.md from an earlier interrupted autostash (merged both sides in chronological order, dropped the stash once clean). Refills (4 distinct lines, cap reached): torquescale-r2 (torque-droop axis, retried through 2 infra deaths + the sync fix, now training as -rr1-rr1), joyjit-dr05-payload-r2 (jitter-DR0.5 x payload compose, same retry pattern), strafe-dr05-payload-r1 (lateral-strafe x payload compose, landed clean), lowgait-dr035-comshift (NEW crouch x CoM-offset compose, landed as -rr1 after a W&B name collision auto-renamed it) -- all VERIFIED training. Noted in passing: yaw-rate turning code (WISHLIST item 3) landed upstream (c086a22) and a first cw-walk-yawcmd1 arm is already training via another cycle/drain -- not mine to touch. Left 4 slots (t1/t3/t7/t11) idle at cycle end -- HARD reason: my 4-launch cap reached and backlog genuinely empty at last check; concurrent cycles' drains and the self-repairing mechanism are still active on the freshly-synced pods. 
+
+## OPERATOR hardware session 3 (08-09 ~23:15-23:35 ET) — SCRIPTED GAIT WALKS; measured gait envelope, currents, latency; omega sign pinned
+
+Operator supervised throughout; robot parked settled+limp, healthy.
+Traces: `rl_move/hardware_traces/hw_session2_20260810.csv` (telemetry
+~2 Hz), `imu_walk_20260810.csv` (tilt ~3 Hz), `step_ladder_20260810.csv`
+(50 Hz single-joint), `motor_dyn_20260810_023300.csv` (air battery).
+
+**1. The scripted tripod gait WALKS this robot** — fwd 30 mm/s (x3),
+fwd 50 mm/s, crab vy=30, turn both directions, all clean from a fresh
+set_zero → P(plant) sequence. Earlier same-evening walks from a stale
+stance (after RL-stand residue + zero glides) fell almost immediately,
+twice. Sequencing/stance-sync matters; the gait itself is sound.
+Operator: DEFINITE foot slipping during gait, "maybe helping" — the
+'floor does not skate' finding from the 08-09 walk post-mortem is about
+body-roll coupling, not an absolute no-slip regime. Contact model must
+allow loaded slide.
+
+**2. A WORKING gait rocks ±10-20° in roll AND pitch** (tilt log, all
+gait phases; stance-hold sits at ±1°). The RL walk deploy trip AND
+training termination at 10° relative tilt would kill this working
+gait. ACTION: walk-mode tilt envelope (train term + deploy trip)
+should be ~25°.
+
+**3. Current economics INVERT the sim's assumptions**: standing hold
+0.59 A total mean (hot spots servo5/13 ~0.1 A each); walking
+0.33-0.45 A mean / ~1.0 A peak; crab & turns same band. Walking is
+CHEAPER than holding. (Session-2's "planted 0.09 A" was a fallen
+robot — windows before ~23:05 are contaminated, robot had tipped.)
+
+**4. Loaded single-joint step ladder (L0 knee at stance, 50 Hz):**
+cmd→first-motion latency 110-210 ms (HTTP+drive-loop path), t90
+260-330 ms (2-5° steps), ~420 ms (10°). Air-battery motor_model.json
+refreshed same night.
+
+**5. Yaw sign convention measured:** `J , , +0.3` → body turns
+CLOCKWISE (video IMG_3423; ~9 rotations over an accidental 200 s run),
+-0.3 → counter-clockwise. Pin this into the deployment-contract audit
+(sim wz_ref sign must be checked against it).
+
+**6. POST-MORTEM CORRECTION (important):** the 1.5°/tick rate clamp
+WAS in the raw-joint training path all along (config
+safety.max_delta_q_deg=1.5 since cb602eb; sim_env._step_begin routes
+through SafetyLayer.filter). The 08-09 "policy runs 9× slow-motion
+dynamics it never trained in" claim is wrong as stated — proposal
+saturation exists in BOTH worlds and PPO plausibly uses the clamp as
+its trajectory generator by design. The REAL contract gaps to close:
+walk obs velocity source (hardware feeds meas:=ref; training used
+privileged sim velocity — new goal.walk_obs_body_vel=2 mode now
+matches hardware exactly), tilt termination (10° vs the ±20° a real
+gait needs), prev-action semantics (unaudited), and contact/current
+pricing (now calibratable from tonight's scripted-gait data).
+
+**7. Phantom over-temp fix HELD**: zero false trips across ~15 min of
+armed motion. 123/34470 temp reads 46-53°C during the 200 s turn may
+be real warming (plausible) — the 107°C spike earlier was corrupt.
+
+Missing: measured walk distance (operator left before measuring) —
+true ground speed still needed for slip calibration; next session,
+tape measure or video with scale.
