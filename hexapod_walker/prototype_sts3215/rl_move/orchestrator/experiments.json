@@ -60291,7 +60291,8 @@
           "W&B global_step stalled at 2031616"
         ]
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T19:59:39"
   },
   {
     "run": "cw-dep-vref1-r1-tiltnoise-encnoise",
@@ -60734,7 +60735,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T19:59:39"
   },
   {
     "run": "cw-dep-vref1-r1-legmass-linklenscale",
@@ -60844,7 +60846,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T19:59:39"
   },
   {
     "run": "cw-dep-vref1-r1-imupos-imubias",
@@ -61218,5 +61221,85 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-badstartjoints --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_badstartjoints --notes 'respec of cw-dep-vref1-r1: Plain English: does the hardware checkpoint still walk cleanly if MORE joints are simultaneously mis-set at session start, separate from tests of how OFTEN a bad start happens (cw-dep-vref1-r1-badstart) or how BIG one joint'\"'\"'s miss can be (cw-dep-vref1-r1-badstartdeg, PASSed this cycle)? This is the third and last dimension of the bad-start mechanism -- breadth. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv (or 5/6 allowing the known crater), 0 term, slip/m within vref1-r1'\"'\"'s own band -- breadth alone is absorbed like frequency/magnitude. If-false: more simultaneously-wrong joints break gait_valid or inflate slip -- breadth, not just frequency/magnitude, is a real pre-attempt-#2 risk.' --cfg-set dr.bad_start_max_joints=6 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-badstartjoints.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-badstartjoints.log"
+  },
+  {
+    "run": "cw-dep-vref1-r1-placement-comshift-zerobias-s1",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Confirm tonight's three-way assembly-tolerance PASS is a property of the recipe, not seed luck, before the operator trusts it around hardware. Seed twin (11->12) of the just-PASSed stack: joint placement slop (6deg) + off-center CoM (0.03m) + hand-zeroed servo horns (3deg) all at once on the hardware-candidate contract, k_current=0 per P0. Same precedent as fric-s1/encnoise-latency-s1. If-true: own-cfg det+sto 12/12 gait_valid, 0 term, slip within vref1-r1's own band \u2014 the assembly-QA armor is seed-robust. If-false (a seed twin erodes): the 3-axis compose PASS was seed luck and the stack gets re-flagged as an assembly-QA risk. Strongest alternative: known fixed-draw crater episodes vary in stall posture between seeds (expected, not a fail \u2014 see the source run's dig-in verdict).",
+    "gate": "own-cfg (DR0.35 + placement6 + com0.03 + zerobias3) det+sto 6/6 each @15s gait_valid 12/12, 0 term, slip/m within vref1-r1 own band (\u00b120%); DR0 retention matching the lineage fingerprint (known idx4 crater tolerated, stall-posture variation tolerated; any sacrificed leg while TRANSPORTING = FAIL); frames watched det",
+    "parent": "cw-dep-vref1-r1-placement-comshift-zerobias",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "12",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_placement_comshift_zerobias_s1",
+      "--notes",
+      "respec of cw-dep-vref1-r1-placement-comshift-zerobias: Confirm tonight's three-way assembly-tolerance PASS is a property of the recipe, not seed luck, before the operator trusts it around hardware. Seed twin (11->12) of the just-PASSed stack: joint placement slop (6deg) + off-center CoM (0.03m) + hand-zeroed servo horns (3deg) all at once on the hardware-candidate contract, k_current=0 per P0. Same precedent as fric-s1/encnoise-latency-s1. If-true: own-cfg det+sto 12/12 gait_valid, 0 term, slip within vref1-r1's own band \u2014 the assembly-QA armor is seed-robust. If-false (a seed twin erodes): the 3-axis compose PASS was seed luck and the stack gets re-flagged as an assembly-QA risk. Strongest alternative: known fixed-draw crater episodes vary in stall posture between seeds (expected, not a fail \u2014 see the source run's dig-in verdict).",
+      "--cfg-set",
+      "dr.placement_noise_deg=6.0",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.com_offset_m=0.03",
+      "--cfg-set",
+      "dr.joint_zero_bias_deg=3.0"
+    ],
+    "created": "2026-08-10T19:59:39+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [
+        "cw-dep-vref1-r1-actionnoise"
+      ]
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-2 already runs cw-dep-vref1-r1-actionnoise \u2014 GPU pods host exactly one run; pick a free GPU pod."
   }
 ]
