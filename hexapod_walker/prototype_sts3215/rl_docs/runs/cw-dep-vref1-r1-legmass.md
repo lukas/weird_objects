@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-10T16:57:29+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-dep-vref1-r1
+
+**wandb_id**: mozcugvf
 
 **hypothesis**: Plain English: test whether the hardware candidate still walks cleanly if each leg's physical mass/length is a bit off from the CAD ideal, the way real 3D-printed/assembled legs always are. vref1-r1 has never tested per-leg manufacturing tolerance (leg_mass_jitter_pct, link_len_leg_pct) in isolation -- distinct from the already-PASSed chassis-level payload/comshift axes, which move the WHOLE body's mass, not per-leg asymmetry. Elevates dr.leg_mass_jitter_pct 0.10->0.20 and dr.link_len_leg_pct 0.012->0.025 (2x) on the contract-exact checkpoint. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- per-leg build variance composes free like the other axes. If-false: asymmetric leg geometry/mass breaks the gait -- flags a real hardware print-tolerance risk to check before attempt #2. Per P0 rule 3, k_current=0.
 
