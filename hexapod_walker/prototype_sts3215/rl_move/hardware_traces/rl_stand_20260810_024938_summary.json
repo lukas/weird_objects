@@ -1,0 +1,63 @@
+{
+ "started": "2026-08-10T02:49:38",
+ "csv": "rl_stand_20260810_024938.csv",
+ "ticks_logged": 210,
+ "params": {
+  "mode": "stand",
+  "total_s": 16.0,
+  "hz": 25.0,
+  "policy": {
+   "source": "rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip",
+   "obs_dim": 68,
+   "act_dim": 18,
+   "hidden": [
+    128,
+    128
+   ],
+   "activation": "tanh"
+  },
+  "q_nom_deg": [
+   -0.44,
+   0.44,
+   -0.18,
+   0.26,
+   0.35,
+   0.0,
+   0.09,
+   0.09,
+   0.35,
+   0.0,
+   0.26,
+   0.09,
+   0.18,
+   0.09,
+   0.09,
+   0.09,
+   0.44,
+   0.18
+  ],
+  "tilt_ref_deg": [
+   0.73,
+   3.35
+  ],
+  "preflight": {
+   "roll_deg": 0.5,
+   "pitch_deg": 0.6,
+   "max_pose_delta_deg": 0.4,
+   "pose_tol_deg": 30.0
+  }
+ },
+ "result": {
+  "ok": false,
+  "mode": "stand",
+  "error": "safety trip: tilt_roll",
+  "limped": true,
+  "ticks": 210,
+  "max_current_a": 2.91,
+  "overruns": 5,
+  "tilt_ref_deg": [
+   0.73,
+   3.35
+  ]
+ }
+}

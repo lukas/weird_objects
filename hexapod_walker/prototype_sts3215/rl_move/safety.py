@@ -64,6 +64,16 @@ class SafetyLayer:
         hz = float(cfg_get(cfg, "control", "hz", default=25))
         self._over_current_trip_ticks = max(1, int(round(trip_s * hz)))
         self._over_current_ticks = 0
+        # Over-temp needs consecutive FRESH feedback reads (not control
+        # ticks): a corrupted byte on the shared half-duplex bus
+        # occasionally reads 70-90 C on a servo that is actually ~33 C
+        # (four phantom trips 08-09, plus one more 08-09 night after the
+        # first tick-based debounce — temps are cached for ~2.5 control
+        # ticks between 10 Hz feedback reads, so ONE bad read satisfied
+        # "3 consecutive ticks"). 3 fresh reads = 300 ms of sustained
+        # over-temp, which real heat easily provides and a glitch cannot.
+        self._over_temp_trip_ticks = 3
+        self._over_temp_ticks = 0
         self.max_load = float(cfg_get(cfg, "safety", "max_load_pct", default=90))
         self._last_safe = np.zeros(N_JOINTS, dtype=float)
         self._tilt_ref = (0.0, 0.0)
@@ -160,9 +170,21 @@ class SafetyLayer:
             status.held = True
             return self._last_safe.copy(), status
 
-        # Servo health (when FB present).
+        # Servo health (when FB present). Temperatures refresh at
+        # full_feedback_hz (10) while control runs at 25 Hz, so a cached
+        # value persists ~2.5 control ticks — one corrupted bus byte
+        # therefore produced exactly the 3 "consecutive" ticks the old
+        # tick-based debounce required (phantom over_temp at t=1.2 s,
+        # 08-09 hardware session 2). Count FRESH feedback reads instead:
+        # stale ticks neither confirm nor clear.
         if state.servo_temperature is not None:
-            if float(np.max(state.servo_temperature)) > self.max_temp:
+            fresh = bool((state.timing or {}).get("full_feedback"))
+            if fresh:
+                if float(np.max(state.servo_temperature)) > self.max_temp:
+                    self._over_temp_ticks += 1
+                else:
+                    self._over_temp_ticks = 0
+            if self._over_temp_ticks >= self._over_temp_trip_ticks:
                 status.ok = False
                 status.terminate = True
                 status.reason = "over_temp"

@@ -218,3 +218,38 @@ shaping stays closed. Operator has authorized higher-risk hardware
 experiments (tip risk accepted); proceeding with the supported
 ladder: air probe → RL stand from belly → quiet hold → RL lower,
 with full 25 Hz traces for the audit.
+
+## OPERATOR hardware session 2 results (08-09 ~23:00 ET) — first stance-line policy signal on hardware; phantom over-temp ROOT-CAUSED and fixed
+
+Three RL stand attempts (ppo_goal_cw_stance_dr10, obs 68 / act 18):
+
+1. **02:37 — phantom over_temp at t=1.2 s, NO policy signal.** The 08-09
+   tick-based debounce (3 consecutive control ticks) was defeated by
+   design: temps refresh at full_feedback_hz=10 but control runs 25 Hz,
+   so ONE corrupted bus byte is cached for ~2.5 ticks and satisfies
+   "3 consecutive". FIXED in `rl_move/safety.py`: over-temp now counts
+   3 consecutive FRESH feedback reads (300 ms of sustained heat); stale
+   ticks neither confirm nor clear. Deployed to robot + verified.
+2. **02:47 — REAL 8.4 s episode, tilt_roll trip at tick 210.**
+3. **02:49 — bit-for-bit repeat: tilt_roll at tick 210.**
+
+Failure signature (traces `rl_move/hardware_traces/rl_stand_20260810_*`):
+0-5 s zero-command curl QUIET (roll <0.5°, <0.15 A — the walk attempt's
+zero-command marching does NOT afflict stance); ramp stable to href
+~32 mm; then at href 33-42 mm (belly liftoff) roll runs +2°→+10° in
+0.8 s with current 0.1→2.9 A, SAME +roll direction both runs. Verdict:
+deterministic liftoff collapse, not noise — consistent with the
+1.5°/tick slew limiter starving fast corrective action under load
+(GPT handoff causal rank #1) and/or loaded-servo dynamics absent in
+training. No third retry (two identical failures = systematic).
+
+Also collected: fresh `motor_dyn_20260810_023300.csv` ±10° air battery
+(all 18 joints, no aborts) + `motor_model.json` → actuator-ID build.
+AUDIT VALUE: these stand traces are the deployment-equivalence
+reproduction case — init sim from belly zero, run the exact deployed
+contract (stateful 1.5°/tick limiter, 25 Hz, meas obs), and check
+whether sim reproduces the href~35 mm +roll blowup. If yes: contract
+fix confirmed. If no: physics gap (contact/loaded actuator).
+
+Robot end state: belly-down at zero (max Δ 0.5°), LIMP, temps ≤33°C,
+18/18 IDs. Safe.
