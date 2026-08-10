@@ -57429,7 +57429,7 @@
       "respec of cw-dep-startvar1-noZDnoBS1: Fourth isolation arm in the startvar1 triangulation. noZDnoBS1 (zero_drift_cmd_frame->0 AND bad_start_prob->0, keeping placement_noise_deg=6 + joint_zero_bias_deg=3) still showed the SAME 2/6 degraded det draws (idx3 partial, idx4 full march-in-place crater) that its single-axis siblings noZD1 and noBS1 also showed at those exact indices -- ruling OUT zero_drift_cmd_frame and bad_start_prob as the cause of this residual failure. The remaining suspects are the two axes held constant across all three prior arms: placement_noise_deg=6 and joint_zero_bias_deg=3, each individually PASSED clean on the plain vref1-r1 line (ppo_goal_cw_dep_vref1_r1_placement, _zerobias) but NEVER tested together until noZDnoBS1. This arm isolates placement_noise_deg=6 ALONE (joint_zero_bias_deg->0, zero_drift/bad_start stay off) on the exact same warm-start/seed/eval panel. If-true: gait fully recovers to vref1-r1's own band (det+sto 6/6 gv, slip/m 0.89-1.36, prog med >=0.85) -- placement_noise_deg=6 is benign alone, which means the joint_zero_bias_deg=3 x placement_noise_deg=6 INTERACTION (not either axis alone) is the residual cause, and the next arm should test zerobias-alone to confirm the interaction from the other side. If-false: still degraded -- placement_noise_deg=6 alone is NOT as benign in this varied-start/walk-panel context as the standalone _placement PASS suggested (a context-dependent axis, not a fixed property), and the mechanism rework needs to look at how placement noise interacts with the walk task's continuous foot-placement demand, not just at zero-drift/bad-start."
     ],
     "created": "2026-08-10T17:34:22+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -57468,7 +57468,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-startvar1-placementonly since 2026-08-10T18:08:32"
+    "triage": "done",
+    "verdict": "FAIL vs own gate, informative isolation result: DR0-gate det ok 3/6 (prog med 0.75, slip med 1.62, outside vref1-r1 band 0.89-1.36), sto clean 6/6; own-cfg(DR0.35) det 5/6, sto 3/6. Reproduces parent noZDnoBS1 det ep3/ep4 failure near-identically with joint_zero_bias_deg ALSO zeroed (only placement_noise_deg=6 + walk-panel varied-start left) and adds a new mild ep5 dip -- rules OUT the zerobias x placement interaction (if-true refuted): placement_noise_deg=6 ALONE reproduces the residual failure, so it (not an interaction) is the remaining suspect. gv 6/6 both modes, 0 term/sacrificed-leg; video is the lineage known clean six-leg march-in-place-stall signature, no flag-leg/skate. Closes the 4-arm startvar1 isolation triangulation (zero_drift_cmd_frame, bad_start_prob, joint_zero_bias_deg all individually+jointly ruled out; placement_noise_deg=6 implicated).",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-imumount-groundtilt5",
@@ -57654,7 +57656,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T18:23:43"
   },
   {
     "run": "cw-dep-vref1-r1-torquescale-deadband",
@@ -58348,5 +58351,90 @@
     "log": "/tmp/train_cw-dep-vref1-r1-gainvar-legmass.log",
     "wandb_id": "u5eg0jka",
     "verified": "2026-08-10T18:19:59+00:00"
+  },
+  {
+    "run": "cw-dep-vref1-r1-placement-comshift-zerobias",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: does a THIRD individually-benign assembly-tolerance axis (per-joint zero-calibration bias, 3deg) stay benign stacked on the just-PASSED 2-axis placement+CoM-shift bundle? All three axes model imperfections fixed at build/assembly time (imprecise joint mounting, off-center weight, and hand-zeroed servo horns) that the real chassis will have simultaneously, not one at a time. Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + all 3 axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- the assembly-tolerance stack keeps composing free. If-false: three compounding fixed offsets (angle + CoM + calibration) break tracking in a way no pair did alone -- a real pre-attempt-#2 assembly-QA risk worth flagging.",
+    "gate": "own-cfg (DR0.35 + placement_noise_deg=6 + com_offset_m=0.03 + joint_zero_bias_deg=3) det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1 own band; DR0 retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_placement_comshift_zerobias",
+      "--notes",
+      "respec of cw-dep-vref1-r1-placement-comshift: PROTECT THE NAMED HARDWARE CANDIDATE: does a THIRD individually-benign assembly-tolerance axis (per-joint zero-calibration bias, 3deg) stay benign stacked on the just-PASSED 2-axis placement+CoM-shift bundle? All three axes model imperfections fixed at build/assembly time (imprecise joint mounting, off-center weight, and hand-zeroed servo horns) that the real chassis will have simultaneously, not one at a time. Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + all 3 axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- the assembly-tolerance stack keeps composing free. If-false: three compounding fixed offsets (angle + CoM + calibration) break tracking in a way no pair did alone -- a real pre-attempt-#2 assembly-QA risk worth flagging.",
+      "--cfg-set",
+      "dr.placement_noise_deg=6.0",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.com_offset_m=0.03",
+      "--cfg-set",
+      "dr.joint_zero_bias_deg=3.0"
+    ],
+    "created": "2026-08-10T18:21:12+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 9,
+      "code_sha_local": "778bd1a6d9f9eeba693923d4901ef94357075861",
+      "code_sha_pod": "778bd1a6d9f9eeba693923d4901ef94357075861",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-placement-comshift-zerobias --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_placement_comshift_zerobias --notes 'respec of cw-dep-vref1-r1-placement-comshift: PROTECT THE NAMED HARDWARE CANDIDATE: does a THIRD individually-benign assembly-tolerance axis (per-joint zero-calibration bias, 3deg) stay benign stacked on the just-PASSED 2-axis placement+CoM-shift bundle? All three axes model imperfections fixed at build/assembly time (imprecise joint mounting, off-center weight, and hand-zeroed servo horns) that the real chassis will have simultaneously, not one at a time. Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + all 3 axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- the assembly-tolerance stack keeps composing free. If-false: three compounding fixed offsets (angle + CoM + calibration) break tracking in a way no pair did alone -- a real pre-attempt-#2 assembly-QA risk worth flagging.' --cfg-set dr.placement_noise_deg=6.0 --cfg-set reward.k_current=0 --cfg-set dr.com_offset_m=0.03 --cfg-set dr.joint_zero_bias_deg=3.0 > /tmp/train_cw-dep-vref1-r1-placement-comshift-zerobias.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-placement-comshift-zerobias.log"
   }
 ]
