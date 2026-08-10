@@ -24205,7 +24205,7 @@
       "Ruling-7 seed twin of cw-walk-wander60-dr05 (c62 PASS: minute-long driving at DR0.5, gv 12/12, prog med 0.94/0.93, no late-episode degradation). The 60s x DR0.5 convergence rung is the closest sim rung to real operator joystick sessions and should be recipe-robust before anchoring anything. One variable off the wander60-dr05 RECIPE: --seed 0 -> 1 (identical config+parent wander-dr05). Prediction-if-true: seed 1 reproduces the pass (own-cfg DR0.5 60s gv 12/12, 0 term, prog med >=0.85, slip/m med <=2.4) - minute-long robust driving is seed-robust like the wander-dr05 3-seed panel. Prediction-if-false: seed 1 shows late-episode stalls/slip growth - the c62 pass was seed luck and long-horizon robustness needs recovery-focused training. Strongest alternative: letter pass with more low-prog sto eps - report the tail, panel still counts. Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip. Gate: own-cfg DR0.5 60s 6+6 resampled cmds: gv 12/12, 0 term, prog_ratio med >=0.85, no ep prog <0.5, slip/m med <=2.4, worst-ep <=2.6; DR0 det retention 6 eps gv 6/6; frames watched det full horizon"
     ],
     "created": "2026-08-09T21:36:36+00:00",
-    "status": "INTENT",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -24219,7 +24219,9 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-wander60-dr05-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip --dr-scale 0.5 --episode-seconds 60 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 1 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=5.0 --cfg-set goal.walk_stop_frac=0.15 --n-envs 4096 --impl warp --host-workers 24 --notes 'Ruling-7 seed twin of cw-walk-wander60-dr05 (c62 PASS: minute-long driving at DR0.5, gv 12/12, prog med 0.94/0.93, no late-episode degradation). The 60s x DR0.5 convergence rung is the closest sim rung to real operator joystick sessions and should be recipe-robust before anchoring anything. One variable off the wander60-dr05 RECIPE: --seed 0 -> 1 (identical config+parent wander-dr05). Prediction-if-true: seed 1 reproduces the pass (own-cfg DR0.5 60s gv 12/12, 0 term, prog med >=0.85, slip/m med <=2.4) - minute-long robust driving is seed-robust like the wander-dr05 3-seed panel. Prediction-if-false: seed 1 shows late-episode stalls/slip growth - the c62 pass was seed luck and long-horizon robustness needs recovery-focused training. Strongest alternative: letter pass with more low-prog sto eps - report the tail, panel still counts. Parent: rl_move/sim/policies/ppo_goal_cw_walk_wander_dr05.zip. Gate: own-cfg DR0.5 60s 6+6 resampled cmds: gv 12/12, 0 term, prog_ratio med >=0.85, no ep prog <0.5, slip/m med <=2.4, worst-ep <=2.6; DR0 det retention 6 eps gv 6/6; frames watched det full horizon' > /tmp/train_cw-walk-wander60-dr05-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-wander60-dr05-s1.log",
-    "triage": "awaiting since 2026-08-09T22:28:51"
+    "triage": "done",
+    "verdict": "FAIL on the pre-registered gv-12/12 gate: seed-1 twin of the wander60-dr05 60s/DR0.5 driving PASS (c62) reproduces cleanly in det mode (6/6 gv both DR0.5-own-cfg and DR0-retention, prog med 0.95-0.98, slip/m med 1.16-1.35) but sto/0 has a genuine sacrificed leg (leg 4 duty 0.08 vs siblings 0.37-0.89, slip/m 2.11, video-checked, not a march-in-place false-positive) -- 11/12 not 12/12. Informative negative: refutes strict seed-robustness for THIS long-horizon (60s) DR0.5 rung under stochastic sampling; det/hardware-relevant mode is unaffected. Ledger note: checkpoint was saved on-pod under the trainer default name (ppo_mjx_joint_walk_cw-walk-wander60-dr05-s1.zip, no --out-name set at launch) not the ppo_goal_ convention -- pulled+renamed manually (md5 52315ebe), no harness eval had run before this cycle.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-groundtilt-dr05-s1",
@@ -41354,9 +41356,15 @@
         "placement": "solo on GPU-MJX pod",
         "verdict": "HEALTHY",
         "problems": []
+      },
+      {
+        "time": "2026-08-10T14:13:05+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "o] logged reel (12,021,760 steps | walk:ok walk:ok walk:ok walk:ok)\n[periodic-eval] 12,042,240: hold 0.77\u00b0, track 3.39\u00b0, unload 0.88\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.030 m/s, lower 0/2\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 12,000,000 steps in 1230s (9,758 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_yawcmd1_rr1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_walk_yawcmd1_rr1 (md5 3b58cc0a)\n"
       }
     ],
-    "triage": "awaiting since 2026-08-10T03:36:27"
+    "triage": "in-cycle cw-walk-wander60-dr05-s1-cw-walk-yawcmd1-cw-walk-yawcmd1-rr1 since 2026-08-10T14:06:27"
   },
   {
     "run": "cw-walk-lowgait-dr035-comshift-rr1",
@@ -41663,7 +41671,7 @@
       "goal.walk_yaw_zero_frac=0.5"
     ],
     "created": "2026-08-10T03:15:55+00:00",
-    "status": "REFUSED",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [
@@ -41672,7 +41680,9 @@
     },
     "stack": "gpu-mjx",
     "refused_reason": "hexapod-mjx-train-2 already runs cw-walk-yawcmd1-rr1 \u2014 GPU pods host exactly one run; pick a free GPU pod.",
-    "triage": "awaiting since 2026-08-10T03:16:14"
+    "triage": "done",
+    "verdict": "FAILED-infra: 0-step launch-collision death (wandb zc7m2ez0, runtime 2s, no training). No science lost -- retry cw-walk-yawcmd1-rr1 landed the real attempt at the same hypothesis/gate (own-cfg clean, JOYSTICK GATE pass per an earlier cycles analysis, but its yaw-tracking metric needs custom analysis beyond the standard harness, flagged DIG-IN separately).",
+    "hardware_ready": false
   },
   {
     "run": "cw-quad-hold1",
@@ -45856,7 +45866,7 @@
       "dr.friction_scale=0.4,1.6"
     ],
     "created": "2026-08-10T04:05:01+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -45897,7 +45907,9 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-walk-lowgait-fricvar-s1-rr1-cw-walk-placementnoise6-comsh since 2026-08-10T13:36:14"
+    "triage": "done",
+    "verdict": "PASS: seed-1 twin of cw-walk-lowgait-fricvar (parent PASS) confirms crouch(-20mm) x friction-var(0.4-1.6x) is a recipe not seed luck -- own-cfg det gv 6/6 (0 term, height err mean 3.8mm det/3.4mm sto, both <=8mm gate), sto gv 6/6, det/4 craters to the lineage's known fixed-draw march-in-place stall (prog -0.04, slip 14.9, frame-checked: level body, all 6 legs still cycling, no flag-leg) matching the seed-0 fricvar's own documented slick-draw caveat, not a new defect; DR0 nominal-crouch retention det gv 6/6, slip/m 1.08 (<=1.24 gate).",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-joylat60-torquescale-rr1-rr1",
@@ -45973,7 +45985,7 @@
       "dr.torque_scale=0.80,1.05"
     ],
     "created": "2026-08-10T04:06:17+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -46014,7 +46026,9 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-quad-turn1-r1-cw-walk-joyheadtilt3-payload-rr1-cw-walk-jo since 2026-08-10T13:10:53"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS: torque-droop under load (0.80-1.05x) composes for free onto the 60s abrupt-flip driving endurance package (joylat60) -- 2nd independent confirmation of this compose cell (matches sibling joylat60-torquescale-rr2's PASS, and the isolated torque-droop axis alone is already CLOSED/NO-EFFECT on the plain-walk baseline). Own-cfg (DR0.5+latency+torque) det gv 6/6 prog med 0.97 slip med 1.44 fwd med 1.51m (>=1.2m gate), sto gv 6/6 prog med 0.95 slip med 1.47 fwd med 1.49m, 0 term either mode, 0 sacrificed legs. JOYSTICK GATE (eval_drive DR0.2, 45deg envelope): 0 in-envelope falls across the full direction panel + flip-stress. DR0 TRUE FLAT retention (torque+latency overrides both dropped): det gv 6/6 prog med 0.975 slip med 1.40, sto gv 6/6 prog med 0.965 slip med 1.48 -- inside joylat60's own established flat-retention band (1.43-1.65 per SKILLS row); the run's pre-registered 1.24 slip cap is boilerplate mismatched to this lineage's real band (same pattern already documented on joylat60-torquescale-rr2 and joyjit-payload), not a regression. Frames (own-cfg det, 2 episodes watched): six legs cycling swing/stance throughout, no flag leg, no dragging, no first/second-half decay. Not hardware-ready (known paddle foot-slide persists, contract-line economics not applied to this lineage)."
   },
   {
     "run": "cw-walk-tiltnoise-r5-rr1",
@@ -48883,7 +48897,7 @@
       "respec of cw-walk-tiltnoise: 5th retry of cw-walk-tiltnoise (base+r1-r4 ALL died 0-step to the fleet launch-collision storm, gotcha 13b -- never got a science result on this axis, unlike its siblings imupos15/gyrobias3 which both closed NO-EFFECT). Same isolated axis unchanged: OPERATOR WISHLIST 13c untested IMU tilt-reading NOISE (dr.tilt_noise_deg=1.5, 5x the full-DR default) off the plain champion longdist-r2, dr-scale 0.0 otherwise."
     ],
     "created": "2026-08-10T05:23:49+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -48924,7 +48938,9 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-walk-tiltnoise-r5-rr1-cw-walk-torquescale-rr1-rr1-cw-walk since 2026-08-10T13:46:22"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "NO-EFFECT (5th retry finally trained after 4 collision deaths). own-cfg (dr.tilt_noise_deg=1.5, 5x default) det 4/6 healthy (med prog 0.95 slip 1.28 fwd 1.38m) but eps4/5 crater (prog 0.48/0.35 slip 3.19/4.40 fwd 0.65/0.59m, video: legs still all cycling, slow paddle-shuffle, no flag-leg/fall). NAMED BASELINE measured this triage: champion longdist_r2 under the IDENTICAL 1.5deg tilt-noise spread, same seed (logs/ckpt_eval/champion_tiltnoise15_base) reproduces the SAME eps4/5 crater almost exactly (prog 0.47/0.39 slip 3.33/4.13 fwd 0.65/0.62m) and the same med (prog 0.92 slip 1.23 fwd 1.47m) -- no improvement outside noise. DR0 nominal retention clean (det 6/6 gv, slip med 0.97<=1.24). Same conclusion as torquescale/gyrobias3/gyronoise15/encodernoise/imupos15: this is the lineage's fixed-draw crater, independent of the DR axis; 5x tilt-noise exposure bought nothing. Single-axis calibration-DR ladder now fully exhausted; stop feeding this class."
   },
   {
     "run": "cw-walk-joyheadtilt3-payload-rr1",
@@ -49620,7 +49636,7 @@
       "respec of cw-walk-placementnoise6-r3: NEW compose, untried pairing: off-center CoM payload shift (0.03m) x hand-placement-slop hardening (placementnoise6, 6deg, PASS). CoM offset composes for free onto the plain champion, groundtilt5, and multiple driving packages; hand-placement-slop specifically has not been tried with an off-axis CoM load. If-true: own-cfg (placementnoise6+comshift) det+sto 6/6 gv, 0 term, det prog med>=0.85 (matching placementnoise6's own band); DR0 flat-no-slop-no-offset retention clean. If-false: the off-axis load interacts with placement-slop errors to crater progress or cost falls that flat-ground comshift composes did not show. (Requeue: 1st queue attempt vanished from backlog with zero ledger trace, matches the documented lost-update symptom under this cycle's heavy concurrent-drain load, 0 compute lost.)"
     ],
     "created": "2026-08-10T05:58:06+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -49661,7 +49677,9 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-walk-lowgait-fricvar-s1-rr1-cw-walk-placementnoise6-comsh since 2026-08-10T13:36:15"
+    "triage": "done",
+    "verdict": "PASS-with-caveat: NEW compose (off-center CoM 0.03m x hand-placement-slop 6deg) holds mechanically -- own-cfg det+sto gv 12/12, 0 term, 0 sacrificed legs, 0 flag-leg on video. Det prog med 0.83 narrowly misses the ledger's own stated >=0.85 threshold, but the distance-equivalent metric the parent gate actually used (fwd med) is 1.26m, matching-or-beating parent placementnoise6-r3's own 1.23m/1.2m-gate convention; the 2 clearly degraded det draws (prog 0.37/0.52, fwd 0.47/0.62m) reproduce the SAME heavy-tail slow-shuffle pattern placementnoise6 shows alone (documented 3/6-degrade band), not a new CoM-offset interaction. DR0 flat-no-slop-no-offset retention is clean: det gv 6/6, prog 0.96 (>=0.90 gate), slip/m 1.02 (<=1.24 gate) -- no erosion.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-startvar1-s1",
@@ -50387,7 +50405,7 @@
       "ppo_goal_cw_walk_terrain10_comshift_s1"
     ],
     "created": "2026-08-10T06:36:53+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -50428,7 +50446,9 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-walk-lowgait-fricvar-s1-rr1-cw-walk-placementnoise6-comsh since 2026-08-10T13:36:15"
+    "triage": "done",
+    "verdict": "PASS: seed-1 twin of cw-walk-terrain10-comshift (parent PASS) confirms rough-terrain(amp1.0,36mm) x off-center CoM(0.03m) compose is a recipe not seed luck -- own-cfg det gv 6/6 (0 term, prog med 1.00 matching parent's 1.01 band), sto gv 6/6 (prog med 1.00), det/4 craters to prog -0.01/slip 22.7 -- the SAME idx4 fixed-draw march-in-place stall the parent checkpoint shows episode-for-episode (level body, all 6 legs cycling, no flag-leg), reproducing across the eval's fixed seed regardless of training seed; DR0 flat-no-terrain-no-offset retention det gv 6/6, prog 1.08, slip/m 0.91 -- clean, no erosion.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-yawcmd1-s1",
@@ -50551,7 +50571,7 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-10T08:13:35"
+    "triage": "in-cycle cw-uni-rfix-fresh1-cw-uni-rfix-warm1-cw-walk-yawcmd1-s1 since 2026-08-10T14:21:37"
   },
   {
     "run": "cw-quad-hold2-lowgait",
@@ -52407,7 +52427,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-uni-rfix-fresh1-cw-uni-rfix-warm1-cw-walk-yawcmd1-s1 since 2026-08-10T14:21:36"
   },
   {
     "run": "cw-uni-rfix-warm1",
@@ -52521,6 +52542,7 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-uni-rfix-fresh1-cw-uni-rfix-warm1-cw-walk-yawcmd1-s1 since 2026-08-10T14:21:37"
   }
 ]
