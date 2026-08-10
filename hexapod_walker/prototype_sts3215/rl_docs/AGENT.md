@@ -100,8 +100,12 @@ everything (launches/cycle, GPU steps/cycle, concurrent cycles).
   census AFTER queueing, not just before.
 - **Analysis paralysis with idle GPUs.** The agent's natural failure
   mode is over-deliberation: waiting for operator input, re-reading
-  history, writing essays while pods idle. The operator's standing
-  order: idle pods are the failure, not imperfect experiments.
+  history, writing essays while pods idle. (SUPERSEDED 08-10: the
+  KPI is now unresolved blockers to the next hardware test, not
+  occupancy — idle pods are acceptable; peripheral runs queued to
+  fill capacity are the new failure mode. Over-deliberation on the
+  critical path is still a failure; assume-and-go still applies
+  there. See RL_PLAN.md "Prime directive".)
 - **"More seeds" as a default refill.** It's a cop-out. Seeds are
   for PROMOTION panels (ruling 7), not for filling slots.
 - **Coefficient iteration on a rejected behavior.** k=5,10,20,40 on

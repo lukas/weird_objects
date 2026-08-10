@@ -83,11 +83,26 @@ shared-model per-env fields) in the MJX path.
 
 ## Known gaps — sim is NOT trusted here (open problems in RL_PLAN)
 
-1. **Contact prices sliding as free.** Real slip ratio measured 0.50
-   (tape, 08-10); sim must charge ~half the kinematic stride as slide.
-   Blocked on the operator pricing calibration.
-2. **Current/effort pricing inverted** — real walking is cheaper than
-   standing; `k_current=0` on hardware arms until calibrated.
+1. **Contact travel pricing: CALIBRATED 08-10, premise revised.**
+   `rl_move/sim/calibrate_slip.py` replays the exact hardware tripod
+   gait (same generator, plant +20/+80, hardware write profile
+   1500/30) against the tape truth (ratio 0.50–0.51, speed-invariant).
+   Result: sim travels 0.35–0.41 of commanded at BOTH speeds — sim
+   does NOT price sliding as free; it loses slightly MORE stride than
+   concrete (conservative), and matches the speed invariance and the
+   walking current band (sim 0.36–0.45 A vs real 0.31–0.42). μ
+   saturates above ~1.5 (sweep 0.2–8.0), so friction is not the
+   limiting knob at nominal; XML default stands. New cfg hook
+   `env.foot_friction_slide=<μ>` (C + both MJX stacks) recenters
+   foot–ground slide μ if a future floor demands it; DR
+   friction_scale multiplies around it. Re-run the script after ANY
+   contact/servo-param change (Gate 0).
+2. **Current/effort pricing inverted AT HOLD** — quantified 08-10 by
+   the same replay: sim plant-hold mean current 0.11 A vs real 0.59 A
+   (walking matches). The inversion is NOT fixable by scaling
+   (ordering flips); it needs a load-dependent holding-current model
+   fitted on the existing per-servo traces (tape CSVs + rl_stand
+   logs). Until then `k_current=0` on hardware arms stands.
 3. **Hip/yaw loaded dynamics assumed**, not measured (table above).
 4. **Liftoff +roll collapse not yet reproduced in sim** — the loaded
    actuator set is the prime-suspect fix; re-run the reproduction

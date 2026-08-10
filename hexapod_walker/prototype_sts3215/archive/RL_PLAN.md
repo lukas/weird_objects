@@ -1,3 +1,15 @@
+> **HISTORICAL DOCUMENT — DO NOT USE FOR CURRENT EXPERIMENT DESIGN,
+> TRAINING, EVALUATION, OR HARDWARE DEPLOYMENT.** This file documents
+> Phase-1 development through 2026-08-07. Many architecture, reward,
+> simulator, safety, observation, actuator-model, and project-goal
+> assumptions below have since been superseded (fixed-foot IK, 6-D
+> body actions, old tilt limits, old current economics, air-fit
+> calibration, old rise-success definitions — among others). Current
+> agents must read, in order: `../RL_GOALS.md`,
+> `../CURRENT_TRUTHS.md`, `../RL_PLAN.md`, `../RESEARCH_RULES.md`,
+> `../rl_docs/SIM.md`. Do not infer current project state from this
+> document; use it only to answer historical questions.
+
 # STS3215 Hexapod — RL Phase 1 Plan
 ## Stationary Balance, Target Tracking, and Safe Real-Robot RL
 
