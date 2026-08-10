@@ -53,8 +53,11 @@ DEG2RAD = math.pi / 180.0
 # Pending-command ring slots. Commands arrive once per control tick;
 # a slot may only be overwritten after its goal has matured (applied),
 # so K * dt_ctrl must comfortably exceed the largest latency
-# (fitted ~60 ms × DR latency_scale ≤ 1.8 ⇒ ~110 ms; 8 × 40 ms = 320 ms).
-PENDING_SLOTS = 8
+# (air fit ~60 ms; the LOADED fit (sim_model_loaded.json, 08-10) carries
+# ~85-106 ms per axis × DR latency_scale ≤ 1.8 ⇒ ~190 ms; 12 × 40 ms =
+# 480 ms keeps the upload check's 2× margin. Ring scan cost is a
+# fori over slots inside jit — 12 vs 8 is noise).
+PENDING_SLOTS = 12
 
 # The MjModel fields per-episode model DR writes (domain_rand
 # EpisodeRandomization.apply_to_model + servo_model.apply_params_to_model

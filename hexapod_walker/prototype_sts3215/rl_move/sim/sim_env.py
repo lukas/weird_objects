@@ -148,7 +148,10 @@ class SimHexapodBalanceEnv(_GymBase):
         import mujoco
         self._mujoco = mujoco
         self.cfg = cfg if cfg is not None else load_config()
-        self.params = params if params is not None else SimServoParams.load()
+        # bus.servo_params selects the fitted actuator set ("" = air fit,
+        # "loaded" = 08-10 loaded bench fit); explicit params win.
+        self.params = (params if params is not None
+                       else SimServoParams.from_cfg(self.cfg))
         self.render_mode = render_mode
         self.rng = np.random.default_rng(seed)
 

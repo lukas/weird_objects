@@ -41,6 +41,10 @@ RAD2DEG = 180.0 / math.pi
 COUNTS_PER_DEG = 4096.0 / 360.0
 
 SIM_MODEL_PATH = Path(__file__).resolve().parent / "sim_model.json"
+# Loaded-actuator fit (fit_loaded_actuator.py, 08-10 bench session):
+# selected with --cfg-set bus.servo_params=loaded; the default stays the
+# air fit so every existing lineage is untouched.
+LOADED_MODEL_PATH = Path(__file__).resolve().parent / "sim_model_loaded.json"
 
 
 @dataclass
@@ -115,6 +119,30 @@ class SimServoParams:
             timestamp=blob.get("timestamp", ""),
             speed_counts_s=float(blob.get("speed_counts_s", 350.0)),
         )
+
+    @classmethod
+    def from_cfg(cls, cfg: dict | None) -> "SimServoParams":
+        """Resolve the params set from cfg key ``bus.servo_params``.
+
+        "" / absent (default) -> the air fit (``sim_model.json``) —
+        legacy byte-exact; "loaded" -> ``sim_model_loaded.json`` (the
+        08-10 loaded bench fit); any other value -> explicit json path.
+        A missing file for an EXPLICIT selection raises instead of
+        silently falling back (a dropped reward/cfg package voided a
+        verdict once — gotcha 3; same failure class).
+        """
+        sel = ""
+        if cfg is not None:
+            from rl_move.config import cfg_get
+            sel = str(cfg_get(cfg, "bus", "servo_params", default="") or "")
+        if not sel:
+            return cls.load()
+        path = LOADED_MODEL_PATH if sel == "loaded" else Path(sel)
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"bus.servo_params={sel!r} -> {path} does not exist; "
+                "run fit_loaded_actuator.py or fix the path")
+        return cls.load(path)
 
 
 # ---------------------------------------------------------------------------

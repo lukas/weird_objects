@@ -390,7 +390,7 @@ def main() -> None:
     # ONLY the overridden field randomized). Without this the override
     # silently evaluated as plain DR0 (cycle 49).
     _has_dr_ov = bool(cfg_kw.get("cfg", {}).get("dr"))
-    env = env_cls(params=SimServoParams.load(),
+    env = env_cls(params=SimServoParams.from_cfg(cfg_kw.get("cfg")),
                   randomize=(args.dr_scale > 0 or _has_dr_ov),
                   dr_scale=args.dr_scale,
                   episode_seconds=args.episode_seconds, seed=args.seed,

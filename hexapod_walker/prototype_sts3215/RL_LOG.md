@@ -442,3 +442,41 @@ not saved" — stored plant unchanged (verified), robot re-planted via P.
 - 08-10 13:41 c: 3 triages under operator LAUNCH_HOLD (analyze-only). cw-walk-lowgait-dr035-deadband-s1 + -fric-s1 + -groundtilt5-s1 all PASS: seed-1 twins of the three crouch(-50mm,DR0.35)-compose PASSes (deadband/friction/5deg-slope) confirm each is a recipe not a seed-0 fluke -- own-cfg gv 12/12 each, slip/m med in the same 1.0-1.4 band, DR0 retention gv 12/12 slip/m med 1.01-1.11 (<=1.15 gate), same shared inherited fixed-draw march-in-place stall (level body, all 6 legs cycling, no fall/flag-leg, frame-verified against both a clean and the crater episode per run) -- not new, matches every prior sibling in this lineage exactly. SKILLS +1 consolidated seed-robustness row. Watcher's pre-staged gate eval was skipped (6+ evals already queued) so I ran own-DR(0.35)+DR0 eval passes myself for all three (6 eval_checkpoint invocations). No refills -- LAUNCH_HOLD in effect, 12/12 pods idle by operator design, correct state. 
 - 08-10 14:01 OPERATOR SESSION (09:16-10:05 local): rise/lower reward pricing fixed (69e00c0, cfg-gated legacy-exact: reward.rise_finish_gate_signed closes the lower-mode always-open arrival-bonus bug, reward.rise_income_prog_gate gates kernel+finish income on fraction-of-target covered; measured freeze return in lower +120 -> -16, defaults md5-identical). Launched the uni-line DIG-IN pair with both flags on: cw-uni-rfix-warm1 (train-0, mix0-r1 respec, pricing-only arm) + cw-uni-rfix-fresh1 (train-1, the missing from-scratch control, no init, log_std 0 ent .005 DR0.2). LAUNCH_HOLD was lifted only for this drain (watcher PAUSEd during the window) and is RESTORED. 
 - 08-10 14:03 c: 3 triages under operator LAUNCH_HOLD (analyze-only, but launches still forbidden). cw-walk-joylat60-torquescale-rr2 PASS (torque-droop 0.80-1.05x composes free onto the 60s driving-endurance package: own-cfg+true-flat gv 6/6 both modes, JOYSTICK GATE 0 falls incl flip-stress; run's own 1.24 slip cap is boilerplate mismatched to this lineage's real 1.4-1.7 band, not a regression -- corrected my own eval methodology mid-cycle by adding the missing own-cfg DR0.5 + true-flat + JOYSTICK GATE passes the pre-stage/evalcmd default alone didn't cover). cw-walk-lowgait-dr035-comshift-s1 PASS (seed-1 twin of comshift-r1 reproduces cleanly; caught+fixed a methodology slip where evalcmd's default 'retention' command still carries the training com_offset override -- a genuine no-offset re-run shows the seed0/idx4 crater is comshift-specific for THIS draw, fully consistent with c79's original fresh-draw-panel root cause, not a contradiction). cw-walk-joyquad15 FAIL (halving quad-mix 30%->15% barely moves walk-mode slip, 1.64/1.70 vs cap 1.55 -- 4th data point that quad-mix erosion isn't dose-proportional; quad-hold mechanism itself stays solid). SKILLS +3 rows/edits. No refills -- LAUNCH_HOLD still in effect, 10/12 slots idle by operator design (2 pre-existing uni-rfix runs still training). 
+
+## AGENT 08-10 ~10:20 ET — LOADED ACTUATOR ID LANDED (GPT-handoff P0 item 3): sim_model_loaded.json, opt-in via bus.servo_params=loaded
+
+`rl_move/sim/fit_loaded_actuator.py` (sim-in-the-loop coordinate
+descent, free-base STANCE replay at plant — same placement + contact
+softening as training envs) fits the knee axis to the loaded step
+ladder; fit on ±2/±10°, **±5° held out**. Loss 591 (air params) → 1.6.
+
+**The dominant miss was the DEADBAND, not kp:** air rig fitted 0.494°;
+that alone floors sim tracking at 90.1% on 5° steps (exactly what sim
+showed) vs 96.6% measured — loaded deadband fits at **0.06°**. Rest of
+knee fit: kp 43.8→916, kv 0.795→0.172, latency 8.6→**85 ms** (fit hit
+the deliberate cap: ladder cmd→motion 110-210 ms includes the HTTP hop,
+and MJX's pending ring bounds latency×DR 1.8), vel ceiling
+30.8→**48.5°/s**. Ladder peaks (48-67°/s) are true servo capability —
+the drive-loop wrote mcu default speed 1500, not binding; the DEPLOYED
+path writes 400 (35.2°/s), so there the profile speed binds again.
+Deployed-path check: rl_stand cmd→q derivative-xcorr response lag
+~250-258 ms median on ALL axes — corroborates the ladder on the
+contract path. **Validation:** held-out ±5° loss 0.21/0.27 (fitted) vs
+4.24/9.48 (air) = 20-40×; multi-step deployed-contract replay of both
+rl_stand liftoff-collapse traces (recorded 25 Hz cmd stream through
+ServoProfile+MuJoCo) moving-joint RMSE 2.46/2.50° vs air 2.92/3.19°.
+
+ASSUMPTION (flagged, operator to review): hip/yaw have no loaded
+ladder — they carry the knee's latency DELTA (+76 ms) and the shared
+vel ceiling; their kp/kv/deadband stay air-fitted. Proper per-axis
+loaded ladder remains HARDWARE.md wishlist item 4.
+
+Integration: `bus.servo_params` cfg key ("" = air fit, legacy
+byte-exact — verified; "loaded" = new fit; path = explicit file,
+missing file RAISES, no silent fallback). Wired through sim_env,
+mjx_sharded_vec_env, train_ppo_mjx, train_ppo_sim `_build_env` (eval
+worker + update-parity inherit), eval_checkpoint, eval_drive — a run
+carrying the flag in its cfg package evals under it automatically.
+MJX `PENDING_SLOTS` 8→12 (ring must hold ~106 ms × DR 1.8). Suggested
+next: liftoff-reproduction fixture on loaded params, and one dep-line
+arm respec'd with `bus.servo_params=loaded` vs its air twin.

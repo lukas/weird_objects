@@ -101,7 +101,8 @@ def main() -> int:
             cfg.setdefault(sect, {})[name] = parsed
         cfg_kw["cfg"] = cfg
     env = SimHexapodJointWalkEnv(
-        params=SimServoParams.load(), randomize=args.dr_scale > 0,
+        params=SimServoParams.from_cfg(cfg_kw.get("cfg")),
+        randomize=args.dr_scale > 0,
         dr_scale=args.dr_scale, episode_seconds=600.0, seed=args.seed,
         **cfg_kw)
     gen = env._goal_gen

@@ -119,6 +119,13 @@ def _build_env(env_cls, params, args, **extra):
                 node = node.setdefault(k, {})
             node[leaf] = val
         kw["cfg"] = cfg
+        # bus.servo_params selects the fitted actuator set ("loaded" =
+        # 08-10 loaded bench fit). Resolved HERE so every env built for
+        # this run (train / eval worker / update-parity) agrees, even
+        # though callers pass the default air params positionally.
+        if (cfg.get("bus") or {}).get("servo_params"):
+            params = SimServoParams.from_cfg(cfg)
+            kw["params"] = params
     fr = getattr(args, "friction_range", None)
     if fr:
         # Friction randomized over the FULL given range regardless of

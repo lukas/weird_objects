@@ -220,7 +220,8 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
         import mujoco
 
         env_kwargs = dict(env_kwargs)
-        params = env_kwargs.setdefault("params", SimServoParams.load())
+        params = env_kwargs.setdefault(
+            "params", SimServoParams.from_cfg(env_kwargs.get("cfg")))
         t_amp, t_seed = terrain_from_cfg(env_kwargs.get("cfg"))
         model = prepare_shared_model(params, iterations=mjx_iterations,
                                      ls_iterations=mjx_ls_iterations,
@@ -416,7 +417,8 @@ class MjxShardedVecEnv(VecEnv):
         self._jax = jax
 
         env_kwargs = dict(env_kwargs or {})
-        params = env_kwargs.setdefault("params", SimServoParams.load())
+        params = env_kwargs.setdefault(
+            "params", SimServoParams.from_cfg(env_kwargs.get("cfg")))
         t_amp, t_seed = terrain_from_cfg(env_kwargs.get("cfg"))
         self.mj_model = prepare_shared_model(
             params, iterations=mjx_iterations,

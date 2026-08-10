@@ -1,0 +1,157 @@
+{
+  "source": "loaded fit from step_ladder_20260810.csv (base: air fit)",
+  "timestamp": "2026-08-10T10:28:24",
+  "speed_counts_s": 350.0,
+  "axes": {
+    "yaw": {
+      "kp": 51.274440767548064,
+      "kv": 0.35,
+      "frictionloss": 0.02,
+      "latency_ms": 106.1125,
+      "vel_max_deg_s": 48.5,
+      "deadband_deg": 0.432,
+      "torque_limit_nm": 2.2
+    },
+    "hip": {
+      "kp": 574.885279474555,
+      "kv": 0.28125,
+      "frictionloss": 0.02,
+      "latency_ms": 102.02499999999999,
+      "vel_max_deg_s": 48.5,
+      "deadband_deg": 0.353,
+      "torque_limit_nm": 2.2
+    },
+    "knee": {
+      "kp": 915.7713940426656,
+      "kv": 0.17240009087087346,
+      "frictionloss": 0.020000000000000004,
+      "latency_ms": 85.0,
+      "vel_max_deg_s": 48.5,
+      "deadband_deg": 0.060000000000000005,
+      "torque_limit_nm": 2.2
+    }
+  },
+  "spread": {
+    "yaw": {
+      "delay_ms_pct": 0.043,
+      "rise_ms_pct": 0.108
+    },
+    "hip": {
+      "delay_ms_pct": 0.146,
+      "rise_ms_pct": 0.104
+    },
+    "knee": {
+      "delay_ms_pct": 0.114,
+      "rise_ms_pct": 0.088
+    }
+  },
+  "fit_evidence": {
+    "ladder_measured": {
+      "up2": {
+        "amp_deg": 2.0,
+        "latency_ms": 205.5370807647705,
+        "t90_ms": 325.0553607940674,
+        "t90_from_motion_ms": 119.51828002929688,
+        "peak_vel_deg_s": 24.737129544985315,
+        "overshoot_deg": 0.10999999999999943,
+        "tracking_pct": 100.9999999999998,
+        "settle_err_deg": 0.01999999999999602
+      },
+      "dn2": {
+        "amp_deg": -2.0,
+        "latency_ms": 135.8191967010498,
+        "t90_ms": 257.1406364440918,
+        "t90_from_motion_ms": 121.32143974304199,
+        "peak_vel_deg_s": 29.274658070458173,
+        "overshoot_deg": 0.01999999999999602,
+        "tracking_pct": 100.9999999999998,
+        "settle_err_deg": 0.01999999999999602
+      },
+      "up5": {
+        "amp_deg": 5.0,
+        "latency_ms": 169.59357261657715,
+        "t90_ms": 288.424015045166,
+        "t90_from_motion_ms": 118.83044242858887,
+        "peak_vel_deg_s": 58.27883885661892,
+        "overshoot_deg": 0.0,
+        "tracking_pct": 96.59999999999997,
+        "settle_err_deg": 0.1700000000000017
+      },
+      "dn5": {
+        "amp_deg": -5.0,
+        "latency_ms": 110.14461517333984,
+        "t90_ms": 291.1369800567627,
+        "t90_from_motion_ms": 180.99236488342285,
+        "peak_vel_deg_s": 48.248060077267105,
+        "overshoot_deg": 0.0,
+        "tracking_pct": 96.59999999999997,
+        "settle_err_deg": 0.1700000000000017
+      },
+      "up10": {
+        "amp_deg": 10.0,
+        "latency_ms": 134.21630859375,
+        "t90_ms": 430.23204803466797,
+        "t90_from_motion_ms": 296.01573944091797,
+        "peak_vel_deg_s": 67.18557771418968,
+        "overshoot_deg": 0.0,
+        "tracking_pct": 96.70000000000002,
+        "settle_err_deg": 0.3299999999999983
+      },
+      "dn10": {
+        "amp_deg": -10.0,
+        "latency_ms": 167.12403297424316,
+        "t90_ms": 407.3467254638672,
+        "t90_from_motion_ms": 240.22269248962402,
+        "peak_vel_deg_s": 65.66518505867376,
+        "overshoot_deg": 0.0,
+        "tracking_pct": 96.70000000000002,
+        "settle_err_deg": 0.3299999999999983
+      }
+    },
+    "deployed_delay_xcorr": {
+      "yaw": {
+        "n": 12,
+        "median_ms": 258.0,
+        "p25_ms": 230.9,
+        "p75_ms": 266.8
+      },
+      "hip": {
+        "n": 12,
+        "median_ms": 255.0,
+        "p25_ms": 244.2,
+        "p75_ms": 265.4
+      },
+      "knee": {
+        "n": 12,
+        "median_ms": 251.4,
+        "p25_ms": 242.4,
+        "p75_ms": 275.3
+      }
+    },
+    "holdout": {
+      "up5": {
+        "loss_fitted": 0.214,
+        "loss_air": 4.241
+      },
+      "dn5": {
+        "loss_fitted": 0.272,
+        "loss_air": 9.48
+      }
+    },
+    "stand_replay_rmse_deg": {
+      "rl_stand_20260810_024744.csv": {
+        "fitted": 2.46,
+        "air": 2.92
+      },
+      "rl_stand_20260810_024938.csv": {
+        "fitted": 2.5,
+        "air": 3.19
+      }
+    },
+    "ladder_profile": {
+      "speed_deg_s": 131.8359375,
+      "acc_units": 30.0,
+      "note": "HTTP->drive-loop path; mcu bus defaults speed=1500 acc=30 assumed"
+    }
+  }
+}

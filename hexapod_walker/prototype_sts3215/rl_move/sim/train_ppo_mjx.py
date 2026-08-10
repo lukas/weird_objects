@@ -54,10 +54,13 @@ from .train_ppo_sim import (  # noqa: E402
 )
 
 
-def _env_kwargs(args, params: SimServoParams) -> dict:
+def _env_kwargs(args, params: SimServoParams | None = None) -> dict:
     """Per-shim-env kwargs — mirrors train_ppo_sim._build_env, minus the
-    model-DR pieces the shared-model backend can't honor yet."""
-    kw = dict(params=params, randomize=not args.no_dr,
+    model-DR pieces the shared-model backend can't honor yet.
+
+    ``params=None`` resolves the actuator set from the run's cfg
+    (bus.servo_params: "" = air fit, "loaded" = loaded bench fit)."""
+    kw = dict(randomize=not args.no_dr,
               dr_scale=args.dr_scale,
               episode_seconds=args.episode_seconds)
     overrides = _parse_cfg_set(args.cfg_set)
@@ -71,6 +74,8 @@ def _env_kwargs(args, params: SimServoParams) -> dict:
                 node = node.setdefault(k, {})
             node[leaf] = val
         kw["cfg"] = cfg
+    kw["params"] = (params if params is not None
+                    else SimServoParams.from_cfg(kw.get("cfg")))
     return kw
 
 
@@ -224,7 +229,8 @@ def main(argv: list[str] | None = None) -> int:
     ls_iters = args.mjx_ls_iterations if args.mjx_ls_iterations is not None \
         else (4 if impl == "warp" else 8)
 
-    params = SimServoParams.load()
+    env_kw = _env_kwargs(args)      # resolves params via bus.servo_params
+    params = env_kw["params"]
     _warn_if_defaults(params)
     env_cls = ENV_CLASSES[args.task]
 
@@ -235,9 +241,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[mjx-train] task={args.task} n_envs={args.n_envs} "
           f"impl={impl or 'jax(default)'} iterations={iters}/{ls_iters} "
           f"host_workers={args.host_workers or 'in-process'} "
-          f"rollout={args.n_envs * args.n_steps}/update")
+          f"rollout={args.n_envs * args.n_steps}/update "
+          f"servo_params={Path(params.source).name}")
     t0 = time.monotonic()
-    vec_kw = dict(env_kwargs=_env_kwargs(args, params), seed=args.seed,
+    vec_kw = dict(env_kwargs=env_kw, seed=args.seed,
                   impl=impl, pool_per_env=args.pool_per_env,
                   mjx_iterations=iters, mjx_ls_iterations=ls_iters)
     if args.host_workers > 0:
