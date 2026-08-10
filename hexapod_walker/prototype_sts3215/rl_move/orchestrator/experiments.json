@@ -52627,7 +52627,7 @@
       "CONTINUATION OF THE 16-FRAME TEMPORAL ARCHITECTURE RUN, ORDERED BY THE OPERATOR (08-10). Plain English: cw-arch-hist16-r7 was the first 16-frame-history policy to actually boot and train (after the /dev/shm root-cause fix) and it PASSED its gate: it walks cleanly from scratch, all six legs cycling, zero falls, joystick gate clean, progress at or above the walk champion. Its one gap is foot economy: slip/m 1.3-1.6 vs the deployment-contract champion at 0.89-1.13, roughly 40 pct worse. External review (08-10) says that gap is measured against contact physics the tape-measure session showed sim gets wrong, so the call is: keep training this line now, and re-baseline the slip caps once the actuator/contact calibration lands. This run warm-starts from the r7 final checkpoint (md5 32269a363d8dc8e4b9dbb2d9faabca05) with an IDENTICAL config and 40M more steps on the same pod (train-2, 3072 envs to fit the 64M /dev/shm). Success looks like: r7 gates still pass with no regression, and slip and progress drifting toward the champion band. Failure looks like: a plateau at r7 levels, which would mean more steps do not buy economy under current contact pricing and this line should wait for the recalibration."
     ],
     "created": "2026-08-10T14:56:14+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -52654,7 +52654,9 @@
     "log": "/tmp/train_cw-arch-hist16-r7-c1.log",
     "wandb_id": "ehwaukw6",
     "verified": "2026-08-10T14:59:57+00:00",
-    "triage": "awaiting since 2026-08-10T16:52:51"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- confirms if-true. +40M steps on the identical config move the 16-frame temporal-arch walker toward the deployment-contract champion's economy with no regression on stability. DR0 gate: det+sto 6/6 gait_valid, 0 term, 0 sacrificed legs, prog med 1.21/1.03; slip/m med improved to 1.14 (det) / 1.33 (sto) vs r7's own 1.43/1.40 -- moving toward the champion band (0.89-1.13) as hypothesized, not plateaued. Own-cfg DR0.5: det+sto 6/6 gv, 0 term, prog med 1.13/1.08, slip/m med 1.16 (det, now within one eval-noise step of the champion band)/1.38 (sto, flat vs r7's 1.37 -- no regression). JOYSTICK GATE (eval_drive DR0.2, heading 45deg/speed 0.06): 0 falls across the full direction panel + flip stress, same clean result as r7. Video (both DR0 and own-DR0.5 contact sheets, all 6 det episodes each): six legs visibly cycling swing/stance every episode, no flag leg, no dragging -- an ordinary, if unremarkable, walking gait, same character as r7. Architecture-line result only (deployment-contract obs, not the dep-line's deployment-exact contract) -- not a hardware candidate. Line stays open per operator directive (1-2 pods); the slip gap vs the champion is judged against contact pricing known to be miscalibrated (open problem 1), not gated here."
   },
   {
     "run": "cw-stance-riseproof1",
@@ -53863,7 +53865,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T16:52:50"
+    "triage": "in-cycle cw-walk-wander120-dr05-s1 since 2026-08-10T17:13:01"
   },
   {
     "run": "cw-dep-vref1-r1-comshift-deadband",
@@ -53933,7 +53935,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T16:00:22+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -53959,7 +53961,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T17:02:55"
+    "triage": "done",
+    "verdict": "Own-cfg (DR0+comshift0.03+deadband1-3x) det 5/6 ok gv 6/6 slip med 0.93, sto 6/6 ok gv 6/6 slip med 0.83 -- both inside vref1-r1's own band (0.89-1.13/1.13-1.36), 0 term either pass; 1 det crater is the lineage's known march-in-place fixed-draw stall (video-checked, no flag-leg/fall). Off-center CoM + servo deadband compose free together, as every prior compose on this line did.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-yawgate2",
@@ -54180,7 +54184,7 @@
       "Third isolation arm triangulating the cw-dep-startvar1-r1/-s1 FAIL (systemic gait breakdown, real sacrificed-leg episode, declining reward). Single-axis ablations both came back partial: noZD1 (zero_drift_cmd_frame->0 alone) eliminates the catastrophic sacrificed-leg failure but slip/prog still don't recover to vref1-r1's band; noBS1 (bad_start_prob->0 alone) recovers 4/6 det episodes but 2/6 still catastrophic-skate. Neither single removal is sufficient -- this arm removes BOTH (zero_drift_cmd_frame->0 AND bad_start_prob->0), keeping placement_noise_deg=6 + joint_zero_bias_deg=3 + k_current=0, everything else identical to startvar1-r1/warm-start vref1-r1. If-true: gait fully recovers to vref1-r1's own band (gv 6/6, no flag leg, slip/m 0.9-1.3, reward climbs not declines) -- confirms an INTERACTION between zero-drift-frame and bad-start is the sufficient cause, placement6+zerobias3 alone are benign (consistent with placementnoise6-r3 PASS elsewhere). If-false: still degraded with both removed -- placement_noise_deg=6 or joint_zero_bias_deg=3 (previously assumed benign in isolation) becomes the next suspect, or k_current=0 removes a stabilizing income term; escalate to a full one-axis-at-a-time ladder on this exact warm-start before trusting any start-variation compose for hardware. Parent: cw-dep-startvar1-r1. Gate: Own-cfg (its own trained varied-start config) det+sto 6/6 gait_valid, 0 sacrificed-leg episodes, slip/m med within vref1-r1's own band (0.89-1.36), prog_ratio med >=0.85, reward quarters climbing/plateauing not declining through training; frames watched det for flag-leg/skate"
     ],
     "created": "2026-08-10T16:08:09+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -54239,7 +54243,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T16:57:53"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL, matches the pre-registered if-false cleanly (informative). Removing BOTH zero_drift_cmd_frame AND bad_start_prob together does NOT recover vref1-r1's own gait band: det still shows the same 2/6 degraded draws (ep3 partial: prog 0.51 slip 2.12; ep4 full crater: prog 0.06 slip 28.98, march-in-place per frames) that its siblings noZD1 and noBS1 ALSO showed at the identical episode indices with only ONE risky axis removed each. Because the SAME two draws fail with neither risky axis active, zero_drift_cmd_frame and bad_start_prob are now RULED OUT as the cause of this residual degradation -- the remaining suspects are the axes kept constant across all three ablations: placement_noise_deg=6, joint_zero_bias_deg=3, or reward.k_current=0 removing a stabilizing income term (all named in the pre-registered if-false). sto is clean 6/6 in-band both modes; 0 sacrificed-leg episodes in any mode (confirms the catastrophic flag-leg failure stays eliminated, consistent with noZD1's finding). Video (contact sheet, det clips) shows a normal six-leg cycling gait throughout -- this is a progress/robustness gap, not a visible pathology. Reward quarters roughly flat (443/462/414/424), not the sharp decline r1/s1 showed. CONCLUSION for the plan: the startvar1 mechanism rework should target placement_noise_deg / joint_zero_bias_deg next (one-axis-at-a-time), not re-compose zero-drift or bad-start; cw-dep-vref1-r1 remains the sole recommended hardware base."
   },
   {
     "run": "cw-dep-vref1-r1-fric-groundtilt5",
@@ -54387,7 +54393,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T16:10:38+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -54413,7 +54419,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T16:52:50"
+    "triage": "done",
+    "verdict": "Own-cfg (DR0+friction0.4-1.6x+groundtilt5deg) det 5/6 ok gv 6/6 slip med 1.09, sto 6/6 ok gv 6/6 slip med 1.10 -- both inside vref1-r1's own combined band (0.89-1.36), 0 term either pass; 1 det crater is the lineage's known march-in-place fixed-draw stall (video-checked, no flag-leg/fall). Sloped + slick floor together still compose free, refutes the if-false interaction worry.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-cmddrop",
@@ -54483,7 +54491,7 @@
       "dr.cmd_drop_prob_max=0.05"
     ],
     "created": "2026-08-10T16:12:06+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -54522,7 +54530,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T16:52:50"
+    "triage": "done",
+    "hardware_ready": true,
+    "verdict": "PASS -- dropped-serial-packet robustness composes free onto the named hardware candidate, matching the other 9 protected axes. Own-cfg (dr.cmd_drop_prob_max=0.05, dr.latency_scale 0.5-2.5x) det+sto both 6/6 gait_valid, 0 terminations, 0 sacrificed legs. Real per-episode median slip/m 1.02-1.15 (det, sto) sits inside vref1-r1's own 0.89-1.36 band, vel_err_mean 0.024-0.028 matches vref1-r1's own baseline; the harness headline aggregate (slip/m 5.33, prog_ratio 0.86) is dragged down by ONE fixed-draw stall episode (det/4, prog 0.056, march-in-place) -- the closed stall-lever class from c47-c52 (incidence <2 percent, command-conditioning, kept as canary, not a failure). Video (contact sheet + all 6 det clips) shows a normal six-leg gait every episode, no flag leg, no dragging. Hardware relevance: dropped SyncWrite packets (servo holds last commanded position for a tick) are a real bus failure mode never before tested on this candidate -- passes clean."
   },
   {
     "run": "cw-dep-quad1",
@@ -54785,7 +54795,7 @@
       "dr.vel_scale=0.6,2.2"
     ],
     "created": "2026-08-10T16:28:11+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -54824,7 +54834,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T16:57:53"
+    "triage": "done",
+    "verdict": "Own-cfg (DR0+latency0.5-2.5x+vel_scale0.6-2.2x) gv 6/6 both passes, 0 term both, slip/m det med 1.30 / sto med 1.04 -- both inside vref1-r1's own combined band (0.89-1.36); gait stays valid and clean (video-checked det+sto, no flag-leg/skate) across the whole widened velocity-ceiling range. Note for the record: det progress_ratio spreads wide (0.58-1.20, only 2/6 clear the tight 0.85-1.15 success band) because covering a fixed 15s distance mechanically depends on the drawn joint-speed ceiling -- an expected physical consequence of THIS axis, not a gait defect (slip/gv/term all clean on the same episodes). Confirms gait quality is robust to the air/loaded velocity-ceiling mismatch (P0 item 6); walking speed itself is not, which is expected.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-tiltnoise",
@@ -54930,7 +54942,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-vref1-r1-tiltnoise since 2026-08-10T17:28:09"
   },
   {
     "run": "cw-dep-vref1-r1-gainvar",
@@ -55752,7 +55765,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-legmass --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_legmass --notes 'respec of cw-dep-vref1-r1: Plain English: test whether the hardware candidate still walks cleanly if each leg'\"'\"'s physical mass/length is a bit off from the CAD ideal, the way real 3D-printed/assembled legs always are. vref1-r1 has never tested per-leg manufacturing tolerance (leg_mass_jitter_pct, link_len_leg_pct) in isolation -- distinct from the already-PASSed chassis-level payload/comshift axes, which move the WHOLE body'\"'\"'s mass, not per-leg asymmetry. Elevates dr.leg_mass_jitter_pct 0.10->0.20 and dr.link_len_leg_pct 0.012->0.025 (2x) on the contract-exact checkpoint. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- per-leg build variance composes free like the other axes. If-false: asymmetric leg geometry/mass breaks the gait -- flags a real hardware print-tolerance risk to check before attempt #2. Per P0 rule 3, k_current=0.' --cfg-set dr.leg_mass_jitter_pct=0.20 --cfg-set dr.link_len_leg_pct=0.025 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-legmass.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-legmass.log",
     "wandb_id": "mozcugvf",
-    "verified": "2026-08-10T17:01:17+00:00"
+    "verified": "2026-08-10T17:01:17+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T17:07:48+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5587,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-arch-hist16-r7-c2",
@@ -55937,7 +55962,21 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-r7-c2 --steps 20000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --n-envs 3072 --impl warp --host-workers 24 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_r7_c1.zip --out-name ppo_goal_cw_arch_hist16_r7_c2 --notes 'respec of cw-arch-hist16-r7-c1: Plain English: keep the temporal-architecture line (obs.history_frames=16) occupied per the operator'\"'\"'s standing 1-2-pod reservation -- the line just freed a pod (r7-c1 finished at 40M more steps on top of r7, reward still climbing 934.7->994.1 across its last 4 quarters, no plateau/crash) while the sibling hist24-r1 rung is still the only other arch pod running. Continues r7-c1'\"'\"'s own checkpoint with an IDENTICAL config for another 20M steps -- same question as the c1 continuation itself: does more training close the slip/economy gap vs the deployment-contract champion (was 1.3-1.6 vs 0.89-1.13), or plateau. Not independently verdicted by me (c1 is unclaimed/awaiting its own triage); this is a mechanical line-occupancy continuation per WISHLIST -0.5, not a claim that c1 passed anything beyond its own visible reward curve.' > /tmp/train_cw-arch-hist16-r7-c2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist16-r7-c2.log",
     "wandb_id": "ht7oxdmw",
-    "verified": "2026-08-10T17:03:33+00:00"
+    "verified": "2026-08-10T17:03:33+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T17:09:41+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3849,
+        "fps": 3276.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 3277 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-actnoise",
@@ -56029,7 +56068,21 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-actnoise --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_actnoise --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 has been hardened against SENSING noise (encoder, gyro, tilt) and COMMAND-path faults (cmddrop, deadband, latency) but never ACTUATOR OUTPUT noise (dr.action_noise -- random jitter applied to the commanded action itself, modeling servo-internal control-loop imprecision distinct from anything on the sensing or command-transport side). Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- output-noise composes free like every other single axis so far. If-false: action-level noise compounds with the loaded servo model'\"'\"'s settling dynamics in a way sensing/transport noise did not -- flag as a real pre-attempt-#2 actuator risk.' --cfg-set dr.action_noise=0.02 > /tmp/train_cw-dep-vref1-r1-actnoise.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-actnoise.log",
     "wandb_id": "jbttknkp",
-    "verified": "2026-08-10T17:04:59+00:00"
+    "verified": "2026-08-10T17:04:59+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T17:11:34+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3874,
+        "fps": 4369.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-contactstiff",
@@ -56566,7 +56619,7 @@
       "dr.com_offset_m=0.03"
     ],
     "created": "2026-08-10T17:05:11+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -56575,11 +56628,36 @@
       "code_sha_local": "cc917b57526d3aeaffa3f9e234bd321ed061aec7",
       "code_sha_pod": "cc917b57526d3aeaffa3f9e234bd321ed061aec7",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3583894",
+      "log_growth_bytes": [
+        8819,
+        14461
+      ],
+      "wandb_id": "nbaoe33l",
+      "global_step_window": [
+        655360,
+        1376256
+      ],
+      "fps_estimate": 8010.0
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-placement-comshift --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_placement_comshift --notes 'respec of cw-dep-vref1-r1-placement: Plain English: test whether the hardware candidate still walks cleanly with two realistic MECHANICAL quirks together instead of one at a time -- imprecise joint placement/assembly (6deg) AND an off-center battery/harness CoM (0.03m), which the real chassis will have simultaneously. vref1-r1 already PASSED joint-placement noise and CoM offset INDIVIDUALLY tonight; this bundles them onto the same base recipe as its siblings (respec of cw-dep-vref1-r1, not warm-started off either single-axis checkpoint, to avoid compounding one lineage'\"'\"'s drift). Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + both axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- the two individually-benign mechanical axes stay benign combined, same pattern as comshift+deadband and fric+groundtilt5. If-false: combined mechanical error (assembly tolerance stacked on CoM shift) breaks tracking in a way neither axis did alone -- flag as a real pre-attempt-#2 assembly risk.' --cfg-set dr.placement_noise_deg=6.0 --cfg-set reward.k_current=0 --cfg-set dr.com_offset_m=0.03 > /tmp/train_cw-dep-vref1-r1-placement-comshift.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-placement-comshift.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-placement-comshift.log",
+    "wandb_id": "nbaoe33l",
+    "verified": "2026-08-10T17:09:01+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T17:14:27+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4729,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-linklen",
@@ -56647,7 +56725,7 @@
       "dr.link_len_leg_pct=0.012"
     ],
     "created": "2026-08-10T17:06:27+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -56656,10 +56734,386 @@
       "code_sha_local": "cc917b57526d3aeaffa3f9e234bd321ed061aec7",
       "code_sha_pod": "cc917b57526d3aeaffa3f9e234bd321ed061aec7",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3112441",
+      "log_growth_bytes": [
+        6874,
+        10710
+      ],
+      "wandb_id": "u2bfjy09",
+      "global_step_window": [
+        458752,
+        1179648
+      ],
+      "fps_estimate": 8010.0
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-linklen --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_linklen --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: real 3D-printed/CAD legs have print/assembly length error (global print-scale error AND independent per-leg per-segment spread) that vref1-r1 has never been exposed to -- the policy-side IK keeps NOMINAL leg lengths, so this is a genuine model/actuator mismatch axis, distinct from friction/mass/compliance already tested. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- geometric print error composes free like the other structural axes (comshift, payload-mass FAILED but that was CoM/mass not length). If-false: leg-length mismatch breaks the fixed-foot IK'\"'\"'s contact timing in a way no other axis did -- a real pre-attempt-#2 manufacturing-tolerance risk.' --cfg-set dr.link_len_scale_pct=0.02 --cfg-set dr.link_len_leg_pct=0.012 > /tmp/train_cw-dep-vref1-r1-linklen.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-linklen.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-linklen.log",
+    "wandb_id": "u2bfjy09",
+    "verified": "2026-08-10T17:10:19+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T17:16:19+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3827,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-contactstiff",
+    "pod": "hexapod-mjx-train-7",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: ground/foot contact COMPLIANCE (table vs carpet vs the operator's floor) has never been varied on vref1-r1 -- friction (fric, PASSED) and floor slope (groundtilt5, PASSED) are tested but contact stiffness (solref timeconst, a genuinely different physical axis: how squishy the foot-ground contact is, not how slippery or how tilted) is not. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- compliance variation composes free like friction/slope did. If-false: soft/stiff contact changes the effective loaded settling the fixed-gain controller relies on, breaking gait timing -- a real pre-attempt-#2 surface risk (the operator's floor is unknown compliance).",
+    "gate": "own-cfg det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1's own band (0.89-1.36); frames watched det for flag-leg/skate",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_contactstiff",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: ground/foot contact COMPLIANCE (table vs carpet vs the operator's floor) has never been varied on vref1-r1 -- friction (fric, PASSED) and floor slope (groundtilt5, PASSED) are tested but contact stiffness (solref timeconst, a genuinely different physical axis: how squishy the foot-ground contact is, not how slippery or how tilted) is not. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- compliance variation composes free like friction/slope did. If-false: soft/stiff contact changes the effective loaded settling the fixed-gain controller relies on, breaking gait timing -- a real pre-attempt-#2 surface risk (the operator's floor is unknown compliance).",
+      "--cfg-set",
+      "dr.contact_stiff_scale=0.7,2.0"
+    ],
+    "created": "2026-08-10T17:07:43+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-267bdffd-dd7f-13e3-8d8f-146232bfe703)",
+      "running_experiments_before": 11,
+      "code_sha_local": "f634093caa6dca968acb22b59d1df41b6af8fa91",
+      "code_sha_pod": "f634093caa6dca968acb22b59d1df41b6af8fa91",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3111005",
+      "log_growth_bytes": [
+        4923,
+        6857
+      ],
+      "wandb_id": "orru7zxb",
+      "global_step_window": [
+        131072,
+        524288
+      ],
+      "fps_estimate": 4369.1
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-contactstiff --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_contactstiff --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: ground/foot contact COMPLIANCE (table vs carpet vs the operator'\"'\"'s floor) has never been varied on vref1-r1 -- friction (fric, PASSED) and floor slope (groundtilt5, PASSED) are tested but contact stiffness (solref timeconst, a genuinely different physical axis: how squishy the foot-ground contact is, not how slippery or how tilted) is not. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- compliance variation composes free like friction/slope did. If-false: soft/stiff contact changes the effective loaded settling the fixed-gain controller relies on, breaking gait timing -- a real pre-attempt-#2 surface risk (the operator'\"'\"'s floor is unknown compliance).' --cfg-set dr.contact_stiff_scale=0.7,2.0 > /tmp/train_cw-dep-vref1-r1-contactstiff.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-contactstiff.log",
+    "wandb_id": "orru7zxb",
+    "verified": "2026-08-10T17:11:37+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T17:18:11+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 924,
+        "fps": 1456.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 1456 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ],
+    "checkup_note": "Watcher SUSPECT (fps 1456 < 5000 floor) triaged 17:2x UTC: trainer HEALTHY -- learning normally (ep_rew 618 @1.9M/20M, KL updates flowing), getting its full ~20-core allocation (2035% CPU), fps recovering 1456->2094 across last iterations. Root cause is node-wide contention on g142d86 (load ~260/128 vs ~80-110 on sibling nodes): our 4 trainers in-budget + controller running ~24 cores of watcher gate-evals (transient) + other-tenant load. Not killed/rebalanced: 0/12 GPU pods free, run not broken, guardrails forbid outbidding other tenants. Left running; at worst ~2k fps => 20M steps ~2.8h."
+  },
+  {
+    "run": "cw-dep-quad1-c1",
+    "pod": "hexapod-mjx-train-7",
+    "steps": 12000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the four-leg party trick just need more training time on the hardware-realistic checkpoint, or is it structurally stuck? cw-dep-quad1 FAILED the height-control gate (height_err_end_mm plateaued at 31mm vs the <=20mm gate) but was STILL improving at the end of its 18M steps (60->31mm, monotonic, no sign of a hard plateau in the last 3 points: 34->33->31mm) and never fell (survived_frac 1.0 throughout) -- one variable vs quad1: +12M more steps warm-started from quad1's own checkpoint, same mix/reward, nothing else changed. If-true: height_err_end_mm continues dropping and clears <=20mm within the extension -- quad1 was just under-trained, not structurally blocked by the missing privileged-velocity signal. If-false: height_err_end_mm plateaus above 20mm despite the extra steps -- confirms the mechanism is capped by the honest-obs contract itself, not training budget, and the quad line should stay on the privileged-velocity quad-hold2 checkpoint.",
+    "gate": "Quad-mode training eval: height_err_end_mm <=20mm at the final 2 logged checkpoints (not just one), survived_frac >=0.9 maintained, track_err_deg does not keep climbing; own-cfg walk-mode det gv 6/6, 0 term, slip/m med <=1.35 (retention unaffected by the extra steps)",
+    "parent": "cw-dep-quad1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_dep_quad1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "quad=0.3,walk=0.6,hold=0.1",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_quad1_c1",
+      "--notes",
+      "respec of cw-dep-quad1: Plain English: does the four-leg party trick just need more training time on the hardware-realistic checkpoint, or is it structurally stuck? cw-dep-quad1 FAILED the height-control gate (height_err_end_mm plateaued at 31mm vs the <=20mm gate) but was STILL improving at the end of its 18M steps (60->31mm, monotonic, no sign of a hard plateau in the last 3 points: 34->33->31mm) and never fell (survived_frac 1.0 throughout) -- one variable vs quad1: +12M more steps warm-started from quad1's own checkpoint, same mix/reward, nothing else changed. If-true: height_err_end_mm continues dropping and clears <=20mm within the extension -- quad1 was just under-trained, not structurally blocked by the missing privileged-velocity signal. If-false: height_err_end_mm plateaus above 20mm despite the extra steps -- confirms the mechanism is capped by the honest-obs contract itself, not training budget, and the quad line should stay on the privileged-velocity quad-hold2 checkpoint.",
+      "--cfg-set",
+      "reward.k_quad_clear=1.5",
+      "--cfg-set",
+      "reward.k_quad_plant=1.0",
+      "--cfg-set",
+      "goal.quad_grace_s=1.5",
+      "--cfg-set",
+      "reward.k_current=0.0"
+    ],
+    "created": "2026-08-10T17:09:01+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [
+        "cw-dep-vref1-r1-contactstiff"
+      ]
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-7 already runs cw-dep-vref1-r1-contactstiff \u2014 GPU pods host exactly one run; pick a free GPU pod."
+  },
+  {
+    "run": "cw-dep-quad1-c1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 12000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the four-leg party trick just need more training time on the hardware-realistic checkpoint, or is it structurally stuck? cw-dep-quad1 FAILED the height-control gate (height_err_end_mm plateaued at 31mm vs the <=20mm gate) but was STILL improving at the end of its 18M steps (60->31mm, monotonic, no sign of a hard plateau in the last 3 points: 34->33->31mm) and never fell (survived_frac 1.0 throughout) -- one variable vs quad1: +12M more steps warm-started from quad1's own checkpoint, same mix/reward, nothing else changed. If-true: height_err_end_mm continues dropping and clears <=20mm within the extension -- quad1 was just under-trained, not structurally blocked by the missing privileged-velocity signal. If-false: height_err_end_mm plateaus above 20mm despite the extra steps -- confirms the mechanism is capped by the honest-obs contract itself, not training budget, and the quad line should stay on the privileged-velocity quad-hold2 checkpoint.",
+    "gate": "Quad-mode training eval: height_err_end_mm <=20mm at the final 2 logged checkpoints (not just one), survived_frac >=0.9 maintained, track_err_deg does not keep climbing; own-cfg walk-mode det gv 6/6, 0 term, slip/m med <=1.35 (retention unaffected by the extra steps)",
+    "parent": "cw-dep-quad1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_dep_quad1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "quad=0.3,walk=0.6,hold=0.1",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_quad1_c1",
+      "--notes",
+      "respec of cw-dep-quad1: Plain English: does the four-leg party trick just need more training time on the hardware-realistic checkpoint, or is it structurally stuck? cw-dep-quad1 FAILED the height-control gate (height_err_end_mm plateaued at 31mm vs the <=20mm gate) but was STILL improving at the end of its 18M steps (60->31mm, monotonic, no sign of a hard plateau in the last 3 points: 34->33->31mm) and never fell (survived_frac 1.0 throughout) -- one variable vs quad1: +12M more steps warm-started from quad1's own checkpoint, same mix/reward, nothing else changed. If-true: height_err_end_mm continues dropping and clears <=20mm within the extension -- quad1 was just under-trained, not structurally blocked by the missing privileged-velocity signal. If-false: height_err_end_mm plateaus above 20mm despite the extra steps -- confirms the mechanism is capped by the honest-obs contract itself, not training budget, and the quad line should stay on the privileged-velocity quad-hold2 checkpoint.",
+      "--cfg-set",
+      "reward.k_quad_clear=1.5",
+      "--cfg-set",
+      "reward.k_quad_plant=1.0",
+      "--cfg-set",
+      "goal.quad_grace_s=1.5",
+      "--cfg-set",
+      "reward.k_current=0.0"
+    ],
+    "created": "2026-08-10T17:27:22+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 11,
+      "code_sha_local": "f634093caa6dca968acb22b59d1df41b6af8fa91",
+      "code_sha_pod": "f634093caa6dca968acb22b59d1df41b6af8fa91-dirty"
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-0 code marker f634093caa6dca968acb22b59d1df41b6af8fa91-dirty != local HEAD f634093caa6dca968acb22b59d1df41b6af8fa91. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "cw-dep-quad1-c1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 12000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the four-leg party trick just need more training time on the hardware-realistic checkpoint, or is it structurally stuck? cw-dep-quad1 FAILED the height-control gate (height_err_end_mm plateaued at 31mm vs the <=20mm gate) but was STILL improving at the end of its 18M steps (60->31mm, monotonic, no sign of a hard plateau in the last 3 points: 34->33->31mm) and never fell (survived_frac 1.0 throughout) -- one variable vs quad1: +12M more steps warm-started from quad1's own checkpoint, same mix/reward, nothing else changed. If-true: height_err_end_mm continues dropping and clears <=20mm within the extension -- quad1 was just under-trained, not structurally blocked by the missing privileged-velocity signal. If-false: height_err_end_mm plateaus above 20mm despite the extra steps -- confirms the mechanism is capped by the honest-obs contract itself, not training budget, and the quad line should stay on the privileged-velocity quad-hold2 checkpoint.",
+    "gate": "Quad-mode training eval: height_err_end_mm <=20mm at the final 2 logged checkpoints (not just one), survived_frac >=0.9 maintained, track_err_deg does not keep climbing; own-cfg walk-mode det gv 6/6, 0 term, slip/m med <=1.35 (retention unaffected by the extra steps)",
+    "parent": "cw-dep-quad1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_dep_quad1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "quad=0.3,walk=0.6,hold=0.1",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_quad1_c1",
+      "--notes",
+      "respec of cw-dep-quad1: Plain English: does the four-leg party trick just need more training time on the hardware-realistic checkpoint, or is it structurally stuck? cw-dep-quad1 FAILED the height-control gate (height_err_end_mm plateaued at 31mm vs the <=20mm gate) but was STILL improving at the end of its 18M steps (60->31mm, monotonic, no sign of a hard plateau in the last 3 points: 34->33->31mm) and never fell (survived_frac 1.0 throughout) -- one variable vs quad1: +12M more steps warm-started from quad1's own checkpoint, same mix/reward, nothing else changed. If-true: height_err_end_mm continues dropping and clears <=20mm within the extension -- quad1 was just under-trained, not structurally blocked by the missing privileged-velocity signal. If-false: height_err_end_mm plateaus above 20mm despite the extra steps -- confirms the mechanism is capped by the honest-obs contract itself, not training budget, and the quad line should stay on the privileged-velocity quad-hold2 checkpoint.",
+      "--cfg-set",
+      "reward.k_quad_clear=1.5",
+      "--cfg-set",
+      "reward.k_quad_plant=1.0",
+      "--cfg-set",
+      "goal.quad_grace_s=1.5",
+      "--cfg-set",
+      "reward.k_current=0.0"
+    ],
+    "created": "2026-08-10T17:28:40+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 11,
+      "code_sha_local": "f634093caa6dca968acb22b59d1df41b6af8fa91",
+      "code_sha_pod": "f634093caa6dca968acb22b59d1df41b6af8fa91-dirty"
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-0 code marker f634093caa6dca968acb22b59d1df41b6af8fa91-dirty != local HEAD f634093caa6dca968acb22b59d1df41b6af8fa91. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty)."
   }
 ]

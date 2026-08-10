@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-10T17:06:27+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-dep-vref1-r1
+
+**wandb_id**: u2bfjy09
 
 **hypothesis**: PROTECT THE NAMED HARDWARE CANDIDATE: real 3D-printed/CAD legs have print/assembly length error (global print-scale error AND independent per-leg per-segment spread) that vref1-r1 has never been exposed to -- the policy-side IK keeps NOMINAL leg lengths, so this is a genuine model/actuator mismatch axis, distinct from friction/mass/compliance already tested. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- geometric print error composes free like the other structural axes (comshift, payload-mass FAILED but that was CoM/mass not length). If-false: leg-length mismatch breaks the fixed-foot IK's contact timing in a way no other axis did -- a real pre-attempt-#2 manufacturing-tolerance risk.
 

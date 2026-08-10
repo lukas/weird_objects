@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: FAIL
 
 **created**: 2026-08-10T16:08:09+00:00
 
@@ -14,7 +14,11 @@
 
 **wandb_id**: pq2txcn5
 
+**hardware_ready**: False
+
 **hypothesis**: Third isolation arm triangulating the cw-dep-startvar1-r1/-s1 FAIL (systemic gait breakdown, real sacrificed-leg episode, declining reward). Single-axis ablations both came back partial: noZD1 (zero_drift_cmd_frame->0 alone) eliminates the catastrophic sacrificed-leg failure but slip/prog still don't recover to vref1-r1's band; noBS1 (bad_start_prob->0 alone) recovers 4/6 det episodes but 2/6 still catastrophic-skate. Neither single removal is sufficient -- this arm removes BOTH (zero_drift_cmd_frame->0 AND bad_start_prob->0), keeping placement_noise_deg=6 + joint_zero_bias_deg=3 + k_current=0, everything else identical to startvar1-r1/warm-start vref1-r1. If-true: gait fully recovers to vref1-r1's own band (gv 6/6, no flag leg, slip/m 0.9-1.3, reward climbs not declines) -- confirms an INTERACTION between zero-drift-frame and bad-start is the sufficient cause, placement6+zerobias3 alone are benign (consistent with placementnoise6-r3 PASS elsewhere). If-false: still degraded with both removed -- placement_noise_deg=6 or joint_zero_bias_deg=3 (previously assumed benign in isolation) becomes the next suspect, or k_current=0 removes a stabilizing income term; escalate to a full one-axis-at-a-time ladder on this exact warm-start before trusting any start-variation compose for hardware.
 
 **gate**: Own-cfg (its own trained varied-start config) det+sto 6/6 gait_valid, 0 sacrificed-leg episodes, slip/m med within vref1-r1's own band (0.89-1.36), prog_ratio med >=0.85, reward quarters climbing/plateauing not declining through training; frames watched det for flag-leg/skate
+
+**verdict**: FAIL, matches the pre-registered if-false cleanly (informative). Removing BOTH zero_drift_cmd_frame AND bad_start_prob together does NOT recover vref1-r1's own gait band: det still shows the same 2/6 degraded draws (ep3 partial: prog 0.51 slip 2.12; ep4 full crater: prog 0.06 slip 28.98, march-in-place per frames) that its siblings noZD1 and noBS1 ALSO showed at the identical episode indices with only ONE risky axis removed each. Because the SAME two draws fail with neither risky axis active, zero_drift_cmd_frame and bad_start_prob are now RULED OUT as the cause of this residual degradation -- the remaining suspects are the axes kept constant across all three ablations: placement_noise_deg=6, joint_zero_bias_deg=3, or reward.k_current=0 removing a stabilizing income term (all named in the pre-registered if-false). sto is clean 6/6 in-band both modes; 0 sacrificed-leg episodes in any mode (confirms the catastrophic flag-leg failure stays eliminated, consistent with noZD1's finding). Video (contact sheet, det clips) shows a normal six-leg cycling gait throughout -- this is a progress/robustness gap, not a visible pathology. Reward quarters roughly flat (443/462/414/424), not the sharp decline r1/s1 showed. CONCLUSION for the plan: the startvar1 mechanism rework should target placement_noise_deg / joint_zero_bias_deg next (one-axis-at-a-time), not re-compose zero-drift or bad-start; cw-dep-vref1-r1 remains the sole recommended hardware base.
 

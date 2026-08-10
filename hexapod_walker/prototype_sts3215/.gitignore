@@ -50,3 +50,11 @@ xometry_upload/
 # RL eval/preflight artifacts (videos, reports) — regenerable
 /logs/
 rl_move/sim/logs/
+
+# W&B local run cache (created by any wandb.Api()/wandb.init() call,
+# e.g. ops.sh wandbnote/wandbdump) — untracked runtime junk, same
+# category as /logs/. Left uncovered 2026-08-10: spurious -dirty code
+# markers refused a drain launch (snapshot.sh's dirty check didn't
+# exclude it either — fixed alongside this).
+wandb/
+rl_move/wandb/
