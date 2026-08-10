@@ -1723,8 +1723,9 @@ class BenchAPI:
         """
         try:
             from inplace_demos import (
-                CurrentPeakTracker, _enable_torque, _live_robot_ids,
-                _set_torque_limit, ease_to_pose,
+                CurrentPeakTracker, _enable_torque, _glide_speed_acc,
+                _live_robot_ids, _read_pose, _set_torque_limit,
+                _write_pose, ease_to_pose,
             )
             from drive_controller import MAX_SAFE_DELTA_DEG
         except ImportError as e:
@@ -1804,6 +1805,13 @@ class BenchAPI:
                 _set_torque_limit(d.bus, live, torque)
                 _enable_torque(d.bus, live)
                 n = len(frames)
+                # >1.25x: STREAM — fire each SyncWrite sized for the
+                # keyframe duration and move on at the schedule. The
+                # per-keyframe settle poll in ease_to_pose costs
+                # >=0.35 s each, which made 5-10x no faster than 1x
+                # (operator, 08-10). The final keyframe always settles.
+                stream = speed > 1.25
+                prev_q = None
                 for i, (q_deg, kf_s) in enumerate(frames):
                     if self._demo_abort.is_set():
                         result["aborted"] = True
@@ -1814,14 +1822,34 @@ class BenchAPI:
                             "msg": (f"{mode} {verb}: keyframe "
                                     f"{i + 1}/{n} ({secs:.1f}s)"),
                             "keyframe": i + 1, "of": n}
-                    ok = ease_to_pose(
-                        d.bus, q_deg,
-                        abort_check=self._demo_abort.is_set,
-                        seconds=secs, label=f"{mode} {i + 1}/{n}",
-                        current_tracker=tracker)
-                    if not ok:
-                        result["aborted"] = True
-                        break
+                    if stream and i < n - 1:
+                        if prev_q is None:
+                            prev_q = _read_pose(d.bus, live)
+                        spd, acc = _glide_speed_acc(
+                            prev_q, q_deg, live, secs)
+                        _write_pose(d.bus, q_deg, live,
+                                    speed=spd, acc=acc)
+                        # sample currents while the move runs (the
+                        # feedback sweep itself takes real time)
+                        t_end = time.monotonic() + secs
+                        tracker.sample(d.bus, live)
+                        while (time.monotonic() < t_end
+                               and not self._demo_abort.is_set()):
+                            time.sleep(0.01)
+                        if self._demo_abort.is_set():
+                            result["aborted"] = True
+                            break
+                        prev_q = list(q_deg)
+                    else:
+                        ok = ease_to_pose(
+                            d.bus, q_deg,
+                            abort_check=self._demo_abort.is_set,
+                            seconds=secs, label=f"{mode} {i + 1}/{n}",
+                            current_tracker=tracker)
+                        if not ok:
+                            result["aborted"] = True
+                            break
+                        prev_q = list(q_deg)
                     if tracker.peak_a > abort_current_a:
                         result["error"] = (
                             f"stopped: {tracker.peak_a:.2f} A peak on "

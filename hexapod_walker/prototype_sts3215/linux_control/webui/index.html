@@ -345,10 +345,12 @@ capture while the robot is standing well.">📌 Capture plant</button>
         <button id="sulab-stop" class="danger">■ Stop</button>
       </div>
       <div class="hint">Sit down plays the same mode's keyframes in
-        reverse — start it from that mode's standing stance. Fast
-        tempos (2×+) raise push/lower currents toward the 3&nbsp;A
-        guard; hardware 08-10 peaks at 1×: tuck 2.48&nbsp;A, step
-        2.97&nbsp;A (blend stalls short — kept for comparison).</div>
+        reverse — start it from that mode's standing stance. Tempos
+        above ~1.25× <b>stream</b> the keyframes on schedule (no
+        per-waypoint settle wait — 10× tuck is a ~2&nbsp;s stand).
+        Faster raises currents toward the 3&nbsp;A guard; hardware
+        08-10 peaks at 1×: tuck 2.48&nbsp;A, step 2.97&nbsp;A (blend
+        stalls short — kept for comparison).</div>
       <div class="hint" id="sulab-status" style="margin-top:10px">Idle.</div>
     </div>
   </div>
