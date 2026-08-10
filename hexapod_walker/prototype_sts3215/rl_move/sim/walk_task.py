@@ -122,6 +122,7 @@ class WalkTrajectory(GoalTrajectory):
                         pitch_ref=float(self.pitch[i]),
                         height_ref=float(self.height[i]),
                         unload_leg=self.unload_leg,
+                        lift_legs=self.lift_legs,
                         vx_ref=float(self.vx[i]),
                         vy_ref=float(self.vy[i]),
                         wz_ref=float(self.wz[i])
