@@ -54877,7 +54877,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T16:46:14+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -54886,11 +54886,24 @@
       "code_sha_local": "af9809985cef73ab487b6d3d2cc390f36f6f6262",
       "code_sha_pod": "af9809985cef73ab487b6d3d2cc390f36f6f6262",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2160177",
+      "log_growth_bytes": [
+        8778,
+        14398
+      ],
+      "wandb_id": "3mbhohc7",
+      "global_step_window": [
+        655360,
+        1900544
+      ],
+      "fps_estimate": 13835.4
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-tiltnoise --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_tiltnoise --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: hardware attempt #2'\"'\"'s tilt trip (P0 rule 1) is 25deg angle + a rate term, and the rate channel was already stress-tested (cw-dep-vref1-r1-gyronoise PASS) but the ANGLE-reading noise floor (dr.tilt_noise_deg, kept at full strength regardless of dr-scale) has never been elevated on this line. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- noisier tilt reading composes free like gyro rate noise did. If-false: noisy tilt angle interacts badly with the wide 25deg envelope (spurious near-threshold trips or missed real tilts) -- flag before hardware, since it bears directly on the deploy tilt-trip logic. Per P0 rule 3, k_current=0.' --cfg-set dr.tilt_noise_deg=1.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-tiltnoise.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-tiltnoise.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-tiltnoise.log",
+    "wandb_id": "3mbhohc7",
+    "verified": "2026-08-10T16:50:07+00:00"
   },
   {
     "run": "cw-dep-vref1-r1-gainvar",
