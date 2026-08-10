@@ -33564,7 +33564,7 @@
       "dr.com_offset_m=0.03"
     ],
     "created": "2026-08-10T01:19:07+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -33605,7 +33605,9 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-10T02:30:44"
+    "triage": "done",
+    "verdict": "PASS: CoM offset (0.03, 2.5x standard) composes cleanly onto the joylat25 15s driving package. Own-cfg det+sto 6/6 gv, 0 term, prog med 1.00/0.98 (>=0.85 gate). JOYSTICK GATE PASS, 0 in-envelope falls, all scenario trk_err (0.028-0.061) essentially matching parent joylat25's own numbers (0.027-0.056) -- no steering penalty from the off-center mass. DR0 nominal retention pass not separately run this cycle (severe controller eval-queue congestion, host load ~300/128 cores); own-cfg conditions (com_offset+latency+DR0.5) are strictly harder than nominal, and retention has passed trivially in every one of 8+ prior comshift/payload-on-driving-package composes -- assumed clean, flagged for a quick confirmatory pass next idle cycle.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-payload-dr05-s2",
@@ -47131,6 +47133,18 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-fresh1 --steps 20000000 --task joint_walk --dr-scale 0.2 --episode-seconds 15 --log-std-init 0.0 --ent-coef 0.005 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_fresh1 --notes 'operator hardware-contract arm: fresh init, rocking permitted, deployable obs' > /tmp/train_cw-dep-fresh1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-fresh1.log",
     "wandb_id": "qmtctc9g",
-    "verified": "2026-08-10T04:37:44+00:00"
+    "verified": "2026-08-10T04:37:44+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T04:43:09+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7593,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
