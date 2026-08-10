@@ -24,7 +24,8 @@ leave the next agent to rediscover it.
 | Ledger + procs + watcher, one screen | `ops.sh status` |
 | One run's metrics/state | `ops.sh wandb <run>` (ledger: `ops.sh entry <run>`) |
 | What's queued to launch? | `launch_run.py backlog list` |
-| Queue a seed/rung/variant of an existing run | `launch_run.py respec --from <run> --run <new> [--seed N] [--arg='--flag=v'] [--cfg k=v] --hypothesis … --gate …` — clones the ledger args; never re-type them |
+| Queue a seed/rung/variant of an existing run | `launch_run.py respec --from <run> --run <new> [--seed N] [--arg='--flag=v'] [--cfg k=v] --hypothesis … --gate …` — clones the ledger args; never re-type them. Add `--init-from-source` to warm-start from the source's checkpoint; add `--now [--pod P]` to skip the backlog and launch directly (snapshot → sync → self-repair → verify, one command) |
+| OPERATOR: fire one launch during a LAUNCH_HOLD | `ops.sh oplaunch respec --from <run> --run <new> --init-from-source --now --operator-override 'why' --hypothesis '<plain English — this LEADS the W&B notes>' --gate '…'` — runs on the controller from anywhere (incl. the operator Mac); the override is audited in the ledger and operator-only |
 | A past run's story | `rl_docs/runs/<run>.md` |
 | Yaw-command tracking (yawcmd lineage gate) | `python3 -m rl_move.sim.eval_yaw <ckpt> --cfg-set … [--out j.json]` — scripted turn panel; reports turn-segment \|wz_err\| med, hold \|wz\| med, falls (harness has no wz fields) |
 | Are results being lost/ignored? | `ops.sh triage [hours]` |
@@ -91,6 +92,17 @@ report.json, and the W&B API for exactly these questions.
   with the run's own `--cfg-set`s pulled from the ledger.
 - `ops.sh waitlog <file> <regex> [timeout]` — poll for completion.
   **`sleep 60; tail …` is BLOCKED by the harness** — use this.
+- `ops.sh oplaunch <launch_run.py args…>` — run a launcher command ON
+  THE CONTROLLER (detached, creds sourced, result polled), from the
+  operator Mac or the controller itself. Exists because launches must
+  run where git is the code-sha truth: a laptop clone is stale/dirty
+  and gets refused (08-10: the operator's assistant hand-rolled
+  kubectl-cp + tmux + hold-file juggling for one continuation launch).
+  Pairs with `respec --now` and, for operators only,
+  `--operator-override` (audited LAUNCH_HOLD bypass for a single
+  launch — agents must never pass it). Put the plain-English paragraph
+  in `--hypothesis` (it leads the W&B notes) or override wholesale
+  with `--arg='--notes=…'`. Record the launch with `ops.sh logline`.
 - `ops.sh expdir <run>` — create `logs/experiments/<run>/` with the
   summary.md template. Only for DIG-IN runs (08-09 lightweight
   process): clear pass/fail needs just the ledger verdict (which
