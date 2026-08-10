@@ -56,6 +56,21 @@ off target, worst pad clearance 4 mm).
   `rl_move/sim/refs/rise_ref_belly2plant.npz` (+111 mm, all pads
   down, 7.4° RMS from plant). Commanding it needs
   `goal.rise_height_mm=[108,114]` AND `actions.max_height_mm=115`.
+- **Stand-score income routing** (`reward.rise_score_income=1`,
+  landed 08-10 evening after plantgate1 FAILED — gates leak, so the
+  income itself moved): rise-episode height income (progress,
+  milestones, finish, kernel) is ZEROED; the only rise income is a
+  progress ratchet (`k_rise_score_prog`, pays once per new best) +
+  post-ramp hold pay (`k_rise_score_hold` × S²/tick) on stand-score
+  S = height-kernel × feet-down² × HARD no-flag × plant geometry,
+  plus a ramp-weighted airborne-feet rent (`k_rise_posture_pen`) —
+  the bank showed cheats otherwise win on the PENALTY side by dodging
+  `reward_height` (torso up any way possible). The rent charges
+  feet-in-the-air only, NOT the geometric fades: the honest reference
+  itself moves through wide-footprint poses mid-rise. Lower keeps the
+  legacy (solved) stack. Bank, all seeds: replay +91 ≫ stilt −9 >
+  flag-leg −165 (income ~0) > freeze −218. First arm:
+  `cw-stand-score1`.
 
 ## The standing SPECIFICATION (landed 2026-08-10, PLANT_SPEC)
 
@@ -113,14 +128,17 @@ runs the full stack the arm will train with.
   recipe from scratch on today's sim; decides whether the walk-env
   task construction or near-ground sim contact is implicated.
 
-## Direction (binding, 08-10)
+## Direction (binding, 08-10 evening — supersedes the morning entry)
 
-The geometric criterion the 08-10 ruling demanded is LANDED (PLANT_SPEC
-above): next rise arm sets `reward.rise_plant_polygon_gate=1` on top of
-the standard rise stack, cites the passing bank as `--evidence`, and
-gate-evals with valid_plant reported (baseline the champions before
-flipping `--valid-plant-gate` into success). Do NOT re-run b2p1's
-recipe with more steps or a different k_rise_ref_track weight. Big
-rise consolidation runs wait for the loaded-actuator model (rise is
-the motion most sensitive to it). Any new rise mechanism goes through
-DISCOVERY (≤2M steps, early video) before any hardening budget.
+`cw-stand-plantgate1` FAILED: pricing the PLANT_SPEC gate live did not
+stop the flag-leg cheat (rise 0/12 valid_plant, same video pathology as
+b2p1). Ruling: gates leak — a multiplicative discount on dishonest
+income still leaves the cheat the best-paying discoverable behavior.
+The income SOURCE moved instead: `reward.rise_score_income=1` (see
+Landed machinery). First arm `cw-stand-score1` (DISCOVERY, 2M, warm
+from the stance champion, plant band 108–114 mm, loaded servo params,
+NO reference tracking — operator: no waypoints unless data hardcore
+disagrees). Do NOT re-run gate-only or height-income recipes. Any new
+rise mechanism still goes through DISCOVERY (≤2M steps, early video)
+before any hardening budget, and its exploit must be pinned in the
+semantics bank FIRST (the flag-leg trajectory now is).
