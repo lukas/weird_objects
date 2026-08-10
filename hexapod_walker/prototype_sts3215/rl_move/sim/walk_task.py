@@ -89,13 +89,21 @@ PHASE_TRIPOD_A = (0, 2, 4)      # alternating tripod around the body
 PHASE_HZ_DEFAULT = 1.0          # ~stride rate of the 0.02-0.06 lineage
 
 
+WZ_SCALE = 0.5            # rad/s; obs scale for the commanded yaw rate
+
+
 @dataclass
 class WalkGoal(TaskGoal):
-    """TaskGoal + commanded body-frame planar velocity."""
+    """TaskGoal + commanded body-frame planar velocity (+ yaw rate)."""
     vx_ref: float = 0.0
     vy_ref: float = 0.0
+    wz_ref: float = 0.0   # rad/s, +CCW; only in obs when walk_yaw_cmd=1
 
     def as_obs(self, cfg: dict) -> np.ndarray:
+        # NOTE: the commanded yaw rate (wz_ref, walk_yaw_cmd lineage) is
+        # deliberately NOT here — it is appended at the obs TAIL by
+        # _augment_obs so --obs-pad-transplant 1 can warm-start a yaw
+        # run from any non-yaw champion (transplant pads tail columns).
         base = super().as_obs(cfg)
         return np.concatenate(
             [base, [self.vx_ref / VEL_SCALE, self.vy_ref / VEL_SCALE]])
@@ -106,6 +114,7 @@ class WalkTrajectory(GoalTrajectory):
     """Constant-velocity command, eased in after a settle hold."""
     vx: np.ndarray = None  # (n_steps,) m/s
     vy: np.ndarray = None
+    wz: np.ndarray = None  # (n_steps,) rad/s; None = no yaw channel
 
     def at(self, step: int) -> WalkGoal:
         i = min(max(step, 0), len(self.roll) - 1)
@@ -114,7 +123,9 @@ class WalkTrajectory(GoalTrajectory):
                         height_ref=float(self.height[i]),
                         unload_leg=self.unload_leg,
                         vx_ref=float(self.vx[i]),
-                        vy_ref=float(self.vy[i]))
+                        vy_ref=float(self.vy[i]),
+                        wz_ref=float(self.wz[i])
+                        if self.wz is not None else 0.0)
 
 
 def _wrap_goal(goal: TaskGoal | None) -> WalkGoal | None:
@@ -122,7 +133,8 @@ def _wrap_goal(goal: TaskGoal | None) -> WalkGoal | None:
     if goal is None or isinstance(goal, WalkGoal):
         return goal
     return WalkGoal(roll_ref=goal.roll_ref, pitch_ref=goal.pitch_ref,
-                    height_ref=goal.height_ref, unload_leg=goal.unload_leg)
+                    height_ref=goal.height_ref, unload_leg=goal.unload_leg,
+                    lift_legs=goal.lift_legs)
 
 
 class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
@@ -187,10 +199,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._phase_obs = float(cfg_get(self.cfg, "goal", "walk_phase_obs",
                                         default=0.0)) == 1.0
         self._phase = 0.0
+        # Yaw-rate command channel (goal.walk_yaw_cmd=1): +1 goal obs
+        # (scaled wz_ref via WalkGoal.as_obs). New-lineage flag — the
+        # width change means no warm start from a non-yaw checkpoint.
+        self._yaw_cmd = float(cfg_get(self.cfg, "goal", "walk_yaw_cmd",
+                                      default=0.0)) == 1.0
         if _gym is not None:
             self.observation_space = self._obs_space_box(
                 N_OBS - 6 + self.n_act + WALK_GOAL_DIM + N_VEL_OBS
-                + (N_PHASE_OBS if self._phase_obs else 0))
+                + (N_PHASE_OBS if self._phase_obs else 0)
+                + (1 if self._yaw_cmd else 0))
 
     def _augment_obs(self, obs: np.ndarray, *,
                      reset: bool = False) -> np.ndarray:
@@ -224,6 +242,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         % (2.0 * math.pi)
             obs = np.concatenate(
                 [obs, [math.sin(self._phase), math.cos(self._phase)]])
+        if self._yaw_cmd:
+            # Commanded yaw rate at the obs TAIL (see WalkGoal.as_obs
+            # note): measured yaw rate is already in the gyro obs, so
+            # only the reference is appended. Zero for non-walk goals
+            # and during the settle hold.
+            goal = self._current_goal()
+            wz_ref = float(getattr(goal, "wz_ref", 0.0)) \
+                if goal is not None else 0.0
+            obs = np.concatenate([obs, [wz_ref / WZ_SCALE]])
         return obs.astype(np.float32)
 
     def _reset_begin(self, seed: int | None = None):
@@ -308,6 +335,28 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         vx[hold_n:end] = np.linspace(0.0, vx_t, end - hold_n)
         vy[hold_n:end] = np.linspace(0.0, vy_t, end - hold_n)
         zeros = np.zeros(n)
+        # Yaw-rate command (goal.walk_yaw_cmd=1; all draws gated so
+        # legacy rng streams are untouched). Per segment: zero with
+        # p=walk_yaw_zero_frac (heading-hold — the drift fix pays it),
+        # else uniform +-walk_yaw_max_rad_s. Drawn independently of the
+        # linear command, so stop segments with wz != 0 are TURN IN
+        # PLACE episodes for free.
+        wz = None
+        wz_max = float(cfg_get(self.cfg, "goal", "walk_yaw_max_rad_s",
+                               default=0.3))
+        wz_zero_frac = float(cfg_get(self.cfg, "goal", "walk_yaw_zero_frac",
+                                     default=0.5))
+
+        def draw_wz() -> float:
+            if rng.random() < wz_zero_frac:
+                return 0.0
+            return float(rng.uniform(-wz_max, wz_max))
+
+        if self._yaw_cmd:
+            wz_t = draw_wz()
+            wz = np.full(n, wz_t)
+            wz[:hold_n] = 0.0
+            wz[hold_n:end] = np.linspace(0.0, wz_t, end - hold_n)
         # Mid-episode command resampling (operator wishlist 2026-08-09:
         # "walking around and changing direction"; default 0 = off, rng
         # stream unchanged). Every walk_cmd_resample_s seconds draw a
@@ -357,6 +406,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 return max(1, int(round(max(b, self.dt) / self.dt)))
 
             cvx, cvy = vx_t, vy_t
+            cwz = float(wz[min(end, n - 1)]) if wz is not None else 0.0
             i = hold_n + ramp_n + seg_len()
             while i < n:
                 if rng.random() < stop_frac:
@@ -371,6 +421,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 vx[end_b:] = nvx
                 vy[end_b:] = nvy
                 cvx, cvy = nvx, nvy
+                if wz is not None:
+                    nwz = draw_wz()
+                    wz[i:end_b] = np.linspace(cwz, nwz, end_b - i)
+                    wz[end_b:] = nwz
+                    cwz = nwz
                 i += seg_len()
         # Commanded gait height (operator wishlist 2026-08-09: walk in a
         # HIGHER or LOWER stance; default 0 = today's nominal walk).
@@ -401,13 +456,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         start_at = "park" if rng.random() < park_frac else "plant"
         return WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
                               height=height, unload_leg=None,
-                              start_at=start_at, vx=vx, vy=vy)
+                              start_at=start_at, vx=vx, vy=vy, wz=wz)
 
     def _sample_goal(self):
         gen = self._goal_gen
         p_walk = float(getattr(gen, "p_walk", 0.0))
         p_base = (gen.p_hold + gen.p_lean + gen.p_track + gen.p_unload
-                  + gen.p_raise + gen.p_rise + gen.p_lower)
+                  + gen.p_raise + gen.p_rise + gen.p_lower
+                  + getattr(gen, "p_quad", 0.0))
         tot = p_walk + p_base
         if tot <= 0 or self.rng.random() < p_walk / tot:
             return self._sample_walk()
@@ -421,6 +477,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         v_world = self.data.qvel[:3]
         R = self.data.xmat[self._chassis_bid].reshape(3, 3)
         return (R.T @ v_world)[:2]
+
+    def _body_wz(self) -> float:
+        """Chassis yaw rate about the body z axis (rad/s, +CCW)."""
+        w_world = self.data.qvel[3:6]
+        R = self.data.xmat[self._chassis_bid].reshape(3, 3)
+        return float((R.T @ w_world)[2])
 
     def _post_step(self, result):
         # Walk-mode shaping — in the _post_step hook (not a step()
@@ -446,6 +508,25 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 k_prog = float(cfg_get(self.cfg, "reward", "k_walk_prog",
                                        default=K_PROG))
                 r_prog = k_prog * min(along / s_ref, 1.25)
+            # Yaw-rate tracking kernel (goal.walk_yaw_cmd lineage only;
+            # reward.k_walk_yaw default 0 = off). Paid in EVERY walk
+            # tick, including wz_ref = 0 — heading-hold earns income, so
+            # the free ~+10 deg/20 s drift of the yaw-blind lineage is
+            # finally priced. NOT gated on s_ref: a stop segment with
+            # wz_ref != 0 is a commanded turn in place and must pay.
+            k_yaw = float(cfg_get(self.cfg, "reward", "k_walk_yaw",
+                                  default=0.0))
+            if self._yaw_cmd and k_yaw > 0.0:
+                wz = self._body_wz()
+                sig_w = float(cfg_get(self.cfg, "reward",
+                                      "yaw_sigma_rad_s", default=0.15))
+                yaw_err = wz - goal.wz_ref
+                r_yaw = k_yaw * math.exp(
+                    -(yaw_err ** 2) / (2.0 * sig_w ** 2))
+                reward = float(reward) + r_yaw
+                info["reward_walk_yaw"] = r_yaw
+                info["walk_yaw_err"] = abs(yaw_err)
+                info["walk_wz"] = wz
             # Progress-gated kernel income (cycle 20, cw-walk-kgate;
             # cfg reward.walk_kernel_prog_gate in [0,1], default 0=off):
             # multiply the velocity-error kernel by
@@ -749,4 +830,61 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_eff = -k_eff * float(np.mean(cur))
                     reward += r_eff
                 info["reward_effort"] = r_eff
+        elif (self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "quad"):
+            # Quad-hold shaping (feasibility GO, c57; all cfg-gated,
+            # default 0 = mode earns only the base kernels). Two income
+            # terms, no new charges — the level kernel, current charge
+            # and tilt trip already price the failure modes:
+            #   k_quad_clear: pay each LIFT leg's height above its
+            #     episode-start pad z, clipped at quad_clear_cap_mm,
+            #     and only while that foot is OFF the ground (a loaded
+            #     "lifted" leg earns nothing by construction).
+            #   k_quad_plant: pay the loaded fraction of the four
+            #     support legs — the four-planted half of the task.
+            # A grace window (quad_grace_s) keeps the settle + lift
+            # transient unpaid so income starts only once the hold
+            # could actually be happening.
+            goal = self._current_goal()
+            lift = tuple(goal.lift_legs) if goal.lift_legs else ()
+            grace_n = int(round(float(cfg_get(
+                self.cfg, "goal", "quad_grace_s", default=1.5)) / self.dt))
+            k_qc = float(cfg_get(self.cfg, "reward", "k_quad_clear",
+                                 default=0.0))
+            k_qp = float(cfg_get(self.cfg, "reward", "k_quad_plant",
+                                 default=0.0))
+            if lift and self._step_i > grace_n and (k_qc > 0.0
+                                                    or k_qp > 0.0):
+                cap_m = float(cfg_get(self.cfg, "reward",
+                                      "quad_clear_cap_mm",
+                                      default=30.0)) / 1000.0
+                clear_sum = 0.0
+                clear_mm = 0.0
+                fronts_off = 0
+                for f in lift:
+                    adr = self._touch_adr[f]
+                    on = (adr >= 0 and
+                          float(self.data.sensordata[adr]) > 0.5)
+                    z_ref = (self._pad_z_ref[f]
+                             if self._pad_z_ref is not None else 0.0)
+                    clear = float(
+                        self.data.xpos[self._pad_bids[f], 2]) - z_ref
+                    clear_mm += clear * 1000.0
+                    if not on:
+                        fronts_off += 1
+                        clear_sum += min(max(clear / cap_m, 0.0), 1.0)
+                support = [f for f in range(6) if f not in lift]
+                n_on = sum(
+                    1 for f in support
+                    if self._touch_adr[f] >= 0
+                    and float(self.data.sensordata[
+                        self._touch_adr[f]]) > 0.5)
+                r_qc = k_qc * clear_sum / max(len(lift), 1)
+                r_qp = k_qp * n_on / max(len(support), 1)
+                reward = float(reward) + r_qc + r_qp
+                info["reward_quad_clear"] = r_qc
+                info["reward_quad_plant"] = r_qp
+                info["quad_clear_mm"] = clear_mm / max(len(lift), 1)
+                info["quad_fronts_off"] = fronts_off / max(len(lift), 1)
+                info["quad_planted_frac"] = n_on / max(len(support), 1)
         return obs, reward, term, trunc, info

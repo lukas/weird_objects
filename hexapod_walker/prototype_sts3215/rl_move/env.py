@@ -48,14 +48,24 @@ class TaskGoal:
     pitch_ref: float = 0.0
     height_ref: float = 0.0
     unload_leg: int | None = None
+    # Multi-leg lift command (quad mode): legs the policy must lift AND
+    # keep clear/unloaded. Encoded into the SAME 6-wide one-hot as
+    # unload_leg (obs width unchanged -> warm starts stay compatible;
+    # a two-hot pattern is simply an input combo no prior episode used).
+    # Unlike unload_leg it is never consumed by the single-leg unload
+    # reward machinery — quad reward lives in walk_task._post_step.
+    lift_legs: tuple | None = None
 
     def as_obs(self, cfg: dict) -> np.ndarray:
-        """9-dim goal observation: scaled refs + unload one-hot."""
+        """9-dim goal observation: scaled refs + unload/lift one-hot."""
         ts = float(cfg_get(cfg, "obs", "tilt_scale", default=0.2))
         hs = float(cfg_get(cfg, "obs", "height_scale_m", default=0.05))
         onehot = np.zeros(6, dtype=float)
         if self.unload_leg is not None:
             onehot[int(self.unload_leg)] = 1.0
+        if self.lift_legs is not None:
+            for leg in self.lift_legs:
+                onehot[int(leg)] = 1.0
         return np.concatenate([
             [self.roll_ref / max(ts, 1e-6), self.pitch_ref / max(ts, 1e-6),
              self.height_ref / max(hs, 1e-6)],

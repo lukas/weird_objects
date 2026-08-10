@@ -60,6 +60,7 @@ class GoalTrajectory:
     pitch: np.ndarray                # (n_steps,) rad
     height: np.ndarray               # (n_steps,) m, offset from start
     unload_leg: int | None
+    lift_legs: tuple | None = None   # quad mode: legs to lift + keep clear
     start_at: str = "plant"
     crouch_dz: float = 0.0           # m below plant, for start_at="crouch"
     # Bridge starts (start_at="zero" only): 0 = flat belly pose, 1 = the
@@ -77,7 +78,8 @@ class GoalTrajectory:
         return TaskGoal(roll_ref=float(self.roll[i]),
                         pitch_ref=float(self.pitch[i]),
                         height_ref=float(self.height[i]),
-                        unload_leg=self.unload_leg)
+                        unload_leg=self.unload_leg,
+                        lift_legs=self.lift_legs)
 
 
 class GoalGenerator:
@@ -95,6 +97,15 @@ class GoalGenerator:
         # plant, follow a slow height ramp DOWN to belly rest without
         # banging. Enabled per-run via --goal-mix lower=<p>.
         self.p_lower = float(g.get("p_lower", 0.0))
+        # "quad" (default OFF — operator party-tricks line, feasibility
+        # GO at c57): from the plant, LIFT both front legs (0 and 5, per
+        # quadruped_feasibility.FRONT_LEGS) and hold a level four-leg
+        # stance. Command reaches the policy through the goal one-hot
+        # (TaskGoal.lift_legs — obs width unchanged); the clearance/
+        # planted reward lives in walk_task._post_step (cfg-gated
+        # k_quad_*). Enable per-run via --goal-mix quad=<p>.
+        self.p_quad = float(g.get("p_quad", 0.0))
+        self.quad_legs = tuple(g.get("quad_lift_legs", (0, 5)))
         # References must be reachable through the body IK action limits.
         max_roll = float(cfg_get(cfg, "actions", "max_roll_deg", default=3.0))
         max_pitch = float(cfg_get(cfg, "actions", "max_pitch_deg", default=3.0))
@@ -165,11 +176,15 @@ class GoalGenerator:
 
     def sample(self, rng: np.random.Generator, n_steps: int,
                dt: float) -> GoalTrajectory:
+        # "quad" appended with p=0 by default: a zero-probability entry
+        # does not change Generator.choice's cdf mapping, so legacy rng
+        # streams are unchanged.
         probs = np.array([self.p_hold, self.p_lean, self.p_track,
                           self.p_unload, self.p_raise, self.p_rise,
-                          self.p_lower])
+                          self.p_lower, self.p_quad])
         mode = str(rng.choice(
-            ["hold", "lean", "track", "unload", "raise", "rise", "lower"],
+            ["hold", "lean", "track", "unload", "raise", "rise", "lower",
+             "quad"],
             p=probs / probs.sum()))
         roll = np.zeros(n_steps)
         pitch = np.zeros(n_steps)
@@ -270,8 +285,10 @@ class GoalGenerator:
             height[:hold_n] = 0.0
             end = min(hold_n + ramp_n, n_steps)
             height[hold_n:end] = np.linspace(0.0, rise, end - hold_n)
+        lift_legs = self.quad_legs if mode == "quad" else None
         return GoalTrajectory(mode=mode, roll=roll, pitch=pitch,
                               height=height, unload_leg=unload_leg,
+                              lift_legs=lift_legs,
                               start_at=start_at, crouch_dz=crouch_dz,
                               start_curl=start_curl)
 
