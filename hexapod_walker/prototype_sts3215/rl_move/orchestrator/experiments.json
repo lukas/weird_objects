@@ -55987,7 +55987,8 @@
           "fps 3277 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T18:13:36"
   },
   {
     "run": "cw-dep-vref1-r1-actnoise",
@@ -57459,7 +57460,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-startvar1-placementonly since 2026-08-10T18:08:32"
   },
   {
     "run": "cw-dep-vref1-r1-imumount-groundtilt5",
@@ -58116,6 +58118,116 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-tiltnoise-gyronoise --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set dr.gyro_noise_deg_s=1.5 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_tiltnoise_gyronoise --notes 'respec of cw-dep-vref1-r1-tiltnoise: Test whether the hardware candidate still walks cleanly when BOTH of its IMU readings are noisy at once -- a realistic cheap-IMU model: tilt-angle noise at 3x default (just PASSed alone as tiltnoise) plus gyro-rate noise at 1.5deg/s (PASSed alone as gyronoise). The two channels feed the same complementary attitude filter, which suppresses accel-tilt noise (~10x) but passes gyro noise into the integrated attitude -- their interaction is untested and bears directly on the deploy 25deg tilt-trip logic. Per P0 rule 3, k_current=0. If-true: composes free like every prior benign pair -- gv 6/6 det+sto own-cfg, 0 term, slip medians in vref1-r1'\"'\"'s band. If-false: combined attitude noise degrades gait or produces spurious near-threshold tilt behavior -- flag before relying on a rate term in the hardware trip.' --cfg-set dr.tilt_noise_deg=1.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-tiltnoise-gyronoise.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-tiltnoise-gyronoise.log",
     "wandb_id": "wtyv7iyv",
-    "verified": "2026-08-10T18:03:54+00:00"
+    "verified": "2026-08-10T18:03:54+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T18:09:20+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8473,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-cmddrop-velscale",
+    "pod": "hexapod-mjx-train-10",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if two different kinds of actuator-bus unreliability happen together -- dropped serial packets (the servo just holds its last position for a tick) AND a wrong assumption about the servo's top speed (today's finding: loaded peak velocity is 1.6-2.2x the sim's air-fit ceiling)? Both PASSed alone on vref1-r1 but never together, and both are properties of the SAME physical actuator/bus stack, unlike pairs that combine unrelated subsystems (e.g. floor tilt + friction). Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- actuator-uncertainty composes free like every other axis pairing tonight. If-false: stale commands plus a wrong speed ceiling interact badly (plausible: a dropped tick forces a bigger catch-up move right when the speed ceiling is also uncertain) -- flag as a real pre-attempt-#2 risk tied directly to today's loaded-actuator finding.",
+    "gate": "own-cfg (DR0.35 + dr.cmd_drop_prob_max=0.05 + dr.latency_scale=0.5,2.5 + dr.vel_scale=0.6,2.2) det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1's own band +-20%; DR0-no-override retention det 6/6 gv reproducing vref1-r1's own band; video frames watched det+sto",
+    "parent": "cw-dep-vref1-r1-cmddrop",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_cmddrop_velscale",
+      "--notes",
+      "respec of cw-dep-vref1-r1-cmddrop: Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if two different kinds of actuator-bus unreliability happen together -- dropped serial packets (the servo just holds its last position for a tick) AND a wrong assumption about the servo's top speed (today's finding: loaded peak velocity is 1.6-2.2x the sim's air-fit ceiling)? Both PASSed alone on vref1-r1 but never together, and both are properties of the SAME physical actuator/bus stack, unlike pairs that combine unrelated subsystems (e.g. floor tilt + friction). Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- actuator-uncertainty composes free like every other axis pairing tonight. If-false: stale commands plus a wrong speed ceiling interact badly (plausible: a dropped tick forces a bigger catch-up move right when the speed ceiling is also uncertain) -- flag as a real pre-attempt-#2 risk tied directly to today's loaded-actuator finding.",
+      "--cfg-set",
+      "dr.latency_scale=0.5,2.5",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.cmd_drop_prob_max=0.05",
+      "--cfg-set",
+      "dr.vel_scale=0.6,2.2"
+    ],
+    "created": "2026-08-10T18:08:13+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-12d45224-745e-3c94-0817-b7685322bad4)",
+      "running_experiments_before": 10,
+      "code_sha_local": "b9109b842a8f6d26cd9c1313262d91d3ab33c5e9",
+      "code_sha_pod": "b9109b842a8f6d26cd9c1313262d91d3ab33c5e9",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "4028652",
+      "log_growth_bytes": [
+        7839,
+        12611
+      ],
+      "wandb_id": "ld20fp7m",
+      "global_step_window": [
+        524288,
+        1507328
+      ],
+      "fps_estimate": 10922.7
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-cmddrop-velscale --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_cmddrop_velscale --notes 'respec of cw-dep-vref1-r1-cmddrop: Plain English: does the checkpoint headed for tonight'\"'\"'s hardware attempt still walk cleanly if two different kinds of actuator-bus unreliability happen together -- dropped serial packets (the servo just holds its last position for a tick) AND a wrong assumption about the servo'\"'\"'s top speed (today'\"'\"'s finding: loaded peak velocity is 1.6-2.2x the sim'\"'\"'s air-fit ceiling)? Both PASSed alone on vref1-r1 but never together, and both are properties of the SAME physical actuator/bus stack, unlike pairs that combine unrelated subsystems (e.g. floor tilt + friction). Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- actuator-uncertainty composes free like every other axis pairing tonight. If-false: stale commands plus a wrong speed ceiling interact badly (plausible: a dropped tick forces a bigger catch-up move right when the speed ceiling is also uncertain) -- flag as a real pre-attempt-#2 risk tied directly to today'\"'\"'s loaded-actuator finding.' --cfg-set dr.latency_scale=0.5,2.5 --cfg-set reward.k_current=0 --cfg-set dr.cmd_drop_prob_max=0.05 --cfg-set dr.vel_scale=0.6,2.2 > /tmp/train_cw-dep-vref1-r1-cmddrop-velscale.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-cmddrop-velscale.log",
+    "wandb_id": "ld20fp7m",
+    "verified": "2026-08-10T18:12:16+00:00"
   }
 ]
