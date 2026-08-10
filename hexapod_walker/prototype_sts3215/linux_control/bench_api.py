@@ -1720,7 +1720,8 @@ class BenchAPI:
         try:
             from inplace_demos import (
                 CurrentPeakTracker, PoseStreamer, _enable_torque,
-                _live_robot_ids, _set_torque_limit, ease_to_pose,
+                _live_robot_ids, _set_torque_limit, _write_pose,
+                ease_to_pose,
             )
             from drive_controller import MAX_SAFE_DELTA_DEG
         except ImportError as e:
@@ -1838,10 +1839,25 @@ class BenchAPI:
                             label=f"{mode} align",
                             current_tracker=tracker)
                         aborted = not ok
+                    # Schedule: raw keyframe times / tempo, then ONE
+                    # physics floor on the total (not per segment —
+                    # per-segment floors made the waypoint COUNT cost
+                    # time, which is backwards: dense waypoints are
+                    # free under interpolation). Floor = worst joint's
+                    # total travel at ~130 deg/s tracked speed, so 10x
+                    # compresses to what the servos can honestly do.
                     ts, qs = [0.0], [q0]
                     for q_deg, kf_s in frames[1:]:
-                        ts.append(ts[-1] + max(0.06, kf_s / speed))
+                        ts.append(ts[-1] + max(0.02, kf_s / speed))
                         qs.append(q_deg)
+                    travel = [0.0] * len(q0)
+                    for qa, qb in zip(qs, qs[1:]):
+                        for j, (a, b) in enumerate(zip(qa, qb)):
+                            travel[j] += abs(b - a)
+                    t_min = max(0.5, max(travel) / 130.0)
+                    if ts[-1] < t_min:
+                        k = t_min / max(ts[-1], 1e-6)
+                        ts = [t * k for t in ts]
                     streamer = PoseStreamer()
                     tripped = False
                     seg, last_sample = 1, -1.0
@@ -1863,7 +1879,7 @@ class BenchAPI:
                         streamer.write(
                             d.bus, q, live,
                             dt=min(max(t - t_prev, 0.03), 0.25),
-                            deadband=0.3, max_speed=1500, max_acc=200)
+                            deadband=0.3, max_speed=2000, max_acc=200)
                         t_prev = t
                         if t - last_sample > 0.3:
                             # feedback sweep costs real bus time —
@@ -1880,15 +1896,25 @@ class BenchAPI:
                             tripped = tracker.peak_a > abort_current_a
                         time.sleep(0.05)
                     if not aborted and not tripped:
-                        # settle + hold cleanly on the final pose
-                        # (with correct pursuit speeds this is a
-                        # residual nudge, not a pop)
-                        ok = ease_to_pose(
-                            d.bus, qs[-1],
-                            abort_check=self._demo_abort.is_set,
-                            seconds=0.5, label=f"{mode} settle",
-                            current_tracker=tracker)
-                        aborted = not ok
+                        # settle: ONE direct command to the final pose
+                        # + a bounded wait for the servos to arrive.
+                        # ease_to_pose's glide + settle-poll loop added
+                        # a ~1 s tail even when the residual was tiny.
+                        _write_pose(d.bus, qs[-1], live,
+                                    speed=900, acc=80)
+                        deadline = time.monotonic() + 1.2
+                        while time.monotonic() < deadline:
+                            if self._demo_abort.is_set():
+                                aborted = True
+                                break
+                            with self.drive._lock:
+                                worst, _ = (self.drive
+                                            ._max_delta_vs_present(
+                                                qs[-1]))
+                            if worst < 2.5:
+                                break
+                            time.sleep(0.1)
+                        tracker.sample(d.bus, live)
                         tripped = tracker.peak_a > abort_current_a
                     if tripped:
                         result["error"] = guard_msg()
@@ -2031,7 +2057,9 @@ class BenchAPI:
                 self, "_meas_pending", None) else None
         return {"ok": True, "records": list(reversed(recs)),
                 "pending": pending,
-                "fetch": ("scp arduino@hexapod.local:hexapod_sts/"
+                "fetch": ("HTTP: GET /api/logs (list) + "
+                          "/api/logs/<name> (download); or scp "
+                          "arduino@hexapod.local:hexapod_sts/"
                           "linux_control/logs/{measurements.jsonl,"
                           "meas_*.csv} rl_move/hardware_traces/")}
 
