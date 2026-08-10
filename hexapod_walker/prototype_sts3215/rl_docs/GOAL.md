@@ -6,18 +6,31 @@ it in a physics simulator (MuJoCo), on cloud GPUs, with an
 autonomous loop of AI agents that design experiments, watch them
 train, judge the results honestly, and launch the next one.
 
-**The end goal: the real robot walks around the room — smoothly,
-reliably, without falling over or cooking its motors.** Sim numbers
-only matter insofar as they get us there.
+**The end goal (operator, 08-10): drive the robot around the room
+with a joystick — it stands up, sits down, turns, and walks where
+you point, reliably. Then the tricks: stand on four legs, walk on
+four legs.** Sim numbers only matter insofar as they get us there.
 
 ## What "good" means (operator's own words)
 
 Distance, stability, reliability. The robot should cover real
 ground, stay level, and never fall. A policy that walks 0.6 m every
 time beats one that walks 1 m or falls at 50/50. Speed targets are
-a means, not the objective.
+a means, not the objective. Foot slip is not failure by itself —
+the scripted gait that walks the real robot slips visibly (08-09);
+slip metrics exist to keep sim honest about the real floor, not as
+a ban.
 
 ## Where we are (update this when it changes — keep it plain)
+
+As of 2026-08-10 (morning — supersedes the 08-09 notes below where
+they disagree): the REAL robot walks under a scripted gait; the
+learned sim gait works but creeps (contact pricing calibration
+pending, needs a tape-measure walk distance); the sim joystick
+driving stack is hardened and seed-confirmed; turn-in-place and the
+four-leg trick are under review; stand/sit inside the walking policy
+is the main unsolved skill; hardware attempt #2 base
+(cw-dep-vref1-r1, deployment-exact obs) is validated and staged.
 
 As of 2026-08-09 (~cycle 34):
 

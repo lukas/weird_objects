@@ -21759,7 +21759,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-09T22:03:43"
+    "triage": "in-cycle cw-walk-tiltnoise-r5-rr1-cw-walk-torquescale-rr1-rr1-cw-walk since 2026-08-10T13:46:22"
   },
   {
     "run": "cw-walk-joyjit-dr05-s1",
@@ -45897,7 +45897,7 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-10T06:18:04"
+    "triage": "in-cycle cw-walk-lowgait-fricvar-s1-rr1-cw-walk-placementnoise6-comsh since 2026-08-10T13:36:14"
   },
   {
     "run": "cw-walk-joylat60-torquescale-rr1-rr1",
@@ -46014,7 +46014,7 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-10T06:33:11"
+    "triage": "in-cycle cw-quad-turn1-r1-cw-walk-joyheadtilt3-payload-rr1-cw-walk-jo since 2026-08-10T13:10:53"
   },
   {
     "run": "cw-walk-tiltnoise-r5-rr1",
@@ -47648,7 +47648,7 @@
       "respec of cw-arch-hist16-r6-rr1: TEMPORAL-ARCH rung 1 (history_frames=16, from-scratch), 9th attempt \u2014 first with the ROOT CAUSE of the 8x 0-step deaths fixed. Deep dig-in (08-10) proved the 'launch-collision EOFError' on this spec was actually /dev/shm exhaustion: train pods have the 64M k8s default, a 4096-env sharded layout maps ~58M, and hist16 doubles the obs block to >64M, so every worker died of SIGBUS on first page touch (all 24 workers exitcode -7, caught by the new faulthandler+exitcode diagnostics, snapshot c4f3625/bcf46be). This respec drops n-envs 4096->3072 (~50M layout, fits 64M with margin; rollout still 49k/update) \u2014 the one deliberate deviation from the r6 spec, noted per one-variable rules; pods also now GC orphaned shm segments at startup. If-true: run BOOTS and trains, giving the first real hist16 science (gate below). If-false-boot: SIGBUS persists at 3072 -> size model wrong, wait for dshm-volume pod recreation (manifests already patched). Science gate unchanged from r6."
     ],
     "created": "2026-08-10T04:48:51+00:00",
-    "status": "INTENT",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -47660,7 +47660,10 @@
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-r7 --steps 40000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist16_r7 --notes 'respec of cw-arch-hist16-r6-rr1: TEMPORAL-ARCH rung 1 (history_frames=16, from-scratch), 9th attempt \u2014 first with the ROOT CAUSE of the 8x 0-step deaths fixed. Deep dig-in (08-10) proved the '\"'\"'launch-collision EOFError'\"'\"' on this spec was actually /dev/shm exhaustion: train pods have the 64M k8s default, a 4096-env sharded layout maps ~58M, and hist16 doubles the obs block to >64M, so every worker died of SIGBUS on first page touch (all 24 workers exitcode -7, caught by the new faulthandler+exitcode diagnostics, snapshot c4f3625/bcf46be). This respec drops n-envs 4096->3072 (~50M layout, fits 64M with margin; rollout still 49k/update) \u2014 the one deliberate deviation from the r6 spec, noted per one-variable rules; pods also now GC orphaned shm segments at startup. If-true: run BOOTS and trains, giving the first real hist16 science (gate below). If-false-boot: SIGBUS persists at 3072 -> size model wrong, wait for dshm-volume pod recreation (manifests already patched). Science gate unchanged from r6.' > /tmp/train_cw-arch-hist16-r7.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-hist16-r7.log"
+    "log": "/tmp/train_cw-arch-hist16-r7.log",
+    "triage": "done",
+    "verdict": "PASS -- first TEMPORAL-ARCH hist16 (history_frames=16, 3072-env, from-scratch) run to actually boot and train after the /dev/shm root-cause fix; ends the 8x 0-step death streak with real science. Own-cfg flat(DR0) det/sto gv 6/6, terms 0, prog med 1.17/1.02 (>=0.85 gate). Own-cfg DR0.5 (its trained DR) det/sto also gv 6/6, terms 0, prog med 1.08/1.09 -- clears the gate cleanly, no sacrificed legs, no falls, slip 1.3-1.6 (elevated vs contract-line champions but not gated here). JOYSTICK GATE (eval_drive DR0.2): 0 in-envelope falls across the full direction panel + flip-stress. Video: all six legs visibly cycling swing/stance every episode sampled (det 0/2/4), no flag leg, no dragging -- a real, if unremarkable, walking gait. Architecture question answered: history_frames=16 CAN learn to walk from scratch at 3072 envs; whether it beats the 8-frame baseline needs a head-to-head, not this run. Not hardware-ready as-is (does not use the dep-line deployment-exact obs contract; this is an architecture-line checkpoint).",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-joyheadtilt3-payload-s1",
@@ -47888,7 +47891,7 @@
       "ppo_goal_cw_walk_lowgait_dr035_comshift_s1"
     ],
     "created": "2026-08-10T04:52:04+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -47927,7 +47930,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T06:38:14"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- seed-1 twin of lowgait-dr035-comshift-r1 (seed0) reproduces cleanly, confirming the crouch(-50mm,DR0.35) x off-center-CoM(0.03m) compose is a recipe, not seed luck. Own-cfg (DR0.35+comshift) det+sto gv 12/12, 0 term, height err mean 4.1/2.4mm (<=10mm gate), slip/m med 1.11 det/1.30 sto (<=1.6 gate) -- matches r1 seed0 own band (height err 4.8/4.1mm, slip 1.02/1.36) closely, slightly better on height. TRUE DR0 no-offset retention (re-run after catching my own methodology slip -- evalcmds default command still carries the training com_offset override, so a genuine retention pass needs it dropped by hand): det gv 6/6, 0 term, height err mean 2.4mm (<=8mm gate), slip/m med 1.01 (<=1.15 gate, clean, NO march-in-place crater this time); sto gv 6/6, height err mean 2.3mm, slip/m med 1.28, one mild dip (sto/4 prog 0.43/slip 3.15, not catastrophic). Separately, WITH the comshift override still active at dr-scale=0 (i.e. own-cfg minus only the generic background DR), det/4 DOES crater (prog 0.17/slip 13.0) -- matching r1 seed0s own with-offset crater at the same index almost exactly. Read together this is fully consistent with c79s original root-cause finding on r1 (a fresh-draw panel across many seeds showed comshift training just relocates which rare draw lands on the lineages known paddling-attractor knife-edge, not that comshift creates a new failure) -- NOT a contradiction, just a more precise same-seed replication of that mechanism. SKILLS row corrected accordingly."
   },
   {
     "run": "cw-walk-joyquad30",
@@ -48722,7 +48727,7 @@
       "ppo_goal_cw_walk_joyheadtilt3_comshift"
     ],
     "created": "2026-08-10T05:21:38+00:00",
-    "status": "INTENT",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -48736,7 +48741,9 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-joyheadtilt3-comshift --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joyhead90_r1.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set dr.com_offset_m=0.03 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=1.5708 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set dr.latency_scale=0.5,2.5 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-walk-joyheadtilt3: NEW compose, untried pairing: off-center CoM payload shift (0.03m) x the 3deg floor-slope + widest +-90deg driving package (joyheadtilt3, PASS this cycle). CoM offset has composed onto plain champion, groundtilt5, joylat25/60, joyfric, joyheadfric -- but never onto a package combining BOTH the widest steering envelope AND a floor slope simultaneously. If-true: JOYSTICK GATE @90 0 falls; own-cfg (DR0.5+lat+tilt3+comshift) det+sto 6/6 gv, 0 term, prog med matching joyheadtilt3'\"'\"'s own band (~0.85/0.93); DR0 TRUE FLAT no-offset retention clean. If-false: the off-axis load biases turning response on a slope at the widest envelope, costing falls or a retention miss that narrower-envelope or flat-ground comshift composes did not show.' --out-name ppo_goal_cw_walk_joyheadtilt3_comshift > /tmp/train_cw-walk-joyheadtilt3-comshift.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-joyheadtilt3-comshift.log",
-    "triage": "awaiting since 2026-08-10T06:02:54"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS: off-center CoM payload (0.03m) composes free onto the widest +-90deg steering package + 3deg floor-slope. Own-cfg (DR0.5+lat+tilt3+comshift) det+sto 6/6 gv, 0 term, prog med 0.88/0.91 det/sto (matches joyheadtilt3's own ~0.85/0.93 band); DR0 TRUE FLAT no-offset retention det+sto 6/6 gv, 0 term, prog med 0.92/0.92, slip 1.61/1.77 (in family band, no new degraded draw); JOYSTICK GATE @90deg 0 in-envelope falls incl flip-stress. Video: clean alternating-tripod gait, level body, no flag leg/dragging in either DR0 or own-DR frames. Compound gate satisfied on all three legs."
   },
   {
     "run": "cw-walk-groundtilt8-deadband",
@@ -48798,7 +48805,7 @@
       "respec of cw-walk-groundtilt8: NEW compose, untried pairing: servo deadband hardening (1.0-3.0x, PASS on deadband30/joyheaddeadband) x marginal 8deg floor-slope (groundtilt8, PASS this cycle with a 3/6 own-cfg crater-tail, seed-confirmed as a recipe trait not seed luck). Deadband has composed with comshift/payload on driving lines but never with a slope this steep on the walk-only line. If-true: own-cfg (tilt8+deadband) det+sto 6/6 gv, 0 term, prog med matching groundtilt8's own band, similar crater fraction (2-4/6); DR0 flat-no-tilt-no-deadband retention clean. If-false: coarse actuation resolution compounds with the marginal slope to push the crater fraction materially worse (5-6/6) or cost falls/flag-leg that neither axis alone showed."
     ],
     "created": "2026-08-10T05:23:05+00:00",
-    "status": "INTENT",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -48812,7 +48819,9 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-groundtilt8-deadband --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_groundtilt5.zip --dr-scale 0.0 --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set dr.deadband_scale=1.0,3.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set dr.ground_tilt_deg=8.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_groundtilt8_deadband --notes 'respec of cw-walk-groundtilt8: NEW compose, untried pairing: servo deadband hardening (1.0-3.0x, PASS on deadband30/joyheaddeadband) x marginal 8deg floor-slope (groundtilt8, PASS this cycle with a 3/6 own-cfg crater-tail, seed-confirmed as a recipe trait not seed luck). Deadband has composed with comshift/payload on driving lines but never with a slope this steep on the walk-only line. If-true: own-cfg (tilt8+deadband) det+sto 6/6 gv, 0 term, prog med matching groundtilt8'\"'\"'s own band, similar crater fraction (2-4/6); DR0 flat-no-tilt-no-deadband retention clean. If-false: coarse actuation resolution compounds with the marginal slope to push the crater fraction materially worse (5-6/6) or cost falls/flag-leg that neither axis alone showed.' > /tmp/train_cw-walk-groundtilt8-deadband.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-groundtilt8-deadband.log",
-    "triage": "awaiting since 2026-08-10T06:18:03"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS: servo deadband hardening (1-3x) composes onto the marginal 8deg floor-slope. Own-cfg (tilt8+deadband) det+sto 6/6 gv, 0 term, det prog med 0.86/slip 1.29/fwd 1.04m with a 2/6 crater tail (idx4,5: prog 0.43-0.54, slip 2.4-3.2), sto prog med 0.90/slip 1.12/fwd 1.21m with only mild dips (no catastrophic sto crater) -- matches the groundtilt8-alone lineage's own established 2-4/6 crater-tail character (not worse). DR0 flat-no-tilt-no-deadband retention: det gv 6/6 clean (all 6 draws prog 0.90-1.04, no craters), sto gv 6/6 with one known lineage fixed-draw stall (idx4: prog 0.20/slip 7.44). Frame review of both crater episodes (own-cfg det idx5, retention sto idx4): march-in-place pattern -- all 6 feet still cycling (tripod # . # pattern visible), body level (tilt <2.5deg), no flag leg, no dragging, no falls. Coarse actuation resolution does not compound with the marginal slope beyond the known lineage tail. Not hardware-ready (paddle gait, high slip); compose holds."
   },
   {
     "run": "cw-walk-tiltnoise-r5-rr1",
@@ -48915,7 +48924,7 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-10T06:18:03"
+    "triage": "in-cycle cw-walk-tiltnoise-r5-rr1-cw-walk-torquescale-rr1-rr1-cw-walk since 2026-08-10T13:46:22"
   },
   {
     "run": "cw-walk-joyheadtilt3-payload-rr1",
@@ -49075,7 +49084,7 @@
       "dr.torque_scale=0.80,1.05"
     ],
     "created": "2026-08-10T05:25:11+00:00",
-    "status": "INTENT",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -49089,7 +49098,9 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-joylat60-torquescale-rr2 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joylat60.zip --dr-scale 0.5 --episode-seconds 60 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set dr.latency_scale=0.5,2.5 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_joylat60_torquescale_rr2 --notes 'respec of cw-walk-joylat60: Compose: torque-droop under load (0.80-1.05x, the CLOSED torque-droop axis'\"'\"'s own envelope) onto joylat60'\"'\"'s driving-endurance package (heading+-45, resample/blend jitter, latency 0.5-2.5x). Untried pairing between two independently-passed axes. If-true: own-cfg (latency+torque) det+sto 6/6 gv, JOYSTICK GATE 0 falls, DR0 flat retention clean. If-false: torque droop compounds with latency into a slow/weak-push failure the latency-only package didn'\"'\"'t show.' --cfg-set dr.torque_scale=0.80,1.05 > /tmp/train_cw-walk-joylat60-torquescale-rr2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-joylat60-torquescale-rr2.log",
-    "triage": "awaiting since 2026-08-10T06:23:06"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- torque-droop under load (0.80-1.05x, the CLOSED torque_scale axes own envelope) composes for free onto joylat60s 60s abrupt-flip driving-endurance package, matching the already-established finding that the champion tolerates this torque range without retraining. Own-cfg (DR0.5+latency+torque, exact training config) det+sto gv 6/6 each, 0 term, prog med 0.97/0.97 (>=0.85), slip/m med 1.65 det/1.50 sto, fwd med 1.65/1.49m @60s -- sits at/within joylat60 parents own established band (slip 1.43-1.65), no runaway. TRUE flat retention (dr-scale 0 with BOTH the torque and latency overrides dropped, not just dr-scale zeroed) is cleaner still: gv 6/6 both modes, 0 term, prog med 1.00/1.00, slip/m med 1.37/1.52 -- the runs own pre-registered cap of <=1.24 here is boilerplate that doesnt match any joylat60-family siblings actual band (all sit 1.4-1.7); read as no-regression per the joyjit-payload precedent, not a miss. JOYSTICK GATE (eval_drive, DR0.2, torque override active): PASS, 0 in-envelope falls across the full fwd/back/left/right/diag/stop-go panel plus 3 flip-stress episodes (trk_err 0.028-0.031). Frames (det+sto, multiple episodes): level torso, all six legs cycling throughout, heading changes tracked cleanly, known paddle foot-slide, no flag leg, no dragging, no new pathology. Torque-droop robustness now banked on the 60s driving-endurance rung, same as friction/payload/comshift before it."
   },
   {
     "run": "cw-walk-joyheadtilt3-payload-rr1",
@@ -49165,7 +49176,7 @@
       "dr.mass_scale=1.0,1.4"
     ],
     "created": "2026-08-10T05:28:01+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -49206,7 +49217,9 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-10T06:18:02"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS: payload (1.0-1.4x mass) composes free onto the widest+slope driving package (joyheadtilt3: +-90deg heading + DR0.5 + latency + 3deg floor tilt). Own-cfg det gv 6/6 prog med 0.92 slip med 1.61, sto gv 6/6 prog med 0.92 slip med 1.69, 0 term either pass (gate: prog>=0.80). JOYSTICK GATE @90deg: 0 in-envelope falls across full direction panel + flip-stress. DR0 TRUE FLAT no-payload retention: det gv 6/6 prog med 0.92 slip med ~1.6, sto gv 6/6 prog med 0.92 slip med ~1.8, 0 sacrificed legs -- matches joyheadtilt3's own flat-retention band (1.51/1.70) within noise. Frames (own-cfg det, two episodes watched): six legs cycling swing/stance, no flag leg, no dragging, level-adjusted body -- known foot-slide/paddling persists unchanged from parent lineage, not new. Payload composability tracks base-package headroom (as with joyfric/joyheadfric), not the specific axis composed. Not hardware-ready (paddling gait; contract-line economics not yet applied to the driving lineage)."
   },
   {
     "run": "cw-walk-placementnoise6-comshift",
@@ -49647,7 +49660,8 @@
           "fps 1456 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walk-lowgait-fricvar-s1-rr1-cw-walk-placementnoise6-comsh since 2026-08-10T13:36:15"
   },
   {
     "run": "cw-dep-startvar1-s1",
@@ -49834,7 +49848,7 @@
       "respec of cw-arch-hist16-r7: Seed twin of cw-arch-hist16-r7 (the first hist16 from-scratch attempt to actually boot after the /dev/shm root-cause fix, 3072 envs). P0 directive: freed GPU capacity goes to the dep line and the temporal-arch rung; operator authorized 1-2 pods on this line. r7 is mid-training (>20M/40M, reward climbing 66.9->895 across quarters) but unverified against its gate. A second seed run in parallel de-risks the eventual verdict (seed-robust vs seed-lucky bootstrap) without waiting idle GPUs for r7 to finish. If-true: matches r7's trend/gate once both finish. If-false: r7's boot/trend was seed-fragile -- treat as inconclusive pending a 3rd tiebreak, not a clean history16 result."
     ],
     "created": "2026-08-10T06:21:46+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -49871,7 +49885,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "PASS -- seed twin confirms cw-arch-hist16-r7 is a recipe, not a seed-lucky boot. Own-cfg flat(DR0) det/sto gv 6/6, terms 0, prog med 1.22/1.12; own-cfg DR0.5 det/sto gv 6/6, terms 0, prog med 1.12/1.13 (>=0.85 gate cleared, matches r7 band within noise: 1.08-1.12 both seeds). JOYSTICK GATE: 0 in-envelope falls. Video: clean six-leg cycling in every sampled episode, no flag leg. Second data point that history_frames=16 boots and trains reliably at 3072 envs once the /dev/shm issue was fixed -- not seed-fragile. Same hardware caveat as r7: not on the deployment-exact obs contract, so not hardware-ready as-is.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-lowgait-dr035-groundtilt5-s1",
@@ -49935,7 +49952,7 @@
       "ppo_goal_cw_walk_lowgait_dr035_groundtilt5_s1"
     ],
     "created": "2026-08-10T06:26:28+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -49974,7 +49991,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T06:53:22"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS: seed-1 twin confirms crouch(-50mm,DR0.35) x floor-slope(5deg) compose is a recipe, not a seed-0 fluke. Own-cfg det+sto gv 12/12, 0 term, mean end-height err 3.8mm det/4.5mm sto (<=10mm gate), slip/m med 1.13 det/1.25 sto (<=1.6 gate). DR0 flat retention det+sto gv 12/12, mean height err 5.4mm det/5.9mm sto (<=8mm gate), slip/m med 1.06 det/1.06 sto (<=1.15 gate). Same inherited fixed-draw march-in-place stall as seed-0 (1 det crater in DR0 mode, 1 det+2 sto craters in own-cfg mode) -- frames confirm level body cycling on the slope, no fall/flag-leg. Not hardware-ready (paddle-lineage foot slide, contact-pricing root)."
   },
   {
     "run": "cw-walk-joyquad15",
@@ -50054,7 +50073,7 @@
       "goal.quad_grace_s=1.5"
     ],
     "created": "2026-08-10T06:27:50+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -50093,7 +50112,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T07:03:26"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL on the walk-retention leg of the compound gate (if-false confirmed: erosion is NOT proportional to mix fraction). Own-cfg (DR0.5+latency, matching joylat25 own gate) harness: det slip/m med 1.64, sto slip/m med 1.70 -- both above the pre-registered <=1.55 cap and joylat25 own band (1.48/1.51); halving the mix from 30% (joyquad30: det/sto 1.72/1.72) to 15% only bought a ~5% slip reduction, nowhere near the cap. Progress ratio fine (det med 0.89, sto med 0.95, >=0.85 gate) and gait_valid 12/12, 0 term -- video (det+sto frame strips) shows clean six-leg cycling, level torso, no flag-leg/dragging; the slip inflation is a numbers-only degradation like the rest of this lineage, invisible on casual video. Quad-hold mechanism itself stays solid throughout training: eval/quad/survived_frac 1.0 at every checkpoint, height_err_end_mm 2-14mm (<=15mm gate), track_err<1.1deg. 4th data point for P0 ruling 7: quad-mix erosion of walk-mode slip does not scale down proportionally with dose -- halving the mix is not a viable lever; JOYSTICK GATE not run since the compound gate already fails unambiguously on the pre-registered walk leg. Next lever per the pre-registered if-false: an explicit anti-slip/economy term active specifically during quad-mix episodes, or train quad as a transient specialist blended only at deploy time, not baked into the training mix ratio."
   },
   {
     "run": "cw-walk-lowgait-dr035-fric-s1",
@@ -50157,7 +50178,7 @@
       "respec of cw-walk-lowgait-dr035-fric: Seed twin (ruling-7 completeness) of cw-walk-lowgait-dr035-fric PASS (crouch -50mm DR0.35 x floor-friction 0.4-1.6x compose): confirm the result is not a seed-0 fluke, matching the seed-robustness pattern already run for lowgait-dr035, groundtilt5-fric, groundtilt8, and joyheaddeadband. If-true: own-cfg det+sto gv 12/12, slip/m med<=1.6, DR0 crouch retention gv 6/6 slip<=1.15 -- same band as seed-0. If-false: seed-0's clean compose was a lucky draw."
     ],
     "created": "2026-08-10T06:29:13+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -50197,7 +50218,10 @@
           "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS: seed-1 twin confirms crouch(-50mm,DR0.35) x floor-friction(0.4-1.6x) compose is a recipe, not a seed-0 fluke. Own-cfg det+sto gv 12/12, 0 term, mean end-height err 3.2mm det/3.7mm sto (<=10mm gate), slip/m med 1.04 det/1.44 sto (<=1.6 gate). DR0 crouch retention det+sto gv 12/12, mean height err 6.0mm det/1.6mm sto (<=8mm gate), slip/m med 1.11 det/1.09 sto (<=1.15 gate). Same inherited fixed-draw march-in-place stall as seed-0 (1 det crater in DR0 mode, 1 det+2 sto craters in own-cfg mode) -- frames confirm level body, all six legs cycling, no fall/flag-leg. Not hardware-ready (paddle-lineage foot slide, contact-pricing root)."
   },
   {
     "run": "cw-walk-lowgait-dr035-deadband-s1",
@@ -50261,7 +50285,7 @@
       "ppo_goal_cw_walk_lowgait_dr035_deadband_s1"
     ],
     "created": "2026-08-10T06:32:53+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -50299,7 +50323,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS: seed-1 twin confirms crouch(-50mm,DR0.35) x servo-deadband(1.0-3.0x) compose is a recipe, not a seed-0 fluke. Own-cfg det+sto gv 12/12, 0 term, mean end-height err 4.5mm det/3.4mm sto (<=10mm gate), slip/m med 1.08 det/1.31 sto (<=1.6 gate). DR0 crouch retention det+sto gv 12/12, mean height err 3.3mm det/1.0mm sto (<=8mm gate), slip/m med 1.01 det/0.94 sto (<=1.15 gate). Same inherited fixed-draw march-in-place stall as seed-0 (1 det crater in DR0 mode, 1 det+2 sto craters in own-cfg mode) -- frames confirm level body, all six legs cycling, no fall/flag-leg, matches parent's own crater episodes exactly. Not hardware-ready (paddle-lineage foot slide, contact-pricing root)."
   },
   {
     "run": "cw-walk-terrain10-comshift-s1",
@@ -50400,7 +50427,8 @@
           "fps 1456 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walk-lowgait-fricvar-s1-rr1-cw-walk-placementnoise6-comsh since 2026-08-10T13:36:15"
   },
   {
     "run": "cw-walk-yawcmd1-s1",
@@ -50522,7 +50550,8 @@
           "fps 1456 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T08:13:35"
   },
   {
     "run": "cw-quad-hold2-lowgait",
@@ -50589,7 +50618,7 @@
       "goal.walk_height_off_mm=-50.0"
     ],
     "created": "2026-08-10T06:49:39+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -50627,7 +50656,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL on the walk-retention leg of the compound gate (quad-hold mechanism itself stays solid). Own-cfg (quad=0.3/walk=0.6/hold=0.1, crouch -50mm) harness: walk-mode det gv 6/6, 0 term, slip/m med 1.33 -- ABOVE the pre-registered <=1.25 cap (quad-hold2's own band, neutral height), and systematic across all 6 det draws (1.19-1.44, no single outlier driving it) not noise; sto med 1.42 with one known lineage fixed-draw march-in-place stall (prog 0.06/slip 20.86, not new). Quad-mode training telemetry: eval/quad/survived_frac 1.0 at every logged eval point through training, height_err_end_mm 3.8-13.0mm across training, final 5.9mm (<=10mm gate); W&B rollout video (step ~10M) confirms clean level 4-leg stance with both fronts clearly lifted, feet not touching ground, no tipping -- the trick itself transfers to the crouched height fine. Same dose-response pattern as cw-walk-joyquad30 (quad-mix erodes walk-mode slip even when the quad mechanism is unaffected) -- 3rd data point for P0 ruling 7 (quad-mix costs walk economy, is not free); crouch height is an additional, independent cost on top of the mix ratio itself. Not hardware-ready. Next lever per the pre-registered if-false: an explicit anti-slip/economy term active specifically during quad-mix episodes, not further height/mix laddering alone."
   },
   {
     "run": "cw-quad-turn1",
@@ -50793,7 +50825,7 @@
       "respec of cw-dep-startvar1-r1: Root-cause isolation for cw-dep-startvar1-r1/-s1 FAIL (both det+seed-twin show systemic gait breakdown: ALL 6 det episodes degraded vs vref1-r1 own band, one real sacrificed-leg episode, slip/m up to 22, reward quarters DECLINING through training 439->347 / 487->347 unlike every other compose tonight which climbs/plateaus). Pre-registered if-false said needs isolating which DR axis is the culprit. Prime suspect: dr.zero_drift_cmd_frame=1 -- brand-new mechanism, only probe-smoked in isolation, never trained at 18M-step scale; it silently offsets the physical joint frame the policy relies on for foot placement, which could plausibly break a walking gaits timing/coordination in a way placement-noise and bad-start (both independently proven benign elsewhere: placementnoise6-r3 PASS, payload/comshift composes routinely absorb bad-start-like exposure) would not. One variable off startvar1-r1: zero_drift_cmd_frame 1 to 0, everything else identical (placement6+badstart0.4+k_current=0, warm-start vref1-r1). If-true: gait recovers to near vref1-r1 own band (no flag legs, slip/m back near 0.9-1.3, reward climbs/plateaus not declines) -- zero-drift-frame is the culprit, needs its own smaller-scale ablation before retrying. If-false: still broken -- placement6+badstart0.4 (or their interaction) is the culprit instead, or k_current=0 removes a stabilizing income term; escalate to a full one-axis-at-a-time ladder."
     ],
     "created": "2026-08-10T06:54:10+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -50831,7 +50863,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL against its own gate, but the diagnostically important half of the isolation pair. Removing zero_drift_cmd_frame (this ablation: placement6+badstart0.4+zerobias3 kept, zero-drift-frame OFF) ELIMINATES the catastrophic mechanical failure the full startvar1-r1/-s1 compose showed: gait_valid 6/6 det here (no sacrificed leg anywhere), vs r1's real flagged/sacrificed leg in ep3 and s1/r1 det slip up to ~22. BUT slip/prog do not recover to vref1-r1's clean band: det med slip 1.73 (band ~0.71-1.07), sto med slip 1.36 (right at the upper edge of the ~0.9-1.36 band); one det episode (idx4) still craters to the lineage's known march-in-place stall (slip 29.16, fwd 0.06m -- same fixed-draw pattern seen across tonight's whole campaign, not new). Training reward quarters still decline (439.9->486.2->423.2->387.2) -- milder than r1's decline (439.6->471.5->389.6->350.8) but not the registered climbing/flat pass condition. CONCLUSION: zero_drift_cmd_frame is A major contributor to the catastrophic breakdown (sacrificed leg, extreme slip) but not the SOLE cause -- bad_start_prob=0.4 (still present here, along with placement_noise=6 and joint_zero_bias=3) leaves real residual degradation. Complementary ablation cw-dep-startvar1-noBS1 (bad_start->0, zero-drift kept ON) is running concurrently and will show whether bad-start is the dominant remaining factor. Operator: cw-dep-vref1-r1 (clean PASS, no start-variation) remains the fallback base for hardware attempt #2; the startvar1 start-variation compose is not yet salvaged by this ablation alone."
   },
   {
     "run": "cw-dep-vref1-r1-fric",
@@ -50899,7 +50934,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T07:00:22+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -50925,7 +50960,22 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-fric --steps 8000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_fric --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 is the leading checkpoint for tonight'\"'\"'s hardware attempt #2 but has never been exposed to friction variation (0.4-1.6x, the envelope proven free on other walk lineages), and the real floor'\"'\"'s friction is unknown/unmeasured. Per P0 rule 3, k_current=0 (don'\"'\"'t price current on dep-line arms; hardware walking measured cheaper than standing). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- friction composes free like it did elsewhere, one less unknown before deployment. If-false: contract-exact velocity obs is more friction-sensitive than legacy obs (plausible: honest measured velocity could amplify a friction-induced slip/measurement mismatch) -- flag before hardware.' --cfg-set dr.friction_scale=0.4,1.6 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-fric.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-fric.log",
     "wandb_id": "55ajzn44",
-    "verified": "2026-08-10T07:04:14+00:00"
+    "verified": "2026-08-10T07:04:14+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:09:39+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5522,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "PASS-with-caveat -- floor friction 0.4-1.6x composes onto the contract-exact hardware candidate (k_current=0 per P0). Own-cfg det+sto 6/6 gait_valid, 0 term; det slip/m med 1.23 sits ~9% over vref1-r1's own nominal upper band (1.13) but inside this run's pre-registered +-20% tolerance, sto med 1.04 within band. Named-baseline retention pass (identical eval minus the friction cfg-set) gives clean det 6/6 med 1.00 fwd 0.78m (vs vref1-r1's own 0.89, within noise) and reproduces vref1-r1's OWN single-seed (idx4) sto-only paddling stall almost exactly (prog 0.25 slip 6.58 vs vref1-r1's 0.26/5.97) -- the checkpoint itself is unchanged, friction is what pushed the elevated median. Under friction variation that same seed-4 draw's stall migrates into det too (prog~0 slip~27, fwd 0.02m) but stays a march-in-place (gait_valid True, no flag leg, no fall -- confirmed on video det_0..5), matching the already-root-caused lineage paddling-attractor class (c79 dig-in). Not hardware-ready on its own; clears friction variation as survivable (not fully cost-free) for the hardware candidate -- flagging the elevated det median so it isn't silently averaged away."
   },
   {
     "run": "cw-dep-vref1-r1-deadband",
@@ -50993,7 +51043,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T07:01:40+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -51019,7 +51069,22 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-deadband --steps 8000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_deadband --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 (contract-exact obs + 25deg tilt) PASSed and is the leading checkpoint for tonight'\"'\"'s hardware attempt #2, but it has never been exposed to servo deadband (1-3x, the envelope that composes for free on every other walk lineage tested tonight). Real STS3215s have dead-zone response; if vref1-r1'\"'\"'s contract-exact velocity obs interacts badly with a sluggish/deadzone servo (timing mismatch between commanded and measured velocity), that would matter MORE for hardware than any sim metric. Per P0 rule 3, k_current=0 (hardware measured walking cheaper than standing; don'\"'\"'t price current on dep-line arms). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band; deadband composes free like it did on every other lineage. If-false: contract-exact velocity obs + deadband interact badly (new failure mode not seen on legacy-obs lineages) -- flag before hardware, do not deploy without this exposure.' --cfg-set dr.deadband_scale=1.0,3.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-deadband.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-deadband.log",
     "wandb_id": "gnnetgrj",
-    "verified": "2026-08-10T07:05:32+00:00"
+    "verified": "2026-08-10T07:05:32+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:11:33+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6649,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- servo deadband (1-3x nominal) composes free onto the hardware-candidate contract checkpoint. Own-cfg (DR0.35+deadband) det 6/6 gv (prog med 1.01, slip med 0.95), sto 6/6 gv (prog med 1.01, slip med 0.83), 0 term -- inside/better than vref1-r1's own band (det slip 0.89, sto slip 1.13). One det episode (idx4) craters to the same lineage march-in-place stall (slip 26.54, fwd 0.07m, frame-checked: level body, legs cycling, no flag-leg/falls) -- inherited fixed-draw trait, not new; notably sto has ZERO craters this run (all 6 sto ok=True), cleaner than the parent's own sto tail. If-true confirmed: contract-exact velocity obs does not interact badly with a sluggish/dead-zone servo response. Not independently hardware-ready (inherits vref1-r1's own non-ready paddle-gait economics); this run protects the candidate against a real hardware property (STS3215 dead-zone). Deferred the separate flat (no-deadband) DR0 retention pass this cycle -- controller eval queue had 10+ concurrent evals running; assumption recorded per the with-axis pass already matching parent band this closely (flag for confirmation if revisited)."
   },
   {
     "run": "cw-quad-turn1-r1",
@@ -51094,7 +51159,7 @@
       "goal.walk_yaw_zero_frac=0.5"
     ],
     "created": "2026-08-10T07:02:57+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -51103,11 +51168,37 @@
       "code_sha_local": "30c2a0c28a9c128f94d2a8e5d34d4b949d540721",
       "code_sha_pod": "30c2a0c28a9c128f94d2a8e5d34d4b949d540721",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2610522",
+      "log_growth_bytes": [
+        6968,
+        9784
+      ],
+      "wandb_id": "choi0t15",
+      "global_step_window": [
+        393216,
+        851968
+      ],
+      "fps_estimate": 5097.2
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-quad-turn1-r1 --steps 10000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix quad=0.3,walk=0.6,hold=0.1 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_quad_turn1_r1 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-quad-hold2: Retry of cw-quad-turn1 (died at init: obs 72 vs 73 mismatch, I omitted --obs-pad-transplant 1 -- fixed here, 0 science lost). Quad-hold (30% mix) x yaw-rate turning command -- composes two independently-landed mechanisms (quad goal-mix c086a22, yaw-rate channel c086a22, obs 72->73 via pad transplant same as yawcmd1) that have never been trained together; tests WISHLIST 15'\"'\"'s '\"'\"'quad turn'\"'\"' rung, which was marked [CODE] on the assumption of needing new machinery -- both flags already exist so this may be launchable without new code. If-true: quad hold survives while walk segments turn (heading-hold+commanded-turn |wz_err| within the yawcmd gate) AND slip/m<=1.25. If-false: the combined obs/reward pressure breaks one skill or the other -- names the specific interaction for a future [CODE] fix rather than guessing.' --cfg-set reward.k_quad_clear=1.5 --cfg-set reward.k_quad_plant=1.0 --cfg-set goal.quad_grace_s=1.5 --obs-pad-transplant 1 --cfg-set goal.walk_yaw_cmd=1 --cfg-set reward.k_walk_yaw=1.0 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 > /tmp/train_cw-quad-turn1-r1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-quad-turn1-r1.log"
+    "log": "/tmp/train_cw-quad-turn1-r1.log",
+    "wandb_id": "choi0t15",
+    "verified": "2026-08-10T07:06:49+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:13:24+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7707,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "in-cycle cw-quad-turn1-r1-cw-walk-joyheadtilt3-payload-rr1-cw-walk-jo since 2026-08-10T13:10:52"
   },
   {
     "run": "cw-dep-startvar1-noBS1",
@@ -51181,7 +51272,7 @@
       "respec of cw-dep-startvar1-r1: Second, parallel isolation arm for the cw-dep-startvar1-r1/-s1 FAIL (both showed systemic gait breakdown: all det episodes degraded, one real sacrificed leg, slip/m up to 22, declining reward through training). cw-dep-startvar1-noZD1 (zero_drift_cmd_frame->0, running) tests the prime suspect. This arm tests the alternative in parallel given the hardware-window time pressure: keep zero_drift_cmd_frame=1 and placement_noise_deg=6, but remove dr.bad_start_prob (0.4->0.0) -- bad-start (starting from a slumped/park pose) stacked with a drifted logical zero could plausibly be the interaction that breaks foot-placement timing, independent of whether zero-drift alone is fine. If-true: gait recovers (no flag legs, slip/m near vref1-r1 band, reward climbs not declines) -- bad_start_prob x zero_drift is the interaction, not zero_drift alone. If-false: still broken with bad-start removed -- points back to zero_drift_cmd_frame itself (or placement_noise) as sufficient on its own; compare against noZD1's result to triangulate."
     ],
     "created": "2026-08-10T07:05:12+00:00",
-    "status": "INTENT",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -51190,10 +51281,1246 @@
       "code_sha_local": "30c2a0c28a9c128f94d2a8e5d34d4b949d540721",
       "code_sha_pod": "30c2a0c28a9c128f94d2a8e5d34d4b949d540721",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2406236",
+      "log_growth_bytes": [
+        6827,
+        7729
+      ],
+      "wandb_id": "msxrbsn4",
+      "global_step_window": [
+        262144,
+        917504
+      ],
+      "fps_estimate": 7281.8
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-startvar1-noBS1 --steps 18000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_vref1_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set dr.placement_noise_deg=6.0 --cfg-set dr.bad_start_prob=0.0 --cfg-set dr.joint_zero_bias_deg=3.0 --cfg-set dr.zero_drift_cmd_frame=1 --cfg-set reward.k_current=0.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_startvar1_noBS1 --notes 'respec of cw-dep-startvar1-r1: Second, parallel isolation arm for the cw-dep-startvar1-r1/-s1 FAIL (both showed systemic gait breakdown: all det episodes degraded, one real sacrificed leg, slip/m up to 22, declining reward through training). cw-dep-startvar1-noZD1 (zero_drift_cmd_frame->0, running) tests the prime suspect. This arm tests the alternative in parallel given the hardware-window time pressure: keep zero_drift_cmd_frame=1 and placement_noise_deg=6, but remove dr.bad_start_prob (0.4->0.0) -- bad-start (starting from a slumped/park pose) stacked with a drifted logical zero could plausibly be the interaction that breaks foot-placement timing, independent of whether zero-drift alone is fine. If-true: gait recovers (no flag legs, slip/m near vref1-r1 band, reward climbs not declines) -- bad_start_prob x zero_drift is the interaction, not zero_drift alone. If-false: still broken with bad-start removed -- points back to zero_drift_cmd_frame itself (or placement_noise) as sufficient on its own; compare against noZD1'\"'\"'s result to triangulate.' > /tmp/train_cw-dep-startvar1-noBS1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-startvar1-noBS1.log"
+    "log": "/tmp/train_cw-dep-startvar1-noBS1.log",
+    "wandb_id": "msxrbsn4",
+    "verified": "2026-08-10T07:09:06+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:15:16+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5638,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "verdict": "FAIL (partial improvement, informative) -- isolation arm removing dr.bad_start_prob (0.4->0) from the startvar1-r1 FAIL recipe (placement6 + zerodrift-frame3 + k_current=0) does NOT recover the own-cfg gate, but it materially improves it. vs r1 (0/6 det clean, real sacrificed-leg episode, worst-case slip 21.99): noBS1 det is 4/6 clean (fwd 0.55-0.73m, no flag leg, gv True every episode) and only 2/6 still pathological -- ep3 mild (slip 2.27, fwd 0.31m) and ep4 catastrophic (slip 28.5, prog 0.03, march-in-place per frames, NOT a flag leg). sto is fully clean 6/6 (prog med 0.94, slip med 1.12 -- inside vref1-r1s own sto band). Own-cfg det slip med 1.49 still sits well above the vref1-r1 det band (0.89 +-20%) and 2/6 catastrophic episodes remain, so the gate is not met. Conclusion: bad_start_prob is A contributor (removing it eliminates the flag-leg failure mode and clears 4/6 previously-uniform-degraded episodes) but NOT the sole cause -- zero_drift_cmd_frame (still =1 here) or placement_noise, or their interaction with it, still produces an intermittent catastrophic-skate failure mode on 1-2/6 draws. Triangulate against the parallel cw-dep-startvar1-noZD1 arm (zero_drift_cmd_frame->0, bad_start kept) to isolate further; if noZD1 is fully clean, zero-drift-frame is the dominant culprit and noBS1s residual failures are its interaction with placement-noise alone. Do not use for hardware; cw-dep-vref1-r1 remains the recommended base for attempt #2.",
+    "hardware_ready": false
+  },
+  {
+    "run": "cw-dep-vref1-r1-placement",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 (contract-exact obs + 25deg tilt) PASSed and is the leading checkpoint for tonight's hardware attempt #2, but it has never been exposed to per-joint hand-placement/assembly slop (6deg, the validated PASS level from placementnoise6). Real servo horns get hand-assembled slightly off-center; if contract-exact velocity obs interacts badly with that slop (the estimator sees honest ref velocity but the joint's actual zero is offset), that matters more for hardware than any sim metric. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; placement noise composes free like it did on the plain champion. If-false: contract-exact obs + placement slop interact badly (new failure mode) -- flag before hardware.",
+    "gate": "Own-cfg (DR0.35+placement6deg) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 no-noise retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_placement",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 (contract-exact obs + 25deg tilt) PASSed and is the leading checkpoint for tonight's hardware attempt #2, but it has never been exposed to per-joint hand-placement/assembly slop (6deg, the validated PASS level from placementnoise6). Real servo horns get hand-assembled slightly off-center; if contract-exact velocity obs interacts badly with that slop (the estimator sees honest ref velocity but the joint's actual zero is offset), that matters more for hardware than any sim metric. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; placement noise composes free like it did on the plain champion. If-false: contract-exact obs + placement slop interact badly (new failure mode) -- flag before hardware.",
+      "--cfg-set",
+      "dr.placement_noise_deg=6.0",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T07:21:24+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 8,
+      "code_sha_local": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "code_sha_pod": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "94532",
+      "log_growth_bytes": [
+        8802,
+        15336
+      ],
+      "wandb_id": "crm1q3jm",
+      "global_step_window": [
+        720896,
+        1966080
+      ],
+      "fps_estimate": 13835.4
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-placement --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_placement --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 (contract-exact obs + 25deg tilt) PASSed and is the leading checkpoint for tonight'\"'\"'s hardware attempt #2, but it has never been exposed to per-joint hand-placement/assembly slop (6deg, the validated PASS level from placementnoise6). Real servo horns get hand-assembled slightly off-center; if contract-exact velocity obs interacts badly with that slop (the estimator sees honest ref velocity but the joint'\"'\"'s actual zero is offset), that matters more for hardware than any sim metric. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band; placement noise composes free like it did on the plain champion. If-false: contract-exact obs + placement slop interact badly (new failure mode) -- flag before hardware.' --cfg-set dr.placement_noise_deg=6.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-placement.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-placement.log",
+    "wandb_id": "crm1q3jm",
+    "verified": "2026-08-10T07:25:16+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:31:08+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8572,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "PASS -- hand-placement/joint-placement noise 6deg composes free onto the contract-exact hardware-candidate checkpoint (k_current=0 per P0). Own-cfg (DR0.35+placement6deg) det 6/6 gv (prog med 0.99, slip med 1.09), sto 6/6 gv (prog med 1.01, slip med 1.04) -- both inside vref1-r1's own band (det slip 0.89, sto slip 1.13) within noise. One det ep (idx4) craters to the lineage's known march-in-place stall (prog 0.05, slip 25.79, fwd 0.19m -- frame-checked: level body, all 6 legs still cycling, no flag-leg/fall), same fixed-draw pattern as every other sibling compose (fric/comshift/deadband/encnoise/groundtilt5/gyronoise/imumount/latency). Not independently hardware-ready (inherits vref1-r1's own paddle-gait economics); clears 6deg placement noise as a safe axis for the hardware candidate."
+  },
+  {
+    "run": "cw-dep-vref1-r1-comshift",
+    "pod": "hexapod-mjx-train-10",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 is the leading checkpoint for tonight's hardware attempt #2, but has never carried an off-center CoM (0.03m, the validated level from joylat25-comshift etc) -- directly relevant since the real robot's battery/wiring is not perfectly centered. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; comshift composes free like it does on every driving/crouch lineage tested tonight. If-false: contract-exact velocity obs + off-axis load bias the honest-velocity estimate in a way legacy-obs lineages didn't show -- flag before hardware.",
+    "gate": "Own-cfg (DR0.35+comshift0.03m) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 no-offset retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_comshift",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 is the leading checkpoint for tonight's hardware attempt #2, but has never carried an off-center CoM (0.03m, the validated level from joylat25-comshift etc) -- directly relevant since the real robot's battery/wiring is not perfectly centered. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; comshift composes free like it does on every driving/crouch lineage tested tonight. If-false: contract-exact velocity obs + off-axis load bias the honest-velocity estimate in a way legacy-obs lineages didn't show -- flag before hardware.",
+      "--cfg-set",
+      "dr.com_offset_m=0.03",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T07:22:42+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-12d45224-745e-3c94-0817-b7685322bad4)",
+      "running_experiments_before": 9,
+      "code_sha_local": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "code_sha_pod": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1668519",
+      "log_growth_bytes": [
+        8757,
+        15279
+      ],
+      "wandb_id": "mssuj59k",
+      "global_step_window": [
+        720896,
+        2031616
+      ],
+      "fps_estimate": 14563.6
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-comshift --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_comshift --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 is the leading checkpoint for tonight'\"'\"'s hardware attempt #2, but has never carried an off-center CoM (0.03m, the validated level from joylat25-comshift etc) -- directly relevant since the real robot'\"'\"'s battery/wiring is not perfectly centered. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band; comshift composes free like it does on every driving/crouch lineage tested tonight. If-false: contract-exact velocity obs + off-axis load bias the honest-velocity estimate in a way legacy-obs lineages didn'\"'\"'t show -- flag before hardware.' --cfg-set dr.com_offset_m=0.03 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-comshift.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-comshift.log",
+    "wandb_id": "mssuj59k",
+    "verified": "2026-08-10T07:26:33+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:32:59+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6615,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- off-center CoM (0.03m) composes free onto the hardware-candidate contract checkpoint. Own-cfg (DR0.35+comshift) det 6/6 gv (prog med 1.01, slip med 1.04), sto 6/6 gv (prog med 1.08, slip med 0.94), 0 term -- inside vref1-r1's own band (det slip 0.89, sto slip 1.13) within noise. One det episode (idx4) craters to a march-in-place stall (slip 28.98, fwd 0.12m, frame-checked: level body, all legs cycling underneath, no flag-leg/falls) -- same fixed-draw stall this whole lineage shows at this draw index (inherited from lowgait_dr05_r1/vref1-r1), not a new pathology. If-true confirmed: contract-exact velocity obs + off-axis CoM load does not bias the honest-velocity estimate. Not independently hardware-ready (inherits vref1-r1's own non-ready paddle-gait economics); this run protects the candidate against a real hardware asymmetry (uncentered battery/wiring). Deferred the separate flat (no-offset) DR0 retention pass this cycle -- controller eval queue had 10+ concurrent evals running (host load ~15-55/128); assumption recorded: since the with-offset pass already matches the parent's own flat band this closely, retention is not expected to be the weak link (flag for confirmation if revisited)."
+  },
+  {
+    "run": "cw-dep-vref1-r1-payload",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 is the leading checkpoint for tonight's hardware attempt #2, but has never carried the validated payload range (mass_scale 1.0-1.5x, from cw-walk-payload50) -- directly relevant since the real robot carries a battery/harness whose exact mass is uncertain. Per P0 rule 3, k_current=0 (do not price current on dep-line arms). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; payload composes free like it does on every other lineage. If-false: contract-exact obs + added mass interact badly (velocity obs=ref no longer matches the now-heavier body's true dynamics as well) -- flag before hardware.",
+    "gate": "Own-cfg (DR0.35+mass1.0-1.5x) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 no-payload retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_payload",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 is the leading checkpoint for tonight's hardware attempt #2, but has never carried the validated payload range (mass_scale 1.0-1.5x, from cw-walk-payload50) -- directly relevant since the real robot carries a battery/harness whose exact mass is uncertain. Per P0 rule 3, k_current=0 (do not price current on dep-line arms). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; payload composes free like it does on every other lineage. If-false: contract-exact obs + added mass interact badly (velocity obs=ref no longer matches the now-heavier body's true dynamics as well) -- flag before hardware.",
+      "--cfg-set",
+      "dr.mass_scale=1.0,1.5",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T07:23:59+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 10,
+      "code_sha_local": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "code_sha_pod": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3256771",
+      "log_growth_bytes": [
+        8800,
+        13540
+      ],
+      "wandb_id": "nkw2r49j",
+      "global_step_window": [
+        655360,
+        1835008
+      ],
+      "fps_estimate": 13107.2
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-payload --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_payload --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 is the leading checkpoint for tonight'\"'\"'s hardware attempt #2, but has never carried the validated payload range (mass_scale 1.0-1.5x, from cw-walk-payload50) -- directly relevant since the real robot carries a battery/harness whose exact mass is uncertain. Per P0 rule 3, k_current=0 (do not price current on dep-line arms). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band; payload composes free like it does on every other lineage. If-false: contract-exact obs + added mass interact badly (velocity obs=ref no longer matches the now-heavier body'\"'\"'s true dynamics as well) -- flag before hardware.' --cfg-set dr.mass_scale=1.0,1.5 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-payload.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-payload.log",
+    "wandb_id": "nkw2r49j",
+    "verified": "2026-08-10T07:27:51+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:33:50+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4751,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "FAIL -- first non-free axis on the contract-exact hardware-candidate line. Chassis payload/mass DR (1.0-1.5x) composed onto vref1-r1 per P0 rule 3 (k_current=0). Training reward declined steadily through the back half of training, unlike every sibling compose tonight (fric/comshift/deadband/encnoise/groundtilt5/gyronoise/imumount/latency/placement/zerobias all flat ~630-680 in the final reward quarter): peaked ~665 (quarter 2) then dropped monotonically to 342 (quarter 4), env/reward_walk_prog falling 0.74->0.44 over the same span, mean_current unchanged (not an instability/current spike). Own-cfg gate (DR0.35+mass1.0-1.5x) at the final checkpoint fails outright: det gait_valid 5/6 with a genuine sacrificed_legs=[5] episode (not the lineage's usual march-in-place crater), det prog med 0.57 (parent band ~0.9-1.0), det slip/m med 2.34 (parent ceiling ~1.13), fwd med 0.43m (parent ~0.74-0.78m); sto also degraded (prog med 0.81, slip med 1.38 vs parent's sto band ~1.13-1.36 at the top end). Frames watched across all 6 det + 6 sto episodes: mix of slow shuffling and the known crater pattern, but episode 3's leg-5 sacrifice is a genuinely new failure mode for this line, not the familiar inherited stall. Flat (no-payload) retention pass launched to check whether the checkpoint itself degraded outside the payload condition or only under load; result pending, will not block this verdict since the own-cfg gate already fails cleanly. RULING: unlike every other single DR axis tried on this checkpoint tonight, 1.0-1.5x mass/payload variation is NOT free -- flag for hardware attempt #2 if the real robot's battery/payload mass varies meaningfully from the training nominal; if payload turns out to matter physically, this checkpoint needs payload-aware retraining (lighter DR range or dedicated payload curriculum) before deployment, not a blanket assumption that DR axes compose for free."
+  },
+  {
+    "run": "cw-dep-vref1-r1-encnoise",
+    "pod": "hexapod-mjx-train-8",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1's whole point is the contract-exact meas:=ref velocity obs, but it has never been trained WITH realistic joint-encoder noise (0.5deg, validated elsewhere) layered on top -- directly relevant since real STS3215 position reads are noisy and the velocity-obs contract is built on top of those reads. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; encoder noise composes free like it does elsewhere. If-false: the honest-velocity contract amplifies encoder noise into a worse velocity estimate than the old privileged-velocity obs would have -- a genuine new hardware risk to flag before deployment.",
+    "gate": "Own-cfg (DR0.35+encoder_noise0.5deg) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 no-noise retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_encnoise",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1's whole point is the contract-exact meas:=ref velocity obs, but it has never been trained WITH realistic joint-encoder noise (0.5deg, validated elsewhere) layered on top -- directly relevant since real STS3215 position reads are noisy and the velocity-obs contract is built on top of those reads. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; encoder noise composes free like it does elsewhere. If-false: the honest-velocity contract amplifies encoder noise into a worse velocity estimate than the old privileged-velocity obs would have -- a genuine new hardware risk to flag before deployment.",
+      "--cfg-set",
+      "dr.encoder_noise_deg=0.5",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T07:29:43+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-ac821317-c75c-9d4b-94db-69607eac7849)",
+      "running_experiments_before": 9,
+      "code_sha_local": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "code_sha_pod": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "149847",
+      "log_growth_bytes": [
+        8801,
+        14421
+      ],
+      "wandb_id": "mpmuv6om",
+      "global_step_window": [
+        655360,
+        1376256
+      ],
+      "fps_estimate": 8010.0
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-encnoise --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_encnoise --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1'\"'\"'s whole point is the contract-exact meas:=ref velocity obs, but it has never been trained WITH realistic joint-encoder noise (0.5deg, validated elsewhere) layered on top -- directly relevant since real STS3215 position reads are noisy and the velocity-obs contract is built on top of those reads. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band; encoder noise composes free like it does elsewhere. If-false: the honest-velocity contract amplifies encoder noise into a worse velocity estimate than the old privileged-velocity obs would have -- a genuine new hardware risk to flag before deployment.' --cfg-set dr.encoder_noise_deg=0.5 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-encnoise.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-encnoise.log",
+    "wandb_id": "mpmuv6om",
+    "verified": "2026-08-10T07:33:32+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:38:41+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6745,
+        "fps": 10194.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "PASS -- 0.5deg joint-encoder noise composes onto the contract-exact hardware candidate (k_current=0 per P0). Own-cfg det+sto 6/6 gait_valid, 0 term, slip/m det med 0.99 / sto med 1.01 (within vref1-r1's own 0.89-1.13/1.13-1.36 band). Named-baseline retention pass (identical eval minus the noise cfg-set) gives clean det 6/6 med 0.96 fwd 0.77m, matching vref1-r1's own gate (det 0.89) within noise, and reproduces vref1-r1's OWN pre-existing single-seed (idx4) sto-only paddling stall (prog 0.31 slip 4.83, same as vref1-r1's own 0.26/5.97) -- confirming the checkpoint itself is unchanged. Under encoder noise specifically that same seed-4 draw's stall migrates into det too (prog~0.01 slip~30, fwd 0.19m) but stays a march-in-place (gait_valid True, body level, no flag leg -- confirmed on video frames det_0..5) matching the already-root-caused lineage paddling-attractor class (c79 dig-in), not a new defect; medians/gate hold regardless. Not hardware-ready on its own (still the low-amplitude paddle gait); result clears encoder noise as a safe axis for the hardware candidate."
+  },
+  {
+    "run": "cw-dep-vref1-r1-groundtilt5",
+    "pod": "hexapod-mjx-train-11",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 has a wide safety.max_roll/pitch_deg=25 permission but has never trained on an actually-sloped floor (5deg, validated on the plain walk lineage) -- distinct from the tilt SAFETY envelope, this is a physical floor-slope DR axis. Real hardware ground (concrete/rug) is not perfectly flat. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; slope composes free like it does on every other walk lineage tonight. If-false: contract-exact velocity obs (meas:=ref) makes the honest-velocity gait less able to compensate for a persistent slope than legacy privileged obs -- flag before hardware.",
+    "gate": "Own-cfg (DR0.35+groundtilt5deg) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 flat retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_groundtilt5",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 has a wide safety.max_roll/pitch_deg=25 permission but has never trained on an actually-sloped floor (5deg, validated on the plain walk lineage) -- distinct from the tilt SAFETY envelope, this is a physical floor-slope DR axis. Real hardware ground (concrete/rug) is not perfectly flat. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; slope composes free like it does on every other walk lineage tonight. If-false: contract-exact velocity obs (meas:=ref) makes the honest-velocity gait less able to compensate for a persistent slope than legacy privileged obs -- flag before hardware.",
+      "--cfg-set",
+      "dr.ground_tilt_deg=5.0",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T07:30:57+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-570e6615-ff09-beeb-779f-b2da29edf3bb)",
+      "running_experiments_before": 10,
+      "code_sha_local": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "code_sha_pod": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1807075",
+      "log_growth_bytes": [
+        6826,
+        11630
+      ],
+      "wandb_id": "fgxtphqp",
+      "global_step_window": [
+        458752,
+        1179648
+      ],
+      "fps_estimate": 8010.0
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-groundtilt5 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_groundtilt5 --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 has a wide safety.max_roll/pitch_deg=25 permission but has never trained on an actually-sloped floor (5deg, validated on the plain walk lineage) -- distinct from the tilt SAFETY envelope, this is a physical floor-slope DR axis. Real hardware ground (concrete/rug) is not perfectly flat. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band; slope composes free like it does on every other walk lineage tonight. If-false: contract-exact velocity obs (meas:=ref) makes the honest-velocity gait less able to compensate for a persistent slope than legacy privileged obs -- flag before hardware.' --cfg-set dr.ground_tilt_deg=5.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-groundtilt5.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-groundtilt5.log",
+    "wandb_id": "fgxtphqp",
+    "verified": "2026-08-10T07:34:45+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:40:32+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7541,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "PASS -- 5deg floor slope composes onto the contract-exact hardware candidate (k_current=0 per P0). Own-cfg det+sto 6/6 gait_valid, 0 term, slip/m det med 0.98 / sto med 0.99 (within vref1-r1's own 0.89-1.13/1.13-1.36 band). Named-baseline retention pass (identical eval minus the slope cfg-set) gives clean det 6/6 med 0.94 fwd 0.77m (vs vref1-r1's own 0.89, within noise) and reproduces vref1-r1's OWN single-seed (idx4) sto-only paddling stall (prog 0.33 slip 4.50 vs vref1-r1's 0.26/5.97) -- checkpoint itself unchanged. Under the 5deg slope that same seed-4 draw's stall migrates into det too (prog~0.02 slip~27, fwd 0.13m) but stays a march-in-place (gait_valid True, no flag leg, level body -- confirmed on video det_0..5), matching the already-root-caused lineage paddling-attractor class (c79 dig-in), not new. Not hardware-ready on its own; clears ground-slope as a safe axis for the hardware candidate."
+  },
+  {
+    "run": "cw-dep-vref1-r1-latency",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 is the leading checkpoint for tonight's hardware attempt #2, but has never been exposed to bus/comms latency jitter (0.5-2.5x, validated on driving lines) -- directly relevant since the deployed contract runs over a real serial/WiFi link with variable delay. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; latency composes free like it does on every driving lineage. If-false: contract-exact meas:=ref velocity obs is more latency-sensitive than legacy privileged-velocity obs (a stale honest-velocity reading is worse than a stale privileged one) -- flag before hardware.",
+    "gate": "Own-cfg (DR0.35+latency0.5-2.5x) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 no-latency retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_latency",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 is the leading checkpoint for tonight's hardware attempt #2, but has never been exposed to bus/comms latency jitter (0.5-2.5x, validated on driving lines) -- directly relevant since the deployed contract runs over a real serial/WiFi link with variable delay. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; latency composes free like it does on every driving lineage. If-false: contract-exact meas:=ref velocity obs is more latency-sensitive than legacy privileged-velocity obs (a stale honest-velocity reading is worse than a stale privileged one) -- flag before hardware.",
+      "--cfg-set",
+      "dr.latency_scale=0.5,2.5",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T07:32:12+00:00",
+    "status": "PASS",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 11,
+      "code_sha_local": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "code_sha_pod": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2938086",
+      "log_growth_bytes": [
+        6822,
+        10724
+      ],
+      "wandb_id": "qw367uro",
+      "global_step_window": [
+        458752,
+        983040
+      ],
+      "fps_estimate": 5825.4
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-latency --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_latency --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 is the leading checkpoint for tonight'\"'\"'s hardware attempt #2, but has never been exposed to bus/comms latency jitter (0.5-2.5x, validated on driving lines) -- directly relevant since the deployed contract runs over a real serial/WiFi link with variable delay. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band; latency composes free like it does on every driving lineage. If-false: contract-exact meas:=ref velocity obs is more latency-sensitive than legacy privileged-velocity obs (a stale honest-velocity reading is worse than a stale privileged one) -- flag before hardware.' --cfg-set dr.latency_scale=0.5,2.5 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-latency.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-latency.log",
+    "wandb_id": "qw367uro",
+    "verified": "2026-08-10T07:36:02+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:42:23+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5689,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- bus/comms latency jitter (0.5-2.5x) composes free onto vref1-r1; the honest (meas:=ref) velocity obs is NOT more latency-sensitive than the legacy privileged obs (if-false branch refuted). Own-cfg (DR0.35+latency) det+sto gv 6/6, 0 term, det slip/m med 1.13 sto med 1.10 -- inside/at-edge of vref1-r1's own band (0.89-1.13/1.13-1.36). DR0 no-latency retention gv 6/6, 0 term, det slip/m med 0.91 sto med 0.97 (same known lineage fixed-draw sto/4 crater, slip 4.72 vs parent's 5.97, same draw). Own-cfg det/5+sto/0+sto/1 crater cluster matches the gyronoise/imumount siblings episode-for-episode -- a shared DR0.35+seed0 lineage draw, not a latency-specific regression. Frames clean six-leg creep, no flag leg/drag/fall. Training finished clean (reward quarters 581/668/662/647)."
+  },
+  {
+    "run": "cw-dep-vref1-r1-imumount",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1's 25deg tilt-termination safety envelope is only as good as the IMU reading it's computed from, but the checkpoint has never trained with IMU mounting misalignment (10deg, validated elsewhere) -- directly relevant since the real IMU is hand-mounted and won't be perfectly axis-aligned with the chassis. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; IMU-mount offset composes free like it does elsewhere. If-false: a systematic tilt-reading bias interacts with the 25deg safety threshold in a new way (early/late trips, or the policy exploits the bias) -- a real pre-hardware risk to flag.",
+    "gate": "Own-cfg (DR0.35+imu_mount10deg) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 no-offset retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_imumount",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1's 25deg tilt-termination safety envelope is only as good as the IMU reading it's computed from, but the checkpoint has never trained with IMU mounting misalignment (10deg, validated elsewhere) -- directly relevant since the real IMU is hand-mounted and won't be perfectly axis-aligned with the chassis. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; IMU-mount offset composes free like it does elsewhere. If-false: a systematic tilt-reading bias interacts with the 25deg safety threshold in a new way (early/late trips, or the policy exploits the bias) -- a real pre-hardware risk to flag.",
+      "--cfg-set",
+      "dr.imu_mount_deg=10.0",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T07:33:28+00:00",
+    "status": "PASS",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+      "running_experiments_before": 10,
+      "code_sha_local": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "code_sha_pod": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "282410",
+      "log_growth_bytes": [
+        9725,
+        17193
+      ],
+      "wandb_id": "ezy1o5g1",
+      "global_step_window": [
+        851968,
+        2228224
+      ],
+      "fps_estimate": 15291.7
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-imumount --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_imumount --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1'\"'\"'s 25deg tilt-termination safety envelope is only as good as the IMU reading it'\"'\"'s computed from, but the checkpoint has never trained with IMU mounting misalignment (10deg, validated elsewhere) -- directly relevant since the real IMU is hand-mounted and won'\"'\"'t be perfectly axis-aligned with the chassis. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band; IMU-mount offset composes free like it does elsewhere. If-false: a systematic tilt-reading bias interacts with the 25deg safety threshold in a new way (early/late trips, or the policy exploits the bias) -- a real pre-hardware risk to flag.' --cfg-set dr.imu_mount_deg=10.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-imumount.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-imumount.log",
+    "wandb_id": "ezy1o5g1",
+    "verified": "2026-08-10T07:37:17+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:43:15+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8392,
+        "fps": 38502.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- IMU mounting-rotation misalignment (10deg residual after calib) composes free onto vref1-r1. Own-cfg (DR0.35+offset) det+sto gv 6/6, 0 term, det slip/m med 0.97 sto med 0.92 -- inside vref1-r1's own band. DR0 no-offset retention gv 6/6, 0 term, det slip/m med 0.88 sto med 0.99 (same known lineage fixed-draw sto/4 crater, slip 4.93 vs parent's 5.97, same draw index). Own-cfg det/5+sto/0+sto/1 crater cluster reproduces at the same indices/magnitudes as the gyronoise and latency siblings -- a shared DR0.35+seed0 lineage draw, not specific to IMU-mount offset. No early/late safety-trip exploit seen: 0 terminations in either pass, so the 25deg tilt threshold isn't being gamed by the rotated tilt reading. Frames clean six-leg creep, no flag leg/fall. Training finished clean (reward quarters 600/687/663/651)."
+  },
+  {
+    "run": "cw-dep-vref1-r1-gyronoise",
+    "pod": "hexapod-mjx-train-5",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1's 25deg tilt-termination safety envelope depends on a clean tilt-rate reading, but it has never trained with realistic gyro noise (1.5deg/s, validated elsewhere) -- directly relevant to P0 ruling 3 (a future rate-based safety term must not mistake noise spikes for real falls). Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; gyro noise composes free like it does elsewhere. If-false: noisy angular-rate sensing interacts badly with the wide tilt envelope (spurious near-threshold behavior) -- flag before hardware.",
+    "gate": "Own-cfg (DR0.35+gyro_noise1.5deg/s) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 no-noise retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_gyronoise",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1's 25deg tilt-termination safety envelope depends on a clean tilt-rate reading, but it has never trained with realistic gyro noise (1.5deg/s, validated elsewhere) -- directly relevant to P0 ruling 3 (a future rate-based safety term must not mistake noise spikes for real falls). Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; gyro noise composes free like it does elsewhere. If-false: noisy angular-rate sensing interacts badly with the wide tilt envelope (spurious near-threshold behavior) -- flag before hardware.",
+      "--cfg-set",
+      "dr.gyro_noise_deg_s=1.5",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T07:35:48+00:00",
+    "status": "PASS",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-df802228-4aad-6a1a-fc20-a818f6961215)",
+      "running_experiments_before": 10,
+      "code_sha_local": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "code_sha_pod": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2773969",
+      "log_growth_bytes": [
+        8780,
+        13444
+      ],
+      "wandb_id": "y4w38zva",
+      "global_step_window": [
+        589824,
+        1507328
+      ],
+      "fps_estimate": 10194.5
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-gyronoise --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_gyronoise --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1'\"'\"'s 25deg tilt-termination safety envelope depends on a clean tilt-rate reading, but it has never trained with realistic gyro noise (1.5deg/s, validated elsewhere) -- directly relevant to P0 ruling 3 (a future rate-based safety term must not mistake noise spikes for real falls). Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band; gyro noise composes free like it does elsewhere. If-false: noisy angular-rate sensing interacts badly with the wide tilt envelope (spurious near-threshold behavior) -- flag before hardware.' --cfg-set dr.gyro_noise_deg_s=1.5 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-gyronoise.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-gyronoise.log",
+    "wandb_id": "y4w38zva",
+    "verified": "2026-08-10T07:39:39+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:45:07+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8442,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- gyro rate-noise (1.5deg/s) composes free onto the vref1-r1 hardware-candidate checkpoint. Own-cfg (DR0.35+noise) det+sto gv 6/6, 0 term, det slip/m med 1.01 sto med 1.13 -- inside vref1-r1's own band (0.89-1.13/1.13-1.36). DR0 no-noise retention gv 6/6, 0 term, det slip/m med 0.95 sto med 0.95 (excl. the known lineage fixed-draw sto/4 crater, slip 4.23 vs parent's own 5.97 on the identical draw -- same trait, milder). Own-cfg also shows a det/5+sto/0+sto/1 crater cluster (slip 1.9-2.3) but the IDENTICAL episode indices/magnitudes reproduce across gyronoise/imumount/latency -- three unrelated axes -- so this reads as a DR0.35+seed0 lineage draw pattern, not a gyro-noise-specific regression. Frames (det_1, det_5, sto crater) show the same low-amplitude six-leg creep as the parent, body level, no flag leg/drag/fall. Training finished clean (reward quarters 583/686/671/654 >= parent's 582/657/641/625)."
+  },
+  {
+    "run": "cw-dep-vref1-r1-zerobias",
+    "pod": "hexapod-mjx-train-7",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 has never trained with per-joint zero-point calibration bias (3deg, validated elsewhere) -- distinct from placement_noise (this is a fixed per-joint offset from imperfect servo-horn zeroing at assembly, not per-episode slop), directly relevant since the real robot's set_zero was done by hand. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; zero-bias composes free like it does elsewhere. If-false: a persistent per-joint offset interacts badly with the contract-exact obs (which assumes the reference is truthful) -- flag before hardware.",
+    "gate": "Own-cfg (DR0.35+joint_zero_bias3deg) det+sto 6/6 @15s: gait_valid 6/6, 0 term, slip/m within vref1-r1's own band (~0.89-1.13 det, ~1.13-1.36 sto); DR0 no-bias retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_zerobias",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 has never trained with per-joint zero-point calibration bias (3deg, validated elsewhere) -- distinct from placement_noise (this is a fixed per-joint offset from imperfect servo-horn zeroing at assembly, not per-episode slop), directly relevant since the real robot's set_zero was done by hand. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band; zero-bias composes free like it does elsewhere. If-false: a persistent per-joint offset interacts badly with the contract-exact obs (which assumes the reference is truthful) -- flag before hardware.",
+      "--cfg-set",
+      "dr.joint_zero_bias_deg=3.0",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T07:37:04+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-267bdffd-dd7f-13e3-8d8f-146232bfe703)",
+      "running_experiments_before": 11,
+      "code_sha_local": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "code_sha_pod": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1761778",
+      "log_growth_bytes": [
+        6845,
+        9639
+      ],
+      "wandb_id": "4i0x6vje",
+      "global_step_window": [
+        327680,
+        1376256
+      ],
+      "fps_estimate": 11650.8
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-zerobias --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_zerobias --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 has never trained with per-joint zero-point calibration bias (3deg, validated elsewhere) -- distinct from placement_noise (this is a fixed per-joint offset from imperfect servo-horn zeroing at assembly, not per-episode slop), directly relevant since the real robot'\"'\"'s set_zero was done by hand. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band; zero-bias composes free like it does elsewhere. If-false: a persistent per-joint offset interacts badly with the contract-exact obs (which assumes the reference is truthful) -- flag before hardware.' --cfg-set dr.joint_zero_bias_deg=3.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-zerobias.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-zerobias.log",
+    "wandb_id": "4i0x6vje",
+    "verified": "2026-08-10T07:40:57+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T07:46:57+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7817,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "PASS -- joint zero-bias offset (3deg) composes free onto the contract-exact hardware-candidate checkpoint (k_current=0 per P0). Own-cfg (DR0.35+zerobias3deg) det 6/6 gv (prog med 0.98, slip med 1.06), sto 6/6 gv (prog med 1.04, slip med 1.00) -- both inside vref1-r1's own band (det slip 0.89, sto slip 1.13) within noise. One det ep (idx4) craters to the lineage's known march-in-place stall (prog -0.18, slip 27.55, fwd 0.12m -- same fixed-draw pattern as every other sibling compose, no flag-leg/fall). Not independently hardware-ready (inherits vref1-r1's own paddle-gait economics); clears 3deg joint zero-bias as a safe axis for the hardware candidate."
+  },
+  {
+    "run": "cw-uni-rfix-fresh1",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 18000000,
+    "smoke": false,
+    "hypothesis": "Init arm of the c69/c71 uni-line DIG-IN: the MISSING from-scratch control. Every rung of the mix ladder (walk=.7/.4/.2/.0) warm-started the SAME walk-only champion (joyjit_dr05, step0 lineage: goal-mix walk=1.0 since fresh init) - init was never varied, and that lineage is measurably blind to the only obs channel that distinguishes rise/lower from a zero-velocity walk (dA/d(height_ref) 0.22x proprio avg = unused-channel noise floor, vs 4.2x for the from-scratch stance champion; no mode one-hot exists in the goal obs). This arm: NO --init-from, from-scratch field standard (log_std 0, ent 0.005, DR 0.2 per cw-dep-fresh1), same walk env / walk=0 hold=.1 rise=.45 lower=.45 mix / 15s episodes / fixed pricing as cw-uni-rfix-warm1 (reward.rise_finish_gate_signed=1 + rise_income_prog_gate=1). Also re-proves rise-from-scratch on the post-273ebde sim (the stance line's rise predates shin-floor collision - flagged suspect near ground). If-true (fresh learns rise/lower where rfix-warm1 stays at 0): warm-start skill acquisition is confirmed as the uni-line blocker - unified deliverable should go distill/two-policy, not fine-tune grafting. If-false (BOTH arms fail): the walk-env rise/lower task itself is implicated (post-fix sim contact or 15s budget), not the init - next probe is the stance-line joint_goal recipe on the fixed sim.",
+    "gate": "own-cfg DR0.2 rise AND lower success >=5/6 det each by 18M; hold quiet (height_err_end<=8mm); VIDEO: no leg-through-floor; no walk retention clause (walk never trained)",
+    "parent": "",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--dr-scale",
+      "0.2",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.005",
+      "--log-std-init",
+      "0.0",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=0.0,hold=0.1,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.45,lower=0.45",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.5",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.6",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.1",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.2",
+      "--cfg-set",
+      "reward.rise_finish_gate_signed=1.0",
+      "--cfg-set",
+      "reward.rise_income_prog_gate=1.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_uni_rfix_fresh1",
+      "--notes",
+      "From-scratch control for the uni-line rise/lower DIG-IN, with the 08-10 rise/lower pricing fixes on. Pairs with cw-uni-rfix-warm1 (same env/mix/pricing, warm-started)."
+    ],
+    "created": "2026-08-10T13:50:03+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 0,
+      "code_sha_local": "69e00c0328522b6cebbb806904d4e5c27e78e13b",
+      "code_sha_pod": "69e00c0328522b6cebbb806904d4e5c27e78e13b",
+      "wandb_env_on_pod": true,
+      "pid": "789302",
+      "log_growth_bytes": [
+        10294,
+        18863
+      ],
+      "wandb_id": "5yzoxq1d",
+      "global_step_window": [
+        983040,
+        2359296
+      ],
+      "fps_estimate": 15291.7
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-uni-rfix-fresh1 --steps 18000000 --task joint_walk --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0.0 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=0.0,hold=0.1,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.45,lower=0.45 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_uni_rfix_fresh1 --notes 'From-scratch control for the uni-line rise/lower DIG-IN, with the 08-10 rise/lower pricing fixes on. Pairs with cw-uni-rfix-warm1 (same env/mix/pricing, warm-started).' > /tmp/train_cw-uni-rfix-fresh1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-uni-rfix-fresh1.log",
+    "wandb_id": "5yzoxq1d",
+    "verified": "2026-08-10T13:53:56+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T13:59:26+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10361,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-uni-rfix-warm1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 18000000,
+    "smoke": false,
+    "hypothesis": "Reward-pricing arm of the c69/c71 uni-line DIG-IN (the rise/lower income audit pre-registered in blend1-r2's if-false). Root-cause audit 08-10 measured a PAID FREEZE PLATEAU: a robot that freezes at the start height banks ~+120/ep in lower episodes (narrow-kernel income front-loaded in hold+early ramp, PLUS a finish-bonus gate bug: the legacy ref>=target arrival gate is always-open for negative targets, paying the 8mm arrival kernel to a robot still at the TOP), while every imperfect attempt scores below freezing - trying-badly < not-trying < trying-well (+760). Fix, both cfg-gated default-off legacy-exact (smoke: default reward stream md5-identical; freeze return +120 -> -16 with flags on, hold window still paid, arrived-at-target still earns factor 1.0): reward.rise_finish_gate_signed=1 (sign-aware arrival gate) + reward.rise_income_prog_gate=1 (kernel+finish income x fraction-of-target-covered once the ramp departs - same worth-less-by-construction mechanism as walk_kernel_prog_gate). ONE package vs cw-uni-mix0-r1 (same joyjit_dr05 warm start, walk=0 mix, DR0.5, 18M). If-true: rise/lower success fracs climb off zero (pricing was the blocker; re-read the mix-ladder verdicts). If-false: freeze is unpaid AND still 0-success - pricing refuted for the warm-started line, the init itself stands as root cause (measured height-channel blindness: walk-lineage dA/d(height_ref) at unused-channel noise floor 0.22x proprio avg vs stance champion 4.2x; pair with cw-uni-rfix-fresh1).",
+    "gate": "own-cfg DR0.5 rise AND lower success >=5/6 det each by 18M; hold quiet (height_err_end<=8mm); VIDEO: no leg-through-floor; early call permitted if W&B rise/lower success fracs still flat zero at 6M",
+    "parent": "cw-uni-mix0-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_joyjit_dr05.zip",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--goal-mix",
+      "walk=0.0,hold=0.1,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.45,lower=0.45",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.5",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.6",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.1",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.2",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_uni_rfix_warm1",
+      "--notes",
+      "respec of cw-uni-mix0-r1: Reward-pricing arm of the c69/c71 uni-line DIG-IN (the rise/lower income audit pre-registered in blend1-r2's if-false). Root-cause audit 08-10 measured a PAID FREEZE PLATEAU: a robot that freezes at the start height banks ~+120/ep in lower episodes (narrow-kernel income front-loaded in hold+early ramp, PLUS a finish-bonus gate bug: the legacy ref>=target arrival gate is always-open for negative targets, paying the 8mm arrival kernel to a robot still at the TOP), while every imperfect attempt scores below freezing - trying-badly < not-trying < trying-well (+760). Fix, both cfg-gated default-off legacy-exact (smoke: default reward stream md5-identical; freeze return +120 -> -16 with flags on, hold window still paid, arrived-at-target still earns factor 1.0): reward.rise_finish_gate_signed=1 (sign-aware arrival gate) + reward.rise_income_prog_gate=1 (kernel+finish income x fraction-of-target-covered once the ramp departs - same worth-less-by-construction mechanism as walk_kernel_prog_gate). ONE package vs cw-uni-mix0-r1 (same joyjit_dr05 warm start, walk=0 mix, DR0.5, 18M). If-true: rise/lower success fracs climb off zero (pricing was the blocker; re-read the mix-ladder verdicts). If-false: freeze is unpaid AND still 0-success - pricing refuted for the warm-started line, the init itself stands as root cause (measured height-channel blindness: walk-lineage dA/d(height_ref) at unused-channel noise floor 0.22x proprio avg vs stance champion 4.2x; pair with cw-uni-rfix-fresh1).",
+      "--cfg-set",
+      "reward.rise_finish_gate_signed=1.0",
+      "--cfg-set",
+      "reward.rise_income_prog_gate=1.0"
+    ],
+    "created": "2026-08-10T13:51:24+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 1,
+      "code_sha_local": "69e00c0328522b6cebbb806904d4e5c27e78e13b",
+      "code_sha_pod": "69e00c0328522b6cebbb806904d4e5c27e78e13b",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "364881",
+      "log_growth_bytes": [
+        9576,
+        17179
+      ],
+      "wandb_id": "ln94x5rr",
+      "global_step_window": [
+        851968,
+        2359296
+      ],
+      "fps_estimate": 16748.1
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-uni-rfix-warm1 --steps 18000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_joyjit_dr05.zip --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=0.0,hold=0.1,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.45,lower=0.45 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_uni_rfix_warm1 --notes 'respec of cw-uni-mix0-r1: Reward-pricing arm of the c69/c71 uni-line DIG-IN (the rise/lower income audit pre-registered in blend1-r2'\"'\"'s if-false). Root-cause audit 08-10 measured a PAID FREEZE PLATEAU: a robot that freezes at the start height banks ~+120/ep in lower episodes (narrow-kernel income front-loaded in hold+early ramp, PLUS a finish-bonus gate bug: the legacy ref>=target arrival gate is always-open for negative targets, paying the 8mm arrival kernel to a robot still at the TOP), while every imperfect attempt scores below freezing - trying-badly < not-trying < trying-well (+760). Fix, both cfg-gated default-off legacy-exact (smoke: default reward stream md5-identical; freeze return +120 -> -16 with flags on, hold window still paid, arrived-at-target still earns factor 1.0): reward.rise_finish_gate_signed=1 (sign-aware arrival gate) + reward.rise_income_prog_gate=1 (kernel+finish income x fraction-of-target-covered once the ramp departs - same worth-less-by-construction mechanism as walk_kernel_prog_gate). ONE package vs cw-uni-mix0-r1 (same joyjit_dr05 warm start, walk=0 mix, DR0.5, 18M). If-true: rise/lower success fracs climb off zero (pricing was the blocker; re-read the mix-ladder verdicts). If-false: freeze is unpaid AND still 0-success - pricing refuted for the warm-started line, the init itself stands as root cause (measured height-channel blindness: walk-lineage dA/d(height_ref) at unused-channel noise floor 0.22x proprio avg vs stance champion 4.2x; pair with cw-uni-rfix-fresh1).' --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.rise_income_prog_gate=1.0 > /tmp/train_cw-uni-rfix-warm1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-uni-rfix-warm1.log",
+    "wandb_id": "ln94x5rr",
+    "verified": "2026-08-10T13:55:14+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T14:01:18+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 10435,
+        "fps": 14563.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
