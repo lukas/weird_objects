@@ -80,14 +80,19 @@ existing config knobs, [CODE] needs an implementation cycle first,
 2. [RUNNING] **Faster walking** — 0.08–0.12 m/s band
    (`cw-walk-fast`); does real stepping emerge when shuffling can't
    keep up?
-3. [CODE] **Turning** — TRUE body-yaw turning needs a yaw-rate
-   command the task doesn't have yet (was mislabeled READY). Spec
-   (operator, 08-09): add `wz_ref` to WalkGoal + trajectory (same
-   hold/ramp/resample pattern as vx/vy), a yaw-rate tracking kernel
-   beside the velocity kernel, and widen the goal obs by 1 — this
-   breaks warm-start obs width, so either pad checkpoints or train
-   the first turn arm from the champion via obs-padding shim. Turn
-   in place, walk an arc, figure-eight. Yaw-only first.
+3. [READY — code LANDED c086a22, 08-09 late] **Turning** — yaw-rate
+   command channel implemented: `goal.walk_yaw_cmd=1` samples a wz
+   per command segment (`walk_yaw_max_rad_s`, `walk_yaw_zero_frac`),
+   resampled/blended like vx/vy; `reward.k_walk_yaw` Gaussian kernel
+   (sigma `reward.yaw_sigma_rad_s`, default 0.15) pays every walk
+   tick INCLUDING wz_ref=0 — heading-hold income prices the champion
+   drift (~+10 deg/20 s). wz_ref is appended at the obs TAIL so
+   `--obs-pad-transplant 1` warm-starts from any non-yaw champion.
+   Probe probe-yawcmd-scale: obs 73, MJX clean, 300k steps.
+   KNOWN RISK: like the pre-kgate walk kernel, a parked robot at
+   wz=0 still collects partial yaw kernel when |wz_ref| is small —
+   if turning doesn't emerge, gate yaw income on achieved |wz|
+   (analog of walk_kernel_prog_gate).
 4. [READY] **Back and forth** — walk forward N cm, reverse back to
    start. Includes backward walking (exploratory line; deferred
    from PROMOTION gates by the 08-09 ruling, not from training).
@@ -111,9 +116,11 @@ existing config knobs, [CODE] needs an implementation cycle first,
    drain's W&B-name dedupe before it launched — no compute lost, but
    check RL_LOG/ledger history for a name before backlog-adding a
    WISHLIST item marked done here).
-8c. [CODE] **Rotate in place** (08-09) — spin left/right on the
-   spot on command. Same yaw-rate machinery as item 3 (turning);
-   vx=vy=0, wz=±ref. First deliverable of the yaw-rate line.
+8c. [READY — code LANDED c086a22] **Rotate in place** (08-09) —
+    falls out of item 3's machinery for free: yaw is drawn
+    independently of the linear command, so a stop segment
+    (`walk_stop_frac`) with wz != 0 IS a commanded turn in place,
+    and the yaw kernel is deliberately not gated on linear speed.
 
 ## Robustness (survives the real world)
 
@@ -146,14 +153,21 @@ existing config knobs, [CODE] needs an implementation cycle first,
 
 14. [RUNNING] **Stand → walk → sit chain** — one policy, all three
     on command (`cw-chain-standwalksit`).
-15. [CODE] **Quadruped mode** — stand/walk on four rear legs,
-    fronts free as claws (authorized parallel line; design sketch
-    in `archive/RL_PLAN_FULL_2026-08-09.md`). Spec (operator,
-    08-09): cfg `goal.quad_legs=0,3` exempts the front pair from
-    six-leg participation terms (k_park_duty, duty/step credits)
-    and instead rewards them UNLOADED + lifted; gate on rear-four
-    gait_valid + fronts never load-bearing. Rungs: static quad
-    stance → weight shift → quad walk → quad turn → height up/down
+15. [READY (first rung) — quad-hold code LANDED c086a22] **Quadruped
+    mode** — stand/walk on four rear legs, fronts free as claws
+    (authorized parallel line). First rung implemented as goal mode
+    `quad` (`--goal-mix quad=<p>`): lift legs **0 and 5** (the
+    physical fronts per quadruped_feasibility.FRONT_LEGS — the old
+    `quad_legs=0,3` sketch was wrong), commanded through the
+    existing 6-wide goal one-hot with BOTH bits hot (obs width
+    unchanged → warm-start from the walk champion works).
+    `reward.k_quad_clear` pays unloaded front clearance up to
+    `quad_clear_cap_mm` (30); `reward.k_quad_plant` pays the
+    four-planted fraction; `goal.quad_grace_s` (1.5 s) keeps the
+    lift transient unpaid. Level kernel / current charge / tilt trip
+    inherited. Probe probe-quad-scale: MJX clean, 300k steps.
+    Remaining rungs [CODE]: weight shift → quad walk (exempt fronts
+    from six-leg participation terms) → quad turn → height up/down
     (reuse walk_height_off_mm — it is mode-agnostic).
 16. [LATER — after 0-c stability gates] **Fall recovery** — start
     fallen, get up quietly (needs fallen-pose reset generator +
