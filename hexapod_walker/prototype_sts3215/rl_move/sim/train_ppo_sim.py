@@ -71,6 +71,42 @@ def _parse_goal_mix(spec: str | None) -> dict[str, float]:
     return out
 
 
+_MODE_PLAIN = {
+    "walk": "walk (track joystick velocity commands)",
+    "hold": "hold still standing",
+    "lean": "lean the body to commanded roll/pitch",
+    "track": "follow a moving tilt reference",
+    "unload": "shift weight off a commanded leg",
+    "raise": "make small body-height changes",
+    "rise": "STAND UP from the floor",
+    "lower": "SIT DOWN from standing",
+    "quad": "stand on four legs (front legs lifted)",
+}
+
+
+def _learning_line(args) -> str:
+    """Plain-English opener for the W&B notes (operator ruling 08-10:
+    a run page must START with what the run is trying to learn — a
+    human or an LLM reading the overview cold must not need the
+    ledger). Generated mechanically from the launch args so it cannot
+    drift into jargon."""
+    mix = _parse_goal_mix(getattr(args, "goal_mix", None))
+    if mix:
+        what = ", ".join(
+            f"{_MODE_PLAIN.get(m, m)} ({p:.0%} of episodes)"
+            for m, p in sorted(mix.items(), key=lambda kv: -kv[1])
+            if p > 0)
+    else:
+        what = ("the default goal mix from config.yaml "
+                "(hold / lean / track / unload / rise)")
+    init = getattr(args, "init_from", None)
+    how = (f"fine-tuning the existing checkpoint "
+           f"{Path(str(init)).name}" if init
+           else "training from scratch")
+    return (f"WHAT THIS RUN IS TRYING TO LEARN: {what} — by {how} "
+            f"(task env: {getattr(args, 'task', '?')}).")
+
+
 def _parse_cfg_set(specs: list[str] | None) -> dict[str, float]:
     """Parse --cfg-set 'reward.k_current_max=0.05' overrides.
 
@@ -390,7 +426,9 @@ def _init_wandb(args, params: SimServoParams, parent: dict | None = None):
         }
     config["parent_run"] = parent["run_id"] if parent else None
 
-    notes = args.notes or ""
+    # Plain-English objective FIRST (operator 08-10: the overview must
+    # open with what the run is learning, not lineage babble).
+    notes = _learning_line(args) + "\n\n" + (args.notes or "")
     if parent:
         notes += (f"\n\nContinues run {parent['run_id']} "
                   f"({parent.get('run_name', '?')}) from step "

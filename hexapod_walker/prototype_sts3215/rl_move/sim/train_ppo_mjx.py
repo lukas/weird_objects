@@ -50,7 +50,8 @@ from .mjx_backend import mjx_is_available  # noqa: E402
 from .servo_model import SimServoParams  # noqa: E402
 from .train_ppo_sim import (  # noqa: E402
     ENV_CLASSES, POLICY_DIR, WANDB_ENTITY_DEFAULT, WANDB_PROJECT_DEFAULT,
-    _load_wandb_env, _parse_cfg_set, _parse_goal_mix, _warn_if_defaults,
+    _learning_line, _load_wandb_env, _parse_cfg_set, _parse_goal_mix,
+    _warn_if_defaults,
 )
 
 
@@ -107,9 +108,12 @@ def _init_wandb(args, params: SimServoParams):
         except Exception:
             print("[wandb] no API key — logging skipped")
             return None
+    # Plain-English objective FIRST (operator 08-10: the overview must
+    # open with what the run is learning, not lineage babble).
+    notes = (_learning_line(args) + "\n\n" + (args.notes or "")).strip()
     run = wandb.init(
         entity=WANDB_ENTITY_DEFAULT, project=WANDB_PROJECT_DEFAULT,
-        group="mjx-trainer", name=args.run_name, notes=args.notes,
+        group="mjx-trainer", name=args.run_name, notes=notes,
         sync_tensorboard=True,   # SB3 train/* metrics, like the campaign
         config={"trainer": "train_ppo_mjx", "task": args.task,
                 "n_envs": args.n_envs, "impl": args.impl,
