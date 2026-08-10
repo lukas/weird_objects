@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-10T04:46:51+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 18000000
 
 **parent**: cw-walk-joyjit-dr05-payload-rr1-rr1
+
+**wandb_id**: unmgd8by
 
 **hypothesis**: Retry after 2nd 0-step launch-collision infra death (wandb 0s1lcg7n, runtime 1s, fleet storm pattern) -- jitter x payload hypothesis still completely untested. Same spec as cw-walk-joyjit-dr05-payload-rr1-rr1 unchanged: If-true: own-cfg DR0.5+payload det+sto 6/6 gv, 0 term, JOYSTICK GATE 0 falls incl. instant-flip stress; DR0 no-payload retention clean. If-false: added mass causes a flip-stress fall the unloaded jitter package never showed.
 
