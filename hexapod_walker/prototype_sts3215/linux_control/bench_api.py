@@ -37,8 +37,6 @@ ZERO_TOL_DEG = 6.0
 # up to 17.4 deg from the captured plant (tape session 08-10, leg2b —
 # 15 deg refused the Sit button after EVERY walk). A wrong-zero pose
 # reads knees ~160 deg off the plant, so 30 deg is still unambiguous.
-STAND_MATCH_DEG = 30.0
-
 
 def _load_names() -> dict[int, str]:
     for path in REGISTRY_CANDIDATES:
@@ -663,15 +661,18 @@ class BenchAPI:
 
         ``pose``: ``sit`` | ``stand``.  Stand keeps torque on (no limp).
 
-        Refuses if any live joint would move more than MAX_SAFE_DELTA_DEG
-        from its present angle unless ``force=True`` (wrong logical zero
-        must be fixed with ``/api/set_zero``, not a violent centre).
-        Exception: sit FROM a recognized stand pose is always allowed —
-        the guard exists to catch wrong logical zeros, and a present pose
-        matching the captured stand proves the zeros are right even when
-        the knees have to travel >90° on the way down (2026-08-10: the
-        Sit button refused from stand and the operator had to limp the
-        robot and lower it by hand).
+        STAND refuses if any live joint would move more than
+        MAX_SAFE_DELTA_DEG unless ``force=True`` — gliding to the stand
+        pose with wrong logical zeros is exactly the stilts incident.
+
+        SIT never refuses on delta (operator ruling 2026-08-10, after
+        repeated complaints: the Sit button kept refusing from RL
+        crouches / stand-up-lab stances that don't match the captured
+        stand pose, leaving the robot stuck standing). A big delta just
+        makes the eased descent SLOWER (up to 10 s, abortable) — a slow
+        supervised glide down is not the incident class; violent
+        one-shot writes and unsupervised blends are. Do NOT re-add a
+        sit refusal.
         """
         try:
             from inplace_demos import go_to_stand_pose, go_to_zero_pose
@@ -697,42 +698,35 @@ class BenchAPI:
 
         goal = (standing_pose_degrees() if pose == "stand"
                 else [0.0] * N_JOINTS)
-        from_stand = False
+        sit_seconds = 4.0
         if not force:
             with self.drive._lock:
                 worst, j = self.drive._max_delta_vs_present(goal)
             if worst > MAX_SAFE_DELTA_DEG:
-                if pose == "sit":
-                    # Sitting from a recognized stand: if every live joint
-                    # is near the captured stand pose the logical zeros are
-                    # provably right, so the slow eased descent is safe
-                    # even though knees travel >90°.
-                    with self.drive._lock:
-                        stand_err, _ = self.drive._max_delta_vs_present(
-                            standing_pose_degrees())
-                    from_stand = stand_err <= STAND_MATCH_DEG
-                if not from_stand:
+                if pose == "stand":
                     return {
                         "ok": False,
                         "error": (
-                            f"refused {pose} zero: j{j} would move {worst:.1f}° "
-                            f"(>{MAX_SAFE_DELTA_DEG:.0f}°). "
-                            f"POST /api/set_zero at the real pose, or pass force=true"
+                            f"refused {pose} zero: j{j} would move "
+                            f"{worst:.1f}° (>{MAX_SAFE_DELTA_DEG:.0f}°). "
+                            "POST /api/set_zero at the real pose, or "
+                            "pass force=true"
                         ),
                         "max_delta_deg": round(worst, 2),
                         "joint": j,
                         "hint": "set-zero-here — do not FORCE unless watching",
                     }
-
-        # Sit-from-stand carries body weight down — take it slower.
-        sit_seconds = 6.0 if from_stand else 4.0
-        if from_stand:
-            try:
-                from event_log import emit
-                emit("log", "sit from recognized stand: >90° knee travel "
-                     f"allowed, {sit_seconds:.0f}s glide", src="bench")
-            except Exception:
-                pass
+                # SIT with a big delta: never refuse — descend slower
+                # instead (see docstring; operator ruling 08-10).
+                sit_seconds = min(10.0, max(6.0, worst / 15.0))
+                try:
+                    from event_log import emit
+                    emit("log",
+                         f"sit with big delta (j{j} {worst:.0f}°): "
+                         f"slow {sit_seconds:.0f}s eased descent",
+                         src="bench")
+                except Exception:
+                    pass
 
         self._demo_gen += 1
         gen = self._demo_gen
@@ -741,7 +735,7 @@ class BenchAPI:
             self._demo_name = f"zero_{pose}"
             self._demo_status = "zeroing"
             self._demo_params = {"pose": pose, "force": bool(force),
-                                 "from_stand": from_stand}
+                                 "sit_seconds": sit_seconds}
         self._set_activity("zeroing", f"go to {pose} zero")
 
         def _worker():
@@ -1820,26 +1814,39 @@ class BenchAPI:
                     # even schedule-paced playback stop-started
                     # (operator, 08-10: "still stops at the key
                     # frames"). PoseStreamer keeps the target moving
-                    # ahead of the servos: linear interp between
-                    # keyframes, per-joint speed sized to each tick,
-                    # deadband so idle joints aren't re-commanded.
+                    # ahead of the servos. Sizing gotchas (operator,
+                    # 08-10 round 2, "starts slow then pops up"):
+                    # the module MAX_STREAM_SPEED=450 (~40 deg/s) let
+                    # targets outrun the servos, so the final settle
+                    # covered the backlog in one pop — pass an
+                    # explicit cap near the walk speed (1500). And
+                    # size each write by the ACTUAL elapsed tick: the
+                    # current sweep steals 0.1-0.3 s, which otherwise
+                    # under-sizes the next write.
                     q0 = frames[0][0]
-                    with self._lock:
-                        self._cal_progress = {
-                            "msg": f"{mode} {verb}: aligning"}
-                    ok = ease_to_pose(
-                        d.bus, q0, abort_check=self._demo_abort.is_set,
-                        seconds=max(0.6, frames[0][1] / speed),
-                        label=f"{mode} align", current_tracker=tracker)
-                    aborted = not ok
+                    aborted = False
+                    with self.drive._lock:
+                        worst0, _ = self.drive._max_delta_vs_present(q0)
+                    if worst0 > 5.0:
+                        with self._lock:
+                            self._cal_progress = {
+                                "msg": f"{mode} {verb}: aligning"}
+                        ok = ease_to_pose(
+                            d.bus, q0,
+                            abort_check=self._demo_abort.is_set,
+                            seconds=max(0.6, frames[0][1] / speed),
+                            label=f"{mode} align",
+                            current_tracker=tracker)
+                        aborted = not ok
                     ts, qs = [0.0], [q0]
                     for q_deg, kf_s in frames[1:]:
-                        ts.append(ts[-1] + max(0.12, kf_s / speed))
+                        ts.append(ts[-1] + max(0.06, kf_s / speed))
                         qs.append(q_deg)
                     streamer = PoseStreamer()
                     tripped = False
                     seg, last_sample = 1, -1.0
                     t0 = time.monotonic()
+                    t_prev = 0.0
                     while not aborted and not tripped:
                         if self._demo_abort.is_set():
                             aborted = True
@@ -1853,8 +1860,12 @@ class BenchAPI:
                              / max(ts[seg] - ts[seg - 1], 1e-6))
                         q = [a + (b - a) * f for a, b in
                              zip(qs[seg - 1], qs[seg])]
-                        streamer.write(d.bus, q, live, dt=0.05)
-                        if t - last_sample > 0.35:
+                        streamer.write(
+                            d.bus, q, live,
+                            dt=min(max(t - t_prev, 0.03), 0.25),
+                            deadband=0.3, max_speed=1500, max_acc=200)
+                        t_prev = t
+                        if t - last_sample > 0.3:
                             # feedback sweep costs real bus time —
                             # sample sparsely, mid-motion
                             tracker.sample(d.bus, live)
@@ -1870,10 +1881,12 @@ class BenchAPI:
                         time.sleep(0.05)
                     if not aborted and not tripped:
                         # settle + hold cleanly on the final pose
+                        # (with correct pursuit speeds this is a
+                        # residual nudge, not a pop)
                         ok = ease_to_pose(
                             d.bus, qs[-1],
                             abort_check=self._demo_abort.is_set,
-                            seconds=0.6, label=f"{mode} settle",
+                            seconds=0.5, label=f"{mode} settle",
                             current_tracker=tracker)
                         aborted = not ok
                         tripped = tracker.peak_a > abort_current_a
