@@ -55988,7 +55988,7 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-10T18:13:36"
+    "triage": "in-cycle cw-arch-hist16-r7-c2-cw-dep-vref1-r1-encnoise-latency-cw-dep since 2026-08-10T18:28:46"
   },
   {
     "run": "cw-dep-vref1-r1-actnoise",
@@ -56054,7 +56054,7 @@
       "dr.action_noise=0.02"
     ],
     "created": "2026-08-10T17:01:10+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -56095,7 +56095,9 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-actnoise since 2026-08-10T17:48:20"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL as an axis, but NO hardware risk (dig-in resolved the gate-vs-video tension). OBSERVATIONS: own-cfg gate eval injected dr.action_noise=0.02 ABSOLUTE (dr.* overrides apply post-scaling, at eval AND training; parent trained at 0.02x0.35=0.007) while the gate band 0.89-1.36 was measured on the parent's NOISE-FREE eval -- apples-to-oranges. Control A (parent under the IDENTICAL 0.02-noise eval, logs/ckpt_eval/cw_dep_vref1_r1_noisectl): the SAME 4 episode indices degrade (det/5 0.76/1.74, sto/0 0.67/2.05, sto/1 0.63/2.08, sto/4 0.30/4.93; sto slip med 1.51) -- the lineage fixed-seed fingerprint tips under any perturbation. Control B (this ckpt on the parent's clean DR0 eval, .../cw_dep_vref1_r1_actnoise_dr0clean): gv 12/12, 0 term, slip med 0.89 det / 1.05 sto, in-band, only the known sto/4 crater -- clean retention. INTERPRETATION: the sto crater wave was the eval config, not policy erosion; but exposure bought NOTHING -- under identical noise this ckpt is uniformly slightly WORSE than the parent on all 4 hard episodes (sto med 2.05 vs 1.51), matching the champion-line ladder where action-noise 0.08 exposure was NO-EFFECT. VERDICT: do NOT add elevated action_noise to the dep-line default; keep parent vref1-r1 for attempt #2 (not blocked: no falls/terms in any of the 36 episodes across all 3 evals, frames all clean six-leg gait). HYPOTHESIS STATUS: if-true refuted (not in band under own-cfg); if-false's pre-attempt-risk ALSO refuted (parent degrades the same under matched injection). GATE LESSON for injection axes (also applies to the open loaded1 dig-in class): own-cfg bands must be compared against the parent measured under the SAME injection (parent-baseline control), never the parent's clean band."
   },
   {
     "run": "cw-dep-vref1-r1-contactstiff",
@@ -57355,7 +57357,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T18:18:41"
+    "triage": "in-cycle cw-arch-hist16-r7-c2-cw-dep-vref1-r1-encnoise-latency-cw-dep since 2026-08-10T18:28:46"
   },
   {
     "run": "cw-dep-startvar1-placementonly",
@@ -57469,7 +57471,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "FAIL vs own gate, informative isolation result: DR0-gate det ok 3/6 (prog med 0.75, slip med 1.62, outside vref1-r1 band 0.89-1.36), sto clean 6/6; own-cfg(DR0.35) det 5/6, sto 3/6. Reproduces parent noZDnoBS1 det ep3/ep4 failure near-identically with joint_zero_bias_deg ALSO zeroed (only placement_noise_deg=6 + walk-panel varied-start left) and adds a new mild ep5 dip -- rules OUT the zerobias x placement interaction (if-true refuted): placement_noise_deg=6 ALONE reproduces the residual failure, so it (not an interaction) is the remaining suspect. gv 6/6 both modes, 0 term/sacrificed-leg; video is the lineage known clean six-leg march-in-place-stall signature, no flag-leg/skate. Closes the 4-arm startvar1 isolation triangulation (zero_drift_cmd_frame, bad_start_prob, joint_zero_bias_deg all individually+jointly ruled out; placement_noise_deg=6 implicated).",
+    "verdict": "FAIL vs own gate; CORRECTED root-cause (initial framing overclaimed placement_noise_deg as sole cause -- checked against the standalone seed11/20M cw-dep-vref1-r1-placement PASS, which is cleaner evidence). DR0-gate det ok 3/6 (prog med 0.75, slip med 1.62, band 0.89-1.36), sto clean 6/6. The det/3+det/4 degraded pair reproduces IDENTICALLY across all 4 seed=12/18M isolation siblings (noZD1, noBS1, noZDnoBS1, placementonly) regardless of whether zero_drift/zerobias are on or off, while the seed=11/20M standalone _placement compose (SAME placement_noise_deg=6, no other stressors) shows det/3 clean and only the well-known lineage det/4 crater -- so det/3 is better explained by seed=12 training variance than by placement_noise_deg=6 itself, which cannot be cleanly implicated without a seed-12+placement=0 control (not run). The one clear surviving signal: noZD1 (bad_start_prob=0.4 still ON) is markedly worse than the 3 bad_start=0 siblings (det 0/6 ok + sto also degraded) -- bad_start_prob=0.4 remains the strongest identified stressor, consistent with the earlier noBS1 finding (a contributor, not sole cause). gv 6/6 all arms, 0 term/sacrificed-leg every episode, video clean six-leg creep (no flag-leg/skate) matching the lineage known march-in-place-stall signature. Net: 4-arm triangulation rules OUT zero_drift_cmd_frame and joint_zero_bias_deg as causes; bad_start_prob=0.4 is implicated; placement_noise_deg=6 is UNRESOLVED (confounded with training seed, needs a seed-12+placement=0 control before blaming it). hardware_ready=false; cw-dep-vref1-r1 (no start-variation) remains the hardware-attempt-#2 base.",
     "hardware_ready": false
   },
   {
@@ -57657,7 +57659,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T18:23:43"
+    "triage": "in-cycle cw-arch-hist16-r7-c2-cw-dep-vref1-r1-encnoise-latency-cw-dep since 2026-08-10T18:28:46"
   },
   {
     "run": "cw-dep-vref1-r1-torquescale-deadband",
@@ -57740,7 +57742,8 @@
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-torquescale-deadband --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_torquescale_deadband --notes 'respec of cw-dep-vref1-r1-torquescale: Plain English: test whether the hardware candidate still walks cleanly with two realistic ACTUATOR quirks together instead of one at a time -- weaker available torque (battery sag under load) AND servo dead-zone response, which the real STS3215s will show simultaneously when the battery is low and the joints are worn. vref1-r1 already PASSED widened torque-sag (0.5-1.05x) and servo deadband (1-3x) INDIVIDUALLY tonight; this bundles them onto the same base recipe as its siblings (respec of cw-dep-vref1-r1, not warm-started off either single-axis checkpoint, to avoid compounding one lineage'\"'\"'s drift). Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + both axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- the two individually-benign actuator axes stay benign combined, same pattern as comshift+deadband and fric+groundtilt5. If-false: reduced torque headroom combined with a dead-zone response compounds worse than either alone (less margin to punch through the dead-zone) -- flag as a real pre-attempt-#2 actuator risk, directly relevant to today'\"'\"'s loaded-actuator finding (P0 rule 6).' --cfg-set dr.torque_scale=0.5,1.05 --cfg-set reward.k_current=0 --cfg-set dr.deadband_scale=1.0,3.0 > /tmp/train_cw-dep-vref1-r1-torquescale-deadband.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-torquescale-deadband.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-torquescale-deadband.log",
+    "triage": "in-cycle cw-dep-vref1-r1-tiltnoise-gyronoise-cw-dep-vref1-r1-torquesc since 2026-08-10T18:38:52"
   },
   {
     "run": "cw-dep-vref1-r1-imumount-groundtilt5",
@@ -58140,7 +58143,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-vref1-r1-tiltnoise-gyronoise-cw-dep-vref1-r1-torquesc since 2026-08-10T18:38:52"
   },
   {
     "run": "cw-dep-vref1-r1-cmddrop-velscale",
@@ -58350,7 +58354,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-gainvar-legmass --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_gainvar_legmass --notes 'respec of cw-dep-vref1-r1-gainvar: Plain English: does the checkpoint headed for tonight'\"'\"'s hardware attempt still walk cleanly if two properties of THIS SPECIFIC ROBOT UNIT combine -- wider per-joint servo gain spread (kp/kv) AND per-leg build tolerance (mass jitter + per-leg link-length error)? Both PASSed alone on vref1-r1 (gainvar: kp 0.20->0.40/kv 0.25->0.50; legmass: leg_mass_jitter 0.10->0.20/link_len_leg 0.012->0.025) but never together -- unlike axes that model the ENVIRONMENT (floor, IMU mount), these two are both fixed manufacturing/assembly properties of the one physical unit being tested, so they co-occur by construction on real hardware. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- unit-level manufacturing variation composes free like every other axis pairing tonight. If-false: combined actuator+structural variation degrades the gait beyond either alone -- flag as a real per-unit calibration risk before the operator'\"'\"'s hardware attempt.' --cfg-set dr.kp_scale_pct=0.40 --cfg-set dr.kv_scale_pct=0.50 --cfg-set reward.k_current=0 --cfg-set dr.leg_mass_jitter_pct=0.20 --cfg-set dr.link_len_leg_pct=0.025 > /tmp/train_cw-dep-vref1-r1-gainvar-legmass.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-gainvar-legmass.log",
     "wandb_id": "u5eg0jka",
-    "verified": "2026-08-10T18:19:59+00:00"
+    "verified": "2026-08-10T18:19:59+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T18:25:04+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7468,
+        "fps": 11650.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-placement-comshift-zerobias",
@@ -58422,7 +58438,7 @@
       "dr.joint_zero_bias_deg=3.0"
     ],
     "created": "2026-08-10T18:21:12+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -58431,10 +58447,228 @@
       "code_sha_local": "778bd1a6d9f9eeba693923d4901ef94357075861",
       "code_sha_pod": "778bd1a6d9f9eeba693923d4901ef94357075861",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1642499",
+      "log_growth_bytes": [
+        8806,
+        15598
+      ],
+      "wandb_id": "nzvw3wh4",
+      "global_step_window": [
+        786432,
+        1900544
+      ],
+      "fps_estimate": 12379.0
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-placement-comshift-zerobias --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_placement_comshift_zerobias --notes 'respec of cw-dep-vref1-r1-placement-comshift: PROTECT THE NAMED HARDWARE CANDIDATE: does a THIRD individually-benign assembly-tolerance axis (per-joint zero-calibration bias, 3deg) stay benign stacked on the just-PASSED 2-axis placement+CoM-shift bundle? All three axes model imperfections fixed at build/assembly time (imprecise joint mounting, off-center weight, and hand-zeroed servo horns) that the real chassis will have simultaneously, not one at a time. Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + all 3 axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- the assembly-tolerance stack keeps composing free. If-false: three compounding fixed offsets (angle + CoM + calibration) break tracking in a way no pair did alone -- a real pre-attempt-#2 assembly-QA risk worth flagging.' --cfg-set dr.placement_noise_deg=6.0 --cfg-set reward.k_current=0 --cfg-set dr.com_offset_m=0.03 --cfg-set dr.joint_zero_bias_deg=3.0 > /tmp/train_cw-dep-vref1-r1-placement-comshift-zerobias.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-placement-comshift-zerobias.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-placement-comshift-zerobias.log",
+    "wandb_id": "nzvw3wh4",
+    "verified": "2026-08-10T18:25:11+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T18:30:56+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6683,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-deadband-groundtilt5",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 8000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if a sluggish/dead-zone servo response happens on an unlevel floor at the same time? Both PASSed alone on vref1-r1 (deadband 1.0-3.0x; ground tilt 5deg) but never together -- a sluggish push-off is more likely to matter exactly when the floor is already sloped against you, unlike axes that don't interact mechanically (e.g. IMU mount rotation). Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- deadband+slope composes free like every other axis pairing tonight. If-false: sluggish response on a slope defeats the contract-exact obs in a way neither did alone -- flag as a real hardware risk (uneven, imperfectly-responsive floor+servo combo) before deployment.",
+    "gate": "own-cfg (DR0.35 + dr.deadband_scale=1.0,3.0 + dr.ground_tilt_deg=5.0) det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1's own band +-20%; DR0-no-override retention det 6/6 gv reproducing vref1-r1's own band; video frames watched det+sto",
+    "parent": "cw-dep-vref1-r1-deadband",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_deadband_groundtilt5",
+      "--notes",
+      "respec of cw-dep-vref1-r1-deadband: Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if a sluggish/dead-zone servo response happens on an unlevel floor at the same time? Both PASSed alone on vref1-r1 (deadband 1.0-3.0x; ground tilt 5deg) but never together -- a sluggish push-off is more likely to matter exactly when the floor is already sloped against you, unlike axes that don't interact mechanically (e.g. IMU mount rotation). Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- deadband+slope composes free like every other axis pairing tonight. If-false: sluggish response on a slope defeats the contract-exact obs in a way neither did alone -- flag as a real hardware risk (uneven, imperfectly-responsive floor+servo combo) before deployment.",
+      "--cfg-set",
+      "dr.deadband_scale=1.0,3.0",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.ground_tilt_deg=5.0"
+    ],
+    "created": "2026-08-10T18:24:35+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 10,
+      "code_sha_local": "2f1b88548674fe0be7863b23b5b6f39d57f17ea9",
+      "code_sha_pod": "2f1b88548674fe0be7863b23b5b6f39d57f17ea9",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1988280",
+      "log_growth_bytes": [
+        7843,
+        11647
+      ],
+      "wandb_id": "1wam62gi",
+      "global_step_window": [
+        524288,
+        1376256
+      ],
+      "fps_estimate": 9466.3
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-deadband-groundtilt5 --steps 8000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_deadband_groundtilt5 --notes 'respec of cw-dep-vref1-r1-deadband: Plain English: does the checkpoint headed for tonight'\"'\"'s hardware attempt still walk cleanly if a sluggish/dead-zone servo response happens on an unlevel floor at the same time? Both PASSed alone on vref1-r1 (deadband 1.0-3.0x; ground tilt 5deg) but never together -- a sluggish push-off is more likely to matter exactly when the floor is already sloped against you, unlike axes that don'\"'\"'t interact mechanically (e.g. IMU mount rotation). Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- deadband+slope composes free like every other axis pairing tonight. If-false: sluggish response on a slope defeats the contract-exact obs in a way neither did alone -- flag as a real hardware risk (uneven, imperfectly-responsive floor+servo combo) before deployment.' --cfg-set dr.deadband_scale=1.0,3.0 --cfg-set reward.k_current=0 --cfg-set dr.ground_tilt_deg=5.0 > /tmp/train_cw-dep-vref1-r1-deadband-groundtilt5.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-deadband-groundtilt5.log",
+    "wandb_id": "1wam62gi",
+    "verified": "2026-08-10T18:28:33+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T18:33:48+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6468,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-gainvar-torquescale",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Check that the hardware-candidate walker still walks when its servos are BOTH weaker than expected AND inconsistently tuned at the same time -- the two actuator-strength uncertainties it will actually face on battery power tonight. The gainvar single-axis PASS carried the widest margin of any axis (det slip ~12% over the band edge) with an explicit pre-registered watch-item: 'worth a second look if stacked with another actuator axis'; torquescale (battery-sag 0.5-1.05x) PASSed cleanly solo. This 2-axis compose (2x kp/kv gain spread + widened torque sag) on the contract-exact base cw-dep-vref1-r1 tests whether those margins stack or compound. Prediction-if-true: own-cfg det+sto gv 12/12, 0 term, slip medians within +-20% of vref1-r1's band, fingerprint episodes no worse than the worst PASSed sibling (torquescale, prog 0.47-0.57). Prediction-if-false: weak-AND-mistuned servo draws push beyond the fingerprint into new craters or falls -- flags a real battery-day actuator envelope limit. Strongest alternative: creep/park to dodge weak-servo draws -- check videos, not just scalars. k_current=0 per P0 rule 3 (inherited).",
+    "gate": "own-cfg (DR0.35 + both overrides) det+sto 6/6 @15s: gait_valid 12/12, 0 term, slip/m medians within +-20% of vref1-r1's own band (0.89-1.13 det / 1.13-1.36 sto); lineage fixed-seed fingerprint (det/5, sto/0, sto/1 degraded + sto/4 crater) PRE-ALLOWED as baseline unless worse than torquescale's prog 0.47; DR0 no-override retention clean; frames watched det for flag-leg/skate",
+    "parent": "cw-dep-vref1-r1-gainvar",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_gainvar_torquescale",
+      "--notes",
+      "respec of cw-dep-vref1-r1-gainvar: Check that the hardware-candidate walker still walks when its servos are BOTH weaker than expected AND inconsistently tuned at the same time -- the two actuator-strength uncertainties it will actually face on battery power tonight. The gainvar single-axis PASS carried the widest margin of any axis (det slip ~12% over the band edge) with an explicit pre-registered watch-item: 'worth a second look if stacked with another actuator axis'; torquescale (battery-sag 0.5-1.05x) PASSed cleanly solo. This 2-axis compose (2x kp/kv gain spread + widened torque sag) on the contract-exact base cw-dep-vref1-r1 tests whether those margins stack or compound. Prediction-if-true: own-cfg det+sto gv 12/12, 0 term, slip medians within +-20% of vref1-r1's band, fingerprint episodes no worse than the worst PASSed sibling (torquescale, prog 0.47-0.57). Prediction-if-false: weak-AND-mistuned servo draws push beyond the fingerprint into new craters or falls -- flags a real battery-day actuator envelope limit. Strongest alternative: creep/park to dodge weak-servo draws -- check videos, not just scalars. k_current=0 per P0 rule 3 (inherited).",
+      "--cfg-set",
+      "dr.kp_scale_pct=0.40",
+      "--cfg-set",
+      "dr.kv_scale_pct=0.50",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.torque_scale=0.5,1.05"
+    ],
+    "created": "2026-08-10T18:37:05+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 9,
+      "code_sha_local": "2f1b88548674fe0be7863b23b5b6f39d57f17ea9",
+      "code_sha_pod": "2f1b88548674fe0be7863b23b5b6f39d57f17ea9",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-gainvar-torquescale --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_gainvar_torquescale --notes 'respec of cw-dep-vref1-r1-gainvar: Check that the hardware-candidate walker still walks when its servos are BOTH weaker than expected AND inconsistently tuned at the same time -- the two actuator-strength uncertainties it will actually face on battery power tonight. The gainvar single-axis PASS carried the widest margin of any axis (det slip ~12% over the band edge) with an explicit pre-registered watch-item: '\"'\"'worth a second look if stacked with another actuator axis'\"'\"'; torquescale (battery-sag 0.5-1.05x) PASSed cleanly solo. This 2-axis compose (2x kp/kv gain spread + widened torque sag) on the contract-exact base cw-dep-vref1-r1 tests whether those margins stack or compound. Prediction-if-true: own-cfg det+sto gv 12/12, 0 term, slip medians within +-20% of vref1-r1'\"'\"'s band, fingerprint episodes no worse than the worst PASSed sibling (torquescale, prog 0.47-0.57). Prediction-if-false: weak-AND-mistuned servo draws push beyond the fingerprint into new craters or falls -- flags a real battery-day actuator envelope limit. Strongest alternative: creep/park to dodge weak-servo draws -- check videos, not just scalars. k_current=0 per P0 rule 3 (inherited).' --cfg-set dr.kp_scale_pct=0.40 --cfg-set dr.kv_scale_pct=0.50 --cfg-set reward.k_current=0 --cfg-set dr.torque_scale=0.5,1.05 > /tmp/train_cw-dep-vref1-r1-gainvar-torquescale.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-gainvar-torquescale.log"
   }
 ]
