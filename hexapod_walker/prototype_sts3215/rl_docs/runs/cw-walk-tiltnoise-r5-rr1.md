@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-10T05:23:49+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-tiltnoise
+
+**wandb_id**: xhxx30eg
 
 **hypothesis**: 5th retry of cw-walk-tiltnoise (base+r1-r4 ALL died 0-step to the fleet launch-collision storm, gotcha 13b -- never got a science result on this axis, unlike its siblings imupos15/gyrobias3 which both closed NO-EFFECT). Same isolated axis unchanged: OPERATOR WISHLIST 13c untested IMU tilt-reading NOISE (dr.tilt_noise_deg=1.5, 5x the full-DR default) off the plain champion longdist-r2, dr-scale 0.0 otherwise.
 
