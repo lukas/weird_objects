@@ -56326,7 +56326,7 @@
       "dr.imu_pos_z_m=-0.02,0.10"
     ],
     "created": "2026-08-10T17:02:57+00:00",
-    "status": "INTENT",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -56340,7 +56340,9 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-imupos --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_imupos --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 has only been hardened against IMU MOUNT ROTATION (imumount, PASSED) and gyro/tilt noise, never IMU MOUNT POSITION -- the real IMU could be bolted anywhere on the chassis, and an off-center mount feels lever-arm accelerations during body rotation that corrupt the accel-derived tilt exactly while leaning (untested dimension, distinct dr field: imu_pos_xy_m/imu_pos_z_m vs imu_mount_deg). Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- position-induced lever-arm noise composes free like every other sensor axis so far. If-false: lever-arm-corrupted tilt during turns/leans breaks tracking in a way rotation-only noise did not -- flag as a real pre-attempt-#2 sensor-mounting risk.' --cfg-set dr.imu_pos_xy_m=0.07 --cfg-set dr.imu_pos_z_m=-0.02,0.10 > /tmp/train_cw-dep-vref1-r1-imupos.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-imupos.log",
-    "triage": "awaiting since 2026-08-10T18:54:00"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- IMU mount POSITION offset (0.07m xy lever arm, -0.02..0.10m z), a new axis distinct from the already-PASSed mount-ROTATION case, composes free onto the hardware candidate. Own-cfg det+sto gv 6/6 each, 0 term, 0 safety_flags, 0 sacrificed legs either pass; det slip/m med 1.04, sto slip/m med 0.93 -- both inside vref1-r1's own band (0.89-1.13 det / 1.13-1.36 sto). The one degraded draw (det/4, prog 0.08) is the lineage's known fixed-seed march-in-place crater, video-checked clean six-leg cycling, level body, no flag-leg. Lever-arm-corrupted tilt during leans/turns does not break tracking any worse than rotation-only mount noise did."
   },
   {
     "run": "cw-dep-vref1-r1-placement-comshift",
@@ -56900,7 +56902,7 @@
       }
     ],
     "checkup_note": "Watcher SUSPECT (fps 1456 < 5000 floor) triaged 17:2x UTC: trainer HEALTHY -- learning normally (ep_rew 618 @1.9M/20M, KL updates flowing), getting its full ~20-core allocation (2035% CPU), fps recovering 1456->2094 across last iterations. Root cause is node-wide contention on g142d86 (load ~260/128 vs ~80-110 on sibling nodes): our 4 trainers in-budget + controller running ~24 cores of watcher gate-evals (transient) + other-tenant load. Not killed/rebalanced: 0/12 GPU pods free, run not broken, guardrails forbid outbidding other tenants. Left running; at worst ~2k fps => 20M steps ~2.8h.",
-    "triage": "awaiting since 2026-08-10T19:04:05"
+    "triage": "in-cycle cw-dep-vref1-r1-cmddrop-velscale-cw-dep-vref1-r1-contactstif since 2026-08-10T19:09:09"
   },
   {
     "run": "cw-dep-quad1-c1",
@@ -57742,7 +57744,7 @@
       "dr.deadband_scale=1.0,3.0"
     ],
     "created": "2026-08-10T17:49:08+00:00",
-    "status": "INTENT",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -57756,7 +57758,9 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-torquescale-deadband --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_torquescale_deadband --notes 'respec of cw-dep-vref1-r1-torquescale: Plain English: test whether the hardware candidate still walks cleanly with two realistic ACTUATOR quirks together instead of one at a time -- weaker available torque (battery sag under load) AND servo dead-zone response, which the real STS3215s will show simultaneously when the battery is low and the joints are worn. vref1-r1 already PASSED widened torque-sag (0.5-1.05x) and servo deadband (1-3x) INDIVIDUALLY tonight; this bundles them onto the same base recipe as its siblings (respec of cw-dep-vref1-r1, not warm-started off either single-axis checkpoint, to avoid compounding one lineage'\"'\"'s drift). Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + both axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- the two individually-benign actuator axes stay benign combined, same pattern as comshift+deadband and fric+groundtilt5. If-false: reduced torque headroom combined with a dead-zone response compounds worse than either alone (less margin to punch through the dead-zone) -- flag as a real pre-attempt-#2 actuator risk, directly relevant to today'\"'\"'s loaded-actuator finding (P0 rule 6).' --cfg-set dr.torque_scale=0.5,1.05 --cfg-set reward.k_current=0 --cfg-set dr.deadband_scale=1.0,3.0 > /tmp/train_cw-dep-vref1-r1-torquescale-deadband.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-torquescale-deadband.log",
-    "triage": "in-cycle cw-dep-vref1-r1-tiltnoise-gyronoise-cw-dep-vref1-r1-torquesc since 2026-08-10T18:38:52"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS (13th dep-line protective compose) -- battery-sag (torque_scale 0.5-1.05x) + servo-deadband (deadband_scale 1.0-3.0x) together compose free onto the hardware-contract base: DR0 retention gv 12/12 0 term (det/4 known lineage crater only), own-cfg (DR0.35+both axes) gv 12/12 0 term, det slip/m med 0.955 sto med 1.10 both at/within vref1-r1's own band, degraded episodes (det/5, sto/0, sto/1) match the same lineage fixed-draw fingerprint (prog 0.57-0.72, no term, no flag-leg), not new. Video (det_0..5) clean six-leg creep. hardware_ready=false (derisking vref1-r1 only).\""
   },
   {
     "run": "cw-dep-vref1-r1-imumount-groundtilt5",
@@ -57904,7 +57908,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T17:53:58+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -57943,7 +57947,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T18:48:57"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- the two individually-PASSed tilt-BIASING axes (10 deg IMU-mount rotation residual + 5 deg real floor slope) that both corrupt the SAME tilt reading the 25 deg safety trip relies on compose free together. Own-cfg (DR0+imumount10deg+groundtilt5deg) det+sto gv 6/6 each, 0 term, 0 safety_flags, 0 sacrificed legs in EITHER pass; det slip/m med 1.15 (~2% over vref1-r1's own 1.13 det ceiling, inside +-20% tol), sto slip/m med 0.98 (comfortably inside 1.13-1.36 band). The one degraded draw (det/4, prog 0.12) is the lineage's known fixed-seed march-in-place crater seen in every DR0.35 sibling compose tonight -- video-checked (det/0 clean six-leg gait; det/4 crater still six legs cycling, level body, no flag-leg/drag). 0 spurious or missed 25 deg trips across 12 episodes -- the combined mount+floor tilt bias does not mistrigger or defeat the safety threshold."
   },
   {
     "run": "cw-dep-vref1-r1-zerobias-placement",
@@ -58013,7 +58019,7 @@
       "dr.placement_noise_deg=6.0"
     ],
     "created": "2026-08-10T17:55:25+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -58052,7 +58058,9 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T18:48:58"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- combining the two session-start errors (3deg joint zero-bias + 6deg hand-placement noise) TOGETHER composes free onto the contract-exact hardware-candidate checkpoint, same as each did alone. Own-cfg (DR0.35+both overrides) det gv 6/6 (prog med 1.01, slip med 1.08), sto gv 6/6 (prog med 0.84, slip med 1.27) -- both medians inside vref1-r1's own band (det 0.89-1.13, sto 1.13-1.36). 0 term either pass, 0 sacrificed legs any episode. Degraded draws (det/5 crater prog 0.63/slip 2.74; sto/0-1 crater prog 0.60/0.43) match the EXACT lineage fixed-draw fingerprint (det/5, sto/0, sto/1) already seen on multiple sibling 2-axis composes today (tiltnoise_gyronoise, torquescale_deadband) -- video-checked (det/0 clean, det/5, sto/0, sto/1 craters): level body, all six legs still cycling in every frame, no flag-leg/drag/skate, just a slow march-in-place on that fixed draw. DR0-no-override retention clean: det gv 6/6, prog med 1.01, slip med 1.00 (matches parent exactly). If-false (bad interaction between the two session-start errors) is refuted -- they compose free like every other axis pairing tonight."
   },
   {
     "run": "cw-dep-vref1-r1-tiltnoise-gyronoise",
@@ -58120,7 +58128,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T17:59:56+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -58159,7 +58167,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-tiltnoise-gyronoise-cw-dep-vref1-r1-torquesc since 2026-08-10T18:38:52"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS (12th dep-line protective compose) -- cheap-noisy-IMU interaction (tilt-angle noise 1.0deg + gyro-rate noise 1.5deg/s together) composes free onto the hardware-contract base: DR0 retention gv 12/12 0 term (det/4 known lineage crater only), own-cfg (DR0.35+both axes) gv 12/12 0 term, det slip/m med 1.06 sto med 1.31 both within vref1-r1's own band, and the 3 pre-registered fixed-draw episodes (det/5, sto/0, sto/1) degrade exactly as pre-allowed (prog 0.62-0.68, no term, no flag-leg) not a new pathology. Video (det_0..5) shows clean six-leg creep, no drag/skate/flag-leg. hardware_ready=false (derisking vref1-r1 only)."
   },
   {
     "run": "cw-dep-vref1-r1-cmddrop-velscale",
@@ -58270,7 +58280,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T18:48:57"
+    "triage": "in-cycle cw-dep-vref1-r1-cmddrop-velscale-cw-dep-vref1-r1-contactstif since 2026-08-10T19:09:09"
   },
   {
     "run": "cw-dep-vref1-r1-gainvar-legmass",
@@ -58383,7 +58393,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T18:54:00"
+    "triage": "in-cycle cw-dep-vref1-r1-cmddrop-velscale-cw-dep-vref1-r1-contactstif since 2026-08-10T19:09:09"
   },
   {
     "run": "cw-dep-vref1-r1-placement-comshift-zerobias",
@@ -58494,7 +58504,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-10T18:59:03"
+    "triage": "in-cycle cw-dep-vref1-r1-imumount-groundtilt5-cw-dep-vref1-r1-imupos- since 2026-08-10T19:09:10"
   },
   {
     "run": "cw-dep-vref1-r1-deadband-groundtilt5",
@@ -58715,7 +58725,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-vref1-r1-gainvar-torquescale-cw-dep-vref1-r1-imubias since 2026-08-10T19:14:14"
   },
   {
     "run": "cw-dep-vref1-r1-imubias",
@@ -58823,7 +58834,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-vref1-r1-gainvar-torquescale-cw-dep-vref1-r1-imubias since 2026-08-10T19:14:14"
   },
   {
     "run": "cw-arch-hist16-r7-c3",
@@ -59045,7 +59057,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T19:24:19"
   },
   {
     "run": "cw-dep-vref1-r1-latency-comshift",
@@ -59141,7 +59154,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-latency-comshift --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_latency_comshift --notes 'respec of cw-dep-vref1-r1-latency: Plain English: does the checkpoint headed for tonight'\"'\"'s hardware attempt still walk cleanly if comms/bus delay (already PASSed alone) and an off-center chassis CoM (already PASSed alone) happen together -- a laggy control loop trying to correct a lopsided body? Both PASSed individually but never combined, and they stress the SAME feedback-timing pathway (a delayed correction matters more when the thing needing correcting, body lean, is persistent rather than transient). Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- composes free like every other pairing tonight. If-false: delayed correction of a persistent lean degrades the gait beyond either alone -- flag as a real pre-attempt-#2 risk.' --cfg-set dr.latency_scale=0.5,2.5 --cfg-set reward.k_current=0 --cfg-set dr.com_offset_m=0.03 > /tmp/train_cw-dep-vref1-r1-latency-comshift.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-latency-comshift.log",
     "wandb_id": "od09vqbd",
-    "verified": "2026-08-10T18:58:06+00:00"
+    "verified": "2026-08-10T18:58:06+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:04:04+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5616,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-badstartdeg",
@@ -59235,7 +59260,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-badstartdeg --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_badstartdeg --notes 'respec of cw-dep-vref1-r1: Plain English: test whether the hardware candidate still walks cleanly when a badly-placed joint is off by a LARGER angle, separate from testing it happening more OFTEN (companion run cw-dep-vref1-r1-badstart tests probability; this tests magnitude). If-true: own-cfg (DR0.35 + dr.bad_start_deg=8,50 widened from the nominal 8-35deg ceiling) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- larger single-joint placement errors alone are absorbed. If-false: the wider offset breaks gait_valid or inflates slip -- placement-error MAGNITUDE, not just frequency, is a real pre-attempt-#2 risk worth isolating from the zero-drift-frame mechanism blamed in today'\"'\"'s startvar1 failure.' --cfg-set dr.bad_start_deg=8,50 --cfg-set reward.k_current=0.0 > /tmp/train_cw-dep-vref1-r1-badstartdeg.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-badstartdeg.log",
     "wandb_id": "ycbtuxty",
-    "verified": "2026-08-10T18:59:28+00:00"
+    "verified": "2026-08-10T18:59:28+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:05:56+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4707,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-gyrobias",
@@ -59329,7 +59366,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-gyrobias --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_gyrobias --notes 'respec of cw-dep-vref1-r1: Plain English: test whether the hardware candidate still walks cleanly if the IMU'\"'\"'s roll/pitch calibration is biased (a fixed sensor error from imperfect calibration, distinct from noise) rather than just noisy. vref1-r1 already PASSED tilt-angle NOISE (tiltnoise) and gyro-rate NOISE (gyronoise) individually and together; gyro BIAS (a steady rate offset that integrates into a drifting attitude estimate) is a different, untested failure mode on the same complementary filter. If-true: own-cfg (DR0.35 + dr.gyro_bias_deg_s=1.5) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- the filter'\"'\"'s periodic accel correction bounds the drift enough to stay benign. If-false: the biased rate integrates into a persistent attitude error that either trips the 25deg tilt safety or degrades gait beyond the tolerance -- flag as a real pre-attempt-#2 sensor-calibration risk.' --cfg-set dr.gyro_bias_deg_s=1.5 --cfg-set reward.k_current=0.0 > /tmp/train_cw-dep-vref1-r1-gyrobias.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-gyrobias.log",
     "wandb_id": "456ewsd8",
-    "verified": "2026-08-10T19:00:46+00:00"
+    "verified": "2026-08-10T19:00:46+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:06:47+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4670,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-kpscale",
@@ -59655,7 +59704,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-kpscale --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_kpscale --notes 'respec of cw-dep-vref1-r1: Plain English: isolate WHICH half of today'\"'\"'s gainvar compose (2x position-gain spread + 2x velocity-gain spread together, PASSED but with the widest slip margin yet -- ~12% over the tolerance band edge) is driving that margin, by widening only the position-gain (kp) spread and leaving velocity-gain (kv) at its normal DR0.35 baseline. If-true: own-cfg (DR0.35 + dr.kp_scale_pct=0.40, double nominal) det+sto 6/6 gv, 0 term, slip/m comfortably within vref1-r1'\"'\"'s own band (not near the gainvar edge) -- kp alone is not the margin driver, implicating kv or the combination. If-false: kp alone reproduces gainvar'\"'\"'s wide margin -- kp-spread is the dominant actuator-gain risk, useful before stacking it with other axes (gainvar-torquescale/legmass, already training).' --cfg-set dr.kp_scale_pct=0.40 --cfg-set reward.k_current=0.0 > /tmp/train_cw-dep-vref1-r1-kpscale.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-kpscale.log",
     "wandb_id": "52fiotsr",
-    "verified": "2026-08-10T19:03:12+00:00"
+    "verified": "2026-08-10T19:03:12+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:08:40+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2917,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-fric-s1",
@@ -59879,7 +59940,7 @@
       "reward.k_current=0.0"
     ],
     "created": "2026-08-10T19:00:54+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -59888,11 +59949,36 @@
       "code_sha_local": "a3a8a492501ac6e7ac0222c487707499325d1d25",
       "code_sha_pod": "a3a8a492501ac6e7ac0222c487707499325d1d25",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2248683",
+      "log_growth_bytes": [
+        6853,
+        11657
+      ],
+      "wandb_id": "uvnyu7wo",
+      "global_step_window": [
+        458752,
+        1114112
+      ],
+      "fps_estimate": 7281.8
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-badstart --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_badstart --notes 'respec of cw-dep-vref1-r1: Plain English: test whether the hardware candidate still walks cleanly when the human placing the robot before an episode gets a joint noticeably wrong more often (higher PROBABILITY of a bad start), separate from today'\"'\"'s failed start-variation compose which changed several things at once including a brand-new, unvetted zero-drift-frame mechanism. If-true: own-cfg (DR0.35 + dr.bad_start_prob=0.5, double the nominal 0.25) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- elevated bad-start probability ALONE is not the startvar1 compose'\"'\"'s problem. If-false: bad-start probability alone (with no zero-drift-frame) already breaks gait_valid or inflates slip -- contradicts today'\"'\"'s noBS1 isolation finding that bad_start_prob only partially explained startvar1'\"'\"'s failure, and reframes the priority for the zero-drift-frame mechanism rework.' --cfg-set dr.bad_start_prob=0.5 --cfg-set reward.k_current=0.0 > /tmp/train_cw-dep-vref1-r1-badstart.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-badstart.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-badstart.log",
+    "wandb_id": "uvnyu7wo",
+    "verified": "2026-08-10T19:04:44+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:10:32+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7526,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-badstart",
@@ -60038,7 +60124,7 @@
       "dr.latency_scale=0.5,2.5"
     ],
     "created": "2026-08-10T19:02:19+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -60047,11 +60133,36 @@
       "code_sha_local": "2f628be24843fd55c49d76ebe15636f4b080351e",
       "code_sha_pod": "2f628be24843fd55c49d76ebe15636f4b080351e",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "173297",
+      "log_growth_bytes": [
+        5908,
+        10722
+      ],
+      "wandb_id": "k198cw56",
+      "global_step_window": [
+        393216,
+        983040
+      ],
+      "fps_estimate": 6553.6
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-encnoise-latency-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_encnoise_latency_s1 --notes 'respec of cw-dep-vref1-r1-encnoise-latency: Plain English: seed-twin confirmation of tonight'\"'\"'s PASS on the combined encoder-noise + comms-latency compose (both individually-benign sensing/comms axes stay benign together) -- only tested at one training seed (11) so far, and this is one of the sensing risks most directly relevant to the real deployed bus link. Same recipe, different training seed (12), nothing else changed. If-true: seed 12 lands in/near vref1-r1'\"'\"'s own slip/m band like seed 11 did (0.96 det/1.06 sto) -- recipe confirmed, not seed luck. If-false: seed 12 shows real degradation seed 11 didn'\"'\"'t -- the combined-axis PASS was seed-fragile, flag before hardware.' --cfg-set dr.encoder_noise_deg=0.5 --cfg-set reward.k_current=0 --cfg-set dr.latency_scale=0.5,2.5 > /tmp/train_cw-dep-vref1-r1-encnoise-latency-s1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-encnoise-latency-s1.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-encnoise-latency-s1.log",
+    "wandb_id": "k198cw56",
+    "verified": "2026-08-10T19:06:10+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:12:24+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6625,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dep-vref1-r1-fric-s1",
@@ -60119,7 +60230,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T19:03:35+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -60128,10 +60239,478 @@
       "code_sha_local": "443f8bed1b72228207adf20f86c24b12b7a0dcdc",
       "code_sha_pod": "443f8bed1b72228207adf20f86c24b12b7a0dcdc",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3847711",
+      "log_growth_bytes": [
+        5896,
+        10742
+      ],
+      "wandb_id": "nizxmzu5",
+      "global_step_window": [
+        458752,
+        786432
+      ],
+      "fps_estimate": 3640.9
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-fric-s1 --steps 8000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_fric_s1 --notes 'respec of cw-dep-vref1-r1-fric: Plain English: seed-twin confirmation of tonight'\"'\"'s PASS-with-caveat friction compose (0.4-1.6x floor friction on the hardware candidate) -- the first seed (11) showed a det slip/m median (1.23) sitting ~9%% over vref1-r1'\"'\"'s own upper band edge, inside tolerance but flagged so it isn'\"'\"'t silently averaged away. This run reproduces the identical recipe with a different training seed (12) to check whether the elevated median is a friction-axis property (should reproduce) or seed-11 training luck (should not). If-true: seed 12 lands in/near the same elevated-but-in-tolerance band -- friction axis confirmed as a real, mild, tolerable cost, not seed noise. If-false: seed 12 lands cleanly in vref1-r1'\"'\"'s own nominal band -- the elevated seed-11 median was training-seed luck, not a friction-driven effect.' --cfg-set dr.friction_scale=0.4,1.6 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-fric-s1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-fric-s1.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-fric-s1.log",
+    "wandb_id": "nizxmzu5",
+    "verified": "2026-08-10T19:07:27+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:14:17+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "verdict": "SUSPECT",
+        "problems": [
+          "log stopped growing",
+          "W&B global_step stalled at 2031616"
+        ]
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-tiltnoise-encnoise",
+    "pod": "hexapod-mjx-train-7",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if two different sensors are both noisier than nominal at once -- the tilt/attitude reading (already PASSed alone, 3x the default noise floor) AND the joint encoder reads (already PASSed alone, 0.5deg)? Both individually benign but never combined; unlike axes tied to the same physical part (e.g. gyronoise+tiltnoise, both IMU), this pairs two INDEPENDENT sensor subsystems (IMU vs joint encoders) that are both always slightly noisy on real hardware simultaneously. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- combined sensor noise composes free like every other pairing tonight. If-false: two independent noisy channels compound into a control problem neither alone caused -- flag as a real pre-attempt-#2 sensing risk.",
+    "gate": "own-cfg (DR0.35 + dr.tilt_noise_deg=1.0 + dr.encoder_noise_deg=0.5) det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1's own band +-20%; DR0-no-override retention det 6/6 gv; video frames watched det+sto",
+    "parent": "cw-dep-vref1-r1-tiltnoise",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_tiltnoise_encnoise",
+      "--notes",
+      "respec of cw-dep-vref1-r1-tiltnoise: Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if two different sensors are both noisier than nominal at once -- the tilt/attitude reading (already PASSed alone, 3x the default noise floor) AND the joint encoder reads (already PASSed alone, 0.5deg)? Both individually benign but never combined; unlike axes tied to the same physical part (e.g. gyronoise+tiltnoise, both IMU), this pairs two INDEPENDENT sensor subsystems (IMU vs joint encoders) that are both always slightly noisy on real hardware simultaneously. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- combined sensor noise composes free like every other pairing tonight. If-false: two independent noisy channels compound into a control problem neither alone caused -- flag as a real pre-attempt-#2 sensing risk.",
+      "--cfg-set",
+      "dr.tilt_noise_deg=1.0",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.encoder_noise_deg=0.5"
+    ],
+    "created": "2026-08-10T19:04:52+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [
+        "cw-dep-vref1-r1-fric-s1"
+      ]
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-7 already runs cw-dep-vref1-r1-fric-s1 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+  },
+  {
+    "run": "cw-dep-vref1-r1-kvscale",
+    "pod": "hexapod-mjx-train-7",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: complete today's decomposition of the gainvar compose (2x position-gain AND 2x velocity-gain spread together, PASSED but with the widest slip margin yet) by isolating the OTHER half -- velocity-gain (kv) spread alone, leaving position-gain (kp) at its normal DR0.35 baseline (companion run cw-dep-vref1-r1-kpscale isolates kp alone). If-true: own-cfg (DR0.35 + dr.kv_scale_pct=0.50, double nominal) det+sto 6/6 gv, 0 term, slip/m comfortably within vref1-r1's own band -- kv alone is not the margin driver either, pointing at the COMBINATION as the real risk. If-false: kv alone reproduces gainvar's wide margin -- kv-spread (velocity-gain/damping uncertainty) is the dominant actuator-gain risk.",
+    "gate": "own-cfg (DR0.35 + dr.kv_scale_pct=0.50) det+sto @15s: gait_valid 12/12, 0 term, slip/m within vref1-r1's own band (det ~0.89-1.13, sto ~1.13-1.36) +-20%; DR0 retention clean; frames watched det; the lineage's known fixed-draw crater (det/4 or det/5) is pre-allowed as baseline",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_kvscale",
+      "--notes",
+      "respec of cw-dep-vref1-r1: Plain English: complete today's decomposition of the gainvar compose (2x position-gain AND 2x velocity-gain spread together, PASSED but with the widest slip margin yet) by isolating the OTHER half -- velocity-gain (kv) spread alone, leaving position-gain (kp) at its normal DR0.35 baseline (companion run cw-dep-vref1-r1-kpscale isolates kp alone). If-true: own-cfg (DR0.35 + dr.kv_scale_pct=0.50, double nominal) det+sto 6/6 gv, 0 term, slip/m comfortably within vref1-r1's own band -- kv alone is not the margin driver either, pointing at the COMBINATION as the real risk. If-false: kv alone reproduces gainvar's wide margin -- kv-spread (velocity-gain/damping uncertainty) is the dominant actuator-gain risk.",
+      "--cfg-set",
+      "dr.kv_scale_pct=0.50",
+      "--cfg-set",
+      "reward.k_current=0.0"
+    ],
+    "created": "2026-08-10T19:04:53+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [
+        "cw-dep-vref1-r1-fric-s1"
+      ]
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-7 already runs cw-dep-vref1-r1-fric-s1 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+  },
+  {
+    "run": "cw-dep-vref1-r1-groundtilt",
+    "pod": "hexapod-mjx-train-11",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: test the floor-slope axis ALONE on the hardware candidate, as a clean baseline before today's several floor-tilt PAIR composes (fric-groundtilt5, deadband-groundtilt5, imumount-groundtilt5) -- none of those isolated whether ground_tilt_deg by itself is benign, only whether it stays benign paired with another axis. If-true: own-cfg (DR0.35 + dr.ground_tilt_deg=5.0, 2.5x nominal) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- floor slope alone is a non-issue, so the paired composes' cleanliness isn't accidentally hiding a floor-slope-specific problem. If-false: floor slope alone already breaks the gate -- the paired composes' PASSes are suspect and need re-examination for whether the OTHER axis in each pair was masking a real floor-slope sensitivity.",
+    "gate": "own-cfg (DR0.35 + dr.ground_tilt_deg=5.0) det+sto @15s: gait_valid 12/12, 0 term, slip/m within vref1-r1's own band (det ~0.89-1.13, sto ~1.13-1.36) +-20%; DR0 retention clean; frames watched det; the lineage's known fixed-draw crater (det/4 or det/5) is pre-allowed as baseline",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_groundtilt",
+      "--notes",
+      "respec of cw-dep-vref1-r1: Plain English: test the floor-slope axis ALONE on the hardware candidate, as a clean baseline before today's several floor-tilt PAIR composes (fric-groundtilt5, deadband-groundtilt5, imumount-groundtilt5) -- none of those isolated whether ground_tilt_deg by itself is benign, only whether it stays benign paired with another axis. If-true: own-cfg (DR0.35 + dr.ground_tilt_deg=5.0, 2.5x nominal) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- floor slope alone is a non-issue, so the paired composes' cleanliness isn't accidentally hiding a floor-slope-specific problem. If-false: floor slope alone already breaks the gate -- the paired composes' PASSes are suspect and need re-examination for whether the OTHER axis in each pair was masking a real floor-slope sensitivity.",
+      "--cfg-set",
+      "dr.ground_tilt_deg=5.0",
+      "--cfg-set",
+      "reward.k_current=0.0"
+    ],
+    "created": "2026-08-10T19:04:54+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [
+        "cw-dep-vref1-r1-encnoise-latency-s1"
+      ]
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-11 already runs cw-dep-vref1-r1-encnoise-latency-s1 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+  },
+  {
+    "run": "cw-dep-vref1-r1-kvscale",
+    "pod": "hexapod-mjx-train-8",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: complete today's decomposition of the gainvar compose (2x position-gain AND 2x velocity-gain spread together, PASSED but with the widest slip margin yet) by isolating the OTHER half -- velocity-gain (kv) spread alone, leaving position-gain (kp) at its normal DR0.35 baseline (companion run cw-dep-vref1-r1-kpscale isolates kp alone). If-true: own-cfg (DR0.35 + dr.kv_scale_pct=0.50, double nominal) det+sto 6/6 gv, 0 term, slip/m comfortably within vref1-r1's own band -- kv alone is not the margin driver either, pointing at the COMBINATION as the real risk. If-false: kv alone reproduces gainvar's wide margin -- kv-spread (velocity-gain/damping uncertainty) is the dominant actuator-gain risk.",
+    "gate": "own-cfg (DR0.35 + dr.kv_scale_pct=0.50) det+sto @15s: gait_valid 12/12, 0 term, slip/m within vref1-r1's own band (det ~0.89-1.13, sto ~1.13-1.36) +-20%; DR0 retention clean; frames watched det; the lineage's known fixed-draw crater (det/4 or det/5) is pre-allowed as baseline",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_kvscale",
+      "--notes",
+      "respec of cw-dep-vref1-r1: Plain English: complete today's decomposition of the gainvar compose (2x position-gain AND 2x velocity-gain spread together, PASSED but with the widest slip margin yet) by isolating the OTHER half -- velocity-gain (kv) spread alone, leaving position-gain (kp) at its normal DR0.35 baseline (companion run cw-dep-vref1-r1-kpscale isolates kp alone). If-true: own-cfg (DR0.35 + dr.kv_scale_pct=0.50, double nominal) det+sto 6/6 gv, 0 term, slip/m comfortably within vref1-r1's own band -- kv alone is not the margin driver either, pointing at the COMBINATION as the real risk. If-false: kv alone reproduces gainvar's wide margin -- kv-spread (velocity-gain/damping uncertainty) is the dominant actuator-gain risk.",
+      "--cfg-set",
+      "dr.kv_scale_pct=0.50",
+      "--cfg-set",
+      "reward.k_current=0.0"
+    ],
+    "created": "2026-08-10T19:11:35+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-ac821317-c75c-9d4b-94db-69607eac7849)",
+      "running_experiments_before": 10,
+      "code_sha_local": "3ce5a4ce383a01dd79b4aed91b0d298eac51b449",
+      "code_sha_pod": "3ce5a4ce383a01dd79b4aed91b0d298eac51b449",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3034366",
+      "log_growth_bytes": [
+        6874,
+        9776
+      ],
+      "wandb_id": "hi893n71",
+      "global_step_window": [
+        393216,
+        1114112
+      ],
+      "fps_estimate": 8010.0
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-kvscale --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_kvscale --notes 'respec of cw-dep-vref1-r1: Plain English: complete today'\"'\"'s decomposition of the gainvar compose (2x position-gain AND 2x velocity-gain spread together, PASSED but with the widest slip margin yet) by isolating the OTHER half -- velocity-gain (kv) spread alone, leaving position-gain (kp) at its normal DR0.35 baseline (companion run cw-dep-vref1-r1-kpscale isolates kp alone). If-true: own-cfg (DR0.35 + dr.kv_scale_pct=0.50, double nominal) det+sto 6/6 gv, 0 term, slip/m comfortably within vref1-r1'\"'\"'s own band -- kv alone is not the margin driver either, pointing at the COMBINATION as the real risk. If-false: kv alone reproduces gainvar'\"'\"'s wide margin -- kv-spread (velocity-gain/damping uncertainty) is the dominant actuator-gain risk.' --cfg-set dr.kv_scale_pct=0.50 --cfg-set reward.k_current=0.0 > /tmp/train_cw-dep-vref1-r1-kvscale.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-kvscale.log",
+    "wandb_id": "hi893n71",
+    "verified": "2026-08-10T19:15:40+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:21:10+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6550,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-groundtilt",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: test the floor-slope axis ALONE on the hardware candidate, as a clean baseline before today's several floor-tilt PAIR composes (fric-groundtilt5, deadband-groundtilt5, imumount-groundtilt5) -- none of those isolated whether ground_tilt_deg by itself is benign, only whether it stays benign paired with another axis. If-true: own-cfg (DR0.35 + dr.ground_tilt_deg=5.0, 2.5x nominal) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- floor slope alone is a non-issue. If-false: floor slope alone already breaks the gate -- the paired composes' PASSes are suspect and need re-examination for whether the OTHER axis in each pair was masking a real floor-slope sensitivity.",
+    "gate": "own-cfg (DR0.35 + dr.ground_tilt_deg=5.0) det+sto @15s: gait_valid 12/12, 0 term, slip/m within vref1-r1's own band (det ~0.89-1.13, sto ~1.13-1.36) +-20%; DR0 retention clean; frames watched det; the lineage's known fixed-draw crater (det/4 or det/5) is pre-allowed as baseline",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_groundtilt",
+      "--notes",
+      "respec of cw-dep-vref1-r1: Plain English: test the floor-slope axis ALONE on the hardware candidate, as a clean baseline before today's several floor-tilt PAIR composes (fric-groundtilt5, deadband-groundtilt5, imumount-groundtilt5) -- none of those isolated whether ground_tilt_deg by itself is benign, only whether it stays benign paired with another axis. If-true: own-cfg (DR0.35 + dr.ground_tilt_deg=5.0, 2.5x nominal) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- floor slope alone is a non-issue. If-false: floor slope alone already breaks the gate -- the paired composes' PASSes are suspect and need re-examination for whether the OTHER axis in each pair was masking a real floor-slope sensitivity.",
+      "--cfg-set",
+      "dr.ground_tilt_deg=5.0",
+      "--cfg-set",
+      "reward.k_current=0.0"
+    ],
+    "created": "2026-08-10T19:18:05+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 10,
+      "code_sha_local": "3ce5a4ce383a01dd79b4aed91b0d298eac51b449",
+      "code_sha_pod": "3ce5a4ce383a01dd79b4aed91b0d298eac51b449",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "294040",
+      "log_growth_bytes": [
+        7833,
+        11627
+      ],
+      "wandb_id": "hklqnfv1",
+      "global_step_window": [
+        524288,
+        1245184
+      ],
+      "fps_estimate": 8010.0
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-groundtilt --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_groundtilt --notes 'respec of cw-dep-vref1-r1: Plain English: test the floor-slope axis ALONE on the hardware candidate, as a clean baseline before today'\"'\"'s several floor-tilt PAIR composes (fric-groundtilt5, deadband-groundtilt5, imumount-groundtilt5) -- none of those isolated whether ground_tilt_deg by itself is benign, only whether it stays benign paired with another axis. If-true: own-cfg (DR0.35 + dr.ground_tilt_deg=5.0, 2.5x nominal) det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- floor slope alone is a non-issue. If-false: floor slope alone already breaks the gate -- the paired composes'\"'\"' PASSes are suspect and need re-examination for whether the OTHER axis in each pair was masking a real floor-slope sensitivity.' --cfg-set dr.ground_tilt_deg=5.0 --cfg-set reward.k_current=0.0 > /tmp/train_cw-dep-vref1-r1-groundtilt.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-groundtilt.log",
+    "wandb_id": "hklqnfv1",
+    "verified": "2026-08-10T19:22:10+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T19:28:02+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5714,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
