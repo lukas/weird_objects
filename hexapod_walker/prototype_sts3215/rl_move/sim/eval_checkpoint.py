@@ -365,24 +365,26 @@ def main() -> None:
     args = ap.parse_args()
 
     from stable_baselines3 import PPO
-    from .train_ppo_sim import _annotate_frame
+    from .train_ppo_sim import _annotate_frame, _parse_cfg_set
 
     env_cls = ENV_CLASSES[args.task]
     # Apply --cfg-set BEFORE construction: overrides can change obs
     # WIDTH (e.g. goal.walk_phase_obs), which is baked in __init__ —
     # post-hoc env.cfg mutation silently kept the legacy width (found
     # evaluating the cw-walk-phase smoke, cycle 11).
+    # Parsing MUST share train_ppo_sim._parse_cfg_set (not a local
+    # reimplementation): that parser handles '[lo,hi]' JSON-list values
+    # (e.g. goal.rise_height_mm=[108,114]); a local float-or-string-only
+    # copy silently kept such values as the literal string '[108,114]',
+    # which crashed GoalGenerator on float('[') deep inside env
+    # construction (found evaluating cw-stand-b2p1, 08-10 — this bug
+    # blocked gate-eval of EVERY plant-height rise arm, not just this run).
     cfg_kw = {}
     if args.cfg_set:
         from rl_move.config import load_config
         cfg = load_config()
-        for spec in args.cfg_set:
-            key, val = spec.split("=", 1)
+        for key, parsed in _parse_cfg_set(args.cfg_set).items():
             sect, name = key.split(".", 1)
-            try:
-                parsed: float | str = float(val)
-            except ValueError:
-                parsed = val.strip()   # e.g. goal.walk_park_bank=PATH
             cfg.setdefault(sect, {})[name] = parsed
         cfg_kw["cfg"] = cfg
     # dr.<field> cfg overrides need the randomizer alive even at
