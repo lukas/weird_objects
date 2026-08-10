@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-10T19:56:37+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-dep-vref1-r1
+
+**wandb_id**: 4ynyz9ra
 
 **hypothesis**: Plain English: does the hardware checkpoint still walk cleanly if the servo's OUTPUT command itself is noisy (not just its position READING, already tested via encoder noise)? Real STS3215 servos have write jitter/quantization on the command side distinct from encoder read noise, and this axis has never been isolated on this line. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv (or 5/6 allowing the lineage's known fixed-draw crater), 0 term, slip/m within vref1-r1's own band -- composes free like every sensing/actuator axis tested tonight. If-false: noisy commands degrade tracking beyond encoder noise alone -- flag as a real pre-attempt-#2 risk distinct from sensing error.
 
