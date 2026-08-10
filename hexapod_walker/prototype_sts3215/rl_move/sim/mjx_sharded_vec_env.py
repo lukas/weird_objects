@@ -164,6 +164,12 @@ class _ShmArrays:
 def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                  mjx_iterations, mjx_ls_iterations, model_dr=False):
     """Owns envs [lo, hi); reads/writes GLOBAL rows of the shm arrays."""
+    # Native crashes (SIGSEGV/SIGBUS/SIGABRT) bypass the ("error", tb)
+    # protocol and used to surface only as a bare EOFError in the parent
+    # (the cw-arch-hist16 0-step death chain, 08-10). Dump the C-level
+    # stack to stderr (= the train log) so the next one identifies itself.
+    import faulthandler
+    faulthandler.enable(all_threads=True)
     try:
         from .mjx_host import (
             CommandStub, ModelDrScratch, make_shim_class, place_env,
@@ -438,14 +444,36 @@ class MjxShardedVecEnv(VecEnv):
 
     # -- plumbing ------------------------------------------------------
 
-    @staticmethod
-    def _expect(conn, want="ok"):
-        kind, payload = conn.recv()
+    def _expect(self, conn, want="ok"):
+        try:
+            kind, payload = conn.recv()
+        except EOFError:
+            # A worker died WITHOUT sending ("error", tb) = hard death
+            # (signal / native crash / external kill). Name the corpse and
+            # its signal instead of a bare EOFError (cw-arch-hist16 chain).
+            raise RuntimeError(self._dead_worker_report(conn)) from None
         if kind == "error":
             raise RuntimeError(f"MjxShardedVecEnv worker died:\n{payload}")
         if kind != want:
             raise RuntimeError(f"protocol error: {kind!r} != {want!r}")
         return payload
+
+    def _dead_worker_report(self, conn) -> str:
+        try:
+            idx = self._conns.index(conn)
+        except (ValueError, AttributeError):
+            return ("MjxShardedVecEnv: worker pipe hit EOF (worker died "
+                    "without an error message; identity unknown)")
+        lines = [f"MjxShardedVecEnv: worker {idx} (envs "
+                 f"{self._ranges[idx][0]}..{self._ranges[idx][1]}) died "
+                 "without an error message (native crash, OOM-kill or "
+                 "external signal). faulthandler output, if any, is above "
+                 "in this log. Worker exit codes (negative = -signal):"]
+        for w, proc in enumerate(self._procs):
+            proc.join(timeout=2.0)
+            lines.append(f"  worker {w}: exitcode={proc.exitcode}"
+                         f"{' <- EOF here' if w == idx else ''}")
+        return "\n".join(lines)
 
     def _broadcast(self, *msg) -> list:
         for pc in self._conns:
