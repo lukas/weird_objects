@@ -567,7 +567,7 @@ $('dbgtestall').onclick = dbgTestAll;
 $('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); dbgStatus('Stopping…'); };
 
 // --- tab switching ----------------------------------------------------------
-const VIEWS = ['drive','motors','demos','rl','calibrate','debug'];
+const VIEWS = ['drive','motors','demos','rl','experiments','calibrate','debug'];
 const TAB_TITLES = {drive:'Drive', motors:'Motors', demos:'Demos', rl:'RL',
                     calibrate:'Calibrate', debug:'Debug'};
 function showView(which){
@@ -602,6 +602,7 @@ $('tab-drive').onclick = ()=> showView('drive');
 $('tab-motors').onclick = ()=> showView('motors');
 $('tab-demos').onclick = ()=> showView('demos');
 $('tab-rl').onclick = ()=> showView('rl');
+$('tab-experiments').onclick = ()=> showView('experiments');
 $('tab-calibrate').onclick = ()=> showView('calibrate');
 $('tab-debug').onclick = ()=> showView('debug');
 dbgRefresh();
@@ -1011,39 +1012,43 @@ function suPoll(){
         $('sulab-status').textContent = (d.progress||{}).msg || 'running…';
       } else if(!d.running){
         clearInterval(suTimer); suTimer = null;
-        $('sulab-go').disabled = false;
+        $('sulab-go').disabled = false; $('sulab-sit').disabled = false;
         const res = d.result || {};
         $('sulab-status').textContent = res.ok
-          ? `Done · ${res.mode} · peak ${res.peak_a ?? '?'} A — holding `
-            + '(X to limp)'
+          ? `Done · ${res.mode} ${res.direction==='down'?'sit':'stand'} · `
+            + `peak ${res.peak_a ?? '?'} A — holding (X to limp)`
           : (res.error || 'stopped — holding (X to limp)');
       }
     }catch(e){ /* keep polling */ }
   }, 500);
 }
-$('sulab-go').onclick = async ()=>{
+async function suRun(direction){
   if(!suSel) return;
-  if(!confirm(`Robot will MOVE: stand-up "${suSel}" (robot must be `
-              + 'belly-down, legs straight out). Are you watching it?')) return;
-  $('sulab-go').disabled = true;
+  const what = direction==='down'
+    ? `sit-down "${suSel}" (robot must be standing in this mode's stance)`
+    : `stand-up "${suSel}" (robot must be belly-down, legs straight out)`;
+  if(!confirm('Robot will MOVE: '+what+'. Are you watching it?')) return;
+  $('sulab-go').disabled = true; $('sulab-sit').disabled = true;
   $('sulab-status').textContent = 'Starting…';
   try{
     const r = await fetch('/api/standup', {method:'POST',
-      body: JSON.stringify({mode: suSel,
+      body: JSON.stringify({mode: suSel, direction,
                             speed: parseFloat($('sulab-speed').value)})});
     const d = await r.json();
     if(!d.ok){
       $('sulab-status').textContent = 'Refused: '+(d.error || 'unknown');
-      $('sulab-go').disabled = false;
+      $('sulab-go').disabled = false; $('sulab-sit').disabled = false;
       return;
     }
     $('sulab-status').textContent = 'Running…';
     suPoll();
   }catch(e){
     $('sulab-status').textContent = 'Start failed (link?)';
-    $('sulab-go').disabled = false;
+    $('sulab-go').disabled = false; $('sulab-sit').disabled = false;
   }
-};
+}
+$('sulab-go').onclick = ()=> suRun('up');
+$('sulab-sit').onclick = ()=> suRun('down');
 $('sulab-stop').onclick = async ()=>{
   await fetch('/api/standup/stop', {method:'POST'});
   $('sulab-status').textContent = 'Stopping (holds pose; X to limp)…';
@@ -1084,6 +1089,7 @@ async function refreshRlTab(){
            : `walk: ${w.error || 'not deployed'}`)
       : (d.error || 'no policy');
   }catch(e){ $('rlpolicyinfo').textContent = 'policy info unavailable'; }
+  await rlLoadPicker();
   try{
     const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
     const d = await r.json();
@@ -1094,6 +1100,66 @@ async function refreshRlTab(){
     }
   }catch(e){}
 }
+
+// ---- Policy picker (linux_control/policies/ registry) ---------------------
+let rlPolicies = [];
+async function rlLoadPicker(){
+  try{
+    const r = await fetch('/api/rl/policies', {cache:'no-store'});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || 'list failed');
+    rlPolicies = (d.policies || []).filter(p => !p.error);
+    for(const slot of ['stance','walk']){
+      const sel = $('rlpick'+slot); sel.innerHTML = '';
+      const items = rlPolicies.filter(p => p.slot === slot);
+      if(!items.length){
+        sel.appendChild(new Option('(none in policies/)', ''));
+        continue;
+      }
+      for(const p of items){
+        const o = new Option(p.name + (p.active ? ' — ACTIVE' : ''), p.file);
+        o.selected = p.active;
+        sel.appendChild(o);
+      }
+    }
+    rlPickNotes();
+  }catch(e){
+    for(const slot of ['stance','walk'])
+      $('rlpick'+slot).innerHTML = '<option value="">unavailable</option>';
+  }
+}
+function rlPickNotes(){
+  const notes = [];
+  for(const slot of ['stance','walk']){
+    const p = rlPolicies.find(x => x.file === $('rlpick'+slot).value);
+    if(p && p.notes) notes.push(`<b>${p.name}</b>: ${p.notes}`);
+  }
+  $('rlpicknotes').innerHTML = notes.join('<br>') || '—';
+}
+$('rlpickstance').onchange = rlPickNotes;
+$('rlpickwalk').onchange = rlPickNotes;
+$('rlpickapply').onclick = async ()=>{
+  $('rlpickapply').disabled = true;
+  const msgs = [];
+  try{
+    for(const slot of ['stance','walk']){
+      const file = $('rlpick'+slot).value;
+      const cur = rlPolicies.find(p => p.slot === slot && p.active);
+      if(!file || (cur && cur.file === file)) continue;  // unchanged
+      const r = await fetch('/api/rl/policy_select', {
+        method:'POST', body: JSON.stringify({file})});
+      const d = await r.json();
+      msgs.push(d.ok ? `${slot} → ${d.name} ✔` : `${slot}: ${d.error}`);
+      if(!d.ok) break;
+    }
+    $('rlpicknotes').innerHTML =
+      msgs.length ? msgs.join(' · ') : 'no change';
+  }catch(e){
+    $('rlpicknotes').textContent = 'policy select failed (link?)';
+  }
+  $('rlpickapply').disabled = false;
+  refreshRlTab();
+};
 $('calplantreset').onclick = async ()=>{
   if(!confirm('Reset stand home to default hip +20° / knee +80°?')) return;
   try{

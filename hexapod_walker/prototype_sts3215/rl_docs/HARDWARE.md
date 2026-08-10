@@ -79,11 +79,19 @@ Mac in `rl_move/sim/policies/` unless noted; pull missing ones with
    forward walks at 0.03 m/s; watch for the attempt-#1 signature
    (roll ramping over ~2 s). Any walk it does makes it the first
    learned policy to drive this robot.
-2. **Scripted stand-up modes — `/api/standup` (new today).**
-   `standup_modes.json` modes, sim-validated 10/10 under full DR and
-   friction 0.8–2.0. Low risk (scripted, slow, `/api/standup/stop`
-   aborts). Doubles as science: a real stand-up trace for the rise
-   line, which has no hardware reference at all.
+2. **Scripted stand-up modes — `/api/standup`. RUN 08-10 ~18:00, big
+   result.** Operator tried all modes on the real floor (Experiments
+   tab): **tuck stood clean, peak 2.48 A** ("worked way better");
+   **step stood, peak 2.97 A** (a hair under the 3 A lab guard);
+   **blend stalled short of full height at only 0.57 A peak** — the
+   servos give up quietly under the 70% torque limit instead of
+   grinding. This is the sim's low-torque row (tq≈0.35–0.5 of the
+   friction×torque sweep, `standup_fric_sweep/results.json`): blend
+   fails geometrically (pinned feet), air-tuck strategies immune.
+   Implication for the rise line: never pull loaded feet inward; tuck
+   or tripod re-plant first. Sit-down (reversed keyframes) + 2–10×
+   tempos added same day; faster tempos push currents toward the
+   guard, so expect aborts before damage.
 3. **`cw-dep-quad1-c2` — four-leg stand on the deployment base.**
    NOT staged yet (`ops.sh pullckpt cw-dep-quad1-c2`). Passed the
    ≤20 mm height gate today after the +12M continuation; same

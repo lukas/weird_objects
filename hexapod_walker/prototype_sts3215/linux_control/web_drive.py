@@ -121,7 +121,7 @@ HTTPS_PORT = None   # actual HTTPS port that bound (443 if privileged, else 8443
 # on a browser reload without restarting the server.
 WEBUI_DIR = HERE / "webui"
 PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/demos",
-              "/rl", "/calibrate")
+              "/rl", "/experiments", "/calibrate")
 # Exact whitelisted names only -- no generic static-dir handler, so nothing
 # else on disk is reachable (path-traversal safety).
 STATIC_FILES = {
@@ -217,6 +217,9 @@ class Handler(BaseHTTPRequestHandler):
                        else {"ok": False, "error": "no bench"})
         elif path == "/api/rl/policy":
             self._json(200, BENCH.rl_policy_info() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/rl/policies":
+            self._json(200, BENCH.rl_policies() if BENCH
                        else {"ok": False, "error": "no bench"})
         elif path == "/api/events":
             try:
@@ -437,6 +440,16 @@ class Handler(BaseHTTPRequestHandler):
                     yaw_deg=float(data.get("yaw_deg", 0)),
                     force=bool(data.get("force", False)),
                 ))
+        elif path == "/api/rl/policy_select":
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            else:
+                self._json(200, BENCH.rl_policy_select(
+                    file=str(data.get("file", ""))))
         elif path == "/api/standup":
             try:
                 data = json.loads(body or "{}") if body else {}
@@ -448,6 +461,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, BENCH.standup(
                     mode=str(data.get("mode", "tuck")),
                     speed=float(data.get("speed", 1.0)),
+                    direction=str(data.get("direction", "up")),
                     force=bool(data.get("force", False)),
                     torque=int(data.get("torque", 700))))
         elif path == "/api/standup/stop":

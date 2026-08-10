@@ -1376,6 +1376,85 @@ class BenchAPI:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    # Swappable policy registry (operator request 08-10): exported
+    # weight JSONs live in linux_control/policies/; selecting one
+    # atomically copies it over the live rl_policy_weights.json /
+    # rl_walk_weights.json. No restart needed — run_policy_move loads
+    # weights fresh at every episode start. Slot is inferred from the
+    # obs dim (68 = stance stand/lower, 72 = walk).
+    POLICIES_DIR = Path(__file__).resolve().parent / "policies"
+    _SLOT_OBS = {68: "stance", 72: "walk"}
+
+    def _policy_slot_targets(self) -> dict:
+        from rl_policy import WALK_WEIGHTS_PATH, WEIGHTS_PATH
+        return {"stance": Path(WEIGHTS_PATH), "walk": Path(WALK_WEIGHTS_PATH)}
+
+    def rl_policies(self) -> dict:
+        """List swappable policies + which one is live in each slot."""
+        import hashlib
+
+        def _md5(p: Path):
+            try:
+                return hashlib.md5(p.read_bytes()).hexdigest()
+            except Exception:
+                return None
+
+        active = {slot: _md5(p)
+                  for slot, p in self._policy_slot_targets().items()}
+        out = []
+        for f in sorted(self.POLICIES_DIR.glob("*.json")):
+            try:
+                meta = json.loads(f.read_text())["meta"]
+            except Exception as e:
+                out.append({"file": f.name, "error": str(e)})
+                continue
+            slot = self._SLOT_OBS.get(meta.get("obs_dim"))
+            out.append({
+                "file": f.name,
+                "name": meta.get("name") or f.stem,
+                "slot": slot,
+                "obs_dim": meta.get("obs_dim"),
+                "source": (meta.get("source") or "").rsplit("/", 1)[-1],
+                "notes": meta.get("notes", ""),
+                "active": slot is not None and _md5(f) == active.get(slot),
+            })
+        return {"ok": True, "dir": str(self.POLICIES_DIR), "policies": out}
+
+    def rl_policy_select(self, *, file: str = "") -> dict:
+        """Make policies/<file> the live policy for its slot (no motion)."""
+        import os
+
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+        name = Path(str(file)).name          # forbid path traversal
+        src = self.POLICIES_DIR / name
+        if not src.is_file():
+            return {"ok": False, "error": f"no such policy file: {name}"}
+        try:
+            payload = src.read_text()
+            meta = json.loads(payload)["meta"]
+        except Exception as e:
+            return {"ok": False, "error": f"unreadable policy: {e}"}
+        slot = self._SLOT_OBS.get(meta.get("obs_dim"))
+        if slot is None:
+            return {"ok": False,
+                    "error": (f"obs_dim {meta.get('obs_dim')} fits no slot "
+                              f"(68 = stance, 72 = walk)")}
+        dst = self._policy_slot_targets()[slot]
+        tmp = dst.with_name(dst.name + ".tmp")
+        tmp.write_text(payload)
+        os.replace(tmp, dst)
+        try:
+            from event_log import emit
+            emit("rl_policy_select", f"{slot} <- {name}", src="bench",
+                 data={"slot": slot, "file": name,
+                       "source": meta.get("source", "")})
+        except Exception:
+            pass
+        return {"ok": True, "slot": slot, "file": name,
+                "name": meta.get("name") or src.stem,
+                "source": (meta.get("source") or "").rsplit("/", 1)[-1]}
+
     def rl_policy_move(self, *, mode: str = "stand", vx: float = 0.03,
                        vy: float = 0.0, duration_s: float = 6.0) -> dict:
         """Run a trained RL policy: stand up / lower / walk.
@@ -1625,15 +1704,22 @@ class BenchAPI:
         }
 
     def standup(self, *, mode: str = "tuck", speed: float = 1.0,
-                force: bool = False, torque: int = 700,
-                abort_current_a: float = 3.0) -> dict:
+                direction: str = "up", force: bool = False,
+                torque: int = 700, abort_current_a: float = 3.0) -> dict:
         """Play one baked stand-up strategy (async).
 
-        Starts from the ZERO pose (belly down, legs straight out) —
-        refuses if the present pose is far from keyframe 0 unless
-        ``force``. Aborts between keyframes if any servo peaked above
+        ``direction="up"`` starts from the ZERO pose (belly down, legs
+        straight out); ``"down"`` plays the same keyframes in reverse —
+        from the mode's standing stance back to the belly. Refuses if
+        the present pose is far from the first frame unless ``force``.
+        Aborts between keyframes if any servo peaked above
         ``abort_current_a`` (stall-fight = the pinned-feet failure this
         lab exists to fix; do not grind on it).
+
+        Hardware truth 08-10: tuck stood at 2.48 A peak, step at
+        2.97 A; blend stalled short at only 0.57 A (the servos give up
+        quietly under the torque limit — matches the sim's low-torque
+        rows). Faster tempos raise push currents toward the guard.
         """
         try:
             from inplace_demos import (
@@ -1656,20 +1742,35 @@ class BenchAPI:
                                              timeout=5.0):
                 return {"ok": False, "error": "previous job still running"}
 
-        speed = max(0.25, min(1.5, float(speed)))
+        speed = max(0.25, min(10.0, float(speed)))
         torque = max(300, min(1000, int(torque)))
-        first = [float(v) for v in keyframes[0]["q_deg"]]
+        down = str(direction) == "down"
+        # frames: (18-joint target deg, glide seconds). Reversed playback
+        # keeps each segment's duration with its segment: the glide from
+        # keyframe i to i-1 takes what i-1 -> i took, plus a short
+        # align glide onto the last keyframe first.
+        frames = [([float(v) for v in kf["q_deg"]], float(kf["s"]))
+                  for kf in keyframes]
+        if down:
+            qs = [q for q, _ in frames]
+            ss = [s for _, s in frames]
+            frames = [(qs[-1], 0.8)] + [
+                (qs[i], ss[i + 1]) for i in range(len(qs) - 2, -1, -1)]
+        first = frames[0][0]
         if not force:
             with self.drive._lock:
                 worst, j = self.drive._max_delta_vs_present(first)
             if worst > MAX_SAFE_DELTA_DEG:
+                where = ("this mode's standing stance (stand up with the "
+                         "same mode first)" if down else
+                         "the zero start pose. Lay the robot belly-down "
+                         "with legs straight out (or set_zero there)")
                 return {
                     "ok": False,
                     "error": (
-                        f"refused standup: j{j} Δq={worst:.1f}° from the "
-                        f"zero start pose (>{MAX_SAFE_DELTA_DEG:.0f}°). "
-                        "Lay the robot belly-down with legs straight out "
-                        "(or set_zero there), or force."),
+                        f"refused standup: j{j} Δq={worst:.1f}° "
+                        f"(>{MAX_SAFE_DELTA_DEG:.0f}°) from {where}, "
+                        "or force."),
                     "max_delta_deg": round(worst, 2),
                     "joint": j,
                 }
@@ -1677,11 +1778,12 @@ class BenchAPI:
         self._demo_gen += 1
         gen = self._demo_gen
         self._demo_abort.clear()
+        verb = "sit-down" if down else "stand-up"
         with self._lock:
-            self._demo_name = f"standup_{mode}"
-            self._demo_status = f"stand-up · {mode} (x{speed:.2f})"
+            self._demo_name = f"standup_{mode}" + ("_down" if down else "")
+            self._demo_status = f"{verb} · {mode} (x{speed:.2f})"
             self._demo_params = {"mode": mode, "speed": speed,
-                                 "torque": torque}
+                                 "direction": direction, "torque": torque}
             self._cal_result = None
             self._cal_progress = {"msg": self._demo_status}
         self._set_activity("demo", self._demo_status)
@@ -1696,23 +1798,24 @@ class BenchAPI:
                     d.armed = True
             live = _live_robot_ids(d.bus)
             tracker = CurrentPeakTracker()
-            result: dict = {"ok": False, "mode": mode}
+            result: dict = {"ok": False, "mode": mode,
+                            "direction": direction}
             try:
                 _set_torque_limit(d.bus, live, torque)
                 _enable_torque(d.bus, live)
-                n = len(keyframes)
-                for i, kf in enumerate(keyframes):
+                n = len(frames)
+                for i, (q_deg, kf_s) in enumerate(frames):
                     if self._demo_abort.is_set():
                         result["aborted"] = True
                         break
-                    secs = max(0.35, float(kf["s"]) / speed)
+                    secs = max(0.12, kf_s / speed)
                     with self._lock:
                         self._cal_progress = {
-                            "msg": (f"{mode}: keyframe {i + 1}/{n} "
-                                    f"({secs:.1f}s)"),
+                            "msg": (f"{mode} {verb}: keyframe "
+                                    f"{i + 1}/{n} ({secs:.1f}s)"),
                             "keyframe": i + 1, "of": n}
                     ok = ease_to_pose(
-                        d.bus, [float(v) for v in kf["q_deg"]],
+                        d.bus, q_deg,
                         abort_check=self._demo_abort.is_set,
                         seconds=secs, label=f"{mode} {i + 1}/{n}",
                         current_tracker=tracker)
@@ -1736,7 +1839,8 @@ class BenchAPI:
                 with self._lock:
                     self._cal_result = result
                     self._demo_status = (
-                        f"done · {mode} peak {tracker.peak_a:.2f} A"
+                        f"done · {mode} {verb} peak "
+                        f"{tracker.peak_a:.2f} A"
                         if result["ok"] else
                         result.get("error", "aborted"))
                     self._cal_progress = {"msg": self._demo_status}
@@ -1765,5 +1869,5 @@ class BenchAPI:
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
         return {"ok": True, "mode": mode, "speed": speed,
-                "keyframes": len(keyframes),
+                "direction": direction, "keyframes": len(frames),
                 "calibrate": self.calibrate_state()}

@@ -29,6 +29,15 @@ bootstrap doc).
   saturates ≥1.5 so μ is not the knob. Sim hold current 0.11 A vs
   real 0.59 A is the remaining (effort) gap — needs a holding-
   current model fit, not a scalar.
+- Stand-up (08-10, scripted `/api/standup` bench): pulling loaded
+  feet inward CANNOT reach the plant — blend stalled short of full
+  height at only 0.57 A peak (servos give up quietly under the 70%
+  torque limit; the pinned-feet geometric lock, joints read tens of
+  degrees short and snap to target when unloaded). Air-tuck
+  strategies stand clean: tuck peak 2.48 A, tripod re-plant (step)
+  2.97 A. Hardware behaves like the sim friction×torque sweep's
+  tq≈0.35–0.5 rows. Rule of thumb for any rise: move feet UNLOADED
+  (in air / belly carrying), then push vertically.
 - Loaded actuator response is much slower than the air-only fit
   (2° loaded steps settle in 250–325 ms vs ~9 ms air; loaded peak
   velocity 48–67°/s). Loaded fit LANDED, opt-in via

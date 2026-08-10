@@ -22,6 +22,7 @@
     <span class="tabsep"></span>
     <button id="tab-demos" class="tab">Demos</button>
     <button id="tab-rl" class="tab">RL</button>
+    <button id="tab-experiments" class="tab">Experiments</button>
     <button id="tab-debug" class="tab">Debug</button>
   </nav>
   <span id="conn" class="warn">checking…</span>
@@ -255,9 +256,11 @@ capture while the robot is standing well.">📌 Capture plant</button>
       <div class="btns" style="margin-top:8px">
         <label class="hint">speed
           <select id="rlwalkspeed">
-            <option value="0.02">0.02 m/s</option>
-            <option value="0.03" selected>0.03 m/s</option>
-            <option value="0.04">0.04 m/s</option>
+            <option value="0.02">0.02 m/s (below trained band)</option>
+            <option value="0.03">0.03 m/s (below trained band)</option>
+            <option value="0.04">0.04 m/s (below trained band)</option>
+            <option value="0.05" selected>0.05 m/s</option>
+            <option value="0.06">0.06 m/s</option>
           </select></label>
         <label class="hint">for
           <select id="rlwalkdur">
@@ -283,26 +286,46 @@ capture while the robot is standing well.">📌 Capture plant</button>
     <div class="pad" style="flex:1 1 340px">
       <h2>Policy</h2>
       <div class="hint" id="rlpolicyinfo">loading…</div>
+      <div style="margin-top:12px">
+        <label class="hint">stance
+          <select id="rlpickstance" style="max-width:280px"></select>
+        </label>
+      </div>
+      <div style="margin-top:6px">
+        <label class="hint">walk
+          <select id="rlpickwalk" style="max-width:280px"></select>
+        </label>
+      </div>
+      <div class="btns" style="margin-top:8px">
+        <button id="rlpickapply">Use selected</button>
+      </div>
+      <div class="hint" id="rlpicknotes" style="margin-top:8px">—</div>
       <div class="hint" style="margin-top:10px">Trained in the MuJoCo
         twin (PPO, raw 18-joint actions, domain randomization) and
         exported to plain numpy — no torch on the board. Every command
         passes the safety layer: 1.5°/tick rate clamp, joint limits,
-        10° tilt trip, sustained &gt;2.5&nbsp;A trip → instant limp.
-        Swap a policy by re-running
-        <code>rl_move/sim/export_policy_np.py</code> and pushing
-        <code>rl_policy_weights.json</code> (stance) /
-        <code>rl_walk_weights.json</code> (walk).</div>
+        tilt trip (10° stance / 25° walk), sustained &gt;2.5&nbsp;A
+        trip → instant limp. Swapping takes effect on the NEXT
+        stand/lower/walk (weights load at episode start; no restart,
+        never mid-move). Add policies to
+        <code>linux_control/policies/</code> via
+        <code>rl_move/sim/export_policy_np.py --name … --notes …</code>.</div>
     </div>
   </div>
+  </div><!-- /view-rl -->
+
+  <div id="view-experiments" class="view">
   <div class="row">
     <div class="pad" style="flex:1 1 700px">
       <h2>Stand-up lab</h2>
-      <div class="hint">Sim-validated stand-up strategies (all stand
-        10/10 under domain randomization, friction 0.8–2.0). Start
-        <b>belly-down, legs straight out</b> (logical zero — same as
-        RL Stand up). The move stops itself if any servo peaks over
-        3&nbsp;A (a stall-fight means the feet are pinned — that is
-        the failure this lab exists to fix, don't grind on it).
+      <div class="hint">Scripted (non-RL) stand-up strategies, validated
+        in the MuJoCo twin (all stand 10/10 under domain randomization;
+        <b>tuck</b> and <b>step</b> keep standing even with friction
+        0.5–16 and servo torque down to 35%). Start <b>belly-down, legs
+        straight out</b> (logical zero — same as RL Stand up). The move
+        stops itself if any servo peaks over 3&nbsp;A (a stall-fight
+        means the feet are pinned — that is the failure this lab exists
+        to fix, don't grind on it).
         <b>Watch the robot the whole time.</b></div>
       <div class="btns seg" id="sulab-modes" style="margin-top:12px"></div>
       <div class="hint" id="sulab-desc" style="margin-top:6px">loading…</div>
@@ -312,14 +335,24 @@ capture while the robot is standing well.">📌 Capture plant</button>
             <option value="0.5">0.5× (slow)</option>
             <option value="0.75">0.75×</option>
             <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="3">3×</option>
+            <option value="5">5×</option>
+            <option value="10">10×</option>
           </select></label>
         <button id="sulab-go" class="on">⬆ Stand up (selected mode)</button>
+        <button id="sulab-sit">⬇ Sit down (reverse)</button>
         <button id="sulab-stop" class="danger">■ Stop</button>
       </div>
+      <div class="hint">Sit down plays the same mode's keyframes in
+        reverse — start it from that mode's standing stance. Fast
+        tempos (2×+) raise push/lower currents toward the 3&nbsp;A
+        guard; hardware 08-10 peaks at 1×: tuck 2.48&nbsp;A, step
+        2.97&nbsp;A (blend stalls short — kept for comparison).</div>
       <div class="hint" id="sulab-status" style="margin-top:10px">Idle.</div>
     </div>
   </div>
-  </div><!-- /view-rl -->
+  </div><!-- /view-experiments -->
 
   <div id="view-calibrate" class="view">
   <div class="row">
