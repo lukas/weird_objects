@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-10T17:02:26+00:00
+**created**: 2026-08-10T17:04:31+00:00
 
-**pod**: hexapod-mjx-train-9
+**pod**: hexapod-mjx-train-7
 
 **steps**: 20000000
 
@@ -16,5 +16,5 @@
 
 **gate**: own-cfg det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1's own band (0.89-1.36); frames watched det for flag-leg/skate
 
-**refused_reason**: hexapod-mjx-train-9 code marker 32d8fb56026b423c906799a014056feaf82f9e6a != local HEAD e5406ed67980b8112e2b676562e488a337681c19. Sync first: snapshot.sh --sync hexapod-mjx-train-9 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-7 code marker e29e76d811a7ffe01ee76eabc404e178553b2c78 != local HEAD ecf653ce395e9e22b0e36cbaaeefe0279a9f4eda. Sync first: snapshot.sh --sync hexapod-mjx-train-7 (and snapshot/commit before that if the tree is dirty).
 
