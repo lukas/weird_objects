@@ -938,13 +938,53 @@ class SimHexapodBalanceEnv(_GymBase):
             parts["reward_rise_progress"] = r_prog
             parts["reward_rise_milestone"] = r_mile
             reward += r_prog + r_mile
+            # Income prog-gate (2026-08-10 rise/lower freeze audit; cfg
+            # reward.rise_income_prog_gate in [0,1], default 0 = legacy
+            # exact). Measured: in lower episodes a robot that FREEZES at
+            # the start height banks ~+74/ep (kernel + finish income
+            # front-loaded during hold + early ramp) while every imperfect
+            # attempt scores below it — a paid freeze plateau, the same
+            # "worth less by construction" violation walk_kernel_prog_gate
+            # closed for the park basin. Once the ramp has left zero,
+            # multiply the INCOME terms (task kernel here, finish bonus
+            # below) by the fraction of the signed target covered:
+            # freeze earns ~(1-g), tracking earns full pay, penalties are
+            # never scaled. The pre-ramp hold window is deliberately
+            # ungated (holding IS the commanded behavior there).
+            g_inc = float(cfg_get(self.cfg, "reward",
+                                  "rise_income_prog_gate", default=0.0))
+            inc_f = 1.0
+            if g_inc > 0.0 and goal is not None \
+                    and abs(goal.height_ref) > 1e-9:
+                covered = min(max(h_rel / self._h_target, 0.0), 1.0)
+                inc_f = (1.0 - g_inc) + g_inc * covered
+                r_task = parts.get("reward_task", 0.0)
+                if r_task > 0.0:
+                    reward += r_task * (inc_f - 1.0)
+                    parts["reward_task"] = r_task * inc_f
+                parts["rise_income_factor"] = inc_f
             # Finish bonus (run 08): the tracking kernel is 20 mm wide,
             # so parking 20 mm below target still collects 61% of full
             # pay — run 07 drifted into exactly that discount (banked
             # the same curl as run 06 but stopped 43-62 mm short). Once
             # the ref has fully ramped to the target, a narrow second
             # kernel pays ONLY for actually arriving.
-            if goal is not None and goal.height_ref >= self._h_target - 1e-9:
+            # BUG (found 2026-08-10, cfg reward.rise_finish_gate_signed=1
+            # to fix, default 0 = legacy exact): the legacy `ref >=
+            # target` gate is correct for rise (ref climbs UP to the
+            # target) but always-open for lower (negative target — the
+            # ref starts ABOVE it), so the "arrival" kernel paid a robot
+            # frozen at the START height through the hold + early ramp
+            # (~+57 of the freeze plateau's +74). Signed mode requires
+            # the ref to have reached the target from its own side.
+            ramp_done = (goal is not None
+                         and goal.height_ref >= self._h_target - 1e-9)
+            if (goal is not None and self._h_target < 0.0
+                    and float(cfg_get(
+                        self.cfg, "reward", "rise_finish_gate_signed",
+                        default=0.0)) == 1.0):
+                ramp_done = goal.height_ref <= self._h_target + 1e-9
+            if ramp_done:
                 kfin = float(cfg_get(self.cfg, "reward", "k_rise_finish",
                                      default=1.0))
                 sfin = float(cfg_get(
@@ -952,6 +992,8 @@ class SimHexapodBalanceEnv(_GymBase):
                     default=8.0)) * 0.001
                 r_fin = kfin * math.exp(
                     -0.5 * (h_err / max(sfin, 1e-6)) ** 2)
+                if inc_f != 1.0:
+                    r_fin *= inc_f
                 parts["reward_rise_finish"] = r_fin
                 reward += r_fin
         # Curl scores (rise only): pay pulling the feet in toward the
