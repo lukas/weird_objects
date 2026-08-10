@@ -53109,7 +53109,7 @@
       "respec of cw-arch-hist16-r7: Temporal-arch ladder rung 2 (plan queue 0.5, operator-reserved line; arch line at 1/2 allotted pods). hist16-r7 PASSED from scratch at 3072 envs (seed-confirmed r7-s1; continuation c1 training now): 640ms of history bootstraps and matches champion band. One variable: obs.history_frames 16->24 (~960ms at 25Hz), same from-scratch recipe (obs-width change forbids warm start; ent 0.01, std 1.0, 3072 envs, 40M). Prediction-if-true: bootstraps and matches/beats the hist16 band on joystick gate + det prog - more past state keeps helping, next rung is width control (256x256). Prediction-if-false: bootstrap fails or det prog degrades vs hist16 - 16 frames is the ladder plateau. Strongest alternative: trains but slower to gait within 40M - report steps-to-first-gait vs r7 before calling the rung."
     ],
     "created": "2026-08-10T15:24:01+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -53146,7 +53146,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Temporal-arch ladder rung 2 (24-frame history, ~960ms) bootstraps clean from scratch at 40M steps and clears every pre-registered threshold: own-cfg DR0.5 det+sto gait_valid 6/6/6/6, 0 term; DR0-gate det prog med 1.29 / DR0.5 own-cfg det prog med 1.22 (both >=0.85 gate, and both ABOVE hist16's own band 1.08-1.21); JOYSTICK GATE (eval_drive DR0.2) PASS, 0 in-envelope falls across the full direction+flip-stress panel (run myself, prestage didn't cover it). Video (det+sto, all 12 episodes) clean six-leg swing/stance cycling, no flag-leg/drag/skate. Caveat: slip/m is worse than the hist16 champion band (det 1.44-1.55 vs hist16's 1.14-1.16; sto 1.47-1.50 vs 1.33-1.38) -- more history buys progress-tracking but not yet economy at this step budget. Answers the rung-2 question (if-true: bootstraps + matches/beats hist16 on gate+prog) without contradicting the operator's ladder-freeze ruling (no further rung queued; hist16 stays the flagship default pending the width/flagship experiments)."
   },
   {
     "run": "cw-dep-vref1-loaded1",
@@ -58921,7 +58924,7 @@
       "respec of cw-arch-hist16-r7-c1: Plain English: does the 16-frame temporal-arch walker keep closing the slip/economy gap to the deployment-contract champion with more training, or has it plateaued? c1's +40M continuation PASSED and was STILL improving (slip/m det 1.14, within one eval-noise step of the champion's 0.89-1.13 band, up from r7's 1.43) with no stability regression -- one variable vs c1: +40M more steps warm-started from c1's own checkpoint, same recipe, nothing else changed. If-true: slip/m det moves fully inside the champion band (<=1.13) and sto keeps pace (not flat/regressing) -- the architecture line closes the gap by exposure alone. If-false: slip/m plateaus outside the band despite the extra steps -- the gap is structural (contact-pricing/architecture), not a training-budget question, and the line should try a different lever (e.g. reward shaping) before another blind continuation."
     ],
     "created": "2026-08-10T18:47:00+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -58959,7 +58962,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "PASS -- the 16-frame temporal-arch walker keeps closing the slip/economy gap to the deployment champion with more training, and stability holds. Gate (DR0): det+sto 6/6 gait_valid, 0 term, prog med 1.20/1.03, slip/m med 1.16 (det)/1.27 (sto) -- det slip now at the edge of the champion band (0.89-1.13, within noise of 1.13) vs c1's 1.14, sto improved from c1's 1.33. Own-cfg DR0.5: 6/6 gv both passes, 0 term, prog med 1.13/1.12, slip/m det 1.13 (right at the champion band edge, holds vs c1's 1.14) / sto 1.31 (improved vs c1's 1.38, no regression). JOYSTICK GATE (eval_drive DR0.2): 0 falls across the full direction panel + flip stress. Video (all 6 det episodes, both DR0 and own-DR0.5): six legs visibly cycling swing/stance every clip, no flag leg, no dragging -- ordinary walking gait, same character as c1/r7. Architecture-line result only (deployment-contract obs, not the dep-line's deployment-exact contract) -- not a hardware candidate. Slip gap continues to close by exposure alone with no sign of plateau; line stays open for one more continuation before judging whether it needs a different lever.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-encbundle-fric",
@@ -61054,7 +61060,7 @@
       "safety.max_pitch_deg=25"
     ],
     "created": "2026-08-10T19:55:18+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -61091,7 +61097,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "PASS (bootstrap succeeds) -- the 16-frame-memory architecture CAN learn to walk from scratch directly on the real-robot deployment contract (commanded-velocity obs, 25deg tilt envelope), avoiding the explicit 'bootstrap failure' floor this gate carved out. Both DR passes: 6/6 gait_valid, 0 terminations, joystick gate (eval_drive DR0.2) 0 falls across the full direction panel + flip stress -- video confirms an ordinary six-leg swing/stance gait in every clip, no flag leg, no dragging. It does not yet match vref1-r1's own slip/tracking economy band: slip/m med 1.41-1.48 (both passes) vs the target band 0.89-1.36, and vel-tracking success (<=0.03 m/s err) is a coin-flip per episode rather than clean. This is the SAME shape of gap the r7 architecture line started with (1.43 slip/m) and closed to band-edge (1.13-1.16) purely through two +40M continuations with no reward change (see cw-arch-hist16-r7-c1/c3) -- read as an exposure gap, not a structural defect. Next: continue this checkpoint (+40M, same recipe) before judging the dep-contract candidate against vref1-r1 for real.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-actionnoise",
@@ -61159,7 +61168,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T19:56:37+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -61197,7 +61206,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Action-command noise (3x nominal write jitter, dr.action_noise=0.06) composes free onto the hardware candidate: own-cfg DR0.35 gv 12/12 (det+sto), 0 term, 0 sacrificed legs; slip med 1.16 det / 1.15 sto sit right at/just inside vref1-r1's own band (0.89-1.13/1.13-1.36); the fixed-eval crater episode shifts from the usual det/4 to det/5 (expected -- action noise itself injects RNG unlike the pure static DR axes) but is the same benign march-in-place stall on video, no flag-leg/drag/fall. DR0-gate (still carries the fixed action-noise injection) matches. Closes the last individually-untested actuator-command axis on the dep-line protect-the-candidate sweep."
   },
   {
     "run": "cw-dep-vref1-r1-badstartjoints",
@@ -61265,7 +61277,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T19:57:53+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -61305,7 +61317,10 @@
           "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- breadth of simultaneously-bad-start joints (6, doubled from nominal 3) composes free onto the hardware candidate, same fingerprint as every other floor/DR axis tonight. DR0-gate: gait_valid 6/6 det+sto, 0 term, slip med 0.97 det/0.94 sto (in vref1-r1's own band); only the known fixed-draw det/4 crater fails (pre-allowed baseline). Own-cfg DR0.35: gv 6/6 both modes, 0 term, slip med 1.02 det/1.19 sto (in band); det/5 + sto/0-1 form the already-root-caused fixed-seed DR0.35 crater cluster (sac=[], gv=True, no flag-leg/fall on video), not new. Not independently hardware-ready; confirms bad-start breadth is absorbed like frequency/magnitude already were."
   },
   {
     "run": "cw-dep-vref1-r1-placement-comshift-zerobias-s1",
@@ -61537,7 +61552,7 @@
       "dr.joint_zero_bias_deg=3.0"
     ],
     "created": "2026-08-10T20:01:04+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -61575,7 +61590,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "PASS -- seed twin (12) confirms the 3-axis assembly-tolerance compose (placement 6deg + CoM offset 0.03m + zero-bias 3deg) is a property of the recipe, not seed-11 luck. OBSERVATIONS: DR0 gate det gv6/6 5/6 ok (only idx4, the lineage's universal fixed-draw stall crater, prog -0.08); sto gv6/6 6/6 ok mostly (1 minor at idx0). Own-cfg (DR0.35+stack) det gv6/6 med slip 1.11/prog 1.00, 3/6 ok=False (idx0,2,5); sto gv6/6 med slip 1.09/prog 0.92, 2/6 ok=False (idx0,1) -- 0 term, 0 sacrificed legs. Directly comparable to the seed-11 parent's own PASS numbers (own-cfg det med slip 1.26/2 fails, sto med slip 1.28/3 fails, 5/12 degraded total) -- this seed twin lands at 5/12 degraded too, same magnitude, in some places slightly better (lower slip medians). Video (gate+owncfg det contact sheets) shows the family's normal clean six-leg creep gait throughout, no flag-leg/drag/skate. VERDICT: PASS, hypothesis if-true confirmed -- the 3-axis assembly-QA stack is seed-robust, part of the now-CLOSED dep-vref1-r1 DR-compose sweep (20+-for-20+ no-effect). hardware_ready=false (inherits the lineage's paddle-gait economics like every sibling).",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-contactstiff-fric-r1",
@@ -61645,7 +61663,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T20:02:24+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -61683,7 +61701,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- squishy-floor (contact stiffness 0.7-2.0x) AND uncertain-grip (friction 0.4-1.6x) compose together onto the hardware candidate, same fingerprint as every other floor-realism pairing tonight. DR0-gate: gv 6/6 det+sto, 0 term, slip med 1.18 det/1.17 sto (in band); det/4 crater (known baseline) plus a slightly-elevated det/5 (slip 1.42, still gait_valid, no fall) -- a touch noisier than the single-axis fingerprint but not a new failure mode, matching the friction-alone finding that this axis nudges slip up without breaking gait. Own-cfg DR0.35: gv 6/6 both modes, 0 term, slip med 1.24 det/1.37 sto (in +-20% tolerance); det/5+sto/0-1 crater cluster is the known fixed-seed DR0.35 fingerprint. Video clean six-leg gait throughout, no flag-leg/dragging/fall. Not independently hardware-ready; compliance+grip compound no worse than either alone."
   },
   {
     "run": "cw-dep-startvar1-seed12-noaxis",
@@ -61946,7 +61967,7 @@
       "dr.kv_scale_pct=0.50"
     ],
     "created": "2026-08-10T20:05:57+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -61996,7 +62017,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "PASS, closing per the 08-10 class-closure ruling (protect-the-candidate DR-compose sweep on cw-dep-vref1-r1 CLOSED, 20+-for-20+ no-effect). OBSERVATIONS: DR0 gate det gv 6/6 but 3/6 ok=False (med slip 1.59, med prog 0.86) -- idx1,4,5 degraded, idx4 the lineage's universal fixed-draw crater; sto clean 6/6. Own-cfg (DR0.35+kv0.50+tilt5deg) det gv6/6, 3/6 ok=False (med slip 1.50, med prog 0.97); sto gv6/6, 4/6 ok=False (med slip 1.58, med prog 0.78) -- 0 term, 0 sacrificed legs throughout. This is essentially the SAME magnitude as kv-scale ALONE's already-accepted fingerprint (cw-dep-vref1-r1-kvscale PASS verdict: own-cfg det med slip 1.45/2 fails, sto med slip 1.43/4 fails, flagged there as a watch-item not a new failure mode after its own matched-parent control) -- adding ground-tilt on top contributes at most one extra degraded episode, not a compounding catastrophe. Video (gate det + own-cfg det/sto contact sheets) shows the family's normal clean six-leg creep/march gait in every episode watched, including the degraded ones -- no flag-leg, no drag, no skate. INTERPRETATION: if-false (compounding) is NOT supported; kv-spread alone already explains almost all of this margin, matching precedent. VERDICT: PASS, same closed benign fingerprint as every other sibling in this now-CLOSED sweep. hardware_ready=false (not independently deployable, paddle-gait economics inherited from the lineage).",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-velscale-torquescale",
@@ -62365,7 +62389,7 @@
       "safety.max_pitch_deg=25"
     ],
     "created": "2026-08-10T20:15:45+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -62414,7 +62438,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "PASS (seed-twin confirms the recipe) -- seed 1 also bootstraps a clean, valid six-leg walking gait directly on the deployment contract from scratch: 6/6 gait_valid both DR passes, 0 terminations, joystick gate 0 falls, video shows the same ordinary six-leg swing/stance cycling as seed 0 -- no seed fragility, no flag leg. Slip/m is actually slightly better than seed 0 (det 1.28-1.35 vs seed 0's 1.41-1.48), but velocity-tracking overshoot is larger (vel_err_mean 0.032-0.047 vs seed 0's 0.028-0.036; the robot walks a bit faster than commanded), so the tight per-episode success threshold (<=0.03 m/s) is 0/12 here vs seed 0's ~8/12 -- read as a speed-calibration difference between seeds, not a broken gait. Confirms if-true: the hist16-dep bootstrap recipe is real across seeds, not scratch-training luck restricted to seed 0. Both seeds sit in the same 'needs continuation to close the gap to vref1-r1's band' place as the r7 architecture line did before its continuations -- same next step applies (see cw-arch-hist16-dep1's verdict).",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-contactstiff-groundtilt",
@@ -62484,7 +62511,7 @@
       "dr.contact_stiff_scale=0.7,2.0"
     ],
     "created": "2026-08-10T20:17:53+00:00",
-    "status": "INTENT",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -62497,7 +62524,10 @@
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-contactstiff-groundtilt --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_contactstiff_groundtilt --notes 'respec of cw-dep-vref1-r1-groundtilt: Plain English: does the hardware candidate still walk cleanly on a floor that is BOTH sloped AND has unknown squishiness (soft carpet vs hard tile) at the same time -- two floor-realism axes that both individually PASSED (contact compliance via cw-dep-vref1-r1-contactstiff, slope via cw-dep-vref1-r1-groundtilt) but never paired; the operator'\"'\"'s real floor is both unknown-tilt and unknown-compliance simultaneously. Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + dr.contact_stiff_scale=0.7,2.0 + dr.ground_tilt_deg=5.0) det+sto 6/6 gv (or 5/6 allowing the known crater), 0 term, slip/m within vref1-r1'\"'\"'s own band -- composes free like every other floor-realism pairing tonight (fric+groundtilt5 already PASSed). If-false: soft/stiff compliance on a slope compounds worse than either alone (plausible: reduced effective normal load on the downhill side interacting with variable contact stiffness) -- flag as a real pre-attempt-#2 floor risk.' --cfg-set dr.ground_tilt_deg=5.0 --cfg-set reward.k_current=0.0 --cfg-set dr.contact_stiff_scale=0.7,2.0 > /tmp/train_cw-dep-vref1-r1-contactstiff-groundtilt.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-contactstiff-groundtilt.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-contactstiff-groundtilt.log",
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS -- squishy-floor (contact stiffness 0.7-2.0x) AND slope (5deg tilt) compose together onto the hardware candidate, same fingerprint as every other floor-realism pairing tonight. DR0-gate: gv 6/6 det+sto, 0 term, slip med 1.17 det/1.02 sto (in band); only the known fixed-draw det/4 crater fails. Own-cfg DR0.35: gv 6/6 both modes, 0 term, slip med 1.13 det/1.26 sto (in the pre-registered 0.89-1.13/1.13-1.36 band); det/5+sto/0-1 crater cluster is the known fixed-seed DR0.35 fingerprint (sac=[], gv=True, no fall on video). Not independently hardware-ready; compliance+slope compound no worse than either alone -- reduced downhill normal load did not interact badly with variable contact stiffness."
   },
   {
     "run": "cw-dep-vref1-r1-megastack1-r1",
