@@ -294,6 +294,26 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         thr = END_CLEAR_BELLY_MM if mode == "lower" else END_CLEAR_STAND_MM
         ep["end_clear_mm"] = [round(float(c), 1) for c in clear_mm]
         ep["end_posture_ok"] = bool((clear_mm <= thr).all())
+        if mode != "lower":
+            # Valid-plant spec (operator 2026-08-10; PLANT_SPEC in
+            # sim_env.py — the SAME criterion the reward gate and the
+            # semantics bank use). Tail-mean clearances (flicker lies),
+            # final-tick geometry/attitude/currents.
+            from .sim_env import valid_plant
+            ok, det = valid_plant(
+                pad_clear_m=clear_mm * 0.001,
+                feet_xy=pad_xyz[-1, :, :2],
+                com_xy=env.data.subtree_com[0, :2],
+                roll_rad=env._state.imu_roll,
+                pitch_rad=env._state.imu_pitch,
+                height_err_m=(None if h_err is None
+                              else h_err * 0.001),
+                footprint_err_m=env._curl_dist(),
+                max_current_a=float(cur[-tail:].max()))
+            ep["valid_plant"] = ok
+            ep["plant_fail"] = [k[:-3] for k, v in det.items()
+                                if k.endswith("_ok") and not v]
+            ep["plant_margin_mm"] = det["com_margin_mm"]
     ep["success"] = _success(mode, term, ep, end_posture_gate)
     return ep, frames
 
@@ -334,6 +354,108 @@ def _save_contact_sheet(strip_paths: list[Path], out: Path) -> None:
     print(f"[eval_checkpoint] contact sheet → {out / 'contact_sheet.png'}")
 
 
+def _infer_run_name(ckpt: Path) -> str | None:
+    """ppo_mjx_<task>_<run>.zip -> <run> (training save convention)."""
+    stem = ckpt.stem
+    if not stem.startswith("ppo_mjx_"):
+        return None
+    rest = stem[len("ppo_mjx_"):]
+    for task in sorted(ENV_CLASSES, key=len, reverse=True):
+        if rest.startswith(task + "_"):
+            return rest[len(task) + 1:]
+    return None
+
+
+def _ep_median(eps: list[dict], key: str) -> float | None:
+    v = [e[key] for e in eps if e.get(key) is not None]
+    return round(float(np.median(v)), 3) if v else None
+
+
+def _wandb_push(report: dict, out: Path, args) -> None:
+    """Best-effort: mirror the harness summary into the training run's
+    W&B page (operator 08-10: slip/m & friends must be findable in W&B,
+    not only in rl_docs run verdicts). Looks the run up by display name
+    in the training entity/project, updates its summary under
+    eval/<dr>/<mode>_<tag>/..., and uploads report.json + contact sheet.
+    Never fails the eval — W&B trouble just prints and moves on.
+    """
+    run_name = args.wandb_run or _infer_run_name(args.checkpoint)
+    if not run_name:
+        print(f"[eval_checkpoint] wandb: cannot infer run name from "
+              f"{args.checkpoint.name}; pass --wandb-run (skipped)")
+        return
+    try:
+        if not os.environ.get("WANDB_API_KEY"):
+            # Agent eval shells often don't source sim/wandb.env the way
+            # launch_run does — pick the key up ourselves.
+            envf = Path(__file__).resolve().parent / "wandb.env"
+            if envf.exists():
+                for line in envf.read_text().splitlines():
+                    line = line.strip().removeprefix("export ")
+                    if "=" in line and not line.startswith("#"):
+                        k, v = line.split("=", 1)
+                        os.environ.setdefault(k.strip(),
+                                              v.strip().strip('"'))
+        import wandb
+        from .train_ppo_sim import (WANDB_ENTITY_DEFAULT,
+                                    WANDB_PROJECT_DEFAULT)
+        entity = os.environ.get("WANDB_ENTITY", WANDB_ENTITY_DEFAULT)
+        project = os.environ.get("WANDB_PROJECT", WANDB_PROJECT_DEFAULT)
+        api = wandb.Api(timeout=30)
+        cand = list(api.runs(f"{entity}/{project}",
+                             filters={"display_name": run_name}))
+        if not cand:
+            print(f"[eval_checkpoint] wandb: no run named {run_name!r} "
+                  f"in {entity}/{project} (skipped)")
+            return
+        run = max(cand, key=lambda r: r.created_at)
+        drtag = f"dr{args.dr_scale:g}".replace(".", "p")
+        flat: dict[str, object] = {
+            f"eval/{drtag}/policy_std": report.get("policy_std"),
+            f"eval/{drtag}/report_dir": str(out),
+        }
+        for key, eps in report["episodes"].items():
+            mode, tag = key.split("/")
+            pre = f"eval/{drtag}/{mode}_{tag}"
+            flat[f"{pre}/success"] = sum(e["success"] for e in eps)
+            flat[f"{pre}/n"] = len(eps)
+            flat[f"{pre}/imax_a"] = round(
+                max(e["cur_max_a"] for e in eps), 2)
+            for k, name in (("slip_per_m", "slip_per_m_med"),
+                            ("progress_ratio", "prog_ratio_med"),
+                            ("vel_err_mean", "vel_err_med"),
+                            ("speed_mean_m_s", "speed_med")):
+                v = _ep_median(eps, k)
+                if v is not None:
+                    flat[f"{pre}/{name}"] = v
+            if any("gait_valid" in e for e in eps):
+                flat[f"{pre}/gait_valid"] = sum(
+                    bool(e.get("gait_valid")) for e in eps)
+            if any("end_posture_ok" in e for e in eps):
+                flat[f"{pre}/end_posture_ok"] = sum(
+                    bool(e.get("end_posture_ok")) for e in eps)
+            if mode in ("rise", "lower"):
+                by: dict[str, tuple[int, int]] = {}
+                for e in eps:
+                    ok, tot = by.get(e["start_kind"], (0, 0))
+                    by[e["start_kind"]] = (ok + e["success"], tot + 1)
+                for kind, (ok, tot) in by.items():
+                    flat[f"{pre}/{kind}"] = f"{ok}/{tot}"
+        run.summary.update({k: v for k, v in flat.items()
+                            if v is not None})
+        for fname in ("report.json", "contact_sheet.png"):
+            p = out / fname
+            if p.exists():
+                # root=parent -> stored under <out.name>/<fname>, so
+                # multiple evals of one run (DR0, own-DR, joystick)
+                # don't clobber each other's report.
+                run.upload_file(str(p), root=str(out.parent))
+        print(f"[eval_checkpoint] wandb: summary + report pushed to "
+              f"{run.url} (keys eval/{drtag}/...)")
+    except Exception as e:  # noqa: BLE001 — never fail the eval on W&B
+        print(f"[eval_checkpoint] wandb push failed (non-fatal): {e}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("checkpoint", type=Path)
@@ -362,6 +484,27 @@ def main() -> None:
     ap.add_argument("--cfg-set", action="append", default=None,
                     help="config override, e.g. "
                          "goal.walk_speed_max_m_s=0.06 (repeatable)")
+    # MATCHED-PARENT CONTROL (operator, 08-10, binding): whenever an
+    # eval injects a physics/sensor axis (--cfg-set dr.*, friction,
+    # action noise, latency, ...), the trained child must be compared
+    # against its FROZEN PARENT under the identical injected
+    # distribution — never against a clean parent. Several nominal
+    # "axis effects" (action-noise among them) vanished when the parent
+    # was finally evaluated under the same perturbation. Passing
+    # --baseline runs the parent through the exact same config/seed in
+    # the same invocation and prints the per-mode delta.
+    ap.add_argument("--baseline", type=Path, default=None,
+                    help="frozen parent checkpoint, evaluated under the "
+                         "IDENTICAL config (required for any injected-"
+                         "axis verdict)")
+    ap.add_argument("--wandb", action=argparse.BooleanOptionalAction,
+                    default=True,
+                    help="push the eval summary (slip/m, gait_valid, "
+                         "successes, ...) into the training run's W&B "
+                         "summary + upload report.json (best-effort)")
+    ap.add_argument("--wandb-run", type=str, default=None,
+                    help="training run display name; default: derived "
+                         "from the checkpoint filename")
     args = ap.parse_args()
 
     from stable_baselines3 import PPO
@@ -392,101 +535,138 @@ def main() -> None:
     # ONLY the overridden field randomized). Without this the override
     # silently evaluated as plain DR0 (cycle 49).
     _has_dr_ov = bool(cfg_kw.get("cfg", {}).get("dr"))
-    env = env_cls(params=SimServoParams.from_cfg(cfg_kw.get("cfg")),
-                  randomize=(args.dr_scale > 0 or _has_dr_ov),
-                  dr_scale=args.dr_scale,
-                  episode_seconds=args.episode_seconds, seed=args.seed,
-                  render_mode=None if args.no_video else "rgb_array",
-                  **cfg_kw)
-    model = PPO.load(args.checkpoint, device="cpu")
-    std = float(np.exp(model.policy.log_std.detach().numpy().mean()))
 
-    modes = args.modes or list(getattr(env_cls, "EVAL_MODES",
-                                       ("hold", "track", "rise")))
-    gen = env._goal_gen
+    def make_env() -> object:
+        # Fresh env per evaluated policy, same seed: child and baseline
+        # must face IDENTICAL goal/DR draws or the comparison is noise.
+        return env_cls(params=SimServoParams.from_cfg(cfg_kw.get("cfg")),
+                       randomize=(args.dr_scale > 0 or _has_dr_ov),
+                       dr_scale=args.dr_scale,
+                       episode_seconds=args.episode_seconds, seed=args.seed,
+                       render_mode=None if args.no_video else "rgb_array",
+                       **cfg_kw)
+
     out = args.out or (_PROTO / "logs" / "ckpt_eval" /
                        f"{args.checkpoint.stem}_{time.strftime('%H%M%S')}")
-    out.mkdir(parents=True, exist_ok=True)
 
-    passes = [("det", True)] + ([("sto", False)] if args.stochastic else [])
-    report = {"checkpoint": str(args.checkpoint), "task": args.task,
-              "dr_scale": args.dr_scale, "seed": args.seed,
-              "policy_std": round(std, 3), "episodes": {}}
-    sheet_strips: list[Path] = []
+    def evaluate(checkpoint: Path, out: Path) -> dict:
+        env = make_env()
+        model = PPO.load(checkpoint, device="cpu")
+        std = float(np.exp(model.policy.log_std.detach().numpy().mean()))
+        modes = args.modes or list(getattr(env_cls, "EVAL_MODES",
+                                           ("hold", "track", "rise")))
+        gen = env._goal_gen
+        out.mkdir(parents=True, exist_ok=True)
 
-    for tag, det in passes:
-        for mode in modes:
-            for m in ALL_MODES:
-                if hasattr(gen, f"p_{m}"):
-                    setattr(gen, f"p_{m}", 1.0 if m == mode else 0.0)
-            eps = []
-            for k in range(args.per_mode):
-                # sto passes get video too: an unwatched success cannot
-                # support a PASS (guardrails: watched_modes=all_verdict_modes)
-                # walk mode renders EVERY episode so gait-invalid episodes
-                # (tripod park / wander) always leave watchable video —
-                # 2026-08-09: a 15 s sto tripod park landed between the
-                # every-Nth slots and was scalar-only. Non-scheduled valid
-                # episodes are rendered but not saved.
-                scheduled = (k == 0 or k % args.video_every == 0)
-                video = (not args.no_video and (scheduled or mode == "walk"))
-                ep, frames = run_episode(
-                    env, model, deterministic=det, video=video,
-                    annotate=_annotate_frame,
-                    end_posture_gate=args.end_posture_gate)
-                eps.append(ep)
-                if frames and (scheduled or not ep.get("gait_valid", True)):
-                    _save_video(frames, out / f"{mode}_{tag}_{k}")
-                    if det and k == 0:
-                        sheet_strips.append(
-                            (out / f"{mode}_{tag}_{k}").with_suffix(".png"))
-            report["episodes"][f"{mode}/{tag}"] = eps
-            n_ok = sum(e["success"] for e in eps)
-            hot = max(e["cur_max_a"] for e in eps)
-            kinds = ""
-            if mode in ("rise", "lower"):
-                by = {}
-                for e in eps:
-                    ok, tot = by.get(e["start_kind"], (0, 0))
-                    by[e["start_kind"]] = (ok + e["success"], tot + 1)
-                kinds = " [" + " ".join(
-                    f"{k}:{a}/{b}" for k, (a, b) in sorted(by.items())) + "]"
-            extra = ""
-            if any("vel_err_mean" in e for e in eps):
-                ve = [e["vel_err_mean"] for e in eps if "vel_err_mean" in e]
-                sp = [e["speed_mean_m_s"] for e in eps
-                      if "speed_mean_m_s" in e]
-                extra = (f" | vel_err {np.mean(ve):.3f} "
-                         f"speed {np.mean(sp):.3f} m/s")
-            if mode == "walk":
-                n_valid = sum(bool(e.get("gait_valid")) for e in eps)
-                sac = sorted({f for e in eps
-                              for f in e.get("sacrificed_legs", [])})
-                extra += (f" | gait_valid {n_valid}/{len(eps)}"
-                          + (f" sacrificed legs {sac}" if sac else ""))
-                pr = [e["progress_ratio"] for e in eps
-                      if e.get("progress_ratio") is not None]
-                spm = [e["slip_per_m"] for e in eps
-                       if e.get("slip_per_m") is not None]
-                if pr:
-                    extra += (f" | prog_ratio {np.mean(pr):.2f} "
-                              f"slip/m {np.mean(spm):.2f}")
-            if any("end_posture_ok" in e for e in eps):
-                n_ep = sum(bool(e.get("end_posture_ok")) for e in eps)
-                worst = max(max(e["end_clear_mm"]) for e in eps
-                            if "end_clear_mm" in e)
-                extra += (f" | end_posture {n_ep}/{len(eps)}"
-                          f" worst_clear {worst:.0f}mm")
-            print(f"[{tag}] {mode:6s}: {n_ok}/{len(eps)}{kinds} | "
-                  f"Imax {hot:.2f}A | imbal "
-                  f"{max(e['cur_leg_imbalance'] for e in eps):.2f}"
-                  f"{extra}")
+        passes = [("det", True)] + ([("sto", False)]
+                                    if args.stochastic else [])
+        report = {"checkpoint": str(checkpoint), "task": args.task,
+                  "dr_scale": args.dr_scale, "seed": args.seed,
+                  "policy_std": round(std, 3), "episodes": {}}
+        sheet_strips: list[Path] = []
 
-    if sheet_strips:
-        _save_contact_sheet(sheet_strips, out)
-    (out / "report.json").write_text(json.dumps(report, indent=2))
-    print(f"[eval_checkpoint] artifacts → {out}")
-    env.close()
+        for tag, det in passes:
+            for mode in modes:
+                for m in ALL_MODES:
+                    if hasattr(gen, f"p_{m}"):
+                        setattr(gen, f"p_{m}", 1.0 if m == mode else 0.0)
+                eps = []
+                for k in range(args.per_mode):
+                    # sto passes get video too: an unwatched success cannot
+                    # support a PASS (guardrails:
+                    # watched_modes=all_verdict_modes). walk mode renders
+                    # EVERY episode so gait-invalid episodes (tripod park /
+                    # wander) always leave watchable video — 2026-08-09: a
+                    # 15 s sto tripod park landed between the every-Nth
+                    # slots and was scalar-only. Non-scheduled valid
+                    # episodes are rendered but not saved.
+                    scheduled = (k == 0 or k % args.video_every == 0)
+                    video = (not args.no_video
+                             and (scheduled or mode == "walk"))
+                    ep, frames = run_episode(
+                        env, model, deterministic=det, video=video,
+                        annotate=_annotate_frame,
+                        end_posture_gate=args.end_posture_gate)
+                    eps.append(ep)
+                    if frames and (scheduled
+                                   or not ep.get("gait_valid", True)):
+                        _save_video(frames, out / f"{mode}_{tag}_{k}")
+                        if det and k == 0:
+                            sheet_strips.append(
+                                (out / f"{mode}_{tag}_{k}")
+                                .with_suffix(".png"))
+                report["episodes"][f"{mode}/{tag}"] = eps
+                n_ok = sum(e["success"] for e in eps)
+                hot = max(e["cur_max_a"] for e in eps)
+                kinds = ""
+                if mode in ("rise", "lower"):
+                    by = {}
+                    for e in eps:
+                        ok, tot = by.get(e["start_kind"], (0, 0))
+                        by[e["start_kind"]] = (ok + e["success"], tot + 1)
+                    kinds = " [" + " ".join(
+                        f"{k}:{a}/{b}"
+                        for k, (a, b) in sorted(by.items())) + "]"
+                extra = ""
+                if any("vel_err_mean" in e for e in eps):
+                    ve = [e["vel_err_mean"] for e in eps
+                          if "vel_err_mean" in e]
+                    sp = [e["speed_mean_m_s"] for e in eps
+                          if "speed_mean_m_s" in e]
+                    extra = (f" | vel_err {np.mean(ve):.3f} "
+                             f"speed {np.mean(sp):.3f} m/s")
+                if mode == "walk":
+                    n_valid = sum(bool(e.get("gait_valid")) for e in eps)
+                    sac = sorted({f for e in eps
+                                  for f in e.get("sacrificed_legs", [])})
+                    extra += (f" | gait_valid {n_valid}/{len(eps)}"
+                              + (f" sacrificed legs {sac}" if sac else ""))
+                    pr = [e["progress_ratio"] for e in eps
+                          if e.get("progress_ratio") is not None]
+                    spm = [e["slip_per_m"] for e in eps
+                           if e.get("slip_per_m") is not None]
+                    if pr:
+                        extra += (f" | prog_ratio {np.mean(pr):.2f} "
+                                  f"slip/m {np.mean(spm):.2f}")
+                if any("end_posture_ok" in e for e in eps):
+                    n_ep = sum(bool(e.get("end_posture_ok")) for e in eps)
+                    worst = max(max(e["end_clear_mm"]) for e in eps
+                                if "end_clear_mm" in e)
+                    extra += (f" | end_posture {n_ep}/{len(eps)}"
+                              f" worst_clear {worst:.0f}mm")
+                print(f"[{tag}] {mode:6s}: {n_ok}/{len(eps)}{kinds} | "
+                      f"Imax {hot:.2f}A | imbal "
+                      f"{max(e['cur_leg_imbalance'] for e in eps):.2f}"
+                      f"{extra}")
+
+        if sheet_strips:
+            _save_contact_sheet(sheet_strips, out)
+        (out / "report.json").write_text(json.dumps(report, indent=2))
+        print(f"[eval_checkpoint] artifacts → {out}")
+        env.close()
+        return report
+
+    report = evaluate(args.checkpoint, out)
+
+    if args.wandb:
+        _wandb_push(report, out, args)
+
+    if args.baseline:
+        print(f"\n[eval_checkpoint] matched-parent control: "
+              f"{args.baseline.stem} under the IDENTICAL config/seed")
+        base = evaluate(args.baseline, out / "baseline")
+        print("\n[eval_checkpoint] child vs frozen parent "
+              "(same injected distribution):")
+        for key, eps in report["episodes"].items():
+            beps = base["episodes"].get(key)
+            if not beps:
+                continue
+            cs = sum(e["success"] for e in eps)
+            bs = sum(e["success"] for e in beps)
+            print(f"  {key:12s} child {cs}/{len(eps)}  "
+                  f"parent {bs}/{len(beps)}  delta {cs - bs:+d}")
+        print("  (an axis 'effect' exists only if child and parent differ "
+              "under the SAME injection)")
 
 
 if __name__ == "__main__":
