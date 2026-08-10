@@ -54904,7 +54904,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T16:46:14+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -54943,7 +54943,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-tiltnoise since 2026-08-10T17:28:09"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS: 3x tilt-angle-noise floor (dr.tilt_noise_deg 0.3->1.0) composes free onto the contract-exact hardware base. Own-cfg (DR0.35+override) gv 6/6 det+sto, 0 term, slip/m med 1.00 det (band 0.89-1.13) / 1.16 sto (band 1.13-1.36); DR0 retention clean (one known fixed-draw crater det/4). The 3/12 partially-degraded eps that triggered the dig-in (det/5, sto/0,1 -- prog 0.62-0.74, slip 1.7-2.0) are the lineage's FIXED-SEED hard-DR-draw fingerprint: the identical 3 episode indices are degraded in ALL 7 PASSed siblings (torquescale worst at prog 0.47-0.57), and tiltnoise handles them among the mildest of the family; frame-checked clean six-leg gait, no flag-leg/fall. No tilt-noise/25deg-envelope interaction: noise enters via the alpha=0.98 complementary filter (~0.1deg effective on obs) and no spurious tilt trips occurred (0 term in 24 eps). Hardware attempt #2 not blocked."
   },
   {
     "run": "cw-dep-vref1-r1-gainvar",
@@ -55283,7 +55285,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T16:51:34+00:00",
-    "status": "RUNNING",
+    "status": "EVALUATED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -55322,7 +55324,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-encbundle-cw-dep-vref1-r1-gainvar-cw-dep-vre since 2026-08-10T17:38:15"
+    "triage": "done",
+    "verdict": "PASS -- doubling actuator gain-spread DR (kp 0.20->0.40, kv 0.25->0.50) composes onto the contract-exact hardware base, slightly wider margin than siblings. DR0-gate det+sto 6/6 gv, 0 term, slip/m med 1.27/1.10 (det ~12% over vref1-r1 own 1.13 upper edge, inside +-20% tol; sto comfortably in-band). Own-cfg (DR0.35+override) det+sto 6/6 gv, 0 term, slip/m med 1.24/1.29, same degraded-episode pattern (det/5, sto/0-1) as PASSed torquescale/tiltnoise siblings -- curriculum-DR artifact, not new. Video shows same low-amplitude six-leg creep, body level, no flag leg/fall, craters are the known fixed-draw march-in-place stall. Names gain uncertainty as a real but still-safe axis; worth watching if a future compose stacks it with another actuator axis.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-legmass",
@@ -55632,7 +55636,7 @@
       "dr.joint_zero_bias_deg=3.0"
     ],
     "created": "2026-08-10T16:56:14+00:00",
-    "status": "RUNNING",
+    "status": "EVALUATED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -55671,7 +55675,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-encbundle-cw-dep-vref1-r1-gainvar-cw-dep-vre since 2026-08-10T17:38:15"
+    "triage": "done",
+    "verdict": "PASS -- combined joint-sensing (encoder noise 0.5deg + zero-bias 3deg) composes free onto the contract-exact hardware base. DR0-gate (nominal+override) det+sto 6/6 gv, 0 term, slip/m med 1.15/0.95 (within/near vref1-r1 own 0.89-1.13/1.13-1.36 band, det 2% over upper edge, well inside +-20% tol). Own-cfg (DR0.35+override) det+sto 6/6 gv, 0 term, slip/m med 1.07/1.15, with the SAME det/5+sto/0-1 degraded-episode pattern (prog 0.5-0.9, slip 1-2) seen identically in already-PASSed torquescale/tiltnoise siblings at DR0.35 -- a curriculum-DR artifact, not new. Video (contact sheets + crater/degraded frames) shows the lineage known low-amplitude six-leg creep, body level, no flag leg, no fall.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-legmass",
@@ -55741,7 +55747,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T16:57:29+00:00",
-    "status": "RUNNING",
+    "status": "EVALUATED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -55780,7 +55786,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-r1-encbundle-cw-dep-vref1-r1-gainvar-cw-dep-vre since 2026-08-10T17:38:15"
+    "triage": "done",
+    "verdict": "PASS -- per-leg build tolerance (leg_mass_jitter 0.10->0.20, link_len_leg 0.012->0.025) composes free onto the contract-exact hardware base. DR0-gate det+sto 6/6 gv, 0 term, slip/m med 1.17/1.03 (within/near vref1-r1 own 0.89-1.13/1.13-1.36 band, well inside +-20% tol). Own-cfg (DR0.35+override) det+sto 6/6 gv, 0 term, slip/m med 1.13/1.18, same degraded-episode pattern (det/5, sto/0-1) as PASSed torquescale/tiltnoise siblings -- curriculum-DR artifact, not new. Video shows lineage low-amplitude six-leg creep, body level, no flag leg, no fall; asymmetric per-leg geometry/mass is a safe hardware-candidate axis.",
+    "hardware_ready": false
   },
   {
     "run": "cw-arch-hist16-r7-c2",
@@ -56768,7 +56776,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T17:58:26"
   },
   {
     "run": "cw-dep-vref1-r1-contactstiff",
@@ -57866,7 +57875,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T17:53:58+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -57875,10 +57884,119 @@
       "code_sha_local": "d9a1cf15e18d238821e2accb5acda880dca784dc",
       "code_sha_pod": "d9a1cf15e18d238821e2accb5acda880dca784dc",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "4190964",
+      "log_growth_bytes": [
+        7865,
+        13453
+      ],
+      "wandb_id": "gp0slp1b",
+      "global_step_window": [
+        589824,
+        1507328
+      ],
+      "fps_estimate": 10194.5
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-imumount-groundtilt5 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_imumount_groundtilt5 --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1'\"'\"'s two individually-PASSed tilt-related axes -- IMU mount-rotation offset (10 deg residual from -imumount) and real floor slope (5 deg from -groundtilt5) -- have never been exposed TOGETHER. This pairing is safety-critical: both axes bias the SAME tilt reading the 25 deg deploy trip relies on, and a real install can plausibly have both a slightly-misaligned IMU mount AND an unlevel floor at once. Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band, 0 spurious/missed 25 deg trips -- the two tilt-biasing axes don'\"'\"'t compound into an unsafe or broken tilt reading. If-false: combined mount+floor tilt bias pushes the effective reading enough to mistrigger or fail to trigger the safety trip, or breaks gait -- a real pre-attempt-#2 safety risk to flag before deployment.' --cfg-set dr.imu_mount_deg=10.0 --cfg-set dr.ground_tilt_deg=5.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-imumount-groundtilt5.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-imumount-groundtilt5.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-imumount-groundtilt5.log",
+    "wandb_id": "gp0slp1b",
+    "verified": "2026-08-10T17:57:59+00:00"
+  },
+  {
+    "run": "cw-dep-vref1-r1-zerobias-placement",
+    "pod": "hexapod-mjx-train-11",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if we combine the two errors that happen at the START of every real session -- an imperfect hand set_zero (per-joint zero bias) AND imperfect hand placement of the robot on the floor -- instead of testing them one at a time? Both PASSed alone on vref1-r1 (zerobias 3deg, placement 6deg) but every real hardware session has BOTH simultaneously (the operator sets zero by hand, then places the robot by hand), unlike some other pairs already tested (e.g. comshift is a body property, not a session-start action) -- this is the natural real-world co-occurrence, not yet tested together. Per P0 rule 3, k_current=0 (already inherited from zerobias's args). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- session-start noise composes free like every other axis pairing tonight. If-false: the two session-start errors interact badly (plausible: a zero-biased joint compounds with placement slop on the SAME joint) -- flag as a real pre-flight risk before the operator's hardware attempt.",
+    "gate": "own-cfg (DR0.35 + joint_zero_bias_deg=3.0 + placement_noise_deg=6.0) det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1's own band +-20%; DR0-no-override retention det 6/6 gv reproducing vref1-r1's own band; video frames watched det+sto",
+    "parent": "cw-dep-vref1-r1-zerobias",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_zerobias_placement",
+      "--notes",
+      "respec of cw-dep-vref1-r1-zerobias: Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if we combine the two errors that happen at the START of every real session -- an imperfect hand set_zero (per-joint zero bias) AND imperfect hand placement of the robot on the floor -- instead of testing them one at a time? Both PASSed alone on vref1-r1 (zerobias 3deg, placement 6deg) but every real hardware session has BOTH simultaneously (the operator sets zero by hand, then places the robot by hand), unlike some other pairs already tested (e.g. comshift is a body property, not a session-start action) -- this is the natural real-world co-occurrence, not yet tested together. Per P0 rule 3, k_current=0 (already inherited from zerobias's args). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- session-start noise composes free like every other axis pairing tonight. If-false: the two session-start errors interact badly (plausible: a zero-biased joint compounds with placement slop on the SAME joint) -- flag as a real pre-flight risk before the operator's hardware attempt.",
+      "--cfg-set",
+      "dr.joint_zero_bias_deg=3.0",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.placement_noise_deg=6.0"
+    ],
+    "created": "2026-08-10T17:55:25+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-570e6615-ff09-beeb-779f-b2da29edf3bb)",
+      "running_experiments_before": 10,
+      "code_sha_local": "628ac68be434dd3ab98c186520ae77ce2eb0098b",
+      "code_sha_pod": "628ac68be434dd3ab98c186520ae77ce2eb0098b",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3737156",
+      "log_growth_bytes": [
+        6863,
+        13665
+      ],
+      "wandb_id": "qptzd9zp",
+      "global_step_window": [
+        589824,
+        1441792
+      ],
+      "fps_estimate": 9466.3
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-zerobias-placement --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_zerobias_placement --notes 'respec of cw-dep-vref1-r1-zerobias: Plain English: does the checkpoint headed for tonight'\"'\"'s hardware attempt still walk cleanly if we combine the two errors that happen at the START of every real session -- an imperfect hand set_zero (per-joint zero bias) AND imperfect hand placement of the robot on the floor -- instead of testing them one at a time? Both PASSed alone on vref1-r1 (zerobias 3deg, placement 6deg) but every real hardware session has BOTH simultaneously (the operator sets zero by hand, then places the robot by hand), unlike some other pairs already tested (e.g. comshift is a body property, not a session-start action) -- this is the natural real-world co-occurrence, not yet tested together. Per P0 rule 3, k_current=0 (already inherited from zerobias'\"'\"'s args). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- session-start noise composes free like every other axis pairing tonight. If-false: the two session-start errors interact badly (plausible: a zero-biased joint compounds with placement slop on the SAME joint) -- flag as a real pre-flight risk before the operator'\"'\"'s hardware attempt.' --cfg-set dr.joint_zero_bias_deg=3.0 --cfg-set reward.k_current=0 --cfg-set dr.placement_noise_deg=6.0 > /tmp/train_cw-dep-vref1-r1-zerobias-placement.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-zerobias-placement.log",
+    "wandb_id": "qptzd9zp",
+    "verified": "2026-08-10T17:59:23+00:00"
   }
 ]
