@@ -63084,5 +63084,93 @@
     ],
     "verified": "2026-08-10T22:27:47+00:00",
     "wandb_id": "d6rd9a1r"
+  },
+  {
+    "run": "cw-stand-score1",
+    "pod": "hexapod-mjx-train-6",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Gates leak; income routing does not. plantgate1 (FAIL) proved a multiplicative PLANT_SPEC gate still leaves the flag-leg cheat ~60% of the height income, and it wins even warm-started from the honest champion. This arm REPLACES the rise income: height progress/milestones/finish/kernel are zeroed (reward.rise_score_income=1) and the only rise income is a progress ratchet + post-ramp hold pay on stand-score S = height-kernel x feet-down^2 x HARD no-flag x plant geometry, plus a ramp-weighted airborne-feet rent that prices the penalty-dodge (cheats escaped reward_height by lofting the torso). A flag-leg stand now earns ~nothing and pays rent; the exact walk-start plant is the only paid state. No reference tracking - the score must carry the ordering alone (operator: no waypoints unless data hardcore disagrees).",
+    "gate": "posture-strict harness at plant height [108,114]mm: rise >=4/6 det with end_posture_ok AND lower retains >=5/6 by 2M; W&B rise_score rising and reward_rise_score_hold>0 on a real fraction of episodes; VIDEO: feet-loaded stand, no flag-leg/tripod, no leg-through-floor. Early call if rise_score flat ~0 at 1.5M.",
+    "parent": "cw-stand-plantgate1",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip",
+      "--dr-scale",
+      "0.2",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--goal-mix",
+      "hold=0.1,rise=0.45,lower=0.45",
+      "--n-envs",
+      "4096",
+      "--cfg-set",
+      "actions.max_height_mm=115",
+      "--cfg-set",
+      "goal.rise_height_mm=[108,114]",
+      "--cfg-set",
+      "goal.rise_ramp_s=6.0",
+      "--cfg-set",
+      "reward.rise_score_income=1.0",
+      "--cfg-set",
+      "reward.rise_posture_gate=1.0",
+      "--cfg-set",
+      "reward.rise_income_prog_gate=1.0",
+      "--cfg-set",
+      "reward.rise_finish_gate_signed=1.0",
+      "--cfg-set",
+      "bus.servo_params=loaded",
+      "--out-name",
+      "ppo_goal_cw_stand_score1",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "cw-stand-score1: the one experiment for a clean stand+sit (operator 08-10 evening). Same base as plantgate1 (warm from stance champion ppo_goal_cw_stance_dr10, joint_goal, DR0.2, 15s, mix hold=.1/rise=.45/lower=.45, plant band 108-114mm, loaded servo params); the ONE change is the income source: reward.rise_score_income=1. Lower keeps the solved legacy stack (posture/prog/signed gates ride along, no-ops for rise under score mode by construction). DISCOVERY 2M - do not extend without video of a genuine feet-down rise."
+    ],
+    "created": "2026-08-10T22:39:24+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-091fd187-5ef1-8187-1927-20faf428512c)",
+      "running_experiments_before": 2,
+      "code_sha_local": "0372dc846ca645e0891bd5791ffc1b1f3b387739",
+      "code_sha_pod": "0372dc846ca645e0891bd5791ffc1b1f3b387739",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1063432",
+      "log_growth_bytes": [
+        10498,
+        20140
+      ],
+      "wandb_id": "ualg0m8i",
+      "global_step_window": [
+        983040,
+        2007040
+      ],
+      "fps_estimate": 11377.8
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-score1 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_score1 --impl warp --host-workers 24 --notes 'cw-stand-score1: the one experiment for a clean stand+sit (operator 08-10 evening). Same base as plantgate1 (warm from stance champion ppo_goal_cw_stance_dr10, joint_goal, DR0.2, 15s, mix hold=.1/rise=.45/lower=.45, plant band 108-114mm, loaded servo params); the ONE change is the income source: reward.rise_score_income=1. Lower keeps the solved legacy stack (posture/prog/signed gates ride along, no-ops for rise under score mode by construction). DISCOVERY 2M - do not extend without video of a genuine feet-down rise.' > /tmp/train_cw-stand-score1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-stand-score1.log",
+    "wandb_id": "ualg0m8i",
+    "verified": "2026-08-10T22:43:08+00:00",
+    "triage": "in-cycle cw-stand-score1 since 2026-08-10T22:46:13",
+    "checkups": [
+      {
+        "time": "2026-08-10T22:48:44+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": " kl: 0.03\n[periodic-eval] 2,007,040: hold 1.33\u00b0, lean 1.35\u00b0, track 1.39\u00b0, unload 1.85\u00b0, raise 2/2, rise f0/2 b2/2 c2/2, lower 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 349s (5,739 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_score1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_score1 (md5 03873c4e)\n"
+      }
+    ]
   }
 ]
