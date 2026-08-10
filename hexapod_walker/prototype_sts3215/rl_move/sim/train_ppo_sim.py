@@ -497,7 +497,10 @@ def _make_reward_parts_callback():
                 "reward_phase_contact",
                 "reward_support_margin", "reward_load_even",
                 "reward_step_event", "reward_drag", "reward_park_duty",
-                "reward_end_posture", "walk_prog_factor")
+                "reward_end_posture", "walk_prog_factor",
+                "reward_walk_yaw", "walk_yaw_err",
+                "reward_quad_clear", "reward_quad_plant",
+                "quad_clear_mm", "quad_fronts_off", "quad_planted_frac")
 
         def __init__(self):
             super().__init__()
