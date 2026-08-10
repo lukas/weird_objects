@@ -553,6 +553,13 @@ def _make_reward_parts_callback():
                 "reward_walk_yaw", "walk_yaw_err",
                 "reward_quad_clear", "reward_quad_plant",
                 "quad_clear_mm", "quad_fronts_off", "quad_planted_frac")
+        ABS_KEYS = ("track_err_deg", "height_err_mm",
+                    "mean_current_a", "walk_vel_err", "walk_speed")
+        # Everything else numeric logs as a plain mean (operator 08-10:
+        # whitelists drift behind the envs; W&B is the triage surface).
+        SKIP = ("TimeLimit.truncated", "terminal_observation",
+                "termination_reason", "goal_mode", "walk_bucket",
+                "episode", "roll_deg", "pitch_deg")
 
         def __init__(self):
             super().__init__()
@@ -567,14 +574,21 @@ def _make_reward_parts_callback():
                     if k in info:
                         self._acc.setdefault(f"abs_{k}", []).append(
                             abs(float(info[k])))
-                for k in ("track_err_deg", "height_err_mm",
-                          "mean_current_a", "walk_vel_err", "walk_speed"):
+                for k in self.ABS_KEYS:
                     if k in info:
                         self._acc.setdefault(k, []).append(
                             abs(float(info[k])))
                 if "track_err_deg" in info:
                     self._acc.setdefault("pct_within_1deg", []).append(
                         1.0 if float(info["track_err_deg"]) <= 1.0 else 0.0)
+                for k, v in info.items():
+                    if (k in self.KEYS or k in self.ABS_KEYS
+                            or k in self.SKIP):
+                        continue
+                    if isinstance(v, bool) or not isinstance(
+                            v, (int, float, np.integer, np.floating)):
+                        continue
+                    self._acc.setdefault(k, []).append(float(v))
             return True
 
         def _on_rollout_end(self) -> None:

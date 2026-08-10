@@ -465,6 +465,28 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         park_frac = float(cfg_get(self.cfg, "goal", "walk_park_start_frac",
                                   default=0.0))
         start_at = "park" if rng.random() < park_frac else "plant"
+        # Turn-in-place curriculum (operator direction 08-10: the fix
+        # for the structural left drift is COMMAND EXPOSURE, not more
+        # price tuning). Under independent sampling, turn-in-place
+        # states are ~7.5% of segments — too rare for PPO to learn
+        # the skill it is being scored on. goal.walk_turn_in_place_frac
+        # (default 0 = off, rng stream unchanged): with probability f
+        # the WHOLE episode becomes a dedicated turn — zero linear
+        # command, guaranteed non-trivial yaw command with a 50/50
+        # sign draw (both directions get equal exposure by
+        # construction; the drift direction can never dominate the
+        # curriculum). Applied LAST so it overrides resample segments.
+        tip_frac = float(cfg_get(self.cfg, "goal",
+                                 "walk_turn_in_place_frac", default=0.0))
+        if self._yaw_cmd and tip_frac > 0.0 and rng.random() < tip_frac:
+            vx[:] = 0.0
+            vy[:] = 0.0
+            mag = float(rng.uniform(0.5 * wz_max, wz_max))
+            wz_t = mag if rng.random() < 0.5 else -mag
+            wz = np.full(n, wz_t)
+            wz[:hold_n] = 0.0
+            wz[hold_n:end] = np.linspace(0.0, wz_t, end - hold_n)
+            start_at = "plant"
         return WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
                               height=height, unload_leg=None,
                               start_at=start_at, vx=vx, vy=vy, wz=wz)
@@ -561,6 +583,40 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 info["reward_walk_yaw"] = r_yaw
                 info["walk_yaw_err"] = abs(yaw_err)
                 info["walk_wz"] = wz
+            # Anti-drift yaw pricing (operator, 08-10). Price
+            # ESCALATION on the symmetric kernel is CLOSED (yawcmd1 /
+            # yawgate1 / yawgate2: the structural ~+0.09 rad/s left
+            # drift survives any kernel weight — near wz_ref=0 the
+            # Gaussian's gradient at the drift point is tiny, and on
+            # turn segments the kernel never goes NEGATIVE for
+            # wrong-direction rotation). Two different mechanisms,
+            # both default 0 = byte-identical legacy:
+            #  - reward.k_yaw_prog: SIGNED rotation income, the
+            #    k_walk_prog analog for turn segments: pay
+            #    k * clip(wz/wz_ref, -1.5, 1.25) — constant gradient
+            #    toward the commanded direction and genuinely negative
+            #    when rotating against it.
+            #  - reward.k_yaw_still: quadratic drift charge on
+            #    heading-hold segments (wz_ref == 0): -k * wz^2. At
+            #    the measured drift (0.09 rad/s) k=50 costs ~0.4/tick
+            #    (real money vs the ~2/tick kernel); gyro-noise-level
+            #    wz stays ~free by the square law.
+            if self._yaw_cmd:
+                k_yp = float(cfg_get(self.cfg, "reward", "k_yaw_prog",
+                                     default=0.0))
+                k_ys = float(cfg_get(self.cfg, "reward", "k_yaw_still",
+                                     default=0.0))
+                if k_yp > 0.0 or k_ys > 0.0:
+                    wz_now = self._body_wz()
+                    if k_yp > 0.0 and abs(goal.wz_ref) > 1e-3:
+                        r_yp = k_yp * min(max(
+                            wz_now / goal.wz_ref, -1.5), 1.25)
+                        reward = float(reward) + r_yp
+                        info["reward_yaw_prog"] = r_yp
+                    if k_ys > 0.0 and abs(goal.wz_ref) <= 1e-3:
+                        r_ys = -k_ys * wz_now * wz_now
+                        reward = float(reward) + r_ys
+                        info["reward_yaw_still"] = r_ys
             # Progress-gated kernel income (cycle 20, cw-walk-kgate;
             # cfg reward.walk_kernel_prog_gate in [0,1], default 0=off):
             # multiply the velocity-error kernel by
@@ -648,7 +704,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # reward.loadslip_floor_m.
             g_ls = float(cfg_get(self.cfg, "reward",
                                  "walk_loadslip_gate", default=0.0))
-            if g_ls > 0.0 and s_ref > 1e-3:
+            # Measurement always runs while a velocity is commanded
+            # (operator 08-10: loadslip_ratio was invisible in W&B for
+            # every run that didn't enable the gate — the METRIC must
+            # not be coupled to the reward MODIFIER). The gate itself
+            # still only scales income when walk_loadslip_gate > 0.
+            if s_ref > 1e-3:
                 for f in range(6):
                     adr = self._touch_adr[f]
                     on = (adr >= 0 and
@@ -672,12 +733,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 factor = min(max(
                     (ls_max - ratio) / max(ls_max - ls_ok, 1e-6),
                     0.0), 1.0)
-                ls_factor = (1.0 - g_ls) + g_ls * factor
-                r_walk *= ls_factor
-                if r_prog > 0.0:
-                    r_prog *= ls_factor
                 info["walk_loadslip_ratio"] = ratio
                 info["walk_loadslip_factor"] = factor
+                if g_ls > 0.0:
+                    ls_factor = (1.0 - g_ls) + g_ls * factor
+                    r_walk *= ls_factor
+                    if r_prog > 0.0:
+                        r_prog *= ls_factor
             reward = float(reward) + r_walk + r_prog
             info["reward_walk"] = r_walk
             info["reward_walk_prog"] = r_prog

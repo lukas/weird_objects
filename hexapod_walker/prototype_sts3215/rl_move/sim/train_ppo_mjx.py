@@ -369,6 +369,15 @@ def main(argv: list[str] | None = None) -> int:
                "walk_yaw_err",
                "quad_clear_mm", "quad_fronts_off",
                "quad_planted_frac")  # own names
+        # Any OTHER numeric scalar the env drops into info is logged
+        # as a plain mean under env/<k> (operator 08-10: the whitelist
+        # above kept drifting behind the envs — reward_rise_ref,
+        # walk_wz, rise_plant_factor etc. were computed but invisible
+        # in W&B, and W&B is the primary triage surface). The lists
+        # stay for their special semantics (AUX* means abs()).
+        SKIP = ("TimeLimit.truncated", "terminal_observation",
+                "termination_reason", "goal_mode", "walk_bucket",
+                "episode")
         SAMPLE = 256      # envs sampled per step for the means
 
         def __init__(self):
@@ -396,6 +405,14 @@ def main(argv: list[str] | None = None) -> int:
                 for k in self.AUX:
                     if k in info:
                         self._acc(k, abs(float(info[k])))
+                for k, v in info.items():
+                    if (k in self.PART_KEYS or k in self.AUX
+                            or k in self.AUX_ABS or k in self.SKIP):
+                        continue
+                    if isinstance(v, bool) or not isinstance(
+                            v, (int, float, np.integer, np.floating)):
+                        continue
+                    self._acc(k, float(v))
                 if "track_err_deg" in info:
                     self._acc("pct_within_1deg",
                               1.0 if float(info["track_err_deg"]) <= 1.0
