@@ -51,7 +51,7 @@ from .servo_model import SimServoParams  # noqa: E402
 from .train_ppo_sim import (  # noqa: E402
     ENV_CLASSES, POLICY_DIR, WANDB_ENTITY_DEFAULT, WANDB_PROJECT_DEFAULT,
     _learning_line, _load_wandb_env, _parse_cfg_set, _parse_goal_mix,
-    _warn_if_defaults,
+    _resolved_reward_cfg, _reward_notes, _warn_if_defaults,
 )
 
 
@@ -111,6 +111,7 @@ def _init_wandb(args, params: SimServoParams):
     # Plain-English objective FIRST (operator 08-10: the overview must
     # open with what the run is learning, not lineage babble).
     notes = (_learning_line(args) + "\n\n" + (args.notes or "")).strip()
+    notes += "\n\n" + _reward_notes(args.cfg_set)
     run = wandb.init(
         entity=WANDB_ENTITY_DEFAULT, project=WANDB_PROJECT_DEFAULT,
         group="mjx-trainer", name=args.run_name, notes=notes,
@@ -121,11 +122,17 @@ def _init_wandb(args, params: SimServoParams):
                 "learning_rate": args.lr, "seed": args.seed,
                 "dr_scale": args.dr_scale, "no_dr": args.no_dr,
                 "cfg_set": args.cfg_set,
+                "reward_cfg": _resolved_reward_cfg(args.cfg_set),
                 "episode_seconds": args.episode_seconds,
                 "mjx_iterations": args.mjx_iterations,
                 "mjx_ls_iterations": args.mjx_ls_iterations,
                 "model_dr": False,  # v1 backend limit, see MJX_PORT.md
                 "sim_model_source": params.source})
+    # Same headline-score pinning as the C trainer (the periodic eval
+    # is shared code, so MJX runs emit identical SCORE/* names).
+    run.define_metric("SCORE/*", step_metric="global_step",
+                      summary="last")
+    run.define_metric("eval/*", step_metric="global_step")
     print(f"[wandb] logging to {run.url or 'offline run dir'}")
     return run
 

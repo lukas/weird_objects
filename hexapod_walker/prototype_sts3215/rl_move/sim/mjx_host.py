@@ -14,7 +14,7 @@ import numpy as np
 
 from .mjx_backend import MODEL_DR_FIELDS
 from .servo_model import SimServoParams, apply_params_to_model, build_model
-from .sim_env import soften_contacts
+from .sim_env import set_foot_ground_friction, soften_contacts
 
 DEG2RAD = np.pi / 180.0
 
@@ -57,20 +57,32 @@ def terrain_from_cfg(cfg) -> tuple[float, int]:
             int(cfg_get(cfg, "env", "terrain_seed", default=0)))
 
 
+def foot_mu_from_cfg(cfg) -> float:
+    """cfg env.foot_friction_slide (0 = XML default; see sim_env)."""
+    from rl_move.config import cfg_get, load_config
+    if cfg is None:
+        cfg = load_config()
+    return float(cfg_get(cfg, "env", "foot_friction_slide", default=0.0))
+
+
 def prepare_shared_model(params: SimServoParams, *, iterations: int,
                          ls_iterations: int, terrain_amp: float = 0.0,
-                         terrain_seed: int = 0):
+                         terrain_seed: int = 0, foot_mu: float = 0.0):
     """The ONE model every shim (and the device stepper) uses: MJX-compat
     terrain, the C env's contact softening, fitted servo params, reduced
     solver iterations. Deterministic, so parent and worker processes
     build identical copies independently.
 
     ``terrain_amp > 0`` keeps and populates the hfield (rough-terrain
-    experiments; Warp impl only — see build_model)."""
+    experiments; Warp impl only — see build_model). ``foot_mu > 0``
+    applies the calibrated foot–ground slide friction, mirroring the C
+    env's cfg env.foot_friction_slide hook."""
     model = build_model(fixed_base=False, flat_terrain=terrain_amp <= 0.0,
                         terrain_amp=terrain_amp, terrain_seed=terrain_seed,
                         mesh_visuals=False, mjx_compat=True)
     soften_contacts(model)
+    if foot_mu > 0.0:
+        set_foot_ground_friction(model, foot_mu)
     apply_params_to_model(model, params)
     model.opt.iterations = int(iterations)
     model.opt.ls_iterations = int(ls_iterations)

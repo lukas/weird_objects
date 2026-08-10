@@ -349,24 +349,58 @@ GOAL MODES (episode-level, sampled with config probabilities):
          this isn't ~100% the height pathway is broken, not
          under-trained.
 
-EVAL DEFINITIONS (periodic, every ~20k steps, deterministic policy):
-  eval/<mode>/return          mean episode return, 2 eps/mode.
-  eval/<mode>/survived_frac   fraction not safety-terminated.
-  eval/<mode>/track_err_deg   mean |tilt - reference| over the episode.
-  eval/<mode>/height_err_end_mm  |height - ref| at episode end.
-  eval/raise_success_frac     survived AND final height err <= 5 mm
+EVAL DEFINITIONS (periodic, deterministic policy; full doc + naming
+history: rl_docs/EVALS.md). Headline scores live in the SCORE/
+section (pinned to the top of the W&B page via define_metric summary):
+  SCORE/<mode>_total_reward   ALL reward terms summed over one eval
+                              episode of that isolated mode, mean of
+                              2 eps. THE per-skill improvement curve;
+                              comparable only within one reward
+                              config. (pre-08-10: eval/<mode>/return)
+  SCORE/raise_success         survived AND final height err <= 5 mm
                               (tight bar on purpose — canary).
-  eval/rise_flat_frac         rise completion split BY START KIND,
-  eval/rise_bridge_frac       2 eps each. Completed = survived AND
-  eval/rise_crouch_frac       final height err <= 15 mm. The flat/
-                              bridge lines are THE metric this training
-                              effort is trying to move; crouch has been
-                              solved since run 02 and should stay 1.0.
+  SCORE/rise_flat_success     rise completion split BY START KIND,
+  SCORE/rise_bridge_success   2 eps each. Completed = survived AND
+  SCORE/rise_crouch_success   final height err <= 15 mm. The flat/
+                              bridge lines are THE metric the rise
+                              effort must move; crouch has been solved
+                              since run 02 and should stay 1.0.
+  SCORE/lower_success         survived AND final height err <= 15 mm.
+Detail metrics stay under eval/<mode>/: survived_frac, track_err_deg
+(mean |tilt-ref|), height_err_end_mm, walk vel_err_m_s / speed_m_s.
 Mature skills (hold/lean/track/unload/raise) are near ceiling on warm
 starts — flat lines there are expected; regression is the failure signal.
 Final gate after training additionally compares the policy against a
 zero-action baseline on pooled episodes.
 """.rstrip()
+
+
+def _resolved_reward_cfg(cfg_set: list | None) -> dict:
+    """The reward section this run will ACTUALLY train with:
+    config.yaml resolved with the run's --cfg-set overrides. Feeds the
+    per-run reward auto-doc (W&B notes + config.reward_cfg) — operator
+    08-10: the reward function of every run must be explicitly
+    documented, not reverse-engineered from launch commands."""
+    from rl_move.config import load_config
+    cfg = load_config()
+    for key, parsed in _parse_cfg_set(cfg_set or []).items():
+        sect, name = key.split(".", 1)
+        cfg.setdefault(sect, {})[name] = parsed
+    return dict(cfg.get("reward", {}))
+
+
+def _reward_notes(cfg_set: list | None) -> str:
+    """Reward block for the run's W&B notes. Key=value only — term
+    meanings, formulas, and code-side defaults live in
+    rl_docs/REWARD.md so the notes can't drift from the doc."""
+    rew = _resolved_reward_cfg(cfg_set)
+    ov = {k.split(".", 1)[1] for k in _parse_cfg_set(cfg_set or [])
+          if k.startswith("reward.")}
+    lines = [f"  reward.{k} = {v}" + ("   [cfg-set]" if k in ov else "")
+             for k, v in sorted(rew.items())]
+    return ("=== REWARD FUNCTION (resolved config.yaml + --cfg-set; "
+            "meanings/formulas: rl_docs/REWARD.md; per-term training "
+            "curves: env/* in W&B) ===\n" + "\n".join(lines))
 
 
 def _init_wandb(args, params: SimServoParams, parent: dict | None = None):
@@ -434,7 +468,10 @@ def _init_wandb(args, params: SimServoParams, parent: dict | None = None):
                   f"({parent.get('run_name', '?')}) from step "
                   f"{parent.get('steps_end', '?')} via warm start of "
                   f"{Path(str(args.init_from)).name}.")
+    notes += "\n\n" + _reward_notes(getattr(args, "cfg_set", None))
     notes += "\n\n" + _spec_notes()
+    config["reward_cfg"] = _resolved_reward_cfg(
+        getattr(args, "cfg_set", None))
     kwargs = dict(
         entity=os.environ.get("WANDB_ENTITY", WANDB_ENTITY_DEFAULT),
         project=os.environ.get("WANDB_PROJECT", WANDB_PROJECT_DEFAULT),
@@ -458,6 +495,14 @@ def _init_wandb(args, params: SimServoParams, parent: dict | None = None):
                   "plain run with lineage metadata instead")
     if run is None:
         run = wandb.init(**kwargs)
+    # Headline eval scores (SCORE/*) pinned: summary="last" puts them
+    # at the top of the run Overview, and the SCORE section sorts
+    # before canary/env/eval in the workspace (operator 08-10: the
+    # per-eval totals are how we know the model is improving — they
+    # must not be buried). Names + meanings: rl_docs/EVALS.md.
+    run.define_metric("SCORE/*", step_metric="global_step",
+                      summary="last")
+    run.define_metric("eval/*", step_metric="global_step")
     print(f"[wandb] logging to {run.url or 'offline run dir'}")
     return run
 
@@ -696,12 +741,19 @@ def _run_periodic_eval(env, act, args, env_cls, step,
             bits = []
             for kind, (done_n, tot) in split.items():
                 if tot:
-                    payload[f"eval/rise_{kind}_frac"] = done_n / tot
+                    payload[f"SCORE/rise_{kind}_success"] = done_n / tot
                 bits.append(f"{kind[0]}{done_n}/{tot}")
             brief.append("rise " + " ".join(bits))
             continue
         stats = _rollout_stats(env, act, per_mode)
-        payload[f"eval/{mode}/return"] = stats["return_mean"]
+        # Headline numbers live in the SCORE/ section (operator 08-10:
+        # "return" was an awful name and the totals were buried).
+        # SCORE/<mode>_total_reward = ALL reward terms summed over one
+        # deterministic eval episode of that isolated mode, averaged
+        # over the episodes — THE per-skill improvement curve, only
+        # comparable within one reward config (see rl_docs/EVALS.md;
+        # pre-08-10 runs logged it as eval/<mode>/return).
+        payload[f"SCORE/{mode}_total_reward"] = stats["return_mean"]
         payload[f"eval/{mode}/survived_frac"] = (
             stats["survived"] / stats["episodes"])
         if "track_err_deg_mean" in stats:
@@ -711,13 +763,13 @@ def _run_periodic_eval(env, act, args, env_cls, step,
             payload[f"eval/{mode}/height_err_end_mm"] = (
                 stats["height_err_end_mm"])
         if "raise_episodes" in stats:
-            payload["eval/raise_success_frac"] = (
+            payload["SCORE/raise_success"] = (
                 stats["raise_completed"] / stats["raise_episodes"])
             brief.append(
                 f"raise {stats['raise_completed']}"
                 f"/{stats['raise_episodes']}")
         elif "lower_episodes" in stats:
-            payload["eval/lower_success_frac"] = (
+            payload["SCORE/lower_success"] = (
                 stats["lower_completed"] / stats["lower_episodes"])
             brief.append(
                 f"lower {stats['lower_completed']}"

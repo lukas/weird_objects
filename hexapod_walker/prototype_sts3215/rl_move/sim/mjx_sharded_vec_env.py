@@ -213,8 +213,8 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
     faulthandler.enable(all_threads=True)
     try:
         from .mjx_host import (
-            CommandStub, ModelDrScratch, make_shim_class, place_env,
-            prepare_shared_model, push_output_row, restore_env,
+            CommandStub, ModelDrScratch, foot_mu_from_cfg, make_shim_class,
+            place_env, prepare_shared_model, push_output_row, restore_env,
             snap_attrs_for, snapshot_env, terrain_from_cfg, tp_rows,
         )
         import mujoco
@@ -225,7 +225,9 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
         t_amp, t_seed = terrain_from_cfg(env_kwargs.get("cfg"))
         model = prepare_shared_model(params, iterations=mjx_iterations,
                                      ls_iterations=mjx_ls_iterations,
-                                     terrain_amp=t_amp, terrain_seed=t_seed)
+                                     terrain_amp=t_amp, terrain_seed=t_seed,
+                                     foot_mu=foot_mu_from_cfg(
+                                         env_kwargs.get("cfg")))
         pad_bids = _model_addrs(model).pad_bids
         scratch = mujoco.MjData(model)
         dr_scratch = ModelDrScratch(model, params) if model_dr else None
@@ -413,7 +415,8 @@ class MjxShardedVecEnv(VecEnv):
                 "mujoco-mjx / jax not installed — "
                 "pip install -r rl_move/sim/requirements-mjx.txt")
         import jax
-        from .mjx_host import prepare_shared_model, terrain_from_cfg
+        from .mjx_host import (foot_mu_from_cfg, prepare_shared_model,
+                               terrain_from_cfg)
         self._jax = jax
 
         env_kwargs = dict(env_kwargs or {})
@@ -423,7 +426,8 @@ class MjxShardedVecEnv(VecEnv):
         self.mj_model = prepare_shared_model(
             params, iterations=mjx_iterations,
             ls_iterations=mjx_ls_iterations,
-            terrain_amp=t_amp, terrain_seed=t_seed)
+            terrain_amp=t_amp, terrain_seed=t_seed,
+            foot_mu=foot_mu_from_cfg(env_kwargs.get("cfg")))
         # Model-field DR — same default rule as MjxVecEnv.
         self._model_dr = (bool(env_kwargs.get("randomize", False))
                           if model_dr is None else bool(model_dr))

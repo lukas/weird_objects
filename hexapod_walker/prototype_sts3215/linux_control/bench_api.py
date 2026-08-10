@@ -1595,3 +1595,175 @@ class BenchAPI:
         return {"ok": True, "calibrate": self.calibrate_state(),
                 "target": {"hip_deg": hip_deg, "knee_deg": knee_deg,
                            "seconds": seconds}}
+
+    # -- stand-up lab ---------------------------------------------------------
+    # Sim-validated stand-up strategies (rl_move/sim/compare_standup.py):
+    # keyframes baked into standup_modes.json, played back as chained
+    # ease_to_pose glides. See the JSON's per-mode descriptions.
+    STANDUP_FILE = Path(__file__).resolve().parent / "standup_modes.json"
+
+    def _load_standup(self) -> dict:
+        # Read fresh each call (small file) so a re-deployed bake is
+        # picked up without restarting the service.
+        return json.loads(self.STANDUP_FILE.read_text())
+
+    def standup_modes(self) -> dict:
+        """List the available stand-up strategies (web UI selector)."""
+        try:
+            data = self._load_standup()
+        except (OSError, ValueError) as e:
+            return {"ok": False, "error": f"standup_modes.json: {e}"}
+        return {
+            "ok": True,
+            "frame": data.get("frame", ""),
+            "modes": [
+                {"name": name,
+                 "description": m.get("description", ""),
+                 "keyframes": len(m.get("keyframes", [])),
+                 "total_s": m.get("total_s")}
+                for name, m in (data.get("modes") or {}).items()],
+        }
+
+    def standup(self, *, mode: str = "tuck", speed: float = 1.0,
+                force: bool = False, torque: int = 700,
+                abort_current_a: float = 2.4) -> dict:
+        """Play one baked stand-up strategy (async).
+
+        Starts from the ZERO pose (belly down, legs straight out) —
+        refuses if the present pose is far from keyframe 0 unless
+        ``force``. Aborts between keyframes if any servo peaked above
+        ``abort_current_a`` (stall-fight = the pinned-feet failure this
+        lab exists to fix; do not grind on it).
+        """
+        try:
+            from inplace_demos import (
+                CurrentPeakTracker, _enable_torque, _live_robot_ids,
+                _set_torque_limit, ease_to_pose,
+            )
+            from drive_controller import MAX_SAFE_DELTA_DEG
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        try:
+            data = self._load_standup()
+            m = data["modes"][str(mode)]
+            keyframes = m["keyframes"]
+        except (OSError, ValueError, KeyError) as e:
+            return {"ok": False, "error": f"unknown stand-up mode: {e}"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            if not self._preempt_demo_thread(reason="→ standup",
+                                             timeout=5.0):
+                return {"ok": False, "error": "previous job still running"}
+
+        speed = max(0.25, min(1.5, float(speed)))
+        torque = max(300, min(1000, int(torque)))
+        first = [float(v) for v in keyframes[0]["q_deg"]]
+        if not force:
+            with self.drive._lock:
+                worst, j = self.drive._max_delta_vs_present(first)
+            if worst > MAX_SAFE_DELTA_DEG:
+                return {
+                    "ok": False,
+                    "error": (
+                        f"refused standup: j{j} Δq={worst:.1f}° from the "
+                        f"zero start pose (>{MAX_SAFE_DELTA_DEG:.0f}°). "
+                        "Lay the robot belly-down with legs straight out "
+                        "(or set_zero there), or force."),
+                    "max_delta_deg": round(worst, 2),
+                    "joint": j,
+                }
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = f"standup_{mode}"
+            self._demo_status = f"stand-up · {mode} (x{speed:.2f})"
+            self._demo_params = {"mode": mode, "speed": speed,
+                                 "torque": torque}
+            self._cal_result = None
+            self._cal_progress = {"msg": self._demo_status}
+        self._set_activity("demo", self._demo_status)
+
+        def _worker():
+            d = self.drive
+            with d._lock:
+                d.mode = "demo"
+                d.gait.stop()
+                if not d.armed:
+                    d._torque_all(True)
+                    d.armed = True
+            live = _live_robot_ids(d.bus)
+            tracker = CurrentPeakTracker()
+            result: dict = {"ok": False, "mode": mode}
+            try:
+                _set_torque_limit(d.bus, live, torque)
+                _enable_torque(d.bus, live)
+                n = len(keyframes)
+                for i, kf in enumerate(keyframes):
+                    if self._demo_abort.is_set():
+                        result["aborted"] = True
+                        break
+                    secs = max(0.35, float(kf["s"]) / speed)
+                    with self._lock:
+                        self._cal_progress = {
+                            "msg": (f"{mode}: keyframe {i + 1}/{n} "
+                                    f"({secs:.1f}s)"),
+                            "keyframe": i + 1, "of": n}
+                    ok = ease_to_pose(
+                        d.bus, [float(v) for v in kf["q_deg"]],
+                        abort_check=self._demo_abort.is_set,
+                        seconds=secs, label=f"{mode} {i + 1}/{n}",
+                        current_tracker=tracker)
+                    if not ok:
+                        result["aborted"] = True
+                        break
+                    if tracker.peak_a > abort_current_a:
+                        result["error"] = (
+                            f"stopped: {tracker.peak_a:.2f} A peak on "
+                            f"joint {tracker.peak_joint} (> "
+                            f"{abort_current_a:.1f} A) — stall-fight, "
+                            "not grinding on it")
+                        break
+                else:
+                    result["ok"] = True
+                result["keyframes_done"] = min(i + 1, n)
+                result["peak_a"] = round(tracker.peak_a, 2)
+                result["peak_joint"] = tracker.peak_joint
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = result
+                    self._demo_status = (
+                        f"done · {mode} peak {tracker.peak_a:.2f} A"
+                        if result["ok"] else
+                        result.get("error", "aborted"))
+                    self._cal_progress = {"msg": self._demo_status}
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._demo_status = f"error: {e}"
+                    self._cal_result = {"ok": False, "error": str(e),
+                                        "mode": mode}
+            finally:
+                if gen != self._demo_gen:
+                    return
+                try:
+                    _set_torque_limit(d.bus, live, 1000)
+                except Exception:
+                    pass
+                with d._lock:
+                    if d.mode == "demo":
+                        d.mode = "idle"
+                with self._lock:
+                    st = self._demo_status
+                self._set_activity(
+                    "armed" if d.armed else "limp", st or "standup done")
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "mode": mode, "speed": speed,
+                "keyframes": len(keyframes),
+                "calibrate": self.calibrate_state()}

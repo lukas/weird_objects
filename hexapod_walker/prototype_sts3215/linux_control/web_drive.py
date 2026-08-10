@@ -290,6 +290,9 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/rl/state" or path == "/api/rl":
             self._json(200, BENCH.rl_state() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/standup/modes":
+            self._json(200, BENCH.standup_modes() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/feedback":
             # Fast read-only bulk telemetry (one MCU round-trip + IMU) for
             # external loggers — /api/status's full scan takes seconds.

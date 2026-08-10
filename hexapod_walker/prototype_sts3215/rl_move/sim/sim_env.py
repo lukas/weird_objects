@@ -117,6 +117,83 @@ def support_margin_m(feet_xy: np.ndarray, com_xy: np.ndarray) -> float:
     return float(d if inside else -d)
 
 
+# --------------------------------------------------------------------------
+# Valid-plant specification (operator, 2026-08-10). "Standing" is a
+# GEOMETRIC condition, not a torso height: every rise arm before this
+# lost to a height-only cheat (flag-leg/tripod at height, b2p1; stilt
+# pop, rfix-fresh1). A stand is VALID iff, at episode end:
+#
+#   height     |height_err| <= 15 mm of the commanded target
+#   attitude   |roll| and |pitch| <= 10 deg (a stand is level;
+#              the 25 deg envelope is for WALKING dynamics)
+#   feet down  >= 5 of 6 pads within 20 mm of their grounded z
+#   no flags   NO pad above 60 mm (a flag leg is never a stand)
+#   support    robot CoM XY inside the down-feet support polygon
+#              with >= 20 mm margin
+#   footprint  mean body-frame foot XY within 40 mm of the walkable
+#              plant footprint (the stance the walk champion expects;
+#              rejects the stilt/splay family that passes height +
+#              level + feet-down)
+#   effort     max per-servo current <= 2.0 A (precarious poses fight;
+#              informative once the holding-current model lands —
+#              sim hold currents are ~5x under real today, SIM.md)
+#
+# One function, three consumers: the training reward gate, the eval
+# harness (report + optional success gate), and the MDP_PREFLIGHT
+# rise bank in test_task_semantics.py. Never let these drift apart.
+
+PLANT_SPEC = {
+    "height_err_mm": 15.0,
+    "attitude_deg": 10.0,
+    "foot_down_mm": 20.0,
+    "min_feet_down": 5,
+    "flag_leg_mm": 60.0,
+    "com_margin_mm": 20.0,
+    "footprint_err_mm": 40.0,
+    "max_current_a": 2.0,
+}
+
+
+def valid_plant(*, pad_clear_m, feet_xy, com_xy,
+                roll_rad, pitch_rad, height_err_m=None,
+                footprint_err_m=None, max_current_a=None,
+                spec: dict | None = None) -> tuple[bool, dict]:
+    """PLANT_SPEC as a predicate. Returns (ok, detail); detail holds
+    every sub-check so failures name themselves. None inputs skip
+    their check (e.g. height when no target is commanded).
+    ``feet_xy`` (6, 2) must be in the same frame as ``com_xy``; only
+    the DOWN feet (clearance <= foot_down_mm) form the polygon."""
+    s = dict(PLANT_SPEC)
+    if spec:
+        s.update(spec)
+    clear_mm = np.asarray(pad_clear_m, dtype=float) * 1000.0
+    down = clear_mm <= s["foot_down_mm"]
+    n_down = int(np.sum(down))
+    feet_down = np.asarray(feet_xy, dtype=float).reshape(-1, 2)[down]
+    margin_mm = support_margin_m(
+        feet_down, np.asarray(com_xy, dtype=float)) * 1000.0 \
+        if n_down >= 3 else -1e9
+    detail = {
+        "height_ok": (True if height_err_m is None else
+                      abs(height_err_m) * 1000.0 <= s["height_err_mm"]),
+        "attitude_ok": (abs(roll_rad) <= s["attitude_deg"] * DEG2RAD
+                        and abs(pitch_rad) <= s["attitude_deg"] * DEG2RAD),
+        "feet_down_ok": n_down >= s["min_feet_down"],
+        "no_flag_ok": float(np.max(clear_mm)) <= s["flag_leg_mm"],
+        "support_ok": margin_mm >= s["com_margin_mm"],
+        "footprint_ok": (True if footprint_err_m is None else
+                         footprint_err_m * 1000.0
+                         <= s["footprint_err_mm"]),
+        "current_ok": (True if max_current_a is None else
+                       max_current_a <= s["max_current_a"]),
+        "n_feet_down": n_down,
+        "com_margin_mm": round(float(margin_mm), 1),
+        "max_clear_mm": round(float(np.max(clear_mm)), 1),
+    }
+    ok = all(v for k, v in detail.items() if k.endswith("_ok"))
+    return bool(ok), detail
+
+
 def soften_contacts(model) -> None:
     """3x-softer foot/pad/belly solref (see the __init__ comment).
 
@@ -131,6 +208,29 @@ def soften_contacts(model) -> None:
                 model, mujoco.mjtObj.mjOBJ_GEOM, gname)
             if fid >= 0:
                 model.geom_solref[fid, 0] *= 3.0
+
+
+def set_foot_ground_friction(model, mu_slide: float) -> None:
+    """Set the foot–ground SLIDE friction to a calibrated value.
+
+    cfg ``env.foot_friction_slide`` (0 = keep the XML default, foot
+    μ=2.0 / floor μ=1.5 → pair μ=2.0). MuJoCo combines a contact
+    pair's friction as the element-wise MAX of the two geoms, so the
+    floor/terrain AND the foot/pad geoms must all move together —
+    changing only the feet would leave the pair pinned at the floor's
+    1.5. Calibrate with ``rl_move/sim/calibrate_slip.py`` against the
+    tape-measured travel ratio (0.50–0.51, hardware_traces/
+    tape_20260810_summary.json). DR's ``friction_scale`` still
+    multiplies around this recentered value. Module-level so the MJX
+    shared-model prep applies the identical mutation."""
+    import mujoco
+    names = ["floor", "terrain"]
+    for i in range(6):
+        names += [f"L{i}_foot", f"L{i}_pad_col"]
+    for gname in names:
+        gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, gname)
+        if gid >= 0:
+            model.geom_friction[gid, 0] = float(mu_slide)
 
 
 def _default_plant_deg() -> np.ndarray:
@@ -252,6 +352,13 @@ class SimHexapodBalanceEnv(_GymBase):
         # every env would multiply solref by another 3x.)
         if self._owns_model:
             soften_contacts(self.model)
+            # Calibrated foot–ground slide μ (0 = XML default). Applied
+            # BEFORE the pristine copies so DR restores + rescales around
+            # the calibrated value. Shared models arrive already prepared.
+            _mu = float(cfg_get(self.cfg, "env", "foot_friction_slide",
+                                default=0.0))
+            if _mu > 0.0:
+                set_foot_ground_friction(self.model, _mu)
 
         # Pristine copies for DR restore at every reset.
         self._base_body_mass = self.model.body_mass.copy()
@@ -825,6 +932,31 @@ class SimHexapodBalanceEnv(_GymBase):
         return float(np.mean(
             np.linalg.norm(feet - self._plant_feet_xy, axis=1)))
 
+    def plant_report(self,
+                     height_err_m: float | None = None
+                     ) -> tuple[bool, dict]:
+        """Live PLANT_SPEC check of the CURRENT tick (see valid_plant
+        at module level — the shared stand criterion). The footprint
+        term reuses _curl_dist (body-frame FK vs the plant anchors),
+        so the identical criterion is available to the reward path,
+        the eval harness, and the semantics bank."""
+        if self._pad_z_ref is None or any(b < 0 for b in self._pad_bids):
+            return False, {"error": "no pad clearance reference"}
+        clear = [float(self.data.xpos[b, 2]) - self._pad_z_ref[i]
+                 for i, b in enumerate(self._pad_bids)]
+        feet_xy = np.array([self.data.xpos[b, :2]
+                            for b in self._pad_bids])
+        cur = self._state.servo_current
+        return valid_plant(
+            pad_clear_m=clear, feet_xy=feet_xy,
+            com_xy=self.data.subtree_com[0, :2],
+            roll_rad=self._state.imu_roll,
+            pitch_rad=self._state.imu_pitch,
+            height_err_m=height_err_m,
+            footprint_err_m=self._curl_dist(),
+            max_current_a=(float(np.max(np.abs(cur)))
+                           if cur is not None else None))
+
     # Goal-conditioned subclass hooks (base env: no goal, 47-dim obs).
     def _sample_goal(self):
         return None
@@ -1012,6 +1144,48 @@ class SimHexapodBalanceEnv(_GymBase):
                 if n_tot:
                     pf = (1.0 - g_pf) + g_pf * (n_on / n_tot)
                 parts["rise_posture_factor"] = pf
+            # Valid-plant geometric gate (operator spec 2026-08-10; cfg
+            # reward.rise_plant_polygon_gate in [0,1], default 0 =
+            # legacy exact). The clearance gate above counts feet near
+            # the ground but is blind to WHERE they are: a stilt/splay
+            # stand or a CoM-on-the-polygon-edge pose passes it. This
+            # gate scales the same income terms by a continuous
+            # PLANT_SPEC factor: CoM depth inside the down-feet support
+            # polygon (full pay at the 20 mm spec margin), level
+            # attitude (fades 10->20 deg), and body-frame footprint
+            # near the walkable plant anchors (fades 40->80 mm — the
+            # stilt family sits ~50 mm out). Rise only; lower ends on
+            # the belly where a support polygon is meaningless.
+            g_poly = float(cfg_get(self.cfg, "reward",
+                                   "rise_plant_polygon_gate",
+                                   default=0.0))
+            if (g_poly > 0.0 and self._h_target > 0.0
+                    and self._pad_z_ref is not None):
+                clear = np.array(
+                    [float(self.data.xpos[b, 2]) - self._pad_z_ref[i]
+                     for i, b in enumerate(self._pad_bids)])
+                down = clear <= PLANT_SPEC["foot_down_mm"] * 0.001
+                feet_dn = np.array(
+                    [self.data.xpos[b, :2] for b in self._pad_bids]
+                )[down]
+                margin_mm = (support_margin_m(
+                    feet_dn, self.data.subtree_com[0, :2]) * 1000.0
+                    if int(down.sum()) >= 3 else -1e9)
+                margin_f = min(max(
+                    margin_mm / PLANT_SPEC["com_margin_mm"], 0.0), 1.0)
+                att_deg = max(abs(self._state.imu_roll),
+                              abs(self._state.imu_pitch)) * RAD2DEG
+                att_f = min(max((2.0 * PLANT_SPEC["attitude_deg"]
+                                 - att_deg)
+                                / PLANT_SPEC["attitude_deg"], 0.0), 1.0)
+                fp_mm = self._curl_dist() * 1000.0
+                fp_f = min(max((2.0 * PLANT_SPEC["footprint_err_mm"]
+                                - fp_mm)
+                               / PLANT_SPEC["footprint_err_mm"],
+                               0.0), 1.0)
+                plant_f = margin_f * att_f * fp_f
+                pf *= (1.0 - g_poly) + g_poly * plant_f
+                parts["rise_plant_factor"] = plant_f
             r_mile = 0.0
             for frac in (0.25, 0.50, 0.75, 0.90):
                 # Fraction of the SIGNED target covered — works for rise

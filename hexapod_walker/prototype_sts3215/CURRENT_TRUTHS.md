@@ -72,16 +72,28 @@ bootstrap doc).
 - Matched-parent controls binding: injected-axis evals compare child
   vs frozen parent under the IDENTICAL injection
   (`eval_checkpoint.py --baseline`).
+- Evals and reward are explicitly documented (08-10): headline scores
+  are `SCORE/*` (pinned top of W&B; definitions rl_docs/EVALS.md);
+  every run auto-records its resolved reward config in W&B notes +
+  `config.reward_cfg` (term meanings rl_docs/REWARD.md). New reward
+  terms must add their REWARD.md row in the same change.
 - A closed sim hypothesis reopens only on new HARDWARE evidence.
 - Unified rise is UNSOLVED: every arm lost to the height-only cheat
-  (flag-leg/tripod). Torso height alone never defines a stand —
-  success needs a geometric valid-plant condition (height + attitude
-  + feet supporting + no flag legs + safe currents). Working
-  fallback: stance champion rises → scripted 1.5 s blend → walk
-  champion drives (sim-proven, key `7`). Plan: rl_docs/RISE.md.
-- Yaw: price escalation on a command-invariant drift is CLOSED; the
-  fix is command exposure/curriculum (decoupled yaw sampling),
-  possibly symmetry treatment — after its TURN bank passes.
+  (flag-leg/tripod). Torso height alone never defines a stand — the
+  geometric valid-plant spec is LANDED (08-10): PLANT_SPEC /
+  `valid_plant()` in sim_env.py (height, attitude, feet down, no
+  flags, CoM-in-polygon, walkable footprint, current), shared by
+  reward gate (`reward.rise_plant_polygon_gate`), eval harness
+  (reported always; `--valid-plant-gate` opt-in until champions
+  baselined), and the rise bank (separates replay from all cheats).
+  Working fallback: stance champion rises → scripted 1.5 s blend →
+  walk champion drives (sim-proven, key `7`). Plan: rl_docs/RISE.md.
+- Yaw: price escalation on a command-invariant drift is CLOSED. The
+  new mechanism set is landed and its TURN bank PASSES (08-10):
+  signed rotation income (k_yaw_prog), heading-hold drift charge
+  (k_yaw_still), turn-in-place curriculum (walk_turn_in_place_frac).
+  Sign audit still OPEN at the hardware boundary (sim +CCW vs
+  measured +omega=CW). Plan: rl_docs/TURN.md.
 - Quad-hold is solid but mixing erodes walk — deploy-time
   specialist; quad comes after the core joystick set is coherent.
 - MoE only after clean multitask training (explicit mode ID, correct
