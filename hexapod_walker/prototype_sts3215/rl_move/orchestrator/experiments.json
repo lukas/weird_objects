@@ -53720,7 +53720,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-10T15:50:09+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -53769,7 +53769,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-quad1-cw-dep-vref1-r1-torquescale since 2026-08-10T16:47:48"
+    "triage": "done",
+    "verdict": "PASS: widened torque-sag range (0.5-1.05x vs default ~0.8-1.05x) composes free onto the contract-exact hardware base. Own-cfg (DR0.35+override) det gv 6/6, slip/m med 1.05 (band 0.89-1.13); sto gv 6/6, slip/m med 1.05 (band 1.13-1.36, comfortably inside +-20% tol). DR0 no-override retention: det gv 6/6 slip 1.04, sto gv 6/6 slip 0.99. 0 terminations either pass. Craters (det/5, sto/0,1 -- prog 0.4-0.6, slip 2.6-2.9) are the lineage known march-in-place fixed-draw stall (frame-checked: no flag-leg, no fall, robot shuffles in place), not a new pathology -- deeper battery-sag range is a safe hardware-candidate axis.",
+    "hardware_ready": false
   },
   {
     "run": "cw-walk-wander120-dr05-s1",
@@ -54592,7 +54594,7 @@
       "reward.k_current=0.0"
     ],
     "created": "2026-08-10T16:13:24+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -54631,7 +54633,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-quad1-cw-dep-vref1-r1-torquescale since 2026-08-10T16:47:48"
+    "triage": "done",
+    "verdict": "FAIL (if-false branch): quad-hold four-leg trick does not fall (survived_frac 1.0 at every logged checkpoint) but never converges to the height-control precision gate under the contract-exact (no privileged velocity) obs -- height_err_end_mm improves 60mm->31mm over training but plateaus well above the <=20mm gate at the final checkpoint, and track_err_deg gets WORSE not better (1.0->2.67deg). This differs from quad-hold2 (same 30/60/10 mix, same reward recipe, privileged-velocity base), which converged to 1-15mm. Walk-mode retention holds: own-cfg(DR0.35) det gv 6/6 slip med 1.18, sto gv 6/6 slip med 1.47 (one crater pair driving the median, no falls); DR0 gate det gv 6/6 slip 1.08, sto gv 5/6 (one lineage march-in-place stall, sac legs [3,5], video-checked, not new). Conclusion: the quad height-timing mechanism appears to lean on the privileged velocity feedback that the hardware-deploy obs contract removes -- quad-line stays on the privileged-velocity base (quad-hold2) for now; a contract-exact quad graft needs either more steps/height-error shaping or is deferred behind the walk-only hardware ladder (quad is the P1 party trick, not the P0 walk deliverable).",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-velscale",
@@ -56236,5 +56240,83 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-imupos --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_imupos --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1 has only been hardened against IMU MOUNT ROTATION (imumount, PASSED) and gyro/tilt noise, never IMU MOUNT POSITION -- the real IMU could be bolted anywhere on the chassis, and an off-center mount feels lever-arm accelerations during body rotation that corrupt the accel-derived tilt exactly while leaning (untested dimension, distinct dr field: imu_pos_xy_m/imu_pos_z_m vs imu_mount_deg). Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- position-induced lever-arm noise composes free like every other sensor axis so far. If-false: lever-arm-corrupted tilt during turns/leans breaks tracking in a way rotation-only noise did not -- flag as a real pre-attempt-#2 sensor-mounting risk.' --cfg-set dr.imu_pos_xy_m=0.07 --cfg-set dr.imu_pos_z_m=-0.02,0.10 > /tmp/train_cw-dep-vref1-r1-imupos.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-imupos.log"
+  },
+  {
+    "run": "cw-dep-vref1-r1-placement-comshift",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: test whether the hardware candidate still walks cleanly with two realistic MECHANICAL quirks together instead of one at a time -- imprecise joint placement/assembly (6deg) AND an off-center battery/harness CoM (0.03m), which the real chassis will have simultaneously. vref1-r1 already PASSED joint-placement noise and CoM offset INDIVIDUALLY tonight; this bundles them onto the same base recipe as its siblings (respec of cw-dep-vref1-r1, not warm-started off either single-axis checkpoint, to avoid compounding one lineage's drift). Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + both axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- the two individually-benign mechanical axes stay benign combined, same pattern as comshift+deadband and fric+groundtilt5. If-false: combined mechanical error (assembly tolerance stacked on CoM shift) breaks tracking in a way neither axis did alone -- flag as a real pre-attempt-#2 assembly risk.",
+    "gate": "own-cfg (DR0.35 + dr.placement_noise_deg=6.0 + dr.com_offset_m=0.03) det+sto 6/6 @15s: gait_valid 12/12, 0 term, slip/m within vref1-r1 own band; DR0 retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_placement_comshift",
+      "--notes",
+      "respec of cw-dep-vref1-r1-placement: Plain English: test whether the hardware candidate still walks cleanly with two realistic MECHANICAL quirks together instead of one at a time -- imprecise joint placement/assembly (6deg) AND an off-center battery/harness CoM (0.03m), which the real chassis will have simultaneously. vref1-r1 already PASSED joint-placement noise and CoM offset INDIVIDUALLY tonight; this bundles them onto the same base recipe as its siblings (respec of cw-dep-vref1-r1, not warm-started off either single-axis checkpoint, to avoid compounding one lineage's drift). Per P0 rule 3, k_current=0. If-true: own-cfg (DR0.35 + both axes) det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- the two individually-benign mechanical axes stay benign combined, same pattern as comshift+deadband and fric+groundtilt5. If-false: combined mechanical error (assembly tolerance stacked on CoM shift) breaks tracking in a way neither axis did alone -- flag as a real pre-attempt-#2 assembly risk.",
+      "--cfg-set",
+      "dr.placement_noise_deg=6.0",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.com_offset_m=0.03"
+    ],
+    "created": "2026-08-10T17:04:15+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [
+        "cw-dep-vref1-r1-imupos"
+      ]
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-4 already runs cw-dep-vref1-r1-imupos \u2014 GPU pods host exactly one run; pick a free GPU pod."
   }
 ]
