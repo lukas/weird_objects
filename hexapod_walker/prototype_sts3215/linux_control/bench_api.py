@@ -87,6 +87,8 @@ class BenchAPI:
         self._cal_progress: dict = {}
         # Last demo cmd-vs-actual telemetry (auto-logged from web demos).
         self._demo_telemetry: dict | None = None
+        # Measure tab: finished run awaiting the operator's tape reading.
+        self._meas_pending: dict | None = None
         self._status_display = None
         self._servo_watch = None
 
@@ -848,7 +850,7 @@ class BenchAPI:
         # pollers see running=false mid-job and give up.
         running = bool(self._demo_thread and self._demo_thread.is_alive()
                        and (self._demo_name or "").startswith(
-                           ("calibrate", "rl_", "standup_")))
+                           ("calibrate", "rl_", "standup_", "measure_")))
         plant = self.plant_state()
         imu = self.imu_state()
         return {
@@ -1723,9 +1725,8 @@ class BenchAPI:
         """
         try:
             from inplace_demos import (
-                CurrentPeakTracker, _enable_torque, _glide_speed_acc,
-                _live_robot_ids, _read_pose, _set_torque_limit,
-                _write_pose, ease_to_pose,
+                CurrentPeakTracker, PoseStreamer, _enable_torque,
+                _live_robot_ids, _set_torque_limit, ease_to_pose,
             )
             from drive_controller import MAX_SAFE_DELTA_DEG
         except ImportError as e:
@@ -1805,42 +1806,96 @@ class BenchAPI:
                 _set_torque_limit(d.bus, live, torque)
                 _enable_torque(d.bus, live)
                 n = len(frames)
-                # >1.25x: STREAM — fire each SyncWrite sized for the
-                # keyframe duration and move on at the schedule. The
-                # per-keyframe settle poll in ease_to_pose costs
-                # >=0.35 s each, which made 5-10x no faster than 1x
-                # (operator, 08-10). The final keyframe always settles.
-                stream = speed > 1.25
-                prev_q = None
-                for i, (q_deg, kf_s) in enumerate(frames):
-                    if self._demo_abort.is_set():
-                        result["aborted"] = True
-                        break
-                    secs = max(0.12, kf_s / speed)
+
+                def guard_msg() -> str:
+                    return (f"stopped: {tracker.peak_a:.2f} A peak on "
+                            f"joint {tracker.peak_joint} (> "
+                            f"{abort_current_a:.1f} A) — stall-fight, "
+                            "not grinding on it")
+
+                if speed > 1.25:
+                    # PURSUE — stream the interpolated keyframe path
+                    # at ~20 Hz. Per-keyframe glides decelerate to
+                    # ZERO at every waypoint (the servo trapezoid), so
+                    # even schedule-paced playback stop-started
+                    # (operator, 08-10: "still stops at the key
+                    # frames"). PoseStreamer keeps the target moving
+                    # ahead of the servos: linear interp between
+                    # keyframes, per-joint speed sized to each tick,
+                    # deadband so idle joints aren't re-commanded.
+                    q0 = frames[0][0]
                     with self._lock:
                         self._cal_progress = {
-                            "msg": (f"{mode} {verb}: keyframe "
-                                    f"{i + 1}/{n} ({secs:.1f}s)"),
-                            "keyframe": i + 1, "of": n}
-                    if stream and i < n - 1:
-                        if prev_q is None:
-                            prev_q = _read_pose(d.bus, live)
-                        spd, acc = _glide_speed_acc(
-                            prev_q, q_deg, live, secs)
-                        _write_pose(d.bus, q_deg, live,
-                                    speed=spd, acc=acc)
-                        # sample currents while the move runs (the
-                        # feedback sweep itself takes real time)
-                        t_end = time.monotonic() + secs
-                        tracker.sample(d.bus, live)
-                        while (time.monotonic() < t_end
-                               and not self._demo_abort.is_set()):
-                            time.sleep(0.01)
+                            "msg": f"{mode} {verb}: aligning"}
+                    ok = ease_to_pose(
+                        d.bus, q0, abort_check=self._demo_abort.is_set,
+                        seconds=max(0.6, frames[0][1] / speed),
+                        label=f"{mode} align", current_tracker=tracker)
+                    aborted = not ok
+                    ts, qs = [0.0], [q0]
+                    for q_deg, kf_s in frames[1:]:
+                        ts.append(ts[-1] + max(0.12, kf_s / speed))
+                        qs.append(q_deg)
+                    streamer = PoseStreamer()
+                    tripped = False
+                    seg, last_sample = 1, -1.0
+                    t0 = time.monotonic()
+                    while not aborted and not tripped:
+                        if self._demo_abort.is_set():
+                            aborted = True
+                            break
+                        t = time.monotonic() - t0
+                        while seg < len(qs) and t > ts[seg]:
+                            seg += 1
+                        if seg >= len(qs):
+                            break
+                        f = ((t - ts[seg - 1])
+                             / max(ts[seg] - ts[seg - 1], 1e-6))
+                        q = [a + (b - a) * f for a, b in
+                             zip(qs[seg - 1], qs[seg])]
+                        streamer.write(d.bus, q, live, dt=0.05)
+                        if t - last_sample > 0.35:
+                            # feedback sweep costs real bus time —
+                            # sample sparsely, mid-motion
+                            tracker.sample(d.bus, live)
+                            last_sample = t
+                            with self._lock:
+                                self._cal_progress = {
+                                    "msg": (f"{mode} {verb}: "
+                                            f"{t:.1f}/{ts[-1]:.1f}s "
+                                            f"peak "
+                                            f"{tracker.peak_a:.2f}A"),
+                                    "keyframe": seg, "of": n}
+                            tripped = tracker.peak_a > abort_current_a
+                        time.sleep(0.05)
+                    if not aborted and not tripped:
+                        # settle + hold cleanly on the final pose
+                        ok = ease_to_pose(
+                            d.bus, qs[-1],
+                            abort_check=self._demo_abort.is_set,
+                            seconds=0.6, label=f"{mode} settle",
+                            current_tracker=tracker)
+                        aborted = not ok
+                        tripped = tracker.peak_a > abort_current_a
+                    if tripped:
+                        result["error"] = guard_msg()
+                    elif aborted:
+                        result["aborted"] = True
+                    else:
+                        result["ok"] = True
+                    result["keyframes_done"] = min(seg, n)
+                else:
+                    # careful path: one glide + settle per keyframe
+                    for i, (q_deg, kf_s) in enumerate(frames):
                         if self._demo_abort.is_set():
                             result["aborted"] = True
                             break
-                        prev_q = list(q_deg)
-                    else:
+                        secs = max(0.35, kf_s / speed)
+                        with self._lock:
+                            self._cal_progress = {
+                                "msg": (f"{mode} {verb}: keyframe "
+                                        f"{i + 1}/{n} ({secs:.1f}s)"),
+                                "keyframe": i + 1, "of": n}
                         ok = ease_to_pose(
                             d.bus, q_deg,
                             abort_check=self._demo_abort.is_set,
@@ -1849,17 +1904,12 @@ class BenchAPI:
                         if not ok:
                             result["aborted"] = True
                             break
-                        prev_q = list(q_deg)
-                    if tracker.peak_a > abort_current_a:
-                        result["error"] = (
-                            f"stopped: {tracker.peak_a:.2f} A peak on "
-                            f"joint {tracker.peak_joint} (> "
-                            f"{abort_current_a:.1f} A) — stall-fight, "
-                            "not grinding on it")
-                        break
-                else:
-                    result["ok"] = True
-                result["keyframes_done"] = min(i + 1, n)
+                        if tracker.peak_a > abort_current_a:
+                            result["error"] = guard_msg()
+                            break
+                    else:
+                        result["ok"] = True
+                    result["keyframes_done"] = min(i + 1, n)
                 result["peak_a"] = round(tracker.peak_a, 2)
                 result["peak_joint"] = tracker.peak_joint
                 if gen != self._demo_gen:
@@ -1899,3 +1949,422 @@ class BenchAPI:
         return {"ok": True, "mode": mode, "speed": speed,
                 "direction": direction, "keyframes": len(frames),
                 "calibrate": self.calibrate_state()}
+
+    # ------------------------------------------------------------------
+    # Measurement lab (web UI "Measure" tab, 2026-08-10).
+    #
+    # Operator-run data collection that settles open sim-calibration
+    # decisions (rl_docs/HARDWARE.md "Experiment backlog"):
+    #   walk  — tape-measured distance vs commanded (slip / contact
+    #           pricing; scripted gait, same caps as
+    #           rl_move/scripts/tape_measure_walk.py). Also does the
+    #           commanded-turn sign check (omega-only runs).
+    #   hold  — planted-vs-hover per-servo holding currents (the last
+    #           effort-pricing gap in the sim reward).
+    #   note  — standalone operator record (e.g. tape distance for an
+    #           RL walk episode; auto-attaches the newest rl_walk CSV).
+    #
+    # Every run samples /api/rl/feedback-shaped telemetry at ~3 Hz into
+    # logs/meas_<stamp>_{servo,imu}.csv (the same CSV shapes the
+    # calibration tooling reads). Runs that need a physical reading
+    # leave a PENDING record; measure_annotate() merges the operator's
+    # numbers and appends the finished record to logs/measurements.jsonl.
+    # Fetch: scp arduino@hexapod.local:hexapod_sts/linux_control/logs/
+    # {measurements.jsonl,meas_*.csv} rl_move/hardware_traces/
+
+    MEAS_MAX_VX_MM = 60.0
+    MEAS_MAX_VY_MM = 40.0
+    MEAS_MAX_OMEGA = 0.5
+    MEAS_MAX_WALK_S = 60.0
+    MEAS_MAX_HOLD_S = 120.0
+    MEAS_TILT_STOP_DEG = 30.0   # working gait rocks ±10-20°; 30 = wrong
+    MEAS_POLL_S = 0.3
+
+    def _meas_dir(self) -> Path:
+        from event_log import log_dir
+        return log_dir()
+
+    def _meas_file(self) -> Path:
+        return self._meas_dir() / "measurements.jsonl"
+
+    def _meas_finalize(self, rec: dict) -> dict:
+        rec["saved_unix"] = round(time.time(), 3)
+        with self._lock:
+            self._meas_pending = None
+        with self._meas_file().open("a") as f:
+            f.write(json.dumps(rec) + "\n")
+        try:
+            from event_log import emit
+            emit("measurement", rec.get("kind", "?"), src="bench",
+                 data={k: rec[k] for k in ("kind", "stamp") if k in rec})
+        except Exception:
+            pass
+        return {"ok": True, "record": rec}
+
+    def measure_list(self, n: int = 20) -> dict:
+        """Recent saved measurements + the pending (unannotated) one."""
+        recs: list[dict] = []
+        try:
+            lines = self._meas_file().read_text().strip().splitlines()
+            for ln in lines[-int(n):]:
+                try:
+                    recs.append(json.loads(ln))
+                except ValueError:
+                    pass
+        except OSError:
+            pass
+        with self._lock:
+            pending = dict(self._meas_pending) if getattr(
+                self, "_meas_pending", None) else None
+        return {"ok": True, "records": list(reversed(recs)),
+                "pending": pending,
+                "fetch": ("scp arduino@hexapod.local:hexapod_sts/"
+                          "linux_control/logs/{measurements.jsonl,"
+                          "meas_*.csv} rl_move/hardware_traces/")}
+
+    def _meas_telemetry(self, stamp: str, seconds: float,
+                        stop_early=None) -> dict:
+        """Sample rl_feedback at ~3 Hz for `seconds` into CSVs.
+
+        Returns aggregates (per-joint mean current, bus totals, tilt
+        peaks). `stop_early()` (optional) ends the loop; a tilt beyond
+        MEAS_TILT_STOP_DEG sets aggregate["tilt_alert"] and ends it too.
+        """
+        import csv as _csv
+
+        servo_csv = self._meas_dir() / f"meas_{stamp}_servo.csv"
+        imu_csv = self._meas_dir() / f"meas_{stamp}_imu.csv"
+        agg: dict = {"servo_csv": servo_csv.name, "imu_csv": imu_csv.name,
+                     "samples": 0, "tilt_alert": False,
+                     "per_joint_mean_a": None, "bus_a_mean": None,
+                     "bus_a_max": None, "max_abs_roll_deg": 0.0,
+                     "max_abs_pitch_deg": 0.0}
+        sums = [0.0] * N_JOINTS
+        counts = [0] * N_JOINTS
+        totals: list[float] = []
+        hdr = ["t_unix", "live"]
+        for j in range(N_JOINTS):
+            hdr += [f"q{j}_deg", f"cur{j}_a", f"temp{j}_c"]
+        t_end = time.monotonic() + seconds
+        with servo_csv.open("w", newline="") as fs, \
+                imu_csv.open("w", newline="") as fi:
+            ws = _csv.writer(fs)
+            ws.writerow(hdr)
+            wi = _csv.writer(fi)
+            wi.writerow(["t_unix", "roll_deg", "pitch_deg",
+                         "gx_dps", "gy_dps", "gz_dps"])
+            while time.monotonic() < t_end:
+                if self._demo_abort.is_set():
+                    break
+                if stop_early is not None and stop_early():
+                    break
+                t0 = time.monotonic()
+                fb = self.rl_feedback()
+                if fb.get("ok"):
+                    t = fb.get("t_unix")
+                    joints = fb.get("joints") or []
+                    row: list = [t, fb.get("live", 0)]
+                    total = 0.0
+                    for j in range(N_JOINTS):
+                        m = (joints[j]
+                             if j < len(joints) and joints[j] else None)
+                        if m is None:
+                            row += ["", "", ""]
+                            continue
+                        cur = abs(float(m.get("cur_a", 0.0) or 0.0))
+                        sums[j] += cur
+                        counts[j] += 1
+                        total += cur
+                        row += [m.get("deg", ""), m.get("cur_a", ""),
+                                m.get("temp_c", "")]
+                    ws.writerow(row)
+                    fs.flush()
+                    totals.append(total)
+                    agg["samples"] += 1
+                    roll, pitch = fb.get("roll_deg"), fb.get("pitch_deg")
+                    if roll is not None and pitch is not None:
+                        g = fb.get("gyro_dps") or ["", "", ""]
+                        wi.writerow([t, roll, pitch, *g])
+                        fi.flush()
+                        agg["max_abs_roll_deg"] = max(
+                            agg["max_abs_roll_deg"], abs(float(roll)))
+                        agg["max_abs_pitch_deg"] = max(
+                            agg["max_abs_pitch_deg"], abs(float(pitch)))
+                        if (abs(float(roll)) > self.MEAS_TILT_STOP_DEG or
+                                abs(float(pitch)) > self.MEAS_TILT_STOP_DEG):
+                            agg["tilt_alert"] = True
+                            break
+                time.sleep(max(0.0, self.MEAS_POLL_S
+                               - (time.monotonic() - t0)))
+        if totals:
+            agg["bus_a_mean"] = round(sum(totals) / len(totals), 3)
+            agg["bus_a_max"] = round(max(totals), 3)
+        agg["per_joint_mean_a"] = [
+            round(sums[j] / counts[j], 3) if counts[j] else None
+            for j in range(N_JOINTS)]
+        agg["max_abs_roll_deg"] = round(agg["max_abs_roll_deg"], 1)
+        agg["max_abs_pitch_deg"] = round(agg["max_abs_pitch_deg"], 1)
+        return agg
+
+    def measure_walk(self, *, vx_mm: float = 30.0, vy_mm: float = 0.0,
+                     omega: float = 0.0, duration_s: float = 20.0) -> dict:
+        """Scripted-gait measured run (tape distance / turn sign).
+
+        Drives the tripod gait (`J vx vy omega`) for duration_s while
+        logging telemetry, then stops to a planted stand (torque stays
+        on) and leaves a PENDING record — enter the tape reading via
+        measure_annotate. Same caps as tape_measure_walk.py. Requires
+        the robot ARMED and STANDING (P) — refused otherwise.
+        MOTION: operator must be watching.
+        """
+        d = self.drive
+        if d.dry_run or not d.bus:
+            return {"ok": False, "error": "no bus"}
+        if not d.armed:
+            return {"ok": False,
+                    "error": "need ARM + standing (P) before a walk run"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+        with self._lock:
+            if getattr(self, "_meas_pending", None):
+                return {"ok": False,
+                        "error": "pending measurement — save or discard "
+                                 "it first"}
+        vx = max(-self.MEAS_MAX_VX_MM, min(self.MEAS_MAX_VX_MM,
+                                           float(vx_mm)))
+        vy = max(-self.MEAS_MAX_VY_MM, min(self.MEAS_MAX_VY_MM,
+                                           float(vy_mm)))
+        om = max(-self.MEAS_MAX_OMEGA, min(self.MEAS_MAX_OMEGA,
+                                           float(omega)))
+        secs = min(max(float(duration_s), 3.0), self.MEAS_MAX_WALK_S)
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        label = (f"measure walk vx={vx:.0f} vy={vy:.0f} "
+                 f"w={om:+.2f} {secs:.0f}s")
+        with self._lock:
+            self._demo_name = "measure_walk"
+            self._demo_status = label
+            self._demo_params = {"vx_mm": vx, "vy_mm": vy, "omega": om,
+                                 "duration_s": secs}
+            self._cal_result = None
+            self._cal_progress = {"msg": label}
+        self._set_activity("measure", label)
+
+        def _worker():
+            import math as _math
+            rec: dict = {
+                "kind": "turn_sign" if (om and not vx and not vy)
+                        else "walk_tape",
+                "stamp": stamp,
+                "vx_mm_s": vx, "vy_mm_s": vy, "omega_rad_s": om,
+                "planned_s": secs,
+                "cmd_smoothing_note": ("gait vel low-pass tau=0.15s; "
+                                       "commanded path ~|v|*0.15s "
+                                       "shorter than |v|*T"),
+            }
+            try:
+                r = d.handle(f"J {vx:.1f} {vy:.1f} {om:.3f}")
+                if r != "J":
+                    with self._lock:
+                        self._cal_result = {"ok": False,
+                                            "error": f"J refused: {r}"}
+                        self._demo_status = f"refused: {r}"
+                    return
+                t0 = time.monotonic()
+                agg = self._meas_telemetry(stamp, secs)
+                walked = time.monotonic() - t0
+                d.handle("J 0 0 0")   # planted stand, torque stays on
+                time.sleep(1.0)
+                speed = _math.hypot(vx, vy)
+                rec.update(
+                    walked_s=round(walked, 2),
+                    commanded_mm=round(speed * walked, 1),
+                    commanded_rot_deg=round(
+                        _math.degrees(om * walked), 1),
+                    stopped=("tilt_alert" if agg["tilt_alert"] else
+                             "abort" if self._demo_abort.is_set()
+                             else "duration"),
+                    **agg)
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._meas_pending = rec
+                    self._cal_result = {"ok": True, "pending": True,
+                                        **rec}
+                    self._demo_status = (
+                        f"walked {walked:.1f}s (commanded "
+                        f"~{rec['commanded_mm']:.0f} mm) — read the "
+                        "tape and save in the Measure tab")
+                    self._cal_progress = {"msg": self._demo_status}
+            except Exception as e:
+                d.handle("J 0 0 0")
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = {"ok": False, "error": str(e)}
+                    self._demo_status = f"error: {e}"
+            finally:
+                if gen == self._demo_gen:
+                    with self._lock:
+                        st = self._demo_status
+                    self._set_activity(
+                        "armed" if d.armed else "limp", st)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "stamp": stamp, "duration_s": secs}
+
+    def measure_hold(self, *, label: str = "planted",
+                     duration_s: float = 30.0) -> dict:
+        """Static holding-current measurement (NO commanded motion).
+
+        Torques on and HOLDS the PRESENT pose (never yanks), then logs
+        per-servo currents for duration_s and saves the record
+        immediately. Run once with the feet planted ("planted") and
+        once with the robot propped so the feet hang free ("hover") —
+        the delta is the load-dependent current the sim's effort
+        pricing is missing.
+        """
+        d = self.drive
+        if d.dry_run or not d.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+        label = str(label or "planted").strip().lower()
+        if label not in ("planted", "hover"):
+            return {"ok": False,
+                    "error": "label must be 'planted' or 'hover'"}
+        secs = min(max(float(duration_s), 5.0), self.MEAS_MAX_HOLD_S)
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        title = f"measure hold ({label}) {secs:.0f}s"
+        with self._lock:
+            self._demo_name = "measure_hold"
+            self._demo_status = title
+            self._demo_params = {"label": label, "duration_s": secs}
+            self._cal_result = None
+            self._cal_progress = {"msg": title}
+        self._set_activity("measure", title)
+
+        def _worker():
+            rec: dict = {"kind": "hold_current", "label": label,
+                         "stamp": stamp, "planned_s": secs}
+            try:
+                # Hold the PRESENT pose: same never-yank arm sequence
+                # the RL runner uses.
+                with d._lock:
+                    d.mode = "demo"
+                    d.gait.stop()
+                    if not d.armed:
+                        d._torque_all(True)
+                        d.armed = True
+                    d._hold_here()
+                time.sleep(0.5)   # let currents settle after torque-on
+                agg = self._meas_telemetry(stamp, secs)
+                rec.update(**agg)
+                if gen != self._demo_gen:
+                    return
+                out = self._meas_finalize(rec)
+                with self._lock:
+                    self._cal_result = out
+                    self._demo_status = (
+                        f"{label} hold: bus mean "
+                        f"{agg['bus_a_mean'] or '?'} A over "
+                        f"{agg['samples']} samples — saved")
+                    self._cal_progress = {"msg": self._demo_status}
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = {"ok": False, "error": str(e)}
+                    self._demo_status = f"error: {e}"
+            finally:
+                if gen == self._demo_gen:
+                    with d._lock:
+                        if d.mode == "demo":
+                            d.mode = "idle"
+                    with self._lock:
+                        st = self._demo_status
+                    self._set_activity(
+                        "armed" if d.armed else "limp", st)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "stamp": stamp, "label": label,
+                "duration_s": secs}
+
+    def measure_annotate(self, *, fields: dict | None = None) -> dict:
+        """Merge operator readings into the pending record and save it.
+
+        Accepted fields (all optional): measured_mm, lateral_drift_mm,
+        measured_rot_deg (+ = CW), observed_turn ("cw"/"ccw"/"none"),
+        notes. Computes slip ratio when measured_mm arrives.
+        """
+        with self._lock:
+            rec = getattr(self, "_meas_pending", None)
+        if not rec:
+            return {"ok": False, "error": "no pending measurement"}
+        fields = fields or {}
+        for k in ("measured_mm", "lateral_drift_mm", "measured_rot_deg"):
+            if fields.get(k) not in (None, ""):
+                try:
+                    rec[k] = float(fields[k])
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": f"bad number for {k}"}
+        if fields.get("observed_turn") in ("cw", "ccw", "none"):
+            rec["observed_turn"] = fields["observed_turn"]
+        if fields.get("notes"):
+            rec["notes"] = str(fields["notes"])[:500]
+        if (rec.get("measured_mm") is not None
+                and rec.get("commanded_mm", 0) > 1e-6):
+            rec["slip_ratio_measured_over_commanded"] = round(
+                rec["measured_mm"] / rec["commanded_mm"], 3)
+        return self._meas_finalize(rec)
+
+    def measure_discard(self) -> dict:
+        """Drop the pending measurement without saving."""
+        with self._lock:
+            had = getattr(self, "_meas_pending", None) is not None
+            self._meas_pending = None
+        return {"ok": True, "discarded": had}
+
+    def measure_note(self, *, kind: str = "note",
+                     fields: dict | None = None) -> dict:
+        """Standalone operator record (no run). kind='rl_walk_tape'
+        auto-attaches the newest rl_walk episode CSV so the tape
+        reading lines up with its 25 Hz trace."""
+        kind = str(kind or "note").strip()[:40]
+        rec: dict = {"kind": kind,
+                     "stamp": time.strftime("%Y%m%d_%H%M%S")}
+        fields = fields or {}
+        for k, v in fields.items():
+            if k in ("measured_mm", "lateral_drift_mm",
+                     "measured_rot_deg", "commanded_mm"):
+                try:
+                    rec[k] = float(v)
+                except (TypeError, ValueError):
+                    pass
+            elif k == "notes":
+                rec["notes"] = str(v)[:500]
+        if kind == "rl_walk_tape":
+            try:
+                latest = max(self._meas_dir().glob("rl_walk_*.csv"),
+                             key=lambda p: p.stat().st_mtime)
+                rec["rl_episode_csv"] = latest.name
+            except (ValueError, OSError):
+                rec["rl_episode_csv"] = None
+        if (rec.get("measured_mm") is not None
+                and rec.get("commanded_mm", 0) > 1e-6):
+            rec["slip_ratio_measured_over_commanded"] = round(
+                rec["measured_mm"] / rec["commanded_mm"], 3)
+        # Standalone records skip the pending slot entirely.
+        rec["saved_unix"] = round(time.time(), 3)
+        with self._meas_file().open("a") as f:
+            f.write(json.dumps(rec) + "\n")
+        return {"ok": True, "record": rec}

@@ -23,6 +23,7 @@
     <button id="tab-demos" class="tab">Demos</button>
     <button id="tab-rl" class="tab">RL</button>
     <button id="tab-experiments" class="tab">Experiments</button>
+    <button id="tab-measure" class="tab">Measure</button>
     <button id="tab-debug" class="tab">Debug</button>
   </nav>
   <span id="conn" class="warn">checking…</span>
@@ -346,8 +347,9 @@ capture while the robot is standing well.">📌 Capture plant</button>
       </div>
       <div class="hint">Sit down plays the same mode's keyframes in
         reverse — start it from that mode's standing stance. Tempos
-        above ~1.25× <b>stream</b> the keyframes on schedule (no
-        per-waypoint settle wait — 10× tuck is a ~2&nbsp;s stand).
+        above ~1.25× <b>stream continuously</b> (20&nbsp;Hz pursuit of
+        the interpolated path — one smooth motion, no waypoint stops;
+        10× tuck is a ~2&nbsp;s stand).
         Faster raises currents toward the 3&nbsp;A guard; hardware
         08-10 peaks at 1×: tuck 2.48&nbsp;A, step 2.97&nbsp;A (blend
         stalls short — kept for comparison).</div>
@@ -355,6 +357,143 @@ capture while the robot is standing well.">📌 Capture plant</button>
     </div>
   </div>
   </div><!-- /view-experiments -->
+
+  <div id="view-measure" class="view">
+  <div class="row">
+    <div class="pad" style="flex:1 1 700px">
+      <h2>Pending measurement — enter your reading</h2>
+      <div class="hint" id="mu-pending-desc">No run waiting for a
+        reading. Start one below; when it finishes, enter the physical
+        measurement here.</div>
+      <div id="mu-pending-form" style="display:none">
+        <div class="btns" style="margin-top:8px">
+          <label class="hint">distance along travel (mm)
+            <input id="mu-measured" type="number" step="1"
+                   style="width:90px"></label>
+          <label class="hint">lateral drift (mm)
+            <input id="mu-drift" type="number" step="1"
+                   style="width:90px"></label>
+          <label class="hint">heading change (°, + = CW)
+            <input id="mu-rot" type="number" step="1"
+                   style="width:90px"></label>
+        </div>
+        <div class="btns" style="margin-top:6px">
+          <label class="hint">turned:
+            <select id="mu-observed">
+              <option value="">—</option>
+              <option value="cw">clockwise (CW)</option>
+              <option value="ccw">counter-clockwise (CCW)</option>
+              <option value="none">did not turn</option>
+            </select></label>
+          <label class="hint">notes
+            <input id="mu-notes" type="text" style="width:260px"
+                   placeholder="slip, rocking, snags…"></label>
+        </div>
+        <div class="btns" style="margin-top:8px">
+          <button id="mu-save" class="on">Save measurement</button>
+          <button id="mu-discard" class="danger">Discard</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="pad" style="flex:1 1 340px">
+      <h2>Walk distance (tape)</h2>
+      <div class="hint">Settles the sim's slip / contact pricing —
+        the top calibration gap. Lay a tape measure along the travel
+        line, mark the start foot position. Needs <b>ARM + stand
+        (P)</b> on the Drive tab first. Scripted tripod gait; stops
+        itself if tilt exceeds 30°.</div>
+      <div class="btns" style="margin-top:10px">
+        <label class="hint">speed
+          <select id="mu-walkspeed">
+            <option value="30" selected>30 mm/s</option>
+            <option value="50">50 mm/s</option>
+          </select></label>
+        <label class="hint">for
+          <select id="mu-walkdur">
+            <option value="10">10 s</option>
+            <option value="20" selected>20 s</option>
+            <option value="30">30 s</option>
+          </select></label>
+      </div>
+      <div class="btns" style="margin-top:8px">
+        <button id="mu-walkgo" class="on">▲ Walk fwd (measured)</button>
+      </div>
+    </div>
+    <div class="pad" style="flex:1 1 340px">
+      <h2>Turn sign check</h2>
+      <div class="hint">Settles the TURN sign audit: does commanded
+        +ω really turn the body clockwise? One 6 s turn-in-place each
+        way, then report which way it actually rotated (and the
+        heading change if you can read it off the tape/floor marks).
+        Needs ARM + stand (P).</div>
+      <div class="btns" style="margin-top:10px">
+        <button id="mu-turnpos">↻ Turn +ω (6 s)</button>
+        <button id="mu-turnneg">↺ Turn −ω (6 s)</button>
+      </div>
+    </div>
+    <div class="pad" style="flex:1 1 340px">
+      <h2>Holding currents</h2>
+      <div class="hint">Settles the last effort-pricing gap: how much
+        current does HOLDING position cost, loaded vs unloaded? Run
+        <b>planted</b> with the robot standing on its feet, then prop
+        the body up so the feet hang free and run <b>hover</b> in the
+        same pose. No commanded motion — it torques on and holds the
+        present pose. Saves automatically.</div>
+      <div class="btns" style="margin-top:10px">
+        <label class="hint">
+          <select id="mu-holdlabel">
+            <option value="planted" selected>planted (feet loaded)</option>
+            <option value="hover">hover (feet unloaded)</option>
+          </select></label>
+        <label class="hint">for
+          <select id="mu-holddur">
+            <option value="15">15 s</option>
+            <option value="30" selected>30 s</option>
+            <option value="60">60 s</option>
+          </select></label>
+        <button id="mu-holdgo" class="on">● Record hold</button>
+      </div>
+    </div>
+    <div class="pad" style="flex:1 1 340px">
+      <h2>RL walk tape note</h2>
+      <div class="hint">Ran an RL walk from the RL tab? Enter the tape
+        reading here — it attaches to the newest RL episode trace so
+        the 25 Hz log lines up with ground truth. Commanded distance =
+        speed × walk time (the RL tab result shows both).</div>
+      <div class="btns" style="margin-top:10px">
+        <label class="hint">commanded (mm)
+          <input id="mu-rlcmd" type="number" step="1"
+                 style="width:90px"></label>
+        <label class="hint">measured (mm)
+          <input id="mu-rlmeas" type="number" step="1"
+                 style="width:90px"></label>
+      </div>
+      <div class="btns" style="margin-top:6px">
+        <label class="hint">notes
+          <input id="mu-rlnotes" type="text" style="width:220px"></label>
+        <button id="mu-rlsave">Save note</button>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="pad" style="flex:1 1 700px">
+      <h2>Status &amp; saved measurements</h2>
+      <div class="btns">
+        <button id="mu-stop" class="danger">■ Stop run</button>
+        <button id="mu-refresh">↻ Refresh list</button>
+      </div>
+      <div class="hint" id="mu-status" style="margin-top:8px">Idle.</div>
+      <div class="hint" id="mu-list" style="margin-top:8px">—</div>
+      <div class="hint" style="margin-top:8px">Everything lands in
+        <code>logs/measurements.jsonl</code> + per-run
+        <code>meas_*_servo.csv</code> / <code>meas_*_imu.csv</code> on
+        the robot. Pull to the Mac:
+        <code>scp arduino@hexapod.local:hexapod_sts/linux_control/logs/\{measurements.jsonl,meas_*.csv\} rl_move/hardware_traces/</code></div>
+    </div>
+  </div>
+  </div><!-- /view-measure -->
 
   <div id="view-calibrate" class="view">
   <div class="row">
