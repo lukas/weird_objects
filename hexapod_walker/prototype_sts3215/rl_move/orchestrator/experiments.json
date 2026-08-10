@@ -52625,7 +52625,7 @@
       "CONTINUATION OF THE 16-FRAME TEMPORAL ARCHITECTURE RUN, ORDERED BY THE OPERATOR (08-10). Plain English: cw-arch-hist16-r7 was the first 16-frame-history policy to actually boot and train (after the /dev/shm root-cause fix) and it PASSED its gate: it walks cleanly from scratch, all six legs cycling, zero falls, joystick gate clean, progress at or above the walk champion. Its one gap is foot economy: slip/m 1.3-1.6 vs the deployment-contract champion at 0.89-1.13, roughly 40 pct worse. External review (08-10) says that gap is measured against contact physics the tape-measure session showed sim gets wrong, so the call is: keep training this line now, and re-baseline the slip caps once the actuator/contact calibration lands. This run warm-starts from the r7 final checkpoint (md5 32269a363d8dc8e4b9dbb2d9faabca05) with an IDENTICAL config and 40M more steps on the same pod (train-2, 3072 envs to fit the 64M /dev/shm). Success looks like: r7 gates still pass with no regression, and slip and progress drifting toward the champion band. Failure looks like: a plateau at r7 levels, which would mean more steps do not buy economy under current contact pricing and this line should wait for the recalibration."
     ],
     "created": "2026-08-10T14:56:14+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -52634,11 +52634,24 @@
       "code_sha_local": "4847fedb2cc9bab37dbb8988dc1a5bbaf4fdd4bb",
       "code_sha_pod": "4847fedb2cc9bab37dbb8988dc1a5bbaf4fdd4bb",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3885950",
+      "log_growth_bytes": [
+        11564,
+        19002
+      ],
+      "wandb_id": "ehwaukw6",
+      "global_step_window": [
+        737280,
+        1622016
+      ],
+      "fps_estimate": 9830.4
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-r7-c1 --steps 40000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --n-envs 3072 --impl warp --host-workers 24 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_r7.zip --out-name ppo_goal_cw_arch_hist16_r7_c1 --notes 'CONTINUATION OF THE 16-FRAME TEMPORAL ARCHITECTURE RUN, ORDERED BY THE OPERATOR (08-10). Plain English: cw-arch-hist16-r7 was the first 16-frame-history policy to actually boot and train (after the /dev/shm root-cause fix) and it PASSED its gate: it walks cleanly from scratch, all six legs cycling, zero falls, joystick gate clean, progress at or above the walk champion. Its one gap is foot economy: slip/m 1.3-1.6 vs the deployment-contract champion at 0.89-1.13, roughly 40 pct worse. External review (08-10) says that gap is measured against contact physics the tape-measure session showed sim gets wrong, so the call is: keep training this line now, and re-baseline the slip caps once the actuator/contact calibration lands. This run warm-starts from the r7 final checkpoint (md5 32269a363d8dc8e4b9dbb2d9faabca05) with an IDENTICAL config and 40M more steps on the same pod (train-2, 3072 envs to fit the 64M /dev/shm). Success looks like: r7 gates still pass with no regression, and slip and progress drifting toward the champion band. Failure looks like: a plateau at r7 levels, which would mean more steps do not buy economy under current contact pricing and this line should wait for the recalibration.' > /tmp/train_cw-arch-hist16-r7-c1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-hist16-r7-c1.log"
+    "log": "/tmp/train_cw-arch-hist16-r7-c1.log",
+    "wandb_id": "ehwaukw6",
+    "verified": "2026-08-10T14:59:57+00:00"
   },
   {
     "run": "cw-stance-riseproof1",
@@ -52674,5 +52687,87 @@
     },
     "stack": "gpu-mjx",
     "refused_reason": "hexapod-mjx-train-2 already runs cw-arch-hist16-r7-c1 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+  },
+  {
+    "run": "cw-stance-riseproof1",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 18000000,
+    "smoke": false,
+    "hypothesis": "Control probe pre-registered in cw-uni-rfix-warm1/fresh1 if-false: BOTH rfix arms FAILED the posture-strict gate (warm1 rise 0/6 lower 6/6; fresh1 rise 0/6 lower 0/6, worst end pad clearance 273-313mm -- height criterion satisfied by bridge/flail, not standing), implicating the WALK-env rise/lower task construction rather than pricing (fixed) or init (varied). This arm: the stance-line joint_goal recipe -- same fresh-init field standard (log_std 0, ent 0.005, DR 0.2), same hold=.1 rise=.45 lower=.45 mix, 15s episodes -- on the post-273ebde sim, where the stance champion still executes a clean feet-down rise (verified 08-10: det flat-start rise ends 5mm off target, worst pad clear 4mm). If-true (joint_goal fresh learns posture-strict rise/lower where walk-env fresh gamed it): walk-env task/obs construction is the blocker -- unified deliverable goes Stage-II reference-tracking distillation (rise ref + reward.k_rise_ref_track + reward.rise_posture_gate land with the next code snapshot) or two-policy blend. If-false (joint_goal from scratch also fails posture-strict on todays sim): post-shin-collision sim contact near ground is implicated -- escalate to a sim-contact dig-in before any more rise arms.",
+    "gate": "posture-strict harness (default end-posture gate): rise AND lower success >=5/6 det each by 18M; VIDEO no leg-through-floor; early call permitted if W&B rise/lower success flat 0 at 6M",
+    "parent": "none (from scratch; stance-line recipe control)",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--n-envs",
+      "4096",
+      "--goal-mix",
+      "hold=0.1,rise=0.45,lower=0.45",
+      "--episode-seconds",
+      "15",
+      "--dr-scale",
+      "0.2",
+      "--log-std-init",
+      "0",
+      "--ent-coef",
+      "0.005"
+    ],
+    "created": "2026-08-10T14:58:22+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 1,
+      "code_sha_local": "b8740b48575d56481f79d2a53fb9960b711259ae",
+      "code_sha_pod": "995a84c4ee9ee62bfb26702d79a94f0f7d196d16"
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-3 code marker 995a84c4ee9ee62bfb26702d79a94f0f7d196d16 != local HEAD b8740b48575d56481f79d2a53fb9960b711259ae. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "cw-stance-riseproof1",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 18000000,
+    "smoke": false,
+    "hypothesis": "Control probe pre-registered in cw-uni-rfix-warm1/fresh1 if-false: BOTH rfix arms FAILED the posture-strict gate (warm1 rise 0/6 lower 6/6; fresh1 rise 0/6 lower 0/6, worst end pad clearance 273-313mm -- height criterion satisfied by bridge/flail, not standing), implicating the WALK-env rise/lower task construction rather than pricing (fixed) or init (varied). This arm: the stance-line joint_goal recipe -- same fresh-init field standard (log_std 0, ent 0.005, DR 0.2), same hold=.1 rise=.45 lower=.45 mix, 15s episodes -- on the post-273ebde sim, where the stance champion still executes a clean feet-down rise (verified 08-10: det flat-start rise ends 5mm off target, worst pad clear 4mm). If-true (joint_goal fresh learns posture-strict rise/lower where walk-env fresh gamed it): walk-env task/obs construction is the blocker -- unified deliverable goes Stage-II reference-tracking distillation (rise ref + reward.k_rise_ref_track + reward.rise_posture_gate land with the next code snapshot) or two-policy blend. If-false (joint_goal from scratch also fails posture-strict on todays sim): post-shin-collision sim contact near ground is implicated -- escalate to a sim-contact dig-in before any more rise arms.",
+    "gate": "posture-strict harness (default end-posture gate): rise AND lower success >=5/6 det each by 18M; VIDEO no leg-through-floor; early call permitted if W&B rise/lower success flat 0 at 6M",
+    "parent": "none (from scratch; stance-line recipe control)",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--n-envs",
+      "4096",
+      "--goal-mix",
+      "hold=0.1,rise=0.45,lower=0.45",
+      "--episode-seconds",
+      "15",
+      "--dr-scale",
+      "0.2",
+      "--log-std-init",
+      "0",
+      "--ent-coef",
+      "0.005",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "Control probe pre-registered in cw-uni-rfix-warm1/fresh1 if-false: BOTH rfix arms FAILED the posture-strict gate (warm1 rise 0/6 lower 6/6; fresh1 rise 0/6 lower 0/6, worst end pad clearance 273-313mm -- height criterion satisfied by bridge/flail, not standing), implicating the WALK-env rise/lower task construction rather than pricing (fixed) or init (varied). This arm: the stance-line joint_goal recipe -- same fresh-init field standard (log_std 0, ent 0.005, DR 0.2), same hold=.1 rise=.45 lower=.45 mix, 15s episodes -- on the post-273ebde sim, where the stance champion still executes a clean feet-down rise (verified 08-10: det flat-start rise ends 5mm off target, worst pad clear 4mm). If-true (joint_goal fresh learns posture-strict rise/lower where walk-env fresh gamed it): walk-env task/obs construction is the blocker -- unified deliverable goes Stage-II reference-tracking distillation (rise ref + reward.k_rise_ref_track + reward.rise_posture_gate land with the next code snapshot) or two-policy blend. If-false (joint_goal from scratch also fails posture-strict on todays sim): post-shin-collision sim contact near ground is implicated -- escalate to a sim-contact dig-in before any more rise arms. Parent: none (from scratch; stance-line recipe control). Gate: posture-strict harness (default end-posture gate): rise AND lower success >=5/6 det each by 18M; VIDEO no leg-through-floor; early call permitted if W&B rise/lower success flat 0 at 6M"
+    ],
+    "created": "2026-08-10T14:59:04+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 1,
+      "code_sha_local": "b8740b48575d56481f79d2a53fb9960b711259ae",
+      "code_sha_pod": "b8740b48575d56481f79d2a53fb9960b711259ae",
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stance-riseproof1 --steps 18000000 --task joint_goal --n-envs 4096 --goal-mix hold=0.1,rise=0.45,lower=0.45 --episode-seconds 15 --dr-scale 0.2 --log-std-init 0 --ent-coef 0.005 --impl warp --host-workers 24 --notes 'Control probe pre-registered in cw-uni-rfix-warm1/fresh1 if-false: BOTH rfix arms FAILED the posture-strict gate (warm1 rise 0/6 lower 6/6; fresh1 rise 0/6 lower 0/6, worst end pad clearance 273-313mm -- height criterion satisfied by bridge/flail, not standing), implicating the WALK-env rise/lower task construction rather than pricing (fixed) or init (varied). This arm: the stance-line joint_goal recipe -- same fresh-init field standard (log_std 0, ent 0.005, DR 0.2), same hold=.1 rise=.45 lower=.45 mix, 15s episodes -- on the post-273ebde sim, where the stance champion still executes a clean feet-down rise (verified 08-10: det flat-start rise ends 5mm off target, worst pad clear 4mm). If-true (joint_goal fresh learns posture-strict rise/lower where walk-env fresh gamed it): walk-env task/obs construction is the blocker -- unified deliverable goes Stage-II reference-tracking distillation (rise ref + reward.k_rise_ref_track + reward.rise_posture_gate land with the next code snapshot) or two-policy blend. If-false (joint_goal from scratch also fails posture-strict on todays sim): post-shin-collision sim contact near ground is implicated -- escalate to a sim-contact dig-in before any more rise arms. Parent: none (from scratch; stance-line recipe control). Gate: posture-strict harness (default end-posture gate): rise AND lower success >=5/6 det each by 18M; VIDEO no leg-through-floor; early call permitted if W&B rise/lower success flat 0 at 6M' > /tmp/train_cw-stance-riseproof1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-stance-riseproof1.log"
   }
 ]

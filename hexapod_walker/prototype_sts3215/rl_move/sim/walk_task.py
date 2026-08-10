@@ -534,6 +534,29 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 yaw_err = wz - goal.wz_ref
                 r_yaw = k_yaw * math.exp(
                     -(yaw_err ** 2) / (2.0 * sig_w ** 2))
+                # Yaw income gated on ACHIEVED rotation (cw-walk-yawcmd1
+                # dig-in, 08-10: with sigma 0.15 the ungated kernel pays
+                # a command-ignoring policy exp(-.5*(0.135/0.15)^2)=0.67
+                # of max income every tick — both yawcmd1 seeds learned
+                # exactly that: command-invariant ~+0.09 rad/s drift,
+                # turn |wz_err| med 0.24 vs gate 0.10. This was the
+                # pre-registered WISHLIST item-3 risk; fix is the
+                # walk_kernel_prog_gate analog: on turn segments
+                # multiply yaw income by clip(wz/wz_ref, 0, 1) —
+                # parked/wrong-direction earns ~0 by construction,
+                # perfect tracking unchanged, over-rotation clipped
+                # (the Gaussian already prices overshoot). Hold
+                # segments (wz_ref=0) stay ungated: no fraction-of-zero
+                # exists and hold income is the drift pricing.
+                # cfg reward.walk_yaw_kernel_gate in [0,1], default
+                # 0=off (byte-identical to pre-change behavior).
+                g_yaw = float(cfg_get(self.cfg, "reward",
+                                      "walk_yaw_kernel_gate",
+                                      default=0.0))
+                if g_yaw > 0.0 and abs(goal.wz_ref) > 1e-3:
+                    factor = min(max(wz / goal.wz_ref, 0.0), 1.0)
+                    r_yaw *= (1.0 - g_yaw) + g_yaw * factor
+                    info["walk_yaw_gate_factor"] = factor
                 reward = float(reward) + r_yaw
                 info["reward_walk_yaw"] = r_yaw
                 info["walk_yaw_err"] = abs(yaw_err)

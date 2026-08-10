@@ -61,6 +61,43 @@ def main():
     print(f"yaw obs width {w_legacy + 1} OK; "
           f"kernel mean {np.mean(ys):.3f} (peak 1.0)")
 
+    # 2b. yaw income gate (cw-walk-yawcmd1 dig-in fix, 08-10): on a
+    # commanded turn, a robot that doesn't rotate must earn ~0 yaw
+    # income with walk_yaw_kernel_gate=1 (ungated it earns
+    # exp(-.5*(wz_ref/sigma)^2) > 0 for free); wz_ref=0 segments and
+    # gate=0 must be byte-identical to the ungated kernel.
+    def yaw_income_parked(gate: float, wz_cmd: float) -> list[float]:
+        cfg = {"goal": {"walk_yaw_cmd": 1.0},
+               "reward": {"k_walk_yaw": 1.0,
+                          "walk_yaw_kernel_gate": gate}}
+        e = SimHexapodJointWalkEnv(cfg, episode_seconds=4.0, seed=5)
+        e.set_goal_mix({"hold": 0, "lean": 0, "track": 0, "unload": 0,
+                        "raise": 0, "rise": 0, "lower": 0, "walk": 1.0})
+        e.reset()
+        traj = e._goal_traj
+        assert getattr(traj, "wz", None) is not None, traj
+        traj.wz[:] = wz_cmd  # force the command; hold still (a=0)
+        ys = []
+        for _ in range(60):
+            _o, _r, term, trunc, info = e.step(
+                np.zeros(e.action_space.shape, dtype=np.float32))
+            if "reward_walk_yaw" in info:
+                ys.append(info["reward_walk_yaw"])
+            if term or trunc:
+                break
+        return ys
+    y_off = np.mean(yaw_income_parked(0.0, 0.3))
+    y_on = np.mean(yaw_income_parked(1.0, 0.3))
+    y_hold_off = np.mean(yaw_income_parked(0.0, 0.0))
+    y_hold_on = np.mean(yaw_income_parked(1.0, 0.0))
+    assert y_off > 0.05, f"ungated turn income unexpectedly ~0: {y_off}"
+    assert y_on < 0.2 * y_off, \
+        f"gate=1 parked turn income not collapsed: {y_on} vs {y_off}"
+    assert abs(y_hold_on - y_hold_off) < 1e-9, \
+        f"gate must not touch wz_ref=0 segments: {y_hold_on} vs {y_hold_off}"
+    print(f"yaw gate OK: parked-on-turn income {y_off:.3f} (gate 0) -> "
+          f"{y_on:.3f} (gate 1); hold income untouched {y_hold_off:.3f}")
+
     # 3. quad mode
     cfg = {"goal": {"p_quad": 1.0, "quad_grace_s": 0.5},
            "reward": {"k_quad_clear": 1.0, "k_quad_plant": 1.0}}
