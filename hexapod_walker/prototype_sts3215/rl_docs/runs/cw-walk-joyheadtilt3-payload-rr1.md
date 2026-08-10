@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-10T05:28:01+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walk-joyheadtilt3
+
+**wandb_id**: tmmflhnb
 
 **hypothesis**: Compose chassis payload (1.0-1.4x mass, the same range used everywhere else in the payload-compose ladder) onto this cycle's PASSed joyheadtilt3 package (+-90deg heading + DR0.5 + latency + 3deg floor slope) -- the next untried cell in the driving-package compose matrix (payload has composed free onto joyfric [friction-based] and joyheadfric [wide+friction], not yet tried on a wide+slope package). If-true: own-cfg (DR0.5+lat+tilt3+mass) det+sto 6/6 gv, 0 term, prog med matching joyheadtilt3's own band (~0.85/0.93), JOYSTICK GATE @90 0 falls, DR0 flat no-payload retention clean -- payload composability continues to track base-package headroom, not the specific axis composed. If-false: the slope+payload interaction (extra mass on a tilted stance) breaks something the friction composes didn't -- payload composability is package-specific after all, not just headroom-general.
 
