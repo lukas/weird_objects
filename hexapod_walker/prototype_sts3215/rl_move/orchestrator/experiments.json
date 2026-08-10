@@ -55321,7 +55321,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T17:33:12"
   },
   {
     "run": "cw-dep-vref1-r1-legmass",
@@ -55669,7 +55670,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T17:33:12"
   },
   {
     "run": "cw-dep-vref1-r1-legmass",
@@ -57200,5 +57202,88 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-quad1-c2 --steps 12000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_quad1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix quad=0.3,walk=0.6,hold=0.1 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_quad1_c2 --notes 'respec of cw-dep-quad1-c1: Plain English: does the four-leg party trick just need more training time on the hardware-realistic checkpoint, or is it structurally stuck? cw-dep-quad1 FAILED the height-control gate (height_err_end_mm plateaued at 31mm vs the <=20mm gate) but was STILL improving at the end of its 18M steps (60->31mm, monotonic, no sign of a hard plateau in the last 3 points: 34->33->31mm) and never fell (survived_frac 1.0 throughout) -- one variable vs quad1: +12M more steps warm-started from quad1'\"'\"'s own checkpoint, same mix/reward, nothing else changed. Re-queued as -c2 after -c1 was mechanically REFUSED/parked (pod conflict, then a stale-dirty code-marker bug in snapshot.sh, now fixed) -- same hypothesis, no science change. If-true: height_err_end_mm continues dropping and clears <=20mm within the extension -- quad1 was just under-trained, not structurally blocked by the missing privileged-velocity signal. If-false: height_err_end_mm plateaus above 20mm despite the extra steps -- confirms the mechanism is capped by the honest-obs contract itself, not training budget, and the quad line should stay on the privileged-velocity quad-hold2 checkpoint.' --cfg-set reward.k_quad_clear=1.5 --cfg-set reward.k_quad_plant=1.0 --cfg-set goal.quad_grace_s=1.5 --cfg-set reward.k_current=0.0 > /tmp/train_cw-dep-quad1-c2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-quad1-c2.log"
+  },
+  {
+    "run": "cw-dep-vref1-r1-torquescale-gyronoise",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1's two individually-PASSed axes -- battery-sag torque droop (0.5-1.05x from -torquescale) and gyro rate-noise (1.5 deg/s from -gyronoise) -- have never been exposed TOGETHER, but a real weak/sagging battery plausibly causes BOTH low servo torque AND noisier IMU rail readings simultaneously (shared root cause: brownout). Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- shared-brownout axes stay benign combined, like every prior compose tonight. If-false: combined torque-sag+sensor-noise defeats the contract-exact obs in a way neither did alone -- flag as a real hardware risk (weak battery is a common real-world state) before deployment.",
+    "gate": "own-cfg (DR0+torque0.5-1.05x+gyronoise1.5deg/s) det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1's own band (0.89-1.36); video frames watched det+sto for flag-leg/skate",
+    "parent": "cw-dep-vref1-r1",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_torquescale_gyronoise",
+      "--notes",
+      "respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1's two individually-PASSed axes -- battery-sag torque droop (0.5-1.05x from -torquescale) and gyro rate-noise (1.5 deg/s from -gyronoise) -- have never been exposed TOGETHER, but a real weak/sagging battery plausibly causes BOTH low servo torque AND noisier IMU rail readings simultaneously (shared root cause: brownout). Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- shared-brownout axes stay benign combined, like every prior compose tonight. If-false: combined torque-sag+sensor-noise defeats the contract-exact obs in a way neither did alone -- flag as a real hardware risk (weak battery is a common real-world state) before deployment.",
+      "--cfg-set",
+      "dr.torque_scale=0.5,1.05",
+      "--cfg-set",
+      "dr.gyro_noise_deg_s=1.5",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T17:33:00+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 9,
+      "code_sha_local": "644229f23b2bc7054c4eca3be1283d84d5450e7f",
+      "code_sha_pod": "644229f23b2bc7054c4eca3be1283d84d5450e7f",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-torquescale-gyronoise --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_torquescale_gyronoise --notes 'respec of cw-dep-vref1-r1: PROTECT THE NAMED HARDWARE CANDIDATE: vref1-r1'\"'\"'s two individually-PASSed axes -- battery-sag torque droop (0.5-1.05x from -torquescale) and gyro rate-noise (1.5 deg/s from -gyronoise) -- have never been exposed TOGETHER, but a real weak/sagging battery plausibly causes BOTH low servo torque AND noisier IMU rail readings simultaneously (shared root cause: brownout). Per P0 rule 3, k_current=0. If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- shared-brownout axes stay benign combined, like every prior compose tonight. If-false: combined torque-sag+sensor-noise defeats the contract-exact obs in a way neither did alone -- flag as a real hardware risk (weak battery is a common real-world state) before deployment.' --cfg-set dr.torque_scale=0.5,1.05 --cfg-set dr.gyro_noise_deg_s=1.5 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-torquescale-gyronoise.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-torquescale-gyronoise.log"
   }
 ]
