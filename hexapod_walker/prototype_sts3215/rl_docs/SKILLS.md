@@ -144,6 +144,8 @@ video, so it reads as the same trait amplified, not three new bugs.
 | **+ joint-encoder noise (0.5°) AND per-joint zero-bias (3°) TOGETHER — 2-axis joint-sensing compose holds** | `ppo_goal_cw_dep_vref1_r1_encbundle` | this cycle PASS: DR0-gate (nominal+override) det+sto gv 6/6, 0 term, slip/m med 1.15/0.95 (det 2% over vref1-r1's own 1.13 upper edge, inside ±20% tol); own-cfg (DR0.35+override) det+sto gv 6/6, 0 term, slip/m med 1.07/1.15, same det/5+sto/0-1 degraded-episode pattern as PASSed torquescale/tiltnoise siblings at DR0.35 (curriculum-DR artifact, not new); video: lineage low-amplitude six-leg creep, no flag-leg/fall | noisy AND miscalibrated joint reads together stay benign, same pattern as every other sensing/actuator 2-axis compose; not independently hardware-ready |
 | **+ 2× actuator gain-spread DR (kp 0.20→0.40, kv 0.25→0.50) — compose holds, slightly wider margin** | `ppo_goal_cw_dep_vref1_r1_gainvar` | this cycle PASS: DR0-gate det+sto gv 6/6, 0 term, slip/m med 1.27/1.10 (det ~12% over vref1-r1's own 1.13 upper edge, inside ±20% tol; sto in-band); own-cfg (DR0.35+override) det+sto gv 6/6, 0 term, slip/m med 1.24/1.29, same degraded-episode pattern as PASSed torquescale/tiltnoise siblings (curriculum-DR artifact); video: lineage six-leg creep, no flag-leg/fall | wider gain uncertainty composes but with the widest margin of any single axis so far — worth a second look if stacked with another actuator axis; not independently hardware-ready |
 | **+ per-leg manufacturing tolerance (leg-mass jitter 0.10→0.20, link-length 0.012→0.025) — first per-leg-asymmetry axis, compose holds** | `ppo_goal_cw_dep_vref1_r1_legmass` | this cycle PASS: DR0-gate det+sto gv 6/6, 0 term, slip/m med 1.17/1.03 (inside/near vref1-r1's own 0.89-1.13/1.13-1.36 band); own-cfg (DR0.35+override) det+sto gv 6/6, 0 term, slip/m med 1.13/1.18, same degraded-episode pattern as PASSed torquescale/tiltnoise siblings; video: lineage six-leg creep, no flag-leg/fall | per-leg build asymmetry (distinct from whole-body payload/CoM axes) is a safe hardware-candidate axis; not independently hardware-ready |
+| **+ 3D-print/assembly leg-length error (2% global scale + 1.2% per-leg spread) — compose holds** | `ppo_goal_cw_dep_vref1_r1_linklen` | this cycle PASS: DR0-gate own-cfg det gv 6/6, 0 term, slip/m med 1.08 (in vref1-r1's own 0.89-1.13 band); sto gv 6/6, 0 term, slip/m med ~1.03 (in 1.13-1.36 band); one det ep (idx4) is the lineage's known march-in-place fixed-draw crater (prog 0.05, slip 28.75, video-checked, no flag-leg/drag) | genuine geometric mismatch between the fixed-IK actor and real printed leg length is a safe hardware axis; not independently hardware-ready |
+| **+ 6° joint-placement noise AND 0.03m off-center CoM TOGETHER — 2nd assembly-stack 2-axis compose holds** | `ppo_goal_cw_dep_vref1_r1_placement_comshift` | this cycle PASS: DR0-gate own-cfg det gv 6/6, 0 term, slip/m med 1.28 (~13% over vref1-r1's own 1.13 det ceiling, inside ±20% tol, matches gainvar's precedent as the widest single/2-axis margin); sto gv 6/6, 0 term, slip/m med ~0.97 (in band); one det ep (idx4) same lineage march-in-place crater (video-checked, no flag-leg/drag) | two individually-PASSed assembly-tolerance axes stay benign paired, same pattern as comshift+deadband/fric+groundtilt5; not independently hardware-ready |
 
 Parent `ppo_goal_cw_dep_vref1_r1` itself (contract-exact obs + 25° tilt, no start-variation) PASSed a separate cycle 08-10 ~05:55: own-cfg det+sto 6/6 gv, vel_err/slip match-or-beat the pre-contract champion on an identical eval config — velocity estimator/temporal actor is NOT a P0 prerequisite for hardware attempt #2. It is the current fallback base for hardware attempt #2 (start-variation compose `cw-dep-startvar1-r1`/`-s1` FAILED hard — real sacrificed leg, declining reward; isolation ablation `-noZD1` FAILED its own gate too; second isolation arm `-noBS1` (bad_start_prob removed) FAILED too but partially recovered — 4/6 det episodes clean vs r1's 0/6, no flag leg, but 2/6 still catastrophic-skate — bad_start_prob is A contributor, not the sole cause; see rl_docs/runs/).
 
@@ -183,6 +185,21 @@ Parent `ppo_goal_cw_dep_vref1_r1` itself (contract-exact obs + 25° tilt, no sta
   med 1.18, DR0 det gv 6/6 slip 1.08). Quad line stays on the
   privileged-velocity `quad-hold2` checkpoint for now; a contract-exact
   quad graft is deferred behind the P0 walk hardware ladder.
+- **Quad-hold graft on the contract-exact base RECOVERS with more
+  training, refuting the structural-cap worry: `ppo_goal_cw_dep_quad1_c2`
+  (+12M steps on quad1's own checkpoint, same recipe).** Training-eval
+  height_err_end_mm keeps falling monotonically and clears the ≤20mm
+  gate at the final TWO logged checkpoints (10.0M step: 3.7mm; 12.0M
+  step: 2.86mm — quad1 itself plateaued at 31-60mm over its whole run);
+  survived_frac 1.0 throughout; track_err_deg improves, not worsens
+  (1.75°→1.49°). Walk-mode retention: own-cfg det gv 6/6, 0 term,
+  slip/m med 1.17 (≤1.35 gate), video clean six-leg gait. Caveat: sto
+  walk retention showed one genuine flag-leg episode (sacrificed_legs
+  [3,5], gv 5/6) distinct from the lineage's usual march-in-place-only
+  crater — not gating (gate is det-only) but worth a re-check if this
+  checkpoint becomes a further quad-line base. Quad-mode height control
+  under the honest-obs contract was under-trained, not capped by
+  removing privileged velocity.
 
 ## Architecture (temporal-arch line)
 

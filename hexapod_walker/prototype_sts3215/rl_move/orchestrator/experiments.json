@@ -56632,7 +56632,7 @@
       "dr.com_offset_m=0.03"
     ],
     "created": "2026-08-10T17:05:11+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -56671,7 +56671,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-quad1-c2-cw-dep-vref1-r1-linklen-cw-dep-vref1-r1-plac since 2026-08-10T18:03:29"
+    "triage": "done",
+    "verdict": "PASS (if-true): the two individually-benign mechanical axes (6deg joint-placement/assembly noise + 0.03m off-center CoM) stay benign COMBINED, same pattern as comshift+deadband and fric+groundtilt5. DR0-gate own-cfg det+sto: det gv 6/6, 0 term, slip/m median 1.28 (sorted [0.96,1.00,1.14,1.41,1.46,29.67], last is the lineage's known fixed-draw march-in-place crater at idx4, video-confirmed no flag-leg/drag) -- ~13% over vref1-r1's own 1.13 det ceiling, inside the +-20% tolerance (matches gainvar's precedent as the widest-margin single axis); sto gv 6/6, 0 term, slip/m med ~0.97, in band. Video (det ep0 clean six-leg gait, det ep4 crater) matches every prior PASSed sibling compose. Second real assembly-tolerance-stack axis (after comshift+deadband) clears clean.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-linklen",
@@ -56739,7 +56741,7 @@
       "dr.link_len_leg_pct=0.012"
     ],
     "created": "2026-08-10T17:06:27+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -56778,7 +56780,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-quad1-c2-cw-dep-vref1-r1-linklen-cw-dep-vref1-r1-plac since 2026-08-10T18:03:29"
+    "triage": "done",
+    "verdict": "PASS (if-true): 3D-print/assembly leg-length error (2% global scale + 1.2% per-leg spread) composes free onto the hardware-contract-exact base, same as every other structural/mechanical axis tested. DR0-gate own-cfg det+sto: det gv 6/6, 0 term, slip/m median 1.08 (sorted [0.91,0.99,1.06,1.10,1.27,28.75], the last is the lineage's known fixed-draw march-in-place crater at idx4, video-confirmed no flag-leg/drag) -- within vref1-r1's own 0.89-1.13 det band; sto gv 6/6, 0 term, slip/m med ~1.03, in the 1.13-1.36 sto band. Video (det ep0 clean six-leg gait, det ep4 crater) matches every prior PASSed sibling compose exactly. Leg-length manufacturing tolerance clears as a safe hardware axis.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-contactstiff",
@@ -57201,7 +57205,7 @@
       "reward.k_current=0.0"
     ],
     "created": "2026-08-10T17:31:40+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -57240,7 +57244,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-quad1-c2-cw-dep-vref1-r1-linklen-cw-dep-vref1-r1-plac since 2026-08-10T18:03:29"
+    "triage": "done",
+    "verdict": "PASS (if-true confirmed): more training does resolve quad1's height-control gap, it was under-trained, not structurally capped by the honest-obs contract. Training curve: eval/quad/height_err_end_mm falls monotonically through the extension and clears the <=20mm gate at BOTH final logged checkpoints (10.0M step 3.7mm, 12.0M step 2.86mm, vs quad1's own plateau at 31-60mm over its whole run); survived_frac 1.0 throughout, track_err_deg keeps improving (1.75->1.49deg), not climbing. Walk-mode retention: own-cfg det gv 6/6, 0 term, slip/m med 1.17 (<=1.35 gate), video clean six-leg gait both a clean episode and the lineage's known march-in-place fixed-draw crater (no flag-leg/drag). Caveat (not gating, det is): sto walk retention hit ONE genuine flag-leg episode (sacrificed_legs [3,5], gv 5/6) distinct from the usual march-in-place-only crater -- worth a second look if this checkpoint becomes a base for further quad composes.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-vref1-r1-torquescale-gyronoise",
@@ -57348,7 +57354,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-10T18:18:41"
   },
   {
     "run": "cw-dep-startvar1-placementonly",
@@ -58228,6 +58235,118 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-cmddrop-velscale --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_cmddrop_velscale --notes 'respec of cw-dep-vref1-r1-cmddrop: Plain English: does the checkpoint headed for tonight'\"'\"'s hardware attempt still walk cleanly if two different kinds of actuator-bus unreliability happen together -- dropped serial packets (the servo just holds its last position for a tick) AND a wrong assumption about the servo'\"'\"'s top speed (today'\"'\"'s finding: loaded peak velocity is 1.6-2.2x the sim'\"'\"'s air-fit ceiling)? Both PASSed alone on vref1-r1 but never together, and both are properties of the SAME physical actuator/bus stack, unlike pairs that combine unrelated subsystems (e.g. floor tilt + friction). Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- actuator-uncertainty composes free like every other axis pairing tonight. If-false: stale commands plus a wrong speed ceiling interact badly (plausible: a dropped tick forces a bigger catch-up move right when the speed ceiling is also uncertain) -- flag as a real pre-attempt-#2 risk tied directly to today'\"'\"'s loaded-actuator finding.' --cfg-set dr.latency_scale=0.5,2.5 --cfg-set reward.k_current=0 --cfg-set dr.cmd_drop_prob_max=0.05 --cfg-set dr.vel_scale=0.6,2.2 > /tmp/train_cw-dep-vref1-r1-cmddrop-velscale.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-cmddrop-velscale.log",
     "wandb_id": "ld20fp7m",
-    "verified": "2026-08-10T18:12:16+00:00"
+    "verified": "2026-08-10T18:12:16+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T18:18:12+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5698,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-dep-vref1-r1-gainvar-legmass",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if two properties of THIS SPECIFIC ROBOT UNIT combine -- wider per-joint servo gain spread (kp/kv) AND per-leg build tolerance (mass jitter + per-leg link-length error)? Both PASSed alone on vref1-r1 (gainvar: kp 0.20->0.40/kv 0.25->0.50; legmass: leg_mass_jitter 0.10->0.20/link_len_leg 0.012->0.025) but never together -- unlike axes that model the ENVIRONMENT (floor, IMU mount), these two are both fixed manufacturing/assembly properties of the one physical unit being tested, so they co-occur by construction on real hardware. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- unit-level manufacturing variation composes free like every other axis pairing tonight. If-false: combined actuator+structural variation degrades the gait beyond either alone -- flag as a real per-unit calibration risk before the operator's hardware attempt.",
+    "gate": "own-cfg (DR0.35 + dr.kp_scale_pct=0.40 + dr.kv_scale_pct=0.50 + dr.leg_mass_jitter_pct=0.20 + dr.link_len_leg_pct=0.025) det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1's own band +-20%; DR0-no-override retention det 6/6 gv reproducing vref1-r1's own band; video frames watched det+sto",
+    "parent": "cw-dep-vref1-r1-gainvar",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_gainvar_legmass",
+      "--notes",
+      "respec of cw-dep-vref1-r1-gainvar: Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if two properties of THIS SPECIFIC ROBOT UNIT combine -- wider per-joint servo gain spread (kp/kv) AND per-leg build tolerance (mass jitter + per-leg link-length error)? Both PASSed alone on vref1-r1 (gainvar: kp 0.20->0.40/kv 0.25->0.50; legmass: leg_mass_jitter 0.10->0.20/link_len_leg 0.012->0.025) but never together -- unlike axes that model the ENVIRONMENT (floor, IMU mount), these two are both fixed manufacturing/assembly properties of the one physical unit being tested, so they co-occur by construction on real hardware. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- unit-level manufacturing variation composes free like every other axis pairing tonight. If-false: combined actuator+structural variation degrades the gait beyond either alone -- flag as a real per-unit calibration risk before the operator's hardware attempt.",
+      "--cfg-set",
+      "dr.kp_scale_pct=0.40",
+      "--cfg-set",
+      "dr.kv_scale_pct=0.50",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.leg_mass_jitter_pct=0.20",
+      "--cfg-set",
+      "dr.link_len_leg_pct=0.025"
+    ],
+    "created": "2026-08-10T18:15:57+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 9,
+      "code_sha_local": "140c01c3f2e2db9c090443e8ad3e0c018474a3ae",
+      "code_sha_pod": "140c01c3f2e2db9c090443e8ad3e0c018474a3ae",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3355691",
+      "log_growth_bytes": [
+        8816,
+        15338
+      ],
+      "wandb_id": "u5eg0jka",
+      "global_step_window": [
+        720896,
+        2097152
+      ],
+      "fps_estimate": 15291.7
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-gainvar-legmass --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_gainvar_legmass --notes 'respec of cw-dep-vref1-r1-gainvar: Plain English: does the checkpoint headed for tonight'\"'\"'s hardware attempt still walk cleanly if two properties of THIS SPECIFIC ROBOT UNIT combine -- wider per-joint servo gain spread (kp/kv) AND per-leg build tolerance (mass jitter + per-leg link-length error)? Both PASSed alone on vref1-r1 (gainvar: kp 0.20->0.40/kv 0.25->0.50; legmass: leg_mass_jitter 0.10->0.20/link_len_leg 0.012->0.025) but never together -- unlike axes that model the ENVIRONMENT (floor, IMU mount), these two are both fixed manufacturing/assembly properties of the one physical unit being tested, so they co-occur by construction on real hardware. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- unit-level manufacturing variation composes free like every other axis pairing tonight. If-false: combined actuator+structural variation degrades the gait beyond either alone -- flag as a real per-unit calibration risk before the operator'\"'\"'s hardware attempt.' --cfg-set dr.kp_scale_pct=0.40 --cfg-set dr.kv_scale_pct=0.50 --cfg-set reward.k_current=0 --cfg-set dr.leg_mass_jitter_pct=0.20 --cfg-set dr.link_len_leg_pct=0.025 > /tmp/train_cw-dep-vref1-r1-gainvar-legmass.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-gainvar-legmass.log",
+    "wandb_id": "u5eg0jka",
+    "verified": "2026-08-10T18:19:59+00:00"
   }
 ]
