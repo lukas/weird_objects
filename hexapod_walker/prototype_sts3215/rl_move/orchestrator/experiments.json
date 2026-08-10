@@ -55215,7 +55215,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-vref1-r1-deadband-groundtilt5-cw-dep-vref1-r1-imubund since 2026-08-10T18:43:55"
   },
   {
     "run": "cw-dep-vref1-r1-gainvar",
@@ -58584,7 +58585,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-vref1-r1-deadband-groundtilt5-cw-dep-vref1-r1-imubund since 2026-08-10T18:43:55"
   },
   {
     "run": "cw-dep-vref1-r1-gainvar-torquescale",
@@ -58656,7 +58658,7 @@
       "dr.torque_scale=0.5,1.05"
     ],
     "created": "2026-08-10T18:37:05+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -58665,10 +58667,119 @@
       "code_sha_local": "2f1b88548674fe0be7863b23b5b6f39d57f17ea9",
       "code_sha_pod": "2f1b88548674fe0be7863b23b5b6f39d57f17ea9",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3844993",
+      "log_growth_bytes": [
+        7864,
+        11668
+      ],
+      "wandb_id": "axahh2hg",
+      "global_step_window": [
+        524288,
+        1507328
+      ],
+      "fps_estimate": 10922.7
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-gainvar-torquescale --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_gainvar_torquescale --notes 'respec of cw-dep-vref1-r1-gainvar: Check that the hardware-candidate walker still walks when its servos are BOTH weaker than expected AND inconsistently tuned at the same time -- the two actuator-strength uncertainties it will actually face on battery power tonight. The gainvar single-axis PASS carried the widest margin of any axis (det slip ~12% over the band edge) with an explicit pre-registered watch-item: '\"'\"'worth a second look if stacked with another actuator axis'\"'\"'; torquescale (battery-sag 0.5-1.05x) PASSed cleanly solo. This 2-axis compose (2x kp/kv gain spread + widened torque sag) on the contract-exact base cw-dep-vref1-r1 tests whether those margins stack or compound. Prediction-if-true: own-cfg det+sto gv 12/12, 0 term, slip medians within +-20% of vref1-r1'\"'\"'s band, fingerprint episodes no worse than the worst PASSed sibling (torquescale, prog 0.47-0.57). Prediction-if-false: weak-AND-mistuned servo draws push beyond the fingerprint into new craters or falls -- flags a real battery-day actuator envelope limit. Strongest alternative: creep/park to dodge weak-servo draws -- check videos, not just scalars. k_current=0 per P0 rule 3 (inherited).' --cfg-set dr.kp_scale_pct=0.40 --cfg-set dr.kv_scale_pct=0.50 --cfg-set reward.k_current=0 --cfg-set dr.torque_scale=0.5,1.05 > /tmp/train_cw-dep-vref1-r1-gainvar-torquescale.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-gainvar-torquescale.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-gainvar-torquescale.log",
+    "wandb_id": "axahh2hg",
+    "verified": "2026-08-10T18:41:03+00:00"
+  },
+  {
+    "run": "cw-dep-vref1-r1-imubias",
+    "pod": "hexapod-mjx-train-8",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if the tilt sensor has a residual calibration bias (reads a few degrees off level even after imu_calibrate), distinct from a mounting-rotation error already tested (imumount) or gyro-rate noise already tested (gyronoise)? This is the attitude-BIAS axis, validated free on the older walk champion (cw-walk-imubias3, NO-EFFECT/PASS) but never composed onto the contract-exact hardware candidate, and directly relevant to the 25deg tilt-termination safety threshold vref1-r1 depends on. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- attitude bias composes free like it did on the older champion. If-false: the bias interacts with the wide 25deg envelope in a new way on THIS checkpoint (early/late trips, or an exploit) -- flag before hardware.",
+    "gate": "own-cfg (DR0.35 + dr.imu_bias_deg=3.0) det+sto 6/6 @15s gait_valid 12/12, 0 term, slip/m within vref1-r1's own band +-20%; DR0-no-override retention det 6/6 gv reproducing vref1-r1's own band; video frames watched det+sto",
+    "parent": "cw-dep-vref1-r1-imumount",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_imubias",
+      "--notes",
+      "respec of cw-dep-vref1-r1-imumount: Plain English: does the checkpoint headed for tonight's hardware attempt still walk cleanly if the tilt sensor has a residual calibration bias (reads a few degrees off level even after imu_calibrate), distinct from a mounting-rotation error already tested (imumount) or gyro-rate noise already tested (gyronoise)? This is the attitude-BIAS axis, validated free on the older walk champion (cw-walk-imubias3, NO-EFFECT/PASS) but never composed onto the contract-exact hardware candidate, and directly relevant to the 25deg tilt-termination safety threshold vref1-r1 depends on. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1's own band -- attitude bias composes free like it did on the older champion. If-false: the bias interacts with the wide 25deg envelope in a new way on THIS checkpoint (early/late trips, or an exploit) -- flag before hardware.",
+      "--cfg-set",
+      "dr.imu_mount_deg=0.0",
+      "--cfg-set",
+      "reward.k_current=0",
+      "--cfg-set",
+      "dr.imu_bias_deg=3.0"
+    ],
+    "created": "2026-08-10T18:39:20+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-ac821317-c75c-9d4b-94db-69607eac7849)",
+      "running_experiments_before": 10,
+      "code_sha_local": "8bab1d03af7d75c976f96817e8c91a8646cfa2f4",
+      "code_sha_pod": "8bab1d03af7d75c976f96817e8c91a8646cfa2f4",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2423821",
+      "log_growth_bytes": [
+        6874,
+        12504
+      ],
+      "wandb_id": "ctvcavvt",
+      "global_step_window": [
+        524288,
+        1638400
+      ],
+      "fps_estimate": 12379.0
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-imubias --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_imubias --notes 'respec of cw-dep-vref1-r1-imumount: Plain English: does the checkpoint headed for tonight'\"'\"'s hardware attempt still walk cleanly if the tilt sensor has a residual calibration bias (reads a few degrees off level even after imu_calibrate), distinct from a mounting-rotation error already tested (imumount) or gyro-rate noise already tested (gyronoise)? This is the attitude-BIAS axis, validated free on the older walk champion (cw-walk-imubias3, NO-EFFECT/PASS) but never composed onto the contract-exact hardware candidate, and directly relevant to the 25deg tilt-termination safety threshold vref1-r1 depends on. Per P0 rule 3, k_current=0 (inherited). If-true: own-cfg det+sto 6/6 gv, 0 term, slip/m within vref1-r1'\"'\"'s own band -- attitude bias composes free like it did on the older champion. If-false: the bias interacts with the wide 25deg envelope in a new way on THIS checkpoint (early/late trips, or an exploit) -- flag before hardware.' --cfg-set dr.imu_mount_deg=0.0 --cfg-set reward.k_current=0 --cfg-set dr.imu_bias_deg=3.0 > /tmp/train_cw-dep-vref1-r1-imubias.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-imubias.log",
+    "wandb_id": "ctvcavvt",
+    "verified": "2026-08-10T18:43:15+00:00"
   }
 ]
