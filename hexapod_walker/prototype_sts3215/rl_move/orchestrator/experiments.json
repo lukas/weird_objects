@@ -53462,7 +53462,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-payload125 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_payload125 --notes 'respec of cw-dep-vref1-r1-payload: Near-miss follow-up (one, per rules) on the ONLY non-free DR axis found on the hardware candidate: payload 1.0-1.5x broke vref1-r1 (reward collapsed 665->342, det prog 0.57, real sacrificed-leg episode) while 10 sibling axes composed free. Halving the range to 1.0-1.25x asks the deployment-relevant question: is there a SAFE payload envelope for the real battery/harness mass uncertainty, or does any mass DR break the contract-exact velocity obs (obs=ref no longer matching heavier-body dynamics)? Same init/seed/DR0.35/k_current=0 as the payload arm, one variable (range). If-true: own-cfg (DR0.35+mass1.0-1.25x) gv 12/12, 0 term, slip in vref1-r1 band -> operator gets a stated payload tolerance for hardware. If-false: mass DR is fundamentally incompatible with meas:=ref velocity obs at any range -> payload-aware retraining or measured-velocity obs before adding any physical payload.' --cfg-set dr.mass_scale=1.0,1.25 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-payload125.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-payload125.log",
     "wandb_id": "tjbzfh0g",
-    "verified": "2026-08-10T15:51:25+00:00"
+    "verified": "2026-08-10T15:51:25+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-10T15:57:10+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4862,
+        "fps": 7281.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-stand-b2p1",
@@ -53810,7 +53822,7 @@
       "respec of cw-walk-wander120-dr05: Seed-robustness check for the 120s endurance rung, one variable off wander120-dr05 (seed 0->1, identical wander_dr05 parent+recipe). Motivated by wander60-dr05-s1 (same seed-twin move at the 60s rung): det was clean but sto showed a genuine sacrificed leg (duty 0.08 vs siblings 0.37-0.89, slip/m 2.11) -- an 11/12 not 12/12, so seed-dependent sto fragility is a real pattern at this DR0.5 driving line, not noise. If-true: seed 1 at 120s reproduces r1's clean PASS (gv 12/12 det+sto, 0 term, along_dist_m>=4.87m every ep, prog_ratio med>=0.85) -- the 60s sto wobble does not compound over 2 minutes. If-false: sto shows the same or a worse sacrificed-leg/low-duty pattern at 120s -- seed-dependent sto fragility is real and compounds with horizon, and the wander line needs a duty-floor income term before being called seed-robust. Strongest alternative: a milder sto dip that still clears gv 12/12 (noise, not a defect) -- report per-leg duty either way."
     ],
     "created": "2026-08-10T15:52:29+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
