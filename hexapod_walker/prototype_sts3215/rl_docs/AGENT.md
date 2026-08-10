@@ -1,7 +1,7 @@
 # AGENT.md — how the autonomous RL agent works, what we learned, what's next
 
 Handoff brief for the next human or LLM taking over this campaign.
-Read this, then: `GOAL.md` (mission), `../RL_PLAN.md` (current plan +
+Read this, then: `../RL_GOALS.md` (mission), `../RL_PLAN.md` (current plan +
 binding rulings), `../RL_LOG.md` (history), `COMMANDS.md` (how to run
 things), `../rl_move/orchestrator/README.md` (architecture details).
 Written 2026-08-09 after ~60 autonomous cycles in one day.

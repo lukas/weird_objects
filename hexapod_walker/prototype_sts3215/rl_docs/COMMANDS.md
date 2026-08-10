@@ -4,7 +4,7 @@ Distilled from mining every prior cycle transcript (2026-08-09): the
 same commands were re-derived, and the same mistakes re-made, dozens
 of times. `rl_move/orchestrator/ops.sh` implements the common
 operations — use it. Sibling docs: `rl_docs/README.md` (index),
-`rl_docs/GOAL.md` (plain-English mission), `rl_docs/EXPERIMENT_LOGS.md`
+`RL_GOALS.md` (plain-English mission), `rl_docs/EXPERIMENT_LOGS.md`
 (per-run summary.md convention).
 
 **STANDING RULE — promote what you figure out:** if a command failed,
