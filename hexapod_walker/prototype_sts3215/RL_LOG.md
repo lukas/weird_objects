@@ -497,3 +497,48 @@ open problem 3, indexed in rl_docs/README.
 - 08-10 14:58 c: 3 dig-ins under operator LAUNCH_HOLD (analyze-only), all verdicted FAIL but each fork-deciding. cw-uni-rfix-warm1 FAIL gate yet half-win: pricing fix killed the paid-freeze plateau -- lower 6/6 det posture-strict (uni-line FIRST, sto 4/6), rise 0/12 via the NEXT unpriced hole (at-height with legs 2&5 held 27-151mm aloft, video-confirmed; height income has no foot-loading term). cw-uni-rfix-fresh1 FAIL, if-true refuted: from-scratch strictly worse -- fixed tripod cheat every lower ep (legs 0/2/4 up 81-186mm) + 3 over_current terms; init is NOT the blocker, distill/two-policy fork CLOSED, uni-line stays fine-tune-graft, next arm = posture-gated rise finish. cw-walk-yawcmd1-s1 FAIL its yaw gate via NEW rl_move/sim/eval_yaw.py (committed 4847fed, reusable for rr1's pending dig-in): turn |wz_err| med 0.242 vs 0.10, right turns untracked, hold drift 0.087 vs 0.05; training walk_yaw_err flat both seeds = pre-registered if-false (free heading-hold income) -- next: yaw income gating; linear driving intact (JOYSTICK GATE PASS, own-DR0.5 gv 12/12). rr1 untouched (owned by cycle 14:51). RL_PLAN updated net-zero (problem 2 + queue 0 resolved to next arms). No refills -- HARD reason: operator LAUNCH_HOLD; 11 free slots + backlog idle by design. 
 - 08-10 15:02 OPERATOR-ORDERED launch (during hold, hold restored): cw-arch-hist16-r7-c1 = identical-config warm-start continuation of the hist16 PASS cw-arch-hist16-r7 (+40M, train-2, init md5 32269a36) per external review — capability lines match champion on stability not economy; slip caps to be re-baselined after contact calibration, so keep training the temporal line meanwhile. 
 - 08-10 15:07 c: 3 assigned. tiltnoise-r5-rr1 NO-EFFECT (5th retry finally trained; own-cfg 1.5deg tilt-noise det 4/6 healthy but eps4/5 crater matches champion's IDENTICAL fixed-draw crater under the same spread near-exactly, DR0 retention clean; sensor/calibration NO-DR-exposure ladder tally extended, SKILLS updated). torquescale-rr1-rr1 was already fully verdicted (FAIL/NO-EFFECT, duplicate of the closed torque-droop axis) by a prior cycle before this one started -- confirmed only, no re-verdict. wander120-dr05 left UNVERDICTED, flagged DIG-IN: its own-cfg DR0.5 and DR0 passes both show clean gv 12/12, 0 term, prog med 0.94-0.97, slip 1.2-1.35/m (matches/beats wander60-dr05's own band) and healthy six-leg video over the full 120s (no long-horizon drift, hypothesis if-true supported) but the pre-registered gate's literal 'det median fwd>=4.8m' criterion measures net straight-line displacement (which stays small ~1.3-1.4m under wander's frequent heading changes) rather than along-path progress (along_dist_m ~5.3m det, matching cmd_dist_m, progress_ratio 0.97-0.985) -- gate-vs-metric mismatch needs a judgment call on what the gate intended, left for the deep model with both eval dirs (cw_walk_wander120_dr05_gate + _owncfg) already generated so no re-run needed. OPERATOR LAUNCH_HOLD is active fleet-wide (triage/verdict only, file confirmed present all cycle) -- no refills attempted, all 12 slots' idle status is HARD-reasoned by the hold, not a guardrail gap. 
+
+## 2026-08-10 — walkable-height rise reference + pricing smoke (agent, operator session)
+
+Operator ruling on the stance champion's rise: "that's a terrible
+stand, we couldn't walk from that" — the ~70 mm crouch-stand is NOT
+the deliverable; the walkable ~142 mm plant stance is. Verified the
+existing bridge first (headless replay of play.py's 7-key chain, DR0
+det): rise to 70 mm → scripted 1.5 s blend to 142 mm → walk champion
+covers 608 mm in 12 s at a 50 mm/s command, zero falls. So the blend
+path works; what's missing is an RL rise that ENDS walkable.
+
+Landed (extends the 08-10 Stage-II scaffold, see RL_GOALS.md):
+
+1. `extract_rise_ref.py --blend-to-plant`: appends the validated
+   play.py blend + a plant hold to the recorded champion rise, so
+   the reference ends in the plant stance instead of the crouch.
+   Wrote `rl_move/sim/refs/rise_ref_belly2plant.npz` (seed 12,
+   T=314 @ 25 Hz, ramp_i0=126, ends +111 mm over belly, worst pad
+   clearance 0 mm, q 7.4° RMS from plant; npz carries h_rel_end_m).
+   Most seeds' blends hit env termination because THEIR episodes
+   commanded only +30–50 mm — standing to +111 blows the height-err
+   envelope; harmless for extraction (accepted seed passes clean).
+2. Plant-height rises are now commandable: `_parse_cfg_set` parses
+   `[lo,hi]` JSON lists (goal.rise_height_mm was previously
+   unsettable — float-or-string only), and arms must also raise
+   `actions.max_height_mm` (default 80 clamps below plant height).
+3. Pricing smoke `tmp_smoke_rise_ref.py` (joint_goal, flat start,
+   +108–114 mm targets, posture gate + income prog-gate + signed
+   finish gate + ref-track k=2 on belly2plant, 3 seeds each):
+   REPLAY of the demonstrated path +952 (ends +110 mm, feet down,
+   finish bonus collected) vs STILT hip0/knee80 +225 vs FREEZE
+   −195. Trying-well >> trying-badly >> not-trying — the ordering
+   the 08-10 root-cause found violated is now enforced, and
+   not-trying is net NEGATIVE. Ref-track dominates the replay
+   return (787/952) — scaffold at full weight, anneal per plan.
+
+Queued (LAUNCH_HOLD respected — backlog only, no launch):
+`cw-stand-b2p1` — warm from ppo_goal_cw_stance_dr10, joint_goal,
+stance-posture recipe + the full shaping stack + plant-height
+targets + `bus.servo_params=loaded` (rise is the high-load motion
+the loaded fit exists for). Gate: posture-strict rise ≥5/6 det at
+h_err ≤12 mm of the +105–114 target AND end_posture_ok AND lower
+retention ≥5/6. Risk noted: height obs channel extrapolates to
+2.2× its trained range (height_scale_m 0.05 unchanged for graft
+compatibility).

@@ -42,6 +42,8 @@ for p in (_PROTO, _LINUX, _LINUX / "urt2_setup"):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
+from rl_move.robot_state import DEG2RAD  # noqa: E402
+
 from .servo_model import SimServoParams  # noqa: E402
 from .train_ppo_sim import ENV_CLASSES  # noqa: E402
 
