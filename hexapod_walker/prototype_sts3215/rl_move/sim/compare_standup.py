@@ -296,9 +296,14 @@ def build_traj(strategy: str, fkm: RealLegFK, z_gnd: float,
 
 
 def reset_at_zero(env: SimHexapodBalanceEnv, *,
-                  seed: int | None = None) -> None:
+                  seed: int | None = None,
+                  torque_scale: float = 1.0) -> None:
     """Belly-down zero-pose reset (mirrors env.reset()'s settle
-    choreography and DR application, minus the goal machinery)."""
+    choreography and DR application, minus the goal machinery).
+
+    ``torque_scale`` < 1 models battery sag / weak servos on top of any
+    DR draw — needed to reproduce the hardware pinned-feet stall, which
+    requires BOTH friction and finite torque."""
     from .servo_model import apply_params_to_model
     if seed is not None:
         env.rng = np.random.default_rng(seed)
@@ -311,9 +316,10 @@ def reset_at_zero(env: SimHexapodBalanceEnv, *,
         er.apply_to_model(env.model, chassis_bid=env._chassis_bid)
         apply_params_to_model(env.model, env.params,
                               kp_scale=er.kp_scale, kv_scale=er.kv_scale,
-                              torque_scale=er.torque_scale)
+                              torque_scale=er.torque_scale * torque_scale)
     else:
-        apply_params_to_model(env.model, env.params)
+        apply_params_to_model(env.model, env.params,
+                              torque_scale=torque_scale)
     env._place_at_plant(q0)
     env._profile = ServoProfile(
         env.params, q0,
@@ -352,12 +358,13 @@ def plant_ref_height() -> float:
 def run_once(strategy: str, mu: float | None, plant_z: float,
              fkm: RealLegFK, *,
              randomize: bool = False, seed: int = 0,
+             torque_scale: float = 1.0,
              video_path: Path | None = None,
              sheet_path: Path | None = None) -> dict:
     env = SimHexapodBalanceEnv(randomize=randomize, seed=seed)
     if mu is not None:
         set_foot_ground_friction(env.model, mu)
-    reset_at_zero(env, seed=seed)
+    reset_at_zero(env, seed=seed, torque_scale=torque_scale)
 
     z_start = float(env.data.xpos[env._chassis_bid, 2])
     traj, i_push = build_traj(strategy, fkm, -z_start, env.dt)
@@ -436,6 +443,7 @@ def run_once(strategy: str, mu: float | None, plant_z: float,
     res = {
         "strategy": strategy,
         "mu": mu if mu is not None else "default(2.0)",
+        "torque_scale": torque_scale,
         "dr_seed": seed if randomize else None,
         "rise_mm": dz * 1000.0,
         "final_z_mm": z_end * 1000.0,
@@ -534,6 +542,11 @@ def main() -> None:
     ap.add_argument("--mus", type=float, nargs="*",
                     default=[0.8, 1.4, 2.0],
                     help="foot+floor slide friction values to sweep")
+    ap.add_argument("--torque-scales", type=float, nargs="*",
+                    default=[1.0], dest="torque_scales",
+                    help="actuator torque-limit scales to sweep "
+                         "(<1 = battery sag / weak servos; the pinned-"
+                         "feet stall needs friction AND finite torque)")
     ap.add_argument("--strategies", nargs="*",
                     default=["blend", "drag", "tuck", "step"])
     ap.add_argument("--no-video", action="store_true")
@@ -560,9 +573,12 @@ def main() -> None:
     results = []
     for strat in args.strategies:
         for mu in args.mus:
-            r = run_once(strat, mu, plant_z, fkm)
+          for ts in args.torque_scales:
+            r = run_once(strat, mu, plant_z, fkm, torque_scale=ts)
             results.append(r)
-            print(f"{strat:6s} mu={mu:<4} z_end={r['final_z_mm']:6.1f}mm"
+            tslab = f" tq={ts:<4}" if len(args.torque_scales) > 1 else ""
+            print(f"{strat:6s} mu={mu:<4}{tslab}"
+                  f" z_end={r['final_z_mm']:6.1f}mm"
                   f"/{r['plant_ref_z_mm']:.0f}"
                   f" slip pull/push={r['slip_pull_mm']:6.1f}/"
                   f"{r['slip_push_mm']:6.1f}mm"

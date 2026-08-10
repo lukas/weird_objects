@@ -973,6 +973,82 @@ $('rlstop').onclick = async ()=>{
   await fetch('/api/rl/stop', {method:'POST'});
   $('rlstatus').textContent = 'Stopping (holds pose; X to limp)…';
 };
+
+// ---- Stand-up lab (baked strategies from rl_move/sim/compare_standup.py) --
+let suModes = [], suSel = null, suTimer = null;
+async function suLoadModes(){
+  try{
+    const r = await fetch('/api/standup/modes', {cache:'no-store'});
+    const d = await r.json();
+    if(!d.ok){ $('sulab-desc').textContent = d.error || 'modes unavailable'; return; }
+    suModes = d.modes || [];
+    const box = $('sulab-modes'); box.innerHTML = '';
+    for(const m of suModes){
+      const b = document.createElement('button');
+      b.textContent = m.name; b.dataset.mode = m.name;
+      b.onclick = ()=> suSelect(m.name);
+      box.appendChild(b);
+    }
+    if(suModes.length)
+      suSelect(suModes.some(m=>m.name==='tuck') ? 'tuck' : suModes[0].name);
+  }catch(e){ $('sulab-desc').textContent = 'modes unavailable (link?)'; }
+}
+function suSelect(name){
+  suSel = name;
+  for(const b of $('sulab-modes').children)
+    b.classList.toggle('on', b.dataset.mode===name);
+  const m = suModes.find(x=>x.name===name);
+  $('sulab-desc').textContent = m
+    ? `${m.description} (~${m.total_s}s, ${m.keyframes} keyframes)` : '—';
+}
+function suPoll(){
+  if(suTimer) clearInterval(suTimer);
+  suTimer = setInterval(async ()=>{
+    try{
+      const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
+      const d = await r.json();
+      if(d.running && (d.name||'').startsWith('standup_')){
+        $('sulab-status').textContent = (d.progress||{}).msg || 'running…';
+      } else if(!d.running){
+        clearInterval(suTimer); suTimer = null;
+        $('sulab-go').disabled = false;
+        const res = d.result || {};
+        $('sulab-status').textContent = res.ok
+          ? `Done · ${res.mode} · peak ${res.peak_a ?? '?'} A — holding `
+            + '(X to limp)'
+          : (res.error || 'stopped — holding (X to limp)');
+      }
+    }catch(e){ /* keep polling */ }
+  }, 500);
+}
+$('sulab-go').onclick = async ()=>{
+  if(!suSel) return;
+  if(!confirm(`Robot will MOVE: stand-up "${suSel}" (robot must be `
+              + 'belly-down, legs straight out). Are you watching it?')) return;
+  $('sulab-go').disabled = true;
+  $('sulab-status').textContent = 'Starting…';
+  try{
+    const r = await fetch('/api/standup', {method:'POST',
+      body: JSON.stringify({mode: suSel,
+                            speed: parseFloat($('sulab-speed').value)})});
+    const d = await r.json();
+    if(!d.ok){
+      $('sulab-status').textContent = 'Refused: '+(d.error || 'unknown');
+      $('sulab-go').disabled = false;
+      return;
+    }
+    $('sulab-status').textContent = 'Running…';
+    suPoll();
+  }catch(e){
+    $('sulab-status').textContent = 'Start failed (link?)';
+    $('sulab-go').disabled = false;
+  }
+};
+$('sulab-stop').onclick = async ()=>{
+  await fetch('/api/standup/stop', {method:'POST'});
+  $('sulab-status').textContent = 'Stopping (holds pose; X to limp)…';
+};
+suLoadModes();
 async function rlCheck(mode){
   $('rlpreflight').textContent = 'Checking '+mode+'…';
   try{

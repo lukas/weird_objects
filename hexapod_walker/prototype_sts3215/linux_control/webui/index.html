@@ -294,6 +294,31 @@ capture while the robot is standing well.">📌 Capture plant</button>
         <code>rl_walk_weights.json</code> (walk).</div>
     </div>
   </div>
+  <div class="row">
+    <div class="pad" style="flex:1 1 700px">
+      <h2>Stand-up lab</h2>
+      <div class="hint">Sim-validated stand-up strategies (all stand
+        10/10 under domain randomization, friction 0.8–2.0). Start
+        <b>belly-down, legs straight out</b> (logical zero — same as
+        RL Stand up). The move stops itself if any servo peaks over
+        3&nbsp;A (a stall-fight means the feet are pinned — that is
+        the failure this lab exists to fix, don't grind on it).
+        <b>Watch the robot the whole time.</b></div>
+      <div class="btns seg" id="sulab-modes" style="margin-top:12px"></div>
+      <div class="hint" id="sulab-desc" style="margin-top:6px">loading…</div>
+      <div class="btns" style="margin-top:8px">
+        <label class="hint">tempo
+          <select id="sulab-speed">
+            <option value="0.5">0.5× (slow)</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+          </select></label>
+        <button id="sulab-go" class="on">⬆ Stand up (selected mode)</button>
+        <button id="sulab-stop" class="danger">■ Stop</button>
+      </div>
+      <div class="hint" id="sulab-status" style="margin-top:10px">Idle.</div>
+    </div>
+  </div>
   </div><!-- /view-rl -->
 
   <div id="view-calibrate" class="view">

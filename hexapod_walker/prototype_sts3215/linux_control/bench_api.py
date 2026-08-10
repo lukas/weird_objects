@@ -848,7 +848,7 @@ class BenchAPI:
         # pollers see running=false mid-job and give up.
         running = bool(self._demo_thread and self._demo_thread.is_alive()
                        and (self._demo_name or "").startswith(
-                           ("calibrate", "rl_")))
+                           ("calibrate", "rl_", "standup_")))
         plant = self.plant_state()
         imu = self.imu_state()
         return {
@@ -1626,7 +1626,7 @@ class BenchAPI:
 
     def standup(self, *, mode: str = "tuck", speed: float = 1.0,
                 force: bool = False, torque: int = 700,
-                abort_current_a: float = 2.4) -> dict:
+                abort_current_a: float = 3.0) -> dict:
         """Play one baked stand-up strategy (async).
 
         Starts from the ZERO pose (belly down, legs straight out) —
