@@ -56899,7 +56899,8 @@
         ]
       }
     ],
-    "checkup_note": "Watcher SUSPECT (fps 1456 < 5000 floor) triaged 17:2x UTC: trainer HEALTHY -- learning normally (ep_rew 618 @1.9M/20M, KL updates flowing), getting its full ~20-core allocation (2035% CPU), fps recovering 1456->2094 across last iterations. Root cause is node-wide contention on g142d86 (load ~260/128 vs ~80-110 on sibling nodes): our 4 trainers in-budget + controller running ~24 cores of watcher gate-evals (transient) + other-tenant load. Not killed/rebalanced: 0/12 GPU pods free, run not broken, guardrails forbid outbidding other tenants. Left running; at worst ~2k fps => 20M steps ~2.8h."
+    "checkup_note": "Watcher SUSPECT (fps 1456 < 5000 floor) triaged 17:2x UTC: trainer HEALTHY -- learning normally (ep_rew 618 @1.9M/20M, KL updates flowing), getting its full ~20-core allocation (2035% CPU), fps recovering 1456->2094 across last iterations. Root cause is node-wide contention on g142d86 (load ~260/128 vs ~80-110 on sibling nodes): our 4 trainers in-budget + controller running ~24 cores of watcher gate-evals (transient) + other-tenant load. Not killed/rebalanced: 0/12 GPU pods free, run not broken, guardrails forbid outbidding other tenants. Left running; at worst ~2k fps => 20M steps ~2.8h.",
+    "triage": "awaiting since 2026-08-10T19:04:05"
   },
   {
     "run": "cw-dep-quad1-c1",
@@ -59628,7 +59629,7 @@
       "reward.k_current=0.0"
     ],
     "created": "2026-08-10T18:59:21+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -59637,11 +59638,24 @@
       "code_sha_local": "95746fde1cee9ed57409c83975d7bc3ba76f9da4",
       "code_sha_pod": "95746fde1cee9ed57409c83975d7bc3ba76f9da4",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "242197",
+      "log_growth_bytes": [
+        8764,
+        14286
+      ],
+      "wandb_id": "52fiotsr",
+      "global_step_window": [
+        655360,
+        1703936
+      ],
+      "fps_estimate": 11650.8
     },
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-kpscale --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_kpscale --notes 'respec of cw-dep-vref1-r1: Plain English: isolate WHICH half of today'\"'\"'s gainvar compose (2x position-gain spread + 2x velocity-gain spread together, PASSED but with the widest slip margin yet -- ~12% over the tolerance band edge) is driving that margin, by widening only the position-gain (kp) spread and leaving velocity-gain (kv) at its normal DR0.35 baseline. If-true: own-cfg (DR0.35 + dr.kp_scale_pct=0.40, double nominal) det+sto 6/6 gv, 0 term, slip/m comfortably within vref1-r1'\"'\"'s own band (not near the gainvar edge) -- kp alone is not the margin driver, implicating kv or the combination. If-false: kp alone reproduces gainvar'\"'\"'s wide margin -- kp-spread is the dominant actuator-gain risk, useful before stacking it with other axes (gainvar-torquescale/legmass, already training).' --cfg-set dr.kp_scale_pct=0.40 --cfg-set reward.k_current=0.0 > /tmp/train_cw-dep-vref1-r1-kpscale.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-vref1-r1-kpscale.log"
+    "log": "/tmp/train_cw-dep-vref1-r1-kpscale.log",
+    "wandb_id": "52fiotsr",
+    "verified": "2026-08-10T19:03:12+00:00"
   },
   {
     "run": "cw-dep-vref1-r1-fric-s1",
@@ -60038,5 +60052,86 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-encnoise-latency-s1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_encnoise_latency_s1 --notes 'respec of cw-dep-vref1-r1-encnoise-latency: Plain English: seed-twin confirmation of tonight'\"'\"'s PASS on the combined encoder-noise + comms-latency compose (both individually-benign sensing/comms axes stay benign together) -- only tested at one training seed (11) so far, and this is one of the sensing risks most directly relevant to the real deployed bus link. Same recipe, different training seed (12), nothing else changed. If-true: seed 12 lands in/near vref1-r1'\"'\"'s own slip/m band like seed 11 did (0.96 det/1.06 sto) -- recipe confirmed, not seed luck. If-false: seed 12 shows real degradation seed 11 didn'\"'\"'t -- the combined-axis PASS was seed-fragile, flag before hardware.' --cfg-set dr.encoder_noise_deg=0.5 --cfg-set reward.k_current=0 --cfg-set dr.latency_scale=0.5,2.5 > /tmp/train_cw-dep-vref1-r1-encnoise-latency-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-vref1-r1-encnoise-latency-s1.log"
+  },
+  {
+    "run": "cw-dep-vref1-r1-fric-s1",
+    "pod": "hexapod-mjx-train-7",
+    "steps": 8000000,
+    "smoke": false,
+    "hypothesis": "Plain English: seed-twin confirmation of tonight's PASS-with-caveat friction compose (0.4-1.6x floor friction on the hardware candidate) -- the first seed (11) showed a det slip/m median (1.23) sitting ~9%% over vref1-r1's own upper band edge, inside tolerance but flagged so it isn't silently averaged away. This run reproduces the identical recipe with a different training seed (12) to check whether the elevated median is a friction-axis property (should reproduce) or seed-11 training luck (should not). If-true: seed 12 lands in/near the same elevated-but-in-tolerance band -- friction axis confirmed as a real, mild, tolerable cost, not seed noise. If-false: seed 12 lands cleanly in vref1-r1's own nominal band -- the elevated seed-11 median was training-seed luck, not a friction-driven effect.",
+    "gate": "own-cfg (DR0.35+dr.friction_scale=0.4,1.6) det+sto 6/6 @15s: gait_valid 12/12, 0 term, slip/m compared directly against the seed-11 sibling's 1.23 det/1.04 sto -- report whether it reproduces (within ~15%%) or differs; DR0 retention clean; frames watched det",
+    "parent": "cw-dep-vref1-r1-fric",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "12",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_vref1_r1_fric_s1",
+      "--notes",
+      "respec of cw-dep-vref1-r1-fric: Plain English: seed-twin confirmation of tonight's PASS-with-caveat friction compose (0.4-1.6x floor friction on the hardware candidate) -- the first seed (11) showed a det slip/m median (1.23) sitting ~9%% over vref1-r1's own upper band edge, inside tolerance but flagged so it isn't silently averaged away. This run reproduces the identical recipe with a different training seed (12) to check whether the elevated median is a friction-axis property (should reproduce) or seed-11 training luck (should not). If-true: seed 12 lands in/near the same elevated-but-in-tolerance band -- friction axis confirmed as a real, mild, tolerable cost, not seed noise. If-false: seed 12 lands cleanly in vref1-r1's own nominal band -- the elevated seed-11 median was training-seed luck, not a friction-driven effect.",
+      "--cfg-set",
+      "dr.friction_scale=0.4,1.6",
+      "--cfg-set",
+      "reward.k_current=0"
+    ],
+    "created": "2026-08-10T19:03:35+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-267bdffd-dd7f-13e3-8d8f-146232bfe703)",
+      "running_experiments_before": 10,
+      "code_sha_local": "443f8bed1b72228207adf20f86c24b12b7a0dcdc",
+      "code_sha_pod": "443f8bed1b72228207adf20f86c24b12b7a0dcdc",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-vref1-r1-fric-s1 --steps 8000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_lowgait_dr05_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_vref1_r1_fric_s1 --notes 'respec of cw-dep-vref1-r1-fric: Plain English: seed-twin confirmation of tonight'\"'\"'s PASS-with-caveat friction compose (0.4-1.6x floor friction on the hardware candidate) -- the first seed (11) showed a det slip/m median (1.23) sitting ~9%% over vref1-r1'\"'\"'s own upper band edge, inside tolerance but flagged so it isn'\"'\"'t silently averaged away. This run reproduces the identical recipe with a different training seed (12) to check whether the elevated median is a friction-axis property (should reproduce) or seed-11 training luck (should not). If-true: seed 12 lands in/near the same elevated-but-in-tolerance band -- friction axis confirmed as a real, mild, tolerable cost, not seed noise. If-false: seed 12 lands cleanly in vref1-r1'\"'\"'s own nominal band -- the elevated seed-11 median was training-seed luck, not a friction-driven effect.' --cfg-set dr.friction_scale=0.4,1.6 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-vref1-r1-fric-s1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-vref1-r1-fric-s1.log"
   }
 ]
