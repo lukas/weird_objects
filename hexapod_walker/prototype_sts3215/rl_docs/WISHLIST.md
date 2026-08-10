@@ -230,16 +230,31 @@ existing config knobs, [CODE] needs an implementation cycle first,
     per-skill champions into one deployable policy.
 24. [CODE] **Terrain** — ramps/uneven ground if the MJX scene can
     support it; flag scene work first.
+25. [CODE] **Scripted-gait sim replay diagnostic** (simplification
+    review §9, 08-10) — replay the known-good scripted gait through
+    the current simulator/actuator/contact stack. If IT develops
+    phase drift and dragging, the simulator is the bug — fix it
+    before blaming RL for desynchronized walking. Complements the
+    hardware-trace replay calibration already directed in RL_PLAN.
+26. [CODE] **Per-joint proposal/applied/q overlay** (simplification
+    review §9, 08-10) — for RL video/logs, overlay per joint: policy
+    proposal → SafetyLayer/applied target → actual q, plus foot
+    contact state. Separates impossible policy choreography from
+    actuator lag / contact-induced phase loss; also closes the
+    long-standing "previous-action = raw proposal vs post-safety
+    applied?" audit from the 08-09/08-10 GPT handoffs.
 
 ## How to use this list (binding)
 
-- A free GPU pod with no sound main-line arm takes the topmost
+- A free GPU pod with no sound main-line arm MAY take the topmost
   [READY] item not already running; [CODE] items get a dedicated
-  implementation cycle when 2+ pods would otherwise idle.
-- **More than 2 free slots = queue MULTIPLE experiments in one
-  cycle** (operator, 08-09). Pull several distinct [READY] items —
-  diverse lines, not five variants of one idea — until the free
-  slots are covered. Idle GPUs are the failure mode.
+  implementation cycle when 2+ pods would otherwise idle. Pulling
+  from here is a judgment call, not a duty: **idle compute is
+  acceptable** when the next useful work is specification, hardware
+  evidence, or code (simplification review, 08-10 — supersedes the
+  08-09 "idle GPUs are the failure mode" clause). Apply the launch
+  question from RESEARCH_RULES before every pull; when you do pull
+  several, pick diverse lines, not five variants of one idea.
 - Wishlist runs use the same rigor: `cw-<line>-<idea>` names,
   launcher-only launches, pre-registered gates, video verdicts,
   ledger (which auto-renders `rl_docs/runs/<run>.md`).
