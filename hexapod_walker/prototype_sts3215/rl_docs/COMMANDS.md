@@ -26,6 +26,7 @@ leave the next agent to rediscover it.
 | What's queued to launch? | `launch_run.py backlog list` |
 | Queue a seed/rung/variant of an existing run | `launch_run.py respec --from <run> --run <new> [--seed N] [--arg='--flag=v'] [--cfg k=v] --hypothesis … --gate …` — clones the ledger args; never re-type them |
 | A past run's story | `rl_docs/runs/<run>.md` |
+| Yaw-command tracking (yawcmd lineage gate) | `python3 -m rl_move.sim.eval_yaw <ckpt> --cfg-set … [--out j.json]` — scripted turn panel; reports turn-segment \|wz_err\| med, hold \|wz\| med, falls (harness has no wz fields) |
 | Are results being lost/ignored? | `ops.sh triage [hours]` |
 | Finished but not yet analyzed? | ledger `triage` field (watcher-stamped: `awaiting…` → `in-cycle…` → `done` on verdict); shown on the status page "Analysis pipeline" |
 | Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |

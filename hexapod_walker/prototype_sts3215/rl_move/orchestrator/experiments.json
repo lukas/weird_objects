@@ -50530,7 +50530,7 @@
       "goal.walk_yaw_zero_frac=0.5"
     ],
     "created": "2026-08-10T06:42:10+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -50571,7 +50571,9 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-uni-rfix-fresh1-cw-uni-rfix-warm1-cw-walk-yawcmd1-s1 since 2026-08-10T14:21:37"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL the yaw-tracking gate -- the run's actual purpose -- via the NEW eval_yaw panel (tool landed this cycle, rl_move/sim/eval_yaw.py; reusable for parent rr1). OBSERVATIONS: commanded-turn |wz_err| med 0.242 rad/s vs gate 0.10; right turns essentially untracked (err 0.378 at cmd -0.3 = |cmd|+drift), left only partially (0.098 at +0.15); turn-in-place both directions fails (0.22/0.35); heading-hold |wz| med 0.087 vs gate 0.05 (persistent ~5 deg/s drift); 0 falls anywhere incl yaw-flip stress. Independent confirmation from training telemetry: env/walk_yaw_err FLAT 0.138->0.130 rad/s first-to-last quarter (same in seed-0 rr1) with reward_walk_yaw comfortable at 0.66 throughout -- the channel was never learned. Everything else held: JOYSTICK GATE PASS (0 falls, trk_err 0.029), own-DR0.5 gv 12/12 prog med 0.98/0.99 slip 1.49/1.64 (lineage band), DR0 gate gv 12/12 (slip 1.28 vs 1.25 boilerplate cap -- moot). INTERPRETATION: the pre-registered if-false branch fired exactly as written: parked-yaw/heading-hold free income dominates -- with walk_yaw_zero_frac=0.5 half the ticks pay near-full kernel for doing nothing, and yaw_sigma 0.15 still pays ~0.28 at err 0.24, so ignoring wz_ref costs little. Not a seed issue (both seeds identical). VERDICT: FAIL; escalate per the hypothesis's own plan to yaw income gating (WISHLIST item 3 risk note) -- e.g. progress-gate the yaw kernel on signed wz toward wz_ref, the same worth-less-by-construction mechanism as walk_kernel_prog_gate. Linear driving is intact; the checkpoint is NOT a turning policy. HYPOTHESIS STATUS: refuted on the if-false branch, cleanly."
   },
   {
     "run": "cw-quad-hold2-lowgait",
@@ -52390,7 +52392,7 @@
       "From-scratch control for the uni-line rise/lower DIG-IN, with the 08-10 rise/lower pricing fixes on. Pairs with cw-uni-rfix-warm1 (same env/mix/pricing, warm-started)."
     ],
     "created": "2026-08-10T13:50:03+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -52428,7 +52430,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-uni-rfix-fresh1-cw-uni-rfix-warm1-cw-walk-yawcmd1-s1 since 2026-08-10T14:21:36"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL, and the if-true branch is refuted: from-scratch is strictly WORSE than the warm start, not better. OBSERVATIONS: 0/12 posture-strict (rise 0/6, lower 0/6 det); every lower episode is the same fixed tripod -- legs 0/2/4 held 81-186mm up (duty 0.07-0.23) while h_err hits 0.5-3.2mm and banks ~+400/ep; rise episodes cheat the same way plus 3/6 over_current terminations (cur_max 2.5-2.6A); video shows legs pointed skyward, body propped on 3 legs. Training reward climbed steadily 47->201 -- all of it kernel-farming on the unpriced end-posture hole. INTERPRETATION: init is NOT the uni-line blocker (warm1's lower went 6/6 on the same pricing). Both arms exploit the same hole -- height income with no foot-loading requirement -- and the from-scratch policy, unconstrained by a walking prior, collapses fully into it and into over-current territory. The walking prior is protective, not blinding; the measured height-channel 'blindness' (dA/d(height_ref) 0.22x) was overcome by fine-tuning. VERDICT: FAIL; closes the distill/two-policy argument for now (evidence: warm1 lower 6/6 vs fresh1 0/6). The 'walk-env rise task broken' alternative is also narrowed: lower is learnable in this env, rise fails for the named pricing reason in BOTH arms. HYPOTHESIS STATUS: refuted (if-true); the pre-registered both-fail branch is superseded by warm1's partial pass."
   },
   {
     "run": "cw-uni-rfix-warm1",
@@ -52504,7 +52508,7 @@
       "reward.rise_income_prog_gate=1.0"
     ],
     "created": "2026-08-10T13:51:24+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -52543,6 +52547,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-uni-rfix-fresh1-cw-uni-rfix-warm1-cw-walk-yawcmd1-s1 since 2026-08-10T14:21:37"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL its gate (rise 0/12 posture-strict) but fork-deciding. OBSERVATIONS: lower det 6/6 (h_err med 2.2mm, all pads down; sto 4/6) -- FIRST posture-strict lower on the uni-line, off the walk-champion warm start; rise 0/6 det + 0/6 sto: bridge starts finish at height (h_err 4.9-11.4mm) with legs 2&5 held 27-151mm aloft (duty 0.00-0.13, video-confirmed), crouch/flat starts miss height outright (47-58mm); 0 terms. Training reward -64->+59 quarters. INTERPRETATION: the c69/c71 pricing fix (rise_finish_gate_signed + rise_income_prog_gate) demonstrably killed the paid-freeze plateau -- lower is now solved warm. Rise is blocked by a SECOND, now-named pricing hole: rise income+finish pay body height only; end-posture (all feet loaded) is unpriced in training while the harness gates on it, so unloading 2 legs is free and even avoids k_drag_loaded exposure. Chain: flag-legs-at-finish <- height-only income <- finish not gated on end_posture <- no sim defect. VERDICT: keep fine-tune-grafting (distill/two-policy NOT justified: warm start beat from-scratch, see cw-uni-rfix-fresh1); next arm = posture-gated rise finish (gate finish bonus + late income on all-feet-ground-contact, mirroring harness end_posture_ok). HYPOTHESIS STATUS: partially confirmed -- pricing was THE blocker for lower; rise has one more hole."
   }
 ]
