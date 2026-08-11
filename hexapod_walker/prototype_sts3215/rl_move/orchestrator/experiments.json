@@ -73302,7 +73302,7 @@
       "0.01"
     ],
     "created": "2026-08-11T22:30:38+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73311,11 +73311,24 @@
       "code_sha_local": "4bd0a566f299ab075744e28fde33ffacda3f5733",
       "code_sha_pod": "4bd0a566f299ab075744e28fde33ffacda3f5733",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3936527",
+      "log_growth_bytes": [
+        1477,
+        1477
+      ],
+      "wandb_id": "cgrwl539",
+      "global_step_window": [
+        131072,
+        262144
+      ],
+      "fps_estimate": 4369.1
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-bc-ft2 --steps 2000000 --task joint_walk --gru --gru-hidden-size 256 --init-from rl_move/sim/policies/ppo_goal_cw_gru_bc.zip --n-steps 256 --n-envs 256 --batch-size 8192 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --out-name ppo_goal_cw_arch_gru_bc_ft2 --impl warp --host-workers 24 --notes 'respec of cw-arch-gru-bc-ft1: Teach the walk-champion+stand-champion GRU (already BC-distilled to do both) to keep BOTH skills while RL polishes the gait; ft1 (default lr 3e-4, target-kl 0.02, 10M steps) proved the walk-heavy finetune overwrites the imitation-learned stance (rise 0/6, hold 0/6) while walk stays clean. This arm tests whether a 3x smaller learning rate + tighter KL trust region lets PPO nudge the walk without erasing rise/hold, on a short 2M discovery budget before committing more steps.' --lr 0.0001 --target-kl 0.01 > /tmp/train_cw-arch-gru-bc-ft2.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-gru-bc-ft2.log"
+    "log": "/tmp/train_cw-arch-gru-bc-ft2.log",
+    "wandb_id": "cgrwl539",
+    "verified": "2026-08-11T22:33:24+00:00"
   }
 ]

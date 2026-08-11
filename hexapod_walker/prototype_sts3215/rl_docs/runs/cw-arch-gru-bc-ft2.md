@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-11T22:30:38+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-arch-gru-bc-ft1
+
+**wandb_id**: cgrwl539
 
 **hypothesis**: Teach the walk-champion+stand-champion GRU (already BC-distilled to do both) to keep BOTH skills while RL polishes the gait; ft1 (default lr 3e-4, target-kl 0.02, 10M steps) proved the walk-heavy finetune overwrites the imitation-learned stance (rise 0/6, hold 0/6) while walk stays clean. This arm tests whether a 3x smaller learning rate + tighter KL trust region lets PPO nudge the walk without erasing rise/hold, on a short 2M discovery budget before committing more steps.
 
