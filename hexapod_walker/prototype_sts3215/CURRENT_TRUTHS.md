@@ -22,16 +22,27 @@ both handoffs compose).
 - A successful gait rocks ±10–20° in roll/pitch. A 10° walk
   termination was too restrictive; the envelope is 25° plus
   directional angular-rate safety logic (never bare gyro magnitude).
-- Walking is CHEAPER than standing on hardware (0.33–0.45 A mean
-  total vs 0.59 A). Old sim effort/current assumptions are NOT
-  trusted; k_current=0 on hardware arms until calibrated.
+- Hardware effort (servo current registers, bus total): walking
+  0.33–0.45 A; SCRIPTED-stand hold 0.54–0.59 A (servos fighting the
+  sag from an ideal commanded pose); walk-synced plant hold only
+  ~0.11 A (cmd == settled stance → gear friction carries the load
+  nearly free). Register current tracks the cmd-vs-settled FIGHT,
+  not pose height (08-11 re-read of hw_session2 per-servo traces).
+  k_current=0 on hardware arms until register-scale pricing is
+  calibrated.
 - Contact calibration DONE (08-10, `calibrate_slip.py`): sim replay
   of the exact hardware gait travels 0.35–0.41 of commanded (real
   0.50–0.51), speed-invariant, walking current in-band — sim does
   NOT price sliding as free (it is slightly conservative); friction
-  saturates ≥1.5 so μ is not the knob. Sim hold current 0.11 A vs
-  real 0.59 A is the remaining (effort) gap — needs a holding-
-  current model fit, not a scalar.
+  saturates ≥1.5 so μ is not the knob. The "sim hold 0.11 A vs real
+  0.59 A" effort-inversion is RETRACTED (08-11,
+  `probe_hold_current.py`, logs/probe_hold_current/): it compared
+  sim MEAN-PER-SERVO to hw BUS-TOTAL (×18) at mismatched poses.
+  Pose/unit-matched, sim's |torque|-proxy OVERPRICES every condition
+  3–25x (conservative, air AND loaded params) and reproduces the
+  real walk>plant-hold ordering. Register-accurate current needs a
+  cmd-fight/deadzone model — required only before a k_current>0
+  hardware-pricing arm; NOT a joystick blocker.
 - Stand-up (08-10, scripted `/api/standup` bench): pulling loaded
   feet inward CANNOT reach the plant — blend stalled short of full
   height at only 0.57 A peak (servos give up quietly under the 70%

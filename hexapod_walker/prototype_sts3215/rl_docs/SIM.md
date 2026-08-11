@@ -110,12 +110,30 @@ so this axis is a hardening/regression floor, not the fix. Eval:
    foot–ground slide μ if a future floor demands it; DR
    friction_scale multiplies around it. Re-run the script after ANY
    contact/servo-param change (Gate 0).
-2. **Current/effort pricing inverted AT HOLD** — quantified 08-10 by
-   the same replay: sim plant-hold mean current 0.11 A vs real 0.59 A
-   (walking matches). The inversion is NOT fixable by scaling
-   (ordering flips); it needs a load-dependent holding-current model
-   fitted on the existing per-servo traces (tape CSVs + rl_stand
-   logs). Until then `k_current=0` on hardware arms stands.
+2. **Current/effort pricing at hold: the 08-10 "inversion" is
+   RETRACTED (08-11, `probe_hold_current.py`,
+   `logs/probe_hold_current/`).** The old comparison put sim
+   MEAN-PER-SERVO (0.11 A) against hardware BUS-TOTAL (0.59 A) — an
+   ×18 unit slip — AND compared different poses: the real 0.59 A is
+   the SCRIPTED-stand hold (cmd = ideal pose the loaded joints sag
+   from, servos fighting continuously), while the real walk-synced
+   plant hold reads 0.106 A total (hw_session2 per-servo registers;
+   the flailing-knee tick data shows register current tracks cmd−q
+   error, e.g. 3.9° err → 0.685 A). Pose/unit-matched probe (free
+   base, ServoProfile bus, hardware write profiles, air AND loaded
+   params): sim |qfrc|×1.2 proxy vs hw register totals — crouch hold
+   1.56 vs 0.106 A, ideal-cmd hold 1.56 vs 0.541, walk30 9.1 vs
+   0.395, rl_stand replay quarters ≈4–16 vs 0.19–0.96. Sim
+   OVERPRICES effort 3–25x in every condition (conservative: trips/
+   charges earlier than hardware would) and REPRODUCES the real
+   walk > plant-hold ordering — no inversion, no underpricing.
+   Residual (DEFERRED, not a joystick blocker): the proxy is not
+   register-accurate — real servos hold static load nearly free
+   (gear friction) and pay ∝ cmd-fight, so a register-scale model
+   needs a deadzone/cmd-error term. Fit it before any k_current>0
+   hardware-pricing arm (quiet-gait/current-economy); `k_current=0`
+   on hardware arms stands. Sim-vs-sim current comparisons in past
+   verdicts stay valid (same proxy both sides).
 3. **Hip/yaw loaded dynamics assumed**, not measured (table above).
 4. **Liftoff +roll collapse not yet reproduced in sim** — the loaded
    actuator set is the prime-suspect fix; re-run the reproduction
