@@ -224,6 +224,19 @@ tuck remains the known-good stand-up). Omni/steering lineage stays
 off the robot: transbc1 FAILED (paddle), rot-60 canonicalizer is
 sim-only until the deploy-side runner port lands.
 
+**08-11 later — BOTH deploy-side ports landed in the repo, robot
+needs a re-push before the next session:** (1) rot-60 runner port
+(commit 39d4754): full-circle walk headings, forward wedge bit-exact.
+(2) rise+hold specialist ramp fix: the on-robot 6620705c copy of
+`stand_holdbc1_hard1` carries NO goal profile, so the runner would
+feed it the LEGACY +50 mm / 4 s ramp — an out-of-distribution height
+command for a policy trained only on 108–114 mm targets. The repo's
+export now ships the trained ramp (hold 5 s / ramp 6 s / +111 mm /
+12.5 s) inside the weights meta and the runner reads it
+(`test_stand_runner.py` locks the contract). **Do not press STAND on
+the stale copy — run deploy_adb.sh (now also pushes
+rl_walk_weights.json + policies/) or re-select the fresh JSON first.**
+
 ## Finding — TFT redraws stall the entire servo link (08-10 night)
 
 Root cause of the operator's "big pause in the middle of standing"

@@ -21,7 +21,7 @@ import numpy as np
 
 
 def export(policy_path: str, out_path: str, *, name: str = "",
-           notes: str = "") -> None:
+           notes: str = "", extra_meta: dict | None = None) -> None:
     from stable_baselines3 import PPO
     import torch
 
@@ -45,6 +45,11 @@ def export(policy_path: str, out_path: str, *, name: str = "",
             "act_dim": int(pol.action_space.shape[0]),
             "hidden": [int(net[0].out_features), int(net[2].out_features)],
             "activation": "tanh",
+            # Free-form extras (e.g. the trained goal "profile" —
+            # hold/ramp/target shapes — which linux_control/rl_policy.py
+            # reads so runner constants can never drift from the config
+            # a checkpoint was actually trained with).
+            **(extra_meta or {}),
         },
         "W1": t2l(net[0].weight), "b1": t2l(net[0].bias),
         "W2": t2l(net[2].weight), "b2": t2l(net[2].bias),
@@ -80,5 +85,10 @@ if __name__ == "__main__":
                     help="display name for the robot's policy picker")
     ap.add_argument("--notes", default="",
                     help="one-line operator notes shown in the picker")
+    ap.add_argument("--extra-meta", default="",
+                    help="JSON object merged into meta (e.g. the trained "
+                         "goal 'profile' rl_policy.py reads)")
     args = ap.parse_args()
-    export(args.policy, args.out, name=args.name, notes=args.notes)
+    export(args.policy, args.out, name=args.name, notes=args.notes,
+           extra_meta=json.loads(args.extra_meta) if args.extra_meta
+           else None)

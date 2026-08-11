@@ -56,6 +56,10 @@ adb push "$SRC/mpu_probe.py" "$REMOTE/linux_control/"
 adb push "$SRC/rl_policy.py" "$REMOTE/linux_control/"
 adb push "$SRC/safe_zero.py" "$REMOTE/linux_control/"
 adb push "$SRC/rl_policy_weights.json" "$REMOTE/linux_control/"
+adb push "$SRC/rl_walk_weights.json" "$REMOTE/linux_control/"
+# Swappable policy registry (bench_api rl_policies/rl_policy_select):
+# every exported candidate ships so the operator can A/B on the bench.
+adb push "$SRC/policies" "$REMOTE/linux_control/"
 # Stand-up lab: baked keyframes from rl_move/sim/compare_standup.py --export.
 adb push "$SRC/standup_modes.json" "$REMOTE/linux_control/"
 adb push "$SRC/vendor" "$REMOTE/linux_control/"

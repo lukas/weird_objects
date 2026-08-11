@@ -173,6 +173,22 @@ both handoffs compose).
   deliverable is COVERED by the scripted glide; the full sim joystick
   motion cycle (rise→drive→stop→sit) now composes with zero falls.
   Optional unqueued polish: BC anchor on lower ticks. rl_docs/RISE.md.
+  **08-11 late: rise+hold specialist DEPLOY PORT LANDED** — the robot
+  runner's stance slot (stand/lower buttons) now runs
+  `ppo_goal_cw_stand_holdbc1_hard1`; the trained goal-ramp profile
+  (hold 5 s / ramp 6 s / +111 mm / switch 12.5 s) ships INSIDE the
+  weights meta (export_policy_np --extra-meta) so runner constants can
+  never drift from a checkpoint's training config; legacy files keep
+  the old constants (stance_dr10 rollback = one picker call).
+  Contract-locked by `rl_move/tests/test_stand_runner.py` (live-file
+  identity, ramp==GoalGenerator, obs layout, SB3 parity); closed-loop
+  sim smoke with the DEPLOYED numpy artifacts: flat-belly rise +111 mm,
+  zero falls. deploy_adb.sh now also ships rl_walk_weights.json +
+  policies/. CAUTION: the operator independently activated a
+  PROFILE-LESS copy on the robot that morning (md5 6620705c) — it
+  would get the legacy +50mm/4s ramp, out-of-distribution for this
+  policy; re-push/re-select before STAND (HARDWARE.md bench-state
+  note). Awaiting bench validation (attempt #2).
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so

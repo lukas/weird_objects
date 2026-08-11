@@ -11,9 +11,19 @@ constants below for its hardware caveats).
   prev_action(18), goal(9)) with q_nom = the pose read at arm time.
 - action in [-1,1]^18 -> absolute joint targets via the AXIS_LIMITS_DEG
   center/half-range map (same as sim joint_task.action_to_q_rad).
-- goal height ramps copied from the training GoalGenerator:
+- goal height ramps mirror the training GoalGenerator. The shape
+  (hold_s / ramp_s / target_m / total_s) comes from the weight file's
+  OWN meta["profile"] (export_policy_np.py --extra-meta) so it always
+  matches the config the checkpoint trained with; legacy files without
+  a profile get the stance_dr10-era constants:
   rise  = hold 0 for 5 s (curl window), ramp to +50 mm over 4 s, hold.
   lower = hold 0 for 1 s, ramp to -45 mm over 5 s, hold, then limp.
+  The rise+hold specialist (ppo_goal_cw_stand_holdbc1_hard1, 08-11 —
+  the sim-proven learned stand-up, rl_docs/RISE.md) ships hold 5 s,
+  ramp 6 s, target +111 mm, total 12.5 s; its settled stand is in the
+  walk champion's start distribution (handoff eval: 12/12 rises handed
+  off with zero falls, scripted blend adds nothing), so the joystick
+  chain on hardware is stand -> walk -> go_zero("sit").
 - every command goes through rl_move.safety.SafetyLayer: 1.5 deg/tick
   rate clamp, joint limits, relative-tilt trip (10 deg for stand/lower,
   25 deg for walk — see WALK_MAX_TILT_DEG), sustained 2.5 A trip,
@@ -69,7 +79,12 @@ WALK_WEIGHTS_PATH = _HERE / "rl_walk_weights.json"     # walk (obs 72)
 HZ = 25.0
 DT = 1.0 / HZ
 
-# Trained trajectory shapes (rl_move/config.yaml goal section).
+# LEGACY trained trajectory shapes (stance_dr10-era rl_move/config.yaml
+# goal section). Policies exported since 08-11 carry their own trained
+# goal profile in meta["profile"] (export_policy_np.py --extra-meta) so
+# runner constants can never drift from the config a checkpoint was
+# actually trained with — see policy_profile(). These constants are the
+# fallback for weight files exported before that (e.g. stance_dr10).
 RISE_HOLD_S = 5.0      # curl window: height ref pinned at 0
 RISE_RAMP_S = 4.0
 RISE_TARGET_M = 0.050  # mid of the trained 30-70 mm range
@@ -78,6 +93,26 @@ LOWER_HOLD_S = 1.0
 LOWER_RAMP_S = 5.0
 LOWER_TARGET_M = -0.045
 LOWER_TOTAL_S = 11.0   # ends resting on the belly -> limp
+
+# mode -> legacy profile; meta["profile"][mode] overrides key-by-key.
+_LEGACY_PROFILE = {
+    "stand": {"hold_s": RISE_HOLD_S, "ramp_s": RISE_RAMP_S,
+              "target_m": RISE_TARGET_M, "total_s": RISE_TOTAL_S},
+    "lower": {"hold_s": LOWER_HOLD_S, "ramp_s": LOWER_RAMP_S,
+              "target_m": LOWER_TARGET_M, "total_s": LOWER_TOTAL_S},
+}
+
+
+def policy_profile(policy: "NumpyPolicy", mode: str) -> dict:
+    """Goal-ramp shape for ``mode``: the policy's own trained profile
+    (meta["profile"][mode], written by export_policy_np.py) over the
+    legacy constants. The rise+hold specialist
+    (ppo_goal_cw_stand_holdbc1_hard1) trained hold 5 s / ramp 6 s /
+    target 108-114 mm — NOT the legacy 5/4/50 shape; feeding it the
+    legacy ramp would command a half-height stand."""
+    prof = dict(_LEGACY_PROFILE[mode])
+    prof.update((policy.meta.get("profile") or {}).get(mode) or {})
+    return prof
 
 PREFLIGHT_MAX_TILT_DEG = 12.0
 # Start-pose gates (max per-joint |delta| from the expected pose).
@@ -178,16 +213,13 @@ def heading_in_trained_wedge(vx: float, vy: float,
     return abs(math.degrees(math.atan2(vy, vx))) <= wedge_deg
 
 
-def _height_ref(mode: str, t: float) -> float:
-    if mode == "stand":
-        if t < RISE_HOLD_S:
-            return 0.0
-        f = min(1.0, (t - RISE_HOLD_S) / RISE_RAMP_S)
-        return f * RISE_TARGET_M
-    if t < LOWER_HOLD_S:
+def _height_ref(prof: dict, t: float) -> float:
+    """Height reference at time t for a stand/lower goal profile:
+    hold 0 for hold_s, ramp to target_m over ramp_s, then hold."""
+    if t < prof["hold_s"]:
         return 0.0
-    f = min(1.0, (t - LOWER_HOLD_S) / LOWER_RAMP_S)
-    return f * LOWER_TARGET_M
+    f = min(1.0, (t - prof["hold_s"]) / prof["ramp_s"])
+    return f * prof["target_m"]
 
 
 def _walk_vel_ref(t: float, total_s: float,
@@ -431,7 +463,13 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                                  "not deployed)"))}
     else:
         policy = NumpyPolicy()
-        total_s = RISE_TOTAL_S if mode == "stand" else LOWER_TOTAL_S
+        if policy.meta.get("obs_dim") != 68:
+            return {"ok": False,
+                    "error": ("rl_policy_weights.json is not a stance/"
+                              "goal policy (obs "
+                              f"{policy.meta.get('obs_dim')} != 68)")}
+        prof = policy_profile(policy, mode)
+        total_s = float(prof["total_s"])
 
     ok, reason, details = preflight(bus, mode)
     if not ok:
@@ -536,7 +574,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             ).astype(np.float32)
         else:
             goal = TaskGoal(roll_ref=0.0, pitch_ref=0.0,
-                            height_ref=_height_ref(mode, t),
+                            height_ref=_height_ref(prof, t),
                             unload_leg=None)
             obs = build_obs(cfg, state, q_nom, prev_action, goal=goal,
                             tilt_ref=tilt_ref0)
@@ -594,10 +632,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                 if canon is not None and canon.k:
                     ref_txt += f" sec={canon.k:+d}"
             else:
-                phase = ("curl" if mode == "stand" and t < RISE_HOLD_S else
-                         "ramp" if t < (RISE_HOLD_S + RISE_RAMP_S
-                                        if mode == "stand"
-                                        else LOWER_HOLD_S + LOWER_RAMP_S)
+                phase = ("curl" if mode == "stand" and t < prof["hold_s"]
+                         else "ramp" if t < prof["hold_s"] + prof["ramp_s"]
                          else "hold")
                 ref_txt = f"href={goal.height_ref * 1000:+.0f}mm"
             on_progress({

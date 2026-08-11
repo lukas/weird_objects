@@ -779,3 +779,58 @@ OPTIONAL polish, not queued (prime directive): extend the BC anchor
 to lower ticks (reversed rise ref / glide-to-zero target) to fix the
 dangling foot if a one-policy stand/sit specialist ever matters more
 than the scripted path.
+
+### Deploy-side port (08-11 late) — the specialist is the robot's live
+### stance policy; bench validation is all that remains
+
+The RL_PLAN critical-path [CODE] item after both handoff PASSes:
+`ppo_goal_cw_stand_holdbc1_hard1` exported
+(`export_policy_np.py`, SB3↔numpy parity 2.65e-07) to
+`linux_control/policies/stand_holdbc1_hard1.json` AND copied live over
+`linux_control/rl_policy_weights.json` (the stance slot the web UI's
+STAND/LOWER buttons run).
+
+Design point, mirroring the rot60-port "no second implementation"
+rule: the runner used to hardcode the stance_dr10-era goal ramp
+(hold 5 s / ramp 4 s / +50 mm). Feeding that ramp to the specialist
+would command a half-height stand. The trained profile now rides
+INSIDE the weight file (`meta["profile"]`, new `--extra-meta` export
+flag): specialist stand = hold 5 s / ramp 6 s / target +111 mm (mid of
+the trained 108–114 band) / total 12.5 s (the handoff eval's validated
+switch point, inside the 15 s training horizon). `rl_policy.py` reads
+the profile per episode (`policy_profile()`); files without one keep
+the legacy constants, so picker rollback to `stance_dr10.json` is
+behavior-identical to the pre-port runner. Also: stance-slot obs-dim
+guard (refuses a mis-slotted file), `deploy_adb.sh` now ships
+`rl_walk_weights.json` + `policies/` (both were hand-staged before).
+
+Verification:
+- `rl_move/tests/test_stand_runner.py` (5 tests, green; full suite
+  119 pass / 6 pre-existing skips): live-file == picker-file bytes,
+  meta/profile values, runner ramp == training `GoalGenerator` rise
+  trajectory (<2 mm), 68-wide obs layout block checks (goal height
+  scaling, prev-action block), numpy-vs-SB3 parity on the source zip.
+- Closed-loop sim smoke with the DEPLOYED artifacts (numpy weights +
+  meta profile driving the env): flat-belly start, chassis 38 mm →
+  149 mm (+111 mm, exactly the commanded target), zero falls,
+  2/2 episodes.
+
+NOT an assumption after all — the OPERATOR independently exported and
+ACTIVATED the specialist in the robot's live stance slot the same
+morning (commit 1e64263, bench session 08-11, md5 6620705c; see
+HARDWARE.md "Bench state — drive session 08-11 morning"). That copy
+predates this port and carries NO profile meta, so the on-robot
+runner would feed it the LEGACY ramp: hold 5 s / ramp 4 s / **+50 mm**
+— an out-of-distribution height command for a policy trained only on
+108–114 mm targets, at a faster-than-trained ramp. **Re-push (deploy_
+adb.sh) or re-select this repo's profile-bearing export before
+pressing STAND**; the picker JSON's notes now say the same. Rollback
+either way: `POST /api/rl/policy_select {"file":"stance_dr10.json"}`
+(profile-less → legacy constants → behavior-identical to the old
+runner).
+
+Bench protocol (attempt #2 addendum): fresh set_zero, robot flat on
+belly → STAND button (operator watching, 10° trip, 2.5 A trip) →
+verify quiet hold → WALK button forward (existing captured-plant
+preflight gates the pose) → go_zero("sit"). Every episode logs
+obs+profile to CSV for offline replay parity.
