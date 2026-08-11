@@ -131,6 +131,33 @@ def _success(mode: str, term: bool, ep: dict,
     return True
 
 
+class _RecurrentPredictor:
+    """predict/reset shim for GRU (RecurrentPPO) checkpoints.
+
+    A recurrent policy evaluated through the stateless
+    ``model.predict(obs)`` path gets a fresh zero hidden state every
+    tick — that evaluates a memory-less lobotomy of the trained policy,
+    not the policy. This shim threads the hidden state across steps;
+    ``run_episode`` already calls ``.reset()`` at episode start (the
+    rot60 convention), which is exactly where the state must clear.
+    """
+
+    def __init__(self, model):
+        self.policy = model.policy
+        self.reset()
+
+    def reset(self) -> None:
+        self._state = None
+        self._episode_start = np.ones((1,), dtype=bool)
+
+    def predict(self, obs, deterministic: bool = False):
+        a, self._state = self.policy.predict(
+            obs, state=self._state, episode_start=self._episode_start,
+            deterministic=deterministic)
+        self._episode_start = np.zeros((1,), dtype=bool)
+        return a, None
+
+
 def run_episode(env, model, *, deterministic: bool, video: bool,
                 annotate, end_posture_gate: bool = False,
                 valid_plant_gate: bool = False) -> tuple[dict, list]:
@@ -545,7 +572,6 @@ def main() -> None:
                          "from the checkpoint filename")
     args = ap.parse_args()
 
-    from stable_baselines3 import PPO
     from .train_ppo_sim import _annotate_frame, _parse_cfg_set
 
     env_cls = ENV_CLASSES[args.task]
@@ -589,8 +615,15 @@ def main() -> None:
 
     def evaluate(checkpoint: Path, out: Path) -> dict:
         env = make_env()
-        model = PPO.load(checkpoint, device="cpu")
+        from .gru_policy import load_checkpoint_auto
+        model = load_checkpoint_auto(checkpoint, device="cpu")
         std = float(np.exp(model.policy.log_std.detach().numpy().mean()))
+        if getattr(model.policy, "lstm_actor", None) is not None:
+            if args.rot60:
+                raise SystemExit("--rot60 + recurrent checkpoint is not "
+                                 "implemented (sector state and hidden "
+                                 "state would need joint handling)")
+            model = _RecurrentPredictor(model)
         if args.rot60:
             from rl_move.config import cfg_get as _cg
             from .rot60 import Rot60Policy
