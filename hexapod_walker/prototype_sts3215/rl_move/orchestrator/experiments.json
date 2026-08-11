@@ -73190,7 +73190,7 @@
       "goal.walk_gait_start_frac=0.5"
     ],
     "created": "2026-08-11T22:24:16+00:00",
-    "status": "FINISHED",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73225,7 +73225,10 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "007,040: hold 2.53\u00b0, track 3.41\u00b0, unload 1.32\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.033 m/s, lower 0/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 386s (5,176 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_tall_rsi1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_dep_tall_rsi1 (md5 a82002e6)\n"
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "INFORMATIVE FAIL per its own pre-registered branch (analysis logged 08-11 22:33): probe_tall_wall steady-state walking height -77.4mm \u2014 FLAT vs the -72..-75mm wall despite 50% mid-stride tall spawns (goal.walk_gait_start_frac=0.5). Policy LEARNED to recover from tall spawns down into the crouch-splay (survived_frac 1) \u2014 robustness byproduct, not posture. Closes state-injection alongside the 6-arm pricing family; remaining levers per RL_LOG 22:33: BC-init from scripted tall gait, physics easing, or accept the tall15-h1 speed pareto.",
+    "triage": "done"
   },
   {
     "run": "cw-arch-gru-bc-ft2",
@@ -73634,7 +73637,7 @@
       "HARDWARE-DRIVEN, CODE/SPEC FIRST (operator bench 08-11 22:42, bench_blast_20260811_184229 + RL_LOG): the stand specialist port's FIRST hardware run FAILED tilt_roll at 10.2deg rel roll ~9s in, DURING THE BELLY-CURL (before the height ramp; currents low 0.27A, runner limped clean). Sim probe on the same checkpoint (6 det seeds DR0): |roll| <= 1.7deg through the whole rise \u2014 hardware rocks over the tucked legs, sim never does. Trip threshold is CORRECT (do not bump it). Suspects: loaded-knee actuator lag breaking curl symmetry + belly contact geometry. Arm: add a rise-tick ROCKING DR axis (random roll perturbation during curl/ramp ticks \u2014 tilted-belly starts and/or body-roll impulses, capped well below the 25deg envelope, tilt reference stays LEVEL so leveling is paid), default OFF, guarded rng, bank test green BEFORE launch (MDP_PREFLIGHT binding). Warm from holdbc1_hard1 with the BC-anchor stack UNCHANGED. Optional second axis: bus.servo_params=loaded on rise ticks. Parent: cw-stand-holdbc1-hard1. Gate: Rise under +-10-15deg rocking injections det >= 5/6 valid_plant with zero falls; nominal rise/hold retention matches hard1's own probe (12/12 valid_plant RSI-off incl. flat 4/4, hold 11/12); matched-parent control under identical injection; frames watched."
     ],
     "created": "2026-08-11T23:08:07+00:00",
-    "status": "FINISHED",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73670,7 +73673,10 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "ap 2/2 | canary rise_flat_a=1 rise_flat_b=1 rise_bridge_a=1 rise_bridge_b=1 rise_crouch_a=1 rise_crouch_b=1 lower_a=1 lower_b=1\n[video] logged reel (2,007,040 steps | rise:ok raise:ok hold:ok track:ok)\n[video] logged reel (final | rise:ok raise:ok hold:ok track:ok)\n[mjx-train] done: 2,000,000 steps in 339s (5,899 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_riserock1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_riserock1 (md5 1e0dae5b)\n"
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "INVALID LAUNCH, no science: the run trained a DEFAULT joint_goal config warm from hard1 \u2014 no goal-mix, no BC-anchor stack, servo_params=air, and the rocking-DR axis it exists to test WAS NEVER WRITTEN (zero rise_rock knobs in domain_rand.py/codebase; W&B resolved config confirms defaults). The operator's backlog entry was CODE-FIRST but the drain launched the stub args as-is. Hypothesis (hardware belly-curl rocking gap, 5/5 deterministic tilt_roll trips) remains UNTESTED and still queued conceptually: next action is SPECIFICATION \u2014 implement rise-tick rocking DR (guarded rng, bank green) then relaunch. Checkpoint quarantined, do not deploy or warm-start from it.",
+    "triage": "done"
   },
   {
     "run": "cw-dep-tip1-takeoff25",
@@ -73698,7 +73704,7 @@
       "HARDWARE-DRIVEN (operator bench 08-11 eve, camera sessions bench_blast_20260811_18*, RL_LOG 22:47): BOTH deployed walkers show a 20-25deg TAKEOFF roll transient right after gait start on hardware \u2014 vref1-r1 recovered one (23deg peak -> tail 0.9deg, full 6s) and fell one; tip1 tripped tilt_roll 2/3 fwd (attended 21:4x, robot's own event log) and fell its first rot60 BACKWARD run (27deg peak). Trained tipped-start DR is dose 6-18deg at prob 0.30 \u2014 BELOW the measured regime. Arm: warm from tip1, raise dr.tipped_start_prob to 0.5 and dr.tipped_start_deg to (12,25), everything else = tip1's exact resolved config (pull from its W&B config.reward_cfg / ledger extra_args). NOTE: verify --cfg-set can parse the tuple field dr.tipped_start_deg; if not, add the knob first (small domain_rand.py change, keep the guarded-rng convention + bank green). Parent: cw-dep-tip1. Gate: SCORE/tipped_recovery_success at 20-25deg injections det+sto materially above the matched parent under the IDENTICAL injection (eval_checkpoint --baseline cw-dep-tip1); DR0 walk retention unchanged (gait_valid 6/6, prog med >= 0.85, no paddle); frames watched det."
     ],
     "created": "2026-08-11T23:09:22+00:00",
-    "status": "FINISHED",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73733,6 +73739,128 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0\n[video] logged reel (2,007,040 steps | rise:ok walk:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok walk:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 342s (5,843 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_tip1_takeoff25.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_dep_tip1_takeoff25 (md5 048051d7)\n"
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "INVALID LAUNCH, no science: intended one-variable arm (dr.tipped_start_prob 0.30->0.5, dr.tipped_start_deg 6-18 -> 12-25, everything else = tip1's exact config) but the drained backlog stub carried NO cfg overrides \u2014 W&B resolved config shows default tipped_start (0.30, 6-18deg) and none of tip1's stack cfg. As trained it is a config-drifted 2M continuation of tip1, not the takeoff-transient arm. dr.* overrides verified supported by sim_env (dr.tipped_start_deg=12,25 parses); relaunching properly as cw-dep-tip1-takeoff25-r1. Checkpoint quarantined.",
+    "triage": "done"
+  },
+  {
+    "run": "cw-arch-gru-anchor1",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 10000000,
+    "smoke": false,
+    "hypothesis": "ft1 (default lr) and ft2 (lr/KL closed) both prove PPO fine-tune keeps the GRU walk cheat-free for 10M/2M steps but ERODES the BC-distilled hold (6/6 -> 0/6) and never finds rise \u2014 the exact no-gradient signature the stand track solved with action-space BC anchors (loweranchor1). This arm adds the now-recurrent-capable anchor stack to the ft1 recipe unchanged: rise ticks anchored to the state-aligned reference, hold/track to the settled pose, lower to the IK descent, walk to the command-conditioned TripodGait, stratified per-mode quotas so no skill dilutes another (anchormix1 lesson). If action supervision at the rollout hidden states holds stance while PPO polishes gait, one GRU finally walks AND sits/stands \u2014 the original operator goal; if hold still erodes under a live anchor, the eroding force is not gradient absence and the next lever is freezing.",
+    "gate": "10M forensics, det@DR0 gate cfg vs ft1 numbers: PASS if walk retention holds (det gait_valid >=5/6, med prog_ratio >=0.80, no parked-leg fingerprint) AND hold det >=4/6 (ft1: 0/6) AND lower det >=4/6 (ft1: 4/6) AND rise det >=2/6 with >=1 non-flat start (ft1 and every BC student: 0-1/6). FAIL if walk collapses to paddle (anchor competes with gait) OR hold stays <=1/6 with anchor loss converged (supervision reaches the weights but the behavior still erodes -> freeze lever, not anchor rung 2) OR rise stays 0 while train/bc_anchor_loss plateaus high (state-aligned targets unreachable for the GRU -> joint-goal pretrain lever).",
+    "parent": "cw-arch-gru-bc-ft1",
+    "track": "arch",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--gru",
+      "--gru-hidden-size",
+      "256",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_gru_bc.zip",
+      "--n-steps",
+      "256",
+      "--n-envs",
+      "256",
+      "--batch-size",
+      "8192",
+      "--ent-coef",
+      "0.01",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--goal-mix",
+      "walk=0.60,rise=0.15,lower=0.15,hold=0.10",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.5",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.6",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.1",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.2",
+      "--seed",
+      "0",
+      "--out-name",
+      "ppo_goal_cw_arch_gru_anchor1",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-arch-gru-bc-ft1: ft1 (default lr) and ft2 (lr/KL closed) both prove PPO fine-tune keeps the GRU walk cheat-free for 10M/2M steps but ERODES the BC-distilled hold (6/6 -> 0/6) and never finds rise \u2014 the exact no-gradient signature the stand track solved with action-space BC anchors (loweranchor1). This arm adds the now-recurrent-capable anchor stack to the ft1 recipe unchanged: rise ticks anchored to the state-aligned reference, hold/track to the settled pose, lower to the IK descent, walk to the command-conditioned TripodGait, stratified per-mode quotas so no skill dilutes another (anchormix1 lesson). If action supervision at the rollout hidden states holds stance while PPO polishes gait, one GRU finally walks AND sits/stands \u2014 the original operator goal; if hold still erodes under a live anchor, the eroding force is not gradient absence and the next lever is freezing.",
+      "--cfg-set",
+      "train.bc_anchor_coef=1.0",
+      "--cfg-set",
+      "train.bc_anchor_state_aligned=1.0",
+      "--cfg-set",
+      "train.bc_anchor_lookahead_s=0.5",
+      "--cfg-set",
+      "train.bc_anchor_lower=1.0",
+      "--cfg-set",
+      "train.bc_anchor_stratified=1.0",
+      "--cfg-set",
+      "reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz",
+      "--cfg-set",
+      "reward.k_rise_ref_track=2.0",
+      "--cfg-set",
+      "reward.rise_ref_sigma_deg=6.0"
+    ],
+    "created": "2026-08-11T23:30:44+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 0,
+      "code_sha_local": "9370f3a551eeb86911edec3bc7a707dfe5dd6abd",
+      "code_sha_pod": "9370f3a551eeb86911edec3bc7a707dfe5dd6abd",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2135496",
+      "log_growth_bytes": [
+        1519,
+        1519
+      ],
+      "wandb_id": "brnukxek",
+      "global_step_window": [
+        65536,
+        131072
+      ],
+      "fps_estimate": 1092.3
+    },
+    "stack": "gpu-mjx",
+    "phase": "hardening",
+    "evidence": "Mechanism validated on the stand track (cw-stand-loweranchor1: lower det 2/6 -> 6/6; anchor is the only lever that ever moved rise/hold/lower fingerprints) and the recurrent form is unit-tested (test_gru_policy.py::test_bc_anchor_recurrent: hidden states captured per pair, aux step pulls pi mean to target at visited states, single-step path bit-matches production predict) plus a local walk-env emission smoke: rise ticks emit tag0 state-aligned ref targets, hold/track tag1, lower tag2 IK descent, walk tag3 TripodGait, recovery sub-modes silent. Budget/recipe identical to ft1 (10M hardening, same warm start, diet, anti-cheat cfg) so retention is directly comparable.",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-anchor1 --steps 10000000 --task joint_walk --gru --gru-hidden-size 256 --init-from rl_move/sim/policies/ppo_goal_cw_gru_bc.zip --n-steps 256 --n-envs 256 --batch-size 8192 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --out-name ppo_goal_cw_arch_gru_anchor1 --impl warp --host-workers 24 --notes 'respec of cw-arch-gru-bc-ft1: ft1 (default lr) and ft2 (lr/KL closed) both prove PPO fine-tune keeps the GRU walk cheat-free for 10M/2M steps but ERODES the BC-distilled hold (6/6 -> 0/6) and never finds rise \u2014 the exact no-gradient signature the stand track solved with action-space BC anchors (loweranchor1). This arm adds the now-recurrent-capable anchor stack to the ft1 recipe unchanged: rise ticks anchored to the state-aligned reference, hold/track to the settled pose, lower to the IK descent, walk to the command-conditioned TripodGait, stratified per-mode quotas so no skill dilutes another (anchormix1 lesson). If action supervision at the rollout hidden states holds stance while PPO polishes gait, one GRU finally walks AND sits/stands \u2014 the original operator goal; if hold still erodes under a live anchor, the eroding force is not gradient absence and the next lever is freezing.' --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set train.bc_anchor_lower=1.0 --cfg-set train.bc_anchor_stratified=1.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_sigma_deg=6.0 > /tmp/train_cw-arch-gru-anchor1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-arch-gru-anchor1.log",
+    "wandb_id": "brnukxek",
+    "verified": "2026-08-11T23:34:02+00:00"
   }
 ]
