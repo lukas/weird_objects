@@ -1531,3 +1531,142 @@ def test_hold_fade_park_is_scraps_not_a_living(hold_fade_returns):
     assert t["flag_low"] < 0.25 * t["quiet"], (
         f"the ~120mm park collects {t['flag_low']/t['quiet']:.2f}x of "
         f"the quiet stand — the fade re-opened a paid basin: {t}")
+
+
+# --------------------------------------------------------------------------
+# HOLD bank, FEET-LOAD variant (reward.hold_feet_load=1 — from the
+# cw-stand-crouchrise1/2/3 trio, 08-11). All three crouch-dose runs
+# converged on the SAME hold cheat the two banks above cannot see: two
+# legs hover 1-19 mm up. That is below PLANT_SPEC.foot_down_mm (20 mm),
+# so the clearance-based feet count prices them as "down", and far
+# below flag_leg_mm (60 mm), so neither the hard no-flag zero nor the
+# fade fires — full income for a pose the eval's contact-duty clause
+# (touch force > 0.5 N) scores at 0.01-0.04 duty. The load gate prices
+# MEASURED touch force instead: each unloaded foot multiplies hold
+# income by hold_load_floor (0.5), so the two-leg hover earns 0.25 —
+# the fade bank's "scraps, not a living" band — while a genuinely
+# loaded six-foot stance keeps exactly 1.0.
+#
+# These tests pin (a) the hover reproduces the crouchrise signature
+# (sub-20mm clearance, near-zero contact duty, stable, un-terminated),
+# (b) the pre-fix stack REALLY is blind to it (documents the loophole),
+# (c) the load gate prices it to scraps, and (d) the honest quiet
+# stand is not taxed.
+
+HOLD_LOAD_OVERRIDES = dict(HOLD_FADE_OVERRIDES)
+HOLD_LOAD_OVERRIDES.update({
+    ("reward", "hold_feet_load"): 1.0,
+})
+
+HOVER_LEGS = (1, 4)         # the pair the crouchrise trio parked
+HOVER_LIFT_DEG = 8.0        # probe: hip -30 deg ~ 50 mm, so ~13 mm
+
+
+def _hold_load_rollout(policy: str, seed: int, overrides) -> dict:
+    """'quiet' and 'hover' with per-foot contact-duty telemetry.
+
+    hover     the crouchrise cheat class: two legs held a few mm off
+              the ground — a FROZEN pose (stillness can't charge it)
+              with all feet inside foot_down_mm (the clearance count
+              can't charge it) and nothing near the flag band (no-flag
+              can't charge it). Only measured load can.
+    """
+    env = _make_hold_env(seed, overrides)
+    env.reset()
+    q0 = env.data.qpos[env._qadr].copy()
+    q = q0.copy()
+    if policy == "hover":
+        for leg in HOVER_LEGS:
+            q[3 * leg + 1] -= HOVER_LIFT_DEG * DEG2RAD
+    act = q_rad_to_action(q)
+    total, steps = 0.0, 0
+    contact_steps = np.zeros(6)
+    lifted_clear = []
+    terminated = False
+    while True:
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        steps += 1
+        for i in range(6):
+            if env._touch_adr[i] >= 0 and \
+                    float(env.data.sensordata[env._touch_adr[i]]) > 0.5:
+                contact_steps[i] += 1
+        lifted_clear.append(max(
+            float(env.data.xpos[env._pad_bids[i], 2]) - env._pad_z_ref[i]
+            for i in HOVER_LEGS))
+        if term or trunc:
+            terminated = term
+            break
+    env.close()
+    half = lifted_clear[len(lifted_clear) // 2:]   # settled half only
+    return {"ret": total, "terminated": terminated,
+            "duty": contact_steps / max(steps, 1),
+            "lifted_clear_mm": float(np.mean(half)) * 1000.0}
+
+
+@pytest.fixture(scope="module")
+def hold_load_bank() -> dict[str, dict[str, list[dict]]]:
+    return {
+        "prefix": {p: [_hold_load_rollout(p, s, HOLD_FADE_OVERRIDES)
+                       for s in SEEDS] for p in ("quiet", "hover")},
+        "load": {p: [_hold_load_rollout(p, s, HOLD_LOAD_OVERRIDES)
+                     for s in SEEDS] for p in ("quiet", "hover")},
+    }
+
+
+def _mean_ret(rolls: list[dict]) -> float:
+    return float(np.mean([r["ret"] for r in rolls]))
+
+
+def test_hold_load_hover_matches_the_crouchrise_signature(hold_load_bank):
+    """Self-check: the scripted hover must reproduce the observed cheat
+    — lifted feet settle between clear-of-ground and foot_down_mm
+    (crouchrise ended 1-2 mm up; anywhere in (2, 18) mm fools the
+    clearance count identically), carry near-zero contact duty
+    (crouchrise read 0.01-0.04), stay stable, and never terminate."""
+    for r in hold_load_bank["prefix"]["hover"]:
+        assert 2.0 < r["lifted_clear_mm"] < 18.0, (
+            f"hover feet settle at {r['lifted_clear_mm']:.1f}mm — "
+            f"outside the sub-foot_down_mm cheat band")
+        assert max(r["duty"][i] for i in HOVER_LEGS) < 0.2, (
+            f"hover legs still carry duty {r['duty']} — not the "
+            f"zero-load park the crouchrise trio learned")
+        assert not r["terminated"], "the hover pose is not even stable"
+    for r in hold_load_bank["prefix"]["quiet"]:
+        assert min(r["duty"]) > 0.8, (
+            f"the quiet stand itself has an unloaded foot ({r['duty']})"
+            f" — the bank can't discriminate load from this start")
+
+
+def test_hold_load_prefix_stack_is_blind_to_the_hover(hold_load_bank):
+    """Documents the loophole: under the FULL pre-fix stack (still gate
+    + flag fade, the exact crouchrise config), the two-leg hover must
+    collect near-parity with the honest quiet stand. If this ever
+    fails, the loophole is closed some other way and the load gate
+    needs re-justification."""
+    q = _mean_ret(hold_load_bank["prefix"]["quiet"])
+    h = _mean_ret(hold_load_bank["prefix"]["hover"])
+    assert h > 0.85 * q, (
+        f"pre-fix stack already prices the hover ({h:.0f} vs quiet "
+        f"{q:.0f}) — the crouchrise cheat should be free here")
+
+
+def test_hold_load_gate_prices_the_hover_to_scraps(hold_load_bank):
+    """The fix: with reward.hold_feet_load=1 the hover must earn
+    decisively less than the quiet stand — out of parity and into the
+    scraps band (each unloaded foot costs x0.5 on hold income)."""
+    q = _mean_ret(hold_load_bank["load"]["quiet"])
+    h = _mean_ret(hold_load_bank["load"]["hover"])
+    assert h < 0.65 * q and h < q - 100.0, (
+        f"load gate barely moves the hover ({h:.0f} vs quiet {q:.0f})")
+
+
+def test_hold_load_gate_light_tax_on_quiet_stand(hold_load_bank):
+    """The honest quiet stand keeps ~full pay: per-foot force at this
+    robot's weight is well above hold_load_ref_n, so the product sits
+    at 1.0 and only real unloading is charged."""
+    on = _mean_ret(hold_load_bank["load"]["quiet"])
+    off = _mean_ret(hold_load_bank["prefix"]["quiet"])
+    assert on > 0.90 * off, (
+        f"hold_feet_load taxes the honest quiet stand ({on:.0f} vs "
+        f"{off:.0f} without it) — ref/floor miscalibrated.")

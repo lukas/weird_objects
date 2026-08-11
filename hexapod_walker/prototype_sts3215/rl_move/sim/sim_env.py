@@ -1333,6 +1333,49 @@ class SimHexapodBalanceEnv(_GymBase):
                 noflag_h = 1.0 if worst_h <= flag_m else 0.0
             feet_h = (n_down_h / max(float(len(clear_h)), 1.0)) ** 2 \
                 * noflag_h
+            # Measured-load gate on hold income (2026-08-11, cfg
+            # reward.hold_feet_load in [0,1], default 0 = legacy
+            # exact). The crouchrise1/2/3 trio all converged on the
+            # SAME hold cheat under this stack: two legs hover 1-19 mm
+            # up — below foot_down_mm (20 mm), so the clearance count
+            # above prices them as "down", and far below flag_leg_mm,
+            # so the no-flag fade never fires — while the eval's
+            # contact-duty clause (touch force > 0.5 N) reads them at
+            # 0.01-0.04 duty. Clearance is the wrong proxy at the
+            # bottom of its range; the gate must price MEASURED LOAD,
+            # the same signal the gate metric uses. Per-foot
+            #   s_i = max(clip(touch_N / hold_load_ref_n, 0, 1), floor)
+            # multiplied over the six feet: an all-loaded stance keeps
+            # exactly 1.0 (per-foot force >> 1 N at this robot's
+            # weight), each unloaded foot costs a factor of
+            # hold_load_floor (0.5 -> the two-leg hover earns 0.25, the
+            # fade bank's "scraps, not a living" band), and the linear
+            # ramp below ref gives partially-loaded feet a slope. The
+            # holdstill1 zero-gradient lesson doesn't apply: this
+            # plateau is only the ~2 mm to contact (crossed constantly
+            # by DR + action noise), not a 50 mm climb, and the floor
+            # keeps paid slope alive everywhere else.
+            l_load = float(cfg_get(self.cfg, "reward", "hold_feet_load",
+                                   default=0.0))
+            if l_load > 0.0:
+                f_ref = float(cfg_get(self.cfg, "reward",
+                                      "hold_load_ref_n", default=1.0))
+                floor_l = float(cfg_get(self.cfg, "reward",
+                                        "hold_load_floor", default=0.5))
+                load_h = 1.0
+                for i in range(6):
+                    if self._touch_adr[i] >= 0:
+                        f_n = max(float(
+                            self.data.sensordata[self._touch_adr[i]]),
+                            0.0)
+                        s_i = min(f_n / max(f_ref, 1e-6), 1.0)
+                    else:   # no sensor: fall back to the clearance test
+                        s_i = (1.0 if clear_h[i]
+                               <= PLANT_SPEC["foot_down_mm"] * 0.001
+                               else 0.0)
+                    load_h *= max(s_i, floor_l)
+                feet_h *= (1.0 - l_load) + l_load * load_h
+                parts["hold_load_factor"] = load_h
             still_h = 1.0
             if ref_quiet:
                 sig_qd_h = float(cfg_get(
