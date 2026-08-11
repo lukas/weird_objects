@@ -132,13 +132,24 @@ def _privileged_idx(args, n_obs: int) -> tuple[int, ...]:
     """Obs indices of the privileged measured-velocity dims (asym critic).
 
     Frame layout (walk task): [.., 2 measured-vel, (2 phase if
-    goal.walk_phase_obs)]. With obs.history_frames=K the frame repeats K
-    times (newest first), so the vel dims recur once per frame. The old
-    hardcoded (-2, -1) is the K=1, phase-off special case.
+    goal.walk_phase_obs), (1 wz_ref if goal.walk_yaw_cmd), (6 mode
+    one-hot if obs.mode_onehot)]. With obs.history_frames=K the frame
+    repeats K times (newest first), so the vel dims recur once per
+    frame. The old hardcoded (-2, -1) is the K=1, extras-off special
+    case. (walk_yaw_cmd was MISSING here until 08-11 — latent, never
+    hit: ledger audit shows only cw-walk-aac-s1b/-s1c ever passed
+    --asym-critic, both yaw/phase-off; fixed while adding the mode
+    one-hot so the tail accounting is complete.)
     """
     ov = _parse_cfg_set(getattr(args, "cfg_set", None))
     k = max(1, int(ov.get("obs.history_frames", 1)))
-    off = 4 if ov.get("goal.walk_phase_obs", 0.0) == 1.0 else 2
+    off = 2
+    if ov.get("goal.walk_phase_obs", 0.0) == 1.0:
+        off += 2
+    if ov.get("goal.walk_yaw_cmd", 0.0) == 1.0:
+        off += 1
+    if ov.get("obs.mode_onehot", 0.0) == 1.0:
+        off += 6
     if n_obs % k:
         raise SystemExit(f"obs width {n_obs} not divisible by "
                          f"history_frames {k}")

@@ -91,6 +91,47 @@ PHASE_HZ_DEFAULT = 1.0          # ~stride rate of the 0.02-0.06 lineage
 
 WZ_SCALE = 0.5            # rad/s; obs scale for the commanded yaw rate
 
+# Explicit mode/command one-hot (obs.mode_onehot=1; RL_PLAN queue 2.4,
+# the flagship-unified-policy prerequisite). Today the policy must
+# INFER the commanded skill from the reference trajectory's shape (a
+# hold and a zero-command walk look identical; rise vs lower only
+# differ in the height ramp's sign, ticks later). The flagship
+# multitask MDP gives the policy the mode as a direct input instead:
+# a 6-wide one-hot appended at the very TAIL of each obs frame (after
+# vel/phase/wz extras — same tail-append convention as wz_ref, so
+# --obs-pad-transplant can still warm-start from any narrower
+# champion). Default OFF: obs layout of every existing checkpoint is
+# bit-exact unchanged.
+#
+# Slot order is FROZEN (append-only, like checkpoints): goal-mix modes
+# map onto skill FAMILIES — attitude/stillness goals (hold/lean/track/
+# unload) all light "hold"; raise (small up-ramp from plant) rides
+# with "rise"; "turn" is RESERVED (de-scoped 08-11, no camera = no
+# front) and never lit today so a future re-scope needs no width
+# change. The leg one-hot (unload/lift) and vx/vy/wz refs still carry
+# the WITHIN-mode command exactly as before.
+MODE_ONEHOT_ORDER = ("hold", "rise", "lower", "walk", "turn", "quad")
+N_MODE_OBS = len(MODE_ONEHOT_ORDER)
+_MODE_FAMILY = {
+    "hold": "hold", "lean": "hold", "track": "hold", "unload": "hold",
+    "raise": "rise", "rise": "rise",
+    "lower": "lower",
+    "walk": "walk",
+    "quad": "quad",
+}
+
+
+def mode_onehot(mode: str) -> np.ndarray:
+    """6-wide skill-family one-hot for a goal-trajectory mode string.
+
+    Unknown/missing modes map to "hold" (the zero-reference balance
+    family) so an unconditioned probe can never light a motion bit.
+    """
+    out = np.zeros(N_MODE_OBS, dtype=float)
+    fam = _MODE_FAMILY.get(str(mode), "hold")
+    out[MODE_ONEHOT_ORDER.index(fam)] = 1.0
+    return out
+
 
 @dataclass
 class WalkGoal(TaskGoal):
@@ -205,11 +246,18 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # width change means no warm start from a non-yaw checkpoint.
         self._yaw_cmd = float(cfg_get(self.cfg, "goal", "walk_yaw_cmd",
                                       default=0.0)) == 1.0
+        # Explicit mode/command one-hot (obs.mode_onehot=1): +6 obs at
+        # the frame TAIL (see module constants). New-lineage flag like
+        # walk_yaw_cmd — the width change means no direct warm start
+        # from a non-mode checkpoint (--obs-pad-transplant works).
+        self._mode_obs = float(cfg_get(self.cfg, "obs", "mode_onehot",
+                                       default=0.0)) == 1.0
         if _gym is not None:
             self.observation_space = self._obs_space_box(
                 N_OBS - 6 + self.n_act + WALK_GOAL_DIM + N_VEL_OBS
                 + (N_PHASE_OBS if self._phase_obs else 0)
-                + (1 if self._yaw_cmd else 0))
+                + (1 if self._yaw_cmd else 0)
+                + (N_MODE_OBS if self._mode_obs else 0))
 
     def _augment_obs(self, obs: np.ndarray, *,
                      reset: bool = False) -> np.ndarray:
@@ -262,6 +310,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             wz_ref = float(getattr(goal, "wz_ref", 0.0)) \
                 if goal is not None else 0.0
             obs = np.concatenate([obs, [wz_ref / WZ_SCALE]])
+        if self._mode_obs:
+            # Skill-family one-hot, constant per episode, re-derived
+            # every tick from _goal_traj (already in mjx_host.SNAP_ATTRS
+            # — pool-restore safe by construction, no new episode attr).
+            obs = np.concatenate([obs, mode_onehot(
+                getattr(self._goal_traj, "mode", "hold")
+                if self._goal_traj is not None else "hold")])
         return obs.astype(np.float32)
 
     def _reset_begin(self, seed: int | None = None):

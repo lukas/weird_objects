@@ -61,19 +61,25 @@ def joint_perm_sign() -> tuple[np.ndarray, np.ndarray]:
 
 
 def frame_perm_sign(*, walk: bool, yaw_cmd: bool = False,
-                    phase_obs: bool = False
+                    phase_obs: bool = False, mode_onehot: bool = False
                     ) -> tuple[np.ndarray, np.ndarray]:
     """Mirror maps for ONE obs frame (no history stacking).
 
     walk=False -> the 68-obs joint_goal frame; walk=True -> the walk
-    frame (72 + 2*phase_obs + 1*yaw_cmd, tail order per
-    walk_task._augment_obs: vel_meas, phase, wz_ref).
+    frame (72 + 2*phase_obs + 1*yaw_cmd + 6*mode_onehot, tail order per
+    walk_task._augment_obs: vel_meas, phase, wz_ref, mode one-hot).
+    The mode one-hot is mirror-INVARIANT (identity perm, +1 sign):
+    every skill family — hold/rise/lower/walk/turn/quad — is
+    bilaterally symmetric as a COMMAND; the leg one-hot and vy/wz refs
+    already carry all the chirality.
     """
     width = FRAME_WALK if walk else FRAME_JOINT_GOAL
     if walk and phase_obs:
         width += 2
     if walk and yaw_cmd:
         width += 1
+    if walk and mode_onehot:
+        width += 6
     perm = np.arange(width, dtype=np.int64)
     sign = np.ones(width, dtype=np.float32)
     jp, js = joint_perm_sign()
@@ -98,16 +104,19 @@ def frame_perm_sign(*, walk: bool, yaw_cmd: bool = False,
             pos += 2
         if yaw_cmd:
             sign[pos] = -1.0        # wz_ref
+        # mode one-hot tail (if any): identity perm, +1 sign — nothing
+        # to write; perm/sign were initialized to identity above.
     return perm, sign
 
 
 def obs_perm_sign(*, walk: bool, yaw_cmd: bool = False,
-                  phase_obs: bool = False, history_frames: int = 1
+                  phase_obs: bool = False, mode_onehot: bool = False,
+                  history_frames: int = 1
                   ) -> tuple[np.ndarray, np.ndarray]:
     """Full-observation maps: the frame maps tiled over the history
     stack (frames are whole obs copies, newest first)."""
     fp, fs = frame_perm_sign(walk=walk, yaw_cmd=yaw_cmd,
-                             phase_obs=phase_obs)
+                             phase_obs=phase_obs, mode_onehot=mode_onehot)
     w = len(fp)
     k = max(int(history_frames), 1)
     perm = np.concatenate([i * w + fp for i in range(k)])
@@ -197,15 +206,17 @@ def attach_mirror(model, *, coef: float, task: str, cfg: dict | None,
         cfg_get(cfg, "goal", "walk_yaw_cmd", default=0.0)) == 1.0
     phase = walk and float(
         cfg_get(cfg, "goal", "walk_phase_obs", default=0.0)) == 1.0
+    mode = walk and float(
+        cfg_get(cfg, "obs", "mode_onehot", default=0.0)) == 1.0
     hist = int(float(
         cfg_get(cfg, "obs", "history_frames", default=1)))
     perm, sign = obs_perm_sign(walk=walk, yaw_cmd=yaw, phase_obs=phase,
-                               history_frames=hist)
+                               mode_onehot=mode, history_frames=hist)
     if len(perm) != int(obs_dim):
         raise SystemExit(
             f"mirror maps expect obs dim {len(perm)} (walk={walk} "
-            f"yaw={yaw} phase={phase} hist={hist}) but env has "
-            f"{obs_dim} — obs layout drifted, fix mirror.py first")
+            f"yaw={yaw} phase={phase} mode={mode} hist={hist}) but env "
+            f"has {obs_dim} — obs layout drifted, fix mirror.py first")
     ap, asgn = joint_perm_sign()
     model.mirror_coef = float(coef)
     model.mirror_obs_perm = perm

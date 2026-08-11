@@ -175,6 +175,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ent-coef", type=float, default=1e-3)
     ap.add_argument("--target-kl", type=float, default=0.02)
     ap.add_argument("--log-std-init", type=float, default=-1.0)
+    ap.add_argument("--net-arch", type=str, default="128,128",
+                    help="MLP hidden sizes, comma-separated (from-"
+                         "scratch and transplant builds only — a plain "
+                         "--init-from warm start keeps the parent's "
+                         "stored architecture). Flagship unified-policy "
+                         "arms use 256,256 (RL_PLAN Architecture).")
     ap.add_argument("--gru", action="store_true",
                     help="recurrent GRU actor-critic (sb3-contrib "
                          "RecurrentPPO + gru_policy.py) instead of the "
@@ -342,6 +348,7 @@ def main(argv: list[str] | None = None) -> int:
                   "(pre-artifact lineage) — continuing")
 
     tb_dir = None if run is None else str(POLICY_DIR / "tb")
+    net_arch = [int(x) for x in str(args.net_arch).split(",") if x.strip()]
     if args.init_from is not None:
         if args.obs_pad_transplant:
             # Obs-widening warm start (port of train_ppo_sim's
@@ -358,7 +365,7 @@ def main(argv: list[str] | None = None) -> int:
                 clip_range=0.2,
                 target_kl=(args.target_kl if args.target_kl > 0
                            else None),
-                policy_kwargs=dict(net_arch=[128, 128],
+                policy_kwargs=dict(net_arch=net_arch,
                                    log_std_init=args.log_std_init),
                 seed=args.seed, verbose=1, device=args.device,
                 tensorboard_log=tb_dir)
@@ -374,6 +381,11 @@ def main(argv: list[str] | None = None) -> int:
                     "--gru cannot warm-start from an MLP checkpoint "
                     f"({args.init_from}); GRU runs start from scratch "
                     "or from a previous GRU checkpoint")
+            if net_arch != [128, 128]:
+                raise SystemExit(
+                    "--net-arch has no effect on a plain --init-from "
+                    "warm start (the checkpoint carries its own "
+                    "architecture); drop the flag or start from scratch")
             model = algo_cls.load(args.init_from, env=venv,
                                   device=args.device,
                              n_steps=args.n_steps,
@@ -391,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
             gamma=0.99, gae_lambda=0.95, ent_coef=args.ent_coef,
             clip_range=0.2,
             target_kl=(args.target_kl if args.target_kl > 0 else None),
-            policy_kwargs=dict(net_arch=[128, 128],
+            policy_kwargs=dict(net_arch=net_arch,
                                log_std_init=args.log_std_init,
                                **extra_pk),
             seed=args.seed, verbose=1, device=args.device,
