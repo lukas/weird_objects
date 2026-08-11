@@ -68254,12 +68254,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "040: hold 1.07\u00b0, lean 2.63\u00b0, track 1.96\u00b0, unload 2.07\u00b0, raise 0/2, rise f2/2 b2/2 c2/2, lower 1/2, tipped 1/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 412s (4,853 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_crouchrise2.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_crouchrise2 (md5 55f8e80d)\n"
       }
-<<<<<<< Updated upstream
     ],
     "verdict": "FAIL (clean isolation, start-mix lever CLOSED per two-miss rule): crouch fix retained \u2014 gate det crouch rise 5/5 + bridge 1/1, zero falls, Imax 2.64A \u2014 but hold retention still misses with hard1 exact goal mix restored: hold det+sto valid_plant 9/12 (<10/12), hold/sto 3/6 vs hard1 5/6, and det hold parks feet 1+4 at contact duty 0.05/0.03 (crouchrise1: 0.07/0.01 identical fingerprint; hard1: all six 0.90-0.99). Only remaining delta vs hard1 is the crouch-60% start mix, so the start mix itself causes the hold-side regression. Mechanism suspect (unproven): the BC anchor reference is clock-indexed from episode start; crouch starts see belly-phase reference poses against near-plant states, teaching lifted-leg postures in plant-adjacent states that bleed into hold. Consistent with the concurrent dig-in CORRECTION on crouchrise1 (mechanism PASS, promotion DECLINED \u2014 deferring to its matched-parent RSI-off probe): both crouchrise variants fix crouch and both miss hold retention. Next lever is CODE via SPECIFICATION: state/height-aligned BC anchor for non-flat rise starts, or anchor gated off on crouch starts. ppo_goal_cw_stand_holdbc1_hard1 STAYS the stance deploy candidate; crouchrise2 banked alongside crouchrise1 as crouch-robust variants, neither to be deployed or warmed from. Gate artifacts: train-0 logs/ckpt_eval/cw_stand_crouchrise2_gate.",
     "triage": "done"
-=======
-    ]
   },
   {
     "run": "cw-arch-gru-r4",
@@ -68445,6 +68442,5 @@
     "log": "/tmp/train_cw-gait-terrain2.log",
     "wandb_id": "19yjucye",
     "verified": "2026-08-11T17:57:16+00:00"
->>>>>>> Stashed changes
   }
 ]
