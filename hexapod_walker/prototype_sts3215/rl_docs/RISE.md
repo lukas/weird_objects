@@ -938,3 +938,39 @@ in plant-adjacent states) is the sole remaining suspect, and it's
 CODE/spec work, not another training variant. `hard1` remains the
 deployed stance checkpoint; `cw-stand-holdload1`'s checkpoint is not
 promoted or warm-started from.
+
+## `cw-stand-anchorstate1` (08-11) — state-aligned BC anchor: PARTIAL mechanism confirmation, net FAIL
+
+The last remaining suspect got its own test: `train.bc_anchor_state_
+aligned=1.0` re-indexes the BC anchor every tick to the nearest
+reference pose to the robot's CURRENT joints (+0.25s pursuit
+lookahead) instead of a fixed clock, so a crouch/plant-adjacent state
+can only ever be supervised toward the planted tail of the reference
+path, never an early belly-path lifted-leg pose.
+
+Result: **first fingerprint movement in five runs.** Det-hold
+per-foot duty `[0.98, 0.04, 0.97, 0.97, 0.93, 0.99]` — leg 4
+RECOVERED (0.93 vs 0.01–0.04 in every prior arm), leg 1 still parks
+(0.04). So the state-aligned anchor moved the park where four
+pricing/dose/mix changes could not — anchor-bleed is CONFIRMED as *a*
+mechanism, not refuted, but leg 1 shows it isn't the whole story
+(candidate: the lower-bank's own documented dangling-foot incentive
+gap, see above). Cost of the fix: det flat rise stalled 62mm short
+with all feet planted (0/1 — under-drive, not a cheat: a state anchor
+only points 0.25s ahead of wherever the policy currently is, so a
+policy that stalls gets barely-moving supervision, unlike the old
+clock anchor which dragged it through regardless), and det lower
+picked up three tilt_pitch falls (2/6, front feet lifting ~30mm
+mid-descent — lower has no anchor, so this is an indirect
+shared-network effect, worse than crouchrise3's fall-free
+regression). Crouch rise itself stayed clean (det 4/4, sto 3/3), hold
+otherwise clean (det 6/6, sto 6/6).
+
+VERDICT: FAIL on gate (leg-1 duty, flat-rise stall, lower falls) but
+NOT the pre-registered dead-line (the fingerprint changed instead of
+reproducing identically) — anchor-bleed is a real, partial mechanism.
+Follow-up per pre-registration: `cw-stand-anchorstate2`, ONE axis
+(`bc_anchor_lookahead_s` 0.25→0.5) to restore flat-rise drive while
+keeping the state-locality that fixed leg 4 — already launched,
+result pending. `hard1` stays deployed; do not warm-start or deploy
+from anchorstate1.

@@ -220,6 +220,19 @@ both handoffs compose).
   refuted (start-mix, dose, reward-pricing) — the state/height-aligned
   BC anchor is the SOLE remaining suspect, by measurement not
   inference. hard1 remains deployed.
+  **08-11: the state-aligned anchor (`cw-stand-anchorstate1`) gets a
+  PARTIAL confirmation — first fingerprint movement in five runs.**
+  Re-indexing the BC anchor to the nearest reference pose to the
+  robot's current joints (not a fixed clock) RECOVERS leg 4
+  (det-hold duty 0.01→0.93) but leg 1 still parks (0.04) — anchor-
+  bleed is confirmed as *a* mechanism, not the whole story. Net FAIL
+  on gate: det flat rise stalled 62mm short (under-drive, not a
+  cheat — a state anchor only pulls 0.25s ahead of wherever the
+  policy is, so a stalled policy gets weak supervision) and det
+  lower picked up 3 tilt_pitch falls (2/6). Follow-up
+  `cw-stand-anchorstate2` (one axis, lookahead 0.25→0.5s) already
+  launched to test whether flat-rise drive and the leg-4 fix coexist.
+  Detail: rl_docs/RISE.md.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict

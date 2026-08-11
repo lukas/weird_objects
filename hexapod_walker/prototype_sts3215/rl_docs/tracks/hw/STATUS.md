@@ -50,8 +50,11 @@ unresolved blockers between the robot and reliable joystick control.
   is closed too** (`cw-stand-holdload1` — measured-foot-load income
   correctly taxes the hover per its own bank, but the identical
   legs-1+4 park reproduces anyway, det duty 0.03–0.04, `valid_plant`
-  blind to it mid-episode). State-aligned BC anchor (clock-indexed
-  anchor mis-teaches plant-adjacent states on crouch starts) is now
-  the sole remaining suspect, CODE/spec first. hard1 stays deployed.
+  blind to it mid-episode). **State-aligned BC anchor tested
+  (`cw-stand-anchorstate1`, 08-11): PARTIAL confirmation** — leg 4
+  recovers (duty 0.01→0.93) but leg 1 still parks, and the fix
+  stalls flat-start rise + adds lower falls. Follow-up
+  `cw-stand-anchorstate2` (lookahead dose, running) tests whether
+  that trade-off resolves. hard1 stays deployed. RISE.md.
 
 Detail: RL_PLAN.md queue · rl_docs/HARDWARE.md · RISE.md · GAIT.md.
