@@ -82,7 +82,20 @@ existing config knobs, [CODE] needs an implementation cycle first,
    before burning real compute. Ruling: no GRU-rung relaunch on this
    walk diet/budget shape — a recipe change (BPTT window, obs framing,
    or a different curriculum order) is required, and the rung stays
-   off the blocker list regardless.]
+   off the blocker list regardless. **08-11: the recipe change was
+   tried — `cw-arch-gru-r3` (2M from scratch, SAME mixed diet, but
+   with the full hist16-r7 anti-cheat/joystick reward stack this
+   time) also FAILED, the IDENTICAL fingerprint (det gait_valid 0/6,
+   legs parked at duty 0.02, ~0.006 m/s, video-confirmed static
+   legs; sto gait_valid 6/6 but a no-progress jitter-paddle, slip/m
+   17.4-17.5) — this fires the run's own pre-registered FAIL branch:
+   since the identical reward stack already stops this exact cheat
+   on the plain hist16 MLP, the cheat surviving here on the GRU means
+   the limitation is the recurrent net's capacity/BPTT window, not
+   reward pricing. Ruling: GRU rung FROZEN, no further reward-recipe
+   variant is licensed by this closure — the only remaining lever
+   would be an architecture-side change (window/hidden size), which
+   is explicitly off the blocker list pending the flagship.]
    Score each rung on the COMPLICATED movements, not just nominal
    walk: joystick gate incl. flips, plus rise/lower fracs once the
    unified line has a rise-capable parent to compare against.
