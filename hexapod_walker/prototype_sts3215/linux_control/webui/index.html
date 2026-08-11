@@ -239,10 +239,11 @@
       <div class="btns" style="margin-top:12px">
         <button id="rlstand" class="on">⬆ Stand up</button>
         <button id="rllower">⬇ Lower</button>
-        <button id="rlglide" title="Scripted 4.5 s glide to the captured
-plant stance (not RL — same as Drive tab ▲ Stand). Refuses if any joint
-is >25° away. Use it to square up before Capture plant or Walk.">▲ Stand
-(scripted)</button>
+        <button id="rlglide" title="Scripted (not RL) fast sequence to the
+captured plant stance — the pose Walk expects. From belly-down it runs the
+full tuck stand-up; from any standing stance it re-seats the feet by
+tripods. Use it to square up before Capture plant or Walk.">⤓ Plant
+stance (scripted)</button>
         <button id="rlcapture" title="Save the current 18-joint pose as
 the plant stance (no motion). Lower and Walk start only from this pose —
 capture while the robot is standing well.">📌 Capture plant</button>
@@ -256,11 +257,23 @@ capture while the robot is standing well.">📌 Capture plant</button>
         stance</b>. Command ramps in over 1&nbsp;s, walks, ramps out and
         holds. <b>Stop</b> aborts and holds. Keep a hand near the 12 V
         switch the first tries.</div>
-      <div class="btns" style="margin-top:12px">
-        <button id="rlwalkfwd">▲ Walk fwd</button>
+      <div style="margin-top:12px;display:grid;
+                  grid-template-columns:repeat(3,minmax(72px,1fr));
+                  gap:6px;max-width:280px">
+        <button id="rlwalkfl">↖</button>
+        <button id="rlwalkfwd">▲ Fwd</button>
+        <button id="rlwalkfr">↗</button>
         <button id="rlwalkleft">◀ Strafe L</button>
+        <button id="rlwalkback" title="Rot-60 canonicalizer maps this onto
+the trained forward wedge — same policy, body walks backward.">▼ Back</button>
         <button id="rlwalkright">▶ Strafe R</button>
+        <button id="rlwalkbl">↙</button>
+        <div></div>
+        <button id="rlwalkbr">↘</button>
       </div>
+      <div class="hint" style="margin-top:6px">All 8 headings run the same
+        walk policy — off-wedge directions are handled by the rot-60
+        canonicalizer (hexagonal symmetry), not separate training.</div>
       <div class="btns" style="margin-top:8px">
         <label class="hint">speed
           <select id="rlwalkspeed">

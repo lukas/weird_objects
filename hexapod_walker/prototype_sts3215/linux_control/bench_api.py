@@ -692,6 +692,34 @@ class BenchAPI:
                 "switched_from": switched_from,
                 "demo": self.demo_state(), "robot": self.robot_state()}
 
+    def _delta_vs_present(self, goal: list[float]
+                          ) -> tuple[float | None, int | None]:
+        """Like drive._max_delta_vs_present, but None-aware.
+
+        The first MCU round-trip after a service restart can time out
+        WHOLESALE (TFT reinit holds the link); drive's helper then
+        compares against nothing and reports worst=0.0, which made
+        pose gates pick wrong paths and silently defeated the delta
+        guard (08-11: a standing robot 'passed' the belly-down
+        guard). Retries once; returns (None, None) when the bus
+        really has no readings — callers must treat that as UNKNOWN,
+        not 'at the goal'."""
+        pairs: list = []
+        for attempt in range(2):
+            with self.drive._lock:
+                present = self.drive._read_present_pose()
+            pairs = [(j, p) for j, p in enumerate(present)
+                     if p is not None]
+            if len(pairs) >= max(1, len(goal) - 4):
+                worst, wj = 0.0, None
+                for j, p in pairs:
+                    dd = abs(float(goal[j]) - float(p))
+                    if dd > worst:
+                        worst, wj = dd, j
+                return worst, wj
+            time.sleep(0.4)
+        return None, None
+
     def go_zero(self, pose: str = "sit", *, force: bool = False) -> dict:
         """Ease to sit zero (legs out) or stand zero (walk plant).
 
@@ -734,6 +762,7 @@ class BenchAPI:
 
         # Standard stand/sit = the validated tuck keyframes at 10x
         # (operator 08-10). When the robot sits at the tuck start
+        # (see _delta_vs_present for why the gates must be None-aware)
         # (belly-down, legs out) a STAND delegates to the fast tuck
         # rise; when it is in the tuck stance a SIT delegates to the
         # reversed keyframes. Anything else falls through to the
@@ -742,16 +771,16 @@ class BenchAPI:
             kfs = self._load_standup()["modes"]["tuck"]["keyframes"]
             tuck_zero = [float(x) for x in kfs[0]["q_deg"]]
             tuck_stand = [float(x) for x in kfs[-1]["q_deg"]]
-            with self.drive._lock:
-                d_zero, _ = self.drive._max_delta_vs_present(tuck_zero)
-                d_stand, _ = (self.drive
-                              ._max_delta_vs_present(tuck_stand))
-            if pose == "stand" and d_zero <= 25.0:
+            d_zero, _ = self._delta_vs_present(tuck_zero)
+            d_stand, _ = self._delta_vs_present(tuck_stand)
+            if (pose == "stand" and d_zero is not None
+                    and d_zero <= 25.0):
                 return self.standup(mode="tuck", speed=10.0,
                                     direction="up")
             # 35 deg: knees sag ~15-20 deg holding the stance at idle
             # torque; the standup align phase eases that out safely.
-            if pose == "sit" and d_stand <= 35.0:
+            if (pose == "sit" and d_stand is not None
+                    and d_stand <= 35.0):
                 return self.standup(mode="tuck", speed=10.0,
                                     direction="down")
         except Exception:
@@ -1992,9 +2021,30 @@ class BenchAPI:
             return {"ok": False, "error": "no bus"}
         try:
             data = self._load_standup()
-            m = data["modes"][str(mode)]
-            keyframes = m["keyframes"]
-        except (OSError, ValueError, KeyError) as e:
+            if str(mode) == "plant":
+                # Synthetic mode: the tuck sequence ending exactly at
+                # the LIVE captured plant pose (what RL walk expects)
+                # instead of the tibia-vertical display stance. From
+                # a standing start it shortcuts to a single-frame
+                # path — the worker's align + tripod re-seat carry
+                # the robot onto the plant without a full sit/stand.
+                from feetech_bus import standing_pose_degrees
+                plant = [float(x) for x in standing_pose_degrees()]
+                kfs = data["modes"]["tuck"]["keyframes"]
+                q_zero = [float(v) for v in kfs[0]["q_deg"]]
+                w_plant, _ = self._delta_vs_present(plant)
+                w_zero, _ = self._delta_vs_present(q_zero)
+                if (w_plant is not None and w_zero is not None
+                        and w_plant <= 25.0 and w_plant < w_zero):
+                    keyframes = [{"q_deg": plant, "s": 0.4}]
+                else:
+                    keyframes = (kfs[:-1]
+                                 + [{"q_deg": plant, "s": 0.5}])
+                direction = "up"
+            else:
+                m = data["modes"][str(mode)]
+                keyframes = m["keyframes"]
+        except (OSError, ValueError, KeyError, ImportError) as e:
             return {"ok": False, "error": f"unknown stand-up mode: {e}"}
         if self._demo_thread and self._demo_thread.is_alive():
             if not self._preempt_demo_thread(reason="→ standup",
@@ -2017,8 +2067,13 @@ class BenchAPI:
                 (qs[i], ss[i + 1]) for i in range(len(qs) - 2, -1, -1)]
         first = frames[0][0]
         if not force:
-            with self.drive._lock:
-                worst, j = self.drive._max_delta_vs_present(first)
+            worst, j = self._delta_vs_present(first)
+            if worst is None:
+                return {"ok": False,
+                        "error": ("no encoder readings (bus warming "
+                                  "up after restart?) — cannot check "
+                                  "the start pose; retry in a few "
+                                  "seconds")}
             if worst > MAX_SAFE_DELTA_DEG:
                 where = ("this mode's standing stance (stand up with the "
                          "same mode first)" if down else
@@ -2059,11 +2114,16 @@ class BenchAPI:
             tracker = CurrentPeakTracker()
             result: dict = {"ok": False, "mode": mode,
                             "direction": direction}
+            # Worker-local copy: the down path drops the wide frame
+            # (kf_path = kf_path[1:]); assigning to the closure name
+            # `frames` would make it worker-local and blow up every
+            # earlier read (UnboundLocalError — bit us 08-11).
+            kf_path = list(frames)
             try:
                 from event_log import emit
                 emit("standup", f"{mode} {verb} x{speed:g} start",
                      data={"mode": mode, "direction": direction,
-                           "speed": speed, "keyframes": len(frames),
+                           "speed": speed, "keyframes": len(kf_path),
                            "live_ids": sorted(live)})
             except Exception:
                 pass
@@ -2071,7 +2131,7 @@ class BenchAPI:
                 self._bus_hot = True
                 _set_torque_limit(d.bus, live, torque)
                 _enable_torque(d.bus, live)
-                n = len(frames)
+                n = len(kf_path)
 
                 def guard_msg() -> str:
                     return (f"stopped: {tracker.peak_a:.2f} A peak on "
@@ -2099,6 +2159,29 @@ class BenchAPI:
                     stall_prev = now
                     return hit
 
+                def _replant(target_q: list[float]) -> bool:
+                    """Re-seat all six feet at target_q, one tripod
+                    at a time. Loaded feet cannot slide sideways
+                    against ground friction (sim-validated) — lifting
+                    is the only way to move them. Lift via hip -6 /
+                    knee +6: near tibia-vertical a knee-only lift
+                    barely clears the floor (cos ~ 0), the hip raise
+                    gives ~9 mm."""
+                    for legs in ((0, 2, 4), (1, 3, 5)):
+                        if self._demo_abort.is_set():
+                            return False
+                        q_lift = list(target_q)
+                        for lg in legs:
+                            q_lift[3 * lg + 1] -= 6.0
+                            q_lift[3 * lg + 2] += 6.0
+                        _write_pose(d.bus, q_lift, live,
+                                    speed=400, acc=50)
+                        time.sleep(0.4)
+                        _write_pose(d.bus, target_q, live,
+                                    speed=300, acc=40)
+                        time.sleep(0.45)
+                    return True
+
                 # PURSUE — stream the interpolated keyframe path at
                 # ~20 Hz for ALL tempos. Per-keyframe glides settle-
                 # polled to within 2.5 deg at EVERY waypoint; loaded
@@ -2113,19 +2196,47 @@ class BenchAPI:
                 # backlog in one pop — pass an explicit cap; size each
                 # write by the ACTUAL elapsed tick (the current sweep
                 # steals 0.1-0.3 s).
-                q0 = frames[0][0]
+                q0 = kf_path[0][0]
                 aborted = False
                 t_run0 = time.monotonic()
+                if down and len(kf_path) >= 2:
+                    # Sit starts at the wide (tibia-vertical) stance;
+                    # the feet must come back UNDER the body before
+                    # the fold, and loaded feet can't slide inward —
+                    # re-seat them on the narrow stance by tripods.
+                    # If the robot already stands narrow (old-stance
+                    # or RL-plant start) skip the wide frame instead
+                    # of easing outward pointlessly.
+                    with self.drive._lock:
+                        w_wide, _ = (self.drive
+                                     ._max_delta_vs_present(
+                                         kf_path[0][0]))
+                        w_narrow, _ = (self.drive
+                                       ._max_delta_vs_present(
+                                           kf_path[1][0]))
+                    if w_narrow <= w_wide:
+                        kf_path = kf_path[1:]
+                        q0 = kf_path[0][0]
+                    else:
+                        with self._lock:
+                            self._cal_progress = {
+                                "msg": f"{mode} {verb}: re-seating "
+                                       "feet under body"}
+                        if not _replant(kf_path[1][0]):
+                            aborted = True
+                        else:
+                            kf_path = kf_path[1:]
+                            q0 = kf_path[0][0]
                 with self.drive._lock:
                     worst0, _ = self.drive._max_delta_vs_present(q0)
-                if worst0 > 5.0:
+                if worst0 > 5.0 and not aborted:
                     with self._lock:
                         self._cal_progress = {
                             "msg": f"{mode} {verb}: aligning"}
                     ok = ease_to_pose(
                         d.bus, q0,
                         abort_check=self._demo_abort.is_set,
-                        seconds=max(0.6, frames[0][1] / speed),
+                        seconds=max(0.6, kf_path[0][1] / speed),
                         label=f"{mode} align",
                         current_tracker=tracker)
                     aborted = not ok
@@ -2141,7 +2252,7 @@ class BenchAPI:
                 # moving at a rate the hardware actually tracks.
                 RATE_DPS = 90.0
                 ts, qs = [0.0], [q0]
-                for q_deg, kf_s in frames[1:]:
+                for q_deg, kf_s in kf_path[1:]:
                     d_seg = max(abs(b - a) for a, b in
                                 zip(qs[-1], q_deg))
                     ts.append(ts[-1] + max(0.02, kf_s / speed,
@@ -2272,21 +2383,34 @@ class BenchAPI:
                         if worst < 2.5:
                             break
                         time.sleep(0.1)
-                    for _pass in range(3):
-                        if aborted or self._demo_abort.is_set():
-                            break
+                    with self.drive._lock:
+                        worst, _ = (self.drive
+                                    ._max_delta_vs_present(qs[-1]))
+                    if (verb == "stand-up" and worst > 1.5
+                            and not aborted
+                            and not self._demo_abort.is_set()):
+                        # Stiction re-plant: re-commanding the same
+                        # target can't drag a LOADED foot sideways —
+                        # the joint just stalls against ground
+                        # friction (measured: 3 corrective passes
+                        # left 2.4 deg / 2.3 A). Re-seat each foot
+                        # friction-free where it belongs.
+                        if not _replant(qs[-1]):
+                            aborted = True
                         with self.drive._lock:
                             worst, _ = (self.drive
                                         ._max_delta_vs_present(
                                             qs[-1]))
-                        if worst < 1.2:
-                            break
+                    if verb == "stand-up" and not aborted:
+                        # Hold at FULL torque: the motion ran at
+                        # τ700 for the guard, but holding a loaded
+                        # stance at 700 lets knees buckle within
+                        # seconds (measured 08-11: leg 5 knee +13 deg
+                        # ~10 s after a clean 1.9 deg settle). The
+                        # legacy glide always held at τ1000.
+                        _set_torque_limit(d.bus, live, 1000)
                         _write_pose(d.bus, qs[-1], live,
                                     speed=300, acc=40)
-                        time.sleep(0.45)
-                    with self.drive._lock:
-                        worst, _ = (self.drive
-                                    ._max_delta_vs_present(qs[-1]))
                     tracker.sample(d.bus, live)
                     _emit_servo_fb(f"{mode} {verb} settle",
                                    tracker, target=qs[-1])

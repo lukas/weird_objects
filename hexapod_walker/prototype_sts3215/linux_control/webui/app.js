@@ -956,7 +956,8 @@ function startRlPoll(){
 }
 function rlButtons(disabled){
   for(const id of ['rlstand','rllower','rlglide','rlcapture','rlwalkfwd',
-                   'rlwalkleft','rlwalkright'])
+                   'rlwalkleft','rlwalkright','rlwalkback',
+                   'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr'])
     $(id).disabled = disabled;
 }
 async function rlMove(mode, body){
@@ -964,11 +965,12 @@ async function rlMove(mode, body){
   // the server preflight refuses bad start poses. Walk keeps its
   // confirm — the robot crosses the floor.
   if(mode!=='stand' && mode!=='lower'){
-    const what = `WALK ${body.vx>0?'forward':body.vy>0?'strafe LEFT':'strafe RIGHT'} `
+    const what = `WALK ${body.heading || 'somewhere'} `
       + `at ${Math.hypot(body.vx,body.vy).toFixed(2)} m/s for `
       + `${body.duration_s}s — EXPERIMENTAL, robot must be in the plant `
       + `stance with room to move`;
     if(!confirm('Robot will MOVE: '+what+'. Are you watching it?')) return;
+    delete body.heading;   // UI-only label, not an API field
   }
   $('rlstatus').textContent = 'Preflight…';
   rlButtons(true);
@@ -1017,14 +1019,22 @@ $('rlcapture').onclick = async ()=>{
       : 'Capture failed: '+(d.error || 'unknown');
   }catch(e){ $('rlstatus').textContent = 'Capture failed (link?)'; }
 };
-function rlWalk(dx, dy){
+function rlWalk(dx, dy, heading){
   const s = parseFloat($('rlwalkspeed').value);
-  rlMove('walk', {vx: dx*s, vy: dy*s,
+  const n = Math.hypot(dx, dy) || 1;   // unit heading so speed = |v|
+  rlMove('walk', {vx: dx/n*s, vy: dy/n*s, heading,
                   duration_s: parseFloat($('rlwalkdur').value)});
 }
-$('rlwalkfwd').onclick   = ()=> rlWalk(1, 0);
-$('rlwalkleft').onclick  = ()=> rlWalk(0, 1);   // +vy = strafe left
-$('rlwalkright').onclick = ()=> rlWalk(0, -1);
+// Body frame: +vx forward, +vy left. Off-wedge headings are folded onto
+// the trained wedge by the rot-60 canonicalizer in rl_policy.py.
+$('rlwalkfwd').onclick   = ()=> rlWalk( 1,  0, 'FORWARD');
+$('rlwalkback').onclick  = ()=> rlWalk(-1,  0, 'BACKWARD');
+$('rlwalkleft').onclick  = ()=> rlWalk( 0,  1, 'strafe LEFT');
+$('rlwalkright').onclick = ()=> rlWalk( 0, -1, 'strafe RIGHT');
+$('rlwalkfl').onclick    = ()=> rlWalk( 1,  1, 'diagonal FWD-LEFT');
+$('rlwalkfr').onclick    = ()=> rlWalk( 1, -1, 'diagonal FWD-RIGHT');
+$('rlwalkbl').onclick    = ()=> rlWalk(-1,  1, 'diagonal BACK-LEFT');
+$('rlwalkbr').onclick    = ()=> rlWalk(-1, -1, 'diagonal BACK-RIGHT');
 $('rlstop').onclick = async ()=>{
   await fetch('/api/rl/stop', {method:'POST'});
   $('rlstatus').textContent = 'Stopping (holds pose; X to limp)…';
