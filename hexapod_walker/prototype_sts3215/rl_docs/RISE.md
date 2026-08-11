@@ -747,8 +747,35 @@ lineage's known fragility; do not reopen hardening for it (two-pass
 rule) — if crouch matters for the joystick chain it needs its own
 mechanism question.
 
-Next composition step: the REVERSE handoff — walk champion drives,
-stops, control switches to the specialist for lower/sit on the
-walker's exact stopped pose (the specialist trained lower at 45%
-goal-mix; its lower quality post-holdbc1 is UNVERIFIED — check it in
-the same script before calling the sit side done).
+REVERSE handoff (walk → stop → lower/sit) DONE 08-11
+(`rl_move/sim/eval_handoff_reverse.py`, same reanchor pattern; arms:
+spec = specialist's own clean lower episode / direct = specialist
+lowers on the walk champion's exact stopped pose+slew state /
+scripted = 6 s glide to the zero pose, the hardware go_zero("sit")
+analog). 6 eps/arm, air AND loaded
+(`logs/ckpt_eval/handoff_rev_holdbc1hard1_{air,loaded}.json`):
+
+- **Handoff itself: CLEAN.** direct == spec on every axis (4/6
+  posture-strict both physics, zero falls anywhere, same failure
+  signature, height_err 0.4–9mm) — the walker's gait residue costs
+  nothing, mirroring the forward result.
+- **Specialist lower post-holdbc1: mostly intact, not posture-strict.**
+  8/12 pooled. Every miss is the SAME fingerprint: belly down at
+  target height and level, but ONE foot (leg 2, of the elevated
+  {0,2,4} triple) dangles 62–99mm > the 60mm belly allowance —
+  video-confirmed a cosmetic dangling foot, NOT the old 130–190mm
+  weight-bearing flag-leg cheat (huge improvement over bc1-hard1's
+  lower 0/12 @189mm).
+- **Scripted glide: 6/6 both physics, deterministic, gentle**
+  (tilt ≤2.5°, all pads 34–38mm) — and it is already the
+  operator-prescribed hardware sit (go_zero("sit") slow glide,
+  never refuses). The learned lower is NOT needed for the joystick
+  deliverable.
+
+Ruling: sit side of the chain is COVERED by the scripted glide; the
+full sim joystick motion cycle (specialist rise → walk champion
+drive → stop → scripted sit) is now composed with zero falls.
+OPTIONAL polish, not queued (prime directive): extend the BC anchor
+to lower ticks (reversed rise ref / glide-to-zero target) to fix the
+dangling foot if a one-policy stand/sit specialist ever matters more
+than the scripted path.

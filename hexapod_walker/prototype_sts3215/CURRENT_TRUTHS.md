@@ -162,8 +162,16 @@ problem — two CODE levers queued, BC-anchor preferred first).
   rises hand off with zero falls, drive metrics in the clean-plant
   baseline band, the scripted 1.5 s blend adds nothing; holds on air
   AND loaded servo physics. Crouch-start rises still tip PRE-handoff
-  (0/6 RSI-off, known fragility; flat+bridge rises 12/12). Next:
-  reverse handoff (walk→stop→lower). Detail: rl_docs/RISE.md.
+  (0/6 RSI-off, known fragility; flat+bridge rises 12/12).
+  **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
+  (`eval_handoff_reverse.py`): specialist lowering on the walker's
+  exact stopped state matches its own clean band (4/6 posture-strict
+  both physics, zero falls; only miss a cosmetic 62–99mm dangling
+  foot, NOT the old weight-bearing flag-leg), and the scripted
+  go_zero-sit glide is 6/6 both physics — the sit side of the
+  deliverable is COVERED by the scripted glide; the full sim joystick
+  motion cycle (rise→drive→stop→sit) now composes with zero falls.
+  Optional unqueued polish: BC anchor on lower ticks. rl_docs/RISE.md.
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so
