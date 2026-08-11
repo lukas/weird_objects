@@ -231,3 +231,49 @@ move (unchanged from the mirror2 ruling) is a term-by-term WALK-kernel
 income re-probe: find what still pays for degenerate partial gaits
 (freeze, sacrifice, AND paddle) before trying another mirror/heading
 arm.
+
+## Income re-probe DONE (08-11, `probe_walk_income.py`) — pricing
+EXONERATED on the deliverable stack; latent yaw-kernel defect found
+
+`rl_move/sim/probe_walk_income.py` decomposes per-term income
+(every `info["reward_*"]`, residual 0 by construction) for scripted
+references matched to the three video fingerprints AND the actual
+collapsed checkpoints, under the exact trans1/mirror2 stacks
+(artifacts: `logs/probe_walk_income/`). Results, mean/ep over
+4 directions x 3 seeds:
+
+- **trans1 stack (turn-free, the deliverable): NOTHING pays the
+  degenerates.** DR0: gait 824 > half-speed gait 643 > 1-leg
+  sacrifice 541 > paddle 375 ≈ tripod-sacrifice 341 > freeze 217 >
+  **the trained trans1 checkpoint itself 205** — the collapsed policy
+  earns BELOW A FREEZE under its own reward. Identical ordering at
+  the training DR 0.5 (761/564/515/337/289/233/214). Directions
+  priced uniformly (gait 750-897 everywhere). Income is monotone in
+  honest progress; the degenerate attractors are OPTIMIZATION
+  failures, not paid basins. Reward surgery on this stack is CLOSED
+  (matches trans1's pre-registered if-false: "not reward surgery").
+- **mirror2/turn stack: real latent defect.** On linear-command ticks
+  the ungated yaw kernel (`k_walk_yaw`, wz_ref=0 "heading hold" side)
+  pays a MOTIONLESS body full income — 373-375/ep to sacrifice,
+  paddle, and freeze alike, the single largest channel in the stack —
+  while `k_yaw_still=50` charges the honest gait's natural wz
+  oscillation -73/ep and the degenerates ~0. Net: the yaw stack taxes
+  honest walking ~-100/ep RELATIVE to body-stillness. Aggregate
+  ordering still holds (gait 1100 > paddle 748 > sac3 710 > freeze
+  592 > ckpt 410), but this stillness subsidy must be fixed (gate
+  heading-hold yaw income on linear progress, or price wz vs the
+  gait's own oscillation band) BEFORE any turn re-scope. Not fixed
+  now — turn is de-scoped from the deliverable.
+
+**Next lever (supersedes "rot-60 first"):** the collapse signature —
+provably unpaid behavior that PPO still converges to, because no
+gradient tells a churning leg WHICH WAY to move — is exactly what the
+BC anchor fixed twice (rise `cw-stand-bc1`, hold `cw-stand-holdbc1`).
+Landed 08-11: walk ticks emit `bc_target` = the command-conditioned
+scripted TripodGait pose (the gait that walks/crabs/turns the REAL
+robot) one tick ahead; stop ticks unsupervised (the gait marches in
+place at v=0); per-episode gait instance on SNAP_ATTRS. Discovery arm
+`cw-omni-transbc1` (trans1 + `train.bc_anchor_coef=1.0`, one
+variable). rot-60 equivariance stays the reserve lever if imitation
+anchoring fails; note mirror-symmetry loss coef 1.0 was ON during the
+trans1 collapse and did not prevent it.

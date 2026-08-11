@@ -270,7 +270,17 @@ def test_attach_refuses_without_ref_path():
     with pytest.raises(SystemExit):
         attach_bc_anchor(
             model, coef=1.0,
-            cfg={"reward": {"rise_ref_path": RISE_REF}}, task="joint_walk")
+            cfg={"reward": {"rise_ref_path": RISE_REF}}, task="joint_lower")
+
+
+def test_attach_accepts_walk_task_without_ref_path():
+    """The walk anchor's reference is the scripted TripodGait — code,
+    not a recorded file; joint_walk must attach with no rise_ref_path
+    (08-11, probe_walk_income follow-up)."""
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    attach_bc_anchor(model, coef=1.0, cfg={}, task="joint_walk")
+    assert model.bc_coef == 1.0
 
 
 def test_composes_with_mirror_class():
@@ -278,3 +288,140 @@ def test_composes_with_mirror_class():
     from rl_move.sim.mirror import make_mirror_ppo_class
     cls = make_bc_anchor_ppo_class(make_mirror_ppo_class())
     assert cls.__name__ == "BCAnchorPPO"
+
+
+# ---------------------------------------------------------------------------
+# WALK BC-anchor (08-11, RL_PLAN queue 2.1 / probe_walk_income follow-up):
+# commanded walk ticks emit the command-conditioned scripted TripodGait
+# pose one tick ahead; zero-command (stop) ticks emit NOTHING (the gait
+# marches in place at v=0 — standing still is the commanded behavior).
+
+WALK_OVERRIDES = {
+    ("goal", "walk_speed_min_m_s"): 0.05,
+    ("goal", "walk_speed_max_m_s"): 0.06,
+    ("goal", "walk_heading_max_rad"): 3.14159,
+}
+
+
+def _make_walk_env(seed: int, extra=None):
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = load_config()
+    ov = dict(WALK_OVERRIDES)
+    ov.update(extra or {})
+    for (sec, leaf), val in ov.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=15.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad", "walk"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "walk" else 0.0)
+    return env
+
+
+def _pin_walk_cmd(env, vx: float, vy: float) -> None:
+    traj = env._goal_traj
+    traj.vx[:] = vx
+    traj.vy[:] = vy
+    if getattr(traj, "wz", None) is not None:
+        traj.wz[:] = 0.0
+
+
+def test_walk_emission_matches_scripted_gait():
+    """Commanded walk ticks emit the TripodGait pose one tick ahead —
+    verified against an independent gait instance driven identically."""
+    from tripod_gait import TripodGait
+    env = _make_walk_env(0, {("train", "bc_anchor_coef"): 1.0})
+    env.reset()
+    assert env._walk_bc_gait is not None
+    _pin_walk_cmd(env, 0.055, 0.0)
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 80.0)
+    ref.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        t = info.get("bc_target")
+        assert t is not None and t.shape == (18,) and t.dtype == np.float32
+        g = env._current_goal()
+        ref.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref), omega=0.0)
+        expect = q_rad_to_action(
+            np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(t, expect, atol=1e-6)
+
+
+def test_walk_target_is_a_gait_not_a_pose():
+    """Across a second of commanded ticks the target must CYCLE (this
+    is the whole point — a constant target cannot teach stepping)."""
+    env = _make_walk_env(1, {("train", "bc_anchor_coef"): 1.0})
+    env.reset()
+    _pin_walk_cmd(env, 0.055, 0.0)
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    targets = []
+    for _ in range(25):
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        if "bc_target" in info:
+            targets.append(info["bc_target"])
+    targets = np.asarray(targets)
+    assert len(targets) >= 20
+    spread = np.ptp(targets, axis=0).max()
+    assert spread > 0.05, f"walk bc_target barely moves ({spread:.4f})"
+
+
+def test_walk_direction_conditions_the_target():
+    """Opposite commands must produce different gait targets at the
+    same tick — the anchor is command-conditioned by construction."""
+    outs = []
+    for vx in (0.055, -0.055):
+        env = _make_walk_env(2, {("train", "bc_anchor_coef"): 1.0})
+        env.reset()
+        _pin_walk_cmd(env, vx, 0.0)
+        hold = q_rad_to_action(env.data.qpos[env._qadr])
+        seq = []
+        for _ in range(12):
+            _o, _r, _t, _tr, info = env.step(hold)
+            if "bc_target" in info:
+                seq.append(info["bc_target"])
+        outs.append(np.asarray(seq))
+    n = min(len(outs[0]), len(outs[1]))
+    assert n >= 8
+    diff = np.abs(outs[0][:n] - outs[1][:n]).max()
+    assert diff > 0.02, "forward and backward targets are identical"
+
+
+def test_walk_no_target_on_stop_ticks():
+    """Zero-command ticks emit NOTHING: TripodGait at v=0 marches in
+    place, but the commanded behavior on a stop segment is standing
+    still — anchoring a march there would fight the task."""
+    env = _make_walk_env(3, {("train", "bc_anchor_coef"): 1.0})
+    env.reset()
+    _pin_walk_cmd(env, 0.0, 0.0)
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, _t, _tr, info = env.step(hold)
+        assert "bc_target" not in info
+
+
+def test_walk_no_gait_instance_when_coef_zero():
+    env = _make_walk_env(4)   # bc_anchor_coef defaults 0
+    env.reset()
+    assert env._walk_bc_gait is None
+    _pin_walk_cmd(env, 0.055, 0.0)
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" not in info
+
+
+def test_walk_gait_attr_rides_snapshot_list():
+    """Pool-restore lesson (commit 65edba7): the per-episode gait
+    instance carries phase state read on every walk tick — it MUST be
+    in mjx_host.SNAP_ATTRS or pooled episodes silently lose the
+    anchor."""
+    from rl_move.sim.mjx_host import SNAP_ATTRS
+    assert "_walk_bc_gait" in SNAP_ATTRS

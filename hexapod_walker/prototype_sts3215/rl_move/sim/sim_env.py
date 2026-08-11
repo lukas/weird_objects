@@ -1027,6 +1027,39 @@ class SimHexapodBalanceEnv(_GymBase):
         self._is_hold_bc = (self._goal_traj is not None
                             and getattr(self._goal_traj, "mode", "")
                             in ("hold", "track"))
+        # WALK BC-anchor reference (RL_PLAN queue 2.1 follow-up, 08-11:
+        # probe_walk_income exonerated the trans1 stack's pricing —
+        # honest gait out-earns every degenerate 2-4x in all four
+        # directions at DR 0 AND 0.5, and the collapsed trans1/mirror2
+        # checkpoints earn BELOW a freeze — so the paddle/sacrifice
+        # attractors are optimization failures, not paid basins. Same
+        # signature as rise/hold: nothing tells a churning leg WHICH
+        # WAY to move. Third application of the proven lever: supervise
+        # walk-tick actions toward the command-conditioned scripted
+        # TripodGait — the exact open-loop gait that walks/crabs/turns
+        # the REAL robot (tape-measured 08-10). Per-episode instance,
+        # phase state lives on it, so it MUST ride SNAP_ATTRS
+        # (pool-restore lesson, commit 65edba7).
+        self._walk_bc_gait = None
+        if (self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "walk"
+                and float(cfg_get(self.cfg, "train", "bc_anchor_coef",
+                                  default=0.0)) > 0.0):
+            try:
+                from tripod_gait import TripodGait
+            except ImportError:
+                import sys as _sys
+                _lc = str(Path(__file__).resolve().parents[2]
+                          / "linux_control")
+                if _lc not in _sys.path:
+                    _sys.path.insert(0, _lc)
+                from tripod_gait import TripodGait
+            _g = TripodGait(vx=0.0)
+            # Canonical sim plant stance (same source as _default_plant
+            # fallback and the WALK semantics bank): +20/+80.
+            _g.sync_plant_stance(20.0, 80.0)
+            _g.reset_phase()
+            self._walk_bc_gait = _g
         # First ramp tick of a rise schedule (hold window ends here) —
         # the alignment anchor for the rise-reference tracking term:
         # references are recorded ramp-relative so episodes with
@@ -1984,6 +2017,42 @@ class SimHexapodBalanceEnv(_GymBase):
             from .joint_task import q_rad_to_action
             info["bc_target"] = q_rad_to_action(
                 self._q_nom).astype(np.float32)
+        # WALK BC-anchor target (08-11, probe_walk_income follow-up):
+        # the scripted TripodGait's joint pose one control tick ahead,
+        # driven by the LIVE blended command (vx/vy/wz ref) — so the
+        # target is command-conditioned in every direction, points at
+        # a plant-hold on genuine stop segments (set_velocity(0,0)
+        # holds the stance), and supplies the per-leg "step this way"
+        # gradient the reward provably cannot (degenerates earn below
+        # freeze yet PPO still found them). Reward stack untouched.
+        elif (getattr(self, "_walk_bc_gait", None) is not None
+                and getattr(self, "n_act", 0) == N_JOINTS
+                and _bc_coef > 0.0):
+            _bc_goal = self._current_goal()
+            # ONLY on commanded ticks: TripodGait at zero velocity
+            # marches in place (the bank's "stall" policy), so a stop
+            # segment must get NO gait supervision — standing still is
+            # the commanded behavior there and the kernel already pays
+            # it (walk_kernel freeze income at s_ref=0 is legitimate).
+            if _bc_goal is not None:
+                _bc_wz = float(getattr(_bc_goal, "wz_ref", 0.0) or 0.0)
+                _bc_cmd = (math.hypot(_bc_goal.vx_ref, _bc_goal.vy_ref)
+                           > 1e-3 or abs(_bc_wz) > 1e-3)
+                if _bc_cmd:
+                    from .joint_task import q_rad_to_action
+                    _g = self._walk_bc_gait
+                    _g.set_velocity(vx=float(_bc_goal.vx_ref),
+                                    vy=float(_bc_goal.vy_ref),
+                                    omega=_bc_wz)
+                    # _step_i was already incremented at the top of
+                    # _step_finish: it IS the next pre-step tick index,
+                    # so the next scripted action is desired_deg at
+                    # _step_i * dt (the bank rollouts command
+                    # desired_deg(step*dt) at pre-step tick `step`).
+                    _q_bc = np.asarray(_g.desired_deg(
+                        self._step_i * self.dt)) * DEG2RAD
+                    info["bc_target"] = q_rad_to_action(
+                        _q_bc).astype(np.float32)
         if self._state.servo_current is not None:
             info["mean_current_a"] = float(
                 np.mean(np.abs(self._state.servo_current)))

@@ -32,10 +32,23 @@ target there is simply the pose the episode actually settled at
 (sim_env._q_nom, constant for the whole episode — "stand still right
 here"), reusing the identical collect/train-step machinery below.
 
+08-11 second follow-up (RL_PLAN queue 2.1 / probe_walk_income): WALK
+ticks emit too. The omni-translation arms (mirror2/dr02/trans1) each
+collapsed into a different degenerate gait while the term-by-term
+income probe shows the stack pays honest gait 2-4x above every
+degenerate in all four directions at DR 0 and 0.5 — and the collapsed
+checkpoints earn BELOW a freeze. Optimization failure, not pricing:
+the same "nothing tells the leg which way to move" signature as rise
+and hold. Walk target = the command-conditioned scripted TripodGait
+(the open-loop gait that walks/crabs/turns the REAL robot) one tick
+ahead, per-episode instance on SNAP_ATTRS; NO emission on
+zero-command (stop) ticks — the gait marches in place at v=0 while
+the commanded behavior there is standing still.
+
 Data path: sim_env._step_finish emits ``info["bc_target"]`` (float32,
-18) for every rise tick with a live reference clock, OR every
-hold/track tick, when ``train.bc_anchor_coef`` > 0 (the trainer cfg
-key rides into the env cfg dict, same pattern as
+18) for every rise tick with a live reference clock, every hold/track
+tick, OR every commanded walk tick, when ``train.bc_anchor_coef`` > 0
+(the trainer cfg key rides into the env cfg dict, same pattern as
 train.mirror_loss_coef).
 ``BCAnchorCollectCallback`` pairs each target with the post-step obs
 (``new_obs``) into a ring buffer on the model; ``BCAnchorPPO.train()``
@@ -158,16 +171,20 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
     never train (the pool-restore lesson: mechanisms that can fail
     quietly, do)."""
     from rl_move.config import cfg_get
-    if task not in ("joint_goal",):
+    if task not in ("joint_goal", "joint_walk"):
         raise SystemExit(
             f"train.bc_anchor_coef set but task {task!r} is not a "
-            "raw-18-joint rise task (only joint_goal emits bc_target)")
-    ref = cfg_get(cfg, "reward", "rise_ref_path", default=None)
-    if not ref:
-        raise SystemExit(
-            "train.bc_anchor_coef set but reward.rise_ref_path is "
-            "missing — the env would never emit a bc_target and the "
-            "anchor would silently no-op")
+            "raw-18-joint task (only joint_goal/joint_walk emit "
+            "bc_target)")
+    if task == "joint_goal":
+        # rise/hold supervision needs the recorded reference; the walk
+        # task's reference is the scripted TripodGait (code, no file).
+        ref = cfg_get(cfg, "reward", "rise_ref_path", default=None)
+        if not ref:
+            raise SystemExit(
+                "train.bc_anchor_coef set but reward.rise_ref_path is "
+                "missing — the env would never emit a bc_target and the "
+                "anchor would silently no-op")
     model.bc_coef = float(coef)
     model.bc_minibatches = int(float(cfg_get(
         cfg, "train", "bc_anchor_minibatches", default=8)))

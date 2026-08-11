@@ -206,7 +206,22 @@ problem — two CODE levers queued, BC-anchor preferred first).
   signed rotation income (k_yaw_prog), heading-hold drift charge
   (k_yaw_still), turn-in-place curriculum (walk_turn_in_place_frac).
   Sign audit still OPEN at the hardware boundary (sim +CCW vs
-  measured +omega=CW). Plan: rl_docs/TURN.md.
+  measured +omega=CW). Turn is DE-SCOPED from the joystick
+  deliverable (operator 08-11: no camera = no front). Plan:
+  rl_docs/TURN.md.
+- Omni translation (walk in ANY direction — the "walk where pointed"
+  blocker; no learned policy has ever walked backward): three arms
+  collapsed into three different degenerate gaits. **08-11 income
+  re-probe (`probe_walk_income.py`) exonerates the pricing on the
+  deliverable stack**: honest gait out-earns every degenerate 2-4x
+  uniformly across directions at DR 0 AND 0.5, and the collapsed
+  checkpoints earn BELOW a freeze under their own reward —
+  optimization failure, not a paid basin; reward surgery CLOSED.
+  Latent defect in the de-scoped TURN stack only (ungated yaw kernel
+  pays a motionless body full income on linear ticks; fix before any
+  turn re-scope). Next lever landed: BC anchor on walk ticks toward
+  the command-conditioned scripted TripodGait (third application of
+  the twice-proven lever); discovery arm `cw-omni-transbc1`.
 - Tipped-start DR is default-ON everywhere (operator ruling 08-10,
   "ideally all runs would learn this capability", after the deployed
   walk's hardware runaway roll): `dr.tipped_start_prob=0.30` (scaled
