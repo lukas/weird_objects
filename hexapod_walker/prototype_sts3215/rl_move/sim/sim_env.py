@@ -1027,6 +1027,18 @@ class SimHexapodBalanceEnv(_GymBase):
         self._is_hold_bc = (self._goal_traj is not None
                             and getattr(self._goal_traj, "mode", "")
                             in ("hold", "track"))
+        # LOWER BC-anchor eligibility (08-11, anchorstate2 follow-up):
+        # the lower bank's strict xfail documents that one-leg-aloft
+        # keeps ~85% of the honest lower return (rise_posture_gate
+        # prices a lifted leg at pf=5/6) — the incentive behind the
+        # deployed specialist's 62-99 mm dangling foot AND the prime
+        # suspect for the six-run leg-1 hold park (pricing changes
+        # moved nothing all campaign; anchor supervision is the only
+        # lever that moved the park fingerprint). Target emission in
+        # _step_finish; gated by train.bc_anchor_lower.
+        self._is_lower_bc = (self._goal_traj is not None
+                             and getattr(self._goal_traj, "mode", "")
+                             == "lower")
         # WALK BC-anchor reference (RL_PLAN queue 2.1 follow-up, 08-11:
         # probe_walk_income exonerated the trans1 stack's pricing —
         # honest gait out-earns every degenerate 2-4x in all four
@@ -2102,6 +2114,38 @@ class SimHexapodBalanceEnv(_GymBase):
             from .joint_task import q_rad_to_action
             info["bc_target"] = q_rad_to_action(
                 self._q_nom).astype(np.float32)
+        # LOWER BC-anchor target (08-11, cfg train.bc_anchor_lower,
+        # default 0 = legacy no-emission). The lower bank's strict
+        # xfail pins the pricing gap (one-leg-aloft keeps ~85% of
+        # honest income) and prescribes "strengthen the pricing (or
+        # BC-anchor lower ticks)"; six runs showed pricing never moves
+        # the behavior while anchor supervision does. The target is
+        # the bank's own honest demonstration: the FixedFootBodyIK
+        # descent — all six feet anchored at the SETTLED stance
+        # (_q_nom, post-settle, already in SNAP_ATTRS), body tracking
+        # the commanded height one tick ahead. Solved fresh per tick
+        # (~5 us, analytic) from snapped state only — pool-restore
+        # safe by construction, no per-episode IK object to snapshot.
+        elif (getattr(self, "_is_lower_bc", False)
+                and getattr(self, "n_act", 0) == N_JOINTS
+                and _bc_coef > 0.0
+                and float(cfg_get(self.cfg, "train", "bc_anchor_lower",
+                                  default=0.0)) > 0.0
+                and self._q_nom is not None
+                and self._goal_traj is not None):
+            from rl_move.body_ik import BodyOffset, FixedFootBodyIK
+            from .joint_task import q_rad_to_action
+            # _step_i was already incremented at the top of
+            # _step_finish; the next commanded tick is _step_i + 1
+            # (same one-tick-ahead convention as the rise clock).
+            _g_next = self._goal_traj.at(self._step_i + 1)
+            _ik = FixedFootBodyIK()
+            _ik.reset(self._q_nom)
+            _res = _ik.solve(BodyOffset(
+                height=float(_g_next.height_ref)))
+            if _res.ok:
+                info["bc_target"] = q_rad_to_action(
+                    _res.q_rad).astype(np.float32)
         # WALK BC-anchor target (08-11, probe_walk_income follow-up):
         # the scripted TripodGait's joint pose one control tick ahead,
         # driven by the LIVE blended command (vx/vy/wz ref) — so the

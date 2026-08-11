@@ -252,6 +252,78 @@ def test_no_hold_target_when_coef_zero():
     assert "bc_target" not in info
 
 
+def test_lower_anchor_default_off():
+    """Lower ticks emit NOTHING unless train.bc_anchor_lower opts in —
+    coef alone must not change any existing run's data stream."""
+    env = _make_env(10, {("train", "bc_anchor_coef"): 1.0},
+                    only_mode="lower")
+    env.reset()
+    assert env._is_lower_bc
+    for _ in range(3):
+        _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" not in info
+    env.close()
+
+
+def test_lower_anchor_emits_the_ik_descent():
+    """With train.bc_anchor_lower=1 every lower tick's target is the
+    honest demonstration the LOWER bank scripts: FixedFootBodyIK
+    anchored at the settled stance, body at the NEXT commanded height
+    — the fix the lower-bank strict xfail prescribes ('strengthen the
+    pricing (or BC-anchor lower ticks)') for the one-leg-aloft gap."""
+    from rl_move.body_ik import BodyOffset, FixedFootBodyIK
+    env = _make_env(11, {("train", "bc_anchor_coef"): 1.0,
+                         ("train", "bc_anchor_lower"): 1.0},
+                    only_mode="lower")
+    env.reset()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, _t, _tr, info = env.step(hold)
+        t = info.get("bc_target")
+        assert t is not None and t.shape == (18,) and t.dtype == np.float32
+        ik = FixedFootBodyIK()
+        ik.reset(env._q_nom)
+        res = ik.solve(BodyOffset(
+            height=float(env._goal_traj.at(env._step_i + 1).height_ref)))
+        assert res.ok
+        assert np.allclose(t, q_rad_to_action(res.q_rad), atol=1e-6)
+    env.close()
+
+
+def test_lower_anchor_chain_descends_with_feet_planted():
+    """Following the lower targets must produce the honest behavior
+    class: body tracks the commanded descent while every foot stays
+    at its grounded reference — no aloft/outrigger residue."""
+    env = _make_env(12, {("train", "bc_anchor_coef"): 1.0,
+                         ("train", "bc_anchor_lower"): 1.0},
+                    only_mode="lower")
+    env.reset()
+    z_start = float(env.data.xpos[env._chassis_bid, 2])
+    target_m = float(env._h_target)
+    assert target_m < 0.0, "lower episode must command a descent"
+    act = q_rad_to_action(env.data.qpos[env._qadr])
+    worst_clear_mm = 0.0
+    for _ in range(300):
+        _o, _r, term, trunc, info = env.step(act)
+        if term or trunc:
+            assert not term, "the anchored descent fell over"
+            break
+        if "bc_target" in info:
+            act = info["bc_target"]
+        clear = max(float(env.data.xpos[b, 2]) - env._pad_z_ref[i]
+                    for i, b in enumerate(env._pad_bids))
+        worst_clear_mm = max(worst_clear_mm, clear * 1000.0)
+    z_end = float(env.data.xpos[env._chassis_bid, 2])
+    dropped = z_start - z_end
+    env.close()
+    assert dropped > 0.6 * abs(target_m), (
+        f"chain only descended {dropped*1000:.0f}mm of the commanded "
+        f"{abs(target_m)*1000:.0f}mm")
+    assert worst_clear_mm < 25.0, (
+        f"a foot came {worst_clear_mm:.0f}mm off the ground during the "
+        f"anchored descent — not the honest feet-planted class")
+
+
 def test_rise_and_hold_flags_mutually_exclusive():
     for mode in ("rise", "hold", "track", "lower"):
         env = _make_env(7, only_mode=mode)

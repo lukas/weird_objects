@@ -45,6 +45,7 @@ SNAP_ATTRS = (
     # in _reset_finalize, read every step-path tick — the exact class
     # of attr this list exists to catch (see comment above).
     "_is_hold_bc",
+    "_is_lower_bc",
     # WALK BC-anchor gait reference (08-11, queue 2.1 follow-up): a
     # per-episode TripodGait instance carrying phase/velocity state,
     # created in the reset path, read every walk tick.
