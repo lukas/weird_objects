@@ -199,3 +199,41 @@ commanded height goal and measured foot contact** — e.g. the height
 contact, rather than paying/penalizing after the fact. That is CODE
 work (new mechanism, not a reward-coefficient respec) and must go
 through SPECIFICATION (bank the exploit) before any DISCOVERY run.
+
+## Direction (binding, operator-supervised, 08-10 late — supersedes
+## the 08-11 ruling above)
+
+The 08-11 ruling diagnosed the failures as reward-side and closed the
+tracking line. A five-run controlled forensic ladder run WITH the
+operator on 08-10 evening overturns that diagnosis:
+
+- `cw-stand-scoreref1-dr0` (one change: DR 0.2→0): the warm start
+  BEGINS with the crutch engaged (reward_rise_ref 0.65/tick, feet
+  factor 0.87) and training erodes it. DR exonerated as root cause.
+- `cw-stand-scoreref1-dr0-lowlr` (one change: LR 3e-4→5e-5): same
+  erosion, slower. Update size exonerated.
+- `cw-stand-scoreref1-dr0-riseonly` (one change: goal-mix rise=1.0):
+  same erosion. Cross-mode interference exonerated. Also surfaced:
+  train/std pinned at 0.198 all run.
+- Noisy-replay probe: the reference replayed under the FULL 0.198
+  action noise still earns +357 and stands 2/3 — the summed reward
+  stack orders noisy-honest ≫ every cheat. Pricing exonerated,
+  including the "6° sigma just measures stochasticity" theory.
+- Re-read of the "early tracking pay": it was the PRE-RAMP hold
+  window (lying at ref start), not rising — the warm start never
+  rises at +111mm commands (outside its trained band).
+
+Net: the reward is right and the path pays, but **training never
+visits the paid states** — a pure state-distribution problem that no
+reward term can fix, which is why four reward-side mechanisms in a
+row failed the same way. The standard fix (DeepMimic RSI; also load-
+bearing in HumanUP/HoST stage 2) landed 08-10 late: rise episodes
+spawn ON the reference at a random phase (`goal.rise_rsi_frac`,
+default-off; sag-robust via nearest-neighbor ref-clock re-alignment
+at settle; remaining-rise schedule from the npz height profile).
+Validated: forced-RSI spawns across the whole path continue to a
+valid plant 7/8 with returns +400..+860, late spawns paying best;
+bank green, default-off exact. First arm: `cw-stand-rsi1` =
+scoreref1-dr0 stack + `rise_rsi_frac=0.5`. Lever (b) (structural
+height↔contact coupling) stays open as the NEXT step only if RSI
+with a correctly-priced stack still fails.

@@ -107,6 +107,7 @@ def main() -> None:
         chassis_bid = env.model.body("chassis").id
         z_start = float(env.data.xpos[chassis_bid, 2])
         qs = [env.data.qpos[env._qadr].copy()]
+        hs = [0.0]   # chassis height above start, per tick (RSI schedules)
         term = False
         info: dict = {}
         n_rise = int(round(args.episode_seconds / env.dt))
@@ -114,6 +115,7 @@ def main() -> None:
             act, _ = model.predict(obs, deterministic=True)
             obs, _r, term, trunc, info = env.step(act)
             qs.append(env.data.qpos[env._qadr].copy())
+            hs.append(float(env.data.xpos[chassis_bid, 2]) - z_start)
             if term or trunc:
                 break
 
@@ -147,6 +149,7 @@ def main() -> None:
                 act = q_rad_to_action((1.0 - s) * q_from + s * q_plant)
                 obs, _r, term, trunc, info = env.step(act)
                 qs.append(env.data.qpos[env._qadr].copy())
+                hs.append(float(env.data.xpos[chassis_bid, 2]) - z_start)
                 if term or trunc:
                     fell = True
                     break
@@ -169,7 +172,8 @@ def main() -> None:
         h_rel_end_m = (float(env.data.xpos[chassis_bid, 2]) - z_start)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         np.savez(args.out, q_rad=np.asarray(qs), dt=env.dt,
-                 ramp_i0=ramp_i0, h_rel_end_m=h_rel_end_m)
+                 ramp_i0=ramp_i0, h_rel_end_m=h_rel_end_m,
+                 h_rel_m=np.asarray(hs))
         print(f"[extract_rise_ref] wrote {args.out} "
               f"(T={len(qs)}, dt={env.dt}s, ramp_i0={ramp_i0}, "
               f"seed={seed}, start={args.start}, "

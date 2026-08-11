@@ -65,6 +65,11 @@ def load_rise_ref(path: str) -> dict:
             raise ValueError(
                 f"rise_ref {path}: expected (T,18) q_rad, got {q.shape}")
         ref = {"q": q, "dt": float(z["dt"]), "ramp_i0": int(z["ramp_i0"])}
+        # Per-tick chassis height above the start pose (newer extracts;
+        # RSI needs it to command the REMAINING rise from a mid-path
+        # spawn). Older npz lack it — RSI refuses, tracking still works.
+        if "h_rel_m" in z.files:
+            ref["h"] = np.asarray(z["h_rel_m"], dtype=float)
         _RISE_REF_CACHE[path] = ref
     return ref
 
@@ -773,6 +778,44 @@ class SimHexapodBalanceEnv(_GymBase):
         self._goal_traj = self._sample_goal()
         start_at = ("plant" if self._goal_traj is None
                     else getattr(self._goal_traj, "start_at", "plant"))
+        # Reference state initialization (RSI, DeepMimic-style; operator
+        # 08-10 late). The 08-10 forensic ladder (score1 -> scoreref1 ->
+        # -dr0 -> -dr0-lowlr -> -dr0-riseonly) proved the rise reward
+        # orders correctly even under full exploration noise (noisy
+        # replay +357 vs cheats < 0) yet training NEVER visits the paid
+        # states: pricing, DR, LR, mode interference and noise were each
+        # exonerated by a controlled run, leaving pure exploration - the
+        # gradient cannot cross from "lying at the ref start" to "the
+        # full rise" because nothing between pays. RSI closes it by
+        # SPAWNING rise episodes on the demonstrated path at a random
+        # phase (belly curl through ~90% of the ramp), so rollouts
+        # experience the paid states directly and learning can proceed
+        # backward along the path. cfg goal.rise_rsi_frac in [0,1]
+        # (default 0 = legacy exact; no rng draw when off), needs
+        # reward.rise_ref_path. The settle choreography (incl. the limp
+        # sag) runs unchanged; _reset_finalize re-aligns the reference
+        # clock to the nearest path point of the pose that actually
+        # settled, so the mechanism is robust to sag on every impl.
+        self._rsi_pending = False
+        self._rsi_ref_tick0: int | None = None
+        if (self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "rise"):
+            rsi_f = float(cfg_get(self.cfg, "goal", "rise_rsi_frac",
+                                  default=0.0))
+            rsi_ref = cfg_get(self.cfg, "reward", "rise_ref_path",
+                              default=None)
+            if rsi_f > 0.0 and rsi_ref:
+                ref = load_rise_ref(str(rsi_ref))
+                # "h" (per-tick height) only exists in newer extracts;
+                # without it the remaining-rise schedule can't be built.
+                if "h" in ref and self.rng.random() < rsi_f:
+                    n, i0 = len(ref["q"]), int(ref["ramp_i0"])
+                    j = int(self.rng.integers(
+                        0, i0 + int(0.9 * (n - 1 - i0))))
+                    q_rsi = ref["q"][j] + self.rng.uniform(
+                        -2.0, 2.0, N_JOINTS) * DEG2RAD
+                    self._rsi_pending = True
+                    return self._clip_to_joint_limits(q_rsi)
         if start_at == "zero":
             q_start = np.zeros(N_JOINTS, dtype=float)
             # Bridge start (rise reverse-curriculum): blend the start
@@ -929,6 +972,28 @@ class SimHexapodBalanceEnv(_GymBase):
         # Per-episode cache: first charged tick of the terminal
         # end-posture window (computed lazily from the goal schedule).
         self._end_posture_from = None
+        # RSI episodes: align the reference clock to the path point the
+        # robot ACTUALLY settled at (the limp-settle stage sags mid-rise
+        # poses; nearest-neighbor re-alignment makes the mechanism
+        # sag-robust on every impl), then rewrite the height schedule to
+        # command the REMAINING rise from the settled spawn — heights
+        # stay relative to _z0 like every other episode's.
+        if getattr(self, "_rsi_pending", False) and self._goal_traj is not None:
+            ref = load_rise_ref(str(cfg_get(
+                self.cfg, "reward", "rise_ref_path", default="")))
+            q_set = np.asarray(self.data.qpos[self._qadr], dtype=float)
+            rms = np.sqrt(((ref["q"] - q_set[None, :]) ** 2).mean(axis=1))
+            j0 = int(np.argmin(rms))
+            self._rsi_ref_tick0 = j0
+            h_end = float(ref["h"][-1])
+            h_left = max(h_end - float(ref["h"][j0]), 0.002)
+            ramp_s = float(cfg_get(self.cfg, "goal", "rise_ramp_s",
+                                   default=6.0))
+            n_ramp = max(int(round(ramp_s * min(h_left / max(h_end, 1e-3),
+                                                1.0) / self.dt)), 3)
+            n_ep = len(np.asarray(self._goal_traj.height))
+            self._goal_traj.height = h_left * np.clip(
+                np.arange(n_ep, dtype=float) / n_ramp, 0.0, 1.0)
         # Staged height scores (rise/raise/lower): potential-based
         # progress on |height_err| plus one-time milestone bonuses at
         # fractions of the episode's height target. Sim-only (privileged
@@ -1515,8 +1580,16 @@ class SimHexapodBalanceEnv(_GymBase):
                                default=None)
             if ref_path:
                 ref = load_rise_ref(str(ref_path))
-                t_rel = (self._step_i - self._rise_ramp_i0) * self.dt
-                j = ref["ramp_i0"] + int(round(t_rel / ref["dt"]))
+                if self._rsi_ref_tick0 is not None:
+                    # RSI spawn: the episode joined the reference at
+                    # tick j0 (settled-pose aligned) at t=0.
+                    j = self._rsi_ref_tick0 + int(round(
+                        self._step_i * self.dt / ref["dt"]))
+                    parts["rise_rsi"] = 1.0
+                else:
+                    t_rel = (self._step_i - self._rise_ramp_i0) * self.dt
+                    j = ref["ramp_i0"] + int(round(t_rel / ref["dt"]))
+                    parts["rise_rsi"] = 0.0
                 j = min(max(j, 0), len(ref["q"]) - 1)
                 err = self.data.qpos[self._qadr] - ref["q"][j]
                 sig = float(cfg_get(
