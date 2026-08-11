@@ -113,6 +113,25 @@ problem — two CODE levers queued, BC-anchor preferred first).
   baselined), and the rise bank (separates replay from all cheats).
   Working fallback: stance champion rises → scripted 1.5 s blend →
   walk champion drives (sim-proven, key `7`).
+  **08-11 LATE: `cw-stand-bc1` (BC-anchor, lever (a)) PASSES —
+  the first honest rise in 7 stand-arms.** Same rsi3 reward/goal-mix
+  stack + one change (`train.bc_anchor_coef=1.0`, actions supervised
+  toward the recorded stand-up path during rise ticks, outside the
+  reward). Harness: gate 3/6 det valid_plant (bridge/crouch honest
+  six-foot plants, video-confirmed, no flag-leg); an RSI-off/30-ep
+  probe on the same checkpoint gets bridge 7/12, crouch 6/8 valid,
+  and flat-belly cold start (hardest case) reaches a real six-foot
+  stand 10/10 times but misses only the footprint-precision bar
+  (0/10, not a height/posture cheat). Zero flag-leg cheat in 42
+  video-checked episodes; the identical-minus-anchor parent
+  (`cw-stand-rsi3`) still cheats 0/12 on the same stack — clean
+  one-variable attribution. Cost: training's own diagnostic (n=2,
+  weak) suggests some raise/tipped-recovery/hold-track drag,
+  unverified by harness. Two follow-ups launched (steps-only
+  hardening `cw-stand-bc1-hard1`; coef-dose discovery
+  `cw-stand-bc1-coef03`) — do not propose another reward/RSI
+  variant; open question now is anchor dose/duration. Detail:
+  rl_docs/RISE.md.
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so

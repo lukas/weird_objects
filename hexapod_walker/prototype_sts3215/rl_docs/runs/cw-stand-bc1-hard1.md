@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-11T04:37:30+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-stand-bc1
+
+**wandb_id**: 58sekzjq
 
 **hypothesis**: The BC-anchor mechanism that fixed the flag-leg cheat in discovery (cw-stand-bc1) is trained for real: does the SAME recipe at a hardening budget (10M vs 2M) consolidate the honest six-foot plant (raise flat-start valid_plant off its current 0/10 footprint-only miss) and recover the hold/track precision and raise/tipped-recovery probes that looked worse in cw-stand-bc1's own training diagnostic (n=2 samples, weak evidence) - or does more training re-drift back toward the cheat now that the anchor's pull is diluted over more updates? Continuation of the SAME arm (init-from-source), one variable (steps), per the phase system's hardening rule (already visibly works, now prove it holds and improves with budget).
 

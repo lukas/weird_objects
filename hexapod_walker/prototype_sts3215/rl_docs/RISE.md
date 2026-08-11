@@ -367,3 +367,58 @@ mark) while `train/bc_anchor_loss` stays low; if feet hold and
 rise_score climbs, harden with an anneal schedule so the final
 policy is not trajectory-locked. Lever (b) (structural
 height↔contact coupling) stays next if the anchor fails.
+
+## `cw-stand-bc1` (08-11) — PASS (partial): lever (a) WORKS, first
+## honest rise in 7 stand-arms
+
+`env/rise_feet_factor` dipped to 0.32–0.37 through 260k–590k (would
+have fired the pre-registered <0.4-by-500k kill if live-monitored —
+note for future kill rules: needs a sustained window, not a first
+crossing, on this mechanism) then RECOVERED, climbing to 0.75 by 2M —
+categorically different from all six reward-only arms, whose curve
+never recovers. `env/reward_rise_ref` climbed to 0.6–0.77 (vs the
+0.01–0.03 floor every prior arm flatlined at) and `env/rise_score`
+left the floor (0.01→0.21).
+
+Harness confirms this is real, not another metric artifact. Gate
+pass (RSI 0.5, as trained): rise valid_plant **3/6 det** — honest
+six-foot plants, height_err 4–7mm, all feet <20mm off the ground,
+video-confirmed (frame strips show a genuine belly→spread-leg stand,
+nothing resembling the flag-leg/tripod cheat). A follow-up probe run
+directly on the pod (`--modes rise --per-mode 30 --seed 7
+--cfg-set goal.rise_rsi_frac=0.0`, isolating the anchor from RSI's
+help) on the SAME checkpoint: **bridge 7/12 and crouch 6/8 pass the
+full geometric valid_plant** check; **flat-belly cold start (the
+hardest case — legs straight out, belly down, exactly the operator's
+placement) reaches a real six-foot stand 10/10 times** (correct
+height, no flag leg, current in-band) but misses only the
+walk-anchor **footprint** tolerance every time (0/10 valid_plant,
+worst foot clearance 7.8mm — a foot-XY positioning gap, NOT a
+height/posture cheat; video-confirmed indistinguishable in kind from
+the passing bridge/crouch stands). Zero flag-leg/tripod cheat across
+42 video-checked episodes total. The identical-recipe parent
+`cw-stand-rsi3` (only missing `bc_anchor_coef`) shows the flag-leg
+cheat 0/12 valid_plant on this exact reward/goal-mix stack — the
+causal attribution to the anchor is clean (one variable).
+
+Cost (skill interference, weak evidence — n=2 training-diagnostic
+probe samples, not harness-verified): `raise` and `tipped_recovery`
+both read 0/2 at 2M vs rsi3's 1–2/2 and 2/2; hold/track angle error
+3.0° vs rsi3's 1.2–1.6°. The anchor only supervises rise-tick
+actions but shares the network with every mode — plausible bleed
+into nearby height/posture manifolds. `ep_rew_mean` fell to −29 by
+2M (rising tilt/over-current terminations during genuinely riskier
+rising attempts, not hold/track breaking — video confirms hold/track
+look normal).
+
+**Ruling: lever (a) is validated — reward-income shaping was
+correctly diagnosed as exhausted, and moving supervision OUTSIDE the
+reward (BC anchor on actions) is what unblocks flat-start rise.**
+Two follow-ups launched immediately (08-11, both from cw-stand-bc1,
+one variable each): `cw-stand-bc1-hard1` (10M steps, same coef,
+phase hardening — does the honest plant consolidate and do raise/
+tipped/hold-track recover with more budget?) and
+`cw-stand-bc1-coef03` (coef 0.3, discovery — does a gentler dose keep
+the rise fix while costing less cross-mode interference?). Do not
+propose another reward-coefficient/RSI variant; the open question
+now is anchor DOSE and DURATION, not reward shape.

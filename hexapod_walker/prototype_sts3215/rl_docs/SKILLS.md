@@ -246,6 +246,12 @@ Parent `ppo_goal_cw_dep_vref1_r1` itself (contract-exact obs + 25° tilt, no sta
 - Rise/lower heights at DR 1.0: solved pre-walk-campaign (see
   `archive/RL_PLAN_FULL_2026-08-09.md`); lower-line rework per rulings.
 
+### Rise (belly→plant) — DISCOVERY, not yet a champion
+
+| Skill | Checkpoint | Evidence | Envelope / limits |
+|---|---|---|---|
+| Honest six-foot rise from bridge/crouch starts; correct-shape rise from a flat belly-down cold start | `ppo_goal_cw_stand_bc1` (BC-anchor coef 1.0 on the rsi3 stack) | 08-11: first honest (non-flag-leg) rise in 7 stand-arms. Harness valid_plant (strict geometric check, video-confirmed): bridge 7/12, crouch 6/8 pass full-stack; flat cold-start 10/10 correct height/posture/no-flag-leg but 0/10 miss the walk-anchor footprint tolerance by <8mm. Zero flag-leg/tripod in 42 checked episodes. Identical-minus-anchor parent (`cw-stand-rsi3`) still cheats 0/12 on the same stack — clean one-variable attribution. | NOT hardware/walk-ready: flat-start feet land off the walk-ready footprint (precision gap, not a cheat); weak-evidence (n=2) hint that raise/tipped-recovery/hold-track got slightly worse in the same run (unverified by harness). Two follow-ups running (`cw-stand-bc1-hard1` 10M hardening, `cw-stand-bc1-coef03` dose-check) before this is promotable. Detail: `rl_docs/RISE.md`. |
+
 ## Pending verdicts that would add rows
 
 wander30 (envelope extension), backforth (reverse), standwalksit
