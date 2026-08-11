@@ -89,7 +89,17 @@ MIRROR2_STACK.update({
     ("reward", "k_yaw_still"): 50.0,
     ("reward", "walk_kernel_yaw_gate"): 1.0,
 })
-STACKS = {"trans1": TRANS1_STACK, "mirror2": MIRROR2_STACK}
+# mirror2 + the 08-11 latent-defect fixes (walk_task.py): heading-hold
+# yaw income gated on achieved linear progress, drift charge on the wz
+# EMA instead of the instantaneous oscillation. The stack any future
+# turn arm must train with (TURN_OVERRIDES in test_task_semantics.py).
+MIRROR2FIX_STACK = dict(MIRROR2_STACK)
+MIRROR2FIX_STACK.update({
+    ("reward", "walk_yaw_hold_prog_gate"): 1.0,
+    ("reward", "yaw_still_avg_s"): 1.0,
+})
+STACKS = {"trans1": TRANS1_STACK, "mirror2": MIRROR2_STACK,
+          "mirror2fix": MIRROR2FIX_STACK}
 
 DIRS = {
     "forward": (1.0, 0.0),
@@ -103,14 +113,23 @@ DIRS = {
 #   sac1   the classic single flag-leg walk (leg pinned at plant)
 #   paddle trans1: legs 1,4 planted 90-99% duty, other four rapid
 #          ~0.01 m strides, partial progress
-SCRIPTED = ("gait", "gait_slow", "sac1", "sac3", "paddle", "freeze")
+#   driftride  the yawcmd1/yawgate2/turnfix1 fingerprint: track the
+#          linear command but rotate at the structural ~+0.09 rad/s
+#          left drift, collecting the yaw kernel's heading-hold band.
+#          Scripted omega 0.25 calibrated to ACHIEVE ~0.088 rad/s
+#          while translating (the gait realizes ~40% of commanded
+#          omega — measured, test_task_semantics.py DRIFT_RIDE_WZ).
+SCRIPTED = ("gait", "gait_slow", "sac1", "sac3", "paddle", "freeze",
+            "driftride")
 PIN = {"sac1": (0,), "sac3": (0, 2, 4), "paddle": (1, 4)}
 VEL_SCALE = {"gait_slow": 0.5, "paddle": 0.3}
+DRIFT_RIDE_OMEGA = 0.25
 
 # gate-factor / diagnostic means worth reporting alongside term sums
 FACTOR_KEYS = ("walk_prog_factor", "walk_anchor_frac",
                "walk_loadslip_factor", "walk_height_factor",
-               "walk_yaw_gate_factor", "walk_yaw_kernel_factor")
+               "walk_yaw_gate_factor", "walk_yaw_kernel_factor",
+               "walk_yaw_hold_factor")
 
 
 def make_env(seed: int, stack: dict, dr_scale: float = 0.0):
@@ -174,6 +193,7 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
     factor_n: dict[str, int] = defaultdict(int)
     contact_hist = []
     total, step, cmd_dist, along_dist = 0.0, 0, 0.0, 0.0
+    wz_sum, wz_n = 0.0, 0
     term_reason = None
     scale = VEL_SCALE.get(policy, 1.0)
 
@@ -185,8 +205,10 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
         elif policy == "freeze":
             act = q_rad_to_action(plant_rad)
         else:
+            omega = (DRIFT_RIDE_OMEGA if policy == "driftride"
+                     and t >= 2.0 else 0.0)
             gait.set_velocity(vx=float(traj.vx[i]) * scale,
-                              vy=float(traj.vy[i]) * scale)
+                              vy=float(traj.vy[i]) * scale, omega=omega)
             q = np.asarray(gait.desired_deg(t)) * DEG2RAD
             for leg in PIN.get(policy, ()):
                 q[3 * leg:3 * leg + 3] = plant_rad[3 * leg:3 * leg + 3]
@@ -207,6 +229,8 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
                 cmd_dist += s_ref * env.dt
                 along_dist += ((v_b[0] * g.vx_ref + v_b[1] * g.vy_ref)
                                / s_ref) * env.dt
+                wz_sum += env._body_wz()
+                wz_n += 1
         contact_hist.append([
             float(env.data.sensordata[adr]) > 0.5
             for adr in env._touch_adr])
@@ -229,6 +253,7 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
         "factors": {k: factor_sums[k] / max(factor_n[k], 1)
                     for k in factor_sums},
         "progress_ratio": along_dist / cmd_dist if cmd_dist > 0 else 0.0,
+        "wz_mean": wz_sum / wz_n if wz_n else 0.0,
         "duty": [round(float(d), 3) for d in duty],
         "swings": swings,
         "terminated": term_reason if term_reason not in (None, "time")
@@ -266,7 +291,8 @@ def summarize(records: list[dict]) -> None:
             row += f"{v:14.1f}"
         print(row)
     print("\n--- behavior fingerprints (mean) ---")
-    for lab, key in (("progress_ratio", "progress_ratio"),):
+    for lab, key in (("progress_ratio", "progress_ratio"),
+                     ("wz_mean", "wz_mean")):
         row = f"{lab:28s}"
         for p in pols:
             row += f"{np.mean([r[key] for r in by_pol[p]]):14.2f}"

@@ -25,11 +25,13 @@ Restore everything with:
 
 ```sh
 cd ~/weird_objects && uv pip install ftservo-python-sdk \
-  mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh
+ mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh \
+ pygame-ce
 ```
 
 (`trimesh` is needed by the sim's CAD geometry builder —
-`hexapod_prototype.py` — not just by CAD scripts.)
+`hexapod_prototype.py` — not just by CAD scripts. `pygame-ce` is the
+gamepad reader for `sim_play.sh`, headless SDL only.)
 
 **Never `rm -rf .venv` / recreate it without the user asking** — it was
 nuked once (2026-08-09) by an agent whose `ls` existence check silently

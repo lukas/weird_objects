@@ -100,10 +100,22 @@ is schematic only — nothing is sent on hover.
 ### RL (`#rl`)
 
 **Stand up / Lower** → `POST /api/rl/stand` / `/api/rl/lower` (confirm) ·
-**Walk fwd / Strafe L / R** → `POST /api/rl/walk {vx, vy, duration_s}`
-(confirm) · **Stand (scripted)** → same `/api/zero {pose:"stand"}` glide as
-Drive (confirm) · **Capture plant** → `POST /api/rl/capture_plant` (no
-motion) · **Stop** → `POST /api/rl/stop` · readiness checks →
+**Drive — hold keys**: **Start driving** → `POST /api/rl/drive/start`,
+then arrow keys / WASD (or the on-screen pad, pointerdown/up) stream
+`POST /api/rl/drive/cmd {vx, vy}` heartbeats at 5 Hz while the session
+is active — held key = walk that way, released = the robot decels and
+holds (the robot treats a heartbeat older than 0.6 s as "keys
+released", so a dead tab stops it). **End session** →
+`POST /api/rl/drive/stop` (decel + hold). Keys only act on this tab
+(the Drive tab's own key loop owns WASD there); leaving the tab or
+window blur releases everything. A page reload reconnects to a live
+session and resumes heartbeats. · **Timed walk** (details block) →
+`POST /api/rl/walk {vx, vy, duration_s}` · **Model roles** selects →
+`GET/POST /api/rl/roles` (which policy file serves walk / hold /
+stand / lower; no motion) · **Stand (scripted)** → same `/api/zero
+{pose:"stand"}` glide as Drive (confirm) · **Capture plant** →
+`POST /api/rl/capture_plant` (no motion) · **Stop** →
+`POST /api/rl/stop` · readiness checks →
 `GET /api/rl/preflight?mode=stand|lower|walk` (read-only) · policy info →
 `GET /api/rl/policy`.
 

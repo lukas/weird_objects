@@ -41,6 +41,7 @@ import csv
 import json
 import math
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -151,6 +152,66 @@ WALK_START_TOL_DEG = 25.0    # near the captured plant stance
 # Stand/lower keep the config's 10 deg trip — the stance champion
 # (stance_dr10) trained with it, and its episodes should sit at +-1 deg.
 WALK_MAX_TILT_DEG = 25.0
+
+# Drive session (MuJoCo-viewer-style held-key driving, operator 08-11).
+# The browser holds arrow keys -> POST /api/rl/drive/cmd heartbeats carry
+# the live (vx, vy); release -> (0, 0) -> the hold model. The loop NEVER
+# trusts a stale command: refs decay to zero unless a heartbeat younger
+# than DRIVE_CMD_TIMEOUT_S says otherwise, so a closed tab / dropped
+# WiFi degrades to "stand still and hold", not "keep walking".
+DRIVE_CMD_TIMEOUT_S = 0.6    # heartbeats at ~5 Hz; 3 misses = stop
+DRIVE_IDLE_END_S = 120.0     # no heartbeat at all -> end session (hold)
+DRIVE_MAX_SESSION_S = 300.0  # hard cap per session (decel + hold)
+DRIVE_HOLD_SWITCH_S = 1.5    # zero-cmd dwell before flipping to the
+                             # hold model (quick taps stay on walk)
+
+
+class DriveCommand:
+    """Thread-safe live command mailbox: HTTP handler -> drive loop.
+
+    ``set()`` is called from web request threads (must never touch the
+    bus); the 25 Hz loop reads with ``get()`` and publishes a UI
+    snapshot via ``live``.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._vx = 0.0
+        self._vy = 0.0
+        # Counts as a heartbeat so the idle-end clock starts at session
+        # birth instead of firing instantly (refs are zero until the
+        # browser actually sends commands).
+        self._t_cmd = time.monotonic()
+        self._stop = False
+        self._live: dict = {}
+
+    def set(self, vx: float, vy: float) -> None:
+        spd = math.hypot(vx, vy)
+        if spd > WALK_SPEED_MAX:
+            s = WALK_SPEED_MAX / spd
+            vx, vy = vx * s, vy * s
+        with self._lock:
+            self._vx, self._vy = float(vx), float(vy)
+            self._t_cmd = time.monotonic()
+
+    def request_stop(self) -> None:
+        with self._lock:
+            self._stop = True
+
+    def get(self) -> tuple[float, float, float, bool]:
+        """(vx, vy, seconds_since_heartbeat, stop_requested)."""
+        with self._lock:
+            return (self._vx, self._vy,
+                    time.monotonic() - self._t_cmd, self._stop)
+
+    @property
+    def live(self) -> dict:
+        with self._lock:
+            return dict(self._live)
+
+    def publish(self, snap: dict) -> None:
+        with self._lock:
+            self._live = snap
 
 _CENTER_RAD = np.array([
     (AXIS_LIMITS_DEG[j % 3][0] + AXIS_LIMITS_DEG[j % 3][1]) * 0.5 * DEG2RAD
@@ -419,7 +480,8 @@ def preflight(bus, mode: str) -> tuple[bool, str, dict]:
 
 def run_policy_move(drive, mode: str, *, on_progress=None,
                     abort_check=None, vx: float = 0.03, vy: float = 0.0,
-                    duration_s: float = 6.0, rot60: bool = True) -> dict:
+                    duration_s: float = 6.0, rot60: bool = True,
+                    weights_path: Path | None = None) -> dict:
     """Blocking policy episode. Call from a worker thread.
 
     ``drive`` is web_drive's DriveController (bus + arm state).
@@ -428,6 +490,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     rot-60 canonicalizer, else the trained +/-30 deg wedge only) and
     duration_s. ``rot60=False`` runs the naked policy (A/B baseline
     for a hardware parity session) — wedge headings only.
+    ``weights_path`` overrides the default slot file (role registry,
+    bench_api.rl_roles); obs-dim checks still apply.
     """
     assert mode in ("stand", "lower", "walk")
     on_progress = on_progress or (lambda p: None)
@@ -439,10 +503,11 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     cfg = load_config(str(_HERE.parent / "rl_move" / "config.yaml"))
     canon = None
     if mode == "walk":
-        policy = NumpyPolicy(WALK_WEIGHTS_PATH)
+        wpath = weights_path or WALK_WEIGHTS_PATH
+        policy = NumpyPolicy(wpath)
         if policy.meta.get("obs_dim") != 72:
             return {"ok": False,
-                    "error": ("rl_walk_weights.json is not a walk policy "
+                    "error": (f"{Path(wpath).name} is not a walk policy "
                               f"(obs {policy.meta.get('obs_dim')} != 72)")}
         spd = math.hypot(vx, vy)
         if spd > WALK_SPEED_MAX:
@@ -462,10 +527,11 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                                  "unavailable (rl_move/sim/rot60.py "
                                  "not deployed)"))}
     else:
-        policy = NumpyPolicy()
+        wpath = weights_path or WEIGHTS_PATH
+        policy = NumpyPolicy(wpath)
         if policy.meta.get("obs_dim") != 68:
             return {"ok": False,
-                    "error": ("rl_policy_weights.json is not a stance/"
+                    "error": (f"{Path(wpath).name} is not a stance/"
                               "goal policy (obs "
                               f"{policy.meta.get('obs_dim')} != 68)")}
         prof = policy_profile(policy, mode)
@@ -706,6 +772,300 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         # >35° relative during run or tail ≈ on its side/nose: the
         # 25° walk trip would have fired first in-run, so this is a
         # post-episode fall detector.
+        fell=bool(max(tail_tilt_max, tilt_rel_max) > 35.0),
+    )
+    result["log"] = elog.close(result)
+    return result
+
+
+def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
+                      abort_check=None, rot60: bool = True,
+                      walk_weights: Path | None = None,
+                      hold_weights: Path | None = None) -> dict:
+    """Blocking persistent drive session (MuJoCo-viewer-style driving).
+
+    Same conventions as run_policy_move mode="walk" — plant-stance
+    start gate, 25 Hz, walk obs contract with meas := ref, rot-60
+    canonicalizer, 25 deg tilt trip — but the command is LIVE: the
+    browser streams body-frame (vx, vy) heartbeats into ``cmd`` while
+    arrow keys are held. Refs slew toward the target at the trained
+    ramp rate (0 -> full band in WALK_RAMP_S), so a key press feels
+    like the training ramp and a release decays to the trained stop.
+
+    Hold model: with ``hold_weights=None`` the walk policy itself
+    holds at zero refs (its trained stop). A separate hold policy
+    (obs 68 stance at height_ref 0, or another obs-72 walk file at
+    zero refs) takes over after DRIVE_HOLD_SWITCH_S of zero command;
+    any new command flips back to walk instantly. Every model switch
+    re-anchors the episode frame (q_nom := present pose,
+    prev_action := 0) — the same episode re-anchor the sim viewer's
+    play.py does on policy handoff.
+
+    Ends by: operator stop (decel then HOLD pose), abort (hold),
+    heartbeat silence > DRIVE_IDLE_END_S (browser gone -> hold),
+    session cap DRIVE_MAX_SESSION_S (hold), or safety trip (limp).
+    """
+    on_progress = on_progress or (lambda p: None)
+    abort_check = abort_check or (lambda: False)
+    bus = drive.bus
+    if bus is None or drive.dry_run:
+        return {"ok": False, "error": "no bus"}
+
+    cfg = load_config(str(_HERE.parent / "rl_move" / "config.yaml"))
+    wpath = walk_weights or WALK_WEIGHTS_PATH
+    walk_policy = NumpyPolicy(wpath)
+    if walk_policy.meta.get("obs_dim") != 72:
+        return {"ok": False,
+                "error": (f"{Path(wpath).name} is not a walk policy "
+                          f"(obs {walk_policy.meta.get('obs_dim')} != 72)")}
+    hold_policy = None
+    hold_obs = None
+    if hold_weights is not None:
+        hold_policy = NumpyPolicy(hold_weights)
+        hold_obs = hold_policy.meta.get("obs_dim")
+        if hold_obs not in (68, 72):
+            return {"ok": False,
+                    "error": (f"{Path(hold_weights).name} fits no hold "
+                              f"role (obs {hold_obs}, need 68 or 72)")}
+
+    canon = make_walk_canonicalizer(walk_policy, cfg) if rot60 else None
+    hold_canon = (make_walk_canonicalizer(hold_policy, cfg)
+                  if rot60 and hold_policy is not None and hold_obs == 72
+                  else None)
+    if canon is None and not _ROT60_OK:
+        # Without the canonicalizer only the trained forward wedge is
+        # safe; a live joystick can't be trusted to stay inside it.
+        return {"ok": False,
+                "error": ("drive session needs the rot-60 canonicalizer "
+                          "(rl_move/sim/rot60.py not deployed)")}
+
+    ok, reason, details = preflight(bus, "walk")
+    if not ok:
+        return {"ok": False, "error": f"preflight: {reason}", **details}
+
+    def limp():
+        try:
+            bus.enable_all_torque(False)
+        except Exception:
+            try:
+                drive._torque_all(False)
+            except Exception:
+                pass
+
+    with drive._lock:
+        drive.mode = "demo"
+        try:
+            drive.gait.stop()
+        except Exception:
+            pass
+        if not drive.armed:
+            drive._torque_all(True)
+            drive.armed = True
+
+    est = RobotStateEstimator(bus, cfg)
+    safety = SafetyLayer(cfg)
+    safety.max_roll = math.radians(WALK_MAX_TILT_DEG)
+    safety.max_pitch = math.radians(WALK_MAX_TILT_DEG)
+    write_speed = int(cfg_get(cfg, "bus", "write_speed", default=400))
+    write_acc = int(cfg_get(cfg, "bus", "write_acc", default=20))
+
+    state = None
+    for _ in range(5):
+        state = est.update(want_full_feedback=True)
+        time.sleep(DT)
+    if state is None or not state.bus_ok:
+        limp()
+        return {"ok": False, "error": "bus dropped during settle"}
+    q_nom = state.joint_position.copy()
+    est.set_commanded(q_nom)
+    bus.write_all((q_nom * RAD2DEG).tolist(), speed=write_speed,
+                  acc=write_acc)
+    est.reset_episode_filters()
+    for _ in range(3):
+        state = est.update()
+        time.sleep(DT)
+    tilt_ref0 = (state.imu_roll, state.imu_pitch)
+    safety.set_nominal(q_nom)
+    safety.set_tilt_reference(*tilt_ref0)
+
+    prev_action = np.zeros(N_JOINTS, dtype=float)
+    vx_r = vy_r = 0.0
+    dv_max = WALK_SPEED_MAX * DT / WALK_RAMP_S   # trained ramp rate
+    active = "walk"
+    zero_since = 0.0            # session time when refs+target went zero
+    stopping = None             # reason string once winding down
+    overruns = 0
+    max_cur = 0.0
+    tilt_rel_max = 0.0
+    t = 0.0
+    i = 0
+    t_next = time.monotonic()
+    result: dict = {"ok": True, "mode": "drive"}
+    elog = _EpisodeLog("drive", obs_dim=72, params={
+        "mode": "drive", "hz": HZ,
+        "policy": dict(walk_policy.meta),
+        "hold_policy": (dict(hold_policy.meta)
+                        if hold_policy is not None else None),
+        "q_nom_deg": [round(float(q) * RAD2DEG, 2) for q in q_nom],
+        "tilt_ref_deg": [round(tilt_ref0[0] * RAD2DEG, 2),
+                         round(tilt_ref0[1] * RAD2DEG, 2)],
+        "tilt_trip_deg": WALK_MAX_TILT_DEG,
+        "preflight": details, "rot60": canon is not None,
+    })
+
+    def reanchor():
+        """Episode re-anchor on model switch (q frame + prev_action)."""
+        nonlocal q_nom, prev_action
+        q_nom = state.joint_position.copy()
+        safety.set_nominal(q_nom)
+        prev_action = np.zeros(N_JOINTS, dtype=float)
+
+    while True:
+        if abort_check():
+            result.update(ok=False, error="aborted", held_pose=True,
+                          ticks=i)
+            break
+        t = i * DT
+        vx_t, vy_t, hb_age, stop_req = cmd.get()
+        if stop_req and stopping is None:
+            stopping = "stopped"
+        if hb_age > DRIVE_IDLE_END_S and stopping is None:
+            stopping = "no command from browser — session ended"
+        if t > DRIVE_MAX_SESSION_S and stopping is None:
+            stopping = f"session cap {DRIVE_MAX_SESSION_S:.0f}s reached"
+        if stopping is not None or hb_age > DRIVE_CMD_TIMEOUT_S:
+            vx_t = vy_t = 0.0
+        # Slew refs toward the target at the trained ramp rate.
+        vx_r += max(-dv_max, min(dv_max, vx_t - vx_r))
+        vy_r += max(-dv_max, min(dv_max, vy_t - vy_r))
+        moving = math.hypot(vx_r, vy_r) > 1e-4 or math.hypot(vx_t, vy_t) > 0
+        if stopping is not None and not moving:
+            # Graceful end: refs decayed to zero, robot HOLDS the pose.
+            result.update(ticks=i, ended=stopping)
+            break
+
+        # Hold-model handoff (only when a separate hold policy is set).
+        if hold_policy is not None:
+            if moving:
+                zero_since = t
+                if active != "walk":
+                    active = "walk"
+                    reanchor()
+            elif (active == "walk"
+                  and t - zero_since >= DRIVE_HOLD_SWITCH_S):
+                active = "hold"
+                reanchor()
+
+        goal = TaskGoal(roll_ref=0.0, pitch_ref=0.0, height_ref=0.0,
+                        unload_leg=None)
+        base_obs = build_obs(cfg, state, q_nom, prev_action, goal=goal,
+                             tilt_ref=tilt_ref0)
+        if active == "walk" or hold_obs == 72:
+            obs = np.concatenate(
+                [base_obs,
+                 np.array([vx_r, vy_r, vx_r, vy_r]) / WALK_VEL_SCALE]
+            ).astype(np.float32)
+            if active == "walk":
+                raw_act, _ = (canon.predict(obs) if canon is not None
+                              else (walk_policy.act(obs), None))
+            else:
+                raw_act, _ = (hold_canon.predict(obs)
+                              if hold_canon is not None
+                              else (hold_policy.act(obs), None))
+        else:   # 68-obs stance hold at height_ref 0
+            obs = base_obs
+            raw_act = hold_policy.act(obs)
+        action, bad = safety.validate_action(raw_act, n_act=N_JOINTS)
+        if action is None:
+            limp()
+            result.update(ok=False, error=f"bad action: {bad}", ticks=i)
+            break
+        q_prop = _CENTER_RAD + action * _HALF_RAD
+        q_safe, status = safety.filter(q_prop, state, action=action)
+        if status.terminate:
+            limp()
+            result.update(ok=False, error=f"safety trip: {status.reason}",
+                          limped=True, ticks=i)
+            break
+        est.set_commanded(q_safe)
+        bus.write_all((q_safe * RAD2DEG).tolist(), speed=write_speed,
+                      acc=write_acc)
+        prev_action = action.copy()
+
+        t_next += DT
+        lag = time.monotonic() - t_next
+        if lag > 0:
+            overruns += 1
+            t_next = time.monotonic()
+        else:
+            time.sleep(-lag)
+        state = est.update()
+        if state.servo_current is not None:
+            max_cur = max(max_cur,
+                          float(np.max(np.abs(state.servo_current))))
+        tilt_rel_max = max(
+            tilt_rel_max,
+            abs(state.imu_roll - tilt_ref0[0]) * RAD2DEG,
+            abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
+        # Hold-68 obs would misalign the fixed 72-wide obs columns —
+        # blank them for those ticks (walk replay parity is what the
+        # offline contract needs).
+        elog.tick(t, state, action, q_safe, goal, vx_r, vy_r, max_cur,
+                  obs=(obs if len(obs) == 72 else None),
+                  phase=("stopping" if stopping else active),
+                  rot60_k=(canon.k if canon is not None
+                           and active == "walk" else None))
+        snap = {
+            "t_s": round(t, 1), "model": active,
+            "vx_ref": round(vx_r, 3), "vy_ref": round(vy_r, 3),
+            "vx_cmd": round(vx_t, 3), "vy_cmd": round(vy_t, 3),
+            "roll_deg": round((state.imu_roll - tilt_ref0[0]) * RAD2DEG,
+                              1),
+            "pitch_deg": round((state.imu_pitch - tilt_ref0[1])
+                               * RAD2DEG, 1),
+            "max_current_a": round(max_cur, 2),
+            "rot60_k": canon.k if canon is not None else None,
+            "stopping": stopping, "overruns": overruns,
+        }
+        cmd.publish(snap)
+        if i % 5 == 0:
+            on_progress({
+                "msg": (f"drive {active} t={t:5.1f}s "
+                        f"v=({vx_r * 1000:+.0f},{vy_r * 1000:+.0f})mm/s "
+                        f"maxI={max_cur:.2f}A"
+                        + (f" · {stopping}" if stopping else "")),
+                **snap})
+        i += 1
+        t = i * DT
+
+    # Same post-episode observation tail as run_policy_move: keep
+    # reading (never commanding) so a fall during the end-of-session
+    # hold is in the trace.
+    TAIL_S = 3.0
+    tail_tilt_max = 0.0
+    for k in range(int(TAIL_S * 10)):
+        time.sleep(0.1)
+        try:
+            state = est.update()
+        except Exception:
+            break
+        if state is None or not state.bus_ok:
+            break
+        tail_tilt_max = max(
+            tail_tilt_max,
+            abs(state.imu_roll - tilt_ref0[0]) * RAD2DEG,
+            abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
+        elog.tick(t + (k + 1) * 0.1, state, None, None, None,
+                  0.0, 0.0, max_cur, phase="tail")
+
+    result.update(
+        duration_s=round(t, 1),
+        max_current_a=round(max_cur, 2), overruns=overruns,
+        tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),
+                      round(tilt_ref0[1] * RAD2DEG, 2)],
+        tilt_rel_max_deg=round(tilt_rel_max, 1),
+        tail_s=TAIL_S,
+        tail_tilt_max_deg=round(tail_tilt_max, 1),
         fell=bool(max(tail_tilt_max, tilt_rel_max) > 35.0),
     )
     result["log"] = elog.close(result)

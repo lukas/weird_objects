@@ -253,31 +253,19 @@ capture while the robot is standing well.">📌 Capture plant</button>
         <button id="rlstop" class="danger">■ Stop</button>
       </div>
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
-      <h2 style="margin-top:16px">Walk (experimental)</h2>
-      <div class="hint">Sim walk champion — <b>NOT validated on
-        hardware</b> (known foot-slide in sim; no body-velocity sensor,
-        command runs open-loop). Starts <b>only from the captured plant
-        stance</b>. Command ramps in over 1&nbsp;s, walks, ramps out and
-        holds. <b>Stop</b> aborts and holds. Keep a hand near the 12 V
-        switch the first tries.</div>
-      <div style="margin-top:12px;display:grid;
-                  grid-template-columns:repeat(3,minmax(72px,1fr));
-                  gap:6px;max-width:280px">
-        <button id="rlwalkfl">↖</button>
-        <button id="rlwalkfwd">▲ Fwd</button>
-        <button id="rlwalkfr">↗</button>
-        <button id="rlwalkleft">◀ Strafe L</button>
-        <button id="rlwalkback" title="Rot-60 canonicalizer maps this onto
-the trained forward wedge — same policy, body walks backward.">▼ Back</button>
-        <button id="rlwalkright">▶ Strafe R</button>
-        <button id="rlwalkbl">↙</button>
-        <div></div>
-        <button id="rlwalkbr">↘</button>
-      </div>
-      <div class="hint" style="margin-top:6px">All 8 headings run the same
-        walk policy — off-wedge directions are handled by the rot-60
-        canonicalizer (hexagonal symmetry), not separate training.</div>
-      <div class="btns" style="margin-top:8px">
+      <h2 style="margin-top:16px">Drive — hold keys (like the sim viewer)</h2>
+      <div class="hint"><b>Start driving</b>, then hold <b>arrow keys /
+        WASD</b> (or the pad) to walk in that body direction — release
+        and the robot rolls off to a stop and <b>holds</b>. Stand up /
+        Lower above flip to those models (they end the session first).
+        Commands go stale in 0.6&nbsp;s, so a closed tab or dropped
+        WiFi stops the robot; the session itself ends after 5&nbsp;min
+        (or 2&nbsp;min unattended) and holds. All headings run through
+        the rot-60 canonicalizer. Starts from the captured plant
+        stance. <b>Watch the robot the whole time.</b></div>
+      <div class="btns" style="margin-top:10px">
+        <button id="rldrivestart" class="on">▶ Start driving</button>
+        <button id="rldriveend">■ End session (stop &amp; hold)</button>
         <label class="hint">speed
           <select id="rlwalkspeed">
             <option value="0.02">0.02 m/s (below trained band)</option>
@@ -286,13 +274,51 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
             <option value="0.05" selected>0.05 m/s</option>
             <option value="0.06">0.06 m/s</option>
           </select></label>
-        <label class="hint">for
-          <select id="rlwalkdur">
-            <option value="4">4 s</option>
-            <option value="6" selected>6 s</option>
-            <option value="10">10 s</option>
-          </select></label>
       </div>
+      <div class="hint" id="rldrivestatus" style="margin-top:8px">No
+        session — Start driving, then hold keys.</div>
+      <div id="rldrivepad" style="margin-top:10px;display:grid;
+                  grid-template-columns:repeat(3,minmax(72px,1fr));
+                  gap:6px;max-width:280px">
+        <button data-dv="1,1">↖</button>
+        <button data-dv="1,0">▲ Fwd</button>
+        <button data-dv="1,-1">↗</button>
+        <button data-dv="0,1">◀ Strafe L</button>
+        <button data-dv="0,0" disabled
+                title="Release everything = stop and hold.">● hold</button>
+        <button data-dv="0,-1">▶ Strafe R</button>
+        <button data-dv="-1,1">↙</button>
+        <button data-dv="-1,0">▼ Back</button>
+        <button data-dv="-1,-1">↘</button>
+      </div>
+      <details style="margin-top:14px">
+        <summary class="hint" style="cursor:pointer">Timed walk
+          (fixed-duration episodes — for tape-measured runs)</summary>
+        <div style="margin-top:10px;display:grid;
+                    grid-template-columns:repeat(3,minmax(72px,1fr));
+                    gap:6px;max-width:280px">
+          <button id="rlwalkfl">↖</button>
+          <button id="rlwalkfwd">▲ Fwd</button>
+          <button id="rlwalkfr">↗</button>
+          <button id="rlwalkleft">◀ Strafe L</button>
+          <button id="rlwalkback" title="Rot-60 canonicalizer maps this onto
+the trained forward wedge — same policy, body walks backward.">▼ Back</button>
+          <button id="rlwalkright">▶ Strafe R</button>
+          <button id="rlwalkbl">↙</button>
+          <div></div>
+          <button id="rlwalkbr">↘</button>
+        </div>
+        <div class="btns" style="margin-top:8px">
+          <label class="hint">for
+            <select id="rlwalkdur">
+              <option value="4">4 s</option>
+              <option value="6" selected>6 s</option>
+              <option value="10">10 s</option>
+            </select></label>
+          <span class="hint">Command ramps in over 1&nbsp;s, walks,
+            ramps out and holds. Uses the speed picker above.</span>
+        </div>
+      </details>
     </div>
     <div class="pad" style="flex:1 1 340px">
       <h2>Readiness (no motion)</h2>
@@ -310,6 +336,15 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
     <div class="pad" style="flex:2 1 480px">
       <h2>Policy</h2>
       <div class="hint" id="rlpolicyinfo">loading…</div>
+      <h2 style="margin-top:16px">Model roles</h2>
+      <div class="hint">Which policy file runs each function — one file
+        can serve several roles (a walk champion that stops cleanly can
+        be both <b>Walk</b> and <b>Hold</b>). <b>Hold</b> is what runs
+        when no keys are pressed; default is the walk policy at zero
+        command (its trained stop). Applies at the next move / session
+        start.</div>
+      <div id="rlroles" class="hint" style="margin-top:10px">loading…</div>
+      <div class="hint" id="rlrolesmsg" style="margin-top:6px">—</div>
       <div id="rlpicktable" class="hint" style="margin-top:12px">loading…</div>
       <div class="hint" id="rlpickmsg" style="margin-top:8px">—</div>
       <div class="hint" style="margin-top:10px">Trained in the MuJoCo

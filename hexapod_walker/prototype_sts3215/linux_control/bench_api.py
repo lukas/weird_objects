@@ -122,6 +122,9 @@ class BenchAPI:
         self._meas_pending: dict | None = None
         self._status_display = None
         self._servo_watch = None
+        # Live drive session (rl_policy.DriveCommand) — set while an
+        # rl_drive worker owns the demo slot, None otherwise.
+        self._drive_cmd = None
 
     def start_status_display(self) -> None:
         """Mirror web status + Σ motor current onto the MCU ST7789."""
@@ -1480,6 +1483,7 @@ class BenchAPI:
             "imu": self.imu_state(),
             "calibrate": self.calibrate_state(),
             "robot": self.robot_state(),
+            "drive": self.rl_drive_state(),
         }
 
     def rl_find_plant(self, *, clearance_mm: float = 40.0,
@@ -1813,6 +1817,282 @@ class BenchAPI:
                 "name": meta.get("name") or src.stem,
                 "source": (meta.get("source") or "").rsplit("/", 1)[-1]}
 
+    # Role registry (operator 08-11, MuJoCo-style driving): which
+    # policies/<file> serves each FUNCTION. One file can hold several
+    # roles — a walk champion that stops cleanly can be both "walk" and
+    # "hold"; the rise specialist and the stance champion can split
+    # "stand" and "lower". Stored on the board's home dir (like
+    # ~/.hexapod_cal.json), NOT in the repo. A role of None keeps the
+    # pre-roles behavior: the live slot file (rl_policy_select). The
+    # special hold value "walk" (the default) means "the walk policy at
+    # zero command" — its trained stop, no model switch at all.
+    ROLES_FILE = Path.home() / ".hexapod_rl_roles.json"
+    _ROLE_OBS = {"walk": (72,), "hold": (68, 72),
+                 "stand": (68,), "lower": (68,)}
+
+    def _roles(self) -> dict:
+        roles = {"walk": None, "hold": "walk", "stand": None,
+                 "lower": None}
+        try:
+            d = json.loads(self.ROLES_FILE.read_text())
+            for k in roles:
+                if k in d:
+                    roles[k] = d[k]
+        except Exception:
+            pass
+        return roles
+
+    def _role_weights(self, role: str) -> Path | None:
+        """Weights-file override for a role; None = default behavior
+        (the live slot file, or walk@zero for the hold role)."""
+        v = self._roles().get(role)
+        if not v or v == "walk":
+            return None
+        p = self.POLICIES_DIR / Path(str(v)).name
+        return p if p.is_file() else None
+
+    def rl_roles(self) -> dict:
+        """Current role assignments + what each resolves to (no bus)."""
+        roles = self._roles()
+        out = {}
+        for role, v in roles.items():
+            p = self._role_weights(role)
+            if p is not None:
+                try:
+                    meta = json.loads(p.read_text())["meta"]
+                    resolved = meta.get("name") or p.stem
+                except Exception:
+                    resolved = p.name
+            elif role == "hold":
+                resolved = "walk policy @ zero command"
+            else:
+                slot = "walk" if role == "walk" else "stance"
+                resolved = f"live {slot} slot"
+            out[role] = {"file": v, "resolved": resolved}
+        return {"ok": True, "roles": out,
+                "allowed_obs": {k: list(v)
+                                for k, v in self._ROLE_OBS.items()}}
+
+    def rl_role_set(self, *, role: str = "", file: str = "") -> dict:
+        """Assign policies/<file> to a role (no motion; takes effect at
+        the next episode / session start). file="" resets to default;
+        file="walk" (hold role only) = walk policy at zero command."""
+        role = (role or "").strip().lower()
+        if role not in self._ROLE_OBS:
+            return {"ok": False,
+                    "error": f"bad role {role!r} (walk/hold/stand/lower)"}
+        val: str | None
+        if not file:
+            val = "walk" if role == "hold" else None
+        elif file == "walk":
+            if role != "hold":
+                return {"ok": False,
+                        "error": "'walk' shorthand is hold-role only"}
+            val = "walk"
+        else:
+            name = Path(str(file)).name        # forbid path traversal
+            p = self.POLICIES_DIR / name
+            if not p.is_file():
+                return {"ok": False, "error": f"no such policy: {name}"}
+            try:
+                meta = json.loads(p.read_text())["meta"]
+            except Exception as e:
+                return {"ok": False, "error": f"unreadable policy: {e}"}
+            if meta.get("obs_dim") not in self._ROLE_OBS[role]:
+                return {"ok": False,
+                        "error": (f"{name} (obs {meta.get('obs_dim')}) "
+                                  f"does not fit role {role} "
+                                  f"(needs obs {self._ROLE_OBS[role]})")}
+            val = name
+        roles = self._roles()
+        roles[role] = val
+        try:
+            tmp = self.ROLES_FILE.with_name(self.ROLES_FILE.name + ".tmp")
+            tmp.write_text(json.dumps(roles, indent=1))
+            tmp.replace(self.ROLES_FILE)
+        except OSError as e:
+            return {"ok": False, "error": f"could not save roles: {e}"}
+        try:
+            from event_log import emit
+            emit("rl_role_set", f"{role} <- {val or 'default'}",
+                 src="bench", data={"role": role, "file": val})
+        except Exception:
+            pass
+        return {"ok": True, **self.rl_roles()}
+
+    # -- Live drive session (held-arrow-key driving, operator 08-11) ----
+    def _drive_active(self) -> bool:
+        with self._lock:
+            name = self._demo_name
+        return (self._drive_cmd is not None
+                and self._demo_thread is not None
+                and self._demo_thread.is_alive()
+                and name == "rl_drive")
+
+    def rl_drive_state(self) -> dict:
+        """Session snapshot for the UI (no bus traffic)."""
+        active = self._drive_active()
+        out: dict = {"ok": True, "active": active}
+        cmd = self._drive_cmd
+        if cmd is not None:
+            out["live"] = cmd.live
+        with self._lock:
+            if active:
+                out["status"] = self._demo_status
+            elif self._demo_name == "rl_drive":
+                out["result"] = self._cal_result
+        return out
+
+    def rl_drive_cmd(self, *, vx: float = 0.0, vy: float = 0.0) -> dict:
+        """Heartbeat from the browser: body-frame (vx, vy) m/s while
+        keys are held, (0, 0) when released. Never touches the bus —
+        the 25 Hz session loop reads it. Stale heartbeats (> 0.6 s)
+        decay to zero server-side, so this must keep streaming."""
+        if not self._drive_active():
+            return {"ok": False, "error": "no drive session", "active": False}
+        self._drive_cmd.set(float(vx), float(vy))
+        with self._lock:
+            status = self._demo_status
+        return {"ok": True, "active": True, "status": status,
+                "live": self._drive_cmd.live}
+
+    def rl_drive_stop(self) -> dict:
+        """Graceful end: refs ramp to zero, robot HOLDS the pose."""
+        if self._drive_cmd is not None:
+            self._drive_cmd.request_stop()
+        return self.rl_drive_state()
+
+    def rl_drive_start(self) -> dict:
+        """Start a persistent RL drive session (async, demo slot).
+
+        Same start contract as the episodic walk: read-only preflight
+        from the captured plant stance, with the moderate-tilt/pose
+        auto-acquire (scripted stand) fallback. Then the loop runs
+        until stop / heartbeat silence / cap / safety trip, driven
+        live by rl_drive_cmd. THE OPERATOR MUST BE WATCHING.
+        """
+        try:
+            from rl_policy import DriveCommand, preflight, run_drive_session
+        except ImportError as e:
+            return {"ok": False, "error": f"rl_policy missing: {e}"}
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            if self._drive_active():
+                return {"ok": True, "already": True,
+                        **self.rl_drive_state()}
+            return {"ok": False, "error": "stop the running job first"}
+
+        walk_w = self._role_weights("walk")
+        hold_w = self._role_weights("hold")
+
+        ok, reason, details = preflight(self.drive.bus, "walk")
+        acquire_first = False
+        if not ok and (reason.startswith("pose is not")
+                       or reason.startswith("tilt too high")):
+            # Same moderate-tilt descent rule as rl_policy_move: a
+            # sprawled-but-level robot may acquire the stand first; a
+            # truly tipped or half-dead robot always refuses.
+            r = abs(float(details.get("roll_deg", 90.0)))
+            p = abs(float(details.get("pitch_deg", 90.0)))
+            if r <= 35.0 and p <= 35.0:
+                acquire_first = True
+            else:
+                return {"ok": False,
+                        "error": f"preflight: {reason}", **details}
+        elif not ok:
+            return {"ok": False, "error": f"preflight: {reason}", **details}
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        cmd = DriveCommand()
+        self._drive_cmd = cmd
+        with self._lock:
+            self._demo_name = "rl_drive"
+            self._demo_status = "drive session starting"
+            self._demo_params = {
+                "walk": walk_w.name if walk_w else "slot",
+                "hold": hold_w.name if hold_w else "walk@zero"}
+            self._cal_result = None
+            self._cal_progress = {"msg": self._demo_status}
+        self._set_activity("rl_policy", "RL drive")
+
+        def _worker():
+            d = self.drive
+
+            def _on_progress(p: dict) -> None:
+                with self._lock:
+                    self._cal_progress = dict(p)
+                    self._demo_status = str(p.get("msg") or "RL drive")
+
+            try:
+                if acquire_first:
+                    with d._lock:
+                        d.mode = "demo"
+                        if not d.armed:
+                            d._torque_all(True)
+                            d.armed = True
+                    _on_progress({"msg": "acquiring stand start pose…"})
+                    res_a = self._acquire_start(
+                        "stand", gen=gen, on_progress=_on_progress)
+                    if not res_a.get("ok"):
+                        raise RuntimeError(
+                            "could not reach the start pose — "
+                            + str(res_a.get("error") or "aborted"))
+                    ok2, reason2, _d2 = preflight(d.bus, "walk")
+                    if not ok2:
+                        raise RuntimeError(
+                            "still failing preflight after acquiring "
+                            f"stand: {reason2}")
+                result = run_drive_session(
+                    d, cmd, on_progress=_on_progress,
+                    abort_check=self._demo_abort.is_set,
+                    walk_weights=walk_w, hold_weights=hold_w)
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = result
+                    if result.get("ok"):
+                        self._demo_status = (
+                            "drive session ended"
+                            + (f" — {result['ended']}"
+                               if result.get("ended") else "")
+                            + f" · maxI {result.get('max_current_a', 0):.2f}A")
+                    else:
+                        self._demo_status = (
+                            f"RL drive: {result.get('error')}")
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                try:
+                    d.bus.enable_all_torque(False)
+                except Exception:
+                    pass
+                with self._lock:
+                    self._cal_result = {"ok": False, "error": str(e),
+                                        "mode": "drive"}
+                    self._demo_status = f"error: {e}"
+            finally:
+                if gen != self._demo_gen:
+                    return
+                res = self._cal_result or {}
+                limped = bool(res.get("limped"))
+                with d._lock:
+                    d.armed = not limped
+                    if d.mode == "demo":
+                        d.mode = "idle"
+                with self._lock:
+                    st = self._demo_status
+                self._set_activity("limp" if limped else "holding",
+                                   st or "drive session done")
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "mode": "drive",
+                "walk": walk_w.name if walk_w else "live slot",
+                "hold": hold_w.name if hold_w else "walk@zero"}
+
     def rl_policy_move(self, *, mode: str = "stand", vx: float = 0.03,
                        vy: float = 0.0, duration_s: float = 6.0,
                        rot60: bool = True) -> dict:
@@ -1837,7 +2117,17 @@ class BenchAPI:
         if self.drive.dry_run or not self.drive.bus:
             return {"ok": False, "error": "no bus"}
         if self._demo_thread and self._demo_thread.is_alive():
-            return {"ok": False, "error": "stop the running job first"}
+            if self._drive_active():
+                # Stand/Sit during a drive session flips models
+                # (operator 08-11): end the session — the robot holds
+                # its pose — then run the episode from there.
+                if not self._preempt_demo_thread(
+                        reason=f"drive → {mode}", timeout=8.0):
+                    return {"ok": False,
+                            "error": "drive session did not stop"}
+            else:
+                return {"ok": False, "error": "stop the running job first"}
+        weights_path = self._role_weights(mode)
 
         # Preflight before claiming the worker slot so refusals are
         # instant and motion-free.
@@ -1915,7 +2205,8 @@ class BenchAPI:
                     d, mode, on_progress=_on_progress,
                     abort_check=self._demo_abort.is_set,
                     vx=float(vx), vy=float(vy),
-                    duration_s=float(duration_s), rot60=bool(rot60))
+                    duration_s=float(duration_s), rot60=bool(rot60),
+                    weights_path=weights_path)
                 if gen != self._demo_gen:
                     return
                 if result.get("ok") and mode == "stand":

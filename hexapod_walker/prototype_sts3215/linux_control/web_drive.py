@@ -221,6 +221,13 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/rl/policies":
             self._json(200, BENCH.rl_policies() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/rl/roles":
+            self._json(200, BENCH.rl_roles() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/rl/drive":
+            # Live drive-session snapshot (no bus traffic).
+            self._json(200, BENCH.rl_drive_state() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/measure/list":
             self._json(200, BENCH.measure_list() if BENCH
                        else {"ok": False, "error": "no bench"})
@@ -368,11 +375,15 @@ class Handler(BaseHTTPRequestHandler):
                 body_obj = json.loads(body)
             except ValueError:
                 body_obj = body.strip()[:500]
-        try:
-            from event_log import emit_http
-            emit_http("POST", self.path, body=body_obj, peer=self._peer())
-        except Exception:
-            pass
+        if path != "/api/rl/drive/cmd":
+            # Drive heartbeats stream at ~5 Hz — logging each would
+            # drown events.jsonl; the session's 25 Hz CSV has every ref.
+            try:
+                from event_log import emit_http
+                emit_http("POST", self.path, body=body_obj,
+                          peer=self._peer())
+            except Exception:
+                pass
         if path == "/cmd":
             ok = LINK.send(body.strip())
             self._send(200 if ok else 502, "ok" if ok else "link down")
@@ -509,6 +520,37 @@ class Handler(BaseHTTPRequestHandler):
                     yaw_deg=float(data.get("yaw_deg", 0)),
                     force=bool(data.get("force", False)),
                 ))
+        elif path == "/api/rl/roles":
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            else:
+                self._json(200, BENCH.rl_role_set(
+                    role=str(data.get("role", "")),
+                    file=str(data.get("file", ""))))
+        elif path == "/api/rl/drive/start":
+            self._json(200, BENCH.rl_drive_start() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/rl/drive/cmd":
+            # High-rate heartbeat (~5 Hz while driving): body-frame
+            # vx/vy m/s. Kept out of the event log's HTTP stream by
+            # volume; the session's own 25 Hz CSV logs every ref.
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            else:
+                self._json(200, BENCH.rl_drive_cmd(
+                    vx=float(data.get("vx", 0.0)),
+                    vy=float(data.get("vy", 0.0))))
+        elif path == "/api/rl/drive/stop":
+            self._json(200, BENCH.rl_drive_stop() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/rl/policy_select":
             try:
                 data = json.loads(body or "{}") if body else {}

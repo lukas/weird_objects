@@ -365,3 +365,91 @@ chain. Remaining work on this blocker is BENCH-ONLY: an operator
 walk session exercising lateral/backward headings (start with
 rot60=false forward, then wrapped forward — should be identical —
 then off-wedge).
+
+## TURN RE-OPENED (operator 08-11 afternoon) — latent defect FIXED,
+reflection wrapper PASSES: bidirectional steering with zero training
+
+Operator re-opened turning as an experiment line ("it really should
+be possible"). RL_PLAN queue 0.2 executed in order, 08-11:
+
+**(1) The latent yaw-stack defect is FIXED and BANKED** (walk_task.py,
+both cfg-gated, default 0 = byte-identical legacy):
+
+- `reward.walk_yaw_hold_prog_gate` — on linear-command ticks the
+  heading-hold side of the yaw kernel is multiplied by achieved-
+  progress fraction clip(along/s_ref, 0, 1), the exact mirror image
+  of `walk_kernel_yaw_gate`. Pre-fix a MOTIONLESS body collected the
+  largest single channel in the stack (probe, forward/DR0: freeze
+  +375/ep vs honest gait +334; net of the drift charge the yaw stack
+  paid freeze +375 vs gait +224 — a stillness subsidy). Genuine stop
+  segments (s_ref ~ 0) stay paid.
+- `reward.yaw_still_avg_s` — the heading-hold drift charge prices the
+  EMA of wz (the DC drift it exists to punish) instead of the
+  instantaneous wz (the honest gait's zero-mean stride oscillation,
+  wz_rms ~0.044). Pre-fix it taxed the honest gait −110/ep and every
+  motionless degenerate ~0 — charging exactly the wrong policy.
+  Per-episode EMA state rides MJX_SNAPSHOT_EXTRA (pool-restore
+  lesson, commit 65edba7).
+
+Post-fix income probe (`probe_walk_income.py --stack mirror2fix`, new
+`driftride` reference calibrated so the scripted gait ACHIEVES the
+measured 0.09 rad/s while translating — commanded omega 0.25; the
+gait realizes ~40% of commanded omega): ordering is now monotone in
+honesty — gait 935 > gait_slow 772 > driftride 715 > sac1 683 >
+paddle 441 > freeze 242 (was gait 1011 ~ gait_slow 1008 with freeze
+collecting the top yaw channel). The rider pays −92/ep for its DC
+rotation; the honest gait's oscillation tax fell −110 → −2.
+Artifacts: `logs/probe_walk_income/mirror2{,fix}_driftride.json`.
+
+New bank (test_task_semantics.py, stillness-subsidy section): the
+FULL summed stack on a straight-line command vs a body that simply
+does not move — the exact blind spot the old TURN bank (turn-in-place
+only, mechanism terms in isolation) and the freeze-floor bank
+(turn-tick kernel) both missed. Four tests: subsidy closed on the
+fixed stack, subsidy PROVEN on the legacy stack (so a default drift
+can't silently retire the reproduction), fixed stack restores honest
+walking's margin over a freeze, and the calibrated drift-rider loses
+to the honest straight gait under the full summed stack.
+`TURN_OVERRIDES` now trains both fixes ON — any turn arm must.
+NOTE: the yawcmd1/yawgate2/turnfix1 checkpoints no longer exist on
+any pod (searched 08-11; only the mirror lineage survives on
+train-0), so the ckpt-level term audit is closed as UNTESTABLE — the
+calibrated scripted rider stands in for their fingerprint.
+
+**(2) REFLECTION WRAPPER — PASS, the rot60 lesson repeats.**
+`mirror.MirrorPolicy` (eval-time, numpy-only, algebra locked by
+test_mirror.py against a stub): pi_mirror = mirror_act(pi(mirror_obs)).
+`probe_mirror_turn.py` on THE hardware checkpoint
+(`cw-dep-vref1-r1`), 12 s forward walks (artifacts
+`logs/mirror_turn/`):
+
+    DR 0:    naked wz +0.0399 rad/s (heading +38 deg), travel 0.562 m
+             mirror wz −0.0455 rad/s (heading −37 deg), travel 0.566 m
+    DR 0.35: naked +0.0450 / mirror −0.0403 rad/s, travel 0.52/0.51 m
+             (drift flips on every seed)
+    heading-hold (bang-bang naked/mirror on accumulated heading,
+    4 deg hysteresis): final |heading| 2–4 deg vs naked's 34–50 deg
+    runaway, travel ~0.85x naked, 5–7 switches, ZERO falls anywhere.
+
+Reading: the pinwheel asymmetry (mirror.py docstring) is behaviorally
+negligible — the mirrored gait is fully competent. Chirality
+SELECTION therefore already gives: arc-left (naked), arc-right
+(mirror), and drive-straight (alternation), zero training, from the
+already-deployed checkpoint. Turn rate is the drift magnitude
+(~0.04 rad/s in sim, ~2.3 deg/s; hardware measured ~0.09), so this
+is SLOW steering — command tracking up to ±0.3 rad/s stays unsolved.
+Deploy-side port + composition with rot60 (mirror-then-rotate is
+still a single obs permutation) are follow-up [CODE]; the sign audit
+(sim +CCW vs hardware +omega=CW) remains OPEN and gates any bench
+turn session.
+
+**(3) Mirror-symmetry training — now licensed and QUEUED:**
+`cw-walk-mirturn1` (backlog 08-11; discovery 2M, warm from
+cw-dep-vref1-r1 + pad-transplant, forward wedge + yaw command set,
+the FULL fixed pricing incl. walk_kernel_yaw_gate — turnfix1 predates
+that gate — and train.mirror_loss_coef=1.0). First mirror arm on a
+bank-verified turn stack; judged by eval_yaw + matched frozen-parent
+control, both signs. If it fails with a healthy gait and a low
+symmetry loss, the mirror line closes for good and MirrorPolicy
+selection is the shipped turning story. Step (4) BC-anchor on turn
+ticks stays in reserve.

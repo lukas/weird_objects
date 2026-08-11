@@ -125,6 +125,76 @@ def test_action_map_commutes_with_mirror():
 
 
 # ---------------------------------------------------------------------------
+# MirrorPolicy — the eval-time reflection wrapper (RL_PLAN queue 0.2:
+# commanded turning by chirality selection, zero training). The wrapper
+# must be EXACTLY mirror_act(model(mirror_obs(x))): behavioral validity
+# is probe_mirror_turn.py's job, algebraic correctness is locked here
+# with a model stub that exists independently of mirror.py.
+# ---------------------------------------------------------------------------
+
+
+class _StubModel:
+    """Deterministic linear 'policy' with an sb3-like predict."""
+
+    def __init__(self, obs_dim: int, seed: int = 7):
+        rng = np.random.default_rng(seed)
+        self.W = rng.normal(size=(18, obs_dim)).astype(np.float32)
+
+        class _Space:
+            shape = (obs_dim,)
+        self.observation_space = _Space()
+
+    def predict(self, obs, deterministic=True, **kw):
+        obs = np.asarray(obs, dtype=np.float32)
+        squeeze = obs.ndim == 1
+        out = np.tanh(np.atleast_2d(obs) @ self.W.T)
+        return (out[0] if squeeze else out), None
+
+
+@pytest.mark.parametrize("hist", [1, 16])
+def test_mirror_policy_is_the_composed_maps(hist):
+    from rl_move.sim.mirror import MirrorPolicy
+    obs_dim = 72 * hist
+    stub = _StubModel(obs_dim)
+    pol = MirrorPolicy(stub)
+    operm, osign = obs_perm_sign(walk=True, history_frames=hist)
+    aperm, asign = joint_perm_sign()
+    rng = np.random.default_rng(4)
+    x = rng.normal(size=obs_dim).astype(np.float32)
+    a_manual = _apply(aperm, asign,
+                      stub.predict(_apply(operm, osign, x))[0])
+    a_wrap, _ = pol.predict(x)
+    assert np.allclose(a_wrap, a_manual, atol=1e-5)
+    # batched rows must match the single-row path (1e-5: float32 GEMM
+    # reduction order differs between the two matmul shapes)
+    xs = rng.normal(size=(3, obs_dim)).astype(np.float32)
+    batch, _ = pol.predict(xs)
+    for i in range(3):
+        one, _ = pol.predict(xs[i])
+        assert np.allclose(batch[i], one, atol=1e-5)
+
+
+def test_mirror_policy_reflection_identity():
+    """pi_mirror(mirror(x)) == mirror(pi(x)) — the wrapper genuinely IS
+    the reflected controller, not just a relabeled one."""
+    from rl_move.sim.mirror import MirrorPolicy
+    stub = _StubModel(72)
+    pol = MirrorPolicy(stub)
+    operm, osign = obs_perm_sign(walk=True, history_frames=1)
+    aperm, asign = joint_perm_sign()
+    x = np.random.default_rng(5).normal(size=72).astype(np.float32)
+    lhs, _ = pol.predict(_apply(operm, osign, x))
+    rhs = _apply(aperm, asign, stub.predict(x)[0])
+    assert np.allclose(lhs, rhs, atol=1e-6)
+
+
+def test_mirror_policy_rejects_bad_width():
+    from rl_move.sim.mirror import MirrorPolicy
+    with pytest.raises(ValueError):
+        MirrorPolicy(_StubModel(70))
+
+
+# ---------------------------------------------------------------------------
 # Live env width + MirrorPPO smoke (needs mujoco + torch + sb3)
 # ---------------------------------------------------------------------------
 

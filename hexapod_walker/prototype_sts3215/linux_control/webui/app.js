@@ -627,6 +627,9 @@ function showView(which){
   if(location.hash !== '#'+which)
     history.replaceState(null, '', '#'+which);
   if(which !== 'drive') armed = false;   // stop streaming J
+  if(which !== 'rl' && drvKeys.size){
+    drvKeys.clear(); drvSend();          // leaving RL = keys released
+  }
   if(which === 'drive') startTelem();
   else stopTelem();
   if(which === 'motors'){
@@ -961,7 +964,8 @@ function startRlPoll(){
 function rlButtons(disabled){
   for(const id of ['rlstand','rllower','rlglide','rlcapture','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
-                   'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr'])
+                   'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr',
+                   'rldrivestart'])
     $(id).disabled = disabled;
 }
 async function rlMove(mode, body){
@@ -1036,6 +1040,195 @@ $('rlstop').onclick = async ()=>{
   await fetch('/api/rl/stop', {method:'POST'});
   $('rlstatus').textContent = 'Stopping (holds pose; X to limp)…';
 };
+
+// ---- Drive session (hold arrow keys — MuJoCo-viewer-style, 08-11) ---------
+// The browser streams (vx, vy) heartbeats at 5 Hz while the session is
+// active; the robot's 25 Hz loop slews toward them and treats anything
+// older than 0.6 s as "keys released". So: keydown = walk, keyup = stop
+// and hold, dead tab = stop and hold.
+let drvActive = false, drvHb = null;
+const drvKeys = new Set();
+let drvPad = null;   // on-screen pad vector [dx, dy] while held
+const DRV_KEYMAP = {
+  arrowup:'fwd', w:'fwd', i:'fwd',
+  arrowdown:'back', s:'back', k:'back',
+  arrowleft:'left', a:'left', j:'left',
+  arrowright:'right', d:'right', l:'right',
+};
+function drvVec(){
+  let dx = (drvKeys.has('fwd')?1:0) - (drvKeys.has('back')?1:0);
+  let dy = (drvKeys.has('left')?1:0) - (drvKeys.has('right')?1:0);
+  if(!dx && !dy && drvPad){ dx = drvPad[0]; dy = drvPad[1]; }
+  const n = Math.hypot(dx, dy);
+  const s = parseFloat($('rlwalkspeed').value);
+  return n ? [dx/n*s, dy/n*s] : [0, 0];
+}
+function drvPaint(d){
+  const live = (d && d.live) || {};
+  const bits = [];
+  if(live.model) bits.push(`model <b>${live.model}</b>`);
+  if(live.vx_ref!=null)
+    bits.push(`v (${Math.round(live.vx_ref*1000)}, `
+              + `${Math.round(live.vy_ref*1000)}) mm/s`);
+  if(live.roll_deg!=null)
+    bits.push(`tilt ${live.roll_deg}/${live.pitch_deg}°`);
+  if(live.max_current_a!=null) bits.push(`maxI ${live.max_current_a} A`);
+  if(live.rot60_k) bits.push(`sec ${live.rot60_k>0?'+':''}${live.rot60_k}`);
+  if(live.t_s!=null) bits.push(`${live.t_s}s`);
+  $('rldrivestatus').innerHTML =
+    `<b style="color:#5fd08a">DRIVING</b> — hold arrows/WASD · `
+    + (bits.length ? bits.join(' · ') : (d && d.status) || 'starting…');
+}
+async function drvSend(){
+  if(!drvActive) return;
+  const [vx, vy] = drvVec();
+  try{
+    const r = await fetch('/api/rl/drive/cmd', {method:'POST',
+      body: JSON.stringify({vx, vy})});
+    const d = await r.json();
+    if(!d.active){ drvEnded(); return; }
+    drvPaint(d);
+  }catch(e){ /* link blip — watchdog on the robot handles it */ }
+}
+async function drvEnded(){
+  drvActive = false;
+  if(drvHb){ clearInterval(drvHb); drvHb = null; }
+  drvKeys.clear(); drvPad = null;
+  $('rldrivestart').disabled = false;
+  try{
+    const d = await (await fetch('/api/rl/drive', {cache:'no-store'})).json();
+    const res = d.result || {};
+    $('rldrivestatus').textContent = 'Session ended'
+      + (res.ended ? ` — ${res.ended}` : res.error ? ` — ${res.error}` : '')
+      + (res.max_current_a!=null ? ` · maxI ${res.max_current_a} A` : '')
+      + ' · holding (X to limp).';
+  }catch(e){ $('rldrivestatus').textContent = 'Session ended — holding.'; }
+}
+$('rldrivestart').onclick = async ()=>{
+  $('rldrivestart').disabled = true;
+  $('rldrivestatus').textContent = 'Starting session (preflight'
+    + ' — may acquire the stand first)…';
+  try{
+    const r = await fetch('/api/rl/drive/start', {method:'POST'});
+    const d = await r.json();
+    if(!d.ok){
+      $('rldrivestatus').textContent = 'Refused: '+(d.error || 'unknown');
+      showErr('Drive: '+(d.error || 'refused'));
+      $('rldrivestart').disabled = false;
+      return;
+    }
+    drvActive = true;
+    drvKeys.clear(); drvPad = null;
+    if(drvHb) clearInterval(drvHb);
+    drvHb = setInterval(drvSend, 200);
+    drvPaint(d);
+  }catch(e){
+    $('rldrivestatus').textContent = 'Start failed (link?)';
+    $('rldrivestart').disabled = false;
+  }
+};
+$('rldriveend').onclick = async ()=>{
+  $('rldrivestatus').textContent = 'Ending session (rolls to a stop, holds)…';
+  try{ await fetch('/api/rl/drive/stop', {method:'POST'}); }catch(e){}
+  // Heartbeats keep flowing until the server reports inactive, so the
+  // decel + wind-down is visible in the status line.
+};
+// Keys drive ONLY from the RL tab (the Drive tab's own key loop streams
+// scripted-gait J commands — never both at once). Leaving the tab or
+// window counts as releasing everything.
+window.addEventListener('keydown', (e)=>{
+  if(!drvActive || activeView !== 'rl') return;
+  const tag = (e.target && e.target.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'select' || tag === 'textarea') return;
+  const dir = DRV_KEYMAP[e.key.toLowerCase()];
+  if(!dir) return;
+  e.preventDefault();
+  if(!drvKeys.has(dir)){ drvKeys.add(dir); drvSend(); }
+});
+window.addEventListener('keyup', (e)=>{
+  if(!drvActive) return;
+  const dir = DRV_KEYMAP[e.key.toLowerCase()];
+  if(!dir) return;
+  e.preventDefault();
+  if(drvKeys.delete(dir)) drvSend();
+});
+// Lost focus = treat every key as released (missed keyup otherwise).
+window.addEventListener('blur', ()=>{
+  if(drvActive && drvKeys.size){ drvKeys.clear(); drvSend(); }
+});
+for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
+  const dv = b.dataset.dv.split(',').map(Number);
+  if(!dv[0] && !dv[1]) continue;          // center "hold" cell
+  const down = (e)=>{ e.preventDefault();
+    if(!drvActive) return; drvPad = dv; drvSend(); };
+  const up = ()=>{ if(drvPad === dv){ drvPad = null; drvSend(); } };
+  b.addEventListener('pointerdown', down);
+  b.addEventListener('pointerup', up);
+  b.addEventListener('pointerleave', up);
+  b.addEventListener('pointercancel', up);
+}
+
+// ---- Model roles (which policy file serves each function) ------------------
+const RL_ROLE_DEFS = [
+  ['walk',  'Walk (keys held)'],
+  ['hold',  'Hold (no keys)'],
+  ['stand', 'Stand up'],
+  ['lower', 'Sit / lower'],
+];
+async function rlRolesRefresh(){
+  const box = $('rlroles');
+  try{
+    const d = await (await fetch('/api/rl/roles', {cache:'no-store'})).json();
+    if(!d.ok) throw new Error(d.error || 'roles failed');
+    const allowed = d.allowed_obs || {};
+    box.innerHTML = '';
+    for(const [role, label] of RL_ROLE_DEFS){
+      const cur = (d.roles[role] || {});
+      const row = document.createElement('label');
+      row.className = 'hint';
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;'
+        + 'margin-top:4px';
+      const span = document.createElement('span');
+      span.style.cssText = 'min-width:120px;display:inline-block';
+      span.innerHTML = `<b>${label}</b>`;
+      const sel = document.createElement('select');
+      const def = document.createElement('option');
+      def.value = '';
+      def.textContent = role === 'hold'
+        ? 'walk policy @ zero command (default)'
+        : `live ${role === 'walk' ? 'walk' : 'stance'} slot (default)`;
+      sel.appendChild(def);
+      const dims = allowed[role] || [];
+      for(const p of rlPolicies){
+        if(!dims.includes(p.obs_dim)) continue;
+        const o = document.createElement('option');
+        o.value = p.file;
+        o.textContent = `${p.name} (obs ${p.obs_dim})`;
+        sel.appendChild(o);
+      }
+      sel.value = (cur.file && cur.file !== 'walk') ? cur.file : '';
+      sel.onchange = async ()=>{
+        $('rlrolesmsg').textContent = `setting ${role}…`;
+        try{
+          const r = await fetch('/api/rl/roles', {method:'POST',
+            body: JSON.stringify({role, file: sel.value})});
+          const dd = await r.json();
+          $('rlrolesmsg').textContent = dd.ok
+            ? `${label} → ${(dd.roles[role]||{}).resolved} ✔ `
+              + '(next session/move)'
+            : `failed: ${dd.error || 'unknown'}`;
+          if(!dd.ok) showErr('Role: '+(dd.error || 'failed'));
+        }catch(e){ $('rlrolesmsg').textContent = 'role set failed (link?)'; }
+        rlRolesRefresh();
+      };
+      const now = document.createElement('span');
+      now.style.color = '#8089a0';
+      now.textContent = cur.resolved ? `→ ${cur.resolved}` : '';
+      row.appendChild(span); row.appendChild(sel); row.appendChild(now);
+      box.appendChild(row);
+    }
+  }catch(e){ box.textContent = 'roles unavailable (link?)'; }
+}
 
 // ---- Stand-up lab (baked strategies from rl_move/sim/compare_standup.py) --
 let suModes = [], suSel = null, suTimer = null;
@@ -1307,6 +1500,7 @@ async function refreshRlTab(){
       : (d.error || 'no policy');
   }catch(e){ $('rlpolicyinfo').textContent = 'policy info unavailable'; }
   await rlLoadPicker();
+  await rlRolesRefresh();
   try{
     const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
     const d = await r.json();
@@ -1314,6 +1508,18 @@ async function refreshRlTab(){
       $('rlstatus').textContent = (d.progress||{}).msg || 'running…';
       rlButtons(true);
       startRlPoll();
+    }
+  }catch(e){}
+  // Reconnect to a drive session that survived a page reload: resume
+  // heartbeats (the robot has been holding since ours went stale).
+  try{
+    const d = await (await fetch('/api/rl/drive', {cache:'no-store'})).json();
+    if(d.active && !drvActive){
+      drvActive = true;
+      $('rldrivestart').disabled = true;
+      if(drvHb) clearInterval(drvHb);
+      drvHb = setInterval(drvSend, 200);
+      drvPaint(d);
     }
   }catch(e){}
 }

@@ -554,7 +554,20 @@ TURN_OVERRIDES.update({
     ("reward", "walk_yaw_kernel_gate"): 1.0,
     ("reward", "k_yaw_prog"): 1.0,
     ("reward", "k_yaw_still"): 50.0,
+    # 08-11 latent-defect fixes (probe_walk_income; see the
+    # stillness-subsidy bank below). Any turn arm MUST train with both:
+    # heading-hold yaw income gated on achieved linear progress, and
+    # the drift charge priced on the wz EMA (DC drift) instead of the
+    # honest gait's zero-mean stride oscillation.
+    ("reward", "walk_yaw_hold_prog_gate"): 1.0,
+    ("reward", "yaw_still_avg_s"): 1.0,
 })
+# The stack the mirror2 lineage ACTUALLY trained with (pre-fix) — kept
+# so the subsidy bank below can prove the defect existed and the fix
+# closes it (the hold_legacy pattern).
+TURN_LEGACY_OVERRIDES = {
+    k: v for k, v in TURN_OVERRIDES.items()
+    if k[1] not in ("walk_yaw_hold_prog_gate", "yaw_still_avg_s")}
 TURN_CMD_WZ = 0.25       # rad/s, tested at BOTH signs
 DRIFT_WZ = 0.09          # the measured structural left drift
 
@@ -1031,6 +1044,175 @@ def test_omni_episode_mixture_gait_beats_freeze():
     assert f_mean < 0.45 * g_mean, (
         f"freeze income floor {f_mean:+.0f} is {f_mean/g_mean:.2f}x of "
         f"honest {g_mean:+.0f} — parking is still a paid basin.")
+
+
+# --------------------------------------------------------------------------
+# TURN-STACK stillness-subsidy bank — the probe-found latent defect
+# (08-11, probe_walk_income on the mirror2 stack). On LINEAR-command
+# ticks the ungated heading-hold side of the yaw kernel (k_walk_yaw at
+# wz_ref = 0) paid a MOTIONLESS body full income — 373-375/ep to
+# freeze, sacrifice and paddle alike, the single largest channel in
+# the stack — while k_yaw_still charged the honest gait's natural
+# zero-mean wz oscillation ~-73/ep and the degenerates ~0. Net: the
+# yaw stack taxed honest straight walking ~-100/ep RELATIVE to body
+# stillness. This is exactly the hole the old TURN bank missed: it
+# checked the new mechanism terms in isolation on turn-in-place
+# commands, never the FULL summed stack on a straight-line command
+# against a body that simply doesn't move (the walk-freeze bug hid in
+# the same blind spot). Fixes under test (walk_task.py, both
+# cfg-gated, default 0 = legacy):
+#   reward.walk_yaw_hold_prog_gate — heading-hold yaw income times
+#       achieved-linear-progress fraction clip(along/s_ref, 0, 1);
+#       genuine stop segments (s_ref ~ 0) stay paid.
+#   reward.yaw_still_avg_s — the drift charge prices the EMA of wz
+#       (the DC drift) instead of the instantaneous wz (the honest
+#       gait's zero-mean stride oscillation).
+# The legacy assertions below prove the subsidy EXISTED on the stack
+# mirror2 actually trained with — if walk_task's defaults ever change,
+# they scream.
+
+# Scripted omega calibrated so the ACHIEVED body rotation matches the
+# measured structural drift (the fingerprint being priced): while
+# translating, the scripted gait only realizes ~40% of its commanded
+# omega (slip), so commanding 0.09 achieves ~0.04 — a rider that
+# rotates half the real drift is the wrong reference. Measured
+# (seed 0, this stack): cmd 0.25 -> achieved wz mean +0.088 rad/s.
+DRIFT_RIDE_WZ = 0.25
+
+
+def _walk_rollout_terms(policy: str, seed: int,
+                        overrides: dict) -> tuple[float, dict]:
+    """_walk_rollout with per-term accounting (info['reward_*'] sums)
+    on a pinned straight-line command; adds the 'driftride' policy —
+    walk the command but let the body rotate at the structural drift
+    (the cheat that collects heading-hold yaw income for free)."""
+    from tripod_gait import TripodGait
+
+    env = _make_walk_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = WALK_CMD_VX
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = WALK_CMD_VX * ramp
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+
+    gait = TripodGait(vx=0.0)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    gait.reset_phase()
+
+    total, step = 0.0, 0
+    terms: dict[str, float] = {}
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        if policy == "gait":
+            gait.set_velocity(vx=float(traj.vx[i]), vy=0.0)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        elif policy == "driftride":
+            gait.set_velocity(vx=float(traj.vx[i]), vy=0.0,
+                              omega=DRIFT_RIDE_WZ if step >= hold_n
+                              else 0.0)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        else:                         # freeze: hold the plant, refuse
+            act = q_rad_to_action(plant_rad)
+        _obs, r, term, trunc, info = env.step(act)
+        total += float(r)
+        for k, v in info.items():
+            if k.startswith("reward_"):
+                terms[k] = terms.get(k, 0.0) + float(v)
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return total, terms
+
+
+def _yaw_net(terms: dict) -> float:
+    return (terms.get("reward_walk_yaw", 0.0)
+            + terms.get("reward_yaw_still", 0.0))
+
+
+@pytest.fixture(scope="module")
+def subsidy_returns() -> dict[str, dict[str, list]]:
+    out: dict[str, dict[str, list]] = {}
+    for stack, ov in (("fixed", TURN_OVERRIDES),
+                      ("legacy", TURN_LEGACY_OVERRIDES)):
+        out[stack] = {p: [_walk_rollout_terms(p, s, ov) for s in SEEDS]
+                      for p in ("gait", "driftride", "freeze")}
+    return out
+
+
+def test_yaw_stack_stillness_subsidy_is_closed(subsidy_returns):
+    """Under the FIXED turn stack, a frozen body on a straight-line
+    command must collect (nearly) none of the heading-hold yaw income,
+    and the honest gait's NET yaw channel (kernel + drift charge) must
+    beat the freeze's by a wide margin. Pre-fix this was upside down:
+    freeze +375/ep vs gait ~+230/ep net."""
+    gait = float(np.mean([_yaw_net(t) for _, t in
+                          subsidy_returns["fixed"]["gait"]]))
+    frz = float(np.mean([_yaw_net(t) for _, t in
+                         subsidy_returns["fixed"]["freeze"]]))
+    assert gait > frz + 100.0, (
+        f"yaw channel still subsidizes stillness on straight-line "
+        f"commands: gait net {gait:+.0f} vs freeze net {frz:+.0f}")
+
+
+def test_yaw_stack_subsidy_existed_on_legacy_stack(subsidy_returns):
+    """The defect this bank pins must be REAL on the stack the mirror2
+    lineage actually trained with: the frozen body's net yaw income
+    rivals/beats the honest gait's there. If this ever fails, the
+    legacy reproduction drifted and the bank is testing air."""
+    gait = float(np.mean([_yaw_net(t) for _, t in
+                          subsidy_returns["legacy"]["gait"]]))
+    frz = float(np.mean([_yaw_net(t) for _, t in
+                         subsidy_returns["legacy"]["freeze"]]))
+    assert frz > gait - 50.0, (
+        f"legacy stack no longer shows the stillness subsidy (gait "
+        f"{gait:+.0f} vs freeze {frz:+.0f}) — walk_task defaults "
+        f"changed under this bank; re-derive the legacy overrides.")
+
+
+def test_yaw_stack_no_net_tax_on_honest_straight_walk(subsidy_returns):
+    """FULL summed stack: turning the (fixed) yaw stack on must not
+    erode honest straight walking's margin over a freeze. Pre-fix the
+    yaw terms shrank that margin by ~475/ep (subsidy to the freeze +
+    oscillation tax on the gait) — the exact economics that let
+    mirror1-r1 park."""
+    def margin(stack: str) -> float:
+        g = float(np.mean([tot for tot, _ in
+                           subsidy_returns[stack]["gait"]]))
+        f = float(np.mean([tot for tot, _ in
+                           subsidy_returns[stack]["freeze"]]))
+        return g - f
+    assert margin("fixed") > margin("legacy") + 200.0, (
+        f"the fixes do not restore honest walking's margin over a "
+        f"freeze: fixed {margin('fixed'):+.0f} vs legacy "
+        f"{margin('legacy'):+.0f}")
+    assert margin("fixed") > 300.0, (
+        f"honest straight walking barely beats a freeze under the "
+        f"fixed turn stack: margin {margin('fixed'):+.0f}")
+
+
+def test_drift_rider_never_beats_honest_straight_walk(subsidy_returns):
+    """The drift-rider cheat — track the linear command but let the
+    body rotate at the structural +0.09 rad/s drift, collecting the
+    yaw kernel's heading-hold band — must lose to the honest straight
+    gait under the FULL summed fixed stack. This is the summed-stack
+    check the old TURN bank never ran (it priced turn-in-place
+    commands only)."""
+    gait = float(np.mean([tot for tot, _ in
+                          subsidy_returns["fixed"]["gait"]]))
+    ride = float(np.mean([tot for tot, _ in
+                          subsidy_returns["fixed"]["driftride"]]))
+    assert gait > ride + 50.0, (
+        f"riding the structural drift rivals honest straight walking "
+        f"under the fixed stack: gait {gait:+.0f} vs rider {ride:+.0f}")
 
 
 # --------------------------------------------------------------------------

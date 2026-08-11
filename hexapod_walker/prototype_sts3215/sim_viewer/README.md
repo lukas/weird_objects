@@ -12,16 +12,47 @@ sim_viewer/sim_stand.sh    # stance champion alone (mujoco.viewer)
 sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
 ```
 
-`sim_play.sh` keys (shown in the window too): `7` stand up (fully
-automatic, ~11 s), `I/K/J/L` walk / strafe, `Space` stop, `8` sit,
-`9` reset standing, `B` belly-down, `Q` quit.
+`sim_play.sh` controls (shown in the window too):
+
+- **Hold arrow keys to drive** (release = stop; diagonals = two arrows).
+  Detected via OS key auto-repeat — no repeat for ~0.65 s counts as
+  released. No modifier key is needed: the cv2 window owns every key.
+- `7` stand up **in place** (no teleport: a crouch just rises; a belly
+  start re-anchors the episode where the robot is, then auto-rises
+  ~11 s), `8` sit, `9` reset standing (true reset, back to origin),
+  `B` belly-down, `I/K/J/L` persistent cruise trim, `Space` stop,
+  `=`/`-` height, `Q` quit.
+- **Model picker panel** on the right of the window (like the robot
+  webui): every non-`*_steps` checkpoint in `rl_move/sim/policies/` is
+  classified at startup by obs width read from the sb3 zip's JSON
+  metadata (68 → stance slot, 72 → walk slot; no torch load) and listed
+  in two groups — click a row to load it. `[` / `]` and `,` / `.` cycle
+  the same lists. Swaps load on the spot (~1 s stall) and work
+  mid-walk; the active pair is highlighted. Each row carries a one-line
+  description (distilled from RL_LOG.md into `_DESC` in `play.py`), and
+  the checkpoints currently deployed on the physical robot (read from
+  the `meta` blocks of `linux_control/rl_*_weights.json`) are starred
+  and pinned to the top of each list.
+- **Gamepad** (optional, hot-plugs whenever it's turned on; pygame/SDL,
+  Xbox/PS/Switch all normalized): left stick = analog walk, `A` stand,
+  `B` sit, `Y` reset, `X` belly, `LB/RB` height, d-pad U/D / L/R =
+  cycle stance / walk model.
+
+The player still auto-switches policies like the real robot: STANCE
+policy while no velocity is commanded, WALK policy the moment one is,
+and back on stop. The startup `objc … SDL2 … duplicate class` warnings
+are expected (cv2 and pygame both bundle SDL2) and harmless.
 
 ## Environment (repo-root `.venv`, managed with uv — NEVER recreate)
 
 ```sh
 cd ~/weird_objects && uv pip install ftservo-python-sdk \
-  mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh
+  mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh \
+  pygame-ce
 ```
+
+(`pygame-ce` is the gamepad reader for `sim_play.sh` — headless SDL,
+no pygame window.)
 
 - torch IS required: sb3 loads the PPO zips; there is no torch-free
   viewer path. First download ~2 min; uv caches wheels afterwards.

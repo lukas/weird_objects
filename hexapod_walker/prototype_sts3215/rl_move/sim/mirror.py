@@ -124,6 +124,62 @@ def obs_perm_sign(*, walk: bool, yaw_cmd: bool = False,
     return perm, sign
 
 
+class MirrorPolicy:
+    """SB3-predict-compatible sagittal-reflection wrapper (eval-time).
+
+    pi_mirror(obs) = mirror_act( model.predict( mirror_obs(obs) ) ) —
+    the rot60.Rot60Policy pattern applied to the LEFT-RIGHT mirror
+    instead of the 60-deg rotation. Why (RL_PLAN queue 0.2, 08-11):
+    every walk-lineage policy carries a command-invariant ~+0.09 rad/s
+    LEFT yaw drift baked into its gait chirality; reflecting the
+    policy produces a RIGHT-drifter with the identical gait
+    competence. Selecting naked-vs-mirrored by desired turn sign gives
+    commanded arc turning — and alternating cancels the drift for
+    heading-hold — with ZERO training, if the reflection behaves.
+
+    Unlike rot60 the mirror is only APPROXIMATE at the model level
+    (every hip anchor shares the same signed COXA_HIP_ANCHOR_Y, a
+    slight pinwheel — module docstring), so this wrapper is validated
+    BEHAVIORALLY (sim/probe_mirror_turn.py), not by an exact dynamics
+    parity test. numpy-only by construction (deployable like rot60).
+    """
+
+    def __init__(self, model, *, walk: bool = True, yaw_cmd: bool = False,
+                 phase_obs: bool = False, mode_onehot: bool = False):
+        self.model = model
+        fw = len(frame_perm_sign(walk=walk, yaw_cmd=yaw_cmd,
+                                 phase_obs=phase_obs,
+                                 mode_onehot=mode_onehot)[0])
+        obs_dim = int(np.prod(model.observation_space.shape))
+        if obs_dim % fw:
+            raise ValueError(
+                f"model obs width {obs_dim} is not a multiple of the "
+                f"frame width {fw} (walk={walk} yaw={yaw_cmd} "
+                f"phase={phase_obs} mode={mode_onehot})")
+        self.obs_perm, self.obs_sign = obs_perm_sign(
+            walk=walk, yaw_cmd=yaw_cmd, phase_obs=phase_obs,
+            mode_onehot=mode_onehot, history_frames=obs_dim // fw)
+        self.act_perm, self.act_sign = joint_perm_sign()
+
+    def reset(self):
+        pass
+
+    def predict(self, obs, deterministic: bool = True, **kw):
+        obs = np.asarray(obs, dtype=np.float32)
+        squeeze = obs.ndim == 1
+        rows = obs[None, :] if squeeze else obs
+        mirrored = rows[:, self.obs_perm] * self.obs_sign
+        acts, _ = self.model.predict(
+            mirrored[0] if squeeze else mirrored,
+            deterministic=deterministic, **kw)
+        acts = np.asarray(acts)
+        if acts.ndim == 1:
+            out = acts[self.act_perm] * self.act_sign
+        else:
+            out = acts[:, self.act_perm] * self.act_sign
+        return out, None
+
+
 def _lazy_sb3():
     from stable_baselines3 import PPO
     return PPO

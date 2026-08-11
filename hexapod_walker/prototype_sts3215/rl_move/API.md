@@ -42,6 +42,12 @@ the process rules below are what remain).
 | POST | `/api/rl/find_plant` | **Disabled** unless `{"force":true}` |
 | POST | `/api/rl/probe_dynamics` | Air-only ±amp per joint → `logs/motor_model.json` |
 | POST | `/api/rl/stop` | Abort worker |
+| GET | `/api/rl/roles` | Role registry: which `policies/` file serves walk / hold / stand / lower |
+| POST | `/api/rl/roles` | `{"role":"hold","file":"<name>.json"}` — assign (no motion; `""` = default, `"walk"` = walk@zero for hold) |
+| GET | `/api/rl/drive` | Live drive-session snapshot (active, model, refs, tilt) |
+| POST | `/api/rl/drive/start` | Start persistent held-key drive session (walk preflight + acquire rules; operator watching) |
+| POST | `/api/rl/drive/cmd` | `{"vx":0.05,"vy":0}` heartbeat ~5 Hz; stale >0.6 s ⇒ refs decay to zero (hold) |
+| POST | `/api/rl/drive/stop` | Graceful end: decel to zero, HOLD pose |
 | POST | `/api/set_zero` | Present pose → logical 0° (required after hand-set) |
 | POST | `/api/zero` | Sit/stand — acquires the pose safely (sit = safe-zero plan; stand = safe zero → validated plant stand-up); never refuses on Δq, errors + stops if acquisition fails |
 | POST | `/api/safe_zero` | Collision-aware go-to-zero: plans staged waypoints (straighten → center yaws with feet lifted → extend flat), **errors if no safe path exists**, and **LIMPS on any stall / unexpected-force feedback** during motion. `{"dry_run":true}` returns the plan with no motion; `force` bypasses only the IMU tilt gate. Poll `/api/calibrate` for progress. |
@@ -81,6 +87,21 @@ Add a policy: `python -m rl_move.sim.export_policy_np --policy <zip>
 "<operator notes>"` → scp into
 `/home/arduino/hexapod_sts/linux_control/policies/` (no restart
 needed — the list endpoint reads the dir live).
+
+**Roles + drive session (2026-08-11):** on top of the slots, a role
+registry (`~/.hexapod_rl_roles.json` on the board, `/api/rl/roles`)
+maps FUNCTIONS to files: `walk` (obs 72), `hold` (what runs when no
+keys are pressed — default "walk policy at zero command", or any obs
+68/72 file), `stand` and `lower` (obs 68). One file can hold several
+roles. Unset roles fall back to the live slot files, so behavior
+without assignments is unchanged. The drive session
+(`/api/rl/drive/*`, RL tab "Drive — hold keys") is a persistent
+25 Hz walk loop steered by live browser heartbeats: held arrow keys
+= walk that way, release = decel to the hold model, model switches
+re-anchor the episode frame (q_nom := present pose, prev_action 0).
+Watchdogs: heartbeat stale 0.6 s ⇒ zero command; 120 s silence ⇒
+session ends holding; 300 s hard cap; safety trips limp as always.
+Every session logs `rl_drive_*.csv` like any episode.
 
 ## RL episode logging (2026-08-09, on-robot, automatic)
 

@@ -194,7 +194,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_anchor_xy", "_anchor_prev_on",
                           "_walk_bucket", "_step_disp_bank",
                           "_ls_prev_xy", "_ls_prev_on",
-                          "_ls_slip_m", "_ls_prog_m")
+                          "_ls_slip_m", "_ls_prog_m",
+                          "_yaw_still_ema")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -223,6 +224,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # net body displacement (m) accrued along the commanded
         # direction and not yet spent on step credits.
         self._step_disp_bank = 0.0
+        # Heading-hold drift EMA (reward.yaw_still_avg_s); per-episode,
+        # reset in _reset_begin, snapshot via MJX_SNAPSHOT_EXTRA.
+        self._yaw_still_ema = 0.0
         # Loaded-slip income gate bookkeeping (operator ruling 2026-08-09
         # §3/WALK-SLIP): episode-accumulated loaded foot-XY travel and
         # along-command body progress. NEVER reset by touchdown — only
@@ -336,6 +340,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._ls_slip_m = 0.0
         self._ls_prog_m = 0.0
         self._phase = 0.0
+        self._yaw_still_ema = 0.0
         return super()._reset_begin(seed)
 
     # ------------------------------------------------------------------
@@ -623,8 +628,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 # parked/wrong-direction earns ~0 by construction,
                 # perfect tracking unchanged, over-rotation clipped
                 # (the Gaussian already prices overshoot). Hold
-                # segments (wz_ref=0) stay ungated: no fraction-of-zero
-                # exists and hold income is the drift pricing.
+                # segments (wz_ref=0) have no fraction-of-zero, so this
+                # gate skips them — but see walk_yaw_hold_prog_gate
+                # below (08-11): ungated hold income turned out to be a
+                # stillness subsidy, priced by linear progress instead.
                 # cfg reward.walk_yaw_kernel_gate in [0,1], default
                 # 0=off (byte-identical to pre-change behavior).
                 g_yaw = float(cfg_get(self.cfg, "reward",
@@ -634,6 +641,34 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     factor = min(max(wz / goal.wz_ref, 0.0), 1.0)
                     r_yaw *= (1.0 - g_yaw) + g_yaw * factor
                     info["walk_yaw_gate_factor"] = factor
+                # Heading-hold yaw income gated on achieved LINEAR
+                # progress (08-11, probe_walk_income latent-defect fix).
+                # Root cause (probe, mirror2 stack): on linear-command
+                # ticks (s_ref > 0, wz_ref = 0) the "hold segments stay
+                # ungated" branch above pays a MOTIONLESS body full
+                # heading-hold income — wz = 0 matches the zero yaw ref
+                # exactly — 373-375/ep to freeze, sacrifice and paddle
+                # alike, the single largest channel in the turn stack,
+                # while the honest gait's natural wz oscillation earns
+                # slightly less AND pays k_yaw_still. Net: the yaw stack
+                # taxed honest walking ~-100/ep RELATIVE to stillness.
+                # Fix is the walk_kernel_yaw_gate mirror image: on those
+                # ticks multiply yaw income by achieved-progress
+                # fraction clip(along/s_ref, 0, 1). A freeze earns ~0
+                # heading-hold income by construction; a tracking walker
+                # keeps it all. Genuine stop segments (s_ref ~ 0 AND
+                # wz_ref ~ 0) stay paid — standing still with no body
+                # spin IS the commanded behavior there. cfg
+                # reward.walk_yaw_hold_prog_gate in [0,1], default
+                # 0 = off (byte-identical legacy).
+                g_hold = float(cfg_get(self.cfg, "reward",
+                                       "walk_yaw_hold_prog_gate",
+                                       default=0.0))
+                if (g_hold > 0.0 and abs(goal.wz_ref) <= 1e-3
+                        and s_ref > 1e-3):
+                    factor = min(max(along / s_ref, 0.0), 1.0)
+                    r_yaw *= (1.0 - g_hold) + g_hold * factor
+                    info["walk_yaw_hold_factor"] = factor
                 reward = float(reward) + r_yaw
                 info["reward_walk_yaw"] = r_yaw
                 info["walk_yaw_err"] = abs(yaw_err)
@@ -669,7 +704,34 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         reward = float(reward) + r_yp
                         info["reward_yaw_prog"] = r_yp
                     if k_ys > 0.0 and abs(goal.wz_ref) <= 1e-3:
-                        r_ys = -k_ys * wz_now * wz_now
+                        # DC-drift charge, not oscillation tax (08-11,
+                        # probe_walk_income latent-defect fix). The
+                        # instantaneous -k*wz^2 charged the honest
+                        # gait's zero-mean stride oscillation
+                        # (wz_rms ~ 0.044) about -73/ep while a frozen
+                        # body paid ~0 — the charge taxed exactly the
+                        # wrong policy. The drift being priced is DC
+                        # (a fixed ~+0.09 rad/s offset); the gait's
+                        # oscillation is zero-mean AC. Charging the
+                        # EMA of wz separates them: the oscillation
+                        # averages toward 0, the drift keeps its full
+                        # offset. cfg reward.yaw_still_avg_s = EMA time
+                        # constant in seconds, default 0 = legacy
+                        # instantaneous (byte-identical). Per-episode
+                        # EMA state rides MJX_SNAPSHOT_EXTRA
+                        # (pool-restore lesson, commit 65edba7).
+                        tau = float(cfg_get(self.cfg, "reward",
+                                            "yaw_still_avg_s",
+                                            default=0.0))
+                        if tau > 0.0:
+                            a_ema = min(self.dt / tau, 1.0)
+                            self._yaw_still_ema += a_ema * (
+                                wz_now - self._yaw_still_ema)
+                            wz_chg = self._yaw_still_ema
+                            info["yaw_still_wz_avg"] = wz_chg
+                        else:
+                            wz_chg = wz_now
+                        r_ys = -k_ys * wz_chg * wz_chg
                         reward = float(reward) + r_ys
                         info["reward_yaw_still"] = r_ys
             # Progress-gated kernel income (cycle 20, cw-walk-kgate;
