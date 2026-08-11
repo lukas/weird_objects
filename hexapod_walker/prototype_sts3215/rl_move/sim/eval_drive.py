@@ -78,6 +78,16 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--cfg-set", action="append", default=None,
                     metavar="K=V", help="env cfg overrides (own-cfg eval)")
+    ap.add_argument("--strips", type=Path, default=None,
+                    help="dir for ~1 fps frame-strip PNGs, one per named "
+                         "scenario (video evidence for the direction "
+                         "panel; flip-stress episodes are not stripped)")
+    ap.add_argument("--rot60", action="store_true",
+                    help="wrap the policy in the rot-60 canonicalizer "
+                         "(rot60.Rot60Policy): commands are rotated into "
+                         "the +/-30deg wedge and legs relabeled, so a "
+                         "wedge-trained policy drives the full circle. "
+                         "Walk obs frame (72) only.")
     args = ap.parse_args()
 
     from stable_baselines3 import PPO
@@ -104,6 +114,7 @@ def main() -> int:
         params=SimServoParams.from_cfg(cfg_kw.get("cfg")),
         randomize=args.dr_scale > 0,
         dr_scale=args.dr_scale, episode_seconds=600.0, seed=args.seed,
+        render_mode="rgb_array" if args.strips else None,
         **cfg_kw)
     gen = env._goal_gen
     gen.p_walk = 1.0
@@ -113,6 +124,11 @@ def main() -> int:
     assert model.observation_space.shape == env.observation_space.shape, (
         f"obs mismatch: policy {model.observation_space.shape} vs env "
         f"{env.observation_space.shape} — wrong --cfg-set for this ckpt?")
+    if args.rot60:
+        from rl_move.config import cfg_get
+        from .rot60 import Rot60Policy
+        ts = float(cfg_get(env.cfg, "obs", "tilt_scale", default=0.2))
+        model = Rot60Policy(model, tilt_scale=ts)
 
     h_env = math.radians(args.heading_max_deg)
 
@@ -123,11 +139,15 @@ def main() -> int:
         return (abs(math.atan2(vy, vx)) <= h_env + 1e-6
                 and sp <= args.speed_max + 0.005)
 
-    def run_schedule(phases) -> dict:
+    def run_schedule(phases, strip_name: str | None = None) -> dict:
         obs, _ = env.reset()
+        if hasattr(model, "reset"):
+            model.reset()   # rot60 sector state is per-episode
         falls, err_sum, err_n, t = 0, 0.0, 0, 0.0
         p0 = np.array(env.data.qpos[:2], dtype=float)
         dist = 0.0
+        strip: list = []
+        next_frame_t = 0.0
         for seconds, vx, vy in phases:
             for _ in range(max(1, int(seconds / env.dt))):
                 traj = env._goal_traj
@@ -140,14 +160,24 @@ def main() -> int:
                 err_sum += math.hypot(v[0] - vx, v[1] - vy)
                 err_n += 1
                 t += env.dt
+                if strip_name is not None and t >= next_frame_t:
+                    strip.append(env.render())
+                    next_frame_t += 1.0
                 if term or trunc:
                     falls += 1
                     p1 = np.array(env.data.qpos[:2], dtype=float)
                     dist += float(np.hypot(*(p1 - p0)))
                     obs, _ = env.reset()
+                    if hasattr(model, "reset"):
+                        model.reset()
                     p0 = np.array(env.data.qpos[:2], dtype=float)
         p1 = np.array(env.data.qpos[:2], dtype=float)
         dist += float(np.hypot(*(p1 - p0)))
+        if strip_name is not None and strip:
+            import imageio.v2 as imageio
+            args.strips.mkdir(parents=True, exist_ok=True)
+            imageio.imwrite(args.strips / f"{strip_name}.png",
+                            np.hstack(strip))
         return {"falls": falls, "tracking_err": err_sum / max(err_n, 1),
                 "seconds": round(t, 1), "dist_m": round(dist, 3)}
 
@@ -155,7 +185,8 @@ def main() -> int:
     results, gate_falls = {}, 0
     for name, phases in scenarios(args.speed, args.fast):
         gating = all(in_envelope(vx, vy) for _sec, vx, vy in phases)
-        r = run_schedule(phases)
+        r = run_schedule(
+            phases, strip_name=name if args.strips else None)
         r["gating"] = gating
         results[name] = r
         if gating:
