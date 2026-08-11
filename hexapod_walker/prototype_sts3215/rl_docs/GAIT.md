@@ -158,3 +158,24 @@ as the panel.
   charge-magnitude AUDIT (what does k=40 actually cost a typical
   paddle tick, in fraction of income?) is the honest next step on
   this lever, not another blind coef rung.
+- **P3 lever 1 `cw-gait-terrain2` FAILED** (operator gate-eval,
+  logs/terrain2_gate on train-3): from scratch at TRUE 72 mm the
+  policy learned the LEG-SACRIFICE drag degenerate — own-terrain det
+  0/6, prog 0.25, slip/m 10.2, sacrificed legs [3,4]; flat retention
+  identical. Ground that defeats the champion's paddle did not force
+  stepping; PPO settled for 25% progress dragged over the bumps.
+  Physics-as-teacher REFUTED standalone at this amp/budget.
+
+## Where this leaves the no-anchor line (08-11 evening)
+
+Four from-scratch discovery arms (omni trans1, gru-r3, dragstep1,
+terrain2) all land on paddle/sacrifice no matter the ground or the
+charge coef. Two readings: (1) the effective drag price has NEVER
+been big — see the magnitude caveat above — so the operator's "really
+big penalty" hypothesis is still UNTESTED, not refuted; (2) discovery
+lacks lifted-leg state coverage, which RSI-for-walk (lever 4)
+addresses without action supervision. Next arms in order: (a) the
+charge-magnitude audit, then ONE from-scratch arm with the charge set
+so a typical paddle tick costs 2-3x a progress tick (audit-derived k,
+not a guess); (b) RSI-for-walk mid-stride spawns; (c) annealed-up
+charge once the P2 bank lands. Lever 3 (physics easing) unstarted.
