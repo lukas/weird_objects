@@ -50,8 +50,18 @@ Usage (bench, robot ARMed and standing at plant, web UI handy):
 
     python -m rl_move.scripts.bench_blast              # dry run (plan)
     python -m rl_move.scripts.bench_blast --go
+    python -m rl_move.scripts.bench_blast --go --video  # film it instead
     python -m rl_move.scripts.bench_blast --go --only ab tape
     python -m rl_move.scripts.bench_blast --go --rounds 4
+
+VIDEO MODE (--video): the zero-typing session. Lay the tape measure on
+the floor along the walk direction, start filming (whole runway in
+frame, Mac speaker audible), run with --go --video, and only type the
+per-step ``go``s. Every step is SPOKEN onto the video's audio track
+and timestamped in summary.json; the tape reading and the turn
+direction are read off the footage afterwards by
+``rl_move/scripts/video_review.py`` + the analysis agent — you never
+report a number.
 """
 from __future__ import annotations
 
@@ -83,14 +93,16 @@ def ask(prompt: str) -> str:
 
 
 class Session:
-    def __init__(self, client: HexapodClient, go: bool, rounds: int):
+    def __init__(self, client: HexapodClient, go: bool, rounds: int,
+                 video: bool = False):
         self.c = client
         self.go = go
         self.rounds = rounds
+        self.video = video
         self.stamp = time.strftime("%Y%m%d_%H%M%S")
         self.out = TRACES_DIR / f"bench_blast_{self.stamp}"
-        self.summary: dict = {"stamp": self.stamp, "walks": [],
-                              "notes": []}
+        self.summary: dict = {"stamp": self.stamp, "video_mode": video,
+                              "walks": [], "notes": [], "events": []}
         self.stand_profile_ok = False
         self.policy_files: dict[str, str] = {}   # "vref1"/"tip1" -> file
 
@@ -101,6 +113,23 @@ class Session:
         if not r.get("ok", True):
             print(f"    !! {path}: {r.get('error')}")
         return r
+
+    def announce(self, text: str) -> None:
+        """Timestamped event; in --video mode also SPOKEN aloud (macOS
+        `say`) so the label lands on the video's audio track and
+        video_review.py / the analysis agent can line clips up with
+        the log without the operator writing anything down."""
+        self.summary["events"].append(
+            {"t_unix": round(time.time(), 2), "text": text})
+        print(f"    [{time.strftime('%H:%M:%S')}] {text}")
+        if self.video:
+            import subprocess
+            try:
+                # Blocking on purpose: motion must not start before the
+                # label is fully on the audio track.
+                subprocess.run(["say", "-r", "200", text], timeout=15)
+            except Exception:
+                pass  # no `say` (not macOS) — timestamps still work
 
     def confirm(self, what: str) -> bool:
         """Motion gate: explicit per-step operator go."""
@@ -208,16 +237,22 @@ class Session:
         self.summary["stand_profile_ok"] = self.stand_profile_ok
 
     def _one_walk(self, tag: str, vx: float) -> None:
+        self.announce(f"walk {tag} starting")
+        t0 = time.time()
         r = self.req("POST", "/api/rl/walk",
                      {"vx": vx, "vy": 0.0, "duration_s": WALK_SECONDS})
         if not r.get("ok", True):
+            self.announce(f"walk {tag} refused")
             self.summary["walks"].append({"tag": tag, "error": r.get("error")})
             return
         # walk + post-episode tail + margin
         time.sleep(WALK_SECONDS + 6.0)
         self.c.wait_idle(timeout_s=30.0)
+        self.announce(f"walk {tag} done")
         name = self.newest_walk_csv()
-        stats: dict = {"tag": tag, "vx": vx}
+        stats: dict = {"tag": tag, "vx": vx,
+                       "t_start_unix": round(t0, 2),
+                       "t_end_unix": round(time.time(), 2)}
         if name:
             p = self.pull_csv(name)
             if p:
@@ -279,6 +314,18 @@ class Session:
             return
         self._one_walk(f"tape-{key}", WALK_SPEED)
         commanded_mm = WALK_SPEED * WALK_SECONDS * 1000.0
+        if self.video:
+            # No typing at the bench: film the tape instead. The
+            # analysis pass reads the number off the frames and files
+            # the measure/note record afterwards.
+            self.announce("tape walk done. point the camera straight "
+                          "down the tape for five seconds")
+            time.sleep(6.0)
+            self.summary["tape"] = {"policy": key,
+                                    "commanded_mm": commanded_mm,
+                                    "measured_mm": None,
+                                    "from_video": True}
+            return
         val = ask(f"    tape reading in mm (commanded {commanded_mm:.0f}):")
         try:
             measured = float(val)
@@ -313,22 +360,38 @@ class Session:
         print("    first learned stand-up on hardware. Hands ready; "
               "scripted tuck is the known-good fallback.")
         if self.confirm("RL STAND (preflight-gated)"):
+            self.announce("learned stand up starting")
             r = self.req("POST", "/api/rl/stand", {})
             self.summary["stand"] = r
             self.c.wait_idle(timeout_s=60.0)
+            self.announce("stand done")
         if self.confirm("RL LOWER back to belly"):
+            self.announce("learned lower starting")
             r = self.req("POST", "/api/rl/lower", {})
             self.summary["lower"] = r
             self.c.wait_idle(timeout_s=60.0)
+            self.announce("lower done")
 
     def step_turnsign(self) -> None:
         for omega in (0.3, -0.3):
             if not self.confirm(f"scripted turn-in-place omega={omega:+} "
                                 f"rad/s, 6s"):
                 continue
+            self.announce(f"turn sign omega {omega:+} starting")
+            t0 = time.time()
             self.req("POST", "/api/measure/walk",
                      {"vx_mm": 0.0, "omega": omega, "duration_s": 6.0})
             time.sleep(8.0)
+            self.announce(f"turn sign omega {omega:+} done")
+            if self.video:
+                # Rotation direction is read off the footage afterwards;
+                # the pending measure record stays un-annotated on the
+                # robot and gets its observed_turn from the video pass.
+                self.summary.setdefault("turnsign", []).append(
+                    {"omega": omega, "observed": "video",
+                     "t_start_unix": round(t0, 2),
+                     "t_end_unix": round(time.time(), 2)})
+                continue
             seen = ask("    observed rotation (cw/ccw/none):")
             if seen in ("cw", "ccw", "none"):
                 self.req("POST", "/api/measure/annotate",
@@ -357,6 +420,18 @@ class Session:
         print(f"session {self.stamp} -> {self.out}")
         print(f"steps: {' '.join(chosen)}"
               + ("" if self.go else "   [DRY RUN — add --go]"))
+        if self.video and self.go:
+            print("\nVIDEO MODE — camera setup (then just film, no "
+                  "typing beyond the go's):\n"
+                  "  * tape measure flat on the floor along the walk "
+                  "direction, robot start at 0\n"
+                  "  * frame the whole runway; keep the Mac's speaker "
+                  "audible (steps are spoken onto the audio track)\n"
+                  "  * START RECORDING NOW, then press Enter")
+            ask("    recording?")
+            # Sync anchor: video_review.py maps this announcement's
+            # t_unix to a video timestamp and everything else follows.
+            self.announce(f"bench blast session {self.stamp} sync mark")
         try:
             for s in chosen:
                 print(f"\n== {s} ==")
@@ -383,9 +458,17 @@ def main() -> int:
                     help="A/B rounds (each = 1 vref1 walk + 1 tip1 walk)")
     ap.add_argument("--only", nargs="*", default=[], choices=STEPS)
     ap.add_argument("--skip", nargs="*", default=[], choices=STEPS)
+    ap.add_argument("--video", action="store_true",
+                    help="videotaped session: no tape/turn typing — "
+                         "steps are spoken aloud (macOS say) onto the "
+                         "video's audio track + timestamped in "
+                         "summary.json; afterwards run "
+                         "rl_move/scripts/video_review.py on the "
+                         "footage (or hand it to the agent)")
     args = ap.parse_args()
 
-    s = Session(HexapodClient(args.base), args.go, args.rounds)
+    s = Session(HexapodClient(args.base), args.go, args.rounds,
+                video=args.video)
     s.run(args.only, args.skip)
     return 0
 

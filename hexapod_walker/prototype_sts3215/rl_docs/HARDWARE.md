@@ -351,6 +351,17 @@ half: `python3 -m rl_move.sim.sim_blast` (roll-trap A/B across
 frictions, joystick panels naked+rot60 for both walk ckpts, deployed-
 artifact tests).
 
+**Zero-typing variant: `--go --video` (08-11).** Lay the tape on the
+floor, film the runway, and only type the per-step `go`s: every step
+is spoken aloud (macOS `say`) onto the video's audio track and
+unix-stamped in summary.json. Afterwards
+`python -m rl_move.scripts.video_review <footage>` syncs the video to
+the log (spoken sync mark; falls back to first-motion detection),
+cuts a timestamped frame sheet per walk/turn/stand plus full-res
+tape-zoom frames, and the analysis agent reads distance, turn sign,
+falls, and gait quality off the sheets — the operator never reports a
+number.
+
 **Measure tab (deployed 08-10):** items 1, 2 and the turn-sign check
 now run from the web UI — `http://hexapod.local:8080/measure`. Cards:
 walk-distance (tape) runs the scripted gait and prompts for the tape
