@@ -587,6 +587,25 @@ def main() -> None:
         modes = args.modes or list(getattr(env_cls, "EVAL_MODES",
                                            ("hold", "track", "rise")))
         gen = env._goal_gen
+        # Refuse unknown modes LOUDLY and up front. The per-mode loop
+        # sets p_<m>=1 only on an exact attribute match; a typo or a
+        # non-harness axis (e.g. "tipped" — that is the TRAINER's
+        # periodic-eval axis, SCORE/tipped_recovery_success, not a goal
+        # mode) used to zero EVERY probability and NaN-crash inside
+        # goal_task.sample AFTER the earlier modes had already run
+        # (found 08-11: a probe on cw-stand-bc1-hard1 crashed on
+        # "tipped" and lost its report.json).
+        _valid = sorted(a[2:] for a in vars(type(gen)).keys()
+                        if a.startswith("p_"))
+        _valid += sorted(a[2:] for a in vars(gen) if a.startswith("p_")
+                         and a[2:] not in _valid)
+        _bad = [m for m in modes if not hasattr(gen, f"p_{m}")]
+        if _bad:
+            raise SystemExit(
+                f"[eval_checkpoint] unknown mode(s) {_bad}; this env's "
+                f"goal generator supports: {_valid}. ('tipped' recovery "
+                "is measured by the trainer's periodic eval, not the "
+                "harness.)")
         out.mkdir(parents=True, exist_ok=True)
 
         passes = [("det", True)] + ([("sto", False)]

@@ -127,11 +127,18 @@ problem — two CODE levers queued, BC-anchor preferred first).
   (`cw-stand-rsi3`) still cheats 0/12 on the same stack — clean
   one-variable attribution. Cost: training's own diagnostic (n=2,
   weak) suggests some raise/tipped-recovery/hold-track drag,
-  unverified by harness. Two follow-ups launched (steps-only
-  hardening `cw-stand-bc1-hard1`; coef-dose discovery
-  `cw-stand-bc1-coef03`) — do not propose another reward/RSI
-  variant; open question now is anchor dose/duration. Detail:
-  rl_docs/RISE.md.
+  unverified by harness. Follow-ups RESOLVED (08-11): coef-dose
+  `cw-stand-bc1-coef03` FAILED (0/16, keep coef>=1.0); 10M hardening
+  `cw-stand-bc1-hard1` consolidates rise decisively — RSI-off probe
+  12/12 valid_plant incl. flat 4/4 (footprint miss resolved), feet
+  factor stable all 10M, **`ppo_goal_cw_stand_bc1_hard1` is the RISE
+  SPECIALIST champion**. Matched-parent control same probe: parent
+  already 0/12 on hold/track/raise/lower (166mm lower flag-leg at
+  2M) — hardening lost nothing, but hold splays worse with steps
+  (51→162mm, 2.6A): a pre-existing hold/track stillness-pricing gap.
+  Lineage CLOSED for further hardening; next is a HOLD-mode
+  stillness SPECIFICATION + the rise-specialist→walk-champion
+  handoff composition test. Detail: rl_docs/RISE.md.
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so

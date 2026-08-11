@@ -459,3 +459,31 @@ continuous leg-cycling isn't charged) — a reward-mechanism change,
 so it needs its own `test_task_semantics.py` HOLD-mode bank entry
 before any training. Not yet queued (08-11) — this cycle only
 diagnosed it.
+
+**08-11 dig-in addendum — matched-parent control settles the
+"regression" question; hard1 promoted to RISE SPECIALIST.** The
+escalated "hold/track/raise/lower collapsed under hardening /
+protected-skill erosion" read is REFUTED: the identical RSI-off
+probe (seed 7, per-mode 12, same cfg) run on the PARENT
+`cw-stand-bc1` (2M) shows every one of those modes was ALREADY 0/12
+before the extra 8M steps — hold 0/12 (worst foot 51mm), track 0/12
+(65mm), raise 0/12 (40mm; `p_raise=0` in the goal mix, the mode is
+untrainable in this arm and the gate's raise criterion was
+ill-posed), lower 0/12 with a **166mm flag-leg at 2M** (child:
+189mm — same cheat, pre-existing; training's `SCORE/lower_success`
+=1.0 is the height-only criterion and is blind to it). Nothing the
+parent could do was lost; the crown-jewel lower lives in the
+rfix-warm1/vref1-r1 lineages, untouched by this arm. Meanwhile the
+child's rise is now **12/12 valid_plant RSI-off incl. flat 4/4
+(worst foot 7mm)** — bc1's flat-start footprint miss resolved with
+budget — and `rise_feet_factor` held 0.69–0.82 for all 10M (no
+re-drift; the pre-registered kill signature never appeared;
+trajectory-lock refuted by cold-start success). Verdict recorded:
+`ppo_goal_cw_stand_bc1_hard1` = the rise specialist (SKILLS.md);
+lineage closed for hardening; next = HOLD-stillness SPECIFICATION,
+then the composition test (learned rise → walk/hold champion
+handoff, replacing the stance-champion + scripted-blend fallback).
+Harness fix landed same cycle: `eval_checkpoint.py` now refuses
+unknown `--modes` loudly ('tipped' is a trainer periodic-eval axis,
+not a harness mode — passing it used to zero every goal probability
+and NaN-crash after the good modes had run).
