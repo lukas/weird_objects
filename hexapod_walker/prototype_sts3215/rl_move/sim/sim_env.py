@@ -1367,8 +1367,24 @@ class SimHexapodBalanceEnv(_GymBase):
                 # Strip it for the whole rise episode (the curl-window
                 # repricing below re-installs its own curl-priced kernel
                 # during the pre-ramp hold, which is honest shaping).
+                # 08-11: strip the NEGATIVE side too (opt-in,
+                # reward.rise_score_strip_pen=1). The k_height=100
+                # quadratic PENALTY was left live by the original strip
+                # and it FUNDS the flag-leg cheat: lying honestly on
+                # the belly under a +111mm command costs -1.2/tick
+                # while torso-up-feet-flagged costs only the -0.5/tick
+                # posture rent, so among behaviors a mediocre policy
+                # can actually reach, the cheat is the paid optimum
+                # (measured: rsi2 collapsed there even with correct
+                # pool restore + RSI state coverage). With the penalty
+                # stripped, height gradient comes only from score/ref
+                # income — belly rest is free, the cheat pays pure
+                # rent, honesty is the only positive slope.
                 r_task = parts.get("reward_task", 0.0)
-                if r_task > 0.0:
+                strip_pen = float(cfg_get(self.cfg, "reward",
+                                          "rise_score_strip_pen",
+                                          default=0.0)) == 1.0
+                if r_task > 0.0 or (strip_pen and r_task != 0.0):
                     reward -= r_task
                     parts["reward_task"] = 0.0
                 # Stand-score S in [0,1]: height kernel x (feet-down
