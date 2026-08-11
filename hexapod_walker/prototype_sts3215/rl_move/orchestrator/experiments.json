@@ -68072,7 +68072,7 @@
         "log_tail": ", unload 5.70\u00b0, raise 0/2, rise f0/2 b0/2 c1/2, walk err 0.058 m/s, lower 1/2, tipped 0/2, rolltrap 0/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:TERM(over_current) walk:TERM(over_current) walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 402s (4,970 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_gait_terrain1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_gait_terrain1 (md5 bda75d62)\n"
       }
     ],
-    "verdict": "INVALID ARM (operator 08-11 ~13:5x): env.terrain_amp=2.0 was silently clamped to 1.0 = 18mm peak bumps by servo_model.py (bug fixed 434a6e0) \u2014 this trained FROM SCRATCH on the gentle saturated rung, not 72mm. Do not triage as the terrain-as-teacher arm; supersede with cw-gait-terrain2 at a probe-informed true amplitude. Checkpoint still a usable scratch-on-18mm reference if ever needed.",
+    "verdict": "INVALID ARM (operator 08-11 ~13:5x): env.terrain_amp=2.0 was silently clamped to 1.0 = 18mm peak bumps by servo_model.py (bug fixed 434a6e0) -- this trained FROM SCRATCH on the gentle saturated rung, not 72mm. Checkpoint still a usable scratch-on-18mm reference if ever needed. UPDATE (08-11, this cycle): the suggested successor is SUPERSEDED, not just re-parameterized -- a zero-training champion probe at the TRUE amplitudes (1.0/2.0/3.0 = 18/36/54mm, on a freshly code-synced pod; see rl_docs/GAIT.md P3 lever 1 for the stale-pod false-negative this caught) shows slip/m gets WORSE with bump height (1.07->1.34->1.43 det) and amp 3.0 is outright unsafe (over_current terminations 6/6 det). The terrain-as-teacher premise itself is refuted at every amplitude tried -- do NOT launch cw-gait-terrain2; no terrain training arm is warranted on this axis.",
     "triage": "done"
   },
   {
@@ -68634,7 +68634,7 @@
       "respec of cw-uni-flag-a1-r1: Does the one-brain joystick policy fail to learn stand-up because its sibling skills (hold still, sit down) are stealing network capacity, or because learning stand-up from scratch is just hard? This run trains the IDENTICAL from-scratch brain on stand-up ONLY \u2014 the single-task control cell the MoE fork decision is missing. One variable vs cw-uni-flag-a1-r1: goal-mix rise=1.0 (was hold=0.2/rise=0.4/lower=0.4); same seed, same hist16+256x256+mode-onehot arch, same stand-specialist reward + BC anchor, from scratch. Context: cw-uni-flag-a1-h2 (10M) left rise flat (all-crouch valid_plant 1/6 det, rise_feet_factor stuck 0.44-0.64 for 10M) while hold/lower stayed clean \u2014 the pre-registered MoE trigger fired, but no from-scratch rise-only arm has ever been run (every honest rise was warm-started), so interference is inferred, not measured. This 2M rise-only run gives 2M rise ticks ~= the flagship at 5M total steps (2.5x r1 exposure) with the full logged flagship trajectory as the matched-tick baseline. Prediction-if-true (interference real): rise-only clearly beats the flagship at matched rise-ticks \u2014 env/rise_feet_factor sustained >0.8 late-run (flagship never left 0.44-0.64 at ANY point through 12M) and/or all-crouch det valid_plant >=3/6 => MoE fork justified. Prediction-if-false: same plateau (feet factor <=0.65, valid_plant <=1/6) => interference refuted, MoE exonerated \u2014 the lever moves to rise-teaching (state-aligned BC anchor spec per crouchrise2 finding, crouch start-mix recipe, or specialist seeding). Strongest alternative: rise-only collapses into the classic flag-leg cheat WITHOUT hold/lower episodes stabilizing feet-down behavior \u2014 that would mean the siblings actually HELP, which also argues against isolated-expert MoE."
     ],
     "created": "2026-08-11T18:05:14+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -68642,12 +68642,25 @@
       "running_experiments_before": 1,
       "code_sha_local": "fba0f6c1e9ea9bb74b005838ba58f0ea5476940c",
       "code_sha_pod": "fba0f6c1e9ea9bb74b005838ba58f0ea5476940c",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1972062",
+      "log_growth_bytes": [
+        5874,
+        9036
+      ],
+      "wandb_id": "9n6d5qj3",
+      "global_step_window": [
+        245760,
+        589824
+      ],
+      "fps_estimate": 3822.9
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-uni-flag-a1-risectl1 --steps 2000000 --task joint_walk --dr-scale 0.0 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0.0 --no-canary --n-envs 3072 --net-arch 256,256 --goal-mix hold=0.0,rise=1.0,lower=0.0 --eval-every 1000000 --video-every 2000000 --cfg-set obs.history_frames=16 --cfg-set obs.mode_onehot=1 --cfg-set goal.walk_obs_body_vel=2.0 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_flat_frac=0.0 --cfg-set goal.rise_partial_frac=0.0 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set train.bc_anchor_coef=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_uni_flag_a1_risectl1 --impl warp --host-workers 24 --notes 'respec of cw-uni-flag-a1-r1: Does the one-brain joystick policy fail to learn stand-up because its sibling skills (hold still, sit down) are stealing network capacity, or because learning stand-up from scratch is just hard? This run trains the IDENTICAL from-scratch brain on stand-up ONLY \u2014 the single-task control cell the MoE fork decision is missing. One variable vs cw-uni-flag-a1-r1: goal-mix rise=1.0 (was hold=0.2/rise=0.4/lower=0.4); same seed, same hist16+256x256+mode-onehot arch, same stand-specialist reward + BC anchor, from scratch. Context: cw-uni-flag-a1-h2 (10M) left rise flat (all-crouch valid_plant 1/6 det, rise_feet_factor stuck 0.44-0.64 for 10M) while hold/lower stayed clean \u2014 the pre-registered MoE trigger fired, but no from-scratch rise-only arm has ever been run (every honest rise was warm-started), so interference is inferred, not measured. This 2M rise-only run gives 2M rise ticks ~= the flagship at 5M total steps (2.5x r1 exposure) with the full logged flagship trajectory as the matched-tick baseline. Prediction-if-true (interference real): rise-only clearly beats the flagship at matched rise-ticks \u2014 env/rise_feet_factor sustained >0.8 late-run (flagship never left 0.44-0.64 at ANY point through 12M) and/or all-crouch det valid_plant >=3/6 => MoE fork justified. Prediction-if-false: same plateau (feet factor <=0.65, valid_plant <=1/6) => interference refuted, MoE exonerated \u2014 the lever moves to rise-teaching (state-aligned BC anchor spec per crouchrise2 finding, crouch start-mix recipe, or specialist seeding). Strongest alternative: rise-only collapses into the classic flag-leg cheat WITHOUT hold/lower episodes stabilizing feet-down behavior \u2014 that would mean the siblings actually HELP, which also argues against isolated-expert MoE.' > /tmp/train_cw-uni-flag-a1-risectl1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-uni-flag-a1-risectl1.log"
+    "log": "/tmp/train_cw-uni-flag-a1-risectl1.log",
+    "wandb_id": "9n6d5qj3",
+    "verified": "2026-08-11T18:09:03+00:00"
   },
   {
     "run": "cw-gait-terrain2-r1",
@@ -68727,5 +68740,90 @@
     "phase": "discovery",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-gait-terrain2-r1 --steps 2000000 --task joint_walk --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set env.terrain_amp=3.0 --cfg-set env.terrain_seed=0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_gait_terrain2_r1 --notes 'respec of cw-gait-terrain2: GAIT CLEANUP P3 lever 1, pre-registered single retry one rung down (operator gate text on cw-gait-terrain2): 72mm from scratch collapsed into a WORSE leg-sacrifice cheat (gate det gait_valid 2/6 leg[3] parked, slip/m 6.6-15.3, fwd 0.12-0.26m over 15s -- far worse than the closed paddle band 1.1-1.5, both on-terrain AND flat-retention). Retry ONE rung down at env.terrain_amp=3.0 (54mm, the zero-training champion probe'\"'\"'s mildest amplitude where the champion still gaits cleanly with slip flat at 1.50, no sacrifice) to see if a less extreme difficulty avoids the leg-sacrifice collapse and lets plain progress income select stepping. Same contract stack as terrain1/2 otherwise (from scratch, k_drag_loaded=10 stock, seed 11).' > /tmp/train_cw-gait-terrain2-r1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-gait-terrain2-r1.log"
+  },
+  {
+    "run": "cw-arch-gru-r4-rr1",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Mechanical retry of cw-arch-gru-r4 (identical from-scratch GRU config: BPTT window 256 steps / 10.24s, hidden 256, mixed diet walk.60/rise.15/lower.15/hold.10): the first attempt never got a real science verdict \u2014 the launcher's fixed 90s post-launch liveness check false-killed it after iteration 1 alone logged 84s of pure env-collection time (before the heavier GRU backward pass), misreading a slow-but-live long-BPTT run as stalled. Fixed in the same commit (launch_run.py: post-launch wait now scales with --n-steps, capped at 600s) and this is the clean re-run on the fixed launcher, config completely unchanged.",
+    "gate": "PASS: 2M harness forensics (DR0 det+sto walk, standard fingerprint) show NO leg-sacrifice (det gait_valid > 0/6, no parked-leg collapse at duty<0.1), positive det median progress ratio, AND stance still emerging (>=1 rise completion, tipped recovery >=1/2). Walk tracking quality NOT required. FAIL: same parked-leg/paddle fingerprint -> rung closes for real (window AND capacity exonerated the reward twice); no further from-scratch GRU variants, recurrence deferred to flagship distillation.",
+    "parent": "cw-arch-gru-r4",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--gru",
+      "--gru-hidden-size",
+      "256",
+      "--n-steps",
+      "256",
+      "--n-envs",
+      "1024",
+      "--log-std-init",
+      "0.0",
+      "--ent-coef",
+      "0.01",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--goal-mix",
+      "walk=0.60,rise=0.15,lower=0.15,hold=0.10",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.7854",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.5",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.6",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.1",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.2",
+      "--seed",
+      "0",
+      "--out-name",
+      "ppo_goal_cw_arch_gru_r4_rr1",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-arch-gru-r4: Mechanical retry of cw-arch-gru-r4 (identical from-scratch GRU config: BPTT window 256 steps / 10.24s, hidden 256, mixed diet walk.60/rise.15/lower.15/hold.10): the first attempt never got a real science verdict \u2014 the launcher's fixed 90s post-launch liveness check false-killed it after iteration 1 alone logged 84s of pure env-collection time (before the heavier GRU backward pass), misreading a slow-but-live long-BPTT run as stalled. Fixed in the same commit (launch_run.py: post-launch wait now scales with --n-steps, capped at 600s) and this is the clean re-run on the fixed launcher, config completely unchanged."
+    ],
+    "created": "2026-08-11T18:08:52+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 3,
+      "code_sha_local": "53ffa2f4177f411b9ee5bdf921a69b2587d123b9",
+      "code_sha_pod": "53ffa2f4177f411b9ee5bdf921a69b2587d123b9",
+      "wandb_env_on_pod": true
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-r4-rr1 --steps 2000000 --task joint_walk --gru --gru-hidden-size 256 --n-steps 256 --n-envs 1024 --log-std-init 0.0 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --out-name ppo_goal_cw_arch_gru_r4_rr1 --impl warp --host-workers 24 --notes 'respec of cw-arch-gru-r4: Mechanical retry of cw-arch-gru-r4 (identical from-scratch GRU config: BPTT window 256 steps / 10.24s, hidden 256, mixed diet walk.60/rise.15/lower.15/hold.10): the first attempt never got a real science verdict \u2014 the launcher'\"'\"'s fixed 90s post-launch liveness check false-killed it after iteration 1 alone logged 84s of pure env-collection time (before the heavier GRU backward pass), misreading a slow-but-live long-BPTT run as stalled. Fixed in the same commit (launch_run.py: post-launch wait now scales with --n-steps, capped at 600s) and this is the clean re-run on the fixed launcher, config completely unchanged.' > /tmp/train_cw-arch-gru-r4-rr1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-arch-gru-r4-rr1.log"
   }
 ]

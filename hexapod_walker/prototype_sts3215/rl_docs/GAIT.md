@@ -95,6 +95,26 @@ to break), one easing lever at a time:
    survives 36 mm bumps — if its slip DROPS there, physics already
    forces stepping and the premise is confirmed; if it paddles over
    bumps at the same slip, this lever is refuted and we skip the arm.
+   **REFUTED (08-11, `cw-dep-vref1-r1` on freshly-synced code —
+   the amp>1 clamp fix, 434a6e0, must actually be on the eval pod;
+   an unsynced free pod silently re-ran the OLD clamped code and
+   returned bit-identical reports across amps, a false negative,
+   caught + documented as COMMANDS.md gotcha 16):
+   true amp 1.0 (18mm, the model's actual base bump) leaves slip/m
+   at the champion's own band (det/sto med 1.07/1.17); amp 2.0 (36mm)
+   makes it WORSE, not better (1.34/1.54); amp 3.0 (54mm) is worse
+   again (1.43/1.85) AND unsafe — 6/6 det and 4/6 sto episodes
+   terminate `over_current` (the dragging foot catches/strains
+   against a bump it never lifts over). Slip never drops with
+   amplitude — the champion pays MORE for dragging into bumps, it
+   never discovers stepping. Lever 1 is refuted at every amplitude
+   tried, well past the point of any therapeutic effect and into
+   outright failure; skip the terrain-as-teacher training arm
+   entirely (no `cw-gait-terrain2`) — `cw-gait-terrain1`'s INVALID
+   verdict stands but its suggested successor is now superseded,
+   not just re-run at a corrected amplitude. Surviving P3 levers:
+   3 (physics easing), 4 (RSI-for-walk), 5 (slow-speed-first); P2's
+   structural charge is still SPECIFICATION-gated (bank first).
 2. **Drag charge annealed UP** (with Priority-2 machinery): charge
    starts near zero (travel discoverable, sloppy is fine), ramps to
    full by mid-run so the FINAL optimum cannot include dragging.
