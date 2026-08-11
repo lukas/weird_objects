@@ -48,6 +48,13 @@ closed, `cw-stand-scoreref1`).
   sound. Always start a session with a fresh `set_zero` at a known
   visual pose. (All 18 servos are healthy — operator 08-10: no open
   servo issues, do not resurface old ones.)
+- TFT redraws STALL the servo bus (08-10): the ST7789 job-panel
+  repaint (`DJ`) holds the shared MCU serial link ~1.5 s, blocking
+  ALL pose writes/reads behind the bus lock — measured as a mid-air
+  freeze during a 10× stand-up. Any motion loop must set the
+  `bus_hot` flag (standup worker pattern, bench_api) so
+  StatusDisplay skips painting, or it will hitch whenever its
+  progress text changes.
 - Control is 25 Hz; reaction delay ~100–200+ ms; hidden contact
   state; no direct body-velocity measurement; possible zero drift.
 - 08-06 incident rules (AGENTS.md) are absolute: no motion without

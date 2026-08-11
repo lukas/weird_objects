@@ -101,6 +101,32 @@ just under the 25° trip — operator: "it tipped, didn't go much").
   `cw-dep-tip1` queued in the orchestrator backlog (warm from this
   champion, full 0.30 tip probability, walk-retention gate).
 
+## Finding — TFT redraws stall the entire servo link (08-10 night)
+
+Root cause of the operator's "big pause in the middle of standing"
+(10× streamed tuck): a **job-panel repaint (`DJ`) held the shared MCU
+serial link for 1455 ms** (MCU transaction log, `emit_mcu`). Every
+bus user — pose sync-writes, feedback reads — serializes behind the
+same lock on `/dev/ttyHS1`, so while the ST7789 draws, the robot is
+frozen mid-motion with servos parked on their last target.
+
+Generalize this: **any MCU display traffic is a potential 1.5 s
+motion stall**, and repaints are triggered by *changing text* — a
+progress string that updates every 0.3 s (t / peak-amps counters) is
+a repaint generator. The DX status path also reads all servo currents
+on the MCU (already throttled to 2.4 s while a job runs), but DJ was
+assumed "pure display, cheap" and was not throttled at all.
+
+Mitigation landed 08-10: motion jobs set `demo.bus_hot`
+(`bench_api`, standup worker pattern — set on entry, cleared in
+`finally`, only reported while the worker thread is alive) and
+`StatusDisplay` skips ALL painting while it is set, leaving the panel
+stale until the bus is released. Rule for new motion loops (RL
+runner, gait changes, future scripted moves): either set `bus_hot`
+around the streaming section, or accept ~1.5 s write gaps whenever
+your progress text changes. Prefer static progress text on screens;
+numbers belong in the event log, not the TFT, during motion.
+
 ## Session 08-09 night (operator supervised) — status update
 
 Collected (traces in `rl_move/hardware_traces/`, analysis in RL_LOG
