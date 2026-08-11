@@ -156,26 +156,38 @@ class _EpisodeLog:
     Pull with receive_robot_logs.py / scp for offline analysis.
     """
 
-    def __init__(self, mode: str, params: dict):
+    def __init__(self, mode: str, params: dict, obs_dim: int = 0):
         stamp = time.strftime("%Y%m%d_%H%M%S")
         d = _HERE / "logs"
         d.mkdir(exist_ok=True)
         self.mode = mode
         self.params = params
+        self.obs_dim = int(obs_dim)
         self.csv_path = d / f"rl_{mode}_{stamp}.csv"
         self.sum_path = d / f"rl_{mode}_{stamp}_summary.json"
         self.started_iso = time.strftime("%Y-%m-%dT%H:%M:%S")
         self._n = 0
         self._f = self.csv_path.open("w", newline="")
         self._w = csv.writer(self._f)
+        # ``phase`` and obs columns added 08-10 after the dep-tip1 fall
+        # debug: the robot tipped AFTER "walk done" (episode ends
+        # holding the last stance) with zero data past the last tick,
+        # and without the obs vector there was no way to tell "policy
+        # saw the roll and didn't act" from "obs pipeline fed it
+        # garbage". phase=run rows carry everything; phase=tail rows
+        # (post-episode, ~3 s at 10 Hz, no commands sent) carry
+        # attitude/gyro/q/currents only. Logged obs lets the exact
+        # policy be replayed offline: action mismatch = obs/weights
+        # bug, action match = behavior/contact story.
         self._w.writerow(
-            ["t_s", "roll_deg", "pitch_deg",
+            ["t_s", "phase", "roll_deg", "pitch_deg",
              "gyro_x_dps", "gyro_y_dps", "gyro_z_dps",
              "height_ref_mm", "vx_ref_mps", "vy_ref_mps", "max_cur_a"]
             + [f"q{j}_deg" for j in range(N_JOINTS)]
             + [f"cmd{j}_deg" for j in range(N_JOINTS)]
             + [f"act{j}" for j in range(N_JOINTS)]
-            + [f"cur{j}_a" for j in range(N_JOINTS)])
+            + [f"cur{j}_a" for j in range(N_JOINTS)]
+            + [f"obs{k}" for k in range(self.obs_dim)])
         try:
             from event_log import emit
             emit("rl_episode", f"{mode} started ({self.csv_path.name})",
@@ -184,20 +196,27 @@ class _EpisodeLog:
             pass
 
     def tick(self, t: float, state, action, q_cmd_rad, goal,
-             vx_r: float, vy_r: float, max_cur: float) -> None:
+             vx_r: float, vy_r: float, max_cur: float,
+             obs=None, phase: str = "run") -> None:
         cur = (state.servo_current.tolist()
                if state.servo_current is not None else [None] * N_JOINTS)
+        obs_cols = ([round(float(o), 4) for o in obs]
+                    if obs is not None else [""] * self.obs_dim)
         self._w.writerow(
-            [round(t, 3),
+            [round(t, 3), phase,
              round(state.imu_roll * RAD2DEG, 2),
              round(state.imu_pitch * RAD2DEG, 2)]
             + [round(float(g) * RAD2DEG, 2) for g in state.imu_gyro]
-            + [round(goal.height_ref * 1000, 1),
+            + [round(goal.height_ref * 1000, 1) if goal is not None
+               else "",
                round(vx_r, 4), round(vy_r, 4), round(max_cur, 3)]
             + [round(float(q) * RAD2DEG, 2) for q in state.joint_position]
-            + [round(float(q) * RAD2DEG, 2) for q in q_cmd_rad]
-            + [round(float(a), 4) for a in action]
-            + ["" if c is None else round(float(c), 3) for c in cur])
+            + ([round(float(q) * RAD2DEG, 2) for q in q_cmd_rad]
+               if q_cmd_rad is not None else [""] * N_JOINTS)
+            + ([round(float(a), 4) for a in action]
+               if action is not None else [""] * N_JOINTS)
+            + ["" if c is None else round(float(c), 3) for c in cur]
+            + obs_cols)
         self._n += 1
         if self._n % 25 == 0:      # survive a mid-run kill: flush each ~1 s
             self._f.flush()
@@ -393,9 +412,12 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     n_ticks = int(round(total_s * HZ))
     overruns = 0
     max_cur = 0.0
+    tilt_rel_max = 0.0
+    t_end = 0.0
     t_next = time.monotonic()
     result: dict = {"ok": True, "mode": mode}
-    elog = _EpisodeLog(mode, {
+    elog = _EpisodeLog(mode, obs_dim=int(policy.meta.get("obs_dim", 0)),
+                       params={
         "mode": mode, "total_s": round(total_s, 1), "hz": HZ,
         "policy": dict(policy.meta),
         "q_nom_deg": [round(float(q) * RAD2DEG, 2) for q in q_nom],
@@ -460,7 +482,13 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         if state.servo_current is not None:
             max_cur = max(max_cur,
                           float(np.max(np.abs(state.servo_current))))
-        elog.tick(t, state, action, q_safe, goal, vx_r, vy_r, max_cur)
+        tilt_rel_max = max(
+            tilt_rel_max,
+            abs(state.imu_roll - tilt_ref0[0]) * RAD2DEG,
+            abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
+        t_end = t + DT
+        elog.tick(t, state, action, q_safe, goal, vx_r, vy_r, max_cur,
+                  obs=obs)
         if i % 5 == 0:
             if mode == "walk":
                 phase = ("settle" if t < WALK_HOLD_S else
@@ -500,8 +528,49 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         # decel ramp — the operator decides what happens next.
         result.update(vx_cmd=round(vx, 3), vy_cmd=round(vy, 3),
                       duration_s=round(total_s, 1))
-    result.update(max_current_a=round(max_cur, 2), overruns=overruns,
-                  tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),
-                                round(tilt_ref0[1] * RAD2DEG, 2)])
+
+    # Post-episode tail (08-10, dep-tip1 fall debug): the robot tipped
+    # AFTER "walk done" — the episode ended holding a ~15° lean and
+    # the log stopped with it. Keep READING (never commanding) for a
+    # few seconds so a tip-over during the end-of-episode hold (or
+    # the collapse after a trip limp) is in the trace.
+    TAIL_S = 3.0
+    tail_tilt_max = 0.0
+    for k in range(int(TAIL_S * 10)):
+        time.sleep(0.1)
+        try:
+            state = est.update()
+        except Exception:
+            break
+        if state is None or not state.bus_ok:
+            break
+        tail_tilt_max = max(
+            tail_tilt_max,
+            abs(state.imu_roll - tilt_ref0[0]) * RAD2DEG,
+            abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
+        elog.tick(t_end + (k + 1) * 0.1, state, None, None, None,
+                  0.0, 0.0, max_cur, phase="tail")
+
+    result.update(
+        max_current_a=round(max_cur, 2), overruns=overruns,
+        tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),
+                      round(tilt_ref0[1] * RAD2DEG, 2)],
+        # Attitude bookkeeping, all relative to the episode tilt ref:
+        # the summary alone should answer "did it stay level, and did
+        # it go over after the episode?" without opening the CSV.
+        tilt_rel_max_deg=round(tilt_rel_max, 1),
+        roll_rel_end_deg=round(
+            (state.imu_roll - tilt_ref0[0]) * RAD2DEG, 1)
+        if state is not None else None,
+        pitch_rel_end_deg=round(
+            (state.imu_pitch - tilt_ref0[1]) * RAD2DEG, 1)
+        if state is not None else None,
+        tail_s=TAIL_S,
+        tail_tilt_max_deg=round(tail_tilt_max, 1),
+        # >35° relative during run or tail ≈ on its side/nose: the
+        # 25° walk trip would have fired first in-run, so this is a
+        # post-episode fall detector.
+        fell=bool(max(tail_tilt_max, tilt_rel_max) > 35.0),
+    )
     result["log"] = elog.close(result)
     return result

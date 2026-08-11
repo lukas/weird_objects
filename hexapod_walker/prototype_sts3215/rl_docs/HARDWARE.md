@@ -120,6 +120,47 @@ just under the 25° trip — operator: "it tipped, didn't go much").
   vs parent 2/6 — the tipped-start DR transferred to mid-gait
   disturbances), which strengthens the case for the hardware A/B.
 
+## Finding — dep-tip1 hardware run: roll ramp persists, but the
+## pinned-leg signature is GONE (08-10 late night)
+
+One 6 s walk at 0.05 m/s (`rl_walk_20260811_021859.csv`). Operator:
+"walked a little bit and fell over."
+
+- Same roll ramp as the parent: +0.2° (Q1 mean) → +17.7° (Q4 mean),
+  peak +21.9°, never hitting the 25° trip. Episode ended "ok" at
+  ~+15°; the fall happened AFTER "walk done" — the walk ends holding
+  the final stance with torque on, and a static hold at a 15° lean
+  tips (the moving gait was the only thing propping it). The log
+  stopped at episode end, so the fall itself wasn't recorded (fixed —
+  see logging note below).
+- **The parent's leg-sacrifice mechanism did NOT recur**: all six
+  legs kept cycling to the end (knee stride 27–48° in the second
+  half, vs the parent's loaded knee collapsing 45°→27°) and currents
+  stayed flat everywhere (0.02–0.05 A/joint mean; parent's pinned leg
+  hit 0.41 A). The tipped-start DR changed the behavior exactly in
+  the trained direction — no leg gets abandoned — yet the roll still
+  ramps monotonically with zero recovery dips.
+- Reading: strengthens the sim-to-real contact story. The body drifts
+  sideways tick after tick and the in-band gait never re-centers it —
+  recovery in sim can exploit feet that skate; rubber feet on a
+  grippy floor can't. Alternative still open: an obs-pipeline issue
+  (does the policy SEE +15° relative roll correctly at deployment
+  scale?). The new per-tick obs logging resolves that question on the
+  next run — replay the logged obs through the same policy offline
+  and compare actions.
+- Next: (1) run the A/B anyway — parent on the same floor; compare
+  roll-ramp RATE, not just fall/no-fall; (2) pull the next trace and
+  check the logged obs roll channel against the IMU column; (3) if
+  obs are clean, the fix is a sim contact/pinning model (foot
+  friction anisotropy / no-skate), not more DR.
+- **Logging upgraded for this (08-10):** every RL episode CSV now
+  carries a `phase` column, the full policy obs vector per tick, and
+  a 3 s read-only post-episode tail (attitude/q/currents at 10 Hz) so
+  after-the-end tip-overs are captured. Summaries now report
+  `tilt_rel_max_deg`, end roll/pitch, `tail_tilt_max_deg`, and a
+  `fell` flag — the summary alone answers "did it fall after the
+  episode?".
+
 ## Finding — TFT redraws stall the entire servo link (08-10 night)
 
 Root cause of the operator's "big pause in the middle of standing"

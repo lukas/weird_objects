@@ -87,17 +87,27 @@ Every stand / lower / walk run writes a full local trace under
 `/home/arduino/hexapod_sts/linux_control/logs/` (`_EpisodeLog` in
 `linux_control/rl_policy.py`) — nothing to enable:
 
-- **`rl_<mode>_<stamp>.csv`** — one row per 25 Hz control tick,
-  82 columns: `t_s`, body `roll_deg`/`pitch_deg` (attitude filter),
-  `gyro_{x,y,z}_dps`, goal refs (`height_ref_mm`, `vx_ref_mps`,
-  `vy_ref_mps`), running `max_cur_a`, then per joint 0–17:
-  `q*_deg` (measured), `cmd*_deg` (commanded, post-safety),
+- **`rl_<mode>_<stamp>.csv`** — one row per 25 Hz control tick:
+  `t_s`, `phase` (`run` / `tail`), body `roll_deg`/`pitch_deg`
+  (attitude filter), `gyro_{x,y,z}_dps`, goal refs (`height_ref_mm`,
+  `vx_ref_mps`, `vy_ref_mps`), running `max_cur_a`, then per joint
+  0–17: `q*_deg` (measured), `cmd*_deg` (commanded, post-safety),
   `act*` (raw policy action in [-1,1]), `cur*_a` (per-servo current;
-  blank on ticks without full feedback). Flushed every ~1 s so a
-  safety trip / kill still leaves the trace up to that moment.
+  blank on ticks without full feedback), then the **full policy obs
+  vector** `obs0..obsN` (68 stance / 72 walk) — replay it through the
+  same weights offline to separate obs-pipeline bugs from behavior.
+  After the episode a **3 s read-only tail** (10 Hz, `phase=tail`,
+  no commands sent) keeps recording attitude/q/currents so a tip-over
+  during the end-of-episode hold is captured (added 08-10 after the
+  dep-tip1 fall landed just past the last logged tick). Flushed every
+  ~1 s so a safety trip / kill still leaves the trace up to that
+  moment.
 - **`rl_<mode>_<stamp>_summary.json`** — params (policy meta, q_nom,
   tilt ref, preflight readings, walk vx/vy) + final result (ticks,
-  max current, overruns, error/trip reason if any).
+  max current, overruns, error/trip reason if any, plus attitude
+  bookkeeping: `tilt_rel_max_deg`, `roll/pitch_rel_end_deg`,
+  `tail_tilt_max_deg`, and `fell` — >35° relative at any point ⇒ it
+  went over).
 - **`events.jsonl`** gets `kind:"rl_episode"` markers at start and
   end (end carries the result + csv name), so episodes line up with
   button presses, overtemp events, MCU traffic on one timeline.
