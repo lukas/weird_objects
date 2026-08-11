@@ -173,9 +173,23 @@ One 6 s walk at 0.05 m/s (`rl_walk_20260811_021859.csv`). Operator:
   the 02:18 runaway was not an obs bug — the same pipeline walked
   level twenty minutes later. Runaway trigger is environmental /
   initial-condition (floor spot, tether drag, seeded stance lean),
-  intermittent rather than systematic. The parent A/B on the same
+  intermittent rather than systematic.   The parent A/B on the same
   floor is still the discriminating test — compare roll-ramp RATE
   and count runaways per N runs, not fall/no-fall on a single run.
+- **Third run (08-10 22:35, `rl_walk_20260811_023532.csv`) was ALSO
+  dep-tip1** — the operator meant to A/B vref1-r1 but no
+  `rl_policy_select` ever hit the robot (events show only GETs
+  between the walks; the "Use selected" click never landed). Another
+  clean walk: rel-roll peak 9.2°, quiet tail, no fall. tip1 hardware
+  tally: 1 runaway / 2 clean. **Operator-visible "sag" explained:**
+  the body drop during walking is COMMANDED, not servo slip —
+  measured knees track commands within 1–3° while the policy itself
+  migrates the posture over the run (mean hip +12° → −30°, knees
+  89° → 100°, identical in both clean runs). This matches the
+  documented sim behavior that the walk gait rides 54–70 mm below
+  the spawn stance: the policy settles into its trained (lower,
+  wider) walking posture. Not a fault; worth a height-keeping term
+  in a future walk arm if the crouch bothers operations.
 
 ## Finding — TFT redraws stall the entire servo link (08-10 night)
 
