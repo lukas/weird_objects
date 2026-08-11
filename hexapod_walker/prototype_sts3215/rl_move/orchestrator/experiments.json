@@ -64897,7 +64897,7 @@
       "cw-stand-rsi1: first RSI arm. scoreref1-dr0 stack + goal.rise_rsi_frac=0.5, 2M discovery. DR0 for discovery per the walk-line ladder; harden DR upward only after the skill exists. Eval gates run WITHOUT RSI (flat starts) -- RSI is a training-time crutch, never an eval condition. If mechanism-health passes but flat starts lag, continue as hardening with rsi_frac annealing."
     ],
     "created": "2026-08-11T02:25:40+00:00",
-    "status": "EVALUATED",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -64934,7 +64934,7 @@
         "log_tail": "al] 2,007,040: hold 1.13\u00b0, lean 1.30\u00b0, track 1.51\u00b0, unload 1.55\u00b0, raise 1/2, rise f1/2 b0/2 c0/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 348s (5,745 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_rsi1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_rsi1 (md5 89c059c2)\n"
       }
     ],
-    "verdict": "FAILED: RSI (spawn-on-reference) is REFUTED as the rise fix. rise 0/6 det+sto at DR0, worst-foot clearance 176-183mm \u2014 same flag-leg cheat as score1/scoreref1/scoreref1-dr0 family, now confirmed even with RSI engaged. env/rise_score never left the 0.01-0.03 floor (median 0.015, max 0.089) over the full 2M steps \u2014 the pre-registered numeric refutation trigger (gate: <0.05). RSI fixed the state-distribution-visitation theory's premise (rollouts do land on-reference) but the cheat still dominates once trained; this closes the state-distribution-gap hypothesis too. Fifth distinct mechanism beaten by the identical exploit. Next lever per RISE.md is (b): structural height<->contact coupling (CODE+bank, SPECIFICATION phase, not a training run).",
+    "verdict": "CORRECTION (supersedes my earlier FAILED verdict on this run): this run's erosion is CONFOUNDED, not a genuine RSI refutation. Root cause found+fixed by a concurrent cycle (commit 65edba7, rl_docs/RISE.md 08-11~03:30): the warp/MJX pool-restore path was missing the score-stack + RSI per-episode attrs from SNAP_ATTRS, so pool-recycled episodes silently inherited another episode's _score_best ratchet and ramp/RSI clocks -- score/ref income stopped paying as pooled generations took over, which is exactly rsi1's observed env/rise_rsi decay 0.58->0.15 with zero terminations (impossible for a constant 0.5 spawn frac -- a code tell, not behavior). This also reopens score1/scoreref1/scoreref1-dr0(-lowlr/-riseonly): none of those stacks were paid as designed on the GPU path either. rsi1 itself is not informative either way on RSI; the clean test is cw-stand-rsi2 (same args + the fix), already running. Retracting the 'RSI refuted' / 'state-distribution-gap hypothesis closed' claims from my prior verdict.",
     "hardware_ready": false
   },
   {

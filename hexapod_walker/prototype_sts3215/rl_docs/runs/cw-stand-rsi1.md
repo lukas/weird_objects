@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: EVALUATED
+**status**: DONE
 
 **created**: 2026-08-11T02:25:40+00:00
 
@@ -20,5 +20,5 @@
 
 **gate**: W&B env/rise_score must lift off the 0.01-0.03 floor (every prior arm flatlined there) and env/reward_rise_ref hold >=0.3/tick with RSI episodes present (env/rise_rsi confirms the mix). Harness at 2M: rise valid_plant from FLAT starts (RSI off at eval -- gate tests the unassisted skill); full success may need a continuation, so the discovery verdict is MECHANISM HEALTH: rise_score climbing + RSI episodes holding the path. If rise_score is still <0.05 at 2M, RSI-with-this-stack is refuted and the structural height<->contact coupling (RISE.md lever b) is next.
 
-**verdict**: FAILED: RSI (spawn-on-reference) is REFUTED as the rise fix. rise 0/6 det+sto at DR0, worst-foot clearance 176-183mm — same flag-leg cheat as score1/scoreref1/scoreref1-dr0 family, now confirmed even with RSI engaged. env/rise_score never left the 0.01-0.03 floor (median 0.015, max 0.089) over the full 2M steps — the pre-registered numeric refutation trigger (gate: <0.05). RSI fixed the state-distribution-visitation theory's premise (rollouts do land on-reference) but the cheat still dominates once trained; this closes the state-distribution-gap hypothesis too. Fifth distinct mechanism beaten by the identical exploit. Next lever per RISE.md is (b): structural height<->contact coupling (CODE+bank, SPECIFICATION phase, not a training run).
+**verdict**: CORRECTION (supersedes my earlier FAILED verdict on this run): this run's erosion is CONFOUNDED, not a genuine RSI refutation. Root cause found+fixed by a concurrent cycle (commit 65edba7, rl_docs/RISE.md 08-11~03:30): the warp/MJX pool-restore path was missing the score-stack + RSI per-episode attrs from SNAP_ATTRS, so pool-recycled episodes silently inherited another episode's _score_best ratchet and ramp/RSI clocks -- score/ref income stopped paying as pooled generations took over, which is exactly rsi1's observed env/rise_rsi decay 0.58->0.15 with zero terminations (impossible for a constant 0.5 spawn frac -- a code tell, not behavior). This also reopens score1/scoreref1/scoreref1-dr0(-lowlr/-riseonly): none of those stacks were paid as designed on the GPU path either. rsi1 itself is not informative either way on RSI; the clean test is cw-stand-rsi2 (same args + the fix), already running. Retracting the 'RSI refuted' / 'state-distribution-gap hypothesis closed' claims from my prior verdict.
 

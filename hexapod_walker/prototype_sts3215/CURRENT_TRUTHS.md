@@ -5,8 +5,9 @@ RL_LOG/archive prose disagrees with a line here, this file wins.
 Update ONLY when a ruling is accepted or hardware produces new
 evidence; keep 50–80 lines. Reading order: RL_GOALS.md → this file →
 RL_PLAN.md → RESEARCH_RULES.md → rl_docs/SIM.md.
-Last regenerated: 2026-08-11 (rise: reference-tracking-as-crutch
-closed, `cw-stand-scoreref1`).
+Last regenerated: 2026-08-11 (rise: pool-restore state-loss bug
+(commit 65edba7) reopens the score1/scoreref1-family "CLOSED"
+verdicts as CONFOUNDED; clean re-run `cw-stand-rsi2` in flight).
 
 ## Real robot facts (these outrank any sim result)
 
@@ -110,16 +111,24 @@ closed, `cw-stand-scoreref1`).
   (reported always; `--valid-plant-gate` opt-in until champions
   baselined), and the rise bank (separates replay from all cheats).
   Working fallback: stance champion rises → scripted 1.5 s blend →
-  walk champion drives (sim-proven, key `7`). Reward-income shaping
-  for rise is now CLOSED (three distinct mechanisms — detect/
-  discount, plant-gate, score re-route — all beaten by the same
-  flag-leg cheat, `cw-stand-score1` 08-10 even from an honest warm
-  start). A 4th mechanism, a cheat-proofed reference-tracking crutch
-  layered on score1 (`cw-stand-scoreref1`, 08-11), also lost to the
-  identical flag-leg cheat (0/6 valid_plant every mode/DR) — reference
-  tracking as a crutch is CLOSED too. Only remaining lever: a
-  structural coupling between the height goal and measured foot
-  contact (CODE, not yet built). Plan: rl_docs/RISE.md.
+  walk champion drives (sim-proven, key `7`).
+  **08-11 correction (supersedes the "4 mechanisms CLOSED" ruling
+  below):** the "reward-income shaping / reference-tracking-as-crutch
+  is CLOSED" verdicts for `cw-stand-score1` / `scoreref1` /
+  `scoreref1-dr0(-lowlr/-riseonly)` / `cw-stand-rsi1` are CONFOUNDED,
+  not refuted — the warp/MJX episode-recycle pool was missing the
+  score-stack + RSI per-episode attrs from `SNAP_ATTRS` (commit
+  65edba7), so pool-restored episodes silently inherited another
+  episode's score ratchet / ramp-clock, and score/ref income stopped
+  paying as pooled generations took over regardless of the true
+  behavior. None of those arms were paid as designed on the GPU
+  training path. Fix is landed; clean re-run in flight:
+  `cw-stand-rsi2`. Do not cite the pre-fix arms as evidence either
+  way until rsi2 (or a re-run of the others) reports clean. Detail +
+  the original (now-superseded) closure text: rl_docs/RISE.md.
+  Only remaining lever if rsi2 also fails clean: a structural
+  coupling between the height goal and measured foot contact (CODE,
+  not yet built).
 - Yaw: price escalation on a command-invariant drift is CLOSED. The
   new mechanism set is landed and its TURN bank PASSES (08-10):
   signed rotation income (k_yaw_prog), heading-hold drift charge
