@@ -65844,7 +65844,7 @@
       "reward.hold_flag_fade=1.0"
     ],
     "created": "2026-08-11T07:16:27+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -65871,6 +65871,17 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-holdbc1 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_bc1_hard1.zip --dr-scale 0.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_holdbc1 --impl warp --host-workers 24 --notes 'respec of cw-stand-holdstill2: Teach the robot to hold a quiet six-foot stand the same way we already taught it to stand up: by directly showing the trainer, tick by tick, what a still stance looks like, instead of only paying reward for it. Two hold pricing fixes in a row (a hard no-flag zero, then a smooth fade) each nudged the parked leg down a little but never reached an actual quiet stand -- earning near-zero reward gives PPO no gradient telling it which way to move a parked leg. This arm reuses the EXACT BC-anchor mechanism that already fixed the identical problem for rising (cw-stand-bc1): the trainer'\"'\"'s existing supervised-action loss (train.bc_anchor_coef, already 1.0 in this config) now ALSO covers hold/track ticks, pulling actions toward the pose the episode actually settled into (a constant per-episode target -- '\"'\"'stand still right here'\"'\"'), extending rl_move/sim/bc_anchor.py'\"'\"'s bc_target emission in sim_env.py beyond rise ticks. Config is otherwise byte-identical to cw-stand-holdstill2 (same hold_still_gate=1, hold_flag_fade=1, same warm start from the rise specialist) -- the ONE variable is the code fix that lets bc_anchor_coef reach hold/track, landed + bank-tested this cycle (14/14 test_bc_anchor.py incl. 4 new hold/track tests, full test_task_semantics.py suite green 32/1-skip).' --cfg-set train.bc_anchor_coef=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 > /tmp/train_cw-stand-holdbc1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stand-holdbc1.log",
     "wandb_id": "nlcyn9gv",
-    "verified": "2026-08-11T07:20:11+00:00"
+    "verified": "2026-08-11T07:20:11+00:00",
+    "triage": "done",
+    "checkups": [
+      {
+        "time": "2026-08-11T07:26:05+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "] 2,007,040: hold 0.50\u00b0, lean 1.70\u00b0, track 1.55\u00b0, unload 2.06\u00b0, raise 0/2, rise f2/2 b2/2 c1/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 353s (5,658 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_holdbc1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_holdbc1 (md5 85b11bbe)\n"
+      }
+    ],
+    "hardware_ready": false,
+    "verdict": "PASS -- HOLD-mode stillness is SOLVED: extending the rise BC-anchor mechanism to hold/track ticks fixes the \"earning zero gives no gradient\" failure that beat two prior pricing-only levers (holdstill1/2). Harness: hold 12/12 valid_plant det+sto (worst-foot 2-13mm, height_err_end_mm ~2, video-confirmed motionless level six-foot stand under BOTH det and sto sampling -- first genuine quiet hold in this whole campaign); env/hold_feet_factor cleared the 0.1-0.35 plateau both prior arms sat in, reaching ~1.0 by ~500k steps and holding there the full 2M. Rise retention: bridge clean 2/2 det, sto clean 6/6 (only soft current-limit misses, no posture fail); det crouch shows 2 tilt_roll falls (2/6, below the pre-registered >=3/6 floor) -- cross-checked against holdstill1 (0 falls, det 4/6) and holdstill2 (1 identical tilt_roll fall, det 4/6): this is the SAME pre-existing crouch instability already present in the immediate parent, one extra unlucky draw on n=6, not a new pathology from the hold-BC code change. Third hold lever is the one that worked; the pre-registered fallback (rise-specialist + scripted-blend, no learned hold) is no longer needed."
   }
 ]

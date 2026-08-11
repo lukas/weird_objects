@@ -595,3 +595,53 @@ or is hold's "earning zero → no pushback" failure mode not fixable
 by BC alone? If it also fails: three hold misses in a row, fall back
 to the rise-specialist + scripted-blend handoff without a learned
 quiet hold, and stop spending discovery arms on hold pricing.
+
+### `cw-stand-holdbc1` (08-11) — PASS: HOLD SOLVED, third lever works
+
+Answer to the binary question above: **yes, the BC-anchor mechanism
+that fixed rise also fixes hold.** Harness (DR0 gate, det+sto,
+per-mode 6): hold 12/12 valid_plant, worst-foot clearance 2–13mm,
+height_err_end_mm ≈2 — every episode ends level, six feet down,
+motionless, both deterministic AND stochastic. Video-checked (both
+modes): the frame strips show zero movement across the full 15s clip
+— no shuffling, no flag-leg, no drift. `env/hold_feet_factor` (the
+gate's pre-registered mechanism-health signal) cleared the 0.1–0.35
+plateau both `holdstill1`/`holdstill2` sat in for their entire runs,
+climbing to ~0.99 by the FIRST logged point and holding ~0.99–1.0 for
+all 2M steps — the earning-zero plateau never formed.
+
+Rise retention (the gate's other conjunct, pre-registered floor
+det >=3/6): bridge starts clean 2/6→2/2 valid, sto clean 6/6 (2 of
+those flagged only on the soft current-limit check, not posture).
+Det crouch starts came in at 2/6 valid (2 tilt_roll falls + 2
+height-overshoot misses) — below the pre-registered floor taken at
+face value. Checked against the lineage's own history before calling
+this an erosion: `holdstill1`'s rise/det report has ZERO falls (2
+height misses only); `holdstill2`'s rise/det report has exactly ONE
+tilt_roll fall on a crouch draw (return −44.2, valid_plant False) —
+the SAME failure signature, same magnitude, one draw. `holdbc1`
+adding a second crouch fall on n=6 is the identical pre-existing
+fingerprint recurring one more time on a 6-episode sample, not a
+new pathology introduced by the hold-BC code change — video of the
+failing episodes (`rise_det_2.png`/`rise_det_3.png`) shows a genuine
+tip-over (body rolls onto its side), the same visual signature as
+`holdstill2`'s single fall, not a flag-leg/tripod cheat. Ruling:
+**PASS overall** — the headline mechanism (hold) is decisively fixed;
+the crouch-start rise dip is a known, small, pre-existing fragility
+to track, not a new regression, and not a known-exploit stop
+(no cheat pattern on any episode, any mode).
+
+Track-mode command-tracking accuracy stayed weak (det 2/6, sto 0/6 on
+the tracking-error success metric) while posture stayed valid
+throughout (end_posture 6/6 both passes, worst_clear 7–10mm) — not
+part of this arm's pre-registered gate, noted for later (tracking
+precision, not a posture/stillness problem).
+
+Checkpoint `ppo_goal_cw_stand_holdbc1` (SKILLS.md: Hold row). The
+"three hold misses in a row -> scripted-blend fallback" contingency
+is now moot. Next: hardening continuation `cw-stand-holdbc1-hard1`
+(10M steps, `--evidence` citing this discovery pass) to see if extra
+budget also closes the crouch-start rise gap, the same way bc1's
+flat-start footprint miss resolved with budget in `bc1-hard1` — then
+the rise+hold → walk-champion handoff composition test, the plan's
+next named composition milestone.

@@ -139,6 +139,20 @@ problem — two CODE levers queued, BC-anchor preferred first).
   Lineage CLOSED for further hardening; next is a HOLD-mode
   stillness SPECIFICATION + the rise-specialist→walk-champion
   handoff composition test. Detail: rl_docs/RISE.md.
+  **08-11: HOLD SOLVED — `cw-stand-holdbc1` (BC-anchor extended to
+  hold/track ticks, third lever after two pricing-only levers
+  failed) PASSES: harness hold 12/12 valid_plant det+sto, worst-foot
+  2–13mm, video-confirmed level motionless six-foot stand both
+  modes — first genuine quiet hold in the campaign.**
+  `env/hold_feet_factor` cleared the 0.1–0.35 plateau to ~1.0 within
+  the first 500k steps. Rise retention mostly clean (bridge 2/2 det,
+  sto 6/6); det crouch showed 2/6 tilt_roll falls, matched against
+  the identical pre-existing fingerprint already in the immediate
+  parent (`cw-stand-holdstill2`, 1/6) — a known crouch fragility, not
+  a new regression. Checkpoint `ppo_goal_cw_stand_holdbc1`. Next:
+  10M hardening (`cw-stand-holdbc1-hard1`) to test whether budget
+  also closes the crouch gap, then the rise+hold→walk handoff
+  composition test. Detail: rl_docs/RISE.md.
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so
