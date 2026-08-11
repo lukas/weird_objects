@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-11T18:15:01+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-arch-gru-r3
+
+**wandb_id**: 9f3i2gwo
 
 **hypothesis**: r3 showed the GRU learns every stance skill to champion grade but walks straight into the leg-sacrifice/paddle cheat that the same reward stack prices out for MLPs; its 2.56s BPTT window cannot carry credit across a full swing-recover-replant cycle plus the progression-gate horizon, and 128 hidden units must compress what the MLP reads directly from a 16-frame stack. If a 10.24s window + 256 hidden units produces a cheat-free walk attempt at 2M, the rung reopens for hardening; if the identical fingerprint survives BOTH levers, from-scratch GRU walking is dead at this budget and recurrence waits for flagship distillation.
 

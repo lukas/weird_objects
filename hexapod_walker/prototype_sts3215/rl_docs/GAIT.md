@@ -218,3 +218,16 @@ charge once the P2 bank lands. Lever 3 (physics easing) unstarted.
   1 with the two-miss rule before moving on — but per the ordering
   above, the CHARGE-MAGNITUDE AUDIT is still the sharper next lever
   regardless of how -r1 lands; do not let -r1 delay it.
+- **08-11 ~18:2x — `cw-gait-terrain2-r1` FAILED, lever 1 (terrain-
+  as-teacher) CLOSED for good (two-miss rule).** One rung down at
+  54mm avoided terrain2's leg-sacrifice (gait_valid 6/6 det+sto, all
+  six legs stay engaged, video-confirmed) but landed on neither
+  pre-registered pass branch: own-terrain slip/m med 6.86 det / 8.90
+  sto is 4-6x the closed paddle band (1.1-1.5), not the <0.6 win and
+  not a match to the champion band; one det episode terminated
+  over_current (a dragged foot straining against a bump). Gentler
+  terrain does not force stepping either — physics-as-teacher is
+  refuted across the amplitude range tried, from scratch, twice.
+  Do not requeue terrain-as-teacher at any amplitude. Next: the
+  charge-magnitude audit (P3 lever 2 prerequisite, unstarted) or
+  RSI-for-walk (lever 4).
