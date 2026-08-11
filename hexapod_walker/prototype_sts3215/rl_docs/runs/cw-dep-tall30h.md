@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-11T20:36:34+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-dep-tip1
+
+**wandb_id**: 89pzr1vs
 
 **hypothesis**: TALL DEPLOYABLE WALKER rung 1, ISOLATION arm. cw-dep-tall30 (height ref -30 + k_drag_stance=8000) moved the body up (eval walk height_err_end 15.2mm vs parents 20-40mm off this ref) but missed the 8mm gate and halved walk speed to 0.0295 m/s while paying reward_drag_stance=-6.9/tick - the charge, not the ref, is the suspected gait suppressor. This arm: identical warm respec of cw-dep-tip1 with walk_height_off_mm=-30 as the ONLY change (parent drag stack k_drag_loaded=10 retained, no stance charge). Lowgait precedent: single-variable height-ref rungs track within 4-7mm in one warm run.
 
