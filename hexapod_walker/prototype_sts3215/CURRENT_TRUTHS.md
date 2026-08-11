@@ -195,9 +195,15 @@ both handoffs compose).
   matched hard1 control under the same eval (hard1 3/6 succeed/1/6
   falls; crouchrise2 0/6 succeed/2/6 falls) — hard1's own lower was
   never gated before, so this is a real, quantified degradation, not
-  a clean inherited gap. Stand lineage stays CLOSED for hardening;
-  the hold-cheat root cause (not goal-mix, not step count) is now the
-  open question if this line reopens.
+  a clean inherited gap. **`cw-stand-crouchrise3` (08-11 late,
+  operator-directed dose probe 0.60→0.45, one axis) FAILS the same
+  way: crouch rise clean 4/4 but the identical legs-1+4 park (duty
+  0.04/0.01) and det lower 2/6 — the dose axis is dead too.** Stand
+  lineage stays CLOSED for hardening; the hold-cheat root cause (not
+  goal-mix, not step count, not dose) is the open question; prime
+  suspect is the CLOCK-indexed BC anchor showing lifted-leg reference
+  poses in plant-adjacent states on crouch starts — next lever is a
+  state/height-aligned anchor (CODE, spec first).
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict
