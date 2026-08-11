@@ -5,10 +5,11 @@ RL_LOG/archive prose disagrees with a line here, this file wins.
 Update ONLY when a ruling is accepted or hardware produces new
 evidence; keep 50–80 lines. Reading order: RL_GOALS.md → this file →
 RL_PLAN.md → RESEARCH_RULES.md → rl_docs/SIM.md.
-Last regenerated: 2026-08-11 (rise: `cw-stand-rsi3` closes the last
-income-shaping variant; the SAME feet-factor collapse curve across
-6 reward-different arms reads as warm-start OOD drift, not a reward
-problem — two CODE levers queued, BC-anchor preferred first).
+Last regenerated: 2026-08-11 late (omni translation RESOLVED IN SIM:
+rot-60 exact-equivariance wrapper, zero training — the hardware
+checkpoint now walks the full circle; remaining omni work is the
+deploy-side port. Earlier same day: rise/hold solved via BC-anchor,
+both handoffs compose).
 
 ## Real robot facts (these outrank any sim result)
 
@@ -230,8 +231,25 @@ problem — two CODE levers queued, BC-anchor preferred first).
   pre-registered prediction-if-false. Per-tick imitation does not
   teach the different global stepping pattern each direction needs;
   BC-anchor/reward tuning on this stack is CLOSED (4th
-  distinct-or-near collapse). Next, untried: rot-60 exact
-  equivariance (backward = forward with legs relabeled).
+  distinct-or-near collapse).
+  **08-11: RESOLVED IN SIM — rot-60 exact equivariance
+  (`rl_move/sim/rot60.py`), zero training.** The robot is a regular
+  hexagon (six identical leg templates at exact 60° spacing,
+  axisymmetric chassis inertia): rotate-60°+relabel-legs is an EXACT
+  symmetry of the compiled model (proved mechanically,
+  test_rot60.py). The wrapper canonicalizes any commanded heading
+  into the ±30° wedge at eval time; a wedge-trained policy covers
+  the full circle by construction. `cw-dep-vref1-r1` (THE hardware
+  checkpoint) wrapped: every direction 0.024–0.036 trk_err at DR0 +
+  own DR0.35, zero falls incl. full-circle flip stress, harness
+  20/24 success, slip/m 1.1–1.3 (own band), video-clean six-leg gait
+  — naked it is frozen backward (0.027 m of 0.30). hist16-dep1 naked
+  DEGENERATES AT EVAL TIME into the leg-sacrifice on off-wedge
+  commands (slip 7–11/m, gait_valid 3–5/6); wrapped: gait_valid
+  24/24, slip 1.3–1.6. The four training collapses were PPO failing
+  to DISCOVER rotated gaits — structural fix, no omni arm needed.
+  Remaining [CODE, deploy-side]: port the canonicalizer into the
+  robot runner + replay-parity check (rl_docs/TURN.md tail).
 - Tipped-start DR is default-ON everywhere (operator ruling 08-10,
   "ideally all runs would learn this capability", after the deployed
   walk's hardware runaway roll): `dr.tipped_start_prob=0.30` (scaled

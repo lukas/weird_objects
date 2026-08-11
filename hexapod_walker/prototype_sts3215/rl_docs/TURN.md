@@ -277,3 +277,63 @@ place at v=0); per-episode gait instance on SNAP_ATTRS. Discovery arm
 variable). rot-60 equivariance stays the reserve lever if imitation
 anchoring fails; note mirror-symmetry loss coef 1.0 was ON during the
 trans1 collapse and did not prevent it.
+
+## OMNI TRANSLATION RESOLVED IN SIM — rot-60 canonicalization
+(08-11, SPECIFICATION result, zero training)
+
+The reserve lever after transbc1 closed BC-anchor/reward tuning. The
+robot is a REGULAR hexagon: six identical leg templates at exactly
+(i+0.5)*60 deg, axisymmetric chassis inertia, identical actuators —
+rotate the world 60 deg + relabel legs is an EXACT symmetry of the
+compiled model (unlike the mirror, which the COXA_HIP_ANCHOR_Y
+pinwheel only approximates; the pinwheel is rot-60 INVARIANT).
+`rl_move/sim/rot60.py` exploits it at eval time: pick the 60-deg
+sector nearest the commanded heading, rotate the command/tilt/gyro/
+velocity obs into the +/-30 deg wedge, cyclically relabel the leg
+channels, un-relabel the action. A wedge-trained policy then covers
+the full circle BY CONSTRUCTION. `test_rot60.py` proves the model
+symmetry mechanically (rotate+relabel state, permute ctrl, step: <1e-6
+divergence over 30 contact steps — a real asymmetry would show ~1e-3
+immediately).
+
+Evidence (`logs/rot60/`, eval_drive full-circle panel + harness
+per-mode 6 det+sto at full-circle headings, matched naked controls,
+seed 0):
+
+- `cw-arch-hist16-dep1` (trans1's parent): naked back
+  trk_err 0.069 / 0.102 m of the commanded 0.30 m; laterals
+  0.047-0.052. Wrapped: back 0.039/0.305 m, left 0.030, right 0.028,
+  ZERO falls at DR 0 and DR 0.5 incl. full-circle instant-flip stress
+  (live sector switching). Harness on full-circle commands: naked
+  degenerates AT EVAL TIME into the trans1-style leg-sacrifice
+  (gait_valid 3-5/6, sacrificed legs [2]/[0,4], prog_ratio 0.41-0.60,
+  slip/m 7.3-11.3); wrapped is the honest champion gait everywhere
+  (gait_valid 24/24, prog_ratio 0.92-0.98, slip/m 1.3-1.6).
+- **`cw-dep-vref1-r1` (THE hardware checkpoint)**: naked backward is
+  frozen (0.027 m); wrapped, every direction tracks 0.024-0.036 at
+  DR 0 AND own DR 0.35, zero falls; harness success 20/24
+  (det/DR0 6/6), gait_valid 23/24, slip/m 1.1-1.3 (its own band),
+  video-confirmed six-leg gait. The hardware deliverable gains
+  full-circle translation with NO new training.
+- Known quirk: dep1 wrapped diag-fr (canonical +15 deg) reads
+  0.046-0.051 at both DRs — a dep1 wedge asymmetry (vref1-r1 shows
+  0.028-0.032 there); dep1's vel-success was already "coin-flip per
+  episode" pre-wrapper (its run doc). Not a wrapper defect.
+
+Interpretation: the four omni collapses were PPO failing to DISCOVER
+rotated gaits (matches the income probe: attractors unpaid), and the
+fix is structural, not learned. Also supersedes the trans1-stack
+training question — there is nothing left for a 40M omni arm to
+learn that the wrapper does not already give exactly.
+
+De-scoped turn note: with no camera there is no "front" — the wrapper
+makes heading-agnostic driving native (the operator points the stick;
+the body never needs to yaw). If turn ever re-scopes, rot-60 also
+gives 6 free discrete body orientations by pure relabeling.
+
+NEXT (the only remaining work on this blocker, [CODE], deploy-side):
+port the ~60-line numpy canonicalizer into the robot runner's obs/
+action path (same contract: reads vx/vy_ref from the obs frame,
+per-episode sector state w/ hysteresis + zero-cmd hold) + a
+replay-parity check against rot60.py. Until then eval-side omni is
+covered by `eval_drive --rot60` / `eval_checkpoint --rot60`.

@@ -276,3 +276,9 @@ the first chaining probe) or a deploy-time skill switcher. Champion
 strategy: the champion is the BASE the walk line breeds from; skill
 passes are preserved here and folded in via goal-mix arms — a
 promotion never deletes a skill checkpoint (append-only).
+
+### Omni translation ("walk where pointed") — SOLVED IN SIM (08-11, rot-60 canonicalizer, zero training)
+
+| Skill | Checkpoint | Evidence | Envelope / limits |
+|---|---|---|---|
+| **Walk in ANY commanded direction — full-circle joystick translation, including backward (which no learned policy had ever done)** | `ppo_goal_cw_dep_vref1_r1` (THE hardware checkpoint, unchanged) or `ppo_goal_cw_arch_hist16_dep1`, wrapped in `rl_move/sim/rot60.py` `Rot60Policy` (`eval_drive --rot60` / `eval_checkpoint --rot60`) — the robot is a regular hexagon, so any heading is EXACTLY the forward wedge with legs relabeled; no new training, no new checkpoint | 08-11 (`logs/rot60/`): vref1-r1 naked is frozen backward (0.027 m of the commanded 0.30); wrapped, EVERY direction tracks 0.024–0.036 m/s err with full travel at DR0 AND own DR0.35, zero falls incl. full-circle instant-flip stress (live sector switching); harness on full-circle commands 20/24 success, gait_valid 23/24, slip/m 1.1–1.3 (its own clean band), video-confirmed ordinary six-leg gait. hist16-dep1 naked degenerates AT EVAL TIME into leg-sacrifice on off-wedge commands (slip 7–11/m); wrapped: gait_valid 24/24, slip 1.3–1.6. Model symmetry proved mechanically (test_rot60.py: rotate+relabel state diverges <1e-6 over 30 contact steps). | SIM-ONLY until the ~60-line numpy canonicalizer is ported into the robot runner's obs/action path (the remaining [CODE] item; spec at `rl_docs/TURN.md` tail). Body never yaws — heading-agnostic driving (turn stays de-scoped: no camera = no front). Known quirk: hist16-dep1 (NOT vref1-r1) reads 0.046–0.051 trk_err on canonical +15° headings — a dep1 wedge asymmetry, pre-existing. |
