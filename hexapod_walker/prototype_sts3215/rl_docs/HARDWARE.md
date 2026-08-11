@@ -160,6 +160,22 @@ One 6 s walk at 0.05 m/s (`rl_walk_20260811_021859.csv`). Operator:
   `tilt_rel_max_deg`, end roll/pitch, `tail_tilt_max_deg`, and a
   `fell` flag — the summary alone answers "did it fall after the
   episode?".
+- **Second dep-tip1 run (08-10 22:33, `rl_walk_20260811_023304.csv`,
+  first trace with the upgraded logging): CLEAN WALK.** 6 s at
+  0.05 m/s, roll oscillates ±5.4° around a −2° offset with NO ramp,
+  quiet 3 s tail (peak 1.7°), `fell:false`, max current 0.43 A —
+  operator video confirms level walking, then a normal settle. Two
+  pipeline questions settled by the obs columns: (1) offline replay
+  of the logged obs through `dep_tip1.json` reproduces the logged
+  actions to max err 0.0014 (obs rounding) — the deployed obs→action
+  path is EXACTLY the sim policy, no scaling/sign bug; (2) the policy
+  sees roll (obs ch 36 correlates 0.98 with the IMU roll column). So
+  the 02:18 runaway was not an obs bug — the same pipeline walked
+  level twenty minutes later. Runaway trigger is environmental /
+  initial-condition (floor spot, tether drag, seeded stance lean),
+  intermittent rather than systematic. The parent A/B on the same
+  floor is still the discriminating test — compare roll-ramp RATE
+  and count runaways per N runs, not fall/no-fall on a single run.
 
 ## Finding — TFT redraws stall the entire servo link (08-10 night)
 
