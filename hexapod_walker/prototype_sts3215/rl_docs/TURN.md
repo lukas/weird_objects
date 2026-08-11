@@ -126,27 +126,32 @@ under this arm's stack. `train/std` also climbed monotonically
 with `rollout/ep_rew_mean` peaking ~640 near 8-10M then falling to
 ~320-350 by 40M.
 
-Likely cause (untested, name it before the next launch): this arm
-combined a very slow commanded speed band
-(`goal.walk_speed_min/max_m_s=0.05/0.06`) with a large heading-hold
-drift charge (`reward.k_yaw_still=50`) and `walk_turn_in_place_frac
-=0.30` — the walk-progress income term is tiny at that speed while
-the drift/park-avoidance terms stay large, so parking beat walking
-by construction (the exact reward-routing bug RESEARCH_RULES warns
-about). The passing TURN/OMNI banks check reward ORDERING on fixed
-scripted behaviors (walk/turn/drift/park within ~30% of each other)
-but never checked a PPO-found near-frozen march against a real walk
-at THIS speed band + k_yaw_still — that gap let the exploit through.
+Actual cause (probe-confirmed 08-11 — the earlier k_yaw_still guess
+was WRONG; the drift charge summed to ~0 for a scripted gait): on
+turn-in-place ticks (`s_ref≈0, wz_ref≠0`) the LINEAR velocity kernel
+paid a frozen robot FULL income — v_lin=0 matches the zero linear ref
+exactly, and `walk_kernel_prog_gate` only engages when `s_ref>1e-3`.
+The same s_ref condition left `k_park_duty`/`k_step_event` inert on
+those ticks. With `walk_turn_in_place_frac=0.30`, a freeze banked
+~1122/ep (probe; run showed ~1130) — 0.77x of a PERFECT scripted
+turner's income and MORE than the mid-training policy earned by
+actually walking (500-860). PPO parked, by construction.
 
-**Next (before any re-hardening):** (1) add a stall/freeze-vs-walk
-ordering check to the OMNI bank at the walk_speed_min/max and
-k_yaw_still this arm used (freeze must lose, not tie); (2) either
-widen the commanded speed band or re-balance k_yaw_still so walk
-income dominates parking at low speed; (3) re-run the mirror
-hardening step only after that bank passes. Do not just re-run more
-steps on the identical config (two-miss rule) and do not read this
-FAIL as evidence against mirror-symmetry — the mechanism was never
-exercised by a real gait in this run.
+**Fixed (08-11):** `reward.walk_kernel_yaw_gate` (walk_task.py,
+default 0 = legacy): on yaw-commanded zero-linear ticks the linear
+kernel is multiplied by achieved-yaw fraction clip(wz/wz_ref, 0, 1)
+— the exact prog-gate analog; genuine stop segments stay paid. The
+freeze-floor bank (bottom of test_task_semantics.py) pins the
+exploit two ways: park < 0.5x turn on pinned turn-in-place commands,
+and gait-follows-commands beats a full-episode freeze on SAMPLED
+r1-mixture episodes (resample/stops/turn-in-place). Pre-fix both
+FAILED (park/turn 0.77); post-fix: turn 1128 > partial 650 > drift
+539 > park 423 (0.38x), mixture gait +1055 vs freeze +424 (0.40x).
+OMNI_OVERRIDES now trains the gate ON (1.0) — any omni arm must.
+Re-hardening (`cw-omni-mirror2`, warm from the healthy 2M probe
+ckpt, one variable vs r1 = the fixed pricing) is the next launch.
+Do not read the r1 FAIL as evidence against mirror-symmetry — the
+mechanism was never exercised by a real gait in that run.
 
 ## Recommended first arm (DISCOVERY, ≤2M steps) — SUPERSEDED, see above
 

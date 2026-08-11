@@ -636,6 +636,32 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 factor = min(max(along / s_ref, 0.0), 1.0)
                 r_walk *= (1.0 - g_kernel) + g_kernel * factor
                 info["walk_prog_factor"] = factor
+            # Achieved-yaw kernel gate for turn-in-place ticks (08-11,
+            # cw-omni-mirror1-r1 freeze exploit; cfg
+            # reward.walk_kernel_yaw_gate in [0,1], default 0=off).
+            # Root cause (probe-confirmed): on yaw-commanded ticks with
+            # NO linear command (s_ref ~ 0, wz_ref != 0) the linear
+            # kernel above pays a FROZEN robot full income — v_lin = 0
+            # matches ref exactly and walk_kernel_prog_gate never
+            # engages (it requires s_ref > 1e-3). With turn-in-place
+            # episodes at 30% of training, a park banked ~1130/ep, more
+            # than the mid-training policy earned by walking (500-860)
+            # — so PPO parked and the 40M run collapsed. Fix: on those
+            # ticks multiply the linear kernel by achieved-yaw fraction
+            # clip(wz/wz_ref, 0, 1) — the exact prog-gate analog.
+            # Freeze/wrong-direction earns ~0 by construction; perfect
+            # turning unchanged (factor 1); genuine stop segments
+            # (s_ref ~ 0 AND wz_ref ~ 0) stay paid — standing there IS
+            # the commanded behavior. Walk-mode only by construction.
+            g_ykernel = float(cfg_get(self.cfg, "reward",
+                                      "walk_kernel_yaw_gate",
+                                      default=0.0))
+            if (g_ykernel > 0.0 and self._yaw_cmd and s_ref <= 1e-3
+                    and abs(goal.wz_ref) > 1e-3):
+                wz_k = self._body_wz()
+                factor = min(max(wz_k / goal.wz_ref, 0.0), 1.0)
+                r_walk *= (1.0 - g_ykernel) + g_ykernel * factor
+                info["walk_yaw_kernel_factor"] = factor
             # Anchored-stance income gate (cycle 30; the dense-
             # decomposition rung's stance-no-slip component, implemented
             # as INCOME GATING per operator 0-c.2 / step0 "worth less by

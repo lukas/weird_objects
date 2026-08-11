@@ -30,6 +30,7 @@ the ordering. Never fix a reward without pinning the exploit in a test.
 """
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -600,6 +601,10 @@ OMNI_OVERRIDES.update({
     ("goal", "walk_obs_body_vel"): 2.0,
     ("safety", "max_roll_deg"): 25.0,
     ("safety", "max_pitch_deg"): 25.0,
+    # Achieved-yaw kernel gate (08-11): closes the turn-in-place freeze
+    # floor that collapsed cw-omni-mirror1-r1 — see the freeze-floor
+    # bank at the bottom of this file. Any omni arm MUST train with it.
+    ("reward", "walk_kernel_yaw_gate"): 1.0,
 })
 
 # name -> (vx, vy) at the champion speed band; diag keeps |v| in band
@@ -653,3 +658,107 @@ def test_omni_turn_ordering_survives_repricing():
                            for s in SEEDS for s_wz in (+1.0, -1.0)]))
          for p in ("turn", "partial", "drift", "park")}
     assert t["turn"] > t["partial"] > t["drift"] > t["park"], t
+
+
+# --------------------------------------------------------------------------
+# OMNI freeze-floor bank — the cw-omni-mirror1-r1 park/freeze exploit
+# (08-11). The 40M hardening run collapsed to standing still: frozen
+# episodes scored ~1130 while its real walking episodes scored 500-860.
+# Root cause (probe-confirmed, NOT the k_yaw_still guess in TURN.md):
+# on turn-in-place ticks (s_ref ~ 0, wz_ref != 0) the LINEAR velocity
+# kernel pays a frozen robot FULL income (v_lin = 0 = ref) because
+# walk_kernel_prog_gate only engages when s_ref > 1e-3 — a freeze
+# banked 750/ep of blind kernel income plus ~357/ep task income, an
+# income floor no mid-training walker could beat. The same hole left
+# k_park_duty / k_step_event inert (they also require s_ref > 1e-3).
+# Fix under test: reward.walk_kernel_yaw_gate — on yaw-commanded
+# zero-linear ticks, multiply the linear kernel by achieved-yaw
+# fraction clip(wz/wz_ref, 0, 1), the exact analog of the prog gate.
+# These tests FAILED against the pre-fix stack (freeze at 0.78x full
+# turn) and must keep failing any future stack that re-opens the hole.
+
+# The r1 training episode mixture (resample/stops/turn-in-place) — the
+# distribution the exploit was FOUND in; constant-command tests alone
+# let it through.
+OMNI_MIX_OVERRIDES = dict(OMNI_OVERRIDES)
+OMNI_MIX_OVERRIDES.update({
+    ("goal", "walk_heading_max_rad"): math.pi,
+    ("goal", "walk_cmd_resample_s"): 1.5,
+    ("goal", "walk_cmd_resample_jitter"): 0.6,
+    ("goal", "walk_cmd_blend_s_min"): 0.1,
+    ("goal", "walk_cmd_blend_s_max"): 1.0,
+    ("goal", "walk_stop_frac"): 0.2,
+    ("goal", "walk_turn_in_place_frac"): 0.30,
+})
+MIX_SEEDS = (0, 1, 2, 3, 4, 5)   # 0,1,2,5 draw turn-in-place episodes,
+                                 # 3,4 draw mixed linear episodes
+
+
+def _mix_rollout(policy: str, seed: int) -> float:
+    """Roll the SAMPLED (training-distribution) command trajectory:
+    scripted gait following every command vs a frozen plant hold."""
+    from tripod_gait import TripodGait
+
+    env = _make_walk_env(seed, OMNI_MIX_OVERRIDES)
+    env.reset()                      # keep the sampled mixture
+    traj = env._goal_traj
+    n = len(traj.vx)
+    gait = TripodGait(vx=0.0)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    gait.reset_phase()
+    total, step = 0.0, 0
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        if policy == "gait":
+            wz = float(traj.wz[i]) if traj.wz is not None else 0.0
+            gait.set_velocity(vx=float(traj.vx[i]),
+                              vy=float(traj.vy[i]), omega=wz)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        else:                        # freeze: hold the plant, ignore all
+            act = q_rad_to_action(plant_rad)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return total
+
+
+def test_omni_freeze_floor_on_turn_in_place():
+    """A freeze during a commanded turn-in-place must earn a SMALL
+    fraction of honest turning — losing by a wide margin, not tying
+    (TURN.md, 08-11). Pre-fix this failed at park = 0.78x turn: the
+    blind linear kernel alone guaranteed parking most of a perfect
+    turner's income, so PPO parked the moment real turning got hard."""
+    t = {p: float(np.mean([_turn_rollout(p, s_wz * TURN_CMD_WZ, s,
+                                         overrides=OMNI_OVERRIDES)
+                           for s in SEEDS for s_wz in (+1.0, -1.0)]))
+         for p in ("turn", "partial", "park")}
+    assert t["park"] < 0.5 * t["turn"], (
+        f"freeze/park collects {t['park']/t['turn']:.2f} of full-turn "
+        f"income — the cw-omni-mirror1-r1 park exploit is open: {t}")
+    assert t["park"] < t["partial"] - 100.0, (
+        f"parking rivals an honest partial (35%) turner: {t}")
+
+
+def test_omni_episode_mixture_gait_beats_freeze():
+    """Across SAMPLED training-distribution episodes (turn-in-place,
+    stops, heading resamples — the exact mixture cw-omni-mirror1-r1
+    trained on), following the commands must beat a full-episode freeze
+    on EVERY draw, and the freeze's mean income floor must stay well
+    below half of honest income. Constant-command tests passed while
+    the exploit was open — this mixture-level check is the tripwire."""
+    gait = {s: _mix_rollout("gait", s) for s in MIX_SEEDS}
+    freeze = {s: _mix_rollout("freeze", s) for s in MIX_SEEDS}
+    for s in MIX_SEEDS:
+        assert gait[s] > freeze[s] + 100.0, (
+            f"seed {s}: freeze ({freeze[s]:+.0f}) rivals the gait "
+            f"({gait[s]:+.0f}) on a training-distribution episode")
+    g_mean = float(np.mean(list(gait.values())))
+    f_mean = float(np.mean(list(freeze.values())))
+    assert f_mean < 0.45 * g_mean, (
+        f"freeze income floor {f_mean:+.0f} is {f_mean/g_mean:.2f}x of "
+        f"honest {g_mean:+.0f} — parking is still a paid basin.")
