@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-11T21:47:32+00:00
+**created**: 2026-08-11T22:05:47+00:00
 
-**pod**: hexapod-mjx-train-0
+**pod**: hexapod-mjx-train-4
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS: height_err_end <=8mm at -15 ref, speed within the 0.03-0.04 band, survived 1, slip <=1.8. If PASS: rung speed back up (0.04-0.05) with the height held. FAIL: err stuck ~29mm = speed pressure is not the pin; the wall answer is T5s probe.
 
-**refused_reason**: init-from checkpoint missing on hexapod-mjx-train-0: /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_tall30.zip. Push it first: ops.sh pushckpt hexapod-mjx-train-0 rl_move/sim/policies/ppo_goal_cw_dep_tall30.zip
+**refused_reason**: hexapod-mjx-train-4 code marker 39d6355ea869cf2fc02ab8625ea9dfecfd7eccb5 != local HEAD de02e489a09ed7ed04dbdf08a7c15bbb0e332524. Sync first: snapshot.sh --sync hexapod-mjx-train-4 (and snapshot/commit before that if the tree is dirty).
 
