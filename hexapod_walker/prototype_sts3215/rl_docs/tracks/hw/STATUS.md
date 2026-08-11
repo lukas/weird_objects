@@ -43,6 +43,18 @@ unresolved blockers between the robot and reliable joystick control.
   0.95–1.15). Static fine at either init is closed; the from-scratch
   40M `cw-gait-dragstance1-r1` (running) and anneal-up curriculum
   carry the lever.
+- **TALL LADDER (walk from a taller stance, same problem as
+  anti-scrape): the wall is HABIT not kinematics** (`probe_tall_wall.py`,
+  08-11 — GAIT.md/RL_PLAN queue -0.5). Ref-tracking alone is tradeable
+  for speed (T1); a reachable income gate (T3, `cw-dep-tall-gate1`)
+  buys 15mm at 2M but the trade WINS BACK under a 6M hardening budget
+  (`cw-dep-tall-gate1-h1`, confirmed 08-11 late): steady-state walking
+  height -72.6mm, statistically unchanged from the ungated -75mm wall,
+  legs still pinned at the 35° yaw-splay limit (lateral-stability
+  purchase). Gate-income alone CLOSED at this dose. Three next rungs
+  RUNNING (kh3/kh10 = 3x/10x height penalty, slow1 = eased speed
+  band) — if all fail, the next lever prices the leg-splay directly,
+  not height.
 - Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
   crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
   08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the
