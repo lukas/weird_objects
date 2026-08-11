@@ -66685,7 +66685,7 @@
       "rl_move/sim/policies/ppo_goal_cw_arch_gru_r1.zip"
     ],
     "created": "2026-08-11T13:15:40+00:00",
-    "status": "RUNNING",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -66725,6 +66725,75 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-arch-gru-r2 since 2026-08-11T13:33:43"
+    "triage": "done",
+    "hardware_ready": "no",
+    "verdict": "FAIL (known exploit, no forensics): identical leg-sacrifice/paddle-jitter fingerprint as parent cw-arch-gru-r1 despite the walk-heavier diet (0.55->0.70). Gate(DR0) det walk 0/6 gait_valid, legs sacrificed, frozen 0.004 m/s; sto walk 6/6 gait_valid but prog_ratio ~0, slip/m 17.8 (no-progress paddle). Own-cfg(DR0.5) same shape. Return climbed, task didn't -- reward-shortcut pattern. GRU rung stays FROZEN off the blocker list; no step-count/diet relaunch without a recipe change."
+  },
+  {
+    "run": "cw-arch-gru-long1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "GRU rung, hardening budget: r1/r2 (2M discovery each) proved all skills emerge in one recurrent policy but see-saw at tiny budgets (walk-heavy diet bought walk err 0.060 and lower 2/2 at the cost of hold 2.5->6.9deg). 10x the budget with a balanced diet (walk 0.60, rise/lower 0.15 each, hold 0.10) gives every skill more absolute data than either discovery run gave it \u2014 expect the see-saw to resolve: walk err well below 0.05 AND stance precision recovering toward r1 levels, in one policy. If the see-saw persists at 24M cumulative, the answer is capacity (gru-hidden 256) not steps.",
+    "gate": "PASS if final det eval shows walk err <= 0.045 m/s AND hold <= 3deg AND rise completions in >= 2 start kinds AND lower >= 1/2 \u2014 i.e. the unified policy beats both discovery runs on their own strengths simultaneously. Compare against stance champion (hold 0.8deg) and walk champion for context in triage.",
+    "parent": "cw-arch-gru-r2",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--gru",
+      "--n-steps",
+      "64",
+      "--n-envs",
+      "1024",
+      "--log-std-init",
+      "0.0",
+      "--ent-coef",
+      "0.01",
+      "--dr-scale",
+      "0.5",
+      "--episode-seconds",
+      "15",
+      "--goal-mix",
+      "walk=0.60,rise=0.15,lower=0.15,hold=0.10",
+      "--seed",
+      "0",
+      "--out-name",
+      "ppo_goal_cw_arch_gru_long1",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-arch-gru-r2: GRU rung, hardening budget: r1/r2 (2M discovery each) proved all skills emerge in one recurrent policy but see-saw at tiny budgets (walk-heavy diet bought walk err 0.060 and lower 2/2 at the cost of hold 2.5->6.9deg). 10x the budget with a balanced diet (walk 0.60, rise/lower 0.15 each, hold 0.10) gives every skill more absolute data than either discovery run gave it \u2014 expect the see-saw to resolve: walk err well below 0.05 AND stance precision recovering toward r1 levels, in one policy. If the see-saw persists at 24M cumulative, the answer is capacity (gru-hidden 256) not steps.",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_arch_gru_r2.zip"
+    ],
+    "created": "2026-08-11T13:34:42+00:00",
+    "status": "FAILED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 0,
+      "code_sha_local": "c93a686501a20db94b1328c9b19d72a679d725ad",
+      "code_sha_pod": "c93a686501a20db94b1328c9b19d72a679d725ad",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "763530",
+      "log_growth_bytes": [
+        5260,
+        6206
+      ],
+      "wandb_id": "evuh0eak"
+    },
+    "stack": "gpu-mjx",
+    "phase": "hardening",
+    "evidence": "cw-arch-gru-r1 + cw-arch-gru-r2 (W&B ej7fcabu lineage): every mode qualitatively emerged in ONE GRU policy \u2014 walk vel err 0.074 -> 0.060 trending down, lower 2/2 at r2 final, crouch-rise completions in both runs, tipped recovery 2/2 throughout, final video reels rise:ok walk:ok lower:ok raise:ok",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-long1 --steps 20000000 --task joint_walk --gru --n-steps 64 --n-envs 1024 --log-std-init 0.0 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --seed 0 --out-name ppo_goal_cw_arch_gru_long1 --impl warp --host-workers 24 --notes 'respec of cw-arch-gru-r2: GRU rung, hardening budget: r1/r2 (2M discovery each) proved all skills emerge in one recurrent policy but see-saw at tiny budgets (walk-heavy diet bought walk err 0.060 and lower 2/2 at the cost of hold 2.5->6.9deg). 10x the budget with a balanced diet (walk 0.60, rise/lower 0.15 each, hold 0.10) gives every skill more absolute data than either discovery run gave it \u2014 expect the see-saw to resolve: walk err well below 0.05 AND stance precision recovering toward r1 levels, in one policy. If the see-saw persists at 24M cumulative, the answer is capacity (gru-hidden 256) not steps.' --init-from rl_move/sim/policies/ppo_goal_cw_arch_gru_r2.zip > /tmp/train_cw-arch-gru-long1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-arch-gru-long1.log",
+    "wandb_id": "evuh0eak",
+    "failed_reason": "W&B global_step not advancing (131072 -> 1024)",
+    "verdict": "INVALID EVIDENCE, not retried: launched (by a concurrent cycle) citing r2's video-log line 'walk:ok' as proof rise/walk/lower all work; the actual harness/video on r2 (this cycle's triage) shows the SAME leg-sacrifice/paddle cheat as r1 -- the cited evidence was training-log-only, never checked against harness. It also 10x'd the step budget on an unchanged diet shape after 2 identical-class misses (r1, r2), which RESEARCH_RULES rules out (change the hypothesis, never the step count). Separately died on its own (W&B global_step regression) before burning real compute. Do not relaunch this spec; GRU rung stays frozen off the blocker list pending a real recipe change.",
+    "triage": "done"
   }
 ]

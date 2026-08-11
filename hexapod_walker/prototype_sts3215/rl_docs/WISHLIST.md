@@ -66,7 +66,23 @@ existing config knobs, [CODE] needs an implementation cycle first,
    the known-exploit rule. Not re-attempted with an adjusted recipe:
    the ladder stays FROZEN pending the flagship (RL_PLAN Architecture)
    and this line is off the current blocker list — do not requeue a
-   GRU rung "because a pod is free."]
+   GRU rung "because a pod is free." **08-11: `cw-arch-gru-r2`
+   (walk-heavier-diet continuation, 0.55->0.70, same 2M budget) also
+   FAILED on the harness/video — the IDENTICAL exploit fingerprint:
+   det walk 0/6 gait_valid, legs sacrificed (frozen 0.004-0.011 m/s),
+   sto walk 6/6 gait_valid but a no-progress paddle (prog med ~0,
+   slip/m 13-21). The launch that produced r2 reasoned only from r1's
+   periodic TRAINING-LOG numbers (vel_err 0.074, "reward climbing"),
+   never the harness/video — same mistake flagged after r1, repeated.
+   This is now 2 misses in the identical behavioral class
+   (RESEARCH_RULES: change the hypothesis, never the step count) — a
+   THIRD concurrent launch (`cw-arch-gru-long1`, 20M "hardening",
+   citing r2's video-log line "walk:ok" as evidence) compounded the
+   same error at 10x budget; it died on its own (W&B step regression)
+   before burning real compute. Ruling: no GRU-rung relaunch on this
+   walk diet/budget shape — a recipe change (BPTT window, obs framing,
+   or a different curriculum order) is required, and the rung stays
+   off the blocker list regardless.]
    Score each rung on the COMPLICATED movements, not just nominal
    walk: joystick gate incl. flips, plus rise/lower fracs once the
    unified line has a rise-capable parent to compare against.
