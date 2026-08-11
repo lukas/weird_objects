@@ -64995,7 +64995,7 @@
       "cw-stand-rsi2: rsi1 relaunched on the pool-restore fix. All prior stand-arm erosion verdicts are contaminated by the state-loss bug; this is the first run where the score stack is actually paid as banked on the GPU path."
     ],
     "created": "2026-08-11T02:41:22+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -65030,6 +65030,12 @@
         "process_alive": false,
         "verdict": "DEAD",
         "log_tail": "al] 2,007,040: hold 1.19\u00b0, lean 1.31\u00b0, track 1.62\u00b0, unload 1.44\u00b0, raise 2/2, rise f0/2 b0/2 c1/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 365s (5,479 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_rsi2.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_rsi2 (md5 35d9ebf0)\n"
+      },
+      {
+        "time": "2026-08-11T02:56:40+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "c-eval] 2,007,040: hold 1.19\u00b0, lean 1.31\u00b0, track 1.62\u00b0, unload 1.44\u00b0, raise 2/2, rise f0/2 b0/2 c1/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 365s (5,479 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_rsi2.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_rsi2 (md5 35d9ebf0)\n"
       }
     ]
   }
