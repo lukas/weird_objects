@@ -974,3 +974,51 @@ Follow-up per pre-registration: `cw-stand-anchorstate2`, ONE axis
 keeping the state-locality that fixed leg 4 — already launched,
 result pending. `hard1` stays deployed; do not warm-start or deploy
 from anchorstate1.
+
+## `cw-stand-anchorstate2` (08-11) — lookahead dose 0.25→0.5s: axis EXHAUSTED for the park, leg-1 fingerprint isolated
+
+One axis vs anchorstate1: `train.bc_anchor_lookahead_s` 0.25 → 0.5,
+doubling how far ahead the state-aligned anchor pulls (still clamped
+at the reference path's planted-tail end, so it should not reopen
+the belly-path lifted-leg leak that caused the original clock-anchor
+cheat).
+
+Result: **both anchorstate1 regressions fixed exactly as
+hypothesized.** Det flat rise restored to 1/1 (was 0/1 stalled 62mm
+short). Det lower falls 3→0 (still short of the target: 2/6 success,
+sto 4/6, zero falls — a shortfall, not instability). Crouch rise
+stayed clean (det 4/4, sto 3/3), bridge 1/1. Leg 4 stays recovered
+(det-hold duty 0.95). Hold overall: det 6/6 + sto 6/6 success,
+valid_plant 11/12 (clears the ≥10/12 gate clause).
+
+**Leg 1 still parks: det-hold per-foot duty
+`[0.99, 0.03, 0.98, 0.96, 0.95, 0.98]`** — the SIXTH consecutive run
+with that exact fingerprint on that exact leg, unmoved by four
+pricing changes (start-mix, dose, reward-pricing/feet-load) and now
+two anchor lookaheads (0.25s, 0.5s). `valid_plant` reads True anyway
+(blind to per-foot duty mid-episode — the leg drifts back down at
+episode end).
+
+VERDICT: FAIL on the leg-1 duty clause and the lower-success clause,
+but this is the pre-registered "leg-1 persists + flat rise restored"
+branch verbatim — the lookahead axis is EXHAUSTED for the park, not
+inconclusive. Per pre-registration, the next lever is the one
+documented incentive gap not yet attacked: the LOWER bank's own
+strict xfail (`rise_posture_gate` prices one-leg-aloft at pf=5/6, so
+it keeps ~85% of honest lower income) — leg-1's hold-park and
+det-lower's dangling-leg shortfall share the same class. `hard1`
+stays deployed; anchorstate2 is otherwise the strongest unified-stand
+checkpoint yet (crouch+flat+bridge rise, six-foot-minus-one hold,
+zero falls anywhere det) but does not clear the gate to replace it.
+
+Follow-up `cw-stand-loweranchor1` (`train.bc_anchor_lower=1.0`: BC
+supervision on LOWER ticks toward the lower bank's own honest
+demonstration — a per-tick `FixedFootBodyIK` descent anchored at the
+settled stance, body at the next commanded height; tests pin
+default-off, IK-exact emission, and a feet-planted chained descent,
+`rl_move/tests/test_bc_anchor.py`, all pass) launched and running.
+Tests the shared-fingerprint hypothesis directly: if lower-mode
+dangling and the hold-park are the same taught habit, fixing lower
+should also move leg-1's hold duty; if not, they're independent
+mechanisms and the unified line falls back to hard1 + specialist
+handoff.

@@ -2,11 +2,11 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: DONE
 
 **created**: 2026-08-11T22:09:05+00:00
 
-**pod**: hexapod-mjx-train-2
+**pod**: hexapod-mjx-train-3
 
 **steps**: 2000000
 

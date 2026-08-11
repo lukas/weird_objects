@@ -65,8 +65,12 @@ unresolved blockers between the robot and reliable joystick control.
   blind to it mid-episode). **State-aligned BC anchor tested
   (`cw-stand-anchorstate1`, 08-11): PARTIAL confirmation** — leg 4
   recovers (duty 0.01→0.93) but leg 1 still parks, and the fix
-  stalls flat-start rise + adds lower falls. Follow-up
-  `cw-stand-anchorstate2` (lookahead dose, running) tests whether
-  that trade-off resolves. hard1 stays deployed. RISE.md.
+  stalls flat-start rise + adds lower falls. **`cw-stand-anchorstate2`
+  (lookahead 0.25→0.5s) fixes the flat-rise stall and the lower falls
+  exactly as hypothesized, but leg 1 still parks (duty 0.03) — sixth
+  run in a row, lookahead axis now EXHAUSTED for the park.**
+  Follow-up `cw-stand-loweranchor1` (BC-anchor the LOWER ticks toward
+  the lower bank's own honest IK descent — the last undocumented
+  incentive gap) launched, running. hard1 stays deployed. RISE.md.
 
 Detail: RL_PLAN.md queue · rl_docs/HARDWARE.md · RISE.md · GAIT.md.

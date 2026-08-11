@@ -229,10 +229,22 @@ both handoffs compose).
   on gate: det flat rise stalled 62mm short (under-drive, not a
   cheat — a state anchor only pulls 0.25s ahead of wherever the
   policy is, so a stalled policy gets weak supervision) and det
-  lower picked up 3 tilt_pitch falls (2/6). Follow-up
-  `cw-stand-anchorstate2` (one axis, lookahead 0.25→0.5s) already
-  launched to test whether flat-rise drive and the leg-4 fix coexist.
-  Detail: rl_docs/RISE.md.
+  lower picked up 3 tilt_pitch falls (2/6). **08-11:
+  `cw-stand-anchorstate2` (one axis, lookahead 0.25→0.5s) FIXES both
+  anchorstate1 regressions exactly as hypothesized** (det flat rise
+  restored 1/1, det lower falls 3→0, leg 4 stays recovered at 0.95)
+  but leg 1 still parks (det-hold duty 0.03) — the SIXTH consecutive
+  run with that exact fingerprint, unmoved by four pricing changes
+  and two anchor lookaheads; det lower is now a shortfall not a
+  fall (2/6, zero falls). The lookahead axis is EXHAUSTED for the
+  park (pre-registered branch). hard1 stays deployed; anchorstate2 is
+  otherwise the strongest unified-stand checkpoint yet (crouch+flat+
+  bridge rise, six-foot-minus-one hold, zero falls anywhere det).
+  Follow-up `cw-stand-loweranchor1` (new lever: BC-anchor the LOWER
+  ticks toward the lower bank's own honest IK descent — the one
+  documented incentive gap not yet attacked, since leg-1's hold-park
+  shares the dangling-leg class with det-lower's shortfall) launched
+  and running. Detail: rl_docs/RISE.md.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict

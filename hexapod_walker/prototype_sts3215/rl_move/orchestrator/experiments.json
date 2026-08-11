@@ -72683,7 +72683,7 @@
   },
   {
     "run": "cw-dep-tall-kh10",
-    "pod": "hexapod-mjx-train-2",
+    "pod": "hexapod-mjx-train-3",
     "steps": 2000000,
     "smoke": false,
     "hypothesis": "TALL LADDER T2b: k_height crank 10x (100->1000) at ref -15, warm from tall30. At the measured -75mm mid-gait crouch this charges ~5.6/tick, decisively above walk income ~3/tick - the crouch cannot outbid it arithmetically. Risk: freeze/park incentive. T5 probe established the wall is habit, not kinematics: pitch/knee have 45-70deg of upward room.",
@@ -72756,7 +72756,7 @@
       "reward.k_height=1000"
     ],
     "created": "2026-08-11T22:09:05+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -72772,8 +72772,15 @@
         "process_alive": false,
         "verdict": "DEAD",
         "log_tail": ""
+      },
+      {
+        "time": "2026-08-11T22:16:15+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ""
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-tall-kh10-cw-dep-tall-slow1 since 2026-08-11T22:18:32"
   },
   {
     "run": "cw-dep-tall-slow1",
@@ -72879,7 +72886,7 @@
   },
   {
     "run": "cw-dep-tall-slow1",
-    "pod": "hexapod-mjx-train-2",
+    "pod": "hexapod-mjx-train-4",
     "steps": 2000000,
     "smoke": false,
     "hypothesis": "TALL LADDER T4: speed trade. Shrink the commanded band 0.05-0.06 -> 0.03-0.04 at ref -15, warm from tall30. T5 probe says the crouch buys STABILITY (yaw-splay at limit) for gait speed; if speed demand drops, the stability budget needed drops, and posture may rise without any new pricing. Watch the yaw-limit signature: if mean leg yaw comes off the 35deg wall, the mechanism is confirmed.",
@@ -72950,7 +72957,7 @@
       "reward.drag_stance_tick_floor_mm=0.25"
     ],
     "created": "2026-08-11T22:10:53+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -72959,6 +72966,141 @@
     "stack": "gpu-mjx",
     "phase": "discovery",
     "refused_reason": "",
-    "wandb_id": "usjcemku"
+    "wandb_id": "usjcemku",
+    "checkups": [
+      {
+        "time": "2026-08-11T22:16:15+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ""
+      },
+      {
+        "time": "2026-08-11T22:18:16+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ""
+      }
+    ],
+    "triage": "in-cycle cw-dep-tall-kh10-cw-dep-tall-slow1 since 2026-08-11T22:18:32"
+  },
+  {
+    "run": "cw-stand-loweranchor1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "LOWER-TICK ANCHOR (2M, warm from cw-stand-holdbc1-hard1 via inherited init; config = anchorstate2 exactly + ONE axis: train.bc_anchor_lower=1.0): the leg-1 hold park survived six runs -- four pricing changes (incl. a measured 4x income cut) and two anchor variants that fixed leg 4 -- and det lower sits at 2/6 with the SAME dangling-leg class. The one documented incentive gap not yet attacked is the lower banks strict xfail: rise_posture_gate prices a lifted leg at pf=5/6, so one-leg-aloft keeps ~85% of the honest lower return (the deployed specialists 62-99mm dangling foot is its measured residue). Since pricing provably does not move this stack but anchor supervision provably does, loweranchor1 supervises lower ticks toward the banks own honest demonstration: FixedFootBodyIK descent anchored at the settled stance, body at the next commanded height (per-tick analytic solve, pool-restore safe; pinned in test_bc_anchor.py incl. a feet-planted chained descent). Prediction: det lower recovers to >= 3/6 AND, if the hold park is the lower-taught dangling habit generalizing (the shared-fingerprint hypothesis), leg-1 det-hold duty finally moves off 0.03.",
+    "gate": "PASS if det lower success >= 3/6 with <= 1 fall AND det crouch-start rise valid >= 3/4 with zero tilt falls AND det flat/bridge rise not worse than hard1 AND hold det+sto valid_plant >= 10/12 AND det-hold per-foot contact duty >= 0.8 on ALL SIX feet AND no flag-leg/tripod/hover cheat on video. PASS -> replaces hard1 as the stance deploy candidate (ship WITH goal-ramp profile); close RL_PLAN queue items for the stand line as SOLVED and record the anchor-per-mode recipe (rise state-aligned + hold q_nom + lower IK-descent) as the standard. PARTIAL (lower >= 3/6 but leg-1 duty still < 0.8) -> the lower-dangle and hold-park are INDEPENDENT mechanisms; the park suspect list is empty and the unified line falls back to hard1 + specialist handoff -- record the line closed. FAIL (lower still <= 2/6) -> the IK descent target is not learnable at coef 1.0 alongside the other anchors; inspect train/bc_anchor_loss before any retune.",
+    "parent": "cw-stand-anchorstate2",
+    "track": "hw",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "13",
+      "--goal-mix",
+      "hold=0.1,rise=0.45,lower=0.45",
+      "--cfg-set",
+      "actions.max_height_mm=115",
+      "--cfg-set",
+      "goal.rise_height_mm=[108,114]",
+      "--cfg-set",
+      "goal.rise_ramp_s=6.0",
+      "--cfg-set",
+      "goal.rise_rsi_frac=0.5",
+      "--cfg-set",
+      "reward.rise_score_income=1.0",
+      "--cfg-set",
+      "reward.rise_score_strip_pen=1.0",
+      "--cfg-set",
+      "reward.k_rise_ref_track=2.0",
+      "--cfg-set",
+      "reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz",
+      "--cfg-set",
+      "reward.rise_ref_sigma_deg=6.0",
+      "--cfg-set",
+      "reward.rise_posture_gate=1.0",
+      "--cfg-set",
+      "reward.rise_income_prog_gate=1.0",
+      "--cfg-set",
+      "reward.rise_finish_gate_signed=1.0",
+      "--cfg-set",
+      "bus.servo_params=loaded",
+      "--cfg-set",
+      "train.bc_anchor_coef=1.0",
+      "--cfg-set",
+      "reward.hold_still_gate=1.0",
+      "--cfg-set",
+      "reward.hold_flag_fade=1.0",
+      "--cfg-set",
+      "goal.rise_flat_frac=0.15",
+      "--cfg-set",
+      "goal.rise_partial_frac=0.40",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_stand_loweranchor1",
+      "--notes",
+      "respec of cw-stand-anchorstate2: LOWER-TICK ANCHOR (2M, warm from cw-stand-holdbc1-hard1 via inherited init; config = anchorstate2 exactly + ONE axis: train.bc_anchor_lower=1.0): the leg-1 hold park survived six runs -- four pricing changes (incl. a measured 4x income cut) and two anchor variants that fixed leg 4 -- and det lower sits at 2/6 with the SAME dangling-leg class. The one documented incentive gap not yet attacked is the lower banks strict xfail: rise_posture_gate prices a lifted leg at pf=5/6, so one-leg-aloft keeps ~85% of the honest lower return (the deployed specialists 62-99mm dangling foot is its measured residue). Since pricing provably does not move this stack but anchor supervision provably does, loweranchor1 supervises lower ticks toward the banks own honest demonstration: FixedFootBodyIK descent anchored at the settled stance, body at the next commanded height (per-tick analytic solve, pool-restore safe; pinned in test_bc_anchor.py incl. a feet-planted chained descent). Prediction: det lower recovers to >= 3/6 AND, if the hold park is the lower-taught dangling habit generalizing (the shared-fingerprint hypothesis), leg-1 det-hold duty finally moves off 0.03.",
+      "--cfg-set",
+      "reward.hold_feet_load=1.0",
+      "--cfg-set",
+      "train.bc_anchor_state_aligned=1.0",
+      "--cfg-set",
+      "train.bc_anchor_lookahead_s=0.5",
+      "--cfg-set",
+      "train.bc_anchor_lower=1.0"
+    ],
+    "created": "2026-08-11T22:14:44+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 1,
+      "code_sha_local": "bfa2436161ff23c05ae20cc9b53f4eef053d9027",
+      "code_sha_pod": "bfa2436161ff23c05ae20cc9b53f4eef053d9027",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3808254",
+      "log_growth_bytes": [
+        8127,
+        15561
+      ],
+      "wandb_id": "925o7jiv",
+      "global_step_window": [
+        655360,
+        1048576
+      ],
+      "fps_estimate": 13107.2
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-loweranchor1 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 13 --goal-mix hold=0.1,rise=0.45,lower=0.45 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --cfg-set train.bc_anchor_coef=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --cfg-set goal.rise_flat_frac=0.15 --cfg-set goal.rise_partial_frac=0.40 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_stand_loweranchor1 --notes 'respec of cw-stand-anchorstate2: LOWER-TICK ANCHOR (2M, warm from cw-stand-holdbc1-hard1 via inherited init; config = anchorstate2 exactly + ONE axis: train.bc_anchor_lower=1.0): the leg-1 hold park survived six runs -- four pricing changes (incl. a measured 4x income cut) and two anchor variants that fixed leg 4 -- and det lower sits at 2/6 with the SAME dangling-leg class. The one documented incentive gap not yet attacked is the lower banks strict xfail: rise_posture_gate prices a lifted leg at pf=5/6, so one-leg-aloft keeps ~85% of the honest lower return (the deployed specialists 62-99mm dangling foot is its measured residue). Since pricing provably does not move this stack but anchor supervision provably does, loweranchor1 supervises lower ticks toward the banks own honest demonstration: FixedFootBodyIK descent anchored at the settled stance, body at the next commanded height (per-tick analytic solve, pool-restore safe; pinned in test_bc_anchor.py incl. a feet-planted chained descent). Prediction: det lower recovers to >= 3/6 AND, if the hold park is the lower-taught dangling habit generalizing (the shared-fingerprint hypothesis), leg-1 det-hold duty finally moves off 0.03.' --cfg-set reward.hold_feet_load=1.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set train.bc_anchor_lower=1.0 > /tmp/train_cw-stand-loweranchor1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-stand-loweranchor1.log",
+    "wandb_id": "925o7jiv",
+    "verified": "2026-08-11T22:17:31+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T22:23:17+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "0: hold 2.15\u00b0, lean 2.15\u00b0, track 1.81\u00b0, unload 1.22\u00b0, raise 2/2, rise f1/2 b2/2 c1/2, lower 2/2, tipped 1/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 426s (4,692 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_loweranchor1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_loweranchor1 (md5 d5613cf2)\n"
+      }
+    ]
   }
 ]

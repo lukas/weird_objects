@@ -2,9 +2,9 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: DONE
 
-**created**: 2026-08-11T22:09:39+00:00
+**created**: 2026-08-11T22:10:53+00:00
 
 **pod**: hexapod-mjx-train-4
 
@@ -14,7 +14,7 @@
 
 **wandb_id**: usjcemku
 
-**hypothesis**: TALL LADDER T4: speed trade. Shrink the commanded band 0.05-0.06 -> 0.03-0.04 at ref -15, warm from tall30. If walk income pressure is what pins the body at -44mm, easing the speed demand should free posture: expect height_err_end to drop below 15mm. Recover speed in a later rung if it works.
+**hypothesis**: TALL LADDER T4: speed trade. Shrink the commanded band 0.05-0.06 -> 0.03-0.04 at ref -15, warm from tall30. T5 probe says the crouch buys STABILITY (yaw-splay at limit) for gait speed; if speed demand drops, the stability budget needed drops, and posture may rise without any new pricing. Watch the yaw-limit signature: if mean leg yaw comes off the 35deg wall, the mechanism is confirmed.
 
-**gate**: PASS: height_err_end <=8mm at -15 ref, speed within the 0.03-0.04 band, survived 1, slip <=1.8. If PASS: rung speed back up (0.04-0.05) with the height held. FAIL: err stuck ~29mm = speed pressure is not the pin; the wall answer is T5s probe.
+**gate**: Primary metric: probe_tall_wall.py steady-state walking height (parent = -75mm). PASS: walking height >= -50mm, speed in the 0.03-0.04 band, survived 1, slip <=1.8. If PASS: rung speed back up with height held. FAIL: height flat = speed pressure is not the pin.
 
