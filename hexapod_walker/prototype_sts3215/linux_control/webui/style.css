@@ -20,19 +20,30 @@
   #robotact.act-limp { color:#9aa3b2; }
   #robotact.act-armed { color:#5fd08a; border-color:#2e7d47; }
   #zerohint.bad { color:#ff8a8a; } #zerohint.ok { color:#5fd08a; }
-  #offlinebar { display:none; margin:0 0 14px; padding:12px 14px; border-radius:12px;
+  /* Offline + error bars are FIXED top-right toasts (operator 08-11):
+     they overlay content and never shift the page layout — the old
+     in-flow bars shoved everything up/down each time they appeared. */
+  #offlinebar { display:none; position:fixed; top:10px; right:10px;
+                z-index:1000; max-width:min(420px, calc(100vw - 20px));
+                padding:8px 12px; border-radius:10px;
                 background:#3a1818; border:1px solid #a33; color:#ffb4b4;
-                font-size:14px; font-weight:700; letter-spacing:.2px; }
-  /* Persistent, COPYABLE last-error bar (operator request 08-10:
-     errors must be selectable/copyable, not a vanishing header blip). */
-  #errbar { display:flex; align-items:center; gap:10px; margin:0 0 14px;
-            padding:10px 14px; border-radius:12px; background:#3a1818;
-            border:1px solid #a33; color:#ffb4b4; font-size:14px; }
+                font-size:13px; font-weight:700; letter-spacing:.2px;
+                box-shadow:0 4px 16px rgba(0,0,0,.5); }
+  /* Persistent, COPYABLE last-error toast (operator request 08-10/11:
+     errors must be selectable/copyable — for pasting to an LLM — and
+     must not move the screen). Sits below the offline toast slot. */
+  #errbar { display:flex; align-items:flex-start; gap:8px;
+            position:fixed; top:52px; right:10px; z-index:1000;
+            max-width:min(420px, calc(100vw - 20px));
+            padding:8px 12px; border-radius:10px; background:#3a1818;
+            border:1px solid #a33; color:#ffb4b4; font-size:13px;
+            box-shadow:0 4px 16px rgba(0,0,0,.5); }
   #errbar-text { flex:1 1 auto; user-select:text; -webkit-user-select:text;
-                 cursor:text; word-break:break-word; }
+                 cursor:text; word-break:break-word;
+                 max-height:5.5em; overflow-y:auto; }
   #errbar button { flex:0 0 auto; background:#552222; border:1px solid #a33;
-                   color:#ffd7d7; border-radius:8px; padding:4px 10px;
-                   font-size:13px; cursor:pointer; }
+                   color:#ffd7d7; border-radius:8px; padding:2px 8px;
+                   font-size:12px; cursor:pointer; }
   #errbar button:active { background:#703030; }
   .hint, #sent { user-select:text; -webkit-user-select:text; }
   body.link-down #offlinebar { display:block; }

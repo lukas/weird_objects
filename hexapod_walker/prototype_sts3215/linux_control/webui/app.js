@@ -36,7 +36,10 @@ function setLink(ok, detail){
 }
 async function heartbeat(){
   const ac = new AbortController();
-  const t = setTimeout(()=> ac.abort(), 2000);
+  // 5 s budget: macOS mDNS re-resolution of hexapod.local can stall a
+  // request ~5 s (measured 08-11); a 2 s abort turned every stall into
+  // a false "lost connection" flap.
+  const t = setTimeout(()=> ac.abort(), 5000);
   try{
     const r = await fetch('/api/ping?t='+Date.now(), {
       cache:'no-store', signal: ac.signal});
@@ -57,7 +60,14 @@ async function heartbeat(){
     }
   }
 }
-setInterval(heartbeat, 1500);
+// Non-overlapping loop: with a 5 s worst case a fixed 1.5 s interval
+// would stack concurrent pings during a stall.
+(async function hbLoop(){
+  while(true){
+    await heartbeat();
+    await new Promise(r=> setTimeout(r, 1500));
+  }
+})();
 heartbeat();
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState === 'visible') heartbeat();
@@ -76,8 +86,13 @@ async function cmd(line){
 const errbarEl = document.getElementById('errbar');
 const errbarText = document.getElementById('errbar-text');
 function showErr(line){
-  errbarText.textContent = line;
-  errbarEl.style.display = 'flex';
+  // Only touch the DOM when the text actually changes — rewriting
+  // textContent on every status poll destroyed the user's text
+  // selection mid-highlight (operator 08-11: "can't copy the error").
+  if(errbarText.textContent !== String(line))
+    errbarText.textContent = String(line);
+  if(errbarEl.style.display !== 'flex')
+    errbarEl.style.display = 'flex';
 }
 document.getElementById('errbar-close').onclick =
   ()=>{ errbarEl.style.display = 'none'; };
@@ -977,9 +992,19 @@ async function rlMove(mode, body){
 $('rlstand').onclick = ()=> rlMove('stand');
 $('rllower').onclick = ()=> rlMove('lower');
 $('rlglide').onclick = async ()=>{
-  $('rlstatus').textContent = 'Gliding to plant stance…';
-  await goPoseZero('stand', '▲ Stand (scripted)');
-  $('rlstatus').textContent = 'Glide finished — see toast for result.';
+  $('rlstatus').textContent = 'Scripted → plant stance…';
+  try{
+    const r = await fetch('/api/standup', {method:'POST',
+      body: JSON.stringify({mode:'plant', speed:10})});
+    const d = await r.json();
+    if(!d.ok){
+      $('rlstatus').textContent = 'Refused: '+(d.error || 'unknown');
+      showErr('Plant stance: '+(d.error || 'refused'));
+      return;
+    }
+    $('rlstatus').textContent = 'Moving to plant stance…';
+    startDemoPoll();
+  }catch(e){ $('rlstatus').textContent = 'Start failed (link?)'; }
 };
 $('rlcapture').onclick = async ()=>{
   $('rlstatus').textContent = 'Capturing plant pose (no motion)…';
