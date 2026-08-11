@@ -98,8 +98,28 @@ MIRROR2FIX_STACK.update({
     ("reward", "walk_yaw_hold_prog_gate"): 1.0,
     ("reward", "yaw_still_avg_s"): 1.0,
 })
+# Exact env-relevant cfg of cw-dep-vref1-r1 (ledger extra_args) — THE
+# hardware walk champion's own training stack (RL_PLAN queue -0.5 P0,
+# operator 08-11: "is the reward accurate?"). Note vs trans1: NO
+# hist16, NO k_step_event, NO omni heading/resample set — defaults
+# apply. Purpose: replay the tape-proven scripted gait AT PLANT HEIGHT
+# through the exact stack the crouch-paddling champion trained on and
+# compare full returns (income + penalties + termination risk).
+VREF1_STACK = {
+    ("reward", "k_drag_loaded"): 10.0,
+    ("reward", "k_park_duty"): 1.0,
+    ("reward", "walk_kernel_prog_gate"): 1.0,
+    ("goal", "walk_park_start_frac"): 0.25,
+    ("reward", "walk_anchor_gate"): 1.0,
+    ("reward", "anchor_tol_mm"): 10.0,
+    ("goal", "walk_speed_min_m_s"): 0.05,
+    ("goal", "walk_speed_max_m_s"): 0.06,
+    ("goal", "walk_obs_body_vel"): 2.0,
+    ("safety", "max_roll_deg"): 25.0,
+    ("safety", "max_pitch_deg"): 25.0,
+}
 STACKS = {"trans1": TRANS1_STACK, "mirror2": MIRROR2_STACK,
-          "mirror2fix": MIRROR2FIX_STACK}
+          "mirror2fix": MIRROR2FIX_STACK, "vref1": VREF1_STACK}
 
 DIRS = {
     "forward": (1.0, 0.0),

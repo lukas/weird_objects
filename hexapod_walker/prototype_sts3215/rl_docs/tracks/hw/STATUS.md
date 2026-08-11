@@ -20,7 +20,11 @@ unresolved blockers between the robot and reliable joystick control.
 - Hardware attempt #2 (operator-supervised) → tape-measure walk
   distance, wz sign audit.
 - Gait cleanup for hardware (anti-scrape): GAIT.md P1/P2.
-- Crouch-start rise: crouchrise2 reproduced the rise win but the
-  flag-leg hold cheat returned — root cause open before deploy.
+- Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
+  crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
+  08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the
+  dose/mix axes are closed. Next lever is CODE, spec first:
+  state-aligned BC anchor (clock-indexed anchor mis-teaches
+  plant-adjacent states on crouch starts). hard1 stays deployed.
 
 Detail: RL_PLAN.md queue · rl_docs/HARDWARE.md · RISE.md · GAIT.md.
