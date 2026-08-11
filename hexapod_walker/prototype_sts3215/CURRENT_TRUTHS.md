@@ -5,8 +5,8 @@ RL_LOG/archive prose disagrees with a line here, this file wins.
 Update ONLY when a ruling is accepted or hardware produces new
 evidence; keep 50–80 lines. Reading order: RL_GOALS.md → this file →
 RL_PLAN.md → RESEARCH_RULES.md → rl_docs/SIM.md.
-Last regenerated: 2026-08-10 (operator process-feedback + GPT
-bootstrap doc).
+Last regenerated: 2026-08-11 (rise: reference-tracking-as-crutch
+closed, `cw-stand-scoreref1`).
 
 ## Real robot facts (these outrank any sim result)
 
@@ -107,8 +107,12 @@ bootstrap doc).
   for rise is now CLOSED (three distinct mechanisms — detect/
   discount, plant-gate, score re-route — all beaten by the same
   flag-leg cheat, `cw-stand-score1` 08-10 even from an honest warm
-  start); next lever is reference tracking or a structural height-
-  contact coupling, not another income variant. Plan: rl_docs/RISE.md.
+  start). A 4th mechanism, a cheat-proofed reference-tracking crutch
+  layered on score1 (`cw-stand-scoreref1`, 08-11), also lost to the
+  identical flag-leg cheat (0/6 valid_plant every mode/DR) — reference
+  tracking as a crutch is CLOSED too. Only remaining lever: a
+  structural coupling between the height goal and measured foot
+  contact (CODE, not yet built). Plan: rl_docs/RISE.md.
 - Yaw: price escalation on a command-invariant drift is CLOSED. The
   new mechanism set is landed and its TURN bank PASSES (08-10):
   signed rotation income (k_yaw_prog), heading-hold drift charge

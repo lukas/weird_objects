@@ -63514,7 +63514,7 @@
       "cw-stand-scoreref1: score income (cw-stand-score1's stack, unchanged) + the belly->plant reference crutch, cheat-proofed. ONE change vs score1: k_rise_ref_track=2.0/sigma 6deg with the ref kernel feet-gated under score mode (grounded feet only). ONE change vs plantgate1: income is score-routed, so tracking cannot be satisfied by a cheat. DISCOVERY 2M. If rise works: anneal the crutch (k 2->0.5->0) in follow-up arms before any hardening. Lower keeps the solved legacy stack."
     ],
     "created": "2026-08-11T00:21:42+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -63549,7 +63549,10 @@
         "verdict": "DEAD",
         "log_tail": "0: hold 1.38\u00b0, lean 1.39\u00b0, track 1.54\u00b0, unload 1.81\u00b0, raise 2/2, rise f0/2 b0/2 c2/2, lower 2/2, tipped 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:TERM(over_current) lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 346s (5,784 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_scoreref1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_scoreref1 (md5 4158b27c)\n"
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "FAIL \u2014 same known exploit (flag-leg) recurs, now a 4th distinct mechanism beaten by it. Posture-strict harness: rise 0/6 det AND 0/6 sto at both DR0 gate and own-DR0.2 (worst-foot clearance 160-188mm, one leg held in the air the whole episode, video-confirmed on every sampled rise/det episode). env/rise_score stayed flat ~0.01-0.02 the entire 2M steps, matching this run's own pre-registered early-stop trigger; SCORE/rise_bridge/flat_success ~0 throughout, only crouch's looser training-time criterion ever fires. The cheat-proofed reference-tracking crutch (k_rise_ref_track=2.0, feet-gated kernel, sigma tightened 12->6deg) does NOT stop the cheat -- same pathology class as cw-stand-b2p1 (detect-discount), cw-stand-plantgate1 (multiplicative gate), cw-stand-score1 (income re-routing). hold/track also regressed vs prior stand arms (det 0/6 posture-ok at DR0, though sto still mostly passes) -- secondary, not the gating criterion. hold/lower legacy stack unaffected in kind."
   },
   {
     "run": "cw-dep-tip1",

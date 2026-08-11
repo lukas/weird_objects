@@ -138,24 +138,38 @@ runs the full stack the arm will train with.
   pre-registered early-call trigger). Same pathology class as b2p1
   and plantgate1 — third distinct mechanism, same cheat. hold/track
   unaffected.
+- `cw-stand-scoreref1` — FAILED (08-11): score1's stack unchanged +
+  a cheat-proofed belly→plant reference-tracking crutch
+  (`k_rise_ref_track=2.0`, feet-gated kernel, sigma 12→6°) warm-
+  started from `cw-stand-score1`'s lineage on the honest stance
+  champion. Still 0/6 valid_plant/end_posture_ok det AND sto at DR0
+  gate and own-DR0.2, worst-foot clearance 160–188mm (leg held in
+  the air the whole episode, video-confirmed), `env/rise_score` flat
+  ~0.01–0.02 the entire 2M steps. Fourth distinct mechanism, same
+  cheat — this was the pre-registered test of lever (a) below and it
+  is now closed too.
 
-## Direction (binding, 08-10 night — supersedes the evening entry)
+## Direction (binding, 08-11 — supersedes the 08-10 night entry)
 
-Three distinct reward-restructuring mechanisms — detect-and-discount
-(b2p1's posture gate), a multiplicative PLANT_SPEC gate (plantgate1),
-and moving the income source itself (score1) — have now ALL been
-beaten by the identical flag-leg trick, the last one even from a
-clean honest base. Ruling: **reward-income shaping alone is CLOSED
-for rise** (three-strikes, RESEARCH_RULES "two misses in a behavioral
-class" — this is a third). Do not propose a fourth income-routing
-variant. The next lever must be outside pure income shape:
-(a) reference/trajectory tracking during the rise ramp (the landed
-`k_rise_ref_track` scaffold, currently annealed to 0 by operator
-request "no waypoints unless data hardcore disagrees" — this run IS
-that hardcore disagreement, re-open the waypoint option), or
-(b) a structural coupling between the commanded height goal and
-measured foot contact (e.g. the height *reference* itself refuses to
-rise on a leg the moment that leg loses contact, rather than paying/
-penalizing after the fact). Any next rise arm still goes through
-DISCOVERY (≤2M steps, early video) and its exploit must already be
-pinned in the semantics bank before training.
+Four distinct mechanisms have now ALL been beaten by the identical
+flag-leg trick: detect-and-discount (b2p1's posture gate), a
+multiplicative PLANT_SPEC gate (plantgate1), moving the income source
+itself (score1), and — 08-11 — a cheat-proofed reference/trajectory-
+tracking crutch layered ON TOP of score1's income routing
+(`cw-stand-scoreref1`: `k_rise_ref_track=2.0`, feet-gated kernel,
+sigma tightened 12→6°). scoreref1 was the pre-registered attempt at
+lever (a) below ("re-open the waypoint option" — operator's own
+hardcore-disagreement test) and it did NOT stop the cheat: rise 0/6
+det+sto at both DR0 and own-DR0.2, worst-foot clearance 160–188mm,
+`env/rise_score` flat ~0.01–0.02 the entire 2M steps (its own early-
+stop trigger). Ruling: **reward-income shaping AND reference-
+tracking-as-crutch are BOTH now closed for rise.** Do not propose a
+5th income/tracking variant on top of the existing reward stack —
+showing the policy the right motion doesn't help while a fake stand
+can still collect nearly full pay somewhere else in the same stack.
+**The only remaining lever is (b): a structural coupling between the
+commanded height goal and measured foot contact** — e.g. the height
+*reference* itself refuses to rise on a leg the moment that leg loses
+contact, rather than paying/penalizing after the fact. That is CODE
+work (new mechanism, not a reward-coefficient respec) and must go
+through SPECIFICATION (bank the exploit) before any DISCOVERY run.
