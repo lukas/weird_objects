@@ -1,1 +1,30 @@
-[]
+[
+ {
+  "run": "cw-dep-tip1-takeoff25",
+  "track": "hw",
+  "steps": 2000000,
+  "parent": "cw-dep-tip1",
+  "hypothesis": "HARDWARE-DRIVEN (operator bench 08-11 eve, camera sessions bench_blast_20260811_18*, RL_LOG 22:47): BOTH deployed walkers show a 20-25deg TAKEOFF roll transient right after gait start on hardware \u2014 vref1-r1 recovered one (23deg peak -> tail 0.9deg, full 6s) and fell one; tip1 tripped tilt_roll 2/3 fwd (attended 21:4x, robot's own event log) and fell its first rot60 BACKWARD run (27deg peak). Trained tipped-start DR is dose 6-18deg at prob 0.30 \u2014 BELOW the measured regime. Arm: warm from tip1, raise dr.tipped_start_prob to 0.5 and dr.tipped_start_deg to (12,25), everything else = tip1's exact resolved config (pull from its W&B config.reward_cfg / ledger extra_args). NOTE: verify --cfg-set can parse the tuple field dr.tipped_start_deg; if not, add the knob first (small domain_rand.py change, keep the guarded-rng convention + bank green).",
+  "gate": "SCORE/tipped_recovery_success at 20-25deg injections det+sto materially above the matched parent under the IDENTICAL injection (eval_checkpoint --baseline cw-dep-tip1); DR0 walk retention unchanged (gait_valid 6/6, prog med >= 0.85, no paddle); frames watched det.",
+  "extra_args": [
+   "--task",
+   "joint_walk",
+   "--init-from",
+   "rl_move/sim/policies/ppo_goal_cw_dep_tip1.zip"
+  ]
+ },
+ {
+  "run": "cw-stand-riserock1",
+  "track": "hw",
+  "steps": 2000000,
+  "parent": "cw-stand-holdbc1-hard1",
+  "hypothesis": "HARDWARE-DRIVEN, CODE/SPEC FIRST (operator bench 08-11 22:42, bench_blast_20260811_184229 + RL_LOG): the stand specialist port's FIRST hardware run FAILED tilt_roll at 10.2deg rel roll ~9s in, DURING THE BELLY-CURL (before the height ramp; currents low 0.27A, runner limped clean). Sim probe on the same checkpoint (6 det seeds DR0): |roll| <= 1.7deg through the whole rise \u2014 hardware rocks over the tucked legs, sim never does. Trip threshold is CORRECT (do not bump it). Suspects: loaded-knee actuator lag breaking curl symmetry + belly contact geometry. Arm: add a rise-tick ROCKING DR axis (random roll perturbation during curl/ramp ticks \u2014 tilted-belly starts and/or body-roll impulses, capped well below the 25deg envelope, tilt reference stays LEVEL so leveling is paid), default OFF, guarded rng, bank test green BEFORE launch (MDP_PREFLIGHT binding). Warm from holdbc1_hard1 with the BC-anchor stack UNCHANGED. Optional second axis: bus.servo_params=loaded on rise ticks.",
+  "gate": "Rise under +-10-15deg rocking injections det >= 5/6 valid_plant with zero falls; nominal rise/hold retention matches hard1's own probe (12/12 valid_plant RSI-off incl. flat 4/4, hold 11/12); matched-parent control under identical injection; frames watched.",
+  "extra_args": [
+   "--task",
+   "joint_goal",
+   "--init-from",
+   "rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip"
+  ]
+ }
+]
