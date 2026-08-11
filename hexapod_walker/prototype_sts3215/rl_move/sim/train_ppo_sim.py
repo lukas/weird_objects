@@ -705,6 +705,120 @@ def _rise_split_stats(env, act_fn, per_kind: int = 2) -> dict[str, tuple]:
     return {k: (v[0], v[1]) for k, v in counts.items()}
 
 
+def _roll_trap_stats(env, act_fn, episodes: int, walk: bool) -> dict:
+    """ROLL-TRAP GATE (operator spec 08-10): walk normally, then a
+    servo-controlled external roll torque on the chassis drags the
+    body to a sustained 10-15° lean — the hardware runaway mechanism
+    (asymmetric load DURING gait), which a static tipped spawn does
+    not reproduce. After ~2.5 s the torque is removed and the policy
+    has the rest of the episode to recover. PASS per episode:
+
+      * no fall (no safety termination),
+      * mean |roll − ref| over the last second < 5°,
+      * walk runs: mean achieved speed over the last 2 s ≥ 50% of the
+        commanded reference,
+      * walk runs: all six legs still cycling — no sacrificed leg
+        (per-leg hip peak-to-peak over the last 2 s ≥ max(3°, 25% of
+        the median leg's) — the hardware signature was one pinned leg
+        with a collapsed stride carrying 4× current).
+
+    If the policy RESISTS the torque so well the trap never reaches
+    10° (cap 3 N·m), that is not a failure — the other criteria still
+    apply; `trapped_frac` reports how often the trap actually bit.
+    The torque is applied through ``xfrc_applied`` on the CPU eval
+    env only — nothing here touches the training backends.
+    """
+    dt = env.dt
+    # Servo tuning (CPU twin, 08-10): the body answers the torque with
+    # ~0.3 s of lag, so a plain bang-bang ramp either overshoots the
+    # spec band to 27° and trips the policy mid-trap (cap 3.0 / step
+    # 0.08) or never bites before the window ends (cap 2.0 / step
+    # 0.04 → max 5°). Servo on the PREDICTED roll (0.35 s lookahead
+    # from the per-tick roll rate) with a 2× release above target.
+    t_start, t_hold, tau_cap, tau_step = 1.5, 3.0, 3.0, 0.06
+    # Spec target is 12° sustained, but never past 70% of the run's
+    # own tilt-trip envelope (a 12° trap under the stance 10° trip
+    # would terminate every episode before the gate even applies).
+    target_deg = min(12.0, 0.7 * env.safety.max_roll * 180.0 / np.pi)
+    lookahead_s = 0.35
+    passes, trapped_n = 0, 0
+    max_rolls, end_rolls, speed_fracs, legs_ok_n, tau_peaks = \
+        [], [], [], [], []
+    for ep in range(episodes):
+        obs, _ = env.reset()
+        side = 1.0 if (ep % 2 == 0) else -1.0
+        tau, tau_peak, max_roll = 0.0, 0.0, 0.0
+        rolls, speeds, hips = [], [], []
+        s_ref = 0.0
+        done = term = False
+        i = 0
+        while not done:
+            t = i * dt
+            trap_on = t_start <= t < t_start + t_hold
+            if trap_on:
+                cur = rolls[-1] if rolls else 0.0
+                rate = ((rolls[-1] - rolls[-2]) / dt
+                        if len(rolls) >= 2 else 0.0)
+                err = target_deg - (cur + lookahead_s * rate)
+                step = tau_step if err > 0 else 2.0 * tau_step
+                tau = float(np.clip(tau + step * np.sign(err),
+                                    0.0, tau_cap))
+                tau_peak = max(tau_peak, tau)
+                # Torque about the body's forward axis, world frame
+                # (re-read each tick — the axis yaws with the body).
+                R = np.asarray(env.data.xmat[env._chassis_bid],
+                               dtype=float).reshape(3, 3)
+                env.data.xfrc_applied[env._chassis_bid, 3:6] = (
+                    side * tau * R[:, 0])
+            else:
+                env.data.xfrc_applied[env._chassis_bid, 3:6] = 0.0
+            obs, _r, term, trunc, info = env.step(act_fn(obs))
+            rolls.append(abs(float(info.get("roll_rel_deg", 0.0))))
+            if trap_on:
+                max_roll = max(max_roll, rolls[-1])
+            if "walk_speed" in info:
+                speeds.append(float(info["walk_speed"]))
+            g = env._current_goal()
+            if g is not None and hasattr(g, "vx_ref"):
+                s_ref = max(s_ref, float(np.hypot(g.vx_ref, g.vy_ref)))
+            hips.append(np.asarray(
+                env._state.joint_position[1::3], dtype=float).copy())
+            done = term or trunc
+            i += 1
+        env.data.xfrc_applied[env._chassis_bid, 3:6] = 0.0
+        n1 = max(1, int(round(1.0 / dt)))     # last 1 s
+        n2 = max(1, int(round(2.0 / dt)))     # last 2 s
+        end_roll = float(np.mean(rolls[-n1:]))
+        trapped = max_roll >= 10.0
+        speed_frac = 1.0
+        if walk and s_ref > 1e-6 and speeds:
+            speed_frac = float(np.mean(speeds[-n2:])) / s_ref
+        legs = 6
+        if walk and len(hips) >= n2:
+            tail = np.stack(hips[-n2:])
+            p2p = np.ptp(tail, axis=0) * (180.0 / np.pi)
+            floor = max(3.0, 0.25 * float(np.median(p2p)))
+            legs = int(np.sum(p2p >= floor))
+        ok = ((not term) and end_roll < 5.0
+              and (not walk or (speed_frac >= 0.5 and legs == 6)))
+        passes += int(ok)
+        trapped_n += int(trapped)
+        max_rolls.append(max_roll)
+        end_rolls.append(end_roll)
+        speed_fracs.append(speed_frac)
+        legs_ok_n.append(legs)
+        tau_peaks.append(tau_peak)
+    return {
+        "pass_frac": passes / episodes,
+        "trapped_frac": trapped_n / episodes,
+        "max_roll_deg": float(np.mean(max_rolls)),
+        "end_roll_deg": float(np.mean(end_rolls)),
+        "speed_frac": float(np.mean(speed_fracs)),
+        "legs_cycling": float(np.mean(legs_ok_n)),
+        "tau_peak_nm": float(np.mean(tau_peaks)),
+    }
+
+
 def _run_periodic_eval(env, act, args, env_cls, step,
                        per_mode: int = 2) -> tuple[dict, str]:
     """Deterministic PER-MODE eval, returning (wandb payload, log brief).
@@ -835,6 +949,31 @@ def _run_periodic_eval(env, act, args, env_cls, step,
         finally:
             (rnd.ranges.tipped_start_prob,
              rnd.ranges.tipped_start_deg) = saved
+
+    # ROLL-TRAP GATE (operator spec 08-10, second iteration on the
+    # runaway-roll evidence): mid-gait servo-torque disturbance +
+    # recovery criteria — see _roll_trap_stats. Runs level (tipped
+    # starts forced off) in the same primary mode.
+    if gen is not None and tip_mode is not None:
+        for attr in [a for a in vars(gen) if a.startswith("p_")]:
+            setattr(gen, attr, 0.0)
+        setattr(gen, f"p_{tip_mode}", 1.0)
+        saved_tip = None
+        if rnd is not None:
+            saved_tip = rnd.ranges.tipped_start_prob
+            rnd.ranges.tipped_start_prob = 0.0
+        try:
+            rt = _roll_trap_stats(env, act, per_mode,
+                                  walk=(tip_mode == "walk"))
+            payload["SCORE/roll_trap_pass"] = rt["pass_frac"]
+            for k in ("trapped_frac", "max_roll_deg", "end_roll_deg",
+                      "speed_frac", "legs_cycling", "tau_peak_nm"):
+                payload[f"eval/roll_trap/{k}"] = rt[k]
+            brief.append(
+                f"rolltrap {int(rt['pass_frac'] * per_mode)}/{per_mode}")
+        finally:
+            if saved_tip is not None:
+                rnd.ranges.tipped_start_prob = saved_tip
     return payload, ", ".join(brief)
 
 

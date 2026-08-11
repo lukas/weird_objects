@@ -111,6 +111,14 @@ just under the 25° trip — operator: "it tipped, didn't go much").
   same floor at 0.05 m/s (walk retention verified identical in sim,
   vel err 0.036 vs 0.037). If tip1 also rolls away, the fix is a
   sim contact/pinning model, not more DR.
+- **ROLL-TRAP GATE landed (08-10 late, operator spec):** every run
+  now also gets `SCORE/roll_trap_pass` — a mid-gait servo torque
+  drags the body to a sustained ~12° lean for 3 s, releases, and the
+  policy must re-level <5°, regain ≥50% commanded speed, keep all six
+  legs cycling, no fall (rl_docs/EVALS.md). Unlike the tipped start
+  this DOES separate the lineage at a hard dose (~20–27°: tip1 4/6
+  vs parent 2/6 — the tipped-start DR transferred to mid-gait
+  disturbances), which strengthens the case for the hardware A/B.
 
 ## Finding — TFT redraws stall the entire servo link (08-10 night)
 
