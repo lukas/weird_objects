@@ -131,6 +131,16 @@ class GoalGenerator:
         # to "flat"/"bridge"/"crouch" to pin the rise start kind for an
         # isolated eval episode. None (default) = normal random draw.
         self.force_rise_start: str | None = None
+        # Rise start-kind mix (08-11, crouch-start lever): fraction of
+        # rise episodes starting belly-flat / partial-curl; the crouch
+        # fraction is the remainder. Defaults reproduce the hardcoded
+        # 35/40/25 reverse curriculum exactly (legacy RNG stream is
+        # unchanged — the same single r draw decides the kind). The
+        # holdbc1 lineage's one residual defect is crouch-start rise
+        # tip-overs (2/4 det at hard1); biasing the mix toward crouch
+        # is the config-only lever to train against it.
+        self.rise_flat_frac = float(g.get("rise_flat_frac", 0.35))
+        self.rise_partial_frac = float(g.get("rise_partial_frac", 0.40))
         self.rise_ramp_s = float(g.get("rise_ramp_s", 4.0))
         raise_mm = g.get("raise_height_mm", [10.0, 30.0])
         self.raise_m = (min(float(raise_mm[0]), max_h) * 0.001,
@@ -262,15 +272,20 @@ class GoalGenerator:
             force = getattr(self, "force_rise_start", None)
             if force is not None:
                 # rng.random() above is still drawn so the stream is
-                # identical whether or not the hook is armed.
-                r = {"flat": 0.0, "bridge": 0.5, "crouch": 1.0}[force]
+                # identical whether or not the hook is armed. Bridge
+                # maps to the middle of the partial band so the hook
+                # stays correct under a reconfigured start mix.
+                r = {"flat": 0.0,
+                     "bridge": self.rise_flat_frac
+                     + 0.5 * self.rise_partial_frac,
+                     "crouch": 1.0}[force]
             rise = rng.uniform(*self.rise_m)
             hold_hi = self.rise_hold_s
             hold_lo = min(self.rise_hold_min_s, hold_hi)
-            if r < 0.35:
+            if r < self.rise_flat_frac:
                 start_at = "zero"
                 hold_s = float(rng.uniform(hold_lo, hold_hi))
-            elif r < 0.75:
+            elif r < self.rise_flat_frac + self.rise_partial_frac:
                 start_at = "zero"
                 start_curl = float(rng.uniform(0.10, 0.90))
                 crouch_dz = rise
