@@ -300,3 +300,38 @@ income/tracking coefficient variant. The only remaining lever is (b):
 structural height↔contact coupling [CODE] — RL_PLAN.md queue item
 2b. No further DISCOVERY arm on the current reward stack until that
 lands.
+
+**08-11 ~04:50 operator session — `cw-stand-rsi3` and the two-lever
+choice (reconciles with the cycle verdict above).** `cw-stand-rsi3`
+(one change vs rsi2: `reward.rise_score_strip_pen=1` — the
+k_height=100 PENALTY was still live and made flag-leg the reachable
+optimum: belly rest −1.2/tick vs cheat rent −0.5/tick; bank green
+with the strip) STILL collapsed, with an identical curve. Decisive
+observation across ALL SIX runs (rsi1/2/3, dr0, dr0-lowlr,
+dr0-riseonly): the feet-factor collapse (0.87→~0.17 by the 25% mark)
+has the same shape and timescale under materially different rewards.
+Behavior that does not respond to reward changes is not
+reward-driven: this is **warm-start drift at out-of-distribution
+observations** (the 108–114mm command band is ~2.2x the stance
+champion's trained range; its behavior there is un-anchored and
+update noise erodes it), and no reward stream can anchor it because
+the 6° kernel only pays a policy that is ALREADY nearly perfect —
+the cycle's persistent-tripod video above is exactly what unanchored
+drift settles into. Widening the kernel is bank-blocked (measured
+08-11: at sigma 10° flag-leg farms 108 vs replay 648 = 17%, over the
+10% bar; at 15° three bank tests fail). Agreed with the cycle:
+no more reward/income/tracking/RSI coefficient variants. Two CODE
+levers remain, both through SPECIFICATION first:
+(a) **BC anchor in the TRAINER** — auxiliary loss pulling the
+    policy's action toward the reference action at RSI-spawned
+    states (DeepMimic-family standard; supervises actions, immune to
+    pose-farming, needs no rollout luck);
+(b) **structural height↔contact coupling** (the cycle's queue item
+    2b — the height reference itself refuses to rise on a leg that
+    lost contact).
+Operator leaning: spec (a) first — it attacks the measured mechanism
+(drift with no anchoring gradient) directly, while (b) reshapes the
+goal but still pays through the same RL gradient that the drift
+out-runs. Everything else on this stack is now verified honest:
+pricing (bank + noisy replay +357), state coverage (RSI holds 0.5),
+state restore (pool fix), penalties (strip_pen).
