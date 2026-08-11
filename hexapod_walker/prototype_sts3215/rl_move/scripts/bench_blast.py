@@ -94,11 +94,12 @@ def ask(prompt: str) -> str:
 
 class Session:
     def __init__(self, client: HexapodClient, go: bool, rounds: int,
-                 video: bool = False):
+                 video: bool = False, auto: bool = False):
         self.c = client
         self.go = go
         self.rounds = rounds
         self.video = video
+        self.auto = auto
         self.stamp = time.strftime("%Y%m%d_%H%M%S")
         self.out = TRACES_DIR / f"bench_blast_{self.stamp}"
         self.summary: dict = {"stamp": self.stamp, "video_mode": video,
@@ -131,11 +132,20 @@ class Session:
             except Exception:
                 pass  # no `say` (not macOS) — timestamps still work
 
-    def confirm(self, what: str) -> bool:
-        """Motion gate: explicit per-step operator go."""
+    def confirm(self, what: str, countdown: int = 5) -> bool:
+        """Motion gate: explicit per-step operator go — or, in --auto,
+        a SPOKEN countdown with Ctrl-C as the abort (the operator is
+        watching the robot, not the keyboard)."""
         if not self.go:
             print(f"    [dry-run] would: {what}")
             return False
+        if self.auto:
+            self.announce(f"next: {what}. starting in {countdown} "
+                          "seconds. control C to abort.")
+            for i in range(countdown, 0, -1):
+                print(f"    ... {i}", flush=True)
+                time.sleep(1.0)
+            return True
         a = ask(f"    >> {what} — type 'go' (anything else skips):")
         if a == "quit":
             raise KeyboardInterrupt
@@ -359,7 +369,7 @@ class Session:
             return
         print("    first learned stand-up on hardware. Hands ready; "
               "scripted tuck is the known-good fallback.")
-        if self.confirm("RL STAND (preflight-gated)"):
+        if self.confirm("RL STAND (preflight-gated)", countdown=8):
             self.announce("learned stand up starting")
             r = self.req("POST", "/api/rl/stand", {})
             self.summary["stand"] = r
@@ -426,9 +436,17 @@ class Session:
                   "  * tape measure flat on the floor along the walk "
                   "direction, robot start at 0\n"
                   "  * frame the whole runway; keep the Mac's speaker "
-                  "audible (steps are spoken onto the audio track)\n"
-                  "  * START RECORDING NOW, then press Enter")
-            ask("    recording?")
+                  "audible (steps are spoken onto the audio track)")
+            if self.auto:
+                # No Enter either: 20 spoken seconds to grab the phone
+                # and hit record before the sync mark lands.
+                self.announce("bench blast auto session. start "
+                              "recording now. twenty seconds to the "
+                              "sync mark.")
+                time.sleep(20.0)
+            else:
+                print("  * START RECORDING NOW, then press Enter")
+                ask("    recording?")
             # Sync anchor: video_review.py maps this announcement's
             # t_unix to a video timestamp and everything else follows.
             self.announce(f"bench blast session {self.stamp} sync mark")
@@ -465,10 +483,15 @@ def main() -> int:
                          "summary.json; afterwards run "
                          "rl_move/scripts/video_review.py on the "
                          "footage (or hand it to the agent)")
+    ap.add_argument("--auto", action="store_true",
+                    help="no typed go's: each motion step runs after a "
+                         "SPOKEN 5s countdown (8s for STAND); Ctrl-C "
+                         "aborts and stops the robot. The operator "
+                         "must be watching the robot the whole time.")
     args = ap.parse_args()
 
     s = Session(HexapodClient(args.base), args.go, args.rounds,
-                video=args.video)
+                video=args.video, auto=args.auto)
     s.run(args.only, args.skip)
     return 0
 

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Deploy linux_control to the Uno Q over SSH (key auth) — the no-USB
+# twin of deploy_adb.sh (same file list; keep the two in sync). Used
+# when the board is only reachable over the network.
+#
+#   ./deploy_ssh.sh              # push + restart web UI
+#   ./deploy_ssh.sh --stop       # stop the web server on the board
+set -euo pipefail
+
+SRC="$(cd "$(dirname "$0")" && pwd)"
+HOST="${HEXAPOD_SSH:-arduino@hexapod.local}"
+REMOTE="/home/arduino/hexapod_sts"
+SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST")
+SCP=(scp -o BatchMode=yes -o ConnectTimeout=10 -q)
+
+if [ "${1:-}" = "--stop" ]; then
+  "${SSH[@]}" 'pkill -f "[p]ython3 .*web_drive.py" || true'
+  echo ">> stopped"
+  exit 0
+fi
+
+echo ">> pushing code + vendored SDK -> $HOST:$REMOTE"
+"${SSH[@]}" "mkdir -p '$REMOTE/linux_control' '$REMOTE/motor_setup' \
+  '$REMOTE/urt2_setup' '$REMOTE/rl_move/sim'"
+
+"${SCP[@]}" \
+  "$SRC/tripod_gait.py" "$SRC/drive_controller.py" \
+  "$SRC/mcu_feetech_bus.py" "$SRC/bench_api.py" "$SRC/web_drive.py" \
+  "$SRC/xbox_drive.py" "$SRC/joint_calibrate.py" \
+  "$SRC/plant_calibrate.py" "$SRC/imu_calibrate.py" \
+  "$SRC/event_log.py" "$SRC/status_display.py" "$SRC/servo_watch.py" \
+  "$SRC/mpu_probe.py" "$SRC/rl_policy.py" "$SRC/safe_zero.py" \
+  "$SRC/rl_policy_weights.json" "$SRC/rl_walk_weights.json" \
+  "$SRC/standup_modes.json" \
+  "$HOST:$REMOTE/linux_control/"
+"${SCP[@]}" -r "$SRC/webui" "$SRC/policies" "$SRC/vendor" \
+  "$HOST:$REMOTE/linux_control/"
+
+# rl_move core (numpy-only) + rot-60 canonicalizer — same list as
+# deploy_adb.sh.
+for f in __init__.py env.py robot_state.py attitude.py safety.py \
+         config.py config.yaml body_ik.py control_loop.py logger.py; do
+  "${SCP[@]}" "$SRC/../rl_move/$f" "$HOST:$REMOTE/rl_move/"
+done
+for f in __init__.py rot60.py; do
+  "${SCP[@]}" "$SRC/../rl_move/sim/$f" "$HOST:$REMOTE/rl_move/sim/"
+done
+
+# Setup bundle + canonical motor_setup copies.
+"${SCP[@]}" -r "$SRC/urt2_setup/." "$HOST:$REMOTE/urt2_setup/"
+"${SCP[@]}" -r "$SRC/urt2_setup/." "$HOST:$REMOTE/linux_control/urt2_setup/"
+for f in feetech_bus.py urt2_bench.py inplace_demos.py \
+         motion_telemetry.py motor_setup_registry.json; do
+  "${SCP[@]}" "$SRC/../motor_setup/$f" "$HOST:$REMOTE/motor_setup/"
+done
+"${SSH[@]}" "touch '$REMOTE/motor_setup/__init__.py' \
+  '$REMOTE/linux_control/__init__.py'"
+
+echo ">> restarting web_drive.py"
+if "${SSH[@]}" 'systemctl is-enabled hexapod-web.service >/dev/null 2>&1'; then
+  "${SSH[@]}" 'echo arduino | sudo -S systemctl restart hexapod-web.service' \
+    >/dev/null
+  sleep 5
+  "${SSH[@]}" 'systemctl --no-pager -l status hexapod-web.service \
+    | head -5 || true'
+else
+  "${SSH[@]}" "pkill -f '[p]ython3 .*web_drive.py' || true" || true
+  "${SSH[@]}" "sh -c 'cd \"$REMOTE/linux_control\" && \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=\"$REMOTE/linux_control/vendor:$REMOTE/urt2_setup:$REMOTE/motor_setup:$REMOTE/linux_control\" \
+    nohup python3 web_drive.py --port mcu --http-port 8080 \
+    --https-port 8443 > \"$REMOTE/web_drive.log\" 2>&1 < /dev/null &'"
+  sleep 5
+fi
+
+echo ">> verify over HTTP"
+curl -s -m 8 http://hexapod.local:8080/api/ping || true
+echo
+echo ">> done"
