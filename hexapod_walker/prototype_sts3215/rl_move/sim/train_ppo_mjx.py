@@ -295,9 +295,9 @@ def main(argv: list[str] | None = None) -> int:
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
     if args.gru:
-        if mirror_coef > 0.0 or bc_coef > 0.0:
-            raise SystemExit("--gru + mirror/bc-anchor losses is not "
-                             "implemented (they wrap stock PPO)")
+        if mirror_coef > 0.0:
+            raise SystemExit("--gru + mirror loss is not implemented "
+                             "(it wraps stock PPO)")
         if args.obs_pad_transplant:
             raise SystemExit("--gru + --obs-pad-transplant is not "
                              "implemented (recurrent weights don't "
@@ -305,6 +305,12 @@ def main(argv: list[str] | None = None) -> int:
         from sb3_contrib import RecurrentPPO
         from .gru_policy import GruActorCriticPolicy
         algo_cls = RecurrentPPO
+        if bc_coef > 0.0:
+            # Recurrent BC anchor: pairs carry the rollout hidden state
+            # and the aux step runs one GRU cell step from it (see
+            # bc_anchor.py::_bc_policy_mean).
+            from .bc_anchor import make_bc_anchor_ppo_class
+            algo_cls = make_bc_anchor_ppo_class(RecurrentPPO)
         policy_cls = GruActorCriticPolicy
         extra_pk = dict(lstm_hidden_size=args.gru_hidden_size)
         print(f"[mjx-train] GRU policy: hidden {args.gru_hidden_size}, "

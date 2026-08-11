@@ -211,6 +211,92 @@ def test_save_load_roundtrip_and_auto_loader(tmp_path):
 # 4. it must actually learn a memory task (slow, ~1-2 min CPU)
 # ---------------------------------------------------------------------------
 
+class _AnchorEnv(gym.Env):
+    """18-action env emitting a constant ``bc_target`` every step —
+    the pull direction is unambiguous, so the anchor either moves the
+    policy mean toward it or the recurrent aux path is broken."""
+
+    TARGET = 0.25
+
+    def __init__(self):
+        self.observation_space = spaces.Box(-1, 1, (3,), dtype=np.float32)
+        self.action_space = spaces.Box(-1, 1, (18,), dtype=np.float32)
+        self._t = 0
+
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
+        self._t = 0
+        return self.observation_space.sample(), {}
+
+    def step(self, action):
+        self._t += 1
+        info = {"bc_target": np.full(18, self.TARGET, dtype=np.float32),
+                "bc_mode": self._t % 2}
+        return (self.observation_space.sample(), 0.0, False,
+                self._t >= 8, info)
+
+
+def test_bc_anchor_recurrent(tmp_path):
+    """BC anchor on RecurrentPPO+GRU: hidden states ride into the ring,
+    the aux step pulls the pi mean toward the target AT those states,
+    the single-step mean matches the production stateful predict path,
+    and the ring stays out of the checkpoint zip."""
+    from sb3_contrib import RecurrentPPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from rl_move.sim.bc_anchor import (
+        make_bc_anchor_ppo_class,
+        make_bc_collect_callback,
+    )
+
+    cls = make_bc_anchor_ppo_class(RecurrentPPO)
+    venv = DummyVecEnv([_AnchorEnv for _ in range(4)])
+    model = cls(
+        GruActorCriticPolicy, venv,
+        n_steps=32, batch_size=64, n_epochs=1, learning_rate=3e-3,
+        ent_coef=0.0, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[32]))
+    model.bc_coef = 5.0
+    model.bc_minibatches = 8
+    model.bc_batch_size = 256
+    model.bc_buffer_cap = 4096
+    model.learn(4096, callback=make_bc_collect_callback())
+
+    n = model._bc_n
+    assert n > 0, "collect callback never filled the anchor ring"
+    assert model._bc_h.shape[1] == 8, "hidden state not stored per pair"
+    assert float(np.abs(model._bc_h[:n]).max()) > 0.0, \
+        "stored hidden states are all zero — lstm_states not captured"
+    assert set(np.unique(model._bc_mode[:n])) == {0, 1}
+
+    with th.no_grad():
+        mean = model._bc_policy_mean(
+            th.as_tensor(model._bc_obs[:n]), th.as_tensor(model._bc_h[:n]))
+    mse = float(((mean - _AnchorEnv.TARGET) ** 2).mean())
+    # Untrained pi mean is ~0 -> mse ~ TARGET^2 = 0.0625.
+    assert mse < 0.02, (
+        f"anchor did not pull the recurrent pi mean toward the target "
+        f"(mse {mse:.4f} vs untrained ~{_AnchorEnv.TARGET ** 2:.4f})")
+
+    # Single-step aux mean must match the stateful production path.
+    h1 = model._bc_h[:1].reshape(1, 1, 8)
+    a, _ = model.policy.predict(
+        model._bc_obs[:1], state=(h1, np.zeros_like(h1)),
+        episode_start=np.zeros(1, dtype=bool), deterministic=True)
+    with th.no_grad():
+        m1 = model._bc_policy_mean(
+            th.as_tensor(model._bc_obs[:1]), th.as_tensor(model._bc_h[:1]))
+    np.testing.assert_allclose(
+        a[0], np.clip(m1.numpy()[0], -1, 1), atol=1e-5)
+
+    # Ring buffers are rollout data, not model state.
+    zip_path = tmp_path / "anchored.zip"
+    model.save(zip_path)
+    loaded = cls.load(zip_path, device="cpu")
+    assert not hasattr(loaded, "_bc_obs"), \
+        "anchor ring pickled into the checkpoint (save bloat)"
+
+
 @pytest.mark.slow
 def test_gru_learns_memory_task():
     from sb3_contrib import RecurrentPPO

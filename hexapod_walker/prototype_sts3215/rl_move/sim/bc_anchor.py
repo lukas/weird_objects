@@ -73,6 +73,16 @@ Knobs (set via attach_bc_anchor / cfg):
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs).
+
+Recurrent support (08-11, arch track unblock): pass RecurrentPPO as
+``base_cls`` and the anchor works on GRU policies too. Each pair then
+carries the rollout's actor hidden state (the collect-loop local
+``lstm_states.pi[0]`` — the state the policy holds when it next sees
+``new_obs``), and the aux step computes the pi mean by ONE fused GRU
+cell step from that stored state (``_bc_policy_mean``). Anchoring at a
+zero hidden state instead would supervise a policy the rollouts never
+run. Gradients flow through the cell weights for that single step —
+no BPTT in the aux step, so cost matches the MLP anchor.
 """
 from __future__ import annotations
 
@@ -96,6 +106,16 @@ def make_bc_anchor_ppo_class(base_cls=None):
     class BCAnchorPPO(base):
         bc_coef: float = 0.0
 
+        def _excluded_save_params(self) -> list:
+            # The anchor ring is rollout data, not model state: pickling
+            # it bloats every checkpoint (36MB obs/act, +134MB once the
+            # recurrent _bc_h rides along) and stale buffers already bit
+            # one warm start (the _bc_mode backfill above). Fresh runs
+            # refill the ring within one rollout.
+            return super()._excluded_save_params() + [
+                "_bc_obs", "_bc_act", "_bc_mode", "_bc_h",
+                "_bc_n", "_bc_i"]
+
         def _bc_init_buffer(self, obs_dim: int) -> None:
             cap = int(getattr(self, "bc_buffer_cap", 131072))
             self._bc_obs = np.zeros((cap, obs_dim), dtype=np.float32)
@@ -105,7 +125,7 @@ def make_bc_anchor_ppo_class(base_cls=None):
             self._bc_i = 0          # write cursor
 
         def _bc_push(self, obs: np.ndarray, act: np.ndarray,
-                     mode: int = 0) -> None:
+                     mode: int = 0, h: np.ndarray | None = None) -> None:
             if not hasattr(self, "_bc_obs"):
                 self._bc_init_buffer(int(np.asarray(obs).shape[-1]))
             if not hasattr(self, "_bc_mode"):
@@ -117,9 +137,16 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 self._bc_mode = np.zeros(self._bc_obs.shape[0],
                                          dtype=np.int8)
             cap = self._bc_obs.shape[0]
+            if h is not None and not hasattr(self, "_bc_h"):
+                # Recurrent anchor: the pair's supervision point is the
+                # policy AT THE VISITED HIDDEN STATE, so the rollout's
+                # hidden state rides along (flattened n_layers*hidden).
+                self._bc_h = np.zeros((cap, h.size), dtype=np.float32)
             self._bc_obs[self._bc_i] = obs
             self._bc_act[self._bc_i] = act
             self._bc_mode[self._bc_i] = mode
+            if h is not None:
+                self._bc_h[self._bc_i] = h
             self._bc_i = (self._bc_i + 1) % cap
             self._bc_n = min(self._bc_n + 1, cap)
 
@@ -145,6 +172,26 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 parts.append(rng.integers(0, n, size=rem))
             return np.concatenate(parts)
 
+        def _bc_policy_mean(self, th_obs, th_h=None):
+            """pi mean at the anchor obs. MLP: stateless. Recurrent
+            (GRU): one fused cell step FROM the stored rollout hidden
+            state — supervising the zero state instead would anchor a
+            policy the rollouts never run."""
+            if th_h is None:
+                return self.policy.get_distribution(
+                    th_obs).distribution.mean
+            import torch
+            pol = self.policy
+            gru = pol.lstm_actor
+            feats = pol.extract_features(th_obs)
+            if isinstance(feats, tuple):  # non-shared extractor form
+                feats = feats[0]
+            h = th_h.reshape(len(th_obs), gru.num_layers,
+                             gru.hidden_size).permute(1, 0, 2).contiguous()
+            starts = torch.zeros(len(th_obs), device=th_obs.device)
+            latent, _ = pol._process_sequence(feats, (h, h), starts, gru)
+            return pol.action_net(pol.mlp_extractor.forward_actor(latent))
+
         def train(self) -> None:
             super().train()
             coef = float(getattr(self, "bc_coef", 0.0))
@@ -153,6 +200,7 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 return
             import torch
             import torch.nn.functional as F
+            recurrent = hasattr(self, "_bc_h")
             n_mb = int(getattr(self, "bc_minibatches", 8))
             bs = min(int(getattr(self, "bc_batch_size", 4096)), n)
             dev = self.device
@@ -162,8 +210,9 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 idx = self._bc_sample_idx(rng, n, bs)
                 th_obs = torch.as_tensor(self._bc_obs[idx], device=dev)
                 th_act = torch.as_tensor(self._bc_act[idx], device=dev)
-                mean = self.policy.get_distribution(
-                    th_obs).distribution.mean
+                th_h = (torch.as_tensor(self._bc_h[idx], device=dev)
+                        if recurrent else None)
+                mean = self._bc_policy_mean(th_obs, th_h)
                 loss = F.mse_loss(mean, th_act)
                 self.policy.optimizer.zero_grad()
                 (coef * loss).backward()
@@ -190,12 +239,26 @@ def make_bc_collect_callback():
             dones = self.locals.get("dones")
             if new_obs is None:
                 return True
+            h_np = None
+            if hasattr(self.model.policy, "lstm_actor"):
+                # RecurrentPPO: the collect-loop local ``lstm_states``
+                # is the post-forward actor state h_t — exactly the
+                # state the policy holds when it next sees new_obs
+                # (obs_{t+1}); the anchor must supervise the policy AT
+                # that state, not at a zero state it never runs from.
+                st = self.locals.get("lstm_states")
+                if st is None:
+                    return True
+                h = st.pi[0]  # (n_layers, n_envs, hidden); GRU: c unused
+                h_np = (h.permute(1, 0, 2).reshape(h.shape[1], -1)
+                        .detach().cpu().numpy())
             push = self.model._bc_push
             for i, info in enumerate(infos):
                 t = info.get("bc_target")
                 if t is None or (dones is not None and dones[i]):
                     continue
-                push(new_obs[i], t, int(info.get("bc_mode", 0)))
+                push(new_obs[i], t, int(info.get("bc_mode", 0)),
+                     h=None if h_np is None else h_np[i])
             return True
 
     return BCAnchorCollectCallback()
