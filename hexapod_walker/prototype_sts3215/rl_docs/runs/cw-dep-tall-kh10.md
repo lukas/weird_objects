@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-11T21:46:45+00:00
+**created**: 2026-08-11T22:06:00+00:00
 
-**pod**: hexapod-mjx-train-0
+**pod**: hexapod-mjx-train-3
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS: height_err_end <=8mm at -15 ref, speed >=0.028, survived 1, slip <=1.8, no park. FAIL modes to distinguish: err flat (charge STILL outbid = pricing refuted at any sane dose) vs walk collapse/park (charge too blunt).
 
-**refused_reason**: init-from checkpoint missing on hexapod-mjx-train-0: /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_tall30.zip. Push it first: ops.sh pushckpt hexapod-mjx-train-0 rl_move/sim/policies/ppo_goal_cw_dep_tall30.zip
+**refused_reason**: hexapod-mjx-train-3 code marker 39d6355ea869cf2fc02ab8625ea9dfecfd7eccb5 != local HEAD 558207d02bf2888b2b7d36dac811b69dd5cc5d53. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
 
