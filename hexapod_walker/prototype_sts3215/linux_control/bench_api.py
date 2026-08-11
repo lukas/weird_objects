@@ -1826,6 +1826,7 @@ class BenchAPI:
                     # under-sizes the next write.
                     q0 = frames[0][0]
                     aborted = False
+                    t_run0 = time.monotonic()
                     with self.drive._lock:
                         worst0, _ = self.drive._max_delta_vs_present(q0)
                     if worst0 > 5.0:
@@ -1862,7 +1863,9 @@ class BenchAPI:
                     tripped = False
                     seg, last_sample = 1, -1.0
                     t0 = time.monotonic()
+                    align_s = t0 - t_run0
                     t_prev = 0.0
+                    nticks, write_s, sample_s = 0, 0.0, 0.0
                     while not aborted and not tripped:
                         if self._demo_abort.is_set():
                             aborted = True
@@ -1876,15 +1879,20 @@ class BenchAPI:
                              / max(ts[seg] - ts[seg - 1], 1e-6))
                         q = [a + (b - a) * f for a, b in
                              zip(qs[seg - 1], qs[seg])]
+                        w0 = time.monotonic()
                         streamer.write(
                             d.bus, q, live,
                             dt=min(max(t - t_prev, 0.03), 0.25),
                             deadband=0.3, max_speed=2000, max_acc=200)
+                        write_s += time.monotonic() - w0
+                        nticks += 1
                         t_prev = t
                         if t - last_sample > 0.3:
                             # feedback sweep costs real bus time —
                             # sample sparsely, mid-motion
+                            s0 = time.monotonic()
                             tracker.sample(d.bus, live)
+                            sample_s += time.monotonic() - s0
                             last_sample = t
                             with self._lock:
                                 self._cal_progress = {
@@ -1895,14 +1903,17 @@ class BenchAPI:
                                     "keyframe": seg, "of": n}
                             tripped = tracker.peak_a > abort_current_a
                         time.sleep(0.05)
+                    stream_s = time.monotonic() - t0
+                    settle_s, worst = 0.0, -1.0
                     if not aborted and not tripped:
                         # settle: ONE direct command to the final pose
                         # + a bounded wait for the servos to arrive.
                         # ease_to_pose's glide + settle-poll loop added
                         # a ~1 s tail even when the residual was tiny.
+                        st0 = time.monotonic()
                         _write_pose(d.bus, qs[-1], live,
                                     speed=900, acc=80)
-                        deadline = time.monotonic() + 1.2
+                        deadline = st0 + 1.2
                         while time.monotonic() < deadline:
                             if self._demo_abort.is_set():
                                 aborted = True
@@ -1915,7 +1926,20 @@ class BenchAPI:
                                 break
                             time.sleep(0.1)
                         tracker.sample(d.bus, live)
+                        settle_s = time.monotonic() - st0
                         tripped = tracker.peak_a > abort_current_a
+                    timing = (f"align {align_s:.2f}s (worst0 "
+                              f"{worst0:.1f}deg) + stream "
+                              f"{stream_s:.2f}s (sched {ts[-1]:.2f}s, "
+                              f"{nticks} ticks, write {write_s:.2f}s, "
+                              f"sample {sample_s:.2f}s) + settle "
+                              f"{settle_s:.2f}s (end err "
+                              f"{worst:.1f}deg) = "
+                              f"{time.monotonic() - t_run0:.2f}s")
+                    print(f"[standup] {mode} {verb} x{speed:g}: "
+                          f"{timing}, peak {tracker.peak_a:.2f}A",
+                          flush=True)
+                    result["timing"] = timing
                     if tripped:
                         result["error"] = guard_msg()
                     elif aborted:
