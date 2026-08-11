@@ -401,6 +401,7 @@ retained; eval numbers are `eval/walk/*` end-of-episode.
 | cw-dep-tall30 | tip1 | −30 | **15.2 mm** | 0.0295 | 1.74 | + k_drag_stance 8000/6/0.25 |
 | cw-dep-tall30h | tip1 | −30 | 17.5 mm | 0.0287 | 1.80 | isolation: NO charge |
 | cw-dep-tall15 | tall30 | −15 | 29.0 mm | 0.0278 | 1.64 | STALL: body ≈ −44 mm |
+| cw-dep-tall15-h1 (T1, 6M) | tall15 | −15 | 51-58 mm (eval med) | 0.0545 | 1.16-1.35 | FAIL: worse+flat, not step-bound |
 
 Findings (three runs, one evening):
 
@@ -421,3 +422,29 @@ Follow-up campaign T1-T5 pre-registered in RL_PLAN.md queue -0.5
 (P2.5): budget rerun, k_height crank, gate-at-reachable-ref, speed
 trade, and the −44 mm workspace probe that decides whether the wall
 is kinematic (stop) or habitual (keep pushing).
+
+**T1 (budget, 08-11) FAIL — the wall is not step-bound, and 3x budget
+made it slightly worse.** `cw-dep-tall15-h1` (6M, identical respec of
+the stalled ref −15 rung). `env/height_err_mm` (training-env metric)
+plateaus by ~1M steps (~36-39mm) and sits flat the remaining 5M —
+not the monotonic-improvement shape the PARTIAL branch needed.
+Harness eval end-state is worse than the 2M parent's own 29mm: gate
+median 51-58mm, own-DR median 57-58mm, close to the tip1 ref-0
+baseline (59.9mm) despite 6M steps at ref −15. Speed improved
+(0.0278→0.0545 m/s, now mid-band) but execution got noisier: one
+gate/det episode spins in place (fwd 0.20m, slip/m 2.66) and
+own-DR/sto gait_valid dropped to 4/6 (two episodes sacrifice 3 legs,
+slip/m 2.6-5.1). No park/flag-leg/falls in any of the 24
+video-checked episodes (terms 0, safety_flags 0) — still the honest
+paddle gait, just at the old crouch depth, now with a bit more
+instability at the height-vs-speed tradeoff. Verdict: budget is not
+the lever; do not schedule further step-count variants on this rung.
+Per the run's own gate, next is **T5** (kinematic/stability probe:
+does a SCRIPTED gait, physically commanded to a shallower stance,
+actually hold −15mm without tipping/losing contact, or does it also
+settle back near −44mm?) before T2/T3 — T5 is NOT YET BUILT (needs a
+small script using `info["height_mm"]`, already exposed per-tick by
+`sim_env.py`, plus an IK-adjusted scripted stance; see
+`linux_control/geometry_plant.py:knee_for_foot_z` for the exact FK/IK
+this robot uses). Flagged as the next concrete task on this line,
+not attempted this cycle to avoid a rushed/wrong physical-limit claim.
