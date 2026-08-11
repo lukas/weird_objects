@@ -176,6 +176,18 @@ re-probe of the WALK kernel (not just the yaw-gated segments) to
 find what still pays for a partial leg-sacrifice, before any new
 mirror arm.
 
+**`cw-omni-mirror2-dr02` — DR exonerated (08-11).** Matched twin,
+identical spec, dr-scale 0.2 vs mirror2's 0.5 (operator question: is
+DR making this task too hard?). Fails IDENTICALLY: det gait_valid
+3/6, same leg-sacrifice pattern (legs [0,2,4] / [1,3] held, fwd
+0.00–0.01m), walking still out-earns sacrifice (646–889 vs 473–485,
+same shape as mirror2's 526–922 vs 399–425); sto gait_valid 6/6 but
+slip_per_m 4–18, 0/6 success both modes both configs. `train/std`
+1.10 at 40M (milder than mirror2's 1.30 but same terminal pathology).
+DR-scale is ruled out as the driver — this is a property of the
+reward/task stack, not an optimization-difficulty knob. Do not queue
+another DR level on this line.
+
 ## Recommended first arm (DISCOVERY, ≤2M steps) — SUPERSEDED, see above
 
 Parent: walk champion (or hist16 twin). Cfg:

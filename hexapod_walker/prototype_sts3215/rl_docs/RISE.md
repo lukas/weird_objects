@@ -277,3 +277,26 @@ clean re-run. Fix landed: `SNAP_ATTRS` += `_score_best`,
 `_rsi_ref_tick0`, plus a rule note that any new per-episode attr
 read in the step path must join the list. First clean arm:
 `cw-stand-rsi2` (rsi1 args, one change = this fix).
+
+**08-11 — `cw-stand-rsi2` reports, RE-CLOSES the reopened verdicts.**
+Mechanism health this time is genuinely clean: `env/rise_rsi` held
+0.48–0.58 the ENTIRE 2M steps (mean 0.52, no decay — the pool-restore
+fix works, no more state corruption). And it still failed the exact
+same way: `env/reward_rise_ref` crashed 0.83→0.02–0.09/tick within
+the first logged window and stayed there; `env/rise_score` never left
+the 0.01–0.02 floor the whole run. Harness confirms: rise 0/6 det+sto,
+worst-foot clearance 146–161mm, video-identical tripod (three legs
+never leave the ground, three legs held 20–146mm up the whole
+episode; duty cycle ~0.8–0.95 on the down legs vs ~0.01–0.13 on the
+up legs). This is a CLEAN read (no corrupted state to blame) that
+reproduces the identical failure. Ruling: the pool-restore bug is
+EXONERATED as the cause of any prior rise verdict; **income-shaping
+and reference-tracking-as-crutch are RE-CLOSED, on stronger evidence
+than before the bug was found.** RSI (state-distribution fix) is
+ALSO now refuted as a fix for this failure mode — it does what it was
+designed to do (episodes visit the paid states) but the visited pay
+still doesn't stick during training. Do not requeue another RSI/
+income/tracking coefficient variant. The only remaining lever is (b):
+structural height↔contact coupling [CODE] — RL_PLAN.md queue item
+2b. No further DISCOVERY arm on the current reward stack until that
+lands.

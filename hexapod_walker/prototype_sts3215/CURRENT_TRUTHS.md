@@ -5,9 +5,10 @@ RL_LOG/archive prose disagrees with a line here, this file wins.
 Update ONLY when a ruling is accepted or hardware produces new
 evidence; keep 50–80 lines. Reading order: RL_GOALS.md → this file →
 RL_PLAN.md → RESEARCH_RULES.md → rl_docs/SIM.md.
-Last regenerated: 2026-08-11 (rise: pool-restore state-loss bug
-(commit 65edba7) reopens the score1/scoreref1-family "CLOSED"
-verdicts as CONFOUNDED; clean re-run `cw-stand-rsi2` in flight).
+Last regenerated: 2026-08-11 (rise: clean re-run `cw-stand-rsi2`
+reports — pool-restore bug exonerated, income-shaping/RSI/reference-
+tracking RE-CLOSED on clean data; only remaining lever is the
+structural height<->contact coupling, CODE).
 
 ## Real robot facts (these outrank any sim result)
 
@@ -112,23 +113,21 @@ verdicts as CONFOUNDED; clean re-run `cw-stand-rsi2` in flight).
   baselined), and the rise bank (separates replay from all cheats).
   Working fallback: stance champion rises → scripted 1.5 s blend →
   walk champion drives (sim-proven, key `7`).
-  **08-11 correction (supersedes the "4 mechanisms CLOSED" ruling
-  below):** the "reward-income shaping / reference-tracking-as-crutch
-  is CLOSED" verdicts for `cw-stand-score1` / `scoreref1` /
-  `scoreref1-dr0(-lowlr/-riseonly)` / `cw-stand-rsi1` are CONFOUNDED,
-  not refuted — the warp/MJX episode-recycle pool was missing the
-  score-stack + RSI per-episode attrs from `SNAP_ATTRS` (commit
-  65edba7), so pool-restored episodes silently inherited another
-  episode's score ratchet / ramp-clock, and score/ref income stopped
-  paying as pooled generations took over regardless of the true
-  behavior. None of those arms were paid as designed on the GPU
-  training path. Fix is landed; clean re-run in flight:
-  `cw-stand-rsi2`. Do not cite the pre-fix arms as evidence either
-  way until rsi2 (or a re-run of the others) reports clean. Detail +
-  the original (now-superseded) closure text: rl_docs/RISE.md.
-  Only remaining lever if rsi2 also fails clean: a structural
+  **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
+  the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
+  was silently dropping the score-stack + RSI per-episode attrs, so
+  those arms weren't paid the reward they were designed to get).
+  `cw-stand-rsi2` is the clean re-run on the fixed pool and it
+  REPORTS: `env/rise_rsi` held 0.48–0.58 the entire 2M steps (fix
+  confirmed working, no more corruption) yet `env/reward_rise_ref`
+  and `env/rise_score` still flatlined exactly as before and the
+  harness shows the identical tripod cheat (0/6 valid_plant det+sto,
+  worst-foot clearance 146–161mm). Ruling: the pool bug is
+  EXONERATED as the cause; income-shaping, reference-tracking-as-
+  crutch, AND RSI-as-a-fix are all RE-CLOSED, now on clean evidence.
+  Detail: rl_docs/RISE.md. The only remaining lever is a structural
   coupling between the height goal and measured foot contact (CODE,
-  not yet built).
+  not yet built) — RL_PLAN queue item 2b.
 - Yaw: price escalation on a command-invariant drift is CLOSED. The
   new mechanism set is landed and its TURN bank PASSES (08-10):
   signed rotation income (k_yaw_prog), heading-hold drift charge
