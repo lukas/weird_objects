@@ -1,6 +1,6 @@
 # TURN — commanded yaw without the structural drift
 
-Status date: 2026-08-10. Owner problem: RL_PLAN queue item 0 (unified
+Status date: 2026-08-11. Owner problem: RL_PLAN queue item 0 (unified
 joystick policy — turning). Companion to rl_docs/RISE.md.
 
 ## The failure being solved
@@ -105,6 +105,48 @@ reading: the drift is baked into the WALK GAIT itself (an asymmetric
 limb-phase pattern learned once, early, off-center), not into the
 turn reward's shape or price — no reward retuning can out-argue a
 structural asymmetry in the policy's default gait.
+
+## Mirror-symmetry landed; hardening run hit a reward bug, not a verdict (08-11)
+
+`train.mirror_loss_coef=1.0` landed 08-10 (`rl_move/sim/mirror.py` +
+`MirrorPPO`), discovery probe `cw-omni-mirror1` PASSED its
+mechanism-health gate (mirror_sym_loss fell to <0.5x peak, reward
+climbed cleanly, 0 NaN). The 40M-step hardening follow-up
+`cw-omni-mirror1-r1` does **NOT** confirm or refute the mirror
+hypothesis: the walk gait itself collapsed into a stand-still/
+march-in-place exploit before turn-tracking could be judged.
+Harness evidence (own-DR + DR0, vs frozen `cw-arch-hist16-dep1`
+same-recipe baseline): forward travel 0.68m med -> 0.01m med per 15s
+episode, gait_valid 6/6 -> 3/6, slip_per_m 1.48 -> 3.85 med. Per-
+episode returns show WHY: frozen episodes (gait_valid False, ~0.004m
+travel) scored ~1130, walking episodes (gait_valid True, ~0.02m
+travel) scored 500-860 — **standing still paid more than walking**
+under this arm's stack. `train/std` also climbed monotonically
+0.39->1.69 over the full 40M (health alarm, RESEARCH_RULES), in step
+with `rollout/ep_rew_mean` peaking ~640 near 8-10M then falling to
+~320-350 by 40M.
+
+Likely cause (untested, name it before the next launch): this arm
+combined a very slow commanded speed band
+(`goal.walk_speed_min/max_m_s=0.05/0.06`) with a large heading-hold
+drift charge (`reward.k_yaw_still=50`) and `walk_turn_in_place_frac
+=0.30` — the walk-progress income term is tiny at that speed while
+the drift/park-avoidance terms stay large, so parking beat walking
+by construction (the exact reward-routing bug RESEARCH_RULES warns
+about). The passing TURN/OMNI banks check reward ORDERING on fixed
+scripted behaviors (walk/turn/drift/park within ~30% of each other)
+but never checked a PPO-found near-frozen march against a real walk
+at THIS speed band + k_yaw_still — that gap let the exploit through.
+
+**Next (before any re-hardening):** (1) add a stall/freeze-vs-walk
+ordering check to the OMNI bank at the walk_speed_min/max and
+k_yaw_still this arm used (freeze must lose, not tie); (2) either
+widen the commanded speed band or re-balance k_yaw_still so walk
+income dominates parking at low speed; (3) re-run the mirror
+hardening step only after that bank passes. Do not just re-run more
+steps on the identical config (two-miss rule) and do not read this
+FAIL as evidence against mirror-symmetry — the mechanism was never
+exercised by a real gait in this run.
 
 ## Recommended first arm (DISCOVERY, ≤2M steps) — SUPERSEDED, see above
 
