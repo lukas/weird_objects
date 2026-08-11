@@ -83,7 +83,10 @@ WALK_SPEED = 0.05          # m/s — inside the trained 0.05-0.06 band
 WALK_SECONDS = 6.0
 RUNAWAY_END_DEG = 10.0     # |roll| at episode end that counts as runaway
 FALL_TAIL_DEG = 10.0       # |roll| still there AFTER the episode = down
-MAX_RECOVERIES = 2         # unattended falls tolerated before aborting
+MAX_RECOVERIES = 4         # unattended falls tolerated before aborting
+                           # (raised 2->4 08-11 eve: fall-rate per policy IS
+                           # the measurement; each recovery limps on trip so
+                           # falls stay low-energy)
 DEFAULT_STEPS = ("info", "ab", "tape", "rot60", "stand", "turnsign", "hold")
 # rise/sit: single transitions for composed --only sessions (e.g. a
 # belly-start unattended run: info rise ab turnsign sit)
@@ -426,6 +429,21 @@ class Session:
                   f"{json.dumps(res)[:200] if res else 'no result'}")
         return ok
 
+    def _wait_demo(self, timeout_s: float = 90.0) -> dict:
+        """Poll /api/pose until the current demo (safe_zero, zero_stand…)
+        stops running; returns the final demo block. Demos are invisible
+        to HexapodClient.wait_idle, which only watches the calibrate/RL
+        runner."""
+        t_end = time.time() + timeout_s
+        demo: dict = {}
+        while time.time() < t_end:
+            d = self.req("GET", "/api/pose")
+            demo = d.get("demo") or {}
+            if not demo.get("running"):
+                return demo
+            time.sleep(1.0)
+        return demo
+
     def _maybe_recover(self, stats: dict) -> None:
         """08-11 --camera lesson: with nobody at the bench, one fall
         poisons every later step (fallen walks, grinding turns, board
@@ -445,12 +463,38 @@ class Session:
             raise SessionAbort("too many falls")
         self.announce("robot looks down. recovering: safe zero, "
                       "then stand back up.")
-        r = self.req("POST", "/api/safe_zero", {})
-        self.c.wait_idle(timeout_s=60.0)
-        if not r.get("ok", True):
-            raise SessionAbort("safe_zero refused")
+        # force=true: a fall by definition leaves the body past the IMU
+        # tilt gate, so the un-forced call ALWAYS refuses right when
+        # recovery is needed (19:13 session died to exactly this).
+        # force bypasses ONLY the tilt gate — the stall / unexpected-force
+        # limp protection stays armed throughout the motion.
+        r = self.req("POST", "/api/safe_zero", {"force": True})
+        demo = self._wait_demo(timeout_s=60.0)
+        if not r.get("ok", True) or "error" in str(demo.get("status", "")).lower():
+            raise SessionAbort(f"safe_zero refused/errored: "
+                               f"{demo.get('status', r)}")
         if not self._transition("stand"):
-            raise SessionAbort("recovery stand-up failed")
+            # 08-11 evening: the learned rise trips tilt_roll ~10 deg at
+            # the same curl tick 3/3 from clean zero — a deterministic
+            # sim-to-real gap (cw-stand-riserock1 queued for it). Fall
+            # back to the SCRIPTED validated plant stand so one fall
+            # doesn't end the whole session.
+            self.announce("learned stand tripped. using the scripted "
+                          "stand glide instead.")
+            z = self.req("POST", "/api/zero", {"pose": "stand"})
+            # /api/zero runs as a DEMO (zero_stand), which wait_idle does
+            # NOT cover — 19:16 session read a mid-glide pose, failed the
+            # preflight, and aborted while the robot was still moving.
+            # Poll the demo itself, and surface ITS error (that session's
+            # real failure was 'LIMP — L2 hip at 72 C', not a bad pose).
+            demo = self._wait_demo(timeout_s=90.0)
+            status = str(demo.get("status", ""))
+            if "error" in status.lower():
+                raise SessionAbort(f"scripted stand errored: {status}")
+            pf = self.req("GET", "/api/rl/preflight?mode=walk")
+            if not z.get("ok", True) or not pf.get("ok", True):
+                raise SessionAbort("recovery stand-up failed (learned "
+                                   "AND scripted)")
         self.summary.setdefault("recoveries", []).append(
             {"after": stats.get("tag"), "t_unix": round(time.time(), 2)})
 
@@ -582,6 +626,23 @@ class Session:
             print("    REFUSED: stance weights carry no goal profile "
                   "(stale copy) — see the stand step notes.")
             return
+        # 08-11 19:07 lesson: the session started with L4 knee 78 deg off
+        # zero (a stalled safe_zero leg, quietly hold-hunting) and the
+        # rise curled asymmetrically straight into a tilt trip. In --auto
+        # nobody is there to eyeball the pose, so when the stand
+        # preflight rejects it, run safe_zero OURSELVES and re-check
+        # before committing to the rise.
+        pf = self.req("GET", "/api/rl/preflight?mode=stand")
+        if self.auto and not pf.get("ok", True):
+            self.announce("pose is not belly zero. running safe zero "
+                          "before the stand-up.")
+            r = self.req("POST", "/api/safe_zero", {})
+            self._wait_demo(timeout_s=60.0)
+            pf = self.req("GET", "/api/rl/preflight?mode=stand")
+            if not r.get("ok", True) or not pf.get("ok", True):
+                raise SessionAbort(
+                    "start pose is not belly zero even after safe_zero: "
+                    + json.dumps(pf)[:160])
         if not self.confirm("RL STAND UP (rise only)", countdown=8):
             return
         if not self._transition("stand") and self.auto:

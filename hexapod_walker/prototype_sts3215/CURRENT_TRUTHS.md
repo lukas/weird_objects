@@ -285,8 +285,15 @@ both handoffs compose).
   hardware body rocks over the tucked legs, sim's doesn't. GENUINE
   sim-to-real rocking gap; the 10° trip is CORRECT (raising it invites
   a tip). Fix is training-side (rocking/tilt DR on rise ticks,
-  loaded-knee actuator axis) — do NOT bump the trip threshold and do
-  NOT blind-retry STAND on hardware.**
+  loaded-knee actuator axis) — do NOT bump the trip threshold.
+  08-11 eve round 2 UPGRADED this from "one data point" to
+  DETERMINISTIC: 5/5 tilt_roll trips, every one at tick ~226–228
+  (mid-curl) with roll 10.1–10.6°, two of them from VERIFIED clean
+  zero (pose delta 0.5°, preflight green) — start pose exonerated.
+  `cw-stand-riserock1` (rocking-DR arm) is queued in the orchestrator
+  backlog for it; scripted `/api/zero pose=stand` is the working
+  hardware stand-up until it lands. Do NOT retry learned STAND on
+  hardware before a riserock-gated checkpoint exists.**
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so
@@ -395,8 +402,10 @@ both handoffs compose).
   logged in the episode CSV for on-hardware replay checks. **FIRST
   off-wedge hardware run HAPPENED 08-11 22:48 (tip1, BACKWARD 6 s):
   the port WORKS (rot60:true, k engaged, terminal result logged) but
-  the walk FELL — peak 27° roll, tilt trip. One data point; needs reps
-  after the takeoff-transient story (below) is addressed.**
+  the walk FELL — peak 27° roll, tilt trip. **08-11 eve round 2: tip1
+  BACKWARD walked CLEAN (rode a 16.7° takeoff transient to tail 1.5°,
+  full 6 s, ends standing on camera) — rot60 off-wedge is 1 clean /
+  1 fall.** More reps after the takeoff-transient arm lands.
 - Tipped-start DR is default-ON everywhere (operator ruling 08-10,
   "ideally all runs would learn this capability", after the deployed
   walk's hardware runaway roll): `dr.tipped_start_prob=0.30` (scaled
@@ -419,9 +428,18 @@ both handoffs compose).
   roll transient right after gait start — sometimes fully recovered
   (vref1 full-6s walk ending dead level, tail 0.9°), sometimes a fall
   (vref1's 3rd runaway; tip1 backward). Judge walks by fell/tail, not
-  the peak-based "runaway" flag. Open: honest fell-rate A/B with the
-  unattended recovery loop; takeoff-transient hardening arm in sim
-  (inject the measured 20–25° start roll); wz sign audit.**
+  the peak-based "runaway" flag. **08-11 eve round 2 (honest terminal
+  results + recovery loop, on camera): vref1 FELL 3/3 (two fwd, one
+  back capsize) while tip1 walked CLEAN 1/1 — backward, at that. tip1
+  is the deploy champion on current hardware evidence; vref1's
+  "zero-erosion ACCEPTED" status is a SIM contract fact only. Both
+  sim answers are queued in the orchestrator backlog:
+  `cw-dep-tip1-takeoff25` (tipped-start DR raised to the measured
+  20–25° regime) and `cw-stand-riserock1`. Still open: wz sign audit
+  (three sessions in a row ended before reaching it); session round 2
+  ended on a thermal stop — L2 hip 72 °C during a recovery stand
+  glide (falls + recoveries stack heat; robot limped itself, cooled
+  to 40 °C, 18/18 healthy).**
 - Quad-hold is solid but mixing erodes walk (four dose points) —
   deploy-time specialist, never a mixed diet. FOUR-LEG WALKING is a
   sanctioned NEW experiment line (operator 08-11 afternoon): weight

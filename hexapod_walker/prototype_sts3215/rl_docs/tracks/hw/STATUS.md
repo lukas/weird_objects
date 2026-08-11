@@ -9,6 +9,33 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-11 eve session 2 (19:07–19:19, four camera sessions,
+  bench_blast_20260811_19*): learned rise is DETERMINISTIC-FAIL on
+  hardware** — 5/5 tilt_roll trips (incl. 22:42's), every one at tick
+  ~227 (~9 s, mid-curl) with roll 10.1–10.6° and currents ≤0.27 A.
+  From verified clean zero (max pose delta 0.5°), so start pose is
+  exonerated; sim keeps the same rise ≤1.7° roll. This is THE stand
+  blocker; `cw-stand-riserock1` (rocking-DR arm) queued in the
+  orchestrator backlog for it. Scripted `POST /api/zero pose=stand`
+  is the working stand-up meanwhile.
+- **A/B fell-rates finally honest (on camera): vref1 fell 3/3, tip1
+  clean 1/1 — and that one was BACKWARD**, tip1's first clean
+  off-wedge rot60 walk (rode a 16.7° takeoff transient, tail 1.5°,
+  ends standing in frame). vref1's falls all follow the same 20–25°
+  takeoff-transient-then-capsize shape (`cw-dep-tip1-takeoff25`
+  queued for exactly this regime). tip1 is the deploy champion on
+  tonight's evidence.
+- **Thermal budget is real:** the second recovery stand-glide of the
+  19:16 session limped on **L2 hip at 72 °C** (shutoff 65). Falls +
+  recoveries stack heat fast; back to 40 °C within minutes limped.
+  Session ended there; robot parked limped/belly-down, 18/18 healthy.
+- Recovery loop hardened from tonight's failures: recovery safe_zero
+  now `force=true` (a fall always trips the tilt gate), scripted-stand
+  fallback when the learned rise trips, demo-aware waits (`/api/zero`
+  and `safe_zero` run as demos that `wait_idle` never saw — one abort
+  came from reading a mid-glide pose), auto-safe_zero when the opening
+  pose isn't belly zero (an earlier stalled safe_zero left L4 knee 78°
+  off and quietly hold-hunting — the "twitching leg").
 - **08-11 eve: fully-unattended camera bench IS the workflow now**
   (`bench_blast --go --auto --camera 0`: iMac camera records the whole
   session, exact unix sync, video_review cuts the sheets; fall-detect →
@@ -37,18 +64,17 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Next
 
-- Sim-side (launchable): (1) rise-tick rocking robustness — train the
-  stand specialist with roll/tilt perturbation DR during the curl
-  (loaded-knee actuator params as a second axis); gate = rise under
-  ±10° rocking injections. (2) Takeoff-transient hardening for walk —
-  episodes starting at the plant with the measured 20–25° takeoff roll
-  injected; both policies must recover like vref1-r1-184741 did.
-  (3) rot60 backward: one fall is one data point — needs reps, but
-  after (2).
-- Bench (cheap, unattended OK now): more fwd A/B reps with the
-  recovery loop to get honest fell-rates per policy; wz turn-sign
-  audit (still open — both attempts died to the brownout/abort);
-  learned-lower retry ONLY after the over_load trip is understood.
+- Sim-side: **QUEUED in the orchestrator backlog 08-11 eve** —
+  `cw-stand-riserock1` (rise-tick rocking DR, code-first) and
+  `cw-dep-tip1-takeoff25` (tipped-start DR raised to the measured
+  20–25° takeoff regime, warm tip1). rot60 backward now has one fall
+  AND one clean walk — more reps after takeoff25.
+- Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
+  stopped for the night per safety rules. When resumed: wz turn-sign
+  audit (STILL open — three sessions in a row died before reaching
+  it), more A/B reps (vref1 3/3 fallen — consider dropping it from
+  the rotation), learned-lower retry ONLY after the over_load trip is
+  understood.
 - Runaway metric fix in bench_blast: split "recovered transient"
   (peak high, tail level) from "fell" (terminal result / tail high).
 - Gait cleanup (anti-scrape): P0 diagnostic DONE 08-11 late (tilt

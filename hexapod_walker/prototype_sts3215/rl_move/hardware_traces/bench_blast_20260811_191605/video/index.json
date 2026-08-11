@@ -1,0 +1,46 @@
+{
+ "video": "rl_move/hardware_traces/bench_blast_20260811_191605/camera.mp4",
+ "session": "rl_move/hardware_traces/bench_blast_20260811_191605",
+ "sync": {
+  "video_of_sync_s": -0.01,
+  "how": "exact (camera t0_unix)"
+ },
+ "video_duration_s": 158.4,
+ "items": [
+  {
+   "event": "walk vref1-r1",
+   "sheet": "walk_vref1-r1_sheet.jpg",
+   "video_t0_s": 5.1,
+   "video_t1_s": 20.2,
+   "frames": 31
+  },
+  {
+   "event": "learned stand up",
+   "sheet": "learned_stand_up_sheet.jpg",
+   "video_t0_s": 35.1,
+   "video_t1_s": 46.1,
+   "frames": 23
+  },
+  {
+   "event": "walk tip1-r1",
+   "sheet": "walk_tip1-r1_sheet.jpg",
+   "video_t0_s": 76.2,
+   "video_t1_s": 91.5,
+   "frames": 31
+  },
+  {
+   "event": "walk vref1-r2",
+   "sheet": "walk_vref1-r2_sheet.jpg",
+   "video_t0_s": 95.7,
+   "video_t1_s": 124.2,
+   "frames": 57
+  },
+  {
+   "event": "learned stand up",
+   "sheet": "learned_stand_up_sheet.jpg",
+   "video_t0_s": 137.3,
+   "video_t1_s": 148.3,
+   "frames": 23
+  }
+ ]
+}

@@ -1,0 +1,18 @@
+{
+ "video": "rl_move/hardware_traces/bench_blast_20260811_191318/camera.mp4",
+ "session": "rl_move/hardware_traces/bench_blast_20260811_191318",
+ "sync": {
+  "video_of_sync_s": 0.0,
+  "how": "exact (camera t0_unix)"
+ },
+ "video_duration_s": 21.8,
+ "items": [
+  {
+   "event": "walk vref1-r1",
+   "sheet": "walk_vref1-r1_sheet.jpg",
+   "video_t0_s": 5.3,
+   "video_t1_s": 22.0,
+   "frames": 34
+  }
+ ]
+}

@@ -1,0 +1,18 @@
+{
+ "video": "rl_move/hardware_traces/bench_blast_20260811_191050/camera.mp4",
+ "session": "rl_move/hardware_traces/bench_blast_20260811_191050",
+ "sync": {
+  "video_of_sync_s": 0.0,
+  "how": "exact (camera t0_unix)"
+ },
+ "video_duration_s": 24.2,
+ "items": [
+  {
+   "event": "learned stand up",
+   "sheet": "learned_stand_up_sheet.jpg",
+   "video_t0_s": 7.6,
+   "video_t1_s": 18.6,
+   "frames": 23
+  }
+ ]
+}
