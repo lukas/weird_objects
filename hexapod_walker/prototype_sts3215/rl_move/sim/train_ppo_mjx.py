@@ -381,11 +381,6 @@ def main(argv: list[str] | None = None) -> int:
                     "--gru cannot warm-start from an MLP checkpoint "
                     f"({args.init_from}); GRU runs start from scratch "
                     "or from a previous GRU checkpoint")
-            if net_arch != [128, 128]:
-                raise SystemExit(
-                    "--net-arch has no effect on a plain --init-from "
-                    "warm start (the checkpoint carries its own "
-                    "architecture); drop the flag or start from scratch")
             model = algo_cls.load(args.init_from, env=venv,
                                   device=args.device,
                              n_steps=args.n_steps,
@@ -394,6 +389,25 @@ def main(argv: list[str] | None = None) -> int:
                              ent_coef=args.ent_coef,
                              target_kl=(args.target_kl or None),
                              tensorboard_log=tb_dir)
+            # A plain --init-from warm start keeps the checkpoint's own
+            # architecture. --net-arch used to be a hard error here, but
+            # respec-cloned continuations legitimately carry the SAME
+            # value the checkpoint was built with (08-11: every retry of
+            # cw-uni-flag-a1-h1 crashed at 0 steps on this). Accept a
+            # matching --net-arch; refuse only a genuine mismatch.
+            if net_arch != [128, 128]:
+                ck = getattr(model.policy, "net_arch", None)
+                if isinstance(ck, dict):  # SB3 dict(pi=..., vf=...) form
+                    ck = ck.get("pi", ck.get("vf"))
+                if ck is not None and list(ck) != net_arch:
+                    raise SystemExit(
+                        f"--net-arch {net_arch} conflicts with the "
+                        f"checkpoint's architecture {list(ck)} on a plain "
+                        "--init-from warm start (the checkpoint carries "
+                        "its own architecture); drop the flag or start "
+                        "from scratch")
+                print(f"[mjx-train] --net-arch {net_arch} matches the "
+                      "warm-start checkpoint; proceeding")
             print(f"[mjx-train] warm start from {args.init_from}")
     else:
         model = algo_cls(
