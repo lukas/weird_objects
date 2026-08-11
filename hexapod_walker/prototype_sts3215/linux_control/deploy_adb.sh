@@ -65,6 +65,12 @@ for f in __init__.py env.py robot_state.py attitude.py safety.py \
          config.py config.yaml body_ik.py control_loop.py logger.py; do
   adb push "$SRC/../rl_move/$f" "$REMOTE/rl_move/"
 done
+# rot-60 canonicalizer (numpy-only; sim/__init__.py is a bare docstring)
+# — full-circle walk headings for rl_policy.py (RL_PLAN queue 2.1).
+adb shell "mkdir -p '$REMOTE/rl_move/sim'"
+for f in __init__.py rot60.py; do
+  adb push "$SRC/../rl_move/sim/$f" "$REMOTE/rl_move/sim/"
+done
 # Full setup bundle (demos + bench helpers) for Motors/Demos tabs.
 adb push "$SRC/urt2_setup/." "$REMOTE/urt2_setup/"
 adb push "$SRC/urt2_setup/." "$REMOTE/linux_control/urt2_setup/"

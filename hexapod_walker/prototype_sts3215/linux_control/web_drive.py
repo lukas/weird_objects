@@ -477,7 +477,10 @@ class Handler(BaseHTTPRequestHandler):
                     mode="walk",
                     vx=float(data.get("vx", 0.03)),
                     vy=float(data.get("vy", 0.0)),
-                    duration_s=float(data.get("duration_s", 6.0))))
+                    duration_s=float(data.get("duration_s", 6.0)),
+                    # rot-60 canonicalizer: default ON (exact no-op for
+                    # forward-wedge commands); false = naked A/B baseline.
+                    rot60=bool(data.get("rot60", True))))
         elif path == "/api/rl/set_stance":
             try:
                 data = json.loads(body or "{}") if body else {}

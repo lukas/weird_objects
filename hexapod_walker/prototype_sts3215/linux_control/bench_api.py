@@ -1488,7 +1488,8 @@ class BenchAPI:
                 "source": (meta.get("source") or "").rsplit("/", 1)[-1]}
 
     def rl_policy_move(self, *, mode: str = "stand", vx: float = 0.03,
-                       vy: float = 0.0, duration_s: float = 6.0) -> dict:
+                       vy: float = 0.0, duration_s: float = 6.0,
+                       rot60: bool = True) -> dict:
         """Run a trained RL policy: stand up / lower / walk.
 
         Async (demo-thread slot, poll ``rl_state``, abort via ``rl_stop``).
@@ -1530,7 +1531,7 @@ class BenchAPI:
             if mode == "walk":
                 self._demo_params.update(
                     vx=float(vx), vy=float(vy),
-                    duration_s=float(duration_s))
+                    duration_s=float(duration_s), rot60=bool(rot60))
             self._cal_result = None
             self._cal_progress = {"msg": self._demo_status}
         self._set_activity("rl_policy", label)
@@ -1548,7 +1549,7 @@ class BenchAPI:
                     d, mode, on_progress=_on_progress,
                     abort_check=self._demo_abort.is_set,
                     vx=float(vx), vy=float(vy),
-                    duration_s=float(duration_s))
+                    duration_s=float(duration_s), rot60=bool(rot60))
                 if gen != self._demo_gen:
                     return
                 with self._lock:

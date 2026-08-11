@@ -331,9 +331,37 @@ makes heading-agnostic driving native (the operator points the stick;
 the body never needs to yaw). If turn ever re-scopes, rot-60 also
 gives 6 free discrete body orientations by pure relabeling.
 
-NEXT (the only remaining work on this blocker, [CODE], deploy-side):
-port the ~60-line numpy canonicalizer into the robot runner's obs/
-action path (same contract: reads vx/vy_ref from the obs frame,
-per-episode sector state w/ hysteresis + zero-cmd hold) + a
-replay-parity check against rot60.py. Until then eval-side omni is
-covered by `eval_drive --rot60` / `eval_checkpoint --rot60`.
+DEPLOY-SIDE PORT — LANDED 08-11 (later cycle). Design: no ported
+copy. `linux_control/rl_policy.py` wraps `rot60.Rot60Policy` ITSELF
+through a NumpyPolicy shim (`make_walk_canonicalizer`), so runner and
+sim share one implementation by construction; `deploy_adb.sh` now
+ships `rl_move/sim/{__init__.py,rot60.py}` (both verified
+numpy/docstring-only by the test bank — the board has no
+torch/mujoco). Contract as specified: reads vx/vy_ref from obs
+indices 68:70, fresh per-episode sector state, hysteresis +
+zero-cmd hold (all rot60.py's own code paths).
+
+Deployment safety properties:
+- Default ON, but k=0 is a BIT-EXACT no-op (walk obs now built
+  float32, the training/export dtype) — hardware-validated forward
+  behavior is unchanged to the last bit.
+- `rot60=false` on `/api/rl/walk` runs the naked policy as the A/B
+  baseline for a bench parity session; in that mode (or if rot60.py
+  is missing on the board) off-wedge commands are REFUSED
+  pre-preflight instead of running a heading the naked policy
+  provably freezes/degenerates on.
+- Every walk tick logs `rot60_k` (last CSV column; obs columns stay
+  REAL-frame), so any hardware episode can be replay-checked offline:
+  logged obs -> make_walk_canonicalizer must reproduce logged act*.
+
+Replay-parity check: `rl_move/tests/test_rot60_runner.py` (6 tests,
+green; full suite 114 passed / 1 skip) — locks the runner's 72-wide
+obs layout block-by-block against rot60's slices, forward-wedge
+bit-exactness, full-circle sweep + boundary-dither + zero-hold parity
+vs manually composed rot60 primitives using the REAL deployed
+`rl_walk_weights.json` (= ppo_goal_cw_dep_vref1_r1), the backward
+sector selection, the wedge fallback, and the numpy-only import
+chain. Remaining work on this blocker is BENCH-ONLY: an operator
+walk session exercising lateral/backward headings (start with
+rot60=false forward, then wrapped forward — should be identical —
+then off-wedge).

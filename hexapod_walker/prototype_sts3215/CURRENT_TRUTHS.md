@@ -248,8 +248,17 @@ both handoffs compose).
   commands (slip 7–11/m, gait_valid 3–5/6); wrapped: gait_valid
   24/24, slip 1.3–1.6. The four training collapses were PPO failing
   to DISCOVER rotated gaits — structural fix, no omni arm needed.
-  Remaining [CODE, deploy-side]: port the canonicalizer into the
-  robot runner + replay-parity check (rl_docs/TURN.md tail).
+  **Deploy-side port LANDED 08-11 (later cycle): the robot runner's
+  walk mode wraps rot60.Rot60Policy itself** (no ported copy —
+  `linux_control/rl_policy.py make_walk_canonicalizer`, rot60.py
+  shipped by deploy_adb.sh, numpy-only verified). Default ON, k=0 is
+  a BIT-EXACT no-op for forward-wedge commands (proven contract
+  untouched); off-wedge commands are refused if the wrapper is
+  missing/disabled. Replay-parity locked by
+  `rl_move/tests/test_rot60_runner.py` (obs-layout, full-circle +
+  hysteresis parity, real deployed weights); per-tick `rot60_k`
+  logged in the episode CSV for on-hardware replay checks. Awaiting
+  bench validation only (attempt #2).
 - Tipped-start DR is default-ON everywhere (operator ruling 08-10,
   "ideally all runs would learn this capability", after the deployed
   walk's hardware runaway roll): `dr.tipped_start_prob=0.30` (scaled

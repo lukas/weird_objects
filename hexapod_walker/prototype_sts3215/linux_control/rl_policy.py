@@ -49,6 +49,21 @@ from rl_move.robot_state import (                          # noqa: E402
 )
 from rl_move.safety import AXIS_LIMITS_DEG, SafetyLayer    # noqa: E402
 
+# Rot-60 canonicalizer (08-11, RL_PLAN queue 2.1 deploy-side port).
+# numpy-only module, shipped by deploy_adb.sh. The wrapper is an exact
+# no-op (k=0) for commands within the trained +/-30 deg forward wedge,
+# and covers the FULL CIRCLE of headings by the robot's exact hexagonal
+# symmetry (rl_move/sim/rot60.py docstring; proved by test_rot60.py).
+# If the module is missing on the board, walk falls back to refusing
+# any command outside the trained wedge instead of running a heading
+# the naked policy is known to freeze/degenerate on.
+try:
+    from rl_move.sim.rot60 import Rot60Policy              # noqa: E402
+    _ROT60_OK = True
+except Exception:                                          # pragma: no cover
+    Rot60Policy = None
+    _ROT60_OK = False
+
 WEIGHTS_PATH = _HERE / "rl_policy_weights.json"        # stance (obs 68)
 WALK_WEIGHTS_PATH = _HERE / "rl_walk_weights.json"     # walk (obs 72)
 HZ = 25.0
@@ -79,7 +94,14 @@ LOWER_START_TOL_DEG = 25.0   # near the captured plant stance
 #   holds, then ramps back to 0 for the last second and HOLDS the pose;
 # - speed clamped to the trained band; duration clamped to 20 s;
 # - the 4 walk obs dims are [vx_ref, vy_ref, vx_meas, vy_meas]/0.15,
-#   with meas := ref exactly as in training (contract-exact).
+#   with meas := ref exactly as in training (contract-exact);
+# - FULL-CIRCLE headings via the rot-60 exact-equivariance
+#   canonicalizer (rl_move/sim/rot60.py, 08-11): obs rotated + legs
+#   relabeled into the trained +/-30 deg wedge, action un-relabeled.
+#   Exact no-op (k=0) for forward-wedge commands, so the proven
+#   forward contract is bit-identical; off-wedge commands are REFUSED
+#   if the canonicalizer is disabled/missing (naked policy freezes or
+#   degenerates there — sim-proven, logs/rot60/).
 WALK_VEL_SCALE = 0.15
 WALK_SPEED_MAX = 0.06        # trained command band is 0.05-0.06 m/s
 WALK_HOLD_S = 1.0
@@ -117,6 +139,43 @@ class NumpyPolicy:
         h = np.tanh(self.W1 @ obs + self.b1)
         h = np.tanh(self.W2 @ h + self.b2)
         return np.clip(self.Wo @ h + self.bo, -1.0, 1.0)
+
+
+class _Rot60ModelShim:
+    """Adapts NumpyPolicy.act to the SB3 ``predict()`` Rot60Policy calls.
+
+    NumpyPolicy is deterministic; the flag is accepted and ignored.
+    """
+
+    def __init__(self, policy: NumpyPolicy):
+        self._policy = policy
+
+    def predict(self, obs, deterministic: bool = True, **_kw):
+        return self._policy.act(np.asarray(obs, dtype=float)), None
+
+
+def make_walk_canonicalizer(policy: NumpyPolicy, cfg: dict):
+    """Rot-60 wrapper EXACTLY as the walk loop uses it (None if absent).
+
+    Single source of truth: this wraps rl_move.sim.rot60.Rot60Policy
+    itself (no ported copy to drift). It reads vx/vy_ref straight from
+    obs indices 68:70 — the same contract the sim evals run — and keeps
+    per-episode sector state with hysteresis + zero-command hold.
+    tests/test_rot60_runner.py locks this path against rot60.py.
+    """
+    if not _ROT60_OK:
+        return None
+    ts = float(cfg_get(cfg, "obs", "tilt_scale", default=0.2))
+    return Rot60Policy(_Rot60ModelShim(policy), tilt_scale=ts)
+
+
+def heading_in_trained_wedge(vx: float, vy: float,
+                             wedge_deg: float = 30.0) -> bool:
+    """True if the commanded heading is inside the trained +/-30 deg
+    forward wedge (zero command counts as inside)."""
+    if math.hypot(vx, vy) < 1e-6:
+        return True
+    return abs(math.degrees(math.atan2(vy, vx))) <= wedge_deg
 
 
 def _height_ref(mode: str, t: float) -> float:
@@ -187,7 +246,13 @@ class _EpisodeLog:
             + [f"cmd{j}_deg" for j in range(N_JOINTS)]
             + [f"act{j}" for j in range(N_JOINTS)]
             + [f"cur{j}_a" for j in range(N_JOINTS)]
-            + [f"obs{k}" for k in range(self.obs_dim)])
+            + [f"obs{k}" for k in range(self.obs_dim)]
+            # appended LAST so all prior column indices stay stable for
+            # existing offline parsers. Walk mode: rot-60 sector index
+            # (obs columns hold the REAL-frame obs; replaying them
+            # through make_walk_canonicalizer must reproduce act* —
+            # the offline replay-parity contract).
+            + ["rot60_k"])
         try:
             from event_log import emit
             emit("rl_episode", f"{mode} started ({self.csv_path.name})",
@@ -197,7 +262,7 @@ class _EpisodeLog:
 
     def tick(self, t: float, state, action, q_cmd_rad, goal,
              vx_r: float, vy_r: float, max_cur: float,
-             obs=None, phase: str = "run") -> None:
+             obs=None, phase: str = "run", rot60_k=None) -> None:
         cur = (state.servo_current.tolist()
                if state.servo_current is not None else [None] * N_JOINTS)
         obs_cols = ([round(float(o), 4) for o in obs]
@@ -216,7 +281,8 @@ class _EpisodeLog:
             + ([round(float(a), 4) for a in action]
                if action is not None else [""] * N_JOINTS)
             + ["" if c is None else round(float(c), 3) for c in cur]
-            + obs_cols)
+            + obs_cols
+            + ["" if rot60_k is None else int(rot60_k)])
         self._n += 1
         if self._n % 25 == 0:      # survive a mid-run kill: flush each ~1 s
             self._f.flush()
@@ -321,12 +387,15 @@ def preflight(bus, mode: str) -> tuple[bool, str, dict]:
 
 def run_policy_move(drive, mode: str, *, on_progress=None,
                     abort_check=None, vx: float = 0.03, vy: float = 0.0,
-                    duration_s: float = 6.0) -> dict:
+                    duration_s: float = 6.0, rot60: bool = True) -> dict:
     """Blocking policy episode. Call from a worker thread.
 
     ``drive`` is web_drive's DriveController (bus + arm state).
     ``mode`` is "stand", "lower" or "walk". Walk extras: body-frame
-    vx/vy (m/s, clamped to the trained band) and duration_s.
+    vx/vy (m/s, clamped to the trained band; ANY heading with the
+    rot-60 canonicalizer, else the trained +/-30 deg wedge only) and
+    duration_s. ``rot60=False`` runs the naked policy (A/B baseline
+    for a hardware parity session) — wedge headings only.
     """
     assert mode in ("stand", "lower", "walk")
     on_progress = on_progress or (lambda p: None)
@@ -336,6 +405,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         return {"ok": False, "error": "no bus"}
 
     cfg = load_config(str(_HERE.parent / "rl_move" / "config.yaml"))
+    canon = None
     if mode == "walk":
         policy = NumpyPolicy(WALK_WEIGHTS_PATH)
         if policy.meta.get("obs_dim") != 72:
@@ -347,6 +417,18 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             s = WALK_SPEED_MAX / spd
             vx, vy = vx * s, vy * s
         total_s = min(max(float(duration_s), 3.0), WALK_MAX_TOTAL_S)
+        if rot60:
+            canon = make_walk_canonicalizer(policy, cfg)
+        if canon is None and not heading_in_trained_wedge(vx, vy):
+            # Naked, the policy freezes/degenerates off-wedge (sim-
+            # proven, rot60.py docstring) — refuse rather than wander.
+            return {"ok": False,
+                    "error": ("command heading outside the trained "
+                              "+/-30 deg wedge and the rot-60 "
+                              "canonicalizer is "
+                              + ("disabled" if _ROT60_OK else
+                                 "unavailable (rl_move/sim/rot60.py "
+                                 "not deployed)"))}
     else:
         policy = NumpyPolicy()
         total_s = RISE_TOTAL_S if mode == "stand" else LOWER_TOTAL_S
@@ -425,7 +507,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                          round(tilt_ref0[1] * RAD2DEG, 2)],
         "tilt_trip_deg": tilt_trip_deg,
         "preflight": details,
-        **({"vx": round(vx, 3), "vy": round(vy, 3)}
+        **({"vx": round(vx, 3), "vy": round(vy, 3),
+            "rot60": canon is not None}
            if mode == "walk" else {}),
     })
 
@@ -445,16 +528,27 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             # Sim obs tail: [vx_ref, vy_ref, vx_meas, vy_meas]/scale.
             # No velocity estimate on the board -> meas := ref
             # (open-loop; see module notes).
+            # float32 = the training/export dtype; also keeps the
+            # rot-60 path (rot60.obs_transform casts to float32) BIT-
+            # IDENTICAL to the naked path at k=0.
             obs = np.concatenate(
-                [obs, np.array([vx_r, vy_r, vx_r, vy_r]) / WALK_VEL_SCALE])
+                [obs, np.array([vx_r, vy_r, vx_r, vy_r]) / WALK_VEL_SCALE]
+            ).astype(np.float32)
         else:
             goal = TaskGoal(roll_ref=0.0, pitch_ref=0.0,
                             height_ref=_height_ref(mode, t),
                             unload_leg=None)
             obs = build_obs(cfg, state, q_nom, prev_action, goal=goal,
                             tilt_ref=tilt_ref0)
-        action, bad = safety.validate_action(policy.act(obs),
-                                             n_act=N_JOINTS)
+        if canon is not None:
+            # Canonicalize the REAL-frame obs into the trained wedge,
+            # un-relabel the action back to real legs (rot60.py).
+            # prev_action / logs stay REAL-frame — same contract as
+            # the sim evals (Rot60Policy permutes them internally).
+            raw_act, _ = canon.predict(obs)
+        else:
+            raw_act = policy.act(obs)
+        action, bad = safety.validate_action(raw_act, n_act=N_JOINTS)
         if action is None:
             limp()
             result.update(ok=False, error=f"bad action: {bad}", ticks=i)
@@ -488,7 +582,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
         t_end = t + DT
         elog.tick(t, state, action, q_safe, goal, vx_r, vy_r, max_cur,
-                  obs=obs)
+                  obs=obs,
+                  rot60_k=(canon.k if canon is not None else None))
         if i % 5 == 0:
             if mode == "walk":
                 phase = ("settle" if t < WALK_HOLD_S else
@@ -496,6 +591,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                          "ramp" if t < WALK_HOLD_S + WALK_RAMP_S
                          else "walk")
                 ref_txt = (f"v=({vx_r * 1000:+.0f},{vy_r * 1000:+.0f})mm/s")
+                if canon is not None and canon.k:
+                    ref_txt += f" sec={canon.k:+d}"
             else:
                 phase = ("curl" if mode == "stand" and t < RISE_HOLD_S else
                          "ramp" if t < (RISE_HOLD_S + RISE_RAMP_S
@@ -527,7 +624,10 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         # Walk ends holding the final stance (torque on) after the
         # decel ramp — the operator decides what happens next.
         result.update(vx_cmd=round(vx, 3), vy_cmd=round(vy, 3),
-                      duration_s=round(total_s, 1))
+                      duration_s=round(total_s, 1),
+                      rot60=canon is not None,
+                      rot60_k_end=(canon.k if canon is not None
+                                   else None))
 
     # Post-episode tail (08-10, dep-tip1 fall debug): the robot tipped
     # AFTER "walk done" — the episode ended holding a ~15° lean and
