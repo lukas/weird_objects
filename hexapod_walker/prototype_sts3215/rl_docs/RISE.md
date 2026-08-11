@@ -900,3 +900,41 @@ eval_handoff_reverse. Not a joystick blocker (scripted sit glide
 covers the deliverable; eval catches the posture), but any future
 lower-MECHANISM arm (e.g. the optional BC-anchor-on-lower polish)
 should strengthen this margin first and flip the xfail.
+
+## `cw-stand-holdload1` (08-11) — reward-side hold-cheat hypothesis REFUTED
+
+Pre-registered mechanism test off the crouchrise trio's unresolved
+hold-park cheat: is the legs-1+4 hover profitable only because the
+reward/eval was BLIND to it (clearance-priced, `foot_down_mm`/
+`flag_leg_mm` both miss a 1–19mm hover), or is it an anchor-bleed
+artifact the reward can't touch? New `reward.hold_feet_load=1.0`
+prices hold/track income on MEASURED per-foot touch force (not
+height), validated by its own FEET-LOAD bank in
+`test_task_semantics.py` (hover reproduced at 4–13mm/duty<0.2 earns
+only 0.25x of quiet-stand income under the gated stack vs 0.85+
+parity pre-fix).
+
+Result: **same recipe (crouchrise3, dose 0.45) + the new term still
+parks legs 1+4.** Gate harness det-hold `duty_cycle` is [0.77, 0.04,
+0.97, 0.73, 0.03, 0.99] — identical across all 6 deterministic
+episodes (same start state) — vs crouchrise1/2/3's exact same two
+legs. `valid_plant` reads True the whole time because both feet
+happen to be within a couple mm of the floor at EPISODE END even
+though they're airborne >95% of the episode — the same telemetry
+gap flagged in crouchrise1's dig-in, now proven insufficient even
+after the reward correctly prices the behavior mid-episode (the bank
+confirms the term works in isolation; the trained policy still finds
+it worth paying for). sto hold's vp misses are the pre-existing
+>2.0A current-tail soft flag (5/6), unrelated. Crouch rise unaffected
+(det 6/6 incl. crouch 4/4, zero falls) — this run does not touch the
+crouch fix. det lower regressed to 2/6 (leg-2 dangling ~90mm, zero
+falls) — matches the crouchrise2/3 lower regression exactly, not new.
+
+Per pre-registration: reward-side hypothesis REFUTED by direct
+measurement. Three distinct lever families are now closed on this
+cheat (start-mix, dose, reward-pricing) — the state/height-aligned
+BC anchor (clock-indexed anchor showing lifted-leg reference poses
+in plant-adjacent states) is the sole remaining suspect, and it's
+CODE/spec work, not another training variant. `hard1` remains the
+deployed stance checkpoint; `cw-stand-holdload1`'s checkpoint is not
+promoted or warm-started from.

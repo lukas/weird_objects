@@ -204,6 +204,22 @@ both handoffs compose).
   suspect is the CLOCK-indexed BC anchor showing lifted-leg reference
   poses in plant-adjacent states on crouch starts — next lever is a
   state/height-aligned anchor (CODE, spec first).
+  **08-11: reward-side lever also REFUTED by direct measurement
+  (`cw-stand-holdload1`, mechanism test).** New `reward.hold_feet_load`
+  prices hold/track income on MEASURED foot touch-force (not
+  clearance), confirmed correctly-calibrated by its own FEET-LOAD
+  bank (hover taxed to 0.25x quiet-stand income) — yet the identical
+  legs-1+4 park reproduces exactly: det-hold `duty_cycle` 0.03–0.04 on
+  those two legs across all 6 det episodes (vs 0.73–0.99 on the
+  other four), unchanged from crouchrise1/2/3, despite paying the new
+  tax. `valid_plant` still reads True throughout (blind to
+  mid-episode duty — both feet drift back to the floor exactly at
+  episode end); crouch rise stays clean (det 6/6 incl. crouch 4/4,
+  zero falls) and det lower regresses to 2/6 (dangling leg-2, no
+  falls, matches crouchrise3). Three distinct lever families now
+  refuted (start-mix, dose, reward-pricing) — the state/height-aligned
+  BC anchor is the SOLE remaining suspect, by measurement not
+  inference. hard1 remains deployed.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict

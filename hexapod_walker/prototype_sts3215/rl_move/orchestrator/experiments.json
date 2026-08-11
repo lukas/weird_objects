@@ -70651,7 +70651,7 @@
       "reward.hold_feet_load=1.0"
     ],
     "created": "2026-08-11T19:59:43+00:00",
-    "status": "FINISHED",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -70679,7 +70679,7 @@
     "log": "/tmp/train_cw-stand-holdload1.log",
     "wandb_id": "oym8yv6a",
     "verified": "2026-08-11T20:02:31+00:00",
-    "triage": "in-cycle cw-stand-holdload1 since 2026-08-11T20:07:19",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-11T20:07:39+00:00",
@@ -70687,6 +70687,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "1.81\u00b0, lean 2.10\u00b0, track 1.64\u00b0, unload 0.95\u00b0, raise 2/2, rise f2/2 b2/2 c1/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:TERM(tilt_pitch) raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 432s (4,626 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_holdload1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_holdload1 (md5 53c11354)\n"
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "Reward-side hypothesis REFUTED (pre-registered branch): reward.hold_feet_load (priced hold income on measured foot touch-force) does NOT stop the legs-1+4 hover-park cheat \u2014 det-hold duty_cycle is 0.03/0.04 on legs 1+4 across all 6 det episodes, identical fingerprint to crouchrise1/2/3, despite the new term costing that pattern 0.25x income per the FEET-LOAD bank. valid_plant still reads True (blind to mid-episode duty, known gap). Crouch rise stays clean (det 6/6 incl. crouch 4/4, zero falls). det lower regressed to 2/6 (dangling leg-2, no falls, matches crouchrise3 pattern). Anchor-bleed (state/height-aligned BC anchor) is now the SOLE remaining suspect per direct measurement, not inference; hard1 stays deployed."
   }
 ]

@@ -36,8 +36,12 @@ unresolved blockers between the robot and reliable joystick control.
 - Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
   crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
   08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the
-  dose/mix axes are closed. Next lever is CODE, spec first:
-  state-aligned BC anchor (clock-indexed anchor mis-teaches
-  plant-adjacent states on crouch starts). hard1 stays deployed.
+  dose/mix axes are closed. **08-11 later: the reward-pricing lever
+  is closed too** (`cw-stand-holdload1` — measured-foot-load income
+  correctly taxes the hover per its own bank, but the identical
+  legs-1+4 park reproduces anyway, det duty 0.03–0.04, `valid_plant`
+  blind to it mid-episode). State-aligned BC anchor (clock-indexed
+  anchor mis-teaches plant-adjacent states on crouch starts) is now
+  the sole remaining suspect, CODE/spec first. hard1 stays deployed.
 
 Detail: RL_PLAN.md queue · rl_docs/HARDWARE.md · RISE.md · GAIT.md.
