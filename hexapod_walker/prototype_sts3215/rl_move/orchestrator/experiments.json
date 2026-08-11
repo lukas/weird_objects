@@ -72480,7 +72480,7 @@
       "reward.k_height=300"
     ],
     "created": "2026-08-11T22:07:19+00:00",
-    "status": "REFUSED",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -72488,7 +72488,8 @@
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
-    "refused_reason": "a process for cw-dep-tall-kh3 already exists on hexapod-mjx-train-0"
+    "refused_reason": "",
+    "wandb_id": "o8w10022"
   },
   {
     "run": "cw-dep-tall-kh10",
@@ -72755,7 +72756,7 @@
       "reward.k_height=1000"
     ],
     "created": "2026-08-11T22:09:05+00:00",
-    "status": "REFUSED",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -72763,7 +72764,8 @@
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
-    "refused_reason": "a process for cw-dep-tall-kh10 already exists on hexapod-mjx-train-3"
+    "refused_reason": "",
+    "wandb_id": "ulj0yl2c"
   },
   {
     "run": "cw-dep-tall-slow1",
@@ -72928,7 +72930,7 @@
       "reward.drag_stance_tick_floor_mm=0.25"
     ],
     "created": "2026-08-11T22:10:53+00:00",
-    "status": "REFUSED",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -72936,6 +72938,7 @@
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
-    "refused_reason": "a process for cw-dep-tall-slow1 already exists on hexapod-mjx-train-4"
+    "refused_reason": "",
+    "wandb_id": "usjcemku"
   }
 ]

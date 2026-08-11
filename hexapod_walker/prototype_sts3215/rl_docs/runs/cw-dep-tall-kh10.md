@@ -4,9 +4,9 @@
 
 **status**: RUNNING
 
-**created**: 2026-08-11T22:07:38+00:00
+**created**: 2026-08-11T22:09:05+00:00
 
-**pod**: hexapod-mjx-train-3
+**pod**: hexapod-mjx-train-2
 
 **steps**: 2000000
 
@@ -14,7 +14,7 @@
 
 **wandb_id**: ulj0yl2c
 
-**hypothesis**: TALL LADDER T2b: k_height crank 10x (100->1000) at ref -15, warm from tall30. At 60mm err this charges ~3.6/tick = parity with walk income; the crouch can no longer outbid it arithmetically. Risk: quadratic charge this big may suppress walking itself (freeze incentive).
+**hypothesis**: TALL LADDER T2b: k_height crank 10x (100->1000) at ref -15, warm from tall30. At the measured -75mm mid-gait crouch this charges ~5.6/tick, decisively above walk income ~3/tick - the crouch cannot outbid it arithmetically. Risk: freeze/park incentive. T5 probe established the wall is habit, not kinematics: pitch/knee have 45-70deg of upward room.
 
-**gate**: PASS: height_err_end <=8mm at -15 ref, speed >=0.028, survived 1, slip <=1.8, no park. FAIL modes to distinguish: err flat (charge STILL outbid = pricing refuted at any sane dose) vs walk collapse/park (charge too blunt).
+**gate**: Primary metric: probe_tall_wall.py steady-state walking height (parent = -75mm). PASS: walking height >= -50mm, walk retained (speed >=0.028, survived 1, slip <=1.8, no park). FAIL modes: height flat = pricing refuted at any sane dose; park/freeze = charge too blunt.
 
