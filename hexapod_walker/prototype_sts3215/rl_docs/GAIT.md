@@ -324,8 +324,18 @@ champion's own reward, forward, 3 seeds.
   realize less progress) long before stance/height income arrives —
   a local-optimum MOAT, which is why income shaping kept failing and
   why the per-STANCE structural charge (audit section above) and/or
-  curriculum are the levers with teeth. First charge arm:
-  `cw-walk-dragstance1` (hw, discovery 2M, audit-derived k=8000).
+  curriculum are the levers with teeth.
+
+Same cycle, the moat got a direct measurement:
+`cw-walk-dragstance1` (warm champion + the audit charge, discovery
+2M) **FAILED its slip gate but proved the charge's safety properties**:
+reward_drag_stance sat at −7/tick the entire run (never resolved) and
+the policy NEITHER parked NOR restructured — full travel retained
+(prog 1.00, gait_valid 6/6, zero falls), slip only edged 1.1–1.3 →
+0.95–1.15. A static fine on the FORMED habit is closed (no k rung,
+no longer budget on the warm retrofit). Remaining routes: from
+scratch under the charge (`cw-gait-dragstance1-r1`, 40M, running —
+another cycle's) and the anneal-up curriculum (P3 lever 2).
 
 ## Structural stance-slip charge, FROM SCRATCH — `cw-gait-dragstance1`
 ## FAILED 08-11 (agent triage) — parked, not stepping

@@ -70330,7 +70330,21 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-bc-ft1 --steps 10000000 --task joint_walk --gru --gru-hidden-size 256 --init-from rl_move/sim/policies/ppo_goal_cw_gru_bc.zip --n-steps 256 --n-envs 256 --batch-size 8192 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --out-name ppo_goal_cw_arch_gru_bc_ft1 --impl warp --host-workers 24 --notes 'RL fine-tune of the BC-distilled GRU (walks + holds out of the box; see evidence). Warm start keeps the zip architecture (hidden 256); CLI sets n_steps 256 (BPTT 10.24s) / batch 8192 / n_envs 256 = 65,536-transition rollouts, 152 PPO iterations over 10M. Parent zip log_std pre-set to -1.5 so early rollouts stay near teacher behavior. Canary auto-stop guards the walk skill.' > /tmp/train_cw-arch-gru-bc-ft1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-gru-bc-ft1.log",
     "wandb_id": "iv0ohvk5",
-    "verified": "2026-08-11T19:54:14+00:00"
+    "verified": "2026-08-11T19:54:14+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T19:59:48+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 1456.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "log stopped growing"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-walk-dragstance1",
@@ -70401,7 +70415,7 @@
       "reward.drag_stance_tick_floor_mm=0.25"
     ],
     "created": "2026-08-11T19:52:41+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -70428,7 +70442,18 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-dragstance1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_vref1_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_dragstance1 --notes 'respec of cw-dep-vref1-r1: Teach the deployed walking champion to LIFT its feet instead of scraping them: this arm prices the scrape itself (accumulated foot travel while loaded, per stance stroke) at the size the 08-11 drag audit derived, and asks whether the habit breaks in 2M steps. Background: every prior anti-slip attempt (10+ arms) either gated INCOME (policy parks and starves) or charged per-tick slip, which the audit proved cannot separate skating from honest walking (medians overlap; the 0.5mm deadband hid 53-97% of the skate). The new per-STANCE charge separates them 3.3x on measured fingerprints and its launch bank passes (stepping > skate > park ordering; honest gait keeps ~77% of income, skaters pay ~2.5x theirs). One variable vs the parent cw-dep-vref1-r1 (warm start, identical recipe): reward.k_drag_stance=8000, allow 6mm/stance, tick floor 0.25mm. The 08-11 P0 income probe (logs/probe_walk_income/vref1_p0_*) says pricing alone was near-parity because the crouch-paddle genuinely tracks the command in sim \u2014 so the charge must make the scrape itself uneconomical without making parking the optimum, exactly what the bank certifies. Prediction-if-true: slip/m drops decisively below the parent band (target <0.6 vs 1.1-1.5) at DR0 AND own-DR 0.35 while forward distance / vel-err stay in the parent band and all six legs cycle. Prediction-if-false: the policy parks or freezes (income starvation \u2014 the anneal-up curriculum variant then becomes the only surviving route on this lever), or pays the charge and keeps skating (charge too small vs realized income; do NOT re-run with a bigger k \u2014 the audit sized it, a miss refutes the sizing method). Strongest alternative: slip drops but travel collapses toward the scripted gait'\"'\"'s slower band \u2014 a real trade the operator must price, not a clean pass.' --cfg-set reward.k_drag_stance=8000 --cfg-set reward.drag_stance_allow_mm=6 --cfg-set reward.drag_stance_tick_floor_mm=0.25 > /tmp/train_cw-walk-dragstance1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-dragstance1.log",
     "wandb_id": "yifd0yu2",
-    "verified": "2026-08-11T19:55:27+00:00"
+    "verified": "2026-08-11T19:55:27+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T20:01:37+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "0: hold 2.77\u00b0, track 2.50\u00b0, unload 1.46\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.025 m/s, lower 1/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 372s (5,371 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_dragstance1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_walk_dragstance1 (md5 af594f2b)\n"
+      }
+    ],
+    "hardware_ready": "no",
+    "verdict": "FAIL on the pre-registered gate (slip/m med <=0.6): 2M of the audit-sized per-stance charge (k=8000) on the warm champion did NOT restructure the gait. Mechanism read is clean and informative though: env/reward_drag_stance engaged at -7/tick from step ~19 and stayed flat ALL run (never resolved), yet the policy neither parked nor starved \u2014 harness shows full function retained (DR0 det prog med 1.00, fwd 0.77m, gait_valid 6/6, zero falls, video-confirmed traveling crouch gait) with slip/m med only edging to 0.95-1.15 vs the parent band 1.1-1.5 (~20% at best, far from decisive). So the bank's park-prediction held (charge does not make parking optimal) but the habit moat did too: the champion absorbed ~-2600/ep indefinitely rather than learn to lift within ~30 PPO updates. Per the pre-registration this closes the 2M RETROFIT form \u2014 no k rung, no re-run with more steps from this lineage. The open questions belong elsewhere: the concurrent full-budget from-scratch arm cw-gait-dragstance1-r1 (another cycle's run, 40M, same charge) answers whether budget+fresh-init resolves it; the anneal-up curriculum (GAIT P3 lever 2) remains the successor design. Do not deploy; do not warm from this checkpoint.",
+    "triage": "done"
   },
   {
     "run": "cw-gait-dragstance1-r1",
@@ -70517,7 +70542,7 @@
       "reward.drag_stance_tick_floor_mm=0.25"
     ],
     "created": "2026-08-11T19:57:49+00:00",
-    "status": "RUNNING",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -70544,7 +70569,10 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-gait-dragstance1-r1 --steps 40000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=3.14159 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_gait_dragstance1_r1 --notes 'respec of cw-gait-dragstance1: Full-budget test of the audit-derived structural stance-slip charge (k_drag_stance=8000, 6mm allowance, 0.25mm floor, k_drag_loaded=0, trans1 deployment-contract stack). The 2M discovery probe proved mechanism health (charge engages at -7/tick, fps unaffected) but 2M is below the walk-from-scratch floor: every genuine gait (step0, hist16-r7) needed 40M. If the charge correctly prices skating, PPO at full budget should discover the first from-scratch gait that lifts its feet (slip/m below the 1.1-1.5 paddle band, visible swing clearance, honest progress). If it instead converges to churn-and-pay or park, the flat charge is refuted at full budget and the pre-registered next rungs are the annealed-in charge, then RSI-for-walk.' --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_current=0.0 --cfg-set train.mirror_loss_coef=1.0 --cfg-set reward.k_drag_stance=8000 --cfg-set reward.drag_stance_allow_mm=6.0 --cfg-set reward.drag_stance_tick_floor_mm=0.25 > /tmp/train_cw-gait-dragstance1-r1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-gait-dragstance1-r1.log",
     "wandb_id": "kt1h2tz8",
-    "verified": "2026-08-11T20:00:34+00:00"
+    "verified": "2026-08-11T20:00:34+00:00",
+    "verdict": "KILLED before analysis, ~1M/40M steps in: this was a pre-registered respec of cw-gait-dragstance1 (identical recipe, k_drag_stance=8000/6mm/0.25mm floor, just 40M vs 2M budget), auto-drained the instant its parents pod freed. The parents own 2M discovery result (triaged this same cycle) already hit rs own pre-registered FAIL branch verbatim: env/reward_drag_stance active at -6..-9/tick the whole run (never trending toward zero), forward_dist ~0.00m vs 0.5-0.7m commanded, and 24/24 videos (det+sto, gate+owncfg) show an IDENTICAL frozen/splayed pose with zero leg-cycling for the full episode - a KNOWN exploit (freeze/park). Per RESEARCH_RULES a known exploit is a complete verdict with no re-run with more steps; r1 is exactly that re-run (same k, same allowance, same floor, only steps changed) and its own evidence field did not actually establish the drag-charge mechanism works (it was boilerplate about hist16-dep1/omni-mirror, unrelated to this hypothesis) - it should not have been drained as hardening phase. Killed to avoid burning a 40M-step budget re-confirming an already-refuted recipe; see GAIT.md for the decisive discovery-run evidence and the next lever (RSI-for-walk / charge+shaping combo).",
+    "hardware_ready": false,
+    "triage": "done"
   },
   {
     "run": "cw-stand-holdload1",
@@ -70623,7 +70651,7 @@
       "reward.hold_feet_load=1.0"
     ],
     "created": "2026-08-11T19:59:43+00:00",
-    "status": "INTENT",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -70632,11 +70660,33 @@
       "code_sha_local": "bd17d70061368e439ba27df9d743be1e5d99b83b",
       "code_sha_pod": "bd17d70061368e439ba27df9d743be1e5d99b83b",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3271177",
+      "log_growth_bytes": [
+        8016,
+        14040
+      ],
+      "wandb_id": "oym8yv6a",
+      "global_step_window": [
+        589824,
+        917504
+      ],
+      "fps_estimate": 10922.7
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-holdload1 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 13 --goal-mix hold=0.1,rise=0.45,lower=0.45 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --cfg-set train.bc_anchor_coef=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --cfg-set goal.rise_flat_frac=0.15 --cfg-set goal.rise_partial_frac=0.40 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_stand_holdload1 --notes 'respec of cw-stand-crouchrise3: MECHANISM TEST (2M, warm from cw-stand-holdbc1-hard1 via inherited init, config = crouchrise3 exactly + ONE new axis): the crouchrise trio park is REWARD-SIDE, not anchor-side. All three doses (0.60, 0.60+mix, 0.45) converged on two legs hovering 1-19mm \u2014 under foot_down_mm so the clearance-priced hold_still_gate pays them as down, under flag_leg_mm so no no-flag form fires, while the eval duty clause (touch >0.5N) reads 0.01-0.04. New reward.hold_feet_load=1.0 prices hold/track income on MEASURED touch force: per-foot product of clip(N/1.0,0,1) floored at 0.5, so the two-leg hover earns 0.25 of hold income (FEET-LOAD bank, test_task_semantics.py: hover reproduced at 4-13mm/duty<0.2, pre-fix stack pays it 0.85+ parity, gated stack prices it to scraps, quiet stand untaxed). If the park was profitable only because the gate was blind, 0.45 crouch dose should now keep crouch rises AND the six-foot hold. If it STILL parks at a real 4x income loss, the cheat is not reward-side -- strong evidence for the state-aligned-BC-anchor-bleed mechanism (crouchrise2 suspect) and that spec-first anchor lever proceeds with priority.' --cfg-set reward.hold_feet_load=1.0 > /tmp/train_cw-stand-holdload1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-stand-holdload1.log"
+    "log": "/tmp/train_cw-stand-holdload1.log",
+    "wandb_id": "oym8yv6a",
+    "verified": "2026-08-11T20:02:31+00:00",
+    "triage": "in-cycle cw-stand-holdload1 since 2026-08-11T20:07:19",
+    "checkups": [
+      {
+        "time": "2026-08-11T20:07:39+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "1.81\u00b0, lean 2.10\u00b0, track 1.64\u00b0, unload 0.95\u00b0, raise 2/2, rise f2/2 b2/2 c1/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:TERM(tilt_pitch) raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 432s (4,626 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_holdload1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_holdload1 (md5 53c11354)\n"
+      }
+    ]
   }
 ]

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-11T19:59:43+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-stand-crouchrise3
+
+**wandb_id**: oym8yv6a
 
 **hypothesis**: MECHANISM TEST (2M, warm from cw-stand-holdbc1-hard1 via inherited init, config = crouchrise3 exactly + ONE new axis): the crouchrise trio park is REWARD-SIDE, not anchor-side. All three doses (0.60, 0.60+mix, 0.45) converged on two legs hovering 1-19mm — under foot_down_mm so the clearance-priced hold_still_gate pays them as down, under flag_leg_mm so no no-flag form fires, while the eval duty clause (touch >0.5N) reads 0.01-0.04. New reward.hold_feet_load=1.0 prices hold/track income on MEASURED touch force: per-foot product of clip(N/1.0,0,1) floored at 0.5, so the two-leg hover earns 0.25 of hold income (FEET-LOAD bank, test_task_semantics.py: hover reproduced at 4-13mm/duty<0.2, pre-fix stack pays it 0.85+ parity, gated stack prices it to scraps, quiet stand untaxed). If the park was profitable only because the gate was blind, 0.45 crouch dose should now keep crouch rises AND the six-foot hold. If it STILL parks at a real 4x income loss, the cheat is not reward-side -- strong evidence for the state-aligned-BC-anchor-bleed mechanism (crouchrise2 suspect) and that spec-first anchor lever proceeds with priority.
 

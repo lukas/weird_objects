@@ -27,10 +27,12 @@ unresolved blockers between the robot and reliable joystick control.
   episode rather than resolving it (its own pre-registered false
   branch, verbatim) — GAIT.md. CROSS-TRACK: this is also nobc's
   drag-charge-audit item, same conclusion both tracks. Warm-start
-  companion `cw-walk-dragstance1` (audit-derived k, on the actual
-  champion) still training — a policy that already travels may
-  answer differently since freezing forfeits real walk income it
-  would otherwise keep collecting.
+  companion `cw-walk-dragstance1` (same k, on the actual champion)
+  also FAILED, the other way: it neither parked nor stepped — kept
+  full travel and simply absorbed −7/tick for 2M (slip only 1.1–1.3 →
+  0.95–1.15). Static fine at either init is closed; the from-scratch
+  40M `cw-gait-dragstance1-r1` (running) and anneal-up curriculum
+  carry the lever.
 - Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
   crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
   08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the
