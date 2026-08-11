@@ -1,4 +1,5 @@
-"""Reference BC anchor — auxiliary trainer loss for the rise task.
+"""Reference BC anchor — auxiliary trainer loss for the rise task
+(and, since 08-11, hold/track quiet-stand supervision — see below).
 
 Why this exists (RISE.md, 08-11): six reward-different stand-up arms
 (score1 / scoreref1 / plantgate1 / rsi1 / rsi2 / rsi3) collapsed on the
@@ -22,10 +23,20 @@ needs no rollout luck: even at drifted states the target points back
 onto the demonstrated path. The reward stack is UNTOUCHED — this is
 not a reward term, the rise semantics bank is unaffected.
 
+08-11 follow-up (RL_PLAN queue 2.3): hold/track stillness pricing
+(reward.hold_still_gate + hold_flag_fade) moved the wrong-leg-parked
+behavior twice (hard zero, then a linear fade) but never reached a
+quiet plant — same "earning zero is not being pushed back" failure
+mode as rise. Hold/track have no moving reference to chase, so the
+target there is simply the pose the episode actually settled at
+(sim_env._q_nom, constant for the whole episode — "stand still right
+here"), reusing the identical collect/train-step machinery below.
+
 Data path: sim_env._step_finish emits ``info["bc_target"]`` (float32,
-18) for every rise tick with a live reference clock when
-``train.bc_anchor_coef`` > 0 (the trainer cfg key rides into the env
-cfg dict, same pattern as train.mirror_loss_coef).
+18) for every rise tick with a live reference clock, OR every
+hold/track tick, when ``train.bc_anchor_coef`` > 0 (the trainer cfg
+key rides into the env cfg dict, same pattern as
+train.mirror_loss_coef).
 ``BCAnchorCollectCallback`` pairs each target with the post-step obs
 (``new_obs``) into a ring buffer on the model; ``BCAnchorPPO.train()``
 runs the aux optimizer step AFTER the untouched PPO update, exactly

@@ -17,6 +17,12 @@ What must be true BEFORE any training run uses train.bc_anchor_coef:
    to build) — the pool-restore lesson: quiet no-ops are how three
    weeks of stand verdicts got confounded.
 
+08-11 (RL_PLAN queue 2.3): hold/track ticks emit too, target = the
+pose the episode actually settled at (``env._q_nom``, constant for
+the whole episode — no moving reference to chase, unlike rise).
+Covered here: emission + value on hold and track ticks, and that
+rise/hold/track never emit for each other's mode.
+
 The rise reward bank (test_task_semantics.py) is untouched by design:
 the anchor is a trainer loss, not a reward term.
 """
@@ -55,7 +61,8 @@ BASE_OVERRIDES = {
 }
 
 
-def _make_env(seed: int, extra=None) -> SimHexapodJointGoalEnv:
+def _make_env(seed: int, extra=None,
+             only_mode: str = "rise") -> SimHexapodJointGoalEnv:
     cfg = load_config()
     ov = dict(BASE_OVERRIDES)
     ov.update(extra or {})
@@ -68,7 +75,7 @@ def _make_env(seed: int, extra=None) -> SimHexapodJointGoalEnv:
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
               "lower", "quad"):
         if hasattr(gen, f"p_{m}"):
-            setattr(gen, f"p_{m}", 1.0 if m == "rise" else 0.0)
+            setattr(gen, f"p_{m}", 1.0 if m == only_mode else 0.0)
     gen.force_rise_start = "flat"
     return env
 
@@ -133,6 +140,48 @@ def test_bc_targets_track_the_reference():
         worst = max(worst, rms)
         act = info["bc_target"]
     assert worst < 8.0, f"target chain drifted off the path ({worst:.1f}deg)"
+
+
+def test_emission_hold_mode():
+    """Hold ticks emit a CONSTANT target = the settled episode start
+    pose (env._q_nom) — no moving reference to chase, unlike rise."""
+    env = _make_env(4, {("train", "bc_anchor_coef"): 1.0},
+                    only_mode="hold")
+    env.reset()
+    assert env._is_hold_bc and not env._is_rise
+    expected = q_rad_to_action(env._q_nom)
+    for _ in range(3):
+        _o, _r, _t, _tr, info = env.step(np.zeros(18))
+        t = info.get("bc_target")
+        assert t is not None and t.shape == (18,) and t.dtype == np.float32
+        assert np.allclose(t, expected, atol=1e-6)
+
+
+def test_emission_track_mode():
+    """Track ticks emit the same way as hold (attitude tracking moves
+    the reference torso pose, not the leg-hold target)."""
+    env = _make_env(5, {("train", "bc_anchor_coef"): 1.0},
+                    only_mode="track")
+    env.reset()
+    assert env._is_hold_bc and not env._is_rise
+    expected = q_rad_to_action(env._q_nom)
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert np.allclose(info["bc_target"], expected, atol=1e-6)
+
+
+def test_no_hold_target_when_coef_zero():
+    env = _make_env(6, only_mode="hold")   # bc_anchor_coef defaults 0
+    env.reset()
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" not in info
+
+
+def test_rise_and_hold_flags_mutually_exclusive():
+    for mode in ("rise", "hold", "track", "lower"):
+        env = _make_env(7, only_mode=mode)
+        env.reset()
+        assert env._is_rise == (mode == "rise")
+        assert env._is_hold_bc == (mode in ("hold", "track"))
 
 
 import gymnasium as _gym  # noqa: E402

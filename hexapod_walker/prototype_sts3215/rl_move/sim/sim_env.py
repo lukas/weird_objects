@@ -1016,6 +1016,17 @@ class SimHexapodBalanceEnv(_GymBase):
         # one step that makes standing possible has zero gradient.
         self._is_rise = (self._goal_traj is not None
                          and getattr(self._goal_traj, "mode", "") == "rise")
+        # HOLD/TRACK BC-anchor eligibility (RL_PLAN queue 2.3, 08-11:
+        # the rise lever repeated after both hold pricing levers — hard
+        # zero, then the fade — moved the pricing but never reached a
+        # quiet plant). Unlike rise, hold/track have no moving reference
+        # to chase; the natural supervised target is simply the pose the
+        # episode actually settled at (self._q_nom, captured post-settle
+        # in reset() — "trivially available", RISE.md). Emission happens
+        # in _step_finish once self._q_nom exists.
+        self._is_hold_bc = (self._goal_traj is not None
+                            and getattr(self._goal_traj, "mode", "")
+                            in ("hold", "track"))
         # First ramp tick of a rise schedule (hold window ends here) —
         # the alignment anchor for the rise-reference tracking term:
         # references are recorded ramp-relative so episodes with
@@ -1944,9 +1955,10 @@ class SimHexapodBalanceEnv(_GymBase):
         # joint_task's per-axis affine). Uses only per-episode attrs
         # already in mjx_host.SNAP_ATTRS (_rsi_ref_tick0,
         # _rise_ramp_i0, _step_i) — pool-restore safe by construction.
+        _bc_coef = float(cfg_get(self.cfg, "train", "bc_anchor_coef",
+                                 default=0.0))
         if (self._is_rise and getattr(self, "n_act", 0) == N_JOINTS
-                and float(cfg_get(self.cfg, "train", "bc_anchor_coef",
-                                  default=0.0)) > 0.0):
+                and _bc_coef > 0.0):
             _bc_ref_path = cfg_get(self.cfg, "reward", "rise_ref_path",
                                    default=None)
             if _bc_ref_path:
@@ -1958,6 +1970,20 @@ class SimHexapodBalanceEnv(_GymBase):
                     len(_bc_ref["q"]) - 1)
                 info["bc_target"] = q_rad_to_action(
                     _bc_ref["q"][_bc_jn]).astype(np.float32)
+        # HOLD/TRACK BC-anchor target (RL_PLAN queue 2.3, 08-11): the
+        # rise lever repeated after two hold pricing misses (hard zero,
+        # then a linear fade) neither reached a quiet plant. Hold/track
+        # have no moving reference to chase, so the target is simply
+        # the pose the episode actually settled at — self._q_nom,
+        # already captured post-settle in _reset_finalize for the
+        # hold-current reward term ("trivially available", RISE.md)
+        # and already in mjx_host.SNAP_ATTRS. Constant for the whole
+        # episode: this literally IS "stand still right here".
+        elif (self._is_hold_bc and getattr(self, "n_act", 0) == N_JOINTS
+                and _bc_coef > 0.0):
+            from .joint_task import q_rad_to_action
+            info["bc_target"] = q_rad_to_action(
+                self._q_nom).astype(np.float32)
         if self._state.servo_current is not None:
             info["mean_current_a"] = float(
                 np.mean(np.abs(self._state.servo_current)))

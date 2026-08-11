@@ -41,6 +41,10 @@ SNAP_ATTRS = (
     # the step path MUST be added here.
     "_score_best", "_rise_ramp_i0", "_end_posture_from",
     "_rsi_pending", "_rsi_ref_tick0",
+    # HOLD/TRACK BC-anchor eligibility (08-11, RL_PLAN queue 2.3): set
+    # in _reset_finalize, read every step-path tick — the exact class
+    # of attr this list exists to catch (see comment above).
+    "_is_hold_bc",
 )
 
 
