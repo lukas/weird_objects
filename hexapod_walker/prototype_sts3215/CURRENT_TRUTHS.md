@@ -179,11 +179,25 @@ both handoffs compose).
   (`cw-stand-crouchrise1`, 60% crouch starts vs legacy 25%; RSI-off
   all-crouch probe 16/16 stands, det 8/8 valid_plant, ZERO falls vs
   hard1's 0/8 with 8/8 tilt falls, matched control) — but NOT
-  promoted: it missed the pre-registered hold no-regression bar
-  (hold sto valid_plant current-tail flags 5/6 vs hard1 1/6; posture/
-  stillness identical). hard1 STAYS the deployed stance policy;
-  `ppo_goal_cw_stand_crouchrise1` (md5 3877e16c) is banked if bench
-  shows crouch starts matter. Stand lineage now fully CLOSED.
+  promoted: det-hold PARKS TWO FEET (contact duty 0.07/0.01 on legs
+  1+4, all other legs 0.90+) while `valid_plant` still reads True —
+  a flag-leg cheat the geometric check misses, caught only by the
+  explicit per-foot duty telemetry (corrected 08-11 from an earlier,
+  less specific "current-tail flags" read). hard1 STAYS the deployed
+  stance policy; `ppo_goal_cw_stand_crouchrise1` (md5 3877e16c) is
+  banked. **`cw-stand-crouchrise2`** (same fix, restoring hard1's
+  exact goal-mix to rule out the mix-skew as the hold cheat's cause)
+  REPRODUCES the crouch-rise win cleanly (det rise 6/6 valid_plant
+  incl. crouch 4/4) but the IDENTICAL flag-leg fingerprint returns on
+  the SAME two legs (duty 0.03/0.03) — restoring the goal-mix did
+  NOT fix hold, so the mix skew was not the (sole) cause; the real
+  mechanism is still unknown. Lower also measurably worsens vs a
+  matched hard1 control under the same eval (hard1 3/6 succeed/1/6
+  falls; crouchrise2 0/6 succeed/2/6 falls) — hard1's own lower was
+  never gated before, so this is a real, quantified degradation, not
+  a clean inherited gap. Stand lineage stays CLOSED for hardening;
+  the hold-cheat root cause (not goal-mix, not step count) is now the
+  open question if this line reopens.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict
