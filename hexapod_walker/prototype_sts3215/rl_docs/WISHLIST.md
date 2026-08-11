@@ -57,7 +57,16 @@ existing config knobs, [CODE] needs an implementation cycle first,
    (obs.history_frames=1), from-scratch rules (MLP checkpoints
    cannot warm-start a GRU); eval/canary/video harness threads
    hidden state automatically; needs sb3-contrib==2.9.0 on pods
-   (in coreweave_pod_setup.sh) — still needs a probe run].
+   (in coreweave_pod_setup.sh). **Probed 08-11
+   (`cw-arch-gru-r1`, 2M from scratch, walk=0.55/rise=0.15/
+   lower=0.15/hold=0.15): FAILED — det walk collapsed to a static
+   3-leg-tucked stance (0.004 m/s, gait_valid 0/6), sto walk jittered
+   in place with no net travel (slip/m ~17, 2/6 tips); return climbed
+   while the task didn't (reward-shortcut pattern), no forensics per
+   the known-exploit rule. Not re-attempted with an adjusted recipe:
+   the ladder stays FROZEN pending the flagship (RL_PLAN Architecture)
+   and this line is off the current blocker list — do not requeue a
+   GRU rung "because a pod is free."]
    Score each rung on the COMPLICATED movements, not just nominal
    walk: joystick gate incl. flips, plus rise/lower fracs once the
    unified line has a rise-capable parent to compare against.
