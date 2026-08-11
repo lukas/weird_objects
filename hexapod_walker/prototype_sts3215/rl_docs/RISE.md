@@ -414,11 +414,22 @@ look normal).
 **Ruling: lever (a) is validated — reward-income shaping was
 correctly diagnosed as exhausted, and moving supervision OUTSIDE the
 reward (BC anchor on actions) is what unblocks flat-start rise.**
-Two follow-ups launched immediately (08-11, both from cw-stand-bc1,
-one variable each): `cw-stand-bc1-hard1` (10M steps, same coef,
-phase hardening — does the honest plant consolidate and do raise/
-tipped/hold-track recover with more budget?) and
-`cw-stand-bc1-coef03` (coef 0.3, discovery — does a gentler dose keep
-the rise fix while costing less cross-mode interference?). Do not
-propose another reward-coefficient/RSI variant; the open question
-now is anchor DOSE and DURATION, not reward shape.
+
+`cw-stand-bc1-coef03` (08-11, same protocol, coef 0.3 vs bc1's 1.0)
+**FAILED — dose-response refuted, decisively.** RSI-off harness
+probe: valid_plant **0/16 across every start kind** (bridge 0/7,
+crouch 0/5, flat 0/8 det), vs coef=1.0's 13/30 (bridge 7/12, crouch
+6/8, flat 0/10-but-honest). Video still shows a genuine stand
+attempt (no flag-leg regression) but flat starts now fall SHORT of
+full height (h_err ~26mm vs coef=1.0's ~11mm) and every episode still
+trips the current ceiling. Training's own diagnostic did not improve
+either (hold/track angles the same or worse, raise/tipped/rise-flat
+all flat-or-worse vs coef=1.0). **Lowering the dose does not buy
+cleaner cross-mode behavior — it just weakens the anchor, on every
+axis measured.** Ruling: keep `bc_anchor_coef>=1.0`; do not queue
+another coefficient-reduction variant. `cw-stand-bc1-hard1` (10M
+steps, same coef=1.0, phase hardening, launched 08-11, running) is
+the live next step — does the honest plant consolidate and do the
+weak-evidence raise/tipped/hold-track hints resolve with more
+budget? If they don't, the accepted fix is coef=1.0 with the
+interference as a known, currently-unpriced cost.

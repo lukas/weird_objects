@@ -65449,7 +65449,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-bc1-hard1 --steps 10000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_bc1.zip --dr-scale 0.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_bc1_hard1 --impl warp --host-workers 24 --notes 'respec of cw-stand-bc1: The BC-anchor mechanism that fixed the flag-leg cheat in discovery (cw-stand-bc1) is trained for real: does the SAME recipe at a hardening budget (10M vs 2M) consolidate the honest six-foot plant (raise flat-start valid_plant off its current 0/10 footprint-only miss) and recover the hold/track precision and raise/tipped-recovery probes that looked worse in cw-stand-bc1'\"'\"'s own training diagnostic (n=2 samples, weak evidence) - or does more training re-drift back toward the cheat now that the anchor'\"'\"'s pull is diluted over more updates? Continuation of the SAME arm (init-from-source), one variable (steps), per the phase system'\"'\"'s hardening rule (already visibly works, now prove it holds and improves with budget).' --cfg-set train.bc_anchor_coef=1.0 > /tmp/train_cw-stand-bc1-hard1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stand-bc1-hard1.log",
     "wandb_id": "58sekzjq",
-    "verified": "2026-08-11T04:41:14+00:00"
+    "verified": "2026-08-11T04:41:14+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T04:47:12+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 12315,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-stand-bc1-coef03",
@@ -65513,7 +65525,7 @@
       "train.bc_anchor_coef=0.3"
     ],
     "created": "2026-08-11T04:39:54+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -65540,6 +65552,17 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-bc1-coef03 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip --dr-scale 0.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_bc1_coef03 --impl warp --host-workers 24 --notes 'respec of cw-stand-bc1: cw-stand-bc1 (coef=1.0) fixed the rise flag-leg cheat (valid_plant 3/6 det gate, honest six-foot plants video-confirmed) but its OWN training diagnostic showed possible drag on nearby modes it does not directly supervise (raise 0/2 and tipped-recovery 0/2 at 2M vs the identical-recipe parent cw-stand-rsi3'\"'\"'s 1-2/2 and 2/2; hold/track angle error also worse, 3.0 deg vs 1.2-1.6 deg) - weak evidence (n=2 probe samples) but worth a direct dose-response check before committing a big hardening budget. This arm tests whether a LOWER anchor coefficient (0.3 vs 1.0, the only change) still stops the rise cheat while costing less cross-mode interference - the anchor'\"'\"'s own loss log (train/bc_anchor_loss) and rise geometry are the same signal, cheaper interference is the new axis.' --cfg-set train.bc_anchor_coef=0.3 > /tmp/train_cw-stand-bc1-coef03.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stand-bc1-coef03.log",
     "wandb_id": "93fqjm27",
-    "verified": "2026-08-11T04:43:39+00:00"
+    "verified": "2026-08-11T04:43:39+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T04:49:00+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "7,040: hold 2.85\u00b0, lean 3.47\u00b0, track 3.26\u00b0, unload 2.24\u00b0, raise 0/2, rise f0/2 b1/2 c1/2, lower 1/2, tipped 0/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 355s (5,630 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_bc1_coef03.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_bc1_coef03 (md5 5c022236)\n"
+      }
+    ],
+    "hardware_ready": false,
+    "verdict": "FAIL \u2014 dose-response refuted: coef 0.3 weakens the rise fix, does not reduce interference. RSI-off harness probe (seed 7, same protocol as bc1's): valid_plant 0/16 across ALL start kinds (bridge 0/7, crouch 0/5, flat 0/8 det; 0/20 sto) vs coef=1.0's 13/30 (bridge 7/12, crouch 6/8, flat 0/10-but-honest). Video still shows a real spread-leg stand attempt (not a flag-leg regression) but flat starts now fall SHORT of full height (h_err ~26mm vs coef=1.0's ~11mm) and every episode still trips the current ceiling (2.64A) \u2014 worse on the core rise metric, not better. Training's own diagnostic did NOT improve either: hold 2.85deg/track 3.26deg (worse than coef=1.0's 3.0/3.0), raise 0/2 and tipped 0/2 unchanged, rise-flat regressed to 0/2 (vs coef=1.0's 2/2). Net: coef=0.3 is strictly worse than coef=1.0 on every axis measured \u2014 lowering the dose does not buy cleaner cross-mode behavior, it just weakens the anchor. Ruling: keep bc_anchor_coef>=1.0; do not queue further coefficient-reduction variants. cw-stand-bc1-hard1 (more steps, same coef=1.0) is the live next step.",
+    "triage": "done"
   }
 ]
