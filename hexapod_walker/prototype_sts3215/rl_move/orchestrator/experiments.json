@@ -73545,7 +73545,7 @@
       "train.bc_anchor_stratified=1.0"
     ],
     "created": "2026-08-11T23:06:52+00:00",
-    "status": "FINISHED",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73580,7 +73580,10 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": " hold 2.26\u00b0, lean 2.43\u00b0, track 2.15\u00b0, unload 1.34\u00b0, raise 2/2, rise f1/2 b2/2 c1/2, lower 2/2, tipped 1/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 431s (4,638 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_anchormix1_r1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_anchormix1_r1 (md5 d92ed0f4)\n"
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "FAIL per the pre-registered FAIL branch \u2014 stratified per-mode anchor quotas did NOT fix the seesaw: det flat rise still stalls 105.6mm short (vs hard1 flat 4/4) and det hold still parks ONE foot (duty 0.02; env/hold_feet_factor ~0.14 all 2M vs holdbc1's ~1.0); hold det+sto valid_plant 9/12 (3 sto 'current' fails). RETAINED: lower 6/6 det+sto (loweranchor1's win kept), det crouch rise 4/4, zero falls anywhere, no non-park cheat. NOTABLE: the park fingerprint MOVED \u2014 both previously-parked legs now read duty 0.90-0.97 and a DIFFERENT single leg parks, so the parked-leg identity is anchor-dependent, not a fixed habit. Dilution theory incomplete; pre-registered next step = inspect per-mode train/bc_anchor_loss, which is NOT logged (aggregate only, converged 0.033->0.012) \u2014 needs a small trainer logging change before any further stand arm. hard1 stays deployed.",
+    "triage": "done"
   },
   {
     "run": "cw-dep-tip1-takeoff25",
@@ -73861,7 +73864,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-anchor1 --steps 10000000 --task joint_walk --gru --gru-hidden-size 256 --init-from rl_move/sim/policies/ppo_goal_cw_gru_bc.zip --n-steps 256 --n-envs 256 --batch-size 8192 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --out-name ppo_goal_cw_arch_gru_anchor1 --impl warp --host-workers 24 --notes 'respec of cw-arch-gru-bc-ft1: ft1 (default lr) and ft2 (lr/KL closed) both prove PPO fine-tune keeps the GRU walk cheat-free for 10M/2M steps but ERODES the BC-distilled hold (6/6 -> 0/6) and never finds rise \u2014 the exact no-gradient signature the stand track solved with action-space BC anchors (loweranchor1). This arm adds the now-recurrent-capable anchor stack to the ft1 recipe unchanged: rise ticks anchored to the state-aligned reference, hold/track to the settled pose, lower to the IK descent, walk to the command-conditioned TripodGait, stratified per-mode quotas so no skill dilutes another (anchormix1 lesson). If action supervision at the rollout hidden states holds stance while PPO polishes gait, one GRU finally walks AND sits/stands \u2014 the original operator goal; if hold still erodes under a live anchor, the eroding force is not gradient absence and the next lever is freezing.' --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set train.bc_anchor_lower=1.0 --cfg-set train.bc_anchor_stratified=1.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_sigma_deg=6.0 > /tmp/train_cw-arch-gru-anchor1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-gru-anchor1.log",
     "wandb_id": "brnukxek",
-    "verified": "2026-08-11T23:34:02+00:00"
+    "verified": "2026-08-11T23:34:02+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T23:39:12+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "verdict": "SUSPECT",
+        "problems": [
+          "log stopped growing",
+          "W&B global_step stalled at 655360"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-dep-tip1-takeoff25-r1",
@@ -73930,7 +73946,7 @@
       "dr.tipped_start_deg=12,25"
     ],
     "created": "2026-08-11T23:36:52+00:00",
-    "status": "INTENT",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73939,11 +73955,33 @@
       "code_sha_local": "309d94c920593602f0ce910414c861f31d49387a",
       "code_sha_pod": "309d94c920593602f0ce910414c861f31d49387a",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1986740",
+      "log_growth_bytes": [
+        8699,
+        13341
+      ],
+      "wandb_id": "xg6wrt13",
+      "global_step_window": [
+        589824,
+        917504
+      ],
+      "fps_estimate": 10922.7
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-tip1-takeoff25-r1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_tip1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_tip1_takeoff25_r1 --notes 'respec of cw-dep-tip1: Make the walking champion survive the 20-25 degree takeoff wobble that knocks the real robot over right after gait start; this arm raises the tipped-start training regime to the tilt range actually measured on hardware. Correct relaunch of cw-dep-tip1-takeoff25 (the drained stub trained default DR \u2014 no science). Hardware evidence (camera bench 08-11 eve, bench_blast_20260811_18*/19*): BOTH deployed walkers show a 20-25deg takeoff roll transient; vref1 fell 3/3, tip1 clean 1/1 but tripped 2/3 fwd attended \u2014 every fall keeps the takeoff-transient shape. tip1 trained at dose 6-18deg prob 0.30, BELOW the measured regime. One variable vs tip1: dr.tipped_start_prob 0.30->0.5, dr.tipped_start_deg 6-18 -> 12-25 (sim_env dr.* override path verified, tuple parses).' --cfg-set dr.tipped_start_prob=0.5 --cfg-set dr.tipped_start_deg=12,25 > /tmp/train_cw-dep-tip1-takeoff25-r1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-tip1-takeoff25-r1.log"
+    "log": "/tmp/train_cw-dep-tip1-takeoff25-r1.log",
+    "wandb_id": "xg6wrt13",
+    "verified": "2026-08-11T23:39:39+00:00",
+    "triage": "in-cycle cw-dep-tip1-takeoff25-r1 since 2026-08-11T23:44:23",
+    "checkups": [
+      {
+        "time": "2026-08-11T23:45:02+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "07\u00b0, track 4.03\u00b0, unload 4.41\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.027 m/s, lower 1/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 422s (4,739 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_tip1_takeoff25_r1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_dep_tip1_takeoff25_r1 (md5 11a6ee28)\n"
+      }
+    ]
   }
 ]

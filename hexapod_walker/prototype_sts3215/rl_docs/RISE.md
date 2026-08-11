@@ -1032,7 +1032,7 @@ step with uniform sampling, so each mode's effective supervision
 strength is proportional to its emission share — adding thousands of
 lower pairs diluted the rise/hold gradient. **ANCHOR DILUTION** is a
 new, directly testable mechanism (not another blind pricing/dose
-retune). Follow-up (specced + running): `cw-stand-anchormix1`
+retune). Follow-up (ran as -r1 — outcome in the next section): `cw-stand-anchormix1`
 (`train.bc_anchor_stratified=1.0`, mode-tagged ring buffer with equal
 per-mode minibatch quotas, everything else frozen at loweranchor1) —
 if stratified sampling recovers hold+rise while keeping lower's 6/6,
@@ -1041,3 +1041,34 @@ mix even at equal quotas, dilution is wrong/incomplete and the next
 step is inspecting `train/bc_anchor_loss` per mode. hard1 stays
 deployed meanwhile; `ppo_goal_cw_stand_loweranchor1` is the strongest
 lower-specialist checkpoint to date if one is ever wanted standalone.
+
+## cw-stand-anchormix1-r1 (08-11 late): stratified quotas — FAIL, dilution incomplete
+
+The dilution fix ran clean (first launch crashed on a warm-start
+`_bc_mode` pickle gap, fixed in bc_anchor.py; -r1 trained the full 2M,
+`train/bc_anchor_loss` converged 0.033→0.012, buffer full at 131k).
+Gate result (harness det+sto, DR0, videos watched):
+
+- RETAINED: lower 6/6 det + 6/6 sto (loweranchor1's win kept under
+  equal quotas), det crouch rise 4/4 valid_plant, zero falls in all
+  36 episodes, no non-park cheat.
+- STILL BROKEN: det flat rise stalls 105.6mm short (height+footprint
+  fail — splayed low the whole strip, an under-drive not a cheat);
+  det hold parks ONE foot (duty 0.02 vs 0.90–0.99 on the other five;
+  `env/hold_feet_factor` pinned at ~0.14 the entire run vs holdbc1's
+  ~1.0); hold det+sto valid_plant 9/12 (three sto 'current' fails).
+- THE TELL: the park MOVED. Both legs that parked in
+  crouchrise1/2/3/holdload1 (and the one that persisted through
+  anchorstate1/2) now read duty 0.90–0.97; a DIFFERENT single leg
+  parks. Which foot rests is a function of the anchor configuration,
+  not a fixed learned habit — the seventh distinct anchor/pricing
+  configuration to produce a one-or-two-foot park, each time
+  "solving" the previous fingerprint.
+
+Verdict: pre-registered FAIL branch — anchor dilution was real (the
+quotas did protect lower + crouch rise) but is NOT the whole
+mechanism. The branch's mandatory next step applies: per-mode
+`train/bc_anchor_loss` logging (CODE — only the aggregate exists
+today) before any further stand arm, so the next hypothesis is chosen
+on measurement. hard1 + specialist handoff stays the deployed stance
+stack.

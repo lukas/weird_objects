@@ -15,15 +15,18 @@ unresolved blockers between the robot and reliable joystick control.
   ~227 (~9 s, mid-curl) with roll 10.1–10.6° and currents ≤0.27 A.
   From verified clean zero (max pose delta 0.5°), so start pose is
   exonerated; sim keeps the same rise ≤1.7° roll. This is THE stand
-  blocker; `cw-stand-riserock1` (rocking-DR arm) queued in the
-  orchestrator backlog for it. Scripted `POST /api/zero pose=stand`
-  is the working stand-up meanwhile.
+  blocker; the queued `cw-stand-riserock1` drained as a STUB (the
+  rocking-DR code was never written — run VOID, no science); the
+  rise-rock DR axis is still unbuilt CODE work. Scripted `POST
+  /api/zero pose=stand` is the working stand-up meanwhile.
 - **A/B fell-rates finally honest (on camera): vref1 fell 3/3, tip1
   clean 1/1 — and that one was BACKWARD**, tip1's first clean
   off-wedge rot60 walk (rode a 16.7° takeoff transient, tail 1.5°,
   ends standing in frame). vref1's falls all follow the same 20–25°
-  takeoff-transient-then-capsize shape (`cw-dep-tip1-takeoff25`
-  queued for exactly this regime). tip1 is the deploy champion on
+  takeoff-transient-then-capsize shape. The queued takeoff arm
+  drained as a STUB (default DR — VOID); the proper relaunch
+  `cw-dep-tip1-takeoff25-r1` (dr.tipped_start_prob 0.5, deg 12–25,
+  warm tip1) is RUNNING. tip1 is the deploy champion on
   tonight's evidence.
 - **Thermal budget is real:** the second recovery stand-glide of the
   19:16 session limped on **L2 hip at 72 °C** (shutoff 65). Falls +
@@ -64,11 +67,13 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Next
 
-- Sim-side: **QUEUED in the orchestrator backlog 08-11 eve** —
-  `cw-stand-riserock1` (rise-tick rocking DR, code-first) and
-  `cw-dep-tip1-takeoff25` (tipped-start DR raised to the measured
-  20–25° takeoff regime, warm tip1). rot60 backward now has one fall
-  AND one clean walk — more reps after takeoff25.
+- Sim-side (08-11 late): the two queued bench-answer arms drained as
+  STUBS without their variables — both VOID (no science; verdicts in
+  ledger). `cw-dep-tip1-takeoff25-r1` is the proper relaunch and is
+  RUNNING (dr.tipped_start_prob 0.5, deg 12–25, warm tip1, knobs
+  verified in resolved cfg). The riserock rocking-DR axis needs CODE
+  + bank BEFORE any relaunch (MDP_PREFLIGHT). rot60 backward now has
+  one fall AND one clean walk — more reps after takeoff25-r1.
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching
@@ -89,8 +94,9 @@ unresolved blockers between the robot and reliable joystick control.
   also FAILED, the other way: it neither parked nor stepped — kept
   full travel and simply absorbed −7/tick for 2M (slip only 1.1–1.3 →
   0.95–1.15). Static fine at either init is closed; the from-scratch
-  40M `cw-gait-dragstance1-r1` (running) and anneal-up curriculum
-  carry the lever.
+  40M `cw-gait-dragstance1-r1` was KILLED pre-verdict (known-exploit
+  rule: identical recipe to the refuted 2M arm — RL_LOG 08-11 20:03);
+  the anneal-up curriculum (CODE) carries the lever.
 - **TALL LADDER (walk from a taller stance, same problem as
   anti-scrape): the wall is HABIT not kinematics** (`probe_tall_wall.py`,
   08-11 — GAIT.md/RL_PLAN queue -0.5). Ref-tracking alone is tradeable
@@ -107,12 +113,14 @@ unresolved blockers between the robot and reliable joystick control.
   yaw pinned at the 35° limit in all six pricing arms tried (ref
   ladder, income gate, gate+budget, height 3x/10x, speed relief). The
   optimizer cannot FIND the taller basin at any dose — it isn't
-  underpaying for it. Next lever is RSI-for-walk, not more pricing:
-  `cw-dep-tall-rsi1` (running) spawns episodes mid-stride in the
-  scripted gait's tall pose instead of asking the policy to discover
-  it from a standing start. If flat even with direct state injection,
-  the wall is dynamic stability itself (physics easing / taller
-  scripted reference), not reward work.
+  underpaying for it. RSI-for-walk (`cw-dep-tall-rsi1`, T6)
+  was the last lever and it is FLAT TOO (-77.4mm mid-gait; the
+  policy learned to recover from tall mid-stride spawns DOWN into
+  the crouch — verdict 08-11 22:33, ledger recorded): neither
+  pricing (6 arms) nor state injection moves posture. Remaining, in
+  order: BC-INIT from the scripted tall gait, physics-easing ladder,
+  or accept the pareto (tall15-h1 = fastest dep walker, 0.051 m/s).
+  Not a joystick blocker.
 - Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
   crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
   08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the
@@ -134,9 +142,16 @@ unresolved blockers between the robot and reliable joystick control.
   root cause found: the three per-mode BC anchors share one ring
   buffer/uniform sampling, so lower's pair volume diluted rise/hold
   supervision (ANCHOR DILUTION, a new testable mechanism, not the
-  shared-habit theory).** `cw-stand-anchormix1` (stratified per-mode
-  minibatch sampling, equal quotas) is the direct fix, now running as
-  `-r1` after a warm-start attribute crash on first launch (fixed in
-  bc_anchor.py). hard1 stays deployed. RISE.md.
+  shared-habit theory).** `cw-stand-anchormix1-r1` (stratified per-mode
+  minibatch sampling, equal quotas — the direct dilution fix)
+  **FAILED per its pre-registered FAIL branch (08-11 late): lower
+  6/6 and crouch rise 4/4 RETAINED, zero falls, but det flat rise
+  still stalls 105mm short and det hold still parks one foot (duty
+  0.02, hold_feet_factor ~0.14 all run) — and the park MOVED to a
+  different leg (old parkers now 0.90+), so the parked-leg identity
+  is anchor-dependent, not a fixed habit. Dilution theory
+  incomplete. Mandatory pre-registered next step before ANY further
+  stand arm: log per-mode train/bc_anchor_loss (CODE — aggregate
+  only today).** hard1 stays deployed. RISE.md.
 
 Detail: RL_PLAN.md queue · rl_docs/HARDWARE.md · RISE.md · GAIT.md.

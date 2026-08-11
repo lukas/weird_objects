@@ -250,11 +250,18 @@ both handoffs compose).
   hold/lower anchors share ONE ring buffer + uniform sampling, so
   adding thousands of lower pairs diluted the rise/hold gradient
   (ANCHOR DILUTION, not a shared taught habit). Follow-up
-  `cw-stand-anchormix1` (`train.bc_anchor_stratified=1.0`, equal
-  per-mode minibatch quotas) launched to test the dilution fix
-  directly; first launch crashed on a warm-start attribute bug
-  (fixed, `train.bc_anchor.py` backfills `_bc_mode` on load) and is
-  now running as `cw-stand-anchormix1-r1`. hard1 stays deployed.
+  `cw-stand-anchormix1-r1` (`train.bc_anchor_stratified=1.0`, equal
+  per-mode minibatch quotas; first launch crashed on a warm-start
+  attribute bug, fixed) **FAILED per its pre-registered FAIL branch
+  (08-11 late): stratification RETAINED lower 6/6 det+sto and crouch
+  rise 4/4 but det flat rise still stalls 105mm short and det hold
+  still parks ONE foot (duty 0.02, hold_feet_factor ~0.14 all 2M) —
+  and the park MOVED: both previously-parked legs now read 0.90+,
+  a different leg parks. The parked-leg identity is anchor-dependent,
+  not a fixed habit; dilution theory incomplete. Pre-registered
+  mandatory next step: per-mode train/bc_anchor_loss logging (CODE —
+  only the aggregate is logged today) before ANY further stand arm.**
+  hard1 stays deployed.
   Detail: rl_docs/RISE.md.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
@@ -290,10 +297,13 @@ both handoffs compose).
   DETERMINISTIC: 5/5 tilt_roll trips, every one at tick ~226–228
   (mid-curl) with roll 10.1–10.6°, two of them from VERIFIED clean
   zero (pose delta 0.5°, preflight green) — start pose exonerated.
-  `cw-stand-riserock1` (rocking-DR arm) is queued in the orchestrator
-  backlog for it; scripted `/api/zero pose=stand` is the working
-  hardware stand-up until it lands. Do NOT retry learned STAND on
-  hardware before a riserock-gated checkpoint exists.**
+  `cw-stand-riserock1` drained as a STUB and is VOID (08-11 late:
+  the rocking-DR code was never written — the run trained a default
+  config, no science; the rise-rock DR axis + bank is still unbuilt
+  CODE work); scripted `/api/zero pose=stand` is the working
+  hardware stand-up until a real riserock arm lands. Do NOT retry
+  learned STAND on hardware before a riserock-gated checkpoint
+  exists.**
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so
@@ -433,9 +443,12 @@ both handoffs compose).
   back capsize) while tip1 walked CLEAN 1/1 — backward, at that. tip1
   is the deploy champion on current hardware evidence; vref1's
   "zero-erosion ACCEPTED" status is a SIM contract fact only. Both
-  sim answers are queued in the orchestrator backlog:
-  `cw-dep-tip1-takeoff25` (tipped-start DR raised to the measured
-  20–25° regime) and `cw-stand-riserock1`. Still open: wz sign audit
+  queued sim answers drained as STUBS without their DR knobs and are
+  VOID (08-11 late: trained defaults, no science — do not build on
+  those checkpoints); `cw-dep-tip1-takeoff25-r1` (proper relaunch:
+  dr.tipped_start_prob 0.5, deg 12–25, warm tip1, knobs verified in
+  resolved cfg) is running; the riserock rocking-DR axis still needs
+  CODE first. Still open: wz sign audit
   (three sessions in a row ended before reaching it); session round 2
   ended on a thermal stop — L2 hip 72 °C during a recovery stand
   glide (falls + recoveries stack heat; robot limped itself, cooled
