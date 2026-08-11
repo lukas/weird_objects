@@ -155,9 +155,15 @@ problem — two CODE levers queued, BC-anchor preferred first).
   `env/hold_feet_factor` held 0.99–1.0 all 10M, crouch-start rise
   improved 33%→50%, zero cheat in 24 videos. `ppo_goal_
   cw_stand_holdbc1_hard1` is the hardened HOLD+RISE checkpoint;
-  lineage CLOSED for hardening. Next: the rise+hold→walk-champion
-  handoff composition test (needs a small new eval/handoff script —
-  CODE, not yet built). Detail: rl_docs/RISE.md.
+  lineage CLOSED for hardening.
+  **08-11: rise+hold→walk-champion HANDOFF composition PASSES**
+  (`eval_handoff.py`): specialist rises belly→settled hold, walk
+  champion switched in on the exact final state — 12/12 successful
+  rises hand off with zero falls, drive metrics in the clean-plant
+  baseline band, the scripted 1.5 s blend adds nothing; holds on air
+  AND loaded servo physics. Crouch-start rises still tip PRE-handoff
+  (0/6 RSI-off, known fragility; flat+bridge rises 12/12). Next:
+  reverse handoff (walk→stop→lower). Detail: rl_docs/RISE.md.
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so

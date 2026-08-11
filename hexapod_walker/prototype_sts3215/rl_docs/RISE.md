@@ -700,3 +700,55 @@ to a settled hold, then switches control to the walk champion and
 checks the walk champion doesn't stumble on the specialist's exact
 final pose/velocity state) — not yet built, so not launch-ready this
 cycle.
+
+### Handoff composition test (08-11) — PASS: the specialist's stand
+### is a walkable start; the scripted blend is obsolete
+
+The plan's next named composition milestone, now built and run:
+`rl_move/sim/eval_handoff.py` (snapshot 7f91f87). Three arms, 3
+episodes per rise start kind, two physics variants (default air +
+`bus.servo_params=loaded`, the specialist's training physics):
+
+- **direct**: `ppo_goal_cw_stand_holdbc1_hard1` runs a genuine
+  training-distribution rise episode (env's own goal generator,
+  RSI off, plant band 108–114 mm) to a settled hold; control then
+  switches to `ppo_goal_cw_walk_longdist_r2` ON the specialist's
+  exact physical state — episode bookkeeping re-anchored to a clean
+  plant frame (the champion's training frame, same trick as play.py
+  key-7), qpos/qvel/ctrl and the safety slew memory carried over
+  unchanged; then 1 s settle + 6 s fwd @0.05 + 2 s stop.
+- **blend**: identical plus the incumbent scripted 1.5 s joint blend
+  to the walk plant pose between the policies.
+- **plant**: walk champion from its own clean plant reset — the
+  drive-metric noise band.
+
+Results (per-episode records + strips:
+`logs/ckpt_eval/handoff_holdbc1hard1_{air,loaded}.json`, strips dir
+alongside): every successful rise handed off with ZERO falls in both
+arms and both physics. Direct-arm drive metrics sit inside the plant
+band: air trk_err 0.032–0.036 vs plant 0.031, dist 0.394–0.443 m vs
+0.431, stumble-window max tilt 1.2–2.6° vs 1.5°; loaded trk_err
+0.041–0.052 vs plant 0.050, dist 0.348–0.421 vs 0.360, tilt 1.7–4.5°
+vs 1.9°. Blend-arm numbers are indistinguishable from direct —
+**the scripted 1.5 s blend adds nothing; the specialist's settled
+pose (ends ~124 mm chassis height, worst-foot 1.8–4.9 mm, height_err
+|<6| mm) is already in the walk champion's start distribution.**
+Video: flat/bridge strips show curl → six-foot rise → level stand →
+normal all-six-legs gait after the switch; no flag-leg, no dragging,
+no lurch at the switch tick.
+
+Caveat, pre-existing and now sharpened: crouch-start rises fell
+(tilt_roll, within ~2 s of ramp start) before the handoff in 6/6
+episodes across both physics (RSI-off). The lineage's own gates saw
+2/6–2/4 crouch failures (RSI on); RSI-off crouch appears worse than
+the gate suggested. Not a handoff defect — flat (the realistic
+operator placement) and bridge rises went 12/12. Tracked as the
+lineage's known fragility; do not reopen hardening for it (two-pass
+rule) — if crouch matters for the joystick chain it needs its own
+mechanism question.
+
+Next composition step: the REVERSE handoff — walk champion drives,
+stops, control switches to the specialist for lower/sit on the
+walker's exact stopped pose (the specialist trained lower at 45%
+goal-mix; its lower quality post-holdbc1 is UNVERIFIED — check it in
+the same script before calling the sit side done).

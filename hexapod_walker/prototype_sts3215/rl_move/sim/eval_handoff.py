@@ -158,11 +158,10 @@ def main() -> int:
     def save_strip(name: str) -> None:
         if args.strips is None or not strip_frames:
             return
-        import cv2
+        import imageio.v2 as imageio   # same writer the harness uses
         args.strips.mkdir(parents=True, exist_ok=True)
-        img = np.hstack(strip_frames)
-        cv2.imwrite(str(args.strips / f"{name}.png"),
-                    cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        imageio.imwrite(args.strips / f"{name}.png",
+                        np.hstack(strip_frames))
         strip_frames.clear()
 
     # One clean plant reset up front: the blend arm's target joint pose
@@ -289,8 +288,7 @@ def main() -> int:
                 rec = {"arm": arm, "start": kind, "ep": ep}
                 name = f"{arm}_{kind}_{ep}"
                 want_strip = args.strips is not None and ep == 0
-                if not want_strip:
-                    strip_frames.clear()
+                strip_frames.clear()   # drop any prior episode's frames
                 if arm == "plant":
                     _set_mix(gen, walk=1.0)
                     obs, _ = env.reset()
