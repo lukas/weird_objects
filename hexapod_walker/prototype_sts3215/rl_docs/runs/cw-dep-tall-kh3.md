@@ -2,19 +2,19 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: REFUSED
 
-**created**: 2026-08-11T22:01:44+00:00
+**created**: 2026-08-11T22:07:19+00:00
 
-**pod**: hexapod-mjx-train-0
+**pod**: hexapod-mjx-train-2
 
 **steps**: 2000000
 
 **parent**: cw-dep-tall30
 
-**wandb_id**: o8w10022
+**hypothesis**: TALL LADDER T2a: k_height crank 3x (100->300) at ref -15, warm from tall30. T5 probe (probe_tall_wall.py, 08-11): the crouch is a stability HABIT (yaw splayed to its 35deg limit, support radius 218 vs gait 179mm; pitch/knee have 45-70deg of unused upward room) and the walking body rides -75mm mid-gait (height_err_end is a stop-window metric). Question: does a 3x quadratic height charge move the MID-GAIT posture?
 
-**hypothesis**: TALL LADDER T2a: k_height crank 3x (100->300) at ref -15, warm from tall30. The base quadratic height charge is ~0.36/tick at 60mm vs ~3/tick walk income, so the crouch outbids it; T1 proved the bare ref is tradeable. Does a 3x charge change the trade?
+**gate**: Primary metric: probe_tall_wall.py steady-state walking height (parent tall30 = -75mm). PASS: walking height >= -50mm with walk retained (speed >=0.028, survived 1, slip <=1.8, no park). Secondary: height_err_end <=8mm. Compare T2b for dose-response.
 
-**gate**: PASS: height_err_end <=8mm at -15 ref, speed >=0.028, survived 1, slip <=1.8, no park. FAIL: err >=25mm or walk broken. Compare against T2b (10x) for dose-response.
+**refused_reason**: a process for cw-dep-tall-kh3 already exists on hexapod-mjx-train-0
 
