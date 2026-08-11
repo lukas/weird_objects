@@ -219,9 +219,19 @@ problem — two CODE levers queued, BC-anchor preferred first).
   optimization failure, not a paid basin; reward surgery CLOSED.
   Latent defect in the de-scoped TURN stack only (ungated yaw kernel
   pays a motionless body full income on linear ticks; fix before any
-  turn re-scope). Next lever landed: BC anchor on walk ticks toward
-  the command-conditioned scripted TripodGait (third application of
-  the twice-proven lever); discovery arm `cw-omni-transbc1`.
+  turn re-scope). Next lever, BC anchor on walk ticks toward the
+  command-conditioned scripted TripodGait (third application of the
+  twice-proven lever), **FAILED (`cw-omni-transbc1`, 08-11)**:
+  anchor loss converged cleanly (0.14→0.0097, better than the
+  rise/hold precedent) and policy std stayed flat, yet the identical
+  march-in-place/paddle fingerprint reappeared (median forward
+  travel 0.01 m/episode, slip/m 6–19 vs champion ~1.2–1.5, zero net
+  floor travel in all 12 video-checked det+sto episodes) — the
+  pre-registered prediction-if-false. Per-tick imitation does not
+  teach the different global stepping pattern each direction needs;
+  BC-anchor/reward tuning on this stack is CLOSED (4th
+  distinct-or-near collapse). Next, untried: rot-60 exact
+  equivariance (backward = forward with legs relabeled).
 - Tipped-start DR is default-ON everywhere (operator ruling 08-10,
   "ideally all runs would learn this capability", after the deployed
   walk's hardware runaway roll): `dr.tipped_start_prob=0.30` (scaled
