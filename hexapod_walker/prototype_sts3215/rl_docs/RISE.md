@@ -645,3 +645,58 @@ budget also closes the crouch-start rise gap, the same way bc1's
 flat-start footprint miss resolved with budget in `bc1-hard1` — then
 the rise+hold → walk-champion handoff composition test, the plan's
 next named composition milestone.
+
+### `cw-stand-holdbc1-hard1` (08-11) — PASS: hardening consolidates,
+### matches every pre-registered gate condition, lineage CLOSED
+
+Binary question was whether 5x the budget (2M→10M) would also close
+the crouch-start rise gap left by discovery, without eroding hold.
+Answer: it holds hold and slightly improves crouch, exactly the
+"no worsening" bar the gate asked for.
+
+Harness (DR0 gate, det+sto, seed 0): hold valid_plant 11/12 (det
+6/6, sto 5/6 — the one sto miss carries only a `current` soft-limit
+flag, height_err 4.1mm, posture otherwise fine; not a posture/cheat
+failure). `env/hold_feet_factor` held 0.990–1.0 for the entire 10M
+steps (min 0.9904) — the pre-registered mechanism-health floor
+(>=0.9) cleared with wide margin, no re-drift toward the
+earning-zero plateau. Track valid_plant: det 5/6 (again one
+`current`-only miss), sto 3/6 (three `current` misses) — not part
+of this arm's gate (track command-tracking accuracy, tracked
+separately below).
+
+Det crouch-start rise: 2/4 valid (50%), vs discovery's 2/6 (33%) —
+improved, not flat, comfortably inside the gate's "improve or hold
+flat" bar. The one fall (`rise_det_2`, tilt_roll, return −49.6) is a
+genuine tip-over on video — the robot rises normally for the first
+half of the clip then rolls onto its side, no flag-leg/parking
+signature. The one miss (`rise_det_4`, `plant_fail=['height']`,
+height_err 22.8mm) is a correct-looking six-foot stand on video,
+just outside the height tolerance — not a cheat either. Bridge
+starts stayed clean (det 2/2, sto 3/3); sto rise overall 5/6 valid
+(one `current`-only miss on a bridge start). Zero flag-leg/tripod
+cheat pattern across all 24 det+sto episodes reviewed (hold, track,
+and rise strips) — every failure mode is either a soft current flag,
+a genuine fall, or a height-precision miss, never a frozen/splayed
+park.
+
+Reward-quarters [148.8, 271.5, 282.5, 283.5] show the usual
+fast-rise-then-plateau shape, consistent with a converged, not
+budget-starved, run.
+
+Ruling: **PASS, lineage CLOSED for further hardening.**
+`ppo_goal_cw_stand_holdbc1_hard1` is the hardened HOLD+RISE
+checkpoint (SKILLS.md new row). No further step-count/coefficient
+variant on this stack — matches the "two clean passes, stop
+tuning" pattern from the bc1 lineage. Track-mode command-tracking
+precision (sto tracking-error success still weak, though posture
+holds) stays noted for later, not gated. Next, per RL_PLAN queue
+2.3 and the plan's next named composition milestone: the rise+hold
+→ walk-champion handoff composition test — swap the current
+scripted-1.5s-blend handoff (stance champion → walk champion) for
+this learned specialist's own settled pose. This needs a small new
+piece of CODE first (an eval/drive script that runs the specialist
+to a settled hold, then switches control to the walk champion and
+checks the walk champion doesn't stumble on the specialist's exact
+final pose/velocity state) — not yet built, so not launch-ready this
+cycle.
