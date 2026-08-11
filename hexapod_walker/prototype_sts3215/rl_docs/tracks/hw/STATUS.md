@@ -9,16 +9,26 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- Sim side largely solved: rise + quiet hold (stand_holdbc1_hard1),
-  walk champion `cw-dep-vref1-r1`, rot-60 full-circle wrapper, full
-  cycle rise→walk→stop→sit composes with zero falls.
-- Critical path is BENCH-ONLY: hardware attempt #2 (fresh set_zero,
-  matching tilt trip, re-push the profile-carrying stand export).
+- **A learned policy HAS driven the robot (08-10 night, HARDWARE.md):**
+  `dep-tip1` 3 clean level walks / 1 runaway; parent `vref1-r1` 0/2
+  with runaway roll (pinned-leg feedback, sim-to-real contact gap —
+  sim recovery exploits skating feet, rubber on grip can't). Obs
+  pipeline verified bit-exact. Do NOT describe RL walking as
+  "pending bench time" — the open question is the intermittent
+  runaway, not whether it walks.
+- Sim side solved: rise + quiet hold (stand_holdbc1_hard1), rot-60
+  full-circle wrapper, full cycle rise→walk→stop→sit composes with
+  zero falls. rot60 + stand specialist are PORTED but not yet
+  hardware-run (deploy re-push required; stale on-robot stand copy
+  lacks its goal profile — never press STAND on it).
 
 ## Next
 
-- Hardware attempt #2 (operator-supervised) → tape-measure walk
-  distance, wz sign audit.
+- Next bench session (operator-supervised): vref1-r1 vs tip1 same-
+  floor A/B (roll-ramp RATE, runaways per N — the 08-10 A/B never
+  actually switched policies), RL-walk tape reading, first runs of
+  rot60 + stand specialist after the re-push, wz sign audit. If tip1
+  also runs away: sim contact/pinning model (no-skate feet), not DR.
 - Gait cleanup (anti-scrape): P0 diagnostic DONE 08-11 late (tilt
   penalties exonerated; paddle is a sim-effectiveness optimum —
   GAIT.md bottom). Structural per-stance charge, FROM SCRATCH

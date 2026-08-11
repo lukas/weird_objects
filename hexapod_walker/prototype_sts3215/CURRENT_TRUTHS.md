@@ -244,7 +244,8 @@ both handoffs compose).
   PROFILE-LESS copy on the robot that morning (md5 6620705c) — it
   would get the legacy +50mm/4s ramp, out-of-distribution for this
   policy; re-push/re-select before STAND (HARDWARE.md bench-state
-  note). Awaiting bench validation (attempt #2).
+  note). Awaiting its FIRST hardware run (next bench session — the
+  RL walk itself already ran 08-10, this port has not).
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so
@@ -274,14 +275,35 @@ both handoffs compose).
   structural height↔foot-contact coupling (RL_PLAN queue item 2b).
   Do not queue another reward/income/RSI coefficient variant.
   Detail: rl_docs/RISE.md.
-- Yaw: price escalation on a command-invariant drift is CLOSED. The
-  new mechanism set is landed and its TURN bank PASSES (08-10):
-  signed rotation income (k_yaw_prog), heading-hold drift charge
-  (k_yaw_still), turn-in-place curriculum (walk_turn_in_place_frac).
-  Sign audit still OPEN at the hardware boundary (sim +CCW vs
-  measured +omega=CW). Turn is DE-SCOPED from the joystick
-  deliverable (operator 08-11: no camera = no front). Plan:
-  rl_docs/TURN.md.
+- Yaw: price escalation on a command-invariant drift is CLOSED. Turn
+  was DE-SCOPED from the joystick deliverable (operator 08-11
+  morning: no camera = no front) and RE-OPENED as a compute
+  EXPERIMENT line the same afternoon — still NOT an attempt-#2
+  blocker. **08-11 later, RL_PLAN queue 0.2 steps 1–2 DONE
+  (rl_docs/TURN.md bottom):** (a) the latent yaw-stack defect is
+  FIXED + BANKED — `reward.walk_yaw_hold_prog_gate` (heading-hold
+  yaw income gated on achieved linear progress; pre-fix a FROZEN
+  body collected +375/ep, the largest channel in the turn stack)
+  and `reward.yaw_still_avg_s` (drift charge on the wz EMA; pre-fix
+  it taxed the honest gait −110/ep and degenerates ~0). Post-fix
+  income is monotone in honesty incl. a calibrated drift-rider;
+  stillness-subsidy bank (4 tests, legacy reproduction pinned)
+  green; TURN_OVERRIDES trains both fixes ON; the yawcmd1/yawgate2/
+  turnfix1 ckpts are gone from all pods (ckpt audit UNTESTABLE).
+  (b) the REFLECTION wrapper PASSES on cw-dep-vref1-r1
+  (`mirror.MirrorPolicy` + `probe_mirror_turn.py`): mirrored policy
+  drifts RIGHT at the naked policy's rate with identical travel
+  (DR 0 and 0.35, zero falls); bang-bang chirality selection holds
+  heading to 2–4 deg vs 34–50 deg naked runaway — arc-left/
+  arc-right/straight with ZERO training, at the drift rate
+  (~2 deg/s; commanded-rate tracking still open). (c) mirror-
+  symmetry TRAINING is now licensed and queued
+  (`cw-walk-mirturn1`, discovery 2M on the fixed pricing) — the
+  hypothesis has still never had a clean test; if it fails healthy,
+  the mirror line closes and MirrorPolicy selection is the shipped
+  turning story. BC-anchor on turn ticks stays in reserve. Sign
+  audit still OPEN at the hardware boundary (sim +CCW vs measured
+  +omega=CW) and gates any bench turn. Plan: rl_docs/TURN.md.
 - Omni translation (walk in ANY direction — the "walk where pointed"
   blocker; no learned policy has ever walked backward): three arms
   collapsed into three different degenerate gaits. **08-11 income
@@ -290,9 +312,9 @@ both handoffs compose).
   uniformly across directions at DR 0 AND 0.5, and the collapsed
   checkpoints earn BELOW a freeze under their own reward —
   optimization failure, not a paid basin; reward surgery CLOSED.
-  Latent defect in the de-scoped TURN stack only (ungated yaw kernel
-  pays a motionless body full income on linear ticks; fix before any
-  turn re-scope). Next lever, BC anchor on walk ticks toward the
+  Latent defect in the TURN stack only (ungated yaw kernel paid a
+  motionless body full income on linear ticks — FIXED + banked 08-11,
+  see the Yaw bullet). Next lever, BC anchor on walk ticks toward the
   command-conditioned scripted TripodGait (third application of the
   twice-proven lever), **FAILED (`cw-omni-transbc1`, 08-11)**:
   anchor loss converged cleanly (0.14→0.0097, better than the
@@ -330,7 +352,7 @@ both handoffs compose).
   `rl_move/tests/test_rot60_runner.py` (obs-layout, full-circle +
   hysteresis parity, real deployed weights); per-tick `rot60_k`
   logged in the episode CSV for on-hardware replay checks. Awaiting
-  bench validation only (attempt #2).
+  its FIRST hardware run (next bench session).
 - Tipped-start DR is default-ON everywhere (operator ruling 08-10,
   "ideally all runs would learn this capability", after the deployed
   walk's hardware runaway roll): `dr.tipped_start_prob=0.30` (scaled
@@ -342,9 +364,30 @@ both handoffs compose).
   vref1-r1 7/8 at 12°, NOT the retracted 0.25). Discovery arm
   `cw-dep-tip1` TRAINED 08-10: no sim separation vs parent (static-
   lean recovery was already present — the hardware runaway is a
-  sim-to-real pinning gap, HARDWARE.md); hardware A/B pending,
-  `dep_tip1.json` staged in the robot's walk picker.
-- Quad-hold is solid but mixing erodes walk — deploy-time
-  specialist; quad comes after the core joystick set is coherent.
+  sim-to-real pinning gap, HARDWARE.md). **tip1 then RAN ON HARDWARE
+  4x (08-10 night): 1 runaway / 3 CLEAN level walks — a learned
+  policy has driven the robot; the pinned-leg signature did not
+  recur; obs pipeline verified bit-exact offline.** It is the ACTIVE
+  walk slot. Still open: the DISCRIMINATING same-floor A/B vs
+  vref1-r1 (the 08-10 attempt never switched policies — compare
+  roll-ramp rate over several runs) and an RL-walk tape reading.
+- Quad-hold is solid but mixing erodes walk (four dose points) —
+  deploy-time specialist, never a mixed diet. FOUR-LEG WALKING is a
+  sanctioned NEW experiment line (operator 08-11 afternoon): weight
+  shifted BACK onto the four rear legs, front pair raised as
+  "hands". SPEC FIRST — the current reward provably punishes it
+  (park-duty/flag-leg/gait_valid machinery defines it as the
+  leg-sacrifice cheat; k_pitch + level-referenced tilt termination
+  charge the rear-shift posture); reward must be lift-command- and
+  posture-conditioned, and banked, before any launch (RL_PLAN
+  queue 0.3).
+- GAIT CLEANUP / tall walking (RL_PLAN queue -0.5): before any new
+  arm, the P0 reward-accuracy probe is binding (operator 08-11):
+  replay the tape-proven scripted gait AT PLANT HEIGHT through the
+  full champion reward stack (income + penalties + termination
+  risk) vs the trained crouch-paddle's actual earnings. dep-hgt1/2
+  showed height INCOME is not the lever; the suspect is the penalty
+  side (the real gait rocks ±10–20° — gyro/tilt pricing may be
+  anti-incentivizing honest tall stepping).
 - MoE only after clean multitask training (explicit mode ID, correct
   rewards, enough plain-MLP capacity) shows real skill interference.
