@@ -200,3 +200,34 @@ median vs 0.05) AND a matched-parent control — the parent under the
 identical eval, so the drift delta is attributable. Early video at
 first eval; kill on the behavioral-impossibility rule if both turn
 directions still converge to the drift.
+
+## `cw-omni-trans1` — turning removed entirely, gait still collapses
+(08-11)
+
+Operator de-scoped commanded turning from the joystick deliverable
+(no camera on the robot = no reason it needs a definable "front").
+`cw-omni-trans1` tests the narrower goal directly: walk in ANY
+commanded direction (full-circle heading), mirror-symmetry loss
+still on (coef 1.0), full dep1 contract, k_current=0 — but with the
+ENTIRE yaw/turn-in-place stack removed (no `walk_yaw_cmd`, no
+`walk_kernel_yaw_gate`, no turn-in-place curriculum), so the
+freeze-income exploit that required a yaw gate is structurally
+absent. Result: FAIL, a THIRD distinct pathology. Not freezing
+(mirror1) and not the leg-sacrifice/tripod pattern (mirror2/dr02):
+instead a paddle-stall — legs 1 and 4 stay planted 90–99% duty the
+whole episode while the other four take rapid, tiny (~0.01m mean)
+strides, slip_per_m 3–13 (vs champion band ~1.2–1.5), along-command
+progress_ratio med 0.51 det / 0.22 sto, 0/6 success any mode/DR.
+`train/std` climbed continuously with no plateau, 0.37→1.38 (3.7x
+start) — worse than mirror2's own 2x alarm and never recovered.
+Reading: omnidirectional translation (independent of the yaw
+mechanism entirely) is ALSO not yet a solved reward/task spec — three
+different arms (mirror1, mirror2/dr02, trans1) each find a different
+degenerate attractor once heading leaves the narrow forward band the
+champion was built on. Mirror-symmetry remains completely untested
+by any of the three; the gait has never been clean enough to isolate
+it. Do not launch a fourth omni variant on the current stack — next
+move (unchanged from the mirror2 ruling) is a term-by-term WALK-kernel
+income re-probe: find what still pays for degenerate partial gaits
+(freeze, sacrifice, AND paddle) before trying another mirror/heading
+arm.

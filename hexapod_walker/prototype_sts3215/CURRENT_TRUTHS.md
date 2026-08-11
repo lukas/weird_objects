@@ -5,10 +5,10 @@ RL_LOG/archive prose disagrees with a line here, this file wins.
 Update ONLY when a ruling is accepted or hardware produces new
 evidence; keep 50–80 lines. Reading order: RL_GOALS.md → this file →
 RL_PLAN.md → RESEARCH_RULES.md → rl_docs/SIM.md.
-Last regenerated: 2026-08-11 (rise: clean re-run `cw-stand-rsi2`
-reports — pool-restore bug exonerated, income-shaping/RSI/reference-
-tracking RE-CLOSED on clean data; only remaining lever is the
-structural height<->contact coupling, CODE).
+Last regenerated: 2026-08-11 (rise: `cw-stand-rsi3` closes the last
+income-shaping variant; the SAME feet-factor collapse curve across
+6 reward-different arms reads as warm-start OOD drift, not a reward
+problem — two CODE levers queued, BC-anchor preferred first).
 
 ## Real robot facts (these outrank any sim result)
 
@@ -125,9 +125,23 @@ structural height<->contact coupling, CODE).
   worst-foot clearance 146–161mm). Ruling: the pool bug is
   EXONERATED as the cause; income-shaping, reference-tracking-as-
   crutch, AND RSI-as-a-fix are all RE-CLOSED, now on clean evidence.
-  Detail: rl_docs/RISE.md. The only remaining lever is a structural
-  coupling between the height goal and measured foot contact (CODE,
-  not yet built) — RL_PLAN queue item 2b.
+  `cw-stand-rsi3` (one more change: strip the old k_height PENALTY
+  that might have funded the cheat) collapsed identically again.
+  Decisive read across all six reward-different arms: the
+  feet-factor collapse (0.87→~0.17 by the 25% mark) has the same
+  shape/timescale regardless of the reward mechanism — behavior that
+  doesn't respond to reward changes isn't reward-driven. Diagnosis:
+  **warm-start out-of-distribution drift** (the 108–114mm command
+  band is ~2.2x the stance champion's trained range; the tight
+  tracking kernel only pays a policy already nearly perfect there,
+  so early update noise drifts it into the tripod with nothing to
+  anchor it back — widening the kernel is bank-blocked). Two CODE
+  levers queued, both need a SPECIFICATION pass first: (a) a BC
+  anchor loss in the trainer pulling actions toward the reference at
+  RSI-spawned states (operator's preferred first spec), (b) the
+  structural height↔foot-contact coupling (RL_PLAN queue item 2b).
+  Do not queue another reward/income/RSI coefficient variant.
+  Detail: rl_docs/RISE.md.
 - Yaw: price escalation on a command-invariant drift is CLOSED. The
   new mechanism set is landed and its TURN bank PASSES (08-10):
   signed rotation income (k_yaw_prog), heading-hold drift charge
