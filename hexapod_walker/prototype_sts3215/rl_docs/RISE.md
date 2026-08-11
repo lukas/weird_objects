@@ -237,3 +237,28 @@ bank green, default-off exact. First arm: `cw-stand-rsi1` =
 scoreref1-dr0 stack + `rise_rsi_frac=0.5`. Lever (b) (structural
 height↔contact coupling) stays open as the NEXT step only if RSI
 with a correctly-priced stack still fails.
+
+**08-11 ~03:30 — ACTUAL root cause found (supersedes the exploration
+framing above).** `cw-stand-rsi1` still eroded, but its `env/rise_rsi`
+tick share decayed 0.58→0.15 with ZERO terminations — impossible for
+a constant 0.5 spawn fraction, i.e. a CODE smell, not behavior. Trace:
+the warp/MJX vec envs recycle episodes from a reset pool and restore
+per-episode host state from `mjx_host.SNAP_ATTRS` — and none of the
+score-stack episode attrs added 08-10 were in that list. Every
+pool-restored episode inherited a random other episode's
+`_score_best` ratchet high-water mark (so progress income ~never
+paid), `_rise_ramp_i0` ramp anchor (mis-clocked ref tracking and
+post-ramp checks) and, in rsi1, lost its RSI clock entirely. This is
+mechanically the observed signature everywhere: first-generation
+episodes pay (warm 0.65-0.82/tick ref income at step 0), pooled
+generations take over within ~20-30 updates and the pay — not the
+behavior — collapses. Local probes never showed it (host env has no
+pool). Consequences: **the score1/scoreref1/plantgate "the cheat
+beats N mechanisms" verdicts are all contaminated** — those stacks
+were never actually paid as designed on the GPU path; the closures
+of income-shaping and tracking-as-crutch are REOPENED pending a
+clean re-run. Fix landed: `SNAP_ATTRS` += `_score_best`,
+`_rise_ramp_i0`, `_end_posture_from`, `_rsi_pending`,
+`_rsi_ref_tick0`, plus a rule note that any new per-episode attr
+read in the step path must join the list. First clean arm:
+`cw-stand-rsi2` (rsi1 args, one change = this fix).

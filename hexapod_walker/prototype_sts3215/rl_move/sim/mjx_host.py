@@ -30,6 +30,17 @@ SNAP_ATTRS = (
     "_plant_feet_xy", "_curl_dist_prev", "_curl_milestones",
     "_imu_prev_v", "_imu_f_accum", "_imu_f_n", "_gyro_accum", "_gyro_n",
     "_hist_buf", "safety", "ik",
+    # Score-stack + RSI episode state (08-11). These were MISSING from
+    # the list for every warp run of the 08-10/11 stand campaign:
+    # pool-restored episodes inherited another episode's ratchet
+    # high-water mark (_score_best) and ramp anchor, so score income
+    # silently stopped paying as pooled episodes took over — measured
+    # as the "warm start pays, then decays over ~20-30 updates"
+    # erosion in score1/scoreref1/-dr0/-lowlr/-riseonly/rsi1. Any new
+    # per-episode attr set in _reset_begin/_reset_finalize and read in
+    # the step path MUST be added here.
+    "_score_best", "_rise_ramp_i0", "_end_posture_from",
+    "_rsi_pending", "_rsi_ref_tick0",
 )
 
 
