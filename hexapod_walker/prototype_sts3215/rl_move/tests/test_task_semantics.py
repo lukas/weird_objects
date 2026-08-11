@@ -721,7 +721,10 @@ def _walk_rollout(policy: str, seed: int, *, vx: float = WALK_CMD_VX,
     if traj.wz is not None:
         traj.wz[:] = 0.0
 
-    gait = TripodGait(vx=0.0)
+    # "skate" = the same tripod gait with ZERO swing lift: feet never
+    # leave the ground, strides happen by sliding — the scripted twin
+    # of the learned paddle/drag walkers (slip/m ~1, audit 08-11).
+    gait = TripodGait(vx=0.0, lift=0.0 if policy == "skate" else 0.025)
     gait.sync_plant_stance(*stance)
     plant_rad = np.array([0.0, *stance] * 6) * DEG2RAD
     gait.reset_phase()
@@ -730,7 +733,7 @@ def _walk_rollout(policy: str, seed: int, *, vx: float = WALK_CMD_VX,
     while True:
         t = step * env.dt
         i = min(step, n - 1)
-        if policy == "gait":
+        if policy in ("gait", "skate"):
             gait.set_velocity(vx=float(traj.vx[i]), vy=float(traj.vy[i]))
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         elif policy == "stall":       # march in place: steps, no stride
@@ -927,6 +930,39 @@ def test_trans_only_gait_beats_stall_and_park_every_direction():
             [_walk_rollout(p, s, vx=vx, vy=vy, overrides=trans)
              for s in SEEDS]))
             for p in ("gait", "stall", "park")}
+        assert r["gait"] > r["stall"] + 50.0, f"{name}: {r}"
+        assert r["gait"] > r["park"] + 50.0, f"{name}: {r}"
+
+
+def test_drag_stance_stack_prices_skating_below_stepping():
+    """STRUCTURAL DRAG-CHARGE stack (charge-magnitude audit 08-11,
+    probe_drag_audit.py): translation-only stack + k_drag_stance at the
+    audit-derived operating point (k=8000/m over a 6 mm per-stance
+    allowance, 0.25 mm/tick jitter floor). The launch gate for the
+    from-scratch arm: honest STEPPING must out-earn the zero-lift
+    SKATE of the same gait (the exact behavior every learned walker
+    converged to — per-tick k_drag_loaded could never create this
+    ordering at any coefficient), while the old orderings (gait >
+    stall > park) survive the new charge."""
+    stack = {k: v for k, v in OMNI_OVERRIDES.items()
+             if k[1] not in ("walk_yaw_cmd", "k_walk_yaw",
+                             "walk_yaw_kernel_gate", "k_yaw_prog",
+                             "k_yaw_still", "walk_yaw_max_rad_s",
+                             "walk_yaw_zero_frac",
+                             "walk_turn_in_place_frac")}
+    stack.update({
+        ("reward", "k_drag_stance"): 8000.0,
+        ("reward", "drag_stance_allow_mm"): 6.0,
+        ("reward", "drag_stance_tick_floor_mm"): 0.25,
+    })
+    for name, (vx, vy) in (("forward", OMNI_CMDS["forward"]),
+                           ("crab_left", OMNI_CMDS["crab_left"])):
+        r = {p: float(np.mean(
+            [_walk_rollout(p, s, vx=vx, vy=vy, overrides=stack)
+             for s in SEEDS]))
+            for p in ("gait", "skate", "stall", "park")}
+        assert r["gait"] > r["skate"] + 50.0, (
+            f"{name}: skating rivals stepping under the charge: {r}")
         assert r["gait"] > r["stall"] + 50.0, f"{name}: {r}"
         assert r["gait"] > r["park"] + 50.0, f"{name}: {r}"
 

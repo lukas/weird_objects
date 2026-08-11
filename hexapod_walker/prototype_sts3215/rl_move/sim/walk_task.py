@@ -195,7 +195,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_walk_bucket", "_step_disp_bank",
                           "_ls_prev_xy", "_ls_prev_on",
                           "_ls_slip_m", "_ls_prog_m",
-                          "_yaw_still_ema")
+                          "_yaw_still_ema", "_stance_slip_acc")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -235,6 +235,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._ls_prev_on = [False] * 6
         self._ls_slip_m = 0.0
         self._ls_prog_m = 0.0
+        # Structural stance-slip charge (2026-08-11 charge-magnitude
+        # audit, probe_drag_audit.py / GAIT.md P2): accumulated loaded
+        # XY travel of the CURRENT stance period per foot. Reset at
+        # touchdown (a new stance earns a fresh allowance), charged
+        # continuously beyond reward.drag_stance_allow_mm. Audit truth:
+        # per-TICK slip cannot separate skating from honest walking
+        # (medians 0.40-0.47 vs 0.31 mm overlap; the 0.5 mm deadband
+        # leaves 53-97% of skating free), but per-STANCE travel splits
+        # them 3.3x (learned skaters median 9.8 mm vs scripted gait
+        # 2.9 mm, p90 5.7) — charge the stroke, not the jitter.
+        self._stance_slip_acc = [0.0] * 6
         # Learning-progress curriculum state: sampling weights over
         # LP_BUCKETS (None = uniform) and the bucket of the current
         # walk episode (surfaced in step info for the LP callback).
@@ -339,6 +350,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._ls_prev_on = [False] * 6
         self._ls_slip_m = 0.0
         self._ls_prog_m = 0.0
+        self._stance_slip_acc = [0.0] * 6
         self._phase = 0.0
         self._yaw_still_ema = 0.0
         return super()._reset_begin(seed)
@@ -977,6 +989,30 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                    default=0.0))
             k_park = float(cfg_get(self.cfg, "reward", "k_park_duty",
                                    default=0.0))
+            # Structural stance-slip charge (charge-magnitude audit,
+            # 2026-08-11, probe_drag_audit.py): per-foot accumulated
+            # loaded XY travel per STANCE PERIOD, charged continuously
+            # beyond drag_stance_allow_mm. Unlike k_drag_loaded's
+            # per-tick form (audit: cannot separate skating from
+            # honest touchdown scuff at ANY k/deadband), the stance
+            # accumulator prices the dragging STROKE: audit-derived
+            # operating point k=7000/m @ allow 6mm makes a learned
+            # skater's drag cost ~2.4x its income while the honest
+            # scripted gait pays on <5% of stances (~20% of income).
+            # Default 0 = off, legacy exact.
+            k_ds = float(cfg_get(self.cfg, "reward", "k_drag_stance",
+                                 default=0.0))
+            allow_m = float(cfg_get(self.cfg, "reward",
+                                    "drag_stance_allow_mm",
+                                    default=6.0)) / 1000.0
+            # Contact-solver micro-jitter (~0.2 mm/tick on a motionless
+            # loaded foot) must not integrate into the accumulator, or
+            # any long stance eventually pays regardless of behavior:
+            # only ticks sliding faster than this floor accumulate.
+            # Dragging strokes run 0.4-0.5 mm/tick (audit medians).
+            ds_floor = float(cfg_get(self.cfg, "reward",
+                                     "drag_stance_tick_floor_mm",
+                                     default=0.25)) / 1000.0
             # Displacement-gated step-event credit (cycle 34; operator
             # 0-c.2 "so stride-in-place can't collect", pre-registered
             # escalation from the closed tolerance rung). Root cause: the
@@ -998,7 +1034,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                      "step_disp_budget_mm",
                                      default=0.0)) / 1000.0
             if (k_swing > 0.0 or k_step > 0.0 or k_drag > 0.0
-                    or k_park > 0.0) and s_ref > 1e-3:
+                    or k_park > 0.0 or k_ds > 0.0) and s_ref > 1e-3:
                 if budget_m > 0.0:
                     # `along` here is still the BODY along-command
                     # velocity (m/s) from the r_prog block above (the
@@ -1008,6 +1044,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 r_swing = 0.0
                 r_step = 0.0
                 r_drag = 0.0
+                r_ds = 0.0
                 contacts = [False] * 6
                 for f in range(6):
                     adr = self._touch_adr[f]
@@ -1015,6 +1052,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           float(self.data.sensordata[adr]) > 0.5)
                     contacts[f] = on
                     xy = self.data.xpos[self._pad_bids[f], :2]
+                    if on and not self._foot_on[f]:
+                        # Touchdown: a new stance period earns a fresh
+                        # slip allowance (k_drag_stance bookkeeping).
+                        self._stance_slip_acc[f] = 0.0
                     if self._foot_on[f] and not on:
                         self._liftoff_xy[f] = xy.copy()
                         self._liftoff_step[f] = self._step_i
@@ -1041,12 +1082,23 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                         r_step_denied += credit
                                         credit = 0.0
                                 r_step += credit
-                    elif on and self._foot_on[f] and k_drag > 0.0 \
+                    elif on and self._foot_on[f] \
+                            and (k_drag > 0.0 or k_ds > 0.0) \
                             and self._foot_prev_xy[f] is not None:
                         slip = float(np.linalg.norm(
                             xy - self._foot_prev_xy[f]))
-                        if slip > 0.0005:
+                        if k_drag > 0.0 and slip > 0.0005:
                             r_drag -= k_drag * slip
+                        if k_ds > 0.0 and slip > ds_floor:
+                            acc0 = self._stance_slip_acc[f]
+                            acc1 = acc0 + slip
+                            self._stance_slip_acc[f] = acc1
+                            # Incremental charge: integrates to
+                            # k * max(stance travel - allowance, 0)
+                            # per stance, paid as it accrues (a foot
+                            # that never lifts cannot defer payment).
+                            r_ds -= k_ds * (max(acc1 - allow_m, 0.0)
+                                            - max(acc0 - allow_m, 0.0))
                     self._foot_prev_xy[f] = xy.copy()
                     self._foot_on[f] = on
                 if r_swing:
@@ -1062,6 +1114,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if k_drag > 0.0:
                     reward += r_drag
                     info["reward_drag"] = r_drag
+                if k_ds > 0.0:
+                    reward += r_ds
+                    info["reward_drag_stance"] = r_ds
                 if k_park > 0.0:
                     self._duty_hist.append(
                         [1.0 if c else 0.0 for c in contacts])

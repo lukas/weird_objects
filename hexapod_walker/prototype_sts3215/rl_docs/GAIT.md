@@ -240,9 +240,56 @@ charge once the P2 bank lands. Lever 3 (physics easing) unstarted.
   pre-registered pass branch: own-terrain slip/m med 6.86 det / 8.90
   sto is 4-6x the closed paddle band (1.1-1.5), not the <0.6 win and
   not a match to the champion band; one det episode terminated
-  over_current (a dragged foot straining against a bump). Gentler
+  over_current (a dragged foot straining against a bump).   Gentler
   terrain does not force stepping either — physics-as-teacher is
   refuted across the amplitude range tried, from scratch, twice.
   Do not requeue terrain-as-teacher at any amplitude. Next: the
   charge-magnitude audit (P3 lever 2 prerequisite, unstarted) or
   RSI-for-walk (lever 4).
+
+## Charge-magnitude AUDIT — DONE 08-11 eve (operator session);
+## per-tick charge form REFUTED, structural per-stance charge LANDED
+
+`rl_move/sim/probe_drag_audit.py` (+ `logs/probe_drag_audit*.json`).
+Measured per-foot loaded slip on the honest scripted gait vs the two
+learned skaters (`longdist_r2`, `dep_vref1_r1`) under the trans1
+stack, 375 ticks each:
+
+- **The 0.5 mm/tick deadband was the hole**: 53–63% of the skaters'
+  slip ticks ride UNDER it (slow constant slide), so at dragstep1's
+  k=40 the effective charge was ~0.001–0.09/tick vs ~2–2.6/tick
+  income. The "big penalty" never existed.
+- **The per-tick FORM is unfixable, not just the coefficient**:
+  per-tick slip medians overlap (gait 0.31 mm — touchdown scuff — vs
+  skaters 0.40–0.47 mm). At ANY (k, deadband) that prices the skate,
+  the honest gait pays ≥2.5x its own income too. This is why 10+
+  coefficient arms failed; do not run another per-tick k rung.
+- **Per-STANCE accumulated travel separates them 3.3x**: scripted
+  gait median 2.9 mm/stance (95% of stances under 6 mm) vs skater
+  median 9.8 mm (only ~25–30% under 6 mm). Stance duration is the
+  discriminator the per-tick form throws away.
+- **Contact-solver micro-jitter (~0.2 mm/tick) integrates** on long
+  stances (a 2 s quiet stance accrues ~10 mm/foot of pure jitter), so
+  the accumulator only counts ticks sliding >0.25 mm (floor; skater
+  drag runs 0.4–0.5 mm/tick).
+
+Landed in `walk_task.py` (default OFF, legacy bit-exact):
+`reward.k_drag_stance` (charge per metre of over-allowance stance
+travel), `reward.drag_stance_allow_mm` (default 6),
+`reward.drag_stance_tick_floor_mm` (default 0.25). Accumulator resets
+at touchdown, pays incrementally (a never-lifting foot cannot defer).
+**Audit-derived operating point: k=8000, allow 6 mm, floor 0.25 mm**
+— skaters pay ~2.5x their income, honest gait ~23%, motionless foot
+~0. Launch gate added and PASSING
+(`test_drag_stance_stack_prices_skating_below_stepping`: stepping >
+zero-lift skate of the same gait by >50 return, gait > stall > park
+survives, forward + crab).
+
+Calibration side-note (same session): re-ran `calibrate_slip.py` full
+mu sweep + loaded-servo point. Travel ratio saturates ~0.38–0.40 (air
+fit) at mu ≥1.2 and the 08-10 loaded fit makes it WORSE (0.25–0.31)
+— friction is NOT the knob for the sim-vs-tape travel gap, and sim is
+PESSIMISTIC (slipperier than the real floor), which is conservative
+in the right direction for anti-skate training. Contact-stiffness
+class stays open as operator calibration; it does NOT block the
+charge arm.

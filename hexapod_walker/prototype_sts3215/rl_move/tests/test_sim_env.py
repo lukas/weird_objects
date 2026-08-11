@@ -937,6 +937,58 @@ def test_drag_charges_loaded_translation():
     env.close()
 
 
+def test_drag_stance_allowance_and_floor_gate_the_charge():
+    """k_drag_stance: sliding inside the per-stance allowance is free,
+    and ticks below the jitter floor never accumulate — with either
+    gate wide open the charge is exactly zero no matter how the feet
+    move (zero action in this env actively drags toward joint center,
+    ~20+ mm of above-floor slide in 2 s, so this is a real motion)."""
+    for kw in ({"drag_stance_allow_mm": 1000.0},
+               {"drag_stance_tick_floor_mm": 50.0}):
+        env = _walk_only_env(seed=0, k_drag_stance=7000.0, **kw)
+        env.reset()
+        tot = 0.0
+        for _ in range(int(2.0 / env.dt)):
+            _, _, term, trunc, info = env.step(np.zeros(env.n_act))
+            tot += info.get("reward_drag_stance", 0.0)
+            if term or trunc:
+                break
+        assert tot == 0.0, (kw, tot)
+        env.close()
+
+
+def test_drag_stance_charges_over_allowance_stroke():
+    """k_drag_stance: once a stance's accumulated travel exceeds the
+    allowance, every further above-floor loaded millimetre is charged
+    at k — and a touchdown resets the accumulator (fresh allowance)."""
+    env = _walk_only_env(seed=0, k_drag_stance=7000.0)
+    env.reset()
+    assert env._goal_traj.mode == "walk"
+    env.step(np.zeros(env.n_act))          # settle contact bookkeeping
+    # Prime every foot as if its stance already dragged 20 mm (> 6 mm
+    # allowance): the zero-action drag toward joint center now pays
+    # k * slip on every above-floor loaded tick.
+    env._stance_slip_acc = [0.020] * 6
+    charged = 0.0
+    for _ in range(int(2.0 / env.dt)):
+        _, _, term, trunc, info = env.step(np.zeros(env.n_act))
+        charged += info.get("reward_drag_stance", 0.0)
+        if term or trunc:
+            break
+    assert charged < -0.5, charged
+    # Touchdown reset: mark a loaded foot airborne, let real contact
+    # re-plant it -> accumulator returns to zero (allowance renewed).
+    loaded = [f for f in range(6)
+              if float(env.data.sensordata[env._touch_adr[f]]) > 0.5]
+    assert loaded, "no loaded foot to test with"
+    f = loaded[0]
+    env._foot_on[f] = False
+    env._stance_slip_acc[f] = 0.050
+    env.step(np.zeros(env.n_act))
+    assert env._stance_slip_acc[f] < 0.010, env._stance_slip_acc[f]
+    env.close()
+
+
 # ---------------------------------------------------------------------------
 # Terminal end-posture pricing (cycle 14, pre-registered structural option)
 
