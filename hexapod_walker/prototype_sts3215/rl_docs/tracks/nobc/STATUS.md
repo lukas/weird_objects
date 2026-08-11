@@ -16,7 +16,14 @@ whatever works; this track exists to retire the crutch.
 - Gait-from-scratch: terrain clamp bug fixed (all past terrain was
   really <=18mm); terrain2 (true 72mm) FAILED into leg-sacrifice;
   dragstep1 FAILED — but its effective charge never exceeded
-  ~0.09/tick vs ~1/tick income, so "really big penalty" is UNTESTED.
+  ~0.09/tick vs ~1/tick income, so "really big penalty" was UNTESTED.
+  **CROSS-TRACK: item 1 below is now ANSWERED, by an hw-tracked run**
+  (`cw-gait-dragstance1`, GAIT.md) — the audit-derived structural
+  per-stance charge (k=8000/m, correctly sized this time) trained
+  from scratch and FAILED into freeze/park (charge paid the whole
+  episode, never resolved, near-zero travel), matching its own
+  pre-registered false branch. Solo structural charge does not
+  induce stepping from scratch; move to item 2 (RSI-for-walk).
 
 - CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
   crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —
@@ -28,9 +35,9 @@ whatever works; this track exists to retire the crutch.
 
 ## Next
 
-1. Drag-charge magnitude audit → one arm with the charge sized so a
-   paddle tick costs 2-3x a progress tick (audit-derived k).
-2. RSI-for-walk mid-stride spawns.
+1. ~~Drag-charge magnitude audit~~ DONE 08-11 (see above) — solo
+   structural charge does not induce stepping from scratch.
+2. RSI-for-walk mid-stride spawns (now front of the gait queue).
 3. Annealed-up charge once the P2 bank lands; then stand-from-scratch
    resumes with whatever levers moved gait discovery.
 

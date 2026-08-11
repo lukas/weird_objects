@@ -443,13 +443,21 @@ still a single obs permutation) are follow-up [CODE]; the sign audit
 (sim +CCW vs hardware +omega=CW) remains OPEN and gates any bench
 turn session.
 
-**(3) Mirror-symmetry training — now licensed and QUEUED:**
-`cw-walk-mirturn1` (backlog 08-11; discovery 2M, warm from
-cw-dep-vref1-r1 + pad-transplant, forward wedge + yaw command set,
-the FULL fixed pricing incl. walk_kernel_yaw_gate — turnfix1 predates
-that gate — and train.mirror_loss_coef=1.0). First mirror arm on a
-bank-verified turn stack; judged by eval_yaw + matched frozen-parent
-control, both signs. If it fails with a healthy gait and a low
-symmetry loss, the mirror line closes for good and MirrorPolicy
-selection is the shipped turning story. Step (4) BC-anchor on turn
-ticks stays in reserve.
+**(3) Mirror-symmetry training — RUN, FAILED (08-11 late).**
+`cw-walk-mirturn1` (discovery 2M, warm from cw-dep-vref1-r1 +
+pad-transplant, forward wedge + yaw command set, the FULL fixed
+pricing incl. walk_kernel_yaw_gate, train.mirror_loss_coef=1.0): the
+mechanism engaged cleanly (`train/mirror_sym_loss` 28.3->0.51) but
+both gate halves fired FAIL — eval_yaw turn |wz_err| med 0.254 (gate
+<=0.15; still command-invariant, L/R asymmetry intact: tip-left 0.409
+vs tip-right 0.255) and heading-hold drift got WORSE than the parent
+(0.148 vs ~0.04) — AND the forced symmetry rewrote the champion's
+gait itself (harness prog med 0.41-0.43 vs parent's ~1.0, slip/m
+6.0-7.6 vs 1.1-1.5, near-in-place churning on video, zero falls).
+Per the pre-registered FAIL branch, mirror-symmetry TRAINING on a
+warm champion is CLOSED for good. The shipped turning story is
+eval-time MirrorPolicy chirality selection (arc-left/arc-right/
+alternation, zero training, ~2 deg/s, described above). Step (4)
+BC-anchor on turn ticks stays in reserve, unpromising after the
+walk-tick BC anchor (`cw-omni-transbc1`) froze into a static pose
+under the analogous per-tick imitation pressure.
