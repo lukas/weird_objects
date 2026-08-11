@@ -1844,179 +1844,148 @@ class BenchAPI:
                             f"{abort_current_a:.1f} A) — stall-fight, "
                             "not grinding on it")
 
-                if speed > 1.25:
-                    # PURSUE — stream the interpolated keyframe path
-                    # at ~20 Hz. Per-keyframe glides decelerate to
-                    # ZERO at every waypoint (the servo trapezoid), so
-                    # even schedule-paced playback stop-started
-                    # (operator, 08-10: "still stops at the key
-                    # frames"). PoseStreamer keeps the target moving
-                    # ahead of the servos. Sizing gotchas (operator,
-                    # 08-10 round 2, "starts slow then pops up"):
-                    # the module MAX_STREAM_SPEED=450 (~40 deg/s) let
-                    # targets outrun the servos, so the final settle
-                    # covered the backlog in one pop — pass an
-                    # explicit cap near the walk speed (1500). And
-                    # size each write by the ACTUAL elapsed tick: the
-                    # current sweep steals 0.1-0.3 s, which otherwise
-                    # under-sizes the next write.
-                    q0 = frames[0][0]
-                    aborted = False
-                    t_run0 = time.monotonic()
-                    with self.drive._lock:
-                        worst0, _ = self.drive._max_delta_vs_present(q0)
-                    if worst0 > 5.0:
+                # PURSUE — stream the interpolated keyframe path at
+                # ~20 Hz for ALL tempos. Per-keyframe glides settle-
+                # polled to within 2.5 deg at EVERY waypoint; loaded
+                # joints never converge, so each waypoint burned its
+                # full timeout (measured: 24 s for the 8.8 s tuck at
+                # 1x — operator, 08-10: "ridiculously slow"). The old
+                # "careful" per-keyframe path is gone; pursuit has the
+                # same current guard and abort checks. Sizing gotchas
+                # (operator, 08-10, "starts slow then pops up"): the
+                # module MAX_STREAM_SPEED=450 (~40 deg/s) let targets
+                # outrun the servos and the final settle covered the
+                # backlog in one pop — pass an explicit cap; size each
+                # write by the ACTUAL elapsed tick (the current sweep
+                # steals 0.1-0.3 s).
+                q0 = frames[0][0]
+                aborted = False
+                t_run0 = time.monotonic()
+                with self.drive._lock:
+                    worst0, _ = self.drive._max_delta_vs_present(q0)
+                if worst0 > 5.0:
+                    with self._lock:
+                        self._cal_progress = {
+                            "msg": f"{mode} {verb}: aligning"}
+                    ok = ease_to_pose(
+                        d.bus, q0,
+                        abort_check=self._demo_abort.is_set,
+                        seconds=max(0.6, frames[0][1] / speed),
+                        label=f"{mode} align",
+                        current_tracker=tracker)
+                    aborted = not ok
+                # Schedule: raw keyframe times / tempo, then ONE
+                # physics floor on the total (not per segment —
+                # per-segment floors made the waypoint COUNT cost
+                # time, which is backwards: dense waypoints are
+                # free under interpolation). Floor = worst joint's
+                # total travel at ~130 deg/s tracked speed, so 10x
+                # compresses to what the servos can honestly do.
+                ts, qs = [0.0], [q0]
+                for q_deg, kf_s in frames[1:]:
+                    ts.append(ts[-1] + max(0.02, kf_s / speed))
+                    qs.append(q_deg)
+                travel = [0.0] * len(q0)
+                for qa, qb in zip(qs, qs[1:]):
+                    for j, (a, b) in enumerate(zip(qa, qb)):
+                        travel[j] += abs(b - a)
+                t_min = max(0.5, max(travel) / 130.0)
+                if ts[-1] < t_min:
+                    k = t_min / max(ts[-1], 1e-6)
+                    ts = [t * k for t in ts]
+                streamer = PoseStreamer()
+                tripped = False
+                seg, last_sample = 1, -1.0
+                t0 = time.monotonic()
+                align_s = t0 - t_run0
+                t_prev = 0.0
+                nticks, write_s, sample_s = 0, 0.0, 0.0
+                while not aborted and not tripped:
+                    if self._demo_abort.is_set():
+                        aborted = True
+                        break
+                    t = time.monotonic() - t0
+                    while seg < len(qs) and t > ts[seg]:
+                        seg += 1
+                    if seg >= len(qs):
+                        break
+                    f = ((t - ts[seg - 1])
+                         / max(ts[seg] - ts[seg - 1], 1e-6))
+                    q = [a + (b - a) * f for a, b in
+                         zip(qs[seg - 1], qs[seg])]
+                    w0 = time.monotonic()
+                    streamer.write(
+                        d.bus, q, live,
+                        dt=min(max(t - t_prev, 0.03), 0.25),
+                        deadband=0.3, max_speed=2000, max_acc=200)
+                    write_s += time.monotonic() - w0
+                    nticks += 1
+                    t_prev = t
+                    if t - last_sample > 0.3:
+                        # feedback sweep costs real bus time —
+                        # sample sparsely, mid-motion
+                        s0 = time.monotonic()
+                        tracker.sample(d.bus, live)
+                        sample_s += time.monotonic() - s0
+                        _emit_servo_fb(
+                            f"{mode} {verb} t={t:.1f}s",
+                            tracker, target=q)
+                        last_sample = t
                         with self._lock:
                             self._cal_progress = {
-                                "msg": f"{mode} {verb}: aligning"}
-                        ok = ease_to_pose(
-                            d.bus, q0,
-                            abort_check=self._demo_abort.is_set,
-                            seconds=max(0.6, frames[0][1] / speed),
-                            label=f"{mode} align",
-                            current_tracker=tracker)
-                        aborted = not ok
-                    # Schedule: raw keyframe times / tempo, then ONE
-                    # physics floor on the total (not per segment —
-                    # per-segment floors made the waypoint COUNT cost
-                    # time, which is backwards: dense waypoints are
-                    # free under interpolation). Floor = worst joint's
-                    # total travel at ~130 deg/s tracked speed, so 10x
-                    # compresses to what the servos can honestly do.
-                    ts, qs = [0.0], [q0]
-                    for q_deg, kf_s in frames[1:]:
-                        ts.append(ts[-1] + max(0.02, kf_s / speed))
-                        qs.append(q_deg)
-                    travel = [0.0] * len(q0)
-                    for qa, qb in zip(qs, qs[1:]):
-                        for j, (a, b) in enumerate(zip(qa, qb)):
-                            travel[j] += abs(b - a)
-                    t_min = max(0.5, max(travel) / 130.0)
-                    if ts[-1] < t_min:
-                        k = t_min / max(ts[-1], 1e-6)
-                        ts = [t * k for t in ts]
-                    streamer = PoseStreamer()
-                    tripped = False
-                    seg, last_sample = 1, -1.0
-                    t0 = time.monotonic()
-                    align_s = t0 - t_run0
-                    t_prev = 0.0
-                    nticks, write_s, sample_s = 0, 0.0, 0.0
-                    while not aborted and not tripped:
+                                "msg": (f"{mode} {verb}: "
+                                        f"{t:.1f}/{ts[-1]:.1f}s "
+                                        f"peak "
+                                        f"{tracker.peak_a:.2f}A"),
+                                "keyframe": seg, "of": n}
+                        tripped = tracker.peak_a > abort_current_a
+                    time.sleep(0.05)
+                stream_s = time.monotonic() - t0
+                settle_s, worst = 0.0, -1.0
+                if not aborted and not tripped:
+                    # settle: ONE direct command to the final pose
+                    # + a bounded wait for the servos to arrive.
+                    # ease_to_pose's glide + settle-poll loop added
+                    # a ~1 s tail even when the residual was tiny.
+                    st0 = time.monotonic()
+                    _write_pose(d.bus, qs[-1], live,
+                                speed=900, acc=80)
+                    deadline = st0 + 1.2
+                    while time.monotonic() < deadline:
                         if self._demo_abort.is_set():
                             aborted = True
                             break
-                        t = time.monotonic() - t0
-                        while seg < len(qs) and t > ts[seg]:
-                            seg += 1
-                        if seg >= len(qs):
+                        with self.drive._lock:
+                            worst, _ = (self.drive
+                                        ._max_delta_vs_present(
+                                            qs[-1]))
+                        if worst < 2.5:
                             break
-                        f = ((t - ts[seg - 1])
-                             / max(ts[seg] - ts[seg - 1], 1e-6))
-                        q = [a + (b - a) * f for a, b in
-                             zip(qs[seg - 1], qs[seg])]
-                        w0 = time.monotonic()
-                        streamer.write(
-                            d.bus, q, live,
-                            dt=min(max(t - t_prev, 0.03), 0.25),
-                            deadband=0.3, max_speed=2000, max_acc=200)
-                        write_s += time.monotonic() - w0
-                        nticks += 1
-                        t_prev = t
-                        if t - last_sample > 0.3:
-                            # feedback sweep costs real bus time —
-                            # sample sparsely, mid-motion
-                            s0 = time.monotonic()
-                            tracker.sample(d.bus, live)
-                            sample_s += time.monotonic() - s0
-                            _emit_servo_fb(
-                                f"{mode} {verb} t={t:.1f}s",
-                                tracker, target=q)
-                            last_sample = t
-                            with self._lock:
-                                self._cal_progress = {
-                                    "msg": (f"{mode} {verb}: "
-                                            f"{t:.1f}/{ts[-1]:.1f}s "
-                                            f"peak "
-                                            f"{tracker.peak_a:.2f}A"),
-                                    "keyframe": seg, "of": n}
-                            tripped = tracker.peak_a > abort_current_a
-                        time.sleep(0.05)
-                    stream_s = time.monotonic() - t0
-                    settle_s, worst = 0.0, -1.0
-                    if not aborted and not tripped:
-                        # settle: ONE direct command to the final pose
-                        # + a bounded wait for the servos to arrive.
-                        # ease_to_pose's glide + settle-poll loop added
-                        # a ~1 s tail even when the residual was tiny.
-                        st0 = time.monotonic()
-                        _write_pose(d.bus, qs[-1], live,
-                                    speed=900, acc=80)
-                        deadline = st0 + 1.2
-                        while time.monotonic() < deadline:
-                            if self._demo_abort.is_set():
-                                aborted = True
-                                break
-                            with self.drive._lock:
-                                worst, _ = (self.drive
-                                            ._max_delta_vs_present(
-                                                qs[-1]))
-                            if worst < 2.5:
-                                break
-                            time.sleep(0.1)
-                        tracker.sample(d.bus, live)
-                        _emit_servo_fb(f"{mode} {verb} settle",
-                                       tracker, target=qs[-1])
-                        settle_s = time.monotonic() - st0
-                        tripped = tracker.peak_a > abort_current_a
-                    timing = (f"align {align_s:.2f}s (worst0 "
-                              f"{worst0:.1f}deg) + stream "
-                              f"{stream_s:.2f}s (sched {ts[-1]:.2f}s, "
-                              f"{nticks} ticks, write {write_s:.2f}s, "
-                              f"sample {sample_s:.2f}s) + settle "
-                              f"{settle_s:.2f}s (end err "
-                              f"{worst:.1f}deg) = "
-                              f"{time.monotonic() - t_run0:.2f}s")
-                    print(f"[standup] {mode} {verb} x{speed:g}: "
-                          f"{timing}, peak {tracker.peak_a:.2f}A",
-                          flush=True)
-                    result["timing"] = timing
-                    if tripped:
-                        result["error"] = guard_msg()
-                    elif aborted:
-                        result["aborted"] = True
-                    else:
-                        result["ok"] = True
-                    result["keyframes_done"] = min(seg, n)
+                        time.sleep(0.1)
+                    tracker.sample(d.bus, live)
+                    _emit_servo_fb(f"{mode} {verb} settle",
+                                   tracker, target=qs[-1])
+                    settle_s = time.monotonic() - st0
+                    tripped = tracker.peak_a > abort_current_a
+                timing = (f"align {align_s:.2f}s (worst0 "
+                          f"{worst0:.1f}deg) + stream "
+                          f"{stream_s:.2f}s (sched {ts[-1]:.2f}s, "
+                          f"{nticks} ticks, write {write_s:.2f}s, "
+                          f"sample {sample_s:.2f}s) + settle "
+                          f"{settle_s:.2f}s (end err "
+                          f"{worst:.1f}deg) = "
+                          f"{time.monotonic() - t_run0:.2f}s")
+                print(f"[standup] {mode} {verb} x{speed:g}: "
+                      f"{timing}, peak {tracker.peak_a:.2f}A",
+                      flush=True)
+                result["timing"] = timing
+                if tripped:
+                    result["error"] = guard_msg()
+                elif aborted:
+                    result["aborted"] = True
                 else:
-                    # careful path: one glide + settle per keyframe
-                    for i, (q_deg, kf_s) in enumerate(frames):
-                        if self._demo_abort.is_set():
-                            result["aborted"] = True
-                            break
-                        secs = max(0.35, kf_s / speed)
-                        with self._lock:
-                            self._cal_progress = {
-                                "msg": (f"{mode} {verb}: keyframe "
-                                        f"{i + 1}/{n} ({secs:.1f}s)"),
-                                "keyframe": i + 1, "of": n}
-                        ok = ease_to_pose(
-                            d.bus, q_deg,
-                            abort_check=self._demo_abort.is_set,
-                            seconds=secs, label=f"{mode} {i + 1}/{n}",
-                            current_tracker=tracker)
-                        _emit_servo_fb(
-                            f"{mode} {verb} kf {i + 1}/{n}",
-                            tracker, target=q_deg)
-                        if not ok:
-                            result["aborted"] = True
-                            break
-                        if tracker.peak_a > abort_current_a:
-                            result["error"] = guard_msg()
-                            break
-                    else:
-                        result["ok"] = True
-                    result["keyframes_done"] = min(i + 1, n)
+                    result["ok"] = True
+                result["keyframes_done"] = min(seg, n)
                 result["peak_a"] = round(tracker.peak_a, 2)
                 result["peak_joint"] = tracker.peak_joint
                 if gen != self._demo_gen:
