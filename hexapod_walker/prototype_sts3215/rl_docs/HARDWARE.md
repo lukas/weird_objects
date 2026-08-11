@@ -95,11 +95,22 @@ just under the 25° trip — operator: "it tipped, didn't go much").
   eval axis that scores recovery from a 10–15° standing lean.
 - **LANDED 08-10 (same day):** tipped-start DR (`dr.tipped_start_*`,
   default-ON everywhere per operator ruling — rl_docs/SIM.md) +
-  `SCORE/tipped_recovery_success` eval (rl_docs/EVALS.md). This
-  champion measures **0.25** at the 12° dose (null policies 0.0) —
-  the eval reproduces the hardware failure in sim. Discovery arm
-  `cw-dep-tip1` queued in the orchestrator backlog (warm from this
-  champion, full 0.30 tip probability, walk-retention gate).
+  `SCORE/tipped_recovery_success` eval (rl_docs/EVALS.md). Discovery
+  arm `cw-dep-tip1` trained (2M warm from this champion, 30% tipped
+  starts).
+- **Discovery verdict (08-10 late): the sim eval does NOT reproduce
+  this failure.** With the height gate fixed (first cut failed every
+  healthy walk — the gait rides 54–70 mm low), the champion ALREADY
+  recovers static 12–16° leans in sim (7/8, even with grippy-feet
+  friction 1.4); tip1 matches with slightly lower residual roll
+  (1.7–2.0° vs 2.2°). So the runaway is a SIM-TO-REAL gap — the
+  progressive pinned-loaded-leg mechanism above doesn't happen on the
+  sim floor — not missing training states. The eval stays as a
+  regression floor. **Next check is hardware:** `dep_tip1.json` is on
+  the robot in the walk picker; A/B it against `dep_vref1_r1` on the
+  same floor at 0.05 m/s (walk retention verified identical in sim,
+  vel err 0.036 vs 0.037). If tip1 also rolls away, the fix is a
+  sim contact/pinning model, not more DR.
 
 ## Finding — TFT redraws stall the entire servo link (08-10 night)
 

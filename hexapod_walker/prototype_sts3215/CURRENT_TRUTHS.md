@@ -133,8 +133,12 @@ closed, `cw-stand-scoreref1`).
   at plant/park starts with a LEVEL tilt reference so the policy is
   paid to level out, capped at 70% of the run's tilt envelope. Every
   run's recovery shows as `SCORE/tipped_recovery_success`
-  (rl_docs/EVALS.md; dep-vref1-r1 baseline 0.25 at 12°). Discovery
-  arm `cw-dep-tip1` queued (full 0.30 dose, warm from vref1-r1).
+  (rl_docs/EVALS.md — read the gate-fix caveat there; baseline is
+  vref1-r1 7/8 at 12°, NOT the retracted 0.25). Discovery arm
+  `cw-dep-tip1` TRAINED 08-10: no sim separation vs parent (static-
+  lean recovery was already present — the hardware runaway is a
+  sim-to-real pinning gap, HARDWARE.md); hardware A/B pending,
+  `dep_tip1.json` staged in the robot's walk picker.
 - Quad-hold is solid but mixing erodes walk — deploy-time
   specialist; quad comes after the core joystick set is coherent.
 - MoE only after clean multitask training (explicit mode ID, correct

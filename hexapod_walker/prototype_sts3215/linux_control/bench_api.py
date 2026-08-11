@@ -1883,26 +1883,30 @@ class BenchAPI:
                         label=f"{mode} align",
                         current_tracker=tracker)
                     aborted = not ok
-                # Schedule: raw keyframe times / tempo, then ONE
-                # physics floor on the total (not per segment —
-                # per-segment floors made the waypoint COUNT cost
-                # time, which is backwards: dense waypoints are
-                # free under interpolation). Floor = worst joint's
-                # total travel at ~130 deg/s tracked speed, so 10x
-                # compresses to what the servos can honestly do.
+                # Schedule: each segment gets max(authored/tempo,
+                # travel-at-90deg/s). PER-SEGMENT, not a uniform
+                # rescale: servo_fb traces (08-10, sit x10) showed
+                # authored-duration pacing idles the servos through
+                # slow phases (13 deg/s measured) then demands
+                # 130 deg/s+ through fast ones — loaded servos fell
+                # 76 deg behind and the settle glide did the last
+                # quarter of the motion in one yank ("pauses a bunch
+                # of times"). Travel-based pacing keeps the target
+                # moving at a rate the hardware actually tracks.
+                RATE_DPS = 90.0
                 ts, qs = [0.0], [q0]
                 for q_deg, kf_s in frames[1:]:
-                    ts.append(ts[-1] + max(0.02, kf_s / speed))
+                    d_seg = max(abs(b - a) for a, b in
+                                zip(qs[-1], q_deg))
+                    ts.append(ts[-1] + max(0.02, kf_s / speed,
+                                           d_seg / RATE_DPS))
                     qs.append(q_deg)
-                travel = [0.0] * len(q0)
-                for qa, qb in zip(qs, qs[1:]):
-                    for j, (a, b) in enumerate(zip(qa, qb)):
-                        travel[j] += abs(b - a)
-                t_min = max(0.5, max(travel) / 130.0)
-                if ts[-1] < t_min:
-                    k = t_min / max(ts[-1], 1e-6)
-                    ts = [t * k for t in ts]
                 streamer = PoseStreamer()
+                # Prime: we are already at q0 (aligned / guarded), so
+                # skip the streamer's gentle first-write ease (speed
+                # 120 ≈ 10 deg/s — measured as a near-stalled first
+                # 0.3 s of every run).
+                streamer.last = list(q0)
                 tripped = False
                 seg, last_sample = 1, -1.0
                 t0 = time.monotonic()

@@ -813,15 +813,20 @@ def _run_periodic_eval(env, act, args, env_cls, step,
                     done = term or trunc
                 end_roll = float(np.mean(rolls[-max(1, len(rolls) // 4):]))
                 # Lying flat on the belly also reads level — recovery
-                # means leveling out while STAYING UP, so the body must
-                # end within 30 mm of the settled start height
-                # (privileged sim height, same anchor the height goals
-                # use).
+                # means leveling out while STAYING UP (privileged sim
+                # height vs the settled start, same anchor the height
+                # goals use). The threshold is MODE-AWARE: the walk
+                # gait normally rides 54-70 mm below the spawn settle
+                # (measured on dep-vref1-r1, 8 eps 08-10 — a flat
+                # 30 mm gate failed every healthy walk recovery and
+                # made the first baselines meaningless), while belly
+                # collapse is >100 mm down. Hold stays strict.
                 z_drop_mm = (env._z0 - float(
                     env.data.xpos[env._chassis_bid, 2])) * 1000.0
+                z_lim = 90.0 if tip_mode == "walk" else 30.0
                 end_rolls.append(end_roll)
                 z_drops.append(z_drop_mm)
-                if not term and end_roll <= 3.0 and z_drop_mm <= 30.0:
+                if not term and end_roll <= 3.0 and z_drop_mm <= z_lim:
                     ok_n += 1
             payload["SCORE/tipped_recovery_success"] = ok_n / per_mode
             payload["eval/tipped/roll_end_deg"] = float(np.mean(end_rolls))

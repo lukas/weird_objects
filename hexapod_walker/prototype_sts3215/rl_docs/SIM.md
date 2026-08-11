@@ -88,9 +88,11 @@ while the tilt reference stays LEVEL — the policy sees the lean in obs
 and the attitude terms pay it to level out. Capped at 70% of the run's
 tilt-trip envelope; belly-rise starts never tip; the DOSE is not
 shrunk by dr_scale (probability is). Born from the dep-vref1-r1
-hardware runaway roll (rl_docs/HARDWARE.md 08-10): the deployed walk
-had never visited "standing at 15° and must recover" states. Eval:
-`SCORE/tipped_recovery_success` (rl_docs/EVALS.md).
+hardware runaway roll (rl_docs/HARDWARE.md 08-10). Discovery result
+(cw-dep-tip1, same day): the champion already recovered static leans
+in sim — the hardware runaway is a contact/pinning sim-to-real gap,
+so this axis is a hardening/regression floor, not the fix. Eval:
+`SCORE/tipped_recovery_success` (rl_docs/EVALS.md, gate-fix caveat).
 
 ## Known gaps — sim is NOT trusted here (open problems in RL_PLAN)
 
