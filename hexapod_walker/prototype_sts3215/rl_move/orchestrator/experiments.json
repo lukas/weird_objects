@@ -68421,7 +68421,7 @@
       "GAIT CLEANUP P3 lever 1 at TRUE 72mm (post clamp fix 434a6e0): from scratch, physics-as-teacher, no reward surgery. Judged on own-terrain success + flat-retention slip/m."
     ],
     "created": "2026-08-11T17:53:29+00:00",
-    "status": "FAILED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -68456,8 +68456,9 @@
         "log_tail": "007,040: hold 6.14\u00b0, track 4.80\u00b0, unload 8.08\u00b0, raise 0/2, rise f0/2 b0/2 c2/2, walk err 0.058 m/s, lower 0/2, tipped 1/2, rolltrap 0/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 458s (4,371 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_gait_terrain2.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_gait_terrain2 (md5 3a7194bb)\n"
       }
     ],
-    "verdict": "FAIL (operator gate-eval on-pod, logs/terrain2_gate): from scratch at TRUE 72mm bumps the policy learned the LEG-SACRIFICE drag degenerate, not stepping \u2014 own-terrain det 0/6, prog_ratio 0.25, slip/m 10.24, sacrificed legs [3,4]; flat DR0 retention identical (0/6, prog 0.28, slip 9.46). Terrain that defeats the champion paddle (probe2: 0/6 at 72mm) did NOT force honest gait discovery at 2M \u2014 PPO settled for 25% progress via dragging over the bumps. Physics-as-teacher REFUTED at this amp/budget as a standalone lever. Pattern now spans 4 from-scratch arms (trans1, gru-r3, dragstep1, terrain2): discovery ALWAYS lands on paddle/sacrifice regardless of ground or charge coef. Surviving levers per rl_docs/GAIT.md: charge-magnitude audit FIRST (dragstep1 reward_drag never exceeded ~0.09/tick at k=40 vs ~1/tick progress income \u2014 the \"big penalty\" has never actually been big in effective terms), then annealed-up charge with the P2 bank, RSI-for-walk mid-stride spawns.",
-    "triage": "done"
+    "verdict": "FAIL, worse than kill signature (a) -- from-scratch training on true 72mm terrain does NOT discover lift-and-place; it collapses into a WORSE pathology than the closed paddle: leg-sacrifice (leg 3 parked at low duty, gait_valid only 2/6 det). Own-terrain gate: det slip/m med 8.58 (range 6.6-15.3), fwd med 0.23m/15s, prog_ratio med 0.29; flat-DR0 retention is essentially identical (det slip 6.83, gait_valid 2/6, same leg[3] sacrifice) -- both 4-10x worse than the closed champion band (slip 1.1-1.5) and worse than dragstep1's already-failed 6.36. Confirms + extends the zero-training probe (probe2, train-5: champion zero-shot fails the walk gate 0/6 at 72mm+108mm with slip flat at 1.46-1.50, never dropping) -- physics does not force stepping even for an established paddler, and from-scratch it finds an even cheaper cheat (sacrifice one leg) before ever discovering the harder six-leg lift-and-place skill. Pre-registered single retry queued at env.terrain_amp=3.0 (54mm) per the run's own gate text -- cw-gait-terrain2-r1, VERIFIED RUNNING train-3.",
+    "triage": "done",
+    "hardware_ready": false
   },
   {
     "run": "cw-arch-gru-r4b",
@@ -68726,7 +68727,7 @@
       "respec of cw-gait-terrain2: GAIT CLEANUP P3 lever 1, pre-registered single retry one rung down (operator gate text on cw-gait-terrain2): 72mm from scratch collapsed into a WORSE leg-sacrifice cheat (gate det gait_valid 2/6 leg[3] parked, slip/m 6.6-15.3, fwd 0.12-0.26m over 15s -- far worse than the closed paddle band 1.1-1.5, both on-terrain AND flat-retention). Retry ONE rung down at env.terrain_amp=3.0 (54mm, the zero-training champion probe's mildest amplitude where the champion still gaits cleanly with slip flat at 1.50, no sacrifice) to see if a less extreme difficulty avoids the leg-sacrifice collapse and lets plain progress income select stepping. Same contract stack as terrain1/2 otherwise (from scratch, k_drag_loaded=10 stock, seed 11)."
     ],
     "created": "2026-08-11T18:07:13+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -68734,12 +68735,25 @@
       "running_experiments_before": 2,
       "code_sha_local": "0fd38b3056be4c9cc7c0f1f403b4783c761f420f",
       "code_sha_pod": "0fd38b3056be4c9cc7c0f1f403b4783c761f420f",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "214486",
+      "log_growth_bytes": [
+        6314565,
+        47108631
+      ],
+      "wandb_id": "tpdzk4dp",
+      "global_step_window": [
+        589824,
+        1572864
+      ],
+      "fps_estimate": 10922.7
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-gait-terrain2-r1 --steps 2000000 --task joint_walk --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set env.terrain_amp=3.0 --cfg-set env.terrain_seed=0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_gait_terrain2_r1 --notes 'respec of cw-gait-terrain2: GAIT CLEANUP P3 lever 1, pre-registered single retry one rung down (operator gate text on cw-gait-terrain2): 72mm from scratch collapsed into a WORSE leg-sacrifice cheat (gate det gait_valid 2/6 leg[3] parked, slip/m 6.6-15.3, fwd 0.12-0.26m over 15s -- far worse than the closed paddle band 1.1-1.5, both on-terrain AND flat-retention). Retry ONE rung down at env.terrain_amp=3.0 (54mm, the zero-training champion probe'\"'\"'s mildest amplitude where the champion still gaits cleanly with slip flat at 1.50, no sacrifice) to see if a less extreme difficulty avoids the leg-sacrifice collapse and lets plain progress income select stepping. Same contract stack as terrain1/2 otherwise (from scratch, k_drag_loaded=10 stock, seed 11).' > /tmp/train_cw-gait-terrain2-r1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-gait-terrain2-r1.log"
+    "log": "/tmp/train_cw-gait-terrain2-r1.log",
+    "wandb_id": "tpdzk4dp",
+    "verified": "2026-08-11T18:11:00+00:00"
   },
   {
     "run": "cw-arch-gru-r4-rr1",

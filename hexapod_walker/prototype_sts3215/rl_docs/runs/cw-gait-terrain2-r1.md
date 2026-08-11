@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-11T18:07:13+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-dep-vref1-r1
+
+**wandb_id**: tpdzk4dp
 
 **hypothesis**: GAIT CLEANUP P3 lever 1, pre-registered single retry one rung down (operator gate text on cw-gait-terrain2): 72mm from scratch collapsed into a WORSE leg-sacrifice cheat (gate det gait_valid 2/6 leg[3] parked, slip/m 6.6-15.3, fwd 0.12-0.26m over 15s -- far worse than the closed paddle band 1.1-1.5, both on-terrain AND flat-retention). Retry ONE rung down at env.terrain_amp=3.0 (54mm, the zero-training champion probe's mildest amplitude where the champion still gaits cleanly with slip flat at 1.50, no sacrifice) to see if a less extreme difficulty avoids the leg-sacrifice collapse and lets plain progress income select stepping. Same contract stack as terrain1/2 otherwise (from scratch, k_drag_loaded=10 stock, seed 11).
 

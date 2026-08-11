@@ -199,3 +199,22 @@ charge-magnitude audit, then ONE from-scratch arm with the charge set
 so a typical paddle tick costs 2-3x a progress tick (audit-derived k,
 not a guess); (b) RSI-for-walk mid-stride spawns; (c) annealed-up
 charge once the P2 bank lands. Lever 3 (physics easing) unstarted.
+
+- **08-11 18:1x (agent cycle) — independent re-check + lever 1's
+  pre-registered retry.** Re-ran the zero-training champion probe
+  myself (det+sto, matched seed, per-mode 6) across the FULL
+  amplitude range at the fixed clamp: flat 1.02, 18mm 1.09, 36mm
+  1.33, 54mm 1.50, 72mm 1.74 slip/m — a clean MONOTONIC INCREASE, not
+  a drop, confirming probe2's finding independently and closing any
+  doubt that a coarser probe grid missed a sweet spot. Also
+  independently re-evaled `cw-gait-terrain2`'s own checkpoint
+  (own-terrain det slip 8.58 med / sto 12.38; flat retention det 6.83
+  / sto 10.78, gait_valid 2/6 det both, leg[3] sacrificed in 4/6
+  episodes) — same qualitative fingerprint as the operator's pass
+  (numbers differ slightly by eval seed draw, conclusion identical:
+  FAIL, worse than the closed paddle band). Launched the run's own
+  pre-registered single retry, **`cw-gait-terrain2-r1`** (env.
+  terrain_amp=3.0, 54mm, VERIFIED RUNNING train-3) to close out lever
+  1 with the two-miss rule before moving on — but per the ordering
+  above, the CHARGE-MAGNITUDE AUDIT is still the sharper next lever
+  regardless of how -r1 lands; do not let -r1 delay it.
