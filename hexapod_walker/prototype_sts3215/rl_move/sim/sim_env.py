@@ -642,6 +642,59 @@ class SimHexapodBalanceEnv(_GymBase):
             q = q + self._ep_rand.start_offset_rad
         return self._clip_to_joint_limits(q)
 
+    # Tipped-start hip-fold gain: settled body roll per degree of hip
+    # fold, measured on the CPU twin at the plant stance (probe 08-10:
+    # settled roll ≈ 0.36 × fold, near-linear over 6-18° targets; see
+    # the dr.tipped_start_* axis in domain_rand.py). The inverse maps
+    # the sampled target roll to the fold the pattern commands.
+    TIP_ROLL_PER_FOLD = 0.36
+
+    def _apply_tipped_start(self, q_start: np.ndarray) -> np.ndarray:
+        """Add the tipped-start (roll recovery) pattern, if this episode
+        drew one (dr.tipped_start_*; plant/park starts only — the
+        caller decides, belly-rise starts never tip).
+
+        The sampled target body roll becomes an asymmetric leg fold:
+        folding one side's hips drops the body on that side once the
+        feet load (the same hip sign the park start uses to LIFT feet —
+        with the foot planted the body moves instead); the folded
+        side's knees extend a little to keep the feet under the hips.
+        The target is capped at 70% of the run's own tilt-trip envelope
+        so the episode spawns with recovery headroom, never mid-trip
+        (stance runs at 10° see ≤7° tips; the 25° deployment contract
+        sees ≤17.5°). Sets ``_tipped_applied`` so _reset_finalize keeps
+        the tilt reference LEVEL instead of re-anchoring at the lean.
+        """
+        er = self._ep_rand
+        if er is None or abs(er.tipped_roll_deg) < 1e-9:
+            return q_start
+        cap = 0.7 * self.safety.max_roll * RAD2DEG
+        roll = float(np.clip(er.tipped_roll_deg, -cap, cap))
+        fold = abs(roll) / self.TIP_ROLL_PER_FOLD * DEG2RAD
+        # Legs 0-2 mount on the +y (left) side (azimuths 30/90/150°),
+        # legs 3-5 on the right; positive roll leans the body right
+        # (IMU convention: roll = atan2(ay, az), +y side up).
+        legs = (3, 4, 5) if roll > 0 else (0, 1, 2)
+        q = q_start.copy()
+        for leg in legs:
+            q[3 * leg + 1] -= fold
+            q[3 * leg + 2] += 0.5 * fold
+        self._tipped_applied = True
+        return q
+
+    def _true_roll_pitch(self) -> tuple[float, float]:
+        """Ground-truth chassis attitude in the IMU's roll/pitch
+        convention (privileged; reset-time only). Uses the episode's
+        own gravity so slope DR stays inside the tilt reference,
+        exactly like the legacy start-attitude anchoring."""
+        R = np.asarray(self.data.xmat[self._chassis_bid],
+                       dtype=float).reshape(3, 3)
+        g = (self._ep_rand.gravity_vec if self._ep_rand is not None
+             else np.array([0.0, 0.0, -9.80665]))
+        f = R.T @ (-g)   # static specific force in the body frame
+        return (math.atan2(f[1], f[2]),
+                math.atan2(-f[0], math.hypot(f[1], f[2])))
+
     def _walk_park_bank(self) -> np.ndarray | None:
         """Harvested own-park poses (cycle 27). Lazy-loads the npz named
         by cfg goal.walk_park_bank (key ``q_rad``, shape (K,18)); caches
@@ -708,6 +761,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._step_i = 0
         self._prev_action[:] = 0.0
         self.safety.clear_estop()
+        self._tipped_applied = False
 
         self._ep_rand = (self.randomizer.sample(self.rng)
                          if self.randomizer is not None else None)
@@ -781,9 +835,11 @@ class SimHexapodBalanceEnv(_GymBase):
                         self.rng.uniform(-5.0, 10.0)) * DEG2RAD
             if self._ep_rand is not None:
                 q_start = q_start + self._ep_rand.start_offset_rad
+            q_start = self._apply_tipped_start(q_start)
             q_start = self._clip_to_joint_limits(q_start)
         else:
-            q_start = self._start_pose_rad()
+            q_start = self._clip_to_joint_limits(
+                self._apply_tipped_start(self._start_pose_rad()))
         return q_start
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
@@ -912,6 +968,16 @@ class SimHexapodBalanceEnv(_GymBase):
         # Anchor trip, obs, and reward to the start attitude — mount bias
         # / slope isn't tipping, and goals mean "lean from here".
         self._tilt_ref0 = (self._state.imu_roll, self._state.imu_pitch)
+        if getattr(self, "_tipped_applied", False):
+            # Tipped-start episodes (dr.tipped_start_*) keep the
+            # reference LEVEL: subtract the privileged true attitude so
+            # only the IMU bias/mount part stays in the ref. The policy
+            # then SEES the lean in obs and the attitude terms pay it
+            # to level out — re-anchoring at the tip would train it to
+            # HOLD the lean, the opposite of the point.
+            t_roll, t_pitch = self._true_roll_pitch()
+            self._tilt_ref0 = (self._state.imu_roll - t_roll,
+                               self._state.imu_pitch - t_pitch)
         self.safety.set_tilt_reference(*self._tilt_ref0)
         er = self._ep_rand
         info = {
@@ -919,6 +985,11 @@ class SimHexapodBalanceEnv(_GymBase):
             "q_nominal_deg": (self._q_nom * RAD2DEG).tolist(),
             "roll_deg": self._state.imu_roll * RAD2DEG,
             "pitch_deg": self._state.imu_pitch * RAD2DEG,
+            # Attitude relative to the episode's tilt reference — the
+            # tipped-start recovery metric reads this (≈ true lean for
+            # tipped episodes, where the ref stays level).
+            "roll_rel_deg": (self._state.imu_roll
+                             - self._tilt_ref0[0]) * RAD2DEG,
             "randomization": None if er is None else er.summary(),
         }
         goal = self._current_goal()
@@ -1253,6 +1324,13 @@ class SimHexapodBalanceEnv(_GymBase):
                 p_now = n_down ** 2 * noflag * float(plant_f)
                 s_now = h_f * p_now
                 parts["rise_score"] = s_now
+                # Exported for the ref-track block below: under score
+                # mode ALL rise income is grounded-feet-only, including
+                # the exploration crutch (bank, 08-10 late: at k=2 the
+                # ref kernel alone re-funded flag-leg +419/ep — 15 of
+                # 18 joints track the reference just fine with one leg
+                # flagged).
+                parts["rise_feet_factor"] = n_down ** 2 * noflag
                 if self._score_best is None:
                     self._score_best = s_now
                 ksp = float(cfg_get(self.cfg, "reward",
@@ -1446,6 +1524,11 @@ class SimHexapodBalanceEnv(_GymBase):
                     default=12.0)) * DEG2RAD
                 rms = float(np.sqrt(np.mean(err ** 2)))
                 r_ref = k_ref * math.exp(-0.5 * (rms / max(sig, 1e-6)) ** 2)
+                # Score-income mode: the crutch is income too, and
+                # income only pays on grounded feet (see the
+                # rise_feet_factor export above). Legacy stacks
+                # (factor absent) are exactly unchanged.
+                r_ref *= parts.get("rise_feet_factor", 1.0)
                 parts["reward_rise_ref"] = r_ref
                 reward += r_ref
         # Per-servo hot-current penalty (archive/RL_PLAN_NEXT.md §4, default OFF).
@@ -1678,7 +1761,9 @@ class SimHexapodBalanceEnv(_GymBase):
         info = {"termination_reason": status.reason, **parts,
                 "safety_ok": status.ok,
                 "roll_deg": self._state.imu_roll * RAD2DEG,
-                "pitch_deg": self._state.imu_pitch * RAD2DEG}
+                "pitch_deg": self._state.imu_pitch * RAD2DEG,
+                "roll_rel_deg": (self._state.imu_roll
+                                 - self._tilt_ref0[0]) * RAD2DEG}
         if self._state.servo_current is not None:
             info["mean_current_a"] = float(
                 np.mean(np.abs(self._state.servo_current)))

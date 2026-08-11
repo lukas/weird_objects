@@ -78,8 +78,19 @@ Mass/inertia + CoM shift, per-link geometry scale, floor friction
 ×0.6–1.4, contact stiffness ×0.7–2.0, ground tilt (gravity vector),
 battery-sag torque scale, dropped SyncWrites (≤5%/tick), IMU mount
 offset + sensor noise, hand-placement pose slop, bad-start joints,
-logical-zero drift. Model-field DR is applied in the C env and (as
-shared-model per-env fields) in the MJX path.
+logical-zero drift, tipped starts. Model-field DR is applied in the C
+env and (as shared-model per-env fields) in the MJX path.
+
+**Tipped starts (`dr.tipped_start_prob/deg`, added 08-10):** with prob
+0.30×dr_scale a plant/park-start episode begins at a settled 6–18°
+body roll (asymmetric hip fold, calibrated: settled roll ≈ 0.36×fold)
+while the tilt reference stays LEVEL — the policy sees the lean in obs
+and the attitude terms pay it to level out. Capped at 70% of the run's
+tilt-trip envelope; belly-rise starts never tip; the DOSE is not
+shrunk by dr_scale (probability is). Born from the dep-vref1-r1
+hardware runaway roll (rl_docs/HARDWARE.md 08-10): the deployed walk
+had never visited "standing at 15° and must recover" states. Eval:
+`SCORE/tipped_recovery_success` (rl_docs/EVALS.md).
 
 ## Known gaps — sim is NOT trusted here (open problems in RL_PLAN)
 

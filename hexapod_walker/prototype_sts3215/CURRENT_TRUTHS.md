@@ -88,6 +88,12 @@ bootstrap doc).
   `config.reward_cfg` (term meanings rl_docs/REWARD.md). New reward
   terms must add their REWARD.md row in the same change.
 - A closed sim hypothesis reopens only on new HARDWARE evidence.
+- Sit NEVER refuses on pose delta (operator ruling 08-10, repeated
+  request): a big delta makes `go_zero("sit")` glide SLOWER (6–10 s,
+  abortable), it does not refuse. The delta refusal remains for STAND
+  only (wrong zeros + stand glide = the stilts incident). Do not
+  re-add a sit gate. UI errors must stay copyable (persistent error
+  bar with Copy button, webui).
 - Unified rise is UNSOLVED: every arm lost to the height-only cheat
   (flag-leg/tripod). Torso height alone never defines a stand — the
   geometric valid-plant spec is LANDED (08-10): PLANT_SPEC /
@@ -109,6 +115,15 @@ bootstrap doc).
   (k_yaw_still), turn-in-place curriculum (walk_turn_in_place_frac).
   Sign audit still OPEN at the hardware boundary (sim +CCW vs
   measured +omega=CW). Plan: rl_docs/TURN.md.
+- Tipped-start DR is default-ON everywhere (operator ruling 08-10,
+  "ideally all runs would learn this capability", after the deployed
+  walk's hardware runaway roll): `dr.tipped_start_prob=0.30` (scaled
+  by dr_scale; dose 6–18° is NOT scaled) in `domain_rand.py`, applied
+  at plant/park starts with a LEVEL tilt reference so the policy is
+  paid to level out, capped at 70% of the run's tilt envelope. Every
+  run's recovery shows as `SCORE/tipped_recovery_success`
+  (rl_docs/EVALS.md; dep-vref1-r1 baseline 0.25 at 12°). Discovery
+  arm `cw-dep-tip1` queued (full 0.30 dose, warm from vref1-r1).
 - Quad-hold is solid but mixing erodes walk — deploy-time
   specialist; quad comes after the core joystick set is coherent.
 - MoE only after clean multitask training (explicit mode ID, correct

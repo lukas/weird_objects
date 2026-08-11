@@ -781,6 +781,55 @@ def _run_periodic_eval(env, act, args, env_cls, step,
         else:
             brief.append(
                 f"{mode} {stats.get('track_err_deg_mean', 0.0):.2f}°")
+
+    # Tipped-start recovery (operator 08-10, rl_docs/HARDWARE.md
+    # "runaway roll": the deployed walk rolled monotonically into the
+    # 25° trip with zero corrective response). Force a 12° roll-tipped
+    # start — capped by the run's own tilt envelope in
+    # sim_env._apply_tipped_start, so stance runs (10°) see 7° — and
+    # ask whether the policy levels back out. Success = survived AND
+    # mean |roll − ref| over the last quarter of the episode ≤ 3°.
+    # Runs in the env's primary mode (walk for walk runs, else hold).
+    rnd = getattr(env, "randomizer", None)
+    tip_mode = ("walk" if "walk" in modes
+                else "hold" if "hold" in modes else None)
+    if rnd is not None and gen is not None and tip_mode is not None:
+        for attr in [a for a in vars(gen) if a.startswith("p_")]:
+            setattr(gen, attr, 0.0)
+        setattr(gen, f"p_{tip_mode}", 1.0)
+        saved = (rnd.ranges.tipped_start_prob,
+                 rnd.ranges.tipped_start_deg)
+        rnd.ranges.tipped_start_prob = 1.0
+        rnd.ranges.tipped_start_deg = (12.0, 12.0)
+        try:
+            ok_n, end_rolls, z_drops = 0, [], []
+            for _ in range(per_mode):
+                obs, _ = env.reset()
+                rolls, done, term = [], False, False
+                while not done:
+                    obs, _r, term, trunc, sinfo = env.step(act(obs))
+                    rolls.append(abs(float(
+                        sinfo.get("roll_rel_deg", 0.0))))
+                    done = term or trunc
+                end_roll = float(np.mean(rolls[-max(1, len(rolls) // 4):]))
+                # Lying flat on the belly also reads level — recovery
+                # means leveling out while STAYING UP, so the body must
+                # end within 30 mm of the settled start height
+                # (privileged sim height, same anchor the height goals
+                # use).
+                z_drop_mm = (env._z0 - float(
+                    env.data.xpos[env._chassis_bid, 2])) * 1000.0
+                end_rolls.append(end_roll)
+                z_drops.append(z_drop_mm)
+                if not term and end_roll <= 3.0 and z_drop_mm <= 30.0:
+                    ok_n += 1
+            payload["SCORE/tipped_recovery_success"] = ok_n / per_mode
+            payload["eval/tipped/roll_end_deg"] = float(np.mean(end_rolls))
+            payload["eval/tipped/z_drop_mm"] = float(np.mean(z_drops))
+            brief.append(f"tipped {ok_n}/{per_mode}")
+        finally:
+            (rnd.ranges.tipped_start_prob,
+             rnd.ranges.tipped_start_deg) = saved
     return payload, ", ".join(brief)
 
 

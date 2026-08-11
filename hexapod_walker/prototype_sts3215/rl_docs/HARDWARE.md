@@ -48,6 +48,59 @@ it after a repo sync.
 
 Binding training actions from these findings: RL_PLAN Queue -1.
 
+## Finding — RL belly-rise does NOT transfer (08-10 evening, 2 attempts)
+
+`stance_dr10` RL stand from belly, clean preflight both times. Traces:
+`rl_stand_20260810_221907.csv` (operator abort ~8 s) and
+`rl_stand_20260810_024938.csv` (tilt_roll trip ~8.4 s).
+
+- The first 5 s "leg waving" is the trained curl (height ref pinned 0)
+  and matches sim. The failure is the PUSH phase: body attitude never
+  changed and all joints sat ≤0.1 A — air geometry, zero ground force.
+- 22:19 attempt: policy commanded L4 knee (j14) to +148.8° (legal,
+  software limit +150) but the physical leg JAMS ≈ +139° — a
+  self-collision the sim does not model. Stall at 4.22 A = the
+  "motor shake"; post-abort hold kept fighting it.
+- Root cause class: stance_dr10 is pre-deployment-contract (trained
+  without the 1.5°/tick clamp / hardware axes) — the same gap that
+  killed walk attempt #1, and a rise is a TIMED weight-transfer move.
+  34/201 loop overruns compound it.
+- Operating guidance: stand up with scripted **tuck** (2.48 A, clean);
+  RL stance = holds/leans once upright; RL rise stays parked until a
+  deployment-contract rise line exists. Sim work item: model/cap the
+  ~139° knee self-collision before any future rise arm.
+
+## Finding — dep-vref1-r1 walk: runaway roll, no recovery (08-10 eve)
+
+Two 6 s walks at 0.05 m/s from clean plant preflights. Traces:
+`rl_walk_20260810_221553.csv` (roll drifts to −11°) and
+`rl_walk_20260810_224749.csv` (roll ramps monotonically to **+22.9°**,
+just under the 25° trip — operator: "it tipped, didn't go much").
+
+- Same failure both runs, OPPOSITE directions → the seed is
+  environmental (grip/tether/stance lean), not a fixed policy bias.
+- Mechanism visible in the trace: the loaded-side leg (L0 in run 2)
+  quadruples its current (0.08→0.41 A mean) while its knee stride
+  collapses 45°→27° — pinned leg can't step → asymmetric propulsion
+  → deeper lean. Positive feedback over ~4 s.
+- The policy SEES tilt (it's in obs) but has no trained recovery for
+  a sustained lateral lean, and no velocity feedback (meas:=ref) to
+  notice it isn't translating. Attempt-#1's roll-ramp signature,
+  slower: the contract retrain fixed the clamp gap, not this.
+- Distance expectation check: 6 s @ 0.05 m/s with 1 s ramps commands
+  only ~250 mm — "didn't go much" is partly arithmetic; the tape
+  card should quantify the slip on top.
+- Training lead: walk arms need sustained lateral-disturbance /
+  grippy-floor DR (persistent roll-torque perturbations), and an
+  eval axis that scores recovery from a 10–15° standing lean.
+- **LANDED 08-10 (same day):** tipped-start DR (`dr.tipped_start_*`,
+  default-ON everywhere per operator ruling — rl_docs/SIM.md) +
+  `SCORE/tipped_recovery_success` eval (rl_docs/EVALS.md). This
+  champion measures **0.25** at the 12° dose (null policies 0.0) —
+  the eval reproduces the hardware failure in sim. Discovery arm
+  `cw-dep-tip1` queued in the orchestrator backlog (warm from this
+  champion, full 0.30 tip probability, walk-retention gate).
+
 ## Session 08-09 night (operator supervised) — status update
 
 Collected (traces in `rl_move/hardware_traces/`, analysis in RL_LOG
@@ -66,6 +119,13 @@ ground speed for slip calibration).
 
 ## Models to try on the real robot (bench list, 2026-08-10)
 
+**All RL entries below are ON THE ROBOT and pickable in the web UI**
+(RL tab → Policy panel → dropdown + "Use selected"; deployed 08-10):
+`stance_dr10` (stance slot), `dep_vref1_r1` (walk slot, active
+default) and `dep_quad1_c2` (walk slot alternative; its quad trick
+has no runner mode yet). Scripted stand-up modes live in the
+Experiments tab. Details: `rl_move/API.md` § policy picker.
+
 Operator-supervised, fresh `set_zero` at a known visual pose first,
 kill switch handy. Ordered by payoff-vs-risk. Verified staged on the
 Mac in `rl_move/sim/policies/` unless noted; pull missing ones with
@@ -76,7 +136,9 @@ Mac in `rl_move/sim/policies/` unless noted; pull missing ones with
    robot: `vx/vy_meas := ref`, 25° tilt envelope, 1.5°/tick slew,
    k_current=0 — the exact gaps that killed attempt #1 — and ~20
    hardware-imperfection axes verified free on it. Start with 6–10 s
-   forward walks at 0.03 m/s; watch for the attempt-#1 signature
+   forward walks at 0.05 m/s (its trained command band is
+   0.05–0.06 — slower is out-of-distribution); watch for the
+   attempt-#1 signature
    (roll ramping over ~2 s). Any walk it does makes it the first
    learned policy to drive this robot.
 2. **Scripted stand-up modes — `/api/standup`. RUN 08-10 ~18:00, big
@@ -93,10 +155,13 @@ Mac in `rl_move/sim/policies/` unless noted; pull missing ones with
    tempos added same day; faster tempos push currents toward the
    guard, so expect aborts before damage.
 3. **`cw-dep-quad1-c2` — four-leg stand on the deployment base.**
-   NOT staged yet (`ops.sh pullckpt cw-dep-quad1-c2`). Passed the
-   ≤20 mm height gate today after the +12M continuation; same
-   deployment contract as vref1-r1. Try only after item 1 behaves:
-   walk → stop → lift the front pair. Party trick #1 on real legs.
+   Pulled + DEPLOYED 08-10 (md5 065011328e, pod-verified; walk-slot
+   alternative in the web-UI picker). Passed the ≤20 mm height gate
+   today after the +12M continuation; same deployment contract as
+   vref1-r1. NOTE: the on-robot runner has walk mode only — the quad
+   trick (lift front pair) needs a new runner mode before it can be
+   commanded on hardware. Until then this entry tests whether its
+   WALK survived the quad mix on real ground vs vref1-r1.
 4. **`ppo_goal_cw_stance_dr10` — stance champion holds/leans.**
    STAGED. Quiet plant holds, lean/track following. Its belly RISE
    is the risky part (stand-up is the incident class — only with
@@ -105,10 +170,24 @@ Mac in `rl_move/sim/policies/` unless noted; pull missing ones with
    hover-vs-planted current log (feeds the holding-current model —
    the one sim effort gap left) and a commanded-turn sign check
    (+wz vs actual rotation direction — closes the TURN sign audit).
+   Both are one-button cards in the web UI **Measure tab** now, as
+   is the tape-measure walk (see "Experiment backlog" below).
 
 ## Experiment backlog (operator-run; highest decision-value first)
 
 Each entry: what open decision it settles → procedure → output.
+
+**Measure tab (deployed 08-10):** items 1, 2 and the turn-sign check
+now run from the web UI — `http://hexapod.local:8080/measure`. Cards:
+walk-distance (tape) runs the scripted gait and prompts for the tape
+reading; turn-sign does ±0.3 rad/s in place; holding-currents records
+planted vs hover (no motion); an RL-walk note attaches a tape reading
+to the newest RL episode trace. Records append to
+`logs/measurements.jsonl` + per-run `meas_*_{servo,imu}.csv`; pull
+with `scp arduino@hexapod.local:hexapod_sts/linux_control/logs/
+\{measurements.jsonl,meas_*.csv\} rl_move/hardware_traces/`. The
+Mac-side `tape_measure_walk.py` still works and writes the same CSV
+shapes; the tab is the phone-friendly path.
 
 1. **Scripted-gait ground truth** — settles: contact/current pricing
    calibration (P0) with a KNOWN-working transport regime, isolating

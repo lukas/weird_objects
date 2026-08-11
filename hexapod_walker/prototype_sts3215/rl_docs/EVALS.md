@@ -25,6 +25,7 @@ SCORE section sorts above canary/env/eval in the workspace.
 | `SCORE/rise_flat_success` `SCORE/rise_bridge_success` `SCORE/rise_crouch_success` | rise completion split by start kind (2 eps each): survived AND final height err ≤ 15 mm. flat/bridge are THE rise metrics; crouch is solved and must stay 1.0. Was `eval/rise_<kind>_frac`. | up |
 | `SCORE/raise_success` | survived AND final height err ≤ 5 mm (deliberately tight — canary: if not ~100% the height pathway is broken, not under-trained). Was `eval/raise_success_frac`. | 1.0 |
 | `SCORE/lower_success` | survived AND final height err ≤ 15 mm. Was `eval/lower_success_frac`. | up |
+| `SCORE/tipped_recovery_success` | (added 08-10, after the hardware runaway roll) forced 12° roll-tipped start with a LEVEL tilt reference, in the run's primary mode (walk for walk runs, else hold); success = survived AND mean \|roll − ref\| over the last quarter ≤ 3° AND body still within 30 mm of the settled start height (belly-flat reads level — that must not count). The 12° dose is capped by the run's own tilt envelope (stance 10° → 7° tips), so compare within one envelope. Baselines at 12°: dep-vref1-r1 champion 0.25, null policies 0.0. | up |
 
 **The caveat on `_total_reward`:** it is measured under the RUN'S OWN
 reward config. It is the right curve for "is this run still
@@ -44,6 +45,7 @@ harness (§2). This is also why the auto-continue logic reads
 | `eval/<mode>/track_err_deg` | mean \|tilt − reference\| over the episode |
 | `eval/<mode>/height_err_end_mm` | \|height − ref\| at episode end |
 | `eval/walk/vel_err_m_s`, `eval/walk/speed_m_s` | mean commanded-velocity error / achieved speed |
+| `eval/tipped/roll_end_deg`, `eval/tipped/z_drop_mm` | tipped-start eval detail: mean \|roll − ref\| over the last quarter / body-height drop vs the settled start (>30 mm = collapsed, not recovered) |
 | `canary/<case>`, `canary/auto_stop` | protected-skill regression flags (0/1) |
 
 ### Naming history (for reading old runs)

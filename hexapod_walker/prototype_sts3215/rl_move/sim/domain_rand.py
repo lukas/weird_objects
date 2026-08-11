@@ -101,6 +101,17 @@ class RandRanges:
     gyro_bias_deg_s: float = 0.5
     gyro_noise_deg_s: float = 0.5
     action_noise: float = 0.02
+    # Tipped start (roll recovery) — default ON everywhere, operator
+    # ruling 08-10 after the dep-vref1-r1 hardware walk rolled away
+    # monotonically to the 25° trip with zero corrective response
+    # (rl_docs/HARDWARE.md "runaway roll"): plant-family episodes
+    # sometimes BEGIN at a sustained body roll (asymmetric leg fold,
+    # settled under gravity) while the tilt reference stays LEVEL, so
+    # the policy sees the lean in obs and is paid to level out. Applied
+    # in sim_env at plant/park starts only (never belly-rise), capped by
+    # the run's safety envelope; see HexapodSimEnv._tipped_offset_rad.
+    tipped_start_prob: float = 0.30
+    tipped_start_deg: tuple[float, float] = (6.0, 18.0)  # target body roll
 
     def scaled(self, s: float) -> "RandRanges":
         """Curriculum knob: shrink every range toward nominal by ``s``.
@@ -147,6 +158,13 @@ class RandRanges:
             gyro_bias_deg_s=self.gyro_bias_deg_s * s,
             gyro_noise_deg_s=self.gyro_noise_deg_s,
             action_noise=self.action_noise * s,
+            # Probability follows the curriculum; the DOSE does not
+            # (like the sensor noise floors): a champion at dr 0.35
+            # must still see real 6-18° leans, not homeopathic 2-6°
+            # ones — a shrunken dose never visits the states the
+            # hardware actually fails in.
+            tipped_start_prob=self.tipped_start_prob * s,
+            tipped_start_deg=self.tipped_start_deg,
         )
 
 
@@ -179,6 +197,11 @@ class EpisodeRandomization:
     gyro_bias_rad_s: np.ndarray          # (3,)
     gyro_noise_rad_s: float
     action_noise: float
+    # Signed target body roll for a tipped start (0 = level episode).
+    # + rolls the body toward its right side (legs 3-5), − toward the
+    # left. sim_env maps this to an asymmetric leg-fold start offset at
+    # plant/park starts and keeps the tilt reference LEVEL.
+    tipped_roll_deg: float = 0.0
 
     def apply_to_model(self, model, *, chassis_bid: int) -> None:
         """Mutate a (freshly restored) MjModel in place."""
@@ -247,6 +270,7 @@ class EpisodeRandomization:
             "bad_start_joints": [int(j) for j in self.bad_start_joints],
             "start_offset_max_deg": round(
                 float(np.max(np.abs(self.start_offset_rad))) / DEG2RAD, 1),
+            "tipped_roll_deg": round(self.tipped_roll_deg, 1),
         }
 
 
@@ -311,6 +335,15 @@ class DomainRandomizer:
                 mag = u(*r.bad_start_deg) * DEG2RAD
                 start_offset[j] = mag * (1 if rng.random() < 0.5 else -1)
 
+        # Tipped start: draws are GUARDED so configs with the axis off
+        # (prob 0, incl. dr_scale=0) keep the legacy rng stream —
+        # same convention as the walk park bank.
+        tipped_roll = 0.0
+        if r.tipped_start_prob > 0.0 and rng.random() < r.tipped_start_prob:
+            tipped_roll = float(u(*r.tipped_start_deg))
+            if rng.random() < 0.5:
+                tipped_roll = -tipped_roll
+
         return EpisodeRandomization(
             mass_scale=u(*r.mass_scale),
             com_offset_m=np.array([
@@ -348,4 +381,5 @@ class DomainRandomizer:
                 -r.gyro_bias_deg_s, r.gyro_bias_deg_s, 3) * DEG2RAD,
             gyro_noise_rad_s=r.gyro_noise_deg_s * DEG2RAD,
             action_noise=r.action_noise,
+            tipped_roll_deg=tipped_roll,
         )
