@@ -649,6 +649,28 @@ def test_omni_directions_priced_comparably(omni_returns):
         "not priced evenly; fix before training an omni arm.")
 
 
+def test_trans_only_gait_beats_stall_and_park_every_direction():
+    """TRANSLATION-ONLY stack (cw-omni-trans1, operator 08-10 late):
+    the dep1 recipe + full-circle headings + k_current=0, NO yaw stack
+    at all — turning de-scoped (no camera = no meaningful front; every
+    freeze-exploit ingredient lived in the turn machinery). Ordering
+    must hold in all four directions without k_yaw_still/turn terms in
+    the stack, since removing a charge changes every tick's total."""
+    trans = {k: v for k, v in OMNI_OVERRIDES.items()
+             if k[1] not in ("walk_yaw_cmd", "k_walk_yaw",
+                             "walk_yaw_kernel_gate", "k_yaw_prog",
+                             "k_yaw_still", "walk_yaw_max_rad_s",
+                             "walk_yaw_zero_frac",
+                             "walk_turn_in_place_frac")}
+    for name, (vx, vy) in OMNI_CMDS.items():
+        r = {p: float(np.mean(
+            [_walk_rollout(p, s, vx=vx, vy=vy, overrides=trans)
+             for s in SEEDS]))
+            for p in ("gait", "stall", "park")}
+        assert r["gait"] > r["stall"] + 50.0, f"{name}: {r}"
+        assert r["gait"] > r["park"] + 50.0, f"{name}: {r}"
+
+
 def test_omni_turn_ordering_survives_repricing():
     """The TURN bank ordering (turn > partial > drift > park) must hold
     under the omni stack too (k_current=0 + dep contract could in
