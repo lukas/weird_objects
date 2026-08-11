@@ -522,3 +522,29 @@ Next: `cw-stand-holdstill1` — discovery 2M, warm from
 converge to a quiet valid plant (worst-foot <20 mm, swings →0)
 without losing the honest rise? After that: the rise-specialist →
 walk-champion handoff composition test.
+
+### `cw-stand-holdstill1` (08-11) — FAIL on hold, rise retention PASS;
+### plateau diagnosis → fade lever landed
+
+The gate priced the pathology out but did not fix the behavior:
+hold/track 0/12 det+sto with the IDENTICAL parent fingerprint (leg 0
+parked 107–116 mm, legs 1/3/5 cycling duty ~0.9) — while
+`env/hold_feet_factor` sat at ~0.1 (income ~0) from 260k on. The
+pre-registered kill signature occurred; the ~4-minute run outran any
+kill. Rise: det 4/6, sto 6/6 valid_plant, feet factor 0.53–0.79 all
+run — retraining under the gate cost the honest rise NOTHING (better
+than the parent's 2M band).
+
+Diagnosis (the bc1 lesson again, in miniature): earning zero is not
+being pushed back. The hard no-flag zero makes the whole splay
+neighborhood a flat zero-income plateau, so PPO gets no slope telling
+the parked leg WHICH WAY to move, and hold is only 10% of the mix.
+Lever landed same cycle: `reward.hold_flag_fade=1` (REWARD.md) — the
+no-flag factor becomes a linear ramp over 60→120 mm, so the observed
+113 mm park earns 51/ep (0.14× quiet, scraps) with monotone slope to
+full pay at feet-down; the 190 mm class stays at 0. Bank extended
+(3 new tests: ordering preserved, gradient exists, park stays <25%
+of quiet). `cw-stand-holdstill2` = holdstill1 + the fade, one
+variable. If the fade also fails, the next lever is BC-style
+supervision on hold ticks (target = the episode start pose), the
+mechanism already validated on rise.

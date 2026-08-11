@@ -1270,8 +1270,23 @@ class SimHexapodBalanceEnv(_GymBase):
                  for i, b in enumerate(self._pad_bids)])
             n_down_h = float(np.sum(
                 clear_h <= PLANT_SPEC["foot_down_mm"] * 0.001))
-            noflag_h = (1.0 if float(np.max(clear_h))
-                        <= PLANT_SPEC["flag_leg_mm"] * 0.001 else 0.0)
+            # No-flag factor: hard zero by default. cw-stand-holdstill1
+            # (08-11) showed the hard zero is a zero-gradient plateau:
+            # a leg parked at ~110 mm earns 0 income, but so does every
+            # nearby behavior, so PPO gets no slope pointing the leg
+            # back down and the park persists. reward.hold_flag_fade=1
+            # swaps a linear fade over [flag_leg_mm, 2*flag_leg_mm]
+            # (60->120 mm): compliant poses keep exactly 1.0, the
+            # observed 110 mm park earns scraps WITH a downhill slope,
+            # and the 190 mm class still earns 0.
+            worst_h = float(np.max(clear_h))
+            flag_m = PLANT_SPEC["flag_leg_mm"] * 0.001
+            if float(cfg_get(self.cfg, "reward", "hold_flag_fade",
+                             default=0.0)) > 0.0:
+                noflag_h = min(max((2.0 * flag_m - worst_h) / flag_m,
+                                   0.0), 1.0)
+            else:
+                noflag_h = 1.0 if worst_h <= flag_m else 0.0
             feet_h = (n_down_h / max(float(len(clear_h)), 1.0)) ** 2 \
                 * noflag_h
             still_h = 1.0

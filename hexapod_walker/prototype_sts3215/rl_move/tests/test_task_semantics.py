@@ -1051,3 +1051,92 @@ def test_hold_quiet_ends_valid_plant(hold_bank):
     for r in hold_bank["flag"]:
         assert not r["plant"], (
             f"the flag-leg pose passes PLANT_SPEC: {r['detail']}")
+
+
+# --------------------------------------------------------------------------
+# HOLD bank, FLAG-FADE variant (reward.hold_flag_fade=1 — from the
+# cw-stand-holdstill1 FAIL, 08-11). The hard no-flag zero priced the
+# flag park correctly (income 0) but is a ZERO-GRADIENT PLATEAU: the
+# trained run kept its leg parked at ~110 mm for all 2M steps because
+# every nearby behavior also earned ~0 — nothing said WHICH WAY to
+# move. The fade pays a linear ramp over [flag_leg_mm, 2*flag_leg_mm]
+# (60->120 mm): compliant poses keep exactly full factor, the observed
+# ~110-120 mm park earns scraps WITH a downhill slope toward feet-down,
+# and the ~190 mm class still earns 0. These tests pin that the fade
+# (a) does not disturb the required quiet > stepping > flag ordering,
+# (b) actually creates the gradient (lower park must out-earn higher
+# park), and (c) never turns the park into a paid basin (scraps, not
+# a living).
+
+HOLD_FADE_OVERRIDES = dict(HOLD_OVERRIDES)
+HOLD_FADE_OVERRIDES.update({
+    ("reward", "hold_flag_fade"): 1.0,
+})
+
+
+def _hold_fade_rollout(policy: str, seed: int) -> dict:
+    """Extra scripted policy 'flag_low': one front leg parked ~113 mm
+    up (hip -55, probe-calibrated 08-11) — the exact holdstill1 end
+    state class (107-116 mm), high in the fade band — vs the bank's
+    'flag' at ~190 mm. Poses LOWER in the band legitimately earn more
+    (monotone slope toward the quiet stand is the fade's purpose);
+    the binding orderings are against THIS observed class."""
+    if policy != "flag_low":
+        return _hold_rollout(policy, seed, HOLD_FADE_OVERRIDES)
+    env = _make_hold_env(seed, HOLD_FADE_OVERRIDES)
+    env.reset()
+    q0 = env.data.qpos[env._qadr].copy()
+    q = q0.copy()
+    q[1] -= 55.0 * DEG2RAD          # leg 0 hip up, knee kept — ~113 mm
+    act = q_rad_to_action(q)
+    total = 0.0
+    max_clear = 0.0
+    while True:
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        clear = max(float(env.data.xpos[b, 2]) - env._pad_z_ref[i]
+                    for i, b in enumerate(env._pad_bids))
+        max_clear = max(max_clear, clear)
+        if term or trunc:
+            break
+    env.close()
+    return {"ret": total, "plant": False, "max_clear_mm": max_clear * 1000.0}
+
+
+@pytest.fixture(scope="module")
+def hold_fade_returns() -> dict[str, float]:
+    return {p: float(np.mean([_hold_fade_rollout(p, s)["ret"]
+                              for s in SEEDS]))
+            for p in ("quiet", "stepping", "flag", "flag_low")}
+
+
+def test_hold_fade_keeps_the_ordering(hold_fade_returns):
+    """With the fade on, the binding HOLD ordering must survive:
+    quiet > stepping > every flag park."""
+    t = hold_fade_returns
+    assert t["quiet"] > 1.5 * t["stepping"] and \
+        t["quiet"] > t["stepping"] + 100.0, (
+        f"fade broke quiet > stepping: {t}")
+    assert t["stepping"] > t["flag"] + 50.0 and \
+        t["stepping"] > t["flag_low"] + 50.0, (
+        f"fade broke stepping > flag park: {t}")
+
+
+def test_hold_fade_restores_the_gradient(hold_fade_returns):
+    """The fade's whole purpose: a lower park must out-earn a higher
+    park, so lowering the parked leg is ALWAYS downhill-in-reward.
+    Under the hard zero both parks tied at ~0 — the measured
+    holdstill1 plateau."""
+    lo, hi = hold_fade_returns["flag_low"], hold_fade_returns["flag"]
+    assert lo > hi + 20.0, (
+        f"no slope: parking at ~120mm ({lo:.0f}) does not out-earn "
+        f"parking at ~190mm ({hi:.0f}) — the plateau is still flat")
+
+
+def test_hold_fade_park_is_scraps_not_a_living(hold_fade_returns):
+    """The faded park income must stay scraps (< 25% of the quiet
+    stand): partial pay is a gradient, not a destination."""
+    t = hold_fade_returns
+    assert t["flag_low"] < 0.25 * t["quiet"], (
+        f"the ~120mm park collects {t['flag_low']/t['quiet']:.2f}x of "
+        f"the quiet stand — the fade re-opened a paid basin: {t}")
