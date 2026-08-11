@@ -18,5 +18,7 @@
 
 **gate**: PASS: 2M harness forensics (DR0 det+sto walk, standard fingerprint) show NO leg-sacrifice (det gait_valid > 0/6, no parked-leg collapse at duty<0.1), positive det median progress ratio, AND stance still emerging (>=1 rise completion, tipped recovery >=1/2). Walk tracking quality NOT required. FAIL: same parked-leg/paddle fingerprint -> rung closes for real (window AND capacity exonerated the reward twice); no further from-scratch GRU variants, recurrence deferred to flagship distillation.
 
+**verdict**: INFRA FAIL, config was CORRECT (n_envs 256 / n_steps 256 / hidden 256): launch verifier timed out inside the first slow BPTT-256 update (one 65,536-step rollout logged, update takes minutes) and marked FAILED; trainer was then killed in the cw-arch-gru-r4-rr1 launch collision. Relaunched verbatim as cw-arch-gru-r4c — expect the same one-rollout verifier timeout, the run is healthy.
+
 **failed_reason**: W&B global_step not advancing (65536 -> 65536)
 

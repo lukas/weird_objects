@@ -68355,7 +68355,9 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-r4 --steps 2000000 --task joint_walk --gru --gru-hidden-size 256 --n-steps 256 --n-envs 1024 --log-std-init 0.0 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --out-name ppo_goal_cw_arch_gru_r4 --impl warp --host-workers 24 --notes 'GRU rung REOPENED by operator (chat, 08-11) with the exact lever the r3 FAIL branch pre-registered: r3 proved the leg-sacrifice/paddle cheat survives the full hist16-r7 anti-cheat stack, so the limiter is BPTT window / capacity, not reward. r4 = r3 recipe unchanged (from scratch, mixed diet walk .60/rise .15/lower .15/hold .10, full anti-cheat + joystick cfg) with BPTT window 64->256 steps (2.56s->10.24s at 25 Hz, spans multiple gait cycles + the park-duty horizon) and GRU hidden 128->256. Both levers at once by design: this is a does-the-architecture-work-at-all probe, not a sensitivity study.' > /tmp/train_cw-arch-gru-r4.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-gru-r4.log",
     "wandb_id": "f5gbd63w",
-    "failed_reason": "W&B global_step not advancing (262144 -> 262144)"
+    "failed_reason": "W&B global_step not advancing (262144 -> 262144)",
+    "triage": "done",
+    "verdict": "OPERATOR KILL (mis-launch, no science): n_envs 1024 x n_steps 256 = 262k rollout = only 8 PPO iterations in the 2M budget (r3 had 30) \u2014 update-starved by construction. Killed ~5 min in. Superseded by cw-arch-gru-r4c (n_envs 256 keeps rollout at 65,536 = r3-identical iteration count). Do NOT auto-retry this config."
   },
   {
     "run": "cw-gait-terrain2",
@@ -68551,7 +68553,9 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-r4b --steps 2000000 --task joint_walk --gru --gru-hidden-size 256 --n-steps 256 --n-envs 256 --log-std-init 0.0 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --out-name ppo_goal_cw_arch_gru_r4b --impl warp --host-workers 24 --notes 'GRU rung REOPENED by operator (chat, 08-11) with the exact lever the r3 FAIL branch pre-registered: r3 proved the leg-sacrifice/paddle cheat survives the full hist16-r7 anti-cheat stack, so the limiter is BPTT window / capacity, not reward. r4b = r3 recipe unchanged (from scratch, mixed diet walk .60/rise .15/lower .15/hold .10, full anti-cheat + joystick cfg) with BPTT window 64->256 steps (2.56s->10.24s at 25 Hz, spans multiple gait cycles + the park-duty horizon) and GRU hidden 128->256. n_envs 1024->256 keeps rollout/update at 65,536 transitions = r3-identical 30 PPO iterations. Named r4b because the r4 first attempt (n_envs 1024 = update-starved 8 iterations) was killed ~5 min in and its tag/W&B name are burned. Both arch levers at once by design: a does-the-architecture-work-at-all probe, not a sensitivity study.' > /tmp/train_cw-arch-gru-r4b.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-gru-r4b.log",
     "wandb_id": "eh66kiqp",
-    "failed_reason": "W&B global_step not advancing (65536 -> 65536)"
+    "failed_reason": "W&B global_step not advancing (65536 -> 65536)",
+    "triage": "done",
+    "verdict": "INFRA FAIL, config was CORRECT (n_envs 256 / n_steps 256 / hidden 256): launch verifier timed out inside the first slow BPTT-256 update (one 65,536-step rollout logged, update takes minutes) and marked FAILED; trainer was then killed in the cw-arch-gru-r4-rr1 launch collision. Relaunched verbatim as cw-arch-gru-r4c \u2014 expect the same one-rollout verifier timeout, the run is healthy."
   },
   {
     "run": "cw-uni-flag-a1-risectl1",
@@ -68825,7 +68829,7 @@
       "respec of cw-arch-gru-r4: Mechanical retry of cw-arch-gru-r4 (identical from-scratch GRU config: BPTT window 256 steps / 10.24s, hidden 256, mixed diet walk.60/rise.15/lower.15/hold.10): the first attempt never got a real science verdict \u2014 the launcher's fixed 90s post-launch liveness check false-killed it after iteration 1 alone logged 84s of pure env-collection time (before the heavier GRU backward pass), misreading a slow-but-live long-BPTT run as stalled. Fixed in the same commit (launch_run.py: post-launch wait now scales with --n-steps, capped at 600s) and this is the clean re-run on the fixed launcher, config completely unchanged."
     ],
     "created": "2026-08-11T18:08:52+00:00",
-    "status": "INTENT",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -68838,6 +68842,8 @@
     "stack": "gpu-mjx",
     "phase": "discovery",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-r4-rr1 --steps 2000000 --task joint_walk --gru --gru-hidden-size 256 --n-steps 256 --n-envs 1024 --log-std-init 0.0 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --out-name ppo_goal_cw_arch_gru_r4_rr1 --impl warp --host-workers 24 --notes 'respec of cw-arch-gru-r4: Mechanical retry of cw-arch-gru-r4 (identical from-scratch GRU config: BPTT window 256 steps / 10.24s, hidden 256, mixed diet walk.60/rise.15/lower.15/hold.10): the first attempt never got a real science verdict \u2014 the launcher'\"'\"'s fixed 90s post-launch liveness check false-killed it after iteration 1 alone logged 84s of pure env-collection time (before the heavier GRU backward pass), misreading a slow-but-live long-BPTT run as stalled. Fixed in the same commit (launch_run.py: post-launch wait now scales with --n-steps, capped at 600s) and this is the clean re-run on the fixed launcher, config completely unchanged.' > /tmp/train_cw-arch-gru-r4-rr1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-gru-r4-rr1.log"
+    "log": "/tmp/train_cw-arch-gru-r4-rr1.log",
+    "triage": "done",
+    "verdict": "OPERATOR KILL: auto-retry resurrected the deliberately-killed update-starved r4 config (n_envs 1024) and its launch collision killed the corrected cw-arch-gru-r4b trainer on train-1. Not science. Superseded by cw-arch-gru-r4c."
   }
 ]
