@@ -51,10 +51,20 @@ unresolved blockers between the robot and reliable joystick control.
   (`cw-dep-tall-gate1-h1`, confirmed 08-11 late): steady-state walking
   height -72.6mm, statistically unchanged from the ungated -75mm wall,
   legs still pinned at the 35° yaw-splay limit (lateral-stability
-  purchase). Gate-income alone CLOSED at this dose. Three next rungs
-  RUNNING (kh3/kh10 = 3x/10x height penalty, slow1 = eased speed
-  band) — if all fail, the next lever prices the leg-splay directly,
-  not height.
+  purchase). Gate-income alone CLOSED at this dose. **08-11 late:
+  PRICING FAMILY CLOSED FOR POSTURE** — kh3 (-74.5mm), kh10 (-72.7mm,
+  a 10x height charge that pays MORE than walk income rather than
+  stand up), slow1 (-73.8mm, didn't even adopt its eased 0.03-0.04
+  speed band, still walking 0.048-0.051) all flat at -72..-75mm, leg
+  yaw pinned at the 35° limit in all six pricing arms tried (ref
+  ladder, income gate, gate+budget, height 3x/10x, speed relief). The
+  optimizer cannot FIND the taller basin at any dose — it isn't
+  underpaying for it. Next lever is RSI-for-walk, not more pricing:
+  `cw-dep-tall-rsi1` (running) spawns episodes mid-stride in the
+  scripted gait's tall pose instead of asking the policy to discover
+  it from a standing start. If flat even with direct state injection,
+  the wall is dynamic stability itself (physics easing / taller
+  scripted reference), not reward work.
 - Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
   crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
   08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the
