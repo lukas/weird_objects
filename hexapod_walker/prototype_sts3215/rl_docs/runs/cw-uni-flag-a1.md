@@ -14,5 +14,7 @@
 
 **gate**: 2M det harness, own stack: hold valid_plant >= 4/6 AND rise (all-crouch starts) valid_plant >= 3/6 AND lower posture-strict >= 3/6, ZERO known-exploit fingerprints (flag-leg/tripod/park/freeze) in gated-mode video.
 
+**verdict**: No science verdict — 0-step launch attempt (never trained, no W&B steps), part of the 08-11 flagship launch-infra failure chain; superseded by cw-uni-flag-a1-r1 which trained and is fully verdicted. Do not retry this entry.
+
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 

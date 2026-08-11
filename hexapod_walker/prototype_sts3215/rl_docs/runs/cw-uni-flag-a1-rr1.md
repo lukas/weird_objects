@@ -16,5 +16,7 @@
 
 **gate**: 2M det harness, own stack: hold valid_plant >= 4/6 AND rise (all-crouch starts) valid_plant >= 3/6 AND lower posture-strict >= 3/6, ZERO known-exploit fingerprints (flag-leg/tripod/park/freeze) in gated-mode video.
 
+**verdict**: No science verdict — auto-retry launch attempt that died at 0 steps (W&B u5za5jof, steps=None), same 08-11 launch-infra failure chain; superseded by cw-uni-flag-a1-r1 which trained and is fully verdicted. Do not retry.
+
 **failed_reason**: W&B global_step not advancing (0 -> 0)
 

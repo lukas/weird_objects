@@ -8,15 +8,20 @@ at what budget, with which failure modes.
 
 ## Now
 
-- GRU from scratch learns every STANCE skill to champion grade
-  (gru-r3) but walks into the leg-sacrifice/paddle cheat.
+- **From-scratch GRU walking CLOSED (08-11, gru-r4c):** both
+  pre-registered levers (BPTT window 64→256 steps, hidden 128→256)
+  tried and the identical leg-sacrifice/paddle fingerprint survived
+  (legs [0,2,3] parked, det gait_valid 0/6) — worse, rise also
+  regressed to 0/6 (r3 had it at champion grade). Reward already
+  works on the MLP lineage, so this is a capacity/architecture limit,
+  not a pricing gap. No further from-scratch GRU variant.
 - Frame-stack line passed: hist16 → hist16-dep1 (deploy contract).
 
 ## Next
 
-- gru-r4 (10.24s window + 256 hidden) decides: if the cheat survives
-  both levers, from-scratch GRU walking closes at this budget and
-  recurrence waits for flagship distillation.
+- Recurrence now waits for flagship distillation (warm-start /
+  specialist seeding into a recurrent net), not another from-scratch
+  recipe.
 - Later: contact-from-proprioception aux head; distill specialists
   into one recurrent net.
 
