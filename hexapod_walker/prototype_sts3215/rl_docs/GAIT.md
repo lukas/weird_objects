@@ -125,3 +125,36 @@ P3's lever 2). P3 starts with the zero-training terrain probe, then
 one arm per lever. Every arm: one variable, matched-parent control,
 pre-registered kill signature, slip/m + gait_valid + joystick gate
 as the panel.
+
+## Session log 08-11 ~13:15-14:15 (operator) — first wave results
+
+- **TERRAIN CLAMP BUG found+fixed (434a6e0):** servo_model.build_model
+  clipped `env.terrain_amp` to [0,1], and HFIELD_MAX_Z is 18 mm — so
+  EVERY historical terrain run/eval ran peak bumps <=18 mm regardless
+  of the requested amp (docs said 36). Exposed when the champion probe
+  returned bit-identical results at amp 1.5/2.0/3.0. Amps >1 now scale
+  the hfield z-extent (data stays [0,1]); verified amp 4.0 = 72 mm.
+- **Champion-on-terrain probe (post-fix, train-5
+  logs/terrain_probe2):** amp 2.0 (36 mm): 6/6, prog 0.85, slip 1.31 —
+  paddle degraded but passes. amp 4.0 (72 mm): 0/6, prog 0.80, slip
+  1.46. amp 6.0 (108 mm): 0/6, prog 0.80, slip 1.48. The paddle FAILS
+  THE WALK GATE at 72 mm — teaching ground confirmed; the flat spawn
+  disk + fade-in is a built-in curriculum.
+- `cw-gait-terrain1` INVALID (trained on the clamped 18 mm rung).
+  Superseded by **`cw-gait-terrain2`** (train-3): from scratch at true
+  72 mm, no reward surgery.
+- **P1 `cw-walk-gaitbc1` finished, verdict pending** — training-time
+  read is kill-signature-shaped: bc_anchor_loss converged 5.16->0.03
+  but walk_loadslip_factor collapsed 1.0->0.06. Suspect: the anchor
+  target (scripted tripod) is itself drifty-footed in sim (travel
+  ratio 0.35-0.41). Await gate eval before ruling.
+- **P3 lever 2 `cw-gait-dragstep1` FAILED** (agent triage, kill (b)):
+  paddle formed anyway from scratch at k_drag_loaded=40 + step-event
+  income; gate eval slip det 6.36. IMPORTANT CAVEAT before closing
+  pricing forever: env/reward_drag never exceeded ~0.09/tick in
+  magnitude even at k=40 (0.5 mm/tick deadband + per-mm scale keeps
+  the term tiny vs ~1/tick progress income), and reward_step_event
+  peaked at 0.03/tick. The "big penalty" was effectively small. A
+  charge-magnitude AUDIT (what does k=40 actually cost a typical
+  paddle tick, in fraction of income?) is the honest next step on
+  this lever, not another blind coef rung.
