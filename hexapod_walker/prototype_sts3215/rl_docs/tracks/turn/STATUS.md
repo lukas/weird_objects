@@ -17,11 +17,21 @@ baked into the walk gait so the joystick can point the robot.
   RIGHT, switching steers both ways (heading 2-4° vs 38° drift) — but
   at drift rate (~2°/s), steering not pirouette.
 
+- **08-11 late: `cw-walk-mirturn1` (mirror-symmetry TRAINING, coef
+  1.0 warm from the champion) FAILED — the alternative branch fired:**
+  sym loss converged 28→0.5 but turn tracking never arrived (|wz_err|
+  med 0.254, L/R asymmetry intact, drift 3x worse) and the forced
+  symmetry rewrote the gait (prog 0.41 vs ~1.0, slip 5x). Mirror
+  TRAINING on a warm champion is CLOSED per the pre-registered gate.
+
 ## Next
 
-- `cw-walk-mirturn1` (queued): mirror-symmetry TRAINING on the
-  bank-verified pricing — the shot at fast commanded turning. If it
-  fails healthy, the mirror wrapper is the shipped turning story.
+- SHIPPED turning story: eval-time MirrorPolicy chirality selection
+  (arc-left/arc-right/straight, zero training, ~2 deg/s). Deploy port
+  + rot60 composition are the remaining [CODE] items.
+- Fast commanded turning needs a NEW idea (step 4 BC-anchor-on-turn
+  ticks is in reserve but unpromising after transbc1). No more
+  reward/coef/symmetry variants.
 - Hardware wz sign audit gates any bench turn session.
 
 Detail: rl_docs/TURN.md (design, bank numbers, failure history).

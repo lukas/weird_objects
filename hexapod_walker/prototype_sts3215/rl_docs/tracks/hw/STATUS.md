@@ -19,7 +19,10 @@ unresolved blockers between the robot and reliable joystick control.
 
 - Hardware attempt #2 (operator-supervised) → tape-measure walk
   distance, wz sign audit.
-- Gait cleanup for hardware (anti-scrape): GAIT.md P1/P2.
+- Gait cleanup (anti-scrape): P0 diagnostic DONE 08-11 late (tilt
+  penalties exonerated; paddle is a sim-effectiveness optimum —
+  GAIT.md bottom). First structural per-stance charge arm
+  `cw-walk-dragstance1` (audit-derived k) launched.
 - Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
   crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
   08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the

@@ -293,3 +293,86 @@ PESSIMISTIC (slipperier than the real floor), which is conservative
 in the right direction for anti-skate training. Contact-stiffness
 class stays open as operator calibration; it does NOT block the
 charge arm.
+
+## P0 reward-accuracy diagnostic — DONE 08-11 late (idle-kick cycle);
+## penalty-side suspect REFUTED, paddle is a sim-EFFECTIVENESS optimum
+
+`probe_walk_income.py --stack vref1` (new stack = cw-dep-vref1-r1's
+exact ledger cfg; artifacts `logs/probe_walk_income/vref1_p0_dr0.json`
+/ `vref1_p0_dr035.json`, run on train-1 at code 29f3706): scripted
+plant-height tape-proven gait vs THE champion checkpoint under the
+champion's own reward, forward, 3 seeds.
+
+- **Totals are near parity, not gross mispricing**: gait 656 vs ckpt
+  739 at DR0 (−11%); gait 713 vs ckpt 661 at the champion's own
+  DR 0.35 (+8%). Neither branch of "reprice-then-train" fires.
+- **The operator's tilt/rocking suspect is REFUTED**: the scripted
+  gait's k_gyro+k_roll+k_pitch cost is ≤1.5/ep combined (vs ~650
+  totals) and ZERO episodes terminate at either DR. Repricing the
+  rocking terms would change nothing.
+- **The stack already pays tall**: plant-height policies collect the
+  base stance kernel (reward_task ~271-319/ep vs the crouched
+  champion's ~30) and the champion pays −139/ep base k_height for its
+  crouch — a combined ~380/ep pro-tall margin, already bigger than
+  dep-hgt1/hgt2 assumed.
+- **Why the paddle still wins**: it genuinely TRACKS the command in
+  sim (progress_ratio 1.06 vs the scripted gait's 0.35 — the
+  calibrated conservative slip physics), collecting ~495/ep more
+  walk+prog kernel income. That is real locomotion income, not a
+  pricing hole. Corollary: any near-champion policy that lifts to
+  plant height immediately loses walk income (its early honest steps
+  realize less progress) long before stance/height income arrives —
+  a local-optimum MOAT, which is why income shaping kept failing and
+  why the per-STANCE structural charge (audit section above) and/or
+  curriculum are the levers with teeth. First charge arm:
+  `cw-walk-dragstance1` (hw, discovery 2M, audit-derived k=8000).
+
+## Structural stance-slip charge, FROM SCRATCH — `cw-gait-dragstance1`
+## FAILED 08-11 (agent triage) — parked, not stepping
+
+Companion arm to `cw-walk-dragstance1` (that one warm-starts the
+champion; this one trains the identical audit-derived charge
+(k=8000/m, 6mm allowance, 0.25mm floor) from scratch on the trans1
+stack, to see if the paddle basin is avoidable from step 0 when it's
+priced out from the start). Pre-registered false branch was "parks,
+or paddles while paying" — that is exactly what happened, worst case
+first tried:
+
+- `env/reward_drag_stance` engages immediately (step 19: -9/tick) and
+  **never trends toward zero** — it sits at -6 to -9/tick for the
+  whole run, i.e. the charge never gets resolved, only endured.
+- `env/walk_loadslip_factor` collapses 0.62 -> ~0.05-0.08 by step 49
+  and stays floored — the policy minimizes loaded-slip *exposure* by
+  going nearly still, not by cleanly lifting and placing feet.
+  `env/reward_step_event` (the stepping income) stays tiny (~0.015),
+  i.e. it earns almost no stepping credit either.
+  Meanwhile the reward-quarters trend gets MORE negative over
+  training (-441 -> -1558 -> -2354 -> -2381) simply because it
+  survives the full episode paying a constant charge rather than
+  falling early — not a sign of a worsening gait, a sign of a
+  stable stillness habit.
+  - Harness (gate DR0 + own-DR0.35, det+sto, 6 eps each = 24 clips):
+  forward_dist 0.002-0.02 m vs cmd_dist 0.5-0.7 m over a 15 s episode
+  (progress_ratio ~0.00, success 0/6-1/6). ALL 24 videos show an
+  IDENTICAL static, splayed pose held for the entire clip — no
+  leg-cycling, no net translation. slip_per_m reads 7.3-18.7
+  (nonsensical-looking, but that's the near-zero-travel denominator,
+  not real sliding distance — the real read is duty_cycle 0.94-0.98
+  with 5-7 tiny swings/leg over 15s, i.e. a shuffle, not a gait).
+- **Verdict: STOP - known exploit (FREEZE/PARK), matches the run's
+  own pre-registered false branch verbatim.** The structural
+  per-stance charge, even at the audit-tuned operating point, is
+  *exonerated as a solo fix* for the paddle: from scratch it does not
+  make stepping worth discovering, it just makes standing-still-while-
+  paying preferable to the alternatives it tried. **CROSS-TRACK
+  INSIGHT: this is also nobc's queued "drag-charge magnitude audit"
+  (STATUS.md Next item 1) — the same charge, same conclusion, applies
+  to both tracks' gait-from-scratch line.** Next lever per GAIT.md
+  P3: RSI-for-walk (mid-stride spawns) or the charge combined with
+  income-shaping, not another coefficient rung. Await
+  `cw-walk-dragstance1` (warm-start variant) separately — a policy
+  that already knows how to travel may resolve the charge by cleaning
+  up its gait instead of freezing, since freezing there costs the
+  large pre-existing walk-progress income it would otherwise keep
+  earning; this from-scratch result does not by itself predict that
+  one's outcome.

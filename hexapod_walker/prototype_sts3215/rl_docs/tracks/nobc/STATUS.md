@@ -18,6 +18,14 @@ whatever works; this track exists to retire the crutch.
   dragstep1 FAILED — but its effective charge never exceeded
   ~0.09/tick vs ~1/tick income, so "really big penalty" is UNTESTED.
 
+- CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
+  crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —
+  it out-earns the plant-height gait ~495/ep on genuine progress
+  income while tilt penalties are negligible (≤1.5/ep). Pricing
+  magnitude alone must beat that moat without paying park; favors
+  the per-stance charge + curriculum levers below over any further
+  income shaping.
+
 ## Next
 
 1. Drag-charge magnitude audit → one arm with the charge sized so a
