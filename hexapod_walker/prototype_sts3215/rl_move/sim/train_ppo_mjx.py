@@ -33,6 +33,7 @@ Laptop smoke (CPU XLA, tiny batch):
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -113,7 +114,10 @@ def _init_wandb(args, params: SimServoParams):
     notes = (_learning_line(args) + "\n\n" + (args.notes or "")).strip()
     notes += "\n\n" + _reward_notes(args.cfg_set)
     run = wandb.init(
-        entity=WANDB_ENTITY_DEFAULT, project=WANDB_PROJECT_DEFAULT,
+        entity=WANDB_ENTITY_DEFAULT,
+        project=os.environ.get("WANDB_PROJECT", WANDB_PROJECT_DEFAULT),
+        # Research tracks (operator 08-11) arrive as WANDB_TAGS
+        # (track:<id>), which wandb.init honors natively.
         group="mjx-trainer", name=args.run_name, notes=notes,
         sync_tensorboard=True,   # SB3 train/* metrics, like the campaign
         config={"trainer": "train_ppo_mjx", "task": args.task,
