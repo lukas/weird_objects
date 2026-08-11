@@ -427,9 +427,35 @@ either (hold/track angles the same or worse, raise/tipped/rise-flat
 all flat-or-worse vs coef=1.0). **Lowering the dose does not buy
 cleaner cross-mode behavior — it just weakens the anchor, on every
 axis measured.** Ruling: keep `bc_anchor_coef>=1.0`; do not queue
-another coefficient-reduction variant. `cw-stand-bc1-hard1` (10M
-steps, same coef=1.0, phase hardening, launched 08-11, running) is
-the live next step — does the honest plant consolidate and do the
-weak-evidence raise/tipped/hold-track hints resolve with more
-budget? If they don't, the accepted fix is coef=1.0 with the
-interference as a known, currently-unpriced cost.
+another coefficient-reduction variant.
+
+`cw-stand-bc1-hard1` (08-11, 10M steps, same coef=1.0) **PASSES
+(partial) on rise, but surfaces a real, pre-existing hold/track
+cost that WORSENS with more training.** Rise consolidates further:
+gate valid_plant 5/6 det (83%, up from bc1's 3/6=50%), tight height
+errors (0.2–2.2mm on most episodes) — confirms the fix holds and
+improves with budget. But re-checking hold/track's per-episode
+`duty_cycle`/`swing_count`/`end_clear_mm` fields (NOT examined at
+bc1's original verdict — a sparse 10-frame video strip missed it)
+shows hold/track are not quiet stands: alternating legs cycle
+continuously (duty ~0.85–0.9 / 0.06–0.09, 6–19 swings per 15s
+episode) ending 12–50mm elevated at bc1 (2M), **100–161mm at bc1-
+hard1 (10M)** — hold/track harness success 0/6 both modes at both
+checkpoints. This pathology PRE-DATES the anchor (present already
+at 2M) and is not primarily an anchor side-effect — more likely a
+pre-existing hold/track income-pricing gap (continuous stepping
+isn't charged; `k_still` as written scopes to belly-rest/lower, not
+general hold/track) that the anchor's shared-network pull amplifies
+with more steps. **Lesson for future triage: check
+duty_cycle/swing_count/end_clear_mm for every stand-line mode, not
+just valid_plant plus a sparse frame strip — a checkpoint can look
+static in 10 sampled frames while stepping continuously between
+them.**
+
+Ruling: do not keep blindly hardening this lineage hoping hold/track
+self-heals (the trend is the wrong direction). Next step is a
+SPECIFICATION pass auditing hold/track's stillness pricing (why
+continuous leg-cycling isn't charged) — a reward-mechanism change,
+so it needs its own `test_task_semantics.py` HOLD-mode bank entry
+before any training. Not yet queued (08-11) — this cycle only
+diagnosed it.
