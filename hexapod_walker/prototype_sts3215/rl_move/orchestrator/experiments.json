@@ -65461,7 +65461,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-stand-bc1-coef03-cw-stand-bc1-hard1 since 2026-08-11T04:54:21"
   },
   {
     "run": "cw-stand-bc1-coef03",
