@@ -153,6 +153,29 @@ ckpt, one variable vs r1 = the fixed pricing) is the next launch.
 Do not read the r1 FAIL as evidence against mirror-symmetry — the
 mechanism was never exercised by a real gait in that run.
 
+## `cw-omni-mirror2` — gate fix confirmed, but a NEW gait pathology
+blocks the mirror-symmetry test (08-11)
+
+40M hardening, one variable vs r1 (`walk_kernel_yaw_gate=1.0`),
+finished. The specific r1 exploit (frozen episode out-earning a
+walking one) is GONE — per-episode returns now show walking beats
+the degenerate pattern (526–922 vs 399–425) — but the gait itself
+still breaks down in ~half of det+sto episodes into a leg-sacrifice/
+tripod pattern (one or more legs held near-stationary, duty_cycle
+~0.04–0.07 or 1.0-with-0-swings, forward_dist_m 0.005–0.05m/15s,
+0/6 success both modes; contact sheets confirm the body barely
+translates). `train/std` climbed 0.39→1.30 (>2x, the pre-registered
+health alarm) and reward peaked ~447 near 10M then fell to 302 by
+40M. **STOP — known exploit (video overrides the mechanism-health
+metric); no dig-in.** Mirror-symmetry remains statistically UNTESTED
+— the gait never got clean enough to isolate a turn-tracking signal
+from a chirality signal. Per the pre-registered outcomes, this is
+closest to "collapses again despite the gate": do not launch another
+mirror hardening arm; the next move is a term-by-term income
+re-probe of the WALK kernel (not just the yaw-gated segments) to
+find what still pays for a partial leg-sacrifice, before any new
+mirror arm.
+
 ## Recommended first arm (DISCOVERY, ≤2M steps) — SUPERSEDED, see above
 
 Parent: walk champion (or hist16 twin). Cfg:

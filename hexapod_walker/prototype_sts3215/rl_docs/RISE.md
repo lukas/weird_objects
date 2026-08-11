@@ -174,6 +174,21 @@ runs the full stack the arm will train with.
   as "the behavior is gone." No further LR/coefficient variant
   queued — RISE.md's ruling below already closes that line; the next
   real lever is the structural height↔contact coupling (CODE).
+- `cw-stand-scoreref1-dr0-riseonly` — FAILED (08-11), forensic probe:
+  identical to scoreref1-dr0 but `goal-mix rise=1.0` (no lower/hold
+  mixed in), pre-registered to split cross-mode interference from a
+  within-rise cause. Harness: rise 0/6 det+sto, worst-foot clearance
+  151–164mm, video the same held-leg cheat as the whole score/
+  scoreref family. `env/reward_rise_ref` crashed 0.51→~0.03–0.05/tick
+  within the first ~130 sampled ticks — the SAME fast timescale as
+  the mixed-mode runs, even with zero lower episodes in the batch.
+  **Cross-mode interference (Suspect A) is REFUTED** — the erosion is
+  intrinsic to the rise task/reward itself, not diluted-by-lower
+  gradients. Narrows to the two live explanations above (summed stack
+  genuinely disfavors the tracked motion once composed, or the 6°
+  sigma is measuring ordinary rollout noise as "gone") — neither is
+  worth a further reward-coefficient arm; go straight to the
+  structural coupling.
 
 ## Direction (binding, 08-11 — supersedes the 08-10 night entry)
 
