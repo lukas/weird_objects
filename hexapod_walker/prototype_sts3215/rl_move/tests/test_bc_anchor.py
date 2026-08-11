@@ -1,0 +1,231 @@
+"""BC-anchor spec tests (rise lever (a), RL_PLAN queue 2a, 08-11).
+
+What must be true BEFORE any training run uses train.bc_anchor_coef:
+
+1. default-off exactness — no cfg key, no bc_target in info, stock
+   PPO class untouched;
+2. the env emits an aligned target — bc_target is the normalized
+   action for the reference pose one ref-tick ahead of the episode's
+   live ref clock (RSI and legacy ramp-aligned episodes both);
+3. the targets actually climb the path — chaining bc_target actions
+   from an RSI spawn tracks the reference (small joint RMS), i.e. the
+   anchor teaches the demonstrated rise, not garbage;
+4. the trainer aux step pulls pi_mean toward the buffered targets and
+   the collect callback never pairs a done step's info with the next
+   episode's reset obs;
+5. misconfiguration fails LOUD (bc coef without rise_ref_path refuses
+   to build) — the pool-restore lesson: quiet no-ops are how three
+   weeks of stand verdicts got confounded.
+
+The rise reward bank (test_task_semantics.py) is untouched by design:
+the anchor is a trainer loss, not a reward term.
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+pytest.importorskip("mujoco")
+
+from rl_move.config import load_config  # noqa: E402
+from rl_move.robot_state import DEG2RAD, RAD2DEG  # noqa: E402
+from rl_move.sim.joint_task import (  # noqa: E402
+    SimHexapodJointGoalEnv, action_to_q_rad, q_rad_to_action)
+from rl_move.sim.servo_model import SimServoParams  # noqa: E402
+from rl_move.sim.sim_env import load_rise_ref  # noqa: E402
+
+RISE_REF = "rl_move/sim/refs/rise_ref_belly2plant.npz"
+BASE_OVERRIDES = {
+    ("actions", "max_height_mm"): 115.0,
+    ("goal", "rise_height_mm"): [108.0, 114.0],
+    ("goal", "rise_ramp_s"): 6.0,
+    ("reward", "k_rise_ref_track"): 2.0,
+    ("reward", "rise_ref_path"): RISE_REF,
+    ("reward", "rise_posture_gate"): 1.0,
+    ("reward", "rise_income_prog_gate"): 1.0,
+    ("reward", "rise_finish_gate_signed"): 1.0,
+}
+
+
+def _make_env(seed: int, extra=None) -> SimHexapodJointGoalEnv:
+    cfg = load_config()
+    ov = dict(BASE_OVERRIDES)
+    ov.update(extra or {})
+    for (sec, leaf), val in ov.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=16.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "rise" else 0.0)
+    gen.force_rise_start = "flat"
+    return env
+
+
+def test_inverse_action_map_roundtrip():
+    rng = np.random.default_rng(0)
+    a = rng.uniform(-1.0, 1.0, size=(64, 18))
+    back = np.array([q_rad_to_action(action_to_q_rad(x)) for x in a])
+    assert np.allclose(back, a, atol=1e-9)
+
+
+def test_default_off_no_target():
+    env = _make_env(0)
+    env.reset()
+    for _ in range(5):
+        _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" not in info
+
+
+def test_emission_and_alignment_rsi():
+    env = _make_env(1, {("train", "bc_anchor_coef"): 1.0,
+                        ("goal", "rise_rsi_frac"): 1.0})
+    env.reset()
+    assert env._rsi_ref_tick0 is not None, "RSI spawn did not engage"
+    ref = load_rise_ref(str(ROOT / RISE_REF))
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(3):
+        _o, _r, _t, _tr, info = env.step(hold)
+        t = info.get("bc_target")
+        assert t is not None and t.shape == (18,) and t.dtype == np.float32
+        j, is_rsi = env._rise_ref_clock(ref)
+        assert is_rsi
+        jn = min(j + max(int(round(env.dt / ref["dt"])), 1),
+                 len(ref["q"]) - 1)
+        assert np.allclose(t, q_rad_to_action(ref["q"][jn]), atol=1e-6)
+
+
+def test_emission_legacy_ramp_aligned():
+    env = _make_env(2, {("train", "bc_anchor_coef"): 1.0})
+    env.reset()
+    assert env._rsi_ref_tick0 is None
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    _o, _r, _t, _tr, info = env.step(hold)
+    assert "bc_target" in info
+
+
+def test_bc_targets_track_the_reference():
+    """Chaining emitted targets from an RSI spawn stays ON the path."""
+    env = _make_env(3, {("train", "bc_anchor_coef"): 1.0,
+                        ("goal", "rise_rsi_frac"): 1.0})
+    env.reset()
+    ref = load_rise_ref(str(ROOT / RISE_REF))
+    act = q_rad_to_action(ref["q"][env._rsi_ref_tick0])
+    worst = 0.0
+    for _ in range(60):
+        _o, _r, term, trunc, info = env.step(act)
+        if term or trunc:
+            break
+        j, _ = env._rise_ref_clock(ref)
+        rms = float(np.sqrt(np.mean(
+            (env.data.qpos[env._qadr] - ref["q"][j]) ** 2))) * RAD2DEG
+        worst = max(worst, rms)
+        act = info["bc_target"]
+    assert worst < 8.0, f"target chain drifted off the path ({worst:.1f}deg)"
+
+
+import gymnasium as _gym  # noqa: E402
+
+
+class _DummyEnv(_gym.Env):
+    """Minimal gym env: obs 12, act 18 (matches N_ACT)."""
+
+    def __init__(self):
+        super().__init__()
+        self.observation_space = _gym.spaces.Box(-1, 1, (12,), np.float32)
+        self.action_space = _gym.spaces.Box(-1, 1, (18,), np.float32)
+        self._rng = np.random.default_rng(0)
+
+    def reset(self, *, seed=None, options=None):
+        return self._rng.uniform(-1, 1, 12).astype(np.float32), {}
+
+    def step(self, action):
+        return (self._rng.uniform(-1, 1, 12).astype(np.float32),
+                0.0, False, False, {})
+
+
+def _tiny_model(coef=5.0):
+    from rl_move.sim.bc_anchor import make_bc_anchor_ppo_class
+    cls = make_bc_anchor_ppo_class()
+    model = cls("MlpPolicy", _DummyEnv(), n_steps=16, batch_size=16,
+                n_epochs=1, learning_rate=1e-3, seed=0, device="cpu",
+                policy_kwargs=dict(net_arch=[32]))
+    model.bc_coef = coef
+    model.bc_minibatches = 8
+    model.bc_batch_size = 64
+    model.bc_buffer_cap = 256
+    return model
+
+
+def test_trainer_aux_step_moves_policy_toward_targets():
+    import torch
+    model = _tiny_model()
+    model.learn(total_timesteps=32)      # fills the rollout buffer
+    rng = np.random.default_rng(1)
+    obs = rng.uniform(-1, 1, (128, 12)).astype(np.float32)
+    tgt = np.tile(np.linspace(-0.5, 0.5, 18, dtype=np.float32), (128, 1))
+    for o, t in zip(obs, tgt):
+        model._bc_push(o, t)
+
+    def mse():
+        with torch.no_grad():
+            m = model.policy.get_distribution(
+                torch.as_tensor(obs)).distribution.mean.numpy()
+        return float(np.mean((m - tgt) ** 2))
+
+    before = mse()
+    for _ in range(5):
+        model.train()
+    assert mse() < before, "aux step did not move pi_mean toward targets"
+
+
+def test_collect_callback_skips_done_pairs():
+    from rl_move.sim.bc_anchor import make_bc_collect_callback
+    model = _tiny_model()
+    cb = make_bc_collect_callback()
+    cb.model = model
+    t = np.ones(18, dtype=np.float32)
+    cb.locals = {
+        "infos": [{"bc_target": t}, {"bc_target": t}, {}],
+        "new_obs": np.zeros((3, 12), dtype=np.float32),
+        "dones": np.array([False, True, False]),
+    }
+    cb._on_step()
+    assert model._bc_n == 1      # done idx1 skipped, idx2 has no target
+
+
+def test_buffer_wraparound():
+    model = _tiny_model()
+    model.bc_buffer_cap = 32
+    for k in range(100):
+        model._bc_push(np.full(12, k, np.float32), np.zeros(18, np.float32))
+    assert model._bc_n == 32 and model._bc_obs.shape[0] == 32
+
+
+def test_attach_refuses_without_ref_path():
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    with pytest.raises(SystemExit):
+        attach_bc_anchor(model, coef=1.0, cfg={}, task="joint_goal")
+    with pytest.raises(SystemExit):
+        attach_bc_anchor(
+            model, coef=1.0,
+            cfg={"reward": {"rise_ref_path": RISE_REF}}, task="joint_walk")
+
+
+def test_composes_with_mirror_class():
+    from rl_move.sim.bc_anchor import make_bc_anchor_ppo_class
+    from rl_move.sim.mirror import make_mirror_ppo_class
+    cls = make_bc_anchor_ppo_class(make_mirror_ppo_class())
+    assert cls.__name__ == "BCAnchorPPO"

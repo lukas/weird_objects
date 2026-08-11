@@ -260,6 +260,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[mjx-train] mirror symmetry loss ON (coef={mirror_coef})")
     else:
         algo_cls = PPO
+    # Reference BC anchor (cfg-gated, default off — see
+    # rl_move/sim/bc_anchor.py; rise lever (a), RL_PLAN queue 2a).
+    # Composes with MirrorPPO if both are requested.
+    bc_coef = float(_parse_cfg_set(args.cfg_set).get(
+        "train.bc_anchor_coef", 0.0) or 0.0)
+    if bc_coef > 0.0:
+        from .bc_anchor import make_bc_anchor_ppo_class
+        algo_cls = make_bc_anchor_ppo_class(algo_cls)
+        print(f"[mjx-train] BC anchor loss ON (coef={bc_coef})")
 
     print(f"[mjx-train] task={args.task} n_envs={args.n_envs} "
           f"impl={impl or 'jax(default)'} iterations={iters}/{ls_iters} "
@@ -354,6 +363,10 @@ def main(argv: list[str] | None = None) -> int:
         attach_mirror(model, coef=mirror_coef, task=args.task,
                       cfg=env_kw.get("cfg"),
                       obs_dim=int(venv.observation_space.shape[0]))
+    if bc_coef > 0.0:
+        from .bc_anchor import attach_bc_anchor
+        attach_bc_anchor(model, coef=bc_coef, cfg=env_kw.get("cfg"),
+                         task=args.task)
 
     out_name = args.out_name or (
         f"ppo_mjx_{args.task}" + (f"_{args.run_name}" if args.run_name
@@ -402,7 +415,7 @@ def main(argv: list[str] | None = None) -> int:
         # stay for their special semantics (AUX* means abs()).
         SKIP = ("TimeLimit.truncated", "terminal_observation",
                 "termination_reason", "goal_mode", "walk_bucket",
-                "episode")
+                "episode", "bc_target")
         SAMPLE = 256      # envs sampled per step for the means
 
         def __init__(self):
@@ -481,6 +494,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
     callbacks: list = [_Track()]
+    if bc_coef > 0.0:
+        from .bc_anchor import make_bc_collect_callback
+        callbacks.append(make_bc_collect_callback())
     bg = None
     if run is not None and (args.eval_every > 0 or args.video_every > 0):
         # The campaign's background eval/video worker, reused verbatim:

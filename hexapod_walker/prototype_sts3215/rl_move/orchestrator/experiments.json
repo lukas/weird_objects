@@ -53215,7 +53215,7 @@
       "bus.servo_params=loaded"
     ],
     "created": "2026-08-10T15:25:13+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -53254,7 +53254,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-vref1-loaded1 since 2026-08-10T16:02:25"
+    "triage": "done",
+    "hardware_ready": "no",
+    "verdict": "PASS (dig-in, matched-parent control). OBSERVATIONS: own-gate eval (loaded physics, seed 0) det prog 1.09/slip 1.42/fwd 0.81m, sto 1.04/1.65/0.76m, gv 12/12, 0 term; triage had flagged vel_err +40%/slip +60% vs the parent's CLEAN-physics band. Control (frozen cw-dep-vref1-r1 under the IDENTICAL loaded injection+seed, logs/ckpt_eval/cw_dep_vref1_r1_loadedctl): det 1.02/1.44/0.76m, sto 0.92/1.81/0.68m, gv 12/12, 0 term, same sto/4 crater fingerprint (10.15 vs child 10.07); both videos show the same clean six-leg creep, no flag/drag/skate. INTERPRETATION: the delta is the honest physics cost of loaded servo response - it hits the frozen parent identically; the 15% gate was mis-specified against the clean-physics band (same GATE LESSON class as actnoise 08-10 18:28). Child matches-or-beats parent on every median under matched physics (fwd +7% det/+12% sto, sto slip -9%). VERDICT: PASS - training on bus.servo_params=loaded retains the dep-contract walk and slightly improves it under realistic servo lag; loaded params are a viable dep-line training default. hardware-ready: no as-is (walk gate only; joystick/Gate-0 panels not run) - candidate base, air-vs-loaded for attempt #2 is an operator bench decision. HYPOTHESIS: if-true partially confirmed (retention yes; within-15%-of-clean-parent was the wrong yardstick), if-false refuted (no gait break), park/creep-dodge alternative refuted by video."
   },
   {
     "run": "cw-walk-yawgate1",

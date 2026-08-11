@@ -1187,6 +1187,25 @@ class SimHexapodBalanceEnv(_GymBase):
         shaping lives here so the batched vec env inherits it."""
         return result
 
+    def _rise_ref_clock(self, ref: dict) -> tuple[int, bool]:
+        """Reference tick for the CURRENT (post-step) state + is_rsi.
+
+        RSI episodes joined the reference at the settled tick j0
+        (_reset_finalize nearest-neighbor alignment); legacy episodes
+        time-align at the ramp start. Clamped to the path end — the
+        reference's final plant is the hold target thereafter. Shared
+        by the rise-ref tracking reward and the BC-anchor target
+        emission so the two can never disagree about the clock."""
+        if self._rsi_ref_tick0 is not None:
+            j = self._rsi_ref_tick0 + int(round(
+                self._step_i * self.dt / ref["dt"]))
+            is_rsi = True
+        else:
+            t_rel = (self._step_i - self._rise_ramp_i0) * self.dt
+            j = ref["ramp_i0"] + int(round(t_rel / ref["dt"]))
+            is_rsi = False
+        return min(max(j, 0), len(ref["q"]) - 1), is_rsi
+
     def _step_finish(self, ctx):
         """Post-physics half of step: state read, reward, obs."""
         clipped, terminated, status, pen = ctx
@@ -1596,17 +1615,8 @@ class SimHexapodBalanceEnv(_GymBase):
                                default=None)
             if ref_path:
                 ref = load_rise_ref(str(ref_path))
-                if self._rsi_ref_tick0 is not None:
-                    # RSI spawn: the episode joined the reference at
-                    # tick j0 (settled-pose aligned) at t=0.
-                    j = self._rsi_ref_tick0 + int(round(
-                        self._step_i * self.dt / ref["dt"]))
-                    parts["rise_rsi"] = 1.0
-                else:
-                    t_rel = (self._step_i - self._rise_ramp_i0) * self.dt
-                    j = ref["ramp_i0"] + int(round(t_rel / ref["dt"]))
-                    parts["rise_rsi"] = 0.0
-                j = min(max(j, 0), len(ref["q"]) - 1)
+                j, _is_rsi = self._rise_ref_clock(ref)
+                parts["rise_rsi"] = 1.0 if _is_rsi else 0.0
                 err = self.data.qpos[self._qadr] - ref["q"][j]
                 sig = float(cfg_get(
                     self.cfg, "reward", "rise_ref_sigma_deg",
@@ -1853,6 +1863,33 @@ class SimHexapodBalanceEnv(_GymBase):
                 "pitch_deg": self._state.imu_pitch * RAD2DEG,
                 "roll_rel_deg": (self._state.imu_roll
                                  - self._tilt_ref0[0]) * RAD2DEG}
+        # BC-anchor target (rl_move/sim/bc_anchor.py; RL_PLAN queue 2a,
+        # operator 08-11 — the rise lever AFTER all reward-side levers
+        # closed). For every rise tick with a live reference clock,
+        # emit the normalized action whose joint target is the
+        # reference pose one ref-tick ahead; the trainer's aux loss
+        # pulls pi_mean(obs) toward it. NOT a reward term — reward
+        # above is untouched and the rise semantics bank is unaffected.
+        # Emitted only when the trainer asked (train.bc_anchor_coef
+        # rides into the env cfg, same pattern as mirror_loss_coef)
+        # and only on raw-18-joint tasks (the inverse action map is
+        # joint_task's per-axis affine). Uses only per-episode attrs
+        # already in mjx_host.SNAP_ATTRS (_rsi_ref_tick0,
+        # _rise_ramp_i0, _step_i) — pool-restore safe by construction.
+        if (self._is_rise and getattr(self, "n_act", 0) == N_JOINTS
+                and float(cfg_get(self.cfg, "train", "bc_anchor_coef",
+                                  default=0.0)) > 0.0):
+            _bc_ref_path = cfg_get(self.cfg, "reward", "rise_ref_path",
+                                   default=None)
+            if _bc_ref_path:
+                from .joint_task import q_rad_to_action
+                _bc_ref = load_rise_ref(str(_bc_ref_path))
+                _bc_j, _ = self._rise_ref_clock(_bc_ref)
+                _bc_jn = min(
+                    _bc_j + max(int(round(self.dt / _bc_ref["dt"])), 1),
+                    len(_bc_ref["q"]) - 1)
+                info["bc_target"] = q_rad_to_action(
+                    _bc_ref["q"][_bc_jn]).astype(np.float32)
         if self._state.servo_current is not None:
             info["mean_current_a"] = float(
                 np.mean(np.abs(self._state.servo_current)))

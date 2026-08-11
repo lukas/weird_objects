@@ -335,3 +335,35 @@ goal but still pays through the same RL gradient that the drift
 out-runs. Everything else on this stack is now verified honest:
 pricing (bank + noisy replay +357), state coverage (RSI holds 0.5),
 state restore (pool fix), penalties (strip_pen).
+
+**08-11 — lever (a) LANDED: reference BC anchor in the trainer
+(SPECIFICATION pass green).** `rl_move/sim/bc_anchor.py`: BCAnchorPPO
+adds one supervised step per update AFTER the untouched PPO update
+(MirrorPPO pattern — no SB3 internals copied), minimizing
+`coef * mse(pi_mean(obs), a_ref)` on a 131k ring buffer of
+(post-step obs, reference action) pairs collected from live rise
+rollouts. The env emits `info["bc_target"]` — the normalized action
+whose joint target is the reference pose one ref-tick ahead of the
+episode's live ref clock (`sim_env._rise_ref_clock`, shared with the
+tracking reward so the two clocks can never disagree) — gated on
+`train.bc_anchor_coef` riding into the env cfg; RSI and legacy
+ramp-aligned episodes both emit. This supervises ACTIONS, not visited
+rewards: at drifted states the target points back onto the
+demonstrated path, which is exactly the anchoring gradient the
+6° kernel cannot provide. Reward stack untouched (not a reward term;
+rise bank unaffected — full bank re-run green post-refactor, 23
+passed/1 pre-existing skip). Validation: 10/10 new tests
+(`rl_move/tests/test_bc_anchor.py` — default-off exactness, RSI +
+legacy clock alignment, target-chain tracks the path <8° RMS, aux
+step provably moves pi_mean, done-boundary pairs skipped, loud
+refusal on missing ref path, composes with MirrorPPO), MJX-pod smoke:
+anchor engages, buffer fills, `train/bc_anchor_loss` 0.198→0.04
+within one smoke. Knobs: `train.bc_anchor_coef` (0=off exact),
+`_minibatches` (8), `_batch_size` (4096), `_buffer` (131072).
+First arm: `cw-stand-bc1` = rsi3 stack + `train.bc_anchor_coef=1.0`
+(ONE change), discovery 2M. Decisive signal: `env/rise_feet_factor`
+must stop collapsing (all six prior arms: 0.87→~0.17 by the 25%
+mark) while `train/bc_anchor_loss` stays low; if feet hold and
+rise_score climbs, harden with an anneal schedule so the final
+policy is not trajectory-locked. Lever (b) (structural
+height↔contact coupling) stays next if the anchor fails.
