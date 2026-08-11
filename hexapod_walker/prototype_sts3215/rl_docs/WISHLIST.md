@@ -1,11 +1,14 @@
 # Operator wishlist — things I want the robot to learn
 
 Operator-owned (agents: propose additions, never delete items).
-This is the EXPERIMENT BACKLOG: when free GPU pods outnumber sound
-main-line arms, pull from here — top of each section first. Every
-item still gets a pre-registered hypothesis + gate and honest video
-verdicts. Exploratory lines never gate the walk champion's
-promotion, and hardware safety rules always apply.
+This is a CANDIDATE LIST, not a fill-the-slots queue (prime
+directive, 08-10): an item is launchable only if it reduces an
+unresolved blocker to the next hardware test — free pods alone are
+never a reason to pull from here, and idle pods are fine. Items that
+qualify are taken top of each section first. Every item still gets a
+pre-registered hypothesis + gate and honest video verdicts.
+Exploratory lines never gate the walk champion's promotion, and
+hardware safety rules always apply.
 
 Status tags: [RUNNING] has an active run, [READY] launchable with
 existing config knobs, [CODE] needs an implementation cycle first,
@@ -48,8 +51,13 @@ existing config knobs, [CODE] needs an implementation cycle first,
    (warm start NOT possible across obs-width change: from-scratch
    rules apply, ent 0.005-0.01, std 1.0); (2) history 24; (3) wider
    net (256x256) at the winning history as the control for capacity
-   vs memory; (4) GRU/recurrent actor [CODE — sb3-contrib
-   RecurrentPPO or custom; needs an implementation cycle + probe].
+   vs memory; (4) GRU/recurrent actor [CODE DONE 2026-08-11:
+   `train_ppo_sim.py --gru` = sb3-contrib RecurrentPPO with a true
+   GRU cell (`rl_move/sim/gru_policy.py`); run single-frame obs
+   (obs.history_frames=1), from-scratch rules (MLP checkpoints
+   cannot warm-start a GRU); eval/canary/video harness threads
+   hidden state automatically; needs sb3-contrib==2.9.0 on pods
+   (in coreweave_pod_setup.sh) — still needs a probe run].
    Score each rung on the COMPLICATED movements, not just nominal
    walk: joystick gate incl. flips, plus rise/lower fracs once the
    unified line has a rise-capable parent to compare against.

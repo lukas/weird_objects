@@ -20,6 +20,7 @@ pip install --quiet --no-cache-dir torch==2.13.0 --index-url https://download.py
 pip install --quiet --no-cache-dir \
     mujoco==3.11.0 \
     stable_baselines3==2.9.0 \
+    sb3-contrib==2.9.0 \
     gymnasium==1.3.0 \
     numpy==2.4.6 \
     scipy==1.17.1 \
@@ -51,5 +52,5 @@ if [ "${HEXAPOD_MJX:-0}" = "1" ]; then
     python -c "from mujoco import mjx; import jax; print('mjx ok', jax.devices())"
 fi
 
-python -c "import mujoco, stable_baselines3, torch; print('deps ok')"
+python -c "import mujoco, stable_baselines3, sb3_contrib, torch; print('deps ok')"
 echo "SETUP_DONE"

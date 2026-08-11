@@ -670,6 +670,40 @@ def _annotate_frame(frame: np.ndarray, lines: list[str]) -> np.ndarray:
     return np.asarray(img)
 
 
+class _ActFn:
+    """Deterministic per-step act_fn for the eval loops.
+
+    Threads hidden state + episode_start through ``policy.predict`` so
+    recurrent (GRU) policies work; plain MLP policies ignore both args
+    (SB3's BasePolicy.predict signature), so the same wrapper serves
+    every policy. Callers MUST invoke ``reset()`` (via ``_reset_act``)
+    after each ``env.reset()`` or the GRU carries stale memory across
+    episodes.
+    """
+
+    def __init__(self, policy):
+        self._policy = policy
+        self.reset()
+
+    def reset(self) -> None:
+        self._state = None
+        self._episode_start = np.ones((1,), dtype=bool)
+
+    def __call__(self, obs):
+        action, self._state = self._policy.predict(
+            obs, state=self._state, episode_start=self._episode_start,
+            deterministic=True)
+        self._episode_start = np.zeros((1,), dtype=bool)
+        return action
+
+
+def _reset_act(act_fn) -> None:
+    """Reset a stateful (recurrent) act_fn at an episode boundary."""
+    r = getattr(act_fn, "reset", None)
+    if r is not None:
+        r()
+
+
 EVAL_MODES = ("hold", "lean", "track", "unload", "raise", "rise")
 
 
@@ -688,6 +722,7 @@ def _rise_split_stats(env, act_fn, per_kind: int = 2) -> dict[str, tuple]:
            and guard < 40 * per_kind):
         guard += 1
         obs, _ = env.reset()
+        _reset_act(act_fn)
         traj = env._goal_traj
         kind = ("crouch" if traj.start_at == "crouch"
                 else "bridge" if traj.start_curl > 0 else "flat")
@@ -746,6 +781,7 @@ def _roll_trap_stats(env, act_fn, episodes: int, walk: bool) -> dict:
         [], [], [], [], []
     for ep in range(episodes):
         obs, _ = env.reset()
+        _reset_act(act_fn)
         side = 1.0 if (ep % 2 == 0) else -1.0
         tau, tau_peak, max_roll = 0.0, 0.0, 0.0
         rolls, speeds, hips = [], [], []
@@ -919,6 +955,7 @@ def _run_periodic_eval(env, act, args, env_cls, step,
             ok_n, end_rolls, z_drops = 0, [], []
             for _ in range(per_mode):
                 obs, _ = env.reset()
+                _reset_act(act)
                 rolls, done, term = [], False, False
                 while not done:
                     obs, _r, term, trunc, sinfo = env.step(act(obs))
@@ -1026,11 +1063,13 @@ def _render_reel(env, policy, args, step,
         part, fps=25, macro_block_size=1, pixelformat="yuv420p",
         output_params=["-movflags", "+faststart"])
     outcomes = []
+    act = _ActFn(policy)
     try:
         for k, want in enumerate(reel):
             for m in saved_p:
                 setattr(gen, f"p_{m}", 1.0 if m == want else 0.0)
             obs, info = env.reset()
+            _reset_act(act)
             mode = info.get("goal_mode", want)
             header = f"[{k + 1}/{len(reel)}] task: {mode}"
             title = _annotate_frame(env.render(), [header])
@@ -1039,8 +1078,7 @@ def _render_reel(env, policy, args, step,
             done = term = False
             ret = 0.0
             while not done:
-                action, _ = policy.predict(obs, deterministic=True)
-                obs, r, term, trunc, info = env.step(action)
+                obs, r, term, trunc, info = env.step(act(obs))
                 ret += float(r)
                 lines = [f"{header}   return: {ret:+.1f}"]
                 if "roll_ref_deg" in info:
@@ -1086,7 +1124,7 @@ def _bg_eval_child(jobs, results, task, args) -> None:
     eval or render a reel, ship the result back over the queue. The
     training process does all wandb logging (single W&B writer).
     """
-    from stable_baselines3 import PPO
+    from .gru_policy import load_checkpoint_auto
     env_cls = ENV_CLASSES[task]
     params = SimServoParams.load()  # same file the trainer loaded from
     eval_env = None
@@ -1098,14 +1136,13 @@ def _bg_eval_child(jobs, results, task, args) -> None:
         kind, ckpt, step, tag = job
         out = {"kind": kind, "step": step}
         try:
-            policy = PPO.load(ckpt, device="cpu").policy
+            policy = load_checkpoint_auto(ckpt, device="cpu").policy
             policy.set_training_mode(False)
             if kind == "eval":
                 if eval_env is None:
                     eval_env = _build_env(env_cls, params, args,
                                           seed=args.seed + 9999)
-                act = lambda obs: policy.predict(  # noqa: E731
-                    obs, deterministic=True)[0]
+                act = _ActFn(policy)
                 payload, brief = _run_periodic_eval(
                     eval_env, act, args, env_cls, step)
                 if getattr(args, "canary", False):
@@ -1334,6 +1371,7 @@ def _run_canaries(env, act_fn) -> dict[str, bool]:
         setattr(gen, f"p_{mode}", 1.0)
         gen.force_rise_start = force
         obs, _ = env.reset(seed=seed)
+        _reset_act(act_fn)
         done = term = False
         h_err = None
         while not done:
@@ -1413,6 +1451,13 @@ def train(args) -> int:
 
     env_cls = ENV_CLASSES[args.task]
 
+    if args.gru and args.asym_critic:
+        raise SystemExit("--gru + --asym-critic is not implemented")
+    if args.gru and args.obs_pad_transplant:
+        raise SystemExit("--gru + --obs-pad-transplant is not "
+                         "implemented (recurrent weights don't "
+                         "transplant from MLP checkpoints)")
+
     def env_fn():
         return _build_env(env_cls, params, args)
 
@@ -1454,7 +1499,17 @@ def train(args) -> int:
             model.num_timesteps = old.num_timesteps
             del old
         else:
-            model = PPO.load(args.init_from, env=venv, device="cpu")
+            from .gru_policy import (is_recurrent_checkpoint,
+                                     load_checkpoint_auto)
+            if args.gru and not is_recurrent_checkpoint(args.init_from):
+                raise SystemExit(
+                    "--gru cannot warm-start from an MLP checkpoint "
+                    f"({args.init_from}); GRU runs start from scratch "
+                    "or from a previous GRU checkpoint")
+            # Recurrent (GRU) checkpoints load as RecurrentPPO whether
+            # or not --gru was passed; MLP checkpoints load as PPO.
+            model = load_checkpoint_auto(args.init_from, env=venv,
+                                         device="cpu")
         model.verbose = 1  # checkpoints saved with verbose=0 stay silent
         if args.asym_critic:
             from .asym_policy import AsymActorCriticPolicy
@@ -1542,14 +1597,28 @@ def train(args) -> int:
             print(f"[train] log_std set to {args.set_log_std:+.2f} "
                   f"(std {float(np.exp(args.set_log_std)):.2f})")
     else:
+        algo_cls = PPO
         policy_cls = "MlpPolicy"
         extra_pk = {}
-        if args.asym_critic:
+        if args.gru:
+            # GRU recurrent actor-critic (sb3-contrib RecurrentPPO with
+            # the GRU cell swap from gru_policy.py). The env should run
+            # single-frame obs (obs.history_frames=1, the default) —
+            # the GRU carries the temporal context the frame stack used
+            # to supply.
+            from sb3_contrib import RecurrentPPO
+            from .gru_policy import GruActorCriticPolicy
+            algo_cls = RecurrentPPO
+            policy_cls = GruActorCriticPolicy
+            extra_pk = dict(lstm_hidden_size=args.gru_hidden_size)
+            print(f"[train] GRU policy: hidden {args.gru_hidden_size}, "
+                  f"net_arch [128, 128] head")
+        elif args.asym_critic:
             from .asym_policy import AsymActorCriticPolicy
             policy_cls = AsymActorCriticPolicy
             extra_pk = dict(privileged_idx=_privileged_idx(
                 args, venv.observation_space.shape[0]))
-        model = PPO(
+        model = algo_cls(
             policy_cls, venv,
             n_steps=256,
             batch_size=min(2048, 256 * args.n_envs),
@@ -1579,7 +1648,8 @@ def train(args) -> int:
     # Output name: overridable so parallel experiments don't race to
     # overwrite the same checkpoint prefix and final .zip (2026-08-07:
     # two concurrent warm-starts were both writing ppo_goal.zip).
-    name = args.out_name or f"ppo_{args.task}"
+    name = args.out_name or (f"ppo_gru_{args.task}" if args.gru
+                             else f"ppo_{args.task}")
     # Fixed-seed canaries + regression auto-stop (review §5a/§5c): on by
     # default for every warm start — the failure class is a warm-started
     # run silently destroying a parent skill (cw-walk-flag's rise).
@@ -1587,8 +1657,7 @@ def train(args) -> int:
     canary_protected: list[str] = []
     if args.canary:
         cenv = _build_env(env_cls, params, args, seed=args.seed + 77777)
-        act0 = lambda o: model.policy.predict(  # noqa: E731
-            o, deterministic=True)[0]
+        act0 = _ActFn(model.policy)
         baseline = _run_canaries(cenv, act0)
         cenv.close()
         canary_protected = _protected_groups(baseline)
@@ -1689,6 +1758,7 @@ def _rollout_stats(env, act_fn, episodes: int) -> dict:
     term_reasons: dict[str, int] = {}
     for _ in range(episodes):
         obs, info0 = env.reset()
+        _reset_act(act_fn)
         mode = info0.get("goal_mode", "balance")
         ret, max_tilt, done, term = 0.0, 0.0, False, False
         last_h_err = None
@@ -1778,12 +1848,12 @@ def evaluate(policy_path: Path, *, episodes: int = 10, no_dr: bool = False,
     beats zero action, videos show movement toward targets, and safety
     terminations stay acceptable — NOT if raw return went up.
     """
-    from stable_baselines3 import PPO
+    from .gru_policy import load_checkpoint_auto
 
     params = SimServoParams.load()
     _warn_if_defaults(params)
     env_cls = ENV_CLASSES[task]
-    model = PPO.load(policy_path, device="cpu")
+    model = load_checkpoint_auto(policy_path, device="cpu")
 
     def make_env():
         kw = dict(params=params, randomize=not no_dr,
@@ -1807,9 +1877,7 @@ def evaluate(policy_path: Path, *, episodes: int = 10, no_dr: bool = False,
         return env_cls(**kw)
 
     env = make_env()
-    stats = _rollout_stats(
-        env, lambda obs: model.predict(obs, deterministic=True)[0],
-        episodes)
+    stats = _rollout_stats(env, _ActFn(model.policy), episodes)
     env.close()
 
     n_act = env.action_space.shape[0] if hasattr(env, "action_space") else 6
@@ -1913,6 +1981,15 @@ def main(argv: list[str] | None = None) -> int:
                     help="consecutive full-group canary failures of a "
                          "parent-passed skill before auto-stop "
                          "(0 = monitor only)")
+    ap.add_argument("--gru", action="store_true",
+                    help="recurrent GRU actor-critic (sb3-contrib "
+                         "RecurrentPPO + gru_policy.py) instead of the "
+                         "frame-stack MLP; run with single-frame obs "
+                         "(obs.history_frames=1). From-scratch only — "
+                         "MLP checkpoints cannot warm-start a GRU")
+    ap.add_argument("--gru-hidden-size", type=int, default=128,
+                    help="GRU hidden units per layer (actor and critic "
+                         "each get their own single-layer GRU)")
     ap.add_argument("--asym-critic", action="store_true",
                     help="asymmetric actor-critic: mask the privileged "
                          "measured-velocity obs (last 2 dims) on the "
