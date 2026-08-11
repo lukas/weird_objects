@@ -190,6 +190,18 @@ One 6 s walk at 0.05 m/s (`rl_walk_20260811_021859.csv`). Operator:
   the spawn stance: the policy settles into its trained (lower,
   wider) walking posture. Not a fault; worth a height-keeping term
   in a future walk arm if the crouch bothers operations.
+- **Fourth run (08-10 22:38, `rl_walk_20260811_023756.csv`, tip1
+  again): clean, tally 1 runaway / 3 clean. Operator-visible floor
+  SCRAPING quantified:** the gait is a low-clearance shuffle. Knee
+  lift during coxa swing is ≈0 for the four big-swing legs (+1 to
+  +4 deg/s — feet slide forward instead of stepping over the floor),
+  and stride is very uneven: L1/L3/L4/L5 swing 37–46° of coxa while
+  L0 and L2 barely step (14–16°). Expected from training: sim charges
+  nothing for dragging a foot during swing, so the policy converged
+  to a shuffle. Not hardware damage — currents stay 0.02–0.06 A/joint
+  with swing/stance drag ratios only 0.9–1.5. Training lead for a
+  future walk arm: swing-clearance or foot-slip-in-contact penalty
+  (sim has the contact data), plus the height-keeping term above.
 
 ## Finding — TFT redraws stall the entire servo link (08-10 night)
 
