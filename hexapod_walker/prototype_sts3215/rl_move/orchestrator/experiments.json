@@ -66712,6 +66712,19 @@
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-r2 --steps 2000000 --task joint_walk --gru --n-steps 64 --n-envs 1024 --log-std-init 0.0 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.70,rise=0.12,lower=0.12,hold=0.06 --seed 0 --out-name ppo_goal_cw_arch_gru_r2 --impl warp --host-workers 24 --notes 'respec of cw-arch-gru-r1: GRU rung continuation: r1 (2M from scratch) showed every skill emerging in ONE recurrent policy (hold 2.5deg, crouch-rise 2/2, tipped recovery 2/2, reward still climbing) but walk barely tracking (vel err 0.074). r2 continues from the r1 checkpoint with a walk-heavier diet (0.55 -> 0.70) to feed the data-hungry skill while rise/lower/hold ride along. If walk err drops materially with stance skills retained -> the recipe scales and a hardening-length run is licensed; if walk stays flat -> recipe rethink (BPTT window / lr) before spending more.' --init-from rl_move/sim/policies/ppo_goal_cw_arch_gru_r1.zip > /tmp/train_cw-arch-gru-r2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-gru-r2.log",
     "wandb_id": "7jgxvq9o",
-    "verified": "2026-08-11T13:19:26+00:00"
+    "verified": "2026-08-11T13:19:26+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T13:24:39+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2794,
+        "fps": 2912.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "in-cycle cw-arch-gru-r2 since 2026-08-11T13:33:43"
   }
 ]
