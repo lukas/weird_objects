@@ -211,6 +211,19 @@ One 6 s walk at 0.05 m/s (`rl_walk_20260811_021859.csv`). Operator:
   future walk arm: swing-clearance or foot-slip-in-contact penalty
   (sim has the contact data), plus the height-keeping term above.
 
+## Bench state — drive session 08-11 morning
+
+Robot picker (verified live): walk slot = `dep_tip1` (ACTIVE; 3 clean
+/ 1 runaway 08-10), `dep_vref1_r1`, `dep_quad1_c2`. Stance slot =
+`stand_holdbc1_hard1` (ACTIVE, **new**: overnight HOLD+RISE+LOWER 10M
+specialist, md5 6620705c, obs 68) with `stance_dr10` still available.
+holdbc1-hard1 is EXPERIMENTAL on hardware: `hardware_ready: False`,
+no deployment-contract flags, sim crouch-start rise still tips 2/4 —
+sit/hold expected to work, RL stand-up is the risky part (scripted
+tuck remains the known-good stand-up). Omni/steering lineage stays
+off the robot: transbc1 FAILED (paddle), rot-60 canonicalizer is
+sim-only until the deploy-side runner port lands.
+
 ## Finding — TFT redraws stall the entire servo link (08-10 night)
 
 Root cause of the operator's "big pause in the middle of standing"
