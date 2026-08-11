@@ -386,3 +386,38 @@ first tried:
   large pre-existing walk-progress income it would otherwise keep
   earning; this from-scratch result does not by itself predict that
   one's outcome.
+
+## TALL LADDER — height-ref rungs on the dep line (operator session 08-11 eve)
+
+Operator directive: "make a deployable tall smooth walker." Mechanism:
+`goal.walk_height_off_mm` as a warm-start ladder (the lowgait line's
+proven trick, inverted to climb UP), NOT the hgt1 income gate (refuted
+one-shot). All rungs 2M warm, full dep contract + tipped starts
+retained; eval numbers are `eval/walk/*` end-of-episode.
+
+| run | parent | ref | height_err_end | speed m/s | slip | note |
+|---|---|---|---|---|---|---|
+| cw-dep-tip1 (baseline) | — | 0 | 59.9 mm | 0.0388 | 1.65 | eval-ends ~−60 mm |
+| cw-dep-tall30 | tip1 | −30 | **15.2 mm** | 0.0295 | 1.74 | + k_drag_stance 8000/6/0.25 |
+| cw-dep-tall30h | tip1 | −30 | 17.5 mm | 0.0287 | 1.80 | isolation: NO charge |
+| cw-dep-tall15 | tall30 | −15 | 29.0 mm | 0.0278 | 1.64 | STALL: body ≈ −44 mm |
+
+Findings (three runs, one evening):
+
+- **Height-as-commanded-ref works on the dep line**: 60→15 mm in one
+  rung. The hgt1 gate failure was about the unreachable one-shot 50 mm
+  jump, not about height being untrainable.
+- **The structural drag charge is FREE on a warm walker** (tall30 vs
+  tall30h isolation: identical speed/slip, marginally better WITH the
+  charge) — it rides along in the ladder but did not cut slip either
+  (1.74 vs baseline 1.65). Consistent with cw-walk-dragstance1:
+  absorbed, not resolved.
+- **The free climb ends at ~−44 mm**: rung 2 (ref −15) left the body
+  at the same ~−44 mm as rung 1 did. ~16 mm taller than baseline,
+  ~44 mm short of plant height. Speed cost so far ~25-28%, flat
+  across rungs (one-time, not per-rung).
+
+Follow-up campaign T1-T5 pre-registered in RL_PLAN.md queue -0.5
+(P2.5): budget rerun, k_height crank, gate-at-reachable-ref, speed
+trade, and the −44 mm workspace probe that decides whether the wall
+is kinematic (stop) or habitual (keep pushing).
