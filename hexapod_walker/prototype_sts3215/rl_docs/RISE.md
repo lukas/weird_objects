@@ -487,3 +487,38 @@ Harness fix landed same cycle: `eval_checkpoint.py` now refuses
 unknown `--modes` loudly ('tipped' is a trainer periodic-eval axis,
 not a harness mode — passing it used to zero every goal probability
 and NaN-crash after the good modes had run).
+
+## Hold/track stillness pricing — SPECIFICATION LANDED (08-11 idle-kick cycle)
+
+The bc1-hard1 dig-in's queue item is done. HOLD bank added to
+`test_task_semantics.py` (plant start, hold mode, the exact
+stand-line stack): scripted `quiet` (hold the settled plant),
+`stepping` (alternating tripods at ~1 Hz, swing peak ~40 mm — the 2M
+pathology's honest-magnitude form) and `flag` (one front leg parked
+189 mm up, five planted, frozen — the 10M pathology; a both-front-legs
+splay nose-dives and terminates under position control, so the single
+flag is the stable scripted member of that class). Measured legacy
+returns (seed 0, 15 s): quiet 367.9, stepping 300.7, **flag 368.0 — a
+frozen flag-leg park LITERALLY TIES the honest quiet stand** because
+the tracking kernel has no opinion on legs and `k_still` (a bonus,
+default 0) charges nothing. That is the whole pricing hole in one
+number.
+
+Fix: `reward.hold_still_gate` (default 0 = legacy; REWARD.md row).
+Scales kernel income on hold/track ticks by feet-down² × HARD no-flag
+zero (PLANT_SPEC flag_leg_mm 60 mm; honest adjustment swings stay
+below it) × stillness Gaussian applied only while the reference is
+stationary (TRACK's commanded attitude motion never charged). Scoped
+strictly to hold/track — quad lifts legs and unload opens a contact on
+purpose. Implemented in `sim_env._step_finish` (shared by the CPU
+harness and the warp/MJX host-worker path). Gated bank ordering:
+quiet 367.9 > stepping 107.2 > flag 9.5; gate-bite and no-tax tests
+both pass; full task-semantics suite green (29 passed, 1 pre-existing
+skip).
+
+Next: `cw-stand-holdstill1` — discovery 2M, warm from
+`ppo_goal_cw_stand_bc1_hard1` (the rise specialist), ONE variable
+(`hold_still_gate=1.0`), same goal mix. Binary question: does hold
+converge to a quiet valid plant (worst-foot <20 mm, swings →0)
+without losing the honest rise? After that: the rise-specialist →
+walk-champion handoff composition test.

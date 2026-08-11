@@ -858,3 +858,196 @@ def test_omni_episode_mixture_gait_beats_freeze():
     assert f_mean < 0.45 * g_mean, (
         f"freeze income floor {f_mean:+.0f} is {f_mean/g_mean:.2f}x of "
         f"honest {g_mean:+.0f} — parking is still a paid basin.")
+
+
+# --------------------------------------------------------------------------
+# HOLD bank — quiet stand at the plant under the stand-line stack
+# (cw-stand-bc1/-hard1 lineage cfg + reward.hold_still_gate=1).
+#
+# The failure this bank pins (cw-stand-bc1-hard1 dig-in, 08-11): hold
+# and track episodes were never quiet stands — the tracking kernel pays
+# torso attitude/height with NO opinion on the legs, so the policy
+# cycles legs continuously (duty 0.85/0.09, 6-19 swings per 15 s
+# episode; feet 12-50 mm up at 2M steps, 100-161 mm splayed at 10M)
+# while collecting near-full income. k_still is a BONUS (default 0)
+# and charges nothing; a sparse 10-frame video strip missed it at two
+# separate verdicts. reward.hold_still_gate scales the kernel on
+# hold/track ticks by feet-down^2 x hard no-flag (PLANT_SPEC
+# flag_leg_mm) x stillness (only while the reference is stationary,
+# so TRACK's commanded motion is never charged).
+#
+# Required ordering: quiet stand > continuous stepping > flag-leg
+# park; the gate must do the work (stepping loses hard when it turns
+# on) and must NOT tax the honest quiet stand.
+
+from rl_move.sim.sim_env import PLANT_SPEC  # noqa: E402
+
+PLANT_SPEC_FLAG_MM = float(PLANT_SPEC["flag_leg_mm"])
+HOLD_OVERRIDES = dict(SCORE_OVERRIDES)
+HOLD_OVERRIDES.update({
+    ("reward", "hold_still_gate"): 1.0,
+})
+HOLD_LEGACY = dict(SCORE_OVERRIDES)   # gate off = today's stand stack
+
+
+def _make_hold_env(seed: int, overrides=None) -> SimHexapodJointGoalEnv:
+    cfg = load_config()
+    for (sec, leaf), val in (overrides or HOLD_OVERRIDES).items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=15.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "hold" else 0.0)
+    return env
+
+
+def _hold_rollout(policy: str, seed: int, overrides=None) -> dict:
+    """Scripted hold-mode policies from the plant start.
+
+    quiet     hold the settled plant pose exactly (the intended skill).
+    stepping  the 2M-checkpoint pathology: alternating tripods lift
+              continuously (~1 Hz) while the torso stays level at
+              height — swing feet stay BELOW flag_leg_mm, so only the
+              feet-down fraction and the stillness factor charge it.
+    flag      the 10M-checkpoint pathology (harness worst-foot
+              162-189 mm across hold/lower): one front leg parked high
+              in the air, five legs hold the plant — body level at
+              height, a FROZEN pose, so stillness alone cannot charge
+              it; the hard no-flag zero must. (A scripted BOTH-front-
+              legs splay nose-dives and terminates — position-control
+              can't rebalance; the single flag is the stable scripted
+              form of the same class.)
+    """
+    env = _make_hold_env(seed, overrides)
+    env.reset()
+    q0 = env.data.qpos[env._qadr].copy()
+    # Calibrated on the plant (probe 08-11): hip -30 deg lifts the
+    # foot ~50 mm (honest swing band); hip -50 + knee -50 parks it
+    # ~190 mm up (the observed splay class).
+    lift = 30.0 * DEG2RAD
+    total, step = 0.0, 0
+    max_clear = 0.0
+    while True:
+        if policy == "quiet":
+            act = q_rad_to_action(q0)
+        elif policy == "stepping":
+            q = q0.copy()
+            phase = int(step * env.dt / 0.5) % 2   # 0.5 s per tripod
+            for leg in ((0, 2, 4) if phase == 0 else (1, 3, 5)):
+                q[3 * leg + 1] -= lift
+            act = q_rad_to_action(q)
+        else:  # flag
+            q = q0.copy()
+            q[1] -= 50.0 * DEG2RAD          # leg 0 hip up
+            q[2] -= 50.0 * DEG2RAD          # leg 0 knee curled
+            act = q_rad_to_action(q)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        step += 1
+        clear = max(float(env.data.xpos[b, 2]) - env._pad_z_ref[i]
+                    for i, b in enumerate(env._pad_bids))
+        max_clear = max(max_clear, clear)
+        if term or trunc:
+            terminated = term
+            break
+    h_err = (float(env.data.xpos[env._chassis_bid, 2]) - env._z0)
+    plant_ok, detail = ((False, {"terminated": True}) if terminated
+                        else env.plant_report(height_err_m=h_err))
+    env.close()
+    return {"ret": total, "plant": bool(plant_ok),
+            "max_clear_mm": max_clear * 1000.0, "detail": detail}
+
+
+HOLD_POLICIES = ("quiet", "stepping", "flag")
+
+
+@pytest.fixture(scope="module")
+def hold_bank() -> dict[str, list[dict]]:
+    return {p: [_hold_rollout(p, s) for s in SEEDS]
+            for p in HOLD_POLICIES}
+
+
+@pytest.fixture(scope="module")
+def hold_returns(hold_bank) -> dict[str, float]:
+    return {p: float(np.mean([r["ret"] for r in rolls]))
+            for p, rolls in hold_bank.items()}
+
+
+@pytest.fixture(scope="module")
+def hold_legacy_returns() -> dict[str, float]:
+    return {p: float(np.mean([_hold_rollout(p, s, HOLD_LEGACY)["ret"]
+                              for s in SEEDS]))
+            for p in ("quiet", "stepping")}
+
+
+def test_hold_bank_policies_are_the_right_shapes(hold_bank):
+    """Self-check that the scripted policies reproduce the two observed
+    pathologies: the stepping swing feet must stay BELOW the flag-leg
+    threshold (the 2M pathology was 12-50 mm; if a bank swing crosses
+    60 mm the hard zero fires and the test stops discriminating
+    stillness), and the flag must park a foot well ABOVE it."""
+    for r in hold_bank["stepping"]:
+        assert 20.0 < r["max_clear_mm"] < PLANT_SPEC_FLAG_MM, (
+            f"stepping swing peak {r['max_clear_mm']:.0f}mm is outside "
+            f"the honest-magnitude band (20-{PLANT_SPEC_FLAG_MM:.0f}mm)")
+    for r in hold_bank["flag"]:
+        assert r["max_clear_mm"] > PLANT_SPEC_FLAG_MM + 20.0, (
+            f"flag foot only reaches {r['max_clear_mm']:.0f}mm — not "
+            f"the observed 100-190mm flag pose")
+
+
+def test_hold_quiet_dominates_continuous_stepping(hold_returns):
+    """Under the gated stack the quiet stand must out-earn continuous
+    leg-cycling decisively — the pathology PPO actually converged to
+    must not remain a paid basin."""
+    q, s = hold_returns["quiet"], hold_returns["stepping"]
+    assert q > 1.5 * s and q > s + 100.0, (
+        f"continuous stepping rivals the quiet stand under the gate: "
+        f"{hold_returns}")
+
+
+def test_hold_stepping_beats_flag_leg(hold_returns):
+    """Both are failures, but the persistent flag leg (one foot parked
+    ~190 mm up, hard no-flag zero) must earn strictly less than
+    honest-magnitude stepping — the gradient must point from the flag
+    pose back toward feet-down behavior, not sideways."""
+    s, f = hold_returns["stepping"], hold_returns["flag"]
+    assert s > f + 50.0, (
+        f"the frozen flag-leg pose rivals feet-down stepping: "
+        f"{hold_returns}")
+
+
+def test_hold_gate_bites_the_stepping(hold_returns, hold_legacy_returns):
+    """The gate itself must do the work: stepping's return must drop
+    hard when the gate turns on. Pre-fix (legacy stack) continuous
+    stepping collected ~parity with the quiet stand — that is the
+    bank's reason to exist."""
+    on, off = hold_returns["stepping"], hold_legacy_returns["stepping"]
+    assert on < 0.65 * off, (
+        f"hold_still_gate barely moves the stepping return ({on:.0f} "
+        f"vs {off:.0f} ungated) — gate is not engaging.")
+
+
+def test_hold_gate_light_tax_on_quiet_stand(hold_returns,
+                                            hold_legacy_returns):
+    """A real quiet stand (small servo jitter only) must keep ~full
+    pay under the gate; taxing honesty is how gates get gamed."""
+    on, off = hold_returns["quiet"], hold_legacy_returns["quiet"]
+    assert on > 0.90 * off, (
+        f"hold_still_gate taxes the honest quiet stand ({on:.0f} vs "
+        f"{off:.0f} ungated) — factor miscalibrated.")
+
+
+def test_hold_quiet_ends_valid_plant(hold_bank):
+    """End-state PLANT_SPEC: the quiet stand must end a valid plant on
+    every seed; the flag pose must fail it by construction."""
+    for r in hold_bank["quiet"]:
+        assert r["plant"], (
+            f"the quiet stand fails PLANT_SPEC: {r['detail']}")
+    for r in hold_bank["flag"]:
+        assert not r["plant"], (
+            f"the flag-leg pose passes PLANT_SPEC: {r['detail']}")

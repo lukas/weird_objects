@@ -1236,6 +1236,59 @@ class SimHexapodBalanceEnv(_GymBase):
                                        height_err=h_err,
                                        unload_force_n=unload_f,
                                        ref_quiet=ref_quiet)
+        # HOLD/TRACK stillness+feet pricing (2026-08-11, cfg
+        # reward.hold_still_gate in [0,1], default 0 = legacy exact).
+        # cw-stand-bc1-hard1's dig-in showed hold/track are not quiet
+        # stands under the stand-line stack: the tracking kernel pays
+        # torso attitude/height with NO opinion on the legs, so a policy
+        # that cycles legs continuously (duty 0.85/0.09, 6-19 swings per
+        # 15 s episode, feet ending 100-161 mm up) or parks two legs
+        # splayed in the air collects near-full income; k_still is a
+        # BONUS (default 0) and charges nothing. This gate scales the
+        # kernel income on hold/track ticks by
+        #   feet_factor * still_factor, where
+        #   feet_factor = (fraction of feet down)^2 x HARD zero when any
+        #     foot exceeds PLANT_SPEC.flag_leg_mm (60 mm: honest
+        #     recovery/adjustment swings stay far below it, the observed
+        #     splay sits at 100-160 mm),
+        #   still_factor = Gaussian on mean qd^2 (still_sigma_rad_s),
+        #     applied only while the reference is stationary so TRACK's
+        #     commanded attitude motion is never charged.
+        # Blend: f = (1-g) + g*feet*still. Scoped strictly to
+        # hold/track (quad lifts legs on purpose, unload opens a
+        # contact on purpose, rise/lower/raise have their own stacks).
+        # HOLD bank in test_task_semantics.py pins the orderings.
+        g_hold = float(cfg_get(self.cfg, "reward", "hold_still_gate",
+                               default=0.0))
+        if (g_hold > 0.0 and goal is not None
+                and self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") in ("hold",
+                                                             "track")
+                and self._pad_z_ref is not None):
+            clear_h = np.array(
+                [float(self.data.xpos[b, 2]) - self._pad_z_ref[i]
+                 for i, b in enumerate(self._pad_bids)])
+            n_down_h = float(np.sum(
+                clear_h <= PLANT_SPEC["foot_down_mm"] * 0.001))
+            noflag_h = (1.0 if float(np.max(clear_h))
+                        <= PLANT_SPEC["flag_leg_mm"] * 0.001 else 0.0)
+            feet_h = (n_down_h / max(float(len(clear_h)), 1.0)) ** 2 \
+                * noflag_h
+            still_h = 1.0
+            if ref_quiet:
+                sig_qd_h = float(cfg_get(
+                    self.cfg, "reward", "still_sigma_rad_s",
+                    default=0.3))
+                qd2_h = float(np.mean(np.square(
+                    self._state.joint_velocity)))
+                still_h = math.exp(-qd2_h / (2.0 * sig_qd_h ** 2))
+            f_hold = (1.0 - g_hold) + g_hold * feet_h * still_h
+            r_task_h = parts.get("reward_task", 0.0)
+            if r_task_h > 0.0:
+                reward += r_task_h * (f_hold - 1.0)
+                parts["reward_task"] = r_task_h * f_hold
+            parts["hold_feet_factor"] = feet_h
+            parts["hold_still_factor"] = still_h
         # Rise decomposed into scored steps (rise/raise episodes only —
         # the ones with a real height target). Progress is potential-
         # based (telescoping: total = k * (start_err − end_err)) so it
