@@ -135,6 +135,8 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                 annotate, end_posture_gate: bool = False,
                 valid_plant_gate: bool = False) -> tuple[dict, list]:
     obs, info0 = env.reset()
+    if hasattr(model, "reset"):
+        model.reset()   # rot60 sector state is per-episode
     mode = info0.get("goal_mode", "?")
     kind = _start_kind(env._goal_traj) if env._goal_traj else "plant"
     pads = [env.model.body(f"L{i}_pad").id for i in range(6)]
@@ -524,6 +526,11 @@ def main() -> None:
     # was finally evaluated under the same perturbation. Passing
     # --baseline runs the parent through the exact same config/seed in
     # the same invocation and prints the per-mode delta.
+    ap.add_argument("--rot60", action="store_true",
+                    help="wrap the policy (and any --baseline) in the "
+                         "rot-60 canonicalizer (rot60.Rot60Policy) — "
+                         "full-circle walk evals of wedge-trained "
+                         "policies. Walk obs frame (72) only.")
     ap.add_argument("--baseline", type=Path, default=None,
                     help="frozen parent checkpoint, evaluated under the "
                          "IDENTICAL config (required for any injected-"
@@ -584,6 +591,11 @@ def main() -> None:
         env = make_env()
         model = PPO.load(checkpoint, device="cpu")
         std = float(np.exp(model.policy.log_std.detach().numpy().mean()))
+        if args.rot60:
+            from rl_move.config import cfg_get as _cg
+            from .rot60 import Rot60Policy
+            model = Rot60Policy(model, tilt_scale=float(
+                _cg(env.cfg, "obs", "tilt_scale", default=0.2)))
         modes = args.modes or list(getattr(env_cls, "EVAL_MODES",
                                            ("hold", "track", "rise")))
         gen = env._goal_gen
