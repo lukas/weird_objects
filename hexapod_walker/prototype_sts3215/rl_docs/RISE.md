@@ -568,3 +568,30 @@ SPEC/CODE item (trainer change + bank re-run) before any further
 stand-line launch. After that lands and a hold arm passes: the
 rise-specialist → walk-champion handoff composition test (still the
 plan's next composition milestone).
+
+### CODE landed (08-11, idle-kick cycle): bc_anchor covers hold/track
+
+`sim_env._is_hold_bc` (new per-episode flag, added to
+`mjx_host.SNAP_ATTRS` — the pool-restore lesson applies to every new
+per-episode attr, not just the rise ones) fires on hold/track ticks
+and emits `info["bc_target"] = q_rad_to_action(self._q_nom)` — a
+CONSTANT target for the whole episode (the pose it actually settled
+at post-reset; already captured for the hold-current reward term, so
+"trivially available" was correct). Rise ticks are unaffected (kept
+in a separate branch, mutually exclusive with hold/track by
+construction). `bc_anchor.py` docstring updated; no reward-stack
+change (the anchor is a trainer loss, same as rise). Bank: 4 new
+tests in `test_bc_anchor.py` (hold emission + value, track emission,
+default-off-on-hold, rise/hold flags mutually exclusive across
+rise/hold/track/lower) — 14/14 green; full `test_task_semantics.py`
+re-run 32 passed/1 pre-existing skip (reward stack confirmed
+untouched). `cw-stand-holdbc1` launched same cycle: respec of
+`cw-stand-holdstill2` (byte-identical cfg — same
+`hold_still_gate=1`, `hold_flag_fade=1`, same warm start from the
+rise specialist, `bc_anchor_coef=1.0` was already set and is now the
+ONE thing that changed behavior, since the code under it changed).
+Binary question: does the mechanism that fixed rise also fix hold,
+or is hold's "earning zero → no pushback" failure mode not fixable
+by BC alone? If it also fails: three hold misses in a row, fall back
+to the rise-specialist + scripted-blend handoff without a learned
+quiet hold, and stop spending discovery arms on hold pricing.
