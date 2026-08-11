@@ -223,6 +223,23 @@ SCORE_OVERRIDES = {
     ("goal", "rise_height_mm"): [108.0, 114.0],
     ("goal", "rise_ramp_s"): 6.0,
     ("reward", "rise_score_income"): 1.0,
+    # Reference tracking rides along since cw-stand-scoreref1
+    # (08-10 late): cw-stand-score1 proved the score income alone is
+    # unfindable — env/rise_score sat at ~0.01 for 2M steps because the
+    # conjunction S is near-zero everywhere but the actual stand, so
+    # the ratchet never fired (exploration hole, not a pricing hole).
+    # The reference is the exploration crutch (bank replay reaches the
+    # stand and earns dominantly); the score stays the only endpoint
+    # payer, so tracking cannot be satisfied by a cheat. Anneal the
+    # track weight across arms; the score income is what remains.
+    ("reward", "k_rise_ref_track"): 2.0,
+    ("reward", "rise_ref_path"): RISE_REF,
+    # Tight kernel (default 12 -> 6 deg): at 12 the crutch alone paid
+    # stilt +155 and flag-leg +288 per episode (measured, seed 0) —
+    # near-miss poses farm a wide kernel. At 6 deg the demonstration
+    # keeps ~full pay (its own RMS ~0) while the cheats drop to scraps
+    # (the grounded-feet gate takes the airborne share on top).
+    ("reward", "rise_ref_sigma_deg"): 6.0,
     # The solved lower-line fixes ride along in the real run cfg; under
     # score mode they are no-ops for rise by construction (they scale
     # streams the score switch zeroes) — bank under the EXACT stack.
@@ -275,29 +292,26 @@ def test_score_freeze_net_negative(score_returns):
 
 
 def test_score_honest_ordering(score_returns):
-    """replay > partial > airborne cheats and refusal.
-
-    stilt is deliberately NOT in the partial comparison here: under the
-    score stack it is grounded, level, unpaid (income ~ +5 vs replay's
-    ~ +125) and score-adjacent to the true stand — pull the footprint
-    in ~10 mm and drop ~30 mm and hold pay jumps from S^2 ~ 0.01/tick
-    to ~1/tick, so the ratchet gradient from stilt points INTO the
-    stand. The hazard it posed under height income (a PAID terminal
-    plateau, +225/ep) is what test_score_stilt_is_not_a_paid_plateau
-    pins instead."""
+    """replay > partial > every cheat and refusal — with the tight
+    (6 deg) crutch kernel the honest half-path's tracking income
+    restores the full legacy ordering, stilt included."""
     assert score_returns["replay"] > score_returns["partial"], score_returns
-    for p in ("freeze", "flagleg", "thrash"):
+    for p in ("freeze", "stilt", "flagleg", "thrash"):
         assert score_returns["partial"] > score_returns[p], (
             f"'{p}' out-earns honest partial progress: {score_returns}")
 
 
 def test_score_stilt_is_not_a_paid_plateau(score_returns):
     """The stilt pop earned +225/ep under height income (rfix-fresh1's
-    gamed 6/6). Under the score stack parking there must be a net LOSS
-    and must trail the honest rise by a wide margin."""
-    assert score_returns["stilt"] < 0.0, score_returns
+    gamed 6/6). Under score income + gated crutch it may keep the
+    small grounded early-phase tracking pay (everyone starts AT the
+    reference's start pose — that is not a plateau), but parking there
+    must trail the honest rise by a wide margin and earn less than a
+    quarter of it."""
     assert score_returns["replay"] > score_returns["stilt"] + 50.0, (
         f"stilt is competitive with the honest rise: {score_returns}")
+    assert score_returns["stilt"] < 0.25 * score_returns["replay"], (
+        f"stilt keeps a real fraction of the honest pay: {score_returns}")
 
 
 def test_score_replay_ends_in_valid_plant(score_bank):
