@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: FAILED
 
 **created**: 2026-08-11T17:34:05+00:00
 
@@ -14,7 +14,11 @@
 
 **wandb_id**: pq1unuzb
 
+**hardware_ready**: no
+
 **hypothesis**: GAIT CLEANUP P3 lever 2, big drag charge FROM SCRATCH + dense step income (operator 08-11, rl_docs/GAIT.md): the operator premise is that a genuinely expensive drag should force stepping if the task is learnable early. The closed anti-slip arms retrofit penalties onto FORMED paddlers (habit + starvation failures); this arm never lets the paddle form: from scratch, k_drag_loaded 10->40 (4x the stock charge, applied from step 0), PLUS reward.k_step_event=1.0 -- the one-shot per-leg credit for a COMPLETED lift->swing->touchdown (>=10mm along command) that birthed the first genuine six-leg gait (n lineage, 08-08). The step credit is the make-it-easier half: it pays a dense, unfarmable income for exactly the behavior we want while the drag charge makes the alternative expensive, so exploration has a gradient toward lifting before the paddle local-optimum is discovered.
 
 **gate**: By 2M: travels (fwd distance in the parent joystick band, zero falls) with slip/m at DR0 < 0.6 (champion band 1.1-1.5). Kill signatures (pre-registered): (a) park-and-earn -- fwd ~0 while step-event income is farmed by in-place stepping (then the along>=10mm projection gate is leaking and needs the P2 bank, not a coef change); (b) paddle forms anyway at slip>1.0 despite the 4x charge -- pricing refuted even from scratch, terrain/physics levers are the survivors; (c) no travel and no stepping -- charge too punishing at 40, one rung down (20) is the single allowed retry.
+
+**verdict**: FAIL, pre-registered kill signature (b): the paddle formed anyway, worse than baseline. Gate wanted slip/m<0.6 at matched travel; gate eval shows det slip/m med 6.36 (range 4.8-6.8) and sto 9.7 (range 6.9-20.6, one sacrificed leg [4]) at DR0 -- 4-10x the target and WORSE than the closed champion band (1.1-1.5) despite 4x the drag charge (k_drag_loaded=40) and dense step-event income from step 0. own-DR0.35 pass matches (det slip 5.8, gait_valid 4/6 sacrificed [3]). Reward quarters collapsed 4.6->-79->-157->-186: the policy keeps paddling and just eats the escalated drag penalty rather than switching strategy -- pricing alone (even from scratch, even at 4x) does not discover lift-and-place. P3 lever 2 (drag-charge-from-scratch) REFUTED; terrain/physics levers are the surviving P3 options per the pre-registered fork.
 
