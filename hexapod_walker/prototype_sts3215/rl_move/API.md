@@ -44,6 +44,7 @@ the process rules below are what remain).
 | POST | `/api/rl/stop` | Abort worker |
 | POST | `/api/set_zero` | Present pose → logical 0° (required after hand-set) |
 | POST | `/api/zero` | Sit/stand glide; refuses large Δq unless `force` |
+| POST | `/api/safe_zero` | Collision-aware go-to-zero: plans staged waypoints (straighten → center yaws with feet lifted → extend flat), **errors if no safe path exists**, and **LIMPS on any stall / unexpected-force feedback** during motion. `{"dry_run":true}` returns the plan with no motion; `force` bypasses only the IMU tilt gate. Poll `/api/calibrate` for progress. |
 | POST | `/cmd` | `ARM` / `X` limp / `HOLD` / `# j deg` / `C` / `P` |
 
 Drive `C` (centre) and `P` (stand) refuse if any live joint would move

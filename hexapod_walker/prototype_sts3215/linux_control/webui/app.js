@@ -945,15 +945,16 @@ function rlButtons(disabled){
     $(id).disabled = disabled;
 }
 async function rlMove(mode, body){
-  const what = mode==='stand'
-    ? 'STAND UP (robot must be belly-down, legs straight out)'
-    : mode==='lower'
-    ? 'LOWER to belly (robot must be in the plant stance)'
-    : `WALK ${body.vx>0?'forward':body.vy>0?'strafe LEFT':'strafe RIGHT'} `
+  // Stand/lower fire without a confirm (operator request 08-10);
+  // the server preflight refuses bad start poses. Walk keeps its
+  // confirm — the robot crosses the floor.
+  if(mode!=='stand' && mode!=='lower'){
+    const what = `WALK ${body.vx>0?'forward':body.vy>0?'strafe LEFT':'strafe RIGHT'} `
       + `at ${Math.hypot(body.vx,body.vy).toFixed(2)} m/s for `
       + `${body.duration_s}s — EXPERIMENTAL, robot must be in the plant `
       + `stance with room to move`;
-  if(!confirm('Robot will MOVE: '+what+'. Are you watching it?')) return;
+    if(!confirm('Robot will MOVE: '+what+'. Are you watching it?')) return;
+  }
   $('rlstatus').textContent = 'Preflight…';
   rlButtons(true);
   try{
@@ -976,8 +977,6 @@ async function rlMove(mode, body){
 $('rlstand').onclick = ()=> rlMove('stand');
 $('rllower').onclick = ()=> rlMove('lower');
 $('rlglide').onclick = async ()=>{
-  if(!confirm('Robot will MOVE: scripted glide to the captured plant '
-              + 'stance over ~4.5 s. Are you watching it?')) return;
   $('rlstatus').textContent = 'Gliding to plant stance…';
   await goPoseZero('stand', '▲ Stand (scripted)');
   $('rlstatus').textContent = 'Glide finished — see toast for result.';

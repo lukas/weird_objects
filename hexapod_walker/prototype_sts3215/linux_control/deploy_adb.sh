@@ -54,6 +54,7 @@ adb push "$SRC/status_display.py" "$REMOTE/linux_control/"
 adb push "$SRC/servo_watch.py" "$REMOTE/linux_control/"
 adb push "$SRC/mpu_probe.py" "$REMOTE/linux_control/"
 adb push "$SRC/rl_policy.py" "$REMOTE/linux_control/"
+adb push "$SRC/safe_zero.py" "$REMOTE/linux_control/"
 adb push "$SRC/rl_policy_weights.json" "$REMOTE/linux_control/"
 # Stand-up lab: baked keyframes from rl_move/sim/compare_standup.py --export.
 adb push "$SRC/standup_modes.json" "$REMOTE/linux_control/"

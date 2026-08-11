@@ -417,6 +417,19 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/set_zero":
             self._json(200, BENCH.set_zero_here() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/safe_zero":
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not isinstance(data, dict):
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            else:
+                self._json(200, BENCH.safe_zero(
+                    dry_run=bool(data.get("dry_run", False)),
+                    force=bool(data.get("force", False))))
         elif path == "/api/calibrate":
             try:
                 data = json.loads(body or "{}")

@@ -1,0 +1,279 @@
+"""Off-robot tests for safe_zero (planner geometry + executor trips).
+
+Run locally (repo venv):  python3 linux_control/test_safe_zero.py
+No hardware: the executor tests use a FakeBus that simulates servos
+converging on their targets (or one stalled joint fighting a force).
+"""
+from __future__ import annotations
+
+import math
+import sys
+import types
+from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+for _p in (_HERE, _HERE.parent / "motor_setup"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+from feetech_bus import (AXIS_LIMITS_DEG, N_JOINTS, deg_to_count,
+                         joint_to_servo_id)
+from safe_zero import (BELLY_GROUND_Z_MM, GROUND_TOL_MM, LIFT_CLEAR_MM,
+                       foot_z_mm, knee_for_foot_z, plan_safe_zero,
+                       run_safe_zero, seg_dist_2d)
+
+
+def _pose(yaw=0.0, hip=0.0, knee=0.0) -> list[float]:
+    out: list[float] = []
+    for _ in range(6):
+        out.extend([yaw, hip, knee])
+    return out
+
+
+def _assert_within_limits(q):
+    for j, v in enumerate(q):
+        lo, hi = AXIS_LIMITS_DEG[j % 3]
+        assert lo - 1e-6 <= v <= hi + 1e-6, f"j{j}={v} outside {lo}..{hi}"
+
+
+# ---------------------------------------------------------------------------
+# Planner
+# ---------------------------------------------------------------------------
+
+def test_already_zero():
+    p = plan_safe_zero(_pose())
+    assert p["ok"] and p["stages"] == [] and p.get("already_at_zero")
+
+
+def test_bad_input():
+    assert not plan_safe_zero([0.0] * 17)["ok"]
+    bad = _pose()
+    bad[5] = None  # type: ignore[call-overload]
+    assert not plan_safe_zero(bad)["ok"]
+
+
+def test_suspect_zero_refused():
+    q = _pose()
+    q[2] = 175.0  # knee far beyond limit+slop → zero frame untrustworthy
+    p = plan_safe_zero(q)
+    assert not p["ok"] and "set_zero" in p["error"]
+
+
+def _check_plan_geometry(p, present):
+    """Shared invariants: in-limit stages, zero at the end, ground clear."""
+    assert p["ok"], p.get("error")
+    stages = p["stages"]
+    assert stages, "expected motion stages"
+    assert all(1.0 <= s["seconds"] <= 12.0 for s in stages)
+    for s in stages:
+        _assert_within_limits(s["goal"])
+    assert max(abs(v) for v in stages[-1]["goal"]) < 1e-6
+    # Independent ground check on non-drag stage paths.
+    prev = present
+    for s in stages:
+        goal = s["goal"]
+        if not s["drag_ok"]:
+            for k in range(1, 11):
+                t = k / 10.0
+                q = [a + (b - a) * t for a, b in zip(prev, goal)]
+                for leg in range(6):
+                    z = foot_z_mm(q[leg * 3 + 1], q[leg * 3 + 2])
+                    assert z >= BELLY_GROUND_Z_MM - GROUND_TOL_MM - 0.5, (
+                        f"stage '{s['label']}' foot L{leg} at {z:.1f} mm")
+        prev = goal
+
+
+def test_plan_from_default_stand():
+    present = _pose(hip=20.0, knee=80.0)
+    p = plan_safe_zero(present)
+    _check_plan_geometry(p, present)
+    # No yaw motion needed; first stage is the drag-tolerant descent.
+    assert p["stages"][0]["drag_ok"]
+    assert all("yaw" not in s["label"] for s in p["stages"])
+
+
+def test_plan_with_yaws():
+    present = [15.0, -20.0, 55.0, -25.0, -20.0, 55.0] * 3
+    p = plan_safe_zero(present)
+    _check_plan_geometry(p, present)
+    assert any("yaw" in s["label"] for s in p["stages"])
+
+
+def test_crossed_adjacent_yaws():
+    # Legs 0/1 yawed hard toward each other, feet lifted.
+    present = _pose(knee=10.0)
+    present[0] = 35.0
+    present[3] = -35.0
+    p = plan_safe_zero(present)
+    # Must either find a safe (possibly sequential) order or refuse
+    # with a clear error — never crash or emit an out-of-limit stage.
+    if p["ok"]:
+        _check_plan_geometry(p, present)
+    else:
+        assert p["error"]
+
+
+def test_knee_for_foot_z_roundtrip():
+    for z in (-70.0, -40.0, -18.0, 0.0, 25.0):
+        k = knee_for_foot_z(0.0, z)
+        assert k is not None
+        assert abs(foot_z_mm(0.0, k) - z) < 1e-6
+    lift = knee_for_foot_z(0.0, BELLY_GROUND_Z_MM + LIFT_CLEAR_MM)
+    assert lift is not None and 0.0 < lift < 30.0
+
+
+def test_seg_dist():
+    assert seg_dist_2d((0, -1), (0, 1), (-1, 0), (1, 0)) == 0.0
+    assert abs(seg_dist_2d((0, 0), (1, 0), (0, 1), (1, 1)) - 1.0) < 1e-9
+
+
+def test_fuzz_random_poses():
+    import random
+    rng = random.Random(42)
+    planned = 0
+    for _ in range(200):
+        q = []
+        for j in range(N_JOINTS):
+            lo, hi = AXIS_LIMITS_DEG[j % 3]
+            q.append(rng.uniform(lo, hi))
+        p = plan_safe_zero(q)
+        assert "ok" in p
+        if p["ok"] and p["stages"]:
+            planned += 1
+            for s in p["stages"]:
+                _assert_within_limits(s["goal"])
+            assert max(abs(v) for v in p["stages"][-1]["goal"]) < 1e-6
+    assert planned > 100, f"only {planned}/200 poses got a plan"
+
+
+# ---------------------------------------------------------------------------
+# Executor (FakeBus)
+# ---------------------------------------------------------------------------
+
+class _FakeGroupSync:
+    def __init__(self, bus):
+        self._bus = bus
+
+    def txPacket(self):
+        self._bus._commit()
+        return 0
+
+    def clearParam(self):
+        pass
+
+
+class _FakePkt:
+    def __init__(self, bus):
+        self._bus = bus
+        self.groupSyncWrite = _FakeGroupSync(bus)
+
+    def SyncWritePosEx(self, sid, count, speed, acc):
+        self._bus._pending[sid] = count
+
+    def ReadPos(self, sid):
+        self._bus._advance()
+        j = sid - 2
+        return deg_to_count(j, self._bus.pos[j], 0.0), 0, 0
+
+    def write1ByteTxRx(self, sid, addr, val):
+        if addr == 40:  # ADDR_TORQUE_ENABLE
+            if val == 0:
+                self._bus.torque_off.add(sid)
+            else:
+                self._bus.torque_off.discard(sid)
+        return 0, 0
+
+    def write2ByteTxRx(self, sid, addr, val):
+        return 0, 0
+
+
+class FakeBus:
+    """18 servos that glide toward SyncWrite targets on every read.
+
+    ``stalled`` joints never move and report ``stall_a`` amps.
+    """
+
+    def __init__(self, start_deg, *, stalled=(), stall_a=3.2):
+        self.pos = list(start_deg)
+        self.target = list(start_deg)
+        self.stalled = set(stalled)
+        self.stall_a = stall_a
+        self.trims = [0.0] * N_JOINTS
+        self.torque_off: set[int] = set()
+        self._pending: dict[int, int] = {}
+        self.pkt = _FakePkt(self)
+        self.scs = types.SimpleNamespace(COMM_SUCCESS=0)
+
+    def scan(self, rng):
+        return [sid for sid in rng]
+
+    def _commit(self):
+        from feetech_bus import count_to_deg
+        for sid, count in self._pending.items():
+            self.target[sid - 2] = count_to_deg(sid - 2, count)
+        self._pending.clear()
+
+    def _advance(self):
+        for j in range(N_JOINTS):
+            if j in self.stalled:
+                continue
+            err = self.target[j] - self.pos[j]
+            if abs(err) < 0.05:
+                continue
+            step = min(abs(err), max(0.3 * abs(err), 1.0))
+            self.pos[j] += math.copysign(step, err)
+
+    def read_all_feedback(self):
+        self._advance()
+        out = {}
+        for j in range(N_JOINTS):
+            stalled = j in self.stalled
+            moving = (not stalled
+                      and abs(self.target[j] - self.pos[j]) > 0.5)
+            out[j] = {
+                "joint": j, "id": joint_to_servo_id(j),
+                "deg": self.pos[j],
+                "current_a": self.stall_a if stalled else 0.4,
+                "speed_deg_s": 45.0 if moving else 0.0,
+                "load_pct": 55.0 if stalled else 15.0,
+                "temp_c": 35, "moving": int(moving),
+            }
+        return out
+
+
+def test_executor_reaches_zero():
+    start = _pose(hip=10.0, knee=25.0)
+    plan = plan_safe_zero(start)
+    assert plan["ok"] and plan["stages"]
+    bus = FakeBus(start)
+    res = run_safe_zero(bus, plan["stages"])
+    assert res["ok"], res
+    assert max(abs(v) for v in bus.pos) < 4.0
+    assert not bus.torque_off, "healthy run must not limp"
+
+
+def test_executor_limps_on_stall():
+    start = _pose(hip=10.0, knee=25.0)
+    plan = plan_safe_zero(start)
+    assert plan["ok"] and plan["stages"]
+    bus = FakeBus(start, stalled={2}, stall_a=3.2)  # L0 knee fights
+    res = run_safe_zero(bus, plan["stages"])
+    assert not res["ok"] and res.get("limp"), res
+    assert "L0 knee" in res["error"]
+    assert bus.torque_off == {joint_to_servo_id(j)
+                              for j in range(N_JOINTS)}, "must limp ALL"
+
+
+if __name__ == "__main__":
+    fns = [(n, f) for n, f in sorted(globals().items())
+           if n.startswith("test_") and callable(f)]
+    failed = 0
+    for name, fn in fns:
+        try:
+            fn()
+            print(f"  ok    {name}")
+        except AssertionError as e:
+            failed += 1
+            print(f"  FAIL  {name}: {e}")
+    print(f"{len(fns) - failed}/{len(fns)} passed")
+    sys.exit(1 if failed else 0)

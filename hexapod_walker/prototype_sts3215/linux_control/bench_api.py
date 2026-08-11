@@ -732,6 +732,31 @@ class BenchAPI:
                         "error": "previous demo did not stop — try Stop / E-STOP",
                         "robot": self.robot_state()}
 
+        # Standard stand/sit = the validated tuck keyframes at 10x
+        # (operator 08-10). When the robot sits at the tuck start
+        # (belly-down, legs out) a STAND delegates to the fast tuck
+        # rise; when it is in the tuck stance a SIT delegates to the
+        # reversed keyframes. Anything else falls through to the
+        # legacy glides (sit-homing from RL crouches etc).
+        try:
+            kfs = self._load_standup()["modes"]["tuck"]["keyframes"]
+            tuck_zero = [float(x) for x in kfs[0]["q_deg"]]
+            tuck_stand = [float(x) for x in kfs[-1]["q_deg"]]
+            with self.drive._lock:
+                d_zero, _ = self.drive._max_delta_vs_present(tuck_zero)
+                d_stand, _ = (self.drive
+                              ._max_delta_vs_present(tuck_stand))
+            if pose == "stand" and d_zero <= 25.0:
+                return self.standup(mode="tuck", speed=10.0,
+                                    direction="up")
+            # 35 deg: knees sag ~15-20 deg holding the stance at idle
+            # torque; the standup align phase eases that out safely.
+            if pose == "sit" and d_stand <= 35.0:
+                return self.standup(mode="tuck", speed=10.0,
+                                    direction="down")
+        except Exception:
+            pass
+
         goal = (standing_pose_degrees() if pose == "stand"
                 else [0.0] * N_JOINTS)
         sit_seconds = 4.0
@@ -869,6 +894,206 @@ class BenchAPI:
                         f"{result.get('count', 0)} (limp)")
         self._set_activity("limp", "zero redefined here")
         return result
+
+    def safe_zero(self, *, dry_run: bool = False,
+                  force: bool = False) -> dict:
+        """Collision-aware go-to-zero with limp-on-anomaly (ask 08-10).
+
+        Plans staged waypoints from the present encoders to logical 0°
+        (``safe_zero.plan_safe_zero``: straighten → center yaws with
+        feet lifted clear of the ground → extend flat) and REFUSES with
+        an error when no ground/self-collision-free path exists. During
+        motion, any servo reporting stall-fight current, sustained
+        load, or "commanded but not turning" LIMPS the whole robot
+        immediately (``run_safe_zero``).
+
+        ``dry_run=True`` returns the plan without any motion.
+        ``force`` bypasses only the IMU tilt gate — never the
+        geometric feasibility or wrong-zero refusals.
+        """
+        try:
+            import math as _math
+            from safe_zero import (belly_ground_z_mm, plan_safe_zero,
+                                   run_safe_zero)
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        if self.drive.dry_run:
+            return {"ok": True, "dry_run": True}
+        bus = self.drive.bus
+        if not bus:
+            return {"ok": False, "error": "no bus"}
+
+        def _present() -> tuple[list, list[int]]:
+            vals: list = [None] * N_JOINTS
+            try:
+                if hasattr(bus, "read_all_positions"):
+                    for j, v in (bus.read_all_positions() or {}).items():
+                        if 0 <= j < N_JOINTS:
+                            vals[j] = float(v)
+            except Exception:
+                pass
+            for j in range(N_JOINTS):
+                if vals[j] is None:
+                    try:
+                        v = bus.read_position_deg(j)
+                    except Exception:
+                        v = None
+                    vals[j] = None if v is None else float(v)
+            return vals, [j for j, v in enumerate(vals) if v is None]
+
+        present, missing = _present()
+        if missing:
+            return {"ok": False,
+                    "error": ("no encoder reading from " + ", ".join(
+                        joint_label(j, self.names) for j in missing)
+                        + " — safe zero needs all 18 joints")}
+
+        # Tilt gate: the planner's ground model assumes a roughly
+        # level body (belly-down or standing on its feet).
+        tilt = None
+        try:
+            if hasattr(bus, "read_imu"):
+                imu = bus.read_imu()
+                if imu:
+                    ax = float(imu.get("ax_g", 0.0))
+                    ay = float(imu.get("ay_g", 0.0))
+                    az = float(imu.get("az_g", 0.0))
+                    roll = _math.degrees(_math.atan2(ay, az))
+                    pitch = _math.degrees(
+                        _math.atan2(-ax, _math.hypot(ay, az)))
+                    tilt = max(abs(roll), abs(pitch))
+        except Exception:
+            tilt = None
+        if tilt is not None and tilt > 20.0 and not force:
+            return {"ok": False, "tilt_deg": round(tilt, 1),
+                    "error": (f"body tilted {tilt:.0f}° — on a slope or "
+                              "its side? Safe zero assumes roughly "
+                              "level. Right the robot (or force=true "
+                              "while watching).")}
+
+        plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm())
+        plan["present_deg"] = [round(v, 2) for v in present]
+        if tilt is not None:
+            plan["tilt_deg"] = round(tilt, 1)
+        if dry_run or not plan.get("ok"):
+            plan["dry_run"] = bool(dry_run)
+            return plan
+        if not plan["stages"]:
+            return {**plan, "msg": "already at zero"}
+
+        if self._demo_thread and self._demo_thread.is_alive():
+            if not self._preempt_demo_thread(reason="→ safe zero",
+                                             timeout=5.0):
+                return {"ok": False,
+                        "error": ("previous job did not stop — "
+                                  "try Stop / E-STOP"),
+                        "robot": self.robot_state()}
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = "safe_zero"
+            self._demo_status = "safe zero"
+            self._demo_params = {"stages": len(plan["stages"]),
+                                 "force": bool(force)}
+            self._cal_result = None
+            self._cal_progress = {"msg": "safe zero: starting"}
+        self._set_activity("zeroing", "safe zero")
+
+        def _worker():
+            d = self.drive
+            with d._lock:
+                d.mode = "demo"
+                d.gait.stop()
+                if not d.armed:
+                    d._torque_all(True)
+                    d.armed = True
+            result: dict = {}
+            try:
+                from event_log import emit
+                emit("safe_zero",
+                     f"start ({len(plan['stages'])} stages, "
+                     f"{plan.get('total_s')}s)",
+                     data={"stages": [s["label"]
+                                      for s in plan["stages"]]})
+            except Exception:
+                pass
+            try:
+                self._bus_hot = True
+                # Re-plan on fresh encoders: a limp robot may have
+                # sagged between the HTTP call and torque-on.
+                live_plan = plan
+                present2, missing2 = _present()
+                if not missing2:
+                    p2 = plan_safe_zero(
+                        present2, ground_z_mm=belly_ground_z_mm())
+                    if not p2.get("ok"):
+                        result = p2
+                    else:
+                        live_plan = p2
+                if result.get("error"):
+                    pass  # re-plan refused; report that
+                elif not live_plan.get("stages"):
+                    result = {"ok": True, "msg": "already at zero"}
+                else:
+                    def _prog(dct: dict) -> None:
+                        with self._lock:
+                            self._cal_progress = dct
+
+                    result = run_safe_zero(
+                        d.bus, live_plan["stages"],
+                        abort_check=self._demo_abort.is_set,
+                        on_progress=_prog)
+            except Exception as e:
+                result = {"ok": False, "error": str(e)}
+            finally:
+                self._bus_hot = False
+                if gen != self._demo_gen:
+                    return
+                limp = bool(result.get("limp"))
+                with self._lock:
+                    self._cal_result = result
+                    if result.get("ok"):
+                        self._demo_status = "done · at zero (safe)"
+                    elif result.get("aborted"):
+                        self._demo_status = "aborted (holding)"
+                    else:
+                        self._demo_status = str(
+                            result.get("error") or "error")
+                    self._cal_progress = {"msg": self._demo_status}
+                    st = self._demo_status
+                with d._lock:
+                    if d.mode == "demo":
+                        d.mode = "idle"
+                    if limp:
+                        d.armed = False
+                        d.status = st
+                try:
+                    from event_log import emit
+                    emit("safe_zero",
+                         "done" if result.get("ok") else st,
+                         data={k: result.get(k)
+                               for k in ("ok", "limp", "stage", "peak_a",
+                                         "peak_joint")
+                               if k in result})
+                except Exception:
+                    pass
+                self._set_activity(
+                    "limp" if (limp or not d.armed) else "armed", st)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {
+            "ok": True, "started": True,
+            "plan": {"stages": [{"label": s["label"],
+                                 "seconds": s["seconds"]}
+                                for s in plan["stages"]],
+                     "total_s": plan.get("total_s"),
+                     "notes": plan.get("notes") or []},
+            "demo": self.demo_state(),
+            "robot": self.robot_state(),
+        }
 
     # -- step calibrate (cmd vs encoder) -------------------------------------
     def calibrate_state(self) -> dict:
@@ -1956,41 +2181,66 @@ class BenchAPI:
                     return [a + (b - a) * f for a, b in
                             zip(qs[s - 1], qs[s])]
 
+                # Adaptive tempo: the 90 deg/s base is the LOADED
+                # tracking rate; unloaded the STS3215 does 270 deg/s
+                # at 12 V (spec: 0.222 s/60deg no-load). Advance the
+                # schedule through a rate multiplier steered by the
+                # measured tracking error each feedback sweep — air
+                # phases speed up toward the no-load ceiling, loaded
+                # phases back off instead of piling up backlog.
+                rate = 1.0
+                t = 0.0
+                wall_prev = t0
                 while not aborted and not tripped:
                     if self._demo_abort.is_set():
                         aborted = True
                         break
-                    t = time.monotonic() - t0
+                    wall = time.monotonic()
+                    t += (wall - wall_prev) * rate
+                    wall_prev = wall
                     while seg < len(qs) and t > ts[seg]:
                         seg += 1
                     if seg >= len(qs):
                         break
-                    q = _q_at(t + LOOKAHEAD_S)
+                    q = _q_at(t + LOOKAHEAD_S * rate)
                     w0 = time.monotonic()
-                    # dt*0.9 cancels _speed_for_delta's 0.9 undershoot
-                    # so commanded speed matches the schedule rate.
+                    # dt*0.75: cancels _speed_for_delta's 0.9
+                    # undershoot AND commands ~1.2x the carrot rate so
+                    # accumulated lag drains — at exactly 1.0x a lag
+                    # persists forever and pins the adaptive rate.
                     streamer.write(
                         d.bus, q, live,
-                        dt=min(max(t - t_prev, 0.03), 0.25) * 0.9,
-                        deadband=0.3, max_speed=2000, max_acc=200)
+                        dt=min(max(wall - t0 - t_prev, 0.03), 0.25)
+                        * 0.75,
+                        deadband=0.3, max_speed=3000, max_acc=200)
                     write_s += time.monotonic() - w0
                     nticks += 1
-                    t_prev = t
-                    if t - last_sample > 0.3:
+                    t_prev = wall - t0
+                    if wall - t0 - last_sample > 0.25:
                         # feedback sweep costs real bus time —
                         # sample sparsely, mid-motion
                         s0 = time.monotonic()
                         tracker.sample(d.bus, live)
                         sample_s += time.monotonic() - s0
                         _emit_servo_fb(
-                            f"{mode} {verb} t={t:.1f}s",
+                            f"{mode} {verb} t={t:.1f}s r={rate:.1f}",
                             tracker, target=q)
-                        last_sample = t
+                        last_sample = wall - t0
+                        # lag vs the SCHEDULE pose (not the carrot,
+                        # which is deliberately ahead by rate*look)
+                        q_sched = _q_at(t)
+                        err = max(
+                            (abs(q_sched[fb["joint"]] - fb["deg"])
+                             for fb in tracker.last_fb), default=0.0)
+                        if err < 16.0:
+                            rate = min(rate * 1.35, 2.8)
+                        elif err > 28.0:
+                            rate = max(rate * 0.6, 0.6)
                         with self._lock:
                             self._cal_progress = {
                                 "msg": (f"{mode} {verb}: "
                                         f"{t:.1f}/{ts[-1]:.1f}s "
-                                        f"peak "
+                                        f"x{rate:.1f} peak "
                                         f"{tracker.peak_a:.2f}A"),
                                     "keyframe": seg, "of": n}
                         tripped = stall_trip()
@@ -1998,10 +2248,15 @@ class BenchAPI:
                 stream_s = time.monotonic() - t0
                 settle_s, worst = 0.0, -1.0
                 if not aborted and not tripped:
-                    # settle: ONE direct command to the final pose
-                    # + a bounded wait for the servos to arrive.
-                    # ease_to_pose's glide + settle-poll loop added
-                    # a ~1 s tail even when the residual was tiny.
+                    # settle: direct command to the final pose, then
+                    # up to 3 slow corrective RE-commands. Loaded
+                    # joints stop a few degrees short on the first
+                    # write (foot friction / stiction), and at high
+                    # tempo the feet land with more scatter — the
+                    # operator sees a "weird stance". Re-commanding
+                    # the same absolute target at low speed nudges
+                    # each joint the rest of the way; converge to
+                    # 1.2 deg, not 2.5.
                     st0 = time.monotonic()
                     _write_pose(d.bus, qs[-1], live,
                                 speed=900, acc=80)
@@ -2017,6 +2272,21 @@ class BenchAPI:
                         if worst < 2.5:
                             break
                         time.sleep(0.1)
+                    for _pass in range(3):
+                        if aborted or self._demo_abort.is_set():
+                            break
+                        with self.drive._lock:
+                            worst, _ = (self.drive
+                                        ._max_delta_vs_present(
+                                            qs[-1]))
+                        if worst < 1.2:
+                            break
+                        _write_pose(d.bus, qs[-1], live,
+                                    speed=300, acc=40)
+                        time.sleep(0.45)
+                    with self.drive._lock:
+                        worst, _ = (self.drive
+                                    ._max_delta_vs_present(qs[-1]))
                     tracker.sample(d.bus, live)
                     _emit_servo_fb(f"{mode} {verb} settle",
                                    tracker, target=qs[-1])
