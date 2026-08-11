@@ -68687,7 +68687,7 @@
       "GAIT CLEANUP P1 (RL_PLAN queue -0.5, GAIT.md): parent recipe verbatim + train.bc_anchor_coef=1.0, warm from the parent champion. Judged on slip/m at matched travel, not reward."
     ],
     "created": "2026-08-11T17:11:10+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -68723,7 +68723,10 @@
         "log_tail": "2,007,040: hold 0.24\u00b0, track 3.16\u00b0, unload 0.41\u00b0, raise 0/2, rise f0/2 b0/2 c2/2, walk err 0.050 m/s, lower 0/2, tipped 2/2, rolltrap 0/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 403s (4,963 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_gaitbc1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_walk_gaitbc1 (md5 ceaee56c)\n"
       }
     ],
-    "track": "hw"
+    "track": "hw",
+    "hardware_ready": "False",
+    "verdict": "STOP -- known exploit: FREEZE. GAIT CLEANUP P1 (BC-anchor on walk ticks) collapsed the hardware walker into a static frozen tripod-like pose (3 legs held aloft motionless, 3 planted, IDENTICAL across all 6 det episodes and both DR0/own-DR0.35 -- video-confirmed) instead of a lift-and-place gait: fwd travel ~0.00m/15s (parent band 0.28-0.34m), gait_valid 1/6 det DR0 (2/6 at own-DR), 5/6 legs flagged 'sacrificed' every episode. Matches the pre-registered kill signature ('anchor... without lift' / fwd collapse) at its worst extreme -- not partial, total freeze. Training-time diagnostic already flagged this (GAIT.md): bc_anchor_loss converged cleanly (5.16->0.03) while walk_loadslip_factor collapsed 1.0->0.06, i.e. the anchor was satisfied by NOT MOVING, not by lifting feet. Unlike rise/hold (stationary skills the anchor fixed twice), walk's anchor target is itself in motion every tick; combined with the existing income-gated walk reward, the two objectives found a degenerate joint optimum (freeze) rather than reshaping the gait. Joystick-gate ONLY (eval_drive, zero falls) is not informative here since it doesn't check travel magnitude the way the harness does; discard as not evidence of health. Per the run's own pre-registered gate text, this is NOT a coefficient-variant situation -- move to P2 (structural stance-slip charge + swing-clearance term, bank first) or P3 lever 4 (RSI-for-walk), not another bc_anchor_coef dose on this application.",
+    "triage": "done"
   },
   {
     "run": "cw-gait-terrain1",
@@ -69739,6 +69742,18 @@
     "log": "/tmp/train_cw-arch-gru-r4c.log",
     "wandb_id": "9f3i2gwo",
     "verified": "2026-08-11T18:23:17+00:00",
-    "track": "arch"
+    "track": "arch",
+    "checkups": [
+      {
+        "time": "2026-08-11T18:28:55+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 946,
+        "fps": 1456.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

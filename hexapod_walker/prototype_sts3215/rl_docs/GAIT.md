@@ -37,7 +37,8 @@ feet do not translate while loaded.
   anchor itself converged cleanly. It was never tried for GAIT
   CLEANUP on a policy that already travels).
 
-## Priority 1 — BC-anchor gait cleanup (launch-ready, zero code)
+## Priority 1 — BC-anchor gait cleanup — CLOSED 08-11 (froze instead
+of stepping; see session log)
 
 `cw-walk-gaitbc1`: warm-start THE hardware walker (`cw-dep-vref1-r1`)
 with `train.bc_anchor_coef=1.0` on walk ticks (existing TripodGait
@@ -140,7 +141,7 @@ and this doc records why.
 
 ## Order of operations
 
-P1 launches now (zero code). P2 spec+bank next (its charge is also
+P1 CLOSED (froze, see session log). P2 spec+bank next (its charge is also
 P3's lever 2). P3 starts with the zero-training terrain probe, then
 one arm per lever. Every arm: one variable, matched-parent control,
 pre-registered kill signature, slip/m + gait_valid + joystick gate
@@ -163,11 +164,25 @@ as the panel.
 - `cw-gait-terrain1` INVALID (trained on the clamped 18 mm rung).
   Superseded by **`cw-gait-terrain2`** (train-3): from scratch at true
   72 mm, no reward surgery.
-- **P1 `cw-walk-gaitbc1` finished, verdict pending** — training-time
-  read is kill-signature-shaped: bc_anchor_loss converged 5.16->0.03
-  but walk_loadslip_factor collapsed 1.0->0.06. Suspect: the anchor
-  target (scripted tripod) is itself drifty-footed in sim (travel
-  ratio 0.35-0.41). Await gate eval before ruling.
+- **P1 `cw-walk-gaitbc1` FAILED (08-11, gate eval) — worst-case
+  version of the pre-registered kill signature: total FREEZE, not
+  partial.** Video (det+sto, DR0 + own-DR0.35, all 6 episodes each)
+  shows an IDENTICAL static tripod-like pose every episode — 3 legs
+  held aloft motionless, 3 planted, zero gait cycling — fwd travel
+  ~0.00 m/15s vs the parent's 0.28-0.34 m, gait_valid 1/6 det.
+  Training-time read confirmed the mechanism: bc_anchor_loss
+  converged to ~0 while walk_loadslip_factor collapsed 1.0->0.06 —
+  the anchor was satisfied by NOT MOVING (close enough to the
+  moving reference at a single frozen instant), not by lifting feet.
+  Unlike rise/hold (the anchor's two prior wins, both STATIONARY
+  end-states where freeze-toward-reference IS success), walk's
+  reference target is itself in continuous motion; anchoring to a
+  moving target plus the existing income-gated walk reward found a
+  degenerate joint optimum instead of reshaping the gait. Per its own
+  pre-registered gate text this is not a coefficient-variant
+  situation — P1 (BC-anchor gait cleanup) is CLOSED; move to P2
+  (structural stance-slip charge + swing-clearance, bank first) or
+  P3 lever 4 (RSI-for-walk).
 - **P3 lever 2 `cw-gait-dragstep1` FAILED** (agent triage, kill (b)):
   paddle formed anyway from scratch at k_drag_loaded=40 + step-event
   income; gate eval slip det 6.36. IMPORTANT CAVEAT before closing
