@@ -32,18 +32,40 @@ at what budget, with which failure modes.
   data-poverty (rise, never learnable this way) vs erosion (hold,
   actually lost). Keeping `ppo_goal_cw_gru_bc.zip` (md5 864c02fb) as
   the hold+walk reference artifact.
+- **lr/KL lever CLOSED (08-11, `cw-arch-gru-bc-ft2`, 2M discovery)
+  — FAILS exactly as pre-registered.** 3x lower LR (3e-4→1e-4) +
+  tighter target-KL (0.02→0.01) on the identical BC-parent finetune:
+  gate (DR0) det rise 0/6 (bridge/crouch/flat all 0, honest stalled
+  climb, plant_margin 122mm short, balanced duty — not a cheat), det
+  hold 0/6 (all 6 eps fail valid_plant on height/feet_down/footprint,
+  worst foot 19-33mm proud, balanced duty — honest precision loss,
+  not a flag-leg). Walk stayed clean (gait_valid 6/6 det+sto, slip/m
+  1.3-1.7 in-band). Two attempts now (ft1 default hp, ft2 tight
+  hp) at protecting stance via PPO hyperparameters alone — both lose
+  it identically. **Per RESEARCH_RULES "two misses in the same
+  behavioral class": stop tuning lr/KL, change the mechanism.**
+  **Root blocker found, CODE not config:** the gate's own
+  pre-registered fix ("an auxiliary BC-anchor loss during the
+  finetune, or freezing early layers") is not available for this
+  network — `train_ppo_mjx.py` explicitly raises `SystemExit` for
+  `--gru` + `train.bc_anchor_coef>0` ("not implemented, wraps stock
+  PPO"), and there is no layer-freeze flag either. The MLP-lineage
+  BC-anchor (`cw-stand-bc1`/`holdbc1`, twice-proven on hw track) does
+  not reach RecurrentPPO as written.
 
 ## Next
 
+- **The real next lever needs CODE, not another training run:**
+  either (a) extend `bc_anchor.py`'s auxiliary-loss wrapper to
+  `RecurrentPPO`/`GruActorCriticPolicy` (needs hidden-state-aligned
+  minibatches, nontrivial), or (b) add a simple param-freeze option
+  (freeze the GRU cell, finetune only the output head) — neither
+  exists today. Until one lands, no arch-track spec is launchable
+  for this lineage; do not queue a 3rd lr/KL/coefficient variant.
 - Operator-directed next lever for RISE: re-distill stance-heavy +
   DAgger rounds on `distill_gru.py` (give the BC step actual rise
-  demos before any further RL) — in progress outside this loop.
-- Orchestrator-queued next lever for HOLD (`cw-arch-gru-bc-ft2`,
-  2M discovery, launched, same BC parent, lr 3e-4→1e-4 + target-kl
-  0.02→0.01, nothing else changed): does a gentler finetune stop RL
-  from trading hold for gait polish? Rise is expected to stay 0/6
-  regardless (data poverty, not an lr/KL question) — judge this arm
-  on hold + walk-cheat-free only.
+  demos before any further RL) — in progress outside this loop;
+  unaffected by the above (it fixes the DATA, not the finetune loss).
 - Later: contact-from-proprioception aux head; distill specialists
   into one recurrent net.
 
