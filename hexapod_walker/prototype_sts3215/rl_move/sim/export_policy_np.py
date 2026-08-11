@@ -20,7 +20,8 @@ from pathlib import Path
 import numpy as np
 
 
-def export(policy_path: str, out_path: str) -> None:
+def export(policy_path: str, out_path: str, *, name: str = "",
+           notes: str = "") -> None:
     from stable_baselines3 import PPO
     import torch
 
@@ -36,6 +37,10 @@ def export(policy_path: str, out_path: str) -> None:
     payload = {
         "meta": {
             "source": str(policy_path),
+            # Optional display fields for the robot's policy picker
+            # (linux_control/policies/ + /api/rl/policies).
+            **({"name": name} if name else {}),
+            **({"notes": notes} if notes else {}),
             "obs_dim": int(pol.observation_space.shape[0]),
             "act_dim": int(pol.action_space.shape[0]),
             "hidden": [int(net[0].out_features), int(net[2].out_features)],
@@ -71,5 +76,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--policy", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--name", default="",
+                    help="display name for the robot's policy picker")
+    ap.add_argument("--notes", default="",
+                    help="one-line operator notes shown in the picker")
     args = ap.parse_args()
-    export(args.policy, args.out)
+    export(args.policy, args.out, name=args.name, notes=args.notes)

@@ -23,6 +23,18 @@
   #offlinebar { display:none; margin:0 0 14px; padding:12px 14px; border-radius:12px;
                 background:#3a1818; border:1px solid #a33; color:#ffb4b4;
                 font-size:14px; font-weight:700; letter-spacing:.2px; }
+  /* Persistent, COPYABLE last-error bar (operator request 08-10:
+     errors must be selectable/copyable, not a vanishing header blip). */
+  #errbar { display:flex; align-items:center; gap:10px; margin:0 0 14px;
+            padding:10px 14px; border-radius:12px; background:#3a1818;
+            border:1px solid #a33; color:#ffb4b4; font-size:14px; }
+  #errbar-text { flex:1 1 auto; user-select:text; -webkit-user-select:text;
+                 cursor:text; word-break:break-word; }
+  #errbar button { flex:0 0 auto; background:#552222; border:1px solid #a33;
+                   color:#ffd7d7; border-radius:8px; padding:4px 10px;
+                   font-size:13px; cursor:pointer; }
+  #errbar button:active { background:#703030; }
+  .hint, #sent { user-select:text; -webkit-user-select:text; }
   body.link-down #offlinebar { display:block; }
   body.link-down header { border-bottom-color:#7a2b2b; }
   .wrap { max-width:880px; margin:0 auto; padding:16px; }

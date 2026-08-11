@@ -34,6 +34,11 @@
 </header>
 <div class="wrap">
   <div id="offlinebar">● Lost connection to Uno Q — retrying…</div>
+  <div id="errbar" style="display:none">
+    <span id="errbar-text"></span>
+    <button id="errbar-copy" title="Copy the error text">Copy</button>
+    <button id="errbar-close" title="Dismiss">✕</button>
+  </div>
   <div id="armbar" class="armbar disarmed">
     <span id="armstate" class="armstate">● SERVOS OFF (disarmed)</span>
     <span class="hint" style="margin:0;flex:1 1 160px">Servos receive <b>no signal</b>
@@ -222,13 +227,15 @@
   <div class="row">
     <div class="pad" style="flex:1 1 340px">
       <h2>Policy moves</h2>
-      <div class="hint"><b>Stand up</b>: place the robot <b>belly-down,
-        legs straight out</b> (logical zero). It curls its feet under
-        for ~5&nbsp;s (this is deliberate, not a stall), then rises over
-        ~4&nbsp;s and holds. <b>Lower</b>: from the standing plant
-        stance it descends gently over ~5&nbsp;s to the belly, then goes
-        limp. <b>Stop</b> holds the pose; <b>X</b> (Drive tab) limps.
-        <b>Watch the robot the whole time.</b></div>
+      <div class="hint"><b style="color:#ffb86b">⚠ RL Stand up does not
+        work on hardware yet</b> (08-10, two attempts: legs curl in the
+        air, no ground force, then a knee stalls or tilt trips —
+        pre-hardware-contract policy). <b>To stand up, use the
+        Experiments tab → tuck</b> (verified clean, 2.48&nbsp;A). RL
+        <b>Lower</b> and holds work once upright. <b>Lower</b>: from the
+        standing plant stance it descends gently over ~5&nbsp;s to the
+        belly, then goes limp. <b>Stop</b> holds the pose; <b>X</b>
+        (Drive tab) limps. <b>Watch the robot the whole time.</b></div>
       <div class="btns" style="margin-top:12px">
         <button id="rlstand" class="on">⬆ Stand up</button>
         <button id="rllower">⬇ Lower</button>
@@ -489,8 +496,9 @@ capture while the robot is standing well.">📌 Capture plant</button>
       <div class="hint" style="margin-top:8px">Everything lands in
         <code>logs/measurements.jsonl</code> + per-run
         <code>meas_*_servo.csv</code> / <code>meas_*_imu.csv</code> on
-        the robot. Pull to the Mac:
-        <code>scp arduino@hexapod.local:hexapod_sts/linux_control/logs/\{measurements.jsonl,meas_*.csv\} rl_move/hardware_traces/</code></div>
+        the robot. Pull over HTTP: <a href="/api/logs">/api/logs</a>
+        lists files, <code>/api/logs/&lt;name&gt;</code> downloads one
+        (<code>?tail=N</code> for the last N lines) — no SSH needed.</div>
     </div>
   </div>
   </div><!-- /view-measure -->

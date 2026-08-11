@@ -71,7 +71,34 @@ async function cmd(line){
     setLink(true);
   } catch(e){ setLink(false, 'cmd failed'); }
 }
-function showSent(line){ sentEl.textContent = line; }
+// Persistent, copyable last-error bar. The header #sent blip is tiny,
+// transient and unselectable on a phone (operator request 08-10).
+const errbarEl = document.getElementById('errbar');
+const errbarText = document.getElementById('errbar-text');
+function showErr(line){
+  errbarText.textContent = line;
+  errbarEl.style.display = 'flex';
+}
+document.getElementById('errbar-close').onclick =
+  ()=>{ errbarEl.style.display = 'none'; };
+document.getElementById('errbar-copy').onclick = async ()=>{
+  const t = errbarText.textContent;
+  try{
+    await navigator.clipboard.writeText(t);   // needs https / localhost
+  }catch(e){
+    const ta = document.createElement('textarea');   // http:// fallback
+    ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  const b = document.getElementById('errbar-copy');
+  b.textContent = 'Copied ✓';
+  setTimeout(()=>{ b.textContent = 'Copy'; }, 1200);
+};
+function showSent(line){
+  sentEl.textContent = line;
+  if(/refus|fail|error|not ready|missing|timeout|no bus/i.test(String(line)))
+    showErr(line);
+}
 
 // --- on-screen joysticks ----------------------------------------------------
 function makeStick(canvas, horizontalOnly){
@@ -567,9 +594,10 @@ $('dbgtestall').onclick = dbgTestAll;
 $('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); dbgStatus('Stopping…'); };
 
 // --- tab switching ----------------------------------------------------------
-const VIEWS = ['drive','motors','demos','rl','experiments','calibrate','debug'];
+const VIEWS = ['drive','motors','demos','rl','experiments','measure',
+               'calibrate','debug'];
 const TAB_TITLES = {drive:'Drive', motors:'Motors', demos:'Demos', rl:'RL',
-                    calibrate:'Calibrate', debug:'Debug'};
+                    measure:'Measure', calibrate:'Calibrate', debug:'Debug'};
 function showView(which){
   activeView = which;
   VIEWS.forEach(v=>{
@@ -597,12 +625,14 @@ function showView(which){
   }
   else stopCalPoll();
   if(which === 'rl'){ refreshRlTab(); }
+  if(which === 'measure'){ muRefresh(); muPollMaybe(); }
 }
 $('tab-drive').onclick = ()=> showView('drive');
 $('tab-motors').onclick = ()=> showView('motors');
 $('tab-demos').onclick = ()=> showView('demos');
 $('tab-rl').onclick = ()=> showView('rl');
 $('tab-experiments').onclick = ()=> showView('experiments');
+$('tab-measure').onclick = ()=> showView('measure');
 $('tab-calibrate').onclick = ()=> showView('calibrate');
 $('tab-debug').onclick = ()=> showView('debug');
 dbgRefresh();
@@ -932,6 +962,7 @@ async function rlMove(mode, body){
     const d = await r.json();
     if(!d.ok){
       $('rlstatus').textContent = 'Refused: '+(d.error || 'unknown');
+      showErr('RL: '+(d.error || 'refused'));
       rlButtons(false);
       return;
     }
@@ -1037,6 +1068,7 @@ async function suRun(direction){
     const d = await r.json();
     if(!d.ok){
       $('sulab-status').textContent = 'Refused: '+(d.error || 'unknown');
+      showErr('Stand-up lab: '+(d.error || 'refused'));
       $('sulab-go').disabled = false; $('sulab-sit').disabled = false;
       return;
     }
@@ -1054,6 +1086,164 @@ $('sulab-stop').onclick = async ()=>{
   $('sulab-status').textContent = 'Stopping (holds pose; X to limp)…';
 };
 suLoadModes();
+
+// ---- Measure tab (operator data collection -> logs/measurements.jsonl) ----
+let muTimer = null;
+function muDescribePending(p){
+  if(!p) return null;
+  const bits = [`<b>${p.kind}</b> (${p.stamp})`];
+  if(p.kind === 'hold_current') bits.push(`label ${p.label}`);
+  if(p.commanded_mm != null)
+    bits.push(`commanded ~${Math.round(p.commanded_mm)} mm`);
+  if(p.commanded_rot_deg)
+    bits.push(`commanded rot ${p.commanded_rot_deg}° (+ = CW)`);
+  if(p.walked_s != null) bits.push(`ran ${p.walked_s}s`);
+  if(p.stopped && p.stopped !== 'duration')
+    bits.push(`<b style="color:#ff7b72">stopped: ${p.stopped}</b>`);
+  if(p.bus_a_mean != null) bits.push(`bus mean ${p.bus_a_mean} A`);
+  return bits.join(' · ');
+}
+function muDescribeRecord(r){
+  const bits = [`<b>${r.kind}</b> ${r.stamp || ''}`];
+  if(r.label) bits.push(r.label);
+  if(r.commanded_mm != null) bits.push(`cmd ${Math.round(r.commanded_mm)}mm`);
+  if(r.measured_mm != null) bits.push(`meas ${Math.round(r.measured_mm)}mm`);
+  if(r.slip_ratio_measured_over_commanded != null)
+    bits.push(`ratio ${r.slip_ratio_measured_over_commanded}`);
+  if(r.observed_turn) bits.push(`turned ${r.observed_turn}`);
+  if(r.measured_rot_deg != null) bits.push(`${r.measured_rot_deg}°`);
+  if(r.bus_a_mean != null) bits.push(`bus ${r.bus_a_mean}A mean`);
+  if(r.notes) bits.push(`“${r.notes}”`);
+  return bits.join(' · ');
+}
+async function muRefresh(){
+  try{
+    const r = await fetch('/api/measure/list', {cache:'no-store'});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || 'list failed');
+    const p = d.pending;
+    $('mu-pending-form').style.display = p ? '' : 'none';
+    $('mu-pending-desc').innerHTML = p
+      ? muDescribePending(p)
+      : 'No run waiting for a reading. Start one below; when it '
+        + 'finishes, enter the physical measurement here.';
+    const recs = d.records || [];
+    $('mu-list').innerHTML = recs.length
+      ? recs.map(muDescribeRecord).join('<br>')
+      : 'No saved measurements yet.';
+  }catch(e){ $('mu-list').textContent = 'list unavailable (link?)'; }
+}
+function muPollMaybe(){
+  if(muTimer) clearInterval(muTimer);
+  muTimer = setInterval(async ()=>{
+    if(activeView !== 'measure'){ clearInterval(muTimer); muTimer = null; return; }
+    try{
+      const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
+      const d = await r.json();
+      if(d.running && (d.name||'').startsWith('measure_')){
+        $('mu-status').textContent = (d.progress||{}).msg || 'running…';
+      } else {
+        $('mu-status').textContent =
+          ((d.result && !d.result.ok && d.result.error)
+           ? 'Failed: '+d.result.error
+           : (d.progress||{}).msg || 'Idle.');
+        clearInterval(muTimer); muTimer = null;
+        muRefresh();
+      }
+    }catch(e){ /* keep polling */ }
+  }, 700);
+}
+async function muStart(path, body, confirmText){
+  if(confirmText && !confirm(confirmText)) return;
+  $('mu-status').textContent = 'Starting…';
+  try{
+    const r = await fetch(path, {method:'POST', body: JSON.stringify(body)});
+    const d = await r.json();
+    if(!d.ok){
+      $('mu-status').textContent = 'Refused: '+(d.error || 'unknown');
+      showErr('Measure: '+(d.error || 'refused'));
+      return;
+    }
+    $('mu-status').textContent = 'Running…';
+    muPollMaybe();
+  }catch(e){ $('mu-status').textContent = 'Start failed (link?)'; }
+}
+$('mu-walkgo').onclick = ()=>{
+  const v = parseFloat($('mu-walkspeed').value);
+  const s = parseFloat($('mu-walkdur').value);
+  muStart('/api/measure/walk', {vx_mm: v, duration_s: s},
+    `Robot will WALK forward ${s}s at ${v} mm/s (scripted gait). `
+    + 'Tape in place, robot ARMED + standing, you watching?');
+};
+$('mu-turnpos').onclick = ()=> muStart('/api/measure/walk',
+  {vx_mm: 0, omega: 0.3, duration_s: 6},
+  'Robot will TURN IN PLACE 6s at +0.3 rad/s. Watching?');
+$('mu-turnneg').onclick = ()=> muStart('/api/measure/walk',
+  {vx_mm: 0, omega: -0.3, duration_s: 6},
+  'Robot will TURN IN PLACE 6s at -0.3 rad/s. Watching?');
+$('mu-holdgo').onclick = ()=>{
+  const label = $('mu-holdlabel').value;
+  muStart('/api/measure/hold',
+    {label, duration_s: parseFloat($('mu-holddur').value)},
+    label === 'hover'
+      ? 'Robot should be PROPPED UP with feet hanging free. It will '
+        + 'torque on and HOLD the present pose (no motion). Ready?'
+      : 'Robot will torque on and HOLD the present pose (no motion). '
+        + 'Feet planted on the floor?');
+};
+$('mu-save').onclick = async ()=>{
+  const fields = {
+    measured_mm: $('mu-measured').value,
+    lateral_drift_mm: $('mu-drift').value,
+    measured_rot_deg: $('mu-rot').value,
+    observed_turn: $('mu-observed').value,
+    notes: $('mu-notes').value,
+  };
+  try{
+    const r = await fetch('/api/measure/annotate',
+      {method:'POST', body: JSON.stringify(fields)});
+    const d = await r.json();
+    $('mu-status').textContent = d.ok
+      ? 'Saved.' : 'Save failed: '+(d.error || 'unknown');
+    if(d.ok){
+      for(const id of ['mu-measured','mu-drift','mu-rot','mu-notes'])
+        $(id).value = '';
+      $('mu-observed').value = '';
+    }
+  }catch(e){ $('mu-status').textContent = 'Save failed (link?)'; }
+  muRefresh();
+};
+$('mu-discard').onclick = async ()=>{
+  if(!confirm('Discard the pending measurement (telemetry CSVs stay '
+              + 'on disk, the record is not saved)?')) return;
+  await fetch('/api/measure/discard', {method:'POST'});
+  muRefresh();
+};
+$('mu-rlsave').onclick = async ()=>{
+  const body = {kind: 'rl_walk_tape', fields: {
+    commanded_mm: $('mu-rlcmd').value,
+    measured_mm: $('mu-rlmeas').value,
+    notes: $('mu-rlnotes').value,
+  }};
+  try{
+    const r = await fetch('/api/measure/note',
+      {method:'POST', body: JSON.stringify(body)});
+    const d = await r.json();
+    $('mu-status').textContent = d.ok
+      ? `Saved (attached ${((d.record||{}).rl_episode_csv) || 'no episode csv'}).`
+      : 'Save failed: '+(d.error || 'unknown');
+    if(d.ok)
+      for(const id of ['mu-rlcmd','mu-rlmeas','mu-rlnotes'])
+        $(id).value = '';
+  }catch(e){ $('mu-status').textContent = 'Save failed (link?)'; }
+  muRefresh();
+};
+$('mu-stop').onclick = async ()=>{
+  await fetch('/api/rl/stop', {method:'POST'});
+  $('mu-status').textContent = 'Stopping (gait stops, robot holds; X to limp)…';
+};
+$('mu-refresh').onclick = ()=> muRefresh();
+
 async function rlCheck(mode){
   $('rlpreflight').textContent = 'Checking '+mode+'…';
   try{

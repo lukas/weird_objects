@@ -121,7 +121,7 @@ HTTPS_PORT = None   # actual HTTPS port that bound (443 if privileged, else 8443
 # on a browser reload without restarting the server.
 WEBUI_DIR = HERE / "webui"
 PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/demos",
-              "/rl", "/experiments", "/calibrate")
+              "/rl", "/experiments", "/measure", "/calibrate")
 # Exact whitelisted names only -- no generic static-dir handler, so nothing
 # else on disk is reachable (path-traversal safety).
 STATIC_FILES = {
@@ -221,6 +221,59 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/rl/policies":
             self._json(200, BENCH.rl_policies() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/measure/list":
+            self._json(200, BENCH.measure_list() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/logs":
+            # List log files (episode traces, measurements, events) so
+            # agents can pull data over HTTP instead of SSH (08-10).
+            try:
+                from event_log import log_dir
+                d = log_dir()
+                files = []
+                for f in sorted(d.iterdir()):
+                    if f.is_file():
+                        st = f.stat()
+                        files.append({"name": f.name,
+                                      "bytes": st.st_size,
+                                      "mtime_unix": round(st.st_mtime, 1)})
+                files.sort(key=lambda x: -x["mtime_unix"])
+                self._json(200, {
+                    "ok": True, "dir": str(d), "files": files,
+                    "hint": ("GET /api/logs/<name> downloads a file; "
+                             "?tail=N returns only the last N lines")})
+            except Exception as e:
+                self._json(500, {"ok": False, "error": str(e)})
+        elif path.startswith("/api/logs/"):
+            try:
+                from event_log import log_dir
+                # Path().name forbids traversal / subdirs.
+                name = Path(path[len("/api/logs/"):]).name
+                fpath = log_dir() / name
+                if not name or not fpath.is_file():
+                    self._json(404, {"ok": False,
+                                     "error": f"no such log: {name!r}"})
+                else:
+                    tail = 0
+                    qs = self.path.split("?", 1)
+                    if len(qs) == 2 and "tail=" in qs[1]:
+                        try:
+                            tail = int(qs[1].split("tail=")[1]
+                                       .split("&")[0])
+                        except ValueError:
+                            tail = 0
+                    data = fpath.read_bytes()
+                    if tail > 0:
+                        lines = data.splitlines(keepends=True)
+                        data = b"".join(lines[-tail:])
+                    ctype = {
+                        ".csv": "text/csv; charset=utf-8",
+                        ".json": "application/json",
+                        ".jsonl": "application/x-ndjson",
+                    }.get(fpath.suffix, "text/plain; charset=utf-8")
+                    self._send(200, data, ctype=ctype)
+            except Exception as e:
+                self._json(500, {"ok": False, "error": str(e)})
         elif path == "/api/events":
             try:
                 from event_log import recent, events_path
@@ -450,6 +503,36 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._json(200, BENCH.rl_policy_select(
                     file=str(data.get("file", ""))))
+        elif path.startswith("/api/measure/"):
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            elif path == "/api/measure/walk":
+                self._json(200, BENCH.measure_walk(
+                    vx_mm=float(data.get("vx_mm", 30.0)),
+                    vy_mm=float(data.get("vy_mm", 0.0)),
+                    omega=float(data.get("omega", 0.0)),
+                    duration_s=float(data.get("duration_s", 20.0))))
+            elif path == "/api/measure/hold":
+                self._json(200, BENCH.measure_hold(
+                    label=str(data.get("label", "planted")),
+                    duration_s=float(data.get("duration_s", 30.0))))
+            elif path == "/api/measure/annotate":
+                self._json(200, BENCH.measure_annotate(
+                    fields=data if isinstance(data, dict) else {}))
+            elif path == "/api/measure/discard":
+                self._json(200, BENCH.measure_discard())
+            elif path == "/api/measure/note":
+                self._json(200, BENCH.measure_note(
+                    kind=str(data.get("kind", "note")),
+                    fields=(data.get("fields")
+                            if isinstance(data.get("fields"), dict)
+                            else data)))
+            else:
+                self._json(404, {"ok": False, "error": "bad measure path"})
         elif path == "/api/standup":
             try:
                 data = json.loads(body or "{}") if body else {}
