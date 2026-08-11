@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-11T21:46:02+00:00
+**created**: 2026-08-11T22:03:48+00:00
 
 **pod**: hexapod-mjx-train-0
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS: height_err_end <=8mm at -15 ref, speed >=0.028, survived 1, slip <=1.8, no park. FAIL: err >=25mm or walk broken. Compare against T2b (10x) for dose-response.
 
-**refused_reason**: init-from checkpoint missing on hexapod-mjx-train-0: /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_tall30.zip. Push it first: ops.sh pushckpt hexapod-mjx-train-0 rl_move/sim/policies/ppo_goal_cw_dep_tall30.zip
+**refused_reason**: hexapod-mjx-train-0 already runs cw-dep-tall-kh3 — GPU pods host exactly one run; pick a free GPU pod.
 
