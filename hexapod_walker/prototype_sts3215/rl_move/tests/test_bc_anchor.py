@@ -142,6 +142,82 @@ def test_bc_targets_track_the_reference():
     assert worst < 8.0, f"target chain drifted off the path ({worst:.1f}deg)"
 
 
+def test_state_aligned_crouch_start_fixes_the_bleed():
+    """The crouchrise1/2/3 + holdload1 mechanism, pinned: a NON-RSI
+    crouch start time-aligns the legacy anchor clock at the BELLY ramp
+    start (_rise_ref_clock), so a robot sitting plant-adjacent is
+    supervised toward early-path lifted-leg poses — the obs->action
+    association that bleeds into hold (holdload1 kept the legs-1+4
+    park at a measured 4x hold-income loss, so the pose is taught,
+    not paid for). The crouch pose is far off-path EVERYWHERE (the
+    reference is a belly rise; probe: nearest point 63deg RMS, and it
+    is the path END), so the correct supervision is the planted tail:
+    train.bc_anchor_state_aligned=1 must emit it, legacy must not."""
+    def target_rms_to_plant_deg(extra) -> float:
+        env = _make_env(8, {("train", "bc_anchor_coef"): 1.0, **extra})
+        env._goal_gen.force_rise_start = "crouch"
+        env.reset()
+        assert env._rsi_ref_tick0 is None, "want the non-RSI clock path"
+        hold = q_rad_to_action(env.data.qpos[env._qadr])
+        _o, _r, _t, _tr, info = env.step(hold)
+        ref = load_rise_ref(str(ROOT / RISE_REF))
+        d = action_to_q_rad(info["bc_target"]) - ref["q"][-1]
+        env.close()
+        return float(np.sqrt(np.mean(d ** 2))) * RAD2DEG
+    legacy = target_rms_to_plant_deg({})
+    aligned = target_rms_to_plant_deg(
+        {("train", "bc_anchor_state_aligned"): 1.0})
+    assert legacy > 20.0, (
+        f"crouch-start legacy target is already the planted tail "
+        f"({legacy:.1f}deg away) — the documented bleed is gone; "
+        f"re-justify the state-aligned mode")
+    assert aligned < 3.0, (
+        f"state-aligned crouch target is {aligned:.1f}deg from the "
+        f"planted tail — not anchoring plant-adjacent states to the "
+        f"plant")
+
+
+def test_state_aligned_chain_climbs_to_the_plant():
+    """From an RSI mid-path spawn (poses there are distinct, unlike
+    the near-identical belly-curl prefix where nearest-neighbor
+    indices are ambiguous), chaining state-aligned targets must walk
+    the reference FORWARD while staying on-path — supervision points
+    up the path from wherever the robot actually is."""
+    env = _make_env(9, {("train", "bc_anchor_coef"): 1.0,
+                        ("train", "bc_anchor_state_aligned"): 1.0,
+                        ("goal", "rise_rsi_frac"): 1.0})
+    env.reset()
+    assert env._rsi_ref_tick0 is not None, "RSI spawn did not engage"
+    ref = load_rise_ref(str(ROOT / RISE_REF))
+
+    def j_state() -> int:
+        q_now = np.asarray(env.data.qpos[env._qadr], dtype=float)
+        return int(np.argmin(
+            ((ref["q"] - q_now[None, :]) ** 2).mean(axis=1)))
+
+    j0 = j_state()
+    worst_on_path = 0.0
+    act = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(60):
+        _o, _r, term, trunc, info = env.step(act)
+        if term or trunc or "bc_target" not in info:
+            break
+        act = info["bc_target"]
+        j = j_state()
+        q_now = np.asarray(env.data.qpos[env._qadr], dtype=float)
+        rms = float(np.sqrt(np.mean(
+            (q_now - ref["q"][j]) ** 2))) * RAD2DEG
+        worst_on_path = max(worst_on_path, rms)
+    j_end = j_state()
+    env.close()
+    assert j_end > j0 + 20, (
+        f"chain barely advanced along the path ({j0} -> {j_end})")
+    # Looser than the legacy chain's 8deg: lookahead pursuit cuts
+    # corners by up to the lookahead distance (measured 8.4deg peak).
+    assert worst_on_path < 12.0, (
+        f"chain drifted off the path ({worst_on_path:.1f}deg)")
+
+
 def test_emission_hold_mode():
     """Hold ticks emit a CONSTANT target = the settled episode start
     pose (env._q_nom) — no moving reference to chase, unlike rise."""

@@ -2040,10 +2040,52 @@ class SimHexapodBalanceEnv(_GymBase):
             if _bc_ref_path:
                 from .joint_task import q_rad_to_action
                 _bc_ref = load_rise_ref(str(_bc_ref_path))
-                _bc_j, _ = self._rise_ref_clock(_bc_ref)
-                _bc_jn = min(
-                    _bc_j + max(int(round(self.dt / _bc_ref["dt"])), 1),
-                    len(_bc_ref["q"]) - 1)
+                # STATE-ALIGNED indexing (2026-08-11, cfg
+                # train.bc_anchor_state_aligned, default 0 = legacy
+                # clock-exact). The crouchrise1/2/3 + holdload1 chain
+                # isolated the anchor as the sole remaining suspect for
+                # the legs-1+4 hover-park: holdload1 kept the park at a
+                # measured 4x hold-income loss, so the pose is TAUGHT,
+                # not paid for. Mechanism: non-RSI crouch starts
+                # time-align the clock at the BELLY ramp start
+                # (_rise_ref_clock), so a robot sitting plant-adjacent
+                # is supervised toward early-path lifted-leg poses —
+                # and pi generalizes that obs->action association into
+                # hold. State-aligned mode re-indexes every tick by
+                # nearest reference pose to the CURRENT joints (the
+                # identical RMS nearest-neighbor _reset_finalize
+                # already trusts for RSI spawns): plant-adjacent
+                # states can then only ever anchor toward the path's
+                # planted tail, sagged states get "climb from where
+                # you ARE", and the target stays one ref-tick ahead as
+                # before. Reads only current qpos + the cached ref —
+                # no per-episode state, pool-restore safe. The
+                # rise-ref TRACKING REWARD keeps the shared clock
+                # (semantics banks untouched; its income is
+                # grounded-feet-gated so it cannot fund flag poses).
+                if float(cfg_get(self.cfg, "train",
+                                 "bc_anchor_state_aligned",
+                                 default=0.0)) > 0.0:
+                    _bc_qnow = np.asarray(
+                        self.data.qpos[self._qadr], dtype=float)
+                    _bc_j = int(np.argmin(
+                        ((_bc_ref["q"] - _bc_qnow[None, :]) ** 2)
+                        .mean(axis=1)))
+                    # Pursuit lookahead: "one tick ahead of where you
+                    # ARE" stalls (the servo never fully converges
+                    # within a tick, so the matched index crawls —
+                    # measured 1 ref tick per 60 chained steps); the
+                    # lookahead must exceed the tracking lag. The
+                    # legacy clock never needed this because it
+                    # advances on its own.
+                    _bc_ahead = max(int(round(float(cfg_get(
+                        self.cfg, "train", "bc_anchor_lookahead_s",
+                        default=0.25)) / _bc_ref["dt"])), 1)
+                else:
+                    _bc_j, _ = self._rise_ref_clock(_bc_ref)
+                    _bc_ahead = max(
+                        int(round(self.dt / _bc_ref["dt"])), 1)
+                _bc_jn = min(_bc_j + _bc_ahead, len(_bc_ref["q"]) - 1)
                 info["bc_target"] = q_rad_to_action(
                     _bc_ref["q"][_bc_jn]).astype(np.float32)
         # HOLD/TRACK BC-anchor target (RL_PLAN queue 2.3, 08-11): the
