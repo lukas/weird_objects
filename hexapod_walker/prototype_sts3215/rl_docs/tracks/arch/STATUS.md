@@ -17,24 +17,33 @@ at what budget, with which failure modes.
   not a pricing gap. No further from-scratch GRU variant.
 - Frame-stack line passed: hist16 → hist16-dep1 (deploy contract).
 - **BC-distill-then-RL-finetune tried (08-11, `cw-arch-gru-bc-ft1`):
-  walk survives, stance does NOT.** The GRU was BC-distilled from
-  both specialist champions (walks + holds out of the box per the
-  distill eval) then PPO-finetuned 10M steps on a walk-heavy mix
-  (60/15/15/10). Result: walk stays honest (gait_valid 6/6, median
-  prog_ratio ~0.85, no exploit) but rise collapsed to 0/6 det (honest
-  sprawl/stall 20-108mm short on all three start kinds, not a cheat)
-  and hold missed its tight stillness bar (track_err 2.43° vs 1.5°
-  required; posture/height otherwise fine) — lower still lifts
-  (4/6). Diagnosis: catastrophic forgetting of the imitation-learned
-  stance under walk-heavy RL pressure, not a reward bug. Keeping
-  `ppo_goal_cw_gru_bc.zip` (pre-finetune) as the reference artifact.
+  walk survives, stance is MIXED, and a dig-in corrected the root
+  cause.** The GRU was BC-distilled from the walk+hold specialists
+  (rise was NEVER in the distillation data — the BC parent itself is
+  a hold+walk artifact only) then PPO-finetuned 10M steps on a
+  walk-heavy mix (60/15/15/10). Result across all four gate+own-DR0.5
+  passes: walk gait_valid 6/6 throughout, no paddle at any point in
+  10M steps (economy softened, slip/m 2.1-2.6 vs BC parent 1.5);
+  lower IMPROVED (4-6/6 vs parent 2/6 det); rise stayed 0/6 (unchanged
+  from the BC parent — RL never invented a skill it had zero demos
+  for, not forgetting); hold REGRESSED 0/6 det (parent was 6/6 — RL
+  genuinely traded hold precision for locomotion polish, real
+  forgetting this time). So two different mechanisms in one run:
+  data-poverty (rise, never learnable this way) vs erosion (hold,
+  actually lost). Keeping `ppo_goal_cw_gru_bc.zip` (md5 864c02fb) as
+  the hold+walk reference artifact.
 
 ## Next
 
-- Pre-registered next lever (not yet tried): SAME BC-distilled parent,
-  smaller lr + tighter target-kl on the finetune (protect the
-  imitation-learned stance from being overwritten) — NOT more steps,
-  NOT a from-scratch variant. Queued as `cw-arch-gru-bc-ft2`.
+- Operator-directed next lever for RISE: re-distill stance-heavy +
+  DAgger rounds on `distill_gru.py` (give the BC step actual rise
+  demos before any further RL) — in progress outside this loop.
+- Orchestrator-queued next lever for HOLD (`cw-arch-gru-bc-ft2`,
+  2M discovery, launched, same BC parent, lr 3e-4→1e-4 + target-kl
+  0.02→0.01, nothing else changed): does a gentler finetune stop RL
+  from trading hold for gait polish? Rise is expected to stay 0/6
+  regardless (data poverty, not an lr/KL question) — judge this arm
+  on hold + walk-cheat-free only.
 - Later: contact-from-proprioception aux head; distill specialists
   into one recurrent net.
 
