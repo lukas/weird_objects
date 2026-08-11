@@ -333,6 +333,20 @@ report.json, and the W&B API for exactly these questions.
     `imu_bias_deg`, `tilt_noise_deg`, `gyro_bias_deg_s`,
     `gyro_noise_deg_s`, `com_offset_m`, `imu_pos_xy_m`,
     `cmd_drop_prob_max`.
+16. **A manual `kubectl exec` probe on an arbitrary FREE pod can
+    silently run STALE code** (08-11, gait-cleanup terrain probe):
+    `launch_run.py launch` refuses a `.code_sha` mismatch, but a
+    hand-run eval/probe via `kubectl exec` has no such gate — an idle
+    pod keeps whatever code was live at its last launch, sometimes
+    commits behind. This exactly reproduced an already-fixed bug
+    (the `env.terrain_amp>1` clamp, 434a6e0): probing the champion at
+    amp 1/2/3 on a stale pod returned bit-identical reports (the OLD
+    clamped code), which would have wrongly re-confirmed the closed
+    bug. Check `kubectl exec <pod> -- cat
+    /workspace/prototype_sts3215/.code_sha` vs local HEAD before
+    trusting ANY ad-hoc pod probe that depends on recent code; `bash
+    snapshot.sh --sync <pod>` first if it's behind (safe on an idle
+    pod, never on one with a live trainer).
 
 ## Operator status page (web) — setup & restart runbook
 
