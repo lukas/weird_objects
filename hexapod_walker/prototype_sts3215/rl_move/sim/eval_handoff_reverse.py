@@ -96,6 +96,9 @@ def main() -> int:
     ap.add_argument("--strips", type=Path, default=None,
                     help="dir for 1 fps frame-strip PNGs (first episode "
                          "of each arm)")
+    ap.add_argument("--strip-all", action="store_true",
+                    help="strip EVERY episode, not just ep0 (failure "
+                         "review)")
     ap.add_argument("--cfg-set", action="append", default=None,
                     metavar="K=V")
     args = ap.parse_args()
@@ -299,7 +302,8 @@ def main() -> int:
         for ep in range(args.episodes):
             rec = {"arm": arm, "ep": ep}
             name = f"rev_{arm}_{ep}"
-            want_strip = args.strips is not None and ep == 0
+            want_strip = args.strips is not None and (
+                args.strip_all or ep == 0)
             strip_frames.clear()
             if arm == "spec":
                 _set_mix(gen, lower=1.0)
