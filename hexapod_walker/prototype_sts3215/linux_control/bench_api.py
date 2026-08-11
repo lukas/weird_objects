@@ -113,6 +113,11 @@ class BenchAPI:
         self._cal_progress: dict = {}
         # Last demo cmd-vs-actual telemetry (auto-logged from web demos).
         self._demo_telemetry: dict | None = None
+        # True while a motion job is actively streaming pose writes —
+        # the TFT display thread must NOT transact on the MCU link
+        # (a job-panel text redraw holds it ~1.5 s; measured 08-10,
+        # the "big pause in the middle of standing").
+        self._bus_hot = False
         # Measure tab: finished run awaiting the operator's tape reading.
         self._meas_pending: dict | None = None
         self._status_display = None
@@ -192,6 +197,9 @@ class BenchAPI:
                 if self._cal_progress else None,
                 "telemetry": dict(self._demo_telemetry)
                 if self._demo_telemetry else None,
+                "bus_hot": bool(
+                    self._bus_hot and self._demo_thread
+                    and self._demo_thread.is_alive()),
             }
 
     def robot_state(self, *, check_zero: bool = False) -> dict:
@@ -1834,6 +1842,7 @@ class BenchAPI:
             except Exception:
                 pass
             try:
+                self._bus_hot = True
                 _set_torque_limit(d.bus, live, torque)
                 _enable_torque(d.bus, live)
                 n = len(frames)
@@ -2006,6 +2015,7 @@ class BenchAPI:
                     self._cal_result = {"ok": False, "error": str(e),
                                         "mode": mode}
             finally:
+                self._bus_hot = False
                 if gen != self._demo_gen:
                     return
                 try:

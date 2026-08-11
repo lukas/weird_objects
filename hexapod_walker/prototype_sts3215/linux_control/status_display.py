@@ -306,6 +306,14 @@ class StatusDisplay:
                         continue
                     self._recovered = True
                 robot = self._get_robot()
+                if (robot.get("demo") or {}).get("bus_hot"):
+                    # A motion job is actively streaming pose writes.
+                    # A DJ job-panel redraw holds the MCU serial link
+                    # ~1.5 s (measured 08-10) — that was the "big
+                    # pause in the middle of standing". Leave the
+                    # panel stale until the job releases the bus.
+                    self._stop.wait(0.5)
+                    continue
                 now = time.monotonic()
                 if now - self._net_t > 10.0:
                     self._net = net_status()
