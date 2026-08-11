@@ -73542,7 +73542,7 @@
       "train.bc_anchor_stratified=1.0"
     ],
     "created": "2026-08-11T23:06:52+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73569,7 +73569,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-anchormix1-r1 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 13 --goal-mix hold=0.1,rise=0.45,lower=0.45 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --cfg-set train.bc_anchor_coef=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --cfg-set goal.rise_flat_frac=0.15 --cfg-set goal.rise_partial_frac=0.40 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_stand_anchormix1_r1 --notes 'respec of cw-stand-loweranchor1: ANCHOR DILUTION FIX, relaunch of cw-stand-anchormix1 (first launch died on tick one: warm-start checkpoints pickle pre-tag anchor buffers, _bc_mode missing -- fixed + regression-tested, commit dc5b7f4). Same one-axis test: config = loweranchor1 exactly + train.bc_anchor_stratified=1.0. loweranchor1 measured anchor dilution directly (uniform sampling makes per-mode supervision track emission share: lower joined -> lower 6/6 but hold leg-4 duty 0.95 -> 0.02 and flat rise re-stalled). Stratified per-mode quotas make each skills anchor full-strength regardless of goal mix. Prediction: lower keeps >= 3/6, hold recovers >= the anchorstate2 level (leg-4 duty >= 0.8), flat rise recovers; if full-strength hold supervision is what the six-foot plant needed, leg 1 finally moves.' --cfg-set reward.hold_feet_load=1.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set train.bc_anchor_lower=1.0 --cfg-set train.bc_anchor_stratified=1.0 > /tmp/train_cw-stand-anchormix1-r1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stand-anchormix1-r1.log",
     "wandb_id": "at00cbie",
-    "verified": "2026-08-11T23:09:39+00:00"
+    "verified": "2026-08-11T23:09:39+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T23:15:09+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": " hold 2.26\u00b0, lean 2.43\u00b0, track 2.15\u00b0, unload 1.34\u00b0, raise 2/2, rise f1/2 b2/2 c1/2, lower 2/2, tipped 1/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 431s (4,638 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_anchormix1_r1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_anchormix1_r1 (md5 d92ed0f4)\n"
+      }
+    ]
   },
   {
     "run": "cw-dep-tip1-takeoff25",
@@ -73626,7 +73634,7 @@
       "HARDWARE-DRIVEN, CODE/SPEC FIRST (operator bench 08-11 22:42, bench_blast_20260811_184229 + RL_LOG): the stand specialist port's FIRST hardware run FAILED tilt_roll at 10.2deg rel roll ~9s in, DURING THE BELLY-CURL (before the height ramp; currents low 0.27A, runner limped clean). Sim probe on the same checkpoint (6 det seeds DR0): |roll| <= 1.7deg through the whole rise \u2014 hardware rocks over the tucked legs, sim never does. Trip threshold is CORRECT (do not bump it). Suspects: loaded-knee actuator lag breaking curl symmetry + belly contact geometry. Arm: add a rise-tick ROCKING DR axis (random roll perturbation during curl/ramp ticks \u2014 tilted-belly starts and/or body-roll impulses, capped well below the 25deg envelope, tilt reference stays LEVEL so leveling is paid), default OFF, guarded rng, bank test green BEFORE launch (MDP_PREFLIGHT binding). Warm from holdbc1_hard1 with the BC-anchor stack UNCHANGED. Optional second axis: bus.servo_params=loaded on rise ticks. Parent: cw-stand-holdbc1-hard1. Gate: Rise under +-10-15deg rocking injections det >= 5/6 valid_plant with zero falls; nominal rise/hold retention matches hard1's own probe (12/12 valid_plant RSI-off incl. flat 4/4, hold 11/12); matched-parent control under identical injection; frames watched."
     ],
     "created": "2026-08-11T23:08:07+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73654,7 +73662,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-riserock1 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip --n-envs 4096 --out-name ppo_goal_cw_stand_riserock1 --impl warp --host-workers 24 --notes 'HARDWARE-DRIVEN, CODE/SPEC FIRST (operator bench 08-11 22:42, bench_blast_20260811_184229 + RL_LOG): the stand specialist port'\"'\"'s FIRST hardware run FAILED tilt_roll at 10.2deg rel roll ~9s in, DURING THE BELLY-CURL (before the height ramp; currents low 0.27A, runner limped clean). Sim probe on the same checkpoint (6 det seeds DR0): |roll| <= 1.7deg through the whole rise \u2014 hardware rocks over the tucked legs, sim never does. Trip threshold is CORRECT (do not bump it). Suspects: loaded-knee actuator lag breaking curl symmetry + belly contact geometry. Arm: add a rise-tick ROCKING DR axis (random roll perturbation during curl/ramp ticks \u2014 tilted-belly starts and/or body-roll impulses, capped well below the 25deg envelope, tilt reference stays LEVEL so leveling is paid), default OFF, guarded rng, bank test green BEFORE launch (MDP_PREFLIGHT binding). Warm from holdbc1_hard1 with the BC-anchor stack UNCHANGED. Optional second axis: bus.servo_params=loaded on rise ticks. Parent: cw-stand-holdbc1-hard1. Gate: Rise under +-10-15deg rocking injections det >= 5/6 valid_plant with zero falls; nominal rise/hold retention matches hard1'\"'\"'s own probe (12/12 valid_plant RSI-off incl. flat 4/4, hold 11/12); matched-parent control under identical injection; frames watched.' > /tmp/train_cw-stand-riserock1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stand-riserock1.log",
     "wandb_id": "b0rruyke",
-    "verified": "2026-08-11T23:10:55+00:00"
+    "verified": "2026-08-11T23:10:55+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T23:16:10+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "ap 2/2 | canary rise_flat_a=1 rise_flat_b=1 rise_bridge_a=1 rise_bridge_b=1 rise_crouch_a=1 rise_crouch_b=1 lower_a=1 lower_b=1\n[video] logged reel (2,007,040 steps | rise:ok raise:ok hold:ok track:ok)\n[video] logged reel (final | rise:ok raise:ok hold:ok track:ok)\n[mjx-train] done: 2,000,000 steps in 339s (5,899 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_riserock1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_riserock1 (md5 1e0dae5b)\n"
+      }
+    ]
   },
   {
     "run": "cw-dep-tip1-takeoff25",
@@ -73682,7 +73698,7 @@
       "HARDWARE-DRIVEN (operator bench 08-11 eve, camera sessions bench_blast_20260811_18*, RL_LOG 22:47): BOTH deployed walkers show a 20-25deg TAKEOFF roll transient right after gait start on hardware \u2014 vref1-r1 recovered one (23deg peak -> tail 0.9deg, full 6s) and fell one; tip1 tripped tilt_roll 2/3 fwd (attended 21:4x, robot's own event log) and fell its first rot60 BACKWARD run (27deg peak). Trained tipped-start DR is dose 6-18deg at prob 0.30 \u2014 BELOW the measured regime. Arm: warm from tip1, raise dr.tipped_start_prob to 0.5 and dr.tipped_start_deg to (12,25), everything else = tip1's exact resolved config (pull from its W&B config.reward_cfg / ledger extra_args). NOTE: verify --cfg-set can parse the tuple field dr.tipped_start_deg; if not, add the knob first (small domain_rand.py change, keep the guarded-rng convention + bank green). Parent: cw-dep-tip1. Gate: SCORE/tipped_recovery_success at 20-25deg injections det+sto materially above the matched parent under the IDENTICAL injection (eval_checkpoint --baseline cw-dep-tip1); DR0 walk retention unchanged (gait_valid 6/6, prog med >= 0.85, no paddle); frames watched det."
     ],
     "created": "2026-08-11T23:09:22+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73709,6 +73725,14 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-tip1-takeoff25 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_tip1.zip --n-envs 4096 --out-name ppo_goal_cw_dep_tip1_takeoff25 --impl warp --host-workers 24 --notes 'HARDWARE-DRIVEN (operator bench 08-11 eve, camera sessions bench_blast_20260811_18*, RL_LOG 22:47): BOTH deployed walkers show a 20-25deg TAKEOFF roll transient right after gait start on hardware \u2014 vref1-r1 recovered one (23deg peak -> tail 0.9deg, full 6s) and fell one; tip1 tripped tilt_roll 2/3 fwd (attended 21:4x, robot'\"'\"'s own event log) and fell its first rot60 BACKWARD run (27deg peak). Trained tipped-start DR is dose 6-18deg at prob 0.30 \u2014 BELOW the measured regime. Arm: warm from tip1, raise dr.tipped_start_prob to 0.5 and dr.tipped_start_deg to (12,25), everything else = tip1'\"'\"'s exact resolved config (pull from its W&B config.reward_cfg / ledger extra_args). NOTE: verify --cfg-set can parse the tuple field dr.tipped_start_deg; if not, add the knob first (small domain_rand.py change, keep the guarded-rng convention + bank green). Parent: cw-dep-tip1. Gate: SCORE/tipped_recovery_success at 20-25deg injections det+sto materially above the matched parent under the IDENTICAL injection (eval_checkpoint --baseline cw-dep-tip1); DR0 walk retention unchanged (gait_valid 6/6, prog med >= 0.85, no paddle); frames watched det.' > /tmp/train_cw-dep-tip1-takeoff25.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-tip1-takeoff25.log",
     "wandb_id": "x2p1vnnp",
-    "verified": "2026-08-11T23:12:08+00:00"
+    "verified": "2026-08-11T23:12:08+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T23:17:11+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0\n[video] logged reel (2,007,040 steps | rise:ok walk:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok walk:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 342s (5,843 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_tip1_takeoff25.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_dep_tip1_takeoff25 (md5 048051d7)\n"
+      }
+    ]
   }
 ]
