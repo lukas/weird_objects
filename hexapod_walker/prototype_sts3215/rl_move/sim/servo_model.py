@@ -215,7 +215,18 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
         model.hfield_data[:] = 0.0
     elif not flat_terrain and model.hfield_data.size:
         heights = MP.make_terrain_heightmap(seed=int(terrain_seed))
-        heights = heights * float(np.clip(terrain_amp, 0.0, 1.0))
+        # hfield data must stay normalized to [0, 1]; physical bump height
+        # is data * hfield_size[2] (HFIELD_MAX_Z, 36 mm at amp 1.0). Amps
+        # <=1 scale the data; amps >1 scale the z-extent instead — the old
+        # np.clip(amp, 0, 1) here silently capped every terrain at 36 mm
+        # (found 08-11 when the champion probe returned bit-identical
+        # results at amp 1.5/2.0/3.0).
+        amp = max(0.0, float(terrain_amp))
+        heights = heights * min(amp, 1.0)
+        if amp > 1.0:
+            hf_id = mujoco.mj_name2id(
+                model, mujoco.mjtObj.mjOBJ_HFIELD, "terrain")
+            model.hfield_size[hf_id][2] *= amp
         MP._populate_hfield(model, heights)
     return model
 
