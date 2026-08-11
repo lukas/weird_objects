@@ -333,18 +333,191 @@ def test_score_replay_ends_in_valid_plant(score_bank):
 
 
 # --------------------------------------------------------------------------
-# Banks still owed (binding: build the bank BEFORE the next arm of that
-# mode launches; a skipped test here is a launch blocker for that mode).
+# LOWER bank — standing plant -> commanded descent, under the DEPLOYED
+# stance-specialist stack (cw-stand-holdbc1-hard1 cfg-sets, loaded servo
+# params). Built 2026-08-11 (was the last owed bank).
+#
+# Exploits pinned (video-confirmed on real runs):
+#   outrig  cw-uni-rfix-postgate1: legs held rigidly aloft as outriggers
+#           through the descent — h_err excellent, returns DOUBLED the
+#           honest lower before the 60 mm mode-correct allowance fix.
+#   aloft   cw-stand-b2p1 family: five legs lower honestly, one leg
+#           never comes down (the reverse-handoff eval of 08-11 saw a
+#           cosmetic 62-99 mm dangling-foot residue of exactly this on
+#           the deployed specialist's learned lower).
+#
+# The honest demonstration tracks the commanded ramp with all feet
+# planted: FixedFootBodyIK anchored at the SETTLED stance (not the
+# ideal plant — loaded servos sag ~16 mm), body offset following the
+# goal height schedule. Measured returns (3 seeds, 08-11):
+#   honest 540 > aloft 461 (85%) > outrig 383 (71%) > partial 103-182
+#   > refuse -2..-51 > thrash -77..-107.
+# KNOWN THIN MARGIN, documented by the strict-xfail test at the bottom:
+# rise_posture_gate prices a lifted leg at pf=5/6 of income, so the
+# aloft cheat keeps 85% of the honest return — the reward PREFERS
+# honest on every seed (asserted) but does not make cheating a losing
+# path vs refusal (the skip-note ideal). This exactly predicts the
+# dangling-foot residue seen on the deployed specialist. Any arm whose
+# MECHANISM targets lower ticks (e.g. BC anchor on lower) should
+# strengthen this margin and flip the xfail.
+
+LOWER_OVERRIDES = {
+    ("actions", "max_height_mm"): 115.0,
+    ("goal", "rise_height_mm"): [108.0, 114.0],
+    ("goal", "rise_ramp_s"): 6.0,
+    ("reward", "rise_score_income"): 1.0,
+    ("reward", "rise_score_strip_pen"): 1.0,
+    ("reward", "k_rise_ref_track"): 2.0,
+    ("reward", "rise_ref_path"): RISE_REF,
+    ("reward", "rise_ref_sigma_deg"): 6.0,
+    ("reward", "rise_posture_gate"): 1.0,
+    ("reward", "rise_income_prog_gate"): 1.0,
+    ("reward", "rise_finish_gate_signed"): 1.0,
+    ("reward", "hold_still_gate"): 1.0,
+    ("reward", "hold_flag_fade"): 1.0,
+    ("bus", "servo_params"): "loaded",
+}
+# One leg pointed skyward (hip at its -80 deg limit): pad ends ~300 mm
+# above its grounded reference — unambiguously aloft, same behavior
+# class as the measured 33-109 mm cheats (which used gentler angles).
+_LOWER_LIFT_RAD = np.array([0.0, -80.0, 0.0] * 6) * DEG2RAD
+_LOWER_CLEAR_OK_MM = 60.0    # harness posture-strict lower allowance
+_LOWER_HERR_OK_MM = 15.0     # harness lower success rule
 
 
-@pytest.mark.skip(reason="LOWER bank not yet recorded — needs: honest "
-                         "belly-down lower (pads legitimately 20-45 mm "
-                         "up) > partial descent > full-height refusal > "
-                         "the outrigger cheat (cw-stance-postgate1) / "
-                         "one-leg-aloft cheat (cw-stand-b2p1) > unsafe. "
-                         "BUILD BEFORE the next lower arm.")
-def test_lower_correct_beats_outrigger_cheat():
-    raise NotImplementedError
+def _make_lower_env(seed: int) -> SimHexapodJointGoalEnv:
+    cfg = load_config()
+    for (sec, leaf), val in LOWER_OVERRIDES.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(cfg), randomize=False,
+        dr_scale=0.0, episode_seconds=15.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "lower" else 0.0)
+    return env
+
+
+def _lower_rollout(policy: str, seed: int) -> dict:
+    from rl_move.body_ik import BodyOffset, FixedFootBodyIK
+    env = _make_lower_env(seed)
+    env.reset()
+    q0 = env.data.qpos[env._qadr].copy()
+    h = np.asarray(env._goal_traj.height, dtype=float)
+    target = float(env._h_target)          # negative (m), vs settled z0
+    ik = FixedFootBodyIK()
+    ik.reset(q0)                           # anchor feet at settled stance
+    res = ik.solve(BodyOffset(height=target))
+    q_low = res.q_rad if res.ok else q0
+    rng = np.random.default_rng(seed)
+    pads = list(env._pad_bids)
+    pad_hist = []
+    total, step, terminated = 0.0, 0, False
+    while True:
+        frac = h[min(step, len(h) - 1)] / target if target else 0.0
+        q = q0 + (q_low - q0) * frac
+        if policy == "partial":
+            q = q0 + (q_low - q0) * min(frac, 0.5)
+        elif policy == "refuse":
+            q = q0.copy()
+        elif policy in ("outrig", "aloft"):
+            for leg in ((3, 5) if policy == "outrig" else (0,)):
+                sl = slice(3 * leg, 3 * leg + 3)
+                q[sl] = q0[sl] + (_LOWER_LIFT_RAD[sl] - q0[sl]) * frac
+        elif policy == "thrash":
+            q = None
+        act = rng.uniform(-1.0, 1.0, 18) if q is None else q_rad_to_action(q)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        step += 1
+        pad_hist.append([float(env.data.xpos[b, 2]) for b in pads])
+        if term or trunc:
+            terminated = bool(term)
+            break
+    tail = max(1, int(round(0.5 / env.dt)))   # harness 0.5 s tail mean
+    clear_mm = ((np.asarray(pad_hist[-tail:]).mean(axis=0)
+                 - env._pad_z_ref) * 1000.0)
+    h_err_mm = (float(env.data.xpos[env._chassis_bid, 2])
+                - env._z0 - target) * 1000.0
+    env.close()
+    return {"ret": total, "terminated": terminated,
+            "h_err_mm": float(h_err_mm),
+            "clear_mm": [float(c) for c in clear_mm]}
+
+
+@pytest.fixture(scope="module")
+def lower_bank() -> dict[str, list[dict]]:
+    return {p: [_lower_rollout(p, s) for s in SEEDS]
+            for p in ("honest", "partial", "refuse", "outrig", "aloft",
+                      "thrash")}
+
+
+@pytest.fixture(scope="module")
+def lower_returns(lower_bank) -> dict[str, float]:
+    return {p: float(np.mean([r["ret"] for r in rolls]))
+            for p, rolls in lower_bank.items()}
+
+
+def test_lower_correct_beats_outrigger_cheat(lower_bank, lower_returns):
+    """Honest command-tracking descent must out-earn BOTH measured leg-
+    aloft strategies on EVERY seed, with at least the pf=5/6 posture-
+    gate differential intact (>=1.10x and +50 absolute on the mean) —
+    the postgate1 regression (cheat DOUBLING honest income) can never
+    silently return."""
+    honest = lower_returns["honest"]
+    for p in ("outrig", "aloft"):
+        for h_roll, c_roll in zip(lower_bank["honest"], lower_bank[p]):
+            assert h_roll["ret"] > c_roll["ret"], (
+                f"'{p}' out-earns the honest lower on a seed: "
+                f"{h_roll['ret']:.1f} vs {c_roll['ret']:.1f} — fix the "
+                "reward BEFORE launching any lower arm.")
+        assert honest > 1.10 * lower_returns[p] and \
+            honest > lower_returns[p] + 50.0, (
+                f"honest-vs-'{p}' margin collapsed: {lower_returns}")
+
+
+def test_lower_honest_gradient(lower_returns):
+    """Full descent > half descent > full-height refusal, refusal is
+    net NEGATIVE (not-trying is never a paid path), unsafe thrash is
+    below honest partial progress."""
+    assert lower_returns["honest"] > lower_returns["partial"] \
+        > lower_returns["refuse"], lower_returns
+    assert lower_returns["refuse"] < 0.0, (
+        f"refusing to lower earns {lower_returns['refuse']:+.1f}")
+    assert lower_returns["thrash"] < lower_returns["partial"], lower_returns
+
+
+def test_lower_end_posture_separates_cheats(lower_bank):
+    """The harness posture-strict criterion (|h_err|<=15 mm, all pads
+    <=60 mm over the 0.5 s tail) must accept the honest descent and
+    reject both aloft cheats on every seed — the eval-side guarantee
+    that a cheat can never grade as a clean lower."""
+    for r in lower_bank["honest"]:
+        assert not r["terminated"], r
+        assert abs(r["h_err_mm"]) <= _LOWER_HERR_OK_MM, r
+        assert max(r["clear_mm"]) <= _LOWER_CLEAR_OK_MM, r
+    for p in ("outrig", "aloft"):
+        for r in lower_bank[p]:
+            assert max(r["clear_mm"]) > _LOWER_CLEAR_OK_MM, (
+                f"'{p}' passes the posture-strict lower spec: {r}")
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="KNOWN pricing gap (08-11): rise_posture_gate prices a "
+           "lifted leg at pf=5/6 of income, so the one-leg-aloft lower "
+           "keeps ~85% of the honest return — cheating out-earns "
+           "refusal by a wide margin. This is the incentive behind the "
+           "deployed specialist's cosmetic 62-99 mm dangling foot "
+           "(eval_handoff_reverse, 08-11). Strengthen the pricing (or "
+           "BC-anchor lower ticks) before the next lower-MECHANISM "
+           "arm; a fix flips this to strict-XPASS and must remove the "
+           "marker.")
+def test_lower_cheat_is_not_a_paid_path(lower_returns):
+    assert max(lower_returns["outrig"], lower_returns["aloft"]) \
+        < lower_returns["refuse"]
 
 
 # --------------------------------------------------------------------------

@@ -878,3 +878,25 @@ was the START DISTRIBUTION, one cfg key, 2M steps. Stand lineage now
 fully closed: rise (all start kinds, between the two checkpoints),
 hold, lower, both handoffs — all sim-solved; remaining work is
 bench-owned.
+
+## LOWER semantics bank (08-11 idle-kick cycle — SPECIFICATION, no training)
+
+The last owed `test_task_semantics.py` bank is LANDED: lower mode,
+under the deployed specialist's exact stack (holdbc1-hard1 cfg-sets,
+loaded servos). Honest = FixedFootBodyIK descent anchored at the
+SETTLED stance (anchoring at the ideal plant leaves a 16 mm sag
+error), tracking the commanded ramp with all feet planted.
+Measured (3 seeds): honest 540 > aloft 461 (85%) > outrig 383 (71%)
+> partial 103–182 > refuse −2..−51 > thrash −77..−107; posture-strict
+(60 mm pads / 15 mm h_err) accepts honest and rejects both cheats on
+every seed (~300 mm aloft pads). Bank PASSES → lower-mode arms are
+unblocked.
+
+FINDING (encoded as a strict-xfail in the bank): the pf=5/6
+posture-gate pricing lets a one-leg-aloft lower keep ~85% of honest
+income — cheating out-earns refusal. This is the incentive behind the
+deployed specialist's cosmetic 62–99 mm dangling foot seen in
+eval_handoff_reverse. Not a joystick blocker (scripted sit glide
+covers the deliverable; eval catches the posture), but any future
+lower-MECHANISM arm (e.g. the optional BC-anchor-on-lower polish)
+should strengthen this margin first and flip the xfail.
