@@ -148,6 +148,32 @@ runs the full stack the arm will train with.
   ~0.01–0.02 the entire 2M steps. Fourth distinct mechanism, same
   cheat — this was the pre-registered test of lever (a) below and it
   is now closed too.
+- `cw-stand-scoreref1-dr0` — FAILED (08-11), control arm: identical
+  to scoreref1 but DR-scale 0 (pre-registered to test whether DR
+  noise was washing out the two thin-margin mechanisms). Same
+  flatline at DR0: `env/rise_score` 0.01–0.03 the whole 2M steps,
+  training's own diagnostic 0/2 rise every window. **DR is
+  exonerated** — not the blocker. New clue from the W&B curve:
+  `env/reward_rise_ref` starts at 0.65/tick at the warm-started
+  checkpoint (the crutch was briefly engaged) and is eroded to
+  ~0.02/tick within the first few updates — looks like early PPO
+  updates destroying an aligned start, not undiscovered exploration
+  (plausible cause: the warm-started critic is miscalibrated for the
+  new score-routed reward). Follow-up `cw-stand-scoreref1-dr0-lowlr`
+  (LR 3e-4→5e-5, one variable) is in flight to test the erosion
+  hypothesis directly.
+- `cw-stand-scoreref1-dr0-lowlr` — FAILED (08-11): the LR-erosion
+  follow-up above. Cutting LR 6x did NOT slow the collapse —
+  `env/reward_rise_ref` still crashed from 0.66→~0.002/tick within
+  ~20-30 update steps (run median 0.021, gate needed ≥0.3) and
+  `env/rise_score` never left the floor (median 0.021, max 0.096).
+  Erosion-by-oversized-updates is REFUTED. Two live explanations,
+  neither tested yet: the summed reward genuinely disfavors the
+  tracked behavior once the rest of the stack is added in, or the
+  tight 6° tracking sigma is measuring ordinary rollout stochasticity
+  as "the behavior is gone." No further LR/coefficient variant
+  queued — RISE.md's ruling below already closes that line; the next
+  real lever is the structural height↔contact coupling (CODE).
 
 ## Direction (binding, 08-11 — supersedes the 08-10 night entry)
 
