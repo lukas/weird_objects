@@ -216,8 +216,8 @@ report.json, and the W&B API for exactly these questions.
     (shutdown protocol in ORCHESTRATOR_PROMPT.md); stragglers are
     killed at a 30-min deadline — verdicts already recorded survive,
     unverdicted runs are re-assigned after the swap. The wait loop
-    also keeps draining the backlog so the fleet never idles during
-    an update. Killing the watcher/tmux directly still murders
+    also keeps draining the backlog so already-queued (blocker-vetted)
+    specs still place during an update. Killing the watcher/tmux directly still murders
     in-flight cycles mid-thought — 3 cycles' tokens were torched
     this way on 08-09 (and the operator's assistant repeated the
     exact mistake later the same day — READ THIS LIST before

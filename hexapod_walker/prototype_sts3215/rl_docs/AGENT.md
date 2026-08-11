@@ -12,8 +12,11 @@ A watcher on the controller pod polls W&B; when training runs finish
 it spawns concurrent LLM "decision cycles" (`claude -p` with
 `ORCHESTRATOR_PROMPT.md`). Each cycle TRIAGES finished runs (video +
 eval table + reward curve, ~10 min each), records a verdict in the
-ledger, and REFILLS free GPU slots by queueing new experiment specs
-into `backlog.json`. Mechanical workers do everything else: a drain
+ledger, and REFILLS by queueing new experiment specs into
+`backlog.json` — but ONLY specs that reduce an unresolved blocker to
+the next hardware test (prime directive, 08-10; idle pods are
+acceptable, peripheral runs are not). Mechanical workers do
+everything else: a drain
 pushes queued specs onto free pods (self-repairing), checkups catch
 dead/starved runs, a pre-stager pulls checkpoints and starts gate
 evals before the cycle wakes up. **Software owns facts and
@@ -23,22 +26,33 @@ back to some place where it was violated.
 
 ## How the agent picks the next run
 
-Priority order (from `ORCHESTRATOR_PROMPT.md` §4):
+**The filter comes first (prime directive, 08-10 — this REVERSED the
+original 08-09 occupancy policy): which unresolved blocker between the
+robot and the next hardware joystick test does this run reduce? If
+none, do not launch it — an idle pod is acceptable; a peripheral run
+queued "because capacity existed" is a violation. Nothing enters the
+backlog unless it removes a blocker.** Full text:
+`RESEARCH_RULES.md`.
+
+For runs that pass the filter, source order (from
+`ORCHESTRATOR_PROMPT.md` §4):
 
 1. **Continuations of near-misses** — one, not two; identical-config
    continuations are CLOSED as a move (0-for-5 historically).
 2. **The plan's next rung** — `RL_PLAN.md` queue + its binding
    operator rulings and the readiness-review priorities (P0/P1/P2).
 3. **`WISHLIST.md` topmost [READY] items** — the operator's backlog;
-   items marked [CODE] need an implementation cycle first.
+   items marked [CODE] need an implementation cycle first. These too
+   must pass the blocker filter; the wishlist is a source of
+   candidates, not a license to fill slots.
 
 Non-negotiable spec shape: warm-start off the current champion, ONE
 variable per run, pre-registered gate with explicit if-true/if-false,
-plain-English hypothesis, always `--out-name`. More than 2 free slots
-= queue multiple experiments from DIFFERENT lines in the same cycle.
-Design questions with a plausible answer never idle a pod: ASSUME AND
-GO, log the assumption for operator review. `guardrails.yaml` caps
-everything (launches/cycle, GPU steps/cycle, concurrent cycles).
+plain-English hypothesis, always `--out-name`. For design questions
+ON THE CRITICAL PATH with a plausible answer: ASSUME AND GO, log the
+assumption for operator review — but never invent a peripheral run to
+fill an idle pod. `guardrails.yaml` caps everything (launches/cycle,
+GPU steps/cycle, concurrent cycles).
 
 ## What we discovered WORKS (keep doing this)
 
@@ -48,9 +62,13 @@ everything (launches/cycle, GPU steps/cycle, concurrent cycles).
   the only record; `ops.sh census` reads /proc, not memory. Before
   this, runs were recorded as launched that never existed.
 - **Backlog + self-repairing drain.** Decoupling "what to try"
-  (LLM, minutes-to-hours) from "keep GPUs busy" (software, seconds)
-  ended the idle-fleet problem. A free slot + non-empty backlog is a
-  bug by definition.
+  (LLM, minutes-to-hours) from "place queued work" (software,
+  seconds) ended the lost-launch problem. The drain invariant — a
+  free slot plus a non-empty backlog gets drained mechanically — is
+  purely about placement speed. The binding invariant is at
+  ADMISSION: nothing enters the backlog unless it removes a blocker
+  (prime directive, 08-10). "Keep GPUs busy" is NOT a goal; an empty
+  backlog with idle pods is a normal, healthy state.
 - **Triage-first review.** Most verdicts need one video + one eval
   table (`ops.sh review <run>`). Forensics only on a trigger (gate vs
   video disagreement, anomalous metrics, plan forks, reward/env code
