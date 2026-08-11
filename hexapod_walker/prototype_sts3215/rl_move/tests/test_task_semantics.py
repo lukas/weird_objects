@@ -224,6 +224,11 @@ SCORE_OVERRIDES = {
     ("goal", "rise_height_mm"): [108.0, 114.0],
     ("goal", "rise_ramp_s"): 6.0,
     ("reward", "rise_score_income"): 1.0,
+    # 08-11 (post-rsi2): strip the legacy k_height PENALTY too — it
+    # funded the flag-leg cheat (belly rest -1.2/tick vs cheat's
+    # -0.5/tick rent, so the cheat was the reachable optimum). With it
+    # gone, height gradient comes only from score/ref income.
+    ("reward", "rise_score_strip_pen"): 1.0,
     # Reference tracking rides along since cw-stand-scoreref1
     # (08-10 late): cw-stand-score1 proved the score income alone is
     # unfindable — env/rise_score sat at ~0.01 for 2M steps because the
@@ -508,7 +513,8 @@ def _make_walk_env(seed: int, overrides: dict | None = None):
 
 def _walk_rollout(policy: str, seed: int, *, vx: float = WALK_CMD_VX,
                   vy: float = 0.0,
-                  overrides: dict | None = None) -> float:
+                  overrides: dict | None = None,
+                  stance: tuple[float, float] = WALK_PLANT) -> float:
     from tripod_gait import TripodGait
 
     env = _make_walk_env(seed, overrides)
@@ -530,8 +536,8 @@ def _walk_rollout(policy: str, seed: int, *, vx: float = WALK_CMD_VX,
         traj.wz[:] = 0.0
 
     gait = TripodGait(vx=0.0)
-    gait.sync_plant_stance(*WALK_PLANT)
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    gait.sync_plant_stance(*stance)
+    plant_rad = np.array([0.0, *stance] * 6) * DEG2RAD
     gait.reset_phase()
 
     total, step = 0.0, 0
@@ -580,6 +586,74 @@ def test_walk_stall_beats_refusal_park(walk_returns):
     refusal and must earn less (park-duty pricing does this today)."""
     assert walk_returns["stall"] > walk_returns["park"], (
         f"refusing to step out-earns trying: {walk_returns}")
+
+
+# --------------------------------------------------------------------------
+# HEIGHT bank — the height-keeping income gate (08-10, hardware
+# finding rl_docs/HARDWARE.md "sag": every deployed walk policy
+# migrates to a crouch 54-70 mm below the spawn stance; knees track
+# commands, so the crouch is COMMANDED posture the reward stack never
+# priced — walk income at ~3/tick outbids the base k_height charge of
+# ~0.36/tick). The gate multiplies velocity income by a Gaussian on
+# body height vs the episode anchor (reward.walk_height_gate,
+# reward.walk_height_sigma_mm). The crouch walker below rides ~-51 mm
+# — the same depth as the hardware sag — and still makes progress, so
+# it is exactly the exploit the gate must devalue WITHOUT taxing the
+# upright hardware-proven gait.
+
+HGT_OVERRIDES = dict(WALK_OVERRIDES)
+HGT_OVERRIDES.update({
+    ("reward", "walk_height_gate"): 1.0,
+    ("reward", "walk_height_sigma_mm"): 30.0,
+})
+WALK_CROUCH = (-20.0, 105.0)   # rides ~-51 mm, walks ~0.03 m/s (probe 08-10)
+
+
+@pytest.fixture(scope="module")
+def height_returns() -> dict[str, float]:
+    def mean(stance, ov):
+        return float(np.mean([
+            _walk_rollout("gait", s, overrides=ov, stance=stance)
+            for s in SEEDS]))
+    return {
+        "upright_gated": mean(WALK_PLANT, HGT_OVERRIDES),
+        "crouch_gated": mean(WALK_CROUCH, HGT_OVERRIDES),
+        "upright_ungated": mean(WALK_PLANT, WALK_OVERRIDES),
+        "crouch_ungated": mean(WALK_CROUCH, WALK_OVERRIDES),
+    }
+
+
+def test_height_gate_pays_upright_over_crouch(height_returns):
+    """Under the gated stack the upright gait must out-earn the same
+    gait walking 50 mm low by a wide margin — the crouch is the
+    measured hardware sag posture and must not remain a paid basin.
+    (First run 08-10: upright +542 / crouch +43 single-seed probe.)"""
+    up, lo = height_returns["upright_gated"], height_returns["crouch_gated"]
+    assert up > 2.0 * lo and up > lo + 150.0, (
+        f"crouch-walking rivals upright walking under the height gate: "
+        f"{height_returns}")
+
+
+def test_height_gate_bites_the_crouch(height_returns):
+    """The gate itself must do the work: the crouch walker's return
+    must drop hard when the gate turns on, otherwise the ordering
+    above is just the pre-existing k_height charge and the gate is
+    dead weight."""
+    on, off = height_returns["crouch_gated"], height_returns["crouch_ungated"]
+    assert on < 0.65 * off, (
+        f"height gate barely moves the crouch return ({on:.0f} vs "
+        f"{off:.0f} ungated) — gate is not engaging.")
+
+
+def test_height_gate_light_tax_on_honest_gait(height_returns):
+    """The upright hardware-proven gait bobs a few mm; the gate must
+    charge it almost nothing (factor ~0.99 measured). A gate that
+    taxes the honest gait is miscalibrated (sigma too tight)."""
+    on, off = (height_returns["upright_gated"],
+               height_returns["upright_ungated"])
+    assert on > 0.90 * off, (
+        f"height gate taxes the upright gait ({on:.0f} vs {off:.0f} "
+        f"ungated) — walk_height_sigma_mm too tight.")
 
 
 # --------------------------------------------------------------------------

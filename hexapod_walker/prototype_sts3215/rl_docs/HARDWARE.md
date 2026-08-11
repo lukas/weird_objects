@@ -190,6 +190,14 @@ One 6 s walk at 0.05 m/s (`rl_walk_20260811_021859.csv`). Operator:
   the spawn stance: the policy settles into its trained (lower,
   wider) walking posture. Not a fault; worth a height-keeping term
   in a future walk arm if the crouch bothers operations.
+  **LANDED 08-10 (same night):** `reward.walk_height_gate` — income ×
+  Gaussian on body height vs the episode anchor (σ 30 mm; upright
+  gait keeps 0.99 of income, the measured −51 mm crouch keeps 0.13),
+  with a 3-test MDP_PREFLIGHT height bank (test_task_semantics.py)
+  pinning: upright ≫ crouch under the gate, the gate itself does the
+  work, and the honest gait is taxed <10%. Discovery arm
+  `cw-dep-hgt1` queued (2M warm from cw-dep-tip1, full stack + gate;
+  rl_docs/REWARD.md row).
 - **Fourth run (08-10 22:38, `rl_walk_20260811_023756.csv`, tip1
   again): clean, tally 1 runaway / 3 clean. Operator-visible floor
   SCRAPING quantified:** the gait is a low-clearance shuffle. Knee
