@@ -141,7 +141,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("video", type=Path)
+    ap.add_argument("video", type=Path, nargs="?", default=None,
+                    help="footage file; default: the session's own "
+                         "camera.mp4 (bench_blast --camera)")
     ap.add_argument("--session", type=Path, default=None,
                     help="bench_blast_<stamp> dir (default: newest)")
     ap.add_argument("--sync", type=float, default=None,
@@ -159,9 +161,17 @@ def main() -> int:
         raise SystemExit(f"{session}/summary.json has no events — was "
                          "the session run with --video?")
 
-    cap = cv2.VideoCapture(str(args.video))
+    cam = summary.get("camera") or {}
+    video = args.video
+    if video is None:
+        if not cam.get("video"):
+            raise SystemExit("no video argument and the session has no "
+                             "camera.mp4 (not a --camera session)")
+        video = session / cam["video"]
+
+    cap = cv2.VideoCapture(str(video))
     if not cap.isOpened():
-        raise SystemExit(f"cv2 cannot open {args.video} (HEVC? convert: "
+        raise SystemExit(f"cv2 cannot open {video} (HEVC? convert: "
                          "ffmpeg -i in.mov -c:v libx264 -crf 20 out.mp4)")
 
     # unix -> video time mapping
@@ -170,6 +180,11 @@ def main() -> int:
     if args.sync is not None:
         video_of_sync = args.sync
         how = "operator --sync"
+    elif cam.get("t0_unix") and video.name == cam.get("video"):
+        # --camera session: constant-fps writer schedule makes video
+        # time exactly (t_unix - t0_unix) — no guessing.
+        video_of_sync = sync_ev["t_unix"] - cam["t0_unix"]
+        how = "exact (camera t0_unix)"
     else:
         first_walk = next((e for e in events
                            if e["text"].startswith("walk ")
@@ -188,7 +203,7 @@ def main() -> int:
     out_dir.mkdir(exist_ok=True)
     dur = ((cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
            / (cap.get(cv2.CAP_PROP_FPS) or 30.0))
-    index = {"video": str(args.video), "session": str(session),
+    index = {"video": str(video), "session": str(session),
              "sync": {"video_of_sync_s": round(video_of_sync, 2),
                       "how": how},
              "video_duration_s": round(dur, 1), "items": []}

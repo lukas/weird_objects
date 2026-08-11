@@ -1,0 +1,78 @@
+{
+ "started": "2026-08-11T21:48:40",
+ "csv": "rl_walk_20260811_214840.csv",
+ "ticks_logged": 180,
+ "params": {
+  "mode": "walk",
+  "total_s": 6.0,
+  "hz": 25.0,
+  "policy": {
+   "source": "rl_move/sim/policies/ppo_goal_cw_dep_vref1_r1.zip",
+   "name": "dep-vref1-r1 \u2014 walk champion (hardware contract)",
+   "notes": "Walk champion of the deployment-contract line: trained on the exact robot interface \u2014 no real velocity feedback (meas:=ref), 25-deg tilt envelope, 0.05-0.06 m/s band. Hardware 08-10: walks, but twice built a runaway sideways lean ending in a tip (pinned-leg positive feedback). Implication: fine for short A/B runs, but expect a possible roll ramp \u2014 hit X the moment it leans past ~15 deg.",
+   "obs_dim": 72,
+   "act_dim": 18,
+   "hidden": [
+    128,
+    128
+   ],
+   "activation": "tanh"
+  },
+  "q_nom_deg": [
+   0.18,
+   17.58,
+   78.75,
+   0.53,
+   16.52,
+   78.31,
+   0.0,
+   17.58,
+   78.75,
+   -0.09,
+   15.73,
+   78.4,
+   -0.18,
+   16.61,
+   78.75,
+   -0.18,
+   16.26,
+   77.43
+  ],
+  "tilt_ref_deg": [
+   0.28,
+   3.86
+  ],
+  "tilt_trip_deg": 25.0,
+  "preflight": {
+   "roll_deg": 0.3,
+   "pitch_deg": 4.0,
+   "max_pose_delta_deg": 2.3,
+   "pose_tol_deg": 25.0
+  },
+  "vx": 0.05,
+  "vy": 0.0,
+  "rot60": true
+ },
+ "result": {
+  "ok": true,
+  "mode": "walk",
+  "ticks": 150,
+  "vx_cmd": 0.05,
+  "vy_cmd": 0.0,
+  "duration_s": 6.0,
+  "rot60": true,
+  "rot60_k_end": 0,
+  "max_current_a": 0.6,
+  "overruns": 14,
+  "tilt_ref_deg": [
+   0.28,
+   3.86
+  ],
+  "tilt_rel_max_deg": 24.2,
+  "roll_rel_end_deg": 12.8,
+  "pitch_rel_end_deg": 4.0,
+  "tail_s": 3.0,
+  "tail_tilt_max_deg": 19.5,
+  "fell": false
+ }
+}

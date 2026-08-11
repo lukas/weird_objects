@@ -1,0 +1,118 @@
+{
+ "video": "rl_move/hardware_traces/bench_blast_20260811_182430/camera.mp4",
+ "session": "rl_move/hardware_traces/bench_blast_20260811_182430",
+ "sync": {
+  "video_of_sync_s": 0.0,
+  "how": "exact (camera t0_unix)"
+ },
+ "video_duration_s": 296.7,
+ "items": [
+  {
+   "event": "walk vref1-r1",
+   "sheet": "walk_vref1-r1_sheet.jpg",
+   "video_t0_s": 5.2,
+   "video_t1_s": 20.5,
+   "frames": 31
+  },
+  {
+   "event": "walk tip1-r1",
+   "sheet": "walk_tip1-r1_sheet.jpg",
+   "video_t0_s": 23.1,
+   "video_t1_s": 53.1,
+   "frames": 60
+  },
+  {
+   "event": "walk vref1-r2",
+   "sheet": "walk_vref1-r2_sheet.jpg",
+   "video_t0_s": 55.7,
+   "video_t1_s": 87.3,
+   "frames": 64
+  },
+  {
+   "event": "walk tip1-r2",
+   "sheet": "walk_tip1-r2_sheet.jpg",
+   "video_t0_s": 90.3,
+   "video_t1_s": 118.7,
+   "frames": 57
+  },
+  {
+   "event": "walk vref1-r3",
+   "sheet": "walk_vref1-r3_sheet.jpg",
+   "video_t0_s": 121.3,
+   "video_t1_s": 150.9,
+   "frames": 60
+  },
+  {
+   "event": "walk tip1-r3",
+   "sheet": "walk_tip1-r3_sheet.jpg",
+   "video_t0_s": 153.6,
+   "video_t1_s": 187.2,
+   "frames": 68
+  },
+  {
+   "event": "walk tape-tip1",
+   "sheet": "walk_tape-tip1_sheet.jpg",
+   "video_t0_s": 189.8,
+   "video_t1_s": 205.0,
+   "frames": 31
+  },
+  {
+   "event": "walk rot60-back",
+   "sheet": "walk_rot60-back_sheet.jpg",
+   "video_t0_s": 213.2,
+   "video_t1_s": 234.4,
+   "frames": 43
+  },
+  {
+   "event": "turn sign omega +0.3",
+   "sheet": "turn_sign_omega_p03_sheet.jpg",
+   "video_t0_s": 236.5,
+   "video_t1_s": 247.5,
+   "frames": 23
+  },
+  {
+   "event": "turn sign omega -0.3",
+   "sheet": "turn_sign_omega_-03_sheet.jpg",
+   "video_t0_s": 249.6,
+   "video_t1_s": 270.6,
+   "frames": 43
+  },
+  {
+   "event": "learned lower",
+   "sheet": "learned_lower_sheet.jpg",
+   "video_t0_s": 285.6,
+   "video_t1_s": 296.6,
+   "frames": 23
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_0.jpg",
+   "video_t_s": 204.1
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_1.jpg",
+   "video_t_s": 205.1
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_2.jpg",
+   "video_t_s": 206.1
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_3.jpg",
+   "video_t_s": 207.1
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_4.jpg",
+   "video_t_s": 208.1
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_5.jpg",
+   "video_t_s": 209.1
+  }
+ ]
+}

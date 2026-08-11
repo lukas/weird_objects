@@ -1,0 +1,125 @@
+{
+ "video": "/Users/lukas/Downloads/IMG_3431.MOV",
+ "session": "rl_move/hardware_traces/bench_blast_20260811_174641",
+ "sync": {
+  "video_of_sync_s": 20.1,
+  "how": "operator --sync"
+ },
+ "video_duration_s": 497.3,
+ "items": [
+  {
+   "event": "walk vref1-r1",
+   "sheet": "walk_vref1-r1_sheet.jpg",
+   "video_t0_s": 68.2,
+   "video_t1_s": 88.1,
+   "frames": 40
+  },
+  {
+   "event": "walk tip1-r1",
+   "sheet": "walk_tip1-r1_sheet.jpg",
+   "video_t0_s": 102.1,
+   "video_t1_s": 119.7,
+   "frames": 36
+  },
+  {
+   "event": "walk vref1-r2",
+   "sheet": "walk_vref1-r2_sheet.jpg",
+   "video_t0_s": 133.3,
+   "video_t1_s": 153.2,
+   "frames": 40
+  },
+  {
+   "event": "walk tip1-r2",
+   "sheet": "walk_tip1-r2_sheet.jpg",
+   "video_t0_s": 166.8,
+   "video_t1_s": 185.8,
+   "frames": 39
+  },
+  {
+   "event": "walk vref1-r3",
+   "sheet": "walk_vref1-r3_sheet.jpg",
+   "video_t0_s": 199.2,
+   "video_t1_s": 217.5,
+   "frames": 37
+  },
+  {
+   "event": "walk tip1-r3",
+   "sheet": "walk_tip1-r3_sheet.jpg",
+   "video_t0_s": 231.6,
+   "video_t1_s": 251.0,
+   "frames": 39
+  },
+  {
+   "event": "walk tape-tip1",
+   "sheet": "walk_tape-tip1_sheet.jpg",
+   "video_t0_s": 263.6,
+   "video_t1_s": 281.8,
+   "frames": 37
+  },
+  {
+   "event": "walk rot60-back",
+   "sheet": "walk_rot60-back_sheet.jpg",
+   "video_t0_s": 306.9,
+   "video_t1_s": 324.9,
+   "frames": 37
+  },
+  {
+   "event": "learned stand up",
+   "sheet": "learned_stand_up_sheet.jpg",
+   "video_t0_s": 338.4,
+   "video_t1_s": 349.4,
+   "frames": 23
+  },
+  {
+   "event": "learned lower",
+   "sheet": "learned_lower_sheet.jpg",
+   "video_t0_s": 358.6,
+   "video_t1_s": 369.6,
+   "frames": 23
+  },
+  {
+   "event": "turn sign omega +0.3",
+   "sheet": "turn_sign_omega_p03_sheet.jpg",
+   "video_t0_s": 385.8,
+   "video_t1_s": 400.5,
+   "frames": 30
+  },
+  {
+   "event": "turn sign omega -0.3",
+   "sheet": "turn_sign_omega_-03_sheet.jpg",
+   "video_t0_s": 415.6,
+   "video_t1_s": 430.6,
+   "frames": 30
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_0.jpg",
+   "video_t_s": 283.1
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_1.jpg",
+   "video_t_s": 284.1
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_2.jpg",
+   "video_t_s": 285.1
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_3.jpg",
+   "video_t_s": 286.1
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_4.jpg",
+   "video_t_s": 287.1
+  },
+  {
+   "event": "tape zoom",
+   "frame": "tape_zoom_5.jpg",
+   "video_t_s": 288.1
+  }
+ ]
+}

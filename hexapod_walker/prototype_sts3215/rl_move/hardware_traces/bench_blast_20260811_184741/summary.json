@@ -1,0 +1,171 @@
+{
+ "stamp": "20260811_184741",
+ "video_mode": true,
+ "walks": [
+  {
+   "tag": "vref1-r1",
+   "vx": 0.05,
+   "t_start_unix": 1786488470.99,
+   "t_end_unix": 1786488483.21,
+   "result": {
+    "ok": true,
+    "mode": "walk",
+    "ticks": 150,
+    "vx_cmd": 0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 0,
+    "max_current_a": 0.83,
+    "overruns": 13,
+    "tilt_ref_deg": [
+     1.3,
+     0.77
+    ],
+    "tilt_rel_max_deg": 23.0,
+    "roll_rel_end_deg": -1.0,
+    "pitch_rel_end_deg": -1.2,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 2.4,
+    "fell": false,
+    "log": "rl_walk_20260811_224752.csv"
+   },
+   "csv": "rl_walk_20260811_224752.csv",
+   "roll_q1_deg": 9.9,
+   "roll_q4_deg": 0.0,
+   "roll_peak_deg": 24.3,
+   "tail_peak_deg": 0.9,
+   "ramp_deg_per_s": -2.21,
+   "runaway": true,
+   "note": "stats recomputed post-session from the full CSV (mid-flush pull had truncated it)"
+  },
+  {
+   "tag": "tip1-r1",
+   "vx": -0.05,
+   "t_start_unix": 1786488488.81,
+   "t_end_unix": 1786488516.29,
+   "result": {
+    "ok": false,
+    "mode": "walk",
+    "error": "safety trip: tilt_roll",
+    "limped": true,
+    "ticks": 70,
+    "vx_cmd": -0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 3,
+    "max_current_a": 0.25,
+    "overruns": 6,
+    "tilt_ref_deg": [
+     1.03,
+     -0.31
+    ],
+    "tilt_rel_max_deg": 26.1,
+    "roll_rel_end_deg": 23.0,
+    "pitch_rel_end_deg": 3.9,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 25.2,
+    "fell": false,
+    "log": "rl_walk_20260811_224829.csv"
+   },
+   "csv": "rl_walk_20260811_224829.csv",
+   "roll_q1_deg": 0.7,
+   "roll_q4_deg": 21.7,
+   "roll_peak_deg": 27.1,
+   "tail_peak_deg": 26.2,
+   "ramp_deg_per_s": 10.13,
+   "runaway": true
+  }
+ ],
+ "notes": [],
+ "events": [
+  {
+   "t_unix": 1786488464.92,
+   "text": "bench blast session 20260811_184741 sync mark"
+  },
+  {
+   "t_unix": 1786488465.46,
+   "text": "next: round 1: switch to vref1 and walk fwd 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786488470.99,
+   "text": "walk vref1-r1 starting"
+  },
+  {
+   "t_unix": 1786488483.21,
+   "text": "walk vref1-r1 done"
+  },
+  {
+   "t_unix": 1786488483.28,
+   "text": "next: round 1: switch to tip1 and walk BACK 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786488488.81,
+   "text": "walk tip1-r1 starting"
+  },
+  {
+   "t_unix": 1786488516.29,
+   "text": "walk tip1-r1 done"
+  },
+  {
+   "t_unix": 1786488516.37,
+   "text": "robot looks down. recovering: safe zero, then stand back up."
+  }
+ ],
+ "policies": [
+  {
+   "file": "dep_quad1_c2.json",
+   "name": "dep-quad1-c2 \u2014 walk + quad-trick lineage",
+   "slot": "walk",
+   "obs_dim": 72,
+   "source": "ppo_goal_cw_dep_quad1_c2.zip",
+   "notes": "Same contract lineage as vref1-r1 with a four-leg-stand trick trained in (front pair unloads on command \u2014 in sim only; the robot has no runner mode for the trick). Implication: on hardware this is just an alternative walk, never bench-tested \u2014 use as a curiosity A/B against tip1, not as the daily driver.",
+   "active": false
+  },
+  {
+   "file": "dep_tip1.json",
+   "name": "dep-tip1 walk (lean-recovery DR)",
+   "slot": "walk",
+   "obs_dim": 72,
+   "source": "ppo_goal_cw_dep_tip1.zip",
+   "notes": "dep-vref1-r1 + 2M steps of tipped-start DR: 30% of training episodes spawn already leaned 6-18 deg and the policy is paid to level out. Hardware 08-10/11: 3 clean walks, 1 runaway \u2014 better than the parent and it keeps all six legs cycling under lean instead of sacrificing one, but it is NOT immune to the roll ramp. Implication: the current best pick for driving at 0.05 m/s; walks in a low shuffle (commanded posture, known and cosmetic).",
+   "active": true
+  },
+  {
+   "file": "dep_vref1_r1.json",
+   "name": "dep-vref1-r1 \u2014 walk champion (hardware contract)",
+   "slot": "walk",
+   "obs_dim": 72,
+   "source": "ppo_goal_cw_dep_vref1_r1.zip",
+   "notes": "Walk champion of the deployment-contract line: trained on the exact robot interface \u2014 no real velocity feedback (meas:=ref), 25-deg tilt envelope, 0.05-0.06 m/s band. Hardware 08-10: walks, but twice built a runaway sideways lean ending in a tip (pinned-leg positive feedback). Implication: fine for short A/B runs, but expect a possible roll ramp \u2014 hit X the moment it leans past ~15 deg.",
+   "active": false
+  },
+  {
+   "file": "stance_dr10.json",
+   "name": "stance_dr10 \u2014 stance champion",
+   "slot": "stance",
+   "obs_dim": 68,
+   "source": "ppo_goal_cw_stance_dr10.zip",
+   "notes": "Pre-deployment-contract stance champion (rise/hold/lower at full DR in sim). Hardware 08-10: its stand-up does NOT transfer \u2014 legs do air geometry with no ground force, then a knee stalls (trained before the rate clamp + self-collision limits were in the sim). Implication: keep only as fallback for Lower/holds; never use its RL Stand up \u2014 the Experiments-tab tuck is the stand-up.",
+   "active": false
+  },
+  {
+   "file": "stand_holdbc1_hard1.json",
+   "name": "holdbc1-hard1 stand/sit (HOLD+RISE 10M)",
+   "slot": "stance",
+   "obs_dim": 68,
+   "source": "ppo_goal_cw_stand_holdbc1_hard1.zip",
+   "notes": "EXPERIMENTAL on hardware \u2014 watch it. Overnight 08-11 HOLD+RISE+LOWER specialist: quiet six-foot hold (feet factor 0.99-1.0), belly-to-plant rise tracks a recorded reference, trained lower/sit. Sim: hold 11/12 valid, crouch-start rise still tips 2/4 \u2014 NOT hardware-validated, no deployment-contract flags. Try SIT and HOLD first; for stand-up keep a hand ready and use Experiments tab tuck as the known-good fallback. Meta carries the TRAINED goal ramp (hold 5s, ramp 6s, +111mm): re-select/push this file before STAND \u2014 the 08-11-morning copy (md5 6620705c) lacks it and the runner falls back to the legacy +50mm/4s ramp, an out-of-distribution command for this policy.",
+   "active": true
+  }
+ ],
+ "stand_profile_ok": true,
+ "aborted": "safe_zero refused",
+ "camera": {
+  "video": "camera.mp4",
+  "t0_unix": 1786488464.92,
+  "fps": 15.0,
+  "frames": 774
+ }
+}

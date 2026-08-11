@@ -82,7 +82,12 @@ TRACES_DIR = _HERE.parents[1] / "hardware_traces"
 WALK_SPEED = 0.05          # m/s — inside the trained 0.05-0.06 band
 WALK_SECONDS = 6.0
 RUNAWAY_END_DEG = 10.0     # |roll| at episode end that counts as runaway
-STEPS = ("info", "ab", "tape", "rot60", "stand", "turnsign", "hold")
+FALL_TAIL_DEG = 10.0       # |roll| still there AFTER the episode = down
+MAX_RECOVERIES = 2         # unattended falls tolerated before aborting
+DEFAULT_STEPS = ("info", "ab", "tape", "rot60", "stand", "turnsign", "hold")
+# rise/sit: single transitions for composed --only sessions (e.g. a
+# belly-start unattended run: info rise ab turnsign sit)
+STEPS = DEFAULT_STEPS + ("rise", "sit")
 
 
 def ask(prompt: str) -> str:
@@ -92,20 +97,110 @@ def ask(prompt: str) -> str:
         return "quit"
 
 
+class SessionAbort(Exception):
+    """Motion abort: robot judged down/unsafe with nobody at the bench."""
+
+
+class CameraRecorder:
+    """Record the Mac's own camera for the whole session (--camera).
+
+    Kills the last manual step of video mode: no phone, no spoken sync
+    mark. Frames are written on a wall-clock schedule at a fixed fps, so
+    video time == (t_unix - t0_unix) exactly; video_review.py reads the
+    ``camera`` block from summary.json and syncs with zero guesswork.
+    (cv2 capture has no audio track — sync never depends on `say`.)
+    """
+
+    def __init__(self, out_path: Path, index: int = 0, fps: float = 15.0):
+        self.path = out_path
+        self.index = index
+        self.fps = fps
+        self.t0: float | None = None
+        self.frames = 0
+        self._stop = None
+        self._thread = None
+        self._cap = None
+        self._writer = None
+
+    def start(self) -> bool:
+        import threading
+        import cv2
+        self._cap = cv2.VideoCapture(self.index)
+        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        ok, frame = self._cap.read()
+        if not ok:
+            print("    !! camera: no frame (permission? index?) — "
+                  "recording DISABLED, session continues")
+            self._cap.release()
+            self._cap = None
+            return False
+        # auto-exposure warmup: the first ~2 s of frames are near-black
+        warm_until = time.time() + 2.0
+        while time.time() < warm_until:
+            ok, f = self._cap.read()
+            if ok:
+                frame = f
+        h, w = frame.shape[:2]
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._writer = cv2.VideoWriter(
+            str(self.path), cv2.VideoWriter_fourcc(*"mp4v"), self.fps, (w, h))
+        self.t0 = time.time()
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, args=(frame,),
+                                        daemon=True)
+        self._thread.start()
+        print(f"    camera recording {w}x{h} @ {self.fps:.0f}fps "
+              f"-> {self.path.name}")
+        return True
+
+    def _run(self, first_frame) -> None:
+        latest = first_frame
+        next_t = self.t0
+        while not self._stop.is_set():
+            ok, f = self._cap.read()      # blocks at the camera's rate
+            if ok:
+                latest = f
+            now = time.time()
+            # constant-rate output: repeat the newest frame as needed
+            while next_t <= now:
+                self._writer.write(latest)
+                self.frames += 1
+                next_t += 1.0 / self.fps
+
+    def stop(self) -> dict | None:
+        if self._thread is None:
+            return None
+        self._stop.set()
+        self._thread.join(timeout=5.0)
+        self._cap.release()
+        self._writer.release()
+        dur = self.frames / self.fps
+        print(f"    camera: {self.frames} frames ({dur:.0f}s) "
+              f"-> {self.path.name}")
+        return {"video": self.path.name, "t0_unix": round(self.t0, 3),
+                "fps": self.fps, "frames": self.frames}
+
+
 class Session:
     def __init__(self, client: HexapodClient, go: bool, rounds: int,
-                 video: bool = False, auto: bool = False):
+                 video: bool = False, auto: bool = False,
+                 camera: int | None = None):
         self.c = client
         self.go = go
         self.rounds = rounds
-        self.video = video
+        self.video = video or camera is not None
         self.auto = auto
+        self.camera = camera
+        self.recorder: CameraRecorder | None = None
         self.stamp = time.strftime("%Y%m%d_%H%M%S")
         self.out = TRACES_DIR / f"bench_blast_{self.stamp}"
-        self.summary: dict = {"stamp": self.stamp, "video_mode": video,
+        self.summary: dict = {"stamp": self.stamp, "video_mode": self.video,
                               "walks": [], "notes": [], "events": []}
         self.stand_profile_ok = False
         self.policy_files: dict[str, str] = {}   # "vref1"/"tip1" -> file
+        self.recoveries = 0
+        self._dir = 1                             # A/B walk direction flip
 
     # -- plumbing ---------------------------------------------------------
 
@@ -123,7 +218,10 @@ class Session:
         self.summary["events"].append(
             {"t_unix": round(time.time(), 2), "text": text})
         print(f"    [{time.strftime('%H:%M:%S')}] {text}")
-        if self.video:
+        if self.video and self.camera is None:
+            # --camera syncs by unix time (cv2 has no audio track), so
+            # speech would only slow the session down; phone-video mode
+            # still needs the label on the audio track.
             import subprocess
             try:
                 # Blocking on purpose: motion must not start before the
@@ -151,12 +249,29 @@ class Session:
             raise KeyboardInterrupt
         return a == "go"
 
-    def newest_walk_csv(self) -> str | None:
-        logs = self.req("GET", "/api/logs")
-        for f in logs.get("files", []):
-            if f.get("name", "").startswith("rl_walk_"):
-                return f["name"]
-        return None
+    def newest_walk_csv(self, after_unix: float = 0.0,
+                        wait_s: float = 12.0) -> str | None:
+        """Newest rl_walk CSV WRITTEN AFTER after_unix, and only once its
+        size has stopped growing. Two races bit on 08-11: the tape walk
+        pulled the PREVIOUS csv (no after_unix), and vref1-r1 pulled a
+        csv mid-flush and got 'too few rows'."""
+        deadline = time.time() + wait_s
+        last: tuple[str, int] | None = None
+        while True:
+            logs = self.req("GET", "/api/logs")
+            found: tuple[str, int] | None = None
+            for f in logs.get("files", []):
+                if (f.get("name", "").startswith("rl_walk_")
+                        and f.get("name", "").endswith(".csv")
+                        and f.get("mtime_unix", 0) > after_unix):
+                    found = (f["name"], int(f.get("bytes", 0)))
+                    break
+            if found is not None and found == last:
+                return found[0]        # same name+size twice = flushed
+            last = found
+            if time.time() >= deadline:
+                return found[0] if found else None
+            time.sleep(1.5)
 
     def pull_csv(self, name: str) -> Path | None:
         import urllib.request
@@ -257,12 +372,18 @@ class Session:
             return
         # walk + post-episode tail + margin
         time.sleep(WALK_SECONDS + 6.0)
-        self.c.wait_idle(timeout_s=30.0)
+        end_state = self.c.wait_idle(timeout_s=30.0)
         self.announce(f"walk {tag} done")
-        name = self.newest_walk_csv()
         stats: dict = {"tag": tag, "vx": vx,
                        "t_start_unix": round(t0, 2),
                        "t_end_unix": round(time.time(), 2)}
+        # 08-11 lesson: the kickoff response only proves the runner
+        # STARTED. tip1's tilt_roll safety trips were invisible until the
+        # robot's own event log was read. Record the terminal result.
+        res = self._runner_result(end_state)
+        if res is not None:
+            stats["result"] = res
+        name = self.newest_walk_csv(after_unix=t0)
         if name:
             p = self.pull_csv(name)
             if p:
@@ -272,6 +393,66 @@ class Session:
               f"peak={stats.get('roll_peak_deg')} "
               f"tail={stats.get('tail_peak_deg')} "
               f"runaway={stats.get('runaway')}")
+        self._maybe_recover(stats)
+
+    @staticmethod
+    def _runner_result(state: dict) -> dict | None:
+        """Terminal result of the calibrate worker from a wait_idle()
+        return (None when the state carries no result, e.g. timeout)."""
+        res = state.get("result")
+        if res is None:
+            res = (state.get("calibrate") or {}).get("result")
+        return res
+
+    def _transition(self, mode: str) -> bool:
+        """Learned stand ('stand') or lower ('lower') with the TERMINAL
+        result recorded — returns True only on a clean finish."""
+        self.announce(f"learned "
+                      f"{'stand up' if mode == 'stand' else mode} starting")
+        kick = self.req("POST", f"/api/rl/{mode}", {})
+        entry: dict = {"kick": kick}
+        if kick.get("ok", True):
+            end_state = self.c.wait_idle(timeout_s=90.0)
+            entry["result"] = self._runner_result(end_state)
+        res = entry.get("result")
+        ok = bool(isinstance(res, dict) and res.get("ok"))
+        entry["ok"] = ok
+        self.summary.setdefault("transitions", []).append(
+            {"mode": mode, "t_unix": round(time.time(), 2), **entry})
+        self.summary[mode] = entry
+        self.announce(f"{mode} {'done' if ok else 'FAILED'}")
+        if not ok:
+            print(f"    !! {mode} did not finish clean: "
+                  f"{json.dumps(res)[:200] if res else 'no result'}")
+        return ok
+
+    def _maybe_recover(self, stats: dict) -> None:
+        """08-11 --camera lesson: with nobody at the bench, one fall
+        poisons every later step (fallen walks, grinding turns, board
+        brownout). In --auto, a walk that ends tilted triggers ONE
+        recovery: safe_zero to belly, learned stand back up. Past
+        MAX_RECOVERIES (or if recovery fails) all motion aborts."""
+        if not self.auto:
+            return                     # operator present — their call
+        res = stats.get("result")
+        tripped = isinstance(res, dict) and not res.get("ok", True)
+        fell = tripped or stats.get("tail_peak_deg", 0.0) >= FALL_TAIL_DEG
+        if not fell:
+            return
+        self.recoveries += 1
+        if self.recoveries > MAX_RECOVERIES:
+            self.announce("fall limit reached. aborting all motion.")
+            raise SessionAbort("too many falls")
+        self.announce("robot looks down. recovering: safe zero, "
+                      "then stand back up.")
+        r = self.req("POST", "/api/safe_zero", {})
+        self.c.wait_idle(timeout_s=60.0)
+        if not r.get("ok", True):
+            raise SessionAbort("safe_zero refused")
+        if not self._transition("stand"):
+            raise SessionAbort("recovery stand-up failed")
+        self.summary.setdefault("recoveries", []).append(
+            {"after": stats.get("tag"), "t_unix": round(time.time(), 2)})
 
     def _select_and_verify(self, key: str) -> bool:
         file = self.policy_files.get(key)
@@ -293,16 +474,23 @@ class Session:
 
     def step_ab(self) -> None:
         print(f"    plan: {self.rounds} rounds x (vref1 walk, tip1 walk), "
-              f"{WALK_SECONDS:.0f}s @ {WALK_SPEED} m/s each, "
-              f"policy switch VERIFIED before every walk.")
+              f"{WALK_SECONDS:.0f}s @ {WALK_SPEED} m/s each, ALTERNATING "
+              "direction (keeps the robot in camera frame instead of "
+              "marching off one way), policy switch VERIFIED before "
+              "every walk.")
         for i in range(self.rounds):
             for key in ("vref1", "tip1"):
+                vx = self._dir * WALK_SPEED
+                word = "fwd" if vx > 0 else "BACK"
                 if not self.confirm(f"round {i + 1}: switch to {key} and "
-                                    f"walk fwd {WALK_SECONDS:.0f}s"):
+                                    f"walk {word} {WALK_SECONDS:.0f}s"):
                     continue
                 if not self._select_and_verify(key):
                     continue
-                self._one_walk(f"{key}-r{i + 1}", WALK_SPEED)
+                self._dir *= -1
+                self._one_walk(f"{key}-r{i + 1}", vx)
+            # odd rounds start BACK so each policy sees both directions
+            self._dir *= -1
         tally: dict[str, list] = {"vref1": [], "tip1": []}
         for w in self.summary["walks"]:
             k = w.get("tag", "").split("-r")[0]
@@ -367,20 +555,42 @@ class Session:
                   "(stale copy) — run deploy_adb.sh, re-select, rerun "
                   "the info step.")
             return
-        print("    first learned stand-up on hardware. Hands ready; "
-              "scripted tuck is the known-good fallback.")
-        if self.confirm("RL STAND (preflight-gated)", countdown=8):
-            self.announce("learned stand up starting")
-            r = self.req("POST", "/api/rl/stand", {})
-            self.summary["stand"] = r
-            self.c.wait_idle(timeout_s=60.0)
-            self.announce("stand done")
-        if self.confirm("RL LOWER back to belly"):
-            self.announce("learned lower starting")
-            r = self.req("POST", "/api/rl/lower", {})
-            self.summary["lower"] = r
-            self.c.wait_idle(timeout_s=60.0)
-            self.announce("lower done")
+        # 08-11 lesson: commanding STAND while already standing made the
+        # runner drag the loaded robot toward belly zero (L0 hip stall ->
+        # limp). Order the pair from the robot's ACTUAL pose: stand
+        # preflight passes only belly-down.
+        pf = self.req("GET", "/api/rl/preflight?mode=stand")
+        belly = bool(pf.get("ok"))
+        plan = ("stand", "lower") if belly else ("lower", "stand")
+        print(f"    robot is {'belly-down' if belly else 'standing'} -> "
+              f"order: {' then '.join(plan)}. Scripted tuck is the "
+              "known-good fallback.")
+        for mode in plan:
+            if not self.confirm(f"RL {mode.upper()} (preflight-gated)",
+                                countdown=8):
+                continue
+            if not self._transition(mode):
+                # unknown pose after a failed transition — do not chain
+                # the second blend on top of it (safety rule: no retries)
+                break
+
+    def step_rise(self) -> None:
+        """Learned stand-up alone — the opener for a belly-start
+        unattended session. A failed rise aborts all motion in --auto
+        (nothing downstream makes sense off an unknown pose)."""
+        if not self.stand_profile_ok:
+            print("    REFUSED: stance weights carry no goal profile "
+                  "(stale copy) — see the stand step notes.")
+            return
+        if not self.confirm("RL STAND UP (rise only)", countdown=8):
+            return
+        if not self._transition("stand") and self.auto:
+            raise SessionAbort("opening stand-up failed")
+
+    def step_sit(self) -> None:
+        """Learned lower alone — the session closer (park on the belly)."""
+        if self.confirm("RL LOWER (sit only)", countdown=8):
+            self._transition("lower")
 
     def step_turnsign(self) -> None:
         for omega in (0.3, -0.3):
@@ -425,12 +635,21 @@ class Session:
     # -- driver -----------------------------------------------------------
 
     def run(self, only: list[str], skip: list[str]) -> None:
-        chosen = [s for s in STEPS
-                  if (not only or s in only) and s not in skip]
+        if only:
+            # --only order is honored (e.g. turns BEFORE the risky
+            # stand/lower pair when the robot starts the session up)
+            chosen = [s for s in only if s not in skip]
+        else:
+            chosen = [s for s in DEFAULT_STEPS if s not in skip]
         print(f"session {self.stamp} -> {self.out}")
         print(f"steps: {' '.join(chosen)}"
               + ("" if self.go else "   [DRY RUN — add --go]"))
-        if self.video and self.go:
+        if self.camera is not None and self.go:
+            self.recorder = CameraRecorder(self.out / "camera.mp4",
+                                           index=self.camera)
+            if not self.recorder.start():
+                self.recorder = None
+        elif self.video and self.go:
             print("\nVIDEO MODE — camera setup (then just film, no "
                   "typing beyond the go's):\n"
                   "  * tape measure flat on the floor along the walk "
@@ -447,8 +666,11 @@ class Session:
             else:
                 print("  * START RECORDING NOW, then press Enter")
                 ask("    recording?")
+        if self.video and self.go:
             # Sync anchor: video_review.py maps this announcement's
             # t_unix to a video timestamp and everything else follows.
+            # (--camera sessions sync exactly by t0_unix; the mark is
+            # kept as a redundant cross-check.)
             self.announce(f"bench blast session {self.stamp} sync mark")
         try:
             for s in chosen:
@@ -457,11 +679,23 @@ class Session:
         except KeyboardInterrupt:
             print("\nABORT: stopping any RL worker")
             self.req("POST", "/api/rl/stop", {})
+        except SessionAbort as e:
+            print(f"\nMOTION ABORTED: {e} — stopping any RL worker; "
+                  "remaining steps skipped")
+            self.summary["aborted"] = str(e)
+            self.req("POST", "/api/rl/stop", {})
         finally:
+            if self.recorder is not None:
+                meta = self.recorder.stop()
+                if meta:
+                    self.summary["camera"] = meta
             self.out.mkdir(parents=True, exist_ok=True)
             f = self.out / "summary.json"
             f.write_text(json.dumps(self.summary, indent=1))
             print(f"\nwrote {f}")
+            if self.summary.get("camera"):
+                print("next: python -m rl_move.scripts.video_review "
+                      f"--session {self.out}")
 
 
 def main() -> int:
@@ -488,10 +722,15 @@ def main() -> int:
                          "SPOKEN 5s countdown (8s for STAND); Ctrl-C "
                          "aborts and stops the robot. The operator "
                          "must be watching the robot the whole time.")
+    ap.add_argument("--camera", type=int, default=None, metavar="N",
+                    help="record the Mac's camera (device index N, 0 = "
+                         "built-in) for the whole session — implies "
+                         "--video minus the phone: exact unix-time sync, "
+                         "footage lands in the session dir as camera.mp4")
     args = ap.parse_args()
 
     s = Session(HexapodClient(args.base), args.go, args.rounds,
-                video=args.video, auto=args.auto)
+                video=args.video, auto=args.auto, camera=args.camera)
     s.run(args.only, args.skip)
     return 0
 

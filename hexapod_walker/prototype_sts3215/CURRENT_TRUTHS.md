@@ -265,12 +265,17 @@ both handoffs compose).
   identity, ramp==GoalGenerator, obs layout, SB3 parity); closed-loop
   sim smoke with the DEPLOYED numpy artifacts: flat-belly rise +111 mm,
   zero falls. deploy_adb.sh now also ships rl_walk_weights.json +
-  policies/. CAUTION: the operator independently activated a
-  PROFILE-LESS copy on the robot that morning (md5 6620705c) — it
-  would get the legacy +50mm/4s ramp, out-of-distribution for this
-  policy; re-push/re-select before STAND (HARDWARE.md bench-state
-  note). Awaiting its FIRST hardware run (next bench session — the
-  RL walk itself already ran 08-10, this port has not).
+  policies/. (The profile-less-copy trap was resolved by the 08-11
+  deploy_ssh re-push; bench_blast's info step verifies the profile.)
+  **FIRST hardware run HAPPENED 08-11 22:42 (unattended camera bench):
+  FAILED tilt_roll trip at 10.2° rel roll ~9 s in, during the
+  BELLY-CURL phase, currents low (0.27 A), runner limped clean. Sim
+  probe (6 det seeds, DR0): the same rise keeps |roll| ≤1.7° — the
+  hardware body rocks over the tucked legs, sim's doesn't. GENUINE
+  sim-to-real rocking gap; the 10° trip is CORRECT (raising it invites
+  a tip). Fix is training-side (rocking/tilt DR on rise ticks,
+  loaded-knee actuator axis) — do NOT bump the trip threshold and do
+  NOT blind-retry STAND on hardware.**
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so
@@ -375,9 +380,12 @@ both handoffs compose).
   untouched); off-wedge commands are refused if the wrapper is
   missing/disabled. Replay-parity locked by
   `rl_move/tests/test_rot60_runner.py` (obs-layout, full-circle +
-  hysteresis parity, real deployed weights); per-tick `rot60_k`
-  logged in the episode CSV for on-hardware replay checks. Awaiting
-  its FIRST hardware run (next bench session).
+  hysteresis parity, real deployed weights);   per-tick `rot60_k`
+  logged in the episode CSV for on-hardware replay checks. **FIRST
+  off-wedge hardware run HAPPENED 08-11 22:48 (tip1, BACKWARD 6 s):
+  the port WORKS (rot60:true, k engaged, terminal result logged) but
+  the walk FELL — peak 27° roll, tilt trip. One data point; needs reps
+  after the takeoff-transient story (below) is addressed.**
 - Tipped-start DR is default-ON everywhere (operator ruling 08-10,
   "ideally all runs would learn this capability", after the deployed
   walk's hardware runaway roll): `dr.tipped_start_prob=0.30` (scaled
@@ -391,11 +399,18 @@ both handoffs compose).
   lean recovery was already present — the hardware runaway is a
   sim-to-real pinning gap, HARDWARE.md). **tip1 then RAN ON HARDWARE
   4x (08-10 night): 1 runaway / 3 CLEAN level walks — a learned
-  policy has driven the robot; the pinned-leg signature did not
-  recur; obs pipeline verified bit-exact offline.** It is the ACTIVE
-  walk slot. Still open: the DISCRIMINATING same-floor A/B vs
-  vref1-r1 (the 08-10 attempt never switched policies — compare
-  roll-ramp rate over several runs) and an RL-walk tape reading.
+  policy has driven the robot; obs pipeline verified bit-exact
+  offline.** It is the ACTIVE walk slot. **08-11 eve correction
+  (robot's own event log + camera): in the 21:4x attended A/B, tip1
+  fwd tripped tilt_roll 2/3 — the bench summary's "done" entries were
+  kickoff responses, since fixed (terminal results now recorded).
+  Dominant on-camera signature for BOTH policies: a 20–25° TAKEOFF
+  roll transient right after gait start — sometimes fully recovered
+  (vref1 full-6s walk ending dead level, tail 0.9°), sometimes a fall
+  (vref1's 3rd runaway; tip1 backward). Judge walks by fell/tail, not
+  the peak-based "runaway" flag. Open: honest fell-rate A/B with the
+  unattended recovery loop; takeoff-transient hardening arm in sim
+  (inject the measured 20–25° start roll); wz sign audit.**
 - Quad-hold is solid but mixing erodes walk (four dose points) —
   deploy-time specialist, never a mixed diet. FOUR-LEG WALKING is a
   sanctioned NEW experiment line (operator 08-11 afternoon): weight

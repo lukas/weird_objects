@@ -1,0 +1,522 @@
+{
+ "stamp": "20260811_182430",
+ "video_mode": true,
+ "walks": [
+  {
+   "tag": "vref1-r1",
+   "vx": 0.05,
+   "t_start_unix": 1786487080.3,
+   "t_end_unix": 1786487092.57,
+   "result": {
+    "ok": true,
+    "mode": "walk",
+    "ticks": 150,
+    "vx_cmd": 0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 0,
+    "max_current_a": 0.8,
+    "overruns": 9,
+    "tilt_ref_deg": [
+     -0.7,
+     4.17
+    ],
+    "tilt_rel_max_deg": 15.7,
+    "roll_rel_end_deg": 14.1,
+    "pitch_rel_end_deg": -1.6,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 14.7,
+    "fell": false,
+    "log": "rl_walk_20260811_222442.csv"
+   },
+   "csv": "rl_walk_20260811_222442.csv",
+   "roll_q1_deg": -0.6,
+   "roll_q4_deg": 13.6,
+   "roll_peak_deg": 15.0,
+   "tail_peak_deg": 14.0,
+   "ramp_deg_per_s": 3.17,
+   "runaway": true
+  },
+  {
+   "tag": "tip1-r1",
+   "vx": 0.05,
+   "t_start_unix": 1786487098.18,
+   "t_end_unix": 1786487125.14,
+   "result": {
+    "ok": false,
+    "mode": "walk",
+    "error": "safety trip: over_load",
+    "limped": true,
+    "ticks": 57,
+    "vx_cmd": 0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 0,
+    "max_current_a": 2.92,
+    "overruns": 2,
+    "tilt_ref_deg": [
+     0.65,
+     4.38
+    ],
+    "tilt_rel_max_deg": 9.7,
+    "roll_rel_end_deg": -14.2,
+    "pitch_rel_end_deg": 5.7,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 15.0,
+    "fell": false,
+    "log": "rl_walk_20260811_222519.csv"
+   },
+   "csv": "rl_walk_20260811_222519.csv",
+   "roll_q1_deg": -1.4,
+   "roll_q4_deg": -6.4,
+   "roll_peak_deg": 9.0,
+   "tail_peak_deg": 14.4,
+   "ramp_deg_per_s": -2.95,
+   "runaway": true
+  },
+  {
+   "tag": "vref1-r2",
+   "vx": 0.05,
+   "t_start_unix": 1786487130.75,
+   "t_end_unix": 1786487159.36,
+   "result": {
+    "ok": false,
+    "mode": "walk",
+    "error": "safety trip: tilt_roll",
+    "limped": true,
+    "ticks": 82,
+    "vx_cmd": 0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 0,
+    "max_current_a": 0.44,
+    "overruns": 3,
+    "tilt_ref_deg": [
+     0.06,
+     4.4
+    ],
+    "tilt_rel_max_deg": 25.0,
+    "roll_rel_end_deg": -20.0,
+    "pitch_rel_end_deg": 6.9,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 24.0,
+    "fell": false,
+    "log": "rl_walk_20260811_222552.csv"
+   },
+   "csv": "rl_walk_20260811_222552.csv",
+   "roll_q1_deg": -2.2,
+   "roll_q4_deg": -18.8,
+   "roll_peak_deg": 25.0,
+   "tail_peak_deg": 23.9,
+   "ramp_deg_per_s": -6.83,
+   "runaway": true
+  },
+  {
+   "tag": "tip1-r2",
+   "vx": 0.05,
+   "t_start_unix": 1786487165.36,
+   "t_end_unix": 1786487190.77,
+   "result": {
+    "ok": false,
+    "mode": "walk",
+    "error": "safety trip: tilt_roll",
+    "limped": true,
+    "ticks": 77,
+    "vx_cmd": 0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 0,
+    "max_current_a": 1.12,
+    "overruns": 3,
+    "tilt_ref_deg": [
+     0.28,
+     3.4
+    ],
+    "tilt_rel_max_deg": 25.6,
+    "roll_rel_end_deg": -26.7,
+    "pitch_rel_end_deg": 2.1,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 26.7,
+    "fell": false,
+    "log": "rl_walk_20260811_222623.csv"
+   },
+   "csv": "rl_walk_20260811_222623.csv",
+   "roll_q1_deg": -3.3,
+   "roll_q4_deg": -19.5,
+   "roll_peak_deg": 25.3,
+   "tail_peak_deg": 26.4,
+   "ramp_deg_per_s": -7.11,
+   "runaway": true
+  },
+  {
+   "tag": "vref1-r3",
+   "vx": 0.05,
+   "t_start_unix": 1786487196.38,
+   "t_end_unix": 1786487222.92,
+   "result": {
+    "ok": false,
+    "mode": "walk",
+    "error": "safety trip: over_load",
+    "limped": true,
+    "ticks": 50,
+    "vx_cmd": 0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 0,
+    "max_current_a": 2.74,
+    "overruns": 1,
+    "tilt_ref_deg": [
+     1.54,
+     3.49
+    ],
+    "tilt_rel_max_deg": 6.3,
+    "roll_rel_end_deg": -7.8,
+    "pitch_rel_end_deg": 2.5,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 7.8,
+    "fell": false,
+    "log": "rl_walk_20260811_222656.csv"
+   },
+   "csv": "rl_walk_20260811_222656.csv",
+   "roll_q1_deg": -0.1,
+   "roll_q4_deg": -2.7,
+   "roll_peak_deg": 4.8,
+   "tail_peak_deg": 6.3,
+   "ramp_deg_per_s": -1.77,
+   "runaway": true
+  },
+  {
+   "tag": "tip1-r3",
+   "vx": 0.05,
+   "t_start_unix": 1786487228.67,
+   "t_end_unix": 1786487259.23,
+   "result": {
+    "ok": false,
+    "mode": "walk",
+    "error": "safety trip: over_load",
+    "limped": true,
+    "ticks": 99,
+    "vx_cmd": 0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 0,
+    "max_current_a": 2.65,
+    "overruns": 5,
+    "tilt_ref_deg": [
+     1.73,
+     0.79
+    ],
+    "tilt_rel_max_deg": 23.4,
+    "roll_rel_end_deg": 9.8,
+    "pitch_rel_end_deg": 12.7,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 14.5,
+    "fell": false,
+    "log": "rl_walk_20260811_222729.csv"
+   },
+   "csv": "rl_walk_20260811_222729.csv",
+   "roll_q1_deg": 1.5,
+   "roll_q4_deg": 16.9,
+   "roll_peak_deg": 25.1,
+   "tail_peak_deg": 16.2,
+   "ramp_deg_per_s": 5.24,
+   "runaway": true
+  },
+  {
+   "tag": "tape-tip1",
+   "vx": 0.05,
+   "t_start_unix": 1786487264.88,
+   "t_end_unix": 1786487277.09,
+   "result": {
+    "ok": false,
+    "error": "could not reach the start pose \u2014 could not reach zero start: LIMP \u2014 L2 yaw at 75 \u00b0C",
+    "mode": "walk"
+   },
+   "csv": "rl_walk_20260811_222729.csv",
+   "roll_q1_deg": 1.5,
+   "roll_q4_deg": 16.9,
+   "roll_peak_deg": 25.1,
+   "tail_peak_deg": 16.2,
+   "ramp_deg_per_s": 5.24,
+   "runaway": true
+  },
+  {
+   "tag": "rot60-back",
+   "vx": -0.05,
+   "t_start_unix": 1786487288.21,
+   "t_end_unix": 1786487306.42,
+   "result": {
+    "ok": false,
+    "mode": "walk",
+    "error": "safety trip: tilt_roll",
+    "limped": true,
+    "ticks": 70,
+    "vx_cmd": -0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 3,
+    "max_current_a": 0.25,
+    "overruns": 1,
+    "tilt_ref_deg": [
+     1.75,
+     -0.6
+    ],
+    "tilt_rel_max_deg": 25.1,
+    "roll_rel_end_deg": 25.9,
+    "pitch_rel_end_deg": 3.8,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 26.8,
+    "fell": false,
+    "log": "rl_walk_20260811_222818.csv"
+   },
+   "csv": "rl_walk_20260811_222818.csv",
+   "roll_q1_deg": 1.3,
+   "roll_q4_deg": 22.9,
+   "roll_peak_deg": 26.9,
+   "tail_peak_deg": 28.6,
+   "ramp_deg_per_s": 10.44,
+   "runaway": true
+  }
+ ],
+ "notes": [],
+ "events": [
+  {
+   "t_unix": 1786487074.06,
+   "text": "bench blast session 20260811_182430 sync mark"
+  },
+  {
+   "t_unix": 1786487074.74,
+   "text": "next: round 1: switch to vref1 and walk fwd 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487080.3,
+   "text": "walk vref1-r1 starting"
+  },
+  {
+   "t_unix": 1786487092.57,
+   "text": "walk vref1-r1 done"
+  },
+  {
+   "t_unix": 1786487092.67,
+   "text": "next: round 1: switch to tip1 and walk fwd 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487098.18,
+   "text": "walk tip1-r1 starting"
+  },
+  {
+   "t_unix": 1786487125.14,
+   "text": "walk tip1-r1 done"
+  },
+  {
+   "t_unix": 1786487125.22,
+   "text": "next: round 2: switch to vref1 and walk fwd 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487130.75,
+   "text": "walk vref1-r2 starting"
+  },
+  {
+   "t_unix": 1786487159.36,
+   "text": "walk vref1-r2 done"
+  },
+  {
+   "t_unix": 1786487159.76,
+   "text": "next: round 2: switch to tip1 and walk fwd 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487165.36,
+   "text": "walk tip1-r2 starting"
+  },
+  {
+   "t_unix": 1786487190.77,
+   "text": "walk tip1-r2 done"
+  },
+  {
+   "t_unix": 1786487190.85,
+   "text": "next: round 3: switch to vref1 and walk fwd 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487196.38,
+   "text": "walk vref1-r3 starting"
+  },
+  {
+   "t_unix": 1786487222.92,
+   "text": "walk vref1-r3 done"
+  },
+  {
+   "t_unix": 1786487223.06,
+   "text": "next: round 3: switch to tip1 and walk fwd 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487228.67,
+   "text": "walk tip1-r3 starting"
+  },
+  {
+   "t_unix": 1786487259.23,
+   "text": "walk tip1-r3 done"
+  },
+  {
+   "t_unix": 1786487259.33,
+   "text": "next: one more RL walk for the tape (mark the start point first). starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487264.88,
+   "text": "walk tape-tip1 starting"
+  },
+  {
+   "t_unix": 1786487277.09,
+   "text": "walk tape-tip1 done"
+  },
+  {
+   "t_unix": 1786487277.18,
+   "text": "tape walk done. point the camera straight down the tape for five seconds"
+  },
+  {
+   "t_unix": 1786487283.18,
+   "text": "next: backward walk 6s @ 0.05 m/s (rot60 wedge canonicalization). starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487288.21,
+   "text": "walk rot60-back starting"
+  },
+  {
+   "t_unix": 1786487306.42,
+   "text": "walk rot60-back done"
+  },
+  {
+   "t_unix": 1786487306.49,
+   "text": "next: scripted turn-in-place omega=+0.3 rad/s, 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487311.54,
+   "text": "turn sign omega +0.3 starting"
+  },
+  {
+   "t_unix": 1786487319.6,
+   "text": "turn sign omega +0.3 done"
+  },
+  {
+   "t_unix": 1786487319.6,
+   "text": "next: scripted turn-in-place omega=-0.3 rad/s, 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487324.62,
+   "text": "turn sign omega -0.3 starting"
+  },
+  {
+   "t_unix": 1786487342.63,
+   "text": "turn sign omega -0.3 done"
+  },
+  {
+   "t_unix": 1786487352.63,
+   "text": "next: RL LOWER (preflight-gated). starting in 8 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786487360.68,
+   "text": "learned lower starting"
+  },
+  {
+   "t_unix": 1786487370.68,
+   "text": "lower FAILED"
+  }
+ ],
+ "policies": [
+  {
+   "file": "dep_quad1_c2.json",
+   "name": "dep-quad1-c2 \u2014 walk + quad-trick lineage",
+   "slot": "walk",
+   "obs_dim": 72,
+   "source": "ppo_goal_cw_dep_quad1_c2.zip",
+   "notes": "Same contract lineage as vref1-r1 with a four-leg-stand trick trained in (front pair unloads on command \u2014 in sim only; the robot has no runner mode for the trick). Implication: on hardware this is just an alternative walk, never bench-tested \u2014 use as a curiosity A/B against tip1, not as the daily driver.",
+   "active": false
+  },
+  {
+   "file": "dep_tip1.json",
+   "name": "dep-tip1 walk (lean-recovery DR)",
+   "slot": "walk",
+   "obs_dim": 72,
+   "source": "ppo_goal_cw_dep_tip1.zip",
+   "notes": "dep-vref1-r1 + 2M steps of tipped-start DR: 30% of training episodes spawn already leaned 6-18 deg and the policy is paid to level out. Hardware 08-10/11: 3 clean walks, 1 runaway \u2014 better than the parent and it keeps all six legs cycling under lean instead of sacrificing one, but it is NOT immune to the roll ramp. Implication: the current best pick for driving at 0.05 m/s; walks in a low shuffle (commanded posture, known and cosmetic).",
+   "active": true
+  },
+  {
+   "file": "dep_vref1_r1.json",
+   "name": "dep-vref1-r1 \u2014 walk champion (hardware contract)",
+   "slot": "walk",
+   "obs_dim": 72,
+   "source": "ppo_goal_cw_dep_vref1_r1.zip",
+   "notes": "Walk champion of the deployment-contract line: trained on the exact robot interface \u2014 no real velocity feedback (meas:=ref), 25-deg tilt envelope, 0.05-0.06 m/s band. Hardware 08-10: walks, but twice built a runaway sideways lean ending in a tip (pinned-leg positive feedback). Implication: fine for short A/B runs, but expect a possible roll ramp \u2014 hit X the moment it leans past ~15 deg.",
+   "active": false
+  },
+  {
+   "file": "stance_dr10.json",
+   "name": "stance_dr10 \u2014 stance champion",
+   "slot": "stance",
+   "obs_dim": 68,
+   "source": "ppo_goal_cw_stance_dr10.zip",
+   "notes": "Pre-deployment-contract stance champion (rise/hold/lower at full DR in sim). Hardware 08-10: its stand-up does NOT transfer \u2014 legs do air geometry with no ground force, then a knee stalls (trained before the rate clamp + self-collision limits were in the sim). Implication: keep only as fallback for Lower/holds; never use its RL Stand up \u2014 the Experiments-tab tuck is the stand-up.",
+   "active": false
+  },
+  {
+   "file": "stand_holdbc1_hard1.json",
+   "name": "holdbc1-hard1 stand/sit (HOLD+RISE 10M)",
+   "slot": "stance",
+   "obs_dim": 68,
+   "source": "ppo_goal_cw_stand_holdbc1_hard1.zip",
+   "notes": "EXPERIMENTAL on hardware \u2014 watch it. Overnight 08-11 HOLD+RISE+LOWER specialist: quiet six-foot hold (feet factor 0.99-1.0), belly-to-plant rise tracks a recorded reference, trained lower/sit. Sim: hold 11/12 valid, crouch-start rise still tips 2/4 \u2014 NOT hardware-validated, no deployment-contract flags. Try SIT and HOLD first; for stand-up keep a hand ready and use Experiments tab tuck as the known-good fallback. Meta carries the TRAINED goal ramp (hold 5s, ramp 6s, +111mm): re-select/push this file before STAND \u2014 the 08-11-morning copy (md5 6620705c) lacks it and the runner falls back to the legacy +50mm/4s ramp, an out-of-distribution command for this policy.",
+   "active": true
+  }
+ ],
+ "stand_profile_ok": true,
+ "ab_tally": {
+  "vref1": {
+   "runs": 3,
+   "runaways": 3
+  },
+  "tip1": {
+   "runs": 3,
+   "runaways": 3
+  }
+ },
+ "tape": {
+  "policy": "tip1",
+  "commanded_mm": 300.00000000000006,
+  "measured_mm": null,
+  "from_video": true
+ },
+ "turnsign": [
+  {
+   "omega": 0.3,
+   "observed": "video",
+   "t_start_unix": 1786487311.54,
+   "t_end_unix": 1786487319.6
+  },
+  {
+   "omega": -0.3,
+   "observed": "video",
+   "t_start_unix": 1786487324.62,
+   "t_end_unix": 1786487342.63
+  }
+ ],
+ "lower": {
+  "kick": {
+   "ok": false,
+   "error": "<urlopen error timed out>"
+  },
+  "ok": false
+ },
+ "camera": {
+  "video": "camera.mp4",
+  "t0_unix": 1786487074.056,
+  "fps": 15.0,
+  "frames": 4450
+ }
+}

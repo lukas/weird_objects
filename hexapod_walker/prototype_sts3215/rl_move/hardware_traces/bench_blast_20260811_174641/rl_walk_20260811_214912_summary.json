@@ -1,0 +1,80 @@
+{
+ "started": "2026-08-11T21:49:12",
+ "csv": "rl_walk_20260811_214912.csv",
+ "ticks_logged": 138,
+ "params": {
+  "mode": "walk",
+  "total_s": 6.0,
+  "hz": 25.0,
+  "policy": {
+   "source": "rl_move/sim/policies/ppo_goal_cw_dep_tip1.zip",
+   "name": "dep-tip1 walk (lean-recovery DR)",
+   "notes": "dep-vref1-r1 + 2M steps of tipped-start DR: 30% of training episodes spawn already leaned 6-18 deg and the policy is paid to level out. Hardware 08-10/11: 3 clean walks, 1 runaway \u2014 better than the parent and it keeps all six legs cycling under lean instead of sacrificing one, but it is NOT immune to the roll ramp. Implication: the current best pick for driving at 0.05 m/s; walks in a low shuffle (commanded posture, known and cosmetic).",
+   "obs_dim": 72,
+   "act_dim": 18,
+   "hidden": [
+    128,
+    128
+   ],
+   "activation": "tanh"
+  },
+  "q_nom_deg": [
+   0.09,
+   17.31,
+   79.28,
+   0.62,
+   14.59,
+   78.22,
+   0.18,
+   16.96,
+   78.05,
+   0.35,
+   16.52,
+   78.93,
+   0.0,
+   18.54,
+   79.45,
+   -0.79,
+   17.67,
+   77.61
+  ],
+  "tilt_ref_deg": [
+   4.93,
+   4.23
+  ],
+  "tilt_trip_deg": 25.0,
+  "preflight": {
+   "roll_deg": 4.8,
+   "pitch_deg": 4.3,
+   "max_pose_delta_deg": 2.6,
+   "pose_tol_deg": 25.0
+  },
+  "vx": 0.05,
+  "vy": 0.0,
+  "rot60": true
+ },
+ "result": {
+  "ok": false,
+  "mode": "walk",
+  "error": "safety trip: tilt_roll",
+  "limped": true,
+  "ticks": 108,
+  "vx_cmd": 0.05,
+  "vy_cmd": 0.0,
+  "duration_s": 6.0,
+  "rot60": true,
+  "rot60_k_end": 0,
+  "max_current_a": 0.62,
+  "overruns": 14,
+  "tilt_ref_deg": [
+   4.93,
+   4.23
+  ],
+  "tilt_rel_max_deg": 25.4,
+  "roll_rel_end_deg": -6.9,
+  "pitch_rel_end_deg": -2.0,
+  "tail_s": 3.0,
+  "tail_tilt_max_deg": 25.2,
+  "fell": false
+ }
+}

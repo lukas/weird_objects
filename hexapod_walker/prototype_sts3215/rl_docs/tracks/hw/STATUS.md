@@ -9,26 +9,48 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- **A learned policy HAS driven the robot (08-10 night, HARDWARE.md):**
-  `dep-tip1` 3 clean level walks / 1 runaway; parent `vref1-r1` 0/2
-  with runaway roll (pinned-leg feedback, sim-to-real contact gap —
-  sim recovery exploits skating feet, rubber on grip can't). Obs
-  pipeline verified bit-exact. Do NOT describe RL walking as
-  "pending bench time" — the open question is the intermittent
-  runaway, not whether it walks.
-- Sim side solved: rise + quiet hold (stand_holdbc1_hard1), rot-60
-  full-circle wrapper, full cycle rise→walk→stop→sit composes with
-  zero falls. rot60 + stand specialist are PORTED but not yet
-  hardware-run (deploy re-push required; stale on-robot stand copy
-  lacks its goal profile — never press STAND on it).
+- **08-11 eve: fully-unattended camera bench IS the workflow now**
+  (`bench_blast --go --auto --camera 0`: iMac camera records the whole
+  session, exact unix sync, video_review cuts the sheets; fall-detect →
+  safe_zero → stand recovery loop; terminal results recorded, never
+  kickoff responses). Three unattended sessions run 08-11 eve
+  (hardware_traces/bench_blast_20260811_18*).
+- **Walking on hardware (08-11 eve, on camera):** both policies show a
+  large TAKEOFF roll transient. vref1-r1: one clean-start fall (its 3rd
+  runaway) and one full-6s walk that rode a 23–24° early transient and
+  recovered to dead level — the "runaway" flag conflates recoverable
+  transients with tips; judge by fell/tail. tip1 fwd tripped tilt_roll
+  2/3 in the 21:4x attended A/B (robot's own log; the old "3 clean
+  walks" summary was kickoff-response fiction). **First off-wedge rot60
+  run (tip1 BACKWARD): FELL** (peak 27°) — rot60 port itself works
+  (k engaged, terminal result logs it).
+- **Stand specialist port: first honest hardware run FAILED with a
+  REAL gap** (08-11 22:42): tilt_roll trip at 10.2° during the
+  belly-curl. Sim probe: the same rise keeps roll ≤1.7° across 6 det
+  seeds — hardware rocks over the tucked legs, sim doesn't. Trip
+  threshold is correct; fix is training-side (rocking/tilt DR on rise
+  ticks, loaded-knee actuator), NOT a threshold bump.
+- 08-11 22:29 incident (resolved): unattended session 1 had no upright
+  gate between steps → post-fall walks/turns ground the sprawled legs →
+  board brownout; operator power-cycled, 18/18 healthy. The recovery
+  loop + SessionAbort added in response and validated live in session 3.
 
 ## Next
 
-- Next bench session (operator-supervised): vref1-r1 vs tip1 same-
-  floor A/B (roll-ramp RATE, runaways per N — the 08-10 A/B never
-  actually switched policies), RL-walk tape reading, first runs of
-  rot60 + stand specialist after the re-push, wz sign audit. If tip1
-  also runs away: sim contact/pinning model (no-skate feet), not DR.
+- Sim-side (launchable): (1) rise-tick rocking robustness — train the
+  stand specialist with roll/tilt perturbation DR during the curl
+  (loaded-knee actuator params as a second axis); gate = rise under
+  ±10° rocking injections. (2) Takeoff-transient hardening for walk —
+  episodes starting at the plant with the measured 20–25° takeoff roll
+  injected; both policies must recover like vref1-r1-184741 did.
+  (3) rot60 backward: one fall is one data point — needs reps, but
+  after (2).
+- Bench (cheap, unattended OK now): more fwd A/B reps with the
+  recovery loop to get honest fell-rates per policy; wz turn-sign
+  audit (still open — both attempts died to the brownout/abort);
+  learned-lower retry ONLY after the over_load trip is understood.
+- Runaway metric fix in bench_blast: split "recovered transient"
+  (peak high, tail level) from "fell" (terminal result / tail high).
 - Gait cleanup (anti-scrape): P0 diagnostic DONE 08-11 late (tilt
   penalties exonerated; paddle is a sim-effectiveness optimum —
   GAIT.md bottom). Structural per-stance charge, FROM SCRATCH
