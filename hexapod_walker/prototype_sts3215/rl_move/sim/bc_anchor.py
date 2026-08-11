@@ -108,6 +108,14 @@ def make_bc_anchor_ppo_class(base_cls=None):
                      mode: int = 0) -> None:
             if not hasattr(self, "_bc_obs"):
                 self._bc_init_buffer(int(np.asarray(obs).shape[-1]))
+            if not hasattr(self, "_bc_mode"):
+                # Warm-start backfill: checkpoints trained before the
+                # mode tag PICKLE their _bc_obs/_bc_act buffers into
+                # the zip, so hasattr(_bc_obs) is True on load and
+                # _bc_init_buffer never runs (bit cw-stand-anchormix1
+                # on its first launch: AttributeError on tick one).
+                self._bc_mode = np.zeros(self._bc_obs.shape[0],
+                                         dtype=np.int8)
             cap = self._bc_obs.shape[0]
             self._bc_obs[self._bc_i] = obs
             self._bc_act[self._bc_i] = act

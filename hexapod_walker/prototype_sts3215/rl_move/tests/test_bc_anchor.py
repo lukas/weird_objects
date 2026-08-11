@@ -302,6 +302,22 @@ def test_stratified_sampling_balances_modes():
     assert len(idx) == 512
 
 
+def test_push_backfills_mode_on_legacy_warm_start():
+    """Checkpoints trained before the mode tag pickle _bc_obs/_bc_act
+    into the zip, so on warm-start hasattr(_bc_obs) is True and the
+    lazy init never runs — _bc_mode must be backfilled on the first
+    push (bit cw-stand-anchormix1's first launch: AttributeError on
+    tick one)."""
+    model = _tiny_model(coef=1.0)
+    model._bc_push(np.zeros(12, dtype=np.float32),
+                   np.zeros(18, dtype=np.float32))
+    del model._bc_mode                     # emulate the legacy pickle
+    model._bc_push(np.zeros(12, dtype=np.float32),
+                   np.ones(18, dtype=np.float32), mode=2)
+    assert model._bc_mode.shape[0] == model._bc_obs.shape[0]
+    assert model._bc_mode[model._bc_i - 1] == 2
+
+
 def test_lower_anchor_default_off():
     """Lower ticks emit NOTHING unless train.bc_anchor_lower opts in —
     coef alone must not change any existing run's data stream."""
