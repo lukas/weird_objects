@@ -834,3 +834,47 @@ belly → STAND button (operator watching, 10° trip, 2.5 A trip) →
 verify quiet hold → WALK button forward (existing captured-plant
 preflight gates the pose) → go_zero("sit"). Every episode logs
 obs+profile to CSV for offline replay parity.
+
+### `cw-stand-crouchrise1` (08-11) — crouch fragility FIXED by
+### start-mix bias; promotion declined on the hold current bar
+
+Binary question: does biasing the rise START DISTRIBUTION (60%
+crouch / 30% partial / 10% flat vs legacy 25/40/35; keys
+`goal.rise_flat_frac` / `rise_partial_frac`) fix the lineage's one
+residual defect — crouch-start tip-overs — where more undifferentiated
+budget only nudged it (2/6 → 2/4)? Answer: YES, decisively.
+
+- Gate harness (DR0, det+sto, seed 0): rise det 6/6 valid_plant
+  (crouch 5/5, bridge 1/1), sto 6/6 success (3 current-only vp
+  flags); hold det 6/6 vp; ZERO terminations in all 36 episodes.
+- Dig-in RSI-off ALL-CROUCH probe (seed 1, `rise_rsi_frac=0`, 8 det
+  + 8 sto), matched-parent control on `holdbc1_hard1`, same seed and
+  cfg (`logs/ckpt_eval/{crouchrise1,hard1}_rsioff_crouch`):
+  child **det 8/8 valid_plant, 16/16 stands, zero falls**; parent
+  **det 0/8 with 8/8 tilt_roll falls** (sto parent 7/8 — the det
+  policy is where the fragility lived). The RSI-on gate numbers had
+  been flattering the parent; RSI-off shows the true gap.
+- Videos honest both checkpoints' passing episodes: crouch/bridge →
+  progressive leg gathering → level six-foot stand, no
+  flag-leg/tripod/stilt.
+
+MISSED pre-registered bar: hold det+sto valid_plant 7/12 (needed
+>=10/12). Every miss is the PLANT_SPEC final-0.5s-tail current soft
+flag (>2.0A) under sto — hold sto 1/6 vp vs parent 5/6; det episode
+Imax 2.31A vs parent 1.96A. Posture, stillness, feet, height are
+identical to the parent (end_posture 12/12, worst clearance 2–10mm,
+track_err 0.19° det). Real but small current-hungriness increase on
+a sim metric CURRENT_TRUTHS marks untrusted (sim hold 0.11A vs real
+0.59A). Per the gate's own terms: **no promotion** —
+`ppo_goal_cw_stand_holdbc1_hard1` stays the deployed stance policy;
+`ppo_goal_cw_stand_crouchrise1` (md5 3877e16c) is pulled to the
+controller and banked as the crouch-robust variant. Track-mode sto
+also dipped (1/6 vp, current flags only) — same fingerprint, same
+non-gated status as the parent's known track weakness.
+
+Lesson worth keeping: after seven reward-mechanism failures and two
+budget passes, the lever that finally killed a start-kind fragility
+was the START DISTRIBUTION, one cfg key, 2M steps. Stand lineage now
+fully closed: rise (all start kinds, between the two checkpoints),
+hold, lower, both handoffs — all sim-solved; remaining work is
+bench-owned.

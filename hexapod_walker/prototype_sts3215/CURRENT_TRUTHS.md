@@ -164,6 +164,15 @@ both handoffs compose).
   baseline band, the scripted 1.5 s blend adds nothing; holds on air
   AND loaded servo physics. Crouch-start rises still tip PRE-handoff
   (0/6 RSI-off, known fragility; flat+bridge rises 12/12).
+  **08-11 later: the crouch fragility is FIXED by start-mix bias**
+  (`cw-stand-crouchrise1`, 60% crouch starts vs legacy 25%; RSI-off
+  all-crouch probe 16/16 stands, det 8/8 valid_plant, ZERO falls vs
+  hard1's 0/8 with 8/8 tilt falls, matched control) — but NOT
+  promoted: it missed the pre-registered hold no-regression bar
+  (hold sto valid_plant current-tail flags 5/6 vs hard1 1/6; posture/
+  stillness identical). hard1 STAYS the deployed stance policy;
+  `ppo_goal_cw_stand_crouchrise1` (md5 3877e16c) is banked if bench
+  shows crouch starts matter. Stand lineage now fully CLOSED.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict

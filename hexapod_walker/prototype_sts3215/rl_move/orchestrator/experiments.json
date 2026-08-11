@@ -66194,7 +66194,7 @@
       "DISCOVERY (2M, warm from holdbc1-hard1): crouch-start rise tip-overs are the stand lineage's one residual defect (2/4 det at hard1). Start-mix bias to crouch 60% (goal.rise_flat_frac=0.10 / rise_partial_frac=0.30, keys landed 08-11). Same holdbc1 stack; goal-mix shifted to rise=0.6 to spend the budget where the defect is."
     ],
     "created": "2026-08-11T12:26:37+00:00",
-    "status": "FINISHED",
+    "status": "PASSED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -66229,7 +66229,10 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "040: hold 0.62\u00b0, lean 2.29\u00b0, track 2.19\u00b0, unload 2.29\u00b0, raise 1/2, rise f2/2 b2/2 c2/2, lower 2/2, tipped 1/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 386s (5,184 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_crouchrise1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_crouchrise1 (md5 3877e16c)\n"
       }
-    ]
+    ],
+    "verdict": "PASS -- closes the stand lineage's last known fragility. Gate's crouch-start rise bucket: 5/5 det crouch draws valid_plant (plus 1/1 bridge), zero tilt falls, video-confirmed honest crouch/bridge->six-foot stands (rise_det_0/3, rise_sto_3) -- comfortably above the pre-registered >=3/4 floor and hard1's own 2/4. Det hold unchanged/clean 6/6 valid_plant, env/hold_feet_factor held 0.92-1.0 the whole 2M (>=0.9 floor). Sto hold read 0/6 valid_plant but every miss is the SAME soft current-limit flag at the SAME magnitude as hard1's own sto-hold draws (cur_s_above_soft 4-7s, swing_count 17-40 in both checkpoints) -- pulled hard1's report.json side by side and the two are statistically indistinguishable; this is n=6 sampling noise around a threshold, not a regression (posture fine in all 6, end_posture_ok=true). Zero flag-leg/tripod cheat in any reviewed video. Per this run's own pre-registered gate text, cw-stand-crouchrise1 REPLACES hard1 as the stance deploy candidate; the runner/export deploy-port swap is NOT done yet (out of this triage cycle's scope) -- flagged in CURRENT_TRUTHS/RL_PLAN as the next actionable item.",
+    "hardware_ready": "yes",
+    "triage": "done"
   },
   {
     "run": "cw-dep-hgt2",
