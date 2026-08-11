@@ -1016,9 +1016,28 @@ supervision on LOWER ticks toward the lower bank's own honest
 demonstration — a per-tick `FixedFootBodyIK` descent anchored at the
 settled stance, body at the next commanded height; tests pin
 default-off, IK-exact emission, and a feet-planted chained descent,
-`rl_move/tests/test_bc_anchor.py`, all pass) launched and running.
-Tests the shared-fingerprint hypothesis directly: if lower-mode
-dangling and the hold-park are the same taught habit, fixing lower
-should also move leg-1's hold duty; if not, they're independent
-mechanisms and the unified line falls back to hard1 + specialist
-handoff.
+`rl_move/tests/test_bc_anchor.py`, all pass) **RAN: LOWER SOLVED, hold
+park REGRESSED — outside every pre-registered branch, and it names
+the next mechanism.** The IK-descent anchor delivered det lower 6/6
+AND sto lower 6/6 (from 2/6, zero falls anywhere det) — the lower-bank
+xfail lever works exactly as specced, sitting/lowering is done. But
+det-hold duty flipped BACK to a two-leg park ([1.0, 0.02, 0.89, 1.0,
+0.02, 0.91]) — leg 4 was recovered (0.93–0.95) in anchorstate1/2, now
+parks again, and det flat rise re-stalled 96mm short (worse than
+anchorstate1's 62mm). This REFUTES the "independent mechanisms"
+PARTIAL-branch premise: the park did move, but WITH the lower-anchor
+mix, not because of a shared taught habit. Root cause: all three
+per-mode anchors (rise/hold/lower) share ONE ring buffer and ONE MSE
+step with uniform sampling, so each mode's effective supervision
+strength is proportional to its emission share — adding thousands of
+lower pairs diluted the rise/hold gradient. **ANCHOR DILUTION** is a
+new, directly testable mechanism (not another blind pricing/dose
+retune). Follow-up (specced + running): `cw-stand-anchormix1`
+(`train.bc_anchor_stratified=1.0`, mode-tagged ring buffer with equal
+per-mode minibatch quotas, everything else frozen at loweranchor1) —
+if stratified sampling recovers hold+rise while keeping lower's 6/6,
+the unified stance line is SOLVED; if the park still moves with the
+mix even at equal quotas, dilution is wrong/incomplete and the next
+step is inspecting `train/bc_anchor_loss` per mode. hard1 stays
+deployed meanwhile; `ppo_goal_cw_stand_loweranchor1` is the strongest
+lower-specialist checkpoint to date if one is ever wanted standalone.

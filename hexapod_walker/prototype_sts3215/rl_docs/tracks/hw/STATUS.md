@@ -103,6 +103,14 @@ unresolved blockers between the robot and reliable joystick control.
   run in a row, lookahead axis now EXHAUSTED for the park.**
   Follow-up `cw-stand-loweranchor1` (BC-anchor the LOWER ticks toward
   the lower bank's own honest IK descent — the last undocumented
-  incentive gap) launched, running. hard1 stays deployed. RISE.md.
+  incentive gap) **SOLVED lower (det+sto 6/6, zero falls, from 2/6)
+  but REGRESSED hold to a two-leg park + re-stalled flat rise 96mm —
+  root cause found: the three per-mode BC anchors share one ring
+  buffer/uniform sampling, so lower's pair volume diluted rise/hold
+  supervision (ANCHOR DILUTION, a new testable mechanism, not the
+  shared-habit theory).** `cw-stand-anchormix1` (stratified per-mode
+  minibatch sampling, equal quotas) is the direct fix, now running as
+  `-r1` after a warm-start attribute crash on first launch (fixed in
+  bc_anchor.py). hard1 stays deployed. RISE.md.
 
 Detail: RL_PLAN.md queue · rl_docs/HARDWARE.md · RISE.md · GAIT.md.

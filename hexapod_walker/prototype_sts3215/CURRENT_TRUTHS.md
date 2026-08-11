@@ -243,8 +243,19 @@ both handoffs compose).
   Follow-up `cw-stand-loweranchor1` (new lever: BC-anchor the LOWER
   ticks toward the lower bank's own honest IK descent — the one
   documented incentive gap not yet attacked, since leg-1's hold-park
-  shares the dangling-leg class with det-lower's shortfall) launched
-  and running. Detail: rl_docs/RISE.md.
+  shares the dangling-leg class with det-lower's shortfall) **RAN:
+  LOWER SOLVED (det+sto 6/6, zero falls, from 2/6) but hold park
+  REGRESSED to a two-leg version and flat rise re-stalled 96mm —
+  outside every pre-registered branch.** Root cause identified: rise/
+  hold/lower anchors share ONE ring buffer + uniform sampling, so
+  adding thousands of lower pairs diluted the rise/hold gradient
+  (ANCHOR DILUTION, not a shared taught habit). Follow-up
+  `cw-stand-anchormix1` (`train.bc_anchor_stratified=1.0`, equal
+  per-mode minibatch quotas) launched to test the dilution fix
+  directly; first launch crashed on a warm-start attribute bug
+  (fixed, `train.bc_anchor.py` backfills `_bc_mode` on load) and is
+  now running as `cw-stand-anchormix1-r1`. hard1 stays deployed.
+  Detail: rl_docs/RISE.md.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict
