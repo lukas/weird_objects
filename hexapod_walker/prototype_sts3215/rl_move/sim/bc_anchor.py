@@ -66,6 +66,10 @@ Knobs (set via attach_bc_anchor / cfg):
   train.bc_anchor_minibatches  aux minibatches per update (default 8)
   train.bc_anchor_batch_size   aux minibatch size (default 4096)
   train.bc_anchor_buffer       ring capacity in pairs (default 131072)
+  train.bc_anchor_stratified   equal per-mode minibatch quotas
+                               (default 0 = legacy uniform; see
+                               _bc_sample_idx for the loweranchor1
+                               dilution measurement that motivates it)
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs).
@@ -96,17 +100,42 @@ def make_bc_anchor_ppo_class(base_cls=None):
             cap = int(getattr(self, "bc_buffer_cap", 131072))
             self._bc_obs = np.zeros((cap, obs_dim), dtype=np.float32)
             self._bc_act = np.zeros((cap, N_ACT), dtype=np.float32)
+            self._bc_mode = np.zeros(cap, dtype=np.int8)
             self._bc_n = 0          # valid rows
             self._bc_i = 0          # write cursor
 
-        def _bc_push(self, obs: np.ndarray, act: np.ndarray) -> None:
+        def _bc_push(self, obs: np.ndarray, act: np.ndarray,
+                     mode: int = 0) -> None:
             if not hasattr(self, "_bc_obs"):
                 self._bc_init_buffer(int(np.asarray(obs).shape[-1]))
             cap = self._bc_obs.shape[0]
             self._bc_obs[self._bc_i] = obs
             self._bc_act[self._bc_i] = act
+            self._bc_mode[self._bc_i] = mode
             self._bc_i = (self._bc_i + 1) % cap
             self._bc_n = min(self._bc_n + 1, cap)
+
+        def _bc_sample_idx(self, rng, n: int, bs: int) -> np.ndarray:
+            """Minibatch indices. Legacy: uniform over the ring — the
+            per-mode gradient share is then proportional to emission
+            share, which is the DILUTION mechanism cw-stand-loweranchor1
+            measured (adding lower pairs regressed the hold park leg 4
+            from 0.95 back to 0.02 and re-stalled flat rise: hold/rise
+            supervision weakened exactly when a third mode joined the
+            buffer). Stratified (bc_stratified): equal quotas per mode
+            PRESENT in the buffer, so each skill's anchor keeps full
+            strength regardless of the goal/emission mix."""
+            if not getattr(self, "bc_stratified", False):
+                return rng.integers(0, n, size=bs)
+            modes = np.unique(self._bc_mode[:n])
+            quota = bs // len(modes)
+            parts = [rng.choice(np.flatnonzero(self._bc_mode[:n] == m),
+                                size=quota, replace=True)
+                     for m in modes]
+            rem = bs - quota * len(modes)
+            if rem:
+                parts.append(rng.integers(0, n, size=rem))
+            return np.concatenate(parts)
 
         def train(self) -> None:
             super().train()
@@ -122,7 +151,7 @@ def make_bc_anchor_ppo_class(base_cls=None):
             rng = np.random.default_rng(self.num_timesteps)
             last = 0.0
             for _ in range(n_mb):
-                idx = rng.integers(0, n, size=bs)
+                idx = self._bc_sample_idx(rng, n, bs)
                 th_obs = torch.as_tensor(self._bc_obs[idx], device=dev)
                 th_act = torch.as_tensor(self._bc_act[idx], device=dev)
                 mean = self.policy.get_distribution(
@@ -158,7 +187,7 @@ def make_bc_collect_callback():
                 t = info.get("bc_target")
                 if t is None or (dones is not None and dones[i]):
                     continue
-                push(new_obs[i], t)
+                push(new_obs[i], t, int(info.get("bc_mode", 0)))
             return True
 
     return BCAnchorCollectCallback()
@@ -186,6 +215,8 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
                 "missing — the env would never emit a bc_target and the "
                 "anchor would silently no-op")
     model.bc_coef = float(coef)
+    model.bc_stratified = float(cfg_get(
+        cfg, "train", "bc_anchor_stratified", default=0.0)) > 0.0
     model.bc_minibatches = int(float(cfg_get(
         cfg, "train", "bc_anchor_minibatches", default=8)))
     model.bc_batch_size = int(float(cfg_get(

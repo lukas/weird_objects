@@ -2127,6 +2127,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 _bc_jn = min(_bc_j + _bc_ahead, len(_bc_ref["q"]) - 1)
                 info["bc_target"] = q_rad_to_action(
                     _bc_ref["q"][_bc_jn]).astype(np.float32)
+                info["bc_mode"] = 0    # rise (stratified sampling tag)
         # HOLD/TRACK BC-anchor target (RL_PLAN queue 2.3, 08-11): the
         # rise lever repeated after two hold pricing misses (hard zero,
         # then a linear fade) neither reached a quiet plant. Hold/track
@@ -2141,6 +2142,7 @@ class SimHexapodBalanceEnv(_GymBase):
             from .joint_task import q_rad_to_action
             info["bc_target"] = q_rad_to_action(
                 self._q_nom).astype(np.float32)
+            info["bc_mode"] = 1        # hold/track
         # LOWER BC-anchor target (08-11, cfg train.bc_anchor_lower,
         # default 0 = legacy no-emission). The lower bank's strict
         # xfail pins the pricing gap (one-leg-aloft keeps ~85% of
@@ -2173,6 +2175,7 @@ class SimHexapodBalanceEnv(_GymBase):
             if _res.ok:
                 info["bc_target"] = q_rad_to_action(
                     _res.q_rad).astype(np.float32)
+                info["bc_mode"] = 2    # lower
         # WALK BC-anchor target (08-11, probe_walk_income follow-up):
         # the scripted TripodGait's joint pose one control tick ahead,
         # driven by the LIVE blended command (vx/vy/wz ref) — so the
@@ -2209,6 +2212,7 @@ class SimHexapodBalanceEnv(_GymBase):
                         self._step_i * self.dt)) * DEG2RAD
                     info["bc_target"] = q_rad_to_action(
                         _q_bc).astype(np.float32)
+                    info["bc_mode"] = 3    # walk
         if self._state.servo_current is not None:
             info["mean_current_a"] = float(
                 np.mean(np.abs(self._state.servo_current)))

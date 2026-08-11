@@ -252,6 +252,56 @@ def test_no_hold_target_when_coef_zero():
     assert "bc_target" not in info
 
 
+def test_emission_carries_mode_tags():
+    """Every emitted target carries its mode tag (rise 0, hold/track 1,
+    lower 2) — the stratified sampler's stratum key. Untagged legacy
+    pairs default to 0 in the callback, so the tag is load-bearing
+    only when stratified sampling is on."""
+    cases = (("rise", 0), ("hold", 1), ("track", 1), ("lower", 2))
+    for mode, want in cases:
+        extra = {("train", "bc_anchor_coef"): 1.0}
+        if mode == "lower":
+            extra[("train", "bc_anchor_lower")] = 1.0
+        env = _make_env(13, extra, only_mode=mode)
+        env.reset()
+        hold = q_rad_to_action(env.data.qpos[env._qadr])
+        _o, _r, _t, _tr, info = env.step(hold)
+        assert "bc_target" in info, f"{mode} tick emitted no target"
+        assert info.get("bc_mode") == want, (
+            f"{mode} tick tagged bc_mode={info.get('bc_mode')}, "
+            f"want {want}")
+        env.close()
+
+
+def test_stratified_sampling_balances_modes():
+    """The loweranchor1 dilution mechanism, pinned: with uniform
+    sampling a mode's gradient share tracks its emission share (a
+    50:1 buffer imbalance gives the rare mode ~2% of the minibatch);
+    with bc_stratified each mode present draws an equal quota."""
+    model = _tiny_model(coef=1.0)
+    rng_obs = np.random.default_rng(0)
+    for _ in range(1000):
+        model._bc_push(rng_obs.uniform(size=12).astype(np.float32),
+                       np.zeros(18, dtype=np.float32), mode=1)
+    for _ in range(20):
+        model._bc_push(rng_obs.uniform(size=12).astype(np.float32),
+                       np.ones(18, dtype=np.float32), mode=2)
+    rng = np.random.default_rng(7)
+    model.bc_stratified = False
+    idx = model._bc_sample_idx(rng, model._bc_n, 512)
+    rare_uniform = float(np.mean(model._bc_mode[idx] == 2))
+    assert rare_uniform < 0.10, (
+        f"uniform sampling gives the rare mode {rare_uniform:.0%} — "
+        f"the dilution premise itself is broken")
+    model.bc_stratified = True
+    idx = model._bc_sample_idx(rng, model._bc_n, 512)
+    rare_strat = float(np.mean(model._bc_mode[idx] == 2))
+    assert 0.40 <= rare_strat <= 0.60, (
+        f"stratified sampling gives the rare mode {rare_strat:.0%}, "
+        f"want ~50%")
+    assert len(idx) == 512
+
+
 def test_lower_anchor_default_off():
     """Lower ticks emit NOTHING unless train.bc_anchor_lower opts in —
     coef alone must not change any existing run's data stream."""
