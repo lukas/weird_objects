@@ -64515,7 +64515,7 @@
       "dr.tipped_start_prob=0.30"
     ],
     "created": "2026-08-11T01:49:32+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -64524,11 +64524,126 @@
       "code_sha_local": "e8350261bbfc8cdf1965c2fadcf7f53b5a29ba62",
       "code_sha_pod": "e8350261bbfc8cdf1965c2fadcf7f53b5a29ba62",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3582568",
+      "log_growth_bytes": [
+        8727,
+        14411
+      ],
+      "wandb_id": "fxxj3e59",
+      "global_step_window": [
+        655360,
+        1638400
+      ],
+      "fps_estimate": 10922.7
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-tip1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_vref1_r1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_tip1 --notes 'respec of cw-dep-vref1-r1: DISCOVERY (2M, warm from the deployed walk champion): tipped-start DR (dr.tipped_start_*, landed 08-10 \u2014 plant/park episodes begin at a settled 6-18deg body roll with a LEVEL tilt reference) teaches sustained-lean recovery, the capability whose absence rolled the deployed walk into the 25deg trip on hardware (HARDWARE.md runaway roll 08-10). Full dose 0.30 vs the dr-scale default 0.105. Parent baseline SCORE/tipped_recovery_success = 0.25 (12deg dose, 4 eps, probe 08-10). Requeue of the 08-10 spec that was REFUSED for asking 18M in discovery; hardening follow-up only with this run as evidence.' --cfg-set dr.tipped_start_prob=0.30 > /tmp/train_cw-dep-tip1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-tip1.log"
+    "log": "/tmp/train_cw-dep-tip1.log",
+    "wandb_id": "fxxj3e59",
+    "verified": "2026-08-11T01:53:17+00:00",
+    "triage": "in-cycle cw-dep-tip1 since 2026-08-11T01:57:51",
+    "checkups": [
+      {
+        "time": "2026-08-11T01:59:16+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "03\n[periodic-eval] 2,007,040: hold 3.20\u00b0, track 2.74\u00b0, unload 1.11\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.033 m/s, lower 1/2, tipped 0/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 449s (4,456 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_tip1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_dep_tip1 (md5 9100d493)\n"
+      }
+    ]
+  },
+  {
+    "run": "cw-stand-scoreref1-dr0-riseonly",
+    "pod": "hexapod-mjx-train-6",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Erosion forensics, controlled variable 3. Tonight's ladder: pricing fixed (score1: cheats unpaid), crutch feasible (replay valid_plant under loaded params), DR exonerated (dr0: warm start begins ALIGNED, ref 0.65/tick, then erodes), LR exonerated (dr0-lowlr at 5e-5: same erosion, slower). The gradient direction itself points away from tracking -- something else pays for leaving. Suspect A: cross-mode interference -- 45% of updates come from LOWER episodes whose legacy income is dense (~1/tick kernel + finish); if shared weights cannot serve both modes, lower wins and rise collapses (matches rfix-warm1: lower 6/6 while rise 0). This arm: goal-mix rise=1.0 (no lower, no hold), everything else identical to scoreref1-dr0. If tracking HOLDS: interference confirmed -> mode one-hot / separate heads (already a named [CODE] item) is the fix. If it still erodes: within-rise cause, next suspect is exploration noise (std ~0.2 rad = 11deg/joint) vs the 6-deg kernel -- sigma-12-with-feet-gate is the follow-up.",
+    "gate": "W&B env/reward_rise_ref median >=0.3/tick sustained (vs 0.02-0.04 eroded baseline) = interference CONFIRMED even if valid_plant stays low; erosion to <0.1 by mid-run = interference REFUTED. Secondary: rise_score off the 0.1 floor, harness rise >=4/6 det valid_plant. No lower-retention gate: this arm deliberately drops lower (forensic probe, not a candidate).",
+    "parent": "cw-stand-scoreref1-dr0",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip",
+      "--dr-scale",
+      "0.0",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--goal-mix",
+      "rise=1.0",
+      "--n-envs",
+      "4096",
+      "--cfg-set",
+      "actions.max_height_mm=115",
+      "--cfg-set",
+      "goal.rise_height_mm=[108,114]",
+      "--cfg-set",
+      "goal.rise_ramp_s=6.0",
+      "--cfg-set",
+      "reward.rise_score_income=1.0",
+      "--cfg-set",
+      "reward.k_rise_ref_track=2.0",
+      "--cfg-set",
+      "reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz",
+      "--cfg-set",
+      "reward.rise_ref_sigma_deg=6.0",
+      "--cfg-set",
+      "reward.rise_posture_gate=1.0",
+      "--cfg-set",
+      "reward.rise_income_prog_gate=1.0",
+      "--cfg-set",
+      "reward.rise_finish_gate_signed=1.0",
+      "--cfg-set",
+      "bus.servo_params=loaded",
+      "--out-name",
+      "ppo_goal_cw_stand_scoreref1_dr0_riseonly",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "cw-stand-scoreref1-dr0-riseonly: forensic probe, ONE change vs scoreref1-dr0 (goal-mix rise=1.0). Not a deployment candidate (no lower/hold in the mix) -- exists to split cross-mode interference from within-rise causes of the warm-start erosion."
+    ],
+    "created": "2026-08-11T01:52:29+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-091fd187-5ef1-8187-1927-20faf428512c)",
+      "running_experiments_before": 3,
+      "code_sha_local": "9a6ebab3d1af25d22705b26f886c6a9a4cc4f1ae",
+      "code_sha_pod": "9a6ebab3d1af25d22705b26f886c6a9a4cc4f1ae",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1532331",
+      "log_growth_bytes": [
+        9524,
+        16078
+      ],
+      "wandb_id": "apt28ojt",
+      "global_step_window": [
+        786432,
+        2031616
+      ],
+      "fps_estimate": 13835.4
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-scoreref1-dr0-riseonly --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip --dr-scale 0.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix rise=1.0 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_scoreref1_dr0_riseonly --impl warp --host-workers 24 --notes 'cw-stand-scoreref1-dr0-riseonly: forensic probe, ONE change vs scoreref1-dr0 (goal-mix rise=1.0). Not a deployment candidate (no lower/hold in the mix) -- exists to split cross-mode interference from within-rise causes of the warm-start erosion.' > /tmp/train_cw-stand-scoreref1-dr0-riseonly.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-stand-scoreref1-dr0-riseonly.log",
+    "wandb_id": "apt28ojt",
+    "verified": "2026-08-11T01:56:16+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-11T02:01:17+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "40: hold 1.32\u00b0, lean 1.55\u00b0, track 1.42\u00b0, unload 1.40\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, tipped 2/2\n[video] logged reel (2,007,040 steps | rise:ok raise:ok hold:ok track:ok)\n[video] logged reel (final | rise:ok raise:ok hold:ok track:ok)\n[mjx-train] done: 2,000,000 steps in 361s (5,543 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_scoreref1_dr0_riseonly.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_scoreref1_dr0_riseonly (md5 97488c5e)\n"
+      }
+    ]
   }
 ]
