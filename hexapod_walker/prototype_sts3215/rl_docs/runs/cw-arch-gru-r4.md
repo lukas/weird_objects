@@ -18,7 +18,7 @@
 
 **gate**: PASS: 2M harness forensics (DR0 det+sto walk, standard fingerprint) show NO leg-sacrifice (det gait_valid > 0/6, no parked-leg collapse at duty<0.1), positive det median progress ratio, AND stance still emerging (>=1 rise completion, tipped recovery >=1/2). Walk tracking quality NOT required. FAIL: same parked-leg/paddle fingerprint -> rung closes for real (window AND capacity exonerated the reward twice); no further from-scratch GRU variants, recurrence deferred to flagship distillation.
 
-**verdict**: OPERATOR KILL (mis-launch, no science): n_envs 1024 x n_steps 256 = 262k rollout = only 8 PPO iterations in the 2M budget (r3 had 30) — update-starved by construction. Killed ~5 min in. Superseded by cw-arch-gru-r4c (n_envs 256 keeps rollout at 65,536 = r3-identical iteration count). Do NOT auto-retry this config.
+**verdict**: MECHANICAL launch-verification false-kill, not a science result: the launcher pkilled a genuinely-alive run after a fixed 90s "did global_step advance" window, which is too short for a 256-step BPTT GRU update (its backward pass runs on CPU per the trainer, invisible to GPU-utilization checks, and legitimately takes several minutes). Root-caused, fixed (launch_run.py: CPU-time-based liveness polling replaces the fixed sleep), and retried as cw-arch-gru-r4-rr1 -> cw-arch-gru-r4-rr2 (see those entries). No verdict on the GRU architecture question from this attempt.
 
 **failed_reason**: W&B global_step not advancing (262144 -> 262144)
 
