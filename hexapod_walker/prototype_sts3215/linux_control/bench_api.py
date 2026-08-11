@@ -38,6 +38,34 @@ ZERO_TOL_DEG = 6.0
 # 15 deg refused the Sit button after EVERY walk). A wrong-zero pose
 # reads knees ~160 deg off the plant, so 30 deg is still unambiguous.
 
+def _emit_servo_fb(tag: str, tracker, target: list[float] | None = None,
+                   ) -> None:
+    """Log the tracker's last full feedback sweep to the event stream.
+
+    One ``servo_fb`` event per sweep: per-joint present deg, current,
+    speed, load, temp — "what all the servos are saying" — plus the
+    commanded target at that moment. Lands in logs/events.jsonl and
+    the /api/events ring.
+    """
+    try:
+        from event_log import emit
+    except ImportError:
+        return
+    try:
+        data: dict = {"joints": [
+            {"j": fb["joint"], "id": fb["id"],
+             "deg": round(fb["deg"], 1),
+             "a": round(fb["current_a"], 2),
+             "dps": round(fb["speed_deg_s"]),
+             "load_pct": fb["load_pct"],
+             "temp_c": fb["temp_c"]} for fb in tracker.last_fb]}
+        if target is not None:
+            data["target_deg"] = [round(x, 1) for x in target]
+        emit("servo_fb", tag, data=data)
+    except Exception:
+        pass
+
+
 def _load_names() -> dict[int, str]:
     for path in REGISTRY_CANDIDATES:
         if not path.is_file():
@@ -1798,6 +1826,14 @@ class BenchAPI:
             result: dict = {"ok": False, "mode": mode,
                             "direction": direction}
             try:
+                from event_log import emit
+                emit("standup", f"{mode} {verb} x{speed:g} start",
+                     data={"mode": mode, "direction": direction,
+                           "speed": speed, "keyframes": len(frames),
+                           "live_ids": sorted(live)})
+            except Exception:
+                pass
+            try:
                 _set_torque_limit(d.bus, live, torque)
                 _enable_torque(d.bus, live)
                 n = len(frames)
@@ -1893,6 +1929,9 @@ class BenchAPI:
                             s0 = time.monotonic()
                             tracker.sample(d.bus, live)
                             sample_s += time.monotonic() - s0
+                            _emit_servo_fb(
+                                f"{mode} {verb} t={t:.1f}s",
+                                tracker, target=q)
                             last_sample = t
                             with self._lock:
                                 self._cal_progress = {
@@ -1926,6 +1965,8 @@ class BenchAPI:
                                 break
                             time.sleep(0.1)
                         tracker.sample(d.bus, live)
+                        _emit_servo_fb(f"{mode} {verb} settle",
+                                       tracker, target=qs[-1])
                         settle_s = time.monotonic() - st0
                         tripped = tracker.peak_a > abort_current_a
                     timing = (f"align {align_s:.2f}s (worst0 "
@@ -1964,6 +2005,9 @@ class BenchAPI:
                             abort_check=self._demo_abort.is_set,
                             seconds=secs, label=f"{mode} {i + 1}/{n}",
                             current_tracker=tracker)
+                        _emit_servo_fb(
+                            f"{mode} {verb} kf {i + 1}/{n}",
+                            tracker, target=q_deg)
                         if not ok:
                             result["aborted"] = True
                             break

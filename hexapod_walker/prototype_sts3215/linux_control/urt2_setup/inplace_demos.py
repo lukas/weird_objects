@@ -236,10 +236,14 @@ class CurrentPeakTracker:
         self.samples = 0
         self._t0 = time.monotonic()
         self.peak_t_s = 0.0
+        # Full feedback dicts from the most recent sweep — callers can
+        # log "what the servos are saying", not just the current peak.
+        self.last_fb: list[dict] = []
 
     def sample(self, bus: FeetechBus, live: set[int]) -> None:
         self.samples += 1
         t = time.monotonic() - self._t0
+        sweep: list[dict] = []
         for joint in range(N_JOINTS):
             sid = joint_to_servo_id(joint)
             if sid not in live:
@@ -247,6 +251,7 @@ class CurrentPeakTracker:
             fb = bus.read_feedback(joint)
             if fb is None:
                 continue
+            sweep.append(fb)
             a = abs(float(fb["current_a"]))
             prev = self.max_a.get(joint, 0.0)
             if a > prev:
@@ -255,6 +260,7 @@ class CurrentPeakTracker:
                 self.peak_a = a
                 self.peak_joint = joint
                 self.peak_t_s = t
+        self.last_fb = sweep
 
     def print_report(self, *, phase: str) -> None:
         print(f"  Max current during {phase}:")
