@@ -1055,10 +1055,8 @@ function suPoll(){
 }
 async function suRun(direction){
   if(!suSel) return;
-  const what = direction==='down'
-    ? `sit-down "${suSel}" (robot must be standing in this mode's stance)`
-    : `stand-up "${suSel}" (robot must be belly-down, legs straight out)`;
-  if(!confirm('Robot will MOVE: '+what+'. Are you watching it?')) return;
+  // No confirm dialog (operator request 08-10): the server refuses a
+  // bad start pose and that lands in the status line + error bar.
   $('sulab-go').disabled = true; $('sulab-sit').disabled = true;
   $('sulab-status').textContent = 'Starting…';
   try{

@@ -1909,6 +1909,28 @@ class BenchAPI:
                 align_s = t0 - t_run0
                 t_prev = 0.0
                 nticks, write_s, sample_s = 0, 0.0, 0.0
+                # Carrot lookahead: command the pose ~2 ticks AHEAD of
+                # the schedule. Sizing speeds to finish a step exactly
+                # within one tick means any jitter makes the servo
+                # arrive EARLY and park until the next write — an
+                # ~18 Hz stutter (operator 08-10: "still glitchy").
+                # With the target held ahead, the servo never runs out
+                # of goal and moves continuously; the settle absorbs
+                # the small trailing gap.
+                LOOKAHEAD_S = 0.12
+
+                def _q_at(tq: float) -> list[float]:
+                    tq = min(tq, ts[-1])
+                    s = seg
+                    while s < len(qs) and tq > ts[s]:
+                        s += 1
+                    s = min(s, len(qs) - 1)
+                    f = ((tq - ts[s - 1])
+                         / max(ts[s] - ts[s - 1], 1e-6))
+                    f = min(max(f, 0.0), 1.0)
+                    return [a + (b - a) * f for a, b in
+                            zip(qs[s - 1], qs[s])]
+
                 while not aborted and not tripped:
                     if self._demo_abort.is_set():
                         aborted = True
@@ -1918,14 +1940,13 @@ class BenchAPI:
                         seg += 1
                     if seg >= len(qs):
                         break
-                    f = ((t - ts[seg - 1])
-                         / max(ts[seg] - ts[seg - 1], 1e-6))
-                    q = [a + (b - a) * f for a, b in
-                         zip(qs[seg - 1], qs[seg])]
+                    q = _q_at(t + LOOKAHEAD_S)
                     w0 = time.monotonic()
+                    # dt*0.9 cancels _speed_for_delta's 0.9 undershoot
+                    # so commanded speed matches the schedule rate.
                     streamer.write(
                         d.bus, q, live,
-                        dt=min(max(t - t_prev, 0.03), 0.25),
+                        dt=min(max(t - t_prev, 0.03), 0.25) * 0.9,
                         deadband=0.3, max_speed=2000, max_acc=200)
                     write_s += time.monotonic() - w0
                     nticks += 1
