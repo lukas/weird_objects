@@ -1853,6 +1853,26 @@ class BenchAPI:
                             f"{abort_current_a:.1f} A) — stall-fight, "
                             "not grinding on it")
 
+                # Guard semantics (08-10, after a 3.04 A spike aborted
+                # a healthy 10x stand at 60%): trip on STALL-FIGHT —
+                # a joint over the limit while NOT MOVING, two sweeps
+                # in a row — not on an instantaneous reading. A moving
+                # joint briefly over 3 A is honest acceleration work.
+                # Hard cap 4.0 A trips regardless.
+                HARD_CAP_A = 4.0
+                stall_prev: set = set()
+
+                def stall_trip() -> bool:
+                    nonlocal stall_prev
+                    if tracker.peak_a > HARD_CAP_A:
+                        return True
+                    now = {fb["joint"] for fb in tracker.last_fb
+                           if abs(fb["current_a"]) > abort_current_a
+                           and abs(fb["speed_deg_s"]) < 8.0}
+                    hit = bool(now & stall_prev)
+                    stall_prev = now
+                    return hit
+
                 # PURSUE — stream the interpolated keyframe path at
                 # ~20 Hz for ALL tempos. Per-keyframe glides settle-
                 # polled to within 2.5 deg at EVERY waypoint; loaded
@@ -1971,8 +1991,8 @@ class BenchAPI:
                                         f"{t:.1f}/{ts[-1]:.1f}s "
                                         f"peak "
                                         f"{tracker.peak_a:.2f}A"),
-                                "keyframe": seg, "of": n}
-                        tripped = tracker.peak_a > abort_current_a
+                                    "keyframe": seg, "of": n}
+                        tripped = stall_trip()
                     time.sleep(0.05)
                 stream_s = time.monotonic() - t0
                 settle_s, worst = 0.0, -1.0
@@ -2000,7 +2020,7 @@ class BenchAPI:
                     _emit_servo_fb(f"{mode} {verb} settle",
                                    tracker, target=qs[-1])
                     settle_s = time.monotonic() - st0
-                    tripped = tracker.peak_a > abort_current_a
+                    tripped = tracker.peak_a > HARD_CAP_A
                 timing = (f"align {align_s:.2f}s (worst0 "
                           f"{worst0:.1f}deg) + stream "
                           f"{stream_s:.2f}s (sched {ts[-1]:.2f}s, "
