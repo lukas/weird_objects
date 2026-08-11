@@ -548,3 +548,23 @@ of quiet). `cw-stand-holdstill2` = holdstill1 + the fade, one
 variable. If the fade also fails, the next lever is BC-style
 supervision on hold ticks (target = the episode start pose), the
 mechanism already validated on rise.
+
+### `cw-stand-holdstill2` (08-11) — fade directionally right, still 0/12;
+### hold pricing levers EXHAUSTED, next is BC supervision on hold ticks
+
+One variable vs holdstill1 (`hold_flag_fade=1`). The slope works as
+designed: parked leg 107–116 → 86–101 mm, `env/hold_feet_factor`
+0.1 → 0.19–0.35 (still rising at 2M), track episodes down to
+29–56 mm. But hold det+sto 0/12 — the quiet stand was never reached
+in-discovery; rise retention held (det 4/6, sto 4/6). Ruling (two
+pricing misses in a row = change the hypothesis; discovery rules
+forbid extending a run whose target behavior has never been seen):
+**no third pricing/mix/step variant on hold.** The gate+fade STAY
+(bank-proven correct pricing — they will pay the real behavior). The
+next lever is the rise playbook repeated: BC-style supervision on
+HOLD ticks, target = the episode start pose (trivially available;
+extend `bc_anchor.py`'s bc_target emission beyond rise ticks) — a
+SPEC/CODE item (trainer change + bank re-run) before any further
+stand-line launch. After that lands and a hold arm passes: the
+rise-specialist → walk-champion handoff composition test (still the
+plan's next composition milestone).
