@@ -23,6 +23,7 @@ numbers are the existence proof of a tall stance geometry.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -40,8 +41,10 @@ from rl_move.sim.probe_walk_income import (  # noqa: E402
     CMD_V, STACKS, WALK_PLANT, make_env, pin_command,
 )
 
+CMD = CMD_V                    # override with --cmd (e.g. slow1's 0.035)
+
 CKPT = "rl_move/sim/policies/ppo_goal_cw_dep_tall30.zip"
-HEIGHT_OFF_MM = -30.0          # tall30's trained ref
+HEIGHT_OFF_MM = -30.0          # tall30's trained ref (override with --ref)
 STEADY_FROM_S = 5.0            # skip hold+ramp+settle
 EPISODE_S = 15.0
 
@@ -54,7 +57,7 @@ def rollout(policy: str, seed: int) -> dict:
     stack[("goal", "walk_height_off_mm")] = HEIGHT_OFF_MM
     env = make_env(seed, stack)
     obs, _ = env.reset()
-    pin_command(env, CMD_V, 0.0)
+    pin_command(env, CMD, 0.0)
     traj = env._goal_traj
     n = len(traj.vx)
     m = env.model
@@ -131,8 +134,22 @@ def rollout(policy: str, seed: int) -> dict:
 
 
 def main() -> None:
+    global CKPT, HEIGHT_OFF_MM
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ckpt", default=CKPT,
+                    help="checkpoint path relative to prototype root")
+    ap.add_argument("--ref", type=float, default=HEIGHT_OFF_MM,
+                    help="goal.walk_height_off_mm the ckpt was trained with")
+    ap.add_argument("--no-gait", action="store_true",
+                    help="skip the scripted-gait reference rollouts")
+    ap.add_argument("--cmd", type=float, default=CMD_V,
+                    help="commanded speed m/s (use the ckpt's trained band)")
+    args = ap.parse_args()
+    global CMD
+    CKPT, HEIGHT_OFF_MM, CMD = args.ckpt, args.ref, args.cmd
+
     rows = []
-    for policy in ("ckpt", "gait"):
+    for policy in (("ckpt",) if args.no_gait else ("ckpt", "gait")):
         for seed in (0, 1, 2):
             r = rollout(policy, seed)
             rows.append(r)
@@ -150,6 +167,8 @@ def main() -> None:
           f"(min margin {min(r['knee_limit_margin_deg_min'] for r in ck):.1f}); "
           f"support radius {agg('support_radius_mm'):.0f} mm")
     g = [r for r in rows if r["policy"] == "gait"]
+    if not g:
+        return
     print("--- scripted gait (plant height existence proof) ---")
     print(f"height offset mean {np.mean([r['height_off_mm']['mean'] for r in g]):.1f} mm; "
           f"pitch mean {np.mean([r['pitch_deg_mean'] for r in g]):.1f} deg; "

@@ -989,6 +989,59 @@ def test_drag_stance_charges_over_allowance_stroke():
     env.close()
 
 
+def test_walk_gait_start_spawns_mid_stride_tall_with_live_command():
+    """goal.walk_gait_start_frac (TALL LADDER T6: RSI-for-walk): with
+    frac=1 every walk episode spawns MID-STRIDE in the scripted tripod
+    gait's tall pose and the command is live almost immediately (0.3 s
+    ramp, no 1 s hold). Default off = legacy rng streams untouched."""
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = load_config()
+    cfg.setdefault("goal", {})["walk_gait_start_frac"] = 1.0
+    env = SimHexapodJointWalkEnv(cfg, seed=0)
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise", "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_walk = 1.0
+    # Sample several spawns: every one must be TALL with a live
+    # command; at least one must be strongly mid-stride (the random
+    # phase legitimately hits tripod-crossover sometimes, where the
+    # two tripods pass through symmetry).
+    knee_asym = []
+    for _ in range(5):
+        env.reset()
+        traj = env._goal_traj
+        assert traj.mode == "walk" and traj.start_at == "gait"
+        # Command live right after the fast ramp (legacy hold keeps
+        # ~1 s of zeros; here 0.5 s in must be at full command).
+        i = int(round(0.5 / env.dt))
+        assert float(np.hypot(traj.vx[i], traj.vy[i])) > 0.02, (
+            traj.vx[i], traj.vy[i])
+        # TALL: mean hip pitch near the plant's +20 deg band (the
+        # learned crouch sits around -40 deg).
+        q = env.data.qpos[7:7 + 18].reshape(6, 3)
+        pitch_deg = np.degrees(q[:, 1])
+        assert float(np.mean(pitch_deg)) > 0.0, pitch_deg
+        knee_deg = np.degrees(q[:, 2])
+        knee_asym.append(abs(float(np.mean(knee_deg[[0, 2, 4]]))
+                             - float(np.mean(knee_deg[[1, 3, 5]]))))
+    assert max(knee_asym) > 5.0, knee_asym
+    env.close()
+
+    # Default off: same seed, no cfg key -> classic plant start.
+    cfg2 = load_config()
+    env2 = SimHexapodJointWalkEnv(cfg2, seed=0)
+    g2 = env2._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise", "lower"):
+        if hasattr(g2, f"p_{m}"):
+            setattr(g2, f"p_{m}", 0.0)
+    g2.p_walk = 1.0
+    env2.reset()
+    assert env2._goal_traj.start_at == "plant"
+    env2.close()
+
+
 # ---------------------------------------------------------------------------
 # Terminal end-posture pricing (cycle 14, pre-registered structural option)
 

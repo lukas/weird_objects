@@ -559,6 +559,37 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             wz[:hold_n] = 0.0
             wz[hold_n:end] = np.linspace(0.0, wz_t, end - hold_n)
             start_at = "plant"
+        # Mid-stride reset diversity (TALL LADDER T6: RSI-for-walk,
+        # 08-11 eve). Five reward-side arms (ref ladder, income gate,
+        # gate+budget, k_height 3x/10x, speed relief) all left the
+        # mid-gait posture pinned at −72..−75 mm below spawn — while
+        # every episode already SPAWNS tall at the plant. The policy
+        # knows tall STANDING; it has never been inside a tall
+        # mid-stride WALKING state, so no pricing can select for one
+        # (same shape as the park persistence above: pricing refuted →
+        # densify the missing states at reset). goal.walk_gait_start_frac
+        # (default 0 = off, conditional draw keeps legacy rng streams
+        # bit-exact): with prob f the episode spawns MID-STRIDE in the
+        # scripted tripod gait's tall pose (built env-side in sim_env
+        # reset from this trajectory's command) and the walk command is
+        # active from the start (0.3 s ramp, no hold — the point is
+        # CONTINUING a tall walk, not re-entering it from a stand).
+        gait_frac = float(cfg_get(self.cfg, "goal",
+                                  "walk_gait_start_frac", default=0.0))
+        if (gait_frac > 0.0 and start_at == "plant"
+                and rng.random() < gait_frac):
+            start_at = "gait"
+            # Replace only the hold+ramp HEAD (any resampled segments
+            # after it are preserved).
+            ramp_fast = max(1, int(round(0.3 / self.dt)))
+            head = min(max(end, ramp_fast), n)
+            vx[:head] = vx_t
+            vy[:head] = vy_t
+            vx[:ramp_fast] = np.linspace(0.0, vx_t, ramp_fast)
+            vy[:ramp_fast] = np.linspace(0.0, vy_t, ramp_fast)
+            if h_off != 0.0:
+                height[:head] = h_off
+                height[:ramp_fast] = np.linspace(0.0, h_off, ramp_fast)
         return WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
                               height=height, unload_leg=None,
                               start_at=start_at, vx=vx, vy=vy, wz=wz)

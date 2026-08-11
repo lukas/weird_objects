@@ -846,6 +846,33 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._ep_rand is not None:
                 q_start = self._clip_to_joint_limits(
                     q_start + self._ep_rand.start_offset_rad)
+        elif start_at == "gait":
+            # Mid-stride TALL spawn (TALL LADDER T6: RSI-for-walk, see
+            # walk_task._sample_walk). Scripted tripod-gait pose at a
+            # random phase, generated at the episode's own commanded
+            # velocity so swing/stance geometry matches the command the
+            # policy wakes up under. The gait is rolled forward ~1 s
+            # plus a uniform slice of one period so its internal
+            # command smoothing is engaged and every phase is sampled.
+            from tripod_gait import TripodGait
+            traj = self._goal_traj
+            i_ss = min(int(round(0.5 / self.dt)), len(traj.vx) - 1)
+            g = TripodGait()
+            g.sync_plant_stance(float(self._plant_deg[1]),
+                                float(self._plant_deg[2]))
+            g.set_velocity(vx=float(traj.vx[i_ss]),
+                           vy=float(traj.vy[i_ss]))
+            g.reset_phase()
+            warm = 1.0 + float(self.rng.uniform(0.0, g.period))
+            t, q_deg = 0.0, g.neutral_pose_deg()
+            while t < warm:
+                q_deg = g.desired_deg(t)
+                t += self.dt
+            q_start = np.asarray(q_deg, dtype=float) * DEG2RAD
+            q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+            if self._ep_rand is not None:
+                q_start = q_start + self._ep_rand.start_offset_rad
+            q_start = self._clip_to_joint_limits(q_start)
         elif start_at == "park":
             # Tripod-park start (walk reset diversity, cycle 24): plant
             # pose with one alternating tripod's hips lifted 10-25 deg
