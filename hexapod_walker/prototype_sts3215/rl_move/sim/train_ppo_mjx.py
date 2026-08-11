@@ -175,6 +175,18 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ent-coef", type=float, default=1e-3)
     ap.add_argument("--target-kl", type=float, default=0.02)
     ap.add_argument("--log-std-init", type=float, default=-1.0)
+    ap.add_argument("--gru", action="store_true",
+                    help="recurrent GRU actor-critic (sb3-contrib "
+                         "RecurrentPPO + gru_policy.py) instead of the "
+                         "frame-stack MLP; run single-frame obs "
+                         "(obs.history_frames=1). BPTT window = "
+                         "--n-steps, so recurrent runs want longer "
+                         "rollouts (e.g. --n-steps 64) than the MLP "
+                         "large-batch default of 16. From-scratch or "
+                         "GRU-parent warm starts only")
+    ap.add_argument("--gru-hidden-size", type=int, default=128,
+                    help="GRU hidden units per layer (actor and critic "
+                         "each get their own single-layer GRU)")
     ap.add_argument("--device", default="auto",
                     help="torch device for PPO (auto: cuda if available "
                          "— the big-batch MLP pays off on GPU)")
@@ -270,6 +282,25 @@ def main(argv: list[str] | None = None) -> int:
         algo_cls = make_bc_anchor_ppo_class(algo_cls)
         print(f"[mjx-train] BC anchor loss ON (coef={bc_coef})")
 
+    policy_cls: str | type = "MlpPolicy"
+    extra_pk: dict = {}
+    if args.gru:
+        if mirror_coef > 0.0 or bc_coef > 0.0:
+            raise SystemExit("--gru + mirror/bc-anchor losses is not "
+                             "implemented (they wrap stock PPO)")
+        if args.obs_pad_transplant:
+            raise SystemExit("--gru + --obs-pad-transplant is not "
+                             "implemented (recurrent weights don't "
+                             "transplant from MLP checkpoints)")
+        from sb3_contrib import RecurrentPPO
+        from .gru_policy import GruActorCriticPolicy
+        algo_cls = RecurrentPPO
+        policy_cls = GruActorCriticPolicy
+        extra_pk = dict(lstm_hidden_size=args.gru_hidden_size)
+        print(f"[mjx-train] GRU policy: hidden {args.gru_hidden_size}, "
+              f"BPTT window = n_steps = {args.n_steps} "
+              f"({args.n_steps / 25.0:.2f}s at 25 Hz)")
+
     print(f"[mjx-train] task={args.task} n_envs={args.n_envs} "
           f"impl={impl or 'jax(default)'} iterations={iters}/{ls_iters} "
           f"host_workers={args.host_workers or 'in-process'} "
@@ -337,6 +368,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[mjx-train] warm start from {args.init_from} "
                   f"(+{args.obs_pad_transplant} obs-pad transplant)")
         else:
+            from .gru_policy import is_recurrent_checkpoint
+            if args.gru and not is_recurrent_checkpoint(args.init_from):
+                raise SystemExit(
+                    "--gru cannot warm-start from an MLP checkpoint "
+                    f"({args.init_from}); GRU runs start from scratch "
+                    "or from a previous GRU checkpoint")
             model = algo_cls.load(args.init_from, env=venv,
                                   device=args.device,
                              n_steps=args.n_steps,
@@ -348,14 +385,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[mjx-train] warm start from {args.init_from}")
     else:
         model = algo_cls(
-            "MlpPolicy", venv,
+            policy_cls, venv,
             n_steps=args.n_steps, batch_size=args.batch_size,
             n_epochs=args.n_epochs, learning_rate=args.lr,
             gamma=0.99, gae_lambda=0.95, ent_coef=args.ent_coef,
             clip_range=0.2,
             target_kl=(args.target_kl if args.target_kl > 0 else None),
             policy_kwargs=dict(net_arch=[128, 128],
-                               log_std_init=args.log_std_init),
+                               log_std_init=args.log_std_init,
+                               **extra_pk),
             seed=args.seed, verbose=1, device=args.device,
             tensorboard_log=tb_dir)
 
@@ -503,7 +541,7 @@ def main(argv: list[str] | None = None) -> int:
         # a spawn process holding C-MuJoCo envs. Every periodic eval is
         # therefore an MJX-vs-C behavioral A/B on the live checkpoint.
         from .train_ppo_sim import (
-            _BgEval, _build_env, _make_canary_stop_callback,
+            _ActFn, _BgEval, _build_env, _make_canary_stop_callback,
             _make_periodic_eval_callback, _make_video_callback,
             _protected_groups, _run_canaries)
         canary_protected: list[str] = []
@@ -511,8 +549,7 @@ def main(argv: list[str] | None = None) -> int:
             # Baseline on the PARENT policy (C env, fixed seeds): groups
             # the parent passes 2/2 become the protected set.
             cenv = _build_env(env_cls, params, args, seed=args.seed + 77777)
-            act0 = lambda o: model.policy.predict(  # noqa: E731
-                o, deterministic=True)[0]
+            act0 = _ActFn(model.policy)
             baseline = _run_canaries(cenv, act0)
             cenv.close()
             canary_protected = _protected_groups(baseline)
