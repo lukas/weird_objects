@@ -103,6 +103,19 @@
   table.motors tr.alarm td { color:#ff8a8a; }
   table.motors tr.sel td { background:#1b2744; }
   table.motors tr { cursor:pointer; }
+  table.policies { width:100%; border-collapse:collapse; font-size:12px;
+    user-select:text; -webkit-user-select:text; }
+  table.policies th, table.policies td { padding:8px; text-align:left;
+    vertical-align:top; border-bottom:1px solid #232733; }
+  table.policies th { color:#9aa3b2; font-weight:600; font-size:11px;
+    text-transform:uppercase; letter-spacing:.4px; }
+  table.policies tr.active td { background:#15251b; }
+  table.policies td.polname { font-weight:600; color:#dfe4ee;
+    min-width:130px; }
+  table.policies td.polnotes { color:#8089a0; line-height:1.5; }
+  table.policies td.poluse { width:64px; }
+  table.policies td.poluse button { padding:6px 10px; font-size:12px;
+    min-width:52px; }
   .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px;
     background:#222838; border:1px solid #333b52; }
   .pill.ok { color:#5fd08a; border-color:#2e7d47; }

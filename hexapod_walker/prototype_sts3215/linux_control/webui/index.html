@@ -237,7 +237,10 @@
         belly, then goes limp. <b>Stop</b> holds the pose; <b>X</b>
         (Drive tab) limps. <b>Watch the robot the whole time.</b></div>
       <div class="btns" style="margin-top:12px">
-        <button id="rlstand" class="on">⬆ Stand up</button>
+        <button id="rlstand" class="on" title="RL stand-up policy. Works
+from any level pose: if the robot isn't belly-down it first runs the safe
+scripted descent to zero, then stands. Refuses on tilt / missing servos /
+dead IMU.">⬆ Stand up</button>
         <button id="rllower">⬇ Lower</button>
         <button id="rlglide" title="Scripted (not RL) fast sequence to the
 captured plant stance — the pose Walk expects. From belly-down it runs the
@@ -304,23 +307,11 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
       </div>
       <div class="hint" id="rlpreflight" style="margin-top:10px">—</div>
     </div>
-    <div class="pad" style="flex:1 1 340px">
+    <div class="pad" style="flex:2 1 480px">
       <h2>Policy</h2>
       <div class="hint" id="rlpolicyinfo">loading…</div>
-      <div style="margin-top:12px">
-        <label class="hint">stance
-          <select id="rlpickstance" style="max-width:280px"></select>
-        </label>
-      </div>
-      <div style="margin-top:6px">
-        <label class="hint">walk
-          <select id="rlpickwalk" style="max-width:280px"></select>
-        </label>
-      </div>
-      <div class="btns" style="margin-top:8px">
-        <button id="rlpickapply">Use selected</button>
-      </div>
-      <div class="hint" id="rlpicknotes" style="margin-top:8px">—</div>
+      <div id="rlpicktable" class="hint" style="margin-top:12px">loading…</div>
+      <div class="hint" id="rlpickmsg" style="margin-top:8px">—</div>
       <div class="hint" style="margin-top:10px">Trained in the MuJoCo
         twin (PPO, raw 18-joint actions, domain randomization) and
         exported to plain numpy — no torch on the board. Every command

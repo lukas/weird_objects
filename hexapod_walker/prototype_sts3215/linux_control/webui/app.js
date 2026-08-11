@@ -224,16 +224,25 @@ async function padRunDemo(name, label){
   }catch(e){ showSent('demo '+name+' failed'); }
 }
 async function goPoseZero(pose, label){
-  // Bench /api/zero arms the bus itself and glides (Drive `P` was a silent
+  // Bench routes arm the bus themselves and glide (Drive `P` was a silent
   // one-shot that looked like a no-op when disarmed / already near plant).
+  // SIT uses /api/safe_zero (collision-aware staged plan; LIMPS on any
+  // stall / unexpected-force feedback). STAND keeps the verified glide.
   dancePaused = true;
   if(pose === 'stand') armed = false;
   const tag = label || pose;
+  const safe = pose !== 'stand';
   showSent(tag + '…');
   try{
-    const r = await fetch('/api/zero',{method:'POST',
+    let r = await fetch(safe ? '/api/safe_zero' : '/api/zero',{method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({pose: pose})});
+      body: JSON.stringify(safe ? {} : {pose: pose})});
+    if(safe && r.status === 404){
+      // Older server without safe_zero — legacy glide fallback.
+      r = await fetch('/api/zero',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({pose: pose})});
+    }
     const j = await r.json();
     if(!j.ok){
       showSent(tag + ' failed: '+(j.error||'unknown'));
@@ -242,28 +251,33 @@ async function goPoseZero(pose, label){
       return;
     }
     setArmed(true);
-    showSent(tag + ' — gliding (full torque)');
+    if(safe && j.plan && j.plan.stages)
+      showSent(tag + ' — safe plan: '+j.plan.stages.length+' stage(s), ~'
+        +(j.plan.total_s||'?')+'s (limps on stall)');
+    else
+      showSent(tag + ' — gliding (full torque)');
     if(j.demo) paintDemoStatus(j.demo);
     if(j.robot) paintRobotActivity(j.robot);
     startDemoPoll();
-    for(let i=0;i<40;i++){
+    for(let i=0;i<90;i++){
       await new Promise(r=>setTimeout(r,400));
       await refreshRobotState(false);
       const d = lastDemo || {};
       if(d.running) continue;
       const st = String(d.status||'');
       const chk = (d.params||{}).stand_check;
-      if(st.startsWith('error')){
+      if(st.startsWith('error') || st.startsWith('LIMP')){
         showSent(st.replace(/^error:\s*/,'')); return;
       }
-      if(st==='done'){
+      if(st.startsWith('done')){
         if(pose==='stand' && chk && chk.max_err_deg!=null)
           showSent('stand verified · tracking '+Number(chk.max_err_deg).toFixed(1)+'°');
         else
           showSent(tag + ' done');
         return;
       }
-      if(st==='aborted'){ showSent(tag + ' aborted'); return; }
+      if(st.startsWith('aborted')){ showSent(tag + ' aborted'); return; }
+      if(st){ showSent(st); return; }
       break;
     }
   }catch(e){ showSent(tag + ' failed'); }
@@ -368,15 +382,8 @@ document.getElementById('wlimp').onclick = ()=>{
   showSent('limp — torque off; hand-pose legs, then Set zero HERE');
 };
 async function setZeroHere(fromMotors){
-  const msg = [
-    'Set CURRENT pose as 0° on all live motors?',
-    '',
-    'Motors will NOT move — only the zero point is rewritten.',
-    'Limp and hand-pose first (usually legs straight out).',
-    '',
-    'Continue?'
-  ].join('\n');
-  if(!confirm(msg)) return;
+  // No confirm (operator 08-11: no warning modals). Motors do not
+  // move — only the zero point is rewritten.
   showSent('set-here-as-zero…');
   try{
     const r = await fetch('/api/set_zero',{method:'POST'});
@@ -428,9 +435,6 @@ document.getElementById('wstart').onclick = async ()=>{
   const dur = clamp(parseFloat($('wdur').value)||20, 3, 60);
   $('wvx').value = vx; $('wvy').value = vy; $('wom').value = om; $('wdur').value = dur;
   if(!vx && !vy && !om){ showSent('walk: zero command — set vx/vy/ω first'); return; }
-  if(!confirm('Robot will WALK: vx '+vx+' mm/s, vy '+vy+' mm/s, ω '+om
-      +' rad/s for '+dur+'s.\n\nStanding at plant, room to move, and you are watching it?'))
-    return;
   armed = false; dancePaused = false;   // keep the stick loop from streaming J over this
   if(walkTimer) clearTimeout(walkTimer);
   if(walkTick) clearInterval(walkTick);
@@ -961,17 +965,10 @@ function rlButtons(disabled){
     $(id).disabled = disabled;
 }
 async function rlMove(mode, body){
-  // Stand/lower fire without a confirm (operator request 08-10);
-  // the server preflight refuses bad start poses. Walk keeps its
-  // confirm — the robot crosses the floor.
-  if(mode!=='stand' && mode!=='lower'){
-    const what = `WALK ${body.heading || 'somewhere'} `
-      + `at ${Math.hypot(body.vx,body.vy).toFixed(2)} m/s for `
-      + `${body.duration_s}s — EXPERIMENTAL, robot must be in the plant `
-      + `stance with room to move`;
-    if(!confirm('Robot will MOVE: '+what+'. Are you watching it?')) return;
+  // No confirms anywhere (operator 08-11: no warning modals);
+  // the server preflight refuses bad start poses.
+  if(mode!=='stand' && mode!=='lower' && body)
     delete body.heading;   // UI-only label, not an API field
-  }
   $('rlstatus').textContent = 'Preflight…';
   rlButtons(true);
   try{
@@ -1185,8 +1182,8 @@ function muPollMaybe(){
     }catch(e){ /* keep polling */ }
   }, 700);
 }
-async function muStart(path, body, confirmText){
-  if(confirmText && !confirm(confirmText)) return;
+async function muStart(path, body, _confirmText){
+  // confirmText retired (operator 08-11: no warning modals)
   $('mu-status').textContent = 'Starting…';
   try{
     const r = await fetch(path, {method:'POST', body: JSON.stringify(body)});
@@ -1246,8 +1243,6 @@ $('mu-save').onclick = async ()=>{
   muRefresh();
 };
 $('mu-discard').onclick = async ()=>{
-  if(!confirm('Discard the pending measurement (telemetry CSVs stay '
-              + 'on disk, the record is not saved)?')) return;
   await fetch('/api/measure/discard', {method:'POST'});
   muRefresh();
 };
@@ -1324,66 +1319,95 @@ async function refreshRlTab(){
 }
 
 // ---- Policy picker (linux_control/policies/ registry) ---------------------
+// Rendered as a table (name / description / Use) instead of dropdowns —
+// operator request 08-11: the descriptions ARE the interface.
 let rlPolicies = [];
+const RL_SLOT_TITLES = {stance: 'Stand / sit / hold', walk: 'Walk'};
 async function rlLoadPicker(){
+  const box = $('rlpicktable');
   try{
     const r = await fetch('/api/rl/policies', {cache:'no-store'});
     const d = await r.json();
     if(!d.ok) throw new Error(d.error || 'list failed');
     rlPolicies = (d.policies || []).filter(p => !p.error);
+    box.innerHTML = '';
     for(const slot of ['stance','walk']){
-      const sel = $('rlpick'+slot); sel.innerHTML = '';
       const items = rlPolicies.filter(p => p.slot === slot);
+      const tbl = document.createElement('table');
+      tbl.className = 'policies';
+      const hdr = tbl.insertRow();
+      const th = document.createElement('th');
+      th.colSpan = 3;
+      th.textContent = RL_SLOT_TITLES[slot] || slot;
+      hdr.appendChild(th);
       if(!items.length){
-        sel.appendChild(new Option('(none in policies/)', ''));
-        continue;
+        const c = tbl.insertRow().insertCell();
+        c.colSpan = 3; c.textContent = '(none in policies/)';
       }
       for(const p of items){
-        const o = new Option(p.name + (p.active ? ' — ACTIVE' : ''), p.file);
-        o.selected = p.active;
-        sel.appendChild(o);
+        const tr = tbl.insertRow();
+        if(p.active) tr.className = 'active';
+        const name = tr.insertCell();
+        name.className = 'polname';
+        name.textContent = p.name;
+        if(p.active){
+          const pill = document.createElement('span');
+          pill.className = 'pill ok';
+          pill.textContent = 'ACTIVE';
+          pill.style.marginLeft = '6px';
+          name.appendChild(pill);
+        }
+        const notes = tr.insertCell();
+        notes.className = 'polnotes';
+        notes.textContent = p.notes || '—';
+        const use = tr.insertCell();
+        use.className = 'poluse';
+        if(!p.active){
+          const b = document.createElement('button');
+          b.textContent = 'Use';
+          b.onclick = ()=> rlPickUse(slot, p);
+          use.appendChild(b);
+        }
       }
+      box.appendChild(tbl);
     }
-    rlPickNotes();
   }catch(e){
-    for(const slot of ['stance','walk'])
-      $('rlpick'+slot).innerHTML = '<option value="">unavailable</option>';
+    box.textContent = 'policy list unavailable (link?)';
   }
 }
-function rlPickNotes(){
-  const notes = [];
-  for(const slot of ['stance','walk']){
-    const p = rlPolicies.find(x => x.file === $('rlpick'+slot).value);
-    if(p && p.notes) notes.push(`<b>${p.name}</b>: ${p.notes}`);
-  }
-  $('rlpicknotes').innerHTML = notes.join('<br>') || '—';
-}
-$('rlpickstance').onchange = rlPickNotes;
-$('rlpickwalk').onchange = rlPickNotes;
-$('rlpickapply').onclick = async ()=>{
-  $('rlpickapply').disabled = true;
-  const msgs = [];
+async function rlPickUse(slot, pick){
+  // Check the LIVE registry before swapping: a page loaded hours ago
+  // has stale active flags, and blind-applying page state silently
+  // reverted the stance policy once (08-11). Confirm swaps by name.
+  $('rlpickmsg').textContent = 'checking current policy…';
   try{
-    for(const slot of ['stance','walk']){
-      const file = $('rlpick'+slot).value;
-      const cur = rlPolicies.find(p => p.slot === slot && p.active);
-      if(!file || (cur && cur.file === file)) continue;  // unchanged
-      const r = await fetch('/api/rl/policy_select', {
-        method:'POST', body: JSON.stringify({file})});
-      const d = await r.json();
-      msgs.push(d.ok ? `${slot} → ${d.name} ✔` : `${slot}: ${d.error}`);
-      if(!d.ok) break;
+    const live = (await (await fetch('/api/rl/policies',
+      {cache:'no-store'})).json()).policies || [];
+    const cur = live.find(p => p.slot === slot && p.active);
+    if(cur && cur.file === pick.file){
+      $('rlpickmsg').textContent = `${pick.name} is already active`;
+      refreshRlTab();
+      return;
     }
-    $('rlpicknotes').innerHTML =
-      msgs.length ? msgs.join(' · ') : 'no change';
+    if(!confirm(`Swap ${RL_SLOT_TITLES[slot] || slot} policy:\n`
+                + `${cur ? cur.name : '(none)'}\n→ ${pick.name}?\n\n`
+                + 'Takes effect at the NEXT stand/lower/walk.')){
+      $('rlpickmsg').textContent = `kept ${cur ? cur.name : '(none)'}`;
+      return;
+    }
+    const r = await fetch('/api/rl/policy_select', {
+      method:'POST', body: JSON.stringify({file: pick.file})});
+    const d = await r.json();
+    $('rlpickmsg').textContent = d.ok
+      ? `${RL_SLOT_TITLES[slot] || slot} → ${d.name} ✔`
+      : `swap failed: ${d.error || 'unknown'}`;
+    if(!d.ok) showErr('Policy select: '+(d.error || 'failed'));
   }catch(e){
-    $('rlpicknotes').textContent = 'policy select failed (link?)';
+    $('rlpickmsg').textContent = 'policy select failed (link?)';
   }
-  $('rlpickapply').disabled = false;
   refreshRlTab();
-};
+}
 $('calplantreset').onclick = async ()=>{
-  if(!confirm('Reset stand home to default hip +20° / knee +80°?')) return;
   try{
     const r = await fetch('/api/plant/reset', {method:'POST'});
     const d = await r.json();
@@ -1393,7 +1417,6 @@ $('calplantreset').onclick = async ()=>{
   }catch(e){ showSent('plant reset failed'); }
 };
 $('calimureset').onclick = async ()=>{
-  if(!confirm('Clear IMU calibration? Motion logs will use raw MPU until you re-run IMU rest.')) return;
   try{
     const r = await fetch('/api/imu/reset', {method:'POST'});
     const d = await r.json();
@@ -1489,8 +1512,8 @@ $('mwiggle').onclick = async ()=>{
   }catch(e){ showSent('wiggle failed'); }
 };
 $('mzero').onclick = async ()=>{
-  if(needArm()) return;
-  await fetch('/api/zero',{method:'POST'}); showSent('go zero');
+  // safe_zero arms itself; plans a collision-aware path and limps on stall.
+  await goPoseZero('sit', 'go zero (safe)');
 };
 $('msetzero').onclick = ()=> setZeroHere(true);
 $('mlimp').onclick = ()=>{ cmd('X'); setArmed(false); };

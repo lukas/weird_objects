@@ -25,7 +25,27 @@ joint-target blend to the plant pose -> re-anchor the episode in the
 plant frame. After that, walking / stopping / sitting are all exactly
 the walk champion's training distribution.
 
-Keys (window must have focus):
+Gamepad (recommended; hot-plugs any time — just turn the pad on):
+    Left stick  analog walk: forward/back + strafe (engages WALK)
+    A           stand up from belly (fully automatic, ~11 s)
+    B           sit down
+    Y           reset to standing        X   reset belly-down
+    LB / RB     body height -/+ 5 mm (stance)
+    D-pad U/D   cycle STANCE model       D-pad L/R  cycle WALK model
+
+Input is read with pygame/SDL (`SDL_VIDEODRIVER=dummy`, no window):
+SDL's game-controller database normalizes Xbox/PS/Switch pads, and a
+gamepad can never collide with key bindings — which is also why this
+player renders into an OpenCV window instead of mujoco.viewer (cv2 has
+NO built-in bindings; in mujoco.viewer nearly every letter is a toggle).
+
+Model selection: every non-`*_steps` checkpoint in the policies dir is
+classified at startup by observation width read straight from the sb3
+zip's JSON metadata (no torch load): obs 68 -> STANCE slot, obs 72 ->
+WALK slot, anything else is not playable here. Cycling loads the
+checkpoint on the spot (~1 s stall) and the HUD shows both slots.
+
+Keys (window must have focus; all still work without a pad):
     7           stand up from belly (fully automatic, ~11 s total)
     8           sit down (crouch; from a belly episode: back to floor)
     9 / R       reset to standing (plant, at the origin)
@@ -34,13 +54,17 @@ Keys (window must have focus):
     J/L L/R     strafe left / right
     0 / Space   stop -> STANCE policy holds
     = / -       body height +/- 5 mm (stance)
+    [ / ]       cycle STANCE model      , / .  cycle WALK model
     Q / Esc     quit
 """
 from __future__ import annotations
 
 import argparse
+import json
 import math
+import os
 import time
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -52,6 +76,116 @@ from .walk_task import SimHexapodJointWalkEnv, WalkGoal
 _STEP = 0.01          # m/s per keypress
 _SPEED_MAX = 0.06     # champion's trained command band tops out here
 _UP, _DOWN, _LEFT, _RIGHT = 63232, 63233, 63234, 63235   # macOS cv2 arrows
+
+# Playable obs widths (see module docstring / sim_viewer/README.md).
+_ROLE_OBS = {68: "stance", 72: "walk"}
+
+
+def _obs_width(path: Path) -> int | None:
+    """Obs width of an sb3 checkpoint WITHOUT loading it (no torch).
+
+    sb3 zips carry a JSON ``data`` member whose observation_space entry
+    includes a plain ``_shape`` list next to the pickled payload.
+    """
+    try:
+        with zipfile.ZipFile(path) as z:
+            data = json.loads(z.read("data"))
+        shape = data["observation_space"]["_shape"]
+        return int(shape[0]) if shape else None
+    except Exception:
+        return None
+
+
+def scan_policies(pdir: Path) -> dict[str, list[Path]]:
+    """Classify checkpoints in ``pdir`` into stance (68) / walk (72) lists.
+
+    ``*_steps.zip`` autosaves are skipped — there are hundreds and the
+    named finals are the ones worth cycling through.
+    """
+    out: dict[str, list[Path]] = {"stance": [], "walk": []}
+    for p in sorted(pdir.glob("*.zip")):
+        if p.stem.endswith("_steps"):
+            continue
+        role = _ROLE_OBS.get(_obs_width(p) or -1)
+        if role:
+            out[role].append(p.resolve())
+    return out
+
+
+class _Gamepad:
+    """Xbox-style pad via pygame/SDL, headless (no pygame window).
+
+    SDL's controller database normalizes most pads: axes 0/1 = left
+    stick, buttons 0..3 = A/B/X/Y (south/east/west/north), d-pad = hat 0
+    (a few pads report it as buttons 11..14 — both are handled).
+    Hot-plug works: turn the pad on whenever, it attaches on the fly.
+    """
+
+    DEADZONE = 0.15
+    _BTN = {0: "A", 1: "B", 2: "X", 3: "Y", 4: "LB", 5: "RB",
+            11: "UP", 12: "DOWN", 13: "LEFT", 14: "RIGHT"}
+
+    def __init__(self):
+        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+        import pygame
+        self._pg = pygame
+        pygame.init()
+        pygame.joystick.init()
+        self._js = None
+        self._down: dict[int, bool] = {}
+        self._hat = (0, 0)
+        self._attach()
+
+    def _attach(self) -> None:
+        if self._pg.joystick.get_count() > 0:
+            self._js = self._pg.joystick.Joystick(0)
+            self._down = {}
+            self._hat = (0, 0)
+
+    @property
+    def name(self) -> str | None:
+        return self._js.get_name() if self._js else None
+
+    def _axis(self, i: int) -> float:
+        v = float(self._js.get_axis(i)) if i < self._js.get_numaxes() else 0.0
+        if abs(v) < self.DEADZONE:
+            return 0.0
+        s = (abs(v) - self.DEADZONE) / (1.0 - self.DEADZONE)
+        return math.copysign(min(s, 1.0), v)
+
+    def poll(self):
+        """-> (lx, ly, pressed_edges: set[str]) or None if no pad."""
+        pg = self._pg
+        for ev in pg.event.get():
+            if ev.type == pg.JOYDEVICEADDED and self._js is None:
+                self._attach()
+            elif (ev.type == pg.JOYDEVICEREMOVED and self._js is not None
+                    and ev.instance_id == self._js.get_instance_id()):
+                self._js = None
+        if self._js is None:
+            return None
+        js = self._js
+        pressed: set[str] = set()
+        for idx, name in self._BTN.items():
+            if idx >= js.get_numbuttons():
+                continue
+            down = bool(js.get_button(idx))
+            if down and not self._down.get(idx):
+                pressed.add(name)
+            self._down[idx] = down
+        if js.get_numhats() > 0:
+            hx, hy = js.get_hat(0)
+            phx, phy = self._hat
+            if hy > 0 >= phy:
+                pressed.add("UP")
+            if hy < 0 <= phy:
+                pressed.add("DOWN")
+            if hx < 0 <= phx:
+                pressed.add("LEFT")
+            if hx > 0 >= phx:
+                pressed.add("RIGHT")
+            self._hat = (hx, hy)
+        return self._axis(0), self._axis(1), pressed
 
 
 class _PlayTraj(_InteractiveTraj):
@@ -116,8 +250,25 @@ def main() -> None:
 
     env = _PlayEnv(params=SimServoParams.load(), randomize=False,
                    episode_seconds=3600.0, render_mode="rgb_array")
-    stance = PPO.load(args.stance, device="cpu")
-    walk = PPO.load(args.walk, device="cpu")
+
+    # --- checkpoint slots: one STANCE (obs 68) + one WALK (obs 72) ------
+    cats = scan_policies(args.stance.parent)
+    stance_list, walk_list = cats["stance"], cats["walk"]
+
+    def ensure_listed(lst: list[Path], p: Path, want: int) -> int:
+        w = _obs_width(p)
+        if w != want:
+            raise SystemExit(f"{p}: obs width {w}, need {want}")
+        p = p.resolve()
+        if p not in lst:
+            lst.insert(0, p)
+        return lst.index(p)
+
+    si = ensure_listed(stance_list, args.stance, 68)
+    wi = ensure_listed(walk_list, args.walk, 72)
+
+    stance = PPO.load(stance_list[si], device="cpu")
+    walk = PPO.load(walk_list[wi], device="cpu")
     n_stance = int(stance.observation_space.shape[0])
     assert walk.observation_space.shape == env.observation_space.shape, (
         f"walk policy obs {walk.observation_space.shape} != env "
@@ -130,6 +281,34 @@ def main() -> None:
     msg = ""
     # phases of the 7-key auto stand: None | ("rise", steps) | ("blend", k)
     auto: list | None = None
+
+    def cycle_stance(d: int) -> None:
+        nonlocal stance, si, n_stance, msg
+        si = (si + d) % len(stance_list)
+        m = PPO.load(stance_list[si], device="cpu")
+        if m.action_space.shape != env.action_space.shape:
+            msg = f"{stance_list[si].stem}: action space mismatch - skipped"
+            return
+        stance = m
+        n_stance = int(m.observation_space.shape[0])
+        msg = f"stance model -> {stance_list[si].stem}"
+
+    def cycle_walk(d: int) -> None:
+        nonlocal walk, wi, msg
+        wi = (wi + d) % len(walk_list)
+        m = PPO.load(walk_list[wi], device="cpu")
+        if m.action_space.shape != env.action_space.shape:
+            msg = f"{walk_list[wi].stem}: action space mismatch - skipped"
+            return
+        walk = m
+        msg = f"walk model -> {walk_list[wi].stem}"
+
+    try:
+        pad = _Gamepad()
+        pad_err = ""
+    except Exception as e:                      # pygame missing/broken
+        pad, pad_err = None, f"gamepad disabled ({e})"
+    stick_live = False
 
     def chassis_z() -> float:
         return float(env.data.xpos[chassis_bid, 2])
@@ -224,6 +403,9 @@ def main() -> None:
             mode_txt, mode_col = "WALK policy", (40, 240, 40)
         else:
             mode_txt, mode_col = "STANCE policy", (240, 200, 40)
+        pad_name = pad.name if pad else None
+        pad_txt = (f"pad: {pad_name}" if pad_name
+                   else pad_err or "no gamepad - turn it on, it hot-plugs")
         lines = [
             (f"{mode_txt}   height {chassis_z() * 1000:.0f}mm", mode_col),
             (f"CMD vx {traj.vx:+.3f} vy {traj.vy:+.3f} m/s   "
@@ -231,9 +413,16 @@ def main() -> None:
             (f"goal height {g.height_ref * 1000:+.0f}mm  "
              f"roll {math.degrees(g.roll_ref):+.1f}  "
              f"pitch {math.degrees(g.pitch_ref):+.1f}", (200, 200, 200)),
-            ("7 stand up   8 sit   9 reset standing   B belly reset",
-             (180, 180, 180)),
-            ("I/K fwd/back  J/L strafe  0/space stop  =/- height  Q quit",
+            (f"stance[{si + 1}/{len(stance_list)}] {stance_list[si].stem}   "
+             f"walk[{wi + 1}/{len(walk_list)}] {walk_list[wi].stem}",
+             (230, 160, 230)),
+            (pad_txt + "   L-stick walk  A stand  B sit  Y reset  X belly",
+             (120, 220, 220) if pad_name else (140, 140, 140)),
+            ("pad: dpad U/D stance model  L/R walk model  LB/RB height",
+             (120, 220, 220) if pad_name else (140, 140, 140)),
+            ("keys: 7 stand  8 sit  9 reset  B belly  I/K/J/L walk  "
+             "0/space stop", (180, 180, 180)),
+            ("keys: =/- height  [ ] stance model  , . walk model  Q quit",
              (180, 180, 180)),
         ]
         if msg:
@@ -255,7 +444,7 @@ def main() -> None:
             if auto is not None:
                 return False
             if chassis_z() < 0.09:
-                msg = "too low to walk - press 7 to stand up first"
+                msg = "too low to walk - press 7 (pad: A) to stand up first"
                 return False
             # Walk champion trained at height/tilt refs = 0: snap the
             # published stance refs to nominal so its obs is in-distribution.
@@ -263,8 +452,50 @@ def main() -> None:
             traj.goal.height_ref = 0.0
             traj._pub.roll_ref = traj._pub.pitch_ref = 0.0
             traj._pub.height_ref = 0.0
-            msg = ""
+            if msg.startswith("too low to walk"):
+                msg = ""
             return True
+
+        # --- gamepad (edge-triggered buttons, analog left stick) ----------
+        state = pad.poll() if pad else None
+        if state is not None:
+            lx, ly, pressed = state
+            if lx != 0.0 or ly != 0.0:
+                # Stick up = forward (+vx); stick left = strafe left (+vy).
+                if engage_walk():
+                    traj.vx = -ly * _SPEED_MAX
+                    traj.vy = -lx * _SPEED_MAX
+                stick_live = True
+            elif stick_live:
+                traj.vx = traj.vy = 0.0     # released -> stance holds
+                stick_live = False
+            if "A" in pressed:
+                do_reset("zero", 0.045,
+                         "STAND: curl ~5s, rise, then blend - hands off")
+                auto = ["rise", 0]
+            elif "B" in pressed:
+                traj.vx = traj.vy = 0.0
+                traj.goal.height_ref = (0.0 if traj.start_at
+                                        in ("zero", "belly") else -0.06)
+                msg = "sitting back down"
+            elif "Y" in pressed:
+                do_reset("plant", 0.0, "reset standing")
+            elif "X" in pressed:
+                do_reset("zero", 0.0, "reset belly-down (A to stand)")
+            if "RB" in pressed:
+                traj.goal.height_ref = min(traj.goal.height_ref + 0.005,
+                                           0.06)
+            elif "LB" in pressed:
+                traj.goal.height_ref = max(traj.goal.height_ref - 0.005,
+                                           -0.06)
+            if "UP" in pressed:
+                cycle_stance(+1)
+            elif "DOWN" in pressed:
+                cycle_stance(-1)
+            if "RIGHT" in pressed:
+                cycle_walk(+1)
+            elif "LEFT" in pressed:
+                cycle_walk(-1)
 
         if k in (ord("i"), ord("I"), _UP):
             if engage_walk():
@@ -304,6 +535,14 @@ def main() -> None:
             traj.goal.height_ref = min(traj.goal.height_ref + 0.005, 0.06)
         elif k == ord("-"):
             traj.goal.height_ref = max(traj.goal.height_ref - 0.005, -0.06)
+        elif k == ord("]"):
+            cycle_stance(+1)
+        elif k == ord("["):
+            cycle_stance(-1)
+        elif k == ord("."):
+            cycle_walk(+1)
+        elif k == ord(","):
+            cycle_walk(-1)
         elif k in (ord("q"), ord("Q"), 27):
             break
         if cv2.getWindowProperty(win, cv2.WND_PROP_VISIBLE) < 1:

@@ -501,8 +501,7 @@ class BenchAPI:
                  size: float = 1.0, rate: float | None = None,
                  torque: int | None = None, softness: float = 1.0) -> dict:
         try:
-            from inplace_demos import (DEMOS, go_to_stand_pose, go_to_zero_pose,
-                                       run_demo)
+            from inplace_demos import DEMOS, run_demo
         except ImportError as e:
             return {"ok": False, "error": f"inplace_demos missing: {e}"}
         # Alias: breathe+ → breathe at size 2.
@@ -587,23 +586,34 @@ class BenchAPI:
                     d.armed = True
             try:
                 # Always home first (sit for air, stand for planted) so a
-                # mid-demo switch — or starting from the wrong pose — just works.
+                # mid-demo switch — or starting from the wrong pose — just
+                # works. 08-11 directive: acquire the start SAFELY
+                # (collision-aware zero, validated plant stand-up); if
+                # that fails the robot is already stopped/limped and the
+                # demo must NOT run.
                 with self._lock:
                     self._demo_status = f"homing {home}"
                 self._set_activity("zeroing", f"{home} zero → {name}")
-                if home == "sit":
-                    ok_home = go_to_zero_pose(
-                        d.bus, abort_check=self._demo_abort.is_set,
-                        seconds=3.5)
-                else:
-                    ok_home = go_to_stand_pose(
-                        d.bus, abort_check=self._demo_abort.is_set,
-                        seconds=3.5)
+
+                def _home_prog(p: dict) -> None:
+                    with self._lock:
+                        self._demo_status = str(p.get("msg")
+                                                or f"homing {home}")
+
+                res_home = self._acquire_start(
+                    "zero" if home == "sit" else "stand",
+                    gen=gen, on_progress=_home_prog)
                 if gen != self._demo_gen:
                     return
-                if self._demo_abort.is_set() or not ok_home:
+                if self._demo_abort.is_set():
                     with self._lock:
                         self._demo_status = "aborted"
+                    return
+                if not res_home.get("ok"):
+                    with self._lock:
+                        self._demo_status = (
+                            "error: start pose not reached — "
+                            + str(res_home.get("error") or "aborted"))
                     return
 
                 with self._lock:
@@ -721,29 +731,20 @@ class BenchAPI:
         return None, None
 
     def go_zero(self, pose: str = "sit", *, force: bool = False) -> dict:
-        """Ease to sit zero (legs out) or stand zero (walk plant).
+        """Go to sit zero (legs out) or stand zero (walk plant) — SAFELY.
 
         ``pose``: ``sit`` | ``stand``.  Stand keeps torque on (no limp).
 
-        STAND refuses if any live joint would move more than
-        MAX_SAFE_DELTA_DEG unless ``force=True`` — gliding to the stand
-        pose with wrong logical zeros is exactly the stilts incident.
-
-        SIT never refuses on delta (operator ruling 2026-08-10, after
-        repeated complaints: the Sit button kept refusing from RL
-        crouches / stand-up-lab stances that don't match the captured
-        stand pose, leaving the robot stuck standing). A big delta just
-        makes the eased descent SLOWER (up to 10 s, abortable) — a slow
-        supervised glide down is not the incident class; violent
-        one-shot writes and unsupervised blends are. Do NOT re-add a
-        sit refusal.
+        Neither direction refuses on a big delta any more (operator
+        directives 08-10 sit / 08-11 stand): the robot ACQUIRES the
+        pose instead. SIT = the collision-aware safe-zero plan (stages
+        around ground and leg-vs-leg contact; LIMPS on stall or
+        unexpected force). STAND = safe zero first when needed, then
+        the validated keyframe stand-up onto the plant. If acquisition
+        fails the robot stops (hold or limp) and the job errors out.
+        Near-pose fast paths still delegate straight to the tuck
+        keyframes at 10x.
         """
-        try:
-            from inplace_demos import go_to_stand_pose, go_to_zero_pose
-            from feetech_bus import N_JOINTS, standing_pose_degrees
-            from drive_controller import MAX_SAFE_DELTA_DEG
-        except ImportError as e:
-            return {"ok": False, "error": str(e)}
         pose = (pose or "sit").strip().lower()
         if pose in ("stand", "standing", "plant"):
             pose = "stand"
@@ -765,8 +766,8 @@ class BenchAPI:
         # (see _delta_vs_present for why the gates must be None-aware)
         # (belly-down, legs out) a STAND delegates to the fast tuck
         # rise; when it is in the tuck stance a SIT delegates to the
-        # reversed keyframes. Anything else falls through to the
-        # legacy glides (sit-homing from RL crouches etc).
+        # reversed keyframes. Anything else acquires the pose safely
+        # below (safe-zero plan / plant stand-up).
         try:
             kfs = self._load_standup()["modes"]["tuck"]["keyframes"]
             tuck_zero = [float(x) for x in kfs[0]["q_deg"]]
@@ -786,46 +787,14 @@ class BenchAPI:
         except Exception:
             pass
 
-        goal = (standing_pose_degrees() if pose == "stand"
-                else [0.0] * N_JOINTS)
-        sit_seconds = 4.0
-        if not force:
-            with self.drive._lock:
-                worst, j = self.drive._max_delta_vs_present(goal)
-            if worst > MAX_SAFE_DELTA_DEG:
-                if pose == "stand":
-                    return {
-                        "ok": False,
-                        "error": (
-                            f"refused {pose} zero: j{j} would move "
-                            f"{worst:.1f}° (>{MAX_SAFE_DELTA_DEG:.0f}°). "
-                            "POST /api/set_zero at the real pose, or "
-                            "pass force=true"
-                        ),
-                        "max_delta_deg": round(worst, 2),
-                        "joint": j,
-                        "hint": "set-zero-here — do not FORCE unless watching",
-                    }
-                # SIT with a big delta: never refuse — descend slower
-                # instead (see docstring; operator ruling 08-10).
-                sit_seconds = min(10.0, max(6.0, worst / 15.0))
-                try:
-                    from event_log import emit
-                    emit("log",
-                         f"sit with big delta (j{j} {worst:.0f}°): "
-                         f"slow {sit_seconds:.0f}s eased descent",
-                         src="bench")
-                except Exception:
-                    pass
-
         self._demo_gen += 1
         gen = self._demo_gen
         self._demo_abort.clear()
         with self._lock:
             self._demo_name = f"zero_{pose}"
             self._demo_status = "zeroing"
-            self._demo_params = {"pose": pose, "force": bool(force),
-                                 "sit_seconds": sit_seconds}
+            self._demo_params = {"pose": pose, "force": bool(force)}
+            self._cal_progress = {"msg": f"go to {pose} zero"}
         self._set_activity("zeroing", f"go to {pose} zero")
 
         def _worker():
@@ -835,48 +804,51 @@ class BenchAPI:
                 if not d.armed:
                     d._torque_all(True)
                     d.armed = True
-            stand_info: dict = {}
+            result: dict = {}
             try:
+                self._bus_hot = True
+
+                def _prog(p: dict) -> None:
+                    with self._lock:
+                        self._cal_progress = dict(p)
+
                 if pose == "stand":
-                    ok = go_to_stand_pose(
-                        d.bus, abort_check=self._demo_abort.is_set,
-                        seconds=4.5, result=stand_info)
+                    result = self._acquire_start("stand", gen=gen,
+                                                 on_progress=_prog)
                 else:
-                    ok = go_to_zero_pose(
-                        d.bus, abort_check=self._demo_abort.is_set,
-                        seconds=sit_seconds)
+                    result = self._safe_zero_sync(
+                        abort_check=self._demo_abort.is_set,
+                        on_progress=_prog)
                 if gen != self._demo_gen:
                     return
                 with self._lock:
-                    if ok:
+                    if result.get("ok"):
                         self._demo_status = "done"
-                    elif stand_info.get("error"):
-                        self._demo_status = f"error: {stand_info['error']}"
-                    else:
+                    elif result.get("aborted"):
                         self._demo_status = "aborted"
-                    if stand_info:
-                        self._demo_params = {
-                            **dict(self._demo_params or {}),
-                            "stand_check": stand_info,
-                        }
+                    else:
+                        self._demo_status = (
+                            f"error: {result.get('error') or 'failed'}")
+                    self._cal_progress = {"msg": self._demo_status}
             except Exception as e:
                 if gen != self._demo_gen:
                     return
                 with self._lock:
                     self._demo_status = f"error: {e}"
             finally:
+                self._bus_hot = False
                 if gen != self._demo_gen:
                     return
+                if result.get("limp"):
+                    with d._lock:
+                        d.armed = False
                 with self._lock:
                     st = self._demo_status
                 # Stand home must keep mode=stand so the drive loop re-holds
                 # plant (otherwise stance droops after the one-shot glide).
                 if st == "done" and pose == "stand":
                     self._enter_stand_hold()
-                    detail = "at stand zero"
-                    if stand_info.get("max_err_deg") is not None:
-                        detail += f" (err {stand_info['max_err_deg']:.1f}°)"
-                    self._set_activity("armed", detail)
+                    self._set_activity("armed", "at stand zero")
                 else:
                     with d._lock:
                         if d.mode == "demo":
@@ -924,6 +896,136 @@ class BenchAPI:
         self._set_activity("limp", "zero redefined here")
         return result
 
+    def _present_pose18(self) -> tuple[list, list[int]]:
+        """All 18 present joint degrees (bulk read + per-joint retry).
+
+        Returns ``(values, missing_joint_indices)`` — values contain
+        None at the missing slots.
+        """
+        bus = self.drive.bus
+        vals: list = [None] * N_JOINTS
+        if bus is None:
+            return vals, list(range(N_JOINTS))
+        try:
+            if hasattr(bus, "read_all_positions"):
+                for j, v in (bus.read_all_positions() or {}).items():
+                    if 0 <= j < N_JOINTS:
+                        vals[j] = float(v)
+        except Exception:
+            pass
+        for j in range(N_JOINTS):
+            if vals[j] is None:
+                try:
+                    v = bus.read_position_deg(j)
+                except Exception:
+                    v = None
+                vals[j] = None if v is None else float(v)
+        return vals, [j for j, v in enumerate(vals) if v is None]
+
+    def _safe_zero_sync(self, *, abort_check, on_progress=None) -> dict:
+        """Plan + execute the collision-aware go-to-zero SYNCHRONOUSLY.
+
+        Runs in the caller's worker thread; claims no job slot and
+        paints no status — the caller owns those. No-ops when already
+        at zero. Any anomaly during motion limps the robot
+        (``run_safe_zero``) and returns ``ok=False`` — the caller must
+        stop its own routine in that case.
+        """
+        try:
+            from safe_zero import (belly_ground_z_mm, plan_safe_zero,
+                                   run_safe_zero)
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        present, missing = self._present_pose18()
+        if missing:
+            return {"ok": False,
+                    "error": ("no encoder reading from " + ", ".join(
+                        joint_label(j, self.names) for j in missing))}
+        plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm())
+        if not plan.get("ok"):
+            return plan
+        if not plan["stages"]:
+            return {"ok": True, "already_at_zero": True}
+        return run_safe_zero(self.drive.bus, plan["stages"],
+                             abort_check=abort_check,
+                             on_progress=on_progress)
+
+    def _acquire_start(self, kind: str, *, gen: int,
+                       on_progress=None) -> dict:
+        """Safely bring the robot to a routine's required start pose.
+
+        ``kind``: ``zero`` (belly down, legs out) or ``stand`` (the
+        captured plant stance). Runs INSIDE the caller's worker thread
+        — the caller must own the job slot (``gen``).
+
+        Operator directive 08-11: stance-gated routines ACQUIRE their
+        start instead of refusing. Strategy: collision-aware safe zero
+        first, then the validated keyframe stand-up onto the plant
+        when a stand is needed (a near-plant start shortcuts to the
+        single-frame re-seat). On ANY failure the failing engine has
+        already stopped the robot (hold or limp); this returns
+        ``ok=False`` and the caller MUST NOT run its routine.
+        """
+        def _prog(p: dict) -> None:
+            if on_progress:
+                try:
+                    on_progress(dict(p))
+                except Exception:
+                    pass
+            else:
+                with self._lock:
+                    self._cal_progress = dict(p)
+
+        kind = "stand" if str(kind).startswith("stand") else "zero"
+        acquired: list[str] = []
+        if kind == "stand":
+            wp = None
+            try:
+                from feetech_bus import standing_pose_degrees
+                wp, _ = self._delta_vs_present(standing_pose_degrees())
+            except Exception:
+                wp = None
+            if wp is not None and wp <= 8.0:
+                return {"ok": True, "acquired": acquired}
+            if wp is not None and wp <= 25.0:
+                # Already standing near the plant: the synthetic
+                # "plant" mode shortcuts to align + tripod re-seat —
+                # no pointless sit/stand cycle.
+                _prog({"msg": "acquiring start: re-seat onto plant…"})
+                rs = self.standup(mode="plant", speed=10.0,
+                                  direction="up", sync_gen=gen)
+                if not rs.get("ok"):
+                    return {"ok": False, "acquired": acquired,
+                            "error": ("could not reach stand start: "
+                                      + str(rs.get("error")
+                                            or "aborted"))}
+                return {"ok": True, "acquired": ["plant_reseat"]}
+        # Everything else goes through a safe zero first (no-op when
+        # already there; plans around ground / leg collisions; limps
+        # on stall or unexpected force).
+        _prog({"msg": "acquiring start: safe zero…"})
+        rz = self._safe_zero_sync(abort_check=self._demo_abort.is_set,
+                                  on_progress=_prog)
+        if not rz.get("ok"):
+            why = (rz.get("error")
+                   or ("aborted" if rz.get("aborted") else "failed"))
+            return {"ok": False, "acquired": acquired,
+                    "limp": bool(rz.get("limp")),
+                    "error": f"could not reach zero start: {why}"}
+        if not rz.get("already_at_zero"):
+            acquired.append("safe_zero")
+        if kind == "zero":
+            return {"ok": True, "acquired": acquired}
+        _prog({"msg": "acquiring start: stand-up onto plant…"})
+        rs = self.standup(mode="plant", speed=10.0, direction="up",
+                          sync_gen=gen)
+        if not rs.get("ok"):
+            return {"ok": False, "acquired": acquired,
+                    "error": ("could not reach stand start: "
+                              + str(rs.get("error") or "aborted"))}
+        acquired.append("standup_plant")
+        return {"ok": True, "acquired": acquired}
+
     def safe_zero(self, *, dry_run: bool = False,
                   force: bool = False) -> dict:
         """Collision-aware go-to-zero with limp-on-anomaly (ask 08-10).
@@ -942,8 +1044,7 @@ class BenchAPI:
         """
         try:
             import math as _math
-            from safe_zero import (belly_ground_z_mm, plan_safe_zero,
-                                   run_safe_zero)
+            from safe_zero import belly_ground_z_mm, plan_safe_zero
         except ImportError as e:
             return {"ok": False, "error": str(e)}
         if self.drive.dry_run:
@@ -952,25 +1053,7 @@ class BenchAPI:
         if not bus:
             return {"ok": False, "error": "no bus"}
 
-        def _present() -> tuple[list, list[int]]:
-            vals: list = [None] * N_JOINTS
-            try:
-                if hasattr(bus, "read_all_positions"):
-                    for j, v in (bus.read_all_positions() or {}).items():
-                        if 0 <= j < N_JOINTS:
-                            vals[j] = float(v)
-            except Exception:
-                pass
-            for j in range(N_JOINTS):
-                if vals[j] is None:
-                    try:
-                        v = bus.read_position_deg(j)
-                    except Exception:
-                        v = None
-                    vals[j] = None if v is None else float(v)
-            return vals, [j for j, v in enumerate(vals) if v is None]
-
-        present, missing = _present()
+        present, missing = self._present_pose18()
         if missing:
             return {"ok": False,
                     "error": ("no encoder reading from " + ", ".join(
@@ -1050,30 +1133,19 @@ class BenchAPI:
                 pass
             try:
                 self._bus_hot = True
-                # Re-plan on fresh encoders: a limp robot may have
-                # sagged between the HTTP call and torque-on.
-                live_plan = plan
-                present2, missing2 = _present()
-                if not missing2:
-                    p2 = plan_safe_zero(
-                        present2, ground_z_mm=belly_ground_z_mm())
-                    if not p2.get("ok"):
-                        result = p2
-                    else:
-                        live_plan = p2
-                if result.get("error"):
-                    pass  # re-plan refused; report that
-                elif not live_plan.get("stages"):
-                    result = {"ok": True, "msg": "already at zero"}
-                else:
-                    def _prog(dct: dict) -> None:
-                        with self._lock:
-                            self._cal_progress = dct
 
-                    result = run_safe_zero(
-                        d.bus, live_plan["stages"],
-                        abort_check=self._demo_abort.is_set,
-                        on_progress=_prog)
+                def _prog(dct: dict) -> None:
+                    with self._lock:
+                        self._cal_progress = dct
+
+                # _safe_zero_sync re-plans on fresh encoders: a limp
+                # robot may have sagged between the HTTP call and
+                # torque-on.
+                result = self._safe_zero_sync(
+                    abort_check=self._demo_abort.is_set,
+                    on_progress=_prog)
+                if result.get("already_at_zero"):
+                    result.setdefault("msg", "already at zero")
             except Exception as e:
                 result = {"ok": False, "error": str(e)}
             finally:
@@ -1770,7 +1842,27 @@ class BenchAPI:
         # Preflight before claiming the worker slot so refusals are
         # instant and motion-free.
         ok, reason, details = preflight(self.drive.bus, mode)
-        if not ok:
+        acquire_first: str | None = None
+        if not ok and (reason.startswith("pose is not")
+                       or reason.startswith("tilt too high")):
+            # RL moves from any pose (operator 08-11): when the pose
+            # or a MODERATE tilt is all that fails (servos + IMU
+            # healthy), the worker ACQUIRES the expected start first —
+            # safe zero for RL stand; safe zero + the validated plant
+            # stand-up for lower / walk — then re-preflights (strict
+            # gates) and runs. A sprawled robot resting crooked on
+            # folded legs reads 15-25 deg of tilt — the descent
+            # flattens it. A truly tipped robot (roll toward 90)
+            # still refuses, as do servo / IMU failures — never
+            # auto-move a tipped or half-dead robot.
+            r = abs(float(details.get("roll_deg", 90.0)))
+            p = abs(float(details.get("pitch_deg", 90.0)))
+            if r <= 35.0 and p <= 35.0:
+                acquire_first = "zero" if mode == "stand" else "stand"
+            else:
+                return {"ok": False,
+                        "error": f"preflight: {reason}", **details}
+        elif not ok:
             return {"ok": False, "error": f"preflight: {reason}", **details}
 
         self._demo_gen += 1
@@ -1799,6 +1891,26 @@ class BenchAPI:
                     self._demo_status = str(p.get("msg") or label)
 
             try:
+                if acquire_first:
+                    with d._lock:
+                        d.mode = "demo"
+                        if not d.armed:
+                            d._torque_all(True)
+                            d.armed = True
+                    _on_progress({"msg": (f"acquiring {acquire_first} "
+                                          "start pose first…")})
+                    res_a = self._acquire_start(
+                        acquire_first, gen=gen,
+                        on_progress=_on_progress)
+                    if not res_a.get("ok"):
+                        raise RuntimeError(
+                            "could not reach the start pose — "
+                            + str(res_a.get("error") or "aborted"))
+                    ok2, reason2, _d2 = preflight(d.bus, mode)
+                    if not ok2:
+                        raise RuntimeError(
+                            f"still failing preflight after acquiring "
+                            f"{acquire_first}: {reason2}")
                 result = run_policy_move(
                     d, mode, on_progress=_on_progress,
                     abort_check=self._demo_abort.is_set,
@@ -1806,9 +1918,31 @@ class BenchAPI:
                     duration_s=float(duration_s), rot60=bool(rot60))
                 if gen != self._demo_gen:
                     return
+                if result.get("ok") and mode == "stand":
+                    # Honesty check: the policy 'finishing' its
+                    # episode is not the same as standing (08-11: a
+                    # nominally-ok run ended legs-flailed at 0.16 A).
+                    try:
+                        kfs = (self._load_standup()["modes"]["tuck"]
+                               ["keyframes"])
+                        stance = [float(x) for x in
+                                  kfs[-1]["q_deg"]]
+                        w_st, _ = self._delta_vs_present(stance)
+                        if w_st is not None and w_st > 30.0:
+                            result["stood"] = False
+                            result["stance_err_deg"] = round(w_st, 1)
+                        else:
+                            result["stood"] = True
+                    except Exception:
+                        pass
                 with self._lock:
                     self._cal_result = result
-                    if result.get("ok"):
+                    if result.get("ok") and result.get("stood") is False:
+                        self._demo_status = (
+                            f"{label} finished but NOT standing "
+                            f"(pose {result['stance_err_deg']:.0f} deg "
+                            "from stance) — use the scripted stand")
+                    elif result.get("ok"):
                         self._demo_status = (
                             f"{label} done · maxI "
                             f"{result.get('max_current_a', 0):.2f}A")
@@ -1849,8 +1983,11 @@ class BenchAPI:
                       force: bool = False) -> dict:
         """Slow ease to a shared hip/knee stance (async).
 
-        Refuses large Δq from present unless ``force``. Hip≈0°+knee≈80° is
-        stilts — not a low plant.
+        A large Δq from present no longer refuses (08-11 directive):
+        the worker first ACQUIRES the zero start safely (collision-
+        aware, limps on stall) and eases to the stance from there. If
+        acquisition fails the job errors out and the ease never runs.
+        Hip≈0°+knee≈80° is stilts — not a low plant.
         """
         try:
             from inplace_demos import (
@@ -1872,19 +2009,18 @@ class BenchAPI:
         goal: list[float] = []
         for _ in range(6):
             goal.extend([yaw_deg, hip_deg, knee_deg])
+        acquire_zero_first = False
         if not force:
-            with self.drive._lock:
-                worst, j = self.drive._max_delta_vs_present(goal)
+            worst, j = self._delta_vs_present(goal)
+            if worst is None:
+                return {"ok": False,
+                        "error": ("no encoder readings — cannot check "
+                                  "the start pose; retry in a few "
+                                  "seconds")}
             if worst > MAX_SAFE_DELTA_DEG:
-                return {
-                    "ok": False,
-                    "error": (
-                        f"refused set_stance: j{j} Δq={worst:.1f}° "
-                        f"(>{MAX_SAFE_DELTA_DEG:.0f}°). Smaller step or force"
-                    ),
-                    "max_delta_deg": round(worst, 2),
-                    "joint": j,
-                }
+                # 08-11 directive: acquire the start instead of
+                # refusing — safe zero first, then the ease.
+                acquire_zero_first = True
 
         self._demo_gen += 1
         gen = self._demo_gen
@@ -1911,6 +2047,21 @@ class BenchAPI:
                     d.armed = True
             live = _live_robot_ids(d.bus)
             try:
+                if acquire_zero_first:
+                    res_a = self._acquire_start("zero", gen=gen)
+                    if gen != self._demo_gen:
+                        return
+                    if not res_a.get("ok"):
+                        with self._lock:
+                            self._demo_status = (
+                                "error: start pose not reached — "
+                                + str(res_a.get("error") or "aborted"))
+                            self._cal_result = {
+                                "ok": False, "mode": "set_stance",
+                                "error": self._demo_status}
+                            self._cal_progress = {
+                                "msg": self._demo_status}
+                        return
                 _set_torque_limit(d.bus, live, 550)
                 _enable_torque(d.bus, live)
                 ok = ease_to_pose(
@@ -1992,16 +2143,26 @@ class BenchAPI:
 
     def standup(self, *, mode: str = "tuck", speed: float = 1.0,
                 direction: str = "up", force: bool = False,
-                torque: int = 700, abort_current_a: float = 3.0) -> dict:
+                torque: int = 700, abort_current_a: float = 3.0,
+                sync_gen: int | None = None) -> dict:
         """Play one baked stand-up strategy (async).
 
         ``direction="up"`` starts from the ZERO pose (belly down, legs
         straight out); ``"down"`` plays the same keyframes in reverse —
-        from the mode's standing stance back to the belly. Refuses if
-        the present pose is far from the first frame unless ``force``.
+        from the mode's standing stance back to the belly. When the
+        present pose is far from the required start it ACQUIRES it
+        first (08-11 directive): up → safe zero first, then the
+        keyframes; down + not at stance → the safe descent to zero IS
+        the down path. Acquisition failure stops everything with an
+        error and the keyframes never play.
         Aborts between keyframes if any servo peaked above
         ``abort_current_a`` (stall-fight = the pinned-feet failure this
         lab exists to fix; do not grind on it).
+
+        ``sync_gen`` (internal): run the whole job INLINE in the
+        calling worker thread under the caller's demo generation —
+        used by ``_acquire_start`` to chain safe-zero → stand-up. No
+        job-slot claim, no preempt, returns the final result dict.
 
         Hardware truth 08-10: tuck stood at 2.48 A peak, step at
         2.97 A; blend stalled short at only 0.57 A (the servos give up
@@ -2046,7 +2207,8 @@ class BenchAPI:
                 keyframes = m["keyframes"]
         except (OSError, ValueError, KeyError, ImportError) as e:
             return {"ok": False, "error": f"unknown stand-up mode: {e}"}
-        if self._demo_thread and self._demo_thread.is_alive():
+        if sync_gen is None and (self._demo_thread
+                                 and self._demo_thread.is_alive()):
             if not self._preempt_demo_thread(reason="→ standup",
                                              timeout=5.0):
                 return {"ok": False, "error": "previous job still running"}
@@ -2066,6 +2228,8 @@ class BenchAPI:
             frames = [(qs[-1], 0.8)] + [
                 (qs[i], ss[i + 1]) for i in range(len(qs) - 2, -1, -1)]
         first = frames[0][0]
+        acquire_zero_first = False
+        safe_down_instead = False
         if not force:
             worst, j = self._delta_vs_present(first)
             if worst is None:
@@ -2075,32 +2239,36 @@ class BenchAPI:
                                   "the start pose; retry in a few "
                                   "seconds")}
             if worst > MAX_SAFE_DELTA_DEG:
-                where = ("this mode's standing stance (stand up with the "
-                         "same mode first)" if down else
-                         "the zero start pose. Lay the robot belly-down "
-                         "with legs straight out (or set_zero there)")
-                return {
-                    "ok": False,
-                    "error": (
-                        f"refused standup: j{j} Δq={worst:.1f}° "
-                        f"(>{MAX_SAFE_DELTA_DEG:.0f}°) from {where}, "
-                        "or force."),
-                    "max_delta_deg": round(worst, 2),
-                    "joint": j,
-                }
+                # 08-11 directive: acquire the start pose instead of
+                # refusing. Up → safe zero first. Down from a pose the
+                # keyframes weren't baked for → the safe descent IS
+                # the down path (never play reversed keyframes from an
+                # unknown stance).
+                if down:
+                    safe_down_instead = True
+                else:
+                    acquire_zero_first = True
 
-        self._demo_gen += 1
-        gen = self._demo_gen
-        self._demo_abort.clear()
         verb = "sit-down" if down else "stand-up"
-        with self._lock:
-            self._demo_name = f"standup_{mode}" + ("_down" if down else "")
-            self._demo_status = f"{verb} · {mode} (x{speed:.2f})"
-            self._demo_params = {"mode": mode, "speed": speed,
-                                 "direction": direction, "torque": torque}
-            self._cal_result = None
-            self._cal_progress = {"msg": self._demo_status}
-        self._set_activity("demo", self._demo_status)
+        if sync_gen is None:
+            self._demo_gen += 1
+            gen = self._demo_gen
+            self._demo_abort.clear()
+            with self._lock:
+                self._demo_name = (f"standup_{mode}"
+                                   + ("_down" if down else ""))
+                self._demo_status = f"{verb} · {mode} (x{speed:.2f})"
+                self._demo_params = {"mode": mode, "speed": speed,
+                                     "direction": direction,
+                                     "torque": torque}
+                self._cal_result = None
+                self._cal_progress = {"msg": self._demo_status}
+            self._set_activity("demo", self._demo_status)
+        else:
+            gen = int(sync_gen)
+            with self._lock:
+                self._cal_progress = {
+                    "msg": f"{verb} · {mode} (x{speed:.2f})"}
 
         def _worker():
             d = self.drive
@@ -2129,6 +2297,46 @@ class BenchAPI:
                 pass
             try:
                 self._bus_hot = True
+
+                def _acq_prog(p: dict) -> None:
+                    with self._lock:
+                        self._cal_progress = dict(p)
+
+                if safe_down_instead:
+                    # Not at this mode's stance — the collision-aware
+                    # descent is the whole down job.
+                    res = self._safe_zero_sync(
+                        abort_check=self._demo_abort.is_set,
+                        on_progress=_acq_prog)
+                    result.update(res)
+                    result["via"] = "safe_zero"
+                    result.setdefault("ok", False)
+                    if gen != self._demo_gen:
+                        return
+                    with self._lock:
+                        self._cal_result = result
+                        self._demo_status = (
+                            "done · safe descent to zero (was not at "
+                            "stance)" if result.get("ok") else
+                            str(result.get("error") or "aborted"))
+                        self._cal_progress = {"msg": self._demo_status}
+                    return result
+                if acquire_zero_first:
+                    res_a = self._acquire_start("zero", gen=gen,
+                                                on_progress=_acq_prog)
+                    if gen != self._demo_gen:
+                        return
+                    if not res_a.get("ok"):
+                        result["error"] = (
+                            "start pose not reached — "
+                            + str(res_a.get("error") or "aborted"))
+                        with self._lock:
+                            self._cal_result = result
+                            self._demo_status = result["error"]
+                            self._cal_progress = {
+                                "msg": self._demo_status}
+                        return result
+
                 _set_torque_limit(d.bus, live, torque)
                 _enable_torque(d.bus, live)
                 n = len(kf_path)
@@ -2469,6 +2677,16 @@ class BenchAPI:
                     st = self._demo_status
                 self._set_activity(
                     "armed" if d.armed else "limp", st or "standup done")
+            return result
+
+        if sync_gen is not None:
+            # Inline run inside the caller's worker (acquisition
+            # chaining). Returns the final result, not a job handle.
+            res = _worker()
+            if res is None:
+                res = {"ok": False, "mode": mode,
+                       "error": "preempted by another job"}
+            return res
 
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
@@ -2641,16 +2859,15 @@ class BenchAPI:
         Drives the tripod gait (`J vx vy omega`) for duration_s while
         logging telemetry, then stops to a planted stand (torque stays
         on) and leaves a PENDING record — enter the tape reading via
-        measure_annotate. Same caps as tape_measure_walk.py. Requires
-        the robot ARMED and STANDING (P) — refused otherwise.
+        measure_annotate. Same caps as tape_measure_walk.py. If the
+        robot is not already ARMED + STANDING the worker ACQUIRES the
+        stand first (08-11 directive: safe zero → plant stand-up);
+        acquisition failure stops everything and the walk never runs.
         MOTION: operator must be watching.
         """
         d = self.drive
         if d.dry_run or not d.bus:
             return {"ok": False, "error": "no bus"}
-        if not d.armed:
-            return {"ok": False,
-                    "error": "need ARM + standing (P) before a walk run"}
         if self._demo_thread and self._demo_thread.is_alive():
             return {"ok": False, "error": "stop the running job first"}
         with self._lock:
@@ -2694,6 +2911,39 @@ class BenchAPI:
                                        "shorter than |v|*T"),
             }
             try:
+                # Acquire ARM + planted stand when missing (08-11):
+                # safe zero → validated plant stand-up → stand hold.
+                need_stand = True
+                try:
+                    from feetech_bus import standing_pose_degrees
+                    w_st, _ = self._delta_vs_present(
+                        standing_pose_degrees())
+                    need_stand = w_st is None or w_st > 30.0
+                except Exception:
+                    need_stand = True
+                if need_stand or not d.armed:
+                    if need_stand:
+                        with self._lock:
+                            self._demo_status = (
+                                "acquiring stand before walk…")
+                        res_a = self._acquire_start("stand", gen=gen)
+                        if gen != self._demo_gen:
+                            return
+                        if not res_a.get("ok"):
+                            with self._lock:
+                                self._cal_result = {
+                                    "ok": False,
+                                    "error": (
+                                        "start pose not reached — "
+                                        + str(res_a.get("error")
+                                              or "aborted"))}
+                                self._demo_status = (
+                                    self._cal_result["error"])
+                            return
+                    self._enter_stand_hold()
+                    time.sleep(0.5)
+                    with self._lock:
+                        self._demo_status = label
                 r = d.handle(f"J {vx:.1f} {vy:.1f} {om:.3f}")
                 if r != "J":
                     with self._lock:

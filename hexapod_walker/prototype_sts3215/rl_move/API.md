@@ -26,7 +26,7 @@ the process rules below are what remain).
 | GET | `/api/rl/policies` | List swappable policies in `policies/` + active flags |
 | POST | `/api/rl/policy_select` | `{"file":"<name>.json"}` — make it live (file copy, no motion) |
 | GET | `/api/measure/list` | Saved measurements + pending record (Measure tab) |
-| POST | `/api/measure/walk` | Measured scripted-gait run `{"vx_mm":30,"omega":0,"duration_s":20}` (caps 60/40 mm/s, 0.5 rad/s, 60 s; needs ARM+stand) |
+| POST | `/api/measure/walk` | Measured scripted-gait run `{"vx_mm":30,"omega":0,"duration_s":20}` (caps 60/40 mm/s, 0.5 rad/s, 60 s; acquires ARM+stand first when missing) |
 | POST | `/api/measure/hold` | Holding-current log `{"label":"planted"\|"hover","duration_s":30}` — holds present pose, NO commanded motion |
 | POST | `/api/measure/annotate` | Merge operator tape reading into the pending record + save |
 | POST | `/api/measure/discard` | Drop the pending record |
@@ -34,16 +34,16 @@ the process rules below are what remain).
 | GET | `/api/logs` | List `logs/` files (name, bytes, mtime; newest first) |
 | GET | `/api/logs/<name>` | Download one log file; `?tail=N` = last N lines only |
 | GET | `/api/rl/preflight?mode=` | Read-only readiness (`stand`/`lower`/`walk`) |
-| POST | `/api/rl/stand` | RL policy stand-up from belly (preflight-gated) |
-| POST | `/api/rl/lower` | RL policy lower to belly (needs captured plant) |
-| POST | `/api/rl/walk` | RL walk, EXPERIMENTAL: `{"vx":0.03,"vy":0,"duration_s":6}`, clamped 0.06 m/s / 20 s; needs captured plant |
+| POST | `/api/rl/stand` | RL policy stand-up (preflight-gated; wrong pose → acquires safe zero first, then re-preflights) |
+| POST | `/api/rl/lower` | RL policy lower to belly (wrong pose → acquires the plant stand first, then re-preflights) |
+| POST | `/api/rl/walk` | RL walk, EXPERIMENTAL: `{"vx":0.03,"vy":0,"duration_s":6}`, clamped 0.06 m/s / 20 s; wrong pose → acquires the plant stand first, then re-preflights |
 | POST | `/api/rl/capture_plant` | Save **current** 18 joints (no motion) |
-| POST | `/api/rl/set_stance` | Small crouch step; refuses Δq > 25° unless `force` |
+| POST | `/api/rl/set_stance` | Slow ease to a crouch stance; a big Δq acquires the safe zero start first instead of refusing |
 | POST | `/api/rl/find_plant` | **Disabled** unless `{"force":true}` |
 | POST | `/api/rl/probe_dynamics` | Air-only ±amp per joint → `logs/motor_model.json` |
 | POST | `/api/rl/stop` | Abort worker |
 | POST | `/api/set_zero` | Present pose → logical 0° (required after hand-set) |
-| POST | `/api/zero` | Sit/stand glide; refuses large Δq unless `force` |
+| POST | `/api/zero` | Sit/stand — acquires the pose safely (sit = safe-zero plan; stand = safe zero → validated plant stand-up); never refuses on Δq, errors + stops if acquisition fails |
 | POST | `/api/safe_zero` | Collision-aware go-to-zero: plans staged waypoints (straighten → center yaws with feet lifted → extend flat), **errors if no safe path exists**, and **LIMPS on any stall / unexpected-force feedback** during motion. `{"dry_run":true}` returns the plan with no motion; `force` bypasses only the IMU tilt gate. Poll `/api/calibrate` for progress. |
 | POST | `/cmd` | `ARM` / `X` limp / `HOLD` / `# j deg` / `C` / `P` |
 
