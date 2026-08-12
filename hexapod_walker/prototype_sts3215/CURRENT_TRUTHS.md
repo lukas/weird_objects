@@ -16,8 +16,20 @@ ramp; this one reaches the full 148mm by t=9.5s). Drag/roll-tail
 flat-to-better than its parent on every mode, video-confirmed. Sim-
 only deployment CANDIDATE (`ppo_goal_cw_stand_footlow2_hard1`,
 hardware_ready=false) — promotion over `holdbc1_hard1` is the next
-call, not yet made. `cw-stand-footzsharp1` still to triage. Earlier
-entries retained below for the resolution chain that got here.
+call, not yet made. **08-12 eve, both now triaged:**
+`cw-stand-footzsharp1` PASSES (2M, `bc_anchor_foot_z` norm
+10mm→3mm) — closes the sub-mm one-foot hover cheat at 2M cost (det
+hold all-six duty ≥0.96 vs parent's 0.03); a LEVER for the next
+stance consolidation, not a new candidate (hard1/stable1 already
+park-free at 10M). `cw-stand-footlow2-tip1` FAILS — training with
+50% tipped spawns teaches the anchored policy to hold height while
+STAYING TILTED (forced-8° probe: valid_plant 12/12 det but never
+levels, tail 7.2° vs parent's 11/12 settled) and leaks into nominal
+retention (untipped hold tilts 7.6°, 6 new tilt_roll falls). Tipped-
+start DR on anchored stance is CLOSED as harmful; no further
+isolated-DR retry on this lineage — tip robustness needs an anchor-
+side design, not a DR knob. Earlier entries retained below for the
+resolution chain that got here.
 Earlier same day (2026-08-12 midday+): `cw-stand-footlow1` FAIL per
 own gate but the most informative stance arm yet: merging
 footz1-hard1's hold fix with anchormix1-r1's lower fix gets BOTH
@@ -52,7 +64,8 @@ for the 10mm-scale foot_z term (~0.008 loss), NOT the historical
 10mm weight-shed park. Rise+hold+lower are now simultaneously clean
 to mm scale in one policy for the first time; consolidation
 `cw-stand-footlow2-hard1` (10M) PASSED (see top of file) + resolution
-probe `cw-stand-footzsharp1` (foot_z_mm 10→3) still to triage.
+probe `cw-stand-footzsharp1` (foot_z_mm 10→3) PASSED 08-12 eve
+(hover was supervision-resolution-limited; see top of file).
 `holdbc1_hard1` stays deployed for now (promotion call pending).
 Earlier same day: `cw-stand-footz1-hard1` FAILED its own 10M hardening (hold
 held, lower regressed to 0/12 — the lineage never had a lower

@@ -18,3 +18,5 @@
 
 **gate**: 15s DR0 harness 6eps/mode det AND sto: fwd >=0.40m 12/12 AND gait_valid 12/12 AND >=2 swings/leg AND 0 terminations AND no final-third frame degradation AND 15s det fwd mean >=0.50m (anti-crawl guard; c1 0.610). Retention: 5s det slip-per-meter <=1.8 (c1 1.50, champion 1.53; raw-slip clause retired, cycle 21 confound)
 
+**verdict**: IMPORT-ERA STUB (2026-08-09 shadow-ledger import): this run predates the verdict-field discipline; its science, if any survived, is in archive/ reviews of the 08-09 era. No verdict was recorded at the time and none is reconstructed now — do not count this entry as an open triage item.
+

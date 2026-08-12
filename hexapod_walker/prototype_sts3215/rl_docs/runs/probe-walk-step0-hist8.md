@@ -16,3 +16,5 @@
 
 **gate**: mechanical only: healthy to 150k, history obs width correct, reward_step_event/reward_drag/reward_park_duty present, no traceback
 
+**verdict**: IMPORT-ERA STUB (2026-08-09 shadow-ledger import): this run predates the verdict-field discipline; its science, if any survived, is in archive/ reviews of the 08-09 era. No verdict was recorded at the time and none is reconstructed now — do not count this entry as an open triage item.
+

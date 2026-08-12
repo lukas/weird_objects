@@ -9,6 +9,20 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-12 eve: `footlow2-tip1` FAILS both clauses — tipped-start DR
+  on anchored stance is CLOSED as HARMFUL.** 50% tipped spawns
+  taught tilt TOLERANCE, not correction: forced-8° probe holds
+  height (det 12/12 vs parent 0/12) but never levels (tail med 7.2°,
+  settled 0/12 vs parent 11/12, one foot parked every det ep), and
+  nominal retention broke (untipped hold tilted 7.6°, 6 tilt_roll
+  falls vs parent zero). Per its gate: anchor implicated, no further
+  isolated-DR retries on the footlow2 lineage; tip robustness needs
+  an anchor-side design if hardware demands it. Same cycle:
+  `footzsharp1` PASSES — the sub-mm one-foot hover is
+  supervision-resolution-limited; `bc_anchor_foot_z` norm 10mm→3mm
+  closes the park at 2M (det hold all-six duty ≥0.96 vs parent 0.03).
+  A lever for the next consolidation, not a new candidate; hard1 /
+  stable1 stand unchanged, promotion call still open (bench-owned).
 - **08-12 ~16:1x: `footlow2-stable1` PASSES (second stance candidate,
   real tradeoff) + the level1 lean-fix wait CLEARED with an
   existing-cfg probe, no new code.** `cw-stand-footlow2-stable1`
@@ -578,6 +592,18 @@ unresolved blockers between the robot and reliable joystick control.
   forensics); next lever is a pricing/anchor fix, same family as the
   now-closed stand-hold pricing line. Still a low-priority research
   sub-line (not a joystick blocker) — no further budget queued.
+  **08-12: `cw-getup4` (one variable, `reward.getup_k_hold` 0.8→2.5,
+  ~30x richer six-foot-vs-plateau payoff, warm from the c2 plateau
+  ckpt) FAILS exactly per the pre-registered false branch — pricing
+  depth is not the binding constraint.** `env/getup_S` ends 0.178
+  (same 0.17–0.23 plateau) and `feet_loaded` 2.63–2.67/6 (pinned
+  below the 3.5 bar); richer summit income moved nothing because the
+  policy never explores far enough from the 4-leg pose to sample it.
+  Per prediction-if-false, the next lever is exploration/anchor-side
+  CODE (per-start-kind BC anchoring or start-mix reweighting), not
+  another coefficient — unqueued, needs a spec pass. Sub-line stays
+  deprioritized (the working rise→walk handoff already covers this
+  on hardware); no further budget queued.
 
 Detail: **rl_docs/BENCH_REPORT_2026-08-11.md** (tonight's consolidated
 bench read + RL implications; regenerate tables with

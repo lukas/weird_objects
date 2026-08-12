@@ -135,46 +135,69 @@ at what budget, with which failure modes.
 
 - **`cw-arch-gru-dual1` FINISHED (08-12): the walk-freeze question is
   answered YES, decisively, at hardening scale — FAIL on the letter
-  of its own gate (one clause short), PASS on the science.** Det
-  walk: gait_valid 6/6, **zero sacrificed legs**, prog_ratio med
+  of its pre-registered n=6/seed=0 gate draw, PASS on the science,
+  and rise is much closer to solved than that draw first showed.**
+  Det walk: gait_valid 6/6, **zero sacrificed legs**, prog_ratio med
   0.95 (parent anchor3: 0.03, pixel-static freeze) — real six-leg
   translation confirmed on video, roll settled 6/6, roll_tail
   1.0–2.3°. Hold det 6/6 (drag 55mm, roll_tail 0.0° — BETTER than
   anchor3's 117mm/0.3°) and lower det 6/6 (drag 99mm vs anchor3's
   310mm) — both at champion level AND with better drag/roll than the
-  shared-trunk parent, not just matching it. Rise is the one miss:
-  det 1/6 (bridge 0/3, crouch 1/1, flat 0/2) vs the gate's >=2/6 bar
-  — one episode short — though own-DR0.5 clears it (3/6: flat 2/2,
-  crouch 1/1). Anchor loss converged clean (0.0034, same order as
-  anchor1-3): not a routing/gradient bug, just not enough rise
-  signal yet in this recipe. **Verdict: mode-gated dual-core routing
-  is the mechanism that ends the shared-trunk interference —
-  confirmed at 2M (dual-scratch1) and now at 10M (dual1) — but this
-  checkpoint is not yet the full-skill candidate.**
+  shared-trunk parent, not just matching it. Rise on the gate's own
+  n=6/seed=0 draw: 1/6 (bridge 0/3, crouch 1/1, flat 0/2), one
+  episode short of the >=2/6 bar. **A same-cycle recheck (n=12,
+  seed=1, identical DR0 gate cfg) found 7/12 (58%) with real bridge
+  (1/4) and flat (1/3) wins, not just crouch (5/5)** — the small
+  first draw was unlucky sampling, not a true sub-2/6 rate. Anchor
+  loss converged clean (0.0034, same order as anchor1-3): not a
+  routing/gradient bug. **Verdict: mode-gated dual-core routing is
+  the mechanism that ends the shared-trunk interference — confirmed
+  at 2M (dual-scratch1) and now at 10M (dual1) — and this checkpoint
+  is closer to the full-skill bar than its own gate draw showed, but
+  is not yet formally re-passed at a pre-registered larger n.**
+
+- **`cw-arch-gru-dual-hfloor1` FINISHED (08-12): the plateau-fix
+  lever does NOT transfer from the MLP lineage — it makes rise
+  WORSE, with a new failure mode.** Same one-variable floor
+  (`train.bc_anchor_min_h_ahead_mm=15`) that took the MLP stance
+  lineage's rise from 3/6 to 12/12, warm from dual1. Per the "whoever
+  triages it" note below, ran the identical n=12/seed=1 recheck used
+  to correct dual1's own noisy n=6 draw: rise is 5/12 det (crouch
+  5/5, bridge 0/4, flat 0/3 — **zero** non-crouch wins) and 1/12 sto,
+  both WORSE than dual1's matched-method draw (7/12 det, 4/12 sto,
+  each with real non-crouch wins). New pathology: 3-4 of the
+  non-crouch episodes now trip `over_current` (0 in dual1's identical
+  draw) — video-confirmed as an honest stall (splayed, motionless
+  low crouch) running out of current headroom over the full 15 s,
+  not a thrash or a new cheat. Walk/hold/lower all held clean: det
+  walk gait_valid 6/6, zero sacrificed legs, prog_ratio med 0.99,
+  real translation on video (dual-core fix intact); hold det 6/6
+  valid_plant, duty 0.99-1.0, drag 48mm (vs dual1 55mm); lower det
+  6/6, duty ~1.0, drag ~90mm (vs dual1 ~99mm) — stance quality
+  slightly better, not worse. One cost: own-DR0.5 lower/sto picked up
+  2 new tilt_roll falls (4/6 vs dual1's clean 6/6). **Verdict: this
+  is the pre-registered FALSE branch, decisively — the anchor-shape
+  plateau fix is MLP-lineage-specific, not a general fix for
+  state-aligned/lookahead anchors. No further coefficient/floor-mm
+  variant on this arm.** The rise gap here reads as data-poverty in
+  the BC-distill (never enough real rise demos), matching the
+  ft1/ft2 mechanism, not a supervision-aim problem.
 
 ## Next
 
-- **Rise-focused follow-up on the SAME dual-core recipe** (one
-  variable: raise `train.bc_anchor_coef` on rise ticks only, or add
-  rise-heavy DAgger rounds to the dual BC-distill data before RL —
-  ft1/ft2's lesson was data-poverty for rise, not a finetune-loss
-  problem, and dual1's rise anchor loss converged same as its
-  siblings' with more data to supervise). Gate: det rise >=2/6 w/
-  >=1 non-flat start, without eroding dual1's walk (gait_valid >=5/6,
-  prog_ratio >=0.80) or hold/lower (>=4/6 each). This is now THE
-  remaining gap between dual1 and "first candidate full-skill GRU."
-  DR-retention panel comes after that gate clears, not before.
+- **The only live lever for RISE is the DAgger redistillation**
+  (re-distill stance-heavy + DAgger rounds on `distill_gru.py` before
+  any further RL) — operator-directed, in progress OUTSIDE this
+  loop. Nothing else is queued against rise on this architecture;
+  waiting on that redistillation to land before another dual-core
+  rise arm. Walk/hold/lower are solved at hardening grade on this
+  lineage (`cw-arch-gru-dual1`/`-hfloor1`) — no further arms needed
+  there either.
 - Distill-then-finetune (`ft1`, warm from a BC-distilled net) is
   SUPERSEDED as the walk-freeze workaround — dual-core is strictly
   better (walk retains AND hold/lower beat it on drag) — but keep
   `ppo_goal_cw_gru_bc.zip` as the hold+walk reference artifact per
   the "Now" entry above.
-- Operator-directed next lever for RISE: re-distill stance-heavy +
-  DAgger rounds on `distill_gru.py` (give the BC step actual rise
-  demos before any further RL) — in progress outside this loop;
-  unaffected by the above (it fixes the DATA, not the finetune loss)
-  and is the most likely single fix for both the ft1 lineage and
-  dual1's rise miss.
 - Later: contact-from-proprioception aux head; distill specialists
   into one recurrent net.
 

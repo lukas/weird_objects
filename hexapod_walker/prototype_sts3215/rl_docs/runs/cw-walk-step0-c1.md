@@ -18,5 +18,7 @@
 
 **gate**: Same as step0: DR 0, det AND sto, >=10cm forward, all six legs cycling lift/swing/touchdown, duty [0.2,0.9], >=2 swings/leg, no drag, no park; video pathology-first
 
+**verdict**: IMPORT-ERA STUB (2026-08-09 shadow-ledger import): this run predates the verdict-field discipline; its science, if any survived, is in archive/ reviews of the 08-09 era. No verdict was recorded at the time and none is reconstructed now — do not count this entry as an open triage item.
+
 **note**: IMPORTED 2026-08-09T01:20Z from the stale non-git copy at /workspace/prototype_sts3215 (operator ran the launcher from the wrong tree; this is the original launch record with checks/wandb_id). The cycle-written entry for the same run holds the verdict.
 

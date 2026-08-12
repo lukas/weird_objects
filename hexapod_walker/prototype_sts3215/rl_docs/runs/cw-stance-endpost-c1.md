@@ -18,3 +18,5 @@
 
 **gate**: posture-strict harness @ DR 1.0, 6 eps/mode det+sto (explicit --modes): lower end-posture >=5/6 sto AND >=4/6 det AND rise/lower height-only >=5/6 both AND hold sto 6/6
 
+**verdict**: IMPORT-ERA STUB (2026-08-09 shadow-ledger import): this run predates the verdict-field discipline; its science, if any survived, is in archive/ reviews of the 08-09 era. No verdict was recorded at the time and none is reconstructed now — do not count this entry as an open triage item.
+
