@@ -73836,7 +73836,7 @@
       "reward.rise_ref_sigma_deg=6.0"
     ],
     "created": "2026-08-11T23:30:44+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73877,7 +73877,10 @@
           "W&B global_step stalled at 655360"
         ]
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "FAIL (known exploit, STOP) -- walk collapses into a frozen march-in-place under the walk-tick BC anchor: det gait_valid reads 6/6 (no leg literally sacrificed) but prog_ratio 0.01, speed 0.001 m/s, and the video is pixel-static for the full 15s clip -- zero net travel. This exactly reproduces the twice-already-closed BC-anchor-on-walk-ticks mechanism (cw-walk-gaitbc1, cw-omni-transbc1), now on a GRU. Real partial win: hold det 6/6 and lower det 6/6 (up from ft1's 0/6 and 4/6) and rise det 2/6 with a non-flat start (bridge+crouch) all clear their bars -- the anchor DOES protect stance skills on a recurrent net as hypothesized. Gate requires walk retention too (AND), so overall FAIL; per guardrails a known exploit is a complete verdict, no further forensics.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-tip1-takeoff25-r1",
@@ -75421,7 +75424,7 @@
       "gru-r1..r4c: EVERY from-scratch GRU at 2M finds the leg-sacrifice paddle before finding gait, surviving the full anti-cheat stack \u2014 an optimization failure (nothing tells a churning leg WHICH WAY to move), the exact signature probe_walk_income exonerated pricing for. The BC anchor supplies that missing gradient in action space (TripodGait walk targets, state-aligned rise refs, settled-pose hold, IK lower; stratified quotas), is validated on the stand track (loweranchor1 2/6 -> 6/6) and is live-converging in the recurrent form on cw-arch-gru-anchor1 right now (anchor loss 0.020 -> 0.005 by 6.5M with KL calm). If action supervision from tick zero beats the paddle attractor, a from-scratch GRU learns honest gait AND stance in one run with no distillation stage at all; if the paddle still wins with a live converged anchor, the paddle is not a missing-gradient artifact and the from-scratch line closes for good. Parent: cw-arch-gru-r4c. Gate: 2M forensics det+sto @DR0 r3 gate cfg vs the frozen r1-r4c fingerprint: PASS if NO leg-sacrifice paddle (zero parked legs det, all six feet cycle) AND det walk gait_valid >=4/6 AND hold det >=3/6 AND train/bc_anchor_loss converged below 0.02 \u2014 then respec the SAME arm to 10M+ hardening citing this as evidence. FAIL if any det episode shows the r1-r4c parked-leg fingerprint (paddle beats a live anchor -> from-scratch line CLOSED, distill+finetune remains the only GRU path) OR anchor loss plateaus >0.05 (targets unreachable from random init -> anchor needs curriculum, not more steps)."
     ],
     "created": "2026-08-12T01:42:51+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -75459,7 +75462,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "FAIL (known exploit, STOP) -- the from-scratch GRU with a live, well-converged anchor (train/bc_anchor_loss 0.010, below the 0.02 threshold) STILL loses to the parked-leg paddle: det walk gait_valid 0/6, leg idx1 explicitly flagged sacrificed, zero net travel. This is exactly the pre-registered FAIL branch (paddle beats a live anchor). Per this run's own pre-registration, the from-scratch-GRU+anchor line is CLOSED -- distill-then-finetune (cw-arch-gru-bc-ft1, warm from a BC-distilled net) remains the only path that keeps a GRU walking cheat-free; a live anchor cannot rescue a random init the way it rescues a warm start.",
+    "hardware_ready": false
   },
   {
     "run": "cw-getup2",
@@ -75625,5 +75631,104 @@
     "triage": "done",
     "hardware_ready": "False",
     "verdict": "FAIL (informative) \u2014 warm-starting the unified getup task from the rise+hold specialist does NOT protect the skill. env/getup_S DECLINED over the full 2M steps (0.09->0.06, never approaching the 0.3 gate target, wrong direction) and the training-return quarters fell monotonically (3.6, 0.1, -1.6, -5.0). Video: the first eval (~1M steps) shows the inherited specialist standing reasonably on all six legs; by the final checkpoint it has settled into the same static splayed/collapsed hold cw-getup1 (fresh-init) reached from scratch \u2014 the specialist's stand knowledge is unlearned within 2M steps under the getup reward/obs wrapper, not merely failed-to-transfer. Per-factor breakdown confirms a genuine collapse, not a flag-leg cheat (f_flag stayed 0.77-0.86 throughout): f_height, f_load, f_footprint, and feet_loaded all fall over training while f_level rises \u2014 consistent with settling low and flat. Root cause: a warm-start prior alone is a soft signal PPO's own gradient noise overwrites on this task, the same failure mode the rise lineage's income-shaping arms hit before the BC-anchor lever fixed it. Next lever (pre-registered in the gate): a direct getup-mode BC anchor \u2014 CODE, landed and banked this cycle (train.bc_anchor_getup, default off, rl_move/sim/bc_anchor.py + sim_env.py, test_bc_anchor.py 7 new tests green, task_semantics getup/rise banks unaffected). cw-getup3 queued to test it."
+  },
+  {
+    "run": "cw-getup3",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Teach the from-scratch unified get-up-and-walk policy to actually stand, this time with an explicit teaching signal instead of relying on a warm-start head start alone. cw-getup2-r1 showed the warm-started specialist's stand skill does NOT survive the getup task -- it decays back into the same static collapse cw-getup1 hit with no head start at all, so the barrier is that a soft prior is overwritten by ordinary training noise, not that the knowledge can't transfer. ONE variable vs cw-getup2-r1: turn on the new train.bc_anchor_getup lever (CODE landed this cycle, default off, cfg-gated, bit-exact when off) -- it pulls the policy's action toward a recorded stand-up demonstration at the joint-space-nearest point on every getup tick, the same kind of explicit pull that already fixed the rise task's identical warm-start-drift problem. Prediction-if-true: env/getup_S holds near or above cw-getup2-r1's peak (>0.15, ideally trending toward 0.3) instead of decaying, and the final video shows a sustained stand (not a collapse) from at least one floor-adjacent start. Prediction-if-false: getup_S still decays despite the explicit anchor -- meaning the barrier is not warm-start/anchor fragility but the getup reward/observation wiring itself (e.g. untangle/load credit outearning real standing), and the next lever is a getup-reward income audit, not more imitation supervision.",
+    "gate": "Same MDP_PREFLIGHT GETUP bank (green) plus the new getup-mode BC-anchor tests in test_bc_anchor.py (green, this commit). PASS if by 2M steps env/getup_S is NOT monotonically declining and ends clearly above cw-getup2-r1's ending band (target >0.15, ideally approaching 0.3), AND video shows a sustained, credible stand (not a static collapse) from at least one floor-adjacent start with no flag-leg/park exploit. Either outcome is informative: holding/climbing confirms the anchor fixes warm-start drift on getup same as it did on rise; still-decaying closes that lever and points at the reward/obs wiring itself as the barrier.",
+    "parent": "cw-getup2-r1",
+    "track": "hw",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--dr-scale",
+      "0.1",
+      "--episode-seconds",
+      "20",
+      "--ent-coef",
+      "0.003",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "getup=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0",
+      "--cfg-set",
+      "safety.max_roll_deg=60",
+      "--cfg-set",
+      "safety.max_pitch_deg=60",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz",
+      "--cfg-set",
+      "train.bc_anchor_coef=1.0",
+      "--cfg-set",
+      "train.bc_anchor_getup=1.0",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip",
+      "--obs-pad-transplant",
+      "4",
+      "--n-envs",
+      "4096",
+      "--out-name",
+      "ppo_goal_cw_getup3",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "Teach the from-scratch unified get-up-and-walk policy to actually stand, this time with an explicit teaching signal instead of relying on a warm-start head start alone. cw-getup2-r1 showed the warm-started specialist's stand skill does NOT survive the getup task -- it decays back into the same static collapse cw-getup1 hit with no head start at all, so the barrier is that a soft prior is overwritten by ordinary training noise, not that the knowledge can't transfer. ONE variable vs cw-getup2-r1: turn on the new train.bc_anchor_getup lever (CODE landed this cycle, default off, cfg-gated, bit-exact when off) -- it pulls the policy's action toward a recorded stand-up demonstration at the joint-space-nearest point on every getup tick, the same kind of explicit pull that already fixed the rise task's identical warm-start-drift problem. Prediction-if-true: env/getup_S holds near or above cw-getup2-r1's peak (>0.15, ideally trending toward 0.3) instead of decaying, and the final video shows a sustained stand (not a collapse) from at least one floor-adjacent start. Prediction-if-false: getup_S still decays despite the explicit anchor -- meaning the barrier is not warm-start/anchor fragility but the getup reward/observation wiring itself (e.g. untangle/load credit outearning real standing), and the next lever is a getup-reward income audit, not more imitation supervision. Parent: cw-getup2-r1. Gate: Same MDP_PREFLIGHT GETUP bank (green) plus the new getup-mode BC-anchor tests in test_bc_anchor.py (green, this commit). PASS if by 2M steps env/getup_S is NOT monotonically declining and ends clearly above cw-getup2-r1's ending band (target >0.15, ideally approaching 0.3), AND video shows a sustained, credible stand (not a static collapse) from at least one floor-adjacent start with no flag-leg/park exploit. Either outcome is informative: holding/climbing confirms the anchor fixes warm-start drift on getup same as it did on rise; still-decaying closes that lever and points at the reward/obs wiring itself as the barrier."
+    ],
+    "created": "2026-08-12T02:18:04+00:00",
+    "status": "DONE",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 2,
+      "code_sha_local": "9825b4e5776fd68b1fc39890163875a3526c9b94",
+      "code_sha_pod": "9825b4e5776fd68b1fc39890163875a3526c9b94",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1339654",
+      "log_growth_bytes": [
+        8548,
+        14198
+      ],
+      "wandb_id": "j36tw442",
+      "global_step_window": [
+        589824,
+        851968
+      ],
+      "fps_estimate": 8738.1
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-getup3 --steps 2000000 --task joint_walk --dr-scale 0.1 --episode-seconds 20 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix getup=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --cfg-set safety.max_roll_deg=60 --cfg-set safety.max_pitch_deg=60 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_getup=1.0 --init-from rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip --obs-pad-transplant 4 --n-envs 4096 --out-name ppo_goal_cw_getup3 --impl warp --host-workers 24 --notes 'Teach the from-scratch unified get-up-and-walk policy to actually stand, this time with an explicit teaching signal instead of relying on a warm-start head start alone. cw-getup2-r1 showed the warm-started specialist'\"'\"'s stand skill does NOT survive the getup task -- it decays back into the same static collapse cw-getup1 hit with no head start at all, so the barrier is that a soft prior is overwritten by ordinary training noise, not that the knowledge can'\"'\"'t transfer. ONE variable vs cw-getup2-r1: turn on the new train.bc_anchor_getup lever (CODE landed this cycle, default off, cfg-gated, bit-exact when off) -- it pulls the policy'\"'\"'s action toward a recorded stand-up demonstration at the joint-space-nearest point on every getup tick, the same kind of explicit pull that already fixed the rise task'\"'\"'s identical warm-start-drift problem. Prediction-if-true: env/getup_S holds near or above cw-getup2-r1'\"'\"'s peak (>0.15, ideally trending toward 0.3) instead of decaying, and the final video shows a sustained stand (not a collapse) from at least one floor-adjacent start. Prediction-if-false: getup_S still decays despite the explicit anchor -- meaning the barrier is not warm-start/anchor fragility but the getup reward/observation wiring itself (e.g. untangle/load credit outearning real standing), and the next lever is a getup-reward income audit, not more imitation supervision. Parent: cw-getup2-r1. Gate: Same MDP_PREFLIGHT GETUP bank (green) plus the new getup-mode BC-anchor tests in test_bc_anchor.py (green, this commit). PASS if by 2M steps env/getup_S is NOT monotonically declining and ends clearly above cw-getup2-r1'\"'\"'s ending band (target >0.15, ideally approaching 0.3), AND video shows a sustained, credible stand (not a static collapse) from at least one floor-adjacent start with no flag-leg/park exploit. Either outcome is informative: holding/climbing confirms the anchor fixes warm-start drift on getup same as it did on rise; still-decaying closes that lever and points at the reward/obs wiring itself as the barrier.' > /tmp/train_cw-getup3.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-getup3.log",
+    "wandb_id": "j36tw442",
+    "verified": "2026-08-12T02:20:52+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-12T02:26:28+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2220,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
+      }
+    ],
+    "triage": "done",
+    "verdict": "PASS (informative) \u2014 the explicit BC-anchor-on-getup lever stops the warm-start decay: env/getup_S rose 0.09->0.17 over the full 2M steps (r1 warm-start-only fell 0.09->0.06), clearing the >0.15 gate target. Training video confirms a genuine, sustained rise-to-stand from a floor-adjacent (tangled/flat) start -- height climbs 2mm->110mm over ~3s then holds level and motionless for the rest of the episode, all six legs symmetric, zero flag-leg/park cheat (env/getup_f_flag 0.96). Not every start rises yet (one of four sampled episodes stays stuck low, holding but not climbing) -- the anchor helps but doesn't yet generalize to every start kind.",
+    "hardware_ready": false
   }
 ]

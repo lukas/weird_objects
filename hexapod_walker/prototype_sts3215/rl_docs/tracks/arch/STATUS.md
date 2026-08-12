@@ -53,15 +53,39 @@ at what budget, with which failure modes.
   BC-anchor (`cw-stand-bc1`/`holdbc1`, twice-proven on hw track) does
   not reach RecurrentPPO as written.
 
+- **CODE landed (08-11 night): `bc_anchor.py` now supports
+  `RecurrentPPO`/GRU** (hidden-state-correct aux step — anchors at
+  the rollout's own hidden state, not h=0). Unblocks the CODE item
+  below. Two arms ran on it 08-12:
+- **`cw-arch-gru-anchor1` (10M hardening, warm from the ft1
+  BC-distilled GRU, rise+hold+lower+walk all anchored) FAILS —
+  but informatively.** Hold det 6/6 and lower det 6/6 (up from ft1's
+  0/6 and 4/6) and rise det 2/6 with a non-flat start all clear their
+  bars: **the anchor DOES protect/recover stance skills on a
+  recurrent net**, exactly as it does on the MLP lineage. But walk
+  freezes solid (gait_valid reads 6/6 with zero legs literally
+  parked, yet prog_ratio 0.01, speed 0.001 m/s, video pixel-static
+  for the full 15s clip) — the SAME twice-closed BC-anchor-on-walk-
+  ticks failure (`cw-walk-gaitbc1`, `cw-omni-transbc1`), now
+  reproduced on a GRU. Gate required both; overall FAIL.
+- **`cw-arch-gru-scratch-anchor1` (2M discovery, from-scratch GRU +
+  the same anchor stack) FAILS per its own pre-registration:** the
+  anchor loss converges cleanly (0.010, under the 0.02 bar — a live,
+  working teaching signal) but the walk mode still finds the
+  parked-leg paddle (det gait_valid 0/6, leg idx1 flagged sacrificed)
+  — "paddle beats a live anchor" was the pre-registered CLOSE
+  condition. **From-scratch-GRU-with-anchor is CLOSED**; distill-
+  then-finetune (ft1, warm from a BC-distilled net) remains the only
+  path that has kept a GRU walking cheat-free.
+
 ## Next
 
-- **The real next lever needs CODE, not another training run:**
-  either (a) extend `bc_anchor.py`'s auxiliary-loss wrapper to
-  `RecurrentPPO`/`GruActorCriticPolicy` (needs hidden-state-aligned
-  minibatches, nontrivial), or (b) add a simple param-freeze option
-  (freeze the GRU cell, finetune only the output head) — neither
-  exists today. Until one lands, no arch-track spec is launchable
-  for this lineage; do not queue a 3rd lr/KL/coefficient variant.
+- **The next arm is one variable off `cw-arch-gru-anchor1`: drop
+  the walk-tick anchor, keep rise+hold+lower anchored.** anchor1
+  proved the mechanism works for stance on this net; the walk
+  freeze is caused by anchoring walk specifically (already twice
+  closed on the MLP lineage) — never re-propose a walk-tick BC
+  anchor. Untried combination, not a coefficient variant.
 - Operator-directed next lever for RISE: re-distill stance-heavy +
   DAgger rounds on `distill_gru.py` (give the BC step actual rise
   demos before any further RL) — in progress outside this loop;

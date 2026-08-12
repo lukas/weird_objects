@@ -235,6 +235,14 @@ unresolved blockers between the robot and reliable joystick control.
   the decay. Not a joystick blocker (the working handoff already
   composes rise→walk cleanly); this is about replacing that two-piece
   handoff with one policy.
+  **08-12: `cw-getup3` PASSES the pre-registered gate** — the explicit
+  anchor stops the decay: `env/getup_S` climbed 0.09→0.17 (target
+  >0.15) instead of falling, and video shows a genuine floor-to-stand
+  rise (2mm→110mm over ~3s, level six-foot hold after, zero flag-leg)
+  from one sampled floor-adjacent start. Not yet reliable — a second
+  sampled start stayed stuck low the whole episode. Still not a
+  joystick blocker; low-priority sub-line, no further budget queued
+  this cycle while named stand/walk blockers are unattacked.
 
 Detail: **rl_docs/BENCH_REPORT_2026-08-11.md** (tonight's consolidated
 bench read + RL implications; regenerate tables with
