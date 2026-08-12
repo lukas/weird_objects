@@ -667,3 +667,121 @@ def test_walk_gait_attr_rides_snapshot_list():
     anchor."""
     from rl_move.sim.mjx_host import SNAP_ATTRS
     assert "_walk_bc_gait" in SNAP_ATTRS
+
+
+# --- GETUP lever (08-12, cw-getup2-r1 follow-up) ---------------------
+# cw-getup2-r1 warm-started the getup task from the rise+hold
+# specialist and showed the skill does NOT survive contact with the
+# getup reward (env/getup_S declined over 2M steps back toward the
+# from-scratch cw-getup1 collapse). This reuses the rise reference
+# demo, ALWAYS state-aligned (getup starts are arbitrary), cfg-gated
+# by train.bc_anchor_getup (default 0 = off, bit-exact when off).
+
+GETUP_OVERRIDES = {
+    ("safety", "max_roll_deg"): 60.0,
+    ("safety", "max_pitch_deg"): 60.0,
+    ("reward", "rise_ref_path"): RISE_REF,
+}
+
+
+def _make_getup_env(seed: int, extra=None, start: str = "crouch"):
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = load_config()
+    ov = dict(GETUP_OVERRIDES)
+    ov.update(extra or {})
+    for (sec, leaf), val in ov.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=16.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for attr in [a for a in vars(gen) if a.startswith("p_")]:
+        setattr(gen, attr, 0.0)
+    gen.p_getup = 1.0
+    env.force_getup_start = start
+    env.force_getup_cmd = (0.0, 0.0)
+    return env
+
+
+def test_getup_anchor_default_off_no_target():
+    """coef alone (no bc_anchor_getup) must emit nothing on getup
+    ticks — the existing rise/hold/lower/walk data streams are
+    untouched by this lever."""
+    env = _make_getup_env(20, {("train", "bc_anchor_coef"): 1.0})
+    env.reset()
+    assert env._is_getup
+    for _ in range(5):
+        _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" not in info
+    env.close()
+
+
+def test_getup_anchor_no_target_when_coef_zero():
+    """bc_anchor_getup alone (coef=0, the trainer's own kill switch)
+    must also emit nothing."""
+    env = _make_getup_env(21, {("train", "bc_anchor_getup"): 1.0})
+    env.reset()
+    for _ in range(5):
+        _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" not in info
+    env.close()
+
+
+def test_getup_anchor_emits_state_aligned_target():
+    """With both knobs set, every getup tick's target is the reference
+    pose nearest the CURRENT joints, one lookahead ahead — the exact
+    state-aligned indexing the rise lever's anchorstate1/2 proved,
+    never a fixed-time clock index (no live clock exists for an
+    arbitrary getup start)."""
+    env = _make_getup_env(22, {("train", "bc_anchor_coef"): 1.0,
+                               ("train", "bc_anchor_getup"): 1.0},
+                          start="crouch")
+    env.reset()
+    ref = load_rise_ref(str(ROOT / RISE_REF))
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(3):
+        _o, _r, _t, _tr, info = env.step(hold)
+        t = info.get("bc_target")
+        assert t is not None and t.shape == (18,) and t.dtype == np.float32
+        assert info.get("bc_mode") == 4
+        qnow = np.asarray(env.data.qpos[env._qadr], dtype=float)
+        j = int(np.argmin(((ref["q"] - qnow[None, :]) ** 2).mean(axis=1)))
+        ahead = max(int(round(0.25 / ref["dt"])), 1)
+        jn = min(j + ahead, len(ref["q"]) - 1)
+        assert np.allclose(t, q_rad_to_action(ref["q"][jn]), atol=1e-6)
+    env.close()
+
+
+def test_getup_anchor_mode_tag_distinct_from_rise():
+    """The getup tag (4) must never collide with rise/hold/lower/walk
+    (0/1/2/3) — stratified sampling and the per-mode loss logging both
+    key off this integer."""
+    env = _make_getup_env(23, {("train", "bc_anchor_coef"): 1.0,
+                               ("train", "bc_anchor_getup"): 1.0})
+    env.reset()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    _o, _r, _t, _tr, info = env.step(hold)
+    assert info.get("bc_mode") == 4
+    env.close()
+
+
+def test_getup_anchor_refuses_without_ref_path():
+    """Misconfiguration fails LOUD (the pool-restore lesson): setting
+    bc_anchor_getup with no rise_ref_path must never silently no-op."""
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    with pytest.raises(SystemExit):
+        attach_bc_anchor(
+            model, coef=1.0,
+            cfg={"train": {"bc_anchor_getup": 1.0}}, task="joint_walk")
+
+
+def test_getup_anchor_accepts_with_ref_path():
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    attach_bc_anchor(
+        model, coef=1.0,
+        cfg={"train": {"bc_anchor_getup": 1.0},
+             "reward": {"rise_ref_path": RISE_REF}},
+        task="joint_walk")
+    assert model.bc_coef == 1.0

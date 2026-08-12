@@ -75532,5 +75532,96 @@
     "hardware_ready": "False",
     "verdict": "FAILED \u2014 crashed at launch, zero training steps, no evidence for/against the warm-start hypothesis. Root cause: observation-space mismatch between the parent (cw-stand-holdbc1-hard1, task=joint_goal, 68-dim obs) and the getup task (task=joint_walk, 72-dim obs: +2 vx/vy_ref in the goal encoding, +2 measured-velocity tail) \u2014 SB3's strict check_for_correct_spaces refused to load. Structural, deterministic (always 68 vs 72 for this task pair), and foreseeable from the code (joint_task.py/walk_task.py obs-width formulas) before launch; not a scientific result. Fix is mechanical and already exists in the codebase: --obs-pad-transplant 4 (all 4 extra dims are appended at the tail of the vector \u2014 goal9 is an exact prefix match \u2014 so the existing zero-pad transplant mechanism applies cleanly). Relaunching corrected respec cw-getup2-r1 with that flag added, same hypothesis, this cycle.",
     "triage": "done"
+  },
+  {
+    "run": "cw-getup2-r1",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Teach the from-scratch unified get-up-and-walk policy to actually stand, by giving it a head start instead of a blank brain -- retry of cw-getup2, which crashed before training on an obs-space mismatch (parent trained on the 68-dim joint_goal task, getup runs on the 72-dim joint_walk task; fixed here with --obs-pad-transplant 4, which zero-pads the policy's first layer for the 4 extra tail dims so it starts bit-identical to the parent). cw-getup1 (fresh init, identical reward) never learned to rise -- it just slumped into a held pose and farmed cheap untangle/load credit while the real stand-quality score stayed near zero the whole run. ONE variable vs cw-getup1: warm-start from the existing rise+hold specialist champion (ppo_goal_cw_stand_holdbc1_hard1) instead of a random network; same getup reward/task/start-mix/goal-mix, same seed. Prediction-if-true: env/getup_S on floor-adjacent starts (crouch/plant/park, 30% of the mix) rises well above cw-getup1's ~0.02 band within 2M steps, and video shows deliberate rises from at least the near-plant start kinds. Prediction-if-false: getup_S stays in the same near-zero band even warm-started -- the specialist's stand skill does not transfer through the getup task's reward/observation wrapper, meaning the barrier is the reward/task wiring, not exploration -- next lever would be a direct getup-mode BC anchor or start-mix reweighting toward crouch/plant. Strongest alternative: the specialist's knowledge only carries over for its own start kinds (crouch/plant/park) and floor-starts (tangle/zero/partial, 70% of the mix) remain exactly as stuck as cw-getup1 -- visible as a bimodal getup_S split by start kind in eval.",
+    "gate": "Same MDP_PREFLIGHT GETUP bank (green, commit fa84a39). PASS if by 2M steps env/getup_S on crouch/plant/park-start episodes rises decisively above cw-getup1's ~0.02 band (target >0.3) AND video shows at least one credible rise-to-stand from a near-plant start with no flag-leg/park exploit; informative FAIL either way (bimodal-by-start-kind vs uniform-stuck) tells us whether the next lever is BC-anchor-on-getup or start-mix reweighting. Also verify at startup that training does not crash and env/getup_S is non-degenerate (not identically 0) at the very first eval, confirming the transplant loaded.",
+    "parent": "cw-getup2",
+    "track": "hw",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--dr-scale",
+      "0.1",
+      "--episode-seconds",
+      "20",
+      "--ent-coef",
+      "0.003",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "getup=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0",
+      "--cfg-set",
+      "safety.max_roll_deg=60",
+      "--cfg-set",
+      "safety.max_pitch_deg=60",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_getup2_r1",
+      "--notes",
+      "respec of cw-getup2: Teach the from-scratch unified get-up-and-walk policy to actually stand, by giving it a head start instead of a blank brain -- retry of cw-getup2, which crashed before training on an obs-space mismatch (parent trained on the 68-dim joint_goal task, getup runs on the 72-dim joint_walk task; fixed here with --obs-pad-transplant 4, which zero-pads the policy's first layer for the 4 extra tail dims so it starts bit-identical to the parent). cw-getup1 (fresh init, identical reward) never learned to rise -- it just slumped into a held pose and farmed cheap untangle/load credit while the real stand-quality score stayed near zero the whole run. ONE variable vs cw-getup1: warm-start from the existing rise+hold specialist champion (ppo_goal_cw_stand_holdbc1_hard1) instead of a random network; same getup reward/task/start-mix/goal-mix, same seed. Prediction-if-true: env/getup_S on floor-adjacent starts (crouch/plant/park, 30% of the mix) rises well above cw-getup1's ~0.02 band within 2M steps, and video shows deliberate rises from at least the near-plant start kinds. Prediction-if-false: getup_S stays in the same near-zero band even warm-started -- the specialist's stand skill does not transfer through the getup task's reward/observation wrapper, meaning the barrier is the reward/task wiring, not exploration -- next lever would be a direct getup-mode BC anchor or start-mix reweighting toward crouch/plant. Strongest alternative: the specialist's knowledge only carries over for its own start kinds (crouch/plant/park) and floor-starts (tangle/zero/partial, 70% of the mix) remain exactly as stuck as cw-getup1 -- visible as a bimodal getup_S split by start kind in eval.",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip",
+      "--obs-pad-transplant",
+      "4"
+    ],
+    "created": "2026-08-12T01:56:11+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 2,
+      "code_sha_local": "c8a09873da8d4c35325d2e4e53f7d29b7b8b910c",
+      "code_sha_pod": "c8a09873da8d4c35325d2e4e53f7d29b7b8b910c",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1227671",
+      "log_growth_bytes": [
+        7000,
+        12652
+      ],
+      "wandb_id": "dox68fp7",
+      "global_step_window": [
+        524288,
+        917504
+      ],
+      "fps_estimate": 13107.2
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-getup2-r1 --steps 2000000 --task joint_walk --dr-scale 0.1 --episode-seconds 20 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix getup=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --cfg-set safety.max_roll_deg=60 --cfg-set safety.max_pitch_deg=60 --cfg-set goal.walk_obs_body_vel=2 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_getup2_r1 --notes 'respec of cw-getup2: Teach the from-scratch unified get-up-and-walk policy to actually stand, by giving it a head start instead of a blank brain -- retry of cw-getup2, which crashed before training on an obs-space mismatch (parent trained on the 68-dim joint_goal task, getup runs on the 72-dim joint_walk task; fixed here with --obs-pad-transplant 4, which zero-pads the policy'\"'\"'s first layer for the 4 extra tail dims so it starts bit-identical to the parent). cw-getup1 (fresh init, identical reward) never learned to rise -- it just slumped into a held pose and farmed cheap untangle/load credit while the real stand-quality score stayed near zero the whole run. ONE variable vs cw-getup1: warm-start from the existing rise+hold specialist champion (ppo_goal_cw_stand_holdbc1_hard1) instead of a random network; same getup reward/task/start-mix/goal-mix, same seed. Prediction-if-true: env/getup_S on floor-adjacent starts (crouch/plant/park, 30% of the mix) rises well above cw-getup1'\"'\"'s ~0.02 band within 2M steps, and video shows deliberate rises from at least the near-plant start kinds. Prediction-if-false: getup_S stays in the same near-zero band even warm-started -- the specialist'\"'\"'s stand skill does not transfer through the getup task'\"'\"'s reward/observation wrapper, meaning the barrier is the reward/task wiring, not exploration -- next lever would be a direct getup-mode BC anchor or start-mix reweighting toward crouch/plant. Strongest alternative: the specialist'\"'\"'s knowledge only carries over for its own start kinds (crouch/plant/park) and floor-starts (tangle/zero/partial, 70% of the mix) remain exactly as stuck as cw-getup1 -- visible as a bimodal getup_S split by start kind in eval.' --init-from rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip --obs-pad-transplant 4 > /tmp/train_cw-getup2-r1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-getup2-r1.log",
+    "wandb_id": "dox68fp7",
+    "verified": "2026-08-12T01:58:59+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-12T02:04:38+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2096,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
+      }
+    ],
+    "triage": "in-cycle cw-getup2-r1 since 2026-08-12T02:05:40"
   }
 ]

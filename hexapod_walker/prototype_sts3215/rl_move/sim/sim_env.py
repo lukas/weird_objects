@@ -2356,6 +2356,42 @@ class SimHexapodBalanceEnv(_GymBase):
                 info["bc_target"] = q_rad_to_action(
                     _bc_ref["q"][_bc_jn]).astype(np.float32)
                 info["bc_mode"] = 0    # rise (stratified sampling tag)
+        # GETUP BC-anchor target (08-12, cw-getup2-r1 follow-up —
+        # RL_PLAN queue; see bc_anchor.py header for the full story).
+        # Warm-starting getup from the rise+hold specialist was not
+        # enough: env/getup_S declined over training back toward the
+        # from-scratch collapse, so the specialist's skill needs an
+        # explicit pull, same as rise once needed. Cfg-gated by
+        # train.bc_anchor_getup (default 0 = off, bit-exact). Reuses
+        # the rise reference demo but ALWAYS state-aligned (nearest
+        # reference pose to CURRENT joints) — getup starts are
+        # arbitrary (belly/tangle/crouch/park/...), so there is no
+        # live clock to time-align a fixed-index target to; a
+        # clock-exact target here would repeat the exact
+        # plant-adjacent-supervised-toward-early-path mistake the rise
+        # lever's state-aligned mode was built to fix.
+        elif (getattr(self, "_is_getup", False)
+                and getattr(self, "n_act", 0) == N_JOINTS
+                and _bc_coef > 0.0
+                and float(cfg_get(self.cfg, "train", "bc_anchor_getup",
+                                  default=0.0)) > 0.0):
+            _bc_ref_path = cfg_get(self.cfg, "reward", "rise_ref_path",
+                                   default=None)
+            if _bc_ref_path:
+                from .joint_task import q_rad_to_action
+                _bc_ref = load_rise_ref(str(_bc_ref_path))
+                _bc_qnow = np.asarray(
+                    self.data.qpos[self._qadr], dtype=float)
+                _bc_j = int(np.argmin(
+                    ((_bc_ref["q"] - _bc_qnow[None, :]) ** 2)
+                    .mean(axis=1)))
+                _bc_ahead = max(int(round(float(cfg_get(
+                    self.cfg, "train", "bc_anchor_lookahead_s",
+                    default=0.25)) / _bc_ref["dt"])), 1)
+                _bc_jn = min(_bc_j + _bc_ahead, len(_bc_ref["q"]) - 1)
+                info["bc_target"] = q_rad_to_action(
+                    _bc_ref["q"][_bc_jn]).astype(np.float32)
+                info["bc_mode"] = 4    # getup
         # HOLD/TRACK BC-anchor target (RL_PLAN queue 2.3, 08-11): the
         # rise lever repeated after two hold pricing misses (hard zero,
         # then a linear fade) neither reached a quiet plant. Hold/track

@@ -45,11 +45,29 @@ ahead, per-episode instance on SNAP_ATTRS; NO emission on
 zero-command (stop) ticks — the gait marches in place at v=0 while
 the commanded behavior there is standing still.
 
+08-12 follow-up (cw-getup2-r1 informative FAIL — see RL_PLAN queue):
+GETUP ticks emit too, cfg-gated by ``train.bc_anchor_getup`` (default
+0 = off). Warm-starting the getup task from the rise+hold specialist
+(cw-getup2-r1) showed the specialist's stand skill does NOT survive
+contact with the getup reward: env/getup_S and the training return
+both DECLINED over 2M steps from an initially-elevated warm-start
+band back toward the from-scratch cw-getup1 collapse, and the final
+video shows the same static splayed/collapsed hold. A soft prior
+(warm-start weights) is not enough; the getup task needs the same
+explicit pull-toward-a-demonstration the rise lever needed. Reuses
+the rise reference demo (``reward.rise_ref_path``) — the only demo we
+have of a stand-up path — but ALWAYS state-aligned (nearest reference
+pose to the CURRENT joints, the mode anchorstate1/2 proved for
+plant-adjacent rise starts): getup starts are arbitrary (belly,
+tangled, crouch, park, ...) and there is no live clock to align a
+fixed-time-index target to. Same one-lookahead-ahead pursuit target
+as rise's state-aligned mode.
+
 Data path: sim_env._step_finish emits ``info["bc_target"]`` (float32,
-18) for every rise tick with a live reference clock, every hold/track
-tick, OR every commanded walk tick, when ``train.bc_anchor_coef`` > 0
-(the trainer cfg key rides into the env cfg dict, same pattern as
-train.mirror_loss_coef).
+18) for every rise tick with a live reference clock, every getup tick
+(when bc_anchor_getup > 0), every hold/track tick, OR every commanded
+walk tick, when ``train.bc_anchor_coef`` > 0 (the trainer cfg key
+rides into the env cfg dict, same pattern as train.mirror_loss_coef).
 ``BCAnchorCollectCallback`` pairs each target with the post-step obs
 (``new_obs``) into a ring buffer on the model; ``BCAnchorPPO.train()``
 runs the aux optimizer step AFTER the untouched PPO update, exactly
@@ -236,7 +254,8 @@ def make_bc_anchor_ppo_class(base_cls=None):
             # rng draws here happen after every gradient minibatch was
             # sampled, so the update sequence is bit-identical.
             with torch.no_grad():
-                names = {0: "rise", 1: "hold", 2: "lower", 3: "walk"}
+                names = {0: "rise", 1: "hold", 2: "lower", 3: "walk",
+                          4: "getup"}
                 for m in np.unique(self._bc_mode[:n]):
                     rows = np.flatnonzero(self._bc_mode[:n] == m)
                     sel = (rows if len(rows) <= bs
@@ -315,6 +334,18 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
                 "train.bc_anchor_coef set but reward.rise_ref_path is "
                 "missing — the env would never emit a bc_target and the "
                 "anchor would silently no-op")
+    if float(cfg_get(cfg, "train", "bc_anchor_getup", default=0.0)) > 0.0:
+        # GETUP lever (08-12, cw-getup2-r1 follow-up): reuses the rise
+        # reference demo, state-aligned only (no live clock makes sense
+        # for an arbitrary getup start). Same silent-no-op trap as the
+        # joint_goal check above, just gated by the getup flag instead
+        # of the task name.
+        ref = cfg_get(cfg, "reward", "rise_ref_path", default=None)
+        if not ref:
+            raise SystemExit(
+                "train.bc_anchor_getup set but reward.rise_ref_path is "
+                "missing — the env would never emit a getup bc_target "
+                "and the anchor would silently no-op")
     model.bc_coef = float(coef)
     model.bc_stratified = float(cfg_get(
         cfg, "train", "bc_anchor_stratified", default=0.0)) > 0.0
