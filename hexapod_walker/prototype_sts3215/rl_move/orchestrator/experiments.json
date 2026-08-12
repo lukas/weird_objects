@@ -77954,7 +77954,7 @@
       "train.bc_anchor_lookahead_s=0.5"
     ],
     "created": "2026-08-12T10:06:16+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -77981,6 +77981,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-footlow1 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_footz1_hard1.zip --dr-scale 0.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_footlow1 --impl warp --host-workers 24 --notes 'respec of cw-stand-footz1-hard1: Plain English: teach the standing robot to plant all six feet AND sit/lower cleanly AT THE SAME TIME, by combining two BC-anchor fixes that each already solved one half of the problem alone but have never been tried together. Warm-start from footz1-hard1 (keeps its working hold fix, train.bc_anchor_foot_z=1.0) and add the four lower-anchor cfg keys that independently solved lower in cw-stand-anchormix1-r1 (bc_anchor_lower, bc_anchor_stratified, bc_anchor_state_aligned, bc_anchor_lookahead_s=0.5) -- one bundle, one mechanism (lower supervision), added on top of an already-working hold mechanism. Prediction-if-true: det+sto hold stays clean (every foot duty >=0.5, matching footz1-hard1) AND det lower recovers to >=5/6 with no new outrigger pattern (matching anchormix1-r1'\"'\"'s 6/6) -- the two fixes are additive because they supervise different mode-ticks (hold vs lower) and stratification exists precisely to stop cross-mode dilution. Prediction-if-false: adding lower'\"'\"'s anchor volume dilutes hold'\"'\"'s foot-z supervision again despite stratification (a NEW dilution axis, since foot_z is a different loss term than the plain joint-MSE anchor stratification was tuned against), re-opening the hold park on a different foot -- meaning the two anchor terms need their OWN stratification split, not just per-mode weighting.' --cfg-set train.bc_anchor_coef=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --cfg-set reward.k_support_margin=0.0 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_lower=1.0 --cfg-set train.bc_anchor_stratified=1.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.5 > /tmp/train_cw-stand-footlow1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stand-footlow1.log",
     "wandb_id": "8zvm5r38",
-    "verified": "2026-08-12T10:09:02+00:00"
+    "verified": "2026-08-12T10:09:02+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-12T10:14:32+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "2,007,040: hold 0.37\u00b0, lean 3.71\u00b0, track 2.93\u00b0, unload 3.45\u00b0, raise 1/2, rise f1/2 b0/2 c0/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 348s (5,753 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_footlow1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_footlow1 (md5 e11a1e49)\n"
+      }
+    ],
+    "hardware_ready": false,
+    "verdict": "FAIL per own gate (det rise 3/6, sto 2/6 \u2014 flat-start stall at 90-107mm height err, the anchormix lineage's known det flat-rise-stall signature; hold det+sto valid_plant 9/12 via 3 sto current-spec misses). INFORMATIVE: the merge is additive on hold+lower \u2014 first arm ever with clean six-foot hold (det duty >=0.94 all feet) AND 12/12 lower with sub-mm clearances (parent 0/12 at up to 126mm); the pre-registered dilution branch (hold park reopening) did NOT fire \u2014 the cost moved to rise. bc_anchor_loss_rise converged low (0.011) during the stall: anchor-blind to rise progress, same lesson class as the park. Roll/drag honest: all non-stall episodes roll_class clean, hold det slip 0.181m.",
+    "triage": "done"
   }
 ]

@@ -5,12 +5,23 @@ RL_LOG/archive prose disagrees with a line here, this file wins.
 Update ONLY when a ruling is accepted or hardware produces new
 evidence; keep 50–80 lines. Reading order: RL_GOALS.md → this file →
 RL_PLAN.md → RESEARCH_RULES.md → rl_docs/SIM.md.
-Last regenerated: 2026-08-12 (cw-stand-footz1-r1 PASS (partial): the
-foot-z BC anchor fixes the 6-run-old invisible one-foot hold park,
-det hold all six feet duty 0.92–0.98 — first clean six-foot hold in
-the whole park saga; 10M hardening queued. Earlier, 08-11 late: omni
-translation RESOLVED IN SIM via the rot-60 wrapper; rise/hold solved
-via BC-anchor, both handoffs compose).
+Last regenerated: 2026-08-12 midday (`cw-stand-footlow1` FAIL per
+own gate but the most informative stance arm yet: merging
+footz1-hard1's hold fix with anchormix1-r1's lower fix gets BOTH
+clean at once for the first time — det hold all six feet duty
+≥0.94, det+sto lower 12/12 sub-mm clearances — but det rise falls to
+3/6 (sto 2/6), the anchormix lineage's known flat-rise stall carried
+in by the merge; `bc_anchor_loss_rise` stays low/converged during the
+stall (anchor-BLIND to rise progress, same lesson class as the
+foot-hover park). Rise-from-flat is now the LAST broken stance mode;
+next lever is an alignment-audit spec pass (which reference tick the
+state-aligned anchor pulls toward at the stalled belly state), not
+another blind anchor variant. `holdbc1_hard1` stays deployed. Earlier
+same day: `cw-stand-footz1-hard1` FAILED its own 10M hardening (hold
+held, lower regressed to 0/12 — the lineage never had a lower
+anchor, which is exactly what footlow1 then added). Earlier, 08-11
+late: omni translation RESOLVED IN SIM via the rot-60 wrapper; rise/
+hold solved via BC-anchor, both handoffs compose).
 
 ## Real robot facts (these outrank any sim result)
 

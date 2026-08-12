@@ -274,7 +274,33 @@ unresolved blockers between the robot and reliable joystick control.
   rise/lower ticks, not hold). 10M hardening `cw-stand-footz1-hard1`
   queued to consolidate the rise miss and confirm durability; `hard1`
   stays the deployed stance checkpoint until a footz-lineage arm
-  passes clean.
+  passes clean. **08-12: `cw-stand-footz1-hard1` FAILED its own
+  gate** — hold survives hardening (det+sto all-six duty 0.92-0.99)
+  but LOWER regressed to 0/12 (the known 3-leg outrigger, worse
+  under budget, clearances to 170mm); this lineage never had the
+  lower-mode anchor its sibling `anchormix1-r1` used to solve lower.
+  **08-12 midday: the combination arm `cw-stand-footlow1`
+  (footz1-hard1's hold fix + anchormix1-r1's lower-anchor bundle,
+  one merge, 2M discovery) FAILED its own gate but is the most
+  informative stance arm yet: HOLD stays clean (det duty ≥0.94
+  every foot, 6/6) AND LOWER fully recovers (12/12 det+sto, feet
+  flush sub-mm vs parent's 0/12 at up to 126mm — video-clean honest
+  descent) — the first policy ever with both. The pre-registered
+  dilution branch (hold park reopening) did NOT fire; instead RISE
+  paid: det 3/6 / sto 2/6, stalling belly-down ~100mm short of
+  target — the anchormix lineage's known det flat-rise stall
+  (loweranchor1 96mm, anchormix1-r1 106mm), carried into the merge
+  by the state-aligned/lookahead bundle. Key measurement:
+  `train/bc_anchor_loss_rise` is LOW and converged (0.084→0.011,
+  fills balanced ~51k/52k/28k) while the robot stalls — joint-space
+  supervision is anchor-BLIND to global rise progress, the same
+  lesson class as the mm-hover park. NEXT LEVER (spec pass, not a
+  blind arm): alignment audit of the state-aligned anchor at the
+  stalled belly state — which reference tick does it select, and is
+  its action ≈ stay-put? (Same audit style that cracked the park.)
+  Pre-registration from the anchormix closure still binds: no
+  further blind anchor variants. `holdbc1_hard1` stays deployed;
+  rise-from-flat is now the last broken stance mode.**
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching
