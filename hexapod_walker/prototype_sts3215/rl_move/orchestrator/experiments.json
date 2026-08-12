@@ -75582,7 +75582,7 @@
       "4"
     ],
     "created": "2026-08-12T01:56:11+00:00",
-    "status": "RUNNING",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -75622,6 +75622,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-getup2-r1 since 2026-08-12T02:05:40"
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "FAIL (informative) \u2014 warm-starting the unified getup task from the rise+hold specialist does NOT protect the skill. env/getup_S DECLINED over the full 2M steps (0.09->0.06, never approaching the 0.3 gate target, wrong direction) and the training-return quarters fell monotonically (3.6, 0.1, -1.6, -5.0). Video: the first eval (~1M steps) shows the inherited specialist standing reasonably on all six legs; by the final checkpoint it has settled into the same static splayed/collapsed hold cw-getup1 (fresh-init) reached from scratch \u2014 the specialist's stand knowledge is unlearned within 2M steps under the getup reward/obs wrapper, not merely failed-to-transfer. Per-factor breakdown confirms a genuine collapse, not a flag-leg cheat (f_flag stayed 0.77-0.86 throughout): f_height, f_load, f_footprint, and feet_loaded all fall over training while f_level rises \u2014 consistent with settling low and flat. Root cause: a warm-start prior alone is a soft signal PPO's own gradient noise overwrites on this task, the same failure mode the rise lineage's income-shaping arms hit before the BC-anchor lever fixed it. Next lever (pre-registered in the gate): a direct getup-mode BC anchor \u2014 CODE, landed and banked this cycle (train.bc_anchor_getup, default off, rl_move/sim/bc_anchor.py + sim_env.py, test_bc_anchor.py 7 new tests green, task_semantics getup/rise banks unaffected). cw-getup3 queued to test it."
   }
 ]

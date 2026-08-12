@@ -222,6 +222,19 @@ unresolved blockers between the robot and reliable joystick control.
   stands, no further blind axes. Reopen lever (unqueued): price the
   min-over-feet load + land per-mode bc_anchor_loss logging FIRST
   (CODE — aggregate only today) before ANY further stand arm. RISE.md.
+- **New sub-line: unified get-up-and-walk (one policy, no scripted
+  handoff).** `cw-getup1` (fresh init) and `cw-getup2-r1` (warm-started
+  from the rise+hold specialist) both FAIL the same way: getup_S
+  never nears the 0.3 gate target, and cw-getup2-r1 shows the
+  specialist's inherited stand skill actively DECAYING (0.09→0.06
+  over 2M steps) back into cw-getup1's exact static collapse — a
+  warm-start prior alone doesn't survive this task. CODE landed +
+  banked (`train.bc_anchor_getup`, default off, state-aligned pull
+  toward the rise reference demo, 7 tests green): `cw-getup3` queued
+  to test whether an explicit anchor (not just a head start) stops
+  the decay. Not a joystick blocker (the working handoff already
+  composes rise→walk cleanly); this is about replacing that two-piece
+  handoff with one policy.
 
 Detail: **rl_docs/BENCH_REPORT_2026-08-11.md** (tonight's consolidated
 bench read + RL implications; regenerate tables with
