@@ -133,26 +133,48 @@ at what budget, with which failure modes.
   expected to displace at 2M). Its result decides this line, not new
   CODE.
 
+- **`cw-arch-gru-dual1` FINISHED (08-12): the walk-freeze question is
+  answered YES, decisively, at hardening scale — FAIL on the letter
+  of its own gate (one clause short), PASS on the science.** Det
+  walk: gait_valid 6/6, **zero sacrificed legs**, prog_ratio med
+  0.95 (parent anchor3: 0.03, pixel-static freeze) — real six-leg
+  translation confirmed on video, roll settled 6/6, roll_tail
+  1.0–2.3°. Hold det 6/6 (drag 55mm, roll_tail 0.0° — BETTER than
+  anchor3's 117mm/0.3°) and lower det 6/6 (drag 99mm vs anchor3's
+  310mm) — both at champion level AND with better drag/roll than the
+  shared-trunk parent, not just matching it. Rise is the one miss:
+  det 1/6 (bridge 0/3, crouch 1/1, flat 0/2) vs the gate's >=2/6 bar
+  — one episode short — though own-DR0.5 clears it (3/6: flat 2/2,
+  crouch 1/1). Anchor loss converged clean (0.0034, same order as
+  anchor1-3): not a routing/gradient bug, just not enough rise
+  signal yet in this recipe. **Verdict: mode-gated dual-core routing
+  is the mechanism that ends the shared-trunk interference —
+  confirmed at 2M (dual-scratch1) and now at 10M (dual1) — but this
+  checkpoint is not yet the full-skill candidate.**
+
 ## Next
 
-- **Watch `cw-arch-gru-dual1`** (10M hardening, already running) —
-  gate: det walk gait_valid >=5/6 with real translation (prog_ratio
-  >=0.80) AND hold/lower det >=4/6 AND rise det >=2/6 w/ >=1 non-flat
-  start. If it passes: first candidate full-skill GRU, next step is
-  a DR-retention panel. If walk still freezes/paddles despite core
-  isolation: the freeze mechanism is NOT trunk-sharing after all (the
-  value function / advantage mixing across modes becomes the next
-  suspect) — per the pre-registered false branch. If stance regresses
-  to BC-parent levels with anchor loss converged: routing/gradient
-  bug, not a science verdict, fix and rerun.
-  Distill-then-finetune (`ft1`, warm from a BC-distilled net) remains
-  the shared-trunk fallback recipe that has kept a GRU walking
-  cheat-free, at the cost of hold/track erosion (see "From-scratch
-  GRU walking CLOSED" above) — superseded if dual1 passes.
+- **Rise-focused follow-up on the SAME dual-core recipe** (one
+  variable: raise `train.bc_anchor_coef` on rise ticks only, or add
+  rise-heavy DAgger rounds to the dual BC-distill data before RL —
+  ft1/ft2's lesson was data-poverty for rise, not a finetune-loss
+  problem, and dual1's rise anchor loss converged same as its
+  siblings' with more data to supervise). Gate: det rise >=2/6 w/
+  >=1 non-flat start, without eroding dual1's walk (gait_valid >=5/6,
+  prog_ratio >=0.80) or hold/lower (>=4/6 each). This is now THE
+  remaining gap between dual1 and "first candidate full-skill GRU."
+  DR-retention panel comes after that gate clears, not before.
+- Distill-then-finetune (`ft1`, warm from a BC-distilled net) is
+  SUPERSEDED as the walk-freeze workaround — dual-core is strictly
+  better (walk retains AND hold/lower beat it on drag) — but keep
+  `ppo_goal_cw_gru_bc.zip` as the hold+walk reference artifact per
+  the "Now" entry above.
 - Operator-directed next lever for RISE: re-distill stance-heavy +
   DAgger rounds on `distill_gru.py` (give the BC step actual rise
   demos before any further RL) — in progress outside this loop;
-  unaffected by the above (it fixes the DATA, not the finetune loss).
+  unaffected by the above (it fixes the DATA, not the finetune loss)
+  and is the most likely single fix for both the ft1 lineage and
+  dual1's rise miss.
 - Later: contact-from-proprioception aux head; distill specialists
   into one recurrent net.
 
