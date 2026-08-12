@@ -88,6 +88,12 @@ Knobs (set via attach_bc_anchor / cfg):
                                (default 0 = legacy uniform; see
                                _bc_sample_idx for the loweranchor1
                                dilution measurement that motivates it)
+  train.bc_anchor_detach_trunk (recurrent only) stop the anchor
+                               gradient at the GRU/feature-extractor
+                               output — only the actor head trains on
+                               it (default 0 = legacy, grad flows into
+                               the whole shared trunk; see
+                               cw-arch-gru-anchor2 in _bc_policy_mean)
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in
@@ -198,20 +204,47 @@ def make_bc_anchor_ppo_class(base_cls=None):
             """pi mean at the anchor obs. MLP: stateless. Recurrent
             (GRU): one fused cell step FROM the stored rollout hidden
             state — supervising the zero state instead would anchor a
-            policy the rollouts never run."""
+            policy the rollouts never run.
+
+            ``bc_detach_trunk`` (08-12, cw-arch-gru-anchor2 follow-up):
+            when set, the feature extractor + GRU cell are run under
+            no_grad and their output is .detach()-ed before the actor
+            head — the anchor loss then only updates
+            mlp_extractor.forward_actor + action_net, never the shared
+            recurrent trunk. Motivation: cw-arch-gru-anchor2 turned OFF
+            the walk-tick anchor (train.bc_anchor_walk=0, no walk pairs
+            in the ring) and walk STILL froze solid identically to
+            cw-arch-gru-anchor1 (gait_valid reads 6/6 but prog_ratio
+            0.01, pixel-static video) while hold/lower stayed strong —
+            proof the interference is not the walk-anchor loss term
+            itself but the SHARED trunk gradient from rise/hold/lower
+            anchor pairs bleeding into the one recurrent core every
+            mode's forward pass shares. Default off, bit-exact: with
+            the flag off this method is byte-for-byte the pre-08-12
+            code path (same ops, same autograd graph)."""
             if th_h is None:
                 return self.policy.get_distribution(
                     th_obs).distribution.mean
             import torch
             pol = self.policy
             gru = pol.lstm_actor
-            feats = pol.extract_features(th_obs)
-            if isinstance(feats, tuple):  # non-shared extractor form
-                feats = feats[0]
+            detach_trunk = bool(getattr(self, "bc_detach_trunk", False))
+            starts = torch.zeros(len(th_obs), device=th_obs.device)
             h = th_h.reshape(len(th_obs), gru.num_layers,
                              gru.hidden_size).permute(1, 0, 2).contiguous()
-            starts = torch.zeros(len(th_obs), device=th_obs.device)
-            latent, _ = pol._process_sequence(feats, (h, h), starts, gru)
+            if detach_trunk:
+                with torch.no_grad():
+                    feats = pol.extract_features(th_obs)
+                    if isinstance(feats, tuple):
+                        feats = feats[0]
+                    latent, _ = pol._process_sequence(
+                        feats, (h, h), starts, gru)
+                latent = latent.detach()
+            else:
+                feats = pol.extract_features(th_obs)
+                if isinstance(feats, tuple):  # non-shared extractor form
+                    feats = feats[0]
+                latent, _ = pol._process_sequence(feats, (h, h), starts, gru)
             return pol.action_net(pol.mlp_extractor.forward_actor(latent))
 
         def train(self) -> None:
@@ -349,6 +382,8 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
     model.bc_coef = float(coef)
     model.bc_stratified = float(cfg_get(
         cfg, "train", "bc_anchor_stratified", default=0.0)) > 0.0
+    model.bc_detach_trunk = float(cfg_get(
+        cfg, "train", "bc_anchor_detach_trunk", default=0.0)) > 0.0
     model.bc_minibatches = int(float(cfg_get(
         cfg, "train", "bc_anchor_minibatches", default=8)))
     model.bc_batch_size = int(float(cfg_get(

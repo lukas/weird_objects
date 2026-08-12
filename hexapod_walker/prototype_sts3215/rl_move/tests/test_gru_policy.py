@@ -297,6 +297,89 @@ def test_bc_anchor_recurrent(tmp_path):
         "anchor ring pickled into the checkpoint (save bloat)"
 
 
+def _tiny_recurrent_bc_model(bs=4, hidden=8):
+    """Minimal RecurrentPPO+BC-anchor model for gradient-flow probes
+    (no .learn(), no rollout — just a policy + a hand-fed anchor pair,
+    exactly the shape _bc_policy_mean needs)."""
+    from sb3_contrib import RecurrentPPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from rl_move.sim.bc_anchor import make_bc_anchor_ppo_class
+
+    cls = make_bc_anchor_ppo_class(RecurrentPPO)
+    venv = DummyVecEnv([_AnchorEnv for _ in range(2)])
+    model = cls(
+        GruActorCriticPolicy, venv,
+        n_steps=8, batch_size=8, n_epochs=1, learning_rate=3e-3,
+        ent_coef=0.0, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=hidden, net_arch=[16]))
+    rng = np.random.default_rng(0)
+    obs = th.as_tensor(
+        rng.uniform(-1, 1, (bs, model.observation_space.shape[0]))
+        .astype(np.float32))
+    h = th.as_tensor(
+        rng.uniform(-1, 1, (bs, hidden)).astype(np.float32))
+    tgt = th.as_tensor(
+        rng.uniform(-1, 1, (bs, 18)).astype(np.float32))
+    return model, obs, h, tgt
+
+
+def _trunk_and_head_params(model):
+    trunk = (list(model.policy.features_extractor.parameters())
+             + list(model.policy.lstm_actor.parameters()))
+    head = (list(model.policy.mlp_extractor.parameters())
+            + list(model.policy.action_net.parameters()))
+    return trunk, head
+
+
+def test_detach_trunk_default_off_is_bit_exact():
+    """train.bc_anchor_detach_trunk unset -> byte-identical mean AND
+    gradient into the GRU/feature-extractor as the pre-08-12 code path
+    (the flag must never change default behavior)."""
+    model, obs, h, tgt = _tiny_recurrent_bc_model()
+    assert not hasattr(model, "bc_detach_trunk") or \
+        not model.bc_detach_trunk, "default must be off"
+    trunk, head = _trunk_and_head_params(model)
+    for p in trunk + head:
+        p.grad = None
+    mean = model._bc_policy_mean(obs, h)
+    th.nn.functional.mse_loss(mean, tgt).backward()
+    trunk_grad_norm = sum(
+        float(p.grad.abs().sum()) for p in trunk if p.grad is not None)
+    head_grad_norm = sum(
+        float(p.grad.abs().sum()) for p in head if p.grad is not None)
+    assert trunk_grad_norm > 0.0, (
+        "legacy path must backprop into the shared GRU/feature-"
+        "extractor trunk (that is the mechanism cw-arch-gru-anchor2 "
+        "measured causing the cross-mode walk freeze)")
+    assert head_grad_norm > 0.0
+
+
+def test_detach_trunk_stops_gradient_into_recurrent_core():
+    """train.bc_anchor_detach_trunk=1 (08-12, cw-arch-gru-anchor2
+    follow-up): the anchor loss must update the actor head
+    (mlp_extractor + action_net) but leave the GRU cell and feature
+    extractor with ZERO gradient from this loss — the lever that
+    tests whether shared-trunk drift from stance-tick anchoring is
+    what corrupts the walk-tick recurrent dynamics."""
+    model, obs, h, tgt = _tiny_recurrent_bc_model()
+    model.bc_detach_trunk = True
+    trunk, head = _trunk_and_head_params(model)
+    for p in trunk + head:
+        p.grad = None
+    mean = model._bc_policy_mean(obs, h)
+    th.nn.functional.mse_loss(mean, tgt).backward()
+    for p in trunk:
+        assert p.grad is None or float(p.grad.abs().sum()) == 0.0, (
+            "detach_trunk leaked gradient into the shared GRU/feature-"
+            "extractor trunk")
+    head_grad_norm = sum(
+        float(p.grad.abs().sum()) for p in head if p.grad is not None)
+    assert head_grad_norm > 0.0, (
+        "detach_trunk must still train the actor head — a fully dead "
+        "gradient is not a working lever, it's a no-op")
+
+
 @pytest.mark.slow
 def test_gru_learns_memory_task():
     from sb3_contrib import RecurrentPPO

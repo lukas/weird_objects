@@ -76062,7 +76062,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-gru-anchor2 since 2026-08-12T06:03:09"
   },
   {
     "run": "cw-dep-bcgait1-hard1",
@@ -76936,7 +76937,7 @@
       "rl_move/sim/policies/ppo_goal_cw_gait_dragstep1.zip"
     ],
     "created": "2026-08-12T04:28:32+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -76963,6 +76964,14 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:nobc nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-gait-anneal1 --steps 2000000 --task joint_walk --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_gait_anneal1 --notes 'respec of cw-gait-dragstep1: Test whether the gait-cleanup anti-skate charge only fails to teach lift-and-place because it lands on a policy that has never moved before -- dragstance1 froze into a motionless park when the charge was applied from a random init. One change vs the closed dragstance1 arm: warm-start from cw-gait-dragstep1 (a genuine from-scratch, RL-only paddler -- no imitation, already translates by skating) instead of random init, and swap its own refuted per-tick k_drag_loaded=40 charge for the audit-correct structural per-stance charge (k_drag_stance=8000/6mm-allowance/0.25mm-floor) that dragstance1 used and froze under. Prediction-if-true: with an already-mobile prior to reshape instead of nothing to build from, det gait_valid shows real six-foot stepping (swing clearance visible, slip/m trending toward/below the paddle band 1.1-1.5) within the 2M discovery budget. Prediction-if-false: the charge-health metric (env/walk_loadslip_factor or equivalent) floors early exactly as in dragstance1/rsi1/slowfirst1 regardless of the mobile starting point -- warm-start-as-curriculum is refuted too, and every no-new-code form of lever 2 (annealed-up pricing) is closed; only a true in-run coefficient scheduler (CODE, unqueued) or the BC-anchor route (out of nobc'\"'\"'s charter) remains.' --cfg-set reward.k_drag_stance=8000 --cfg-set reward.drag_stance_allow_mm=6.0 --cfg-set reward.drag_stance_tick_floor_mm=0.25 --init-from rl_move/sim/policies/ppo_goal_cw_gait_dragstep1.zip > /tmp/train_cw-gait-anneal1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-gait-anneal1.log",
     "wandb_id": "gqo83h4h",
-    "verified": "2026-08-12T04:31:19+00:00"
+    "verified": "2026-08-12T04:31:19+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-12T04:37:07+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "7.47\u00b0, track 8.67\u00b0, unload 8.30\u00b0, raise 0/2, rise f0/2 b0/2 c2/2, walk err 0.056 m/s, lower 0/2, tipped 1/2, rolltrap 0/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:TERM(over_current))\n[mjx-train] done: 2,000,000 steps in 357s (5,608 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_gait_anneal1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_gait_anneal1 (md5 c6f94698)\n"
+      }
+    ]
   }
 ]
