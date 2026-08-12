@@ -385,8 +385,9 @@ Health checks: `curl -s http://127.0.0.1:8090/ | head -c 100` on the
 laptop; on the pod, `tmux has-session -t statusweb` and
 `/tmp/status_server.log`. If the page loads but fleet/token sections
 are empty, the slow collector hasn't finished its first pass — wait
-~2 min. After editing `status_server.py`: commit, push, `git pull` on
-the controller, then re-run step 1 (kill+new tmux session). The
+~2 min. After editing `status_server.py`: commit + push, wait ~1 min
+for the auto-sync to pull it (or `git pull` on the controller), then
+re-run step 1 (kill+new tmux session). The
 server is read-only and safe to restart at any time — it never
 touches training, the watcher, or the ledger.
 
@@ -406,10 +407,21 @@ The server also serves a plain-markdown mirror so external LLMs
 (ChatGPT, Claude web fetch) can assess the campaign: `/llms.txt` is
 the index (llmstxt.org convention), `/llm/status.md` (campaign + all
 per-track STATUS docs), `/llm/plan.md`, `/llm/log.md`, `/llm/runs.md`
-(ledger with hypotheses/verdicts). Spend/token numbers and pod names
+(ledger with hypotheses/verdicts, each linking its per-run story),
+`/llm/docs.md` (index of EVERY .md in the prototype tree), and
+`/llm/doc/<path>` (any individual doc, e.g.
+`/llm/doc/rl_docs/HARDWARE.md`). Spend/token numbers and pod names
 are deliberately NOT on those paths. Auth there is stateless —
 `?key=<token>` on EVERY request, no cookie redirect — because LLM
 fetchers don't keep cookies.
+
+**Docs auto-update on git push:** the server runs a sync thread on the
+controller that pulls origin/main every 60 s (skipping rounds where a
+decision cycle holds the snapshot lock), so pushed doc edits go live
+within ~1 min with no manual pull. Sync failures show as a red warning
+card on the dashboard. This covers DOCS only — a `status_server.py`
+code change still needs the tmux kill+restart in step 1 above (the
+pull itself is now automatic).
 
 Hand an LLM:
 `https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt?key=<token>`
