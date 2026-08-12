@@ -168,10 +168,22 @@ unresolved blockers between the robot and reliable joystick control.
   dr.walk_push_prob=0.5 at the calibrated 2.0-3.0 N·m/0.8-1.5 s dose)
   and `cw-stand-riserock4` (train-4, warm from holdbc1-hard1,
   dr.rise_rock_prob=0.5, deg=8,18 — the ramp-gated calibrated
-  default). Both 2M discovery, VERIFIED RUNNING. Gates = matched-
-  parent probe at the calibrated/bench dose PLUS the riserock3
-  lesson pinned (det LOWER/flag-leg retention is part of both
-  gates) — verdict next cycle.
+  default). **08-12 verdict: `cw-dep-tip1-push1` is PARTIAL/
+  INFORMATIVE — the FIRST real (if sub-threshold) separation in
+  this whole family.** New `probe_walk_push.py` (matched-parent,
+  forced 2.6 N·m/1.5 s, n=12 seeds/side): child falls 5/12 vs frozen
+  tip1 9/12 (1.8x lower, short of the pre-registered >=2x bar), but
+  paired by seed all 4 disagreements favor the child and ZERO favor
+  the parent — a real, directionally consistent effect, unlike
+  walk-kick/rise-rock's exact-zero nulls. Nominal DR0 retention clean
+  (gait_valid/slip/prog match tip1's own band, zero new falls).
+  Per the campaign's own "more steps cleans up the rough edges"
+  pattern (just re-confirmed on `cw-dep-bcgait1-hard1`), queued+ran
+  `cw-dep-tip1-push1-hard1` (train-3, 10M, identical recipe,
+  VERIFIED RUNNING) rather than closing the torque-DR family on a
+  near-miss — if the gap doesn't widen past 1.8x under budget, the
+  family closes for real next verdict. `cw-stand-riserock4`: not
+  this cycle's run, verdict pending elsewhere.
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching

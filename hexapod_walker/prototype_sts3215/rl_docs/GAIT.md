@@ -387,6 +387,29 @@ first tried:
   earning; this from-scratch result does not by itself predict that
   one's outcome.
 
+## P3 lever 4 (RSI-for-walk) — FAILED 08-12, lever CLOSED
+
+`cw-gait-rsi1`: same dragstance1 charge stack + `goal.walk_gait_start_frac
+=0.5` (episodes spawn mid-stride in the scripted tripod gait instead of
+always standing still). Gate 0/6 det+sto both DR0 and own-DR0.5,
+prog_ratio 0.00, slip/m 6-18 (well above the 1.1-1.5 paddle band the
+PASS branch needed); all 24 video clips show uniform marching-in-place
+(no leg sacrificed — `gait_valid` 6/6 — but zero net floor travel).
+Training curves show the IDENTICAL mechanism as dragstance1:
+`env/walk_loadslip_factor` collapses 0.51→0.03-0.07 by step 49 and
+stays floored, `env/reward_drag_stance` sits at -7..-8.5/tick
+unresolved the whole run, `env/reward_step_event` stays ~0.013-0.019.
+The mid-stride state injection gave the policy nothing to build on —
+it drifts back to a minimal-motion habit within the first ~1% of
+training regardless of start state. **RSI-for-walk (P3 lever 4) is
+CLOSED for nobc's gait-from-scratch line**, matching hw's tall-rsi1
+null exactly as pre-registered. Remaining nobc-legal levers (no BC):
+lever 2 (drag charge annealed UP, needs the P2 bank first), lever 3
+(physics easing, unstarted), lever 5 (slow-speed-first commands).
+BC-INIT (the lever that broke the hw track's tall-wall, `cw-dep-
+bcgait1`) is NOT available here — nobc bans imitation losses of any
+kind by charter.
+
 ## TALL LADDER — height-ref rungs on the dep line (operator session 08-11 eve)
 
 Operator directive: "make a deployable tall smooth walker." Mechanism:

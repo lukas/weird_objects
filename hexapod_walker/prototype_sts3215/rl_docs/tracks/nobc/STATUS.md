@@ -24,6 +24,14 @@ whatever works; this track exists to retire the crutch.
   episode, never resolved, near-zero travel), matching its own
   pre-registered false branch. Solo structural charge does not
   induce stepping from scratch; move to item 2 (RSI-for-walk).
+  **08-12: item 2 (RSI-for-walk mid-stride spawns, `cw-gait-rsi1`)
+  also FAILED — CLOSED.** Identical training mechanism to
+  dragstance1 (loadslip factor floored by step 49, drag charge never
+  resolved); gate 0/6, slip/m 6-18, video is marching-in-place. Mid-
+  stride state injection gives the from-scratch policy nothing to
+  build on. Remaining nobc-legal levers (GAIT.md P3): drag charge
+  annealed UP (needs the P2 bank), physics easing, slow-speed-first —
+  BC-INIT is out of scope for this track (no imitation, ever).
 
 - CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
   crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —
@@ -37,8 +45,10 @@ whatever works; this track exists to retire the crutch.
 
 1. ~~Drag-charge magnitude audit~~ DONE 08-11 (see above) — solo
    structural charge does not induce stepping from scratch.
-2. RSI-for-walk mid-stride spawns (now front of the gait queue).
-3. Annealed-up charge once the P2 bank lands; then stand-from-scratch
+2. ~~RSI-for-walk mid-stride spawns~~ DONE 08-12 (see above) — CLOSED,
+   same freeze/near-still mechanism as the drag charge alone.
+3. Physics easing (unstarted) or annealed-up charge once the P2 bank
+   lands, whichever is spec-ready first; then stand-from-scratch
    resumes with whatever levers moved gait discovery.
 
 Detail: GAIT.md P3 · RISE.md forensic ladder.
