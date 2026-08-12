@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-12T00:36:56+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-stand-holdbc1-hard1
+
+**wandb_id**: ak795dj9
 
 **hypothesis**: RELAUNCH of cw-stand-riserock2 (launch 1 died at env construction: pod tree predated the axis commit, the unknown-DR-override guard fail-louded exactly as designed; tree synced to code_sha 7d34fc6, cfg keys verified present on train-0). HARDWARE-DRIVEN one-axis arm, and the second relaunch of the defective cw-stand-riserock1 (drained before its CODE-FIRST axis existed; DEFECTIVE, no science). Bench 08-11: the learned rise deterministic-fails on hardware — 5/5 tilt_roll trips at the same tick (~9s mid-curl), rel roll 10.1-10.6deg, currents <=0.27A, clean zero verified — while the sim curl stays <=1.7deg under BOTH actuator fits (loaded fit probed 08-11: does NOT reproduce the rock, so it is not simple lag). ONE CHANGE (commit 36076a6): dr.rise_rock_* — rise-mode episodes carry a persistent one-side hip/knee fold bias on the PHYSICAL servo command (tipped-start fold->roll mapping; logical loop blind like zero_drift_cmd_frame, encoders read the true drooped angles, tilt ref stays LEVEL so leveling is paid). Mechanism probed before launch: a forced 10deg dose rocks hard1s own curl into the 10-11deg trip band with 5/8 terminations = the bench signature reproduced in sim; a dumb P-feedback leveler clears it on both sides (peaks 4.6-6.7deg, zero falls) so the skill is learnable. Config = hard1 exactly + dr.rise_rock_prob=0.5 + dr.rise_rock_deg=6,12 (covers the measured hardware band with margin; half the rise episodes stay nominal for retention; BC anchor stack untouched). Prediction: the policy learns curl-phase leveling, rocked det rise stops tripping, nominal rise/hold retention unchanged.
 
