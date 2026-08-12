@@ -117,14 +117,43 @@ new command later (the phase-2 transfer test).
   matched 20M budget) queued+launched same cycle to settle it before
   reaching for the representation lever (`obs.history_frames`).
 
+- **08-12 ~23:1x: `cw-mt-widen2` (staged widening, budget-matched 20M)
+  FAILS(no-acquisition), decisively — the budget confound is CLOSED.**
+  Same 20M budget that let `b2` partially acquire commands from
+  scratch; the walking prior stays perfect (gate(DR0) det gait_valid
+  6/6, prog med 1.54, own-DR0.2 6/6/1.68, zero terms, roll_tail
+  0.4-1.0°, video-confirmed genuine six-leg cycling — no regression
+  from widen1) but NEITHER new command arrives: `probe_signed_yaw`
+  stop-hold speed_med 0.0417 m/s vs fwd-hold 0.0688 (gate needed
+  <=0.02; >0.04 trips FAIL outright), tip-left/right yaw differential
+  0.0032 (gate needed >=0.10) — weaker directional signal than
+  widen1's already-failing 0.017. `eval_yaw` agrees: turn |wz_err|
+  med 0.122, hold |wz| med 0.107, both over gate. **20M of the exact
+  b2-matched budget does not teach a staged-widened policy new
+  commands — this was never a too-short-fine-tune story.** No further
+  budget/width variants on this recipe (per its own pre-registered
+  FAIL branch).
+- **Same cycle, refill: `cw-mt-b-hist16-1`** (the pre-registered
+  representation lever, obs.history_frames 1→16 on `cw-mt-b1`'s exact
+  2M discovery recipe) hit a DEFECTIVE launch — 0 steps, all 24
+  workers SIGBUS at first reset (the documented hist16+model-DR
+  `/dev/shm` cap from the arch track's hist16 death chain, COMMANDS.md
+  #13c: hist16+DR at n-envs=4096 needs ~78MB against the pod's 64MB
+  cap). A concurrent cycle diagnosed it and queued the fixed retry
+  **`cw-mt-b-hist16-r1`** (--n-envs=3072, same hypothesis/gate) to the
+  backlog.
+
 ## Next
 
-- **[RUNNING] `cw-mt-widen2`** (train-0, 20M) — does the a2-warm-started
-  widened policy actually learn stop/yaw given b2's full budget, or
-  does it stay command-invariant (representation limit) or forget the
-  gait (curriculum lever)? Gate: stop-hold speed_med <=0.02 m/s AND
-  tip yaw differential >=+0.10 with eval_yaw falls <=2 AND
-  gait_valid >=4/6 for PASS; see ledger for the full FAIL branches.
+- **[RUNNING, train-0] `cw-mt-b-hist16-r1`** — the representation lever, launch-
+  mechanics fixed (--n-envs=3072). Gate: det prog med >=0.32 (2x b1's
+  0.16) OR gait_valid >=1/6 at 2M -> queue a matched 20M hist16 arm
+  (the real command-acquisition test) next; FAIL (at/below b1's
+  0.16/0-of-6) -> temporal window is not the 2M discovery lever
+  either, no further capacity/representation retry at 2M on this
+  recipe — next call is a straight-to-20M hist16 arm citing the
+  b2/widen2 budget precedent, or an operator call on a command-width
+  curriculum.
 - Phase 2 / wave-2 planning should start from `b2` (real gait,
   closest to passing) or `a2` (clean specialist), never from `c2`'s
   broad-command recipe as-is — any future wide-command attempt
