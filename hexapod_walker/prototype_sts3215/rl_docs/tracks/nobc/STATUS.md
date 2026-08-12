@@ -29,13 +29,23 @@ whatever works; this track exists to retire the crutch.
   dragstance1 (loadslip factor floored by step 49, drag charge never
   resolved); gate 0/6, slip/m 6-18, video is marching-in-place. Mid-
   stride state injection gives the from-scratch policy nothing to
-  build on. **Queued+running same cycle: `cw-gait-slowfirst1`**
-  (lever 5, target speed 0.02-0.025 vs the champion's own 0.05-0.06,
-  same drag charge, no RSI) — the only remaining lever launchable
-  without new code. Levers 2/3 (annealed-up charge, physics easing)
-  both need an in-run cfg-coefficient schedule that doesn't exist yet
-  — CODE, unqueued, spec first if lever 5 misses. BC-INIT is out of
-  scope for this track (no imitation, ever).
+  build on. **08-12: lever 5 (`cw-gait-slowfirst1`, target speed
+  0.02-0.025 vs the champion's 0.05-0.06, same charge, no RSI) ALSO
+  FAILED** — det fwd travel 0.00m every episode, video-confirmed legs
+  shuffle in place with zero net displacement, same fingerprint
+  regardless of command speed. Every no-new-code lever (2, 4, 5) is
+  now closed on the identical mechanism. **Re-opened same cycle, a
+  different no-new-code angle on lever 2:** `cw-gait-anneal1` —
+  instead of an in-run anneal (needs a scheduler, CODE), warm-start
+  the structural charge onto `cw-gait-dragstep1`, a genuine
+  from-scratch RL-only paddler that already translates (by skating)
+  before the charge ever turns on, testing whether an already-mobile
+  prior reshapes into stepping instead of freezing like a random
+  init did. If this also floors: every no-new-code form of lever 2
+  is closed too, and only a true in-run coefficient scheduler (CODE,
+  unqueued, spec first) or accepting BC-anchor (out of charter here)
+  remains — that would be a genuine WAIT on unwritten code for this
+  track's mainline lever.
 
 - CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
   crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —

@@ -403,12 +403,29 @@ The mid-stride state injection gave the policy nothing to build on —
 it drifts back to a minimal-motion habit within the first ~1% of
 training regardless of start state. **RSI-for-walk (P3 lever 4) is
 CLOSED for nobc's gait-from-scratch line**, matching hw's tall-rsi1
-null exactly as pre-registered. Remaining nobc-legal levers (no BC):
-lever 2 (drag charge annealed UP, needs the P2 bank first), lever 3
-(physics easing, unstarted), lever 5 (slow-speed-first commands).
-BC-INIT (the lever that broke the hw track's tall-wall, `cw-dep-
-bcgait1`) is NOT available here — nobc bans imitation losses of any
-kind by charter.
+null exactly as pre-registered. **08-12: lever 5 (slow-speed-first,
+`cw-gait-slowfirst1`, target speed 60% below the champion band) also
+FAILS** — det fwd travel 0.00m every episode (prog_ratio ~0.00,
+slip/m 7.31), sto is worse (slip/m 17.8, negative progress);
+video-confirmed legs shuffle in place, zero net displacement, the
+identical fingerprint regardless of how slow the command is. Every
+nobc-legal from-scratch gait lever launchable WITHOUT new code
+(2, 4, 5) is now closed on the SAME mechanism
+(`env/walk_loadslip_factor` floors early and never resolves,
+independent of pricing, state-injection, or target speed).
+**Re-opened same cycle, still no new code:** lever 2 retried as a
+warm-start curriculum instead of an in-run anneal —
+`cw-gait-anneal1` (warm from `cw-gait-dragstep1`, a genuine
+from-scratch RL-only paddler that already translates by skating,
+with its refuted per-tick charge swapped for the audit-correct
+structural per-stance charge that froze dragstance1 from a random
+init). Hypothesis: an already-mobile prior gives the optimizer
+something to reshape instead of nothing to build from. If this also
+floors, every no-new-code form of lever 2 is closed too and the only
+remaining options are a true in-run coefficient scheduler (CODE,
+unqueued, spec first) or BC-INIT (the lever that broke the hw
+track's tall-wall, `cw-dep-bcgait1`) — NOT available here, nobc bans
+imitation losses of any kind by charter.
 
 ## TALL LADDER — height-ref rungs on the dep line (operator session 08-11 eve)
 
