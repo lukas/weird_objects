@@ -290,17 +290,26 @@ unresolved blockers between the robot and reliable joystick control.
   paid: det 3/6 / sto 2/6, stalling belly-down ~100mm short of
   target — the anchormix lineage's known det flat-rise stall
   (loweranchor1 96mm, anchormix1-r1 106mm), carried into the merge
-  by the state-aligned/lookahead bundle. Key measurement:
-  `train/bc_anchor_loss_rise` is LOW and converged (0.084→0.011,
-  fills balanced ~51k/52k/28k) while the robot stalls — joint-space
-  supervision is anchor-BLIND to global rise progress, the same
-  lesson class as the mm-hover park. NEXT LEVER (spec pass, not a
-  blind arm): alignment audit of the state-aligned anchor at the
-  stalled belly state — which reference tick does it select, and is
-  its action ≈ stay-put? (Same audit style that cracked the park.)
-  Pre-registration from the anchormix closure still binds: no
-  further blind anchor variants. `holdbc1_hard1` stays deployed;
-  rise-from-flat is now the last broken stance mode.**
+  by the state-aligned/lookahead bundle. **08-12 (same day): the
+  alignment audit RAN (`probe_anchor_align.py`, live stalled policy,
+  the run's own cfg incl. loaded servos) and RESOLVED the mechanism —
+  a PLATEAU FIXED POINT, correcting the "anchor-BLIND" read: the
+  matched ref index PINS at j≈128–137 (0 ticks advance over the last
+  3 s) inside the demo's 5+ s 0→25 mm prep crawl, so the +0.5 s
+  pursuit target commands only 1–5 mm of height gain (ref_h 6.4–8.4
+  mm vs chassis at 4–7 mm), loaded-servo sag (~0.3 s settle) cancels
+  it, and the policy OBEYS — mse(act,target) 0.004–0.006 during the
+  stall, its episode MINIMUM. The converged `bc_anchor_loss_rise`
+  was the anchor actively supervising the stall. Fix landed
+  (`train.bc_anchor_min_h_ahead_mm`: height-floor pursuit, target
+  tick must command ≥Δmm above current chassis height; default off,
+  bit-exact, 3 bank tests + 44-test anchor suite + 78-test semantics
+  bank green): one-variable retry `cw-stand-footlow2` (footlow1
+  recipe + floor=15, 2M discovery) is the live arm. Side finding,
+  noted not attacked: off-path bridge starts (33° RMS from any ref
+  tick) match the path END and get supervised straight to plant,
+  ignoring the ramp. `holdbc1_hard1` stays deployed;
+  rise-from-flat is still the last broken stance mode.**
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching

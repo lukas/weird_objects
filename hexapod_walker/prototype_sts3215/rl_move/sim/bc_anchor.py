@@ -104,6 +104,20 @@ Knobs (set via attach_bc_anchor / cfg):
   train.bc_anchor_foot_z_mm    height scale for the term (default 10:
                                a 10 mm commanded deviation -> unit
                                squared error)
+  train.bc_anchor_min_h_ahead_mm  (env-side, state-aligned rise only)
+                               height-floor pursuit: the target tick
+                               must command at least this many mm
+                               above the chassis's CURRENT height
+                               (default 0 = off, bit-exact). Exists
+                               because the 08-12 footlow1 dig-in
+                               (probe_anchor_align) measured the
+                               flat-rise stall as a PLATEAU FIXED
+                               POINT: the reference crawls 0->25 mm
+                               over 5+ s, so the +0.5 s time lookahead
+                               commands a pose 1-5 mm higher, loaded-
+                               servo sag cancels it, the matched index
+                               pins, and the anchor supervises the
+                               stall with a low, converged loss.
   train.bc_anchor_detach_trunk (recurrent only) stop the anchor
                                gradient at the GRU/feature-extractor
                                output — only the actor head trains on

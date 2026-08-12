@@ -77991,7 +77991,7 @@
       }
     ],
     "hardware_ready": false,
-    "verdict": "FAIL per own gate (det rise 3/6, sto 2/6 \u2014 flat-start stall at 90-107mm height err, the anchormix lineage's known det flat-rise-stall signature; hold det+sto valid_plant 9/12 via 3 sto current-spec misses). INFORMATIVE: the merge is additive on hold+lower \u2014 first arm ever with clean six-foot hold (det duty >=0.94 all feet) AND 12/12 lower with sub-mm clearances (parent 0/12 at up to 126mm); the pre-registered dilution branch (hold park reopening) did NOT fire \u2014 the cost moved to rise. bc_anchor_loss_rise converged low (0.011) during the stall: anchor-blind to rise progress, same lesson class as the park. Roll/drag honest: all non-stall episodes roll_class clean, hold det slip 0.181m.",
+    "verdict": "FAIL per own gate (det rise 3/6, sto 2/6 \u2014 flat-start stall at 90-107mm height err; hold det+sto valid_plant 9/12 via 3 sto current-spec misses). INFORMATIVE: the merge is additive on hold+lower \u2014 first arm ever with clean six-foot hold (det duty >=0.94 all feet) AND 12/12 lower with sub-mm clearances (parent 0/12 at up to 126mm); the cost moved to rise. DIG-IN RESOLVED (probe_anchor_align, live policy on train-0): the stall is a PLATEAU FIXED POINT in the state-aligned anchor \u2014 the matched ref index pins at j=128-137 (0 ticks advance over 3s) where the reference crawls 0-25mm over 5+s, so the +0.5s pursuit target commands only 1-5mm of height gain, loaded-servo sag cancels it, and the policy OBEYS (mse(act,tgt) 0.004-0.006 at the stall, its episode minimum). Corrects the 'anchor-blind' read: the converged bc_anchor_loss_rise was the anchor actively supervising the stall. Fix landed: train.bc_anchor_min_h_ahead_mm (height-floor pursuit, default off, bit-exact, 3 bank tests); next arm cw-stand-footlow2 (=footlow1 recipe + floor=15, 2M discovery).",
     "triage": "done"
   },
   {
@@ -78069,7 +78069,7 @@
       "goal.lower_ramp_jitter=0.3"
     ],
     "created": "2026-08-12T10:51:31+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -78096,6 +78096,14 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-rampjit1 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip --dr-scale 0.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_rampjit1 --impl warp --host-workers 24 --notes 'respec of cw-stand-footz1-r1: Make the deployed stance survive the JOYSTICK'\"'\"'s goal ramps, not just the training profile: the 08-11 model tour showed holdbc1_hard1 tips deterministically when asked to sit from the 142mm walk-plant frame and stalls its belly rise at 55mm under the interactive ramp \u2014 a profile-overfit defect (training always used rise_ramp_s=6.0 / lower fixed ramps, so the policy memorized one timing). This arm warm-retrains the champion with goal.rise_ramp_jitter=0.3 + goal.lower_ramp_jitter=0.3 (the landed default-off axis, bank green: jitter varies ramp TIMING only, never targets/holds; bc_anchor_foot_z stays 0 = bit-exact absent, so ramp jitter is the ONE variable vs holdbc1-hard1). Prediction-if-true: rl_move.sim.eval_session hard gates pass (belly rise completes under the interactive ramp, sit-from-142mm-plant no tip) with det mode retention at the parent'\"'\"'s own baseline (rise 6/6, hold 6/6, lower >=4/6, no new falls). Prediction-if-false: session gates still fail with jitter trained in \u2014 the overfit is to something other than ramp timing (e.g. the start pose itself), pointing at start-state DR not profile DR; or retention breaks (jitter destabilizes the memorized rise), meaning dose down to 0.15 once, then stop.' --cfg-set train.bc_anchor_coef=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --cfg-set reward.k_support_margin=0.0 --cfg-set train.bc_anchor_foot_z=0.0 --cfg-set goal.rise_ramp_jitter=0.3 --cfg-set goal.lower_ramp_jitter=0.3 > /tmp/train_cw-stand-rampjit1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stand-rampjit1.log",
     "wandb_id": "74bwxuy8",
-    "verified": "2026-08-12T10:54:18+00:00"
+    "verified": "2026-08-12T10:54:18+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-12T10:59:34+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "2,007,040: hold 0.24\u00b0, lean 1.51\u00b0, track 1.05\u00b0, unload 0.34\u00b0, raise 2/2, rise f2/2 b1/2 c2/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 372s (5,378 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_rampjit1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_rampjit1 (md5 df654052)\n"
+      }
+    ]
   }
 ]

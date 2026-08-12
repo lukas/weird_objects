@@ -2438,6 +2438,42 @@ class SimHexapodBalanceEnv(_GymBase):
                     _bc_ahead = max(int(round(float(cfg_get(
                         self.cfg, "train", "bc_anchor_lookahead_s",
                         default=0.25)) / _bc_ref["dt"])), 1)
+                    # HEIGHT-FLOOR pursuit (08-12, cw-stand-footlow1
+                    # dig-in / probe_anchor_align): a TIME lookahead
+                    # degenerates to a near-zero POSE lookahead inside
+                    # the reference's low prep segment — this ref
+                    # spends 5+ s (ticks ~126-250) crawling 0->25 mm,
+                    # so at a stalled ~7 mm belly state the +0.5 s
+                    # target commands a pose only 1-5 mm higher and
+                    # the loaded-servo tracking sag (~0.3 s settle)
+                    # cancels it: the matched index PINS (measured:
+                    # j=128-133, 0 ticks advance over 3 s) while the
+                    # anchor loss reads low/converged — the anchor
+                    # actively supervises the stall. When
+                    # train.bc_anchor_min_h_ahead_mm > 0, additionally
+                    # require the target tick to command at least that
+                    # many mm above the chassis's CURRENT height
+                    # (first such tick at/after the match; path end if
+                    # none) — in flat segments the pursuit skips ahead
+                    # to where the reference genuinely climbs, in
+                    # steep segments the time lookahead already
+                    # satisfies it and nothing changes. Default 0 =
+                    # off, bit-exact. Needs ref["h"] (newer extracts;
+                    # absent -> floor is a no-op, time lookahead
+                    # unchanged). Stateless — pool-restore safe.
+                    _bc_min_h = float(cfg_get(
+                        self.cfg, "train", "bc_anchor_min_h_ahead_mm",
+                        default=0.0))
+                    if _bc_min_h > 0.0 and "h" in _bc_ref:
+                        _bc_hnow = float(self.data.xpos[
+                            self._chassis_bid, 2]) - self._z0
+                        _bc_ks = np.flatnonzero(
+                            _bc_ref["h"][_bc_j:]
+                            >= _bc_hnow + _bc_min_h * 1e-3)
+                        _bc_floor = (_bc_j + int(_bc_ks[0])
+                                     if len(_bc_ks)
+                                     else len(_bc_ref["q"]) - 1)
+                        _bc_ahead = max(_bc_ahead, _bc_floor - _bc_j)
                 else:
                     _bc_j, _ = self._rise_ref_clock(_bc_ref)
                     _bc_ahead = max(

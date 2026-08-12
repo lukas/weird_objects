@@ -889,3 +889,123 @@ def test_foot_z_sees_the_park_joint_mse_misses():
     assert fz > 0.1, f"foot-z term blind to a 10mm hover ({fz})"
     assert fz / max(joint_mse, 1e-12) >= 50, \
         f"foot-z/joint ratio only {fz / joint_mse:.1f} — term too weak"
+
+
+# ---------------------------------------------------------------------------
+# HEIGHT-FLOOR pursuit (train.bc_anchor_min_h_ahead_mm, 08-12
+# cw-stand-footlow1 dig-in). Measured defect (probe_anchor_align on the
+# live stalled policy): the reference crawls 0->25 mm over 5+ s
+# (ticks ~126-250), so at a stalled ~7 mm belly state the +0.5 s TIME
+# lookahead commands a pose only 1-5 mm higher; loaded-servo sag
+# cancels it, the matched index pins (0 ticks advance over 3 s), and
+# the anchor supervises the stall with a LOW converged loss. The floor
+# requires the target tick to command >= min_h_ahead_mm above the
+# chassis's current height.
+
+
+def _floor_env(min_h_mm, seed=3, extra=None):
+    ov = {("train", "bc_anchor_coef"): 1.0,
+          ("train", "bc_anchor_state_aligned"): 1.0,
+          ("train", "bc_anchor_lookahead_s"): 0.5,
+          ("goal", "rise_rsi_frac"): 0.0}
+    if min_h_mm is not None:
+        ov[("train", "bc_anchor_min_h_ahead_mm")] = float(min_h_mm)
+    ov.update(extra or {})
+    return _make_env(seed, ov)
+
+
+def test_min_h_ahead_default_off_bit_exact():
+    """min_h_ahead absent and explicitly 0.0 emit byte-identical
+    targets (the floor branch must not perturb the legacy pursuit)."""
+    def targets(min_h):
+        env = _floor_env(min_h)
+        env.reset()
+        act = q_rad_to_action(env.data.qpos[env._qadr])
+        out = []
+        for _ in range(40):
+            _o, _r, term, trunc, info = env.step(act)
+            if term or trunc:
+                break
+            if "bc_target" in info:
+                out.append(info["bc_target"].copy())
+                act = info["bc_target"]
+        env.close()
+        return np.asarray(out)
+    a = targets(None)
+    b = targets(0.0)
+    assert a.shape == b.shape and np.array_equal(a, b)
+
+
+def test_min_h_ahead_targets_command_height_progress():
+    """At a low state the legacy pursuit target commands almost no
+    height gain (the measured stall supervision); with the floor every
+    emitted target decodes to a reference tick at least min_h above
+    the chassis's current height (or the path end)."""
+    ref = load_rise_ref(str(ROOT / RISE_REF))
+    T = len(ref["q"])
+
+    def tick_of(target) -> int:
+        q_t = action_to_q_rad(np.asarray(target, dtype=float))
+        return int(np.argmin(
+            ((ref["q"] - q_t[None, :]) ** 2).mean(axis=1)))
+
+    for min_h, want_floor in ((0.0, False), (15.0, True)):
+        env = _floor_env(min_h)
+        env.reset()
+        act = q_rad_to_action(env.data.qpos[env._qadr])
+        low_gains = []
+        for _ in range(80):
+            _o, _r, term, trunc, info = env.step(act)
+            if term or trunc:
+                break
+            if "bc_target" not in info:
+                continue
+            h_now = float(env.data.xpos[env._chassis_bid, 2]) - env._z0
+            k = tick_of(info["bc_target"])
+            if h_now < 0.04:   # the plateau region under audit
+                low_gains.append(
+                    (float(ref["h"][k]) - h_now, k == T - 1))
+            act = info["bc_target"]
+        env.close()
+        assert low_gains, "chain never visited a low state"
+        if want_floor:
+            bad = [g for g, is_end in low_gains
+                   if g < 0.015 - 1e-6 and not is_end]
+            assert not bad, (
+                f"floor=15mm target(s) command only {min(bad)*1e3:.1f}mm "
+                "above the current chassis height")
+        else:
+            # the defect this floor fixes: legacy pursuit at low
+            # states commands <6mm of height gain at least once
+            assert min(g for g, _ in low_gains) < 0.006, (
+                "legacy pursuit no longer commands near-zero height "
+                "gain at low states — re-justify the floor")
+
+
+def test_min_h_ahead_unpins_the_plateau_traversal():
+    """Chaining targets under LOADED servo params (the stalled run's
+    own physics): the floor must traverse the low prep plateau several
+    times faster — by tick 120 (4.8 s) the floored chain is high while
+    the legacy chain is still in the plateau (measured 82.5 vs ~9 mm
+    at t=50/100; policy-level the legacy pursuit pins outright)."""
+    def h_at(min_h, n=120):
+        env = _floor_env(min_h,
+                         extra={("bus", "servo_params"): "loaded"})
+        env.reset()
+        act = q_rad_to_action(env.data.qpos[env._qadr])
+        h = 0.0
+        for _ in range(n):
+            _o, _r, term, trunc, info = env.step(act)
+            if term or trunc:
+                break
+            if "bc_target" in info:
+                act = info["bc_target"]
+            h = float(env.data.xpos[env._chassis_bid, 2]) - env._z0
+        env.close()
+        return h * 1e3
+    slow = h_at(0.0)
+    fast = h_at(15.0)
+    assert fast > 60.0, f"floored chain only reached {fast:.1f}mm"
+    assert fast > slow + 30.0, (
+        f"no traversal separation: floor {fast:.1f}mm vs "
+        f"legacy {slow:.1f}mm")

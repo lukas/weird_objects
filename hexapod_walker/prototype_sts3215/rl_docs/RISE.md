@@ -1231,3 +1231,51 @@ sto-current noise clear the way bc1→bc1-hard1 and
 holdbc1→holdbc1-hard1 both did on the identical discovery→hardening
 pattern. `hard1` remains the deployed stance checkpoint until a
 footz-lineage arm passes clean.
+
+### 08-12 footlow1 dig-in (`probe_anchor_align.py`): the flat-rise
+### stall is a PLATEAU FIXED POINT — the anchor actively supervises it
+
+The flagged alignment audit ran on the live `cw-stand-footlow1`
+policy (train-0, the run's exact cfg stack incl. loaded servo params,
+det+sto flat/bridge episodes, recomputing sim_env's state-aligned
+selection every tick). Result, by measurement:
+
+1. **The matched index PINS.** In every stalled episode (det flat x2,
+   det bridge, sto flat x2; end h_err 101–106 mm) the argmin match
+   crawls to j≈128–137 and then advances ZERO ticks over the last 3 s
+   (det; sto wanders 118–134). The legacy clock at the same ticks
+   reads 276–313.
+2. **The pursuit target commands no height.** The reference
+   (`rise_ref_belly2plant.npz`) spends ticks ~126–250 (5+ s) crawling
+   0→25 mm, so at the pinned index the +0.5 s (12-tick) lookahead
+   target has ref_h 6.4–8.4 mm while the chassis sits at 4–7 mm —
+   a commanded gain of 1–5 mm. The 12-tick pose delta there is
+   ~3–4°, which the loaded-servo tracking sag (~0.3 s settle)
+   cancels: time lookahead ≠ pose/height lookahead in a slow segment.
+3. **The policy OBEYS the anchor at the stall**: mse(action, target)
+   = 0.004–0.006 during the stall — the lowest of the whole episode.
+   This corrects the earlier "anchor-BLIND to rise progress" read:
+   the converged `bc_anchor_loss_rise` was not blindness, the anchor
+   was actively pinning the policy at the plateau fixed point.
+4. Bonus: one bridge start settled 33° RMS off-path; argmin matched
+   the FINAL tick (plant pose) and the policy stood by t=50 while the
+   goal ramp still commanded 0 — off-path states bifurcate to the
+   path END, occasionally "winning" by ignoring the ramp
+   choreography. Noted, not attacked this cycle.
+
+Fix (landed, default off, bit-exact off, tests green):
+`train.bc_anchor_min_h_ahead_mm` — height-floor pursuit for the
+state-aligned rise anchor: the target tick must command at least
+this many mm above the chassis's CURRENT height (first such tick at/
+after the match; path end if none). In steep segments the time
+lookahead already satisfies it (no behavior change); in the plateau
+it skips ahead to where the reference genuinely climbs. Chained-
+target check under loaded params: floor=15 reaches 82.5 mm by t=50
+vs ~0 mm legacy (which needs 200 ticks to traverse the plateau).
+3 new bank tests (default-off bit-exactness; every low-state target
+commands ≥15 mm of height or the path end, while legacy provably
+commands <6 mm; 120-tick loaded-params traversal separation).
+Probe artifacts: `logs/experiments/cw-stand-footlow1/
+anchor_align_footlow1.json`; probe: `rl_move/sim/probe_anchor_align.py`.
+First arm: `cw-stand-footlow2` (2M discovery, one variable added to
+the footlow1 recipe: `train.bc_anchor_min_h_ahead_mm=15`).

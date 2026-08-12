@@ -5,18 +5,26 @@ RL_LOG/archive prose disagrees with a line here, this file wins.
 Update ONLY when a ruling is accepted or hardware produces new
 evidence; keep 50–80 lines. Reading order: RL_GOALS.md → this file →
 RL_PLAN.md → RESEARCH_RULES.md → rl_docs/SIM.md.
-Last regenerated: 2026-08-12 midday (`cw-stand-footlow1` FAIL per
+Last regenerated: 2026-08-12 midday+ (`cw-stand-footlow1` FAIL per
 own gate but the most informative stance arm yet: merging
 footz1-hard1's hold fix with anchormix1-r1's lower fix gets BOTH
 clean at once for the first time — det hold all six feet duty
 ≥0.94, det+sto lower 12/12 sub-mm clearances — but det rise falls to
 3/6 (sto 2/6), the anchormix lineage's known flat-rise stall carried
-in by the merge; `bc_anchor_loss_rise` stays low/converged during the
-stall (anchor-BLIND to rise progress, same lesson class as the
-foot-hover park). Rise-from-flat is now the LAST broken stance mode;
-next lever is an alignment-audit spec pass (which reference tick the
-state-aligned anchor pulls toward at the stalled belly state), not
-another blind anchor variant. `holdbc1_hard1` stays deployed. Earlier
+in by the merge. **DIG-IN RESOLVED same day (`probe_anchor_align`):
+the stall is a PLATEAU FIXED POINT, not anchor blindness** — the
+state-aligned match pins at ref ticks ~128–137 where the recorded
+demo crawls 0→25 mm over 5+ s, so the +0.5 s pursuit target commands
+only 1–5 mm of height gain, loaded-servo sag cancels it, and the
+policy OBEYS (mse(act,tgt) 0.004–0.006 at the stall, its episode
+minimum: the converged `bc_anchor_loss_rise` was the anchor actively
+supervising the stall). Fix LANDED: `train.bc_anchor_min_h_ahead_mm`
+(height-floor pursuit — the target tick must command ≥Δmm above the
+current chassis height; default off, bit-exact, 3 bank tests; loaded-
+params chained traversal 82.5 mm by t=50 vs ~0 legacy). First arm
+`cw-stand-footlow2` (footlow1 recipe + floor=15, 2M discovery).
+Rise-from-flat remains the LAST broken stance mode.
+`holdbc1_hard1` stays deployed. Earlier
 same day: `cw-stand-footz1-hard1` FAILED its own 10M hardening (hold
 held, lower regressed to 0/12 — the lineage never had a lower
 anchor, which is exactly what footlow1 then added). Earlier, 08-11
