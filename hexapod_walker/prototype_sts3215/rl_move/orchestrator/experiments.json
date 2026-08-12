@@ -75421,7 +75421,7 @@
       "gru-r1..r4c: EVERY from-scratch GRU at 2M finds the leg-sacrifice paddle before finding gait, surviving the full anti-cheat stack \u2014 an optimization failure (nothing tells a churning leg WHICH WAY to move), the exact signature probe_walk_income exonerated pricing for. The BC anchor supplies that missing gradient in action space (TripodGait walk targets, state-aligned rise refs, settled-pose hold, IK lower; stratified quotas), is validated on the stand track (loweranchor1 2/6 -> 6/6) and is live-converging in the recurrent form on cw-arch-gru-anchor1 right now (anchor loss 0.020 -> 0.005 by 6.5M with KL calm). If action supervision from tick zero beats the paddle attractor, a from-scratch GRU learns honest gait AND stance in one run with no distillation stage at all; if the paddle still wins with a live converged anchor, the paddle is not a missing-gradient artifact and the from-scratch line closes for good. Parent: cw-arch-gru-r4c. Gate: 2M forensics det+sto @DR0 r3 gate cfg vs the frozen r1-r4c fingerprint: PASS if NO leg-sacrifice paddle (zero parked legs det, all six feet cycle) AND det walk gait_valid >=4/6 AND hold det >=3/6 AND train/bc_anchor_loss converged below 0.02 \u2014 then respec the SAME arm to 10M+ hardening citing this as evidence. FAIL if any det episode shows the r1-r4c parked-leg fingerprint (paddle beats a live anchor -> from-scratch line CLOSED, distill+finetune remains the only GRU path) OR anchor loss plateaus >0.05 (targets unreachable from random init -> anchor needs curriculum, not more steps)."
     ],
     "created": "2026-08-12T01:42:51+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -75429,11 +75429,108 @@
       "running_experiments_before": 1,
       "code_sha_local": "2b65080208584a079f223ac0fbd6643108f600cb",
       "code_sha_pod": "2b65080208584a079f223ac0fbd6643108f600cb",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2756681",
+      "log_growth_bytes": [
+        4919,
+        4919
+      ],
+      "wandb_id": "koc1aon1",
+      "global_step_window": [
+        65536,
+        131072
+      ],
+      "fps_estimate": 1092.3
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-scratch-anchor1 --steps 2000000 --task joint_walk --gru --gru-hidden-size 256 --n-steps 256 --n-envs 256 --batch-size 8192 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set train.bc_anchor_lower=1.0 --cfg-set train.bc_anchor_stratified=1.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_sigma_deg=6.0 --seed 0 --out-name ppo_goal_cw_arch_gru_scratch_anchor1 --impl warp --host-workers 24 --notes 'gru-r1..r4c: EVERY from-scratch GRU at 2M finds the leg-sacrifice paddle before finding gait, surviving the full anti-cheat stack \u2014 an optimization failure (nothing tells a churning leg WHICH WAY to move), the exact signature probe_walk_income exonerated pricing for. The BC anchor supplies that missing gradient in action space (TripodGait walk targets, state-aligned rise refs, settled-pose hold, IK lower; stratified quotas), is validated on the stand track (loweranchor1 2/6 -> 6/6) and is live-converging in the recurrent form on cw-arch-gru-anchor1 right now (anchor loss 0.020 -> 0.005 by 6.5M with KL calm). If action supervision from tick zero beats the paddle attractor, a from-scratch GRU learns honest gait AND stance in one run with no distillation stage at all; if the paddle still wins with a live converged anchor, the paddle is not a missing-gradient artifact and the from-scratch line closes for good. Parent: cw-arch-gru-r4c. Gate: 2M forensics det+sto @DR0 r3 gate cfg vs the frozen r1-r4c fingerprint: PASS if NO leg-sacrifice paddle (zero parked legs det, all six feet cycle) AND det walk gait_valid >=4/6 AND hold det >=3/6 AND train/bc_anchor_loss converged below 0.02 \u2014 then respec the SAME arm to 10M+ hardening citing this as evidence. FAIL if any det episode shows the r1-r4c parked-leg fingerprint (paddle beats a live anchor -> from-scratch line CLOSED, distill+finetune remains the only GRU path) OR anchor loss plateaus >0.05 (targets unreachable from random init -> anchor needs curriculum, not more steps).' > /tmp/train_cw-arch-gru-scratch-anchor1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-gru-scratch-anchor1.log"
+    "log": "/tmp/train_cw-arch-gru-scratch-anchor1.log",
+    "wandb_id": "koc1aon1",
+    "verified": "2026-08-12T01:46:12+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-12T01:51:48+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1376,
+        "fps": 1456.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-getup2",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Teach the from-scratch unified get-up-and-walk policy to actually stand, by giving it a head start instead of a blank brain. cw-getup1 (fresh init, identical reward) never learned to rise -- it just slumped into a held pose and farmed cheap untangle/load credit while the real stand-quality score stayed near zero the whole run. ONE variable vs cw-getup1: warm-start from the existing rise+hold specialist champion (ppo_goal_cw_stand_holdbc1_hard1, BC-anchor trained, hardened, knows how to reach and hold a genuine six-foot stand from crouch/flat/bridge starts) instead of a random network; same getup reward/task/start-mix/goal-mix, same seed. Prediction-if-true: env/getup_S on floor-adjacent starts (crouch/plant/park, 30% of the mix) rises well above cw-getup1's ~0.02 band within 2M steps, and video shows deliberate rises from at least the near-plant start kinds. Prediction-if-false: getup_S stays in the same near-zero band even warm-started -- the specialist's stand skill does not transfer through the getup task's reward/observation wrapper (e.g. the reward's staged pipeline or the widened 60 deg fall envelope actively unlearns it), meaning the barrier is the reward/task wiring, not exploration -- next lever would be a direct getup-mode BC anchor (hw track allows it) or start-mix reweighting toward crouch/plant. Strongest alternative: the specialist's knowledge only carries over for its own start kinds (crouch/plant/park) and floor-starts (tangle/zero/partial, 70% of the mix) remain exactly as stuck as cw-getup1 -- visible as a bimodal getup_S split by start kind in eval.",
+    "gate": "Same MDP_PREFLIGHT GETUP bank (green, commit fa84a39). PASS if by 2M steps env/getup_S on crouch/plant/park-start episodes rises decisively above cw-getup1's ~0.02 band (target >0.3) AND video shows at least one credible rise-to-stand from a near-plant start with no flag-leg/park exploit; informative FAIL either way (bimodal-by-start-kind vs uniform-stuck) tells us whether the next lever is BC-anchor-on-getup or start-mix reweighting.",
+    "parent": "cw-stand-holdbc1-hard1",
+    "track": "hw",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--dr-scale",
+      "0.1",
+      "--episode-seconds",
+      "20",
+      "--ent-coef",
+      "0.003",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "getup=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0",
+      "--cfg-set",
+      "safety.max_roll_deg=60",
+      "--cfg-set",
+      "safety.max_pitch_deg=60",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_getup2",
+      "--notes",
+      "respec of cw-getup1: Teach the from-scratch unified get-up-and-walk policy to actually stand, by giving it a head start instead of a blank brain. cw-getup1 (fresh init, identical reward) never learned to rise -- it just slumped into a held pose and farmed cheap untangle/load credit while the real stand-quality score stayed near zero the whole run. ONE variable vs cw-getup1: warm-start from the existing rise+hold specialist champion (ppo_goal_cw_stand_holdbc1_hard1, BC-anchor trained, hardened, knows how to reach and hold a genuine six-foot stand from crouch/flat/bridge starts) instead of a random network; same getup reward/task/start-mix/goal-mix, same seed. Prediction-if-true: env/getup_S on floor-adjacent starts (crouch/plant/park, 30% of the mix) rises well above cw-getup1's ~0.02 band within 2M steps, and video shows deliberate rises from at least the near-plant start kinds. Prediction-if-false: getup_S stays in the same near-zero band even warm-started -- the specialist's stand skill does not transfer through the getup task's reward/observation wrapper (e.g. the reward's staged pipeline or the widened 60 deg fall envelope actively unlearns it), meaning the barrier is the reward/task wiring, not exploration -- next lever would be a direct getup-mode BC anchor (hw track allows it) or start-mix reweighting toward crouch/plant. Strongest alternative: the specialist's knowledge only carries over for its own start kinds (crouch/plant/park) and floor-starts (tangle/zero/partial, 70% of the mix) remain exactly as stuck as cw-getup1 -- visible as a bimodal getup_S split by start kind in eval.",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip"
+    ],
+    "created": "2026-08-12T01:45:04+00:00",
+    "status": "FAILED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 2,
+      "code_sha_local": "ab844b27f948dec154077a468ee95dd277f3cd43",
+      "code_sha_pod": "ab844b27f948dec154077a468ee95dd277f3cd43",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1221334",
+      "log_growth_bytes": [
+        2554,
+        2554
+      ]
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-getup2 --steps 2000000 --task joint_walk --dr-scale 0.1 --episode-seconds 20 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix getup=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --cfg-set safety.max_roll_deg=60 --cfg-set safety.max_pitch_deg=60 --cfg-set goal.walk_obs_body_vel=2 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_getup2 --notes 'respec of cw-getup1: Teach the from-scratch unified get-up-and-walk policy to actually stand, by giving it a head start instead of a blank brain. cw-getup1 (fresh init, identical reward) never learned to rise -- it just slumped into a held pose and farmed cheap untangle/load credit while the real stand-quality score stayed near zero the whole run. ONE variable vs cw-getup1: warm-start from the existing rise+hold specialist champion (ppo_goal_cw_stand_holdbc1_hard1, BC-anchor trained, hardened, knows how to reach and hold a genuine six-foot stand from crouch/flat/bridge starts) instead of a random network; same getup reward/task/start-mix/goal-mix, same seed. Prediction-if-true: env/getup_S on floor-adjacent starts (crouch/plant/park, 30% of the mix) rises well above cw-getup1'\"'\"'s ~0.02 band within 2M steps, and video shows deliberate rises from at least the near-plant start kinds. Prediction-if-false: getup_S stays in the same near-zero band even warm-started -- the specialist'\"'\"'s stand skill does not transfer through the getup task'\"'\"'s reward/observation wrapper (e.g. the reward'\"'\"'s staged pipeline or the widened 60 deg fall envelope actively unlearns it), meaning the barrier is the reward/task wiring, not exploration -- next lever would be a direct getup-mode BC anchor (hw track allows it) or start-mix reweighting toward crouch/plant. Strongest alternative: the specialist'\"'\"'s knowledge only carries over for its own start kinds (crouch/plant/park) and floor-starts (tangle/zero/partial, 70% of the mix) remain exactly as stuck as cw-getup1 -- visible as a bimodal getup_S split by start kind in eval.' --init-from rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip > /tmp/train_cw-getup2.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-getup2.log",
+    "failed_reason": "run never appeared as 'running' in W&B within 240s",
+    "hardware_ready": "False",
+    "verdict": "FAILED \u2014 crashed at launch, zero training steps, no evidence for/against the warm-start hypothesis. Root cause: observation-space mismatch between the parent (cw-stand-holdbc1-hard1, task=joint_goal, 68-dim obs) and the getup task (task=joint_walk, 72-dim obs: +2 vx/vy_ref in the goal encoding, +2 measured-velocity tail) \u2014 SB3's strict check_for_correct_spaces refused to load. Structural, deterministic (always 68 vs 72 for this task pair), and foreseeable from the code (joint_task.py/walk_task.py obs-width formulas) before launch; not a scientific result. Fix is mechanical and already exists in the codebase: --obs-pad-transplant 4 (all 4 extra dims are appended at the tail of the vector \u2014 goal9 is an exact prefix match \u2014 so the existing zero-pad transplant mechanism applies cleanly). Relaunching corrected respec cw-getup2-r1 with that flag added, same hypothesis, this cycle.",
+    "triage": "done"
   }
 ]
