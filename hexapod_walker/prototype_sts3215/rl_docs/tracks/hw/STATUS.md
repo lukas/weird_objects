@@ -348,6 +348,20 @@ unresolved blockers between the robot and reliable joystick control.
   5.0), both k_current=0 per the standing hardware-arm rule. Two
   axes only this cycle — the historical panel ran dozens one at a
   time over many cycles; treat this as started, not complete.
+  **08-12: tipped-start-dose isolation and combined-axis DR-compose
+  DROPPED from this panel** — both are already closed generic classes
+  (would just reconfirm, not inform); CURRENT_TRUTHS corrected. The
+  one real open question — does this lineage share the dep-line's
+  walk-takeoff roll vulnerability? — is ANSWERED instead:
+  `probe_walk_push.py` generalized to the bcgait1 lineage (no new
+  reward stack needed, its physically-relevant cfg already matches
+  VREF1_STACK exactly) and run as a pure diagnostic (no training):
+  forced 2.6N·m/1.5s injection, n=12 seeds, `cw-dep-bcgait1-hard1`
+  falls 6/12 vs frozen `cw-dep-tip1` 9/12 — LOWER, not worse, and
+  already close to the push-trained lineage's 5/12 with zero push
+  exposure. No push-training respec warranted (family closed anyway).
+  Gate 0 for this lineage now needs hardware bench evidence, not
+  another sim DR axis. Detail: GAIT.md.
 - Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
   crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
   08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the

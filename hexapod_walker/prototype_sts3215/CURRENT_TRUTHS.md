@@ -659,7 +659,16 @@ via BC-anchor, both handoffs compose).
   probe_tall_wall height matches/beats the parent, clean video) — watch
   item: leg-yaw limit margin narrows further under DR (down to 0.16deg
   on one seed, still positive), continuing the lineage-wide narrowing
-  trend; not gate-breaking. Remaining before Gate 0: tipped-start dose
-  isolation + combined-axis check. Detail: GAIT.md, hw/STATUS.md.
+  trend; not gate-breaking. **CORRECTION: tipped-start dose isolation
+  and combined-axis DR-compose are NOT needed here — both are already
+  closed generic classes (zero-separation / proven-free).** The real
+  open question (does this lineage share the dep-line's walk-takeoff
+  roll vulnerability, SIM.md gap 4) is ANSWERED 08-12 (`probe_walk_push`,
+  generalized, no training): forced-injection fall rate
+  `cw-dep-bcgait1-hard1` 6/12 vs frozen `cw-dep-tip1` 9/12 — lower, not
+  worse, matching the push-trained lineage's 5/12 for free. No
+  push-training respec needed (that family stays closed anyway); Gate 0
+  now rests on hardware bench evidence, not another sim DR axis. Detail:
+  GAIT.md, hw/STATUS.md.
 - MoE only after clean multitask training (explicit mode ID, correct
   rewards, enough plain-MLP capacity) shows real skill interference.

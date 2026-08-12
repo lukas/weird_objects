@@ -551,3 +551,31 @@ probe_walk_push-style matched-parent injection ADAPTED to the
 bcgait1-hard1 reward stack (probe_walk_push.py is hardcoded to the
 plain vref1 stack today; needs a small generalization first). Spec
 that adaptation before any further training respec on this lineage.
+
+**08-12: the generalization landed and was run.** Turns out no new
+reward stack was needed: `cw-dep-bcgait1-hard1`'s train command uses
+the IDENTICAL physically-relevant cfg as `VREF1_STACK`
+(goal.walk_speed_min/max_m_s, walk_obs_body_vel, safety.max_roll/
+pitch_deg, walk_park_start_frac, anchor_tol_mm — verified against both
+lineages' own launch commands) and only ADDS reward-only terms
+(walk_height_gate/sigma_mm) that this probe never touches (it reads
+physical info fields, never reward). `probe_walk_push.py` gained
+CKPTS entries for the bcgait1 lineage; everything else (stack, CMD_V)
+was already a match. Ran the diagnostic comparison it was built for
+(forced 2.6N·m/1.5s injection, n=12 seeds, det, neither checkpoint
+ever push-trained): `cw-dep-bcgait1-hard1` falls **6/12** vs frozen
+`cw-dep-tip1` **9/12** under the identical injection — the tall gait
+is LESS vulnerable to the takeoff-roll transient than the crouch
+lineage, not more, and already lands close to the push-TRAINED
+tip1_push1(-hard1)'s 5/12 fall rate without any push exposure at all.
+Plausible mechanism (untested): a taller stance changes the torque
+pulse's effective lever arm / CoM height, or the tall gait's less
+knife-edge support polygon (SIM.md gap 4 diagnosed the crouch
+lineage's 3-foot near-threshold margin as the root cause) is simply
+less fragile to begin with. **Conclusion: no push-training respec is
+warranted on this lineage** (the torque-DR family is closed for good
+regardless, RL_PLAN "CLOSED moves") — this was a pure diagnostic use
+of the probe, not a new training arm. The remaining path to Gate 0 for
+`cw-dep-bcgait1-hard1` is hardware bench evidence (tape replay against
+a real bench session), not another sim DR axis. Raw data:
+`logs/probe_walk_push/bcgait1_hard1_vs_tip1.json` (train-1).
