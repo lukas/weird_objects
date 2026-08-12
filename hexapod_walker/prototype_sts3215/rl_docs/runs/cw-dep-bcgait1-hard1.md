@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: DONE
+**status**: FINISHED
 
 **created**: 2026-08-12T03:09:51+00:00
 
@@ -20,5 +20,5 @@
 
 **gate**: PASS if probe_tall_wall steady height stays >= -20mm at 10M (no crouch re-drift) AND slip/m det <= 1.8 AND sto gait_valid >= 5/6 (no leg-sacrifice) AND zero falls. FAIL if height re-drifts toward -70mm (BC-INIT prior erodes under budget, same failure class as every warm-start-without-anchor arm) OR slip/leg-sacrifice gets WORSE with steps (budget amplifies the rough edges instead of smoothing them).
 
-**verdict**: PASS, decisively -- 10M more steps cleaned up exactly the rough edges predicted. probe_tall_wall steady height stays in-band (-8.5 to -9.8mm across seeds, tighter than the 2M parent's -10.3..+5.9mm spread, both well within the -20mm bar); yaw margin stays POSITIVE (+2.1..+2.3deg, smaller than the parent's +17..+18deg but still not pinned negative like every pre-BC-INIT arm). Both secondary misses from the 2M parent are FIXED: det slip/m 1.43 (was 2.12, now under the 1.8 bar) and sto slip/m 1.51 (was 12.39 with a sacrificed leg; now 1.51, gait_valid 6/6, the leg-sacrifice episode is GONE). det prog_ratio 1.05, sto 0.91, roll settles clean both passes (tail 1.6-2.3deg, recovers from the universal takeoff transient, zero falls). Video: clearly taller stance, legs compact under the torso (not splayed), steady visible forward translation across the full clip. This is now the strongest tall-walking candidate in the campaign -- next step is the standard dep-line DR/tipped-start retention panel before any Gate 0 consideration.
+**verdict**: PASS per pre-registered gate -- 10M budget cleans up bcgait1's rough edges exactly as predicted, without losing the broken tall-wall. probe_tall_wall steady height -12.7mm mean (seeds -13.0/-12.6/-12.6), inside the >=-20mm no-redrift band (parent 2M: -10..+6mm) -- no crouch relapse. slip/m collapses to med 1.30-1.33 in all four eval slices (det/sto x DR0/DR0.35), well under the 1.8 bar and down from parent's det 2.12 / sto 12.39-with-a-sacrificed-leg; ZERO sacrificed-leg episodes anywhere (24/24 gait_valid True) vs parent's one stochastic leg-sacrifice; ZERO falls in any slice (terms 0 all four reports). Visual quality: roll tail 1.6-2.7deg (DR0) / 2.1-2.4deg (own DR0.35) all four slices, well under the 4deg bar, settled 5/6-6/6; contact sheets show a genuinely tall, six-leg cycling gait (no flag-leg/tripod). One watch item, not gate-relevant: leg-yaw limit margin shrank from parent's +17..+18deg to +1.4..+1.9deg -- still positive (not re-pinned at the 35deg splay limit like every pre-bcgait1 arm) but a real move back toward the old habit; worth tracking on the next continuation.
 
