@@ -13,12 +13,14 @@ new command later (the phase-2 transfer test).
 
 ## Now
 
-- Track opened 08-12 (operator brief). Wave 1 A/B/C cohort queued to
-  the backlog: `cw-mt-a1` (specialist control, vx fixed 0.05),
-  `cw-mt-b1` (vx 0-0.06 + ±0.15 yaw + 40% stand segments),
-  `cw-mt-c1` (b1 + lateral via heading ≤0.34 rad). Matched recipe
-  (cloned from the cw-dep-fresh1 PASS), matched seed/budget/DR; the
-  only variable is the command distribution. 2M discovery each.
+- Wave 1 A/B/C cohort RUNNING since 08-12 ~17:30 UTC: `cw-mt-a1`
+  (specialist control, vx fixed 0.05, train-2), `cw-mt-b1`
+  (vx 0-0.06 + ±0.15 yaw + 40% stand segments, train-0),
+  `cw-mt-c1` (b1 + lateral via heading ≤0.34 rad, train-3). Matched
+  recipe (cloned from the cw-dep-fresh1 PASS), matched seed/budget/DR;
+  the only variable is the command distribution. 2M discovery each.
+  (First drain attempts bounced on a stale pod code-marker,
+  15a468a vs HEAD c186b79 — pods re-synced, cohort verified running.)
 - Fresh init IS the hypothesis (warm-start default waived, recorded
   in each spec).
 
