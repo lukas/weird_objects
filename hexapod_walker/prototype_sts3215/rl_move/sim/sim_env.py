@@ -1211,11 +1211,21 @@ class SimHexapodBalanceEnv(_GymBase):
         # the REAL robot (tape-measured 08-10). Per-episode instance,
         # phase state lives on it, so it MUST ride SNAP_ATTRS
         # (pool-restore lesson, commit 65edba7).
+        # 08-12 follow-up (cw-arch-gru-anchor1/scratch-anchor1): both
+        # arms reproduce the twice-closed walk-freeze/paddle failure
+        # when walk ticks are anchored ALONGSIDE rise/hold/lower on a
+        # GRU, while rise/hold/lower gains held clean — the anchor
+        # protects stance skills but still fights locomotion. Gated by
+        # train.bc_anchor_walk so a future arm can anchor stance only.
+        # Default 1.0 (on) preserves every existing config bit-exact;
+        # only an explicit bc_anchor_walk=0 disables this block.
         self._walk_bc_gait = None
         if (self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "") == "walk"
                 and float(cfg_get(self.cfg, "train", "bc_anchor_coef",
-                                  default=0.0)) > 0.0):
+                                  default=0.0)) > 0.0
+                and float(cfg_get(self.cfg, "train", "bc_anchor_walk",
+                                  default=1.0)) > 0.0):
             try:
                 from tripod_gait import TripodGait
             except ImportError:

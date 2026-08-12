@@ -660,6 +660,30 @@ def test_walk_no_gait_instance_when_coef_zero():
     assert "bc_target" not in info
 
 
+def test_walk_anchor_default_on_bit_exact():
+    """bc_anchor_walk defaults to 1.0 (on) — an existing config that
+    never mentions the new key keeps emitting exactly as before."""
+    env = _make_walk_env(5, {("train", "bc_anchor_coef"): 1.0})
+    env.reset()
+    assert env._walk_bc_gait is not None
+    _pin_walk_cmd(env, 0.055, 0.0)
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" in info
+
+
+def test_walk_anchor_opt_out():
+    """train.bc_anchor_walk=0 with coef>0 anchors rise/hold/lower but
+    NOT walk (08-12, cw-arch-gru-anchor1 follow-up: walk-tick anchoring
+    freezes locomotion even though it protects stance skills)."""
+    env = _make_walk_env(6, {("train", "bc_anchor_coef"): 1.0,
+                             ("train", "bc_anchor_walk"): 0.0})
+    env.reset()
+    assert env._walk_bc_gait is None
+    _pin_walk_cmd(env, 0.055, 0.0)
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" not in info
+
+
 def test_walk_gait_attr_rides_snapshot_list():
     """Pool-restore lesson (commit 65edba7): the per-episode gait
     instance carries phase state read on every walk tick — it MUST be
