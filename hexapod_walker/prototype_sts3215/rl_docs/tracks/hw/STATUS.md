@@ -304,12 +304,37 @@ unresolved blockers between the robot and reliable joystick control.
   (`train.bc_anchor_min_h_ahead_mm`: height-floor pursuit, target
   tick must command ≥Δmm above current chassis height; default off,
   bit-exact, 3 bank tests + 44-test anchor suite + 78-test semantics
-  bank green): one-variable retry `cw-stand-footlow2` (footlow1
-  recipe + floor=15, 2M discovery) is the live arm. Side finding,
+  bank green): one-variable retry `cw-stand-footlow2-r1` (footlow1
+  recipe + floor=15, 2M discovery) ran. Side finding,
   noted not attacked: off-path bridge starts (33° RMS from any ref
   tick) match the path END and get supervised straight to plant,
   ignoring the ramp. `holdbc1_hard1` stays deployed;
   rise-from-flat is still the last broken stance mode.**
+  **08-12 midday+ RESULT: `cw-stand-footlow2-r1` FAIL per own gate,
+  mechanism CONFIRMED, two new residuals (DEEP DIG-IN flagged).**
+  The floor works where it aimed: det flat stall moved ~100 mm →
+  15–16 mm short, sto rise 6/6 incl 4/4 flat (footlow1: 2/6),
+  lower retained 12/12 flush. But (a) det flat still misses the
+  height bar by ~15 mm on the eval's seeds while a seed-0 probe
+  reaches 3 mm err with the anchor correctly targeting the demo's
+  final plant frame (j=313, mse 0.003) — the residual is
+  seed/start-dependent endgame, NOT the old plateau; and (b) the
+  hold idx1 park REOPENED (duty 0.03 all 6 det eps, valid_plant
+  still 6/6) despite `bc_anchor_foot_z=1` — the footlow1
+  pre-registered rise/hold seesaw fired one arm late. Next arm
+  waits on the seeded audit (which target/mse at the 15 mm-short
+  states; why foot-z lost to the rise floor), not another dose.
+  **08-12 midday+: `cw-stand-rampjit1` (model-tour ramp-jitter
+  axis, holdbc1-hard1 + rise/lower_ramp_jitter=0.3) FAIL — axis
+  CLOSED per its own gate.** Session hard gate still misses
+  (interactive rise z_end 59.5 vs 60 mm @9.5 s; parent 55) AND det
+  lower retention broke (2/6, sto 0/6, outrigger class, clearances
+  to 147 mm). Honest positive: the parent's deterministic
+  sit-from-142mm-plant tip did NOT occur (no_falls + sit_descends
+  PASS, tilt peak 9.1°). Per the pre-registered gate: no dose-down
+  retry (not retention-only); next lever is START-STATE exposure —
+  and the stance candidate that should face eval_session next is
+  the footlow lineage once its gates pass.
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching
