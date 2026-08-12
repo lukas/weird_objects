@@ -269,6 +269,12 @@ Parent `ppo_goal_cw_dep_vref1_r1` itself (contract-exact obs + 25° tilt, no sta
 |---|---|---|---|
 | **First genuine floor-to-stand rise inside the unified getup task (no rise+hold specialist, no scripted blend)** | `ppo_goal_cw_getup3` (2M discovery, warm from `ppo_goal_cw_stand_holdbc1_hard1`; extends `bc_anchor.py`'s BC-supervision to getup ticks) | 08-12: `env/getup_S` rose 0.09→0.17 over the full 2M steps (clearing the >0.15 gate target; prior warm-start-only attempt `cw-getup2-r1` fell 0.09→0.06 over the same budget). Training video shows one sampled floor-adjacent (tangled/flat) episode rising cleanly, height climbing 2mm→110mm over ~3s then holding level and motionless for the rest of the clip, six legs symmetric, zero flag-leg (`env/getup_f_flag` 0.96). | NOT reliable across every start kind yet: one of four sampled episodes stayed stuck low (held, didn't fall, didn't climb) the whole clip. Not hardware-ready, not on the joystick critical path (the scripted rise→walk handoff already covers attempt #2) — a research sub-line only. No standard harness support for `getup` mode; judged by the training-env metric + video, not `eval_checkpoint`. |
 
+### Tall walking (crouch-splay fix) — early, not hardware-ready
+
+| Skill | Checkpoint | Evidence | Envelope / limits |
+|---|---|---|---|
+| **First walker to escape the -72..-75mm crouch+leg-yaw-splay habit** | `ppo_goal_cw_dep_bcgait1` (2M fine-tune, BC-INIT from the scripted tall gait via `bc_init_gait.py`, then RL on the tip1 dep stack + walk_height_gate) | 08-12: `probe_tall_wall` steady-state walking height -10 to +6mm across 3 seeds (every prior RL-bred arm: -72 to -75mm); leg-yaw limit margin POSITIVE +17 to +18deg (every prior arm: pinned negative at the 35° splay limit). Harness confirms real travel, not a stall: det prog_ratio 0.77, speed 0.067 m/s, gait_valid 6/6, roll settles clean (tail 0.4-1.4deg, zero falls). Video visibly taller and genuinely walking. | NOT hardware-ready: the run's own secondary bar (slip<=1.8) misses (det 2.12, sto 12.39 with a sacrificed leg in 1/6 stochastic episodes) — existence-proof grade, not a polished candidate. No DR/tipped-start retention checked yet. Next: a hardening continuation (more steps + the standard dep-line DR/tipped panel) before any Gate 0 consideration. |
+
 ## Pending verdicts that would add rows
 
 wander30 (envelope extension), backforth (reverse), standwalksit

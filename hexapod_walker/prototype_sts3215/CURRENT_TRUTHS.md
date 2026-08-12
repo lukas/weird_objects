@@ -543,6 +543,16 @@ both handoffs compose).
   risk) vs the trained crouch-paddle's actual earnings. dep-hgt1/2
   showed height INCOME is not the lever; the suspect is the penalty
   side (the real gait rocks ±10–20° — gyro/tilt pricing may be
-  anti-incentivizing honest tall stepping).
+  anti-incentivizing honest tall stepping). Seven-plus pricing/RSI
+  arms all converged on the identical -72..-75mm crouch with leg-yaw
+  pinned negative at the 35° splay limit — CLOSED as a lever.
+  **08-12: BC-INIT (pure action pretraining on the scripted tall
+  gait, then RL fine-tune) BREAKS the wall — `cw-dep-bcgait1`:
+  probe_tall_wall steady height -10..+6mm, leg-yaw margin POSITIVE
+  +17..+18deg, harness confirms real travel (prog_ratio 0.77,
+  gait_valid 6/6, zero falls).** Not yet polished (secondary slip bar
+  missed, one stochastic leg-sacrifice episode) — informative PASS on
+  the existence question, not a deployable candidate; next is a
+  hardening continuation. Detail: GAIT.md, hw/STATUS.md.
 - MoE only after clean multitask training (explicit mode ID, correct
   rewards, enough plain-MLP capacity) shows real skill interference.

@@ -75992,7 +75992,7 @@
       "Teach the GRU to stand/hold/rise via demonstration while letting reward alone teach it to walk, since teaching walking by demonstration froze it solid. Same recipe as cw-arch-gru-anchor1 (warm from the ft1 BC-distilled GRU, identical rise/hold/lower anchor stack, identical goal-mix and reward cfg) with ONE variable: the new train.bc_anchor_walk=0 flag turns OFF the walk-tick anchor while leaving rise/hold/lower anchored. Prediction-if-true: walk recovers to gait_valid>=5/6 with real progress (prog_ratio>=0.80, no freeze) while hold/lower/rise keep anchor1's gains. Prediction-if-false: walk still fails (e.g. erodes back toward the ft1/ft2 hold-forgetting pattern even without a walk anchor) -- meaning the anchor's gradient on OTHER modes is itself interfering with walk, not just the walk-anchor term, and the next lever is per-mode loss weighting, not a binary on/off. Parent: cw-arch-gru-anchor1. Gate: PASS if det walk gait_valid>=5/6 AND prog_ratio med>=0.80 (no freeze/paddle) AND hold det>=4/6 AND lower det>=4/6 AND rise det>=2/6 with >=1 non-flat start. FAIL if walk still freezes/paddles (anchor1's problem persists even with the walk anchor off -> the interference is cross-mode, not the walk term itself) OR hold/lower erode below anchor1's levels (removing the walk anchor changed the training dynamics enough to hurt the modes it was supposed to protect)."
     ],
     "created": "2026-08-12T03:06:45+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -76001,12 +76001,25 @@
       "code_sha_local": "dfb0a6e199f7ae4b58e8bda4ac71a8d182fe19e1",
       "code_sha_pod": "dfb0a6e199f7ae4b58e8bda4ac71a8d182fe19e1",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "791393",
+      "log_growth_bytes": [
+        1519,
+        1519
+      ],
+      "wandb_id": "dgndq00g",
+      "global_step_window": [
+        65536,
+        131072
+      ],
+      "fps_estimate": 2184.5
     },
     "stack": "gpu-mjx",
     "phase": "hardening",
     "evidence": "combines two already-separately-seen behaviors on this exact GRU/warm-start: cw-arch-gru-bc-ft1 (10M) walked cheat-free (gait_valid 6/6, no paddle) with NO anchor at all on this identical net/goal-mix/reward stack -- proof walk does not need its own anchor to work; cw-arch-gru-anchor1 (10M) showed the rise/hold/lower anchors clear their bars on this net (hold det 6/6, lower det 6/6, rise det 2/6 w/ non-flat start) but its walk anchor froze walking solid -- this run keeps only the half of anchor1 that worked and restores the half of ft1 that worked",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-anchor2 --steps 10000000 --gru --gru-hidden-size 256 --init-from rl_move/sim/policies/ppo_goal_cw_gru_bc.zip --n-steps 256 --n-envs 256 --batch-size 8192 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set train.bc_anchor_lower=1.0 --cfg-set train.bc_anchor_stratified=1.0 --cfg-set train.bc_anchor_walk=0.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_sigma_deg=6.0 --out-name ppo_goal_cw_arch_gru_anchor2 --impl warp --host-workers 24 --notes 'Teach the GRU to stand/hold/rise via demonstration while letting reward alone teach it to walk, since teaching walking by demonstration froze it solid. Same recipe as cw-arch-gru-anchor1 (warm from the ft1 BC-distilled GRU, identical rise/hold/lower anchor stack, identical goal-mix and reward cfg) with ONE variable: the new train.bc_anchor_walk=0 flag turns OFF the walk-tick anchor while leaving rise/hold/lower anchored. Prediction-if-true: walk recovers to gait_valid>=5/6 with real progress (prog_ratio>=0.80, no freeze) while hold/lower/rise keep anchor1'\"'\"'s gains. Prediction-if-false: walk still fails (e.g. erodes back toward the ft1/ft2 hold-forgetting pattern even without a walk anchor) -- meaning the anchor'\"'\"'s gradient on OTHER modes is itself interfering with walk, not just the walk-anchor term, and the next lever is per-mode loss weighting, not a binary on/off. Parent: cw-arch-gru-anchor1. Gate: PASS if det walk gait_valid>=5/6 AND prog_ratio med>=0.80 (no freeze/paddle) AND hold det>=4/6 AND lower det>=4/6 AND rise det>=2/6 with >=1 non-flat start. FAIL if walk still freezes/paddles (anchor1'\"'\"'s problem persists even with the walk anchor off -> the interference is cross-mode, not the walk term itself) OR hold/lower erode below anchor1'\"'\"'s levels (removing the walk anchor changed the training dynamics enough to hurt the modes it was supposed to protect).' > /tmp/train_cw-arch-gru-anchor2.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-gru-anchor2.log"
+    "log": "/tmp/train_cw-arch-gru-anchor2.log",
+    "wandb_id": "dgndq00g",
+    "verified": "2026-08-12T03:09:31+00:00"
   }
 ]
