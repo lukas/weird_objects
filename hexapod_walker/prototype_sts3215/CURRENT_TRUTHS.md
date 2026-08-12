@@ -445,10 +445,16 @@ both handoffs compose).
   "zero-erosion ACCEPTED" status is a SIM contract fact only. Both
   queued sim answers drained as STUBS without their DR knobs and are
   VOID (08-11 late: trained defaults, no science — do not build on
-  those checkpoints); `cw-dep-tip1-takeoff25-r1` (proper relaunch:
-  dr.tipped_start_prob 0.5, deg 12–25, warm tip1, knobs verified in
-  resolved cfg) is running; the riserock rocking-DR axis still needs
-  CODE first. Still open: wz sign audit
+  those checkpoints). The proper relaunch `cw-dep-tip1-takeoff25-r1`
+  (dr.tipped_start 0.5/12–25, warm tip1) then FAILED its gate with a
+  decisive mechanism read: under the identical 20–25° injection with
+  matched tip1 baseline, child==parent (0/12 valid both, ZERO falls
+  both) — sim already recovers static 20–25° tipped starts, the axis
+  is SATURATED. **Tipped-start DOSE is CLOSED as the takeoff-fall
+  fix (2nd no-separation arm); the hardware transient needs a
+  DYNAMIC roll-rate injection during gait start (CODE, unbuilt, same
+  family as the rise-rock axis) or contact/pinning work.** The
+  riserock rocking-DR axis also still needs CODE first. Still open: wz sign audit
   (three sessions in a row ended before reaching it); session round 2
   ended on a thermal stop — L2 hip 72 °C during a recovery stand
   glide (falls + recoveries stack heat; robot limped itself, cooled

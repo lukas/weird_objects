@@ -73946,7 +73946,7 @@
       "dr.tipped_start_deg=12,25"
     ],
     "created": "2026-08-11T23:36:52+00:00",
-    "status": "FINISHED",
+    "status": "done",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73974,7 +73974,7 @@
     "log": "/tmp/train_cw-dep-tip1-takeoff25-r1.log",
     "wandb_id": "xg6wrt13",
     "verified": "2026-08-11T23:39:39+00:00",
-    "triage": "in-cycle cw-dep-tip1-takeoff25-r1 since 2026-08-11T23:44:23",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-11T23:45:02+00:00",
@@ -73982,6 +73982,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "07\u00b0, track 4.03\u00b0, unload 4.41\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.027 m/s, lower 1/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 422s (4,739 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_tip1_takeoff25_r1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_dep_tip1_takeoff25_r1 (md5 11a6ee28)\n"
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "INFORMATIVE FAIL / NULL RESULT: raising the static tipped-start dose (prob 0.30->0.5, deg 6-18->12-25) gives zero measurable separation from parent cw-dep-tip1 on its own target metric. Matched-parent probe (forced static tip, det+sto, n=12 each, deg=12/17.5/20 all capped near 17.5 by 0.7x envelope): BOTH policies recover 100% at every dose tested (end_roll ~1.7-1.9 deg, z_drop ~67-69mm, 0 terminations) -- a hard ceiling effect, not an improvement. Clean DR0 walk retention (tipped_start disabled) is genuinely unchanged vs parent: gait_valid 8/8 both, prog_ratio 0.92/1.03 both, delta +0 on eval_checkpoint --baseline. The routine auto-gate/owncfg passes looked bad (det gait_valid 2/6, prog_med 0.43) only because they bake the arm's own harsher tipped_start cfg into the injected distribution -- not a real gait regression. Training-time periodic-eval's apparent tip1=0/2 vs r1=2/2 at 12deg was n=2 noise; replicated at n=12 both are 12/12. Second consecutive run (after tip1's own discovery arm) to find no sim separation on the STATIC tipped-start axis -- CLOSES it. The hardware failure is a DYNAMIC mid-gait roll transient after gait onset; a pre-tilted static spawn does not model that mechanism. tip1 stays the deploy checkpoint; no reason to swap in r1."
   }
 ]

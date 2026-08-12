@@ -25,9 +25,13 @@ unresolved blockers between the robot and reliable joystick control.
   ends standing in frame). vref1's falls all follow the same 20–25°
   takeoff-transient-then-capsize shape. The queued takeoff arm
   drained as a STUB (default DR — VOID); the proper relaunch
-  `cw-dep-tip1-takeoff25-r1` (dr.tipped_start_prob 0.5, deg 12–25,
-  warm tip1) is RUNNING. tip1 is the deploy champion on
-  tonight's evidence.
+  `cw-dep-tip1-takeoff25-r1` FAILED with a decisive read: under the
+  identical 20–25° injection vs matched tip1 baseline, child==parent
+  (0/12 valid both, zero falls both) — sim ALREADY recovers static
+  tipped starts at the hardware regime, so the dose lever is CLOSED
+  (2nd no-separation arm). The takeoff fix must be a DYNAMIC
+  roll-rate perturbation during gait start (CODE) or contact/pinning
+  work. tip1 is the deploy champion on tonight's evidence.
 - **Thermal budget is real:** the second recovery stand-glide of the
   19:16 session limped on **L2 hip at 72 °C** (shutoff 65). Falls +
   recoveries stack heat fast; back to 40 °C within minutes limped.
@@ -69,11 +73,14 @@ unresolved blockers between the robot and reliable joystick control.
 
 - Sim-side (08-11 late): the two queued bench-answer arms drained as
   STUBS without their variables — both VOID (no science; verdicts in
-  ledger). `cw-dep-tip1-takeoff25-r1` is the proper relaunch and is
-  RUNNING (dr.tipped_start_prob 0.5, deg 12–25, warm tip1, knobs
-  verified in resolved cfg). The riserock rocking-DR axis needs CODE
-  + bank BEFORE any relaunch (MDP_PREFLIGHT). rot60 backward now has
-  one fall AND one clean walk — more reps after takeoff25-r1.
+  ledger). Proper relaunch `cw-dep-tip1-takeoff25-r1` then FAILED
+  decisively (see Now bullet): tipped-start DOSE closed, sim
+  saturates the static-tilt axis. BOTH remaining sim answers to the
+  bench falls are now the same CODE family: dynamic roll-rate
+  perturbation during gait-start ticks (walk) and rocking DR on rise
+  ticks (stand) — spec + bank BEFORE launch (MDP_PREFLIGHT); neither
+  is written. rot60 backward: one fall AND one clean walk — more
+  reps when a takeoff-hardened checkpoint exists.
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching
