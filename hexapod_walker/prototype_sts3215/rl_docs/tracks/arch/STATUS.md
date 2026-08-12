@@ -110,17 +110,45 @@ at what budget, with which failure modes.
   is CLOSED FOR GOOD.** No further BC-anchor coefficient/toggle
   variant on this mechanism.
 
+- **CODE landed + tested (08-12): mode-gated dual-core GRU
+  (`DualGruActorCriticPolicy`, commit 2137c00) — separate
+  locomotion/stance cores, routed per tick by `obs.mode_onehot`, so
+  each core gets gradient exclusively from its own skill family.**
+  `cw-arch-gru-dual-scratch1` (2M, from-scratch + full anchor stack)
+  FAILS its own gate on one narrow clause (rise sto 2/6 vs the
+  required >=3/6, n=6 — det rise unchanged at parent's 1/6) but
+  DECISIVELY confirms the mechanism: det walk gait_valid 6/6 with
+  **ZERO sacrificed legs** (parent `scratch-anchor1`: 0/6, one leg
+  parked in literally every episode) — core isolation removes the
+  shared-trunk interference that anchor1/2/3 could not. Hold/lower
+  both hold parent's 6/6; anchor loss converges clean (~0.01).
+  Residual to watch: under own-DR 0.5 the leg-sacrifice partially
+  reappears (gait_valid 3/6 vs parent's 5/6, legs 0/2 occasionally
+  parked) — not gate-breaking (gate is DR0 by design) but a sign the
+  isolation is not yet perfectly robust under randomization.
+  `cw-arch-gru-dual1` (10M, warm from the dual BC-distill, walk-tick
+  anchor OFF / stance anchors ON) is training NOW on the same
+  architecture — this is the actual "can a dual-core GRU walk while
+  keeping stance" test (dual-scratch1 was diagnostic-only, not
+  expected to displace at 2M). Its result decides this line, not new
+  CODE.
+
 ## Next
 
-- **Open question, no run queued:** the remaining lever is
-  architecture — a mode-gated or separate recurrent core per skill,
-  so walk's forward pass doesn't share a trunk with the anchored
-  stance modes — not another training-loss tweak. This is a real
-  design change (new policy architecture), unspec'd and unwritten;
-  nothing is queued against it. Distill-then-finetune (`ft1`, warm
-  from a BC-distilled net) remains the only recipe that has kept a
-  GRU walking cheat-free to date, at the cost of hold/track erosion
-  (see "From-scratch GRU walking CLOSED" above).
+- **Watch `cw-arch-gru-dual1`** (10M hardening, already running) —
+  gate: det walk gait_valid >=5/6 with real translation (prog_ratio
+  >=0.80) AND hold/lower det >=4/6 AND rise det >=2/6 w/ >=1 non-flat
+  start. If it passes: first candidate full-skill GRU, next step is
+  a DR-retention panel. If walk still freezes/paddles despite core
+  isolation: the freeze mechanism is NOT trunk-sharing after all (the
+  value function / advantage mixing across modes becomes the next
+  suspect) — per the pre-registered false branch. If stance regresses
+  to BC-parent levels with anchor loss converged: routing/gradient
+  bug, not a science verdict, fix and rerun.
+  Distill-then-finetune (`ft1`, warm from a BC-distilled net) remains
+  the shared-trunk fallback recipe that has kept a GRU walking
+  cheat-free, at the cost of hold/track erosion (see "From-scratch
+  GRU walking CLOSED" above) — superseded if dual1 passes.
 - Operator-directed next lever for RISE: re-distill stance-heavy +
   DAgger rounds on `distill_gru.py` (give the BC step actual rise
   demos before any further RL) — in progress outside this loop;
