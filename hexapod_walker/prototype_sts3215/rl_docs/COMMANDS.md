@@ -35,6 +35,7 @@ leave the next agent to rediscover it.
 | Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |
 | Frames from a video | harness already wrote `*.png` sheets; else `ops.sh frames <mp4> [n]` |
 | Operator wants an overview in a browser | status page at http://127.0.0.1:8090 — full setup/restart runbook in "Operator status page" section below |
+| An external LLM (GPT/Claude) wants to read status | `https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt?key=<token>` — see "LLM-readable mirror" in the status-page runbook |
 
 **DO NOT hand-write python for any row above.** Transcript mining
 (08-09) found >500 ad-hoc snippets re-parsing experiments.json,
@@ -388,6 +389,37 @@ are empty, the slow collector hasn't finished its first pass — wait
 the controller, then re-run step 1 (kill+new tmux session). The
 server is read-only and safe to restart at any time — it never
 touches training, the watcher, or the ledger.
+
+### Public URL + LLM-readable mirror (GPT/Claude reading status)
+
+The page is public at **https://hexapod.cwd1f0-new-cluster.coreweave.app**
+(operator 08-10 setup): the `hexapod-status` LoadBalancer service
+routes 80/443 to the controller pod, where **Caddy** (tmux session
+`caddyweb`, `/workspace/caddy run --config /workspace/Caddyfile`,
+auto-TLS with certs cached in `/workspace/.caddy`) reverse-proxies to
+the status server on 127.0.0.1:8090. Access requires the token in
+`/workspace/.status_token` on the controller (the server reads it once
+at startup — restart `statusweb` after changing it): first browser
+visit uses `?key=<token>`, which sets a cookie and redirects clean.
+
+The server also serves a plain-markdown mirror so external LLMs
+(ChatGPT, Claude web fetch) can assess the campaign: `/llms.txt` is
+the index (llmstxt.org convention), `/llm/status.md` (campaign + all
+per-track STATUS docs), `/llm/plan.md`, `/llm/log.md`, `/llm/runs.md`
+(ledger with hypotheses/verdicts). Spend/token numbers and pod names
+are deliberately NOT on those paths. Auth there is stateless —
+`?key=<token>` on EVERY request, no cookie redirect — because LLM
+fetchers don't keep cookies.
+
+Hand an LLM:
+`https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt?key=<token>`
+— the links inside llms.txt already embed the key so the fetcher can
+follow them. Recover the token with:
+
+```sh
+kubectl --kubeconfig=$HOME/.kube/coreweave.yaml exec hexapod-sweep-friction -- \
+  cat /workspace/.status_token
+```
 
 ## Time budget guidance
 
