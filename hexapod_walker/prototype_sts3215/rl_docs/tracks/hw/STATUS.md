@@ -163,11 +163,15 @@ unresolved blockers between the robot and reliable joystick control.
   Push works on both stacks (xfrc plumbed through the MJX batched
   stepper + both vec envs 08-12; warp parity test in
   test_mjx_parity.py). Bank tests green (`test_task_semantics.py`
-  WALK-PUSH + rise-rock banks). OPERATOR-ORDERED (08-12): retrain
-  tip1 with walk_push and a rise specialist with ramp-gated
-  rise_rock against the measured disturbances; gates = matched-parent
-  probe at the calibrated dose PLUS the riserock3 lesson pinned
-  (det LOWER/flag-leg retention is part of both gates).
+  WALK-PUSH + rise-rock banks). OPERATOR-ORDERED retrains LAUNCHED
+  08-12 (this cycle): `cw-dep-tip1-push1` (train-3, warm from tip1,
+  dr.walk_push_prob=0.5 at the calibrated 2.0-3.0 N·m/0.8-1.5 s dose)
+  and `cw-stand-riserock4` (train-4, warm from holdbc1-hard1,
+  dr.rise_rock_prob=0.5, deg=8,18 — the ramp-gated calibrated
+  default). Both 2M discovery, VERIFIED RUNNING. Gates = matched-
+  parent probe at the calibrated/bench dose PLUS the riserock3
+  lesson pinned (det LOWER/flag-leg retention is part of both
+  gates) — verdict next cycle.
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching
