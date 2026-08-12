@@ -16,5 +16,7 @@
 
 **gate**: PASS if injected eval (eval_checkpoint --cfg-set dr.rise_rock_prob=1.0 --cfg-set dr.rise_rock_deg=10,10 --baseline hard1, det) rise valid_plant >= 5/6 with ZERO tilt falls AND hard1 under the IDENTICAL injection fails >= 2/6 (matched-parent mechanism control) AND nominal det rise/hold matches hard1s own probe (rise valid incl flat 4/4, hold valid_plant 6/6, no duty regression) AND frames watched (level curl, no new cheat). PASS -> export + deploy the stand-specialist port and retry /api/rl/stand on the bench WITH the operator present. FAIL-A (rocked rise never learned, still trips) -> dose curriculum: one retry at deg 6,10 or prob 0.3. FAIL-B (nominal rise regressed) -> the bias poisons the curl at this dose: one retry at prob 0.25. Double-FAIL -> command-bias axis closed; next lever is modeling the belly contact geometry (rounded chassis collision), not another dose.
 
+**verdict**: INFRA FAILURE, no science: the launch synced pod code to snapshot 7d649b5, which predates the dr.rise_rock_* commit (36076a6) — trainer crashed at startup on 'unknown DR override dr.rise_rock_prob' and never reached W&B. Spec is sound (hard1 recipe + rise_rock overrides are absolute post-scaling, randomizer present). Relaunched unchanged as cw-stand-riserock2-r1 on current code.
+
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 
