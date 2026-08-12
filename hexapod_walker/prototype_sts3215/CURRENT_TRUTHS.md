@@ -283,7 +283,15 @@ both handoffs compose).
   hard1 stays deployed, stand-specialist handoff stands; reopen lever
   (unqueued) = price the min-over-feet load, not the product, and log
   per-mode bc_anchor_loss FIRST (CODE — only the aggregate is logged
-  today) before ANY further stand arm. Detail: rl_docs/RISE.md.
+  today) before ANY further stand arm.
+  **08-12: that reopened lever (`cw-stand-minfeet1`, min-over-feet
+  hold income + per-mode bc_anchor_loss logging, both landed) FAILS
+  identically: `env/hold_feet_factor` 0.105, same 0.1–0.35 plateau,
+  while `train/bc_anchor_loss_hold` is LOW/converged (0.0107) — the
+  anchor is teaching the park, not losing to it. PRICING FAMILY NOW
+  TERMINALLY CLOSED for the parked foot; only remaining lever is
+  anchor-side (find/patch the reference tick showing a lifted leg at
+  a plant-adjacent state), unqueued, spec first.** Detail: RISE.md.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict
@@ -553,6 +561,11 @@ both handoffs compose).
   gait_valid 6/6, zero falls).** Not yet polished (secondary slip bar
   missed, one stochastic leg-sacrifice episode) — informative PASS on
   the existence question, not a deployable candidate; next is a
-  hardening continuation. Detail: GAIT.md, hw/STATUS.md.
+  hardening continuation. **Same cycle: `cw-dep-bcgait1-hard1` (10M)
+  PASSES decisively** — height stays in-band, yaw margin stays
+  positive, slip drops under the 1.8 bar both passes (1.43/1.51), the
+  sacrificed-leg episode is gone, zero falls. Strongest tall-walking
+  candidate yet; DR/tipped-start retention panel is the next step,
+  NOT yet run — not hardware-ready. Detail: GAIT.md, hw/STATUS.md.
 - MoE only after clean multitask training (explicit mode ID, correct
   rewards, enough plain-MLP capacity) shows real skill interference.

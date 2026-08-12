@@ -472,3 +472,14 @@ with one sacrificed leg in 1/6 sto episodes) — existence-proof win,
 not a deployable candidate yet. Next: harden (more steps + DR/tipped
 retention) to see if slip/robustness clean up with budget, matching
 the bc1->bc1-hard1 and holdbc1->holdbc1-hard1 pattern elsewhere.
+
+**`cw-dep-bcgait1-hard1` (10M hardening) PASSES decisively, same
+cycle.** Height stays in-band (-8.5..-9.8mm, tighter than the 2M
+parent), yaw margin stays positive (+2.1..+2.3deg, smaller than the
+parent's +17..+18deg but still not pinned negative). BOTH secondary
+misses fixed: det slip/m 2.12->1.43 (under the 1.8 bar), sto
+12.39->1.51 with the sacrificed-leg episode gone (gait_valid 6/6).
+det prog_ratio 1.05, sto 0.91, roll settles clean, zero falls. This
+is now the strongest tall-walking candidate in the campaign; next is
+the standard dep-line DR/tipped-start retention panel before any
+Gate 0 consideration -- NOT yet run.

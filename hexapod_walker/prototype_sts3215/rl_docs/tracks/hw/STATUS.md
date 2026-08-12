@@ -227,6 +227,14 @@ unresolved blockers between the robot and reliable joystick control.
   (det 2.12 vs the run's own <=1.8 bar, sto sacrifices a leg 1/6) —
   not hardware-ready, next is a hardening continuation. Detail:
   GAIT.md bottom.
+  **Same cycle, the hardening continuation RAN: `cw-dep-bcgait1-hard1`
+  (10M) PASSES decisively** — height stays in-band (-8.5..-9.8mm),
+  yaw margin stays positive, and BOTH secondary misses are fixed
+  (det slip/m 1.43, sto 1.51 with the sacrificed-leg episode gone,
+  gait_valid 6/6 both passes, prog_ratio 1.05/0.91, zero falls). Now
+  the strongest tall-walking candidate in the campaign; next is the
+  standard dep-line DR/tipped-start retention panel, NOT yet run,
+  before any Gate 0 consideration.
 - Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
   crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
   08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the
@@ -257,9 +265,17 @@ unresolved blockers between the robot and reliable joystick control.
   place, and det flat rise still stalls 106mm. The persistent habit is
   SHED EXACTLY ONE FOOT; every lever so far only moves which foot.
   Per pre-registration: hard1 stays deployed, stand-specialist handoff
-  stands, no further blind axes. Reopen lever (unqueued): price the
-  min-over-feet load + land per-mode bc_anchor_loss logging FIRST
-  (CODE — aggregate only today) before ANY further stand arm. RISE.md.
+  stands, no further blind axes.
+  **08-12: the reopened min-over-feet-load lever (`cw-stand-minfeet1`,
+  with per-mode `bc_anchor_loss` logging landed) FAILS the same way —
+  `env/hold_feet_factor` 0.105, deep in the same 0.1–0.35 failing
+  plateau, while `train/bc_anchor_loss_hold` is LOW and converged
+  (0.0107) — a working anchor, teaching the park. PRICING FAMILY NOW
+  TERMINALLY CLOSED for the parked-foot habit** (min-over-feet was the
+  last untried pricing axis). Rise/lower retention clean, hard1 stays
+  deployed. Only remaining lever: anchor-side (find + patch the exact
+  reference tick that shows a lifted-leg pose at a plant-adjacent
+  state) — unqueued, needs a spec pass first. RISE.md.
 - **New sub-line: unified get-up-and-walk (one policy, no scripted
   handoff).** `cw-getup1` (fresh init) and `cw-getup2-r1` (warm-started
   from the rise+hold specialist) both FAIL the same way: getup_S
@@ -281,6 +297,19 @@ unresolved blockers between the robot and reliable joystick control.
   sampled start stayed stuck low the whole episode. Still not a
   joystick blocker; low-priority sub-line, no further budget queued
   this cycle while named stand/walk blockers are unattacked.
+  **08-12: the 10M hardening `cw-getup3-c2` (identical recipe, "give
+  it the steps it was still climbing at") FAILS — the extra budget
+  entrenches a cheat instead of closing the gap.** `env/getup_S`
+  plateaued 0.17–0.21 for the full 2M–10M range (never approached the
+  >0.30 gate), `reward_getup_hold` stayed ~0.009 (needed >0.05), and
+  video confirms the pre-registered "strongest alternative": height/
+  footprint keep climbing (0.33→0.73 / 0.37→0.72) while `feet_loaded`
+  sits stuck at ~2.7–2.9/6 the whole run — a partial (~4-leg,
+  quadruped-like) stand, not a real six-foot one. "More steps" is
+  refuted for this lineage (one-line known-exploit stop, no
+  forensics); next lever is a pricing/anchor fix, same family as the
+  now-closed stand-hold pricing line. Still a low-priority research
+  sub-line (not a joystick blocker) — no further budget queued.
 
 Detail: **rl_docs/BENCH_REPORT_2026-08-11.md** (tonight's consolidated
 bench read + RL implications; regenerate tables with
