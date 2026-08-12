@@ -19,23 +19,36 @@ unresolved blockers between the robot and reliable joystick control.
   rocking-DR code was never written — run VOID, no science); the
   rise-rock DR axis is still unbuilt CODE work. Scripted `POST
   /api/zero pose=stand` is the working stand-up meanwhile.
-- **A/B fell-rates finally honest (on camera): vref1 fell 3/3, tip1
-  clean 1/1 — and that one was BACKWARD**, tip1's first clean
-  off-wedge rot60 walk (rode a 16.7° takeoff transient, tail 1.5°,
-  ends standing in frame). vref1's falls all follow the same 20–25°
-  takeoff-transient-then-capsize shape. The queued takeoff arm
+- **FULL-NIGHT A/B (18 walks, bench_report): the takeoff transient is
+  UNIVERSAL and there is NO policy winner.** Every walk crosses 5°
+  roll within 0.6–1.5 s and peaks 13–27°; falls are ~a coin flip for
+  BOTH policies (vref1 6/10 fell, tip1 4/7) with no predictor in peak
+  size or direction. The early-evening "tip1 clean, vref1 3/3 fell"
+  read did not survive the sample — and the A/B has a design confound
+  (round 1 is always vref1-fwd/tip1-back, so tip1 never walked
+  forward tonight). Verdict: the problem is surviving the takeoff
+  transient, not policy choice. Sim-side: the queued takeoff arm
   drained as a STUB (default DR — VOID); the proper relaunch
-  `cw-dep-tip1-takeoff25-r1` FAILED with a decisive read: under the
+  `cw-dep-tip1-takeoff25-r1` FAILED with a decisive read — under the
   identical 20–25° injection vs matched tip1 baseline, child==parent
-  (0/12 valid both, zero falls both) — sim ALREADY recovers static
-  tipped starts at the hardware regime, so the dose lever is CLOSED
-  (2nd no-separation arm). The takeoff fix must be a DYNAMIC
-  roll-rate perturbation during gait start (CODE) or contact/pinning
-  work. tip1 is the deploy champion on tonight's evidence.
-- **Thermal budget is real:** the second recovery stand-glide of the
-  19:16 session limped on **L2 hip at 72 °C** (shutoff 65). Falls +
-  recoveries stack heat fast; back to 40 °C within minutes limped.
-  Session ended there; robot parked limped/belly-down, 18/18 healthy.
+  (0/12 valid both, zero falls both), sim ALREADY recovers static
+  tipped starts at the hardware regime, dose lever CLOSED (2nd
+  no-separation arm). The takeoff fix must be a DYNAMIC roll-rate
+  perturbation during gait start (CODE) or contact/pinning work;
+  gate on fell/tail, not peak.
+- **Tonight's "thermal wall" was mostly PHANTOM BUS READS.** The
+  "L4 hip 150 °C" abort read a steady 33 °C seconds later; the
+  debounced watchdog never tripped all night. Single-read temp checks
+  in safe_zero/pinned_tip were killing sessions on corrupted bytes —
+  now debounced (two consecutive hot reads), and the always-on
+  `servo_watch` gained a THERMAL PANIC that kills ALL motion (not one
+  servo) on a real overtemp; busy cadence 10→5 s. All deployed. The
+  19:18 "L2 hip 72 °C" stays unconfirmed-possible, not proven.
+- Turn signs: **+0.3 = CCW from above (matches z-up convention)** off
+  the 19:33 camera frames — single reading. **−0.3 still unmeasured**
+  (first try silently refused on a pending measure record — fixed;
+  rerun coincided with the camera being removed). First item next
+  session.
 - Recovery loop hardened from tonight's failures: recovery safe_zero
   now `force=true` (a fall always trips the tilt gate), scripted-stand
   fallback when the learned rise trips, demo-aware waits (`/api/zero`
@@ -149,16 +162,20 @@ unresolved blockers between the robot and reliable joystick control.
   root cause found: the three per-mode BC anchors share one ring
   buffer/uniform sampling, so lower's pair volume diluted rise/hold
   supervision (ANCHOR DILUTION, a new testable mechanism, not the
-  shared-habit theory).** `cw-stand-anchormix1-r1` (stratified per-mode
-  minibatch sampling, equal quotas — the direct dilution fix)
-  **FAILED per its pre-registered FAIL branch (08-11 late): lower
-  6/6 and crouch rise 4/4 RETAINED, zero falls, but det flat rise
-  still stalls 105mm short and det hold still parks one foot (duty
-  0.02, hold_feet_factor ~0.14 all run) — and the park MOVED to a
-  different leg (old parkers now 0.90+), so the parked-leg identity
-  is anchor-dependent, not a fixed habit. Dilution theory
-  incomplete. Mandatory pre-registered next step before ANY further
-  stand arm: log per-mode train/bc_anchor_loss (CODE — aggregate
-  only today).** hard1 stays deployed. RISE.md.
+  shared-habit theory).** `cw-stand-anchormix1-r1` (stratified
+  per-mode minibatch sampling, equal quotas) **RAN 08-11 23:4x: FAIL
+  per gate, LINE CLOSED — but the park MIGRATED.** Stratification
+  fixed the seesaw as predicted (lower kept 6/6 det+sto, crouch rise
+  4/4, hold det valid_plant 6/6) and the six-run foot-idx1 park
+  finally recovered 0.03→0.90 — but foot idx4 parked at 0.02 in its
+  place, and det flat rise still stalls 106mm. The persistent habit is
+  SHED EXACTLY ONE FOOT; every lever so far only moves which foot.
+  Per pre-registration: hard1 stays deployed, stand-specialist handoff
+  stands, no further blind axes. Reopen lever (unqueued): price the
+  min-over-feet load + land per-mode bc_anchor_loss logging FIRST
+  (CODE — aggregate only today) before ANY further stand arm. RISE.md.
 
-Detail: RL_PLAN.md queue · rl_docs/HARDWARE.md · RISE.md · GAIT.md.
+Detail: **rl_docs/BENCH_REPORT_2026-08-11.md** (tonight's consolidated
+bench read + RL implications; regenerate tables with
+`python -m rl_move.scripts.bench_report`) · RL_PLAN.md queue ·
+rl_docs/HARDWARE.md · RISE.md · GAIT.md.

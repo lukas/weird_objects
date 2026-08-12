@@ -87,6 +87,9 @@ MAX_RECOVERIES = 4         # unattended falls tolerated before aborting
                            # (raised 2->4 08-11 eve: fall-rate per policy IS
                            # the measurement; each recovery limps on trip so
                            # falls stay low-energy)
+THERMAL_WARN_C = 55        # hold before motion if any servo is at/above
+THERMAL_RESUME_C = 45      # ...and resume only once back under this
+THERMAL_COOL_WAIT_S = 360  # max cooldown hold before aborting the session
 DEFAULT_STEPS = ("info", "ab", "tape", "rot60", "stand", "turnsign", "hold")
 # rise/sit: single transitions for composed --only sessions (e.g. a
 # belly-start unattended run: info rise ab turnsign sit)
@@ -233,6 +236,36 @@ class Session:
             except Exception:
                 pass  # no `say` (not macOS) — timestamps still work
 
+    def _thermal_gate(self) -> None:
+        """08-11 19:18 lesson: falls + recoveries stacked heat until the
+        L2 hip hit 72 C (shutoff 65) mid-glide with nothing watching.
+        Before every motion step, read bus temps; at/above THERMAL_WARN_C
+        hold (limp cools servos fast) until back under THERMAL_RESUME_C,
+        abort if it will not cool."""
+        st = self.req("GET", "/api/status")
+        temps = [(m.get("temp_c") or m.get("temp") or 0, m.get("name", "?"))
+                 for m in st.get("motors", [])]
+        if not temps:
+            return
+        t, name = max(temps)
+        if t < THERMAL_WARN_C:
+            return
+        self.announce(f"thermal hold: {name} at {t} degrees. waiting for "
+                      f"cooldown under {THERMAL_RESUME_C}.")
+        deadline = time.time() + THERMAL_COOL_WAIT_S
+        while time.time() < deadline:
+            time.sleep(20.0)
+            st = self.req("GET", "/api/status")
+            temps = [(m.get("temp_c") or m.get("temp") or 0,
+                      m.get("name", "?")) for m in st.get("motors", [])]
+            t, name = max(temps) if temps else (0, "?")
+            print(f"    thermal: hottest {name} {t}C")
+            if t <= THERMAL_RESUME_C:
+                self.announce("cooldown done. resuming.")
+                return
+        raise SessionAbort(f"thermal: {name} still {t}C after "
+                           f"{THERMAL_COOL_WAIT_S:.0f}s cooldown")
+
     def confirm(self, what: str, countdown: int = 5) -> bool:
         """Motion gate: explicit per-step operator go — or, in --auto,
         a SPOKEN countdown with Ctrl-C as the abort (the operator is
@@ -240,6 +273,7 @@ class Session:
         if not self.go:
             print(f"    [dry-run] would: {what}")
             return False
+        self._thermal_gate()
         if self.auto:
             self.announce(f"next: {what}. starting in {countdown} "
                           "seconds. control C to abort.")
@@ -660,8 +694,20 @@ class Session:
                 continue
             self.announce(f"turn sign omega {omega:+} starting")
             t0 = time.time()
-            self.req("POST", "/api/measure/walk",
-                     {"vx_mm": 0.0, "omega": omega, "duration_s": 6.0})
+            if self.video:
+                # Video mode never annotates on the spot, so the previous
+                # turn's pending measure record BLOCKS the next one (08-11
+                # 19:33: the -0.3 turn was silently refused this way and
+                # the robot just stood there for its window). The turn
+                # sign comes from the footage; the record is disposable.
+                self.req("POST", "/api/measure/discard", {})
+            r = self.req("POST", "/api/measure/walk",
+                         {"vx_mm": 0.0, "omega": omega, "duration_s": 6.0})
+            if not r.get("ok", True):
+                self.summary.setdefault("turnsign", []).append(
+                    {"omega": omega, "observed": "REFUSED",
+                     "error": r.get("error")})
+                continue
             time.sleep(8.0)
             self.announce(f"turn sign omega {omega:+} done")
             if self.video:

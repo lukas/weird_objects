@@ -29,7 +29,11 @@ from typing import Any, Callable
 from feetech_bus import N_JOINTS, joint_to_servo_id
 
 WATCH_PERIOD_S = 3.0    # idle cadence
-BUSY_PERIOD_S = 10.0    # while a demo/job owns the bus
+BUSY_PERIOD_S = 5.0     # while a demo/job owns the bus (10.0 until 08-11:
+                        # with the 2-read debounce that meant up to ~20 s of
+                        # blind time exactly while motion makes heat — two
+                        # hips sailed past shutoff mid-glide before anything
+                        # bus-side noticed)
 WARN_C = 55             # show on screen / web
 SHUTOFF_C = 65          # cut that servo's torque (rl_move safety uses 65)
 CLEAR_C = 50            # un-latch "tripped" once cooled below this
@@ -41,10 +45,16 @@ class ServoWatch:
 
     def __init__(self, get_bus: Callable[[], Any],
                  is_busy: Callable[[], bool],
-                 label: Callable[[int], str]):
+                 label: Callable[[int], str],
+                 on_trip: Callable[[str], None] | None = None):
         self._get_bus = get_bus
         self._is_busy = is_busy
         self._label = label  # joint index -> human name ("L5 knee")
+        # Motion killer (08-11): cutting torque on ONE hot servo while a
+        # job keeps driving the other 17 is a fall, not a save. The owner
+        # passes a callback that stops the whole robot (abort demo/RL
+        # worker, gait stop, torque-all off).
+        self._on_trip = on_trip
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -168,6 +178,13 @@ class ServoWatch:
                    f" — torque {'CUT' if ok else 'cut FAILED'}",
                    {"joint": joint, "servo_id": sid, "temp_c": temp_c,
                     "torque_cut_ok": ok}, level="warn")
+        if self._on_trip is not None:
+            try:
+                self._on_trip(f"overtemp {self._label(joint)} {temp_c}C")
+            except Exception as e:
+                self._emit("servo_overtemp",
+                           f"on_trip panic-stop FAILED: {e}",
+                           {"joint": joint}, level="warn")
 
     @staticmethod
     def _emit(kind: str, msg: str, data: dict, *, level: str = "info"):

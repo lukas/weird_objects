@@ -252,17 +252,18 @@ both handoffs compose).
   (ANCHOR DILUTION, not a shared taught habit). Follow-up
   `cw-stand-anchormix1-r1` (`train.bc_anchor_stratified=1.0`, equal
   per-mode minibatch quotas; first launch crashed on a warm-start
-  attribute bug, fixed) **FAILED per its pre-registered FAIL branch
-  (08-11 late): stratification RETAINED lower 6/6 det+sto and crouch
-  rise 4/4 but det flat rise still stalls 105mm short and det hold
-  still parks ONE foot (duty 0.02, hold_feet_factor ~0.14 all 2M) —
-  and the park MOVED: both previously-parked legs now read 0.90+,
-  a different leg parks. The parked-leg identity is anchor-dependent,
-  not a fixed habit; dilution theory incomplete. Pre-registered
-  mandatory next step: per-mode train/bc_anchor_loss logging (CODE —
-  only the aggregate is logged today) before ANY further stand arm.**
-  hard1 stays deployed.
-  Detail: rl_docs/RISE.md.
+  attribute bug, fixed) **RAN: FAIL per gate and the blind-axis LINE
+  IS CLOSED — but the park MIGRATED.** Stratification fixed the
+  dilution seesaw as predicted (lower kept 6/6 det+sto, crouch rise
+  4/4, hold det valid_plant 6/6) and foot idx1 — parked six straight
+  runs — recovered 0.03→0.90; foot idx4 parked at 0.02 in its place.
+  The habit is SHED EXACTLY ONE FOOT (five-foot stance is sufficient
+  and cheaper); supervision only moves WHICH foot, never WHETHER. Det
+  flat rise still stalls (106mm under-drive). Per pre-registration:
+  hard1 stays deployed, stand-specialist handoff stands; reopen lever
+  (unqueued) = price the min-over-feet load, not the product, and log
+  per-mode bc_anchor_loss FIRST (CODE — only the aggregate is logged
+  today) before ANY further stand arm. Detail: rl_docs/RISE.md.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict
@@ -438,27 +439,33 @@ both handoffs compose).
   roll transient right after gait start — sometimes fully recovered
   (vref1 full-6s walk ending dead level, tail 0.9°), sometimes a fall
   (vref1's 3rd runaway; tip1 backward). Judge walks by fell/tail, not
-  the peak-based "runaway" flag. **08-11 eve round 2 (honest terminal
-  results + recovery loop, on camera): vref1 FELL 3/3 (two fwd, one
-  back capsize) while tip1 walked CLEAN 1/1 — backward, at that. tip1
-  is the deploy champion on current hardware evidence; vref1's
-  "zero-erosion ACCEPTED" status is a SIM contract fact only. Both
-  queued sim answers drained as STUBS without their DR knobs and are
-  VOID (08-11 late: trained defaults, no science — do not build on
-  those checkpoints). The proper relaunch `cw-dep-tip1-takeoff25-r1`
-  (dr.tipped_start 0.5/12–25, warm tip1) then FAILED its gate with a
-  decisive mechanism read: under the identical 20–25° injection with
-  matched tip1 baseline, child==parent (0/12 valid both, ZERO falls
-  both) — sim already recovers static 20–25° tipped starts, the axis
-  is SATURATED. **Tipped-start DOSE is CLOSED as the takeoff-fall
-  fix (2nd no-separation arm); the hardware transient needs a
-  DYNAMIC roll-rate injection during gait start (CODE, unbuilt, same
-  family as the rise-rock axis) or contact/pinning work.** The
-  riserock rocking-DR axis also still needs CODE first. Still open: wz sign audit
-  (three sessions in a row ended before reaching it); session round 2
-  ended on a thermal stop — L2 hip 72 °C during a recovery stand
-  glide (falls + recoveries stack heat; robot limped itself, cooled
-  to 40 °C, 18/18 healthy).**
+  the peak-based "runaway" flag. **08-11 FULL-NIGHT VERDICT (18 walks,
+  9 camera sessions, `bench_report`): the takeoff transient is
+  UNIVERSAL — every walk crosses 5° roll by 0.6–1.5 s, peaks 13–27° —
+  and falls are ~a coin flip for BOTH policies (vref1 6/10 fell, tip1
+  4/7, no predictor in peak/direction). NO A/B winner; the
+  early-evening "tip1 champion" read was a small-sample artifact, and
+  the A/B has a direction confound (tip1 never walked forward — fix
+  the alternation before re-judging). vref1's "zero-erosion ACCEPTED"
+  stays a SIM contract fact only.** Sim-side status: the two operator
+  backlog stubs drained WITHOUT their DR knobs and are VOID (trained
+  defaults, no science — do not build on those checkpoints). The
+  proper relaunch `cw-dep-tip1-takeoff25-r1` (dr.tipped_start
+  0.5/12–25, warm tip1) then FAILED its gate with a decisive
+  mechanism read: under the identical 20–25° injection with matched
+  tip1 baseline, child==parent (0/12 valid both, ZERO falls both) —
+  sim already recovers static 20–25° tipped starts, the axis is
+  SATURATED. **Tipped-start DOSE is CLOSED as the takeoff-fall fix
+  (2nd no-separation arm); the hardware transient is DYNAMIC — a
+  roll-rate injection during gait start (CODE, unbuilt, same family
+  as the rise-rock axis, which also still needs code) or
+  contact/pinning work.** Turn signs: +0.3 = CCW (matches convention,
+  single camera reading); −0.3 still unmeasured. The evening's
+  "thermal wall" was mostly PHANTOM single-read bus temps (a "150 °C"
+  hip read 33 °C seconds later); safe_zero/pinned_tip temp trips now
+  debounced, servo_watch gained a kill-all-motion thermal panic, all
+  deployed. Consolidated read + RL implications:
+  rl_docs/BENCH_REPORT_2026-08-11.md.
 - Quad-hold is solid but mixing erodes walk (four dose points) —
   deploy-time specialist, never a mixed diet. FOUR-LEG WALKING is a
   sanctioned NEW experiment line (operator 08-11 afternoon): weight

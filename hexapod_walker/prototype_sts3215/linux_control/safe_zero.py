@@ -90,6 +90,11 @@ NO_PROGRESS_MIN_ERR = 10.0
 TEMP_MAX_C = 63
 SETTLE_DEG = 3.5
 FB_MISS_LIMIT = 3
+# Operator rule (08-11): surprise force can always be a mechanical jam
+# or a WRONG LOGICAL ZERO (targets are absolute angles in that frame).
+# Every force trip already limps; the error must also say so, or the
+# next thing anyone tries is the same move again.
+FORCE_HINT = " — possible mechanical jam or wrong zero (re-do set_zero)"
 
 
 def joint_name(j: int) -> str:
@@ -441,6 +446,7 @@ def run_safe_zero(bus, stages: list[dict], *,
             last_fb = 0.0
             stall_prev: set[int] = set()
             load_prev: set[int] = set()
+            temp_prev: set[int] = set()
             miss_count: dict[int, int] = {}
             sweep_misses = 0
             progress_ref: dict[int, tuple[float, float]] = {}
@@ -488,6 +494,7 @@ def run_safe_zero(bus, stages: list[dict], *,
                         return abs(float(fb.get("speed_deg_s") or 0.0)
                                    ) < SLOW_DPS
 
+                    now_temp: set[int] = set()
                     for j, fb in fb_map.items():
                         a = abs(float(fb.get("current_a") or 0.0))
                         if a > peak_a:
@@ -498,8 +505,19 @@ def run_safe_zero(bus, stages: list[dict], *,
                                 f"(hard cap {HARD_CAP_A:.1f} A)", label)
                         t_c = fb.get("temp_c")
                         if t_c is not None and int(t_c) >= TEMP_MAX_C:
-                            return _trip(
-                                f"{joint_name(j)} at {int(t_c)} °C", label)
+                            # Debounced like the stall check below: one
+                            # hot read is not trusted. Corrupted bytes on
+                            # the shared bus fake 70-150 C spikes (08-11:
+                            # "L4 hip at 150 °C" that read a steady 33 C
+                            # seconds later killed a session; servo_watch
+                            # documents the same 08-09 phantoms). Real
+                            # heat survives two reads ~0.3-0.6 s apart.
+                            if j in temp_prev:
+                                return _trip(
+                                    f"{joint_name(j)} at {int(t_c)} °C",
+                                    label)
+                            now_temp.add(j)
+                    temp_prev = now_temp
 
                     now_stall = {
                         j for j, fb in fb_map.items()
@@ -511,7 +529,8 @@ def run_safe_zero(bus, stages: list[dict], *,
                         return _trip(
                             f"stall-fight: {joint_name(j)} over "
                             f"{cur_lim:.1f} A while not moving "
-                            f"({errs[j]:.0f}° from target)", label)
+                            f"({errs[j]:.0f}° from target){FORCE_HINT}",
+                            label)
                     stall_prev = now_stall
 
                     now_load = {
@@ -524,7 +543,7 @@ def run_safe_zero(bus, stages: list[dict], *,
                         return _trip(
                             f"unexpected force: {joint_name(j)} load "
                             f"{float(fb_map[j]['load_pct']):.0f}% while "
-                            "not moving", label)
+                            f"not moving{FORCE_HINT}", label)
                     load_prev = now_load
 
                     el = last_fb - t0
@@ -538,7 +557,7 @@ def run_safe_zero(bus, stages: list[dict], *,
                             return _trip(
                                 f"{joint_name(j)} not turning: stuck "
                                 f"{e:.0f}° from target for "
-                                f"{el - ref[0]:.1f} s", label)
+                                f"{el - ref[0]:.1f} s{FORCE_HINT}", label)
 
                     if el >= min_settle and worst_err <= SETTLE_DEG:
                         settled += 1

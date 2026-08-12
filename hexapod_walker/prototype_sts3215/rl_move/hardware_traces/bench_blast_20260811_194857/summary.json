@@ -1,0 +1,743 @@
+{
+ "stamp": "20260811_194857",
+ "video_mode": true,
+ "walks": [
+  {
+   "tag": "vref1-r1",
+   "vx": 0.05,
+   "t_start_unix": 1786492177.03,
+   "t_end_unix": 1786492190.9,
+   "result": {
+    "ok": false,
+    "mode": "walk",
+    "error": "safety trip: over_load",
+    "limped": true,
+    "ticks": 149,
+    "vx_cmd": 0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 0,
+    "max_current_a": 2.96,
+    "overruns": 11,
+    "tilt_ref_deg": [
+     -0.13,
+     -0.67
+    ],
+    "tilt_rel_max_deg": 17.1,
+    "roll_rel_end_deg": 1.9,
+    "pitch_rel_end_deg": 5.7,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 10.1,
+    "fell": false,
+    "log": "rl_walk_20260811_234937.csv"
+   },
+   "csv": "rl_walk_20260811_234937.csv",
+   "roll_q1_deg": 2.4,
+   "roll_q4_deg": 13.6,
+   "roll_peak_deg": 17.0,
+   "tail_peak_deg": 9.9,
+   "ramp_deg_per_s": 2.5,
+   "runaway": true
+  },
+  {
+   "tag": "tip1-r1",
+   "vx": -0.05,
+   "t_start_unix": 1786492248.84,
+   "t_end_unix": 1786492260.96,
+   "result": {
+    "ok": true,
+    "mode": "walk",
+    "ticks": 150,
+    "vx_cmd": -0.05,
+    "vy_cmd": 0.0,
+    "duration_s": 6.0,
+    "rot60": true,
+    "rot60_k_end": 3,
+    "max_current_a": 2.17,
+    "overruns": 14,
+    "tilt_ref_deg": [
+     -0.37,
+     -0.55
+    ],
+    "tilt_rel_max_deg": 16.2,
+    "roll_rel_end_deg": 13.2,
+    "pitch_rel_end_deg": 2.6,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 13.8,
+    "fell": false,
+    "log": "rl_walk_20260811_235049.csv"
+   },
+   "csv": "rl_walk_20260811_235049.csv",
+   "roll_q1_deg": 6.6,
+   "roll_q4_deg": 12.7,
+   "roll_peak_deg": 15.9,
+   "tail_peak_deg": 13.5,
+   "ramp_deg_per_s": 1.36,
+   "runaway": true
+  }
+ ],
+ "notes": [],
+ "events": [
+  {
+   "t_unix": 1786492140.7,
+   "text": "bench blast session 20260811_194857 sync mark"
+  },
+  {
+   "t_unix": 1786492141.93,
+   "text": "next: scripted turn-in-place omega=+0.3 rad/s, 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786492146.94,
+   "text": "turn sign omega +0.3 starting"
+  },
+  {
+   "t_unix": 1786492155.08,
+   "text": "turn sign omega +0.3 done"
+  },
+  {
+   "t_unix": 1786492157.08,
+   "text": "next: scripted turn-in-place omega=-0.3 rad/s, 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786492162.1,
+   "text": "turn sign omega -0.3 starting"
+  },
+  {
+   "t_unix": 1786492170.18,
+   "text": "turn sign omega -0.3 done"
+  },
+  {
+   "t_unix": 1786492171.5,
+   "text": "next: round 1: switch to vref1 and walk fwd 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786492177.03,
+   "text": "walk vref1-r1 starting"
+  },
+  {
+   "t_unix": 1786492190.9,
+   "text": "walk vref1-r1 done"
+  },
+  {
+   "t_unix": 1786492192.6,
+   "text": "robot looks down. recovering: safe zero, then stand back up."
+  },
+  {
+   "t_unix": 1786492206.06,
+   "text": "learned stand up starting"
+  },
+  {
+   "t_unix": 1786492221.62,
+   "text": "stand FAILED"
+  },
+  {
+   "t_unix": 1786492221.62,
+   "text": "learned stand tripped. using the scripted stand glide instead."
+  },
+  {
+   "t_unix": 1786492243.28,
+   "text": "next: round 1: switch to tip1 and walk BACK 6s. starting in 5 seconds. control C to abort."
+  },
+  {
+   "t_unix": 1786492248.84,
+   "text": "walk tip1-r1 starting"
+  },
+  {
+   "t_unix": 1786492260.96,
+   "text": "walk tip1-r1 done"
+  },
+  {
+   "t_unix": 1786492262.65,
+   "text": "robot looks down. recovering: safe zero, then stand back up."
+  },
+  {
+   "t_unix": 1786492263.8,
+   "text": "learned stand up starting"
+  },
+  {
+   "t_unix": 1786492290.85,
+   "text": "stand FAILED"
+  },
+  {
+   "t_unix": 1786492290.85,
+   "text": "learned stand tripped. using the scripted stand glide instead."
+  }
+ ],
+ "policies": [
+  {
+   "file": "dep_quad1_c2.json",
+   "name": "dep-quad1-c2 \u2014 walk + quad-trick lineage",
+   "slot": "walk",
+   "obs_dim": 72,
+   "source": "ppo_goal_cw_dep_quad1_c2.zip",
+   "notes": "Same contract lineage as vref1-r1 with a four-leg-stand trick trained in (front pair unloads on command \u2014 in sim only; the robot has no runner mode for the trick). Implication: on hardware this is just an alternative walk, never bench-tested \u2014 use as a curiosity A/B against tip1, not as the daily driver.",
+   "active": false
+  },
+  {
+   "file": "dep_tip1.json",
+   "name": "dep-tip1 walk (lean-recovery DR)",
+   "slot": "walk",
+   "obs_dim": 72,
+   "source": "ppo_goal_cw_dep_tip1.zip",
+   "notes": "dep-vref1-r1 + 2M steps of tipped-start DR: 30% of training episodes spawn already leaned 6-18 deg and the policy is paid to level out. Hardware 08-10/11: 3 clean walks, 1 runaway \u2014 better than the parent and it keeps all six legs cycling under lean instead of sacrificing one, but it is NOT immune to the roll ramp. Implication: the current best pick for driving at 0.05 m/s; walks in a low shuffle (commanded posture, known and cosmetic).",
+   "active": false
+  },
+  {
+   "file": "dep_vref1_r1.json",
+   "name": "dep-vref1-r1 \u2014 walk champion (hardware contract)",
+   "slot": "walk",
+   "obs_dim": 72,
+   "source": "ppo_goal_cw_dep_vref1_r1.zip",
+   "notes": "Walk champion of the deployment-contract line: trained on the exact robot interface \u2014 no real velocity feedback (meas:=ref), 25-deg tilt envelope, 0.05-0.06 m/s band. Hardware 08-10: walks, but twice built a runaway sideways lean ending in a tip (pinned-leg positive feedback). Implication: fine for short A/B runs, but expect a possible roll ramp \u2014 hit X the moment it leans past ~15 deg.",
+   "active": false
+  },
+  {
+   "file": "stance_dr10.json",
+   "name": "stance_dr10 \u2014 stance champion",
+   "slot": "stance",
+   "obs_dim": 68,
+   "source": "ppo_goal_cw_stance_dr10.zip",
+   "notes": "Pre-deployment-contract stance champion (rise/hold/lower at full DR in sim). Hardware 08-10: its stand-up does NOT transfer \u2014 legs do air geometry with no ground force, then a knee stalls (trained before the rate clamp + self-collision limits were in the sim). Implication: keep only as fallback for Lower/holds; never use its RL Stand up \u2014 the Experiments-tab tuck is the stand-up.",
+   "active": false
+  },
+  {
+   "file": "stand_holdbc1_hard1.json",
+   "name": "holdbc1-hard1 stand/sit (HOLD+RISE 10M)",
+   "slot": "stance",
+   "obs_dim": 68,
+   "source": "ppo_goal_cw_stand_holdbc1_hard1.zip",
+   "notes": "EXPERIMENTAL on hardware \u2014 watch it. Overnight 08-11 HOLD+RISE+LOWER specialist: quiet six-foot hold (feet factor 0.99-1.0), belly-to-plant rise tracks a recorded reference, trained lower/sit. Sim: hold 11/12 valid, crouch-start rise still tips 2/4 \u2014 NOT hardware-validated, no deployment-contract flags. Try SIT and HOLD first; for stand-up keep a hand ready and use Experiments tab tuck as the known-good fallback. Meta carries the TRAINED goal ramp (hold 5s, ramp 6s, +111mm): re-select/push this file before STAND \u2014 the 08-11-morning copy (md5 6620705c) lacks it and the runner falls back to the legacy +50mm/4s ramp, an out-of-distribution command for this policy.",
+   "active": true
+  }
+ ],
+ "stand_profile_ok": true,
+ "turnsign": [
+  {
+   "omega": 0.3,
+   "observed": "video",
+   "t_start_unix": 1786492146.94,
+   "t_end_unix": 1786492155.08
+  },
+  {
+   "omega": -0.3,
+   "observed": "video",
+   "t_start_unix": 1786492162.1,
+   "t_end_unix": 1786492170.18
+  }
+ ],
+ "transitions": [
+  {
+   "mode": "stand",
+   "t_unix": 1786492221.62,
+   "kick": {
+    "ok": true,
+    "mode": "stand",
+    "calibrate": {
+     "running": true,
+     "name": "rl_policy_stand",
+     "progress": {
+      "msg": "RL stand up starting"
+     },
+     "result": null,
+     "plant": {
+      "ok": true,
+      "hip_deg": 18.589,
+      "knee_deg": 79.058,
+      "joints_deg": [
+       -0.088,
+       19.512,
+       79.453,
+       0.264,
+       17.227,
+       78.574,
+       -0.176,
+       19.424,
+       79.102,
+       0.088,
+       17.666,
+       79.014,
+       -0.088,
+       18.896,
+       79.365,
+       -0.088,
+       18.281,
+       78.223
+      ],
+      "has_joints": true,
+      "learned": true,
+      "contact_found": true,
+      "path": "/home/arduino/hexapod_sts/logs/plant_pose.json",
+      "timestamp": "2026-08-10T00:23:52",
+      "source": "api_capture",
+      "pose": [
+       -0.088,
+       19.512,
+       79.453,
+       0.264,
+       17.227,
+       78.574,
+       -0.176,
+       19.424,
+       79.102,
+       0.088,
+       17.666,
+       79.014,
+       -0.088,
+       18.896,
+       79.365,
+       -0.088,
+       18.281,
+       78.223
+      ]
+     },
+     "imu": {
+      "ok": true,
+      "learned": true,
+      "path": "/home/arduino/hexapod_sts/linux_control/logs/imu_calib.json",
+      "timestamp": "2026-08-10T00:07:27",
+      "source": "imu_calibrate",
+      "n_samples": 100,
+      "grade": "green",
+      "gyro_bias_dps": {
+       "x": 2.3658,
+       "y": 0.6905,
+       "z": 0.7608
+      },
+      "accel_bias_g": {
+       "x": -0.01206,
+       "y": -0.00124,
+       "z": 0.27024
+      },
+      "accel_rest_g": {
+       "x": -0.05664,
+       "y": -0.00582,
+       "z": 1.26924
+      },
+      "gyro_ptp_dps": 0.168,
+      "accel_mag_g": 1.2705,
+      "msg": "learned \u00b7 green \u00b7 2026-08-10T00:07:27"
+     },
+     "demo": {
+      "name": "rl_policy_stand",
+      "status": "RL stand up starting",
+      "running": true,
+      "params": {
+       "mode": "stand"
+      },
+      "progress": {
+       "msg": "RL stand up starting"
+      },
+      "telemetry": null,
+      "bus_hot": false
+     },
+     "robot": {
+      "activity": "demo",
+      "detail": "RL stand up",
+      "armed": true,
+      "mode": "idle",
+      "dry_run": false,
+      "drive_status": "walk vx=0.000 vy=0.000 w=0.00",
+      "demo": {
+       "name": "rl_policy_stand",
+       "status": "RL stand up starting",
+       "running": true,
+       "params": {
+        "mode": "stand"
+       },
+       "progress": {
+        "msg": "RL stand up starting"
+       },
+       "telemetry": null,
+       "bus_hot": false
+      },
+      "air_demos_need_zero": true,
+      "zero_tol_deg": 6.0,
+      "servo": {
+       "ok": true,
+       "ts": 1786492204.0337152,
+       "expected": 18,
+       "live": 18,
+       "missing": [],
+       "missing_names": [],
+       "max_temp_c": 36,
+       "hottest": "L2 knee",
+       "hot": [],
+       "tripped": [],
+       "tripped_names": [],
+       "warn_c": 55,
+       "shutoff_c": 65,
+       "imu_ok": true
+      }
+     }
+    }
+   },
+   "result": {
+    "ok": false,
+    "mode": "stand",
+    "error": "safety trip: tilt_roll",
+    "limped": true,
+    "ticks": 228,
+    "max_current_a": 0.23,
+    "overruns": 16,
+    "tilt_ref_deg": [
+     1.04,
+     3.5
+    ],
+    "tilt_rel_max_deg": 10.1,
+    "roll_rel_end_deg": -2.0,
+    "pitch_rel_end_deg": -0.6,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 9.7,
+    "fell": false,
+    "log": "rl_stand_20260811_235006.csv"
+   },
+   "ok": false
+  },
+  {
+   "mode": "stand",
+   "t_unix": 1786492290.85,
+   "kick": {
+    "ok": true,
+    "mode": "stand",
+    "calibrate": {
+     "running": true,
+     "name": "rl_policy_stand",
+     "progress": {
+      "msg": "RL stand up starting"
+     },
+     "result": null,
+     "plant": {
+      "ok": true,
+      "hip_deg": 18.589,
+      "knee_deg": 79.058,
+      "joints_deg": [
+       -0.088,
+       19.512,
+       79.453,
+       0.264,
+       17.227,
+       78.574,
+       -0.176,
+       19.424,
+       79.102,
+       0.088,
+       17.666,
+       79.014,
+       -0.088,
+       18.896,
+       79.365,
+       -0.088,
+       18.281,
+       78.223
+      ],
+      "has_joints": true,
+      "learned": true,
+      "contact_found": true,
+      "path": "/home/arduino/hexapod_sts/logs/plant_pose.json",
+      "timestamp": "2026-08-10T00:23:52",
+      "source": "api_capture",
+      "pose": [
+       -0.088,
+       19.512,
+       79.453,
+       0.264,
+       17.227,
+       78.574,
+       -0.176,
+       19.424,
+       79.102,
+       0.088,
+       17.666,
+       79.014,
+       -0.088,
+       18.896,
+       79.365,
+       -0.088,
+       18.281,
+       78.223
+      ]
+     },
+     "imu": {
+      "ok": true,
+      "learned": true,
+      "path": "/home/arduino/hexapod_sts/linux_control/logs/imu_calib.json",
+      "timestamp": "2026-08-10T00:07:27",
+      "source": "imu_calibrate",
+      "n_samples": 100,
+      "grade": "green",
+      "gyro_bias_dps": {
+       "x": 2.3658,
+       "y": 0.6905,
+       "z": 0.7608
+      },
+      "accel_bias_g": {
+       "x": -0.01206,
+       "y": -0.00124,
+       "z": 0.27024
+      },
+      "accel_rest_g": {
+       "x": -0.05664,
+       "y": -0.00582,
+       "z": 1.26924
+      },
+      "gyro_ptp_dps": 0.168,
+      "accel_mag_g": 1.2705,
+      "msg": "learned \u00b7 green \u00b7 2026-08-10T00:07:27"
+     },
+     "demo": {
+      "name": "rl_policy_stand",
+      "status": "RL stand up starting",
+      "running": true,
+      "params": {
+       "mode": "stand"
+      },
+      "progress": {
+       "msg": "RL stand up starting"
+      },
+      "telemetry": null,
+      "bus_hot": false
+     },
+     "robot": {
+      "activity": "demo",
+      "detail": "RL stand up",
+      "armed": true,
+      "mode": "demo",
+      "dry_run": false,
+      "drive_status": "LIMP \u2014 L3 hip at 77 \u00b0C",
+      "demo": {
+       "name": "rl_policy_stand",
+       "status": "acquiring start: safe zero\u2026",
+       "running": true,
+       "params": {
+        "mode": "stand"
+       },
+       "progress": {
+        "msg": "acquiring start: safe zero\u2026"
+       },
+       "telemetry": null,
+       "bus_hot": false
+      },
+      "air_demos_need_zero": true,
+      "zero_tol_deg": 6.0,
+      "servo": {
+       "ok": true,
+       "ts": 1786492262.7458596,
+       "expected": 18,
+       "live": 18,
+       "missing": [],
+       "missing_names": [],
+       "max_temp_c": 36,
+       "hottest": "L2 knee",
+       "hot": [],
+       "tripped": [],
+       "tripped_names": [],
+       "warn_c": 55,
+       "shutoff_c": 65,
+       "imu_ok": true
+      }
+     }
+    }
+   },
+   "result": {
+    "ok": false,
+    "mode": "stand",
+    "error": "safety trip: tilt_roll",
+    "limped": true,
+    "ticks": 228,
+    "max_current_a": 0.25,
+    "overruns": 13,
+    "tilt_ref_deg": [
+     -0.16,
+     3.31
+    ],
+    "tilt_rel_max_deg": 10.3,
+    "roll_rel_end_deg": -0.9,
+    "pitch_rel_end_deg": 0.1,
+    "tail_s": 3.0,
+    "tail_tilt_max_deg": 9.5,
+    "fell": false,
+    "log": "rl_stand_20260811_235117.csv"
+   },
+   "ok": false
+  }
+ ],
+ "stand": {
+  "kick": {
+   "ok": true,
+   "mode": "stand",
+   "calibrate": {
+    "running": true,
+    "name": "rl_policy_stand",
+    "progress": {
+     "msg": "RL stand up starting"
+    },
+    "result": null,
+    "plant": {
+     "ok": true,
+     "hip_deg": 18.589,
+     "knee_deg": 79.058,
+     "joints_deg": [
+      -0.088,
+      19.512,
+      79.453,
+      0.264,
+      17.227,
+      78.574,
+      -0.176,
+      19.424,
+      79.102,
+      0.088,
+      17.666,
+      79.014,
+      -0.088,
+      18.896,
+      79.365,
+      -0.088,
+      18.281,
+      78.223
+     ],
+     "has_joints": true,
+     "learned": true,
+     "contact_found": true,
+     "path": "/home/arduino/hexapod_sts/logs/plant_pose.json",
+     "timestamp": "2026-08-10T00:23:52",
+     "source": "api_capture",
+     "pose": [
+      -0.088,
+      19.512,
+      79.453,
+      0.264,
+      17.227,
+      78.574,
+      -0.176,
+      19.424,
+      79.102,
+      0.088,
+      17.666,
+      79.014,
+      -0.088,
+      18.896,
+      79.365,
+      -0.088,
+      18.281,
+      78.223
+     ]
+    },
+    "imu": {
+     "ok": true,
+     "learned": true,
+     "path": "/home/arduino/hexapod_sts/linux_control/logs/imu_calib.json",
+     "timestamp": "2026-08-10T00:07:27",
+     "source": "imu_calibrate",
+     "n_samples": 100,
+     "grade": "green",
+     "gyro_bias_dps": {
+      "x": 2.3658,
+      "y": 0.6905,
+      "z": 0.7608
+     },
+     "accel_bias_g": {
+      "x": -0.01206,
+      "y": -0.00124,
+      "z": 0.27024
+     },
+     "accel_rest_g": {
+      "x": -0.05664,
+      "y": -0.00582,
+      "z": 1.26924
+     },
+     "gyro_ptp_dps": 0.168,
+     "accel_mag_g": 1.2705,
+     "msg": "learned \u00b7 green \u00b7 2026-08-10T00:07:27"
+    },
+    "demo": {
+     "name": "rl_policy_stand",
+     "status": "RL stand up starting",
+     "running": true,
+     "params": {
+      "mode": "stand"
+     },
+     "progress": {
+      "msg": "RL stand up starting"
+     },
+     "telemetry": null,
+     "bus_hot": false
+    },
+    "robot": {
+     "activity": "demo",
+     "detail": "RL stand up",
+     "armed": true,
+     "mode": "demo",
+     "dry_run": false,
+     "drive_status": "LIMP \u2014 L3 hip at 77 \u00b0C",
+     "demo": {
+      "name": "rl_policy_stand",
+      "status": "acquiring start: safe zero\u2026",
+      "running": true,
+      "params": {
+       "mode": "stand"
+      },
+      "progress": {
+       "msg": "acquiring start: safe zero\u2026"
+      },
+      "telemetry": null,
+      "bus_hot": false
+     },
+     "air_demos_need_zero": true,
+     "zero_tol_deg": 6.0,
+     "servo": {
+      "ok": true,
+      "ts": 1786492262.7458596,
+      "expected": 18,
+      "live": 18,
+      "missing": [],
+      "missing_names": [],
+      "max_temp_c": 36,
+      "hottest": "L2 knee",
+      "hot": [],
+      "tripped": [],
+      "tripped_names": [],
+      "warn_c": 55,
+      "shutoff_c": 65,
+      "imu_ok": true
+     }
+    }
+   }
+  },
+  "result": {
+   "ok": false,
+   "mode": "stand",
+   "error": "safety trip: tilt_roll",
+   "limped": true,
+   "ticks": 228,
+   "max_current_a": 0.25,
+   "overruns": 13,
+   "tilt_ref_deg": [
+    -0.16,
+    3.31
+   ],
+   "tilt_rel_max_deg": 10.3,
+   "roll_rel_end_deg": -0.9,
+   "pitch_rel_end_deg": 0.1,
+   "tail_s": 3.0,
+   "tail_tilt_max_deg": 9.5,
+   "fell": false,
+   "log": "rl_stand_20260811_235117.csv"
+  },
+  "ok": false
+ },
+ "recoveries": [
+  {
+   "after": "vref1-r1",
+   "t_unix": 1786492242.81
+  }
+ ],
+ "aborted": "scripted stand errored: error: could not reach zero start: LIMP \u2014 L4 hip at 150 \u00b0C",
+ "camera": {
+  "video": "camera.mp4",
+  "t0_unix": 1786492140.701,
+  "fps": 15.0,
+  "frames": 2306
+ }
+}

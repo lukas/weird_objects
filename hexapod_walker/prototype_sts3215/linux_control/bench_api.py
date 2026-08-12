@@ -163,8 +163,45 @@ class BenchAPI:
         self._servo_watch = ServoWatch(
             lambda: self.drive.bus,
             lambda: bool(self._demo_thread and self._demo_thread.is_alive()),
-            lambda j: joint_label(j, self.names))
+            lambda j: joint_label(j, self.names),
+            on_trip=self.thermal_panic)
         self._servo_watch.start()
+
+    def thermal_panic(self, reason: str) -> None:
+        """Kill ALL motion and limp the robot — the watchdog's overtemp
+        response (08-11: two hips crossed shutoff mid-glide; the old
+        single-servo cut would have left the job driving the other 17
+        joints on a robot with one dead leg). Runs on the watchdog
+        thread; never raises."""
+        try:
+            from event_log import emit
+            emit("thermal_panic",
+                 f"THERMAL PANIC: {reason} — stopping all motion, "
+                 "torque off all", src="servo_watch", level="error")
+        except Exception:
+            print(f"[thermal_panic] {reason}")
+        freed = self._preempt_demo_thread(reason=f"thermal: {reason}",
+                                          timeout=4.0)
+        d = self.drive
+        with d._lock:
+            d.mode = "idle"
+            try:
+                d.gait.stop()
+            except Exception:
+                pass
+            d.armed = False
+            if freed:
+                # Bus rule (stop_demo): no writes while a stuck worker
+                # might still be mid-SyncWrite — that hang cooked the MCU
+                # bridge before. If the join timed out, the per-servo cut
+                # + the servo's own EEPROM limit (~70C) stay the backstop.
+                try:
+                    d._torque_all(False)
+                except Exception:
+                    pass
+        with self._lock:
+            self._activity = "limp"
+            self._activity_detail = f"thermal panic: {reason}"
 
     def stop_servo_watch(self) -> None:
         if self._servo_watch is not None:
@@ -933,12 +970,43 @@ class BenchAPI:
         at zero. Any anomaly during motion limps the robot
         (``run_safe_zero``) and returns ``ok=False`` — the caller must
         stop its own routine in that case.
+
+        PINNED-TIP GATE (08-11 overheat lesson): when the read-only
+        detector says the body is tipped over a folded knee, the
+        low-torque untrap fold runs FIRST — driving 18 joints toward
+        zero at working torque against a pinned leg is exactly the
+        loop that stacked hips to 71 °C. Every motion path that
+        acquires its start through here inherits the gate.
         """
         try:
             from safe_zero import (belly_ground_z_mm, plan_safe_zero,
                                    run_safe_zero)
         except ImportError as e:
             return {"ok": False, "error": str(e)}
+        untrap = None
+        try:
+            from pinned_tip import check_pinned_tip, run_untrap_tuck
+            verdict = check_pinned_tip(self.drive.bus)
+        except Exception:
+            verdict = {"pinned": False}
+        if verdict.get("pinned"):
+            try:
+                from event_log import emit
+                emit("pinned_tip", verdict.get("why", "pinned-leg tip"),
+                     data=verdict, level="warn")
+            except Exception:
+                pass
+            if on_progress:
+                on_progress({"msg": "tipped on a trapped leg — "
+                                    "low-torque untrap fold first"})
+            untrap = run_untrap_tuck(self.drive.bus,
+                                     abort_check=abort_check,
+                                     on_progress=on_progress)
+            if not untrap.get("ok"):
+                return {"ok": False, "limp": bool(untrap.get("limp")),
+                        "untrap": untrap, "pinned_tip": verdict,
+                        "error": ("untrap failed: "
+                                  + str(untrap.get("error") or "?"))}
         present, missing = self._present_pose18()
         if missing:
             return {"ok": False,
@@ -946,12 +1014,18 @@ class BenchAPI:
                         joint_label(j, self.names) for j in missing))}
         plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm())
         if not plan.get("ok"):
+            if untrap is not None:
+                plan["untrap"] = untrap
             return plan
         if not plan["stages"]:
-            return {"ok": True, "already_at_zero": True}
-        return run_safe_zero(self.drive.bus, plan["stages"],
-                             abort_check=abort_check,
-                             on_progress=on_progress)
+            return {"ok": True, "already_at_zero": True,
+                    **({"untrap": untrap} if untrap else {})}
+        result = run_safe_zero(self.drive.bus, plan["stages"],
+                               abort_check=abort_check,
+                               on_progress=on_progress)
+        if untrap is not None:
+            result["untrap"] = untrap
+        return result
 
     def _acquire_start(self, kind: str, *, gen: int,
                        on_progress=None) -> dict:
@@ -1066,6 +1140,7 @@ class BenchAPI:
         # Tilt gate: the planner's ground model assumes a roughly
         # level body (belly-down or standing on its feet).
         tilt = None
+        pinned = None
         try:
             if hasattr(bus, "read_imu"):
                 imu = bus.read_imu()
@@ -1079,21 +1154,45 @@ class BenchAPI:
                     tilt = max(abs(roll), abs(pitch))
         except Exception:
             tilt = None
-        if tilt is not None and tilt > 20.0 and not force:
-            return {"ok": False, "tilt_deg": round(tilt, 1),
-                    "error": (f"body tilted {tilt:.0f}° — on a slope or "
-                              "its side? Safe zero assumes roughly "
-                              "level. Right the robot (or force=true "
-                              "while watching).")}
+        if tilt is not None and tilt > 20.0:
+            # Tipped over a folded knee (THE post-fall state, 08-11)?
+            # Then safe zero knows how to proceed: the worker runs the
+            # low-torque untrap fold before any planned stage, so a
+            # bare refusal here would just push the caller to retry
+            # stand/walk against the pin instead.
+            try:
+                from pinned_tip import classify_pinned_tip
+                pinned = classify_pinned_tip(present, roll, pitch)
+            except Exception:
+                pinned = None
+            if not (pinned and pinned.get("pinned")) and not force:
+                return {"ok": False, "tilt_deg": round(tilt, 1),
+                        **({"pinned_tip": pinned} if pinned else {}),
+                        "error": (f"body tilted {tilt:.0f}° with legs "
+                                  "near straight — on a slope or "
+                                  "hand-placed? Safe zero assumes "
+                                  "roughly level. Right the robot (or "
+                                  "force=true while watching).")}
 
         plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm())
         plan["present_deg"] = [round(v, 2) for v in present]
         if tilt is not None:
             plan["tilt_deg"] = round(tilt, 1)
+        if pinned and pinned.get("pinned"):
+            plan["pinned_tip"] = pinned
+            if not plan.get("ok"):
+                # A tipped pose can defeat the preview planner (crossed
+                # legs); the worker re-plans on fresh encoders AFTER the
+                # untrap fold, so this preview must not block motion.
+                plan = {"ok": True, "stages": [], "pinned_tip": pinned,
+                        "present_deg": plan["present_deg"],
+                        "tilt_deg": plan.get("tilt_deg"),
+                        "notes": ["pinned-leg tip: low-torque untrap "
+                                  "fold first, then re-plan"]}
         if dry_run or not plan.get("ok"):
             plan["dry_run"] = bool(dry_run)
             return plan
-        if not plan["stages"]:
+        if not plan["stages"] and not (pinned and pinned.get("pinned")):
             return {**plan, "msg": "already at zero"}
 
         if self._demo_thread and self._demo_thread.is_alive():
