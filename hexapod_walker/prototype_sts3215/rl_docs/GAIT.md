@@ -537,8 +537,17 @@ limit margin narrows further under DR (fric 0.82-1.45deg, groundtilt5
 0.16-1.22deg vs the parent's matched-probe 1.37-1.90deg) -- continues
 the lineage-wide narrowing trend (17deg->2.3deg->under 1.5deg); still
 positive/not pinned but worth a combined-axis check before Gate 0.
-Remaining panel items before Gate 0: tipped-start dose (the default
-tipped_start_prob=0.30 is already baked into training/eval, but a
-dedicated stress dose hasn't been isolated on this checkpoint) and a
-combined/stacked-axis pass. Detail: rl_docs/SKILLS.md tall-walking
-section.
+CORRECTION (same cycle): tipped-start dose and command-side
+DR-compose retests are NOT queued further here -- both are already
+CLOSED generically (tipped-start dose saturates with zero separation,
+3 arms; DR pair-compose on a dep-line checkpoint is a proven-free
+closed class per RL_PLAN "CLOSED moves" -- a 3rd axis here would just
+reconfirm it, not new evidence). The one open, non-generic question
+for this lineage is whether it shares the dep-line's walk-TAKEOFF
+roll-transient vulnerability (the still-open hw blocker, mechanism
+diagnosed as contact/pinning geometry via replay_trace, not DR-fixable)
+-- that needs either a bench tape replay against this checkpoint or a
+probe_walk_push-style matched-parent injection ADAPTED to the
+bcgait1-hard1 reward stack (probe_walk_push.py is hardcoded to the
+plain vref1 stack today; needs a small generalization first). Spec
+that adaptation before any further training respec on this lineage.

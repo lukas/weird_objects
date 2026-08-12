@@ -77830,7 +77830,7 @@
       "train.bc_anchor_foot_z=1.0"
     ],
     "created": "2026-08-12T09:36:06+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -77839,12 +77839,25 @@
       "code_sha_local": "9a91f4f6212957689d0e9d4e9115e3772ddd8a43",
       "code_sha_pod": "9a91f4f6212957689d0e9d4e9115e3772ddd8a43",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "118665",
+      "log_growth_bytes": [
+        13804,
+        26709
+      ],
+      "wandb_id": "nd3u9txh",
+      "global_step_window": [
+        1048576,
+        1638400
+      ],
+      "fps_estimate": 19660.8
     },
     "stack": "gpu-mjx",
     "phase": "hardening",
     "evidence": "cw-stand-footz1-r1 (2M discovery): PASS (partial) -- det hold ALL SIX feet duty 0.92-0.98 across all 6 episodes vs the frozen parent's 0.05 on the same leg in the identical test, valid_plant 6/6, video-clean -- first clean six-foot hold after 6+ straight pricing-arm park failures. Misses: sto hold 4/6 valid_plant (current-spec only, not park -- parent trips the same check at a similar rate); det rise 5/6 vs parent's 6/6 (one flat-start height-only miss, zero falls).",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-footz1-hard1 --steps 10000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_footz1_r1.zip --dr-scale 0.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_footz1_hard1 --impl warp --host-workers 24 --notes 'respec of cw-stand-footz1-r1: Teach the standing robot to plant all six feet AND hold that for longer, harder training -- does the just-landed foot-height BC anchor (which fixed the invisible one-foot park in 2M steps of discovery) keep working, and does the small rise regression clear, when hardened to 10M steps the same way bc1->bc1-hard1 and holdbc1->holdbc1-hard1 both consolidated cleanly on this identical discovery-then-hardening pattern? One variable vs the discovery run: step count only (2M->10M), same recipe, same warm start (holdbc1_hard1), same foot-z anchor.' --cfg-set train.bc_anchor_coef=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --cfg-set reward.k_support_margin=0.0 --cfg-set train.bc_anchor_foot_z=1.0 > /tmp/train_cw-stand-footz1-hard1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-stand-footz1-hard1.log"
+    "log": "/tmp/train_cw-stand-footz1-hard1.log",
+    "wandb_id": "nd3u9txh",
+    "verified": "2026-08-12T09:38:52+00:00"
   }
 ]

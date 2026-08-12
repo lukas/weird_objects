@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-12T09:36:06+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-stand-footz1-r1
+
+**wandb_id**: nd3u9txh
 
 **hypothesis**: Teach the standing robot to plant all six feet AND hold that for longer, harder training -- does the just-landed foot-height BC anchor (which fixed the invisible one-foot park in 2M steps of discovery) keep working, and does the small rise regression clear, when hardened to 10M steps the same way bc1->bc1-hard1 and holdbc1->holdbc1-hard1 both consolidated cleanly on this identical discovery-then-hardening pattern? One variable vs the discovery run: step count only (2M->10M), same recipe, same warm start (holdbc1_hard1), same foot-z anchor.
 
