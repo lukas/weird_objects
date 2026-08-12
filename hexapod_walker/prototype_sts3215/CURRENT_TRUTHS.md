@@ -93,6 +93,13 @@ both handoffs compose).
 
 - KPI = unresolved blockers between today's robot and the next
   useful joystick hardware test. NOT GPU occupancy; idle pods fine.
+- OPERATOR DIRECTIVE 08-11 night (narrows the bullet above): sim
+  stand/walk blockers are THE focus — keep the fleet firing arms
+  that directly attack them, each spec'd as a deployable candidate;
+  when the next lever is code, cycles WRITE it and check it in
+  (cfg-gated, default-off, bit-exact when off, tests green,
+  snapshotted) instead of parking the line. Peripheral runs stay
+  banned. Full text: RL_PLAN.md "Operator directive (08-11 night)".
 - Phases binding (RESEARCH_RULES.md; launcher-enforced):
   SPECIFICATION (never trains) / DISCOVERY (0.5–2M) / HARDENING
   (10–40M, needs evidence) / COMPOSITION / TRANSFER.
