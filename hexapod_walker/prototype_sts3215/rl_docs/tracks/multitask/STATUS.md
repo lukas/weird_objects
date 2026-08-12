@@ -99,12 +99,32 @@ new command later (the phase-2 transfer test).
   `cw-mt-widen1` (staged widening — b1's command distribution
   warm-started from `a2`'s walking checkpoint, 2M discovery).
 
+- **08-12 ~22:2x: `cw-mt-widen1` (staged widening, 2M) FAILS(acquisition)
+  per its pre-registered branch, but CONFIRMS the staged-widening half
+  decisively.** The `a2` walking prior fully SURVIVES command widening
+  at 2M (gate(DR0) det gait_valid 6/6, prog med 1.57 vs a2's 1.23;
+  own-DR0.2 6/6/1.81; zero terms/sacrificed legs, duty_min 0.23-0.44 —
+  b2's leg-3 near-sacrifice absent; roll_tail 0.5-0.9° flat-to-better
+  than a2; cost: slip_per_m 1.92-2.19 vs a2's 1.38-1.50). Neither NEW
+  command is acquired yet: stop-hold speed_med (0.058 m/s) equals
+  fwd-hold's — the policy marches through zero-commands — and yaw
+  sign-response is absent both directions (tip-left/right wz
+  +0.103/+0.086, wrong sign right; eval_yaw |wz_err| 0.155 vs b2's
+  0.137, but 0 falls vs b2's 9). Confound: no mt arm has ever acquired
+  a new command at 2M (b2 needed 20M from scratch for partial yaw), so
+  this doesn't yet distinguish "budget" from "representation limit".
+  Discriminator **`cw-mt-widen2`** (same recipe, continue to b2's
+  matched 20M budget) queued+launched same cycle to settle it before
+  reaching for the representation lever (`obs.history_frames`).
+
 ## Next
 
-- **[RUNNING] `cw-mt-widen1`** — staged widening from a walking
-  checkpoint: warm-start `a2` (clean specialist) on b1's narrow
-  generalist command set (yaw ±0.15 on 20%, 40% stops). Tests
-  whether a walking prior avoids the from-scratch interference.
+- **[RUNNING] `cw-mt-widen2`** (train-0, 20M) — does the a2-warm-started
+  widened policy actually learn stop/yaw given b2's full budget, or
+  does it stay command-invariant (representation limit) or forget the
+  gait (curriculum lever)? Gate: stop-hold speed_med <=0.02 m/s AND
+  tip yaw differential >=+0.10 with eval_yaw falls <=2 AND
+  gait_valid >=4/6 for PASS; see ledger for the full FAIL branches.
 - Phase 2 / wave-2 planning should start from `b2` (real gait,
   closest to passing) or `a2` (clean specialist), never from `c2`'s
   broad-command recipe as-is — any future wide-command attempt
