@@ -29,9 +29,13 @@ whatever works; this track exists to retire the crutch.
   dragstance1 (loadslip factor floored by step 49, drag charge never
   resolved); gate 0/6, slip/m 6-18, video is marching-in-place. Mid-
   stride state injection gives the from-scratch policy nothing to
-  build on. Remaining nobc-legal levers (GAIT.md P3): drag charge
-  annealed UP (needs the P2 bank), physics easing, slow-speed-first —
-  BC-INIT is out of scope for this track (no imitation, ever).
+  build on. **Queued+running same cycle: `cw-gait-slowfirst1`**
+  (lever 5, target speed 0.02-0.025 vs the champion's own 0.05-0.06,
+  same drag charge, no RSI) — the only remaining lever launchable
+  without new code. Levers 2/3 (annealed-up charge, physics easing)
+  both need an in-run cfg-coefficient schedule that doesn't exist yet
+  — CODE, unqueued, spec first if lever 5 misses. BC-INIT is out of
+  scope for this track (no imitation, ever).
 
 - CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
   crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —
