@@ -250,7 +250,7 @@ unresolved blockers between the robot and reliable joystick control.
   `body_ik.fk_all_feet`, z = −F·sin(hip) − T·sin(hip+knee)); a 10 mm
   hover costs ~1.0 at default scale (bank test pins ≥50x the joint
   MSE ratio; default-off bit-exact; 41 anchor tests + 78-test
-  semantics bank green). First arm: `cw-stand-footz1` (2M discovery,
+  semantics bank green). First arm: `cw-stand-footz1-r1` (2M discovery,
   warm from holdbc1-hard1, ONE variable, gate = all-six-feet det
   hold duty ≥0.5 + rise/lower retention vs the matched parent probe
   + no outrigger).

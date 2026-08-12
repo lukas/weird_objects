@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-12T09:03:09+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-dep-bcgait1-hard1
+
+**wandb_id**: mwiqp3ui
 
 **hypothesis**: Plain English: the tall-walking champion has never trained on an actually-sloped floor (real concrete/rug is not perfectly flat), only the flat DR-0.35 default -- check whether its taller, less-splayed stance (less lateral base-of-support than the old crouch) still tolerates a 5deg slope the way the old crouch-lineage did. One variable vs cw-dep-bcgait1-hard1 itself (warm-started from ITS OWN checkpoint): dr.ground_tilt_deg 0 -> 5.0 (the dose already validated free on the plain walk lineage), reward.k_current=0 per the standing hardware-arm rule. Prediction-if-true: own-cfg det+sto gait_valid >=5/6, zero new falls, slip/m within bcgait1-hard1's own band, probe_tall_wall height stays >= -20mm -- slope composes free like on every other walk lineage. Prediction-if-false: the taller stance is measurably less slope-tolerant (falls or height re-drifts toward the crouch, seeking a wider lateral base) -- flag before hardware, and the crouch-vs-tall tradeoff needs an explicit slope budget.
 

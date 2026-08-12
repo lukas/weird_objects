@@ -1183,5 +1183,5 @@ torch twin of `body_ik.fk_all_feet`; z = −FEMUR·sin(hip) −
 TIBIA·sin(hip+knee), yaw-free). A 10 mm commanded hover costs ~1.0
 at default scale. Default 0 = off, update bit-exact (test-pinned);
 FK matches body_ik to 1e-6; the park/joint-MSE visibility ratio ≥50x
-is a bank test. First arm: `cw-stand-footz1` (2M discovery, one
+is a bank test. First arm: `cw-stand-footz1-r1` (2M discovery, one
 variable vs holdbc1-hard1).

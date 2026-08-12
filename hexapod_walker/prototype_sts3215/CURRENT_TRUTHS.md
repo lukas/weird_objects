@@ -330,7 +330,7 @@ both handoffs compose).
   blind to it by construction. Landed fix (default off, bit-exact,
   tests green): `train.bc_anchor_foot_z` supervises commanded FK
   foot heights (10 mm hover ≈ 1.0 loss at default scale, ≥50x the
-  joint-MSE ratio, pinned by bank test). First arm cw-stand-footz1.
+  joint-MSE ratio, pinned by bank test). First arm cw-stand-footz1-r1.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict
