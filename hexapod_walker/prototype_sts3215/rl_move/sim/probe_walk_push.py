@@ -39,6 +39,7 @@ PUSH_S = (1.5, 1.5)
 
 CKPTS = {
     "tip1_push1": "rl_move/sim/policies/ppo_goal_cw_dep_tip1_push1.zip",
+    "tip1_push1_hard1": "rl_move/sim/policies/ppo_goal_cw_dep_tip1_push1_hard1.zip",
     "tip1": "rl_move/sim/policies/ppo_goal_cw_dep_tip1.zip",
 }
 
@@ -107,11 +108,16 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", default="0,1,2,3,4,5,6,7,8,9,10,11")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--ckpts", default="tip1_push1,tip1",
+                     help="comma-separated pair of CKPTS keys, child first")
     args = ap.parse_args()
     seeds = [int(s) for s in args.seeds.split(",")]
+    ckpt_keys = tuple(args.ckpts.split(","))
+    assert len(ckpt_keys) == 2 and all(k in CKPTS for k in ckpt_keys), \
+        f"--ckpts must be two comma-separated keys from {list(CKPTS)}"
 
     rows = []
-    for ckpt_key in ("tip1_push1", "tip1"):
+    for ckpt_key in ckpt_keys:
         for seed in seeds:
             rows.append(rollout(ckpt_key, seed))
 
@@ -123,7 +129,7 @@ def main() -> int:
               f"{str(r['term_reason']):<12}")
 
     summary = {}
-    for ckpt_key in ("tip1_push1", "tip1"):
+    for ckpt_key in ckpt_keys:
         sub = [r for r in rows if r["ckpt"] == ckpt_key]
         fell = sum(r["fell"] for r in sub)
         tails = [r["tail_roll_med_deg"] for r in sub if not r["fell"]]

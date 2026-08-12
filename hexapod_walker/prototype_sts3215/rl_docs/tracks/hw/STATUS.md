@@ -179,11 +179,19 @@ unresolved blockers between the robot and reliable joystick control.
   (gait_valid/slip/prog match tip1's own band, zero new falls).
   Per the campaign's own "more steps cleans up the rough edges"
   pattern (just re-confirmed on `cw-dep-bcgait1-hard1`), queued+ran
-  `cw-dep-tip1-push1-hard1` (train-3, 10M, identical recipe,
-  VERIFIED RUNNING) rather than closing the torque-DR family on a
-  near-miss — if the gap doesn't widen past 1.8x under budget, the
-  family closes for real next verdict. `cw-stand-riserock4`: not
-  this cycle's run, verdict pending elsewhere.
+  `cw-dep-tip1-push1-hard1` (train-3, 10M, identical recipe) rather
+  than closing the torque-DR family on a near-miss. **08-12 verdict:
+  FAILS bit-for-bit** — the matched-parent `probe_walk_push.py`
+  (n=12/side, forced 2.6N·m/1.5s) gives hard1 the IDENTICAL fall
+  count as the 2M discovery arm (5/12 vs frozen tip1 9/12, same 1.8x
+  gap, same 4 discordant seeds), tail-roll among survivors slightly
+  worse. 10M more steps bought nothing. **TORQUE-DR (walk_push)
+  FAMILY NOW CLOSED FOR GOOD** — all three perturb-during-training
+  axes for the takeoff-roll transient (walk-kick, rise-rock,
+  walk-push) are closed; the only remaining lever is contact/pinning
+  geometry modeling (belly/tucked-leg collision at takeoff), not any
+  further DR variant. `cw-stand-riserock4`: not this cycle's run,
+  verdict pending elsewhere.
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching

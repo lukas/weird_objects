@@ -536,11 +536,18 @@ both handoffs compose).
   5/12 vs frozen tip1 9/12 (1.8x lower, short of the pre-registered
   2x bar), but paired-by-seed every disagreement favors the child and
   none favor the parent. Nominal DR0 retention clean. PARTIAL/
-  INFORMATIVE, not a clean PASS; hardening continuation
-  `cw-dep-tip1-push1-hard1` (10M, identical recipe) is RUNNING to
-  test whether budget widens the gap past 2x (campaign pattern: more
-  steps just fixed bcgait1's rough edges) — if it doesn't, the
-  torque-DR family closes for real. Turn signs:
+  INFORMATIVE, not a clean PASS. **08-12: hardening continuation
+  `cw-dep-tip1-push1-hard1` (10M, identical recipe) FAILS the same
+  matched-parent probe bit-for-bit** — fall count is IDENTICAL to the
+  2M discovery arm (5/12 vs frozen tip1 9/12, same 1.8x, same 4
+  discordant seeds), tail-roll among survivors marginally worse
+  (1.63 vs 1.26° median); 5x more budget bought nothing. DR0
+  retention still clean (gait_valid matches parent's own band, zero
+  new falls). **TORQUE-DR (walk_push) FAMILY NOW CLOSED FOR GOOD** —
+  all three perturb-during-training axes (walk-kick, rise-rock,
+  walk-push) are closed; the takeoff-roll transient's remaining lever
+  is contact/pinning geometry modeling (belly/tucked-leg collision),
+  not any further DR variant. Turn signs:
   CLOSED (operator 08-11 night): the robot turns the way the drawn
   signs say for BOTH command signs — the convention is correct end
   to end, no flip needed in the deploy bridge. Rotation RATE remains
