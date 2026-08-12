@@ -145,6 +145,11 @@
         (IDs 2..19). Horns do <i>not</i> turn — limp, hand-pose first, then click.
         Different from <b>Go zero</b>, which drives joints to logical 0°.
       </div>
+      <div class="btns nowrap" style="margin-top:10px">
+        <button id="mpinned" title="Read-only: is the body tipped ≥12° over a folded knee (the post-fall trapped state)? Never moves the robot.">Pinned-tip check</button>
+        <button id="muntrap" class="danger" title="Escape a pinned-leg tip: limp, settle, then fold hips+knees at 20% torque (heat-bounded). Refuses unless the check says pinned. Success leaves it level+folded — run Go zero next.">Untrap fold</button>
+        <span id="mpinnedout" class="hint" style="margin:0">—</span>
+      </div>
       <div style="overflow:auto; margin-top:10px; max-height:420px">
         <table class="motors" id="mtab">
           <thead><tr>

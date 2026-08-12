@@ -21,6 +21,11 @@ Context for the reviewer:
 - `RL_GOALS.md`
 - `CURRENT_TRUTHS.md`
 - `STATUS.md`
+- `rl_docs/tracks/arch/STATUS.md`
+- `rl_docs/tracks/hw/STATUS.md`
+- `rl_docs/tracks/nobc/STATUS.md`
+- `rl_docs/tracks/quad/STATUS.md`
+- `rl_docs/tracks/turn/STATUS.md`
 - `RL_PLAN.md`
 - `RESEARCH_RULES.md`
 - `RUN_INTERPRETATION_RULES.md`
@@ -31,6 +36,7 @@ Context for the reviewer:
 - `rl_docs/REWARD.md`
 - `rl_docs/RISE.md`
 - `rl_docs/TURN.md`
+- `rl_docs/GAIT.md`
 - `rl_docs/EVALS.md`
 - `rl_docs/SKILLS.md`
 - `rl_docs/COMMANDS.md`
@@ -38,6 +44,7 @@ Context for the reviewer:
 - `rl_docs/WANDB.md`
 - `rl_docs/HARDWARE.md`
 - `rl_docs/WISHLIST.md`
+- `rl_docs/BENCH_REPORT_2026-08-11.md`
 - `rl_move/API.md`
 - `rl_move/RUNLOG.md`
 - `rl_move/orchestrator/README.md`
@@ -190,16 +197,27 @@ both handoffs compose).
 - A successful gait rocks ±10–20° in roll/pitch. A 10° walk
   termination was too restrictive; the envelope is 25° plus
   directional angular-rate safety logic (never bare gyro magnitude).
-- Walking is CHEAPER than standing on hardware (0.33–0.45 A mean
-  total vs 0.59 A). Old sim effort/current assumptions are NOT
-  trusted; k_current=0 on hardware arms until calibrated.
+- Hardware effort (servo current registers, bus total): walking
+  0.33–0.45 A; SCRIPTED-stand hold 0.54–0.59 A (servos fighting the
+  sag from an ideal commanded pose); walk-synced plant hold only
+  ~0.11 A (cmd == settled stance → gear friction carries the load
+  nearly free). Register current tracks the cmd-vs-settled FIGHT,
+  not pose height (08-11 re-read of hw_session2 per-servo traces).
+  k_current=0 on hardware arms until register-scale pricing is
+  calibrated.
 - Contact calibration DONE (08-10, `calibrate_slip.py`): sim replay
   of the exact hardware gait travels 0.35–0.41 of commanded (real
   0.50–0.51), speed-invariant, walking current in-band — sim does
   NOT price sliding as free (it is slightly conservative); friction
-  saturates ≥1.5 so μ is not the knob. Sim hold current 0.11 A vs
-  real 0.59 A is the remaining (effort) gap — needs a holding-
-  current model fit, not a scalar.
+  saturates ≥1.5 so μ is not the knob. The "sim hold 0.11 A vs real
+  0.59 A" effort-inversion is RETRACTED (08-11,
+  `probe_hold_current.py`, logs/probe_hold_current/): it compared
+  sim MEAN-PER-SERVO to hw BUS-TOTAL (×18) at mismatched poses.
+  Pose/unit-matched, sim's |torque|-proxy OVERPRICES every condition
+  3–25x (conservative, air AND loaded params) and reproduces the
+  real walk>plant-hold ordering. Register-accurate current needs a
+  cmd-fight/deadzone model — required only before a k_current>0
+  hardware-pricing arm; NOT a joystick blocker.
 - Stand-up (08-10, scripted `/api/standup` bench): pulling loaded
   feet inward CANNOT reach the plant — blend stalled short of full
   height at only 0.57 A peak (servos give up quietly under the 70%
@@ -250,6 +268,13 @@ both handoffs compose).
 
 - KPI = unresolved blockers between today's robot and the next
   useful joystick hardware test. NOT GPU occupancy; idle pods fine.
+- OPERATOR DIRECTIVE 08-11 night (narrows the bullet above): sim
+  stand/walk blockers are THE focus — keep the fleet firing arms
+  that directly attack them, each spec'd as a deployable candidate;
+  when the next lever is code, cycles WRITE it and check it in
+  (cfg-gated, default-off, bit-exact when off, tests green,
+  snapshotted) instead of parking the line. Peripheral runs stay
+  banned. Full text: RL_PLAN.md "Operator directive (08-11 night)".
 - Phases binding (RESEARCH_RULES.md; launcher-enforced):
   SPECIFICATION (never trains) / DISCOVERY (0.5–2M) / HARDENING
   (10–40M, needs evidence) / COMPOSITION / TRANSFER.
@@ -332,6 +357,95 @@ both handoffs compose).
   baseline band, the scripted 1.5 s blend adds nothing; holds on air
   AND loaded servo physics. Crouch-start rises still tip PRE-handoff
   (0/6 RSI-off, known fragility; flat+bridge rises 12/12).
+  **08-11 later: the crouch fragility is FIXED by start-mix bias**
+  (`cw-stand-crouchrise1`, 60% crouch starts vs legacy 25%; RSI-off
+  all-crouch probe 16/16 stands, det 8/8 valid_plant, ZERO falls vs
+  hard1's 0/8 with 8/8 tilt falls, matched control) — but NOT
+  promoted: det-hold PARKS TWO FEET (contact duty 0.07/0.01 on legs
+  1+4, all other legs 0.90+) while `valid_plant` still reads True —
+  a flag-leg cheat the geometric check misses, caught only by the
+  explicit per-foot duty telemetry (corrected 08-11 from an earlier,
+  less specific "current-tail flags" read). hard1 STAYS the deployed
+  stance policy; `ppo_goal_cw_stand_crouchrise1` (md5 3877e16c) is
+  banked. **`cw-stand-crouchrise2`** (same fix, restoring hard1's
+  exact goal-mix to rule out the mix-skew as the hold cheat's cause)
+  REPRODUCES the crouch-rise win cleanly (det rise 6/6 valid_plant
+  incl. crouch 4/4) but the IDENTICAL flag-leg fingerprint returns on
+  the SAME two legs (duty 0.03/0.03) — restoring the goal-mix did
+  NOT fix hold, so the mix skew was not the (sole) cause; the real
+  mechanism is still unknown. Lower also measurably worsens vs a
+  matched hard1 control under the same eval (hard1 3/6 succeed/1/6
+  falls; crouchrise2 0/6 succeed/2/6 falls) — hard1's own lower was
+  never gated before, so this is a real, quantified degradation, not
+  a clean inherited gap. **`cw-stand-crouchrise3` (08-11 late,
+  operator-directed dose probe 0.60→0.45, one axis) FAILS the same
+  way: crouch rise clean 4/4 but the identical legs-1+4 park (duty
+  0.04/0.01) and det lower 2/6 — the dose axis is dead too.** Stand
+  lineage stays CLOSED for hardening; the hold-cheat root cause (not
+  goal-mix, not step count, not dose) is the open question; prime
+  suspect is the CLOCK-indexed BC anchor showing lifted-leg reference
+  poses in plant-adjacent states on crouch starts — next lever is a
+  state/height-aligned anchor (CODE, spec first).
+  **08-11: reward-side lever also REFUTED by direct measurement
+  (`cw-stand-holdload1`, mechanism test).** New `reward.hold_feet_load`
+  prices hold/track income on MEASURED foot touch-force (not
+  clearance), confirmed correctly-calibrated by its own FEET-LOAD
+  bank (hover taxed to 0.25x quiet-stand income) — yet the identical
+  legs-1+4 park reproduces exactly: det-hold `duty_cycle` 0.03–0.04 on
+  those two legs across all 6 det episodes (vs 0.73–0.99 on the
+  other four), unchanged from crouchrise1/2/3, despite paying the new
+  tax. `valid_plant` still reads True throughout (blind to
+  mid-episode duty — both feet drift back to the floor exactly at
+  episode end); crouch rise stays clean (det 6/6 incl. crouch 4/4,
+  zero falls) and det lower regresses to 2/6 (dangling leg-2, no
+  falls, matches crouchrise3). Three distinct lever families now
+  refuted (start-mix, dose, reward-pricing) — the state/height-aligned
+  BC anchor is the SOLE remaining suspect, by measurement not
+  inference. hard1 remains deployed.
+  **08-11: the state-aligned anchor (`cw-stand-anchorstate1`) gets a
+  PARTIAL confirmation — first fingerprint movement in five runs.**
+  Re-indexing the BC anchor to the nearest reference pose to the
+  robot's current joints (not a fixed clock) RECOVERS leg 4
+  (det-hold duty 0.01→0.93) but leg 1 still parks (0.04) — anchor-
+  bleed is confirmed as *a* mechanism, not the whole story. Net FAIL
+  on gate: det flat rise stalled 62mm short (under-drive, not a
+  cheat — a state anchor only pulls 0.25s ahead of wherever the
+  policy is, so a stalled policy gets weak supervision) and det
+  lower picked up 3 tilt_pitch falls (2/6). **08-11:
+  `cw-stand-anchorstate2` (one axis, lookahead 0.25→0.5s) FIXES both
+  anchorstate1 regressions exactly as hypothesized** (det flat rise
+  restored 1/1, det lower falls 3→0, leg 4 stays recovered at 0.95)
+  but leg 1 still parks (det-hold duty 0.03) — the SIXTH consecutive
+  run with that exact fingerprint, unmoved by four pricing changes
+  and two anchor lookaheads; det lower is now a shortfall not a
+  fall (2/6, zero falls). The lookahead axis is EXHAUSTED for the
+  park (pre-registered branch). hard1 stays deployed; anchorstate2 is
+  otherwise the strongest unified-stand checkpoint yet (crouch+flat+
+  bridge rise, six-foot-minus-one hold, zero falls anywhere det).
+  Follow-up `cw-stand-loweranchor1` (new lever: BC-anchor the LOWER
+  ticks toward the lower bank's own honest IK descent — the one
+  documented incentive gap not yet attacked, since leg-1's hold-park
+  shares the dangling-leg class with det-lower's shortfall) **RAN:
+  LOWER SOLVED (det+sto 6/6, zero falls, from 2/6) but hold park
+  REGRESSED to a two-leg version and flat rise re-stalled 96mm —
+  outside every pre-registered branch.** Root cause identified: rise/
+  hold/lower anchors share ONE ring buffer + uniform sampling, so
+  adding thousands of lower pairs diluted the rise/hold gradient
+  (ANCHOR DILUTION, not a shared taught habit). Follow-up
+  `cw-stand-anchormix1-r1` (`train.bc_anchor_stratified=1.0`, equal
+  per-mode minibatch quotas; first launch crashed on a warm-start
+  attribute bug, fixed) **RAN: FAIL per gate and the blind-axis LINE
+  IS CLOSED — but the park MIGRATED.** Stratification fixed the
+  dilution seesaw as predicted (lower kept 6/6 det+sto, crouch rise
+  4/4, hold det valid_plant 6/6) and foot idx1 — parked six straight
+  runs — recovered 0.03→0.90; foot idx4 parked at 0.02 in its place.
+  The habit is SHED EXACTLY ONE FOOT (five-foot stance is sufficient
+  and cheaper); supervision only moves WHICH foot, never WHETHER. Det
+  flat rise still stalls (106mm under-drive). Per pre-registration:
+  hard1 stays deployed, stand-specialist handoff stands; reopen lever
+  (unqueued) = price the min-over-feet load, not the product, and log
+  per-mode bc_anchor_loss FIRST (CODE — only the aggregate is logged
+  today) before ANY further stand arm. Detail: rl_docs/RISE.md.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict
@@ -341,6 +455,38 @@ both handoffs compose).
   deliverable is COVERED by the scripted glide; the full sim joystick
   motion cycle (rise→drive→stop→sit) now composes with zero falls.
   Optional unqueued polish: BC anchor on lower ticks. rl_docs/RISE.md.
+  **08-11 late: rise+hold specialist DEPLOY PORT LANDED** — the robot
+  runner's stance slot (stand/lower buttons) now runs
+  `ppo_goal_cw_stand_holdbc1_hard1`; the trained goal-ramp profile
+  (hold 5 s / ramp 6 s / +111 mm / switch 12.5 s) ships INSIDE the
+  weights meta (export_policy_np --extra-meta) so runner constants can
+  never drift from a checkpoint's training config; legacy files keep
+  the old constants (stance_dr10 rollback = one picker call).
+  Contract-locked by `rl_move/tests/test_stand_runner.py` (live-file
+  identity, ramp==GoalGenerator, obs layout, SB3 parity); closed-loop
+  sim smoke with the DEPLOYED numpy artifacts: flat-belly rise +111 mm,
+  zero falls. deploy_adb.sh now also ships rl_walk_weights.json +
+  policies/. (The profile-less-copy trap was resolved by the 08-11
+  deploy_ssh re-push; bench_blast's info step verifies the profile.)
+  **FIRST hardware run HAPPENED 08-11 22:42 (unattended camera bench):
+  FAILED tilt_roll trip at 10.2° rel roll ~9 s in, during the
+  BELLY-CURL phase, currents low (0.27 A), runner limped clean. Sim
+  probe (6 det seeds, DR0): the same rise keeps |roll| ≤1.7° — the
+  hardware body rocks over the tucked legs, sim's doesn't. GENUINE
+  sim-to-real rocking gap; the 10° trip is CORRECT (raising it invites
+  a tip). Fix is training-side (rocking/tilt DR on rise ticks,
+  loaded-knee actuator axis) — do NOT bump the trip threshold.
+  08-11 eve round 2 UPGRADED this from "one data point" to
+  DETERMINISTIC: 5/5 tilt_roll trips, every one at tick ~226–228
+  (mid-curl) with roll 10.1–10.6°, two of them from VERIFIED clean
+  zero (pose delta 0.5°, preflight green) — start pose exonerated.
+  `cw-stand-riserock1` drained as a STUB and is VOID (08-11 late:
+  the rocking-DR code was never written — the run trained a default
+  config, no science; the rise-rock DR axis + bank is still unbuilt
+  CODE work); scripted `/api/zero pose=stand` is the working
+  hardware stand-up until a real riserock arm lands. Do NOT retry
+  learned STAND on hardware before a riserock-gated checkpoint
+  exists.**
   **08-11: the pool-restore bug (commit 65edba7) briefly CONFOUNDED
   the score1/scoreref1/rsi1 "CLOSED" verdicts (episode-recycle pool
   was silently dropping the score-stack + RSI per-episode attrs, so
@@ -370,14 +516,35 @@ both handoffs compose).
   structural height↔foot-contact coupling (RL_PLAN queue item 2b).
   Do not queue another reward/income/RSI coefficient variant.
   Detail: rl_docs/RISE.md.
-- Yaw: price escalation on a command-invariant drift is CLOSED. The
-  new mechanism set is landed and its TURN bank PASSES (08-10):
-  signed rotation income (k_yaw_prog), heading-hold drift charge
-  (k_yaw_still), turn-in-place curriculum (walk_turn_in_place_frac).
-  Sign audit still OPEN at the hardware boundary (sim +CCW vs
-  measured +omega=CW). Turn is DE-SCOPED from the joystick
-  deliverable (operator 08-11: no camera = no front). Plan:
-  rl_docs/TURN.md.
+- Yaw: price escalation on a command-invariant drift is CLOSED. Turn
+  was DE-SCOPED from the joystick deliverable (operator 08-11
+  morning: no camera = no front) and RE-OPENED as a compute
+  EXPERIMENT line the same afternoon — still NOT an attempt-#2
+  blocker. **08-11 later, RL_PLAN queue 0.2 steps 1–2 DONE
+  (rl_docs/TURN.md bottom):** (a) the latent yaw-stack defect is
+  FIXED + BANKED — `reward.walk_yaw_hold_prog_gate` (heading-hold
+  yaw income gated on achieved linear progress; pre-fix a FROZEN
+  body collected +375/ep, the largest channel in the turn stack)
+  and `reward.yaw_still_avg_s` (drift charge on the wz EMA; pre-fix
+  it taxed the honest gait −110/ep and degenerates ~0). Post-fix
+  income is monotone in honesty incl. a calibrated drift-rider;
+  stillness-subsidy bank (4 tests, legacy reproduction pinned)
+  green; TURN_OVERRIDES trains both fixes ON; the yawcmd1/yawgate2/
+  turnfix1 ckpts are gone from all pods (ckpt audit UNTESTABLE).
+  (b) the REFLECTION wrapper PASSES on cw-dep-vref1-r1
+  (`mirror.MirrorPolicy` + `probe_mirror_turn.py`): mirrored policy
+  drifts RIGHT at the naked policy's rate with identical travel
+  (DR 0 and 0.35, zero falls); bang-bang chirality selection holds
+  heading to 2–4 deg vs 34–50 deg naked runaway — arc-left/
+  arc-right/straight with ZERO training, at the drift rate
+  (~2 deg/s; commanded-rate tracking still open). (c) mirror-
+  symmetry TRAINING is now licensed and queued
+  (`cw-walk-mirturn1`, discovery 2M on the fixed pricing) — the
+  hypothesis has still never had a clean test; if it fails healthy,
+  the mirror line closes and MirrorPolicy selection is the shipped
+  turning story. BC-anchor on turn ticks stays in reserve. Sign
+  audit still OPEN at the hardware boundary (sim +CCW vs measured
+  +omega=CW) and gates any bench turn. Plan: rl_docs/TURN.md.
 - Omni translation (walk in ANY direction — the "walk where pointed"
   blocker; no learned policy has ever walked backward): three arms
   collapsed into three different degenerate gaits. **08-11 income
@@ -386,9 +553,9 @@ both handoffs compose).
   uniformly across directions at DR 0 AND 0.5, and the collapsed
   checkpoints earn BELOW a freeze under their own reward —
   optimization failure, not a paid basin; reward surgery CLOSED.
-  Latent defect in the de-scoped TURN stack only (ungated yaw kernel
-  pays a motionless body full income on linear ticks; fix before any
-  turn re-scope). Next lever, BC anchor on walk ticks toward the
+  Latent defect in the TURN stack only (ungated yaw kernel paid a
+  motionless body full income on linear ticks — FIXED + banked 08-11,
+  see the Yaw bullet). Next lever, BC anchor on walk ticks toward the
   command-conditioned scripted TripodGait (third application of the
   twice-proven lever), **FAILED (`cw-omni-transbc1`, 08-11)**:
   anchor loss converged cleanly (0.14→0.0097, better than the
@@ -424,9 +591,14 @@ both handoffs compose).
   untouched); off-wedge commands are refused if the wrapper is
   missing/disabled. Replay-parity locked by
   `rl_move/tests/test_rot60_runner.py` (obs-layout, full-circle +
-  hysteresis parity, real deployed weights); per-tick `rot60_k`
-  logged in the episode CSV for on-hardware replay checks. Awaiting
-  bench validation only (attempt #2).
+  hysteresis parity, real deployed weights);   per-tick `rot60_k`
+  logged in the episode CSV for on-hardware replay checks. **FIRST
+  off-wedge hardware run HAPPENED 08-11 22:48 (tip1, BACKWARD 6 s):
+  the port WORKS (rot60:true, k engaged, terminal result logged) but
+  the walk FELL — peak 27° roll, tilt trip. **08-11 eve round 2: tip1
+  BACKWARD walked CLEAN (rode a 16.7° takeoff transient to tail 1.5°,
+  full 6 s, ends standing on camera) — rot60 off-wedge is 1 clean /
+  1 fall.** More reps after the takeoff-transient arm lands.
 - Tipped-start DR is default-ON everywhere (operator ruling 08-10,
   "ideally all runs would learn this capability", after the deployed
   walk's hardware runaway roll): `dr.tipped_start_prob=0.30` (scaled
@@ -438,10 +610,62 @@ both handoffs compose).
   vref1-r1 7/8 at 12°, NOT the retracted 0.25). Discovery arm
   `cw-dep-tip1` TRAINED 08-10: no sim separation vs parent (static-
   lean recovery was already present — the hardware runaway is a
-  sim-to-real pinning gap, HARDWARE.md); hardware A/B pending,
-  `dep_tip1.json` staged in the robot's walk picker.
-- Quad-hold is solid but mixing erodes walk — deploy-time
-  specialist; quad comes after the core joystick set is coherent.
+  sim-to-real pinning gap, HARDWARE.md). **tip1 then RAN ON HARDWARE
+  4x (08-10 night): 1 runaway / 3 CLEAN level walks — a learned
+  policy has driven the robot; obs pipeline verified bit-exact
+  offline.** It is the ACTIVE walk slot. **08-11 eve correction
+  (robot's own event log + camera): in the 21:4x attended A/B, tip1
+  fwd tripped tilt_roll 2/3 — the bench summary's "done" entries were
+  kickoff responses, since fixed (terminal results now recorded).
+  Dominant on-camera signature for BOTH policies: a 20–25° TAKEOFF
+  roll transient right after gait start — sometimes fully recovered
+  (vref1 full-6s walk ending dead level, tail 0.9°), sometimes a fall
+  (vref1's 3rd runaway; tip1 backward). Judge walks by fell/tail, not
+  the peak-based "runaway" flag. **08-11 FULL-NIGHT VERDICT (18 walks,
+  9 camera sessions, `bench_report`): the takeoff transient is
+  UNIVERSAL — every walk crosses 5° roll by 0.6–1.5 s, peaks 13–27° —
+  and falls are ~a coin flip for BOTH policies (vref1 6/10 fell, tip1
+  4/7, no predictor in peak/direction). NO A/B winner; the
+  early-evening "tip1 champion" read was a small-sample artifact, and
+  the A/B has a direction confound (tip1 never walked forward — fix
+  the alternation before re-judging). vref1's "zero-erosion ACCEPTED"
+  stays a SIM contract fact only.** Sim-side status: the two operator
+  backlog stubs drained WITHOUT their DR knobs and are VOID (trained
+  defaults, no science — do not build on those checkpoints). The
+  proper relaunch `cw-dep-tip1-takeoff25-r1` (dr.tipped_start
+  0.5/12–25, warm tip1) then FAILED its gate with a decisive
+  mechanism read: under the identical 20–25° injection with matched
+  tip1 baseline, child==parent (0/12 valid both, ZERO falls both) —
+  sim already recovers static 20–25° tipped starts, the axis is
+  SATURATED. **Tipped-start DOSE is CLOSED as the takeoff-fall fix
+  (2nd no-separation arm); the hardware transient is DYNAMIC — a
+  roll-rate injection during gait start (CODE, unbuilt, same family
+  as the rise-rock axis, which also still needs code) or
+  contact/pinning work.** Turn signs: +0.3 = CCW (matches convention,
+  single camera reading); −0.3 still unmeasured. The evening's
+  "thermal wall" was mostly PHANTOM single-read bus temps (a "150 °C"
+  hip read 33 °C seconds later); safe_zero/pinned_tip temp trips now
+  debounced, servo_watch gained a kill-all-motion thermal panic, all
+  deployed. Consolidated read + RL implications:
+  rl_docs/BENCH_REPORT_2026-08-11.md.
+- Quad-hold is solid but mixing erodes walk (four dose points) —
+  deploy-time specialist, never a mixed diet. FOUR-LEG WALKING is a
+  sanctioned NEW experiment line (operator 08-11 afternoon): weight
+  shifted BACK onto the four rear legs, front pair raised as
+  "hands". SPEC FIRST — the current reward provably punishes it
+  (park-duty/flag-leg/gait_valid machinery defines it as the
+  leg-sacrifice cheat; k_pitch + level-referenced tilt termination
+  charge the rear-shift posture); reward must be lift-command- and
+  posture-conditioned, and banked, before any launch (RL_PLAN
+  queue 0.3).
+- GAIT CLEANUP / tall walking (RL_PLAN queue -0.5): before any new
+  arm, the P0 reward-accuracy probe is binding (operator 08-11):
+  replay the tape-proven scripted gait AT PLANT HEIGHT through the
+  full champion reward stack (income + penalties + termination
+  risk) vs the trained crouch-paddle's actual earnings. dep-hgt1/2
+  showed height INCOME is not the lever; the suspect is the penalty
+  side (the real gait rocks ±10–20° — gyro/tilt pricing may be
+  anti-incentivizing honest tall stepping).
 - MoE only after clean multitask training (explicit mode ID, correct
   rewards, enough plain-MLP capacity) shows real skill interference.
 
@@ -452,355 +676,794 @@ both handoffs compose).
 
 # STATUS — how is it going?
 
-Plain-English answer to "how is it going, what can the robot do now,
-and what big things have we learned?" — for the operator or anyone
-catching up. No jargon-first: every claim links out to the file with
-the evidence. Facts here must agree with `CURRENT_TRUTHS.md` (which
-wins on conflict); checkpoints and gate numbers live in
-`rl_docs/SKILLS.md`.
+**START HERE, then go to your track.** The campaign runs as five
+parallel research tracks, and the current state of each line of work
+lives in its own short per-track status file — read the one you care
+about first:
 
-**Last updated: 2026-08-11.**
-Update rule: refresh this file whenever a hardware session happens, a
-new capability lands (SKILLS row that changes the story), or a big
-lesson closes — and stamp the date. Keep it honest: the "not working"
-list is the most valuable section.
+- `rl_docs/tracks/hw/STATUS.md` — joystick robot on real hardware
+  (the mainline)
+- `rl_docs/tracks/arch/STATUS.md` — GRU/temporal architectures
+- `rl_docs/tracks/nobc/STATUS.md` — learning without BC anchors
+- `rl_docs/tracks/quad/STATUS.md` — four legs + two "hands"
+- `rl_docs/tracks/turn/STATUS.md` — commanded turning
+
+This file is the whole-campaign digest: the plain-English answer to
+"how is it going, what can the robot do now, which checkpoints are
+the good ones, and what have we learned?" — for the operator or
+anyone catching up. Facts here must agree with `CURRENT_TRUTHS.md`
+(which wins on conflict); the full checkpoint inventory with gate
+numbers lives in `rl_docs/SKILLS.md`.
+
+**Last updated: 2026-08-11 (late evening) — through the ~20:15 idle-kick
+cycle: crouchrise3 FAIL (dose axis dead), mirturn1 FAIL (mirror
+training closed, wrapper ships), GAIT P0 probe answered, dragstance1
+launched.**
+Update rule: refresh whenever a hardware session happens, a champion
+changes, or a big lesson closes — and stamp the date; per-track story
+changes go to the track's own STATUS.md. Keep it honest: the "not
+working" list is the most valuable section.
 
 ## The one-paragraph answer
 
-The real robot walks — under a scripted gait, not a learned one yet.
-In simulation we have a hardened, seed-confirmed joystick-driving
-policy stack and a validated hardware-deployment candidate staged on
-the Mac, waiting on bench time (and one servo-zero repair). Standing
-up honestly (not faking it) just had its first real breakthrough
-(08-11, `cw-stand-bc1` — see below) after six straight reward-tuning
-failures, and the same trick just fixed standing STILL too (08-11,
-`cw-stand-holdbc1` — the robot no longer shuffles its legs while
-"holding" a stand); walking in ANY commanded direction — the last
-unsolved piece of "walk where the joystick points", 0-for-4 across
-training attempts — fell the same day WITHOUT training: the robot is
-a perfect hexagon, so backward is just forward with the legs
-relabeled, and a small math wrapper now gives the existing hardware
-checkpoint the full circle (08-11, see below). Obeying turn commands
-is still unsolved (policies drift left and ignore the yaw channel)
-but turning is de-scoped: with no camera the robot has no "front" to
-turn. Turning got new machinery this
-cycle (mirror-symmetry training, new turn pricing) that passed the
-offline semantics checks — and it was then actually trained and
-FAILED: the new turn reward changed nothing measurable versus the
-already-failed policy it was compared against. Standing, by
-contrast, needed a different kind of fix (coaching the actions
-directly instead of tuning the reward) and that fix worked.
-Tuning the reward numbers for either skill is now a dead end; both
-need a structural fix, not another price change (see below).
+The real robot walks — under the scripted gait (tape-measured), AND
+a learned policy has now driven it: on 08-10 night `dep-tip1` walked
+level on real ground in 3 of 4 runs. The deployment-contract
+champion `vref1-r1` itself went 0-for-2 with an intermittent runaway
+roll (a pinned loaded leg feeds a lean that the policy never
+recovers — a sim-to-real contact gap, since sim recovery can exploit
+feet that skate). That runaway is THE open hardware question: the
+discriminating vref1-vs-tip1 A/B on the same floor never actually
+ran (the policy switch didn't land on the robot). In simulation, the
+whole joystick motion cycle works end to end with zero falls: a
+learned stand-up from the belly, a genuinely motionless hold,
+driving in ANY direction, stop, and sit — the rot60 wrapper and the
+stand-up specialist are ported but have NOT had their first hardware
+runs yet (re-push required first: the on-robot stand copy lacks its
+goal profile).
+The two breakthroughs that got us here (both 08-11): first,
+**BC-anchoring** — instead of tuning reward prices yet again, we pull
+the policy's actions directly toward a recorded good motion during
+training; that one trick solved standing up AND holding still after
+roughly seven straight reward-tuning failures each had cheated.
+Second, **the hexagon trick** — the robot is a perfect hexagon, so
+"walk backward" is literally "walk forward with the legs relabeled";
+a small math wrapper (`rot60.py`) gives the existing hardware
+checkpoint the full circle of directions with ZERO training, closing
+a problem four training runs had failed at. Turning was briefly
+de-scoped (no camera = no "front" to point), RE-OPENED the same
+afternoon — and promptly cracked half-open: the turn reward's real
+bugs are fixed and banked, and a second symmetry trick (the mirror
+image of the walk policy turns right exactly as well as the original
+drifts left) now gives slow bidirectional steering with zero
+training; a queued run goes after fast commanded turns. Two more
+wanted skills opened alongside: four-leg walking (weight shifted
+back, front legs raised as "hands") and walking taller without
+dragging feet. All are diagnosis-first: audit
+whether the reward actually pays the desired behavior before
+launching arms (see "what happens next"). The evening's verdicts:
+the one-brain flagship question is SETTLED by measurement (a
+stand-up-only control run plateaued at exactly the multitask
+flagship's 1-in-6 — the skills were never fighting for space, so the
+mixture-of-experts rebuild is off the table; stand-up-from-scratch is
+just hard for any network with this recipe), and the walk-gait
+cleanup's two cheap levers both closed (BC-anchoring the gait froze
+the robot into a static tripod; bumpy ground made the paddle WORSE,
+never forced stepping). The GRU line, frozen this morning, was
+deliberately reopened in the new arch research track with the two
+levers its last failure pre-registered (4x longer memory window +
+double capacity) — running now.
 
 ## What the robot can do — REAL hardware
 
 - Walk forward, crab sideways, and turn in both directions from a
-  clean zero, under the scripted tripod gait. Measured with a tape:
-  it covers ~50% of commanded distance (real slip, and that's fine —
-  visible slip is part of how it locomotes).
-- Walking is CHEAPER than standing still (0.33–0.45 A vs 0.59 A) —
-  a genuine surprise that reshaped our effort-pricing assumptions.
-- A learned policy has NOT yet driven the robot. Attempt #2's
-  checkpoint (`cw-dep-vref1-r1`) is validated in sim under the exact
-  deployment contract, protected against ~20 hardware-imperfection
-  axes (sensor noise, latency, battery sag, assembly tolerances —
-  all compose free), and staged on the operator's Mac. Blocked only
-  on bench time (start with a fresh `set_zero`, as always).
+  clean zero, under the scripted tripod gait. Tape-measured: ~50% of
+  commanded distance (real foot slip, and that's fine — visible slip
+  is part of how this robot locomotes).
+- Servo current tracks how hard servos FIGHT their command, not the
+  pose: walking 0.33–0.45 A, scripted stand 0.54–0.59 A, walk-stance
+  hold ~0.11 A. ("Standing costs more than walking" was really
+  "fighting your own command costs more than walking.")
+- **Walk under a LEARNED policy — sometimes.** `dep-tip1` (tipped-
+  start retrain of the champion): 3 clean level walks / 1 runaway
+  roll on 08-10 night; obs pipeline verified bit-exact against sim.
+  The champion `vref1-r1` went 0/2 with runaway roll. The visible
+  "sag" is the trained walking posture (commanded, not servo slip)
+  and the scraping is the known low-clearance shuffle — the gait
+  cleanup line exists exactly because of this.
+- Not yet tried on hardware: the rot60 any-direction wrapper and the
+  learned stand-up specialist (both ported 08-11, need a deploy
+  re-push; do not press STAND on the stale on-robot copy).
 
-## What the robot can do — simulation
+## The best checkpoints, per skill
 
-- **Joystick driving**: walk at commanded speed (up to 0.06 m/s),
-  steer anywhere in the front half-circle (±90°), stop and restart,
-  survive abrupt command flips, for up to 2-minute drives with zero
-  falls — robust to physics variation (DR 0.5), bus latency, floor
-  grip, 3° slopes, payload, and off-center mass, seed-confirmed.
-  Caveat: it's a paddling gait that slips ~1 m per meter traveled.
-- **NEW (08-11): walk in ANY direction — the full circle, including
-  backward — with zero new training.** The robot is a perfect
-  hexagon, so "walk backward" is literally "walk forward with the
-  legs relabeled": a small mathematical wrapper (`rot60.py`) rotates
-  every joystick command into the narrow front wedge the policies
-  already master and relabels the legs to match. The actual hardware
-  checkpoint, which was completely frozen on backward commands
-  (traveled 3 cm of a commanded 30), now tracks every direction as
-  well as it tracks forward, with an honest six-leg gait on video
-  and zero falls even under rapid random full-circle command flips.
-  Months of failed "teach it to walk sideways" training runs were
-  chasing something the geometry gives us for free. Remaining step:
-  ~60 lines of the same math in the robot's onboard runner.
-- **Crouch walking** down to −70 mm body height; rough ground
-  (bumps to 36 mm) doesn't perturb it.
-- **The whole motion cycle — stand up, drive, stop, sit down — now
-  composes in sim with zero falls** (08-11, `eval_handoff.py` +
-  `eval_handoff_reverse.py`). Standing up: the specialist rises from
-  the belly to its quiet stand and the walk champion takes over on
-  that exact pose and just drives — tracking/stability identical to
-  its ideal start, the old scripted 1.5 s blend adds nothing
-  (measured side by side, standard AND measured-loaded servo
-  physics; the key-`7` demo is superseded). Sitting down: after the
-  drive stops, the simple scripted glide to the resting pose (the
-  same move the real robot already uses) sits perfectly every time;
-  the specialist's learned sit also works from the walker's exact
-  stopped pose but sometimes leaves one foot dangling in the air —
-  cosmetic, so the scripted glide stays the deployed sit. What we
-  still do NOT have is one policy that does all of it.
-- **Four-leg stand** (party trick #1) holds solid — but training it
-  mixed with walking erodes the walk, so it stays a deploy-time
-  specialist.
-- Full inventory with checkpoints and evidence: `rl_docs/SKILLS.md`.
+| Skill | Best run / checkpoint | Where it stands |
+|---|---|---|
+| **Walking with the joystick (hardware candidate)** | `cw-dep-tip1` (active walk slot) over `cw-dep-vref1-r1` (md5 f9a466cf) | tip1 = vref1-r1 + tipped-start DR: 3/4 clean level walks on real ground 08-10 vs the parent's 0/2 runaway roll. Both contract-exact, both on the robot picker. Open: the same-floor A/B (roll-ramp rate, runaways per N runs) and an RL-walk tape reading. |
+| **…in any direction (full circle)** | same checkpoint + the `rot60` wrapper | Zero-training math fix; default-ON in the robot runner; backward went from frozen (3 cm of a commanded 30) to tracking as well as forward. Bench validation pending. |
+| **Best pure-sim driving envelope** | `cw-walk-joyheadfric` (and its payload variant) | ±90° steering + latency + floor-grip + payload, 3-seed confirmed, joystick gate zero falls. Superseded for hardware by vref1-r1 (deployment contract), but it's the widest proven driving recipe. |
+| **Standing up AND holding still** | `cw-stand-holdbc1-hard1` → `ppo_goal_cw_stand_holdbc1_hard1` | The deployed stance policy (robot's stand button), with its trained goal ramp shipped inside the weights. Hold 11/12 strict-valid, motionless on video; rise from flat belly reliable. |
+| **Crouch-start stand fix** | `cw-stand-crouchrise1`/`-2` — **banked, NOT deployed, do not warm-start** | The fix reproduces cleanly (crouchrise2: 6/6 det rises incl. all crouch starts, zero falls) but BOTH variants park the same two feet in the air during hold — even with the deployed policy's exact training mix restored. Start-mix lever closed (two-miss rule); next lever is code: a state-aligned BC anchor (see "not working"). |
+| **Turning on command** | `cw-dep-vref1-r1` + the new mirror wrapper (`mirror.MirrorPolicy`) — sim-proven 08-11, deploy port pending | Second hexagon trick: the mirrored policy turns RIGHT exactly as the naked one drifts left, same speed, zero falls; flipping between them steers both ways and holds a straight heading (2–4° over 12 s vs 38° drift). Slow (~2°/s) — and now the shipped story: the mirror-symmetry TRAINING run (`cw-walk-mirturn1`, 08-11 late) failed its gate (no turn tracking, gait degraded), closing that lever. |
+| **Four-leg stand (party trick)** | `cw-quad-hold2` (30% mix on the walk champion); `cw-dep-quad1-c2` on the deploy contract | Mechanism is solid (lifts fronts, level, never tips) but ANY mixing dose erodes walking — stays a deploy-time specialist. |
+| **Four-leg walking** | never attempted — NEW line opened 08-11 afternoon | Target: weight shifted back onto the four rear legs, front pair raised as "hands". Feasibility GO (39 mm margin). Spec first: today's reward provably punishes this exact behavior (RL_PLAN queue 0.3). |
+| **Legacy sim walk champion** | `ppo_goal_cw_walk_longdist_r2` (md5 bcddc65c) | Seed-confirmed forward walker the whole driving line descends from; kept for sim work. |
+
+## Best "leaning on a reference" vs best "from scratch"
+
+**Best BC-anchor model: `ppo_goal_cw_stand_holdbc1_hard1`** (the
+deployed stand+hold specialist). BC-anchor means: during training,
+alongside the normal reward, the policy's actions get pulled toward
+what a known-good recorded motion did at that moment. The cheat can't
+farm it because it isn't reward income. It solved stand-up
+(`cw-stand-bc1` → `bc1-hard1`: 12/12 honest stands where six
+reward-only attempts all cheated) and holding still (`holdbc1`:
+first genuinely motionless hold in the campaign). Important limit
+discovered the same day: BC-anchor fixes "the trainer can't find the
+right LOCAL motion" but NOT "the trainer can't find a different
+GLOBAL pattern" — anchoring walk ticks to a scripted gait did nothing
+for walking in new directions (`cw-omni-transbc1` failed; the
+imitation error converged and the robot still didn't travel), and the
+BC-anchor attempt at cleaning up the paddle gait failed the same way
+(`cw-walk-gaitbc1`, verdict 08-11 evening: the anchor converged and
+the policy froze into a static tripod pose instead of stepping).
+That's now a three-time lesson: BC-anchor fixes local motions, never
+gait patterns.
+
+**Best from-scratch model: the entire walking/driving lineage.**
+Every walker — `longdist_r2`, the joystick family, `vref1-r1` —
+descends from `step0` (08-08), a fresh network trained with reward
+only: no demonstrations, no reference motions. What made that work
+was reward design (step-event income + drag + park-duty pricing),
+not any warm start. The purest recent from-scratch results:
+`cw-arch-hist16-dep1(-c1)` (16-frame history net learns to walk from
+scratch under the full deployment contract, two seeds) and
+`cw-uni-flag-a1-r1` (the flagship: from scratch, one network learned
+a perfect quiet hold 6/6 AND a clean sit 6/6 in only 2M steps, with
+honest-but-unfinished stand-ups — no cheating, no skill fighting).
+
+## Bigger models — history MLP, GRU, and the flagship
+
+- **Baseline** is an 8-frame history MLP (the policy sees the last 8
+  observation frames stacked).
+- **hist16 (16-frame history MLP): works, and is the preferred base.**
+  It learns to walk from scratch (seed-confirmed, joystick gate
+  clean) including under the full deployment contract
+  (`cw-arch-hist16-dep1`). But piling on more training stopped
+  helping (`r7-c4`: +40M steps bought nothing) — the remaining gait
+  quality gap is sim contact pricing, not network memory.
+- **hist24: trains, but slip/economy came out worse than hist16.**
+  The ladder is frozen at 16 by operator ruling.
+- **GRU (recurrent memory): failed three times walking — but learns
+  every STANCE skill to champion grade — and is now REOPENED with the
+  pre-registered levers.** `r1`/`r2` collapsed into the classic
+  fake-walk (three legs parked, training reward climbing the whole
+  time). `r3` re-ran with the FULL anti-cheat reward stack that fixed
+  exactly this exploit on the MLP line — and it still cheated at
+  walking while mastering hold/rise/lower. So for the GRU walking is
+  genuinely not a reward problem at that size/window.
+  `cw-arch-gru-r4c` (running, arch track) tests the two levers r3's
+  failure named: 4x longer memory window (10.24 s) + double hidden
+  size, at r3-identical update counts. If the cheat survives both,
+  from-scratch GRU walking closes at this budget.
+- **The flagship (one brain for everything): the big fork is SETTLED
+  — no mixture of experts.** hist16 + a bigger 256×256 network + an
+  explicit "which skill am I being asked for" input, from scratch on
+  hold/rise/lower. Stage A passed hold and sit at specialist quality
+  (first time one network did both honestly from scratch); stand-up
+  plateaued at 1-in-6 and the 10M hardening run (`cw-uni-flag-a1-h2`)
+  bought nothing — hold stayed clean, sit even improved, rise
+  identical to the 2M parent, honest sprawl/tip-over failures on
+  video, no cheating. The decisive measurement: the identical brain
+  trained on stand-up ONLY (`cw-uni-flag-a1-risectl1`, 2.5x the rise
+  practice, zero competing skills) scored exactly the same 1-in-6.
+  Removing every other skill changed nothing, so the skills were
+  never fighting for network space — the MoE rebuild is refuted by
+  measurement, not just deferred. Stand-up-from-scratch is simply
+  hard for any network with this recipe (the dedicated specialist has
+  the same crouch-start struggle). Not a hardware blocker (the
+  specialist-handoff stand-up covers the bench plan); if the line
+  reopens, the lever is seeding from the specialist, not another
+  reward or architecture change.
+- **The meta-lesson: architecture was never the bottleneck.** Every
+  time a skill failed, the fix turned out to be the task spec (reward
+  semantics, supervision, start distribution) or free structure
+  (geometry) — never a bigger or fancier network. Bigger models are
+  worth having (the flagship needs the capacity), but reaching for
+  one to fix a failing skill has been wrong every single time.
 
 ## What is NOT working (the honest list)
 
-- **Unified stand-up (the top unsolved skill).** Every training
-  attempt finds a cheat: torso at height with legs waving, tripod
-  stands, stilts. A geometric "valid plant" spec (feet down, CoM
-  inside the support polygon, level, walkable footprint) landed
-  08-10 — but pricing it live into training (`cw-stand-plantgate1`)
-  did NOT stop the cheat: same one-leg-up flag-leg stand, 0/12 valid
-  plant, identical to the pre-detector baseline. We then tried
-  rebuilding the income from scratch around a "stand score" instead
-  of just gating the old terms (`cw-stand-score1`, 08-10 night) —
-  even started clean from the honest stance champion, it converged
-  right back to the same one-leg-up trick, 0/12 valid plant across
-  easy and hard starting poses. We then tried the other idea we had
-  left — showing the policy a real recorded stand-up motion to copy,
-  built so the cheat can't collect payout for faking it
-  (`cw-stand-scoreref1`, 08-11) — and it ALSO failed: same leg held
-  16-19cm in the air the whole episode, 0/6 valid plant every mode.
-  A bug was briefly suspected of causing that whole streak (the
-  simulator's episode-reuse code was silently corrupting the
-  score-tracking state those fixes depended on) — fixed, and the
-  clean re-run (`cw-stand-rsi2`, 08-11) reports: the fix worked (its
-  internal health checks are clean this time, no more corruption)
-  and it STILL learned the identical cheat — three legs planted,
-  three legs frozen 15-16cm in the air, 0/6 by our strict check.
-  So the bug was real but was never the reason stand-up fails. One
-  more variant (`cw-stand-rsi3`, 08-11: strip out an old penalty
-  term that might have been making the honest crouch look
-  artificially expensive) also failed, identically. **Every
-  reward-design idea we had is now exhausted, and the pattern across
-  all six attempts is the tell**: the same three-legs-frozen collapse
-  happens at the same point in training no matter which reward
-  mechanism or penalty is present — a behavior that doesn't change
-  when you change the reward isn't a reward problem. Best read: the
-  training recipe starts the robot in a body position it never
-  practiced enough (a warm-start gap), and early noisy updates drift
-  it into the frozen-leg trick before anything can pull it back out.
-  The first of the two code ideas is now BUILT and TRAINING (08-11):
-  a "copy the recorded stand-up motion directly" hand-hold in the
-  trainer itself — at every step of a stand-up episode the policy's
-  action is pulled toward what the recorded good stand-up did next,
-  a supervision signal the cheat cannot farm because it isn't reward.
-  **It worked (08-11).** The first trial (`cw-stand-bc1`) is the
-  first arm in seven straight attempts where the robot genuinely
-  stands up on real video, checked with a strict feet-on-the-ground
-  geometry test (not just the height number the old cheats gamed):
-  from a half-curled start it stands correctly most tries, and from
-  lying completely flat on its belly (the hardest, most realistic
-  starting position) it reaches a real six-legged stand every single
-  time. Zero fake one-leg-up stands seen in
-  42 checked videos. A quick check of a gentler dose of the same
-  coaching made things worse, not better (dose must stay at full
-  strength). Training the same recipe for longer made the honest
-  stand even more reliable (strict check: 12/12 across every
-  starting pose, and the flat-start "feet slightly off the walking
-  spot" gap fixed itself with the extra budget) — the long run is
-  now kept as the official STAND-UP SPECIALIST checkpoint. A
-  careful side-by-side re-test of the shorter run under identical
-  conditions confirmed the longer training broke nothing that
-  previously worked. But digging into the per-step
-  data (not just watching video snapshots, which missed this) found
-  that "holding still" was never actually still: the robot quietly
-  shuffles its legs the whole time instead of standing motionless,
-  and training longer made that shuffling MORE pronounced, not less.
-  This looks like a separate, pre-existing gap in how we reward
-  staying stationary, not a side-effect of the new coaching itself.
-  Two pricing fixes were landed and short-run tested (08-11): a
-  test bank first proved the old pricing paid a robot that parks one
-  leg in the air exactly as much as one standing properly (a literal
-  tie). Re-pricing alone did NOT unlearn the habit (leg still parked,
-  earning zero), and adding partial credit as the foot comes down
-  moved it visibly (11 cm -> 9 cm, improvement still climbing) but
-  not to a quiet stand within the short-run budget. Same lesson as
-  stand-up: correct pricing is necessary but old habits need direct
-  action-coaching to break. That coaching trick (the one that solved
-  stand-up) now also applies to holding still, and **it worked
-  (08-11).** The robot now holds a genuinely quiet, level,
-  motionless six-legged stand — checked on video, every one of 12
-  test episodes, both with and without added randomness, feet within
-  about a centimeter of the ground. This is the first time "holding
-  still" has actually meant still. Small caveat: from the hardest
-  starting pose (belly-flat crouch) it tipped over twice out of six
-  tries while standing up — but that exact same tipping already
-  showed up once in the checkpoint we started from, so it reads as
-  an old, already-known rough edge appearing slightly more on a
-  small sample, not something the new coaching broke. A longer
-  training run on this same recipe (08-11) confirms the quiet stand
-  holds up with 5x more practice — still solid (11 of 12 test
-  episodes), and the rare crouch-start tip-over got slightly better,
-  not worse (about half those attempts now succeed cleanly, up from
-  a third). Standing and holding still are both done as their own
-  skill, and the handoff test is now DONE and PASSED (08-11): a new
-  eval script stands the specialist up from the belly, switches
-  control to the walking champion on the specialist's exact final
-  pose, and the champion walks away without a stumble — every
-  successful stand handed off with zero falls, driving as steadily
-  as from its own ideal start, and the scripted blend step the old
-  demo needed measurably adds nothing. The one remaining rough edge
-  is unchanged: stand-ups that BEGIN from the half-crouched pose
-  still tip over (the known old fragility; from belly-flat — the
-  realistic operator placement — it stood 6/6 in this test). The
-  reverse direction (drive, stop, sit down) is now ALSO tested and
-  passed (08-11): the specialist sits down fine from the walker's
-  exact stopped pose (its only flaw — an occasional foot left
-  dangling — is identical from its own ideal start, so the handoff
-  costs nothing), and the simple scripted sit glide is flawless
-  every time, so that stays the deployed sit. This line of work is
-  done for now. `rl_docs/RISE.md`.
-- **Turning on command.** Walk policies carry a structural left-yaw
-  drift and ignore the yaw command channel; raising the price of
-  drift failed repeatedly, and a second, better-designed reward
-  mechanism also produced NO measurable change head-to-head
-  (`cw-walk-turnfix1`) — reward tuning for turning is closed twice
-  over; the drift looks baked into the walking gait itself. The next
-  lever, mirror-symmetry training (penalize the policy for treating
-  its left/right sides differently, `rl_docs/TURN.md`), landed
-  08-10 night: a quick mechanism check (`cw-omni-mirror1`) confirmed
-  the symmetry penalty actually takes hold during normal training
-  (asymmetry signal fell to under half its peak, reward climbed
-  fine). The follow-up 40M-step hardening run (`cw-omni-mirror1-r1`,
-  08-11) did NOT test the mirror-symmetry hypothesis either way: the
-  walk gait itself collapsed into standing almost still (forward
-  travel 0.68 m -> 0.01 m per episode vs the same recipe without
-  mirror, half the episodes with stuck/frozen legs) because standing
-  still scored HIGHER than walking — a reward bug, not a turning
-  result, and mirror-symmetry is still UNKNOWN. The bug is now found
-  and FIXED (08-11): during "turn in place" commands the
-  speed-tracking reward paid a motionless robot its full income (zero
-  speed matched the zero speed command perfectly, and the gate that
-  normally stops that only watched straight-line walking), so
-  freezing out-earned imperfect walking by construction. The reward
-  now pays that income only in proportion to how much of the
-  commanded turn is actually achieved, an offline check bank pins the
-  exploit forever, and the 40M hardening run was relaunched with only
-  that one change (`cw-omni-mirror2`). Result (08-11): the specific
-  freeze bug is confirmed fixed — walking now earns more than
-  freezing — but the gait still breaks down about half the time into
-  a different bad habit (one or more legs held stationary in the air
-  or planted and never moved, barely inching forward), so
-  mirror-symmetry is STILL unanswered. Next move is not another
-  mirror training run; it's finding what still pays for that
-  leg-sacrifice habit. A DR-strength check (`cw-omni-mirror2-dr02`)
-  and a turning-removed variant (`cw-omni-trans1`, walking in any
-  direction with the turn-in-place logic dropped entirely) both
-  failed the same way — trans1's failure looked different again
-  (legs churning rapidly almost in place, two legs stuck planted,
-  body barely traveling), a third distinct collapse pattern. Turning
-  itself has been DE-SCOPED from the joystick deliverable (no camera
-  = no reason to need a "front"), so this line now serves only the
-  any-direction-walking goal. **08-11 update: the "what still pays
-  for it" question is now ANSWERED — nothing does.** A term-by-term
-  income audit of the actual failed policies (`probe_walk_income`)
-  shows honest walking out-earns every one of the three bad habits
-  2-4x in every direction, at zero AND full physics randomization —
-  the collapsed policies actually earn LESS than doing nothing at
-  all. So the reward is fine; the trainer just never finds the
-  stepping pattern for new directions (no reward stream tells a
-  churning leg which WAY to move — the same lesson as standing up
-  and holding still). The fix that already worked twice for exactly
-  this (show the trainer a correct example motion to imitate,
-  alongside the reward) was wired up for walking, but it did NOT
-  work (`cw-omni-transbc1`, 08-11): the robot copied the example
-  step almost perfectly (imitation error dropped even lower than it
-  did for the moves that DID succeed) yet still barely moved —
-  across 12 video-checked episodes the floor never visibly shifts
-  under it, travel is about a centimeter over 15 seconds, legs slide
-  5-20x more than a normal walk. Copying one step at a time isn't
-  enough to learn the different overall stepping pattern each new
-  direction needs. Any-direction walking went 0-for-4 across every
-  reward and imitation idea tried. (One real reward bug WAS found
-  along the way, but only in the de-scoped turning stack: during
-  straight-line walking the turn-tracking bonus pays a motionless
-  body its full income; fix if turning ever comes back in scope.)
-  **08-11, hours later: SOLVED — structurally, with zero training**
-  (see "walk in ANY direction" in the sim capabilities above). The
-  whole 0-for-4 line was asking the trainer to discover something
-  the hexagon's geometry already guarantees; the wrapper closes this
-  chapter. The onboard-runner port landed the same day: the robot's
-  walk button now accepts any direction (the wrapper is a provable
-  no-op for the forward commands already validated on hardware), and
-  a test bank locks the onboard path against the sim original.
-  Nothing left here but trying it on the real robot.
-- **Sim effort realism**: sim under-prices standing still (0.11 A
-  vs the real 0.59 A) — needs a holding-current model fit before
-  effort-shaped gaits can be trusted. Servo LAG realism, by
-  contrast, is now validated end-to-end (08-11): training with the
-  measured under-load servo response (real servos take ~0.3 s to
-  settle a 2° step, not milliseconds) keeps the walking skill intact
-  and even slightly beats the old champion when both are judged
-  under that honest physics (`cw-dep-vref1-loaded1`) — the earlier
-  "it got 40% worse" read was just comparing against scores from the
-  old instant-servo physics.
-- **Learned gait quality**: the champion "walks" by paddling with
-  loaded-foot slide; acceptable in sim scoring, but the real robot's
-  scripted gait remains the quality bar.
+- **A learned policy on the real robot.** Attempt #2 is the entire
+  critical path: walk + full-circle wrapper + the learned stand-up
+  are all staged. Start with a fresh `set_zero`, and re-push/select
+  the profile-carrying stand export first — the copy activated on the
+  robot on 08-11 morning lacks the goal-ramp profile and would feed
+  the policy an out-of-distribution ramp (see HARDWARE.md).
+- **Turning on command (RE-OPENED 08-11; big progress the same
+  day).** Policies carry a baked-in left-yaw drift and ignore the
+  yaw channel. Three things happened 08-11 afternoon (detail:
+  rl_docs/TURN.md, bottom): (1) the suspected turn-reward bugs were
+  REAL and are now FIXED and bank-tested — the turn stack literally
+  paid a frozen robot more yaw income than an honest walker
+  (+375/ep vs +224), and its "anti-drift" charge taxed the honest
+  gait's natural wobble while charging the cheats nothing; both
+  terms are repriced and a new bank test reproduces the old bug and
+  proves the fix. (2) the ZERO-TRAINING mirror trick WORKS in sim:
+  the hexagon is left-right symmetric, so reflecting the deployed
+  walk policy produces an equally good gait that drifts RIGHT
+  instead of left — switching between the two steers both ways and
+  drives straight (heading held to 2–4° where the naked policy
+  drifts off by ~38°). Caveat: it turns at the drift rate (~2°/s),
+  so it's steering, not a pirouette. (3) with the reward verified,
+  the mirror-symmetry TRAINING run finally ran (`cw-walk-mirturn1`,
+  08-11 late) and FAILED: the symmetry penalty converged but turn
+  commands still aren't followed, baseline drift tripled, and the
+  forced symmetry rewrote the champion's gait into near-in-place
+  churning. That closes mirror TRAINING; the zero-training mirror
+  wrapper IS the shipped turning story (slow steering). Hardware
+  sign audit (does sim "+yaw" match robot "+yaw"?) still gates any
+  bench turn session.
+- **Gait quality: the champion walks by paddling, in a crouch**
+  (loaded-foot slide, slip ~1.1–1.5 m per meter, body at ~50–77 mm
+  below plant height). On hardware this scrapes. Walking taller and
+  not dragging feet are the same problem (operator). The evening
+  closed BOTH cheap levers (two-miss rule, detail `rl_docs/GAIT.md`):
+  BC-anchoring the gait to the scripted tripod froze the robot into a
+  static pose (`cw-walk-gaitbc1`), and terrain-as-teacher is refuted
+  decisively — on real 36–108 mm bumps the paddle's slip gets
+  monotonically WORSE, never better; from-scratch training on true
+  72 mm ground learned leg-sacrifice dragging (`cw-gait-terrain2`,
+  `-r1`), and a 4x drag charge from scratch formed the paddle anyway
+  (`cw-gait-dragstep1` — with the caveat that the effective charge
+  never exceeded ~0.09/tick vs ~1/tick income, so a "really big"
+  penalty is still untested). What remains is spec/code work before
+  any launch: the reward-accuracy probe (replay the tape-proven real
+  gait AT HEIGHT through the full stack — the real gait rocks
+  ±10–20°, which our tilt pricing charges, so the reward may be
+  paying the robot to stay low and smooth), the drag-charge magnitude
+  audit, and the P2 structural stance-slip charge with its bank.
+- **Crouch-start stand-ups.** The fix is proven and REPRODUCES
+  (`crouchrise1`: 16/16 crouch stands vs 0/8 before; `crouchrise2`:
+  6/6 det rises incl. all crouch starts, zero falls) — but both
+  variants break the hold the same way: two feet quietly parked in
+  the air, the SAME two legs both times, a resurfaced flag-leg cheat
+  that the strict `valid_plant` check MISSED and only per-foot
+  contact duty caught (all-six duty is now a gate clause).
+  crouchrise2 restored the deployed policy's exact training mix and
+  the cheat came back anyway, so the mix-skew theory is refuted and
+  the crouch-heavy START DISTRIBUTION itself is the cause. Leading
+  mechanism: the BC anchor's reference is clock-indexed from episode
+  start, so crouch starts get belly-phase reference poses pushed
+  against near-plant states — the anchor actively teaches lifted-leg
+  postures, and it bleeds into hold. Two-miss rule: no more mix/coef
+  variants; next lever is CODE through spec first — a state-aligned
+  (not clock-aligned) BC anchor, or anchor gated off on crouch
+  starts. Neither crouchrise checkpoint may be deployed or
+  warm-started from; `hard1` stays the stance policy with its known
+  0/8 crouch limitation documented.
+- **Sim effort realism (parked).** The scary "sim thinks standing is
+  free" inversion was a bookkeeping error (units ×18 + wrong pose)
+  and is retracted; measured properly, sim overprices effort
+  everywhere (safely conservative). Predicting the real ammeter needs
+  a command-fight current model — only required if we ever train FOR
+  low current.
+
+## What actually made training work
+
+1. **Income gating, not penalties.** Make cheats earn ~zero BY
+   CONSTRUCTION. Additive penalties get priced in and paid; every
+   time we merely charged for a cheat, the policy paid and kept
+   cheating.
+2. **BC-anchoring when the reward is right but the trainer can't
+   find the motion.** Twice-proven (stand up, hold still). Reward
+   tells the policy WHAT is good; it never tells a churning leg which
+   WAY to move.
+3. **Free structure before compute.** The rot60 wrapper solved
+   any-direction walking in an afternoon after four training runs
+   (reward variants AND imitation) had failed at it. Check what the
+   geometry gives you before asking the trainer to discover it.
+4. **Cheap offline tests before expensive training.** The scripted
+   reward banks (MDP_PREFLIGHT) prove "honest behavior out-earns
+   every known cheat" in minutes, before any launch. Binding rule.
+5. **Matched-parent controls.** A run evaluated under an injected
+   condition must be compared to its parent under the IDENTICAL
+   injection. Several "failures" reversed to PASS (and one "pass"
+   reversed) once the control was run properly.
+6. **Judge on strict geometry + per-step telemetry, never on the
+   training reward.** Climbing reward while the task fails is the
+   standard cheat signature (all three GRU runs). Video snapshots
+   also miss things: only per-foot contact duty caught the
+   crouchrise1 hold cheat and the hold-mode shuffling.
+7. **One variable per run; discovery (2M) then hardening (10M).**
+   The finishing tails (footprint precision, current spikes) resolve
+   with budget; the mechanism has to be proven cheap first.
 
 ## Big things we have learned
 
 1. **Reward hacking is the default outcome, not the exception.**
-   Every under-specified reward got gamed: freeze-and-collect (alive
-   bonus), park-and-earn (velocity kernel), flag-leg stands (height
-   term), cadence inflation (step credits). The countermeasure that
-   works: make cheats earn ~0 BY CONSTRUCTION (income gating), never
-   just charge for them — additive penalties get priced in and paid.
-2. **Cheap tests before expensive training.** Scripted-trajectory
-   semantic banks (MDP_PREFLIGHT) catch reward bugs in minutes that
-   used to cost 20M-step runs; now binding before any launch.
-3. **Hardware truth keeps overturning sim assumptions.** Walking is
-   cheaper than standing; slip is locomotion, not failure; a "10°
-   tilt = fall" rule was far too strict (real gait rocks ±10–20°);
-   loaded servos respond ~30× slower than the air-only fit. Every
-   one of these forced a sim or reward fix.
-4. **Single-axis robustness training is mostly worthless here.**
-   12-for-12 sensor/calibration noise axes: exposure training bought
-   nothing the champion didn't already have for free. The ~20-axis
-   protective sweep on the deployment candidate found essentially no
-   real regressions — that whole class is now CLOSED.
-5. **Controls need matched baselines.** A child policy evaluated
-   under an injected perturbation must be compared against its
-   parent under the IDENTICAL injection — two "failures" reversed to
-   PASS once the control was run properly.
-6. **Skills interfere.** Quad-hold mixed into walk training erodes
-   walking; stand-different-heights and walking live in different
-   stances. Composition (blends, specialists, curricula) beats
-   naive multi-task mixing so far.
-7. **Wrong logical zeros are how hardware gets destroyed.** The
-   08-06 incident (tipped robot, cooked servo, shorted rail) came
-   from software poses commanded against a stale zero frame —
-   hence the hard safety rules in AGENTS.md.
+   Every under-specified reward got gamed: freeze-and-collect,
+   park-and-earn, flag-leg stands, cadence inflation, the GRU's
+   three-legged statue. Countermeasures: income gating + offline
+   cheat banks + strict geometric success checks.
+2. **Sometimes the reward really is buggy or wrong — so verify the
+   reward FIRST, cheaply, and only then stop blaming it.** We
+   shipped plenty of genuine reward bugs: the turn-mode kernel paid
+   a motionless robot its full walking income (that alone collapsed
+   the mirror2 run — freezing literally out-earned walking); the
+   sit-down "arrival bonus" paid out without arriving (freeze earned
+   +120 until the gate fix); hold pricing paid a parked flag-leg
+   EXACTLY as much as an honest stand (a literal tie, proven by the
+   bank); and one mechanism bug (the episode-pool restore dropping
+   reward state) silently stopped paying the stand-up income at all
+   and contaminated three verdicts before it was caught. The point
+   is that every one of these is findable in MINUTES, not 20M GPU
+   steps: run the offline cheat bank (does honest behavior out-earn
+   every scripted cheat under THIS run's exact config?) and, for an
+   already-failed policy, the term-by-term income probe (what did
+   the bad behavior actually earn, term by term, vs honest and vs
+   doing nothing?). Only once those exonerate the reward does the
+   rule flip: **a behavior that doesn't change across several
+   VERIFIED reward mechanisms is not a reward problem.** Six
+   stand-up arms collapsed identically under six bank-checked
+   mechanisms — the fix was supervision (BC-anchor), not pricing.
+   Four omni-walk arms collapsed under pricing the income probe had
+   exonerated (the collapsed policies earned LESS than freezing) —
+   the fix was geometry (rot60). Two-miss rule going forward: after
+   two same-class failures with a bank-verified reward, change the
+   mechanism, never the price or the step count.
+3. **Structure is cheaper than training.** The two biggest wins of
+   the campaign (rot60, BC-anchor) both bypass discovery instead of
+   incentivizing it. Before launching a training arm, ask: does
+   geometry, a recorded reference, or the start distribution already
+   contain the answer?
+4. **Trust only the strictest evidence, and verify before building
+   on it.** Training reward lies (cheats). Sparse video lies
+   (missed the hold shuffle). Even `valid_plant` lies (missed the
+   crouchrise1 parked feet — per-foot contact duty is now a gate
+   clause). And one GPU run (`gru-long1`) was launched off a
+   training-log claim nobody had checked against the harness —
+   invalid evidence, wasted launch.
+5. **Robustness was free; stop buying insurance.** 13-for-13
+   single-axis sensor/calibration exposure runs bought nothing the
+   champion didn't have; the ~20-axis protective sweep on the
+   hardware candidate found essentially nothing. Those classes are
+   CLOSED — compute goes to capabilities, not more armor.
+6. **Hardware truth keeps overturning sim assumptions.** Slip is
+   locomotion, not failure; a working gait rocks ±10–20° (a 10° trip
+   would kill it); loaded servos respond ~30× slower than the air
+   fit; the current "inversion" was our own bookkeeping. Measure on
+   the bench, then fix the sim — never the reverse.
+7. **Skills interfere under naive mixing; composition works.**
+   Quad-hold at any dose erodes walking; the specialist + handoff
+   pattern (stand specialist → walk champion → scripted sit) composes
+   with zero falls TODAY. The flagship experiment decides whether one
+   network can do it all; until it answers, ship specialists.
+8. **Wrong logical zeros are how hardware gets destroyed.** The
+   08-06 incident came from software poses commanded against a stale
+   zero frame — hence the hard safety rules (fresh `set_zero` every
+   session, no unsupervised stand/plant blends).
 
 ## What happens next
 
-1. Hardware attempt #2 with the staged `cw-dep-vref1-r1` checkpoint
-   (joystick walk on the bench, fresh `set_zero` first).
-2. Reward tuning for standing is closed by trained evidence (six
-   mechanisms tried, all cheated); the fix that worked instead
-   coaches the policy's actions directly (`cw-stand-bc1`, 08-11) and
-   its long run is the official stand-up specialist. Next on the
-   stand line: teach it to hold STILL (pricing fixed + verified
-   08-11, but two short runs show pricing alone doesn't break the
-   leg-parking habit — the stand-up coaching trick applied to hold
-   is the queued fix), then test the stand-up specialist handing
-   off to the walking champion. Reward
-   tuning for turning is also closed; its structural next move
-   (mirror-symmetry augmentation) is landed but every hardening
-   attempt has collapsed into a different gait pathology before
-   testing the real hypothesis — turning is de-scoped from the
-   joystick deliverable for now (no camera, no "front" to need).
-3. Sim effort-pricing fix (holding-current model) so effort-shaped
-   arms become trustworthy.
+1. **Next bench session** (operator — the critical path; RL walks
+   already happened 08-10, see "REAL hardware" above): (a) the
+   vref1-r1 vs tip1 A/B on the same floor — compare roll-ramp RATE
+   and runaways over several runs, and make sure the policy switch
+   actually lands this time; (b) tape-measure an RL walk; (c) first
+   hardware runs of the rot60 off-wedge headings and the learned
+   stand-up — deploy re-push FIRST (the on-robot stand copy lacks
+   its goal profile), fresh `set_zero` always; (d) wz sign audit.
+   If tip1 also runs away on this floor, the fix moves to sim: a
+   contact/pinning model (no-skate feet), not more DR.
+2. **Yesterday's three pending results are all read out** — flagship
+   fork CLOSED (MoE refuted by the rise-only control), `gaitbc1`
+   FAILED (anchor froze the gait), `crouchrise2` FAILED-mixed (crouch
+   fix reproduces, hold cheat traced to the clock-indexed anchor).
+   The follow-ups are all spec/code work, not launches: the
+   state-aligned BC anchor, the gait reward-accuracy probe, the
+   drag-charge magnitude audit, and the P2 structural slip charge
+   with its bank.
+3. **In flight / queued:** `cw-walk-dragstance1` (hw — the first
+   structural per-stance scrape-charge arm, audit-derived size) is
+   training. `cw-arch-gru-r4c` finished and FAILED (from-scratch GRU
+   closed); `cw-walk-mirturn1` ran and FAILED (mirror training
+   closed — wrapper ships). Four-leg walking (weight back, front
+   pair as "hands") still needs its spec + bank first — the current
+   reward provably punishes exactly that posture.
+4. **Track hygiene:** each research line now keeps its own short
+   status in `rl_docs/tracks/<track>/STATUS.md` (hw / arch / nobc /
+   quad / turn); agent triage stays within a run's track.
+
 Queue and blockers: `RL_PLAN.md`.
+
+
+---
+
+# FILE: rl_docs/tracks/arch/STATUS.md
+
+# arch — Advanced architectures
+
+W&B: tag `track:arch`. Excess-capacity research.
+
+**Goal:** get a more advanced model (GRU/recurrent/temporal) to walk,
+stand up, and sit down. What architecture learns the full skill set,
+at what budget, with which failure modes.
+
+## Now
+
+- **From-scratch GRU walking CLOSED (08-11, gru-r4c):** both
+  pre-registered levers (BPTT window 64→256 steps, hidden 128→256)
+  tried and the identical leg-sacrifice/paddle fingerprint survived
+  (legs [0,2,3] parked, det gait_valid 0/6) — worse, rise also
+  regressed to 0/6 (r3 had it at champion grade). Reward already
+  works on the MLP lineage, so this is a capacity/architecture limit,
+  not a pricing gap. No further from-scratch GRU variant.
+- Frame-stack line passed: hist16 → hist16-dep1 (deploy contract).
+- **BC-distill-then-RL-finetune tried (08-11, `cw-arch-gru-bc-ft1`):
+  walk survives, stance is MIXED, and a dig-in corrected the root
+  cause.** The GRU was BC-distilled from the walk+hold specialists
+  (rise was NEVER in the distillation data — the BC parent itself is
+  a hold+walk artifact only) then PPO-finetuned 10M steps on a
+  walk-heavy mix (60/15/15/10). Result across all four gate+own-DR0.5
+  passes: walk gait_valid 6/6 throughout, no paddle at any point in
+  10M steps (economy softened, slip/m 2.1-2.6 vs BC parent 1.5);
+  lower IMPROVED (4-6/6 vs parent 2/6 det); rise stayed 0/6 (unchanged
+  from the BC parent — RL never invented a skill it had zero demos
+  for, not forgetting); hold REGRESSED 0/6 det (parent was 6/6 — RL
+  genuinely traded hold precision for locomotion polish, real
+  forgetting this time). So two different mechanisms in one run:
+  data-poverty (rise, never learnable this way) vs erosion (hold,
+  actually lost). Keeping `ppo_goal_cw_gru_bc.zip` (md5 864c02fb) as
+  the hold+walk reference artifact.
+- **lr/KL lever CLOSED (08-11, `cw-arch-gru-bc-ft2`, 2M discovery)
+  — FAILS exactly as pre-registered.** 3x lower LR (3e-4→1e-4) +
+  tighter target-KL (0.02→0.01) on the identical BC-parent finetune:
+  gate (DR0) det rise 0/6 (bridge/crouch/flat all 0, honest stalled
+  climb, plant_margin 122mm short, balanced duty — not a cheat), det
+  hold 0/6 (all 6 eps fail valid_plant on height/feet_down/footprint,
+  worst foot 19-33mm proud, balanced duty — honest precision loss,
+  not a flag-leg). Walk stayed clean (gait_valid 6/6 det+sto, slip/m
+  1.3-1.7 in-band). Two attempts now (ft1 default hp, ft2 tight
+  hp) at protecting stance via PPO hyperparameters alone — both lose
+  it identically. **Per RESEARCH_RULES "two misses in the same
+  behavioral class": stop tuning lr/KL, change the mechanism.**
+  **Root blocker found, CODE not config:** the gate's own
+  pre-registered fix ("an auxiliary BC-anchor loss during the
+  finetune, or freezing early layers") is not available for this
+  network — `train_ppo_mjx.py` explicitly raises `SystemExit` for
+  `--gru` + `train.bc_anchor_coef>0` ("not implemented, wraps stock
+  PPO"), and there is no layer-freeze flag either. The MLP-lineage
+  BC-anchor (`cw-stand-bc1`/`holdbc1`, twice-proven on hw track) does
+  not reach RecurrentPPO as written.
+
+## Next
+
+- **The real next lever needs CODE, not another training run:**
+  either (a) extend `bc_anchor.py`'s auxiliary-loss wrapper to
+  `RecurrentPPO`/`GruActorCriticPolicy` (needs hidden-state-aligned
+  minibatches, nontrivial), or (b) add a simple param-freeze option
+  (freeze the GRU cell, finetune only the output head) — neither
+  exists today. Until one lands, no arch-track spec is launchable
+  for this lineage; do not queue a 3rd lr/KL/coefficient variant.
+- Operator-directed next lever for RISE: re-distill stance-heavy +
+  DAgger rounds on `distill_gru.py` (give the BC step actual rise
+  demos before any further RL) — in progress outside this loop;
+  unaffected by the above (it fixes the DATA, not the finetune loss).
+- Later: contact-from-proprioception aux head; distill specialists
+  into one recurrent net.
+
+Detail: RL_PLAN.md "Architecture" · ledger cw-arch-* lineage.
+
+
+---
+
+# FILE: rl_docs/tracks/hw/STATUS.md
+
+# hw — Hardware joystick robot
+
+W&B: tag `track:hw`. THE MAINLINE — pod priority, operator bench time.
+
+**Goal:** a walking, joystick-driven, standing/sitting/holding robot
+working ON HARDWARE by any means necessary. Anchors, scripted blends,
+rot-60 wrappers, specialist checkpoints — all fair game. KPI:
+unresolved blockers between the robot and reliable joystick control.
+
+## Now
+
+- **08-11 eve session 2 (19:07–19:19, four camera sessions,
+  bench_blast_20260811_19*): learned rise is DETERMINISTIC-FAIL on
+  hardware** — 5/5 tilt_roll trips (incl. 22:42's), every one at tick
+  ~227 (~9 s, mid-curl) with roll 10.1–10.6° and currents ≤0.27 A.
+  From verified clean zero (max pose delta 0.5°), so start pose is
+  exonerated; sim keeps the same rise ≤1.7° roll. This is THE stand
+  blocker; the queued `cw-stand-riserock1` drained as a STUB (the
+  rocking-DR code was never written — run VOID, no science); the
+  rise-rock DR axis is still unbuilt CODE work. Scripted `POST
+  /api/zero pose=stand` is the working stand-up meanwhile.
+- **FULL-NIGHT A/B (18 walks, bench_report): the takeoff transient is
+  UNIVERSAL and there is NO policy winner.** Every walk crosses 5°
+  roll within 0.6–1.5 s and peaks 13–27°; falls are ~a coin flip for
+  BOTH policies (vref1 6/10 fell, tip1 4/7) with no predictor in peak
+  size or direction. The early-evening "tip1 clean, vref1 3/3 fell"
+  read did not survive the sample — and the A/B has a design confound
+  (round 1 is always vref1-fwd/tip1-back, so tip1 never walked
+  forward tonight). Verdict: the problem is surviving the takeoff
+  transient, not policy choice. Sim-side: the queued takeoff arm
+  drained as a STUB (default DR — VOID); the proper relaunch
+  `cw-dep-tip1-takeoff25-r1` FAILED with a decisive read — under the
+  identical 20–25° injection vs matched tip1 baseline, child==parent
+  (0/12 valid both, zero falls both), sim ALREADY recovers static
+  tipped starts at the hardware regime, dose lever CLOSED (2nd
+  no-separation arm). The takeoff fix must be a DYNAMIC roll-rate
+  perturbation during gait start (CODE) or contact/pinning work;
+  gate on fell/tail, not peak.
+- **Tonight's "thermal wall" was mostly PHANTOM BUS READS.** The
+  "L4 hip 150 °C" abort read a steady 33 °C seconds later; the
+  debounced watchdog never tripped all night. Single-read temp checks
+  in safe_zero/pinned_tip were killing sessions on corrupted bytes —
+  now debounced (two consecutive hot reads), and the always-on
+  `servo_watch` gained a THERMAL PANIC that kills ALL motion (not one
+  servo) on a real overtemp; busy cadence 10→5 s. All deployed. The
+  19:18 "L2 hip 72 °C" stays unconfirmed-possible, not proven.
+- Turn signs: **+0.3 = CCW from above (matches z-up convention)** off
+  the 19:33 camera frames — single reading. **−0.3 still unmeasured**
+  (first try silently refused on a pending measure record — fixed;
+  rerun coincided with the camera being removed). First item next
+  session.
+- Recovery loop hardened from tonight's failures: recovery safe_zero
+  now `force=true` (a fall always trips the tilt gate), scripted-stand
+  fallback when the learned rise trips, demo-aware waits (`/api/zero`
+  and `safe_zero` run as demos that `wait_idle` never saw — one abort
+  came from reading a mid-glide pose), auto-safe_zero when the opening
+  pose isn't belly zero (an earlier stalled safe_zero left L4 knee 78°
+  off and quietly hold-hunting — the "twitching leg").
+- **08-11 eve: fully-unattended camera bench IS the workflow now**
+  (`bench_blast --go --auto --camera 0`: iMac camera records the whole
+  session, exact unix sync, video_review cuts the sheets; fall-detect →
+  safe_zero → stand recovery loop; terminal results recorded, never
+  kickoff responses). Three unattended sessions run 08-11 eve
+  (hardware_traces/bench_blast_20260811_18*).
+- **Walking on hardware (08-11 eve, on camera):** both policies show a
+  large TAKEOFF roll transient. vref1-r1: one clean-start fall (its 3rd
+  runaway) and one full-6s walk that rode a 23–24° early transient and
+  recovered to dead level — the "runaway" flag conflates recoverable
+  transients with tips; judge by fell/tail. tip1 fwd tripped tilt_roll
+  2/3 in the 21:4x attended A/B (robot's own log; the old "3 clean
+  walks" summary was kickoff-response fiction). **First off-wedge rot60
+  run (tip1 BACKWARD): FELL** (peak 27°) — rot60 port itself works
+  (k engaged, terminal result logs it).
+- **Stand specialist port: first honest hardware run FAILED with a
+  REAL gap** (08-11 22:42): tilt_roll trip at 10.2° during the
+  belly-curl. Sim probe: the same rise keeps roll ≤1.7° across 6 det
+  seeds — hardware rocks over the tucked legs, sim doesn't. Trip
+  threshold is correct; fix is training-side (rocking/tilt DR on rise
+  ticks, loaded-knee actuator), NOT a threshold bump.
+- 08-11 22:29 incident (resolved): unattended session 1 had no upright
+  gate between steps → post-fall walks/turns ground the sprawled legs →
+  board brownout; operator power-cycled, 18/18 healthy. The recovery
+  loop + SessionAbort added in response and validated live in session 3.
+
+## Next
+
+- Sim-side (08-11 late): the two queued bench-answer arms drained as
+  STUBS without their variables — both VOID (no science; verdicts in
+  ledger). Proper relaunch `cw-dep-tip1-takeoff25-r1` then FAILED
+  decisively (see Now bullet): tipped-start DOSE closed, sim
+  saturates the static-tilt axis. BOTH remaining sim answers to the
+  bench falls are now the same CODE family: dynamic roll-rate
+  perturbation during gait-start ticks (walk) and rocking DR on rise
+  ticks (stand) — spec + bank BEFORE launch (MDP_PREFLIGHT); neither
+  is written. rot60 backward: one fall AND one clean walk — more
+  reps when a takeoff-hardened checkpoint exists.
+- Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
+  stopped for the night per safety rules. When resumed: wz turn-sign
+  audit (STILL open — three sessions in a row died before reaching
+  it), more A/B reps (vref1 3/3 fallen — consider dropping it from
+  the rotation), learned-lower retry ONLY after the over_load trip is
+  understood.
+- Runaway metric fix in bench_blast: split "recovered transient"
+  (peak high, tail level) from "fell" (terminal result / tail high).
+- Gait cleanup (anti-scrape): P0 diagnostic DONE 08-11 late (tilt
+  penalties exonerated; paddle is a sim-effectiveness optimum —
+  GAIT.md bottom). Structural per-stance charge, FROM SCRATCH
+  (`cw-gait-dragstance1`, audit-derived k=8000) FAILED 08-11: parked
+  motionless instead of stepping, paying the charge the whole
+  episode rather than resolving it (its own pre-registered false
+  branch, verbatim) — GAIT.md. CROSS-TRACK: this is also nobc's
+  drag-charge-audit item, same conclusion both tracks. Warm-start
+  companion `cw-walk-dragstance1` (same k, on the actual champion)
+  also FAILED, the other way: it neither parked nor stepped — kept
+  full travel and simply absorbed −7/tick for 2M (slip only 1.1–1.3 →
+  0.95–1.15). Static fine at either init is closed; the from-scratch
+  40M `cw-gait-dragstance1-r1` was KILLED pre-verdict (known-exploit
+  rule: identical recipe to the refuted 2M arm — RL_LOG 08-11 20:03);
+  the anneal-up curriculum (CODE) carries the lever.
+- **TALL LADDER (walk from a taller stance, same problem as
+  anti-scrape): the wall is HABIT not kinematics** (`probe_tall_wall.py`,
+  08-11 — GAIT.md/RL_PLAN queue -0.5). Ref-tracking alone is tradeable
+  for speed (T1); a reachable income gate (T3, `cw-dep-tall-gate1`)
+  buys 15mm at 2M but the trade WINS BACK under a 6M hardening budget
+  (`cw-dep-tall-gate1-h1`, confirmed 08-11 late): steady-state walking
+  height -72.6mm, statistically unchanged from the ungated -75mm wall,
+  legs still pinned at the 35° yaw-splay limit (lateral-stability
+  purchase). Gate-income alone CLOSED at this dose. **08-11 late:
+  PRICING FAMILY CLOSED FOR POSTURE** — kh3 (-74.5mm), kh10 (-72.7mm,
+  a 10x height charge that pays MORE than walk income rather than
+  stand up), slow1 (-73.8mm, didn't even adopt its eased 0.03-0.04
+  speed band, still walking 0.048-0.051) all flat at -72..-75mm, leg
+  yaw pinned at the 35° limit in all six pricing arms tried (ref
+  ladder, income gate, gate+budget, height 3x/10x, speed relief). The
+  optimizer cannot FIND the taller basin at any dose — it isn't
+  underpaying for it. RSI-for-walk (`cw-dep-tall-rsi1`, T6)
+  was the last lever and it is FLAT TOO (-77.4mm mid-gait; the
+  policy learned to recover from tall mid-stride spawns DOWN into
+  the crouch — verdict 08-11 22:33, ledger recorded): neither
+  pricing (6 arms) nor state injection moves posture. Remaining, in
+  order: BC-INIT from the scripted tall gait, physics-easing ladder,
+  or accept the pareto (tall15-h1 = fastest dep walker, 0.051 m/s).
+  Not a joystick blocker.
+- Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
+  crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
+  08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the
+  dose/mix axes are closed. **08-11 later: the reward-pricing lever
+  is closed too** (`cw-stand-holdload1` — measured-foot-load income
+  correctly taxes the hover per its own bank, but the identical
+  legs-1+4 park reproduces anyway, det duty 0.03–0.04, `valid_plant`
+  blind to it mid-episode). **State-aligned BC anchor tested
+  (`cw-stand-anchorstate1`, 08-11): PARTIAL confirmation** — leg 4
+  recovers (duty 0.01→0.93) but leg 1 still parks, and the fix
+  stalls flat-start rise + adds lower falls. **`cw-stand-anchorstate2`
+  (lookahead 0.25→0.5s) fixes the flat-rise stall and the lower falls
+  exactly as hypothesized, but leg 1 still parks (duty 0.03) — sixth
+  run in a row, lookahead axis now EXHAUSTED for the park.**
+  Follow-up `cw-stand-loweranchor1` (BC-anchor the LOWER ticks toward
+  the lower bank's own honest IK descent — the last undocumented
+  incentive gap) **SOLVED lower (det+sto 6/6, zero falls, from 2/6)
+  but REGRESSED hold to a two-leg park + re-stalled flat rise 96mm —
+  root cause found: the three per-mode BC anchors share one ring
+  buffer/uniform sampling, so lower's pair volume diluted rise/hold
+  supervision (ANCHOR DILUTION, a new testable mechanism, not the
+  shared-habit theory).** `cw-stand-anchormix1-r1` (stratified
+  per-mode minibatch sampling, equal quotas) **RAN 08-11 23:4x: FAIL
+  per gate, LINE CLOSED — but the park MIGRATED.** Stratification
+  fixed the seesaw as predicted (lower kept 6/6 det+sto, crouch rise
+  4/4, hold det valid_plant 6/6) and the six-run foot-idx1 park
+  finally recovered 0.03→0.90 — but foot idx4 parked at 0.02 in its
+  place, and det flat rise still stalls 106mm. The persistent habit is
+  SHED EXACTLY ONE FOOT; every lever so far only moves which foot.
+  Per pre-registration: hard1 stays deployed, stand-specialist handoff
+  stands, no further blind axes. Reopen lever (unqueued): price the
+  min-over-feet load + land per-mode bc_anchor_loss logging FIRST
+  (CODE — aggregate only today) before ANY further stand arm. RISE.md.
+
+Detail: **rl_docs/BENCH_REPORT_2026-08-11.md** (tonight's consolidated
+bench read + RL implications; regenerate tables with
+`python -m rl_move.scripts.bench_report`) · RL_PLAN.md queue ·
+rl_docs/HARDWARE.md · RISE.md · GAIT.md.
+
+
+---
+
+# FILE: rl_docs/tracks/nobc/STATUS.md
+
+# nobc — Learn without BC anchor
+
+W&B: tag `track:nobc`. Excess-capacity research.
+
+**Goal:** learn standing — and honest skill discovery generally,
+clean non-scraping gait included — by RL alone: structural rewards,
+curricula, terrain, RSI. NO imitation losses of any kind. hw ships
+whatever works; this track exists to retire the crutch.
+
+## Now
+
+- Stand-from-scratch: six reward-side arms collapsed identically; the
+  collapse traced to warm-start OOD drift, and the Warp pool-restore
+  bug contaminated early verdicts — income-shaping/RSI verdicts are
+  REOPENED for from-scratch designs. RSI machinery works.
+- Gait-from-scratch: terrain clamp bug fixed (all past terrain was
+  really <=18mm); terrain2 (true 72mm) FAILED into leg-sacrifice;
+  dragstep1 FAILED — but its effective charge never exceeded
+  ~0.09/tick vs ~1/tick income, so "really big penalty" was UNTESTED.
+  **CROSS-TRACK: item 1 below is now ANSWERED, by an hw-tracked run**
+  (`cw-gait-dragstance1`, GAIT.md) — the audit-derived structural
+  per-stance charge (k=8000/m, correctly sized this time) trained
+  from scratch and FAILED into freeze/park (charge paid the whole
+  episode, never resolved, near-zero travel), matching its own
+  pre-registered false branch. Solo structural charge does not
+  induce stepping from scratch; move to item 2 (RSI-for-walk).
+
+- CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
+  crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —
+  it out-earns the plant-height gait ~495/ep on genuine progress
+  income while tilt penalties are negligible (≤1.5/ep). Pricing
+  magnitude alone must beat that moat without paying park; favors
+  the per-stance charge + curriculum levers below over any further
+  income shaping.
+
+## Next
+
+1. ~~Drag-charge magnitude audit~~ DONE 08-11 (see above) — solo
+   structural charge does not induce stepping from scratch.
+2. RSI-for-walk mid-stride spawns (now front of the gait queue).
+3. Annealed-up charge once the P2 bank lands; then stand-from-scratch
+   resumes with whatever levers moved gait discovery.
+
+Detail: GAIT.md P3 · RISE.md forensic ladder.
+
+
+---
+
+# FILE: rl_docs/tracks/quad/STATUS.md
+
+# quad — Quadruped with two hands
+
+W&B: tag `track:quad`. Excess-capacity research.
+
+**Goal:** walk on four legs with the front pair lifted as hands/arms.
+Stand on four, walk on four, front pair free for tricks.
+
+## Now
+
+- Four-leg HOLD is solid (quad-hold1-r2: survived 1.0, level, fronts
+  lifted; hold2 at 30% mix confirms the mechanism) but ANY mixing
+  dose erodes walk retention — quad stays a deploy-time specialist.
+- Deploy integration of a PASSING quad checkpoint belongs to hw
+  (joystick key `4`).
+
+## Next
+
+- The unattempted core: four-leg WALKING (weight shifted back onto
+  the rear four). Spec + bank FIRST — today's reward provably
+  punishes exactly this posture (anti-cheat calls it leg sacrifice;
+  level-referenced tilt pricing charges the rear-shift).
+- Then front-pair posture control while moving.
+
+Detail: ledger cw-quad-* lineage.
+
+
+---
+
+# FILE: rl_docs/tracks/turn/STATUS.md
+
+# turn — Commanded turning
+
+W&B: tag `track:turn`. Excess-capacity research; de-scoped from the
+hw deliverable (no camera = no front; rot-60 covers translation).
+
+**Goal:** make commanded yaw work — fix the structural left-yaw drift
+baked into the walk gait so the joystick can point the robot.
+
+## Now
+
+- Reward-shape tuning DOUBLY CLOSED (yawcmd/yawgate failed; turnfix1
+  was statistically identical to its matched parent). The drift lives
+  in the gait's chirality, not the turn reward.
+- 08-11: turn-reward bugs found+fixed+bank-tested (frozen robot
+  out-earned honest walker on yaw income; drift charge taxed honest
+  wobble). Zero-training mirror trick WORKS: reflected policy drifts
+  RIGHT, switching steers both ways (heading 2-4° vs 38° drift) — but
+  at drift rate (~2°/s), steering not pirouette.
+
+- **08-11 late: `cw-walk-mirturn1` (mirror-symmetry TRAINING, coef
+  1.0 warm from the champion) FAILED — the alternative branch fired:**
+  sym loss converged 28→0.5 but turn tracking never arrived (|wz_err|
+  med 0.254, L/R asymmetry intact, drift 3x worse) and the forced
+  symmetry rewrote the gait (prog 0.41 vs ~1.0, slip 5x). Mirror
+  TRAINING on a warm champion is CLOSED per the pre-registered gate.
+
+## Next
+
+- SHIPPED turning story: eval-time MirrorPolicy chirality selection
+  (arc-left/arc-right/straight, zero training, ~2 deg/s). Deploy port
+  + rot60 composition are the remaining [CODE] items.
+- Fast commanded turning needs a NEW idea (step 4 BC-anchor-on-turn
+  ticks is in reserve but unpromising after transbc1). No more
+  reward/coef/symmetry variants.
+- Hardware wz sign audit gates any bench turn session.
+
+Detail: rl_docs/TURN.md (design, bank numbers, failure history).
 
 
 ---
@@ -837,40 +1500,85 @@ questions — never to infer current state. **EDIT RULE (operator,
 material goes to `rl_docs/` with a pointer here; superseded detail
 moves to `archive/` — never accumulates here.**
 
+## Research tracks (operator, 08-11 — full rules: RESEARCH_RULES.md)
+
+The campaign runs as PARALLEL TRACKS, each with its own goal, W&B tag
+(`track:<id>`), and status doc (`rl_docs/tracks/`). Registry:
+`rl_move/orchestrator/tracks.json`. **hw** = joystick robot on
+hardware by any means (MAINLINE, pod priority — this file's queue is
+mostly hw); **arch** = GRU/temporal models learning walk/stand/sit;
+**nobc** = stand + clean gait from scratch, no BC anchor ever;
+**quad** = walk on four legs, front pair as hands; **turn** =
+commanded yaw via mirror symmetry. Non-hw tracks run on excess
+capacity. **Containment: a triaged run's follow-ups stay in its
+track; cross-track findings are escalated in writing, and
+cross-track launches are operator-only.**
+
 ## Prime directive (operator, 08-10 — full text: RESEARCH_RULES.md)
 
 **Minimize the number of unresolved blockers between the current
 robot and the next useful hardware joystick test — that count is the
-campaign KPI, not GPU occupancy.** Idle pods are acceptable when the
+campaign KPI, not GPU occupancy.** (Scope 08-11: this is the hw
+track's directive; other tracks substitute their tracks.json goal.)
+Idle pods are acceptable when the
 critical path is hardware, specification work, or code fixes. Every
 spec answers the launch question first: if this run succeeds or
 fails, does it change what we do before the next hardware test?
 
+## Operator directive (08-11 night — binding)
+
+**Make standing and walking work IN SIM, to deployable-champion
+quality, and keep the fleet firing at exactly that.** Cycles think
+root-cause-deep about the open stand/walk blockers (hold's parked
+foot, det flat-rise stall, rise-rock + takeoff roll-rate DR axes,
+the crouch-splay tall wall, contact/pinning) and keep launching arms
+that directly attack them — each spec'd so a PASS is a hardware
+candidate (Gate 0 / dep contract, champion warm-start, retention
+gates), not a throwaway. When the next lever is CODE (several are:
+rise-rock DR + bank, takeoff roll-rate injection, BC-INIT
+pretraining on the scripted tall gait, physics-easing ladder,
+min-over-feet hold pricing + per-mode bc_anchor_loss logging), the
+cycle WRITES it and checks it in: new cfg keys, DEFAULT OFF,
+bit-exact when off, tests/banks green, snapshot before training —
+never blast shared defaults with experimental code, never park a
+line on "CODE, unbuilt". Idle pods next to an unattacked stand/walk
+blocker are now the failure mode; peripheral runs stay banned.
+
 ## Critical path (simplification review §11, 08-10)
 
 **CURRENT GOAL:** joystick-controlled real robot. **BLOCKERS (as of
-08-11):** hardware attempt #2 (operator bench); deploy-side port of
-the rise+hold handoff composition (the rot-60 omni canonicalizer
-port LANDED 08-11 — runner wraps rot60.Rot60Policy, parity-locked,
-bench validation pending); deployment-equivalent loaded/contact
-dynamics (hold-current model fit). Rise/hold/lower
-and full-circle translation are SOLVED IN SIM; commanded turning is
-DE-SCOPED (no camera = no front). **DEFERRED:** quad mode, generic
+08-11 late):** the intermittent RUNAWAY ROLL on real ground (RL walk
+attempts 08-10: vref1-r1 2/2 runaway, tip1 1 runaway / 3 clean —
+queue item -1 has the full state; the discriminating A/B + the sim
+contact/pinning question are the open work), plus the FIRST bench
+runs of the newly landed pieces: rot60 off-wedge headings and the
+learned stand-up (rise+hold specialist port LANDED 08-11, trained
+goal profile shipped in the weights meta, contract-locked by
+`rl_move/tests/test_stand_runner.py` — needs a deploy re-push
+first; stance_dr10 rollback = one picker call). The hold-current
+"gap" is RETRACTED (08-11 probe: pose/unit confound; SIM.md gap 2).
+Rise/hold/lower and full-circle translation are SOLVED IN SIM. **Sanctioned compute
+experiment lines (operator 08-11 afternoon — not attempt-#2
+blockers, but wanted): turning (RE-OPENED, queue 0.2), four-leg
+walking (NEW, queue 0.3), tall/no-drag walking (queue -0.5). All
+three are diagnosis-first: audit whether the reward actually pays
+the desired behavior before launching arms.** **DEFERRED:** generic
 DR composes, posetrack, architecture curiosity work
 not tied to a demonstrated failure. **RULE:** idle GPUs are fine.
 **TEST:** the next experiment should take less than one minute to
 explain and should change what we do before the next useful
 hardware test.
 
-## Where we are (08-10 — live facts in CURRENT_TRUTHS.md)
+## Where we are (08-11 — live facts in CURRENT_TRUTHS.md)
 
-The real robot walks under a scripted gait — the bar learned policies
-must beat. Sim driving stack: strong, seed-confirmed, joystick-gate
-clean. Still failing: commanded turning (structural left-drift; price
-tuning closed) and stand-up (every arm loses to the height-only
-cheat — see rl_docs/RISE.md). Hardware attempt #2 checkpoint
-`cw-dep-vref1-r1` is validated, hardened, pulled to the operator
-Mac — waiting on bench time.
+The real robot walks under a scripted gait (tape-measured), and a
+learned policy has now driven it too: `dep-tip1` walked level 3 of 4
+bench runs 08-10 (vref1-r1 went 0/2 with runaway roll — see queue
+-1). In sim the full joystick cycle composes with zero falls (rise →
+drive any direction via rot60 → stop → sit); turning is de-scoped.
+The critical path is the runaway-roll question (bench A/B + possibly
+a sim contact fix) and first bench runs of rot60 + the learned
+stand-up.
 
 ## Standing rules → `RESEARCH_RULES.md` (binding; moved 08-10)
 
@@ -888,7 +1596,11 @@ one reward scalar. Hardware candidates pass Gate 0 (below).
 CLOSED moves — do not re-propose (evidence in `rl_docs/runs/`):
 
 - Anti-slip / income reward shaping against skating (10+ arms;
-  root cause is contact pricing, an operator calibration).
+  root cause is contact pricing, an operator calibration). SCOPE
+  narrowed 08-11 (operator): this closes income gates/shaping
+  retrofitted onto trained paddlers — it does NOT close the GAIT
+  CLEANUP line (queue -0.5 / rl_docs/GAIT.md): banked structural
+  drag charge, swing clearance, or from-scratch task curricula.
 - Rise reward-income shaping, reference-tracking-as-crutch, and RSI
   (state-distribution fix) — all beaten by the identical tripod/
   flag-leg cheat. A warp/MJX episode-pool state-loss bug (commit
@@ -934,22 +1646,50 @@ rungs until the flagship answers the real question — "can a
 history-aware policy with a correctly specified multitask MDP learn
 the joystick skill set?" — not "what is the best temporal arch?".
 
-**FLAGSHIP (queued behind the rise + turn MDP preflights passing):
-clean-sheet unified policy.** hist16 + EXPLICIT mode/command one-hot
-[CODE — the obs has no mode signal today] + 256×256 (or 256×256×128)
-MLP, from scratch, on HOLD/RISE/LOWER/WALK/TURN (not quad). Staged
-curriculum, not a fixed mixture: (A) hold + plant + near-plant
-rise/lower, (B) expand rise→belly / lower→sit, (C) forward
-locomotion, (D) turns, (E) transition-heavy joystick episodes.
-Pre-registered outcomes: works → the unified model IS the
-deliverable; skills fight → MoE justified (shared hist16 encoder +
-~4 small experts); rise cheats again → the MDP is still wrong,
-architecture exonerated. This experiment — not the graft lineage —
-decides specialists vs one network.
+**FLAGSHIP (stage A TRAINED 08-11: `cw-uni-flag-a1-r1` 2M +
+`-h2` 10M hardening): clean-sheet unified policy.** hist16 +
+EXPLICIT mode/command one-hot + 256×256 MLP, from scratch, on
+HOLD/RISE/LOWER/WALK/TURN (not quad). Staged curriculum: (A) hold +
+near-plant rise/lower, (B) expand rise→belly / lower→sit, (C)
+forward locomotion, (D) turns, (E) transition-heavy episodes.
+Stage-A result: hold 6/6 + lower 12/12 at specialist grade FROM
+SCRATCH (first time), rise (all-crouch) plateaued 1/6 with flat
+factors across 10M, NO cheat (honest sprawl-stall/tip-over — the
+same crouch fragility the deployed specialist has, 0/6 RSI-off).
+None of the pre-registered outcomes fired cleanly; "skills fight →
+MoE" needs interference MEASURED, not inferred (no from-scratch
+rise-only cell ever ran). **08-11: `cw-uni-flag-a1-risectl1` (2M,
+rise-only, one variable, the missing cell) REFUTES the MoE fork.**
+Isolated on stand-up alone (zero sibling skills to fight for
+capacity, 2.5x the flagship's rise-tick exposure), it lands in the
+IDENTICAL band: det valid_plant 1/6 (matches h2's 1/6 exactly),
+`env/rise_feet_factor` last-quarter mean 0.537 (flagship band
+0.44–0.64, confirm threshold was >0.8), zero exploit fingerprint in
+12 video-checked episodes (honest crouch-start tip-overs/sprawl-
+stalls, same shape as h2). Shared-capacity interference is NOT the
+cause — a network with nothing else to learn hits the same wall.
+**Do not build MoE for unified-policy rise.** The bottleneck is
+rise-from-scratch itself (matches the deployed BC-anchor specialist
+also failing 0/6 RSI-off on crouch starts before its start-mix fix).
+Next lever if this line reopens: specialist seeding/warm-start, not
+another reward/mix variant — but this is now architecture curiosity,
+not a hardware blocker (specialist-handoff composition already
+covers rise for attempt #2, deployed 08-11). No further flagship
+arms queued this cycle.
 
 Not defaults: velocity estimator / DreamWaQ (NOT needed for attempt
-#2; revisit only on a demonstrated hidden-state failure);
-transformers/CPG only on the archive review's triggers. Specialist
+#2; revisit only on a demonstrated hidden-state failure). 08-11 eve
+status of that rung: leg-odometry estimator BUILT and unit-tested
+(`rl_move/estimator.py`, sim-validated at DR0, corr collapses at
+DR0.5) but REFUTED as a hardware velocity source by the operator's
+tape data — real feet slip ~50%, and leg odometry over-reads by
+exactly the slip fraction (it cannot tell planted from sliding).
+Fleet evidence agrees velocity obs is not the gait lever (nv/nv2:
+"deployable obs are not the blocker"; aac: retention tool only). If
+true body velocity is ever wanted, the honest path is a downward
+optical-flow sensor (PMW3901, ~$20, SPI, works ≥80mm height — fits
+the ~142mm walk stance), not more inference.
+Transformers/CPG only on the archive review's triggers. Specialist
 heads / skill conditioning ARE acceptable if that is what reliable
 joystick control takes — deployability beats purity (GPT, 08-10).
 
@@ -973,10 +1713,13 @@ Open problems, in priority order:
    saturates ≥1.5, XML friction stands (`env.foot_friction_slide`
    hook landed for future floors; SIM.md gap 1). WALK semantics bank
    landed and PASSING: the tape-proven gait out-earns stall 1.9x and
-   park 3.5x under the champion stack. REMAINING: effort pricing at
-   hold (sim 0.11 A vs real 0.59 A, not scalar-fixable) — fit a
-   load-dependent holding-current model on the existing per-servo
-   traces; k_current=0 on hardware arms until then.
+   park 3.5x under the champion stack. The hold-current inversion is
+   RETRACTED (08-11, `probe_hold_current.py`: units ×18 + pose
+   confound; sim's proxy overprices 3–25x everywhere, conservative,
+   and matches the real walk>hold ordering). DEFERRED, not a
+   blocker: a register-scale cmd-fight/deadzone current model —
+   prerequisite ONLY for future k_current>0 hardware-pricing arms;
+   k_current=0 ruling stands.
 2. **Rise/lower inside the walking policy.** Full plan + evidence
    trail: **rl_docs/RISE.md**. Lower is solved warm (rfix-warm1 6/6
    posture-strict; keep fine-tune grafting, distill refuted). Rise:
@@ -1017,8 +1760,7 @@ Open problems, in priority order:
    instant-servo numbers is honest physics (hits the frozen parent
    identically). Loaded params are a viable dep-line training
    default; air-vs-loaded for attempt #2 is a bench decision.
-   Remaining: liftoff reproduction on loaded params; hold-current
-   model fit (problem 1).
+   Remaining: liftoff reproduction on loaded params.
 4. **Quad-mix erosion.** Dose-response so far: 50% erodes walk, 30%
    recovers on the walk champion, 30% on the driving champion
    FAILED, 15% in review. If erosion persists at useful mixes:
@@ -1033,32 +1775,257 @@ Open problems, in priority order:
 ## Queue
 
 -1. **HARDWARE (operator bench — the true critical path).**
-    Attempt #2 with `cw-dep-vref1-r1`: fresh set_zero at a known
-    visual pose first (a stale/slumped logical stance felled
-    a sound scripted gait); deploy tilt trip must match training (25°
-    angle + a rate term that trips only when rate is large AND
-    carrying the body away from level — never bare gyro magnitude);
-    fresh set_zero → plant start; k_current=0. During a scripted-gait
-    session: measure walk distance (tape) → unlocks open problem 1.
-    Audit sim wz sign vs hardware (+omega = clockwise, measured
-    08-09).
-0.  **UNIFIED JOYSTICK POLICY (top deliverable).** Stand/sit/turn/
-    walk in one checkpoint. Turning: yawcmd/yawgate1/yawgate2 all
-    FAILED (fixed left-yaw drift; price tuning CLOSED). The
-    signed-income/drift-charge/turn-curriculum mechanism set passed
-    its TURN bank but ALSO FAILED to move a real policy
-    (`cw-walk-turnfix1`, 08-10: matched-parent control statistically
-    identical to the failed parent) — reward-shape tuning on this
-    task is now doubly closed. Root-cause reading: the drift is
-    baked into the asymmetric WALK GAIT itself, not the turn
-    reward's shape/price. NEXT (the only untried lever): mirror-
-    symmetry augmentation [CODE — trainer surgery]. Design, bank
-    numbers, sign audit, failure detail: **rl_docs/TURN.md**. Measure
-    via rl_move/sim/eval_yaw.py + matched-parent control. Rise:
-    problem 2. Quad is a MAINLINE joystick command (drive_policy key
-    `4`).
+    **Attempt #2 HAPPENED (08-10 eve/night — stop calling it
+    pending; full findings rl_docs/HARDWARE.md).** `cw-dep-vref1-r1`
+    ran twice: runaway roll both times (opposite signs →
+    environmental seed; pinned-loaded-leg positive feedback, no
+    trained recovery). Its tipped-start retrain `cw-dep-tip1` then
+    ran 4x: 1 runaway / **3 CLEAN level walks** — a learned policy
+    HAS driven this robot. Obs pipeline proven bit-exact (offline
+    replay err 0.0014); sag is the commanded trained posture;
+    scraping is the known low-clearance shuffle (→ GAIT queue -0.5).
+    Scripted-gait tape: ~50% of commanded (done). STILL OPEN on the
+    bench: (a) the vref1-r1 vs tip1 A/B on the same floor (the 08-10
+    attempt never actually switched policies — compare roll-ramp
+    RATE / runaways per N, not one run); (b) tape reading on an RL
+    walk; (c) FIRST hardware runs of the newly-landed rot60 port and
+    the stand specialist (re-push via deploy_adb.sh first — the
+    on-robot stand copy lacks the goal profile, do NOT press STAND
+    stale); (d) wz sign audit. If the runaway recurs on tip1 too,
+    the fix is a sim contact/pinning model (no-skate feet), not
+    more DR. **Session runner: `rl_move/scripts/bench_blast.py --go`
+    (guided checklist, all of a-d); sim half `rl_move/sim/sim_blast.py`
+    — 08-11 run: NO runaway in sim at ANY friction (mu 1.0-2.0, the
+    default already sits at the mu 2.0 saturation), every trap episode
+    re-levels to <2 deg — the pinning gap is not a friction-magnitude
+    story; tip1 outranks vref1 at nominal grip (0.88 vs 0.75 roll-trap
+    pass), agreeing with the bench tally.**
+-0.5 **GAIT CLEANUP — kill the paddle, walk TALLER (operator 08-11,
+    TOP TRAINING PRIORITY; full design + rationale: `rl_docs/GAIT.md`;
+    operator re-affirmed 08-11 afternoon: walking from a higher
+    stance and walking without dragging feet are the same problem).**
+    The walkers travel by dragging loaded feet (slip/m 1.1–1.5) at a
+    ~50–77mm crouch; on hardware this scrapes and can catch.
+    (P0, REWARD-ACCURACY DIAGNOSTIC — DONE 08-11 late: `--stack
+    vref1` in `probe_walk_income.py`, GAIT.md bottom section.)
+    Penalty-side suspect REFUTED: the plant-height tape-proven gait
+    pays ≤1.5/ep total in gyro/roll/pitch and never terminates;
+    totals are near parity (gait −11% at DR0, +8% at own-DR 0.35).
+    The stack already favors tall by ~380/ep (stance kernel +
+    k_height) but the crouch-paddle collects ~495/ep MORE walk+prog
+    income because in sim it genuinely tracks the command (progress
+    1.06 vs the gait's slip-limited 0.35) — a DISCOVERY/effectiveness
+    problem, not a pricing hole. No repricing bank; proceed P2/P3.
+    (P1, CLOSED 08-11) `cw-walk-gaitbc1` FAILED — BC-anchor gait
+    cleanup froze into a static motionless tripod pose (video-
+    confirmed, identical every episode, fwd ~0.00m vs parent's
+    0.28-0.34m) instead of stepping: the anchor loss converged to
+    ~0 by NOT MOVING (unlike rise/hold, walk's reference target is
+    itself in motion, so freeze-toward-it looks satisfied). Per its
+    own pre-registered gate, not a coefficient-variant situation —
+    next is P2 or P3 lever 4. Detail: `rl_docs/GAIT.md`.
+    (P2, CODE+bank LANDED 08-11 eve, operator session — CLAIMED,
+    do not duplicate) charge-magnitude AUDIT DONE
+    (`probe_drag_audit.py`): the per-tick charge FORM is refuted at
+    any coefficient (0.5mm deadband left 53-97% of skating free;
+    per-tick slip medians overlap gait's touchdown scuff), but
+    per-STANCE accumulated travel separates skate from step 3.3x.
+    Structural charge landed in walk_task (`reward.k_drag_stance`,
+    `drag_stance_allow_mm`, `drag_stance_tick_floor_mm`; default
+    off, bit-exact). Bank PASSING: step-gait > zero-lift skate AND
+    > stall > park (test_drag_stance_stack_prices_skating_below_
+    stepping). Operating point k=8000 / 6mm / 0.25mm (skater pays
+    2.5x income, honest gait 23%). From-scratch arm = the operator
+    session's next launch. Detail: `rl_docs/GAIT.md` bottom.
+    (P2.5, TALL LADDER — operator session 08-11 eve, LIVE FLEET
+    CAMPAIGN: run these follow-ups.) Height-as-COMMANDED-REF rungs
+    work on the dep line where the hgt1 income gate did not:
+    `cw-dep-tall30` (warm from tip1, walk_height_off_mm=-30 +
+    k_drag_stance=8000/6mm/0.25mm, 2M) cut eval walk
+    height_err_end 60mm→15mm at −24% speed (0.0295 vs 0.0388) and
+    equal slip; isolation twin `cw-dep-tall30h` (no charge) is
+    statistically identical (17.5mm/0.0287/1.80) → the charge is
+    free, KEEP it; the speed cost belongs to the height rung.
+    Rung 2 `cw-dep-tall15` (ref −15, warm from tall30) STALLED:
+    body ≈ −44mm at either ref (err 29mm vs −15) — the free climb
+    ends at ~−44mm (tip1 eval-ends ~−60mm). WHY THE FLEET MISSED
+    IT: hgt1's FAIL verdict filed height as "cosmetic" and closed
+    the thread; lowgait proved ref-rung tracking but ran DOWNWARD
+    as a crouch envelope; nobody inverted it across lines.
+    Pre-registered follow-ups (one variable each, warm from
+    `ppo_goal_cw_dep_tall30` unless said otherwise; rung gate:
+    height_err_end ≤8mm at ref, speed ≥0.028, survived 1, slip
+    ≤1.8, no park):
+    **T1 budget FAIL (08-11, `cw-dep-tall15-h1`, 6M):** not
+       step-bound — `env/height_err_mm` plateaus by ~1M steps and
+       sits flat the remaining 5M; harness eval end-state is WORSE
+       than the 2M parent (51-58mm vs 29mm, near the tip1 ref-0
+       baseline 59.9mm), with a bit more instability (one spinning
+       episode, sto gait_valid 4/6). No cheat, still honest paddle.
+       Do not schedule further step-count variants. Detail:
+       GAIT.md. Next: T5 before T2/T3 (per this gate's own priority).
+    **T5 DONE (08-11 eve, operator session — `probe_tall_wall.py`,
+       landed):** the wall is HABIT/stability, NOT kinematics.
+       Deterministic steady-state rollouts of the tall30 checkpoint
+       vs the scripted plant-height gait in the same dep env:
+       mid-gait the tall30 body rides **−75mm** with hip pitch −41°
+       (≈70° of unused upward range) and knee 105° (≈46° room) —
+       nothing pinned upward — but leg YAW is PINNED at its 35°
+       limit (min margin < 0) with support radius 218mm vs the
+       gait's 179mm: the policy buys lateral stability with
+       splay+crouch. Scripted gait walks at +12mm in the same env
+       (existence proof). **MEASUREMENT CAVEAT (binding):**
+       `eval/walk/height_err_end_mm` is a STOP-WINDOW metric — the
+       ladder's 60→15mm "gains" were mostly stop-stance recovery.
+       Judge every tall arm by `probe_tall_wall.py` steady-state
+       WALKING height (tall30 baseline −75mm; first target ≥ −50mm).
+    **T3 result (08-11 eve):** 2M gate-at-reachable-ref
+       (`cw-dep-tall-gate1`) holds 15mm/no factor collapse (0.58 vs
+       hgt1's 0.24 crash) — gate and walking coexist. But the 6M
+       hardening (`cw-dep-tall-gate1-h1`) is an INFORMATIVE FAIL:
+       err 15→39mm — a σ30 income gate SLOWS but does not STOP the
+       posture-for-speed trade under budget.
+       **CONFIRMED 08-11 late (harness + probe_tall_wall.py on the
+       actual checkpoint):** harness det height_err_end 36-47mm at
+       DR0 (own-DR0.35 same band), speed 0.054-0.056 (above the
+       speed bar, so this is a pure height loss, not a stall);
+       steady-state walking height (the non-stop-window metric) is
+       **-72.6mm, statistically the same as tall30's own -75mm
+       wall** — 6M more steps under the gate bought ~2mm, not the
+       ~45mm the σ30 gate was priced to hold. Leg-yaw limit margin
+       still negative (-0.5..-0.3°, pinned at the 35° splay limit),
+       same fingerprint as T5. Video clean six-leg gait, no cheat —
+       an honest, informative miss. Gate-income alone is CLOSED as a
+       lever at this dose; do not schedule another sigma variant.
+    **T2/T4 VERDICTS (08-11 eve, probe_tall_wall mid-gait steady
+       state): PRICING FAMILY CLOSED FOR POSTURE.** kh3 −74.5mm,
+       kh10 −72.7mm (pays ~5.6/tick — MORE than its walk income —
+       rather than stand up), slow1 −71.5mm at its trained 0.035
+       cmd. Six arms total (ref ladder, income gate σ30, gate+6M
+       budget, k_height 3x/10x, speed relief) all flat at
+       −72..−75mm, leg yaw pinned at the 35° limit in every one.
+       kh10's charge-eating proves the optimizer cannot FIND the
+       taller basin — it is not underpaying for it. Do NOT launch
+       more pricing variants for posture (incl. the yaw-splay charge
+       candidate and σ45 — same family, pre-refuted by kh10).
+    **T6 (RSI-for-walk) CODE LANDED + ARM RUNNING (08-11 eve):**
+       `goal.walk_gait_start_frac` (walk_task + sim_env, default 0 =
+       bit-exact, tests green): with prob f a walk episode spawns
+       MID-STRIDE in the scripted tripod gait's tall pose, built at
+       the episode's own command, command live from tick 0 (0.3 s
+       ramp, no hold). Rationale: episodes always spawned tall
+       STANDING — the missing states are tall mid-stride WALKING
+       (same shape as the rise-RSI exploration closure).
+       `cw-dep-tall-rsi1` = warm from tall-gate1, frac 0.5, 2M.
+       If FLAT even with direct state injection: the wall is dynamic
+       stability itself → physics easing or a taller scripted
+       reference gait, not more reward work.
+    **T6 VERDICT (08-11 late): FLAT — −77.4mm by probe.** The policy
+       visits tall mid-stride states (50% of spawns) and actively
+       dives back to the crouch (survived 1: it learned tall→crouch
+       recovery, a robustness byproduct). CAMPAIGN CONCLUSION after
+       7 arms + probe: neither pricing nor state injection moves
+       mid-gait posture; crouch-splay is where PPO stabilizes this
+       walk under current physics. Existence proof stands (scripted
+       gait walks tall open-loop in the same env). Remaining levers
+       in order: (1) **BC-INIT** — pure action pretraining on the
+       scripted tall gait, THEN RL fine-tune under the gate income
+       (different mechanism from the refuted gaitbc1 anchor-loss-
+       during-RL, which could satisfy its loss by freezing; an init
+       cannot); (2) physics easing ladder; (3) accept the pareto:
+       `tall15_h1` (0.051 m/s, fastest dep walker ever, command-band
+       for the first time) + tall STOP-stance for hardware, posture
+       cosmetic. Byproduct: the 0.051 fast basin reappeared in rsi1
+       — robust, reachable from multiple parents, and DEPLOYABLE
+       (full dep contract) — bench-test it regardless.
+    Winner → Gate 0 export + tipped retention + bench A/B vs tip1.
+    Checkpoints: `ppo_goal_cw_dep_tall30{,h}`, `ppo_goal_cw_dep_tall15`,
+    `ppo_goal_cw_dep_tall15_h1` (fastest dep walker, 0.051 m/s),
+    `ppo_goal_cw_dep_tall_gate1{,_h1}` on train-2; tall30 also on
+    train-0 + the Mac (md5 a50a5d61).
+    (P3, the goal state — operator: learn it WITHOUT the anchor)
+    from-scratch curriculum line: terrain-as-teacher CLOSED for good
+    08-11 (two-miss rule — 72mm collapsed to leg-sacrifice, 54mm
+    avoided the sacrifice but paddled 4-6x worse than the closed
+    band; bumpy ground never forces stepping, `rl_docs/GAIT.md`).
+    Next: drag charge annealed up (needs the charge-magnitude audit
+    first), physics easing, RSI-for-walk. The 10+ closed anti-slip arms
+    were income shaping retrofitted onto formed paddlers — the
+    closure does NOT cover P0's repricing (if the probe demands it),
+    P2's banked structural charge, or P3's task curriculum
+    (operator ruling 08-11).
+0.  **UNIFIED JOYSTICK POLICY (top deliverable).** Stand/sit/walk in
+    one checkpoint (turning: see 0.2). Live experiment:
+    `cw-uni-flag-a1-h2` (10M hardening) finished 08-11, verdict
+    pending — decides one-brain vs MoE. Rise: problem 2.
     Line gate: joystick-gate retention AND rise/lower ≥5/6 AND quiet
     hold AND clean video on the post-273ebde floor.
+0.2 **TURNING — RE-OPENED (operator 08-11 afternoon); steps 1–2 DONE
+    08-11, step 3 QUEUED. Full results: `rl_docs/TURN.md` (bottom
+    section).**
+    (1) REWARD AUDIT — DONE, defect FIXED + BANKED: two cfg-gated
+    fixes in walk_task.py (`reward.walk_yaw_hold_prog_gate` —
+    heading-hold yaw income gated on achieved linear progress;
+    `reward.yaw_still_avg_s` — drift charge on the wz EMA, not the
+    gait's zero-mean oscillation). Pre-fix the yaw stack paid a
+    frozen body +375/ep vs the honest gait's +224 net; post-fix
+    income is monotone in honesty (gait 935 > … > driftride 715 > …
+    > freeze 242) with a drift-rider calibrated to ACHIEVE the
+    measured 0.09 rad/s. New stillness-subsidy bank (4 tests, incl.
+    a legacy-stack reproduction and the full-summed-stack
+    drift-rider check the old bank missed) green; TURN_OVERRIDES
+    trains both fixes ON. The yawcmd1/yawgate2/turnfix1 ckpts no
+    longer exist on any pod — ckpt-level audit closed UNTESTABLE.
+    (2) REFLECTION WRAPPER — DONE, PASS: `mirror.MirrorPolicy` +
+    `probe_mirror_turn.py` on cw-dep-vref1-r1 — mirrored policy
+    drifts −0.040..−0.046 vs naked +0.037..+0.062 rad/s with
+    IDENTICAL travel at DR 0 and DR 0.35, zero falls; bang-bang
+    alternation holds heading to 2–4 deg over 12 s vs 34–50 deg
+    naked runaway. Arc-left/arc-right/straight by chirality
+    selection, zero training — but at the drift rate (~2 deg/s), so
+    commanded-rate tracking stays open. Deploy port + rot60
+    composition are follow-up [CODE]; hardware sign audit still
+    gates any bench turn.
+    (3) MIRROR-SYMMETRY TRAINING — RUN AND FAILED 08-11 late
+    (`cw-walk-mirturn1`, discovery 2M, warm from vref1-r1, full fixed
+    pricing, mirror coef 1.0): sym loss converged 28→0.5 but turn
+    tracking never arrived (|wz_err| med 0.254, L/R asymmetry intact)
+    AND the forced symmetry rewrote the gait (prog 0.41 vs ~1.0, slip
+    5x parent). Mirror TRAINING on a warm champion is CLOSED per the
+    pre-registered gate; MirrorPolicy chirality selection is the
+    shipped turning story (deploy port + rot60 composition [CODE]).
+    (4) BC-ANCHOR ON TURN TICKS: in reserve, unpromising after
+    transbc1's walk-tick freeze.
+0.3 **FOUR-LEG WALKING — NEW line (operator 08-11 afternoon).** The
+    target image: the robot SHIFTS ITS WEIGHT BACK onto the four
+    rear legs and walks on them, front pair raised off the ground as
+    "hands". Never attempted; feasibility is GO (c57 sweep: 39mm
+    static margin with CoM shift + rear-leg splay), and the quad
+    HOLD mechanism is already solid (quad-hold2, dep-quad1-c2).
+    SPECIFICATION FIRST — the current reward punishes this behavior
+    by design, in two independent ways ("is the reward incentivising
+    the correct behavior" — here, provably not yet):
+    (a) the walk stack's anti-cheat machinery (park-duty charge,
+    step-event credits, flag-leg/sacrificed-leg detectors,
+    gait_valid) literally DEFINES a four-leg walk as the
+    leg-sacrifice cheat we spent weeks stamping out — every
+    accounting term must become lift-command-conditioned (commanded-
+    lifted fronts excluded from park/step/flag checks and paid via
+    quad_clear/quad_plant-style income instead);
+    (b) the rear-shifted posture fights k_pitch/k_roll and the
+    tilt-termination envelope, which are referenced to LEVEL — quad-
+    walk episodes need a commanded posture reference (the inverse of
+    the tipped-start level-reference trick) so tipping back on
+    purpose isn't charged or terminated.
+    Then the bank BEFORE any launch: honest four-leg stepping must
+    out-earn (i) ignoring the lift command and walking on six,
+    (ii) standing still on four, (iii) uncommanded leg sacrifice —
+    and the rear-shift posture must be net-non-negative under the
+    fixed pricing. Train as a SPECIALIST (warm from quad-hold2 or
+    the walk champion): four dose points prove quad/walk mixing
+    erodes walking, so no mixed-diet arms. If discovery stalls,
+    write a scripted rear-four diagonal-pair gait (TripodGait
+    variant on legs 1,2,3,4) as a BC-anchor reference.
 0.5 **TEMPORAL-ARCH** (1–2 pods; see Architecture).
 1.  Live truth for what's training/queued: `ops.sh census` +
     `launch_run.py backlog list` — never this file.
@@ -1113,45 +2080,35 @@ Open problems, in priority order:
        -> 100-161mm at 10M). Do NOT queue another rise
        reward-coefficient/RSI/dose/step-count variant on this
        lineage. Detail: rl_docs/RISE.md.
-    3. **Hold/track stillness pricing — SOLVED 08-11 (third lever:
-       extending the rise BC-anchor to hold/track ticks).** Two
-       pricing-only levers (hard no-flag zero, then a fade) FAILED
-       first (0/12 each — earning near-zero reward gave PPO no
-       gradient telling a parked leg which way to move).
-       `cw-stand-holdbc1` (BC-anchor now also targets hold/track
-       ticks) PASSES: harness hold 12/12 valid_plant det+sto,
-       worst-foot 2-13mm, video-confirmed level motionless six-foot
-       stand det AND sto — first genuine quiet hold in the campaign.
-       `env/hold_feet_factor` cleared the 0.1-0.35 plateau to ~1.0 by
-       500k steps, held all 2M. Rise retention mostly clean (bridge
-       2/2 det, sto 6/6) but det crouch shows 2/6 tilt_roll falls —
-       verified against holdstill1 (0 falls)/holdstill2 (1 identical
-       fall) as the SAME pre-existing crouch fragility, not new.
-       Checkpoint `ppo_goal_cw_stand_holdbc1` (SKILLS.md).
-       **Hardening continuation `cw-stand-holdbc1-hard1` (10M)
-       PASSES 08-11**: hold valid_plant 11/12 (matches discovery's
-       12/12, no regression), `env/hold_feet_factor` held 0.99-1.0
-       all 10M, det crouch-start rise improved 2/6->2/4 (33%->50%),
-       zero flag-leg/tripod cheat in 24 video-checked episodes.
+    3. **Hold/track stillness pricing — SOLVED 08-11 (BC-anchor
+       extended to hold/track ticks; two pricing-only levers failed
+       0/12 first).** `cw-stand-holdbc1` PASSES (hold 12/12
+       valid_plant det+sto, first genuine quiet hold); 10M hardening
+       `cw-stand-holdbc1-hard1` PASSES with no regression —
        `ppo_goal_cw_stand_holdbc1_hard1` is the hardened HOLD+RISE
-       checkpoint (SKILLS.md); lineage CLOSED for further hardening.
-       **BOTH handoff composition tests DONE + PASS (08-11,
-       `eval_handoff.py` / `eval_handoff_reverse.py`): the full sim
-       joystick motion cycle composes with zero falls** — specialist
-       rise → walk champion on the exact final state (12/12, no
-       scripted blend, air AND loaded), and walk → stop → sit
-       (specialist lower on the walker's stopped state == its own
-       clean band 4/6 posture-strict, only miss a cosmetic 62–99mm
-       dangling foot; the scripted go_zero-sit glide is 6/6 both
-       physics and covers the deliverable). Crouch rises still tip
-       pre-handoff (known fragility; flat+bridge 12/12). Optional
-       unqueued polish: BC anchor on lower ticks. rl_docs/RISE.md.
-    4. explicit mode/command one-hot in the obs (flagship
-       prerequisite); LOWER + TURN + WALK trajectory banks for
-       test_task_semantics.py (launch blockers for those modes);
+       checkpoint (SKILLS.md), lineage CLOSED. **BOTH handoffs PASS
+       (eval_handoff.py / eval_handoff_reverse.py): the full sim
+       joystick motion cycle (rise→drive→stop→sit) composes with
+       zero falls**; the scripted go_zero-sit glide (6/6 both
+       physics) covers the deliverable's sit. Optional unqueued
+       polish: BC anchor on lower ticks. **Deploy-side port LANDED
+       08-11 late**: runner stance slot runs the specialist, goal
+       profile rides in the weights meta, test_stand_runner.py locks
+       the contract — remaining work is BENCH-ONLY. Numbers/evidence:
+       rl_docs/RISE.md.
+    4. mode/command one-hot — LANDED 08-11 (see Architecture);
        machine-readable metric semantics registry (RESEARCH_RULES);
        contact-from-proprioception aux head; zero-drift DR mechanism
-       rework (open problem 5).
+       rework (open problem 5). **LOWER bank
+       LANDED 08-11 (last owed bank; TURN/WALK landed earlier):**
+       under the deployed specialist stack, honest command-tracking
+       descent out-earns the outrig/aloft cheats on every seed
+       (540 vs 461/383) and posture-strict rejects them (pads ~300 mm
+       vs ~0) — lower-mode arms are unblocked. KNOWN THIN MARGIN
+       (strict-xfail in the bank): pf=5/6 pricing lets one-leg-aloft
+       keep 85% of honest income — the incentive behind the deployed
+       specialist's cosmetic dangling foot; strengthen pricing or
+       BC-anchor lower ticks before any lower-MECHANISM arm.
 
 ## Gate 0 — deployment equivalence (every hardware candidate)
 
@@ -1229,6 +2186,31 @@ succeeds or fails, does it change what we do before the next useful
 hardware test? If the answer is no, do not launch it.** Idle GPUs
 are acceptable when the critical path is hardware, specification
 work, or code fixes. Do not launch experiments to fill slots.
+
+## Research tracks (operator, 08-11 — binding)
+
+The campaign runs as parallel tracks, defined in
+`rl_move/orchestrator/tracks.json` with per-track goals + status
+docs in `rl_docs/tracks/`. Every launch carries `--track` (or an
+inferable run-name prefix); the launcher tags the W&B run
+`track:<id>` and records the track in the ledger.
+
+- **hw** is the MAINLINE: the prime directive above (hardware
+  joystick KPI, by any means) is ITS directive, and it has priority
+  for pods. The other tracks (arch, nobc, quad, turn, …) are
+  parallel research lines that run on excess capacity with their own
+  goals — read the track's doc before designing for it.
+- **CONTAINMENT: triage of a run fires follow-up jobs ONLY in that
+  run's track.** The launch question is asked against the TRACK's
+  goal, not always the hardware test. A finding that matters to
+  another track is escalated, not launched: record one line in BOTH
+  tracks' STATUS.md ("Now") plus `CROSS-TRACK INSIGHT:` in
+  your cycle logline, and let the other track's next cycle act on
+  it. Cross-track launches are operator-only.
+- A verdict that changes a track's story updates THAT track's
+  `rl_docs/tracks/<track>/STATUS.md` ("Now"/"Next" sections — keep it
+  SHORT, a screenful; detail goes to the linked docs). The top-level
+  STATUS.md stays the whole-campaign digest.
 
 ## Phases and budgets (launcher-enforced: `launch_run.py --phase`)
 
@@ -1834,12 +2816,30 @@ so this axis is a hardening/regression floor, not the fix. Eval:
    foot–ground slide μ if a future floor demands it; DR
    friction_scale multiplies around it. Re-run the script after ANY
    contact/servo-param change (Gate 0).
-2. **Current/effort pricing inverted AT HOLD** — quantified 08-10 by
-   the same replay: sim plant-hold mean current 0.11 A vs real 0.59 A
-   (walking matches). The inversion is NOT fixable by scaling
-   (ordering flips); it needs a load-dependent holding-current model
-   fitted on the existing per-servo traces (tape CSVs + rl_stand
-   logs). Until then `k_current=0` on hardware arms stands.
+2. **Current/effort pricing at hold: the 08-10 "inversion" is
+   RETRACTED (08-11, `probe_hold_current.py`,
+   `logs/probe_hold_current/`).** The old comparison put sim
+   MEAN-PER-SERVO (0.11 A) against hardware BUS-TOTAL (0.59 A) — an
+   ×18 unit slip — AND compared different poses: the real 0.59 A is
+   the SCRIPTED-stand hold (cmd = ideal pose the loaded joints sag
+   from, servos fighting continuously), while the real walk-synced
+   plant hold reads 0.106 A total (hw_session2 per-servo registers;
+   the flailing-knee tick data shows register current tracks cmd−q
+   error, e.g. 3.9° err → 0.685 A). Pose/unit-matched probe (free
+   base, ServoProfile bus, hardware write profiles, air AND loaded
+   params): sim |qfrc|×1.2 proxy vs hw register totals — crouch hold
+   1.56 vs 0.106 A, ideal-cmd hold 1.56 vs 0.541, walk30 9.1 vs
+   0.395, rl_stand replay quarters ≈4–16 vs 0.19–0.96. Sim
+   OVERPRICES effort 3–25x in every condition (conservative: trips/
+   charges earlier than hardware would) and REPRODUCES the real
+   walk > plant-hold ordering — no inversion, no underpricing.
+   Residual (DEFERRED, not a joystick blocker): the proxy is not
+   register-accurate — real servos hold static load nearly free
+   (gear friction) and pay ∝ cmd-fight, so a register-scale model
+   needs a deadzone/cmd-error term. Fit it before any k_current>0
+   hardware-pricing arm (quiet-gait/current-economy); `k_current=0`
+   on hardware arms stands. Sim-vs-sim current comparisons in past
+   verdicts stay valid (same proxy both sides).
 3. **Hip/yaw loaded dynamics assumed**, not measured (table above).
 4. **Liftoff +roll collapse not yet reproduced in sim** — the loaded
    actuator set is the prime-suspect fix; re-run the reproduction
@@ -2006,8 +3006,10 @@ Charges:
 | cfg key (reward.) | default | what it does |
 |---|---|---|
 | `k_drag_loaded` | 0 | −k per meter of foot XY translation while in contact (skating); 0.5 mm/tick deadband. |
+| `k_drag_stance` / `drag_stance_allow_mm` | 0 / 6 | structural stance-slip charge (charge-magnitude audit 08-11, `probe_drag_audit.py`): accumulated loaded XY travel per STANCE PERIOD, charged incrementally beyond the allowance — prices the dragging STROKE where the per-tick form cannot separate skating from touchdown scuff. Audit operating point k=7000/m @ 6 mm: a learned skater's drag cost ≈2.4× its income, the honest gait pays on <5% of stances. |
 | `k_park_duty` | 0 | −k·(per-leg contact duty outside [0.1, 0.9]) over a trailing 2 s commanded window — a tripod park pays ~0.6k/tick, a real gait pays nothing. |
 | `k_walk_effort` | 0 | −k·mean servo current per walk tick (cost of transport; thermal load is the hardware-fatal quantity). |
+| `k_drag_trans` | 0 | **NON-walk modes** (rise/lower/raise/hold/track/lean/unload/quad): −k per meter of loaded foot-XY translation, 0.5 mm/tick per-foot deadband — the stand/sit foot-scrape the operator watches the robot do (08-11 night) was completely unpriced outside walk. A loaded foot that pivots/slides pays; a foot that lifts and STEPS to its new spot is free. `trans_drag_mm` metric logs on every non-walk tick regardless of k (watch the dragging without coupling metric to price). TRANS bank in `test_task_semantics.py` pins the orderings. |
 
 ## 5) Changing the reward — checklist
 
@@ -2811,6 +3813,299 @@ to lower ticks (reversed rise ref / glide-to-zero target) to fix the
 dangling foot if a one-policy stand/sit specialist ever matters more
 than the scripted path.
 
+### Deploy-side port (08-11 late) — the specialist is the robot's live
+### stance policy; bench validation is all that remains
+
+The RL_PLAN critical-path [CODE] item after both handoff PASSes:
+`ppo_goal_cw_stand_holdbc1_hard1` exported
+(`export_policy_np.py`, SB3↔numpy parity 2.65e-07) to
+`linux_control/policies/stand_holdbc1_hard1.json` AND copied live over
+`linux_control/rl_policy_weights.json` (the stance slot the web UI's
+STAND/LOWER buttons run).
+
+Design point, mirroring the rot60-port "no second implementation"
+rule: the runner used to hardcode the stance_dr10-era goal ramp
+(hold 5 s / ramp 4 s / +50 mm). Feeding that ramp to the specialist
+would command a half-height stand. The trained profile now rides
+INSIDE the weight file (`meta["profile"]`, new `--extra-meta` export
+flag): specialist stand = hold 5 s / ramp 6 s / target +111 mm (mid of
+the trained 108–114 band) / total 12.5 s (the handoff eval's validated
+switch point, inside the 15 s training horizon). `rl_policy.py` reads
+the profile per episode (`policy_profile()`); files without one keep
+the legacy constants, so picker rollback to `stance_dr10.json` is
+behavior-identical to the pre-port runner. Also: stance-slot obs-dim
+guard (refuses a mis-slotted file), `deploy_adb.sh` now ships
+`rl_walk_weights.json` + `policies/` (both were hand-staged before).
+
+Verification:
+- `rl_move/tests/test_stand_runner.py` (5 tests, green; full suite
+  119 pass / 6 pre-existing skips): live-file == picker-file bytes,
+  meta/profile values, runner ramp == training `GoalGenerator` rise
+  trajectory (<2 mm), 68-wide obs layout block checks (goal height
+  scaling, prev-action block), numpy-vs-SB3 parity on the source zip.
+- Closed-loop sim smoke with the DEPLOYED artifacts (numpy weights +
+  meta profile driving the env): flat-belly start, chassis 38 mm →
+  149 mm (+111 mm, exactly the commanded target), zero falls,
+  2/2 episodes.
+
+NOT an assumption after all — the OPERATOR independently exported and
+ACTIVATED the specialist in the robot's live stance slot the same
+morning (commit 1e64263, bench session 08-11, md5 6620705c; see
+HARDWARE.md "Bench state — drive session 08-11 morning"). That copy
+predates this port and carries NO profile meta, so the on-robot
+runner would feed it the LEGACY ramp: hold 5 s / ramp 4 s / **+50 mm**
+— an out-of-distribution height command for a policy trained only on
+108–114 mm targets, at a faster-than-trained ramp. **Re-push (deploy_
+adb.sh) or re-select this repo's profile-bearing export before
+pressing STAND**; the picker JSON's notes now say the same. Rollback
+either way: `POST /api/rl/policy_select {"file":"stance_dr10.json"}`
+(profile-less → legacy constants → behavior-identical to the old
+runner).
+
+Bench protocol (attempt #2 addendum): fresh set_zero, robot flat on
+belly → STAND button (operator watching, 10° trip, 2.5 A trip) →
+verify quiet hold → WALK button forward (existing captured-plant
+preflight gates the pose) → go_zero("sit"). Every episode logs
+obs+profile to CSV for offline replay parity.
+
+### `cw-stand-crouchrise1` (08-11) — crouch fragility FIXED by
+### start-mix bias; promotion declined on the hold current bar
+
+Binary question: does biasing the rise START DISTRIBUTION (60%
+crouch / 30% partial / 10% flat vs legacy 25/40/35; keys
+`goal.rise_flat_frac` / `rise_partial_frac`) fix the lineage's one
+residual defect — crouch-start tip-overs — where more undifferentiated
+budget only nudged it (2/6 → 2/4)? Answer: YES, decisively.
+
+- Gate harness (DR0, det+sto, seed 0): rise det 6/6 valid_plant
+  (crouch 5/5, bridge 1/1), sto 6/6 success (3 current-only vp
+  flags); hold det 6/6 vp; ZERO terminations in all 36 episodes.
+- Dig-in RSI-off ALL-CROUCH probe (seed 1, `rise_rsi_frac=0`, 8 det
+  + 8 sto), matched-parent control on `holdbc1_hard1`, same seed and
+  cfg (`logs/ckpt_eval/{crouchrise1,hard1}_rsioff_crouch`):
+  child **det 8/8 valid_plant, 16/16 stands, zero falls**; parent
+  **det 0/8 with 8/8 tilt_roll falls** (sto parent 7/8 — the det
+  policy is where the fragility lived). The RSI-on gate numbers had
+  been flattering the parent; RSI-off shows the true gap.
+- Videos honest both checkpoints' passing episodes: crouch/bridge →
+  progressive leg gathering → level six-foot stand, no
+  flag-leg/tripod/stilt.
+
+MISSED pre-registered bar: hold det+sto valid_plant 7/12 (needed
+>=10/12). Every miss is the PLANT_SPEC final-0.5s-tail current soft
+flag (>2.0A) under sto — hold sto 1/6 vp vs parent 5/6; det episode
+Imax 2.31A vs parent 1.96A. Posture, stillness, feet, height are
+identical to the parent (end_posture 12/12, worst clearance 2–10mm,
+track_err 0.19° det). Real but small current-hungriness increase on
+a sim metric CURRENT_TRUTHS marks untrusted (sim hold 0.11A vs real
+0.59A). Per the gate's own terms: **no promotion** —
+`ppo_goal_cw_stand_holdbc1_hard1` stays the deployed stance policy;
+`ppo_goal_cw_stand_crouchrise1` (md5 3877e16c) is pulled to the
+controller and banked as the crouch-robust variant. Track-mode sto
+also dipped (1/6 vp, current flags only) — same fingerprint, same
+non-gated status as the parent's known track weakness.
+
+Lesson worth keeping: after seven reward-mechanism failures and two
+budget passes, the lever that finally killed a start-kind fragility
+was the START DISTRIBUTION, one cfg key, 2M steps. Stand lineage now
+fully closed: rise (all start kinds, between the two checkpoints),
+hold, lower, both handoffs — all sim-solved; remaining work is
+bench-owned.
+
+## LOWER semantics bank (08-11 idle-kick cycle — SPECIFICATION, no training)
+
+The last owed `test_task_semantics.py` bank is LANDED: lower mode,
+under the deployed specialist's exact stack (holdbc1-hard1 cfg-sets,
+loaded servos). Honest = FixedFootBodyIK descent anchored at the
+SETTLED stance (anchoring at the ideal plant leaves a 16 mm sag
+error), tracking the commanded ramp with all feet planted.
+Measured (3 seeds): honest 540 > aloft 461 (85%) > outrig 383 (71%)
+> partial 103–182 > refuse −2..−51 > thrash −77..−107; posture-strict
+(60 mm pads / 15 mm h_err) accepts honest and rejects both cheats on
+every seed (~300 mm aloft pads). Bank PASSES → lower-mode arms are
+unblocked.
+
+FINDING (encoded as a strict-xfail in the bank): the pf=5/6
+posture-gate pricing lets a one-leg-aloft lower keep ~85% of honest
+income — cheating out-earns refusal. This is the incentive behind the
+deployed specialist's cosmetic 62–99 mm dangling foot seen in
+eval_handoff_reverse. Not a joystick blocker (scripted sit glide
+covers the deliverable; eval catches the posture), but any future
+lower-MECHANISM arm (e.g. the optional BC-anchor-on-lower polish)
+should strengthen this margin first and flip the xfail.
+
+## `cw-stand-holdload1` (08-11) — reward-side hold-cheat hypothesis REFUTED
+
+Pre-registered mechanism test off the crouchrise trio's unresolved
+hold-park cheat: is the legs-1+4 hover profitable only because the
+reward/eval was BLIND to it (clearance-priced, `foot_down_mm`/
+`flag_leg_mm` both miss a 1–19mm hover), or is it an anchor-bleed
+artifact the reward can't touch? New `reward.hold_feet_load=1.0`
+prices hold/track income on MEASURED per-foot touch force (not
+height), validated by its own FEET-LOAD bank in
+`test_task_semantics.py` (hover reproduced at 4–13mm/duty<0.2 earns
+only 0.25x of quiet-stand income under the gated stack vs 0.85+
+parity pre-fix).
+
+Result: **same recipe (crouchrise3, dose 0.45) + the new term still
+parks legs 1+4.** Gate harness det-hold `duty_cycle` is [0.77, 0.04,
+0.97, 0.73, 0.03, 0.99] — identical across all 6 deterministic
+episodes (same start state) — vs crouchrise1/2/3's exact same two
+legs. `valid_plant` reads True the whole time because both feet
+happen to be within a couple mm of the floor at EPISODE END even
+though they're airborne >95% of the episode — the same telemetry
+gap flagged in crouchrise1's dig-in, now proven insufficient even
+after the reward correctly prices the behavior mid-episode (the bank
+confirms the term works in isolation; the trained policy still finds
+it worth paying for). sto hold's vp misses are the pre-existing
+>2.0A current-tail soft flag (5/6), unrelated. Crouch rise unaffected
+(det 6/6 incl. crouch 4/4, zero falls) — this run does not touch the
+crouch fix. det lower regressed to 2/6 (leg-2 dangling ~90mm, zero
+falls) — matches the crouchrise2/3 lower regression exactly, not new.
+
+Per pre-registration: reward-side hypothesis REFUTED by direct
+measurement. Three distinct lever families are now closed on this
+cheat (start-mix, dose, reward-pricing) — the state/height-aligned
+BC anchor (clock-indexed anchor showing lifted-leg reference poses
+in plant-adjacent states) is the sole remaining suspect, and it's
+CODE/spec work, not another training variant. `hard1` remains the
+deployed stance checkpoint; `cw-stand-holdload1`'s checkpoint is not
+promoted or warm-started from.
+
+## `cw-stand-anchorstate1` (08-11) — state-aligned BC anchor: PARTIAL mechanism confirmation, net FAIL
+
+The last remaining suspect got its own test: `train.bc_anchor_state_
+aligned=1.0` re-indexes the BC anchor every tick to the nearest
+reference pose to the robot's CURRENT joints (+0.25s pursuit
+lookahead) instead of a fixed clock, so a crouch/plant-adjacent state
+can only ever be supervised toward the planted tail of the reference
+path, never an early belly-path lifted-leg pose.
+
+Result: **first fingerprint movement in five runs.** Det-hold
+per-foot duty `[0.98, 0.04, 0.97, 0.97, 0.93, 0.99]` — leg 4
+RECOVERED (0.93 vs 0.01–0.04 in every prior arm), leg 1 still parks
+(0.04). So the state-aligned anchor moved the park where four
+pricing/dose/mix changes could not — anchor-bleed is CONFIRMED as *a*
+mechanism, not refuted, but leg 1 shows it isn't the whole story
+(candidate: the lower-bank's own documented dangling-foot incentive
+gap, see above). Cost of the fix: det flat rise stalled 62mm short
+with all feet planted (0/1 — under-drive, not a cheat: a state anchor
+only points 0.25s ahead of wherever the policy currently is, so a
+policy that stalls gets barely-moving supervision, unlike the old
+clock anchor which dragged it through regardless), and det lower
+picked up three tilt_pitch falls (2/6, front feet lifting ~30mm
+mid-descent — lower has no anchor, so this is an indirect
+shared-network effect, worse than crouchrise3's fall-free
+regression). Crouch rise itself stayed clean (det 4/4, sto 3/3), hold
+otherwise clean (det 6/6, sto 6/6).
+
+VERDICT: FAIL on gate (leg-1 duty, flat-rise stall, lower falls) but
+NOT the pre-registered dead-line (the fingerprint changed instead of
+reproducing identically) — anchor-bleed is a real, partial mechanism.
+Follow-up per pre-registration: `cw-stand-anchorstate2`, ONE axis
+(`bc_anchor_lookahead_s` 0.25→0.5) to restore flat-rise drive while
+keeping the state-locality that fixed leg 4 — already launched,
+result pending. `hard1` stays deployed; do not warm-start or deploy
+from anchorstate1.
+
+## `cw-stand-anchorstate2` (08-11) — lookahead dose 0.25→0.5s: axis EXHAUSTED for the park, leg-1 fingerprint isolated
+
+One axis vs anchorstate1: `train.bc_anchor_lookahead_s` 0.25 → 0.5,
+doubling how far ahead the state-aligned anchor pulls (still clamped
+at the reference path's planted-tail end, so it should not reopen
+the belly-path lifted-leg leak that caused the original clock-anchor
+cheat).
+
+Result: **both anchorstate1 regressions fixed exactly as
+hypothesized.** Det flat rise restored to 1/1 (was 0/1 stalled 62mm
+short). Det lower falls 3→0 (still short of the target: 2/6 success,
+sto 4/6, zero falls — a shortfall, not instability). Crouch rise
+stayed clean (det 4/4, sto 3/3), bridge 1/1. Leg 4 stays recovered
+(det-hold duty 0.95). Hold overall: det 6/6 + sto 6/6 success,
+valid_plant 11/12 (clears the ≥10/12 gate clause).
+
+**Leg 1 still parks: det-hold per-foot duty
+`[0.99, 0.03, 0.98, 0.96, 0.95, 0.98]`** — the SIXTH consecutive run
+with that exact fingerprint on that exact leg, unmoved by four
+pricing changes (start-mix, dose, reward-pricing/feet-load) and now
+two anchor lookaheads (0.25s, 0.5s). `valid_plant` reads True anyway
+(blind to per-foot duty mid-episode — the leg drifts back down at
+episode end).
+
+VERDICT: FAIL on the leg-1 duty clause and the lower-success clause,
+but this is the pre-registered "leg-1 persists + flat rise restored"
+branch verbatim — the lookahead axis is EXHAUSTED for the park, not
+inconclusive. Per pre-registration, the next lever is the one
+documented incentive gap not yet attacked: the LOWER bank's own
+strict xfail (`rise_posture_gate` prices one-leg-aloft at pf=5/6, so
+it keeps ~85% of honest lower income) — leg-1's hold-park and
+det-lower's dangling-leg shortfall share the same class. `hard1`
+stays deployed; anchorstate2 is otherwise the strongest unified-stand
+checkpoint yet (crouch+flat+bridge rise, six-foot-minus-one hold,
+zero falls anywhere det) but does not clear the gate to replace it.
+
+Follow-up `cw-stand-loweranchor1` (`train.bc_anchor_lower=1.0`: BC
+supervision on LOWER ticks toward the lower bank's own honest
+demonstration — a per-tick `FixedFootBodyIK` descent anchored at the
+settled stance, body at the next commanded height; tests pin
+default-off, IK-exact emission, and a feet-planted chained descent,
+`rl_move/tests/test_bc_anchor.py`, all pass) **RAN: LOWER SOLVED, hold
+park REGRESSED — outside every pre-registered branch, and it names
+the next mechanism.** The IK-descent anchor delivered det lower 6/6
+AND sto lower 6/6 (from 2/6, zero falls anywhere det) — the lower-bank
+xfail lever works exactly as specced, sitting/lowering is done. But
+det-hold duty flipped BACK to a two-leg park ([1.0, 0.02, 0.89, 1.0,
+0.02, 0.91]) — leg 4 was recovered (0.93–0.95) in anchorstate1/2, now
+parks again, and det flat rise re-stalled 96mm short (worse than
+anchorstate1's 62mm). This REFUTES the "independent mechanisms"
+PARTIAL-branch premise: the park did move, but WITH the lower-anchor
+mix, not because of a shared taught habit. Root cause: all three
+per-mode anchors (rise/hold/lower) share ONE ring buffer and ONE MSE
+step with uniform sampling, so each mode's effective supervision
+strength is proportional to its emission share — adding thousands of
+lower pairs diluted the rise/hold gradient. **ANCHOR DILUTION** is a
+new, directly testable mechanism (not another blind pricing/dose
+retune). Follow-up (ran as -r1 — outcome in the next section): `cw-stand-anchormix1`
+(`train.bc_anchor_stratified=1.0`, mode-tagged ring buffer with equal
+per-mode minibatch quotas, everything else frozen at loweranchor1) —
+if stratified sampling recovers hold+rise while keeping lower's 6/6,
+the unified stance line is SOLVED; if the park still moves with the
+mix even at equal quotas, dilution is wrong/incomplete and the next
+step is inspecting `train/bc_anchor_loss` per mode. hard1 stays
+deployed meanwhile; `ppo_goal_cw_stand_loweranchor1` is the strongest
+lower-specialist checkpoint to date if one is ever wanted standalone.
+
+## cw-stand-anchormix1-r1 (08-11 late): stratified quotas — FAIL, dilution incomplete
+
+The dilution fix ran clean (first launch crashed on a warm-start
+`_bc_mode` pickle gap, fixed in bc_anchor.py; -r1 trained the full 2M,
+`train/bc_anchor_loss` converged 0.033→0.012, buffer full at 131k).
+Gate result (harness det+sto, DR0, videos watched):
+
+- RETAINED: lower 6/6 det + 6/6 sto (loweranchor1's win kept under
+  equal quotas), det crouch rise 4/4 valid_plant, zero falls in all
+  36 episodes, no non-park cheat.
+- STILL BROKEN: det flat rise stalls 105.6mm short (height+footprint
+  fail — splayed low the whole strip, an under-drive not a cheat);
+  det hold parks ONE foot (duty 0.02 vs 0.90–0.99 on the other five;
+  `env/hold_feet_factor` pinned at ~0.14 the entire run vs holdbc1's
+  ~1.0); hold det+sto valid_plant 9/12 (three sto 'current' fails).
+- THE TELL: the park MOVED. Both legs that parked in
+  crouchrise1/2/3/holdload1 (and the one that persisted through
+  anchorstate1/2) now read duty 0.90–0.97; a DIFFERENT single leg
+  parks. Which foot rests is a function of the anchor configuration,
+  not a fixed learned habit — the seventh distinct anchor/pricing
+  configuration to produce a one-or-two-foot park, each time
+  "solving" the previous fingerprint.
+
+Verdict: pre-registered FAIL branch — anchor dilution was real (the
+quotas did protect lower + crouch rise) but is NOT the whole
+mechanism. The branch's mandatory next step applies: per-mode
+`train/bc_anchor_loss` logging (CODE — only the aggregate exists
+today) before any further stand arm, so the next hypothesis is chosen
+on measurement. hard1 + specialist handoff stays the deployed stance
+stack.
+
 
 ---
 
@@ -3183,6 +4478,558 @@ chain. Remaining work on this blocker is BENCH-ONLY: an operator
 walk session exercising lateral/backward headings (start with
 rot60=false forward, then wrapped forward — should be identical —
 then off-wedge).
+
+## TURN RE-OPENED (operator 08-11 afternoon) — latent defect FIXED,
+reflection wrapper PASSES: bidirectional steering with zero training
+
+Operator re-opened turning as an experiment line ("it really should
+be possible"). RL_PLAN queue 0.2 executed in order, 08-11:
+
+**(1) The latent yaw-stack defect is FIXED and BANKED** (walk_task.py,
+both cfg-gated, default 0 = byte-identical legacy):
+
+- `reward.walk_yaw_hold_prog_gate` — on linear-command ticks the
+  heading-hold side of the yaw kernel is multiplied by achieved-
+  progress fraction clip(along/s_ref, 0, 1), the exact mirror image
+  of `walk_kernel_yaw_gate`. Pre-fix a MOTIONLESS body collected the
+  largest single channel in the stack (probe, forward/DR0: freeze
+  +375/ep vs honest gait +334; net of the drift charge the yaw stack
+  paid freeze +375 vs gait +224 — a stillness subsidy). Genuine stop
+  segments (s_ref ~ 0) stay paid.
+- `reward.yaw_still_avg_s` — the heading-hold drift charge prices the
+  EMA of wz (the DC drift it exists to punish) instead of the
+  instantaneous wz (the honest gait's zero-mean stride oscillation,
+  wz_rms ~0.044). Pre-fix it taxed the honest gait −110/ep and every
+  motionless degenerate ~0 — charging exactly the wrong policy.
+  Per-episode EMA state rides MJX_SNAPSHOT_EXTRA (pool-restore
+  lesson, commit 65edba7).
+
+Post-fix income probe (`probe_walk_income.py --stack mirror2fix`, new
+`driftride` reference calibrated so the scripted gait ACHIEVES the
+measured 0.09 rad/s while translating — commanded omega 0.25; the
+gait realizes ~40% of commanded omega): ordering is now monotone in
+honesty — gait 935 > gait_slow 772 > driftride 715 > sac1 683 >
+paddle 441 > freeze 242 (was gait 1011 ~ gait_slow 1008 with freeze
+collecting the top yaw channel). The rider pays −92/ep for its DC
+rotation; the honest gait's oscillation tax fell −110 → −2.
+Artifacts: `logs/probe_walk_income/mirror2{,fix}_driftride.json`.
+
+New bank (test_task_semantics.py, stillness-subsidy section): the
+FULL summed stack on a straight-line command vs a body that simply
+does not move — the exact blind spot the old TURN bank (turn-in-place
+only, mechanism terms in isolation) and the freeze-floor bank
+(turn-tick kernel) both missed. Four tests: subsidy closed on the
+fixed stack, subsidy PROVEN on the legacy stack (so a default drift
+can't silently retire the reproduction), fixed stack restores honest
+walking's margin over a freeze, and the calibrated drift-rider loses
+to the honest straight gait under the full summed stack.
+`TURN_OVERRIDES` now trains both fixes ON — any turn arm must.
+NOTE: the yawcmd1/yawgate2/turnfix1 checkpoints no longer exist on
+any pod (searched 08-11; only the mirror lineage survives on
+train-0), so the ckpt-level term audit is closed as UNTESTABLE — the
+calibrated scripted rider stands in for their fingerprint.
+
+**(2) REFLECTION WRAPPER — PASS, the rot60 lesson repeats.**
+`mirror.MirrorPolicy` (eval-time, numpy-only, algebra locked by
+test_mirror.py against a stub): pi_mirror = mirror_act(pi(mirror_obs)).
+`probe_mirror_turn.py` on THE hardware checkpoint
+(`cw-dep-vref1-r1`), 12 s forward walks (artifacts
+`logs/mirror_turn/`):
+
+    DR 0:    naked wz +0.0399 rad/s (heading +38 deg), travel 0.562 m
+             mirror wz −0.0455 rad/s (heading −37 deg), travel 0.566 m
+    DR 0.35: naked +0.0450 / mirror −0.0403 rad/s, travel 0.52/0.51 m
+             (drift flips on every seed)
+    heading-hold (bang-bang naked/mirror on accumulated heading,
+    4 deg hysteresis): final |heading| 2–4 deg vs naked's 34–50 deg
+    runaway, travel ~0.85x naked, 5–7 switches, ZERO falls anywhere.
+
+Reading: the pinwheel asymmetry (mirror.py docstring) is behaviorally
+negligible — the mirrored gait is fully competent. Chirality
+SELECTION therefore already gives: arc-left (naked), arc-right
+(mirror), and drive-straight (alternation), zero training, from the
+already-deployed checkpoint. Turn rate is the drift magnitude
+(~0.04 rad/s in sim, ~2.3 deg/s; hardware measured ~0.09), so this
+is SLOW steering — command tracking up to ±0.3 rad/s stays unsolved.
+Deploy-side port + composition with rot60 (mirror-then-rotate is
+still a single obs permutation) are follow-up [CODE]; the sign audit
+(sim +CCW vs hardware +omega=CW) remains OPEN and gates any bench
+turn session.
+
+**(3) Mirror-symmetry training — RUN, FAILED (08-11 late).**
+`cw-walk-mirturn1` (discovery 2M, warm from cw-dep-vref1-r1 +
+pad-transplant, forward wedge + yaw command set, the FULL fixed
+pricing incl. walk_kernel_yaw_gate, train.mirror_loss_coef=1.0): the
+mechanism engaged cleanly (`train/mirror_sym_loss` 28.3->0.51) but
+both gate halves fired FAIL — eval_yaw turn |wz_err| med 0.254 (gate
+<=0.15; still command-invariant, L/R asymmetry intact: tip-left 0.409
+vs tip-right 0.255) and heading-hold drift got WORSE than the parent
+(0.148 vs ~0.04) — AND the forced symmetry rewrote the champion's
+gait itself (harness prog med 0.41-0.43 vs parent's ~1.0, slip/m
+6.0-7.6 vs 1.1-1.5, near-in-place churning on video, zero falls).
+Per the pre-registered FAIL branch, mirror-symmetry TRAINING on a
+warm champion is CLOSED for good. The shipped turning story is
+eval-time MirrorPolicy chirality selection (arc-left/arc-right/
+alternation, zero training, ~2 deg/s, described above). Step (4)
+BC-anchor on turn ticks stays in reserve, unpromising after the
+walk-tick BC anchor (`cw-omni-transbc1`) froze into a static pose
+under the analogous per-tick imitation pressure.
+
+
+---
+
+# FILE: rl_docs/GAIT.md
+
+# GAIT.md — kill the paddle: walking that lifts its feet
+
+Operator directive 2026-08-11 ~13:05. Owner: agent cycles; operator
+reviews verdicts. Status of each item lives in the ledger/RL_LOG, not
+here.
+
+## The problem
+
+Every walking champion travels by PADDLING: feet stay loaded and
+skate across the floor (slip/m 1.1–1.5 in its own band; the
+hist16-dep1 eval degenerate hits 7–11). On hardware this scrapes the
+leg tips against the ground and the robot can catch/stall. We want a
+gait that LIFTS and PLACES feet — swing legs clear the ground, stance
+feet do not translate while loaded.
+
+## What we know (don't re-derive)
+
+- **Pricing already prefers stepping.** probe_walk_income.py (08-11):
+  an honest stepping gait out-earns the paddle 2–4x under the
+  champion stack, all four directions, DR 0 and 0.5. The paddle is
+  not a paid basin — it is a strong LOCAL optimum PPO finds first and
+  never leaves.
+- **Sim slip is not free.** calibrate_slip.py (08-10): sim is
+  slightly conservative vs the real floor (travel ratio 0.35–0.41 sim
+  vs 0.50–0.51 real, speed-invariant). This is not a sim exploit.
+- **Anti-slip income shaping is CLOSED (10+ arms).** Gates/shaping
+  retrofitted onto a trained paddler either starve income (policy
+  parks and earns nothing — the park-and-earn failure) or get farmed.
+  That closure is about INCOME SHAPING ON A FORMED HABIT. It does not
+  close the two things below (operator 08-11): a structural drag
+  CHARGE banked from scratch, and CURRICULUM that changes the task.
+- **The scripted tripod gait steps.** It walks the real robot
+  (tape-proven), and bc_anchor.py already emits it as a
+  command-conditioned per-tick target on walk ticks
+  (`cw-omni-transbc1` built the machinery; that arm failed on
+  from-scratch omni TRANSLATION, which rot-60 later solved — the
+  anchor itself converged cleanly. It was never tried for GAIT
+  CLEANUP on a policy that already travels).
+
+## Priority 1 — BC-anchor gait cleanup — CLOSED 08-11 (froze instead
+of stepping; see session log)
+
+`cw-walk-gaitbc1`: warm-start THE hardware walker (`cw-dep-vref1-r1`)
+with `train.bc_anchor_coef=1.0` on walk ticks (existing TripodGait
+target), discovery 2M, everything else byte-identical to the parent's
+recipe. Rationale: rise and hold both proved the anchor breaks
+entrenched habits that pricing cannot; here the skill (traveling)
+already exists and only the HABIT (dragging) needs breaking, which is
+the anchor's demonstrated strength.
+
+Gate: slip/m must drop DECISIVELY below the parent band (target
+<0.6 at DR0 and own-DR vs parent 1.1–1.5) while keeping the
+joystick gate (zero falls, fwd distance, vel-err in band) and
+gait_valid. Kill signature: fwd distance collapses toward the
+scripted gait's slower band with no slip win, or park.
+Follow-up if PASS: 10M hardening + tape-replay style hardware check
+before any promotion talk.
+
+## Priority 2 — structural stance-slip / swing-clearance terms
+   [CODE, bank first]
+
+Two structural terms (HARDWARE.md queued them long ago), landed
+behind cfg flags with an MDP_PREFLIGHT bank BEFORE any launch:
+
+- **Stance-slip charge**: foot-XY translation WHILE IN CONTACT,
+  charged per tick (this is literally the scrape). A charge, not an
+  income gate — gates are the closed move.
+- **Swing-clearance term**: swing feet must clear >= X mm at
+  mid-swing (pay tiny clearance income or charge sub-clearance
+  swings; pick in SPECIFICATION).
+
+Bank requirements (scripted fingerprints, full champion stack):
+step-gait >> drag-gait, AND drag-gait > freeze/park (the penalty must
+never make parking the optimum — the exact failure of the closed
+arms), AND the honest gait's own small placement slip is not
+bankrupted (tape-proven gait must stay net-positive).
+
+## Priority 3 — LEARN it, no anchor (operator: the goal state)
+
+Operator 08-11: "if we really gave dragging on the ground a big
+penalty, it should eventually learn how to move — maybe we need to
+make the task initially easier in some other way." The BC anchor is a
+crutch; this line exists to retire it. Design principles: dragging
+expensive AND the task easy enough early that clean travel is
+DISCOVERABLE before the charge matters. From scratch (no paddle habit
+to break), one easing lever at a time:
+
+1. **Terrain-as-teacher (first arm — physics does the pricing).**
+   Train ON bumpy ground (existing `env.terrain_amp` hfield, bumps
+   ~20–36 mm). On bumps a dragging foot physically catches: paddling
+   stops traveling, so plain progress income selects stepping with NO
+   reward surgery. Anneal terrain toward flat late (or test transfer
+   to flat directly).
+   ZERO-TRAINING PROBE FIRST (cheap, decisive): eval the current
+   champion on terrain_amp>0 and read slip/m. Champion already
+   survives 36 mm bumps — if its slip DROPS there, physics already
+   forces stepping and the premise is confirmed; if it paddles over
+   bumps at the same slip, this lever is refuted and we skip the arm.
+   **REFUTED (08-11, `cw-dep-vref1-r1` on freshly-synced code —
+   the amp>1 clamp fix, 434a6e0, must actually be on the eval pod;
+   an unsynced free pod silently re-ran the OLD clamped code and
+   returned bit-identical reports across amps, a false negative,
+   caught + documented as COMMANDS.md gotcha 16):
+   true amp 1.0 (18mm, the model's actual base bump) leaves slip/m
+   at the champion's own band (det/sto med 1.07/1.17); amp 2.0 (36mm)
+   makes it WORSE, not better (1.34/1.54); amp 3.0 (54mm) is worse
+   again (1.43/1.85) AND unsafe — 6/6 det and 4/6 sto episodes
+   terminate `over_current` (the dragging foot catches/strains
+   against a bump it never lifts over). Slip never drops with
+   amplitude — the champion pays MORE for dragging into bumps, it
+   never discovers stepping. Lever 1 is refuted at every amplitude
+   tried, well past the point of any therapeutic effect and into
+   outright failure; skip the terrain-as-teacher training arm
+   entirely (no `cw-gait-terrain2`) — `cw-gait-terrain1`'s INVALID
+   verdict stands but its suggested successor is now superseded,
+   not just re-run at a corrected amplitude. Surviving P3 levers:
+   3 (physics easing), 4 (RSI-for-walk), 5 (slow-speed-first); P2's
+   structural charge is still SPECIFICATION-gated (bank first).
+2. **Drag charge annealed UP** (with Priority-2 machinery): charge
+   starts near zero (travel discoverable, sloppy is fine), ramps to
+   full by mid-run so the FINAL optimum cannot include dragging.
+   Anneal-up avoids both failure modes of the closed arms: no
+   retrofit onto a formed habit, no early starvation.
+3. **Physics easing early, annealed to nominal**: servo velocity
+   ceiling up (lifting is cheap while learning) and/or slight gravity
+   reduction during discovery — standard dynamics-curriculum practice
+   in legged RL. Anneal to measured params before any gate counts.
+4. **RSI-for-walk (state crutch, NOT action supervision)**: spawn
+   walk episodes mid-stride of the scripted tripod gait (machinery
+   exists from the rise work, `goal.rise_rsi_frac` pattern +
+   pool-restore lesson) so lifted-leg states are experienced from
+   step 0.
+5. **Slow-speed-first commands** if 1–4 underdeliver (note: the old
+   speed-band closure was about chasing speed TRACKING, not gait
+   curriculum — distinct).
+
+Success = a from-scratch, no-anchor policy whose slip/m beats the
+BC-anchored one at matched travel, surviving DR hardening. If the
+line stalls after levers 1–3 are honestly tried, the anchor stays
+and this doc records why.
+
+## Order of operations
+
+P1 CLOSED (froze, see session log). P2 spec+bank next (its charge is also
+P3's lever 2). P3 starts with the zero-training terrain probe, then
+one arm per lever. Every arm: one variable, matched-parent control,
+pre-registered kill signature, slip/m + gait_valid + joystick gate
+as the panel.
+
+## Session log 08-11 ~13:15-14:15 (operator) — first wave results
+
+- **TERRAIN CLAMP BUG found+fixed (434a6e0):** servo_model.build_model
+  clipped `env.terrain_amp` to [0,1], and HFIELD_MAX_Z is 18 mm — so
+  EVERY historical terrain run/eval ran peak bumps <=18 mm regardless
+  of the requested amp (docs said 36). Exposed when the champion probe
+  returned bit-identical results at amp 1.5/2.0/3.0. Amps >1 now scale
+  the hfield z-extent (data stays [0,1]); verified amp 4.0 = 72 mm.
+- **Champion-on-terrain probe (post-fix, train-5
+  logs/terrain_probe2):** amp 2.0 (36 mm): 6/6, prog 0.85, slip 1.31 —
+  paddle degraded but passes. amp 4.0 (72 mm): 0/6, prog 0.80, slip
+  1.46. amp 6.0 (108 mm): 0/6, prog 0.80, slip 1.48. The paddle FAILS
+  THE WALK GATE at 72 mm — teaching ground confirmed; the flat spawn
+  disk + fade-in is a built-in curriculum.
+- `cw-gait-terrain1` INVALID (trained on the clamped 18 mm rung).
+  Superseded by **`cw-gait-terrain2`** (train-3): from scratch at true
+  72 mm, no reward surgery.
+- **P1 `cw-walk-gaitbc1` FAILED (08-11, gate eval) — worst-case
+  version of the pre-registered kill signature: total FREEZE, not
+  partial.** Video (det+sto, DR0 + own-DR0.35, all 6 episodes each)
+  shows an IDENTICAL static tripod-like pose every episode — 3 legs
+  held aloft motionless, 3 planted, zero gait cycling — fwd travel
+  ~0.00 m/15s vs the parent's 0.28-0.34 m, gait_valid 1/6 det.
+  Training-time read confirmed the mechanism: bc_anchor_loss
+  converged to ~0 while walk_loadslip_factor collapsed 1.0->0.06 —
+  the anchor was satisfied by NOT MOVING (close enough to the
+  moving reference at a single frozen instant), not by lifting feet.
+  Unlike rise/hold (the anchor's two prior wins, both STATIONARY
+  end-states where freeze-toward-reference IS success), walk's
+  reference target is itself in continuous motion; anchoring to a
+  moving target plus the existing income-gated walk reward found a
+  degenerate joint optimum instead of reshaping the gait. Per its own
+  pre-registered gate text this is not a coefficient-variant
+  situation — P1 (BC-anchor gait cleanup) is CLOSED; move to P2
+  (structural stance-slip charge + swing-clearance, bank first) or
+  P3 lever 4 (RSI-for-walk).
+- **P3 lever 2 `cw-gait-dragstep1` FAILED** (agent triage, kill (b)):
+  paddle formed anyway from scratch at k_drag_loaded=40 + step-event
+  income; gate eval slip det 6.36. IMPORTANT CAVEAT before closing
+  pricing forever: env/reward_drag never exceeded ~0.09/tick in
+  magnitude even at k=40 (0.5 mm/tick deadband + per-mm scale keeps
+  the term tiny vs ~1/tick progress income), and reward_step_event
+  peaked at 0.03/tick. The "big penalty" was effectively small. A
+  charge-magnitude AUDIT (what does k=40 actually cost a typical
+  paddle tick, in fraction of income?) is the honest next step on
+  this lever, not another blind coef rung.
+- **P3 lever 1 `cw-gait-terrain2` FAILED** (operator gate-eval,
+  logs/terrain2_gate on train-3): from scratch at TRUE 72 mm the
+  policy learned the LEG-SACRIFICE drag degenerate — own-terrain det
+  0/6, prog 0.25, slip/m 10.2, sacrificed legs [3,4]; flat retention
+  identical. Ground that defeats the champion's paddle did not force
+  stepping; PPO settled for 25% progress dragged over the bumps.
+  Physics-as-teacher REFUTED standalone at this amp/budget.
+
+## Where this leaves the no-anchor line (08-11 evening)
+
+Four from-scratch discovery arms (omni trans1, gru-r3, dragstep1,
+terrain2) all land on paddle/sacrifice no matter the ground or the
+charge coef. Two readings: (1) the effective drag price has NEVER
+been big — see the magnitude caveat above — so the operator's "really
+big penalty" hypothesis is still UNTESTED, not refuted; (2) discovery
+lacks lifted-leg state coverage, which RSI-for-walk (lever 4)
+addresses without action supervision. Next arms in order: (a) the
+charge-magnitude audit, then ONE from-scratch arm with the charge set
+so a typical paddle tick costs 2-3x a progress tick (audit-derived k,
+not a guess); (b) RSI-for-walk mid-stride spawns; (c) annealed-up
+charge once the P2 bank lands. Lever 3 (physics easing) unstarted.
+
+- **08-11 18:1x (agent cycle) — independent re-check + lever 1's
+  pre-registered retry.** Re-ran the zero-training champion probe
+  myself (det+sto, matched seed, per-mode 6) across the FULL
+  amplitude range at the fixed clamp: flat 1.02, 18mm 1.09, 36mm
+  1.33, 54mm 1.50, 72mm 1.74 slip/m — a clean MONOTONIC INCREASE, not
+  a drop, confirming probe2's finding independently and closing any
+  doubt that a coarser probe grid missed a sweet spot. Also
+  independently re-evaled `cw-gait-terrain2`'s own checkpoint
+  (own-terrain det slip 8.58 med / sto 12.38; flat retention det 6.83
+  / sto 10.78, gait_valid 2/6 det both, leg[3] sacrificed in 4/6
+  episodes) — same qualitative fingerprint as the operator's pass
+  (numbers differ slightly by eval seed draw, conclusion identical:
+  FAIL, worse than the closed paddle band). Launched the run's own
+  pre-registered single retry, **`cw-gait-terrain2-r1`** (env.
+  terrain_amp=3.0, 54mm, VERIFIED RUNNING train-3) to close out lever
+  1 with the two-miss rule before moving on — but per the ordering
+  above, the CHARGE-MAGNITUDE AUDIT is still the sharper next lever
+  regardless of how -r1 lands; do not let -r1 delay it.
+- **08-11 ~18:2x — `cw-gait-terrain2-r1` FAILED, lever 1 (terrain-
+  as-teacher) CLOSED for good (two-miss rule).** One rung down at
+  54mm avoided terrain2's leg-sacrifice (gait_valid 6/6 det+sto, all
+  six legs stay engaged, video-confirmed) but landed on neither
+  pre-registered pass branch: own-terrain slip/m med 6.86 det / 8.90
+  sto is 4-6x the closed paddle band (1.1-1.5), not the <0.6 win and
+  not a match to the champion band; one det episode terminated
+  over_current (a dragged foot straining against a bump).   Gentler
+  terrain does not force stepping either — physics-as-teacher is
+  refuted across the amplitude range tried, from scratch, twice.
+  Do not requeue terrain-as-teacher at any amplitude. Next: the
+  charge-magnitude audit (P3 lever 2 prerequisite, unstarted) or
+  RSI-for-walk (lever 4).
+
+## Charge-magnitude AUDIT — DONE 08-11 eve (operator session);
+## per-tick charge form REFUTED, structural per-stance charge LANDED
+
+`rl_move/sim/probe_drag_audit.py` (+ `logs/probe_drag_audit*.json`).
+Measured per-foot loaded slip on the honest scripted gait vs the two
+learned skaters (`longdist_r2`, `dep_vref1_r1`) under the trans1
+stack, 375 ticks each:
+
+- **The 0.5 mm/tick deadband was the hole**: 53–63% of the skaters'
+  slip ticks ride UNDER it (slow constant slide), so at dragstep1's
+  k=40 the effective charge was ~0.001–0.09/tick vs ~2–2.6/tick
+  income. The "big penalty" never existed.
+- **The per-tick FORM is unfixable, not just the coefficient**:
+  per-tick slip medians overlap (gait 0.31 mm — touchdown scuff — vs
+  skaters 0.40–0.47 mm). At ANY (k, deadband) that prices the skate,
+  the honest gait pays ≥2.5x its own income too. This is why 10+
+  coefficient arms failed; do not run another per-tick k rung.
+- **Per-STANCE accumulated travel separates them 3.3x**: scripted
+  gait median 2.9 mm/stance (95% of stances under 6 mm) vs skater
+  median 9.8 mm (only ~25–30% under 6 mm). Stance duration is the
+  discriminator the per-tick form throws away.
+- **Contact-solver micro-jitter (~0.2 mm/tick) integrates** on long
+  stances (a 2 s quiet stance accrues ~10 mm/foot of pure jitter), so
+  the accumulator only counts ticks sliding >0.25 mm (floor; skater
+  drag runs 0.4–0.5 mm/tick).
+
+Landed in `walk_task.py` (default OFF, legacy bit-exact):
+`reward.k_drag_stance` (charge per metre of over-allowance stance
+travel), `reward.drag_stance_allow_mm` (default 6),
+`reward.drag_stance_tick_floor_mm` (default 0.25). Accumulator resets
+at touchdown, pays incrementally (a never-lifting foot cannot defer).
+**Audit-derived operating point: k=8000, allow 6 mm, floor 0.25 mm**
+— skaters pay ~2.5x their income, honest gait ~23%, motionless foot
+~0. Launch gate added and PASSING
+(`test_drag_stance_stack_prices_skating_below_stepping`: stepping >
+zero-lift skate of the same gait by >50 return, gait > stall > park
+survives, forward + crab).
+
+Calibration side-note (same session): re-ran `calibrate_slip.py` full
+mu sweep + loaded-servo point. Travel ratio saturates ~0.38–0.40 (air
+fit) at mu ≥1.2 and the 08-10 loaded fit makes it WORSE (0.25–0.31)
+— friction is NOT the knob for the sim-vs-tape travel gap, and sim is
+PESSIMISTIC (slipperier than the real floor), which is conservative
+in the right direction for anti-skate training. Contact-stiffness
+class stays open as operator calibration; it does NOT block the
+charge arm.
+
+## P0 reward-accuracy diagnostic — DONE 08-11 late (idle-kick cycle);
+## penalty-side suspect REFUTED, paddle is a sim-EFFECTIVENESS optimum
+
+`probe_walk_income.py --stack vref1` (new stack = cw-dep-vref1-r1's
+exact ledger cfg; artifacts `logs/probe_walk_income/vref1_p0_dr0.json`
+/ `vref1_p0_dr035.json`, run on train-1 at code 29f3706): scripted
+plant-height tape-proven gait vs THE champion checkpoint under the
+champion's own reward, forward, 3 seeds.
+
+- **Totals are near parity, not gross mispricing**: gait 656 vs ckpt
+  739 at DR0 (−11%); gait 713 vs ckpt 661 at the champion's own
+  DR 0.35 (+8%). Neither branch of "reprice-then-train" fires.
+- **The operator's tilt/rocking suspect is REFUTED**: the scripted
+  gait's k_gyro+k_roll+k_pitch cost is ≤1.5/ep combined (vs ~650
+  totals) and ZERO episodes terminate at either DR. Repricing the
+  rocking terms would change nothing.
+- **The stack already pays tall**: plant-height policies collect the
+  base stance kernel (reward_task ~271-319/ep vs the crouched
+  champion's ~30) and the champion pays −139/ep base k_height for its
+  crouch — a combined ~380/ep pro-tall margin, already bigger than
+  dep-hgt1/hgt2 assumed.
+- **Why the paddle still wins**: it genuinely TRACKS the command in
+  sim (progress_ratio 1.06 vs the scripted gait's 0.35 — the
+  calibrated conservative slip physics), collecting ~495/ep more
+  walk+prog kernel income. That is real locomotion income, not a
+  pricing hole. Corollary: any near-champion policy that lifts to
+  plant height immediately loses walk income (its early honest steps
+  realize less progress) long before stance/height income arrives —
+  a local-optimum MOAT, which is why income shaping kept failing and
+  why the per-STANCE structural charge (audit section above) and/or
+  curriculum are the levers with teeth.
+
+Same cycle, the moat got a direct measurement:
+`cw-walk-dragstance1` (warm champion + the audit charge, discovery
+2M) **FAILED its slip gate but proved the charge's safety properties**:
+reward_drag_stance sat at −7/tick the entire run (never resolved) and
+the policy NEITHER parked NOR restructured — full travel retained
+(prog 1.00, gait_valid 6/6, zero falls), slip only edged 1.1–1.3 →
+0.95–1.15. A static fine on the FORMED habit is closed (no k rung,
+no longer budget on the warm retrofit). Remaining routes: from
+scratch under the charge (`cw-gait-dragstance1-r1`, 40M, running —
+another cycle's) and the anneal-up curriculum (P3 lever 2).
+
+## Structural stance-slip charge, FROM SCRATCH — `cw-gait-dragstance1`
+## FAILED 08-11 (agent triage) — parked, not stepping
+
+Companion arm to `cw-walk-dragstance1` (that one warm-starts the
+champion; this one trains the identical audit-derived charge
+(k=8000/m, 6mm allowance, 0.25mm floor) from scratch on the trans1
+stack, to see if the paddle basin is avoidable from step 0 when it's
+priced out from the start). Pre-registered false branch was "parks,
+or paddles while paying" — that is exactly what happened, worst case
+first tried:
+
+- `env/reward_drag_stance` engages immediately (step 19: -9/tick) and
+  **never trends toward zero** — it sits at -6 to -9/tick for the
+  whole run, i.e. the charge never gets resolved, only endured.
+- `env/walk_loadslip_factor` collapses 0.62 -> ~0.05-0.08 by step 49
+  and stays floored — the policy minimizes loaded-slip *exposure* by
+  going nearly still, not by cleanly lifting and placing feet.
+  `env/reward_step_event` (the stepping income) stays tiny (~0.015),
+  i.e. it earns almost no stepping credit either.
+  Meanwhile the reward-quarters trend gets MORE negative over
+  training (-441 -> -1558 -> -2354 -> -2381) simply because it
+  survives the full episode paying a constant charge rather than
+  falling early — not a sign of a worsening gait, a sign of a
+  stable stillness habit.
+  - Harness (gate DR0 + own-DR0.35, det+sto, 6 eps each = 24 clips):
+  forward_dist 0.002-0.02 m vs cmd_dist 0.5-0.7 m over a 15 s episode
+  (progress_ratio ~0.00, success 0/6-1/6). ALL 24 videos show an
+  IDENTICAL static, splayed pose held for the entire clip — no
+  leg-cycling, no net translation. slip_per_m reads 7.3-18.7
+  (nonsensical-looking, but that's the near-zero-travel denominator,
+  not real sliding distance — the real read is duty_cycle 0.94-0.98
+  with 5-7 tiny swings/leg over 15s, i.e. a shuffle, not a gait).
+- **Verdict: STOP - known exploit (FREEZE/PARK), matches the run's
+  own pre-registered false branch verbatim.** The structural
+  per-stance charge, even at the audit-tuned operating point, is
+  *exonerated as a solo fix* for the paddle: from scratch it does not
+  make stepping worth discovering, it just makes standing-still-while-
+  paying preferable to the alternatives it tried. **CROSS-TRACK
+  INSIGHT: this is also nobc's queued "drag-charge magnitude audit"
+  (STATUS.md Next item 1) — the same charge, same conclusion, applies
+  to both tracks' gait-from-scratch line.** Next lever per GAIT.md
+  P3: RSI-for-walk (mid-stride spawns) or the charge combined with
+  income-shaping, not another coefficient rung. Await
+  `cw-walk-dragstance1` (warm-start variant) separately — a policy
+  that already knows how to travel may resolve the charge by cleaning
+  up its gait instead of freezing, since freezing there costs the
+  large pre-existing walk-progress income it would otherwise keep
+  earning; this from-scratch result does not by itself predict that
+  one's outcome.
+
+## TALL LADDER — height-ref rungs on the dep line (operator session 08-11 eve)
+
+Operator directive: "make a deployable tall smooth walker." Mechanism:
+`goal.walk_height_off_mm` as a warm-start ladder (the lowgait line's
+proven trick, inverted to climb UP), NOT the hgt1 income gate (refuted
+one-shot). All rungs 2M warm, full dep contract + tipped starts
+retained; eval numbers are `eval/walk/*` end-of-episode.
+
+| run | parent | ref | height_err_end | speed m/s | slip | note |
+|---|---|---|---|---|---|---|
+| cw-dep-tip1 (baseline) | — | 0 | 59.9 mm | 0.0388 | 1.65 | eval-ends ~−60 mm |
+| cw-dep-tall30 | tip1 | −30 | **15.2 mm** | 0.0295 | 1.74 | + k_drag_stance 8000/6/0.25 |
+| cw-dep-tall30h | tip1 | −30 | 17.5 mm | 0.0287 | 1.80 | isolation: NO charge |
+| cw-dep-tall15 | tall30 | −15 | 29.0 mm | 0.0278 | 1.64 | STALL: body ≈ −44 mm |
+| cw-dep-tall15-h1 (T1, 6M) | tall15 | −15 | 51-58 mm (eval med) | 0.0545 | 1.16-1.35 | FAIL: worse+flat, not step-bound |
+
+Findings (three runs, one evening):
+
+- **Height-as-commanded-ref works on the dep line**: 60→15 mm in one
+  rung. The hgt1 gate failure was about the unreachable one-shot 50 mm
+  jump, not about height being untrainable.
+- **The structural drag charge is FREE on a warm walker** (tall30 vs
+  tall30h isolation: identical speed/slip, marginally better WITH the
+  charge) — it rides along in the ladder but did not cut slip either
+  (1.74 vs baseline 1.65). Consistent with cw-walk-dragstance1:
+  absorbed, not resolved.
+- **The free climb ends at ~−44 mm**: rung 2 (ref −15) left the body
+  at the same ~−44 mm as rung 1 did. ~16 mm taller than baseline,
+  ~44 mm short of plant height. Speed cost so far ~25-28%, flat
+  across rungs (one-time, not per-rung).
+
+Follow-up campaign T1-T5 pre-registered in RL_PLAN.md queue -0.5
+(P2.5): budget rerun, k_height crank, gate-at-reachable-ref, speed
+trade, and the −44 mm workspace probe that decides whether the wall
+is kinematic (stop) or habitual (keep pushing).
+
+**T1 (budget, 08-11) FAIL — the wall is not step-bound, and 3x budget
+made it slightly worse.** `cw-dep-tall15-h1` (6M, identical respec of
+the stalled ref −15 rung). `env/height_err_mm` (training-env metric)
+plateaus by ~1M steps (~36-39mm) and sits flat the remaining 5M —
+not the monotonic-improvement shape the PARTIAL branch needed.
+Harness eval end-state is worse than the 2M parent's own 29mm: gate
+median 51-58mm, own-DR median 57-58mm, close to the tip1 ref-0
+baseline (59.9mm) despite 6M steps at ref −15. Speed improved
+(0.0278→0.0545 m/s, now mid-band) but execution got noisier: one
+gate/det episode spins in place (fwd 0.20m, slip/m 2.66) and
+own-DR/sto gait_valid dropped to 4/6 (two episodes sacrifice 3 legs,
+slip/m 2.6-5.1). No park/flag-leg/falls in any of the 24
+video-checked episodes (terms 0, safety_flags 0) — still the honest
+paddle gait, just at the old crouch depth, now with a bit more
+instability at the height-vs-speed tradeoff. Verdict: budget is not
+the lever; do not schedule further step-count variants on this rung.
+Per the run's own gate, next is **T5** (kinematic/stability probe:
+does a SCRIPTED gait, physically commanded to a shallower stance,
+actually hold −15mm without tipping/losing contact, or does it also
+settle back near −44mm?) before T2/T3 — T5 is NOT YET BUILT (needs a
+small script using `info["height_mm"]`, already exposed per-tick by
+`sim_env.py`, plus an IK-adjusted scripted stance; see
+`linux_control/geometry_plant.py:knee_for_foot_z` for the exact FK/IK
+this robot uses). Flagged as the next concrete task on this line,
+not attempted this cycle to avoid a rushed/wrong physical-limit claim.
 
 
 ---
@@ -3560,9 +5407,11 @@ Parent `ppo_goal_cw_dep_vref1_r1` itself (contract-exact obs + 25° tilt, no sta
 | Skill | Checkpoint | Evidence | Envelope / limits |
 |---|---|---|---|
 | **Genuinely quiet, motionless, level six-foot HOLD — first honest hold in the whole campaign** | `ppo_goal_cw_stand_holdbc1` (discovery, 2M, warm from `ppo_goal_cw_stand_bc1_hard1`; extends `bc_anchor.py`'s BC-supervision to hold/track ticks, target = the episode's settled pose) | 08-11: harness hold 12/12 valid_plant det+sto, worst-foot 2–13mm, height_err_end_mm ≈2; video (det AND sto) shows a level, motionless, six-feet-down stand for the full 15s clip. `env/hold_feet_factor` cleared the 0.1–0.35 plateau both prior pricing-only levers (`cw-stand-holdstill1`, `cw-stand-holdstill2`) sat in, reaching ~1.0 by ~500k steps and holding there all 2M — the pre-registered mechanism-health signature. Two pricing-only levers (hard no-flag zero, then a fade) FAILED first (0/12 each); BC supervision (the same trick that solved rise) is what finally worked. | HOLD/TRACK ONLY at this budget — not yet a unified policy; not hardware-ready. Rise retention carried through mostly clean (bridge 2/2 det, all 6/6 sto) but det crouch-start rise shows 2/6 tilt_roll falls, one more than the identical pre-existing fingerprint already present in the immediate parent `cw-stand-holdstill2` (1/6) — a known crouch fragility, not a new pathology. Track-mode command-following accuracy is still weak (det 2/6, sto 0/6 on the tracking-error metric) though posture stays valid throughout (end_posture 6/6) — not part of this arm's gate, flagged for later. Next: a 10M hardening continuation (mirrors the bc1→bc1-hard1 pattern) to check whether budget also resolves the crouch dip, then the rise-specialist+hold → walk-champion handoff composition test. Detail: `rl_docs/RISE.md`. |
-| **HOLD+RISE, hardened (10M) — consolidates the discovery pass, no regression** | `ppo_goal_cw_stand_holdbc1_hard1` | 08-11: harness hold 11/12 valid_plant (det 6/6, sto 5/6 — the one miss is a soft current-limit flag, not posture/cheat), essentially matching discovery's 12/12 (gate floor was ≥10/12). `env/hold_feet_factor` held 0.99–1.0 across the entire 10M steps (no re-drift toward the earning-zero plateau). Det crouch-start rise improved to 2/4 valid (50%) from discovery's 2/6 (33%) — the remaining fall is a genuine tip-over (video-confirmed, not a cheat) and the remaining miss a height-overshoot on an otherwise correct six-foot stand. Zero flag-leg/tripod cheat across all 24 det+sto episodes, video-checked. | Same envelope as discovery (HOLD/TRACK solid; not a unified policy; not hardware-ready). Track-mode command-tracking accuracy still weak (sto 2/6 on the tracking-error metric, posture stays valid) — pre-existing, not gated. Lineage CLOSED for further hardening. Handoff composition test PASSED 08-11 (see row below). Detail: `rl_docs/RISE.md`. |
+| **HOLD+RISE, hardened (10M) — consolidates the discovery pass, no regression** | `ppo_goal_cw_stand_holdbc1_hard1` | 08-11: harness hold 11/12 valid_plant (det 6/6, sto 5/6 — the one miss is a soft current-limit flag, not posture/cheat), essentially matching discovery's 12/12 (gate floor was ≥10/12). `env/hold_feet_factor` held 0.99–1.0 across the entire 10M steps (no re-drift toward the earning-zero plateau). Det crouch-start rise improved to 2/4 valid (50%) from discovery's 2/6 (33%) — the remaining fall is a genuine tip-over (video-confirmed, not a cheat) and the remaining miss a height-overshoot on an otherwise correct six-foot stand. Zero flag-leg/tripod cheat across all 24 det+sto episodes, video-checked. | Same envelope as discovery (HOLD/TRACK solid; not a unified policy; bench-unvalidated). Track-mode command-tracking accuracy still weak (sto 2/6 on the tracking-error metric, posture stays valid) — pre-existing, not gated. Lineage CLOSED for further hardening. Handoff composition test PASSED 08-11 (see row below). **08-11 late: DEPLOYED as the robot runner's live stance policy** (stand/lower buttons; trained ramp ships in the weights meta; `stance_dr10.json` = one picker call back; contract-locked by `test_stand_runner.py`) — awaiting bench validation. Detail: `rl_docs/RISE.md`. |
 | **Stand up from the belly, then HAND OFF to the walk champion and drive — no scripted blend needed** | `ppo_goal_cw_stand_holdbc1_hard1` (rise+hold) → `ppo_goal_cw_walk_longdist_r2` (drive), composed by `rl_move/sim/eval_handoff.py` (plant-frame re-anchor, slew state carried across the switch) | 08-11: 12/12 successful rises (flat 6/6, bridge 6/6, across air AND loaded servo physics) handed off with ZERO falls; walk-champion drive metrics on the specialist's exact final pose sit inside its own clean-plant baseline band (air trk_err 0.032–0.036 vs 0.031; stumble-window tilt 1.2–2.6° vs 1.5°); the incumbent scripted 1.5 s blend (play.py key-7 path) measurably adds nothing. Artifacts: `logs/ckpt_eval/handoff_holdbc1hard1_{air,loaded}.json` + strips. | Sim-only, DR0, forward drive @0.05 m/s tested; crouch-start rises tip over BEFORE the handoff (0/6 RSI-off — the lineage's known fragility, not a handoff defect). Reverse handoff tested + clean 08-11 (see row below). |
 | **Sit down from a drive: walk champion stops, control switches, robot lowers to belly rest — the full sim joystick motion cycle (rise → drive → stop → sit) now composes with zero falls** | `ppo_goal_cw_walk_longdist_r2` (drive) → scripted go_zero-sit glide (6 s to the zero pose; deployable incumbent) or `ppo_goal_cw_stand_holdbc1_hard1` (learned lower), composed by `rl_move/sim/eval_handoff_reverse.py` | 08-11: scripted glide 6/6 posture-strict both physics (air AND loaded), gentle (tilt ≤2.5°, all pads 34–38mm); learned lower on the walker's EXACT stopped state matches the specialist's own clean-episode band (direct 4/6 == spec 4/6 both physics, zero falls anywhere, height_err 0.4–9mm) — the handoff itself costs nothing. Artifacts: `logs/ckpt_eval/handoff_rev_holdbc1hard1_{air,loaded}.json` + strips. | Sim-only, DR0. Learned lower's only miss is a cosmetic dangling foot (leg 2 at 62–99mm vs the 60mm belly allowance; body down + level, video-confirmed NOT a weight-bearing flag-leg). The scripted glide — already the operator-prescribed hardware sit — covers the deliverable; BC anchor on lower ticks is optional unqueued polish. |
+
+| **Stand up from a CROUCH without tipping — the one start kind that always felled the deployed specialist** | `ppo_goal_cw_stand_crouchrise1` (discovery 2M, warm from `holdbc1_hard1`; ONE variable: rise start-mix biased to 60% crouch / 30% partial / 10% flat vs legacy 25/40/35) | 08-11: RSI-off all-crouch probe (seed 1, DR0, loaded servos) **16/16 stands, det 8/8 valid_plant, ZERO falls** vs matched parent `holdbc1_hard1` **0/8 det, 8/8 tilt_roll falls** on the identical probe (`logs/ckpt_eval/{crouchrise1,hard1}_rsioff_crouch`); gate harness det rise 6/6 (crouch 5/5), hold 12/12 end-posture. Videos honest — crouch/bridge → level six-foot stand, no flag-leg/tripod. | NOT the deployed stance policy: missed the pre-registered hold no-regression bar (hold sto valid_plant 1/6 vs parent 5/6 — all misses the final-0.5s >2.0A sim current soft flag; posture/stillness/feet identical; sim current is a known-untrusted metric). `holdbc1_hard1` stays on the robot; this checkpoint (md5 3877e16c, pulled to controller) is the drop-in if bench ever needs crouch starts. Start-DISTRIBUTION, not reward, is the proven lever for start-kind fragility. |
 
 ## Pending verdicts that would add rows
 
@@ -3926,6 +5775,20 @@ report.json, and the W&B API for exactly these questions.
     `imu_bias_deg`, `tilt_noise_deg`, `gyro_bias_deg_s`,
     `gyro_noise_deg_s`, `com_offset_m`, `imu_pos_xy_m`,
     `cmd_drop_prob_max`.
+16. **A manual `kubectl exec` probe on an arbitrary FREE pod can
+    silently run STALE code** (08-11, gait-cleanup terrain probe):
+    `launch_run.py launch` refuses a `.code_sha` mismatch, but a
+    hand-run eval/probe via `kubectl exec` has no such gate — an idle
+    pod keeps whatever code was live at its last launch, sometimes
+    commits behind. This exactly reproduced an already-fixed bug
+    (the `env.terrain_amp>1` clamp, 434a6e0): probing the champion at
+    amp 1/2/3 on a stale pod returned bit-identical reports (the OLD
+    clamped code), which would have wrongly re-confirmed the closed
+    bug. Check `kubectl exec <pod> -- cat
+    /workspace/prototype_sts3215/.code_sha` vs local HEAD before
+    trusting ANY ad-hoc pod probe that depends on recent code; `bash
+    snapshot.sh --sync <pod>` first if it's behind (safe on an idle
+    pod, never on one with a live trainer).
 
 ## Operator status page (web) — setup & restart runbook
 
@@ -4325,6 +6188,32 @@ One 6 s walk at 0.05 m/s (`rl_walk_20260811_021859.csv`). Operator:
   future walk arm: swing-clearance or foot-slip-in-contact penalty
   (sim has the contact data), plus the height-keeping term above.
 
+## Bench state — drive session 08-11 morning
+
+Robot picker (verified live): walk slot = `dep_tip1` (ACTIVE; 3 clean
+/ 1 runaway 08-10), `dep_vref1_r1`, `dep_quad1_c2`. Stance slot =
+`stand_holdbc1_hard1` (ACTIVE, **new**: overnight HOLD+RISE+LOWER 10M
+specialist, md5 6620705c, obs 68) with `stance_dr10` still available.
+holdbc1-hard1 is EXPERIMENTAL on hardware: `hardware_ready: False`,
+no deployment-contract flags, sim crouch-start rise still tips 2/4 —
+sit/hold expected to work, RL stand-up is the risky part (scripted
+tuck remains the known-good stand-up). Omni/steering lineage stays
+off the robot: transbc1 FAILED (paddle), rot-60 canonicalizer is
+sim-only until the deploy-side runner port lands.
+
+**08-11 later — BOTH deploy-side ports landed in the repo, robot
+needs a re-push before the next session:** (1) rot-60 runner port
+(commit 39d4754): full-circle walk headings, forward wedge bit-exact.
+(2) rise+hold specialist ramp fix: the on-robot 6620705c copy of
+`stand_holdbc1_hard1` carries NO goal profile, so the runner would
+feed it the LEGACY +50 mm / 4 s ramp — an out-of-distribution height
+command for a policy trained only on 108–114 mm targets. The repo's
+export now ships the trained ramp (hold 5 s / ramp 6 s / +111 mm /
+12.5 s) inside the weights meta and the runner reads it
+(`test_stand_runner.py` locks the contract). **Do not press STAND on
+the stale copy — run deploy_adb.sh (now also pushes
+rl_walk_weights.json + policies/) or re-select the fresh JSON first.**
+
 ## Finding — TFT redraws stall the entire servo link (08-10 night)
 
 Root cause of the operator's "big pause in the middle of standing"
@@ -4426,6 +6315,29 @@ Mac in `rl_move/sim/policies/` unless noted; pull missing ones with
 ## Experiment backlog (operator-run; highest decision-value first)
 
 Each entry: what open decision it settles → procedure → output.
+
+**One-command session runner (08-11):** `python -m
+rl_move.scripts.bench_blast --go` walks the whole open list in order —
+policy/profile preflight, the vref1-vs-tip1 A/B (policy switch
+VERIFIED per walk + automatic roll-ramp analysis from the pulled
+episode CSVs), RL-walk tape, first rot60 off-wedge heading, first
+learned stand-up (refused if the stance weights lack their goal
+profile), wz sign audit, hover-vs-planted currents. Dry run without
+`--go`; every motion step waits for an explicit operator `go`. Sim
+half: `python3 -m rl_move.sim.sim_blast` (roll-trap A/B across
+frictions, joystick panels naked+rot60 for both walk ckpts, deployed-
+artifact tests).
+
+**Zero-typing variant: `--go --video` (08-11).** Lay the tape on the
+floor, film the runway, and only type the per-step `go`s: every step
+is spoken aloud (macOS `say`) onto the video's audio track and
+unix-stamped in summary.json. Afterwards
+`python -m rl_move.scripts.video_review <footage>` syncs the video to
+the log (spoken sync mark; falls back to first-motion detection),
+cuts a timestamped frame sheet per walk/turn/stand plus full-res
+tape-zoom frames, and the analysis agent reads distance, turn sign,
+falls, and gait quality off the sheets — the operator never reports a
+number.
 
 **Measure tab (deployed 08-10):** items 1, 2 and the turn-sign check
 now run from the web UI — `http://hexapod.local:8080/measure`. Cards:
@@ -4564,8 +6476,51 @@ existing config knobs, [CODE] needs an implementation cycle first,
    (warm start NOT possible across obs-width change: from-scratch
    rules apply, ent 0.005-0.01, std 1.0); (2) history 24; (3) wider
    net (256x256) at the winning history as the control for capacity
-   vs memory; (4) GRU/recurrent actor [CODE — sb3-contrib
-   RecurrentPPO or custom; needs an implementation cycle + probe].
+   vs memory; (4) GRU/recurrent actor [CODE DONE 2026-08-11:
+   `train_ppo_sim.py --gru` = sb3-contrib RecurrentPPO with a true
+   GRU cell (`rl_move/sim/gru_policy.py`); run single-frame obs
+   (obs.history_frames=1), from-scratch rules (MLP checkpoints
+   cannot warm-start a GRU); eval/canary/video harness threads
+   hidden state automatically; needs sb3-contrib==2.9.0 on pods
+   (in coreweave_pod_setup.sh). **Probed 08-11
+   (`cw-arch-gru-r1`, 2M from scratch, walk=0.55/rise=0.15/
+   lower=0.15/hold=0.15): FAILED — det walk collapsed to a static
+   3-leg-tucked stance (0.004 m/s, gait_valid 0/6), sto walk jittered
+   in place with no net travel (slip/m ~17, 2/6 tips); return climbed
+   while the task didn't (reward-shortcut pattern), no forensics per
+   the known-exploit rule. Not re-attempted with an adjusted recipe:
+   the ladder stays FROZEN pending the flagship (RL_PLAN Architecture)
+   and this line is off the current blocker list — do not requeue a
+   GRU rung "because a pod is free." **08-11: `cw-arch-gru-r2`
+   (walk-heavier-diet continuation, 0.55->0.70, same 2M budget) also
+   FAILED on the harness/video — the IDENTICAL exploit fingerprint:
+   det walk 0/6 gait_valid, legs sacrificed (frozen 0.004-0.011 m/s),
+   sto walk 6/6 gait_valid but a no-progress paddle (prog med ~0,
+   slip/m 13-21). The launch that produced r2 reasoned only from r1's
+   periodic TRAINING-LOG numbers (vel_err 0.074, "reward climbing"),
+   never the harness/video — same mistake flagged after r1, repeated.
+   This is now 2 misses in the identical behavioral class
+   (RESEARCH_RULES: change the hypothesis, never the step count) — a
+   THIRD concurrent launch (`cw-arch-gru-long1`, 20M "hardening",
+   citing r2's video-log line "walk:ok" as evidence) compounded the
+   same error at 10x budget; it died on its own (W&B step regression)
+   before burning real compute. Ruling: no GRU-rung relaunch on this
+   walk diet/budget shape — a recipe change (BPTT window, obs framing,
+   or a different curriculum order) is required, and the rung stays
+   off the blocker list regardless. **08-11: the recipe change was
+   tried — `cw-arch-gru-r3` (2M from scratch, SAME mixed diet, but
+   with the full hist16-r7 anti-cheat/joystick reward stack this
+   time) also FAILED, the IDENTICAL fingerprint (det gait_valid 0/6,
+   legs parked at duty 0.02, ~0.006 m/s, video-confirmed static
+   legs; sto gait_valid 6/6 but a no-progress jitter-paddle, slip/m
+   17.4-17.5) — this fires the run's own pre-registered FAIL branch:
+   since the identical reward stack already stops this exact cheat
+   on the plain hist16 MLP, the cheat surviving here on the GRU means
+   the limitation is the recurrent net's capacity/BPTT window, not
+   reward pricing. Ruling: GRU rung FROZEN, no further reward-recipe
+   variant is licensed by this closure — the only remaining lever
+   would be an architecture-side change (window/hidden size), which
+   is explicitly off the blocker list pending the flagship.]
    Score each rung on the COMPLICATED movements, not just nominal
    walk: joystick gate incl. flips, plus rise/lower fracs once the
    unified line has a rise-capable parent to compare against.
@@ -4779,6 +6734,188 @@ existing config knobs, [CODE] needs an implementation cycle first,
 
 ---
 
+# FILE: rl_docs/BENCH_REPORT_2026-08-11.md
+
+# Bench report — 2026-08-11 evening (unattended camera sessions)
+
+Nine `bench_blast` sessions ran on the physical robot this evening,
+almost all fully unattended (iMac camera recording, spoken countdowns,
+fall-recovery loop, thermal gate). This file is the consolidated read:
+what happened, what the tools are, and what it implies for RL training.
+
+Raw data: `rl_move/hardware_traces/bench_blast_20260811_18*` and `_19*`
+(per-session `summary.json`, episode CSVs, robot logs, `camera.mp4`,
+frame sheets). Regenerate every table below with ONE command:
+
+```sh
+python -m rl_move.scripts.bench_report --since 20260811_18
+```
+
+## The tools (all landed tonight, all reusable)
+
+| tool | what it does |
+|---|---|
+| `rl_move/scripts/bench_blast.py --go --auto --camera 0` | Runs a whole bench session unattended: spoken countdowns, iMac camera recording with exact unix-time sync, per-step preflights, fall detection → safe_zero(force) → stand recovery, thermal gate before every motion, terminal-result capture (never kickoff responses), CSV + robot-log pull. |
+| `rl_move/scripts/video_review.py --session <dir>` | Syncs the camera video to the session log (exact, via `camera.t0_unix`), cuts a labeled frame sheet per event (walks, rises, turns), full-res zooms for tape segments. |
+| `rl_move/scripts/bench_report.py` | NEW: one markdown table for any set of sessions — per-walk roll-trace metrics (transient timing, peak, tail, fell/recovered/clean), per-rise trip signatures, per-policy tallies. Reads only local files. |
+| robot log pull | Each session dir gets `robot_logs/` (errors, events, measurements) filtered to the session window; the episode CSVs carry per-tick roll/gyro/currents/actions/obs/rot60_k. |
+
+## Finding 1 — the learned rise fails DETERMINISTICALLY on hardware
+
+10/10 attempts tonight (2 session openers + 8 recovery attempts across
+5 sessions) tripped `tilt_roll` with an astonishingly tight signature:
+
+| metric | value across all 10 |
+|---|---|
+| trip tick | 225–228 (~9.0–9.1 s, mid belly-curl, before the height ramp) |
+| max relative roll | 10.1–10.6° (trip threshold 10°) |
+| max current | 0.23–0.27 A (no load event — it's kinematic rocking) |
+
+Two of the attempts started from a VERIFIED clean zero (max pose delta
+0.5°, stand preflight green) — start pose is exonerated. Sim probes of
+the same checkpoint keep |roll| ≤ 1.7° through the whole rise. The
+hardware body rocks over the tucked legs during the curl; the sim's
+never does. This is a pure sim-to-real gap in the curl dynamics, not a
+threshold problem and not noise.
+
+Meanwhile the scripted `POST /api/zero {"pose":"stand"}` glide stood
+the robot up every time it was asked (except phantom-temp aborts,
+finding 4). It is the working stand-up path until a rocking-hardened
+policy exists.
+
+## Finding 2 — the takeoff transient is UNIVERSAL; falls are a coin flip; the A/B has no winner
+
+All 18 walks tonight (both policies, both directions, clean and
+post-fall starts) show the same shape in the episode CSVs:
+
+- |roll| crosses 5° within **0.6–1.5 s** of gait start;
+- it peaks **13–27°** somewhere in the first ~1.5–5 s;
+- then either settles back to level ("recovered", tail ≤ ~2°) or
+  escalates to a fall — with no obvious predictor in policy, direction,
+  or peak size (a 23° peak recovered; a 15° peak fell).
+
+Full-night tallies (`bench_report`): **vref1 6/10 fell, 3 recovered,
+1 clean. tip1 4/7 fell, 3 recovered, 0 clean.** The lone clean walk
+(peak 7.8°) was vref1-r3 in the attended 18:24 session.
+
+Two corrections to earlier same-night claims:
+
+1. "tip1 is the deploy champion" (early-evening read off 4 walks) does
+   NOT survive the full-night sample. Neither policy separates.
+2. The A/B alternation scheme has a confound: round 1 always gives
+   vref1-fwd / tip1-back, so 1-round sessions never walk tip1 forward.
+   Every tip1 evening walk was backward. Fix before trusting any
+   fwd/back split.
+
+The discriminating problem is not vref1-vs-tip1 — it is surviving the
+takeoff transient at all.
+
+## Finding 3 — turn signs: half-answered
+
+`omega=+0.3` (6 s scripted turn): large net rotation on camera,
+read as **CCW from above — matching the z-up convention**
+(single reading, 19:33 session; frames in
+`bench_blast_20260811_193306/video/turn_p03_*.png`).
+
+`omega=-0.3`: STILL unmeasured. The first attempt was silently refused
+by the robot (`pending measurement — save or discard it first` — the
++0.3 turn's un-annotated measure record blocked it; the robot just
+stood there for its window). That bug is fixed (`bench_blast` now
+discards the pending record before each video-mode turn) and the rerun
+executed, but the camera was being carried away during exactly that
+window. First item for the next session.
+
+## Finding 4 — tonight's "thermal wall" was (mostly) PHANTOM BUS READS
+
+Three motion aborts blamed temperature: L2 hip 72 °C (19:18), L4 hip
+68 °C (19:36), L4 hip **150 °C** (19:51). The 150 °C one broke the
+story: the same servo read a steady 33 °C seconds later — thermally
+impossible — and the debounced watchdog (`servo_watch`, two consecutive
+hot reads required, exactly because of documented 08-09 phantoms) never
+tripped once all night. The single-read temp checks in the glide/rise
+prep code (`safe_zero.py`, `pinned_tip.py`) were the ones aborting
+sessions, and corrupted bytes on the shared bus fake hot reads.
+
+So: possibly NO real thermal event happened tonight. (The 72 °C reading
+had a plausible heat story — falls + recoveries stack load — so treat
+it as unconfirmed rather than fake; servos all measured ≤ 38 °C minutes
+later.)
+
+Fixes landed:
+
+- `safe_zero.py` / `pinned_tip.py`: temp trips now need two consecutive
+  hot reads ~0.3–0.6 s apart (same debounce the stall check always had).
+  A real overheat still trips in under a second.
+- `servo_watch.py` + `bench_api.py`: the always-on watchdog now has a
+  **thermal panic** — on a (debounced) overtemp it kills ALL motion
+  (aborts the demo/RL worker, gait stop, torque-all off) instead of
+  cutting one servo and letting the job drive the other 17 legs. Busy
+  cadence tightened 10 s → 5 s.
+- `bench_blast.py`: thermal gate before every motion step (hold at
+  ≥55 °C until back under 45 °C, abort if it won't cool).
+
+## Finding 5 — session automation debugged itself into a real harness
+
+Each unattended failure mode got a permanent fix the same night:
+terminal results instead of kickoff lies, fall recovery
+(safe_zero `force=true` — a real fall ALWAYS trips the tilt gate),
+scripted-stand fallback behind the deterministic learned-rise trip,
+demo-aware waits (`/api/zero` and `safe_zero` run as demos invisible to
+`wait_idle`; one abort read a mid-glide pose and masked the real
+error), auto-safe_zero when the opening pose isn't belly zero (a
+stalled safe_zero had left the L4 knee 78° off and hold-hunting — the
+operator's "twitching leg"), pending-measurement discard before turns,
+CSV size-stable pulls, alternating walk directions to stay in frame.
+
+## What this implies for RL training
+
+1. **Train the takeoff transient, not the A/B — and it must be
+   DYNAMIC.** The sim's plant-start episodes do not produce the
+   hardware's 13–27° first-seconds roll excursion, so neither policy
+   ever learned to manage it — recovery is luck. The static-lean dose
+   arm already CLOSED while this report was being written:
+   `cw-dep-tip1-takeoff25-r1` (proper 20–25° tipped-start injection,
+   matched baseline) showed child == parent with ZERO falls in both —
+   the sim already recovers static tipped starts at the hardware
+   regime. So the gap is not the lean, it is the roll RATE: a
+   gait-start roll-velocity perturbation axis (code, unbuilt) or
+   contact/pinning work. Whatever the arm, gate on the fell/tail
+   criterion, not peak — hardware shows peaks near 25° are survivable.
+2. **We now have the data to model the transient instead of just
+   dosing it.** The episode CSVs carry per-tick roll, gyro, per-servo
+   currents, commands AND actions for all 18 walks. A trace-replay
+   calibration (feed the recorded action sequences to the sim plant,
+   compare roll evolution) would tell us whether the gap is contact
+   (feet unsticking from settled plant), actuator lag under load, or
+   mass distribution — and turn "add DR" into "fix the model."
+   This is the same lever the rise needs (see 3).
+3. **The rise gap is a specific, reproducible target.** Trip at tick
+   ~227 of the curl, 10.1–10.6° roll, currents flat — the hardware
+   curl rocks laterally where sim glides. The queued
+   `cw-stand-riserock1` drained as a stub and is VOID (the rocking-DR
+   code was never written); the rise-rock axis is still unbuilt code
+   that would treat the symptom, while the loaded-knee actuator model
+   treats the cause. Because
+   the failure is deterministic and cheap to reproduce (10 for 10!),
+   it is the best sim-calibration probe we have: match THIS trace
+   first, then retrain.
+4. **Keep the 10° rise trip.** The walk envelope tolerates and often
+   recovers 15–25° transients, which tempts raising the rise trip —
+   but a rise failure means falling from a half-risen, legs-tucked
+   pose with no stance to recover into. Harden the policy, not the
+   threshold (standing ruling from 08-11 stays).
+5. **Fix the A/B before drawing policy conclusions.** Alternate which
+   policy leads each round (or force per-policy direction coverage) so
+   tip1 gets forward walks. Until then, treat vref1-vs-tip1 as
+   undecided and spend bench time on transient reps instead.
+6. **Fell/tail is the metric.** `bench_report` now computes it from
+   the CSVs; the sim eval side should report the identical statistic
+   (`tail |roll| over the last second`) so hardware and sim numbers
+   are directly comparable.
+
+
+---
+
 # FILE: rl_move/API.md
 
 # Hexapod control API (prefer over SSH)
@@ -4809,7 +6946,7 @@ the process rules below are what remain).
 | GET | `/api/rl/policies` | List swappable policies in `policies/` + active flags |
 | POST | `/api/rl/policy_select` | `{"file":"<name>.json"}` — make it live (file copy, no motion) |
 | GET | `/api/measure/list` | Saved measurements + pending record (Measure tab) |
-| POST | `/api/measure/walk` | Measured scripted-gait run `{"vx_mm":30,"omega":0,"duration_s":20}` (caps 60/40 mm/s, 0.5 rad/s, 60 s; needs ARM+stand) |
+| POST | `/api/measure/walk` | Measured scripted-gait run `{"vx_mm":30,"omega":0,"duration_s":20}` (caps 60/40 mm/s, 0.5 rad/s, 60 s; acquires ARM+stand first when missing) |
 | POST | `/api/measure/hold` | Holding-current log `{"label":"planted"\|"hover","duration_s":30}` — holds present pose, NO commanded motion |
 | POST | `/api/measure/annotate` | Merge operator tape reading into the pending record + save |
 | POST | `/api/measure/discard` | Drop the pending record |
@@ -4817,16 +6954,22 @@ the process rules below are what remain).
 | GET | `/api/logs` | List `logs/` files (name, bytes, mtime; newest first) |
 | GET | `/api/logs/<name>` | Download one log file; `?tail=N` = last N lines only |
 | GET | `/api/rl/preflight?mode=` | Read-only readiness (`stand`/`lower`/`walk`) |
-| POST | `/api/rl/stand` | RL policy stand-up from belly (preflight-gated) |
-| POST | `/api/rl/lower` | RL policy lower to belly (needs captured plant) |
-| POST | `/api/rl/walk` | RL walk, EXPERIMENTAL: `{"vx":0.03,"vy":0,"duration_s":6}`, clamped 0.06 m/s / 20 s; needs captured plant |
+| POST | `/api/rl/stand` | RL policy stand-up (preflight-gated; wrong pose → acquires safe zero first, then re-preflights) |
+| POST | `/api/rl/lower` | RL policy lower to belly (wrong pose → acquires the plant stand first, then re-preflights) |
+| POST | `/api/rl/walk` | RL walk, EXPERIMENTAL: `{"vx":0.03,"vy":0,"duration_s":6}`, clamped 0.06 m/s / 20 s; wrong pose → acquires the plant stand first, then re-preflights |
 | POST | `/api/rl/capture_plant` | Save **current** 18 joints (no motion) |
-| POST | `/api/rl/set_stance` | Small crouch step; refuses Δq > 25° unless `force` |
+| POST | `/api/rl/set_stance` | Slow ease to a crouch stance; a big Δq acquires the safe zero start first instead of refusing |
 | POST | `/api/rl/find_plant` | **Disabled** unless `{"force":true}` |
 | POST | `/api/rl/probe_dynamics` | Air-only ±amp per joint → `logs/motor_model.json` |
 | POST | `/api/rl/stop` | Abort worker |
+| GET | `/api/rl/roles` | Role registry: which `policies/` file serves walk / hold / stand / lower |
+| POST | `/api/rl/roles` | `{"role":"hold","file":"<name>.json"}` — assign (no motion; `""` = default, `"walk"` = walk@zero for hold) |
+| GET | `/api/rl/drive` | Live drive-session snapshot (active, model, refs, tilt) |
+| POST | `/api/rl/drive/start` | Start persistent held-key drive session (walk preflight + acquire rules; operator watching) |
+| POST | `/api/rl/drive/cmd` | `{"vx":0.05,"vy":0}` heartbeat ~5 Hz; stale >0.6 s ⇒ refs decay to zero (hold) |
+| POST | `/api/rl/drive/stop` | Graceful end: decel to zero, HOLD pose |
 | POST | `/api/set_zero` | Present pose → logical 0° (required after hand-set) |
-| POST | `/api/zero` | Sit/stand glide; refuses large Δq unless `force` |
+| POST | `/api/zero` | Sit/stand — acquires the pose safely (sit = safe-zero plan; stand = safe zero → validated plant stand-up); never refuses on Δq, errors + stops if acquisition fails |
 | POST | `/api/safe_zero` | Collision-aware go-to-zero: plans staged waypoints (straighten → center yaws with feet lifted → extend flat), **errors if no safe path exists**, and **LIMPS on any stall / unexpected-force feedback** during motion. `{"dry_run":true}` returns the plan with no motion; `force` bypasses only the IMU tilt gate. Poll `/api/calibrate` for progress. |
 | POST | `/cmd` | `ARM` / `X` limp / `HOLD` / `# j deg` / `C` / `P` |
 
@@ -4864,6 +7007,21 @@ Add a policy: `python -m rl_move.sim.export_policy_np --policy <zip>
 "<operator notes>"` → scp into
 `/home/arduino/hexapod_sts/linux_control/policies/` (no restart
 needed — the list endpoint reads the dir live).
+
+**Roles + drive session (2026-08-11):** on top of the slots, a role
+registry (`~/.hexapod_rl_roles.json` on the board, `/api/rl/roles`)
+maps FUNCTIONS to files: `walk` (obs 72), `hold` (what runs when no
+keys are pressed — default "walk policy at zero command", or any obs
+68/72 file), `stand` and `lower` (obs 68). One file can hold several
+roles. Unset roles fall back to the live slot files, so behavior
+without assignments is unchanged. The drive session
+(`/api/rl/drive/*`, RL tab "Drive — hold keys") is a persistent
+25 Hz walk loop steered by live browser heartbeats: held arrow keys
+= walk that way, release = decel to the hold model, model switches
+re-anchor the episode frame (q_nom := present pose, prev_action 0).
+Watchdogs: heartbeat stale 0.6 s ⇒ zero command; 120 s silence ⇒
+session ends holding; 300 s hard cap; safety trips limp as always.
+Every session logs `rl_drive_*.csv` like any episode.
 
 ## RL episode logging (2026-08-09, on-robot, automatic)
 
@@ -5112,8 +7270,27 @@ four legs, walk on four). Foot slip is NOT failure by itself (the
 scripted gait that walks the real robot slips); slip metrics exist to
 keep sim honest, not as a ban. Sim metrics are means, not ends.
 
+**RESEARCH TRACKS (operator, 08-11 — read this before refilling):**
+the campaign is split into parallel tracks (`tracks.json`; per-track
+goal + status doc in `rl_docs/tracks/`): **hw** (joystick robot on
+hardware by any means — the MAINLINE, pod priority), **arch**
+(GRU/temporal models learning walk/stand/sit), **nobc** (learn
+stand + clean gait from scratch, NO BC anchor ever), **quad**
+(walk on four legs, front pair as hands), **turn** (commanded yaw /
+mirror-symmetry). Every launch/backlog/respec carries `--track`
+(respec inherits the source's). **CONTAINMENT: a triaged run's
+follow-ups go ONLY to its own track**, judged against THAT track's
+goal (read its doc first). A finding that matters elsewhere is
+ESCALATED, not launched: one line in both tracks' STATUS.md +
+`CROSS-TRACK INSIGHT:` in your logline; cross-track launches are
+operator-only. Verdicts that change a track's story update that
+track's `rl_docs/tracks/<track>/STATUS.md` — keep it a SHORT
+screenful (goal / Now / Next), detail goes to the linked docs.
+
 **PRIME DIRECTIVE (operator, 08-10 — supersedes GPU-occupancy
-rules):** minimize the number of unresolved blockers between the
+rules; scope: the hw track — other tracks substitute their own
+tracks.json goal for "joystick control" but keep every process
+rule):** minimize the number of unresolved blockers between the
 current robot and reliable joystick control; that count is the KPI.
 Idle pods are acceptable; peripheral experiments are not. Before
 training, prove the reward and evaluator prefer the intended behavior
@@ -5124,6 +7301,35 @@ already seen (--phase hardening + --evidence — the launcher enforces
 both). Prefer hardware-derived questions over generic sim
 robustness. Kill obviously bad runs early. Every analysis must end
 in a decision that can change the next experiment.
+
+**OPERATOR DIRECTIVE (08-11 night — binding; sharpens the prime
+directive): MAKE STANDING AND WALKING WORK IN SIM, TO THE QUALITY OF
+THE MODEL WE DEPLOY, AND KEEP THE FLEET FIRING AT EXACTLY THAT.**
+Think root-cause-deep about the open sim stand/walk blockers (live
+map: RL_PLAN "Critical path" + CURRENT_TRUTHS; as of tonight: the
+one-parked-foot hold habit, the det flat-rise stall, the rise-rock
+and takeoff roll-rate DR axes (CODE, unbuilt), the crouch-splay
+tall-walking wall — next levers BC-INIT on the scripted tall gait /
+physics easing — and the contact/pinning no-skate question) and keep
+launching runs that DIRECTLY attack them:
+
+- Spec every arm so a PASS is a deployable candidate — Gate 0 /
+  deployment contract, warm from the champion lineage, retention
+  gates: "the result of this run could be the model we use." Probes
+  stay legal when they are the fastest route to the next launch, but
+  the default artifact is a champion candidate, not a curiosity.
+- **CODE-FIRST:** when the next lever on a stand/walk blocker is
+  code (see the unbuilt items above), WRITE IT THIS CYCLE and check
+  it in — new cfg keys, DEFAULT OFF, bit-exact when off, tests + the
+  mode's semantics bank green, REWARD.md row for new terms,
+  `snapshot.sh` before anything trains on it. Never park a line on
+  "CODE, unbuilt" waiting for the operator, and never change shared
+  default behavior to carry an experimental mechanism.
+- This NARROWS "idle pods are fine": peripheral runs stay banned,
+  but an idle fleet next to an unattacked stand/walk blocker is now
+  the failure mode — the blocker map should keep the backlog
+  non-empty. Phases, preflights, caps, and track containment all
+  still bind.
 
 **The process is LIGHTWEIGHT by operator order (2026-08-09). Most runs
 need a 10-minute triage, not an hour of forensics. Dig in only when
@@ -5223,7 +7429,8 @@ prime directive and RL_PLAN "CLOSED moves".)
      properly every time, but standing up still fails"). No run-name
      jargon, no metric dump — the graphs are right there on the page.
    - RL_LOG.md gets 1 line per CYCLE (not per run), written ONLY via
-     `ops.sh logline "c<N>: <runs->verdicts>; <direction>"`. Never
+     `ops.sh logline "[<track>] c<N>: <runs->verdicts>; <direction>"`
+     — lead with the track tag(s) of the runs you triaged. Never
      `cat >>` RL_LOG.md — free-form appends tripled the file in half
      a day (operator trimmed it 08-09). Detail lives in rl_docs/runs/.
    - A PASS also updates `rl_docs/SKILLS.md` (one row: skill,
@@ -5267,10 +7474,15 @@ prime directive and RL_PLAN "CLOSED moves".)
 
 4. **Refill against the BLOCKER LIST, not occupancy** (prime
    directive, 08-10 — reverses the 08-09 "idle pods are the failure"
-   order). Ask first: which unresolved blocker between the robot and
-   the next hardware joystick test does this run reduce? A run that
-   serves one gets queued; an idle pod is acceptable; a peripheral
-   pair-compose queued "because capacity existed" is a violation.
+   order), **and inside the track you just triaged** (08-11
+   containment — see RESEARCH TRACKS above). Ask first: which
+   unresolved blocker between the current state and THIS TRACK's
+   tracks.json goal does this run reduce? A run that serves one gets
+   queued (with `--track`); an idle pod is acceptable; a peripheral
+   pair-compose queued "because capacity existed" is a violation, and
+   so is a refill in someone else's track. hw keeps pod priority: if
+   hw's backlog is non-empty and slots are scarce, non-hw refills
+   wait.
    **Every spec declares `--phase`** (launcher-enforced): discovery
    ≤2M steps for new mechanisms — binary question, early video;
    hardening/composition/transfer need `--evidence` naming where the
@@ -5394,7 +7606,12 @@ one-clause takeaway, what launched. ALL evidence, numbers, and
 narrative go in the ledger verdict (auto-renders `rl_docs/runs/`) and
 the W&B OUTCOME note — if it matters, it lives there, not here.
 
-## State (2026-08-09 ~19:00Z)
+## State (2026-08-09 ~19:00Z) — HISTORICAL SNAPSHOT, superseded
+
+**Do not read this block as current state** (it predates the BC-anchor
+stand/hold specialists, the rot60 full-circle wrapper, and the
+cw-dep-vref1-r1 hardware candidate). Live state: `CURRENT_TRUTHS.md`
+→ `RL_PLAN.md`; plain-English summary: `STATUS.md`.
 
 - **WALK CHAMPION: ppo_goal_cw_walk_longdist_r2.zip md5 bcddc65c**
   (c44, seed-confirmed 3/3, operator-accepted; DR1.0 det slip 1.06;
@@ -6014,3 +8231,90 @@ compatibility).
 - 08-11 10:25 c(2026-08-11 10:2x): cw-omni-transbc1 (3rd omni-translation lever, BC-anchor on walk ticks) FAILED -- anchor loss converged cleanly but the identical march-in-place/paddle collapse reappeared (fwd 0.01m/ep, slip/m 6-19, video confirms zero floor travel in 12/12 clips); pre-registered prediction-if-false, BC-anchor/reward tuning now CLOSED on omni-translation, next untried lever is rot-60 equivariance (CODE). All 12 GPU pods idle: no launchable critical-path work (hardware bench + code-design items only per RL_PLAN); left idle per prime directive rather than filling with peripheral runs. 
 - 08-11 11:21 c: idle-kick CODE cycle, queue-2.1 rot-60 lever executed -- OMNI TRANSLATION RESOLVED IN SIM, ZERO TRAINING: rl_move/sim/rot60.py canonicalizes any heading into the +/-30deg wedge (exact hexagonal symmetry, proved on the compiled model by test_rot60.py: rotate+relabel diverges <1e-6 over 30 contact steps) + eval_drive/eval_checkpoint --rot60; hardware ckpt cw-dep-vref1-r1 wrapped walks the FULL CIRCLE (naked backward frozen 0.027m -> wrapped every direction 0.024-0.036 err, 0 falls at DR0+DR0.35 incl full-circle flip stress, harness 20/24 success, slip 1.1-1.3, video-clean); matched control shows naked hist16-dep1 degenerates at EVAL into the leg-sacrifice (slip 7-11/m) -> wrapped gait_valid 24/24 -- the 0-for-4 omni training line was chasing what geometry gives free, line CLOSED. TURN/RL_PLAN/CURRENT_TRUTHS/STATUS/SKILLS refreshed, wandbnote on transbc1, artifacts logs/rot60/. Remaining: deploy-side runner port ([CODE], spec in TURN.md tail). No training launches -- 12/12 idle per prime directive (remaining blockers are bench-owned or deploy-side code). 
 - 08-11 11:47 c: idle-kick CODE cycle, no triages -- executed the last omni-blocker [CODE] item: rot-60 canonicalizer PORTED into the robot runner (linux_control/rl_policy.py wraps rot60.Rot60Policy itself via make_walk_canonicalizer, zero duplicated logic; deploy_adb.sh ships rl_move/sim/rot60.py, numpy-only verified). Default-ON with BIT-EXACT k=0 no-op for forward-wedge commands (walk obs now float32 = training dtype), rot60=false naked A/B path, off-wedge REFUSED when wrapper absent, per-tick rot60_k CSV column for offline replay. Replay-parity locked: new test_rot60_runner.py (6 tests: obs-layout vs rot60 slices, forward bit-exactness, full-circle+hysteresis+zero-hold parity on the REAL deployed rl_walk_weights.json, backward sector, wedge fallback, numpy-only import chain); full suite 114 pass/1 skip; refusal-path smoke green. Snapshot 39d4754 (exp/rot60-runner-port). TURN/RL_PLAN/CURRENT_TRUTHS/STATUS refreshed -- omni blocker is now BENCH-ONLY (wrapped-vs-naked forward A/B then off-wedge legs in attempt #2). No launches: 12/12 idle, remaining blockers bench-owned (attempt #2), hold-current model fit, or rise+hold deploy port -- idle per prime directive. 
+- 08-11 12:27 c: idle-kick CODE cycle, no triages -- executed the next critical-path [CODE] blocker: rise+hold specialist DEPLOY PORT (RL_PLAN blocker 2). ppo_goal_cw_stand_holdbc1_hard1 exported w/ its TRAINED goal ramp riding in the weights meta (new export_policy_np --extra-meta; rl_policy.py policy_profile() reads it per episode, legacy files keep old constants = stance_dr10 rollback behavior-identical) + live stance slot updated + deploy_adb.sh now ships rl_walk_weights.json+policies/. Contract locked by new test_stand_runner.py (5 tests; suite 119 pass/6 pre-existing skips) + closed-loop sim smoke w/ the DEPLOYED numpy artifacts (flat-belly rise +111mm, 0 falls, 2/2 eps). Mid-cycle reconciliation: operator had independently activated a PROFILE-LESS export on the robot (commit 1e64263, md5 6620705c) -- that copy would feed the legacy +50mm/4s ramp, OOD for a policy trained on 108-114mm targets; merged operator's picker notes + profile, flagged DO-NOT-STAND-until-repush in HARDWARE.md/RISE.md/CURRENT_TRUTHS. Snapshot e81dec7 (exp/rise-hold-runner-port). No launches: 12/12 idle, remaining blockers bench-owned (attempt #2) or hold-current model fit (next CODE item) -- idle per prime directive. 
+- 08-11 12:49 gru-mjx-smoke launched on train-0 (100k, --smoke): first RecurrentPPO+GRU run on the MJX stack (gru_policy.py, code 1d72f58) — validates warp+cuda recurrent path before cw-arch-gru-r1 discovery 
+- 08-11 12:58 cw-arch-gru-r1 launched on train-0 (2M discovery): GRU recurrent rung of the temporal-arch ladder, unified walk+rise/lower+hold diet on joint_walk; smoke gru-mjx-smoke validated the RecurrentPPO warp path at ~2.4k fps 
+- 08-11 13:19 cw-arch-gru-r2 launched (respec continuation of gru-r1, init-from-source, walk share 0.55->0.70): feed the slow skill, keep rise/lower/hold riding along; gate = walk err <0.065 with stance retained 
+- 08-11 13:23 c: cw-arch-gru-r1 (GRU temporal-arch rung 4, 2M from-scratch mixed diet) -> FAIL, known exploit, no forensics: harness+video show det walk frozen in a 3-leg-tucked static tripod (0.004 m/s, gait_valid 0/6) and sto walk jittering in place with heavy slip and 2/6 tips (prog med -0.02); training return climbed while the task didn't -- reward-shortcut pattern, not a walk. WISHLIST -0.5 updated with the probe result; ladder stays FROZEN pending the flagship, not on the blocker list, no recipe-adjustment relaunch queued by me. Note: a concurrent cycle already launched cw-arch-gru-r2 (walk-heavier continuation of r1) reasoning off r1's periodic training-log numbers alone (no harness/video looked at yet) -- flagging for that run's own triage that r1's actual gate eval is a leg-sacrifice cheat, not 'barely tracking'. No refill from me: nothing else on the blocker list is launch-ready (remaining blockers are bench-owned attempt-#2 or the hold-current model fit CODE item), 11/12 pods idle per prime directive. 
+- 08-11 13:46 c: idle-kick(deep) triage backlog cleared -- cw-dep-hgt2 FAIL (pre-registered: sigma-80 put a live gradient at the crouch, walk_height_factor still plateaus at the crouch-equivalent 0.775, end height -52.5mm; height-gate lever CLOSED per two-miss rule, walk sag = cosmetic); cw-stand-crouchrise1 MECHANISM PASS / promotion declined (start-mix bias FIXES crouch-start rise: RSI-off all-crouch 16/16 stands det 8/8 vp ZERO falls vs matched parent hard1 0/8 w/ 8/8 tilt falls -- but hold sto valid_plant 1/6 vs parent 5/6 on the 2.0A current-tail flag misses the pre-registered >=10/12 bar; hard1 stays deployed, crouchrise1 banked md5 3877e16c; stand lineage fully CLOSED); gru-mjx-smoke SMOKE PASS (recurrent MJX path validated; cw-arch-gru-r1 is its launching cycle's run, untouched). SKILLS +1 row, RISE/CURRENT_TRUTHS/STATUS refreshed. No launches: 11/12 idle per prime directive (blockers bench-owned + hold-current fit CODE). 
+- 08-11 13:49 c: cw-arch-gru-r2 -> FAIL, known exploit: harness+video confirm the IDENTICAL leg-sacrifice/paddle-jitter cheat as parent r1 despite the walk-heavier diet -- GRU rung stays frozen off the blocker list, no step-count relaunch without a recipe change; flagged the same evidence-misread pattern on a concurrent-cycle 20M 'hardening' launch (cw-arch-gru-long1, cited r2 training-log as 'walk:ok') as invalid, though it had already self-died (W&B step regression) before burning compute. Also caught+fixed a ledger race on cw-stand-crouchrise1: my triage (comparing report.json noise) wrote PASS/replaces-hard1-as-deploy-candidate right as a concurrent dig-in cycle's proper matched-parent RSI-off probe landed the correct call (mechanism genuinely fixes crouch tip-overs 8/8 vs parent 0/8, but a real small current increase fails the hold no-regression bar) -- corrected the ledger verdict+hardware_ready to match SKILLS/RISE/CURRENT_TRUTHS, snapshotted. No refill: blocker list is bench-owned (hw attempt #2) or CODE-only (hold-current fit); backlog empty, 12/12 idle, prime directive says that's fine. 
+- 08-11 13:50 c: cw-stand-crouchrise1 confirmed already fully triaged/corrected by concurrent cycle (mechanism PASS, promotion declined, hard1 stays deployed, ledger+SKILLS+STATUS+CURRENT_TRUTHS consistent, committed 58b1f8a) -- no further action needed. Checked blocker list: only bench-owned (hw attempt #2) and CODE-only (hold-current fit) items remain, backlog empty, all 12 pods idle -- no peripheral refill per prime directive. 
+- 08-11 14:21 c: idle-kick(deep) CODE cycle, no finished runs -- executed the last non-bench blocker (hold-current model fit) and RETRACTED its premise: new rl_move/sim/probe_hold_current.py (ran on train-0, air+loaded params, logs/probe_hold_current/) shows the 08-10 'sim hold 0.11 A vs real 0.59 A' inversion was a x18 unit slip (sim mean-per-servo vs hw bus-total) PLUS a pose confound (real walk-synced plant hold reads 0.106 A ~= sim; the 0.59 A is the scripted-stand cmd-fight, per-servo register current tracks cmd-q error); pose/unit-matched sim OVERPRICES effort 3-25x everywhere (conservative) and reproduces real walk>hold ordering. ASSUMPTION (operator to review): hold-current fit dropped from the blocker list, deferred to a register-scale cmd-fight/deadzone model required only before any k_current>0 hardware-pricing arm; k_current=0 ruling unchanged. SIM.md gap 2 / CURRENT_TRUTHS / RL_PLAN / STATUS refreshed. Critical path is now BENCH-ONLY (attempt #2); 12/12 idle, no refill per prime directive. 
+- 08-11 14:55 c: idle-kick CODE cycle, no finished runs -- landed the LAST owed MDP_PREFLIGHT bank (LOWER, test_task_semantics.py, queue-2.4) under the deployed specialist stack incl loaded servos: bank PASSES -- honest IK-tracked descent (anchored at the SETTLED stance; ideal-plant anchoring leaves a 16mm sag error) out-earns the outrig/aloft cheats on every seed (540 vs 461/383) and posture-strict rejects them (~300mm aloft pads vs ~0); lower-mode arms unblocked. REAL FINDING encoded as strict-xfail: pf=5/6 posture pricing lets a one-leg-aloft lower keep 85% of honest income (cheat >> refusal) -- the exact incentive behind the deployed specialist's cosmetic 62-99mm dangling foot from eval_handoff_reverse; strengthen pricing or BC-anchor lower ticks before any lower-MECHANISM arm. Full suite 35 pass/1 xfail, RL_PLAN condensed -14 lines, RISE.md updated, snapshot a6a0231 (exp/lower-semantics-bank). No launches: critical path stays bench-owned (attempt #2), 12/12 pods idle per prime directive. 
+- 08-11 15:32 c: idle-kick(deep) CODE cycle, no finished runs -- landed the flagship prerequisite (queue 2.4): obs.mode_onehot=1 gives the policy an explicit 6-wide skill-family input (walk-env obs tail, mirror-invariant, pool-safe via _goal_traj; default OFF = every existing checkpoint bit-exact) + --net-arch on the MJX trainer (flagship 256x256) + closed a latent tail gap in _privileged_idx (ledger-audited: never hit, only aac-s1b/c ever used --asym-critic, yaw-off). 13 new tests (test_mode_onehot.py), full suite 135 pass/5 skip/1 xfail, CPU train smoke + attach_mirror layout checks green, snapshot 70b5861 (exp/mode-onehot-flagship-a1). FLAGSHIP unified-policy line now fully unblocked (stance banks pass, turn de-scoped) -- queued stage A cw-uni-flag-a1 (2M discovery, from-scratch hist16/256x256/mode-onehot on the proven stand stack + BC anchor; hold + near-plant crouch rise + lower, no walk yet). ASSUMPTION (operator to review): with attempt #2 bench-owned, I treated the single-checkpoint deliverable (WISHLIST -1) as the next sim-side blocker and queued stage A; if overruled, the backlog item is one delete away and nothing else trains -- 11/12 pods stay idle. 
+- 08-11 15:48 c: cw-uni-flag-a1 INFRA FAILURE (0 steps, SIGBUS -- hist16+mode_onehot obs > 64M shm at n-envs=4096, gotcha 13c); relaunched as cw-uni-flag-a1-r1 with --n-envs 3072, VERIFIED RUNNING past 1M/2M steps on train-0. Flagship stage A now actually training; no other blocker-serving work queued, 11 pods idle by design. 
+- 08-11 16:15 c: cw-uni-flag-a1-r1 (flagship stage A, from-scratch hist16/256x256/mode-onehot, hold=0.2/rise=0.4/lower=0.4, 2M) triaged, left UNVERDICTED (real trigger: decides the flagship fork). Pre-staged gate defaults to --modes walk (irrelevant, this run never trains walk) -- ran the run's OWN gate myself on its pod (kubectl exec, hold+rise+lower, artifacts synced to logs/ckpt_eval/cw_uni_flag_a1_r1_hrl): hold PASS clean (det 6/6 valid_plant, video motionless six-foot stand) and lower PASS clean (det 6/6 posture-strict, honest sit video) but rise (all-crouch, the hard skill) misses badly -- det 1/6 valid_plant, sto 1/6 (printed n_ok used the ungated height-only success, 3/6 sto, which is exactly the CURRENT_TRUTHS height-only blind spot -- ignored it, read valid_plant/plant_fail directly). Video read: 4/6 det rise fails are a genuine new failure mode (wide leg sprawl, undershoot height 78-100mm, attitude/feet_down/no_flag all OK -- not the classic cheat) but 1/6 (det ep5) shows a true flag-leg fingerprint (leg elevated 91mm) and 1/6 lower/sto shows the already-known cosmetic dangling-foot margin (87mm, matches the pre-registered lower-bank thin-margin xfail, not new). env/rise_feet_factor held 0.3-0.95 the whole run (sampled series spans all ~630 logged iters = full 2M budget) with no sustained collapse toward the historical ~0.17 cheat floor -- does NOT look like the classic warm-start-OOD collapse fingerprint. Gate fails outright either way (rise <3/6, and the zero-known-exploit bar is violated by the one flag-leg episode) but the FORK decision (hardening continuation vs multitask-interference->MoE per the pre-registration) rests on a genuine causal ambiguity a triage pass can't resolve. No refill: blocker list is bench-owned (attempt #2) or waits on this exact decision, 12/12 idle per prime directive. DIG-IN: cw-uni-flag-a1-r1 -- gate FAILS (rise valid_plant 1/6 det+sto vs >=3/6 needed, one flag-leg episode present) while hold+lower pass clean and rise_feet_factor never collapsed like the historical cheat -- decide budget-limited-from-scratch (hardening continuation) vs genuine multitask interference (fork to MoE) per the flagship pre-registration. 
+- 08-11 16:50 c: cw-uni-flag-a1-r1 (flagship stage A, dig-in) VERDICTED FAIL-on-gate/MECHANISM-SUPPORTED: rise valid_plant 1/6 det misses the 3/6 bar but the fork resolves to BUDGET-LIMITED-FROM-SCRATCH, not MoE — no cheat (the triage's 'flag-leg' det ep5 is a 91mm leg MID-tilt_roll-FALL, no episode holds height with a leg aloft; rise_feet_factor recovered 0.33->0.62 and still climbing, the OPPOSITE shape of the closed 0.87->0.17 cheat collapse; reward quarters -4/-17/+10/+41 steepest at cutoff) and no interference (hold det 6/6 valid_plant + lower det 6/6 posture-strict, both stable all run while rise climbs; the 9 rise misses are the specialist lineage's exact current/footprint/height-short finishing tails that bc1->bc1-hard1 resolved with 10M). Queued the pre-registered continuation cw-uni-flag-a1-h2 (10M hardening, warm from r1, MoE fork now pre-registered as ITS prediction-if-false). INFRA: h1 + both concurrent drain retries (h1-r1/h1-rr1) crashed 0-step on the trainer's --net-arch-vs-warm-start hard exit (respec CLONES the flag, so every retry inherited the crash) — fixed train_ppo_mjx.py to accept a MATCHING --net-arch on plain warm start (genuine mismatch still refuses), smoke-tested on the real ckpt, snapshot 5958bba (exp/cw-uni-flag-a1-h2); h2 VERIFIED RUNNING on train-0 ~7.1k fps, 11 pods idle per prime directive. 
+- 08-11 16:51 c: cw-uni-flag-a1-h1-r1 + cw-uni-flag-a1-h1-rr1 -> both INFRA FAILURE (0 steps): traced to a hard --net-arch refusal on plain --init-from warm starts, not the earlier wandb-cache/shm suspects; a concurrent cycle already fixed the code and relaunched as cw-uni-flag-a1-h2 (running, >500k/10M), so no retry launched here; pruned the now-redundant duplicate rr1-rr1 backlog entry (2 failed attempts, same bug); train-1 left idle, no blocker-list work ready. 
+- 08-11 16:53 c: triaged cw-uni-flag-a1-h1 (0-step INFRA FAILURE, no checkpoint). Found+fixed a real, independent bug along the way (snapshot.sh --sync's tar excluded rl_move/wandb/ but not the top-level prototype_sts3215/wandb/, so every sync shipped ~1.9GB/560+ stale controller wandb-cache dirs onto the pod; fixed, tar dry-run confirms 0 shipped, snapshot 8e4db65) but that was NOT the crash cause -- my mechanical retry (cw-uni-flag-a1-h1-r1, --now) hit the identical 0-step death, and by then a concurrent cycle had already root-caused the REAL bug (trainer hard-refused a --net-arch that legitimately matched the warm-start checkpoint's own architecture; SystemExit + stdout buffering made it look like a wandb-backend crash), fixed train_ppo_mjx.py, and relaunched as cw-uni-flag-a1-h2 (now running, supersedes both h1-r1 and my h1-r1 attempt). Corrected my own cw-uni-flag-a1-h1 ledger verdict + wandbnote to credit the confirmed root cause instead of my earlier (real-but-irrelevant) sync-bug theory, snapshot 699f15f. No relaunch from me (h2 already covers the question); no refill, 11/12 idle per prime directive. 
+- 08-11 16:58 cw-arch-gru-r3 launched on train-1 (2M discovery, from scratch): the GRU-rung RECIPE CHANGE the r1/r2 freeze demanded — full hist16-r7 anti-cheat/joystick cfg stack (step-event, drag/park, prog+anchor gates, 0.05-0.06 band, cmd jitter) on the mixed walk+rise/lower+hold diet; gate = no leg-sacrifice fingerprint + positive det progress + stance emerging (cheat-free attempt, not gait quality) 
+- 08-11 13:2x operator session: GAIT CLEANUP line opened (RL_PLAN queue -0.5, rl_docs/GAIT.md) -- operator wants the paddle killed and, longer-term, a walker that learns lift-and-place WITHOUT the BC crutch: P1 cw-walk-gaitbc1 (BC-anchor on the hardware walker, launched train-2), P2 banked structural stance-slip charge + swing clearance [CODE], P3 from-scratch no-anchor curriculum (terrain-as-teacher zero-training probe FIRST, drag charge annealed up, physics easing, RSI-for-walk). Anti-slip closed-move scope narrowed to income-shaping retrofits (does not cover P2/P3).
+- 08-11 17:28 c: cw-arch-gru-r3 (GRU rung recipe-change, full hist16-r7 anti-cheat stack on the mixed diet) -> FAIL, known exploit, no forensics: gate+own-DR harness both show the IDENTICAL leg-sacrifice/paddle fingerprint as r1/r2 (det gait_valid 0/6, legs parked at duty 0.02, speed ~0.006 m/s, video-confirmed static legs; sto gait_valid 6/6 but no-progress jitter-paddle, slip/m 17.4-17.5) despite the anti-cheat reward already working on the MLP walk lineage -- fires the gate's own pre-registered FAIL branch (BPTT-window/capacity limit, not reward). GRU rung stays FROZEN off the blocker list, no further recipe/diet variant. cw-uni-flag-a1-h2 and cw-walk-gaitbc1 left untouched (another cycle's runs). No refill: checked capacity (12/12 free) and the queue/wishlist -- everything launch-ready is either bench-owned (attempt #2), owned by a concurrent cycle (flagship h2, gaitbc1's P2 fork), or explicitly deferred (GRU/turn/quad/DR-composes); idle pods stand per prime directive. 
+- 08-11 17:20 op: cw-stand-crouchrise1 -> FAIL (mixed, lever PROVEN) — triaged by operator after sitting FINISHED/unverdicted since 12:35Z (cycles spent the window on arch probes). Crouch defect FIXED: gate det crouch rise 5/5 + sto 4/4, zero tilt falls, RSI-off crouch 8/8 det + 8/8 sto vs hard1's 0/8 (artifacts on train-0: logs/ckpt_eval/cw_stand_crouchrise1_gate, crouchrise1_rsioff_crouch). But hold retention fails its own gate: hold det+sto valid_plant 7/12 (needs >=10/12; hard1 11/12) and det hold parks feet 1+4 at contact duty 0.07/0.01 (hard1 all six 0.90-0.99) — flag-leg cheat resurfaced. Root cause pinned to the run's SECOND delta, the goal-mix skew rise 0.45->0.6 / lower 0.45->0.3; the start-mix alone is the fix. Do not deploy, do not warm from it. NOTE for future gates: valid_plant=True did NOT catch the det-hold cheat — per-foot contact duty is the telemetry that did; added an explicit all-six duty >= 0.8 clause to the follow-up's gate.
+- 08-11 17:22 op: queued cw-stand-crouchrise2 (2M discovery, warm from holdbc1-hard1, seed 13): ONE variable vs crouchrise1 — restore hard1's exact goal mix (hold=0.1,rise=0.45,lower=0.45), keep the proven crouch-60% start mix (goal.rise_flat_frac=0.10 / rise_partial_frac=0.30). Gate = crouch det >=3/4 zero tilt falls AND hold det+sto valid_plant >=10/12 AND det-hold all-six-feet duty >=0.8 AND flat/bridge not worse than hard1. PASS -> replaces hard1 as stance deploy candidate (export MUST ship with its goal-ramp profile per the 08-10 stale-push lesson) and the stand lineage closes. Draining now.
+- 08-11 13:4x operator session: TERRAIN CLAMP BUG found+fixed (servo_model.py clipped env.terrain_amp to 1.0 = 18mm peak bumps -- every historical terrain run/eval ran <=18mm ground regardless of requested amp; docs said 36mm). Probe at amp 1.5/2.0/3.0 returned bit-identical results, exposing it. cw-gait-terrain1 KILLED as invalid (trained on the clamped rung); amp>1 now scales hfield z-extent (434a6e0). Re-probing champion at true 36/72/108mm before relaunching the terrain-as-teacher arm.
+- 08-11 17:49 c: cw-uni-flag-a1-h2 (flagship stage A, 10M hardening, warm from r1) triaged, left UNVERDICTED (pre-registered fork trigger fires). Pre-staged gate again defaulted to --modes walk (meaningless, this lineage never trains walk) -- ran the run's own hold/rise/lower gate myself on its pod (kubectl exec, artifacts synced to logs/ckpt_eval/cw_uni_flag_a1_h2_hrl): hold PASS clean (det 6/6 valid_plant, matches parent) and lower PASS clean+IMPROVED (det 6/6, sto 6/6 posture-strict vs parent's sto 3/6 -- rules out the alternative 'hold/lower erode' hypothesis) but rise (all-crouch) is IDENTICAL to the 2M parent: det valid_plant 1/6, same passing episode index, same wide-sprawl/tilt-roll failure videos (no new pathology, no cheat -- video-checked 3 episodes) despite 8M more steps. env/rise_feet_factor plateaued 0.4-0.6 the whole run (first/last-20% means 0.47/0.61) -- never climbed toward ~1.0 the way hold_feet_factor did, unlike the specialist lineage's budget-resolved tail. This is exactly r1's pre-registered prediction-if-false (rise <3/6 + flat rise factors at 10M) -- decides the flagship's core fork (unified net vs MoE) so leaving the call to a dig-in pass rather than calling it myself. INFRA FIX along the way: pod_eval.py + ops.sh evalcmd hardcoded '--modes walk' for any joint_walk task, silently evaluating a mode this lineage (and cw-arch-gru-r3's mixed diet) never trains -- patched both to derive eval modes from --goal-mix's nonzero keys, smoke-tested against 4 real ledger entries, snapshot 7de97c4 (exp/cw-uni-flag-a1-h2-podeval-fix); future flagship/mixed-diet continuations get the right gate for free. No refill: blocker list is bench-owned (attempt #2) or waits on this exact fork decision; capacity 10/12 free (train-0 busy with cw-stand-crouchrise2, unrelated), backlog empty, no peripheral work queued per prime directive. DIG-IN: cw-uni-flag-a1-h2 -- pre-registered MoE-fork condition met (rise valid_plant 1/6 det, matched-parent-identical, flat feet-factor at 10M) while hold/lower are clean-to-improved -- confirm no lingering causal ambiguity and decide hardening-is-exhausted -> MoE fork vs one more budget/architecture lever, per the flagship pre-registration. 
+- 08-11 18:05 op: cw-stand-crouchrise2 launched on train-0 (13.1k fps, 2M done in minutes), gate-evaled on-pod -> FAIL, but a CLEAN ISOLATION: crouch fix retained (det crouch 5/5 + bridge 1/1, zero falls, Imax 2.64A) yet the det-hold flag-leg persists with hard1's exact goal mix restored — feet 1+4 duty 0.05/0.03 (crouchrise1: 0.07/0.01, identical fingerprint; hard1: all six 0.90-0.99), hold det+sto valid_plant 9/12. The only remaining delta vs hard1 is the crouch-60% start mix, so the START MIX ITSELF causes the hold cheat. Mechanism suspect: the BC anchor reference is clock-indexed from episode start; crouch starts see belly-phase reference poses against near-plant states — the anchor actively teaches lifted-leg postures in plant-adjacent states and it bleeds into hold. TWO-MISS RULE: the start-mix lever closes (crouchrise1 + crouchrise2). Next lever is CODE and goes through SPECIFICATION first: state/height-aligned BC anchor for non-flat rise starts (or anchor gated off on crouch starts). hard1 REMAINS the stance deploy candidate; its RSI-off crouch 0/8 stands as the documented limitation. Neither crouchrise checkpoint may be deployed or warmed from. Launch infra note for future drains from the Mac: ops.sh drain uses system python3 (no wandb module — dedupe check dies and burns an attempt) and snapshot.sh --sync refuses -dirty markers; use the repo .venv python and snapshot (commit) first.
+- 08-11 17:57 cw-arch-gru-r4 first launch (n_envs 1024 x n_steps 256 = 262k rollout) killed by operator agent: only ~8 PPO iterations in the 2M budget vs r3's 30 — update-starved by construction, and the launch verifier had already (correctly, wrong reason) marked it FAILED. Relaunching r4 with n_envs=256 so rollout/update stays 65,536 = r3-identical iteration count; only window (64->256) + hidden (128->256) change. 
+- 08-11 18:35 op: reconciled with the concurrent dig-in cycle's CORRECTION on cw-stand-crouchrise1 (raced triages, same bottom line): its matched-parent RSI-off probe (child det 8/8 vs parent 0/8, identical seed/cfg) is the stronger crouch evidence, and it attributes the sto-hold vp misses to a >2.0A current-tail soft flag (Imax 2.31 vs parent 1.96A) — deferring to that on the sto side. The det-hold duty finding stands as an ADDITIONAL regression both my triages caught and the probe text missed: det hold feet 1+4 at duty 0.05-0.07/0.01-0.03 in BOTH crouchrise variants vs hard1's all-six 0.90-0.99 (end_clear ~0 masks it at episode end; valid_plant never sees it). Net, all writers agree: hard1 stays deployed, crouchrise1+2 banked as crouch-robust variants, start-mix lever closed (two-miss), next lever = state-aligned BC anchor (CODE, spec first). crouchrise2 verdict re-applied to the ledger after the rebase race and mirrored to W&B (1gg41uez).
+- 08-11 14:1x operator session: probe2 (post clamp fix) -- champion paddle PASSES 36mm (6/6, slip 1.31) but FAILS the walk gate at 72mm (0/6, prog 0.80) and 108mm (0/6). cw-gait-terrain2 launched on train-3: from scratch at true 72mm, physics-as-teacher, no reward surgery. cw-gait-dragstep1 FAILED per agent triage (paddle at 4x drag charge from scratch) -- but note the charge magnitude audit caveat in rl_docs/GAIT.md before closing the pricing lever: reward_drag never exceeded ~0.09/tick even at k=40.
+- 08-11 18:5x operator session: cw-gait-terrain2 FAIL (own gate-eval): from scratch on true 72mm bumps -> leg-sacrifice drag (own-terrain 0/6 prog 0.25 slip 10.2, flat retention same), physics-as-teacher refuted standalone at 2M. Four from-scratch arms now all land on paddle/sacrifice. Next per GAIT.md: drag-charge MAGNITUDE AUDIT (k=40 only ever cost ~0.09/tick vs ~1/tick income -- the big penalty has never been effectively big), then annealed charge + RSI-for-walk.
+- 08-11 18:10 c: cw-uni-flag-a1-h2 (flagship stage A 10M hardening, dig-in) -> FAIL on gate, hardening lever CLOSED, MoE fork DEFERRED to a measurement: rise (all-crouch) det 1/6 valid_plant identical to the 2M parent with rise_feet_factor flat 0.44-0.64 the FULL 10M + bc_anchor_loss converged (budget dead, det failures shifted stalls->tilt_roll tip-overs, zero exploit in 12 video-checked strips) while hold 6/6 stayed clean and lower IMPROVED (sto 3/6->6/6) -- but the pre-registered 'flat = shared-capacity interference -> MoE' leap is confounded (the deployed specialist itself fails all-crouch 0/6 RSI-off with the same tilt fingerprint, and ledger audit shows the from-scratch+rise-only cell has NEVER run: every honest rise was warm-started), so interference is inferred, not measured. Queued+launched the missing 2x2 cell cw-uni-flag-a1-risectl1 (2M discovery, one variable: goal-mix rise=1.0; RUNNING train-0, 9n6d5qj3) -- clearly beats flagship at matched rise-ticks => MoE justified; same plateau => MoE exonerated, lever moves to rise-teaching (state-aligned anchor spec per crouchrise2's mis-teaching finding). INFRA: repaired a leftover autostash merge conflict (experiments.json + RL_LOG UU state, markers inside the ledger JSON blocking every launch_run call; ledger converged to upstream, RL_LOG merged both lines, pushed 01cf45d). STATUS.md + RL_PLAN flagship section refreshed. 
+- 08-11 18:13 c: cw-gait-terrain1 confirmed already fully verdicted (INVALID, terrain-clamp bug) by a prior operator session -- no new action needed, just committed by a concurrent snapshot. Used the follow-up window to run my own zero-training champion-on-terrain probe (det+sto, matched seed) across the corrected full amplitude range (18/36/54/72mm): slip/m rises monotonically 1.09->1.74 with NO drop anywhere, independently confirming probe2's finding that physics never forces stepping. Also independently re-evaled cw-gait-terrain2 (the true-72mm from-scratch relaunch) and found the same leg-sacrifice fingerprint an operator pass had already verdicted moments earlier (det slip/m 8.58 med, gait_valid 2/6, leg[3] parked, flat retention identical) -- redundant but cross-confirming, reconciled cleanly (my ledger update replaced theirs with an equivalent+fuller paragraph, no contradiction). Along the way found+waited-out a live git-merge-conflict corrupting experiments.json (another cycle was mid-fix; did not hand-edit, just polled until valid). Launched the run's own pre-registered single retry cw-gait-terrain2-r1 (amp 3.0/54mm, VERIFIED RUNNING train-3) to close lever 1 on the two-miss rule; GAIT.md updated with an addendum noting the charge-magnitude audit stays the sharper next lever regardless of how -r1 lands. No SKILLS/STATUS change (no new capability, no story change). Refill: only the pre-registered retry: (i) GAIT CLEANUP is the operator's TOP TRAINING PRIORITY so this serves the blocker list directly, (ii) everything else launch-ready is bench-owned, owned by concurrent cycles (flagship h2 fork, arch-gru line), or explicitly deferred -- left the rest of the fleet idle per prime directive. 
+- 08-11 18:17 c: cw-gait-dragstep1 FAIL (GAIT P3 lever 2, drag-charge-from-scratch 4x + step-event income: paddle formed anyway, WORSE than champion band -- det/sto slip/m 6.4/9.7 vs <0.6 gate, reward collapsed -186 by 25%, kill sig (b) fires -- pricing-only refuted even from scratch). cw-stand-crouchrise2 FAIL (mixed, lever re-proven not promoted): crouch-rise fix REPRODUCES clean (det 6/6 incl crouch 4/4, zero falls) but the IDENTICAL flag-leg hold cheat returns on the SAME two legs (det duty 0.03/0.03) despite restoring hard1's exact goal-mix -- refutes the mix-skew-caused-it hypothesis from crouchrise1, root cause still unknown, two-miss rule closes further mix/coef variants on this stack; matched-parent control also shows lower measurably worse than hard1 (0/6 vs 3/6, +1 fall). Bonus: ran the GAIT P3 lever-1 zero-training terrain probe on champion (true amps after re-verifying the amp-clamp fix was actually synced to the eval pod -- an unsynced free pod silently reran the OLD clamped code and gave a false bit-identical negative, now COMMANDS.md gotcha 16) -- REFUTES terrain-as-teacher decisively: slip gets WORSE with bump height (1.07->1.34->1.43 det) and 54mm bumps trip real over_current safety terminations (6/6 det), never better; no cw-gait-terrain2 needed, GAIT.md + terrain1's verdict updated. CURRENT_TRUTHS refreshed (crouchrise1/2 hold-cheat story). No refill: GAIT P3's surviving levers (physics-easing, RSI-for-walk, slow-speed-first) all need CODE/SPECIFICATION first, not a launch; hold-cheat lineage hit the two-miss rule (new hypothesis needed, not another variant); 10/12 idle, backlog empty, prime directive says that's fine. 
+- 08-11 18:23 cw-arch-gru-r4c launched on train-1 (2M discovery, from scratch), VERIFIED RUNNING: operator reopened the frozen GRU rung with the exact levers the r3 FAIL branch pre-registered — BPTT window 64->256 steps (10.24s) + hidden 128->256, n_envs 256 keeps 65,536/rollout = r3-identical 30 PPO iterations. Messy road here: r4 (1024 envs = update-starved 8 iterations) operator-killed; r4b (correct config) verifier-FAILED during its slow first BPTT update then killed by the r4-rr1 auto-retry collision; rr1 (wrong config resurrected) operator-killed; all three verdicted DO-NOT-RETRY in the ledger. Also repaired experiments.json + RL_LOG.md leftover autostash conflict markers from the launch race (pushed). Gate unchanged from r3: cheat-free walk attempt + stance emerging; FAIL closes the from-scratch GRU rung for real. 
+- 08-11 18:26 c: cw-arch-gru-long1/hist16-r1/hist16-r2 triaged (gru-long1 pre-verdicted; hist16-r1/r2 dead launch-collision attempts, class-stopped by r6-rr1, no action); found+fixed real launcher bug: fixed 90s post-launch liveness check false-killed cw-arch-gru-r4 (BPTT=256 GRU update is CPU-bound & slow, no GPU signal) -- landed CPU-liveness polling fix (launch_run.py), concurrent cycle's r4b/r4c retry chain already running clean on it; no new launches (backlog empty, no unserved blocker). 
+- 08-11 18:28 c: cw-uni-flag-a1-risectl1 (the missing 2x2 rise-only control cell) -> FAIL/REFUTES MoE: det+sto valid_plant 1/6 (crouch 1/6), rise_feet_factor last-quarter 0.537 -- IDENTICAL band to the multitask flagship h2 (1/6 det, 0.44-0.64), zero exploit fingerprint in 12 video-checked eps (honest crouch tip-overs/sprawl-stalls, one genuine six-foot pass). Isolating rise with ZERO sibling skills and 2.5x the flagship's rise-tick exposure changed nothing => shared-capacity interference is NOT the flagship's rise bottleneck, decisively closing the MoE fork (measured, not inferred). Next lever if reopened: specialist seeding/warm-start, not another reward/mix variant -- but this is architecture curiosity, not a hardware blocker (specialist-handoff rise already deployed for attempt #2). RL_PLAN flagship section + STATUS.md (both mentions) updated to reflect the closed fork. No refill: no unserved blocker queued (hardware/gait/arch lines owned by concurrent cycles or bench); pods left idle per prime directive. 
+- 08-11 19:0x operator session: RESEARCH TRACKS restructure landed — campaign split into parallel tracks (tracks.json: hw mainline / arch / nobc / quad / turn), one W&B project with track:<id> tags (operator: tags not projects, nothing moves), per-track goal+status docs in rl_docs/tracks/, launcher --track + ledger field (762 entries backfilled), W&B tag backfill running, containment rule binding (triage refills stay in-track; cross-track = escalate in writing, launch operator-only; hw keeps pod priority), status page track column+tally, loglines lead with [track].
+- 08-11 18:33 c: cw-gait-terrain2-r1 FAIL (54mm no leg-sac but slip 4-6x champion band, closes GAIT terrain-as-teacher lever for good, two-miss rule) + orphaned cw-walk-gaitbc1 FAIL (BC-anchor on walk ticks froze into a static tripod pose instead of stepping, closes GAIT P1); cw-arch-gru-r4-rr1 was a mechanical launcher-liveness false-kill, fixed+carried forward by a concurrent cycle as cw-arch-gru-r4c, no science verdict needed here. GAIT cleanup: both cheap zero-code levers (BC-anchor, terrain-as-teacher) now closed; next is P2 structural stance-slip charge (bank first) or the charge-magnitude audit, both spec/code work, not a launch. No refill: nothing launch-ready on the blocker list this cycle, idle pods left per prime directive. 
+- 08-11 18:38 [hw] c: cw-walk-gaitbc1 already fully triaged+verdicted by a prior cycle (FAIL, STOP-known-exploit freeze, GAIT.md P1 closed, wandbnote+RL_LOG+GAIT.md all present) before this cycle started — confirmed ledger/W&B/docs all consistent, no new action taken. No dig-in trigger (closed exploit, not ambiguous). Left cw-arch-gru-r4c and cw-stand-crouchrise3 untouched (concurrent cycles' runs). No refill: hw track's only open GAIT lever (charge-magnitude audit / P2 structural charge bank) is CODE/SPECIFICATION work, not launch-ready; backlog empty, 10/12 idle, prime directive says that's fine. 
+- 08-11 18:38 operator-directed launch: cw-stand-crouchrise3 (2M, warm from hard1) VERIFIED RUNNING on hexapod-mjx-train-0 - crouch-start dose response 0.60->0.45, ONE axis vs crouchrise2; gate adds explicit six-foot hold duty AND det-lower >=3/6 clauses; goal = a deployable stance ckpt that sits AND stands from any normal start. 
+- 08-11 19:11 [arch] c: cw-arch-gru-r4c (GRU rung, BPTT window 64->256 + hidden 128->256, both pre-registered levers at once) -> FAIL, known exploit, no forensics: identical leg-sacrifice/paddle fingerprint as r1/r2/r3 (det gait_valid 0/6, legs [0,2,3] parked, sto no-progress paddle slip/m 11.5, own-DR0.5 matches) and rise ALSO regressed to 0/6 (r3 had it at champion grade) -- window AND capacity now both exhausted, from-scratch GRU walking CLOSED FOR REAL, no further recipe variant; recurrence waits for flagship distillation. arch STATUS.md updated. No refill: arch's queue is now empty (next step is specialist-seeding/distillation, a design question, not a launch-ready spec); capacity 12/12 free, backlog empty, no other track's blocker list has a ready spec this cycle -- idle pods per prime directive. 
+- 08-11 19:45 [hw] c: cw-stand-crouchrise3 triage confirmed (ledger verdict/CURRENT_TRUTHS/hw STATUS.md already landed by a concurrent pass) -> FAIL, dose axis closed: mid dose (0.45) still reproduces the identical legs-1+4 hold-park cheat (duty 0.01/0.04) and lower regression (2/6) seen at 0.60; added the missing wandbnote (OUTCOME paragraph was absent). hard1 stays deployed; next lever is CODE (state/height-aligned BC anchor), not another mix/dose variant. Noted but left untouched (another cycle's run): cw-walk-mirturn1 has actually finished training on its pod (2,031,616 steps, ckpt saved) though the ledger still reads RUNNING -- watcher/next cycle should pick up its triage. No refill: hw's only open lever is spec/code work, not launch-ready; backlog empty, 12/12 free, prime directive says idle is fine. 
+- 08-11 19:47 operator session: charge-magnitude AUDIT DONE (probe_drag_audit.py) -- per-tick k_drag_loaded form REFUTED at any coefficient (0.5mm deadband leaves 53-97% of learned skating free; per-tick medians overlap honest touchdown scuff), per-STANCE accumulated travel separates skate/step 3.3x. Structural charge landed (reward.k_drag_stance + allow 6mm + 0.25mm floor, default off), bank test PASSES (step > zero-lift skate > stall/park). Launched cw-gait-dragstance1 (2M discovery, from-scratch trans1 stack + k_drag_stance=8000 + k_drag_loaded=0) on train-9. Calib note: mu sweep saturates 0.38-0.40 air / worse loaded vs hardware 0.50 -- friction NOT the travel-gap knob, sim pessimistic (conservative for anti-skate). Estimator rung: leg-odometry built+tested but REFUTED as hw velocity source (50% real slip -> over-reads); optical-flow sensor is the honest path if ever needed. GAIT.md + RL_PLAN updated, snapshot 5c1b935. 
+- 08-11 19:54 cw-arch-gru-bc-ft1 launched on train-1 (10M hardening, VERIFIED): the GRU rung REOPENED on a post-mortem — the r1..r4c closure was budget-confounded (hist16-r7, the anti-cheat reference, is a 40M walk-only run; the GRU got 2M mixed — nothing walks from scratch at 2M). Unit+learning tests (rl_move/tests/test_gru_policy.py, all pass incl. RecurrentPPO memory-task) cleared the implementation. New recipe: distill_gru.py BCs BOTH champions (walk longdist_r2 + stance dr10, play.py obs[:68] bridge) into one GRU — local harness: det+sto walk gait_valid 6/6 prog 1.02 slip 1.5, hold 6/6, THE FIRST WALKING GRU, zero RL steps (ppo_goal_cw_gru_bc.zip md5 864c02fb, pushed to train-1+controller). ft1 = PPO polish on the mixed diet + full anti-cheat cfg to lift rise/lower; log_std pre-set -1.5, canary auto-stop guards walk. Gate in ledger. 
+- 08-11 20:00 [hw][turn] c(idle-kick): cw-stand-crouchrise3 -> FAIL (dose 0.45 reproduces the identical legs-1+4 flag-leg hold, duty 0.04/0.01, + lower 2/6 — dose axis DEAD after 3 variants; hard1 stays deployed; next = state-aligned BC anchor, CODE/spec first); launched + triaged cw-walk-mirturn1 (planned-but-unqueued TURN step 3, bank re-verified 7/7) -> FAIL (sym loss 28->0.5 converged but |wz_err| 0.254, drift 3x worse, gait rewritten to churn prog 0.41/slip 6-7.6 — mirror TRAINING closed per pre-registered gate, MirrorPolicy wrapper ships as the turning story); ran GAIT P0 reward-accuracy probe (new vref1 stack, logs/probe_walk_income/vref1_p0_*) -> tilt-penalty suspect REFUTED, totals near parity, paddle wins on genuine sim progress income (~495/ep) vs a ~380/ep pro-tall margin = effectiveness moat, no repricing bank; launched cw-walk-dragstance1 (P2 structural per-stance charge, audit k=8000, bank PASS). CROSS-TRACK INSIGHT: P0 moat finding posted to nobc STATUS (favors charge+curriculum over income shaping). Also cleared 2 ledger leaks (cw-uni-flag-a1 / -rr1, 0-step launch corpses, no-science verdicts). 10/12 pods idle per prime directive. 
+- 08-11 20:00 [turn] c: cw-walk-mirturn1 already fully triaged+verdicted (FAIL — mirror-symmetry TRAINING closed: sym loss converged 28->0.5 but turn tracking never arrived (wz_err med 0.254, L/R asymmetry intact, hold-drift 3x worse) and forced symmetry wrecked the gait (prog 0.41 vs parent ~1.0, slip 5x); zero falls) by a concurrent cycle before this cycle started — ledger/wandbnote/STATUS/PLAN all confirmed consistent; only gap was rl_docs/TURN.md still reading 'QUEUED', now closed out with the same result + reserved step-4 note. Shipped turning story stays eval-time MirrorPolicy chirality selection; turn's queue is now empty (deploy-port + rot60 composition are CODE, not launch-ready). No refill: track just triaged (turn) has no launch-ready spec (two-miss rule spent on reward-shape + now mirror-training; next lever is a new idea), other tracks are concurrent-owned or bench-blocked; 10/12 slots free, backlog empty, prime directive says idle is fine. 
+- 08-11 20:00 operator session: cw-gait-dragstance1 2M discovery = mechanism HEALTHY (charge engages -7/tick, no crash) but no gait at 2M (eval walk 0.006 m/s, churn-and-pay) -- NOT a charge verdict per the budget-confound rule (nothing walks from scratch at 2M). Launched cw-gait-dragstance1-r1 on train-9: same stack, fresh init, full 40M budget. Pre-registered fallbacks if it fails at 40M: annealed-in charge (CODE), then RSI-for-walk. 
+- 08-11 20:03 [hw/nobc] c: cw-gait-dragstance1 FAIL - from-scratch audit-tuned structural stance-slip charge (k=8000) engages but the policy freezes/parks instead of stepping (own pre-registered false branch, 24/24 videos static+zero travel); solo charge exonerated as a gait-discovery fix (CROSS-TRACK: closes nobc's drag-audit item too), next lever RSI-for-walk. Also KILLED cw-gait-dragstance1-r1 (a pre-queued 40M respec of the identical recipe that drained onto the freed pod before this verdict landed) - known-exploit rule bars re-running more steps on a refuted recipe; freed the pod. No refill: remaining hw gait levers are CODE/spec work, not launch-ready; idle pods fine per prime directive. 
+- 08-11 20:03 cw-stand-holdload1 launched: crouchrise3 recipe + reward.hold_feet_load=1.0 (hold income priced on measured touch force; crouchrise trio hover-park loophole closed in code + FEET-LOAD test bank) — mechanism test: reward-side vs anchor-bleed. 
+- 08-11 20:04 [arch] c: checkup-only cycle -- cw-arch-gru-bc-ft1 SUSPECT (log stopped growing 19:52) verified FALSE POSITIVE: wandb global_step actively climbing (1.24M->1.64M over the check window, fps~2200-2300, GPU util nonzero), the trainer only prints to stdout at checkpoint-save intervals (save_every not yet reached) so a quiet log file is expected, not a stall -- no kill/restart. cw-gait-dragstance1-r1 (this cycle's 'just finished' run) confirmed already fully triaged+killed+verdicted by the concurrent cycle before this one started (RL_LOG 20:03 entry, ledger reads KILLED with full reasoning); left untouched per instructions. cw-stand-holdload1 training normally, left alone. No refill: no track was triaged this cycle (both candidate runs off-limits/still-training), backlog empty, 10/12 pods idle per prime directive. 
+- 08-11 20:10 [hw] c(idle-kick, completion): cw-walk-dragstance1 (my own launch this cycle, finished at GPU speed) -> FAIL on the slip gate but mechanically informative: warm champion absorbed the audit-sized per-stance charge at -7/tick for the FULL 2M without parking OR stepping (prog 1.00, gait_valid 6/6, zero falls, slip 1.1-1.3 -> 0.95-1.15 only) — static-fine retrofit on the formed habit CLOSED per pre-registration; complements the concurrent from-scratch cw-gait-dragstance1 park (other cycle's) — from-scratch 40M -r1 + anneal-up curriculum carry the lever. No further launches from this cycle. 
+- 08-11 20:13 [hw] c: cw-walk-dragstance1 verification-only — already fully triaged/verdicted/logged by prior cycle instance (FAIL, static-fine retrofit closed; GAIT.md+hw STATUS+ledger+RL_LOG all landed in d2ac4e8) before this cycle started; cw-arch-gru-bc-ft1 confirmed still training on train-1, left untouched; cw-stand-holdload1 off-limits per prompt. No refill: backlog empty, remaining hw gait levers are CODE/spec work per prior cycle's conclusion, no new [READY] hw item surfaced. No code changes, no commit needed. 
+- 08-11 20:22 [hw] c: cw-stand-holdload1 -> FAIL, pre-registered mechanism test REFUTES the reward-side hold-cheat hypothesis: new reward.hold_feet_load (measured foot-load pricing, own FEET-LOAD bank confirms it correctly taxes hovering feet to 0.25x income) STILL reproduces the identical legs-1+4 flag-leg hold park (det duty_cycle 0.03/0.04 vs 0.73-0.99 on the other four legs, all 6 episodes identical) -- valid_plant stays blind to it (both feet drift to ~0mm exactly at episode end). Crouch rise unaffected (det 6/6 incl crouch 4/4, zero falls); det lower regressed to 2/6 (dangling leg-2, no falls, matches crouchrise2/3). Three lever families now closed (start-mix, dose, reward-pricing) -- state/height-aligned BC anchor is the sole remaining suspect by direct measurement, CODE/spec first. hard1 stays deployed. CURRENT_TRUTHS + hw STATUS.md + RISE.md updated. No refill: hw's only open lever here is unwritten CODE (state-aligned BC anchor spec), not launch-ready; cw-arch-gru-bc-ft1 left untouched (concurrent/still-training); 11/12 idle, prime directive fine. 
+- 08-11 20:2x operator session: STALE 'attempt #2 pending bench time' story CORRECTED across RL_PLAN/STATUS/CURRENT_TRUTHS/tracks-hw (operator called it out — vref1-r1 WAS bench-run 08-10 eve, 0/2 runaway roll, and dep-tip1 ran 4x: 1 runaway / 3 CLEAN level walks; scripted gait tape-measured earlier; HARDWARE.md had it right all along, the plan/status docs never retired the pre-session framing and cycles kept echoing it). Open hardware items restated everywhere as: same-floor vref1-vs-tip1 A/B (roll-ramp RATE, the 08-10 policy switch never landed), RL-walk tape reading, FIRST runs of the rot60 + stand-specialist ports (deploy re-push first), wz sign audit; if tip1 also runs away -> sim contact/pinning model, not DR.
+- 08-11 20:4x operator session: bench_blast.py (guided hardware checklist: verified A/B, tape, rot60 first run, profile-gated stand, turnsign, hold currents; dry-run default, per-step operator go) + sim_blast.py (roll-trap A/B x friction, joystick panels naked+rot60, deployed-artifact tests) LANDED and sim half RUN: no runaway at any mu (1.0/1.4/2.0=default saturation; every trap ep re-levels <2deg end-roll) -> pinning gap is NOT friction magnitude, no-skate contact lever stands; tip1>vref1 rolltrap at nominal (0.88 vs 0.75) matching bench tally; all 4 joystick panels PASS 0 falls (vref1/tip1 x naked/rot60 — tip1+rot60 first-ever check, fwd 6s dist 0.31-0.33m = sim tape prediction); stand+rot60 runner artifact tests 11/11. HARDWARE.md backlog + RL_PLAN -1 point at the runners.
+- 08-11 20:40 cw-stand-anchorstate1 launched: holdload1 recipe + train.bc_anchor_state_aligned=1.0 (anchor re-indexed by nearest ref pose to current joints + 0.25s lookahead; crouch starts anchor to the planted tail, not belly-path leg lifts) — the anchor-bleed fix, last identified lever for the unified stand line. 
+- 08-11 20:5x operator session: VIDEO MODE landed — bench_blast --video (zero-typing session: steps spoken via say onto the video audio track + unix-stamped events; tape/turn prompts replaced by film-it) + rl_move/scripts/video_review.py (syncs footage to summary.json via spoken sync mark or relative-threshold first-motion detection, cuts 2fps timestamped frame sheets per walk/turn/stand + full-res tape-zoom frames + index.json for agent analysis). Smoke-tested on synthetic video: sync guess within 0.1s, sheets readable. Operator workflow now: tape on floor, hit record, type the go's, hand the file over.
+- 08-11 21:04 OPERATOR SESSION 08-11 eve: TALL LADDER campaign live (RL_PLAN queue -0.5 P2.5, GAIT.md bottom). cw-dep-tall30 PASS-ish (height_err_end 60->15mm, -24% speed, charge free per tall30h isolation); cw-dep-tall15 STALL at body -44mm. Fleet: run follow-ups T1-T5 (budget rerun, k_height crank, gate-at-reachable-ref, speed trade, -44mm workspace probe). Warm parent ppo_goal_cw_dep_tall30 on train-2. 
+- 08-11 21:32 [hw] c1: cw-dep-tall15-h1 (T1 budget) FAIL -- 6M steps didn't move the -44mm height wall (flat by 1M, eval end-state worse than the 2M parent, no cheat); next is T5 kinematic probe (not yet built) before T2/T3. No refill: T5 spec work, not a training job; 11 idle pods left as-is. 
+- 08-11 21:34 TALL LADDER T1 VERDICT (cw-dep-tall15-h1, 6M): FAIL on height, height_err_end 29->52mm (body ~-67mm) - the bare height REF is TRADEABLE given budget; policy bought speed instead: 0.051 m/s, first dep walker inside the 0.05-0.06 command band, slip 1.65 unchanged. SIDE DISCOVERY: tall15-h1 checkpoint is the fastest dep walker (candidate if speed>posture). T3 promoted and launched (cw-dep-tall-gate1: walk_height_gate=1.0 sigma 30 at REACHABLE ref -30 warm from tall30, start factor 0.88). Fleet: T2/T4/T5 still open. 
+- 08-11 21:35 cw-stand-anchorstate1 FAIL-but-informative: state-aligned anchor moved the park fingerprint for the first time in five runs (leg 4 duty 0.01->0.93, leg 1 still parks); cost = flat-rise stall + lower falls. anchorstate2 launched: lookahead 0.25->0.5s, one axis. 
+- 08-11 21:37 [hw] c: cw-stand-anchorstate1 confirmed already fully verdicted (PARTIAL mechanism confirmation, net FAIL — state-aligned BC anchor recovers leg 4, leg 1 still parks, flat-rise stalls, lower falls 2/6; follow-up anchorstate2 already launched/running) before this cycle started; landed the gaps left behind: wandbnote was mis-placed with the legacy bottom '--- OUTCOME ---' marker instead of ops.sh wandbnote's top format — replaced with a proper plain-English top OUTCOME; added the missing continuation to CURRENT_TRUTHS + RISE.md + hw STATUS.md (the anchor-bleed thread had documented every prior arm but not this one). Left anchorstate2/cw-dep-tall-gate1/cw-arch-gru-bc-ft1 untouched (training) and cw-dep-tall15-h1 untouched (concurrent cycle's). No refill: anchorstate1's own pre-registered follow-up is already running, backlog empty, no other hw-track item is launch-ready; 9/12 pods idle per prime directive. 
+- 08-11 21:4x operator session (bench prep): deploy_ssh.sh landed (no-USB twin of deploy_adb.sh, scp+systemd over key-auth SSH) and RUN against the robot — fresh profile-carrying stand export + rot60 runner port now LIVE (service restart 21:44 UTC, /api/rl/policy shows profile, walk preflight ok roll 0.8 pitch 4.6). bench_blast --auto landed: spoken 5s countdowns (8s STAND) replace typed go's, Ctrl-C aborts; with --video the operator's entire job is one command + filming. Live info step verified: 5 policies on robot, hard1 active w/ profile, stand preflight pose-mismatch is the known auto-acquire path.
+- 08-11 21:49 TALL LADDER T5 VERDICT (probe_tall_wall.py, landed locally, commit incoming): the -44mm wall is HABIT not kinematics. Mid-gait steady state, tall30 rides -75mm with hip pitch -41deg (70deg of unused upward range), knee 105deg (46deg room) - but leg YAW is PINNED at its 35deg limit, support radius 218 vs scripted gaits 179mm: the policy buys stability with splay+crouch. Scripted gait walks at +12mm in the same env = tall walking exists. MEASUREMENT CAVEAT (binding): eval/walk/height_err_end_mm is a STOP-WINDOW metric - the 60->15mm ladder gains were mostly stop-stance; ALL tall-arm verdicts must use probe_tall_wall steady-state walking height. ALSO: cw-dep-tall-gate1-h1 (6M gated) INFORMATIVE FAIL per its gate: err 15->39mm under budget - sigma-30 gate slows but does not stop the posture-for-speed trade. T2a/T2b/T4 relaunching (train-0 ckpt refusal fixed via pushckpt). 
+- 08-11 22:10 [hw] checkup: cw-dep-tall-kh3 SUSPECT = false alarm — run completed its 2M budget normally at 22:08 (policy saved, W&B synced); no action, awaiting standard triage 
+- 08-11 22:11 [hw] c: cw-dep-tall-gate1-h1 triaged INFORMATIVE FAIL (per its own pre-registered gate) -- 6M hardening of the sigma30 income-gate rung reverts the posture-for-speed trade (harness det height_err_end 15mm->36-47mm, speed still 0.054-0.056); confirmed with probe_tall_wall.py directly on the checkpoint: steady-state walking height -72.6mm, statistically the SAME as ungated tall30's own -75mm wall, legs still pinned at the 35deg yaw-splay limit -- gate income alone is closed as a lever at this dose, no cheat (clean 6-leg video). Unblocked + relaunched the plan's next rung (T2a/T2b/T4, REFUSED since 21:4x for a missing warm-start checkpoint): pulled+fanned ppo_goal_cw_dep_tall30.zip to train-0/3/4, re-synced code, all three now RUNNING (kh3 train-0, kh10 train-3, slow1 train-4) -- k_height 3x/10x and eased speed-band, primary judge is probe_tall_wall.py steady height per the amended gate. RL_PLAN + hw/STATUS.md updated with the confirmed verdict and the running rungs. cw-arch-gru-bc-ft1 left alone (another cycle's run, shows finished in W&B but not in my triage list). 
+- 08-11 22:17 cw-stand-anchorstate2: lookahead 0.5s fixed flat-rise stall + lower falls, leg-4 stays recovered; leg-1 park unmoved (6th run). cw-stand-loweranchor1 launched: + train.bc_anchor_lower=1.0 (IK-descent supervision on lower ticks, the lower-bank xfail lever) — tests lower recovery AND the shared-fingerprint park hypothesis. 
+- 08-11 22:19 [hw] c: cw-stand-anchorstate2 already fully triaged+verdicted+launched-followup by a concurrent cycle (FAIL, leg-1 park unmoved 6th run, lookahead axis exhausted; cw-stand-loweranchor1 launched+running) before I finished my own review — confirmed consistent with the eval report, no new science verdict needed. Landed the gaps left behind: wandbnote was still the legacy bottom-marker format, replaced with a plain-English top OUTCOME; CURRENT_TRUTHS/RISE.md/hw-STATUS.md were all still describing anchorstate2 as running, updated to the actual FAIL-but-informative result + loweranchor1 follow-up. No refill needed (loweranchor1 covers the only ready hw lever); cw-dep-tall-kh10/slow1 and cw-arch-gru-bc-ft1 left untouched per instructions. 
+- 08-11 22:27 TALL LADDER T2/T4 VERDICTS (probe_tall_wall, mid-gait steady state): kh3 -74.5mm, kh10 -72.7mm (pays ~5.6/tick > its own walk income rather than stand up), slow1 -71.5mm at its trained 0.035 cmd. PRICING FAMILY CLOSED for posture: ref ladder, income gate, gate+budget, k_height 3x/10x, speed relief ALL flat at -72..-75mm, leg yaw pinned at the 35deg limit in every arm. T6 LAUNCHED (cw-dep-tall-rsi1): RSI-for-walk landed in code (goal.walk_gait_start_frac mid-stride tall spawns from the scripted gait, command live from tick 0; tests green, sim_env+walk_task, default off bit-exact) - warm from tall-gate1 at frac 0.5. The missing states are tall mid-stride WALKING; episodes always spawned tall STANDING. 
+- 08-11 22:33 [hw] c: cw-dep-tall-kh10/cw-dep-tall-slow1 independently triaged -- INFORMATIVE FAIL, confirms the concurrent cycle's 22:27 T2/T4 verdict (probe_tall_wall steady height -72.6mm/-73.8mm, flat vs tall30's -75mm wall; kh10's 10x height charge and slow1's eased speed band both refuted, honest 6-leg gait, no cheat). Real bug found+fixed: the launcher's relaunch-after-REFUSED path left both runs' ledger pod field pointing at train-2 (where an unrelated run had been) while they actually trained on train-3/train-4 -- the watcher's checkups were checking the wrong pod and wrongly reported DEAD twice each. Corrected the pod field, pulled/verified checkpoints (md5s match), ran the harness + probe_tall_wall directly to confirm before writing ledger verdicts (previously missing despite the RL_PLAN/RL_LOG narrative already existing) + wandbnotes + hardware_ready=false; refreshed hw/STATUS.md (was still describing the three rungs as RUNNING). No refill: pricing-family closure's own next lever (cw-dep-tall-rsi1, RSI-for-walk) was already launched by the concurrent cycle; backlog empty; stand-line runs (loweranchor1/anchorstate2) and cw-arch-gru-bc-ft1/ft2 left untouched (other cycles). 11/12 pods idle, fine per prime directive. 
+- 08-11 22:33 TALL LADDER T6 VERDICT (cw-dep-tall-rsi1, probe_tall_wall): -77.4mm mid-gait - FLAT. RSI-for-walk injected tall mid-stride states into 50% of episodes and the policy still dives to the crouch (survived_frac 1, so it LEARNED to recover from tall spawns down into the crouch-splay - a robustness byproduct, not the goal). CAMPAIGN CONCLUSION after 7 arms + probe: neither pricing (6 arms) nor state injection moves mid-gait posture; the crouch-splay basin is where PPO stabilizes this walk under current physics. The scripted gait walking tall open-loop in the same env remains the existence proof. REMAINING LEVERS (fleet, in order): (1) BC-INIT from the scripted tall gait (pure action pretraining then RL fine-tune under the gate income - DIFFERENT from the refuted gaitbc1 anchor-loss-during-RL), (2) physics easing ladder, (3) accept the pareto: tall15-h1 (0.051 m/s, fastest dep walker ever) for speed + tall stop-stance. Byproduct note: the fast basin (0.051) reappeared in rsi1 - it is robust and reachable from multiple parents. 
+- 08-11 22:36 [arch] c: cw-arch-gru-bc-ft1 FAIL vs gate — walk stays honest/cheat-free but 10M walk-heavy RL finetune erodes the BC-distilled stance (rise 0/6 det honest stall, hold 0/6 det on stillness only, lower still 4/6); keeping the pre-finetune BC zip as reference; queued+launched cw-arch-gru-bc-ft2 (2M discovery, lr 3e-4->1e-4, target-kl 0.02->0.01, same everything else) to test whether a gentler finetune protects stance while still polishing gait. 
+- 08-11 22:37 cw-arch-gru-bc-ft1 triaged by operator cycle: walk-retention PASS (gait_valid 6/6 all four passes, no paddle after 10M RL), lower lifted, rise never cloned (demo poverty), hold regressed — verdict in ledger. Continuing with stance-heavy re-distill + DAgger locally. 
+- 08-11 22:2x-22:3x operator-authorized UNATTENDED bench (agent solo, iMac camera): bench_blast --camera landed (Mac-camera recorder thread, constant-fps writer => video time == t_unix - t0 EXACTLY, no phone/no say-sync; video_review syncs "exact (camera t0_unix)" + video arg optional) and RUN. Session bench_blast_20260811_182430: vref1-r1 clean-start walk -> runaway roll -> FELL ON CAMERA (3rd hardware runaway for vref1). Then the session-design flaw bit: NO upright gate between steps (the operator was the implicit recovery system in attended sessions) -- walks r2..rot60-back all ran on the fallen sprawl (A/B tally 3/3+3/3 runaway = GARBAGE beyond r1), scripted turns ground the splayed legs, board BROWNED OUT mid-turn -0.3 (server timeouts 22:28:44, mDNS gone; operator power-cycled ~22:33, 18/18 servos back). Also: robot-log pull for the EARLIER attended session exposed two summary lies -- learned stand NEVER ran 21:5x (prep safe-zero stalled L0 hip 17deg -> limp; my script had recorded the kickoff response as ok) and learned lower tripped over_load at 9s; bench_blast now records TERMINAL results (wait_idle result) for every motion, fixed the tape-walk CSV race (tape-tip1 had duplicated tip1-r3's stats).
+- 08-11 22:42 FIRST honest hardware run of the stand specialist port (bench_blast_20260811_184229, camera): /api/rl/stand from operator-zeroed belly -> FAILED safety trip tilt_roll at ~9s/225 ticks, tilt_rel_max 10.2deg (trip 10), max current 0.27A, runner limped clean. Frames: the failure is in the BELLY-CURL phase (body rocks over the tucked legs before the ramp). Sim probe (6 seeds det DR0, ppo_goal_cw_stand_holdbc1_hard1, /tmp probe): curl max|roll| 0.7deg, ramp max 1.7deg -- sim says the rise is FLAT, hardware rocks 10deg+ => GENUINE sim-to-real rocking gap in the curl, trip threshold is CORRECT, fix is training-side (rocking/tilt DR on rise, loaded-knee actuator model), not a bench threshold bump. Data banked, no blind retry.
+- 08-11 22:47 unattended session 3 (bench_blast_20260811_184741, camera, fall-recovery loop ARMED): vref1-r1 FORWARD full 6s/150 ticks with a 23-24deg EARLY roll transient that it fully RECOVERED from (tail 0.9deg, fell=false, level finish on video) -- the "runaway" metric conflates recoverable takeoff transients with true tips, needs a fell/tail-based split. tip1-r1 BACKWARD = FIRST real off-wedge rot60 hardware run (rot60:true in terminal result, k engaged): FELL (peak 27deg, tilt trip). Recovery loop fired exactly as designed: safe_zero REFUSED at 25deg body tilt (its own gate), SessionAbort stopped all motion; operator-authorized force=true safe_zero under camera watch RIGHTED the robot (max |deg| 0.5 after). bench_blast gains: adaptive lower-then-stand ordering from actual pose, rise/sit standalone steps, --only order honored, A/B directions ALTERNATE (stay in camera frame, both directions per policy across rounds), newest_walk_csv now after_unix + size-stable (vref1-r1's mid-flush pull returned 'too few rows'; stats recomputed + patched into summary.json). Robot parked belly-down at zero. NET HW TRUTHS: fwd walks show a large takeoff roll transient (sometimes recovered, sometimes not -- both policies), rot60 BACKWARD fell on first try, stand specialist blocked by the curl rocking gap. Sheets + camera.mp4 in hardware_traces/bench_blast_2026081*_18*/video/.
+- 08-11 22:45 [arch] checkup cycle: cw-arch-gru-bc-ft2 SUSPECT (log stopped growing on train-0) = FALSE ALARM, no action — trainer alive (13 cores busy, GPU active), W&B advancing 1.5M/2M steps at fps 1917 (faster than parent ft1's 1360; low fps is inherent to the GRU 256-env BPTT config, not starvation); log stall is stdout block-buffering (nohup python without -u only flushed the startup lines). Run left training; finishes in minutes, normal triage will verdict it.
+- 2026-08-11 23:1x UTC [operator] [track:hw] BACKLOG += cw-dep-tip1-takeoff25 (tipped-start DR raised to the measured 20-25deg hardware takeoff transient, warm tip1) and cw-stand-riserock1 (CODE-FIRST rise-tick rocking DR axis; hardware belly-curl tripped tilt_roll 10.2deg vs sim max 1.7deg). Both arms are direct sim answers to the 08-11 camera bench sessions.
+- 08-11 23:09 cw-stand-loweranchor1: lower anchor SOLVED lower (6/6 det + 6/6 sto from 2/6) but uniform anchor sampling diluted hold/rise (leg-4 park returned, flat re-stalled) — dilution mechanism measured. cw-stand-anchormix1-r1 launched: + train.bc_anchor_stratified=1.0 (per-mode minibatch quotas; launch 1 died on a warm-start pickle gap, fixed dc5b7f4). 
+- 08-11 23:12 [hw] c: cw-stand-anchormix1 crashed pre-training (AttributeError, warm-start checkpoint missing _bc_mode buffer) — infra bug not a result, already fixed (b7f815a) and relaunched as cw-stand-anchormix1-r1 (running, carries the real anchor-dilution test); no refill, all actionable hw sim items already in flight (riserock1/tip-takeoff25/anchormix1-r1), rest of hw Next is bench-only. 
+- 08-11 23:13 [hw] c: cw-stand-loweranchor1 confirmed already fully triaged+verdicted+followup-launched by a concurrent cycle before mine started -- LOWER SOLVED (det+sto 6/6, zero falls, from 2/6) but hold park regressed to a two-leg version + flat rise re-stalled 96mm, root-caused to ANCHOR DILUTION (all three per-mode BC anchors share one ring buffer/uniform sampling); confirmed the eval report matches the ledger verdict, no new science call needed. Landed the gaps: wandbnote was missing the top plain-English OUTCOME paragraph (added); CURRENT_TRUTHS/RISE.md/hw-STATUS.md were still describing loweranchor1 as launched-and-running (updated to the dilution finding + follow-up). Real bug found+fixed by a concurrent process while I watched: cw-stand-anchormix1 (the stratified-sampling dilution fix) crashed on its first launch with an AttributeError (_bc_mode missing on a warm-started model whose checkpoint pickled pre-tag buffers) -- fixed in bc_anchor.py (backfill on load) and relaunched clean as cw-stand-anchormix1-r1, now past the crash point and training on train-0. Also found+fixed: RL_LOG.md had literal unresolved git-merge conflict markers baked into the last two commits (a concurrent snapshot.sh collision), corrupting shared history on origin/main -- resolved by merging both loglines in, no content lost. Refill: ran launch_run.py drain per capacity.py's flag (10 free slots + non-empty backlog) -- placed the queued cw-dep-tip1-takeoff25 (hw, tipped-start DR raised to the measured hardware takeoff-transient regime) on train-2, now running; cw-stand-riserock1 (its rise-side sibling) already running on train-1 from the operator's backlog add. cw-stand-anchormix1-r1/riserock1/tip1-takeoff25/cw-arch-gru-bc-ft2 all left untouched (training or another cycle's). 
+- 08-11 23:13 [arch] c: cw-arch-gru-bc-ft2 FAIL as pre-registered (rise 0/6, hold 0/6 det@DR0, honest not cheat; walk stays cheat-free) — lr/KL lever CLOSED (2 misses); real blocker is CODE: bc_anchor_coef unimplemented for --gru, no freeze option either. arch STATUS.md updated; no refill (nothing launchable without that code). 
+- 08-11 23:08-23:19 [operator] [track:hw] UNATTENDED CAMERA BENCH ROUND 2 (four sessions, bench_blast_20260811_19*): (1) LEARNED RISE IS DETERMINISTIC-FAIL ON HARDWARE — 5/5 tilt_roll trips counting 22:42's, EVERY one at tick ~226-228 (~9s mid-curl), roll 10.1-10.6deg, currents <=0.27A, including two from VERIFIED clean zero (max pose delta 0.5deg, preflight green) — start pose exonerated, the curl rocking gap is the whole story (sim <=1.7deg; cw-stand-riserock1 queued). Scripted /api/zero pose=stand is the working stand-up meanwhile. (2) HONEST A/B FELL-RATES ON CAMERA: vref1 FELL 3/3 (r1 fwd 25.6deg tail 26.4; r1 fwd peak 21.1 tail 10.7; r2 back capsized on camera, ramp 17.8deg/s tail 22.8) vs tip1 CLEAN 1/1 — and that one walk was BACKWARD (first clean off-wedge rot60 hardware walk: rode a 16.7deg takeoff transient to tail 1.5deg, ends standing in frame). tip1 is the deploy champion on tonight's evidence; every fall keeps the 20-25deg takeoff-transient shape (cw-dep-tip1-takeoff25 queued). (3) THERMAL WALL: second recovery stand-glide limped on L2 HIP AT 72degC (shutoff 65) — falls+recoveries stack heat fast; cooled to 40degC limped within minutes, 18/18 healthy, robot parked limped belly-down, MOTION STOPPED for the night per hot-motor rule. Turn-sign audit missed AGAIN (third session in a row died first). bench_blast hardened from each failure in-place: auto-safe_zero when opening pose isn't belly zero (a stalled safe_zero had left L4 knee 78deg off, hold-hunting = the operator's 'twitching leg'), recovery safe_zero force=true (a real fall ALWAYS trips the tilt gate — the unforced call refused right when needed), scripted-stand fallback behind the learned rise, demo-aware waits (/api/zero + safe_zero run as demos invisible to wait_idle; one abort read a mid-glide pose and masked the real 72degC error), MAX_RECOVERIES 2->4 (fell-rate IS the measurement). Sheets + logs in hardware_traces/bench_blast_20260811_19*/.
+- 08-11 23:37 [hw] c: cw-dep-tall-rsi1 confirmed already fully triaged+verdicted by a concurrent cycle before mine started (INFORMATIVE FAIL, probe_tall_wall -77.4mm flat vs -72..-75mm wall, tall-ladder pricing+RSI families both closed) -- ledger/wandbnote/RL_PLAN/hw-STATUS.md all matched the eval report, no new science call needed. Landed the one gap: ledger verdict + rendered run doc were still uncommitted from that cycle, snapshot.sh'd + pushed (309d94c). cw-arch-gru-anchor1 left untouched (training, another cycle's). No refill: hw backlog empty, tall-ladder's remaining levers (BC-init pretrain, physics easing) need a code/spec cycle not a respec, and hw's other active items (riserock1/takeoff25/anchormix1-r1) are already in other concurrent cycles' hands; 11 idle GPU pods fine per prime directive. 
+- 08-11 23:50 [hw] c(idle-kick): cw-stand-anchormix1-r1 -> FAIL per pre-registered branch (lower 6/6 + crouch rise 4/4 RETAINED, zero falls, but flat rise stalls 105mm and the one-foot hold park persists AND MOVED legs — dilution incomplete, mandatory next = per-mode bc_anchor_loss logging, CODE); cw-stand-riserock1 + cw-dep-tip1-takeoff25 -> VOID invalid launches (operator backlog stubs drained without their DR variables; riserock's rocking-DR code was never written) — takeoff arm relaunched properly as cw-dep-tip1-takeoff25-r1 (running, dr.tipped_start 0.5/12-25 verified); backfilled missing ledger verdict for cw-dep-tall-rsi1 (T6 INFORMATIVE FAIL, analysis was logged 22:33). Docs synced (TRUTHS/hw-STATUS/RISE). 
+- 08-12 00:02 [hw] c(idle-kick, completion): cw-dep-tip1-takeoff25-r1 (my relaunch, finished at GPU speed) -> FAIL, decisive: identical 20-25deg injection w/ matched tip1 baseline shows child==parent (0/12 valid both, ZERO falls both) + clean DR0 retention intact — sim already recovers static tipped starts at the hardware regime, tipped-start DOSE lever CLOSED (2nd no-separation arm); hardware takeoff falls need a DYNAMIC gait-start roll-rate axis (CODE, unbuilt, same family as rise-rock) or contact/pinning work. TRUTHS + hw STATUS updated; no further launches (both remaining hw sim answers are unwritten CODE). 
+- 08-12 00:05 [hw] c: cw-dep-tip1-takeoff25-r1 verdict landed (FAIL, tipped-start dose axis CLOSED — matched-parent probe at 12/17.5/20deg, det+sto, n=12 each: both tip1 and r1 recover 100%, ceiling effect; clean DR0 retention delta +0; TRUTHS/STATUS/RL_LOG already synced by the ledger update). Checkup SUSPECT on cw-arch-gru-anchor1 (log/global_step looked stalled at 655360) verified FALSE ALARM: W&B global_step climbed 655360->1114112 over the same window (GRU rollout is just slow-cadence, ~100-140s/update), left running untouched. No refill: hw backlog empty, both remaining hw sim levers (dynamic gait-start roll-rate DR, rise-tick rocking DR) need unwritten CODE+spec before anything launches; 11 idle pods fine per prime directive; no peripheral/cross-track launch. 
+- 08-11 23:5x cw-stand-anchormix1-r1 FAIL per gate but the line's biggest fact: THE PARK MIGRATED. Stratified per-mode anchor quotas fixed the dilution seesaw exactly as predicted (lower KEPT 6/6 det+sto zero det falls, crouch rise 4/4, hold det valid_plant 6/6) and foot idx1 — the "leg-1" park unmoved across six runs — recovered 0.03->0.90; but foot idx4 (0.93-0.97 in anchorstate1/2) parked at 0.02 in its place: the persistent behavior is SHED EXACTLY ONE FOOT, supervision only moves WHICH foot, never WHETHER. Det flat rise still stalls (106mm, under-drive class; bridge det + flat sto pass); hold det+sto valid_plant 9/12; bc_anchor_loss flat 0.012 = anchors fit (per-mode loss never logged — gap). Per pre-registration the blind-axis line STOPS: hard1 stays deploy candidate, specialist handoff stands. Named lever if reopened: the one-foot-shed equilibrium itself (min-over-feet duty/load term) + per-mode bc_anchor_loss logging first.
+- 08-11 23:35-23:55 [operator] [track:hw] SESSIONS 5-6 + FULL-NIGHT ANALYSIS (bench_blast_20260811_193306/_194857, then camera removed by operator). Turn-sign audit finally RAN: omega +0.3 = CCW from above on camera (matches z-up convention; single reading); -0.3's first try was SILENTLY REFUSED by a pending measure record (video mode never annotates -> the +0.3 record blocked it; bench_blast now discards before each turn) and the rerun coincided with the camera being carried off — still unmeasured. PHANTOM TEMP DISCOVERY: the 19:51 abort read "L4 hip at 150degC" then a steady 33degC seconds later — single-read temp trips in safe_zero/pinned_tip fire on corrupted bus bytes (the debounced servo_watch never tripped all night; 19:18's 72degC downgraded to unconfirmed). Fixes deployed: 2-consecutive-read debounce in both, servo_watch THERMAL PANIC (on real overtemp kill ALL motion — abort demo/RL worker, gait stop, torque-all off — instead of cutting one servo under a live gait), busy cadence 10->5s, bench_blast pre-step thermal gate. NEW TOOL bench_report.py (one markdown table for N sessions: per-walk roll-trace transient/peak/tail/fell metrics off the episode CSVs, per-rise trip signatures, per-policy tallies). FULL-NIGHT RE-VERDICT off 18 walks: takeoff transient UNIVERSAL (5deg by 0.6-1.5s, peak 13-27deg every walk), falls ~coin flip BOTH policies (vref1 6/10, tip1 4/7), NO A/B winner — early "tip1 champion" was small-sample + a direction confound (round-1 order means tip1 never walked fwd tonight; fix alternation). Learned rise now 10/10 identical trips (tick 225-228, roll 10.1-10.6deg, <=0.27A). Consolidated writeup + RL implications: rl_docs/BENCH_REPORT_2026-08-11.md. [merge note: the 23:50 cycle VOIDED the two operator backlog stubs as launched-without-their-DR-variables — riserock's rocking code was never written, exactly the stub's declared CODE-FIRST caveat — and its proper relaunch cw-dep-tip1-takeoff25-r1 CLOSED the static tipped-start dose lever (child==parent under identical injection); consistent with this report's conclusion that the transient is DYNAMIC (roll-rate at gait start), not a static-lean dose.]

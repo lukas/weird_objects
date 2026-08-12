@@ -1,0 +1,182 @@
+{
+  "rl_stand_20260811_224244.csv": {
+    "air": {
+      "roll_div_tick": 191,
+      "q_div_tick": 10,
+      "q_div_joint": 4,
+      "q_rmse_moving_deg": 1.52,
+      "hw_peak_roll_rel_deg": 10.18,
+      "sim_peak_roll_rel_deg": 2.87
+    },
+    "loaded": {
+      "roll_div_tick": 193,
+      "q_div_tick": 14,
+      "q_div_joint": 4,
+      "q_rmse_moving_deg": 0.97,
+      "hw_peak_roll_rel_deg": 10.18,
+      "sim_peak_roll_rel_deg": 2.46
+    }
+  },
+  "rl_stand_20260811_230815.csv": {
+    "air": {
+      "roll_div_tick": 195,
+      "q_div_tick": 10,
+      "q_div_joint": 17,
+      "q_rmse_moving_deg": 1.43,
+      "hw_peak_roll_rel_deg": 10.22,
+      "sim_peak_roll_rel_deg": 2.62
+    },
+    "loaded": {
+      "roll_div_tick": 195,
+      "q_div_tick": 14,
+      "q_div_joint": 10,
+      "q_rmse_moving_deg": 0.98,
+      "hw_peak_roll_rel_deg": 10.22,
+      "sim_peak_roll_rel_deg": 2.4
+    }
+  },
+  "rl_stand_20260811_231105.csv": {
+    "air": {
+      "roll_div_tick": 197,
+      "q_div_tick": 18,
+      "q_div_joint": 13,
+      "q_rmse_moving_deg": 1.65,
+      "hw_peak_roll_rel_deg": 10.55,
+      "sim_peak_roll_rel_deg": 2.7
+    },
+    "loaded": {
+      "roll_div_tick": 199,
+      "q_div_tick": 3,
+      "q_div_joint": 7,
+      "q_rmse_moving_deg": 1.02,
+      "hw_peak_roll_rel_deg": 10.55,
+      "sim_peak_roll_rel_deg": 2.52
+    }
+  },
+  "rl_stand_20260811_231646.csv": {
+    "air": {
+      "roll_div_tick": 189,
+      "q_div_tick": 9,
+      "q_div_joint": 10,
+      "q_rmse_moving_deg": 1.46,
+      "hw_peak_roll_rel_deg": 10.09,
+      "sim_peak_roll_rel_deg": 2.66
+    },
+    "loaded": {
+      "roll_div_tick": 191,
+      "q_div_tick": 15,
+      "q_div_joint": 1,
+      "q_rmse_moving_deg": 1.12,
+      "hw_peak_roll_rel_deg": 10.09,
+      "sim_peak_roll_rel_deg": 2.44
+    }
+  },
+  "rl_stand_20260811_231830.csv": {
+    "air": {
+      "roll_div_tick": 195,
+      "q_div_tick": 10,
+      "q_div_joint": 4,
+      "q_rmse_moving_deg": 1.56,
+      "hw_peak_roll_rel_deg": 10.27,
+      "sim_peak_roll_rel_deg": 2.73
+    },
+    "loaded": {
+      "roll_div_tick": 196,
+      "q_div_tick": 15,
+      "q_div_joint": 10,
+      "q_rmse_moving_deg": 0.97,
+      "hw_peak_roll_rel_deg": 10.27,
+      "sim_peak_roll_rel_deg": 2.45
+    }
+  },
+  "rl_stand_20260811_233414.csv": {
+    "air": {
+      "roll_div_tick": 194,
+      "q_div_tick": 11,
+      "q_div_joint": 1,
+      "q_rmse_moving_deg": 1.67,
+      "hw_peak_roll_rel_deg": 10.21,
+      "sim_peak_roll_rel_deg": 2.73
+    },
+    "loaded": {
+      "roll_div_tick": 195,
+      "q_div_tick": 11,
+      "q_div_joint": 1,
+      "q_rmse_moving_deg": 1.15,
+      "hw_peak_roll_rel_deg": 10.21,
+      "sim_peak_roll_rel_deg": 2.41
+    }
+  },
+  "rl_stand_20260811_233528.csv": {
+    "air": {
+      "roll_div_tick": 187,
+      "q_div_tick": 10,
+      "q_div_joint": 4,
+      "q_rmse_moving_deg": 1.44,
+      "hw_peak_roll_rel_deg": 10.41,
+      "sim_peak_roll_rel_deg": 2.6
+    },
+    "loaded": {
+      "roll_div_tick": 192,
+      "q_div_tick": 15,
+      "q_div_joint": 10,
+      "q_rmse_moving_deg": 0.95,
+      "hw_peak_roll_rel_deg": 10.41,
+      "sim_peak_roll_rel_deg": 2.44
+    }
+  },
+  "rl_stand_20260811_233637.csv": {
+    "air": {
+      "roll_div_tick": 195,
+      "q_div_tick": 13,
+      "q_div_joint": 10,
+      "q_rmse_moving_deg": 1.54,
+      "hw_peak_roll_rel_deg": 10.36,
+      "sim_peak_roll_rel_deg": 2.65
+    },
+    "loaded": {
+      "roll_div_tick": 196,
+      "q_div_tick": 3,
+      "q_div_joint": 15,
+      "q_rmse_moving_deg": 1.06,
+      "hw_peak_roll_rel_deg": 10.36,
+      "sim_peak_roll_rel_deg": 2.41
+    }
+  },
+  "rl_stand_20260811_235006.csv": {
+    "air": {
+      "roll_div_tick": 16,
+      "q_div_tick": 9,
+      "q_div_joint": 10,
+      "q_rmse_moving_deg": 1.38,
+      "hw_peak_roll_rel_deg": 10.06,
+      "sim_peak_roll_rel_deg": 2.58
+    },
+    "loaded": {
+      "roll_div_tick": 16,
+      "q_div_tick": 15,
+      "q_div_joint": 17,
+      "q_rmse_moving_deg": 1.04,
+      "hw_peak_roll_rel_deg": 10.06,
+      "sim_peak_roll_rel_deg": 2.37
+    }
+  },
+  "rl_stand_20260811_235117.csv": {
+    "air": {
+      "roll_div_tick": 194,
+      "q_div_tick": 11,
+      "q_div_joint": 10,
+      "q_rmse_moving_deg": 1.52,
+      "hw_peak_roll_rel_deg": 10.28,
+      "sim_peak_roll_rel_deg": 2.62
+    },
+    "loaded": {
+      "roll_div_tick": 196,
+      "q_div_tick": 5,
+      "q_div_joint": 15,
+      "q_rmse_moving_deg": 1.13,
+      "hw_peak_roll_rel_deg": 10.28,
+      "sim_peak_roll_rel_deg": 2.37
+    }
+  }
+}

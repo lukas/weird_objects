@@ -35,8 +35,20 @@ class SafetyStatus:
     ok: bool = True
     terminate: bool = False
     reason: str = ""
+    # Which joint (and how hard) for the per-servo trips. Kept OUT of
+    # ``reason`` on purpose: run logs / eval tooling match the bare
+    # tokens ("over_load", "over_current"), and the 08-11 bench sessions
+    # showed the trip is useless for diagnosis without the joint name.
+    detail: str = ""
     clipped_action: np.ndarray | None = None
     held: bool = False
+
+
+_AXIS_NAMES = ("yaw", "hip", "knee")
+
+
+def _joint_name(j: int) -> str:
+    return f"L{j // 3} {_AXIS_NAMES[j % 3]}"
 
 
 class SafetyLayer:
@@ -191,21 +203,27 @@ class SafetyLayer:
                 status.held = True
                 return self._last_safe.copy(), status
         if state.servo_current is not None:
-            if float(np.max(np.abs(state.servo_current))) > self.max_current:
+            cur = np.abs(state.servo_current)
+            if float(np.max(cur)) > self.max_current:
                 self._over_current_ticks += 1
                 if self._over_current_ticks >= self._over_current_trip_ticks:
+                    j = int(np.argmax(cur))
                     status.ok = False
                     status.terminate = True
                     status.reason = "over_current"
+                    status.detail = f"{_joint_name(j)} {float(cur[j]):.2f}A"
                     status.held = True
                     return self._last_safe.copy(), status
             else:
                 self._over_current_ticks = 0
         if state.servo_load is not None:
             if float(np.max(state.servo_load)) > self.max_load:
+                j = int(np.argmax(state.servo_load))
                 status.ok = False
                 status.terminate = True
                 status.reason = "over_load"
+                status.detail = (f"{_joint_name(j)} "
+                                 f"{float(state.servo_load[j]):.0f}%")
                 status.held = True
                 return self._last_safe.copy(), status
 

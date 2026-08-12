@@ -94,6 +94,37 @@ in sim — the hardware runaway is a contact/pinning sim-to-real gap,
 so this axis is a hardening/regression floor, not the fix. Eval:
 `SCORE/tipped_recovery_success` (rl_docs/EVALS.md, gate-fix caveat).
 
+**Rise rocking (`dr.rise_rock_*`) — RAMP-GATED as of 08-12.** One-side
+hip/knee fold bias on the physical command of rise-mode episodes,
+scaled by the height-ramp progress. Recalibrated against the ten
+08-11 stand-failure tapes via `replay_trace.py`: the hardware trip is
+NOT a curl-long rock — roll stays flat through the curl, then ramps
+0→10.1–10.6° over the last ~1.2 s. A persistent fold rocks the flat
+curl too (unlike every tape) and one sign saturates at 3–5°; the
+ramp-gated fold at ~18° target dose on the branch that removes the
+catching foot reproduces the recorded signature (flat curl →
+accelerating ramp crossing the 10° trip band near ramp end).
+
+**Walk takeoff push (`dr.walk_push_*`, added 08-12).**
+Signed half-sine roll TORQUE about the chassis's own x-axis
+(`xfrc_applied`) over the first 0.8–1.5 s of walk-mode episodes,
+peak 2.0–3.0 N·m. This is the takeoff-transient axis the command-side
+kick could NOT deliver: the fold pulse saturates at 5–10° peak /
+~10 °/s at any dose (planted opposite feet + write-profile rate limit
+eat the command), far under the tapes' 13–27° / 11–46 °/s. Dose
+calibrated policy-in-the-loop (tip1 walking 0.05 m/s): a parked
+6-foot plant absorbs 2.6 N·m at ~0.2°, so the pulse only lands when
+it overlaps a tripod swing — 2.6 N·m / 1.5 s yields the hardware
+coin-flip regime (peaks 2.6→30°, some absorbed, some capsize, 5°
+crossings at 0.56–0.76 s); 3.2 N·m falls 3/4 at 64–105 °/s (too
+hot). Works on BOTH stacks: private-model (C) envs apply the xfrc in
+`_advance`; the MJX vec envs read each shim's per-tick torque and
+hand it to the batched stepper, which writes the chassis xfrc row
+about that env's own x-axis (plumbed 08-12 through `mjx_backend`,
+`mjx_vec_env`, `mjx_sharded_vec_env`). Mechanics pinned in
+`test_task_semantics.py` WALK-PUSH bank; device-side application in
+`test_mjx_parity.py::test_walk_push_xfrc_reaches_the_stepper`.
+
 ## Known gaps — sim is NOT trusted here (open problems in RL_PLAN)
 
 1. **Contact travel pricing: CALIBRATED 08-10, premise revised.**
@@ -135,9 +166,34 @@ so this axis is a hardening/regression floor, not the fix. Eval:
    on hardware arms stands. Sim-vs-sim current comparisons in past
    verdicts stay valid (same proxy both sides).
 3. **Hip/yaw loaded dynamics assumed**, not measured (table above).
-4. **Liftoff +roll collapse not yet reproduced in sim** — the loaded
-   actuator set is the prime-suspect fix; re-run the reproduction
-   fixture on it before trusting stance sim near liftoff.
+4. **Takeoff/rise roll transients: DIAGNOSED 08-12
+   (`rl_move/sim/replay_trace.py`, open-loop hardware-action replay;
+   plots + JSON in `rl_move/hardware_traces/`).** Replaying the
+   recorded action streams from ten deterministic stand failures and
+   nine walks into the free-base sim plant, starting from the
+   measured initial pose:
+   - **Joints are NOT the gap.** Stand replays track at 0.95–1.15°
+     RMSE (loaded set; air 1.4–1.7°) — the actuator/load model
+     reproduces q(t) through the whole failure.
+   - **Walk takeoff excursions ARE reproducible open-loop**: sim
+     peaks 8.7–29.5° vs hardware 6–25° on the same tapes — same
+     magnitude class, same early onset. The closed-loop policy in
+     sim suppresses what the hardware actions excite (baseline
+     policy-in-loop peaks 3–5.5°), i.e. sim training never VISITS
+     the moving excursion, it doesn't fail to model it.
+   - **The stand failure is a support-geometry gap**: every tape is
+     flat through the curl then ramps 0→10.1–10.6° in the last
+     ~1.2 s; the sim curl glides at ≤2.9° peak. Kinematic
+     reconstruction shows hardware tips right pivoting on the L4
+     pad while the left pads unload; in sim the left feet stay
+     planted and the body is statically stable — CoM shifts to
+     40 mm and μ→50 barely move sim roll. The unmodeled part is the
+     knife-edge support set during load transfer (chassis/tucked-leg
+     contact), not inertia and not friction.
+   Mitigations shipped as calibrated DR (ramp-gated `rise_rock`,
+   torque `walk_push` — see the DR section above); a true
+   contact-geometry fix (belly/tucked-shank collision during the
+   curl) remains open.
 5. STL *visual* meshes have stale offsets (June re-export) — physics
    uses primitives; render with `mesh_visuals=False`.
 

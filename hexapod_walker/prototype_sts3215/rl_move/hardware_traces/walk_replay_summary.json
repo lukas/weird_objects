@@ -1,0 +1,92 @@
+{
+  "rl_walk_20260811_214734.csv": {
+    "loaded": {
+      "roll_div_tick": 12,
+      "q_div_tick": 5,
+      "q_div_joint": 1,
+      "q_rmse_moving_deg": 3.41,
+      "hw_peak_roll_rel_deg": 22.52,
+      "sim_peak_roll_rel_deg": 25.12
+    }
+  },
+  "rl_walk_20260811_214807.csv": {
+    "loaded": {
+      "roll_div_tick": 7,
+      "q_div_tick": 7,
+      "q_div_joint": 13,
+      "q_rmse_moving_deg": 2.74,
+      "hw_peak_roll_rel_deg": 25.04,
+      "sim_peak_roll_rel_deg": 20.04
+    }
+  },
+  "rl_walk_20260811_214840.csv": {
+    "loaded": {
+      "roll_div_tick": 24,
+      "q_div_tick": 5,
+      "q_div_joint": 15,
+      "q_rmse_moving_deg": 4.67,
+      "hw_peak_roll_rel_deg": 24.16,
+      "sim_peak_roll_rel_deg": 29.54
+    }
+  },
+  "rl_walk_20260811_214912.csv": {
+    "loaded": {
+      "roll_div_tick": 7,
+      "q_div_tick": 5,
+      "q_div_joint": 15,
+      "q_rmse_moving_deg": 3.24,
+      "hw_peak_roll_rel_deg": 25.44,
+      "sim_peak_roll_rel_deg": 22.26
+    }
+  },
+  "rl_walk_20260811_214944.csv": {
+    "loaded": {
+      "roll_div_tick": 9,
+      "q_div_tick": 24,
+      "q_div_joint": 13,
+      "q_rmse_moving_deg": 3.52,
+      "hw_peak_roll_rel_deg": 6.33,
+      "sim_peak_roll_rel_deg": 10.98
+    }
+  },
+  "rl_walk_20260811_215017.csv": {
+    "loaded": {
+      "roll_div_tick": 29,
+      "q_div_tick": 6,
+      "q_div_joint": 15,
+      "q_rmse_moving_deg": 4.24,
+      "hw_peak_roll_rel_deg": 10.01,
+      "sim_peak_roll_rel_deg": 17.43
+    }
+  },
+  "rl_walk_20260811_215050.csv": {
+    "loaded": {
+      "roll_div_tick": 29,
+      "q_div_tick": 6,
+      "q_div_joint": 15,
+      "q_rmse_moving_deg": 3.02,
+      "hw_peak_roll_rel_deg": 14.45,
+      "sim_peak_roll_rel_deg": 23.56
+    }
+  },
+  "rl_walk_20260811_215133.csv": {
+    "loaded": {
+      "roll_div_tick": 9,
+      "q_div_tick": 8,
+      "q_div_joint": 4,
+      "q_rmse_moving_deg": 4.09,
+      "hw_peak_roll_rel_deg": 5.95,
+      "sim_peak_roll_rel_deg": 8.68
+    }
+  },
+  "rl_walk_20260811_224752.csv": {
+    "loaded": {
+      "roll_div_tick": 14,
+      "q_div_tick": 1,
+      "q_div_joint": 15,
+      "q_rmse_moving_deg": 2.91,
+      "hw_peak_roll_rel_deg": 22.96,
+      "sim_peak_roll_rel_deg": 21.51
+    }
+  }
+}

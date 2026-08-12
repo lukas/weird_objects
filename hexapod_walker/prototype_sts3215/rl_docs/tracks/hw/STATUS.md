@@ -142,6 +142,32 @@ unresolved blockers between the robot and reliable joystick control.
   DR dose. rot60 backward: one fall AND one clean walk — more reps
   when a takeoff-hardened checkpoint exists (none is coming from
   this lever; look to contact/pinning work instead).
+- **08-12: the contact/pinning follow-up ran — open-loop trace
+  replay (`rl_move/sim/replay_trace.py`) DIAGNOSED both transients**
+  (full findings: rl_docs/SIM.md known-gaps §4). Ten stand-failure +
+  nine walk tapes replayed action-for-action in the free-base sim:
+  joints track at ~1° RMSE (actuator model exonerated); walk takeoff
+  excursions reproduce open-loop (sim 8.7–29.5° vs hw 6–25°) — the
+  policy never VISITS them in training; the stand failure is a
+  support-geometry knife-edge (hw pivots on L4, left pads unload;
+  sim keeps them planted — CoM/μ sweeps don't move it). Two
+  calibrated MECHANISM-CORRECTED axes shipped: `dr.rise_rock_*` now
+  RAMP-GATED (flat curl → last-1.2 s ramp, matching every tape —
+  both riserock nulls tested the WRONG shape, a curl-long rock no
+  tape shows; this is the replay-derived shape fix the closure's own
+  "remaining lever" analysis called for, NOT a third dose of the
+  closed persistent-bias axis) and NEW `dr.walk_push_*` (2.0–3.0 N·m
+  half-sine chassis roll torque via xfrc, 0.8–1.5 s; reproduces the
+  hardware coin-flip regime policy-in-the-loop where the command-side
+  kick saturated at 5–10° — a TORQUE axis, not command-pulse family).
+  Push works on both stacks (xfrc plumbed through the MJX batched
+  stepper + both vec envs 08-12; warp parity test in
+  test_mjx_parity.py). Bank tests green (`test_task_semantics.py`
+  WALK-PUSH + rise-rock banks). OPERATOR-ORDERED (08-12): retrain
+  tip1 with walk_push and a rise specialist with ramp-gated
+  rise_rock against the measured disturbances; gates = matched-parent
+  probe at the calibrated dose PLUS the riserock3 lesson pinned
+  (det LOWER/flag-leg retention is part of both gates).
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching

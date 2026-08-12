@@ -326,7 +326,7 @@ def _make_tick_fn(base_model, adr: _Addrs, substeps: int,
     h = float(base_model.opt.timestep)
 
     def substep(carry, _):
-        model, dx, prof, imu, params, limp = carry
+        model, dx, prof, imu, params, limp, push_nm = carry
         gravity = model.opt.gravity
         prof, target = _profile_tick(jnp, prof, params, h)
         q = dx.qpos[adr.qadr]
@@ -337,6 +337,13 @@ def _make_tick_fn(base_model, adr: _Addrs, substeps: int,
             jnp.abs(err) - params.deadband, 0.0)
         eff = jnp.where(limp, q, eff)
         dx = dx.replace(ctrl=dx.ctrl.at[adr.pos_act].set(eff))
+        # dr.walk_push_* takeoff torque about the chassis's CURRENT
+        # x-axis (world-frame xfrc row, recomputed each substep —
+        # mirrors sim_env._advance). Written unconditionally: push 0
+        # clears the row, so no state survives the pulse window.
+        x_axis = dx.xmat[adr.chassis_bid].reshape(3, 3)[:, 0]
+        dx = dx.replace(xfrc_applied=dx.xfrc_applied.at[
+            adr.chassis_bid, 3:6].set(x_axis * push_nm))
         dx = mjx.step(model, dx)
 
         omega, R, v_pt = _imu_point_velocity(jnp, dx, adr, params.imu_off)
@@ -354,15 +361,15 @@ def _make_tick_fn(base_model, adr: _Addrs, substeps: int,
             + dx.site_xmat[adr.gyro_site].reshape(3, 3).T @ omega,
             gyro_n=imu.gyro_n + 1,
         )
-        return (model, dx, prof, imu, params, limp), None
+        return (model, dx, prof, imu, params, limp, push_nm), None
 
-    def tick(dr_vals, dx, prof, imu, params, cmd, limp):
+    def tick(dr_vals, dx, prof, imu, params, cmd, limp, push_nm):
         model = base_model
         if dr_fields:
             model = model.tree_replace(dict(zip(dr_fields, dr_vals)))
         prof = _profile_enqueue(jnp, prof, params, cmd)
-        (_, dx, prof, imu, _, _), _ = jax.lax.scan(
-            substep, (model, dx, prof, imu, params, limp), None,
+        (_, dx, prof, imu, _, _, _), _ = jax.lax.scan(
+            substep, (model, dx, prof, imu, params, limp, push_nm), None,
             length=substeps)
         f_imu = jnp.where(imu.f_n > 0, imu.f_accum / jnp.maximum(imu.f_n, 1),
                           -model.opt.gravity)
@@ -584,14 +591,14 @@ class MjxTickStepper:
             tick = _make_tick_fn(self.model, self.adr, substeps,
                                  dr_fields=dr_f)
             self._tick_jit = jax.jit(jax.vmap(
-                tick, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0)))
+                tick, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0, 0)))
             self._tick_jit_slip = None
             if self.model_slip is not None:
                 dr_fs = self._SLIP_DR_FIELDS if self.model_dr else ()
                 tick_s = _make_tick_fn(self.model_slip, self.adr,
                                        substeps, dr_fields=dr_fs)
                 self._tick_jit_slip = jax.jit(jax.vmap(
-                    tick_s, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0)))
+                    tick_s, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0, 0)))
 
             def fwd(dr_vals, dx):
                 m = self.model
@@ -644,10 +651,14 @@ class MjxTickStepper:
             jnp.asarray(q0), self._tick_params.vel_max, acc0)
 
     def tick(self, cmd: Command, *, limp: np.ndarray | bool = False,
-             slip: bool = False) -> TickOutput:
+             slip: bool = False,
+             push_nm: np.ndarray | None = None) -> TickOutput:
         """Advance every env one control tick; returns device arrays
         (np.asarray() them host-side). ``slip=True`` uses the low-
-        friction model variant (reset slip-settle; needs slip_mu)."""
+        friction model variant (reset slip-settle; needs slip_mu).
+        ``push_nm``: per-env (B,) chassis roll torque (N·m) applied as
+        xfrc about each chassis's own x-axis for this tick — the
+        dr.walk_push_* takeoff disturbance (None/0 = no push)."""
         assert self._dx is not None, "call reset_envs() first"
         jnp = self._jnp
         if slip:
@@ -660,9 +671,12 @@ class MjxTickStepper:
             dr = self._dr_vals()
         limp_b = jnp.asarray(
             np.broadcast_to(np.asarray(limp, bool), (self.n_envs,)))
+        push = (np.zeros(self.n_envs, np.float32) if push_nm is None
+                else np.broadcast_to(
+                    np.asarray(push_nm, np.float32), (self.n_envs,)))
         self._dx, self._prof, self._imu, out = fn(
             dr, self._dx, self._prof, self._imu, self._tick_params, cmd,
-            limp_b)
+            limp_b, jnp.asarray(push))
         return out
 
     # -- state surgery (pooled resets) ---------------------------------------

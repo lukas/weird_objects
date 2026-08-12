@@ -466,8 +466,24 @@ def preflight(bus, mode: str) -> tuple[bool, str, dict]:
     }
     if mode in ("stand", "walk") and (abs(roll) > PREFLIGHT_MAX_TILT_DEG
                                       or abs(pitch) > PREFLIGHT_MAX_TILT_DEG):
+        # Name the 08-11 failure mode when it is the likely cause: a
+        # tipped body over a folded knee. safe_zero knows how to untrap
+        # (low-torque fold) — pointing there beats a bare refusal that
+        # scripts answer by retrying stand/walk against the pin.
+        hint = ""
+        try:
+            from pinned_tip import classify_pinned_tip
+            v = classify_pinned_tip([float(x) for x in q_deg], roll, pitch)
+            details["pinned_tip"] = v
+            if v.get("pinned"):
+                hint = (" — pinned-leg tip suspected "
+                        f"({', '.join(c['name'] for c in v['candidates'])});"
+                        " run safe_zero, it untraps first")
+        except Exception:
+            pass
         return False, (f"tilt too high for start "
-                       f"(roll {roll:+.1f} pitch {pitch:+.1f})"), details
+                       f"(roll {roll:+.1f} pitch {pitch:+.1f}){hint}"
+                       ), details
     if float(np.max(dq)) > tol:
         worst = int(np.argmax(dq))
         want = ("belly-down, legs straight out (logical zero)"
@@ -661,7 +677,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         q_safe, status = safety.filter(q_prop, state, action=action)
         if status.terminate:
             limp()
-            result.update(ok=False, error=f"safety trip: {status.reason}",
+            result.update(ok=False, error=f"safety trip: {status.reason}"
+                          + (f" ({status.detail})" if status.detail else ""),
                           limped=True, ticks=i)
             break
         est.set_commanded(q_safe)
@@ -984,7 +1001,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         q_safe, status = safety.filter(q_prop, state, action=action)
         if status.terminate:
             limp()
-            result.update(ok=False, error=f"safety trip: {status.reason}",
+            result.update(ok=False, error=f"safety trip: {status.reason}"
+                          + (f" ({status.detail})" if status.detail else ""),
                           limped=True, ticks=i)
             break
         est.set_commanded(q_safe)

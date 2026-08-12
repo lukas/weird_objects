@@ -29,10 +29,14 @@ sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
   in two groups — click a row to load it. `[` / `]` and `,` / `.` cycle
   the same lists. Swaps load on the spot (~1 s stall) and work
   mid-walk; the active pair is highlighted. Each row carries a one-line
-  description (distilled from RL_LOG.md into `_DESC` in `play.py`), and
-  the checkpoints currently deployed on the physical robot (read from
-  the `meta` blocks of `linux_control/rl_*_weights.json`) are starred
-  and pinned to the top of each list.
+  description (distilled from RL_LOG.md into `_DESC` in `play.py`).
+  Markers: `R` = deployed on the physical robot (per the `meta` blocks
+  of `linux_control/rl_*_weights.json`; pinned to the top with the
+  other most-worth-trying checkpoints), `*` = trained on sim-only
+  observations — privileged body velocity (`walk_obs_body_vel=1.0`)
+  that the board cannot sense, so it can never run honestly on
+  hardware. Only the `dep_*` line (meas:=ref) and the stance group
+  (encoder/IMU-only obs) are asterisk-free.
 - **Gamepad** (optional, hot-plugs whenever it's turned on; pygame/SDL,
   Xbox/PS/Switch all normalized): left stick = analog walk, `A` stand,
   `B` sit, `Y` reset, `X` belly, `LB/RB` height, d-pad U/D / L/R =

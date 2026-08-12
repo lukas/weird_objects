@@ -30,6 +30,7 @@ echo ">> pushing code + vendored SDK -> $HOST:$REMOTE"
   "$SRC/plant_calibrate.py" "$SRC/imu_calibrate.py" \
   "$SRC/event_log.py" "$SRC/status_display.py" "$SRC/servo_watch.py" \
   "$SRC/mpu_probe.py" "$SRC/rl_policy.py" "$SRC/safe_zero.py" \
+  "$SRC/pinned_tip.py" \
   "$SRC/rl_policy_weights.json" "$SRC/rl_walk_weights.json" \
   "$SRC/standup_modes.json" \
   "$HOST:$REMOTE/linux_control/"

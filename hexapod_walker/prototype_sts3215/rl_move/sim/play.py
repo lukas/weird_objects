@@ -136,6 +136,8 @@ _DESC = {
     "ppo_goal_cw_stand_dr10": "plain stand DR 1.0 PASS; was hw candidate",
     "ppo_goal_cw_stand_crouchrise1":
         "crouch-stand FIX 16/16 (vs 0/8) but hold broke",
+    "ppo_goal_cw_stand_crouchrise3":
+        "mid-dose retry: crouch-rise 4/4 but hold parks 2 legs; FAIL",
     "ppo_goal_cw_stand_holdbc1_hard1":
         "ON ROBOT (stance): stand/sit/hold 10M run",
     "ppo_joint_goal": "local default-name ckpt; 512-step smoke overwrote",
@@ -166,6 +168,18 @@ _DESC = {
     "ppo_goal_cw_walk_joyheadfric_payload_r1":
         "joyheadfric + payload 1.0-1.4x; gate PASS",
 }
+
+
+def _sim_only_obs(role: str, stem: str) -> bool:
+    """True if the checkpoint trained on data the real robot can't sense.
+
+    Walk-env checkpoints train by default with PRIVILEGED simulator
+    body velocity in the obs (walk_task walk_obs_body_vel=1.0); the
+    board has no velocity estimate, so those can never run honestly on
+    hardware. The dep-* line trains with meas:=ref (mode 2.0) — the
+    robot's exact contract. Stance obs (68) are encoders/IMU/goal only,
+    all measurable on the robot."""
+    return role == "walk" and "_dep" not in stem
 
 
 def _obs_width(path: Path) -> int | None:
@@ -519,7 +533,8 @@ def main() -> None:
             if role.startswith("hdr"):
                 txt = ("STANCE models (obs 68)" if role.endswith("stance")
                        else "WALK models (obs 72)")
-                cv2.putText(panel, txt + "  - click to load, * = on robot",
+                cv2.putText(panel,
+                            txt + "  R = on robot  * = sim-only obs",
                             (10, y + ROW_H - 6), cv2.FONT_HERSHEY_SIMPLEX,
                             0.45, (150, 150, 150), 1, cv2.LINE_AA)
                 continue
@@ -534,8 +549,9 @@ def main() -> None:
                                       else (20, 48, 20))
             color = (((240, 200, 40) if role == "stance" else (40, 240, 40))
                      if sel else (205, 205, 205))
-            mark = (">" if sel else " ") + ("*" if stem in _ON_ROBOT
-                                            else " ")
+            flag = ("R" if stem in _ON_ROBOT
+                    else "*" if _sim_only_obs(role, stem) else " ")
+            mark = (">" if sel else " ") + flag
             disp = stem.removeprefix("ppo_goal_").removeprefix("ppo_")
             cv2.putText(panel, f"{mark} {disp}", (8, y + ROW_H - 6),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.42, color, 1,

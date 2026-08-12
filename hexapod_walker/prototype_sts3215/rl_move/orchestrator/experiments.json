@@ -73640,7 +73640,7 @@
       "HARDWARE-DRIVEN, CODE/SPEC FIRST (operator bench 08-11 22:42, bench_blast_20260811_184229 + RL_LOG): the stand specialist port's FIRST hardware run FAILED tilt_roll at 10.2deg rel roll ~9s in, DURING THE BELLY-CURL (before the height ramp; currents low 0.27A, runner limped clean). Sim probe on the same checkpoint (6 det seeds DR0): |roll| <= 1.7deg through the whole rise \u2014 hardware rocks over the tucked legs, sim never does. Trip threshold is CORRECT (do not bump it). Suspects: loaded-knee actuator lag breaking curl symmetry + belly contact geometry. Arm: add a rise-tick ROCKING DR axis (random roll perturbation during curl/ramp ticks \u2014 tilted-belly starts and/or body-roll impulses, capped well below the 25deg envelope, tilt reference stays LEVEL so leveling is paid), default OFF, guarded rng, bank test green BEFORE launch (MDP_PREFLIGHT binding). Warm from holdbc1_hard1 with the BC-anchor stack UNCHANGED. Optional second axis: bus.servo_params=loaded on rise ticks. Parent: cw-stand-holdbc1-hard1. Gate: Rise under +-10-15deg rocking injections det >= 5/6 valid_plant with zero falls; nominal rise/hold retention matches hard1's own probe (12/12 valid_plant RSI-off incl. flat 4/4, hold 11/12); matched-parent control under identical injection; frames watched."
     ],
     "created": "2026-08-11T23:08:07+00:00",
-    "status": "FAILED",
+    "status": "DEFECTIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -73678,7 +73678,7 @@
       }
     ],
     "hardware_ready": false,
-    "verdict": "INVALID LAUNCH, no science: the run trained a DEFAULT joint_goal config warm from hard1 \u2014 no goal-mix, no BC-anchor stack, servo_params=air, and the rocking-DR axis it exists to test WAS NEVER WRITTEN (zero rise_rock knobs in domain_rand.py/codebase; W&B resolved config confirms defaults). The operator's backlog entry was CODE-FIRST but the drain launched the stub args as-is. Hypothesis (hardware belly-curl rocking gap, 5/5 deterministic tilt_roll trips) remains UNTESTED and still queued conceptually: next action is SPECIFICATION \u2014 implement rise-tick rocking DR (guarded rng, bank green) then relaunch. Checkpoint quarantined, do not deploy or warm-start from it.",
+    "verdict": "DEFECTIVE LAUNCH, not a test of the hypothesis. The backlog item was CODE-FIRST (the rise-rock DR axis had to be implemented before launch) but the drain placed it with a bare warm-start arg set: no dr.rise_rock_* config existed anywhere in the code, AND the cloned extra_args carried none of hard1's stance recipe (no BC anchor, no rise shaping stack, no goal-mix) \u2014 so the run trained 2M plain-default steps warm from hard1 and its gate eval predictably collapsed (rise det 0/6 with over_current plant fails, hold 6/6 retained). The rocking hypothesis was never exercised; no science verdict possible. Axis has since been implemented + bank-tested (commit c794de0: dr.rise_rock_prob/deg, physical-command one-side fold bias on rise episodes, mechanism probe reproduces the bench 10deg trip signature on hard1, P-feedback closability pinned) and relaunched properly as cw-stand-riserock2. Process lesson: drain must refuse CODE-FIRST backlog items whose cfg keys don't resolve \u2014 the unknown-DR-override guard would have caught this at env construction had the cfg keys been passed at all.",
     "triage": "done"
   },
   {
