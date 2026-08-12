@@ -88,6 +88,22 @@ Knobs (set via attach_bc_anchor / cfg):
                                (default 0 = legacy uniform; see
                                _bc_sample_idx for the loweranchor1
                                dilution measurement that motivates it)
+  train.bc_anchor_foot_z       coefficient on an ADDITIONAL foot-
+                               height anchor term: mse of the
+                               commanded FK foot heights (body frame,
+                               scaled by bc_anchor_foot_z_mm) between
+                               pi_mean and the target. 0 (default) =
+                               off, legacy update bit-exact. Exists
+                               because the one-parked-foot habit is
+                               invisible to joint-space MSE (08-12
+                               audit: parked leg costs 0.0032 vs the
+                               clean parent's 0.0031 on the same leg —
+                               a mm hover is fractions of a degree);
+                               in foot-height space a 10 mm hover
+                               costs ~1.0 at the default scale.
+  train.bc_anchor_foot_z_mm    height scale for the term (default 10:
+                               a 10 mm commanded deviation -> unit
+                               squared error)
   train.bc_anchor_detach_trunk (recurrent only) stop the anchor
                                gradient at the GRU/feature-extractor
                                output — only the actor head trains on
@@ -117,6 +133,46 @@ from __future__ import annotations
 import numpy as np
 
 N_ACT = 18
+
+_FOOT_Z_CONST = None  # lazy torch constants for _bc_foot_z
+
+
+def _bc_foot_z(actions):
+    """Commanded foot HEIGHT (body frame, metres) per leg from a
+    normalized action batch — differentiable torch twin of
+    ``body_ik.fk_all_feet()[:, 2]``.
+
+    Why (08-12 park audit, cw-stand-margin1/transdrag1 dig-in): the
+    one-parked-foot hold habit is INVISIBLE to the joint-space anchor
+    MSE — the parked policy's per-leg anchor loss (0.0032) is
+    byte-comparable to the six-foot parent's same leg (0.0031),
+    because a millimetre-scale contact break needs only fractions of
+    a degree of hip/knee lift. Near the plant, foot height is the
+    contact-relevant coordinate and joint MSE dilutes it 3-dims-in-18.
+    Supervising the FK foot height directly makes a 10 mm commanded
+    hover cost ~1.0 (at the default 10 mm scale) instead of ~1e-4.
+
+    Foot z depends only on hip and knee (yaw rotates in-plane):
+        z = -FEMUR*sin(hip) - TIBIA*sin(hip+knee)
+    """
+    import torch
+    global _FOOT_Z_CONST
+    if _FOOT_Z_CONST is None:
+        from rl_move.body_ik import FEMUR, TIBIA
+        from .joint_task import _CENTER_RAD, _HALF_RAD
+        _FOOT_Z_CONST = (
+            torch.as_tensor(_CENTER_RAD, dtype=torch.float32),
+            torch.as_tensor(_HALF_RAD, dtype=torch.float32),
+            float(FEMUR), float(TIBIA))
+    center, half, femur, tibia = _FOOT_Z_CONST
+    if center.device != actions.device:
+        center = center.to(actions.device)
+        half = half.to(actions.device)
+        _FOOT_Z_CONST = (center, half, femur, tibia)
+    q = center + actions * half
+    hip = q[..., 1::3]
+    knee = q[..., 2::3]
+    return -femur * torch.sin(hip) - tibia * torch.sin(hip + knee)
 
 
 def _lazy_sb3():
@@ -268,14 +324,31 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 th_h = (torch.as_tensor(self._bc_h[idx], device=dev)
                         if recurrent else None)
                 mean = self._bc_policy_mean(th_obs, th_h)
-                loss = F.mse_loss(mean, th_act)
+                joint_mse = F.mse_loss(mean, th_act)
+                loss = joint_mse
+                # FOOT-HEIGHT anchor term (08-12 park audit): the
+                # joint-space MSE above cannot see a mm-scale parked
+                # foot (see _bc_foot_z); when enabled, additionally
+                # supervise the commanded FK foot heights toward the
+                # target's. fz_coef == 0 (default) skips the branch
+                # entirely — legacy update sequence bit-exact.
+                fz_coef = float(getattr(self, "bc_foot_z_coef", 0.0))
+                if fz_coef > 0.0:
+                    scale = float(getattr(
+                        self, "bc_foot_z_mm", 10.0)) * 1e-3
+                    dz = (_bc_foot_z(mean) - _bc_foot_z(th_act)) / scale
+                    fz_loss = dz.pow(2).mean()
+                    loss = joint_mse + fz_coef * fz_loss
+                    last_fz = float(fz_loss.detach().cpu())
                 self.policy.optimizer.zero_grad()
                 (coef * loss).backward()
                 torch.nn.utils.clip_grad_norm_(
                     self.policy.parameters(), self.max_grad_norm)
                 self.policy.optimizer.step()
-                last = float(loss.detach().cpu())
+                last = float(joint_mse.detach().cpu())
             self.logger.record("train/bc_anchor_loss", last)
+            if float(getattr(self, "bc_foot_z_coef", 0.0)) > 0.0:
+                self.logger.record("train/bc_anchor_footz_loss", last_fz)
             self.logger.record("train/bc_anchor_fill", n)
             # Per-mode diagnostic loss (2026-08-12, pre-registered:
             # CURRENT_TRUTHS orders per-mode bc_anchor_loss logging
@@ -390,3 +463,7 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
         cfg, "train", "bc_anchor_batch_size", default=4096)))
     model.bc_buffer_cap = int(float(cfg_get(
         cfg, "train", "bc_anchor_buffer", default=131072)))
+    model.bc_foot_z_coef = float(cfg_get(
+        cfg, "train", "bc_anchor_foot_z", default=0.0))
+    model.bc_foot_z_mm = float(cfg_get(
+        cfg, "train", "bc_anchor_foot_z_mm", default=10.0))

@@ -809,3 +809,83 @@ def test_getup_anchor_accepts_with_ref_path():
              "reward": {"rise_ref_path": RISE_REF}},
         task="joint_walk")
     assert model.bc_coef == 1.0
+
+
+# ---------------------------------------------------------------------------
+# FOOT-HEIGHT anchor term (train.bc_anchor_foot_z, 08-12 park audit:
+# the one-parked-foot hold habit is invisible to joint-space MSE — the
+# parked policy's per-leg anchor loss matches the clean parent's on the
+# same leg. These tests pin (1) the torch FK against body_ik's numpy
+# FK, (2) default-off bit-exactness of the update, (3) that the term
+# actually SEES a mm-scale park the joint MSE dilutes away.)
+
+def test_foot_z_torch_fk_matches_body_ik():
+    import torch
+    from rl_move.body_ik import fk_all_feet
+    from rl_move.sim.bc_anchor import _bc_foot_z
+    from rl_move.sim.joint_task import action_to_q_rad
+    rng = np.random.default_rng(7)
+    acts = rng.uniform(-1, 1, (32, 18)).astype(np.float32)
+    th_z = _bc_foot_z(torch.as_tensor(acts)).numpy()
+    for k in range(32):
+        np_z = fk_all_feet(action_to_q_rad(acts[k]))[:, 2]
+        assert np.allclose(th_z[k], np_z, atol=1e-6), \
+            f"torch FK z diverges from body_ik at row {k}"
+
+
+def test_foot_z_default_off_is_bit_exact():
+    """bc_anchor_foot_z=0 (default) must leave the update sequence
+    byte-identical to a model that has no foot-z attribute at all."""
+    import torch
+    models = []
+    for set_attr in (False, True):
+        model = _tiny_model()
+        if set_attr:
+            model.bc_foot_z_coef = 0.0   # explicit off == absent
+            model.bc_foot_z_mm = 10.0
+        model.learn(total_timesteps=32)
+        rng = np.random.default_rng(3)
+        for _ in range(64):
+            model._bc_push(rng.uniform(-1, 1, 12).astype(np.float32),
+                           rng.uniform(-1, 1, 18).astype(np.float32))
+        model.train()
+        models.append(model)
+    for p0, p1 in zip(models[0].policy.parameters(),
+                      models[1].policy.parameters()):
+        assert torch.equal(p0, p1), \
+            "explicit foot_z=0 changed the update — must be bit-exact"
+
+
+def test_foot_z_sees_the_park_joint_mse_misses():
+    """A commanded one-leg hover of ~10 mm must cost the foot-z term
+    >=50x more (relative to its clean-pose scale) than it costs the
+    joint MSE — the measured blindness that motivated the term."""
+    import torch
+    from rl_move.body_ik import fk_all_feet
+    from rl_move.sim.bc_anchor import _bc_foot_z
+    from rl_move.sim.joint_task import action_to_q_rad, q_rad_to_action
+    # A plant-like pose: yaw 0, hip 20 deg, knee 80 deg on all legs.
+    q_plant = np.array([0.0, 20.0, 80.0] * 6) * DEG2RAD
+    a_plant = q_rad_to_action(q_plant).astype(np.float32)
+    # Park leg 1: lift hip a fraction of a degree at a time until the
+    # commanded foot z rises ~10 mm above the plant reference.
+    a_park = a_plant.copy()
+    z_ref = fk_all_feet(q_plant)[1, 2]
+    dq = 0.0
+    while True:
+        dq += 0.1 * DEG2RAD
+        q = q_plant.copy()
+        q[4] -= dq          # hip lift (hip negative = up per limits)
+        z = fk_all_feet(q)[1, 2]
+        if z - z_ref >= 0.010:
+            break
+        assert dq < 30 * DEG2RAD, "never reached a 10mm hover?"
+    a_park = q_rad_to_action(q).astype(np.float32)
+    th_plant = torch.as_tensor(a_plant[None])
+    th_park = torch.as_tensor(a_park[None])
+    joint_mse = float(((th_park - th_plant) ** 2).mean())
+    dz = (_bc_foot_z(th_park) - _bc_foot_z(th_plant)) / 0.010  # 10mm scale
+    fz = float(dz.pow(2).mean())
+    assert fz > 0.1, f"foot-z term blind to a 10mm hover ({fz})"
+    assert fz / max(joint_mse, 1e-12) >= 50, \
+        f"foot-z/joint ratio only {fz / joint_mse:.1f} — term too weak"
