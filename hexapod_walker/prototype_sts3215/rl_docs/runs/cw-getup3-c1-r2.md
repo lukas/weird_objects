@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: KILLED
 
 **created**: 2026-08-12T12:02:11+00:00
 
@@ -17,4 +17,6 @@
 **hypothesis**: Give the first WORKING getup recipe the steps it was still climbing at the buzzer. cw-getup3 (BC-anchored, warm-started unified recover-stand-walk) ended its 2M discovery budget mid-climb: stand quality env/getup_S 0.09->0.17 monotone, returns positive and rising, height factor 0.31->0.62. Continue from its checkpoint with the identical recipe (zero variables changed; the obs-pad flag is dropped because the parent is already 72-obs) and a 10M budget. Prediction-if-true: S keeps climbing toward 0.3+, reward_getup_hold becomes a visible income line, and video shows sustained supported stands from floor-adjacent starts. Prediction-if-false: S plateaus below 0.2 — the BC anchor can drag the policy near the stand but the S-gated income cannot close the last gap; next lever is stand-income depth (sibling cw-getup4 tests exactly that in parallel). Strongest alternative: the S rise entrenches as a partial tripod pose the fades under-price — visible as feet_loaded stuck ~2.4 while f_height keeps climbing.
 
 **gate**: PASS if env/getup_S ends >0.30 and non-declining, mean reward_getup_hold >0.05, and video shows at least one sustained (>3 s) supported stand from a floor-adjacent start with no flag-leg/stilt exploit; FAIL if S plateaus <0.2 by 6M or the video shows static collapse or an exploit dominating.
+
+**verdict**: KILLED by operator assistant (no science lost): exact duplicate of cw-getup3-c2, which already ran the identical-recipe 10M continuation and FAILED its gate (env/getup_S plateaued 0.17-0.21, partial-load 4-leg stand, step-count lever refuted). Launched from the operator Mac before c2 existed in view; killed at ~1h in once the duplication was spotted. Pod freed for cw-getup4 (stand-income-depth lever, the c2 verdict recommendation).
 
