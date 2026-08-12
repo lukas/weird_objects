@@ -9,6 +9,24 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-12 ~16:1x: `footlow2-stable1` PASSES (second stance candidate,
+  real tradeoff) + the level1 lean-fix wait CLEARED with an
+  existing-cfg probe, no new code.** `cw-stand-footlow2-stable1`
+  (support-polygon gate + rise/lower ramp jitter) clears its own gate
+  clean (rise det+sto 12/12 incl. a targeted all-flat cold-start
+  probe, hold 6/6 no park, lower 12/12 flush) but hold-mode foot-drag
+  is +75% vs hard1 (238mm det vs 136mm) — a second candidate, not an
+  automatic upgrade; promotion call still open. Separately, the
+  `footlow2-level1` FAIL's "needs a forced-tip probe" wait cleared for
+  free: `dr.tipped_start_prob/deg` already override absolutely after
+  dr-scale, so an isolated 8° forced tip (no other DR) on hard1 AND
+  stable1 shows the hold policy already partially self-corrects (roll
+  settles ≤2.6° in 11-12/12 eps) but misses strict height/current
+  spec ~5/12 det, 9/12 sto on both — re-attributing level1's park
+  reopening to its 3-variable confound, not the tipped axis itself.
+  Refilled with the 1-variable isolation: `cw-stand-footlow2-tip1`
+  (2M discovery, warm from hard1, tipped_start_prob=0.5/deg=6-10
+  ONLY). Detail: STATUS.md WAITING-ON, `rl_docs/RISE.md`.
 - **08-11 late MODEL TOUR (all 27 deployable ckpts through the
   interactive play.py session; rl_docs/MODEL_TOUR_2026-08-11.md):
   two NEW deployed-pair defects.** (1) `holdbc1_hard1` sit from the
