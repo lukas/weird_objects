@@ -32,6 +32,8 @@ baked into the walk gait so the joystick can point the robot.
 - Fast commanded turning needs a NEW idea (step 4 BC-anchor-on-turn
   ticks is in reserve but unpromising after transbc1). No more
   reward/coef/symmetry variants.
-- Hardware wz sign audit gates any bench turn session.
+- Sign audit CLOSED (operator 08-11 night: turns match the drawn
+  signs in both directions, no bridge flip; rate unmeasured). Bench
+  turn sessions now wait only on the MirrorPolicy deploy port.
 
 Detail: rl_docs/TURN.md (design, bank numbers, failure history).

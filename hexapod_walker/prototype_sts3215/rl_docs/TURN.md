@@ -66,15 +66,16 @@ the exact policy PPO found three times below honest partial turning.
 CW and CCW turn income within 45% of each other — a live tripwire on
 the yaw sign chain (below).
 
-## Sign audit (still OPEN — do this before any hardware turn)
+## Sign audit — CLOSED (operator, 08-11 night)
 
-Sim `_body_wz()` is **+CCW** (right-hand z-up). Hardware measured
-08-09: scripted gait `+omega = clockwise`. The TURN bank proves the
-SIM chain (gait omega ↔ wz_ref ↔ reward) is internally consistent,
-so the flip sits at the hardware boundary: the deploy bridge must
-map joystick/policy yaw commands with the sign audit's result, or
-the first hardware turn will fight its own command. One bench check:
-command a small +wz through the bridge, read gyro sign.
+Sim `_body_wz()` is **+CCW** (right-hand z-up). **Operator ruling
+08-11 night: the robot turns the way the drawn signs say, both
+command signs — the convention is correct end to end and the deploy
+bridge needs NO flip.** Rotation rate was not measured (degrees are
+hard to eyeball); the 08-11 camera reading (+0.3 → CCW from above)
+stands, and the 08-09 scripted-gait "+omega = clockwise" note is
+superseded (that reading, not the chain, was wrong). Bench turn
+sessions are no longer sign-gated.
 
 ## First arm result — FAILED (08-10, `cw-walk-turnfix1`)
 
@@ -440,8 +441,9 @@ already-deployed checkpoint. Turn rate is the drift magnitude
 is SLOW steering — command tracking up to ±0.3 rad/s stays unsolved.
 Deploy-side port + composition with rot60 (mirror-then-rotate is
 still a single obs permutation) are follow-up [CODE]; the sign audit
-(sim +CCW vs hardware +omega=CW) remains OPEN and gates any bench
-turn session.
+CLOSED 08-11 night (operator: turns as the drawn signs say, both
+directions — no bridge flip) so bench turn sessions are unblocked
+once the deploy port lands.
 
 **(3) Mirror-symmetry training — RUN, FAILED (08-11 late).**
 `cw-walk-mirturn1` (discovery 2M, warm from cw-dep-vref1-r1 +

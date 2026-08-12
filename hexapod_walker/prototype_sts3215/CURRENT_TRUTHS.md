@@ -481,8 +481,12 @@ both handoffs compose).
   lever (`cw-stand-riserock2-r1` training now). Remaining lever for
   the WALK takeoff transient specifically: contact/pinning modeling
   (no-skate feet), not more command-side perturbation. Turn signs:
-  +0.3 = CCW (matches convention,
-  single camera reading); −0.3 still unmeasured. The evening's
+  CLOSED (operator 08-11 night): the robot turns the way the drawn
+  signs say for BOTH command signs — the convention is correct end
+  to end, no flip needed in the deploy bridge. Rotation RATE remains
+  unmeasured (degrees are hard to eyeball; the earlier single-camera
+  +0.3=CCW reading stands, the 08-09 "+omega=CW" scripted-gait note
+  is superseded). Bench turn sessions are no longer sign-gated. The evening's
   "thermal wall" was mostly PHANTOM single-read bus temps (a "150 °C"
   hip read 33 °C seconds later); safe_zero/pinned_tip temp trips now
   debounced, servo_watch gained a kill-all-motion thermal panic, all
