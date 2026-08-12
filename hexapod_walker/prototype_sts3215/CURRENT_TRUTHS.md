@@ -292,6 +292,45 @@ both handoffs compose).
   TERMINALLY CLOSED for the parked foot; only remaining lever is
   anchor-side (find/patch the reference tick showing a lifted leg at
   a plant-adjacent state), unqueued, spec first.** Detail: RISE.md.
+  **08-12: two MORE independent pricing arms reconfirm the closure
+  from different angles — `cw-stand-margin1` (reward.k_support_margin,
+  attacking rise's 3-foot knife-edge) and `cw-stand-transdrag1`
+  (reward.k_drag_trans, attacking the stand/sit foot-scrape) BOTH
+  FAIL, and BOTH independently reproduce the identical hold one-foot
+  park (idx1, duty 0.03-0.05 vs the frozen parent's 0.90) even with
+  hold_still_gate+hold_flag_fade already on.** margin1's own target
+  stat didn't even move (det-rise plant_margin_mm 157 vs parent 154,
+  inside noise — the BC anchor pins the rise trajectory so hard a new
+  income term can't shift it either). transdrag1 confirms the
+  mechanism precisely: a foot with near-zero duty is almost never
+  "on" for two consecutive ticks, so it can't accrue the drag charge
+  — parking is the escape valve for ANY per-foot pricing term, not
+  just the ones aimed at it. Three independent reward-side arms
+  (minfeet1, margin1, transdrag1) have now spent 6M steps confirming
+  the same closed door. Raising any of these coefficients is
+  provably counterproductive (parking becomes MORE attractive, not
+  less). Do not queue another hold/rise/lower pricing variant on this
+  mechanism. The anchor-side fix is now the sole lever and is
+  overdue: the working theory (untested) is that `_q_nom` — the
+  frozen hold/track BC target, captured post-settle at
+  `sim_env.py:1160` — may itself carry a small per-foot asymmetry
+  from whatever pose the settle/warm-start happens to land on, which
+  the anchor then faithfully (and increasingly, under any added
+  pressure) teaches forward. Spec/verify this before writing code.
+  **08-12 ~09:5x: verified — and BOTH standing theories are wrong.**
+  (1) `_q_nom` exonerated: 48/48 hold resets settle all-six-loaded
+  (3.2–3.6 N per foot; feet 1/4 lightest at 3.19 N — the only two
+  feet any park ever chose). (2) PPO does not "defy" the anchor:
+  the parked leg's anchor MSE (0.0032, measured on the live parked
+  margin1 policy in a det hold) matches the clean parent's same leg
+  (0.0031). **ROOT CAUSE: the one-foot park is INVISIBLE to
+  joint-space action supervision — a mm-scale contact break is
+  fractions of a degree of hip lift across 3 of 18 dims (~1e-4
+  MSE).** Every "converged" anchor and every per-foot price was
+  blind to it by construction. Landed fix (default off, bit-exact,
+  tests green): `train.bc_anchor_foot_z` supervises commanded FK
+  foot heights (10 mm hover ≈ 1.0 loss at default scale, ≥50x the
+  joint-MSE ratio, pinned by bank test). First arm cw-stand-footz1.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict

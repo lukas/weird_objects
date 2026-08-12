@@ -204,6 +204,56 @@ unresolved blockers between the robot and reliable joystick control.
   warm from holdbc1-hard1) prices exactly that via the never-used
   `reward.k_support_margin` term; gate = det-rise plant_margin_mm
   up vs matched parent + full retention + no outrigger cheat.
+  **08-12: `cw-stand-margin1` FAILS both pre-registered branches** —
+  the margin stat itself never moved (det-rise plant_margin_mm 157 vs
+  matched frozen parent 154, inside noise: the BC anchor pins rise's
+  trajectory too hard for a new income term to shift it) AND a known
+  exploit reappeared in retention: det hold parks foot idx1 (duty
+  0.05 vs parent 0.90, visible outrigger in frame) even with
+  hold_still_gate+hold_flag_fade already on. **Same conclusion from a
+  totally different reward term:** `cw-stand-transdrag1`
+  (`reward.k_drag_trans`, charging loaded-foot scraping during
+  stand/sit — queued 08-11 night off the new drag-meter finding)
+  also FAILS — drag dropped only 10-20% (hold 0.196->0.156m vs a
+  <=0.05 bar, lower 0.736->0.658m vs <=0.20) and the SAME idx1 park
+  reappeared (duty 0.03), because a foot that's mostly airborne is
+  almost never "on" for two consecutive ticks and so can't accrue a
+  per-tick drag charge — parking is a free escape valve from this
+  charge too. **Between minfeet1 (hold pricing), margin1 (rise
+  pricing), and transdrag1 (drag pricing), THREE independent
+  reward-side levers now confirm the same closed door: any new
+  pricing term on an anchored stand mode gets evaded by parking one
+  foot, or doesn't move the anchored quantity at all.** Do not queue
+  a fourth. Meanwhile the fleet also got the one CLEARLY ready,
+  non-blocked lever on the board: the tall-walking champion
+  `cw-dep-bcgait1-hard1`'s own DR/tipped-start retention panel (see
+  "Next" below) — its first two axes (friction, ground-tilt) queued.
+  **08-12 ~09:5x: the anchor-side spec/verify pass RAN (same cycle
+  as the two verdicts) and settled the six-run mystery.** Audit on
+  train-0 against the live hard1 cfg: (a) the `_q_nom` theory is
+  FALSIFIED — 48/48 hold resets settle with all six feet loaded
+  3.2–3.6 N, none under 0.5 N; the anchor reference is a genuine
+  six-foot stance. (Suggestive detail: feet 1/4 are the two LIGHTEST
+  at settle, 3.19 vs 3.57 N — exactly the only two feet any park has
+  ever chosen.) (b) "PPO defies a working anchor" is falsified too:
+  rolling the parked margin1 policy through a det hold and scoring
+  per-leg action-MSE against the anchor target gives the PARKED leg
+  0.0032 vs the clean parent's 0.0031 on the same leg — not even the
+  worst leg of the six. **The park is geometrically INVISIBLE to
+  joint-space supervision: a mm-scale hover is fractions of a degree
+  of hip lift, 3 dims of 18, ~1e-4 of MSE.** That is why six anchor
+  variants "converged" while the park persisted, and why every
+  pricing term found parking as the escape valve (a hovering foot
+  pays no per-foot charge). CODE landed same cycle:
+  `train.bc_anchor_foot_z` (+ `_mm` scale) — an additional anchor
+  term supervising commanded FK foot HEIGHTS (torch twin of
+  `body_ik.fk_all_feet`, z = −F·sin(hip) − T·sin(hip+knee)); a 10 mm
+  hover costs ~1.0 at default scale (bank test pins ≥50x the joint
+  MSE ratio; default-off bit-exact; 41 anchor tests + 78-test
+  semantics bank green). First arm: `cw-stand-footz1` (2M discovery,
+  warm from holdbc1-hard1, ONE variable, gate = all-six-feet det
+  hold duty ≥0.5 + rise/lower retention vs the matched parent probe
+  + no outrigger).
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching
@@ -266,7 +316,17 @@ unresolved blockers between the robot and reliable joystick control.
   gait_valid 6/6 both passes, prog_ratio 1.05/0.91, zero falls). Now
   the strongest tall-walking candidate in the campaign; next is the
   standard dep-line DR/tipped-start retention panel, NOT yet run,
-  before any Gate 0 consideration.
+  before any Gate 0 consideration. **08-12: panel STARTED** —
+  bcgait1-hard1 already trains with dr.tipped_start_prob=0.30 baked
+  in (its own gate/own-DR evals already exercise that), so the panel
+  gap is the per-axis stress arms the vref1-r1/tip1 lineage went
+  through (friction, ground-tilt, latency, encoder noise, ...) that
+  this NEW checkpoint has never seen. Queued to backlog (hardening
+  phase, warm from bcgait1-hard1's own checkpoint): `-fric`
+  (dr.friction_scale 0.4-1.6x) and `-groundtilt5` (dr.ground_tilt_deg
+  5.0), both k_current=0 per the standing hardware-arm rule. Two
+  axes only this cycle — the historical panel ran dozens one at a
+  time over many cycles; treat this as started, not complete.
 - Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
   crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
   08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the

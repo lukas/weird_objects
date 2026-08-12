@@ -1151,3 +1151,37 @@ belly-curl rocking gap (bench: 5/5 tilt_roll trips at 10.1–10.6°,
 sim curl ≤1.7° without the axis) is contact/pinning modeling
 (belly/foot contact geometry, no-skate feet), not more command-side
 perturbation.
+
+### 08-12 park audit (`cw-stand-margin1`/`cw-stand-transdrag1` dig-in):
+### the park is INVISIBLE to joint-space supervision — foot-z anchor landed
+
+Both 08-12 pricing arms (support-margin on rise, trans-drag on
+stand/sit) FAILED and both re-awakened the idx1 hold park (duty
+0.03–0.05 vs the frozen parent's 0.90) — third and fourth independent
+pricing terms to find parking as the escape valve. The pre-registered
+anchor-side spec pass then ran on train-0 (live hard1 cfg):
+
+1. **`_q_nom` (the hold anchor reference) is CLEAN**: 48/48 hold
+   resets settle with all six feet loaded 3.2–3.6 N (none <0.5 N).
+   "The anchor teaches the park" is falsified in its literal form.
+   Suggestive: feet 1/4 are the two lightest at settle (3.19 vs
+   3.57 N) — the only two feet any park in six runs ever chose; the
+   park picks the foot that is cheapest to unload.
+2. **The anchor cannot SEE the park**: rolling the parked margin1
+   policy through a det hold and scoring per-leg action MSE against
+   its own anchor target gives the parked leg 0.0032 vs the clean
+   parent's 0.0031 on the same leg — not even the worst of the six.
+   A mm-scale hover is fractions of a degree of hip lift, 3 dims of
+   18: ~1e-4 of joint MSE. Six anchor variants "converged" while the
+   park persisted because the supervision signal was geometrically
+   blind, not because PPO defied it.
+
+Fix (landed 08-12, `rl_move/sim/bc_anchor.py`):
+`train.bc_anchor_foot_z` (+ `bc_anchor_foot_z_mm`, default 10) — an
+additional anchor term on commanded FK foot HEIGHTS (differentiable
+torch twin of `body_ik.fk_all_feet`; z = −FEMUR·sin(hip) −
+TIBIA·sin(hip+knee), yaw-free). A 10 mm commanded hover costs ~1.0
+at default scale. Default 0 = off, update bit-exact (test-pinned);
+FK matches body_ik to 1e-6; the park/joint-MSE visibility ratio ≥50x
+is a bank test. First arm: `cw-stand-footz1` (2M discovery, one
+variable vs holdbc1-hard1).
