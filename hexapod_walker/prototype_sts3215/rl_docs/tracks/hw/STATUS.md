@@ -371,6 +371,33 @@ unresolved blockers between the robot and reliable joystick control.
   DEPLOYMENT CANDIDATE (sim-only, not yet bench-tested) — the
   promotion-over-`holdbc1_hard1` call is next. `cw-stand-footzsharp1`
   (the paired last-mm-hover probe) still to triage.
+  **08-12 ~15:2x: operator hardware milestone — `footlow2-hard1`
+  completed the FIRST full belly-stand-belly round trips on the
+  bench (2/2), but with a persistent ~8° standing lean.** Two
+  hardening arms queued off the hard1 checkpoint to attack it:
+  `cw-stand-footlow2-level1` (dr-scale 0.35 + ground_tilt 5° +
+  tipped_start_prob 0.30, hypothesis: physics-on + tipped starts
+  teaches IMU-feedback re-leveling) and `cw-stand-footlow2-stable1`
+  (plant-polygon gate + rise/lower ramp jitter, still training).
+  **`cw-stand-footlow2-level1` FAILS** — and not narrowly: on the
+  PLAIN flat-floor DR0 retention check (no injection at all, the
+  exact test hard1 aces 6/6 clean), det hold drops to 4/6 because
+  2/6 episodes REOPEN the historical two-foot park (feet idx1+idx4,
+  duty 0.03–0.09, end_clear 1.3–4.1mm, 5° lean, harness
+  `success=False`) — the identical failure mode this arm was meant
+  to cure, now appearing spontaneously without any DR tilt needed.
+  Own-DR0.35 pass is worse (sto hold 2/6, roll_tail up to 9.5°).
+  The arm's actual hypothesis (do tipped-start holds re-level to
+  <=2°?) was never even tested — the standard eval draw sampled
+  ZERO tipped-start episodes across all 24 hold episodes in both
+  passes (`start_kind` stayed `plant` throughout); moot, since
+  retention already fails on its own. One-line known-exploit stop
+  (the park is a named recurring cheat), no forensics. `hard1`
+  stays the sim-side deployment candidate; the DR/ground-tilt lever
+  for the hardware lean is NOT validated and should not be retried
+  blind — any retry needs a start-state probe that FORCES a tipped
+  spawn (same fix class as the footlow2-r1 flat-rise mislabeling)
+  rather than hoping the random draw includes one.
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching
