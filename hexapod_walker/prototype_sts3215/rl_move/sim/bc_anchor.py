@@ -72,7 +72,11 @@ Knobs (set via attach_bc_anchor / cfg):
                                dilution measurement that motivates it)
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
-train/bc_anchor_fill (ring occupancy, pairs).
+train/bc_anchor_fill (ring occupancy, pairs), and per mode present in
+the ring train/bc_anchor_loss_{rise,hold,lower,walk} +
+train/bc_anchor_fill_* (no_grad diagnostic AFTER the optimizer steps —
+zero training effect; landed 08-12, the pre-registered observability
+gate before any further stand arm).
 
 Recurrent support (08-11, arch track unblock): pass RecurrentPPO as
 ``base_cls`` and the anchor works on GRU policies too. Each pair then
@@ -222,6 +226,32 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 last = float(loss.detach().cpu())
             self.logger.record("train/bc_anchor_loss", last)
             self.logger.record("train/bc_anchor_fill", n)
+            # Per-mode diagnostic loss (2026-08-12, pre-registered:
+            # CURRENT_TRUTHS orders per-mode bc_anchor_loss logging
+            # BEFORE any further stand arm — only the aggregate was
+            # logged, so "the anchor itself teaches the parked foot"
+            # vs "PPO ignores the hold supervision" was undecidable
+            # across six identical-fingerprint runs). Runs no_grad
+            # AFTER the optimizer steps: zero effect on training; the
+            # rng draws here happen after every gradient minibatch was
+            # sampled, so the update sequence is bit-identical.
+            with torch.no_grad():
+                names = {0: "rise", 1: "hold", 2: "lower", 3: "walk"}
+                for m in np.unique(self._bc_mode[:n]):
+                    rows = np.flatnonzero(self._bc_mode[:n] == m)
+                    sel = (rows if len(rows) <= bs
+                           else rng.choice(rows, size=bs, replace=False))
+                    th_obs = torch.as_tensor(self._bc_obs[sel], device=dev)
+                    th_act = torch.as_tensor(self._bc_act[sel], device=dev)
+                    th_h = (torch.as_tensor(self._bc_h[sel], device=dev)
+                            if recurrent else None)
+                    l_m = float(F.mse_loss(
+                        self._bc_policy_mean(th_obs, th_h),
+                        th_act).detach().cpu())
+                    tag = names.get(int(m), str(int(m)))
+                    self.logger.record(f"train/bc_anchor_loss_{tag}", l_m)
+                    self.logger.record(f"train/bc_anchor_fill_{tag}",
+                                       int(len(rows)))
 
     return BCAnchorPPO
 

@@ -1563,13 +1563,16 @@ HOVER_LIFT_DEG = 8.0        # probe: hip -30 deg ~ 50 mm, so ~13 mm
 
 
 def _hold_load_rollout(policy: str, seed: int, overrides) -> dict:
-    """'quiet' and 'hover' with per-foot contact-duty telemetry.
+    """'quiet' / 'hover' / 'hover1' with per-foot contact-duty telemetry.
 
     hover     the crouchrise cheat class: two legs held a few mm off
               the ground — a FROZEN pose (stillness can't charge it)
               with all feet inside foot_down_mm (the clearance count
               can't charge it) and nothing near the flag band (no-flag
               can't charge it). Only measured load can.
+    hover1    the anchormix1-r1 endgame: exactly ONE leg unloaded (the
+              habit sheds one foot — a five-foot stance is sufficient
+              and cheaper; product pricing caps its tax at floor 0.5).
     """
     env = _make_hold_env(seed, overrides)
     env.reset()
@@ -1578,6 +1581,8 @@ def _hold_load_rollout(policy: str, seed: int, overrides) -> dict:
     if policy == "hover":
         for leg in HOVER_LEGS:
             q[3 * leg + 1] -= HOVER_LIFT_DEG * DEG2RAD
+    elif policy == "hover1":
+        q[3 * HOVER_LEGS[0] + 1] -= HOVER_LIFT_DEG * DEG2RAD
     act = q_rad_to_action(q)
     total, steps = 0.0, 0
     contact_steps = np.zeros(6)
@@ -1670,6 +1675,95 @@ def test_hold_load_gate_light_tax_on_quiet_stand(hold_load_bank):
     assert on > 0.90 * off, (
         f"hold_feet_load taxes the honest quiet stand ({on:.0f} vs "
         f"{off:.0f} without it) — ref/floor miscalibrated.")
+
+
+# --------------------------------------------------------------------------
+# HOLD bank, MIN-over-feet variant (reward.hold_feet_load_min=1 — the
+# pre-registered anchormix1-r1 reopen lever, 08-12). Six straight stand
+# runs converged on the SAME endgame: exactly ONE foot parked (duty
+# 0.01-0.04) while every supervision/pricing change only moved WHICH
+# foot. Under the product gate a single unloaded foot's tax caps at
+# hold_load_floor (0.5) — a five-foot stance at half pay is "sufficient
+# and cheaper". The min variant makes the WORST foot the whole factor:
+# load = max(min_i s_i, hold_load_min_floor 0.1), so the one-foot park
+# earns scraps with the same linear on-ramp for slope, and the honest
+# six-foot stance keeps exactly 1.0. These tests pin (a) default-off is
+# bit-exact vs the product path, (b) the one-foot park drops from the
+# product's half-pay band to scraps, (c) the quiet stand is untaxed.
+
+HOLD_LOAD_MIN_OVERRIDES = dict(HOLD_LOAD_OVERRIDES)
+HOLD_LOAD_MIN_OVERRIDES.update({
+    ("reward", "hold_feet_load_min"): 1.0,
+})
+
+
+@pytest.fixture(scope="module")
+def hold_load_min_bank() -> dict[str, dict[str, list[dict]]]:
+    return {
+        "prod": {p: [_hold_load_rollout(p, s, HOLD_LOAD_OVERRIDES)
+                     for s in SEEDS] for p in ("quiet", "hover1")},
+        "min": {p: [_hold_load_rollout(p, s, HOLD_LOAD_MIN_OVERRIDES)
+                    for s in SEEDS] for p in ("quiet", "hover1")},
+    }
+
+
+def test_hold_load_min_default_off_bit_exact():
+    """hold_feet_load_min=0 must reproduce the legacy product path
+    EXACTLY (same seed, same rollout) — the switch is default-off and
+    bit-exact per the code-first rules."""
+    off = dict(HOLD_LOAD_OVERRIDES)
+    off[("reward", "hold_feet_load_min")] = 0.0
+    a = _hold_load_rollout("hover1", SEEDS[0], HOLD_LOAD_OVERRIDES)
+    b = _hold_load_rollout("hover1", SEEDS[0], off)
+    assert a["ret"] == b["ret"], (
+        f"hold_feet_load_min=0 changed the reward path "
+        f"({a['ret']} vs {b['ret']})")
+
+
+def test_hold_load_min_one_foot_park_reproduces_the_fingerprint(
+        hold_load_min_bank):
+    """Self-check: the scripted one-leg hover matches the anchormix
+    endgame — the parked foot carries near-zero duty, the pose is
+    stable and un-terminated."""
+    for r in hold_load_min_bank["min"]["hover1"]:
+        assert r["duty"][HOVER_LEGS[0]] < 0.2, (
+            f"hover1 leg still carries duty "
+            f"{r['duty'][HOVER_LEGS[0]]:.2f} — not the observed park")
+        assert not r["terminated"], "the hover1 pose is not even stable"
+
+
+def test_hold_load_min_prices_one_foot_park_to_scraps(hold_load_min_bank):
+    """The lever: under the product gate the one-foot park keeps a
+    living (its tax caps at floor 0.5); under min pricing it must drop
+    decisively — below half the product's take and out of parity with
+    the quiet stand."""
+    q_min = _mean_ret(hold_load_min_bank["min"]["quiet"])
+    h_min = _mean_ret(hold_load_min_bank["min"]["hover1"])
+    h_prod = _mean_ret(hold_load_min_bank["prod"]["hover1"])
+    # Premise: under the product the park keeps a LIVING (~half pay —
+    # measured 0.49x quiet: the 0.5 floor caps the tax and nearly all
+    # hold income is the gated kernel), far above the fade bank's
+    # scraps band (~0.14x).
+    assert h_prod > 0.40 * _mean_ret(hold_load_min_bank["prod"]["quiet"]), (
+        f"product pricing already prices the one-foot park to scraps "
+        f"({h_prod:.0f}) — the min lever's premise is broken, "
+        f"re-justify it")
+    assert h_min < 0.75 * h_prod, (
+        f"min pricing barely moves the one-foot park "
+        f"({h_min:.0f} vs product {h_prod:.0f})")
+    assert h_min < 0.5 * q_min and h_min < q_min - 100.0, (
+        f"one-foot park still keeps a living under min pricing "
+        f"({h_min:.0f} vs quiet {q_min:.0f})")
+
+
+def test_hold_load_min_keeps_quiet_stand_pay(hold_load_min_bank):
+    """A genuinely six-foot-loaded stance keeps ~full pay: min over
+    fully-loaded feet is 1.0, identical to the product."""
+    q_min = _mean_ret(hold_load_min_bank["min"]["quiet"])
+    q_prod = _mean_ret(hold_load_min_bank["prod"]["quiet"])
+    assert q_min > 0.95 * q_prod, (
+        f"min pricing taxes the honest quiet stand ({q_min:.0f} vs "
+        f"product {q_prod:.0f}) — min_floor/ref miscalibrated")
 
 
 # --------------------------------------------------------------------------

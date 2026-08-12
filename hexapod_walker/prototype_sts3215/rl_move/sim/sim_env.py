@@ -1470,7 +1470,7 @@ class SimHexapodBalanceEnv(_GymBase):
                                       "hold_load_ref_n", default=1.0))
                 floor_l = float(cfg_get(self.cfg, "reward",
                                         "hold_load_floor", default=0.5))
-                load_h = 1.0
+                s_feet = []
                 for i in range(6):
                     if self._touch_adr[i] >= 0:
                         f_n = max(float(
@@ -1481,7 +1481,34 @@ class SimHexapodBalanceEnv(_GymBase):
                         s_i = (1.0 if clear_h[i]
                                <= PLANT_SPEC["foot_down_mm"] * 0.001
                                else 0.0)
-                    load_h *= max(s_i, floor_l)
+                    s_feet.append(s_i)
+                # MIN-over-feet variant (2026-08-12, the pre-registered
+                # anchormix1-r1 reopen lever — CURRENT_TRUTHS: "price
+                # the min-over-feet load, not the product"). The
+                # product with floor 0.5 caps ONE unloaded foot's tax
+                # at x0.5 — and six straight stand runs (crouchrise1/2/
+                # 3, holdload1, anchorstate1/2, anchormix1-r1) show the
+                # habit sheds EXACTLY ONE foot: a five-foot stance at
+                # half pay is "sufficient and cheaper", and supervision
+                # only moves WHICH foot parks. With
+                # reward.hold_feet_load_min=1 the WORST foot is the
+                # whole factor: load = max(min_i s_i, min_floor), so a
+                # single fully-unloaded foot cuts gated hold income to
+                # hold_load_min_floor (default 0.1 — scraps), with the
+                # same linear on-ramp below ref for slope. An
+                # all-loaded stance keeps exactly 1.0 either way.
+                # Default 0 = the legacy product path, bit-exact.
+                min_w = float(cfg_get(self.cfg, "reward",
+                                      "hold_feet_load_min", default=0.0))
+                if min_w > 0.0:
+                    floor_min = float(cfg_get(
+                        self.cfg, "reward", "hold_load_min_floor",
+                        default=0.1))
+                    load_h = max(min(s_feet), floor_min)
+                else:
+                    load_h = 1.0
+                    for s_i in s_feet:
+                        load_h *= max(s_i, floor_l)
                 feet_h *= (1.0 - l_load) + l_load * load_h
                 parts["hold_load_factor"] = load_h
             still_h = 1.0

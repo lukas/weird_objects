@@ -453,6 +453,34 @@ def test_trainer_aux_step_moves_policy_toward_targets():
     assert mse() < before, "aux step did not move pi_mean toward targets"
 
 
+def test_per_mode_anchor_loss_logged():
+    """Per-mode diagnostic loss (08-12, the pre-registered
+    observability gate before any further stand arm): after train(),
+    every mode present in the ring gets train/bc_anchor_loss_<mode> +
+    train/bc_anchor_fill_<mode>, and absent modes get nothing."""
+    model = _tiny_model()
+    model.learn(total_timesteps=32)
+    rng = np.random.default_rng(2)
+    for _ in range(64):
+        model._bc_push(rng.uniform(-1, 1, 12).astype(np.float32),
+                       np.zeros(18, dtype=np.float32), mode=0)
+    for _ in range(16):
+        model._bc_push(rng.uniform(-1, 1, 12).astype(np.float32),
+                       np.ones(18, dtype=np.float32), mode=1)
+    model.train()
+    vals = model.logger.name_to_value
+    assert "train/bc_anchor_loss_rise" in vals
+    assert "train/bc_anchor_loss_hold" in vals
+    assert vals["train/bc_anchor_fill_rise"] == 64
+    assert vals["train/bc_anchor_fill_hold"] == 16
+    assert "train/bc_anchor_loss_lower" not in vals
+    assert "train/bc_anchor_loss_walk" not in vals
+    # hold targets are all-ones vs rise all-zeros: the two per-mode
+    # losses must actually discriminate (not read the same buffer).
+    assert vals["train/bc_anchor_loss_hold"] != \
+        vals["train/bc_anchor_loss_rise"]
+
+
 def test_collect_callback_skips_done_pairs():
     from rl_move.sim.bc_anchor import make_bc_collect_callback
     model = _tiny_model()
