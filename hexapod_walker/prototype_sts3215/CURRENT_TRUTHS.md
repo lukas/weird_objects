@@ -365,6 +365,26 @@ hold solved via BC-anchor, both handoffs compose).
   continuation `cw-stand-footz1-hard1` queued to consolidate the rise
   miss and confirm durability before any champion-replacement call;
   hard1 remains deployed meanwhile.
+  **08-12: `cw-stand-footz1-hard1` (10M) FAILED its own gate** —
+  hold survives hardening (det+sto all-six duty 0.92–0.99) but
+  LOWER regressed to 0/12 (known 3-leg outrigger, clearances to
+  170mm, worse under budget; this lineage never had the lower-mode
+  anchor). **08-12 midday: the combination arm `cw-stand-footlow1`
+  (footz hold fix + anchormix1-r1's lower-anchor bundle) FAILED its
+  own gate but proved the two fixes ADDITIVE on hold+lower: first
+  policy ever with clean six-foot hold (det duty ≥0.94 all feet,
+  6/6) AND 12/12 det+sto lower with sub-mm end clearances. RISE
+  paid instead: det 3/6 / sto 2/6, belly-down stall ~100mm short —
+  the anchormix lineage's known det flat-rise stall, carried in by
+  the state-aligned/lookahead bundle, with `bc_anchor_loss_rise`
+  LOW/converged (0.011) during the stall: joint-space supervision
+  is anchor-BLIND to global rise progress (same lesson class as the
+  mm-hover park). Rise-from-flat is now the LAST broken stance mode
+  in an otherwise-complete policy. Next lever is an alignment-audit
+  spec pass (which reference tick does the state-aligned anchor
+  select at the stalled belly state?), NOT another blind anchor
+  variant (anchormix closure pre-registration binds). hard1 remains
+  deployed.**
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict
