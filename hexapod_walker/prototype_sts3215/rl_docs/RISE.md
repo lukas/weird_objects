@@ -1072,3 +1072,44 @@ mechanism. The branch's mandatory next step applies: per-mode
 today) before any further stand arm, so the next hypothesis is chosen
 on measurement. hard1 + specialist handoff stays the deployed stance
 stack.
+
+## `cw-stand-riserock2-r1` (08-12) — rise-rock DR: matched-parent null, both sides fail
+
+Separate blocker from the park/hold-cheat lineage above: the 08-11
+bench found the real belly-curl rocks 10°+ and trips `tilt_roll`
+5/5 at the same tick while sim's own curl stays ≤1.7°. `dr.rise_rock_*`
+(commit 36076a6) gives rise-mode episodes a persistent one-side
+hip/knee fold bias on the physical servo command (same fold→roll
+mapping as tipped-start/walk-kick) with the tilt reference kept
+LEVEL, so leveling out is paid. Config: hard1 + `rise_rock_prob=0.5`,
+`rise_rock_deg=6,12` (half the episodes rocked, half nominal).
+
+Gate (pre-registered, matched-parent): `eval_checkpoint
+--cfg-set dr.rise_rock_prob=1.0 --cfg-set dr.rise_rock_deg=10,10
+--baseline hard1`, det — the exact bench trip threshold, guaranteed
+every episode. Result: **child rise 0/6 valid_plant (1/6 tilt_roll
+fall, 5/6 stall well short of plant height/footprint); hard1 under
+the IDENTICAL injection ALSO 0/6 valid_plant (2/6 tilt_roll falls,
+4/6 stall).** Zero separation — video confirms the identical
+fingerprint both sides: rises partway, then tips and settles splayed
+to one side. Own-distribution retention (prob 0.5, deg 6-12, as
+trained) is clean and matches hard1's own probe: det rise/hold/lower
+6/6, end_posture 6/6 — no regression anywhere; the failure is
+specific to the guaranteed near-threshold dose, not a general
+breakage of the checkpoint.
+
+Reading: unlike `cw-dep-tip1-kick1` (walk-mode dynamic roll-kick,
+ALSO zero separation from its frozen parent but in the OPPOSITE
+direction — both sides pass clean), rise-rock's null has both sides
+FAIL. Two command-bias roll-injection axes now show zero measurable
+learned effect vs a frozen parent, in opposite directions. Neither
+looks like "training worked, just needs more"; both look like this
+DR family (temporarily bias the commanded fold to fake a body roll)
+doesn't give PPO a learnable, generalizable signal at the doses
+tried. Per the gate's own pre-registered FAIL-A branch, one gentler
+retry (`dr.rise_rock_deg=6,10` or `dr.rise_rock_prob=0.3`) is queued
+before fully closing the axis — but do not schedule a third dose
+after that miss; the remaining lever for both takeoff/rocking
+transients is contact/pinning modeling (no-skate feet), not more
+command-side perturbation. `hard1` remains deployed; do not warm-start
+or deploy from `cw-stand-riserock2-r1`.

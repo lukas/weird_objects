@@ -97,12 +97,23 @@ unresolved blockers between the robot and reliable joystick control.
   command-pulse family is now CLOSED (2nd axis, 3rd arm, to saturate
   with no separation) — do not schedule another dose. Remaining
   lever for the takeoff transient is contact/pinning modeling, not
-  more command-side DR.** rise-rock (the belly-curl rocking fall,
-  a DIFFERENT mode) is untouched by this and still training
-  (`cw-stand-riserock2-r1`) — its own verdict decides that axis on
-  its own evidence. rot60 backward: one fall AND one clean walk —
-  more reps when a takeoff-hardened checkpoint exists (none is
-  coming from this lever; look to contact/pinning work instead).
+  more command-side DR.** **08-12: rise-rock (same command-bias
+  family, belly-curl mode) also FINISHED (`cw-stand-riserock2-r1`)
+  — a null too, but in the OPPOSITE direction.** Matched-parent gate
+  at the exact bench trip threshold (dr.rise_rock_prob=1.0,
+  deg=10,10 fixed, det, baseline hard1): child 0/6 valid_plant (1/6
+  tilt fall), hard1 ALSO 0/6 (2/6 tilt falls) — zero separation, both
+  sides fail this specific guaranteed dose (own-mix retention at
+  prob 0.5/deg 6-12 stays clean, 6/6, no regression). Two roll-
+  injection axes now show zero learned separation from a frozen
+  parent, in opposite directions (walk-kick: both pass; rise-rock:
+  both fail) — mounting evidence this whole "randomize a temporary
+  body-roll bias" family isn't teaching resilience either way. One
+  gentler dose retry (deg 6-10/prob 0.3, the gate's own pre-
+  registered branch) is queued before fully closing rise-rock.
+  rot60 backward: one fall AND one clean walk — more reps when a
+  takeoff-hardened checkpoint exists (none is coming from this
+  lever; look to contact/pinning work instead).
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching

@@ -475,12 +475,26 @@ both handoffs compose).
   command-pulse/dynamic-DR-injection family for the takeoff transient
   is now CLOSED** (static dose + dynamic dose both saturate with zero
   separation) — do not schedule another dose/coefficient variant on
-  this mechanism. The rise-rock axis (same command-side family, for
-  the belly-curl rocking fall) is UNTESTED, not closed by this — it
-  is a different mode (rise vs walk) and remains the live CODE-landed
-  lever (`cw-stand-riserock2-r1` training now). Remaining lever for
-  the WALK takeoff transient specifically: contact/pinning modeling
-  (no-skate feet), not more command-side perturbation. Turn signs:
+  this mechanism. **08-12: the rise-rock axis (same command-side
+  family, for the belly-curl rocking fall) TRAINED and gives the
+  OPPOSITE-DIRECTION null** (`cw-stand-riserock2-r1`, matched-parent
+  gate: dr.rise_rock_prob=1.0/deg=10,10 fixed — the exact bench-
+  measured trip threshold — det, `--baseline hard1`): child rise
+  0/6 valid_plant (1/6 tilt_roll fall, 5/6 stall short of plant),
+  frozen hard1 under the IDENTICAL injection ALSO 0/6 valid_plant
+  (2/6 falls) — zero separation, but here BOTH sides fail hard
+  instead of both sides passing clean. Own-mix retention (prob 0.5,
+  deg 6–12, as trained) stays clean: det rise/hold/lower 6/6, no
+  regression — the failure is specific to the guaranteed near-
+  threshold dose. Two command-bias roll-injection axes (walk-kick,
+  rise-rock) now both show zero measurable learned separation from a
+  frozen parent, in opposite directions — building evidence this
+  whole family (randomize a temporary body-roll bias) doesn't teach
+  resilience either way. One gentler dose retry (deg 6–10/prob 0.3,
+  the gate's own pre-registered FAIL-A branch) is queued before fully
+  closing the rise-rock axis. Remaining lever for the takeoff/rocking
+  transients: contact/pinning modeling (no-skate feet), not more
+  command-side perturbation. Turn signs:
   CLOSED (operator 08-11 night): the robot turns the way the drawn
   signs say for BOTH command signs — the convention is correct end
   to end, no flip needed in the deploy bridge. Rotation RATE remains
