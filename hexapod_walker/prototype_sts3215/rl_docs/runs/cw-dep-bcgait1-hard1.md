@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-12T03:09:51+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-dep-bcgait1
+
+**wandb_id**: j3qrm13i
 
 **hypothesis**: Take the first walker that ever escaped the low-crouch leg-splay habit and polish it with more steps on the identical recipe (BC-INIT tall-gait warm-start + tip1 dep stack + walk_height_gate + DR 0.35 + tipped starts), same one-variable pattern that hardened bc1 into bc1-hard1 and holdbc1 into holdbc1-hard1. Prediction-if-true: probe_tall_wall height stays in the -10..+6mm band (no re-drift toward the old crouch) while slip/m drops toward the <=1.8 bar and the sto sacrificed-leg episode disappears -- budget alone cleans up the rough edges the way it did for rise and hold. Prediction-if-false: height re-drifts back toward -70mm under more steps (the fine-tune eventually unlearns the BC-INIT prior the same way ordinary PPO noise erodes any soft prior) -- meaning BC-INIT needs a live anchor during the whole fine-tune, not just an initialization, and the next lever is bc_init + bc_anchor combined.
 
