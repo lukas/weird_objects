@@ -50,6 +50,10 @@ SNAP_ATTRS = (
     # per-episode TripodGait instance carrying phase/velocity state,
     # created in the reset path, read every walk tick.
     "_walk_bc_gait",
+    # Transition-drag bookkeeping (08-11 night, reward.k_drag_trans):
+    # per-foot prev contact + XY plus the episode drag accumulator,
+    # read every non-walk tick.
+    "_tdrag_prev_xy", "_tdrag_prev_on", "_tdrag_acc",
 )
 
 

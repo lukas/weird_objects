@@ -80,6 +80,16 @@ skating metric; the REAL robot walks at ~1.0), `gait_valid`,
 the frozen parent under identical config/seed (matched-parent
 control, binding for injected-axis verdicts).
 
+Roll-transient + drag fields (added 08-11 night, operator directive
+after the bench sessions; every episode, every mode):
+
+| field | meaning |
+|---|---|
+| `roll_peak_deg` | max \|roll − ref\| over the episode. Hardware walks peak 13–27° at takeoff and often SURVIVE — never gate on peak alone. |
+| `roll_tail_deg` | mean \|roll − ref\| over the LAST SECOND — the identical statistic `bench_report` computes from the hardware CSVs (finding 6), so sim and robot numbers sit in one table. The fell/tail criterion is the binding one. |
+| `roll_class` | `fell` (safety-terminated) / `clean` (peak < 5°) / `recovered` (transient ≥ 5°, tail ≤ 2°) / `leaning` (transient that never settled). W&B summary counts `roll_settled` = clean + recovered. |
+| `slip_m_total` (existing) | now surfaced for NON-walk modes too, as `drag <mm>` in the console line and `drag_m_med` in W&B — the stand/sit foot-scrape metric (pairs with the env's `trans_drag_mm` / `reward.k_drag_trans`). |
+
 The harness mirrors its summary into the training run's W&B page
 under `eval/<dr-tag>/<mode>_<det|sto>/...` (summary fields, not
 charts) and uploads report.json.

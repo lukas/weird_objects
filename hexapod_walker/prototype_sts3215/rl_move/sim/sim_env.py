@@ -1059,6 +1059,14 @@ class SimHexapodBalanceEnv(_GymBase):
         self._pad_z_ref = np.array(
             [float(self.data.xpos[b, 2]) if b >= 0 else 0.0
              for b in self._pad_bids])
+        # Transition-drag bookkeeping (operator 08-11 night: the robot
+        # scrapes its feet across the floor during stand/sit; nothing
+        # outside walk mode priced that). Per-foot previous contact +
+        # XY for the loaded-slide charge in _step_finish; snapshot via
+        # mjx_host.SNAP_ATTRS (pool-restore lesson, commit 65edba7).
+        self._tdrag_prev_xy = [None] * 6
+        self._tdrag_prev_on = [False] * 6
+        self._tdrag_acc = 0.0
         # Per-episode cache: first charged tick of the terminal
         # end-posture window (computed lazily from the goal schedule).
         self._end_posture_from = None
@@ -1526,6 +1534,63 @@ class SimHexapodBalanceEnv(_GymBase):
                 parts["reward_task"] = r_task_h * f_hold
             parts["hold_feet_factor"] = feet_h
             parts["hold_still_factor"] = still_h
+        # Transition foot-drag charge (operator 08-11 night: stand/sit
+        # scrape their feet across the floor and NOTHING outside walk
+        # mode priced it — k_drag_loaded/k_drag_stance live in the
+        # walk-tick block only). reward.k_drag_trans charges loaded
+        # foot-XY translation (−k per meter, per-foot 0.5 mm/tick
+        # deadband, walk's k_drag_loaded convention) on every NON-walk
+        # tick: rise, lower, raise, hold, track, lean, unload, quad.
+        # A pivoting/sliding loaded foot pays; a foot that LIFTS and
+        # steps is never charged — the honest fix is stepping, exactly
+        # what the hardware needs. Charged incrementally beyond a
+        # per-EPISODE allowance (k_drag_stance's telescoping form: a
+        # foot that never lifts cannot defer payment). Allowances are
+        # measured, not guessed (probe 08-11): the demonstrated
+        # belly->plant rise inherently slides its pads 463 mm during
+        # the curl (0.55 default rise allowance keeps the honest
+        # reference free), the honest lower is anchored-feet by
+        # construction and the quiet stand measures 0.0 — both charge
+        # from the first excess millimeter. Default k 0 = byte-exact
+        # legacy. The trans_drag_mm metric is emitted whenever the
+        # axis is measured (charge on or off) so evals and W&B can
+        # watch the dragging without coupling metric to price.
+        mode_td = (getattr(self._goal_traj, "mode", "")
+                   if self._goal_traj is not None else "")
+        if mode_td and mode_td != "walk":
+            k_td = float(cfg_get(self.cfg, "reward", "k_drag_trans",
+                                 default=0.0))
+            drag_td = 0.0
+            for f_td in range(6):
+                adr_td = self._touch_adr[f_td]
+                on_td = (adr_td >= 0 and
+                         float(self.data.sensordata[adr_td]) > 0.5)
+                xy_td = self.data.xpos[self._pad_bids[f_td], :2]
+                if (on_td and self._tdrag_prev_on[f_td]
+                        and self._tdrag_prev_xy[f_td] is not None):
+                    slip_td = float(np.linalg.norm(
+                        xy_td - self._tdrag_prev_xy[f_td]))
+                    if slip_td > 0.0005:
+                        drag_td += slip_td
+                self._tdrag_prev_xy[f_td] = xy_td.copy()
+                self._tdrag_prev_on[f_td] = on_td
+            parts["trans_drag_mm"] = drag_td * 1000.0
+            if k_td > 0.0 and drag_td > 0.0:
+                if mode_td in ("rise", "raise"):
+                    allow_td = float(cfg_get(
+                        self.cfg, "reward", "drag_trans_allow_rise_m",
+                        default=0.55))
+                else:
+                    allow_td = float(cfg_get(
+                        self.cfg, "reward", "drag_trans_allow_m",
+                        default=0.0))
+                acc0_td = self._tdrag_acc
+                self._tdrag_acc = acc0_td + drag_td
+                r_td = -k_td * (max(self._tdrag_acc - allow_td, 0.0)
+                                - max(acc0_td - allow_td, 0.0))
+                if r_td != 0.0:
+                    reward += r_td
+                parts["reward_drag_trans"] = r_td
         # Rise decomposed into scored steps (rise/raise episodes only —
         # the ones with a real height target). Progress is potential-
         # based (telescoping: total = k * (start_err − end_err)) so it

@@ -2028,3 +2028,368 @@ def test_walk_kick_never_touches_other_modes():
         "draw did not fire at prob 1 — test is vacuous"
     assert env._walk_kick_offset() is None, \
         "kick pulse leaked into a rise-mode episode"
+
+
+# --------------------------------------------------------------------------
+# TRANS-DRAG bank — the stand/sit foot-scrape (operator 08-11 night).
+#
+# The failure this bank pins: NOTHING outside walk mode priced loaded
+# foot-XY dragging — k_drag_loaded / k_drag_stance live in the
+# walk-tick block only, so rise, lower, hold and every transition can
+# scrape feet across the floor for free (the exact behavior the
+# operator watches in the MuJoCo viewer and on the robot during stand
+# and sit). reward.k_drag_trans charges the loaded slide beyond a
+# per-episode allowance; allowances are MEASURED (probe 08-11): the
+# demonstrated belly->plant rise inherently slides its pads 463 mm
+# during the curl (rise/raise get a 0.55 m free budget), the quiet
+# stand and the anchored-feet lower measure ~0.
+#
+# Required orderings at the tested operating point k=400/m:
+#   quiet stand >> deliberate scraping (opposed yaw sweep, feet loaded
+#   and sliding arcs) — the scrape must go NET NEGATIVE, not just lag;
+#   the honest rise reference must keep byte-identical pay (its drag
+#   sits inside the measured allowance);
+#   the metric must see the scrape with the price OFF (metric and
+#   price decoupled — the walk loadslip lesson).
+
+TRANS_DRAG_K = 400.0
+
+
+def _tdrag_hold_rollout(policy: str, seed: int, k: float) -> dict:
+    """quiet   hold the settled plant exactly (the intended skill).
+    scrape    left tripod yaws +, right tripod yaws −, ±10° at 0.5 Hz:
+              the body cannot counter-rotate so all six LOADED feet
+              grind arcs on the floor (~1.25 m/episode measured) while
+              the torso stays level at height — the pure form of the
+              stand/sit scrape, priced by nothing else in the stack
+              (feet never leave the ground: hold_still_gate's feet
+              factor stays 1, and only its stillness Gaussian nicks
+              the sweep)."""
+    ov = dict(HOLD_OVERRIDES)
+    ov[("reward", "k_drag_trans")] = k
+    env = _make_hold_env(seed, ov)
+    env.reset()
+    q0 = env.data.qpos[env._qadr].copy()
+    tot, drag_mm, charge, step = 0.0, 0.0, 0.0, 0
+    while True:
+        q = q0.copy()
+        if policy == "scrape":
+            s = 10.0 * DEG2RAD * math.sin(
+                2.0 * math.pi * 0.5 * step * env.dt)
+            for leg in range(6):
+                q[3 * leg] += s if leg < 3 else -s
+        _obs, r, term, trunc, info = env.step(q_rad_to_action(q))
+        tot += float(r)
+        drag_mm += float(info.get("trans_drag_mm", 0.0))
+        charge += float(info.get("reward_drag_trans", 0.0))
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return {"ret": tot, "drag_mm": drag_mm, "charge": charge}
+
+
+def _tdrag_rise_rollout(seed: int, k: float) -> dict:
+    """The demonstrated belly->plant reference under the rise stack
+    with the drag charge on/off."""
+    ov = dict(RISE_OVERRIDES)
+    ov[("reward", "k_drag_trans")] = k
+    env = _make_rise_env(seed, ov)
+    env.reset()
+    ref = np.load(ROOT / RISE_REF)
+    q_ref, ramp_ref = ref["q_rad"], int(ref["ramp_i0"])
+    tot, drag_mm, charge, step = 0.0, 0.0, 0.0, 0
+    while True:
+        j = ramp_ref + (step - env._rise_ramp_i0)
+        act = q_rad_to_action(q_ref[min(max(j, 0), len(q_ref) - 1)])
+        _obs, r, term, trunc, info = env.step(act)
+        tot += float(r)
+        drag_mm += float(info.get("trans_drag_mm", 0.0))
+        charge += float(info.get("reward_drag_trans", 0.0))
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return {"ret": tot, "drag_mm": drag_mm, "charge": charge}
+
+
+@pytest.fixture(scope="module")
+def tdrag_bank() -> dict:
+    return {
+        "on": {p: [_tdrag_hold_rollout(p, s, TRANS_DRAG_K)
+                   for s in SEEDS] for p in ("quiet", "scrape")},
+        "off": {p: [_tdrag_hold_rollout(p, s, 0.0)
+                    for s in SEEDS] for p in ("quiet", "scrape")},
+        "rise_on": [_tdrag_rise_rollout(s, TRANS_DRAG_K) for s in SEEDS],
+        "rise_off": [_tdrag_rise_rollout(s, 0.0) for s in SEEDS],
+    }
+
+
+def test_trans_drag_metric_sees_the_scrape_with_price_off(tdrag_bank):
+    """trans_drag_mm must discriminate scraping from a quiet stand
+    even at k=0 — the metric is the eval/W&B triage surface and must
+    never be coupled to the price (walk loadslip lesson)."""
+    for r in tdrag_bank["off"]["scrape"]:
+        assert r["drag_mm"] > 700.0, (
+            f"scripted scraper only measures {r['drag_mm']:.0f}mm of "
+            f"loaded drag — the reference behavior is broken")
+        assert r["charge"] == 0.0, "charge fired with k=0"
+    for r in tdrag_bank["off"]["quiet"]:
+        assert r["drag_mm"] < 30.0, (
+            f"quiet stand measures {r['drag_mm']:.0f}mm of loaded "
+            f"drag — deadband miscalibrated")
+
+
+def test_trans_drag_charge_bites_the_scraper(tdrag_bank):
+    """At the operating point the scrape must pay a real price (its
+    ~1.25 m of loaded slide × k=400) and go decisively below the quiet
+    stand — scraping must be a net-negative strategy, not a discount."""
+    for r in tdrag_bank["on"]["scrape"]:
+        assert r["charge"] < -350.0, (
+            f"drag charge {r['charge']:.0f} barely prices the scrape")
+    q = float(np.mean([r["ret"] for r in tdrag_bank["on"]["quiet"]]))
+    s = float(np.mean([r["ret"] for r in tdrag_bank["on"]["scrape"]]))
+    assert q > s + 300.0, (
+        f"scraping rivals the quiet stand under k_drag_trans: "
+        f"quiet {q:+.0f} vs scrape {s:+.0f}")
+
+
+def test_trans_drag_never_taxes_the_quiet_stand(tdrag_bank):
+    """The honest quiet stand slides nothing — its charge must be
+    exactly zero and its return unchanged by the axis."""
+    for r_on, r_off in zip(tdrag_bank["on"]["quiet"],
+                           tdrag_bank["off"]["quiet"]):
+        assert r_on["charge"] == 0.0, (
+            f"quiet stand charged {r_on['charge']:.2f}")
+        assert abs(r_on["ret"] - r_off["ret"]) < 1e-6, (
+            f"axis changes the quiet stand's return with zero drag: "
+            f"{r_on['ret']:.2f} vs {r_off['ret']:.2f}")
+
+
+def test_trans_drag_honest_rise_keeps_full_pay(tdrag_bank):
+    """The demonstrated rise slides its pads ~463 mm during the curl —
+    inherent to the belly->plant path, not a cheat. The measured 0.55 m
+    rise allowance must keep the reference completely uncharged, so
+    the charge can ride into mixed-mode stand arms without repricing
+    the one behavior that tape-provably works."""
+    for r_on, r_off in zip(tdrag_bank["rise_on"], tdrag_bank["rise_off"]):
+        assert 350.0 < r_on["drag_mm"] < 550.0, (
+            f"rise reference drag {r_on['drag_mm']:.0f}mm left the "
+            f"measured band — re-measure before trusting the allowance")
+        assert r_on["charge"] == 0.0, (
+            f"honest rise charged {r_on['charge']:.2f} — allowance "
+            f"too tight")
+        assert abs(r_on["ret"] - r_off["ret"]) < 1e-6, (
+            f"axis changes the honest rise's return: "
+            f"{r_on['ret']:.2f} vs {r_off['ret']:.2f}")
+
+
+# --------------------------------------------------------------------------
+# GETUP bank — the unified recover→stand→walk mode (08-11 from-scratch
+# reward redesign, REWARD.md §4b). Every stand-campaign exploit is
+# re-banked under the NEW stack before its first discovery run:
+#
+#   freeze    a level belly-rest is level — under the legacy kernel it
+#             farms ~1/tick; here it must earn ~nothing (kernel income
+#             is stripped on getup ticks, the ratchet seeds at spawn).
+#   flagleg   the cheat that beat SEVEN rise mechanisms: five legs
+#             rise, one stays flagged straight out. Priced by the
+#             measured-load f_feet, the pad-spread f_flag fade, and
+#             the S^3 hold gate.
+#   stilt     hip 0 / knee 80 tip-toe pop — priced by the overshoot
+#             fade above the plant height + footprint fade.
+#   shuffle   locomotion without standing (the belly-shuffle the
+#             champion handoff collapses into) — must earn ~0 through
+#             the f_height gate no matter how much it progresses.
+#   park      holding the plant through a move command — the built-in
+#             progress gate must pay it ~0 walk income.
+
+GETUP_OVERRIDES = {
+    # Falls are recoverable states in this mode; the run trains with a
+    # widened trip. Bank under the same envelope.
+    ("safety", "max_roll_deg"): 60.0,
+    ("safety", "max_pitch_deg"): 60.0,
+}
+
+
+def _make_getup_env(seed: int, *, start: str, cmd: tuple[float, float],
+                    overrides: dict | None = None):
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    cfg = load_config()
+    for (sec, leaf), val in (overrides or GETUP_OVERRIDES).items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=16.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for attr in [a for a in vars(gen) if a.startswith("p_")]:
+        setattr(gen, attr, 0.0)
+    gen.p_getup = 1.0
+    env.force_getup_start = start
+    env.force_getup_cmd = cmd
+    return env
+
+
+def _getup_rollout(policy: str, seed: int, *, start: str = "zero",
+                   cmd: tuple[float, float] = (0.0, 0.0)) -> dict:
+    from tripod_gait import TripodGait
+
+    env = _make_getup_env(seed, start=start, cmd=cmd)
+    env.reset()
+    assert getattr(env, "_is_getup", False), "getup mode did not arm"
+    ref = np.load(ROOT / RISE_REF)
+    q_ref = ref["q_rad"]
+    n_ref = len(q_ref)
+    j_half = int(ref["ramp_i0"]) + (n_ref - int(ref["ramp_i0"])) // 2
+    q0 = env.data.qpos[env._qadr].copy()
+    q_stilt = np.array([0.0, 0.0, 80.0] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    gait = TripodGait(vx=0.0)
+    gait.sync_plant_stance(*(WALK_PLANT if policy != "shuffle"
+                             else (0.0, 15.0)))
+    gait.reset_phase()
+    rng = np.random.default_rng(seed)
+
+    total, step, best, terminated = 0.0, 0, 0.0, False
+    while True:
+        t = step * env.dt
+        if policy == "replay":
+            act = q_rad_to_action(q_ref[min(step, n_ref - 1)])
+        elif policy == "partial":
+            act = q_rad_to_action(q_ref[min(step, j_half)])
+        elif policy == "flagleg":
+            q = q_ref[min(step, n_ref - 1)].copy()
+            q[0:3] = q0[0:3]
+            act = q_rad_to_action(q)
+        elif policy == "freeze":
+            act = q_rad_to_action(q0)
+        elif policy == "stilt":
+            act = q_rad_to_action(q0 if t < 2.0 else q_stilt)
+        elif policy == "thrash":
+            act = rng.uniform(-1.0, 1.0, size=18)
+        elif policy in ("gait", "shuffle"):
+            g = env._current_goal()
+            gait.set_velocity(vx=float(getattr(g, "vx_ref", 0.0)),
+                              vy=float(getattr(g, "vy_ref", 0.0)))
+            act = q_rad_to_action(
+                np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        else:  # "park": hold the plant, refuse the command
+            act = q_rad_to_action(plant_rad)
+        _obs, r, term, trunc, info = env.step(act)
+        total += float(r)
+        best = float(info.get("getup_best", best))
+        step += 1
+        if term or trunc:
+            terminated = term
+            break
+    env.close()
+    return {"ret": total, "best": best, "terminated": terminated}
+
+
+GETUP_STAND_POLICIES = ("replay", "partial", "flagleg", "stilt",
+                        "freeze", "thrash")
+
+
+@pytest.fixture(scope="module")
+def getup_stand_bank() -> dict[str, list[dict]]:
+    """Zero command all episode, belly-zero start: the recover+stand
+    half of the task in isolation."""
+    return {p: [_getup_rollout(p, s) for s in SEEDS]
+            for p in GETUP_STAND_POLICIES}
+
+
+@pytest.fixture(scope="module")
+def getup_stand_returns(getup_stand_bank) -> dict[str, float]:
+    return {p: float(np.mean([r["ret"] for r in rolls]))
+            for p, rolls in getup_stand_bank.items()}
+
+
+def test_getup_replay_dominates_all_cheats(getup_stand_returns):
+    """The demonstrated belly->plant rise must out-earn every known
+    stand cheat by the campaign's standard margin (>=2x and +50)."""
+    replay = getup_stand_returns["replay"]
+    best_cheat = max(getup_stand_returns["freeze"],
+                     getup_stand_returns["stilt"],
+                     getup_stand_returns["flagleg"])
+    assert replay > 2.0 * best_cheat and replay > best_cheat + 50.0, (
+        f"getup stack prefers a known cheat: {getup_stand_returns} — "
+        "fix the reward BEFORE launching any getup arm.")
+
+
+def test_getup_freeze_earns_nothing(getup_stand_returns):
+    """The ratchet seeds at the spawn posture and the kernel is
+    stripped, so refusal must earn ~0 BY CONSTRUCTION (small negative
+    regularizers), never a living."""
+    assert getup_stand_returns["freeze"] < 1.0, (
+        f"freezing earns {getup_stand_returns['freeze']:+.1f} under "
+        "the getup stack — an alive bonus crept back in.")
+
+
+def test_getup_honest_ordering(getup_stand_returns):
+    """replay > partial > every cheat and refusal — the gradient
+    toward trying honestly must exist at every rung."""
+    assert (getup_stand_returns["replay"]
+            > getup_stand_returns["partial"]), getup_stand_returns
+    for p in ("flagleg", "stilt", "freeze", "thrash"):
+        assert (getup_stand_returns["partial"]
+                > getup_stand_returns[p]), (
+            f"'{p}' out-earns honest partial progress: "
+            f"{getup_stand_returns}")
+
+
+def test_getup_flagleg_earns_scraps(getup_stand_returns):
+    """The seven-mechanism cheat: under measured-load f_feet + the
+    pad-spread f_flag fade + the S^3 hold gate it must keep at most
+    scraps of the honest pay (fade, so a slope exists — holdstill1
+    lesson — but never a consolation income)."""
+    assert (getup_stand_returns["flagleg"]
+            < 0.35 * getup_stand_returns["replay"]), (
+        f"flag-leg still collects real income: {getup_stand_returns}")
+
+
+def test_getup_ratchet_reaches_the_stand(getup_stand_bank):
+    """Mechanism health: the honest replay must drive the staged
+    ratchet close to 1.0 (the income actually pays the pipeline), and
+    the freeze must stay pinned at its seeded spawn value."""
+    for r in getup_stand_bank["replay"]:
+        assert r["best"] >= 0.80, (
+            f"honest rise only ratchets to {r['best']:.2f} — the "
+            "staged potential never reaches the stand it should pay.")
+    for r in getup_stand_bank["freeze"]:
+        assert r["best"] <= 0.30, (
+            f"freeze ratchets to {r['best']:.2f} without moving — "
+            "the spawn posture is being paid as progress.")
+
+
+@pytest.fixture(scope="module")
+def getup_walk_returns() -> dict[str, float]:
+    """Forward command from a plant start: the walk half of the task.
+    All three policies bank the same (near-zero) ratchet income at the
+    plant spawn, so the separation is pure gated walk income."""
+    return {p: float(np.mean([
+        _getup_rollout(p, s, start="plant", cmd=(WALK_CMD_VX, 0.0))["ret"]
+        for s in SEEDS]))
+        for p in ("gait", "shuffle", "park")}
+
+
+def test_getup_gait_dominates_park_and_shuffle(getup_walk_returns):
+    """The hardware-proven tripod gait must decisively out-earn both
+    refusal (park) and locomotion-without-standing (belly shuffle)."""
+    gait = getup_walk_returns["gait"]
+    assert gait > 2.0 * getup_walk_returns["park"] + 50.0, (
+        f"parking through a move command rivals walking: "
+        f"{getup_walk_returns}")
+    assert gait > 2.0 * getup_walk_returns["shuffle"] + 50.0, (
+        f"the belly shuffle rivals honest walking: {getup_walk_returns}")
+
+
+def test_getup_shuffle_earns_scraps(getup_walk_returns):
+    """The structural claim of the S gate: progress made below the
+    supported-stand height is worth ~nothing, no matter how much
+    ground it covers — the exact behavior the champion handoff
+    collapses into must never be a paid basin."""
+    assert (getup_walk_returns["shuffle"]
+            < 0.25 * getup_walk_returns["gait"]), (
+        f"belly-shuffle keeps a real fraction of walk income: "
+        f"{getup_walk_returns}")

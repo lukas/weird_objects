@@ -172,6 +172,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     cur_hist = []            # (T, 18) per-servo current
     contact_hist = []        # (T, 6) bool
     pad_xy_hist = []         # (T, 6, 2) world
+    rolls_rel = []           # (T,) |roll − ref|, deg
     track_errs, vel_errs, speeds = [], [], []
     cmd_dist_m, along_dist_m = 0.0, 0.0
     h_err = None
@@ -195,6 +196,8 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             [env.data.xpos[b].copy() for b in pads])
         if not info.get("safety_ok", True):
             safety_flags += 1
+        if "roll_rel_deg" in info:
+            rolls_rel.append(abs(float(info["roll_rel_deg"])))
         if "track_err_deg" in info:
             track_errs.append(abs(float(info["track_err_deg"])))
         if "height_err_mm" in info:
@@ -298,6 +301,25 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         "forward_dist_m": round(float(np.linalg.norm(
             env.data.xpos[env._chassis_bid, :2] - chassis0)), 3),
     }
+    # Roll transient statistics (bench_report parity, 08-11 finding 6:
+    # "the sim eval side should report the identical statistic so
+    # hardware and sim numbers are directly comparable"). peak = max
+    # |roll − ref| over the episode; tail = mean |roll − ref| over the
+    # last second (the hardware fell/tail criterion — peaks near 25°
+    # are survivable, a tail that never re-levels is the failure).
+    # Classes mirror bench_report: fell (safety-terminated), clean
+    # (peak < 5°), recovered (transient ≥ 5° that settled, tail ≤ 2°),
+    # leaning (transient that never settled).
+    if rolls_rel:
+        tail_n = max(int(round(1.0 / env.dt)), 1)
+        peak_r = float(np.max(rolls_rel))
+        tail_r = float(np.mean(rolls_rel[-tail_n:]))
+        ep["roll_peak_deg"] = round(peak_r, 1)
+        ep["roll_tail_deg"] = round(tail_r, 1)
+        ep["roll_class"] = (
+            "fell" if term else
+            "clean" if peak_r < 5.0 else
+            "recovered" if tail_r <= 2.0 else "leaning")
     if vel_errs:
         ep["vel_err_mean"] = round(float(np.mean(vel_errs)), 3)
         ep["speed_mean_m_s"] = round(float(np.mean(speeds)), 3)
@@ -474,10 +496,17 @@ def _wandb_push(report: dict, out: Path, args) -> None:
             for k, name in (("slip_per_m", "slip_per_m_med"),
                             ("progress_ratio", "prog_ratio_med"),
                             ("vel_err_mean", "vel_err_med"),
-                            ("speed_mean_m_s", "speed_med")):
+                            ("speed_mean_m_s", "speed_med"),
+                            ("roll_peak_deg", "roll_peak_med"),
+                            ("roll_tail_deg", "roll_tail_med"),
+                            ("slip_m_total", "drag_m_med")):
                 v = _ep_median(eps, k)
                 if v is not None:
                     flat[f"{pre}/{name}"] = v
+            if any("roll_class" in e for e in eps):
+                flat[f"{pre}/roll_settled"] = sum(
+                    e.get("roll_class") in ("clean", "recovered")
+                    for e in eps)
             if any("gait_valid" in e for e in eps):
                 flat[f"{pre}/gait_valid"] = sum(
                     bool(e.get("gait_valid")) for e in eps)
@@ -730,6 +759,21 @@ def main() -> None:
                                 if "end_clear_mm" in e)
                     extra += (f" | end_posture {n_ep}/{len(eps)}"
                               f" worst_clear {worst:.0f}mm")
+                # Roll transient + foot-drag triage (operator 08-11
+                # night: the dragging and rocking must be VISIBLE in
+                # every eval line, not discovered on video).
+                if any("roll_tail_deg" in e for e in eps):
+                    n_set = sum(e.get("roll_class") in
+                                ("clean", "recovered") for e in eps)
+                    extra += (
+                        f" | roll peak/tail "
+                        f"{max(e['roll_peak_deg'] for e in eps):.0f}/"
+                        f"{max(e['roll_tail_deg'] for e in eps):.1f}deg"
+                        f" settled {n_set}/{len(eps)}")
+                if mode != "walk":
+                    drag_mm = 1000.0 * float(np.mean(
+                        [e["slip_m_total"] for e in eps]))
+                    extra += f" | drag {drag_mm:.0f}mm"
                 print(f"[{tag}] {mode:6s}: {n_ok}/{len(eps)}{kinds} | "
                       f"Imax {hot:.2f}A | imbal "
                       f"{max(e['cur_leg_imbalance'] for e in eps):.2f}"

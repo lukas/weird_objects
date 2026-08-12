@@ -144,8 +144,10 @@ Charges:
 | cfg key (reward.) | default | what it does |
 |---|---|---|
 | `k_drag_loaded` | 0 | −k per meter of foot XY translation while in contact (skating); 0.5 mm/tick deadband. |
+| `k_drag_stance` / `drag_stance_allow_mm` | 0 / 6 | structural stance-slip charge (charge-magnitude audit 08-11, `probe_drag_audit.py`): accumulated loaded XY travel per STANCE PERIOD, charged incrementally beyond the allowance — prices the dragging STROKE where the per-tick form cannot separate skating from touchdown scuff. Audit operating point k=7000/m @ 6 mm: a learned skater's drag cost ≈2.4× its income, the honest gait pays on <5% of stances. |
 | `k_park_duty` | 0 | −k·(per-leg contact duty outside [0.1, 0.9]) over a trailing 2 s commanded window — a tripod park pays ~0.6k/tick, a real gait pays nothing. |
 | `k_walk_effort` | 0 | −k·mean servo current per walk tick (cost of transport; thermal load is the hardware-fatal quantity). |
+| `k_drag_trans` / `drag_trans_allow_m` 0 / `drag_trans_allow_rise_m` 0.55 | 0 | **NON-walk modes** (rise/lower/raise/hold/track/lean/unload/quad): −k per meter of loaded foot-XY translation (0.5 mm/tick per-foot deadband) beyond a per-EPISODE allowance, charged incrementally as it accrues — the stand/sit foot-scrape the operator watches the robot do (08-11 night) was completely unpriced outside walk. A loaded foot that pivots/slides pays; a foot that lifts and STEPS to its new spot is free. Allowances are measured (probe 08-11): the demonstrated belly→plant rise inherently slides its pads 463 mm during the curl (rise/raise episodes default to a 0.55 m free budget), the honest anchored-feet lower and the quiet stand measure ~0 (everything else charges from the first excess mm). `trans_drag_mm` metric logs on every non-walk tick regardless of k (watch the dragging without coupling metric to price). TRANS-DRAG bank in `test_task_semantics.py` pins the orderings; tested operating point k=400. |
 
 ## 5) Changing the reward — checklist
 
