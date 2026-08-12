@@ -1,16 +1,36 @@
-"""probe_walk_push.py — matched-parent check for cw-dep-tip1-push1's
-pre-registered gate (RL_PLAN queue -1, walk-push torque DR axis).
+"""probe_walk_push.py — matched-parent check for the walk-push torque
+DR axis (RL_PLAN queue -1), generalized 08-12 (GAIT.md correction on
+cw-dep-bcgait1-hard1-fric/-groundtilt5's triage: "needs a small
+generalization first" before any push probe of the tall-walking
+lineage) beyond its original cw-dep-tip1-push1 use.
 
-WHY: the run's gate needs "terminal-fall rate under forced walk_push
-injection (prob 1, 2.6 N*m fixed, 1.5s) < tip1 baseline by >=2x" AND
-"nominal DR0 retention matches tip1's own band" — neither exists in
-the standard eval_checkpoint report (walk mode has no per-episode
-roll trace). This is the matched-parent control the run's own gate
-requires (RESEARCH_RULES: no verdict on an injected axis without it).
-Twin of probe_walk_kick.py, parameterized for the xfrc torque axis
-instead of the command-side kick.
+WHY: a run's gate needs "terminal-fall rate under forced walk_push
+injection (prob 1, 2.6 N*m fixed, 1.5s) < baseline by >=2x" AND
+"nominal DR0 retention matches the baseline's own band" — neither
+exists in the standard eval_checkpoint report (walk mode has no
+per-episode roll trace). This is the matched-parent control any
+such gate requires (RESEARCH_RULES: no verdict on an injected axis
+without it). Twin of probe_walk_kick.py, parameterized for the xfrc
+torque axis instead of the command-side kick.
+
+GENERALIZATION NOTE: the dep-line stack (VREF1_STACK) and the
+tall-walking BC-INIT lineage (cw-dep-bcgait1, cw-dep-bcgait1-hard1,
+and its retention children) turn out to train with an IDENTICAL
+physically-relevant stack (goal.walk_speed_min/max_m_s=0.05/0.06,
+walk_obs_body_vel=2, safety.max_roll/pitch_deg=25, walk_park_start_frac
+=0.25, anchor_tol_mm=10 — verified against both lineages' own launch
+commands, 2026-08-12) — bcgait1 only ADDS reward-only terms
+(walk_height_gate/sigma_mm) that shape training income, not physics
+or the obs layout, so they cannot matter to this probe (which never
+computes reward, only reads physical info fields). No new STACK was
+needed; only the checkpoint registry (CKPTS) required entries for the
+tall-walking lineage. If a future lineage's stack diverges on a
+PHYSICALLY relevant axis (obs shape, DR ranges, safety envelope),
+add a new STACKS-style entry rather than assuming VREF1_STACK still
+matches — verify against that run's own launch command first.
 
     ../../.venv/bin/python -m rl_move.sim.probe_walk_push
+    ../../.venv/bin/python -m rl_move.sim.probe_walk_push --ckpts bcgait1_hard1,tip1
 """
 from __future__ import annotations
 
@@ -41,6 +61,16 @@ CKPTS = {
     "tip1_push1": "rl_move/sim/policies/ppo_goal_cw_dep_tip1_push1.zip",
     "tip1_push1_hard1": "rl_move/sim/policies/ppo_goal_cw_dep_tip1_push1_hard1.zip",
     "tip1": "rl_move/sim/policies/ppo_goal_cw_dep_tip1.zip",
+    # Tall-walking BC-INIT lineage (added 08-12, see GENERALIZATION
+    # NOTE above) — none of these ever trained with walk_push; the
+    # comparison is diagnostic (does the tall gait share the crouch
+    # lineage's takeoff-roll vulnerability?), not a push-hardening
+    # matched-parent check yet.
+    "bcgait1": "rl_move/sim/policies/ppo_goal_cw_dep_bcgait1.zip",
+    "bcgait1_hard1": "rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip",
+    "bcgait1_hard1_fric": "rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1_fric.zip",
+    "bcgait1_hard1_groundtilt5":
+        "rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1_groundtilt5.zip",
 }
 
 
