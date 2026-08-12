@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAILED
+**status**: DEFECTIVE
 
 **created**: 2026-08-11T23:08:07+00:00
 
@@ -20,5 +20,5 @@
 
 **gate**: Rise under +-10-15deg rocking injections det >= 5/6 valid_plant with zero falls; nominal rise/hold retention matches hard1's own probe (12/12 valid_plant RSI-off incl. flat 4/4, hold 11/12); matched-parent control under identical injection; frames watched.
 
-**verdict**: INVALID LAUNCH, no science: the run trained a DEFAULT joint_goal config warm from hard1 — no goal-mix, no BC-anchor stack, servo_params=air, and the rocking-DR axis it exists to test WAS NEVER WRITTEN (zero rise_rock knobs in domain_rand.py/codebase; W&B resolved config confirms defaults). The operator's backlog entry was CODE-FIRST but the drain launched the stub args as-is. Hypothesis (hardware belly-curl rocking gap, 5/5 deterministic tilt_roll trips) remains UNTESTED and still queued conceptually: next action is SPECIFICATION — implement rise-tick rocking DR (guarded rng, bank green) then relaunch. Checkpoint quarantined, do not deploy or warm-start from it.
+**verdict**: DEFECTIVE LAUNCH, not a test of the hypothesis. The backlog item was CODE-FIRST (the rise-rock DR axis had to be implemented before launch) but the drain placed it with a bare warm-start arg set: no dr.rise_rock_* config existed anywhere in the code, AND the cloned extra_args carried none of hard1's stance recipe (no BC anchor, no rise shaping stack, no goal-mix) — so the run trained 2M plain-default steps warm from hard1 and its gate eval predictably collapsed (rise det 0/6 with over_current plant fails, hold 6/6 retained). The rocking hypothesis was never exercised; no science verdict possible. Axis has since been implemented + bank-tested (commit c794de0: dr.rise_rock_prob/deg, physical-command one-side fold bias on rise episodes, mechanism probe reproduces the bench 10deg trip signature on hard1, P-feedback closability pinned) and relaunched properly as cw-stand-riserock2. Process lesson: drain must refuse CODE-FIRST backlog items whose cfg keys don't resolve — the unknown-DR-override guard would have caught this at env construction had the cfg keys been passed at all.
 

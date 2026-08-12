@@ -55,6 +55,7 @@ adb push "$SRC/servo_watch.py" "$REMOTE/linux_control/"
 adb push "$SRC/mpu_probe.py" "$REMOTE/linux_control/"
 adb push "$SRC/rl_policy.py" "$REMOTE/linux_control/"
 adb push "$SRC/safe_zero.py" "$REMOTE/linux_control/"
+adb push "$SRC/pinned_tip.py" "$REMOTE/linux_control/"
 adb push "$SRC/rl_policy_weights.json" "$REMOTE/linux_control/"
 adb push "$SRC/rl_walk_weights.json" "$REMOTE/linux_control/"
 # Swappable policy registry (bench_api rl_policies/rl_policy_select):

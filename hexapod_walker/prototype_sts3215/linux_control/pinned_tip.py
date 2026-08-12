@@ -49,7 +49,7 @@ robot this routine cannot free needs the operator's hands.
 
 Surprise-force rule (operator, 08-11): a mechanical jam or a wrong
 logical zero is ALWAYS possible, so the escape refuses up front when
-any encoder sits outside its axis range by > ``LIMIT_SLOP_DEG``
+any encoder sits outside its axis range by > ``UNTRAP_LIMIT_SLOP_DEG``
 (zero frame suspect → set_zero first), and during the fold any joint
 holding more current than the 20 % limit should allow trips an
 immediate limp with an error naming the joint and the likely causes.
@@ -62,12 +62,29 @@ import math
 import time
 
 from feetech_bus import AXIS_LIMITS_DEG, N_JOINTS, joint_to_servo_id
-from safe_zero import LIMIT_SLOP_DEG, SLOW_DPS, foot_z_mm, joint_name
+from safe_zero import SLOW_DPS, foot_z_mm, joint_name
 
-TIP_DEG = 20.0          # body tilt that counts as tipped (matches the
-                        # safe_zero endpoint gate and the walk envelope)
-LEVEL_DEG = 12.0        # untrap success: tilt back under this
-                        # (rl preflight allows starts up to 12°)
+# Zero-frame sanity margin for the pre-fold check. WIDER than
+# safe_zero's 20° slop on purpose (live lesson, 08-11 21:05): in a real
+# trapped state the body's weight legitimately shoves a pinned hip 25°+
+# past its soft limit (measured L3 hip +58° vs the +30° limit), which
+# is exactly when untrap is needed — a 20° slop refused it as "wrong
+# zero". 40° still catches genuinely wild zero frames (90-180° off),
+# and a moderately wrong zero is survivable HERE because the fold runs
+# at 20 % torque with the surprise-force trip armed; full-torque
+# safe_zero keeps its stricter 20°.
+UNTRAP_LIMIT_SLOP_DEG = 40.0
+
+TIP_DEG = 12.0          # body tilt that counts as tipped. Calibrated
+                        # against the REAL post-fall rest states: the
+                        # 08-11 bench falls settled at 8.7-16.7° tail
+                        # lean, and the first live pinned test (08-11
+                        # 21:05) propped at 13° — the original 20°
+                        # missed every one of them. 12° matches the
+                        # rl preflight's "not startable" line; IMU
+                        # mounting bias measures ~3-4°.
+LEVEL_DEG = 8.0         # untrap success: tilt back under this
+                        # (must sit below TIP_DEG with margin)
 PIN_KNEE_DEG = 45.0     # knee flexion that can prop/trap under the body
 SETTLE_S = 1.2          # between the two tipped-confirmation reads
 
@@ -252,20 +269,22 @@ def run_untrap_tuck(bus, *, abort_check=None, on_progress=None) -> dict:
                 "error": (f"servo IDs {missing} not answering — untrap "
                           "needs all 18 joints for its monitoring")}
 
-    # Zero-frame sanity BEFORE any motion (same rule as plan_safe_zero):
-    # an encoder outside its axis range by > LIMIT_SLOP_DEG means the
+    # Zero-frame sanity BEFORE any motion (same rule as plan_safe_zero
+    # but with the wider UNTRAP_LIMIT_SLOP_DEG — see its comment): an
+    # encoder outside its axis range by more than the slop means the
     # logical zero is untrustworthy — the fold targets would be
     # meaningless absolute angles. Refuse without touching anything.
     for j, v in enumerate(_read_pose(bus, live)):
         lo, hi = AXIS_LIMITS_DEG[j % 3]
-        if v < lo - LIMIT_SLOP_DEG or v > hi + LIMIT_SLOP_DEG:
+        if (v < lo - UNTRAP_LIMIT_SLOP_DEG
+                or v > hi + UNTRAP_LIMIT_SLOP_DEG):
             return {"ok": False, "joint": j, "code": "suspect_zero",
                     "error": (f"{joint_name(j)} reads {v:+.1f}° — outside "
                               f"its {lo:.0f}..{hi:.0f}° range by more than "
-                              f"{LIMIT_SLOP_DEG:.0f}°. The logical zero "
-                              "frame looks wrong; hand-set the known pose "
-                              "and POST /api/set_zero before any untrap "
-                              "or absolute move.")}
+                              f"{UNTRAP_LIMIT_SLOP_DEG:.0f}°. The logical "
+                              "zero frame looks wrong; hand-set the known "
+                              "pose and POST /api/set_zero before any "
+                              "untrap or absolute move.")}
 
     prog({"msg": "untrap: limp + gravity settle"})
     _limp_all(bus, live)

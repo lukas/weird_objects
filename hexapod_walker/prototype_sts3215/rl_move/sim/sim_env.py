@@ -308,6 +308,12 @@ class SimHexapodBalanceEnv(_GymBase):
         # model DR disabled. Default (None): private model, as always.
         self._owns_model = model is None
         if model is not None:
+            # dr.walk_push_*: private-model envs apply the xfrc in
+            # their own _advance loop; shared-model shims delegate to
+            # the MJX stepper, whose tick takes the per-env push_nm
+            # (the vec envs read _walk_push_torque_nm() per tick and
+            # hand it over — plumbed 08-12 in mjx_backend/mjx_vec_env/
+            # mjx_sharded_vec_env).
             self.model = model
         else:
             # Rough terrain (cfg env.terrain_amp > 0) reaches the private
@@ -572,6 +578,33 @@ class SimHexapodBalanceEnv(_GymBase):
     # physics
     # ------------------------------------------------------------------
 
+    def _walk_push_torque_nm(self) -> float:
+        """dr.walk_push_* (08-12, the takeoff mechanism the command-side
+        kick could not deliver): signed half-sine roll TORQUE on the
+        chassis over the first ~second of walk-mode episodes, applied
+        via xfrc_applied about the chassis's own x-axis. The 08-12
+        replay_trace calibration measured the fold-pulse kick
+        saturating at 5-10° peak / ~10 °/s at ANY dose (planted
+        opposite feet + write-profile rate limit), far below the
+        hardware takeoff regime (13-27° peaks, 11-46 °/s) — a base
+        torque bypasses the actuator path and reaches it. Stateless
+        per tick (pure function of _ep_rand + _step_i; the substep
+        loop overwrites xfrc every step, zero outside the window →
+        pool-restore safe). Applied by _advance on private-model envs;
+        shared-model (MJX shim) envs expose it to their vec env, which
+        hands the per-env value to the batched stepper's xfrc row."""
+        er = self._ep_rand
+        if (er is None or er.walk_push_peak_nm == 0.0
+                or er.walk_push_dur_s <= 0.0
+                or self._goal_traj is None
+                or getattr(self._goal_traj, "mode", "") != "walk"):
+            return 0.0
+        t = self._step_i * self.dt
+        if t >= er.walk_push_dur_s:
+            return 0.0
+        return er.walk_push_peak_nm * math.sin(
+            math.pi * t / er.walk_push_dur_s)
+
     def _advance(self, *, limp: bool = False) -> None:
         assert self._profile is not None
         mujoco = self._mujoco
@@ -579,6 +612,7 @@ class SimHexapodBalanceEnv(_GymBase):
         r_off = (np.zeros(3) if self._ep_rand is None
                  else self._ep_rand.imu_pos_m)
         vel = np.zeros(6)
+        push_nm = 0.0 if limp else self._walk_push_torque_nm()
         for _ in range(self._substeps):
             target = self._profile.tick(h)
             q = self.data.qpos[self._qadr]
@@ -601,6 +635,12 @@ class SimHexapodBalanceEnv(_GymBase):
                 db = self._profile.deadband_rad
                 eff = q + np.sign(err) * np.maximum(np.abs(err) - db, 0.0)
             self.data.ctrl[self._pos_act] = eff
+            # Takeoff push torque about the chassis's CURRENT x-axis
+            # (world-frame xfrc row). Overwritten every substep, zeroed
+            # outside the pulse window — no state survives the window.
+            Rp = self.data.xmat[self._chassis_bid].reshape(3, 3)
+            self.data.xfrc_applied[self._chassis_bid, 3:6] = (
+                Rp[:, 0] * push_nm)
             mujoco.mj_step(self.model, self.data)
             # Accumulate the IMU-point specific force at the physics rate
             # (exact velocities, one FD) — includes the lever-arm
@@ -689,25 +729,47 @@ class SimHexapodBalanceEnv(_GymBase):
 
     def _rise_rock_offset(self) -> np.ndarray | None:
         """dr.rise_rock_* (08-11, hardware belly-curl rocking gap):
-        persistent one-side hip/knee fold bias added to the PHYSICAL
-        servo command on rise-mode episodes that drew it. Uses the
-        tipped-start fold→roll mapping: as the feet load through the
-        curl the bias rolls the body toward the folded side — the
-        measured hardware signature (5/5 tilt trips mid-curl at the
-        same tick, sim flat under both actuator fits). The logical
-        loop never sees the bias (like zero_drift_cmd_frame); encoders
-        read the true drooped angles and the tilt reference stays
-        level, so leveling and honest ref-tracking are paid only when
-        the policy closes the command-vs-read loop. Stateless per tick
-        (pure function of _ep_rand + _goal_traj → pool-restore safe by
-        construction)."""
+        one-side hip/knee fold bias added to the PHYSICAL servo
+        command on rise-mode episodes that drew it, RAMP-GATED by the
+        rise goal's height-ramp progress. Uses the tipped-start
+        fold→roll mapping. The logical loop never sees the bias (like
+        zero_drift_cmd_frame); encoders read the true drooped angles
+        and the tilt reference stays level, so leveling and honest
+        ref-tracking are paid only when the policy closes the
+        command-vs-read loop. Stateless per tick (pure function of
+        _ep_rand + _goal_traj + _step_i → pool-restore safe by
+        construction).
+
+        CALIBRATION (08-11/12, replay_trace open-loop replay of the
+        10 recorded rl_stand failures): the hardware trip is NOT a
+        curl-long rock — the tapes are FLAT through the curl, then
+        ramp 0→10.6° in the last ~1.2 s as the belly unloads onto a
+        near-diagonal foot pair (support knife-edge; sim and hardware
+        sit on opposite branches — sim gets caught at ~2° by the
+        planted opposite feet, hardware tips through the trip).
+        A PERSISTENT fold rocks the flat curl too (unlike every tape)
+        and one sign saturates at 3-5°; gating the fold by the
+        height-ramp fraction reproduces the recorded signature:
+        flat curl, then an accelerating ramp that crosses the 10°
+        trip band near ramp end at ~18° target dose on the branch
+        that removes the catching foot (the other branch saturates —
+        sign is sampled ±, so training visits both)."""
         er = self._ep_rand
         if (er is None or er.rise_rock_roll_deg == 0.0
                 or self._goal_traj is None
                 or getattr(self._goal_traj, "mode", "") != "rise"):
             return None
+        h = np.asarray(self._goal_traj.height, dtype=float)
+        h_tgt = float(np.max(h)) if h.size else 0.0
+        if h_tgt <= 1e-9:
+            frac = 1.0
+        else:
+            i = min(max(self._step_i, 0), len(h) - 1)
+            frac = float(np.clip(h[i] / h_tgt, 0.0, 1.0))
+        if frac <= 1e-6:
+            return None
         roll = er.rise_rock_roll_deg
-        fold = abs(roll) / self.TIP_ROLL_PER_FOLD * DEG2RAD
+        fold = abs(roll) * frac / self.TIP_ROLL_PER_FOLD * DEG2RAD
         legs = (3, 4, 5) if roll > 0 else (0, 1, 2)
         dq = np.zeros(N_JOINTS, dtype=float)
         for leg in legs:

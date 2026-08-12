@@ -83,6 +83,7 @@ def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
         "cmd_sp": s("cmdsp", (B, 1), "float32"),
         "cmd_ac": s("cmdac", (B, 1), "float32"),
         "cmd_valid": s("cmdok", (B,), "bool"),
+        "cmd_push": s("cmdpush", (B,), "float32"),
         "obs": s("obs", (B, n_obs), "float32"),
         "rew": s("rew", (B,), "float32"),
         "term": s("term", (B,), "bool"),
@@ -315,6 +316,7 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                     stub.pending = None
                     e, ctx = env._step_begin(shm["actions"][g])
                     shm["cmd_valid"][g] = False
+                    shm["cmd_push"][g] = 0.0
                     if e is not None:
                         early[k] = env._post_step(e)
                     else:
@@ -325,6 +327,11 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                             shm["cmd_sp"][g] = s
                             shm["cmd_ac"][g] = a
                             shm["cmd_valid"][g] = True
+                        # dr.walk_push_* takeoff torque (per-tick
+                        # half-sine, pre-_step_finish clock = the C
+                        # env's _advance timing); parent hands it to
+                        # the stepper as xfrc.
+                        shm["cmd_push"][g] = env._walk_push_torque_nm()
                 conn.send(("ok", None))
 
             elif cmd == "step_finish":
@@ -663,7 +670,8 @@ class MjxShardedVecEnv(VecEnv):
             self._shm["cmd_q"].copy(),
             speed_deg_s=self._shm["cmd_sp"].copy(),
             acc_units=self._shm["cmd_ac"].copy(),
-            valid=self._shm["cmd_valid"].copy()))
+            valid=self._shm["cmd_valid"].copy()),
+            push_nm=self._shm["cmd_push"].copy())
         self._copy_outs(out)
         info_chunks = self._broadcast("step_finish")
         infos = [dict(info) for chunk in info_chunks for info in chunk]

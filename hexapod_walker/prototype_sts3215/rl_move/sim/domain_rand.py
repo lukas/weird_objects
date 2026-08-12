@@ -112,19 +112,28 @@ class RandRanges:
     # the run's safety envelope; see HexapodSimEnv._tipped_offset_rad.
     tipped_start_prob: float = 0.30
     tipped_start_deg: tuple[float, float] = (6.0, 18.0)  # target body roll
-    # Rise rocking (hardware 08-11, bench_blast camera sessions): the
-    # real belly curl rocks 10°+ and trips tilt_roll 5/5 at the same
-    # tick while the sim's curl stays <2° under BOTH actuator fits
-    # (probed 08-11) — a systematic one-side droop the nominal sim
-    # cannot produce. Axis: rise-mode episodes sometimes carry a
-    # persistent one-side hip/knee fold bias on the PHYSICAL servo
-    # command (sim_env._rise_rock_offset; same fold→roll mapping as
-    # the tipped start). Encoders read the true (drooped) angles and
-    # the tilt reference stays level, so the policy is paid to close
-    # the command-vs-read loop and level out — the exact skill the
-    # hardware curl demands. Default OFF (opt-in via dr.rise_rock_*).
+    # Rise rocking (hardware 08-11, bench_blast camera sessions; dose
+    # + shape recalibrated 08-12 from open-loop replay of all 10
+    # recorded stand failures — see sim_env._rise_rock_offset and
+    # rl_move/sim/replay_trace.py): the real rise is FLAT through the
+    # belly curl, then rolls 0→10.6° in the last ~1.2 s of the height
+    # ramp as the belly unloads onto a near-diagonal foot pair, and
+    # trips tilt_roll 10/10 at the same tick, while the sim's rise
+    # stays ≤2.7° under BOTH actuator fits (joints track the tapes at
+    # ~1° RMSE; μ 2→50 and CoM shifts to 10 mm change nothing — the
+    # gap is a support knife-edge, not actuator/friction/CoM). Axis:
+    # rise-mode episodes sometimes carry a one-side hip/knee fold bias
+    # on the PHYSICAL servo command, RAMP-GATED by rise progress
+    # (sim_env._rise_rock_offset; same fold→roll mapping as the
+    # tipped start). Encoders read the true (drooped) angles and the
+    # tilt reference stays level, so the policy is paid to close the
+    # command-vs-read loop and level out — the exact skill the
+    # hardware curl demands. Replay calibration: ~18° dose crosses
+    # the 10° trip band with the recorded failure's own shape on the
+    # branch that removes the catching foot. Default OFF (opt-in via
+    # dr.rise_rock_*).
     rise_rock_prob: float = 0.0
-    rise_rock_deg: tuple[float, float] = (6.0, 15.0)     # target body roll
+    rise_rock_deg: tuple[float, float] = (8.0, 18.0)     # target body roll
     # Walk takeoff kick (hardware 08-11, bench_report over 18 walks):
     # EVERY hardware walk crosses 5° roll within 0.6-1.5 s of gait
     # start and peaks 13-27°, at sustained roll RATES of 11-46 °/s
@@ -135,13 +144,41 @@ class RandRanges:
     # gap is dynamic. Axis: walk-mode episodes sometimes get a
     # TRANSIENT one-side fold pulse on the PHYSICAL servo command over
     # the first ~second of gait (sim_env._walk_kick_offset, half-sine
-    # ramp in and out, net-zero terminal offset) — a roll-rate
-    # injection through the same fold→roll mapping as tipped and
-    # rise-rock, sized to the measured regime (8-18° peak over
-    # 0.5-1.2 s ≈ 13-45 °/s). Default OFF (opt-in via dr.walk_kick_*).
+    # ramp in and out, net-zero terminal offset).
+    # DOSE CEILING MEASURED 08-12 (replay_trace calibration session):
+    # the fold pulse SATURATES — frozen-plant response is 5.4° peak at
+    # a 14° draw, 6.8-9.8° at a 30° draw, roll rates capped ~10 °/s by
+    # the planted opposite feet + the servo write profile. It CANNOT
+    # reach the hardware takeoff regime at any dose, which retro-
+    # explains cw-dep-tip1-kick1's 0/24-falls-both null: the arm never
+    # tested the hypothesis. Kept for reproducibility; superseded by
+    # dr.walk_push_* (base torque pulse) below.
     walk_kick_prob: float = 0.0
     walk_kick_deg: tuple[float, float] = (8.0, 18.0)     # peak target roll
     walk_kick_s: tuple[float, float] = (0.5, 1.2)        # pulse duration
+    # Walk takeoff PUSH (08-12, the mechanism the kick could not
+    # deliver): half-sine roll TORQUE pulse on the chassis
+    # (xfrc_applied) over the first ~second of walk-mode episodes —
+    # a true roll-rate disturbance that bypasses the actuator path,
+    # so it can reproduce the measured takeoff regime. Open-loop walk
+    # replays (replay_trace on the 08-11 tapes) show the recorded
+    # actions ALREADY rock the sim plant 8-25° — the transient is the
+    # gait's own load transfer; this axis forces closed-loop rollouts
+    # to visit those states instead of relying on takeoff luck.
+    # Dose CALIBRATED policy-in-the-loop (tip1 walking fwd 0.05 m/s,
+    # DR0 det, 08-12): the planted 6-foot stance absorbs any
+    # plausible torque (2.2 Nm -> 0.2°) — the pulse lands when it
+    # overlaps a tripod swing phase, so the duration must cover the
+    # first gait cycle. 2.0 Nm/1.5 s: peaks 3-6°, no falls (soft);
+    # 2.6 Nm/1.5 s: peaks {2.6, 3.2, 12.3, 30.2-fall} = the hardware
+    # coin-flip regime, 5° crossings 0.56-0.76 s; 3.2 Nm: 3/4 falls
+    # at 64-105 °/s (beyond the tapes' 11-46). Works on BOTH stacks:
+    # C envs apply the xfrc in _advance; the MJX vec envs read each
+    # shim's per-tick torque and hand it to the batched stepper
+    # (plumbed 08-12). Default OFF (opt-in via dr.walk_push_*).
+    walk_push_prob: float = 0.0
+    walk_push_nm: tuple[float, float] = (2.0, 3.0)       # peak |torque|
+    walk_push_s: tuple[float, float] = (0.8, 1.5)        # pulse duration
 
     def scaled(self, s: float) -> "RandRanges":
         """Curriculum knob: shrink every range toward nominal by ``s``.
@@ -202,6 +239,9 @@ class RandRanges:
             walk_kick_prob=self.walk_kick_prob * s,
             walk_kick_deg=self.walk_kick_deg,
             walk_kick_s=self.walk_kick_s,
+            walk_push_prob=self.walk_push_prob * s,
+            walk_push_nm=self.walk_push_nm,
+            walk_push_s=self.walk_push_s,
         )
 
 
@@ -248,6 +288,12 @@ class EpisodeRandomization:
     # sign convention as tipped_roll_deg).
     walk_kick_roll_deg: float = 0.0
     walk_kick_dur_s: float = 0.0
+    # Signed PEAK chassis roll torque (N·m) + pulse duration for the
+    # walk takeoff push (0 = no push this episode; walk-mode episodes
+    # only; + rolls the body toward its right side, same convention
+    # as tipped_roll_deg).
+    walk_push_peak_nm: float = 0.0
+    walk_push_dur_s: float = 0.0
 
     def apply_to_model(self, model, *, chassis_bid: int) -> None:
         """Mutate a (freshly restored) MjModel in place."""
@@ -320,6 +366,8 @@ class EpisodeRandomization:
             "rise_rock_roll_deg": round(self.rise_rock_roll_deg, 1),
             "walk_kick_roll_deg": round(self.walk_kick_roll_deg, 1),
             "walk_kick_dur_s": round(self.walk_kick_dur_s, 2),
+            "walk_push_peak_nm": round(self.walk_push_peak_nm, 2),
+            "walk_push_dur_s": round(self.walk_push_dur_s, 2),
         }
 
 
@@ -409,6 +457,14 @@ class DomainRandomizer:
             if rng.random() < 0.5:
                 walk_kick = -walk_kick
 
+        # Walk takeoff push: same guarded-draw convention.
+        walk_push, walk_push_s = 0.0, 0.0
+        if r.walk_push_prob > 0.0 and rng.random() < r.walk_push_prob:
+            walk_push = float(u(*r.walk_push_nm))
+            walk_push_s = float(u(*r.walk_push_s))
+            if rng.random() < 0.5:
+                walk_push = -walk_push
+
         return EpisodeRandomization(
             mass_scale=u(*r.mass_scale),
             com_offset_m=np.array([
@@ -450,4 +506,6 @@ class DomainRandomizer:
             rise_rock_roll_deg=rise_rock,
             walk_kick_roll_deg=walk_kick,
             walk_kick_dur_s=walk_kick_s,
+            walk_push_peak_nm=walk_push,
+            walk_push_dur_s=walk_push_s,
         )

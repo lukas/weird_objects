@@ -277,3 +277,72 @@ def test_contact_settle_parity_loose():
     # Static and level: the IMU must read ~+1 g.
     f = np.asarray(out.f_imu)[0]
     assert abs(np.linalg.norm(f) - 9.80665) < 0.3
+
+
+def _warp_available() -> bool:
+    try:
+        import mujoco_warp  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+@pytest.mark.parametrize("impl", [
+    None,
+    pytest.param("warp", marks=pytest.mark.skipif(
+        not _warp_available(), reason="mujoco-warp not installed")),
+])
+def test_walk_push_xfrc_reaches_the_stepper(impl):
+    """dr.walk_push_* plumbing (08-12): tick(push_nm=…) must write the
+    torque into each env's chassis xfrc row (about that env's own
+    x-axis), produce a real dynamic divergence between a pushed and an
+    unpushed env, and leave NO stale xfrc after a zero-push tick.
+    Parametrized over BOTH impls: training pods run warp — if warp
+    dropped xfrc_applied the axis would train silently inert, which is
+    exactly what this test exists to catch."""
+    import mujoco
+
+    from rl_move.sim import mjx_backend as mb
+
+    params = _params()
+    model = build_model(fixed_base=False, flat_terrain=True,
+                        mesh_visuals=False, mjx_compat=True)
+    apply_params_to_model(model, params)
+    adr = mb._model_addrs(model)
+
+    q0 = np.zeros(18)
+    st = MjxTickStepper(model, 2, params=params, impl=impl)
+    data = mujoco.MjData(model)
+    mujoco.mj_resetData(model, data)
+    data.qpos[2] = 0.08
+    mujoco.mj_forward(model, data)
+    st.reset_envs(np.tile(data.qpos, (2, 1)), np.zeros((2, model.nv)),
+                  np.tile(q0, (2, 1)), dt_ctrl=DT_CTRL)
+    hold = st.make_command(q0[None], speed_deg_s=SPEED_DEG_S,
+                           acc_units=ACC_UNITS, valid=False)
+    for _ in range(30):                     # settle both envs, no push
+        out = st.tick(hold)
+
+    push = np.array([8.0, 0.0], np.float32)
+    for _ in range(25):                     # 1 s pushed vs control
+        out = st.tick(hold, push_nm=push)
+    xfrc = np.asarray(st.data.xfrc_applied)[:, adr.chassis_bid, 3:6]
+    assert abs(np.linalg.norm(xfrc[0]) - 8.0) < 1e-3, (
+        f"pushed env xfrc row |{np.linalg.norm(xfrc[0]):.3f}| != 8 Nm")
+    assert np.linalg.norm(xfrc[1]) == 0.0, "control env xfrc row dirty"
+    # The torque is about the chassis's own x-axis.
+    R0 = np.asarray(st.data.xmat[0]).reshape(-1, 3, 3)[adr.chassis_bid]
+    assert np.dot(xfrc[0] / np.linalg.norm(xfrc[0]), R0[:, 0]) > 0.99
+
+    # Dynamic effect: the pushed env's chassis x-axis rolled away from
+    # the control's (both started identical; only the push differs).
+    xm = np.asarray(out.chassis_xmat)
+    roll = [math.degrees(math.atan2(xm[i][2, 1], xm[i][2, 2]))
+            for i in range(2)]
+    assert abs(roll[0] - roll[1]) > 0.3, (
+        f"push produced no roll divergence (rolls {roll})")
+
+    out = st.tick(hold)                     # zero-push tick clears row
+    xfrc = np.asarray(st.data.xfrc_applied)[:, adr.chassis_bid, 3:6]
+    assert np.linalg.norm(xfrc[0]) == 0.0, (
+        "stale xfrc survived a zero-push tick")

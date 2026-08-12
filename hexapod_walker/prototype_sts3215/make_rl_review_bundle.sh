@@ -21,6 +21,15 @@ FILES=(
   RL_GOALS.md
   CURRENT_TRUTHS.md
   STATUS.md
+)
+
+# Per-track status docs (rl_docs/tracks/<track>/STATUS.md), discovered so new
+# tracks are picked up automatically.
+while IFS= read -r f; do
+  FILES+=("$f")
+done < <(ls rl_docs/tracks/*/STATUS.md 2>/dev/null | sort)
+
+FILES+=(
   RL_PLAN.md
   RESEARCH_RULES.md
   RUN_INTERPRETATION_RULES.md
@@ -31,6 +40,7 @@ FILES=(
   rl_docs/REWARD.md
   rl_docs/RISE.md
   rl_docs/TURN.md
+  rl_docs/GAIT.md
   rl_docs/EVALS.md
   rl_docs/SKILLS.md
   rl_docs/COMMANDS.md
@@ -38,6 +48,13 @@ FILES=(
   rl_docs/WANDB.md
   rl_docs/HARDWARE.md
   rl_docs/WISHLIST.md
+)
+
+# Latest bench report, if any (rl_docs/BENCH_REPORT_<date>.md).
+latest_bench="$(ls rl_docs/BENCH_REPORT_*.md 2>/dev/null | sort | tail -n 1 || true)"
+[ -n "$latest_bench" ] && FILES+=("$latest_bench")
+
+FILES+=(
   rl_move/API.md
   rl_move/RUNLOG.md
   rl_move/orchestrator/README.md

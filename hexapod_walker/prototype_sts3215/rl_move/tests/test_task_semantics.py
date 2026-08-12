@@ -2031,6 +2031,165 @@ def test_walk_kick_never_touches_other_modes():
 
 
 # --------------------------------------------------------------------------
+# WALK-PUSH bank (dr.walk_push_*, 08-12 — the takeoff mechanism the
+# command-side kick could not deliver).
+#
+# replay_trace calibration (08-12): driving the sim plant with the
+# recorded HARDWARE action streams produces the full 8-25° takeoff
+# excursions, but the fold-pulse kick saturates at 5-10° peak /
+# ~10 °/s at ANY dose — the planted opposite feet plus the write
+# profile's rate limit eat the command. The push axis instead applies
+# a signed half-sine roll TORQUE about the chassis's own x-axis via
+# xfrc_applied over the first ~1.5 s of walk-mode episodes, bypassing
+# the actuator path. Dose calibrated policy-in-the-loop (tip1 walking,
+# 2.6 Nm / 1.5 s = hardware coin-flip regime; see domain_rand.py).
+# The physical response NEEDS an active gait (a parked 6-foot plant
+# absorbs 2.6 Nm at ~0.2°), so these tests pin the torque MECHANICS —
+# fires in-window, dies at window end, xfrc row actually written and
+# cleared, walk-mode only, and the shared-model shim exposing the
+# schedule the MJX vec envs batch to the stepper — while the
+# response-level match lives in the calibration probes and the
+# device-side application in test_mjx_parity.py.
+
+PUSH_OVERRIDES = {
+    ("dr", "walk_push_prob"): 1.0,
+    ("dr", "walk_push_nm"): "2.6,2.6",
+    ("dr", "walk_push_s"): "1.5,1.5",
+}
+
+
+def _push_rollout(seed: int, overrides) -> dict:
+    """Freeze at the start command and record the push-torque schedule
+    plus the xfrc row actually seen by the physics loop."""
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = load_config()
+    for (sec, leaf), val in overrides.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None),
+        randomize=(("dr", "walk_push_prob") in overrides),
+        dr_scale=0.0, episode_seconds=6.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    gen.p_walk = 1.0
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 0.0)
+    env.reset()
+    q0 = env._cmd.copy()
+    dur = (env._ep_rand.walk_push_dur_s if env._ep_rand is not None
+           else 0.0)
+    in_window_nm, after_nm, in_window_xfrc, after_xfrc = [], [], [], []
+    for _ in range(int(3.0 / env.dt)):
+        t = env._step_i * env.dt
+        nm = env._walk_push_torque_nm()
+        env.step(q_rad_to_action(q0))
+        xfrc = float(np.linalg.norm(
+            env.data.xfrc_applied[env._chassis_bid, 3:6]))
+        if dur > 0.0 and t < dur:
+            in_window_nm.append(nm)
+            in_window_xfrc.append(xfrc)
+        else:
+            after_nm.append(nm)
+            after_xfrc.append(xfrc)
+    env.close()
+    return {"in_nm": in_window_nm, "after_nm": after_nm,
+            "in_xfrc": in_window_xfrc, "after_xfrc": after_xfrc}
+
+
+def test_walk_push_default_off_is_inert():
+    """No dr.walk_push override -> no draw, torque schedule identically
+    zero and no xfrc ever written to the chassis row."""
+    for seed in SEEDS:
+        out = _push_rollout(seed, {})
+        assert all(v == 0.0 for v in out["in_nm"] + out["after_nm"]), \
+            "push torque emitted with the axis off"
+        assert all(v == 0.0 for v in out["in_xfrc"] + out["after_xfrc"]), \
+            "xfrc row written with the axis off"
+
+
+def test_walk_push_torque_fires_then_dies_out():
+    """Forced 2.6 Nm / 1.5 s draw: the half-sine must reach its peak
+    inside the window (>= 2 Nm on both the schedule and the xfrc row
+    the stepper saw) and be identically zero after the window — a
+    roll-RATE injection, not a standing torque bias."""
+    for seed in SEEDS:
+        out = _push_rollout(seed, PUSH_OVERRIDES)
+        peak = max(abs(v) for v in out["in_nm"])
+        assert peak >= 2.0, (
+            f"seed {seed}: push schedule peaks at {peak:.2f} Nm — the "
+            f"forced 2.6 Nm draw never reached the physics loop")
+        assert max(out["in_xfrc"]) >= 2.0, (
+            f"seed {seed}: xfrc row peaks at {max(out['in_xfrc']):.2f} "
+            f"— torque computed but never applied to the chassis")
+        assert all(v == 0.0 for v in out["after_nm"]), \
+            f"seed {seed}: push torque persists after the pulse window"
+        assert all(v == 0.0 for v in out["after_xfrc"]), (
+            f"seed {seed}: stale xfrc left on the chassis after the "
+            f"window — state must not survive the pulse")
+
+
+def test_walk_push_never_touches_other_modes():
+    """A rise-mode episode with the axis forced on must never see the
+    torque — the perturbation is scoped to walk episodes only."""
+    cfg = load_config()
+    for (sec, leaf), val in PUSH_OVERRIDES.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None), randomize=True,
+        dr_scale=0.0, episode_seconds=6.0, seed=0, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "rise" else 0.0)
+    env.reset()
+    assert env._ep_rand is not None \
+        and env._ep_rand.walk_push_peak_nm != 0.0, \
+        "draw did not fire at prob 1 — test is vacuous"
+    assert env._walk_push_torque_nm() == 0.0, \
+        "push torque leaked into a rise-mode episode"
+
+
+def test_walk_push_shared_model_shim_schedules_the_torque():
+    """A shared-model (MJX shim) env with the axis forced on must
+    construct, draw, and expose a nonzero per-tick torque schedule via
+    _walk_push_torque_nm() — that is the value the MJX vec envs hand
+    to the batched stepper's xfrc row every tick (plumbed 08-12; the
+    device-side application is pinned in test_mjx_parity.py)."""
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    donor = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=6.0, seed=0)
+    cfg = load_config()
+    for (sec, leaf), val in PUSH_OVERRIDES.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None), randomize=True,
+        dr_scale=0.0, episode_seconds=6.0, seed=0, cfg=cfg,
+        model=donor.model)
+    gen = env._goal_gen
+    gen.p_walk = 1.0
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 0.0)
+    env.reset()
+    assert env._ep_rand is not None \
+        and env._ep_rand.walk_push_peak_nm != 0.0, \
+        "shared-model shim never drew the push at prob 1"
+    # Half-sine peak lands mid-window; sample the schedule there.
+    env._step_i = int(round(
+        env._ep_rand.walk_push_dur_s / 2.0 / env.dt))
+    nm = env._walk_push_torque_nm()
+    assert abs(nm) >= 2.0, (
+        f"shim schedule peaks at {nm:.2f} Nm — the vec envs would "
+        f"push nothing to the stepper")
+    env.close()
+    donor.close()
+
+
+# --------------------------------------------------------------------------
 # TRANS-DRAG bank — the stand/sit foot-scrape (operator 08-11 night).
 #
 # The failure this bank pins: NOTHING outside walk mode priced loaded

@@ -1723,6 +1723,54 @@ $('mzero').onclick = async ()=>{
 };
 $('msetzero').onclick = ()=> setZeroHere(true);
 $('mlimp').onclick = ()=>{ cmd('X'); setArmed(false); };
+$('mpinned').onclick = async ()=>{
+  // Read-only detector: tipped >=12° over a folded knee? (~1.5s when
+  // tipped — it re-reads after a settle so a rock doesn't classify.)
+  const el = $('mpinnedout');
+  el.textContent = 'checking…';
+  el.style.color = '';
+  showSent('pinned-tip check…');
+  try{
+    const d = await (await fetch('/api/pinned_tip')).json();
+    const s = d.pinned ? 'PINNED' : (d.tipped ? 'tipped (not pinned)' : 'level');
+    el.textContent = s + (d.tilt_deg != null ? ` · tilt ${d.tilt_deg}°` : '')
+      + (d.why ? ` — ${d.why}` : (d.error ? ` — ${d.error}` : ''));
+    if(d.pinned) el.style.color = '#f66';
+    showSent('pinned-tip: ' + s);
+  }catch(e){
+    el.textContent = 'check failed';
+    showSent('pinned-tip check failed');
+  }
+};
+$('muntrap').onclick = async ()=>{
+  // Motion: low-torque (20%) fold. The server re-runs the detector and
+  // refuses when not pinned; offer force=true only then, for bench tests.
+  dancePaused = true;
+  showSent('untrap…');
+  const post = (force)=> fetch('/api/untrap',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(force ? {force:true} : {})});
+  try{
+    let j = await (await post(false)).json();
+    if(!j.ok && /nothing to untrap/.test(j.error||'')){
+      if(!confirm('Detector says: '+(j.error||'not pinned')+'\n\n'
+                  +'Run the low-torque fold ANYWAY (bench test)? '
+                  +'It will limp first, then fold hips+knees at 20% '
+                  +'torque. Watch the robot.')){
+        showSent('untrap: skipped (not pinned)');
+        $('mpinnedout').textContent = j.error || 'not pinned';
+        return;
+      }
+      j = await (await post(true)).json();
+    }
+    if(j.ok){
+      showSent('untrap running — watch the fold');
+    }else{
+      showSent('untrap refused: '+(j.error||'unknown'));
+      $('mpinnedout').textContent = j.error || 'untrap refused';
+    }
+  }catch(e){ showSent('untrap failed'); }
+};
 
 // --- Demos tab + global robot activity --------------------------------------
 function demoSpeed(){ return Math.max(0.25, Math.min(2.0, (+$('dspeed').value)/100)); }

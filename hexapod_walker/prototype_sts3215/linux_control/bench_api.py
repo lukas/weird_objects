@@ -1103,6 +1103,133 @@ class BenchAPI:
         acquired.append("standup_plant")
         return {"ok": True, "acquired": acquired}
 
+    def pinned_tip_state(self) -> dict:
+        """READ-ONLY pinned-leg-tip verdict (see pinned_tip.py).
+
+        One IMU read on a level robot; when tipped it settles ~1.2 s
+        and reads again before classifying. Never commands motion —
+        safe to poll from the web UI.
+        """
+        try:
+            from pinned_tip import check_pinned_tip
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        v = check_pinned_tip(self.drive.bus)
+        return {"ok": "error" not in v, **v}
+
+    def untrap(self, *, force: bool = False) -> dict:
+        """Low-torque untrap fold (pinned_tip.run_untrap_tuck) as a job.
+
+        Refuses unless the read-only detector confirms a pinned-leg
+        tip (``force=true`` overrides for bench testing while the
+        operator watches — the move is torque-bounded either way).
+        Success leaves the robot level + folded, holding at the LOW
+        limit; run safe_zero next. Failure/abort leaves it LIMP.
+        """
+        try:
+            from pinned_tip import TUCK_TORQUE, check_pinned_tip, \
+                run_untrap_tuck
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+
+        verdict = check_pinned_tip(self.drive.bus)
+        if not verdict.get("pinned") and not force:
+            return {"ok": False, "pinned_tip": verdict,
+                    "error": ("not a pinned-leg tip ("
+                              + str(verdict.get("why")
+                                    or verdict.get("error") or "?")
+                              + ") — nothing to untrap. force=true "
+                              "runs the fold anyway (watching!).")}
+
+        if self._demo_thread and self._demo_thread.is_alive():
+            if not self._preempt_demo_thread(reason="→ untrap",
+                                             timeout=5.0):
+                return {"ok": False,
+                        "error": ("previous job did not stop — "
+                                  "try Stop / E-STOP"),
+                        "robot": self.robot_state()}
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = "untrap"
+            self._demo_status = "untrap: low-torque fold"
+            self._demo_params = {"force": bool(force),
+                                 "torque_limit": TUCK_TORQUE}
+            self._cal_result = None
+            self._cal_progress = {"msg": "untrap: starting"}
+        self._set_activity("zeroing", "untrap (low-torque fold)")
+
+        def _worker():
+            d = self.drive
+            with d._lock:
+                d.mode = "demo"
+                d.gait.stop()
+            result: dict = {}
+            try:
+                from event_log import emit
+                emit("untrap", "start", data=verdict, level="warn")
+            except Exception:
+                pass
+            try:
+                self._bus_hot = True
+
+                def _prog(dct: dict) -> None:
+                    with self._lock:
+                        self._cal_progress = dict(dct)
+
+                result = run_untrap_tuck(
+                    d.bus, abort_check=self._demo_abort.is_set,
+                    on_progress=_prog)
+                result["pinned_tip"] = verdict
+            except Exception as e:
+                result = {"ok": False, "error": str(e)}
+            finally:
+                self._bus_hot = False
+                if gen != self._demo_gen:
+                    return
+                limp = bool(result.get("limp"))
+                with self._lock:
+                    self._cal_result = result
+                    if result.get("ok"):
+                        self._demo_status = ("done · level + folded "
+                                             "(low torque) — safe zero "
+                                             "next")
+                    else:
+                        self._demo_status = str(
+                            result.get("error") or "error")
+                    self._cal_progress = {"msg": self._demo_status}
+                    st = self._demo_status
+                with d._lock:
+                    if d.mode == "demo":
+                        d.mode = "idle"
+                    if limp:
+                        d.armed = False
+                    else:
+                        d.armed = True
+                    d.status = st
+                try:
+                    from event_log import emit
+                    emit("untrap", "done" if result.get("ok") else st,
+                         data={k: result.get(k)
+                               for k in ("ok", "limp", "tilt_deg",
+                                         "trapped_names", "peak_a")
+                               if k in result})
+                except Exception:
+                    pass
+                self._set_activity(
+                    "limp" if limp else "armed", st)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "started": True, "pinned_tip": verdict,
+                "demo": self.demo_state(), "robot": self.robot_state()}
+
     def safe_zero(self, *, dry_run: bool = False,
                   force: bool = False) -> dict:
         """Collision-aware go-to-zero with limp-on-anomaly (ask 08-10).
@@ -1154,18 +1281,23 @@ class BenchAPI:
                     tilt = max(abs(roll), abs(pitch))
         except Exception:
             tilt = None
-        if tilt is not None and tilt > 20.0:
+        if tilt is not None:
             # Tipped over a folded knee (THE post-fall state, 08-11)?
             # Then safe zero knows how to proceed: the worker runs the
             # low-torque untrap fold before any planned stage, so a
             # bare refusal here would just push the caller to retry
-            # stand/walk against the pin instead.
+            # stand/walk against the pin instead. Classify on EVERY
+            # call (pure math on data already in hand) — the first
+            # live pinned test rested at only 13° tilt, well under
+            # this endpoint's 20° hard gate, and a pinned pose can
+            # also defeat the preview planner below.
             try:
                 from pinned_tip import classify_pinned_tip
                 pinned = classify_pinned_tip(present, roll, pitch)
             except Exception:
                 pinned = None
-            if not (pinned and pinned.get("pinned")) and not force:
+            if (tilt > 20.0 and not (pinned and pinned.get("pinned"))
+                    and not force):
                 return {"ok": False, "tilt_deg": round(tilt, 1),
                         **({"pinned_tip": pinned} if pinned else {}),
                         "error": (f"body tilted {tilt:.0f}° with legs "

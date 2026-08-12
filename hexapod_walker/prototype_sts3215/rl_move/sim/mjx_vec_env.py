@@ -316,6 +316,7 @@ class MjxVecEnv(VecEnv):
         speed = np.zeros((B, 1), dtype=np.float32)
         acc = np.zeros((B, 1), dtype=np.float32)
         valid = np.zeros(B, dtype=bool)
+        push = np.zeros(B, dtype=np.float32)
 
         for i, env in enumerate(self.envs):
             stub = env._profile
@@ -333,9 +334,14 @@ class MjxVecEnv(VecEnv):
                     q, s, a = stub.pending
                     cmd_q[i], speed[i], acc[i] = q, s, a
                     valid[i] = True
+                # dr.walk_push_* takeoff torque: the shim computes the
+                # per-tick half-sine (same pre-_step_finish clock as the
+                # C env's _advance); the stepper applies it as xfrc.
+                push[i] = env._walk_push_torque_nm()
 
         out = self.stepper.tick(self.stepper.make_command(
-            cmd_q, speed_deg_s=speed, acc_units=acc, valid=valid))
+            cmd_q, speed_deg_s=speed, acc_units=acc, valid=valid),
+            push_nm=push)
         outs = self._jax.device_get(out)
 
         for i, env in enumerate(self.envs):
