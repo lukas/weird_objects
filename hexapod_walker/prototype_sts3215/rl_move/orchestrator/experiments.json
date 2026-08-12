@@ -75148,7 +75148,7 @@
       "Teach the robot to stay level while its body is forced to rock sideways during standing up, at a gentler dose than the last try. cw-stand-riserock2-r1 (same rise-rock DR, dose prob=0.5/deg=6-12) showed ZERO measurable resilience versus a checkpoint that never trained on this at all when both were tested at the exact hardware trip angle (10 deg, guaranteed every episode) \u2014 both totally failed. This is the gate's own pre-registered retry: shrink the top of the angle range from 12 to 10 (same probability), so the 10-degree bench threshold sits at the EDGE of what training saw instead of in the middle of an 6-12 range where lower/easier draws diluted the signal. Prediction-if-true: rocked det rise clears the same 10-deg gate this time (>=5/6 valid_plant, zero tilt falls) with hard1/holdbc1 still failing it (matched-parent separation appears). Prediction-if-false: still zero separation -> per the two-miss rule this closes the whole command-bias roll-injection family (rise-rock AND walk-kick both null) and the next lever is contact/pinning modeling, not another dose. Parent: cw-stand-riserock2-r1. Gate: PASS if injected eval (eval_checkpoint --cfg-set dr.rise_rock_prob=0.5 --cfg-set dr.rise_rock_deg=6,10 --baseline ppo_goal_cw_stand_holdbc1_hard1.zip, det) rise valid_plant >= 5/6 with ZERO tilt falls AND the baseline under the IDENTICAL injection fails >= 2/6 (matched-parent control) AND nominal det rise/hold matches riserock2-r1's own retention (rise/hold/lower 6/6, no duty regression). PASS -> export candidate, queue a hardening pass before any bench retry. FAIL (still zero separation) -> CLOSE the command-bias roll-injection family (2nd axis, 2nd no-separation dose) per the two-miss rule; next lever is contact/pinning modeling (belly/foot geometry), not another dose."
     ],
     "created": "2026-08-12T01:12:43+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -75175,6 +75175,161 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-riserock3 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_holdbc1.zip --dr-scale 0.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --cfg-set train.bc_anchor_coef=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --cfg-set dr.rise_rock_prob=0.5 --cfg-set dr.rise_rock_deg=6,10 --out-name ppo_goal_cw_stand_riserock3 --impl warp --host-workers 24 --notes 'Teach the robot to stay level while its body is forced to rock sideways during standing up, at a gentler dose than the last try. cw-stand-riserock2-r1 (same rise-rock DR, dose prob=0.5/deg=6-12) showed ZERO measurable resilience versus a checkpoint that never trained on this at all when both were tested at the exact hardware trip angle (10 deg, guaranteed every episode) \u2014 both totally failed. This is the gate'\"'\"'s own pre-registered retry: shrink the top of the angle range from 12 to 10 (same probability), so the 10-degree bench threshold sits at the EDGE of what training saw instead of in the middle of an 6-12 range where lower/easier draws diluted the signal. Prediction-if-true: rocked det rise clears the same 10-deg gate this time (>=5/6 valid_plant, zero tilt falls) with hard1/holdbc1 still failing it (matched-parent separation appears). Prediction-if-false: still zero separation -> per the two-miss rule this closes the whole command-bias roll-injection family (rise-rock AND walk-kick both null) and the next lever is contact/pinning modeling, not another dose. Parent: cw-stand-riserock2-r1. Gate: PASS if injected eval (eval_checkpoint --cfg-set dr.rise_rock_prob=0.5 --cfg-set dr.rise_rock_deg=6,10 --baseline ppo_goal_cw_stand_holdbc1_hard1.zip, det) rise valid_plant >= 5/6 with ZERO tilt falls AND the baseline under the IDENTICAL injection fails >= 2/6 (matched-parent control) AND nominal det rise/hold matches riserock2-r1'\"'\"'s own retention (rise/hold/lower 6/6, no duty regression). PASS -> export candidate, queue a hardening pass before any bench retry. FAIL (still zero separation) -> CLOSE the command-bias roll-injection family (2nd axis, 2nd no-separation dose) per the two-miss rule; next lever is contact/pinning modeling (belly/foot geometry), not another dose.' > /tmp/train_cw-stand-riserock3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stand-riserock3.log",
     "wandb_id": "fnmzg2ve",
-    "verified": "2026-08-12T01:15:30+00:00"
+    "verified": "2026-08-12T01:15:30+00:00",
+    "triage": "done",
+    "checkups": [
+      {
+        "time": "2026-08-12T01:20:58+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "007,040: hold 0.29\u00b0, lean 1.74\u00b0, track 1.28\u00b0, unload 1.93\u00b0, raise 2/2, rise f0/2 b1/2 c1/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 372s (5,381 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_riserock3.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_riserock3 (md5 3f729ceb)\n"
+      }
+    ],
+    "verdict": "FAIL -- retention regression pre-empts the rise-rock question, no forensics needed. Own-mix det LOWER collapsed from riserock2-r1's clean 6/6 (worst_clear <=46mm) to 1/6 (worst_clear up to 126mm on 5/6 eps): video shows a NEW three-leg flag-leg/outrigger cheat (legs 1/3/5 duty ~0.9 fully planted, legs 0/2/4 duty 0.05-0.14 stay splayed 10-126mm off the ground, every episode) -- exactly the flag-leg/outrigger class the LOWER MDP_PREFLIGHT bank already names as a known cheat. Known exploit in video = complete verdict per RUN_INTERPRETATION_RULES; this alone breaks the gate's mandatory 'nominal rise/hold/lower retention, no duty regression' clause, so PASS is unreachable regardless of the rise-rock injection result (own-mix det rise 5/6 no falls, roll tail <2deg, looked fine in isolation but moot). Per the two-miss rule (riserock2-r1 zero-separation null + this gentler dose's own retention regression), the command-bias rise-rock DR family is now CLOSED: neither a harder nor a gentler dose bought resilience, and the gentler one broke something else. hard1 stays deployed; do not warm-start/deploy from riserock3. Next lever for the hardware belly-curl rocking gap is contact/pinning modeling (belly/foot contact geometry), not another DR dose.",
+    "hardware_ready": false
+  },
+  {
+    "run": "cw-getup1",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "From-scratch unified recover-stand-walk: teach ONE policy to get up from ANY pose (random tangle, belly zero, partial curl, crouch, plant, tripod park), reach a supported stand, and walk on command \u2014 with NO reference trajectory, NO BC anchor, and NO warm start (fresh init IS the hypothesis, per operator directive 08-11: the right reward should train this from scratch). Income only pays measured, supported progress: a one-shot staged ratchet (untangle -> weight-on-feet -> supported-stand score S coupling height to MEASURED foot load, RL_PLAN queue 2b) plus S-gated hold/walk pay; kernel income stripped; falls non-terminal at a 60 deg envelope so recovery is a state, not a death. The diverse start distribution IS the curriculum (backward-chaining across the unpaid curl). Prediction-if-true: within 2M steps env/getup_best climbs well above the spawn-seed band (~0.2) toward 0.5+, reward_getup_hold becomes a real income line, and eval video shows deliberate untangle-crouch-rise attempts. Prediction-if-false: getup_best stays pinned at seed level with near-zero hold income \u2014 the unpaid curl valley is too wide for PPO exploration and the mode needs a bridge (e.g. start-mix reweighting toward partial/crouch). Strongest alternative: the policy only farms plant/park-start episodes for S-hold income and never recovers from floor starts \u2014 visible as getup_best bimodal by start kind and flat floor-start hold income.",
+    "gate": "MDP_PREFLIGHT GETUP banks green at launch commit fa84a39 (8/8 pass: replay dominates freeze/flagleg/thrash 2x+50, freeze earns ~0, stilt/flagleg hold scraps per-tick, gait dominates park/shuffle 2x+50). Run PASS if by 2M steps mean env/getup_best > 0.4 AND floor-start (tangle/zero) episodes show rising getup_S in eval AND video shows a credible getup attempt with no flag-leg/belly-shuffle exploit dominating; FAIL if getup_best flat at seed level or an exploit dominates video.",
+    "parent": "",
+    "track": "hw",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--dr-scale",
+      "0.1",
+      "--episode-seconds",
+      "20",
+      "--ent-coef",
+      "0.003",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "getup=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0",
+      "--cfg-set",
+      "safety.max_roll_deg=60",
+      "--cfg-set",
+      "safety.max_pitch_deg=60",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_getup1",
+      "--notes",
+      "GETUP discovery: from-scratch unified recover-stand-walk reward (REWARD.md 4b, commit fa84a39). Spawn anywhere, falls non-terminal (safety 60 deg), no kernel income; one-shot staged ratchet (untangle -> measured weight-on-feet -> supported stand) + S-gated hold/walk pay. Fresh init on purpose: operator wants to see what the reward alone trains."
+    ],
+    "created": "2026-08-12T01:19:27+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 1,
+      "code_sha_local": "83b069d41906c19b02ad6bf27445c1669f042d23",
+      "code_sha_pod": "88a2d8c744678930a60ab0a6cdeef52ca372c1e0"
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "refused_reason": "hexapod-mjx-train-2 code marker 88a2d8c744678930a60ab0a6cdeef52ca372c1e0 != local HEAD 83b069d41906c19b02ad6bf27445c1669f042d23. Sync first: snapshot.sh --sync hexapod-mjx-train-2 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "cw-getup1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "From-scratch unified recover-stand-walk: teach ONE policy to get up from ANY pose (random tangle, belly zero, partial curl, crouch, plant, tripod park), reach a supported stand, and walk on command \u2014 with NO reference trajectory, NO BC anchor, and NO warm start (fresh init IS the hypothesis, per operator directive 08-11: the right reward should train this from scratch). Income only pays measured, supported progress: a one-shot staged ratchet (untangle -> weight-on-feet -> supported-stand score S coupling height to MEASURED foot load, RL_PLAN queue 2b) plus S-gated hold/walk pay; kernel income stripped; falls non-terminal at a 60 deg envelope so recovery is a state, not a death. The diverse start distribution IS the curriculum (backward-chaining across the unpaid curl). Prediction-if-true: within 2M steps env/getup_best climbs well above the spawn-seed band (~0.2) toward 0.5+, reward_getup_hold becomes a real income line, and eval video shows deliberate untangle-crouch-rise attempts. Prediction-if-false: getup_best stays pinned at seed level with near-zero hold income \u2014 the unpaid curl valley is too wide for PPO exploration and the mode needs a bridge (e.g. start-mix reweighting toward partial/crouch). Strongest alternative: the policy only farms plant/park-start episodes for S-hold income and never recovers from floor starts \u2014 visible as getup_best bimodal by start kind and flat floor-start hold income.",
+    "gate": "MDP_PREFLIGHT GETUP banks green at launch commit fa84a39 (8/8 pass: replay dominates freeze/flagleg/thrash 2x+50, freeze earns ~0, stilt/flagleg hold scraps per-tick, gait dominates park/shuffle 2x+50). Run PASS if by 2M steps mean env/getup_best > 0.4 AND floor-start (tangle/zero) episodes show rising getup_S in eval AND video shows a credible getup attempt with no flag-leg/belly-shuffle exploit dominating; FAIL if getup_best flat at seed level or an exploit dominates video.",
+    "parent": "",
+    "track": "hw",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--dr-scale",
+      "0.1",
+      "--episode-seconds",
+      "20",
+      "--ent-coef",
+      "0.003",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--goal-mix",
+      "getup=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0",
+      "--cfg-set",
+      "safety.max_roll_deg=60",
+      "--cfg-set",
+      "safety.max_pitch_deg=60",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_getup1",
+      "--notes",
+      "GETUP discovery: from-scratch unified recover-stand-walk reward (REWARD.md 4b, commit fa84a39). Spawn anywhere, falls non-terminal (safety 60 deg), no kernel income; one-shot staged ratchet (untangle -> measured weight-on-feet -> supported stand) + S-gated hold/walk pay. Fresh init on purpose: operator wants to see what the reward alone trains."
+    ],
+    "created": "2026-08-12T01:21:57+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 1,
+      "code_sha_local": "83b069d41906c19b02ad6bf27445c1669f042d23",
+      "code_sha_pod": "83b069d41906c19b02ad6bf27445c1669f042d23",
+      "wandb_env_on_pod": true,
+      "pid": "2630488",
+      "log_growth_bytes": [
+        7543,
+        13087
+      ],
+      "wandb_id": "zjltaik9",
+      "global_step_window": [
+        589824,
+        851968
+      ],
+      "fps_estimate": 8738.1
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-getup1 --steps 2000000 --task joint_walk --dr-scale 0.1 --episode-seconds 20 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix getup=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --cfg-set safety.max_roll_deg=60 --cfg-set safety.max_pitch_deg=60 --cfg-set goal.walk_obs_body_vel=2 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_getup1 --notes 'GETUP discovery: from-scratch unified recover-stand-walk reward (REWARD.md 4b, commit fa84a39). Spawn anywhere, falls non-terminal (safety 60 deg), no kernel income; one-shot staged ratchet (untangle -> measured weight-on-feet -> supported stand) + S-gated hold/walk pay. Fresh init on purpose: operator wants to see what the reward alone trains.' > /tmp/train_cw-getup1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-getup1.log",
+    "wandb_id": "zjltaik9",
+    "verified": "2026-08-12T01:24:44+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-12T01:29:59+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2228,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
+      }
+    ],
+    "triage": "in-cycle cw-getup1 since 2026-08-12T01:35:23"
   }
 ]

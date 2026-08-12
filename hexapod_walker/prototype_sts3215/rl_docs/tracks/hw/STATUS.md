@@ -123,12 +123,25 @@ unresolved blockers between the robot and reliable joystick control.
   injection axes now show zero learned separation from a frozen
   parent, in opposite directions (walk-kick: both pass; rise-rock:
   both fail) — mounting evidence this whole "randomize a temporary
-  body-roll bias" family isn't teaching resilience either way. One
-  gentler dose retry (deg 6-10/prob 0.3, the gate's own pre-
-  registered branch) is queued before fully closing rise-rock.
-  rot60 backward: one fall AND one clean walk — more reps when a
-  takeoff-hardened checkpoint exists (none is coming from this
-  lever; look to contact/pinning work instead).
+  body-roll bias" family isn't teaching resilience either way.
+  **08-12: the gentler dose retry ran (`cw-stand-riserock3`, deg
+  6-10) — CLOSES the family, but on a new failure mode**: own-mix
+  det LOWER collapsed from riserock2-r1's clean 6/6 to 1/6 (worst
+  foot clearance up to 126mm vs the 60mm bar), video-confirmed a
+  fresh three-leg flag-leg/outrigger cheat (legs 1/3/5 plant hard,
+  legs 0/2/4 stay splayed 10-126mm off the ground) — a KNOWN LOWER
+  exploit class, one-line STOP verdict, no forensics. Breaks the
+  gate's own "no retention regression" clause outright, so it fails
+  regardless of the rise-rock injection result in isolation (which
+  looked fine: 5/6, no falls). **RISE-ROCK DR FAMILY NOW CLOSED**
+  (2 doses, 2 misses: zero separation then a new cheat) — do not
+  schedule a third dose. `hard1` stays deployed. Both command-bias
+  roll-injection axes (walk-kick, rise-rock) are now closed; the
+  remaining lever for takeoff/rocking transients on hardware is
+  contact/pinning modeling (belly/foot contact geometry), not more
+  DR dose. rot60 backward: one fall AND one clean walk — more reps
+  when a takeoff-hardened checkpoint exists (none is coming from
+  this lever; look to contact/pinning work instead).
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching

@@ -1113,3 +1113,41 @@ after that miss; the remaining lever for both takeoff/rocking
 transients is contact/pinning modeling (no-skate feet), not more
 command-side perturbation. `hard1` remains deployed; do not warm-start
 or deploy from `cw-stand-riserock2-r1`.
+
+### `cw-stand-riserock3` (08-12) — gentler dose: LOWER regresses into a
+### fresh flag-leg/outrigger cheat; family CLOSED
+
+The gate's own pre-registered gentler retry (`dr.rise_rock_deg=6,10`,
+same `prob=0.5`, warm from `hard1` — narrower band so the 10° bench
+threshold sits at the edge of training exposure instead of the
+middle). Own-mix retention pass (det, the run's own trained
+distribution): **LOWER collapsed from riserock2-r1's clean 6/6
+(worst foot clearance ≤46 mm, under the 60 mm bar) to 1/6 (worst
+clearance up to 126 mm on 5/6 episodes).** Video confirms a NEW
+three-leg flag-leg/outrigger cheat, not present in riserock2-r1:
+`duty_cycle` is bimodal every episode — legs 1/3/5 plant hard
+(≈0.9, clearance ≈0 mm) while legs 0/2/4 stay splayed in the air
+(duty 0.05–0.14, clearance 10–126 mm) — the robot props itself on a
+tripod of three legs instead of tucking all six. This is exactly the
+"flag-leg/outrigger cheat" class the LOWER MDP_PREFLIGHT ordering
+already names; per the known-exploit rule this is a complete verdict
+with no forensics required. It breaks the gate's own mandatory
+"nominal rise/hold/lower retention, no duty regression" clause
+outright, so the arm fails regardless of how the rise-rock injection
+performed in isolation (own-mix det rise 5/6, zero falls, roll tail
+<2° — looked fine, but moot once retention broke).
+
+Reading: two dose points now tested (riserock2-r1's harder
+prob=0.5/deg=6–12, this arm's gentler prob=0.5/deg=6–10) — one shows
+zero learned separation from a frozen parent, the other actively
+introduces a new cheat on an unrelated protected skill. Neither
+result supports the "randomize a temporary body-roll bias during
+rise" mechanism. Per the two-miss rule, **the rise-rock DR family is
+CLOSED** (joins walk-kick, the walk-mode sibling, also closed on
+zero separation) — do not schedule a third dose or a prob-only
+variant. `hard1` remains deployed; do not warm-start or deploy from
+`cw-stand-riserock3`. The remaining lever for the hardware
+belly-curl rocking gap (bench: 5/5 tilt_roll trips at 10.1–10.6°,
+sim curl ≤1.7° without the axis) is contact/pinning modeling
+(belly/foot contact geometry, no-skate feet), not more command-side
+perturbation.

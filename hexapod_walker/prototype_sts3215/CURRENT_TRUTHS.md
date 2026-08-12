@@ -503,9 +503,16 @@ both handoffs compose).
   rise-rock) now both show zero measurable learned separation from a
   frozen parent, in opposite directions — building evidence this
   whole family (randomize a temporary body-roll bias) doesn't teach
-  resilience either way. One gentler dose retry (deg 6–10/prob 0.3,
-  the gate's own pre-registered FAIL-A branch) is queued before fully
-  closing the rise-rock axis. Remaining lever for the takeoff/rocking
+  resilience either way. **08-12: the gentler dose retry
+  (`cw-stand-riserock3`, deg 6–10) CLOSES the axis, via a new failure
+  mode, not a repeat null** — own-mix det LOWER collapsed 6/6→1/6
+  (worst clearance 126mm vs the 60mm bar), video-confirmed a fresh
+  three-leg flag-leg/outrigger cheat (known LOWER exploit class, no
+  forensics needed) that breaks the gate's own retention clause
+  outright, regardless of the rise-rock injection looking fine in
+  isolation (5/6, no falls). **RISE-ROCK DR FAMILY CLOSED** (2 doses,
+  2 misses). Both command-bias roll-injection axes (walk-kick,
+  rise-rock) are now closed. Remaining lever for the takeoff/rocking
   transients: contact/pinning modeling (no-skate feet), not more
   command-side perturbation. Turn signs:
   CLOSED (operator 08-11 night): the robot turns the way the drawn
