@@ -238,6 +238,21 @@ def set_foot_ground_friction(model, mu_slide: float) -> None:
             model.geom_friction[gid, 0] = float(mu_slide)
 
 
+def leg_chassis_collision_from_cfg(cfg) -> bool:
+    """cfg ``env.leg_chassis_collision`` (0 = off, the default) — the
+    belly knife-edge contact axis (SIM.md known-gap 4, added 08-12).
+    The masks must be rewritten in the XML BEFORE compile (MuJoCo
+    precomputes the collidable pair set; runtime contype/conaffinity
+    edits never register — verified 08-12 on 3.11), so this is a
+    ``build_model(leg_chassis_collision=...)`` kwarg, not a model
+    mutation. See servo_model.build_model for the bit plan."""
+    if cfg is None:
+        from rl_move.config import load_config
+        cfg = load_config()
+    return bool(int(cfg_get(cfg, "env", "leg_chassis_collision",
+                            default=0)))
+
+
 def _default_plant_deg() -> np.ndarray:
     """Standing plant in hardware convention (learned plant or +20/+80)."""
     try:
@@ -323,11 +338,14 @@ class SimHexapodBalanceEnv(_GymBase):
                                    default=0.0))
             _t_seed = int(cfg_get(self.cfg, "env", "terrain_seed",
                                   default=0))
-            self.model = build_model(fixed_base=False,
-                                     flat_terrain=_t_amp <= 0.0,
-                                     terrain_amp=_t_amp,
-                                     terrain_seed=_t_seed,
-                                     mesh_visuals=mesh_visuals)
+            self.model = build_model(
+                fixed_base=False,
+                flat_terrain=_t_amp <= 0.0,
+                terrain_amp=_t_amp,
+                terrain_seed=_t_seed,
+                mesh_visuals=mesh_visuals,
+                leg_chassis_collision=leg_chassis_collision_from_cfg(
+                    self.cfg))
         self.data = mujoco.MjData(self.model)
         self._substeps = max(1, int(round(self.dt / self.model.opt.timestep)))
         self._qadr = joint_qpos_addrs(self.model)

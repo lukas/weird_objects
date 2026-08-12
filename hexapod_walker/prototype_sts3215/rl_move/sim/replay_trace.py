@@ -106,11 +106,16 @@ class _ReplaySim:
     placement recipe so the replay sees the same plant."""
 
     def __init__(self, params: SimServoParams, *, mu: float = 0.0,
-                 com_shift_mm: tuple[float, float, float] = (0., 0., 0.)):
+                 com_shift_mm: tuple[float, float, float] = (0., 0., 0.),
+                 leg_chassis: bool = False):
         import mujoco
         from .sim_env import set_foot_ground_friction, soften_contacts
         self._mujoco = mujoco
-        self.model = build_model(fixed_base=False, flat_terrain=True)
+        # leg_chassis: env.leg_chassis_collision axis (SIM.md gap 4) —
+        # validate the belly knife-edge mechanism against the recorded
+        # tapes. Compile-time XML rewrite, hence the build_model kwarg.
+        self.model = build_model(fixed_base=False, flat_terrain=True,
+                                 leg_chassis_collision=leg_chassis)
         soften_contacts(self.model)
         if mu > 0.0:
             set_foot_ground_friction(self.model, mu)
@@ -396,6 +401,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--com-shift-mm", type=str, default="0,0,0",
                     help="chassis CoM shift in mm, 'x,y,z' "
                          "(+y = left side; -y shifts CoM right)")
+    ap.add_argument("--leg-chassis-collision", action="store_true",
+                    help="enable the env.leg_chassis_collision contact "
+                         "axis (belly knife-edge, SIM.md gap 4) in the "
+                         "replay model")
     ap.add_argument("--plot", action="store_true")
     ap.add_argument("--out-dir", type=Path, default=None,
                     help="plot/JSON output dir (default: alongside csv)")
@@ -419,7 +428,8 @@ def main(argv: list[str] | None = None) -> int:
         rec = {}
         com_shift = tuple(float(x) for x in args.com_shift_mm.split(","))
         for tag, params in param_sets.items():
-            sim = _ReplaySim(params, mu=args.mu, com_shift_mm=com_shift)
+            sim = _ReplaySim(params, mu=args.mu, com_shift_mm=com_shift,
+                             leg_chassis=args.leg_chassis_collision)
             res = sim.replay(tr)
             an = analyze(tr, res)
             runs[tag] = (res, an)

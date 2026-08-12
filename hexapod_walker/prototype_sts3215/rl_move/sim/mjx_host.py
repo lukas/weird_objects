@@ -14,7 +14,8 @@ import numpy as np
 
 from .mjx_backend import MODEL_DR_FIELDS
 from .servo_model import SimServoParams, apply_params_to_model, build_model
-from .sim_env import set_foot_ground_friction, soften_contacts
+from .sim_env import (leg_chassis_collision_from_cfg,
+                      set_foot_ground_friction, soften_contacts)
 
 DEG2RAD = np.pi / 180.0
 
@@ -95,9 +96,15 @@ def foot_mu_from_cfg(cfg) -> float:
     return float(cfg_get(cfg, "env", "foot_friction_slide", default=0.0))
 
 
+def leg_chassis_from_cfg(cfg) -> bool:
+    """cfg env.leg_chassis_collision (0 = off, the default; see sim_env)."""
+    return leg_chassis_collision_from_cfg(cfg)
+
+
 def prepare_shared_model(params: SimServoParams, *, iterations: int,
                          ls_iterations: int, terrain_amp: float = 0.0,
-                         terrain_seed: int = 0, foot_mu: float = 0.0):
+                         terrain_seed: int = 0, foot_mu: float = 0.0,
+                         leg_chassis: bool = False):
     """The ONE model every shim (and the device stepper) uses: MJX-compat
     terrain, the C env's contact softening, fitted servo params, reduced
     solver iterations. Deterministic, so parent and worker processes
@@ -107,9 +114,14 @@ def prepare_shared_model(params: SimServoParams, *, iterations: int,
     experiments; Warp impl only — see build_model). ``foot_mu > 0``
     applies the calibrated foot–ground slide friction, mirroring the C
     env's cfg env.foot_friction_slide hook."""
+    # leg_chassis: cfg env.leg_chassis_collision — belly knife-edge
+    # contact axis (SIM.md gap 4). Must be an XML/compile-time rewrite
+    # (build_model kwarg) so put_model's device pair set includes the
+    # chassis-underside contacts; runtime mask edits never register.
     model = build_model(fixed_base=False, flat_terrain=terrain_amp <= 0.0,
                         terrain_amp=terrain_amp, terrain_seed=terrain_seed,
-                        mesh_visuals=False, mjx_compat=True)
+                        mesh_visuals=False, mjx_compat=True,
+                        leg_chassis_collision=leg_chassis)
     soften_contacts(model)
     if foot_mu > 0.0:
         set_foot_ground_friction(model, foot_mu)

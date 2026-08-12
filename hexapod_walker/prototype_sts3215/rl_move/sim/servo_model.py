@@ -151,7 +151,8 @@ class SimServoParams:
 
 def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
                 mesh_visuals: bool = True, mjx_compat: bool = False,
-                terrain_amp: float = 1.0, terrain_seed: int = 0):
+                terrain_amp: float = 1.0, terrain_seed: int = 0,
+                leg_chassis_collision: bool = False):
     """Load the hexapod MJCF. ``fixed_base`` welds the chassis (bench/air
     tests); ``flat_terrain`` zeroes the random hfield so the floor is flat.
 
@@ -190,6 +191,57 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
         MP.USE_PART_MESHES, MP.USE_SERVO_MESHES = saved
     if fixed_base:
         xml = xml.replace('<freejoint name="root"/>', '')
+    if leg_chassis_collision:
+        # cfg env.leg_chassis_collision=1 — model the belly knife-edge
+        # (SIM.md known-gap 4, added 08-12). replay_trace.py's diagnosis
+        # of the 10/10 hardware stand-up failures: the belly-curl support
+        # set is a knife edge the sim never forms — hardware tips
+        # pivoting on one foot pad while the tucked shanks / knee servos
+        # bear on the chassis underside; sim sweeps the leg segments
+        # straight through the chassis because legcol geoms pair ONLY
+        # with the floor. MuJoCo precomputes the collidable pair set at
+        # COMPILE time (runtime contype/conaffinity edits never register
+        # — verified 08-12 on 3.11), so the masks are rewritten in the
+        # XML here, pre-compile, and the MJX/Warp pair set inherits them
+        # via put_model. Bit plan (floor=conaffinity 5, legcol contype 4,
+        # everything else default 1/1):
+        #   bit 8:  tucked-shank group (tibia + knee-servo box) <->
+        #           chassis underside (chassis_box + 6 yaw-servo boxes)
+        #   bit 16: femur root <-> yaw-servo boxes ONLY. The femur
+        #           capsule permanently overlaps the coarse chassis_box
+        #           by ~15 mm at the hip anchor in EVERY pose (a box
+        #           modeling artifact), so femur-chassis_box stays OFF
+        #           or nominal stance would carry a constant bogus
+        #           contact force. Femur-to-own-bracket gap is ~4.6 mm
+        #           at nominal — inert in plant stance, live in the curl.
+        # Leg-leg stays OFF (legcol conaffinity stays 0); floor / foot
+        # pairings are bit-identical. DEFAULT OFF — bit-exact when off.
+        rewritten = xml
+        rewrites = [('<geom class="collision" name="chassis_box" ',
+                     '<geom class="collision" conaffinity="9" '
+                     'name="chassis_box" ')]
+        for i in range(6):
+            rewrites += [
+                (f'<geom class="collision" name="L{i}_yaw_servo_col" ',
+                 f'<geom class="collision" conaffinity="25" '
+                 f'name="L{i}_yaw_servo_col" '),
+                (f'<geom class="legcol" name="L{i}_tibia_col" ',
+                 f'<geom class="legcol" contype="12" '
+                 f'name="L{i}_tibia_col" '),
+                (f'<geom class="legcol" name="L{i}_knee_servo_col" ',
+                 f'<geom class="legcol" contype="12" '
+                 f'name="L{i}_knee_servo_col" '),
+                (f'<geom class="legcol" name="L{i}_femur_col" ',
+                 f'<geom class="legcol" contype="20" '
+                 f'name="L{i}_femur_col" '),
+            ]
+        for old, new in rewrites:
+            if rewritten.count(old) != 1:
+                raise RuntimeError(
+                    f"leg_chassis_collision rewrite failed on {old!r} — "
+                    "mujoco_prototype geom XML changed?")
+            rewritten = rewritten.replace(old, new)
+        xml = rewritten
     if mjx_compat:
         import re
         if flat_terrain:

@@ -76407,7 +76407,10 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "007,040: hold 0.22\u00b0, lean 1.18\u00b0, track 1.61\u00b0, unload 0.27\u00b0, raise 2/2, rise f2/2 b1/2 c0/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 368s (5,442 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_riserock4.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_riserock4 (md5 9f5a4c5a)\n"
       }
-    ]
+    ],
+    "verdict": "FAIL \u2014 the ramp-gated shape-corrected rise-rock ALSO breaks stance retention with the riserock3 cheat: nominal det LOWER 4/6 with video-confirmed outrigger/flag-leg park (legs held extended off the ground through the lower, lower_det_1/2 strips), rise sto 2/6 tilt_roll falls + rise det 1 over_current (parent hard1 own probe: 12/12 valid_plant, hold 11/12). Known-exploit STOP per the gate own disqualifying retention clause \u2014 injected separation moot. Rise-rock DR family now closed in BOTH shapes (persistent-bias riserock2-r1/3 + ramp-gated riserock4); root-cause replay this cycle points at the knife-edge support the policy commands at ramp end (margin flickers +25/-25mm on L0/L1/L4), not at missing DR dose.",
+    "hardware_ready": "no",
+    "triage": "done"
   },
   {
     "run": "cw-gait-rsi1",
@@ -76974,7 +76977,10 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "7.47\u00b0, track 8.67\u00b0, unload 8.30\u00b0, raise 0/2, rise f0/2 b0/2 c2/2, walk err 0.056 m/s, lower 0/2, tipped 1/2, rolltrap 0/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:TERM(over_current))\n[mjx-train] done: 2,000,000 steps in 357s (5,608 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_gait_anneal1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_gait_anneal1 (md5 c6f94698)\n"
       }
-    ]
+    ],
+    "verdict": "FAIL \u2014 warm-start-as-curriculum keeps the mobility the frozen levers lost (det fwd 0.37-0.46m, prog 0.46-0.60 \u2014 NOT the dragstance1/rsi1/slowfirst1 marching-in-place fingerprint) but the walk is a leg-3 flag-leg skate: gait_valid 0/6 det (sac [3] in all six), slip/m 4.3-5.1 vs the 1.5 bar, ep reward diving -335 -> -4744 by quarters as it eats the structural drag charge all 2M steps. Known-exploit class (persistent sacrificed leg). Lever 2 no-new-code form is closed: every no-new-code nobc gait lever (2, 4, 5 / RSI, slow-first, anneal-by-warm-start) is now exhausted; per the pre-registered branch the only remaining lever is a true in-run coefficient scheduler (CODE, spec first) or closing the from-scratch gait line.",
+    "hardware_ready": "no",
+    "triage": "done"
   },
   {
     "run": "cw-arch-gru-anchor3",
@@ -77067,7 +77073,7 @@
       "train.bc_anchor_detach_trunk=1.0"
     ],
     "created": "2026-08-12T06:32:44+00:00",
-    "status": "RUNNING",
+    "status": "verdicted",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -77094,6 +77100,22 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-gru-anchor3 --steps 2000000 --gru --gru-hidden-size 256 --init-from rl_move/sim/policies/ppo_goal_cw_gru_bc.zip --n-steps 256 --n-envs 256 --batch-size 8192 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 15 --goal-mix walk=0.60,rise=0.15,lower=0.15,hold=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set train.bc_anchor_lower=1.0 --cfg-set train.bc_anchor_stratified=1.0 --cfg-set train.bc_anchor_walk=0.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_sigma_deg=6.0 --out-name ppo_goal_cw_arch_gru_anchor3 --impl warp --host-workers 24 --notes 'respec of cw-arch-gru-anchor2: Fix the GRU'\"'\"'s cross-mode walk freeze that survived turning off the walk-tick anchor. This arm tests whether the freeze comes from the demonstration-teaching'\"'\"'s gradient bleeding into the SHARED recurrent trunk (the memory cell + input layers every mode'\"'\"'s forward pass uses), not from teaching walking directly. Same exact recipe as cw-arch-gru-anchor2 (walk-tick anchor still off, rise/hold/lower anchored, same warm start from the ft1 BC-distilled base) with ONE new variable: train.bc_anchor_detach_trunk=1 (new CODE, landed 08-12, default off/bit-exact, tests green in test_gru_policy.py) stops the anchor'\"'\"'s gradient at the GRU/feature-extractor output so stance-tick anchoring only trains the actor head (mlp_extractor.forward_actor + action_net), never the shared trunk. Prediction-if-true: walk recovers (det gait_valid>=5/6, prog_ratio med>=0.80, real translation on video) while hold/lower keep anchor2'\"'\"'s levels. Prediction-if-false: walk still freezes even with the trunk protected -- meaning the interference is not the anchor'\"'\"'s gradient at all (likely the main PPO loss'\"'\"'s own shared-trunk credit assignment across mode ticks), the anchor-for-recurrent-nets line closes for good, and the remaining lever is a mode-gated/separate recurrent core (architecture work, not a training-loss tweak).' --cfg-set train.bc_anchor_detach_trunk=1.0 > /tmp/train_cw-arch-gru-anchor3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-gru-anchor3.log",
     "wandb_id": "k6ytmp3x",
-    "verified": "2026-08-12T06:35:30+00:00"
+    "verified": "2026-08-12T06:35:30+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-12T06:41:10+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 851968",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "triage": "done",
+    "verdict": "FAIL, confirms the pre-registered false branch decisively. Detaching the BC-anchor gradient from the shared GRU trunk (train.bc_anchor_detach_trunk=1) did NOT unfreeze walk: det gait_valid 4/6 with leg idx0 flagged sacrificed, prog_ratio 0.03 (need >=0.80), video pixel-static (no floor translation) both DR0 and own-DR0.5. Hold/lower held clean (det 6/6 and 6/6; DR0.5 hold 6/6, lower 4-5/6) -- the trunk-detach fix DOES protect stance skills exactly as predicted, but the walk freeze is not the anchor gradient at all. Three independent levers now refuted (anchor1 on, anchor2 walk-anchor off, anchor3 trunk-detached) -- anchor-for-recurrent-nets teaching a shared-trunk GRU to walk while anchoring stance ticks is CLOSED FOR GOOD. Remaining lever is architecture (mode-gated/separate recurrent cores per skill), not another training-loss tweak; unspecd, unqueued CODE -- not written this cycle (needs a design pass, bigger than a cfg flag).",
+    "hardware_ready": false
   }
 ]

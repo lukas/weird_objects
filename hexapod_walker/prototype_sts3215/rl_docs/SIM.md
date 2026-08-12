@@ -191,9 +191,30 @@ about that env's own x-axis (plumbed 08-12 through `mjx_backend`,
      knife-edge support set during load transfer (chassis/tucked-leg
      contact), not inertia and not friction.
    Mitigations shipped as calibrated DR (ramp-gated `rise_rock`,
-   torque `walk_push` — see the DR section above); a true
-   contact-geometry fix (belly/tucked-shank collision during the
-   curl) remains open.
+   torque `walk_push` — see the DR section above); all three DR
+   families since CLOSED with nulls/cheats (see hw STATUS).
+   **08-12 follow-up: the belly/tucked-shank contact hypothesis is
+   FALSIFIED at the geometry level.** New cfg axis
+   `env.leg_chassis_collision=1` (default OFF, bit-exact off) adds
+   the tucked-shank↔chassis-underside and femur↔yaw-bracket contact
+   pairs — NOTE it must be a compile-time XML rewrite
+   (`build_model(leg_chassis_collision=True)`): MuJoCo precomputes
+   the collidable pair set, runtime contype/conaffinity edits never
+   register (verified on 3.11; the femur↔chassis_box pair stays off,
+   it has a permanent ~15 mm primitive overlap at the hip anchor).
+   Replaying all ten stand-failure tapes with the pairs ON changes
+   NOTHING (sim peak roll 2.4–2.5° vs hw 10.1–10.4°, identical to
+   off) — the recorded curls never engage the new contacts (min
+   approach ~5 mm; only yawed full-tuck poses touch). The REAL
+   mechanism, from a support-polygon trace of the same replays: in
+   the last ~1 s the policy'S OWN COMMANDS degenerate the support to
+   three feet (L0/L1/L4) with the CoM margin flickering **+25 mm ↔
+   −25 mm every 40 ms tick** — sim survives on a hair-trigger L0
+   catch, hardware tips on the L4 pivot. The gap is not a missing
+   contact pair; it is that the policy stands up through a
+   statically unstable window and sim lets it get away with it.
+   Training-side lever: `reward.k_support_margin` (already built,
+   default 0) prices exactly this; first arm `cw-stand-margin1`.
 5. STL *visual* meshes have stale offsets (June re-export) — physics
    uses primitives; render with `mesh_visuals=False`.
 

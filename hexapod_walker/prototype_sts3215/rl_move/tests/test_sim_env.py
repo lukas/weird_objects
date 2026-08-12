@@ -1119,3 +1119,122 @@ def test_end_posture_grounded_feet_and_routing_free():
         if term or trunc:
             break
     env.close()
+
+
+# ---------------------------------------------------------------------------
+# env.leg_chassis_collision — belly knife-edge contact axis (SIM.md gap 4)
+# ---------------------------------------------------------------------------
+
+def _legcol_chassis_pairs(model, data):
+    """Active contact pairs between a legcol geom and a chassis-underside
+    geom (either order)."""
+    legcol = set()
+    chassis = set()
+    for i in range(6):
+        for g in (f"L{i}_femur_col", f"L{i}_knee_servo_col",
+                  f"L{i}_tibia_col"):
+            gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, g)
+            if gid >= 0:
+                legcol.add(gid)
+        gid = mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_GEOM, f"L{i}_yaw_servo_col")
+        if gid >= 0:
+            chassis.add(gid)
+    gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "chassis_box")
+    if gid >= 0:
+        chassis.add(gid)
+    pairs = []
+    for c in data.contact[:data.ncon]:
+        g1, g2 = int(c.geom1), int(c.geom2)
+        if (g1 in legcol and g2 in chassis) or (g2 in legcol
+                                                and g1 in chassis):
+            pairs.append((g1, g2))
+    return pairs
+
+
+def test_leg_chassis_collision_default_off_bit_exact():
+    """Without the cfg key the model's contact masks are untouched."""
+    from rl_move.config import load_config
+    cfg = load_config()
+    env_off = SimHexapodBalanceEnv(cfg=cfg, seed=0)
+    from rl_move.sim.servo_model import build_model
+    raw = build_model(fixed_base=False, flat_terrain=True)
+    assert np.array_equal(env_off.model.geom_contype, raw.geom_contype)
+    assert np.array_equal(env_off.model.geom_conaffinity,
+                          raw.geom_conaffinity)
+
+
+def test_leg_chassis_collision_masks_and_scope():
+    """Flag on: shank/knee-servo <-> chassis-underside and femur <->
+    yaw-servo-box pairs become legal; femur <-> chassis_box (a permanent
+    ~15 mm primitive overlap at the hip anchor) stays OFF, and leg-leg
+    plus every ground pairing stay exactly as before."""
+    from rl_move.config import load_config
+    cfg = load_config()
+    cfg.setdefault("env", {})["leg_chassis_collision"] = 1
+    env = SimHexapodBalanceEnv(cfg=cfg, seed=0)
+    m = env.model
+    tib = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "L0_tibia_col")
+    kns = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM,
+                            "L2_knee_servo_col")
+    box = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "chassis_box")
+    ysc = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "L3_yaw_servo_col")
+    fem = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "L1_femur_col")
+    # Tucked-shank group pairs with the whole chassis underside.
+    assert m.geom_contype[tib] & m.geom_conaffinity[box]
+    assert m.geom_contype[tib] & m.geom_conaffinity[ysc]
+    assert m.geom_contype[kns] & m.geom_conaffinity[box]
+    # Femur pairs with the yaw-servo boxes ONLY, never chassis_box.
+    assert m.geom_contype[fem] & m.geom_conaffinity[ysc]
+    assert not (m.geom_contype[fem] & m.geom_conaffinity[box])
+    assert not (m.geom_contype[box] & m.geom_conaffinity[fem])
+    # Leg-leg is still off: legcol conaffinity stays 0.
+    assert m.geom_conaffinity[tib] == 0 and m.geom_conaffinity[fem] == 0
+    assert not (m.geom_contype[tib] & m.geom_conaffinity[fem])
+    # Ground pairings unchanged: floor still pairs with legcol bit 4,
+    # feet/chassis keep bit 1.
+    floor = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "floor")
+    foot = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "L0_foot")
+    assert m.geom_conaffinity[floor] == 5
+    assert m.geom_contype[tib] & m.geom_conaffinity[floor]
+    assert m.geom_contype[fem] & m.geom_conaffinity[floor]
+    assert m.geom_contype[foot] & m.geom_conaffinity[box]  # unchanged
+
+
+def test_leg_chassis_collision_inert_in_plant_stance():
+    """The axis must only act in tucked poses: a nominal plant-stance
+    episode produces ZERO legcol<->chassis contacts (no new forces in
+    ordinary standing/walking), while a full knee curl DOES bring the
+    tucked shank into contact with the chassis underside."""
+    from rl_move.config import load_config
+    cfg = load_config()
+    cfg.setdefault("env", {})["leg_chassis_collision"] = 1
+    env = SimHexapodBalanceEnv(cfg=cfg, seed=0)
+    env.reset(seed=0)
+    hits = []
+    for _ in range(25):  # 1 s of plant-stance hold
+        env.step(np.zeros(env.n_act, dtype=np.float32))
+        hits += _legcol_chassis_pairs(env.model, env.data)
+    assert not hits, f"plant stance grew leg-chassis contacts: {hits}"
+
+    # Yawed full tuck: knee at max flexion, hip raised, yaw at the stop
+    # — geometry-verified (08-12 sweep) to overlap the tucked shank and
+    # its yaw-servo bracket by ~5 mm. mj_forward on the posed model must
+    # yield at least one legcol<->chassis contact — proof the compiled
+    # pair set actually contains the new pairs (MuJoCo ignores runtime
+    # mask edits; this guards against a regression to that approach).
+    m, d = env.model, env.data
+    qadr = env._qadr
+    q = np.zeros(18)
+    q[0::3] = -0.61   # yaw at the stop
+    q[1::3] = 0.52    # hip raised
+    q[2::3] = 2.62    # knee fully flexed (tucked shank)
+    d.qpos[:] = 0.0
+    d.qpos[3] = 1.0
+    d.qpos[2] = 0.2   # airborne — only leg-chassis pairs can touch
+    for j, adr in enumerate(qadr):
+        d.qpos[adr] = q[j]
+    d.qvel[:] = 0.0
+    mujoco.mj_forward(m, d)
+    tucked = _legcol_chassis_pairs(m, d)
+    assert tucked, "yawed full tuck produced no leg-chassis contact"

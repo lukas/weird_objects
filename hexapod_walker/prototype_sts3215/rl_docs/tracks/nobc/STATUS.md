@@ -41,11 +41,18 @@ whatever works; this track exists to retire the crutch.
   from-scratch RL-only paddler that already translates (by skating)
   before the charge ever turns on, testing whether an already-mobile
   prior reshapes into stepping instead of freezing like a random
-  init did. If this also floors: every no-new-code form of lever 2
-  is closed too, and only a true in-run coefficient scheduler (CODE,
-  unqueued, spec first) or accepting BC-anchor (out of charter here)
-  remains — that would be a genuine WAIT on unwritten code for this
-  track's mainline lever.
+  init did. **08-12 ~08:30 verdict: `cw-gait-anneal1` FAILED,
+  informatively.** The mobile prior survives the charge (det fwd
+  0.37-0.46 m — NOT the frozen fingerprint) but never cleans up:
+  leg-3 flag-leg skate (gait_valid 0/6, sac [3] all det episodes),
+  slip/m 4.3-5.1 vs the 1.5 bar, reward diving -335 → -4744 by
+  quarters as the charge goes unresolved for 2M steps. Every
+  no-new-code form of lever 2 is now closed. **The track is now a
+  genuine WAIT on unwritten code:** a true in-run coefficient
+  scheduler (ramp the drag charge DURING one run; spec first, then
+  implement in both trainer stacks) — or close the from-scratch
+  gait line. Surfaced in STATUS.md top (08-12); nothing is
+  training in nobc.
 
 - CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
   crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —

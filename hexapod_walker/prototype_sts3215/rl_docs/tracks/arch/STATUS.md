@@ -94,20 +94,33 @@ at what budget, with which failure modes.
   anchor's gradient at the GRU/feature-extractor output so stance-
   tick anchoring only trains the actor head, never the shared trunk.
   Follow-up `cw-arch-gru-anchor3` (2M discovery, one variable off
-  anchor2: `bc_anchor_detach_trunk=1`) queued and VERIFIED RUNNING —
-  direct test of the confirmed mechanism.
+  anchor2: `bc_anchor_detach_trunk=1`) RAN — see below.
+- **`cw-arch-gru-anchor3` FAILS — the pre-registered false branch,
+  decisively (08-12).** Detaching the BC-anchor gradient from the
+  shared GRU trunk did NOT unfreeze walk: det gait_valid 4/6 with
+  leg idx0 flagged sacrificed, prog_ratio 0.03 (need >=0.80),
+  video pixel-static (no floor translation) at both DR0 and own-DR
+  0.5, det+sto. Hold/lower both held clean (det 6/6 each; DR0.5 hold
+  6/6, lower 4-5/6) — the trunk-detach mechanism DOES protect stance
+  skills exactly as designed, which proves the walk freeze is NOT
+  the anchor's gradient leaking through the trunk after all. **Three
+  independent levers now refuted (anchor1 on, anchor2 walk-anchor
+  off, anchor3 trunk-detached) — the anchor-for-recurrent-nets line
+  (teaching a shared-trunk GRU to walk while anchoring stance ticks)
+  is CLOSED FOR GOOD.** No further BC-anchor coefficient/toggle
+  variant on this mechanism.
 
 ## Next
 
-- **`cw-arch-gru-anchor3` running (08-12):** if walk recovers
-  (gait_valid>=5/6, prog_ratio>=0.80) while hold/lower hold >=4/6,
-  the trunk-gradient mechanism is CONFIRMED and detach-trunk becomes
-  the standing recipe for any future GRU multi-mode anchor. If walk
-  still freezes, the anchor-for-recurrent-nets line closes for good
-  (three independent levers now refuted: on/off toggle x2, trunk
-  isolation) and the next lever is architecture (mode-gated/separate
-  recurrent cores), not another training-loss tweak — do not re-try
-  coefficient variants on this mechanism.
+- **Open question, no run queued:** the remaining lever is
+  architecture — a mode-gated or separate recurrent core per skill,
+  so walk's forward pass doesn't share a trunk with the anchored
+  stance modes — not another training-loss tweak. This is a real
+  design change (new policy architecture), unspec'd and unwritten;
+  nothing is queued against it. Distill-then-finetune (`ft1`, warm
+  from a BC-distilled net) remains the only recipe that has kept a
+  GRU walking cheat-free to date, at the cost of hold/track erosion
+  (see "From-scratch GRU walking CLOSED" above).
 - Operator-directed next lever for RISE: re-distill stance-heavy +
   DAgger rounds on `distill_gru.py` (give the BC step actual rise
   demos before any further RL) — in progress outside this loop;

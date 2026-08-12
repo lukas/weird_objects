@@ -2694,3 +2694,80 @@ def test_ramp_jitter_never_touches_targets_or_holds():
     for p in plain:
         if float(np.min(p.height)) < 0.0:
             assert -0.055 - 1e-9 <= float(np.min(p.height)) <= -0.025 + 1e-9
+
+
+# --------------------------------------------------------------------------
+# SUPPORT-MARGIN bank (reward.k_support_margin > 0 — the stand knife-edge
+# lever, 08-12). Replay of all ten 08-11 hardware stand-failure tapes
+# (replay_trace.py + a support-polygon trace) found the real trip
+# mechanism: in the last ~1 s of the deployed rise the policy's own
+# commands degenerate the support to THREE feet (L0/L1/L4) with the CoM
+# margin flickering +25/-25 mm every tick — sim survives on a
+# hair-trigger catch, hardware tips on the L4 pivot. The (long-built,
+# never-trained) k_support_margin term prices exactly this: income
+# proportional to CoM depth inside the loaded-feet polygon, capped at
+# 40 mm, exempt below 3 loaded feet (belly rest). These tests pin
+# (a) k=0 is bit-exact (default-off), (b) a wide loaded stance earns
+# the cap, (c) the REPLAY'S OWN degenerate support set (standing on
+# legs 0/1/4 only) earns a small fraction of the wide stance — the
+# gradient pushes toward keeping feet down and the CoM deep, and no
+# cheat with fewer/asymmetric feet out-earns the honest plant.
+
+MARGIN_OVERRIDES = dict(HOLD_LOAD_OVERRIDES)
+MARGIN_OVERRIDES[("reward", "k_support_margin")] = 1.0
+
+
+def _margin_rollout(seed: int, overrides, lift_legs=()) -> float:
+    """Scripted stance hold with the given legs lifted; returns the
+    episode return (same recipe as _hold_load_rollout, arbitrary legs)."""
+    env = _make_hold_env(seed, overrides)
+    env.reset()
+    q = env.data.qpos[env._qadr].copy()
+    for leg in lift_legs:
+        q[3 * leg + 1] -= HOVER_LIFT_DEG * DEG2RAD
+    act = q_rad_to_action(q)
+    total = 0.0
+    while True:
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        if term or trunc:
+            assert not term, f"margin bank pose lift={lift_legs} fell over"
+            break
+    env.close()
+    return total
+
+
+def test_support_margin_default_off_bit_exact():
+    """k_support_margin=0 (explicit) must equal the key being absent."""
+    off = dict(HOLD_LOAD_OVERRIDES)
+    off[("reward", "k_support_margin")] = 0.0
+    a = _margin_rollout(SEEDS[0], HOLD_LOAD_OVERRIDES)
+    b = _margin_rollout(SEEDS[0], off)
+    assert a == b, f"k_support_margin=0 changed the reward path ({a} vs {b})"
+
+
+def test_support_margin_pays_wide_stance_the_cap():
+    """A quiet six-foot plant stance sits >=40 mm deep: the margin
+    income is the full cap every tick (measured 375.0 = k*steps)."""
+    for s in SEEDS[:2]:
+        inc = (_margin_rollout(s, MARGIN_OVERRIDES)
+               - _margin_rollout(s, HOLD_LOAD_OVERRIDES))
+        assert inc > 350.0, f"wide stance margin income only {inc:.1f}"
+
+
+def test_support_margin_prices_the_replay_knife_edge():
+    """Standing on legs 0/1/4 only — the EXACT degenerate support set
+    from the hardware stand-failure replays — must earn a small
+    fraction of the wide stance's margin income (measured 70.6 vs
+    375.0, 0.19x): the term's gradient points from the knife edge back
+    toward the honest plant, and shedding feet never pays."""
+    for s in SEEDS[:2]:
+        inc_wide = (_margin_rollout(s, MARGIN_OVERRIDES)
+                    - _margin_rollout(s, HOLD_LOAD_OVERRIDES))
+        inc_knife = (_margin_rollout(s, MARGIN_OVERRIDES, (2, 3, 5))
+                     - _margin_rollout(s, HOLD_LOAD_OVERRIDES, (2, 3, 5)))
+        assert inc_knife < 0.3 * inc_wide, (
+            f"degenerate 0/1/4 support still earns {inc_knife:.1f} vs "
+            f"wide {inc_wide:.1f} — margin term not discriminating")
+        assert inc_knife >= 0.0, "margin income went negative on a " \
+            "stable tripod — cap/exemption broken"

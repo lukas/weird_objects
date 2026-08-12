@@ -188,10 +188,22 @@ unresolved blockers between the robot and reliable joystick control.
   worse. 10M more steps bought nothing. **TORQUE-DR (walk_push)
   FAMILY NOW CLOSED FOR GOOD** — all three perturb-during-training
   axes for the takeoff-roll transient (walk-kick, rise-rock,
-  walk-push) are closed; the only remaining lever is contact/pinning
-  geometry modeling (belly/tucked-leg collision at takeoff), not any
-  further DR variant. `cw-stand-riserock4`: not this cycle's run,
-  verdict pending elsewhere.
+  walk-push) are closed. **08-12 ~08:30: `cw-stand-riserock4` (the
+  ramp-gated shape-corrected rise-rock, the family's last variant)
+  FAILED the same way riserock3 did** — nominal det LOWER fell to
+  4/6 with the video-confirmed outrigger/flag-leg park, rise sto
+  2/6 tilt falls; disqualified by its own retention clause. And the
+  contact/pinning hypothesis itself is now FALSIFIED: the
+  `env.leg_chassis_collision` axis was built (default-off, tests
+  green) and tape-replay shows the recorded curls NEVER touch the
+  chassis — instead the support-polygon trace found the real
+  mechanism: the deployed policy ends its rise on THREE feet
+  (L0/L1/L4) with the CoM margin flickering **±25 mm every tick** —
+  a knife edge sim survives by a hair-trigger catch and hardware
+  doesn't (SIM.md gap 4). New arm `cw-stand-margin1` (2M discovery,
+  warm from holdbc1-hard1) prices exactly that via the never-used
+  `reward.k_support_margin` term; gate = det-rise plant_margin_mm
+  up vs matched parent + full retention + no outrigger cheat.
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching
