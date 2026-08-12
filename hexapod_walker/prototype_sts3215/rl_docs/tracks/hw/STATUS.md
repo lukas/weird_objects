@@ -353,6 +353,24 @@ unresolved blockers between the robot and reliable joystick control.
   retry (not retention-only); next lever is START-STATE exposure —
   and the stance candidate that should face eval_session next is
   the footlow lineage once its gates pass.
+  **08-12 afternoon: `cw-stand-footlow2-hard1` (the 10M
+  consolidation) PASSES — all four pre-registered clauses, first
+  time.** Cold det rises all valid_plant ≤5mm (bridge 2/2, crouch
+  1/1 from the gate draw; flat 12/12 via a targeted probe since the
+  6-episode draw sampled none, h_err 0.5–3.4mm, roll_tail 0.0°).
+  Det hold ZERO real park: all six feet duty 0.95–0.99 at ~0.1–0.2mm
+  commanded hover, tighter than r1's own 0.9mm residual. Lower
+  12/12 det+sto, feet flush (end_clear ≤0.3mm det/≤6.4mm sto). AND
+  it clears `eval_session` HARD gates outright (no_falls/rise/
+  sit_descends) — rise reaches full 148mm by t=9.5s under the
+  interactive ramp, where the currently-DEPLOYED `holdbc1_hard1`
+  stalls at 55mm on the identical protocol. Visual-quality stats
+  (drag/roll_tail) flat-to-improved vs the r1 parent on every mode.
+  Video-confirmed clean six-foot stance throughout, no flag-leg/
+  park/stilt. `ppo_goal_cw_stand_footlow2_hard1` is a genuine stance
+  DEPLOYMENT CANDIDATE (sim-only, not yet bench-tested) — the
+  promotion-over-`holdbc1_hard1` call is next. `cw-stand-footzsharp1`
+  (the paired last-mm-hover probe) still to triage.
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching

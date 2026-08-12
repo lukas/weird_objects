@@ -5,7 +5,20 @@ RL_LOG/archive prose disagrees with a line here, this file wins.
 Update ONLY when a ruling is accepted or hardware produces new
 evidence; keep 50–80 lines. Reading order: RL_GOALS.md → this file →
 RL_PLAN.md → RESEARCH_RULES.md → rl_docs/SIM.md.
-Last regenerated: 2026-08-12 midday+ (`cw-stand-footlow1` FAIL per
+Last regenerated: 2026-08-12 afternoon (`cw-stand-footlow2-hard1`
+PASSES its full gate — first stance checkpoint with clean cold-start
+rise incl. flat (12/12, confirmed via a targeted probe the standard
+draw missed), a genuinely park-free six-foot hold (duty 0.95-0.99,
+~0.1-0.2mm hover), clean 12/12 lower, AND a pass on the interactive
+`eval_session` HARD gates that the deployed `holdbc1_hard1` FAILS
+(that checkpoint stalls belly rise at 55mm under the interactive
+ramp; this one reaches the full 148mm by t=9.5s). Drag/roll-tail
+flat-to-better than its parent on every mode, video-confirmed. Sim-
+only deployment CANDIDATE (`ppo_goal_cw_stand_footlow2_hard1`,
+hardware_ready=false) — promotion over `holdbc1_hard1` is the next
+call, not yet made. `cw-stand-footzsharp1` still to triage. Earlier
+entries retained below for the resolution chain that got here.
+Earlier same day (2026-08-12 midday+): `cw-stand-footlow1` FAIL per
 own gate but the most informative stance arm yet: merging
 footz1-hard1's hold fix with anchormix1-r1's lower fix gets BOTH
 clean at once for the first time — det hold all six feet duty
@@ -38,10 +51,10 @@ hover (footlow1's same foot: +0.4mm at duty 0.97) — sub-resolution
 for the 10mm-scale foot_z term (~0.008 loss), NOT the historical
 10mm weight-shed park. Rise+hold+lower are now simultaneously clean
 to mm scale in one policy for the first time; consolidation
-`cw-stand-footlow2-hard1` (10M) + resolution probe
-`cw-stand-footzsharp1` (foot_z_mm 10→3) queued.
-`holdbc1_hard1` stays deployed. Earlier
-same day: `cw-stand-footz1-hard1` FAILED its own 10M hardening (hold
+`cw-stand-footlow2-hard1` (10M) PASSED (see top of file) + resolution
+probe `cw-stand-footzsharp1` (foot_z_mm 10→3) still to triage.
+`holdbc1_hard1` stays deployed for now (promotion call pending).
+Earlier same day: `cw-stand-footz1-hard1` FAILED its own 10M hardening (hold
 held, lower regressed to 0/12 — the lineage never had a lower
 anchor, which is exactly what footlow1 then added). Earlier, 08-11
 late: omni translation RESOLVED IN SIM via the rot-60 wrapper; rise/
