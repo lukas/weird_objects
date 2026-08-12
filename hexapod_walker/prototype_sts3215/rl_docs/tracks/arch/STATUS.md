@@ -77,15 +77,37 @@ at what budget, with which failure modes.
   condition. **From-scratch-GRU-with-anchor is CLOSED**; distill-
   then-finetune (ft1, warm from a BC-distilled net) remains the only
   path that has kept a GRU walking cheat-free.
+- **`cw-arch-gru-anchor2` (10M, one variable off anchor1: walk-tick
+  anchor OFF, rise/hold/lower still anchored) FAILS — the exact
+  false-branch prediction confirmed.** Turning off the walk-anchor
+  term did NOT unfreeze walk: det gait_valid still reads 6/6 but
+  prog_ratio 0.01, speed 0.002 m/s, video pixel-static across all 10
+  sampled frames both det+sto — identical to anchor1's fingerprint.
+  Hold/lower held anchor1's levels (det 6/6 each); rise slipped to
+  1/6 (below the >=2/6 bar, anchor1 had 2/6). **Proves the
+  interference is the SHARED recurrent trunk (feature extractor + GRU
+  cell every mode's forward pass runs through), not the walk-anchor
+  loss term itself** — two straight misses on the binary on/off
+  anchor lever, so per RESEARCH_RULES the mechanism changes, not the
+  toggle. CODE landed same cycle: `train.bc_anchor_detach_trunk`
+  (default off/bit-exact, tests in `test_gru_policy.py`) stops the
+  anchor's gradient at the GRU/feature-extractor output so stance-
+  tick anchoring only trains the actor head, never the shared trunk.
+  Follow-up `cw-arch-gru-anchor3` (2M discovery, one variable off
+  anchor2: `bc_anchor_detach_trunk=1`) queued and VERIFIED RUNNING —
+  direct test of the confirmed mechanism.
 
 ## Next
 
-- **The next arm is one variable off `cw-arch-gru-anchor1`: drop
-  the walk-tick anchor, keep rise+hold+lower anchored.** anchor1
-  proved the mechanism works for stance on this net; the walk
-  freeze is caused by anchoring walk specifically (already twice
-  closed on the MLP lineage) — never re-propose a walk-tick BC
-  anchor. Untried combination, not a coefficient variant.
+- **`cw-arch-gru-anchor3` running (08-12):** if walk recovers
+  (gait_valid>=5/6, prog_ratio>=0.80) while hold/lower hold >=4/6,
+  the trunk-gradient mechanism is CONFIRMED and detach-trunk becomes
+  the standing recipe for any future GRU multi-mode anchor. If walk
+  still freezes, the anchor-for-recurrent-nets line closes for good
+  (three independent levers now refuted: on/off toggle x2, trunk
+  isolation) and the next lever is architecture (mode-gated/separate
+  recurrent cores), not another training-loss tweak — do not re-try
+  coefficient variants on this mechanism.
 - Operator-directed next lever for RISE: re-distill stance-heavy +
   DAgger rounds on `distill_gru.py` (give the BC step actual rise
   demos before any further RL) — in progress outside this loop;
