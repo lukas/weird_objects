@@ -125,6 +125,23 @@ class RandRanges:
     # hardware curl demands. Default OFF (opt-in via dr.rise_rock_*).
     rise_rock_prob: float = 0.0
     rise_rock_deg: tuple[float, float] = (6.0, 15.0)     # target body roll
+    # Walk takeoff kick (hardware 08-11, bench_report over 18 walks):
+    # EVERY hardware walk crosses 5° roll within 0.6-1.5 s of gait
+    # start and peaks 13-27°, at sustained roll RATES of 11-46 °/s
+    # (median 24, p90 45; gyro spikes to ~90) — while sim plant-start
+    # episodes take off level, so surviving the transient is luck.
+    # Static leans do NOT close the gap (cw-dep-tip1-takeoff25-r1:
+    # child==parent at the matched 20-25° dose, lever closed) — the
+    # gap is dynamic. Axis: walk-mode episodes sometimes get a
+    # TRANSIENT one-side fold pulse on the PHYSICAL servo command over
+    # the first ~second of gait (sim_env._walk_kick_offset, half-sine
+    # ramp in and out, net-zero terminal offset) — a roll-rate
+    # injection through the same fold→roll mapping as tipped and
+    # rise-rock, sized to the measured regime (8-18° peak over
+    # 0.5-1.2 s ≈ 13-45 °/s). Default OFF (opt-in via dr.walk_kick_*).
+    walk_kick_prob: float = 0.0
+    walk_kick_deg: tuple[float, float] = (8.0, 18.0)     # peak target roll
+    walk_kick_s: tuple[float, float] = (0.5, 1.2)        # pulse duration
 
     def scaled(self, s: float) -> "RandRanges":
         """Curriculum knob: shrink every range toward nominal by ``s``.
@@ -182,6 +199,9 @@ class RandRanges:
             # curriculum, the dose does not.
             rise_rock_prob=self.rise_rock_prob * s,
             rise_rock_deg=self.rise_rock_deg,
+            walk_kick_prob=self.walk_kick_prob * s,
+            walk_kick_deg=self.walk_kick_deg,
+            walk_kick_s=self.walk_kick_s,
         )
 
 
@@ -223,6 +243,11 @@ class EpisodeRandomization:
     # rocking this episode; rise-mode episodes only, same sign
     # convention as tipped_roll_deg).
     rise_rock_roll_deg: float = 0.0
+    # Signed PEAK target roll + pulse duration for the walk takeoff
+    # kick (0 = no kick this episode; walk-mode episodes only, same
+    # sign convention as tipped_roll_deg).
+    walk_kick_roll_deg: float = 0.0
+    walk_kick_dur_s: float = 0.0
 
     def apply_to_model(self, model, *, chassis_bid: int) -> None:
         """Mutate a (freshly restored) MjModel in place."""
@@ -293,6 +318,8 @@ class EpisodeRandomization:
                 float(np.max(np.abs(self.start_offset_rad))) / DEG2RAD, 1),
             "tipped_roll_deg": round(self.tipped_roll_deg, 1),
             "rise_rock_roll_deg": round(self.rise_rock_roll_deg, 1),
+            "walk_kick_roll_deg": round(self.walk_kick_roll_deg, 1),
+            "walk_kick_dur_s": round(self.walk_kick_dur_s, 2),
         }
 
 
@@ -374,6 +401,14 @@ class DomainRandomizer:
             if rng.random() < 0.5:
                 rise_rock = -rise_rock
 
+        # Walk takeoff kick: same guarded-draw convention.
+        walk_kick, walk_kick_s = 0.0, 0.0
+        if r.walk_kick_prob > 0.0 and rng.random() < r.walk_kick_prob:
+            walk_kick = float(u(*r.walk_kick_deg))
+            walk_kick_s = float(u(*r.walk_kick_s))
+            if rng.random() < 0.5:
+                walk_kick = -walk_kick
+
         return EpisodeRandomization(
             mass_scale=u(*r.mass_scale),
             com_offset_m=np.array([
@@ -413,4 +448,6 @@ class DomainRandomizer:
             action_noise=r.action_noise,
             tipped_roll_deg=tipped_roll,
             rise_rock_roll_deg=rise_rock,
+            walk_kick_roll_deg=walk_kick,
+            walk_kick_dur_s=walk_kick_s,
         )

@@ -1813,3 +1813,124 @@ def test_rise_rock_never_touches_other_modes():
         "draw did not fire at prob 1 — test is vacuous"
     assert env._rise_rock_offset() is None, \
         "rock bias leaked into a hold-mode episode"
+
+
+# --------------------------------------------------------------------------
+# WALK-KICK bank (dr.walk_kick_*, 08-11 hardware takeoff-transient gap).
+#
+# Bench truth (bench_report over ALL 18 hardware walks, 08-11): every
+# walk crosses 5° roll within 0.6-1.5 s of gait start and peaks
+# 13-27°, at sustained roll RATES of 11-46 °/s — and whether that
+# transient recovers or capsizes is ~a coin flip for BOTH champions.
+# Static leans do NOT close the gap (cw-dep-tip1-takeoff25-r1:
+# child==parent at the matched 20-25° dose): the sim already recovers
+# static tipped starts, what it never visits is the moving excursion.
+# The axis injects a TRANSIENT one-side fold pulse (half-sine, net-zero
+# terminal offset) on the physical command over the first ~second of
+# walk-mode episodes. These tests pin (a) default-off is inert, (b) the
+# pulse genuinely rolls a frozen plant stance through the hardware band
+# and DIES OUT (transient, not a bias), and (c) non-walk modes are
+# never perturbed.
+
+KICK_OVERRIDES = {
+    ("dr", "walk_kick_prob"): 1.0,
+    ("dr", "walk_kick_deg"): "14,14",
+    ("dr", "walk_kick_s"): "0.8,0.8",
+}
+
+
+def _make_kick_env(seed: int, overrides):
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = load_config()
+    for (sec, leaf), val in overrides.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None),
+        randomize=(("dr", "walk_kick_prob") in overrides),
+        dr_scale=0.0, episode_seconds=6.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    gen.p_walk = 1.0
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 0.0)
+    return env
+
+
+def _kick_rollout(seed: int, overrides) -> dict:
+    """Freeze at the episode's start command (a parked plant) and let
+    the kick pulse — if drawn — do its thing. Returns the peak |rel
+    roll| plus the peak AFTER the pulse window (to prove it dies out)."""
+    env = _make_kick_env(seed, overrides)
+    env.reset()
+    q0 = env._cmd.copy()
+    r0, _ = env._true_roll_pitch()
+    dur = (env._ep_rand.walk_kick_dur_s if env._ep_rand is not None
+           else 0.0)
+    peak = peak_after = 0.0
+    saw_offset = False
+    for _ in range(int(3.0 / env.dt)):
+        if env._walk_kick_offset() is not None:
+            saw_offset = True
+        _obs, _r, term, trunc, _info = env.step(q_rad_to_action(q0))
+        r, _p = env._true_roll_pitch()
+        rel = abs(r - r0) / DEG2RAD
+        peak = max(peak, rel)
+        if env._step_i * env.dt >= dur + 1.0:
+            peak_after = max(peak_after, rel)
+        if term or trunc:
+            break
+    return {"peak_deg": peak, "peak_after_deg": peak_after,
+            "saw_offset": saw_offset, "terminated": bool(term)}
+
+
+def test_walk_kick_default_off_is_inert():
+    """No dr.walk_kick override -> no draw, no command pulse, and the
+    frozen plant stays level."""
+    for seed in SEEDS:
+        out = _kick_rollout(seed, {})
+        assert not out["saw_offset"], "kick offset emitted with axis off"
+        assert out["peak_deg"] < 3.0, (
+            f"frozen plant tilts {out['peak_deg']:.1f}° with the axis "
+            f"OFF — baseline broken, not the axis")
+
+
+def test_walk_kick_pulse_rocks_takeoff_then_dies_out():
+    """With a 14° draw the pulse must roll the frozen stance into the
+    hardware's measured takeoff band (>= 5°) AND fade: one second after
+    the pulse window the excursion must be back under 4° — it is a
+    roll-RATE injection, not a persistent lean."""
+    peaks, afters = [], []
+    for seed in SEEDS:
+        out = _kick_rollout(seed, KICK_OVERRIDES)
+        assert out["saw_offset"], "kick never fired at prob 1"
+        peaks.append(out["peak_deg"])
+        afters.append(out["peak_after_deg"])
+    assert max(peaks) >= 5.0, (
+        f"kick pulse barely moves the stance (peaks {peaks}) — the "
+        f"fold→roll mapping does not reproduce the takeoff transient")
+    assert max(afters) < 4.0, (
+        f"excursion persists after the pulse (post-window peaks "
+        f"{afters}) — supposed to be transient")
+
+
+def test_walk_kick_never_touches_other_modes():
+    """A rise-mode episode with the axis forced on must never see the
+    pulse — the perturbation is scoped to walk episodes only."""
+    cfg = load_config()
+    for (sec, leaf), val in KICK_OVERRIDES.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None), randomize=True,
+        dr_scale=0.0, episode_seconds=6.0, seed=0, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "rise" else 0.0)
+    env.reset()
+    assert env._ep_rand is not None \
+        and env._ep_rand.walk_kick_roll_deg != 0.0, \
+        "draw did not fire at prob 1 — test is vacuous"
+    assert env._walk_kick_offset() is None, \
+        "kick pulse leaked into a rise-mode episode"

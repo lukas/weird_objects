@@ -715,6 +715,41 @@ class SimHexapodBalanceEnv(_GymBase):
             dq[3 * leg + 2] += 0.5 * fold
         return dq
 
+    def _walk_kick_offset(self) -> np.ndarray | None:
+        """dr.walk_kick_* (08-11, hardware takeoff-transient gap):
+        TRANSIENT one-side fold pulse on the PHYSICAL servo command
+        over the first ~second of walk-mode episodes. bench_report
+        over 18 hardware walks: every one crosses 5° roll within
+        0.6-1.5 s of gait start at 11-46 °/s roll rates, and static
+        leans do not reproduce it (takeoff25-r1 child==parent) — the
+        gap is the roll RATE, so the injection must move. Half-sine
+        envelope: ramps in and out with net-zero terminal offset, so
+        only the dynamic excursion remains to be survived. Same
+        fold→roll mapping and command-side wiring as tipped/rise-rock
+        (logical loop blind, encoders read true angles, tilt ref
+        level). Stateless per tick (pure function of _ep_rand +
+        _step_i → pool-restore safe by construction)."""
+        er = self._ep_rand
+        if (er is None or er.walk_kick_roll_deg == 0.0
+                or er.walk_kick_dur_s <= 0.0
+                or self._goal_traj is None
+                or getattr(self._goal_traj, "mode", "") != "walk"):
+            return None
+        t = self._step_i * self.dt
+        if t >= er.walk_kick_dur_s:
+            return None
+        roll = er.walk_kick_roll_deg * math.sin(
+            math.pi * t / er.walk_kick_dur_s)
+        if abs(roll) < 0.5:
+            return None
+        fold = abs(roll) / self.TIP_ROLL_PER_FOLD * DEG2RAD
+        legs = (3, 4, 5) if roll > 0 else (0, 1, 2)
+        dq = np.zeros(N_JOINTS, dtype=float)
+        for leg in legs:
+            dq[3 * leg + 1] -= fold
+            dq[3 * leg + 2] += 0.5 * fold
+        return dq
+
     def _true_roll_pitch(self) -> tuple[float, float]:
         """Ground-truth chassis attitude in the IMU's roll/pitch
         convention (privileged; reset-time only). Uses the episode's
@@ -1283,6 +1318,9 @@ class SimHexapodBalanceEnv(_GymBase):
                 rock = self._rise_rock_offset()
                 if rock is not None:
                     cmd_phys = self._clip_to_joint_limits(cmd_phys + rock)
+                kick = self._walk_kick_offset()
+                if kick is not None:
+                    cmd_phys = self._clip_to_joint_limits(cmd_phys + kick)
                 self._profile.command(
                     cmd_phys, speed_deg_s=self.write_speed_deg_s,
                     acc_units=self.write_acc_units)
