@@ -142,18 +142,36 @@ new command later (the phase-2 transfer test).
   cap). A concurrent cycle diagnosed it and queued the fixed retry
   **`cw-mt-b-hist16-r1`** (--n-envs=3072, same hypothesis/gate) to the
   backlog.
+- **08-12 ~23:3x: `cw-mt-b-hist16-r1` (representation lever, 2M) FAILS
+  per its pre-registered gate — 16-frame history does not change 2M
+  discovery on b1's recipe.** gate(DR0) det prog med 0.21 (needed
+  >=0.32; b1 baseline 0.16, delta inside noise), gait_valid 0/6 det
+  (needed >=1/6); video shows the identical low-crouch splay with
+  legs 1+4 parked every det episode, matching b1/arch256's shape
+  exactly. sto shows 5/6 gait_valid but that is noise-twitch over the
+  same crouch (prog med 0.28, fwd 0.12m/15s), not stepping — not a
+  discriminator. slip_per_m med 4.4 det / 6.8 sto, 0 terms. Per the
+  pre-registered FAIL branch: temporal window is NOT the 2M discovery
+  lever either; no further capacity/representation retry at 2M on
+  this recipe — the cheap-2M-probe menu for this track (capacity,
+  staged-widening, history) is now exhausted. Next call per the gate:
+  a straight-to-20M hist16 arm citing the b2/widen2 budget precedent.
+  Refill (same cycle): **`cw-mt-b-hist16-20m1`** (respec, continue
+  the r1 checkpoint to the b2-matched 20M budget) — RUNNING (train-0).
 
 ## Next
 
-- **[RUNNING, train-0] `cw-mt-b-hist16-r1`** — the representation lever, launch-
-  mechanics fixed (--n-envs=3072). Gate: det prog med >=0.32 (2x b1's
-  0.16) OR gait_valid >=1/6 at 2M -> queue a matched 20M hist16 arm
-  (the real command-acquisition test) next; FAIL (at/below b1's
-  0.16/0-of-6) -> temporal window is not the 2M discovery lever
-  either, no further capacity/representation retry at 2M on this
-  recipe — next call is a straight-to-20M hist16 arm citing the
-  b2/widen2 budget precedent, or an operator call on a command-width
-  curriculum.
+- **[RUNNING, train-0] `cw-mt-b-hist16-20m1`** — the real
+  command-acquisition test for the representation lever: same
+  16-frame recipe as `r1`, budget-matched to `cw-mt-b2` (20M). Gate
+  (vs `b2`'s matched numbers): PASS = gait_valid >=5/6 det AND prog
+  med >=0.615 (0.5x-of-a2 bar b2 missed) AND signed-yaw
+  differential >=0.10 sign-correct AND turn |wz_err| med <=0.10 with
+  <9 falls. FAIL(match-b2) = prog/yaw within noise of b2 -> history
+  lever closed at this recipe, next is escalation (arch recurrence /
+  operator command-width-curriculum call), no further hist-frames
+  variants. FAIL(worse/no-gait) = hist16 actively hurts from-scratch
+  multitask learning. Report slip_per_m + roll_tail vs b2 regardless.
 - Phase 2 / wave-2 planning should start from `b2` (real gait,
   closest to passing) or `a2` (clean specialist), never from `c2`'s
   broad-command recipe as-is — any future wide-command attempt
