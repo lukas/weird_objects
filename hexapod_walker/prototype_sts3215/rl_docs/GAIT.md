@@ -523,3 +523,22 @@ det prog_ratio 1.05, sto 0.91, roll settles clean, zero falls. This
 is now the strongest tall-walking candidate in the campaign; next is
 the standard dep-line DR/tipped-start retention panel before any
 Gate 0 consideration -- NOT yet run.
+
+**08-12: retention panel items 1+2 (friction, floor slope) PASS, both
+free.** `cw-dep-bcgait1-hard1-fric` (0.4-1.6x friction DR, 8M) and
+`cw-dep-bcgait1-hard1-groundtilt5` (5deg floor tilt DR, 8M), both
+respec'd from hard1's own checkpoint. Both: gait_valid 6/6 all four
+eval slices (gate DR0 + own-DR, det+sto), zero falls/terminations,
+slip/m 1.27-1.54 (within bar), probe_tall_wall height fric -7.9mm /
+groundtilt5 -8.5mm -- matches or slightly beats the frozen parent's
+own matched-probe (-12.7mm), no crouch re-drift. Video clean six-leg
+gait both arms, no flag-leg. Watch item (not gate-breaking): leg-yaw
+limit margin narrows further under DR (fric 0.82-1.45deg, groundtilt5
+0.16-1.22deg vs the parent's matched-probe 1.37-1.90deg) -- continues
+the lineage-wide narrowing trend (17deg->2.3deg->under 1.5deg); still
+positive/not pinned but worth a combined-axis check before Gate 0.
+Remaining panel items before Gate 0: tipped-start dose (the default
+tipped_start_prob=0.30 is already baked into training/eval, but a
+dedicated stress dose hasn't been isolated on this checkpoint) and a
+combined/stacked-axis pass. Detail: rl_docs/SKILLS.md tall-walking
+section.

@@ -653,6 +653,13 @@ via BC-anchor, both handoffs compose).
   positive, slip drops under the 1.8 bar both passes (1.43/1.51), the
   sacrificed-leg episode is gone, zero falls. Strongest tall-walking
   candidate yet; DR/tipped-start retention panel is the next step,
-  NOT yet run — not hardware-ready. Detail: GAIT.md, hw/STATUS.md.
+  NOT yet run — not hardware-ready. **08-12: panel items 1+2 (friction
+  0.4-1.6x, floor tilt 5deg) PASS, both free** (`cw-dep-bcgait1-hard1-fric`,
+  `-groundtilt5`: gait_valid 6/6 all slices, zero falls, slip in-band,
+  probe_tall_wall height matches/beats the parent, clean video) — watch
+  item: leg-yaw limit margin narrows further under DR (down to 0.16deg
+  on one seed, still positive), continuing the lineage-wide narrowing
+  trend; not gate-breaking. Remaining before Gate 0: tipped-start dose
+  isolation + combined-axis check. Detail: GAIT.md, hw/STATUS.md.
 - MoE only after clean multitask training (explicit mode ID, correct
   rewards, enough plain-MLP capacity) shows real skill interference.
