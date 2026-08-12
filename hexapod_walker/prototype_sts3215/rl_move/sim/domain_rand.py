@@ -112,6 +112,19 @@ class RandRanges:
     # the run's safety envelope; see HexapodSimEnv._tipped_offset_rad.
     tipped_start_prob: float = 0.30
     tipped_start_deg: tuple[float, float] = (6.0, 18.0)  # target body roll
+    # Rise rocking (hardware 08-11, bench_blast camera sessions): the
+    # real belly curl rocks 10°+ and trips tilt_roll 5/5 at the same
+    # tick while the sim's curl stays <2° under BOTH actuator fits
+    # (probed 08-11) — a systematic one-side droop the nominal sim
+    # cannot produce. Axis: rise-mode episodes sometimes carry a
+    # persistent one-side hip/knee fold bias on the PHYSICAL servo
+    # command (sim_env._rise_rock_offset; same fold→roll mapping as
+    # the tipped start). Encoders read the true (drooped) angles and
+    # the tilt reference stays level, so the policy is paid to close
+    # the command-vs-read loop and level out — the exact skill the
+    # hardware curl demands. Default OFF (opt-in via dr.rise_rock_*).
+    rise_rock_prob: float = 0.0
+    rise_rock_deg: tuple[float, float] = (6.0, 15.0)     # target body roll
 
     def scaled(self, s: float) -> "RandRanges":
         """Curriculum knob: shrink every range toward nominal by ``s``.
@@ -165,6 +178,10 @@ class RandRanges:
             # hardware actually fails in.
             tipped_start_prob=self.tipped_start_prob * s,
             tipped_start_deg=self.tipped_start_deg,
+            # Same convention as tipped: probability follows the
+            # curriculum, the dose does not.
+            rise_rock_prob=self.rise_rock_prob * s,
+            rise_rock_deg=self.rise_rock_deg,
         )
 
 
@@ -202,6 +219,10 @@ class EpisodeRandomization:
     # left. sim_env maps this to an asymmetric leg-fold start offset at
     # plant/park starts and keeps the tilt reference LEVEL.
     tipped_roll_deg: float = 0.0
+    # Signed target body roll for the rise-rock command bias (0 = no
+    # rocking this episode; rise-mode episodes only, same sign
+    # convention as tipped_roll_deg).
+    rise_rock_roll_deg: float = 0.0
 
     def apply_to_model(self, model, *, chassis_bid: int) -> None:
         """Mutate a (freshly restored) MjModel in place."""
@@ -271,6 +292,7 @@ class EpisodeRandomization:
             "start_offset_max_deg": round(
                 float(np.max(np.abs(self.start_offset_rad))) / DEG2RAD, 1),
             "tipped_roll_deg": round(self.tipped_roll_deg, 1),
+            "rise_rock_roll_deg": round(self.rise_rock_roll_deg, 1),
         }
 
 
@@ -344,6 +366,14 @@ class DomainRandomizer:
             if rng.random() < 0.5:
                 tipped_roll = -tipped_roll
 
+        # Rise rock: same guarded-draw convention (axis off = legacy
+        # rng stream, bit-exact).
+        rise_rock = 0.0
+        if r.rise_rock_prob > 0.0 and rng.random() < r.rise_rock_prob:
+            rise_rock = float(u(*r.rise_rock_deg))
+            if rng.random() < 0.5:
+                rise_rock = -rise_rock
+
         return EpisodeRandomization(
             mass_scale=u(*r.mass_scale),
             com_offset_m=np.array([
@@ -382,4 +412,5 @@ class DomainRandomizer:
             gyro_noise_rad_s=r.gyro_noise_deg_s * DEG2RAD,
             action_noise=r.action_noise,
             tipped_roll_deg=tipped_roll,
+            rise_rock_roll_deg=rise_rock,
         )

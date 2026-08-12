@@ -1670,3 +1670,146 @@ def test_hold_load_gate_light_tax_on_quiet_stand(hold_load_bank):
     assert on > 0.90 * off, (
         f"hold_feet_load taxes the honest quiet stand ({on:.0f} vs "
         f"{off:.0f} without it) — ref/floor miscalibrated.")
+
+
+# --------------------------------------------------------------------------
+# RISE-ROCK bank (dr.rise_rock_*, 08-11 hardware belly-curl rocking gap).
+#
+# Bench truth (bench_blast camera sessions, 08-11): the learned rise is
+# deterministic-fail on hardware — 5/5 tilt_roll trips at the same tick
+# (~9 s mid-curl), rel roll 10.1-10.6°, currents <= 0.27 A — while the
+# sim's curl stays <= 1.7° under BOTH actuator fits (probed 08-11: the
+# loaded fit does NOT reproduce the rock either, so it is not simple
+# lag). The axis models it as a persistent one-side hip/knee fold bias
+# on the PHYSICAL servo command of rise-mode episodes: the logical loop
+# never sees it, encoders read the true drooped angles, the tilt
+# reference stays level. These tests pin (a) default-off is inert,
+# (b) the bias genuinely rocks the honest reference curl into the
+# hardware's trip band, (c) a counter-command CAN level it (the skill
+# is expressible in the action space — the gradient exists), and
+# (d) non-rise modes are never perturbed.
+
+ROCK_OVERRIDES = dict(RISE_OVERRIDES)
+ROCK_OVERRIDES[("dr", "rise_rock_prob")] = 1.0
+ROCK_OVERRIDES[("dr", "rise_rock_deg")] = "10,10"
+# NOTE on countering: the STATIC path inverse (q_ref - bias) is NOT the
+# closability demonstration — at 10° it clips on ~14% of (path x joint)
+# points and on the negative-roll side it fails outright (measured at
+# authoring). The learnable skill is FEEDBACK: level the measured roll
+# through the same fold pattern, which a dumb P-controller already does
+# on both sides (test below).
+
+
+def _make_rock_env(seed: int, overrides) -> SimHexapodJointGoalEnv:
+    cfg = load_config()
+    for (sec, leaf), val in overrides.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None),
+        randomize=(("dr", "rise_rock_prob") in overrides),
+        dr_scale=0.0, episode_seconds=16.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "rise" else 0.0)
+    gen.force_rise_start = "flat"
+    return env
+
+
+def _rock_fold_pattern(roll_deg: float) -> np.ndarray:
+    """The tipped-start fold→roll mapping as a joint offset (test-local
+    twin of sim_env._rise_rock_offset's math)."""
+    fold = abs(roll_deg) / 0.36 * DEG2RAD
+    legs = (3, 4, 5) if roll_deg > 0 else (0, 1, 2)
+    dq = np.zeros(18)
+    for leg in legs:
+        dq[3 * leg + 1] -= fold
+        dq[3 * leg + 2] += 0.5 * fold
+    return dq
+
+
+def _rock_rollout(seed: int, overrides, counter: bool = False) -> dict:
+    """Replay the honest reference curl; optionally run a P-feedback
+    leveler on measured roll (gain 0.8, the closability floor). Returns
+    peak |rel tilt| over the episode."""
+    env = _make_rock_env(seed, overrides)
+    env.reset()
+    ref = np.load(ROOT / RISE_REF)
+    q_ref, ramp_ref = ref["q_rad"], int(ref["ramp_i0"])
+    r0, p0 = env._true_roll_pitch()
+    peak, step = 0.0, 0
+    while True:
+        j = ramp_ref + (step - env._rise_ramp_i0)
+        q = q_ref[min(max(j, 0), len(q_ref) - 1)].copy()
+        if counter:
+            r, _p = env._true_roll_pitch()
+            err = (r - r0) / DEG2RAD
+            if abs(err) > 0.5:
+                q = q + _rock_fold_pattern(-err * 0.8)
+        _obs, _r, term, trunc, _info = env.step(q_rad_to_action(q))
+        step += 1
+        r, p = env._true_roll_pitch()
+        peak = max(peak, abs(r - r0), abs(p - p0))
+        if term or trunc:
+            break
+    return {"peak_tilt_deg": peak / DEG2RAD, "terminated": bool(term),
+            "rock": env._rise_rock_offset()}
+
+
+def test_rise_rock_default_off_is_inert():
+    """No dr.rise_rock override -> no draw, no command bias, and the
+    honest replay stays as flat as it always was."""
+    for seed in SEEDS:
+        out = _rock_rollout(seed, RISE_OVERRIDES)
+        assert out["rock"] is None, "rock offset emitted with axis off"
+        assert out["peak_tilt_deg"] < 4.0, (
+            f"legacy flat-start replay tilts {out['peak_tilt_deg']:.1f}° "
+            f"with the axis OFF — baseline broken, not the axis")
+
+
+def test_rise_rock_bias_rocks_the_honest_curl():
+    """With a 10° draw the un-countered reference curl must roll into
+    the hardware's measured trip band (>= 6°) — the sim now VISITS the
+    states the bench fails in."""
+    peaks = [_rock_rollout(s, ROCK_OVERRIDES)["peak_tilt_deg"]
+             for s in SEEDS]
+    assert max(peaks) >= 6.0, (
+        f"rock bias barely moves the curl (peaks {peaks}) — the "
+        f"fold→roll mapping does not reproduce the bench signature")
+
+
+def test_rise_rock_feedback_levels_it():
+    """A dumb P-controller on measured roll keeps every rocked curl
+    clear of the 10° trip band on BOTH sides at the full 10° dose
+    (4.6-6.7° peaks, zero terminations at authoring): the leveling
+    skill is closable through the action space, so it is learnable —
+    not physically impossible."""
+    for seed in SEEDS:
+        fixed = _rock_rollout(seed, ROCK_OVERRIDES, counter=True)
+        assert fixed["peak_tilt_deg"] < 8.0 and not fixed["terminated"], (
+            f"P-feedback does not level the rock "
+            f"({fixed['peak_tilt_deg']:.1f}°, "
+            f"terminated={fixed['terminated']}) — axis not closable")
+
+
+def test_rise_rock_never_touches_other_modes():
+    """A hold-mode episode with the axis forced on must never see the
+    bias — the perturbation is scoped to rise episodes only."""
+    cfg = load_config()
+    for (sec, leaf), val in ROCK_OVERRIDES.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None), randomize=True,
+        dr_scale=0.0, episode_seconds=6.0, seed=0, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "hold" else 0.0)
+    env.reset()
+    assert env._ep_rand is not None \
+        and env._ep_rand.rise_rock_roll_deg != 0.0, \
+        "draw did not fire at prob 1 — test is vacuous"
+    assert env._rise_rock_offset() is None, \
+        "rock bias leaked into a hold-mode episode"

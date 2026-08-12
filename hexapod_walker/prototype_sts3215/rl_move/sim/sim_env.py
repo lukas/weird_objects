@@ -687,6 +687,34 @@ class SimHexapodBalanceEnv(_GymBase):
         self._tipped_applied = True
         return q
 
+    def _rise_rock_offset(self) -> np.ndarray | None:
+        """dr.rise_rock_* (08-11, hardware belly-curl rocking gap):
+        persistent one-side hip/knee fold bias added to the PHYSICAL
+        servo command on rise-mode episodes that drew it. Uses the
+        tipped-start fold→roll mapping: as the feet load through the
+        curl the bias rolls the body toward the folded side — the
+        measured hardware signature (5/5 tilt trips mid-curl at the
+        same tick, sim flat under both actuator fits). The logical
+        loop never sees the bias (like zero_drift_cmd_frame); encoders
+        read the true drooped angles and the tilt reference stays
+        level, so leveling and honest ref-tracking are paid only when
+        the policy closes the command-vs-read loop. Stateless per tick
+        (pure function of _ep_rand + _goal_traj → pool-restore safe by
+        construction)."""
+        er = self._ep_rand
+        if (er is None or er.rise_rock_roll_deg == 0.0
+                or self._goal_traj is None
+                or getattr(self._goal_traj, "mode", "") != "rise"):
+            return None
+        roll = er.rise_rock_roll_deg
+        fold = abs(roll) / self.TIP_ROLL_PER_FOLD * DEG2RAD
+        legs = (3, 4, 5) if roll > 0 else (0, 1, 2)
+        dq = np.zeros(N_JOINTS, dtype=float)
+        for leg in legs:
+            dq[3 * leg + 1] -= fold
+            dq[3 * leg + 2] += 0.5 * fold
+        return dq
+
     def _true_roll_pitch(self) -> tuple[float, float]:
         """Ground-truth chassis attitude in the IMU's roll/pitch
         convention (privileged; reset-time only). Uses the episode's
@@ -1252,6 +1280,9 @@ class SimHexapodBalanceEnv(_GymBase):
                 if (self._ep_rand is not None
                         and self._ep_rand.zero_drift_cmd_frame):
                     cmd_phys = q_safe - self._ep_rand.joint_zero_bias_rad
+                rock = self._rise_rock_offset()
+                if rock is not None:
+                    cmd_phys = self._clip_to_joint_limits(cmd_phys + rock)
                 self._profile.command(
                     cmd_phys, speed_deg_s=self.write_speed_deg_s,
                     acc_units=self.write_acc_units)
