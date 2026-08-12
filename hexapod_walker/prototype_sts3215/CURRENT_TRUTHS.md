@@ -88,6 +88,19 @@ both handoffs compose).
   is the preferred temporal base for new unified-policy work —
   provided it does not delay hardware milestones. Ladder frozen at
   16 until the flagship experiment answers (RL_PLAN Architecture).
+- MODEL TOUR 08-11 (all 27 deployable ckpts through the interactive
+  play.py protocol; rl_docs/MODEL_TOUR_2026-08-11.md): the deployed
+  stance `holdbc1_hard1` deterministically TIPS (tilt_pitch, ~2.5 s)
+  when commanded to sit from the 142 mm walk plant frame — from a
+  clean stand, no disturbance, 10/10 + isolated probe — and its
+  belly rise STALLS at 55 mm forever under the interactive ramp
+  (other stance ckpts reach 69–83 mm on the identical protocol).
+  Same targets, different ramp shape = goal-profile overfit. DO NOT
+  command sit-after-walk on hardware until a candidate passes the
+  session gate. Gate: `rl_move.sim.eval_session` (hard: falls/rise/
+  sit; soft: heading drift, per-axis tracking, drive height, hold
+  duty). Training lever: `goal.rise_ramp_jitter` /
+  `goal.lower_ramp_jitter` (landed, default off, bank green).
 
 ## Campaign rulings in force
 

@@ -2438,3 +2438,100 @@ def test_getup_shuffle_earns_scraps(getup_walk_returns):
             < 0.25 * getup_walk_returns["gait"]), (
         f"belly-shuffle keeps a real fraction of walk income: "
         f"{getup_walk_returns}")
+
+
+# --------------------------------------------------------------------------
+# GOAL-PROFILE JITTER bank — goal.rise_ramp_jitter / goal.lower_ramp_jitter.
+#
+# Model tour, 08-11 (rl_docs/MODEL_TOUR_2026-08-11.md): the deployed
+# stance checkpoint passes its training-profile gates yet, under
+# play.py's interactive ramp — SAME height targets, slightly different
+# ramp shape — its belly rise stalls at 55 mm forever and its sit from
+# the 142 mm plant tips over at ~2.5 s, deterministically. The policy
+# memorized ONE ramp choreography. The jitter axis randomizes each
+# episode's ramp duration so the trained skill generalizes across
+# profile shapes; rl_move.sim.eval_session is the deployment-side gate.
+# These are pure sampler tests (no sim rollout — fast).
+
+def _ramp_len(height: np.ndarray) -> int:
+    """Ticks the height schedule spends strictly between 0 and target."""
+    tgt = height[int(np.argmax(np.abs(height)))]
+    mid = (np.abs(height) > 1e-12) & (np.abs(height - tgt) > 1e-12)
+    return int(mid.sum())
+
+
+_PURE_MIX = {"p_hold": 0.0, "p_lean": 0.0, "p_track": 0.0,
+             "p_unload": 0.0, "p_raise": 0.0, "p_rise": 0.0,
+             "p_lower": 0.0}
+
+
+def _gen(goal_cfg: dict):
+    from rl_move.sim.goal_task import GoalGenerator
+    # Trained runs carry actions.max_height_mm ~ 80; the bare default
+    # (5 mm) would squash the rise/lower bands and hide the mechanism.
+    # _PURE_MIX zeroes every default mode weight so p_rise/p_lower=1.0
+    # in the caller's cfg really means a pure mix.
+    return GoalGenerator({"goal": {**_PURE_MIX, **goal_cfg},
+                          "actions": {"max_height_mm": 80.0}})
+
+
+def _profiles(goal_cfg: dict, seed: int = 7, n: int = 30) -> list:
+    gen = _gen(goal_cfg)
+    rng = np.random.default_rng(seed)
+    return [gen.sample(rng, 400, 0.04) for _ in range(n)]
+
+
+def test_ramp_jitter_default_off_is_bit_exact():
+    """Key absent and explicit 0.0 must produce identical schedules from
+    the same seed — the conditional draw never touches the rng stream
+    when the axis is off (house rng discipline)."""
+    for mode_cfg in ({"p_rise": 1.0}, {"p_lower": 1.0}):
+        base = _profiles(dict(mode_cfg))
+        off = _profiles({**mode_cfg, "rise_ramp_jitter": 0.0,
+                         "lower_ramp_jitter": 0.0})
+        for a, b in zip(base, off):
+            assert np.array_equal(a.height, b.height), (
+                "jitter=0 shifted the sampled schedule")
+
+
+def test_ramp_jitter_varies_the_rise_ramp():
+    """With jitter on, rise episodes must draw genuinely different ramp
+    durations, all inside the (1 +- j) band of the base 4 s ramp."""
+    profs = _profiles({"p_rise": 1.0, "rise_ramp_jitter": 0.5})
+    lens = {_ramp_len(p.height) for p in profs}
+    assert len(lens) >= 8, f"rise ramps barely vary: {sorted(lens)}"
+    base_n = 4.0 / 0.04
+    assert all(0.45 * base_n <= n <= 1.55 * base_n for n in lens), (
+        f"rise ramp outside the jitter band: {sorted(lens)}")
+
+
+def test_ramp_jitter_varies_the_lower_ramp():
+    """Same contract for lower episodes (base 5 s ramp)."""
+    profs = [p for p in _profiles({"p_lower": 1.0,
+                                   "lower_ramp_jitter": 0.5})
+             if float(np.min(p.height)) < 0.0]   # skip belly-start flats
+    lens = {_ramp_len(p.height) for p in profs}
+    assert len(lens) >= 8, f"lower ramps barely vary: {sorted(lens)}"
+    base_n = 5.0 / 0.04
+    assert all(0.45 * base_n <= n <= 1.55 * base_n for n in lens), (
+        f"lower ramp outside the jitter band: {sorted(lens)}")
+
+
+def test_ramp_jitter_never_touches_targets_or_holds():
+    """Jitter changes ramp DURATION only: the height target band and the
+    pre-ramp hold length stay exactly as configured."""
+    plain = _profiles({"p_lower": 1.0})
+    jit = _profiles({"p_lower": 1.0, "lower_ramp_jitter": 0.5})
+    hold_n = max(1, int(round(1.0 / 0.04)))   # lower_hold_s default
+    for p in jit:
+        if float(np.min(p.height)) >= 0.0:
+            continue
+        tgt_mm = -float(np.min(p.height)) * 1000
+        assert 25.0 - 1e-6 <= tgt_mm <= 55.0 + 1e-6, (
+            f"lower target left the configured band: {tgt_mm}")
+        assert np.all(p.height[:hold_n] == 0.0), (
+            "jitter ate into the pre-ramp hold window")
+    # And the plain generator still produces in-band targets (sanity).
+    for p in plain:
+        if float(np.min(p.height)) < 0.0:
+            assert -0.055 - 1e-9 <= float(np.min(p.height)) <= -0.025 + 1e-9

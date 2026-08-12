@@ -99,6 +99,19 @@ charts) and uploads report.json.
 - `eval_drive.py` — the joystick gate: scripted command schedule;
   falls, tracking error, distance. Gate wording lives in the run's
   ledger entry.
+- `eval_session.py` — the SESSION gate (08-11, model tour): drives a
+  stance+walk checkpoint pair through the exact interactive play.py
+  protocol (belly → auto stand under the `_InteractiveTraj` ramp →
+  drive fwd/strafe/reverse → stop → sit from the 142 mm plant →
+  stand in place → hold). HARD gates (exit 1): no falls, rise > 60 mm
+  by 9.5 s, sit descends ≥ 40 mm. SOFT gates (report always, gate
+  with `--strict`; every 08-11 checkpoint fails them): |yaw drift| <
+  10° over 12 s fwd, per-axis tracking ≥ 70 % of command, body ≥
+  110 mm while driving, post-walk hold quiet (tilt < 6°, ≥ 5 loaded
+  feet). Exists because the mode gates sample TRAINING profiles: the
+  deployed stance passed them all while deterministically tipping on
+  the interactive sit (rl_docs/MODEL_TOUR_2026-08-11.md). Run it on
+  every stand/sit/drive candidate. ~4 s CPU.
 - `eval_yaw.py` — turn-segment |wz_err| median (pass ≤ 0.10 rad/s)
   and heading-hold |wz| median (pass ≤ 0.05). Judge turn arms with a
   matched-parent control (rl_docs/TURN.md).

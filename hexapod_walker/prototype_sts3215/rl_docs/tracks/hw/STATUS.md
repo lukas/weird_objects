@@ -9,6 +9,21 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-11 late MODEL TOUR (all 27 deployable ckpts through the
+  interactive play.py session; rl_docs/MODEL_TOUR_2026-08-11.md):
+  two NEW deployed-pair defects.** (1) `holdbc1_hard1` sit from the
+  142 mm walk plant frame tips tilt_pitch at ~2.5 s,
+  DETERMINISTIC (10/10 + clean-stand probe) — do not command
+  sit-after-walk on hardware; (2) its belly rise stalls at 55 mm
+  forever under the interactive goal ramp (training-profile rise
+  passes — profile overfit, a separate axis from the hardware
+  rise-rock). Landed in response: `rl_move.sim.eval_session` (the
+  session gate, exit-code enforced — run on every stand/sit
+  candidate) + `goal.rise_ramp_jitter`/`goal.lower_ramp_jitter`
+  (default-off training axis, bank green). Family-wide walk notes
+  (height collapse to ~70 mm, CCW veer ~3°/s unpriced in the dep
+  lineage, reverse ~20 % of command) map onto the existing tall-wall
+  / yaw-lineage / heading-exposure lines — no new axes there.
 - **08-11 eve session 2 (19:07–19:19, four camera sessions,
   bench_blast_20260811_19*): learned rise is DETERMINISTIC-FAIL on
   hardware** — 5/5 tilt_roll trips (incl. 22:42's), every one at tick

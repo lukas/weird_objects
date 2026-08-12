@@ -173,6 +173,26 @@ existing config knobs, [CODE] needs an implementation cycle first,
     (`walk_stop_frac`) with wz != 0 IS a commanded turn in place,
     and the yaw kernel is deliberately not gated on linear speed.
 
+## Stand/sit robustness (agent-proposed 08-11, model tour)
+
+8d. [READY] **Goal-profile generalization** — warm retrain of the
+    stand/sit champion lineage with `goal.rise_ramp_jitter` /
+    `goal.lower_ramp_jitter` ~0.3 (code landed 08-11, default off,
+    `test_ramp_jitter_*` green). Motivation: the deployed stance
+    passes every training-profile gate yet tips deterministically on
+    the interactive sit and stalls the interactive rise
+    (rl_docs/MODEL_TOUR_2026-08-11.md). Gate:
+    `rl_move.sim.eval_session` hard gates PASS + mode-gate retention
+    vs parent. Optionally widen `goal.lower_height_mm` to [25, 60]
+    in the same arm (play.py sits to the full −60 mm; trained band
+    stops at 55 — existing cfg knob, no code).
+8e. [READY] **Session gate in the standard eval sweep** — the
+    watcher's post-run evals add `eval_session` (stance candidates
+    pair with the deployed walk, walk candidates with the deployed
+    stance). Soft gates define the forward bar: heading drift < 10°,
+    per-axis tracking ≥ 70 %, drive height ≥ 110 mm, quiet post-walk
+    hold. No training, pure harness wiring.
+
 ## Robustness (survives the real world)
 
 9. [RUNNING] **Higher DR** — champion trained at DR 0.5

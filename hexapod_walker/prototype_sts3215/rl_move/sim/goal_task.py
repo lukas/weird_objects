@@ -162,6 +162,25 @@ class GoalGenerator:
         # tracking kernel penalizes running ahead of the ramp, so a
         # 5 s descent IS the gentleness constraint.
         self.lower_ramp_s = float(g.get("lower_ramp_s", 5.0))
+        # Goal-profile jitter (model tour, 08-11: the deployed stance
+        # checkpoint passes every training-profile gate yet stalls its
+        # belly rise at 55 mm and tips over on sit under play.py's
+        # interactive ramp — the SAME targets on a slightly different
+        # ramp shape. Overfit to the one trained ramp, so randomize
+        # it). goal.rise_ramp_jitter / goal.lower_ramp_jitter = frac j:
+        # each episode's ramp duration is drawn U(s*(1-j), s*(1+j)).
+        # Default 0.0 = off; the draw is CONDITIONAL on j > 0 so legacy
+        # rng streams stay bit-exact. Gate the trained result with
+        # rl_move.sim.eval_session (the interactive-protocol gate).
+        self.rise_ramp_jitter = float(g.get("rise_ramp_jitter", 0.0))
+        self.lower_ramp_jitter = float(g.get("lower_ramp_jitter", 0.0))
+
+    @staticmethod
+    def _jittered_s(rng: np.random.Generator, base_s: float,
+                    jitter: float) -> float:
+        if jitter <= 0.0:
+            return base_s
+        return base_s * float(rng.uniform(1.0 - jitter, 1.0 + jitter))
 
     def _ramp(self, n_steps: int, dt: float) -> np.ndarray:
         """Ease references in from 0 so episodes never start with a step
@@ -251,7 +270,9 @@ class GoalGenerator:
             else:
                 target = -rng.uniform(*self.lower_m)
                 hold_n = max(1, int(round(self.lower_hold_s / dt)))
-                ramp_n = max(1, int(round(self.lower_ramp_s / dt)))
+                ramp_n = max(1, int(round(self._jittered_s(
+                    rng, self.lower_ramp_s, self.lower_ramp_jitter)
+                    / dt)))
                 height = np.full(n_steps, target)
                 height[:hold_n] = 0.0
                 end = min(hold_n + ramp_n, n_steps)
@@ -295,7 +316,8 @@ class GoalGenerator:
                 crouch_dz = rise
                 hold_s = 1.0
             hold_n = max(1, int(round(hold_s / dt)))
-            ramp_n = max(1, int(round(self.rise_ramp_s / dt)))
+            ramp_n = max(1, int(round(self._jittered_s(
+                rng, self.rise_ramp_s, self.rise_ramp_jitter) / dt)))
             height = np.full(n_steps, rise)
             height[:hold_n] = 0.0
             end = min(hold_n + ramp_n, n_steps)
