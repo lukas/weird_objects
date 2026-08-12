@@ -166,6 +166,16 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         model.reset()   # rot60 sector state is per-episode
     mode = info0.get("goal_mode", "?")
     kind = _start_kind(env._goal_traj) if env._goal_traj else "plant"
+    # RSI spawns (goal.rise_rsi_frac > 0 rides in from the run's own
+    # cfg stack) start ON the reference path mid-rise but keep the
+    # trajectory's start_at="zero", so they masqueraded as "flat" in
+    # every report of this lineage — the cw-stand-footlow2-r1 dig-in
+    # (08-12) burned a misdiagnosis chain on exactly that ("det flat
+    # rise 15mm short" episodes were perturbed mid-path spawns; true
+    # cold flat rises measured clean at ±3mm). Label them honestly so
+    # gate clauses about cold starts can never read an RSI episode.
+    if getattr(env, "_rsi_ref_tick0", None) is not None:
+        kind = "rsi"
     pads = [env.model.body(f"L{i}_pad").id for i in range(6)]
 
     frames = []

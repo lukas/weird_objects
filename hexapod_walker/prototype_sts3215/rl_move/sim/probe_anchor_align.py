@@ -97,8 +97,19 @@ def main() -> None:
                            default=0.25))
     ahead = max(int(round(look_s / ref["dt"])), 1)
     ref_h = ref.get("h")
+    # HEIGHT-FLOOR pursuit (train.bc_anchor_min_h_ahead_mm, 08-12):
+    # mirror sim_env._step_finish exactly — when the floor is active,
+    # the target tick must command >= min_h mm above the CURRENT
+    # chassis height (first such tick at/after the match; path end if
+    # none): effective ahead = max(time_ahead, floor_j - j). Without
+    # this the probe audits the LEGACY target, not what a floored run
+    # (cw-stand-footlow2+) actually trains against.
+    min_h_mm = float(cfg_get(cfg, "train", "bc_anchor_min_h_ahead_mm",
+                             default=0.0))
     print(f"[ref] {ref_path}: T={T} dt={ref['dt']} ramp_i0={ref['ramp_i0']} "
-          f"lookahead={look_s}s -> {ahead} ticks")
+          f"lookahead={look_s}s -> {ahead} ticks; "
+          f"min_h_ahead={min_h_mm}mm"
+          f"{' (ref has no h — floor no-op)' if ref_h is None else ''}")
 
     env_cls = ENV_CLASSES[args.task]
     env = env_cls(params=SimServoParams.from_cfg(cfg), randomize=False,
@@ -132,7 +143,17 @@ def main() -> None:
                 qnow = np.asarray(env.data.qpos[env._qadr], dtype=float)
                 d2 = ((ref["q"] - qnow[None, :]) ** 2).mean(axis=1)
                 j = int(np.argmin(d2))
-                jn = min(j + ahead, T - 1)
+                jn_time = min(j + ahead, T - 1)
+                jn = jn_time
+                floor_on = False
+                h_rel_pre = float(env.data.xpos[env._chassis_bid, 2]) \
+                    - env._z0
+                if min_h_mm > 0.0 and ref_h is not None:
+                    ks = np.flatnonzero(
+                        ref_h[j:] >= h_rel_pre + min_h_mm * 1e-3)
+                    floor_j = (j + int(ks[0])) if len(ks) else T - 1
+                    jn = min(j + max(ahead, floor_j - j), T - 1)
+                    floor_on = jn != jn_time
                 j_clock, is_rsi = env._rise_ref_clock(ref)
                 tgt = q_rad_to_action(ref["q"][jn]).astype(np.float32)
                 # what the anchor pull actually asks vs what policy does
@@ -147,7 +168,8 @@ def main() -> None:
                     "t": t, "h_mm": round(h_rel * 1e3, 1),
                     "h_ref_goal_mm": round(float(goal.height_ref) * 1e3, 1)
                         if goal is not None else None,
-                    "j": j, "jn": jn, "j_clock": int(j_clock),
+                    "j": j, "jn": jn, "jn_time": jn_time,
+                    "floor_on": floor_on, "j_clock": int(j_clock),
                     "d_rms_deg": round(float(np.sqrt(d2[j])) * RAD2DEG, 2),
                     "ref_h_j_mm": round(float(ref_h[j]) * 1e3, 1)
                         if ref_h is not None else None,
@@ -177,7 +199,8 @@ def main() -> None:
                   f"ref_h[j] {np.median([r['ref_h_j_mm'] for r in tail]):.1f}mm, "
                   f"ref_h[jn] {np.median([r['ref_h_jn_mm'] for r in tail]):.1f}mm, "
                   f"mse(act,tgt) {np.median([r['mse_act_tgt'] for r in tail]):.4f}, "
-                  f"contacts {np.median([r['n_contact'] for r in tail]):.0f}/6")
+                  f"contacts {np.median([r['n_contact'] for r in tail]):.0f}/6, "
+                  f"floor_on {np.mean([r['floor_on'] for r in tail]):.2f}")
             for r in rows[:: max(1, int(1.0 / env.dt))]:
                 print(f"   t={r['t']:3d} h={r['h_mm']:7.1f} goal="
                       f"{r['h_ref_goal_mm']:6.1f} j={r['j']:3d} "
