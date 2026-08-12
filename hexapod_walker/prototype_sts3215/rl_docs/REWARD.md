@@ -61,9 +61,6 @@ Total = kernel income + weak shaping + weak regularizers.
 | `k_still` | 0.0 (off) | quiet-stance bonus: Gaussian on mean qd², MULTIPLIED by the kernel so a frozen belly-rest earns nothing. `still_sigma_rad_s` 0.3. |
 | `hold_still_gate` | 0 (off) | hold/track stillness+feet pricing (08-11, from `cw-stand-bc1-hard1`'s dig-in): the tracking kernel pays torso pose with no opinion on the legs, so hold/track converged to continuous leg-cycling (2M) and a frozen flag-leg park (10M) at near-full income — measured in the HOLD bank: legacy pays the flag pose 368.0 vs the quiet stand's 367.9 (a tie) and stepping 0.82×. Scales kernel income on hold/track ticks by feet-down² × HARD no-flag zero (`PLANT_SPEC.flag_leg_mm` 60 mm — honest adjustment swings stay below it) × stillness Gaussian (`still_sigma_rad_s`, applied only while the reference is stationary so TRACK's commanded motion is never charged). Blend `(1-g)+g·f`. Scoped strictly to hold/track: quad lifts legs and unload opens a contact on purpose; rise/lower/raise keep their own stacks. Gated ordering: quiet 368 > stepping 107 > flag 9.5 (bank, 3 seeds). Logs `hold_feet_factor` / `hold_still_factor`. |
 | `hold_flag_fade` | 0 (off) | fade variant of the gate's no-flag factor (08-11, from `cw-stand-holdstill1` FAIL): the hard zero priced the flag park correctly but is a zero-gradient plateau — the trained run kept a leg parked ~110 mm for 2M steps because every nearby behavior also earned ~0. With fade=1 the no-flag factor ramps linearly over [`flag_leg_mm`, 2×`flag_leg_mm`] (60→120 mm): compliant poses keep exactly 1.0, the observed ~113 mm park earns scraps (51 vs quiet's 368, 0.14×) WITH a downhill slope toward feet-down, the ~190 mm class still earns 0 (12.6). Bank: ordering preserved, gradient exists (51 > 12.6), park stays <25% of quiet. Only meaningful with `hold_still_gate` on. |
-| `hold_feet_load` | 0 (off) | measured-load gate on hold/track income (08-11, from the `cw-stand-crouchrise1/2/3` trio): all three converged on the same cheat — two legs hover 1–19 mm up, below `foot_down_mm` so the clearance count reads them "down", far below the flag band, yet eval contact-duty reads 0.01–0.04. Clearance is the wrong proxy at the bottom of its range; this prices MEASURED touch force (the eval's own signal): per foot `s_i = clip(touch_N / hold_load_ref_n, 0, 1)`, factor = Π max(s_i, `hold_load_floor` 0.5), blended by the key's weight into the `hold_still_gate` feet factor. All-loaded stance keeps exactly 1.0; the two-leg hover earns 0.25 (bank: hover < 0.65× quiet). Requires `hold_still_gate` on. Logs `hold_load_factor`. (Row added 08-12; term landed 08-11 with its FEET-LOAD bank.) |
-| `hold_feet_load_min` | 0 (off) | MIN-over-feet variant of `hold_feet_load`'s aggregator (08-12, the pre-registered anchormix1-r1 reopen lever): six straight stand runs shed EXACTLY ONE foot — under the product a single unloaded foot's tax caps at `hold_load_floor` 0.5, so a five-foot stance at half pay stays "sufficient and cheaper", and supervision only moved WHICH foot parks. With this =1 the WORST foot is the whole factor: `load = max(min_i s_i, hold_load_min_floor)` — one fully-unloaded foot cuts gated hold income to scraps (0.1×) with the same linear on-ramp below ref for slope; a six-loaded stance keeps exactly 1.0. Default 0 = legacy product path, bit-exact (bank-pinned). Only meaningful with `hold_feet_load` > 0. |
-| `hold_load_min_floor` | 0.1 | income floor for the min-over-feet variant — keeps a gradient alive everywhere (the holdstill1 zero-plateau lesson) while pricing the one-foot park at scraps, not a living. |
 | `k_unload` | 0.2 | weak linear gradient toward zero load on the unload leg. |
 | `alive` | 0.0 | keep at 0 (see principles). |
 | `safety_termination_penalty` | 10.0 | one-time −10 on safety termination (tilt trip etc.). |
@@ -148,6 +145,48 @@ Charges:
 | `k_park_duty` | 0 | −k·(per-leg contact duty outside [0.1, 0.9]) over a trailing 2 s commanded window — a tripod park pays ~0.6k/tick, a real gait pays nothing. |
 | `k_walk_effort` | 0 | −k·mean servo current per walk tick (cost of transport; thermal load is the hardware-fatal quantity). |
 | `k_drag_trans` / `drag_trans_allow_m` 0 / `drag_trans_allow_rise_m` 0.55 | 0 | **NON-walk modes** (rise/lower/raise/hold/track/lean/unload/quad): −k per meter of loaded foot-XY translation (0.5 mm/tick per-foot deadband) beyond a per-EPISODE allowance, charged incrementally as it accrues — the stand/sit foot-scrape the operator watches the robot do (08-11 night) was completely unpriced outside walk. A loaded foot that pivots/slides pays; a foot that lifts and STEPS to its new spot is free. Allowances are measured (probe 08-11): the demonstrated belly→plant rise inherently slides its pads 463 mm during the curl (rise/raise episodes default to a 0.55 m free budget), the honest anchored-feet lower and the quiet stand measure ~0 (everything else charges from the first excess mm). `trans_drag_mm` metric logs on every non-walk tick regardless of k (watch the dragging without coupling metric to price). TRANS-DRAG bank in `test_task_semantics.py` pins the orderings; tested operating point k=400. |
+
+## 4b) GETUP mode — unified recover→stand→walk (08-11 redesign)
+
+`rl_move/sim/walk_task.py _getup_reward()`, mode `getup` only (walk
+env; enabled per-run via `--goal-mix getup=...` — the mode is absent
+from every default mix, so all defaults below are inert = byte-exact
+legacy). One episode = spawn ANYWHERE (tangle/zero/partial/crouch/
+plant/park, built in `sim_env._reset_begin` `start_at="any"`), quiet
+head, then a joystick velocity schedule. Falls are NOT terminal: runs
+must widen `safety.max_roll/pitch_deg` (e.g. 60°); the tilt reference
+anchors to gravity-level like tipped starts.
+
+Structure (every prior stand lesson baked in): NO kernel income (a
+level belly-rest is an alive bonus in disguise — `reward_task`/
+`k_roll`/`k_pitch` are stripped on getup ticks; `h_err` is never fed);
+income = one-shot staged ratchet + S-gated steady pay. The supported-
+stand score `S = f_height · f_feet · f_level · f_footprint · f_flag`
+is the RL_PLAN queue-2b structural height↔contact coupling: height
+only counts when carried by MEASURED foot load. All factors are fades
+(holdstill1 zero-gradient lesson).
+
+| cfg key (reward.) | default | what it does |
+|---|---|---|
+| `getup_k_progress` | 60.0 | one-shot ratchet: +k·Δmax(P) where P = `getup_w_zero`·untangle + `getup_w_load`·weight-on-feet + `getup_w_stand`·S. Baseline seeds at the first tick (spawn posture is never income); regressions/re-farming pay 0 by construction. Full belly→stand ≈ +43. |
+| `getup_w_zero` / `getup_w_load` / `getup_w_stand` | 0.15 / 0.25 / 0.60 | stage weights: joint-space proximity to the zero pose (untangle, `getup_untangle_deg` 60°); fraction of body weight on the feet `min(Σtouch/(0.85·m·g),1)` — bank-measured the ONLY scalar monotone along an honest rise from the crouch on (footprint barely moves during the curl, and the crouch is joint-wise FARTHER from the plant than zero is), Newton-capped so pressing harder is never a strategy; supported-stand score S. The curl itself is unpaid but never punished — the ratchet banks bests and the "any" start distribution backward-chains across it. |
+| `getup_load_n` | 1.0 N | per-foot load saturation: `f_feet = (Σ min(touch/load_n,1)/6)²`. GRADED, not a threshold — bank-measured, an honest plant carries its light tripod at only ~0.7-1.2 N and must read ~0.95, while an airborne flag leg reads exactly 0. |
+| `getup_z_belly_mm` / `getup_z_full_frac` | 38.0 / 0.80 | `f_height = clip((z−z_belly)/(z_full−z_belly),0,1)` with `z_full = z_belly + frac·(z_plant−z_belly)`; z_plant from plant-pose FK. Full credit at 80% of the rigid-FK span because servo/contact compliance sags the physical stance ~22 mm below FK (bank-measured 148.5 vs 170.8 mm). Overshoot fades to 0 over +20..+80 mm above FK plant — stilt pops price themselves. |
+| `getup_level_deg` | 20.0 | `f_level` linear fade of true (gravity) attitude. |
+| `getup_fp_ok_mm` / `getup_fp_hi_mm` | 40 / 120 | `f_footprint` fade of mean foot-XY distance to the plant anchors (PLANT_SPEC footprint bar, with slope). |
+| `getup_flag_mm` | 60.0 | `f_flag` fade of the pad-height SPREAD (highest−lowest pad, world z — ground-reference-free so arbitrary spawns work) over [60, 120] mm: honest gait swings (~25-40 mm) keep 1.0, the video-confirmed 100-160 mm flag/tripod poses fade to ~0. |
+| `getup_k_hold` | 0.8 | zero-command ticks: +k·S³·stillness Gaussian (`still_sigma_rad_s`) — quiet honest stands earn a living, partial/flagged stands earn scraps with a downhill slope. |
+| (walk income, commanded ticks) | K_WALK/K_PROG | `S_gait·(kernel·clip(prog,0,1) + K_PROG·min(prog,1.25))` with `S_gait = f_h·f_level·f_fp·f_flag·min(load_sat/3,1)²` — a loaded tripod is full credit mid-stride; a belly-shuffle earns ~0 through f_h regardless of progress; a parked robot earns ~0 through the built-in progress gate. |
+
+Per-tick metrics logged: `getup_S/P/best`, `getup_feet_loaded`,
+`getup_f_load`, `getup_f_height/level/footprint/flag`,
+`reward_getup_prog/hold/walk`, `getup_gait_gate`. Banked in
+`test_task_semantics.py` (GETUP banks — measured orderings, 08-11:
+honest replay ret ≈ +72, ratchet 0.88; freeze/flag-leg/thrash all
+negative; the hip-0 "stilt" is in-sim a legitimate NARROW crouch-stand
+whose fast time-to-stand beats the replay on episode TOTALS, so it is
+priced per-tick: tail 0.20 vs the plant stand's 0.55. Walk side: gait
++378 vs park −1.6 / belly-shuffle −3.6).
 
 ## 5) Changing the reward — checklist
 

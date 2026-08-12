@@ -54,6 +54,12 @@ SNAP_ATTRS = (
     # per-foot prev contact + XY plus the episode drag accumulator,
     # read every non-walk tick.
     "_tdrag_prev_xy", "_tdrag_prev_on", "_tdrag_acc",
+    # GETUP (recover→stand→walk) episode state (08-11): mode flag +
+    # the staged-progress ratchet baseline, set in _reset_finalize and
+    # read every getup tick in walk_task._post_step. A pool-restored
+    # episode inheriting another episode's ratchet is exactly the
+    # commit-65edba7 bug class this list exists to prevent.
+    "_is_getup", "_getup_best",
 )
 
 

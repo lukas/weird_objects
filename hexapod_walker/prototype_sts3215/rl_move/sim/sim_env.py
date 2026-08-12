@@ -936,6 +936,58 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._ep_rand is not None:
                 q_start = q_start + self._ep_rand.start_offset_rad
             q_start = self._clip_to_joint_limits(q_start)
+        elif start_at == "any":
+            # GETUP-mode start diversity (operator 08-11: "from any
+            # position: recover -> stand -> walk"). The recovery task's
+            # curriculum IS its start distribution — episodes spawn all
+            # along the pipeline (random legal tangle that settles
+            # however it lands incl. tipped, belly-zero, partial curl,
+            # crouch, plant, tripod park) so backward-chaining needs no
+            # reference trajectory or RSI. The KIND was drawn by
+            # _sample_getup (goal side, where the force hook lives) and
+            # rides on the trajectory.
+            kind = getattr(self._goal_traj, "start_kind", "tangle")
+            if kind == "tangle":
+                from rl_move.safety import AXIS_LIMITS_DEG
+                q_start = np.array(
+                    [self.rng.uniform(*AXIS_LIMITS_DEG[j % 3])
+                     for j in range(N_JOINTS)], dtype=float) * DEG2RAD
+            elif kind == "zero":
+                q_start = np.zeros(N_JOINTS, dtype=float)
+            elif kind in ("partial", "crouch"):
+                from rl_move.body_ik import BodyOffset
+                any_ik = FixedFootBodyIK()
+                any_ik.reset(self._plant_deg * DEG2RAD)
+                res = any_ik.solve(BodyOffset(
+                    height=-float(self.rng.uniform(0.03, 0.07))))
+                q_c = (res.q_rad if res.ok
+                       else self._plant_deg * DEG2RAD)
+                f = (1.0 if kind == "crouch"
+                     else float(self.rng.uniform(0.10, 0.90)))
+                # Zero pose is exactly q=0, so the belly->crouch blend
+                # is a plain scale (same construction as rise bridge).
+                q_start = f * np.asarray(q_c, dtype=float)
+            elif kind == "park":
+                q_start = (self._plant_deg * DEG2RAD).copy()
+                tripod = ((1, 3, 5) if self.rng.random() < 0.5
+                          else (0, 2, 4))
+                for leg in tripod:
+                    q_start[3 * leg + 1] -= float(
+                        self.rng.uniform(10.0, 25.0)) * DEG2RAD
+                    q_start[3 * leg + 2] += float(
+                        self.rng.uniform(-5.0, 10.0)) * DEG2RAD
+            else:  # "plant"
+                q_start = (self._plant_deg * DEG2RAD).copy()
+            if self._ep_rand is not None:
+                q_start = q_start + self._ep_rand.start_offset_rad
+            q_start = self._clip_to_joint_limits(q_start)
+            # Recovery episodes anchor tilt obs/trip/reward to LEVEL
+            # (gravity truth), like tipped starts: the task is to
+            # level out from wherever the spawn settled, never to hold
+            # the spawn lean. Runs enabling this mode must widen
+            # safety.max_roll/pitch_deg — a fall is a recoverable
+            # state here, not a termination.
+            self._tipped_applied = True
         elif start_at == "park":
             # Tripod-park start (walk reset diversity, cycle 24): plant
             # pose with one alternating tripod's hips lifted 10-25 deg
@@ -1114,6 +1166,15 @@ class SimHexapodBalanceEnv(_GymBase):
         # one step that makes standing possible has zero gradient.
         self._is_rise = (self._goal_traj is not None
                          and getattr(self._goal_traj, "mode", "") == "rise")
+        # GETUP (recover→stand→walk, 08-11) episode state: mode flag +
+        # the staged-progress ratchet baseline. The baseline is seeded
+        # on the FIRST post-settle tick (walk_task._post_step) so the
+        # spawn posture is never income — same convention as
+        # _score_best. Both attrs ride mjx_host.SNAP_ATTRS.
+        self._is_getup = (self._goal_traj is not None
+                          and getattr(self._goal_traj, "mode", "")
+                          == "getup")
+        self._getup_best = None
         # HOLD/TRACK BC-anchor eligibility (RL_PLAN queue 2.3, 08-11:
         # the rise lever repeated after both hold pricing levers — hard
         # zero, then the fade — moved the pricing but never reached a
@@ -1376,7 +1437,13 @@ class SimHexapodBalanceEnv(_GymBase):
         h_rel = float(self.data.xpos[self._chassis_bid, 2]) - self._z0
         unload_f = None
         if goal is not None:
-            h_err = h_rel - goal.height_ref
+            # GETUP mode has no height reference at all: its staged
+            # stand score (walk_task._post_step) replaces the height
+            # kernel/shaping. Feeding h_err = h_rel here would CHARGE
+            # standing up away from the settled spawn height — the
+            # exact opposite of the task.
+            if not getattr(self, "_is_getup", False):
+                h_err = h_rel - goal.height_ref
             if goal.unload_leg is not None:
                 adr = self._touch_adr[int(goal.unload_leg)]
                 if adr >= 0:
@@ -2389,7 +2456,8 @@ class SimHexapodBalanceEnv(_GymBase):
             ) * RAD2DEG
             info["height_mm"] = h_rel * 1000.0
             info["height_ref_mm"] = goal.height_ref * 1000.0
-            info["height_err_mm"] = h_err * 1000.0
+            if h_err is not None:   # getup mode has no height ref
+                info["height_err_mm"] = h_err * 1000.0
             if unload_f is not None:
                 info["unload_force_n"] = unload_f
         return (self._final_obs(

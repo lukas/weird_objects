@@ -117,6 +117,10 @@ _MODE_FAMILY = {
     "raise": "rise", "rise": "rise",
     "lower": "lower",
     "walk": "walk",
+    # getup carries a velocity command and its own state-based stand
+    # score — command-wise it is the walk family (vx/vy refs already
+    # in the goal obs carry the within-mode command).
+    "getup": "walk",
     "quad": "quad",
 }
 
@@ -594,15 +598,117 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                               height=height, unload_leg=None,
                               start_at=start_at, vx=vx, vy=vy, wz=wz)
 
+    # GETUP start-kind mix (see _sample_getup): random legal tangle,
+    # belly-zero, partial curl, crouch, plant, tripod park. The pose
+    # itself is built env-side in sim_env._reset_begin ("any" branch).
+    GETUP_START_KINDS = (("tangle", 0.30), ("zero", 0.20),
+                         ("partial", 0.20), ("crouch", 0.10),
+                         ("plant", 0.10), ("park", 0.10))
+
+    def _sample_getup(self) -> WalkTrajectory:
+        """GETUP mode (operator 08-11: "from any position I want the
+        robot to get to zero pose, stand up and walk around").
+
+        One episode = one unified recover→stand→walk MDP: spawn
+        ANYWHERE along the pipeline (GETUP_START_KINDS above), a
+        quiet command head (recover + stand first), then a
+        joystick-style velocity schedule with stops. There are NO
+        tilt/height references and no ramp schedule — all pricing is
+        the state-based staged stand score in _post_step (REWARD.md
+        §4b). Falls are recoverable states: runs enabling this mode
+        must widen safety.max_roll/pitch_deg (e.g. 60°).
+
+        Hooks (bank/canary only, not cfg keys): force_getup_start
+        pins the start kind; force_getup_cmd=(vx, vy) replaces the
+        command schedule with a constant command after a 0.5 s head.
+        All draws happen regardless, so rng streams are identical
+        whether or not a hook is armed.
+        """
+        n = self.episode_steps + 1
+        rng = self.rng
+        dt = self.dt
+        r = rng.random()
+        kind = self.GETUP_START_KINDS[-1][0]
+        acc = 0.0
+        for k, p in self.GETUP_START_KINDS:
+            acc += p
+            if r < acc:
+                kind = k
+                break
+        force = getattr(self, "force_getup_start", None)
+        if force is not None:
+            kind = str(force)
+        vx = np.zeros(n)
+        vy = np.zeros(n)
+        forced_cmd = getattr(self, "force_getup_cmd", None)
+        if forced_cmd is not None:
+            head = max(1, int(round(0.5 / dt)))
+            vx[head:] = float(forced_cmd[0])
+            vy[head:] = float(forced_cmd[1])
+        else:
+            # Quiet head: long enough to recover + stand from the worst
+            # starts (a belly rise alone takes ~5-8 s through the servo
+            # profile). Commands arriving before the robot is up simply
+            # earn nothing (the S gate), so an early head is not fatal.
+            q_lo = float(cfg_get(self.cfg, "goal", "getup_quiet_s_min",
+                                 default=4.0))
+            q_hi = float(cfg_get(self.cfg, "goal", "getup_quiet_s_max",
+                                 default=8.0))
+            s_lo = float(cfg_get(self.cfg, "goal", "getup_speed_min_m_s",
+                                 default=0.03))
+            s_hi = float(cfg_get(self.cfg, "goal", "getup_speed_max_m_s",
+                                 default=0.08))
+            stop_frac = float(cfg_get(self.cfg, "goal", "getup_stop_frac",
+                                      default=0.35))
+            seg_lo = float(cfg_get(self.cfg, "goal", "getup_seg_s_min",
+                                   default=3.0))
+            seg_hi = float(cfg_get(self.cfg, "goal", "getup_seg_s_max",
+                                   default=6.0))
+            i = max(1, int(round(float(rng.uniform(q_lo, q_hi)) / dt)))
+            cvx = cvy = 0.0
+            blend_n = max(1, int(round(1.0 / dt)))
+            while i < n:
+                if rng.random() < stop_frac:
+                    tvx = tvy = 0.0
+                else:
+                    sp = float(rng.uniform(s_lo, s_hi))
+                    ang = (0.0 if rng.random() < 0.60
+                           else float(rng.uniform(-math.pi / 4,
+                                                  math.pi / 4)))
+                    tvx, tvy = sp * math.cos(ang), sp * math.sin(ang)
+                end_b = min(i + blend_n, n)
+                vx[i:end_b] = np.linspace(cvx, tvx, end_b - i)
+                vy[i:end_b] = np.linspace(cvy, tvy, end_b - i)
+                vx[end_b:] = tvx
+                vy[end_b:] = tvy
+                cvx, cvy = tvx, tvy
+                i += max(1, int(round(float(
+                    rng.uniform(seg_lo, seg_hi)) / dt)))
+        zeros = np.zeros(n)
+        traj = WalkTrajectory(mode="getup", roll=zeros, pitch=zeros,
+                              height=zeros, unload_leg=None,
+                              start_at="any", vx=vx, vy=vy, wz=None)
+        traj.start_kind = kind
+        return traj
+
     def _sample_goal(self):
         gen = self._goal_gen
         p_walk = float(getattr(gen, "p_walk", 0.0))
+        p_getup = float(getattr(gen, "p_getup", 0.0))
         p_base = (gen.p_hold + gen.p_lean + gen.p_track + gen.p_unload
                   + gen.p_raise + gen.p_rise + gen.p_lower
                   + getattr(gen, "p_quad", 0.0))
-        tot = p_walk + p_base
-        if tot <= 0 or self.rng.random() < p_walk / tot:
+        tot = p_walk + p_getup + p_base
+        if tot <= 0:
             return self._sample_walk()
+        # Single draw, walk-first cdf: with p_getup == 0 (default) the
+        # draw and its use are bit-identical to the legacy two-way
+        # split, so every existing lineage's rng stream is unchanged.
+        r = self.rng.random() * tot
+        if r < p_walk:
+            return self._sample_walk()
+        if r < p_walk + p_getup:
+            return self._sample_getup()
         return super()._sample_goal()
 
     def _current_goal(self):
@@ -1245,4 +1351,221 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 info["quad_clear_mm"] = clear_mm / max(len(lift), 1)
                 info["quad_fronts_off"] = fronts_off / max(len(lift), 1)
                 info["quad_planted_frac"] = n_on / max(len(support), 1)
+        elif getattr(self, "_is_getup", False):
+            reward, info = self._getup_reward(float(reward), info)
         return obs, reward, term, trunc, info
+
+    # ------------------------------------------------------------------
+    # GETUP mode reward (08-11, from-scratch redesign; REWARD.md §4b).
+    #
+    # Design constraints inherited from the whole stand campaign:
+    #  - the flag-leg/tripod-at-height cheat beat every height-income
+    #    mechanism on warm starts; the sanctioned unexplored lever is a
+    #    STRUCTURAL coupling between height and MEASURED foot contact
+    #    (RL_PLAN queue 2b) — here, height only counts through the
+    #    supported-stand score S = f_height * f_feet(loaded)^2 *
+    #    f_level * f_footprint (fades, not hard zeros: the holdstill1
+    #    zero-gradient lesson);
+    #  - freezing must earn ~0 (no kernel income in this mode at all —
+    #    a level belly-rest satisfies the tilt kernel for free);
+    #  - income is a ONE-SHOT staged ratchet (pays only new bests of
+    #    the pipeline potential P) plus GATED steady pay, so neither
+    #    regressing nor re-farming a partial rise is a living;
+    #  - falling is not terminal (runs widen the tilt trip): after a
+    #    fall the ratchet stays banked and the incentive to get back
+    #    up is the restoration of the S-gated hold/walk income.
+    # ------------------------------------------------------------------
+
+    def _getup_geom(self) -> tuple[float, float]:
+        """(z_plant, weight_n): chassis height at the plant stance
+        (the f_height ceiling, same construction as _place_at_plant's
+        base_z) and the robot's total weight in newtons (the
+        load-stage denominator). Model constants — cached once, not
+        episode state."""
+        if not hasattr(self, "_getup_geom_cache"):
+            import mujoco_prototype as MP
+            from rl_move.body_ik import fk_all_feet
+            deg2rad = math.pi / 180.0
+            q_p = self._plant_deg * deg2rad
+            feet_p = fk_all_feet(q_p)
+            z_plant = (MP.YAW_OUTPUT_HEIGHT
+                       - float(np.min(feet_p[:, 2])) + MP.FOOT_R)
+            weight_n = float(np.sum(self.model.body_mass)) * 9.81
+            self._getup_geom_cache = (z_plant, weight_n)
+        return self._getup_geom_cache
+
+    def _getup_reward(self, reward: float, info: dict
+                      ) -> tuple[float, dict]:
+        # 1) Strip the base kernel + tilt shaping. The tracking kernel
+        #    pays a LEVEL body ~1/tick and a flat belly-rest is level —
+        #    that is an alive bonus in disguise here. The quadratic
+        #    tilt shaping would likewise charge every recovery tick at
+        #    the widened envelope. Regularizers (gyro/action/current)
+        #    stay: they price physics, not task shape.
+        r_strip = (info.get("reward_task", 0.0)
+                   + info.get("reward_roll", 0.0)
+                   + info.get("reward_pitch", 0.0))
+        if r_strip != 0.0:
+            reward -= r_strip
+            info["reward_task"] = 0.0
+            info["reward_roll"] = 0.0
+            info["reward_pitch"] = 0.0
+
+        # 2) Supported-stand score S in [0, 1] — the structural
+        #    height<->contact coupling. Every factor is a fade with a
+        #    downhill slope; only genuinely carried height scores.
+        load_n = float(cfg_get(self.cfg, "reward", "getup_load_n",
+                               default=1.0))
+        # Graded per-foot load saturation (bank-measured: an honest
+        # plant carries its light tripod at only ~0.7-1.2 N, so a hard
+        # threshold reads a REAL stand as 4/6 feet). An airborne flag
+        # leg contributes exactly 0 either way; grading just keeps the
+        # slope (holdstill1 lesson) and reads honest stands as ~0.95.
+        load_sat = 0.0
+        touch_sum_n = 0.0
+        for f in range(6):
+            adr = self._touch_adr[f]
+            if adr >= 0:
+                t_n = max(float(self.data.sensordata[adr]), 0.0)
+                touch_sum_n += t_n
+                load_sat += min(t_n / max(load_n, 1e-6), 1.0)
+        f_feet = (load_sat / 6.0) ** 2
+        z_plant, weight_n = self._getup_geom()
+        z_belly = float(cfg_get(self.cfg, "reward", "getup_z_belly_mm",
+                                default=38.0)) * 0.001
+        z = float(self.data.xpos[self._chassis_bid, 2])
+        # Full height credit at a FRACTION of the rigid-FK plant span:
+        # servo/contact compliance sags the physical stance ~15-25 mm
+        # below the FK height (bank-measured 148.5 vs 170.8 mm), and a
+        # real stand must be able to score 1.0.
+        z_frac = float(cfg_get(self.cfg, "reward", "getup_z_full_frac",
+                               default=0.80))
+        z_full = z_belly + z_frac * max(z_plant - z_belly, 1e-3)
+        f_h = min(max((z - z_belly) / max(z_full - z_belly, 1e-3),
+                      0.0), 1.0)
+        # Symmetric ceiling: a stilt pop overshoots the plant height —
+        # fade to 0 between +20 and +80 mm above it, so "higher" is
+        # never a strategy.
+        over = z - (z_plant + 0.02)
+        if over > 0.0:
+            f_h *= min(max(1.0 - over / 0.06, 0.0), 1.0)
+        t_roll, t_pitch = self._true_roll_pitch()
+        lev_deg = float(cfg_get(self.cfg, "reward", "getup_level_deg",
+                                default=20.0))
+        tilt_deg = max(abs(t_roll), abs(t_pitch)) * 180.0 / math.pi
+        f_level = min(max(1.0 - tilt_deg / max(lev_deg, 1e-6), 0.0), 1.0)
+        curl = self._curl_dist()
+        fp_ok = float(cfg_get(self.cfg, "reward", "getup_fp_ok_mm",
+                              default=40.0)) * 0.001
+        fp_hi = float(cfg_get(self.cfg, "reward", "getup_fp_hi_mm",
+                              default=120.0)) * 0.001
+        f_fp = min(max((fp_hi - curl) / max(fp_hi - fp_ok, 1e-6),
+                       0.0), 1.0)
+        # No-flag fade on the pad-height SPREAD (highest minus lowest
+        # pad, world z) — ground-reference-free, so it works from
+        # arbitrary spawn poses where _pad_z_ref means nothing. The
+        # mean-footprint factor above barely notices ONE straightened
+        # leg; the video-confirmed flag poses ride 100-160 mm of
+        # spread and fade to ~0 here, while honest gait swings
+        # (~25-40 mm) keep exactly 1.0. Fade over [flag, 2*flag]
+        # (PLANT_SPEC.flag_leg_mm 60 -> 120), never a hard zero.
+        pad_z = np.array([float(self.data.xpos[b, 2])
+                          for b in self._pad_bids])
+        spread = float(np.max(pad_z) - np.min(pad_z))
+        flag_m = float(cfg_get(self.cfg, "reward", "getup_flag_mm",
+                               default=60.0)) * 0.001
+        f_flag = min(max((2.0 * flag_m - spread) / max(flag_m, 1e-6),
+                         0.0), 1.0)
+        s_stand = f_h * f_feet * f_level * f_fp * f_flag
+
+        # 3) Staged pipeline potential P (weighted SUM along untangle
+        #    -> weight-on-feet -> supported stand; the curl itself is
+        #    unpaid but never punished — the ratchet banks bests, and
+        #    the "any" start distribution backward-chains across it) +
+        #    one-shot ratchet income. The baseline seeds at the
+        #    episode's FIRST tick so the spawn posture is never income
+        #    (the _score_best convention).
+        w_z = float(cfg_get(self.cfg, "reward", "getup_w_zero",
+                            default=0.15))
+        w_l = float(cfg_get(self.cfg, "reward", "getup_w_load",
+                            default=0.25))
+        w_s = float(cfg_get(self.cfg, "reward", "getup_w_stand",
+                            default=0.60))
+        unt_deg = float(cfg_get(self.cfg, "reward", "getup_untangle_deg",
+                                default=60.0))
+        q_now = np.asarray(self.data.qpos[self._qadr], dtype=float)
+        mean_q_deg = float(np.mean(np.abs(q_now))) * 180.0 / math.pi
+        f_unt = min(max(1.0 - mean_q_deg / max(unt_deg, 1e-6), 0.0), 1.0)
+        # Middle stage = fraction of BODY WEIGHT carried by the feet
+        # (measured ground reaction, saturating at 85% of m*g — the
+        # honest plant's tripod imbalance never quite reads 100%).
+        # Bank-measured to be the only scalar monotone along an honest
+        # rise from the crouch on (0.07 belly -> 0.68 crouch-hold ->
+        # 1.0 ramp/stand): footprint distance barely moves during the
+        # curl (152->130 mm) and the reference crouch is joint-wise
+        # FARTHER from the plant than the zero pose is (35 vs 30 deg),
+        # so both of those metrics leave the honest path a reward
+        # desert. Newton caps this one at m*g — pressing harder is not
+        # a strategy, and carrying weight on feet IS the task.
+        f_load = min(touch_sum_n / (0.85 * weight_n), 1.0)
+        p_now = w_z * f_unt + w_l * f_load + w_s * s_stand
+        if self._getup_best is None:
+            self._getup_best = p_now
+        d_p = max(p_now - self._getup_best, 0.0)
+        if d_p > 0.0:
+            self._getup_best = p_now
+        k_prog = float(cfg_get(self.cfg, "reward", "getup_k_progress",
+                               default=60.0))
+        r_prog = k_prog * d_p
+
+        # 4) Gated steady income. Zero-command ticks: quiet-stand pay,
+        #    gated hard (S^3) so partial/flagged stands earn scraps
+        #    with a slope. Commanded ticks: the walk kernel + linear
+        #    progress, gated by a gait-tolerant stand score (a tripod
+        #    of loaded feet is full credit mid-stride) TIMES achieved
+        #    progress (the walk_kernel_prog_gate lesson, baked in from
+        #    the start — a parked robot earns ~0). A belly-shuffle
+        #    earns ~0 through f_h regardless of its progress.
+        goal = self._current_goal()
+        vx_ref = float(getattr(goal, "vx_ref", 0.0)) if goal else 0.0
+        vy_ref = float(getattr(goal, "vy_ref", 0.0)) if goal else 0.0
+        s_ref = float(np.hypot(vx_ref, vy_ref))
+        r_hold = 0.0
+        r_walk = 0.0
+        if s_ref <= 1e-3:
+            k_hold = float(cfg_get(self.cfg, "reward", "getup_k_hold",
+                                   default=0.8))
+            sig_qd = float(cfg_get(self.cfg, "reward",
+                                   "still_sigma_rad_s", default=0.3))
+            qd2 = float(np.mean(np.square(self._state.joint_velocity)))
+            still = math.exp(-qd2 / (2.0 * sig_qd ** 2))
+            r_hold = k_hold * (s_stand ** 3) * still
+        else:
+            s_gait = (f_h * f_level * f_fp * f_flag
+                      * min(load_sat / 3.0, 1.0) ** 2)
+            v = self._body_vel_xy()
+            err = float(np.hypot(v[0] - vx_ref, v[1] - vy_ref))
+            along = (v[0] * vx_ref + v[1] * vy_ref) / s_ref
+            frac = along / s_ref
+            kern = (K_WALK * math.exp(-(err ** 2) / (2.0 * SIGMA_V ** 2))
+                    * min(max(frac, 0.0), 1.0))
+            prog = K_PROG * min(frac, 1.25)
+            r_walk = s_gait * (kern + prog)
+            info["walk_vel_err"] = err
+            info["walk_speed"] = float(np.hypot(v[0], v[1]))
+            info["getup_gait_gate"] = s_gait
+
+        reward += r_prog + r_hold + r_walk
+        info["reward_getup_prog"] = r_prog
+        info["reward_getup_hold"] = r_hold
+        info["reward_getup_walk"] = r_walk
+        info["getup_S"] = s_stand
+        info["getup_P"] = p_now
+        info["getup_best"] = float(self._getup_best)
+        info["getup_feet_loaded"] = load_sat
+        info["getup_f_load"] = f_load
+        info["getup_f_height"] = f_h
+        info["getup_f_level"] = f_level
+        info["getup_f_footprint"] = f_fp
+        info["getup_f_flag"] = f_flag
+        return reward, info

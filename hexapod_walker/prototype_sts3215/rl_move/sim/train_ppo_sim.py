@@ -81,6 +81,8 @@ _MODE_PLAIN = {
     "rise": "STAND UP from the floor",
     "lower": "SIT DOWN from standing",
     "quad": "stand on four legs (front legs lifted)",
+    "getup": ("RECOVER from any pose, stand up, and walk around "
+              "(unified staged-ratchet reward, falls not terminal)"),
 }
 
 
