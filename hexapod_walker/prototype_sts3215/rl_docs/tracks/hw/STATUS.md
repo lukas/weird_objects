@@ -88,12 +88,21 @@ unresolved blockers between the robot and reliable joystick control.
   STUBS without their variables — both VOID (no science; verdicts in
   ledger). Proper relaunch `cw-dep-tip1-takeoff25-r1` then FAILED
   decisively (see Now bullet): tipped-start DOSE closed, sim
-  saturates the static-tilt axis. BOTH remaining sim answers to the
-  bench falls are now the same CODE family: dynamic roll-rate
-  perturbation during gait-start ticks (walk) and rocking DR on rise
-  ticks (stand) — spec + bank BEFORE launch (MDP_PREFLIGHT); neither
-  is written. rot60 backward: one fall AND one clean walk — more
-  reps when a takeoff-hardened checkpoint exists.
+  saturates the static-tilt axis. **08-12: the dynamic follow-up
+  landed AND ran (`dr.walk_kick_*` code, commit 7d34fc6;
+  `cw-dep-tip1-kick1` trained) — SAME NULL: matched-parent probe at
+  the gate's own dose (prob 1, 14–22°, n=24 seeds/side,
+  `probe_walk_kick.py`) gives ZERO falls for BOTH child and frozen
+  tip1, tail roll well under the bar for both. The WALK
+  command-pulse family is now CLOSED (2nd axis, 3rd arm, to saturate
+  with no separation) — do not schedule another dose. Remaining
+  lever for the takeoff transient is contact/pinning modeling, not
+  more command-side DR.** rise-rock (the belly-curl rocking fall,
+  a DIFFERENT mode) is untouched by this and still training
+  (`cw-stand-riserock2-r1`) — its own verdict decides that axis on
+  its own evidence. rot60 backward: one fall AND one clean walk —
+  more reps when a takeoff-hardened checkpoint exists (none is
+  coming from this lever; look to contact/pinning work instead).
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching

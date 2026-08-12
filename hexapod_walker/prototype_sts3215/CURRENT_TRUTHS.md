@@ -464,9 +464,24 @@ both handoffs compose).
   sim already recovers static 20–25° tipped starts, the axis is
   SATURATED. **Tipped-start DOSE is CLOSED as the takeoff-fall fix
   (2nd no-separation arm); the hardware transient is DYNAMIC — a
-  roll-rate injection during gait start (CODE, unbuilt, same family
-  as the rise-rock axis, which also still needs code) or
-  contact/pinning work.** Turn signs: +0.3 = CCW (matches convention,
+  roll-rate injection during gait start.** **08-12: that CODE landed
+  (`dr.walk_kick_*`, commit 7d34fc6) and TRAINED (`cw-dep-tip1-kick1`)
+  — SAME NULL RESULT (3rd no-separation arm).** Matched-parent probe
+  at the gate's own dose (forced prob=1.0, 14–22°, n=24 seeds each,
+  `rl_move/sim/probe_walk_kick.py`): ZERO tilt falls for BOTH
+  cw-dep-tip1-kick1 and frozen tip1 (0/24 vs 0/24), tail \|roll\|
+  medians 0.68°/0.93° (both far under the 4° bar) — nominal DR0
+  retention holds (gait_valid 6/6, prog 1.01, slip 0.97). **The
+  command-pulse/dynamic-DR-injection family for the takeoff transient
+  is now CLOSED** (static dose + dynamic dose both saturate with zero
+  separation) — do not schedule another dose/coefficient variant on
+  this mechanism. The rise-rock axis (same command-side family, for
+  the belly-curl rocking fall) is UNTESTED, not closed by this — it
+  is a different mode (rise vs walk) and remains the live CODE-landed
+  lever (`cw-stand-riserock2-r1` training now). Remaining lever for
+  the WALK takeoff transient specifically: contact/pinning modeling
+  (no-skate feet), not more command-side perturbation. Turn signs:
+  +0.3 = CCW (matches convention,
   single camera reading); −0.3 still unmeasured. The evening's
   "thermal wall" was mostly PHANTOM single-read bus temps (a "150 °C"
   hip read 33 °C seconds later); safe_zero/pinned_tip temp trips now
