@@ -324,6 +324,24 @@ unresolved blockers between the robot and reliable joystick control.
   pre-registered rise/hold seesaw fired one arm late. Next arm
   waits on the seeded audit (which target/mse at the 15 mm-short
   states; why foot-z lost to the rise floor), not another dose.
+  **08-12 afternoon DIG-IN RESULT: both residuals OVERTURNED —
+  rise-from-flat is SOLVED in this checkpoint.** (a) The 15 mm-short
+  "flat" episodes were RSI MID-PATH SPAWNS mislabeled by the eval
+  (`rise_rsi_frac=0.5` rides into the gate; `_start_kind` couldn't
+  see RSI): floored probe = 12/12 cold flat rises within ±3 mm
+  across seeds 0–5 (anchor at path end, mse 0.0028, 6/6 contacts);
+  RSI-off gate rerun = det rise 6/6 valid_plant, roll_tail ≤0.3°.
+  eval_checkpoint now emits `start_kind="rsi"` (snapshot da367c9);
+  judge cold-start clauses on the label. (b) The "park" is a
+  +0.9 mm COMMANDED hover (FK probe vs q_nom; footlow1's same foot
+  commands +0.4 mm at duty 0.97) — sub-resolution for the 10 mm
+  foot_z scale, not the historical 10 mm weight-shed park. First
+  policy with rise+hold+lower simultaneously clean to mm scale.
+  Queued: `cw-stand-footlow2-hard1` (10M consolidation, PASS =
+  deployment candidate incl. eval_session hard gates) +
+  `cw-stand-footzsharp1` (foot_z_mm 10→3, one variable, closes or
+  refutes the last-mm hover). Detail: rl_docs/RISE.md; artifacts
+  logs/experiments/cw-stand-footlow2-r1/digin/.
   **08-12 midday+: `cw-stand-rampjit1` (model-tour ramp-jitter
   axis, holdbc1-hard1 + rise/lower_ramp_jitter=0.3) FAIL — axis
   CLOSED per its own gate.** Session hard gate still misses

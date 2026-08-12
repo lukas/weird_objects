@@ -1279,3 +1279,53 @@ Probe artifacts: `logs/experiments/cw-stand-footlow1/
 anchor_align_footlow1.json`; probe: `rl_move/sim/probe_anchor_align.py`.
 First arm: `cw-stand-footlow2` (2M discovery, one variable added to
 the footlow1 recipe: `train.bc_anchor_min_h_ahead_mm=15`).
+
+### 08-12 footlow2-r1 dig-in: both flagged residuals overturned —
+### rise-from-flat SOLVED; the "re-park" is a 0.9 mm commanded hover
+
+Two residuals were flagged at triage: (a) det flat rises ending
+15–16 mm short on the gate eval while a seed-0 probe hit 3 mm; (b)
+the hold idx1 park reopening (duty 0.03) despite `bc_anchor_foot_z`.
+Both measured on train-0 against the live checkpoint:
+
+1. **(a) is an eval labeling artifact, not a behavior.** The gate
+   eval inherits the run's full cfg stack, including
+   `goal.rise_rsi_frac=0.5` — so ~half its rise episodes spawn ON
+   the reference path mid-rise with ±2° joint noise, and
+   `_start_kind()` labeled them "flat" (the RSI trajectory keeps
+   `start_at="zero"`). probe_anchor_align (now floor-aware: it
+   previously audited the LEGACY target, not what a floored run
+   trains against) ran 12 cold det flat episodes across seeds 0–5:
+   every one lands h_err −2.6…+3.0 mm, level, matched index at path
+   end j=313, mse(act,tgt) 0.0028, 6/6 contacts, floor inactive at
+   the end state. An RSI-off rerun of the rise gate on the same
+   checkpoint: det 6/6 valid_plant (flat/bridge/crouch), h_err
+   0.4–3.0 mm, roll_tail ≤0.3°, sto 6/6 success. The 15 mm-short
+   leaning episodes are perturbed MID-PATH spawns settling slightly
+   short — a robustness note (relevant to mid-rise disturbances),
+   not a cold flat-rise stall. FIX LANDED: eval_checkpoint labels
+   RSI episodes `start_kind="rsi"` (smoke: rsi_frac=1.0 → all
+   "rsi"; off → legacy labels). NOTE: historical rise success
+   counts in this lineage mixed RSI episodes into "flat".
+2. **(b) is sub-resolution, not the old park.** A per-tick FK probe
+   (policy det action → commanded foot heights vs the episode's own
+   q_nom, the exact quantity bc_anchor_foot_z supervises): footlow2's
+   foot1 is COMMANDED +0.9 mm above q_nom, constant, all episodes —
+   vs footlow1's same foot at +0.4 mm with duty 0.97; all other feet
+   ±0.3 mm in both policies. The plant/park difference is ~0.5 mm of
+   command at a binary 0.5 N contact threshold. At the default 10 mm
+   foot_z scale a 0.9 mm hover costs ~0.008 loss — below supervision
+   resolution by construction. The historical park was a 10 mm-class
+   weight-shed hover; this is not it.
+
+Verdict stays FAIL per the gate letter (foot duty clause is real),
+but the mechanism claim is fully CONFIRMED and the checkpoint is the
+first with rise+hold+lower simultaneously clean to mm scale.
+Follow-ups queued: `cw-stand-footlow2-hard1` (10M hardening, gate on
+rsi-labeled cold starts + no real park + lower retention +
+eval_session hard gates) and `cw-stand-footzsharp1`
+(`train.bc_anchor_foot_z_mm=3`, one variable: is the last-mm hover
+resolution-limited or a PPO equilibrium?). Artifacts:
+`logs/experiments/cw-stand-footlow2-r1/digin/` (6-seed floored probe
+traces, FK hold probes both policies, probe script),
+`logs/ckpt_eval/cw_stand_footlow2_r1_rise_norsi/`.

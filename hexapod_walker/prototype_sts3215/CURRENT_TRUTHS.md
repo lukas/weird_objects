@@ -23,7 +23,23 @@ supervising the stall). Fix LANDED: `train.bc_anchor_min_h_ahead_mm`
 current chassis height; default off, bit-exact, 3 bank tests; loaded-
 params chained traversal 82.5 mm by t=50 vs ~0 legacy). First arm
 `cw-stand-footlow2` (footlow1 recipe + floor=15, 2M discovery).
-Rise-from-flat remains the LAST broken stance mode.
+**08-12 afternoon: `cw-stand-footlow2-r1` FAIL per gate letter but
+the dig-in overturns both residuals — RISE-FROM-FLAT IS SOLVED in
+that checkpoint.** (1) The "det flat rise 15mm short" episodes were
+an EVAL LABELING ARTIFACT: the gate eval inherits the run's
+`goal.rise_rsi_frac=0.5` and RSI mid-path spawns were labeled
+"flat"; true cold flat rises measure ±3mm level, 12/12 across seeds
+0–5 (floored probe) and det 6/6 valid_plant on an RSI-off gate
+rerun. eval_checkpoint now labels RSI episodes `start_kind="rsi"`
+(snapshot da367c9) — gate clauses about cold starts must use the
+label; historical rise success rates in this lineage mixed RSI
+episodes in. (2) The "reopened idx1 hold park" is a +0.9mm COMMANDED
+hover (footlow1's same foot: +0.4mm at duty 0.97) — sub-resolution
+for the 10mm-scale foot_z term (~0.008 loss), NOT the historical
+10mm weight-shed park. Rise+hold+lower are now simultaneously clean
+to mm scale in one policy for the first time; consolidation
+`cw-stand-footlow2-hard1` (10M) + resolution probe
+`cw-stand-footzsharp1` (foot_z_mm 10→3) queued.
 `holdbc1_hard1` stays deployed. Earlier
 same day: `cw-stand-footz1-hard1` FAILED its own 10M hardening (hold
 held, lower regressed to 0/12 — the lineage never had a lower
