@@ -59,10 +59,13 @@ R3_CFG = {
 DIET = {"walk": 0.60, "rise": 0.15, "lower": 0.15, "hold": 0.10}
 
 
-def _build_cfg() -> dict:
+def _build_cfg(extra: dict | None = None) -> dict:
     from rl_move.config import load_config
     cfg = load_config()
-    for dotted, val in R3_CFG.items():
+    items = dict(R3_CFG)
+    if extra:
+        items.update(extra)
+    for dotted, val in items.items():
         node = cfg
         *path, leaf = dotted.split(".")
         for k in path:
@@ -206,11 +209,16 @@ def train_student(student, episodes, epochs: int, batch_eps: int = 8,
                 obs_p.reshape(t_max * b, -1)).reshape(t_max, b, -1)
             # Whole episodes from reset: zero initial hidden state is
             # the truth, so a plain fused GRU call is exact BPTT.
-            lat_pi, _ = policy.lstm_actor(feats)
-            lat_vf, _ = policy.lstm_critic(feats)
-            mu = policy.action_net(policy.mlp_extractor.forward_actor(lat_pi))
-            v_pred = policy.value_net(
-                policy.mlp_extractor.forward_critic(lat_vf))
+            if hasattr(policy, "bptt_forward"):
+                # Dual-core policy: mode-gated routing lives inside.
+                mu, v_pred = policy.bptt_forward(feats)
+            else:
+                lat_pi, _ = policy.lstm_actor(feats)
+                lat_vf, _ = policy.lstm_critic(feats)
+                mu = policy.action_net(
+                    policy.mlp_extractor.forward_actor(lat_pi))
+                v_pred = policy.value_net(
+                    policy.mlp_extractor.forward_critic(lat_vf))
             m_sum = mask.sum()
             loss_a = (F.mse_loss(mu, act_p, reduction="none")
                       * mask).sum() / (m_sum * mu.shape[-1])
@@ -288,6 +296,13 @@ def main(argv: list[str] | None = None) -> int:
                          "equal to --episode-seconds: bc2 collected these "
                          "at the stance teacher's native 10s and the "
                          "student regressed on the 15s eval context")
+    ap.add_argument("--dual", action="store_true",
+                    help="distill into DualGruActorCriticPolicy (mode-"
+                         "gated locomotion+stance cores; anchor1..3 "
+                         "closure). Turns on obs.mode_onehot=1 — the "
+                         "env appends the 6-wide skill-family one-hot "
+                         "at the obs tail, teachers still read their "
+                         "prefix slices")
     ap.add_argument("--stochastic-frac", type=float, default=0.3)
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--gru-hidden-size", type=int, default=256)
@@ -299,11 +314,11 @@ def main(argv: list[str] | None = None) -> int:
     from sb3_contrib import RecurrentPPO
     from stable_baselines3 import PPO
 
-    from .gru_policy import GruActorCriticPolicy
+    from .gru_policy import DualGruActorCriticPolicy, GruActorCriticPolicy
 
     rng = np.random.default_rng(args.seed)
     params = SimServoParams.load()
-    cfg = _build_cfg()
+    cfg = _build_cfg({"obs.mode_onehot": 1.0} if args.dual else None)
 
     walk_teacher = PPO.load(args.walk_teacher, device="cpu")
     stance_teacher = PPO.load(args.stance_teacher, device="cpu")
@@ -313,8 +328,11 @@ def main(argv: list[str] | None = None) -> int:
 
     env = _make_env(args, cfg, params)
     n_env_obs = int(env.observation_space.shape[0])
-    if n_env_obs != n_walk:
-        raise SystemExit(f"walk teacher obs {n_walk} != env obs {n_env_obs}")
+    n_walk_want = n_walk + (6 if args.dual else 0)  # + mode one-hot tail
+    if n_env_obs != n_walk_want:
+        raise SystemExit(f"env obs {n_env_obs} != expected {n_walk_want} "
+                         f"(walk teacher {n_walk}"
+                         f"{' + 6 one-hot' if args.dual else ''})")
     if n_stance >= n_env_obs:
         raise SystemExit(f"stance teacher obs {n_stance} not a prefix of "
                          f"env obs {n_env_obs}")
@@ -344,7 +362,8 @@ def main(argv: list[str] | None = None) -> int:
           f"{n_steps_total} transitions")
 
     student = RecurrentPPO(
-        GruActorCriticPolicy, env,
+        DualGruActorCriticPolicy if args.dual else GruActorCriticPolicy,
+        env,
         n_steps=256, batch_size=8192, n_epochs=5, learning_rate=3e-4,
         gamma=0.99, gae_lambda=0.95, ent_coef=0.01, clip_range=0.2,
         target_kl=0.02,

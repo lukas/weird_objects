@@ -197,6 +197,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gru-hidden-size", type=int, default=128,
                     help="GRU hidden units per layer (actor and critic "
                          "each get their own single-layer GRU)")
+    ap.add_argument("--gru-dual", action="store_true",
+                    help="mode-gated dual-core GRU (gru_policy."
+                         "DualGruActorCriticPolicy): separate locomotion"
+                         " and stance cores+heads routed per tick by the"
+                         " obs.mode_onehot tail — REQUIRES --cfg-set "
+                         "obs.mode_onehot=1. Born from the cw-arch-gru-"
+                         "anchor1..3 closure: one shared trunk cannot "
+                         "hold anchored stance and a displacing walk at "
+                         "once. Implies --gru")
     ap.add_argument("--device", default="auto",
                     help="torch device for PPO (auto: cuda if available "
                          "— the big-batch MLP pays off on GPU)")
@@ -294,6 +303,13 @@ def main(argv: list[str] | None = None) -> int:
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
+    if args.gru_dual:
+        args.gru = True
+        if float(_parse_cfg_set(args.cfg_set).get(
+                "obs.mode_onehot", 0.0)) <= 0.0:
+            raise SystemExit(
+                "--gru-dual requires --cfg-set obs.mode_onehot=1 (the "
+                "dual policy routes by the obs-tail skill one-hot)")
     if args.gru:
         if mirror_coef > 0.0:
             raise SystemExit("--gru + mirror loss is not implemented "
@@ -303,7 +319,8 @@ def main(argv: list[str] | None = None) -> int:
                              "implemented (recurrent weights don't "
                              "transplant from MLP checkpoints)")
         from sb3_contrib import RecurrentPPO
-        from .gru_policy import GruActorCriticPolicy
+        from .gru_policy import DualGruActorCriticPolicy, \
+            GruActorCriticPolicy
         algo_cls = RecurrentPPO
         if bc_coef > 0.0:
             # Recurrent BC anchor: pairs carry the rollout hidden state
@@ -311,9 +328,11 @@ def main(argv: list[str] | None = None) -> int:
             # bc_anchor.py::_bc_policy_mean).
             from .bc_anchor import make_bc_anchor_ppo_class
             algo_cls = make_bc_anchor_ppo_class(RecurrentPPO)
-        policy_cls = GruActorCriticPolicy
+        policy_cls = (DualGruActorCriticPolicy if args.gru_dual
+                      else GruActorCriticPolicy)
         extra_pk = dict(lstm_hidden_size=args.gru_hidden_size)
-        print(f"[mjx-train] GRU policy: hidden {args.gru_hidden_size}, "
+        print(f"[mjx-train] GRU policy: hidden {args.gru_hidden_size}"
+              f"{' x2 mode-gated cores' if args.gru_dual else ''}, "
               f"BPTT window = n_steps = {args.n_steps} "
               f"({args.n_steps / 25.0:.2f}s at 25 Hz)")
 

@@ -297,6 +297,15 @@ def make_bc_anchor_ppo_class(base_cls=None):
                     th_obs).distribution.mean
             import torch
             pol = self.policy
+            if hasattr(pol, "bc_anchor_mean"):
+                # Dual-core GRU (gru_policy.DualGruActorCriticPolicy):
+                # the policy owns its mode-gated routing; it honors the
+                # same detach-trunk contract (cores no_grad, heads
+                # train).
+                return pol.bc_anchor_mean(
+                    th_obs, th_h,
+                    detach_trunk=bool(
+                        getattr(self, "bc_detach_trunk", False)))
             gru = pol.lstm_actor
             detach_trunk = bool(getattr(self, "bc_detach_trunk", False))
             starts = torch.zeros(len(th_obs), device=th_obs.device)

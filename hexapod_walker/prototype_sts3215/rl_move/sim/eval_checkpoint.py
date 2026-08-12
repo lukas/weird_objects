@@ -639,15 +639,27 @@ def main() -> None:
     # silently evaluated as plain DR0 (cycle 49).
     _has_dr_ov = bool(cfg_kw.get("cfg", {}).get("dr"))
 
-    def make_env() -> object:
+    def make_env(mode_onehot: bool = False) -> object:
         # Fresh env per evaluated policy, same seed: child and baseline
         # must face IDENTICAL goal/DR draws or the comparison is noise.
-        return env_cls(params=SimServoParams.from_cfg(cfg_kw.get("cfg")),
+        kw = cfg_kw
+        if mode_onehot:
+            # Dual-core GRU checkpoints (gru_policy.DualGruActorCritic-
+            # Policy) train with obs.mode_onehot=1; canonical gate
+            # configs predate the flag, so it is auto-enabled from the
+            # checkpoint's stored obs width (see evaluate()).
+            import copy as _copy
+            from rl_move.config import load_config
+            cfg = (_copy.deepcopy(cfg_kw["cfg"]) if "cfg" in cfg_kw
+                   else load_config())
+            cfg.setdefault("obs", {})["mode_onehot"] = 1.0
+            kw = {**cfg_kw, "cfg": cfg}
+        return env_cls(params=SimServoParams.from_cfg(kw.get("cfg")),
                        randomize=(args.dr_scale > 0 or _has_dr_ov),
                        dr_scale=args.dr_scale,
                        episode_seconds=args.episode_seconds, seed=args.seed,
                        render_mode=None if args.no_video else "rgb_array",
-                       **cfg_kw)
+                       **kw)
 
     out = args.out or (_PROTO / "logs" / "ckpt_eval" /
                        f"{args.checkpoint.stem}_{time.strftime('%H%M%S')}")
@@ -656,6 +668,20 @@ def main() -> None:
         env = make_env()
         from .gru_policy import load_checkpoint_auto
         model = load_checkpoint_auto(checkpoint, device="cpu")
+        n_model = int(model.observation_space.shape[0])
+        n_env = int(env.observation_space.shape[0])
+        if n_model != n_env:
+            from .walk_task import N_MODE_OBS
+            if n_model == n_env + N_MODE_OBS:
+                print(f"[eval] checkpoint obs {n_model} = env {n_env} + "
+                      f"{N_MODE_OBS}: enabling obs.mode_onehot "
+                      f"(dual-core GRU checkpoint)")
+                env.close()
+                env = make_env(mode_onehot=True)
+            else:
+                raise SystemExit(
+                    f"checkpoint obs width {n_model} does not fit the "
+                    f"eval env ({n_env}); wrong --task or --cfg-set?")
         std = float(np.exp(model.policy.log_std.detach().numpy().mean()))
         if getattr(model.policy, "lstm_actor", None) is not None:
             if args.rot60:
