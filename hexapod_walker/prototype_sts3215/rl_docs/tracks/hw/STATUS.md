@@ -254,6 +254,27 @@ unresolved blockers between the robot and reliable joystick control.
   warm from holdbc1-hard1, ONE variable, gate = all-six-feet det
   hold duty ≥0.5 + rise/lower retention vs the matched parent probe
   + no outrigger).
+  **RESULT (08-12): PASS (partial) — the fix works.** Det hold: ALL
+  SIX feet duty 0.92–0.98 across all 6 episodes (frozen parent
+  `margin1` scores 0.05 on leg idx1 in the identical test), valid_plant
+  6/6, video-confirmed level quiet stand with zero flag-leg — the
+  first clean six-foot hold after 6+ straight pricing-arm failures.
+  Two clauses miss narrowly, both matching the parent's own noise
+  rate, neither park-related: sto hold valid_plant 4/6 (2/6 trip a
+  >2.0A tail-current spec check, not a duty/park issue — no leg drops
+  below 0.26 duty); det rise 5/6 vs parent's 6/6 (one flat-start
+  height-only miss, zero falls, video reads as an honest crouch-to-
+  stand). Det lower stays at 4/6, matching the parent's own baseline
+  exactly with the IDENTICAL pre-existing 3-leg-proud pattern
+  (confirmed against margin1's own report — inherited, not introduced
+  by this run). Hold drag 188mm vs parent's 159mm (+18%, the
+  plausible cost of a foot that now actually bears load instead of
+  hovering free). `train/bc_anchor_footz_loss` fell 5.1→1.3-1.5 and
+  plateaued (didn't converge near 0 — residual hover likely sits in
+  rise/lower ticks, not hold). 10M hardening `cw-stand-footz1-hard1`
+  queued to consolidate the rise miss and confirm durability; `hard1`
+  stays the deployed stance checkpoint until a footz-lineage arm
+  passes clean.
 - Bench (blocked until operator resets): L2 hip hit 72 °C, so motion
   stopped for the night per safety rules. When resumed: wz turn-sign
   audit (STILL open — three sessions in a row died before reaching

@@ -77483,7 +77483,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-12T09:03:09+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -77511,7 +77511,22 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-bcgait1-hard1-groundtilt5 --steps 8000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_bcgait1_hard1_groundtilt5 --notes 'respec of cw-dep-bcgait1-hard1: Plain English: the tall-walking champion has never trained on an actually-sloped floor (real concrete/rug is not perfectly flat), only the flat DR-0.35 default -- check whether its taller, less-splayed stance (less lateral base-of-support than the old crouch) still tolerates a 5deg slope the way the old crouch-lineage did. One variable vs cw-dep-bcgait1-hard1 itself (warm-started from ITS OWN checkpoint): dr.ground_tilt_deg 0 -> 5.0 (the dose already validated free on the plain walk lineage), reward.k_current=0 per the standing hardware-arm rule. Prediction-if-true: own-cfg det+sto gait_valid >=5/6, zero new falls, slip/m within bcgait1-hard1'\"'\"'s own band, probe_tall_wall height stays >= -20mm -- slope composes free like on every other walk lineage. Prediction-if-false: the taller stance is measurably less slope-tolerant (falls or height re-drifts toward the crouch, seeking a wider lateral base) -- flag before hardware, and the crouch-vs-tall tradeoff needs an explicit slope budget.' --cfg-set dr.tipped_start_prob=0.30 --target-kl 0.02 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 --cfg-set dr.ground_tilt_deg=5.0 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-bcgait1-hard1-groundtilt5.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-bcgait1-hard1-groundtilt5.log",
     "wandb_id": "mwiqp3ui",
-    "verified": "2026-08-12T09:05:56+00:00"
+    "verified": "2026-08-12T09:05:56+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-12T09:11:03+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "verdict": "PASS: tall-walking champion (bcgait1-hard1) tolerates a 5deg sloped floor with zero degradation. gait_valid 6/6 all 4 passes (gate+owncfg, det+sto), zero falls/terminations, slip/m 1.39-1.54 (within 1.8/2.0 bar), probe_tall_wall height -8.5mm (matches parent's own -8.5..-9.8mm exactly, no crouch re-drift). Video clean six-leg cycling both modes, no flag-leg. Minor watch item: leg-yaw limit margin narrows further under this DR (0.16-1.22deg vs parent's matched-probe 1.37-1.90deg, one seed close to zero though still positive) -- same narrowing trend as -fric, slightly more pronounced; not gate-breaking but flag before stacking more DR axes on this stance.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-bcgait1-hard1-fric",
@@ -77588,7 +77603,7 @@
       "reward.k_current=0"
     ],
     "created": "2026-08-12T09:04:23+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -77616,7 +77631,22 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-bcgait1-hard1-fric --steps 8000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_bcgait1_hard1_fric --notes 'respec of cw-dep-bcgait1-hard1: Plain English: take the new tall-walking champion (the first one that stopped crouching and leg-splaying) and check whether it still walks fine on floors with more or less grip than the sim default -- exactly the DR/tipped-start retention panel every prior dep-line champion (vref1-r1, tip1) went through before being trusted, and bcgait1-hard1 has never been exposed to it. One variable vs cw-dep-bcgait1-hard1 itself (warm-started from ITS OWN checkpoint, not the 2M parent): dr.friction_scale 1.0 (implicit) -> 0.4-1.6x range (the same envelope proven free on the vref1-r1/tip1 lineage), reward.k_current=0 per the standing hardware-arm rule. Prediction-if-true: own-cfg det+sto gait_valid >=5/6, zero new falls, slip/m within bcgait1-hard1'\"'\"'s own band, probe_tall_wall height still in the -20..+6mm band -- friction composes free like it did on the crouch-gait lineage, one less unknown before this checkpoint is a Gate-0 candidate. Prediction-if-false: the taller stance (less base-of-support redundancy than the old crouch) is more friction-sensitive -- height re-drifts toward the crouch OR gait_valid regresses -- flag before any further hardening.' --cfg-set dr.tipped_start_prob=0.30 --target-kl 0.02 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 --cfg-set dr.friction_scale=0.4,1.6 --cfg-set reward.k_current=0 > /tmp/train_cw-dep-bcgait1-hard1-fric.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-bcgait1-hard1-fric.log",
     "wandb_id": "r13ga9s9",
-    "verified": "2026-08-12T09:07:11+00:00"
+    "verified": "2026-08-12T09:07:11+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-12T09:12:52+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "verdict": "PASS: tall-walking champion (bcgait1-hard1) tolerates 0.4-1.6x friction DR with zero degradation. gait_valid 6/6 all 4 passes (gate+owncfg, det+sto), zero falls/terminations, slip/m 1.30-1.52 (within 1.8/2.0 bar, matches parent's own 1.32-1.33), probe_tall_wall height -7.9mm (vs parent -12.7mm on a matched re-probe -- actually taller, no crouch re-drift). Video clean six-leg cycling both modes, no flag-leg. Minor watch item: leg-yaw limit margin narrows slightly under this DR (0.82-1.45deg vs parent's matched-probe 1.37-1.90deg) -- still positive/not pinned, continuing the 17->2.3->~1deg narrowing trend since bc1-hard1's own hardening; not gate-breaking here but worth tracking if further DR axes stack.",
+    "hardware_ready": false
   },
   {
     "run": "cw-stand-footz1-r1",
@@ -77689,7 +77719,7 @@
       "train.bc_anchor_foot_z=1.0"
     ],
     "created": "2026-08-12T09:07:03+00:00",
-    "status": "RUNNING",
+    "status": "PASS (partial)",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -77716,6 +77746,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-stand-footz1-r1 --steps 2000000 --task joint_goal --init-from rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip --dr-scale 0.0 --episode-seconds 15 --ent-coef 0.001 --no-canary --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --cfg-set actions.max_height_mm=115 --cfg-set 'goal.rise_height_mm=[108,114]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set bus.servo_params=loaded --out-name ppo_goal_cw_stand_footz1_r1 --impl warp --host-workers 24 --notes 'respec of cw-stand-margin1: Make the robot stop holding its stand with one foot secretly hovering in the air, by teaching the imitation loss to see foot HEIGHT instead of only joint angles. Today'\"'\"'s audit proved the six-run parked-foot habit was never taught and never defied \u2014 it is simply INVISIBLE to the joint-space anchor (the parked leg'\"'\"'s supervision loss, 0.0032, matches the clean parent'\"'\"'s 0.0031: a mm-scale hover is fractions of a degree across 3 of 18 dims) and every per-foot price finds parking as the escape valve (an airborne foot pays nothing). One variable vs holdbc1-hard1: train.bc_anchor_foot_z 0 -> 1.0 (new FK foot-height anchor term, default-off bit-exact, bank-pinned to charge a 10mm hover >=50x its joint-MSE cost). (Name note: -r1 because the exp/cw-stand-footz1 tag was consumed by this cycle'\"'\"'s pre-launch snapshot; no run ever trained under the base name.) Prediction-if-true: det hold keeps ALL SIX feet at duty >=0.5 (the fingerprint every prior arm failed) with rise/lower retention clean \u2014 a deployable stance candidate and the first supervision signal that can even see the exploit. Prediction-if-false: park persists with train/bc_anchor_footz_loss LOW (the policy tracks commanded heights but breaks contact through body pose, not leg lift \u2014 term supervises the wrong frame) or footz_loss HIGH and undescending (PPO outmuscles it \u2014 coefficient question, one dose retry then stop). Strongest alternative: the park moves to a NEW evasion (body tilt unloading a foot at correct commanded height), which the foot-load duty gate still catches.' --cfg-set train.bc_anchor_coef=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --cfg-set reward.k_support_margin=0.0 --cfg-set train.bc_anchor_foot_z=1.0 > /tmp/train_cw-stand-footz1-r1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-stand-footz1-r1.log",
     "wandb_id": "yn076fe6",
-    "verified": "2026-08-12T09:09:51+00:00"
+    "verified": "2026-08-12T09:09:51+00:00",
+    "triage": "done",
+    "checkups": [
+      {
+        "time": "2026-08-12T09:15:42+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "007,040: hold 0.41\u00b0, lean 3.58\u00b0, track 2.07\u00b0, unload 1.40\u00b0, raise 1/2, rise f1/2 b1/2 c2/2, lower 2/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 409s (4,892 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_footz1_r1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_footz1_r1 (md5 5baa6a18)\n"
+      }
+    ],
+    "verdict": "MECHANISM CONFIRMED, gate misses on 2 minor clauses. Foot-z anchor (train.bc_anchor_foot_z) FIXES the 6-run-old invisible one-foot hold park: det hold ALL SIX feet duty 0.92-0.98 in every episode (vs the frozen parent margin1's 0.05 on leg idx1, identical setup otherwise), valid_plant 6/6, video-clean level quiet stand, drag 188mm (parent 159mm, +18%, plausible cost of the previously-airborne foot now actually loading). sto hold: no leg parks (min duty 0.26, none <0.1) but valid_plant only 4/6 (2/6 miss on a >2.0A tail-current spec, same rate the parent itself misses at, not park-related). det rise 5/6 valid_plant (parent was 6/6) -- one flat-start miss on height only, zero falls, video looks like an honest crouch-to-stand. det lower 4/6, matches the parent's own baseline exactly, same pre-existing 3-leg-proud pattern confirmed identical in margin1's own report (not a new cheat). bc_anchor_footz_loss fell 5.1->1.3-1.5 and plateaued (did not fully converge to ~0, consistent with residual hover concentrated in rise/lower not hold). Net: the anchor-side fix works on its primary target; queuing a 10M hardening continuation to consolidate the rise miss and confirm durability before calling this a champion replacement.",
+    "hardware_ready": false
   }
 ]

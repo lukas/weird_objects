@@ -5,11 +5,12 @@ RL_LOG/archive prose disagrees with a line here, this file wins.
 Update ONLY when a ruling is accepted or hardware produces new
 evidence; keep 50–80 lines. Reading order: RL_GOALS.md → this file →
 RL_PLAN.md → RESEARCH_RULES.md → rl_docs/SIM.md.
-Last regenerated: 2026-08-11 late (omni translation RESOLVED IN SIM:
-rot-60 exact-equivariance wrapper, zero training — the hardware
-checkpoint now walks the full circle; remaining omni work is the
-deploy-side port. Earlier same day: rise/hold solved via BC-anchor,
-both handoffs compose).
+Last regenerated: 2026-08-12 (cw-stand-footz1-r1 PASS (partial): the
+foot-z BC anchor fixes the 6-run-old invisible one-foot hold park,
+det hold all six feet duty 0.92–0.98 — first clean six-foot hold in
+the whole park saga; 10M hardening queued. Earlier, 08-11 late: omni
+translation RESOLVED IN SIM via the rot-60 wrapper; rise/hold solved
+via BC-anchor, both handoffs compose).
 
 ## Real robot facts (these outrank any sim result)
 
@@ -331,6 +332,28 @@ both handoffs compose).
   tests green): `train.bc_anchor_foot_z` supervises commanded FK
   foot heights (10 mm hover ≈ 1.0 loss at default scale, ≥50x the
   joint-MSE ratio, pinned by bank test). First arm cw-stand-footz1-r1.
+  **08-12: `cw-stand-footz1-r1` RESULT — PASS (partial), the fix
+  WORKS on its primary target.** Det hold: ALL SIX feet duty 0.92–0.98
+  in every one of 6 episodes (frozen parent `margin1` scores 0.05 on
+  leg idx1 in the identical test) — the first clean six-foot det hold
+  after 6+ straight pricing-arm failures, valid_plant 6/6,
+  video-confirmed level quiet stand. Two minor clauses miss: sto hold
+  valid_plant 4/6 (2/6 trip a >2.0A tail-current spec check, the SAME
+  rate the frozen parent itself trips at — not park-related, no leg
+  <0.1 duty); det rise 5/6 valid_plant (parent was 6/6) — one
+  flat-start height-only miss, zero falls, video reads as an honest
+  crouch-to-stand. Det lower 4/6 matches the parent's own baseline
+  exactly, with the identical pre-existing 3-leg-proud pattern
+  independently confirmed in margin1's own report (inherited, not a
+  new cheat introduced by this run). Hold drag 188mm vs parent's
+  159mm (+18%, plausible cost of a foot that now actually loads
+  instead of hovering above the ground rent-free).
+  `train/bc_anchor_footz_loss` fell 5.1→1.3–1.5 and plateaued
+  (did not converge to ~0 — residual commanded hover likely
+  concentrated in rise/lower ticks, not hold). 10M hardening
+  continuation `cw-stand-footz1-hard1` queued to consolidate the rise
+  miss and confirm durability before any champion-replacement call;
+  hard1 remains deployed meanwhile.
   **08-11: REVERSE handoff (walk→stop→sit) also PASSES**
   (`eval_handoff_reverse.py`): specialist lowering on the walker's
   exact stopped state matches its own clean band (4/6 posture-strict

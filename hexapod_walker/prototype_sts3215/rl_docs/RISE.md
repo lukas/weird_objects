@@ -1185,3 +1185,49 @@ at default scale. Default 0 = off, update bit-exact (test-pinned);
 FK matches body_ik to 1e-6; the park/joint-MSE visibility ratio ≥50x
 is a bank test. First arm: `cw-stand-footz1-r1` (2M discovery, one
 variable vs holdbc1-hard1).
+
+### `cw-stand-footz1-r1` (08-12) result — PASS (partial): the fix works
+
+Det hold: **all six feet duty 0.92–0.98 across all 6 episodes**
+(the frozen parent `margin1`, identical setup, scores 0.05 on leg
+idx1 in the same test) — valid_plant 6/6, video-confirmed level
+quiet stand, zero flag-leg on any of the 6 clips. This is the first
+clean six-foot det hold after minfeet1/margin1/transdrag1 (and the
+whole crouchrise/anchorstate/loweranchor/anchormix line before them)
+all reproduced the identical one-foot park. Root-cause diagnosis
+(the park is invisible to joint-space MSE, see above) is now
+CONFIRMED by the fix that follows from it.
+
+Two clauses miss narrowly, neither park-related, both roughly at the
+frozen parent's own miss rate:
+- sto hold valid_plant 4/6 (2/6 trip the `current_ok` sub-check,
+  `max_current_a` > 2.0A in the final 0.5s tail — margin1's own sto
+  hold report shows the identical check tripping 1/6). No leg drops
+  below 0.26 duty in any sto hold episode (vs the park's historical
+  0.02–0.05) — the park itself does not reappear stochastically.
+- det rise 5/6 valid_plant (parent was clean 6/6) — one flat-start
+  episode misses on `height_ok` only (a few mm short at episode end,
+  same "det flat rise stalls" fingerprint this whole lineage has
+  shown before), zero falls, video reads as an honest crouch-to-
+  stand with no cheat.
+
+Det lower stays at 4/6 (matches "4/6 baseline this seed" exactly).
+Per-foot `end_clear_mm` shows the SAME three-legs-proud pattern
+(idx 0/2/4 hovering 14–100mm, idx 1/3/5 flush) that `margin1`'s own
+lower/det report shows at the same three indices with matching
+magnitudes — confirmed pre-existing, not a new cheat this run
+introduced. Hold drag/slip 188mm vs the parent's 159mm (+18%,
+plausibly the cost of a foot that now actually loads on the ground
+instead of hovering free of friction). `train/bc_anchor_footz_loss`
+fell 5.1→1.3–1.5 over the 2M steps and plateaued there rather than
+converging near 0 — the residual commanded hover is likely
+concentrated in rise/lower reference ticks, not hold.
+
+Verdict: the mechanism is CONFIRMED on its primary target (the
+hold park). Not yet a clean champion-replacement PASS — queued a
+10M hardening continuation `cw-stand-footz1-hard1` (same recipe,
+more steps, evidence = this run) to see whether the rise miss and
+sto-current noise clear the way bc1→bc1-hard1 and
+holdbc1→holdbc1-hard1 both did on the identical discovery→hardening
+pattern. `hard1` remains the deployed stance checkpoint until a
+footz-lineage arm passes clean.
