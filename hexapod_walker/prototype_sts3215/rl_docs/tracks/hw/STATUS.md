@@ -211,10 +211,18 @@ unresolved blockers between the robot and reliable joystick control.
   was the last lever and it is FLAT TOO (-77.4mm mid-gait; the
   policy learned to recover from tall mid-stride spawns DOWN into
   the crouch — verdict 08-11 22:33, ledger recorded): neither
-  pricing (6 arms) nor state injection moves posture. Remaining, in
-  order: BC-INIT from the scripted tall gait, physics-easing ladder,
-  or accept the pareto (tall15-h1 = fastest dep walker, 0.051 m/s).
-  Not a joystick blocker.
+  pricing (6 arms) nor state injection moves posture.
+  **08-12: BC-INIT BREAKS THE WALL (`cw-dep-bcgait1`)** — pure action
+  pretraining on the scripted tall gait (`bc_init_gait.py`), then a 2M
+  RL fine-tune: `probe_tall_wall` steady height -10..+6mm (every
+  pricing/RSI arm above: -72..-75mm), leg-yaw margin now POSITIVE
+  +17..+18deg (every prior arm: pinned negative at the 35° limit) —
+  the crouch+splay habit is GONE, existence-proof-grade. Harness
+  confirms real travel (prog_ratio 0.77, gait_valid 6/6, zero falls,
+  roll settles clean). Not yet polished: secondary slip bar missed
+  (det 2.12 vs the run's own <=1.8 bar, sto sacrifices a leg 1/6) —
+  not hardware-ready, next is a hardening continuation. Detail:
+  GAIT.md bottom.
 - Crouch-start rise: the fix works (crouchrise1/2/3 all rise from
   crouch) but EVERY dose (0.60, 0.60+mix-restore, 0.45 — crouchrise3,
   08-11) reproduces the identical legs-1+4 flag-leg hold cheat; the

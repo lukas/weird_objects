@@ -448,3 +448,27 @@ small script using `info["height_mm"]`, already exposed per-tick by
 `linux_control/geometry_plant.py:knee_for_foot_z` for the exact FK/IK
 this robot uses). Flagged as the next concrete task on this line,
 not attempted this cycle to avoid a rushed/wrong physical-limit claim.
+
+## BC-INIT — the wall BREAKS (08-12)
+
+Per RL_PLAN's T6 conclusion (neither pricing nor state injection moves
+mid-gait posture across 7+ arms), the next lever was BC-INIT: pure
+action pretraining on the scripted tall gait (`bc_init_gait.py`,
+DART-noise supervised cloning of `TripodGait` into a fresh policy
+net), THEN RL fine-tune — disjoint from every closed lever because it
+fixes the ACTIONS from tall states directly, not prices or states.
+
+**`cw-dep-bcgait1` (2M fine-tune on the tip1 dep stack + walk_height_gate
+sigma30 ref0) PASSES the primary/binding metric.** `probe_tall_wall`
+steady-state height is **-10 to +6mm** across 3 seeds (every prior
+RL-bred arm: -72 to -75mm) with leg-yaw margin **+17 to +18deg**
+(every prior arm: pinned negative at the 35deg splay limit) — the
+crouch+splay stability habit is gone. Harness confirms real travel:
+det prog_ratio 0.77, speed 0.067 m/s, gait_valid 6/6, roll settles
+clean (tail 0.4-1.4deg, recovers from transients up to 17.5deg, zero
+falls), video visibly taller and genuinely walking. Not yet polished:
+the run's own secondary bar (slip<=1.8) misses (det 2.12, sto 12.39
+with one sacrificed leg in 1/6 sto episodes) — existence-proof win,
+not a deployable candidate yet. Next: harden (more steps + DR/tipped
+retention) to see if slip/robustness clean up with budget, matching
+the bc1->bc1-hard1 and holdbc1->holdbc1-hard1 pattern elsewhere.
