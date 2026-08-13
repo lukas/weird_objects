@@ -9,9 +9,30 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- **08-13 ~07:xx: the anchor-side tip-aware reference (the lever the
-  tip1 gate consequence prescribed for the hardware ~8° standing
-  lean) is BUILT and its first arm is training.**
+- **08-13 ~08:xx: `cw-stand-tiltcomp1` FAILED — the tipped-exposure
+  route on the standing lean is CLOSED even with a correct teacher;
+  the ~8° hardware lean escalates to an operator design
+  discussion.** Matched forced-8°-tip probe (frozen hard1 baseline,
+  seed 0): the child holds full height (valid_plant det 12/12,
+  h_err 0.9mm — parent 0/12) but NEVER levels: roll_class "leaning"
+  in all 24 det+sto episodes, tail med 5.75° (bar ≤3°; parent
+  recovers to 1.45° in 11/12), one foot parked every episode (min
+  duty 0.01–0.03). The residual lean sits at the 6° comp cap — the
+  policy uses the teacher's correction authority to satisfy the
+  height spec while staying tilted. Nominal retention milder than
+  tip1's (no falls, hold det 6/6 at tail 0.4°) but below hard1's
+  band (hold det min-duty 0.69 vs 0.95, slip 0.597 vs 0.136m).
+  ROOT-CAUSE READ: two differently-designed teachers (tip1's
+  tilt-blind q_nom, this run's tilt-aware counter-rotation) converged
+  on the identical stay-tilted habit ⇒ the INCENTIVE is the blocker —
+  hold income never prices residual lean, so RL happily trades
+  levelness for height under any teacher. Next lever is an operator
+  call (price levelness in hold income? non-RL trim on hardware?);
+  pre-registered consequence forbids a dose retry. The mechanism
+  code (`train.bc_anchor_tilt_comp`) stays built/default-off.
+- 08-13 ~07:xx (superseded above): the anchor-side tip-aware
+  reference (the lever the tip1 gate consequence prescribed for the
+  hardware ~8° standing lean) was BUILT and its first arm launched.
   `train.bc_anchor_tilt_comp` (snapshot 1efc816, default off =
   bit-exact, 6 new tests + 50-test anchor suite + 78-test semantics
   bank green; design note in RISE.md): HOLD-episode anchor target =
